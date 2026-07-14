@@ -183,6 +183,7 @@ jobs:
       - name: Apply sandbox namespace, network policy, quota and label node
         run: |
           helm template nojv infra/charts/nojv -f infra/charts/nojv/values-single-machine.yaml \
+            -f tests/fixtures/helm/production-external-backups.yaml \
             --set-string sandboxNamespace="$K8S_TEST_NAMESPACE" \
             --set image.allowUnpinnedLocalBuilds=true \
             --set-string image.registry= \

@@ -131,9 +131,7 @@ export function collectReplayStatements(): string[] {
             table,
             drop: `ALTER TABLE ${table} DROP CONSTRAINT IF EXISTS ${newName}`,
             create: ddl.create.replace(oldName, newName),
-            ...(ddl.validate
-              ? { validate: ddl.validate.replace(oldName, newName) }
-              : {}),
+            ...(ddl.validate ? { validate: ddl.validate.replace(oldName, newName) } : {}),
           });
         }
         continue;

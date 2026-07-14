@@ -1,12 +1,12 @@
 image:
   registry: asia-east1-docker.pkg.dev
-  repositoryPrefix: PROJECT_ID/nojv
-  tag: latest
+  repositoryPrefix: ""
+  tag: ""
 
 postgres:
   mode: cloudsql
   cloudsql:
-    instanceConnectionName: PROJECT_ID:REGION:INSTANCE
+    instanceConnectionName: ""
   cnpg:
     instances: 3
     storageSize: 50Gi
@@ -28,9 +28,9 @@ storage:
 
 registry:
   enabled: true
-  host: registry.example.com # replace with your registry hostname
+  host: ""
   token:
-    realm: https://nojv.example.com/api/registry/token
+    realm: ""
   s3:
     regionendpoint: https://storage.googleapis.com # blob backend (storage.inCluster=false)
 
@@ -44,7 +44,7 @@ temporal:
 web:
   replicas: 2
   nodeEnv: production
-  advancedImageAllowedRegistries: "registry.example.com,ghcr.io,docker.io,quay.io,registry.gitlab.com,gcr.io,public.ecr.aws,mcr.microsoft.com,registry.k8s.io"
+  advancedImageAllowedRegistries: ""
   hpa:
     enabled: true
     min: 2
@@ -53,8 +53,11 @@ web:
   ingress:
     enabled: true
     className: gce
-    host: nojv.example.com
+    host: ""
     tls: []
+    gce:
+      securityPolicy: ""
+      httpsRedirect: true
 
 worker:
   judge:
@@ -76,15 +79,11 @@ networkPolicy:
   enabled: true
   temporalNamespace: nojv-temporal
   egress:
-    redisCidr: 10.64.0.10/32
-    cloudsqlCidr: 10.64.1.20/32
+    redisCidr: ""
+    cloudsqlCidr: ""
     cloudsqlPort: 3307
-    googleApisCidrs:
-      - 199.36.153.4/30
-      - 199.36.153.8/30
-    apiServerCidrs:
-      - 10.96.0.1/32
-      - 172.16.0.32/28
+    googleApisCidrs: []
+    apiServerCidrs: []
 
 sandbox:
   networkPolicy:

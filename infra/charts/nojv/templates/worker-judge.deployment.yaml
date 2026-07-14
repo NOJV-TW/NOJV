@@ -161,10 +161,7 @@ spec:
             - $(CLOUDSQL_INSTANCE_CONNECTION_NAME)
           env:
             - name: CLOUDSQL_INSTANCE_CONNECTION_NAME
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "nojv.runtimeSecretName" . }}
-                  key: CLOUDSQL_INSTANCE_CONNECTION_NAME
+              value: {{ .Values.postgres.cloudsql.instanceConnectionName | quote }}
           resources:
             requests:
               cpu: 50m

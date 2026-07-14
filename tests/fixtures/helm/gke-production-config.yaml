@@ -1,0 +1,32 @@
+# Non-secret, synthetic GKE identities for offline Helm rendering tests only.
+image:
+  repositoryPrefix: nojv-test/nojv
+postgres:
+  cloudsql:
+    instanceConnectionName: nojv-test:asia-east1:nojv-db
+registry:
+  host: registry.nojv.test
+  token:
+    realm: https://nojv.test/api/registry/token
+web:
+  advancedImageAllowedRegistries: registry.nojv.test,ghcr.io
+  ingress:
+    host: nojv.test
+    tls:
+      - hosts:
+          - nojv.test
+          - registry.nojv.test
+        secretName: nojv-test-origin-tls
+    gce:
+      securityPolicy: nojv-test-cloudflare-only
+      httpsRedirect: true
+networkPolicy:
+  egress:
+    redisCidr: 10.64.0.10/32
+    cloudsqlCidr: 10.64.1.20/32
+    googleApisCidrs:
+      - 199.36.153.4/30
+      - 199.36.153.8/30
+    apiServerCidrs:
+      - 10.96.0.1/32
+      - 172.16.0.32/28

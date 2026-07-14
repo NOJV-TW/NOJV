@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -38,6 +38,15 @@ describe("supply-chain policy scanner", () => {
     ).toEqual([]);
   });
 
+  it("accepts status-only HTTPS probes that discard every response body", () => {
+    expect(
+      checkSupplyChainFile(
+        "infra/probe.sh",
+        "curl --silent --output /dev/null --write-out '%{http_code}' https://${PUBLIC_HOST}/health",
+      ),
+    ).toEqual([]);
+  });
+
   it.each([
     ["invalid-action-tag.yml", /40-character commit SHA/],
     ["invalid-curl-pipe.sh", /pipe remote content/],
@@ -72,10 +81,9 @@ describe("supply-chain policy scanner", () => {
   });
 });
 
-describe("immutable workflow and bootstrap inputs", () => {
+describe("immutable workflow and cluster inputs", () => {
   const nightly = readFileSync(join(repoRoot, ".github/workflows/nightly-sandbox.yml"), "utf8");
   const calico = readFileSync(join(repoRoot, "infra/k8s/vendor/calico-v3.32.1.yaml"), "utf8");
-  const bootstrap = readFileSync(join(repoRoot, "infra/charts/nojv/bootstrap.sh"), "utf8");
 
   it("installs the exact verified k3d binary and applies only vendored Calico", () => {
     expect(nightly).toContain("/download/v5.9.0/k3d-linux-amd64");
@@ -104,21 +112,7 @@ describe("immutable workflow and bootstrap inputs", () => {
     expect(calico).not.toMatch(/image:\s+\S+:v3\.32\.1\s*$/mu);
   });
 
-  it("verifies exact CNPG and Helm artifacts before local use", () => {
-    for (const value of [
-      "cnpg-1.30.0.yaml",
-      "f8bede43fe4ee0d478c2355b204a36876b2ae4faac60f2a9452280b293da3b88",
-      "ghcr.io/cloudnative-pg/cloudnative-pg:1.30.0@sha256:a2701eb97cdd2a34b1fdb2cb51987f544b706e40bec72ae7146cd8580efefebb",
-      "temporal-1.6.0.tgz",
-      "4ea557365bca72e635ae82fc4a93d586df238946e5d5a19eb32a8a24748449f9",
-      "kube-prometheus-stack-87.15.2.tgz",
-      "96dda4438dab44b3697cb4637ffe5ab9d860ffd12f87dfee23a285d9f15ae7dc",
-    ]) {
-      expect(bootstrap).toContain(value);
-    }
-    expect(bootstrap).not.toContain("helm repo add");
-    expect(bootstrap).not.toContain("helm repo update");
-    expect(bootstrap).not.toContain("|| true");
-    expect(bootstrap).not.toMatch(/kubectl apply[^\n]*-f\s+https?:/u);
+  it("has no duplicate local production bootstrap path outside verified release workflows", () => {
+    expect(existsSync(join(repoRoot, "infra/charts/nojv/bootstrap.sh"))).toBe(false);
   });
 });

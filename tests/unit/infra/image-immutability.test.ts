@@ -9,9 +9,14 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..")
 const chart = "infra/charts/nojv";
 const gkeValues = `${chart}/values-gke.yaml`;
 const testDigests = "tests/fixtures/helm/immutable-image-digests.yaml";
+const gkeConfig = "tests/fixtures/helm/gke-production-config.yaml";
+const backupConfig = "tests/fixtures/helm/production-external-backups.yaml";
 
 function helmTemplate(args: string[]): string {
-  return execFileSync("helm", ["template", "nojv", chart, ...args], {
+  const productionConfig = args.includes(gkeValues)
+    ? ["-f", gkeConfig, "-f", backupConfig]
+    : [];
+  return execFileSync("helm", ["template", "nojv", chart, ...args, ...productionConfig], {
     cwd: repoRoot,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
@@ -45,10 +50,10 @@ describe("immutable runtime images", () => {
     expect(images.length).toBeGreaterThan(10);
     expect(images).toEqual(
       expect.arrayContaining([
-        `asia-east1-docker.pkg.dev/PROJECT_ID/nojv/web:${releaseSha}@sha256:1111111111111111111111111111111111111111111111111111111111111111`,
-        `asia-east1-docker.pkg.dev/PROJECT_ID/nojv/worker:${releaseSha}@sha256:2222222222222222222222222222222222222222222222222222222222222222`,
-        `asia-east1-docker.pkg.dev/PROJECT_ID/nojv/sandbox:${releaseSha}@sha256:3333333333333333333333333333333333333333333333333333333333333333`,
-        `asia-east1-docker.pkg.dev/PROJECT_ID/nojv/migrator:${releaseSha}@sha256:4444444444444444444444444444444444444444444444444444444444444444`,
+        `asia-east1-docker.pkg.dev/nojv-test/nojv/web:${releaseSha}@sha256:1111111111111111111111111111111111111111111111111111111111111111`,
+        `asia-east1-docker.pkg.dev/nojv-test/nojv/worker:${releaseSha}@sha256:2222222222222222222222222222222222222222222222222222222222222222`,
+        `asia-east1-docker.pkg.dev/nojv-test/nojv/sandbox:${releaseSha}@sha256:3333333333333333333333333333333333333333333333333333333333333333`,
+        `asia-east1-docker.pkg.dev/nojv-test/nojv/migrator:${releaseSha}@sha256:4444444444444444444444444444444444444444444444444444444444444444`,
       ]),
     );
     expect(images.every((image) => /:\S+@sha256:[a-f0-9]{64}$/u.test(image))).toBe(true);
@@ -91,7 +96,9 @@ describe("immutable runtime images", () => {
   it("resolves GCP release digests from Artifact Registry before Helm deploy", () => {
     const deploy = readFileSync(join(repoRoot, "infra/gcp/cloud-build/deploy.sh"), "utf8");
     expect(deploy).toContain("gcloud artifacts docker images describe");
-    expect(deploy).toContain("value(image_summary.digest)");
+    expect(deploy).toContain("--show-provenance");
+    expect(deploy).toContain('slsa-verifier verify-image "${ref}@${digest}"');
+    expect(deploy).toContain("cloud-build-provenance");
     for (const component of ["web", "worker", "sandbox", "migrator"]) {
       expect(deploy).toContain(`--set-string image.digests.${component}=`);
     }

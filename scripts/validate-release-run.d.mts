@@ -16,8 +16,30 @@ export function validateDeployAdvance(input: {
   isAncestor: (ancestor: string, candidate: string) => boolean;
 }): { deployTip: string };
 
-export function validatePublicationAbsence(input: {
+export function validatePublicationState(input: {
   releaseSha: string;
   remoteDeployTags: string[];
   packageTags: Record<string, string[]>;
-}): void;
+}): { existingImages: string[] };
+
+export function validatePublishedImage(input: {
+  releaseSha: string;
+  ref: string;
+  inspect: Array<{
+    RepoTags?: string[];
+    RepoDigests?: string[];
+    Config?: { Labels?: Record<string, string> };
+  }>;
+}): { digest: string };
+
+export function validateCloudBuildProvenance(input: {
+  digest: string;
+  imageRef: string;
+  provenance: unknown;
+  component: string;
+  dockerfile: string;
+  region: string;
+  repository: string;
+  releaseSha: string;
+  sourceUri: string;
+}): { digest: string };

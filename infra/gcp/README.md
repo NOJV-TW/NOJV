@@ -17,7 +17,8 @@
 
 ## Images
 
-`infra/gcp/cloud-build/cloudbuild.yaml` builds and pushes four images:
+`infra/gcp/cloud-build/cloudbuild.yaml` builds and publishes one requested
+component per verified build; `deploy.sh` invokes it for each missing image:
 
 - `web`
 - `worker`
@@ -29,8 +30,8 @@ The `sandbox` image is not a long-running service. It is the image the Kubernete
 ## Layout
 
 - `cloud-build/`: Cloud Build orchestration
-  - `cloudbuild.yaml`: builds and pushes runtime images
-  - `deploy.sh`: builds and pushes the images, then prints the image refs the Helm release pins
+  - `cloudbuild.yaml`: builds one runtime image through Cloud Build's `images:` output with VERIFIED provenance
+  - `deploy.sh`: validates/reuses trusted images, builds missing components, deploys immutable digests, and verifies the edge path
 - `gke/`: GKE-specific deployment notes for the `nojv` Helm chart (node pools, Cloud SQL proxy, Temporal prerequisite)
 - `scripts/`: Cloud SQL backup / GCS export helpers (`setup-backups.sh`, `export-postgres-to-gcs.sh`)
 
@@ -52,6 +53,12 @@ namespace guardrails are all rendered by the `nojv` Helm chart at
 - `DEPLOY_PRINCIPAL` (must exactly match the active `gcloud` account)
 - `CLOUD_BUILD_SERVICE_ACCOUNT` (full service-account email)
 - `K8S_NAMESPACE`
+- `PUBLIC_HOST` (Cloudflare-proxied application hostname)
+- `REGISTRY_HOST` (distinct Cloudflare-proxied registry hostname)
+- `TLS_SECRET_NAME` (an existing `kubernetes.io/tls` Secret in `K8S_NAMESPACE`)
+- `EDGE_SECURITY_POLICY` (Cloud Armor policy allowing exactly the committed Cloudflare CIDRs with default deny)
+- `CLOUDSQL_INSTANCE_CONNECTION_NAME` (concrete `PROJECT_ID:REGION:INSTANCE`)
+- `REDIS_INSTANCE` (Memorystore instance in `REGION`)
 
 Runtime credentials are not accepted by this script. Create the chart's runtime
 Secret separately from `infra/charts/nojv/secret.example.yaml` before deploy.
@@ -59,21 +66,30 @@ Secret separately from `infra/charts/nojv/secret.example.yaml` before deploy.
 ## Deployment Flow
 
 1. Install and authenticate `gcloud`.
-2. Export the required environment variables.
-3. Run `bash infra/gcp/cloud-build/deploy.sh`.
-4. The script:
+2. Install `slsa-verifier` v2.7.1 or newer from the official
+   `slsa-framework/slsa-verifier` release and keep it on `PATH`; deployment
+   fails closed unless every Artifact Registry digest passes its cryptographic
+   provenance verification.
+3. Export the required environment variables.
+4. Run `bash infra/gcp/cloud-build/deploy.sh`.
+5. The script:
    - requires a clean source tree and proves `RELEASE_SHA = HEAD = RELEASE_REMOTE:RELEASE_REF`
-   - archives that verified commit so Cloud Build never uploads mutable working-tree content
+   - archives that verified commit for the local Helm release, while Cloud Build fetches the exact SHA from the canonical GitHub repository so signed provenance contains the trusted Git source and commit
    - verifies the active principal, project, Cloud Build identity, GKE resource,
-     endpoint, and CA before any cloud or cluster mutation
+     endpoint, CA, private Cloud SQL/Redis addresses, Kubernetes API destinations,
+     TLS Secret, and Cloud Armor default-deny allowlist before any mutation
    - obtains credentials into a temporary isolated kubeconfig and passes its
      verified context explicitly to Helm
    - enables required GCP APIs
    - ensures the Artifact Registry repository exists
-   - submits Cloud Build under the required service account with the commit SHA as the image tag and OCI source revision
-   - reads each pushed tag's digest back from Artifact Registry
-   - deploys the four immutable `tag@sha256` references through Helm with the source SHA in object metadata
-5. Verify the Helm release and rollout reported by the script.
+   - submits one Cloud Build per missing component under the required service account from canonical GitHub at the exact commit SHA
+   - cryptographically verifies each digest's SLSA provenance, requiring the Google-hosted builder, canonical Git source + commit, and exact component/Dockerfile substitutions before either reuse or deploy
+   - deploys the four immutable `tag@sha256` references through Helm with the
+     source SHA, verified egress CIDRs, TLS, HTTPS redirect, and Cloud Armor
+     attachment rendered into the release
+6. Verify the Helm release, both healthy Ingress backends, Cloud Armor
+   attachment, valid public TLS paths, rejected direct-origin paths, and rollout
+   reported by the script.
    The migrator runs automatically as the chart's pre-install/pre-upgrade Helm
    hook; `web` is deployed by the chart as an in-cluster Deployment.
 

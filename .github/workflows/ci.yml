@@ -5,8 +5,6 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - "infra/flux/**"
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -92,8 +90,8 @@ jobs:
       - name: Lint and render the Helm umbrella chart
         run: |
           helm lint infra/charts/nojv -f tests/fixtures/helm/immutable-image-digests.yaml
-          helm template nojv infra/charts/nojv -f infra/charts/nojv/values-gke.yaml -f tests/fixtures/helm/immutable-image-digests.yaml >/dev/null
-          helm template nojv infra/charts/nojv -f infra/charts/nojv/values-single-machine.yaml -f tests/fixtures/helm/immutable-image-digests.yaml >/dev/null
+          helm template nojv infra/charts/nojv -f infra/charts/nojv/values-gke.yaml -f tests/fixtures/helm/immutable-image-digests.yaml -f tests/fixtures/helm/gke-production-config.yaml -f tests/fixtures/helm/production-external-backups.yaml >/dev/null
+          helm template nojv infra/charts/nojv -f infra/charts/nojv/values-single-machine.yaml -f tests/fixtures/helm/immutable-image-digests.yaml -f tests/fixtures/helm/production-external-backups.yaml >/dev/null
 
       - name: Verify monorepo (build, lint, typecheck, unit tests)
         run: pnpm ci:verify

@@ -142,6 +142,11 @@ metadata:
   labels:
     {{- include "nojv.labels" . | nindent 4 }}
     app.kubernetes.io/component: registry
+  {{- if and .Values.web.ingress.enabled (eq .Values.web.ingress.className "gce") }}
+  annotations:
+    cloud.google.com/backend-config: {{ printf "{\"default\":\"%s-web-edge\"}" (include "nojv.fullname" .) | squote }}
+    cloud.google.com/neg: '{"ingress":true}'
+  {{- end }}
 spec:
   selector:
     app.kubernetes.io/name: nojv-registry

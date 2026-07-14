@@ -171,12 +171,16 @@ options (Temporal Cloud vs self-hosted HA) and
    the GKE default) so the chart can render the Postgres `Cluster` / `ScheduledBackup`.
 3. Install **Temporal** via the official Helm chart (see
    [Temporal Server](#temporal-server)).
-4. Create a real `nojv-runtime-secrets` secret with the Cloud SQL / Memorystore connection strings **and the object-storage credentials** (`S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY`) — the worker reads submission sources and writes verdict blobs through `@nojv/storage`, so judging fails without them.
+4. Create a real `nojv-runtime-secrets` secret with the Cloud SQL database URL,
+   Memorystore URL, and **object-storage credentials** (`S3_ENDPOINT` /
+   `S3_ACCESS_KEY` / `S3_SECRET_KEY`) — the non-secret Cloud SQL instance
+   connection name is a verified `deploy.sh` input rendered by Helm.
 5. Run `infra/gcp/cloud-build/deploy.sh` with explicit project, cluster,
    location, deploy-principal, Cloud Build service-account, namespace, and
-   release-tag variables listed in `infra/gcp/README.md`. The script verifies
-   the GKE endpoint and CA in an isolated kubeconfig before mutation, resolves
-   every pushed component digest, and passes all four immutable references to
-   Helm.
+   release, edge, TLS, Cloud SQL, and Redis variables listed in
+   `infra/gcp/README.md`. The script verifies the GKE endpoint and CA, live
+   private service addresses, TLS Secret, and Cloud Armor rules in an isolated
+   kubeconfig before mutation, resolves every pushed component digest, and
+   passes all verified values to Helm.
 
 This keeps the public control plane separate from the execution namespace while avoiding a long-lived sandbox service.

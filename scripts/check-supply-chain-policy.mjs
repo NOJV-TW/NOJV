@@ -191,6 +191,14 @@ export function checkSupplyChainFile(file, content) {
 
     if (!/\b(?:curl|wget)\b/u.test(line)) continue;
     const { command, end } = logicalCommand(lines, index);
+    if (
+      /\bcurl\b/u.test(command) &&
+      /--output\s+(?:\/dev\/null|["']\/dev\/null["'])/u.test(command) &&
+      /--write-out\b/u.test(command)
+    ) {
+      index = end;
+      continue;
+    }
     const url = command.match(/https?:\/\/[^\s"']+/u)?.[0];
     if (!url) continue;
 

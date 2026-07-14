@@ -208,8 +208,17 @@ Codifies the 2026-07-04 incident: the single-machine runner's disk filled with a
 1. **Confirm disk is the root cause:** `df -h` on the node. Disk pressure cascades into every other symptom here.
 2. **Reclaim space:** `crictl rmi --prune` to drop unused container images (in the incident, two passes took usage from ~73 % → ~31 %). Also clear stale logs if needed.
 3. **Bring CNPG back:** `kubectl rollout restart` the CloudNativePG operator deployment, then restart the Postgres cluster pod. Wait until `nojv-pg` is healthy (`kubectl get cluster -n nojv`, PG pod `Ready`, webhook endpoints present).
-4. **If the release is wedged**, `helm rollback` to the last-known-good revision to unstick it.
-5. **Re-run the deploy** workflow once the DB and migrator hook are healthy; verify production is actually on the new version.
+4. **If the release is wedged**, first inspect the target revision with
+   `helm get manifest nojv --revision <revision> -n nojv`. Roll back only when
+   all three app Deployments carry
+   `nojv.tw/schema-contract: versioned-storage-v1`; then run
+   `helm rollback nojv <revision> -n nojv --wait --timeout 125m`. A
+   pre-contract image is incompatible with the forward-only storage schema and
+   the admission fence will deny it.
+5. If no contract-compatible revision exists, keep workloads in maintenance
+   and ship a forward fix after the DB and operator recover. Never delete or
+   bypass the schema fence to revive an older image.
+6. **Re-run the deploy** workflow once the DB and migrator hook are healthy; verify production is actually on the new version.
 
 ### Root-Cause Investigation
 

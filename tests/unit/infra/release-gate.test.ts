@@ -6,10 +6,17 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { validatePublicationAbsence } from "../../../scripts/validate-release-run.mjs";
+import {
+  validateCloudBuildProvenance,
+  validatePublicationState,
+  validatePublishedImage,
+} from "../../../scripts/validate-release-run.mjs";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const workflowPath = join(repoRoot, ".github/workflows/build-images.yml");
+const imageBuilderPath = join(repoRoot, "scripts/build-release-image.sh");
+const imagePromoterPath = join(repoRoot, "scripts/promote-release-image.sh");
+const ciWorkflowPath = join(repoRoot, ".github/workflows/ci.yml");
 const validatorPath = join(repoRoot, "scripts/validate-release-run.mjs");
 const checkedOutSha = execFileSync("git", ["rev-parse", "HEAD"], {
   cwd: repoRoot,
@@ -163,18 +170,18 @@ describe("immutable publication preflight", () => {
   const releaseSha = "a".repeat(40);
 
   it("accepts a SHA absent from the deploy ref and every runtime package", () => {
-    expect(() =>
-      validatePublicationAbsence({
+    expect(
+      validatePublicationState({
         releaseSha,
         remoteDeployTags: [],
         packageTags: {},
       }),
-    ).not.toThrow();
+    ).toEqual({ existingImages: [] });
   });
 
   it("rejects a completed same-SHA release before package publication", () => {
     expect(() =>
-      validatePublicationAbsence({
+      validatePublicationState({
         releaseSha,
         remoteDeployTags: [`refs/tags/nojv-deploy-${releaseSha}`],
         packageTags: {},
@@ -182,19 +189,165 @@ describe("immutable publication preflight", () => {
     ).toThrow(/deploy tag already exists/u);
   });
 
-  it("rejects a partially-published same-SHA package so its tag cannot move", () => {
-    expect(() =>
-      validatePublicationAbsence({
+  it("returns a partial same-SHA publication for provenance validation and reuse", () => {
+    expect(
+      validatePublicationState({
         releaseSha,
         remoteDeployTags: [],
         packageTags: { "nojv-worker": [releaseSha] },
       }),
-    ).toThrow(/GHCR tag already exists: nojv-worker/u);
+    ).toEqual({ existingImages: ["nojv-worker"] });
+  });
+
+  it("validates the immutable digest and OCI source identity before reusing an image", () => {
+    const ref = "ghcr.io/nojv-tw/nojv-worker";
+    const digest = `sha256:${"1".repeat(64)}`;
+    expect(
+      validatePublishedImage({
+        releaseSha,
+        ref,
+        inspect: [
+          {
+            RepoTags: [`${ref}:${releaseSha}`],
+            RepoDigests: [`${ref}@${digest}`],
+            Config: {
+              Labels: {
+                "org.opencontainers.image.revision": releaseSha,
+                "org.opencontainers.image.version": releaseSha,
+              },
+            },
+          },
+        ],
+      }),
+    ).toEqual({ digest });
+  });
+
+  it.each([
+    [
+      "wrong revision",
+      {
+        "org.opencontainers.image.revision": "b".repeat(40),
+        "org.opencontainers.image.version": releaseSha,
+      },
+      [`ghcr.io/nojv-tw/nojv-worker@sha256:${"1".repeat(64)}`],
+      /revision/u,
+    ],
+    [
+      "missing digest",
+      {
+        "org.opencontainers.image.revision": releaseSha,
+        "org.opencontainers.image.version": releaseSha,
+      },
+      [],
+      /digest/u,
+    ],
+  ])("rejects a reusable image with %s", (_name, labels, repoDigests, error) => {
+    const ref = "ghcr.io/nojv-tw/nojv-worker";
+    expect(() =>
+      validatePublishedImage({
+        releaseSha,
+        ref,
+        inspect: [
+          {
+            RepoTags: [`${ref}:${releaseSha}`],
+            RepoDigests: repoDigests,
+            Config: { Labels: labels },
+          },
+        ],
+      }),
+    ).toThrow(error as RegExp);
+  });
+});
+
+describe("Cloud Build provenance validator", () => {
+  const releaseSha = "a".repeat(40);
+  const digest = `sha256:${"1".repeat(64)}`;
+  const trustedProvenance = {
+    _type: "https://in-toto.io/Statement/v1",
+    predicateType: "https://slsa.dev/provenance/v1",
+    subject: [
+      {
+        name: "https://asia-east1-docker.pkg.dev/nojv-prod/nojv/worker",
+        digest: { sha256: "1".repeat(64) },
+      },
+      {
+        name: `https://asia-east1-docker.pkg.dev/nojv-prod/nojv/worker:${releaseSha}`,
+        digest: { sha256: "1".repeat(64) },
+      },
+    ],
+    predicate: {
+      buildDefinition: {
+        buildType: "https://cloud.google.com/build/gcb-buildtypes/google-worker/v1",
+        resolvedDependencies: [
+          {
+            uri: `git+https://github.com/NOJV-TW/NOJV.git@${releaseSha}`,
+            digest: { gitCommit: releaseSha },
+          },
+        ],
+        externalParameters: {
+          substitutions: {
+            _COMPONENT: "worker",
+            _DOCKERFILE: "infra/docker/worker.Dockerfile",
+            _REGION: "asia-east1",
+            _REPOSITORY: "nojv",
+            _SOURCE_SHA: releaseSha,
+          },
+        },
+      },
+      runDetails: {
+        builder: {
+          id: "https://cloudbuild.googleapis.com/GoogleHostedWorker",
+        },
+      },
+    },
+  };
+  const input = {
+    digest,
+    imageRef: "asia-east1-docker.pkg.dev/nojv-prod/nojv/worker",
+    provenance: trustedProvenance,
+    component: "worker",
+    dockerfile: "infra/docker/worker.Dockerfile",
+    region: "asia-east1",
+    repository: "nojv",
+    releaseSha,
+    sourceUri: "git+https://github.com/NOJV-TW/NOJV.git",
+  };
+
+  it("accepts a matching Google-hosted SLSA build", () => {
+    expect(validateCloudBuildProvenance(input)).toEqual({ digest });
+  });
+
+  it("rejects provenance copied from another component", () => {
+    expect(() => validateCloudBuildProvenance({ ...input, component: "web" })).toThrow(
+      /lacks trusted Cloud Build SLSA provenance/u,
+    );
+  });
+
+  it("rejects a signed build from another source repository", () => {
+    const provenance = structuredClone(trustedProvenance);
+    provenance.predicate.buildDefinition.resolvedDependencies[0].uri =
+      "git+https://github.com/attacker/NOJV.git";
+    expect(() => validateCloudBuildProvenance({ ...input, provenance })).toThrow(
+      /lacks trusted Cloud Build SLSA provenance/u,
+    );
+  });
+
+  it("rejects an unrelated subject even when its digest matches", () => {
+    const provenance = structuredClone(trustedProvenance);
+    provenance.subject.push({
+      name: "https://asia-east1-docker.pkg.dev/attacker/repo/worker",
+      digest: { sha256: "1".repeat(64) },
+    });
+    expect(() => validateCloudBuildProvenance({ ...input, provenance })).toThrow(
+      /does not bind the published image digest/u,
+    );
   });
 });
 
 describe("Build & Push Images workflow release structure", () => {
   const workflow = readFileSync(workflowPath, "utf8");
+  const imageBuilder = readFileSync(imageBuilderPath, "utf8");
+  const imagePromoter = readFileSync(imagePromoterPath, "utf8");
   const trigger = workflow.slice(workflow.indexOf("on:"), workflow.indexOf("concurrency:"));
   const buildJob = workflow.slice(
     workflow.indexOf("  build-publish:"),
@@ -234,28 +387,65 @@ describe("Build & Push Images workflow release structure", () => {
     expect(buildJob).toContain("persist-credentials: false");
     expect(buildJob).toContain("release_sha: ${{ steps.release.outputs.release_sha }}");
     expect(buildJob).toContain("image_tag: ${{ steps.release.outputs.image_tag }}");
-    expect(buildJob.match(/build\s+\w+\s+nojv-/gu)).toHaveLength(4);
+    expect(buildJob.match(/run: scripts\/build-release-image\.sh/gu)).toHaveLength(4);
     expect(buildJob).not.toContain(':main"');
     expect(buildJob).not.toContain("git rev-parse --short");
   });
 
-  it("rejects deploy and GHCR same-SHA reruns before any package write", () => {
+  it("detects same-SHA publication state before any package write", () => {
     const preflight = buildJob.indexOf(
-      "run: node scripts/validate-release-run.mjs publication-absence",
+      "run: node scripts/validate-release-run.mjs publication-state",
     );
     expect(preflight).toBeGreaterThan(0);
     expect(preflight).toBeLessThan(buildJob.indexOf("docker/setup-buildx-action"));
     expect(preflight).toBeLessThan(buildJob.indexOf("docker/login-action"));
-    expect(preflight).toBeLessThan(buildJob.indexOf("docker buildx build"));
+    expect(preflight).toBeLessThan(buildJob.indexOf("scripts/build-release-image.sh"));
     expect(buildJob).toContain("RELEASE_SHA: ${{ steps.release.outputs.release_sha }}");
     expect(buildJob).toContain("GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}");
-    expect(buildJob).toContain('-t "${ref}:${TAG}"');
-    expect(buildJob).not.toMatch(/-t "\$\{ref\}:(?:latest|main|master)"/u);
+    expect(buildJob).toContain(
+      "EXISTING_IMAGES: ${{ steps.publication.outputs.existing_images }}",
+    );
+    expect(imageBuilder).toContain("node scripts/validate-release-run.mjs published-image");
+    expect(imageBuilder).toContain('gh attestation verify "oci://${ref}@${digest}"');
+    expect(imageBuilder).toContain(
+      '--signer-workflow "$GITHUB_REPOSITORY/.github/workflows/build-images.yml"',
+    );
+    expect(imageBuilder).toContain("--source-ref refs/heads/main");
+    expect(imageBuilder).toContain('--source-digest "$TAG"');
+    expect(imageBuilder).toContain("--deny-self-hosted-runners");
+    expect(
+      buildJob.match(/uses: actions\/attest@a1948c3f048ba23858d222213b7c278aabede763/gu),
+    ).toHaveLength(4);
+    expect(imageBuilder).toContain("org.opencontainers.image.revision=${TAG}");
+    expect(imageBuilder).toContain("org.opencontainers.image.version=${TAG}");
+    expect(imageBuilder).toContain("${TAG}-candidate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}");
+    expect(imageBuilder).not.toContain('--tag "${ref}:${TAG}"');
+    expect(imagePromoter).toContain(
+      'docker buildx imagetools create --tag "${ref}:${TAG}" "${ref}@${IMAGE_DIGEST}"',
+    );
+    const retrySafeOrder = [
+      "id: web",
+      "name: Attest web image",
+      "name: Publish web release tag",
+      "id: worker",
+      "name: Attest worker image",
+      "name: Publish worker release tag",
+      "id: migrator",
+      "name: Attest migrator image",
+      "name: Publish migrator release tag",
+      "id: sandbox",
+      "name: Attest sandbox image",
+      "name: Publish sandbox release tag",
+    ].map((marker) => buildJob.indexOf(marker));
+    expect(retrySafeOrder.every((position) => position >= 0)).toBe(true);
+    expect(retrySafeOrder).toEqual([...retrySafeOrder].sort((a, b) => a - b));
   });
 
   it("keeps package and repository writes in separate least-privilege jobs", () => {
     expect(workflow).toContain("permissions: {}");
-    expect(buildJob).toMatch(/permissions:\n {6}contents: read\n {6}packages: write/);
+    expect(buildJob).toMatch(
+      /permissions:\n {6}attestations: write\n {6}contents: read\n {6}id-token: write\n {6}packages: write/,
+    );
     expect(buildJob).not.toContain("contents: write");
     expect(buildJob).not.toContain("git checkout -B deploy");
 
@@ -277,5 +467,19 @@ describe("Build & Push Images workflow release structure", () => {
     expect(deployJob).toContain("DEPLOY_TIP: ${{ steps.advance.outputs.deploy_tip }}");
     expect(deployJob).toContain('"--force-with-lease=refs/heads/deploy:${DEPLOY_TIP}"');
     expect(deployJob).not.toContain("git push --atomic --force origin");
+  });
+});
+
+describe("main release trigger coverage", () => {
+  const ciWorkflow = readFileSync(ciWorkflowPath, "utf8");
+  const trigger = ciWorkflow.slice(
+    ciWorkflow.indexOf("on:"),
+    ciWorkflow.indexOf("concurrency:"),
+  );
+
+  it("runs CI for Flux-only changes so every main revision can reach the deploy branch", () => {
+    expect(trigger).toContain("push:\n    branches:\n      - main");
+    expect(trigger).not.toContain("paths-ignore:");
+    expect(trigger).not.toContain('"infra/flux/**"');
   });
 });

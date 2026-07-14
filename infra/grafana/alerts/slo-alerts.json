@@ -100,7 +100,7 @@
     "threshold": 26,
     "for": "30m",
     "severity": "warning",
-    "summary": "The most recent CloudNativePG base backup is over 26h old (daily schedule + margin). Harmless while backups are off (metric absent → no data → OK); fires only once postgres.cnpg.backup.enabled is set and the CNPG metrics are scraped. See docs/runbooks/backup-restore.md."
+    "summary": "The most recent CloudNativePG base backup is over 26h old (daily schedule + margin). Production enables backups and fails closed without an off-host destination, so no data after the first scheduled window is also an operational fault. See docs/runbooks/backup-restore.md."
   },
   {
     "uid": "nojv-notification-email-dead",

@@ -7,6 +7,9 @@ import { describe, expect, it } from "vitest";
 const repoRoot = process.cwd();
 
 function renderChart(valuesFile: string): string {
+  const gkeArgs = valuesFile.endsWith("values-gke.yaml")
+    ? ["-f", "tests/fixtures/helm/gke-production-config.yaml"]
+    : [];
   return execFileSync(
     "helm",
     [
@@ -17,6 +20,9 @@ function renderChart(valuesFile: string): string {
       valuesFile,
       "-f",
       "tests/fixtures/helm/immutable-image-digests.yaml",
+      "-f",
+      "tests/fixtures/helm/production-external-backups.yaml",
+      ...gkeArgs,
     ],
     {
       cwd: repoRoot,

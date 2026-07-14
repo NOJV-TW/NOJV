@@ -66,7 +66,7 @@ export function validateDeployAdvance(input) {
  *   packageTags: Record<string, string[]>;
  * }} input
  */
-export function validatePublicationAbsence(input) {
+export function validatePublicationState(input) {
   if (!SHA_PATTERN.test(input.releaseSha)) {
     throw new Error("release SHA must be a lowercase 40-character commit SHA");
   }
@@ -76,11 +76,112 @@ export function validatePublicationAbsence(input) {
     throw new Error(`immutable deploy tag already exists: ${deployTag}`);
   }
 
-  for (const packageName of RELEASE_PACKAGES) {
-    if ((input.packageTags[packageName] ?? []).includes(input.releaseSha)) {
-      throw new Error(`immutable GHCR tag already exists: ${packageName}:${input.releaseSha}`);
-    }
+  return {
+    existingImages: RELEASE_PACKAGES.filter((packageName) =>
+      (input.packageTags[packageName] ?? []).includes(input.releaseSha),
+    ),
+  };
+}
+
+export function validatePublishedImage(input) {
+  if (!SHA_PATTERN.test(input.releaseSha)) {
+    throw new Error("release SHA must be a lowercase 40-character commit SHA");
   }
+  if (
+    typeof input.ref !== "string" ||
+    !/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?(?::[1-9][0-9]{0,4})?\/[a-z0-9._-]+(?:\/[a-z0-9._-]+)*$/u.test(
+      input.ref,
+    )
+  ) {
+    throw new Error(
+      "published image reference must be a canonical lowercase registry repository",
+    );
+  }
+  if (!Array.isArray(input.inspect) || input.inspect.length !== 1) {
+    throw new Error("docker image inspect must return exactly one image");
+  }
+  const image = input.inspect[0];
+  const expectedTag = `${input.ref}:${input.releaseSha}`;
+  if (!Array.isArray(image?.RepoTags) || !image.RepoTags.includes(expectedTag)) {
+    throw new Error(`published image is missing the immutable tag ${expectedTag}`);
+  }
+  const matchingDigests = Array.isArray(image?.RepoDigests)
+    ? image.RepoDigests.filter((value) => value.startsWith(`${input.ref}@`))
+    : [];
+  if (matchingDigests.length !== 1) {
+    throw new Error(`published image must expose exactly one digest for ${input.ref}`);
+  }
+  const digest = matchingDigests[0].slice(input.ref.length + 1);
+  if (!/^sha256:[a-f0-9]{64}$/u.test(digest)) {
+    throw new Error("published image digest must be sha256:<64 lowercase hex characters>");
+  }
+  const labels = image?.Config?.Labels;
+  if (labels?.["org.opencontainers.image.revision"] !== input.releaseSha) {
+    throw new Error("published image OCI revision does not match the release SHA");
+  }
+  if (labels?.["org.opencontainers.image.version"] !== input.releaseSha) {
+    throw new Error("published image OCI version does not match the release SHA");
+  }
+  return { digest };
+}
+
+export function validateCloudBuildProvenance(input) {
+  if (!/^sha256:[a-f0-9]{64}$/u.test(input.digest ?? "")) {
+    throw new Error("Cloud Build provenance requires the verified image digest");
+  }
+  const statement = input.provenance;
+  const digestHex = input.digest.slice("sha256:".length);
+  const expectedSubjectNames = new Set([
+    `https://${input.imageRef}`,
+    `https://${input.imageRef}:${input.releaseSha}`,
+  ]);
+  if (
+    statement?._type !== "https://in-toto.io/Statement/v1" ||
+    statement?.predicateType !== "https://slsa.dev/provenance/v1" ||
+    !Array.isArray(statement?.subject) ||
+    statement.subject.length === 0 ||
+    !statement.subject.every(
+      (subject) =>
+        expectedSubjectNames.has(subject?.name) && subject?.digest?.sha256 === digestHex,
+    ) ||
+    !statement.subject.some(
+      (subject) => subject?.name === `https://${input.imageRef}:${input.releaseSha}`,
+    )
+  ) {
+    throw new Error("verified Cloud Build statement does not bind the published image digest");
+  }
+  const expectedSubstitutions = {
+    _COMPONENT: input.component,
+    _DOCKERFILE: input.dockerfile,
+    _REGION: input.region,
+    _REPOSITORY: input.repository,
+    _SOURCE_SHA: input.releaseSha,
+  };
+  const definition = statement.predicate?.buildDefinition;
+  const substitutions = definition?.externalParameters?.substitutions;
+  const sourceDependencies = Array.isArray(definition?.resolvedDependencies)
+    ? definition.resolvedDependencies.filter((dependency) =>
+        dependency?.uri?.startsWith("git+"),
+      )
+    : [];
+  if (
+    definition?.buildType !==
+      "https://cloud.google.com/build/gcb-buildtypes/google-worker/v1" ||
+    statement.predicate?.runDetails?.builder?.id !==
+      "https://cloudbuild.googleapis.com/GoogleHostedWorker" ||
+    sourceDependencies.length !== 1 ||
+    !(
+      sourceDependencies[0].uri === input.sourceUri ||
+      sourceDependencies[0].uri?.startsWith(`${input.sourceUri}@`)
+    ) ||
+    sourceDependencies[0].digest?.gitCommit !== input.releaseSha ||
+    !Object.entries(expectedSubstitutions).every(
+      ([key, value]) => substitutions?.[key] === value,
+    )
+  ) {
+    throw new Error("image lacks trusted Cloud Build SLSA provenance for this release input");
+  }
+  return { digest: input.digest };
 }
 
 async function listPackageTags({ apiRoot, owner, packageName, token }) {
@@ -164,7 +265,7 @@ function validateDeployAdvanceFromEnvironment() {
   writeOutputs(`deploy_tip=${release.deployTip}\n`);
 }
 
-async function validatePublicationAbsenceFromEnvironment() {
+async function validatePublicationStateFromEnvironment() {
   const releaseSha = process.env.RELEASE_SHA ?? "";
   const owner = process.env.PACKAGE_OWNER ?? "";
   const token = process.env.GH_TOKEN ?? "";
@@ -187,14 +288,55 @@ async function validatePublicationAbsenceFromEnvironment() {
       ]),
     ),
   );
-  validatePublicationAbsence({ releaseSha, remoteDeployTags, packageTags });
+  const publication = validatePublicationState({ releaseSha, remoteDeployTags, packageTags });
+  writeOutputs(`existing_images=${JSON.stringify(publication.existingImages)}\n`);
+}
+
+function validatePublishedImageFromEnvironment() {
+  let inspect;
+  try {
+    inspect = JSON.parse(process.env.IMAGE_INSPECT_JSON ?? "");
+  } catch {
+    throw new Error("IMAGE_INSPECT_JSON must be valid docker image inspect JSON");
+  }
+  const image = validatePublishedImage({
+    releaseSha: process.env.RELEASE_SHA ?? "",
+    ref: process.env.IMAGE_REF ?? "",
+    inspect,
+  });
+  process.stdout.write(image.digest);
+}
+
+function validateCloudBuildProvenanceFromEnvironment() {
+  let provenance;
+  try {
+    provenance = JSON.parse(process.env.CLOUD_BUILD_PROVENANCE_JSON ?? "");
+  } catch {
+    throw new Error("CLOUD_BUILD_PROVENANCE_JSON must be valid JSON");
+  }
+  const result = validateCloudBuildProvenance({
+    digest: process.env.IMAGE_DIGEST ?? "",
+    imageRef: process.env.IMAGE_REF ?? "",
+    provenance,
+    component: process.env.IMAGE_COMPONENT ?? "",
+    dockerfile: process.env.IMAGE_DOCKERFILE ?? "",
+    region: process.env.REGION ?? "",
+    repository: process.env.REPOSITORY ?? "",
+    releaseSha: process.env.RELEASE_SHA ?? "",
+    sourceUri: process.env.SOURCE_URI ?? "",
+  });
+  process.stdout.write(result.digest);
 }
 
 async function main() {
   const mode = process.argv[2] ?? "release-run";
   if (mode === "release-run") return validateReleaseRunFromEnvironment();
   if (mode === "deploy-advance") return validateDeployAdvanceFromEnvironment();
-  if (mode === "publication-absence") return validatePublicationAbsenceFromEnvironment();
+  if (mode === "publication-state") return validatePublicationStateFromEnvironment();
+  if (mode === "published-image") return validatePublishedImageFromEnvironment();
+  if (mode === "cloud-build-provenance") {
+    return validateCloudBuildProvenanceFromEnvironment();
+  }
   throw new Error(`unknown validation mode: ${mode}`);
 }
 

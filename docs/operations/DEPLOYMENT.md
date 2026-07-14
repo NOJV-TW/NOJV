@@ -395,18 +395,30 @@ export CLUSTER_LOCATION=asia-east1
 export DEPLOY_PRINCIPAL=deployer@example.com
 export CLOUD_BUILD_SERVICE_ACCOUNT=cloud-build@PROJECT_ID.iam.gserviceaccount.com
 export K8S_NAMESPACE=nojv
+export PUBLIC_HOST=nojv.tw
+export REGISTRY_HOST=registry.nojv.tw
+export TLS_SECRET_NAME=nojv-origin-tls
+export EDGE_SECURITY_POLICY=nojv-cloudflare-only
+export CLOUDSQL_INSTANCE_CONNECTION_NAME=PROJECT_ID:asia-east1:nojv-db
+export REDIS_INSTANCE=nojv-redis
 bash infra/gcp/cloud-build/deploy.sh
 ```
 
 The script has no ambient project, cluster, principal, kube-context, source-ref,
 or release-identity fallback. Before any cloud mutation it requires a clean
 working tree and proves `RELEASE_SHA = HEAD = RELEASE_REMOTE:RELEASE_REF`. It
-then uploads a fresh archive of that commit, not the working directory. The
+then makes Cloud Build fetch that exact SHA from the canonical GitHub repository;
+the signed provenance must bind that Git source and commit. The local archive is
+used only for the matching Helm release, never as an unverified build source. The
 commit SHA is both the readable image tag and OCI/Helm provenance metadata; the
 registry digest makes the deployed image immutable. Direct manual Cloud Build
 submission is intentionally unsupported because it bypasses these source checks.
 `RELEASE_REMOTE` must be the configured `origin` for the canonical
-`NOJV-TW/NOJV` repository, and Git replacement objects are rejected.
+`NOJV-TW/NOJV` repository, and Git replacement objects are rejected. Before
+building, the script also proves that Cloud SQL and Memorystore resolve to
+private addresses, derives the exact NetworkPolicy CIDRs from live resources,
+verifies the TLS Secret, and requires Cloud Armor to allow exactly
+`infra/gcp/cloudflare-origin-cidrs.txt` with an enforced default deny.
 
 ### GKE Rollout
 
@@ -518,10 +530,7 @@ Production depends on Cloudflare being the **only** ingress path so `getClientIp
      --src-ip-ranges="2400:cb00::/32,2606:4700::/32,..." \
      --action=allow
 
-   # Attach to the GCLB backend service fronting the web Ingress
-   gcloud compute backend-services update nojv-web-backend \
-     --security-policy=cf-only-policy \
-     --global
+   # deploy.sh verifies this policy and the chart's BackendConfig attaches it.
    ```
 
 4. **Verify the trust boundary holds:**
@@ -539,7 +548,10 @@ Production depends on Cloudflare being the **only** ingress path so `getClientIp
 
    If (a) returns 200 the trust model is broken — stop and fix before relying on IP-based proctoring.
 
-**Ongoing maintenance:** Cloudflare's CIDR list updates occasionally. A stale Cloud Armor rule either locks out real users (range added) or widens the allowlist to stale IPs (range removed). Either script the refresh via Terraform + the Cloudflare API, or put a calendar reminder to check the published lists quarterly.
+**Ongoing maintenance:** Cloudflare's CIDR list updates occasionally. Update
+`infra/gcp/cloudflare-origin-cidrs.txt` from the two official endpoints and the
+Cloud Armor allow rules in the same reviewed change. `deploy.sh` refuses to
+continue while they differ.
 
 ## Microservice Deployment
 

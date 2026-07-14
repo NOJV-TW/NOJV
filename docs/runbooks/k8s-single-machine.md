@@ -287,12 +287,14 @@ For an HA Temporal (production multi-node), see
 > `nojv`, so the `deny-all-sandbox` policy does not touch it; the worker reaches
 > it over normal cluster networking.
 
-**Backups.** The single-machine overlay leaves CNPG backups off
-(`postgres.cnpg.backup.enabled: false`). Before going live, enable the CNPG
-`ScheduledBackup` (`postgres.cnpg.backup.enabled=true` plus a barman-cloud
-destination) — see the
-[Backup & Restore Runbook](backup-restore.md) for the destination/credential
-setup and restore drills.
+**Backups.** The production single-machine overlay enables both the CNPG
+`ScheduledBackup` and MinIO mirror and intentionally fails to render while
+their off-host S3/R2 destinations or credential Secret names are empty. Create
+a private `production-values.yaml` with the concrete
+`postgres.cnpg.backup.*` and `storage.minio.backup.*` values described in the
+[Backup & Restore Runbook](backup-restore.md), pass it to every direct Helm
+operation, and complete a restore drill before going live. Flux receives the
+same private values from the cluster-owned `nojv-production-values` Secret.
 
 The **migrator** runs automatically as a pre-install/pre-upgrade Helm hook
 (`infra/charts/nojv/templates/migrator.job.yaml`), so there is no manual
@@ -371,6 +373,7 @@ Then install:
 ```bash
 helm upgrade --install nojv infra/charts/nojv \
   -f infra/charts/nojv/values-single-machine.yaml \
+  -f production-values.yaml \
   --set image.allowUnpinnedLocalBuilds=true \
   --set-string image.registry= \
   --set-string image.repositoryPrefix= \

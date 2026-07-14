@@ -4,7 +4,7 @@ set -eu
 : "${DATABASE_URL:?DATABASE_URL is required}"
 
 contract=20260716000012_versioned_blob_pointers_contract
-package_root="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
+package_root="$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)"
 stage="$(mktemp -d "${TMPDIR:-/tmp}/nojv-expand-migrations.XXXXXX")"
 trap 'rm -rf "$stage"' EXIT INT TERM
 

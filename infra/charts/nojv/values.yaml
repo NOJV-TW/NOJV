@@ -54,7 +54,7 @@ postgres:
       retentionPolicy: "30d"
       schedule: "0 0 3 * * *"
   cloudsql:
-    instanceConnectionName: PROJECT_ID:REGION:INSTANCE
+    instanceConnectionName: ""
     proxyImage: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0@sha256:19627ba27f0d6539f4fc62296c79bb122600f27c395e7698cf164739312c5e11
 
 cloudsqlProxy:
@@ -246,6 +246,7 @@ web:
     type: ClusterIP
     port: 80
     nodePort: ""
+    annotations: {}
   hpa:
     enabled: false
     min: 2
@@ -259,6 +260,9 @@ web:
     path: /
     pathType: Prefix
     tls: []
+    gce:
+      securityPolicy: ""
+      httpsRedirect: false
 
 edge:
   cloudflared:

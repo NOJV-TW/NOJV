@@ -25,16 +25,16 @@ postgres:
     instances: 1
     storageSize: 5Gi
     # DATA-SAFETY: this is the ONLY durable store (app + Temporal state) and a
-    # single node has no HA. Backups are OFF until an off-host R2/S3 Secret
-    # exists. To activate (see docs/runbooks/backup-restore.md):
+    # single node has no HA. Production rendering fails until an off-host R2/S3
+    # destination and existing Secret name are configured:
     #   1. kubectl -n nojv create secret generic nojv-pg-barman \
     #        --from-literal=ACCESS_KEY_ID=<r2-access-key> \
     #        --from-literal=ACCESS_SECRET_KEY=<r2-secret-key>
     #   2. fill destinationPath/endpointURL/s3CredentialsSecret below
-    #   3. set enabled: true, redeploy, verify `kubectl cnpg status nojv-pg -n nojv`
+    #   3. redeploy, verify `kubectl cnpg status nojv-pg -n nojv`
     #   4. run the recovery drill in the runbook before relying on it.
     backup:
-      enabled: false
+      enabled: true
       destinationPath: "" # s3://nojv-db-backups/nojv-pg
       endpointURL: "" # https://<account>.r2.cloudflarestorage.com
       s3CredentialsSecret: "" # nojv-pg-barman
@@ -56,16 +56,16 @@ storage:
       provisioner: rancher.io/local-path
       volumeBindingMode: WaitForFirstConsumer
     # DATA-SAFETY: in-cluster MinIO holds the ONLY copy of student submission
-    # sources (see packages/storage keys). Mirror is OFF until an off-host R2/S3
-    # Secret exists. To activate (see docs/runbooks/backup-restore.md):
+    # sources (see packages/storage keys). Production rendering fails until an
+    # off-host R2/S3 destination and existing Secret name are configured:
     #   1. kubectl -n nojv create secret generic nojv-minio-mirror \
     #        --from-literal=ACCESS_KEY_ID=<r2-access-key> \
     #        --from-literal=ACCESS_SECRET_KEY=<r2-secret-key>
     #      (may reuse the nojv-pg-barman Secret if it targets the same account)
     #   2. fill destinationEndpoint/destinationBucket/credentialsSecret below
-    #   3. set enabled: true, redeploy, check the CronJob's first run logs.
+    #   3. redeploy, check the CronJob's first run logs.
     backup:
-      enabled: false
+      enabled: true
       destinationEndpoint: "" # https://<account>.r2.cloudflarestorage.com
       destinationBucket: "" # nojv-minio-mirror
       destinationRegion: "auto"

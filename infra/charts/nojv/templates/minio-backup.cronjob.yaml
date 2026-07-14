@@ -1,4 +1,18 @@
 {{- if and .Values.storage.inCluster .Values.storage.minio.backup.enabled }}
+{{- $schedule := required "storage.minio.backup.schedule is required when backup is enabled" .Values.storage.minio.backup.schedule }}
+{{- $endpoint := required "storage.minio.backup.destinationEndpoint is required when backup is enabled" .Values.storage.minio.backup.destinationEndpoint }}
+{{- $bucket := required "storage.minio.backup.destinationBucket is required when backup is enabled" .Values.storage.minio.backup.destinationBucket }}
+{{- $region := required "storage.minio.backup.destinationRegion is required when backup is enabled" .Values.storage.minio.backup.destinationRegion }}
+{{- $credentialsSecret := required "storage.minio.backup.credentialsSecret is required when backup is enabled" .Values.storage.minio.backup.credentialsSecret }}
+{{- if not (regexMatch "^https://[^[:space:]]+$" $endpoint) }}
+{{- fail "storage.minio.backup.destinationEndpoint must use HTTPS" }}
+{{- end }}
+{{- if not (regexMatch "^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$" $bucket) }}
+{{- fail "storage.minio.backup.destinationBucket must be a valid S3 bucket name" }}
+{{- end }}
+{{- if not (regexMatch "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$" $credentialsSecret) }}
+{{- fail "storage.minio.backup.credentialsSecret must be a valid Kubernetes Secret name" }}
+{{- end }}
 {{/*
 Off-host mirror of the in-cluster MinIO bucket → an S3/R2 target the MinIO PVC
 does not depend on. In-cluster MinIO holds the ONLY copy of student submission
@@ -17,7 +31,7 @@ metadata:
     {{- include "nojv.labels" . | nindent 4 }}
     app.kubernetes.io/component: minio-backup
 spec:
-  schedule: {{ .Values.storage.minio.backup.schedule | quote }}
+  schedule: {{ $schedule | quote }}
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
@@ -80,20 +94,20 @@ spec:
                       name: {{ include "nojv.runtimeSecretName" . }}
                       key: S3_SECRET_KEY
                 - name: DST_ENDPOINT
-                  value: {{ .Values.storage.minio.backup.destinationEndpoint | quote }}
+                  value: {{ $endpoint | quote }}
                 - name: DST_BUCKET
-                  value: {{ .Values.storage.minio.backup.destinationBucket | quote }}
+                  value: {{ $bucket | quote }}
                 - name: AWS_REGION
-                  value: {{ .Values.storage.minio.backup.destinationRegion | quote }}
+                  value: {{ $region | quote }}
                 - name: DST_ACCESS_KEY
                   valueFrom:
                     secretKeyRef:
-                      name: {{ .Values.storage.minio.backup.credentialsSecret }}
+                      name: {{ $credentialsSecret }}
                       key: ACCESS_KEY_ID
                 - name: DST_SECRET_KEY
                   valueFrom:
                     secretKeyRef:
-                      name: {{ .Values.storage.minio.backup.credentialsSecret }}
+                      name: {{ $credentialsSecret }}
                       key: ACCESS_SECRET_KEY
               resources:
                 {{- toYaml .Values.storage.minio.backup.resources | nindent 16 }}

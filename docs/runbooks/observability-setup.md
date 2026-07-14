@@ -44,6 +44,7 @@ collector needs just the endpoint).
   ```bash
   helm upgrade --install nojv infra/charts/nojv \
     -f infra/charts/nojv/values-single-machine.yaml \
+    -f production-values.yaml \
     --set observability.collector.enabled=true \
     --set observability.prometheus.enabled=true \
     --set observability.grafana.enabled=true

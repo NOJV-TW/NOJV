@@ -204,12 +204,23 @@ afterEach(() => {
 });
 
 describe("storage release cutover", () => {
+  it("sets CDPATH explicitly without the ambiguous SC1007 assignment form", () => {
+    const expand = readFileSync(
+      join(repoRoot, "packages/db/prisma/scripts/deploy-expand.sh"),
+      "utf8",
+    );
+    expect(expand).toContain("CDPATH='' cd --");
+    expect(expand).not.toContain("CDPATH= cd --");
+  });
+
   it("renders the upgrade hook with S3, writable staging, and all autoscaler RBAC", () => {
     const render = execSync(
       [
         "helm template nojv infra/charts/nojv --is-upgrade",
         "-f infra/charts/nojv/values-gke.yaml",
         "-f tests/fixtures/helm/immutable-image-digests.yaml",
+        "-f tests/fixtures/helm/gke-production-config.yaml",
+        "-f tests/fixtures/helm/production-external-backups.yaml",
         "--set worker.judge.keda.enabled=true",
         "--set worker.judge.keda.prometheusAddress=http://prometheus",
         "--set worker.judge.keda.query=queue_depth",

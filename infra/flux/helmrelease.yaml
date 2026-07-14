@@ -19,6 +19,11 @@ spec:
         name: nojv
         namespace: flux-system
       reconcileStrategy: Revision
+  valuesFrom:
+    - kind: Secret
+      name: nojv-production-values
+      valuesKey: values.yaml
+      optional: false
   install:
     createNamespace: true
     remediation:

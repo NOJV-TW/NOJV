@@ -36,6 +36,7 @@ kubectl -n nojv apply -f secret.local.yaml
 # 2a. Single-machine:
 helm upgrade --install nojv infra/charts/nojv \
   -f infra/charts/nojv/values-single-machine.yaml \
+  -f production-values.yaml \
   --set image.tag=<40-character-source-sha> \
   --set-string release.sourceSha=<40-character-source-sha> \
   --set-string image.digests.web=<sha256:registry-verified-digest> \
@@ -43,19 +44,15 @@ helm upgrade --install nojv infra/charts/nojv \
   --set-string image.digests.sandbox=<sha256:registry-verified-digest> \
   --set-string image.digests.migrator=<sha256:registry-verified-digest>
 
-# 2b. GKE:
-helm upgrade --install nojv infra/charts/nojv \
-  -f infra/charts/nojv/values-gke.yaml \
-  --set image.tag=<40-character-source-sha> \
-  --set-string release.sourceSha=<40-character-source-sha> \
-  --set-string image.digests.web=<sha256:registry-verified-digest> \
-  --set-string image.digests.worker=<sha256:registry-verified-digest> \
-  --set-string image.digests.sandbox=<sha256:registry-verified-digest> \
-  --set-string image.digests.migrator=<sha256:registry-verified-digest>
+# 2b. GKE (performs identity, network, provenance, rollout, and edge checks):
+bash infra/gcp/cloud-build/deploy.sh
 ```
 
 The chart intentionally refuses to render non-local application workloads until
-the source SHA matches the image tag and all four digests are present.
+the source SHA matches the image tag and all four digests are present. The
+single-machine overlay additionally refuses to render until both off-host
+backup destinations are supplied in a private values file; see
+`infra/flux/README.md` for the production Secret shape.
 `build-images.yml` obtains the digests from Buildx metadata for
 the Flux deploy branch; `infra/gcp/cloud-build/deploy.sh` reads them back from
 Artifact Registry. Never copy a digest from another tag or architecture.
@@ -117,8 +114,8 @@ infra/charts/nojv/
 | `release.sourceSha`                                                                 | empty                                                                           | verified 40-character source commit; must equal `image.tag` and is rendered as `app.kubernetes.io/version`                                                                                              |
 | `postgres.mode`                                                                     | `cnpg`                                                                          | `cnpg` \| `cloudsql` \| `external` — drives `DATABASE_URL` derivation                                                                                                                                   |
 | `postgres.cnpg.instances` / `storageSize`                                           | `1` / `10Gi`                                                                    | CNPG Cluster size                                                                                                                                                                                       |
-| `postgres.cnpg.backup.*`                                                            | disabled                                                                        | barman-cloud `ScheduledBackup`                                                                                                                                                                          |
-| `postgres.cloudsql.instanceConnectionName`                                          | placeholder                                                                     | Cloud SQL proxy target                                                                                                                                                                                  |
+| `postgres.cnpg.backup.*`                                                            | shared default disabled; single-machine production enabled and required         | off-host barman-cloud `ScheduledBackup`                                                                                                                                                                 |
+| `postgres.cloudsql.instanceConnectionName`                                          | empty                                                                           | concrete Cloud SQL proxy target required by the GKE production overlay                                                                                                                                  |
 | `cloudsqlProxy.enabled`                                                             | `false`                                                                         | adds the cloud-sql-proxy sidecar (use with `mode=cloudsql`)                                                                                                                                             |
 | `redis.inCluster`                                                                   | `true`                                                                          | deploy in-cluster Redis, else `REDIS_URL` from secret                                                                                                                                                   |
 | `storage.inCluster`                                                                 | `true`                                                                          | deploy in-cluster MinIO, else `S3_*` from secret                                                                                                                                                        |
@@ -167,7 +164,8 @@ templated into manifests). `postgres.mode` only drives the surrounding wiring:
   (password from the operator-managed `<cluster>-app` secret).
 - **`cloudsql`** — set `cloudsqlProxy.enabled=true`. A `cloud-sql-proxy` sidecar
   listens on `127.0.0.1:5432`; `DATABASE_URL` points at `127.0.0.1:5432`, and
-  `CLOUDSQL_INSTANCE_CONNECTION_NAME` comes from the runtime secret.
+  `CLOUDSQL_INSTANCE_CONNECTION_NAME` is non-secret and comes from the verified
+  `postgres.cloudsql.instanceConnectionName` chart value.
 - **`external`** — `DATABASE_URL` is whatever you put in the secret (managed
   Postgres, RDS, etc.).
 

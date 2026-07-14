@@ -171,7 +171,7 @@ describe("Image Build workflow contract", () => {
     expect(trigger.trim()).toBe("on:\n  pull_request:");
     expect(trigger).not.toContain("paths:");
     expect(workflow).toContain("permissions: {}");
-    expect(workflow.match(/permissions:\n {6}contents: read/g)).toHaveLength(2);
+    expect(workflow.match(/permissions:\n {6}contents: read/g)).toHaveLength(3);
     expect(workflow).not.toContain("pull_request_target");
   });
 

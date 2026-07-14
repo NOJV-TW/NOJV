@@ -1,0 +1,14 @@
+# Non-secret values used only to prove the production chart can render once an
+# operator supplies real off-host destinations and existing Secret names.
+postgres:
+  cnpg:
+    backup:
+      destinationPath: s3://nojv-test-postgres/nojv-pg
+      endpointURL: https://s3.example.test
+      s3CredentialsSecret: nojv-test-pg-backup
+storage:
+  minio:
+    backup:
+      destinationEndpoint: https://s3.example.test
+      destinationBucket: nojv-test-submissions
+      credentialsSecret: nojv-test-minio-backup

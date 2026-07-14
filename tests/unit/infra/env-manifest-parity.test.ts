@@ -25,8 +25,12 @@ const renderedCharts = new Map<string, string>();
 function renderChart(valuesFile = "values-gke.yaml"): string {
   const cached = renderedCharts.get(valuesFile);
   if (cached) return cached;
+  const gkeFixture =
+    valuesFile === "values-gke.yaml"
+      ? " -f tests/fixtures/helm/gke-production-config.yaml"
+      : "";
   const rendered = execSync(
-    `helm template nojv infra/charts/nojv -f infra/charts/nojv/${valuesFile} -f tests/fixtures/helm/immutable-image-digests.yaml`,
+    `helm template nojv infra/charts/nojv -f infra/charts/nojv/${valuesFile} -f tests/fixtures/helm/immutable-image-digests.yaml${gkeFixture} -f tests/fixtures/helm/production-external-backups.yaml`,
     { cwd: repoRoot, encoding: "utf8" },
   );
   renderedCharts.set(valuesFile, rendered);
