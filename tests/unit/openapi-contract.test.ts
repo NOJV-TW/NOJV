@@ -81,11 +81,10 @@ describe("OpenAPI contract stays in sync with API routes", () => {
     expect(documented.size).toBeGreaterThan(0);
   });
 
-  it("documents minimal public liveness, readiness, and health contracts", () => {
+  it("documents minimal public liveness and readiness contracts", () => {
     expect(publicOpenApiDocument.paths).toMatchObject({
       "/api/livez": { get: { operationId: "getLiveness" } },
       "/api/readyz": { get: { operationId: "getReadiness" } },
-      "/api/healthz": { get: { operationId: "getHealth" } },
     });
     expect(publicOpenApiDocument.components.schemas).toMatchObject({
       LivenessResponse: {
@@ -96,14 +95,7 @@ describe("OpenAPI contract stays in sync with API routes", () => {
         required: ["ready"],
         properties: { ready: { type: "boolean" } },
       },
-      HealthResponse: {
-        required: ["ok"],
-        properties: { ok: { type: "boolean" } },
-      },
     });
-    expect("checks" in publicOpenApiDocument.components.schemas.HealthResponse.properties).toBe(
-      false,
-    );
   });
 
   it("serves anonymous system paths from the public OpenAPI endpoint", async () => {
@@ -115,7 +107,6 @@ describe("OpenAPI contract stays in sync with API routes", () => {
     expect(document.paths).toMatchObject({
       "/api/livez": { get: { operationId: "getLiveness" } },
       "/api/readyz": { get: { operationId: "getReadiness" } },
-      "/api/healthz": { get: { operationId: "getHealth" } },
       "/api/openapi.public.json": { get: { operationId: "getOpenApiDocument" } },
     });
   });
@@ -125,12 +116,7 @@ describe("OpenAPI contract stays in sync with API routes", () => {
       .filter((rule) => rule.visibility === "public")
       .map((rule) => `${rule.method} ${rule.path}`);
     const docOps = documentedOperations(tokenOpenApiDocument);
-    for (const anonymousPath of [
-      "/api/livez",
-      "/api/readyz",
-      "/api/healthz",
-      "/api/openapi.public.json",
-    ]) {
+    for (const anonymousPath of ["/api/livez", "/api/readyz", "/api/openapi.public.json"]) {
       docOps.delete(`GET ${anonymousPath}`);
     }
     expect([...docOps].sort()).toEqual([...ruleOps].sort());

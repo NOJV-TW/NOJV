@@ -85,37 +85,6 @@ export const openApiDocument = {
         },
       },
     },
-    "/api/healthz": {
-      get: {
-        tags: ["System"],
-        summary: "Check service health",
-        operationId: "getHealth",
-        responses: {
-          "200": {
-            description: "Service is healthy",
-            content: {
-              "application/json": {
-                schema: {
-                  $ref: "#/components/schemas/HealthResponse",
-                },
-                example: { ok: true },
-              },
-            },
-          },
-          "503": {
-            description: "Service is unhealthy",
-            content: {
-              "application/json": {
-                schema: {
-                  $ref: "#/components/schemas/HealthResponse",
-                },
-                example: { ok: false },
-              },
-            },
-          },
-        },
-      },
-    },
     "/api/openapi.public.json": {
       get: {
         tags: ["System"],
@@ -431,17 +400,6 @@ export const openApiDocument = {
           },
         },
         required: ["ready"],
-      },
-      HealthResponse: {
-        type: "object",
-        properties: {
-          ok: {
-            type: "boolean",
-            description:
-              "True when the web-critical dependencies (PostgreSQL and Redis) are reachable.",
-          },
-        },
-        required: ["ok"],
       },
       SupportedLanguage: {
         ...zodToOpenApiSchema(languageSchema),

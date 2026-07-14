@@ -2,6 +2,7 @@
 
 import { mount, tick, unmount } from "svelte";
 import axe from "axe-core";
+import * as echarts from "echarts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const chart = vi.hoisted(() => ({
@@ -10,11 +11,6 @@ const chart = vi.hoisted(() => ({
   setOption: vi.fn(),
 }));
 const init = vi.hoisted(() => vi.fn(() => chart));
-const loadECharts = vi.hoisted(() => vi.fn(async () => ({ init })));
-
-vi.mock("$lib/components/primitives/charts/echarts-loader", () => ({
-  loadECharts,
-}));
 
 import Harness from "./fixtures/echart-harness.svelte";
 
@@ -33,7 +29,7 @@ describe("EChart lifecycle", () => {
     document.body.innerHTML = "";
     ResizeObserverMock.instances = [];
     vi.clearAllMocks();
-    loadECharts.mockResolvedValue({ init });
+    vi.spyOn(echarts, "init").mockImplementation(init as typeof echarts.init);
     vi.stubGlobal("ResizeObserver", ResizeObserverMock);
     vi.stubGlobal(
       "requestAnimationFrame",
@@ -90,13 +86,7 @@ describe("EChart lifecycle", () => {
     expect(cancelAnimationFrame).toHaveBeenCalledOnce();
   });
 
-  it("does not create resources when the loader resolves after unmount", async () => {
-    let resolveLoader!: (module: { init: typeof init }) => void;
-    loadECharts.mockReturnValueOnce(
-      new Promise((resolve) => {
-        resolveLoader = resolve;
-      }),
-    );
+  it("does not create resources when the component unmounts before the import resolves", async () => {
     const target = document.createElement("main");
     document.body.append(target);
     const component = mount(Harness, {
@@ -109,7 +99,6 @@ describe("EChart lifecycle", () => {
     });
 
     await unmount(component);
-    resolveLoader({ init });
     await Promise.resolve();
     await tick();
 

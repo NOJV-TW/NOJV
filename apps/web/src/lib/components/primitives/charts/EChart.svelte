@@ -3,7 +3,6 @@
   import type { ECharts, EChartsOption } from "echarts";
   import { m } from "$lib/paraglide/messages.js";
   import { Skeleton } from "$lib/components/primitives/ui/skeleton";
-  import { loadECharts } from "./echarts-loader";
 
   interface Props {
     option: EChartsOption;
@@ -23,7 +22,7 @@
 
   onMount(() => {
     let active = true;
-    void loadECharts()
+    void import("echarts")
       .then((echarts) => {
         if (!active) return;
         const instance = echarts.init(container);

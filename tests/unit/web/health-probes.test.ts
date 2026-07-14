@@ -57,7 +57,6 @@ vi.mock("@nojv/application", async (importOriginal) => {
 
 const livez = await import("../../../apps/web/src/routes/api/livez/+server");
 const readyz = await import("../../../apps/web/src/routes/api/readyz/+server");
-const healthz = await import("../../../apps/web/src/routes/api/healthz/+server");
 const { handle } = await import("../../../apps/web/src/hooks.server");
 
 let testTime = Date.parse("2026-07-14T00:00:00.000Z");
@@ -129,11 +128,8 @@ describe("web health endpoint contracts", () => {
     expect(unavailable.status).toBe(503);
     await expect(unavailable.json()).resolves.toEqual({ ready: false });
 
-    const health = await healthz.GET({} as RequestEvent);
-    expect(health.status).toBe(503);
-    await expect(health.json()).resolves.toEqual({ ok: false });
     expect(checkWebReadiness).toHaveBeenCalledTimes(2);
-    expect(health.headers.get("cache-control")).toBe("no-store");
+    expect(unavailable.headers.get("cache-control")).toBe("no-store");
   });
 
   it("does not serve stale readiness on unexpected probe errors", async () => {
@@ -150,7 +146,7 @@ describe("web health endpoint contracts", () => {
     vi.advanceTimersByTime(5_001);
 
     const first = readyz.GET({} as RequestEvent);
-    const second = healthz.GET({} as RequestEvent);
+    const second = readyz.GET({} as RequestEvent);
     expect(checkWebReadiness).toHaveBeenCalledOnce();
 
     finishProbe(true);
@@ -166,7 +162,6 @@ describe("health probe hook boundary", () => {
   it.each([
     ["live", "/api/livez", livez],
     ["ready", "/api/readyz", readyz],
-    ["health", "/api/healthz", healthz],
   ] as const)(
     "bypasses auth/session for the exact %s probe path",
     async (probe, path, route) => {

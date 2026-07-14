@@ -49,13 +49,6 @@ function createToastStore() {
     });
   }
 
-  function clear() {
-    update((toasts) => {
-      for (const t of toasts) clearToastTimer(t);
-      return [];
-    });
-  }
-
   function show(message: string, options: ToastOptions = {}): string {
     const id = generateId();
     const type = options.type ?? "info";
@@ -91,9 +84,7 @@ function createToastStore() {
 
   return {
     subscribe,
-    show,
     remove,
-    clear,
     success: (message: string, options: Omit<ToastOptions, "type"> = {}) =>
       show(message, { ...options, type: "success" }),
     error: (message: string, options: Omit<ToastOptions, "type"> = {}) =>

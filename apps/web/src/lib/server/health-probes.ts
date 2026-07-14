@@ -1,12 +1,11 @@
 import { adminDomain } from "@nojv/application";
 
-export type HealthProbeKind = "live" | "ready" | "health";
+export type HealthProbeKind = "live" | "ready";
 
 const CACHE_TTL_MS = 5_000;
 const PROBE_PATHS: Readonly<Record<string, HealthProbeKind>> = {
   "/api/livez": "live",
   "/api/readyz": "ready",
-  "/api/healthz": "health",
 };
 
 let cached: { at: number; ready: boolean } | null = null;

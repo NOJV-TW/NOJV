@@ -1,9 +1,0 @@
-import { json } from "@sveltejs/kit";
-import type { RequestHandler } from "./$types";
-
-import { webIsReady } from "$lib/server/health-probes";
-
-export const GET: RequestHandler = async () => {
-  const ok = await webIsReady();
-  return json({ ok }, { status: ok ? 200 : 503, headers: { "cache-control": "no-store" } });
-};

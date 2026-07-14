@@ -25,7 +25,7 @@ export const healthProbeDuration: Histogram = meter.createHistogram(
 );
 
 export interface HealthProbeLabels {
-  probe: "live" | "ready" | "health";
+  probe: "live" | "ready";
   result: "success" | "failure";
 }
 

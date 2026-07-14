@@ -59,7 +59,6 @@ describe("web image health check", () => {
 
     expect(dockerfile).toContain("fetch('http://localhost:3000/api/livez')");
     expect(dockerfile).not.toContain("fetch('http://localhost:3000')");
-    expect(dockerfile).not.toContain("fetch('http://localhost:3000/api/healthz')");
     expect(dockerfile).not.toContain("fetch('http://localhost:3000/api/readyz')");
   });
 });
