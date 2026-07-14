@@ -9,11 +9,16 @@ const IMMUTABLE_IMAGE =
   /^(?:[a-z0-9.-]+(?::[0-9]+)?\/)?(?:[a-z0-9._-]+\/)*[a-z0-9._-]+:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}@sha256:[a-f0-9]{64}$/u;
 const IMAGE_REFERENCE =
   /^(?:[a-z0-9.-]+(?::[0-9]+)?\/)?(?:[a-z0-9._-]+\/)*[a-z0-9._-]+:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}(?:@sha256:[a-f0-9]{64})?$/u;
-const IMAGE_LITERAL_FILES = new Set([
-  "apps/worker/src/activities/registry.ts",
-  "apps/worker/src/env.ts",
-  "apps/worker/src/services/k8s-netpol-probe.ts",
-  "packages/db/prisma/seeds/problems.ts",
+const LOCAL_IMAGE =
+  /^(?:(?:[a-z0-9.-]+(?::[0-9]+)?\/)?(?:[a-z0-9._-]+\/)*[a-z0-9._-]+:local|nojv-[a-z0-9._-]+:pr)$/u;
+const SOURCE_EXTENSIONS = new Set([".cjs", ".js", ".mjs", ".sh", ".ts"]);
+const SKIPPED_DIRECTORIES = new Set([
+  ".svelte-kit",
+  "build",
+  "dist",
+  "generated",
+  "node_modules",
+  "paraglide",
 ]);
 
 function violation(file, line, message) {
@@ -29,6 +34,21 @@ function logicalCommand(lines, start) {
 function isDockerfile(file) {
   const name = file.split("/").at(-1) ?? "";
   return name === "Dockerfile" || name.endsWith(".Dockerfile");
+}
+
+function literalImageReferences(content) {
+  return Array.from(content.matchAll(/["']([^"']+)["']/gu), (match) => match[1]).filter(
+    (value) => IMAGE_REFERENCE.test(value) && !/^\d+:\d+$/u.test(value),
+  );
+}
+
+function commandImageReferences(command) {
+  const references = new Set(literalImageReferences(command));
+  for (const token of command.split(/\s+/u)) {
+    const value = token.replace(/^["'(`]+|[\\;),"'`]+$/gu, "");
+    if (IMAGE_REFERENCE.test(value) && !/^\d+:\d+$/u.test(value)) references.add(value);
+  }
+  return references;
 }
 
 function imageReferences(file, line, index, lines) {
@@ -51,18 +71,10 @@ function imageReferences(file, line, index, lines) {
     return [image];
   }
 
-  if (IMAGE_LITERAL_FILES.has(file)) {
-    const context = lines.slice(Math.max(0, index - 6), index + 1).join("\n");
-    const relevant =
-      (file === "apps/worker/src/activities/registry.ts" && /image\s*:/u.test(line)) ||
-      (file === "apps/worker/src/env.ts" && /REGISTRY_GC_IMAGE/u.test(context)) ||
-      (file === "apps/worker/src/services/k8s-netpol-probe.ts" &&
-        /NETPOL_PROBE_IMAGE/u.test(context)) ||
-      (file === "packages/db/prisma/seeds/problems.ts" && /imageRef\s*:/u.test(line));
-    if (!relevant) return [];
-    return Array.from(line.matchAll(/["']([^"']+)["']/gu), (match) => match[1]).filter(
-      (value) => IMAGE_REFERENCE.test(value),
-    );
+  if (SOURCE_EXTENSIONS.has(extname(file)) && !file.endsWith(".sh")) {
+    const context = lines.slice(Math.max(0, index - 8), index + 1).join("\n");
+    if (!/(?:docker|image(?:Name|Ref)?)/iu.test(context)) return [];
+    return literalImageReferences(line);
   }
 
   return [];
@@ -77,8 +89,14 @@ export function checkSupplyChainFile(file, content) {
     if (line.trimStart().startsWith("#")) continue;
     const lineNumber = index + 1;
 
-    for (const image of imageReferences(file, line, index, lines)) {
-      if (!IMMUTABLE_IMAGE.test(image)) {
+    const references = new Set(imageReferences(file, line, index, lines));
+    if (/\bdocker\s+(?:create|pull|run)\b/u.test(line)) {
+      const { command } = logicalCommand(lines, index);
+      for (const image of commandImageReferences(command)) references.add(image);
+    }
+
+    for (const image of references) {
+      if (!IMMUTABLE_IMAGE.test(image) && !LOCAL_IMAGE.test(image)) {
         violations.push(
           violation(
             file,
@@ -163,12 +181,13 @@ export function checkSupplyChainFile(file, content) {
 }
 
 function policyFiles(root) {
-  const files = [];
-  for (const directory of [".github", "infra", "scripts"]) {
+  const files = new Set();
+  for (const directory of [".github", "apps", "infra", "packages", "scripts"]) {
     const start = join(root, directory);
     if (!statSync(start, { throwIfNoEntry: false })?.isDirectory()) continue;
     const visit = (absolute) => {
       for (const entry of readdirSync(absolute, { withFileTypes: true })) {
+        if (entry.isDirectory() && SKIPPED_DIRECTORIES.has(entry.name)) continue;
         const path = join(absolute, entry.name);
         if (entry.isDirectory()) {
           visit(path);
@@ -178,9 +197,9 @@ function policyFiles(root) {
             entry.name.endsWith(".sh") ||
             isDockerfile(relativePath) ||
             [".yml", ".yaml"].includes(extname(entry.name)) ||
-            IMAGE_LITERAL_FILES.has(relativePath)
+            SOURCE_EXTENSIONS.has(extname(entry.name))
           ) {
-            files.push(path);
+            files.add(path);
           }
         }
       }
@@ -188,17 +207,8 @@ function policyFiles(root) {
     visit(start);
   }
   const compose = join(root, "docker-compose.yml");
-  if (statSync(compose, { throwIfNoEntry: false })?.isFile()) files.push(compose);
-  for (const relativePath of [
-    ...IMAGE_LITERAL_FILES,
-    "apps/web/src/lib/server/advanced-scaffold/files/run/Dockerfile",
-    "apps/web/src/lib/server/advanced-scaffold/files/grade/Dockerfile",
-    "apps/web/src/lib/server/advanced-scaffold/files/service/Dockerfile",
-  ]) {
-    const absolute = join(root, relativePath);
-    if (statSync(absolute, { throwIfNoEntry: false })?.isFile()) files.push(absolute);
-  }
-  return files;
+  if (statSync(compose, { throwIfNoEntry: false })?.isFile()) files.add(compose);
+  return [...files];
 }
 
 export function scanSupplyChainPolicy(root = process.cwd()) {

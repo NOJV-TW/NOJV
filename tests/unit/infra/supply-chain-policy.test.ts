@@ -22,6 +22,8 @@ describe("supply-chain policy scanner", () => {
     "valid-download.sh",
     "valid-images.yml",
     "valid-images.Dockerfile",
+    "valid-docker-runtime.ts",
+    "valid-docker-runtime.sh",
   ])("accepts %s", (name) => {
     expect(checkSupplyChainFile(name, fixture(name))).toEqual([]);
   });
@@ -45,6 +47,8 @@ describe("supply-chain policy scanner", () => {
     ["invalid-unversioned-download.sh", /literal version/],
     ["invalid-unpinned-image.yml", /manifest digest/],
     ["invalid-unpinned-base.Dockerfile", /manifest digest/],
+    ["invalid-docker-runtime.ts", /manifest digest/],
+    ["invalid-docker-runtime.sh", /manifest digest/],
   ])("rejects %s", (name, message) => {
     expect(checkSupplyChainFile(name, fixture(name)).map(({ message }) => message)).toEqual(
       expect.arrayContaining([expect.stringMatching(message)]),

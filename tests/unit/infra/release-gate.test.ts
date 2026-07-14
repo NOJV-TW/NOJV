@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import { validatePublicationAbsence } from "../../../scripts/validate-release-run.mjs";
+
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const workflowPath = join(repoRoot, ".github/workflows/build-images.yml");
 const validatorPath = join(repoRoot, "scripts/validate-release-run.mjs");
@@ -157,6 +159,40 @@ describe("monotonic deploy validator", () => {
   });
 });
 
+describe("immutable publication preflight", () => {
+  const releaseSha = "a".repeat(40);
+
+  it("accepts a SHA absent from the deploy ref and every runtime package", () => {
+    expect(() =>
+      validatePublicationAbsence({
+        releaseSha,
+        remoteDeployTags: [],
+        packageTags: {},
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects a completed same-SHA release before package publication", () => {
+    expect(() =>
+      validatePublicationAbsence({
+        releaseSha,
+        remoteDeployTags: [`refs/tags/nojv-deploy-${releaseSha}`],
+        packageTags: {},
+      }),
+    ).toThrow(/deploy tag already exists/u);
+  });
+
+  it("rejects a partially-published same-SHA package so its tag cannot move", () => {
+    expect(() =>
+      validatePublicationAbsence({
+        releaseSha,
+        remoteDeployTags: [],
+        packageTags: { "nojv-worker": [releaseSha] },
+      }),
+    ).toThrow(/GHCR tag already exists: nojv-worker/u);
+  });
+});
+
 describe("Build & Push Images workflow release structure", () => {
   const workflow = readFileSync(workflowPath, "utf8");
   const trigger = workflow.slice(workflow.indexOf("on:"), workflow.indexOf("concurrency:"));
@@ -198,9 +234,23 @@ describe("Build & Push Images workflow release structure", () => {
     expect(buildJob).toContain("persist-credentials: false");
     expect(buildJob).toContain("release_sha: ${{ steps.release.outputs.release_sha }}");
     expect(buildJob).toContain("image_tag: ${{ steps.release.outputs.image_tag }}");
-    expect(buildJob.match(/build nojv-/g)).toHaveLength(4);
+    expect(buildJob.match(/build\s+\w+\s+nojv-/gu)).toHaveLength(4);
     expect(buildJob).not.toContain(':main"');
     expect(buildJob).not.toContain("git rev-parse --short");
+  });
+
+  it("rejects deploy and GHCR same-SHA reruns before any package write", () => {
+    const preflight = buildJob.indexOf(
+      "run: node scripts/validate-release-run.mjs publication-absence",
+    );
+    expect(preflight).toBeGreaterThan(0);
+    expect(preflight).toBeLessThan(buildJob.indexOf("docker/setup-buildx-action"));
+    expect(preflight).toBeLessThan(buildJob.indexOf("docker/login-action"));
+    expect(preflight).toBeLessThan(buildJob.indexOf("docker buildx build"));
+    expect(buildJob).toContain("RELEASE_SHA: ${{ steps.release.outputs.release_sha }}");
+    expect(buildJob).toContain("GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}");
+    expect(buildJob).toContain('-t "${ref}:${TAG}"');
+    expect(buildJob).not.toMatch(/-t "\$\{ref\}:(?:latest|main|master)"/u);
   });
 
   it("keeps package and repository writes in separate least-privilege jobs", () => {

@@ -53,6 +53,14 @@ jobs:
           RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: node scripts/validate-release-run.mjs
 
+      - name: Reject an already-published immutable release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_API_ROOT: ${{ github.api_url }}
+          PACKAGE_OWNER: ${{ github.repository_owner }}
+          RELEASE_SHA: ${{ steps.release.outputs.release_sha }}
+        run: node scripts/validate-release-run.mjs publication-absence
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 

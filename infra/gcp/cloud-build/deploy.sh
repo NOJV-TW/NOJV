@@ -131,14 +131,57 @@ gcloud services enable \
   container.googleapis.com \
   --project "$PROJECT_ID"
 
-if ! gcloud artifacts repositories describe "$REPOSITORY" \
-  --project "$PROJECT_ID" \
-  --location "$REGION" >/dev/null 2>&1; then
+verify_repository_config() {
+  local config format immutable_tags extra
+  config="$(
+    gcloud artifacts repositories describe "$REPOSITORY" \
+      --project "$PROJECT_ID" \
+      --location "$REGION" \
+      --format='value(format,dockerConfig.immutableTags)'
+  )"
+  IFS=$'\t' read -r format immutable_tags extra <<< "$config"
+  if [[ "$format" != "DOCKER" ]] || [[ "$immutable_tags" != "True" ]] || [[ -n "$extra" ]]; then
+    echo "Artifact Registry repository ${REPOSITORY} must be a Docker repository with immutable tags; received format=${format:-none}, immutableTags=${immutable_tags:-none}." >&2
+    exit 1
+  fi
+}
+
+REPOSITORY_MATCHES="$(
+  gcloud artifacts repositories list \
+    --project "$PROJECT_ID" \
+    --location "$REGION" \
+    --filter="name=${REPOSITORY}" \
+    --format='value(name)'
+)"
+if [[ -n "$REPOSITORY_MATCHES" ]]; then
+  if [[ "$REPOSITORY_MATCHES" == *$'\n'* ]] ||
+    [[ "${REPOSITORY_MATCHES##*/}" != "$REPOSITORY" ]]; then
+    echo "Artifact Registry repository lookup was not exact for ${REPOSITORY}: ${REPOSITORY_MATCHES}" >&2
+    exit 1
+  fi
+  verify_repository_config
+else
   gcloud artifacts repositories create "$REPOSITORY" \
     --project "$PROJECT_ID" \
     --location "$REGION" \
-    --repository-format docker
+    --repository-format docker \
+    --immutable-tags
+  verify_repository_config
 fi
+
+IMAGE_REGISTRY="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}"
+for component in web worker sandbox migrator; do
+  existing_tag="$(
+    gcloud artifacts docker tags list "${IMAGE_REGISTRY}/${component}" \
+      --project "$PROJECT_ID" \
+      --filter="tag=${IMAGE_TAG}" \
+      --format='value(tag)'
+  )"
+  if [[ -n "$existing_tag" ]]; then
+    echo "Immutable Artifact Registry tag already exists: ${IMAGE_REGISTRY}/${component}:${IMAGE_TAG}" >&2
+    exit 1
+  fi
+done
 
 gcloud builds submit \
   --project "$PROJECT_ID" \
@@ -146,7 +189,6 @@ gcloud builds submit \
   --service-account "projects/${PROJECT_ID}/serviceAccounts/${CLOUD_BUILD_SERVICE_ACCOUNT}" \
   --substitutions "_REGION=${REGION},_REPOSITORY=${REPOSITORY},_IMAGE_TAG=${IMAGE_TAG},_SERVICE_ACCOUNT=${CLOUD_BUILD_SERVICE_ACCOUNT}"
 
-IMAGE_REGISTRY="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}"
 resolve_digest() {
   local component="$1"
   local digest
