@@ -1,17 +1,17 @@
 <script lang="ts">
   import { Maximize2, Minimize2, RotateCcw } from "@lucide/svelte";
-  import type { Language, ProblemType } from "@nojv/core";
+  import type { Language, ProblemType, SubmissionContext } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
   import { m } from "$lib/paraglide/messages.js";
   import LanguageSelector from "./LanguageSelector.svelte";
+  import { submissionContextBadge } from "./editor-bindings";
 
   interface Props {
     language: Language;
     allowedLanguages: Language[] | undefined;
     problemType: ProblemType;
     workspaceFiles: ProblemDetail["workspaceFiles"];
-    contestId?: string | undefined;
-    assessment?: { assessmentId: string; courseId: string } | undefined;
+    context: SubmissionContext;
     isFullscreen: boolean;
     onLanguageChange: (next: Language) => void;
     onAvailableChange: (available: Language[]) => void;
@@ -24,14 +24,15 @@
     allowedLanguages,
     problemType,
     workspaceFiles,
-    contestId,
-    assessment,
+    context,
     isFullscreen,
     onLanguageChange,
     onAvailableChange,
     onReset,
     onToggleFullscreen,
   }: Props = $props();
+
+  let contextBadge = $derived(submissionContextBadge(context));
 </script>
 
 <div
@@ -49,13 +50,13 @@
     />
   </div>
   <div class="flex items-center gap-2">
-    {#if contestId}
+    {#if contextBadge === "contest"}
       <span
         class="rounded-full bg-warning/15 px-2.5 py-0.5 text-caption font-medium text-warning"
       >
         {m.editor_contestMode()}
       </span>
-    {:else if assessment}
+    {:else if contextBadge === "assignment"}
       <span class="rounded-full bg-info/15 px-2.5 py-0.5 text-caption font-medium text-info">
         {m.editor_assignmentMode()}
       </span>

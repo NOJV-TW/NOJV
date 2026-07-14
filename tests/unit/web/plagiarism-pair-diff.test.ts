@@ -105,6 +105,9 @@ describe("PlagiarismPairDiff", () => {
       expect(target.querySelector("button")?.textContent).toContain(m.plagiarism_unmark());
       (target.querySelector("button") as HTMLButtonElement).click();
       await vi.waitFor(() => expect(target.textContent).toContain("pair A delete failed"));
+      expect(target.querySelector('[role="alert"]')?.textContent).toContain(
+        "pair A delete failed",
+      );
 
       component.setData(pairData("pair-b", "pair B"));
       await settle();

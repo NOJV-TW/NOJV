@@ -84,6 +84,7 @@ export default defineConfig({
           include: ["tests/unit/**/*.test.ts"],
           exclude: [
             "tests/unit/web/echart-lifecycle.test.ts",
+            "tests/unit/web/clarification-tab-error.test.ts",
             "tests/unit/web/plagiarism-pair-diff.test.ts",
             "tests/unit/web/plagiarism-pair-diff-load-error.test.ts",
             "tests/unit/web/toggle-switch.test.ts",
@@ -98,6 +99,7 @@ export default defineConfig({
           name: "component",
           include: [
             "tests/unit/web/echart-lifecycle.test.ts",
+            "tests/unit/web/clarification-tab-error.test.ts",
             "tests/unit/web/plagiarism-pair-diff.test.ts",
             "tests/unit/web/plagiarism-pair-diff-load-error.test.ts",
             "tests/unit/web/toggle-switch.test.ts",

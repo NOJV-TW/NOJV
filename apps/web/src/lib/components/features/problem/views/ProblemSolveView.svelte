@@ -90,6 +90,7 @@
     if (virtualContestId) return { type: "virtual", participationId: virtualContestId };
     return { type: "practice" };
   });
+  let workspaceIdentity = $derived(JSON.stringify([problem.id, submissionContext]));
 
   let endedNotice = $derived(
     endedKind === "assignment"
@@ -160,40 +161,35 @@
     {/if}
 
     <div class="flex min-h-0 min-w-0 flex-1 {hasSiblings ? 'pl-6' : ''}">
-      {#if problem.type === "special_env"}
-        <AdvancedModeWorkspace
-          context={submissionContext}
-          {allowedLanguages}
-          {assessment}
-          {backLink}
-          {canRejudge}
-          {canViewEditorials}
-          {postsEnabled}
-          {contestId}
-          {virtualContestId}
-          {dailyAttempts}
-          initialSubmissions={submissions}
-          {problem}
-          requiredPaths={problem.advancedRequiredPaths ?? []}
-          {testcaseSets}
-        />
-      {:else}
-        <ProblemWorkspace
-          context={submissionContext}
-          {allowedLanguages}
-          {assessment}
-          {backLink}
-          {canRejudge}
-          {canViewEditorials}
-          {postsEnabled}
-          {contestId}
-          {virtualContestId}
-          {dailyAttempts}
-          initialSubmissions={submissions}
-          {problem}
-          {testcaseSets}
-        />
-      {/if}
+      {#key workspaceIdentity}
+        {#if problem.type === "special_env"}
+          <AdvancedModeWorkspace
+            context={submissionContext}
+            {backLink}
+            {canRejudge}
+            {canViewEditorials}
+            {postsEnabled}
+            {dailyAttempts}
+            initialSubmissions={submissions}
+            {problem}
+            requiredPaths={problem.advancedRequiredPaths ?? []}
+            {testcaseSets}
+          />
+        {:else}
+          <ProblemWorkspace
+            context={submissionContext}
+            {allowedLanguages}
+            {backLink}
+            {canRejudge}
+            {canViewEditorials}
+            {postsEnabled}
+            {dailyAttempts}
+            initialSubmissions={submissions}
+            {problem}
+            {testcaseSets}
+          />
+        {/if}
+      {/key}
     </div>
   </div>
 </div>

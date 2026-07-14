@@ -83,7 +83,7 @@ export function createClarificationsStore(
       `/api/clarifications?${params.toString()}`,
       signal ? { signal } : undefined,
     );
-    if (!r.ok) return;
+    if (!r.ok) throw new Error(`Clarification load failed with HTTP ${String(r.status)}.`);
     const data = (await r.json()) as { items: ClarificationItem[] };
     if (signal?.aborted || revision !== initialRevision) return;
     items = data.items;

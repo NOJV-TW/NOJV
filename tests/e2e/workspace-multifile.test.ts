@@ -35,7 +35,15 @@ test.describe("Problem workspace UI", () => {
     const page = await context.newPage();
     await page.goto(`/problems/${PROBLEM_ID}`);
     await expect(page.getByRole("main")).toBeVisible();
-    await page.waitForTimeout(1500);
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          // @ts-expect-error monaco is attached to window in the editor host
+          const monaco: typeof import("monaco-editor") | undefined = globalThis.monaco;
+          return (monaco?.editor.getEditors().length ?? 0) > 0;
+        }),
+      )
+      .toBe(true);
 
     const stamp = `// e2e draft ${Date.now()}\n`;
     const typed = await page.evaluate((source) => {
@@ -49,31 +57,35 @@ test.describe("Problem workspace UI", () => {
       return true;
     }, stamp);
 
-    if (!typed) {
-      test.info().annotations.push({
-        type: "skip-reason",
-        description: "monaco editor not available in workspace; smoke-only",
-      });
-      await context.close();
-      return;
-    }
+    expect(typed, "Monaco editor must be available for the draft persistence test").toBe(true);
 
-    await page.waitForTimeout(1500);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          ({ problemId, expected }) => {
+            for (let index = 0; index < localStorage.length; index += 1) {
+              const key = localStorage.key(index);
+              if (!key?.startsWith(`nojv:draft:v1:practice:${problemId}:`)) continue;
+              const value = localStorage.getItem(key);
+              if (value?.includes(expected)) return true;
+            }
+            return false;
+          },
+          { problemId: PROBLEM_ID, expected: stamp.trim() },
+        ),
+      )
+      .toBe(true);
     await page.reload();
     await expect(page.getByRole("main")).toBeVisible();
-    await page.waitForTimeout(1500);
-
-    const restored = await page.evaluate(() => {
-      // @ts-expect-error monaco shimmed onto window in the editor host
-      const monaco: typeof import("monaco-editor") | undefined = globalThis.monaco;
-      if (!monaco) return null;
-      const editors = monaco.editor.getEditors();
-      return editors[0]?.getValue() ?? null;
-    });
-
-    if (restored !== null) {
-      expect(restored).toContain("e2e draft");
-    }
+    await expect
+      .poll(() =>
+        page.evaluate((expected) => {
+          // @ts-expect-error monaco shimmed onto window in the editor host
+          const monaco: typeof import("monaco-editor") | undefined = globalThis.monaco;
+          return monaco?.editor.getEditors()[0]?.getValue().includes(expected) ?? false;
+        }, stamp.trim()),
+      )
+      .toBe(true);
     await context.close();
   });
 });

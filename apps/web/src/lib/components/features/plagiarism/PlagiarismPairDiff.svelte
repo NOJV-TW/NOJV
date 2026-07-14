@@ -192,6 +192,7 @@
 
   {#if actionError}
     <div
+      role="alert"
       class="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-2 text-body-sm text-destructive"
     >
       {actionError}

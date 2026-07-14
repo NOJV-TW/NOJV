@@ -1,10 +1,12 @@
 import { z } from "zod";
+import type { SubmissionContext } from "@nojv/core";
 
 export type DraftContext =
   | { kind: "practice" }
   | { kind: "exam"; examId: string }
   | { kind: "assignment"; assignmentId: string }
-  | { kind: "contest"; contestId: string };
+  | { kind: "contest"; contestId: string }
+  | { kind: "virtual"; participationId: string };
 
 export interface DraftKey {
   context: DraftContext;
@@ -34,6 +36,8 @@ function contextSegment(context: DraftContext): string {
       return `assignment:${context.assignmentId}`;
     case "contest":
       return `contest:${context.contestId}`;
+    case "virtual":
+      return `virtual:${context.participationId}`;
   }
 }
 
@@ -111,39 +115,17 @@ export function clearDraft(key: DraftKey): void {
   localStorage.removeItem(buildDraftKey(key));
 }
 
-const ROUTE_PATTERNS: {
-  prefix: string;
-  build: (params: Record<string, string | undefined>) => DraftContext | null;
-}[] = [
-  {
-    prefix: "/(app)/exams/[examId]/problems/[problemId]",
-    build: (params) => (params.examId ? { kind: "exam", examId: params.examId } : null),
-  },
-  {
-    prefix: "/(app)/assignments/[assignmentId]/problems/[problemId]",
-    build: (params) =>
-      params.assignmentId ? { kind: "assignment", assignmentId: params.assignmentId } : null,
-  },
-  {
-    prefix: "/(app)/contests/[contestId]/problems/[problemId]",
-    build: (params) =>
-      params.contestId ? { kind: "contest", contestId: params.contestId } : null,
-  },
-  {
-    prefix: "/(app)/problems/[problemId]",
-    build: () => ({ kind: "practice" }),
-  },
-];
-
-export function inferDraftContext(
-  routeId: string | null | undefined,
-  params: Record<string, string | undefined>,
-): DraftContext {
-  if (!routeId) return { kind: "practice" };
-  for (const pattern of ROUTE_PATTERNS) {
-    if (routeId.startsWith(pattern.prefix)) {
-      return pattern.build(params) ?? { kind: "practice" };
-    }
+export function draftContextFromSubmissionContext(context: SubmissionContext): DraftContext {
+  switch (context.type) {
+    case "practice":
+      return { kind: "practice" };
+    case "exam":
+      return { kind: "exam", examId: context.examId };
+    case "assignment":
+      return { kind: "assignment", assignmentId: context.assessmentId };
+    case "contest":
+      return { kind: "contest", contestId: context.contestId };
+    case "virtual":
+      return { kind: "virtual", participationId: context.participationId };
   }
-  return { kind: "practice" };
 }

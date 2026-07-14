@@ -7,6 +7,7 @@ import type {
   ProblemStatus,
   ProblemType,
   ProblemVisibility,
+  SubmissionContext,
   SubmissionResult,
 } from "@nojv/core";
 
@@ -16,7 +17,7 @@ export interface ProblemSubmissionEntry {
   result?: SubmissionResult;
   sourceCode?: string;
   submittedAt: string;
-  context?: "practice" | "assignment" | "contest" | "exam";
+  context?: SubmissionContext["type"];
 }
 
 export interface ProblemTestcaseSetSummary {

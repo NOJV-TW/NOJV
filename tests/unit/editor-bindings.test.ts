@@ -1,13 +1,15 @@
 /** @vitest-environment jsdom */
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   DEFAULT_PANEL_WIDTH,
   MAX_PANEL_WIDTH,
   MIN_PANEL_WIDTH,
   clampPanelWidth,
+  createDocumentMouseDrag,
   persistPanelWidth,
   readPanelWidth,
+  submissionContextBadge,
 } from "$lib/components/features/problem/editors/editor-bindings";
 
 const PANEL_WIDTH_KEY = "nojv:editor:panelWidth";
@@ -60,5 +62,47 @@ describe("persistPanelWidth", () => {
   it("stores a clamped value", () => {
     persistPanelWidth(3);
     expect(localStorage.getItem(PANEL_WIDTH_KEY)).toBe(String(MIN_PANEL_WIDTH));
+  });
+});
+
+describe("createDocumentMouseDrag", () => {
+  it("restores body state and removes document listeners when disposed mid-drag", () => {
+    document.body.style.cursor = "wait";
+    document.body.style.userSelect = "text";
+    const onMove = vi.fn();
+    const onEnd = vi.fn();
+    const drag = createDocumentMouseDrag({
+      cursor: "col-resize",
+      onStart: vi.fn(),
+      onMove,
+      onEnd,
+    });
+
+    drag.start(new MouseEvent("mousedown"));
+    document.dispatchEvent(new MouseEvent("mousemove", { clientX: 10 }));
+    expect(onMove).toHaveBeenCalledOnce();
+    expect(document.body.style.cursor).toBe("col-resize");
+
+    drag.dispose();
+    document.dispatchEvent(new MouseEvent("mousemove", { clientX: 20 }));
+    expect(onMove).toHaveBeenCalledOnce();
+    expect(onEnd).toHaveBeenCalledOnce();
+    expect(document.body.style.cursor).toBe("wait");
+    expect(document.body.style.userSelect).toBe("text");
+  });
+});
+
+describe("submissionContextBadge", () => {
+  it.each([
+    [{ type: "practice" } as const, null],
+    [{ type: "exam", examId: "exam_1" } as const, null],
+    [
+      { type: "assignment", assessmentId: "assignment_1", courseId: "course_1" } as const,
+      "assignment",
+    ],
+    [{ type: "contest", contestId: "contest_1" } as const, "contest"],
+    [{ type: "virtual", participationId: "virtual_1" } as const, "contest"],
+  ])("derives display state from canonical context %o", (context, expected) => {
+    expect(submissionContextBadge(context)).toBe(expected);
   });
 });
