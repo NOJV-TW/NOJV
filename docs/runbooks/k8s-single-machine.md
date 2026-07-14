@@ -16,6 +16,16 @@ The spectrum is: **single-node k3s** (this runbook) → **multi-node k3s**
 (`k3s agent` join, [§9](#9-scaling-from-one-node-to-many)) → **GKE** (elastic
 node pools).
 
+The default in-cluster MinIO configuration creates the dedicated
+`nojv-minio-retain` StorageClass with `reclaimPolicy: Retain`. Both that class
+and the MinIO PVC carry Helm's `keep` policy, so disabling the value or
+uninstalling the release does not delete the claim or its bound volume. Before
+first production use, verify the live class with
+`kubectl get storageclass nojv-minio-retain -o jsonpath='{.reclaimPolicy}'`; it
+must print `Retain`. Retention is not an off-host backup: configure and
+restore-test the separate mirror before treating the installation as
+production-safe.
+
 ## ⚠️ Hard security requirement: a NetworkPolicy-enforcing CNI
 
 > **k3s's default flannel CNI does NOT enforce NetworkPolicy.** On the

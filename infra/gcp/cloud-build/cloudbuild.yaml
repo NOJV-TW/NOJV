@@ -1,7 +1,6 @@
 substitutions:
   _REGION: asia-east1
   _REPOSITORY: nojv
-  _IMAGE_TAG: latest
 
 steps:
   - name: gcr.io/cloud-builders/docker:latest@sha256:6c9b879570fe1c63a78af0b575ca5ac52f6c2c7e25f76f91ae1f2d6cb2a872ee
@@ -41,3 +40,8 @@ images:
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/worker:${_IMAGE_TAG}
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/sandbox:${_IMAGE_TAG}
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/migrator:${_IMAGE_TAG}
+
+serviceAccount: projects/$PROJECT_ID/serviceAccounts/${_SERVICE_ACCOUNT}
+
+options:
+  logging: CLOUD_LOGGING_ONLY

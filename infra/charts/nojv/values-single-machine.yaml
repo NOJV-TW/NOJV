@@ -46,6 +46,11 @@ redis:
 storage:
   inCluster: true
   minio:
+    storageClass:
+      create: true
+      name: nojv-minio-retain
+      provisioner: rancher.io/local-path
+      volumeBindingMode: WaitForFirstConsumer
     # DATA-SAFETY: in-cluster MinIO holds the ONLY copy of student submission
     # sources (see packages/storage keys). Mirror is OFF until an off-host R2/S3
     # Secret exists. To activate (see docs/runbooks/backup-restore.md):

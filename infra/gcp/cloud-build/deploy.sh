@@ -18,63 +18,133 @@ require_env() {
   fi
 }
 
-resolve_image_tag() {
-  if [[ -n "${IMAGE_TAG:-}" ]]; then
-    printf '%s\n' "$IMAGE_TAG"
-    return
-  fi
-
-  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    local short_sha=""
-    local dirty_suffix=""
-
-    short_sha="$(git rev-parse --short=12 HEAD 2>/dev/null || true)"
-    if [[ -n "$short_sha" ]]; then
-      if [[ -n "$(git status --short --untracked-files=normal 2>/dev/null)" ]]; then
-        dirty_suffix="-dirty-$(date -u +%Y%m%d%H%M%S)"
-      fi
-
-      printf '%s%s\n' "$short_sha" "$dirty_suffix"
-      return
-    fi
-  fi
-
-  date -u +%Y%m%d%H%M%S
-}
-
 require_command gcloud
 require_command helm
 require_command kubectl
 
-if ! gcloud auth list --filter=status:ACTIVE --format="value(account)" | grep -q .; then
-  echo "No active gcloud account. Run 'gcloud auth login' first." >&2
+PROJECT_ID="${PROJECT_ID:-}"
+REGION="${REGION:-}"
+REPOSITORY="${REPOSITORY:-}"
+RELEASE_NAME="${RELEASE_NAME:-}"
+IMAGE_TAG="${IMAGE_TAG:-}"
+CLUSTER_NAME="${CLUSTER_NAME:-}"
+CLUSTER_LOCATION="${CLUSTER_LOCATION:-}"
+DEPLOY_PRINCIPAL="${DEPLOY_PRINCIPAL:-}"
+CLOUD_BUILD_SERVICE_ACCOUNT="${CLOUD_BUILD_SERVICE_ACCOUNT:-}"
+K8S_NAMESPACE="${K8S_NAMESPACE:-}"
+
+require_env PROJECT_ID
+require_env REGION
+require_env REPOSITORY
+require_env RELEASE_NAME
+require_env IMAGE_TAG
+require_env CLUSTER_NAME
+require_env CLUSTER_LOCATION
+require_env DEPLOY_PRINCIPAL
+require_env CLOUD_BUILD_SERVICE_ACCOUNT
+require_env K8S_NAMESPACE
+
+if [[ ! "$PROJECT_ID" =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ ]]; then
+  echo "PROJECT_ID is not a valid Google Cloud project ID: $PROJECT_ID" >&2
+  exit 1
+fi
+if [[ ! "$IMAGE_TAG" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] ||
+  [[ "$IMAGE_TAG" =~ ^(latest|main|master|local)$ ]]; then
+  echo "IMAGE_TAG must be an explicit immutable release tag, not a mutable branch tag." >&2
+  exit 1
+fi
+if [[ ! "$CLOUD_BUILD_SERVICE_ACCOUNT" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.iam\.gserviceaccount\.com$ ]]; then
+  echo "CLOUD_BUILD_SERVICE_ACCOUNT must be a full service-account email." >&2
   exit 1
 fi
 
-PROJECT_ID="${PROJECT_ID:-}"
-REGION="${REGION:-asia-east1}"
-REPOSITORY="${REPOSITORY:-nojv}"
-RELEASE_NAME="${RELEASE_NAME:-nojv}"
-IMAGE_TAG="$(resolve_image_tag)"
+ACTIVE_ACCOUNT="$(gcloud auth list --filter=status:ACTIVE --format='value(account)')"
+if [[ "$ACTIVE_ACCOUNT" != "$DEPLOY_PRINCIPAL" ]]; then
+  echo "Expected active gcloud account $DEPLOY_PRINCIPAL; received ${ACTIVE_ACCOUNT:-none}." >&2
+  exit 1
+fi
 
-require_env PROJECT_ID
+ACTUAL_PROJECT_ID="$(
+  gcloud projects describe "$PROJECT_ID" \
+    --project "$PROJECT_ID" \
+    --format='value(projectId)'
+)"
+if [[ "$ACTUAL_PROJECT_ID" != "$PROJECT_ID" ]]; then
+  echo "Google Cloud project identity mismatch: expected $PROJECT_ID; received ${ACTUAL_PROJECT_ID:-none}." >&2
+  exit 1
+fi
 
-gcloud config set project "$PROJECT_ID" >/dev/null
+ACTUAL_BUILD_SERVICE_ACCOUNT="$(
+  gcloud iam service-accounts describe "$CLOUD_BUILD_SERVICE_ACCOUNT" \
+    --project "$PROJECT_ID" \
+    --format='value(email)'
+)"
+if [[ "$ACTUAL_BUILD_SERVICE_ACCOUNT" != "$CLOUD_BUILD_SERVICE_ACCOUNT" ]]; then
+  echo "Cloud Build service account mismatch: expected $CLOUD_BUILD_SERVICE_ACCOUNT; received ${ACTUAL_BUILD_SERVICE_ACCOUNT:-none}." >&2
+  exit 1
+fi
+
+CLUSTER_IDENTITY="$(
+  gcloud container clusters describe "$CLUSTER_NAME" \
+    --project "$PROJECT_ID" \
+    --location "$CLUSTER_LOCATION" \
+    --format='value(name,location,endpoint,masterAuth.clusterCaCertificate)'
+)"
+IFS=$'\t' read -r ACTUAL_CLUSTER_NAME ACTUAL_CLUSTER_LOCATION CLUSTER_ENDPOINT CLUSTER_CA <<< "$CLUSTER_IDENTITY"
+if [[ "$ACTUAL_CLUSTER_NAME" != "$CLUSTER_NAME" ]] ||
+  [[ "$ACTUAL_CLUSTER_LOCATION" != "$CLUSTER_LOCATION" ]] ||
+  [[ -z "$CLUSTER_ENDPOINT" ]] ||
+  [[ -z "$CLUSTER_CA" ]]; then
+  echo "GKE cluster identity mismatch: expected ${CLUSTER_NAME}@${CLUSTER_LOCATION}; received ${ACTUAL_CLUSTER_NAME:-none}@${ACTUAL_CLUSTER_LOCATION:-none}." >&2
+  exit 1
+fi
+
+KUBECONFIG_DIR="$(mktemp -d)"
+export KUBECONFIG="${KUBECONFIG_DIR}/config"
+cleanup_kubeconfig() {
+  rm -rf "$KUBECONFIG_DIR"
+}
+trap cleanup_kubeconfig EXIT
+
+gcloud container clusters get-credentials "$CLUSTER_NAME" \
+  --project "$PROJECT_ID" \
+  --location "$CLUSTER_LOCATION"
+
+KUBE_CONTEXT="$(kubectl config current-context)"
+if [[ -z "$KUBE_CONTEXT" ]]; then
+  echo "The isolated kubeconfig has no current context." >&2
+  exit 1
+fi
+KUBE_CLUSTER_IDENTITY="$(
+  kubectl config view --raw --minify \
+    -o 'jsonpath={.clusters[0].cluster.server}{"|"}{.clusters[0].cluster.certificate-authority-data}'
+)"
+IFS='|' read -r KUBE_SERVER KUBE_CA <<< "$KUBE_CLUSTER_IDENTITY"
+if [[ "$KUBE_SERVER" != "https://${CLUSTER_ENDPOINT}" ]] || [[ "$KUBE_CA" != "$CLUSTER_CA" ]]; then
+  echo "Kubernetes context does not match the verified GKE endpoint and CA." >&2
+  exit 1
+fi
 
 gcloud services enable \
   artifactregistry.googleapis.com \
   cloudbuild.googleapis.com \
-  container.googleapis.com
+  container.googleapis.com \
+  --project "$PROJECT_ID"
 
-if ! gcloud artifacts repositories describe "$REPOSITORY" --location "$REGION" >/dev/null 2>&1; then
+if ! gcloud artifacts repositories describe "$REPOSITORY" \
+  --project "$PROJECT_ID" \
+  --location "$REGION" >/dev/null 2>&1; then
   gcloud artifacts repositories create "$REPOSITORY" \
+    --project "$PROJECT_ID" \
     --location "$REGION" \
     --repository-format docker
 fi
 
 gcloud builds submit \
+  --project "$PROJECT_ID" \
   --config infra/gcp/cloud-build/cloudbuild.yaml \
-  --substitutions "_REGION=${REGION},_REPOSITORY=${REPOSITORY},_IMAGE_TAG=${IMAGE_TAG}"
+  --service-account "projects/${PROJECT_ID}/serviceAccounts/${CLOUD_BUILD_SERVICE_ACCOUNT}" \
+  --substitutions "_REGION=${REGION},_REPOSITORY=${REPOSITORY},_IMAGE_TAG=${IMAGE_TAG},_SERVICE_ACCOUNT=${CLOUD_BUILD_SERVICE_ACCOUNT}"
 
 IMAGE_REGISTRY="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}"
 resolve_digest() {
@@ -83,6 +153,7 @@ resolve_digest() {
   digest="$(
     gcloud artifacts docker images describe \
       "${IMAGE_REGISTRY}/${component}:${IMAGE_TAG}" \
+      --project "$PROJECT_ID" \
       --format='value(image_summary.digest)'
   )"
   if [[ ! "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
@@ -102,12 +173,10 @@ MIGRATOR_DIGEST="$(resolve_digest migrator)"
 # Secret from the chart's canonical example BEFORE the first deploy:
 #   cp infra/charts/nojv/secret.example.yaml secret.local.yaml
 #   kubectl -n nojv apply -f secret.local.yaml  # after filling every required value
-# kubectl must already be pointed at the target GKE cluster, e.g.:
-#   gcloud container clusters get-credentials <cluster> --region "$REGION"
-
 helm upgrade --install "$RELEASE_NAME" infra/charts/nojv \
   -f infra/charts/nojv/values-gke.yaml \
-  --namespace nojv \
+  --kube-context "$KUBE_CONTEXT" \
+  --namespace "$K8S_NAMESPACE" \
   --set image.registry="${REGION}-docker.pkg.dev" \
   --set image.repositoryPrefix="${PROJECT_ID}/${REPOSITORY}" \
   --set image.tag="${IMAGE_TAG}" \
@@ -119,6 +188,9 @@ helm upgrade --install "$RELEASE_NAME" infra/charts/nojv \
 
 echo "Deployment completed:"
 echo "  release: ${RELEASE_NAME}"
+echo "  cluster: ${CLUSTER_NAME}@${CLUSTER_LOCATION}"
+echo "  principal: ${DEPLOY_PRINCIPAL}"
+echo "  cloud build service account: ${CLOUD_BUILD_SERVICE_ACCOUNT}"
 echo "  image tag: ${IMAGE_TAG}"
 echo "  registry: ${IMAGE_REGISTRY}"
 echo "  web digest: ${WEB_DIGEST}"

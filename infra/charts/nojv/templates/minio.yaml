@@ -10,6 +10,8 @@ kind: PersistentVolumeClaim
 metadata:
   name: {{ include "nojv.fullname" . }}-minio
   namespace: {{ include "nojv.namespace" . }}
+  annotations:
+    "helm.sh/resource-policy": keep
   labels:
     {{- include "nojv.labels" . | nindent 4 }}
     app.kubernetes.io/component: minio
@@ -19,9 +21,7 @@ spec:
   resources:
     requests:
       storage: {{ .Values.storage.minio.storageSize }}
-  {{- with .Values.storage.minio.storageClass }}
-  storageClassName: {{ . }}
-  {{- end }}
+  storageClassName: {{ required "storage.minio.storageClass.name is required for in-cluster MinIO" .Values.storage.minio.storageClass.name }}
 ---
 apiVersion: apps/v1
 kind: Deployment

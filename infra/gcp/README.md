@@ -41,19 +41,18 @@ namespace guardrails are all rendered by the `nojv` Helm chart at
 ## Required Environment Variables For `deploy.sh`
 
 - `PROJECT_ID`
-- `DATABASE_URL`
-- `REDIS_URL`
-- `BETTER_AUTH_SECRET`
-- `BETTER_AUTH_URL`
-- `S3_ENDPOINT`
-- `S3_ACCESS_KEY`
-- `S3_SECRET_KEY`
-- `S3_BUCKET`
-- `S3_REGION`
-- `REGION` optional, default `asia-east1`
-- `REPOSITORY` optional, default `nojv`
-- `SERVICE_PREFIX` optional, default `nojv`
-- `IMAGE_TAG` optional, derived from git state when omitted
+- `REGION` (Artifact Registry region)
+- `REPOSITORY`
+- `RELEASE_NAME`
+- `IMAGE_TAG` (an explicit release tag; mutable `latest`/`main`/`local` tags are rejected)
+- `CLUSTER_NAME`
+- `CLUSTER_LOCATION`
+- `DEPLOY_PRINCIPAL` (must exactly match the active `gcloud` account)
+- `CLOUD_BUILD_SERVICE_ACCOUNT` (full service-account email)
+- `K8S_NAMESPACE`
+
+Runtime credentials are not accepted by this script. Create the chart's runtime
+Secret separately from `infra/charts/nojv/secret.example.yaml` before deploy.
 
 ## Deployment Flow
 
@@ -61,10 +60,13 @@ namespace guardrails are all rendered by the `nojv` Helm chart at
 2. Export the required environment variables.
 3. Run `bash infra/gcp/cloud-build/deploy.sh`.
 4. The script:
+   - verifies the active principal, project, Cloud Build identity, GKE resource,
+     endpoint, and CA before any cloud or cluster mutation
+   - obtains credentials into a temporary isolated kubeconfig and passes its
+     verified context explicitly to Helm
    - enables required GCP APIs
    - ensures the Artifact Registry repository exists
-   - creates or updates the required secrets
-   - submits Cloud Build with an explicit image tag
+   - submits Cloud Build under the required service account and explicit image tag
    - reads each pushed tag's digest back from Artifact Registry
    - deploys the four immutable `tag@sha256` references through Helm
 5. Verify the Helm release and rollout reported by the script.

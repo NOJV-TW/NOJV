@@ -384,18 +384,29 @@ through Helm.
 
 ```bash
 export PROJECT_ID=...
-# Optional email (school verification / 2FA / OTP) and OAuth go in the runtime secret, not here.
+export REGION=asia-east1
+export REPOSITORY=nojv
+export RELEASE_NAME=nojv
+export IMAGE_TAG=release-20260715
+export CLUSTER_NAME=nojv-prod
+export CLUSTER_LOCATION=asia-east1
+export DEPLOY_PRINCIPAL=deployer@example.com
+export CLOUD_BUILD_SERVICE_ACCOUNT=cloud-build@PROJECT_ID.iam.gserviceaccount.com
+export K8S_NAMESPACE=nojv
 bash infra/gcp/cloud-build/deploy.sh
 ```
 
-The image tag defaults to the short git SHA (with a `-dirty-<timestamp>` suffix
-when the worktree is dirty) — override with `IMAGE_TAG=...` for release tags.
-The tag remains readable metadata; the digest is what makes the deployment
-immutable. To run only the build step manually:
+The script has no ambient project, cluster, principal, kube-context, or image-tag
+fallback. It validates all five identities before enabling APIs, creating a
+repository, submitting a build, or running Helm. The tag remains readable
+metadata; the digest is what makes the deployment immutable. To run only the
+build step manually, keep the same explicit project and service account:
 
 ```bash
-gcloud builds submit --config infra/gcp/cloud-build/cloudbuild.yaml \
-  --substitutions _REGION=asia-east1,_REPOSITORY=nojv,_IMAGE_TAG=release-20260312
+gcloud builds submit --project "$PROJECT_ID" \
+  --config infra/gcp/cloud-build/cloudbuild.yaml \
+  --service-account "projects/${PROJECT_ID}/serviceAccounts/${CLOUD_BUILD_SERVICE_ACCOUNT}" \
+  --substitutions _REGION=asia-east1,_REPOSITORY=nojv,_IMAGE_TAG=release-20260715,_SERVICE_ACCOUNT="${CLOUD_BUILD_SERVICE_ACCOUNT}"
 ```
 
 ### GKE Rollout
