@@ -2,37 +2,87 @@ name: Image Build
 
 on:
   pull_request:
-    paths:
-      - "infra/docker/**"
-      - "pnpm-lock.yaml"
-      - "**/package.json"
-      - "docker-compose.yml"
-      - "tsconfig.base.json"
-      - "turbo.json"
-      - "pnpm-workspace.yaml"
 
 concurrency:
   group: image-build-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
+  classify:
+    name: Classify image impact
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      has_images: ${{ steps.impact.outputs.has_images }}
+      matrix: ${{ steps.impact.outputs.matrix }}
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Classify affected images
+        id: impact
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/classify-image-impact.mjs
+
   build:
-    name: Build deployable images
+    name: Build ${{ matrix.image }} image
+    needs: classify
+    if: needs.classify.outputs.has_images == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.classify.outputs.matrix) }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Build runtime images
+      - name: Build runtime image
+        env:
+          DOCKERFILE: ${{ matrix.dockerfile }}
+          TAG: ${{ matrix.tag }}
+        run: docker build -f "$DOCKERFILE" -t "$TAG" .
+
+  required-image-build:
+    name: Required image build
+    needs: [classify, build]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify image build result
+        env:
+          CLASSIFY_RESULT: ${{ needs.classify.result }}
+          HAS_IMAGES: ${{ needs.classify.outputs.has_images }}
+          BUILD_RESULT: ${{ needs.build.result }}
         run: |
-          docker build -f infra/docker/web.Dockerfile -t nojv-web .
-          docker build -f infra/docker/worker.Dockerfile -t nojv-worker .
-          docker build -f infra/docker/migrator.Dockerfile -t nojv-migrator .
-          docker build -f infra/docker/sandbox-runner.Dockerfile -t nojv-sandbox .
+          set -euo pipefail
+          if [[ "$CLASSIFY_RESULT" != "success" ]]; then
+            echo "Image impact classification did not succeed: $CLASSIFY_RESULT" >&2
+            exit 1
+          fi
+          if [[ "$HAS_IMAGES:$BUILD_RESULT" == "true:success" ]]; then
+            exit 0
+          fi
+          if [[ "$HAS_IMAGES:$BUILD_RESULT" == "false:skipped" ]]; then
+            exit 0
+          fi
+          echo "Invalid image build state: has_images=$HAS_IMAGES build=$BUILD_RESULT" >&2
+          exit 1

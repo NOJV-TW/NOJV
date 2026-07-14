@@ -23,6 +23,7 @@
     "unit/domain/**/*.ts",
     "unit/core/**/*.ts",
     "unit/infra/env-manifest-parity.test.ts",
+    "unit/infra/image-impact.test.ts",
     "unit/infra/k8s-integration-target.test.ts",
     "unit/infra/migration-index-safety.test.ts",
     "unit/infra/release-gate.test.ts",
