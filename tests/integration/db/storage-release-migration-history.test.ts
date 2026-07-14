@@ -123,6 +123,27 @@ describe("storage release migration history", () => {
         cwd: repoRoot,
         env: { ...process.env, DATABASE_URL: url },
       });
+      expect(() => migrate(url)).toThrow();
+      expect(cutoverCommand(url, "status")).toBe("recoverable");
+      execFileSync(
+        "pnpm",
+        [
+          "--filter",
+          "@nojv/db",
+          "exec",
+          "prisma",
+          "migrate",
+          "resolve",
+          "--rolled-back",
+          contractMigration,
+        ],
+        { cwd: repoRoot, env: { ...process.env, DATABASE_URL: url } },
+      );
+      expect(cutoverCommand(url, "status")).toBe("pending");
+      execFileSync("sh", ["packages/db/prisma/scripts/deploy-expand.sh"], {
+        cwd: repoRoot,
+        env: { ...process.env, DATABASE_URL: url },
+      });
 
       await migrationPrisma.$transaction(async (transaction) => {
         await transaction.$executeRawUnsafe(`
@@ -158,21 +179,20 @@ describe("storage release migration history", () => {
       expect(cutoverCommand(url, "status")).toBe("applied");
 
       const history = await migrationPrisma.$queryRaw<
-        { migration_name: string; finished: boolean; rolled_back: boolean }[]
+        { applied: bigint; recovered: bigint; unresolved: bigint }[]
       >`
         SELECT
-          migration_name,
-          finished_at IS NOT NULL AS finished,
-          rolled_back_at IS NOT NULL AS rolled_back
+          count(*) FILTER (
+            WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
+          ) AS applied,
+          count(*) FILTER (WHERE rolled_back_at IS NOT NULL) AS recovered,
+          count(*) FILTER (
+            WHERE finished_at IS NULL AND rolled_back_at IS NULL
+          ) AS unresolved
         FROM "_prisma_migrations"
         WHERE migration_name = ${contractMigration}
-           OR finished_at IS NULL
-           OR rolled_back_at IS NOT NULL
-        ORDER BY migration_name
       `;
-      expect(history).toEqual([
-        { migration_name: contractMigration, finished: true, rolled_back: false },
-      ]);
+      expect(history).toEqual([{ applied: 1n, recovered: 1n, unresolved: 0n }]);
       expect(migrate(url)).toContain("No pending migrations to apply");
 
       const legacyColumns = await migrationPrisma.$queryRaw<{ count: bigint }[]>`

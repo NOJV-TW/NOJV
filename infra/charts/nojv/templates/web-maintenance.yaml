@@ -22,7 +22,7 @@ metadata:
     {{- include "nojv.labels" . | nindent 4 }}
     app.kubernetes.io/component: web-maintenance
   annotations:
-    helm.sh/hook: pre-install,pre-upgrade,post-upgrade
+    helm.sh/hook: pre-install,pre-upgrade,post-upgrade,post-rollback
     helm.sh/hook-weight: "-30"
     helm.sh/hook-delete-policy: before-hook-creation
 ---
@@ -35,7 +35,7 @@ metadata:
     {{- include "nojv.labels" . | nindent 4 }}
     app.kubernetes.io/component: web-maintenance
   annotations:
-    helm.sh/hook: pre-install,pre-upgrade,post-upgrade
+    helm.sh/hook: pre-install,pre-upgrade,post-upgrade,post-rollback
     helm.sh/hook-weight: "-29"
     helm.sh/hook-delete-policy: before-hook-creation
 rules:
@@ -78,7 +78,7 @@ metadata:
     {{- include "nojv.labels" . | nindent 4 }}
     app.kubernetes.io/component: web-maintenance
   annotations:
-    helm.sh/hook: pre-install,pre-upgrade,post-upgrade
+    helm.sh/hook: pre-install,pre-upgrade,post-upgrade,post-rollback
     helm.sh/hook-weight: "-28"
     helm.sh/hook-delete-policy: before-hook-creation
 roleRef:
@@ -99,7 +99,7 @@ metadata:
     {{- include "nojv.labels" . | nindent 4 }}
     app.kubernetes.io/component: web-maintenance
   annotations:
-    helm.sh/hook: post-upgrade
+    helm.sh/hook: post-upgrade,post-rollback
     helm.sh/hook-weight: "10"
     helm.sh/hook-delete-policy: before-hook-creation
 spec:

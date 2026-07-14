@@ -622,10 +622,12 @@ hook** (`infra/charts/nojv/templates/migrator.job.yaml`). Installs apply the ful
 history. Upgrades stage expand migrations first; for the versioned-storage
 contract the hook then disables autoscalers, drains web plus both Temporal
 workers, performs and verifies the S3 backfill, runs a database preflight, and
-only then exposes the atomic contract migration. A failure before the contract
-restores the prior workloads. Once the contract may have committed, ambiguous
-or failed state stays in maintenance; the post-upgrade readiness hook releases
-the new workloads only after all three Deployments are healthy.
+only then exposes the atomic contract migration. A failure before backfill
+restores the prior workloads. Once backfill begins, any failure stays in
+maintenance because restoring legacy writers could invalidate the immutable
+pointers. The chart keeps all three new Deployments and their autoscalers in
+maintenance through Helm's apply/wait phase; the post-upgrade hook explicitly
+starts and verifies the new workloads before enabling autoscaling.
 
 ## Backup Automation
 

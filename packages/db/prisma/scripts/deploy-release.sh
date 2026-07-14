@@ -50,8 +50,9 @@ fi
 
 state_dir="$(mktemp -d "${TMPDIR:-/tmp}/nojv-release-cutover.XXXXXX")"
 maintenance_started=false
-contract_attempted=false
+restore_safe=true
 child_pid=""
+contract_migration=20260716000012_versioned_blob_pointers_contract
 
 kubectl_ns() {
   kubectl --request-timeout="${KUBECTL_REQUEST_TIMEOUT_SECONDS}s" \
@@ -139,21 +140,10 @@ cleanup() {
   status=$?
   trap - EXIT
   if [ "$status" -ne 0 ] && [ "$maintenance_started" = true ]; then
-    restore=false
-    if [ "$contract_attempted" = false ]; then
-      restore=true
-    else
-      observed_contract_status="$(timeout "${STATUS_TIMEOUT_SECONDS}s" pnpm exec node --import tsx \
-        prisma/scripts/storage-pointer-cutover.ts status 2>/dev/null)" || \
-        observed_contract_status=unknown
-      case "$observed_contract_status" in
-        pending) restore=true ;;
-        applied) echo "Storage contract is applied; keeping workloads in maintenance." >&2 ;;
-        *) echo "Cannot prove storage contract state; keeping workloads in maintenance." >&2 ;;
-      esac
-    fi
-    if [ "$restore" = true ]; then
+    if [ "$restore_safe" = true ]; then
       restore_workloads || echo "CRITICAL: workload restoration failed" >&2
+    else
+      echo "Storage compatibility may have changed; keeping workloads in maintenance." >&2
     fi
   fi
   rm -rf "$state_dir"
@@ -172,11 +162,24 @@ terminate() {
 trap 'terminate 130' INT
 trap 'terminate 143' TERM
 
-contract_status="$(timeout "${STATUS_TIMEOUT_SECONDS}s" pnpm exec node --import tsx \
-  prisma/scripts/storage-pointer-cutover.ts status)"
+read_contract_status() {
+  timeout "${STATUS_TIMEOUT_SECONDS}s" pnpm exec node --import tsx \
+    prisma/scripts/storage-pointer-cutover.ts status
+}
+
+contract_status="$(read_contract_status)"
 case "$contract_status" in
   applied) ;;
   pending) run_guarded sh prisma/scripts/deploy-expand.sh ;;
+  recoverable)
+    run_guarded pnpm exec prisma migrate resolve --rolled-back "$contract_migration"
+    contract_status="$(read_contract_status)"
+    [ "$contract_status" = pending ] || {
+      echo "Storage contract history recovery did not restore a pending state" >&2
+      exit 1
+    }
+    run_guarded sh prisma/scripts/deploy-expand.sh
+    ;;
   unsafe) ;;
   *) echo "Unexpected storage contract status: $contract_status" >&2; exit 1 ;;
 esac
@@ -239,12 +242,16 @@ while ! assert_drained "$WEB_DEPLOYMENT" "$WEB_POD_SELECTOR" || \
 done
 
 if [ "$contract_status" = unsafe ]; then
-  contract_attempted=true
+  restore_safe=false
   echo "Cannot prove the legacy storage schema is intact; keeping workloads in maintenance." >&2
   exit 1
 fi
 
 if [ "$contract_status" = pending ]; then
+  # Backfill mutates database rows that old code can subsequently overwrite.
+  # From this point onward, restoring the old workloads could silently lose
+  # rollback-window writes when the immutable pointers are contracted later.
+  restore_safe=false
   run_guarded pnpm exec node --import tsx prisma/scripts/storage-pointer-cutover.ts backfill
   run_guarded pnpm exec node --import tsx prisma/scripts/storage-pointer-cutover.ts verify
   run_guarded pnpm exec node --import tsx prisma/scripts/storage-pointer-cutover.ts preflight
@@ -262,7 +269,7 @@ if [ "$JUDGE_KEDA_ENABLED" = true ]; then
     -o 'jsonpath={.metadata.annotations.autoscaling\.keda\.sh/paused-replicas}')" = 0 ]
 fi
 
-contract_attempted=true
+restore_safe=false
 run_guarded pnpm exec prisma migrate deploy
 
 echo "Release migrations completed with old workloads held at zero." >&2

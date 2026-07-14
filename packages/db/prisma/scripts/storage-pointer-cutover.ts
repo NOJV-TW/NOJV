@@ -606,7 +606,9 @@ async function preflight(): Promise<void> {
 }
 
 async function contractStatus(): Promise<void> {
-  const rows = await prisma.$queryRaw<{ applied: boolean; legacyColumns: bigint }[]>`
+  const rows = await prisma.$queryRaw<
+    { applied: boolean; failed: boolean; legacyColumns: bigint }[]
+  >`
     SELECT
       EXISTS (
         SELECT 1
@@ -615,6 +617,13 @@ async function contractStatus(): Promise<void> {
           AND finished_at IS NOT NULL
           AND rolled_back_at IS NULL
       ) AS applied,
+      EXISTS (
+        SELECT 1
+        FROM "_prisma_migrations"
+        WHERE migration_name = ${CONTRACT_MIGRATION}
+          AND finished_at IS NULL
+          AND rolled_back_at IS NULL
+      ) AS failed,
       (
         SELECT count(*)
         FROM (
@@ -633,8 +642,11 @@ async function contractStatus(): Promise<void> {
       ) AS "legacyColumns"
   `;
   const status = rows[0];
-  if (status?.applied && status.legacyColumns === 0n) console.log("applied");
-  else if (!status?.applied && status?.legacyColumns === 6n) console.log("pending");
+  if (status?.applied && !status.failed && status.legacyColumns === 0n) console.log("applied");
+  else if (!status?.applied && status?.failed && status.legacyColumns === 6n)
+    console.log("recoverable");
+  else if (!status?.applied && !status?.failed && status?.legacyColumns === 6n)
+    console.log("pending");
   else console.log("unsafe");
 }
 

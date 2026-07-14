@@ -74,16 +74,9 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-if [ "$WEB_HPA_ENABLED" = true ]; then
-  : "${WEB_HPA:?WEB_HPA is required when WEB_HPA_ENABLED=true}"
-  kubectl_ns patch horizontalpodautoscaler "$WEB_HPA" --type merge \
-    -p "{\"spec\":{\"scaleTargetRef\":{\"name\":\"$WEB_DEPLOYMENT\"}}}"
-fi
-if [ "$JUDGE_KEDA_ENABLED" = true ]; then
-  : "${JUDGE_KEDA_SCALED_OBJECT:?JUDGE_KEDA_SCALED_OBJECT is required when JUDGE_KEDA_ENABLED=true}"
-  kubectl_ns annotate scaledobject "$JUDGE_KEDA_SCALED_OBJECT" \
-    autoscaling.keda.sh/paused-replicas- --overwrite
-fi
+kubectl_ns scale deployment "$WEB_DEPLOYMENT" --replicas="$WEB_READY_REPLICAS"
+kubectl_ns scale deployment "$JUDGE_DEPLOYMENT" --replicas="$JUDGE_READY_REPLICAS"
+kubectl_ns scale deployment "$PLATFORM_DEPLOYMENT" --replicas="$PLATFORM_READY_REPLICAS"
 
 deployment_ready() {
   deployment="$1"
@@ -115,10 +108,16 @@ while ! deployment_ready "$WEB_DEPLOYMENT" "$WEB_READY_REPLICAS" || \
 done
 
 if [ "$WEB_HPA_ENABLED" = true ]; then
+  : "${WEB_HPA:?WEB_HPA is required when WEB_HPA_ENABLED=true}"
+  kubectl_ns patch horizontalpodautoscaler "$WEB_HPA" --type merge \
+    -p "{\"spec\":{\"scaleTargetRef\":{\"name\":\"$WEB_DEPLOYMENT\"}}}"
   [ "$(kubectl_ns get horizontalpodautoscaler "$WEB_HPA" \
     -o 'jsonpath={.spec.scaleTargetRef.name}')" = "$WEB_DEPLOYMENT" ]
 fi
 if [ "$JUDGE_KEDA_ENABLED" = true ]; then
+  : "${JUDGE_KEDA_SCALED_OBJECT:?JUDGE_KEDA_SCALED_OBJECT is required when JUDGE_KEDA_ENABLED=true}"
+  kubectl_ns annotate scaledobject "$JUDGE_KEDA_SCALED_OBJECT" \
+    autoscaling.keda.sh/paused-replicas- --overwrite
   [ -z "$(kubectl_ns get scaledobject "$JUDGE_KEDA_SCALED_OBJECT" \
     -o 'jsonpath={.metadata.annotations.autoscaling\.keda\.sh/paused-replicas}')" ]
 fi

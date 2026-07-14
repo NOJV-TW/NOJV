@@ -3,6 +3,7 @@ JUDGE Deployment — MUST render first in this file (and this file is the worker
 env source of truth the env-manifest-parity guard scans up to the first
 cloudsql-proxy sidecar). Keep the full K8s + storage env block here, in order.
 */}}
+{{- $releaseMaintenance := and .Release.IsUpgrade .Values.migrator.enabled -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -12,7 +13,7 @@ metadata:
     {{- include "nojv.labels" . | nindent 4 }}
     app.kubernetes.io/component: worker-judge
 spec:
-  replicas: {{ .Values.worker.judge.replicas }}
+  replicas: {{ ternary 0 .Values.worker.judge.replicas $releaseMaintenance }}
   revisionHistoryLimit: 2
   selector:
     matchLabels:

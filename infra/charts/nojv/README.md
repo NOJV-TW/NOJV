@@ -220,7 +220,8 @@ Prometheus / Cloud Monitoring), so the GKE overlay leaves all three off. See
   `before-hook-creation` delete policy. Upgrades stage expand migrations before
   quiescing web and both Temporal workers; storage backfill, S3 verification,
   database preflight, and contract migration then run with autoscalers isolated.
-  Pre-contract failures restore the previous workloads, while ambiguous or
-  post-contract failures stay fail-closed until the release is repaired. The
-  `post-upgrade` readiness hook releases the new Deployments only after all three
-  are healthy.
+  Failures before backfill restore the previous workloads. Once backfill starts,
+  failures stay fail-closed so legacy writers cannot invalidate immutable
+  pointers. Upgrade manifests keep all three Deployments and autoscalers in
+  maintenance through Helm apply/wait; the `post-upgrade` hook explicitly starts
+  the new revision and enables autoscaling only after every workload is healthy.

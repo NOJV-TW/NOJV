@@ -4,6 +4,7 @@ submission sweeper, plagiarism). It never creates sandbox Jobs, but the worker
 env schema still validates the full kubernetes config at boot, so the
 K8s/sandbox vars below are required to avoid a crashloop.
 */}}
+{{- $releaseMaintenance := and .Release.IsUpgrade .Values.migrator.enabled -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,7 +14,7 @@ metadata:
     {{- include "nojv.labels" . | nindent 4 }}
     app.kubernetes.io/component: worker-platform
 spec:
-  replicas: {{ .Values.worker.platform.replicas }}
+  replicas: {{ ternary 0 .Values.worker.platform.replicas $releaseMaintenance }}
   revisionHistoryLimit: 2
   selector:
     matchLabels:

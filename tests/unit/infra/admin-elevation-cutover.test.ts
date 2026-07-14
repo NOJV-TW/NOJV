@@ -136,6 +136,12 @@ printf '2 2 2 2'
       },
     });
 
-    expect(readFileSync(log, "utf8").trim().split("\n")).toHaveLength(3);
+    const calls = readFileSync(log, "utf8").trim().split("\n");
+    expect(calls).toHaveLength(6);
+    expect(calls.slice(0, 3)).toEqual([
+      expect.stringContaining("scale deployment nojv-web --replicas=2"),
+      expect.stringContaining("scale deployment nojv-worker --replicas=2"),
+      expect.stringContaining("scale deployment nojv-worker-platform --replicas=1"),
+    ]);
   });
 });

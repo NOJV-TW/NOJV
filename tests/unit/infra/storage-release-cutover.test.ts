@@ -50,6 +50,9 @@ case "$*" in
   *"storage-pointer-cutover.ts preflight"*)
     [ "\${FAIL_STEP:-}" != preflight ]
     ;;
+  *"prisma migrate resolve --rolled-back"*)
+    printf pending > "$HARNESS_DIR/contract-status"
+    ;;
   *"prisma migrate deploy"*)
     if [ -z "\${PRISMA_MIGRATIONS_PATH:-}" ]; then
       case "\${FINAL_MIGRATE_RESULT:-success}" in
@@ -224,8 +227,20 @@ describe("storage release cutover", () => {
         (document) =>
           /kind:\s*Role/.test(document) && /name:\s*nojv-web-maintenance/.test(document),
       );
+    const resource = (kind: string, name: string) =>
+      render
+        .split(/^---$/m)
+        .find(
+          (document) =>
+            new RegExp(`kind:\\s*${kind}`).test(document) &&
+            new RegExp(`name:\\s*${name}(?:\\s|$)`).test(document),
+        );
 
     expect(migrator).toMatch(/name: RELEASE_OPERATION\n\s+value: "upgrade"/);
+    expect(resource("Job", "nojv-workloads-ready")).toContain(
+      "helm.sh/hook: post-upgrade,post-rollback",
+    );
+    expect(resource("ServiceAccount", "nojv-web-maintenance")).toContain("post-rollback");
     expect(migrator).toMatch(/name: STATUS_TIMEOUT_SECONDS\n\s+value: "10"/);
     expect(migrator).toMatch(/name: KUBECTL_REQUEST_TIMEOUT_SECONDS\n\s+value: "5"/);
     for (const name of [
@@ -241,6 +256,15 @@ describe("storage release cutover", () => {
     expect(role).toContain('resources: ["deployments/scale"]');
     expect(role).toContain('resources: ["horizontalpodautoscalers"]');
     expect(role).toContain('resources: ["scaledobjects"]');
+    for (const name of ["nojv-web", "nojv-worker", "nojv-worker-platform"]) {
+      expect(resource("Deployment", name)).toMatch(/spec:\n\s+replicas: 0/);
+    }
+    expect(resource("HorizontalPodAutoscaler", "nojv-web")).toContain(
+      "name: nojv-web-maintenance",
+    );
+    expect(resource("ScaledObject", "nojv-worker")).toContain(
+      'autoscaling.keda.sh/paused-replicas: "0"',
+    );
   });
 
   it("stages expand before draining and exposes contract only after every verification", () => {
@@ -300,6 +324,15 @@ describe("storage release cutover", () => {
     });
     expect(readFileSync(join(harness.directory, "hpa-target"), "utf8")).toBe("nojv-web");
     expect(readFileSync(join(harness.directory, "keda-paused"), "utf8")).toBe("");
+    const releaseLog = events(harness);
+    const releaseScale = releaseLog.findIndex((line) =>
+      line.includes("scale deployment nojv-web --replicas=2"),
+    );
+    const enableHpa = releaseLog.findIndex(
+      (line, index) => index > releaseScale && line.includes("patch horizontalpodautoscaler"),
+    );
+    expect(releaseScale).toBeGreaterThan(contract);
+    expect(enableHpa).toBeGreaterThan(releaseScale);
   });
 
   it("re-enters maintenance when the post-upgrade workloads do not become ready", () => {
@@ -351,22 +384,18 @@ describe("storage release cutover", () => {
     expect(readFileSync(join(harness.directory, "keda-paused"), "utf8")).toBe("0");
   });
 
-  it("restores old workloads when S3 verification fails before contract", () => {
+  it("keeps workloads drained after backfill starts", () => {
     const harness = makeHarness();
     const result = runCutover(harness, { FAIL_STEP: "verify" });
     expect(result.status).not.toBe(0);
 
     const log = events(harness);
     expect(log).not.toContainEqual(expect.stringContaining("prisma migrate deploy stage=full"));
-    expect(log).toContainEqual(
+    expect(log).not.toContainEqual(
       expect.stringContaining("scale deployment nojv-web --replicas=2"),
     );
-    expect(log).toContainEqual(
-      expect.stringContaining("scale deployment nojv-worker --replicas=2"),
-    );
-    expect(log).toContainEqual(
-      expect.stringContaining("scale deployment nojv-worker-platform --replicas=1"),
-    );
+    expect(readFileSync(join(harness.directory, "nojv-web.replicas"), "utf8")).toBe("0");
+    expect(result.stderr).toContain("compatibility may have changed");
   });
 
   it("drains and fails closed before backfill when the initial schema state is unsafe", () => {
@@ -388,30 +417,17 @@ describe("storage release cutover", () => {
     expect(result.stderr).toContain("legacy storage schema is intact");
   });
 
-  it("restores all workloads and verifies readiness when the contract remains pending", () => {
+  it("fails closed when the contract transaction rolls back", () => {
     const harness = makeHarness();
     const result = runCutover(harness, { FINAL_MIGRATE_RESULT: "pending-fail" });
     expect(result.status).toBe(9);
 
     const log = events(harness);
-    expect(
-      log.filter((line) => line.includes("storage-pointer-cutover.ts status")),
-    ).toHaveLength(2);
-    expect(log).toContainEqual(
+    expect(log).not.toContainEqual(
       expect.stringContaining("scale deployment nojv-web --replicas=2"),
     );
-    expect(log).toContainEqual(
-      expect.stringContaining("scale deployment nojv-worker --replicas=2"),
-    );
-    expect(log).toContainEqual(
-      expect.stringContaining("scale deployment nojv-worker-platform --replicas=1"),
-    );
-    expect(log).toContainEqual(
-      expect.stringContaining(
-        "get deployment nojv-web -o jsonpath={.status.observedGeneration}",
-      ),
-    );
-    expect(readFileSync(join(harness.directory, "hpa-target"), "utf8")).toBe("nojv-web");
+    expect(readFileSync(join(harness.directory, "nojv-web.replicas"), "utf8")).toBe("0");
+    expect(result.stderr).toContain("compatibility may have changed");
   });
 
   it("fails closed when the contract applied before a later migration failed", () => {
@@ -436,18 +452,31 @@ describe("storage release cutover", () => {
     expect(result.stderr).toContain("keeping workloads in maintenance");
   });
 
-  it("bounds the recovery status probe and fails closed when it cannot answer", () => {
+  it("repairs a rolled-back contract record before staging migrations", () => {
     const harness = makeHarness();
-    const result = runCutover(harness, {
-      FINAL_MIGRATE_RESULT: "pending-fail",
-      STATUS_TIMEOUT_ON_CALL: "2",
-      STATUS_TIMEOUT_SECONDS: "1",
-    });
-    expect(result.status).toBe(9);
-    expect(events(harness)).not.toContainEqual(
-      expect.stringContaining("scale deployment nojv-web --replicas=2"),
+    writeFileSync(harness.status, "recoverable");
+    const result = runCutover(harness);
+    expect(result.status, result.stderr).toBe(0);
+
+    const log = events(harness);
+    const resolved = log.findIndex((line) =>
+      line.includes(
+        "prisma migrate resolve --rolled-back 20260716000012_versioned_blob_pointers_contract",
+      ),
     );
-    expect(readFileSync(join(harness.directory, "nojv-web.replicas"), "utf8")).toBe("0");
-    expect(result.stderr).toContain("Cannot prove storage contract state");
+    const staged = log.findIndex((line) => line.includes("prisma migrate deploy stage=/"));
+    expect(resolved).toBeGreaterThanOrEqual(0);
+    expect(staged).toBeGreaterThan(resolved);
+  });
+
+  it("bounds the initial status probe before maintenance starts", () => {
+    const harness = makeHarness();
+    const result = runCutover(harness, { STATUS_TIMEOUT_ON_CALL: "1" });
+    expect(result.status).not.toBe(0);
+    expect(events(harness)).not.toContainEqual(
+      expect.stringContaining(
+        "scale deployment nojv-web nojv-worker nojv-worker-platform --replicas=0",
+      ),
+    );
   });
 });
