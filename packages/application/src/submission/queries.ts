@@ -74,10 +74,12 @@ export async function getSubmissionSources(submissionId: string): Promise<Submis
   return readSubmissionSources(submission.sourceStorage);
 }
 
-export async function getVerdictDetail(submissionId: string): Promise<SubmissionResult | null> {
+export async function getVerdictDetail(submissionId: string): Promise<SubmissionResult> {
   const submission = await submissionRepo.findById(submissionId);
   if (!submission) throw new NotFoundError("Submission not found.");
-  if (submission.verdictDetailStorage === null) return null;
+  if (submission.verdictDetailStorage === null) {
+    throw new NotFoundError("Submission verdict detail not found.");
+  }
   return readVerdictDetail(submission.verdictDetailStorage);
 }
 
