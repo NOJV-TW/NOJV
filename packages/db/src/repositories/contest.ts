@@ -111,7 +111,7 @@ export const contestRepo = {
     });
   },
 
-  listNeedingTimers(now: Date) {
+  listNeedingTimers(input: { now: Date; afterId?: string; take: number }) {
     return prisma.contest.findMany({
       select: {
         id: true,
@@ -122,9 +122,12 @@ export const contestRepo = {
         scheduleRevision: true,
         timerFingerprint: true,
       },
+      orderBy: { id: "asc" },
+      take: input.take,
       where: {
         visibility: "published",
-        OR: [{ endsAt: { gt: now } }, { frozenBoard: true }],
+        ...(input.afterId ? { id: { gt: input.afterId } } : {}),
+        OR: [{ endsAt: { gt: input.now } }, { frozenBoard: true }],
       },
     });
   },

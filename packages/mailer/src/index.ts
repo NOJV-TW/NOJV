@@ -7,6 +7,12 @@ export type { Mailer, SendEmailInput, SendEmailResult } from "./types";
 export { renderEmail } from "./template";
 export type { EmailContent } from "./template";
 
+export const SMTP_CONNECTION_TIMEOUT_MS = 10_000;
+export const SMTP_GREETING_TIMEOUT_MS = 10_000;
+export const SMTP_SOCKET_TIMEOUT_MS = 30_000;
+export const SMTP_DELIVERY_TIMEOUT_BUDGET_MS =
+  SMTP_CONNECTION_TIMEOUT_MS + SMTP_GREETING_TIMEOUT_MS + SMTP_SOCKET_TIMEOUT_MS;
+
 const nodeEnvSchema = z.enum(["development", "test", "production"]);
 const httpUrlSchema = z.url().refine((value) => {
   const protocol = new URL(value).protocol;
@@ -92,6 +98,9 @@ function createMailer(): Mailer {
     port: env.SMTP_PORT,
     secure: env.SMTP_PORT === 465,
     requireTLS: true,
+    connectionTimeout: SMTP_CONNECTION_TIMEOUT_MS,
+    greetingTimeout: SMTP_GREETING_TIMEOUT_MS,
+    socketTimeout: SMTP_SOCKET_TIMEOUT_MS,
     auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
     pool: true,
     maxConnections: 3,

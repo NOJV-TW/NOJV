@@ -7,6 +7,8 @@ import {
   isAssignmentLifecycleCurrent,
   isContestLifecycleCurrent,
   isExamLifecycleCurrent,
+  type LifecycleReconcileCursor,
+  type LifecycleReconcileResult,
 } from "@nojv/application";
 import type {
   AssignmentDueSoonInput,
@@ -56,11 +58,14 @@ export async function sweepStaleSubmissions(): Promise<submissionDomain.SweepSta
   return result;
 }
 
-export async function reconcileLifecycleWorkflows(): Promise<void> {
-  const result = await reconcileLifecycleTimers();
+export async function reconcileLifecycleWorkflows(
+  cursor: LifecycleReconcileCursor = {},
+): Promise<LifecycleReconcileResult> {
+  const result = await reconcileLifecycleTimers(cursor);
   if (result.exams > 0 || result.contests > 0 || result.assignments > 0) {
     logger.info("lifecycle timer reconcile", { ...result });
   }
+  return result;
 }
 
 export const publishVerdict = pubsub.publishVerdict;

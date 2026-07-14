@@ -92,7 +92,7 @@ export const assessmentRepo = {
     });
   },
 
-  listNeedingTimers(now: Date) {
+  listNeedingTimers(input: { now: Date; afterId?: string; take: number }) {
     return prisma.assessment.findMany({
       select: {
         id: true,
@@ -101,7 +101,13 @@ export const assessmentRepo = {
         scheduleRevision: true,
         timerFingerprint: true,
       },
-      where: { status: "published", closesAt: { gt: now } },
+      orderBy: { id: "asc" },
+      take: input.take,
+      where: {
+        status: "published",
+        closesAt: { gt: input.now },
+        ...(input.afterId ? { id: { gt: input.afterId } } : {}),
+      },
     });
   },
 

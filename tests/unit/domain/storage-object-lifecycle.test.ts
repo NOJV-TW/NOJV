@@ -91,4 +91,38 @@ describe("storage object cleanup", () => {
       [{}, manifest.key],
     ]);
   });
+
+  it("resumes a partially completed source cleanup without abandoning remaining objects", async () => {
+    const manifest = pointer("submissions/sub_1/source-generations/gen_1/manifest.json");
+    const first = pointer("submissions/sub_1/source-generations/gen_1/files/first.cpp");
+    const second = pointer("submissions/sub_1/source-generations/gen_1/files/second.cpp");
+    const deleted = new Set<string>();
+    let secondDeleteAttempts = 0;
+
+    getSubmissionSourcePointers.mockResolvedValue([first, second]);
+    getVerifiedObject.mockImplementation((_client, candidate) => {
+      if (deleted.has(candidate.key)) {
+        const missing = new Error("missing");
+        missing.name = "NoSuchKey";
+        return Promise.reject(missing);
+      }
+      return Promise.resolve(Buffer.from("body"));
+    });
+    deleteBlob.mockImplementation((_client, key: string) => {
+      if (key === second.key && secondDeleteAttempts++ === 0) {
+        return Promise.reject(new Error("AccessDenied"));
+      }
+      deleted.add(key);
+      return Promise.resolve();
+    });
+
+    await expect(cleanupUnreferencedStorageObject({ pointer: manifest })).rejects.toThrow(
+      "AccessDenied",
+    );
+    await expect(
+      cleanupUnreferencedStorageObject({ pointer: manifest }),
+    ).resolves.toBeUndefined();
+
+    expect(deleted).toEqual(new Set([first.key, second.key, manifest.key]));
+  });
 });

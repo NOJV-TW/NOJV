@@ -22,7 +22,11 @@ vi.mock("@nojv/db", () => ({
   examRepo: { listNeedingTimers: listExams },
 }));
 
-import { configureDomainOrchestration, reconcileLifecycleTimers } from "@nojv/application";
+import {
+  LIFECYCLE_RECONCILE_BATCH_SIZE,
+  configureDomainOrchestration,
+  reconcileLifecycleTimers,
+} from "@nojv/application";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -88,6 +92,7 @@ describe("reconcileLifecycleTimers", () => {
       exams: 1,
       contests: 1,
       assignments: 1,
+      next: null,
     });
 
     expect(ensureExamAutoClose).toHaveBeenCalledWith(
@@ -99,9 +104,18 @@ describe("reconcileLifecycleTimers", () => {
     expect(ensureAssignmentDueSoon).toHaveBeenCalledWith(
       expect.objectContaining({ scheduleRevision: 3 }),
     );
-    expect(listExams).toHaveBeenCalledWith();
-    expect(listContests).toHaveBeenCalledWith(expect.any(Date));
-    expect(listAssignments).toHaveBeenCalledWith(expect.any(Date));
+    expect(listExams).toHaveBeenCalledWith({
+      now: expect.any(Date),
+      take: LIFECYCLE_RECONCILE_BATCH_SIZE + 1,
+    });
+    expect(listContests).toHaveBeenCalledWith({
+      now: expect.any(Date),
+      take: LIFECYCLE_RECONCILE_BATCH_SIZE + 1,
+    });
+    expect(listAssignments).toHaveBeenCalledWith({
+      now: expect.any(Date),
+      take: LIFECYCLE_RECONCILE_BATCH_SIZE + 1,
+    });
   });
 
   it("reconciles expired exams and contests returned for downtime recovery", async () => {
@@ -135,5 +149,33 @@ describe("reconcileLifecycleTimers", () => {
       expect.objectContaining({ contestId: "contest_past_due" }),
     );
     expect(ensureAssignmentDueSoon).not.toHaveBeenCalled();
+  });
+
+  it("bounds each fair page and returns keyset cursors without restarting completed kinds", async () => {
+    const exams = Array.from({ length: LIFECYCLE_RECONCILE_BATCH_SIZE + 1 }, (_, index) => ({
+      id: `exam_${String(index).padStart(2, "0")}`,
+      startsAt: new Date("2030-01-01T09:00:00.000Z"),
+      endsAt: new Date("2030-01-01T10:00:00.000Z"),
+      scheduleRevision: 1,
+      timerFingerprint: `exam_${String(index)}`,
+    }));
+    listExams.mockResolvedValue(exams);
+
+    await expect(
+      reconcileLifecycleTimers({ contests: null, assignments: null }),
+    ).resolves.toEqual({
+      exams: LIFECYCLE_RECONCILE_BATCH_SIZE,
+      contests: 0,
+      assignments: 0,
+      next: {
+        exams: { afterId: exams[LIFECYCLE_RECONCILE_BATCH_SIZE - 1]!.id },
+        contests: null,
+        assignments: null,
+      },
+    });
+
+    expect(ensureExamAutoClose).toHaveBeenCalledTimes(LIFECYCLE_RECONCILE_BATCH_SIZE);
+    expect(listContests).not.toHaveBeenCalled();
+    expect(listAssignments).not.toHaveBeenCalled();
   });
 });

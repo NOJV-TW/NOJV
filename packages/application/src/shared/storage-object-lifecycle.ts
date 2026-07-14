@@ -131,22 +131,37 @@ export async function cleanupUnreferencedStorageObject(rawPayload: unknown): Pro
   if (await storageObjectIsReferenced(pointer.key)) return;
 
   const client = storage();
-  let childPointers: StorageObjectPointer[] = [];
-  try {
-    await getVerifiedObject(client, pointer);
-    if (
-      pointer.key.endsWith("/manifest.json") &&
-      pointer.key.includes("/source-generations/")
-    ) {
-      childPointers = await getSubmissionSourcePointers(client, pointer);
-      for (const child of childPointers) await getVerifiedObject(client, child);
+  const isSourceManifest =
+    pointer.key.endsWith("/manifest.json") && pointer.key.includes("/source-generations/");
+  if (!isSourceManifest) {
+    try {
+      await getVerifiedObject(client, pointer);
+    } catch (reason) {
+      if (isStorageObjectNotFoundError(reason)) return;
+      throw reason;
     }
+    await deleteBlob(client, pointer.key);
+    return;
+  }
+
+  let childPointers: StorageObjectPointer[];
+  try {
+    childPointers = await getSubmissionSourcePointers(client, pointer);
   } catch (reason) {
     if (isStorageObjectNotFoundError(reason)) return;
     throw reason;
   }
 
-  for (const child of childPointers) await deleteBlob(client, child.key);
+  const presentChildren: StorageObjectPointer[] = [];
+  for (const child of childPointers) {
+    try {
+      await getVerifiedObject(client, child);
+      presentChildren.push(child);
+    } catch (reason) {
+      if (!isStorageObjectNotFoundError(reason)) throw reason;
+    }
+  }
+  for (const child of presentChildren) await deleteBlob(client, child.key);
   await deleteBlob(client, pointer.key);
 }
 

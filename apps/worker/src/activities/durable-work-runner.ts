@@ -60,7 +60,7 @@ export interface DurableWorkBatchResult {
 }
 
 export interface DurableWorkBatchInput {
-  afterKind?: string;
+  fairnessOffset?: number;
 }
 
 export interface DurableWorkBatchDependencies {
@@ -83,11 +83,13 @@ const DEFAULT_BASE_RETRY_DELAY_MS = 5_000;
 const DEFAULT_MAX_RETRY_DELAY_MS = 15 * 60_000;
 const MAX_ERROR_LENGTH = 4_096;
 
-function rotateKindsAfter(kinds: readonly string[], afterKind: string | undefined): string[] {
-  if (!afterKind) return [...kinds];
-  const index = kinds.indexOf(afterKind);
-  if (index === -1) return [...kinds];
-  return [...kinds.slice(index + 1), ...kinds.slice(0, index + 1)];
+function rotateKinds(kinds: readonly string[], fairnessOffset = 0): string[] {
+  if (!Number.isSafeInteger(fairnessOffset) || fairnessOffset < 0) {
+    throw new TypeError("Durable work fairness offset must be a non-negative safe integer.");
+  }
+  if (kinds.length === 0) return [];
+  const index = fairnessOffset % kinds.length;
+  return [...kinds.slice(index), ...kinds.slice(0, index)];
 }
 
 function retryDelayMs(attempt: number, baseDelayMs: number, maxDelayMs: number): number {
@@ -104,7 +106,7 @@ export async function processDurableWorkBatch(
   dependencies: DurableWorkBatchDependencies,
   input: DurableWorkBatchInput = {},
 ): Promise<DurableWorkBatchResult> {
-  const kinds = rotateKindsAfter(Object.keys(dependencies.handlers).sort(), input.afterKind);
+  const kinds = rotateKinds(Object.keys(dependencies.handlers).sort(), input.fairnessOffset);
   if (kinds.length === 0) {
     return { claimed: 0, succeeded: 0, retried: 0, dead: 0, processedKind: null };
   }

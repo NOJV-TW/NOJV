@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { DURABLE_WORK_ACTIVITY_TIMEOUT_MS } from "../../../apps/worker/src/durable-work-config";
+
 const { createTransport, sendMail } = vi.hoisted(() => {
   const sendMail = vi.fn();
   return { createTransport: vi.fn(() => ({ sendMail })), sendMail };
@@ -61,6 +63,14 @@ afterEach(() => {
 });
 
 describe("mailer configuration", () => {
+  it("keeps the full SMTP timeout budget safely inside one durable activity", async () => {
+    const { SMTP_DELIVERY_TIMEOUT_BUDGET_MS } = await importMailer();
+
+    expect(SMTP_DELIVERY_TIMEOUT_BUDGET_MS).toBeLessThan(
+      DURABLE_WORK_ACTIVITY_TIMEOUT_MS - 30_000,
+    );
+  });
+
   it("requires an explicit MAILER_MODE", async () => {
     process.env.NODE_ENV = "test";
     process.env.APP_BASE_URL = "http://localhost:5173";
@@ -167,6 +177,9 @@ describe("getMailer", () => {
       port: 465,
       secure: true,
       requireTLS: true,
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 30_000,
       auth: { user: "user@example.com", pass: "pw" },
       pool: true,
       maxConnections: 3,

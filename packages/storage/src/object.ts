@@ -111,20 +111,38 @@ export async function getVerifiedObject(
     throw new StorageIntegrityError(pointer.key, "object body is missing");
   }
 
-  const chunks: Uint8Array[] = [];
-  for await (const chunk of response.Body as AsyncIterable<Uint8Array>) chunks.push(chunk);
-  const body = Buffer.concat(chunks);
-  if (body.byteLength !== pointer.size) {
+  if (response.ContentLength !== undefined && response.ContentLength !== pointer.size) {
     throw new StorageIntegrityError(
       pointer.key,
-      `expected ${String(pointer.size)} bytes, received ${String(body.byteLength)}`,
+      `expected ${String(pointer.size)} bytes, received ${String(response.ContentLength)}`,
     );
   }
-  const actualSha256 = createHash("sha256").update(body).digest("hex");
+
+  const chunks: Uint8Array[] = [];
+  const hash = createHash("sha256");
+  let received = 0;
+  for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
+    received += chunk.byteLength;
+    if (received > pointer.size) {
+      throw new StorageIntegrityError(
+        pointer.key,
+        `expected ${String(pointer.size)} bytes, received at least ${String(received)}`,
+      );
+    }
+    chunks.push(chunk);
+    hash.update(chunk);
+  }
+  if (received !== pointer.size) {
+    throw new StorageIntegrityError(
+      pointer.key,
+      `expected ${String(pointer.size)} bytes, received ${String(received)}`,
+    );
+  }
+  const actualSha256 = hash.digest("hex");
   if (actualSha256 !== pointer.sha256) {
     throw new StorageIntegrityError(pointer.key, "SHA-256 mismatch");
   }
-  return body;
+  return Buffer.concat(chunks, received);
 }
 
 export function putImmutableText(

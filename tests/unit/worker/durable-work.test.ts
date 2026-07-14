@@ -152,7 +152,7 @@ describe("durable work batch processor", () => {
     expect(repo.retryOrDead).not.toHaveBeenCalled();
   });
 
-  it("rotates the preferred kind after each item so one backlog cannot starve another", async () => {
+  it("rotates the preferred kind by fairness slot so concurrent workers cover every backlog", async () => {
     const repo = repository({
       claimBatch: vi.fn(({ kinds }: DurableWorkClaimOptions) => {
         const kind = kinds[0];
@@ -175,7 +175,7 @@ describe("durable work batch processor", () => {
         recordOutcome: vi.fn(),
         clock: () => NOW,
       },
-      { afterKind: "notification" },
+      { fairnessOffset: 1 },
     );
     if (!afterNotification.processedKind) throw new Error("Expected claimed work kind.");
     const afterSubmission = await processDurableWorkBatch(
@@ -186,7 +186,7 @@ describe("durable work batch processor", () => {
         recordOutcome: vi.fn(),
         clock: () => NOW,
       },
-      { afterKind: afterNotification.processedKind },
+      { fairnessOffset: 2 },
     );
 
     expect(repo.claimBatch).toHaveBeenNthCalledWith(
@@ -199,10 +199,10 @@ describe("durable work batch processor", () => {
     );
     expect(repo.claimBatch).toHaveBeenNthCalledWith(
       3,
-      expect.objectContaining({ kinds: ["notification"] }),
+      expect.objectContaining({ kinds: ["submission"] }),
     );
     expect(afterNotification.processedKind).toBe("submission");
-    expect(afterSubmission.processedKind).toBe("notification");
+    expect(afterSubmission.processedKind).toBe("submission");
   });
 
   it("claims only one item so a slow handler cannot expire later unstarted leases", async () => {

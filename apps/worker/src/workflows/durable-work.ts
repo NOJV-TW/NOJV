@@ -7,6 +7,7 @@ import type {
 import {
   DURABLE_WORK_ACTIVITY_MAX_ATTEMPTS,
   DURABLE_WORK_ACTIVITY_TIMEOUT_MS,
+  DURABLE_WORK_CONCURRENCY,
   DURABLE_WORK_ITEMS_PER_EXECUTION,
 } from "../durable-work-config";
 
@@ -35,27 +36,40 @@ export async function drainDurableWork(
     dead: 0,
     processedKind: null,
   };
-  let afterKind = input.afterKind;
+  const initialOffset = input.fairnessOffset ?? 0;
+  if (!Number.isSafeInteger(initialOffset) || initialOffset < 0) {
+    throw new TypeError("Durable work fairness offset must be a non-negative safe integer.");
+  }
 
-  for (let item = 0; item < DURABLE_WORK_ITEMS_PER_EXECUTION; item += 1) {
-    const result = await runBatch(afterKind ? { afterKind } : {});
-    total.claimed += result.claimed;
-    total.succeeded += result.succeeded;
-    total.retried += result.retried;
-    total.dead += result.dead;
+  let launched = 0;
+  while (launched < DURABLE_WORK_ITEMS_PER_EXECUTION) {
+    const waveSize = Math.min(
+      DURABLE_WORK_CONCURRENCY,
+      DURABLE_WORK_ITEMS_PER_EXECUTION - launched,
+    );
+    const results = await Promise.all(
+      Array.from({ length: waveSize }, (_, index) =>
+        runBatch({ fairnessOffset: initialOffset + launched + index }),
+      ),
+    );
+    launched += waveSize;
 
-    if (result.claimed === 0) return total;
-    if (!result.processedKind) {
-      throw new Error("Durable work activity claimed an item without reporting its kind.");
+    for (const result of results) {
+      total.claimed += result.claimed;
+      total.succeeded += result.succeeded;
+      total.retried += result.retried;
+      total.dead += result.dead;
+      if (result.claimed > 0) {
+        if (!result.processedKind) {
+          throw new Error("Durable work activity claimed an item without reporting its kind.");
+        }
+        total.processedKind = result.processedKind;
+      }
     }
-    afterKind = result.processedKind;
-    total.processedKind = afterKind;
+    if (results.some(({ claimed }) => claimed === 0)) return total;
   }
 
-  if (!afterKind) {
-    throw new Error("Durable work drain reached its item bound without a fairness cursor.");
-  }
-  return continueRun({ afterKind });
+  return continueRun({ fairnessOffset: initialOffset + launched });
 }
 
 export function durableWorkWorkflow(

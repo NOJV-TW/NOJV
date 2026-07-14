@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { DURABLE_WORK_ITEMS_PER_EXECUTION } from "../../../apps/worker/src/durable-work-config";
+import {
+  DURABLE_WORK_CONCURRENCY,
+  DURABLE_WORK_ITEMS_PER_EXECUTION,
+} from "../../../apps/worker/src/durable-work-config";
 import { drainDurableWork } from "../../../apps/worker/src/workflows/durable-work";
 
 const CONTINUED = new Error("continued as new");
@@ -26,11 +29,13 @@ beforeEach(() => {
 
 describe("durable work workflow", () => {
   it("drains more than one queued item in a scheduled execution", async () => {
-    runDurableWorkBatch
-      .mockResolvedValueOnce(succeeded("notification"))
-      .mockResolvedValueOnce(succeeded("submission"))
-      .mockResolvedValueOnce(succeeded("rejudge"))
-      .mockResolvedValueOnce(EMPTY);
+    runDurableWorkBatch.mockImplementation(({ fairnessOffset }: { fairnessOffset: number }) =>
+      Promise.resolve(
+        fairnessOffset < 3
+          ? succeeded(["notification", "submission", "rejudge"][fairnessOffset]!)
+          : EMPTY,
+      ),
+    );
 
     await expect(drainDurableWork(runDurableWorkBatch, continueAsNew)).resolves.toEqual({
       claimed: 3,
@@ -39,28 +44,40 @@ describe("durable work workflow", () => {
       dead: 0,
       processedKind: "rejudge",
     });
-    expect(runDurableWorkBatch).toHaveBeenNthCalledWith(1, {});
-    expect(runDurableWorkBatch).toHaveBeenNthCalledWith(2, {
-      afterKind: "notification",
-    });
-    expect(runDurableWorkBatch).toHaveBeenNthCalledWith(3, {
-      afterKind: "submission",
-    });
-    expect(runDurableWorkBatch).toHaveBeenNthCalledWith(4, {
-      afterKind: "rejudge",
+    expect(runDurableWorkBatch).toHaveBeenCalledTimes(DURABLE_WORK_CONCURRENCY);
+    expect(runDurableWorkBatch).toHaveBeenNthCalledWith(1, { fairnessOffset: 0 });
+    expect(runDurableWorkBatch).toHaveBeenNthCalledWith(DURABLE_WORK_CONCURRENCY, {
+      fairnessOffset: DURABLE_WORK_CONCURRENCY - 1,
     });
     expect(continueAsNew).not.toHaveBeenCalled();
   });
 
-  it("continues as new at the deterministic item bound and preserves the fairness cursor", async () => {
-    runDurableWorkBatch.mockImplementation(() => {
-      const index = runDurableWorkBatch.mock.calls.length - 1;
-      return Promise.resolve(succeeded(index % 2 === 0 ? "notification" : "submission"));
+  it("keeps multiple independent one-item activities in flight up to the configured bound", async () => {
+    let active = 0;
+    let peak = 0;
+    runDurableWorkBatch.mockImplementation(async () => {
+      active += 1;
+      peak = Math.max(peak, active);
+      await Promise.resolve();
+      active -= 1;
+      return EMPTY;
     });
+
+    await drainDurableWork(runDurableWorkBatch, continueAsNew);
+
+    expect(peak).toBe(DURABLE_WORK_CONCURRENCY);
+  });
+
+  it("continues as new at the deterministic item bound and preserves the fairness cursor", async () => {
+    runDurableWorkBatch.mockImplementation(({ fairnessOffset }: { fairnessOffset: number }) =>
+      Promise.resolve(succeeded(fairnessOffset % 2 === 0 ? "notification" : "submission")),
+    );
 
     await expect(drainDurableWork(runDurableWorkBatch, continueAsNew)).rejects.toBe(CONTINUED);
 
     expect(runDurableWorkBatch).toHaveBeenCalledTimes(DURABLE_WORK_ITEMS_PER_EXECUTION);
-    expect(continueAsNew).toHaveBeenCalledWith({ afterKind: "submission" });
+    expect(continueAsNew).toHaveBeenCalledWith({
+      fairnessOffset: DURABLE_WORK_ITEMS_PER_EXECUTION,
+    });
   });
 });

@@ -120,7 +120,7 @@ export const examRepo = {
     });
   },
 
-  listNeedingTimers() {
+  listNeedingTimers(input: { now: Date; afterId?: string; take: number }) {
     return prisma.exam.findMany({
       select: {
         id: true,
@@ -129,7 +129,13 @@ export const examRepo = {
         scheduleRevision: true,
         timerFingerprint: true,
       },
-      where: { status: "published" },
+      orderBy: { id: "asc" },
+      take: input.take,
+      where: {
+        status: "published",
+        ...(input.afterId ? { id: { gt: input.afterId } } : {}),
+        OR: [{ endsAt: { gt: input.now } }, { activeSessions: { some: { endedAt: null } } }],
+      },
     });
   },
 

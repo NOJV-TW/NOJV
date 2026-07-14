@@ -85,10 +85,14 @@ describe("lifecycle recovery queries", () => {
       }),
     ]);
 
+    await testPrisma.activeExamSession.create({
+      data: { examId: pastExam.id, userId: course.ownerId },
+    });
+
     const [exams, contests, assignments] = await Promise.all([
-      examRepo.listNeedingTimers(),
-      contestRepo.listNeedingTimers(now),
-      assessmentRepo.listNeedingTimers(now),
+      examRepo.listNeedingTimers({ now, take: 100 }),
+      contestRepo.listNeedingTimers({ now, take: 100 }),
+      assessmentRepo.listNeedingTimers({ now, take: 100 }),
     ]);
     const examIds = exams.map(({ id }) => id);
     const contestIds = contests.map(({ id }) => id);

@@ -99,4 +99,26 @@ describe("immutable storage objects", () => {
       }),
     ).rejects.toBeInstanceOf(StorageIntegrityError);
   });
+
+  it("stops reading as soon as a streamed object exceeds its persisted size", async () => {
+    const expected = Buffer.from("abc");
+    let chunksRead = 0;
+    const client = {
+      send: vi.fn().mockResolvedValue({
+        Body: (async function* () {
+          chunksRead += 1;
+          yield Buffer.from("ab");
+          chunksRead += 1;
+          yield Buffer.from("cd");
+          chunksRead += 1;
+          yield Buffer.alloc(1024 * 1024);
+        })(),
+      }),
+    } as never;
+
+    await expect(
+      getVerifiedObject(client, pointer("objects/version-1", expected)),
+    ).rejects.toThrow(/expected 3 bytes, received at least 4/);
+    expect(chunksRead).toBe(2);
+  });
 });
