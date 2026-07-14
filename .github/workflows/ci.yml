@@ -101,6 +101,9 @@ jobs:
       - name: Run integration tests with coverage gate
         run: pnpm test:coverage
         env:
+          APP_BASE_URL: http://localhost:5173
+          MAILER_MODE: sink
+          NODE_ENV: test
           NODE_OPTIONS: "--max-old-space-size=4096"
 
   security-audit:

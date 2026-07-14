@@ -55,12 +55,50 @@ describe("Playwright destructive database isolation", () => {
     expect(server.command).toContain("--strictPort");
     expect(server.env.DATABASE_URL).toBe(e2eUrl);
     expect(server.env).toMatchObject({
+      APP_BASE_URL: "http://localhost:5174",
+      MAILER_MODE: "sink",
+      NODE_ENV: "test",
       S3_ACCESS_KEY: "minioadmin",
       S3_BUCKET: "nojv",
       S3_ENDPOINT: "http://127.0.0.1:9000",
       S3_REGION: "us-east-1",
       S3_SECRET_KEY: "minioadmin",
     });
+  });
+
+  it("keeps hook-importing integration boundaries on an explicit test mail sink", async () => {
+    const privateEnvironment = await import("../../setup/stubs/env-dynamic-private");
+    expect(privateEnvironment.env).toMatchObject({
+      APP_BASE_URL: "http://localhost:5173",
+      MAILER_MODE: "sink",
+      NODE_ENV: "test",
+    });
+
+    const harness = readFileSync(join(repoRoot, "tests/integration/http/_harness.ts"), "utf8");
+    expect(harness).toContain('process.env.NODE_ENV = "test"');
+    expect(harness).toContain('process.env.MAILER_MODE = "sink"');
+    expect(harness).toContain("process.env.APP_BASE_URL = ORIGIN");
+
+    const workflow = readFileSync(join(repoRoot, ".github/workflows/ci.yml"), "utf8");
+    const integrationStepStart = workflow.indexOf(
+      "      - name: Run integration tests with coverage gate",
+    );
+    expect(integrationStepStart).toBeGreaterThanOrEqual(0);
+    const integrationStep = workflow
+      .slice(integrationStepStart)
+      .split(/\n(?= {6}- name:| {2}\S)/, 1)[0]!;
+    expect(integrationStep).toContain("NODE_ENV: test");
+    expect(integrationStep).toContain("MAILER_MODE: sink");
+    expect(integrationStep).toContain("APP_BASE_URL: http://localhost:5173");
+  });
+
+  it("seeds activation OTP state authoritatively without invoking suppressed email", () => {
+    const helper = readFileSync(join(repoRoot, "tests/e2e/_two-factor.ts"), "utf8");
+    expect(helper).toContain("storeActivationOtp");
+    expect(helper).toContain('page.request.post("/settings?/activate"');
+    expect(helper).toContain('page.goto("/settings?verify=totp")');
+    expect(helper).not.toContain("sendEmailOtp");
+    expect(helper).not.toContain("devOtp");
   });
 
   it("keeps one localhost browser origin and centralizes live session reads", () => {

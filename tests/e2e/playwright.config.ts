@@ -31,6 +31,8 @@ export default defineConfig({
       APP_BASE_URL: ORIGIN,
       BETTER_AUTH_URL: ORIGIN,
       DATABASE_URL: e2eDatabaseUrl,
+      MAILER_MODE: "sink",
+      NODE_ENV: "test",
       NOJV_DESTRUCTIVE_TEST_DATABASE: "nojv_e2e_test",
       ORIGIN,
       TEST_DATABASE_URL: e2eDatabaseUrl,

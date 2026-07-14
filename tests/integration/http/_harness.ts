@@ -34,6 +34,9 @@ function cookieShim(initial: Record<string, string> = {}): RequestEvent["cookies
 }
 
 export async function callRoute(opts: CallRouteOptions): Promise<Response> {
+  process.env.NODE_ENV = "test";
+  process.env.MAILER_MODE = "sink";
+  process.env.APP_BASE_URL = ORIGIN;
   const { handle } = await import("../../../apps/web/src/hooks.server");
 
   const method = (opts.method ?? "GET").toUpperCase();

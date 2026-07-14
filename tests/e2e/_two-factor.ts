@@ -3,6 +3,9 @@ import { createHmac } from "node:crypto";
 import { expect, type Page } from "@playwright/test";
 
 import { TEST_PASSWORD } from "./_disposable-user";
+import { formActionHeaders, readLiveSession } from "./_shared";
+
+const ACTIVATION_OTP = "314159";
 
 function base32Decode(input: string): Buffer {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -47,18 +50,21 @@ export async function activateTwoFactor(page: Page): Promise<void> {
 
   const dialog = page.getByRole("dialog", { name: "Turn on two-factor authentication" });
   await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: "Email me a code" }).click();
 
-  const code = dialog.locator("code");
-  await expect(code).toBeVisible();
-  const otp = (await code.textContent())?.trim();
-  if (!otp || !/^\d{6}$/.test(otp)) {
-    throw new Error("Development two-factor activation did not expose a six-digit code.");
-  }
+  const [{ user }, { storeActivationOtp }] = await Promise.all([
+    readLiveSession(page),
+    import("@nojv/application"),
+  ]);
+  await storeActivationOtp(user.id, ACTIVATION_OTP);
 
-  await dialog.locator('input[name="otp"]').fill(otp);
-  await dialog.getByRole("button", { name: "Turn on", exact: true }).click();
-  await expect(dialog).toBeHidden();
+  const response = await page.request.post("/settings?/activate", {
+    form: { otp: ACTIVATION_OTP },
+    headers: formActionHeaders,
+  });
+  const result = (await response.json()) as { type: string; status: number };
+  expect(result).toMatchObject({ type: "success", status: 200 });
+
+  await page.goto("/settings", { waitUntil: "networkidle" });
   await expect(page.getByRole("button", { name: "Turn off", exact: true })).toBeVisible();
 }
 
@@ -70,10 +76,9 @@ export async function enrollTotp(
   page: Page,
   password: string = TEST_PASSWORD,
 ): Promise<{ secret: string; verificationCode: string }> {
-  await settingsMethodRow(page, "Authenticator app (TOTP)")
-    .getByRole("button", { name: "Set up", exact: true })
-    .click();
+  await page.goto("/settings?verify=totp");
   const dialog = page.getByRole("dialog", { name: "Authenticator app (TOTP)" });
+  await expect(dialog).toBeVisible();
   await dialog.locator('input[name="password"]').fill(password);
   const enableButton = dialog.getByRole("button", { name: "Enable 2FA" });
   await expect(enableButton).toBeEnabled();
