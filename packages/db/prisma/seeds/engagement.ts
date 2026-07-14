@@ -45,14 +45,9 @@ async function ensureAcceptedPractice(
   });
 
   const id = randomUUID();
-  const sources = [
-    { path: entryFileNameFor("cpp"), content: sampleSource("cpp", "accepted") },
-  ];
+  const sources = [{ path: entryFileNameFor("cpp"), content: sampleSource("cpp", "accepted") }];
   const [sourceStorage, verdictDetailStorage] = await Promise.all([
-    putSubmissionSourcePlan(
-      storage,
-      planSubmissionSources(id, randomUUID(), sources),
-    ),
+    putSubmissionSourcePlan(storage, planSubmissionSources(id, randomUUID(), sources)),
     putVerdictDetail(storage, id, `seed-${randomUUID()}`, detail),
   ]);
   await prisma.submission.create({
@@ -72,7 +67,6 @@ async function ensureAcceptedPractice(
       createdAt: when,
     },
   });
-
 }
 
 export async function seedEngagement(

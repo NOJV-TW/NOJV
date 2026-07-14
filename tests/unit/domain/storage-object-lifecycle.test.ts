@@ -86,6 +86,9 @@ describe("storage object cleanup", () => {
     await cleanupUnreferencedStorageObject({ pointer: manifest });
 
     expect(getVerifiedObject).toHaveBeenCalledWith({}, child);
-    expect(deleteBlob.mock.calls).toEqual([[{}, child.key], [{}, manifest.key]]);
+    expect(deleteBlob.mock.calls).toEqual([
+      [{}, child.key],
+      [{}, manifest.key],
+    ]);
   });
 });

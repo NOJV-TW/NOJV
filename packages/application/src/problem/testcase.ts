@@ -16,20 +16,12 @@ import { requireProblem } from "../shared/require";
 import { stripUndefined } from "../shared/strip-undefined";
 import { commitStoragePointerSwap } from "../shared/storage-object-lifecycle";
 
-import {
-  writeTestcaseField,
-  writeTestcaseBlobs,
-  type TestcaseBlobPointers,
-} from "./blobs";
+import { writeTestcaseField, writeTestcaseBlobs, type TestcaseBlobPointers } from "./blobs";
 import { assertProblemOwnership, type ProblemActorContext } from "./permissions";
 
 const MAX_TESTCASE_SETS_PER_PROBLEM = 20;
 
-async function requireSetInProblem(
-  setId: string,
-  problemId: string,
-  tx?: TransactionClient,
-) {
+async function requireSetInProblem(setId: string, problemId: string, tx?: TransactionClient) {
   const set = tx
     ? await testcaseSetRepo.withTx(tx).findById(setId)
     : await testcaseSetRepo.findById(setId);
@@ -169,7 +161,10 @@ export async function deleteTestcaseSetRecord(
       activeStorageBytes: { decrement: bytes },
       storageGeneration: { increment: 1 },
     });
-    await commitStoragePointerSwap(tx, { added: [], removed: persistedTestcasePointers(existing.testcases) });
+    await commitStoragePointerSwap(tx, {
+      added: [],
+      removed: persistedTestcasePointers(existing.testcases),
+    });
   });
 }
 

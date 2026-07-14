@@ -42,12 +42,12 @@ async function createQueuedContestSubmission(opts: {
   language?: string;
 }) {
   return createTestSubmission({
-      userId: opts.userId,
-      problemId: opts.problemId,
-      contestId: opts.contestId,
-      language: opts.language ?? "python",
-      status: "queued",
-      sampleOnly: false,
+    userId: opts.userId,
+    problemId: opts.problemId,
+    contestId: opts.contestId,
+    language: opts.language ?? "python",
+    status: "queued",
+    sampleOnly: false,
   });
 }
 
@@ -234,14 +234,18 @@ describe("submit → judge → score-persist end-to-end (real DB)", () => {
 
     const rejudgeRunId = `rejudge-${submission.id}`;
     await submissionDomain.snapshotForRejudge(submission.id, teacher.id, rejudgeRunId);
-    await completeJudge(submission.id, {
-      accepted: true,
-      caseResults: [],
-      feedback: "ac",
-      runtimeMs: 10,
-      score: 100,
-      verdict: "accepted",
-    }, rejudgeRunId);
+    await completeJudge(
+      submission.id,
+      {
+        accepted: true,
+        caseResults: [],
+        feedback: "ac",
+        runtimeMs: 10,
+        score: 100,
+        verdict: "accepted",
+      },
+      rejudgeRunId,
+    );
     await contestDomain.updateContestScores(contest.id, student.id);
 
     const updated = await testPrisma.participation.findUnique({

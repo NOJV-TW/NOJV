@@ -76,9 +76,7 @@ export async function putSubmissionSourcePlan(
   plan: SubmissionSourcePlan,
 ): Promise<StorageObjectPointer> {
   await Promise.all(
-    plan.sources.map(({ content, pointer }) =>
-      putImmutableText(client, pointer.key, content),
-    ),
+    plan.sources.map(({ content, pointer }) => putImmutableText(client, pointer.key, content)),
   );
   await putImmutableObject(client, plan.manifest.key, plan.manifestBody, {
     contentType: "application/json",

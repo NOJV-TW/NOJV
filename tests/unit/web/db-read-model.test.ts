@@ -32,9 +32,8 @@ vi.mock("@nojv/storage", async (importOriginal) => {
   return {
     ...original,
     createStorageClient: () => ({}),
-    getVerifiedText: vi.fn(
-      (_client: unknown, pointer: { key: string }) =>
-        Promise.resolve(blobStore.get(pointer.key) ?? ""),
+    getVerifiedText: vi.fn((_client: unknown, pointer: { key: string }) =>
+      Promise.resolve(blobStore.get(pointer.key) ?? ""),
     ),
     putText: vi.fn((_client: unknown, key: string, content: string) => {
       blobStore.set(key, content);

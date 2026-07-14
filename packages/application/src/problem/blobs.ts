@@ -50,14 +50,17 @@ export async function writeTestcaseBlobs(
           input.output,
         ),
     Promise.all(
-      Object.entries(input.inputFiles ?? {}).map(async ([name, content]) => [
-        name,
-        await putGuardedImmutableText(
-          client,
-          testcaseInputFileKey(input.problemId, input.testcaseId, version, name),
-          content,
-        ),
-      ] as const),
+      Object.entries(input.inputFiles ?? {}).map(
+        async ([name, content]) =>
+          [
+            name,
+            await putGuardedImmutableText(
+              client,
+              testcaseInputFileKey(input.problemId, input.testcaseId, version, name),
+              content,
+            ),
+          ] as const,
+      ),
     ),
   ]);
   return {
@@ -87,10 +90,9 @@ export async function readTestcaseBlobs(row: {
     getVerifiedText(client, inputStorage),
     outputStorage ? getVerifiedText(client, outputStorage) : Promise.resolve(undefined),
     Promise.all(
-      fileEntries.map(async ([name, pointer]) => [
-        name,
-        await getVerifiedText(client, pointer),
-      ] as const),
+      fileEntries.map(
+        async ([name, pointer]) => [name, await getVerifiedText(client, pointer)] as const,
+      ),
     ),
   ]);
   return {
@@ -186,10 +188,7 @@ interface TestcaseSetRowLike {
   testcases: readonly TestcaseRowLike[];
 }
 
-type HydratedTestcase<T extends TestcaseRowLike> = Omit<
-  T,
-  "inputStorage" | "outputStorage"
-> & {
+type HydratedTestcase<T extends TestcaseRowLike> = Omit<T, "inputStorage" | "outputStorage"> & {
   input: string;
   output: string | null;
 };
@@ -213,9 +212,7 @@ export async function hydrateTestcaseSets<T extends TestcaseSetRowLike>(
             getVerifiedText(client, inputPointer),
             outputPointer ? getVerifiedText(client, outputPointer) : Promise.resolve(null),
           ]);
-          return { ...tc, input, output } as HydratedTestcase<
-            T["testcases"][number]
-          >;
+          return { ...tc, input, output } as HydratedTestcase<T["testcases"][number]>;
         }),
       );
       return { ...set, testcases };
@@ -227,10 +224,7 @@ interface WorkspaceFileRowLike {
   contentStorage: unknown;
 }
 
-type HydratedWorkspaceFileOf<T extends WorkspaceFileRowLike> = Omit<
-  T,
-  "contentStorage"
-> & {
+type HydratedWorkspaceFileOf<T extends WorkspaceFileRowLike> = Omit<T, "contentStorage"> & {
   content: string;
 };
 
@@ -241,10 +235,7 @@ export async function hydrateWorkspaceFiles<T extends WorkspaceFileRowLike>(
   return Promise.all(
     files.map(async (file) => ({
       ...file,
-      content: await getVerifiedText(
-        client,
-        assertStorageObjectPointer(file.contentStorage),
-      ),
+      content: await getVerifiedText(client, assertStorageObjectPointer(file.contentStorage)),
     })),
   );
 }
@@ -255,9 +246,6 @@ function parsePointerMap(value: unknown): Record<string, StorageObjectPointer> |
     throw new Error("Persisted input-file storage pointer map is malformed");
   }
   return Object.fromEntries(
-    Object.entries(value).map(([name, pointer]) => [
-      name,
-      assertStorageObjectPointer(pointer),
-    ]),
+    Object.entries(value).map(([name, pointer]) => [name, assertStorageObjectPointer(pointer)]),
   );
 }

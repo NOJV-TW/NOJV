@@ -44,9 +44,7 @@ describe("storage key builders", () => {
   });
 
   it("checkerKey returns the canonical checker path", () => {
-    expect(checkerKey("prob_1", version)).toBe(
-      `problems/prob_1/validators/${version}/checker`,
-    );
+    expect(checkerKey("prob_1", version)).toBe(`problems/prob_1/validators/${version}/checker`);
   });
 
   it("interactorKey returns the canonical interactor path", () => {

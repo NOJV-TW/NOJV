@@ -57,11 +57,13 @@ beforeEach(() => {
     interactorStorage: null,
   });
   problemUpdate.mockResolvedValue({ id: "prob_1" });
-  putImmutableText.mockImplementation(async (_client: unknown, key: string, content: string) => ({
-    key,
-    sha256: "a".repeat(64),
-    size: Buffer.byteLength(content),
-  }));
+  putImmutableText.mockImplementation(
+    async (_client: unknown, key: string, content: string) => ({
+      key,
+      sha256: "a".repeat(64),
+      size: Buffer.byteLength(content),
+    }),
+  );
   commitStoragePointerSwap.mockResolvedValue(undefined);
   guardStorageObjectWrites.mockResolvedValue(undefined);
 });

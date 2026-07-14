@@ -127,7 +127,8 @@ vi.mock("@nojv/storage", async (importOriginal) => {
     },
     deleteSubmissionStorage: async (_client: unknown, submissionId: string) => {
       const prefix = `submissions/${submissionId}/`;
-      for (const key of Array.from(testBlobs.keys())) if (key.startsWith(prefix)) testBlobs.delete(key);
+      for (const key of Array.from(testBlobs.keys()))
+        if (key.startsWith(prefix)) testBlobs.delete(key);
     },
   };
 });

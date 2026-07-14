@@ -105,11 +105,13 @@ beforeEach(() => {
     inputFileStorage: null,
     testcaseSet: { problemId: "prob_1" },
   });
-  putImmutableText.mockImplementation(async (_client: unknown, key: string, content: string) => ({
-    key,
-    sha256: "a".repeat(64),
-    size: Buffer.byteLength(content),
-  }));
+  putImmutableText.mockImplementation(
+    async (_client: unknown, key: string, content: string) => ({
+      key,
+      sha256: "a".repeat(64),
+      size: Buffer.byteLength(content),
+    }),
+  );
   guardStorageObjectWrites.mockResolvedValue(undefined);
   commitStoragePointerSwap.mockResolvedValue(undefined);
 });
@@ -184,8 +186,8 @@ describe("testcase immutable object mutations", () => {
       problemId: "prob_other",
       testcases: [],
     });
-    await expect(
-      deleteTestcaseSetRecord(actor, "prob_1", "set_other"),
-    ).rejects.toThrow(/not found for this problem/i);
+    await expect(deleteTestcaseSetRecord(actor, "prob_1", "set_other")).rejects.toThrow(
+      /not found for this problem/i,
+    );
   });
 });

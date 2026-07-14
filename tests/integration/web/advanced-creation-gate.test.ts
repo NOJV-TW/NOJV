@@ -201,18 +201,18 @@ describe("special_env publish gate — accepted test run required", () => {
     const problem = await createDraftAdvancedProblem(teacher.id);
 
     await createTestSubmission({
-        problemId: problem.id,
-        userId: teacher.id,
-        language: "python",
-        status: "accepted",
-        advancedConfigSnapshot: {
-          config: {
-            ...advancedConfig(),
-            run: { imageRef: `ghcr.io/nojv-tw/old@${DIGEST}`, imageSource: "registry" },
-          },
-          requiredPaths: [],
-          resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
+      problemId: problem.id,
+      userId: teacher.id,
+      language: "python",
+      status: "accepted",
+      advancedConfigSnapshot: {
+        config: {
+          ...advancedConfig(),
+          run: { imageRef: `ghcr.io/nojv-tw/old@${DIGEST}`, imageSource: "registry" },
         },
+        requiredPaths: [],
+        resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
+      },
     });
 
     await expect(
@@ -230,16 +230,16 @@ describe("special_env publish gate — accepted test run required", () => {
     const problem = await createDraftAdvancedProblem(teacher.id);
 
     await createTestSubmission({
-        problemId: problem.id,
-        userId: teacher.id,
-        language: "python",
-        status: "accepted",
-        sampleOnly: true,
-        advancedConfigSnapshot: {
-          config: advancedConfig(),
-          requiredPaths: [],
-          resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
-        },
+      problemId: problem.id,
+      userId: teacher.id,
+      language: "python",
+      status: "accepted",
+      sampleOnly: true,
+      advancedConfigSnapshot: {
+        config: advancedConfig(),
+        requiredPaths: [],
+        resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
+      },
     });
 
     await problemDomain.updateProblemRecord(actorOf(teacher), problem.id, {
@@ -256,16 +256,16 @@ describe("special_env publish gate — accepted test run required", () => {
     });
     const problem = await createDraftAdvancedProblem(teacher.id);
     await createTestSubmission({
-        problemId: problem.id,
-        userId: teacher.id,
-        language: "python",
-        status: "accepted",
-        sampleOnly: true,
-        advancedConfigSnapshot: {
-          config: advancedConfig(),
-          requiredPaths: [],
-          resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
-        },
+      problemId: problem.id,
+      userId: teacher.id,
+      language: "python",
+      status: "accepted",
+      sampleOnly: true,
+      advancedConfigSnapshot: {
+        config: advancedConfig(),
+        requiredPaths: [],
+        resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
+      },
     });
 
     await expect(
@@ -284,16 +284,16 @@ describe("special_env publish gate — accepted test run required", () => {
     const problem = await createDraftAdvancedProblem(teacher.id);
 
     await createTestSubmission({
-        problemId: problem.id,
-        userId: teacher.id,
-        language: "python",
-        status: "accepted",
-        sampleOnly: true,
-        advancedConfigSnapshot: {
-          config: advancedConfig(),
-          requiredPaths: [],
-          resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
-        },
+      problemId: problem.id,
+      userId: teacher.id,
+      language: "python",
+      status: "accepted",
+      sampleOnly: true,
+      advancedConfigSnapshot: {
+        config: advancedConfig(),
+        requiredPaths: [],
+        resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
+      },
     });
 
     await problemDomain.updateProblemRecord(actorOf(teacher), problem.id, {
@@ -313,15 +313,15 @@ describe("special_env publish gate — accepted test run required", () => {
     });
     const problem = await createDraftAdvancedProblem(teacher.id);
     await createTestSubmission({
-        problemId: problem.id,
-        userId: teacher.id,
-        language: "python",
-        status: "accepted",
-        advancedConfigSnapshot: {
-          config: advancedConfig(),
-          requiredPaths: [],
-          resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
-        },
+      problemId: problem.id,
+      userId: teacher.id,
+      language: "python",
+      status: "accepted",
+      advancedConfigSnapshot: {
+        config: advancedConfig(),
+        requiredPaths: [],
+        resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
+      },
     });
     await problemDomain.updateAdvancedJudgeConfiguration(actorOf(teacher), problem.id, {
       config: advancedConfig(),
@@ -340,15 +340,15 @@ describe("special_env publish gate — accepted test run required", () => {
     });
     const problem = await createDraftAdvancedProblem(teacher.id);
     await createTestSubmission({
-        problemId: problem.id,
-        userId: teacher.id,
-        language: "python",
-        status: "accepted",
-        advancedConfigSnapshot: {
-          config: advancedConfig(),
-          requiredPaths: [],
-          resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
-        },
+      problemId: problem.id,
+      userId: teacher.id,
+      language: "python",
+      status: "accepted",
+      advancedConfigSnapshot: {
+        config: advancedConfig(),
+        requiredPaths: [],
+        resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
+      },
     });
 
     let releaseLock!: () => void;

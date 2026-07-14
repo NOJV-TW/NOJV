@@ -5,9 +5,7 @@ import { ConflictError } from "../shared/errors";
 
 const MAX_SUBMISSION_BYTES = 1 * 1024 * 1024;
 
-export function normalizeSubmissionSources(
-  payload: SubmissionDraft,
-): SubmissionSource[] {
+export function normalizeSubmissionSources(payload: SubmissionDraft): SubmissionSource[] {
   const sources: SubmissionSource[] = [];
 
   if (payload.sourceFiles && payload.sourceFiles.length > 0) {

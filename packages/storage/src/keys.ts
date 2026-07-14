@@ -33,11 +33,7 @@ export const testcaseInputFileKey = (
   return `problems/${problemId}/testcases/${testcaseId}/versions/${versionSegment(version)}/files/${parsed}`;
 };
 
-export const workspaceFileKey = (
-  problemId: string,
-  fileId: string,
-  version: string,
-): string =>
+export const workspaceFileKey = (problemId: string, fileId: string, version: string): string =>
   `problems/${problemId}/workspace/${fileId}/versions/${versionSegment(version)}`;
 
 export const checkerKey = (problemId: string, version: string): string =>
@@ -58,14 +54,8 @@ export const submissionSourceKey = (
 ): string =>
   `submissions/${submissionId}/source-generations/${versionSegment(generation)}/files/${parseRelativePath(path)}`;
 
-export const submissionSourceManifestKey = (
-  submissionId: string,
-  generation: string,
-): string =>
+export const submissionSourceManifestKey = (submissionId: string, generation: string): string =>
   `submissions/${submissionId}/source-generations/${versionSegment(generation)}/manifest.json`;
 
-export const submissionVerdictDetailKey = (
-  submissionId: string,
-  judgeRunId: string,
-): string =>
+export const submissionVerdictDetailKey = (submissionId: string, judgeRunId: string): string =>
   `submissions/${submissionId}/judge-runs/${versionSegment(judgeRunId)}/verdict-detail.json`;

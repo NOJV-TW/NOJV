@@ -170,10 +170,7 @@ export async function updateProblemWorkspace(
       (total, file) => total + assertStorageObjectPointer(file.contentStorage).size,
       0,
     );
-    const nextBytes = prepared.reduce(
-      (total, file) => total + file.contentStorage.size,
-      0,
-    );
+    const nextBytes = prepared.reduce((total, file) => total + file.contentStorage.size, 0);
     await problemRepo.withTx(tx).update(problem.id, {
       activeStorageBytes: { increment: nextBytes - previousBytes },
       storageGeneration: { increment: 1 },
@@ -239,8 +236,7 @@ export async function setWorkspaceFile(
     });
     await commitStoragePointerSwap(tx, {
       added: [contentStorage],
-      removed:
-        existing === null ? [] : [assertStorageObjectPointer(existing.contentStorage)],
+      removed: existing === null ? [] : [assertStorageObjectPointer(existing.contentStorage)],
     });
     return row;
   });

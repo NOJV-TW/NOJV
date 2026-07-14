@@ -108,9 +108,7 @@ export async function executeRejudgeDispatch(rawPayload: unknown): Promise<void>
           problemId: parsed.input.problemId,
           triggeredByUserId: parsed.input.triggeredByUserId,
           ...(parsed.input.contestId ? { contestId: parsed.input.contestId } : {}),
-          ...(parsed.input.assessmentId
-            ? { assessmentId: parsed.input.assessmentId }
-            : {}),
+          ...(parsed.input.assessmentId ? { assessmentId: parsed.input.assessmentId } : {}),
           ...(parsed.input.examId ? { examId: parsed.input.examId } : {}),
           ...(parsed.input.userIds ? { userIds: parsed.input.userIds } : {}),
           ...(parsed.input.since ? { since: parsed.input.since } : {}),

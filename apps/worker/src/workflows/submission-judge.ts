@@ -100,11 +100,7 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
     const restoreTo = rejudgeOldStatus;
     if (restoreTo !== null) {
       await CancellationScope.nonCancellable(() =>
-        judge.restoreSubmissionForCancelledRejudge(
-          input.submissionId,
-          judgeRunId,
-          restoreTo,
-        ),
+        judge.restoreSubmissionForCancelledRejudge(input.submissionId, judgeRunId, restoreTo),
       );
     } else {
       await CancellationScope.nonCancellable(() =>

@@ -254,11 +254,7 @@ async function prepareTestcases(
         putGuardedText(client, testcaseInputKey(problemId, id, version), testcase.input),
         testcase.answer === null
           ? Promise.resolve(null)
-          : putGuardedText(
-              client,
-              testcaseOutputKey(problemId, id, version),
-              testcase.answer,
-            ),
+          : putGuardedText(client, testcaseOutputKey(problemId, id, version), testcase.answer),
       ]);
       return { id, inputStorage, outputStorage };
     }),
@@ -414,10 +410,7 @@ export async function importBundle(
             total + testcase.inputStorage.size + (testcase.outputStorage?.size ?? 0),
           0,
         ) +
-        preparedWorkspace.reduce(
-          (total, file) => total + file.contentStorage.size,
-          0,
-        ) +
+        preparedWorkspace.reduce((total, file) => total + file.contentStorage.size, 0) +
         (checkerStorage?.size ?? 0) +
         (interactorStorage?.size ?? 0),
       storageGeneration: { increment: 1 },
@@ -440,9 +433,9 @@ export async function importBundle(
             ...(testcase.outputStorage === null
               ? []
               : [assertStorageObjectPointer(testcase.outputStorage)]),
-            ...Object.values(
-              (testcase.inputFileStorage ?? {}) as Record<string, unknown>,
-            ).map(assertStorageObjectPointer),
+            ...Object.values((testcase.inputFileStorage ?? {}) as Record<string, unknown>).map(
+              assertStorageObjectPointer,
+            ),
           ]),
         ),
         ...existingWorkspace.map(({ contentStorage }) =>

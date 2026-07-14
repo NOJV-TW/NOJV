@@ -51,7 +51,9 @@ export async function guardStorageObjectWrites(
   const unique = uniquePointers(pointers);
   if (unique.length === 0) return;
   const availableAt = new Date(now.getTime() + READER_GRACE_MS);
-  await durableWorkRepo.enqueueMany(unique.map((pointer) => cleanupInput(pointer, availableAt)));
+  await durableWorkRepo.enqueueMany(
+    unique.map((pointer) => cleanupInput(pointer, availableAt)),
+  );
 }
 
 export async function commitStoragePointerSwap(
@@ -132,7 +134,10 @@ export async function cleanupUnreferencedStorageObject(rawPayload: unknown): Pro
   let childPointers: StorageObjectPointer[] = [];
   try {
     await getVerifiedObject(client, pointer);
-    if (pointer.key.endsWith("/manifest.json") && pointer.key.includes("/source-generations/")) {
+    if (
+      pointer.key.endsWith("/manifest.json") &&
+      pointer.key.includes("/source-generations/")
+    ) {
       childPointers = await getSubmissionSourcePointers(client, pointer);
       for (const child of childPointers) await getVerifiedObject(client, child);
     }

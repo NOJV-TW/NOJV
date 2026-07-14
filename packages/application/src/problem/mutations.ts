@@ -36,10 +36,7 @@ import { requireProblem } from "../shared/require";
 import { commitStoragePointerSwap } from "../shared/storage-object-lifecycle";
 import { ensureUser } from "../user/mutations";
 
-import {
-  writeCheckerScriptBlob,
-  writeInteractorScriptBlob,
-} from "./blobs";
+import { writeCheckerScriptBlob, writeInteractorScriptBlob } from "./blobs";
 import {
   assertCanCreateAdvancedProblems,
   assertProblemEditAccess,
@@ -401,9 +398,7 @@ export async function saveProblemJudgeConfig(
   const judgeConfig: JudgeConfig = {
     type,
     ...(checkerStorage ? { checkerLanguage: input.judgeConfig.checkerLanguage } : {}),
-    ...(interactorStorage
-      ? { interactorLanguage: input.judgeConfig.interactorLanguage }
-      : {}),
+    ...(interactorStorage ? { interactorLanguage: input.judgeConfig.interactorLanguage } : {}),
     ...(type === "standard" && input.judgeConfig.compare
       ? { compare: input.judgeConfig.compare }
       : {}),
@@ -414,7 +409,8 @@ export async function saveProblemJudgeConfig(
     await problemRepo.withTx(tx).lockForUpdate(problemId);
     const current = await requireProblem(tx, problemId);
     assertProblemOwnership(current, actor);
-    const previousBytes = optionalPointerSize(current.checkerStorage) +
+    const previousBytes =
+      optionalPointerSize(current.checkerStorage) +
       optionalPointerSize(current.interactorStorage);
     const nextBytes = (checkerStorage?.size ?? 0) + (interactorStorage?.size ?? 0);
     await problemRepo.withTx(tx).update(problemId, {
@@ -525,9 +521,7 @@ export async function convertProblemToAdvancedMode(
         ...workspaceFiles.map(({ contentStorage }) =>
           assertStorageObjectPointer(contentStorage),
         ),
-        ...testcaseSets.flatMap(({ testcases }) =>
-          testcases.flatMap(testcaseStoragePointers),
-        ),
+        ...testcaseSets.flatMap(({ testcases }) => testcases.flatMap(testcaseStoragePointers)),
         ...[problem.checkerStorage, problem.interactorStorage]
           .filter((pointer) => pointer !== null)
           .map(assertStorageObjectPointer),
@@ -621,9 +615,7 @@ function testcaseStoragePointers(testcase: {
     ...(testcase.outputStorage === null
       ? []
       : [assertStorageObjectPointer(testcase.outputStorage)]),
-    ...Object.values((files ?? {}) as Record<string, unknown>).map(
-      assertStorageObjectPointer,
-    ),
+    ...Object.values((files ?? {}) as Record<string, unknown>).map(assertStorageObjectPointer),
   ];
 }
 

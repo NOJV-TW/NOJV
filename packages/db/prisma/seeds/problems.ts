@@ -4798,8 +4798,7 @@ export async function seedProblems(
           where: { id: def.id },
         });
         let activeStorageBytes =
-          (validator.checkerStorage?.size ?? 0) +
-          (validator.interactorStorage?.size ?? 0);
+          (validator.checkerStorage?.size ?? 0) + (validator.interactorStorage?.size ?? 0);
 
         const stmt = def.statement;
         await tx.problemStatement.upsert({
@@ -4871,12 +4870,12 @@ export async function seedProblems(
             );
             await tx.testcase.createMany({
               data: preparedCases.map((testcase, caseIndex) => ({
-                  id: testcase.id,
-                  ordinal: caseIndex + 1,
-                  testcaseSetId: testcaseSet.id,
-                  inputStorage: testcase.inputStorage,
-                  outputStorage: testcase.outputStorage,
-                })),
+                id: testcase.id,
+                ordinal: caseIndex + 1,
+                testcaseSetId: testcaseSet.id,
+                inputStorage: testcase.inputStorage,
+                outputStorage: testcase.outputStorage,
+              })),
             });
             activeStorageBytes += preparedCases.reduce(
               (total, testcase) =>
