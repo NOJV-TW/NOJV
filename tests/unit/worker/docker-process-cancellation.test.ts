@@ -159,6 +159,61 @@ describe("spawnDockerContainer cancellation", () => {
     await expect(operation).rejects.toBe(reason);
   });
 
+  it("fails closed and removes the container when the workspace size check fails", async () => {
+    const runChild = child(false);
+    mocks.spawn.mockImplementation((_command: string, args: string[]) =>
+      args[0] === "rm" ? child(true) : runChild,
+    );
+    const watchFailure = new Error("workspace stat failed");
+    const operation = spawnDockerContainer({
+      args: ["run", "--name", "judge-watch-failure"],
+      containerName: "judge-watch-failure",
+      outerTimeoutMs: 60_000,
+      signal: new AbortController().signal,
+      watch: {
+        dir: "/tmp/judge-watch-failure",
+        intervalMs: 1,
+        exceeds: vi.fn().mockRejectedValue(watchFailure),
+      },
+    });
+
+    await expect(operation).rejects.toBe(watchFailure);
+    expect(runChild.kill).toHaveBeenCalledWith("SIGKILL");
+    expect(mocks.spawn).toHaveBeenLastCalledWith(
+      "docker",
+      ["rm", "-f", "judge-watch-failure"],
+      expect.any(Object),
+    );
+  });
+
+  it("preserves a workspace check failure while serializing cleanup failure", async () => {
+    const runChild = child(false);
+    const cleanupChild = child(false);
+    mocks.spawn.mockImplementation((_command: string, args: string[]) =>
+      args[0] === "rm" ? cleanupChild : runChild,
+    );
+    const watchFailure = new Error("workspace stat failed");
+    const operation = spawnDockerContainer({
+      args: ["run", "--name", "judge-watch-cleanup-failure"],
+      containerName: "judge-watch-cleanup-failure",
+      outerTimeoutMs: 60_000,
+      signal: new AbortController().signal,
+      watch: {
+        dir: "/tmp/judge-watch-cleanup-failure",
+        intervalMs: 1,
+        exceeds: vi.fn().mockRejectedValue(watchFailure),
+      },
+    });
+    await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(2));
+    cleanupChild.stderr.write("workspace container removal denied");
+    cleanupChild.emit("close", 1);
+
+    await expect(operation).rejects.toBe(watchFailure);
+    expect(watchFailure.message).toContain("workspace stat failed");
+    expect(watchFailure.message).toContain("Docker container cleanup failed");
+    expect(watchFailure.message).toContain("workspace container removal denied");
+  });
+
   it("treats only Docker's exact missing-container result as idempotent cleanup", async () => {
     const missing = child(false);
     mocks.spawn.mockReturnValueOnce(missing);

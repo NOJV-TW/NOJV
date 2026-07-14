@@ -15,7 +15,12 @@ import {
 import { createBoundedStringBuffer } from "./bounded-buffer";
 import { mergeInteractiveCase, type InteractiveSideResult } from "./check-interactive";
 import { buildSandboxDockerArgs } from "./docker-args";
-import { forceRemoveContainer, sanitizeId } from "./docker-process";
+import {
+  attachDockerCleanupFailure,
+  cleanupDockerResources,
+  forceRemoveContainer,
+  sanitizeId,
+} from "./docker-process";
 import { buildDockerResourceLabels } from "./docker-resource";
 import { executionAbortReason } from "./execution-abort";
 import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
@@ -185,10 +190,11 @@ async function runCase(
       let intSpawnError = false;
       let timedOut = false;
       let settled = false;
+      let termination: "abort" | "timeout" | null = null;
       let cleanup: Promise<void> | null = null;
 
       const finish = () => {
-        if (settled || !solClosed || !intClosed) return;
+        if (settled || termination || !solClosed || !intClosed) return;
         settled = true;
         clearTimeout(timer);
         execution.signal.removeEventListener("abort", abort);
@@ -198,36 +204,68 @@ async function runCase(
         });
       };
 
-      const terminate = (): Promise<void> => {
-        if (cleanup) return cleanup;
+      const fail = (error: Error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        execution.signal.removeEventListener("abort", abort);
+        reject(error);
+      };
+
+      const settleTermination = (cleanupError?: unknown) => {
+        if (settled) return;
+        if (execution.signal.aborted) {
+          const abortReason = executionAbortReason(execution.signal);
+          fail(
+            cleanupError === undefined
+              ? abortReason
+              : attachDockerCleanupFailure(abortReason, "Interactive sandbox", cleanupError),
+          );
+          return;
+        }
+        if (termination !== "timeout") return;
+        if (cleanupError !== undefined) {
+          fail(
+            attachDockerCleanupFailure(
+              new Error("Interactive sandbox timed out."),
+              "Interactive sandbox",
+              cleanupError,
+            ),
+          );
+          return;
+        }
+        solClosed = true;
+        intClosed = true;
+        termination = null;
+        finish();
+      };
+
+      const terminate = () => {
+        if (cleanup) return;
         solChild.kill("SIGKILL");
         intChild.kill("SIGKILL");
-        cleanup = Promise.all([
-          forceRemoveContainer(solName),
-          forceRemoveContainer(intName),
-        ]).then(() => undefined);
-        return cleanup;
+        cleanup = cleanupDockerResources("Interactive containers", [
+          { name: solName, remove: () => forceRemoveContainer(solName) },
+          { name: intName, remove: () => forceRemoveContainer(intName) },
+        ]);
+        void cleanup.then(
+          () => settleTermination(),
+          (error: unknown) => settleTermination(error),
+        );
       };
 
       const abort = () => {
-        void terminate().then(() => {
-          if (settled) return;
-          settled = true;
-          clearTimeout(timer);
-          execution.signal.removeEventListener("abort", abort);
-          reject(executionAbortReason(execution.signal));
-        });
+        termination = "abort";
+        terminate();
       };
       execution.signal.addEventListener("abort", abort, { once: true });
 
       const timer = setTimeout(() => {
         timedOut = true;
-        void terminate().then(() => {
-          solClosed = true;
-          intClosed = true;
-          finish();
-        });
+        termination = "timeout";
+        terminate();
       }, outerTimeoutMs);
+      if (execution.signal.aborted) abort();
 
       solChild.on("error", (err: Error) => {
         solSpawnError = true;

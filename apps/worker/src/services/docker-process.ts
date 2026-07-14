@@ -207,6 +207,7 @@ export async function spawnDockerContainer(opts: DockerRunOptions): Promise<Dock
     let checkInFlight = false;
     let termination: Promise<void> | null = null;
     let terminationResult: (() => DockerRunResult) | null = null;
+    let terminationFailure: Error | null = null;
     let abortReason: Error | null = null;
 
     const settle = (result: DockerRunResult) => {
@@ -246,6 +247,10 @@ export async function spawnDockerContainer(opts: DockerRunOptions): Promise<Dock
             fail(abortReason ?? executionAbortReason(opts.signal));
             return;
           }
+          if (terminationFailure) {
+            fail(terminationFailure);
+            return;
+          }
           if (terminationResult) settle(terminationResult());
         },
         (cleanupError: unknown) => {
@@ -256,6 +261,12 @@ export async function spawnDockerContainer(opts: DockerRunOptions): Promise<Dock
                 "Docker container",
                 cleanupError,
               ),
+            );
+            return;
+          }
+          if (terminationFailure) {
+            fail(
+              attachDockerCleanupFailure(terminationFailure, "Docker container", cleanupError),
             );
             return;
           }
@@ -283,13 +294,22 @@ export async function spawnDockerContainer(opts: DockerRunOptions): Promise<Dock
           checkInFlight = true;
           void watch
             .exceeds(watch.dir)
-            .then((over) => {
-              if (over) {
-                sizeExceeded = true;
-                terminationResult = () => currentResult(null);
+            .then(
+              (over) => {
+                if (over) {
+                  sizeExceeded = true;
+                  terminationResult = () => currentResult(null);
+                  terminate();
+                }
+              },
+              (error: unknown) => {
+                terminationFailure =
+                  error instanceof Error
+                    ? error
+                    : new Error("Docker workspace size check failed.", { cause: error });
                 terminate();
-              }
-            })
+              },
+            )
             .finally(() => {
               checkInFlight = false;
             });
