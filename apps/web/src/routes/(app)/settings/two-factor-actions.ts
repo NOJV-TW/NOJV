@@ -16,6 +16,10 @@ import type { Actions, RequestEvent } from "@sveltejs/kit";
 
 import { getAuth } from "$lib/auth.server";
 import { requireAuth } from "$lib/server/auth";
+import {
+  factorMutationPath,
+  runInternalFactorMutation,
+} from "$lib/server/auth-factor-mutation";
 import { getWebEnv } from "$lib/server/env";
 import { createLogger } from "$lib/server/logger";
 import { otpSendRateLimiter, stepUpAttemptRateLimiter } from "$lib/server/shared/rate-limiter";
@@ -352,10 +356,12 @@ export const twoFactorActions = {
     }
     const body = await passwordBodyForBetterAuth(actor.userId, formData);
     try {
-      const res = await getAuth().api.enableTwoFactor({
-        body,
-        headers: event.request.headers,
-      });
+      const res = await runInternalFactorMutation(factorMutationPath.enable, () =>
+        getAuth().api.enableTwoFactor({
+          body,
+          headers: event.request.headers,
+        }),
+      );
       return { totpURI: res.totpURI, backupCodes: res.backupCodes };
     } catch {
       return fail(400, {
@@ -384,11 +390,13 @@ export const twoFactorActions = {
     }
     let headers: Headers;
     try {
-      ({ headers } = await getAuth().api.verifyTOTP({
-        body: { code },
-        headers: event.request.headers,
-        returnHeaders: true,
-      }));
+      ({ headers } = await runInternalFactorMutation(factorMutationPath.verifyTotp, () =>
+        getAuth().api.verifyTOTP({
+          body: { code },
+          headers: event.request.headers,
+          returnHeaders: true,
+        }),
+      ));
     } catch {
       // The reservation intentionally remains consumed on invalid codes and
       // transient provider failures. Releasing it would reopen the race with a
@@ -423,11 +431,13 @@ export const twoFactorActions = {
     }
     const body = await passwordBodyForBetterAuth(actor.userId, formData);
     try {
-      const { headers } = await getAuth().api.disableTwoFactor({
-        body,
-        headers: event.request.headers,
-        returnHeaders: true,
-      });
+      const { headers } = await runInternalFactorMutation(factorMutationPath.disable, () =>
+        getAuth().api.disableTwoFactor({
+          body,
+          headers: event.request.headers,
+          returnHeaders: true,
+        }),
+      );
       forwardSetCookies(event, headers);
       const sessionId = event.locals.session?.id;
       if (sessionId) await clearStepUp(sessionId);
@@ -455,10 +465,14 @@ export const twoFactorActions = {
     }
     const body = await passwordBodyForBetterAuth(actor.userId, formData);
     try {
-      const res = await getAuth().api.generateBackupCodes({
-        body,
-        headers: event.request.headers,
-      });
+      const res = await runInternalFactorMutation(
+        factorMutationPath.regenerateBackupCodes,
+        () =>
+          getAuth().api.generateBackupCodes({
+            body,
+            headers: event.request.headers,
+          }),
+      );
       return { backupCodes: res.backupCodes };
     } catch {
       return fail(400, {
@@ -485,7 +499,9 @@ export const twoFactorActions = {
       );
     }
     try {
-      await getAuth().api.deletePasskey({ body: { id }, headers: event.request.headers });
+      await runInternalFactorMutation(factorMutationPath.deletePasskey, () =>
+        getAuth().api.deletePasskey({ body: { id }, headers: event.request.headers }),
+      );
     } catch {
       return fail(400, { error: "Could not remove this passkey." });
     }

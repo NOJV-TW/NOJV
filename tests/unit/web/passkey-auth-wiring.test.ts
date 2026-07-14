@@ -56,9 +56,13 @@ vi.mock("$lib/server/logger", () => ({
 }));
 
 import { getAuth } from "$lib/auth.server";
+import {
+  factorMutationPath,
+  runInternalFactorMutation,
+} from "$lib/server/auth-factor-mutation";
 
 interface PasskeyHookContext {
-  body: { response: { id: string } };
+  body: { response: { id: string } } | Record<string, never>;
   path: string;
 }
 
@@ -175,5 +179,45 @@ describe("production passkey authentication wiring", () => {
 
     expect(cookies[0]?.mock.calls[0]?.[1]).toBe("ticket:user-a:4");
     expect(cookies[1]?.mock.calls[0]?.[1]).toBe("ticket:user-a:5");
+  });
+});
+
+describe("production factor-mutation wiring", () => {
+  it.each([
+    "/two-factor/enable",
+    "/two-factor/disable",
+    "/two-factor/generate-backup-codes",
+    "/passkey/delete-passkey",
+  ])("blocks public mutation endpoint %s", async (path) => {
+    const { before } = productionPasskeyCallbacks();
+
+    await expect(
+      runWithRequestState(new WeakMap(), () => before({ path, body: {} })),
+    ).rejects.toMatchObject({ status: "FORBIDDEN" });
+  });
+
+  it("keeps TOTP verification available to the temporary sign-in flow", async () => {
+    const { before } = productionPasskeyCallbacks();
+
+    await expect(
+      runWithRequestState(new WeakMap(), () =>
+        before({ path: "/two-factor/verify-totp", body: {} }),
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("allows one path-bound internal factor mutation", async () => {
+    const { before } = productionPasskeyCallbacks();
+
+    await expect(
+      runInternalFactorMutation(factorMutationPath.enable, () =>
+        before({ path: factorMutationPath.enable, body: {} }),
+      ),
+    ).resolves.toBeUndefined();
+    await expect(
+      runWithRequestState(new WeakMap(), () =>
+        before({ path: factorMutationPath.enable, body: {} }),
+      ),
+    ).rejects.toMatchObject({ status: "FORBIDDEN" });
   });
 });

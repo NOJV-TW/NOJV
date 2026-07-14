@@ -22,6 +22,10 @@ import {
 } from "@nojv/application";
 
 import { getAuth } from "$lib/auth.server";
+import {
+  factorMutationPath,
+  runInternalFactorMutation,
+} from "$lib/server/auth-factor-mutation";
 
 export {
   adminElevationPrincipal,
@@ -45,7 +49,9 @@ export {
 
 export async function verifyTotpStepUp(code: string, headers: Headers): Promise<boolean> {
   try {
-    await getAuth().api.verifyTOTP({ body: { code }, headers });
+    await runInternalFactorMutation(factorMutationPath.verifyTotp, () =>
+      getAuth().api.verifyTOTP({ body: { code }, headers }),
+    );
     return true;
   } catch {
     return false;

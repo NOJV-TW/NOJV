@@ -15,6 +15,11 @@ import {
 import { prismaAdapterClient as prisma, userRepo } from "@nojv/db";
 import { getWebEnv } from "$lib/server/env";
 import {
+  consumeInternalFactorMutationAuthority,
+  factorMutationPath,
+  type FactorMutationPath,
+} from "$lib/server/auth-factor-mutation";
+import {
   getPasskeyAuthenticationProof,
   setPasskeyAuthenticationProof,
 } from "$lib/server/passkey-request-proof";
@@ -23,6 +28,14 @@ import { extractStudentId, parseSchoolEmail } from "$lib/utils/school";
 import { createLogger } from "$lib/server/logger";
 
 const authLogger = createLogger("auth-hooks");
+
+const internalFactorMutationPaths = new Set<FactorMutationPath>(
+  Object.values(factorMutationPath),
+);
+
+function isInternalFactorMutationPath(path: string): path is FactorMutationPath {
+  return internalFactorMutationPaths.has(path as FactorMutationPath);
+}
 
 function credentialIdFromPasskeyVerification(body: unknown): string | null {
   if (!body || typeof body !== "object" || !("response" in body)) return null;
@@ -155,6 +168,18 @@ function createAuth() {
     },
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
+        if (isInternalFactorMutationPath(ctx.path)) {
+          const session = await getSessionFromCtx(ctx);
+          const isSignInTotpVerification =
+            ctx.path === factorMutationPath.verifyTotp && session === null;
+          if (isSignInTotpVerification) return;
+          if (!(await consumeInternalFactorMutationAuthority(ctx.path))) {
+            throw new APIError("FORBIDDEN", {
+              message: "Factor configuration changes must use the account settings flow.",
+            });
+          }
+          return;
+        }
         if (ctx.path === "/passkey/verify-authentication") {
           const credentialID = credentialIdFromPasskeyVerification(ctx.body);
           if (!credentialID) return;

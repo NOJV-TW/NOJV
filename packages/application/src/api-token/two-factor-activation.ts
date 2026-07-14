@@ -1,4 +1,4 @@
-import { createHash, randomInt, timingSafeEqual } from "node:crypto";
+import { createHash, randomInt } from "node:crypto";
 
 import { userRepo } from "@nojv/db";
 import { getRedis, keys } from "@nojv/redis";
@@ -12,6 +12,28 @@ import {
 const OTP_TTL_SECONDS = 600;
 const OTP_MAX_ATTEMPTS = 5;
 const CHANGE_GRANT_TTL_SECONDS = 600;
+
+const VERIFY_ACTIVATION_OTP_SCRIPT = `
+local stored = redis.call("GET", KEYS[1])
+if not stored then
+  return 0
+end
+
+if stored == ARGV[1] then
+  redis.call("DEL", KEYS[1], KEYS[2])
+  return 1
+end
+
+local attempts = redis.call("INCR", KEYS[2])
+if attempts == 1 then
+  redis.call("EXPIRE", KEYS[2], tonumber(ARGV[2]))
+end
+if attempts >= tonumber(ARGV[3]) then
+  redis.call("DEL", KEYS[1], KEYS[2])
+  return 3
+end
+return 2
+`;
 
 export function generateActivationOtp(): string {
   return randomInt(0, 1_000_000).toString().padStart(6, "0");
@@ -51,24 +73,22 @@ export async function verifyActivationOtp(
   const key = keys.twoFactorActivationOtp(userId);
   const attemptsKey = keys.twoFactorActivationOtpAttempts(userId);
 
-  const stored = await redis.get(key);
-  if (stored === null) return { ok: false, reason: "expired" };
-
-  const candidate = hashOtp(otp);
-  const a = Buffer.from(candidate);
-  const b = Buffer.from(stored);
-  if (a.length === b.length && timingSafeEqual(a, b)) {
-    await redis.del(key, attemptsKey);
-    return { ok: true };
-  }
-
-  const attempts = await redis.incr(attemptsKey);
-  if (attempts === 1) await redis.expire(attemptsKey, OTP_TTL_SECONDS);
-  if (attempts >= OTP_MAX_ATTEMPTS) {
-    await redis.del(key, attemptsKey);
-    return { ok: false, reason: "locked" };
-  }
-  return { ok: false, reason: "invalid" };
+  const outcome = Number(
+    await redis.eval(
+      VERIFY_ACTIVATION_OTP_SCRIPT,
+      2,
+      key,
+      attemptsKey,
+      hashOtp(otp),
+      String(OTP_TTL_SECONDS),
+      String(OTP_MAX_ATTEMPTS),
+    ),
+  );
+  if (outcome === 1) return { ok: true };
+  if (outcome === 0) return { ok: false, reason: "expired" };
+  if (outcome === 2) return { ok: false, reason: "invalid" };
+  if (outcome === 3) return { ok: false, reason: "locked" };
+  throw new Error(`Unexpected activation OTP verification result: ${String(outcome)}`);
 }
 
 export type PasskeyRegistrationDenial = "not_activated" | "needs_step_up" | null;

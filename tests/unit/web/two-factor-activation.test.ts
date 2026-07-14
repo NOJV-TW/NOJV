@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store, updateMock, findByIdMock, generationMatchesMock } = vi.hoisted(() => ({
+const { evalMock, store, updateMock, findByIdMock, generationMatchesMock } = vi.hoisted(() => ({
+  evalMock: vi.fn(),
   store: new Map<string, string>(),
   updateMock: vi.fn(),
   findByIdMock: vi.fn(),
@@ -9,6 +10,7 @@ const { store, updateMock, findByIdMock, generationMatchesMock } = vi.hoisted(()
 
 vi.mock("@nojv/redis", () => ({
   getRedis: () => ({
+    eval: evalMock,
     get: (k: string) => Promise.resolve(store.get(k) ?? null),
     set: (k: string, v: string) => {
       store.set(k, v);
@@ -56,6 +58,38 @@ import {
 
 beforeEach(() => {
   store.clear();
+  evalMock
+    .mockReset()
+    .mockImplementation(
+      async (
+        _script: string,
+        numberOfKeys: number,
+        otpKey: string,
+        attemptsKey: string,
+        candidate: string,
+        ttl: string,
+        maxAttempts: string,
+      ) => {
+        if (numberOfKeys !== 2 || ttl !== "600" || maxAttempts !== "5") {
+          throw new Error("Unexpected activation OTP EVAL contract");
+        }
+        const stored = store.get(otpKey);
+        if (stored === undefined) return 0;
+        if (stored === candidate) {
+          store.delete(otpKey);
+          store.delete(attemptsKey);
+          return 1;
+        }
+        const attempts = (Number(store.get(attemptsKey)) || 0) + 1;
+        store.set(attemptsKey, String(attempts));
+        if (attempts >= 5) {
+          store.delete(otpKey);
+          store.delete(attemptsKey);
+          return 3;
+        }
+        return 2;
+      },
+    );
   updateMock.mockReset().mockResolvedValue({ id: "usr_1", securityGeneration: 7 });
   findByIdMock.mockReset();
   generationMatchesMock.mockReset().mockResolvedValue(true);
@@ -70,6 +104,27 @@ describe("activation OTP — generation", () => {
 });
 
 describe("activation OTP — verification", () => {
+  it("uses one atomic Redis script for compare, consume, attempts, and lockout", async () => {
+    await storeActivationOtp("usr_1", "123456");
+
+    await verifyActivationOtp("usr_1", "000000");
+
+    expect(evalMock).toHaveBeenCalledOnce();
+    const [script, numberOfKeys, otpKey, attemptsKey, candidate, ttl, maxAttempts] =
+      evalMock.mock.calls[0]!;
+    expect(numberOfKeys).toBe(2);
+    expect(otpKey).toBe("nojv:2fa:activation-otp:usr_1");
+    expect(attemptsKey).toBe("nojv:2fa:activation-otp-attempts:usr_1");
+    expect(candidate).not.toBe("000000");
+    expect(ttl).toBe("600");
+    expect(maxAttempts).toBe("5");
+    expect(script).toContain('redis.call("GET", KEYS[1])');
+    expect(script).toContain('redis.call("INCR", KEYS[2])');
+    expect(script).toContain('redis.call("EXPIRE", KEYS[2], tonumber(ARGV[2]))');
+    expect(script).toContain('redis.call("DEL", KEYS[1], KEYS[2])');
+    expect(script).not.toMatch(/GETDEL/i);
+  });
+
   it("accepts the stored code once, then reports expired (single-use)", async () => {
     await storeActivationOtp("usr_1", "123456");
     expect(await verifyActivationOtp("usr_1", "123456")).toEqual({ ok: true });
@@ -77,6 +132,18 @@ describe("activation OTP — verification", () => {
       ok: false,
       reason: "expired",
     });
+  });
+
+  it("allows exactly one concurrent verifier in the Redis EVAL contract", async () => {
+    await storeActivationOtp("usr_1", "123456");
+
+    const results = await Promise.all([
+      verifyActivationOtp("usr_1", "123456"),
+      verifyActivationOtp("usr_1", "123456"),
+    ]);
+
+    expect(results.filter((result) => result.ok)).toHaveLength(1);
+    expect(results.filter((result) => !result.ok)).toEqual([{ ok: false, reason: "expired" }]);
   });
 
   it("reports expired when no code was stored", async () => {
