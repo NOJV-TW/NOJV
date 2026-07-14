@@ -10,6 +10,48 @@ concurrency:
 permissions: {}
 
 jobs:
+  sandbox-smoke:
+    name: PR sandbox smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: Build sandbox image
+        run: docker build -f infra/docker/sandbox-runner.Dockerfile -t nojv-sandbox:pr .
+
+      - name: Exercise the hardened container boundary
+        run: |
+          docker run --rm \
+            --network none \
+            --user 10001:10001 \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --read-only \
+            --tmpfs /tmp:rw,exec,nosuid,nodev,size=64m \
+            --pids-limit 64 \
+            --memory 256m \
+            --memory-swap 256m \
+            --cpus 1 \
+            nojv-sandbox:pr \
+            node -e '
+              const fs = require("node:fs");
+              const net = require("node:net");
+              if (process.getuid() !== 10001) process.exit(10);
+              try { fs.writeFileSync("/breakout", "x"); process.exit(11); }
+              catch (error) { if (error?.code !== "EROFS") throw error; }
+              const socket = net.connect({ host: "1.1.1.1", port: 443 });
+              const isolated = () => process.exit(0);
+              socket.once("connect", () => process.exit(13));
+              socket.once("error", isolated);
+              setTimeout(() => { socket.destroy(); isolated(); }, 2000);
+            '
+
   classify:
     name: Classify image impact
     runs-on: ubuntu-latest
