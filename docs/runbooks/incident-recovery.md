@@ -59,14 +59,22 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 
 - SSE clients receive keepalives but no real events (no verdict notifications, no lifecycle signals, no scoreboard-update nudges).
 - The contest scoreboard page still loads — it is computed from Postgres, not Redis — but live updates stop, so it relies on its 30 s polling fallback.
-- **Rate limiting is mixed-mode**: the `api` / `write` / `form` tiers fail **open** — they fall back to a per-process in-memory limiter when Redis is unreachable, so normal reads / writes keep working. Only the **auth** tier (sign-in, 2FA OTP, step-up) fails **closed**, so sign-ins / 2FA start returning 429 (this is the main user-facing impact). Cooldown is unaffected — it uses Postgres advisory locks, not Redis.
+- **Rate limiting is mixed-mode**: the general `api` tier uses its tested
+  per-process memory limiter during an operational Redis outage, so ordinary
+  reads can continue with a per-replica limit. The `write`, `form`, `auth`,
+  sign-in, 2FA, step-up, and registry-token tiers fail closed with 503. A real
+  limit exhaustion remains 429. Cooldown is unaffected because it uses
+  PostgreSQL advisory locks, not Redis.
 - The admin-dashboard read-through cache (`nojv:cache:admin-dashboard`) misses and recomputes from Postgres (fail-open).
 
 ### Detection
 
-- `/api/healthz` reports degraded (Redis probe failing).
+- `/api/readyz` and `/api/healthz` return 503; `/api/admin/healthz` identifies
+  Redis as the failing dependency.
 - Web app logs: spike of `Redis ECONNREFUSED`, `MOVED`, or `READONLY` errors.
-- Sign-in / 2FA routes return 429 (auth-tier rate limiter fails closed); read / write routes keep working on the in-memory fallback; SSE-dependent pages show no live updates.
+- Sign-in, 2FA, form, and write routes return 503 while the limiter is
+  unavailable; ordinary API reads use the per-process limiter. SSE-dependent
+  pages show no live updates.
 - Memorystore / Redis monitoring: connection count → 0 or memory at eviction threshold.
 
 ### Immediate Mitigation
@@ -74,7 +82,11 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 1. **Check Memorystore / Redis instance state** (GCP console or equivalent). If it is failing over automatically, wait 30–60s for the standby to promote.
 2. If the instance is stuck, restart / recreate it (managed Redis UI or `gcloud redis instances failover`).
 3. **Flushing Redis is essentially harmless to data, even during a contest.** Leaderboards are computed from Postgres on read, submit cooldown uses Postgres advisory locks, and scoreboard freeze is gated by the `Contest.frozenBoard` / `Contest.frozenAt` columns (no Redis snapshot). The only loss is in-flight pub/sub nudges, which clients recover via the 30 s poll / SSE reconnect. The admin-dashboard cache refills lazily.
-4. Platform stays **partially up** through the outage: submissions still process (Temporal is independent), session auth still works (Postgres-backed), and reads / writes keep flowing on the rate-limiter's in-memory fallback. Users lose real-time push, and new sign-ins / 2FA are rate-limited closed (429) until Redis returns.
+4. Platform stays **partially up** through the outage: submissions already in
+   Temporal continue processing and session reads remain PostgreSQL-backed.
+   Ordinary API reads use the per-process limiter, while writes, forms, new
+   sign-ins, 2FA, step-up, and registry-token requests fail closed with 503
+   until Redis returns. Users also lose real-time push.
 
 ### Root-Cause Investigation
 
@@ -103,7 +115,8 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 
 ### Detection
 
-- `/api/healthz` shows DB probe failing.
+- `/api/readyz` and `/api/healthz` return 503; `/api/admin/healthz` identifies
+  PostgreSQL as the failing dependency.
 - Prisma logs: `connection pool timeout` or `Cannot connect to database`.
 - Cloud SQL console: primary instance in `failover` state, or CPU / IOPS pegged.
 - Request error rate across the board (not isolated to one feature) is the clearest signal.

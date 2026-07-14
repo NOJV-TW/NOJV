@@ -87,7 +87,7 @@ Student Code ------|---> Sandbox Container     Redis
 | `/api/problems/[id]/images`                  | POST                     | `requireApiAuth` + `canEditProblem(platformRole)`                                        |
 | `/api/problems`                              | POST                     | `requireApiAuth` + `canEditProblem(platformRole)`                                        |
 | `/api/exams/[examId]/ip-violations`          | GET                      | `requireApiAuth` + exam course staff or admin (`listExamIpViolationsForActor`)           |
-| `/api/healthz`                               | GET                      | Public, no auth                                                                          |
+| `/api/livez`, `/api/readyz`, `/api/healthz`  | GET                      | Public exact-path probes; minimal boolean bodies, no auth/session lookup                 |
 
 **Authenticated page routes (layout-gated):**
 
@@ -310,7 +310,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 
 - `.env` untracked in git (gitignored)
 - Production secrets stored in GCP Secret Manager
-- Public health endpoint `/api/healthz` returns only `{ ok: boolean }` with 200/503 — internal topology (`postgres`/`redis`/`temporal` status) is admin-only via `/api/admin/healthz`, which requires `requireApiAuth` + `platformRole === "admin"`. Worker `/healthz` returns the full check breakdown but is only exposed inside the cluster.
+- Public probes return only `{ alive: boolean }`, `{ ready: boolean }`, or `{ ok: boolean }`. Their three exact raw paths bypass token auth, session loading, CSRF, and rate limiting so dependency failure cannot block liveness; request IDs and security headers still apply. Internal topology (`postgres`/`redis`/`temporal` status) is admin-only via `/api/admin/healthz`, which requires `requireApiAuth` + `platformRole === "admin"`. Worker `/healthz` returns the full check breakdown but is only exposed inside the cluster.
 - `apiHandler()` catches all errors — unhandled errors logged server-side, only `classified.message` returned to client (no stack traces)
 - Docker Compose infra services (PostgreSQL, Redis, MinIO, Temporal, Temporal UI) publish their host ports bound to `127.0.0.1` only (loopback), so they are not reachable from off-host even though the containers share a Docker network. Off-host protection is the operator's firewall (the host must not expose 5432 / 6379 / 9000 / 9001 / 7233 / 8080 publicly). Only the `web` container publishes a public port (`3000`).
 - Cloud Build CI validates formatting, linting, types, and tests before deployment
@@ -320,7 +320,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 **Attacker stories:**
 
 - **Secret leakage via error messages**: Application error exposes database URL or auth secret in response. _Mitigation_: `apiHandler()` classifies errors and returns only safe messages. `logger.error()` logs full details server-side only. ZodError responses include validation issues (field paths and messages) but no internal state.
-- **Exposed admin endpoints**: Health check or admin routes accessible without auth. _Mitigation_: `/api/healthz` is intentionally public but returns only `{ ok }` (status code carries the signal). Detailed per-subsystem status is admin-only at `/api/admin/healthz`. Admin routes require `requirePlatformRole(actor, "admin")`. Temporal UI (port 8080) is published on `127.0.0.1` only and must additionally be kept off any public interface by the host firewall in production (it has no auth of its own).
+- **Exposed admin endpoints**: Health check or admin routes accessible without auth. _Mitigation_: `/api/livez`, `/api/readyz`, and `/api/healthz` are intentionally public but expose only one boolean each (status code carries the readiness signal). Detailed per-subsystem status is admin-only at `/api/admin/healthz`. Admin routes require `requirePlatformRole(actor, "admin")`. Temporal UI (port 8080) is published on `127.0.0.1` only and must additionally be kept off any public interface by the host firewall in production (it has no auth of its own).
 - **Misconfigured CORS**: API endpoints accessible from arbitrary origins. _Mitigation_: SvelteKit handles CORS via its built-in mechanisms. Same-origin by default for form actions.
 - **Docker daemon exposure**: Attacker accesses Docker socket to create privileged containers. _Mitigation_: In production, sandbox runs as Kubernetes Jobs with dedicated service account. Worker's K8s RBAC is scoped to sandbox namespace only. In development, Docker socket access is local.
 - **CI/CD pipeline compromise**: Attacker injects malicious code via pull request. _Mitigation_: CD deploys only from `main` branch after CI passes. Self-hosted runner workspace is persistent. Clean checkout uses exact CI-passing SHA.
@@ -368,7 +368,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 | Page lock bypass                       | Client-side deterrent only. No server-side enforcement possible for tab switching. |
 | Verbose Zod error messages             | Field paths exposed, but no secrets or internal state.                             |
 | Development-only insecure defaults     | Local MinIO credentials in `.env`, Redis no-auth — development environment only.   |
-| Health endpoint information disclosure | Public `/api/healthz` returns only `{ ok }`; per-subsystem detail is admin-only.   |
+| Health endpoint information disclosure | Public probes return one boolean only; per-subsystem detail is admin-only.         |
 
 ## 5. Open Gaps and Recommendations
 

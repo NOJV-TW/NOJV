@@ -16,6 +16,19 @@ export interface ApiRequestLabels {
   status_class: string;
 }
 
+export const healthProbeDuration: Histogram = meter.createHistogram(
+  "health_probe_duration_seconds",
+  {
+    description: "Web health probe duration outside the API SLO request population",
+    unit: "s",
+  },
+);
+
+export interface HealthProbeLabels {
+  probe: "live" | "ready" | "health";
+  result: "success" | "failure";
+}
+
 export function statusClass(status: number): string {
   return `${String(Math.floor(status / 100))}xx`;
 }

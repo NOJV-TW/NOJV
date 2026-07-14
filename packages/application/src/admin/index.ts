@@ -18,6 +18,34 @@ export type { HealthStatus, SystemHealthReport } from "./system-health";
 
 const ADMIN_DASHBOARD_CACHE_TTL_SECONDS = 300;
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("timeout")), timeoutMs);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      },
+    );
+  });
+}
+
+async function dependencyAvailable(
+  probe: () => Promise<unknown>,
+  timeoutMs: number,
+): Promise<boolean> {
+  try {
+    await withTimeout(probe(), timeoutMs);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function dayKey(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
@@ -255,14 +283,18 @@ export interface SystemHealth {
   temporal: string;
 }
 
-export async function checkSystemHealth(timeoutMs = 3000): Promise<SystemHealth> {
-  function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-    return Promise.race([
-      promise,
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), ms)),
-    ]);
-  }
+export async function checkWebReadiness(timeoutMs = 3000): Promise<boolean> {
+  const [postgres, redis] = await Promise.all([
+    dependencyAvailable(
+      () => runTransaction((tx) => tx.$queryRawUnsafe("SELECT 1")),
+      timeoutMs,
+    ),
+    dependencyAvailable(() => getRedis().ping(), timeoutMs),
+  ]);
+  return postgres && redis;
+}
 
+export async function checkSystemHealth(timeoutMs = 3000): Promise<SystemHealth> {
   const TEMPORAL_TIMEOUT_MS = Math.min(timeoutMs, 2000);
 
   async function probeTemporal(): Promise<void> {

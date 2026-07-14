@@ -1,7 +1,7 @@
 {{/*
 Web Deployment — ported from infra/gcp/web.cloudrun.yaml. Web now runs IN GKE
-(not Cloud Run), fronted by Cloudflare. Keeps the /api/healthz startup+liveness
-probes. Secrets come from the runtime secret (never templated here).
+(not Cloud Run), fronted by Cloudflare. Secrets come from the runtime secret
+(never templated here).
 */}}
 apiVersion: apps/v1
 kind: Deployment
@@ -215,7 +215,7 @@ spec:
                   optional: true
           startupProbe:
             httpGet:
-              path: /api/healthz
+              path: /api/livez
               port: {{ .Values.web.containerPort }}
             initialDelaySeconds: 5
             periodSeconds: 5
@@ -223,10 +223,17 @@ spec:
             failureThreshold: 12
           livenessProbe:
             httpGet:
-              path: /api/healthz
+              path: /api/livez
               port: {{ .Values.web.containerPort }}
             periodSeconds: 30
             timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/readyz
+              port: {{ .Values.web.containerPort }}
+            periodSeconds: 10
+            timeoutSeconds: 3
             failureThreshold: 3
           resources:
             {{- toYaml .Values.web.resources | nindent 12 }}

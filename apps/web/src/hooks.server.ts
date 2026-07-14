@@ -24,6 +24,7 @@ import {
   type ActiveExamContext,
 } from "$lib/server/exam-lock";
 import { getWebEnv } from "$lib/server/env";
+import { healthProbeKind } from "$lib/server/health-probes";
 import { consumeStepUpHandoff } from "$lib/server/step-up-handoff";
 import {
   adminElevationPrincipal,
@@ -34,7 +35,13 @@ import {
   revokeAdminElevation,
   securityGenerationProof,
 } from "$lib/server/step-up";
-import { apiRequestDuration, statusClass, type ApiRequestLabels } from "$lib/server/metrics";
+import {
+  apiRequestDuration,
+  healthProbeDuration,
+  statusClass,
+  type ApiRequestLabels,
+  type HealthProbeLabels,
+} from "$lib/server/metrics";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { getClientIp } from "$lib/server/shared/client-ip";
 import {
@@ -101,6 +108,7 @@ function pageLockRedirectTarget(ctx: PageLockedContext): string {
 
 export const handle: Handle = async ({ event, resolve }) => {
   const startMs = performance.now();
+  const probe = healthProbeKind(event.url.pathname);
   let recordedStatus: number | null = null;
   try {
     const response = await runHandle({ event, resolve });
@@ -109,7 +117,15 @@ export const handle: Handle = async ({ event, resolve }) => {
     return response;
   } finally {
     const routeId = event.route.id ?? "unmatched";
-    if (!routeId.endsWith("/stream")) {
+    if (probe) {
+      healthProbeDuration.record((performance.now() - startMs) / 1000, {
+        probe,
+        result:
+          recordedStatus !== null && recordedStatus >= 200 && recordedStatus < 300
+            ? "success"
+            : "failure",
+      } satisfies HealthProbeLabels);
+    } else if (!routeId.endsWith("/stream")) {
       apiRequestDuration.record((performance.now() - startMs) / 1000, {
         route: routeId,
         method: event.request.method,
@@ -484,6 +500,12 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
   event.locals.apiTokenActor = null;
   event.locals.adminModeActive = false;
   event.locals.examGate = null;
+
+  if (healthProbeKind(event.url.pathname)) {
+    const response = await resolve(event);
+    response.headers.set("x-request-id", event.locals.requestId);
+    return response;
+  }
 
   const cleanPath = stripLocalePrefix(event.url.pathname);
 

@@ -34,6 +34,57 @@ export const openApiDocument = {
     },
   ],
   paths: {
+    "/api/livez": {
+      get: {
+        tags: ["System"],
+        summary: "Check process liveness",
+        operationId: "getLiveness",
+        responses: {
+          "200": {
+            description: "The web process is alive",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/LivenessResponse",
+                },
+                example: { alive: true },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/readyz": {
+      get: {
+        tags: ["System"],
+        summary: "Check traffic readiness",
+        operationId: "getReadiness",
+        responses: {
+          "200": {
+            description: "The web process and its critical dependencies are ready",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ReadinessResponse",
+                },
+                example: { ready: true },
+              },
+            },
+          },
+          "503": {
+            description: "A web-critical dependency is unavailable",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ReadinessResponse",
+                },
+                example: { ready: false },
+              },
+            },
+          },
+        },
+      },
+    },
     "/api/healthz": {
       get: {
         tags: ["System"],
@@ -47,10 +98,7 @@ export const openApiDocument = {
                 schema: {
                   $ref: "#/components/schemas/HealthResponse",
                 },
-                example: {
-                  ok: true,
-                  checks: { postgres: "ok", redis: "ok", temporal: "ok" },
-                },
+                example: { ok: true },
               },
             },
           },
@@ -61,10 +109,7 @@ export const openApiDocument = {
                 schema: {
                   $ref: "#/components/schemas/HealthResponse",
                 },
-                example: {
-                  ok: false,
-                  checks: { postgres: "ok", redis: "error: timeout", temporal: "ok" },
-                },
+                example: { ok: false },
               },
             },
           },
@@ -366,25 +411,37 @@ export const openApiDocument = {
       },
     },
     schemas: {
+      LivenessResponse: {
+        type: "object",
+        properties: {
+          alive: {
+            type: "boolean",
+            description: "Always true when the web process can serve HTTP requests.",
+          },
+        },
+        required: ["alive"],
+      },
+      ReadinessResponse: {
+        type: "object",
+        properties: {
+          ready: {
+            type: "boolean",
+            description:
+              "True when PostgreSQL and Redis are reachable. Temporal is observed separately by the admin health endpoint and is not on this probe's critical path.",
+          },
+        },
+        required: ["ready"],
+      },
       HealthResponse: {
         type: "object",
         properties: {
           ok: {
             type: "boolean",
             description:
-              "True when the web-critical dependencies (PostgreSQL + Redis) are reachable. Temporal is surfaced under `checks` for observability but does not gate this flag.",
-          },
-          checks: {
-            type: "object",
-            properties: {
-              postgres: { type: "string" },
-              redis: { type: "string" },
-              temporal: { type: "string" },
-            },
-            required: ["postgres", "redis", "temporal"],
+              "True when the web-critical dependencies (PostgreSQL and Redis) are reachable.",
           },
         },
-        required: ["ok", "checks"],
+        required: ["ok"],
       },
       SupportedLanguage: {
         ...zodToOpenApiSchema(languageSchema),

@@ -30,7 +30,7 @@ Every SLO is stated as an end-to-end user-visible metric (not a component intern
 
 `apps/web` and `apps/worker` boot an OpenTelemetry SDK on startup via top-of-file side-effect imports (`apps/web/src/lib/server/otel.ts`, `apps/worker/src/otel.ts`). Each process pushes histogram + counter metrics to Grafana Cloud Hosted Prometheus over OTLP HTTP (region `prod-ap-northeast-0`, free tier). Auto-instrumentation hooks `http`, `pg`, `ioredis`, and `undici`; `fs` and `dns` are disabled to keep noise down. Trace export is intentionally off (`spanProcessors: []`) — metrics-only is the design today; logs continue to flow through GCP Cloud Logging on a separate path.
 
-Five manual SLO metrics are emitted from app code: `judge_latency_seconds`, `api_request_duration_seconds`, `scoreboard_update_latency_seconds`, `sse_connection_duration_seconds`, `sse_connection_dropped_total`. Worker SIGTERM awaits `shutdownOtel()` so the last 30 s metric interval is flushed before exit; the web tier relies on adapter-node lifecycle and may lose 0–30 s on shutdown (accepted). Token rotation, dashboard updates, and the exact PromQL behind each panel are documented in [Observability Setup Runbook](../runbooks/observability-setup.md).
+Five manual SLO metrics are emitted from app code: `judge_latency_seconds`, `api_request_duration_seconds`, `scoreboard_update_latency_seconds`, `sse_connection_duration_seconds`, `sse_connection_dropped_total`. Web probes use a separate `health_probe_duration_seconds` histogram with only fixed `probe` (`live`, `ready`, `health`) and `result` (`success`, `failure`) labels; probe traffic is deliberately excluded from `api_request_duration_seconds` so it cannot distort API latency or error-rate SLOs. Worker SIGTERM awaits `shutdownOtel()` so the last 30 s metric interval is flushed before exit; the web tier relies on adapter-node lifecycle and may lose 0–30 s on shutdown (accepted). Token rotation, dashboard updates, and the exact PromQL behind each panel are documented in [Observability Setup Runbook](../runbooks/observability-setup.md).
 
 ### Infrastructure health (node / disk / DB)
 
@@ -141,7 +141,9 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 
 | Service    | Endpoint             | Method                                                                                                                                            |
 | ---------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Web        | `/api/healthz`       | Public LB probe. HTTP GET → `{ ok: boolean }` with 200 healthy / 503 not. Body is intentionally minimal; topology is not leaked.                  |
+| Web        | `/api/livez`         | Startup/liveness probe. Dependency-free HTTP GET → `{ alive: true }`; never waits on PostgreSQL, Redis, Temporal, auth, or session state.         |
+| Web        | `/api/readyz`        | Readiness probe. `{ ready: boolean }`; concurrently probes only PostgreSQL + Redis with bounded timeouts. Results are cached 5 s.                 |
+| Web        | `/api/healthz`       | Compatibility health probe. Same cached PostgreSQL + Redis gate as readiness, returning only `{ ok: boolean }`; topology is not leaked.           |
 | Web        | `/api/admin/healthz` | Admin-only mirror. `requireApiAuth` + `platformRole === "admin"`. Returns `{ status, checks: { postgres, redis, temporal } }` for ops dashboards. |
 | Worker     | `/healthz`           | Liveness. Returns `{ status, checks: { postgres, redis, temporal } }` with 200/503. Internal — exposed only inside the cluster.                   |
 | Worker     | `/readyz`            | Readiness. Returns `{ ready: boolean }` keyed on the live Temporal connection. 503 when disconnected so K8s pulls the pod out of the ready pool.  |

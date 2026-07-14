@@ -681,8 +681,8 @@ single-machine and GKE — only the values overlay differs:
    rollout is gated on it.
 
 3. Verify: `kubectl rollout status deploy/nojv-web -n nojv` and
-   `deploy/nojv-worker -n nojv`, then check the web `/healthz` and worker
-   `/readyz` endpoints and monitor logs for at least 15 minutes.
+   `deploy/nojv-worker -n nojv`, then check web `/api/livez` and `/api/readyz`,
+   check worker `/readyz`, and monitor logs for at least 15 minutes.
 
 Secrets are **not** templated by the chart — rotate them in the runtime secret
 out-of-band and restart the affected Deployment to pick them up.

@@ -8,8 +8,6 @@ describe("GET /api/healthz (HTTP boundary harness smoke test)", () => {
     const res = await callRoute({ path: "/api/healthz", module: healthz });
 
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { ok: boolean; checks: { postgres: string } };
-    expect(body.ok).toBe(true);
-    expect(body.checks.postgres).toBe("ok");
+    await expect(res.json()).resolves.toEqual({ ok: true });
   }, 30_000);
 });
