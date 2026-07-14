@@ -37,7 +37,7 @@ jobs:
           --health-retries 5
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Setup monorepo
         uses: ./.github/actions/setup
@@ -126,7 +126,7 @@ jobs:
           --health-retries 5
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Setup monorepo
         uses: ./.github/actions/setup
@@ -137,7 +137,7 @@ jobs:
           -c "COMMENT ON DATABASE nojv_test IS 'NOJV_TEST_DATABASE:nojv_test'"
 
       - name: Install Helm
-        uses: azure/setup-helm@v5
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
         with:
           version: v4.2.0
 
@@ -149,15 +149,24 @@ jobs:
           pnpm sandbox:build
           pnpm demo-advanced:build
 
+      - name: Install verified k3d
+        run: |
+          set -euo pipefail
+          curl --fail --location --proto '=https' --tlsv1.2 --output "$RUNNER_TEMP/k3d" "https://github.com/k3d-io/k3d/releases/download/v5.9.0/k3d-linux-amd64"
+          printf '%s  %s\n' "06d8f25bc3a971c4eb29e0ff08429b180402db0f4dec838c9eac427e296800a0" "$RUNNER_TEMP/k3d" | sha256sum --check -
+          mkdir -p "$RUNNER_TEMP/bin"
+          install -m 0755 "$RUNNER_TEMP/k3d" "$RUNNER_TEMP/bin/k3d"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
       - name: Create k3d cluster with NetworkPolicy enforcement (Calico)
         run: |
-          curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+          set -euo pipefail
           k3d cluster create nojv-judge \
             --no-lb \
             --k3s-arg "--flannel-backend=none@server:*" \
             --k3s-arg "--disable-network-policy@server:*" \
             --k3s-arg "--disable=traefik@server:*"
-          kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/calico.yaml
+          kubectl apply -f infra/k8s/vendor/calico-v3.32.1.yaml
           kubectl -n kube-system rollout status deploy/calico-kube-controllers --timeout=180s
 
       - name: Load images into the cluster

@@ -35,26 +35,41 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 CHART_DIR="$SCRIPT_DIR"
 NS="nojv"
 TEMPORAL_NS="nojv-temporal"
-CNPG_MANIFEST="https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.24/releases/cnpg-1.24.0.yaml"
+ARTIFACT_DIR="$(mktemp -d)"
+trap 'rm -rf -- "$ARTIFACT_DIR"' EXIT
+CNPG_MANIFEST="$ARTIFACT_DIR/cnpg-1.30.0.yaml"
+TEMPORAL_CHART="$ARTIFACT_DIR/temporal-1.6.0.tgz"
+PROMETHEUS_CHART="$ARTIFACT_DIR/kube-prometheus-stack-87.15.2.tgz"
 
 cd "$REPO_ROOT"
 
 echo "==> [1/4] CloudNativePG operator (server-side apply, idempotent)"
+curl --fail --location --proto '=https' --tlsv1.2 --output "$CNPG_MANIFEST" "https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.30/releases/cnpg-1.30.0.yaml"
+printf '%s  %s\n' "f8bede43fe4ee0d478c2355b204a36876b2ae4faac60f2a9452280b293da3b88" "$CNPG_MANIFEST" | sha256sum --check -
+CNPG_IMAGE="ghcr.io/cloudnative-pg/cloudnative-pg:1.30.0"
+CNPG_PINNED_IMAGE="ghcr.io/cloudnative-pg/cloudnative-pg:1.30.0@sha256:a2701eb97cdd2a34b1fdb2cb51987f544b706e40bec72ae7146cd8580efefebb"
+CNPG_IMAGE_LINES="$(awk -v image="$CNPG_IMAGE" 'index($0, image) { count++ } END { print count + 0 }' "$CNPG_MANIFEST")"
+if [ "$CNPG_IMAGE_LINES" -ne 2 ]; then
+  echo "Expected exactly two CNPG operator image references, found $CNPG_IMAGE_LINES" >&2
+  exit 1
+fi
+sed "s|$CNPG_IMAGE|$CNPG_PINNED_IMAGE|g" "$CNPG_MANIFEST" >"$CNPG_MANIFEST.pinned"
+mv "$CNPG_MANIFEST.pinned" "$CNPG_MANIFEST"
 kubectl apply --server-side -f "$CNPG_MANIFEST"
 kubectl -n cnpg-system rollout status deploy/cnpg-controller-manager --timeout=180s
 
 echo "==> [2/4] Temporal Server (official chart, $OVERLAY values)"
-helm repo add temporal https://go.temporal.io/helm-charts >/dev/null 2>&1 || true
-helm repo update temporal >/dev/null
-helm upgrade --install temporal temporal/temporal \
+curl --fail --location --proto '=https' --tlsv1.2 --output "$TEMPORAL_CHART" "https://github.com/temporalio/helm-charts/releases/download/temporal-1.6.0/temporal-1.6.0.tgz"
+printf '%s  %s\n' "4ea557365bca72e635ae82fc4a93d586df238946e5d5a19eb32a8a24748449f9" "$TEMPORAL_CHART" | sha256sum --check -
+helm upgrade --install temporal "$TEMPORAL_CHART" \
   -n "$TEMPORAL_NS" --create-namespace \
   -f "$TEMPORAL_VALUES"
 
 if [ "$WITH_OBSERVABILITY" = true ]; then
   echo "==> [3/4] kube-prometheus-stack (Prometheus + Grafana)"
-  helm repo add prometheus-community https://prometheus-community.github.io/helm-charts >/dev/null 2>&1 || true
-  helm repo update prometheus-community >/dev/null
-  helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+  curl --fail --location --proto '=https' --tlsv1.2 --output "$PROMETHEUS_CHART" "https://github.com/prometheus-community/helm-charts/releases/download/kube-prometheus-stack-87.15.2/kube-prometheus-stack-87.15.2.tgz"
+  printf '%s  %s\n' "96dda4438dab44b3697cb4637ffe5ab9d860ffd12f87dfee23a285d9f15ae7dc" "$PROMETHEUS_CHART" | sha256sum --check -
+  helm upgrade --install kube-prometheus-stack "$PROMETHEUS_CHART" \
     -n monitoring --create-namespace
 else
   echo "==> [3/4] observability stack skipped (pass --observability to install kube-prometheus-stack)"

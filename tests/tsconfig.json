@@ -27,6 +27,7 @@
     "unit/infra/k8s-integration-target.test.ts",
     "unit/infra/migration-index-safety.test.ts",
     "unit/infra/release-gate.test.ts",
+    "unit/infra/supply-chain-policy.test.ts",
     "unit/infra/vitest-project-routing.test.ts",
     "unit/db/replay-constraints.test.ts",
     "unit/temporal/client.test.ts",
