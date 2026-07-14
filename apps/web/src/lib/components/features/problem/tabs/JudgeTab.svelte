@@ -143,7 +143,7 @@
       interactorLanguage = language;
     }
     initialConfig = dirtySnapshot();
-    toasts.add({ message: m.bundle_uploadSuccess(), type: "success" });
+    toasts.success(m.bundle_uploadSuccess());
     onuploaded?.();
   }
 </script>

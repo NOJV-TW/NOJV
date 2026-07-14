@@ -120,7 +120,7 @@
       const body = (await res.json().catch(() => null)) as { message?: string } | null;
       throw new Error(body?.message ?? m.bundle_uploadFailed());
     }
-    toasts.add({ message: m.bundle_uploadSuccess(), type: "success" });
+    toasts.success(m.bundle_uploadSuccess());
     await invalidateAll();
   }
 

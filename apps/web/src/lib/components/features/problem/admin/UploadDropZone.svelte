@@ -24,7 +24,7 @@
       await onupload(file);
     } catch (err) {
       const message = err instanceof Error ? err.message : m.bundle_uploadFailed();
-      toasts.add({ message, type: "error" });
+      toasts.error(message);
     } finally {
       isUploading = false;
     }

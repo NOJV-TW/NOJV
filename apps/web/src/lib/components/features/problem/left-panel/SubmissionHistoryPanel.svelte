@@ -59,12 +59,12 @@
         method: "POST",
       });
       if (res.ok) {
-        toasts.add({ type: "success", message: m.rejudge_toast_queuedSingle() });
+        toasts.success(m.rejudge_toast_queuedSingle());
       } else {
-        toasts.add({ type: "error", message: m.rejudge_toast_error() });
+        toasts.error(m.rejudge_toast_error());
       }
     } catch {
-      toasts.add({ type: "error", message: m.rejudge_toast_error() });
+      toasts.error(m.rejudge_toast_error());
     } finally {
       rejudgingId = null;
     }

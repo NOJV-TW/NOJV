@@ -53,13 +53,13 @@
         headers: { "X-Requested-With": "fetch" },
       });
       if (res.ok) {
-        toasts.add({ type: "success", message: m.override_staff_toastDeleted() });
+        toasts.success(m.override_staff_toastDeleted());
         ondelete();
       } else {
-        toasts.add({ type: "error", message: m.override_staff_toastError() });
+        toasts.error(m.override_staff_toastError());
       }
     } catch {
-      toasts.add({ type: "error", message: m.override_staff_toastError() });
+      toasts.error(m.override_staff_toastError());
     } finally {
       deleting = false;
       pendingDeleteId = null;

@@ -71,9 +71,9 @@ export function createDraftController(args: DraftControllerArgs): DraftControlle
       );
       lastSavedCode[lang] = code;
       lastSavedAt[lang] = record.savedAt;
-      if (notify) toasts.add({ type: "success", message: m.draft_saved() });
+      if (notify) toasts.success(m.draft_saved());
     } catch {
-      if (notify) toasts.add({ type: "error", message: m.draft_saveFailed() });
+      if (notify) toasts.error(m.draft_saveFailed());
     }
   }
 
