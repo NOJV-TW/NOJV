@@ -57,6 +57,7 @@ vi.mock("$lib/server/logger", () => ({
 
 import { getAuth } from "$lib/auth.server";
 import {
+  consumeInternalFactorMutationAuthority,
   factorMutationPath,
   runInternalFactorMutation,
 } from "$lib/server/auth-factor-mutation";
@@ -219,5 +220,16 @@ describe("production factor-mutation wiring", () => {
         before({ path: factorMutationPath.enable, body: {} }),
       ),
     ).rejects.toMatchObject({ status: "FORBIDDEN" });
+  });
+
+  it("allows exactly one concurrent consumer of an internal authority", async () => {
+    const consumed = await runInternalFactorMutation(factorMutationPath.enable, () =>
+      Promise.all([
+        consumeInternalFactorMutationAuthority(factorMutationPath.enable),
+        consumeInternalFactorMutationAuthority(factorMutationPath.enable),
+      ]),
+    );
+
+    expect(consumed.filter(Boolean)).toHaveLength(1);
   });
 });

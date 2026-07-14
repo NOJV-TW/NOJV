@@ -10,14 +10,21 @@ export const factorMutationPath = {
 
 export type FactorMutationPath = (typeof factorMutationPath)[keyof typeof factorMutationPath];
 
-const internalAuthority = defineRequestState<FactorMutationPath | null>(() => null);
+interface InternalFactorMutationAuthority {
+  consumed: boolean;
+  path: FactorMutationPath;
+}
+
+const internalAuthority = defineRequestState<InternalFactorMutationAuthority | null>(
+  () => null,
+);
 
 export async function runInternalFactorMutation<T>(
   path: FactorMutationPath,
   mutation: () => Promise<T>,
 ): Promise<T> {
   return runWithRequestState(new WeakMap(), async () => {
-    await internalAuthority.set(path);
+    await internalAuthority.set({ consumed: false, path });
     return mutation();
   });
 }
@@ -25,7 +32,8 @@ export async function runInternalFactorMutation<T>(
 export async function consumeInternalFactorMutationAuthority(
   path: FactorMutationPath,
 ): Promise<boolean> {
-  if ((await internalAuthority.get()) !== path) return false;
-  await internalAuthority.set(null);
+  const authority = await internalAuthority.get();
+  if (authority?.path !== path || authority.consumed) return false;
+  authority.consumed = true;
   return true;
 }
