@@ -7,7 +7,9 @@ const {
   examDelete,
   examProblemCount,
   membershipFindByComposite,
-  dispatchExamAutoClose,
+  ensureExamAutoClose,
+  replaceExamAutoClose,
+  cancelExamAutoClose,
 } = vi.hoisted(() => ({
   examFindById: vi.fn(),
   examLockForUpdate: vi.fn(),
@@ -15,7 +17,9 @@ const {
   examDelete: vi.fn(),
   examProblemCount: vi.fn(),
   membershipFindByComposite: vi.fn(),
-  dispatchExamAutoClose: vi.fn(),
+  ensureExamAutoClose: vi.fn(),
+  replaceExamAutoClose: vi.fn(),
+  cancelExamAutoClose: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => {
@@ -85,17 +89,19 @@ function publishableExam(overrides: Record<string, unknown> = {}) {
     startsAt: new Date(Date.now() + 60 * 60_000),
     endsAt: new Date(Date.now() + 120 * 60_000),
     allowedLanguages: ["cpp17"],
+    scheduleRevision: 1,
+    timerFingerprint: "exam:v1:exam_1:window_a",
     ...overrides,
   };
 }
 
 beforeEach(() => {
   configureDomainOrchestration({
+    cancelAssignmentDueSoon: vi.fn(async () => {}),
+    cancelContestLifecycle: vi.fn(async () => {}),
+    cancelExamAutoClose,
     cancelRejudge: vi.fn(async () => {}),
     describeSubmissionJudge: vi.fn(async () => null),
-    dispatchAssignmentDueSoon: vi.fn(async () => {}),
-    dispatchContestLifecycle: vi.fn(async () => {}),
-    dispatchExamAutoClose,
     dispatchPlagiarismCheck: vi.fn(async () => {}),
     dispatchRegistryGarbageCollect: vi.fn(async () => ({
       workflowId: "registry-gc",
@@ -103,9 +109,15 @@ beforeEach(() => {
     })),
     dispatchRejudge: vi.fn(async () => ({ workflowId: "rejudge-test" })),
     dispatchSubmissionJudge: vi.fn(async () => {}),
+    ensureAssignmentDueSoon: vi.fn(async () => {}),
+    ensureContestLifecycle: vi.fn(async () => {}),
+    ensureExamAutoClose,
     getRejudgeTriggeredBy: vi.fn(async () => null),
     probeTemporal: vi.fn(async () => {}),
     queryRejudgeProgress: vi.fn(async () => ({ completed: 0, total: 0 })),
+    replaceAssignmentDueSoon: vi.fn(async () => {}),
+    replaceContestLifecycle: vi.fn(async () => {}),
+    replaceExamAutoClose,
     terminateSubmissionJudge: vi.fn(async () => {}),
   });
 });
@@ -114,6 +126,11 @@ describe("publishExam", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     examLockForUpdate.mockResolvedValue([]);
+    examUpdate.mockImplementation(async (_id: string, data: Record<string, unknown>) => ({
+      ...publishableExam(),
+      ...data,
+      scheduleRevision: 2,
+    }));
   });
 
   it("publishes a valid draft, updates status, and schedules auto-close", async () => {
@@ -127,8 +144,8 @@ describe("publishExam", () => {
       examFindById.mock.invocationCallOrder[0],
     );
     expect(examUpdate).toHaveBeenCalledWith("exam_1", { status: "published" });
-    expect(dispatchExamAutoClose).toHaveBeenCalledTimes(1);
-    const [payload] = dispatchExamAutoClose.mock.calls[0] as [
+    expect(ensureExamAutoClose).toHaveBeenCalledTimes(1);
+    const [payload] = ensureExamAutoClose.mock.calls[0] as [
       { examId: string; startsAt: string; endsAt: string },
     ];
     expect(payload.examId).toBe("exam_1");
@@ -142,7 +159,7 @@ describe("publishExam", () => {
 
     await expect(publishExam(fakeActor, "exam_1")).rejects.toBeInstanceOf(ValidationError);
     expect(examUpdate).not.toHaveBeenCalled();
-    expect(dispatchExamAutoClose).not.toHaveBeenCalled();
+    expect(ensureExamAutoClose).not.toHaveBeenCalled();
   });
 
   it("rejects when allowedLanguages is empty", async () => {
@@ -179,7 +196,7 @@ describe("publishExam", () => {
 
     await expect(publishExam(fakeActor, "exam_1")).rejects.toBeInstanceOf(ValidationError);
     expect(examUpdate).not.toHaveBeenCalled();
-    expect(dispatchExamAutoClose).not.toHaveBeenCalled();
+    expect(ensureExamAutoClose).not.toHaveBeenCalled();
   });
 
   it("rejects when the actor is not the creator and not course staff", async () => {
@@ -217,6 +234,14 @@ describe("deleteExamDraft", () => {
     await deleteExamDraft(fakeActor, "exam_1");
 
     expect(examDelete).toHaveBeenCalledWith("exam_1");
+    expect(examLockForUpdate).toHaveBeenCalledWith("exam_1");
+    expect(cancelExamAutoClose).toHaveBeenCalledWith(
+      expect.objectContaining({
+        examId: "exam_1",
+        scheduleRevision: 1,
+        timerFingerprint: "exam:v1:exam_1:window_a",
+      }),
+    );
   });
 
   it("rejects deleting a non-draft exam", async () => {
@@ -246,12 +271,19 @@ describe("updateExamRecord — auto-close re-arming", () => {
 
   it("re-arms auto-close with the new window when a published exam's endsAt changes", async () => {
     const newEndsAt = new Date(Date.now() + 999 * 60_000);
-    examFindById.mockResolvedValue(publishableExam({ status: "published" }));
+    const published = publishableExam({ status: "published" });
+    examFindById.mockResolvedValue(published);
+    examUpdate.mockResolvedValue({
+      ...published,
+      endsAt: newEndsAt,
+      scheduleRevision: 2,
+      timerFingerprint: "exam:v1:exam_1:window_b",
+    });
 
     await updateExamRecord(fakeActor, "exam_1", { endsAt: newEndsAt.toISOString() });
 
-    expect(dispatchExamAutoClose).toHaveBeenCalledTimes(1);
-    const [payload] = dispatchExamAutoClose.mock.calls[0] as [
+    expect(replaceExamAutoClose).toHaveBeenCalledTimes(1);
+    const [payload] = replaceExamAutoClose.mock.calls[0] as [
       { examId: string; startsAt: string; endsAt: string },
     ];
     expect(payload.examId).toBe("exam_1");
@@ -265,7 +297,7 @@ describe("updateExamRecord — auto-close re-arming", () => {
       endsAt: new Date(Date.now() + 999 * 60_000).toISOString(),
     });
 
-    expect(dispatchExamAutoClose).not.toHaveBeenCalled();
+    expect(replaceExamAutoClose).not.toHaveBeenCalled();
   });
 
   it("does not dispatch when a published exam changes only non-time fields", async () => {
@@ -273,7 +305,19 @@ describe("updateExamRecord — auto-close re-arming", () => {
 
     await updateExamRecord(fakeActor, "exam_1", { title: "Renamed" });
 
-    expect(dispatchExamAutoClose).not.toHaveBeenCalled();
+    expect(replaceExamAutoClose).not.toHaveBeenCalled();
+  });
+
+  it("does not dispatch when a submitted window is identical to the persisted window", async () => {
+    const published = publishableExam({ status: "published" });
+    examFindById.mockResolvedValue(published);
+
+    await updateExamRecord(fakeActor, "exam_1", {
+      startsAt: published.startsAt.toISOString(),
+      endsAt: published.endsAt.toISOString(),
+    });
+
+    expect(replaceExamAutoClose).not.toHaveBeenCalled();
   });
 
   it("locks, re-reads, and rejects an end that conflicts with the persisted start", async () => {

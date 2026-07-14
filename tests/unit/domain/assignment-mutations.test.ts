@@ -82,15 +82,17 @@ const {
   revertAssignmentToDraft,
 } = assignmentDomain;
 
-const dispatchAssignmentDueSoon = vi.fn(async () => {});
+const ensureAssignmentDueSoon = vi.fn(async () => {});
+const replaceAssignmentDueSoon = vi.fn(async () => {});
+const cancelAssignmentDueSoon = vi.fn(async () => {});
 
 beforeEach(() => {
   configureDomainOrchestration({
+    cancelAssignmentDueSoon,
+    cancelContestLifecycle: vi.fn(async () => {}),
+    cancelExamAutoClose: vi.fn(async () => {}),
     cancelRejudge: vi.fn(async () => {}),
     describeSubmissionJudge: vi.fn(async () => null),
-    dispatchAssignmentDueSoon,
-    dispatchContestLifecycle: vi.fn(async () => {}),
-    dispatchExamAutoClose: vi.fn(async () => {}),
     dispatchPlagiarismCheck: vi.fn(async () => {}),
     dispatchRegistryGarbageCollect: vi.fn(async () => ({
       workflowId: "registry-gc",
@@ -98,9 +100,15 @@ beforeEach(() => {
     })),
     dispatchRejudge: vi.fn(async () => ({ workflowId: "rejudge-test" })),
     dispatchSubmissionJudge: vi.fn(async () => {}),
+    ensureAssignmentDueSoon,
+    ensureContestLifecycle: vi.fn(async () => {}),
+    ensureExamAutoClose: vi.fn(async () => {}),
     getRejudgeTriggeredBy: vi.fn(async () => null),
     probeTemporal: vi.fn(async () => {}),
     queryRejudgeProgress: vi.fn(async () => ({ completed: 0, total: 0 })),
+    replaceAssignmentDueSoon,
+    replaceContestLifecycle: vi.fn(async () => {}),
+    replaceExamAutoClose: vi.fn(async () => {}),
     terminateSubmissionJudge: vi.fn(async () => {}),
   });
 });
@@ -132,6 +140,8 @@ function draftAssessment(overrides: Record<string, unknown> = {}) {
     closesAt: new Date("2030-01-15T00:00:00Z"),
     allowedLanguages: ["cpp"],
     title: "Old title",
+    scheduleRevision: 1,
+    timerFingerprint: "assessment:v1:asg_1:window_a",
     ...overrides,
   };
 }
@@ -139,7 +149,10 @@ function draftAssessment(overrides: Record<string, unknown> = {}) {
 describe("updateAssignmentRecord", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    assessmentUpdate.mockResolvedValue({ id: "asg_1" });
+    assessmentUpdate.mockImplementation(async (_id: string, data: Record<string, unknown>) => ({
+      ...draftAssessment(),
+      ...data,
+    }));
     assessmentLockForUpdate.mockResolvedValue([]);
     assessmentProblemDeleteByAssessmentId.mockResolvedValue({ count: 0 });
     assessmentProblemCreate.mockResolvedValue({});
@@ -316,12 +329,40 @@ describe("updateAssignmentRecord", () => {
     );
     expect(assessmentUpdate).not.toHaveBeenCalled();
   });
+
+  it("replaces the lifecycle only when a published timer actually changes", async () => {
+    const published = draftAssessment({ status: "published" });
+    const closesAt = new Date("2030-01-20T00:00:00.000Z");
+    assessmentFindById.mockResolvedValue(published);
+    assessmentUpdate.mockResolvedValue({
+      ...published,
+      closesAt,
+      scheduleRevision: 2,
+      timerFingerprint: "assessment:v1:asg_1:window_b",
+    });
+
+    await updateAssignmentRecord(teacherActor, "asg_1", {
+      closesAt: closesAt.toISOString(),
+    });
+
+    expect(replaceAssignmentDueSoon).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assignmentId: "asg_1",
+        scheduleRevision: 2,
+        timerFingerprint: "assessment:v1:asg_1:window_b",
+      }),
+    );
+  });
 });
 
 describe("publishAssignment", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    assessmentUpdate.mockResolvedValue({ id: "asg_1" });
+    assessmentUpdate.mockImplementation(async (_id: string, data: Record<string, unknown>) => ({
+      ...draftAssessment(),
+      ...data,
+      scheduleRevision: 2,
+    }));
     assessmentProblemFindByAssessmentId.mockResolvedValue([
       { id: "pair_1", assessmentId: "asg_1", problemId: "prob_a" },
     ]);
@@ -348,10 +389,12 @@ describe("publishAssignment", () => {
       actorUserId: "usr_teacher",
       action: "publish",
     });
-    expect(dispatchAssignmentDueSoon).toHaveBeenCalledWith({
+    expect(ensureAssignmentDueSoon).toHaveBeenCalledWith({
       assignmentId: "asg_1",
       opensAt: new Date("2030-01-01T00:00:00Z").toISOString(),
       closesAt: new Date("2030-01-15T00:00:00Z").toISOString(),
+      scheduleRevision: 2,
+      timerFingerprint: "assessment:v1:asg_1:window_a",
     });
   });
 
@@ -433,6 +476,14 @@ describe("deleteAssignmentDraft", () => {
       actorUserId: "usr_teacher",
       action: "delete_draft",
     });
+    expect(assessmentLockForUpdate).toHaveBeenCalledWith("asg_1");
+    expect(cancelAssignmentDueSoon).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assignmentId: "asg_1",
+        scheduleRevision: 1,
+        timerFingerprint: "assessment:v1:asg_1:window_a",
+      }),
+    );
   });
 
   it("refuses to delete a published assessment", async () => {
@@ -452,7 +503,11 @@ describe("deleteAssignmentDraft", () => {
 describe("revertAssignmentToDraft", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    assessmentUpdate.mockResolvedValue({ id: "asg_1" });
+    assessmentUpdate.mockImplementation(async (_id: string, data: Record<string, unknown>) => ({
+      ...draftAssessment({ status: "published" }),
+      ...data,
+      scheduleRevision: 2,
+    }));
     assessmentLockForUpdate.mockResolvedValue([]);
     courseMembershipFindByComposite.mockResolvedValue({
       role: "teacher",
@@ -476,5 +531,8 @@ describe("revertAssignmentToDraft", () => {
       actorUserId: "usr_teacher",
       action: "revert_to_draft",
     });
+    expect(cancelAssignmentDueSoon).toHaveBeenCalledWith(
+      expect.objectContaining({ assignmentId: "asg_1", scheduleRevision: 2 }),
+    );
   });
 });

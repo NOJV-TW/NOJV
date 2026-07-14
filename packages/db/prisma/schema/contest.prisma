@@ -56,6 +56,8 @@ model Contest {
   summary  String   @db.Text
   startsAt DateTime
   endsAt   DateTime
+  scheduleRevision Int    @default(0)
+  timerFingerprint String @default(dbgenerated())
 
   visibility        ContestVisibility  @default(draft)
   scoringMode       ContestScoringMode @default(problem_count)
@@ -108,6 +110,8 @@ model Exam {
   summary  String   @db.Text
   startsAt DateTime
   endsAt   DateTime
+  scheduleRevision Int    @default(0)
+  timerFingerprint String @default(dbgenerated())
 
   status            ExamStatus      @default(draft)
   scoringMode       ExamScoringMode @default(point_sum)

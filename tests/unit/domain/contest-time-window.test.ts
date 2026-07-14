@@ -5,13 +5,19 @@ const {
   contestLockForUpdate,
   contestProblemCount,
   contestUpdate,
-  dispatchContestLifecycle,
+  contestDelete,
+  ensureContestLifecycle,
+  replaceContestLifecycle,
+  cancelContestLifecycle,
 } = vi.hoisted(() => ({
   contestFindById: vi.fn(),
   contestLockForUpdate: vi.fn(),
   contestProblemCount: vi.fn(),
   contestUpdate: vi.fn(),
-  dispatchContestLifecycle: vi.fn(),
+  contestDelete: vi.fn(),
+  ensureContestLifecycle: vi.fn(),
+  replaceContestLifecycle: vi.fn(),
+  cancelContestLifecycle: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -20,6 +26,7 @@ vi.mock("@nojv/db", () => ({
       findById: contestFindById,
       lockForUpdate: contestLockForUpdate,
       update: contestUpdate,
+      delete: contestDelete,
     }),
   },
   contestProblemRepo: {
@@ -56,8 +63,12 @@ function contest(overrides: Record<string, unknown> = {}) {
     startsAt: new Date("2030-01-01T00:00:00.000Z"),
     endsAt: new Date("2030-01-10T00:00:00.000Z"),
     frozenAt: null,
+    frozenBoard: true,
+    scoreboardMode: "live",
     allowedLanguages: ["cpp"],
     scoringMode: "problem_count",
+    scheduleRevision: 1,
+    timerFingerprint: "contest:v1:contest_1:window_a",
     ...overrides,
   };
 }
@@ -65,14 +76,18 @@ function contest(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   vi.clearAllMocks();
   contestLockForUpdate.mockResolvedValue([]);
-  contestUpdate.mockResolvedValue({ id: "contest_1" });
+  contestUpdate.mockImplementation(async (_id: string, data: Record<string, unknown>) => ({
+    ...contest(),
+    ...data,
+    scheduleRevision: 2,
+  }));
   contestProblemCount.mockResolvedValue(1);
   configureDomainOrchestration({
+    cancelAssignmentDueSoon: vi.fn(() => Promise.resolve()),
+    cancelContestLifecycle,
+    cancelExamAutoClose: vi.fn(() => Promise.resolve()),
     cancelRejudge: vi.fn(() => Promise.resolve()),
     describeSubmissionJudge: vi.fn(() => Promise.resolve(null)),
-    dispatchAssignmentDueSoon: vi.fn(() => Promise.resolve()),
-    dispatchContestLifecycle,
-    dispatchExamAutoClose: vi.fn(() => Promise.resolve()),
     dispatchPlagiarismCheck: vi.fn(() => Promise.resolve()),
     dispatchRegistryGarbageCollect: vi.fn(() =>
       Promise.resolve({
@@ -82,9 +97,15 @@ beforeEach(() => {
     ),
     dispatchRejudge: vi.fn(() => Promise.resolve({ workflowId: "rejudge-test" })),
     dispatchSubmissionJudge: vi.fn(() => Promise.resolve()),
+    ensureAssignmentDueSoon: vi.fn(() => Promise.resolve()),
+    ensureContestLifecycle,
+    ensureExamAutoClose: vi.fn(() => Promise.resolve()),
     getRejudgeTriggeredBy: vi.fn(() => Promise.resolve(null)),
     probeTemporal: vi.fn(() => Promise.resolve()),
     queryRejudgeProgress: vi.fn(() => Promise.resolve({ completed: 0, total: 0 })),
+    replaceAssignmentDueSoon: vi.fn(() => Promise.resolve()),
+    replaceContestLifecycle,
+    replaceExamAutoClose: vi.fn(() => Promise.resolve()),
     terminateSubmissionJudge: vi.fn(() => Promise.resolve()),
   });
 });
@@ -118,6 +139,52 @@ describe("contest effective time window", () => {
       contestFindById.mock.invocationCallOrder[0],
     );
     expect(contestUpdate).toHaveBeenCalledWith(persisted.id, { visibility: "published" });
-    expect(dispatchContestLifecycle).toHaveBeenCalledWith({ contestId: persisted.id });
+    expect(ensureContestLifecycle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contestId: persisted.id,
+        scheduleRevision: 2,
+        timerFingerprint: "contest:v1:contest_1:window_a",
+      }),
+    );
+  });
+
+  it("replaces lifecycle after a published schedule change", async () => {
+    const persisted = contest({ visibility: "published" });
+    const endsAt = new Date("2030-01-20T00:00:00.000Z");
+    contestFindById.mockResolvedValue(persisted);
+    contestUpdate.mockResolvedValue({
+      ...persisted,
+      endsAt,
+      scheduleRevision: 2,
+      timerFingerprint: "contest:v1:contest_1:window_b",
+    });
+
+    await contestDomain.updateContestRecord(actor, persisted.id, {
+      endsAt: endsAt.toISOString(),
+    });
+
+    expect(replaceContestLifecycle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contestId: persisted.id,
+        scheduleRevision: 2,
+        timerFingerprint: "contest:v1:contest_1:window_b",
+      }),
+    );
+  });
+
+  it("locks and cancels a deleted draft", async () => {
+    const persisted = contest();
+    contestFindById.mockResolvedValue(persisted);
+
+    await contestDomain.deleteContestDraft(actor, persisted.id);
+
+    expect(contestLockForUpdate).toHaveBeenCalledWith(persisted.id);
+    expect(cancelContestLifecycle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contestId: persisted.id,
+        scheduleRevision: 1,
+        timerFingerprint: "contest:v1:contest_1:window_a",
+      }),
+    );
   });
 });

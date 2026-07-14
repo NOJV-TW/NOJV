@@ -18,6 +18,7 @@ import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
 import { getProblemTotalScore } from "../problem/total-score";
 import { stripUndefined } from "../shared/strip-undefined";
 import { assertEffectiveTimeWindow } from "../shared/effective-time-window";
+import { assignmentDueSoonInput } from "../shared/lifecycle-input";
 
 async function requireAssignment(tx: TransactionClient, assignmentId: string) {
   const assignment = await assessmentRepo.withTx(tx).findById(assignmentId);
@@ -192,9 +193,10 @@ export async function updateAssignmentRecord(
       updateData.adjustmentRules = payload.adjustmentRules;
     }
 
-    if (Object.keys(updateData).length > 0) {
-      await assessmentRepo.withTx(tx).update(assignment.id, updateData);
-    }
+    const persisted =
+      Object.keys(updateData).length > 0
+        ? await assessmentRepo.withTx(tx).update(assignment.id, updateData)
+        : assignment;
 
     if (payload.problemIds !== undefined) {
       const enforcedLanguages = payload.allowedLanguages ?? assignment.allowedLanguages;
@@ -202,24 +204,18 @@ export async function updateAssignmentRecord(
     }
 
     return {
-      id: assignment.id,
-      status: assignment.status,
-      closesChanged,
-      opensChanged,
-      opensAt: effectiveOpensAt,
-      closesAt: effectiveClosesAt,
+      assignment: persisted,
+      timerChanged: closesChanged || opensChanged,
     };
   });
 
-  if (result.status === "published" && (result.closesChanged || result.opensChanged)) {
-    await getDomainOrchestration().dispatchAssignmentDueSoon({
-      assignmentId: result.id,
-      opensAt: result.opensAt.toISOString(),
-      closesAt: result.closesAt.toISOString(),
-    });
+  if (result.assignment.status === "published" && result.timerChanged) {
+    await getDomainOrchestration().replaceAssignmentDueSoon(
+      assignmentDueSoonInput(result.assignment),
+    );
   }
 
-  return { id: result.id };
+  return { id: result.assignment.id };
 }
 
 export async function publishAssignment(
@@ -255,7 +251,9 @@ export async function publishAssignment(
       fields: { start: "opensAt", due: "dueAt", end: "closesAt" },
     });
 
-    await assessmentRepo.withTx(tx).update(assignment.id, { status: "published" });
+    const persisted = await assessmentRepo.withTx(tx).update(assignment.id, {
+      status: "published",
+    });
     await assessmentAuditLogRepo.withTx(tx).create({
       assessmentId: assignment.id,
       courseId: assignment.courseId,
@@ -263,21 +261,18 @@ export async function publishAssignment(
       action: "publish",
     });
 
-    return { id: assignment.id, opensAt: assignment.opensAt, closesAt: assignment.closesAt };
+    return persisted;
   });
 
-  await getDomainOrchestration().dispatchAssignmentDueSoon({
-    assignmentId: published.id,
-    opensAt: published.opensAt.toISOString(),
-    closesAt: published.closesAt.toISOString(),
-  });
+  await getDomainOrchestration().ensureAssignmentDueSoon(assignmentDueSoonInput(published));
 }
 
 export async function deleteAssignmentDraft(
   actor: ActorContext,
   assignmentId: string,
 ): Promise<void> {
-  await runTransaction(async (tx) => {
+  const deleted = await runTransaction(async (tx) => {
+    await assessmentRepo.withTx(tx).lockForUpdate(assignmentId);
     const assignment = await requireAssignment(tx, assignmentId);
     await assertAssignmentManager(tx, actor, assignment);
 
@@ -292,14 +287,17 @@ export async function deleteAssignmentDraft(
       action: "delete_draft",
     });
     await assessmentRepo.withTx(tx).delete(assignment.id);
+    return assignment;
   });
+
+  await getDomainOrchestration().cancelAssignmentDueSoon(assignmentDueSoonInput(deleted));
 }
 
 export async function revertAssignmentToDraft(
   actor: ActorContext,
   assignmentId: string,
 ): Promise<void> {
-  await runTransaction(async (tx) => {
+  const reverted = await runTransaction(async (tx) => {
     await assessmentRepo.withTx(tx).lockForUpdate(assignmentId);
     const assignment = await requireAssignment(tx, assignmentId);
     await assertAssignmentManager(tx, actor, assignment);
@@ -311,12 +309,17 @@ export async function revertAssignmentToDraft(
       throw new ValidationError("Cannot revert an assignment that has already opened.");
     }
 
-    await assessmentRepo.withTx(tx).update(assignment.id, { status: "draft" });
+    const persisted = await assessmentRepo.withTx(tx).update(assignment.id, {
+      status: "draft",
+    });
     await assessmentAuditLogRepo.withTx(tx).create({
       assessmentId: assignment.id,
       courseId: assignment.courseId,
       actorUserId: actor.userId,
       action: "revert_to_draft",
     });
+    return persisted;
   });
+
+  await getDomainOrchestration().cancelAssignmentDueSoon(assignmentDueSoonInput(reverted));
 }

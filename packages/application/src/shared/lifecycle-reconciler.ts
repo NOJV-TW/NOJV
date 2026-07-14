@@ -1,6 +1,11 @@
 import { assessmentRepo, contestRepo, examRepo } from "@nojv/db";
 
 import { getDomainOrchestration } from "./orchestration";
+import {
+  assignmentDueSoonInput,
+  contestLifecycleInput,
+  examAutoCloseInput,
+} from "./lifecycle-input";
 
 export interface LifecycleReconcileResult {
   exams: number;
@@ -13,29 +18,21 @@ export async function reconcileLifecycleTimers(): Promise<LifecycleReconcileResu
   const orchestration = getDomainOrchestration();
 
   const [exams, contests, assignments] = await Promise.all([
-    examRepo.listNeedingTimers(now),
+    examRepo.listNeedingTimers(),
     contestRepo.listNeedingTimers(now),
     assessmentRepo.listNeedingTimers(now),
   ]);
 
   for (const exam of exams) {
-    await orchestration.dispatchExamAutoClose({
-      examId: exam.id,
-      startsAt: exam.startsAt.toISOString(),
-      endsAt: exam.endsAt.toISOString(),
-    });
+    await orchestration.ensureExamAutoClose(examAutoCloseInput(exam));
   }
 
   for (const contest of contests) {
-    await orchestration.dispatchContestLifecycle({ contestId: contest.id });
+    await orchestration.ensureContestLifecycle(contestLifecycleInput(contest));
   }
 
   for (const assignment of assignments) {
-    await orchestration.dispatchAssignmentDueSoon({
-      assignmentId: assignment.id,
-      opensAt: assignment.opensAt.toISOString(),
-      closesAt: assignment.closesAt.toISOString(),
-    });
+    await orchestration.ensureAssignmentDueSoon(assignmentDueSoonInput(assignment));
   }
 
   return {

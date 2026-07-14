@@ -94,7 +94,13 @@ export const assessmentRepo = {
 
   listNeedingTimers(now: Date) {
     return prisma.assessment.findMany({
-      select: { id: true, opensAt: true, closesAt: true },
+      select: {
+        id: true,
+        opensAt: true,
+        closesAt: true,
+        scheduleRevision: true,
+        timerFingerprint: true,
+      },
       where: { status: "published", closesAt: { gt: now } },
     });
   },
@@ -284,7 +290,8 @@ export const assessmentRepo = {
         });
       },
 
-      listByCourseIdAllWithProblems(courseId: string) {
+      async listByCourseIdAllWithProblems(courseId: string) {
+        await tx.$queryRaw`SELECT id FROM "Assessment" WHERE "courseId" = ${courseId} FOR UPDATE`;
         return tx.assessment.findMany({
           where: { courseId },
           orderBy: { opensAt: "asc" },

@@ -26,11 +26,11 @@ beforeEach(() => {
   describeSubmissionJudge.mockReset();
   describeSubmissionJudge.mockResolvedValue(null);
   configureDomainOrchestration({
+    cancelAssignmentDueSoon: vi.fn(async () => {}),
+    cancelContestLifecycle: vi.fn(async () => {}),
+    cancelExamAutoClose: vi.fn(async () => {}),
     cancelRejudge: vi.fn(async () => {}),
     describeSubmissionJudge,
-    dispatchAssignmentDueSoon: vi.fn(async () => {}),
-    dispatchContestLifecycle: vi.fn(async () => {}),
-    dispatchExamAutoClose: vi.fn(async () => {}),
     dispatchPlagiarismCheck: vi.fn(async () => {}),
     dispatchRegistryGarbageCollect: vi.fn(async () => ({
       workflowId: "registry-gc",
@@ -38,9 +38,15 @@ beforeEach(() => {
     })),
     dispatchRejudge: vi.fn(async () => ({ workflowId: "rejudge-test" })),
     dispatchSubmissionJudge: vi.fn(async () => {}),
+    ensureAssignmentDueSoon: vi.fn(async () => {}),
+    ensureContestLifecycle: vi.fn(async () => {}),
+    ensureExamAutoClose: vi.fn(async () => {}),
     getRejudgeTriggeredBy: vi.fn(async () => null),
     probeTemporal: vi.fn(async () => {}),
     queryRejudgeProgress: vi.fn(async () => ({ completed: 0, total: 0 })),
+    replaceAssignmentDueSoon: vi.fn(async () => {}),
+    replaceContestLifecycle: vi.fn(async () => {}),
+    replaceExamAutoClose: vi.fn(async () => {}),
     terminateSubmissionJudge,
   });
 });

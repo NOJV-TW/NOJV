@@ -7,6 +7,7 @@ import {
   runTransaction,
   type Prisma,
 } from "@nojv/db";
+import type { ExamAutoCloseInput } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError, HttpError, NotFoundError } from "../shared/errors";
@@ -165,21 +166,31 @@ export async function recordEvent(
   });
 }
 
-export async function autoCloseForExam(examId: string): Promise<{ closed: number }> {
+export async function autoCloseForExam(
+  input: ExamAutoCloseInput,
+  now = new Date(),
+): Promise<{ closed: number }> {
   return runTransaction(async (tx) => {
-    const active = await examSessionRepo.withTx(tx).findAllActiveForExam(examId);
-    if (active.length === 0) return { closed: 0 };
+    await examRepo.withTx(tx).lockForUpdate(input.examId);
+    const exam = await examRepo.withTx(tx).findById(input.examId);
+    if (
+      exam?.status !== "published" ||
+      exam.scheduleRevision !== input.scheduleRevision ||
+      exam.timerFingerprint !== input.timerFingerprint ||
+      exam.endsAt.getTime() > now.getTime()
+    ) {
+      return { closed: 0 };
+    }
 
-    const now = new Date();
-    const ids = active.map((session) => session.id);
-    await examSessionRepo.withTx(tx).updateManyById(ids, {
-      endedAt: now,
-      releaseReason: "time_up",
-    });
-    await examSessionRepo
-      .withTx(tx)
-      .recordEvents(ids.map((sessionId) => ({ sessionId, eventType: "auto_close" })));
-    return { closed: active.length };
+    const closed = await examSessionRepo.withTx(tx).closeActiveForExam(input.examId, now);
+    if (closed.length > 0) {
+      await examSessionRepo
+        .withTx(tx)
+        .recordEvents(
+          closed.map(({ id: sessionId }) => ({ sessionId, eventType: "auto_close" })),
+        );
+    }
+    return { closed: closed.length };
   });
 }
 

@@ -113,8 +113,19 @@ export const contestRepo = {
 
   listNeedingTimers(now: Date) {
     return prisma.contest.findMany({
-      select: { id: true },
-      where: { visibility: "published", endsAt: { gt: now } },
+      select: {
+        id: true,
+        startsAt: true,
+        endsAt: true,
+        frozenAt: true,
+        scoreboardMode: true,
+        scheduleRevision: true,
+        timerFingerprint: true,
+      },
+      where: {
+        visibility: "published",
+        OR: [{ endsAt: { gt: now } }, { frozenBoard: true }],
+      },
     });
   },
 

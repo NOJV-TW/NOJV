@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Prisma as RealPrisma } from "../../../packages/db/generated/prisma/client";
 
-const { findById, deleteCourseFn, runTransaction } = vi.hoisted(() => ({
+const { findById, lockForUpdate, deleteCourseFn, runTransaction } = vi.hoisted(() => ({
   findById: vi.fn(),
+  lockForUpdate: vi.fn(),
   deleteCourseFn: vi.fn(),
   runTransaction: vi.fn(<T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
     fn({ $executeRaw: async () => 0 }),
@@ -11,7 +12,7 @@ const { findById, deleteCourseFn, runTransaction } = vi.hoisted(() => ({
 }));
 
 vi.mock("@nojv/db", () => ({
-  courseRepo: { withTx: () => ({ findById, delete: deleteCourseFn }) },
+  courseRepo: { withTx: () => ({ findById, lockForUpdate, delete: deleteCourseFn }) },
   courseMembershipRepo: { withTx: () => ({ findByComposite: vi.fn() }) },
   assessmentRepo: {},
   assessmentProblemRepo: {},
@@ -38,6 +39,7 @@ describe("deleteCourse — submission-context Restrict guard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     findById.mockResolvedValue({ id: "crs_1", title: "Algorithms" });
+    lockForUpdate.mockResolvedValue([]);
   });
 
   it("translates a P2003 FK violation into a clean ConflictError", async () => {
@@ -55,5 +57,6 @@ describe("deleteCourse — submission-context Restrict guard", () => {
     deleteCourseFn.mockResolvedValue({ id: "crs_1" });
 
     await expect(deleteCourse(admin, "crs_1")).resolves.toEqual({ id: "crs_1" });
+    expect(lockForUpdate).toHaveBeenCalledWith("crs_1");
   });
 });

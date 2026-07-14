@@ -4,29 +4,31 @@ import {
   notificationDomain,
   reconcileLifecycleTimers,
   submissionDomain,
+  isAssignmentLifecycleCurrent,
+  isContestLifecycleCurrent,
+  isExamLifecycleCurrent,
 } from "@nojv/application";
+import type {
+  AssignmentDueSoonInput,
+  ContestLifecycleInput,
+  ExamAutoCloseInput,
+} from "@nojv/core";
 import { pubsub } from "@nojv/redis";
 
 import { createLogger } from "../logger.js";
 
 const logger = createLogger("sweeper");
 
-export type ContestInfo = contestDomain.ContestLifecycleSnapshot;
-
-export async function getContestInfo(contestId: string): Promise<ContestInfo> {
-  return contestDomain.getContestLifecycleInfo(contestId);
+export async function activateContest(input: ContestLifecycleInput): Promise<boolean> {
+  return contestDomain.activateContest(input);
 }
 
-export async function activateContest(contestId: string): Promise<void> {
-  await contestDomain.activateContest(contestId);
+export async function freezeScoreboard(input: ContestLifecycleInput): Promise<boolean> {
+  return contestDomain.freezeContestBoard(input);
 }
 
-export async function freezeScoreboard(contestId: string): Promise<void> {
-  await contestDomain.freezeContestBoard(contestId);
-}
-
-export async function finalizeContest(contestId: string): Promise<void> {
-  await contestDomain.finalizeContest(contestId);
+export async function finalizeContest(input: ContestLifecycleInput): Promise<boolean> {
+  return contestDomain.finalizeContest(input);
 }
 
 export async function updateContestScores(
@@ -40,8 +42,10 @@ export async function updateExamScores(examId: string, userId: string): Promise<
   await examDomain.updateExamScores(examId, userId);
 }
 
-export async function closeActiveSessionsForExam(examId: string): Promise<{ closed: number }> {
-  return examDomain.session.autoCloseForExam(examId);
+export async function closeActiveSessionsForExam(
+  input: ExamAutoCloseInput,
+): Promise<{ closed: number }> {
+  return examDomain.session.autoCloseForExam(input);
 }
 
 export async function sweepStaleSubmissions(): Promise<submissionDomain.SweepStaleSubmissionsResult> {
@@ -63,24 +67,35 @@ export const publishVerdict = pubsub.publishVerdict;
 export const publishContestEvent = pubsub.publishContestEvent;
 export const publishScoreboardUpdate = pubsub.publishScoreboardUpdate;
 
-export async function fanoutAssignmentStarted(assignmentId: string): Promise<void> {
-  await notificationDomain.fanoutAssignmentStarted(assignmentId);
+export async function fanoutAssignmentStarted(input: AssignmentDueSoonInput): Promise<void> {
+  if (!(await isAssignmentLifecycleCurrent(input))) return;
+  await notificationDomain.fanoutAssignmentStarted(input.assignmentId, input.opensAt);
 }
 
 export async function fanoutAssignmentDueSoon(
-  assignmentId: string,
+  input: AssignmentDueSoonInput,
   leadDays: number,
 ): Promise<void> {
-  await notificationDomain.fanoutAssignmentDueSoon(assignmentId, leadDays);
+  if (!(await isAssignmentLifecycleCurrent(input))) return;
+  await notificationDomain.fanoutAssignmentDueSoon(
+    input.assignmentId,
+    input.closesAt,
+    leadDays,
+  );
 }
 
-export async function fanoutExamStartingSoon(examId: string, leadDays: number): Promise<void> {
-  await notificationDomain.fanoutExamStartingSoon(examId, leadDays);
+export async function fanoutExamStartingSoon(
+  input: ExamAutoCloseInput,
+  leadDays: number,
+): Promise<void> {
+  if (!(await isExamLifecycleCurrent(input))) return;
+  await notificationDomain.fanoutExamStartingSoon(input.examId, input.startsAt, leadDays);
 }
 
 export async function fanoutContestStartingSoon(
-  contestId: string,
+  input: ContestLifecycleInput,
   leadDays: number,
 ): Promise<void> {
-  await notificationDomain.fanoutContestStartingSoon(contestId, leadDays);
+  if (!(await isContestLifecycleCurrent(input))) return;
+  await notificationDomain.fanoutContestStartingSoon(input.contestId, input.startsAt, leadDays);
 }

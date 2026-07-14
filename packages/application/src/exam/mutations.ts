@@ -1,4 +1,5 @@
 import {
+  courseRepo,
   examProblemRepo,
   examRepo,
   problemRepo,
@@ -18,6 +19,7 @@ import { stripUndefined } from "../shared/strip-undefined";
 import { getDomainOrchestration } from "../shared/orchestration";
 import { enforceSubmitCooldown } from "../shared/submit-cooldown";
 import { assertEffectiveTimeWindow } from "../shared/effective-time-window";
+import { examAutoCloseInput } from "../shared/lifecycle-input";
 
 export type { ActorContext };
 
@@ -79,6 +81,7 @@ export async function checkExamSubmitCooldown(
 export async function createExamRecord(actor: ActorContext, payload: ExamCreate) {
   const exam = await runTransaction(async (tx) => {
     await requireUser(tx, actor.userId);
+    await courseRepo.withTx(tx).lockForUpdate(payload.courseId);
     const course = await requireCourse(tx, payload.courseId);
 
     if (actor.platformRole === "student") {
@@ -120,11 +123,7 @@ export async function createExamRecord(actor: ActorContext, payload: ExamCreate)
   });
 
   if (exam.status === "published") {
-    await getDomainOrchestration().dispatchExamAutoClose({
-      examId: exam.id,
-      startsAt: exam.startsAt.toISOString(),
-      endsAt: exam.endsAt.toISOString(),
-    });
+    await getDomainOrchestration().ensureExamAutoClose(examAutoCloseInput(exam));
   }
 
   return exam;
@@ -160,22 +159,29 @@ export async function updateExamRecord(
       scoreboardMode: payload.scoreboardMode,
     });
 
-    if (payload.startsAt !== undefined) updateData.startsAt = new Date(payload.startsAt);
-    if (payload.endsAt !== undefined) updateData.endsAt = new Date(payload.endsAt);
-
     const effectiveStartsAt =
       payload.startsAt === undefined ? exam.startsAt : new Date(payload.startsAt);
     const effectiveEndsAt =
       payload.endsAt === undefined ? exam.endsAt : new Date(payload.endsAt);
+    const windowChanged =
+      effectiveStartsAt.getTime() !== exam.startsAt.getTime() ||
+      effectiveEndsAt.getTime() !== exam.endsAt.getTime();
+    if (effectiveStartsAt.getTime() !== exam.startsAt.getTime()) {
+      updateData.startsAt = effectiveStartsAt;
+    }
+    if (effectiveEndsAt.getTime() !== exam.endsAt.getTime()) {
+      updateData.endsAt = effectiveEndsAt;
+    }
     assertEffectiveTimeWindow({
       start: effectiveStartsAt,
       end: effectiveEndsAt,
       fields: { start: "startsAt", end: "endsAt" },
     });
 
-    if (Object.keys(updateData).length > 0) {
-      await examRepo.withTx(tx).update(exam.id, updateData);
-    }
+    const persisted =
+      Object.keys(updateData).length > 0
+        ? await examRepo.withTx(tx).update(exam.id, updateData)
+        : exam;
 
     if (payload.problemIds !== undefined) {
       await examProblemRepo.withTx(tx).deleteByExamId(exam.id);
@@ -184,23 +190,16 @@ export async function updateExamRecord(
     }
 
     return {
-      id: exam.id,
-      status: exam.status,
-      windowChanged: payload.startsAt !== undefined || payload.endsAt !== undefined,
-      startsAt: effectiveStartsAt,
-      endsAt: effectiveEndsAt,
+      exam: persisted,
+      windowChanged,
     };
   });
 
-  if (result.status === "published" && result.windowChanged) {
-    await getDomainOrchestration().dispatchExamAutoClose({
-      examId: result.id,
-      startsAt: result.startsAt.toISOString(),
-      endsAt: result.endsAt.toISOString(),
-    });
+  if (result.exam.status === "published" && result.windowChanged) {
+    await getDomainOrchestration().replaceExamAutoClose(examAutoCloseInput(result.exam));
   }
 
-  return { id: result.id };
+  return { id: result.exam.id };
 }
 
 async function assertExamManagePermission(
@@ -216,11 +215,7 @@ async function assertExamManagePermission(
 }
 
 export async function publishExam(actor: ActorContext, examId: string): Promise<void> {
-  const {
-    examId: committedId,
-    startsAt,
-    endsAt,
-  } = await runTransaction(async (tx) => {
+  const published = await runTransaction(async (tx) => {
     await examRepo.withTx(tx).lockForUpdate(examId);
     const exam = await requireExam(tx, examId);
     await assertExamManagePermission(tx, actor, exam);
@@ -246,20 +241,15 @@ export async function publishExam(actor: ActorContext, examId: string): Promise<
       throw new ValidationError("End time must be in the future.");
     }
 
-    await examRepo.withTx(tx).update(exam.id, { status: "published" });
-
-    return { examId: exam.id, startsAt: exam.startsAt, endsAt: exam.endsAt };
+    return examRepo.withTx(tx).update(exam.id, { status: "published" });
   });
 
-  await getDomainOrchestration().dispatchExamAutoClose({
-    examId: committedId,
-    startsAt: startsAt.toISOString(),
-    endsAt: endsAt.toISOString(),
-  });
+  await getDomainOrchestration().ensureExamAutoClose(examAutoCloseInput(published));
 }
 
 export async function deleteExamDraft(actor: ActorContext, examId: string): Promise<void> {
-  await runTransaction(async (tx) => {
+  const deleted = await runTransaction(async (tx) => {
+    await examRepo.withTx(tx).lockForUpdate(examId);
     const exam = await requireExam(tx, examId);
     await assertExamManagePermission(tx, actor, exam);
 
@@ -268,5 +258,8 @@ export async function deleteExamDraft(actor: ActorContext, examId: string): Prom
     }
 
     await examRepo.withTx(tx).delete(exam.id);
+    return exam;
   });
+
+  await getDomainOrchestration().cancelExamAutoClose(examAutoCloseInput(deleted));
 }

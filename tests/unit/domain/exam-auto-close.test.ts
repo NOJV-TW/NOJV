@@ -1,21 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { findAllActiveForExam, update, recordEvent, updateManyById, recordEvents } = vi.hoisted(
-  () => ({
-    findAllActiveForExam: vi.fn(),
-    update: vi.fn(),
-    recordEvent: vi.fn(),
-    updateManyById: vi.fn(),
-    recordEvents: vi.fn(),
-  }),
-);
+const {
+  examFindById,
+  examLockForUpdate,
+  closeActiveForExam,
+  update,
+  recordEvent,
+  recordEvents,
+} = vi.hoisted(() => ({
+  examFindById: vi.fn(),
+  examLockForUpdate: vi.fn(),
+  closeActiveForExam: vi.fn(),
+  update: vi.fn(),
+  recordEvent: vi.fn(),
+  recordEvents: vi.fn(),
+}));
 
 vi.mock("@nojv/db", () => {
   const txRepo = {
-    findAllActiveForExam,
+    closeActiveForExam,
     update,
     recordEvent,
-    updateManyById,
     recordEvents,
     findByUserAndExam: vi.fn(),
     findActiveForUser: vi.fn(),
@@ -23,7 +28,7 @@ vi.mock("@nojv/db", () => {
   };
   return {
     examRepo: {
-      withTx: () => ({ findById: vi.fn() }),
+      withTx: () => ({ findById: examFindById, lockForUpdate: examLockForUpdate }),
       findByIdOrThrow: vi.fn(),
     },
     examSessionRepo: {
@@ -41,37 +46,49 @@ import { examDomain } from "@nojv/application";
 
 const { session } = examDomain;
 
+const input = {
+  examId: "exam_abc",
+  startsAt: "2030-01-01T09:00:00.000Z",
+  endsAt: "2030-01-01T10:00:00.000Z",
+  scheduleRevision: 4,
+  timerFingerprint: "exam:v1:exam_abc:window_a",
+};
+const afterEnd = new Date("2030-01-01T10:00:01.000Z");
+
 describe("examDomain.session.autoCloseForExam", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    examFindById.mockResolvedValue({
+      id: input.examId,
+      status: "published",
+      endsAt: new Date(input.endsAt),
+      scheduleRevision: input.scheduleRevision,
+      timerFingerprint: input.timerFingerprint,
+    });
+    examLockForUpdate.mockResolvedValue([]);
   });
 
   it("returns { closed: 0 } when no active sessions exist", async () => {
-    findAllActiveForExam.mockResolvedValue([]);
+    closeActiveForExam.mockResolvedValue([]);
 
-    const result = await session.autoCloseForExam("exam_abc");
+    const result = await session.autoCloseForExam(input, afterEnd);
 
     expect(result).toEqual({ closed: 0 });
-    expect(updateManyById).not.toHaveBeenCalled();
     expect(recordEvents).not.toHaveBeenCalled();
   });
 
   it("closes all active sessions in one batch with reason 'time_up' and records auto_close events", async () => {
-    findAllActiveForExam.mockResolvedValue([
-      { id: "sess_a", examId: "exam_abc", userId: "usr_1", endedAt: null },
-      { id: "sess_b", examId: "exam_abc", userId: "usr_2", endedAt: null },
-      { id: "sess_c", examId: "exam_abc", userId: "usr_3", endedAt: null },
+    closeActiveForExam.mockResolvedValue([
+      { id: "sess_a" },
+      { id: "sess_b" },
+      { id: "sess_c" },
     ]);
 
-    const result = await session.autoCloseForExam("exam_abc");
+    const result = await session.autoCloseForExam(input, afterEnd);
 
     expect(result).toEqual({ closed: 3 });
 
-    expect(updateManyById).toHaveBeenCalledTimes(1);
-    expect(updateManyById).toHaveBeenCalledWith(
-      ["sess_a", "sess_b", "sess_c"],
-      expect.objectContaining({ releaseReason: "time_up" }),
-    );
+    expect(closeActiveForExam).toHaveBeenCalledWith(input.examId, afterEnd);
 
     expect(recordEvents).toHaveBeenCalledTimes(1);
     expect(recordEvents).toHaveBeenCalledWith([
@@ -81,12 +98,26 @@ describe("examDomain.session.autoCloseForExam", () => {
     ]);
   });
 
-  it("queries only sessions belonging to the given exam id", async () => {
-    findAllActiveForExam.mockResolvedValue([]);
+  it("does not close or emit events for a stale schedule revision", async () => {
+    examFindById.mockResolvedValue({
+      status: "published",
+      endsAt: new Date(input.endsAt),
+      scheduleRevision: input.scheduleRevision + 1,
+      timerFingerprint: "exam:v1:exam_abc:window_b",
+    });
 
-    await session.autoCloseForExam("exam_xyz");
+    const result = await session.autoCloseForExam(input, afterEnd);
 
-    expect(findAllActiveForExam).toHaveBeenCalledWith("exam_xyz");
-    expect(findAllActiveForExam).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ closed: 0 });
+    expect(closeActiveForExam).not.toHaveBeenCalled();
+    expect(recordEvents).not.toHaveBeenCalled();
+  });
+
+  it("emits no duplicate events when an activity retry transitions no rows", async () => {
+    closeActiveForExam.mockResolvedValue([]);
+
+    await session.autoCloseForExam(input, afterEnd);
+
+    expect(recordEvents).not.toHaveBeenCalled();
   });
 });

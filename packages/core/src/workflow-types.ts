@@ -31,17 +31,26 @@ export interface RejudgeProgress {
   total: number;
 }
 
-export interface ContestLifecycleInput {
-  contestId: string;
+export interface LifecycleScheduleIdentity {
+  scheduleRevision: number;
+  timerFingerprint: string;
 }
 
-export interface ExamAutoCloseInput {
+export interface ContestLifecycleInput extends LifecycleScheduleIdentity {
+  contestId: string;
+  startsAt: string;
+  endsAt: string;
+  frozenAt: string | null;
+  scoreboardMode: "hidden" | "live" | "frozen";
+}
+
+export interface ExamAutoCloseInput extends LifecycleScheduleIdentity {
   examId: string;
   startsAt: string;
   endsAt: string;
 }
 
-export interface AssignmentDueSoonInput {
+export interface AssignmentDueSoonInput extends LifecycleScheduleIdentity {
   assignmentId: string;
   opensAt: string;
   closesAt: string;

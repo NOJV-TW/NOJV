@@ -14,12 +14,12 @@ export async function assignmentDueSoonWorkflow(input: AssignmentDueSoonInput): 
     if (opensAtMs > Date.now()) {
       await sleep(opensAtMs - Date.now());
     }
-    await lifecycle.fanoutAssignmentStarted(input.assignmentId);
+    await lifecycle.fanoutAssignmentStarted(input);
   }
 
   for (const cp of computeReminderCheckpoints(closesAtMs, opensAtMs, Date.now())) {
     const ms = cp.atMs - Date.now();
     if (ms > 0) await sleep(ms);
-    await lifecycle.fanoutAssignmentDueSoon(input.assignmentId, cp.leadDays);
+    await lifecycle.fanoutAssignmentDueSoon(input, cp.leadDays);
   }
 }

@@ -5,7 +5,7 @@
 ## 職責
 
 - 提供 Temporal client 單例（`getTemporalClient` / `closeTemporalClient`）
-- 提供 dispatch API：`dispatchSubmissionJudge`、`dispatchRejudge`、`dispatchContestLifecycle`、`dispatchExamAutoClose`、`dispatchPlagiarismCheck`,以及對應的 workflow query helpers
+- 提供 dispatch API：`dispatchSubmissionJudge`、`dispatchRejudge`、`dispatchPlagiarismCheck`，以及 assignment、exam、contest lifecycle 的 `ensure` / `replace` / `cancel` reconciliation helpers
 - 定義 task queue 名稱（`JUDGE_TASK_QUEUE`、`PLATFORM_TASK_QUEUE`）
 - 定義 dispatch input/output 與 workflow signal types
 

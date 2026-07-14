@@ -1,5 +1,4 @@
 export {
-  getContestInfo,
   activateContest,
   freezeScoreboard,
   finalizeContest,

@@ -69,6 +69,8 @@ model Assessment {
   opensAt  DateTime
   dueAt    DateTime?
   closesAt DateTime
+  scheduleRevision Int    @default(0)
+  timerFingerprint String @default(dbgenerated())
 
   maxAttemptsPerDay       Int?
   attemptResetMinuteOfDay Int?

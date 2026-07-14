@@ -79,4 +79,43 @@ describe("collectReplayStatements", () => {
       'DROP TRIGGER IF EXISTS passkey_security_generation_credential_change ON "Passkey"',
     );
   });
+
+  it("replays storage pointer validators idempotently before their constraints", () => {
+    const pointerFunctionIndex = stmts.findIndex((statement) =>
+      statement.includes('CREATE OR REPLACE FUNCTION "storage_pointer_valid"'),
+    );
+    const mapFunctionIndex = stmts.findIndex((statement) =>
+      statement.includes('CREATE OR REPLACE FUNCTION "storage_pointer_map_valid"'),
+    );
+    const pointerConstraintIndex = stmts.findIndex((statement) =>
+      statement.includes('ADD CONSTRAINT "Testcase_input_storage_pointer_chk"'),
+    );
+
+    expect(pointerFunctionIndex).toBeGreaterThanOrEqual(0);
+    expect(mapFunctionIndex).toBeGreaterThan(pointerFunctionIndex);
+    expect(pointerConstraintIndex).toBeGreaterThan(mapFunctionIndex);
+  });
+
+  it("replays lifecycle identity maintenance before its idempotent triggers", () => {
+    const functionIndex = stmts.findIndex((statement) =>
+      statement.includes("CREATE OR REPLACE FUNCTION maintain_lifecycle_schedule_identity"),
+    );
+    const triggerNames = [
+      "assessment_lifecycle_schedule_identity",
+      "exam_lifecycle_schedule_identity",
+      "contest_lifecycle_schedule_identity",
+    ];
+
+    expect(functionIndex).toBeGreaterThanOrEqual(0);
+    for (const triggerName of triggerNames) {
+      const dropIndex = stmts.findIndex((statement) =>
+        statement.includes(`DROP TRIGGER IF EXISTS ${triggerName}`),
+      );
+      const createIndex = stmts.findIndex((statement) =>
+        statement.includes(`CREATE TRIGGER ${triggerName}`),
+      );
+      expect(dropIndex).toBeGreaterThan(functionIndex);
+      expect(createIndex).toBeGreaterThan(dropIndex);
+    }
+  });
 });
