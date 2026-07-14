@@ -206,6 +206,8 @@ export async function spawnDockerContainer(opts: DockerRunOptions): Promise<Dock
     let settled = false;
     let checkInFlight = false;
     let termination: Promise<void> | null = null;
+    let terminationResult: (() => DockerRunResult) | null = null;
+    let abortReason: Error | null = null;
 
     const settle = (result: DockerRunResult) => {
       if (settled) return;
@@ -234,30 +236,44 @@ export async function spawnDockerContainer(opts: DockerRunOptions): Promise<Dock
       spawnError: null,
     });
 
-    const terminate = (): Promise<void> => {
-      if (termination) return termination;
+    const terminate = (): void => {
+      if (termination) return;
       child.kill("SIGKILL");
       termination = forceRemoveContainer(opts.containerName);
-      return termination;
+      void termination.then(
+        () => {
+          if (abortReason || opts.signal.aborted) {
+            fail(abortReason ?? executionAbortReason(opts.signal));
+            return;
+          }
+          if (terminationResult) settle(terminationResult());
+        },
+        (cleanupError: unknown) => {
+          if (abortReason || opts.signal.aborted) {
+            fail(
+              attachDockerCleanupFailure(
+                abortReason ?? executionAbortReason(opts.signal),
+                "Docker container",
+                cleanupError,
+              ),
+            );
+            return;
+          }
+          fail(cleanupError);
+        },
+      );
     };
 
     const abort = () => {
-      const abortReason = executionAbortReason(opts.signal);
-      void terminate()
-        .then(() => {
-          fail(abortReason);
-        })
-        .catch((cleanupError: unknown) =>
-          fail(attachDockerCleanupFailure(abortReason, "Docker container", cleanupError)),
-        );
+      abortReason ??= executionAbortReason(opts.signal);
+      terminate();
     };
     opts.signal.addEventListener("abort", abort, { once: true });
 
     const timer = setTimeout(() => {
       timedOut = true;
-      void terminate()
-        .then(() => settle(currentResult(null)))
-        .catch(fail);
+      terminationResult = () => currentResult(null);
+      terminate();
     }, opts.outerTimeoutMs);
 
     const watch = opts.watch;
@@ -270,9 +286,8 @@ export async function spawnDockerContainer(opts: DockerRunOptions): Promise<Dock
             .then((over) => {
               if (over) {
                 sizeExceeded = true;
-                void terminate()
-                  .then(() => settle(currentResult(null)))
-                  .catch(fail);
+                terminationResult = () => currentResult(null);
+                terminate();
               }
             })
             .finally(() => {
@@ -291,6 +306,7 @@ export async function spawnDockerContainer(opts: DockerRunOptions): Promise<Dock
         abort();
         return;
       }
+      if (termination) return;
       settle({
         exitCode: null,
         stdout: "",
@@ -302,15 +318,11 @@ export async function spawnDockerContainer(opts: DockerRunOptions): Promise<Dock
     });
 
     child.on("close", (code: number | null) => {
-      void (termination ?? Promise.resolve())
-        .then(() => {
-          if (opts.signal.aborted) {
-            abort();
-            return;
-          }
-          settle(currentResult(code));
-        })
-        .catch(fail);
+      if (opts.signal.aborted) {
+        abort();
+        return;
+      }
+      if (!termination) settle(currentResult(code));
     });
 
     child.stdin.end();

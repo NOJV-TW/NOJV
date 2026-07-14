@@ -82,7 +82,6 @@ export async function startServiceContainer(params: {
 }): Promise<ServiceContainerHandle> {
   const containerName = serviceContainerName(params.runId);
   params.signal.throwIfAborted();
-  let started = false;
   try {
     await runDocker(
       buildStartServiceArgs({
@@ -96,19 +95,16 @@ export async function startServiceContainer(params: {
       }),
       params.signal,
     );
-    started = true;
     await waitForServiceReady(containerName, params.signal);
     return { containerName };
   } catch (err) {
-    if (started) {
-      try {
-        await forceRemoveContainer(containerName);
-      } catch (cleanupFailure) {
-        if (err instanceof Error) {
-          throw attachDockerCleanupFailure(err, "Docker service container", cleanupFailure);
-        }
-        throw cleanupFailure;
+    try {
+      await forceRemoveContainer(containerName);
+    } catch (cleanupFailure) {
+      if (err instanceof Error) {
+        throw attachDockerCleanupFailure(err, "Docker service container", cleanupFailure);
       }
+      throw cleanupFailure;
     }
     throw err;
   }

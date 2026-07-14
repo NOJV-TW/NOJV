@@ -66,6 +66,26 @@ describe("waitForServiceReady", () => {
     expect(readinessFailure.message).toContain("container cleanup denied");
   });
 
+  it("removes the deterministic container when docker run fails after a partial start", async () => {
+    const startFailure = new Error("docker run response timed out");
+    runDockerMock.mockRejectedValue(startFailure);
+    forceRemoveContainerMock.mockResolvedValue(undefined);
+
+    const operation = startServiceContainer({
+      runId: "partial-start",
+      internalName: "nojv-net-internal-partial-start",
+      imageRef: "service:test",
+      memoryMb: 256,
+      cpuLimit: "1",
+      pidsLimit: 64,
+      signal: new AbortController().signal,
+      labels: {},
+    });
+
+    await expect(operation).rejects.toBe(startFailure);
+    expect(forceRemoveContainerMock).toHaveBeenCalledWith("nojv-service-partial-start");
+  });
+
   it("fails closed when the service never becomes ready", async () => {
     collectContainerLogsMock.mockResolvedValue("");
     vi.useFakeTimers();

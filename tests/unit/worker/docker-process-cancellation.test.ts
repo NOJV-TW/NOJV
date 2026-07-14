@@ -110,6 +110,55 @@ describe("spawnDockerContainer cancellation", () => {
     expect(mocks.spawn).toHaveBeenCalledTimes(2);
   });
 
+  it("gives a late abort priority over a timeout while cleanup is pending", async () => {
+    const runChild = child(false);
+    const cleanupChild = child(false);
+    mocks.spawn.mockImplementation((_command: string, args: string[]) =>
+      args[0] === "rm" ? cleanupChild : runChild,
+    );
+    const controller = new AbortController();
+    const operation = spawnDockerContainer({
+      args: ["run", "--name", "judge-timeout-cancel"],
+      containerName: "judge-timeout-cancel",
+      outerTimeoutMs: 5,
+      signal: controller.signal,
+    });
+    await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(2));
+
+    const reason = new DOMException("cancelled during timeout cleanup", "AbortError");
+    controller.abort(reason);
+    cleanupChild.emit("close", 0);
+
+    await expect(operation).rejects.toBe(reason);
+  });
+
+  it("gives a late abort priority over a size limit while cleanup is pending", async () => {
+    const runChild = child(false);
+    const cleanupChild = child(false);
+    mocks.spawn.mockImplementation((_command: string, args: string[]) =>
+      args[0] === "rm" ? cleanupChild : runChild,
+    );
+    const controller = new AbortController();
+    const operation = spawnDockerContainer({
+      args: ["run", "--name", "judge-size-cancel"],
+      containerName: "judge-size-cancel",
+      outerTimeoutMs: 60_000,
+      signal: controller.signal,
+      watch: {
+        dir: "/tmp/judge-size-cancel",
+        intervalMs: 1,
+        exceeds: vi.fn().mockResolvedValue(true),
+      },
+    });
+    await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(2));
+
+    const reason = new DOMException("cancelled during size cleanup", "AbortError");
+    controller.abort(reason);
+    cleanupChild.emit("close", 0);
+
+    await expect(operation).rejects.toBe(reason);
+  });
+
   it("treats only Docker's exact missing-container result as idempotent cleanup", async () => {
     const missing = child(false);
     mocks.spawn.mockReturnValueOnce(missing);
