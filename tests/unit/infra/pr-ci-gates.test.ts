@@ -7,6 +7,18 @@ import { describe, expect, it } from "vitest";
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
 describe("pull-request runtime gates", () => {
+  it.each(["ci.yml", "codeql.yml", "image-build.yml"])(
+    "does not persist checkout credentials in %s",
+    (name) => {
+      const workflow = readFileSync(join(repoRoot, ".github/workflows", name), "utf8");
+      const checkoutCount = workflow.match(/uses: actions\/checkout@/gu)?.length ?? 0;
+      const disabledCount = workflow.match(/persist-credentials: false/gu)?.length ?? 0;
+
+      expect(checkoutCount).toBeGreaterThan(0);
+      expect(disabledCount).toBe(checkoutCount);
+    },
+  );
+
   it("runs named core browser flows against isolated services", () => {
     const workflow = readFileSync(join(repoRoot, ".github/workflows/ci.yml"), "utf8");
 
