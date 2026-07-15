@@ -67,11 +67,11 @@
     "jszip": "catalog:",
     "prettier": "^3.9.5",
     "rate-limiter-flexible": "catalog:",
-    "svelte": "^5.56.4",
+    "svelte": "^5.56.5",
     "tsx": "^4.23.0",
     "turbo": "^2.10.4",
     "typescript": "catalog:",
-    "typescript-eslint": "^8.63.0",
+    "typescript-eslint": "^8.64.0",
     "vitest": "catalog:",
     "zod": "catalog:"
   }
