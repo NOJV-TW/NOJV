@@ -15,9 +15,10 @@ export const load: PageServerLoad = async (event) => {
 
   const since = new Date(Date.now() - (ACTIVITY_WINDOW_DAYS + 1) * 24 * 60 * 60 * 1000);
 
-  const [{ stats, recentSubmissions, analytics }, platform] = await Promise.all([
+  const [{ stats, recentSubmissions, analytics }, platform, user] = await Promise.all([
     getDashboardView(actor.userId),
     view === "server" ? getPlatformOverview() : Promise.resolve(null),
+    userDomain.getUserById(actor.userId),
   ]);
 
   const hasActivity = stats.totalAttempts > 0;
@@ -31,6 +32,16 @@ export const load: PageServerLoad = async (event) => {
     }
   }
   const streamed = { activity };
+  const storedRole = event.locals.sessionUser?.platformRole;
+  const automaticTourRole =
+    view === "personal" &&
+    storedRole === "student" &&
+    stats.totalAttempts === 0 &&
+    user?.studentTourSeenAt === null
+      ? "student"
+      : view === "personal" && storedRole === "teacher" && user?.teacherTourSeenAt === null
+        ? "teacher"
+        : null;
 
   return {
     view,
@@ -41,6 +52,7 @@ export const load: PageServerLoad = async (event) => {
     displayName: actor.displayName,
     platformRole: actor.platformRole,
     analytics,
+    automaticTourRole,
     streamed,
   };
 };

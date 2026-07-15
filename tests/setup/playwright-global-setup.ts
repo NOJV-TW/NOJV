@@ -135,8 +135,6 @@ export default async function globalSetup(config: FullConfig) {
         timeout: 15000,
       });
 
-      await page.evaluate(() => localStorage.setItem("nojv:tour:off", "1"));
-
       const state = await context.storageState();
       await writeFile(path.join(AUTH_DIR, `${role.name}.json`), JSON.stringify(state));
       await context.close();

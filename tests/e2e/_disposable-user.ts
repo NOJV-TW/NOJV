@@ -47,8 +47,8 @@ export class DisposableCredentialUser {
   create(input: { platformRole?: "admin" | "student" | "teacher" } = {}): void {
     const platformRole = input.platformRole ?? "student";
     psql(`
-      INSERT INTO "User" (id, email, username, name, "emailVerified", "platformRole", "createdAt", "updatedAt")
-      VALUES ('${this.id}', '${this.email}', '${this.username}', '${this.name}', true, '${platformRole}', NOW(), NOW());
+      INSERT INTO "User" (id, email, username, name, "emailVerified", "platformRole", "studentTourSeenAt", "teacherTourSeenAt", "createdAt", "updatedAt")
+      VALUES ('${this.id}', '${this.email}', '${this.username}', '${this.name}', true, '${platformRole}', NOW(), NOW(), NOW(), NOW());
       INSERT INTO "Account" (id, "accountId", "providerId", "userId", password, "createdAt", "updatedAt")
       SELECT '${this.accountId}', '${this.id}', 'credential', '${this.id}', password, NOW(), NOW()
       FROM "Account"

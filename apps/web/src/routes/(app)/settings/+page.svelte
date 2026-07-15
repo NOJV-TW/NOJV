@@ -1,6 +1,5 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { page } from "$app/state";
   import { enhance } from "$app/forms";
   import { m } from "$lib/paraglide/messages.js";
   import {
@@ -262,10 +261,8 @@
             type="button"
             class="{settingLinkClass} w-full text-left"
             onclick={() => {
-              const sessionUser = page.data.user;
-              if (!sessionUser) return;
-              if (data.platformRole === "teacher") replayTeacherTour(sessionUser.id);
-              else replayStudentTour(sessionUser.id);
+              if (data.platformRole === "teacher") replayTeacherTour();
+              else replayStudentTour();
             }}
           >
             <span class="flex items-center gap-2.5">
