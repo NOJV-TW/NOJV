@@ -447,7 +447,9 @@ verifies the TLS Secret, and requires Cloud Armor to allow exactly
    `--enable-network-policy`), or **Calico/Cilium**. **GKE Autopilot has
    Dataplane V2 always-on**, which is the simplest way to guarantee enforcement.
    For k3s, start the server with `--flannel-backend=none
---disable-network-policy` and install Calico or Cilium.
+--disable-network-policy --kubelet-arg=pod-max-pids=256` and install Calico or
+   Cilium. The kubelet flag bounds processes per Pod cgroup; a sandbox-side
+   `ulimit -u` is invalid here because it is shared by host UID across Pods.
 
    The worker now **fails closed**: at startup, when `EXECUTION_BACKEND=kubernetes`,
    it empirically probes a deny-all-covered Pod for outbound reachability and
