@@ -16,6 +16,9 @@ WORKDIR /build
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY patches/ patches/
 COPY tsconfig.base.json ./
+COPY tooling/eslint/package.json tooling/eslint/
+COPY tooling/prettier/package.json tooling/prettier/
+COPY tooling/typescript/package.json tooling/typescript/
 COPY tooling/typescript/base.json tooling/typescript/
 COPY apps/worker/package.json apps/worker/
 COPY packages/core/package.json packages/core/
