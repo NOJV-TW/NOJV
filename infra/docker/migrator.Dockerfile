@@ -14,6 +14,9 @@ COPY --from=kubernetes /usr/bin/kubectl /usr/local/bin/kubectl
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY patches/ patches/
 COPY tsconfig.base.json ./
+COPY tooling/eslint/package.json tooling/eslint/
+COPY tooling/prettier/package.json tooling/prettier/
+COPY tooling/typescript/package.json tooling/typescript/
 COPY tooling/typescript/base.json tooling/typescript/
 COPY packages/db/package.json packages/db/
 COPY packages/db/prisma.config.ts packages/db/

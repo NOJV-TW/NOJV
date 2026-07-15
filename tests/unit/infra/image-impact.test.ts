@@ -71,7 +71,10 @@ describe("image impact classification", () => {
     "pnpm-workspace.yaml",
     "patches/tree-sitter.patch",
     "tsconfig.base.json",
+    "tooling/eslint/package.json",
+    "tooling/prettier/package.json",
     "tooling/typescript/base.json",
+    "tooling/typescript/package.json",
   ])("maps shared build input %s to every image", (path) => {
     expect(imageNames([path])).toEqual(allImages);
   });

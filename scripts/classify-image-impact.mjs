@@ -9,7 +9,10 @@ const sharedInputs = [
   "pnpm-workspace.yaml",
   "patches/",
   "tsconfig.base.json",
+  "tooling/eslint/package.json",
+  "tooling/prettier/package.json",
   "tooling/typescript/base.json",
+  "tooling/typescript/package.json",
 ];
 
 const imageDefinitions = [

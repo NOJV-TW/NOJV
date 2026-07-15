@@ -207,10 +207,14 @@ describeHelm("env schema ↔ chart deployment parity", () => {
   });
 });
 
-describe("Dockerfiles that frozen-install must ship the pnpm patch files", () => {
+describe("Dockerfiles that frozen-install must ship the full pnpm workspace", () => {
   const workspaceManifest = readFileSync(join(repoRoot, "pnpm-workspace.yaml"), "utf8");
   const patchBlock = /^patchedDependencies:\n((?: {2}.+\n)+)/m.exec(workspaceManifest);
   const hasPatches = Boolean(patchBlock?.[1]?.trim());
+  const toolingManifests = readdirSync(join(repoRoot, "tooling"), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => `tooling/${entry.name}/package.json`)
+    .sort();
 
   const dockerDir = join(repoRoot, "infra/docker");
   const frozenInstallDockerfiles = readdirSync(dockerDir)
@@ -224,6 +228,17 @@ describe("Dockerfiles that frozen-install must ship the pnpm patch files", () =>
   it.each(frozenInstallDockerfiles)("%s copies patches/ before installing", (file) => {
     expect(readFileSync(join(dockerDir, file), "utf8")).toMatch(/COPY patches\//);
   });
+
+  it.each(frozenInstallDockerfiles)(
+    "%s copies every tooling workspace manifest before installing",
+    (file) => {
+      const dockerfile = readFileSync(join(dockerDir, file), "utf8");
+      const beforeInstall = dockerfile.slice(0, dockerfile.indexOf("RUN pnpm install"));
+      for (const manifest of toolingManifests) {
+        expect(beforeInstall).toContain(`COPY ${manifest} `);
+      }
+    },
+  );
 });
 
 describeHelm("production web secret parity across deploy surfaces", () => {
