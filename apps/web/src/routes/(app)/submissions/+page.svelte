@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Code2, History } from "@lucide/svelte";
-  import { submissionResultVerdicts } from "@nojv/core";
+  import { languageLabel, submissionResultVerdicts } from "@nojv/core";
   import { invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { watchSubmissionVerdict } from "$lib/stores/sse";
@@ -10,7 +10,6 @@
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { formatDateTime } from "$lib/utils/datetime";
   import { formatVerdictLabel } from "$lib/utils/verdict-style";
-  import { languageLabel } from "$lib/utils/language-labels";
   import VerdictBadge from "$lib/components/primitives/ui/VerdictBadge.svelte";
 
   let { data } = $props();

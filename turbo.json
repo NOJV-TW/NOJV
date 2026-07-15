@@ -1,6 +1,12 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": [".env", ".env.example", ".nvmrc", "pnpm-workspace.yaml"],
+  "globalDependencies": [
+    ".env",
+    ".env.example",
+    ".nvmrc",
+    "pnpm-workspace.yaml",
+    "tsdown.base.mjs"
+  ],
   "globalEnv": ["NODE_ENV", "CI"],
   "tasks": {
     "build": {

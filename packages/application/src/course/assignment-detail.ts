@@ -1,5 +1,10 @@
 import { assessmentAuditLogRepo, assessmentRepo, submissionRepo } from "@nojv/db";
-import { adjustmentRulesSchema, type AdjustmentRule, type Language } from "@nojv/core";
+import {
+  adjustmentRulesSchema,
+  problemLetter,
+  type AdjustmentRule,
+  type Language,
+} from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
 import { getOverridesForContext } from "../scoring/resolve-final-score";
@@ -80,18 +85,6 @@ export interface GetAssignmentDetailOptions {
   viewerUserId: string;
   isManager: boolean;
   now?: Date;
-}
-
-function letterFor(ordinal: number): string {
-  if (ordinal < 1) return String(ordinal);
-  let n = ordinal;
-  let label = "";
-  while (n > 0) {
-    const rem = (n - 1) % 26;
-    label = String.fromCodePoint(65 + rem) + label;
-    n = Math.floor((n - 1) / 26);
-  }
-  return label;
 }
 
 function deriveStatus(
@@ -206,7 +199,7 @@ export async function getAssignmentDetail(
     : row.problems.map((p) => ({
         problemId: p.problem.id,
         ordinal: p.ordinal,
-        letter: letterFor(p.ordinal),
+        letter: problemLetter(p.ordinal),
         displayId: p.problem.displayId,
         title: p.problem.title,
         difficulty: p.problem.difficulty,

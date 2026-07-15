@@ -12,7 +12,6 @@ import {
 } from "$lib/server/registry";
 import { auditDomain, registryDomain } from "@nojv/application";
 
-// distribution repository-name grammar and a sha256 manifest digest.
 const REPO_NAME = /^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$/;
 const MANIFEST_DIGEST = /^sha256:[a-f0-9]{64}$/;
 

@@ -181,7 +181,6 @@ function setupCommonProblemDefaults() {
   submissionPublishPendingUpload.mockImplementation(
     async (id: string, sourceStorage: unknown) => ({ id, sourceStorage, status: "queued" }),
   );
-  // Default: the submitter has joined the contest (join gating covered elsewhere).
   participationFindContest.mockResolvedValue({ id: "part_1", status: "active" });
 }
 

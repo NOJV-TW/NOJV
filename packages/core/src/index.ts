@@ -26,3 +26,4 @@ export * from "./judge/time-factor";
 export * from "./reserved-username";
 export * from "./language-templates";
 export * from "./language-labels";
+export * from "./problem-letter";

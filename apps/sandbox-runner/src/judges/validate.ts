@@ -2,6 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { parseValidatorFeedback, type ValidatorFeedbackFiles } from "@nojv/core";
 import type { ValidatorCaseOutcome } from "../types.js";
+import { pathExists, readOptionalFile } from "../utils.js";
 import { runProcess } from "./run-process.js";
 
 const VALIDATOR_TIMEOUT_FLOOR_MS = 30_000;
@@ -14,15 +15,6 @@ export interface ValidateCaseFiles {
   inputFile: string;
   answerFile: string;
   teamOutput: string;
-}
-
-async function pathExists(p: string): Promise<boolean> {
-  try {
-    await fs.access(p);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 export async function resolveValidateCaseFiles(
@@ -48,14 +40,6 @@ export async function resolveValidateCaseFiles(
     .readFile(path.join(submissionDir, `case-${String(index)}-team.txt`), "utf-8")
     .catch(() => "");
   return { inputFile, answerFile, teamOutput };
-}
-
-async function readFeedbackFile(dir: string, name: string): Promise<string | undefined> {
-  try {
-    return await fs.readFile(path.join(dir, name), "utf-8");
-  } catch {
-    return undefined;
-  }
 }
 
 export async function validateCase(
@@ -84,9 +68,9 @@ export async function validateCase(
   }
 
   const feedback: ValidatorFeedbackFiles = {};
-  const judgeMessage = await readFeedbackFile(feedbackDir, "judgemessage.txt");
+  const judgeMessage = await readOptionalFile(path.join(feedbackDir, "judgemessage.txt"));
   if (judgeMessage !== undefined) feedback.judgeMessage = judgeMessage;
-  const teamMessage = await readFeedbackFile(feedbackDir, "teammessage.txt");
+  const teamMessage = await readOptionalFile(path.join(feedbackDir, "teammessage.txt"));
   if (teamMessage !== undefined) feedback.teamMessage = teamMessage;
 
   const outcome = parseValidatorFeedback(run.exitCode, feedback);

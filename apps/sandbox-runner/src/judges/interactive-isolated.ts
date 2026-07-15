@@ -7,10 +7,15 @@ import {
   type ValidatorFeedbackFiles,
   type ValidatorOutcome,
 } from "@nojv/core";
-import * as fs from "node:fs/promises";
 import { writeSync as fsWriteSync } from "node:fs";
 import * as path from "node:path";
-import { createBoundedBuffer, createMemoryPoller, withCpuTimeLimit } from "../utils.js";
+import {
+  createBoundedBuffer,
+  createMemoryPoller,
+  pathExists,
+  readOptionalFile,
+  withCpuTimeLimit,
+} from "../utils.js";
 
 const REPORT_STDERR_CAP = 4_096;
 
@@ -91,15 +96,6 @@ export interface InteractiveCaseFiles {
   answerFile: string;
 }
 
-async function pathExists(p: string): Promise<boolean> {
-  try {
-    await fs.access(p);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export async function resolveInteractiveCaseFiles(
   submissionDir: string,
   index: number,
@@ -115,14 +111,6 @@ export async function resolveInteractiveCaseFiles(
     inputFile: path.join(submissionDir, `case-${String(index)}-input.txt`),
     answerFile: path.join(submissionDir, `case-${String(index)}-answer.txt`),
   };
-}
-
-async function readFeedbackFile(dir: string, name: string): Promise<string | undefined> {
-  try {
-    return await fs.readFile(path.join(dir, name), "utf-8");
-  } catch {
-    return undefined;
-  }
 }
 
 export function runInteractiveValidator(
@@ -177,9 +165,13 @@ export function runInteractiveValidator(
         }
 
         const feedback: ValidatorFeedbackFiles = {};
-        const judgeMessage = await readFeedbackFile(files.feedbackDir, "judgemessage.txt");
+        const judgeMessage = await readOptionalFile(
+          path.join(files.feedbackDir, "judgemessage.txt"),
+        );
         if (judgeMessage !== undefined) feedback.judgeMessage = judgeMessage;
-        const teamMessage = await readFeedbackFile(files.feedbackDir, "teammessage.txt");
+        const teamMessage = await readOptionalFile(
+          path.join(files.feedbackDir, "teammessage.txt"),
+        );
         if (teamMessage !== undefined) feedback.teamMessage = teamMessage;
 
         emitValidateReport(parseValidatorFeedback(code ?? -1, feedback));

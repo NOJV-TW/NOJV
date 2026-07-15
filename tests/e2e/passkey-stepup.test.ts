@@ -6,11 +6,6 @@ import { DisposableCredentialUser, psql, signInWithPassword } from "./_disposabl
 import { readLiveSession } from "./_shared";
 import { activateTwoFactor, settingsMethodRow } from "./_two-factor";
 
-// Exercises Phase 5 passkey step-up. A verified passkey assertion must count as
-// a fresh step-up — enforced by a server-side after-hook on the better-auth
-// verify-authentication endpoint (it fires only when the assertion verified, so
-// it can't be forged). Drives the full ceremony with a CDP virtual authenticator.
-
 const REDIS = "nojv-redis-1";
 
 function redis(...args: string[]): string {
@@ -63,7 +58,6 @@ test("a verified passkey assertion unlocks only its new session", async ({ brows
       automaticPresenceSimulation: true,
     },
   });
-  // 1. enroll a passkey
   await signInWithPassword(page, user.email);
   await activateTwoFactor(page);
   await signInWithPassword(otherPage, user.email);
@@ -74,12 +68,10 @@ test("a verified passkey assertion unlocks only its new session", async ({ brows
   await dialog.getByRole("button", { name: "Add passkey" }).click();
   await expect(dialog.getByRole("button", { name: "Remove" })).toBeVisible({ timeout: 20000 });
 
-  // 2. the step-up verify page is now reachable (the user has a passkey, no TOTP)
   await page.goto("/account/api-tokens/verify");
   const oldSessionId = await sessionId(page);
   expect(redis("GET", `nojv:apitoken:stepup:${oldSessionId}`)).toBe("");
 
-  // 3. step up with the passkey
   const [verificationResponse] = await Promise.all([
     page.waitForResponse(
       (candidate) =>
@@ -94,7 +86,6 @@ test("a verified passkey assertion unlocks only its new session", async ({ brows
       `Passkey verification failed with HTTP ${String(verificationResponse.status())}: ${await verificationResponse.text()}`,
     );
   }
-  // 4. the handoff binds the verified assertion to the newly-created session.
   await page.waitForURL(/\/account\/api-tokens$/, { timeout: 15000 });
   const newSessionId = await sessionId(page);
   expect(newSessionId).not.toBe(oldSessionId);
@@ -102,7 +93,6 @@ test("a verified passkey assertion unlocks only its new session", async ({ brows
     .poll(() => redis("GET", `nojv:apitoken:stepup:${newSessionId}`))
     .toBe(securityMarker());
 
-  // 5. another authenticated session for the same account remains locked.
   const otherSessionId = await sessionId(otherPage);
   expect(redis("GET", `nojv:apitoken:stepup:${otherSessionId}`)).toBe("");
   await otherPage.goto("/account/api-tokens");

@@ -14,10 +14,6 @@ import { entryFileNameFor } from "@nojv/core";
 import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
 import { canCreateProblem } from "../shared/permissions";
 
-/**
- * Whether a user may author problems: platform teachers/admins, verified
- * accounts, or staff (teacher/TA) of any non-archived course.
- */
 export async function canAuthorProblems(actor: {
   userId: string;
   platformRole: PlatformRole;

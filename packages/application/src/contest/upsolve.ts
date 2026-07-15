@@ -1,6 +1,6 @@
 import { contestRepo, submissionRepo } from "@nojv/db";
+import { problemLetter } from "@nojv/core";
 
-import { problemLetter } from "../shared/problem-letter";
 import { NotFoundError } from "../shared/errors";
 
 export type UpsolveStatus = "solved" | "attempted" | "untouched";

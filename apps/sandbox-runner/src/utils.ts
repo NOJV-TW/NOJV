@@ -10,6 +10,10 @@ export async function pathExists(filePath: string): Promise<boolean> {
   }
 }
 
+export function readOptionalFile(filePath: string): Promise<string | undefined> {
+  return fs.readFile(filePath, "utf-8").catch(() => undefined);
+}
+
 export function parseCgroupCpuUsageUsec(
   v2Stat: string | null,
   v1Nanos: string | null,

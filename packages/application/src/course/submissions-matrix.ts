@@ -1,8 +1,8 @@
 import { assessmentRepo, courseMembershipRepo, submissionRepo } from "@nojv/db";
+import { problemLetter } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
 import { getProblemTotalScores } from "../problem/total-score";
-import { problemLetter } from "../shared/problem-letter";
 import {
   assembleMatrix,
   type MatrixCell,

@@ -44,7 +44,6 @@
   );
   const past = $derived(all.filter((x) => x.status === "ended"));
 
-  // Top classification tabs, matching the assignments/exams overview pages.
   const currentTab = $derived(page.url.searchParams.get("tab") ?? "all");
 
   function setTab(next: string) {
@@ -65,7 +64,6 @@
     { key: "ended", label: m.contestsList_tabEnded(), count: past.length },
   ]);
 
-  // "all" tab sections, labelled like the assignments/exams overview pages.
   const allGroups = $derived(
     [
       { key: "live", label: m.contestsList_tabLive(), items: live, past: false },

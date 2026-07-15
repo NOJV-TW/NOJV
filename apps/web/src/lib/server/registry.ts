@@ -23,13 +23,6 @@ function repoAccess(repo: string): registryDomain.RegistryAccessEntry[] {
   return [{ type: "repository", name: repo, actions: ["pull", "delete"] }];
 }
 
-export class RegistryNotConfiguredError extends Error {
-  constructor() {
-    super("Registry is not configured.");
-    this.name = "RegistryNotConfiguredError";
-  }
-}
-
 export function isRegistryConfigured(): boolean {
   return isRegistryTokenConfigured() && getWebEnv().REGISTRY_INTERNAL_URL !== "";
 }
@@ -48,7 +41,7 @@ async function registryFetch(
   access: registryDomain.RegistryAccessEntry[],
   init: RequestInit = {},
 ): Promise<Response> {
-  if (!isRegistryConfigured()) throw new RegistryNotConfiguredError();
+  if (!isRegistryConfigured()) throw new Error("Registry is not configured.");
   const headers = new Headers(init.headers);
   headers.set("Authorization", `Bearer ${await mintToken(access)}`);
   return fetch(`${baseUrl()}${path}`, { ...init, headers });
