@@ -26,7 +26,7 @@ vi.mock("../../../packages/application/src/notification", () => ({
 
 import { userDomain } from "@nojv/application";
 
-const { updateUserRole, toggleUserDisabled } = userDomain;
+const { setUserAdvancedCreation, updateUserRole, toggleUserDisabled } = userDomain;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -93,5 +93,30 @@ describe("toggleUserDisabled — super-admin protection", () => {
   it("returns null for an unknown user", async () => {
     findDisabledStatus.mockResolvedValue(null);
     expect(await toggleUserDisabled(true, "u1")).toBeNull();
+  });
+});
+
+describe("setUserAdvancedCreation", () => {
+  it("sets the requested permission explicitly", async () => {
+    findById.mockResolvedValue({ id: "u1", canCreateAdvancedProblems: false });
+
+    await setUserAdvancedCreation("u1", true);
+
+    expect(update).toHaveBeenCalledWith("u1", { canCreateAdvancedProblems: true });
+  });
+
+  it("does not rewrite an unchanged permission", async () => {
+    const user = { id: "u1", canCreateAdvancedProblems: true };
+    findById.mockResolvedValue(user);
+
+    await expect(setUserAdvancedCreation("u1", true)).resolves.toBe(user);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("returns null for an unknown user", async () => {
+    findById.mockResolvedValue(null);
+
+    await expect(setUserAdvancedCreation("u1", true)).resolves.toBeNull();
+    expect(update).not.toHaveBeenCalled();
   });
 });

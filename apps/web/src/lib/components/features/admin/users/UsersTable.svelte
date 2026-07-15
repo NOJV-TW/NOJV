@@ -15,6 +15,7 @@
 
 <script lang="ts">
   import { untrack } from "svelte";
+  import type { SubmitFunction } from "@sveltejs/kit";
   import { enhance } from "$app/forms";
   import {
     ArrowDown,
@@ -217,20 +218,6 @@
     pending = { form, ...cfg };
   }
 
-  function maybeConfirmRole(e: MouseEvent, user: UsersTableUser, targetRole: PlatformRole) {
-    const isDangerous = user.platformRole === "admin" || targetRole === "admin";
-    if (!isDangerous) return;
-    requestConfirm(e, {
-      title: m.admin_usersRoleChangeTitle(),
-      message: m.admin_usersRoleChangeConfirm({
-        username: displayName(user),
-        to: roleLabel(targetRole),
-      }),
-      confirmText: m.common_confirm(),
-      variant: "default",
-    });
-  }
-
   function maybeConfirmDisable(e: MouseEvent, user: UsersTableUser) {
     if (user.disabled) return;
     requestConfirm(e, {
@@ -254,6 +241,80 @@
     const form = pending?.form;
     pending = null;
     form?.requestSubmit();
+  }
+
+  function cancelConfirm() {
+    pending?.form.reset();
+    pending = null;
+  }
+
+  function handleRoleChange(e: Event, user: UsersTableUser) {
+    const select = e.currentTarget as HTMLSelectElement;
+    const form = select.form;
+    const targetRole = select.value as PlatformRole;
+    if (!form || targetRole === user.platformRole) return;
+    if (user.platformRole === "admin" || targetRole === "admin") {
+      pending = {
+        form,
+        title: m.admin_usersRoleChangeTitle(),
+        message: m.admin_usersRoleChangeConfirm({
+          username: displayName(user),
+          to: roleLabel(targetRole),
+        }),
+        confirmText: m.common_confirm(),
+        variant: "default",
+      };
+      return;
+    }
+    form.requestSubmit();
+  }
+
+  function roleSubmission(user: UsersTableUser): SubmitFunction {
+    return ({ formData, formElement }) => {
+      const targetRole = formData.get("role") as PlatformRole;
+      const name = displayName(user);
+      return async ({ result, update }) => {
+        if (result.type === "success") {
+          toasts.success(
+            m.admin_usersRoleUpdateSuccess({ username: name, to: roleLabel(targetRole) }),
+          );
+          await update();
+        } else if (result.type === "failure") {
+          formElement.reset();
+          const err =
+            (result.data as { error?: string } | undefined)?.error ??
+            m.admin_usersRoleUpdateFailed();
+          toasts.error(err);
+        } else {
+          await update();
+        }
+      };
+    };
+  }
+
+  function advancedSubmission(user: UsersTableUser): SubmitFunction {
+    return ({ formData, formElement }) => {
+      const allowed = formData.get("allowed") === "true";
+      const name = displayName(user);
+      return async ({ result, update }) => {
+        if (result.type === "success") {
+          toasts.success(
+            allowed
+              ? m.admin_usersAdvancedGrantSuccess({ username: name })
+              : m.admin_usersAdvancedRevokeSuccess({ username: name }),
+          );
+          await update();
+        } else if (result.type === "failure") {
+          formElement.reset();
+          const err =
+            (result.data as { error?: string } | undefined)?.error ??
+            m.admin_usersAdvancedUpdateFailed();
+          toasts.error(err);
+        } else {
+          await update();
+        }
+      };
+    };
   }
 
   const selectableUsers = $derived(sortedUsers.filter(canManage));
@@ -441,6 +502,7 @@
             {@render sortArrow("role")}
           </button>
         </th>
+        <th class="px-5 py-3 font-medium">{m.admin_usersAdvancedColumn()}</th>
         <th class="px-5 py-3 font-medium" aria-sort={ariaSort("status")}>
           <button
             type="button"
@@ -490,11 +552,60 @@
           <td class="px-5 py-3">{user.email}</td>
           <td class="px-5 py-3">{user.name}</td>
           <td class="px-5 py-3">
-            <Badge variant={roleBadgeVariant(user.platformRole)} size="sm">
-              {roleLabel(user.platformRole)}
-            </Badge>
-            {#if user.canCreateAdvancedProblems}
-              <Badge variant="outline" size="xs">{m.admin_usersAdvancedBadge()}</Badge>
+            {#if canManage(user)}
+              <form
+                class="inline"
+                method="POST"
+                action="?/updateRole"
+                use:enhance={roleSubmission(user)}
+              >
+                <input type="hidden" name="userId" value={user.id} />
+                <select
+                  name="role"
+                  value={user.platformRole}
+                  aria-label={`${m.admin_usersRole()}: ${displayName(user)}`}
+                  class="rounded-md border border-border bg-background px-2 py-1 text-caption font-medium focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                  onchange={(e) => handleRoleChange(e, user)}
+                >
+                  {#each assignableRoles as role (role)}
+                    <option value={role}>{roleLabel(role)}</option>
+                  {/each}
+                </select>
+              </form>
+            {:else}
+              <Badge variant={roleBadgeVariant(user.platformRole)} size="sm">
+                {roleLabel(user.platformRole)}
+              </Badge>
+            {/if}
+          </td>
+          <td class="px-5 py-3">
+            {#if user.platformRole === "admin"}
+              <Badge variant="success" size="sm">{m.admin_usersAdvancedAllowed()}</Badge>
+            {:else if canManage(user)}
+              <form
+                class="inline"
+                method="POST"
+                action="?/updateAdvancedCreation"
+                use:enhance={advancedSubmission(user)}
+              >
+                <input type="hidden" name="userId" value={user.id} />
+                <select
+                  name="allowed"
+                  value={String(user.canCreateAdvancedProblems)}
+                  aria-label={`${m.admin_usersAdvancedColumn()}: ${displayName(user)}`}
+                  class="rounded-md border border-border bg-background px-2 py-1 text-caption font-medium focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                  onchange={(e) => (e.currentTarget as HTMLSelectElement).form?.requestSubmit()}
+                >
+                  <option value="true">{m.admin_usersAdvancedAllowed()}</option>
+                  <option value="false">{m.admin_usersAdvancedDenied()}</option>
+                </select>
+              </form>
+            {:else}
+              <Badge variant={user.canCreateAdvancedProblems ? "success" : "outline"} size="sm">
+                {user.canCreateAdvancedProblems
+                  ? m.admin_usersAdvancedAllowed()
+                  : m.admin_usersAdvancedDenied()}
+              </Badge>
             {/if}
           </td>
           <td class="px-5 py-3">
@@ -530,57 +641,6 @@
                     tabindex="-1"
                     onkeydown={onMenuKeydown}
                   >
-                    <p
-                      class="px-3 py-1.5 text-caption font-medium uppercase tracking-wider text-muted-foreground"
-                    >
-                      {m.admin_usersRole()}
-                    </p>
-                    {#each assignableRoles as targetRole (targetRole)}
-                      <form
-                        method="POST"
-                        action="?/updateRole"
-                        use:enhance={() => {
-                          const name = displayName(user);
-                          closeMenu();
-                          return async ({ result, update }) => {
-                            if (result.type === "success") {
-                              toasts.success(
-                                m.admin_usersRoleUpdateSuccess({
-                                  username: name,
-                                  to: roleLabel(targetRole),
-                                }),
-                              );
-                              await update();
-                            } else if (result.type === "failure") {
-                              const err =
-                                (result.data as { error?: string } | undefined)?.error ??
-                                m.admin_usersRoleUpdateFailed();
-                              toasts.error(err);
-                            } else {
-                              await update();
-                            }
-                          };
-                        }}
-                      >
-                        <input type="hidden" name="userId" value={user.id} />
-                        <input type="hidden" name="role" value={targetRole} />
-                        <button
-                          type="submit"
-                          class="flex w-full items-center justify-between gap-2 px-3 py-2 text-body-sm transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-accent-foreground disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent"
-                          disabled={targetRole === user.platformRole}
-                          role="menuitem"
-                          onclick={(e) => maybeConfirmRole(e, user, targetRole)}
-                        >
-                          <span>{roleLabel(targetRole)}</span>
-                          {#if targetRole === user.platformRole}
-                            <span class="text-caption text-muted-foreground">•</span>
-                          {/if}
-                        </button>
-                      </form>
-                    {/each}
-
-                    <div class="my-1 border-t border-border-subtle"></div>
-
                     <form
                       method="POST"
                       action="?/toggleDisabled"
@@ -615,44 +675,6 @@
                         onclick={(e) => maybeConfirmDisable(e, user)}
                       >
                         {user.disabled ? m.admin_usersEnable() : m.admin_usersDisable()}
-                      </button>
-                    </form>
-
-                    <form
-                      method="POST"
-                      action="?/toggleAdvancedCreation"
-                      use:enhance={() => {
-                        const name = displayName(user);
-                        const willGrant = !user.canCreateAdvancedProblems;
-                        closeMenu();
-                        return async ({ result, update }) => {
-                          if (result.type === "success") {
-                            toasts.success(
-                              willGrant
-                                ? m.admin_usersAdvancedGrantSuccess({ username: name })
-                                : m.admin_usersAdvancedRevokeSuccess({ username: name }),
-                            );
-                            await update();
-                          } else if (result.type === "failure") {
-                            const err =
-                              (result.data as { error?: string } | undefined)?.error ??
-                              m.admin_usersAdvancedUpdateFailed();
-                            toasts.error(err);
-                          } else {
-                            await update();
-                          }
-                        };
-                      }}
-                    >
-                      <input type="hidden" name="userId" value={user.id} />
-                      <button
-                        type="submit"
-                        class="flex w-full items-center px-3 py-2 text-body-sm transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-accent-foreground"
-                        role="menuitem"
-                      >
-                        {user.canCreateAdvancedProblems
-                          ? m.admin_usersAdvancedRevoke()
-                          : m.admin_usersAdvancedGrant()}
                       </button>
                     </form>
 
@@ -708,7 +730,7 @@
   confirmText={pending?.confirmText ?? m.common_confirm()}
   variant={pending?.variant ?? "default"}
   onconfirm={runConfirm}
-  oncancel={() => (pending = null)}
+  oncancel={cancelConfirm}
 />
 
 {#snippet sortArrow(key: SortKey)}

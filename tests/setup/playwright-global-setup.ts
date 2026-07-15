@@ -126,14 +126,14 @@ export default async function globalSetup(config: FullConfig) {
       await page.getByLabel(/password/i).fill(role.password);
       await page.getByRole("button", { name: /sign in|登入/i }).click();
 
+      await page.waitForURL((url) => !url.pathname.includes("signin"), {
+        timeout: 15000,
+      });
+
       if (role.name === "admin") {
         await elevateAdminSession(page, baseURL, role.email);
         await page.goto(`${baseURL}/dashboard`);
       }
-
-      await page.waitForURL((url) => !url.pathname.includes("signin"), {
-        timeout: 15000,
-      });
 
       const state = await context.storageState();
       await writeFile(path.join(AUTH_DIR, `${role.name}.json`), JSON.stringify(state));

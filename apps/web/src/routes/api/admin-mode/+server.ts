@@ -27,7 +27,12 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     return json({ active: false });
   }
   if (!(await grantAdminElevation(sessionId, adminElevationPrincipal(sessionUser)))) {
-    throw new HttpError("Fresh two-factor verification is required.", 403);
+    throw new HttpError(
+      sessionUser.isSuperAdmin
+        ? "Fresh two-factor verification is required."
+        : "Admin mode is not available for this account.",
+      403,
+    );
   }
   return json({ active: true });
 });
