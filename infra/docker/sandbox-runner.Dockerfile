@@ -1,4 +1,4 @@
-FROM node:24-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd AS builder
+FROM node:26-alpine@sha256:e88a35be04478413b7c71c455cd9865de9b9360e1f43456be5951032d7ac1a66 AS builder
 
 RUN npm install -g pnpm@10.33.0
 
@@ -15,7 +15,7 @@ COPY apps/sandbox-runner/ apps/sandbox-runner/
 RUN pnpm --filter @nojv/core build
 RUN pnpm --filter @nojv/sandbox-runner build
 
-FROM node:24-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd
+FROM node:26-alpine@sha256:e88a35be04478413b7c71c455cd9865de9b9360e1f43456be5951032d7ac1a66
 
 RUN apk add --no-cache bash build-base cargo go openjdk21-jdk python3 rust socat \
   && addgroup -S sandbox -g 10001 \
