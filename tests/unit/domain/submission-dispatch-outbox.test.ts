@@ -1,16 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { enqueue, dispatchSubmissionJudge, dispatchRejudge } = vi.hoisted(() => ({
+const {
+  enqueue,
+  enqueueMany,
+  dispatchSubmissionJudge,
+  dispatchRejudge,
+  listSystemErrorsForRecovery,
+} = vi.hoisted(() => ({
   enqueue: vi.fn(),
+  enqueueMany: vi.fn(),
   dispatchSubmissionJudge: vi.fn(),
   dispatchRejudge: vi.fn(),
+  listSystemErrorsForRecovery: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
   durableWorkRepo: {
     enqueue,
+    enqueueMany,
     withTx: () => ({ enqueue }),
   },
+  submissionRepo: { listSystemErrorsForRecovery },
 }));
 
 vi.mock("../../../packages/application/src/shared/orchestration", () => ({
@@ -24,6 +34,7 @@ import {
   enqueueSubmissionJudgeDispatch,
   executeRejudgeDispatch,
   executeSubmissionJudgeDispatch,
+  recoverSystemErrorSubmissions,
 } from "../../../packages/application/src/submission/rejudge-control";
 
 const job = {
@@ -37,8 +48,10 @@ const job = {
 beforeEach(() => {
   vi.clearAllMocks();
   enqueue.mockResolvedValue({});
+  enqueueMany.mockResolvedValue([]);
   dispatchSubmissionJudge.mockResolvedValue(undefined);
   dispatchRejudge.mockResolvedValue({ workflowId: "rejudge-fixed" });
+  listSystemErrorsForRecovery.mockResolvedValue([]);
 });
 
 describe("submission dispatch outbox", () => {
@@ -78,5 +91,44 @@ describe("submission dispatch outbox", () => {
 
     await executeRejudgeDispatch(work.payload);
     expect(dispatchRejudge).toHaveBeenCalledWith(work.payload.input, result.workflowId);
+  });
+
+  it("enqueues one deterministic system rejudge per failed judge generation", async () => {
+    listSystemErrorsForRecovery.mockResolvedValue([
+      { id: "sub_1", judgeGeneration: 2 },
+      { id: "sub_2", judgeGeneration: 5 },
+    ]);
+
+    await expect(recoverSystemErrorSubmissions()).resolves.toBe(2);
+    expect(enqueueMany).toHaveBeenCalledWith([
+      {
+        kind: REJUDGE_DISPATCH_WORK_KIND,
+        dedupeKey: "system-error:sub_1:2",
+        payload: {
+          workflowId: "rejudge-system-error-sub_1-2",
+          input: {
+            mode: "single",
+            submissionId: "sub_1",
+            triggeredByUserId: null,
+            expectedJudgeGeneration: 2,
+          },
+        },
+        maxAttempts: 20,
+      },
+      {
+        kind: REJUDGE_DISPATCH_WORK_KIND,
+        dedupeKey: "system-error:sub_2:5",
+        payload: {
+          workflowId: "rejudge-system-error-sub_2-5",
+          input: {
+            mode: "single",
+            submissionId: "sub_2",
+            triggeredByUserId: null,
+            expectedJudgeGeneration: 5,
+          },
+        },
+        maxAttempts: 20,
+      },
+    ]);
   });
 });

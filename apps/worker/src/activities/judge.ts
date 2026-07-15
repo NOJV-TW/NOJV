@@ -352,8 +352,14 @@ export async function snapshotSubmissionForRejudge(
   submissionId: string,
   triggeredByUserId: string | null,
   rejudgeRunId: string,
+  expectedJudgeGeneration: number | null,
 ): Promise<{ logId: string; oldStatus: string } | null> {
-  return submissionDomain.snapshotForRejudge(submissionId, triggeredByUserId, rejudgeRunId);
+  return submissionDomain.snapshotForRejudge(
+    submissionId,
+    triggeredByUserId,
+    rejudgeRunId,
+    expectedJudgeGeneration,
+  );
 }
 
 export async function finalizeRejudgeLog(
@@ -392,6 +398,7 @@ export async function startSubmissionJudgeRun(
 export async function failSubmissionJudgeRun(
   submissionId: string,
   judgeRunId: string,
+  reason: string,
 ): Promise<boolean> {
-  return submissionDomain.failSubmissionJudgeRun(submissionId, judgeRunId);
+  return submissionDomain.failSubmissionJudgeRun(submissionId, judgeRunId, reason);
 }

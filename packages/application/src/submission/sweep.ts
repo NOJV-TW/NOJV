@@ -5,8 +5,8 @@ import {
 import { authCleanupRepo, submissionRejudgeLogRepo, submissionRepo } from "@nojv/db";
 
 import { getDomainOrchestration } from "../shared/orchestration";
-
-const PENDING_STATUSES = ["pending_upload", "queued", "compiling", "running"];
+import { toJsonValue } from "../shared/to-json-value";
+import { deriveSystemErrorVerdictSummary } from "./mutations";
 
 const REJUDGE_LOG_RETENTION_DAYS = 90;
 
@@ -56,10 +56,18 @@ export async function sweepStaleSubmissions(): Promise<SweepStaleSubmissionsResu
         id,
         "submission pending timeout exceeded",
       );
-      const updated = await submissionRepo.updateStatusIfIn(
+      const updated = await submissionRepo.completeIfInProgress(
         id,
-        PENDING_STATUSES,
-        "system_error",
+        {
+          activeJudgeRunId: null,
+          status: "system_error",
+          verdictSummary: toJsonValue(
+            deriveSystemErrorVerdictSummary(
+              "Judge pipeline exceeded the pending timeout and no running workflow was found.",
+            ),
+          ),
+        },
+        cutoff,
       );
       killed += updated.count;
     } catch {

@@ -7,6 +7,7 @@ export const load: PageServerLoad = async ({ url }) => {
   const cursor = url.searchParams.get("cursor") ?? undefined;
   const userIdRaw = url.searchParams.get("userId")?.trim();
   const problemIdRaw = url.searchParams.get("problemId")?.trim();
+  const status = url.searchParams.get("status") === "system_error" ? "system_error" : undefined;
   const userId = userIdRaw && userIdRaw.length > 0 ? userIdRaw : undefined;
   const problemId = problemIdRaw && problemIdRaw.length > 0 ? problemIdRaw : undefined;
 
@@ -15,6 +16,7 @@ export const load: PageServerLoad = async ({ url }) => {
     ...(cursor ? { cursor } : {}),
     ...(userId ? { userId } : {}),
     ...(problemId ? { problemId } : {}),
+    ...(status ? { status } : {}),
   });
 
   return {
@@ -22,5 +24,6 @@ export const load: PageServerLoad = async ({ url }) => {
     nextCursor,
     userId: userId ?? "",
     problemId: problemId ?? "",
+    status: status ?? "",
   };
 };

@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   ensureDurableWorkProcessor: vi.fn(),
   ensureLifecycleReconciler: vi.fn(),
   ensureSubmissionSweeper: vi.fn(),
+  recoverSystemErrorSubmissions: vi.fn(),
+  sweepStaleSubmissions: vi.fn(),
   executorAbortActive: vi.fn(),
   executorShutdown: vi.fn(),
   healthCheckTemporal: null as null | (() => Promise<boolean>),
@@ -20,6 +22,18 @@ const mocks = vi.hoisted(() => ({
   dockerSweeperShutdown: vi.fn(),
   dockerSweeperStart: vi.fn(),
 }));
+
+vi.mock("@nojv/application", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@nojv/application")>();
+  return {
+    ...actual,
+    submissionDomain: {
+      ...actual.submissionDomain,
+      recoverSystemErrorSubmissions: mocks.recoverSystemErrorSubmissions,
+      sweepStaleSubmissions: mocks.sweepStaleSubmissions,
+    },
+  };
+});
 
 vi.mock("@nojv/temporal", () => ({
   buildDomainOrchestrationAdapter: () => ({}),
@@ -128,6 +142,8 @@ beforeEach(() => {
   mocks.ensureDurableWorkProcessor.mockResolvedValue(undefined);
   mocks.ensureSubmissionSweeper.mockResolvedValue(undefined);
   mocks.ensureLifecycleReconciler.mockResolvedValue(undefined);
+  mocks.recoverSystemErrorSubmissions.mockResolvedValue(0);
+  mocks.sweepStaleSubmissions.mockResolvedValue({});
   mocks.executorShutdown.mockResolvedValue(undefined);
   mocks.dockerSweeperShutdown.mockResolvedValue(undefined);
   mocks.dockerSweeperStart.mockResolvedValue(undefined);
@@ -178,6 +194,9 @@ describe("WorkerApp lifecycle", () => {
     const app = new WorkerApp(env, { shutdownTimeoutMs: 100, workflowsPath: "workflow.js" });
     const started = app.start();
     await vi.waitFor(() => expect(worker.run).toHaveBeenCalledOnce());
+
+    expect(mocks.sweepStaleSubmissions).toHaveBeenCalledOnce();
+    expect(mocks.recoverSystemErrorSubmissions).toHaveBeenCalledOnce();
 
     await expect(mocks.healthCheckTemporal?.()).resolves.toBe(true);
     const first = app.shutdown("SIGTERM");
@@ -231,6 +250,7 @@ describe("WorkerApp lifecycle", () => {
     );
     const started = app.start();
     await vi.waitFor(() => expect(worker.run).toHaveBeenCalledOnce());
+    expect(mocks.recoverSystemErrorSubmissions).toHaveBeenCalledOnce();
 
     let finished = false;
     const stopping = app.shutdown("SIGTERM").then(() => {

@@ -15,7 +15,7 @@ const {
   submissionCreate,
   submissionPublishPendingUpload,
   submissionUpdateStatus,
-  submissionUpdateStatusIfIn,
+  submissionCompleteIfInProgress,
   examSessionFindActiveForUser,
   examFindById,
   examProblemExists,
@@ -38,7 +38,7 @@ const {
   submissionCreate: vi.fn(),
   submissionPublishPendingUpload: vi.fn(),
   submissionUpdateStatus: vi.fn(),
-  submissionUpdateStatusIfIn: vi.fn(),
+  submissionCompleteIfInProgress: vi.fn(),
   examSessionFindActiveForUser: vi.fn(),
   examFindById: vi.fn(),
   examProblemExists: vi.fn(),
@@ -105,7 +105,7 @@ vi.mock("@nojv/db", () => ({
       countForUserAssessmentProblemSince: vi.fn(),
     }),
     updateStatus: submissionUpdateStatus,
-    updateStatusIfIn: submissionUpdateStatusIfIn,
+    completeIfInProgress: submissionCompleteIfInProgress,
   },
   runTransaction: async <T>(
     fn: (tx: { $executeRaw: typeof vi.fn }) => Promise<T>,
@@ -177,7 +177,7 @@ function setupCommonProblemDefaults() {
     id,
     status,
   }));
-  submissionUpdateStatusIfIn.mockResolvedValue({ count: 1 });
+  submissionCompleteIfInProgress.mockResolvedValue({ count: 1 });
   submissionPublishPendingUpload.mockImplementation(
     async (id: string, sourceStorage: unknown) => ({ id, sourceStorage, status: "queued" }),
   );

@@ -68,7 +68,7 @@ jobs:
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
       - name: Log in to GHCR
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -90,6 +90,7 @@ jobs:
           subject-name: ghcr.io/nojv-tw/nojv-web
           subject-digest: ${{ steps.web.outputs.digest }}
           push-to-registry: true
+          create-storage-record: false
 
       - name: Publish web release tag
         if: steps.web.outputs.requires_promotion == 'true'
@@ -116,6 +117,7 @@ jobs:
           subject-name: ghcr.io/nojv-tw/nojv-worker
           subject-digest: ${{ steps.worker.outputs.digest }}
           push-to-registry: true
+          create-storage-record: false
 
       - name: Publish worker release tag
         if: steps.worker.outputs.requires_promotion == 'true'
@@ -142,6 +144,7 @@ jobs:
           subject-name: ghcr.io/nojv-tw/nojv-migrator
           subject-digest: ${{ steps.migrator.outputs.digest }}
           push-to-registry: true
+          create-storage-record: false
 
       - name: Publish migrator release tag
         if: steps.migrator.outputs.requires_promotion == 'true'
@@ -168,6 +171,7 @@ jobs:
           subject-name: ghcr.io/nojv-tw/nojv-sandbox
           subject-digest: ${{ steps.sandbox.outputs.digest }}
           push-to-registry: true
+          create-storage-record: false
 
       - name: Publish sandbox release tag
         if: steps.sandbox.outputs.requires_promotion == 'true'

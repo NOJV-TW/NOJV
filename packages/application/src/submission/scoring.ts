@@ -116,7 +116,7 @@ export function mapResult(
       runtimeMs: result.testcaseResults.reduce((s, t) => s + t.timeMs, 0),
       ...memoryField,
       score: 0,
-      verdict: "compile_error",
+      verdict: "system_error",
     };
   }
 

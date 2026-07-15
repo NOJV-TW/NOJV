@@ -114,6 +114,20 @@ test.describe("Admin panel — gating + pages", () => {
 
     await expect(page).toHaveURL(/\/admin(?:\/|$)/);
     await expect(page.getByRole("main")).toBeVisible();
+
+    await page.locator('a[href="/problems"]').first().click();
+    await expect(page).toHaveURL(/\/problems(?:\/|$)/);
+    await menuButton.click();
+    await expect(page.getByRole("menuitem", { name: /exit admin mode/i })).toBeVisible();
+    await menuButton.click();
+
+    await page.locator('a[href="/admin"]').first().click();
+    await expect(page).toHaveURL(/\/admin(?:\/|$)/);
+
+    await page.goto("/admin/users");
+    await expect(page.getByRole("main")).toBeVisible();
+    await menuButton.click();
+    await expect(page.getByRole("menuitem", { name: /exit admin mode/i })).toBeVisible();
   });
 
   test("super-admin activation requires a verified step-up", async ({ browser }) => {
