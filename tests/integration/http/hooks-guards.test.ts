@@ -3,11 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestUser } from "../../fixtures/factories";
 import { callRoute } from "./_harness";
 
-const { resolveAdminElevationSpy, authConsumeSpy, signInConsumeSpy } = vi.hoisted(() => ({
-  resolveAdminElevationSpy: vi.fn(),
-  authConsumeSpy: vi.fn(),
-  signInConsumeSpy: vi.fn(),
-}));
+const { resolveAdminElevationSpy, authConsumeSpy, signInConsumeSpy, signOutSpy } = vi.hoisted(
+  () => ({
+    resolveAdminElevationSpy: vi.fn(),
+    authConsumeSpy: vi.fn(),
+    signInConsumeSpy: vi.fn(),
+    signOutSpy: vi.fn(),
+  }),
+);
 
 vi.mock("$lib/server/shared/rate-limiter", () => ({
   authRateLimiter: { consume: authConsumeSpy },
@@ -24,6 +27,7 @@ vi.mock("$lib/server/step-up", async () => {
 vi.mock("$lib/auth.server", () => ({
   getAuth: () => ({
     api: {
+      signOut: signOutSpy,
       getSession: async ({ headers }: { headers: Headers }) => {
         const userId = headers.get("x-test-user-id");
         if (!userId) return null;
@@ -55,6 +59,11 @@ beforeEach(() => {
   resolveAdminElevationSpy.mockClear();
   authConsumeSpy.mockReset().mockResolvedValue("allowed");
   signInConsumeSpy.mockReset().mockResolvedValue("allowed");
+  signOutSpy.mockReset().mockResolvedValue({
+    headers: new Headers({
+      "set-cookie": "__Secure-better-auth.session_token=; Max-Age=0; Path=/; HttpOnly; Secure",
+    }),
+  });
 });
 
 describe("hooks.server guard chain (request-layer redirects)", () => {
@@ -234,6 +243,11 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
 
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toBe("/signin?error=session-expired");
+    expect(res.headers.get("set-cookie")).toContain("Max-Age=0");
+    expect(signOutSpy).toHaveBeenCalledWith({
+      headers: expect.any(Headers),
+      returnHeaders: true,
+    });
   }, 30_000);
 
   it("binds a verified-factor handoff to the new superadmin session before the gate", async () => {

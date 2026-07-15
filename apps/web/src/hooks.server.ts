@@ -311,24 +311,24 @@ async function resolveAdminMode(event: HandleEvent): Promise<void> {
     (await resolveAdminElevation(sessionId, adminElevationPrincipal(user)));
 }
 
-async function enforceSuperAdminSessionAge(event: HandleEvent): Promise<void> {
+async function enforceSuperAdminSessionAge(event: HandleEvent): Promise<Response | null> {
   const user = event.locals.sessionUser;
   const session = event.locals.session;
   if (!user?.isSuperAdmin || !session) {
-    return;
+    return null;
   }
   if (!isSuperAdminSessionExpired(new Date(session.createdAt))) {
-    return;
+    return null;
   }
-  try {
-    await getAuth().api.signOut({ headers: event.request.headers });
-  } catch {
-    // Best effort: the redirect below drops the session regardless.
-  }
+  const { headers } = await getAuth().api.signOut({
+    headers: event.request.headers,
+    returnHeaders: true,
+  });
   event.locals.session = null;
   event.locals.user = null;
   event.locals.sessionUser = null;
-  redirect(302, "/signin?error=session-expired");
+  headers.set("location", "/signin?error=session-expired");
+  return new Response(null, { status: 302, headers });
 }
 
 async function enforceAdminTwoFactor(event: HandleEvent, cleanPath: string): Promise<void> {
@@ -528,7 +528,10 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
   await loadSession(event);
   await consumeStepUpHandoff(event);
   await enforceAccountState(event, cleanPath);
-  await enforceSuperAdminSessionAge(event);
+  const expiredSessionResponse = await enforceSuperAdminSessionAge(event);
+  if (expiredSessionResponse) {
+    return expiredSessionResponse;
+  }
   enforcePasswordChange(event, cleanPath);
   await resolveAdminMode(event);
   await enforceAdminTwoFactor(event, cleanPath);
