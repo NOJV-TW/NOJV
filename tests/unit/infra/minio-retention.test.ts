@@ -63,6 +63,23 @@ describe("MinIO persistent storage retention", () => {
     );
   });
 
+  it("mounts an explicitly managed existing claim without rendering storage resources", () => {
+    const rendered = render([
+      "--set-string",
+      "storage.minio.existingClaim=nojv-minio",
+      "--set-string",
+      "storage.minio.storageClass.name=",
+    ]);
+
+    expect(rendered).not.toContain("# Source: nojv/templates/minio-storageclass.yaml");
+    expect(rendered).not.toContain(
+      "# Source: nojv/templates/minio.yaml\napiVersion: v1\nkind: PersistentVolumeClaim",
+    );
+    expect(documentWith(rendered, "kind: Deployment\nmetadata:\n  name: nojv-minio")).toContain(
+      'claimName: "nojv-minio"',
+    );
+  });
+
   it("refuses in-cluster MinIO without an explicit retained class name", () => {
     expect(() =>
       render([
