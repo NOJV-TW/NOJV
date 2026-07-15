@@ -22,12 +22,7 @@ const config = {
         "default-src": ["self"],
         "script-src": ["self"],
         "style-src": ["self", "unsafe-inline"],
-        "img-src": [
-          "self",
-          "data:",
-          "blob:",
-          "https:",
-        ],
+        "img-src": ["self", "data:", "blob:", "https:"],
         "font-src": ["self", "data:"],
         "connect-src": ["self"],
         "worker-src": ["self", "blob:"],
