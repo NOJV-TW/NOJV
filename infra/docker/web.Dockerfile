@@ -26,6 +26,8 @@ COPY packages/temporal/package.json packages/temporal/
 
 RUN pnpm install --frozen-lockfile --filter @nojv/web...
 
+ENV pnpm_config_verify_deps_before_run=false
+
 # @grpc/grpc-js is marked ssr.external in the web build, so the SSR output emits a
 # bare require('@grpc/grpc-js') at runtime. pnpm leaves it nested in the virtual
 # store with no top-level entry, so hoist a symlink into the root node_modules

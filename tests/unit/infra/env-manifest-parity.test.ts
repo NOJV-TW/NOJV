@@ -230,6 +230,20 @@ describe("Dockerfiles that frozen-install must ship the full pnpm workspace", ()
   });
 
   it.each(frozenInstallDockerfiles)(
+    "%s prevents pnpm scripts from replacing the filtered frozen install",
+    (file) => {
+      const dockerfile = readFileSync(join(dockerDir, file), "utf8");
+      const install = dockerfile.indexOf("RUN pnpm install");
+      const disableAutoInstall = dockerfile.indexOf(
+        "ENV pnpm_config_verify_deps_before_run=false",
+      );
+      const firstBuild = dockerfile.indexOf("RUN pnpm --filter");
+      expect(disableAutoInstall).toBeGreaterThan(install);
+      expect(disableAutoInstall).toBeLessThan(firstBuild);
+    },
+  );
+
+  it.each(frozenInstallDockerfiles)(
     "%s copies every tooling workspace manifest before installing",
     (file) => {
       const dockerfile = readFileSync(join(dockerDir, file), "utf8");
