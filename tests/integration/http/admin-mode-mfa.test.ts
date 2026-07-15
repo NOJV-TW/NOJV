@@ -77,27 +77,26 @@ async function markVerifiedSession(userId: string): Promise<void> {
 
 afterEach(clearElevation);
 
-describe("admin mode MFA invariant", () => {
-  it(
-    "rejects activation when the current admin account has not activated 2FA",
-    { timeout: 15_000 },
-    async () => {
-      const user = await createTestUser({
-        platformRole: "admin",
-        twoFactorActivated: false,
-      });
-      await persistVerifiedSession(sessionId, await currentProof(user.id), true);
-
-      const response = await activate(user);
-
-      expect(response.status).toBe(403);
-      await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
-    },
-  );
-
-  it("rejects activation without a fresh same-session step-up", async () => {
+describe("admin mode elevation", () => {
+  it("allows a regular admin to activate without 2FA", { timeout: 15_000 }, async () => {
     const user = await createTestUser({
       platformRole: "admin",
+      twoFactorActivated: false,
+    });
+
+    const response = await activate(user);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ active: true });
+    await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBe(
+      await currentElevationMarker(user.id),
+    );
+  });
+
+  it("rejects super-admin activation without a fresh same-session step-up", async () => {
+    const user = await createTestUser({
+      platformRole: "admin",
+      isSuperAdmin: true,
       twoFactorActivated: true,
     });
     const marker = await currentElevationMarker(user.id);
@@ -109,9 +108,10 @@ describe("admin mode MFA invariant", () => {
     await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
   });
 
-  it("rejects activation without an MFA marker for the same session and account", async () => {
+  it("rejects super-admin activation without an MFA marker for the same account", async () => {
     const user = await createTestUser({
       platformRole: "admin",
+      isSuperAdmin: true,
       twoFactorActivated: true,
     });
     const marker = await currentElevationMarker(user.id);
@@ -124,10 +124,24 @@ describe("admin mode MFA invariant", () => {
     await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
   });
 
-  it("fails closed and clears stale admin mode state during request resolution", async () => {
+  it("rejects super-admin activation until 2FA is activated", async () => {
     const user = await createTestUser({
       platformRole: "admin",
-      twoFactorActivated: true,
+      isSuperAdmin: true,
+      twoFactorActivated: false,
+    });
+    await markVerifiedSession(user.id);
+
+    const response = await activate(user);
+
+    expect(response.status).toBe(403);
+    await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
+  });
+
+  it("resolves a regular admin mode marker without an MFA marker", async () => {
+    const user = await createTestUser({
+      platformRole: "admin",
+      twoFactorActivated: false,
     });
     await getRedis().set(
       keys.adminMode(sessionId),
@@ -144,27 +158,13 @@ describe("admin mode MFA invariant", () => {
       user,
     });
 
-    await expect(response.json()).resolves.toEqual({ active: false });
-    await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
-  });
-
-  it("grants a regular admin only when both MFA markers belong to the current session", async () => {
-    const user = await createTestUser({
-      platformRole: "admin",
-      twoFactorActivated: true,
-    });
-    await markVerifiedSession(user.id);
-
-    const response = await activate(user);
-
-    expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ active: true });
     await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBe(
       await currentElevationMarker(user.id),
     );
   });
 
-  it("applies the same elevation invariant to super admins", async () => {
+  it("grants super-admin activation after a same-session step-up", async () => {
     const user = await createTestUser({
       platformRole: "admin",
       isSuperAdmin: true,

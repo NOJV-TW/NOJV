@@ -48,7 +48,7 @@ describe("Playwright destructive database isolation", () => {
     expect(existsSync(join(repoRoot, "apps/web/static/favicon.svg"))).toBe(true);
     expect(config.webServer).toMatchObject({
       reuseExistingServer: false,
-      url: "http://localhost:5174/favicon.svg",
+      url: "http://localhost:5174/admin-signin",
     });
     const server = config.webServer as { command: string; env: Record<string, string> };
     expect(server.command).toContain("--port 5174");

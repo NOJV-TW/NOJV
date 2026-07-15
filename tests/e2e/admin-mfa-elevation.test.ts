@@ -18,7 +18,7 @@ function redis(...args: string[]): string {
 }
 
 test.beforeAll(() => {
-  user.create({ platformRole: "admin" });
+  user.create({ platformRole: "admin", isSuperAdmin: true });
 });
 
 test.afterAll(() => {

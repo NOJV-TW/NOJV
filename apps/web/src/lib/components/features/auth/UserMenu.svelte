@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { page } from "$app/state";
   import { goto, invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
@@ -13,27 +14,36 @@
 
   let user = $derived(page.data.user);
   let session = $derived(page.data.session);
-  let canActAsAdmin = $derived(page.data.canActAsAdmin ?? false);
+  let canActAsAdmin = $derived(user?.platformRole === "admin");
   let actingAsAdmin = $derived(page.data.actingAsAdmin ?? false);
   let adminBusy = $state(false);
+  let hydrated = $state(false);
+
+  onMount(() => {
+    hydrated = true;
+  });
 
   async function toggleAdminMode() {
     if (adminBusy) return;
-    if (!actingAsAdmin) {
-      open = false;
-      await goto("/account/api-tokens/verify?purpose=admin-mode");
-      return;
-    }
     adminBusy = true;
+    const active = !actingAsAdmin;
     try {
       const r = await fetchWithCsrf("/api/admin-mode", {
         method: "POST",
-        body: JSON.stringify({ active: false }),
+        body: JSON.stringify({ active }),
       });
-      if (!r.ok) return;
+      if (!r.ok) {
+        open = false;
+        if (active && user?.isSuperAdmin && r.status === 403) {
+          await goto("/account/api-tokens/verify?purpose=admin-mode");
+        }
+        return;
+      }
       open = false;
       await invalidateAll();
-      if (page.url.pathname.startsWith("/admin")) {
+      if (active) {
+        await goto("/admin");
+      } else if (page.url.pathname.startsWith("/admin")) {
         await goto("/dashboard");
       }
     } finally {
@@ -116,6 +126,7 @@
       class="flex size-9 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-border-subtle bg-primary text-body-sm font-semibold text-primary-foreground shadow-rest transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:shadow-hover hover:opacity-90"
       onclick={() => (open = !open)}
       onkeydown={handleTriggerKeydown}
+      disabled={!hydrated}
       title={user.name}
       type="button"
       aria-label={m.userMenu_openAccountMenu({ name: user.name })}
