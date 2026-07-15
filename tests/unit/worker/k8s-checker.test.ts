@@ -183,7 +183,7 @@ describe("buildSandboxJobManifest — hardening parity for both run and validate
   const baseParams = {
     jobName: "judge-sub-1",
     namespace: "nojv-sandbox",
-    configMapName: "judge-sub-1",
+    configMapNames: ["judge-sub-1-pm", "judge-sub-1-p0"],
     image: "nojv-sandbox:test",
     cpuRequest: "100m",
     cpuLimit: "1",
@@ -196,7 +196,11 @@ describe("buildSandboxJobManifest — hardening parity for both run and validate
     ["run", { ...baseParams }],
     [
       "validate",
-      { ...baseParams, jobName: "judge-sub-1-validate", configMapName: "judge-sub-1-validate" },
+      {
+        ...baseParams,
+        jobName: "judge-sub-1-validate",
+        configMapNames: ["judge-sub-1-validate-pm", "judge-sub-1-validate-p0"],
+      },
     ],
   ])("(%s) applies the full sandbox hardening profile", (_label, params) => {
     const manifest = buildSandboxJobManifest(params);
@@ -224,15 +228,32 @@ describe("buildSandboxJobManifest — hardening parity for both run and validate
     expect(manifest.spec!.template.metadata!.labels).toMatchObject({ app: "nojv-sandbox" });
   });
 
-  it("uses the supplied ConfigMap as the read-only /submission mount", () => {
+  it("materializes projected ConfigMap shards into a read-only /submission mount", () => {
     const manifest = buildSandboxJobManifest({
       ...baseParams,
       jobName: "judge-sub-1-validate",
-      configMapName: "judge-sub-1-validate",
+      configMapNames: ["judge-sub-1-validate-pm", "judge-sub-1-validate-p0"],
     });
     const podSpec = manifest.spec!.template.spec!;
     const submissionVol = podSpec.volumes!.find((v) => v.name === "submission-data");
-    expect(submissionVol?.configMap?.name).toBe("judge-sub-1-validate");
+    expect(submissionVol?.emptyDir).toBeDefined();
+    const payloadVol = podSpec.volumes!.find((v) => v.name === "payload");
+    expect(payloadVol?.projected?.sources).toEqual([
+      { configMap: { name: "judge-sub-1-validate-pm" } },
+      { configMap: { name: "judge-sub-1-validate-p0" } },
+    ]);
+
+    const materializer = podSpec.initContainers?.find((c) => c.name === "materialize");
+    expect(materializer?.env).toContainEqual({ name: "SANDBOX_PHASE", value: "materialize" });
+    expect(materializer?.securityContext).toMatchObject({
+      allowPrivilegeEscalation: false,
+      readOnlyRootFilesystem: true,
+    });
+    expect(materializer?.volumeMounts).toContainEqual({
+      name: "payload",
+      mountPath: "/payload",
+      readOnly: true,
+    });
 
     const container = podSpec.containers[0]!;
     const mount = container.volumeMounts!.find((m) => m.name === "submission-data");

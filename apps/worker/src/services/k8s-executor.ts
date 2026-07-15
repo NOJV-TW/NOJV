@@ -42,6 +42,7 @@ import {
   COMPILE_CONTAINER_NAME,
   perCaseContainerName,
 } from "./k8s-job-manifests";
+import { buildPayloadConfigMaps, payloadConfigMapNames } from "./k8s-payload";
 import { scanJsonLinesFromEnd } from "./k8s-log-parse";
 import {
   ADVANCED_SIDECAR_NAME,
@@ -784,6 +785,8 @@ export class K8sExecutor implements SandboxExecutor {
     const jobName = `${baseName}-int-${String(testcase.index)}`;
     const solConfigMap = `${jobName}-sol`;
     const intConfigMap = `${jobName}-int`;
+    let solutionPayloadNames: string[] = [];
+    let interactorPayloadNames: string[] = [];
     let executionFailure: { reason: unknown } | undefined;
 
     const seCase = (message: string): SandboxTestcaseResult => ({
@@ -797,13 +800,13 @@ export class K8sExecutor implements SandboxExecutor {
     });
 
     try {
-      await this.createConfigMap(
+      solutionPayloadNames = await this.createPayloadConfigMaps(
         solConfigMap,
         namespace,
         buildInteractiveSolutionConfigMapData(request),
         signal,
       );
-      await this.createConfigMap(
+      interactorPayloadNames = await this.createPayloadConfigMaps(
         intConfigMap,
         namespace,
         buildInteractiveInteractorConfigMapData(request, testcase),
@@ -819,8 +822,8 @@ export class K8sExecutor implements SandboxExecutor {
         body: buildInteractiveJobManifest({
           jobName,
           namespace,
-          solutionConfigMapName: solConfigMap,
-          interactorConfigMapName: intConfigMap,
+          solutionConfigMapNames: solutionPayloadNames,
+          interactorConfigMapNames: interactorPayloadNames,
           image: this.config.image,
           cpuRequest: this.config.cpuRequest,
           cpuLimit: this.config.cpuLimit,
@@ -882,8 +885,8 @@ export class K8sExecutor implements SandboxExecutor {
       await runCleanupAfterExecution(executionFailure, () =>
         runCleanupOperations("interactive sandbox", [
           this.cleanupJob(jobName, namespace),
-          this.cleanupConfigMap(solConfigMap, namespace),
-          this.cleanupConfigMap(intConfigMap, namespace),
+          ...solutionPayloadNames.map((name) => this.cleanupConfigMap(name, namespace)),
+          ...interactorPayloadNames.map((name) => this.cleanupConfigMap(name, namespace)),
         ]),
       );
     }
@@ -1056,9 +1059,10 @@ export class K8sExecutor implements SandboxExecutor {
       };
       const deadlineSeconds = computeJobDeadlineSeconds(waveRequest);
       let executionFailure: { reason: unknown } | undefined;
+      let payloadNames: string[] = [];
 
       try {
-        await this.createConfigMap(
+        payloadNames = await this.createPayloadConfigMaps(
           jobName,
           ns,
           buildRunConfigMapData(waveRequest),
@@ -1067,7 +1071,7 @@ export class K8sExecutor implements SandboxExecutor {
         await this.createPerCaseJob(
           jobName,
           ns,
-          jobName,
+          payloadNames,
           deadlineSeconds,
           waveCaseIndices,
           memoryLimit,
@@ -1109,7 +1113,9 @@ export class K8sExecutor implements SandboxExecutor {
         executionFailure = { reason: error };
         throw error;
       } finally {
-        await runCleanupAfterExecution(executionFailure, () => this.cleanup(jobName, ns));
+        await runCleanupAfterExecution(executionFailure, () =>
+          this.cleanup(jobName, ns, payloadNames),
+        );
       }
     }
 
@@ -1134,21 +1140,12 @@ export class K8sExecutor implements SandboxExecutor {
     const runResult = await this.runPerCasePod(request, execution);
     if (!runResult.rawRuns) return runResult;
     const rawRuns = runResult.rawRuns;
-    let executionFailure: { reason: unknown } | undefined;
+    const hasGradableCase = rawRuns.some((r) => !r.errorVerdict);
+    const outcomes = hasGradableCase
+      ? await this.runValidateJob(validateName, ns, request, rawRuns, execution.signal)
+      : new Map<number, ValidatorOutcome>();
 
-    try {
-      const hasGradableCase = rawRuns.some((r) => !r.errorVerdict);
-      const outcomes = hasGradableCase
-        ? await this.runValidateJob(validateName, ns, request, rawRuns, execution.signal)
-        : new Map<number, ValidatorOutcome>();
-
-      return { testcaseResults: mergeCheckerResults(rawRuns, outcomes) };
-    } catch (error) {
-      executionFailure = { reason: error };
-      throw error;
-    } finally {
-      await runCleanupAfterExecution(executionFailure, () => this.cleanup(validateName, ns));
-    }
+    return { testcaseResults: mergeCheckerResults(rawRuns, outcomes) };
   }
 
   private async runValidateJob(
@@ -1158,9 +1155,11 @@ export class K8sExecutor implements SandboxExecutor {
     rawRuns: RawCaseRun[],
     signal: AbortSignal,
   ): Promise<Map<number, ValidatorOutcome>> {
+    let payloadNames: string[] = [];
+    let executionFailure: { reason: unknown } | undefined;
     try {
       const deadlineSeconds = computeJobDeadlineSeconds(request);
-      await this.createConfigMap(
+      payloadNames = await this.createPayloadConfigMaps(
         jobName,
         namespace,
         buildValidateConfigMapData(request, rawRuns),
@@ -1169,7 +1168,7 @@ export class K8sExecutor implements SandboxExecutor {
       await this.createJob(
         jobName,
         namespace,
-        jobName,
+        payloadNames,
         deadlineSeconds,
         resolveK8sMemoryLimit(request, this.config),
         signal,
@@ -1188,8 +1187,13 @@ export class K8sExecutor implements SandboxExecutor {
         parseValidatorOutcomesFromLogs(logs, rawRuns) ?? validatorOutcomesSeForAll(rawRuns)
       );
     } catch (err) {
-      signal.throwIfAborted();
+      if (signal.aborted) {
+        const reason = executionAbortReason(signal);
+        executionFailure = { reason };
+        throw reason;
+      }
       if (err instanceof SandboxBackpressureError || err instanceof SandboxImagePullError) {
+        executionFailure = { reason: err };
         throw err;
       }
       logger.error("K8s validate Job failed", {
@@ -1198,6 +1202,45 @@ export class K8sExecutor implements SandboxExecutor {
         err: err instanceof Error ? err.message : String(err),
       });
       return validatorOutcomesSeForAll(rawRuns);
+    } finally {
+      await runCleanupAfterExecution(executionFailure, () =>
+        runCleanupOperations("checker validation sandbox", [
+          this.cleanupJob(jobName, namespace),
+          ...payloadNames.map((name) => this.cleanupConfigMap(name, namespace)),
+        ]),
+      );
+    }
+  }
+
+  private async createPayloadConfigMaps(
+    baseName: string,
+    namespace: string,
+    data: Record<string, string>,
+    signal: AbortSignal,
+  ): Promise<string[]> {
+    const configMaps = buildPayloadConfigMaps(baseName, namespace, data);
+    const names = payloadConfigMapNames(configMaps);
+    const created: string[] = [];
+    try {
+      for (const configMap of configMaps) {
+        signal.throwIfAborted();
+        await this.coreApi.createNamespacedConfigMap({ namespace, body: configMap });
+        const name = configMap.metadata?.name;
+        if (!name) throw new Error("Created sandbox payload ConfigMap is missing a name.");
+        created.push(name);
+      }
+      signal.throwIfAborted();
+      return names;
+    } catch (error) {
+      const cleanup = await Promise.allSettled(
+        created.map((name) => this.cleanupConfigMap(name, namespace)),
+      );
+      try {
+        throwCleanupFailures("partial sandbox payload", cleanup);
+      } catch (cleanupFailure) {
+        throw combineExecutionAndCleanupFailure(error, cleanupFailure);
+      }
+      throw error;
     }
   }
 
@@ -1230,7 +1273,7 @@ export class K8sExecutor implements SandboxExecutor {
   private async createJob(
     jobName: string,
     namespace: string,
-    configMapName: string,
+    configMapNames: string[],
     deadlineSeconds: number,
     memoryLimit: string,
     signal: AbortSignal,
@@ -1241,7 +1284,7 @@ export class K8sExecutor implements SandboxExecutor {
       body: buildSandboxJobManifest({
         jobName,
         namespace,
-        configMapName,
+        configMapNames,
         image: this.config.image,
         cpuRequest: this.config.cpuRequest,
         cpuLimit: this.config.cpuLimit,
@@ -1256,7 +1299,7 @@ export class K8sExecutor implements SandboxExecutor {
   private async createPerCaseJob(
     jobName: string,
     namespace: string,
-    configMapName: string,
+    configMapNames: string[],
     deadlineSeconds: number,
     caseIndices: number[],
     memoryLimit: string,
@@ -1268,7 +1311,7 @@ export class K8sExecutor implements SandboxExecutor {
       body: buildPerCaseSandboxJobManifest({
         jobName,
         namespace,
-        configMapName,
+        configMapNames,
         image: this.config.image,
         cpuRequest: this.config.cpuRequest,
         cpuLimit: this.config.cpuLimit,
@@ -1487,10 +1530,14 @@ export class K8sExecutor implements SandboxExecutor {
     });
   }
 
-  private async cleanup(jobName: string, namespace: string): Promise<void> {
+  private async cleanup(
+    jobName: string,
+    namespace: string,
+    payloadNames: string[],
+  ): Promise<void> {
     await runCleanupOperations("sandbox", [
-      this.cleanupConfigMap(jobName, namespace),
       this.cleanupJob(jobName, namespace),
+      ...payloadNames.map((name) => this.cleanupConfigMap(name, namespace)),
     ]);
   }
 }

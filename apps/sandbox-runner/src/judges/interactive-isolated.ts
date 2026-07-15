@@ -10,7 +10,7 @@ import {
 import * as fs from "node:fs/promises";
 import { writeSync as fsWriteSync } from "node:fs";
 import * as path from "node:path";
-import { createBoundedBuffer, createMemoryPoller, withProcessLimit } from "../utils.js";
+import { createBoundedBuffer, createMemoryPoller, withCpuTimeLimit } from "../utils.js";
 
 const REPORT_STDERR_CAP = 4_096;
 
@@ -34,7 +34,7 @@ export function runInteractiveSolution(
       return;
     }
 
-    const [wrappedCmd, ...wrappedArgs] = withProcessLimit([cmd, ...args]);
+    const [wrappedCmd, ...wrappedArgs] = withCpuTimeLimit([cmd, ...args]);
     const child = spawn(wrappedCmd, wrappedArgs, {
       stdio: ["inherit", "inherit", "pipe"],
       ...(env ? { env: { ...process.env, ...env } } : {}),
@@ -140,7 +140,7 @@ export function runInteractiveValidator(
     }
 
     const fullArgs = [...args, files.inputFile, files.answerFile, files.feedbackDir];
-    const [wrappedCmd, ...wrappedArgs] = withProcessLimit([cmd, ...fullArgs]);
+    const [wrappedCmd, ...wrappedArgs] = withCpuTimeLimit([cmd, ...fullArgs]);
     const child = spawn(wrappedCmd, wrappedArgs, {
       stdio: ["inherit", "inherit", "pipe"],
     });

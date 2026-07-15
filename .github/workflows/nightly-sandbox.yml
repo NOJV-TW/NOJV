@@ -169,6 +169,7 @@ jobs:
             --no-lb \
             --k3s-arg "--flannel-backend=none@server:*" \
             --k3s-arg "--disable-network-policy@server:*" \
+            --k3s-arg "--kubelet-arg=pod-max-pids=256@server:*" \
             --k3s-arg "--disable=traefik@server:*"
           kubectl apply -f infra/k8s/vendor/calico-v3.32.1.yaml
           kubectl -n kube-system rollout status deploy/calico-kube-controllers --timeout=180s

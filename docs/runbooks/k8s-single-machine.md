@@ -73,6 +73,7 @@ curl -sfL https://get.k3s.io | sh -s - server \
   --flannel-backend=none \
   --disable-network-policy \
   --disable=traefik \
+  --kubelet-arg=pod-max-pids=256 \
   --write-kubeconfig-mode=644
 
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
@@ -81,6 +82,9 @@ export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 `--disable=traefik` drops the bundled ingress (NOJV's web app is reached
 directly / behind your own reverse proxy; not needed for judging). Nodes stay
 `NotReady` until a CNI is installed — that is expected at this point.
+`pod-max-pids=256` applies the process limit to each Pod's cgroup. Do not replace
+it with `ulimit -u`: Linux accounts that limit across every container sharing a
+host UID, so unrelated judge Pods can exhaust one another's allowance.
 
 Install **Calico** (the operator + default `Installation`):
 

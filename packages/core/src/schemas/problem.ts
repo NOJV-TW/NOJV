@@ -15,7 +15,16 @@ import { judgeConfigSchema } from "./judge-config";
 import { safeRelativePath } from "./path";
 import { requiredPathsSchema } from "./required-paths";
 
-const BLOB_FIELD_MAX_BYTES = 16 * 1024 * 1024;
+const WORKSPACE_FILE_MAX_CHARS = 16 * 1024 * 1024;
+export const MAX_TESTCASE_FILE_BYTES = 10 * 1024 * 1024;
+
+const utf8Encoder = new TextEncoder();
+const testcaseFileContentSchema = z
+  .string()
+  .refine(
+    (value) => utf8Encoder.encode(value).byteLength <= MAX_TESTCASE_FILE_BYTES,
+    "validation_tooLong",
+  );
 
 export type ProblemImageSource = z.infer<typeof imageSourceSchema>;
 
@@ -37,7 +46,7 @@ export type WorkspaceFileVisibility = z.infer<typeof workspaceFileVisibilitySche
 export const problemWorkspaceFileSchema = z.object({
   language: languageSchema,
   path: safeRelativePath,
-  content: z.string().max(BLOB_FIELD_MAX_BYTES),
+  content: z.string().max(WORKSPACE_FILE_MAX_CHARS),
   visibility: workspaceFileVisibilitySchema,
   description: z.string().max(5_000).default(""),
   orderIndex: z.number().int().nonnegative().default(0),
@@ -163,15 +172,15 @@ export const problemDraftSchema = problemDraftObjectSchema.superRefine((data, ct
 export const problemUpdateSchema = problemCreateObjectSchema.partial();
 
 export const problemTestcaseCaseSchema = z.object({
-  output: z.string().max(BLOB_FIELD_MAX_BYTES),
-  input: z.string().max(BLOB_FIELD_MAX_BYTES),
+  output: testcaseFileContentSchema,
+  input: testcaseFileContentSchema,
 });
 
 export const problemJudgeTestcaseSchema = z.object({
-  output: z.string().max(BLOB_FIELD_MAX_BYTES).optional(),
+  output: testcaseFileContentSchema.optional(),
   id: z.string().trim().min(1),
-  inputFiles: z.record(z.string(), z.string().max(BLOB_FIELD_MAX_BYTES)).optional(),
-  input: z.string().max(BLOB_FIELD_MAX_BYTES),
+  inputFiles: z.record(z.string(), testcaseFileContentSchema).optional(),
+  input: testcaseFileContentSchema,
   weight: z.coerce.number().int().min(1).max(100_000),
 });
 

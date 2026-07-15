@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { sourceFileNames, type JudgeScriptLanguage } from "@nojv/core";
 import type { SandboxInput } from "./types.js";
-import { createBoundedBuffer, pathExists, withProcessLimit } from "./utils.js";
+import { createBoundedBuffer, pathExists, withCpuTimeLimit } from "./utils.js";
 
 const COMPILER_DIR = path.dirname(fileURLToPath(import.meta.url));
 const WRAPPERS_DIR = path.resolve(COMPILER_DIR, "../assets/wrappers");
@@ -149,7 +149,7 @@ function compileWithCommand(
       return;
     }
 
-    const [wrappedCmd, ...wrappedArgs] = withProcessLimit([cmd, ...args]);
+    const [wrappedCmd, ...wrappedArgs] = withCpuTimeLimit([cmd, ...args]);
     const proc = spawn(wrappedCmd, wrappedArgs, {
       cwd: workDir,
       stdio: ["ignore", "ignore", "pipe"],

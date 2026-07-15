@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   contestSessionSchema,
+  MAX_TESTCASE_FILE_BYTES,
   parseIpWhitelistText,
   problemJudgeTestcaseSchema,
   problemTestcaseSetCreateSchema,
@@ -249,6 +250,33 @@ describe("problemTestcaseSetCreateSchema", () => {
     });
 
     expect(parsed.success).toBe(true);
+  });
+
+  it("enforces the 10 MiB testcase file boundary by UTF-8 byte length", () => {
+    const makeSet = (input: string) => ({
+      cases: [{ input, output: "" }],
+      name: "Large input",
+      weight: 1,
+    });
+
+    expect(
+      problemTestcaseSetCreateSchema.safeParse(makeSet("x".repeat(MAX_TESTCASE_FILE_BYTES)))
+        .success,
+    ).toBe(true);
+    expect(
+      problemTestcaseSetCreateSchema.safeParse(makeSet("x".repeat(MAX_TESTCASE_FILE_BYTES + 1)))
+        .success,
+    ).toBe(false);
+    expect(
+      problemTestcaseSetCreateSchema.safeParse(
+        makeSet("界".repeat(Math.floor(MAX_TESTCASE_FILE_BYTES / 3))),
+      ).success,
+    ).toBe(true);
+    expect(
+      problemTestcaseSetCreateSchema.safeParse(
+        makeSet("界".repeat(Math.floor(MAX_TESTCASE_FILE_BYTES / 3) + 1)),
+      ).success,
+    ).toBe(false);
   });
 });
 
