@@ -13,7 +13,7 @@ COPY --from=kubernetes /usr/bin/kubectl /usr/local/bin/kubectl
 
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY patches/ patches/
-COPY tsconfig.base.json ./
+COPY tsconfig.base.json tsdown.base.mjs ./
 COPY tooling/eslint/package.json tooling/eslint/
 COPY tooling/prettier/package.json tooling/prettier/
 COPY tooling/typescript/package.json tooling/typescript/

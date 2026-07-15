@@ -37,6 +37,7 @@ export function createRateLimiterConnection(): Redis {
       host: opts.host,
       port: opts.port,
       password: opts.password,
+      lazyConnect: true,
       enableOfflineQueue: false,
       maxRetriesPerRequest: 1,
     }),
