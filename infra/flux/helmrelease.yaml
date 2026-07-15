@@ -5,6 +5,7 @@ metadata:
   namespace: nojv
 spec:
   interval: 5m
+  timeout: 125m
   releaseName: nojv
   targetNamespace: nojv
   chart:
@@ -18,11 +19,16 @@ spec:
         name: nojv
         namespace: flux-system
       reconcileStrategy: Revision
+  valuesFrom:
+    - kind: Secret
+      name: nojv-production-values
+      valuesKey: values.yaml
+      optional: false
   install:
     createNamespace: true
     remediation:
       retries: 3
   upgrade:
     remediation:
-      retries: 3
-      remediateLastFailure: true
+      retries: 0
+      remediateLastFailure: false

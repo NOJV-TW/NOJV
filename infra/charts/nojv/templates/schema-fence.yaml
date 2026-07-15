@@ -1,0 +1,47 @@
+{{- if .Values.migrator.enabled }}
+{{- $namespace := include "nojv.namespace" . -}}
+{{- $fullname := include "nojv.fullname" . -}}
+{{- $webName := printf "%s-web" $fullname -}}
+{{- $judgeName := printf "%s-worker" $fullname -}}
+{{- $platformName := printf "%s-worker-platform" $fullname -}}
+{{- $identity := printf "%s/%s" $namespace $fullname -}}
+{{- $fenceName := printf "nojv-schema-fence-%s" (trunc 16 (sha256sum $identity)) -}}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ $fenceName }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-40"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: ["apps"]
+        apiVersions: ["v1"]
+        resources: ["deployments"]
+  matchConditions:
+    - name: nojv-schema-bound-workloads
+      expression: >-
+        object.metadata.namespace == {{ $namespace | quote }} &&
+        object.metadata.name in [{{ $webName | quote }}, {{ $judgeName | quote }}, {{ $platformName | quote }}]
+  validations:
+    - expression: >-
+        "nojv.tw/schema-contract" in object.spec.template.metadata.labels &&
+        object.spec.template.metadata.labels["nojv.tw/schema-contract"] == "versioned-storage-v1"
+      message: NOJV workload image is incompatible with the contracted storage schema
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ $fenceName }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-39"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  policyName: {{ $fenceName }}
+  validationActions: [Deny]
+{{- end }}

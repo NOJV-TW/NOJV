@@ -19,7 +19,6 @@
   },
   "dependencies": {
     "@nojv/core": "workspace:*",
-    "@opentelemetry/api": "catalog:",
     "ioredis": "catalog:"
   },
   "devDependencies": {

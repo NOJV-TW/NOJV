@@ -2,6 +2,7 @@
   import { enhance } from "$app/forms";
   import { goto } from "$app/navigation";
   import { authClient } from "$lib/auth.client";
+  import { fetchWithCsrf } from "$lib/services/http";
   import { m } from "$lib/paraglide/messages.js";
   import { Button } from "$lib/components/primitives/ui/button";
   import { Card } from "$lib/components/primitives/ui/card";
@@ -27,7 +28,17 @@
         passkeyError = res.error.message ?? m.account_passkey_verifyFailed();
         return;
       }
-      await goto(data.returnTo ?? "/account/api-tokens");
+      if (data.purpose === "admin-mode") {
+        const elevation = await fetchWithCsrf("/api/admin-mode", {
+          method: "POST",
+          body: JSON.stringify({ active: true }),
+        });
+        if (!elevation.ok) {
+          passkeyError = m.account_passkey_verifyFailed();
+          return;
+        }
+      }
+      await goto(data.destination);
     } catch {
       passkeyError = m.account_passkey_verifyFailed();
     } finally {
@@ -60,7 +71,9 @@
             };
           }}
         >
-          <input type="hidden" name="returnTo" value={data.returnTo} />
+          {#if data.purpose}
+            <input type="hidden" name="purpose" value={data.purpose} />
+          {/if}
           <FormField
             label={m.account_apiToken_stepUp_codeLabel()}
             hint={m.account_apiToken_stepUp_codeHint()}

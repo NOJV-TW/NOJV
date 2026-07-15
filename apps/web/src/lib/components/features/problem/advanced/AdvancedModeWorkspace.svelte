@@ -1,8 +1,7 @@
 <script lang="ts">
   import { onDestroy, untrack } from "svelte";
-  import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
-  import { inferDraftContext } from "$lib/stores/code-draft";
+  import { createDocumentMouseDrag, submissionContextBadge } from "../editors/editor-bindings";
   import {
     apiErrorSchema,
     MAX_SUBMISSION_BODY_BYTES,
@@ -11,6 +10,7 @@
     submissionOperationSchema,
     submissionResultSchema,
     type Language,
+    type SubmissionContext,
     type SubmissionResult,
   } from "@nojv/core";
   import type {
@@ -24,19 +24,11 @@
   import { buildSubmissionBody } from "$lib/services/submission-service";
 
   interface Props {
-    allowedLanguages?: Language[] | undefined;
-    assessment?:
-      | {
-          assessmentId: string;
-          courseId: string;
-        }
-      | undefined;
+    context: SubmissionContext;
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
     canRejudge?: boolean;
     canViewEditorials?: boolean;
     postsEnabled?: boolean;
-    contestId?: string | undefined;
-    virtualContestId?: string | undefined;
     dailyAttempts?: { used: number; max: number | null; resetMinuteOfDay: number } | undefined;
     initialSubmissions?: ProblemSubmissionEntry[];
     problem: ProblemDetail;
@@ -45,13 +37,11 @@
   }
 
   let {
-    assessment,
+    context,
     backLink,
     canRejudge = false,
     canViewEditorials = false,
     postsEnabled = false,
-    contestId,
-    virtualContestId,
     dailyAttempts,
     initialSubmissions,
     problem,
@@ -60,8 +50,7 @@
   }: Props = $props();
 
   let submissions = $state<ProblemSubmissionEntry[]>(untrack(() => initialSubmissions) ?? []);
-
-  let draftContext = $derived(inferDraftContext(page.route.id, page.params));
+  let contextBadge = $derived(submissionContextBadge(context));
 
   function handleSubmissionComplete(
     result: SubmissionResult,
@@ -74,7 +63,7 @@
         result,
         sourceCode,
         submittedAt: new Date().toISOString(),
-        context: draftContext.kind,
+        context: context.type,
       },
       ...submissions,
     ].slice(0, 50);
@@ -83,30 +72,25 @@
   let leftPanelWidth = $state(42);
   let isResizing = $state(false);
 
-  function startResize(e: MouseEvent) {
-    e.preventDefault();
-    const container = (e.target as HTMLElement).parentElement;
-    if (!container) return;
-
-    const onMove = (ev: MouseEvent) => {
-      const rect = container.getBoundingClientRect();
-      const pct = ((ev.clientX - rect.left) / rect.width) * 100;
+  let resizeContainer: HTMLElement | null = null;
+  const resizeDrag = createDocumentMouseDrag({
+    cursor: "col-resize",
+    onStart: () => (isResizing = true),
+    onMove: (event) => {
+      if (!resizeContainer) return;
+      const rect = resizeContainer.getBoundingClientRect();
+      const pct = ((event.clientX - rect.left) / rect.width) * 100;
       leftPanelWidth = Math.max(20, Math.min(80, pct));
-    };
-
-    const onUp = () => {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
+    },
+    onEnd: () => {
       isResizing = false;
-    };
+      resizeContainer = null;
+    },
+  });
 
-    isResizing = true;
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
+  function startResize(event: MouseEvent) {
+    resizeContainer = (event.currentTarget as HTMLElement).parentElement;
+    if (resizeContainer) resizeDrag.start(event);
   }
 
   let staged = $state<StagedFile | null>(null);
@@ -119,6 +103,7 @@
   onDestroy(() => {
     destroyed = true;
     pollAbortController?.abort();
+    resizeDrag.dispose();
   });
 
   function clearStaged() {
@@ -148,9 +133,7 @@
     const placeholderSource = "// advanced-mode upload";
 
     const body = buildSubmissionBody({
-      assessment,
-      contestId,
-      ...(virtualContestId ? { participationId: virtualContestId } : {}),
+      context,
       language: uploadLanguage,
       problemId: problem.id,
       sampleOnly: false,
@@ -276,13 +259,13 @@
           {m.advancedMode_badge()}
         </span>
       </div>
-      {#if contestId}
+      {#if contextBadge === "contest"}
         <span
           class="rounded-full bg-warning/15 px-2.5 py-0.5 text-caption font-medium text-warning"
         >
           {m.editor_contestMode()}
         </span>
-      {:else if assessment}
+      {:else if contextBadge === "assignment"}
         <span class="rounded-full bg-info/15 px-2.5 py-0.5 text-caption font-medium text-info">
           {m.editor_assignmentMode()}
         </span>
@@ -305,6 +288,7 @@
 
       {#if stagingError}
         <div
+          role="alert"
           class="mt-3 rounded-md bg-destructive/10 px-3 py-2 text-body-sm text-destructive"
           data-testid="advanced-staging-error"
         >
@@ -313,7 +297,10 @@
       {/if}
 
       {#if submitError}
-        <div class="mt-3 rounded-md bg-destructive/10 px-3 py-2 text-body-sm text-destructive">
+        <div
+          role="alert"
+          class="mt-3 rounded-md bg-destructive/10 px-3 py-2 text-body-sm text-destructive"
+        >
           {submitError}
         </div>
       {/if}

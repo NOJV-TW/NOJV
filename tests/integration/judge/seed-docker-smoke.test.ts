@@ -19,8 +19,8 @@ import { DockerExecutor } from "../../../apps/worker/src/services/docker-executo
 import { SEED_SOLUTIONS } from "./seed-solutions.js";
 
 const SANDBOX_IMAGE = "nojv-sandbox:local";
-const DEMO_RUN_IMAGE = "registry.nojv.tw/demo/nojv-demo-advanced-run:main";
-const DEMO_GRADE_IMAGE = "registry.nojv.tw/demo/nojv-demo-advanced-grade:main";
+const DEMO_RUN_IMAGE = "nojv-demo-advanced-run:local";
+const DEMO_GRADE_IMAGE = "nojv-demo-advanced-grade:local";
 
 const EXECUTOR = new DockerExecutor({
   cpuLimit: "2.0",
@@ -29,7 +29,17 @@ const EXECUTOR = new DockerExecutor({
   pidsLimit: 128,
 });
 
-const SEED_DEFS = buildSeedProblemDefs("seed_smoke_teacher");
+function execute(request: SandboxRequest) {
+  return EXECUTOR.execute(request, {
+    runId: request.submissionId,
+    signal: new AbortController().signal,
+  });
+}
+
+const SEED_DEFS = buildSeedProblemDefs("seed_smoke_teacher", {
+  run: DEMO_RUN_IMAGE,
+  grade: DEMO_GRADE_IMAGE,
+});
 
 const PER_PROBLEM_TIMEOUT_MS = 300_000;
 
@@ -216,7 +226,7 @@ function applyMemoryEnforcement(def: SeedProblemDef, result: SandboxResult): San
 }
 
 async function judge(def: SeedProblemDef, variant: Variant): Promise<SandboxResult> {
-  const raw = await EXECUTOR.execute(buildRequest(def, variant));
+  const raw = await execute(buildRequest(def, variant));
   return applyMemoryEnforcement(def, raw);
 }
 
@@ -292,7 +302,7 @@ async function probe(
   source: { language: Language; sourceCode: string },
   memoryMb?: number,
 ): Promise<SandboxResult> {
-  const raw = await EXECUTOR.execute(probeRequest(id, source, memoryMb));
+  const raw = await execute(probeRequest(id, source, memoryMb));
   const def = defFor(PROBE_PROBLEM_ID);
   return {
     ...raw,

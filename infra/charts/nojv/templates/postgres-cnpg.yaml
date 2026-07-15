@@ -28,22 +28,34 @@ spec:
     storageClass: {{ . }}
     {{- end }}
   {{- if .Values.postgres.cnpg.backup.enabled }}
+  {{- $destinationPath := required "postgres.cnpg.backup.destinationPath is required when backup is enabled" .Values.postgres.cnpg.backup.destinationPath }}
+  {{- $endpointURL := required "postgres.cnpg.backup.endpointURL is required when backup is enabled" .Values.postgres.cnpg.backup.endpointURL }}
+  {{- $credentialsSecret := required "postgres.cnpg.backup.s3CredentialsSecret is required when backup is enabled" .Values.postgres.cnpg.backup.s3CredentialsSecret }}
+  {{- $retentionPolicy := required "postgres.cnpg.backup.retentionPolicy is required when backup is enabled" .Values.postgres.cnpg.backup.retentionPolicy }}
+  {{- if not (regexMatch "^s3://[^[:space:]]+$" $destinationPath) }}
+  {{- fail "postgres.cnpg.backup.destinationPath must be an s3:// off-host path because this chart configures S3 credentials" }}
+  {{- end }}
+  {{- if not (regexMatch "^https://[^[:space:]]+$" $endpointURL) }}
+  {{- fail "postgres.cnpg.backup.endpointURL must use HTTPS" }}
+  {{- end }}
+  {{- if not (regexMatch "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$" $credentialsSecret) }}
+  {{- fail "postgres.cnpg.backup.s3CredentialsSecret must be a valid Kubernetes Secret name" }}
+  {{- end }}
   backup:
-    retentionPolicy: {{ .Values.postgres.cnpg.backup.retentionPolicy | quote }}
+    retentionPolicy: {{ $retentionPolicy | quote }}
     barmanObjectStore:
-      destinationPath: {{ .Values.postgres.cnpg.backup.destinationPath | quote }}
-      {{- with .Values.postgres.cnpg.backup.endpointURL }}
-      endpointURL: {{ . | quote }}
-      {{- end }}
+      destinationPath: {{ $destinationPath | quote }}
+      endpointURL: {{ $endpointURL | quote }}
       s3Credentials:
         accessKeyId:
-          name: {{ .Values.postgres.cnpg.backup.s3CredentialsSecret }}
+          name: {{ $credentialsSecret }}
           key: ACCESS_KEY_ID
         secretAccessKey:
-          name: {{ .Values.postgres.cnpg.backup.s3CredentialsSecret }}
+          name: {{ $credentialsSecret }}
           key: ACCESS_SECRET_KEY
   {{- end }}
-{{- if and .Values.postgres.cnpg.backup.enabled .Values.postgres.cnpg.backup.schedule }}
+{{- if .Values.postgres.cnpg.backup.enabled }}
+{{- $schedule := required "postgres.cnpg.backup.schedule is required when backup is enabled" .Values.postgres.cnpg.backup.schedule }}
 ---
 apiVersion: postgresql.cnpg.io/v1
 kind: ScheduledBackup
@@ -54,7 +66,7 @@ metadata:
     {{- include "nojv.labels" . | nindent 4 }}
     app.kubernetes.io/component: postgres
 spec:
-  schedule: {{ .Values.postgres.cnpg.backup.schedule | quote }}
+  schedule: {{ $schedule | quote }}
   backupOwnerReference: self
   cluster:
     name: {{ include "nojv.cnpgClusterName" . }}

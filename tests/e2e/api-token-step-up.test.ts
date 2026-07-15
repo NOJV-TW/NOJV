@@ -1,10 +1,10 @@
 import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
-import { createHmac } from "node:crypto";
 import path from "node:path";
 
-import { signInWithPassword } from "./_disposable-user";
-import { activateTwoFactor, settingsMethodRow } from "./_two-factor";
+import { psql, signInWithPassword } from "./_disposable-user";
+import { readLiveSession } from "./_shared";
+import { activateTwoFactor, enrollTotp, nextTotp } from "./_two-factor";
 
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
 
@@ -16,63 +16,14 @@ const TEMP_EMAIL = `${TEMP_USER_ID}@nojv.local`;
 const TEMP_USERNAME = `api-token-${Date.now()}`;
 const steppedUpSessionIds = new Set<string>();
 
-function pg(sql: string): string {
-  return execFileSync(
-    "docker",
-    [
-      "exec",
-      "-i",
-      "nojv-postgres-1",
-      "psql",
-      "-v",
-      "ON_ERROR_STOP=1",
-      "-U",
-      "postgres",
-      "-d",
-      "nojv",
-      "-tA",
-    ],
-    { input: sql, encoding: "utf8" },
-  ).trim();
-}
-
-function base32Decode(input: string): Buffer {
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-  let bits = "";
-  for (const ch of input.replace(/=+$/, "").toUpperCase()) {
-    const idx = alphabet.indexOf(ch);
-    if (idx === -1) continue;
-    bits += idx.toString(2).padStart(5, "0");
-  }
-  const bytes: number[] = [];
-  for (let i = 0; i + 8 <= bits.length; i += 8) {
-    bytes.push(Number.parseInt(bits.slice(i, i + 8), 2));
-  }
-  return Buffer.from(bytes);
-}
-
-function totp(secretBase32: string): string {
-  const key = base32Decode(secretBase32);
-  const counter = Math.floor(Date.now() / 1000 / 30);
-  const buf = Buffer.alloc(8);
-  buf.writeBigUInt64BE(BigInt(counter));
-  const hmac = createHmac("sha1", key).update(buf).digest();
-  const offset = hmac[hmac.length - 1] & 0x0f;
-  const code =
-    ((hmac[offset] & 0x7f) << 24) |
-    ((hmac[offset + 1] & 0xff) << 16) |
-    ((hmac[offset + 2] & 0xff) << 8) |
-    (hmac[offset + 3] & 0xff);
-  return (code % 1_000_000).toString().padStart(6, "0");
-}
-
 test.describe("API token step-up", () => {
   test.describe.configure({ retries: 0 });
+  test.setTimeout(150_000);
 
   test.beforeAll(() => {
     // Use a disposable credential account. Enabling TOTP correctly rotates the
     // account's sessions, so a shared fixture would invalidate later tests.
-    pg(`
+    psql(`
       INSERT INTO "User" (id, email, username, name, "emailVerified", "createdAt", "updatedAt")
       VALUES ('${TEMP_USER_ID}', '${TEMP_EMAIL}', '${TEMP_USERNAME}', 'API token E2E', true, NOW(), NOW());
       INSERT INTO "Account" (id, "accountId", "providerId", "userId", password, "createdAt", "updatedAt")
@@ -84,7 +35,7 @@ test.describe("API token step-up", () => {
   });
 
   test.afterAll(() => {
-    pg(`DELETE FROM "User" WHERE id = '${TEMP_USER_ID}';`);
+    psql(`DELETE FROM "User" WHERE id = '${TEMP_USER_ID}';`);
     if (steppedUpSessionIds.size > 0) {
       execFileSync("docker", [
         "exec",
@@ -121,57 +72,44 @@ test.describe("API token step-up", () => {
 
     await activateTwoFactor(page);
 
-    await settingsMethodRow(page, "Authenticator app (TOTP)")
-      .getByRole("button", { name: "Set up", exact: true })
-      .click();
-    const dialog = page.getByRole("dialog", { name: "Authenticator app (TOTP)" });
-    const passwordInput = dialog.locator('input[name="password"]');
-    await passwordInput.fill(SEED_PASSWORD);
-    const enableButton = dialog.getByRole("button", { name: "Enable 2FA" });
-    await expect(enableButton).toBeEnabled();
-    await enableButton.click();
+    const { secret, verificationCode } = await enrollTotp(page, SEED_PASSWORD);
 
-    const manualKey = dialog.locator("code").first();
-    await expect(manualKey).toBeVisible({ timeout: 10000 });
-    const secret = ((await manualKey.textContent()) ?? "").trim();
-    expect(secret.length).toBeGreaterThan(0);
-
-    await dialog.locator('input[type="checkbox"]').check();
-
-    const enrollCode = dialog.locator('form[action="?/verify"] input[name="code"]');
-    await enrollCode.fill(totp(secret));
-    await dialog.getByRole("button", { name: "Verify & activate" }).click();
-
-    await expect(dialog).toBeHidden({ timeout: 10_000 });
-
-    // The TOTP assertion that finalized enrollment is handed to this rotated session.
+    // Enrollment changes the factor set, so its assertion cannot authorize the
+    // post-enrollment security generation. The same TOTP is explicitly replay-blocked.
     await page.goto("/account/api-tokens");
+    await expect(page).toHaveURL(/\/account\/api-tokens\/verify$/);
+    const enrollingStepUpCode = page.locator('input[name="code"]');
+    await enrollingStepUpCode.fill(verificationCode);
+    await page.locator('button[type="submit"]').click();
+    await expect(page.getByRole("alert")).toContainText("already used");
+
+    const firstFreshCode = await nextTotp(secret, verificationCode);
+    await enrollingStepUpCode.fill(firstFreshCode);
+    await page.locator('button[type="submit"]').click();
     await expect(page).toHaveURL(/\/account\/api-tokens$/);
     await expect(page.getByRole("button", { name: /Create token/i })).toBeVisible();
-    const enrolledSession = (await (
-      await page.request.get("/api/auth/get-session")
-    ).json()) as {
-      session?: { id?: string };
-    };
-    if (enrolledSession.session?.id) steppedUpSessionIds.add(enrolledSession.session.id);
+    const enrolledSession = await readLiveSession(page);
+    steppedUpSessionIds.add(enrolledSession.session.id);
 
-    // A different session for the same account receives no grant and must verify itself.
-    await otherContext.clearCookies({ name: "better-auth.session_data" });
+    // A different session receives no grant. TOTP replay prevention is
+    // account-wide, so it must wait for one more authenticator window.
     await otherPage.goto("/account/api-tokens");
     await expect(otherPage).toHaveURL(/\/account\/api-tokens\/verify/);
 
     const stepUpCode = otherPage.locator('input[name="code"]');
     await stepUpCode.waitFor({ state: "visible" });
-    await stepUpCode.click();
-    await stepUpCode.pressSequentially(totp(secret));
+    await stepUpCode.fill(firstFreshCode);
+    await otherPage.locator('button[type="submit"]').click();
+    await expect(otherPage.getByRole("alert")).toContainText("already used");
+
+    const secondFreshCode = await nextTotp(secret, firstFreshCode);
+    await stepUpCode.fill(secondFreshCode);
     await otherPage.locator('button[type="submit"]').click();
 
     await expect(otherPage).toHaveURL(/\/account\/api-tokens$/, { timeout: 10000 });
     await expect(otherPage.getByRole("button", { name: /Create token/i })).toBeVisible();
-    const session = (await (await otherPage.request.get("/api/auth/get-session")).json()) as {
-      session?: { id?: string };
-    };
-    if (session.session?.id) steppedUpSessionIds.add(session.session.id);
+    const session = await readLiveSession(otherPage);
+    steppedUpSessionIds.add(session.session.id);
 
     await context.close();
     await otherContext.close();

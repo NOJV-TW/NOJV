@@ -5,26 +5,29 @@ import type { RequestHandler } from "./$types";
 
 import { HttpError, requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler, readJsonBody } from "$lib/server/shared/api-handler";
-import { clearAdminMode, markAdminMode } from "$lib/server/step-up";
+import {
+  adminElevationPrincipal,
+  grantAdminElevation,
+  revokeAdminElevation,
+} from "$lib/server/step-up";
 
 const bodySchema = z.object({ active: z.boolean() });
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   requireApiAuth(event);
-
-  if (event.locals.sessionUser?.platformRole !== "admin") {
-    throw new HttpError("Only admin accounts can switch into admin mode.", 403);
-  }
   const sessionId = event.locals.session?.id;
-  if (!sessionId) {
+  const sessionUser = event.locals.sessionUser;
+  if (!sessionId || !sessionUser) {
     throw new HttpError("No active session.", 401);
   }
 
   const { active } = bodySchema.parse(await readJsonBody(event));
-  if (active) {
-    await markAdminMode(sessionId);
-  } else {
-    await clearAdminMode(sessionId);
+  if (!active) {
+    await revokeAdminElevation(sessionId);
+    return json({ active: false });
   }
-  return json({ active });
+  if (!(await grantAdminElevation(sessionId, adminElevationPrincipal(sessionUser)))) {
+    throw new HttpError("Fresh two-factor verification is required.", 403);
+  }
+  return json({ active: true });
 });

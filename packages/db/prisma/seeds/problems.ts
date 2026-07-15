@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 import type { AdvancedConfig } from "@nojv/core";
 import { problemTags } from "@nojv/core";
@@ -6,13 +6,14 @@ import {
   checkerKey,
   createStorageClient,
   interactorKey,
-  putText,
+  putImmutableText,
   testcaseInputKey,
   testcaseOutputKey,
   workspaceFileKey,
 } from "@nojv/storage";
 
-import type { Prisma, PrismaClient } from "../../generated/prisma/client";
+import { Prisma, type PrismaClient } from "../../generated/prisma/client";
+import type { StorageObjectPointer } from "@nojv/storage";
 
 const SEED_DIFFICULTIES = ["easy", "medium", "hard"] as const;
 type SeedDifficulty = (typeof SEED_DIFFICULTIES)[number];
@@ -100,6 +101,29 @@ export type SeedProblemDef = {
   advancedRequiredPaths?: string[];
 };
 
+export type SeedAdvancedDemoImages = {
+  run: string;
+  grade: string;
+};
+
+const PINNED_IMAGE =
+  /^(?:[a-z0-9.-]+(?::[0-9]+)?\/)(?:[a-z0-9._-]+\/)*[a-z0-9._-]+:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}@sha256:[a-f0-9]{64}$/u;
+const LOCAL_DEMO_IMAGES = {
+  run: "nojv-demo-advanced-run:local",
+  grade: "nojv-demo-advanced-grade:local",
+} as const;
+
+function validateSeedAdvancedDemoImages(images: SeedAdvancedDemoImages): void {
+  for (const phase of ["run", "grade"] as const) {
+    const image = images[phase];
+    if (image !== LOCAL_DEMO_IMAGES[phase] && !PINNED_IMAGE.test(image)) {
+      throw new Error(
+        `Advanced demo ${phase} image must be ${LOCAL_DEMO_IMAGES[phase]} for an explicit local build or a readable tag pinned by sha256 digest`,
+      );
+    }
+  }
+}
+
 const hardenedIds = [
   "problem_stateful-dhcp-parser",
   "problem_memory-leak-forensics",
@@ -174,31 +198,41 @@ async function persistJudgeConfig(
   storage: SeedStorageClient,
   problemId: string,
   judgeConfig: Record<string, unknown> | undefined,
-): Promise<Record<string, unknown> | undefined> {
-  if (!judgeConfig) return undefined;
+): Promise<{
+  judgeConfig: Record<string, unknown> | undefined;
+  checkerStorage: StorageObjectPointer | null;
+  interactorStorage: StorageObjectPointer | null;
+}> {
+  if (!judgeConfig) {
+    return { judgeConfig: undefined, checkerStorage: null, interactorStorage: null };
+  }
   const client = storage as ReturnType<typeof createStorageClient>;
   const { checkerScript, interactorScript, ...rest } = judgeConfig;
 
-  const versionedKey = (base: string, content: string): string =>
-    `${base}/${createHash("sha256").update(content).digest("hex")}`;
-
   if (rest.type === "checker" && typeof checkerScript === "string") {
-    // Content-addressed keys make storage writes safe before the database
-    // transaction commits: a failed seed can leave an orphan, but can never
-    // overwrite the validator referenced by the live row.
-    const key = versionedKey(checkerKey(problemId), checkerScript);
-    await putText(client, key, checkerScript);
-    return { ...rest, checkerKey: key };
+    const checkerStorage = await putImmutableText(
+      client,
+      checkerKey(problemId, randomUUID()),
+      checkerScript,
+    );
+    return { judgeConfig: rest, checkerStorage, interactorStorage: null };
   }
   if (rest.type === "interactive" && typeof interactorScript === "string") {
-    const key = versionedKey(interactorKey(problemId), interactorScript);
-    await putText(client, key, interactorScript);
-    return { ...rest, interactorKey: key };
+    const interactorStorage = await putImmutableText(
+      client,
+      interactorKey(problemId, randomUUID()),
+      interactorScript,
+    );
+    return { judgeConfig: rest, checkerStorage: null, interactorStorage };
   }
-  return rest;
+  return { judgeConfig: rest, checkerStorage: null, interactorStorage: null };
 }
 
-export function buildSeedProblemDefs(teacherId: string): SeedProblemDef[] {
+export function buildSeedProblemDefs(
+  teacherId: string,
+  advancedDemoImages: SeedAdvancedDemoImages,
+): SeedProblemDef[] {
+  validateSeedAdvancedDemoImages(advancedDemoImages);
   return [
     {
       authorId: teacherId,
@@ -1102,11 +1136,11 @@ wrong(f"failed to find {secret} in {max_turns} turns")
       visibility: "public" as const,
       advancedConfig: {
         run: {
-          imageRef: "registry.nojv.tw/demo/nojv-demo-advanced-run:main",
+          imageRef: advancedDemoImages.run,
           imageSource: "registry",
         },
         grade: {
-          imageRef: "registry.nojv.tw/demo/nojv-demo-advanced-grade:main",
+          imageRef: advancedDemoImages.grade,
           imageSource: "registry",
         },
         network: { mode: "none" },
@@ -4691,13 +4725,16 @@ wrong(f"failed to find {secret} in {max_turns} turns")
 export async function seedProblems(
   prisma: PrismaClient,
   teacherId: string,
-  storageOverride?: SeedStorageClient,
+  options: {
+    advancedDemoImages: SeedAdvancedDemoImages;
+    storage?: SeedStorageClient;
+  },
 ) {
-  const storage = (storageOverride ?? createStorageClient()) as ReturnType<
+  const storage = (options.storage ?? createStorageClient()) as ReturnType<
     typeof createStorageClient
   >;
 
-  const problemDefs = buildSeedProblemDefs(teacherId);
+  const problemDefs = buildSeedProblemDefs(teacherId, options.advancedDemoImages);
 
   validateProblemDefinitions(problemDefs);
 
@@ -4710,7 +4747,7 @@ export async function seedProblems(
         ((await tx.problem.aggregate({ _max: { displayId: true } }))._max.displayId ?? 0) + 1;
 
       for (const def of problemDefs) {
-        const judgeConfig = await persistJudgeConfig(
+        const validator = await persistJudgeConfig(
           storage as unknown as SeedStorageClient,
           def.id,
           def.judgeConfig,
@@ -4723,9 +4760,11 @@ export async function seedProblems(
           tags: stripDifficultyTags(def.tags),
           type: def.type,
           status: def.status ?? "published",
-          ...(judgeConfig !== undefined
-            ? { judgeConfig: judgeConfig as unknown as Prisma.InputJsonValue }
+          ...(validator.judgeConfig !== undefined
+            ? { judgeConfig: validator.judgeConfig as unknown as Prisma.InputJsonValue }
             : {}),
+          checkerStorage: validator.checkerStorage ?? Prisma.DbNull,
+          interactorStorage: validator.interactorStorage ?? Prisma.DbNull,
           ...(samples !== undefined ? { samples } : {}),
           ...(def.advancedConfig
             ? { advancedConfig: def.advancedConfig as unknown as Prisma.InputJsonValue }
@@ -4758,6 +4797,8 @@ export async function seedProblems(
           },
           where: { id: def.id },
         });
+        let activeStorageBytes =
+          (validator.checkerStorage?.size ?? 0) + (validator.interactorStorage?.size ?? 0);
 
         const stmt = def.statement;
         await tx.problemStatement.upsert({
@@ -4808,28 +4849,39 @@ export async function seedProblems(
               where: { testcaseSetId: testcaseSet.id },
             });
 
-            const testcaseIds = setDef.cases.map(() => randomUUID());
-            await Promise.all(
-              setDef.cases.flatMap((tc, caseIndex) => {
-                const id = testcaseIds[caseIndex]!;
-                return [
-                  putText(storage, testcaseInputKey(problem.id, id), tc.input),
-                  putText(storage, testcaseOutputKey(problem.id, id), tc.output),
-                ];
+            const preparedCases = await Promise.all(
+              setDef.cases.map(async (testcase) => {
+                const id = randomUUID();
+                const version = randomUUID();
+                const [inputStorage, outputStorage] = await Promise.all([
+                  putImmutableText(
+                    storage,
+                    testcaseInputKey(problem.id, id, version),
+                    testcase.input,
+                  ),
+                  putImmutableText(
+                    storage,
+                    testcaseOutputKey(problem.id, id, version),
+                    testcase.output,
+                  ),
+                ]);
+                return { id, inputStorage, outputStorage };
               }),
             );
             await tx.testcase.createMany({
-              data: setDef.cases.map((_tc, caseIndex) => {
-                const id = testcaseIds[caseIndex]!;
-                return {
-                  id,
-                  ordinal: caseIndex + 1,
-                  testcaseSetId: testcaseSet.id,
-                  inputKey: testcaseInputKey(problem.id, id),
-                  outputKey: testcaseOutputKey(problem.id, id),
-                };
-              }),
+              data: preparedCases.map((testcase, caseIndex) => ({
+                id: testcase.id,
+                ordinal: caseIndex + 1,
+                testcaseSetId: testcaseSet.id,
+                inputStorage: testcase.inputStorage,
+                outputStorage: testcase.outputStorage,
+              })),
             });
+            activeStorageBytes += preparedCases.reduce(
+              (total, testcase) =>
+                total + testcase.inputStorage.size + testcase.outputStorage.size,
+              0,
+            );
           }
         }
 
@@ -4837,25 +4889,42 @@ export async function seedProblems(
           await tx.problemWorkspaceFile.deleteMany({
             where: { problemId: problem.id },
           });
-          const fileIds = def.workspaceFiles.map(() => randomUUID());
-          await Promise.all(
-            def.workspaceFiles.map((wf, i) =>
-              putText(storage, workspaceFileKey(problem.id, fileIds[i]!), wf.content),
-            ),
+          const preparedFiles = await Promise.all(
+            def.workspaceFiles.map(async (file) => {
+              const id = randomUUID();
+              return {
+                id,
+                file,
+                contentStorage: await putImmutableText(
+                  storage,
+                  workspaceFileKey(problem.id, id, randomUUID()),
+                  file.content,
+                ),
+              };
+            }),
           );
           await tx.problemWorkspaceFile.createMany({
-            data: def.workspaceFiles.map((wf, i) => ({
-              id: fileIds[i]!,
+            data: preparedFiles.map(({ id, file, contentStorage }) => ({
+              id,
               problemId: problem.id,
-              language: wf.language,
-              path: wf.path,
-              contentKey: workspaceFileKey(problem.id, fileIds[i]!),
-              visibility: wf.visibility,
-              description: wf.description ?? "",
-              orderIndex: wf.orderIndex ?? 0,
+              language: file.language,
+              path: file.path,
+              contentStorage,
+              visibility: file.visibility,
+              description: file.description ?? "",
+              orderIndex: file.orderIndex ?? 0,
             })),
           });
+          activeStorageBytes += preparedFiles.reduce(
+            (total, file) => total + file.contentStorage.size,
+            0,
+          );
         }
+
+        await tx.problem.update({
+          where: { id: problem.id },
+          data: { activeStorageBytes, storageGeneration: { increment: 1 } },
+        });
 
         const testcaseSetCount = def.testcases ? Object.keys(def.testcases).length : 0;
         const extras: string[] = [];

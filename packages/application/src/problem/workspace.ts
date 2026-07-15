@@ -4,11 +4,13 @@ import type { Prisma } from "@nojv/db";
 import { problemRepo, problemWorkspaceFileRepo, runTransaction } from "@nojv/db";
 import type { Language, ProblemType } from "@nojv/core";
 import { entryFileNameFor, judgeConfigSchema, problemWorkspaceFileSchema } from "@nojv/core";
+import { assertStorageObjectPointer, type StorageObjectPointer } from "@nojv/storage";
 
 import { ConflictError, ValidationError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
+import { commitStoragePointerSwap } from "../shared/storage-object-lifecycle";
 
-import { bestEffortDeleteWorkspaceBlob, writeWorkspaceFileBlob } from "./blobs";
+import { writeWorkspaceFileBlob } from "./blobs";
 import { assertProblemOwnership, type ProblemActorContext } from "./permissions";
 
 export interface UpdateWorkspaceInput {
@@ -109,29 +111,29 @@ export async function updateProblemWorkspace(
 
   interface PreparedWorkspaceFile {
     id: string;
-    contentKey: string;
+    contentStorage: StorageObjectPointer;
     file: UpdateWorkspaceInput["files"][number];
   }
   const prepared: PreparedWorkspaceFile[] = await Promise.all(
     payload.files.map(async (file) => {
       const id = randomUUID();
-      const contentKey = await writeWorkspaceFileBlob(problemId, id, file.content);
-      return { id, contentKey, file };
+      const contentStorage = await writeWorkspaceFileBlob(problemId, id, file.content);
+      return { id, contentStorage, file };
     }),
   );
 
-  const existingFiles = await problemWorkspaceFileRepo.findByProblemId(problemId);
-
   const result = await runTransaction(async (tx) => {
+    await problemRepo.withTx(tx).lockForUpdate(problemId);
     const problem = await requireProblem(tx, problemId);
     assertProblemOwnership(problem, actor);
+    const existingFiles = await problemWorkspaceFileRepo.withTx(tx).findByProblemId(problem.id);
 
     await problemWorkspaceFileRepo.withTx(tx).deleteByProblemId(problem.id);
     if (prepared.length > 0) {
       const rows: Prisma.ProblemWorkspaceFileCreateManyInput[] = prepared.map(
         (entry, index) => ({
           id: entry.id,
-          contentKey: entry.contentKey,
+          contentStorage: entry.contentStorage,
           language: entry.file.language,
           orderIndex: entry.file.orderIndex ?? index,
           path: entry.file.path,
@@ -164,11 +166,24 @@ export async function updateProblemWorkspace(
     if (Object.keys(updateData).length > 0) {
       await problemRepo.withTx(tx).update(problem.id, updateData);
     }
+    const previousBytes = existingFiles.reduce(
+      (total, file) => total + assertStorageObjectPointer(file.contentStorage).size,
+      0,
+    );
+    const nextBytes = prepared.reduce((total, file) => total + file.contentStorage.size, 0);
+    await problemRepo.withTx(tx).update(problem.id, {
+      activeStorageBytes: { increment: nextBytes - previousBytes },
+      storageGeneration: { increment: 1 },
+    });
+    await commitStoragePointerSwap(tx, {
+      added: prepared.map(({ contentStorage }) => contentStorage),
+      removed: existingFiles.map(({ contentStorage }) =>
+        assertStorageObjectPointer(contentStorage),
+      ),
+    });
 
     return { id: problem.id, fileCount: payload.files.length };
   });
-
-  await Promise.all(existingFiles.map((f) => bestEffortDeleteWorkspaceBlob(problemId, f.id)));
 
   return result;
 }
@@ -194,29 +209,37 @@ export async function setWorkspaceFile(
   });
 
   const id = randomUUID();
-  const contentKey = await writeWorkspaceFileBlob(problemId, id, parsed.content);
-
-  const existing = await problemWorkspaceFileRepo.findOne(
-    problemId,
-    parsed.language,
-    parsed.path,
-  );
+  const contentStorage = await writeWorkspaceFileBlob(problemId, id, parsed.content);
 
   const row = await runTransaction(async (tx) => {
-    return problemWorkspaceFileRepo.withTx(tx).upsertOne({
+    await problemRepo.withTx(tx).lockForUpdate(problemId);
+    const problem = await requireProblem(tx, problemId);
+    const existing = await problemWorkspaceFileRepo
+      .withTx(tx)
+      .findOne(problemId, parsed.language, parsed.path);
+    const row = await problemWorkspaceFileRepo.withTx(tx).upsertOne({
       id,
       problemId,
       language: parsed.language,
       path: parsed.path,
-      contentKey,
+      contentStorage,
       visibility: parsed.visibility,
       orderIndex: parsed.orderIndex,
     });
+    await problemRepo.withTx(tx).update(problem.id, {
+      activeStorageBytes: {
+        increment:
+          contentStorage.size -
+          (existing === null ? 0 : assertStorageObjectPointer(existing.contentStorage).size),
+      },
+      storageGeneration: { increment: 1 },
+    });
+    await commitStoragePointerSwap(tx, {
+      added: [contentStorage],
+      removed: existing === null ? [] : [assertStorageObjectPointer(existing.contentStorage)],
+    });
+    return row;
   });
-
-  if (existing && existing.id !== row.id) {
-    await bestEffortDeleteWorkspaceBlob(problemId, existing.id);
-  }
 
   return {
     id: row.id,

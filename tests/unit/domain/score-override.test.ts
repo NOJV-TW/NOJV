@@ -17,6 +17,7 @@ const {
   overrideDelete,
   overrideFindById,
   auditCreate,
+  durableWorkEnqueue,
   UnifiedParticipationVersionConflict,
 } = vi.hoisted(() => ({
   contestFindById: vi.fn(),
@@ -39,6 +40,7 @@ const {
   overrideDelete: vi.fn(),
   overrideFindById: vi.fn(),
   auditCreate: vi.fn(),
+  durableWorkEnqueue: vi.fn(),
   UnifiedParticipationVersionConflict: class extends Error {},
 }));
 
@@ -72,6 +74,7 @@ vi.mock("@nojv/db", () => ({
   scoreOverrideAuditLogRepo: {
     create: auditCreate,
   },
+  durableWorkRepo: { withTx: () => ({ enqueue: durableWorkEnqueue }) },
   runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
 }));
 
@@ -251,7 +254,7 @@ describe("createOverride", () => {
     });
     courseMembershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
     overrideCreate.mockResolvedValue({ id: "ov_1" });
-    auditCreate.mockResolvedValue({});
+    auditCreate.mockResolvedValue({ id: "audit-1" });
   });
 
   it("writes both the override and the audit row", async () => {
@@ -330,6 +333,14 @@ describe("createOverride", () => {
       context: { type: "contest", contestId: "c_1" },
     });
     expect(overrideCreate).toHaveBeenCalledTimes(1);
+    expect(durableWorkEnqueue).toHaveBeenCalledWith({
+      kind: "score.converge",
+      dedupeKey: "audit-1",
+      payload: {
+        context: { type: "contest", contestId: "c_1" },
+        userId: "usr_student",
+      },
+    });
   });
 
   it("denies non-staff non-admin callers", async () => {
@@ -451,7 +462,7 @@ describe("updateOverride", () => {
       overrideScore: 95,
       reason: "New reason",
     });
-    auditCreate.mockResolvedValue({});
+    auditCreate.mockResolvedValue({ id: "audit-1" });
   });
 
   it("writes an audit row with before/after values", async () => {
@@ -505,7 +516,7 @@ describe("deleteOverride", () => {
     });
     courseMembershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
     overrideDelete.mockResolvedValue(undefined);
-    auditCreate.mockResolvedValue({});
+    auditCreate.mockResolvedValue({ id: "audit-1" });
   });
 
   it("writes audit with action=delete and overrideId=null", async () => {

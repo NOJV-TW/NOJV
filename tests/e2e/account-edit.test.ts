@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import path from "node:path";
+import { readLiveSession } from "./_shared";
 
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
 
@@ -8,11 +9,7 @@ test.describe("profile edit", () => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
 
-    const session = (await (await page.request.get("/api/auth/get-session")).json()) as {
-      user?: { id?: string };
-    };
-    const userId = session.user?.id;
-    if (!userId) throw new Error("Could not resolve the signed-in user.");
+    const userId = (await readLiveSession(page)).user.id;
 
     await page.goto(`/users/${userId}`);
 

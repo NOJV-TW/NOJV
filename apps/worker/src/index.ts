@@ -4,35 +4,36 @@ import { getStorageEnv } from "@nojv/storage";
 
 import { parseWorkerEnv } from "./env";
 import { createLogger } from "./logger.js";
+import { validateWorkerMailerStartup } from "./mailer-startup";
+import { createProcessLifecycle } from "./server-lifecycle";
 import { WorkerApp } from "./worker-app";
 
 const processLogger = createLogger("process");
+let app: WorkerApp | null = null;
+
+const lifecycle = createProcessLifecycle({
+  start: async () => {
+    const env = parseWorkerEnv(process.env);
+    validateWorkerMailerStartup(env.WORKER_MODE);
+    getStorageEnv();
+    app = new WorkerApp(env);
+    await app.start();
+  },
+  shutdown: (reason) => app?.shutdown(reason) ?? Promise.resolve(undefined),
+  shutdownTelemetry: shutdownOtel,
+  exit: (code) => process.exit(code),
+  logger: processLogger,
+  timeoutMs: 40_000,
+});
 
 process.on("unhandledRejection", (reason) => {
-  processLogger.warn("Unhandled promise rejection", {
-    err: reason instanceof Error ? reason.message : String(reason),
-    stack: reason instanceof Error ? reason.stack : undefined,
-  });
+  void lifecycle.fatal("unhandled promise rejection", reason);
 });
 
-process.on("uncaughtException", (err) => {
-  processLogger.error("Uncaught exception — exiting", {
-    err: err.message,
-    stack: err.stack,
-  });
-  process.exit(1);
+process.on("uncaughtException", (error) => {
+  void lifecycle.fatal("uncaught exception", error);
 });
+process.on("SIGINT", () => void lifecycle.signal("SIGINT"));
+process.on("SIGTERM", () => void lifecycle.signal("SIGTERM"));
 
-const env = parseWorkerEnv(process.env);
-getStorageEnv();
-const app = new WorkerApp(env);
-
-const gracefulShutdown = async (signal: string) => {
-  await app.shutdown(signal);
-  await shutdownOtel();
-  process.exit(0);
-};
-process.on("SIGINT", () => void gracefulShutdown("SIGINT"));
-process.on("SIGTERM", () => void gracefulShutdown("SIGTERM"));
-
-await app.start();
+await lifecycle.start();

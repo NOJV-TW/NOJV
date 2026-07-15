@@ -1,12 +1,11 @@
 import { test, expect } from "@playwright/test";
 import path from "node:path";
 
-import { apiWriteHeaders } from "./_shared";
+import { apiWriteHeaders, formActionHeaders } from "./_shared";
 
 const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/teacher.json");
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
 
-const ORIGIN = "http://localhost:5173";
 const TIMESTAMP = Date.now();
 const PROBLEM_TITLE = `Parallelogram Library E2E ${TIMESTAMP}`;
 
@@ -186,7 +185,7 @@ async function postFormAction(
 ): Promise<FormActionResult> {
   const res = await page.request.post(urlPath, {
     form,
-    headers: { origin: ORIGIN },
+    headers: formActionHeaders,
   });
   return res.json() as Promise<FormActionResult>;
 }
@@ -324,6 +323,7 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
 
     const createRes = await page.request.post("/api/submissions", {
       data: {
+        context: { type: "practice" },
         problemId,
         language: "c",
         sourceCode: MAIN_C,

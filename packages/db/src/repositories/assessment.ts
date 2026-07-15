@@ -92,10 +92,22 @@ export const assessmentRepo = {
     });
   },
 
-  listNeedingTimers(now: Date) {
+  listNeedingTimers(input: { now: Date; afterId?: string; take: number }) {
     return prisma.assessment.findMany({
-      select: { id: true, opensAt: true, closesAt: true },
-      where: { status: "published", closesAt: { gt: now } },
+      select: {
+        id: true,
+        opensAt: true,
+        closesAt: true,
+        scheduleRevision: true,
+        timerFingerprint: true,
+      },
+      orderBy: { id: "asc" },
+      take: input.take,
+      where: {
+        status: "published",
+        closesAt: { gt: input.now },
+        ...(input.afterId ? { id: { gt: input.afterId } } : {}),
+      },
     });
   },
 
@@ -274,13 +286,18 @@ export const assessmentRepo = {
         return tx.assessment.findUnique({ where: { id } });
       },
 
+      lockForUpdate(assessmentId: string) {
+        return tx.$queryRaw`SELECT id FROM "Assessment" WHERE id = ${assessmentId} FOR UPDATE`;
+      },
+
       findByCompositeId(courseId: string, assessmentId: string) {
         return tx.assessment.findFirst({
           where: { id: assessmentId, courseId },
         });
       },
 
-      listByCourseIdAllWithProblems(courseId: string) {
+      async listByCourseIdAllWithProblems(courseId: string) {
+        await tx.$queryRaw`SELECT id FROM "Assessment" WHERE "courseId" = ${courseId} FOR UPDATE`;
         return tx.assessment.findMany({
           where: { courseId },
           orderBy: { opensAt: "asc" },

@@ -1,7 +1,11 @@
-import { entryFileNameFor, type Language, type ProblemType } from "@nojv/core";
+import {
+  entryFileNameFor,
+  type Language,
+  type ProblemType,
+  type SubmissionContext,
+} from "@nojv/core";
 import type { ProblemDetail } from "$lib/types";
 import type {
-  SubmissionAssessmentContext,
   SubmissionRequest,
   SubmissionWorkspaceFile,
 } from "$lib/services/submission-service";
@@ -67,7 +71,7 @@ export function seedWorkspaceDrafts(files: WorkspaceFile[]): Record<string, stri
   return drafts;
 }
 
-export function projectWorkspaceFilesForSubmit(
+function projectWorkspaceFilesForSubmit(
   files: WorkspaceFile[],
   drafts: Record<string, string>,
 ): SubmissionWorkspaceFile[] {
@@ -108,43 +112,53 @@ export function bindEscapeToExitFullscreen(onExit: () => void): () => void {
   return () => globalThis.removeEventListener("keydown", onKey);
 }
 
-export function createBottomResizeHandler({
-  getContainer,
-  onHeightChange,
-  onResizingChange,
-  minHeight = 120,
-  maxRatio = 0.8,
+export function createDocumentMouseDrag({
+  cursor,
+  onEnd,
+  onMove,
+  onStart,
 }: {
-  getContainer: () => HTMLElement | null;
-  onHeightChange: (next: number) => void;
-  onResizingChange: (active: boolean) => void;
-  minHeight?: number;
-  maxRatio?: number;
-}): (e: MouseEvent) => void {
-  return (e: MouseEvent) => {
-    e.preventDefault();
-    const container = getContainer();
-    if (!container) return;
+  cursor: string;
+  onEnd: () => void;
+  onMove: (event: MouseEvent) => void;
+  onStart: () => void;
+}) {
+  let active = false;
+  let previousCursor = "";
+  let previousUserSelect = "";
 
-    const onMove = (ev: MouseEvent) => {
-      const rect = container.getBoundingClientRect();
-      const next = rect.bottom - ev.clientY;
-      onHeightChange(Math.max(minHeight, Math.min(rect.height * maxRatio, next)));
-    };
-    const onUp = () => {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-      onResizingChange(false);
-    };
+  function dispose(): void {
+    if (!active) return;
+    active = false;
+    document.removeEventListener("mousemove", onMove);
+    document.removeEventListener("mouseup", dispose);
+    document.body.style.cursor = previousCursor;
+    document.body.style.userSelect = previousUserSelect;
+    onEnd();
+  }
 
-    onResizingChange(true);
-    document.body.style.cursor = "row-resize";
+  function start(event: MouseEvent): void {
+    event.preventDefault();
+    dispose();
+    active = true;
+    previousCursor = document.body.style.cursor;
+    previousUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = cursor;
     document.body.style.userSelect = "none";
     document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  };
+    document.addEventListener("mouseup", dispose);
+    onStart();
+  }
+
+  return { dispose, start };
+}
+
+export function submissionContextBadge(
+  context: SubmissionContext,
+): "assignment" | "contest" | null {
+  if (context.type === "assignment") return "assignment";
+  if (context.type === "contest" || context.type === "virtual") return "contest";
+  return null;
 }
 
 export function buildSubmissionRequest(args: {
@@ -156,17 +170,13 @@ export function buildSubmissionRequest(args: {
   workspaceDrafts: Record<string, string>;
   sampleOnly: boolean;
   runCases?: { input: string; expectedOutput?: string }[] | undefined;
-  assessment?: SubmissionAssessmentContext | undefined;
-  contestId?: string | undefined;
-  participationId?: string | undefined;
+  context: SubmissionContext;
 }): SubmissionRequest {
   const base: Omit<SubmissionRequest, "sourceCode" | "sourceFiles"> = {
     language: args.language,
     problemId: args.problemId,
     sampleOnly: args.sampleOnly,
-    ...(args.assessment ? { assessment: args.assessment } : {}),
-    ...(args.contestId ? { contestId: args.contestId } : {}),
-    ...(args.participationId ? { participationId: args.participationId } : {}),
+    context: args.context,
     ...(args.runCases ? { runCases: args.runCases } : {}),
   };
   if (args.isWorkspaceMode) {

@@ -1,101 +1,235 @@
 name: Build & Push Images
 
 on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - "infra/flux/**"
-      - "docs/**"
-      - "**/*.md"
-  workflow_dispatch:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
 
 concurrency:
-  group: build-images-${{ github.ref }}
-  cancel-in-progress: true
+  group: build-images-main
+  cancel-in-progress: false
 
-permissions:
-  contents: write
-  packages: write
+permissions: {}
 
 jobs:
-  build-push:
+  build-publish:
     name: Build & push images to GHCR
+    if: >-
+      github.event.workflow_run.name == 'CI' &&
+      github.event.workflow_run.path == '.github/workflows/ci.yml' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    permissions:
+      attestations: write
+      contents: read
+      id-token: write
+      packages: write
+    outputs:
+      release_sha: ${{ steps.release.outputs.release_sha }}
+      image_tag: ${{ steps.release.outputs.image_tag }}
+      web_digest: ${{ steps.web.outputs.digest }}
+      worker_digest: ${{ steps.worker.outputs.digest }}
+      sandbox_digest: ${{ steps.sandbox.outputs.digest }}
+      migrator_digest: ${{ steps.migrator.outputs.digest }}
     steps:
       - name: Check out
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
 
-      - name: Resolve image tag
-        id: tag
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "image_tag=$(git rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Validate trusted release run and exact checkout
+        id: release
+        env:
+          RELEASE_WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          RELEASE_WORKFLOW_PATH: ${{ github.event.workflow_run.path }}
+          RELEASE_EVENT: ${{ github.event.workflow_run.event }}
+          RELEASE_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RELEASE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RELEASE_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: node scripts/validate-release-run.mjs
+
+      - name: Inspect immutable publication state
+        id: publication
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_API_ROOT: ${{ github.api_url }}
+          PACKAGE_OWNER: ${{ github.repository_owner }}
+          RELEASE_SHA: ${{ steps.release.outputs.release_sha }}
+        run: node scripts/validate-release-run.mjs publication-state
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & push runtime images
-        shell: bash
+      - name: Build or verify web image
+        id: web
         env:
-          TAG: ${{ steps.tag.outputs.image_tag }}
+          TAG: ${{ steps.release.outputs.image_tag }}
           PREFIX: ghcr.io/nojv-tw
-        run: |
-          set -euo pipefail
-          build() {
-            local name="$1" dockerfile="$2" ctx="$3"
-            local ref="${PREFIX}/${name}"
-            docker buildx build \
-              -f "$dockerfile" \
-              -t "${ref}:${TAG}" -t "${ref}:main" \
-              --cache-from "type=registry,ref=${ref}:buildcache" \
-              --cache-to "type=registry,ref=${ref}:buildcache,mode=max" \
-              --push \
-              "$ctx"
-          }
-          build nojv-web          infra/docker/web.Dockerfile            .
-          build nojv-worker       infra/docker/worker.Dockerfile         .
-          build nojv-migrator     infra/docker/migrator.Dockerfile       .
-          build nojv-sandbox      infra/docker/sandbox-runner.Dockerfile .
+          EXISTING_IMAGES: ${{ steps.publication.outputs.existing_images }}
+          RELEASE_IMAGE_NAME: nojv-web
+          RELEASE_DOCKERFILE: infra/docker/web.Dockerfile
+        run: scripts/build-release-image.sh
 
-      - name: Publish tag to the deploy branch (Flux tracks it → auto-pull)
+      - name: Attest web image
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4
+        with:
+          subject-name: ghcr.io/nojv-tw/nojv-web
+          subject-digest: ${{ steps.web.outputs.digest }}
+          push-to-registry: true
+
+      - name: Publish web release tag
+        if: steps.web.outputs.requires_promotion == 'true'
+        env:
+          TAG: ${{ steps.release.outputs.image_tag }}
+          PREFIX: ghcr.io/nojv-tw
+          RELEASE_IMAGE_NAME: nojv-web
+          IMAGE_DIGEST: ${{ steps.web.outputs.digest }}
+        run: scripts/promote-release-image.sh
+
+      - name: Build or verify worker image
+        id: worker
+        env:
+          TAG: ${{ steps.release.outputs.image_tag }}
+          PREFIX: ghcr.io/nojv-tw
+          EXISTING_IMAGES: ${{ steps.publication.outputs.existing_images }}
+          RELEASE_IMAGE_NAME: nojv-worker
+          RELEASE_DOCKERFILE: infra/docker/worker.Dockerfile
+        run: scripts/build-release-image.sh
+
+      - name: Attest worker image
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4
+        with:
+          subject-name: ghcr.io/nojv-tw/nojv-worker
+          subject-digest: ${{ steps.worker.outputs.digest }}
+          push-to-registry: true
+
+      - name: Publish worker release tag
+        if: steps.worker.outputs.requires_promotion == 'true'
+        env:
+          TAG: ${{ steps.release.outputs.image_tag }}
+          PREFIX: ghcr.io/nojv-tw
+          RELEASE_IMAGE_NAME: nojv-worker
+          IMAGE_DIGEST: ${{ steps.worker.outputs.digest }}
+        run: scripts/promote-release-image.sh
+
+      - name: Build or verify migrator image
+        id: migrator
+        env:
+          TAG: ${{ steps.release.outputs.image_tag }}
+          PREFIX: ghcr.io/nojv-tw
+          EXISTING_IMAGES: ${{ steps.publication.outputs.existing_images }}
+          RELEASE_IMAGE_NAME: nojv-migrator
+          RELEASE_DOCKERFILE: infra/docker/migrator.Dockerfile
+        run: scripts/build-release-image.sh
+
+      - name: Attest migrator image
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4
+        with:
+          subject-name: ghcr.io/nojv-tw/nojv-migrator
+          subject-digest: ${{ steps.migrator.outputs.digest }}
+          push-to-registry: true
+
+      - name: Publish migrator release tag
+        if: steps.migrator.outputs.requires_promotion == 'true'
+        env:
+          TAG: ${{ steps.release.outputs.image_tag }}
+          PREFIX: ghcr.io/nojv-tw
+          RELEASE_IMAGE_NAME: nojv-migrator
+          IMAGE_DIGEST: ${{ steps.migrator.outputs.digest }}
+        run: scripts/promote-release-image.sh
+
+      - name: Build or verify sandbox image
+        id: sandbox
+        env:
+          TAG: ${{ steps.release.outputs.image_tag }}
+          PREFIX: ghcr.io/nojv-tw
+          EXISTING_IMAGES: ${{ steps.publication.outputs.existing_images }}
+          RELEASE_IMAGE_NAME: nojv-sandbox
+          RELEASE_DOCKERFILE: infra/docker/sandbox-runner.Dockerfile
+        run: scripts/build-release-image.sh
+
+      - name: Attest sandbox image
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4
+        with:
+          subject-name: ghcr.io/nojv-tw/nojv-sandbox
+          subject-digest: ${{ steps.sandbox.outputs.digest }}
+          push-to-registry: true
+
+      - name: Publish sandbox release tag
+        if: steps.sandbox.outputs.requires_promotion == 'true'
+        env:
+          TAG: ${{ steps.release.outputs.image_tag }}
+          PREFIX: ghcr.io/nojv-tw
+          RELEASE_IMAGE_NAME: nojv-sandbox
+          IMAGE_DIGEST: ${{ steps.sandbox.outputs.digest }}
+        run: scripts/promote-release-image.sh
+
+  deploy-ref:
+    name: Publish verified image tag to deploy branch
+    needs: build-publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the verified release commit
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ needs.build-publish.outputs.release_sha }}
+          fetch-depth: 0
+
+      - name: Verify deploy checkout
+        env:
+          RELEASE_SHA: ${{ needs.build-publish.outputs.release_sha }}
+        run: test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+
+      - name: Fetch current deploy ref
+        run: git fetch --no-tags origin +refs/heads/deploy:refs/remotes/origin/deploy
+
+      - name: Reject stale deploy candidate
+        id: advance
+        env:
+          RELEASE_SHA: ${{ needs.build-publish.outputs.release_sha }}
+        run: node scripts/validate-release-run.mjs deploy-advance
+
+      - name: Publish immutable image references to the deploy branch
         shell: bash
         env:
-          IMAGE_TAG: ${{ steps.tag.outputs.image_tag }}
+          IMAGE_TAG: ${{ needs.build-publish.outputs.image_tag }}
+          IMAGE_DIGEST_WEB: ${{ needs.build-publish.outputs.web_digest }}
+          IMAGE_DIGEST_WORKER: ${{ needs.build-publish.outputs.worker_digest }}
+          IMAGE_DIGEST_SANDBOX: ${{ needs.build-publish.outputs.sandbox_digest }}
+          IMAGE_DIGEST_MIGRATOR: ${{ needs.build-publish.outputs.migrator_digest }}
+          DEPLOY_TIP: ${{ steps.advance.outputs.deploy_tip }}
         run: |
           set -euo pipefail
           git config user.name "nojv-deploy-bot"
           git config user.email "nojv-deploy-bot@users.noreply.github.com"
           git checkout -B deploy
           VALUES_FILE=infra/charts/nojv/values-single-machine.yaml
-          TAG_LINES="$(awk '
-            /^image:$/ { in_image = 1; next }
-            in_image && /^[^[:space:]]/ { in_image = 0 }
-            in_image && /^  tag: / { print NR }
-          ' "$VALUES_FILE")"
-          TAG_COUNT="$(printf '%s\n' "$TAG_LINES" | awk 'NF { count++ } END { print count + 0 }')"
-          if [ "$TAG_COUNT" -ne 1 ]; then
-            echo "Expected exactly one image.tag in $VALUES_FILE, found $TAG_COUNT" >&2
-            exit 1
-          fi
-          awk -v target="$TAG_LINES" -v tag="$IMAGE_TAG" '
-            NR == target { print "  tag: " tag; next }
-            { print }
-          ' "$VALUES_FILE" >"${VALUES_FILE}.tmp"
-          mv "${VALUES_FILE}.tmp" "$VALUES_FILE"
+          node scripts/update-deploy-image-values.mjs "$VALUES_FILE"
           git add "$VALUES_FILE"
           git commit -m "deploy: ${IMAGE_TAG}"
           DEPLOY_TAG="nojv-deploy-${IMAGE_TAG}"
-          git tag --force "$DEPLOY_TAG"
-          git push --atomic --force origin \
+          if git ls-remote --exit-code --tags origin "refs/tags/${DEPLOY_TAG}" >/dev/null 2>&1; then
+            echo "Immutable deploy tag already exists: ${DEPLOY_TAG}" >&2
+            exit 1
+          fi
+          git tag "$DEPLOY_TAG"
+          git push --atomic "--force-with-lease=refs/heads/deploy:${DEPLOY_TIP}" origin \
             refs/heads/deploy:refs/heads/deploy \
             "refs/tags/${DEPLOY_TAG}:refs/tags/${DEPLOY_TAG}"

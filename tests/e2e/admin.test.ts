@@ -81,7 +81,7 @@ test.describe("Admin panel — gating + pages", () => {
     await context.close();
   });
 
-  test("admin panel is gated behind the admin-mode toggle", async ({ browser }) => {
+  test("admin-mode activation requires a verified step-up", async ({ browser }) => {
     const context = await browser.newContext();
     const page = await context.newPage();
 
@@ -90,17 +90,19 @@ test.describe("Admin panel — gating + pages", () => {
     await page.getByLabel(/username or email/i).fill("admin@nojv.local");
     await page.getByLabel(/password/i).fill("password123");
     await page.getByRole("button", { name: /sign in|登入/i }).click();
-    await page.waitForURL((url) => !url.pathname.includes("signin"), { timeout: 15000 });
+    await page.waitForURL(
+      (url) =>
+        url.pathname === "/settings" &&
+        url.searchParams.get("verify") === "totp" &&
+        url.searchParams.get("returnTo") === "/account/api-tokens/verify?purpose=admin-mode",
+      { timeout: 15000 },
+    );
 
-    // De-elevated: the backend is not reachable.
-    const blocked = await page.goto("/admin");
-    expect(blocked?.status() ?? 0).toBeGreaterThanOrEqual(400);
-
-    // Toggle into admin mode from the profile dropdown.
-    await page.locator('button[title="Admin"]').click();
-    await page.getByRole("button", { name: /admin mode|管理模式/i }).click();
-    await page.waitForURL(/\/admin(\/|$)/, { timeout: 15000 });
-    await expect(page.getByRole("main")).toBeVisible();
+    const denied = await page.request.post("/api/admin-mode", {
+      headers: { "x-requested-with": "fetch" },
+      data: { active: true },
+    });
+    expect(denied.status()).toBe(403);
 
     await context.close();
   });

@@ -17,6 +17,13 @@ for d in glob.glob("/submission/testcases/*"):
         pass
 `;
 
+function execute(executor: DockerExecutor, request: SandboxRequest) {
+  return executor.execute(request, {
+    runId: request.submissionId,
+    signal: new AbortController().signal,
+  });
+}
+
 describe("standard-mode testcase exposure (isolation)", () => {
   it(
     "cannot read expected output from inside the sandbox (verdict WA)",
@@ -45,7 +52,7 @@ describe("standard-mode testcase exposure (isolation)", () => {
         limits: { timeoutMs: 5_000, memoryMb: 256 },
       };
 
-      const result = await executor.execute(request);
+      const result = await execute(executor, request);
 
       expect(result.compilationError).toBeUndefined();
       expect(result.testcaseResults.length).toBe(2);
@@ -79,7 +86,7 @@ describe("standard-mode testcase exposure (isolation)", () => {
       limits: { timeoutMs: 5_000, memoryMb: 256 },
     };
 
-    const result = await executor.execute(request);
+    const result = await execute(executor, request);
 
     expect(result.compilationError).toBeUndefined();
     expect(result.testcaseResults.length).toBe(2);

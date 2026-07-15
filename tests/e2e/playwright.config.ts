@@ -1,4 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
+import { resolveDestructiveTestDatabase } from "../setup/destructive-test-database";
+import { PLAYWRIGHT_STORAGE_ENVIRONMENT } from "../setup/playwright-environment";
+import { ORIGIN } from "./_shared";
+
+const e2eDatabaseUrl = resolveDestructiveTestDatabase("nojv_e2e_test");
 
 export default defineConfig({
   testDir: ".",
@@ -9,7 +14,7 @@ export default defineConfig({
   reporter: "html",
   timeout: 60000,
   use: {
-    baseURL: "http://localhost:5173",
+    baseURL: ORIGIN,
     locale: "en-US",
     trace: "on-first-retry",
     actionTimeout: 15000,
@@ -17,9 +22,20 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   globalSetup: "../setup/playwright-global-setup.ts",
   webServer: {
-    command: "pnpm dev",
-    url: "http://localhost:5173",
-    reuseExistingServer: !process.env.CI,
+    command: "pnpm --filter @nojv/web exec vite dev --host localhost --port 5174 --strictPort",
+    url: `${ORIGIN}/favicon.svg`,
+    reuseExistingServer: false,
     cwd: "../..",
+    env: {
+      ...PLAYWRIGHT_STORAGE_ENVIRONMENT,
+      APP_BASE_URL: ORIGIN,
+      BETTER_AUTH_URL: ORIGIN,
+      DATABASE_URL: e2eDatabaseUrl,
+      MAILER_MODE: "sink",
+      NODE_ENV: "test",
+      NOJV_DESTRUCTIVE_TEST_DATABASE: "nojv_e2e_test",
+      ORIGIN,
+      TEST_DATABASE_URL: e2eDatabaseUrl,
+    },
   },
 });

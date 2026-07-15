@@ -2,6 +2,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { goto, invalidateAll } from "$app/navigation";
   import { page } from "$app/state";
+  import { onMount } from "svelte";
   import { ChevronDown, Plus } from "@lucide/svelte";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import { Button } from "$lib/components/primitives/ui/button";
@@ -30,6 +31,7 @@
   }: Props = $props();
 
   let creating = $state(false);
+  let mounted = $state(false);
   let showCreateMenu = $state(false);
   let menuToggleEl = $state<HTMLElement | null>(null);
   let menuEl = $state<HTMLDivElement | undefined>();
@@ -38,6 +40,10 @@
   let tab = $derived<"public" | "mine">(
     showCreate && currentUrl.searchParams.get("tab") === "mine" ? "mine" : "public",
   );
+
+  onMount(() => {
+    mounted = true;
+  });
 
   async function handleCreate(mode: "standard" | "advanced") {
     creating = true;
@@ -85,7 +91,7 @@
     }
   });
 
-  function setTab(nextTab: "public" | "mine") {
+  function tabHref(nextTab: "public" | "mine") {
     const params = new URLSearchParams(currentUrl.searchParams);
     if (nextTab === "mine") {
       params.set("tab", "mine");
@@ -93,8 +99,7 @@
       params.delete("tab");
     }
     const qs = params.toString();
-    const target = qs ? `?${qs}` : currentUrl.pathname;
-    goto(target, { keepFocus: true, noScroll: true });
+    return `${currentUrl.pathname}${qs ? `?${qs}` : ""}`;
   }
 
   let showDeleteConfirm = $state(false);
@@ -130,28 +135,30 @@
 
 <div class="flex flex-col gap-6">
   <div class="flex flex-wrap items-center gap-2">
-    <button
+    <a
       class="rounded-full border px-4 py-2 text-body-sm font-medium transition-[transform,box-shadow,background-color] duration-fast ease-out-soft {tab ===
       'public'
         ? 'border-primary bg-primary text-white'
         : 'border-border hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)]'}"
-      onclick={() => setTab("public")}
-      type="button"
+      href={tabHref("public")}
+      aria-current={tab === "public" ? "page" : undefined}
     >
       {m.problems_publicLibrary()}
-    </button>
+    </a>
     {#if showCreate}
-      <button
+      <a
         class="rounded-full border px-4 py-2 text-body-sm font-medium transition-[transform,box-shadow,background-color] duration-fast ease-out-soft {tab ===
         'mine'
           ? 'border-primary bg-primary text-white'
           : 'border-border hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)]'}"
-        onclick={() => setTab("mine")}
-        type="button"
+        href={tabHref("mine")}
+        aria-current={tab === "mine" ? "page" : undefined}
         data-tour="problems-mine"
       >
         {m.problems_myProblems()}
-      </button>
+      </a>
+    {/if}
+    {#if showCreate && mounted}
       <div class="relative ml-auto basis-full sm:basis-auto">
         <div class="flex justify-end" data-tour="problems-create">
           <Button
@@ -165,8 +172,8 @@
           </Button>
           <Button
             bind:ref={menuToggleEl}
+            aria-controls="problem-create-options"
             aria-expanded={showCreateMenu}
-            aria-haspopup="menu"
             aria-label={m.problems_createOptions()}
             disabled={creating}
             onclick={() => {
@@ -179,15 +186,14 @@
         </div>
         {#if showCreateMenu}
           <div
+            id="problem-create-options"
             bind:this={menuEl}
             class="absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-2 shadow-hover"
-            role="menu"
           >
             {#if advancedCreationAllowed}
               <button
                 class="flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left text-body-sm transition-[background-color] duration-fast ease-out-soft hover:bg-accent"
                 onclick={() => void handleCreate("advanced")}
-                role="menuitem"
                 type="button"
               >
                 <span class="font-semibold">{m.problems_createAdvancedTitle()}</span>
@@ -208,7 +214,6 @@
             <button
               class="flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left text-body-sm transition-[background-color] duration-fast ease-out-soft hover:bg-accent"
               onclick={() => void handleCreate("standard")}
-              role="menuitem"
               type="button"
             >
               <span class="font-semibold">{m.problems_createStandardTitle()}</span>

@@ -42,6 +42,13 @@ import {
 } from "../../../apps/worker/src/services/k8s-advanced";
 import { K8sExecutor } from "../../../apps/worker/src/services/k8s-executor";
 
+function execute(executor: K8sExecutor, request: SandboxRequest) {
+  return executor.execute(request, {
+    runId: request.submissionId,
+    signal: new AbortController().signal,
+  });
+}
+
 function makeAdvancedRequest(overrides?: {
   imageRef?: string;
   memoryMb?: number;
@@ -90,6 +97,7 @@ const EXEC_CONFIG = {
 };
 
 interface CallRecord {
+  cleanupEvents: string[];
   configMapsCreated: { name: string; namespace: string; data: Record<string, string> }[];
   configMapsDeleted: { name: string; namespace: string }[];
   pvcsCreated: { name: string; namespace: string; body: unknown }[];
@@ -117,10 +125,19 @@ interface FakeOpts {
   serviceClusterIp?: string | null;
   podWaiting?: { reason: string; message?: string };
   jobPendingPolls?: number;
+  jobDeleteError?: unknown;
+  podDeleteError?: unknown;
+  residualJobPods?: string[];
+  residualPods?: string[];
 }
 
 function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
   let jobReadCount = 0;
+  const jobDeleteAttempts = new Set<string>();
+  const podDeleteAttempts = new Set<string>();
+  const deletedJobs = new Set<string>();
+  const deletedPods = new Set<string>();
+  const activeNetworkPolicies = new Set<string>();
   const coreApi = {
     createNamespacedConfigMap: vi.fn(async ({ namespace, body }: any) => {
       record.configMapsCreated.push({ name: body.metadata.name, namespace, data: body.data });
@@ -137,8 +154,12 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
     createNamespacedPod: vi.fn(async ({ namespace, body }: any) => {
       record.podsCreated.push({ name: body.metadata.name, namespace, body });
     }),
-    deleteNamespacedPod: vi.fn(async ({ name, namespace }: any) => {
+    deleteNamespacedPod: vi.fn(async ({ name, namespace, propagationPolicy }: any) => {
       record.podsDeleted.push({ name, namespace });
+      record.cleanupEvents.push(`delete-pod:${name}:${String(propagationPolicy)}`);
+      podDeleteAttempts.add(name);
+      if (opts.podDeleteError) throw opts.podDeleteError;
+      deletedPods.add(name);
     }),
     createNamespacedService: vi.fn(async ({ namespace, body }: any) => {
       record.servicesCreated.push({ name: body.metadata.name, namespace, body });
@@ -149,8 +170,28 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
     deleteNamespacedService: vi.fn(async ({ name, namespace }: any) => {
       record.servicesDeleted.push({ name, namespace });
     }),
-    listNamespacedPod: vi.fn(async ({ labelSelector }: any) => {
+    listNamespacedPod: vi.fn(async ({ labelSelector, fieldSelector }: any) => {
+      if (fieldSelector) {
+        const podName = String(fieldSelector).split("=")[1];
+        if (deletedPods.has(podName) || podDeleteAttempts.has(podName)) {
+          if (opts.residualPods?.includes(podName)) {
+            record.cleanupEvents.push(`observe-pod-present:${podName}`);
+            return { items: [{ metadata: { name: podName } }] };
+          }
+          record.cleanupEvents.push(`confirm-pod-gone:${podName}`);
+          return { items: [] };
+        }
+        return { items: [{ metadata: { name: podName } }] };
+      }
       const jobName = String(labelSelector).split("=")[1];
+      if (deletedJobs.has(jobName) || jobDeleteAttempts.has(jobName)) {
+        if (opts.residualJobPods?.includes(jobName)) {
+          record.cleanupEvents.push(`observe-job-pods-present:${jobName}`);
+          return { items: [{ metadata: { name: `${jobName}-pod` } }] };
+        }
+        record.cleanupEvents.push(`confirm-job-pods-gone:${jobName}`);
+        return { items: [] };
+      }
       const nodeName = opts.runNodeName === undefined ? "node-a" : opts.runNodeName;
       const transferExitCode = opts.transferExitCode === undefined ? 0 : opts.transferExitCode;
       const isRunPod = String(jobName).endsWith("-run");
@@ -199,8 +240,12 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
       if (opts.throwOnJobCreate) throw new Error("simulated job create failure");
       record.jobsCreated.push({ name: body.metadata.name, namespace, body });
     }),
-    deleteNamespacedJob: vi.fn(async ({ name, namespace }: any) => {
+    deleteNamespacedJob: vi.fn(async ({ name, namespace, propagationPolicy }: any) => {
       record.jobsDeleted.push({ name, namespace });
+      record.cleanupEvents.push(`delete-job:${name}:${String(propagationPolicy)}`);
+      jobDeleteAttempts.add(name);
+      if (opts.jobDeleteError) throw opts.jobDeleteError;
+      deletedJobs.add(name);
     }),
     readNamespacedJob: vi.fn(async ({ name }: any) => {
       jobReadCount += 1;
@@ -221,10 +266,16 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
 
   const networkingApi = {
     createNamespacedNetworkPolicy: vi.fn(async ({ namespace, body }: any) => {
+      if (activeNetworkPolicies.has(body.metadata.name)) {
+        throw new Error(`409 NetworkPolicy ${body.metadata.name} already exists`);
+      }
+      activeNetworkPolicies.add(body.metadata.name);
       record.networkPoliciesCreated.push({ name: body.metadata.name, namespace, body });
     }),
     deleteNamespacedNetworkPolicy: vi.fn(async ({ name, namespace }: any) => {
+      activeNetworkPolicies.delete(name);
       record.networkPoliciesDeleted.push({ name, namespace });
+      record.cleanupEvents.push(`delete-policy:${name}`);
     }),
   } as any;
 
@@ -233,6 +284,7 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
 
 function emptyRecord(): CallRecord {
   return {
+    cleanupEvents: [],
     configMapsCreated: [],
     configMapsDeleted: [],
     pvcsCreated: [],
@@ -796,7 +848,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       feedback: "all good",
     });
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
-    const result = await executor.execute(makeAdvancedRequest());
+    const result = await execute(executor, makeAdvancedRequest());
 
     expect(record.pvcsCreated).toHaveLength(1);
     expect(record.pvcsCreated[0]!.name).toBe("judge-sub-adv-1-runout");
@@ -830,7 +882,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       EXEC_CONFIG,
       buildFakeClients(record, { sidecarLog, failJob: "judge-sub-adv-1-run" }),
     );
-    const result = await executor.execute(makeAdvancedRequest());
+    const result = await execute(executor, makeAdvancedRequest());
 
     expect(record.jobsCreated.map((j) => j.name)).toContain("judge-sub-adv-1-grade");
     const gradeCm = record.configMapsCreated.find(
@@ -849,7 +901,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       EXEC_CONFIG,
       buildFakeClients(record, { runNodeName: null }),
     );
-    const result = await executor.execute(makeAdvancedRequest());
+    const result = await execute(executor, makeAdvancedRequest());
 
     expect(result.testcaseResults[0]!.verdict).toBe("SE");
     expect(record.jobsCreated.map((j) => j.name)).toEqual(["judge-sub-adv-1-run"]);
@@ -863,7 +915,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       EXEC_CONFIG,
       buildFakeClients(record, { sidecarLog, transferExitCode: 1 }),
     );
-    const result = await executor.execute(makeAdvancedRequest());
+    const result = await execute(executor, makeAdvancedRequest());
 
     expect(result.testcaseResults[0]!.verdict).toBe("SE");
     const message = result.testcaseResults[0]!.feedback ?? result.testcaseResults[0]!.stderr;
@@ -880,7 +932,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       EXEC_CONFIG,
       buildFakeClients(record, { sidecarLog, transferExitCode: null }),
     );
-    const result = await executor.execute(makeAdvancedRequest());
+    const result = await execute(executor, makeAdvancedRequest());
 
     expect(result.testcaseResults[0]!.verdict).toBe("SE");
     expect(record.jobsCreated.some((j) => j.name === "judge-sub-adv-1-grade")).toBe(false);
@@ -898,7 +950,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
         transferExitCode: null,
       }),
     );
-    const result = await executor.execute(makeAdvancedRequest());
+    const result = await execute(executor, makeAdvancedRequest());
 
     expect(record.jobsCreated.map((j) => j.name)).toContain("judge-sub-adv-1-grade");
     const gradeCm = record.configMapsCreated.find(
@@ -915,7 +967,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ missing: true });
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
-    const result = await executor.execute(makeAdvancedRequest());
+    const result = await execute(executor, makeAdvancedRequest());
     expect(result.testcaseResults[0]!.verdict).toBe("SE");
     const message = result.testcaseResults[0]!.feedback ?? result.testcaseResults[0]!.stderr;
     expect(message).toMatch(/result\.json/i);
@@ -925,7 +977,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ score: "nope", verdict: "accepted" });
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
-    const result = await executor.execute(makeAdvancedRequest());
+    const result = await execute(executor, makeAdvancedRequest());
     expect(result.testcaseResults[0]!.verdict).toBe("SE");
   });
 
@@ -933,7 +985,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
-    await executor.execute(makeAdvancedRequest());
+    await execute(executor, makeAdvancedRequest());
 
     expect(record.jobsDeleted.map((j) => j.name).sort()).toEqual([
       "judge-sub-adv-1-grade",
@@ -946,11 +998,32 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     expect(record.pvcsDeleted.map((p) => p.name)).toEqual(["judge-sub-adv-1-runout"]);
   });
 
+  it("retries transient PVC deletion failures until private run output is removed", async () => {
+    vi.useFakeTimers();
+    try {
+      const record = emptyRecord();
+      const clients = buildFakeClients(record, {
+        sidecarLog: buildSidecarLog({ score: 100, verdict: "accepted" }),
+      });
+      clients.coreApi.deleteNamespacedPersistentVolumeClaim
+        .mockRejectedValueOnce({ code: 429 })
+        .mockRejectedValueOnce({ code: 503 })
+        .mockResolvedValue(undefined);
+
+      const execution = execute(new K8sExecutor(EXEC_CONFIG, clients), makeAdvancedRequest());
+      await vi.runAllTimersAsync();
+      await expect(execution).resolves.toBeDefined();
+      expect(clients.coreApi.deleteNamespacedPersistentVolumeClaim).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("mode=none: run Pod carries NO nojv.egress label and no proxy/service env (deny-all)", async () => {
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
-    await executor.execute(makeAdvancedRequest());
+    await execute(executor, makeAdvancedRequest());
 
     const runJob = record.jobsCreated.find((j) => j.name === "judge-sub-adv-1-run")!;
     const runLabels = runJob.body.spec.template.metadata.labels;
@@ -967,7 +1040,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
-    await executor.execute(makeAdvancedRequest());
+    await execute(executor, makeAdvancedRequest());
 
     const gradeJob = record.jobsCreated.find((j) => j.name === "judge-sub-adv-1-grade")!;
     expect(gradeJob.body.spec.template.metadata.labels["nojv.egress"]).toBe("sub-adv-1-grade");
@@ -984,7 +1057,8 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
-    await executor.execute(
+    await execute(
+      executor,
       makeAdvancedRequest({
         network: {
           mode: "service",
@@ -1016,6 +1090,148 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     ]);
   });
 
+  it("SECURITY: keeps advanced policies until their selected Pods are confirmed gone", async () => {
+    const record = emptyRecord();
+    const executor = new K8sExecutor(
+      EXEC_CONFIG,
+      buildFakeClients(record, {
+        sidecarLog: buildSidecarLog({ score: 100, verdict: "accepted" }),
+      }),
+    );
+    await execute(
+      executor,
+      makeAdvancedRequest({
+        network: {
+          mode: "service",
+          service: { imageRef: "registry.example.com/ta/svc:1.0", imageSource: "registry" },
+        },
+      }),
+    );
+
+    const before = (earlier: string, later: string) => {
+      expect(record.cleanupEvents.indexOf(earlier), earlier).toBeGreaterThanOrEqual(0);
+      expect(record.cleanupEvents.indexOf(later), later).toBeGreaterThan(
+        record.cleanupEvents.indexOf(earlier),
+      );
+    };
+
+    before(
+      "delete-job:judge-sub-adv-1-run:Foreground",
+      "confirm-job-pods-gone:judge-sub-adv-1-run",
+    );
+    before(
+      "confirm-job-pods-gone:judge-sub-adv-1-run",
+      "delete-policy:judge-sub-adv-1-run-egress",
+    );
+    before(
+      "delete-job:judge-sub-adv-1-grade:Foreground",
+      "confirm-job-pods-gone:judge-sub-adv-1-grade",
+    );
+    before(
+      "confirm-job-pods-gone:judge-sub-adv-1-grade",
+      "delete-policy:judge-sub-adv-1-grade-egress",
+    );
+    before(
+      "delete-pod:judge-sub-adv-1-sidecar:Foreground",
+      "confirm-pod-gone:judge-sub-adv-1-sidecar",
+    );
+    before(
+      "confirm-pod-gone:judge-sub-adv-1-sidecar",
+      "delete-policy:judge-sub-adv-1-sidecar-egress",
+    );
+  });
+
+  it("404 deleting Jobs that were never created still confirms no Pods, removes policy, and permits retry", async () => {
+    const record = emptyRecord();
+    const executor = new K8sExecutor(
+      EXEC_CONFIG,
+      buildFakeClients(record, {
+        throwOnJobCreate: true,
+        jobDeleteError: { code: 404 },
+      }),
+    );
+
+    await expect(execute(executor, makeAdvancedRequest())).rejects.toThrow(
+      "simulated job create failure",
+    );
+    await expect(execute(executor, makeAdvancedRequest())).rejects.toThrow(
+      "simulated job create failure",
+    );
+
+    expect(record.cleanupEvents).toContain("confirm-job-pods-gone:judge-sub-adv-1-grade");
+    expect(record.networkPoliciesDeleted.map((policy) => policy.name)).toEqual([
+      "judge-sub-adv-1-grade-egress",
+      "judge-sub-adv-1-grade-egress",
+    ]);
+  });
+
+  it("propagates an exhausted Job delete even when its Pod selector is already empty", async () => {
+    vi.useFakeTimers();
+    try {
+      const record = emptyRecord();
+      const executor = new K8sExecutor(
+        EXEC_CONFIG,
+        buildFakeClients(record, {
+          sidecarLog: buildSidecarLog({ score: 100, verdict: "accepted" }),
+          jobDeleteError: new Error("API transport unavailable"),
+        }),
+      );
+
+      const execution = execute(executor, makeAdvancedRequest());
+      const rejection = expect(execution).rejects.toThrow(/cleanup failed/i);
+      await vi.runAllTimersAsync();
+      await rejection;
+
+      expect(record.cleanupEvents).toContain("confirm-job-pods-gone:judge-sub-adv-1-run");
+      expect(record.jobsDeleted).toHaveLength(6);
+      expect(record.configMapsDeleted).toHaveLength(2);
+      expect(record.pvcsDeleted).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("DELETE errors still poll selectors and retain policies while Job or sidecar Pods remain", async () => {
+    vi.useFakeTimers();
+    try {
+      const record = emptyRecord();
+      const executor = new K8sExecutor(
+        EXEC_CONFIG,
+        buildFakeClients(record, {
+          sidecarLog: buildSidecarLog({ score: 100, verdict: "accepted" }),
+          jobDeleteError: new Error("job delete transport failure"),
+          podDeleteError: new Error("pod delete transport failure"),
+          residualJobPods: ["judge-sub-adv-1-grade"],
+          residualPods: ["judge-sub-adv-1-sidecar"],
+        }),
+      );
+
+      const execution = execute(
+        executor,
+        makeAdvancedRequest({
+          network: {
+            mode: "service",
+            service: { imageRef: "registry.example.com/ta/svc:1.0", imageSource: "registry" },
+          },
+        }),
+      );
+      const rejection = expect(execution).rejects.toThrow(/cleanup failed/i);
+      await vi.runAllTimersAsync();
+      await rejection;
+
+      expect(record.cleanupEvents).toContain("observe-job-pods-present:judge-sub-adv-1-grade");
+      expect(record.cleanupEvents).toContain("observe-pod-present:judge-sub-adv-1-sidecar");
+      expect(record.networkPoliciesDeleted.map((policy) => policy.name)).not.toContain(
+        "judge-sub-adv-1-grade-egress",
+      );
+      expect(record.networkPoliciesDeleted.map((policy) => policy.name)).not.toContain(
+        "judge-sub-adv-1-sidecar-egress",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("mode=service: missing service marker fails closed before the run starts", async () => {
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
@@ -1023,7 +1239,8 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       EXEC_CONFIG,
       buildFakeClients(record, { sidecarLog, sidecarReadyMarker: "" }),
     );
-    const result = await executor.execute(
+    const result = await execute(
+      executor,
       makeAdvancedRequest({
         network: {
           mode: "service",
@@ -1042,7 +1259,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       EXEC_CONFIG,
       buildFakeClients(record, { throwOnJobCreate: true }),
     );
-    await expect(executor.execute(makeAdvancedRequest())).rejects.toThrow(
+    await expect(execute(executor, makeAdvancedRequest())).rejects.toThrow(
       "simulated job create failure",
     );
     expect(record.pvcsDeleted).toHaveLength(1);
@@ -1058,7 +1275,8 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       { ...EXEC_CONFIG, imagePullSecretName: "nojv-registry-pull" },
       buildFakeClients(record, { sidecarLog }),
     );
-    await executor.execute(
+    await execute(
+      executor,
       makeAdvancedRequest({
         network: {
           mode: "service",
@@ -1084,7 +1302,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
-    await executor.execute(makeAdvancedRequest());
+    await execute(executor, makeAdvancedRequest());
 
     for (const job of record.jobsCreated) {
       expect(job.body.spec.template.spec.imagePullSecrets).toBeUndefined();
@@ -1106,7 +1324,7 @@ describe("K8sExecutor.execute(advanced) — image pull failures", () => {
       }),
     );
 
-    const result = await executor.execute(makeAdvancedRequest());
+    const result = await execute(executor, makeAdvancedRequest());
 
     expect(result.testcaseResults.every((t) => t.verdict === "SE")).toBe(true);
     expect(result.scoringFeedback).toContain(
@@ -1131,7 +1349,7 @@ describe("K8sExecutor.execute(advanced) — image pull failures", () => {
       }),
     );
 
-    const result = await executor.execute(makeAdvancedRequest());
+    const result = await execute(executor, makeAdvancedRequest());
 
     expect(result.testcaseResults[0]!.verdict).toBe("AC");
     expect(record.jobsCreated.map((j) => j.name)).toContain("judge-sub-adv-1-run");

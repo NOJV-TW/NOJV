@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   assessmentFindById,
+  assessmentLockForUpdate,
   assessmentUpdate,
   assessmentDelete,
   assessmentProblemFindByAssessmentId,
@@ -12,8 +13,10 @@ const {
   problemWorkspaceFindByProblemId,
   testcaseSetFindByProblemId,
   assessmentAuditCreate,
+  durableWorkEnqueue,
 } = vi.hoisted(() => ({
   assessmentFindById: vi.fn(),
+  assessmentLockForUpdate: vi.fn(),
   assessmentUpdate: vi.fn(),
   assessmentDelete: vi.fn(),
   assessmentProblemFindByAssessmentId: vi.fn(),
@@ -24,11 +27,13 @@ const {
   problemWorkspaceFindByProblemId: vi.fn(),
   testcaseSetFindByProblemId: vi.fn(),
   assessmentAuditCreate: vi.fn(),
+  durableWorkEnqueue: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => {
   const assessmentWithTx = {
     findById: assessmentFindById,
+    lockForUpdate: assessmentLockForUpdate,
     update: assessmentUpdate,
     delete: assessmentDelete,
   };
@@ -53,6 +58,9 @@ vi.mock("@nojv/db", () => {
     },
     assessmentAuditLogRepo: {
       withTx: () => ({ create: assessmentAuditCreate }),
+    },
+    durableWorkRepo: {
+      withTx: () => ({ enqueue: durableWorkEnqueue }),
     },
     courseMembershipRepo: {
       withTx: () => courseMembershipWithTx,
@@ -79,15 +87,17 @@ const {
   revertAssignmentToDraft,
 } = assignmentDomain;
 
-const dispatchAssignmentDueSoon = vi.fn(async () => {});
+const ensureAssignmentDueSoon = vi.fn(async () => {});
+const replaceAssignmentDueSoon = vi.fn(async () => {});
+const cancelAssignmentDueSoon = vi.fn(async () => {});
 
 beforeEach(() => {
   configureDomainOrchestration({
+    cancelAssignmentDueSoon,
+    cancelContestLifecycle: vi.fn(async () => {}),
+    cancelExamAutoClose: vi.fn(async () => {}),
     cancelRejudge: vi.fn(async () => {}),
     describeSubmissionJudge: vi.fn(async () => null),
-    dispatchAssignmentDueSoon,
-    dispatchContestLifecycle: vi.fn(async () => {}),
-    dispatchExamAutoClose: vi.fn(async () => {}),
     dispatchPlagiarismCheck: vi.fn(async () => {}),
     dispatchRegistryGarbageCollect: vi.fn(async () => ({
       workflowId: "registry-gc",
@@ -95,9 +105,15 @@ beforeEach(() => {
     })),
     dispatchRejudge: vi.fn(async () => ({ workflowId: "rejudge-test" })),
     dispatchSubmissionJudge: vi.fn(async () => {}),
+    ensureAssignmentDueSoon,
+    ensureContestLifecycle: vi.fn(async () => {}),
+    ensureExamAutoClose: vi.fn(async () => {}),
     getRejudgeTriggeredBy: vi.fn(async () => null),
     probeTemporal: vi.fn(async () => {}),
     queryRejudgeProgress: vi.fn(async () => ({ completed: 0, total: 0 })),
+    replaceAssignmentDueSoon,
+    replaceContestLifecycle: vi.fn(async () => {}),
+    replaceExamAutoClose: vi.fn(async () => {}),
     terminateSubmissionJudge: vi.fn(async () => {}),
   });
 });
@@ -129,6 +145,8 @@ function draftAssessment(overrides: Record<string, unknown> = {}) {
     closesAt: new Date("2030-01-15T00:00:00Z"),
     allowedLanguages: ["cpp"],
     title: "Old title",
+    scheduleRevision: 1,
+    timerFingerprint: "assessment:v1:asg_1:window_a",
     ...overrides,
   };
 }
@@ -136,7 +154,11 @@ function draftAssessment(overrides: Record<string, unknown> = {}) {
 describe("updateAssignmentRecord", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    assessmentUpdate.mockResolvedValue({ id: "asg_1" });
+    assessmentUpdate.mockImplementation(async (_id: string, data: Record<string, unknown>) => ({
+      ...draftAssessment(),
+      ...data,
+    }));
+    assessmentLockForUpdate.mockResolvedValue([]);
     assessmentProblemDeleteByAssessmentId.mockResolvedValue({ count: 0 });
     assessmentProblemCreate.mockResolvedValue({});
     problemFindMany.mockResolvedValue([]);
@@ -296,12 +318,56 @@ describe("updateAssignmentRecord", () => {
       updateAssignmentRecord(teacherActor, "asg_1", { title: "nope" }),
     ).rejects.toThrow(/closed/i);
   });
+
+  it("locks, re-reads, and rejects a close that conflicts with the persisted due date", async () => {
+    assessmentFindById.mockResolvedValue(draftAssessment());
+
+    await expect(
+      updateAssignmentRecord(teacherActor, "asg_1", {
+        closesAt: "2030-01-05T00:00:00.000Z",
+      }),
+    ).rejects.toThrow(/closesAt/);
+
+    expect(assessmentLockForUpdate).toHaveBeenCalledWith("asg_1");
+    expect(assessmentLockForUpdate.mock.invocationCallOrder[0]).toBeLessThan(
+      assessmentFindById.mock.invocationCallOrder[0],
+    );
+    expect(assessmentUpdate).not.toHaveBeenCalled();
+  });
+
+  it("replaces the lifecycle only when a published timer actually changes", async () => {
+    const published = draftAssessment({ status: "published" });
+    const closesAt = new Date("2030-01-20T00:00:00.000Z");
+    assessmentFindById.mockResolvedValue(published);
+    assessmentUpdate.mockResolvedValue({
+      ...published,
+      closesAt,
+      scheduleRevision: 2,
+      timerFingerprint: "assessment:v1:asg_1:window_b",
+    });
+
+    await updateAssignmentRecord(teacherActor, "asg_1", {
+      closesAt: closesAt.toISOString(),
+    });
+
+    expect(replaceAssignmentDueSoon).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assignmentId: "asg_1",
+        scheduleRevision: 2,
+        timerFingerprint: "assessment:v1:asg_1:window_b",
+      }),
+    );
+  });
 });
 
 describe("publishAssignment", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    assessmentUpdate.mockResolvedValue({ id: "asg_1" });
+    assessmentUpdate.mockImplementation(async (_id: string, data: Record<string, unknown>) => ({
+      ...draftAssessment(),
+      ...data,
+      scheduleRevision: 2,
+    }));
     assessmentProblemFindByAssessmentId.mockResolvedValue([
       { id: "pair_1", assessmentId: "asg_1", problemId: "prob_a" },
     ]);
@@ -309,6 +375,7 @@ describe("publishAssignment", () => {
       role: "teacher",
       status: "active",
     });
+    assessmentLockForUpdate.mockResolvedValue([]);
   });
 
   it("promotes a valid draft to published and writes an audit row", async () => {
@@ -316,6 +383,10 @@ describe("publishAssignment", () => {
 
     await publishAssignment(teacherActor, "asg_1");
 
+    expect(assessmentLockForUpdate).toHaveBeenCalledWith("asg_1");
+    expect(assessmentLockForUpdate.mock.invocationCallOrder[0]).toBeLessThan(
+      assessmentFindById.mock.invocationCallOrder[0],
+    );
     expect(assessmentUpdate).toHaveBeenCalledWith("asg_1", { status: "published" });
     expect(assessmentAuditCreate).toHaveBeenCalledWith({
       assessmentId: "asg_1",
@@ -323,10 +394,12 @@ describe("publishAssignment", () => {
       actorUserId: "usr_teacher",
       action: "publish",
     });
-    expect(dispatchAssignmentDueSoon).toHaveBeenCalledWith({
+    expect(ensureAssignmentDueSoon).toHaveBeenCalledWith({
       assignmentId: "asg_1",
       opensAt: new Date("2030-01-01T00:00:00Z").toISOString(),
       closesAt: new Date("2030-01-15T00:00:00Z").toISOString(),
+      scheduleRevision: 2,
+      timerFingerprint: "assessment:v1:asg_1:window_a",
     });
   });
 
@@ -396,8 +469,9 @@ describe("deleteAssignmentDraft", () => {
     });
   });
 
-  it("deletes a draft and writes an audit row", async () => {
+  it("atomically enqueues cancellation when deleting a draft while Temporal is unavailable", async () => {
     assessmentFindById.mockResolvedValue(draftAssessment());
+    cancelAssignmentDueSoon.mockRejectedValue(new Error("Temporal unavailable"));
 
     await deleteAssignmentDraft(teacherActor, "asg_1");
 
@@ -408,6 +482,24 @@ describe("deleteAssignmentDraft", () => {
       actorUserId: "usr_teacher",
       action: "delete_draft",
     });
+    expect(assessmentLockForUpdate).toHaveBeenCalledWith("asg_1");
+    expect(durableWorkEnqueue).toHaveBeenCalledWith({
+      kind: "lifecycle.cancel",
+      dedupeKey: expect.any(String),
+      payload: {
+        type: "assignment",
+        input: expect.objectContaining({
+          assignmentId: "asg_1",
+          scheduleRevision: 1,
+          timerFingerprint: "assessment:v1:asg_1:window_a",
+        }),
+      },
+      maxAttempts: 20,
+    });
+    expect(durableWorkEnqueue.mock.invocationCallOrder[0]).toBeLessThan(
+      assessmentDelete.mock.invocationCallOrder[0],
+    );
+    expect(cancelAssignmentDueSoon).not.toHaveBeenCalled();
   });
 
   it("refuses to delete a published assessment", async () => {
@@ -427,18 +519,28 @@ describe("deleteAssignmentDraft", () => {
 describe("revertAssignmentToDraft", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    assessmentUpdate.mockResolvedValue({ id: "asg_1" });
+    assessmentUpdate.mockImplementation(async (_id: string, data: Record<string, unknown>) => ({
+      ...draftAssessment({ status: "published" }),
+      ...data,
+      scheduleRevision: 2,
+    }));
+    assessmentLockForUpdate.mockResolvedValue([]);
     courseMembershipFindByComposite.mockResolvedValue({
       role: "teacher",
       status: "active",
     });
   });
 
-  it("flips an upcoming published assignment to draft and writes an audit row", async () => {
+  it("atomically enqueues cancellation when reverting an upcoming assignment", async () => {
     assessmentFindById.mockResolvedValue(draftAssessment({ status: "published" }));
+    cancelAssignmentDueSoon.mockRejectedValue(new Error("Temporal unavailable"));
 
     await revertAssignmentToDraft(teacherActor, "asg_1");
 
+    expect(assessmentLockForUpdate).toHaveBeenCalledWith("asg_1");
+    expect(assessmentLockForUpdate.mock.invocationCallOrder[0]).toBeLessThan(
+      assessmentFindById.mock.invocationCallOrder[0],
+    );
     expect(assessmentUpdate).toHaveBeenCalledWith("asg_1", { status: "draft" });
     expect(assessmentAuditCreate).toHaveBeenCalledWith({
       assessmentId: "asg_1",
@@ -446,5 +548,15 @@ describe("revertAssignmentToDraft", () => {
       actorUserId: "usr_teacher",
       action: "revert_to_draft",
     });
+    expect(durableWorkEnqueue).toHaveBeenCalledWith({
+      kind: "lifecycle.cancel",
+      dedupeKey: expect.any(String),
+      payload: {
+        type: "assignment",
+        input: expect.objectContaining({ assignmentId: "asg_1", scheduleRevision: 1 }),
+      },
+      maxAttempts: 20,
+    });
+    expect(cancelAssignmentDueSoon).not.toHaveBeenCalled();
   });
 });

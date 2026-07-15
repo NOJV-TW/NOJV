@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 
 import type * as k8s from "@kubernetes/client-node";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import type { SandboxRequest } from "@nojv/core";
 
@@ -9,19 +9,34 @@ import {
   K8sExecutor,
   type K8sExecutorConfig,
 } from "../../../apps/worker/src/services/k8s-executor.js";
+import {
+  assertK8sIntegrationOptIn,
+  assertSafeK8sIntegrationTarget,
+} from "../../setup/k8s-integration-target.js";
 
 const require = createRequire(import.meta.url);
 
-const NAMESPACE = "nojv-sandbox";
 const SANDBOX_IMAGE = "nojv-sandbox:local";
 const DEMO_RUN_IMAGE = "nojv-demo-advanced-run:local";
 const DEMO_GRADE_IMAGE = "nojv-demo-advanced-grade:local";
+const DEMO_SERVICE_IMAGE = "nojv-demo-advanced-service:local";
 
 const SUM_SOLUTION = "a, b = map(int, input().split())\nprint(a + b)\n";
 const WRONG_SUM_SOLUTION = "a, b = map(int, input().split())\nprint(a - b)\n";
+const SERVICE_HEALTH_SUM_SOLUTION = `import json
+import os
+import urllib.request
 
-const EXECUTOR_CONFIG: K8sExecutorConfig = {
-  namespace: NAMESPACE,
+service_host = os.environ["NOJV_SERVICE_HOST"]
+with urllib.request.urlopen(f"http://{service_host}/health", timeout=5) as response:
+    if response.status != 200 or json.load(response) != {"status": "ok"}:
+        raise RuntimeError("service health check failed")
+
+a, b = map(int, input().split())
+print(a + b)
+`;
+
+const EXECUTOR_CONFIG: Omit<K8sExecutorConfig, "namespace"> = {
   image: SANDBOX_IMAGE,
   cpuRequest: "100m",
   cpuLimit: "500m",
@@ -38,7 +53,7 @@ let clients: {
   batchApi: k8s.BatchV1Api;
   networkingApi: k8s.NetworkingV1Api;
 } | null = null;
-let clusterUnreachableReason: string | null = null;
+let namespace = "";
 
 const VALIDATOR_SCRIPT = `team = team_output.split()
 ans = judge_answer.split()
@@ -129,7 +144,7 @@ async function deleteJob(name: string): Promise<void> {
   try {
     await clients.batchApi.deleteNamespacedJob({
       name,
-      namespace: NAMESPACE,
+      namespace,
       propagationPolicy: "Background",
     });
   } catch {}
@@ -138,14 +153,14 @@ async function deleteJob(name: string): Promise<void> {
 async function deleteConfigMap(name: string): Promise<void> {
   if (!clients) return;
   try {
-    await clients.coreApi.deleteNamespacedConfigMap({ name, namespace: NAMESPACE });
+    await clients.coreApi.deleteNamespacedConfigMap({ name, namespace });
   } catch {}
 }
 
 async function deletePvc(name: string): Promise<void> {
   if (!clients) return;
   try {
-    await clients.coreApi.deleteNamespacedPersistentVolumeClaim({ name, namespace: NAMESPACE });
+    await clients.coreApi.deleteNamespacedPersistentVolumeClaim({ name, namespace });
   } catch {}
 }
 
@@ -154,7 +169,7 @@ async function deletePod(name: string): Promise<void> {
   try {
     await clients.coreApi.deleteNamespacedPod({
       name,
-      namespace: NAMESPACE,
+      namespace,
       propagationPolicy: "Background",
     });
   } catch {}
@@ -163,93 +178,34 @@ async function deletePod(name: string): Promise<void> {
 async function deleteService(name: string): Promise<void> {
   if (!clients) return;
   try {
-    await clients.coreApi.deleteNamespacedService({ name, namespace: NAMESPACE });
+    await clients.coreApi.deleteNamespacedService({ name, namespace });
   } catch {}
 }
 
 async function deleteNetworkPolicy(name: string): Promise<void> {
   if (!clients) return;
   try {
-    await clients.networkingApi.deleteNamespacedNetworkPolicy({ name, namespace: NAMESPACE });
+    await clients.networkingApi.deleteNamespacedNetworkPolicy({ name, namespace });
   } catch {}
 }
 
-async function sweepNamespace(): Promise<void> {
-  if (!clients) return;
-  const [jobs, cms, pvcs, pods, svcs, nps] = await Promise.all([
-    clients.batchApi.listNamespacedJob({ namespace: NAMESPACE }).catch(() => ({ items: [] })),
-    clients.coreApi
-      .listNamespacedConfigMap({ namespace: NAMESPACE })
-      .catch(() => ({ items: [] })),
-    clients.coreApi
-      .listNamespacedPersistentVolumeClaim({ namespace: NAMESPACE })
-      .catch(() => ({ items: [] })),
-    clients.coreApi.listNamespacedPod({ namespace: NAMESPACE }).catch(() => ({ items: [] })),
-    clients.coreApi
-      .listNamespacedService({ namespace: NAMESPACE })
-      .catch(() => ({ items: [] })),
-    clients.networkingApi
-      .listNamespacedNetworkPolicy({ namespace: NAMESPACE })
-      .catch(() => ({ items: [] })),
-  ]);
-  const jobNames = (jobs.items ?? [])
-    .map((j: k8s.V1Job) => j.metadata?.name)
-    .filter((n): n is string => !!n && (n.startsWith("judge-") || n.startsWith("nojv-")));
-  const cmNames = (cms.items ?? [])
-    .map((c: k8s.V1ConfigMap) => c.metadata?.name)
-    .filter((n): n is string => !!n && (n.startsWith("judge-") || n.startsWith("nojv-")));
-  const pvcNames = (pvcs.items ?? [])
-    .map((p: k8s.V1PersistentVolumeClaim) => p.metadata?.name)
-    .filter((n): n is string => !!n && n.startsWith("judge-"));
-  const podNames = (pods.items ?? [])
-    .map((p: k8s.V1Pod) => p.metadata?.name)
-    .filter((n): n is string => !!n && n.startsWith("judge-") && n.endsWith("-sidecar"));
-  const svcNames = (svcs.items ?? [])
-    .map((s: k8s.V1Service) => s.metadata?.name)
-    .filter((n): n is string => !!n && n.startsWith("judge-") && n.endsWith("-sidecar"));
-  const npNames = (nps.items ?? [])
-    .map((p: k8s.V1NetworkPolicy) => p.metadata?.name)
-    .filter((n): n is string => !!n && n.startsWith("judge-") && n.endsWith("-egress"));
-  await Promise.all([
-    ...jobNames.map((n) => deleteJob(n)),
-    ...cmNames.map((n) => deleteConfigMap(n)),
-    ...pvcNames.map((n) => deletePvc(n)),
-    ...podNames.map((n) => deletePod(n)),
-    ...svcNames.map((n) => deleteService(n)),
-    ...npNames.map((n) => deleteNetworkPolicy(n)),
-  ]);
-}
-
 beforeAll(async () => {
-  try {
-    const k8sLib = require("@kubernetes/client-node") as typeof k8s;
-    const kc = new k8sLib.KubeConfig();
-    kc.loadFromDefault();
-    const ctx = kc.getCurrentContext();
-    if (ctx !== "orbstack" && ctx !== "k3d-nojv-judge") {
-      // eslint-disable-next-line no-console
-      console.warn(
-        `[k8s-judge-integration] current context is "${ctx}", expected "orbstack" or "k3d-nojv-judge"`,
-      );
-    }
-    const coreApi = kc.makeApiClient(k8sLib.CoreV1Api);
-    const batchApi = kc.makeApiClient(k8sLib.BatchV1Api);
-    const networkingApi = kc.makeApiClient(k8sLib.NetworkingV1Api);
-    await coreApi.listNamespacedPod({ namespace: NAMESPACE });
-    clients = { coreApi, batchApi, networkingApi };
-    await sweepNamespace();
-  } catch (err) {
-    clusterUnreachableReason = err instanceof Error ? err.message : String(err);
-    if (process.env.REQUIRE_K8S === "1") {
-      throw new Error(
-        `REQUIRE_K8S=1 but the cluster is unreachable: ${clusterUnreachableReason}`,
-      );
-    }
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[k8s-judge-integration] cluster unreachable, skipping suite: ${clusterUnreachableReason}`,
-    );
-  }
+  assertK8sIntegrationOptIn(process.env);
+  const k8sLib = require("@kubernetes/client-node") as typeof k8s;
+  const kc = new k8sLib.KubeConfig();
+  kc.loadFromDefault();
+  const target = assertSafeK8sIntegrationTarget({
+    env: process.env,
+    context: kc.getCurrentContext(),
+    server: kc.getCurrentCluster()?.server ?? "",
+  });
+  namespace = target.namespace;
+
+  const coreApi = kc.makeApiClient(k8sLib.CoreV1Api);
+  const batchApi = kc.makeApiClient(k8sLib.BatchV1Api);
+  const networkingApi = kc.makeApiClient(k8sLib.NetworkingV1Api);
+  await coreApi.listNamespacedPod({ namespace });
+  clients = { coreApi, batchApi, networkingApi };
 }, 30_000);
 
 afterEach(async () => {
@@ -276,23 +232,16 @@ afterEach(async () => {
   ]);
 }, 60_000);
 
-afterAll(async () => {
-  await sweepNamespace();
-}, 60_000);
-
-function skipIfUnreachable(ctx: { skip: () => void }): boolean {
-  if (clusterUnreachableReason !== null) {
-    // eslint-disable-next-line no-console
-    console.warn(`[skip] cluster unreachable: ${clusterUnreachableReason}`);
-    ctx.skip();
-    return true;
-  }
-  return false;
+function makeExecutor(): K8sExecutor {
+  if (!clients) throw new Error("clients not initialised");
+  return new K8sExecutor({ ...EXECUTOR_CONFIG, namespace }, clients);
 }
 
-function makeExecutor(): K8sExecutor {
-  if (!clients) throw new Error("clients not initialised — beforeAll must have skipped");
-  return new K8sExecutor(EXECUTOR_CONFIG, clients);
+function execute(request: SandboxRequest) {
+  return makeExecutor().execute(request, {
+    runId: request.submissionId,
+    signal: new AbortController().signal,
+  });
 }
 
 function sidecarLeaked(pods: k8s.V1Pod[], name: string): boolean {
@@ -302,9 +251,7 @@ function sidecarLeaked(pods: k8s.V1Pod[], name: string): boolean {
 }
 
 describe("K8s judge — standard mode", () => {
-  it("AC: correct python solution", { timeout: STANDARD_TIMEOUT_MS }, async (ctx) => {
-    if (skipIfUnreachable(ctx)) return;
-
+  it("AC: correct python solution", { timeout: STANDARD_TIMEOUT_MS }, async () => {
     const submissionId = `k8s-std-correct-${Date.now()}`;
     trackSubmission(submissionId);
 
@@ -322,7 +269,7 @@ describe("K8s judge — standard mode", () => {
       limits: { timeoutMs: 5_000, memoryMb: 128 },
     };
 
-    const result = await makeExecutor().execute(request);
+    const result = await execute(request);
     expect(result.compilationError).toBeUndefined();
     expect(result.pipelineError).toBeUndefined();
     expect(result.testcaseResults.length).toBe(2);
@@ -334,9 +281,7 @@ describe("K8s judge — standard mode", () => {
   it(
     "ISOLATION: exploit reading expected files cannot get AC",
     { timeout: STANDARD_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-
+    async () => {
       const submissionId = `k8s-std-exploit-${Date.now()}`;
       trackSubmission(submissionId);
 
@@ -366,7 +311,7 @@ print("".join(chunks))
         limits: { timeoutMs: 5_000, memoryMb: 128 },
       };
 
-      const result = await makeExecutor().execute(request);
+      const result = await execute(request);
       expect(result.compilationError).toBeUndefined();
       expect(result.testcaseResults.length).toBe(2);
       for (const tc of result.testcaseResults) {
@@ -378,9 +323,7 @@ print("".join(chunks))
   it(
     "AC: multi_file solution (main.py imports lib.py)",
     { timeout: STANDARD_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-
+    async () => {
       const submissionId = `k8s-std-multifile-${Date.now()}`;
       trackSubmission(submissionId);
 
@@ -407,7 +350,7 @@ print("".join(chunks))
         limits: { timeoutMs: 5_000, memoryMb: 128 },
       };
 
-      const result = await makeExecutor().execute(request);
+      const result = await execute(request);
       expect(result.compilationError).toBeUndefined();
       expect(result.pipelineError).toBeUndefined();
       expect(result.testcaseResults.length).toBe(2);
@@ -439,13 +382,11 @@ describe("K8s judge — checker mode", () => {
   it(
     "AC: correct solution graded by isolated validator",
     { timeout: STANDARD_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-
+    async () => {
       const submissionId = `k8s-chk-correct-${Date.now()}`;
       trackSubmission(submissionId);
 
-      const result = await makeExecutor().execute(
+      const result = await execute(
         checkerRequest({
           submissionId,
           sourceCode: "a, b = map(int, input().split())\nprint(a, b, a + b)\n",
@@ -463,13 +404,11 @@ describe("K8s judge — checker mode", () => {
   it(
     "WA: wrong solution graded by isolated validator",
     { timeout: STANDARD_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-
+    async () => {
       const submissionId = `k8s-chk-wrong-${Date.now()}`;
       trackSubmission(submissionId);
 
-      const result = await makeExecutor().execute(
+      const result = await execute(
         checkerRequest({ submissionId, sourceCode: "print('totally wrong')\n" }),
       );
 
@@ -483,13 +422,11 @@ describe("K8s judge — checker mode", () => {
   it(
     "WA: prefix-only solution graded by isolated validator (checker is AC/WA only)",
     { timeout: STANDARD_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-
+    async () => {
       const submissionId = `k8s-chk-partial-${Date.now()}`;
       trackSubmission(submissionId);
 
-      const result = await makeExecutor().execute(
+      const result = await execute(
         checkerRequest({
           submissionId,
           sourceCode: "a, b = map(int, input().split())\nprint(a, b)\n",
@@ -506,9 +443,7 @@ describe("K8s judge — checker mode", () => {
   it(
     "ISOLATION: exploit reading validator.* or answer files cannot get AC",
     { timeout: STANDARD_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-
+    async () => {
       const submissionId = `k8s-chk-exploit-${Date.now()}`;
       trackSubmission(submissionId);
 
@@ -526,9 +461,7 @@ for p in (
 print("".join(chunks))
 `;
 
-      const result = await makeExecutor().execute(
-        checkerRequest({ submissionId, sourceCode: exploit }),
-      );
+      const result = await execute(checkerRequest({ submissionId, sourceCode: exploit }));
 
       expect(result.compilationError).toBeUndefined();
       expect(result.testcaseResults.length).toBe(2);
@@ -560,13 +493,11 @@ describe("K8s judge — interactive mode", () => {
   it(
     "AC: binary search solution with partial score from interactor",
     { timeout: INTERACTIVE_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-
+    async () => {
       const submissionId = `k8s-int-correct-${Date.now()}`;
       trackSubmission(submissionId, { interactiveCases: [0, 1] });
 
-      const result = await makeExecutor().execute(
+      const result = await execute(
         interactiveRequest({ submissionId, sourceCode: BINARY_SEARCH_SOLUTION }),
       );
 
@@ -581,13 +512,11 @@ describe("K8s judge — interactive mode", () => {
   it(
     "stubborn always-zero solution does NOT get AC (budget exhausted)",
     { timeout: INTERACTIVE_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-
+    async () => {
       const submissionId = `k8s-int-stubborn-${Date.now()}`;
       trackSubmission(submissionId, { interactiveCases: [0, 1] });
 
-      const result = await makeExecutor().execute(
+      const result = await execute(
         interactiveRequest({ submissionId, sourceCode: STUBBORN_SOLUTION }),
       );
 
@@ -602,9 +531,7 @@ describe("K8s judge — interactive mode", () => {
   it(
     "ISOLATION: solution container cannot read the secret input",
     { timeout: INTERACTIVE_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-
+    async () => {
       const submissionId = `k8s-int-exploit-${Date.now()}`;
       trackSubmission(submissionId, { interactiveCases: [0, 1] });
 
@@ -630,9 +557,7 @@ for _ in range(20):
         break
 `;
 
-      const result = await makeExecutor().execute(
-        interactiveRequest({ submissionId, sourceCode: exploit }),
-      );
+      const result = await execute(interactiveRequest({ submissionId, sourceCode: exploit }));
 
       expect(result.compilationError).toBeUndefined();
       expect(result.testcaseResults.length).toBe(2);
@@ -675,13 +600,11 @@ describe("K8s judge — advanced mode", () => {
   it(
     "AC: correct sum solution through run+grade split (network none)",
     { timeout: ADVANCED_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-
+    async () => {
       const submissionId = `k8s-adv-correct-${Date.now()}`;
       trackSubmission(submissionId, { advanced: true });
 
-      const result = await makeExecutor().execute(
+      const result = await execute(
         advancedRequest(submissionId, SUM_SOLUTION, { mode: "none" }),
       );
       expect(result.compilationError).toBeUndefined();
@@ -695,13 +618,11 @@ describe("K8s judge — advanced mode", () => {
   it(
     "WA: wrong sum solution through run+grade split (network none)",
     { timeout: ADVANCED_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-
+    async () => {
       const submissionId = `k8s-adv-wrong-${Date.now()}`;
       trackSubmission(submissionId, { advanced: true });
 
-      const result = await makeExecutor().execute(
+      const result = await execute(
         advancedRequest(submissionId, WRONG_SUM_SOLUTION, { mode: "none" }),
       );
       expect(result.compilationError).toBeUndefined();
@@ -714,20 +635,20 @@ describe("K8s judge — advanced mode", () => {
   );
 
   it(
-    "AC: service network mode wires service sidecar Pod/Service + still judges",
+    "AC: service network mode submission reaches the dedicated service /health endpoint",
     { timeout: ADVANCED_TIMEOUT_MS },
-    async (ctx) => {
-      if (skipIfUnreachable(ctx)) return;
-      if (!clients) return;
+    async () => {
+      const activeClients = clients;
+      if (!activeClients) throw new Error("clients not initialised");
 
       const submissionId = `k8s-adv-service-${Date.now()}`;
       const base = `judge-${submissionId}`;
       trackSubmission(submissionId, { advanced: true });
 
-      const result = await makeExecutor().execute(
-        advancedRequest(submissionId, SUM_SOLUTION, {
+      const result = await execute(
+        advancedRequest(submissionId, SERVICE_HEALTH_SUM_SOLUTION, {
           mode: "service",
-          service: { imageRef: DEMO_RUN_IMAGE, imageSource: "registry" },
+          service: { imageRef: DEMO_SERVICE_IMAGE, imageSource: "registry" },
         }),
       );
 
@@ -737,14 +658,14 @@ describe("K8s judge — advanced mode", () => {
       expect(result.testcaseResults.every((tc) => tc.verdict === "AC")).toBe(true);
       expect(result.customScore).toBe(100);
 
-      const svcAfter = await clients.coreApi
-        .listNamespacedService({ namespace: NAMESPACE })
+      const svcAfter = await activeClients.coreApi
+        .listNamespacedService({ namespace })
         .catch(() => ({ items: [] }));
       expect((svcAfter.items ?? []).some((s) => s.metadata?.name === `${base}-sidecar`)).toBe(
         false,
       );
-      const podsAfter = await clients.coreApi
-        .listNamespacedPod({ namespace: NAMESPACE })
+      const podsAfter = await activeClients.coreApi
+        .listNamespacedPod({ namespace })
         .catch(() => ({ items: [] }));
       expect(sidecarLeaked(podsAfter.items ?? [], `${base}-sidecar`)).toBe(false);
     },

@@ -1,5 +1,6 @@
 import { m } from "$lib/paraglide/messages.js";
-import { loadDraft, saveDraft, type DraftContext } from "$lib/stores/code-draft";
+import { buildDraftKey, loadDraft, saveDraft, type DraftContext } from "$lib/stores/code-draft";
+import { createDraftAutosaveQueue, type DraftSnapshot } from "$lib/stores/draft-autosave";
 import { shortcuts } from "$lib/stores/shortcuts.svelte";
 import { toasts } from "$lib/stores/toast";
 import type { Language } from "@nojv/core";
@@ -7,7 +8,7 @@ import type { Language } from "@nojv/core";
 interface DraftControllerArgs {
   problemId: string;
   isWorkspaceMode: () => boolean;
-  draftContext: () => DraftContext | undefined;
+  draftContext: () => DraftContext;
   language: () => Language;
   currentCode: () => string;
   starterFor: (lang: Language) => string;
@@ -32,74 +33,88 @@ export function createDraftController(args: DraftControllerArgs): DraftControlle
   const lastSavedAt = $state<Record<string, number | null>>({});
   const hydratedLanguages = $state<Record<string, boolean>>({});
 
-  const enabled = $derived(!args.isWorkspaceMode() && args.draftContext() !== undefined);
-  const isDirty = $derived(
-    enabled && args.currentCode() !== (lastSavedCode[args.language()] ?? ""),
+  const currentDraftKey = $derived(
+    buildDraftKey({
+      context: args.draftContext(),
+      problemId: args.problemId,
+      language: args.language(),
+    }),
   );
-  const currentLastSavedAt = $derived(enabled ? (lastSavedAt[args.language()] ?? null) : null);
+  const enabled = $derived(!args.isWorkspaceMode());
+  const isDirty = $derived(
+    enabled && args.currentCode() !== (lastSavedCode[currentDraftKey] ?? ""),
+  );
+  const currentLastSavedAt = $derived(enabled ? (lastSavedAt[currentDraftKey] ?? null) : null);
 
   function hydrate() {
     const ctx = args.draftContext();
-    if (args.isWorkspaceMode() || !ctx) return;
+    if (args.isWorkspaceMode()) return;
     const lang = args.language();
-    if (hydratedLanguages[lang]) return;
+    const draftKey = buildDraftKey({ context: ctx, problemId: args.problemId, language: lang });
+    if (hydratedLanguages[draftKey]) return;
     const record = loadDraft({ context: ctx, problemId: args.problemId, language: lang });
     if (record) {
       args.applyCode(lang, record.code);
-      lastSavedCode[lang] = record.code;
-      lastSavedAt[lang] = record.savedAt;
+      lastSavedCode[draftKey] = record.code;
+      lastSavedAt[draftKey] = record.savedAt;
     } else {
       const starter = args.starterFor(lang);
       args.applyCode(lang, starter);
-      lastSavedCode[lang] = starter;
-      lastSavedAt[lang] = null;
+      lastSavedCode[draftKey] = starter;
+      lastSavedAt[draftKey] = null;
     }
-    hydratedLanguages[lang] = true;
+    hydratedLanguages[draftKey] = true;
   }
 
-  let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
+  function currentSnapshot(): DraftSnapshot | null {
+    const context = args.draftContext();
+    if (args.isWorkspaceMode()) return null;
+    return {
+      context,
+      problemId: args.problemId,
+      language: args.language(),
+      code: args.currentCode(),
+    };
+  }
 
-  function persist(notify: boolean) {
-    const ctx = args.draftContext();
-    if (args.isWorkspaceMode() || !ctx) return;
-    const lang = args.language();
-    const code = args.currentCode();
+  function persist(snapshot: DraftSnapshot, notify: boolean) {
     try {
-      const record = saveDraft(
-        { context: ctx, problemId: args.problemId, language: lang },
-        code,
-      );
-      lastSavedCode[lang] = code;
-      lastSavedAt[lang] = record.savedAt;
-      if (notify) toasts.add({ type: "success", message: m.draft_saved() });
+      const record = saveDraft(snapshot, snapshot.code);
+      const draftKey = buildDraftKey(snapshot);
+      lastSavedCode[draftKey] = snapshot.code;
+      lastSavedAt[draftKey] = record.savedAt;
+      if (notify) toasts.success(m.draft_saved());
     } catch {
-      if (notify) toasts.add({ type: "error", message: m.draft_saveFailed() });
+      if (notify) toasts.error(m.draft_saveFailed());
     }
   }
+
+  const autosave = createDraftAutosaveQueue(AUTOSAVE_DELAY_MS, (snapshot) =>
+    persist(snapshot, false),
+  );
 
   function save() {
-    persist(true);
+    const snapshot = currentSnapshot();
+    if (!snapshot) return;
+    autosave.cancel(snapshot);
+    persist(snapshot, true);
   }
 
   function scheduleAutosave() {
     if (!enabled || !isDirty) return;
-    if (autosaveTimer) clearTimeout(autosaveTimer);
-    autosaveTimer = setTimeout(() => {
-      autosaveTimer = null;
-      persist(false);
-    }, AUTOSAVE_DELAY_MS);
+    const snapshot = currentSnapshot();
+    if (snapshot) autosave.schedule(snapshot);
   }
 
   function dispose() {
-    if (autosaveTimer) {
-      clearTimeout(autosaveTimer);
-      autosaveTimer = null;
-    }
-    if (enabled && isDirty) persist(false);
+    const snapshot = currentSnapshot();
+    const currentWasPending = snapshot ? autosave.has(snapshot) : false;
+    autosave.flushAll();
+    if (snapshot && enabled && isDirty && !currentWasPending) persist(snapshot, false);
   }
 
   function registerShortcut() {
-    if (args.isWorkspaceMode() || !args.draftContext()) return undefined;
+    if (args.isWorkspaceMode()) return undefined;
     return shortcuts.register({
       id: `editor-save:${args.problemId}`,
       keys: ["Ctrl", "S"],

@@ -1,0 +1,20 @@
+{{- if and .Values.storage.inCluster .Values.storage.minio.storageClass.create }}
+{{- $name := required "storage.minio.storageClass.name is required for in-cluster MinIO" .Values.storage.minio.storageClass.name }}
+{{- $provisioner := required "storage.minio.storageClass.provisioner is required when storage.minio.storageClass.create=true" .Values.storage.minio.storageClass.provisioner }}
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ $name }}
+  annotations:
+    "helm.sh/resource-policy": keep
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: minio-storage
+provisioner: {{ $provisioner }}
+reclaimPolicy: Retain
+volumeBindingMode: {{ .Values.storage.minio.storageClass.volumeBindingMode }}
+{{- with .Values.storage.minio.storageClass.parameters }}
+parameters:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- end }}

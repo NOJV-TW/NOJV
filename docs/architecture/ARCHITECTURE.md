@@ -135,15 +135,13 @@ actions must call those adapters or go through `@nojv/application` (e.g.
 `problemDomain.hydrateTestcaseSets`) — they must not import
 `@nojv/storage` directly. The ESLint rule above enforces this too.
 
-¶ `@nojv/db` declares `@nojv/redis` and `@nojv/storage` as runtime
-dependencies, but only its seed and one-off ops scripts
-(`prisma/seed.ts`, `prisma/seeds/*`, `prisma/scripts/*`) import them —
-to open a Redis connection (closed at the end of the seed) and upload
-demo problem blobs. The shipped
-library (`src/` → `dist/`) imports neither, so the layer graph above
-holds for everything that runs in production request paths. They stay
-in `dependencies` (not `devDependencies`) because the seed runs inside
-the minimal `migrator` image, which installs `@nojv/db` only.
+¶ `@nojv/db` declares `@nojv/storage` as a runtime dependency, but only its
+seed and one-off ops scripts (`prisma/seed.ts`, `prisma/seeds/*`,
+`prisma/scripts/*`) import it to upload demo problem blobs. The shipped
+library (`src/` → `dist/`) does not, so the layer graph above holds for
+everything that runs in production request paths. Storage stays in
+`dependencies` (not `devDependencies`) because the seed runs inside the
+minimal `migrator` image, which installs `@nojv/db` only.
 
 ## Runtime Entry Points
 

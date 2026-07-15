@@ -25,8 +25,9 @@ What it does **not** measure (deliberately, today):
 > Region: `prod-ap-northeast-0` (Grafana Cloud free tier). Free tier caps
 > total active series at 10k. Cardinality budget is roughly: ~3,750 series
 > for `api_request_duration_seconds` (≈150 routes × 5 methods × 5 status
-> classes), ~18 for `judge_latency_seconds`, plus single-digit counts for
-> the others — comfortably under cap.
+> classes), ~18 for `judge_latency_seconds`, at most six label combinations
+> for `health_probe_duration_seconds`, plus single-digit counts for the others
+> — comfortably under cap.
 
 ## Self-hosted observability (no external cloud)
 
@@ -43,6 +44,7 @@ collector needs just the endpoint).
   ```bash
   helm upgrade --install nojv infra/charts/nojv \
     -f infra/charts/nojv/values-single-machine.yaml \
+    -f production-values.yaml \
     --set observability.collector.enabled=true \
     --set observability.prometheus.enabled=true \
     --set observability.grafana.enabled=true
@@ -255,6 +257,9 @@ Logging) or traces, not metrics.
 Bucketed labels are fine — `close_reason` on
 `sse_connection_duration_seconds_count` (a small, fixed set of reasons)
 keeps cardinality low while preserving signal.
+`health_probe_duration_seconds` is likewise limited to the Cartesian product
+of three hard-coded `probe` values and two `result` values. Never replace the
+probe label with a raw request path.
 
 ## Updating dashboards
 
@@ -379,6 +384,10 @@ stack.
   metric now covers all `handle` exit paths. Drill into
   `route="/api/auth/callback/[provider]"` if investigating an OAuth
   regression.
+- **Health probes are outside the API SLO population.** The three exact web
+  probe paths record `health_probe_duration_seconds` and intentionally do not
+  record `api_request_duration_seconds`; API latency and 5xx panels therefore
+  represent user/API traffic rather than Kubernetes polling.
 
 ## PromQL queries used by each dashboard panel
 

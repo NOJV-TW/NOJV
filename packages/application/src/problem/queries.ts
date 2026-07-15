@@ -121,7 +121,7 @@ async function mapPersistedProblemDetail(
     workspaceFiles?: {
       language: string;
       path: string;
-      contentKey: string;
+      contentStorage: unknown;
       visibility: string;
       orderIndex?: number;
       description?: string;
@@ -141,7 +141,8 @@ async function mapPersistedProblemDetail(
   const visibleWorkspaceFiles = await Promise.all(
     rawFiles.map(async (f) => {
       const visibility = f.visibility as "editable" | "readonly" | "hidden";
-      const content = visibility === "hidden" ? "" : await readWorkspaceFileBlob(f.contentKey);
+      const content =
+        visibility === "hidden" ? "" : await readWorkspaceFileBlob(f.contentStorage);
       return {
         language: f.language,
         path: f.path,

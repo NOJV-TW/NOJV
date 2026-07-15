@@ -35,8 +35,19 @@ Common labels.
 {{- define "nojv.labels" -}}
 helm.sh/chart: {{ include "nojv.chart" . }}
 {{ include "nojv.selectorLabels" . }}
+{{- if .Values.image.allowUnpinnedLocalBuilds }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+{{- else }}
+{{- $sourceSha := required "release.sourceSha is required for non-local releases" .Values.release.sourceSha }}
+{{- if not (regexMatch "^[a-f0-9]{40}$" $sourceSha) }}
+{{- fail "release.sourceSha must be a lowercase 40-character commit SHA" }}
+{{- end }}
+{{- if ne $sourceSha (default .Chart.AppVersion .Values.image.tag) }}
+{{- fail "release.sourceSha must equal image.tag" }}
+{{- end }}
+app.kubernetes.io/version: {{ $sourceSha | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/part-of: nojv
@@ -77,10 +88,27 @@ Looks up .Values.image.repositories.<component> for the path suffix.
 {{- $registry := $img.registry -}}
 {{- $prefix := $img.repositoryPrefix -}}
 {{- $tag := default $root.Chart.AppVersion $img.tag -}}
+{{- $name := $repo -}}
+{{- if $prefix -}}
+{{- $name = printf "%s/%s" $prefix $name -}}
+{{- end -}}
 {{- if $registry -}}
-{{- printf "%s/%s/%s:%s" $registry $prefix $repo $tag -}}
+{{- $name = printf "%s/%s" $registry $name -}}
+{{- end -}}
+{{- if $img.allowUnpinnedLocalBuilds -}}
+{{- if or $registry $prefix -}}
+{{- fail "image.allowUnpinnedLocalBuilds requires empty image.registry and image.repositoryPrefix" -}}
+{{- end -}}
+{{- if ne $tag "local" -}}
+{{- fail "image.allowUnpinnedLocalBuilds requires image.tag=local" -}}
+{{- end -}}
+{{- printf "%s:%s" $name $tag -}}
 {{- else -}}
-{{- printf "%s/%s:%s" $prefix $repo $tag -}}
+{{- $digest := required (printf "image.digests.%s is required and must be registry-verified" $component) (index $img.digests $component) -}}
+{{- if not (regexMatch "^sha256:[a-f0-9]{64}$" $digest) -}}
+{{- fail (printf "image.digests.%s must be sha256:<64 lowercase hex characters>" $component) -}}
+{{- end -}}
+{{- printf "%s:%s@%s" $name $tag $digest -}}
 {{- end -}}
 {{- end }}
 

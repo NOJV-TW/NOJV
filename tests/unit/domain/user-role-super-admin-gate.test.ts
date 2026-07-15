@@ -1,33 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { findById, update, findDisabledStatus, createAndCap, publishNotification } = vi.hoisted(
-  () => ({
-    findById: vi.fn(),
-    update: vi.fn((id: string, data: object) => Promise.resolve({ id, ...data })),
-    findDisabledStatus: vi.fn(),
-    createAndCap: vi.fn(() =>
-      Promise.resolve({
-        id: "ntf_1",
-        userId: "u1",
-        type: "role_changed",
-        params: {},
-        linkUrl: "/account",
-        createdAt: new Date("2026-01-01T00:00:00.000Z"),
-        read: false,
-      }),
-    ),
-    publishNotification: vi.fn(() => Promise.resolve()),
-  }),
-);
-
-vi.mock("@nojv/db", () => ({
-  userRepo: { findById, update, findDisabledStatus },
-  submissionRepo: {},
-  notificationRepo: { createAndCap },
+const { findById, update, findDisabledStatus, createNotification } = vi.hoisted(() => ({
+  findById: vi.fn(),
+  update: vi.fn((id: string, data: object) =>
+    Promise.resolve({ id, ...data, updatedAt: new Date("2026-01-01T00:00:00.000Z") }),
+  ),
+  findDisabledStatus: vi.fn(),
+  createNotification: vi.fn(),
 }));
 
-vi.mock("@nojv/redis", () => ({
-  pubsub: { publishNotification },
+vi.mock("@nojv/db", () => ({
+  userRepo: {
+    findById,
+    update,
+    findDisabledStatus,
+    withTx: () => ({ findById, update }),
+  },
+  submissionRepo: {},
+  runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
+}));
+
+vi.mock("../../../packages/application/src/notification", () => ({
+  createNotificationInTransaction: createNotification,
 }));
 
 import { userDomain } from "@nojv/application";
@@ -61,10 +55,11 @@ describe("updateUserRole — super-admin gate", () => {
     expect(update).toHaveBeenCalledWith("u1", { platformRole: "admin" });
   });
 
-  it("demoting an admin clears isSuperAdmin", async () => {
+  it("demotes an admin and clears isSuperAdmin in one database update", async () => {
     findById.mockResolvedValue({ id: "u1", platformRole: "admin" });
     await updateUserRole(true, "u1", "teacher");
     expect(update).toHaveBeenCalledWith("u1", { platformRole: "teacher", isSuperAdmin: false });
+    expect(update).toHaveBeenCalledOnce();
   });
 
   it("a regular admin may still move a non-admin between teacher and student", async () => {

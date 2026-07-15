@@ -8,14 +8,13 @@ const contest = proxyActivities<typeof lifecycleActivities>(SHORT_ACTIVITY);
 const notification = proxyActivities<typeof lifecycleActivities>(NOTIFICATION_ACTIVITY);
 
 export async function contestLifecycleWorkflow(input: ContestLifecycleInput): Promise<void> {
-  const contestInfo = await contest.getContestInfo(input.contestId);
-  const endsAt = new Date(contestInfo.endsAt).getTime();
+  const endsAt = Date.parse(input.endsAt);
 
-  const startsAtMs = new Date(contestInfo.startsAt).getTime();
+  const startsAtMs = Date.parse(input.startsAt);
   for (const cp of computeReminderCheckpoints(startsAtMs, 0, Date.now())) {
     const ms = cp.atMs - Date.now();
     if (ms > 0) await sleep(ms);
-    await contest.fanoutContestStartingSoon(input.contestId, cp.leadDays);
+    await contest.fanoutContestStartingSoon(input, cp.leadDays);
   }
 
   const msUntilStart = startsAtMs - Date.now();
@@ -23,15 +22,15 @@ export async function contestLifecycleWorkflow(input: ContestLifecycleInput): Pr
     await sleep(msUntilStart);
   }
 
-  await contest.activateContest(input.contestId);
+  if (!(await contest.activateContest(input))) return;
   await notification.publishContestEvent(input.contestId, "starting");
 
-  if (contestInfo.freezeTime) {
-    const msUntilFreeze = new Date(contestInfo.freezeTime).getTime() - Date.now();
+  if (input.scoreboardMode === "frozen" && input.frozenAt) {
+    const msUntilFreeze = Date.parse(input.frozenAt) - Date.now();
     if (msUntilFreeze > 0) {
       await sleep(msUntilFreeze);
-      await contest.freezeScoreboard(input.contestId);
     }
+    if (!(await contest.freezeScoreboard(input))) return;
   }
 
   const msUntilEnd = endsAt - Date.now();
@@ -39,6 +38,6 @@ export async function contestLifecycleWorkflow(input: ContestLifecycleInput): Pr
     await sleep(msUntilEnd);
   }
 
-  await contest.finalizeContest(input.contestId);
+  if (!(await contest.finalizeContest(input))) return;
   await notification.publishContestEvent(input.contestId, "ending");
 }

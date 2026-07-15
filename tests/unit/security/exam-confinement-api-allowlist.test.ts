@@ -4,12 +4,12 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { isExamForbiddenApiPath } from "$lib/server/exam-lock";
+import { isExamForbiddenApiRequest } from "$lib/server/exam-lock";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const apiRoot = path.resolve(__dirname, "../../../apps/web/src/routes/api");
 
-type ExamClassification = "exam-safe" | "exam-confined";
+type ExamClassification = "exam-safe" | "exam-confined" | "exam-scoped";
 
 const REVIEWED_GET_ROUTES: Record<string, ExamClassification> = {
   "/api/admin/healthz": "exam-safe",
@@ -20,7 +20,7 @@ const REVIEWED_GET_ROUTES: Record<string, ExamClassification> = {
   "/api/events/stream": "exam-safe",
   "/api/exams/[examId]/ip-violations": "exam-safe",
   "/api/feedback": "exam-safe",
-  "/api/healthz": "exam-safe",
+  "/api/livez": "exam-safe",
   "/api/notifications": "exam-safe",
   "/api/notifications/unread-count": "exam-safe",
   "/api/openapi.internal.json": "exam-safe",
@@ -37,12 +37,13 @@ const REVIEWED_GET_ROUTES: Record<string, ExamClassification> = {
   "/api/problems/advanced-scaffold": "exam-safe",
   "/api/registry/token": "exam-safe",
   "/api/rejudges/[workflowId]": "exam-safe",
-  "/api/storage/avatars/[userId]": "exam-safe",
+  "/api/readyz": "exam-safe",
+  "/api/storage/avatars/[userId]/[filename]": "exam-safe",
   "/api/storage/problem-images/[problemId]/[filename]": "exam-safe",
   "/api/storage/user-content-images/[userId]/[filename]": "exam-safe",
-  "/api/submissions": "exam-safe",
-  "/api/submissions/[id]": "exam-safe",
-  "/api/submissions/[id]/source": "exam-safe",
+  "/api/submissions": "exam-scoped",
+  "/api/submissions/[id]": "exam-scoped",
+  "/api/submissions/[id]/source": "exam-scoped",
 };
 
 function serverDirToUrl(dir: string): string {
@@ -91,16 +92,32 @@ describe("every data-returning GET API route is a reviewed exam-confinement deci
     ).toEqual([]);
   });
 
-  it("every exam-confined route is actually blocked by isExamForbiddenApiPath", () => {
+  it("every exam-confined route is actually blocked by the request gate", () => {
     const confined = Object.entries(REVIEWED_GET_ROUTES)
       .filter(([, classification]) => classification === "exam-confined")
       .map(([route]) => route.replace(/\[[^\]]+\]/g, "x1"));
     expect(confined.length).toBeGreaterThan(0);
-    const unblocked = confined.filter((route) => !isExamForbiddenApiPath(route));
+    const unblocked = confined.filter((route) => !isExamForbiddenApiRequest(route, "GET"));
     expect(
       unblocked,
-      `Route(s) classified "exam-confined" but not blocked by isExamForbiddenApiPath — ` +
+      `Route(s) classified "exam-confined" but not blocked by isExamForbiddenApiRequest — ` +
         `extend the gate in apps/web/src/lib/server/exam-lock.ts: ${unblocked.join(", ")}`,
     ).toEqual([]);
+  });
+
+  it("only permits reviewed submission methods while an exam is active", () => {
+    expect(isExamForbiddenApiRequest("/api/submissions", "GET")).toBe(false);
+    expect(isExamForbiddenApiRequest("/api/submissions/sub_1", "GET")).toBe(false);
+    expect(isExamForbiddenApiRequest("/api/submissions/sub_1/source", "GET")).toBe(false);
+    expect(isExamForbiddenApiRequest("/api/submissions", "POST")).toBe(false);
+    for (const method of ["HEAD", "OPTIONS", "PUT", "PATCH", "DELETE"]) {
+      expect(isExamForbiddenApiRequest("/api/submissions", method)).toBe(true);
+    }
+    for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
+      expect(isExamForbiddenApiRequest("/api/submissions/sub_1", method)).toBe(true);
+      expect(isExamForbiddenApiRequest("/api/submissions/sub_1/source", method)).toBe(true);
+    }
+    expect(isExamForbiddenApiRequest("/api/submissions/sub_1/rejudge", "POST")).toBe(true);
+    expect(isExamForbiddenApiRequest("/api/submissions/sub_1/unreviewed", "GET")).toBe(true);
   });
 });

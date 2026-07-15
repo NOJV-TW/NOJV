@@ -1,5 +1,6 @@
 import { prisma } from "../client";
 import type { Prisma, AnnouncementAudience } from "../../generated/prisma/client";
+import type { TransactionClient } from "../transaction";
 
 export const announcementRepo = {
   listPublished(take: number, audiences?: AnnouncementAudience[]) {
@@ -82,5 +83,35 @@ export const announcementRepo = {
 
   delete(id: string) {
     return prisma.announcement.delete({ where: { id } });
+  },
+
+  withTx(tx: TransactionClient) {
+    return {
+      async findByIdForUpdate(id: string) {
+        const rows = await tx.$queryRaw<{ id: string }[]>`
+          SELECT id
+          FROM "Announcement"
+          WHERE id = ${id}
+          FOR UPDATE
+        `;
+        if (rows.length === 0) return null;
+        return tx.announcement.findUnique({
+          where: { id },
+          include: { translations: true },
+        });
+      },
+      findById(id: string) {
+        return tx.announcement.findUnique({
+          where: { id },
+          include: { translations: true },
+        });
+      },
+      create(data: Prisma.AnnouncementCreateInput) {
+        return tx.announcement.create({ data });
+      },
+      update(id: string, data: Prisma.AnnouncementUpdateInput) {
+        return tx.announcement.update({ where: { id }, data });
+      },
+    };
   },
 };

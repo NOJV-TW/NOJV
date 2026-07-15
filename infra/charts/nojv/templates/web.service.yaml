@@ -1,3 +1,9 @@
+{{- $annotations := deepCopy .Values.web.service.annotations }}
+{{- if and .Values.web.ingress.enabled (eq .Values.web.ingress.className "gce") }}
+{{- $edgeConfigName := printf "%s-web-edge" (include "nojv.fullname" .) }}
+{{- $_ := set $annotations "cloud.google.com/backend-config" (printf "{\"default\":\"%s\"}" $edgeConfigName) }}
+{{- $_ := set $annotations "cloud.google.com/neg" "{\"ingress\":true}" }}
+{{- end }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -6,6 +12,12 @@ metadata:
   labels:
     {{- include "nojv.labels" . | nindent 4 }}
     app.kubernetes.io/component: web
+  {{- with $annotations }}
+  annotations:
+    {{- range $key, $value := . }}
+    {{ $key }}: {{ $value | squote }}
+    {{- end }}
+  {{- end }}
 spec:
   type: {{ .Values.web.service.type }}
   selector:

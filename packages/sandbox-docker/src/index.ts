@@ -12,13 +12,18 @@ export function buildAdvancedServiceArgs(params: {
   memoryMb: number;
   cpuLimit: string;
   pidsLimit: number;
+  labels?: Readonly<Record<string, string>>;
 }): string[] {
+  const labelArgs = Object.entries(params.labels ?? {})
+    .sort(([left], [right]) => left.localeCompare(right))
+    .flatMap(([key, value]) => ["--label", `${key}=${value}`]);
   return [
     "run",
     "-d",
     "--rm",
     "--name",
     params.containerName,
+    ...labelArgs,
     "--network",
     params.internalName,
     "--network-alias",

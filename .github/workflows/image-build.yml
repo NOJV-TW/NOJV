@@ -2,37 +2,129 @@ name: Image Build
 
 on:
   pull_request:
-    paths:
-      - "infra/docker/**"
-      - "pnpm-lock.yaml"
-      - "**/package.json"
-      - "docker-compose.yml"
-      - "tsconfig.base.json"
-      - "turbo.json"
-      - "pnpm-workspace.yaml"
 
 concurrency:
   group: image-build-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
-  build:
-    name: Build deployable images
+  sandbox-smoke:
+    name: PR sandbox smoke
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: Build sandbox image
+        run: docker build -f infra/docker/sandbox-runner.Dockerfile -t nojv-sandbox:pr .
+
+      - name: Exercise the hardened container boundary
+        run: |
+          docker run --rm \
+            --network none \
+            --user 10001:10001 \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --read-only \
+            --tmpfs /tmp:rw,exec,nosuid,nodev,size=64m \
+            --pids-limit 64 \
+            --memory 256m \
+            --memory-swap 256m \
+            --cpus 1 \
+            nojv-sandbox:pr \
+            node -e '
+              const fs = require("node:fs");
+              const net = require("node:net");
+              if (process.getuid() !== 10001) process.exit(10);
+              try { fs.writeFileSync("/breakout", "x"); process.exit(11); }
+              catch (error) { if (error?.code !== "EROFS") throw error; }
+              const socket = net.connect({ host: "1.1.1.1", port: 443 });
+              const isolated = () => process.exit(0);
+              socket.once("connect", () => process.exit(13));
+              socket.once("error", isolated);
+              setTimeout(() => { socket.destroy(); isolated(); }, 2000);
+            '
+
+  classify:
+    name: Classify image impact
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      has_images: ${{ steps.impact.outputs.has_images }}
+      matrix: ${{ steps.impact.outputs.matrix }}
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Classify affected images
+        id: impact
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/classify-image-impact.mjs
+
+  build:
+    name: Build ${{ matrix.image }} image
+    needs: classify
+    if: needs.classify.outputs.has_images == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.classify.outputs.matrix) }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
-      - name: Build runtime images
+      - name: Build runtime image
+        env:
+          DOCKERFILE: ${{ matrix.dockerfile }}
+          TAG: ${{ matrix.tag }}
+        run: docker build -f "$DOCKERFILE" -t "$TAG" .
+
+  required-image-build:
+    name: Required image build
+    needs: [classify, build]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify image build result
+        env:
+          CLASSIFY_RESULT: ${{ needs.classify.result }}
+          HAS_IMAGES: ${{ needs.classify.outputs.has_images }}
+          BUILD_RESULT: ${{ needs.build.result }}
         run: |
-          docker build -f infra/docker/web.Dockerfile -t nojv-web .
-          docker build -f infra/docker/worker.Dockerfile -t nojv-worker .
-          docker build -f infra/docker/migrator.Dockerfile -t nojv-migrator .
-          docker build -f infra/docker/sandbox-runner.Dockerfile -t nojv-sandbox .
+          set -euo pipefail
+          if [[ "$CLASSIFY_RESULT" != "success" ]]; then
+            echo "Image impact classification did not succeed: $CLASSIFY_RESULT" >&2
+            exit 1
+          fi
+          if [[ "$HAS_IMAGES:$BUILD_RESULT" == "true:success" ]]; then
+            exit 0
+          fi
+          if [[ "$HAS_IMAGES:$BUILD_RESULT" == "false:skipped" ]]; then
+            exit 0
+          fi
+          echo "Invalid image build state: has_images=$HAS_IMAGES build=$BUILD_RESULT" >&2
+          exit 1

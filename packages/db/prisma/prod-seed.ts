@@ -9,10 +9,21 @@ const adapter = new PrismaPg({
 });
 const prisma = new PrismaClient({ adapter });
 
+function requiredEnvironment(name: string): string {
+  const value = process.env[name]?.trim();
+  if (!value) throw new Error(`${name} is required for the production seed`);
+  return value;
+}
+
 async function main() {
   console.log("Seeding production baseline (super admin + example problems)...");
   const adminId = await seedAdmin(prisma);
-  await seedProblems(prisma, adminId);
+  await seedProblems(prisma, adminId, {
+    advancedDemoImages: {
+      run: requiredEnvironment("SEED_ADVANCED_RUN_IMAGE"),
+      grade: requiredEnvironment("SEED_ADVANCED_GRADE_IMAGE"),
+    },
+  });
   console.log("Production seed complete.");
 }
 

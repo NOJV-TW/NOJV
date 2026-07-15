@@ -4,17 +4,13 @@ import {
   submissionOperationSchema,
   submissionResultSchema,
   type Language,
+  type SubmissionContext,
   type SubmissionResult,
   type SubmissionRunCase,
 } from "@nojv/core";
 
 import { fetchWithCsrf } from "$lib/services/http";
 import { watchSubmissionVerdict } from "$lib/stores/sse";
-
-export interface SubmissionAssessmentContext {
-  assessmentId: string;
-  courseId: string;
-}
 
 export interface SubmissionWorkspaceFile {
   path: string;
@@ -33,9 +29,7 @@ export class SubmissionRequestError extends Error {
 }
 
 export interface SubmissionRequest {
-  assessment?: SubmissionAssessmentContext | undefined;
-  contestId?: string | undefined;
-  participationId?: string | undefined;
+  context: SubmissionContext;
   language: Language;
   problemId: string;
   runCases?: SubmissionRunCase[];
@@ -56,24 +50,10 @@ const INITIAL_POLL_DELAY_MS = 500;
 const MAX_POLL_DELAY_MS = 5_000;
 const POLL_BACKOFF_FACTOR = 1.5;
 
-function resolveSubmissionMode(
-  request: SubmissionRequest,
-): "contest" | "assignment" | "practice" | "virtual" {
-  if (request.contestId) return "contest";
-  if (request.participationId) return "virtual";
-  if (request.assessment) return "assignment";
-  return "practice";
-}
-
 export function buildSubmissionBody(request: SubmissionRequest): Record<string, unknown> {
-  const mode = resolveSubmissionMode(request);
-
   const commonFields: Record<string, unknown> = {
-    assessment: request.assessment,
-    contestId: request.contestId,
-    participationId: request.participationId,
+    context: request.context,
     language: request.language,
-    mode,
     problemId: request.problemId,
     sampleOnly: request.sampleOnly ?? false,
   };

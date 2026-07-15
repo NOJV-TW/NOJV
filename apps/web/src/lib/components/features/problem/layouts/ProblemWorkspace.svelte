@@ -1,9 +1,14 @@
 <script lang="ts">
-  import { onMount, untrack } from "svelte";
+  import { onDestroy, onMount, untrack } from "svelte";
   import { page } from "$app/state";
-  import { languageSchema, type Language, type SubmissionResult } from "@nojv/core";
+  import {
+    languageSchema,
+    type Language,
+    type SubmissionContext,
+    type SubmissionResult,
+  } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
-  import { inferDraftContext } from "$lib/stores/code-draft";
+  import { draftContextFromSubmissionContext } from "$lib/stores/code-draft";
   import type {
     ProblemDetail,
     ProblemSubmissionEntry,
@@ -13,6 +18,7 @@
   import {
     DEFAULT_PANEL_WIDTH,
     clampPanelWidth,
+    createDocumentMouseDrag,
     persistPanelWidth,
     readPanelWidth,
   } from "../editors/editor-bindings";
@@ -20,18 +26,11 @@
 
   interface Props {
     allowedLanguages?: Language[] | undefined;
-    assessment?:
-      | {
-          assessmentId: string;
-          courseId: string;
-        }
-      | undefined;
+    context: SubmissionContext;
     backLink?: { href: string; type: "assignment" | "contest" } | undefined;
     canRejudge?: boolean;
     canViewEditorials?: boolean;
     postsEnabled?: boolean;
-    contestId?: string | undefined;
-    virtualContestId?: string | undefined;
     dailyAttempts?: { used: number; max: number | null; resetMinuteOfDay: number } | undefined;
     initialSubmissions?: ProblemSubmissionEntry[];
     problem: ProblemDetail;
@@ -40,13 +39,11 @@
 
   let {
     allowedLanguages,
-    assessment,
+    context,
     backLink,
     canRejudge = false,
     canViewEditorials = false,
     postsEnabled = false,
-    contestId,
-    virtualContestId,
     dailyAttempts,
     initialSubmissions,
     problem,
@@ -55,7 +52,7 @@
 
   let submissions = $state<ProblemSubmissionEntry[]>(untrack(() => initialSubmissions) ?? []);
 
-  let draftContext = $derived(inferDraftContext(page.route.id, page.params));
+  let draftContext = $derived(draftContextFromSubmissionContext(context));
 
   const initialLanguage = (() => {
     const fromSubmission = languageSchema.safeParse(
@@ -72,7 +69,7 @@
         id: submissionId,
         language,
         submittedAt: new Date().toISOString(),
-        context: draftContext.kind,
+        context: context.type,
       },
       ...submissions,
     ].slice(0, 50);
@@ -96,7 +93,7 @@
         result,
         sourceCode,
         submittedAt: new Date().toISOString(),
-        context: draftContext.kind,
+        context: context.type,
       },
       ...submissions,
     ].slice(0, 50);
@@ -118,31 +115,28 @@
     persistPanelWidth(DEFAULT_PANEL_WIDTH);
   }
 
-  function startResize(e: MouseEvent) {
-    e.preventDefault();
-    const container = (e.target as HTMLElement).parentElement;
-    if (!container) return;
-
-    const onMove = (ev: MouseEvent) => {
-      const rect = container.getBoundingClientRect();
-      setWidth(((ev.clientX - rect.left) / rect.width) * 100);
-    };
-
-    const onUp = () => {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
+  let resizeContainer: HTMLElement | null = null;
+  const resizeDrag = createDocumentMouseDrag({
+    cursor: "col-resize",
+    onStart: () => (isResizing = true),
+    onMove: (event) => {
+      if (!resizeContainer) return;
+      const rect = resizeContainer.getBoundingClientRect();
+      setWidth(((event.clientX - rect.left) / rect.width) * 100);
+    },
+    onEnd: () => {
       isResizing = false;
       persistPanelWidth(leftPanelWidth);
-    };
+      resizeContainer = null;
+    },
+  });
 
-    isResizing = true;
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
+  function startResize(event: MouseEvent) {
+    resizeContainer = (event.currentTarget as HTMLElement).parentElement;
+    if (resizeContainer) resizeDrag.start(event);
   }
+
+  onDestroy(resizeDrag.dispose);
 </script>
 
 <div
@@ -196,9 +190,7 @@
 <div class="hidden flex-1 flex-col overflow-hidden lg:flex">
   <ProblemEditor
     {allowedLanguages}
-    {assessment}
-    {contestId}
-    {virtualContestId}
+    {context}
     {draftContext}
     {initialLanguage}
     onSubmissionDispatched={handleSubmissionDispatched}

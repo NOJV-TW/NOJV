@@ -23,6 +23,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { formatDateTime } from "$lib/utils/datetime";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
+  import { formatChartSummary } from "$lib/utils/chart-summary";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -178,6 +179,12 @@
       <EChart
         option={dailyOption}
         ariaLabel={m.admin_overviewSubmissionTrend()}
+        summary={formatChartSummary(
+          data.dailySeries.map((entry) => ({
+            label: entry.label,
+            value: `${m.admin_overviewSubmissionTrend()} ${entry.total}, ${m.admin_overviewAccepted()} ${entry.accepted}`,
+          })),
+        )}
         class="h-70 w-full"
       />
     </Card>
@@ -247,6 +254,11 @@
       <EChart
         option={roleOption}
         ariaLabel={m.admin_overviewUserRoleDist()}
+        summary={formatChartSummary([
+          { label: m.admin_overviewRoleAdmin(), value: data.roleCounts.admin },
+          { label: m.admin_overviewRoleTeacher(), value: data.roleCounts.teacher },
+          { label: m.admin_overviewRoleStudent(), value: data.roleCounts.student },
+        ])}
         class="h-60 w-full"
       />
     </Card>
@@ -264,6 +276,12 @@
       <EChart
         option={statusOption}
         ariaLabel={m.admin_overviewStatusDist()}
+        summary={formatChartSummary(
+          data.statusBreakdown.map((entry) => ({
+            label: entry.name.replaceAll("_", " "),
+            value: entry.value,
+          })),
+        )}
         class="h-60 w-full"
       />
     </Card>

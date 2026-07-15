@@ -20,7 +20,7 @@ shadcn-svelte-style components in `$lib/components/primitives/ui/`:
 | --------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | Button    | `default`, `destructive`, `outline`, `secondary`, `ghost`, `link`; sizes: `default`, `sm`, `lg`, `icon`, `icon-sm`, `icon-lg` |
 | Badge     | `default`, `secondary`, `destructive`, `outline`; renders as `<a>` or `<span>`                                                |
-| Card      | Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter, CardAction                                             |
+| Card      | Card                                                                                                                          |
 | Dialog    | Full set: trigger, content, header, footer, overlay, close, portal                                                            |
 | Select    | Full set with scroll buttons, groups, portal                                                                                  |
 | Input     | Single styled input component                                                                                                 |

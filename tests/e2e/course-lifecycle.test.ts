@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import path from "node:path";
+import { formActionHeaders } from "./_shared";
 
 const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/teacher.json");
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
@@ -22,7 +23,7 @@ test.describe("Course Lifecycle", () => {
         title: COURSE_TITLE,
         description: "Automated E2E test course for lifecycle verification.",
       },
-      headers: { origin: "http://localhost:5173" },
+      headers: formActionHeaders,
     });
 
     const body = (await res.json()) as { type: string; location?: string };

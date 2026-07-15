@@ -16,6 +16,16 @@ The spectrum is: **single-node k3s** (this runbook) → **multi-node k3s**
 (`k3s agent` join, [§9](#9-scaling-from-one-node-to-many)) → **GKE** (elastic
 node pools).
 
+The default in-cluster MinIO configuration creates the dedicated
+`nojv-minio-retain` StorageClass with `reclaimPolicy: Retain`. Both that class
+and the MinIO PVC carry Helm's `keep` policy, so disabling the value or
+uninstalling the release does not delete the claim or its bound volume. Before
+first production use, verify the live class with
+`kubectl get storageclass nojv-minio-retain -o jsonpath='{.reclaimPolicy}'`; it
+must print `Retain`. Retention is not an off-host backup: configure and
+restore-test the separate mirror before treating the installation as
+production-safe.
+
 ## ⚠️ Hard security requirement: a NetworkPolicy-enforcing CNI
 
 > **k3s's default flannel CNI does NOT enforce NetworkPolicy.** On the
@@ -204,39 +214,35 @@ namespace, the deny-all NetworkPolicy, the LimitRange, and the ResourceQuota fro
 k3s uses **containerd**, so a `docker build` on the host is invisible to it.
 Build, then import via `k3s ctr images import` from a `docker save` tarball.
 
-**Tag to match the chart's composed image ref.** The single-machine overlay sets
-`image.registry: ""`, `image.repositoryPrefix: nojv`, `image.tag: latest` with
-per-component repos `web` / `worker` / `sandbox` / `migrator`
-(`image.repositories.*`), so the chart references the bare names
-`nojv/web:latest`, `nojv/worker:latest`, `nojv/sandbox:latest`, and
-`nojv/migrator:latest`. Build with exactly those
-tags:
+For this explicit local-build path, use the chart's narrow
+`allowUnpinnedLocalBuilds` escape hatch. It accepts only an empty registry and
+prefix with the exact tag `local`, so build these exact names:
 
 ```bash
 # Sandbox runtime (SANDBOX_IMAGE)
-docker build -t nojv/sandbox:latest -f infra/docker/sandbox-runner.Dockerfile .
+docker build -t sandbox:local -f infra/docker/sandbox-runner.Dockerfile .
 # Worker, web, and migrator app images
-docker build -t nojv/worker:latest   -f infra/docker/worker.Dockerfile .
-docker build -t nojv/web:latest      -f infra/docker/web.Dockerfile .
-docker build -t nojv/migrator:latest -f infra/docker/migrator.Dockerfile .
+docker build -t worker:local   -f infra/docker/worker.Dockerfile .
+docker build -t web:local      -f infra/docker/web.Dockerfile .
+docker build -t migrator:local -f infra/docker/migrator.Dockerfile .
 ```
 
 Import each into k3s's containerd:
 
 ```bash
-for img in nojv/sandbox:latest nojv/worker:latest nojv/web:latest nojv/migrator:latest; do
+for img in sandbox:local worker:local web:local migrator:local; do
   docker save "$img" | sudo k3s ctr images import -
 done
 sudo k3s ctr images ls | grep nojv   # confirm all four are present
 ```
 
-On **kind**, load the same tags with `kind load docker-image nojv/web:latest …`
+On **kind**, load the same tags with `kind load docker-image web:local …`
 instead of `ctr import`. The chart sets each Pod's `imagePullPolicy`, so the
 kubelet uses the imported image rather than trying to pull these
 not-in-a-registry tags.
 
 > **Alternative — a tiny in-cluster registry.** If you'd rather push than
-> `ctr import`, run one: `docker run -d -p 5000:5000 --name registry registry:2`,
+> `ctr import`, run one: `docker run -d -p 5000:5000 --name registry registry:2.8.3@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373`,
 > tag images `localhost:5000/nojv-*`, `docker push`, and reference them by that
 > ref (add `localhost:5000` to k3s's `/etc/rancher/k3s/registries.yaml`
 > `mirrors` so it pulls insecurely). This also matters for **advanced
@@ -281,12 +287,14 @@ For an HA Temporal (production multi-node), see
 > `nojv`, so the `deny-all-sandbox` policy does not touch it; the worker reaches
 > it over normal cluster networking.
 
-**Backups.** The single-machine overlay leaves CNPG backups off
-(`postgres.cnpg.backup.enabled: false`). Before going live, enable the CNPG
-`ScheduledBackup` (`postgres.cnpg.backup.enabled=true` plus a barman-cloud
-destination) — see the
-[Backup & Restore Runbook](backup-restore.md) for the destination/credential
-setup and restore drills.
+**Backups.** The production single-machine overlay enables both the CNPG
+`ScheduledBackup` and MinIO mirror and intentionally fails to render while
+their off-host S3/R2 destinations or credential Secret names are empty. Create
+a private `production-values.yaml` with the concrete
+`postgres.cnpg.backup.*` and `storage.minio.backup.*` values described in the
+[Backup & Restore Runbook](backup-restore.md), pass it to every direct Helm
+operation, and complete a restore drill before going live. Flux receives the
+same private values from the cluster-owned `nojv-production-values` Secret.
 
 The **migrator** runs automatically as a pre-install/pre-upgrade Helm hook
 (`infra/charts/nojv/templates/migrator.job.yaml`), so there is no manual
@@ -365,6 +373,11 @@ Then install:
 ```bash
 helm upgrade --install nojv infra/charts/nojv \
   -f infra/charts/nojv/values-single-machine.yaml \
+  -f production-values.yaml \
+  --set image.allowUnpinnedLocalBuilds=true \
+  --set-string image.registry= \
+  --set-string image.repositoryPrefix= \
+  --set-string image.tag=local \
   -n nojv --create-namespace
 ```
 
@@ -464,7 +477,8 @@ Pick the **smaller** of the CPU-bound and memory-bound limits as `pods`. Raise
 `worker.judge.concurrency` (max 64) to at least the Pod ceiling so the
 orchestrator can actually dispatch that many in parallel — but the quota, not
 the worker, is the real cap. Apply changes by editing the overlay and re-running
-`helm upgrade --install nojv infra/charts/nojv -f infra/charts/nojv/values-single-machine.yaml -n nojv`.
+the same digest-pinned release command (or the explicit local-only command from
+§5).
 
 ### Layer 2 — Worker replicas
 

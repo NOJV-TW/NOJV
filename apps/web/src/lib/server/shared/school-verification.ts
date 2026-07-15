@@ -1,7 +1,6 @@
 import { fail } from "@sveltejs/kit";
-import { env } from "$env/dynamic/private";
 import { userDomain } from "@nojv/application";
-import { getMailer, renderEmail } from "@nojv/mailer";
+import { getAppBaseUrl, getMailer, renderEmail } from "@nojv/mailer";
 
 import { createLogger } from "../logger";
 import { withAction } from "./action-handlers";
@@ -15,7 +14,7 @@ export interface SchoolVerificationResult {
 
 export interface SchoolVerificationError {
   error: string;
-  status: 400 | 409 | 500;
+  status: 400 | 409 | 500 | 503;
 }
 
 export async function processSchoolVerification(
@@ -35,13 +34,10 @@ export async function processSchoolVerification(
     return { error: result.detail, status: result.httpStatus };
   }
 
-  if (!env.BETTER_AUTH_URL) throw new Error("BETTER_AUTH_URL is required");
-
-  const appUrl = env.BETTER_AUTH_URL;
-  const verifyUrl = `${appUrl}/verify-school?token=${result.token}`;
+  const verifyUrl = `${getAppBaseUrl()}/verify-school?token=${result.token}`;
 
   try {
-    await getMailer().sendEmail({
+    const delivery = await getMailer().sendEmail({
       to: email,
       subject: "NOJV 學生帳號驗證 · Student Account Verification",
       html: renderEmail({
@@ -53,6 +49,10 @@ export async function processSchoolVerification(
           "此連結將在 30 分鐘後失效。若您沒有申請此驗證，請忽略這封信。<br>This link expires in 30 minutes. If you didn't request this, please ignore this email.",
       }),
     });
+    if (delivery === "suppressed") {
+      logger.error("email delivery suppressed");
+      return { error: "Email delivery is unavailable", status: 503 };
+    }
   } catch (err) {
     logger.error("email send failed", {
       err: err instanceof Error ? err.message : String(err),

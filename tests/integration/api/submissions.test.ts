@@ -7,14 +7,31 @@ import {
   testPrisma,
 } from "../../fixtures/factories";
 
-import { submissionDomain } from "@nojv/application";
-import { submissionSourcePrefix } from "@nojv/storage";
+import { submissionDomain, type ActorContext } from "@nojv/application";
+import { assertStorageObjectPointer } from "@nojv/storage";
 
-const { getSubmissionForUser, getSubmissionSources, listProblemSubmissions } = submissionDomain;
+const { getSubmissionForActor, getSubmissionSources, listProblemSubmissions } =
+  submissionDomain;
 import { NotFoundError } from "$lib/server/auth";
 
+function actorOf(user: {
+  id: string;
+  email: string;
+  username: string;
+  name: string;
+  platformRole: string;
+}): ActorContext {
+  return {
+    userId: user.id,
+    email: user.email,
+    username: user.username,
+    displayName: user.name,
+    platformRole: user.platformRole as ActorContext["platformRole"],
+  };
+}
+
 describe("submission queries (real DB)", () => {
-  describe("getSubmissionForUser", () => {
+  describe("getSubmissionForActor", () => {
     it("returns submission when user is the owner", async () => {
       const user = await createTestUser();
       const problem = await createTestProblem({ authorId: user.id });
@@ -24,7 +41,7 @@ describe("submission queries (real DB)", () => {
         status: "accepted",
       });
 
-      const result = await getSubmissionForUser(submission.id, user.id, false);
+      const result = await getSubmissionForActor(actorOf(user), submission.id);
       expect(result.id).toBe(submission.id);
       expect(result.userId).toBe(user.id);
     });
@@ -38,7 +55,7 @@ describe("submission queries (real DB)", () => {
         problemId: problem.id,
       });
 
-      const result = await getSubmissionForUser(submission.id, admin.id, true);
+      const result = await getSubmissionForActor(actorOf(admin), submission.id);
       expect(result.id).toBe(submission.id);
     });
 
@@ -51,7 +68,7 @@ describe("submission queries (real DB)", () => {
         problemId: problem.id,
       });
 
-      await expect(getSubmissionForUser(submission.id, other.id, false)).rejects.toThrow(
+      await expect(getSubmissionForActor(actorOf(other), submission.id)).rejects.toThrow(
         NotFoundError,
       );
     });
@@ -59,7 +76,7 @@ describe("submission queries (real DB)", () => {
     it("throws NotFoundError for nonexistent submission id", async () => {
       const user = await createTestUser();
 
-      await expect(getSubmissionForUser("nonexistent-id", user.id, false)).rejects.toThrow(
+      await expect(getSubmissionForActor(actorOf(user), "nonexistent-id")).rejects.toThrow(
         NotFoundError,
       );
     });
@@ -177,7 +194,9 @@ describe("submission queries (real DB)", () => {
       expect(fetched).not.toBeNull();
       expect(fetched!.language).toBe("cpp");
       expect(fetched!.status).toBe("wrong_answer");
-      expect(fetched!.sourceStoragePrefix).toBe(submissionSourcePrefix(submission.id));
+      expect(assertStorageObjectPointer(fetched!.sourceStorage).key).toMatch(
+        new RegExp(`^submissions/${submission.id}/source-generations/[^/]+/manifest\\.json$`),
+      );
       const sources = await getSubmissionSources(submission.id);
       expect(sources.length).toBeGreaterThan(0);
       expect(sources[0]!.content).toBe("int main() {}");

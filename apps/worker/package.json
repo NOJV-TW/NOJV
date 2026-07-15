@@ -21,6 +21,7 @@
     "@nojv/application": "workspace:*",
     "@nojv/core": "workspace:*",
     "@nojv/db": "workspace:*",
+    "@nojv/mailer": "workspace:*",
     "@nojv/redis": "workspace:*",
     "@nojv/sandbox-docker": "workspace:*",
     "@nojv/storage": "workspace:*",

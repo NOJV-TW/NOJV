@@ -1,5 +1,6 @@
 import { prisma } from "../client";
 import type { Prisma, ProblemPostType } from "../../generated/prisma/client";
+import type { TransactionClient } from "../transaction";
 import { userPublicSelect } from "./selects";
 
 export const postRepo = {
@@ -87,5 +88,17 @@ export const postRepo = {
       data: { deletedAt: now },
     });
     return result.count;
+  },
+
+  withTx(tx: TransactionClient) {
+    return {
+      async softDeleteIfActive(id: string, now = new Date()) {
+        const result = await tx.problemPost.updateMany({
+          where: { id, deletedAt: null },
+          data: { deletedAt: now },
+        });
+        return result.count;
+      },
+    };
   },
 };

@@ -2,16 +2,30 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createInMemoryStorage } from "../_fixtures/storage";
 
-const { submissionComplete, findByIdMock, storageRef } = vi.hoisted(() => ({
-  submissionComplete: vi.fn(),
+const {
+  cancelWork,
+  enqueueMany,
+  findByIdMock,
+  storageRef,
+  txFindSubmission,
+  txUpdateSubmission,
+} = vi.hoisted(() => ({
+  cancelWork: vi.fn(),
+  enqueueMany: vi.fn(),
   findByIdMock: vi.fn(),
   storageRef: { client: null as unknown as { send: (cmd: unknown) => Promise<unknown> } },
+  txFindSubmission: vi.fn(),
+  txUpdateSubmission: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
   Prisma: { JsonNull: { __jsonNull: true } },
+  DurableWorkInvariantError: class DurableWorkInvariantError extends Error {},
+  durableWorkRepo: {
+    enqueueMany,
+    withTx: () => ({ cancel: cancelWork }),
+  },
   submissionRepo: {
-    completeIfInProgress: submissionComplete,
     findById: findByIdMock,
   },
   problemRepo: { withTx: () => ({}) },
@@ -24,7 +38,14 @@ vi.mock("@nojv/db", () => ({
   examRepo: { withTx: () => ({}) },
   problemWorkspaceFileRepo: {},
   submissionRejudgeLogRepo: {},
-  runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
+  runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
+    fn({
+      $queryRaw: vi.fn(),
+      submission: {
+        findUnique: txFindSubmission,
+        update: txUpdateSubmission,
+      },
+    }),
 }));
 
 vi.mock("../../../packages/application/src/shared/storage-singleton", () => ({
@@ -116,7 +137,8 @@ describe("deriveVerdictSummary", () => {
 describe("completeJudge — storage + DB write", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    submissionComplete.mockResolvedValue({ count: 1 });
+    enqueueMany.mockResolvedValue([]);
+    cancelWork.mockResolvedValue(true);
     storageRef.client = createInMemoryStorage() as unknown as typeof storageRef.client;
   });
 
@@ -132,8 +154,11 @@ describe("completeJudge — storage + DB write", () => {
         { index: 1, verdict: "AC", timeMs: 7 },
       ],
     });
-    findByIdMock.mockResolvedValue({
+    const current = {
       id: "sub_1",
+      activeJudgeRunId: "run_1",
+      verdictDetailStorage: null,
+      status: "running",
       contestId: null,
       examId: null,
       createdAt: new Date(),
@@ -141,30 +166,33 @@ describe("completeJudge — storage + DB write", () => {
       problemId: "prob_1",
       sampleOnly: false,
       score: 100,
-      status: "accepted",
       userId: "usr_1",
-    });
+    };
+    findByIdMock.mockResolvedValue(current);
+    txFindSubmission.mockResolvedValue(current);
+    txUpdateSubmission.mockResolvedValue({ ...current, status: "accepted" });
 
-    await completeJudge("sub_1", result);
+    await completeJudge("sub_1", "run_1", result);
 
     const store = (storageRef.client as unknown as { store: Map<string, string> }).store;
-    expect([...store.keys()]).toEqual(["submissions/sub_1/verdict-detail.json"]);
-    expect(JSON.parse(store.get("submissions/sub_1/verdict-detail.json")!)).toEqual(result);
+    const key = "submissions/sub_1/judge-runs/run_1/verdict-detail.json";
+    expect([...store.keys()]).toEqual([key]);
+    expect(JSON.parse(store.get(key)!)).toEqual(result);
 
-    expect(submissionComplete).toHaveBeenCalledTimes(1);
-    const updateArg = submissionComplete.mock.calls[0]![1] as {
+    expect(txUpdateSubmission).toHaveBeenCalledTimes(1);
+    const updateArg = txUpdateSubmission.mock.calls[0]![0].data as {
       runtimeMs: number;
       memoryKb?: number;
       score: number;
       status: string;
       verdictSummary: { caseSummary: Record<string, number> };
-      verdictDetailStorageKey: string;
+      verdictDetailStorage: { key: string; sha256: string; size: number };
     };
     expect(updateArg.runtimeMs).toBe(42);
     expect(updateArg.memoryKb).toBe(512);
     expect(updateArg.score).toBe(100);
     expect(updateArg.status).toBe("accepted");
-    expect(updateArg.verdictDetailStorageKey).toBe("submissions/sub_1/verdict-detail.json");
+    expect(updateArg.verdictDetailStorage.key).toBe(key);
     expect(updateArg.verdictSummary.caseSummary).toEqual({
       ac: 2,
       wa: 0,
@@ -179,17 +207,21 @@ describe("completeJudge — storage + DB write", () => {
     const inMem = storageRef.client as unknown as { failOnPut: (n: number) => void };
     inMem.failOnPut(0);
 
-    await expect(completeJudge("sub_2", makeResult())).rejects.toThrow(
+    findByIdMock.mockResolvedValue({ activeJudgeRunId: "run_2" });
+    await expect(completeJudge("sub_2", "run_2", makeResult())).rejects.toThrow(
       /Simulated storage failure/,
     );
 
-    expect(submissionComplete).not.toHaveBeenCalled();
+    expect(txUpdateSubmission).not.toHaveBeenCalled();
   });
 
   it("omits memoryKb from the DB update when the result didn't carry it", async () => {
     const result = makeResult({ verdict: "wrong_answer", score: 30 });
-    findByIdMock.mockResolvedValue({
+    const current = {
       id: "sub_3",
+      activeJudgeRunId: "run_3",
+      verdictDetailStorage: null,
+      status: "running",
       contestId: null,
       examId: null,
       createdAt: new Date(),
@@ -197,19 +229,24 @@ describe("completeJudge — storage + DB write", () => {
       problemId: "prob_3",
       sampleOnly: false,
       score: 30,
-      status: "wrong_answer",
       userId: "usr_3",
-    });
+    };
+    findByIdMock.mockResolvedValue(current);
+    txFindSubmission.mockResolvedValue(current);
+    txUpdateSubmission.mockResolvedValue(current);
 
-    await completeJudge("sub_3", result);
+    await completeJudge("sub_3", "run_3", result);
 
-    const updateArg = submissionComplete.mock.calls[0]![1] as Record<string, unknown>;
+    const updateArg = txUpdateSubmission.mock.calls[0]![0].data as Record<string, unknown>;
     expect(updateArg).not.toHaveProperty("memoryKb");
   });
 
   it("records the advancedConfig audit snapshot when an advanced config is supplied", async () => {
-    findByIdMock.mockResolvedValue({
+    const current = {
       id: "sub_adv",
+      activeJudgeRunId: "run_adv",
+      verdictDetailStorage: null,
+      status: "running",
       contestId: null,
       examId: null,
       createdAt: new Date(),
@@ -217,9 +254,11 @@ describe("completeJudge — storage + DB write", () => {
       problemId: "prob_adv",
       sampleOnly: false,
       score: 100,
-      status: "accepted",
       userId: "usr_adv",
-    });
+    };
+    findByIdMock.mockResolvedValue(current);
+    txFindSubmission.mockResolvedValue(current);
+    txUpdateSubmission.mockResolvedValue(current);
 
     const config = {
       run: { imageRef: "registry.example.com/judge:v1", imageSource: "registry" as const },
@@ -233,17 +272,25 @@ describe("completeJudge — storage + DB write", () => {
       requiredPaths: ["main.py"],
       resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
     };
-    await completeJudge("sub_adv", makeResult({ verdict: "accepted", score: 100 }), snapshot);
+    await completeJudge(
+      "sub_adv",
+      "run_adv",
+      makeResult({ verdict: "accepted", score: 100 }),
+      snapshot,
+    );
 
-    const updateArg = submissionComplete.mock.calls[0]![1] as {
+    const updateArg = txUpdateSubmission.mock.calls[0]![0].data as {
       advancedConfigSnapshot: unknown;
     };
     expect(updateArg.advancedConfigSnapshot).toEqual(snapshot);
   });
 
   it("writes a null advancedConfig snapshot for non-advanced submissions", async () => {
-    findByIdMock.mockResolvedValue({
+    const current = {
       id: "sub_std",
+      activeJudgeRunId: "run_std",
+      verdictDetailStorage: null,
+      status: "running",
       contestId: null,
       examId: null,
       createdAt: new Date(),
@@ -251,13 +298,15 @@ describe("completeJudge — storage + DB write", () => {
       problemId: "prob_std",
       sampleOnly: false,
       score: 0,
-      status: "wrong_answer",
       userId: "usr_std",
-    });
+    };
+    findByIdMock.mockResolvedValue(current);
+    txFindSubmission.mockResolvedValue(current);
+    txUpdateSubmission.mockResolvedValue(current);
 
-    await completeJudge("sub_std", makeResult());
+    await completeJudge("sub_std", "run_std", makeResult());
 
-    const updateArg = submissionComplete.mock.calls[0]![1] as {
+    const updateArg = txUpdateSubmission.mock.calls[0]![0].data as {
       advancedConfigSnapshot: unknown;
     };
     expect(updateArg.advancedConfigSnapshot).toBe(Prisma.JsonNull);

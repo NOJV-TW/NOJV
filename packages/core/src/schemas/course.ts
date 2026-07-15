@@ -160,18 +160,54 @@ export const courseAssignmentFormSchema = z
     }
   });
 
-export const assessmentUpdateSchema = z.object({
-  allowedLanguages: z.array(languageSchema).max(8).optional(),
-  closesAt: isoDateTimeSchema.optional(),
-  dueAt: isoDateTimeSchema.nullish(),
-  maxAttemptsPerDay: z.coerce.number().int().min(1).max(999).nullish(),
-  attemptResetMinuteOfDay: z.coerce.number().int().min(0).max(1439).nullish(),
-  opensAt: isoDateTimeSchema.optional(),
-  problemIds: z.array(z.string().trim().min(1)).max(32).optional(),
-  adjustmentRules: adjustmentRulesSchema.optional(),
-  summary: z.string().trim().max(2_000).optional(),
-  title: z.string().trim().min(3).max(120).optional(),
-});
+export const assessmentUpdateSchema = z
+  .object({
+    allowedLanguages: z.array(languageSchema).max(8).optional(),
+    closesAt: isoDateTimeSchema.optional(),
+    dueAt: isoDateTimeSchema.nullish(),
+    maxAttemptsPerDay: z.coerce.number().int().min(1).max(999).nullish(),
+    attemptResetMinuteOfDay: z.coerce.number().int().min(0).max(1439).nullish(),
+    opensAt: isoDateTimeSchema.optional(),
+    problemIds: z.array(z.string().trim().min(1)).max(32).optional(),
+    adjustmentRules: adjustmentRulesSchema.optional(),
+    summary: z.string().trim().max(2_000).optional(),
+    title: z.string().trim().min(3).max(120).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (
+      value.opensAt !== undefined &&
+      value.closesAt !== undefined &&
+      new Date(value.opensAt) >= new Date(value.closesAt)
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        message: "closesAt must be later than opensAt",
+        path: ["closesAt"],
+      });
+    }
+    if (
+      value.opensAt !== undefined &&
+      value.dueAt != null &&
+      new Date(value.opensAt) >= new Date(value.dueAt)
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        message: "dueAt must be later than opensAt",
+        path: ["dueAt"],
+      });
+    }
+    if (
+      value.dueAt != null &&
+      value.closesAt !== undefined &&
+      new Date(value.dueAt) > new Date(value.closesAt)
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        message: "closesAt must be later than or equal to dueAt",
+        path: ["closesAt"],
+      });
+    }
+  });
 
 export const assessmentSettingsFormSchema = z.object({
   title: z.string().trim().min(3).max(120),

@@ -1,6 +1,6 @@
 import { generateKeyPairSync } from "node:crypto";
 
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
 const PRIVATE_PEM = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
@@ -13,7 +13,18 @@ process.env.REGISTRY_TOKEN_PRIVATE_KEY = Buffer.from(PRIVATE_PEM).toString("base
 process.env.REGISTRY_TOKEN_CERT = Buffer.from(CERT_PEM).toString("base64");
 process.env.REGISTRY_PULL_PASSWORD_HASH = "";
 
-const { verifyRegistryLogin } = vi.hoisted(() => ({ verifyRegistryLogin: vi.fn() }));
+const { verifyRegistryLogin, registryTokenConsume, signInConsume } = vi.hoisted(() => ({
+  verifyRegistryLogin: vi.fn(),
+  registryTokenConsume: vi.fn(),
+  signInConsume: vi.fn(),
+}));
+
+vi.mock("$lib/server/shared/rate-limiter", () => ({
+  apiRateLimiter: { consume: vi.fn().mockResolvedValue("allowed") },
+  writeApiRateLimiter: { consume: vi.fn().mockResolvedValue("allowed") },
+  registryTokenRateLimiter: { consume: registryTokenConsume },
+  signInRateLimiter: { consume: signInConsume },
+}));
 
 vi.mock("@nojv/application", async (importOriginal) => {
   const original = await importOriginal<typeof import("@nojv/application")>();
@@ -30,6 +41,12 @@ const { signRegistryToken, isRegistryTokenConfigured } =
   await import("$lib/server/registry-token");
 const { GET, POST } = await import("../../../apps/web/src/routes/api/registry/token/+server");
 const { decodeProtectedHeader, jwtVerify } = await import("jose");
+
+beforeEach(() => {
+  registryTokenConsume.mockReset().mockResolvedValue("allowed");
+  signInConsume.mockReset().mockResolvedValue("allowed");
+  verifyRegistryLogin.mockReset();
+});
 
 function makeEvent(query: string, authorization?: string) {
   const url = new URL(`https://nojv.tw/api/registry/token${query}`);
@@ -88,6 +105,20 @@ describe("signRegistryToken", () => {
 });
 
 describe("GET /api/registry/token", () => {
+  it("returns 429 when the token-issuance quota is exhausted", async () => {
+    registryTokenConsume.mockResolvedValue("limited");
+    const response = await GET(makeEvent("?service=registry.test.local"));
+    expect(response.status).toBe(429);
+    expect(verifyRegistryLogin).not.toHaveBeenCalled();
+  });
+
+  it("returns 503 when strict token-issuance limiting is unavailable", async () => {
+    registryTokenConsume.mockResolvedValue("unavailable");
+    const response = await GET(makeEvent("?service=registry.test.local"));
+    expect(response.status).toBe(503);
+    expect(verifyRegistryLogin).not.toHaveBeenCalled();
+  });
+
   it("rejects an unknown service", async () => {
     await expect(GET(makeEvent("?service=evil.example.com"))).rejects.toMatchObject({
       status: 400,
@@ -163,6 +194,24 @@ describe("GET /api/registry/token", () => {
 });
 
 describe("POST /api/registry/token (OAuth2 password grant, containerd/docker login flow)", () => {
+  it("returns 429 when the token-issuance quota is exhausted", async () => {
+    registryTokenConsume.mockResolvedValue("limited");
+    const response = await POST(
+      makePostEvent({ grant_type: "password", service: "registry.test.local" }),
+    );
+    expect(response.status).toBe(429);
+    expect(verifyRegistryLogin).not.toHaveBeenCalled();
+  });
+
+  it("returns 503 when strict token-issuance limiting is unavailable", async () => {
+    registryTokenConsume.mockResolvedValue("unavailable");
+    const response = await POST(
+      makePostEvent({ grant_type: "password", service: "registry.test.local" }),
+    );
+    expect(response.status).toBe(503);
+    expect(verifyRegistryLogin).not.toHaveBeenCalled();
+  });
+
   it("rejects an unknown service", async () => {
     await expect(
       POST(makePostEvent({ grant_type: "password", service: "evil.example.com" })),
@@ -205,6 +254,50 @@ describe("POST /api/registry/token (OAuth2 password grant, containerd/docker log
         }),
       ),
     ).rejects.toMatchObject({ status: 401 });
+  });
+
+  it("returns 503 instead of 429 when credential limiting is unavailable", async () => {
+    verifyRegistryLogin.mockResolvedValue(null);
+    signInConsume.mockResolvedValue("unavailable");
+    await expect(
+      POST(
+        makePostEvent({
+          grant_type: "password",
+          service: "registry.test.local",
+          username: "alice",
+          password: "wrong",
+        }),
+      ),
+    ).rejects.toMatchObject({ status: 503 });
+  });
+
+  it("returns 429 when invalid-credential quota is exhausted", async () => {
+    verifyRegistryLogin.mockResolvedValue(null);
+    signInConsume.mockResolvedValue("limited");
+    await expect(
+      POST(
+        makePostEvent({
+          grant_type: "password",
+          service: "registry.test.local",
+          username: "alice",
+          password: "wrong",
+        }),
+      ),
+    ).rejects.toMatchObject({ status: 429 });
+  });
+
+  it("does not disguise an unknown credential-limiter error as quota exhaustion", async () => {
+    verifyRegistryLogin.mockResolvedValue(null);
+    signInConsume.mockRejectedValue(new Error("limiter bug"));
+    const response = await POST(
+      makePostEvent({
+        grant_type: "password",
+        service: "registry.test.local",
+        username: "alice",
+        password: "wrong",
+      }),
+    );
+    expect(response.status).toBe(500);
   });
 
   it("falls back to Basic auth when the body has no credentials", async () => {

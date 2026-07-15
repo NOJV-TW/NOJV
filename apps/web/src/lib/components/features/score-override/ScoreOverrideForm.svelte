@@ -120,13 +120,9 @@
       }
 
       if (res.ok) {
-        toasts.add({
-          type: "success",
-          message:
-            mode === "create"
-              ? m.override_staff_toastCreated()
-              : m.override_staff_toastUpdated(),
-        });
+        toasts.success(
+          mode === "create" ? m.override_staff_toastCreated() : m.override_staff_toastUpdated(),
+        );
         if (mode === "create") {
           userId = students[0]?.id ?? "";
           problemId = problems[0]?.id ?? "";
@@ -139,11 +135,11 @@
         const body = (await res.json().catch(() => null)) as { message?: string } | null;
         if (body?.message) msg = body.message;
         error = msg;
-        toasts.add({ type: "error", message: msg });
+        toasts.error(msg);
       }
     } catch {
       error = m.override_staff_toastError();
-      toasts.add({ type: "error", message: m.override_staff_toastError() });
+      toasts.error(m.override_staff_toastError());
     } finally {
       submitting = false;
     }

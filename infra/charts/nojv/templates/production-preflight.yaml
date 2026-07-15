@@ -1,0 +1,93 @@
+{{- if eq .Values.postgres.mode "cloudsql" -}}
+{{- $prefix := required "GKE production image.repositoryPrefix is required" .Values.image.repositoryPrefix -}}
+{{- if regexMatch "(?i)(PROJECT_ID|REGION|INSTANCE|example\\.com)" $prefix -}}
+{{- fail "GKE production image.repositoryPrefix contains an unresolved placeholder" -}}
+{{- end -}}
+{{- $connection := required "GKE production postgres.cloudsql.instanceConnectionName is required" .Values.postgres.cloudsql.instanceConnectionName -}}
+{{- if not (regexMatch "^[a-z][a-z0-9-]{4,28}[a-z0-9]:[a-z]+-[a-z]+[0-9]:[a-z0-9]([-a-z0-9]*[a-z0-9])?$" $connection) -}}
+{{- fail "GKE production postgres.cloudsql.instanceConnectionName must be PROJECT_ID:REGION:INSTANCE with concrete values" -}}
+{{- end -}}
+{{- if not .Values.cloudsqlProxy.enabled -}}
+{{- fail "GKE production requires cloudsqlProxy.enabled=true" -}}
+{{- end -}}
+{{- if .Values.redis.inCluster -}}
+{{- fail "GKE production requires an external verified Redis instance" -}}
+{{- end -}}
+{{- if .Values.storage.inCluster -}}
+{{- fail "GKE production requires external object storage" -}}
+{{- end -}}
+
+{{- $registryHost := "" -}}
+{{- if .Values.registry.enabled -}}
+{{- $registryHost = required "GKE production registry.host is required" .Values.registry.host -}}
+{{- if or (not (regexMatch "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$" $registryHost)) (regexMatch "(?i)example\\.com" $registryHost) -}}
+{{- fail "GKE production registry.host must be a concrete lowercase DNS name" -}}
+{{- end -}}
+{{- $tokenRealm := required "GKE production registry.token.realm is required" .Values.registry.token.realm -}}
+{{- if not (regexMatch "^https://[^[:space:]]+/api/registry/token$" $tokenRealm) -}}
+{{- fail "GKE production registry.token.realm must be an HTTPS registry-token URL" -}}
+{{- end -}}
+{{- $registryEndpoint := required "GKE production registry.s3.regionendpoint is required" .Values.registry.s3.regionendpoint -}}
+{{- if not (regexMatch "^https://[^[:space:]]+$" $registryEndpoint) -}}
+{{- fail "GKE production registry.s3.regionendpoint must use HTTPS" -}}
+{{- end -}}
+{{- end -}}
+
+{{- if not .Values.web.ingress.enabled -}}
+{{- fail "GKE production requires web.ingress.enabled=true" -}}
+{{- end -}}
+{{- if ne .Values.web.ingress.className "gce" -}}
+{{- fail "GKE production requires the gce ingress class" -}}
+{{- end -}}
+{{- $host := required "GKE production web.ingress.host is required" .Values.web.ingress.host -}}
+{{- if or (not (regexMatch "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$" $host)) (regexMatch "(?i)example\\.com" $host) -}}
+{{- fail "GKE production web.ingress.host must be a concrete lowercase DNS name" -}}
+{{- end -}}
+{{- $securityPolicy := required "GKE production web.ingress.gce.securityPolicy is required" .Values.web.ingress.gce.securityPolicy -}}
+{{- if not (regexMatch "^[a-z][a-z0-9-]{0,62}$" $securityPolicy) -}}
+{{- fail "GKE production Cloud Armor policy name is invalid" -}}
+{{- end -}}
+{{- if not .Values.web.ingress.gce.httpsRedirect -}}
+{{- fail "GKE production requires HTTPS redirect" -}}
+{{- end -}}
+{{- $tls := .Values.web.ingress.tls -}}
+{{- if or (not (kindIs "slice" $tls)) (ne (len $tls) 1) -}}
+{{- fail "GKE production web.ingress.tls must contain exactly one TLS entry" -}}
+{{- end -}}
+{{- $tlsEntry := index $tls 0 -}}
+{{- $tlsSecret := required "GKE production web.ingress.tls[0].secretName is required" $tlsEntry.secretName -}}
+{{- if not (regexMatch "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$" $tlsSecret) -}}
+{{- fail "GKE production TLS Secret name is invalid" -}}
+{{- end -}}
+{{- $expectedTlsHosts := list $host -}}
+{{- if .Values.registry.enabled -}}
+{{- $expectedTlsHosts = append $expectedTlsHosts $registryHost -}}
+{{- end -}}
+{{- if or (not (kindIs "slice" $tlsEntry.hosts)) (ne (len $tlsEntry.hosts) (len $expectedTlsHosts)) -}}
+{{- fail "GKE production TLS hosts must exactly cover every public ingress host" -}}
+{{- end -}}
+{{- range $expectedHost := $expectedTlsHosts -}}
+{{- if not (has $expectedHost $tlsEntry.hosts) -}}
+{{- fail "GKE production TLS hosts must exactly cover every public ingress host" -}}
+{{- end -}}
+{{- end -}}
+
+{{- if not .Values.networkPolicy.enabled -}}
+{{- fail "GKE production requires networkPolicy.enabled=true" -}}
+{{- end -}}
+{{- range $name, $cidr := dict "redisCidr" .Values.networkPolicy.egress.redisCidr "cloudsqlCidr" .Values.networkPolicy.egress.cloudsqlCidr -}}
+{{- if not (regexMatch "^(10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.)[0-9.]+/(3[0-2]|[12]?[0-9])$" $cidr) -}}
+{{- fail (printf "GKE production networkPolicy.egress.%s must be a private IPv4 CIDR" $name) -}}
+{{- end -}}
+{{- end -}}
+{{- range $name, $cidrs := dict "googleApisCidrs" .Values.networkPolicy.egress.googleApisCidrs "apiServerCidrs" .Values.networkPolicy.egress.apiServerCidrs -}}
+{{- if or (not (kindIs "slice" $cidrs)) (eq (len $cidrs) 0) -}}
+{{- fail (printf "GKE production networkPolicy.egress.%s must be non-empty" $name) -}}
+{{- end -}}
+{{- range $cidr := $cidrs -}}
+{{- if not (regexMatch "^[0-9.]+/(3[0-2]|[12]?[0-9])$" $cidr) -}}
+{{- fail (printf "GKE production networkPolicy.egress.%s contains an invalid IPv4 CIDR" $name) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}

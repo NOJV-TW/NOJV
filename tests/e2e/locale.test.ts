@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-import { studentAuth } from "./_shared";
+import { ORIGIN, studentAuth } from "./_shared";
 
 async function setLocaleCookie(
   context: import("@playwright/test").BrowserContext,
@@ -10,7 +10,7 @@ async function setLocaleCookie(
     {
       name: "PARAGLIDE_LOCALE",
       value: locale,
-      domain: "localhost",
+      domain: new URL(ORIGIN).hostname,
       path: "/",
       httpOnly: false,
       secure: false,

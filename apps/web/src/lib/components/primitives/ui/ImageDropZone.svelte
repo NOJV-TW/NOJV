@@ -2,6 +2,7 @@
   import { Eye, ImagePlus, Pencil } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
+  import { readImageUploadUrl } from "$lib/utils/image-upload-response";
 
   let {
     problemId,
@@ -22,6 +23,7 @@
   let isUploading = $state(false);
   let isDragOver = $state(false);
   let isPreviewing = $state(false);
+  let uploadError = $state<string | null>(null);
 
   const uploadUrl = $derived(
     problemId ? `/api/problems/${problemId}/images` : `/api/uploads/image`,
@@ -33,6 +35,7 @@
     if (!images.length) return;
 
     isUploading = true;
+    uploadError = null;
     try {
       for (const file of images) {
         const form = new FormData();
@@ -44,11 +47,11 @@
           body: form,
         });
 
-        if (res.ok) {
-          const { url } = await res.json();
-          insertAtCursor(`![${file.name}](${url})`);
-        }
+        const url = await readImageUploadUrl(res, m.imageUpload_failed());
+        insertAtCursor(`![${file.name}](${url})`);
       }
+    } catch (error) {
+      uploadError = error instanceof Error ? error.message : m.imageUpload_failed();
     } finally {
       isUploading = false;
     }
@@ -156,6 +159,10 @@
     >
       <span class="text-sm text-muted-foreground">{m.common_uploading()}</span>
     </div>
+  {/if}
+
+  {#if uploadError}
+    <p class="mt-2 text-body-sm text-destructive" role="alert">{uploadError}</p>
   {/if}
 
   {#if isDragOver}

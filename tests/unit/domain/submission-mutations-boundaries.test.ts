@@ -13,12 +13,17 @@ const {
   workspaceFindByProblemId,
   submissionFindMostRecent,
   submissionCreate,
+  submissionPublishPendingUpload,
   submissionUpdateStatus,
+  submissionUpdateStatusIfIn,
   examSessionFindActiveForUser,
   examFindById,
   examProblemExists,
   txContestProblemFindFirst,
   proctoringGateInTx,
+  durableWorkEnqueue,
+  durableWorkEnqueueMany,
+  durableWorkCancel,
   storageRef,
 } = vi.hoisted(() => ({
   problemFindById: vi.fn(),
@@ -31,16 +36,25 @@ const {
   workspaceFindByProblemId: vi.fn(),
   submissionFindMostRecent: vi.fn(),
   submissionCreate: vi.fn(),
+  submissionPublishPendingUpload: vi.fn(),
   submissionUpdateStatus: vi.fn(),
+  submissionUpdateStatusIfIn: vi.fn(),
   examSessionFindActiveForUser: vi.fn(),
   examFindById: vi.fn(),
   examProblemExists: vi.fn(),
   txContestProblemFindFirst: vi.fn(),
   proctoringGateInTx: vi.fn(),
+  durableWorkEnqueue: vi.fn(),
+  durableWorkEnqueueMany: vi.fn(),
+  durableWorkCancel: vi.fn(),
   storageRef: { client: null as unknown as { send: (cmd: unknown) => Promise<unknown> } },
 }));
 
 vi.mock("@nojv/db", () => ({
+  durableWorkRepo: {
+    enqueueMany: durableWorkEnqueueMany,
+    withTx: () => ({ enqueue: durableWorkEnqueue, cancel: durableWorkCancel }),
+  },
   problemRepo: {
     withTx: () => ({ findById: problemFindById }),
   },
@@ -87,13 +101,16 @@ vi.mock("@nojv/db", () => ({
     withTx: () => ({
       findMostRecent: submissionFindMostRecent,
       create: submissionCreate,
+      publishPendingUpload: submissionPublishPendingUpload,
       countForUserAssessmentProblemSince: vi.fn(),
     }),
     updateStatus: submissionUpdateStatus,
+    updateStatusIfIn: submissionUpdateStatusIfIn,
   },
   runTransaction: async <T>(
     fn: (tx: { $executeRaw: typeof vi.fn }) => Promise<T>,
   ): Promise<T> => fn({ $executeRaw: vi.fn().mockResolvedValue(0) }),
+  Prisma: { DbNull: null },
 }));
 
 vi.mock("../../../packages/application/src/proctoring/gate", () => ({
@@ -142,11 +159,16 @@ function setupCommonProblemDefaults() {
   userUpdate.mockResolvedValue(user);
   userCreate.mockResolvedValue(user);
   workspaceFindByProblemId.mockResolvedValue([]);
-  examFindById.mockResolvedValue({
-    id: "exam_default",
+  durableWorkEnqueue.mockResolvedValue({});
+  durableWorkEnqueueMany.mockResolvedValue([]);
+  durableWorkCancel.mockResolvedValue(true);
+  examFindById.mockImplementation(async (id: string) => ({
+    id,
+    status: "published",
+    allowedLanguages: [],
     startsAt: new Date("2026-01-01T00:00:00.000Z"),
     endsAt: new Date("2026-12-31T23:59:59.000Z"),
-  });
+  }));
   submissionCreate.mockImplementation(async (data: unknown) => ({
     id: `sub_${Math.random().toString(36).slice(2, 8)}`,
     ...(data as object),
@@ -155,6 +177,10 @@ function setupCommonProblemDefaults() {
     id,
     status,
   }));
+  submissionUpdateStatusIfIn.mockResolvedValue({ count: 1 });
+  submissionPublishPendingUpload.mockImplementation(
+    async (id: string, sourceStorage: unknown) => ({ id, sourceStorage, status: "queued" }),
+  );
   // Default: the submitter has joined the contest (join gating covered elsewhere).
   participationFindContest.mockResolvedValue({ id: "part_1", status: "active" });
 }
@@ -182,11 +208,11 @@ describe("createQueuedSubmissionRecord — contest cooldown", () => {
   });
 
   const baseDraft = {
+    context: { type: "contest" as const, contestId: "ct_1" },
     problemId: fakeProblem.id,
     language: "python" as const,
     sourceCode: "print('hi')",
     sampleOnly: false,
-    contestId: "ct_1",
   };
 
   it("rejects with ForbiddenError when a non-sample submission lands inside the cooldown window", async () => {
@@ -289,13 +315,21 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
   });
 
   const baseFreePracticeDraft = {
+    context: { type: "practice" as const },
     problemId: fakeProblem.id,
     language: "python" as const,
     sourceCode: "print('hi')",
     sampleOnly: false,
   };
 
-  const baseContestDraft = { ...baseFreePracticeDraft, contestId: "ct_1" };
+  const baseContestDraft = {
+    ...baseFreePracticeDraft,
+    context: { type: "contest" as const, contestId: "ct_1" },
+  };
+  const baseExamDraft = {
+    ...baseFreePracticeDraft,
+    context: { type: "exam" as const, examId: "exam_42" },
+  };
 
   it("forbids attaching a contestId while a non-admin has an active exam session", async () => {
     examSessionFindActiveForUser.mockResolvedValue({
@@ -332,13 +366,11 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
     examProblemExists.mockResolvedValue(true);
     vi.setSystemTime(new Date("2026-04-14T10:00:00.000Z"));
 
-    await createQueuedSubmissionRecord(baseFreePracticeDraft, fakeActor, "127.0.0.1");
+    await createQueuedSubmissionRecord(baseExamDraft, fakeActor, "127.0.0.1");
 
     expect(submissionCreate).toHaveBeenCalledTimes(1);
     const arg = submissionCreate.mock.calls[0]![0] as Record<string, unknown>;
-    expect(arg.examId).toBe("exam_42");
-    expect(arg.contestId).toBeNull();
-    expect(arg.assessmentId).toBeNull();
+    expect(arg.context).toEqual({ type: "exam", examId: "exam_42" });
   });
 
   it("forbids submitting a problem that is NOT part of the active exam (confinement, P1)", async () => {
@@ -350,12 +382,12 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
     vi.setSystemTime(new Date("2026-04-14T10:00:00.000Z"));
 
     await expect(
-      createQueuedSubmissionRecord(baseFreePracticeDraft, fakeActor, "127.0.0.1"),
+      createQueuedSubmissionRecord(baseExamDraft, fakeActor, "127.0.0.1"),
     ).rejects.toBeInstanceOf(ForbiddenError);
     expect(submissionCreate).not.toHaveBeenCalled();
   });
 
-  it("admin bypasses the exam problem-membership check (operational recovery)", async () => {
+  it("does not let admin requests bypass exam problem membership", async () => {
     examSessionFindActiveForUser.mockResolvedValue({
       examId: "exam_42",
       userId: adminActor.userId,
@@ -364,9 +396,9 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
     vi.setSystemTime(new Date("2026-04-14T10:00:00.000Z"));
 
     await expect(
-      createQueuedSubmissionRecord(baseFreePracticeDraft, adminActor, "127.0.0.1"),
-    ).resolves.toBeDefined();
-    expect(submissionCreate).toHaveBeenCalledTimes(1);
+      createQueuedSubmissionRecord(baseExamDraft, adminActor, "127.0.0.1"),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(submissionCreate).not.toHaveBeenCalled();
   });
 
   it("with no active exam session, examId is null on the created submission", async () => {
@@ -376,7 +408,7 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
     await createQueuedSubmissionRecord(baseFreePracticeDraft, fakeActor, "127.0.0.1");
 
     const arg = submissionCreate.mock.calls[0]![0] as Record<string, unknown>;
-    expect(arg.examId).toBeNull();
+    expect(arg.context).toEqual({ type: "practice" });
   });
 
   it("does NOT reject based on clientIp when there is no active exam session", async () => {
@@ -403,7 +435,7 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
     vi.setSystemTime(new Date("2026-04-14T10:00:00.000Z"));
 
     await expect(
-      createQueuedSubmissionRecord(baseFreePracticeDraft, fakeActor, "203.0.113.99"),
+      createQueuedSubmissionRecord(baseExamDraft, fakeActor, "203.0.113.99"),
     ).rejects.toBeInstanceOf(ForbiddenError);
     expect(proctoringGateInTx).toHaveBeenCalledWith(
       expect.anything(),
@@ -422,7 +454,7 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
     vi.setSystemTime(new Date("2026-04-14T10:00:00.000Z"));
 
     await expect(
-      createQueuedSubmissionRecord(baseFreePracticeDraft, fakeActor, "10.0.0.1"),
+      createQueuedSubmissionRecord(baseExamDraft, fakeActor, "10.0.0.1"),
     ).resolves.toBeDefined();
     expect(submissionCreate).toHaveBeenCalledTimes(1);
   });

@@ -14,18 +14,31 @@ import {
   advancedResultSchema,
   validateAdvancedResultForMaxScore,
   type SandboxAdvancedRequest,
+  type SandboxExecutionContext,
   type SandboxRequest,
   type SandboxResult,
 } from "@nojv/core";
 
 import { createLogger } from "../logger.js";
-import { createSubmissionNetwork, removeSubmissionNetwork } from "./docker-network";
-import { sanitizeId, spawnDockerContainer } from "./docker-process";
+import {
+  createSubmissionNetwork,
+  planSubmissionNetwork,
+  removeSubmissionNetwork,
+} from "./docker-network";
+import {
+  attachDockerCleanupFailure,
+  cleanupDockerResources,
+  sanitizeId,
+  spawnDockerContainer,
+} from "./docker-process";
+import { buildDockerResourceLabels, dockerLabelArgs } from "./docker-resource";
+import { executionAbortReason } from "./execution-abort";
 import {
   ADVANCED_SERVICE_PORT,
   collectServiceLogs,
   SERVICE_HOST_ENV,
   SERVICE_NETWORK_ALIAS,
+  serviceContainerName,
   startServiceContainer,
   stopServiceContainer,
 } from "./service-container";
@@ -177,6 +190,7 @@ export interface AdvancedDockerArgsParams {
   user?: string | null;
   readOnlyMounts?: { hostPath: string; containerPath: string }[];
   extraEnv?: Record<string, string>;
+  labels?: Readonly<Record<string, string>>;
 }
 
 export function buildAdvancedDockerArgs(params: AdvancedDockerArgsParams): string[] {
@@ -193,6 +207,7 @@ export function buildAdvancedDockerArgs(params: AdvancedDockerArgsParams): strin
     "--rm",
     "--name",
     params.containerName,
+    ...dockerLabelArgs(params.labels ?? {}),
     ...params.networkArgs,
     "--cap-drop",
     "ALL",
@@ -328,6 +343,7 @@ interface SpawnContainerParams {
   args: string[];
   containerName: string;
   outerTimeoutMs: number;
+  signal: AbortSignal;
   watchDir?: string;
 }
 
@@ -336,6 +352,7 @@ function spawnContainer(params: SpawnContainerParams): Promise<ContainerOutcome>
     args: params.args,
     containerName: params.containerName,
     outerTimeoutMs: params.outerTimeoutMs,
+    signal: params.signal,
     ...(params.watchDir
       ? {
           watch: {
@@ -362,8 +379,10 @@ export class AdvancedModeExecutor {
   async run(
     tempDir: string,
     request: SandboxRequest,
+    execution: SandboxExecutionContext,
     config: AdvancedModeConfig,
   ): Promise<SandboxResult> {
+    execution.signal.throwIfAborted();
     const advanced = request.advanced;
     if (!advanced) {
       return sandboxSystemError("advanced-mode dispatch called without payload");
@@ -383,7 +402,14 @@ export class AdvancedModeExecutor {
       memoryMb: advanced.memoryMb,
     });
 
-    const runOutcome = await this.runPhase(request, advanced, config, runImageRef, runDir);
+    const runOutcome = await this.runPhase(
+      request,
+      execution,
+      advanced,
+      config,
+      runImageRef,
+      runDir,
+    );
 
     if (runOutcome.spawnError) {
       return advancedFallbackResult(
@@ -408,6 +434,7 @@ export class AdvancedModeExecutor {
         maxScore: advanced.maxScore,
       });
     } catch (err) {
+      execution.signal.throwIfAborted();
       if (err instanceof SafeCopyLimitError) {
         return advancedFallbackResult(
           request,
@@ -422,6 +449,7 @@ export class AdvancedModeExecutor {
 
     const gradeOutcome = await this.gradePhase(
       request,
+      execution,
       advanced,
       config,
       gradeImageRef,
@@ -441,8 +469,10 @@ export class AdvancedModeExecutor {
     let resultJson: unknown;
     try {
       const raw = await readFile(join(gradeDir, "output", "result.json"), "utf8");
+      execution.signal.throwIfAborted();
       resultJson = JSON.parse(raw);
     } catch {
+      execution.signal.throwIfAborted();
       return advancedFallbackResult(
         request,
         `Advanced grade image did not write result.json. exit=${String(gradeOutcome.exitCode)}\n${gradeOutcome.stderr}`.trim(),
@@ -466,28 +496,30 @@ export class AdvancedModeExecutor {
 
   private async runPhase(
     request: SandboxRequest,
+    execution: SandboxExecutionContext,
     advanced: SandboxAdvancedRequest,
     config: AdvancedModeConfig,
     imageRef: string,
     runDir: string,
   ): Promise<ContainerOutcome> {
     if (advanced.network.mode === "service") {
-      return this.runPhaseService(request, advanced, config, imageRef, runDir);
+      return this.runPhaseService(request, execution, advanced, config, imageRef, runDir);
     }
-    return this.runContainer(request, advanced, config, imageRef, runDir, {
+    return this.runContainer(request, execution, advanced, config, imageRef, runDir, {
       networkArgs: ["--network", "none"],
     });
   }
 
   private runContainer(
     request: SandboxRequest,
+    execution: SandboxExecutionContext,
     advanced: SandboxAdvancedRequest,
     config: AdvancedModeConfig,
     imageRef: string,
     runDir: string,
     net: { networkArgs: string[]; extraEnv?: Record<string, string> },
   ): Promise<ContainerOutcome> {
-    const containerName = `nojv-advanced-run-${sanitizeId(request.submissionId).slice(0, 36)}`;
+    const containerName = `nojv-advanced-run-${sanitizeId(execution.runId).slice(0, 36)}`;
     const args = buildAdvancedDockerArgs({
       containerName,
       networkArgs: net.networkArgs,
@@ -499,18 +531,21 @@ export class AdvancedModeExecutor {
       submissionId: request.submissionId,
       language: request.language,
       user: RUN_USER,
+      labels: buildDockerResourceLabels(execution.runId),
       ...(net.extraEnv ? { extraEnv: net.extraEnv } : {}),
     });
     return spawnContainer({
       args,
       containerName,
       outerTimeoutMs: advanced.totalTimeMs + 30_000,
+      signal: execution.signal,
       watchDir: runDir,
     });
   }
 
   private async runPhaseService(
     request: SandboxRequest,
+    execution: SandboxExecutionContext,
     advanced: SandboxAdvancedRequest,
     config: AdvancedModeConfig,
     imageRef: string,
@@ -527,57 +562,112 @@ export class AdvancedModeExecutor {
       };
     }
 
-    let network: Awaited<ReturnType<typeof createSubmissionNetwork>> | undefined;
-    let serviceContainerName: string | undefined;
+    const network = planSubmissionNetwork(execution.runId);
+    const containerName = serviceContainerName(execution.runId);
+    let outcome: ContainerOutcome | undefined;
+    let primaryFailure: Error | undefined;
     try {
       const serviceImageRef = service.imageRef;
-      network = await createSubmissionNetwork(request.submissionId);
-      const handle = await startServiceContainer({
-        submissionId: request.submissionId,
+      await createSubmissionNetwork(execution.runId, execution.signal);
+      await startServiceContainer({
+        runId: execution.runId,
         internalName: network.internalName,
         imageRef: serviceImageRef,
         memoryMb: advanced.memoryMb,
         cpuLimit: config.cpuLimit,
         pidsLimit: config.pidsLimit,
+        signal: execution.signal,
+        labels: buildDockerResourceLabels(execution.runId),
       });
-      serviceContainerName = handle.containerName;
-      return await this.runContainer(request, advanced, config, imageRef, runDir, {
-        networkArgs: ["--network", network.internalName],
-        extraEnv: buildServiceEnv(),
-      });
+      outcome = await this.runContainer(
+        request,
+        execution,
+        advanced,
+        config,
+        imageRef,
+        runDir,
+        {
+          networkArgs: ["--network", network.internalName],
+          extraEnv: buildServiceEnv(),
+        },
+      );
     } catch (err) {
-      return {
-        exitCode: null,
-        stderr: `service setup failed: ${err instanceof Error ? err.message : String(err)}`,
-        timedOut: false,
-        sizeExceeded: false,
-        spawnError: true,
-      };
-    } finally {
-      if (serviceContainerName) {
-        const serviceLogs = await collectServiceLogs(serviceContainerName);
+      if (execution.signal.aborted) {
+        primaryFailure = executionAbortReason(execution.signal);
+      } else {
+        primaryFailure = err instanceof Error ? err : new Error(String(err));
+      }
+    }
+
+    if (!primaryFailure) {
+      try {
+        const serviceLogs = await collectServiceLogs(containerName, execution.signal);
         if (serviceLogs) {
           logger.info("advanced service container log", {
             submissionId: request.submissionId,
             serviceLogs,
           });
         }
-        stopServiceContainer(serviceContainerName);
-      }
-      if (network) {
-        removeSubmissionNetwork(network);
+      } catch (error) {
+        if (execution.signal.aborted) {
+          primaryFailure = executionAbortReason(execution.signal);
+        } else {
+          logger.warn("advanced service container log collection failed", {
+            submissionId: request.submissionId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       }
     }
+
+    let cleanupFailure: Error | undefined;
+    try {
+      await cleanupDockerResources("Docker advanced service", [
+        {
+          name: `container ${containerName}`,
+          remove: () => stopServiceContainer(containerName),
+        },
+        {
+          name: `network ${network.internalName}`,
+          remove: () => removeSubmissionNetwork(network),
+        },
+      ]);
+    } catch (error) {
+      cleanupFailure = error instanceof Error ? error : new Error(String(error));
+    }
+
+    if (execution.signal.aborted) primaryFailure = executionAbortReason(execution.signal);
+    if (primaryFailure) {
+      if (cleanupFailure !== undefined) {
+        throw attachDockerCleanupFailure(
+          primaryFailure,
+          "Docker advanced service",
+          cleanupFailure,
+        );
+      }
+      if (execution.signal.aborted) throw primaryFailure;
+      return {
+        exitCode: null,
+        stderr: `service setup failed: ${primaryFailure.message}`,
+        timedOut: false,
+        sizeExceeded: false,
+        spawnError: true,
+      };
+    }
+    if (cleanupFailure !== undefined) throw cleanupFailure;
+    if (!outcome) throw new Error("Docker advanced service completed without an outcome.");
+    return outcome;
   }
 
   private gradePhase(
     request: SandboxRequest,
+    execution: SandboxExecutionContext,
     advanced: SandboxAdvancedRequest,
     config: AdvancedModeConfig,
     imageRef: string,
     gradeDir: string,
   ): Promise<ContainerOutcome> {
-    const containerName = `nojv-advanced-grade-${sanitizeId(request.submissionId).slice(0, 34)}`;
+    const containerName = `nojv-advanced-grade-${sanitizeId(execution.runId).slice(0, 34)}`;
     const args = buildAdvancedDockerArgs({
       containerName,
       networkArgs: ["--network", "none"],
@@ -589,6 +679,7 @@ export class AdvancedModeExecutor {
       submissionId: request.submissionId,
       language: request.language,
       user: RUN_USER,
+      labels: buildDockerResourceLabels(execution.runId),
       readOnlyMounts: [
         { hostPath: join(gradeDir, "run-output"), containerPath: "/workspace/run-output" },
       ],
@@ -597,6 +688,7 @@ export class AdvancedModeExecutor {
       args,
       containerName,
       outerTimeoutMs: advanced.totalTimeMs + 30_000,
+      signal: execution.signal,
     });
   }
 }

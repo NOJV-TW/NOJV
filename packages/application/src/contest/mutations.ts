@@ -16,7 +16,9 @@ import {
   type ContestProblemInput,
   type ContestScoringMode,
   type ContestUpdate,
+  type ContestLifecycleInput,
   type Language,
+  type PlatformRole,
 } from "@nojv/core";
 import { z } from "zod";
 
@@ -72,13 +74,15 @@ import {
 } from "../shared/errors";
 import { requireContest, requireUser } from "../shared/require";
 import { canManageContest } from "./permissions";
-import type { PlatformRole } from "@nojv/core";
 import { canEditProblem } from "../shared/permissions";
 import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
 import { getProblemTotalScore } from "../problem/total-score";
 import { stripUndefined } from "../shared/strip-undefined";
 import { getDomainOrchestration } from "../shared/orchestration";
 import { enforceSubmitCooldown } from "../shared/submit-cooldown";
+import { assertEffectiveTimeWindow } from "../shared/effective-time-window";
+import { contestLifecycleInput } from "../shared/lifecycle-input";
+import { enqueueLifecycleCancellation } from "../shared/lifecycle-cancellation";
 
 export type { ActorContext };
 
@@ -130,6 +134,7 @@ export async function ensureContestParticipation(
   userId: string,
   contestId: string,
   platformRole?: PlatformRole | null,
+  now: Date = new Date(),
 ) {
   const contest = await requireContest(tx, contestId);
 
@@ -137,7 +142,6 @@ export async function ensureContestParticipation(
     throw new NotFoundError(`Contest not found: ${contestId}`);
   }
 
-  const now = new Date();
   if (now < contest.startsAt) {
     throw new ForbiddenError("Contest has not started yet.");
   }
@@ -158,7 +162,7 @@ export async function ensureContestParticipation(
 
   const participation = await participationRepo
     .withTx(tx)
-    .upsertContestActive(contest.id, userId, new Date());
+    .upsertContestActive(contest.id, userId, now);
 
   return { contest, participation };
 }
@@ -169,8 +173,9 @@ export async function checkSubmitCooldown(
   userId: string,
   problemId: string,
   cooldownSec: number,
+  now: Date = new Date(),
 ) {
-  await enforceSubmitCooldown(tx, { contestId }, userId, problemId, cooldownSec);
+  await enforceSubmitCooldown(tx, { contestId }, userId, problemId, cooldownSec, now);
 }
 
 export async function createContestRecord(actor: ActorContext, payload: ContestCreate) {
@@ -217,7 +222,7 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
     return contest;
   });
 
-  await getDomainOrchestration().dispatchContestLifecycle({ contestId: contest.id });
+  await getDomainOrchestration().ensureContestLifecycle(contestLifecycleInput(contest));
   return contest;
 }
 
@@ -269,7 +274,8 @@ export async function updateContestRecord(
   contestId: string,
   payload: ContestUpdate,
 ) {
-  return runTransaction(async (tx) => {
+  const result = await runTransaction(async (tx) => {
+    await contestRepo.withTx(tx).lockForUpdate(contestId);
     const contest = await requireContest(tx, contestId);
 
     if (contest.createdByUserId !== actor.userId && actor.platformRole !== "admin") {
@@ -292,9 +298,27 @@ export async function updateContestRecord(
       updateData.frozenAt = payload.frozenAt ? new Date(payload.frozenAt) : null;
     }
 
-    if (Object.keys(updateData).length > 0) {
-      await contestRepo.withTx(tx).update(contest.id, updateData);
-    }
+    assertEffectiveTimeWindow({
+      start: payload.startsAt === undefined ? contest.startsAt : new Date(payload.startsAt),
+      end: payload.endsAt === undefined ? contest.endsAt : new Date(payload.endsAt),
+      fields: { start: "startsAt", end: "endsAt" },
+    });
+
+    const timerChanged =
+      (payload.startsAt !== undefined &&
+        new Date(payload.startsAt).getTime() !== contest.startsAt.getTime()) ||
+      (payload.endsAt !== undefined &&
+        new Date(payload.endsAt).getTime() !== contest.endsAt.getTime()) ||
+      (payload.frozenAt !== undefined &&
+        (payload.frozenAt ? new Date(payload.frozenAt).getTime() : null) !==
+          (contest.frozenAt?.getTime() ?? null)) ||
+      (payload.scoreboardMode !== undefined &&
+        payload.scoreboardMode !== contest.scoreboardMode);
+
+    const persisted =
+      Object.keys(updateData).length > 0
+        ? await contestRepo.withTx(tx).update(contest.id, updateData)
+        : contest;
 
     const editable = contest.visibility === "draft" || contest.startsAt > new Date();
     if (payload.problems !== undefined && editable) {
@@ -310,31 +334,42 @@ export async function updateContestRecord(
       );
     }
 
-    return { id: contest.id };
+    return { contest: persisted, timerChanged };
   });
+
+  if (result.contest.visibility === "published" && result.timerChanged) {
+    await getDomainOrchestration().replaceContestLifecycle(
+      contestLifecycleInput(result.contest),
+    );
+  }
+
+  return { id: result.contest.id };
 }
 
-export interface ContestLifecycleSnapshot {
-  endsAt: string;
-  freezeTime: string | null;
-  scoringMode: string;
-  startsAt: string;
+function matchesLifecycle(
+  contest: {
+    visibility: string;
+    scheduleRevision: number;
+    timerFingerprint: string;
+  } | null,
+  input: ContestLifecycleInput,
+): boolean {
+  return (
+    contest?.visibility === "published" &&
+    contest.scheduleRevision === input.scheduleRevision &&
+    contest.timerFingerprint === input.timerFingerprint
+  );
 }
 
-export async function getContestLifecycleInfo(
-  contestId: string,
-): Promise<ContestLifecycleSnapshot> {
-  const contest = await contestRepo.findInfoById(contestId);
-  return {
-    endsAt: contest.endsAt.toISOString(),
-    freezeTime: contest.frozenAt?.toISOString() ?? null,
-    scoringMode: contest.scoringMode,
-    startsAt: contest.startsAt.toISOString(),
-  };
-}
-
-export async function activateContest(contestId: string): Promise<void> {
-  await contestRepo.update(contestId, { visibility: "published" });
+export async function activateContest(
+  input: ContestLifecycleInput,
+  now = new Date(),
+): Promise<boolean> {
+  return runTransaction(async (tx) => {
+    await contestRepo.withTx(tx).lockForUpdate(input.contestId);
+    const contest = await contestRepo.withTx(tx).findById(input.contestId);
+    return matchesLifecycle(contest, input) && Date.parse(input.startsAt) <= now.getTime();
+  });
 }
 
 async function assertContestManageable(
@@ -350,7 +385,8 @@ async function assertContestManageable(
 }
 
 export async function publishContest(actor: ActorContext, contestId: string): Promise<void> {
-  await runTransaction(async (tx) => {
+  const published = await runTransaction(async (tx) => {
+    await contestRepo.withTx(tx).lockForUpdate(contestId);
     const contest = await assertContestManageable(tx, actor, contestId);
 
     if (contest.visibility !== "draft") {
@@ -364,17 +400,19 @@ export async function publishContest(actor: ActorContext, contestId: string): Pr
     if (contest.allowedLanguages.length === 0) {
       throw new ValidationError("Select at least one allowed language before publishing.");
     }
-    if (contest.startsAt >= contest.endsAt) {
-      throw new ValidationError("Start time must be before end time.");
-    }
+    assertEffectiveTimeWindow({
+      start: contest.startsAt,
+      end: contest.endsAt,
+      fields: { start: "startsAt", end: "endsAt" },
+    });
     if (contest.endsAt <= new Date()) {
       throw new ValidationError("End time must be in the future.");
     }
 
-    await contestRepo.withTx(tx).update(contest.id, { visibility: "published" });
+    return contestRepo.withTx(tx).update(contest.id, { visibility: "published" });
   });
 
-  await getDomainOrchestration().dispatchContestLifecycle({ contestId });
+  await getDomainOrchestration().ensureContestLifecycle(contestLifecycleInput(published));
 }
 
 export async function deleteContestDraft(
@@ -382,20 +420,61 @@ export async function deleteContestDraft(
   contestId: string,
 ): Promise<void> {
   await runTransaction(async (tx) => {
+    await contestRepo.withTx(tx).lockForUpdate(contestId);
     const contest = await assertContestManageable(tx, actor, contestId);
 
     if (contest.visibility !== "draft") {
       throw new ValidationError("Only draft contests can be deleted.");
     }
 
+    await enqueueLifecycleCancellation(tx, {
+      type: "contest",
+      input: contestLifecycleInput(contest),
+    });
     await contestRepo.withTx(tx).delete(contest.id);
   });
 }
 
-export async function freezeContestBoard(contestId: string): Promise<void> {
-  await contestRepo.update(contestId, { frozenBoard: true });
+export async function freezeContestBoard(
+  input: ContestLifecycleInput,
+  now = new Date(),
+): Promise<boolean> {
+  return runTransaction(async (tx) => {
+    await contestRepo.withTx(tx).lockForUpdate(input.contestId);
+    const contest = await contestRepo.withTx(tx).findById(input.contestId);
+    if (
+      !contest ||
+      !matchesLifecycle(contest, input) ||
+      input.scoreboardMode !== "frozen" ||
+      input.frozenAt === null ||
+      Date.parse(input.frozenAt) > now.getTime()
+    ) {
+      return false;
+    }
+    if (!contest.frozenBoard) {
+      await contestRepo.withTx(tx).update(input.contestId, { frozenBoard: true });
+    }
+    return true;
+  });
 }
 
-export async function finalizeContest(contestId: string): Promise<void> {
-  await contestRepo.update(contestId, { frozenBoard: false });
+export async function finalizeContest(
+  input: ContestLifecycleInput,
+  now = new Date(),
+): Promise<boolean> {
+  return runTransaction(async (tx) => {
+    await contestRepo.withTx(tx).lockForUpdate(input.contestId);
+    const contest = await contestRepo.withTx(tx).findById(input.contestId);
+    if (
+      !contest ||
+      !matchesLifecycle(contest, input) ||
+      Date.parse(input.endsAt) > now.getTime()
+    ) {
+      return false;
+    }
+    if (contest.frozenBoard) {
+      await contestRepo.withTx(tx).update(input.contestId, { frozenBoard: false });
+    }
+    return true;
+  });
 }

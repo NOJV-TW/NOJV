@@ -7,6 +7,10 @@ metadata:
   labels:
     {{- include "nojv.labels" . | nindent 4 }}
     app.kubernetes.io/component: worker-judge
+  {{- if and .Release.IsUpgrade .Values.migrator.enabled }}
+  annotations:
+    autoscaling.keda.sh/paused-replicas: "0"
+  {{- end }}
 spec:
   scaleTargetRef:
     name: {{ include "nojv.fullname" . }}-worker

@@ -6,6 +6,7 @@ import {
   DEFAULT_MAX_MEMORY_MB,
   DEFAULT_MEMORY_HEADROOM_MB,
   resolveContainerMemoryMb,
+  type SandboxExecutionContext,
   type SandboxExecutor,
   type SandboxRequest,
   type SandboxResult,
@@ -43,19 +44,22 @@ export class DockerExecutor implements SandboxExecutor {
     this.config = config;
   }
 
-  async execute(request: SandboxRequest): Promise<SandboxResult> {
-    const tempDir = await mkdtemp(
-      join(tmpdir(), `nojv-judge-${sanitizeId(request.submissionId)}-`),
-    );
+  async execute(
+    request: SandboxRequest,
+    execution: SandboxExecutionContext,
+  ): Promise<SandboxResult> {
+    execution.signal.throwIfAborted();
+    const tempDir = await mkdtemp(join(tmpdir(), `nojv-judge-${sanitizeId(execution.runId)}-`));
 
     try {
+      execution.signal.throwIfAborted();
       if (request.advanced) {
-        return await this.advanced.run(tempDir, request, {
+        return await this.advanced.run(tempDir, request, execution, {
           cpuLimit: this.config.cpuLimit,
           pidsLimit: this.config.pidsLimit,
         });
       }
-      return await runStandardMode(tempDir, request, {
+      return await runStandardMode(tempDir, request, execution, {
         ...this.config,
         memoryMb: resolveDockerMemoryMb(request, this.config),
       });

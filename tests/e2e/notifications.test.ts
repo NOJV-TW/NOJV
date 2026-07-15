@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-import { apiWriteHeaders, studentAuth, teacherAuth } from "./_shared";
+import { apiWriteHeaders, formActionHeaders, studentAuth, teacherAuth } from "./_shared";
 
 test.describe("Notifications API", () => {
   test("unauthenticated user cannot list recent notifications", async ({ page }) => {
@@ -86,7 +86,7 @@ test.describe("Notifications API", () => {
     const page = await context.newPage();
     const res = await page.request.patch(`/api/notifications`, {
       data: { action: "markAllRead" },
-      headers: { origin: "http://localhost:5173" },
+      headers: formActionHeaders,
     });
     expect(res.status()).toBe(403);
     await context.close();

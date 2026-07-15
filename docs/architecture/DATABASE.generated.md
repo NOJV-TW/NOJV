@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_47 models and 38 enums across 9 schema files._
+_48 models and 39 enums across 9 schema files._
 
 ## `auth.prisma`
 
@@ -165,6 +165,7 @@ Indexes & constraints: `@@index([secret])`, `@@index([userId])`
 | `mustChangePassword` | `Boolean` | `@default(false)` |
 | `twoFactorEnabled` | `Boolean` | `@default(false)` |
 | `twoFactorActivated` | `Boolean` | `@default(false)` |
+| `securityGeneration` | `Int` | `@default(0)` |
 | `profilePublic` | `Boolean` | `@default(false)` |
 | `canCreateAdvancedProblems` | `Boolean` | `@default(false)` |
 | `createdAt` | `DateTime` | `@default(now())` |
@@ -332,7 +333,7 @@ Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])
 | `exam` | `Exam` | `@relation(fields: [examId], references: [id], onDelete: Cascade)` |
 | `events` | `ExamSessionEvent[]` | — |
 
-Indexes & constraints: `@@unique([userId, examId])`, `@@index([examId, endedAt])`, `@@index([userId, endedAt])`
+Indexes & constraints: `@@unique([userId, examId])`, `@@unique([userId], map: "ActiveExamSession_one_active_per_user_key", where: { endedAt: null })`, `@@index([examId, endedAt])`, `@@index([userId, endedAt])`
 
 #### `Contest`
 
@@ -343,6 +344,8 @@ Indexes & constraints: `@@unique([userId, examId])`, `@@index([examId, endedAt])
 | `summary` | `String` | `@db.Text` |
 | `startsAt` | `DateTime` | — |
 | `endsAt` | `DateTime` | — |
+| `scheduleRevision` | `Int` | `@default(0)` |
+| `timerFingerprint` | `String` | `@default(dbgenerated())` |
 | `visibility` | `ContestVisibility` | `@default(draft)` |
 | `scoringMode` | `ContestScoringMode` | `@default(problem_count)` |
 | `scoreboardMode` | `ScoreboardMode` | `@default(live)` |
@@ -392,6 +395,8 @@ Indexes & constraints: `@@unique([contestId, problemId])`, `@@unique([contestId,
 | `summary` | `String` | `@db.Text` |
 | `startsAt` | `DateTime` | — |
 | `endsAt` | `DateTime` | — |
+| `scheduleRevision` | `Int` | `@default(0)` |
+| `timerFingerprint` | `String` | `@default(dbgenerated())` |
 | `status` | `ExamStatus` | `@default(draft)` |
 | `scoringMode` | `ExamScoringMode` | `@default(point_sum)` |
 | `scoreboardMode` | `ScoreboardMode` | `@default(hidden)` |
@@ -493,7 +498,7 @@ Indexes & constraints: `@@index([examId, createdAt])`, `@@index([userId, created
 | `exam` | `Exam?` | `@relation("ExamUnifiedParticipation", fields: [examId], references: [id], onDelete: Cascade)` |
 | `submissions` | `Submission[]` | — |
 
-Indexes & constraints: `@@unique([type, contestId, userId])`, `@@unique([type, examId, userId])`, `@@index([userId])`
+Indexes & constraints: `@@unique([id, userId])`, `@@unique([type, contestId, userId])`, `@@unique([type, examId, userId])`, `@@index([userId])`
 
 ## `course.prisma`
 
@@ -529,6 +534,8 @@ Indexes & constraints: `@@unique([type, contestId, userId])`, `@@unique([type, e
 | `opensAt` | `DateTime` | — |
 | `dueAt` | `DateTime?` | — |
 | `closesAt` | `DateTime` | — |
+| `scheduleRevision` | `Int` | `@default(0)` |
+| `timerFingerprint` | `String` | `@default(dbgenerated())` |
 | `maxAttemptsPerDay` | `Int?` | — |
 | `attemptResetMinuteOfDay` | `Int?` | — |
 | `allowedLanguages` | `SupportedLanguage[]` | `@default([])` |
@@ -549,7 +556,7 @@ Indexes & constraints: `@@unique([type, contestId, userId])`, `@@unique([type, e
 | `submissions` | `Submission[]` | — |
 | `submissionFeedback` | `SubmissionFeedback[]` | — |
 
-Indexes & constraints: `@@index([courseId, status])`
+Indexes & constraints: `@@unique([id, courseId])`, `@@index([courseId, status])`
 
 #### `AssessmentAuditLog`
 
@@ -683,6 +690,10 @@ Indexes & constraints: `@@unique([dedupeKey])`, `@@index([userId, createdAt(sort
 
 `draft` · `published` · `archived`
 
+#### `DurableWorkStatus`
+
+`pending` · `leased` · `succeeded` · `dead` · `cancelled`
+
 #### `PlagiarismReportStatus`
 
 `pending` · `running` · `completed` · `failed`
@@ -736,6 +747,28 @@ Indexes & constraints: `@@index([status, pinned, publishedAt])`, `@@index([cours
 | `announcement` | `Announcement` | `@relation(fields: [announcementId], references: [id], onDelete: Cascade)` |
 
 Indexes & constraints: `@@unique([announcementId, locale])`
+
+#### `DurableWork`
+
+| Field | Type | Attributes |
+| ----- | ---- | ---------- |
+| `id` | `String` | `@id @default(cuid())` |
+| `kind` | `String` | `@db.VarChar(64)` |
+| `dedupeKey` | `String` | `@db.VarChar(256)` |
+| `payload` | `Json` | — |
+| `status` | `DurableWorkStatus` | `@default(pending)` |
+| `availableAt` | `DateTime` | `@default(now())` |
+| `leaseOwner` | `String?` | `@db.VarChar(128)` |
+| `leaseExpiresAt` | `DateTime?` | — |
+| `attempt` | `Int` | `@default(0)` |
+| `maxAttempts` | `Int` | `@default(8)` |
+| `lastError` | `String?` | `@db.Text` |
+| `result` | `Json?` | — |
+| `completedAt` | `DateTime?` | — |
+| `createdAt` | `DateTime` | `@default(now())` |
+| `updatedAt` | `DateTime` | `@updatedAt` |
+
+Indexes & constraints: `@@unique([kind, dedupeKey])`, `@@index([status, availableAt, createdAt])`, `@@index([status, leaseExpiresAt])`, `@@index([kind, status, availableAt])`
 
 #### `PlatformSetting`
 
@@ -829,6 +862,10 @@ Indexes & constraints: `@@index([contextType, contextId, triggeredAt(sort: Desc)
 | `samples` | `Json?` | — |
 | `advancedConfig` | `Json?` | — |
 | `advancedRequiredPaths` | `String[]` | `@default([])` |
+| `storageGeneration` | `Int` | `@default(0)` |
+| `activeStorageBytes` | `Int` | `@default(0)` |
+| `checkerStorage` | `Json?` | — |
+| `interactorStorage` | `Json?` | — |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |
 | `author` | `User?` | `@relation("ProblemAuthor", fields: [authorId], references: [id], onDelete: SetNull)` |
@@ -881,7 +918,7 @@ Indexes & constraints: `@@unique([userId, problemId])`, `@@index([userId, create
 | `problemId` | `String` | — |
 | `language` | `SupportedLanguage` | — |
 | `path` | `String` | — |
-| `contentKey` | `String` | — |
+| `contentStorage` | `Json` | — |
 | `visibility` | `WorkspaceFileVisibility` | — |
 | `description` | `String` | `@default("") @db.Text` |
 | `orderIndex` | `Int` | `@default(0)` |
@@ -898,9 +935,9 @@ Indexes & constraints: `@@unique([problemId, language, path])`, `@@index([proble
 | `id` | `String` | `@id @default(cuid())` |
 | `testcaseSetId` | `String` | — |
 | `ordinal` | `Int` | — |
-| `inputKey` | `String` | — |
-| `outputKey` | `String?` | — |
-| `inputFileKeys` | `Json?` | — |
+| `inputStorage` | `Json` | — |
+| `outputStorage` | `Json?` | — |
+| `inputFileStorage` | `Json?` | — |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |
 | `testcaseSet` | `TestcaseSet` | `@relation(fields: [testcaseSetId], references: [id], onDelete: Cascade)` |
@@ -1092,13 +1129,15 @@ Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])
 | `assessmentId` | `String?` | — |
 | `sampleOnly` | `Boolean` | `@default(false)` |
 | `language` | `SupportedLanguage` | — |
-| `sourceStoragePrefix` | `String` | — |
+| `sourceStorage` | `Json?` | — |
 | `status` | `SubmissionStatus` | `@default(queued)` |
 | `score` | `Int` | `@default(0)` |
 | `runtimeMs` | `Int?` | — |
 | `memoryKb` | `Int?` | — |
 | `verdictSummary` | `Json?` | — |
-| `verdictDetailStorageKey` | `String?` | — |
+| `verdictDetailStorage` | `Json?` | — |
+| `judgeGeneration` | `Int` | `@default(0)` |
+| `activeJudgeRunId` | `String?` | — |
 | `advancedConfigSnapshot` | `Json?` | — |
 | `ipAddress` | `String?` | — |
 | `createdAt` | `DateTime` | `@default(now())` |
@@ -1107,12 +1146,12 @@ Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])
 | `problem` | `Problem` | `@relation(fields: [problemId], references: [id], onDelete: Cascade)` |
 | `exam` | `Exam?` | `@relation(fields: [examId], references: [id], onDelete: Restrict)` |
 | `contest` | `Contest?` | `@relation(fields: [contestId], references: [id], onDelete: Restrict)` |
-| `participation` | `Participation?` | `@relation(fields: [participationId], references: [id], onDelete: Cascade)` |
+| `participation` | `Participation?` | `@relation(fields: [participationId, userId], references: [id, userId], onDelete: Cascade)` |
 | `course` | `Course?` | `@relation(fields: [courseId], references: [id], onDelete: Restrict)` |
-| `assessment` | `Assessment?` | `@relation(fields: [assessmentId], references: [id], onDelete: Restrict)` |
+| `assessment` | `Assessment?` | `@relation(fields: [assessmentId, courseId], references: [id, courseId], onDelete: Restrict)` |
 | `rejudgeLogs` | `SubmissionRejudgeLog[]` | — |
 
-Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, createdAt])`, `@@index([courseId, assessmentId, createdAt])`, `@@index([contestId, problemId, createdAt])`, `@@index([examId, problemId, createdAt])`, `@@index([participationId, problemId, createdAt])`, `@@index([assessmentId, problemId, createdAt])`, `@@index([status, updatedAt])`, `@@index([problemId, sampleOnly, userId, status])`, `@@index([createdAt])`
+Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, createdAt])`, `@@index([userId, examId, sampleOnly, createdAt(sort: Desc), id(sort: Desc)])`, `@@index([courseId, assessmentId, createdAt])`, `@@index([contestId, problemId, createdAt])`, `@@index([examId, problemId, createdAt])`, `@@index([participationId, problemId, createdAt])`, `@@index([assessmentId, problemId, createdAt])`, `@@index([status, updatedAt])`, `@@index([problemId, sampleOnly, userId, status])`, `@@index([createdAt])`
 
 #### `SubmissionFeedback`
 

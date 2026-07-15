@@ -38,9 +38,12 @@ export const PUT: RequestHandler = writeApiHandler(async (event) => {
 
 export const DELETE: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
-
-  await deleteAvatar(actor);
+  const user = await userDomain.getUserById(actor.userId);
+  const filename = user?.image
+    ? new URL(user.image, "http://localhost").pathname.split("/").at(-1)
+    : null;
   await userDomain.setUserAvatar(actor.userId, null);
+  if (filename) await deleteAvatar(actor, decodeURIComponent(filename));
 
   return new Response(null, { status: 204 });
 });

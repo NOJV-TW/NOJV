@@ -19,6 +19,7 @@ describe("buildSandboxDockerArgs hardening profile", () => {
     memoryMb: 256,
     pidsLimit: 64,
     image: "nojv-sandbox:local",
+    labels: { "io.nojv.sandbox.managed": "true", "io.nojv.sandbox.run": "run-a" },
   };
 
   it("applies the full isolation flag set", () => {
@@ -36,6 +37,8 @@ describe("buildSandboxDockerArgs hardening profile", () => {
     expect(args).toContain("--read-only");
     expect(args).toContain("--pids-limit");
     expect(args).toContain("/tmp/job:/submission:ro");
+    expect(args).toContain("io.nojv.sandbox.managed=true");
+    expect(args).toContain("io.nojv.sandbox.run=run-a");
   });
 
   it("caps swap at the memory limit so MLE is independent of host swap config", () => {

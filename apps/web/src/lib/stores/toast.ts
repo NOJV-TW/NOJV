@@ -24,22 +24,11 @@ export interface Toast {
   timeoutId?: ReturnType<typeof setTimeout>;
 }
 
-export interface LegacyToastInput {
-  message: string;
-  type?: ToastType;
-  duration?: number;
-  dismissible?: boolean;
-  undo?: ToastUndo;
-}
-
 const DEFAULT_DURATION_MS = 4000;
 const MAX_TOASTS = 5;
 
 function generateId(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return Math.random().toString(36).slice(2, 11);
+  return crypto.randomUUID();
 }
 
 function createToastStore() {
@@ -57,13 +46,6 @@ function createToastStore() {
       const target = toasts.find((t) => t.id === id);
       if (target) clearToastTimer(target);
       return toasts.filter((t) => t.id !== id);
-    });
-  }
-
-  function clear() {
-    update((toasts) => {
-      for (const t of toasts) clearToastTimer(t);
-      return [];
     });
   }
 
@@ -100,21 +82,9 @@ function createToastStore() {
     return id;
   }
 
-  function add(input: LegacyToastInput): string {
-    const options: ToastOptions = {};
-    if (input.type !== undefined) options.type = input.type;
-    if (input.duration !== undefined) options.duration = input.duration;
-    if (input.dismissible !== undefined) options.dismissible = input.dismissible;
-    if (input.undo !== undefined) options.undo = input.undo;
-    return show(input.message, options);
-  }
-
   return {
     subscribe,
-    show,
-    add,
     remove,
-    clear,
     success: (message: string, options: Omit<ToastOptions, "type"> = {}) =>
       show(message, { ...options, type: "success" }),
     error: (message: string, options: Omit<ToastOptions, "type"> = {}) =>

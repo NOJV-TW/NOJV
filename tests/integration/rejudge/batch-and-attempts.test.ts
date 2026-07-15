@@ -51,6 +51,7 @@ describe("rejudge — attempt-quota invariant (real DB)", () => {
       userId: student.id,
       problemId: problem.id,
       assessmentId: assignment.id,
+      courseId: course.id,
       status: "wrong_answer",
       score: 30,
     });
@@ -64,14 +65,27 @@ describe("rejudge — attempt-quota invariant (real DB)", () => {
     );
     expect(before).toBe(1);
 
+    const judgeRunId = `run-${submission.id}`;
     const snap = await submissionDomain.snapshotForRejudge(
       submission.id,
       teacher.id,
-      `run-${submission.id}`,
+      judgeRunId,
     );
     expect(snap).not.toBeNull();
-    await submissionRepo.complete(submission.id, { status: "accepted", score: 100 });
-    await submissionDomain.finalizeRejudgeLog(submission.id, teacher.id, snap!.logId);
+    await submissionDomain.completeJudge(submission.id, judgeRunId, {
+      accepted: true,
+      caseResults: [],
+      feedback: "accepted",
+      runtimeMs: 1,
+      score: 100,
+      verdict: "accepted",
+    });
+    await submissionDomain.finalizeRejudgeLog(
+      submission.id,
+      teacher.id,
+      snap!.logId,
+      judgeRunId,
+    );
 
     const after = await submissionRepo.countForUserAssessmentProblemSince(
       student.id,
@@ -95,13 +109,17 @@ describe("listRejudgeLogsPaged (real DB)", () => {
       status: "wrong_answer",
       score: 0,
     });
-    const snap = await submissionDomain.snapshotForRejudge(
-      sub.id,
-      opts.teacherId,
-      `run-${sub.id}`,
-    );
-    await submissionRepo.complete(sub.id, { status: "accepted", score: 100 });
-    await submissionDomain.finalizeRejudgeLog(sub.id, opts.teacherId, snap!.logId);
+    const judgeRunId = `run-${sub.id}`;
+    const snap = await submissionDomain.snapshotForRejudge(sub.id, opts.teacherId, judgeRunId);
+    await submissionDomain.completeJudge(sub.id, judgeRunId, {
+      accepted: true,
+      caseResults: [],
+      feedback: "accepted",
+      runtimeMs: 1,
+      score: 100,
+      verdict: "accepted",
+    });
+    await submissionDomain.finalizeRejudgeLog(sub.id, opts.teacherId, snap!.logId, judgeRunId);
     return sub;
   }
 

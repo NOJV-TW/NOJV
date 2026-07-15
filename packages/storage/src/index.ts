@@ -1,5 +1,17 @@
 export { createStorageClient } from "./client";
 export {
+  StorageIntegrityError,
+  assertStorageObjectPointer,
+  getVerifiedObject,
+  getVerifiedText,
+  isStorageObjectPointer,
+  isStorageObjectNotFoundError,
+  putImmutableObject,
+  putImmutableText,
+  storagePointerFor,
+  type StorageObjectPointer,
+} from "./object";
+export {
   uploadProblemImage,
   uploadUserContentImage,
   downloadProblemImage,
@@ -15,14 +27,13 @@ export {
   interactorKey,
   problemPrefix,
   submissionPrefix,
-  submissionSourcePrefix,
-  submissionSourceStagingPrefix,
   submissionSourceKey,
-  submissionSourceStagingKey,
+  submissionSourceManifestKey,
   submissionVerdictDetailKey,
 } from "./keys";
 export {
   putText,
+  getObject,
   getText,
   copyBlob,
   deleteBlob,
@@ -32,13 +43,16 @@ export {
 } from "./blobs";
 export {
   putSubmissionSources,
-  putSubmissionSourcesStaged,
-  promoteSubmissionSources,
+  planSubmissionSources,
+  putSubmissionSourcePlan,
   getSubmissionSources,
+  getSubmissionSourcePointers,
   putVerdictDetail,
   getVerdictDetail,
-  deleteSubmissionStaging,
-  deleteSubmissionStorage,
 } from "./submission";
-export type { SubmissionSource } from "./submission";
+export type {
+  SubmissionSource,
+  SubmissionSourceManifest,
+  SubmissionSourcePlan,
+} from "./submission";
 export { getStorageEnv, storageEnvSchema, STORAGE_REQUIRED_IN_PRODUCTION } from "./env";

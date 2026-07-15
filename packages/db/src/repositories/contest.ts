@@ -111,10 +111,24 @@ export const contestRepo = {
     });
   },
 
-  listNeedingTimers(now: Date) {
+  listNeedingTimers(input: { now: Date; afterId?: string; take: number }) {
     return prisma.contest.findMany({
-      select: { id: true },
-      where: { visibility: "published", endsAt: { gt: now } },
+      select: {
+        id: true,
+        startsAt: true,
+        endsAt: true,
+        frozenAt: true,
+        scoreboardMode: true,
+        scheduleRevision: true,
+        timerFingerprint: true,
+      },
+      orderBy: { id: "asc" },
+      take: input.take,
+      where: {
+        visibility: "published",
+        ...(input.afterId ? { id: { gt: input.afterId } } : {}),
+        OR: [{ endsAt: { gt: input.now } }, { frozenBoard: true }],
+      },
     });
   },
 
@@ -137,6 +151,10 @@ export const contestRepo = {
     return {
       findById(id: string) {
         return tx.contest.findUnique({ where: { id } });
+      },
+
+      lockForUpdate(contestId: string) {
+        return tx.$queryRaw`SELECT id FROM "Contest" WHERE id = ${contestId} FOR UPDATE`;
       },
 
       create(data: Prisma.ContestUncheckedCreateInput) {

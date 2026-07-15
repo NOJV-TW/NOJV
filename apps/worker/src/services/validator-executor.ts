@@ -5,6 +5,7 @@ import type { ValidatorOutcome } from "@nojv/core";
 
 import { buildSandboxDockerArgs } from "./docker-args";
 import { sanitizeId, spawnDockerContainer } from "./docker-process";
+import { buildDockerResourceLabels } from "./docker-resource";
 import { sourceExtension } from "./sandbox-plan";
 import { parseValidateOutput } from "./sandbox-schema";
 
@@ -18,6 +19,7 @@ export interface ValidatorCase {
 }
 
 export interface ValidatorRunParams {
+  runId: string;
   submissionId: string;
   validatorScript: string;
   validatorLanguage: "python" | "cpp";
@@ -77,11 +79,13 @@ export async function writeValidatorFiles(
 export async function runValidator(
   tempDir: string,
   params: ValidatorRunParams,
+  signal: AbortSignal,
   config: ValidatorExecutorConfig,
 ): Promise<Map<number, ValidatorOutcome>> {
+  signal.throwIfAborted();
   await writeValidatorFiles(tempDir, params);
 
-  const containerName = `nojv-validate-${sanitizeId(params.submissionId).slice(0, 40)}`;
+  const containerName = `nojv-validate-${sanitizeId(params.runId).slice(0, 40)}`;
   const args = buildSandboxDockerArgs({
     containerName,
     networkArgs: ["--network", "none"],
@@ -90,6 +94,7 @@ export async function runValidator(
     memoryMb: config.memoryMb,
     pidsLimit: config.pidsLimit,
     image: config.image,
+    labels: buildDockerResourceLabels(params.runId),
   });
 
   const outerTimeoutMs = Math.min(
@@ -97,7 +102,7 @@ export async function runValidator(
     MAX_OUTER_TIMEOUT_MS,
   );
 
-  const result = await spawnDockerContainer({ args, containerName, outerTimeoutMs });
+  const result = await spawnDockerContainer({ args, containerName, outerTimeoutMs, signal });
 
   const seForAll = (): Map<number, ValidatorOutcome> =>
     new Map(params.cases.map((c): [number, ValidatorOutcome] => [c.index, { verdict: "SE" }]));

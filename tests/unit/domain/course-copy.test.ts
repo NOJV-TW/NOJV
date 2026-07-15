@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   courseFindById,
+  courseLockForUpdate,
   courseCreate,
   membershipFindByComposite,
   membershipCreate,
@@ -16,6 +17,7 @@ const {
   examProblemCreate,
 } = vi.hoisted(() => ({
   courseFindById: vi.fn(),
+  courseLockForUpdate: vi.fn(),
   courseCreate: vi.fn(),
   membershipFindByComposite: vi.fn(),
   membershipCreate: vi.fn(),
@@ -35,6 +37,7 @@ vi.mock("@nojv/db", () => {
     courseRepo: {
       withTx: () => ({
         findById: courseFindById,
+        lockForUpdate: courseLockForUpdate,
         create: courseCreate,
         update: vi.fn(),
         delete: vi.fn(),
@@ -198,6 +201,7 @@ function primeSuccessPath() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  courseLockForUpdate.mockResolvedValue([]);
 });
 
 describe("copyCourse — happy path", () => {
@@ -213,6 +217,10 @@ describe("copyCourse — happy path", () => {
     expect(newCourse.description).toBe(sourceCourse.description);
     expect(newCourse.archived).toBeUndefined();
     expect(newCourse.ownerId).toBe(teacherActor.userId);
+    expect(courseLockForUpdate).toHaveBeenCalledWith(sourceCourse.id);
+    expect(courseLockForUpdate.mock.invocationCallOrder[0]).toBeLessThan(
+      courseFindById.mock.invocationCallOrder[0],
+    );
   });
 
   it("adds the actor as the sole teacher of the new course", async () => {

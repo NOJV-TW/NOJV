@@ -70,14 +70,14 @@
         headers: { "X-Requested-With": "fetch" },
       });
       if (res.ok) {
-        toasts.add({ type: "success", message: m.rejudge_toast_cancelled() });
+        toasts.success(m.rejudge_toast_cancelled());
         done = true;
         stopPolling();
       } else {
-        toasts.add({ type: "error", message: m.rejudge_toast_error() });
+        toasts.error(m.rejudge_toast_error());
       }
     } catch {
-      toasts.add({ type: "error", message: m.rejudge_toast_error() });
+      toasts.error(m.rejudge_toast_error());
     } finally {
       cancelling = false;
     }
@@ -141,11 +141,11 @@
         const body = (await res.json().catch(() => null)) as { message?: string } | null;
         if (body?.message) msg = body.message;
         error = msg;
-        toasts.add({ type: "error", message: msg });
+        toasts.error(msg);
       }
     } catch {
       error = m.rejudge_toast_error();
-      toasts.add({ type: "error", message: m.rejudge_toast_error() });
+      toasts.error(m.rejudge_toast_error());
     } finally {
       submitting = false;
     }

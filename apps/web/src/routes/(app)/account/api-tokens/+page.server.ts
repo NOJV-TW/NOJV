@@ -1,4 +1,4 @@
-import { apiTokenDomain } from "@nojv/application";
+import { apiTokenDomain, securityGenerationProof } from "@nojv/application";
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, RequestEvent } from "@sveltejs/kit";
 
@@ -12,7 +12,11 @@ async function requireTokenMutationStepUp(event: RequestEvent): Promise<void> {
     throw new ForbiddenError("Two-factor authentication is required.");
   }
   const sessionId = event.locals.session?.id;
-  if (!sessionId || !(await hasFreshStepUp(sessionId))) {
+  const sessionUser = event.locals.sessionUser;
+  if (!sessionId || !sessionUser) {
+    throw new ForbiddenError("Session authentication is required.");
+  }
+  if (!(await hasFreshStepUp(sessionId, securityGenerationProof(sessionUser)))) {
     throw new ForbiddenError("Step-up verification required.");
   }
 }
@@ -56,10 +60,11 @@ export const load = async (event: RequestEvent) => {
     redirect(302, "/settings?setup2fa=1&returnTo=" + encodeURIComponent("/account/api-tokens"));
   }
   const sessionId = event.locals.session?.id;
-  if (!sessionId) {
+  const sessionUser = event.locals.sessionUser;
+  if (!sessionId || !sessionUser) {
     redirect(302, "/account/api-tokens/verify");
   }
-  if (!(await hasTokenPageMfa(sessionId))) {
+  if (!(await hasTokenPageMfa(sessionId, securityGenerationProof(sessionUser)))) {
     redirect(302, "/account/api-tokens/verify");
   }
 

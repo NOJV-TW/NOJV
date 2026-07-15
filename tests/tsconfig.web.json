@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../apps/web/tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "paths": {
+      "$app/types": ["../apps/web/.svelte-kit/types/index.d.ts"],
+      "$lib": ["../apps/web/src/lib"],
+      "$lib/*": ["../apps/web/src/lib/*"],
+      "@nojv/core": ["../packages/core/src/index.ts"],
+      "@nojv/db": ["../packages/db/src/index.ts"],
+      "@nojv/application": ["../packages/application/src/index.ts"],
+      "@nojv/redis": ["../packages/redis/src/index.ts"],
+      "@nojv/storage": ["../packages/storage/src/index.ts"],
+      "@nojv/temporal": ["../packages/temporal/src/index.ts"]
+    }
+  },
+  "include": [
+    "../apps/web/.svelte-kit/ambient.d.ts",
+    "../apps/web/.svelte-kit/env.d.ts",
+    "../apps/web/.svelte-kit/non-ambient.d.ts",
+    "../apps/web/.svelte-kit/types/**/$types.d.ts",
+    "../apps/web/src/app.d.ts",
+    "integration/http/submission-exam-confinement.test.ts",
+    "unit/web/problem-testcase-action-auth.test.ts",
+    "unit/security/exam-confinement-api-allowlist.test.ts"
+  ]
+}

@@ -1,4 +1,4 @@
-import { contentReportRepo, postCommentRepo, postRepo } from "@nojv/db";
+import { contentReportRepo, postCommentRepo, postRepo, runTransaction } from "@nojv/db";
 
 import * as notificationDomain from "../notification";
 import type { ActorContext } from "../shared/actor-context";
@@ -100,40 +100,37 @@ export async function resolveContentReport(
     throw new ConflictError("This report has already been handled.");
   }
 
-  if (action === "resolve") {
-    if (report.post) {
-      const deleted = await postRepo.softDeleteIfActive(report.post.id);
+  return runTransaction(async (tx) => {
+    if (action === "resolve" && report.post) {
+      const deleted = await postRepo.withTx(tx).softDeleteIfActive(report.post.id);
       if (deleted === 1) {
-        await notificationDomain
-          .createNotification({
-            userId: report.post.authorId,
-            type: "post_removed",
-            params: { problemId: report.post.problemId, title: report.post.title },
-            linkUrl: `/problems/${report.post.problemId}`,
-          })
-          .catch(() => undefined);
+        await notificationDomain.createNotificationInTransaction(tx, {
+          userId: report.post.authorId,
+          type: "post_removed",
+          params: { problemId: report.post.problemId, title: report.post.title },
+          linkUrl: `/problems/${report.post.problemId}`,
+          dedupeKey: `post_removed:${report.post.id}`,
+        });
       }
-    } else if (report.comment) {
-      const deleted = await postCommentRepo.softDeleteIfActive(report.comment.id);
+    } else if (action === "resolve" && report.comment) {
+      const deleted = await postCommentRepo.withTx(tx).softDeleteIfActive(report.comment.id);
       if (deleted === 1) {
-        await notificationDomain
-          .createNotification({
-            userId: report.comment.authorId,
-            type: "comment_removed",
-            params: {
-              problemId: report.comment.post.problemId,
-              postTitle: report.comment.post.title,
-            },
-            linkUrl: `/problems/${report.comment.post.problemId}`,
-          })
-          .catch(() => undefined);
+        await notificationDomain.createNotificationInTransaction(tx, {
+          userId: report.comment.authorId,
+          type: "comment_removed",
+          params: {
+            problemId: report.comment.post.problemId,
+            postTitle: report.comment.post.title,
+          },
+          linkUrl: `/problems/${report.comment.post.problemId}`,
+          dedupeKey: `comment_removed:${report.comment.id}`,
+        });
       }
     }
-  }
-
-  return contentReportRepo.updateStatus(reportId, {
-    status: action === "resolve" ? "resolved" : "dismissed",
-    resolvedByUserId: actor.userId,
-    resolvedAt: new Date(),
+    return contentReportRepo.withTx(tx).updateStatusIfOpen(reportId, {
+      status: action === "resolve" ? "resolved" : "dismissed",
+      resolvedByUserId: actor.userId,
+      resolvedAt: new Date(),
+    });
   });
 }

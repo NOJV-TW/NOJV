@@ -26,12 +26,14 @@ vi.mock("$app/environment", () => ({
   building: false,
 }));
 
-vi.mock("@nojv/storage", () => {
+vi.mock("@nojv/storage", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@nojv/storage")>();
   const blobStore = new Map<string, string>();
   return {
+    ...original,
     createStorageClient: () => ({}),
-    getText: vi.fn((_client: unknown, key: string) =>
-      Promise.resolve(blobStore.get(key) ?? ""),
+    getVerifiedText: vi.fn((_client: unknown, pointer: { key: string }) =>
+      Promise.resolve(blobStore.get(pointer.key) ?? ""),
     ),
     putText: vi.fn((_client: unknown, key: string, content: string) => {
       blobStore.set(key, content);
@@ -39,15 +41,6 @@ vi.mock("@nojv/storage", () => {
     }),
     deleteBlob: vi.fn(() => Promise.resolve()),
     deleteBlobsByPrefix: vi.fn(() => Promise.resolve()),
-    testcaseInputKey: (problemId: string, testcaseId: string) =>
-      `problems/${problemId}/testcases/${testcaseId}/input`,
-    testcaseOutputKey: (problemId: string, testcaseId: string) =>
-      `problems/${problemId}/testcases/${testcaseId}/output`,
-    testcaseInputFileKey: (problemId: string, testcaseId: string, filename: string) =>
-      `problems/${problemId}/testcases/${testcaseId}/files/${filename}`,
-    workspaceFileKey: (problemId: string, fileId: string) =>
-      `problems/${problemId}/workspace/${fileId}`,
-    problemPrefix: (problemId: string) => `problems/${problemId}/`,
     __blobStore: blobStore,
   };
 });
@@ -209,7 +202,11 @@ describe("DB-backed read model", () => {
         {
           language: "cpp",
           path: "solution.cpp",
-          contentKey: "problems/prob_blanks/workspace/file_solution",
+          contentStorage: {
+            key: "problems/prob_blanks/workspace/file_solution",
+            sha256: "a".repeat(64),
+            size: 27,
+          },
           description: "Your solution goes here.",
           visibility: "editable",
           orderIndex: 0,
@@ -217,7 +214,11 @@ describe("DB-backed read model", () => {
         {
           language: "cpp",
           path: "helpers.h",
-          contentKey: "problems/prob_blanks/workspace/file_helpers",
+          contentStorage: {
+            key: "problems/prob_blanks/workspace/file_helpers",
+            sha256: "b".repeat(64),
+            size: 26,
+          },
           description: "",
           visibility: "readonly",
           orderIndex: 1,
@@ -225,7 +226,11 @@ describe("DB-backed read model", () => {
         {
           language: "cpp",
           path: "grader.cpp",
-          contentKey: "problems/prob_blanks/workspace/file_grader",
+          contentStorage: {
+            key: "problems/prob_blanks/workspace/file_grader",
+            sha256: "c".repeat(64),
+            size: 28,
+          },
           description: "Hidden server-side grader.",
           visibility: "hidden",
           orderIndex: 2,

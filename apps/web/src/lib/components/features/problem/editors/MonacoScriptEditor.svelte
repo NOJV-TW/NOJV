@@ -1,6 +1,7 @@
 <script lang="ts">
   import type * as Monaco from "monaco-editor";
   import { onMount } from "svelte";
+  import { m } from "$lib/paraglide/messages.js";
   import { getMonacoLanguage } from "$lib/utils/monaco-languages";
   import {
     defineNojvThemes,
@@ -28,35 +29,51 @@
   let editorContainer: HTMLDivElement;
   let monacoEditor: Monaco.editor.IStandaloneCodeEditor | undefined;
   let monacoModule: typeof Monaco | undefined;
+  let editorLoadFailed = $state(false);
 
   onMount(() => {
+    let active = true;
     let disposeTheme: (() => void) | undefined;
 
     void (async () => {
-      const { loadMonaco } = await import("$lib/utils/monaco-loader");
-      monacoModule = loadMonaco();
-      defineNojvThemes(monacoModule);
+      try {
+        const { loadMonaco } = await import("$lib/utils/monaco-loader");
+        if (!active) return;
+        const monaco = loadMonaco();
+        monacoModule = monaco;
+        defineNojvThemes(monaco);
 
-      const isDark = document.documentElement.classList.contains("dark");
-      monacoEditor = monacoModule.editor.create(editorContainer, {
-        ...MONACO_CODE_EDITOR_OPTIONS,
-        language: getMonacoLanguage(language),
-        readOnly: isReadOnly,
-        theme: getNojvThemeName(isDark),
-        value,
-      });
+        const isDark = document.documentElement.classList.contains("dark");
+        const editor = monaco.editor.create(editorContainer, {
+          ...MONACO_CODE_EDITOR_OPTIONS,
+          language: getMonacoLanguage(language),
+          readOnly: isReadOnly,
+          theme: getNojvThemeName(isDark),
+          value,
+        });
+        monacoEditor = editor;
 
-      monacoEditor.onDidChangeModelContent(() => {
-        const current = monacoEditor!.getValue();
-        onchange?.(current);
-      });
+        editor.onDidChangeModelContent(() => {
+          if (active) onchange?.(editor.getValue());
+        });
 
-      disposeTheme = watchThemeChanges(monacoModule);
+        disposeTheme = watchThemeChanges(monaco);
+      } catch {
+        disposeTheme?.();
+        disposeTheme = undefined;
+        monacoEditor?.dispose();
+        monacoEditor = undefined;
+        monacoModule = undefined;
+        if (active) editorLoadFailed = true;
+      }
     })();
 
     return () => {
+      active = false;
       disposeTheme?.();
       monacoEditor?.dispose();
+      monacoEditor = undefined;
+      monacoModule = undefined;
     };
   });
 
@@ -83,4 +100,14 @@
   });
 </script>
 
-<div bind:this={editorContainer} class="h-full w-full overflow-hidden" style:height></div>
+<div class="relative h-full w-full" style:height>
+  <div bind:this={editorContainer} class="h-full w-full overflow-hidden"></div>
+  {#if editorLoadFailed}
+    <div
+      class="absolute inset-0 flex items-center justify-center bg-[color:var(--color-panel)] px-4 text-body-sm text-destructive"
+      role="alert"
+    >
+      {m.editor_loadFailed()}
+    </div>
+  {/if}
+</div>

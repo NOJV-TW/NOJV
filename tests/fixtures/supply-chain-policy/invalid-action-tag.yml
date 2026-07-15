@@ -1,0 +1,4 @@
+jobs:
+  test:
+    steps:
+      - uses: actions/checkout@v7

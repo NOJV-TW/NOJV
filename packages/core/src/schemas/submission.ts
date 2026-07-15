@@ -4,7 +4,6 @@ import {
   languageSchema,
   slugSchema,
   sourceCodeSchema,
-  submissionModeSchema,
   submissionOperationStatusSchema,
   submissionResultVerdictSchema,
 } from "../types";
@@ -44,19 +43,47 @@ const participationIdSchema = z
   .max(128)
   .regex(/^[A-Za-z0-9_-]+$/);
 
+const submissionContextSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("practice") }).strict(),
+  assessmentContextSchema.extend({ type: z.literal("assignment") }).strict(),
+  z.object({ type: z.literal("exam"), examId: z.string().trim().min(1) }).strict(),
+  z.object({ type: z.literal("contest"), contestId: slugSchema }).strict(),
+  z.object({ type: z.literal("virtual"), participationId: participationIdSchema }).strict(),
+]);
+
+const submissionDraftFields = {
+  language: languageSchema,
+  problemId: problemIdentifierSchema,
+  runCases: z.array(runCaseSchema).max(MAX_RUN_CASES).optional(),
+  sampleOnly: z.boolean().optional(),
+  sourceCode: sourceCodeSchema.optional(),
+  sourceFiles: z.array(sourceFileSchema).max(MAX_SUBMISSION_SOURCE_FILES).optional(),
+};
+
+function enforceRunCases(
+  draft: { runCases?: SubmissionRunCase[] | undefined; sampleOnly?: boolean | undefined },
+  ctx: z.RefinementCtx,
+): void {
+  if (draft.runCases !== undefined && draft.runCases.length > 0 && draft.sampleOnly !== true) {
+    ctx.addIssue({
+      code: "custom",
+      message: "runCases is only allowed on sample-only (Run) submissions",
+      path: ["runCases"],
+    });
+  }
+}
+
 export const submissionDraftSchema = z
   .object({
-    assessment: assessmentContextSchema.optional(),
-    contestId: slugSchema.optional(),
-    participationId: participationIdSchema.optional(),
-    language: languageSchema,
-    mode: submissionModeSchema.optional(),
-    problemId: problemIdentifierSchema,
-    runCases: z.array(runCaseSchema).max(MAX_RUN_CASES).optional(),
-    sampleOnly: z.boolean().optional(),
-    sourceCode: sourceCodeSchema.optional(),
-    sourceFiles: z.array(sourceFileSchema).max(MAX_SUBMISSION_SOURCE_FILES).optional(),
+    ...submissionDraftFields,
+    context: submissionContextSchema,
   })
+  .strict()
+  .superRefine(enforceRunCases);
+
+export const submissionJudgeDraftSchema = z
+  .object(submissionDraftFields)
+  .strict()
   .refine(
     (draft) =>
       draft.runCases === undefined || draft.runCases.length === 0 || draft.sampleOnly === true,
@@ -129,6 +156,8 @@ export const verdictSummarySchema = z.object({
 
 export type CaseResult = z.infer<typeof caseResultSchema>;
 export type SubtaskResultItem = z.infer<typeof subtaskResultItemSchema>;
+export type SubmissionContext = z.infer<typeof submissionContextSchema>;
 export type SubmissionDraft = z.infer<typeof submissionDraftSchema>;
+export type SubmissionJudgeDraft = z.infer<typeof submissionJudgeDraftSchema>;
 export type SubmissionResult = z.infer<typeof submissionResultSchema>;
 export type VerdictSummary = z.infer<typeof verdictSummarySchema>;

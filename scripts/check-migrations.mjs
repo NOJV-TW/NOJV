@@ -3,6 +3,8 @@ import { globSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { findBlockingIndexRelations } from "./migration-index-safety.mjs";
+
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..");
 
@@ -18,6 +20,7 @@ const ALLOWED_DUP_PREFIXES = new Set(["20260419120000", "20260430000000", "20260
 // Only enforce expand/contract on migrations authored after this baseline so the
 // existing history (which predates the convention) is exempt.
 const EXPAND_CONTRACT_BASELINE = "20260624999999";
+const CONCURRENT_INDEX_BASELINE = "20260716000001";
 const OVERRIDE_MARKER = "expand-contract-ok";
 const DESTRUCTIVE = [
   /\bDROP\s+COLUMN\b/i,
@@ -47,13 +50,22 @@ for (const dir of dirs) {
     resolve(repoRoot, "packages/db/prisma/migrations", dir, "migration.sql"),
     "utf8",
   );
-  if (sql.includes(OVERRIDE_MARKER)) continue;
-  const hit = DESTRUCTIVE.find((re) => re.test(sql));
-  if (hit) {
+  if (!sql.includes(OVERRIDE_MARKER)) {
+    const hit = DESTRUCTIVE.find((re) => re.test(sql));
+    if (hit) {
+      errors.push(
+        `${dir}: non-additive statement (${String(hit)}) without an expand/contract review. ` +
+          `Old revisions run against the new schema during a rolling deploy — split into ` +
+          `expand→migrate→contract, or add a "-- ${OVERRIDE_MARKER}: <reason>" comment if intentional.`,
+      );
+    }
+  }
+
+  if (prefix <= CONCURRENT_INDEX_BASELINE) continue;
+  for (const table of findBlockingIndexRelations(sql)) {
     errors.push(
-      `${dir}: non-additive statement (${String(hit)}) without an expand/contract review. ` +
-        `Old revisions run against the new schema during a rolling deploy — split into ` +
-        `expand→migrate→contract, or add a "-- ${OVERRIDE_MARKER}: <reason>" comment if intentional.`,
+      `${dir}: blocking index build on existing table ${table}. ` +
+        `Use CREATE INDEX CONCURRENTLY.`,
     );
   }
 }

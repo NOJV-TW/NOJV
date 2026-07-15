@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { createTestContest, createTestUser, testPrisma } from "../../fixtures/factories";
+import {
+  createTestContest,
+  createTestCourse,
+  createTestUser,
+  testPrisma,
+} from "../../fixtures/factories";
 
 describe("replayed CHECK constraints are enforced in the test DB", () => {
   it("has the participation CHECK constraints (parity with migrations)", async () => {
@@ -28,6 +33,24 @@ describe("replayed CHECK constraints are enforced in the test DB", () => {
           userId: user.id,
           contestId: contest.id,
           status: "active",
+        },
+      }),
+    ).rejects.toThrow(/Participation_virtual_window_chk|check constraint/i);
+  });
+
+  it("rejects a virtual participation whose end is not after its start", async () => {
+    const user = await createTestUser();
+    const contest = await createTestContest();
+
+    await expect(
+      testPrisma.participation.create({
+        data: {
+          type: "virtual",
+          userId: user.id,
+          contestId: contest.id,
+          status: "active",
+          startedAt: new Date("2026-01-01T02:00:00Z"),
+          endsAt: new Date("2026-01-01T02:00:00Z"),
         },
       }),
     ).rejects.toThrow(/Participation_virtual_window_chk|check constraint/i);
@@ -66,5 +89,82 @@ describe("replayed CHECK constraints are enforced in the test DB", () => {
       },
     });
     expect(row.id).toBeTruthy();
+  });
+
+  it("has validated effective-window CHECK constraints", async () => {
+    const rows = await testPrisma.$queryRawUnsafe<
+      { conname: string; convalidated: boolean }[]
+    >(`
+      SELECT conname, convalidated
+      FROM pg_constraint
+      WHERE conname IN (
+        'Exam_effective_time_window_chk',
+        'Contest_effective_time_window_chk',
+        'Assessment_effective_time_window_chk'
+      )
+      ORDER BY conname
+    `);
+
+    expect(rows).toEqual([
+      { conname: "Assessment_effective_time_window_chk", convalidated: true },
+      { conname: "Contest_effective_time_window_chk", convalidated: true },
+      { conname: "Exam_effective_time_window_chk", convalidated: true },
+    ]);
+  });
+
+  it("has a validated virtual participation window constraint", async () => {
+    const rows = await testPrisma.$queryRawUnsafe<
+      { conname: string; convalidated: boolean }[]
+    >(`
+      SELECT conname, convalidated
+      FROM pg_constraint
+      WHERE conname = 'Participation_virtual_window_chk'
+    `);
+
+    expect(rows).toEqual([{ conname: "Participation_virtual_window_chk", convalidated: true }]);
+  });
+
+  it("rejects invalid Exam, Contest, and Assessment windows directly", async () => {
+    const teacher = await createTestUser({ platformRole: "teacher" });
+    const course = await createTestCourse({ ownerId: teacher.id });
+    const start = new Date("2030-01-02T00:00:00.000Z");
+    const end = new Date("2030-01-01T00:00:00.000Z");
+
+    await expect(
+      testPrisma.exam.create({
+        data: {
+          courseId: course.id,
+          title: "Invalid exam",
+          summary: "Invalid exam window",
+          startsAt: start,
+          endsAt: end,
+        },
+      }),
+    ).rejects.toThrow(/Exam_effective_time_window_chk|check constraint/i);
+
+    await expect(
+      testPrisma.contest.create({
+        data: {
+          title: "Invalid contest",
+          summary: "Invalid contest window",
+          startsAt: start,
+          endsAt: end,
+        },
+      }),
+    ).rejects.toThrow(/Contest_effective_time_window_chk|check constraint/i);
+
+    await expect(
+      testPrisma.assessment.create({
+        data: {
+          courseId: course.id,
+          createdByUserId: teacher.id,
+          title: "Invalid assessment",
+          summary: "Invalid assessment due date",
+          opensAt: new Date("2030-01-01T00:00:00.000Z"),
+          dueAt: new Date("2030-01-03T00:00:00.000Z"),
+          closesAt: new Date("2030-01-02T00:00:00.000Z"),
+        },
+      }),
+    ).rejects.toThrow(/Assessment_effective_time_window_chk|check constraint/i);
   });
 });

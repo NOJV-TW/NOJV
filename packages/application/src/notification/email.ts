@@ -1,13 +1,40 @@
 import { getAppBaseUrl, getMailer, renderEmail } from "@nojv/mailer";
-import { userRepo, type NotificationCreateInput } from "@nojv/db";
-import type { NotificationPreferences } from "@nojv/core";
-
-import { getEffectiveNotificationPreferences } from "./preferences";
+import { notificationRepo, type NotificationCreateInput } from "@nojv/db";
+import { DEFAULT_NOTIFICATION_PREFERENCES, notificationPreferencesSchema } from "@nojv/core";
+import { z } from "zod";
 
 type Params = Record<string, unknown>;
 
+const NOTIFICATION_TYPES = [
+  "assignment_started",
+  "assignment_due_soon",
+  "exam_starting_soon",
+  "contest_starting_soon",
+  "course_enrolled",
+  "announcement_published",
+  "role_changed",
+  "clarification_answered",
+  "editorial_removed",
+  "post_removed",
+  "comment_removed",
+] as const satisfies readonly NotificationCreateInput["type"][];
+
+const EMAIL_PREFERENCE_KEYS = [
+  "emailAssignmentStarted",
+  "emailAssignmentDueSoon",
+  "emailExamStarting",
+  "emailContestStarting",
+  "emailSystemAnnouncement",
+  "emailCourseAnnouncement",
+  "emailCourseEnrolled",
+  "emailRoleChanged",
+  "emailEditorialRemoved",
+] as const;
+
+type NotificationEmailPreferenceKey = (typeof EMAIL_PREFERENCE_KEYS)[number];
+
 interface EmailSpec {
-  prefKey: (params: Params) => keyof NotificationPreferences;
+  prefKey: (params: Params) => NotificationEmailPreferenceKey;
   subject: (params: Params) => string;
   heading: (params: Params) => string;
   intro: (params: Params) => string;
@@ -116,69 +143,175 @@ const EMAIL_SPECS: Partial<Record<NotificationCreateInput["type"], EmailSpec>> =
   },
 };
 
-export function hasEmailSpec(type: NotificationCreateInput["type"]): boolean {
-  return EMAIL_SPECS[type] !== undefined;
-}
-
 function isPlaceholderEmail(email: string): boolean {
   return email.endsWith("@placeholder.nojv.local") || email.endsWith("@deleted.nojv.local");
 }
 
-function preferenceOutro(base: string): string {
-  const link = `${base}/settings`;
-  return `不想收到這類信件嗎？請至<a href="${link}">設定頁面</a>調整通知偏好。<br>Manage your notification preferences in <a href="${link}">settings</a>.`;
+const PRE_DELIVERY_SUPPRESSION_REASONS = [
+  "notification_missing",
+  "missing_recipient",
+  "recipient_disabled",
+  "recipient_inactive",
+  "unverified_recipient",
+  "placeholder_recipient",
+  "preference_disabled",
+  "unsupported_notification_type",
+] as const;
+
+export type NotificationEmailSuppressionReason =
+  (typeof PRE_DELIVERY_SUPPRESSION_REASONS)[number] | "mailer_suppressed";
+
+const notificationEmailIdentitySchema = {
+  notificationId: z.string().min(1),
+  userId: z.string().min(1),
+  notificationType: z.enum(NOTIFICATION_TYPES),
+};
+
+export const notificationEmailWorkPayloadSchema = z.discriminatedUnion("disposition", [
+  z
+    .object({
+      ...notificationEmailIdentitySchema,
+      disposition: z.literal("send"),
+      preferenceKey: z.enum(EMAIL_PREFERENCE_KEYS),
+      messageId: z.string().min(1),
+      subject: z.string().min(1),
+      html: z.string().min(1),
+    })
+    .strict(),
+  z
+    .object({
+      ...notificationEmailIdentitySchema,
+      disposition: z.literal("suppress"),
+      reason: z.enum(PRE_DELIVERY_SUPPRESSION_REASONS),
+    })
+    .strict(),
+]);
+
+export type NotificationEmailWorkPayload = z.infer<typeof notificationEmailWorkPayloadSchema>;
+
+export type NotificationEmailWorkResult =
+  | {
+      transport: "email";
+      outcome: "accepted";
+      deliverySemantics: "at_least_once";
+      messageId: string;
+    }
+  | {
+      transport: "email";
+      outcome: "suppressed";
+      reason: NotificationEmailSuppressionReason;
+      messageId?: string;
+    };
+
+function suppressedEmailWork(
+  notificationId: string,
+  input: NotificationCreateInput,
+  reason: Exclude<NotificationEmailSuppressionReason, "mailer_suppressed">,
+): NotificationEmailWorkPayload {
+  return {
+    notificationId,
+    userId: input.userId,
+    notificationType: input.type,
+    disposition: "suppress",
+    reason,
+  };
 }
 
-export async function maybeSendEmails(
-  inputs: NotificationCreateInput[],
-  skippedDedupeKeys: ReadonlySet<string>,
-): Promise<void> {
-  const candidates = inputs.filter((input) => {
-    if (!EMAIL_SPECS[input.type]) return false;
-    if (input.dedupeKey != null && skippedDedupeKeys.has(input.dedupeKey)) return false;
-    return true;
-  });
-  if (candidates.length === 0) return;
+export function buildNotificationEmailWork(
+  notificationId: string,
+  input: NotificationCreateInput,
+): NotificationEmailWorkPayload {
+  const spec = EMAIL_SPECS[input.type];
+  if (!spec) return suppressedEmailWork(notificationId, input, "unsupported_notification_type");
 
-  const prefs = await getEffectiveNotificationPreferences(candidates.map((c) => c.userId));
-
-  const wanted = candidates.filter((input) => {
-    const spec = EMAIL_SPECS[input.type];
-    if (!spec) return false;
-    const pref = prefs.get(input.userId);
-    if (!pref) return false;
-    return pref[spec.prefKey(input.params as Params)] !== false;
-  });
-  if (wanted.length === 0) return;
-
-  const users = await userRepo.listEmailByIds(wanted.map((w) => w.userId));
-  const byId = new Map(users.map((u) => [u.id, u]));
-
-  const mailer = getMailer();
+  const params = input.params as Params;
   const base = getAppBaseUrl();
-
-  for (const input of wanted) {
-    const user = byId.get(input.userId);
-    if (!user) continue;
-    if (!user.emailVerified || isPlaceholderEmail(user.email)) continue;
-
-    const spec = EMAIL_SPECS[input.type];
-    if (!spec) continue;
-    const params = input.params as Params;
-
-    const html = renderEmail({
+  return {
+    notificationId,
+    userId: input.userId,
+    notificationType: input.type,
+    disposition: "send",
+    preferenceKey: spec.prefKey(params),
+    messageId: `<notification.${notificationId}@nojv.local>`,
+    subject: spec.subject(params),
+    html: renderEmail({
       heading: spec.heading(params),
       intro: spec.intro(params),
       ...(input.linkUrl
         ? { action: { url: `${base}${input.linkUrl}`, label: "前往查看 · View" } }
         : {}),
       outro: preferenceOutro(base),
-    });
+    }),
+  };
+}
 
-    try {
-      await mailer.sendEmail({ to: user.email, subject: spec.subject(params), html });
-    } catch (err) {
-      console.warn(`[notification-email] send failed for user ${input.userId}:`, err);
-    }
+export async function deliverNotificationEmail(
+  work: NotificationEmailWorkPayload,
+): Promise<NotificationEmailWorkResult> {
+  if (work.disposition === "suppress") {
+    return { transport: "email", outcome: "suppressed", reason: work.reason };
   }
+  const context = await notificationRepo.findEmailDeliveryContext(
+    work.notificationId,
+    work.userId,
+  );
+  if (!context.notification) {
+    return {
+      transport: "email",
+      outcome: "suppressed",
+      reason: context.recipientExists ? "notification_missing" : "missing_recipient",
+    };
+  }
+  if (
+    context.notification.userId !== work.userId ||
+    context.notification.type !== work.notificationType
+  ) {
+    throw new Error(`Notification email work identity mismatch: ${work.notificationId}`);
+  }
+
+  const recipient = context.notification.user;
+  if (recipient.disabled) {
+    return { transport: "email", outcome: "suppressed", reason: "recipient_disabled" };
+  }
+  if (recipient.status !== "active") {
+    return { transport: "email", outcome: "suppressed", reason: "recipient_inactive" };
+  }
+  if (!recipient.emailVerified) {
+    return { transport: "email", outcome: "suppressed", reason: "unverified_recipient" };
+  }
+  if (isPlaceholderEmail(recipient.email)) {
+    return { transport: "email", outcome: "suppressed", reason: "placeholder_recipient" };
+  }
+  const preferences = notificationPreferencesSchema.parse(
+    recipient.notificationPreference ?? DEFAULT_NOTIFICATION_PREFERENCES,
+  );
+  if (!preferences[work.preferenceKey]) {
+    return { transport: "email", outcome: "suppressed", reason: "preference_disabled" };
+  }
+
+  const delivery = await getMailer().sendEmail({
+    to: recipient.email,
+    subject: work.subject,
+    html: work.html,
+    messageId: work.messageId,
+  });
+  if (delivery === "suppressed") {
+    return {
+      transport: "email",
+      outcome: "suppressed",
+      reason: "mailer_suppressed",
+      messageId: work.messageId,
+    };
+  }
+  return {
+    transport: "email",
+    outcome: "accepted",
+    deliverySemantics: "at_least_once",
+    messageId: work.messageId,
+  };
+}
+
+function preferenceOutro(base: string): string {
+  const link = `${base}/settings`;
+  return `不想收到這類信件嗎？請至<a href="${link}">設定頁面</a>調整通知偏好。<br>Manage your notification preferences in <a href="${link}">settings</a>.`;
 }

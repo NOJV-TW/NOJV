@@ -16,7 +16,8 @@ package time):
 
 1. **Runtime secret** — an existing `Secret` (default name `nojv-runtime-secrets`)
    in the app namespace holding `DATABASE_URL`, `REDIS_URL`, `S3_*`, the web
-   auth secrets, OAuth, and optional `OTEL_EXPORTER_OTLP_*` keys. See
+   auth secrets, required SMTP credentials plus `APP_BASE_URL`, OAuth, and
+   optional `OTEL_EXPORTER_OTLP_*` keys. See
    [`secret.example.yaml`](./secret.example.yaml). The chart never templates
    secret values.
 2. **CloudNativePG operator** (only when `postgres.mode=cnpg`) — install
@@ -34,18 +35,34 @@ kubectl -n nojv apply -f secret.local.yaml
 
 # 2a. Single-machine:
 helm upgrade --install nojv infra/charts/nojv \
-  -f infra/charts/nojv/values-single-machine.yaml
+  -f infra/charts/nojv/values-single-machine.yaml \
+  -f production-values.yaml \
+  --set image.tag=<40-character-source-sha> \
+  --set-string release.sourceSha=<40-character-source-sha> \
+  --set-string image.digests.web=<sha256:registry-verified-digest> \
+  --set-string image.digests.worker=<sha256:registry-verified-digest> \
+  --set-string image.digests.sandbox=<sha256:registry-verified-digest> \
+  --set-string image.digests.migrator=<sha256:registry-verified-digest>
 
-# 2b. GKE:
-helm upgrade --install nojv infra/charts/nojv \
-  -f infra/charts/nojv/values-gke.yaml
+# 2b. GKE (performs identity, network, provenance, rollout, and edge checks):
+bash infra/gcp/cloud-build/deploy.sh
 ```
+
+The chart intentionally refuses to render non-local application workloads until
+the source SHA matches the image tag and all four digests are present. The
+single-machine overlay additionally refuses to render until both off-host
+backup destinations are supplied in a private values file; see
+`infra/flux/README.md` for the production Secret shape.
+`build-images.yml` obtains the digests from Buildx metadata for
+the Flux deploy branch; `infra/gcp/cloud-build/deploy.sh` reads them back from
+Artifact Registry. Never copy a digest from another tag or architecture.
 
 ## Render (no cluster needed)
 
 ```bash
-helm template nojv infra/charts/nojv -f infra/charts/nojv/values-single-machine.yaml
-helm template nojv infra/charts/nojv -f infra/charts/nojv/values-gke.yaml
+helm template nojv infra/charts/nojv \
+  -f infra/charts/nojv/values-single-machine.yaml \
+  -f <values-file-containing-the-four-verified-image-digests>
 ```
 
 ## File tree
@@ -88,48 +105,53 @@ infra/charts/nojv/
 
 ## Values knobs
 
-| Knob                                                                            | Default                                                            | Purpose                                                                                                             |
-| ------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| `image.registry` / `image.repositoryPrefix` / `image.tag`                       | `asia-east1-docker.pkg.dev` / `PROJECT_ID/nojv` / chart appVersion | image ref composition                                                                                               |
-| `image.repositories.*`                                                          | web/worker/sandbox/migrator                                        | per-component repo suffix                                                                                           |
-| `postgres.mode`                                                                 | `cnpg`                                                             | `cnpg` \| `cloudsql` \| `external` — drives `DATABASE_URL` derivation                                               |
-| `postgres.cnpg.instances` / `storageSize`                                       | `1` / `10Gi`                                                       | CNPG Cluster size                                                                                                   |
-| `postgres.cnpg.backup.*`                                                        | disabled                                                           | barman-cloud `ScheduledBackup`                                                                                      |
-| `postgres.cloudsql.instanceConnectionName`                                      | placeholder                                                        | Cloud SQL proxy target                                                                                              |
-| `cloudsqlProxy.enabled`                                                         | `false`                                                            | adds the cloud-sql-proxy sidecar (use with `mode=cloudsql`)                                                         |
-| `redis.inCluster`                                                               | `true`                                                             | deploy in-cluster Redis, else `REDIS_URL` from secret                                                               |
-| `storage.inCluster`                                                             | `true`                                                             | deploy in-cluster MinIO, else `S3_*` from secret                                                                    |
-| `storage.bucket` / `storage.region`                                             | `nojv` / `auto`                                                    | S3 bucket/region                                                                                                    |
-| `registry.enabled`                                                              | `false`                                                            | deploy the in-cluster distribution registry for special_env images                                                  |
-| `registry.{image,host,bucket,internalUrl,resources}`                            | `registry:2.8.3` / `""` / `nojv-registry` / `""`                   | registry image, public push host, MinIO blob bucket, in-cluster URL (empty = Service DNS), sizing                   |
-| `registry.token.{realm,issuer}`                                                 | `""` / `nojv`                                                      | token-auth realm (public URL of the web token endpoint) + JWT issuer                                                |
-| `registry.s3.regionendpoint`                                                    | `""`                                                               | blob S3 endpoint when `storage.inCluster=false` (in-cluster MinIO used otherwise)                                   |
-| `worker.sandbox.imagePullSecret`                                                | `""`                                                               | dockerconfigjson Secret (sandbox ns) added to judge pods' `imagePullSecrets` (`K8S_IMAGE_PULL_SECRET`)              |
-| `temporal.address` / `temporal.namespace`                                       | in-cluster Temporal frontend / `default`                           | Temporal client target                                                                                              |
-| `secrets.runtimeSecretName`                                                     | `nojv-runtime-secrets`                                             | existing secret to reference                                                                                        |
-| `web.replicas` / `web.resources` / `web.nodeSelector`                           | `1` / 256Mi-512Mi                                                  | web sizing                                                                                                          |
-| `web.hpa.{enabled,min,max,targetCPU}`                                           | `false` / 2 / 15 / 70                                              | web autoscaling                                                                                                     |
-| `web.advancedImageAllowedRegistries`                                            | `""` (app default trusts major public registries)                  | Comma-separated registry hosts accepted for special_env image refs                                                  |
-| `web.ingress.{enabled,className,host,tls}`                                      | `false`                                                            | Ingress for Cloudflare origin                                                                                       |
-| `worker.judge.{replicas,concurrency,resources,nodeSelector}`                    | `2` / `4`                                                          | judge workers                                                                                                       |
-| `worker.judge.keda.{enabled,min,max,prometheusAddress,query,threshold}`         | `false` / 2 / 10                                                   | opt-in dispatcher autoscaling on Temporal queue (KEDA prereq)                                                       |
-| `worker.platform.{replicas,concurrency,resources,nodeSelector}`                 | `1` / `4`                                                          | platform workers                                                                                                    |
-| `worker.sandbox.{cpu,memory}{Request,Limit}`                                    | 500m/1 · 256Mi/512Mi                                               | per-sandbox Job hints (K8S\_\* env)                                                                                 |
-| `pdb.enabled` / `pdb.minAvailable`                                              | `false` / `1`                                                      | worker PodDisruptionBudgets                                                                                         |
-| `sandbox.networkPolicy.enabled`                                                 | `true`                                                             | sandbox deny-all NetworkPolicy                                                                                      |
-| `sandbox.resourceQuota.*`                                                       | pods 50, cpu 25, mem 12Gi                                          | sandbox ResourceQuota                                                                                               |
-| `sandbox.limitRange.*`                                                          | per-container defaults/max/min                                     | sandbox LimitRange                                                                                                  |
-| `networkPolicy.enabled`                                                         | `false`                                                            | worker-egress NetworkPolicy (set CIDRs first)                                                                       |
-| `networkPolicy.egress.*`                                                        | cluster-specific CIDRs                                             | Redis/CloudSQL/GoogleAPIs/API-server egress                                                                         |
-| `observability.collector.enabled`                                               | `false`                                                            | deploy the in-cluster OTLP collector                                                                                |
-| `observability.collector.{image,remoteWriteUrl,resources}`                      | contrib image / `""`                                               | collector image; remote-write target (else expose :8889 /metrics)                                                   |
-| `observability.prometheus.enabled`                                              | `false`                                                            | deploy in-cluster Prometheus scraping the collector `:8889`                                                         |
-| `observability.prometheus.{image,retention,storageSize,storageClass,resources}` | `prom/prometheus` / `15d` / `10Gi`                                 | Prometheus image, TSDB retention, PVC sizing                                                                        |
-| `observability.grafana.enabled`                                                 | `false`                                                            | deploy in-cluster Grafana with the chart dashboards auto-provisioned                                                |
-| `observability.grafana.{image,adminUser,adminPassword,resources}`               | `grafana/grafana` / `admin` / `admin`                              | Grafana image + admin login (change `adminPassword`; empty = read `GRAFANA_ADMIN_PASSWORD` from the runtime secret) |
-| `observability.grafana.service.port`                                            | `3000`                                                             | Grafana Service port                                                                                                |
-| `observability.grafana.ingress.{enabled,className,host,tls}`                    | `false`                                                            | Ingress for Cloudflare-fronted Grafana access                                                                       |
-| `migrator.enabled`                                                              | `true`                                                             | run the migration Job as a Helm hook                                                                                |
+| Knob                                                                                | Default                                                                         | Purpose                                                                                                                                                                                                 |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `image.registry` / `image.repositoryPrefix` / `image.tag`                           | `asia-east1-docker.pkg.dev` / `PROJECT_ID/nojv` / chart appVersion              | readable image-name and tag composition                                                                                                                                                                 |
+| `image.digests.{web,worker,sandbox,migrator}`                                       | required                                                                        | registry-verified manifest digest for every deployed application image                                                                                                                                  |
+| `image.allowUnpinnedLocalBuilds`                                                    | `false`                                                                         | local-only escape hatch; requires empty registry/prefix and the exact tag `local`                                                                                                                       |
+| `image.repositories.*`                                                              | web/worker/sandbox/migrator                                                     | per-component repo suffix                                                                                                                                                                               |
+| `release.sourceSha`                                                                 | empty                                                                           | verified 40-character source commit; must equal `image.tag` and is rendered as `app.kubernetes.io/version`                                                                                              |
+| `postgres.mode`                                                                     | `cnpg`                                                                          | `cnpg` \| `cloudsql` \| `external` — drives `DATABASE_URL` derivation                                                                                                                                   |
+| `postgres.cnpg.instances` / `storageSize`                                           | `1` / `10Gi`                                                                    | CNPG Cluster size                                                                                                                                                                                       |
+| `postgres.cnpg.backup.*`                                                            | shared default disabled; single-machine production enabled and required         | off-host barman-cloud `ScheduledBackup`                                                                                                                                                                 |
+| `postgres.cloudsql.instanceConnectionName`                                          | empty                                                                           | concrete Cloud SQL proxy target required by the GKE production overlay                                                                                                                                  |
+| `cloudsqlProxy.enabled`                                                             | `false`                                                                         | adds the cloud-sql-proxy sidecar (use with `mode=cloudsql`)                                                                                                                                             |
+| `redis.inCluster`                                                                   | `true`                                                                          | deploy in-cluster Redis, else `REDIS_URL` from secret                                                                                                                                                   |
+| `storage.inCluster`                                                                 | `true`                                                                          | deploy in-cluster MinIO, else `S3_*` from secret                                                                                                                                                        |
+| `storage.bucket` / `storage.region`                                                 | `nojv` / `auto`                                                                 | S3 bucket/region                                                                                                                                                                                        |
+| `mailer.smtpPort`                                                                   | `465`                                                                           | SMTP port injected into web/platform and allowed by the worker egress policy                                                                                                                            |
+| `registry.enabled`                                                                  | `false`                                                                         | deploy the in-cluster distribution registry for special_env images                                                                                                                                      |
+| `registry.{image,host,bucket,internalUrl,resources}`                                | `registry:2.8.3` / `""` / `nojv-registry` / `""`                                | registry image, public push host, MinIO blob bucket, in-cluster URL (empty = Service DNS), sizing                                                                                                       |
+| `registry.token.{realm,issuer}`                                                     | `""` / `nojv`                                                                   | token-auth realm (public URL of the web token endpoint) + JWT issuer                                                                                                                                    |
+| `registry.s3.regionendpoint`                                                        | `""`                                                                            | blob S3 endpoint when `storage.inCluster=false` (in-cluster MinIO used otherwise)                                                                                                                       |
+| `worker.sandbox.imagePullSecret`                                                    | `""`                                                                            | dockerconfigjson Secret (sandbox ns) added to judge pods' `imagePullSecrets` (`K8S_IMAGE_PULL_SECRET`)                                                                                                  |
+| `temporal.address` / `temporal.namespace`                                           | in-cluster Temporal frontend / `default`                                        | Temporal client target                                                                                                                                                                                  |
+| `secrets.runtimeSecretName`                                                         | `nojv-runtime-secrets`                                                          | existing secret to reference                                                                                                                                                                            |
+| `web.replicas` / `web.resources` / `web.nodeSelector`                               | `1` / 256Mi-512Mi                                                               | web sizing                                                                                                                                                                                              |
+| `web.hpa.{enabled,min,max,targetCPU}`                                               | `false` / 2 / 15 / 70                                                           | web autoscaling                                                                                                                                                                                         |
+| `web.advancedImageAllowedRegistries`                                                | `""` (app default trusts major public registries)                               | Comma-separated registry hosts accepted for special_env image refs                                                                                                                                      |
+| `web.ingress.{enabled,className,host,tls}`                                          | `false`                                                                         | Ingress for Cloudflare origin                                                                                                                                                                           |
+| `worker.judge.{replicas,concurrency,resources,nodeSelector}`                        | `2` / `4`                                                                       | judge workers                                                                                                                                                                                           |
+| `worker.judge.keda.{enabled,min,max,prometheusAddress,query,threshold}`             | `false` / 2 / 10                                                                | opt-in dispatcher autoscaling on Temporal queue (KEDA prereq)                                                                                                                                           |
+| `worker.platform.{replicas,concurrency,resources,nodeSelector}`                     | `1` / `4`                                                                       | platform workers                                                                                                                                                                                        |
+| `worker.sandbox.{cpu,memory}{Request,Limit}`                                        | 500m/1 · 256Mi/512Mi                                                            | per-sandbox Job hints (K8S\_\* env)                                                                                                                                                                     |
+| `pdb.enabled` / `pdb.minAvailable`                                                  | `false` / `1`                                                                   | worker PodDisruptionBudgets                                                                                                                                                                             |
+| `sandbox.networkPolicy.enabled`                                                     | `true`                                                                          | sandbox deny-all NetworkPolicy                                                                                                                                                                          |
+| `sandbox.resourceQuota.*`                                                           | pods 50, cpu 25, mem 12Gi                                                       | sandbox ResourceQuota                                                                                                                                                                                   |
+| `sandbox.limitRange.*`                                                              | per-container defaults/max/min                                                  | sandbox LimitRange                                                                                                                                                                                      |
+| `networkPolicy.enabled`                                                             | `false`                                                                         | worker-egress NetworkPolicy (set CIDRs first)                                                                                                                                                           |
+| `networkPolicy.egress.*`                                                            | cluster-specific CIDRs                                                          | Redis/CloudSQL/GoogleAPIs/API-server egress                                                                                                                                                             |
+| `observability.collector.enabled`                                                   | `false`                                                                         | deploy the in-cluster OTLP collector                                                                                                                                                                    |
+| `observability.collector.{image,remoteWriteUrl,resources}`                          | contrib image / `""`                                                            | collector image; remote-write target (else expose :8889 /metrics)                                                                                                                                       |
+| `observability.prometheus.enabled`                                                  | `false`                                                                         | deploy in-cluster Prometheus scraping the collector `:8889`                                                                                                                                             |
+| `storage.minio.storageClass.{create,name,provisioner,volumeBindingMode,parameters}` | `true` / `nojv-minio-retain` / `rancher.io/local-path` / `WaitForFirstConsumer` | Dedicated MinIO class. The chart-created class and PVC are kept by Helm and use `Retain`; for an existing class set `create=false` and provide a class already configured with `reclaimPolicy: Retain`. |
+| `observability.prometheus.{image,retention,storageSize,storageClass,resources}`     | `prom/prometheus` / `15d` / `10Gi`                                              | Prometheus image, TSDB retention, PVC sizing                                                                                                                                                            |
+| `observability.grafana.enabled`                                                     | `false`                                                                         | deploy in-cluster Grafana with the chart dashboards auto-provisioned                                                                                                                                    |
+| `observability.grafana.{image,adminUser,adminPassword,resources}`                   | `grafana/grafana` / `admin` / `admin`                                           | Grafana image + admin login (change `adminPassword`; empty = read `GRAFANA_ADMIN_PASSWORD` from the runtime secret)                                                                                     |
+| `observability.grafana.service.port`                                                | `3000`                                                                          | Grafana Service port                                                                                                                                                                                    |
+| `observability.grafana.ingress.{enabled,className,host,tls}`                        | `false`                                                                         | Ingress for Cloudflare-fronted Grafana access                                                                                                                                                           |
+| `migrator.enabled`                                                                  | `true`                                                                          | run the migration Job as a Helm hook                                                                                                                                                                    |
 
 ## How `DATABASE_URL` is derived
 
@@ -142,7 +164,8 @@ templated into manifests). `postgres.mode` only drives the surrounding wiring:
   (password from the operator-managed `<cluster>-app` secret).
 - **`cloudsql`** — set `cloudsqlProxy.enabled=true`. A `cloud-sql-proxy` sidecar
   listens on `127.0.0.1:5432`; `DATABASE_URL` points at `127.0.0.1:5432`, and
-  `CLOUDSQL_INSTANCE_CONNECTION_NAME` comes from the runtime secret.
+  `CLOUDSQL_INSTANCE_CONNECTION_NAME` is non-secret and comes from the verified
+  `postgres.cloudsql.instanceConnectionName` chart value.
 - **`external`** — `DATABASE_URL` is whatever you put in the secret (managed
   Postgres, RDS, etc.).
 
@@ -192,4 +215,14 @@ Prometheus / Cloud Monitoring), so the GKE overlay leaves all three off. See
 - NetworkPolicy is inert unless the cluster CNI enforces it (GKE Dataplane V2).
   The `worker-egress` CIDRs are placeholders — replace them for your cluster.
 - The migrator runs as a `pre-install,pre-upgrade` hook with
-  `before-hook-creation` delete policy so each release re-runs migrations.
+  `before-hook-creation` delete policy. Upgrades stage expand migrations before
+  quiescing web and both Temporal workers; storage backfill, S3 verification,
+  database preflight, and contract migration then run with autoscalers isolated.
+  Failures before backfill restore the previous workloads. Once backfill starts,
+  failures stay fail-closed so legacy writers cannot invalidate immutable
+  pointers. Upgrade manifests keep all three Deployments and autoscalers in
+  maintenance through Helm apply/wait; the `post-upgrade` hook explicitly starts
+  the new revision and enables autoscaling only after every workload is healthy.
+- Kubernetes 1.30+ is required. A persistent native admission fence blocks
+  rollback or force-recreation of the three app Deployments with manifests that
+  predate the `versioned-storage-v1` schema contract; recovery is forward-only.

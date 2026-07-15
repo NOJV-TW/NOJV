@@ -3,10 +3,9 @@ import { randomUUID } from "node:crypto";
 import { entryFileNameFor } from "@nojv/core";
 import {
   createStorageClient,
-  putSubmissionSources,
+  planSubmissionSources,
+  putSubmissionSourcePlan,
   putVerdictDetail,
-  submissionSourcePrefix,
-  submissionVerdictDetailKey,
   type SubmissionSource,
 } from "@nojv/storage";
 import type { S3Client } from "@aws-sdk/client-s3";
@@ -55,7 +54,10 @@ const PUBLIC_PRACTICE_PROBLEMS = [
 
 const LANGS: SeedLanguage[] = ["c", "cpp", "python"];
 
-type SubmissionRow = Prisma.SubmissionCreateManyInput;
+type SubmissionRow = Omit<
+  Prisma.SubmissionCreateManyInput,
+  "sourceStorage" | "verdictDetailStorage"
+>;
 
 type SeedSubmission = {
   id: string;
@@ -102,13 +104,11 @@ function makeSubmission(args: {
     userId,
     problemId,
     language,
-    sourceStoragePrefix: submissionSourcePrefix(id),
     status: statusFor(verdict),
     score,
     runtimeMs,
     memoryKb,
     verdictSummary: deriveSeedVerdictSummary(detail) as unknown as Prisma.InputJsonValue,
-    verdictDetailStorageKey: submissionVerdictDetailKey(id),
     sampleOnly: args.sampleOnly ?? false,
     createdAt,
   };
@@ -118,7 +118,6 @@ function makeSubmission(args: {
     row.courseId = COURSE_ID;
     row.assessmentId = ctx.assessmentId;
   } else if (ctx.kind === "exam") {
-    row.courseId = COURSE_ID;
     row.examId = ctx.examId;
   } else if (ctx.kind === "contest") {
     row.contestId = ctx.contestId;
@@ -133,11 +132,17 @@ async function persistSeedSubmissions(
   subs: SeedSubmission[],
 ): Promise<void> {
   if (subs.length === 0) return;
-  await prisma.submission.createMany({ data: subs.map((s) => s.row) });
-  for (const s of subs) {
-    await putSubmissionSources(storage, s.id, s.sources);
-    await putVerdictDetail(storage, s.id, s.detail);
-  }
+  const prepared = await Promise.all(
+    subs.map(async (submission) => {
+      const sourcePlan = planSubmissionSources(submission.id, randomUUID(), submission.sources);
+      const [sourceStorage, verdictDetailStorage] = await Promise.all([
+        putSubmissionSourcePlan(storage, sourcePlan),
+        putVerdictDetail(storage, submission.id, `seed-${randomUUID()}`, submission.detail),
+      ]);
+      return { ...submission.row, sourceStorage, verdictDetailStorage };
+    }),
+  );
+  await prisma.submission.createMany({ data: prepared });
 }
 
 export async function seedSubmissions(

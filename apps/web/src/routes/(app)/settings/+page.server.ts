@@ -2,7 +2,7 @@ import { notificationDomain } from "@nojv/application";
 import { notificationPreferencesSchema } from "@nojv/core";
 import { fail, redirect } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
-import { message, superValidate } from "sveltekit-superforms";
+import { message, superValidate } from "sveltekit-superforms/server";
 import { zod4 } from "sveltekit-superforms/adapters";
 
 import { getAuth } from "$lib/auth.server";
@@ -14,7 +14,7 @@ import {
   wouldOrphanAccount,
 } from "$lib/server/account-connections";
 import { handleSendVerificationAction } from "$lib/server/shared/school-verification";
-import { withRateLimit } from "$lib/server/shared/action-handlers";
+import { withRateLimit, withRateLimitActions } from "$lib/server/shared/action-handlers";
 import type { FormMessage } from "$lib/types/form-message";
 
 import type { Actions, PageServerLoad } from "./$types";
@@ -61,7 +61,7 @@ export const load: PageServerLoad = async (event) => {
 };
 
 export const actions = {
-  ...twoFactorActions,
+  ...withRateLimitActions(twoFactorActions),
 
   sendVerification: handleSendVerificationAction,
 
@@ -77,7 +77,7 @@ export const actions = {
     return message<FormMessage>(form, { kind: "success", text: "OK" });
   }),
 
-  link: async (event) => {
+  link: withRateLimit(async (event) => {
     requireAuth(event);
     const provider = formString(await event.request.formData(), "provider");
     if (!isLinkProvider(provider)) {
@@ -91,9 +91,9 @@ export const actions = {
       redirect(303, res.url);
     }
     return fail(400, { error: "linkFailed" });
-  },
+  }),
 
-  unlink: async (event) => {
+  unlink: withRateLimit(async (event) => {
     requireAuth(event);
     const provider = formString(await event.request.formData(), "provider");
     if (!isLinkProvider(provider)) {
@@ -111,5 +111,5 @@ export const actions = {
       return fail(400, { error: "unlinkFailed" });
     }
     return { unlinked: provider };
-  },
+  }),
 } satisfies Actions;

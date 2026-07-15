@@ -14,12 +14,12 @@ export async function examAutoCloseWorkflow(input: ExamAutoCloseInput): Promise<
   for (const cp of computeReminderCheckpoints(startsAtMs, 0, Date.now())) {
     const ms = cp.atMs - Date.now();
     if (ms > 0) await sleep(ms);
-    await notification.fanoutExamStartingSoon(input.examId, cp.leadDays);
+    await notification.fanoutExamStartingSoon(input, cp.leadDays);
   }
 
   const delayMs = computeAutoCloseDelayMs(input.endsAt);
   if (delayMs > 0) {
     await sleep(delayMs);
   }
-  await closeActiveSessionsForExam(input.examId);
+  await closeActiveSessionsForExam(input);
 }

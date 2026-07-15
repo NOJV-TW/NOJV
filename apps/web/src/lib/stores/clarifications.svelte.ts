@@ -22,7 +22,7 @@ export interface ClarificationItem {
 export interface ClarificationsStore {
   readonly items: ClarificationItem[];
   readonly unreadCount: number;
-  init(): Promise<void>;
+  init(signal?: AbortSignal): Promise<void>;
   handleSse(event: ClarificationSSEEvent): void;
   ask(questionText: string, problemId: string | null): Promise<void>;
   answer(id: string, answerText: string, isPublic: boolean): Promise<void>;
@@ -65,21 +65,27 @@ export function createClarificationsStore(
 ): ClarificationsStore {
   let items = $state<ClarificationItem[]>([]);
   let lastSeenAt = $state<string | null>(null);
+  let revision = 0;
 
   const storageKey = `clarifications-lastSeen-${contextType}-${contextId}`;
   if (browser) {
     lastSeenAt = localStorage.getItem(storageKey);
   }
 
-  async function init(): Promise<void> {
+  async function init(signal?: AbortSignal): Promise<void> {
     if (!browser) return;
+    const initialRevision = revision;
     const params = new URLSearchParams({ type: contextType });
     if (contextType === "assignment") params.set("assignmentId", contextId);
     if (contextType === "exam") params.set("examId", contextId);
     if (contextType === "contest") params.set("contestId", contextId);
-    const r = await fetch(`/api/clarifications?${params.toString()}`);
-    if (!r.ok) return;
+    const r = await fetch(
+      `/api/clarifications?${params.toString()}`,
+      signal ? { signal } : undefined,
+    );
+    if (!r.ok) throw new Error(`Clarification load failed with HTTP ${String(r.status)}.`);
     const data = (await r.json()) as { items: ClarificationItem[] };
+    if (signal?.aborted || revision !== initialRevision) return;
     items = data.items;
   }
 
@@ -87,6 +93,7 @@ export function createClarificationsStore(
     if (event.payload.contextType !== contextType || event.payload.contextId !== contextId) {
       return;
     }
+    revision++;
     const payload = event.payload;
     if (event.action === "deleted") {
       items = items.filter((i) => i.id !== payload.id);

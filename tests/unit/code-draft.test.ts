@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildDraftKey,
   clearDraft,
-  inferDraftContext,
+  draftContextFromSubmissionContext,
   loadDraft,
   saveDraft,
   type DraftKey,
@@ -57,6 +57,29 @@ describe("buildDraftKey", () => {
         language: LANGUAGE,
       }),
     ).toBe("nojv:draft:v1:contest:ct_1:prob_123:python");
+  });
+
+  it("isolates virtual participation keys from practice and other participations", () => {
+    const virtual = buildDraftKey({
+      context: { kind: "virtual", participationId: "vp_1" },
+      problemId: PROBLEM_ID,
+      language: LANGUAGE,
+    });
+    expect(virtual).toBe("nojv:draft:v1:virtual:vp_1:prob_123:python");
+    expect(virtual).not.toBe(
+      buildDraftKey({
+        context: { kind: "practice" },
+        problemId: PROBLEM_ID,
+        language: LANGUAGE,
+      }),
+    );
+    expect(virtual).not.toBe(
+      buildDraftKey({
+        context: { kind: "virtual", participationId: "vp_2" },
+        problemId: PROBLEM_ID,
+        language: LANGUAGE,
+      }),
+    );
   });
 });
 
@@ -134,53 +157,20 @@ describe("saveDraft quota fallback", () => {
   });
 });
 
-describe("inferDraftContext", () => {
-  it("maps exam route", () => {
-    expect(
-      inferDraftContext("/(app)/exams/[examId]/problems/[problemId]", {
-        examId: "e1",
-        problemId: "p1",
-      }),
-    ).toEqual({ kind: "exam", examId: "e1" });
-  });
-
-  it("maps assignment route", () => {
-    expect(
-      inferDraftContext("/(app)/assignments/[assignmentId]/problems/[problemId]", {
-        assignmentId: "a1",
-        problemId: "p1",
-      }),
-    ).toEqual({ kind: "assignment", assignmentId: "a1" });
-  });
-
-  it("maps contest route", () => {
-    expect(
-      inferDraftContext("/(app)/contests/[contestId]/problems/[problemId]", {
-        contestId: "c1",
-        problemId: "p1",
-      }),
-    ).toEqual({ kind: "contest", contestId: "c1" });
-  });
-
-  it("maps practice route", () => {
-    expect(inferDraftContext("/(app)/problems/[problemId]", { problemId: "p1" })).toEqual({
-      kind: "practice",
-    });
-  });
-
-  it("falls back to practice for unknown route", () => {
-    expect(inferDraftContext("/some/other/route", {})).toEqual({ kind: "practice" });
-  });
-
-  it("falls back to practice when null route id", () => {
-    expect(inferDraftContext(null, {})).toEqual({ kind: "practice" });
-  });
-
-  it("falls back to practice when exam route is missing examId param", () => {
-    expect(
-      inferDraftContext("/(app)/exams/[examId]/problems/[problemId]", {
-        problemId: "p1",
-      }),
-    ).toEqual({ kind: "practice" });
+describe("draftContextFromSubmissionContext", () => {
+  it.each([
+    [{ type: "practice" } as const, { kind: "practice" }],
+    [{ type: "exam", examId: "e1" } as const, { kind: "exam", examId: "e1" }],
+    [
+      { type: "assignment", assessmentId: "a1", courseId: "course_1" } as const,
+      { kind: "assignment", assignmentId: "a1" },
+    ],
+    [{ type: "contest", contestId: "c1" } as const, { kind: "contest", contestId: "c1" }],
+    [
+      { type: "virtual", participationId: "vp1" } as const,
+      { kind: "virtual", participationId: "vp1" },
+    ],
+  ])("maps canonical submission context %o", (context, expected) => {
+    expect(draftContextFromSubmissionContext(context)).toEqual(expected);
   });
 });

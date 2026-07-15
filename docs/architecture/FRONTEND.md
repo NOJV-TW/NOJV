@@ -76,7 +76,8 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | Endpoint                                                      | Methods            | Purpose                                                                                        |
 | ------------------------------------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------- |
 | `/api/auth/[...path]`                                         | GET, POST          | better-auth catch-all (session, OAuth, registration). POST sign-in/email/username rate-limited |
-| `/api/healthz`                                                | GET                | Public liveness probe. Returns `{ ok }` with HTTP 200 or 503                                   |
+| `/api/livez`                                                  | GET                | Dependency-free process probe. Always returns `{ alive: true }` while HTTP can be served       |
+| `/api/readyz`                                                 | GET                | Traffic-readiness probe. Returns only `{ ready }`; PostgreSQL + Redis gate the status          |
 | `/api/admin/healthz`                                          | GET                | Admin-only mirror returning per-subsystem `{ postgres, redis, temporal }` detail               |
 | `/api/openapi.public.json`                                    | GET                | Public OpenAPI 3.1 document (documentation-only; describes existing routes)                    |
 | `/api/openapi.internal.json`                                  | GET                | Internal OpenAPI 3.1 document (broader maintainer surface, not a compatibility contract)       |
@@ -162,7 +163,7 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 - `ScoreOverrideDrawer` is the manager grading surface on the submissions matrix; hosts `ScoreOverrideList` / `ScoreOverrideForm` plus `FeedbackList` / `FeedbackForm` (feedback section omitted in contest context). Entry button is hidden until the context closes.
 - `AuditTimeline` renders the merged audit log feed (lifecycle + score override + rejudge) on the Audit tab of the assignment / exam / contest manage pages — staff-only.
 - `WelcomeGuide` replaces the dashboard chart blocks for accounts with zero submissions.
-- `Skeleton` primitives (`SkeletonCard` / `SkeletonText` / `SkeletonStat` / `SkeletonList` / `SkeletonTable`) cover loading states; consumed by the grading drawer on open and by the dashboard's `{#await data.streamed.*}` deferred panels (`getSubmissionActivity` / `getSuggestedProblems`).
+- `Skeleton` and `SkeletonTable` cover loading states; the grading drawer uses the table variant while editor and chart surfaces use the base primitive.
 - `formatDateTime` / `formatDate` / `formatTime` (`$lib/utils/datetime.ts`) bind `Intl.DateTimeFormat` to the active Paraglide `getLocale()` — use these instead of bare `toLocale*` calls so the rendered string matches the user's UI language.
 - Form validation uses `sveltekit-superforms` with Zod schemas from `@nojv/core`. Error messages are displayed inline with i18n support.
 - Status badges, difficulty labels, and verdict chips use consistent color coding across all surfaces.

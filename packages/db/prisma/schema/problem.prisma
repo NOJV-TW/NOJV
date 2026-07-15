@@ -47,6 +47,11 @@ model Problem {
 
   advancedRequiredPaths String[] @default([])
 
+  storageGeneration  Int   @default(0)
+  activeStorageBytes Int   @default(0)
+  checkerStorage     Json?
+  interactorStorage  Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -111,31 +116,31 @@ model TestcaseSet {
 }
 
 model Testcase {
-  id            String      @id @default(cuid())
-  testcaseSetId String
-  ordinal       Int
-  inputKey      String
-  outputKey     String?
-  inputFileKeys Json?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  testcaseSet   TestcaseSet @relation(fields: [testcaseSetId], references: [id], onDelete: Cascade)
+  id               String      @id @default(cuid())
+  testcaseSetId    String
+  ordinal          Int
+  inputStorage     Json
+  outputStorage    Json?
+  inputFileStorage Json?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  testcaseSet      TestcaseSet @relation(fields: [testcaseSetId], references: [id], onDelete: Cascade)
 
   @@unique([testcaseSetId, ordinal])
 }
 
 model ProblemWorkspaceFile {
-  id          String                  @id @default(cuid())
-  problemId   String
-  language    SupportedLanguage
-  path        String
-  contentKey  String
-  visibility  WorkspaceFileVisibility
-  description String                  @default("") @db.Text
-  orderIndex  Int                     @default(0)
-  createdAt   DateTime                @default(now())
-  updatedAt   DateTime                @updatedAt
-  problem     Problem                 @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  id             String                  @id @default(cuid())
+  problemId      String
+  language       SupportedLanguage
+  path           String
+  contentStorage Json
+  visibility     WorkspaceFileVisibility
+  description    String                  @default("") @db.Text
+  orderIndex     Int                     @default(0)
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  problem        Problem                 @relation(fields: [problemId], references: [id], onDelete: Cascade)
 
   @@unique([problemId, language, path])
   @@index([problemId, language])

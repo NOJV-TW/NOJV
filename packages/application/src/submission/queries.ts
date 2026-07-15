@@ -21,16 +21,15 @@ import {
   type Language,
   type ProblemJudgeTestcase,
   type Runtime,
-  type SubmissionDraft,
+  type SubmissionJudgeDraft,
   type SubmissionResult,
 } from "@nojv/core";
 import {
+  assertStorageObjectPointer,
   getSubmissionSources as storageGetSubmissionSources,
   getVerdictDetail as storageGetVerdictDetail,
   type SubmissionSource,
 } from "@nojv/storage";
-import { z } from "zod";
-
 import {
   readTestcaseBlobs,
   readValidatorScriptBlob,
@@ -39,7 +38,12 @@ import {
 import { computeProblemTotalScore } from "../problem/total-score";
 import { buildProblemSamples } from "../problem/queries";
 import type { ActorContext } from "../shared/actor-context";
-import { IntegrityError, NotFoundError } from "../shared/errors";
+import {
+  ConflictError,
+  IntegrityError,
+  NotFoundError,
+  ValidationError,
+} from "../shared/errors";
 import { storage } from "../shared/storage-singleton";
 import { canOperateOnSubmission } from "./permissions";
 import { sanitizeStudentResult } from "./scoring";
@@ -51,18 +55,14 @@ import type {
   WorkspaceFileEntry,
 } from "./types";
 
-export async function getSubmissionForUser(
-  submissionId: string,
-  userId: string,
-  isAdmin: boolean,
-) {
-  const submission = await submissionRepo.findById(submissionId);
+export async function getSubmissionForActor(actor: ActorContext, submissionId: string) {
+  const submission = await submissionRepo.findByIdForUserRead({
+    id: submissionId,
+    userId: actor.userId,
+    adminRecovery: actor.platformRole === "admin",
+  });
 
   if (!submission) {
-    throw new NotFoundError("Submission not found.");
-  }
-
-  if (submission.userId !== userId && !isAdmin) {
     throw new NotFoundError("Submission not found.");
   }
 
@@ -74,23 +74,65 @@ export async function getSubmissionById(id: string) {
 }
 
 export async function getSubmissionSources(submissionId: string): Promise<SubmissionSource[]> {
-  return storageGetSubmissionSources(storage(), submissionId);
+  const submission = await submissionRepo.findById(submissionId);
+  if (!submission) throw new NotFoundError("Submission not found.");
+  return readSubmissionSources(submission.sourceStorage);
 }
 
-// intentional-nullable: no verdict-detail blob exists until a submission is judged; a malformed or stale blob is treated as absent.
-export async function getVerdictDetail(submissionId: string): Promise<SubmissionResult | null> {
-  const raw = await storageGetVerdictDetail(storage(), submissionId);
-  if (raw === null) return null;
+export async function getVerdictDetail(submissionId: string): Promise<SubmissionResult> {
+  const submission = await submissionRepo.findById(submissionId);
+  if (!submission) throw new NotFoundError("Submission not found.");
+  if (submission.verdictDetailStorage === null) {
+    throw new NotFoundError("Submission verdict detail not found.");
+  }
+  return readVerdictDetail(submission.verdictDetailStorage);
+}
+
+async function readSubmissionSources(pointer: unknown): Promise<SubmissionSource[]> {
+  if (pointer === null) {
+    throw new ConflictError("Submission source is not available.");
+  }
+  return storageGetSubmissionSources(storage(), assertStorageObjectPointer(pointer));
+}
+
+async function readVerdictDetail(pointer: unknown): Promise<SubmissionResult> {
+  const raw = await storageGetVerdictDetail(storage(), assertStorageObjectPointer(pointer));
   const parsed = submissionResultSchema.safeParse(raw);
-  return parsed.success ? parsed.data : null;
+  if (!parsed.success) {
+    throw new IntegrityError(
+      `Persisted verdict detail is malformed: ${parsed.error.issues
+        .map((issue) => issue.path.join(".") || issue.code)
+        .join(", ")}`,
+    );
+  }
+  return parsed.data;
 }
 
 export async function getSubmissionDetail(actor: ActorContext, submissionId: string) {
-  const submission = await submissionRepo.findByIdForDetail(submissionId);
+  let submission = await submissionRepo.findByIdForDetail({
+    id: submissionId,
+    userId: actor.userId,
+    adminRecovery: actor.platformRole === "admin",
+  });
+
+  let viewerIsStaff = false;
+  if (!submission && actor.platformRole !== "admin") {
+    const candidate = await submissionRepo.findByIdForStaffDetailCandidate(submissionId);
+    if (
+      candidate &&
+      candidate.userId !== actor.userId &&
+      (await canOperateOnSubmission(actor, candidate))
+    ) {
+      submission = candidate;
+      viewerIsStaff = true;
+    }
+  }
   if (!submission) throw new NotFoundError("Submission not found.");
 
   const isOwner = submission.userId === actor.userId;
-  const viewerIsStaff = !isOwner && (await canOperateOnSubmission(actor, submission));
+  if (!isOwner && !viewerIsStaff) {
+    viewerIsStaff = await canOperateOnSubmission(actor, submission);
+  }
 
   if (!isOwner && !viewerIsStaff) {
     throw new NotFoundError("Submission not found.");
@@ -99,8 +141,10 @@ export async function getSubmissionDetail(actor: ActorContext, submissionId: str
   const language = languageSchema.parse(submission.language);
 
   const [rawResult, sources] = await Promise.all([
-    submission.verdictDetailStorageKey ? getVerdictDetail(submissionId) : Promise.resolve(null),
-    getSubmissionSources(submissionId),
+    submission.verdictDetailStorage
+      ? readVerdictDetail(submission.verdictDetailStorage)
+      : Promise.resolve(null),
+    readSubmissionSources(submission.sourceStorage),
   ]);
   const result =
     rawResult === null || viewerIsStaff
@@ -133,6 +177,7 @@ export async function getSubmissionDetail(actor: ActorContext, submissionId: str
       ? { name: submission.user.name, username: submission.user.username }
       : null,
     viewerIsStaff,
+    feedbackStudentUserId: submission.userId,
   };
 }
 
@@ -196,11 +241,17 @@ function buildSubmissionContext(submission: {
 }
 
 export async function listUserSubmissions(opts: {
-  userId: string;
+  actor: ActorContext;
   limit: number;
   cursor?: string;
 }) {
-  const rows = await submissionRepo.listByUser(opts);
+  const rows = await submissionRepo.listByUser({
+    userId: opts.actor.userId,
+    enforceExamConfinement: opts.actor.platformRole !== "admin",
+    limit: opts.limit,
+    ...(opts.cursor ? { cursor: opts.cursor } : {}),
+  });
+  if (rows === null) throw new ValidationError("Invalid submission cursor.");
   const hasMore = rows.length > opts.limit;
   const items = hasMore ? rows.slice(0, opts.limit) : rows;
   const nextCursor = hasMore ? (items[items.length - 1]?.id ?? null) : null;
@@ -349,8 +400,6 @@ export function narrowSubmissionRow(row: { status: string; language: string }): 
   };
 }
 
-const inputFileKeysSchema = z.record(z.string(), z.string());
-
 const DEFAULT_JUDGE_CONFIG: JudgeConfig = { type: "standard" };
 
 function parseJudgeConfig(raw: unknown, submissionId: string): JudgeConfig {
@@ -386,17 +435,6 @@ function parseAdvancedConfig(raw: unknown, submissionId: string): AdvancedConfig
   );
 }
 
-function parseInputFileKeys(raw: unknown, testcaseId: string): Record<string, string> | null {
-  if (raw == null) return null;
-  const result = inputFileKeysSchema.safeParse(raw);
-  if (result.success) return result.data;
-  throw new IntegrityError(
-    `Invalid inputFileKeys for testcase ${testcaseId}: ${result.error.issues
-      .map((issue) => issue.path.join(".") || issue.code)
-      .join(", ")}`,
-  );
-}
-
 export function deriveJudgeMode(
   context: Pick<SubmissionJudgeContext, "problemType" | "advanced">,
 ): "standard" | "advanced" {
@@ -418,9 +456,9 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
       const testcases = await Promise.all(
         ts.testcases.map(async (testcase): Promise<ProblemJudgeTestcase> => {
           const blobs = await readTestcaseBlobs({
-            inputKey: testcase.inputKey,
-            outputKey: testcase.outputKey,
-            inputFileKeys: parseInputFileKeys(testcase.inputFileKeys, testcase.id),
+            inputStorage: testcase.inputStorage,
+            outputStorage: testcase.outputStorage,
+            inputFileStorage: testcase.inputFileStorage,
           });
           return {
             id: testcase.id,
@@ -450,7 +488,7 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
 
   const workspaceFiles: WorkspaceFileEntry[] = await Promise.all(
     problem.workspaceFiles.map(async (f): Promise<WorkspaceFileEntry> => ({
-      content: await readWorkspaceFileBlob(f.contentKey),
+      content: await readWorkspaceFileBlob(f.contentStorage),
       language: f.language,
       path: f.path,
       visibility: f.visibility,
@@ -484,11 +522,11 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
       : null;
 
   const [checkerScript, interactorScript] = await Promise.all([
-    judgeConfig.checkerKey
-      ? readValidatorScriptBlob(judgeConfig.checkerKey)
+    problem.checkerStorage
+      ? readValidatorScriptBlob(problem.checkerStorage)
       : Promise.resolve(null),
-    judgeConfig.interactorKey
-      ? readValidatorScriptBlob(judgeConfig.interactorKey)
+    problem.interactorStorage
+      ? readValidatorScriptBlob(problem.interactorStorage)
       : Promise.resolve(null),
   ]);
 
@@ -545,7 +583,7 @@ export async function listForRejudge(input: {
   userIds?: string[];
   since?: Date;
   until?: Date;
-}): Promise<{ submissionId: string; draft: SubmissionDraft }[]> {
+}): Promise<{ submissionId: string; draft: SubmissionJudgeDraft }[]> {
   const where: Prisma.SubmissionWhereInput = {
     problemId: input.problemId,
     sampleOnly: false,
@@ -585,7 +623,7 @@ export async function listForRejudge(input: {
 
 export async function findOneForRejudge(
   submissionId: string,
-): Promise<{ submissionId: string; draft: SubmissionDraft } | null> {
+): Promise<{ submissionId: string; draft: SubmissionJudgeDraft } | null> {
   const submission = await submissionRepo.findById(submissionId);
   if (!submission) return null;
   if ((IN_FLIGHT_SUBMISSION_STATUSES as readonly string[]).includes(submission.status)) {

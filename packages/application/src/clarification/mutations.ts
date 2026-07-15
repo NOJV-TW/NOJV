@@ -6,6 +6,7 @@ import {
   contestRepo,
   examProblemRepo,
   examRepo,
+  runTransaction,
   type ClarificationRow,
 } from "@nojv/db";
 import { SSE_CLARIFICATION, type ClarificationSSEEvent } from "@nojv/core";
@@ -102,18 +103,16 @@ export async function answer(
   }
 
   const wasPending = row.state === "pending";
-  const updated = await clarificationRepo.updateAnswer(id, {
-    answerText: text,
-    answeredByUserId: actor.userId,
-    state: "answered",
-    answeredAt: row.answeredAt ?? new Date(),
-    isPublic: input.isPublic,
-  });
-  await publishClarificationEvent("updated", updated, updated.isPublic ? "public" : "staff");
-
-  if (wasPending) {
-    await notificationDomain
-      .createNotification({
+  const updated = await runTransaction(async (tx) => {
+    const result = await clarificationRepo.withTx(tx).updateAnswer(id, {
+      answerText: text,
+      answeredByUserId: actor.userId,
+      state: "answered",
+      answeredAt: row.answeredAt ?? new Date(),
+      isPublic: input.isPublic,
+    });
+    if (wasPending) {
+      await notificationDomain.createNotificationInTransaction(tx, {
         userId: row.askedByUserId,
         type: "clarification_answered",
         params: {
@@ -123,9 +122,12 @@ export async function answer(
           questionPreview: row.questionText.slice(0, 80),
         },
         linkUrl: buildClarificationLink(context, row.id),
-      })
-      .catch(() => undefined);
-  }
+        dedupeKey: `clarification_answered:${row.id}`,
+      });
+    }
+    return result;
+  });
+  await publishClarificationEvent("updated", updated, updated.isPublic ? "public" : "staff");
   return projectRow(updated, true, actor.userId);
 }
 

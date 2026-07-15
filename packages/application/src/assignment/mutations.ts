@@ -17,6 +17,9 @@ import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissio
 import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
 import { getProblemTotalScore } from "../problem/total-score";
 import { stripUndefined } from "../shared/strip-undefined";
+import { assertEffectiveTimeWindow } from "../shared/effective-time-window";
+import { assignmentDueSoonInput } from "../shared/lifecycle-input";
+import { enqueueLifecycleCancellation } from "../shared/lifecycle-cancellation";
 
 async function requireAssignment(tx: TransactionClient, assignmentId: string) {
   const assignment = await assessmentRepo.withTx(tx).findById(assignmentId);
@@ -135,6 +138,7 @@ export async function updateAssignmentRecord(
   payload: AssessmentUpdate,
 ): Promise<{ id: string }> {
   const result = await runTransaction(async (tx) => {
+    await assessmentRepo.withTx(tx).lockForUpdate(assignmentId);
     const assignment = await requireAssignment(tx, assignmentId);
     await assertAssignmentManager(tx, actor, assignment);
 
@@ -159,6 +163,19 @@ export async function updateAssignmentRecord(
       payload.closesAt !== undefined ? new Date(payload.closesAt) : assignment.closesAt;
     const effectiveOpensAt =
       payload.opensAt !== undefined ? new Date(payload.opensAt) : assignment.opensAt;
+    const effectiveDueAt =
+      payload.dueAt === undefined
+        ? assignment.dueAt
+        : payload.dueAt
+          ? new Date(payload.dueAt)
+          : null;
+
+    assertEffectiveTimeWindow({
+      start: effectiveOpensAt,
+      due: effectiveDueAt,
+      end: effectiveClosesAt,
+      fields: { start: "opensAt", due: "dueAt", end: "closesAt" },
+    });
 
     const updateData: Prisma.AssessmentUncheckedUpdateInput = stripUndefined({
       title: payload.title,
@@ -177,9 +194,10 @@ export async function updateAssignmentRecord(
       updateData.adjustmentRules = payload.adjustmentRules;
     }
 
-    if (Object.keys(updateData).length > 0) {
-      await assessmentRepo.withTx(tx).update(assignment.id, updateData);
-    }
+    const persisted =
+      Object.keys(updateData).length > 0
+        ? await assessmentRepo.withTx(tx).update(assignment.id, updateData)
+        : assignment;
 
     if (payload.problemIds !== undefined) {
       const enforcedLanguages = payload.allowedLanguages ?? assignment.allowedLanguages;
@@ -187,24 +205,18 @@ export async function updateAssignmentRecord(
     }
 
     return {
-      id: assignment.id,
-      status: assignment.status,
-      closesChanged,
-      opensChanged,
-      opensAt: effectiveOpensAt,
-      closesAt: effectiveClosesAt,
+      assignment: persisted,
+      timerChanged: closesChanged || opensChanged,
     };
   });
 
-  if (result.status === "published" && (result.closesChanged || result.opensChanged)) {
-    await getDomainOrchestration().dispatchAssignmentDueSoon({
-      assignmentId: result.id,
-      opensAt: result.opensAt.toISOString(),
-      closesAt: result.closesAt.toISOString(),
-    });
+  if (result.assignment.status === "published" && result.timerChanged) {
+    await getDomainOrchestration().replaceAssignmentDueSoon(
+      assignmentDueSoonInput(result.assignment),
+    );
   }
 
-  return { id: result.id };
+  return { id: result.assignment.id };
 }
 
 export async function publishAssignment(
@@ -212,6 +224,7 @@ export async function publishAssignment(
   assignmentId: string,
 ): Promise<void> {
   const published = await runTransaction(async (tx) => {
+    await assessmentRepo.withTx(tx).lockForUpdate(assignmentId);
     const assignment = await requireAssignment(tx, assignmentId);
     await assertAssignmentManager(tx, actor, assignment);
 
@@ -232,19 +245,16 @@ export async function publishAssignment(
     if (assignment.closesAt <= now) {
       throw new ValidationError("closesAt must be in the future.");
     }
-    if (assignment.opensAt >= assignment.closesAt) {
-      throw new ValidationError("closesAt must be later than opensAt.");
-    }
-    if (assignment.dueAt) {
-      if (assignment.opensAt >= assignment.dueAt) {
-        throw new ValidationError("dueAt must be later than opensAt.");
-      }
-      if (assignment.dueAt > assignment.closesAt) {
-        throw new ValidationError("closesAt must be later than or equal to dueAt.");
-      }
-    }
+    assertEffectiveTimeWindow({
+      start: assignment.opensAt,
+      due: assignment.dueAt,
+      end: assignment.closesAt,
+      fields: { start: "opensAt", due: "dueAt", end: "closesAt" },
+    });
 
-    await assessmentRepo.withTx(tx).update(assignment.id, { status: "published" });
+    const persisted = await assessmentRepo.withTx(tx).update(assignment.id, {
+      status: "published",
+    });
     await assessmentAuditLogRepo.withTx(tx).create({
       assessmentId: assignment.id,
       courseId: assignment.courseId,
@@ -252,14 +262,10 @@ export async function publishAssignment(
       action: "publish",
     });
 
-    return { id: assignment.id, opensAt: assignment.opensAt, closesAt: assignment.closesAt };
+    return persisted;
   });
 
-  await getDomainOrchestration().dispatchAssignmentDueSoon({
-    assignmentId: published.id,
-    opensAt: published.opensAt.toISOString(),
-    closesAt: published.closesAt.toISOString(),
-  });
+  await getDomainOrchestration().ensureAssignmentDueSoon(assignmentDueSoonInput(published));
 }
 
 export async function deleteAssignmentDraft(
@@ -267,6 +273,7 @@ export async function deleteAssignmentDraft(
   assignmentId: string,
 ): Promise<void> {
   await runTransaction(async (tx) => {
+    await assessmentRepo.withTx(tx).lockForUpdate(assignmentId);
     const assignment = await requireAssignment(tx, assignmentId);
     await assertAssignmentManager(tx, actor, assignment);
 
@@ -280,6 +287,10 @@ export async function deleteAssignmentDraft(
       actorUserId: actor.userId,
       action: "delete_draft",
     });
+    await enqueueLifecycleCancellation(tx, {
+      type: "assignment",
+      input: assignmentDueSoonInput(assignment),
+    });
     await assessmentRepo.withTx(tx).delete(assignment.id);
   });
 }
@@ -289,6 +300,7 @@ export async function revertAssignmentToDraft(
   assignmentId: string,
 ): Promise<void> {
   await runTransaction(async (tx) => {
+    await assessmentRepo.withTx(tx).lockForUpdate(assignmentId);
     const assignment = await requireAssignment(tx, assignmentId);
     await assertAssignmentManager(tx, actor, assignment);
 
@@ -299,7 +311,13 @@ export async function revertAssignmentToDraft(
       throw new ValidationError("Cannot revert an assignment that has already opened.");
     }
 
-    await assessmentRepo.withTx(tx).update(assignment.id, { status: "draft" });
+    await enqueueLifecycleCancellation(tx, {
+      type: "assignment",
+      input: assignmentDueSoonInput(assignment),
+    });
+    await assessmentRepo.withTx(tx).update(assignment.id, {
+      status: "draft",
+    });
     await assessmentAuditLogRepo.withTx(tx).create({
       assessmentId: assignment.id,
       courseId: assignment.courseId,

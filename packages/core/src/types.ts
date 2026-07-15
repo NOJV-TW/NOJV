@@ -31,7 +31,6 @@ export const scoreboardModes = ["hidden", "live", "frozen"] as const;
 export const contestScoringModes = ["problem_count", "weighted_count", "point_sum"] as const;
 export const examScoringModes = ["point_sum"] as const;
 export const courseMembershipStatuses = ["active", "removed"] as const;
-export const submissionModes = ["practice", "contest", "assignment", "virtual"] as const;
 export const judgeTypes = ["standard", "checker", "interactive"] as const;
 export const problemTypes = ["full_source", "multi_file", "special_env"] as const;
 export const problemTags = [
@@ -110,7 +109,6 @@ export const contestScoringModeSchema = z.enum(contestScoringModes);
 export const examScoringModeSchema = z.enum(examScoringModes);
 export const courseMembershipStatusSchema = z.enum(courseMembershipStatuses);
 export const languageSchema = z.enum(supportedLanguages);
-export const submissionModeSchema = z.enum(submissionModes);
 export const judgeTypeSchema = z.enum(judgeTypes);
 export const problemTypeSchema = z.enum(problemTypes);
 export const announcementStatusSchema = z.enum(announcementStatuses);
@@ -143,7 +141,6 @@ export type ProblemStatus = z.infer<typeof problemStatusSchema>;
 export type ContestScoringMode = z.infer<typeof contestScoringModeSchema>;
 export type ExamScoringMode = z.infer<typeof examScoringModeSchema>;
 export type ProblemType = z.infer<typeof problemTypeSchema>;
-export type SubmissionMode = z.infer<typeof submissionModeSchema>;
 export type AnnouncementStatus = z.infer<typeof announcementStatusSchema>;
 export type AnnouncementAudience = z.infer<typeof announcementAudienceSchema>;
 export type SubmissionOperationStatus = z.infer<typeof submissionOperationStatusSchema>;
@@ -202,6 +199,8 @@ export const sessionUserSchema = z.object({
   status: userStatusSchema.default("active"),
   mustChangePassword: z.boolean().default(false),
   twoFactorEnabled: z.boolean().default(false),
+  twoFactorActivated: z.boolean().default(false),
+  securityGeneration: z.number().int().nonnegative(),
 });
 
 export type SessionUser = z.infer<typeof sessionUserSchema>;

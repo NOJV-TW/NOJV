@@ -90,6 +90,16 @@ spec:
                 secretKeyRef:
                   name: {{ include "nojv.runtimeSecretName" . }}
                   key: SEED_ADMIN_PASSWORD
+            - name: SEED_ADVANCED_RUN_IMAGE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: SEED_ADVANCED_RUN_IMAGE
+            - name: SEED_ADVANCED_GRADE_IMAGE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: SEED_ADVANCED_GRADE_IMAGE
         {{- if .Values.cloudsqlProxy.enabled }}
         - name: cloudsql-proxy
           image: {{ .Values.postgres.cloudsql.proxyImage }}
@@ -109,9 +119,6 @@ spec:
             - $(CLOUDSQL_INSTANCE_CONNECTION_NAME)
           env:
             - name: CLOUDSQL_INSTANCE_CONNECTION_NAME
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "nojv.runtimeSecretName" . }}
-                  key: CLOUDSQL_INSTANCE_CONNECTION_NAME
+              value: {{ .Values.postgres.cloudsql.instanceConnectionName | quote }}
         {{- end }}
 {{- end }}

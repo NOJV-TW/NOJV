@@ -12,6 +12,7 @@ import {
   runTransaction,
   submissionRejudgeLogRepo,
   submissionRepo,
+  type SubmissionCreateContext,
   type TransactionClient,
 } from "@nojv/db";
 import {
@@ -19,16 +20,17 @@ import {
   validateRequiredPaths,
   type AdvancedJudgeVerificationSnapshot,
   type SubmissionDraft,
+  type SubmissionJudgeDraft,
   type SubmissionOperationStatus,
   type SubmissionResult,
   type VerdictSummary,
 } from "@nojv/core";
 import {
-  deleteSubmissionStorage,
-  promoteSubmissionSources,
-  putSubmissionSourcesStaged,
-  putVerdictDetail,
-  submissionSourcePrefix,
+  planSubmissionSources,
+  putImmutableObject,
+  putSubmissionSourcePlan,
+  assertStorageObjectPointer,
+  storagePointerFor,
   submissionVerdictDetailKey,
 } from "@nojv/storage";
 
@@ -36,6 +38,10 @@ import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
 import { storage } from "../shared/storage-singleton";
 import { toJsonValue } from "../shared/to-json-value";
+import {
+  commitStoragePointerSwap,
+  guardStorageObjectWrites,
+} from "../shared/storage-object-lifecycle";
 import { ensureUser } from "../user/mutations";
 import { requireCourseAssignment, requireProblem } from "../shared/require";
 import { attemptWindowStart, DEFAULT_ATTEMPT_RESET_MINUTE } from "./attempt-window";
@@ -45,7 +51,7 @@ import { assertCanSubmitToVirtualContest } from "../virtual-contest/queries";
 import { assertProblemViewAccess } from "../problem/permissions";
 import { checkProctoringGateInTx } from "../proctoring/gate";
 import { normalizeSubmissionSources } from "./source-paths";
-import { dispatchSubmissionJudge } from "./rejudge-control";
+import { enqueueSubmissionJudgeDispatch } from "./rejudge-control";
 import type { CompletedSubmission } from "./types";
 
 export type { ActorContext };
@@ -58,6 +64,7 @@ type SubmissionUser = Awaited<ReturnType<typeof ensureUser>>;
 type ActiveExamSession = NonNullable<
   Awaited<ReturnType<typeof examSessionRepo.findActiveForUser>>
 >;
+type SubmissionExam = NonNullable<Awaited<ReturnType<typeof examRepo.findById>>>;
 type ContestSubmissionResult = Awaited<ReturnType<typeof ensureContestParticipation>>;
 
 async function assertActiveExamSubmissionAllowed(
@@ -65,21 +72,19 @@ async function assertActiveExamSubmissionAllowed(
   ctx: {
     activeExamSession: ActiveExamSession;
     clientIp: string;
-    courseContext: SubmissionCourseContext | null;
     payload: SubmissionDraft;
     problem: SubmissionProblem;
+    receivedAt: Date;
     user: SubmissionUser;
   },
-): Promise<void> {
-  const { activeExamSession, clientIp, courseContext, payload, problem, user } = ctx;
-  if (courseContext || payload.contestId || payload.participationId) {
-    throw new ForbiddenError(
-      "You are in an active exam — submissions cannot carry an external assignment or contest context.",
-    );
-  }
+): Promise<SubmissionExam> {
+  const { activeExamSession, clientIp, payload, problem, receivedAt, user } = ctx;
 
   const exam = await examRepo.withTx(tx).findById(activeExamSession.examId);
-  if (exam && new Date() >= exam.endsAt) {
+  if (exam?.status !== "published") {
+    throw new NotFoundError("Exam not found.");
+  }
+  if (receivedAt >= exam.endsAt) {
     throw new ForbiddenError("Exam has ended.");
   }
 
@@ -100,9 +105,18 @@ async function assertActiveExamSubmissionAllowed(
     );
   }
 
-  if (exam && !payload.sampleOnly && exam.submitCooldownSec > 0) {
-    await checkExamSubmitCooldown(tx, exam.id, user.id, problem.id, exam.submitCooldownSec);
+  if (!payload.sampleOnly && exam.submitCooldownSec > 0) {
+    await checkExamSubmitCooldown(
+      tx,
+      exam.id,
+      user.id,
+      problem.id,
+      exam.submitCooldownSec,
+      receivedAt,
+    );
   }
+
+  return exam;
 }
 
 async function assertCourseSubmissionAllowed(
@@ -111,9 +125,10 @@ async function assertCourseSubmissionAllowed(
     actor: ActorContext;
     courseContext: SubmissionCourseContext;
     problem: SubmissionProblem;
+    receivedAt: Date;
   },
 ): Promise<void> {
-  const { actor, courseContext, problem } = ctx;
+  const { actor, courseContext, problem, receivedAt } = ctx;
   const membership = await courseMembershipRepo
     .withTx(tx)
     .findByComposite(courseContext.course.id, actor.userId);
@@ -127,11 +142,10 @@ async function assertCourseSubmissionAllowed(
     throw new NotFoundError("Assignment not found.");
   }
   if (actor.platformRole !== "admin" && membership.role === "student") {
-    const now = new Date();
-    if (now < assignment.opensAt) {
+    if (receivedAt < assignment.opensAt) {
       throw new ForbiddenError("Assignment has not opened yet.");
     }
-    if (now > assignment.closesAt) {
+    if (receivedAt > assignment.closesAt) {
       throw new ForbiddenError("Assignment has ended.");
     }
   }
@@ -147,6 +161,7 @@ function assertLanguageAllowed(
   problem: SubmissionProblem,
   contestResult: ContestSubmissionResult | null,
   courseContext: SubmissionCourseContext | null,
+  exam: SubmissionExam | null,
 ): void {
   if (problem.type === "special_env") return;
   if (
@@ -163,6 +178,14 @@ function assertLanguageAllowed(
     !courseContext.assignment.allowedLanguages.includes(payload.language)
   ) {
     throw new ForbiddenError("Language not allowed in this assignment");
+  }
+
+  if (
+    exam &&
+    exam.allowedLanguages.length > 0 &&
+    !exam.allowedLanguages.includes(payload.language)
+  ) {
+    throw new ForbiddenError("Language not allowed in this exam");
   }
 }
 
@@ -197,13 +220,14 @@ async function assertDailyAttemptLimit(
   courseContext: SubmissionCourseContext,
   user: SubmissionUser,
   problemId: string,
+  receivedAt: Date,
 ): Promise<void> {
   const { maxAttemptsPerDay, attemptResetMinuteOfDay } = courseContext.assignment;
 
   if (maxAttemptsPerDay != null) {
     const windowStart = attemptWindowStart(
       attemptResetMinuteOfDay ?? DEFAULT_ATTEMPT_RESET_MINUTE,
-      new Date(),
+      receivedAt,
     );
 
     const lockKey = `daily-attempt:${user.id}:${courseContext.assignment.id}:${problemId}:${windowStart.toISOString()}`;
@@ -229,49 +253,81 @@ export async function createQueuedSubmissionRecord(
   actor: ActorContext,
   clientIp: string,
 ) {
+  const receivedAt = new Date();
   const submissionId = randomUUID();
+  const sourceGeneration = randomUUID();
+  const sources = normalizeSubmissionSources(payload);
+  const sourcePlan = planSubmissionSources(submissionId, sourceGeneration, sources);
+  const judgeDraft: SubmissionJudgeDraft = {
+    language: payload.language,
+    problemId: payload.problemId,
+    ...(payload.runCases ? { runCases: payload.runCases } : {}),
+    ...(payload.sampleOnly !== undefined ? { sampleOnly: payload.sampleOnly } : {}),
+  };
 
-  const { sources } = await runTransaction(async (tx) => {
+  await runTransaction(async (tx) => {
+    const assignmentContext = payload.context.type === "assignment" ? payload.context : null;
     const [problem, courseContext, user, activeExamSession] = await Promise.all([
       requireProblem(tx, payload.problemId),
-      payload.assessment
+      assignmentContext
         ? requireCourseAssignment(
             tx,
-            payload.assessment.courseId,
-            payload.assessment.assessmentId,
+            assignmentContext.courseId,
+            assignmentContext.assessmentId,
           )
         : null,
       ensureUser(tx, actor.userId, actor),
       examSessionRepo.withTx(tx).findActiveForUser(actor.userId),
     ]);
 
-    if (activeExamSession && actor.platformRole !== "admin") {
-      await assertActiveExamSubmissionAllowed(tx, {
+    if (
+      activeExamSession &&
+      actor.platformRole !== "admin" &&
+      (payload.context.type !== "exam" || payload.context.examId !== activeExamSession.examId)
+    ) {
+      throw new ForbiddenError(
+        "You are in an active exam — submissions must use that exam context.",
+      );
+    }
+
+    let exam: SubmissionExam | null = null;
+    if (payload.context.type === "exam") {
+      if (activeExamSession?.examId !== payload.context.examId) {
+        throw new ForbiddenError("An active session for this exam is required.");
+      }
+      exam = await assertActiveExamSubmissionAllowed(tx, {
         activeExamSession,
         clientIp,
-        courseContext,
         payload,
         problem,
+        receivedAt,
         user,
       });
     }
 
-    if (payload.participationId) {
-      if (courseContext || payload.contestId) {
-        throw new ForbiddenError(
-          "A virtual-contest submission cannot also carry a contest or assignment context.",
-        );
-      }
-      await assertCanSubmitToVirtualContest(payload.participationId, actor.userId, problem.id);
+    if (payload.context.type === "virtual") {
+      await assertCanSubmitToVirtualContest(
+        payload.context.participationId,
+        actor.userId,
+        problem.id,
+        receivedAt,
+      );
     }
 
     if (courseContext) {
-      await assertCourseSubmissionAllowed(tx, { actor, courseContext, problem });
+      await assertCourseSubmissionAllowed(tx, { actor, courseContext, problem, receivedAt });
     }
 
-    const contestResult = payload.contestId
-      ? await ensureContestParticipation(tx, user.id, payload.contestId, actor.platformRole)
-      : null;
+    const contestResult =
+      payload.context.type === "contest"
+        ? await ensureContestParticipation(
+            tx,
+            user.id,
+            payload.context.contestId,
+            actor.platformRole,
+            receivedAt,
+          )
+        : null;
 
     if (contestResult) {
       const link = await contestProblemRepo
@@ -282,10 +338,10 @@ export async function createQueuedSubmissionRecord(
       }
     }
 
-    const contextIncludesProblem = Boolean(courseContext) || Boolean(contestResult);
+    const contextIncludesProblem = payload.context.type !== "practice";
     await assertProblemViewAccess(problem, actor, { contextIncludesProblem });
 
-    assertLanguageAllowed(payload, problem, contestResult, courseContext);
+    assertLanguageAllowed(payload, problem, contestResult, courseContext, exam);
 
     await assertSubmissionFilesValid(payload, problem);
 
@@ -296,49 +352,83 @@ export async function createQueuedSubmissionRecord(
         user.id,
         problem.id,
         contestResult.contest.submitCooldownSec,
+        receivedAt,
       );
     }
 
     if (courseContext?.assignment && !payload.sampleOnly) {
-      await assertDailyAttemptLimit(tx, courseContext, user, problem.id);
+      await assertDailyAttemptLimit(tx, courseContext, user, problem.id, receivedAt);
     }
 
-    const sources = normalizeSubmissionSources(payload, submissionId);
+    let submissionContext: SubmissionCreateContext;
+    switch (payload.context.type) {
+      case "assignment":
+        if (!courseContext) throw new NotFoundError("Assignment not found.");
+        submissionContext = {
+          type: "assignment",
+          assessmentId: courseContext.assignment.id,
+          courseId: courseContext.course.id,
+        };
+        break;
+      case "exam":
+        if (!exam) throw new NotFoundError("Exam not found.");
+        submissionContext = { type: "exam", examId: exam.id };
+        break;
+      case "contest":
+        if (!contestResult) throw new NotFoundError("Contest not found.");
+        submissionContext = { type: "contest", contestId: contestResult.contest.id };
+        break;
+      case "virtual":
+        submissionContext = {
+          type: "virtual",
+          participationId: payload.context.participationId,
+        };
+        break;
+      default:
+        submissionContext = { type: "practice" };
+    }
 
-    const created = await submissionRepo.withTx(tx).create({
+    await submissionRepo.withTx(tx).create({
       id: submissionId,
-      contestId: contestResult?.contest.id ?? null,
-      participationId: payload.participationId ?? null,
-      assessmentId: courseContext?.assignment.id ?? null,
-      examId: activeExamSession?.examId ?? null,
-      courseId: courseContext?.course.id ?? null,
+      context: submissionContext,
+      createdAt: receivedAt,
       ipAddress: clientIp,
       language: payload.language,
       problemId: problem.id,
       sampleOnly: payload.sampleOnly ?? false,
-      sourceStoragePrefix: submissionSourcePrefix(submissionId),
+      sourceStorage: Prisma.DbNull,
       status: "pending_upload",
       userId: user.id,
     });
-
-    return { row: created, sources };
   });
 
-  const storageClient = storage();
   try {
-    await putSubmissionSourcesStaged(storageClient, submissionId, sources);
-    await promoteSubmissionSources(storageClient, submissionId, sources);
-  } catch (err) {
-    await deleteSubmissionStorage(storageClient, submissionId).catch(() => undefined);
-    await submissionRepo.updateStatus(submissionId, "system_error").catch(() => undefined);
-    throw err;
-  }
+    await guardStorageObjectWrites(sourcePlan.pointers);
+    await putSubmissionSourcePlan(storage(), sourcePlan);
 
-  return submissionRepo.updateStatus(submissionId, "queued").catch(async (err: unknown) => {
-    await deleteSubmissionStorage(storageClient, submissionId).catch(() => undefined);
-    await submissionRepo.updateStatus(submissionId, "system_error").catch(() => undefined);
-    throw err;
-  });
+    return await runTransaction(async (tx) => {
+      await commitStoragePointerSwap(tx, { added: sourcePlan.pointers });
+      const submission = await submissionRepo
+        .withTx(tx)
+        .publishPendingUpload(submissionId, sourcePlan.manifest);
+      await enqueueSubmissionJudgeDispatch(tx, {
+        draft: judgeDraft,
+        submissionId: submission.id,
+      });
+      return submission;
+    });
+  } catch (uploadError) {
+    try {
+      await submissionRepo.updateStatusIfIn(submissionId, ["pending_upload"], "system_error");
+    } catch (statusError) {
+      throw new AggregateError(
+        [uploadError, statusError],
+        `Submission ${submissionId} upload failed and its intention could not be marked failed.`,
+        { cause: statusError },
+      );
+    }
+    throw uploadError;
+  }
 }
 
 export async function submitAndDispatch(
@@ -348,32 +438,70 @@ export async function submitAndDispatch(
 ) {
   const submission = await createQueuedSubmissionRecord(payload, actor, clientIp);
 
-  const judgeDraft: SubmissionDraft = { ...payload };
-  delete judgeDraft.sourceCode;
-  delete judgeDraft.sourceFiles;
-
-  try {
-    await dispatchSubmissionJudge({ draft: judgeDraft, submissionId: submission.id });
-  } catch (err) {
-    await submissionRepo.updateStatus(submission.id, "system_error").catch(() => undefined);
-    throw err;
-  }
-
   return submission;
 }
 
-export async function updateSubmissionStatus(
+export async function startSubmissionJudgeRun(
   submissionId: string,
-  status: SubmissionStatus,
+  judgeRunId: string,
 ): Promise<void> {
-  await submissionRepo.updateStatus(submissionId, status);
+  await runTransaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Submission" WHERE id = ${submissionId} FOR UPDATE`;
+    const submission = await tx.submission.findUnique({ where: { id: submissionId } });
+    if (!submission) throw new NotFoundError(`Submission ${submissionId} not found`);
+    if (submission.activeJudgeRunId === judgeRunId) return;
+    if (submission.activeJudgeRunId !== null) {
+      throw new ConflictError(`Submission ${submissionId} already has an active judge run.`);
+    }
+    await tx.submission.update({
+      where: { id: submissionId },
+      data: {
+        activeJudgeRunId: judgeRunId,
+        judgeGeneration: { increment: 1 },
+        status: "running",
+      },
+    });
+  });
+}
+
+export async function failSubmissionJudgeRun(
+  submissionId: string,
+  judgeRunId: string,
+): Promise<boolean> {
+  return runTransaction(async (tx) => {
+    const { count } = await tx.submission.updateMany({
+      where: {
+        id: submissionId,
+        activeJudgeRunId: judgeRunId,
+        status: { in: ["queued", "compiling", "running"] },
+      },
+      data: {
+        activeJudgeRunId: null,
+        status: "system_error",
+      },
+    });
+    return count === 1;
+  });
 }
 
 export async function restoreSubmissionAfterCancelledRejudge(
   submissionId: string,
+  judgeRunId: string,
   oldStatus: string,
 ): Promise<void> {
-  await submissionRepo.updateStatusIfIn(submissionId, ["queued", "running"], oldStatus);
+  await runTransaction(async (tx) => {
+    await tx.submission.updateMany({
+      where: {
+        id: submissionId,
+        activeJudgeRunId: judgeRunId,
+        status: { in: ["queued", "running"] },
+      },
+      data: {
+        activeJudgeRunId: null,
+        status: oldStatus as SubmissionStatus,
+      },
+    });
+  });
 }
 
 const SUMMARY_VERDICTS = new Set(["AC", "WA", "TLE", "MLE", "RE"]);
@@ -411,35 +539,58 @@ export function deriveVerdictSummary(result: SubmissionResult): VerdictSummary {
 
 export async function completeJudge(
   submissionId: string,
+  judgeRunId: string,
   result: SubmissionResult,
   advancedConfigSnapshot: AdvancedJudgeVerificationSnapshot | null = null,
 ): Promise<CompletedSubmission | null> {
-  await putVerdictDetail(storage(), submissionId, result);
-
-  const verdictSummary = deriveVerdictSummary(result);
-  const verdictDetailStorageKey = submissionVerdictDetailKey(submissionId);
-
-  const { count } = await submissionRepo.completeIfInProgress(submissionId, {
-    runtimeMs: result.runtimeMs,
-    ...(result.memoryKb !== undefined ? { memoryKb: result.memoryKb } : {}),
-    score: result.score,
-    status: result.verdict,
-    verdictSummary: toJsonValue(verdictSummary),
-    verdictDetailStorageKey,
-    advancedConfigSnapshot:
-      advancedConfigSnapshot === null ? Prisma.JsonNull : toJsonValue(advancedConfigSnapshot),
+  const preflight = await submissionRepo.findById(submissionId);
+  if (preflight?.activeJudgeRunId !== judgeRunId) return null;
+  const verdictBody = Buffer.from(JSON.stringify(result), "utf8");
+  const verdictDetailStorage = storagePointerFor(
+    submissionVerdictDetailKey(submissionId, judgeRunId),
+    verdictBody,
+  );
+  await guardStorageObjectWrites([verdictDetailStorage]);
+  await putImmutableObject(storage(), verdictDetailStorage.key, verdictBody, {
+    contentType: "application/json",
   });
 
-  const submission = await submissionRepo.findById(submissionId);
+  const verdictSummary = deriveVerdictSummary(result);
+  const submission = await runTransaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Submission" WHERE id = ${submissionId} FOR UPDATE`;
+    const current = await tx.submission.findUnique({ where: { id: submissionId } });
+    if (
+      current?.activeJudgeRunId !== judgeRunId ||
+      !["queued", "compiling", "running"].includes(current.status)
+    ) {
+      return null;
+    }
+    const updated = await tx.submission.update({
+      where: { id: submissionId },
+      data: {
+        activeJudgeRunId: null,
+        runtimeMs: result.runtimeMs,
+        ...(result.memoryKb !== undefined ? { memoryKb: result.memoryKb } : {}),
+        score: result.score,
+        status: result.verdict,
+        verdictSummary: toJsonValue(verdictSummary),
+        verdictDetailStorage,
+        advancedConfigSnapshot:
+          advancedConfigSnapshot === null
+            ? Prisma.JsonNull
+            : toJsonValue(advancedConfigSnapshot),
+      },
+    });
+    await commitStoragePointerSwap(tx, {
+      added: [verdictDetailStorage],
+      removed:
+        current.verdictDetailStorage === null
+          ? []
+          : [assertStorageObjectPointer(current.verdictDetailStorage)],
+    });
+    return updated;
+  });
   if (!submission) return null;
-
-  if (count === 0) {
-    const matchesThisRun =
-      submission.status === result.verdict &&
-      submission.score === result.score &&
-      submission.verdictDetailStorageKey === verdictDetailStorageKey;
-    if (!matchesThisRun) return null;
-  }
 
   return {
     contestId: submission.contestId,
@@ -458,33 +609,61 @@ export async function completeJudge(
 export async function snapshotForRejudge(
   submissionId: string,
   triggeredByUserId: string | null,
-  rejudgeRunId: string | null,
+  rejudgeRunId: string,
 ): Promise<{ logId: string; oldStatus: string } | null> {
-  const current = await submissionRepo.findById(submissionId);
-  if (!current) return null;
-
-  const row = await submissionRejudgeLogRepo.upsertSnapshot({
-    submissionId,
-    rejudgedByUserId: triggeredByUserId,
-    rejudgeRunId,
-    oldVerdict: current.status,
-    oldScore: current.score,
-    oldResultJson: current.verdictSummary === null ? null : toJsonValue(current.verdictSummary),
+  return runTransaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Submission" WHERE id = ${submissionId} FOR UPDATE`;
+    const current = await tx.submission.findUnique({ where: { id: submissionId } });
+    if (!current) return null;
+    if (current.activeJudgeRunId !== null && current.activeJudgeRunId !== rejudgeRunId) {
+      throw new ConflictError(`Submission ${submissionId} already has an active judge run.`);
+    }
+    const row = await tx.submissionRejudgeLog.upsert({
+      where: {
+        submissionId_rejudgeRunId: { submissionId, rejudgeRunId },
+      },
+      create: {
+        submissionId,
+        rejudgedByUserId: triggeredByUserId,
+        rejudgeRunId,
+        oldVerdict: current.status,
+        oldScore: current.score,
+        oldResultJson:
+          current.verdictSummary === null
+            ? Prisma.JsonNull
+            : toJsonValue(current.verdictSummary),
+      },
+      update: {},
+    });
+    if (current.activeJudgeRunId === null) {
+      await tx.submission.update({
+        where: { id: submissionId },
+        data: {
+          activeJudgeRunId: rejudgeRunId,
+          judgeGeneration: { increment: 1 },
+          status: "running",
+        },
+      });
+    }
+    return { logId: row.id, oldStatus: row.oldVerdict };
   });
-
-  await submissionRepo.updateStatus(submissionId, "running");
-
-  return { logId: row.id, oldStatus: row.oldVerdict };
 }
 
 export async function finalizeRejudgeLog(
   submissionId: string,
   _triggeredByUserId: string | null,
   logId: string,
+  judgeRunId: string,
 ): Promise<void> {
   const updated = await submissionRepo.findById(submissionId);
   if (!updated) return;
-
+  const log = await submissionRejudgeLogRepo.findById(logId);
+  if (log?.submissionId !== submissionId || log.rejudgeRunId !== judgeRunId) return;
+  const verdictPointer =
+    updated.verdictDetailStorage === null
+      ? null
+      : assertStorageObjectPointer(updated.verdictDetailStorage);
+  if (!verdictPointer?.key.includes(`/judge-runs/${judgeRunId}/`)) return;
   await submissionRejudgeLogRepo.update(logId, {
     newVerdict: updated.status,
     newScore: updated.score,

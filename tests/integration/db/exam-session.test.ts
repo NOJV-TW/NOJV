@@ -104,6 +104,34 @@ describe("examSessionRepo (real DB)", () => {
     expect(rows).toHaveLength(1);
   });
 
+  it("enforces one active exam session per user across different exams", async () => {
+    const user = await createTestUser();
+    const course = await createTestCourse();
+    const firstExam = await createTestExam({ courseId: course.id });
+    const secondExam = await createTestExam({ courseId: course.id });
+
+    const first = await testPrisma.activeExamSession.create({
+      data: { userId: user.id, examId: firstExam.id },
+    });
+
+    await expect(
+      testPrisma.activeExamSession.create({
+        data: { userId: user.id, examId: secondExam.id },
+      }),
+    ).rejects.toMatchObject({ code: "P2002" });
+
+    await testPrisma.activeExamSession.update({
+      where: { id: first.id },
+      data: { endedAt: new Date(), releaseReason: "submitted" },
+    });
+
+    await expect(
+      testPrisma.activeExamSession.create({
+        data: { userId: user.id, examId: secondExam.id },
+      }),
+    ).resolves.toMatchObject({ userId: user.id, examId: secondExam.id, endedAt: null });
+  });
+
   it("updateHeartbeat touches lastHeartbeatAt but not endedAt", async () => {
     const user = await createTestUser();
     const course = await createTestCourse();

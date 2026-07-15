@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { workerEnvSchema } from "../../../apps/worker/src/env";
+import { mailerEnvSchema } from "../../../packages/mailer/src/index";
 import { storageEnvSchema } from "../../../packages/storage/src/env";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -20,15 +21,20 @@ function helmAvailable(): boolean {
   }
 }
 
-let renderedChart: string | undefined;
-function renderChart(): string {
-  if (renderedChart === undefined) {
-    renderedChart = execSync(
-      "helm template nojv infra/charts/nojv -f infra/charts/nojv/values-gke.yaml",
-      { cwd: repoRoot, encoding: "utf8" },
-    );
-  }
-  return renderedChart;
+const renderedCharts = new Map<string, string>();
+function renderChart(valuesFile = "values-gke.yaml"): string {
+  const cached = renderedCharts.get(valuesFile);
+  if (cached) return cached;
+  const gkeFixture =
+    valuesFile === "values-gke.yaml"
+      ? " -f tests/fixtures/helm/gke-production-config.yaml"
+      : "";
+  const rendered = execSync(
+    `helm template nojv infra/charts/nojv -f infra/charts/nojv/${valuesFile} -f tests/fixtures/helm/immutable-image-digests.yaml${gkeFixture} -f tests/fixtures/helm/production-external-backups.yaml`,
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+  renderedCharts.set(valuesFile, rendered);
+  return rendered;
 }
 
 function isolateDoc(render: string, kind: string, name: string): string {
@@ -63,8 +69,9 @@ const validK8sEnv: Record<string, string> = {
 function requiredKubernetesEnvKeys(): string[] {
   const required: string[] = [];
   for (const key of Object.keys(validK8sEnv)) {
-    const withoutKey = { ...validK8sEnv };
-    delete withoutKey[key];
+    const withoutKey = Object.fromEntries(
+      Object.entries(validK8sEnv).filter(([candidate]) => candidate !== key),
+    );
     if (!workerEnvSchema.safeParse(withoutKey).success) required.push(key);
   }
   return required;
@@ -77,12 +84,33 @@ const validStorageEnv: Record<string, string> = {
   S3_SECRET_KEY: "s",
 };
 
+const validProductionMailerEnv: Record<string, string> = {
+  NODE_ENV: "production",
+  MAILER_MODE: "smtp",
+  SMTP_HOST: "smtp.example.com",
+  SMTP_PORT: "465",
+  SMTP_USER: "mailer@example.com",
+  SMTP_PASS: "secret",
+  SMTP_FROM: "NOJV <no-reply@example.com>",
+  APP_BASE_URL: "https://nojv.example.com",
+};
+
+function requiredProductionMailerKeys(): string[] {
+  return Object.keys(validProductionMailerEnv).filter((key) => {
+    const without = Object.fromEntries(
+      Object.entries(validProductionMailerEnv).filter(([candidate]) => candidate !== key),
+    );
+    return !mailerEnvSchema.safeParse(without).success;
+  });
+}
+
 function requiredProductionStorageKeys(): string[] {
   const required: string[] = [];
   for (const key of Object.keys(validStorageEnv)) {
     if (key === "NODE_ENV") continue;
-    const without = { ...validStorageEnv };
-    delete without[key];
+    const without = Object.fromEntries(
+      Object.entries(validStorageEnv).filter(([candidate]) => candidate !== key),
+    );
     if (!storageEnvSchema.safeParse(without).success) required.push(key);
   }
   return required;
@@ -114,7 +142,7 @@ const helm = helmAvailable();
 const describeHelm = helm ? describe : describe.skip;
 if (!helm) {
   describe.skip("env ↔ chart parity (skipped: helm not installed)", () => {
-    it.skip("requires helm to render infra/charts/nojv", () => {});
+    it.skip("requires helm to render infra/charts/nojv", () => undefined);
   });
 }
 
@@ -125,6 +153,38 @@ describe("env schema baseline (no helm required)", () => {
 
   it("the production storage baseline parses (sanity check for the drop-one probe)", () => {
     expect(storageEnvSchema.safeParse(validStorageEnv).success).toBe(true);
+  });
+
+  it("the production mailer baseline parses (sanity check for the drop-one probe)", () => {
+    expect(mailerEnvSchema.safeParse(validProductionMailerEnv).success).toBe(true);
+  });
+
+  it("the local env example is a valid explicit sink without stray SMTP config", () => {
+    const mailerKeys = new Set([
+      "NODE_ENV",
+      "MAILER_MODE",
+      "SMTP_HOST",
+      "SMTP_PORT",
+      "SMTP_USER",
+      "SMTP_PASS",
+      "SMTP_FROM",
+      "APP_BASE_URL",
+    ]);
+    const example = Object.fromEntries(
+      readFileSync(join(repoRoot, ".env.example"), "utf8")
+        .split("\n")
+        .filter((line) => line && !line.startsWith("#") && line.includes("="))
+        .map<[string, string]>((line) => {
+          const separator = line.indexOf("=");
+          return [line.slice(0, separator), line.slice(separator + 1)];
+        })
+        .filter(([key]) => mailerKeys.has(key)),
+    );
+    expect(mailerEnvSchema.parse(example)).toMatchObject({
+      NODE_ENV: "development",
+      MAILER_MODE: "sink",
+      APP_BASE_URL: "http://localhost:5173",
+    });
   });
 });
 
@@ -149,8 +209,8 @@ describeHelm("env schema ↔ chart deployment parity", () => {
 
 describe("Dockerfiles that frozen-install must ship the pnpm patch files", () => {
   const workspaceManifest = readFileSync(join(repoRoot, "pnpm-workspace.yaml"), "utf8");
-  const patchBlock = /^patchedDependencies:\n((?:  .+\n)+)/m.exec(workspaceManifest);
-  const hasPatches = patchBlock !== null && patchBlock[1]!.trim().length > 0;
+  const patchBlock = /^patchedDependencies:\n((?: {2}.+\n)+)/m.exec(workspaceManifest);
+  const hasPatches = Boolean(patchBlock?.[1]?.trim());
 
   const dockerDir = join(repoRoot, "infra/docker");
   const frozenInstallDockerfiles = readdirSync(dockerDir)
@@ -193,8 +253,78 @@ describeHelm("storage env schema ↔ chart deployment parity", () => {
   );
 });
 
+describeHelm("mailer env schema ↔ chart deployment parity", () => {
+  it.each(["values-gke.yaml", "values-single-machine.yaml"])(
+    "%s configures web and platform worker for production SMTP only",
+    (valuesFile) => {
+      const rendered = renderChart(valuesFile);
+      for (const name of ["nojv-web", "nojv-worker-platform"]) {
+        const deployment = isolateDoc(rendered, "Deployment", name);
+        const provided = containerEnvNames(deployment);
+        const missing = requiredProductionMailerKeys().filter((key) => !provided.has(key));
+        expect(
+          missing,
+          `${name} is missing production mailer env: ${missing.join(", ")}`,
+        ).toEqual([]);
+        expect(deployment).toContain("name: MAILER_MODE\n              value: smtp");
+        expect(deployment).toContain('name: SMTP_PORT\n              value: "465"');
+        for (const key of [
+          "SMTP_HOST",
+          "SMTP_USER",
+          "SMTP_PASS",
+          "SMTP_FROM",
+          "APP_BASE_URL",
+        ]) {
+          const start = deployment.indexOf(`- name: ${key}`);
+          const next = deployment.indexOf("\n            - name:", start + 1);
+          const entry = deployment.slice(start, next === -1 ? undefined : next);
+          expect(entry, `${name} ${key} must be a required secret reference`).toContain(
+            `key: ${key}`,
+          );
+          expect(entry).not.toContain("optional: true");
+        }
+      }
+    },
+  );
+
+  it.each(["values-gke.yaml", "values-single-machine.yaml"])(
+    "%s keeps judge-only workers independent from mailer env",
+    (valuesFile) => {
+      const judge = isolateDoc(renderChart(valuesFile), "Deployment", "nojv-worker");
+      const provided = containerEnvNames(judge);
+      expect(provided.has("NODE_ENV")).toBe(true);
+      for (const key of requiredProductionMailerKeys().filter((key) => key !== "NODE_ENV")) {
+        expect(provided.has(key), `judge worker must not receive ${key}`).toBe(false);
+      }
+    },
+  );
+
+  it("documents every required SMTP secret with non-empty production placeholders", () => {
+    const example = readFileSync(
+      join(repoRoot, "infra/charts/nojv/secret.example.yaml"),
+      "utf8",
+    );
+    expect(example).toContain('APP_BASE_URL: "https://nojv.example.com"');
+    expect(example).toMatch(/SMTP_HOST: "[^"]+"/);
+    expect(example).toMatch(/SMTP_USER: "[^"]+"/);
+    expect(example).toMatch(/SMTP_PASS: "[^"]+"/);
+    expect(example).toMatch(/SMTP_FROM: "[^"]+"/);
+    expect(example).not.toMatch(/^\s+SMTP_PORT:/m);
+  });
+
+  it("allows network-policy-constrained platform workers to reach the SMTP port", () => {
+    const policy = isolateDoc(
+      renderChart("values-gke.yaml"),
+      "NetworkPolicy",
+      "platform-smtp-egress",
+    );
+    expect(policy).toContain("nojv-mailer: enabled");
+    expect(policy).toContain("port: 465\n          protocol: TCP");
+  });
+});
+
 describe("Flux release artifact atomicity", () => {
-  it("packages the production image tag with the chart instead of HelmRelease inline values", () => {
+  it("packages one source identity and its images with the chart instead of HelmRelease inline values", () => {
     const helmRelease = readFileSync(join(repoRoot, "infra/flux/helmrelease.yaml"), "utf8");
     const gitRepository = readFileSync(
       join(repoRoot, "infra/flux/git-repository.yaml"),
@@ -206,13 +336,18 @@ describe("Flux release artifact atomicity", () => {
       "valuesFiles:\n        - infra/charts/nojv/values.yaml\n        - infra/charts/nojv/values-single-machine.yaml",
     );
     expect(helmRelease).toContain("reconcileStrategy: Revision");
+    expect(helmRelease).toContain("timeout: 125m");
     expect(helmRelease).not.toContain("\n  values:\n    image:\n");
     expect(gitRepository).toContain("branch: deploy");
-    expect(workflow).toContain("Expected exactly one image.tag");
-    expect(workflow).toContain("in_image && /^  tag: / { print NR }");
+    expect(workflow).toContain(
+      "IMAGE_DIGEST_WEB: ${{ needs.build-publish.outputs.web_digest }}",
+    );
+    expect(workflow).toContain('node scripts/update-deploy-image-values.mjs "$VALUES_FILE"');
     expect(workflow).toContain('git add "$VALUES_FILE"');
     expect(workflow).toContain('DEPLOY_TAG="nojv-deploy-${IMAGE_TAG}"');
-    expect(workflow).toContain("git push --atomic --force origin");
+    expect(workflow).toContain(
+      'git push --atomic "--force-with-lease=refs/heads/deploy:${DEPLOY_TIP}" origin',
+    );
     expect(workflow).not.toContain("infra/flux/helmrelease.yaml");
   });
 });

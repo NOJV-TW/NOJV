@@ -1,15 +1,12 @@
 import { test, expect, type Page } from "@playwright/test";
 import path from "node:path";
+import { readLiveSession } from "./_shared";
 
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
 const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/teacher.json");
 
 async function readOwnUserId(page: Page): Promise<string> {
-  const response = await page.request.get("/api/auth/get-session", { timeout: 30000 });
-  const session = (await response.json()) as { user?: { id?: string } };
-  const id = session.user?.id;
-  if (!id) throw new Error("Could not resolve session user id");
-  return id;
+  return (await readLiveSession(page)).user.id;
 }
 
 async function setProfilePublic(page: Page, userId: string, value: boolean): Promise<void> {

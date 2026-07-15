@@ -2,12 +2,11 @@ import { test, expect, type FileChooser } from "@playwright/test";
 import JSZip from "jszip";
 import path from "node:path";
 
-import { apiWriteHeaders } from "./_shared";
+import { apiWriteHeaders, formActionHeaders } from "./_shared";
 
 const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/teacher.json");
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
 
-const ORIGIN = "http://localhost:5173";
 const ADVANCED_EXAM_ID = "exam_demo_advanced_active";
 const SEEDED_ADVANCED_PROBLEM_ID = "problem_shell-scripting-lab";
 
@@ -25,7 +24,7 @@ async function postFormAction(
 ): Promise<FormActionResult> {
   const res = await page.request.post(urlPath, {
     form,
-    headers: { origin: ORIGIN },
+    headers: formActionHeaders,
   });
   return res.json() as Promise<FormActionResult>;
 }
@@ -42,7 +41,7 @@ let advancedProblemId = "";
 test.describe("Advanced Mode Lifecycle", () => {
   test.describe.configure({ mode: "serial" });
 
-  test("Advanced Mode create menu stays inside a mobile viewport", async ({ browser }) => {
+  test("problem creation is an ordinary keyboard disclosure", async ({ browser }) => {
     const context = await browser.newContext({
       storageState: teacherAuth,
       viewport: { width: 390, height: 844 },
@@ -50,11 +49,51 @@ test.describe("Advanced Mode Lifecycle", () => {
     const page = await context.newPage();
 
     await page.goto("/problems?tab=mine");
-    await page.getByRole("button", { name: /create options/i }).click();
-    await expect(page.getByRole("menu")).toBeVisible();
+    const trigger = page.getByRole("button", { name: /create options/i });
+    await expect(trigger).toHaveAttribute("aria-controls", "problem-create-options");
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+    const disclosure = page.locator("#problem-create-options");
+    await expect(disclosure).toBeVisible();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByRole("menu")).toHaveCount(0);
+
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("button", { name: "Advanced Mode" })).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(disclosure).toBeHidden();
+    await expect(trigger).toBeFocused();
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
       .toBeLessThanOrEqual(390);
+
+    await context.close();
+  });
+
+  test("server rendering exposes only controls that work without hydration", async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({
+      javaScriptEnabled: false,
+      storageState: teacherAuth,
+    });
+    const page = await context.newPage();
+
+    await page.goto("/problems?tab=mine");
+    await expect(page.getByRole("link", { name: "Public Library" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "My Problems" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /create new problem|create options/i }),
+    ).toHaveCount(0);
+
+    await page.getByRole("link", { name: "Public Library" }).focus();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/problems$/);
+    await page.getByRole("link", { name: "My Problems" }).focus();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/problems\?tab=mine$/);
 
     await context.close();
   });

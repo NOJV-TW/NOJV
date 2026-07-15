@@ -1,4 +1,4 @@
-import type { Language, SubmissionResult } from "@nojv/core";
+import type { Language, SubmissionContext, SubmissionResult } from "@nojv/core";
 import { m } from "$lib/paraglide/messages.js";
 import { executeSubmission, SubmissionRequestError } from "$lib/services/submission-service";
 import { toasts } from "$lib/stores/toast";
@@ -19,9 +19,7 @@ interface EditorRunArgs {
   drafts: () => Record<string, string>;
   workspaceDrafts: () => Record<string, string>;
   workspaceFiles: () => WorkspaceFile[];
-  assessment?: (() => { assessmentId: string; courseId: string } | undefined) | undefined;
-  contestId?: (() => string | undefined) | undefined;
-  participationId?: (() => string | undefined) | undefined;
+  context: () => SubmissionContext;
   onSubmissionDispatched?: ((submissionId: string, language: string) => void) | undefined;
   onSubmissionComplete?:
     | ((
@@ -76,12 +74,10 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       isWorkspaceMode: args.isWorkspaceMode(),
       language: args.language(),
       problemId: args.problemId,
+      context: args.context(),
       sampleOnly,
       workspaceDrafts: args.workspaceDrafts(),
       workspaceFiles: args.workspaceFiles(),
-      ...(args.assessment?.() ? { assessment: args.assessment() } : {}),
-      ...(args.contestId?.() ? { contestId: args.contestId() } : {}),
-      ...(args.participationId?.() ? { participationId: args.participationId() } : {}),
       ...(runCases ? { runCases } : {}),
     });
 
@@ -143,12 +139,10 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       isWorkspaceMode: args.isWorkspaceMode(),
       language,
       problemId: args.problemId,
+      context: args.context(),
       sampleOnly: false,
       workspaceDrafts: args.workspaceDrafts(),
       workspaceFiles: args.workspaceFiles(),
-      ...(args.assessment?.() ? { assessment: args.assessment() } : {}),
-      ...(args.contestId?.() ? { contestId: args.contestId() } : {}),
-      ...(args.participationId?.() ? { participationId: args.participationId() } : {}),
     });
 
     const dispatched: { submissionId: string | null } = { submissionId: null };
@@ -173,13 +167,11 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       ) {
         cooldownUntil = Date.now() + err.retryAfterSec * 1000;
       } else {
-        toasts.add({
-          type: "error",
-          message:
-            err instanceof SubmissionRequestError
-              ? messageForSubmitError(err.code)
-              : m.editor_submitFailed(),
-        });
+        toasts.error(
+          err instanceof SubmissionRequestError
+            ? messageForSubmitError(err.code)
+            : m.editor_submitFailed(),
+        );
       }
     } finally {
       isSubmitting = false;

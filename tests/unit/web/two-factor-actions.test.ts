@@ -15,7 +15,9 @@ const {
   clearStepUpMock,
   hasStepUpFactorMock,
   hasFreshStepUpMock,
-  createHandoffTicketMock,
+  markVerifiedSessionMock,
+  grantAdminElevationMock,
+  consumeTotpCodeMock,
   sendEmailMock,
   enableTwoFactorMock,
   verifyTotpMock,
@@ -26,6 +28,8 @@ const {
   otpConsumeMock,
   stepUpConsumeMock,
   cookiesSetMock,
+  loggerWarnMock,
+  loggerErrorMock,
 } = vi.hoisted(() => ({
   isTwoFactorActivatedMock: vi.fn(),
   setTwoFactorActivatedMock: vi.fn(),
@@ -40,7 +44,9 @@ const {
   clearStepUpMock: vi.fn(),
   hasStepUpFactorMock: vi.fn(),
   hasFreshStepUpMock: vi.fn(),
-  createHandoffTicketMock: vi.fn(),
+  markVerifiedSessionMock: vi.fn(),
+  grantAdminElevationMock: vi.fn(),
+  consumeTotpCodeMock: vi.fn(),
   sendEmailMock: vi.fn(),
   enableTwoFactorMock: vi.fn(),
   verifyTotpMock: vi.fn(),
@@ -51,11 +57,22 @@ const {
   otpConsumeMock: vi.fn(),
   stepUpConsumeMock: vi.fn(),
   cookiesSetMock: vi.fn(),
+  loggerWarnMock: vi.fn(),
+  loggerErrorMock: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => new Proxy({}, { get: () => ({}) }));
 
 vi.mock("$lib/server/env", () => ({ getWebEnv: () => ({ NODE_ENV: "test" }) }));
+
+vi.mock("$lib/server/logger", () => ({
+  createLogger: () => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: loggerWarnMock,
+    error: loggerErrorMock,
+  }),
+}));
 
 vi.mock("@nojv/application", () => ({
   isTwoFactorActivated: isTwoFactorActivatedMock,
@@ -66,10 +83,26 @@ vi.mock("@nojv/application", () => ({
   markTwoFactorChangeGrant: markChangeGrantMock,
   hasTwoFactorChangeGrant: hasChangeGrantMock,
   clearTwoFactorChangeGrant: clearChangeGrantMock,
-  createStepUpHandoffTicket: createHandoffTicketMock,
+  consumeTotpCode: consumeTotpCodeMock,
+  securityGenerationProof: (user: { id: string; securityGeneration: number }) => ({
+    userId: user.id,
+    securityGeneration: user.securityGeneration,
+  }),
 }));
 
 vi.mock("$lib/server/step-up", () => ({
+  adminElevationPrincipal: (user: { id: string; securityGeneration: number }) => ({
+    userId: user.id,
+    securityGeneration: user.securityGeneration,
+  }),
+  grantAdminElevation: grantAdminElevationMock,
+  isTwoFactorActivated: isTwoFactorActivatedMock,
+  markVerifiedSession: markVerifiedSessionMock,
+  securityGenerationProof: (user: { id: string; securityGeneration: number }) => ({
+    userId: user.id,
+    securityGeneration: user.securityGeneration,
+  }),
+  validateStepUpCode: (code: string) => /^\d{6}$/.test(code),
   userHasCredentialPassword: userHasCredentialPasswordMock,
   verifyStepUpCode: verifyStepUpCodeMock,
   clearStepUp: clearStepUpMock,
@@ -96,6 +129,7 @@ vi.mock("$lib/auth.server", () => ({
 }));
 
 vi.mock("$lib/server/shared/rate-limiter", () => ({
+  consumeFormRateLimitInternal: vi.fn().mockResolvedValue(null),
   otpSendRateLimiter: { consume: otpConsumeMock },
   stepUpAttemptRateLimiter: { consume: stepUpConsumeMock },
 }));
@@ -104,6 +138,7 @@ import {
   twoFactorActions as actions,
   loadTwoFactor as load,
 } from "$lib/../routes/(app)/settings/two-factor-actions";
+import { actions as verifyActions } from "$lib/../routes/(app)/account/api-tokens/verify/+page.server";
 
 function makeEvent(opts?: {
   twoFactorEnabled?: boolean;
@@ -126,8 +161,10 @@ function makeEvent(opts?: {
         platformRole: opts?.isSuperAdmin ? "admin" : "student",
         isSuperAdmin: opts?.isSuperAdmin ?? false,
         twoFactorEnabled: opts?.twoFactorEnabled ?? false,
+        twoFactorActivated: true,
         disabled: false,
         mustChangePassword: false,
+        securityGeneration: 7,
       },
       apiTokenActor: null,
     },
@@ -159,11 +196,14 @@ async function caught(
 
 beforeEach(() => {
   isTwoFactorActivatedMock.mockReset().mockResolvedValue(false);
-  setTwoFactorActivatedMock.mockReset().mockResolvedValue(undefined);
+  setTwoFactorActivatedMock.mockReset().mockResolvedValue({
+    userId: "usr_1",
+    securityGeneration: 8,
+  });
   generateActivationOtpMock.mockReset().mockReturnValue("123456");
   storeActivationOtpMock.mockReset().mockResolvedValue(undefined);
   verifyActivationOtpMock.mockReset();
-  markChangeGrantMock.mockReset().mockResolvedValue(undefined);
+  markChangeGrantMock.mockReset().mockResolvedValue(true);
   hasChangeGrantMock.mockReset().mockResolvedValue(false);
   clearChangeGrantMock.mockReset().mockResolvedValue(undefined);
   userHasCredentialPasswordMock.mockReset().mockResolvedValue(false);
@@ -171,17 +211,21 @@ beforeEach(() => {
   clearStepUpMock.mockReset().mockResolvedValue(undefined);
   hasStepUpFactorMock.mockReset().mockResolvedValue(false);
   hasFreshStepUpMock.mockReset().mockResolvedValue(false);
-  createHandoffTicketMock.mockReset().mockResolvedValue("handoff-ticket");
-  sendEmailMock.mockReset().mockResolvedValue(undefined);
+  markVerifiedSessionMock.mockReset().mockResolvedValue(true);
+  grantAdminElevationMock.mockReset().mockResolvedValue(true);
+  consumeTotpCodeMock.mockReset().mockResolvedValue(true);
+  sendEmailMock.mockReset().mockResolvedValue("accepted");
   enableTwoFactorMock.mockReset();
   verifyTotpMock.mockReset();
   disableTwoFactorMock.mockReset();
   generateBackupCodesMock.mockReset();
   listPasskeysMock.mockReset().mockResolvedValue([]);
   deletePasskeyMock.mockReset().mockResolvedValue(undefined);
-  otpConsumeMock.mockReset().mockResolvedValue(undefined);
-  stepUpConsumeMock.mockReset().mockResolvedValue(undefined);
+  otpConsumeMock.mockReset().mockResolvedValue("allowed");
+  stepUpConsumeMock.mockReset().mockResolvedValue("allowed");
   cookiesSetMock.mockReset();
+  loggerWarnMock.mockReset();
+  loggerErrorMock.mockReset();
 });
 
 describe("loadTwoFactor", () => {
@@ -205,9 +249,23 @@ describe("sendEmailOtp", () => {
   });
 
   it("fails 429 when the send rate limit is exceeded", async () => {
-    otpConsumeMock.mockRejectedValue(new Error("rate limited"));
+    otpConsumeMock.mockResolvedValue("limited");
     const result = await actions.sendEmailOtp(makeEvent());
     expect(result).toMatchObject({ status: 429 });
+    expect(storeActivationOtpMock).not.toHaveBeenCalled();
+  });
+
+  it("fails 503 when send limiting is unavailable", async () => {
+    otpConsumeMock.mockResolvedValue("unavailable");
+    const result = await actions.sendEmailOtp(makeEvent());
+    expect(result).toMatchObject({ status: 503 });
+    expect(storeActivationOtpMock).not.toHaveBeenCalled();
+  });
+
+  it("does not disguise an unknown send-limiter error", async () => {
+    const limiterError = new Error("limiter bug");
+    otpConsumeMock.mockRejectedValue(limiterError);
+    await expect(actions.sendEmailOtp(makeEvent())).rejects.toBe(limiterError);
     expect(storeActivationOtpMock).not.toHaveBeenCalled();
   });
 
@@ -227,6 +285,23 @@ describe("sendEmailOtp", () => {
     expect(result).toEqual({ sent: true });
     expect(sendEmailMock).toHaveBeenCalledOnce();
   });
+
+  it("does not report success when delivery is suppressed", async () => {
+    sendEmailMock.mockResolvedValue("suppressed");
+    const result = await actions.sendEmailOtp(makeEvent());
+    expect(result).toMatchObject({ status: 503, data: { error: expect.any(String) } });
+    expect(result).not.toMatchObject({ data: { sent: true } });
+  });
+
+  it("does not report success when SMTP rejects", async () => {
+    sendEmailMock.mockRejectedValue(new Error("smtp down"));
+    const result = await actions.sendEmailOtp(makeEvent());
+    expect(result).toMatchObject({ status: 502, data: { error: expect.any(String) } });
+    expect(loggerErrorMock).toHaveBeenCalledWith(
+      "2FA email OTP send failed",
+      expect.objectContaining({ err: "smtp down" }),
+    );
+  });
 });
 
 describe("activate", () => {
@@ -244,6 +319,32 @@ describe("activate", () => {
     expect(setTwoFactorActivatedMock).not.toHaveBeenCalled();
   });
 
+  it("fails 429 before verifying the OTP when step-up quota is exhausted", async () => {
+    stepUpConsumeMock.mockResolvedValue("limited");
+    const result = await actions.activate(makeEvent({ body: form({ otp: "123456" }) }));
+    expect(result).toMatchObject({ status: 429 });
+    expect(verifyActivationOtpMock).not.toHaveBeenCalled();
+    expect(setTwoFactorActivatedMock).not.toHaveBeenCalled();
+  });
+
+  it("fails 503 before verifying the OTP when step-up limiting is unavailable", async () => {
+    stepUpConsumeMock.mockResolvedValue("unavailable");
+    const result = await actions.activate(makeEvent({ body: form({ otp: "123456" }) }));
+    expect(result).toMatchObject({ status: 503 });
+    expect(verifyActivationOtpMock).not.toHaveBeenCalled();
+    expect(setTwoFactorActivatedMock).not.toHaveBeenCalled();
+  });
+
+  it("does not disguise an unknown step-up limiter error", async () => {
+    const limiterError = new Error("limiter bug");
+    stepUpConsumeMock.mockRejectedValue(limiterError);
+    await expect(actions.activate(makeEvent({ body: form({ otp: "123456" }) }))).rejects.toBe(
+      limiterError,
+    );
+    expect(verifyActivationOtpMock).not.toHaveBeenCalled();
+    expect(setTwoFactorActivatedMock).not.toHaveBeenCalled();
+  });
+
   it("fails 400 on an expired OTP", async () => {
     verifyActivationOtpMock.mockResolvedValue({ ok: false, reason: "expired" });
     const result = await actions.activate(makeEvent({ body: form({ otp: "123456" }) }));
@@ -254,9 +355,32 @@ describe("activate", () => {
     verifyActivationOtpMock.mockResolvedValue({ ok: true });
     const result = await actions.activate(makeEvent({ body: form({ otp: "123456" }) }));
     expect(setTwoFactorActivatedMock).toHaveBeenCalledWith("usr_1", true);
-    expect(markChangeGrantMock).toHaveBeenCalledWith("sess_1");
+    expect(markChangeGrantMock).toHaveBeenCalledWith("sess_1", {
+      userId: "usr_1",
+      securityGeneration: 8,
+    });
     expect(sendEmailMock).toHaveBeenCalledOnce();
     expect(result).toEqual({ activated: true });
+  });
+
+  it("keeps activation committed and logs when its confirmation is suppressed", async () => {
+    verifyActivationOtpMock.mockResolvedValue({ ok: true });
+    sendEmailMock.mockResolvedValue("suppressed");
+    const result = await actions.activate(makeEvent({ body: form({ otp: "123456" }) }));
+    expect(setTwoFactorActivatedMock).toHaveBeenCalledWith("usr_1", true);
+    expect(result).toEqual({ activated: true });
+    expect(loggerWarnMock).toHaveBeenCalledWith("2FA activated notification email suppressed");
+  });
+
+  it("keeps activation committed and logs when its confirmation fails", async () => {
+    verifyActivationOtpMock.mockResolvedValue({ ok: true });
+    sendEmailMock.mockRejectedValue(new Error("smtp down"));
+    const result = await actions.activate(makeEvent({ body: form({ otp: "123456" }) }));
+    expect(setTwoFactorActivatedMock).toHaveBeenCalledWith("usr_1", true);
+    expect(result).toEqual({ activated: true });
+    expect(loggerErrorMock).toHaveBeenCalledWith("2FA activated notification email failed", {
+      err: "smtp down",
+    });
   });
 });
 
@@ -274,11 +398,46 @@ describe("deactivate", () => {
     const result = await actions.deactivate(
       makeEvent({ twoFactorEnabled: true, body: form({ code: "123456" }) }),
     );
-    expect(verifyStepUpCodeMock).toHaveBeenCalledWith("usr_1", "123456", expect.any(Headers));
+    expect(verifyStepUpCodeMock).toHaveBeenCalledWith(
+      { userId: "usr_1", securityGeneration: 7 },
+      "123456",
+      expect.any(Headers),
+      true,
+    );
     expect(setTwoFactorActivatedMock).toHaveBeenCalledWith("usr_1", false);
     expect(clearStepUpMock).toHaveBeenCalledWith("sess_1");
     expect(clearChangeGrantMock).toHaveBeenCalledWith("sess_1");
     expect(result).toEqual({ deactivated: true });
+  });
+
+  it("keeps deactivation committed and logs when its confirmation is suppressed", async () => {
+    isTwoFactorActivatedMock.mockResolvedValue(true);
+    hasStepUpFactorMock.mockResolvedValue(true);
+    verifyStepUpCodeMock.mockResolvedValue({ ok: true });
+    sendEmailMock.mockResolvedValue("suppressed");
+    const result = await actions.deactivate(
+      makeEvent({ twoFactorEnabled: true, body: form({ code: "123456" }) }),
+    );
+    expect(setTwoFactorActivatedMock).toHaveBeenCalledWith("usr_1", false);
+    expect(result).toEqual({ deactivated: true });
+    expect(loggerWarnMock).toHaveBeenCalledWith(
+      "2FA deactivated notification email suppressed",
+    );
+  });
+
+  it("keeps deactivation committed and logs when its confirmation fails", async () => {
+    isTwoFactorActivatedMock.mockResolvedValue(true);
+    hasStepUpFactorMock.mockResolvedValue(true);
+    verifyStepUpCodeMock.mockResolvedValue({ ok: true });
+    sendEmailMock.mockRejectedValue(new Error("smtp down"));
+    const result = await actions.deactivate(
+      makeEvent({ twoFactorEnabled: true, body: form({ code: "123456" }) }),
+    );
+    expect(setTwoFactorActivatedMock).toHaveBeenCalledWith("usr_1", false);
+    expect(result).toEqual({ deactivated: true });
+    expect(loggerErrorMock).toHaveBeenCalledWith("2FA deactivated notification email failed", {
+      err: "smtp down",
+    });
   });
 
   it("fails 401 on a bad device code", async () => {
@@ -321,11 +480,20 @@ describe("deactivate", () => {
 
   it("fails 429 when the step-up attempt rate limit is exceeded", async () => {
     isTwoFactorActivatedMock.mockResolvedValue(true);
-    stepUpConsumeMock.mockRejectedValue(new Error("rate limited"));
+    stepUpConsumeMock.mockResolvedValue("limited");
     const result = await actions.deactivate(
       makeEvent({ twoFactorEnabled: true, body: form({ code: "123456" }) }),
     );
     expect(result).toMatchObject({ status: 429 });
+  });
+
+  it("fails 503 when step-up limiting is unavailable", async () => {
+    isTwoFactorActivatedMock.mockResolvedValue(true);
+    stepUpConsumeMock.mockResolvedValue("unavailable");
+    const result = await actions.deactivate(
+      makeEvent({ twoFactorEnabled: true, body: form({ code: "123456" }) }),
+    );
+    expect(result).toMatchObject({ status: 503 });
   });
 });
 
@@ -385,24 +553,100 @@ describe("enable (add TOTP)", () => {
 });
 
 describe("verify", () => {
+  it("rejects malformed enrollment codes without creating a reservation", async () => {
+    const result = await actions.verify(makeEvent({ body: form({ code: "not-a-code" }) }));
+
+    expect(result).toMatchObject({ status: 400 });
+    expect(consumeTotpCodeMock).not.toHaveBeenCalled();
+    expect(verifyTotpMock).not.toHaveBeenCalled();
+  });
+
   it("fails 401 when verifyTOTP throws", async () => {
+    let reservedBeforeVerification = false;
+    consumeTotpCodeMock.mockImplementation(async () => {
+      reservedBeforeVerification = true;
+      return true;
+    });
     verifyTotpMock.mockRejectedValue(new Error("invalid"));
     const result = await actions.verify(makeEvent({ body: form({ code: "000000" }) }));
     expect(result).toMatchObject({ status: 401 });
+    expect(reservedBeforeVerification).toBe(true);
+    expect(consumeTotpCodeMock).toHaveBeenCalledOnce();
   });
 
-  it("returns enabled on success and hands the verified factor to the rotated session", async () => {
+  it("fails closed without mutation when the reservation store is unavailable", async () => {
+    consumeTotpCodeMock.mockRejectedValue(new Error("redis unavailable"));
+
+    const result = await actions.verify(makeEvent({ body: form({ code: "123456" }) }));
+
+    expect(result).toMatchObject({ status: 503 });
+    expect(verifyTotpMock).not.toHaveBeenCalled();
+    expect(cookiesSetMock).not.toHaveBeenCalled();
+  });
+
+  it("reserves enrollment before mutation and blocks an interleaved privileged action", async () => {
+    let enterVerification!: () => void;
+    let releaseVerification!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      enterVerification = resolve;
+    });
+    const release = new Promise<void>((resolve) => {
+      releaseVerification = resolve;
+    });
+    verifyTotpMock.mockImplementation(async () => {
+      enterVerification();
+      await release;
+      return { headers: new Headers({ "set-cookie": "session=rotated; Path=/; HttpOnly" }) };
+    });
+    verifyStepUpCodeMock.mockImplementation(
+      async (_proof, _code, _headers, twoFactorEnabled: boolean) =>
+        twoFactorEnabled ? { ok: true } : { ok: false, reason: "factor_unavailable" as const },
+    );
+
+    const enrollmentEvent = makeEvent({ body: form({ code: "123456" }) });
+    const enrollment = actions.verify(enrollmentEvent);
+    await entered;
+    const reservedBeforeMutation = consumeTotpCodeMock.mock.calls.length === 1;
+
+    const privilegedEvent = makeEvent({ body: form({ code: "123456" }) });
+    const privileged = await verifyActions.default(privilegedEvent);
+
+    releaseVerification();
+    await expect(enrollment).resolves.toEqual({ enabled: true });
+    expect(reservedBeforeMutation).toBe(true);
+    expect(verifyStepUpCodeMock).toHaveBeenCalledWith(
+      { userId: "usr_1", securityGeneration: 7 },
+      "123456",
+      expect.any(Headers),
+      false,
+    );
+    expect(privileged).toMatchObject({ status: 403 });
+    expect(markVerifiedSessionMock).not.toHaveBeenCalled();
+    expect(privilegedEvent.locals.session?.id).toBe("sess_1");
+  });
+
+  it("returns enabled without converting enrollment into a privileged handoff", async () => {
     verifyTotpMock.mockResolvedValue({ headers: new Headers() });
     const result = await actions.verify(
       makeEvent({ isSuperAdmin: true, body: form({ code: "123456" }) }),
     );
-    expect(createHandoffTicketMock).toHaveBeenCalledWith("usr_1");
-    expect(cookiesSetMock).toHaveBeenCalledWith(
-      "nojv.step_up_handoff",
-      "handoff-ticket",
-      expect.objectContaining({ httpOnly: true, maxAge: 60, path: "/", sameSite: "lax" }),
-    );
+    expect(consumeTotpCodeMock).toHaveBeenCalledWith("usr_1", "123456");
+    expect(cookiesSetMock).not.toHaveBeenCalled();
     expect(result).toEqual({ enabled: true });
+  });
+
+  it("rejects an enrollment code already consumed by a concurrent request", async () => {
+    verifyTotpMock.mockResolvedValue({ headers: new Headers() });
+    consumeTotpCodeMock.mockResolvedValue(false);
+
+    const result = await actions.verify(makeEvent({ body: form({ code: "123456" }) }));
+
+    expect(result).toMatchObject({
+      status: 401,
+      data: { error: expect.stringMatching(/used/) },
+    });
+    expect(verifyTotpMock).not.toHaveBeenCalled();
+    expect(cookiesSetMock).not.toHaveBeenCalled();
   });
 
   it("redirects to a sanitized returnTo after success", async () => {
@@ -432,7 +676,12 @@ describe("disable (remove TOTP)", () => {
         body: form({ password: "hunter2", code: "123456" }),
       }),
     );
-    expect(verifyStepUpCodeMock).toHaveBeenCalledWith("usr_1", "123456", expect.any(Headers));
+    expect(verifyStepUpCodeMock).toHaveBeenCalledWith(
+      { userId: "usr_1", securityGeneration: 7 },
+      "123456",
+      expect.any(Headers),
+      true,
+    );
     expect(disableTwoFactorMock).toHaveBeenCalledWith({
       body: { password: "hunter2" },
       headers: expect.any(Headers),

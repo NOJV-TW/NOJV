@@ -6,6 +6,7 @@ import { ConflictError, ForbiddenError, problemDomain } from "@nojv/application"
 import {
   createTestProblem,
   createTestProblemWorkspaceFile,
+  createTestSubmission,
   createTestUser,
   testPrisma,
 } from "../../fixtures/factories";
@@ -199,21 +200,18 @@ describe("special_env publish gate — accepted test run required", () => {
     });
     const problem = await createDraftAdvancedProblem(teacher.id);
 
-    await testPrisma.submission.create({
-      data: {
-        problemId: problem.id,
-        userId: teacher.id,
-        language: "python",
-        sourceStoragePrefix: "test/none",
-        status: "accepted",
-        advancedConfigSnapshot: {
-          config: {
-            ...advancedConfig(),
-            run: { imageRef: `ghcr.io/nojv-tw/old@${DIGEST}`, imageSource: "registry" },
-          },
-          requiredPaths: [],
-          resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
+    await createTestSubmission({
+      problemId: problem.id,
+      userId: teacher.id,
+      language: "python",
+      status: "accepted",
+      advancedConfigSnapshot: {
+        config: {
+          ...advancedConfig(),
+          run: { imageRef: `ghcr.io/nojv-tw/old@${DIGEST}`, imageSource: "registry" },
         },
+        requiredPaths: [],
+        resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
       },
     });
 
@@ -231,19 +229,16 @@ describe("special_env publish gate — accepted test run required", () => {
     });
     const problem = await createDraftAdvancedProblem(teacher.id);
 
-    await testPrisma.submission.create({
-      data: {
-        problemId: problem.id,
-        userId: teacher.id,
-        language: "python",
-        sourceStoragePrefix: "test/none",
-        status: "accepted",
-        sampleOnly: true,
-        advancedConfigSnapshot: {
-          config: advancedConfig(),
-          requiredPaths: [],
-          resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
-        },
+    await createTestSubmission({
+      problemId: problem.id,
+      userId: teacher.id,
+      language: "python",
+      status: "accepted",
+      sampleOnly: true,
+      advancedConfigSnapshot: {
+        config: advancedConfig(),
+        requiredPaths: [],
+        resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
       },
     });
 
@@ -260,19 +255,16 @@ describe("special_env publish gate — accepted test run required", () => {
       canCreateAdvancedProblems: true,
     });
     const problem = await createDraftAdvancedProblem(teacher.id);
-    await testPrisma.submission.create({
-      data: {
-        problemId: problem.id,
-        userId: teacher.id,
-        language: "python",
-        sourceStoragePrefix: "test/none",
-        status: "accepted",
-        sampleOnly: true,
-        advancedConfigSnapshot: {
-          config: advancedConfig(),
-          requiredPaths: [],
-          resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
-        },
+    await createTestSubmission({
+      problemId: problem.id,
+      userId: teacher.id,
+      language: "python",
+      status: "accepted",
+      sampleOnly: true,
+      advancedConfigSnapshot: {
+        config: advancedConfig(),
+        requiredPaths: [],
+        resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
       },
     });
 
@@ -291,19 +283,16 @@ describe("special_env publish gate — accepted test run required", () => {
     });
     const problem = await createDraftAdvancedProblem(teacher.id);
 
-    await testPrisma.submission.create({
-      data: {
-        problemId: problem.id,
-        userId: teacher.id,
-        language: "python",
-        sourceStoragePrefix: "test/none",
-        status: "accepted",
-        sampleOnly: true,
-        advancedConfigSnapshot: {
-          config: advancedConfig(),
-          requiredPaths: [],
-          resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
-        },
+    await createTestSubmission({
+      problemId: problem.id,
+      userId: teacher.id,
+      language: "python",
+      status: "accepted",
+      sampleOnly: true,
+      advancedConfigSnapshot: {
+        config: advancedConfig(),
+        requiredPaths: [],
+        resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
       },
     });
 
@@ -323,18 +312,15 @@ describe("special_env publish gate — accepted test run required", () => {
       canCreateAdvancedProblems: true,
     });
     const problem = await createDraftAdvancedProblem(teacher.id);
-    await testPrisma.submission.create({
-      data: {
-        problemId: problem.id,
-        userId: teacher.id,
-        language: "python",
-        sourceStoragePrefix: "test/none",
-        status: "accepted",
-        advancedConfigSnapshot: {
-          config: advancedConfig(),
-          requiredPaths: [],
-          resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
-        },
+    await createTestSubmission({
+      problemId: problem.id,
+      userId: teacher.id,
+      language: "python",
+      status: "accepted",
+      advancedConfigSnapshot: {
+        config: advancedConfig(),
+        requiredPaths: [],
+        resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
       },
     });
     await problemDomain.updateAdvancedJudgeConfiguration(actorOf(teacher), problem.id, {
@@ -353,18 +339,15 @@ describe("special_env publish gate — accepted test run required", () => {
       canCreateAdvancedProblems: true,
     });
     const problem = await createDraftAdvancedProblem(teacher.id);
-    await testPrisma.submission.create({
-      data: {
-        problemId: problem.id,
-        userId: teacher.id,
-        language: "python",
-        sourceStoragePrefix: "test/none",
-        status: "accepted",
-        advancedConfigSnapshot: {
-          config: advancedConfig(),
-          requiredPaths: [],
-          resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
-        },
+    await createTestSubmission({
+      problemId: problem.id,
+      userId: teacher.id,
+      language: "python",
+      status: "accepted",
+      advancedConfigSnapshot: {
+        config: advancedConfig(),
+        requiredPaths: [],
+        resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
       },
     });
 

@@ -4,7 +4,12 @@ import { ZodError } from "zod";
 
 import { createLogger } from "../logger";
 import { classifyError } from "./handle-action-error";
-import { apiRateLimiter, writeApiRateLimiter } from "./rate-limiter";
+import {
+  apiRateLimiter,
+  registryTokenRateLimiter,
+  writeApiRateLimiter,
+  type RateLimiterLike,
+} from "./rate-limiter";
 import { getClientIp } from "./client-ip";
 
 const logger = createLogger("api");
@@ -98,15 +103,14 @@ function resolveRateLimitKey(event: RequestEvent): string {
   return userId ? `u:${userId}` : getClientIp(event);
 }
 
-function wrapHandler(
-  handler: ApiHandler,
-  rateLimiter: { consume: (key: string) => Promise<unknown> },
-): ApiHandler {
+function wrapHandler(handler: ApiHandler, rateLimiter: RateLimiterLike): ApiHandler {
   return async (event) => {
-    try {
-      await rateLimiter.consume(resolveRateLimitKey(event));
-    } catch {
+    const rateLimit = await rateLimiter.consume(resolveRateLimitKey(event));
+    if (rateLimit === "limited") {
       return json({ message: "Too many requests" }, { status: 429 });
+    }
+    if (rateLimit === "unavailable") {
+      return json({ message: "Rate limiter unavailable" }, { status: 503 });
     }
 
     try {
@@ -126,4 +130,8 @@ export function apiHandler(handler: ApiHandler): ApiHandler {
 
 export function writeApiHandler(handler: ApiHandler): ApiHandler {
   return wrapHandler(handler, writeApiRateLimiter);
+}
+
+export function registryTokenApiHandler(handler: ApiHandler): ApiHandler {
+  return wrapHandler(handler, registryTokenRateLimiter);
 }

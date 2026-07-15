@@ -10,9 +10,10 @@ import {
   createTestUser,
   testPrisma,
 } from "../../fixtures/factories";
+import { truncateTestTables } from "../../fixtures/seed-test-db";
 
 beforeEach(async () => {
-  await testPrisma.$executeRawUnsafe('TRUNCATE TABLE "Notification" CASCADE');
+  await truncateTestTables(["Notification"]);
 });
 
 describe("notificationDomain.fanoutExamStartingSoon", () => {
@@ -39,7 +40,7 @@ describe("notificationDomain.fanoutExamStartingSoon", () => {
     }
     const studentC = await createTestUser({ platformRole: "student" });
 
-    await notificationDomain.fanoutExamStartingSoon(exam.id, 1);
+    await notificationDomain.fanoutExamStartingSoon(exam.id, exam.startsAt.toISOString(), 1);
 
     const rowsA = await notificationRepo.listRecent(studentA.id, 10);
     const rowsB = await notificationRepo.listRecent(studentB.id, 10);
@@ -79,8 +80,8 @@ describe("notificationDomain.fanoutExamStartingSoon", () => {
       data: { type: "exam", examId: exam.id, userId: student.id, status: "registered" },
     });
 
-    await notificationDomain.fanoutExamStartingSoon(exam.id, 1);
-    await notificationDomain.fanoutExamStartingSoon(exam.id, 1);
+    await notificationDomain.fanoutExamStartingSoon(exam.id, exam.startsAt.toISOString(), 1);
+    await notificationDomain.fanoutExamStartingSoon(exam.id, exam.startsAt.toISOString(), 1);
 
     const rows = await notificationRepo.listRecent(student.id, 10);
     expect(rows).toHaveLength(1);
@@ -102,7 +103,7 @@ describe("notificationDomain.fanoutExamStartingSoon", () => {
       data: { type: "exam", examId: exam.id, userId: student.id, status: "active" },
     });
 
-    await notificationDomain.fanoutExamStartingSoon(exam.id, 1);
+    await notificationDomain.fanoutExamStartingSoon(exam.id, exam.startsAt.toISOString(), 1);
 
     const rows = await notificationRepo.listRecent(student.id, 10);
     expect(rows).toHaveLength(0);
@@ -124,7 +125,7 @@ describe("notificationDomain.fanoutExamStartingSoon", () => {
       data: { type: "exam", examId: exam.id, userId: student.id, status: "registered" },
     });
 
-    await notificationDomain.fanoutExamStartingSoon(exam.id, 1);
+    await notificationDomain.fanoutExamStartingSoon(exam.id, exam.startsAt.toISOString(), 1);
 
     const rows = await notificationRepo.listRecent(student.id, 10);
     expect(rows).toHaveLength(0);
@@ -143,7 +144,7 @@ describe("notificationDomain.fanoutExamStartingSoon", () => {
       endsAt: new Date(Date.now() + 3 * 60 * 60_000),
     });
 
-    await notificationDomain.fanoutExamStartingSoon(exam.id, 1);
+    await notificationDomain.fanoutExamStartingSoon(exam.id, exam.startsAt.toISOString(), 1);
 
     const rows = await notificationRepo.listRecent(student.id, 10);
     expect(rows).toHaveLength(0);
@@ -171,11 +172,11 @@ describe("notificationDomain.fanoutExamStartingSoon", () => {
       data: { userId: wantsTwo.id, examStartingLeadDays: 2 },
     });
 
-    await notificationDomain.fanoutExamStartingSoon(exam.id, 1);
+    await notificationDomain.fanoutExamStartingSoon(exam.id, exam.startsAt.toISOString(), 1);
     expect(await notificationRepo.listRecent(wantsTwo.id, 10)).toHaveLength(0);
     expect(await notificationRepo.listRecent(wantsDefault.id, 10)).toHaveLength(1);
 
-    await notificationDomain.fanoutExamStartingSoon(exam.id, 2);
+    await notificationDomain.fanoutExamStartingSoon(exam.id, exam.startsAt.toISOString(), 2);
     expect(await notificationRepo.listRecent(wantsTwo.id, 10)).toHaveLength(1);
   });
 });
@@ -199,7 +200,11 @@ describe("notificationDomain.fanoutContestStartingSoon", () => {
     }
     const userC = await createTestUser();
 
-    await notificationDomain.fanoutContestStartingSoon(contest.id, 1);
+    await notificationDomain.fanoutContestStartingSoon(
+      contest.id,
+      contest.startsAt.toISOString(),
+      1,
+    );
 
     const rowsA = await notificationRepo.listRecent(userA.id, 10);
     const rowsB = await notificationRepo.listRecent(userB.id, 10);
@@ -233,8 +238,16 @@ describe("notificationDomain.fanoutContestStartingSoon", () => {
       data: { type: "contest", contestId: contest.id, userId: user.id, status: "registered" },
     });
 
-    await notificationDomain.fanoutContestStartingSoon(contest.id, 1);
-    await notificationDomain.fanoutContestStartingSoon(contest.id, 1);
+    await notificationDomain.fanoutContestStartingSoon(
+      contest.id,
+      contest.startsAt.toISOString(),
+      1,
+    );
+    await notificationDomain.fanoutContestStartingSoon(
+      contest.id,
+      contest.startsAt.toISOString(),
+      1,
+    );
 
     const rows = await notificationRepo.listRecent(user.id, 10);
     expect(rows).toHaveLength(1);
@@ -251,7 +264,11 @@ describe("notificationDomain.fanoutContestStartingSoon", () => {
       data: { type: "contest", contestId: contest.id, userId: user.id, status: "active" },
     });
 
-    await notificationDomain.fanoutContestStartingSoon(contest.id, 1);
+    await notificationDomain.fanoutContestStartingSoon(
+      contest.id,
+      contest.startsAt.toISOString(),
+      1,
+    );
 
     const rows = await notificationRepo.listRecent(user.id, 10);
     expect(rows).toHaveLength(0);
@@ -268,7 +285,11 @@ describe("notificationDomain.fanoutContestStartingSoon", () => {
       data: { type: "contest", contestId: contest.id, userId: user.id, status: "registered" },
     });
 
-    await notificationDomain.fanoutContestStartingSoon(contest.id, 1);
+    await notificationDomain.fanoutContestStartingSoon(
+      contest.id,
+      contest.startsAt.toISOString(),
+      1,
+    );
 
     const rows = await notificationRepo.listRecent(user.id, 10);
     expect(rows).toHaveLength(0);
@@ -282,7 +303,11 @@ describe("notificationDomain.fanoutContestStartingSoon", () => {
     });
     const user = await createTestUser();
 
-    await notificationDomain.fanoutContestStartingSoon(contest.id, 1);
+    await notificationDomain.fanoutContestStartingSoon(
+      contest.id,
+      contest.startsAt.toISOString(),
+      1,
+    );
 
     const rows = await notificationRepo.listRecent(user.id, 10);
     expect(rows).toHaveLength(0);
@@ -306,11 +331,19 @@ describe("notificationDomain.fanoutContestStartingSoon", () => {
       data: { userId: wantsTwo.id, contestStartingLeadDays: 2 },
     });
 
-    await notificationDomain.fanoutContestStartingSoon(contest.id, 1);
+    await notificationDomain.fanoutContestStartingSoon(
+      contest.id,
+      contest.startsAt.toISOString(),
+      1,
+    );
     expect(await notificationRepo.listRecent(wantsTwo.id, 10)).toHaveLength(0);
     expect(await notificationRepo.listRecent(wantsDefault.id, 10)).toHaveLength(1);
 
-    await notificationDomain.fanoutContestStartingSoon(contest.id, 2);
+    await notificationDomain.fanoutContestStartingSoon(
+      contest.id,
+      contest.startsAt.toISOString(),
+      2,
+    );
     expect(await notificationRepo.listRecent(wantsTwo.id, 10)).toHaveLength(1);
   });
 });

@@ -38,8 +38,9 @@ Rules of thumb:
 
 ```bash
 pnpm test:unit          # Vitest unit tests across all packages and apps
-pnpm test:integration   # Vitest integration tests (needs DB + Redis + Temporal up)
-pnpm test:e2e           # Playwright E2E (local only; not part of CI)
+pnpm test:db:provision  # Create and safety-mark the two destructive test databases
+pnpm test:integration   # Vitest integration tests (needs explicit test DB guard variables)
+pnpm test:e2e           # Playwright E2E on port 5174 (local only; not part of CI)
 pnpm ci:verify          # Fast local gate — no PG/Redis needed (see below for what it does NOT cover)
 ```
 
@@ -50,10 +51,45 @@ Turbo task wiring lives in `turbo.json`. `test:unit` does not depend on `build` 
 ## Setup Prerequisites
 
 - **Unit**: none. `pnpm install` is enough.
-- **Integration**: a running PostgreSQL, Redis, and Temporal. Use `docker compose up` from the repo root.
-- **E2E**: same as integration, plus the web dev server. Playwright config lives at `tests/e2e/playwright.config.ts`.
+- **Integration**: a running PostgreSQL, Redis, and Temporal, plus the explicitly provisioned `nojv_test` database.
+- **E2E**: the same services, plus the explicitly provisioned `nojv_e2e_test` database. Playwright starts its own strict-port web server on `127.0.0.1:5174`; do not start one manually.
 
 Global Vitest setup (test users, seeded DB state) is in `tests/setup/`.
+
+### Provision destructive test databases
+
+Start the local dependencies and explicitly create both allowlisted databases with their safety markers:
+
+```bash
+docker compose up -d postgres redis temporal
+pnpm test:db:provision
+```
+
+`test:db:provision` creates only `nojv_test` and `nojv_e2e_test`, then assigns the exact database comments `NOJV_TEST_DATABASE:nojv_test` and `NOJV_TEST_DATABASE:nojv_e2e_test`. The test safety validator never creates or repairs those markers. A missing or incorrect marker is a hard failure.
+
+Run integration tests with the integration database named in both required variables:
+
+```bash
+TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/nojv_test \
+NOJV_DESTRUCTIVE_TEST_DATABASE=nojv_test \
+pnpm test:integration
+```
+
+Run Playwright against the separate E2E database:
+
+```bash
+TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/nojv_e2e_test \
+NOJV_DESTRUCTIVE_TEST_DATABASE=nojv_e2e_test \
+pnpm test:e2e
+```
+
+The destructive-test contract is deliberately strict:
+
+- `TEST_DATABASE_URL` is the sole source of the destructive database URL; `DATABASE_URL` is ignored.
+- The URL must use `postgresql:`, literal host `127.0.0.1` or `::1`, the exact allowlisted database path, and no query string or fragment.
+- The live connection must report the expected database name, a real server IP and port, and the exact database comment marker.
+- Every `TRUNCATE` revalidates that live identity inside the same transaction before deleting data.
+- Successful setup prints the validated database, server address, port, and marker as proof.
 
 ## What NOT to Do
 

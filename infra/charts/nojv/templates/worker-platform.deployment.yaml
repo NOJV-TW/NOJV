@@ -4,6 +4,7 @@ submission sweeper, plagiarism). It never creates sandbox Jobs, but the worker
 env schema still validates the full kubernetes config at boot, so the
 K8s/sandbox vars below are required to avoid a crashloop.
 */}}
+{{- $releaseMaintenance := and .Release.IsUpgrade .Values.migrator.enabled -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,7 +14,7 @@ metadata:
     {{- include "nojv.labels" . | nindent 4 }}
     app.kubernetes.io/component: worker-platform
 spec:
-  replicas: {{ .Values.worker.platform.replicas }}
+  replicas: {{ ternary 0 .Values.worker.platform.replicas $releaseMaintenance }}
   revisionHistoryLimit: 2
   selector:
     matchLabels:
@@ -23,6 +24,8 @@ spec:
       labels:
         app.kubernetes.io/name: nojv-worker-platform
         nojv-role: worker
+        nojv-mailer: enabled
+        nojv.tw/schema-contract: versioned-storage-v1
     spec:
       serviceAccountName: {{ include "nojv.fullname" . }}-worker
       terminationGracePeriodSeconds: 120
@@ -48,10 +51,14 @@ spec:
             - name: tmp
               mountPath: /tmp
           env:
+            - name: NODE_ENV
+              value: production
             - name: PORT
               value: "8080"
             - name: WORKER_MODE
               value: platform
+            - name: MAILER_MODE
+              value: smtp
             - name: EXECUTION_BACKEND
               value: kubernetes
             - name: K8S_NAMESPACE
@@ -123,45 +130,34 @@ spec:
                   name: {{ include "nojv.runtimeSecretName" . }}
                   key: OTEL_EXPORTER_OTLP_HEADERS
                   optional: true
-            # Transactional email (notifications) via SMTP. Optional — @nojv/mailer
-            # is a no-op until SMTP_HOST and SMTP_USER are both set.
+            # Transactional email is mandatory for platform workers in production.
             - name: SMTP_HOST
               valueFrom:
                 secretKeyRef:
                   name: {{ include "nojv.runtimeSecretName" . }}
                   key: SMTP_HOST
-                  optional: true
             - name: SMTP_PORT
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "nojv.runtimeSecretName" . }}
-                  key: SMTP_PORT
-                  optional: true
+              value: {{ .Values.mailer.smtpPort | quote }}
             - name: SMTP_USER
               valueFrom:
                 secretKeyRef:
                   name: {{ include "nojv.runtimeSecretName" . }}
                   key: SMTP_USER
-                  optional: true
             - name: SMTP_PASS
               valueFrom:
                 secretKeyRef:
                   name: {{ include "nojv.runtimeSecretName" . }}
                   key: SMTP_PASS
-                  optional: true
             - name: SMTP_FROM
               valueFrom:
                 secretKeyRef:
                   name: {{ include "nojv.runtimeSecretName" . }}
                   key: SMTP_FROM
-                  optional: true
-            # APP_BASE_URL intentionally reuses the BETTER_AUTH_URL secret key; an APP_BASE_URL key would be ignored.
             - name: APP_BASE_URL
               valueFrom:
                 secretKeyRef:
                   name: {{ include "nojv.runtimeSecretName" . }}
-                  key: BETTER_AUTH_URL
-                  optional: true
+                  key: APP_BASE_URL
           livenessProbe:
             httpGet:
               path: /livez
@@ -199,10 +195,7 @@ spec:
             - $(CLOUDSQL_INSTANCE_CONNECTION_NAME)
           env:
             - name: CLOUDSQL_INSTANCE_CONNECTION_NAME
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "nojv.runtimeSecretName" . }}
-                  key: CLOUDSQL_INSTANCE_CONNECTION_NAME
+              value: {{ .Values.postgres.cloudsql.instanceConnectionName | quote }}
           resources:
             requests:
               cpu: 50m

@@ -56,13 +56,25 @@
           {m.account_notifications_groupAssignments()}
         </h3>
         <div class="flex items-center justify-between gap-4">
-          <span class="text-body-sm">{m.account_notifications_assignmentStarted()}</span>
-          <ToggleSwitch bind:checked={$form.emailAssignmentStarted} />
+          <label for="notify-assignment-started" class="text-body-sm">
+            {m.account_notifications_assignmentStarted()}
+          </label>
+          <ToggleSwitch
+            id="notify-assignment-started"
+            label={m.account_notifications_assignmentStarted()}
+            bind:checked={$form.emailAssignmentStarted}
+          />
         </div>
         <div class="flex flex-col gap-2">
           <div class="flex items-center justify-between gap-4">
-            <span class="text-body-sm">{m.account_notifications_assignmentDueSoon()}</span>
-            <ToggleSwitch bind:checked={$form.emailAssignmentDueSoon} />
+            <label for="notify-assignment-due" class="text-body-sm">
+              {m.account_notifications_assignmentDueSoon()}
+            </label>
+            <ToggleSwitch
+              id="notify-assignment-due"
+              label={m.account_notifications_assignmentDueSoon()}
+              bind:checked={$form.emailAssignmentDueSoon}
+            />
           </div>
           <label
             class="flex items-center justify-between gap-4 text-caption text-muted-foreground"
@@ -86,8 +98,14 @@
         </h3>
         <div class="flex flex-col gap-2">
           <div class="flex items-center justify-between gap-4">
-            <span class="text-body-sm">{m.account_notifications_examStarting()}</span>
-            <ToggleSwitch bind:checked={$form.emailExamStarting} />
+            <label for="notify-exam-starting" class="text-body-sm">
+              {m.account_notifications_examStarting()}
+            </label>
+            <ToggleSwitch
+              id="notify-exam-starting"
+              label={m.account_notifications_examStarting()}
+              bind:checked={$form.emailExamStarting}
+            />
           </div>
           <label
             class="flex items-center justify-between gap-4 text-caption text-muted-foreground"
@@ -111,8 +129,14 @@
         </h3>
         <div class="flex flex-col gap-2">
           <div class="flex items-center justify-between gap-4">
-            <span class="text-body-sm">{m.account_notifications_contestStarting()}</span>
-            <ToggleSwitch bind:checked={$form.emailContestStarting} />
+            <label for="notify-contest-starting" class="text-body-sm">
+              {m.account_notifications_contestStarting()}
+            </label>
+            <ToggleSwitch
+              id="notify-contest-starting"
+              label={m.account_notifications_contestStarting()}
+              bind:checked={$form.emailContestStarting}
+            />
           </div>
           <label
             class="flex items-center justify-between gap-4 text-caption text-muted-foreground"
@@ -135,12 +159,24 @@
           {m.account_notifications_groupAnnouncements()}
         </h3>
         <div class="flex items-center justify-between gap-4">
-          <span class="text-body-sm">{m.account_notifications_systemAnnouncement()}</span>
-          <ToggleSwitch bind:checked={$form.emailSystemAnnouncement} />
+          <label for="notify-system-announcement" class="text-body-sm">
+            {m.account_notifications_systemAnnouncement()}
+          </label>
+          <ToggleSwitch
+            id="notify-system-announcement"
+            label={m.account_notifications_systemAnnouncement()}
+            bind:checked={$form.emailSystemAnnouncement}
+          />
         </div>
         <div class="flex items-center justify-between gap-4">
-          <span class="text-body-sm">{m.account_notifications_courseAnnouncement()}</span>
-          <ToggleSwitch bind:checked={$form.emailCourseAnnouncement} />
+          <label for="notify-course-announcement" class="text-body-sm">
+            {m.account_notifications_courseAnnouncement()}
+          </label>
+          <ToggleSwitch
+            id="notify-course-announcement"
+            label={m.account_notifications_courseAnnouncement()}
+            bind:checked={$form.emailCourseAnnouncement}
+          />
         </div>
       </section>
 
@@ -149,16 +185,34 @@
           {m.account_notifications_groupOther()}
         </h3>
         <div class="flex items-center justify-between gap-4">
-          <span class="text-body-sm">{m.account_notifications_courseEnrolled()}</span>
-          <ToggleSwitch bind:checked={$form.emailCourseEnrolled} />
+          <label for="notify-course-enrolled" class="text-body-sm">
+            {m.account_notifications_courseEnrolled()}
+          </label>
+          <ToggleSwitch
+            id="notify-course-enrolled"
+            label={m.account_notifications_courseEnrolled()}
+            bind:checked={$form.emailCourseEnrolled}
+          />
         </div>
         <div class="flex items-center justify-between gap-4">
-          <span class="text-body-sm">{m.account_notifications_roleChanged()}</span>
-          <ToggleSwitch bind:checked={$form.emailRoleChanged} />
+          <label for="notify-role-changed" class="text-body-sm">
+            {m.account_notifications_roleChanged()}
+          </label>
+          <ToggleSwitch
+            id="notify-role-changed"
+            label={m.account_notifications_roleChanged()}
+            bind:checked={$form.emailRoleChanged}
+          />
         </div>
         <div class="flex items-center justify-between gap-4">
-          <span class="text-body-sm">{m.account_notifications_editorialRemoved()}</span>
-          <ToggleSwitch bind:checked={$form.emailEditorialRemoved} />
+          <label for="notify-editorial-removed" class="text-body-sm">
+            {m.account_notifications_editorialRemoved()}
+          </label>
+          <ToggleSwitch
+            id="notify-editorial-removed"
+            label={m.account_notifications_editorialRemoved()}
+            bind:checked={$form.emailEditorialRemoved}
+          />
         </div>
       </section>
 

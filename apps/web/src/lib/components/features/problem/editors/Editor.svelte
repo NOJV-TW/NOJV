@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { untrack } from "svelte";
+  import { onDestroy, untrack } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import type { Language, SubmissionResult } from "@nojv/core";
+  import type { Language, SubmissionContext, SubmissionResult } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
   import EditorCore from "./EditorCore.svelte";
   import EditorBottomPanel from "./EditorBottomPanel.svelte";
@@ -14,7 +14,7 @@
   import { shortcuts } from "$lib/stores/shortcuts.svelte";
   import {
     bindEscapeToExitFullscreen,
-    createBottomResizeHandler,
+    createDocumentMouseDrag,
     isSpecialEnvProblem,
     isWorkspaceProblem,
     persistLanguage,
@@ -26,15 +26,8 @@
 
   interface Props {
     allowedLanguages?: Language[] | undefined;
-    assessment?:
-      | {
-          assessmentId: string;
-          courseId: string;
-        }
-      | undefined;
-    contestId?: string | undefined;
-    virtualContestId?: string | undefined;
-    draftContext?: DraftContext | undefined;
+    context: SubmissionContext;
+    draftContext: DraftContext;
     initialLanguage?: Language | undefined;
     onSubmissionDispatched?: ((submissionId: string, language: string) => void) | undefined;
     onSubmissionComplete?:
@@ -51,9 +44,7 @@
 
   let {
     allowedLanguages,
-    assessment,
-    contestId,
-    virtualContestId,
+    context,
     draftContext,
     initialLanguage,
     onSubmissionDispatched,
@@ -165,9 +156,7 @@
     drafts: () => drafts,
     workspaceDrafts: () => workspaceFiles.drafts,
     workspaceFiles: () => workspaceFilesForLanguage,
-    assessment: () => assessment,
-    contestId: () => contestId,
-    participationId: () => virtualContestId,
+    context: () => context,
     onSubmissionDispatched: (id, lang) => onSubmissionDispatched?.(id, lang),
     onSubmissionComplete: (id, result, lang, src) =>
       onSubmissionComplete?.(id, result, lang, src),
@@ -195,11 +184,17 @@
   let outerContainer: HTMLDivElement = $state(null!);
   let isBottomResizing = $state(false);
 
-  const startBottomResize = createBottomResizeHandler({
-    getContainer: () => outerContainer,
-    onHeightChange: (next) => (bottomPanelHeight = next),
-    onResizingChange: (active) => (isBottomResizing = active),
+  const bottomResize = createDocumentMouseDrag({
+    cursor: "row-resize",
+    onStart: () => (isBottomResizing = true),
+    onMove: (event) => {
+      const rect = outerContainer.getBoundingClientRect();
+      const next = rect.bottom - event.clientY;
+      bottomPanelHeight = Math.max(120, Math.min(rect.height * 0.8, next));
+    },
+    onEnd: () => (isBottomResizing = false),
   });
+  onDestroy(bottomResize.dispose);
 </script>
 
 <div
@@ -213,8 +208,7 @@
     {allowedLanguages}
     problemType={problem.type}
     workspaceFiles={problem.workspaceFiles}
-    {contestId}
-    {assessment}
+    {context}
     {isFullscreen}
     onLanguageChange={(next) => (language = next)}
     onAvailableChange={(available) => (availableLanguages = available)}
@@ -260,7 +254,7 @@
   <EditorResizeHandle
     isResizing={isBottomResizing}
     height={bottomPanelHeight}
-    onMouseDown={startBottomResize}
+    onMouseDown={bottomResize.start}
     onHeightChange={(next) => (bottomPanelHeight = next)}
   />
   <div class="shrink-0" style="height: {bottomPanelHeight}px">

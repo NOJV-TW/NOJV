@@ -17,20 +17,26 @@ export interface SubmissionJudgeState {
 }
 
 export interface DomainOrchestrationAdapter {
+  cancelAssignmentDueSoon(input: AssignmentDueSoonInput): Promise<void>;
+  cancelContestLifecycle(input: ContestLifecycleInput): Promise<void>;
+  cancelExamAutoClose(input: ExamAutoCloseInput): Promise<void>;
   cancelRejudge(workflowId: string): Promise<void>;
   describeSubmissionJudge(submissionId: string): Promise<SubmissionJudgeState | null>;
-  dispatchAssignmentDueSoon(input: AssignmentDueSoonInput): Promise<void>;
-  dispatchContestLifecycle(input: ContestLifecycleInput): Promise<void>;
-  dispatchExamAutoClose(input: ExamAutoCloseInput): Promise<void>;
   dispatchPlagiarismCheck(input: PlagiarismCheckInput): Promise<void>;
   dispatchRegistryGarbageCollect(
     input: RegistryGarbageCollectInput,
   ): Promise<{ workflowId: string; alreadyRunning: boolean }>;
-  dispatchRejudge(input: RejudgeInput): Promise<{ workflowId: string }>;
+  dispatchRejudge(input: RejudgeInput, workflowId: string): Promise<{ workflowId: string }>;
   dispatchSubmissionJudge(payload: SubmissionJudgeJob): Promise<void>;
+  ensureAssignmentDueSoon(input: AssignmentDueSoonInput): Promise<void>;
+  ensureContestLifecycle(input: ContestLifecycleInput): Promise<void>;
+  ensureExamAutoClose(input: ExamAutoCloseInput): Promise<void>;
   getRejudgeTriggeredBy(workflowId: string): Promise<string | null>;
   probeTemporal(): Promise<void>;
   queryRejudgeProgress(workflowId: string): Promise<RejudgeProgress>;
+  replaceAssignmentDueSoon(input: AssignmentDueSoonInput): Promise<void>;
+  replaceContestLifecycle(input: ContestLifecycleInput): Promise<void>;
+  replaceExamAutoClose(input: ExamAutoCloseInput): Promise<void>;
   terminateSubmissionJudge(submissionId: string, reason: string): Promise<void>;
 }
 

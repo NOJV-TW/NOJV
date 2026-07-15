@@ -39,34 +39,55 @@ const completionsByLanguage: Record<string, CompletionEntry[]> = {
   typescript: tsCompletions,
 };
 
-let registered = false;
+let leaseCount = 0;
+let providerHandles: Monaco.IDisposable[] = [];
 
-export function registerCompletionProviders(monaco: typeof Monaco) {
-  if (registered) return;
-  registered = true;
+export function acquireCompletionProviders(monaco: typeof Monaco): () => void {
+  leaseCount++;
 
-  for (const [lang, entries] of Object.entries(completionsByLanguage)) {
-    monaco.languages.registerCompletionItemProvider(lang, {
-      provideCompletionItems(_model, position) {
-        const word = _model.getWordUntilPosition(position);
-        const range = {
-          startLineNumber: position.lineNumber,
-          endLineNumber: position.lineNumber,
-          startColumn: word.startColumn,
-          endColumn: word.endColumn,
-        };
+  if (leaseCount === 1) {
+    try {
+      for (const [lang, entries] of Object.entries(completionsByLanguage)) {
+        providerHandles.push(
+          monaco.languages.registerCompletionItemProvider(lang, {
+            provideCompletionItems(_model, position) {
+              const word = _model.getWordUntilPosition(position);
+              const range = {
+                startLineNumber: position.lineNumber,
+                endLineNumber: position.lineNumber,
+                startColumn: word.startColumn,
+                endColumn: word.endColumn,
+              };
 
-        const suggestions: Monaco.languages.CompletionItem[] = entries.map((e) => ({
-          label: e.label,
-          kind: kindMap[e.kind],
-          insertText: e.insertText,
-          ...(e.isSnippet ? { insertTextRules: INSERT_AS_SNIPPET } : {}),
-          ...(e.detail ? { detail: e.detail } : {}),
-          range,
-        }));
+              const suggestions: Monaco.languages.CompletionItem[] = entries.map((e) => ({
+                label: e.label,
+                kind: kindMap[e.kind],
+                insertText: e.insertText,
+                ...(e.isSnippet ? { insertTextRules: INSERT_AS_SNIPPET } : {}),
+                ...(e.detail ? { detail: e.detail } : {}),
+                range,
+              }));
 
-        return { suggestions };
-      },
-    });
+              return { suggestions };
+            },
+          }),
+        );
+      }
+    } catch (error) {
+      for (const handle of providerHandles) handle.dispose();
+      providerHandles = [];
+      leaseCount--;
+      throw error;
+    }
   }
+
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    leaseCount--;
+    if (leaseCount !== 0) return;
+    for (const handle of providerHandles) handle.dispose();
+    providerHandles = [];
+  };
 }

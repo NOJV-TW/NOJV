@@ -1,6 +1,10 @@
-import { spawnSync } from "node:child_process";
-
-import { runDocker, sanitizeId } from "./docker-process";
+import { DockerCommandError, runDocker, runDockerCommand, sanitizeId } from "./docker-process";
+import {
+  DOCKER_MANAGED_LABEL,
+  buildDockerResourceLabels,
+  dockerLabelArgs,
+  hasExpiredDockerResourceLabels,
+} from "./docker-resource";
 
 const INTERNAL_NETWORK_PREFIX = "nojv-net-internal-";
 
@@ -8,45 +12,108 @@ export interface SubmissionNetwork {
   internalName: string;
 }
 
-export function planSubmissionNetwork(submissionId: string): SubmissionNetwork {
-  const id = sanitizeId(submissionId).slice(0, 40);
+interface DockerNetworkInspection {
+  Containers?: unknown;
+  Labels?: unknown;
+}
+
+export function planSubmissionNetwork(runId: string): SubmissionNetwork {
+  const id = sanitizeId(runId).slice(0, 40);
   return {
     internalName: `${INTERNAL_NETWORK_PREFIX}${id}`,
   };
 }
 
-export function buildCreateInternalNetworkArgs(name: string): string[] {
-  return ["network", "create", "--internal", name];
+export function buildCreateInternalNetworkArgs(
+  name: string,
+  labels: Readonly<Record<string, string>> = {},
+): string[] {
+  return ["network", "create", "--internal", ...dockerLabelArgs(labels), name];
 }
 
 export async function createSubmissionNetwork(
-  submissionId: string,
+  runId: string,
+  signal: AbortSignal,
 ): Promise<SubmissionNetwork> {
-  const plan = planSubmissionNetwork(submissionId);
-  removeSubmissionNetwork(plan);
-  await runDocker(buildCreateInternalNetworkArgs(plan.internalName));
+  const plan = planSubmissionNetwork(runId);
+  signal.throwIfAborted();
+  await runDocker(
+    buildCreateInternalNetworkArgs(plan.internalName, buildDockerResourceLabels(runId)),
+    signal,
+  );
   return plan;
 }
 
-export function removeSubmissionNetwork(network: SubmissionNetwork): void {
-  spawnSync("docker", ["network", "rm", "-f", network.internalName], {
-    env: process.env,
-    stdio: "ignore",
+export async function removeSubmissionNetwork(network: SubmissionNetwork): Promise<void> {
+  await runDockerCommand(["network", "rm", network.internalName], {
+    ignoreMissingResource: true,
   });
 }
 
-export function sweepOrphanNetworks(): void {
-  const child = spawnSync(
-    "docker",
-    ["network", "ls", "--filter", `name=${INTERNAL_NETWORK_PREFIX}`, "--format", "{{.Name}}"],
-    { env: process.env, encoding: "utf8" },
-  );
-  if (child.status !== 0 || !child.stdout) return;
-  const names = child.stdout
-    .split("\n")
-    .map((n) => n.trim())
-    .filter((n) => n.startsWith(INTERNAL_NETWORK_PREFIX));
-  for (const name of names) {
-    spawnSync("docker", ["network", "rm", "-f", name], { env: process.env, stdio: "ignore" });
+export function shouldSweepNetworkInspection(
+  inspection: DockerNetworkInspection,
+  nowMs: number,
+): boolean {
+  if (
+    !inspection.Labels ||
+    typeof inspection.Labels !== "object" ||
+    Array.isArray(inspection.Labels)
+  ) {
+    return false;
+  }
+  if (
+    !inspection.Containers ||
+    typeof inspection.Containers !== "object" ||
+    Array.isArray(inspection.Containers)
+  ) {
+    return false;
+  }
+  if (Object.keys(inspection.Containers).length !== 0) return false;
+  return hasExpiredDockerResourceLabels(inspection.Labels, nowMs);
+}
+
+function parseNetworkInspection(stdout: string): DockerNetworkInspection | null {
+  if (stdout.length === 0) return null;
+  const parsed = JSON.parse(stdout) as unknown;
+  if (!Array.isArray(parsed) || parsed.length !== 1) {
+    throw new Error("Docker network inspect returned an unexpected payload.");
+  }
+  const inspection = parsed[0] as unknown;
+  if (!inspection || typeof inspection !== "object" || Array.isArray(inspection)) {
+    throw new Error("Docker network inspect returned a malformed resource.");
+  }
+  return inspection;
+}
+
+export async function sweepOrphanNetworks(nowMs = Date.now()): Promise<void> {
+  const { stdout } = await runDockerCommand([
+    "network",
+    "ls",
+    "--filter",
+    `label=${DOCKER_MANAGED_LABEL}=true`,
+    "--format",
+    "{{.ID}}",
+  ]);
+  const ids = [
+    ...new Set(
+      stdout
+        .split("\n")
+        .map((id) => id.trim())
+        .filter(Boolean),
+    ),
+  ];
+  for (const id of ids) {
+    const inspected = await runDockerCommand(["network", "inspect", id], {
+      ignoreMissingResource: true,
+    });
+    const inspection = parseNetworkInspection(inspected.stdout);
+    if (!inspection || !shouldSweepNetworkInspection(inspection, nowMs)) continue;
+    try {
+      await runDockerCommand(["network", "rm", id], { ignoreMissingResource: true });
+    } catch (error) {
+      if (error instanceof DockerCommandError && /active endpoints/i.test(error.stderr))
+        continue;
+      throw error;
+    }
   }
 }

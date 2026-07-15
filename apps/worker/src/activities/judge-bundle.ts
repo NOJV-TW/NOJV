@@ -7,6 +7,8 @@ export {
   snapshotSubmissionForRejudge,
   finalizeRejudgeLog,
   restoreSubmissionForCancelledRejudge,
+  startSubmissionJudgeRun,
+  failSubmissionJudgeRun,
 } from "./judge";
 
 export {

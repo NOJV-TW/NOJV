@@ -104,10 +104,12 @@ describe("advanced run/grade demo smoke (real Docker)", () => {
     if (!(await requireDemoImages(ctx))) return;
 
     const executor = new AdvancedModeExecutor();
-    const result = await executor.run(tempDir, advancedRequest("smoke-ac", CORRECT_SOLUTION), {
-      cpuLimit: "1.0",
-      pidsLimit: 64,
-    });
+    const result = await executor.run(
+      tempDir,
+      advancedRequest("smoke-ac", CORRECT_SOLUTION),
+      { runId: "advanced-demo-smoke-ac", signal: new AbortController().signal },
+      { cpuLimit: "1.0", pidsLimit: 64 },
+    );
 
     expect(result.pipelineError).toBeUndefined();
     expect(result.compilationError).toBeUndefined();
@@ -122,6 +124,7 @@ describe("advanced run/grade demo smoke (real Docker)", () => {
     const result = await executor.run(
       tempDir,
       advancedRequest("smoke-leak", MALICIOUS_SOLUTION),
+      { runId: "advanced-demo-smoke-leak", signal: new AbortController().signal },
       { cpuLimit: "1.0", pidsLimit: 64 },
     );
 

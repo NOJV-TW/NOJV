@@ -1,12 +1,13 @@
 import { SERVICE_READY_MARKER, buildAdvancedServiceArgs } from "@nojv/sandbox-docker";
 
 import {
+  attachDockerCleanupFailure,
   collectContainerLogs,
   forceRemoveContainer,
-  forceRemoveContainerSync,
   runDocker,
   sanitizeId,
 } from "./docker-process";
+import { executionAbortReason } from "./execution-abort";
 
 export {
   ADVANCED_SERVICE_PORT,
@@ -20,8 +21,8 @@ export const SERVICE_HOST_ENV = "NOJV_SERVICE_HOST";
 const READINESS_TIMEOUT_MS = 5_000;
 const READINESS_INTERVAL_MS = 100;
 
-export function serviceContainerName(submissionId: string): string {
-  return `nojv-service-${sanitizeId(submissionId).slice(0, 36)}`;
+export function serviceContainerName(runId: string): string {
+  return `nojv-service-${sanitizeId(runId).slice(0, 36)}`;
 }
 
 export function buildStartServiceArgs(params: {
@@ -31,6 +32,7 @@ export function buildStartServiceArgs(params: {
   memoryMb: number;
   cpuLimit: string;
   pidsLimit: number;
+  labels?: Readonly<Record<string, string>>;
 }): string[] {
   return buildAdvancedServiceArgs(params);
 }
@@ -39,55 +41,82 @@ export interface ServiceContainerHandle {
   containerName: string;
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function sleep(ms: number, signal: AbortSignal): Promise<void> {
+  signal.throwIfAborted();
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", abort);
+      resolve();
+    }, ms);
+    const abort = () => {
+      clearTimeout(timer);
+      reject(executionAbortReason(signal));
+    };
+    signal.addEventListener("abort", abort, { once: true });
+  });
 }
 
-export async function waitForServiceReady(containerName: string): Promise<void> {
+export async function waitForServiceReady(
+  containerName: string,
+  signal: AbortSignal,
+): Promise<void> {
   const deadline = Date.now() + READINESS_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    if ((await collectServiceLogs(containerName)).includes(SERVICE_READY_MARKER)) {
+    if ((await collectServiceLogs(containerName, signal)).includes(SERVICE_READY_MARKER)) {
       return;
     }
-    await sleep(READINESS_INTERVAL_MS);
+    await sleep(READINESS_INTERVAL_MS, signal);
   }
   throw new Error(`service ${containerName} did not become ready within timeout`);
 }
 
 export async function startServiceContainer(params: {
-  submissionId: string;
+  runId: string;
   internalName: string;
   imageRef: string;
   memoryMb: number;
   cpuLimit: string;
   pidsLimit: number;
+  signal: AbortSignal;
+  labels: Readonly<Record<string, string>>;
 }): Promise<ServiceContainerHandle> {
-  const containerName = serviceContainerName(params.submissionId);
-  forceRemoveContainerSync(containerName);
-  await runDocker(
-    buildStartServiceArgs({
-      containerName,
-      internalName: params.internalName,
-      imageRef: params.imageRef,
-      memoryMb: params.memoryMb,
-      cpuLimit: params.cpuLimit,
-      pidsLimit: params.pidsLimit,
-    }),
-  );
-
+  const containerName = serviceContainerName(params.runId);
+  params.signal.throwIfAborted();
   try {
-    await waitForServiceReady(containerName);
+    await runDocker(
+      buildStartServiceArgs({
+        containerName,
+        internalName: params.internalName,
+        imageRef: params.imageRef,
+        memoryMb: params.memoryMb,
+        cpuLimit: params.cpuLimit,
+        pidsLimit: params.pidsLimit,
+        labels: params.labels,
+      }),
+      params.signal,
+    );
+    await waitForServiceReady(containerName, params.signal);
     return { containerName };
   } catch (err) {
-    forceRemoveContainer(containerName);
+    try {
+      await forceRemoveContainer(containerName);
+    } catch (cleanupFailure) {
+      if (err instanceof Error) {
+        throw attachDockerCleanupFailure(err, "Docker service container", cleanupFailure);
+      }
+      throw cleanupFailure;
+    }
     throw err;
   }
 }
 
-export function collectServiceLogs(containerName: string): Promise<string> {
-  return collectContainerLogs(containerName);
+export function collectServiceLogs(
+  containerName: string,
+  signal: AbortSignal,
+): Promise<string> {
+  return collectContainerLogs(containerName, signal);
 }
 
-export function stopServiceContainer(containerName: string): void {
-  forceRemoveContainer(containerName);
+export function stopServiceContainer(containerName: string): Promise<void> {
+  return forceRemoveContainer(containerName);
 }

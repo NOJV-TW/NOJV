@@ -9,14 +9,15 @@ import {
   MAX_SUBMISSION_SOURCE_FILES,
   safeRelativePath,
   submissionDraftSchema,
+  submissionJudgeDraftSchema,
   submissionResultSchema,
 } from "../../../packages/core/src/index";
 
 describe("submissionDraftSchema", () => {
   it("accepts practice submissions with explicit language and source", () => {
     const result = submissionDraftSchema.parse({
+      context: { type: "practice" },
       language: "cpp",
-      mode: "practice",
       problemId: "two-sum-plus",
       sourceCode: "int main() { return 0; }",
     });
@@ -26,8 +27,8 @@ describe("submissionDraftSchema", () => {
 
   it("accepts multi-file submissions", () => {
     const result = submissionDraftSchema.parse({
+      context: { type: "practice" },
       language: "typescript",
-      mode: "practice",
       problemId: "multi-file-ts",
       sourceCode: "// fallback entry source",
       sourceFiles: [
@@ -48,6 +49,7 @@ describe("submissionDraftSchema", () => {
 
   it("enforces the shared source-file size boundary", () => {
     const draft = {
+      context: { type: "practice" as const },
       language: "typescript",
       problemId: "multi-file-ts",
       sourceFiles: [{ path: "main.ts", content: "x".repeat(MAX_SUBMISSION_SOURCE_FILE_CHARS) }],
@@ -69,7 +71,11 @@ describe("submissionDraftSchema", () => {
       path: `src/${String(index)}.ts`,
       content: "x",
     });
-    const draft = { language: "typescript", problemId: "multi-file-ts" };
+    const draft = {
+      context: { type: "practice" as const },
+      language: "typescript",
+      problemId: "multi-file-ts",
+    };
 
     expect(
       submissionDraftSchema.safeParse({
@@ -87,8 +93,8 @@ describe("submissionDraftSchema", () => {
 
   it("accepts runCases on sample-only runs", () => {
     const result = submissionDraftSchema.parse({
+      context: { type: "practice" },
       language: "cpp",
-      mode: "practice",
       problemId: "sum-ab",
       runCases: [
         { input: "1 2\n", expectedOutput: "3\n" },
@@ -104,8 +110,8 @@ describe("submissionDraftSchema", () => {
 
   it("rejects runCases on graded submissions", () => {
     const parsed = submissionDraftSchema.safeParse({
+      context: { type: "practice" },
       language: "cpp",
-      mode: "practice",
       problemId: "sum-ab",
       runCases: [{ input: "1\n", expectedOutput: "1\n" }],
       sampleOnly: false,
@@ -117,6 +123,7 @@ describe("submissionDraftSchema", () => {
 
   it("rejects more than 10 runCases", () => {
     const parsed = submissionDraftSchema.safeParse({
+      context: { type: "practice" },
       language: "cpp",
       problemId: "sum-ab",
       runCases: Array.from({ length: 11 }, () => ({ input: "x" })),
@@ -125,6 +132,59 @@ describe("submissionDraftSchema", () => {
     });
 
     expect(parsed.success).toBe(false);
+  });
+
+  it("accepts all five explicit context variants and rejects legacy mixed IDs", () => {
+    const common = {
+      language: "cpp" as const,
+      problemId: "sum-ab",
+      sourceCode: "int main(){}",
+    };
+    const contexts = [
+      { type: "practice" },
+      { type: "assignment", assessmentId: "assignment-a", courseId: "course-a" },
+      { type: "exam", examId: "exam-a" },
+      { type: "contest", contestId: "contest-a" },
+      { type: "virtual", participationId: "participation_a" },
+    ];
+
+    for (const context of contexts) {
+      expect(submissionDraftSchema.safeParse({ ...common, context }).success).toBe(true);
+    }
+    expect(
+      submissionDraftSchema.safeParse({
+        ...common,
+        context: { type: "practice" },
+        contestId: "contest-a",
+      }).success,
+    ).toBe(false);
+    expect(
+      submissionDraftSchema.safeParse({
+        ...common,
+        context: {
+          type: "assignment",
+          assessmentId: "assignment-a",
+          courseId: "course-a",
+          examId: "exam-a",
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("keeps internal judge payloads context-free", () => {
+    const internal = {
+      language: "cpp" as const,
+      problemId: "sum-ab",
+      sampleOnly: false,
+    };
+
+    expect(submissionJudgeDraftSchema.safeParse(internal).success).toBe(true);
+    expect(
+      submissionJudgeDraftSchema.safeParse({
+        ...internal,
+        context: { type: "practice" },
+      }).success,
+    ).toBe(false);
   });
 });
 

@@ -14,7 +14,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
   const cursor = event.url.searchParams.get("cursor")?.trim();
   const page = await submissionDomain.listUserSubmissions({
-    userId: actor.userId,
+    actor,
     limit: SUBMISSIONS_PAGE_SIZE,
     ...(cursor ? { cursor } : {}),
   });

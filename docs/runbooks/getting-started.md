@@ -28,21 +28,21 @@ cp .env.example .env
 
 Edit `.env` with your values. For local development the defaults work out of the box — the `S3_*` vars already match the local MinIO that docker-compose starts, and OAuth is optional:
 
-| Variable                  | Action                                                                       |
-| ------------------------- | ---------------------------------------------------------------------------- |
-| `DATABASE_URL`            | Keep default for local PostgreSQL                                            |
-| `REDIS_URL`               | Keep default for local Redis                                                 |
-| `BETTER_AUTH_SECRET`      | Change to a random string in production                                      |
-| `S3_ENDPOINT`             | Local MinIO: `http://localhost:9000`                                         |
-| `S3_ACCESS_KEY`           | Local MinIO: `minioadmin`                                                    |
-| `S3_SECRET_KEY`           | Local MinIO: `minioadmin`                                                    |
-| `EXECUTION_BACKEND`       | `docker` for local sandbox execution (`kubernetes` in production)            |
-| `ALLOWED_HOSTS`           | Comma-separated Vite host allowlist; default `localhost,127.0.0.1,...`       |
-| `METRICS_TOKEN`           | Random secret protecting the web `/metrics` endpoint                         |
-| `BODY_SIZE_LIMIT`         | 64 MiB upload cap for adapter-node (prod profile only; Vite dev ignores it)  |
-| `GITHUB_CLIENT_ID/SECRET` | Optional: create a GitHub OAuth App                                          |
-| `GOOGLE_CLIENT_ID/SECRET` | Optional: create a Google OAuth App                                          |
-| `SMTP_HOST/USER/PASS`     | Optional: SMTP creds for email flows (mailer is a no-op until host+user set) |
+| Variable                       | Action                                                                      |
+| ------------------------------ | --------------------------------------------------------------------------- |
+| `DATABASE_URL`                 | Keep default for local PostgreSQL                                           |
+| `REDIS_URL`                    | Keep default for local Redis                                                |
+| `BETTER_AUTH_SECRET`           | Change to a random string in production                                     |
+| `S3_ENDPOINT`                  | Local MinIO: `http://localhost:9000`                                        |
+| `S3_ACCESS_KEY`                | Local MinIO: `minioadmin`                                                   |
+| `S3_SECRET_KEY`                | Local MinIO: `minioadmin`                                                   |
+| `EXECUTION_BACKEND`            | `docker` for local sandbox execution (`kubernetes` in production)           |
+| `ALLOWED_HOSTS`                | Comma-separated Vite host allowlist; default `localhost,127.0.0.1,...`      |
+| `METRICS_TOKEN`                | Random secret protecting the web `/metrics` endpoint                        |
+| `BODY_SIZE_LIMIT`              | 64 MiB upload cap for adapter-node (prod profile only; Vite dev ignores it) |
+| `GITHUB_CLIENT_ID/SECRET`      | Optional: create a GitHub OAuth App                                         |
+| `GOOGLE_CLIENT_ID/SECRET`      | Optional: create a Google OAuth App                                         |
+| `MAILER_MODE` / `APP_BASE_URL` | Keep `sink` / `http://localhost:5173`; do not define any `SMTP_*` keys      |
 
 > **Note:** Local storage is MinIO; `.env.example` ships the matching defaults (`S3_ENDPOINT=http://localhost:9000`, `S3_ACCESS_KEY`/`S3_SECRET_KEY=minioadmin`, `S3_BUCKET=nojv`). The storage client (`packages/storage/src/client.ts`) throws on boot if `S3_ENDPOINT`/`S3_ACCESS_KEY`/`S3_SECRET_KEY` are unset, so keep them set.
 

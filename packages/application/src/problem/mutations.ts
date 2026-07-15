@@ -23,6 +23,7 @@ import type {
   ProblemUpdate,
   ProblemVisibility,
 } from "@nojv/core";
+import { assertStorageObjectPointer, type StorageObjectPointer } from "@nojv/storage";
 import {
   advancedConfigSchema,
   advancedJudgeVerificationSnapshotSchema,
@@ -32,16 +33,10 @@ import {
 
 import { ConflictError, NotFoundError, ValidationError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
+import { commitStoragePointerSwap } from "../shared/storage-object-lifecycle";
 import { ensureUser } from "../user/mutations";
 
-import {
-  bestEffortDeleteCheckerScriptBlob,
-  bestEffortDeleteInteractorScriptBlob,
-  bestEffortDeleteProblemBlobs,
-  bestEffortDeleteProblemStandardBlobs,
-  writeCheckerScriptBlob,
-  writeInteractorScriptBlob,
-} from "./blobs";
+import { writeCheckerScriptBlob, writeInteractorScriptBlob } from "./blobs";
 import {
   assertCanCreateAdvancedProblems,
   assertProblemEditAccess,
@@ -105,23 +100,41 @@ export async function createProblemDefinition(
 }
 
 export async function deleteProblemRecord(actor: ProblemActorContext, problemId: string) {
-  const problem = await problemRepo.findById(problemId);
-  if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
-  assertProblemOwnership(problem, actor);
-
-  if (problem.status !== "draft") {
-    throw new ConflictError("Only draft problems can be deleted.");
-  }
-
-  if (await problemRepo.hasContextLinks(problemId)) {
-    throw new ConflictError(
-      "This problem is used in a contest, exam, or assignment and cannot be deleted. Remove it from those first.",
-    );
-  }
-
-  const deleted = await problemRepo.delete(problemId);
-  await bestEffortDeleteProblemBlobs(problemId);
-  return deleted;
+  return runTransaction(async (tx) => {
+    await problemRepo.withTx(tx).lockForUpdate(problemId);
+    const problem = await tx.problem.findUnique({
+      where: { id: problemId },
+      include: {
+        workspaceFiles: true,
+        testcaseSets: { include: { testcases: true } },
+      },
+    });
+    if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
+    assertProblemOwnership(problem, actor);
+    if (problem.status !== "draft") {
+      throw new ConflictError("Only draft problems can be deleted.");
+    }
+    const linked = await tx.problem.findFirst({
+      where: {
+        id: problemId,
+        OR: [
+          { contestLinks: { some: {} } },
+          { examLinks: { some: {} } },
+          { assessmentLinks: { some: {} } },
+        ],
+      },
+      select: { id: true },
+    });
+    if (linked) {
+      throw new ConflictError(
+        "This problem is used in a contest, exam, or assignment and cannot be deleted. Remove it from those first.",
+      );
+    }
+    const removed = problemStoragePointers(problem);
+    const deleted = await tx.problem.delete({ where: { id: problemId } });
+    await commitStoragePointerSwap(tx, { added: [], removed });
+    return deleted;
+  });
 }
 
 export async function createProblemRecord(actor: ProblemActorContext, payload: ProblemCreate) {
@@ -377,29 +390,46 @@ export async function saveProblemJudgeConfig(
       ? input.interactorScript
       : null;
 
-  const checkerKey =
+  const checkerStorage =
     checkerBody == null ? null : await writeCheckerScriptBlob(problemId, checkerBody);
-  const interactorKey =
+  const interactorStorage =
     interactorBody == null ? null : await writeInteractorScriptBlob(problemId, interactorBody);
 
   const judgeConfig: JudgeConfig = {
     type,
-    ...(checkerKey ? { checkerKey, checkerLanguage: input.judgeConfig.checkerLanguage } : {}),
-    ...(interactorKey
-      ? { interactorKey, interactorLanguage: input.judgeConfig.interactorLanguage }
-      : {}),
+    ...(checkerStorage ? { checkerLanguage: input.judgeConfig.checkerLanguage } : {}),
+    ...(interactorStorage ? { interactorLanguage: input.judgeConfig.interactorLanguage } : {}),
     ...(type === "standard" && input.judgeConfig.compare
       ? { compare: input.judgeConfig.compare }
       : {}),
     ...(input.judgeConfig.runtime ? { runtime: input.judgeConfig.runtime } : {}),
   };
 
-  const result = await updateProblemRecord(actor, problemId, { judgeConfig });
-
-  if (!checkerKey) await bestEffortDeleteCheckerScriptBlob(problemId);
-  if (!interactorKey) await bestEffortDeleteInteractorScriptBlob(problemId);
-
-  return result;
+  return runTransaction(async (tx) => {
+    await problemRepo.withTx(tx).lockForUpdate(problemId);
+    const current = await requireProblem(tx, problemId);
+    assertProblemOwnership(current, actor);
+    const previousBytes =
+      optionalPointerSize(current.checkerStorage) +
+      optionalPointerSize(current.interactorStorage);
+    const nextBytes = (checkerStorage?.size ?? 0) + (interactorStorage?.size ?? 0);
+    await problemRepo.withTx(tx).update(problemId, {
+      judgeConfig,
+      checkerStorage: checkerStorage ?? Prisma.DbNull,
+      interactorStorage: interactorStorage ?? Prisma.DbNull,
+      activeStorageBytes: { increment: nextBytes - previousBytes },
+      storageGeneration: { increment: 1 },
+    });
+    await commitStoragePointerSwap(tx, {
+      added: [checkerStorage, interactorStorage].filter(
+        (pointer): pointer is StorageObjectPointer => pointer !== null,
+      ),
+      removed: [current.checkerStorage, current.interactorStorage]
+        .filter((pointer) => pointer !== null)
+        .map(assertStorageObjectPointer),
+    });
+    return { id: problemId };
+  });
 }
 
 export async function updateAdvancedJudgeConfiguration(
@@ -447,6 +477,10 @@ export async function convertProblemToAdvancedMode(
       throw new ConflictError("Problem is already a special_env problem.");
     }
 
+    const [workspaceFiles, testcaseSets] = await Promise.all([
+      problemWorkspaceFileRepo.withTx(tx).findByProblemId(problem.id),
+      testcaseSetRepo.withTx(tx).findByProblemId(problem.id),
+    ]);
     await problemWorkspaceFileRepo.withTx(tx).deleteByProblemId(problem.id);
     await testcaseSetRepo.withTx(tx).deleteByProblemId(problem.id);
 
@@ -459,10 +493,41 @@ export async function convertProblemToAdvancedMode(
       samples: Prisma.JsonNull,
       judgeConfig: resetJudgeConfig,
       advancedConfig: Prisma.JsonNull,
+      checkerStorage: Prisma.DbNull,
+      interactorStorage: Prisma.DbNull,
+      activeStorageBytes: {
+        decrement:
+          workspaceFiles.reduce(
+            (total, file) => total + assertStorageObjectPointer(file.contentStorage).size,
+            0,
+          ) +
+          testcaseSets.reduce(
+            (total, set) =>
+              total +
+              set.testcases.reduce(
+                (caseTotal, testcase) => caseTotal + testcaseStorageSize(testcase),
+                0,
+              ),
+            0,
+          ) +
+          optionalPointerSize(problem.checkerStorage) +
+          optionalPointerSize(problem.interactorStorage),
+      },
+      storageGeneration: { increment: 1 },
+    });
+    await commitStoragePointerSwap(tx, {
+      added: [],
+      removed: [
+        ...workspaceFiles.map(({ contentStorage }) =>
+          assertStorageObjectPointer(contentStorage),
+        ),
+        ...testcaseSets.flatMap(({ testcases }) => testcases.flatMap(testcaseStoragePointers)),
+        ...[problem.checkerStorage, problem.interactorStorage]
+          .filter((pointer) => pointer !== null)
+          .map(assertStorageObjectPointer),
+      ],
     });
   });
-
-  await bestEffortDeleteProblemStandardBlobs(problemId);
 }
 
 export interface SetProblemInteractorInput {
@@ -479,21 +544,13 @@ export async function setProblemInteractor(
 
   const problem = await problemRepo.findById(problemId);
   if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
-
-  const key = await writeInteractorScriptBlob(problemId, input.content);
-
   const existing = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
     type: "interactive" as const,
   };
-
-  const nextJudgeConfig: JudgeConfig = {
-    ...existing,
-    type: "interactive",
-    interactorKey: key,
-    interactorLanguage: input.language,
-  };
-
-  return updateProblemRecord(actor, problemId, { judgeConfig: nextJudgeConfig });
+  return saveProblemJudgeConfig(actor, problemId, {
+    judgeConfig: { ...existing, type: "interactive", interactorLanguage: input.language },
+    interactorScript: input.content,
+  });
 }
 
 export interface SetProblemCheckerInput {
@@ -511,18 +568,78 @@ export async function setProblemChecker(
   const problem = await problemRepo.findById(problemId);
   if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
 
-  const key = await writeCheckerScriptBlob(problemId, input.content);
-
   const existing = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
     type: "checker" as const,
   };
 
-  const nextJudgeConfig: JudgeConfig = {
-    ...existing,
-    type: "checker",
-    checkerKey: key,
-    checkerLanguage: input.language,
-  };
+  return saveProblemJudgeConfig(actor, problemId, {
+    judgeConfig: { ...existing, type: "checker", checkerLanguage: input.language },
+    checkerScript: input.content,
+  });
+}
 
-  return updateProblemRecord(actor, problemId, { judgeConfig: nextJudgeConfig });
+function optionalPointerSize(value: unknown): number {
+  return value === null ? 0 : assertStorageObjectPointer(value).size;
+}
+
+function testcaseStorageSize(testcase: {
+  inputStorage: unknown;
+  outputStorage: unknown;
+  inputFileStorage: unknown;
+}): number {
+  const files = testcase.inputFileStorage;
+  if (files !== null && (!files || typeof files !== "object" || Array.isArray(files))) {
+    throw new Error("Persisted testcase input-file storage map is malformed");
+  }
+  return (
+    assertStorageObjectPointer(testcase.inputStorage).size +
+    optionalPointerSize(testcase.outputStorage) +
+    Object.values((files ?? {}) as Record<string, unknown>).reduce(
+      (total: number, pointer) => total + assertStorageObjectPointer(pointer).size,
+      0,
+    )
+  );
+}
+
+function testcaseStoragePointers(testcase: {
+  inputStorage: unknown;
+  outputStorage: unknown;
+  inputFileStorage: unknown;
+}): StorageObjectPointer[] {
+  const files = testcase.inputFileStorage;
+  if (files !== null && (!files || typeof files !== "object" || Array.isArray(files))) {
+    throw new Error("Persisted testcase input-file storage map is malformed");
+  }
+  return [
+    assertStorageObjectPointer(testcase.inputStorage),
+    ...(testcase.outputStorage === null
+      ? []
+      : [assertStorageObjectPointer(testcase.outputStorage)]),
+    ...Object.values((files ?? {}) as Record<string, unknown>).map(assertStorageObjectPointer),
+  ];
+}
+
+function problemStoragePointers(problem: {
+  checkerStorage: unknown;
+  interactorStorage: unknown;
+  workspaceFiles: readonly { contentStorage: unknown }[];
+  testcaseSets: readonly {
+    testcases: readonly {
+      inputStorage: unknown;
+      outputStorage: unknown;
+      inputFileStorage: unknown;
+    }[];
+  }[];
+}): StorageObjectPointer[] {
+  return [
+    ...[problem.checkerStorage, problem.interactorStorage]
+      .filter((pointer) => pointer !== null)
+      .map(assertStorageObjectPointer),
+    ...problem.workspaceFiles.map(({ contentStorage }) =>
+      assertStorageObjectPointer(contentStorage),
+    ),
+    ...problem.testcaseSets.flatMap(({ testcases }) =>
+      testcases.flatMap(testcaseStoragePointers),
+    ),
+  ];
 }

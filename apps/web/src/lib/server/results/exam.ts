@@ -2,14 +2,14 @@ import type { examDomain } from "@nojv/application";
 
 import { buildScoreStats, type ScoreStats } from "../shared/score-stats";
 
-export interface ExamResultProblemCol {
+interface ExamResultProblemCol {
   id: string;
   letter: string;
   title: string;
   max: number;
 }
 
-export interface ExamResultRow {
+interface ExamResultRow {
   rank: number;
   user: string;
   sid: string;

@@ -74,20 +74,25 @@ It shares the same PostgreSQL instance as the application (separate schema).
 
 ### Email
 
-Optional to boot. `@nojv/mailer` stays a **no-op** until both `SMTP_HOST` and
-`SMTP_USER` are set — email-sending flows (school-email verification,
-passwordless/2FA enrollment, API-token step-up OTP, notifications) silently skip
-delivery rather than throwing. Set these whenever those features are in use.
-Consumed by both the web app and the platform worker.
+`MAILER_MODE` has no default. Production web and platform workers must use
+`smtp`; they validate the complete configuration before serving work. The Helm
+chart sets `MAILER_MODE=smtp`, takes `SMTP_PORT` from `mailer.smtpPort`, and
+requires the remaining values from the runtime Secret. Judge-only workers do
+not receive or validate mailer configuration.
 
-| Variable       | Purpose                                                             |
-| -------------- | ------------------------------------------------------------------- |
-| `SMTP_HOST`    | SMTP host (empty → mailer no-op)                                    |
-| `SMTP_PORT`    | SMTP port; `465` → implicit TLS, otherwise STARTTLS (default `465`) |
-| `SMTP_USER`    | SMTP username (empty → mailer no-op)                                |
-| `SMTP_PASS`    | SMTP password / provider app password (not the login password)      |
-| `SMTP_FROM`    | Sender header; defaults to `NOJV <SMTP_USER>` when empty            |
-| `APP_BASE_URL` | Base URL for email links (default `https://nojv.tw`)                |
+| Variable       | Production requirement                                                  |
+| -------------- | ----------------------------------------------------------------------- |
+| `MAILER_MODE`  | `smtp`                                                                  |
+| `SMTP_HOST`    | Non-empty SMTP host                                                     |
+| `SMTP_PORT`    | Integer port; `465` uses implicit TLS, every other port forces STARTTLS |
+| `SMTP_USER`    | Non-empty SMTP username                                                 |
+| `SMTP_PASS`    | SMTP app password / credential, never a mailbox login password          |
+| `SMTP_FROM`    | Explicit sender header                                                  |
+| `APP_BASE_URL` | Absolute HTTPS base URL for email links                                 |
+
+Local development and tests may explicitly use `MAILER_MODE=sink`. Sink mode
+returns `suppressed`, emits a content-free structured event, and rejects every
+`SMTP_*` variable (including empty values). SMTP errors never fall back to sink.
 
 ### Temporal
 
@@ -333,24 +338,21 @@ worker-egress NetworkPolicy, the migrator Helm hook, and (optionally) in-cluster
 Postgres (CloudNativePG), Redis, and MinIO. The full knob reference is in
 [`infra/charts/nojv/README.md`](../../infra/charts/nojv/README.md).
 
-```bash
-# Single-machine (k3s / kind, one node) — see the k3s runbook for the CNI setup
-helm upgrade --install nojv infra/charts/nojv \
-  -f infra/charts/nojv/values-single-machine.yaml -n nojv --create-namespace
-
-# GKE (HA on a Dataplane-V2 cluster)
-helm upgrade --install nojv infra/charts/nojv \
-  -f infra/charts/nojv/values-gke.yaml -n nojv --create-namespace
-```
+The single-machine Flux release pipeline and the GKE deploy script both supply
+the image tag plus a registry-verified digest for each of web, worker, sandbox,
+and migrator. A direct Helm install must supply the same four
+`image.digests.*` values; tag-only renders fail closed.
 
 ### Prerequisites (one-time, not installed by the chart)
 
 1. **Runtime secret** — an existing `Secret` (default `nojv-runtime-secrets`) in
    the app namespace holding `DATABASE_URL`, `REDIS_URL`, the `S3_*` keys, the
-   web auth secrets (`BETTER_AUTH_SECRET`/`BETTER_AUTH_URL`),
-   OAuth, optional Grafana OTLP keys, and — when `seed.enabled` — the
+   web auth secrets (`BETTER_AUTH_SECRET`/`BETTER_AUTH_URL`), required SMTP
+   credentials plus `APP_BASE_URL`, OAuth, optional Grafana OTLP keys, and — when `seed.enabled` — the
    `SEED_ADMIN_USERNAME`/`SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` the seed hook
-   provisions the super admin from (password ≥ 12 chars, single-use). Copy and
+   provisions the super admin from (password ≥ 12 chars, single-use), plus
+   digest-pinned `SEED_ADVANCED_RUN_IMAGE`/`SEED_ADVANCED_GRADE_IMAGE` demo
+   refs. Copy and
    fill
    [`infra/charts/nojv/secret.example.yaml`](../../infra/charts/nojv/secret.example.yaml);
    the chart never templates secret values.
@@ -376,41 +378,55 @@ helm upgrade --install nojv infra/charts/nojv \
 ### Building images (Cloud Build)
 
 `infra/gcp/cloud-build/deploy.sh` builds and pushes the container images
-(`web`, `worker`, `sandbox`, `migrator`) to Artifact Registry
-and prints the canonical image refs. It no longer deploys anything — the chart
-does that.
+(`web`, `worker`, `sandbox`, `migrator`) to Artifact Registry, reads each pushed
+tag's digest back from the registry, and deploys the resulting immutable refs
+through Helm.
 
 ```bash
 export PROJECT_ID=...
-# Optional email (school verification / 2FA / OTP) and OAuth go in the runtime secret, not here.
+export REGION=asia-east1
+export REPOSITORY=nojv
+export RELEASE_NAME=nojv
+export RELEASE_SHA="$(git rev-parse HEAD)"
+export RELEASE_REMOTE=origin
+export RELEASE_REF=refs/heads/main
+export CLUSTER_NAME=nojv-prod
+export CLUSTER_LOCATION=asia-east1
+export DEPLOY_PRINCIPAL=deployer@example.com
+export CLOUD_BUILD_SERVICE_ACCOUNT=cloud-build@PROJECT_ID.iam.gserviceaccount.com
+export K8S_NAMESPACE=nojv
+export PUBLIC_HOST=nojv.tw
+export REGISTRY_HOST=registry.nojv.tw
+export TLS_SECRET_NAME=nojv-origin-tls
+export EDGE_SECURITY_POLICY=nojv-cloudflare-only
+export CLOUDSQL_INSTANCE_CONNECTION_NAME=PROJECT_ID:asia-east1:nojv-db
+export REDIS_INSTANCE=nojv-redis
 bash infra/gcp/cloud-build/deploy.sh
 ```
 
-The image tag defaults to the short git SHA (with a `-dirty-<timestamp>` suffix
-when the worktree is dirty) — override with `IMAGE_TAG=...` for release tags.
-Pass the printed tag to the chart via `--set image.tag=<tag>` (or pin it in your
-values overlay). To run only the build step manually:
-
-```bash
-gcloud builds submit --config infra/gcp/cloud-build/cloudbuild.yaml \
-  --substitutions _REGION=asia-east1,_REPOSITORY=nojv,_IMAGE_TAG=release-20260312
-```
+The script has no ambient project, cluster, principal, kube-context, source-ref,
+or release-identity fallback. Before any cloud mutation it requires a clean
+working tree and proves `RELEASE_SHA = HEAD = RELEASE_REMOTE:RELEASE_REF`. It
+then makes Cloud Build fetch that exact SHA from the canonical GitHub repository;
+the signed provenance must bind that Git source and commit. The local archive is
+used only for the matching Helm release, never as an unverified build source. The
+commit SHA is both the readable image tag and OCI/Helm provenance metadata; the
+registry digest makes the deployed image immutable. Direct manual Cloud Build
+submission is intentionally unsupported because it bypasses these source checks.
+`RELEASE_REMOTE` must be the configured `origin` for the canonical
+`NOJV-TW/NOJV` repository, and Git replacement objects are rejected. Before
+building, the script also proves that Cloud SQL and Memorystore resolve to
+private addresses, derives the exact NetworkPolicy CIDRs from live resources,
+verifies the TLS Secret, and requires Cloud Armor to allow exactly
+`infra/gcp/cloudflare-origin-cidrs.txt` with an enforced default deny.
 
 ### GKE Rollout
 
-1. Build + push images (above); note the printed image tag.
+1. Build, resolve, and deploy images with the script above.
 2. Create the runtime secret (prerequisite 1) and ensure the CloudNativePG
    operator + Temporal Server prerequisites are installed (2 and 3).
-3. Install the chart:
-
-   ```bash
-   helm upgrade --install nojv infra/charts/nojv \
-     -f infra/charts/nojv/values-gke.yaml \
-     --set image.tag=<tag-from-deploy.sh> \
-     -n nojv --create-namespace
-   ```
-
-   This renders the namespaces (`nojv`, `nojv-sandbox`), the two worker
+3. Verify the Helm release installed by the script. It renders the namespaces
+   (`nojv`, `nojv-sandbox`), the two worker
    Deployments split by `WORKER_MODE` (`nojv-worker` judge / `nojv-worker-platform`
    platform) with worker RBAC + PDBs, web (Deployment + Service + optional
    Ingress), the worker-egress NetworkPolicy (`networkPolicy.enabled`), the
@@ -514,10 +530,7 @@ Production depends on Cloudflare being the **only** ingress path so `getClientIp
      --src-ip-ranges="2400:cb00::/32,2606:4700::/32,..." \
      --action=allow
 
-   # Attach to the GCLB backend service fronting the web Ingress
-   gcloud compute backend-services update nojv-web-backend \
-     --security-policy=cf-only-policy \
-     --global
+   # deploy.sh verifies this policy and the chart's BackendConfig attaches it.
    ```
 
 4. **Verify the trust boundary holds:**
@@ -535,7 +548,10 @@ Production depends on Cloudflare being the **only** ingress path so `getClientIp
 
    If (a) returns 200 the trust model is broken — stop and fix before relying on IP-based proctoring.
 
-**Ongoing maintenance:** Cloudflare's CIDR list updates occasionally. A stale Cloud Armor rule either locks out real users (range added) or widens the allowlist to stale IPs (range removed). Either script the refresh via Terraform + the Cloudflare API, or put a calendar reminder to check the published lists quarterly.
+**Ongoing maintenance:** Cloudflare's CIDR list updates occasionally. Update
+`infra/gcp/cloudflare-origin-cidrs.txt` from the two official endpoints and the
+Cloud Armor allow rules in the same reviewed change. `deploy.sh` refuses to
+continue while they differ.
 
 ## Microservice Deployment
 
@@ -614,8 +630,16 @@ pnpm db:validate
 ```
 
 In production, migrations run as the chart's **pre-install/pre-upgrade Helm
-hook** (`infra/charts/nojv/templates/migrator.job.yaml`) — every `helm upgrade`
-runs the migrator Job to completion before the new `web`/`worker` Pods roll out.
+hook** (`infra/charts/nojv/templates/migrator.job.yaml`). Installs apply the full
+history. Upgrades stage expand migrations first; for the versioned-storage
+contract the hook then disables autoscalers, drains web plus both Temporal
+workers, performs and verifies the S3 backfill, runs a database preflight, and
+only then exposes the atomic contract migration. A failure before backfill
+restores the prior workloads. Once backfill begins, any failure stays in
+maintenance because restoring legacy writers could invalidate the immutable
+pointers. The chart keeps all three new Deployments and their autoscalers in
+maintenance through Helm's apply/wait phase; the post-upgrade hook explicitly
+starts and verifies the new workloads before enabling autoscaling.
 
 ## Backup Automation
 
@@ -668,53 +692,46 @@ single-machine and GKE — only the values overlay differs:
 
 1. Build + push images for the target commit and note the tag
    ([Building images](#building-images-cloud-build)).
-2. Apply it with `helm upgrade`:
-
-   ```bash
-   helm upgrade --install nojv infra/charts/nojv \
-     -f infra/charts/nojv/values-gke.yaml \
-     --set image.tag=<tag> -n nojv
-   ```
+2. Apply it through the release workflow, which carries the tag and all four
+   registry-verified digests as one atomic chart revision.
 
    The migrator Helm hook runs Prisma migrations to completion **before** the
    new `web`/`worker` Pods roll out, so the database is migrated first and the
    rollout is gated on it.
 
 3. Verify: `kubectl rollout status deploy/nojv-web -n nojv` and
-   `deploy/nojv-worker -n nojv`, then check the web `/healthz` and worker
-   `/readyz` endpoints and monitor logs for at least 15 minutes.
+   `deploy/nojv-worker -n nojv`, then check web `/api/livez` and `/api/readyz`,
+   check worker `/readyz`, and monitor logs for at least 15 minutes.
 
 Secrets are **not** templated by the chart — rotate them in the runtime secret
 out-of-band and restart the affected Deployment to pick them up.
 
 ## Rollback Procedure (Helm)
 
-Rollback is release-based. Helm tracks every applied revision:
+Database migrations are forward-only. The chart installs a persistent admission
+fence before migration; it rejects any web or worker Deployment whose pod
+template does not declare the current `versioned-storage-v1` schema contract.
+This intentionally blocks rollback to a pre-contract image even though Helm
+still lists that revision. The migrator does not run during `helm rollback`.
 
-1. `helm history nojv -n nojv` — find the last known-good revision.
-2. `helm rollback nojv <revision> -n nojv` — re-applies that revision's
-   manifests + image tag. (The migrator hook re-runs; Prisma migrations are
-   forward-only, so a rollback to a schema-incompatible image needs the
-   Database Rollback steps below first.)
-3. Confirm `kubectl get pods -n nojv` shows healthy `nojv-web` /
-   `nojv-worker` / `nojv-worker-platform`.
-4. Validate key flows and monitor logs for at least 15 minutes.
+1. Inspect the target revision's rendered web and worker pod-template labels.
+2. If it lacks `nojv.tw/schema-contract: versioned-storage-v1`, do not delete or
+   bypass the fence. Build and deploy a forward fix from a compatible revision.
+3. For a revision carrying the same contract, run
+   `helm rollback nojv <revision> -n nojv --wait --timeout 125m`.
+4. Confirm all three app Deployments are healthy, validate key flows, and monitor
+   logs for at least 15 minutes.
 
-### Database Rollback
-
-Prisma does not auto-generate down migrations. If a migration causes issues:
-
-1. Identify the breaking migration in `packages/db/prisma/migrations/`
-2. Write manual rollback SQL and apply it on the production database
-3. Mark migration state correctly in `_prisma_migrations` when needed
-4. Deploy the previous application commit compatible with the restored schema
+If database recovery is required, restore a verified backup into an isolated
+environment, validate a compatible forward release there, and promote that
+release. Do not apply ad-hoc down migrations to production.
 
 ### Pre-Rollback Checklist
 
 1. Confirm issue is deployment-related, not upstream infrastructure instability
 2. Check web and worker health endpoints
 3. Check Temporal workflows for stuck executions
-4. Verify web and worker versions are schema-compatible before rollback
+4. Verify the target web and worker manifests carry the active schema contract
 5. After rollback, monitor logs, queue drain behavior, and health checks
 
 ## Related Docs

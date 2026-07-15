@@ -17,6 +17,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
 
   const problemId = event.params.id;
   if (!problemId) error(400, "Missing problem id");
+  await problemDomain.assertProblemEditAccess(actor, problemId);
 
   const declared = Number(event.request.headers.get("content-length") ?? "0");
   if (Number.isFinite(declared) && declared > MAX_UPLOAD_BYTES) {

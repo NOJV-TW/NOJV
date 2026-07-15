@@ -256,6 +256,27 @@ export const problemWorkspaceFileRepo = {
 
   withTx(tx: TxClient) {
     return {
+      findByProblemId(problemId: string) {
+        return tx.problemWorkspaceFile.findMany({
+          where: { problemId },
+          orderBy: [
+            { language: "asc" as const },
+            { orderIndex: "asc" as const },
+            { path: "asc" as const },
+          ],
+        });
+      },
+
+      findOne(
+        problemId: string,
+        language: Prisma.ProblemWorkspaceFileCreateInput["language"],
+        path: string,
+      ) {
+        return tx.problemWorkspaceFile.findUnique({
+          where: { problemId_language_path: { problemId, language, path } },
+        });
+      },
+
       deleteByProblemId(problemId: string) {
         return tx.problemWorkspaceFile.deleteMany({ where: { problemId } });
       },
@@ -269,7 +290,7 @@ export const problemWorkspaceFileRepo = {
         problemId: string;
         language: Prisma.ProblemWorkspaceFileCreateInput["language"];
         path: string;
-        contentKey: string;
+        contentStorage: Prisma.InputJsonValue;
         visibility: Prisma.ProblemWorkspaceFileCreateInput["visibility"];
         orderIndex: number;
       }) {
@@ -286,12 +307,12 @@ export const problemWorkspaceFileRepo = {
             problemId: input.problemId,
             language: input.language,
             path: input.path,
-            contentKey: input.contentKey,
+            contentStorage: input.contentStorage,
             visibility: input.visibility,
             orderIndex: input.orderIndex,
           },
           update: {
-            contentKey: input.contentKey,
+            contentStorage: input.contentStorage,
             visibility: input.visibility,
             orderIndex: input.orderIndex,
           },
@@ -339,6 +360,13 @@ export const testcaseSetRepo = {
         });
       },
 
+      findById(id: string) {
+        return tx.testcaseSet.findUnique({
+          where: { id },
+          include: { testcases: { orderBy: { ordinal: "asc" } } },
+        });
+      },
+
       countByProblem(problemId: string) {
         return tx.testcaseSet.count({ where: { problemId } });
       },
@@ -349,6 +377,10 @@ export const testcaseSetRepo = {
 
       deleteByProblemId(problemId: string) {
         return tx.testcaseSet.deleteMany({ where: { problemId } });
+      },
+
+      delete(id: string) {
+        return tx.testcaseSet.delete({ where: { id } });
       },
     };
   },
@@ -372,8 +404,23 @@ export const testcaseRepo = {
 
   withTx(tx: TxClient) {
     return {
+      findById(id: string) {
+        return tx.testcase.findUnique({
+          where: { id },
+          include: { testcaseSet: { select: { problemId: true } } },
+        });
+      },
+
       createMany(data: Prisma.TestcaseCreateManyInput[]) {
         return tx.testcase.createMany({ data });
+      },
+
+      update(id: string, data: Prisma.TestcaseUpdateInput) {
+        return tx.testcase.update({ where: { id }, data });
+      },
+
+      delete(id: string) {
+        return tx.testcase.delete({ where: { id } });
       },
     };
   },

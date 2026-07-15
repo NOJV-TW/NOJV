@@ -4,6 +4,7 @@ import type {
   ClarificationState,
   Prisma,
 } from "../../generated/prisma/client";
+import type { TransactionClient } from "../transaction";
 
 const clarificationInclude = {
   askedBy: { select: { id: true, username: true, name: true } },
@@ -110,5 +111,23 @@ export const clarificationRepo = {
         createdAt: { gte: windowStart },
       },
     });
+  },
+
+  withTx(tx: TransactionClient) {
+    return {
+      updateAnswer(id: string, data: ClarificationAnswerUpdate) {
+        return tx.clarification.update({
+          where: { id },
+          data: {
+            answerText: data.answerText,
+            answeredByUserId: data.answeredByUserId,
+            state: data.state,
+            answeredAt: data.answeredAt,
+            isPublic: data.isPublic,
+          },
+          include: clarificationInclude,
+        });
+      },
+    };
   },
 };

@@ -39,12 +39,20 @@ export async function getActiveExamContext(userId: string): Promise<ActiveExamCo
 
 const EXAM_FORBIDDEN_API_PREFIXES = ["/api/contests/", "/api/posts/", "/api/comments/"];
 const EXAM_FORBIDDEN_PROBLEM_POSTS_PATTERN = /^\/api\/problems\/[^/]+\/posts(?:\/|$)/;
+const SUBMISSION_POINT_PATTERN = /^\/api\/submissions\/[^/]+$/;
+const SUBMISSION_SOURCE_PATTERN = /^\/api\/submissions\/[^/]+\/source$/;
 
-export function isExamForbiddenApiPath(cleanPath: string): boolean {
+export function isExamForbiddenApiRequest(cleanPath: string, method: string): boolean {
   if (EXAM_FORBIDDEN_API_PREFIXES.some((prefix) => cleanPath.startsWith(prefix))) {
     return true;
   }
-  return EXAM_FORBIDDEN_PROBLEM_POSTS_PATTERN.test(cleanPath);
+  if (EXAM_FORBIDDEN_PROBLEM_POSTS_PATTERN.test(cleanPath)) return true;
+
+  if (!cleanPath.startsWith("/api/submissions")) return false;
+  if (cleanPath === "/api/submissions") return method !== "GET" && method !== "POST";
+  if (SUBMISSION_POINT_PATTERN.test(cleanPath)) return method !== "GET";
+  if (SUBMISSION_SOURCE_PATTERN.test(cleanPath)) return method !== "GET";
+  return true;
 }
 
 export function isAllowedPathForExam(pathname: string, ctx: ActiveExamContext): boolean {

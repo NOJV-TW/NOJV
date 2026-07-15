@@ -6,6 +6,7 @@ import type { Readable, Writable } from "node:stream";
 
 import {
   type SandboxRequest,
+  type SandboxExecutionContext,
   type SandboxResult,
   type SandboxTestcase,
   type SandboxTestcaseResult,
@@ -14,7 +15,14 @@ import {
 import { createBoundedStringBuffer } from "./bounded-buffer";
 import { mergeInteractiveCase, type InteractiveSideResult } from "./check-interactive";
 import { buildSandboxDockerArgs } from "./docker-args";
-import { forceRemoveContainer, forceRemoveContainerSync, sanitizeId } from "./docker-process";
+import {
+  attachDockerCleanupFailure,
+  cleanupDockerResources,
+  forceRemoveContainer,
+  sanitizeId,
+} from "./docker-process";
+import { buildDockerResourceLabels } from "./docker-resource";
+import { executionAbortReason } from "./execution-abort";
 import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
 import { resolveSourceFiles } from "./source-files.js";
 
@@ -102,12 +110,13 @@ export async function writeInteractorFiles(
 
 async function runCase(
   request: SandboxRequest,
+  execution: SandboxExecutionContext,
   testcase: SandboxTestcase,
   interactorScript: string,
   interactorLanguage: "python" | "cpp",
   config: InteractiveExecutorConfig,
 ): Promise<SandboxTestcaseResult> {
-  const slug = sanitizeId(request.submissionId).slice(0, 32);
+  const slug = sanitizeId(execution.runId).slice(0, 32);
   const solName = `nojv-isol-${slug}-${String(testcase.index)}`;
   const intName = `nojv-iint-${slug}-${String(testcase.index)}`;
 
@@ -120,8 +129,7 @@ async function runCase(
       writeInteractorFiles(intDir, request, testcase, interactorScript, interactorLanguage),
     ]);
 
-    forceRemoveContainerSync(solName);
-    forceRemoveContainerSync(intName);
+    execution.signal.throwIfAborted();
 
     const outerTimeoutMs = Math.min(
       request.limits.timeoutMs + PER_CASE_GRACE_MS,
@@ -131,7 +139,7 @@ async function runCase(
     const { sol, int } = await new Promise<{
       sol: InteractiveSideResult;
       int: InteractiveSideResult;
-    }>((resolve) => {
+    }>((resolve, reject) => {
       const solChild = spawn(
         "docker",
         buildSandboxDockerArgs({
@@ -143,6 +151,7 @@ async function runCase(
           pidsLimit: config.pidsLimit,
           image: config.image,
           interactive: true,
+          labels: buildDockerResourceLabels(execution.runId),
         }),
         { env: process.env, stdio: ["pipe", "pipe", "pipe"] },
       ) as PipedChild;
@@ -158,6 +167,7 @@ async function runCase(
           pidsLimit: config.pidsLimit,
           image: config.image,
           interactive: true,
+          labels: buildDockerResourceLabels(execution.runId),
         }),
         { env: process.env, stdio: ["pipe", "pipe", "pipe"] },
       ) as PipedChild;
@@ -180,24 +190,82 @@ async function runCase(
       let intSpawnError = false;
       let timedOut = false;
       let settled = false;
+      let termination: "abort" | "timeout" | null = null;
+      let cleanup: Promise<void> | null = null;
 
       const finish = () => {
-        if (settled || !solClosed || !intClosed) return;
+        if (settled || termination || !solClosed || !intClosed) return;
         settled = true;
         clearTimeout(timer);
+        execution.signal.removeEventListener("abort", abort);
         resolve({
           sol: { stderr: solStderr.toString(), timedOut, spawnError: solSpawnError },
           int: { stderr: intStderr.toString(), timedOut, spawnError: intSpawnError },
         });
       };
 
-      const timer = setTimeout(() => {
-        timedOut = true;
-        forceRemoveContainer(solName);
-        forceRemoveContainer(intName);
+      const fail = (error: Error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        execution.signal.removeEventListener("abort", abort);
+        reject(error);
+      };
+
+      const settleTermination = (cleanupError?: unknown) => {
+        if (settled) return;
+        if (execution.signal.aborted) {
+          const abortReason = executionAbortReason(execution.signal);
+          fail(
+            cleanupError === undefined
+              ? abortReason
+              : attachDockerCleanupFailure(abortReason, "Interactive sandbox", cleanupError),
+          );
+          return;
+        }
+        if (termination !== "timeout") return;
+        if (cleanupError !== undefined) {
+          fail(
+            attachDockerCleanupFailure(
+              new Error("Interactive sandbox timed out."),
+              "Interactive sandbox",
+              cleanupError,
+            ),
+          );
+          return;
+        }
+        solClosed = true;
+        intClosed = true;
+        termination = null;
+        finish();
+      };
+
+      const terminate = () => {
+        if (cleanup) return;
         solChild.kill("SIGKILL");
         intChild.kill("SIGKILL");
+        cleanup = cleanupDockerResources("Interactive containers", [
+          { name: solName, remove: () => forceRemoveContainer(solName) },
+          { name: intName, remove: () => forceRemoveContainer(intName) },
+        ]);
+        void cleanup.then(
+          () => settleTermination(),
+          (error: unknown) => settleTermination(error),
+        );
+      };
+
+      const abort = () => {
+        termination = "abort";
+        terminate();
+      };
+      execution.signal.addEventListener("abort", abort, { once: true });
+
+      const timer = setTimeout(() => {
+        timedOut = true;
+        termination = "timeout";
+        terminate();
       }, outerTimeoutMs);
+      if (execution.signal.aborted) abort();
 
       solChild.on("error", (err: Error) => {
         solSpawnError = true;
@@ -234,6 +302,7 @@ async function runCase(
 
 export async function runInteractiveMode(
   request: SandboxRequest,
+  execution: SandboxExecutionContext,
   config: InteractiveExecutorConfig,
 ): Promise<SandboxResult> {
   const interactorScript = request.judgeConfig.interactorScript;
@@ -248,7 +317,7 @@ export async function runInteractiveMode(
   const results: SandboxTestcaseResult[] = [];
   for (const testcase of request.testcases) {
     results.push(
-      await runCase(request, testcase, interactorScript, interactorLanguage, config),
+      await runCase(request, execution, testcase, interactorScript, interactorLanguage, config),
     );
   }
 

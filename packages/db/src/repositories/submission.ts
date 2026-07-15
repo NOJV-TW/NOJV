@@ -15,6 +15,57 @@ import {
 } from "./submission-stats";
 
 type TxClient = TransactionClient;
+type SubmissionClient = Pick<TxClient, "submission">;
+
+export type SubmissionCreateContext =
+  | { type: "practice" }
+  | { type: "assignment"; assessmentId: string; courseId: string }
+  | { type: "exam"; examId: string }
+  | { type: "contest"; contestId: string }
+  | { type: "virtual"; participationId: string };
+
+type CanonicalSubmissionCreateInput = Omit<
+  Prisma.SubmissionUncheckedCreateInput,
+  "assessmentId" | "contestId" | "courseId" | "examId" | "participationId"
+> & { context: SubmissionCreateContext };
+
+function submissionContextColumns(
+  context: SubmissionCreateContext,
+): Pick<
+  Prisma.SubmissionUncheckedCreateInput,
+  "assessmentId" | "contestId" | "courseId" | "examId" | "participationId"
+> {
+  return {
+    assessmentId: context.type === "assignment" ? context.assessmentId : null,
+    courseId: context.type === "assignment" ? context.courseId : null,
+    examId: context.type === "exam" ? context.examId : null,
+    contestId: context.type === "contest" ? context.contestId : null,
+    participationId: context.type === "virtual" ? context.participationId : null,
+  };
+}
+
+function userFacingSubmissionWhere(
+  userId: string,
+  enforceExamConfinement: boolean,
+): Prisma.SubmissionWhereInput {
+  if (!enforceExamConfinement) return { userId };
+
+  return {
+    userId,
+    OR: [
+      {
+        user: {
+          activeExamSessions: { none: { endedAt: null } },
+        },
+      },
+      {
+        exam: {
+          activeSessions: { some: { userId, endedAt: null } },
+        },
+      },
+    ],
+  };
+}
 
 const contestExamListSelect = {
   id: true,
@@ -34,9 +85,67 @@ const scoringBaseSelect = {
   status: true,
 } satisfies Prisma.SubmissionSelect;
 
+const submissionDetailSelect = {
+  id: true,
+  userId: true,
+  problemId: true,
+  contestId: true,
+  courseId: true,
+  assessmentId: true,
+  examId: true,
+  sampleOnly: true,
+  language: true,
+  sourceStorage: true,
+  status: true,
+  score: true,
+  runtimeMs: true,
+  memoryKb: true,
+  verdictSummary: true,
+  verdictDetailStorage: true,
+  judgeGeneration: true,
+  activeJudgeRunId: true,
+  createdAt: true,
+  user: { select: userMiniSelect },
+  problem: {
+    select: {
+      ...problemMiniSelect,
+      type: true,
+      advancedConfig: true,
+      testcaseSets: { select: { weight: true } },
+    },
+  },
+  contest: { select: { id: true, title: true } },
+  assessment: {
+    select: {
+      id: true,
+      title: true,
+      courseId: true,
+      course: { select: { id: true, title: true } },
+    },
+  },
+  exam: {
+    select: {
+      id: true,
+      title: true,
+      courseId: true,
+      course: { select: { id: true, title: true } },
+    },
+  },
+} satisfies Prisma.SubmissionSelect;
+
 export const submissionRepo = {
   findById(id: string) {
     return prisma.submission.findUnique({ where: { id } });
+  },
+
+  findByIdForUserRead(input: { id: string; userId: string; adminRecovery: boolean }) {
+    if (input.adminRecovery) return prisma.submission.findUnique({ where: { id: input.id } });
+    return prisma.submission.findFirst({
+      where: {
+        id: input.id,
+        ...userFacingSubmissionWhere(input.userId, true),
+      },
+    });
   },
 
   findByIdWithProblemId(id: string) {
@@ -46,7 +155,7 @@ export const submissionRepo = {
         problemId: true,
         status: true,
         language: true,
-        sourceStoragePrefix: true,
+        sourceStorage: true,
         score: true,
         runtimeMs: true,
         sampleOnly: true,
@@ -55,60 +164,28 @@ export const submissionRepo = {
         assessmentId: true,
         courseId: true,
         verdictSummary: true,
-        verdictDetailStorageKey: true,
+        verdictDetailStorage: true,
       },
       where: { id },
     });
   },
 
-  findByIdForDetail(id: string) {
+  findByIdForDetail(input: { id: string; userId: string; adminRecovery: boolean }) {
+    return prisma.submission.findFirst({
+      where: input.adminRecovery
+        ? { id: input.id }
+        : {
+            id: input.id,
+            ...userFacingSubmissionWhere(input.userId, true),
+          },
+      select: submissionDetailSelect,
+    });
+  },
+
+  findByIdForStaffDetailCandidate(id: string) {
     return prisma.submission.findUnique({
       where: { id },
-      select: {
-        id: true,
-        userId: true,
-        problemId: true,
-        contestId: true,
-        courseId: true,
-        assessmentId: true,
-        examId: true,
-        sampleOnly: true,
-        language: true,
-        sourceStoragePrefix: true,
-        status: true,
-        score: true,
-        runtimeMs: true,
-        memoryKb: true,
-        verdictSummary: true,
-        verdictDetailStorageKey: true,
-        createdAt: true,
-        user: { select: userMiniSelect },
-        problem: {
-          select: {
-            ...problemMiniSelect,
-            type: true,
-            advancedConfig: true,
-            testcaseSets: { select: { weight: true } },
-          },
-        },
-        contest: { select: { id: true, title: true } },
-        assessment: {
-          select: {
-            id: true,
-            title: true,
-            courseId: true,
-            course: { select: { id: true, title: true } },
-          },
-        },
-        exam: {
-          select: {
-            id: true,
-            title: true,
-            courseId: true,
-            course: { select: { id: true, title: true } },
-          },
-        },
-      },
+      select: submissionDetailSelect,
     });
   },
 
@@ -188,7 +265,7 @@ export const submissionRepo = {
         status: true,
         runtimeMs: true,
         verdictSummary: true,
-        verdictDetailStorageKey: true,
+        verdictDetailStorage: true,
         contestId: true,
         assessmentId: true,
         examId: true,
@@ -197,36 +274,73 @@ export const submissionRepo = {
     });
   },
 
-  listByUser(opts: { userId: string; limit: number; cursor?: string }) {
-    return prisma.submission.findMany({
-      where: {
-        userId: opts.userId,
-        sampleOnly: false,
-      },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: opts.limit + 1,
-      ...(opts.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : {}),
-      select: {
-        id: true,
-        createdAt: true,
-        language: true,
-        score: true,
-        status: true,
-        runtimeMs: true,
-        memoryKb: true,
-        contestId: true,
-        assessmentId: true,
-        examId: true,
-        problem: {
-          select: {
-            ...problemMiniSelect,
-            type: true,
-            advancedConfig: true,
-            testcaseSets: { select: { weight: true } },
+  async listByUser(opts: {
+    userId: string;
+    enforceExamConfinement: boolean;
+    limit: number;
+    cursor?: string;
+  }) {
+    const scope = {
+      ...userFacingSubmissionWhere(opts.userId, opts.enforceExamConfinement),
+      sampleOnly: false,
+    } satisfies Prisma.SubmissionWhereInput;
+
+    const readPage = (
+      client: SubmissionClient,
+      cursor: { id: string; createdAt: Date } | null,
+    ) =>
+      client.submission.findMany({
+        where: {
+          ...scope,
+          ...(cursor
+            ? {
+                AND: {
+                  OR: [
+                    { createdAt: { lt: cursor.createdAt } },
+                    { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+                  ],
+                },
+              }
+            : {}),
+        },
+        orderBy: [{ createdAt: "desc" as const }, { id: "desc" as const }],
+        take: opts.limit + 1,
+        select: {
+          id: true,
+          createdAt: true,
+          language: true,
+          score: true,
+          status: true,
+          runtimeMs: true,
+          memoryKb: true,
+          contestId: true,
+          assessmentId: true,
+          examId: true,
+          problem: {
+            select: {
+              ...problemMiniSelect,
+              type: true,
+              advancedConfig: true,
+              testcaseSets: { select: { weight: true } },
+            },
           },
         },
+      });
+
+    const cursorId = opts.cursor;
+    if (!cursorId) return readPage(prisma, null);
+
+    return prisma.$transaction(
+      async (tx) => {
+        const cursor = await tx.submission.findFirst({
+          where: { ...scope, id: cursorId },
+          select: { id: true, createdAt: true },
+        });
+        if (!cursor) return null;
+        return readPage(tx, cursor);
       },
-    });
+      { isolationLevel: "RepeatableRead" },
+    );
   },
 
   listAllPaged(opts: { limit: number; cursor?: string; userId?: string; problemId?: string }) {
@@ -452,7 +566,7 @@ export const submissionRepo = {
         language: true,
         problemId: true,
         sampleOnly: true,
-        sourceStoragePrefix: true,
+        sourceStorage: true,
       },
       where,
     });
@@ -503,7 +617,7 @@ export const submissionRepo = {
         language: true,
         problemId: true,
         score: true,
-        sourceStoragePrefix: true,
+        sourceStorage: true,
         userId: true,
       },
       orderBy: { score: "desc" },
@@ -731,10 +845,6 @@ export const submissionRepo = {
     });
   },
 
-  create(data: Prisma.SubmissionCreateInput) {
-    return prisma.submission.create({ data });
-  },
-
   countForUserAssessmentProblemSince(
     userId: string,
     assessmentId: string,
@@ -803,8 +913,18 @@ export const submissionRepo = {
         });
       },
 
-      create(data: Prisma.SubmissionUncheckedCreateInput) {
-        return tx.submission.create({ data });
+      create(data: CanonicalSubmissionCreateInput) {
+        const { context, ...submission } = data;
+        return tx.submission.create({
+          data: { ...submission, ...submissionContextColumns(context) },
+        });
+      },
+
+      publishPendingUpload(id: string, sourceStorage: Prisma.InputJsonValue) {
+        return tx.submission.update({
+          where: { id, status: "pending_upload" },
+          data: { sourceStorage, status: "queued" },
+        });
       },
     };
   },

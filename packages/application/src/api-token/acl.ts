@@ -18,12 +18,6 @@ export interface MatchedApiTokenRouteRule extends ApiTokenRouteRule {
 
 const TOKEN_ROUTE_RULES: ApiTokenRouteRule[] = [
   {
-    method: "GET",
-    path: "/api/healthz",
-    visibility: "public",
-    requiredScope: null,
-  },
-  {
     method: "POST",
     path: "/api/submissions",
     visibility: "public",

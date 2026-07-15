@@ -5,6 +5,13 @@ import { INTERACTIVE_RUN_MARKER, INTERACTIVE_VALIDATE_MARKER } from "@nojv/core"
 
 import { K8sExecutor } from "../../../apps/worker/src/services/k8s-executor";
 
+function execute(executor: K8sExecutor, request: SandboxRequest) {
+  return executor.execute(request, {
+    runId: request.submissionId,
+    signal: new AbortController().signal,
+  });
+}
+
 function runMarker(report: Record<string, unknown>): string {
   return `\n${INTERACTIVE_RUN_MARKER}${JSON.stringify(report)}\n`;
 }
@@ -43,6 +50,7 @@ interface CallRecord {
 interface FakeOptions {
   perJob?: Map<string, { solution: string; interactor: string }>;
   outcomes?: Map<string, "succeeded" | "failed">;
+  imagePullMessage?: string;
 }
 
 function buildFakeClients(record: CallRecord, opts: FakeOptions = {}) {
@@ -55,7 +63,29 @@ function buildFakeClients(record: CallRecord, opts: FakeOptions = {}) {
     }),
     listNamespacedPod: vi.fn(async ({ labelSelector }: any) => {
       const jobName = String(labelSelector).split("=")[1];
-      return { items: [{ metadata: { name: `${jobName}-pod` } }] };
+      return {
+        items: [
+          {
+            metadata: { name: `${jobName}-pod` },
+            ...(opts.imagePullMessage
+              ? {
+                  status: {
+                    containerStatuses: [
+                      {
+                        state: {
+                          waiting: {
+                            reason: "ImagePullBackOff",
+                            message: opts.imagePullMessage,
+                          },
+                        },
+                      },
+                    ],
+                  },
+                }
+              : {}),
+          },
+        ],
+      };
     }),
     readNamespacedPodLog: vi.fn(async ({ name, namespace, container }: any) => {
       record.podLogsRead.push({ name, namespace, container });
@@ -74,6 +104,7 @@ function buildFakeClients(record: CallRecord, opts: FakeOptions = {}) {
       record.jobsDeleted.push({ name, namespace });
     }),
     readNamespacedJob: vi.fn(async ({ name }: any) => {
+      if (opts.imagePullMessage) return { status: { active: 1 } };
       const status = opts.outcomes?.get(name) ?? "succeeded";
       return { status: { [status]: 1 } };
     }),
@@ -102,6 +133,164 @@ const EXEC_CONFIG = {
 };
 
 describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup", () => {
+  it("retries transient cleanup failures until every Job and ConfigMap is removed", async () => {
+    vi.useFakeTimers();
+    try {
+      const record = emptyRecord();
+      const request = makeRequest(1);
+      const clients = buildFakeClients(record);
+      clients.batchApi.deleteNamespacedJob
+        .mockRejectedValueOnce({ code: 500 })
+        .mockResolvedValue(undefined);
+      clients.coreApi.deleteNamespacedConfigMap
+        .mockRejectedValueOnce({ code: 429 })
+        .mockRejectedValueOnce({ code: 503 })
+        .mockResolvedValue(undefined);
+
+      const execution = execute(new K8sExecutor(EXEC_CONFIG, clients), request);
+      await vi.runAllTimersAsync();
+      await expect(execution).resolves.toBeDefined();
+
+      expect(clients.batchApi.deleteNamespacedJob).toHaveBeenCalledTimes(2);
+      expect(clients.coreApi.deleteNamespacedConfigMap).toHaveBeenCalledTimes(4);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("retries a timed-out delete and accepts an observed 404 as eventual removal", async () => {
+    vi.useFakeTimers();
+    try {
+      const record = emptyRecord();
+      const request = makeRequest(1);
+      const clients = buildFakeClients(record);
+      const attempts = new Map<string, number>();
+      clients.coreApi.deleteNamespacedConfigMap.mockImplementation(({ name }: any) => {
+        const attempt = (attempts.get(name) ?? 0) + 1;
+        attempts.set(name, attempt);
+        if (String(name).endsWith("-sol") && attempt === 1) return new Promise(() => {});
+        if (String(name).endsWith("-sol")) return Promise.reject({ code: 404 });
+        return Promise.resolve();
+      });
+
+      const execution = execute(new K8sExecutor(EXEC_CONFIG, clients), request);
+      await vi.runAllTimersAsync();
+      await expect(execution).resolves.toBeDefined();
+      expect(attempts.get("judge-sub-int-orch-int-0-sol")).toBe(2);
+      expect(attempts.get("judge-sub-int-orch-int-0-int")).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("propagates exhausted cleanup failures after attempting every resource", async () => {
+    vi.useFakeTimers();
+    try {
+      const record = emptyRecord();
+      const request = makeRequest(1);
+      const clients = buildFakeClients(record);
+      clients.batchApi.deleteNamespacedJob.mockRejectedValue({ code: 503 });
+      clients.coreApi.deleteNamespacedConfigMap.mockRejectedValue({ code: 429 });
+
+      const execution = execute(new K8sExecutor(EXEC_CONFIG, clients), request);
+      const rejection = expect(execution).rejects.toThrow(/cleanup failed/i);
+      await vi.runAllTimersAsync();
+      await rejection;
+
+      expect(clients.batchApi.deleteNamespacedJob).toHaveBeenCalledTimes(3);
+      expect(clients.coreApi.deleteNamespacedConfigMap).toHaveBeenCalledTimes(6);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("preserves a terminal image-pull outcome while exposing cleanup resource failures", async () => {
+    const record = emptyRecord();
+    const request = makeRequest(1);
+    const clients = buildFakeClients(record, {
+      imagePullMessage: "registry denied immutable image",
+    });
+    clients.batchApi.deleteNamespacedJob.mockRejectedValue({
+      code: 403,
+      message: "cleanup forbidden",
+    });
+
+    const result = await execute(new K8sExecutor(EXEC_CONFIG, clients), request);
+    const serialized = JSON.stringify(result);
+
+    expect(result.testcaseResults[0]?.verdict).toBe("SE");
+    expect(result.scoringFeedback).toContain("registry denied immutable image");
+    expect(serialized).toContain("interactive sandbox cleanup failed");
+    expect(serialized).toContain("Job nojv-sandbox/judge-sub-int-orch-int-0");
+    expect(serialized).toContain("cleanup forbidden");
+  });
+
+  it("awaits an in-flight API stage, then cleans resources before cancellation rejects", async () => {
+    const record = emptyRecord();
+    const request = makeRequest(1);
+    const clients = buildFakeClients(record);
+    let finishRead!: () => void;
+    clients.batchApi.readNamespacedJob.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishRead = () => resolve({ status: { succeeded: 1 } });
+        }),
+    );
+    const executor = new K8sExecutor(EXEC_CONFIG, clients);
+    const controller = new AbortController();
+    const reason = new DOMException("cancelled", "AbortError");
+    const operation = executor.execute(request, {
+      runId: "unique-run",
+      signal: controller.signal,
+    });
+    await vi.waitFor(() => expect(record.jobsCreated).toHaveLength(1));
+
+    controller.abort(reason);
+    finishRead();
+
+    await expect(operation).rejects.toBe(reason);
+    expect(record.jobsDeleted.map(({ name }) => name)).toEqual(["judge-unique-run-int-0"]);
+    expect(record.configMapsDeleted.map(({ name }) => name).sort()).toEqual([
+      "judge-unique-run-int-0-int",
+      "judge-unique-run-int-0-sol",
+    ]);
+  });
+
+  it("preserves cancellation identity and serializes a simultaneous cleanup failure", async () => {
+    const record = emptyRecord();
+    const request = makeRequest(1);
+    const clients = buildFakeClients(record);
+    let finishRead!: () => void;
+    clients.batchApi.readNamespacedJob.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishRead = () => resolve({ status: { succeeded: 1 } });
+        }),
+    );
+    clients.batchApi.deleteNamespacedJob.mockRejectedValue({
+      code: 403,
+      message: "cleanup denied after cancellation",
+    });
+    const controller = new AbortController();
+    const reason = new DOMException("cancelled by Temporal", "AbortError");
+    const operation = new K8sExecutor(EXEC_CONFIG, clients).execute(request, {
+      runId: "cancel-cleanup-run",
+      signal: controller.signal,
+    });
+    await vi.waitFor(() => expect(record.jobsCreated).toHaveLength(1));
+
+    controller.abort(reason);
+    finishRead();
+
+    await expect(operation).rejects.toBe(reason);
+    expect(JSON.stringify({ name: reason.name, message: reason.message })).toContain(
+      "cancelled by Temporal",
+    );
+    expect(reason.message).toContain("interactive sandbox cleanup failed");
+    expect(reason.message).toContain("Job nojv-sandbox/judge-cancel-cleanup-run-int-0");
+    expect(reason.message).toContain("cleanup denied after cancellation");
+  });
+
   it("creates two ConfigMaps + one Job per case, sequentially, and cleans all of them up", async () => {
     const record = emptyRecord();
     const request = makeRequest(3);
@@ -130,7 +319,7 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     ]);
 
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { perJob }));
-    const result = await executor.execute(request);
+    const result = await execute(executor, request);
 
     expect(record.jobsCreated.map((j) => j.name)).toEqual([
       "judge-sub-int-orch-int-0",
@@ -180,7 +369,7 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     ]);
 
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { perJob }));
-    await executor.execute(request);
+    await execute(executor, request);
 
     const containers = record.podLogsRead
       .map((p) => p.container)
@@ -211,7 +400,7 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     ]);
 
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { perJob }));
-    const result = await executor.execute(request);
+    const result = await execute(executor, request);
 
     const tcResults = result.testcaseResults!;
     expect(tcResults[0]!.verdict).toBe("SE");
@@ -230,7 +419,7 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     ]);
 
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { outcomes }));
-    const result = await executor.execute(request);
+    const result = await execute(executor, request);
 
     expect(result.testcaseResults![0]!.verdict).toBe("SE");
     expect(record.jobsDeleted).toHaveLength(1);
@@ -266,7 +455,7 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
         EXEC_CONFIG,
         buildFakeClients(record, { perJob, outcomes }),
       );
-      const result = await executor.execute(request);
+      const result = await execute(executor, request);
 
       expect(result.testcaseResults![0]!.verdict).toBe("WA");
       expect(result.testcaseResults![0]!.feedback).toBe("guess budget exhausted");
@@ -287,7 +476,7 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     ]);
 
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { perJob }));
-    const result = await executor.execute(request);
+    const result = await execute(executor, request);
 
     expect(result.testcaseResults![0]!.verdict).toBe("SE");
   });
@@ -306,7 +495,7 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     ]);
 
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { perJob }));
-    const result = await executor.execute(request);
+    const result = await execute(executor, request);
 
     expect(result.testcaseResults![0]!.verdict).toBe("SE");
   });
@@ -320,7 +509,7 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     };
 
     const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record));
-    const result = await executor.execute(broken);
+    const result = await execute(executor, broken);
 
     expect(result.testcaseResults![0]!.verdict).toBe("SE");
     expect(record.jobsCreated).toHaveLength(0);

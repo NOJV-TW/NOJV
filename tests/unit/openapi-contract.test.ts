@@ -9,6 +9,7 @@ import { listApiTokenRouteRules } from "@nojv/application";
 import { internalOpenApiDocument } from "$lib/server/openapi/internal-document";
 import { openApiDocument as publicOpenApiDocument } from "$lib/server/openapi/public-document";
 import { tokenOpenApiDocument } from "$lib/server/openapi/token-document";
+import { GET as servePublicOpenApi } from "../../apps/web/src/routes/api/openapi.public.json/+server";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const apiRoot = path.resolve(__dirname, "../../apps/web/src/routes/api");
@@ -80,12 +81,44 @@ describe("OpenAPI contract stays in sync with API routes", () => {
     expect(documented.size).toBeGreaterThan(0);
   });
 
+  it("documents minimal public liveness and readiness contracts", () => {
+    expect(publicOpenApiDocument.paths).toMatchObject({
+      "/api/livez": { get: { operationId: "getLiveness" } },
+      "/api/readyz": { get: { operationId: "getReadiness" } },
+    });
+    expect(publicOpenApiDocument.components.schemas).toMatchObject({
+      LivenessResponse: {
+        required: ["alive"],
+        properties: { alive: { type: "boolean" } },
+      },
+      ReadinessResponse: {
+        required: ["ready"],
+        properties: { ready: { type: "boolean" } },
+      },
+    });
+  });
+
+  it("serves anonymous system paths from the public OpenAPI endpoint", async () => {
+    const response = await servePublicOpenApi({
+      url: new URL("https://nojv.example/api/openapi.public.json"),
+    } as Parameters<typeof servePublicOpenApi>[0]);
+    const document = (await response.json()) as typeof tokenOpenApiDocument;
+
+    expect(document.paths).toMatchObject({
+      "/api/livez": { get: { operationId: "getLiveness" } },
+      "/api/readyz": { get: { operationId: "getReadiness" } },
+      "/api/openapi.public.json": { get: { operationId: "getOpenApiDocument" } },
+    });
+  });
+
   it("token document covers exactly the public token allowlist", () => {
     const ruleOps = listApiTokenRouteRules()
       .filter((rule) => rule.visibility === "public")
       .map((rule) => `${rule.method} ${rule.path}`);
     const docOps = documentedOperations(tokenOpenApiDocument);
-    docOps.delete("GET /api/openapi.public.json");
+    for (const anonymousPath of ["/api/livez", "/api/readyz", "/api/openapi.public.json"]) {
+      docOps.delete(`GET ${anonymousPath}`);
+    }
     expect([...docOps].sort()).toEqual([...ruleOps].sort());
   });
 

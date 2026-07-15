@@ -1,30 +1,39 @@
-import type { SandboxExecutor, SubmissionDraft } from "@nojv/core";
+import type { SandboxExecutor, SubmissionJudgeDraft } from "@nojv/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { updateStatusMock, getSourcesMock, getJudgeContextMock, deriveModeMock } = vi.hoisted(
-  () => ({
-    updateStatusMock: vi.fn(),
+const { getSourcesMock, getJudgeContextMock, deriveModeMock, cancellationSignalMock } =
+  vi.hoisted(() => ({
     getSourcesMock: vi.fn(),
     getJudgeContextMock: vi.fn(),
     deriveModeMock: vi.fn(() => "standard"),
-  }),
-);
+    cancellationSignalMock: vi.fn(),
+  }));
+
+vi.mock("@temporalio/activity", () => ({
+  cancellationSignal: cancellationSignalMock,
+  heartbeat: vi.fn(),
+}));
 
 vi.mock("@nojv/application", () => ({
   submissionDomain: {
-    updateSubmissionStatus: updateStatusMock,
     getSubmissionSources: getSourcesMock,
     getJudgeContext: getJudgeContextMock,
     deriveJudgeMode: deriveModeMock,
   },
 }));
 
-import { executeSandbox, setExecutor } from "../../../apps/worker/src/activities/judge";
+import { executeSandbox, setExecutorOwner } from "../../../apps/worker/src/activities/judge";
+import { ExecutorOwner } from "../../../apps/worker/src/services/executor-owner";
+
+function installExecutor(executor: SandboxExecutor): void {
+  setExecutorOwner(new ExecutorOwner(executor, () => "test-run"));
+}
 
 describe("executeSandbox — missing sources guard (A7)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     deriveModeMock.mockReturnValue("standard");
+    cancellationSignalMock.mockReturnValue(new AbortController().signal);
   });
 
   it("returns system_error and skips the sandbox when storage has zero sources", async () => {
@@ -33,11 +42,11 @@ describe("executeSandbox — missing sources guard (A7)", () => {
         throw new Error("sandbox must not run when sources are missing");
       }),
     };
-    setExecutor(executor);
+    installExecutor(executor);
 
     getSourcesMock.mockResolvedValue([]);
 
-    const draft: SubmissionDraft = {
+    const draft: SubmissionJudgeDraft = {
       problemId: "prob_x",
       language: "python",
       sourceCode: "print(1)",
@@ -46,8 +55,7 @@ describe("executeSandbox — missing sources guard (A7)", () => {
     const result = await executeSandbox("sub_missing", draft);
 
     expect(executor.execute).not.toHaveBeenCalled();
-    expect(updateStatusMock).toHaveBeenCalledTimes(1);
-    expect(updateStatusMock).toHaveBeenNthCalledWith(1, "sub_missing", "running");
+    expect(getJudgeContextMock).not.toHaveBeenCalled();
 
     expect(result.result.verdict).toBe("system_error");
     expect(result.result.score).toBe(0);
@@ -59,7 +67,7 @@ describe("executeSandbox — missing sources guard (A7)", () => {
 
   it("refuses to judge sources that no longer satisfy the loaded Advanced contract", async () => {
     const executor: SandboxExecutor = { execute: vi.fn() };
-    setExecutor(executor);
+    installExecutor(executor);
     getSourcesMock.mockResolvedValue([{ path: "old.py", content: "print(1)" }]);
     const config = {
       run: {
@@ -95,5 +103,46 @@ describe("executeSandbox — missing sources guard (A7)", () => {
       requiredPaths: ["main.py"],
       resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
     });
+  });
+
+  it("forwards Temporal cancellation to the owned executor", async () => {
+    const temporalCancellation = new AbortController();
+    cancellationSignalMock.mockReturnValue(temporalCancellation.signal);
+    let observedSignal: AbortSignal | undefined;
+    const executor: SandboxExecutor = {
+      execute: vi.fn(async (_request, execution) => {
+        observedSignal = execution.signal;
+        await new Promise<void>((resolve) =>
+          execution.signal.addEventListener("abort", () => resolve(), { once: true }),
+        );
+        throw execution.signal.reason;
+      }),
+    };
+    installExecutor(executor);
+    getSourcesMock.mockResolvedValue([{ path: "main.py", content: "print(1)" }]);
+    getJudgeContextMock.mockResolvedValue({
+      advanced: null,
+      checkerScript: null,
+      compareOptions: null,
+      interactorScript: null,
+      judgeType: "standard",
+      problemType: "full_source",
+      runtime: { env: {}, memoryLimitMb: 128, timeLimitMs: 1_000 },
+      samples: [],
+      testcaseSets: [],
+      workspaceFiles: [],
+    });
+
+    const operation = executeSandbox("sub_cancel", {
+      problemId: "prob_x",
+      language: "python",
+      sourceCode: "print(1)",
+    });
+    await vi.waitFor(() => expect(executor.execute).toHaveBeenCalledOnce());
+    const reason = new DOMException("Temporal cancelled", "AbortError");
+    temporalCancellation.abort(reason);
+
+    await expect(operation).rejects.toBe(reason);
+    expect(observedSignal?.aborted).toBe(true);
   });
 });

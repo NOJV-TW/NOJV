@@ -1,18 +1,18 @@
 import { randomUUID } from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { entryFileNameFor, submissionVerdicts, type Language } from "@nojv/core";
+import { entryFileNameFor, submissionVerdicts } from "@nojv/core";
 import {
   createStorageClient,
-  putText,
-  putSubmissionSources,
+  planSubmissionSources,
+  putImmutableText,
+  putSubmissionSourcePlan,
   putVerdictDetail,
-  submissionSourcePrefix,
-  submissionVerdictDetailKey,
   testcaseInputKey,
   testcaseOutputKey,
   workspaceFileKey,
 } from "@nojv/storage";
 import { PrismaClient, type Prisma } from "../../packages/db/generated/prisma/client";
+import { resolveConfiguredDestructiveTestDatabase } from "../setup/destructive-test-database";
 
 let cachedStorage: ReturnType<typeof createStorageClient> | null = null;
 function storage() {
@@ -36,8 +36,7 @@ function buildDefaultVerdictDetail(status: SubmissionVerdict): Prisma.InputJsonV
   };
 }
 
-const TEST_DB_URL =
-  process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5432/nojv_test";
+const TEST_DB_URL = resolveConfiguredDestructiveTestDatabase().databaseUrl;
 
 const adapter = new PrismaPg({ connectionString: TEST_DB_URL });
 
@@ -45,7 +44,7 @@ export const testPrisma = new PrismaClient({ adapter });
 
 let counter = 0;
 function uid() {
-  return `test_${Date.now()}_${++counter}`;
+  return `test_${String(Date.now())}_${String(++counter)}`;
 }
 
 export async function createTestUser(overrides: Partial<Prisma.UserCreateInput> = {}) {
@@ -81,14 +80,13 @@ export async function createTestProblem(overrides: TestProblemOverrides = {}) {
     defaultTitle: _defaultTitle,
     title: _title,
     tags: _tags,
-    slug: _slug,
     samples: _samples,
     ...rest
   } = overrides;
   void _defaultTitle;
   void _title;
   void _tags;
-  void _slug;
+  void _samples;
 
   const status = overrides.status ?? "published";
   // Mirror production: a displayId ("#N") is assigned only when published.
@@ -134,42 +132,67 @@ export async function createTestProblem(overrides: TestProblemOverrides = {}) {
   });
 
   const testcaseId = randomUUID();
-  const inputKey = testcaseInputKey(problem.id, testcaseId);
-  const outputKey = testcaseOutputKey(problem.id, testcaseId);
-  await Promise.all([putText(storage(), inputKey, "1 2"), putText(storage(), outputKey, "3")]);
+  const testcaseVersion = randomUUID();
+  const [inputStorage, outputStorage] = await Promise.all([
+    putImmutableText(
+      storage(),
+      testcaseInputKey(problem.id, testcaseId, testcaseVersion),
+      "1 2",
+    ),
+    putImmutableText(
+      storage(),
+      testcaseOutputKey(problem.id, testcaseId, testcaseVersion),
+      "3",
+    ),
+  ]);
   await testPrisma.testcase.create({
     data: {
       id: testcaseId,
       testcaseSetId: testcaseSet.id,
       ordinal: 1,
-      inputKey,
-      outputKey,
+      inputStorage,
+      outputStorage,
     },
+  });
+  await testPrisma.problem.update({
+    where: { id: problem.id },
+    data: { activeStorageBytes: inputStorage.size + outputStorage.size },
   });
 
   return problem;
 }
 
 export async function createTestProblemWorkspaceFile(
-  overrides: Omit<Partial<Prisma.ProblemWorkspaceFileUncheckedCreateInput>, "contentKey"> & {
+  overrides: Omit<
+    Partial<Prisma.ProblemWorkspaceFileUncheckedCreateInput>,
+    "contentStorage"
+  > & {
     problemId: string;
     content?: string;
   },
 ) {
   const fileId = randomUUID();
-  const contentKey = workspaceFileKey(overrides.problemId, fileId);
-  await putText(storage(), contentKey, overrides.content ?? "// starter\n");
-  return testPrisma.problemWorkspaceFile.create({
+  const contentStorage = await putImmutableText(
+    storage(),
+    workspaceFileKey(overrides.problemId, fileId, randomUUID()),
+    overrides.content ?? "// starter\n",
+  );
+  const row = await testPrisma.problemWorkspaceFile.create({
     data: {
       id: fileId,
       language: overrides.language ?? "cpp",
       path: overrides.path ?? "main.cpp",
-      contentKey,
+      contentStorage,
       visibility: overrides.visibility ?? "editable",
       orderIndex: overrides.orderIndex ?? 0,
       problemId: overrides.problemId,
     },
   });
+  await testPrisma.problem.update({
+    where: { id: overrides.problemId },
+    data: { activeStorageBytes: { increment: contentStorage.size } },
+  });
+  return row;
 }
 
 export async function createTestContest(
@@ -229,13 +252,59 @@ export async function createTestCourse(
   });
 }
 
+type TestSubmissionContext =
+  | {
+      assessmentId?: never;
+      contestId?: never;
+      courseId?: never;
+      examId?: never;
+      participationId?: never;
+    }
+  | {
+      assessmentId: string;
+      contestId?: never;
+      courseId: string;
+      examId?: never;
+      participationId?: never;
+    }
+  | {
+      assessmentId?: never;
+      contestId?: never;
+      courseId?: never;
+      examId: string;
+      participationId?: never;
+    }
+  | {
+      assessmentId?: never;
+      contestId: string;
+      courseId?: never;
+      examId?: never;
+      participationId?: never;
+    }
+  | {
+      assessmentId?: never;
+      contestId?: never;
+      courseId?: never;
+      examId?: never;
+      participationId: string;
+    };
+
 type CreateTestSubmissionInput = Omit<
   Partial<Prisma.SubmissionUncheckedCreateInput>,
-  "sourceCode" | "verdictDetail"
-> & {
-  sourceCode?: string;
-  verdictDetail?: Prisma.InputJsonValue;
-};
+  | "sourceStorage"
+  | "verdictDetailStorage"
+  | "judgeGeneration"
+  | "activeJudgeRunId"
+  | "assessmentId"
+  | "contestId"
+  | "courseId"
+  | "examId"
+  | "participationId"
+> &
+  TestSubmissionContext & {
+    sourceCode?: string;
+    verdictDetail?: Prisma.InputJsonValue;
+  };
 
 export async function createTestSubmission(overrides: CreateTestSubmissionInput = {}) {
   const id = uid();
@@ -256,7 +325,15 @@ export async function createTestSubmission(overrides: CreateTestSubmissionInput 
     (isTerminalVerdict(status) ? buildDefaultVerdictDetail(status) : undefined);
 
   const sourceCode = overrides.sourceCode ?? 'print("hello")';
-  const sourcePrefix = submissionSourcePrefix(id);
+  const sourcePlan = planSubmissionSources(id, randomUUID(), [
+    { path: entryFileNameFor(overrides.language ?? "python"), content: sourceCode },
+  ]);
+  const [sourceStorage, verdictDetailStorage] = await Promise.all([
+    putSubmissionSourcePlan(storage(), sourcePlan),
+    verdictDetail === undefined
+      ? Promise.resolve(null)
+      : putVerdictDetail(storage(), id, `fixture-${randomUUID()}`, verdictDetail),
+  ]);
 
   const { sourceCode: _sc, verdictDetail: _vd, userId: _u, problemId: _p, ...rest } = overrides;
   void _sc;
@@ -268,12 +345,12 @@ export async function createTestSubmission(overrides: CreateTestSubmissionInput 
     data: {
       id,
       language: overrides.language ?? "python",
-      sourceStoragePrefix: sourcePrefix,
+      sourceStorage,
       status,
-      ...(verdictDetail !== undefined
+      ...(verdictDetail !== undefined && verdictDetailStorage !== null
         ? {
             verdictSummary: deriveSummaryForFactory(verdictDetail),
-            verdictDetailStorageKey: submissionVerdictDetailKey(id),
+            verdictDetailStorage,
           }
         : {}),
       ...rest,
@@ -281,13 +358,6 @@ export async function createTestSubmission(overrides: CreateTestSubmissionInput 
       problemId,
     },
   });
-
-  await putSubmissionSources(storage(), id, [
-    { path: entryFileNameFor(row.language as Language), content: sourceCode },
-  ]);
-  if (verdictDetail !== undefined) {
-    await putVerdictDetail(storage(), id, verdictDetail);
-  }
 
   return row;
 }
@@ -301,7 +371,7 @@ function deriveSummaryForFactory(detail: Prisma.InputJsonValue): Prisma.InputJso
     Array.isArray((detail as { caseResults?: unknown }).caseResults)
   ) {
     for (const c of (detail as { caseResults: { verdict?: string }[] }).caseResults) {
-      const v = String(c.verdict ?? "").toUpperCase();
+      const v = (c.verdict ?? "").toUpperCase();
       if (v === "AC") caseSummary.ac += 1;
       else if (v === "WA") caseSummary.wa += 1;
       else if (v === "TLE") caseSummary.tle += 1;

@@ -51,11 +51,13 @@ enum ExamSessionEventType {
 }
 
 model Contest {
-  id       String   @id @default(cuid())
-  title    String
-  summary  String   @db.Text
-  startsAt DateTime
-  endsAt   DateTime
+  id               String   @id @default(cuid())
+  title            String
+  summary          String   @db.Text
+  startsAt         DateTime
+  endsAt           DateTime
+  scheduleRevision Int      @default(0)
+  timerFingerprint String   @default(dbgenerated())
 
   visibility        ContestVisibility  @default(draft)
   scoringMode       ContestScoringMode @default(problem_count)
@@ -102,12 +104,14 @@ model ContestProblem {
 }
 
 model Exam {
-  id       String   @id @default(cuid())
-  courseId String
-  title    String
-  summary  String   @db.Text
-  startsAt DateTime
-  endsAt   DateTime
+  id               String   @id @default(cuid())
+  courseId         String
+  title            String
+  summary          String   @db.Text
+  startsAt         DateTime
+  endsAt           DateTime
+  scheduleRevision Int      @default(0)
+  timerFingerprint String   @default(dbgenerated())
 
   status            ExamStatus      @default(draft)
   scoringMode       ExamScoringMode @default(point_sum)
@@ -191,6 +195,7 @@ model ActiveExamSession {
   events ExamSessionEvent[]
 
   @@unique([userId, examId])
+  @@unique([userId], map: "ActiveExamSession_one_active_per_user_key", where: { endedAt: null })
   @@index([examId, endedAt])
   @@index([userId, endedAt])
 }
@@ -244,6 +249,7 @@ model Participation {
   exam        Exam?        @relation("ExamUnifiedParticipation", fields: [examId], references: [id], onDelete: Cascade)
   submissions Submission[]
 
+  @@unique([id, userId])
   @@unique([type, contestId, userId])
   @@unique([type, examId, userId])
   @@index([userId])

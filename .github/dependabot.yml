@@ -3,7 +3,7 @@
 # Triage rules:
 # - npm: weekly grouped PR (Monday); production + development split so a
 #   broken dev tool doesn't block a production patch
-# - github-actions + docker: monthly, grouped
+# - github-actions + every production Docker/Compose manifest: monthly, grouped
 # - Major bumps are ignored — they almost always need code changes and a
 #   human in the loop. We bump them by hand when ready.
 #
@@ -63,7 +63,14 @@ updates:
           - "*"
 
   - package-ecosystem: "docker"
-    directory: "/infra/docker"
+    directories:
+      - "/"
+      - "/infra/docker"
+      - "/infra/docker/demo-advanced-grade"
+      - "/infra/docker/demo-advanced-run"
+      - "/apps/web/src/lib/server/advanced-scaffold/files/grade"
+      - "/apps/web/src/lib/server/advanced-scaffold/files/run"
+      - "/apps/web/src/lib/server/advanced-scaffold/files/service"
     schedule:
       interval: "monthly"
       day: "monday"
@@ -80,3 +87,4 @@ updates:
       docker-all:
         patterns:
           - "*"
+        group-by: dependency-name

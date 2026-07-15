@@ -1,9 +1,10 @@
-import { PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
 import type { S3Client } from "@aws-sdk/client-s3";
 import { parseRelativePath } from "@nojv/core";
 import { randomUUID } from "node:crypto";
 
 import { getStorageEnv } from "./env";
+import { putImmutableObject } from "./object";
 
 let cachedBucket: string | undefined;
 function BUCKET(): string {
@@ -53,14 +54,7 @@ export async function uploadProblemImage(
   const ext = mimeType.split("/")[1] ?? "bin";
   const key = `problems/${problemId}/images/${randomUUID()}.${ext}`;
 
-  await client.send(
-    new PutObjectCommand({
-      Bucket: BUCKET(),
-      Key: key,
-      Body: file,
-      ContentType: mimeType,
-    }),
-  );
+  await putImmutableObject(client, key, file, { contentType: mimeType });
 
   return key;
 }
@@ -74,14 +68,7 @@ export async function uploadUserContentImage(
   const ext = mimeType.split("/")[1] ?? "bin";
   const key = `users/${userId}/images/${randomUUID()}.${ext}`;
 
-  await client.send(
-    new PutObjectCommand({
-      Bucket: BUCKET(),
-      Key: key,
-      Body: file,
-      ContentType: mimeType,
-    }),
-  );
+  await putImmutableObject(client, key, file, { contentType: mimeType });
 
   return key;
 }

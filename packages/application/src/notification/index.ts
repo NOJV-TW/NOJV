@@ -2,16 +2,25 @@ import {
   assessmentRepo,
   contestRepo,
   courseMembershipRepo,
+  durableWorkRepo,
   examRepo,
   notificationRepo,
   participationRepo,
+  runTransaction,
   type NotificationCreateInput,
+  type Prisma,
+  type TransactionClient,
 } from "@nojv/db";
 import { pubsub } from "@nojv/redis";
 import { SSE_NOTIFICATION, type NotificationSSEEvent } from "@nojv/core";
 
 import { listStudentsBelowMaxScore } from "../assignment";
-import { hasEmailSpec, maybeSendEmails } from "./email";
+import {
+  buildNotificationEmailWork,
+  deliverNotificationEmail,
+  notificationEmailWorkPayloadSchema,
+  type NotificationEmailWorkPayload,
+} from "./email";
 import { getEffectiveNotificationPreferences } from "./preferences";
 
 export {
@@ -20,78 +29,139 @@ export {
   getEffectiveNotificationPreferences,
 } from "./preferences";
 
-const NO_SKIPPED_DEDUPE_KEYS: ReadonlySet<string> = new Set<string>();
+export const NOTIFICATION_SSE_WORK_KIND = "notification.sse";
+export const NOTIFICATION_EMAIL_WORK_KIND = "notification.email";
+
+type NotificationSseSnapshot = Omit<NotificationSSEEvent, "params"> & {
+  params: NotificationCreateInput["params"];
+};
+
+export interface NotificationSseWorkPayload {
+  notificationId: string;
+  userId: string;
+  event: NotificationSSEEvent;
+}
 
 function toSseEvent(row: {
   id: string;
   type: string;
-  params: unknown;
+  params: Prisma.JsonValue;
   linkUrl: string | null;
   createdAt: Date;
-}): NotificationSSEEvent {
+}): NotificationSseSnapshot {
   return {
     type: SSE_NOTIFICATION,
     id: row.id,
     notificationType: row.type,
-    params: row.params,
+    params: toInputJson(row.params),
     linkUrl: row.linkUrl,
     createdAt: row.createdAt.toISOString(),
   };
 }
 
-export async function createNotification(input: NotificationCreateInput) {
-  const skipped =
-    hasEmailSpec(input.type) &&
-    input.dedupeKey != null &&
-    (await notificationRepo.listExistingDedupeKeys([input.dedupeKey])).length > 0
-      ? new Set([input.dedupeKey])
-      : NO_SKIPPED_DEDUPE_KEYS;
+interface NotificationDeliveryRow {
+  id: string;
+  userId: string;
+  type: NotificationCreateInput["type"];
+  params: Prisma.JsonValue;
+  linkUrl: string | null;
+  dedupeKey: string | null;
+  createdAt: Date;
+}
 
-  const row = await notificationRepo.createAndCap(input);
-  await pubsub.publishNotification(input.userId, toSseEvent(row));
+function toNotificationInput(row: NotificationDeliveryRow): NotificationCreateInput {
+  return {
+    userId: row.userId,
+    type: row.type,
+    params: toInputJson(row.params),
+    linkUrl: row.linkUrl,
+    dedupeKey: row.dedupeKey,
+  };
+}
 
-  void maybeSendEmails([input], skipped).catch((err: unknown) =>
-    console.warn("[notification-email] dispatch failed:", err),
+function toInputJson(value: Prisma.JsonValue): NotificationCreateInput["params"] {
+  if (value === null) throw new TypeError("Notification params must not be null.");
+  return value;
+}
+
+async function enqueueNotificationDeliveries(
+  tx: TransactionClient,
+  rows: readonly NotificationDeliveryRow[],
+): Promise<void> {
+  if (rows.length === 0) return;
+
+  await durableWorkRepo.withTx(tx).enqueueMany(
+    rows.flatMap((row) => {
+      const input = toNotificationInput(row);
+      const emailWork = buildNotificationEmailWork(row.id, input);
+      return [
+        {
+          kind: NOTIFICATION_SSE_WORK_KIND,
+          dedupeKey: row.id,
+          payload: {
+            notificationId: row.id,
+            userId: row.userId,
+            event: toSseEvent(row),
+          },
+        },
+        {
+          kind: NOTIFICATION_EMAIL_WORK_KIND,
+          dedupeKey: row.id,
+          payload: emailWork,
+        },
+      ];
+    }),
   );
+}
 
+export async function createNotificationInTransaction(
+  tx: TransactionClient,
+  input: NotificationCreateInput,
+) {
+  const { row, created } = await notificationRepo.withTx(tx).createAndCap(input);
+  if (created) {
+    await enqueueNotificationDeliveries(tx, [row]);
+  }
   return row;
 }
 
-export async function createNotificationBatch(inputs: NotificationCreateInput[]) {
+export function createNotification(input: NotificationCreateInput) {
+  return runTransaction((tx) => createNotificationInTransaction(tx, input));
+}
+
+export async function createNotificationBatchInTransaction(
+  tx: TransactionClient,
+  inputs: readonly NotificationCreateInput[],
+): Promise<number> {
   if (inputs.length === 0) return 0;
-
-  const dedupeKeys = inputs.some((i) => hasEmailSpec(i.type))
-    ? inputs.map((i) => i.dedupeKey).filter((k): k is string => k != null)
-    : [];
-  const skipped: ReadonlySet<string> =
-    dedupeKeys.length > 0
-      ? new Set(await notificationRepo.listExistingDedupeKeys(dedupeKeys))
-      : NO_SKIPPED_DEDUPE_KEYS;
-
-  const BATCH = 500;
+  const batchSize = 500;
   let total = 0;
-  for (let i = 0; i < inputs.length; i += BATCH) {
-    total += await notificationRepo.createManyAndCap(inputs.slice(i, i + BATCH));
+  for (let offset = 0; offset < inputs.length; offset += batchSize) {
+    const rows = await notificationRepo
+      .withTx(tx)
+      .createManyAndCap(inputs.slice(offset, offset + batchSize));
+    await enqueueNotificationDeliveries(tx, rows);
+    total += rows.length;
   }
-
-  const firstPerUser = new Map<string, NotificationCreateInput>();
-  for (const input of inputs) {
-    if (!firstPerUser.has(input.userId)) firstPerUser.set(input.userId, input);
-  }
-  for (const [userId, sample] of firstPerUser) {
-    await pubsub.publishNotificationBatchSignal(userId, {
-      notificationType: sample.type,
-      params: sample.params,
-      linkUrl: sample.linkUrl ?? null,
-    });
-  }
-
-  void maybeSendEmails(inputs, skipped).catch((err: unknown) =>
-    console.warn("[notification-email] dispatch failed:", err),
-  );
-
   return total;
 }
+
+export function createNotificationBatch(inputs: NotificationCreateInput[]): Promise<number> {
+  return runTransaction((tx) => createNotificationBatchInTransaction(tx, inputs));
+}
+
+export async function publishNotificationSse(
+  work: NotificationSseWorkPayload,
+): Promise<{ transport: "sse"; outcome: "published"; notificationId: string }> {
+  await pubsub.publishNotification(work.userId, work.event);
+  return { transport: "sse", outcome: "published", notificationId: work.notificationId };
+}
+
+export {
+  deliverNotificationEmail,
+  notificationEmailWorkPayloadSchema,
+  type NotificationEmailWorkPayload,
+};
 
 export async function listRecent(userId: string, limit: number) {
   const safeLimit = Math.min(Math.max(limit, 1), 50);
@@ -118,10 +188,14 @@ export async function deleteAll(userId: string, opts?: { onlyRead?: boolean }) {
   return notificationRepo.deleteAll(userId, opts);
 }
 
-export async function fanoutAssignmentStarted(assignmentId: string): Promise<void> {
+export async function fanoutAssignmentStarted(
+  assignmentId: string,
+  opensAtIso: string,
+): Promise<void> {
   const assignment = await assessmentRepo.findByIdWithCourseId(assignmentId);
   if (!assignment) return;
   if (assignment.status !== "published") return;
+  if (assignment.opensAt.toISOString() !== opensAtIso) return;
   if (assignment.opensAt.getTime() > Date.now()) return;
   if (assignment.closesAt.getTime() <= Date.now()) return;
 
@@ -138,18 +212,20 @@ export async function fanoutAssignmentStarted(assignmentId: string): Promise<voi
         title: assignment.title,
       },
       linkUrl: `/assignments/${assignment.id}`,
-      dedupeKey: `assignment_started:${assignment.id}:${userId}`,
+      dedupeKey: `assignment_started:${assignment.id}:${opensAtIso}:${userId}`,
     })),
   );
 }
 
 export async function fanoutAssignmentDueSoon(
   assignmentId: string,
+  closesAtIso: string,
   leadDays: number,
 ): Promise<void> {
   const assignment = await assessmentRepo.findByIdWithCourseId(assignmentId);
   if (!assignment) return;
   if (assignment.status !== "published") return;
+  if (assignment.closesAt.toISOString() !== closesAtIso) return;
   if (assignment.closesAt.getTime() <= Date.now()) return;
 
   const studentIds = await courseMembershipRepo.listActiveStudentUserIds(assignment.courseId);
@@ -176,15 +252,20 @@ export async function fanoutAssignmentDueSoon(
         dueAt: dueAtIso,
       },
       linkUrl: `/assignments/${assignment.id}`,
-      dedupeKey: `assignment_due_soon:${assignment.id}:${userId}`,
+      dedupeKey: `assignment_due_soon:${assignment.id}:${dueAtIso}:${String(leadDays)}:${userId}`,
     })),
   );
 }
 
-export async function fanoutExamStartingSoon(examId: string, leadDays: number): Promise<void> {
+export async function fanoutExamStartingSoon(
+  examId: string,
+  startsAtIso: string,
+  leadDays: number,
+): Promise<void> {
   const exam = await examRepo.findById(examId);
   if (!exam) return;
   if (exam.status !== "published") return;
+  if (exam.startsAt.toISOString() !== startsAtIso) return;
   if (exam.startsAt.getTime() <= Date.now()) return;
 
   const participantIds = await participationRepo.listExamParticipantUserIds(examId);
@@ -196,7 +277,6 @@ export async function fanoutExamStartingSoon(examId: string, leadDays: number): 
   );
   if (targeted.length === 0) return;
 
-  const startsAtIso = exam.startsAt.toISOString();
   await createNotificationBatch(
     targeted.map((userId) => ({
       userId,
@@ -208,18 +288,20 @@ export async function fanoutExamStartingSoon(examId: string, leadDays: number): 
         startsAt: startsAtIso,
       },
       linkUrl: `/exams/${exam.id}`,
-      dedupeKey: `exam_starting_soon:${exam.id}:${userId}`,
+      dedupeKey: `exam_starting_soon:${exam.id}:${startsAtIso}:${String(leadDays)}:${userId}`,
     })),
   );
 }
 
 export async function fanoutContestStartingSoon(
   contestId: string,
+  startsAtIso: string,
   leadDays: number,
 ): Promise<void> {
   const contest = await contestRepo.findById(contestId);
   if (!contest) return;
   if (contest.visibility !== "published") return;
+  if (contest.startsAt.toISOString() !== startsAtIso) return;
   if (contest.startsAt.getTime() <= Date.now()) return;
 
   const participantIds = await participationRepo.listContestParticipantUserIds(contestId);
@@ -231,7 +313,6 @@ export async function fanoutContestStartingSoon(
   );
   if (targeted.length === 0) return;
 
-  const startsAtIso = contest.startsAt.toISOString();
   await createNotificationBatch(
     targeted.map((userId) => ({
       userId,
@@ -242,7 +323,7 @@ export async function fanoutContestStartingSoon(
         startsAt: startsAtIso,
       },
       linkUrl: `/contests/${contest.id}`,
-      dedupeKey: `contest_starting_soon:${contest.id}:${userId}`,
+      dedupeKey: `contest_starting_soon:${contest.id}:${startsAtIso}:${String(leadDays)}:${userId}`,
     })),
   );
 }

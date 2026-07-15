@@ -28,6 +28,8 @@ import { submissionDomain, IntegrityError, NotFoundError } from "@nojv/applicati
 
 const { getJudgeContext, deriveJudgeMode } = submissionDomain;
 
+const pointer = (key: string) => ({ key, sha256: "a".repeat(64), size: 1 });
+
 function mkProblemRow(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     id: "prob_1",
@@ -49,9 +51,9 @@ function mkProblemRow(overrides: Partial<Record<string, unknown>> = {}) {
         testcases: [
           {
             id: "tc_1",
-            inputKey: "tests/prob_1/tc_1/input.txt",
-            outputKey: "tests/prob_1/tc_1/output.txt",
-            inputFileKeys: null,
+            inputStorage: pointer("tests/prob_1/tc_1/input.txt"),
+            outputStorage: pointer("tests/prob_1/tc_1/output.txt"),
+            inputFileStorage: null,
           },
         ],
       },
@@ -60,7 +62,7 @@ function mkProblemRow(overrides: Partial<Record<string, unknown>> = {}) {
       {
         path: "main.cpp",
         language: "cpp",
-        contentKey: "ws/prob_1/main.cpp",
+        contentStorage: pointer("ws/prob_1/main.cpp"),
         visibility: "editable",
       },
     ],
@@ -110,9 +112,9 @@ describe("getJudgeContext", () => {
 
     expect(readTestcaseBlobs).toHaveBeenCalledTimes(1);
     expect(readTestcaseBlobs).toHaveBeenCalledWith({
-      inputKey: "tests/prob_1/tc_1/input.txt",
-      outputKey: "tests/prob_1/tc_1/output.txt",
-      inputFileKeys: null,
+      inputStorage: pointer("tests/prob_1/tc_1/input.txt"),
+      outputStorage: pointer("tests/prob_1/tc_1/output.txt"),
+      inputFileStorage: null,
     });
     expect(ctx.testcaseSets).toHaveLength(1);
     expect(ctx.testcaseSets[0]!.testcases[0]!.input).toBe("1 2");
@@ -124,7 +126,7 @@ describe("getJudgeContext", () => {
     readWorkspaceFileBlob.mockResolvedValue("// my starter\n");
 
     const ctx = await getJudgeContext("sub_1");
-    expect(readWorkspaceFileBlob).toHaveBeenCalledWith("ws/prob_1/main.cpp");
+    expect(readWorkspaceFileBlob).toHaveBeenCalledWith(pointer("ws/prob_1/main.cpp"));
     expect(ctx.workspaceFiles).toEqual([
       {
         path: "main.cpp",
@@ -135,16 +137,16 @@ describe("getJudgeContext", () => {
     ]);
   });
 
-  it("fetches the checker script from storage via judgeConfig.checkerKey", async () => {
+  it("fetches the checker script from the explicit problem pointer", async () => {
     const row = mkSubmissionRow(
       {},
       {
         judgeConfig: {
           type: "checker",
-          checkerKey: "problems/prob_1/validator/checker",
-          interactorKey: null,
+          checkerLanguage: "python",
           runtime: { env: {}, timeLimitMs: 1000, memoryLimitMb: 256 },
         },
+        checkerStorage: pointer("problems/prob_1/validators/v1/checker"),
       },
     );
     findByIdWithJudgeContext.mockResolvedValue(row);
@@ -152,20 +154,23 @@ describe("getJudgeContext", () => {
 
     const ctx = await getJudgeContext("sub_1");
     expect(ctx.judgeType).toBe("checker");
-    expect(readValidatorScriptBlob).toHaveBeenCalledWith("problems/prob_1/validator/checker");
+    expect(readValidatorScriptBlob).toHaveBeenCalledWith(
+      pointer("problems/prob_1/validators/v1/checker"),
+    );
     expect(ctx.checkerScript).toBe("checker source");
     expect(ctx.interactorScript).toBeNull();
   });
 
-  it("fetches the interactor script from storage via judgeConfig.interactorKey", async () => {
+  it("fetches the interactor script from the explicit problem pointer", async () => {
     const row = mkSubmissionRow(
       {},
       {
         judgeConfig: {
           type: "interactive",
-          interactorKey: "problems/prob_1/validator/interactor",
+          interactorLanguage: "cpp",
           runtime: { env: {}, timeLimitMs: 1000, memoryLimitMb: 256 },
         },
+        interactorStorage: pointer("problems/prob_1/validators/v1/interactor"),
       },
     );
     findByIdWithJudgeContext.mockResolvedValue(row);
@@ -174,7 +179,7 @@ describe("getJudgeContext", () => {
     const ctx = await getJudgeContext("sub_1");
     expect(ctx.judgeType).toBe("interactive");
     expect(readValidatorScriptBlob).toHaveBeenCalledWith(
-      "problems/prob_1/validator/interactor",
+      pointer("problems/prob_1/validators/v1/interactor"),
     );
     expect(ctx.interactorScript).toBe("interactor source");
   });
@@ -197,7 +202,7 @@ describe("getJudgeContext", () => {
     await expect(getJudgeContext("sub_1")).rejects.toBeInstanceOf(IntegrityError);
   });
 
-  it("fails closed when persisted testcase inputFileKeys is invalid", async () => {
+  it("propagates fail-closed pointer validation from the testcase blob reader", async () => {
     const row = mkSubmissionRow(
       {},
       {
@@ -210,9 +215,9 @@ describe("getJudgeContext", () => {
             testcases: [
               {
                 id: "tc_bad",
-                inputKey: "in",
-                outputKey: "out",
-                inputFileKeys: { "a.txt": 42 },
+                inputStorage: pointer("in"),
+                outputStorage: pointer("out"),
+                inputFileStorage: { "a.txt": 42 },
               },
             ],
           },
@@ -220,6 +225,7 @@ describe("getJudgeContext", () => {
       },
     );
     findByIdWithJudgeContext.mockResolvedValue(row);
+    readTestcaseBlobs.mockRejectedValueOnce(new IntegrityError("Malformed pointer map"));
 
     await expect(getJudgeContext("sub_1")).rejects.toBeInstanceOf(IntegrityError);
   });

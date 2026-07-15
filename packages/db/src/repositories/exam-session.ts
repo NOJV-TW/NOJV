@@ -139,6 +139,14 @@ export const examSessionRepo = {
         });
       },
 
+      closeActiveForExam(examId: string, endedAt: Date) {
+        return tx.activeExamSession.updateManyAndReturn({
+          where: { examId, endedAt: null },
+          data: { endedAt, releaseReason: "time_up" },
+          select: { id: true },
+        });
+      },
+
       create(data: Prisma.ActiveExamSessionUncheckedCreateInput) {
         return tx.activeExamSession.create({ data });
       },

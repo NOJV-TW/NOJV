@@ -120,10 +120,22 @@ export const examRepo = {
     });
   },
 
-  listNeedingTimers(now: Date) {
+  listNeedingTimers(input: { now: Date; afterId?: string; take: number }) {
     return prisma.exam.findMany({
-      select: { id: true, startsAt: true, endsAt: true },
-      where: { status: "published", endsAt: { gt: now } },
+      select: {
+        id: true,
+        startsAt: true,
+        endsAt: true,
+        scheduleRevision: true,
+        timerFingerprint: true,
+      },
+      orderBy: { id: "asc" },
+      take: input.take,
+      where: {
+        status: "published",
+        ...(input.afterId ? { id: { gt: input.afterId } } : {}),
+        OR: [{ endsAt: { gt: input.now } }, { activeSessions: { some: { endedAt: null } } }],
+      },
     });
   },
 
@@ -247,7 +259,12 @@ export const examRepo = {
         return tx.exam.findUnique({ where: { id } });
       },
 
-      listByCourseIdAllWithProblems(courseId: string) {
+      lockForUpdate(examId: string) {
+        return tx.$queryRaw`SELECT id FROM "Exam" WHERE id = ${examId} FOR UPDATE`;
+      },
+
+      async listByCourseIdAllWithProblems(courseId: string) {
+        await tx.$queryRaw`SELECT id FROM "Exam" WHERE "courseId" = ${courseId} FOR UPDATE`;
         return tx.exam.findMany({
           where: { courseId },
           orderBy: { startsAt: "asc" },

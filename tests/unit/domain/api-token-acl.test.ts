@@ -20,6 +20,8 @@ describe("API token ACL route whitelist", () => {
     expect(findApiTokenRouteRule("DELETE", "/api/notifications")).toBeNull();
     expect(findApiTokenRouteRule("GET", "/api/admin/users")).toBeNull();
     expect(findApiTokenRouteRule("POST", "/api/problems/prob_1/bundle")).toBeNull();
+    expect(findApiTokenRouteRule("GET", "/api/livez")).toBeNull();
+    expect(findApiTokenRouteRule("GET", "/api/readyz")).toBeNull();
   });
 
   it("allows read-only token routes for own data and scoreboards", () => {

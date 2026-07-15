@@ -1,9 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { sendEmail, findManyByUserIds, listEmailByIds } = vi.hoisted(() => ({
-  sendEmail: vi.fn().mockResolvedValue(undefined),
-  findManyByUserIds: vi.fn(),
-  listEmailByIds: vi.fn(),
+import type { NotificationCreateInput } from "@nojv/db";
+import type { SendEmailInput, SendEmailResult } from "@nojv/mailer";
+
+const { findEmailDeliveryContext, sendEmail } = vi.hoisted(() => ({
+  findEmailDeliveryContext: vi.fn(),
+  sendEmail: vi
+    .fn<(input: SendEmailInput) => Promise<SendEmailResult>>()
+    .mockResolvedValue("accepted"),
+}));
+
+vi.mock("@nojv/db", () => ({
+  notificationRepo: { findEmailDeliveryContext },
 }));
 
 vi.mock("@nojv/mailer", () => ({
@@ -12,304 +20,241 @@ vi.mock("@nojv/mailer", () => ({
   renderEmail: (content: unknown) => JSON.stringify(content),
 }));
 
-vi.mock("@nojv/redis", () => ({
-  pubsub: {
-    publishNotification: vi.fn(),
-    publishNotificationBatchSignal: vi.fn(),
-  },
-}));
+import {
+  buildNotificationEmailWork,
+  deliverNotificationEmail,
+} from "../../../packages/application/src/notification/email";
 
-vi.mock("@nojv/db", () => ({
-  assessmentRepo: {},
-  contestRepo: {},
-  courseMembershipRepo: {},
-  examRepo: {},
-  participationRepo: {},
-  notificationRepo: {
-    createAndCap: vi.fn(),
-    createManyAndCap: vi.fn(),
-    listExistingDedupeKeys: vi.fn(),
-  },
-  notificationPreferenceRepo: { findManyByUserIds },
-  userRepo: { listEmailByIds },
-}));
+function input(
+  type: NotificationCreateInput["type"],
+  params: NotificationCreateInput["params"],
+): NotificationCreateInput {
+  return { userId: "user-1", type, params, linkUrl: "/target" };
+}
 
-import { maybeSendEmails } from "../../../packages/application/src/notification/email";
-
-const NO_SKIP: ReadonlySet<string> = new Set<string>();
-
-function verifiedUser(id: string, email = `${id}@example.com`) {
-  return { id, email, emailVerified: true };
+function currentContext(
+  recipient: Partial<{
+    email: string;
+    emailVerified: boolean;
+    disabled: boolean;
+    status: "active" | "pending_first_login";
+    notificationPreference: Record<string, unknown> | null;
+  }> = {},
+) {
+  return {
+    recipientExists: true,
+    notification: {
+      userId: "user-1",
+      type: "course_enrolled",
+      params: { courseName: "Algorithms" },
+      user: {
+        email: "student@example.com",
+        emailVerified: true,
+        disabled: false,
+        status: "active" as const,
+        notificationPreference: null,
+        ...recipient,
+      },
+    },
+  };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  findManyByUserIds.mockResolvedValue([]);
-  listEmailByIds.mockResolvedValue([]);
-  sendEmail.mockResolvedValue(undefined);
+  findEmailDeliveryContext.mockResolvedValue(currentContext());
+  sendEmail.mockResolvedValue("accepted");
 });
 
-describe("maybeSendEmails", () => {
-  it("does not send when the matching preference is disabled", async () => {
-    findManyByUserIds.mockResolvedValue([{ userId: "u1", emailAssignmentStarted: false }]);
-    listEmailByIds.mockResolvedValue([verifiedUser("u1")]);
+describe("notification email durable delivery", () => {
+  it.each([
+    ["assignment_started", { title: "作業" }, "作業", "emailAssignmentStarted"],
+    ["assignment_due_soon", { title: "作業" }, "作業", "emailAssignmentDueSoon"],
+    ["exam_starting_soon", { title: "考試" }, "考試", "emailExamStarting"],
+    ["contest_starting_soon", { title: "比賽" }, "比賽", "emailContestStarting"],
+    ["announcement_published", { titleZhTw: "公告" }, "公告", "emailSystemAnnouncement"],
+    ["course_enrolled", { courseName: "演算法" }, "演算法", "emailCourseEnrolled"],
+    ["role_changed", { newRole: "teacher" }, "權限", "emailRoleChanged"],
+    ["editorial_removed", { title: "題解" }, "題解", "emailEditorialRemoved"],
+    ["post_removed", { title: "文章" }, "文章", "emailEditorialRemoved"],
+    ["comment_removed", { postTitle: "文章" }, "文章", "emailEditorialRemoved"],
+  ] as const)(
+    "snapshots immutable content and event identity for supported type %s",
+    (type, params, expectedText, preferenceKey) => {
+      const work = buildNotificationEmailWork(`notification-${type}`, input(type, params));
 
-    await maybeSendEmails(
-      [
-        {
-          userId: "u1",
-          type: "assignment_started",
-          params: { title: "作業一" },
-          linkUrl: "/assignments/a1",
-        },
-      ],
-      NO_SKIP,
+      expect(work).toMatchObject({
+        disposition: "send",
+        userId: "user-1",
+        notificationType: type,
+        preferenceKey,
+        messageId: `<notification.notification-${type}@nojv.local>`,
+      });
+      if (work.disposition !== "send") throw new Error("Expected send work.");
+      expect(work).not.toHaveProperty("to");
+      expect(work.subject).toContain(expectedText);
+      expect(work.html).toContain("https://nojv.tw/target");
+    },
+  );
+
+  it("records unsupported types as an explicit terminal suppression", async () => {
+    const work = buildNotificationEmailWork(
+      "unsupported",
+      input("clarification_answered", { clarificationId: "clarification-1" }),
     );
 
+    await expect(deliverNotificationEmail(work)).resolves.toEqual({
+      transport: "email",
+      outcome: "suppressed",
+      reason: "unsupported_notification_type",
+    });
+    expect(findEmailDeliveryContext).not.toHaveBeenCalled();
     expect(sendEmail).not.toHaveBeenCalled();
   });
 
-  it("does not send when the dedupeKey was skipped in-app", async () => {
-    listEmailByIds.mockResolvedValue([verifiedUser("u1")]);
+  it.each([
+    [
+      "notification deletion",
+      { notification: null, recipientExists: true },
+      "notification_missing",
+    ],
+    ["account deletion", { notification: null, recipientExists: false }, "missing_recipient"],
+    ["account disable", currentContext({ disabled: true }), "recipient_disabled"],
+    [
+      "account status change",
+      currentContext({ status: "pending_first_login" }),
+      "recipient_inactive",
+    ],
+    [
+      "email verification revocation",
+      currentContext({ emailVerified: false }),
+      "unverified_recipient",
+    ],
+    [
+      "address replacement with a placeholder",
+      currentContext({ email: "student@placeholder.nojv.local" }),
+      "placeholder_recipient",
+    ],
+    [
+      "preference opt-out",
+      currentContext({ notificationPreference: { emailCourseEnrolled: false } }),
+      "preference_disabled",
+    ],
+  ] as const)(
+    "suppresses %s that occurs after enqueue and before delivery",
+    async (_transition, context, reason) => {
+      findEmailDeliveryContext.mockResolvedValue(context);
+      const work = buildNotificationEmailWork(
+        "notification-1",
+        input("course_enrolled", { courseName: "Algorithms" }),
+      );
 
-    await maybeSendEmails(
-      [
-        {
-          userId: "u1",
-          type: "assignment_due_soon",
-          params: { title: "作業一" },
-          linkUrl: "/assignments/a1",
-          dedupeKey: "assignment_due_soon:a1:u1",
-        },
-      ],
-      new Set(["assignment_due_soon:a1:u1"]),
+      await expect(deliverNotificationEmail(work)).resolves.toEqual({
+        transport: "email",
+        outcome: "suppressed",
+        reason,
+      });
+      expect(sendEmail).not.toHaveBeenCalled();
+    },
+  );
+
+  it("resolves the current verified address at execution instead of using the enqueued address", async () => {
+    findEmailDeliveryContext.mockResolvedValue(
+      currentContext({ email: "current@example.com" }),
+    );
+    const work = buildNotificationEmailWork(
+      "notification-1",
+      input("course_enrolled", { courseName: "Algorithms" }),
     );
 
-    expect(sendEmail).not.toHaveBeenCalled();
-  });
-
-  it("never sends for a type without an email spec (clarification_answered)", async () => {
-    listEmailByIds.mockResolvedValue([verifiedUser("u1")]);
-
-    await maybeSendEmails(
-      [
-        {
-          userId: "u1",
-          type: "clarification_answered",
-          params: { questionPreview: "hi" },
-          linkUrl: "/contests/c1",
-        },
-      ],
-      NO_SKIP,
-    );
-
-    expect(sendEmail).not.toHaveBeenCalled();
-    expect(findManyByUserIds).not.toHaveBeenCalled();
-  });
-
-  it("routes announcement preference by courseId presence", async () => {
-    findManyByUserIds.mockResolvedValue([
-      { userId: "u1", emailCourseAnnouncement: false, emailSystemAnnouncement: true },
-    ]);
-    listEmailByIds.mockResolvedValue([verifiedUser("u1")]);
-
-    await maybeSendEmails(
-      [
-        {
-          userId: "u1",
-          type: "announcement_published",
-          params: {
-            announcementId: "an1",
-            titleEn: "Course news",
-            titleZhTw: "課程公告",
-            courseId: "c1",
-          },
-          linkUrl: null,
-        },
-        {
-          userId: "u1",
-          type: "announcement_published",
-          params: { announcementId: "an2", titleEn: "System news", titleZhTw: "系統公告" },
-          linkUrl: null,
-        },
-      ],
-      NO_SKIP,
-    );
-
-    expect(sendEmail).toHaveBeenCalledTimes(1);
+    await expect(deliverNotificationEmail(work)).resolves.toMatchObject({
+      outcome: "accepted",
+      deliverySemantics: "at_least_once",
+    });
     expect(sendEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ subject: "【NOJV】新公告：系統公告" }),
+      expect.objectContaining({
+        to: "current@example.com",
+        messageId: "<notification.notification-1@nojv.local>",
+      }),
     );
   });
 
-  it("skips unverified and placeholder emails", async () => {
-    listEmailByIds.mockResolvedValue([
-      verifiedUser("u1"),
-      { id: "u2", email: "u2@example.com", emailVerified: false },
-      { id: "u3", email: "placeholder+bob@placeholder.nojv.local", emailVerified: true },
-      { id: "u4", email: "deleted+x@deleted.nojv.local", emailVerified: true },
-    ]);
-
-    await maybeSendEmails(
-      ["u1", "u2", "u3", "u4"].map((userId) => ({
-        userId,
-        type: "course_enrolled" as const,
-        params: { courseId: "c1", courseName: "演算法" },
-        linkUrl: "/courses/c1",
-      })),
-      NO_SKIP,
+  it("rejects a durable payload whose immutable event identity does not match the row", async () => {
+    findEmailDeliveryContext.mockResolvedValue({
+      ...currentContext(),
+      notification: { ...currentContext().notification, userId: "different-user" },
+    });
+    const work = buildNotificationEmailWork(
+      "notification-1",
+      input("course_enrolled", { courseName: "Algorithms" }),
     );
 
-    expect(sendEmail).toHaveBeenCalledTimes(1);
-    expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ to: "u1@example.com" }));
+    await expect(deliverNotificationEmail(work)).rejects.toThrow(
+      "Notification email work identity mismatch",
+    );
+    expect(sendEmail).not.toHaveBeenCalled();
   });
 
-  it("keeps sending when one email throws", async () => {
-    listEmailByIds.mockResolvedValue([verifiedUser("u1"), verifiedUser("u2")]);
-    sendEmail.mockRejectedValueOnce(new Error("smtp down"));
+  it("uses at-least-once SMTP delivery with a stable Message-ID across retries", async () => {
+    const work = buildNotificationEmailWork(
+      "notification-1",
+      input("course_enrolled", { courseName: "Algorithms" }),
+    );
 
-    await expect(
-      maybeSendEmails(
-        ["u1", "u2"].map((userId) => ({
-          userId,
-          type: "role_changed" as const,
-          params: { oldRole: "student", newRole: "teacher" },
-          linkUrl: "/account",
-        })),
-        NO_SKIP,
-      ),
-    ).resolves.toBeUndefined();
+    const first = await deliverNotificationEmail(work);
+    const retryAfterAcceptanceBeforeCompletion = await deliverNotificationEmail(work);
 
+    expect(first).toEqual({
+      transport: "email",
+      outcome: "accepted",
+      deliverySemantics: "at_least_once",
+      messageId: "<notification.notification-1@nojv.local>",
+    });
+    expect(retryAfterAcceptanceBeforeCompletion).toEqual(first);
     expect(sendEmail).toHaveBeenCalledTimes(2);
+    expect(sendEmail).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ messageId: "<notification.notification-1@nojv.local>" }),
+    );
+    expect(sendEmail).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ messageId: "<notification.notification-1@nojv.local>" }),
+    );
   });
 
-  it("assembles subject and absolute action url", async () => {
-    listEmailByIds.mockResolvedValue([verifiedUser("u1")]);
-
-    await maybeSendEmails(
-      [
-        {
-          userId: "u1",
-          type: "assignment_due_soon",
-          params: { title: "作業一" },
-          linkUrl: "/assignments/a1",
-        },
-      ],
-      NO_SKIP,
+  it("persists mailer suppression as a distinct result", async () => {
+    sendEmail.mockResolvedValue("suppressed");
+    const work = buildNotificationEmailWork(
+      "notification-1",
+      input("course_enrolled", { courseName: "Algorithms" }),
     );
 
-    expect(sendEmail).toHaveBeenCalledTimes(1);
-    const arg = sendEmail.mock.calls[0][0] as { to: string; subject: string; html: string };
-    expect(arg.to).toBe("u1@example.com");
-    expect(arg.subject).toBe("【NOJV】作業「作業一」即將截止");
-    expect(arg.html).toContain("https://nojv.tw/assignments/a1");
-    expect(arg.html).toContain("前往查看");
+    await expect(deliverNotificationEmail(work)).resolves.toEqual({
+      transport: "email",
+      outcome: "suppressed",
+      reason: "mailer_suppressed",
+      messageId: "<notification.notification-1@nojv.local>",
+    });
   });
 
-  it("uses the editorial title for editorial_removed", async () => {
-    listEmailByIds.mockResolvedValue([verifiedUser("u1")]);
-
-    await maybeSendEmails(
-      [
-        {
-          userId: "u1",
-          type: "editorial_removed",
-          params: { problemId: "p1", title: "二分搜解法" },
-          linkUrl: "/problems/p1",
-        },
-      ],
-      NO_SKIP,
+  it("propagates SMTP failure for database-owned retry", async () => {
+    sendEmail.mockRejectedValue(new Error("smtp down"));
+    const work = buildNotificationEmailWork(
+      "notification-1",
+      input("course_enrolled", { courseName: "Algorithms" }),
     );
 
-    expect(sendEmail).toHaveBeenCalledTimes(1);
-    const arg = sendEmail.mock.calls[0][0] as { subject: string; html: string };
-    expect(arg.subject).toBe("【NOJV】你的題解〈二分搜解法〉已被移除");
-    expect(arg.html).toContain("二分搜解法");
+    await expect(deliverNotificationEmail(work)).rejects.toThrow("smtp down");
   });
 
-  it("uses the post title for post_removed and gates on emailEditorialRemoved", async () => {
-    findManyByUserIds.mockResolvedValue([{ userId: "u1", emailEditorialRemoved: true }]);
-    listEmailByIds.mockResolvedValue([verifiedUser("u1")]);
-
-    await maybeSendEmails(
-      [
-        {
-          userId: "u1",
-          type: "post_removed",
-          params: { problemId: "p1", title: "貪心解法" },
-          linkUrl: "/problems/p1",
-        },
-      ],
-      NO_SKIP,
+  it("escapes HTML body content while keeping the plain-text subject", () => {
+    const work = buildNotificationEmailWork(
+      "notification-1",
+      input("assignment_started", { title: '<a href="evil">x</a>' }),
     );
 
-    expect(sendEmail).toHaveBeenCalledTimes(1);
-    const arg = sendEmail.mock.calls[0][0] as { subject: string; html: string };
-    expect(arg.subject).toBe("【NOJV】你的文章〈貪心解法〉已被移除");
-    expect(arg.html).toContain("文章已被移除");
-    expect(arg.html).toContain("貪心解法");
-  });
-
-  it("uses the post title for comment_removed and respects a disabled emailEditorialRemoved", async () => {
-    findManyByUserIds.mockResolvedValue([
-      { userId: "u1", emailEditorialRemoved: true },
-      { userId: "u2", emailEditorialRemoved: false },
-    ]);
-    listEmailByIds.mockResolvedValue([verifiedUser("u1"), verifiedUser("u2")]);
-
-    await maybeSendEmails(
-      ["u1", "u2"].map((userId) => ({
-        userId,
-        type: "comment_removed" as const,
-        params: { problemId: "p1", postTitle: "貪心解法" },
-        linkUrl: "/problems/p1",
-      })),
-      NO_SKIP,
-    );
-
-    expect(sendEmail).toHaveBeenCalledTimes(1);
-    const arg = sendEmail.mock.calls[0][0] as { to: string; subject: string; html: string };
-    expect(arg.to).toBe("u1@example.com");
-    expect(arg.subject).toBe("【NOJV】你在〈貪心解法〉下的留言已被移除");
-    expect(arg.html).toContain("留言已被移除");
-  });
-
-  it("escapes HTML in the body but leaves the subject as plain text", async () => {
-    listEmailByIds.mockResolvedValue([verifiedUser("u1")]);
-
-    await maybeSendEmails(
-      [
-        {
-          userId: "u1",
-          type: "assignment_started",
-          params: { title: '<a href="evil">x</a>' },
-          linkUrl: "/assignments/a1",
-        },
-      ],
-      NO_SKIP,
-    );
-
-    expect(sendEmail).toHaveBeenCalledTimes(1);
-    const arg = sendEmail.mock.calls[0][0] as { subject: string; html: string };
-    expect(arg.subject).toBe('【NOJV】作業「<a href="evil">x</a>」已開始');
-    expect(arg.html).toContain("&lt;a href=&quot;evil&quot;&gt;x&lt;/a&gt;");
-    expect(arg.html).not.toContain('<a href="evil">');
-  });
-
-  it("skips a wanted user missing from the email lookup", async () => {
-    listEmailByIds.mockResolvedValue([verifiedUser("u1")]);
-
-    await maybeSendEmails(
-      ["u1", "u2"].map((userId) => ({
-        userId,
-        type: "course_enrolled" as const,
-        params: { courseId: "c1", courseName: "演算法" },
-        linkUrl: "/courses/c1",
-      })),
-      NO_SKIP,
-    );
-
-    expect(sendEmail).toHaveBeenCalledTimes(1);
-    expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ to: "u1@example.com" }));
+    if (work.disposition !== "send") throw new Error("Expected send work.");
+    expect(work.subject).toContain('<a href="evil">x</a>');
+    expect(work.html).toContain("&lt;a href=&quot;evil&quot;&gt;x&lt;/a&gt;");
+    expect(work.html).not.toContain('<a href="evil">');
   });
 });

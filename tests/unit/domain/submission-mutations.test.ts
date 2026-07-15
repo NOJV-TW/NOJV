@@ -13,7 +13,9 @@ const {
   workspaceFindByProblemId,
   submissionCountForUserAssessmentProblemSince,
   submissionCreate,
+  submissionPublishPendingUpload,
   submissionUpdateStatus,
+  submissionUpdateStatusIfIn,
   submissionFindMostRecent,
   examSessionFindActiveForUser,
   examFindById,
@@ -21,7 +23,12 @@ const {
   txAssessmentProblemFindFirst,
   txContestProblemFindFirst,
   txExecuteRaw,
+  durableWorkEnqueue,
+  durableWorkEnqueueMany,
+  durableWorkCancel,
+  proctoringGateInTx,
   storageRef,
+  transactionState,
 } = vi.hoisted(() => ({
   problemFindById: vi.fn(),
   userFindById: vi.fn(),
@@ -33,7 +40,9 @@ const {
   workspaceFindByProblemId: vi.fn(),
   submissionCountForUserAssessmentProblemSince: vi.fn(),
   submissionCreate: vi.fn(),
+  submissionPublishPendingUpload: vi.fn(),
   submissionUpdateStatus: vi.fn(),
+  submissionUpdateStatusIfIn: vi.fn(),
   submissionFindMostRecent: vi.fn(),
   examSessionFindActiveForUser: vi.fn(),
   examFindById: vi.fn(),
@@ -41,13 +50,22 @@ const {
   txAssessmentProblemFindFirst: vi.fn(),
   txContestProblemFindFirst: vi.fn(),
   txExecuteRaw: vi.fn(),
+  durableWorkEnqueue: vi.fn(),
+  durableWorkEnqueueMany: vi.fn(),
+  durableWorkCancel: vi.fn(),
+  proctoringGateInTx: vi.fn(),
   storageRef: { client: null as unknown as { send: (cmd: unknown) => Promise<unknown> } },
+  transactionState: { calls: 0, depth: 0 },
 }));
 
 vi.mock("@nojv/db", () => {
   return {
     problemRepo: {
       withTx: () => ({ findById: problemFindById }),
+    },
+    durableWorkRepo: {
+      enqueueMany: durableWorkEnqueueMany,
+      withTx: () => ({ enqueue: durableWorkEnqueue, cancel: durableWorkCancel }),
     },
     userRepo: {
       withTx: () => ({
@@ -91,14 +109,29 @@ vi.mock("@nojv/db", () => {
         countForUserAssessmentProblemSince: submissionCountForUserAssessmentProblemSince,
         create: submissionCreate,
         findMostRecent: submissionFindMostRecent,
+        publishPendingUpload: submissionPublishPendingUpload,
       }),
       updateStatus: submissionUpdateStatus,
+      updateStatusIfIn: submissionUpdateStatusIfIn,
     },
     runTransaction: async <T>(
       fn: (tx: { $executeRaw: typeof txExecuteRaw }) => Promise<T>,
-    ): Promise<T> => fn({ $executeRaw: txExecuteRaw }),
+    ): Promise<T> => {
+      transactionState.calls += 1;
+      transactionState.depth += 1;
+      try {
+        return await fn({ $executeRaw: txExecuteRaw });
+      } finally {
+        transactionState.depth -= 1;
+      }
+    },
+    Prisma: { DbNull: null },
   };
 });
+
+vi.mock("../../../packages/application/src/proctoring/gate", () => ({
+  checkProctoringGateInTx: proctoringGateInTx,
+}));
 
 vi.mock("../../../packages/application/src/shared/storage-singleton", () => ({
   storage: () => storageRef.client,
@@ -140,6 +173,8 @@ function setupSubmitPipelineDefaults(
   maxAttemptsPerDay: number | null,
   attemptResetMinuteOfDay: number | null = null,
 ) {
+  transactionState.calls = 0;
+  transactionState.depth = 0;
   storageRef.client = createInMemoryStorage() as unknown as typeof storageRef.client;
   const user = {
     id: fakeActor.userId,
@@ -174,25 +209,33 @@ function setupSubmitPipelineDefaults(
   txAssessmentProblemFindFirst.mockResolvedValue({ id: "cap_1" });
   txContestProblemFindFirst.mockResolvedValue(null);
   workspaceFindByProblemId.mockResolvedValue([]);
+  durableWorkEnqueue.mockResolvedValue({});
+  durableWorkEnqueueMany.mockResolvedValue([]);
+  durableWorkCancel.mockResolvedValue(true);
   submissionCreate.mockImplementation(async (data: unknown) => ({
     id: `sub_${Math.random().toString(36).slice(2, 8)}`,
     ...(data as object),
   }));
+  submissionPublishPendingUpload.mockImplementation(
+    async (id: string, sourceStorage: unknown) => ({ id, sourceStorage, status: "queued" }),
+  );
   submissionUpdateStatus.mockImplementation(async (id: string, status: string) => ({
     id,
     status,
   }));
+  submissionUpdateStatusIfIn.mockResolvedValue({ count: 1 });
 }
 
 const baseDraft = {
+  context: {
+    type: "assignment" as const,
+    courseId: fakeCourse.id,
+    assessmentId: fakeAssessmentBase.id,
+  },
   problemId: fakeProblem.id,
   language: "python" as const,
   sourceCode: "print('hi')",
   sampleOnly: false,
-  assessment: {
-    courseId: fakeCourse.id,
-    assessmentId: fakeAssessmentBase.id,
-  },
 };
 
 describe("createQueuedSubmissionRecord — per-day attempt limit", () => {
@@ -414,6 +457,7 @@ describe("createQueuedSubmissionRecord — language gating by problem type", () 
 
 describe("createQueuedSubmissionRecord — exam time window", () => {
   const examDraft = {
+    context: { type: "exam" as const, examId: "exam_window" },
     problemId: fakeProblem.id,
     language: "python" as const,
     sourceCode: "print('hi')",
@@ -421,6 +465,8 @@ describe("createQueuedSubmissionRecord — exam time window", () => {
   };
 
   function setupExamSubmitDefaults(endsAt: Date) {
+    transactionState.calls = 0;
+    transactionState.depth = 0;
     storageRef.client = createInMemoryStorage() as unknown as typeof storageRef.client;
     const user = {
       id: fakeActor.userId,
@@ -441,15 +487,26 @@ describe("createQueuedSubmissionRecord — exam time window", () => {
       endedAt: null,
     });
     examProblemExists.mockResolvedValue(true);
+    proctoringGateInTx.mockResolvedValue({ ok: true });
     examFindById.mockResolvedValue({
       id: "exam_window",
+      status: "published",
+      allowedLanguages: [],
       startsAt: new Date("2026-04-14T09:00:00.000Z"),
       endsAt,
+      submitCooldownSec: 0,
     });
     submissionCreate.mockImplementation(async (data: unknown) => ({
       id: "sub_exam",
       ...(data as object),
     }));
+    submissionPublishPendingUpload.mockImplementation(
+      async (id: string, sourceStorage: unknown) => ({ id, sourceStorage, status: "queued" }),
+    );
+    submissionUpdateStatusIfIn.mockResolvedValue({ count: 1 });
+    durableWorkEnqueue.mockResolvedValue({});
+    durableWorkEnqueueMany.mockResolvedValue([]);
+    durableWorkCancel.mockResolvedValue(true);
   }
 
   beforeEach(() => {
@@ -479,14 +536,16 @@ describe("createQueuedSubmissionRecord — exam time window", () => {
       createQueuedSubmissionRecord(examDraft, fakeActor, "127.0.0.1"),
     ).resolves.toBeDefined();
     expect(submissionCreate).toHaveBeenCalledTimes(1);
-    const arg = submissionCreate.mock.calls[0][0] as { examId: string | null };
-    expect(arg.examId).toBe("exam_window");
+    const arg = submissionCreate.mock.calls[0][0] as { context: unknown };
+    expect(arg.context).toEqual({ type: "exam", examId: "exam_window" });
   });
 
   it("enforces the exam submit cooldown when a recent submission exists", async () => {
     setupExamSubmitDefaults(new Date("2026-04-14T10:00:00.000Z"));
     examFindById.mockResolvedValue({
       id: "exam_window",
+      status: "published",
+      allowedLanguages: [],
       startsAt: new Date("2026-04-14T09:00:00.000Z"),
       endsAt: new Date("2026-04-14T10:00:00.000Z"),
       submitCooldownSec: 30,
@@ -506,6 +565,8 @@ describe("createQueuedSubmissionRecord — exam time window", () => {
     setupExamSubmitDefaults(new Date("2026-04-14T10:00:00.000Z"));
     examFindById.mockResolvedValue({
       id: "exam_window",
+      status: "published",
+      allowedLanguages: [],
       startsAt: new Date("2026-04-14T09:00:00.000Z"),
       endsAt: new Date("2026-04-14T10:00:00.000Z"),
       submitCooldownSec: 30,
@@ -517,5 +578,167 @@ describe("createQueuedSubmissionRecord — exam time window", () => {
       createQueuedSubmissionRecord(examDraft, fakeActor, "127.0.0.1"),
     ).resolves.toBeDefined();
     expect(submissionCreate).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("createQueuedSubmissionRecord — upload intention lifecycle", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("keeps slow object storage outside both short database transactions", async () => {
+    setupSubmitPipelineDefaults(null);
+    vi.setSystemTime(new Date("2026-04-14T10:00:00.000Z"));
+    const backing = createInMemoryStorage();
+    storageRef.client = {
+      send: vi.fn(async (command: unknown) => {
+        expect(transactionState.depth).toBe(0);
+        return backing.client.send(command as never);
+      }),
+    };
+
+    await createQueuedSubmissionRecord(baseDraft, fakeActor, "127.0.0.1");
+
+    expect(transactionState.calls).toBe(2);
+    expect(submissionCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        createdAt: new Date("2026-04-14T10:00:00.000Z"),
+        sourceStorage: null,
+        status: "pending_upload",
+      }),
+    );
+    expect(submissionPublishPendingUpload).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses receipt time when object upload crosses an assignment deadline", async () => {
+    setupSubmitPipelineDefaults(null);
+    assessmentFindByCompositeId.mockResolvedValue({
+      ...fakeAssessmentBase,
+      maxAttemptsPerDay: null,
+      attemptResetMinuteOfDay: null,
+      status: "published",
+      opensAt: new Date("2026-04-14T09:00:00.000Z"),
+      closesAt: new Date("2026-04-14T10:00:00.000Z"),
+    });
+    const receivedAt = new Date("2026-04-14T09:59:59.900Z");
+    vi.setSystemTime(receivedAt);
+    const backing = createInMemoryStorage();
+    let crossedDeadline = false;
+    storageRef.client = {
+      send: vi.fn(async (command: unknown) => {
+        const commandName = (command as { constructor: { name: string } }).constructor.name;
+        if (!crossedDeadline && commandName === "PutObjectCommand") {
+          crossedDeadline = true;
+          vi.setSystemTime(new Date("2026-04-14T10:00:00.100Z"));
+        }
+        return backing.client.send(command as never);
+      }),
+    };
+
+    await expect(
+      createQueuedSubmissionRecord(baseDraft, fakeActor, "127.0.0.1"),
+    ).resolves.toEqual(expect.objectContaining({ status: "queued" }));
+
+    expect(submissionCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ createdAt: receivedAt, status: "pending_upload" }),
+    );
+    expect(vi.getMockedSystemTime()).toEqual(new Date("2026-04-14T10:00:00.100Z"));
+  });
+
+  it("reserves the daily limit before upload so a concurrent request cannot overbook it", async () => {
+    setupSubmitPipelineDefaults(1);
+    vi.setSystemTime(new Date("2026-04-14T10:00:00.000Z"));
+    const rows: { id: string; status: string; sourceStorage: unknown }[] = [];
+    submissionCountForUserAssessmentProblemSince.mockImplementation(
+      async () => rows.filter(({ status }) => status !== "system_error").length,
+    );
+    submissionCreate.mockImplementation(async (data: Record<string, unknown>) => {
+      const row = {
+        id: data.id as string,
+        status: data.status as string,
+        sourceStorage: data.sourceStorage,
+      };
+      rows.push(row);
+      return { ...data, ...row };
+    });
+    submissionPublishPendingUpload.mockImplementation(
+      async (id: string, sourceStorage: unknown) => {
+        const row = rows.find((candidate) => candidate.id === id);
+        if (!row) throw new Error("missing upload intention");
+        row.status = "queued";
+        row.sourceStorage = sourceStorage;
+        return { ...row };
+      },
+    );
+
+    const backing = createInMemoryStorage();
+    let resolveUploadStarted!: () => void;
+    let resolveReleaseUpload!: () => void;
+    const uploadStarted = new Promise<void>((resolve) => {
+      resolveUploadStarted = resolve;
+    });
+    const releaseUpload = new Promise<void>((resolve) => {
+      resolveReleaseUpload = resolve;
+    });
+    let heldFirstPut = false;
+    storageRef.client = {
+      send: vi.fn(async (command: unknown) => {
+        const commandName = (command as { constructor: { name: string } }).constructor.name;
+        if (!heldFirstPut && commandName === "PutObjectCommand") {
+          heldFirstPut = true;
+          resolveUploadStarted();
+          await releaseUpload;
+        }
+        return backing.client.send(command as never);
+      }),
+    };
+
+    const first = createQueuedSubmissionRecord(baseDraft, fakeActor, "127.0.0.1");
+    await uploadStarted;
+    const secondResult = await createQueuedSubmissionRecord(
+      baseDraft,
+      fakeActor,
+      "127.0.0.1",
+    ).then(
+      () => null,
+      (error: unknown) => error,
+    );
+    resolveReleaseUpload();
+    await first;
+
+    expect(secondResult).toBeInstanceOf(ConflictError);
+    expect(submissionCreate).toHaveBeenCalledTimes(1);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.status).toBe("queued");
+  });
+
+  it("leaves a failed upload unpublished and guarded for durable cleanup", async () => {
+    setupSubmitPipelineDefaults(null);
+    vi.setSystemTime(new Date("2026-04-14T10:00:00.000Z"));
+    const failingStorage = createInMemoryStorage();
+    failingStorage.failNext((commandName) => commandName === "PutObjectCommand");
+    storageRef.client = failingStorage as unknown as typeof storageRef.client;
+
+    await expect(
+      createQueuedSubmissionRecord(baseDraft, fakeActor, "127.0.0.1"),
+    ).rejects.toThrow("Simulated storage failure");
+
+    expect(submissionCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceStorage: null, status: "pending_upload" }),
+    );
+    expect(submissionUpdateStatusIfIn).toHaveBeenCalledWith(
+      expect.any(String),
+      ["pending_upload"],
+      "system_error",
+    );
+    expect(durableWorkEnqueueMany).toHaveBeenCalledTimes(1);
+    expect(durableWorkCancel).not.toHaveBeenCalled();
+    expect(submissionPublishPendingUpload).not.toHaveBeenCalled();
+    expect(durableWorkEnqueue).not.toHaveBeenCalled();
   });
 });

@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 
 import {
   type RawCaseRun,
+  type SandboxExecutionContext,
   type SandboxRequest,
   type SandboxResult,
   type ValidatorOutcome,
@@ -13,6 +14,7 @@ import { mergeCheckerResults, resolveSandboxResult } from "./check-standard";
 import { resolveSourceFiles } from "./source-files.js";
 import { buildSandboxDockerArgs } from "./docker-args";
 import { sanitizeId, spawnDockerContainer, type DockerRunResult } from "./docker-process";
+import { buildDockerResourceLabels } from "./docker-resource";
 import { runInteractiveMode } from "./interactive-executor";
 import { buildSandboxConfigJson, sandboxSystemError } from "./sandbox-plan";
 import { parseCompileOutput, parseSandboxResult } from "./sandbox-schema";
@@ -30,17 +32,19 @@ export interface StandardModeConfig {
 export async function runStandardMode(
   tempDir: string,
   request: SandboxRequest,
+  execution: SandboxExecutionContext,
   config: StandardModeConfig,
 ): Promise<SandboxResult> {
+  execution.signal.throwIfAborted();
   if (request.judgeType === "interactive") {
-    return await runInteractiveMode(request, config);
+    return await runInteractiveMode(request, execution, config);
   }
 
   const sourceFileMap = await writeSubmissionFiles(tempDir, request);
-  const runResult = await runContainer(tempDir, request, config, sourceFileMap);
+  const runResult = await runContainer(tempDir, request, execution, config, sourceFileMap);
 
   if (request.judgeType === "checker" && runResult.rawRuns) {
-    return await resolveCheckerResult(request, config, runResult.rawRuns);
+    return await resolveCheckerResult(request, execution, config, runResult.rawRuns);
   }
 
   return resolveSandboxResult(runResult, request.testcases, request.judgeConfig.compare);
@@ -48,6 +52,7 @@ export async function runStandardMode(
 
 async function resolveCheckerResult(
   request: SandboxRequest,
+  execution: SandboxExecutionContext,
   config: StandardModeConfig,
   rawRuns: RawCaseRun[],
 ): Promise<SandboxResult> {
@@ -75,7 +80,8 @@ async function resolveCheckerResult(
 
   const outcomes =
     cases.length > 0
-      ? await runValidatorInTempDir(request, config, {
+      ? await runValidatorInTempDir(request, execution, config, {
+          runId: execution.runId,
           submissionId: request.submissionId,
           validatorScript,
           validatorLanguage,
@@ -89,6 +95,7 @@ async function resolveCheckerResult(
 
 async function runValidatorInTempDir(
   request: SandboxRequest,
+  execution: SandboxExecutionContext,
   config: StandardModeConfig,
   params: Parameters<typeof runValidator>[1],
 ): ReturnType<typeof runValidator> {
@@ -96,7 +103,7 @@ async function runValidatorInTempDir(
     join(tmpdir(), `nojv-validate-${sanitizeId(request.submissionId)}-`),
   );
   try {
-    return await runValidator(validateTempDir, params, {
+    return await runValidator(validateTempDir, params, execution.signal, {
       cpuLimit: config.cpuLimit,
       image: config.image,
       memoryMb: config.memoryMb,
@@ -182,10 +189,11 @@ function extractCaseRun(phase: DockerRunResult, index: number): RawCaseRun {
 async function runContainer(
   tempDir: string,
   request: SandboxRequest,
+  execution: SandboxExecutionContext,
   config: StandardModeConfig,
   sourceFileMap: { path: string; key: string }[],
 ): Promise<SandboxResult> {
-  const baseName = sanitizeId(request.submissionId).slice(0, 36);
+  const baseName = sanitizeId(execution.runId).slice(0, 36);
   const networkArgs = ["--network", "none"];
   const baseConfig = buildSandboxConfigJson(request, sourceFileMap);
   const configPath = join(tempDir, "config.json");
@@ -206,12 +214,14 @@ async function runContainer(
       memoryMb: config.memoryMb,
       pidsLimit: config.pidsLimit,
       image: config.image,
+      labels: buildDockerResourceLabels(execution.runId),
       artifactMount: { hostDir: artifactDir, readOnly: false },
     });
     const compile = await spawnDockerContainer({
       args: compileArgs,
       containerName: compileName,
       outerTimeoutMs: MAX_OUTER_TIMEOUT_MS,
+      signal: execution.signal,
     });
 
     if (compile.spawnError) {
@@ -258,6 +268,7 @@ async function runContainer(
         memoryMb: config.memoryMb,
         pidsLimit: config.pidsLimit,
         image: config.image,
+        labels: buildDockerResourceLabels(execution.runId),
         artifactMount: { hostDir: artifactDir, readOnly: true },
         extraEnv: ["PYTHONDONTWRITEBYTECODE=1"],
       });
@@ -265,6 +276,7 @@ async function runContainer(
         args: caseArgs,
         containerName: caseName,
         outerTimeoutMs: perCaseTimeoutMs,
+        signal: execution.signal,
       });
       rawRuns.push(extractCaseRun(phase, tc.index));
     }

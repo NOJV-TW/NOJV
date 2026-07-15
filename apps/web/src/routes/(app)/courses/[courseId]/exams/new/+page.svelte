@@ -276,14 +276,22 @@
             <Lock class="h-5 w-5" aria-hidden="true" />
           </span>
           <div class="flex-1">
-            <div class="font-semibold tracking-[-0.005em]">
+            <label for="page-lock-toggle" class="font-semibold tracking-[-0.005em]">
               {m.examCreate_pageLockLabel()}
-            </div>
-            <p class="mt-1 text-caption leading-relaxed text-muted-foreground">
+            </label>
+            <p
+              id="page-lock-description"
+              class="mt-1 text-caption leading-relaxed text-muted-foreground"
+            >
               {m.examCreate_pageLockDesc()}
             </p>
           </div>
-          <ToggleSwitch bind:checked={$form.pageLockEnabled} />
+          <ToggleSwitch
+            id="page-lock-toggle"
+            label={m.examCreate_pageLockLabel()}
+            descriptionId="page-lock-description"
+            bind:checked={$form.pageLockEnabled}
+          />
         </div>
 
         <div
@@ -300,14 +308,22 @@
               <Link2 class="h-5 w-5" aria-hidden="true" />
             </span>
             <div class="flex-1">
-              <div class="font-semibold tracking-[-0.005em]">
+              <label for="ip-binding-toggle" class="font-semibold tracking-[-0.005em]">
                 {m.examCreate_ipBindingLabel()}
-              </div>
-              <p class="mt-1 text-caption leading-relaxed text-muted-foreground">
+              </label>
+              <p
+                id="ip-binding-description"
+                class="mt-1 text-caption leading-relaxed text-muted-foreground"
+              >
                 {m.examCreate_ipBindingDesc()}
               </p>
             </div>
-            <ToggleSwitch bind:checked={$form.ipBindingEnabled} />
+            <ToggleSwitch
+              id="ip-binding-toggle"
+              label={m.examCreate_ipBindingLabel()}
+              descriptionId="ip-binding-description"
+              bind:checked={$form.ipBindingEnabled}
+            />
           </div>
 
           {#if $form.ipBindingEnabled}
@@ -357,17 +373,25 @@
               <Shield class="h-5 w-5" aria-hidden="true" />
             </span>
             <div class="flex-1">
-              <div class="font-semibold tracking-[-0.005em]">
+              <label for="ip-whitelist-toggle" class="font-semibold tracking-[-0.005em]">
                 {m.examCreate_ipWhitelistLabel()}
-              </div>
-              <p class="mt-1 text-caption leading-relaxed text-muted-foreground">
+              </label>
+              <p
+                id="ip-whitelist-description"
+                class="mt-1 text-caption leading-relaxed text-muted-foreground"
+              >
                 {m.examCreate_ipWhitelistDesc()}
                 <span class="text-warning">
                   {m.examCreate_ipWhitelistWarning()}
                 </span>
               </p>
             </div>
-            <ToggleSwitch bind:checked={$form.ipWhitelistEnabled} />
+            <ToggleSwitch
+              id="ip-whitelist-toggle"
+              label={m.examCreate_ipWhitelistLabel()}
+              descriptionId="ip-whitelist-description"
+              bind:checked={$form.ipWhitelistEnabled}
+            />
           </div>
 
           {#if $form.ipWhitelistEnabled}

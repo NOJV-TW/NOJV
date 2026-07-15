@@ -6,7 +6,7 @@ type OperationObject = Record<string, unknown>;
 type PathsObject = Record<string, Record<string, OperationObject>>;
 type SchemasObject = Record<string, unknown>;
 
-const SELF_PATHS = ["/api/openapi.public.json"];
+const ANONYMOUS_PATHS = ["/api/livez", "/api/readyz", "/api/openapi.public.json"] as const;
 
 function collectRefNames(node: unknown, out: Set<string>): void {
   if (Array.isArray(node)) {
@@ -35,9 +35,9 @@ for (const rule of listApiTokenRouteRules()) {
   if (!operation) continue;
   (tokenPaths[rule.path] ??= {})[rule.method.toLowerCase()] = operation;
 }
-for (const selfPath of SELF_PATHS) {
-  const pathItem = fullPaths[selfPath];
-  if (pathItem) tokenPaths[selfPath] = pathItem;
+for (const anonymousPath of ANONYMOUS_PATHS) {
+  const pathItem = fullPaths[anonymousPath];
+  if (pathItem) tokenPaths[anonymousPath] = pathItem;
 }
 
 const neededSchemas = new Set<string>();
@@ -67,7 +67,7 @@ export const tokenOpenApiDocument = {
     title: "NOJV API Token",
     summary: "API routes callable with personal API tokens",
     description:
-      "Describes the API routes callable with a personal API token (Authorization: Bearer). Tokens are created at /account/api-tokens and each route requires the listed scope. Routes not in this document are session-only and not part of the token contract. Token auth is rejected while the token owner has an active exam session, and tokens never carry admin elevation. Admin-scoped token routes are documented in the Full API document.",
+      "Describes the anonymous system endpoints and API routes callable with a personal API token (Authorization: Bearer). Tokens are created at /account/api-tokens and each protected route requires the listed scope. Routes not in this document are session-only and not part of the token contract. Token auth is rejected while the token owner has an active exam session, and tokens never carry admin elevation. Admin-scoped token routes are documented in the Full API document.",
   },
   tags: internalOpenApiDocument.tags.filter((tag) => usedTags.has(tag.name)),
   paths: tokenPaths,

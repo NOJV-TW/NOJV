@@ -1,4 +1,37 @@
 {{- if .Values.web.ingress.enabled }}
+{{- $edgeConfigName := printf "%s-web-edge" (include "nojv.fullname" .) }}
+{{- $gceIngress := eq .Values.web.ingress.className "gce" }}
+{{- if $gceIngress }}
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: {{ $edgeConfigName }}
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web-edge
+spec:
+  securityPolicy:
+    name: {{ .Values.web.ingress.gce.securityPolicy }}
+---
+apiVersion: networking.gke.io/v1beta1
+kind: FrontendConfig
+metadata:
+  name: {{ $edgeConfigName }}
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web-edge
+spec:
+  redirectToHttps:
+    enabled: {{ .Values.web.ingress.gce.httpsRedirect }}
+    responseCodeName: PERMANENT_REDIRECT
+---
+{{- end }}
+{{- $annotations := deepCopy .Values.web.ingress.annotations }}
+{{- if $gceIngress }}
+{{- $_ := set $annotations "networking.gke.io/v1beta1.FrontendConfig" $edgeConfigName }}
+{{- end }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -7,7 +40,7 @@ metadata:
   labels:
     {{- include "nojv.labels" . | nindent 4 }}
     app.kubernetes.io/component: web
-  {{- with .Values.web.ingress.annotations }}
+  {{- with $annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
@@ -30,4 +63,16 @@ spec:
                 name: {{ include "nojv.fullname" . }}-web
                 port:
                   number: {{ .Values.web.service.port }}
+    {{- if .Values.registry.enabled }}
+    - host: {{ .Values.registry.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "nojv.fullname" . }}-registry
+                port:
+                  number: 5000
+    {{- end }}
 {{- end }}

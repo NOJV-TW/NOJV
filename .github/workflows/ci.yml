@@ -5,8 +5,6 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - "infra/flux/**"
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -16,7 +14,9 @@ permissions:
   contents: read
 
 env:
-  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nojv_test
+  DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nojv_test
+  TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nojv_test
+  NOJV_DESTRUCTIVE_TEST_DATABASE: nojv_test
 
 jobs:
   verify:
@@ -26,7 +26,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:18
+        image: postgres:18@sha256:b913fd5699b8bd23fa4b06d72ecdd939fad43b80fb8651bac06caa0e6d135cac
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -40,7 +40,7 @@ jobs:
           --health-retries 5
 
       redis:
-        image: redis:8-alpine
+        image: redis:8-alpine@sha256:9d317178eceac8454a2284a9e6df2466b93c745529947f0cd42a0fa9609d7005
         ports:
           - 6379:6379
         options: >-
@@ -51,10 +51,17 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       - name: Setup monorepo
         uses: ./.github/actions/setup
+
+      - name: Mark the destructive test database
+        run: >-
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1
+          -c "COMMENT ON DATABASE nojv_test IS 'NOJV_TEST_DATABASE:nojv_test'"
 
       - name: Build @nojv/storage dependency chain for seed validator
         run: pnpm --filter @nojv/storage... build
@@ -76,15 +83,15 @@ jobs:
           git diff --exit-code docs/architecture/DATABASE.generated.md
 
       - name: Install Helm
-        uses: azure/setup-helm@v5
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
         with:
           version: v4.2.0
 
       - name: Lint and render the Helm umbrella chart
         run: |
-          helm lint infra/charts/nojv
-          helm template nojv infra/charts/nojv -f infra/charts/nojv/values-gke.yaml >/dev/null
-          helm template nojv infra/charts/nojv -f infra/charts/nojv/values-single-machine.yaml >/dev/null
+          helm lint infra/charts/nojv -f tests/fixtures/helm/immutable-image-digests.yaml
+          helm template nojv infra/charts/nojv -f infra/charts/nojv/values-gke.yaml -f tests/fixtures/helm/immutable-image-digests.yaml -f tests/fixtures/helm/gke-production-config.yaml -f tests/fixtures/helm/production-external-backups.yaml >/dev/null
+          helm template nojv infra/charts/nojv -f infra/charts/nojv/values-single-machine.yaml -f tests/fixtures/helm/immutable-image-digests.yaml -f tests/fixtures/helm/production-external-backups.yaml >/dev/null
 
       - name: Verify monorepo (build, lint, typecheck, unit tests)
         run: pnpm ci:verify
@@ -94,6 +101,9 @@ jobs:
       - name: Run integration tests with coverage gate
         run: pnpm test:coverage
         env:
+          APP_BASE_URL: http://localhost:5173
+          MAILER_MODE: sink
+          NODE_ENV: test
           NODE_OPTIONS: "--max-old-space-size=4096"
 
   security-audit:
@@ -103,7 +113,9 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       - name: Setup monorepo
         uses: ./.github/actions/setup
@@ -114,3 +126,86 @@ jobs:
       # `auditConfig.ignoreGhsas` in pnpm-workspace.yaml.
       - name: Audit dependencies (high + critical)
         run: pnpm audit --audit-level high
+
+  browser-smoke:
+    name: Core browser smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nojv_e2e_test
+      TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nojv_e2e_test
+      NOJV_DESTRUCTIVE_TEST_DATABASE: nojv_e2e_test
+      REDIS_URL: redis://127.0.0.1:6379
+
+    services:
+      postgres:
+        image: postgres:18@sha256:b913fd5699b8bd23fa4b06d72ecdd939fad43b80fb8651bac06caa0e6d135cac
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nojv_e2e_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:8-alpine@sha256:9d317178eceac8454a2284a9e6df2466b93c745529947f0cd42a0fa9609d7005
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup monorepo
+        uses: ./.github/actions/setup
+
+      - name: Build web dependency chain
+        run: pnpm --filter @nojv/web... build
+
+      - name: Mark the isolated browser-test database
+        run: >-
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1
+          -c "COMMENT ON DATABASE nojv_e2e_test IS 'NOJV_TEST_DATABASE:nojv_e2e_test'"
+
+      - name: Start isolated object storage
+        run: |
+          set -euo pipefail
+          docker run --detach --name nojv-e2e-minio \
+            --publish 9000:9000 \
+            --env MINIO_ROOT_USER=minioadmin \
+            --env MINIO_ROOT_PASSWORD=minioadmin \
+            minio/minio:RELEASE.2025-04-22T22-12-26Z@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e \
+            server /data
+          for attempt in {1..30}; do
+            if node -e 'fetch("http://127.0.0.1:9000/minio/health/ready").then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))'; then
+              break
+            fi
+            if [[ "$attempt" == 30 ]]; then
+              docker logs nojv-e2e-minio
+              exit 1
+            fi
+            sleep 1
+          done
+          docker run --rm --network host --entrypoint /bin/sh \
+            minio/mc:RELEASE.2025-04-16T18-13-26Z@sha256:aead63c77f9db9107f1696fb08ecb0faeda23729cde94b0f663edf4fe09728e3 \
+            -c 'mc alias set local http://127.0.0.1:9000 minioadmin minioadmin && mc mb --ignore-existing local/nojv'
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run core browser flows
+        run: >-
+          pnpm exec playwright test --config tests/e2e/playwright.config.ts
+          tests/e2e/auth.test.ts tests/e2e/dashboard.test.ts tests/e2e/problems.test.ts

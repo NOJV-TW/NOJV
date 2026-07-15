@@ -18,10 +18,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nojv_test
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nojv_test
+      TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nojv_test
+      NOJV_DESTRUCTIVE_TEST_DATABASE: nojv_test
     services:
       postgres:
-        image: postgres:18
+        image: postgres:18@sha256:b913fd5699b8bd23fa4b06d72ecdd939fad43b80fb8651bac06caa0e6d135cac
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -35,10 +37,17 @@ jobs:
           --health-retries 5
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       - name: Setup monorepo
         uses: ./.github/actions/setup
+
+      - name: Mark the destructive test database
+        run: >-
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1
+          -c "COMMENT ON DATABASE nojv_test IS 'NOJV_TEST_DATABASE:nojv_test'"
 
       - name: Generate Prisma client
         run: pnpm db:generate
@@ -46,7 +55,7 @@ jobs:
       - name: Build sandbox image
         run: pnpm sandbox:build
 
-      - name: Build advanced run/grade demo images
+      - name: Build advanced run/grade/service demo images
         run: pnpm demo-advanced:build
 
       - name: Sandbox executor + isolation unit tests
@@ -98,10 +107,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nojv_test
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nojv_test
+      TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/nojv_test
+      NOJV_DESTRUCTIVE_TEST_DATABASE: nojv_test
+      K8S_TEST_RUN_ID: gh-${{ github.run_id }}-${{ github.run_attempt }}
+      K8S_TEST_NAMESPACE: nojv-sandbox-test-gh-${{ github.run_id }}-${{ github.run_attempt }}
     services:
       postgres:
-        image: postgres:18
+        image: postgres:18@sha256:b913fd5699b8bd23fa4b06d72ecdd939fad43b80fb8651bac06caa0e6d135cac
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -115,13 +128,20 @@ jobs:
           --health-retries 5
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       - name: Setup monorepo
         uses: ./.github/actions/setup
 
+      - name: Mark the destructive test database
+        run: >-
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1
+          -c "COMMENT ON DATABASE nojv_test IS 'NOJV_TEST_DATABASE:nojv_test'"
+
       - name: Install Helm
-        uses: azure/setup-helm@v5
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
         with:
           version: v4.2.0
 
@@ -133,26 +153,42 @@ jobs:
           pnpm sandbox:build
           pnpm demo-advanced:build
 
+      - name: Install verified k3d
+        run: |
+          set -euo pipefail
+          curl --fail --location --proto '=https' --tlsv1.2 --output "$RUNNER_TEMP/k3d" "https://github.com/k3d-io/k3d/releases/download/v5.9.0/k3d-linux-amd64"
+          printf '%s  %s\n' "06d8f25bc3a971c4eb29e0ff08429b180402db0f4dec838c9eac427e296800a0" "$RUNNER_TEMP/k3d" | sha256sum --check -
+          mkdir -p "$RUNNER_TEMP/bin"
+          install -m 0755 "$RUNNER_TEMP/k3d" "$RUNNER_TEMP/bin/k3d"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
       - name: Create k3d cluster with NetworkPolicy enforcement (Calico)
         run: |
-          curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+          set -euo pipefail
           k3d cluster create nojv-judge \
             --no-lb \
             --k3s-arg "--flannel-backend=none@server:*" \
             --k3s-arg "--disable-network-policy@server:*" \
             --k3s-arg "--disable=traefik@server:*"
-          kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/calico.yaml
+          kubectl apply -f infra/k8s/vendor/calico-v3.32.1.yaml
           kubectl -n kube-system rollout status deploy/calico-kube-controllers --timeout=180s
 
       - name: Load images into the cluster
         run: |
           k3d image import -c nojv-judge \
             nojv-sandbox:local \
-            nojv-demo-advanced-run:local nojv-demo-advanced-grade:local
+            nojv-demo-advanced-run:local nojv-demo-advanced-grade:local \
+            nojv-demo-advanced-service:local
 
       - name: Apply sandbox namespace, network policy, quota and label node
         run: |
           helm template nojv infra/charts/nojv -f infra/charts/nojv/values-single-machine.yaml \
+            -f tests/fixtures/helm/production-external-backups.yaml \
+            --set-string sandboxNamespace="$K8S_TEST_NAMESPACE" \
+            --set image.allowUnpinnedLocalBuilds=true \
+            --set-string image.registry= \
+            --set-string image.repositoryPrefix= \
+            --set-string image.tag=local \
             --show-only templates/namespaces.yaml \
             --show-only templates/sandbox-policy.yaml \
             | kubectl apply -f -
@@ -161,4 +197,12 @@ jobs:
       - name: K8s judge integration suite (must not skip)
         env:
           REQUIRE_K8S: "1"
-        run: pnpm vitest run tests/integration/k8s
+        run: pnpm test:integration:k8s
+
+      - name: Delete isolated K8s test namespace
+        if: always()
+        run: kubectl --context k3d-nojv-judge delete namespace "$K8S_TEST_NAMESPACE" --ignore-not-found --wait=true --timeout=120s
+
+      - name: Delete k3d cluster
+        if: always()
+        run: k3d cluster delete nojv-judge

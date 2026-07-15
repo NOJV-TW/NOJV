@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-import { submissionDraftSchema } from "./schemas/submission";
+import { submissionJudgeDraftSchema } from "./schemas/submission";
 
 export const submissionJudgeJobSchema = z.object({
-  draft: submissionDraftSchema,
+  draft: submissionJudgeDraftSchema,
   submissionId: z.string().trim().min(1),
 });
 

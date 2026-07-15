@@ -6,31 +6,31 @@ import {
   type AdvancedJudgeVerificationSnapshot,
   type Language,
   type RejudgeInput,
-  type SandboxExecutor,
   type SandboxRequest,
-  type SubmissionDraft,
+  type SubmissionJudgeDraft,
   type SubmissionResult,
 } from "@nojv/core";
 import { submissionDomain } from "@nojv/application";
 import type { SubmissionSource } from "@nojv/storage";
-import { heartbeat } from "@temporalio/activity";
+import { cancellationSignal, heartbeat } from "@temporalio/activity";
 
 import { enforceMemoryLimit } from "../services/check-standard";
+import type { ExecutorOwner } from "../services/executor-owner";
 import { judgeLatencyHistogram, recordJudgeLatency } from "./utils";
 
 const JUDGE_HEARTBEAT_INTERVAL_MS = 15_000;
 
 type BatchRejudgeInput = Extract<RejudgeInput, { mode: "batch" }>;
 
-let _executor: SandboxExecutor | undefined;
+let _executorOwner: ExecutorOwner | undefined;
 
-export function setExecutor(executor: SandboxExecutor): void {
-  _executor = executor;
+export function setExecutorOwner(executorOwner: ExecutorOwner): void {
+  _executorOwner = executorOwner;
 }
 
-function getExecutor(): SandboxExecutor {
-  if (!_executor) throw new Error("Executor not initialized");
-  return _executor;
+function getExecutorOwner(): ExecutorOwner {
+  if (!_executorOwner) throw new Error("Executor owner not initialized");
+  return _executorOwner;
 }
 
 export type CompletedSubmission = submissionDomain.CompletedSubmission;
@@ -109,7 +109,7 @@ function buildSandboxTestcases(
   options: {
     useSamples: boolean;
     useAdvanced: boolean;
-    runCases: SubmissionDraft["runCases"];
+    runCases: SubmissionJudgeDraft["runCases"];
     hasRunCases: boolean;
   },
 ): SandboxRequest["testcases"] {
@@ -167,14 +167,12 @@ function buildAdvancedPayload(
 
 export async function executeSandbox(
   submissionId: string,
-  draft: SubmissionDraft,
+  draft: SubmissionJudgeDraft,
 ): Promise<{
   result: SubmissionResult;
   advancedJudgeVerificationSnapshot: AdvancedJudgeVerificationSnapshot | null;
 }> {
-  const executor = getExecutor();
-
-  await submissionDomain.updateSubmissionStatus(submissionId, "running");
+  const executorOwner = getExecutorOwner();
 
   const studentSources = await submissionDomain.getSubmissionSources(submissionId);
 
@@ -273,9 +271,9 @@ export async function executeSandbox(
     heartbeat("sandbox-running");
   }, JUDGE_HEARTBEAT_INTERVAL_MS);
 
-  let result: Awaited<ReturnType<SandboxExecutor["execute"]>>;
+  let result: Awaited<ReturnType<ExecutorOwner["execute"]>>;
   try {
-    result = await executor.execute(request);
+    result = await executorOwner.execute(request, cancellationSignal());
   } finally {
     clearInterval(heartbeatTimer);
   }
@@ -309,11 +307,17 @@ export async function executeSandbox(
 
 export async function completeSubmission(
   submissionId: string,
+  judgeRunId: string,
   result: SubmissionResult,
   mode: "standard" | "advanced",
   advancedConfig: AdvancedJudgeVerificationSnapshot | null = null,
 ): Promise<submissionDomain.CompletedSubmission | null> {
-  const completed = await submissionDomain.completeJudge(submissionId, result, advancedConfig);
+  const completed = await submissionDomain.completeJudge(
+    submissionId,
+    judgeRunId,
+    result,
+    advancedConfig,
+  );
   if (!completed) return null;
   recordJudgeLatency(judgeLatencyHistogram, {
     startedAtMs: completed.createdAt.getTime(),
@@ -326,7 +330,7 @@ export async function completeSubmission(
 
 export async function fetchSubmissionIdsForRejudge(
   input: BatchRejudgeInput,
-): Promise<{ submissionId: string; draft: SubmissionDraft }[]> {
+): Promise<{ submissionId: string; draft: SubmissionJudgeDraft }[]> {
   return submissionDomain.listForRejudge({
     problemId: input.problemId,
     ...(input.contestId ? { contestId: input.contestId } : {}),
@@ -340,14 +344,14 @@ export async function fetchSubmissionIdsForRejudge(
 
 export async function fetchSingleSubmissionForRejudge(
   submissionId: string,
-): Promise<{ submissionId: string; draft: SubmissionDraft } | null> {
+): Promise<{ submissionId: string; draft: SubmissionJudgeDraft } | null> {
   return submissionDomain.findOneForRejudge(submissionId);
 }
 
 export async function snapshotSubmissionForRejudge(
   submissionId: string,
   triggeredByUserId: string | null,
-  rejudgeRunId: string | null,
+  rejudgeRunId: string,
 ): Promise<{ logId: string; oldStatus: string } | null> {
   return submissionDomain.snapshotForRejudge(submissionId, triggeredByUserId, rejudgeRunId);
 }
@@ -356,13 +360,38 @@ export async function finalizeRejudgeLog(
   submissionId: string,
   triggeredByUserId: string | null,
   logId: string,
+  judgeRunId: string,
 ): Promise<void> {
-  return submissionDomain.finalizeRejudgeLog(submissionId, triggeredByUserId, logId);
+  return submissionDomain.finalizeRejudgeLog(
+    submissionId,
+    triggeredByUserId,
+    logId,
+    judgeRunId,
+  );
 }
 
 export async function restoreSubmissionForCancelledRejudge(
   submissionId: string,
+  judgeRunId: string,
   oldStatus: string,
 ): Promise<void> {
-  return submissionDomain.restoreSubmissionAfterCancelledRejudge(submissionId, oldStatus);
+  return submissionDomain.restoreSubmissionAfterCancelledRejudge(
+    submissionId,
+    judgeRunId,
+    oldStatus,
+  );
+}
+
+export async function startSubmissionJudgeRun(
+  submissionId: string,
+  judgeRunId: string,
+): Promise<void> {
+  await submissionDomain.startSubmissionJudgeRun(submissionId, judgeRunId);
+}
+
+export async function failSubmissionJudgeRun(
+  submissionId: string,
+  judgeRunId: string,
+): Promise<boolean> {
+  return submissionDomain.failSubmissionJudgeRun(submissionId, judgeRunId);
 }

@@ -5,6 +5,7 @@ import "./domain-orchestration";
 
 import {
   closeTemporalClient,
+  ensureDurableWorkProcessor,
   ensureLifecycleReconciler,
   ensureSubmissionSweeper,
   JUDGE_TASK_QUEUE,
@@ -17,27 +18,52 @@ const require = createRequire(import.meta.url);
 import type { WorkerEnv } from "./env";
 import { createWorkerHealthServer } from "./health-server";
 import { createLogger } from "./logger.js";
-import { closeServerSafely } from "./server-lifecycle";
-import { createExecutor } from "./services/executor-factory";
+import {
+  closeServerSafely,
+  settleCleanupSteps,
+  type CleanupReport,
+  type CleanupStep,
+} from "./server-lifecycle";
+import { createExecutorOwner } from "./services/executor-factory";
+import type { ExecutorOwner } from "./services/executor-owner";
 
 const logger = createLogger("worker");
+const DEFAULT_SHUTDOWN_TIMEOUT_MS = 35_000;
+
+interface ManagedWorker {
+  worker: Worker;
+  runPromise: Promise<void> | null;
+}
 
 export class WorkerApp {
-  private readonly workers: Worker[] = [];
+  private readonly workers: ManagedWorker[] = [];
+  private readonly backgroundTasks: Promise<void>[] = [];
+  private readonly cleanupSteps: CleanupStep[] = [];
   private readonly healthServer: ReturnType<typeof createWorkerHealthServer>;
   private readonly env: WorkerEnv;
-  private shutdownPromise: Promise<void> | null = null;
+  private readonly shutdownTimeoutMs: number;
+  private readonly workflowsPath: string;
+  private shutdownPromise: Promise<CleanupReport> | null = null;
+  private initializationPromise: Promise<void> | null = null;
   private runPromise: Promise<unknown> | null = null;
   private connection: NativeConnection | null = null;
+  private executorOwner: ExecutorOwner | null = null;
+  private stopping = false;
 
-  constructor(env: WorkerEnv) {
+  constructor(
+    env: WorkerEnv,
+    options: { shutdownTimeoutMs?: number; workflowsPath?: string } = {},
+  ) {
     this.env = env;
+    this.shutdownTimeoutMs = options.shutdownTimeoutMs ?? DEFAULT_SHUTDOWN_TIMEOUT_MS;
+    this.workflowsPath = options.workflowsPath ?? require.resolve("./workflows/index.js");
     this.healthServer = createWorkerHealthServer({
       redisUrl: env.REDIS_URL,
       checkTemporal: async () => {
+        if (this.stopping) return false;
         if (
           this.workers.length === 0 ||
-          !this.workers.every((w) => w.getState() === "RUNNING")
+          !this.workers.every(({ worker }) => worker.getState() === "RUNNING")
         ) {
           return false;
         }
@@ -53,6 +79,20 @@ export class WorkerApp {
   }
 
   async start(): Promise<void> {
+    this.initializationPromise = this.initialize();
+    await this.initializationPromise;
+    if (this.stopping) throw new Error("Worker startup interrupted by shutdown.");
+
+    const runPromises = this.workers.map((managed) => {
+      const runPromise = managed.worker.run();
+      managed.runPromise = runPromise;
+      return runPromise;
+    });
+    this.runPromise = Promise.all([...runPromises, ...this.backgroundTasks]);
+    await this.runPromise;
+  }
+
+  private async initialize(): Promise<void> {
     const address = this.env.TEMPORAL_ADDRESS;
     const namespace = this.env.TEMPORAL_NAMESPACE;
     const mode = this.env.WORKER_MODE;
@@ -63,15 +103,33 @@ export class WorkerApp {
       ...(apiKey ? { apiKey } : {}),
     });
     this.connection = connection;
+    this.cleanupSteps.push({
+      resource: "native Temporal connection",
+      run: () => connection.close(),
+    });
+    this.assertStarting();
 
     if (mode === "all" || mode === "judge") {
-      const { setExecutor } = await import("./activities/judge.js");
-      const executor = createExecutor(this.env);
-      setExecutor(executor);
+      const { setExecutorOwner } = await import("./activities/judge.js");
+      const executorOwner = createExecutorOwner(this.env);
+      this.executorOwner = executorOwner;
+      setExecutorOwner(executorOwner);
+      this.cleanupSteps.push({
+        resource: "sandbox executions",
+        run: () =>
+          executorOwner.shutdown(new DOMException("Worker is shutting down.", "AbortError")),
+      });
 
       if (this.env.EXECUTION_BACKEND === "docker") {
-        const { sweepOrphanNetworks } = await import("./services/docker-network.js");
-        sweepOrphanNetworks();
+        const { createDockerResourceSweeper } =
+          await import("./services/docker-resource-sweeper.js");
+        const resourceSweeper = createDockerResourceSweeper();
+        this.cleanupSteps.push({
+          resource: "Docker resource sweeper",
+          run: () => resourceSweeper.shutdown(),
+        });
+        await resourceSweeper.start();
+        this.backgroundTasks.push(resourceSweeper.done);
       }
 
       if (this.env.EXECUTION_BACKEND === "kubernetes") {
@@ -94,12 +152,13 @@ export class WorkerApp {
         connection,
         namespace,
         taskQueue: JUDGE_TASK_QUEUE,
-        workflowsPath: require.resolve("./workflows/index.js"),
+        workflowsPath: this.workflowsPath,
         activities: await import("./activities/judge-bundle.js"),
         maxConcurrentActivityTaskExecutions: this.env.WORKER_CONCURRENCY,
         shutdownGraceTime: "30s",
       });
-      this.workers.push(judgeWorker);
+      this.addWorker(judgeWorker, JUDGE_TASK_QUEUE);
+      this.assertStarting();
     }
 
     if (mode === "all" || mode === "platform") {
@@ -107,19 +166,32 @@ export class WorkerApp {
         connection,
         namespace,
         taskQueue: PLATFORM_TASK_QUEUE,
-        workflowsPath: require.resolve("./workflows/index.js"),
+        workflowsPath: this.workflowsPath,
         activities: await import("./activities/platform-bundle.js"),
         maxConcurrentActivityTaskExecutions: this.env.WORKER_CONCURRENCY,
         shutdownGraceTime: "30s",
       });
-      this.workers.push(platformWorker);
+      this.addWorker(platformWorker, PLATFORM_TASK_QUEUE);
+      this.assertStarting();
+      this.registerTemporalClientCleanup();
       await ensureSubmissionSweeper();
+      this.assertStarting();
       await ensureLifecycleReconciler();
+      this.assertStarting();
+      await ensureDurableWorkProcessor();
+      this.assertStarting();
     }
+
+    this.registerTemporalClientCleanup();
+    this.cleanupSteps.push({
+      resource: "health server",
+      run: () => closeServerSafely(this.healthServer),
+    });
 
     await new Promise<void>((resolve) => {
       this.healthServer.listen(this.env.PORT, () => resolve());
     });
+    this.assertStarting();
 
     const singleModeQueue = mode === "judge" ? JUDGE_TASK_QUEUE : PLATFORM_TASK_QUEUE;
     const taskQueues = this.workers.map((_, i) =>
@@ -132,41 +204,86 @@ export class WorkerApp {
       namespace,
       taskQueues: taskQueues.join(", "),
     });
-
-    this.runPromise = Promise.all(this.workers.map((w) => w.run()));
-    await this.runPromise;
   }
 
-  async shutdown(signal: string): Promise<void> {
+  shutdown(signal: string): Promise<CleanupReport> {
     if (this.shutdownPromise) return this.shutdownPromise;
+
+    this.stopping = true;
+    this.executorOwner?.abortActive(
+      new DOMException(`Worker received ${signal}.`, "AbortError"),
+    );
 
     logger.info("shutting down", { signal });
 
-    this.shutdownPromise = (async () => {
-      for (const w of this.workers) {
-        try {
-          w.shutdown();
-        } catch (err) {
-          if (err instanceof Error && /DRAINING|STOPPED|STOPPING/.test(err.message)) {
-            continue;
-          }
-          throw err;
-        }
-      }
-      if (this.runPromise) {
-        try {
-          await this.runPromise;
-        } catch (err) {
-          logger.warn("worker run() rejected during drain", {
-            err: err instanceof Error ? err.message : String(err),
-          });
-        }
-      }
-      await closeServerSafely(this.healthServer);
-      await this.connection?.close();
-      await closeTemporalClient();
-    })();
+    this.shutdownPromise = this.performShutdown();
+    return this.shutdownPromise;
+  }
 
-    await this.shutdownPromise;
+  private async performShutdown(): Promise<CleanupReport> {
+    const deadline = Date.now() + this.shutdownTimeoutMs;
+    const startupReport = this.initializationPromise
+      ? await settleCleanupSteps(
+          [
+            {
+              resource: "worker startup",
+              run: () => this.initializationPromise?.catch(() => undefined),
+            },
+          ],
+          this.shutdownTimeoutMs,
+        )
+      : { complete: true, issues: [] };
+    const cleanupReport = await settleCleanupSteps(
+      [...this.cleanupSteps].reverse(),
+      Math.max(0, deadline - Date.now()),
+    );
+    const issues = [...startupReport.issues, ...cleanupReport.issues];
+    const report = { complete: issues.length === 0, issues };
+    if (!report.complete) {
+      logger.error("cleanup incomplete", {
+        issues,
+      });
+    }
+    return report;
+  }
+
+  private assertStarting(): void {
+    if (this.stopping) throw new Error("Worker startup interrupted by shutdown.");
+  }
+
+  private registerTemporalClientCleanup(): void {
+    if (this.cleanupSteps.some(({ resource }) => resource === "Temporal client")) return;
+    this.cleanupSteps.push({ resource: "Temporal client", run: closeTemporalClient });
+  }
+
+  private addWorker(worker: Worker, taskQueue: string): void {
+    const managed: ManagedWorker = { worker, runPromise: null };
+    this.workers.push(managed);
+    this.cleanupSteps.push({
+      resource: `Temporal worker ${taskQueue}`,
+      run: async () => {
+        let shutdownError: unknown;
+        try {
+          worker.shutdown();
+        } catch (error) {
+          if (!(error instanceof Error && /DRAINING|STOPPED|STOPPING/.test(error.message))) {
+            shutdownError =
+              error instanceof Error
+                ? error
+                : new Error("Temporal worker shutdown failed.", { cause: error });
+          }
+        }
+        if (managed.runPromise) {
+          try {
+            await managed.runPromise;
+          } catch (error) {
+            logger.warn("worker run() rejected during drain", {
+              err: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+        if (shutdownError instanceof Error) throw shutdownError;
+      },
+    });
   }
 }

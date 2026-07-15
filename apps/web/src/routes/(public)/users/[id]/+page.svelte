@@ -14,6 +14,7 @@
   import { buildActivityModel } from "$lib/utils/activity";
   import { difficultyClass } from "$lib/utils/verdict-style";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
+  import { formatChartSummary } from "$lib/utils/chart-summary";
 
   let { data } = $props();
 
@@ -191,9 +192,15 @@
         class="flex items-center gap-2.5"
         onchange={submitVisibility}
       >
-        <span class="text-body-sm text-muted-foreground">{m.userProfile_publicLabel()}</span>
+        <label for="profile-public-toggle" class="text-body-sm text-muted-foreground">
+          {m.userProfile_publicLabel()}
+        </label>
         <input type="hidden" name="profilePublic" value={String(profilePublic)} />
-        <ToggleSwitch bind:checked={profilePublic} />
+        <ToggleSwitch
+          id="profile-public-toggle"
+          label={m.userProfile_publicLabel()}
+          bind:checked={profilePublic}
+        />
       </form>
       <Button variant="outline" size="sm" onclick={shareProfile}>
         {#if linkCopied}
@@ -273,7 +280,17 @@
     <Card variant="surface" size="lg">
       <h2 class="mb-4 text-title-sm font-semibold">{m.userProfile_difficultyDist()}</h2>
       {#if profile.byDifficulty.length > 0}
-        <EChart option={difficultyOption} class="h-56 w-full" />
+        <EChart
+          option={difficultyOption}
+          ariaLabel={m.userProfile_difficultyDist()}
+          summary={formatChartSummary(
+            profile.byDifficulty.map((entry) => ({
+              label: entry.difficulty,
+              value: entry.acCount,
+            })),
+          )}
+          class="h-56 w-full"
+        />
       {:else}
         <EmptyState variant="minimal" icon={PieChart} title={m.userProfile_noActivity()} />
       {/if}
@@ -281,7 +298,17 @@
     <Card variant="surface" size="lg">
       <h2 class="mb-4 text-title-sm font-semibold">{m.userProfile_languageDist()}</h2>
       {#if profile.byLanguage.length > 0}
-        <EChart option={languageOption} class="h-56 w-full" />
+        <EChart
+          option={languageOption}
+          ariaLabel={m.userProfile_languageDist()}
+          summary={formatChartSummary(
+            profile.byLanguage.map((entry) => ({
+              label: entry.language,
+              value: entry.count,
+            })),
+          )}
+          class="h-56 w-full"
+        />
       {:else}
         <EmptyState variant="minimal" icon={PieChart} title={m.userProfile_noActivity()} />
       {/if}

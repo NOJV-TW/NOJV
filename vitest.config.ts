@@ -16,6 +16,7 @@ const sharedAliases = {
   $lib: path.resolve(__dirname, "apps/web/src/lib"),
   nodemailer: requireFromMailer.resolve("nodemailer"),
   jose: requireFromWeb.resolve("jose"),
+  echarts: requireFromWeb.resolve("echarts"),
   "@temporalio/client": requireFromTemporal.resolve("@temporalio/client"),
   "@nojv/db": path.resolve(__dirname, "packages/db/src/index.ts"),
   "@nojv/core": path.resolve(__dirname, "packages/core/src/index.ts"),
@@ -29,6 +30,17 @@ const sharedAliases = {
   "$env/dynamic/public": path.resolve(__dirname, "tests/setup/stubs/env-dynamic-public.ts"),
   "$app/environment": path.resolve(__dirname, "tests/setup/stubs/app-environment.ts"),
 };
+
+const componentAliases = [
+  {
+    find: /^svelte$/,
+    replacement: path.resolve(
+      path.dirname(requireFromWeb.resolve("svelte/package.json")),
+      "src/index-client.js",
+    ),
+  },
+  ...Object.entries(sharedAliases).map(([find, replacement]) => ({ find, replacement })),
+];
 
 function svelteTestPlugin() {
   return svelte({ configFile: path.resolve(__dirname, "apps/web/svelte.config.js") });
@@ -70,7 +82,29 @@ export default defineConfig({
         test: {
           name: "unit",
           include: ["tests/unit/**/*.test.ts"],
+          exclude: [
+            "tests/unit/web/echart-lifecycle.test.ts",
+            "tests/unit/web/clarification-tab-error.test.ts",
+            "tests/unit/web/plagiarism-pair-diff.test.ts",
+            "tests/unit/web/plagiarism-pair-diff-load-error.test.ts",
+            "tests/unit/web/toggle-switch.test.ts",
+          ],
           environment: "node",
+        },
+      },
+      {
+        plugins: [svelteTestPlugin()],
+        resolve: { alias: componentAliases, conditions: ["browser"] },
+        test: {
+          name: "component",
+          include: [
+            "tests/unit/web/echart-lifecycle.test.ts",
+            "tests/unit/web/clarification-tab-error.test.ts",
+            "tests/unit/web/plagiarism-pair-diff.test.ts",
+            "tests/unit/web/plagiarism-pair-diff-load-error.test.ts",
+            "tests/unit/web/toggle-switch.test.ts",
+          ],
+          environment: "jsdom",
         },
       },
       {
@@ -79,6 +113,7 @@ export default defineConfig({
         test: {
           name: "integration",
           include: ["tests/integration/**/*.test.ts"],
+          exclude: ["tests/integration/k8s/**/*.test.ts"],
           environment: "node",
           // Integration tests share a single Postgres + Redis. Running files
           // in parallel races on `truncateAllTables` (deadlock detected) and
@@ -89,6 +124,17 @@ export default defineConfig({
           fileParallelism: false,
           globalSetup: ["tests/setup/global-setup.ts"],
           setupFiles: ["tests/setup/integration-setup.ts"],
+        },
+      },
+      {
+        plugins: [svelteTestPlugin()],
+        resolve: { alias: sharedAliases },
+        test: {
+          name: "k8s-integration",
+          include: ["tests/integration/k8s/**/*.test.ts"],
+          environment: "node",
+          fileParallelism: false,
+          globalSetup: ["tests/setup/k8s-global-setup.ts"],
         },
       },
     ],

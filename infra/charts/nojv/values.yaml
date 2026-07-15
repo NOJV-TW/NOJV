@@ -1,6 +1,10 @@
 namespace: nojv
 sandboxNamespace: nojv-sandbox
 
+release:
+  # Verified source commit stamped into Helm object metadata by production deploys.
+  sourceSha: ""
+
 nameOverride: ""
 fullnameOverride: ""
 
@@ -8,6 +12,16 @@ image:
   registry: asia-east1-docker.pkg.dev
   repositoryPrefix: PROJECT_ID/nojv
   tag: ""
+  # Release automation must supply one verified manifest-list digest per image.
+  # The chart refuses to render application workloads when any digest is absent.
+  digests:
+    web: ""
+    worker: ""
+    sandbox: ""
+    migrator: ""
+  # Narrow escape hatch for a local-only image loaded directly into a dev cluster.
+  # When true, registry/prefix must be empty and tag must be exactly "local".
+  allowUnpinnedLocalBuilds: false
   repositories:
     web: web
     worker: worker
@@ -18,7 +32,7 @@ postgres:
   mode: cnpg
   cnpg:
     instances: 1
-    imageName: ghcr.io/cloudnative-pg/postgresql:18
+    imageName: ghcr.io/cloudnative-pg/postgresql:18@sha256:17760b4508e1703f7bf3d5ee6c9335ff6d1bf62b034a3d5b32a43414a516789f
     storageSize: 10Gi
     storageClass: ""
     database: nojv
@@ -40,15 +54,15 @@ postgres:
       retentionPolicy: "30d"
       schedule: "0 0 3 * * *"
   cloudsql:
-    instanceConnectionName: PROJECT_ID:REGION:INSTANCE
-    proxyImage: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+    instanceConnectionName: ""
+    proxyImage: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0@sha256:19627ba27f0d6539f4fc62296c79bb122600f27c395e7698cf164739312c5e11
 
 cloudsqlProxy:
   enabled: false
 
 redis:
   inCluster: true
-  image: redis:8-alpine
+  image: redis:8-alpine@sha256:9d317178eceac8454a2284a9e6df2466b93c745529947f0cd42a0fa9609d7005
   storageSize: 1Gi
   storageClass: ""
   resources:
@@ -64,9 +78,14 @@ storage:
   bucket: nojv
   region: auto
   minio:
-    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e
     storageSize: 10Gi
-    storageClass: ""
+    storageClass:
+      create: true
+      name: nojv-minio-retain
+      provisioner: rancher.io/local-path
+      volumeBindingMode: WaitForFirstConsumer
+      parameters: {}
     resources:
       requests:
         cpu: 100m
@@ -82,7 +101,7 @@ storage:
     # See docs/runbooks/backup-restore.md.
     backup:
       enabled: false
-      image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+      image: minio/mc:RELEASE.2025-04-16T18-13-26Z@sha256:aead63c77f9db9107f1696fb08ecb0faeda23729cde94b0f663edf4fe09728e3
       # Cron (UTC). Default 04:00, an hour after the Postgres backup at 03:00.
       schedule: "0 4 * * *"
       # Off-host mirror target (an S3/R2 endpoint the MinIO PVC does not depend on).
@@ -107,7 +126,7 @@ registry:
   # Secret named in worker.sandbox.imagePullSecret. Blobs live in the in-cluster
   # MinIO bucket below when storage.inCluster; otherwise set s3.regionendpoint.
   enabled: false
-  image: registry:2.8.3
+  image: registry:2.8.3@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373
   # Public hostname teachers docker-push to (behind the edge tunnel).
   host: ""
   bucket: nojv-registry
@@ -138,7 +157,7 @@ temporal:
 observability:
   collector:
     enabled: false
-    image: otel/opentelemetry-collector-contrib:0.122.1
+    image: otel/opentelemetry-collector-contrib:0.122.1@sha256:0076e6c250bef16968e29e8f94177b87b5a851c79ce14b270e657f5f655b9e04
     remoteWriteUrl: ""
     resources:
       requests:
@@ -149,7 +168,7 @@ observability:
         memory: 256Mi
   prometheus:
     enabled: false
-    image: prom/prometheus:v3.4.1
+    image: prom/prometheus:v3.4.1@sha256:9abc6cf6aea7710d163dbb28d8eeb7dc5baef01e38fa4cd146a406dd9f07f70d
     retention: "15d"
     storageSize: 10Gi
     storageClass: ""
@@ -175,7 +194,7 @@ observability:
     # Service (correct on a single node; on multi-node use kube-prometheus).
     nodeExporter:
       enabled: false
-      image: prom/node-exporter:v1.9.1
+      image: prom/node-exporter:v1.9.1@sha256:d00a542e409ee618a4edc67da14dd48c5da66726bbd5537ab2af9c1dfc442c8a
       resources:
         requests:
           cpu: 25m
@@ -185,7 +204,7 @@ observability:
           memory: 128Mi
   grafana:
     enabled: false
-    image: grafana/grafana:11.6.1
+    image: grafana/grafana:11.6.1@sha256:52c3e20686b860c6dc1f623811565773cf51eefa378817a4896dfc863c3c82c8
     adminUser: admin
     adminPassword: ""
     service:
@@ -206,6 +225,9 @@ observability:
 secrets:
   runtimeSecretName: nojv-runtime-secrets
 
+mailer:
+  smtpPort: 465
+
 web:
   replicas: 1
   containerPort: 3000
@@ -224,6 +246,7 @@ web:
     type: ClusterIP
     port: 80
     nodePort: ""
+    annotations: {}
   hpa:
     enabled: false
     min: 2
@@ -237,11 +260,14 @@ web:
     path: /
     pathType: Prefix
     tls: []
+    gce:
+      securityPolicy: ""
+      httpsRedirect: false
 
 edge:
   cloudflared:
     enabled: false
-    image: cloudflare/cloudflared:2026.6.1
+    image: cloudflare/cloudflared:2026.6.1@sha256:6d91c121b803126f7a5344005d17a9324788fc09d305b6e2560ec6040a7ae283
     replicas: 2
     tokenSecret: nojv-cloudflared-token
 
@@ -332,6 +358,8 @@ networkPolicy:
 
 migrator:
   enabled: true
+  activeDeadlineSeconds: 6600
+  statusTimeoutSeconds: 10
   resources:
     requests:
       cpu: 100m
@@ -339,7 +367,23 @@ migrator:
     limits:
       cpu: 500m
       memory: 512Mi
-  backoffLimit: 1
+  backoffLimit: 0
+
+maintenance:
+  image: docker.io/alpine/k8s:1.33.3@sha256:47e4ea4c263fb4e14e51d7c5ca841da756673f18e2340f38c0cf1f7219d05e85
+  activeDeadlineSeconds: 660
+  drainTimeoutSeconds: 300
+  restoreTimeoutSeconds: 300
+  readyTimeoutSeconds: 300
+  pollIntervalSeconds: 2
+  kubectlRequestTimeoutSeconds: 5
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
 
 seed:
   enabled: false

@@ -69,13 +69,16 @@ describe("image object storage", () => {
     expect(image.contentType).toBe("image/webp");
   });
 
-  it("uploadUserAvatar returns the stable avatar key", async () => {
+  it("uploadUserAvatar returns an immutable version key", async () => {
     const fake = createFakeS3();
 
     const key = await uploadUserAvatar(fake.client, "usr_1", Buffer.from("avatar"));
 
-    expect(key).toBe("avatars/usr_1.webp");
+    expect(key).toMatch(/^avatars\/usr_1\/[0-9a-f-]+\.webp$/);
     expect(key).not.toMatch(/^https?:\/\//);
-    expect(await downloadUserAvatar(fake.client, "usr_1")).toEqual(Buffer.from("avatar"));
+    const filename = key.split("/").at(-1)!;
+    expect(await downloadUserAvatar(fake.client, "usr_1", filename)).toEqual(
+      Buffer.from("avatar"),
+    );
   });
 });

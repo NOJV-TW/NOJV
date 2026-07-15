@@ -1,4 +1,4 @@
-import { submissionRepo, userRepo, type Prisma } from "@nojv/db";
+import { runTransaction, submissionRepo, userRepo, type Prisma } from "@nojv/db";
 
 import * as notificationDomain from "../notification";
 import { ForbiddenError } from "../shared/errors";
@@ -92,26 +92,29 @@ export async function updateUserRole(
   userId: string,
   role: "admin" | "teacher" | "student",
 ) {
-  const existing = await userRepo.findById(userId);
-  const involvesAdmin = role === "admin" || existing?.platformRole === "admin";
-  if (involvesAdmin && !actorIsSuperAdmin) {
-    throw new ForbiddenError("Only a super admin can grant or remove the admin role.");
-  }
-  const updated = await userRepo.update(userId, {
-    platformRole: role,
-    ...(role === "admin" ? {} : { isSuperAdmin: false }),
-  });
-
-  if (existing && existing.platformRole !== role) {
-    await notificationDomain.createNotification({
-      userId,
-      type: "role_changed",
-      params: { oldRole: existing.platformRole, newRole: role },
-      linkUrl: `/users/${userId}`,
+  return runTransaction(async (tx) => {
+    const users = userRepo.withTx(tx);
+    const existing = await users.findById(userId);
+    const involvesAdmin = role === "admin" || existing?.platformRole === "admin";
+    if (involvesAdmin && !actorIsSuperAdmin) {
+      throw new ForbiddenError("Only a super admin can grant or remove the admin role.");
+    }
+    const updated = await users.update(userId, {
+      platformRole: role,
+      ...(role === "admin" ? {} : { isSuperAdmin: false }),
     });
-  }
+    if (existing && existing.platformRole !== role) {
+      await notificationDomain.createNotificationInTransaction(tx, {
+        userId,
+        type: "role_changed",
+        params: { oldRole: existing.platformRole, newRole: role },
+        linkUrl: `/users/${userId}`,
+        dedupeKey: `role_changed:${userId}:${updated.updatedAt.toISOString()}`,
+      });
+    }
 
-  return updated;
+    return updated;
+  });
 }
 
 async function guardDisableTarget(actorIsSuperAdmin: boolean, userId: string) {

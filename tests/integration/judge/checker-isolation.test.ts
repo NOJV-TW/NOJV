@@ -28,6 +28,13 @@ function makeExecutor(): DockerExecutor {
   });
 }
 
+function execute(request: SandboxRequest) {
+  return makeExecutor().execute(request, {
+    runId: request.submissionId,
+    signal: new AbortController().signal,
+  });
+}
+
 function checkerRequest(overrides: Partial<SandboxRequest>): SandboxRequest {
   return {
     submissionId: "checker-iso",
@@ -52,7 +59,7 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
     async (ctx) => {
       if (!(await requireSandboxImage(ctx))) return;
 
-      const result = await makeExecutor().execute(
+      const result = await execute(
         checkerRequest({
           submissionId: "checker-correct",
           sourceCode: "a, b = map(int, input().split())\nprint(a, b, a + b)\n",
@@ -73,7 +80,7 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
     async (ctx) => {
       if (!(await requireSandboxImage(ctx))) return;
 
-      const result = await makeExecutor().execute(
+      const result = await execute(
         checkerRequest({
           submissionId: "checker-wrong",
           sourceCode: "print('totally wrong')\n",
@@ -93,7 +100,7 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
     async (ctx) => {
       if (!(await requireSandboxImage(ctx))) return;
 
-      const result = await makeExecutor().execute(
+      const result = await execute(
         checkerRequest({
           submissionId: "checker-partial",
           sourceCode: "a, b = map(int, input().split())\nprint(a, b)\n",
@@ -113,7 +120,7 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
     async (ctx) => {
       if (!(await requireSandboxImage(ctx))) return;
 
-      const result = await makeExecutor().execute(
+      const result = await execute(
         checkerRequest({
           submissionId: "checker-channels",
           sourceCode: "print('totally wrong')\n",
@@ -149,7 +156,7 @@ for d in glob.glob("/submission/cases/*") + glob.glob("/submission/testcases/*")
 print("".join(chunks))
 `;
 
-      const result = await makeExecutor().execute(
+      const result = await execute(
         checkerRequest({ submissionId: "checker-exploit", sourceCode: exploit }),
       );
 

@@ -5,43 +5,26 @@ import { buildSubmissionBody } from "$lib/services/submission-service";
 describe("buildSubmissionBody", () => {
   it("serializes virtual submissions with participationId", () => {
     const body = buildSubmissionBody({
+      context: { type: "virtual", participationId: "participation_1" },
       language: "cpp",
-      participationId: "participation_1",
       problemId: "problem_1",
       sampleOnly: false,
       sourceCode: "int main() {}",
     });
 
     expect(body).toMatchObject({
+      context: { type: "virtual", participationId: "participation_1" },
       language: "cpp",
-      mode: "virtual",
-      participationId: "participation_1",
       problemId: "problem_1",
       sampleOnly: false,
       sourceCode: "int main() {}",
     });
-    expect(body).not.toHaveProperty("virtualContestId");
-  });
-
-  it("keeps contest mode ahead of virtual participation when both contexts exist", () => {
-    const body = buildSubmissionBody({
-      contestId: "contest_1",
-      language: "cpp",
-      participationId: "participation_1",
-      problemId: "problem_1",
-      sourceCode: "int main() {}",
-    });
-
-    expect(body).toMatchObject({
-      contestId: "contest_1",
-      mode: "contest",
-      participationId: "participation_1",
-      sampleOnly: false,
-    });
+    expect(body).not.toHaveProperty("participationId");
   });
 
   it("includes advanced source files without dropping the placeholder source", () => {
     const body = buildSubmissionBody({
+      context: { type: "practice" },
       language: "cpp",
       problemId: "problem_1",
       sourceCode: "// advanced-mode upload",
@@ -49,7 +32,7 @@ describe("buildSubmissionBody", () => {
     });
 
     expect(body).toMatchObject({
-      mode: "practice",
+      context: { type: "practice" },
       sourceCode: "// advanced-mode upload",
       sourceFiles: [{ path: "main.cpp", content: "int main() {}" }],
     });
