@@ -46,7 +46,7 @@
 
 ## Quick Start
 
-**Prerequisites:** Node.js >= 24, pnpm 10.x, Docker Desktop (local Postgres, Redis, Temporal, sandbox).
+**Prerequisites:** Node.js >= 24, pnpm 11.x, Docker Desktop (local Postgres, Redis, Temporal, sandbox).
 
 Docker Compose is the **local development** path only — it starts the backing
 services so you can run the app from source with `pnpm dev`. To deploy NOJV, use

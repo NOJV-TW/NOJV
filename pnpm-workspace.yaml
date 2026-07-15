@@ -3,6 +3,9 @@ packages:
   - packages/*
   - tooling/*
 
+nodeOptions: --max-old-space-size=4096
+engineStrict: true
+
 auditConfig:
   ignoreGhsas:
     - GHSA-vmh5-mc38-953g
@@ -35,14 +38,14 @@ overrides:
 ignoredOptionalDependencies:
   - joi
 
-onlyBuiltDependencies:
-  - "@dodona/dolos-parsers"
-  - "@prisma/engines"
-  - "@swc/core"
-  - esbuild
-  - prisma
-  - tree-sitter
-  - tree-sitter-compat
+allowBuilds:
+  "@dodona/dolos-parsers": true
+  "@prisma/engines": true
+  "@swc/core": true
+  esbuild: true
+  prisma: true
+  tree-sitter: true
+  tree-sitter-compat: true
 
 patchedDependencies:
   tree-sitter@0.25.0: patches/tree-sitter@0.25.0.patch

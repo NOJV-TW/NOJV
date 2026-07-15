@@ -932,6 +932,7 @@ export class K8sExecutor implements SandboxExecutor {
             name,
             namespace,
             propagationPolicy: "Foreground",
+            gracePeriodSeconds: 0,
           }),
         { notFoundIsSuccess: true },
       ),
