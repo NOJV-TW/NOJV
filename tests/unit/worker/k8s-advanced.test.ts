@@ -106,7 +106,7 @@ interface CallRecord {
   jobsDeleted: { name: string; namespace: string }[];
   podLogsRead: { name: string; namespace: string; container: string }[];
   podsCreated: { name: string; namespace: string; body: any }[];
-  podsDeleted: { name: string; namespace: string }[];
+  podsDeleted: { name: string; namespace: string; gracePeriodSeconds?: number }[];
   servicesCreated: { name: string; namespace: string; body: any }[];
   servicesDeleted: { name: string; namespace: string }[];
   networkPoliciesCreated: { name: string; namespace: string; body: any }[];
@@ -154,13 +154,15 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
     createNamespacedPod: vi.fn(async ({ namespace, body }: any) => {
       record.podsCreated.push({ name: body.metadata.name, namespace, body });
     }),
-    deleteNamespacedPod: vi.fn(async ({ name, namespace, propagationPolicy }: any) => {
-      record.podsDeleted.push({ name, namespace });
-      record.cleanupEvents.push(`delete-pod:${name}:${String(propagationPolicy)}`);
-      podDeleteAttempts.add(name);
-      if (opts.podDeleteError) throw opts.podDeleteError;
-      deletedPods.add(name);
-    }),
+    deleteNamespacedPod: vi.fn(
+      async ({ name, namespace, propagationPolicy, gracePeriodSeconds }: any) => {
+        record.podsDeleted.push({ name, namespace, gracePeriodSeconds });
+        record.cleanupEvents.push(`delete-pod:${name}:${String(propagationPolicy)}`);
+        podDeleteAttempts.add(name);
+        if (opts.podDeleteError) throw opts.podDeleteError;
+        deletedPods.add(name);
+      },
+    ),
     createNamespacedService: vi.fn(async ({ namespace, body }: any) => {
       record.servicesCreated.push({ name: body.metadata.name, namespace, body });
       const clusterIP =
@@ -1135,6 +1137,11 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       "delete-pod:judge-sub-adv-1-sidecar:Foreground",
       "confirm-pod-gone:judge-sub-adv-1-sidecar",
     );
+    expect(record.podsDeleted).toContainEqual({
+      name: "judge-sub-adv-1-sidecar",
+      namespace: EXEC_CONFIG.namespace,
+      gracePeriodSeconds: 0,
+    });
     before(
       "confirm-pod-gone:judge-sub-adv-1-sidecar",
       "delete-policy:judge-sub-adv-1-sidecar-egress",
