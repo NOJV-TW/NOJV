@@ -2,18 +2,7 @@ import { test, expect, type APIRequestContext, type Page } from "@playwright/tes
 
 import { adminAuth, apiWriteHeaders, studentAuth, teacherAuth } from "./_shared";
 
-async function suppressOnboardingTour(page: Page) {
-  await page.addInitScript(() => {
-    const originalGetItem = Storage.prototype.getItem;
-    Storage.prototype.getItem = function (key: string) {
-      if (typeof key === "string" && key.startsWith("nojv:tour:seen:")) return "1";
-      return originalGetItem.call(this, key);
-    };
-  });
-}
-
 async function openPostsTab(page: Page, problemId: string, tab: "Editorials" | "Discussions") {
-  await suppressOnboardingTour(page);
   await page.goto(`/problems/${problemId}`);
   const tabButton = page.getByRole("tab", { name: tab });
   await expect(async () => {
