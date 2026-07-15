@@ -41,14 +41,8 @@
 
   async function uploadErrorMessage(res: Response): Promise<string> {
     if (res.status === 429) return m.account_avatar_uploadFailed();
-    try {
-      const data = (await res.json()) as { message?: unknown };
-      if (typeof data.message === "string" && data.message.length > 0) {
-        return data.message;
-      }
-    } catch {
-      // fall through to generic message
-    }
+    const data = (await res.json().catch(() => null)) as { message?: unknown } | null;
+    if (typeof data?.message === "string" && data.message.length > 0) return data.message;
     return m.account_avatar_uploadFailed();
   }
 

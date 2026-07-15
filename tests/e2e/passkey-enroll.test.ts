@@ -3,11 +3,6 @@ import { expect, test } from "@playwright/test";
 import { DisposableCredentialUser, psql, signInWithPassword } from "./_disposable-user";
 import { activateTwoFactor, settingsMethodRow } from "./_two-factor";
 
-// Exercises the Phase 5 passkey enrollment ceremony end-to-end using a CDP
-// WebAuthn virtual authenticator (no real device). Proves the @better-auth/passkey
-// plugin + Prisma model + migration accept a real registration: the ceremony
-// completes and the passkey is persisted and listed in the UI.
-
 test.describe.configure({ retries: 0 });
 
 const user = new DisposableCredentialUser("passkey-enroll");
@@ -21,7 +16,6 @@ test.afterAll(() => {
 });
 
 test("enroll a passkey via a WebAuthn virtual authenticator", async ({ page, context }) => {
-  // attach a virtual authenticator that auto-satisfies user verification
   const client = await context.newCDPSession(page);
   await client.send("WebAuthn.enable");
   await client.send("WebAuthn.addVirtualAuthenticator", {
@@ -45,7 +39,6 @@ test("enroll a passkey via a WebAuthn virtual authenticator", async ({ page, con
   const dialog = page.getByRole("dialog", { name: "Passkey" });
   await dialog.getByRole("button", { name: "Add passkey" }).click();
 
-  // the registration ceremony completes and the new passkey is listed
   await expect(dialog.getByRole("button", { name: "Remove" })).toBeVisible({ timeout: 20000 });
   expect(psql(`select count(*) from "Passkey" where "userId" = '${user.id}';`)).toBe("1");
 });

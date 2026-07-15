@@ -44,13 +44,11 @@
   );
   const formatDate = (date: string) => dateFmt.format(new Date(`${date}T00:00:00Z`));
 
-  // A single shared tooltip (GitHub-style) follows the hovered cell — far cheaper
-  // than wrapping all ~365 cells in their own tooltip component.
   let tip = $state<{ day: HeatmapDay; left: number; y: number; above: boolean } | null>(null);
 
   function showTip(day: HeatmapDay, event: MouseEvent) {
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    const above = rect.top > 48; // flip below the cell when there's no room above
+    const above = rect.top > 48;
     tip = {
       day,
       left: rect.left + rect.width / 2,
@@ -63,8 +61,6 @@
     tip = null;
   }
 
-  // Move the tooltip to <body> so a transformed/overflow-hidden ancestor (the
-  // dashboard's fade-up animation) can't reposition or clip a `fixed` element.
   function portal(node: HTMLElement) {
     document.body.appendChild(node);
     return { destroy: () => node.remove() };

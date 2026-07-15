@@ -78,7 +78,6 @@ describe("buildScoreboard (dispatcher)", () => {
     expect(board[0]!.userId).toBe("u1");
     expect(board[0]!.totalScore).toBe(100);
     expect(board[0]!.totalPenalty).toBe(5 * 60);
-    // u2's 50 on P2 is a wrong_answer → not solved → contributes nothing
     expect(board[1]!.totalScore).toBe(100);
     expect(board[1]!.totalPenalty).toBe(15 * 60);
   });

@@ -26,12 +26,6 @@ export async function getProblemTotalScore(
   return sum > 0 ? sum : 100;
 }
 
-/**
- * Batch-computes each problem's real maximum score (cumulative subtask weights,
- * or the advanced-config max for special_env problems) straight from the DB.
- * Use this to source score denominators for display instead of the possibly
- * stale `points` snapshot stored on assessment/exam problem links.
- */
 export async function getProblemTotalScores(
   problemIds: string[],
 ): Promise<Map<string, number>> {

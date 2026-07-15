@@ -120,8 +120,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       });
 
       const totalPoints = (contest.problems ?? []).reduce((sum, p) => sum + p.points, 0);
-      // 解題數 maxes at the problem count (each solve = 1); 積分制 / 累分制 max at the
-      // sum of configured points.
       const maxScore =
         contest.scoringMode === "problem_count" ? (contest.problems ?? []).length : totalPoints;
       results = buildContestResults(scores, maxScore);

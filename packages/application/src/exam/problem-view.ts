@@ -1,5 +1,6 @@
 import { examRepo, submissionRepo } from "@nojv/db";
 import {
+  problemLetter,
   submissionVerdicts,
   verdictSummarySchema,
   type Language,
@@ -7,7 +8,6 @@ import {
 } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
-import { problemLetter } from "../shared/problem-letter";
 import { getProblemPageData } from "../problem/queries";
 import type { ProblemDetail } from "../problem/queries";
 import { getProblemTotalScores } from "../problem/total-score";

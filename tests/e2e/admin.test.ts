@@ -134,7 +134,6 @@ test.describe("Admin panel — gating + pages", () => {
     const context = await browser.newContext();
     const page = await context.newPage();
 
-    // A fresh admin login starts de-elevated (original identity).
     await page.goto("/admin-signin", { waitUntil: "networkidle" });
     await page.getByLabel(/username or email/i).fill("admin@nojv.local");
     await page.getByLabel(/password/i).fill("password123");

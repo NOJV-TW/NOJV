@@ -1,6 +1,6 @@
 import { submissionRepo } from "@nojv/db";
+import { problemLetter } from "@nojv/core";
 
-import { problemLetter } from "../shared/problem-letter";
 import {
   assembleMatrix,
   type MatrixCell,

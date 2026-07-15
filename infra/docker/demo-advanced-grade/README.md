@@ -30,8 +30,8 @@ registry confirms their manifest digests.
 The demo problem's `advancedConfig.grade` in
 `packages/db/prisma/seeds/problems.ts` receives this reference explicitly.
 
-`nojv_grader.py` is the contract helper (don't edit); `grader.py` is the
-per-problem grading logic. See the container contract in
+The image uses the canonical `nojv_grader.py` from the advanced-mode starter
+template; `grader.py` is the per-problem grading logic. See the container contract in
 [JUDGE_PIPELINE.md](../../../docs/architecture/JUDGE_PIPELINE.md#container-contract),
 or download the full run/grade/service starter templates from the problem
 editor. This directory is a worked example of the same grade contract.

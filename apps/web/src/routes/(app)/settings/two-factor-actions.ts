@@ -133,15 +133,6 @@ interface StepUpFailure {
   needsStepUp?: boolean;
 }
 
-/**
- * Authorizes a change to a user's 2FA configuration with a device step-up: a
- * TOTP or a fresh passkey assertion is required whenever a device
- * factor exists; email OTP is a fallback only when none does. Adding a method
- * (allowChangeGrant) also accepts a recent activation grant. A password is NOT
- * an accepted step-up here — sensitive 2FA changes require a device factor —
- * even though better-auth still needs the password to run enable/disable/
- * regenerate for password accounts (see passwordBodyForBetterAuth).
- */
 async function authorizeTwoFactorChange(
   event: RequestEvent,
   formData: FormData,
@@ -193,11 +184,6 @@ async function authorizeTwoFactorChange(
   };
 }
 
-/**
- * better-auth requires the account password to run enable/disable/regenerate for
- * password accounts even with allowPasswordless. It is plumbing for those calls,
- * not the authorization for the change (that is authorizeTwoFactorChange).
- */
 async function passwordBodyForBetterAuth(
   userId: string,
   formData: FormData,

@@ -9,7 +9,6 @@ test.describe("settings connections (UI smoke)", () => {
     await page.goto("/settings");
     await expect(page.getByRole("heading", { name: "Sign-in methods" })).toBeVisible();
     await expect(page.getByText("Google", { exact: true })).toBeVisible();
-    // both providers are unlinked for a password-only student → two bind buttons
     await expect(page.getByRole("button", { name: "Link" })).toHaveCount(2);
   });
 });

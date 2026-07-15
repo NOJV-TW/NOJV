@@ -11,9 +11,7 @@ declare global {
       user: User | null;
       apiToken: VerifiedApiTokenContext | null;
       apiTokenActor: ActorContext | null;
-      /** True when an admin account has toggled into elevated "admin mode" this session. */
       adminModeActive: boolean;
-      /** Per-request correlation ID — read from inbound `X-Request-Id` or generated. */
       requestId: string;
       examGate: {
         entityId: string;

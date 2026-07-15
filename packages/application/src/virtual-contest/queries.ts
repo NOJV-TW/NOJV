@@ -1,6 +1,7 @@
 import { contestRepo, participationRepo, submissionRepo } from "@nojv/db";
 import type { languageSchema } from "@nojv/core";
 import {
+  problemLetter,
   submissionVerdicts,
   verdictSummarySchema,
   type ContestScoringMode,
@@ -8,7 +9,6 @@ import {
   type SubmissionResult,
 } from "@nojv/core";
 
-import { problemLetter } from "../shared/problem-letter";
 import { ForbiddenError, NotFoundError } from "../shared/errors";
 import { narrowSubmissionRow } from "../submission/queries";
 import {

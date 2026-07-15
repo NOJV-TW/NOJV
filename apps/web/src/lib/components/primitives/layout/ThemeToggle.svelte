@@ -23,9 +23,6 @@
     }
   }
 
-  // One press always flips the *visible* theme (light <-> dark). "system" stays
-  // the first-load default but the button no longer cycles through it, so a
-  // single click is never a no-op.
   function cycle() {
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     mode = resolveIsDark(mode, prefersDark) ? "light" : "dark";

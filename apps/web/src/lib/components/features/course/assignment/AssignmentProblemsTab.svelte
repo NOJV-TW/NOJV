@@ -15,6 +15,7 @@
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Search from "@lucide/svelte/icons/search";
   import X from "@lucide/svelte/icons/x";
+  import { problemLetter } from "@nojv/core";
 
   import { m } from "$lib/paraglide/messages.js";
   import RejudgeDialog from "$lib/components/features/problem/admin/RejudgeDialog.svelte";
@@ -81,25 +82,13 @@
       .slice(0, 20);
   });
 
-  function letterFor(ordinal: number): string {
-    if (ordinal < 1) return String(ordinal);
-    let n = ordinal;
-    let label = "";
-    while (n > 0) {
-      const rem = (n - 1) % 26;
-      label = String.fromCharCode(65 + rem) + label;
-      n = Math.floor((n - 1) / 26);
-    }
-    return label;
-  }
-
   function attach(candidate: CandidateProblem) {
     editRows = [
       ...editRows,
       {
         problemId: candidate.id,
         title: candidate.title,
-        letter: letterFor(editRows.length + 1),
+        letter: problemLetter(editRows.length + 1),
       },
     ];
   }
@@ -107,7 +96,7 @@
   function detach(problemId: string) {
     editRows = editRows
       .filter((r) => r.problemId !== problemId)
-      .map((r, i) => ({ ...r, letter: letterFor(i + 1) }));
+      .map((r, i) => ({ ...r, letter: problemLetter(i + 1) }));
   }
 
   function swap(i: number, j: number) {
@@ -118,7 +107,7 @@
     if (!tmp || !other) return;
     next[i] = other;
     next[j] = tmp;
-    editRows = next.map((r, idx) => ({ ...r, letter: letterFor(idx + 1) }));
+    editRows = next.map((r, idx) => ({ ...r, letter: problemLetter(idx + 1) }));
   }
 
   async function savePayload() {

@@ -31,8 +31,6 @@ function stubEvent(user: SessionLike | null): RequestEvent {
   return {
     locals: {
       sessionUser: user,
-      // Admin power now requires the elevated "admin mode"; these gates test the
-      // elevated admin.
       adminModeActive: user?.platformRole === "admin",
     },
   } as unknown as RequestEvent;

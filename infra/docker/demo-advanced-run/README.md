@@ -30,8 +30,8 @@ The demo problem's `advancedConfig.run` in `packages/db/prisma/seeds/problems.ts
 receives this reference explicitly, paired with the grade image so the seeded
 problem judges correctly under the real run/grade executor.
 
-`nojv_runner.py` is the contract helper (don't edit); `runner.py` is the
-per-problem run logic. See the container contract in
+The image uses the canonical `nojv_runner.py` from the advanced-mode starter
+template; `runner.py` is the per-problem run logic. See the container contract in
 [JUDGE_PIPELINE.md](../../../docs/architecture/JUDGE_PIPELINE.md#container-contract),
 or download the full run/grade/service starter templates from the problem
 editor. This directory is a worked example of the same run contract.

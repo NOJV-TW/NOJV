@@ -149,8 +149,6 @@ export async function ensureContestParticipation(
     throw new ForbiddenError("Contest has ended.");
   }
 
-  // Participants must join before submitting; managers/admins are auto-joined
-  // (operational access, consistent with the contest problem-route gate).
   if (!canManageContest(userId, contest, platformRole)) {
     const existing = await participationRepo
       .withTx(tx)
@@ -243,11 +241,6 @@ export async function joinContestByCode(
   return { contestId: contest.id };
 }
 
-/**
- * Explicit join for a PUBLIC contest (no invite code). Registers the actor as a
- * participant so they may submit. Allowed before and during the contest (until
- * it ends). Private/invite-code contests must be joined via `joinContestByCode`.
- */
 export async function joinContest(
   actor: ActorContext,
   contestId: string,

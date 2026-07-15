@@ -2,12 +2,12 @@
   import {
     entryFileNameFor,
     languageSchema,
+    languageLabel,
     supportedLanguages,
     type Language,
     type ProblemType,
   } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
-  import { languageLabel } from "$lib/utils/language-labels";
 
   interface Props {
     value: Language;
