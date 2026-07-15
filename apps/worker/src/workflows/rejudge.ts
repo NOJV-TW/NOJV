@@ -33,7 +33,12 @@ export async function rejudgeWorkflow(input: RejudgeInput): Promise<void> {
   total = targets.length;
   if (total === 0) return;
 
-  const forRejudge = { triggeredByUserId: input.triggeredByUserId };
+  const forRejudge = {
+    triggeredByUserId: input.triggeredByUserId,
+    ...(input.mode === "single" && input.expectedJudgeGeneration !== undefined
+      ? { expectedJudgeGeneration: input.expectedJudgeGeneration }
+      : {}),
+  };
 
   try {
     await executeRejudgeBatches({

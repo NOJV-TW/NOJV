@@ -15,7 +15,7 @@ const {
   submissionCreate,
   submissionPublishPendingUpload,
   submissionUpdateStatus,
-  submissionUpdateStatusIfIn,
+  submissionCompleteIfInProgress,
   submissionFindMostRecent,
   examSessionFindActiveForUser,
   examFindById,
@@ -42,7 +42,7 @@ const {
   submissionCreate: vi.fn(),
   submissionPublishPendingUpload: vi.fn(),
   submissionUpdateStatus: vi.fn(),
-  submissionUpdateStatusIfIn: vi.fn(),
+  submissionCompleteIfInProgress: vi.fn(),
   submissionFindMostRecent: vi.fn(),
   examSessionFindActiveForUser: vi.fn(),
   examFindById: vi.fn(),
@@ -112,7 +112,7 @@ vi.mock("@nojv/db", () => {
         publishPendingUpload: submissionPublishPendingUpload,
       }),
       updateStatus: submissionUpdateStatus,
-      updateStatusIfIn: submissionUpdateStatusIfIn,
+      completeIfInProgress: submissionCompleteIfInProgress,
     },
     runTransaction: async <T>(
       fn: (tx: { $executeRaw: typeof txExecuteRaw }) => Promise<T>,
@@ -223,7 +223,7 @@ function setupSubmitPipelineDefaults(
     id,
     status,
   }));
-  submissionUpdateStatusIfIn.mockResolvedValue({ count: 1 });
+  submissionCompleteIfInProgress.mockResolvedValue({ count: 1 });
 }
 
 const baseDraft = {
@@ -503,7 +503,7 @@ describe("createQueuedSubmissionRecord — exam time window", () => {
     submissionPublishPendingUpload.mockImplementation(
       async (id: string, sourceStorage: unknown) => ({ id, sourceStorage, status: "queued" }),
     );
-    submissionUpdateStatusIfIn.mockResolvedValue({ count: 1 });
+    submissionCompleteIfInProgress.mockResolvedValue({ count: 1 });
     durableWorkEnqueue.mockResolvedValue({});
     durableWorkEnqueueMany.mockResolvedValue([]);
     durableWorkCancel.mockResolvedValue(true);
@@ -731,10 +731,14 @@ describe("createQueuedSubmissionRecord — upload intention lifecycle", () => {
     expect(submissionCreate).toHaveBeenCalledWith(
       expect.objectContaining({ sourceStorage: null, status: "pending_upload" }),
     );
-    expect(submissionUpdateStatusIfIn).toHaveBeenCalledWith(
+    expect(submissionCompleteIfInProgress).toHaveBeenCalledWith(
       expect.any(String),
-      ["pending_upload"],
-      "system_error",
+      expect.objectContaining({
+        status: "system_error",
+        verdictSummary: expect.objectContaining({
+          systemErrorTruncated: expect.stringContaining("Simulated storage failure"),
+        }),
+      }),
     );
     expect(durableWorkEnqueueMany).toHaveBeenCalledTimes(1);
     expect(durableWorkCancel).not.toHaveBeenCalled();

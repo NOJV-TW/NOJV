@@ -55,6 +55,20 @@ describe("mapResult — sandbox SE maps to system_error (platform fault)", () =>
     expect(() => submissionResultSchema.parse(result)).not.toThrow();
   });
 
+  it("maps a judge pipeline failure to system_error instead of a student compile error", () => {
+    const result = mapResult(
+      { pipelineError: "sandbox phase failed", testcaseResults: [] },
+      [],
+      NO_ADJUSTMENT as never,
+    );
+
+    expect(result).toMatchObject({
+      verdict: "system_error",
+      accepted: false,
+      feedback: "[Pipeline Error] sandbox phase failed",
+    });
+  });
+
   it("system_error stays out of the graded/counted verdict set", () => {
     expect(submissionVerdicts as readonly string[]).not.toContain("system_error");
   });

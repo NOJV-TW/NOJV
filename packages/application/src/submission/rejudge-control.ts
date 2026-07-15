@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import type { RejudgeInput, RejudgeProgress, SubmissionJudgeJob } from "@nojv/core";
 import { submissionJudgeJobSchema } from "@nojv/core";
-import { durableWorkRepo, type TransactionClient } from "@nojv/db";
+import { durableWorkRepo, submissionRepo, type TransactionClient } from "@nojv/db";
 import { z } from "zod";
 
 import { ForbiddenError } from "../shared/errors";
@@ -10,6 +10,7 @@ import { getDomainOrchestration } from "../shared/orchestration";
 import { toJsonValue } from "../shared/to-json-value";
 
 const REJUDGE_WORKFLOW_PREFIX = "rejudge-";
+const RECOVERY_BATCH_SIZE = 100;
 export const SUBMISSION_JUDGE_DISPATCH_WORK_KIND = "submission.judge.dispatch";
 export const REJUDGE_DISPATCH_WORK_KIND = "submission.rejudge.dispatch";
 
@@ -18,7 +19,8 @@ const rejudgeInputSchema = z.discriminatedUnion("mode", [
     .object({
       mode: z.literal("single"),
       submissionId: z.string().min(1),
-      triggeredByUserId: z.string().min(1),
+      triggeredByUserId: z.string().min(1).nullable(),
+      expectedJudgeGeneration: z.number().int().nonnegative().optional(),
     })
     .strict(),
   z
@@ -75,6 +77,32 @@ export async function dispatchRejudge(input: RejudgeInput): Promise<{ workflowId
   return { workflowId };
 }
 
+export async function recoverSystemErrorSubmissions(): Promise<number> {
+  const submissions = await submissionRepo.listSystemErrorsForRecovery();
+  for (let offset = 0; offset < submissions.length; offset += RECOVERY_BATCH_SIZE) {
+    await durableWorkRepo.enqueueMany(
+      submissions.slice(offset, offset + RECOVERY_BATCH_SIZE).map((submission) => {
+        const generation = String(submission.judgeGeneration);
+        return {
+          kind: REJUDGE_DISPATCH_WORK_KIND,
+          dedupeKey: `system-error:${submission.id}:${generation}`,
+          payload: toJsonValue({
+            workflowId: `${REJUDGE_WORKFLOW_PREFIX}system-error-${submission.id}-${generation}`,
+            input: {
+              mode: "single",
+              submissionId: submission.id,
+              triggeredByUserId: null,
+              expectedJudgeGeneration: submission.judgeGeneration,
+            },
+          }),
+          maxAttempts: 20,
+        };
+      }),
+    );
+  }
+  return submissions.length;
+}
+
 export async function dispatchSubmissionJudge(payload: SubmissionJudgeJob): Promise<void> {
   await enqueueSubmissionJudgeDispatch(undefined, payload);
 }
@@ -102,7 +130,14 @@ export async function executeRejudgeDispatch(rawPayload: unknown): Promise<void>
   const parsed = rejudgeDispatchPayloadSchema.parse(rawPayload);
   const input: RejudgeInput =
     parsed.input.mode === "single"
-      ? parsed.input
+      ? {
+          mode: "single",
+          submissionId: parsed.input.submissionId,
+          triggeredByUserId: parsed.input.triggeredByUserId,
+          ...(parsed.input.expectedJudgeGeneration !== undefined
+            ? { expectedJudgeGeneration: parsed.input.expectedJudgeGeneration }
+            : {}),
+        }
       : {
           mode: "batch",
           problemId: parsed.input.problemId,

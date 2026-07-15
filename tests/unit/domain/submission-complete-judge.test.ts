@@ -128,6 +128,15 @@ describe("deriveVerdictSummary", () => {
     expect(ce.compilerErrorTruncated!.length).toBe(1024);
   });
 
+  it("includes a bounded diagnostic only on system_error", () => {
+    const reason = "pipeline unavailable ".repeat(100);
+    const summary = deriveVerdictSummary(
+      makeResult({ verdict: "system_error", feedback: reason }),
+    );
+
+    expect(summary.systemErrorTruncated).toBe(reason.slice(0, 1024));
+  });
+
   it("handles a result with zero caseResults — returns zeroed summary", () => {
     const summary = deriveVerdictSummary(makeResult());
     expect(summary.caseSummary).toEqual({ ac: 0, wa: 0, tle: 0, mle: 0, re: 0, other: 0 });

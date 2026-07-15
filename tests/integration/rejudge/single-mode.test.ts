@@ -90,6 +90,24 @@ describe("rejudge — single-submission domain round trip (real DB)", () => {
     expect(logs[0]!.oldScore).toBe(30);
   });
 
+  it("starts automatic recovery only while the locked SE generation still matches", async () => {
+    const submission = await createTestSubmission({ status: "system_error" });
+
+    await expect(
+      submissionDomain.snapshotForRejudge(submission.id, null, "stale-recovery", 1),
+    ).resolves.toBeNull();
+    await expect(
+      submissionDomain.snapshotForRejudge(submission.id, null, "current-recovery", 0),
+    ).resolves.toMatchObject({ oldStatus: "system_error" });
+
+    const updated = await submissionRepo.findById(submission.id);
+    expect(updated).toMatchObject({
+      activeJudgeRunId: "current-recovery",
+      judgeGeneration: 1,
+      status: "running",
+    });
+  });
+
   it("rejects rejudge when actor lacks operate permission", async () => {
     const organizer = await createTestUser({ platformRole: "teacher" });
     const otherTeacher = await createTestUser({ platformRole: "teacher" });

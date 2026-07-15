@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 
 import { NativeConnection, Worker } from "@temporalio/worker";
+import { submissionDomain } from "@nojv/application";
 import "./domain-orchestration";
 
 import {
@@ -179,6 +180,15 @@ export class WorkerApp {
       await ensureLifecycleReconciler();
       this.assertStarting();
       await ensureDurableWorkProcessor();
+      this.assertStarting();
+      await submissionDomain.sweepStaleSubmissions();
+      this.assertStarting();
+      await submissionDomain.recoverSystemErrorSubmissions();
+      this.assertStarting();
+    }
+
+    if (mode === "judge") {
+      await submissionDomain.recoverSystemErrorSubmissions();
       this.assertStarting();
     }
 

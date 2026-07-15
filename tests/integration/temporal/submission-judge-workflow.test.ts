@@ -114,6 +114,33 @@ describe("submissionJudgeWorkflow (TestWorkflowEnvironment)", () => {
     expect(activities.restoreSubmissionForCancelledRejudge).not.toHaveBeenCalled();
   });
 
+  it("skips a stale automatic recovery when the judge generation no longer matches", async () => {
+    const activities = buildActivities({
+      snapshotSubmissionForRejudge: vi.fn(async () => null),
+    });
+    const workflowId = `wf-stale-recovery-${String(Date.now())}`;
+    await runWorker(activities, async () => {
+      await env.client.workflow.execute(submissionJudgeWorkflow, {
+        args: [
+          {
+            ...baseInput,
+            forRejudge: { triggeredByUserId: null, expectedJudgeGeneration: 2 },
+          },
+        ],
+        taskQueue: "judge-test",
+        workflowId,
+      });
+    });
+
+    expect(activities.snapshotSubmissionForRejudge).toHaveBeenCalledWith(
+      "sub_1",
+      null,
+      workflowId,
+      2,
+    );
+    expect(activities.executeSandbox).not.toHaveBeenCalled();
+  });
+
   it("cancellation during a rejudge restores the prior status (never finalizes)", async () => {
     let signalStarted: () => void = () => undefined;
     const started = new Promise<void>((resolve) => {
@@ -167,5 +194,28 @@ describe("submissionJudgeWorkflow (TestWorkflowEnvironment)", () => {
       "accepted",
     );
     expect(activities.finalizeRejudgeLog).not.toHaveBeenCalled();
-  });
+  }, 15_000);
+
+  it("records the pipeline failure reason on a normal judge failure", async () => {
+    const activities = buildActivities({
+      executeSandbox: vi.fn(async () => {
+        throw new Error("sandbox infra failure");
+      }),
+    });
+    const workflowId = `wf-normal-fail-${String(Date.now())}`;
+    await runWorker(activities, async () => {
+      const handle = await env.client.workflow.start(submissionJudgeWorkflow, {
+        args: [baseInput],
+        taskQueue: "judge-test",
+        workflowId,
+      });
+      await expect(handle.result()).rejects.toThrow();
+    });
+
+    expect(activities.failSubmissionJudgeRun).toHaveBeenCalledWith(
+      "sub_1",
+      workflowId,
+      expect.stringContaining("sandbox infra failure"),
+    );
+  }, 15_000);
 });

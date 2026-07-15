@@ -20,6 +20,7 @@ export type { SubmissionSource } from "@nojv/storage";
 export {
   completeJudge,
   createQueuedSubmissionRecord,
+  deriveSystemErrorVerdictSummary,
   deriveVerdictSummary,
   failSubmissionJudgeRun,
   finalizeRejudgeLog,
@@ -66,6 +67,7 @@ export {
   executeSubmissionJudgeDispatch,
   getRejudgeTriggeredBy,
   queryRejudgeProgress,
+  recoverSystemErrorSubmissions,
   REJUDGE_DISPATCH_WORK_KIND,
   SUBMISSION_JUDGE_DISPATCH_WORK_KIND,
 } from "./rejudge-control";

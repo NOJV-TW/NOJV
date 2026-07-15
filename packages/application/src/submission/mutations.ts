@@ -419,7 +419,14 @@ export async function createQueuedSubmissionRecord(
     });
   } catch (uploadError) {
     try {
-      await submissionRepo.updateStatusIfIn(submissionId, ["pending_upload"], "system_error");
+      await submissionRepo.completeIfInProgress(submissionId, {
+        status: "system_error",
+        verdictSummary: toJsonValue(
+          deriveSystemErrorVerdictSummary(
+            `Submission source upload failed: ${uploadError instanceof Error ? uploadError.message : String(uploadError)}`,
+          ),
+        ),
+      });
     } catch (statusError) {
       throw new AggregateError(
         [uploadError, statusError],
@@ -467,6 +474,7 @@ export async function startSubmissionJudgeRun(
 export async function failSubmissionJudgeRun(
   submissionId: string,
   judgeRunId: string,
+  reason: string,
 ): Promise<boolean> {
   return runTransaction(async (tx) => {
     const { count } = await tx.submission.updateMany({
@@ -478,6 +486,7 @@ export async function failSubmissionJudgeRun(
       data: {
         activeJudgeRunId: null,
         status: "system_error",
+        verdictSummary: toJsonValue(deriveSystemErrorVerdictSummary(reason)),
       },
     });
     return count === 1;
@@ -506,6 +515,15 @@ export async function restoreSubmissionAfterCancelledRejudge(
 
 const SUMMARY_VERDICTS = new Set(["AC", "WA", "TLE", "MLE", "RE"]);
 
+export function deriveSystemErrorVerdictSummary(reason: string): VerdictSummary {
+  return {
+    caseSummary: { ac: 0, wa: 0, tle: 0, mle: 0, re: 0, other: 0 },
+    systemErrorTruncated: (
+      reason.trim() || "Judge pipeline failed without an error message."
+    ).slice(0, 1024),
+  };
+}
+
 export function deriveVerdictSummary(result: SubmissionResult): VerdictSummary {
   const caseSummary = { ac: 0, wa: 0, tle: 0, mle: 0, re: 0, other: 0 };
   for (const c of result.caseResults ?? []) {
@@ -532,6 +550,10 @@ export function deriveVerdictSummary(result: SubmissionResult): VerdictSummary {
 
   if (result.verdict === "compile_error" && result.feedback) {
     summary.compilerErrorTruncated = result.feedback.slice(0, 1024);
+  }
+
+  if (result.verdict === "system_error" && result.feedback) {
+    summary.systemErrorTruncated = result.feedback.slice(0, 1024);
   }
 
   return summary;
@@ -610,11 +632,18 @@ export async function snapshotForRejudge(
   submissionId: string,
   triggeredByUserId: string | null,
   rejudgeRunId: string,
+  expectedJudgeGeneration: number | null = null,
 ): Promise<{ logId: string; oldStatus: string } | null> {
   return runTransaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM "Submission" WHERE id = ${submissionId} FOR UPDATE`;
     const current = await tx.submission.findUnique({ where: { id: submissionId } });
     if (!current) return null;
+    if (
+      expectedJudgeGeneration !== null &&
+      (current.status !== "system_error" || current.judgeGeneration !== expectedJudgeGeneration)
+    ) {
+      return null;
+    }
     if (current.activeJudgeRunId !== null && current.activeJudgeRunId !== rejudgeRunId) {
       throw new ConflictError(`Submission ${submissionId} already has an active judge run.`);
     }
