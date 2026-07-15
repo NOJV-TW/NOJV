@@ -25,6 +25,8 @@ COPY packages/storage/package.json packages/storage/
 
 RUN pnpm install --frozen-lockfile --filter @nojv/db...
 
+ENV pnpm_config_verify_deps_before_run=false
+
 COPY packages/core/ packages/core/
 COPY packages/storage/ packages/storage/
 COPY packages/db/prisma/ packages/db/prisma/

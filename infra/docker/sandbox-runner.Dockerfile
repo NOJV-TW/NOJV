@@ -13,6 +13,8 @@ COPY apps/sandbox-runner/package.json apps/sandbox-runner/
 COPY packages/core/package.json packages/core/
 RUN pnpm install --frozen-lockfile --filter @nojv/sandbox-runner...
 
+ENV pnpm_config_verify_deps_before_run=false
+
 COPY packages/core/ packages/core/
 COPY apps/sandbox-runner/ apps/sandbox-runner/
 RUN pnpm --filter @nojv/core build
