@@ -1,10 +1,13 @@
 {{- if .Values.storage.inCluster }}
+{{- $defaultClaimName := printf "%s-minio" (include "nojv.fullname" .) }}
+{{- $claimName := default $defaultClaimName .Values.storage.minio.existingClaim }}
 {{/*
 In-cluster MinIO (single node). For single-machine / dev. Root creds and the
 S3_ENDPOINT come from the runtime secret (S3_ACCESS_KEY/S3_SECRET_KEY) — point
 S3_ENDPOINT at this Service:
   http://<release>-minio.<namespace>.svc.cluster.local:9000
 */}}
+{{- if not .Values.storage.minio.existingClaim }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -23,6 +26,7 @@ spec:
       storage: {{ .Values.storage.minio.storageSize }}
   storageClassName: {{ required "storage.minio.storageClass.name is required for in-cluster MinIO" .Values.storage.minio.storageClass.name }}
 ---
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -98,7 +102,7 @@ spec:
       volumes:
         - name: data
           persistentVolumeClaim:
-            claimName: {{ include "nojv.fullname" . }}-minio
+            claimName: {{ $claimName | quote }}
 ---
 apiVersion: v1
 kind: Service
