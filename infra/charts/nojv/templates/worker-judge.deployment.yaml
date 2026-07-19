@@ -25,7 +25,8 @@ spec:
         nojv-role: worker
         nojv.tw/schema-contract: versioned-storage-v1
     spec:
-      serviceAccountName: {{ include "nojv.fullname" . }}-worker
+      serviceAccountName: {{ include "nojv.fullname" . }}-worker-judge
+      automountServiceAccountToken: true
       terminationGracePeriodSeconds: 120
       {{- with .Values.worker.judge.nodeSelector }}
       nodeSelector:

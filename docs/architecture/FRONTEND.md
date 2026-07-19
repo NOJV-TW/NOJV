@@ -106,6 +106,7 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | `/api/problems/[id]/storage-usage`                            | GET                | Per-problem object-storage usage                                                               |
 | `/api/problems/[id]/posts`                                    | GET, POST          | Problem posts, `?type=editorial\|discussion` (editorial view AC-gated; blocked during exams)   |
 | `/api/problems/[id]/images`                                   | POST               | Upload problem image (magic-number validated)                                                  |
+| `/api/images/proxy`                                           | GET                | Fetch/cache a third-party Markdown image without exposing the viewer to its host               |
 | `/api/uploads/image`                                          | POST               | Generic image upload (announcements, problem posts)                                            |
 | `/api/account/avatar`                                         | PUT, DELETE        | Replace / remove account avatar                                                                |
 | `/api/notifications`                                          | GET, PATCH, DELETE | List + bulk mark-read (`{action:"markAllRead"}`) + bulk clear-read (`?status=read`)            |
@@ -143,7 +144,7 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 
 - **State**: Svelte stores for toast notifications, SSE client
 - **Editor**: Monaco Editor for code submission (`Editor.svelte` / `MonacoScriptEditor.svelte`); advanced-mode workspaces use `AdvancedModeWorkspace.svelte` plus the `features/problem/workspace/` set
-- **Markdown**: marked + marked-katex-extension for problem statements; rendered through DOMPurify with a KaTeX-aware allowlist
+- **Markdown**: marked + marked-katex-extension for problem statements; rendered through DOMPurify with a KaTeX-aware allowlist and same-origin rewriting for remote images
 - **Forms**: sveltekit-superforms + Zod for validated form handling
 - **Image upload**: `ImageDropZone` component — drag-and-drop / paste images into markdown textareas
 - **Charts**: ECharts for dashboard statistics
@@ -152,7 +153,7 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 ## Shared UI Contracts
 
 - `ProblemWorkspace.svelte` owns the problem-solving surface: split-pane layout with problem statement (left) and Monaco code editor (right), resizable divider, submission panel, and testcase results.
-- `MarkdownRenderer` renders problem statements, problem posts, and input/output format descriptions using `marked` + KaTeX + DOMPurify.
+- `MarkdownRenderer` renders problem statements, problem posts, and input/output format descriptions using `marked` + KaTeX + DOMPurify. Remote HTTPS image sources are rewritten at render time to `/api/images/proxy`; existing stored Markdown does not change.
 - `ImageDropZone` wraps textareas with drag-and-drop and paste image upload support. Used in problem editor for statement, inputFormat, and outputFormat fields.
 - `TagInput` provides tag management with add/remove for problem categorization.
 - `Editor.svelte` / `MonacoScriptEditor.svelte` wrap the Monaco editor instance with language selection, theme support, and template loading.

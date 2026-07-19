@@ -27,7 +27,8 @@ spec:
         nojv-mailer: enabled
         nojv.tw/schema-contract: versioned-storage-v1
     spec:
-      serviceAccountName: {{ include "nojv.fullname" . }}-worker
+      serviceAccountName: {{ include "nojv.fullname" . }}-worker-platform
+      automountServiceAccountToken: {{ .Values.registry.enabled }}
       terminationGracePeriodSeconds: 120
       {{- with .Values.worker.platform.nodeSelector }}
       nodeSelector:

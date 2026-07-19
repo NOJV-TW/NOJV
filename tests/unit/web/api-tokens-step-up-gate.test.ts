@@ -283,7 +283,6 @@ describe("api-tokens verify action", () => {
     expect(grantAdminElevationMock).toHaveBeenCalledWith("sess_1", {
       ...proof,
       disabled: false,
-      isSuperAdmin: false,
       platformRole: "admin",
       twoFactorActivated: true,
     });

@@ -29,12 +29,9 @@ import { healthProbeKind } from "$lib/server/health-probes";
 import { consumeStepUpHandoff } from "$lib/server/step-up-handoff";
 import {
   adminElevationPrincipal,
-  hasAdminSessionMfa,
   isSuperAdminSessionExpired,
-  isTwoFactorActivated,
   resolveAdminElevation,
   revokeAdminElevation,
-  securityGenerationProof,
 } from "$lib/server/step-up";
 import {
   apiRequestDuration,
@@ -331,43 +328,6 @@ async function enforceSuperAdminSessionAge(event: HandleEvent): Promise<Response
   return new Response(null, { status: 302, headers });
 }
 
-async function enforceAdminTwoFactor(event: HandleEvent, cleanPath: string): Promise<void> {
-  const user = event.locals.sessionUser;
-  if (!user?.isSuperAdmin || user.mustChangePassword) {
-    return;
-  }
-  const TWO_FACTOR_ACTIONS = [
-    "/sendEmailOtp",
-    "/activate",
-    "/deactivate",
-    "/enable",
-    "/verify",
-    "/disable",
-    "/regenerate",
-    "/deletePasskey",
-  ];
-  const accountTwoFactorRequest =
-    cleanPath === "/settings" &&
-    (event.request.method === "GET" ||
-      TWO_FACTOR_ACTIONS.some((action) => event.url.searchParams.has(action)));
-  if (
-    cleanPath.startsWith("/api/") ||
-    accountTwoFactorRequest ||
-    cleanPath.startsWith("/account/api-tokens/verify") ||
-    cleanPath.startsWith("/complete-profile") ||
-    cleanPath.startsWith("/account/change-password")
-  ) {
-    return;
-  }
-  if (!(await isTwoFactorActivated(user.id))) {
-    redirect(302, "/settings?setup2fa=1");
-  }
-  const sessionId = event.locals.session?.id;
-  if (sessionId && !(await hasAdminSessionMfa(sessionId, securityGenerationProof(user)))) {
-    redirect(302, "/account/api-tokens/verify?purpose=admin-mode");
-  }
-}
-
 async function enforcePageLock(event: HandleEvent, cleanPath: string): Promise<void> {
   if (!event.locals.sessionUser || isPageLockExempt(cleanPath)) {
     return;
@@ -534,7 +494,6 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
   }
   enforcePasswordChange(event, cleanPath);
   await resolveAdminMode(event);
-  await enforceAdminTwoFactor(event, cleanPath);
   await enforcePageLock(event, cleanPath);
 
   const examResponse = await enforceExamGate(event, cleanPath);

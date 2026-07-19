@@ -28,14 +28,29 @@ vi.mock("@nojv/redis", () => ({
       store.delete(key);
       return Promise.resolve(value);
     },
-    eval(_script: string, keyCount: number, ...args: Array<string | number>) {
+    eval(script: string, keyCount: number, ...args: Array<string | number>) {
       const keys = args.slice(0, keyCount).map(String);
       const argv = args.slice(keyCount).map(String);
-      if (keyCount === 3 && argv.length === 5) {
+      if (script.includes('redis.call("SET", KEYS[1], ARGV[1], "EX", ARGV[2])')) {
         store.set(keys[0]!, argv[0]!);
         store.set(keys[1]!, argv[0]!);
         if (argv[3] === "1") store.set(keys[2]!, argv[0]!);
         return Promise.resolve(1);
+      }
+      if (script.includes('redis.call("SET", KEYS[3], ARGV[1], "EX", ARGV[2])')) {
+        if (store.get(keys[0]!) !== argv[0] || store.get(keys[1]!) !== argv[0]) {
+          return Promise.resolve(0);
+        }
+        store.set(keys[2]!, argv[0]!);
+        return Promise.resolve(1);
+      }
+      if (script.includes("local mode = redis.call")) {
+        if (store.get(keys[1]!) === argv[0] && store.get(keys[0]!) === argv[0]) {
+          return Promise.resolve(1);
+        }
+        store.delete(keys[0]!);
+        store.delete(keys[1]!);
+        return Promise.resolve(0);
       }
       throw new Error("Unexpected Redis script in step-up unit test");
     },
@@ -62,10 +77,13 @@ vi.mock("$lib/auth.server", () => ({
 import {
   clearStepUp,
   consumeTotpCode,
+  grantAdminElevation,
   hasAdminSessionMfa,
   hasFreshStepUp,
   hasTokenPageMfa,
   markVerifiedSession,
+  resolveAdminElevation,
+  revokeAdminElevation,
   securityGenerationMarker,
   validateStepUpCode,
   verifyStepUpCode,
@@ -124,6 +142,43 @@ describe("durable security-generation markers", () => {
 
     await expect(markVerifiedSession("sess_1", proof, true)).resolves.toBe(false);
     expect(store.size).toBe(0);
+  });
+});
+
+describe("admin elevation", () => {
+  const admin = {
+    ...proof,
+    disabled: false,
+    platformRole: "admin" as const,
+    twoFactorActivated: true,
+  };
+
+  it("requires two-factor activation for every admin", async () => {
+    await expect(
+      grantAdminElevation("sess_1", { ...admin, twoFactorActivated: false }),
+    ).resolves.toBe(false);
+  });
+
+  it("requires a fresh two-factor marker before every elevation", async () => {
+    await expect(grantAdminElevation("sess_1", admin)).resolves.toBe(false);
+    await expect(resolveAdminElevation("sess_1", admin)).resolves.toBe(false);
+  });
+
+  it("grants and resolves admin mode after verified two-factor step-up", async () => {
+    await markVerifiedSession("sess_1", proof, true);
+
+    await expect(grantAdminElevation("sess_1", admin)).resolves.toBe(true);
+    await expect(resolveAdminElevation("sess_1", admin)).resolves.toBe(true);
+  });
+
+  it("requires another two-factor step-up after switching admin mode off", async () => {
+    await markVerifiedSession("sess_1", proof, true);
+    await expect(grantAdminElevation("sess_1", admin)).resolves.toBe(true);
+
+    await revokeAdminElevation("sess_1");
+
+    await expect(grantAdminElevation("sess_1", admin)).resolves.toBe(false);
+    await expect(resolveAdminElevation("sess_1", admin)).resolves.toBe(false);
   });
 });
 

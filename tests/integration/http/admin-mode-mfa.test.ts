@@ -78,7 +78,7 @@ async function markVerifiedSession(userId: string): Promise<void> {
 afterEach(clearElevation);
 
 describe("admin mode elevation", () => {
-  it("allows a regular admin to activate without 2FA", { timeout: 15_000 }, async () => {
+  it("rejects a regular admin until 2FA is activated", { timeout: 15_000 }, async () => {
     const user = await createTestUser({
       platformRole: "admin",
       twoFactorActivated: false,
@@ -86,17 +86,13 @@ describe("admin mode elevation", () => {
 
     const response = await activate(user);
 
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ active: true });
-    await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBe(
-      await currentElevationMarker(user.id),
-    );
+    expect(response.status).toBe(403);
+    await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
   });
 
-  it("rejects super-admin activation without a fresh same-session step-up", async () => {
+  it("rejects regular-admin activation without a fresh same-session step-up", async () => {
     const user = await createTestUser({
       platformRole: "admin",
-      isSuperAdmin: true,
       twoFactorActivated: true,
     });
     const marker = await currentElevationMarker(user.id);
@@ -108,10 +104,9 @@ describe("admin mode elevation", () => {
     await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
   });
 
-  it("rejects super-admin activation without an MFA marker for the same account", async () => {
+  it("rejects regular-admin activation without an MFA marker for the same account", async () => {
     const user = await createTestUser({
       platformRole: "admin",
-      isSuperAdmin: true,
       twoFactorActivated: true,
     });
     const marker = await currentElevationMarker(user.id);
@@ -138,10 +133,10 @@ describe("admin mode elevation", () => {
     await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
   });
 
-  it("resolves a regular admin mode marker without an MFA marker", async () => {
+  it("rejects a regular admin mode marker without an MFA marker", async () => {
     const user = await createTestUser({
       platformRole: "admin",
-      twoFactorActivated: false,
+      twoFactorActivated: true,
     });
     await getRedis().set(
       keys.adminMode(sessionId),
@@ -158,16 +153,17 @@ describe("admin mode elevation", () => {
       user,
     });
 
-    await expect(response.json()).resolves.toEqual({ active: true });
-    await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBe(
-      await currentElevationMarker(user.id),
-    );
+    await expect(response.json()).resolves.toEqual({ active: false });
+    await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
   });
 
-  it("grants super-admin activation after a same-session step-up", async () => {
+  it.each([
+    ["regular admin", false],
+    ["super admin", true],
+  ])("grants %s activation after a same-session step-up", async (_label, isSuperAdmin) => {
     const user = await createTestUser({
       platformRole: "admin",
-      isSuperAdmin: true,
+      isSuperAdmin,
       twoFactorEnabled: true,
       twoFactorActivated: true,
     });
@@ -179,6 +175,22 @@ describe("admin mode elevation", () => {
     await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBe(
       await currentElevationMarker(user.id),
     );
+  });
+
+  it("requires a new 2FA step-up after switching back to ordinary mode", async () => {
+    const user = await createTestUser({
+      platformRole: "admin",
+      twoFactorEnabled: true,
+      twoFactorActivated: true,
+    });
+    await markVerifiedSession(user.id);
+    expect((await activate(user)).status).toBe(200);
+
+    expect((await deactivate(user)).status).toBe(200);
+
+    expect((await activate(user)).status).toBe(403);
+    await markVerifiedSession(user.id);
+    expect((await activate(user)).status).toBe(200);
   });
 
   it("always permits de-elevation and atomically removes both elevation keys", async () => {

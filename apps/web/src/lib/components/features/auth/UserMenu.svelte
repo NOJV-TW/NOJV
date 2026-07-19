@@ -34,8 +34,12 @@
       });
       if (!r.ok) {
         open = false;
-        if (active && user?.isSuperAdmin && r.status === 403) {
-          await goto("/account/api-tokens/verify?purpose=admin-mode");
+        if (active && user?.platformRole === "admin" && r.status === 403) {
+          await goto(
+            user.twoFactorActivated
+              ? "/account/api-tokens/verify?purpose=admin-mode"
+              : "/settings?setup2fa=1&returnTo=%2Faccount%2Fapi-tokens%2Fverify%3Fpurpose%3Dadmin-mode",
+          );
         }
         return;
       }

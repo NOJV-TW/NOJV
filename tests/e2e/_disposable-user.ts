@@ -70,7 +70,15 @@ export class DisposableCredentialUser {
       `nojv:admin:mode:${sessionId}`,
       `nojv:2fa:change-grant:${sessionId}`,
     ]);
-    execFileSync("docker", ["exec", "nojv-redis-1", "redis-cli", "DEL", ...redisKeys]);
+    execFileSync("docker", [
+      "compose",
+      "exec",
+      "-T",
+      "redis",
+      "redis-cli",
+      "DEL",
+      ...redisKeys,
+    ]);
   }
 }
 

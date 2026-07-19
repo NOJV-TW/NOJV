@@ -17,6 +17,11 @@ export interface StorageObjectPointer {
   size: number;
 }
 
+export interface PutObjectIfAbsentResult {
+  created: boolean;
+  pointer: StorageObjectPointer;
+}
+
 export class StorageIntegrityError extends Error {
   constructor(key: string, detail: string) {
     super(`Storage object integrity failure for ${key}: ${detail}`);
@@ -69,6 +74,17 @@ export async function putImmutableObject(
   body: Buffer,
   options: { contentType?: string } = {},
 ): Promise<StorageObjectPointer> {
+  const { created, pointer } = await putObjectIfAbsent(client, key, body, options);
+  if (!created) await getVerifiedObject(client, pointer);
+  return pointer;
+}
+
+export async function putObjectIfAbsent(
+  client: S3Client,
+  key: string,
+  body: Buffer,
+  options: { contentType?: string } = {},
+): Promise<PutObjectIfAbsentResult> {
   const pointer = storagePointerFor(key, body);
   try {
     await client.send(
@@ -85,9 +101,9 @@ export async function putImmutableObject(
     );
   } catch (reason) {
     if (!isPreconditionFailure(reason)) throw reason;
-    await getVerifiedObject(client, pointer);
+    return { created: false, pointer };
   }
-  return pointer;
+  return { created: true, pointer };
 }
 
 function isPreconditionFailure(reason: unknown): boolean {

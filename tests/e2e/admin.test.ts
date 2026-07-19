@@ -91,7 +91,7 @@ test.describe("Admin panel — gating + pages", () => {
     await context.close();
   });
 
-  test("regular admin switches from the user menu without OTP", async ({ page }) => {
+  test("regular admin is sent to 2FA setup before switching identities", async ({ page }) => {
     await signInWithPassword(page, regularAdmin.email);
     await page.goto("/dashboard");
 
@@ -107,27 +107,20 @@ test.describe("Admin panel — gating + pages", () => {
         (response) =>
           response.url().endsWith("/api/admin-mode") &&
           response.request().method() === "POST" &&
-          response.status() === 200,
+          response.status() === 403,
       ),
       switchButton.click(),
     ]);
 
-    await expect(page).toHaveURL(/\/admin(?:\/|$)/);
-    await expect(page.getByRole("main")).toBeVisible();
-
-    await page.locator('a[href="/problems"]').first().click();
-    await expect(page).toHaveURL(/\/problems(?:\/|$)/);
-    await menuButton.click();
-    await expect(page.getByRole("menuitem", { name: /exit admin mode/i })).toBeVisible();
-    await menuButton.click();
-
-    await page.locator('a[href="/admin"]').first().click();
-    await expect(page).toHaveURL(/\/admin(?:\/|$)/);
-
-    await page.goto("/admin/users");
-    await expect(page.getByRole("main")).toBeVisible();
-    await menuButton.click();
-    await expect(page.getByRole("menuitem", { name: /exit admin mode/i })).toBeVisible();
+    await page.waitForURL(
+      (url) =>
+        url.pathname === "/settings" &&
+        url.searchParams.get("setup2fa") === "1" &&
+        url.searchParams.get("returnTo") === "/account/api-tokens/verify?purpose=admin-mode",
+    );
+    await expect(
+      page.getByRole("dialog", { name: "Turn on two-factor authentication" }),
+    ).toBeVisible();
   });
 
   test("super-admin activation requires a verified step-up", async ({ browser }) => {

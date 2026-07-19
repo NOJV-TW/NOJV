@@ -141,6 +141,7 @@ export const signInRateLimiter = createRateLimiter("rl:signin", 5, 900);
 export const otpSendRateLimiter = createRateLimiter("rl:2fa-otp", 3, 600);
 export const stepUpAttemptRateLimiter = createRateLimiter("rl:stepup", 5, 600);
 export const registryTokenRateLimiter = createRateLimiter("rl:registry-token", 60, 60);
+export const remoteAssetFetchRateLimiter = createRateLimiter("rl:remote-fetch", 10, 60);
 
 export async function consumeFormRateLimitInternal(
   event: RequestEvent,

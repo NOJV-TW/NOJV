@@ -144,8 +144,9 @@ is a fitness test that fails CI if the GKE manifest omits a required worker env.
 > blobs in the in-cluster MinIO (bucket `nojv-registry`, auto-created by a Helm
 > hook) or any S3 endpoint (`registry.s3.regionendpoint` — GKE points it at
 > GCS). Auth is Docker token auth: the web app's `/api/registry/token` endpoint
-> validates platform-issued credentials (generated per-teacher from the problem
-> editor) and signs scoped JWTs — teachers push only to `t/<username>/…`, judge
+> validates platform-issued credentials (generated per-author from the problem
+> editor) and signs scoped JWTs — every human credential, including an admin's,
+> pushes only to its own `t/<username>/…` namespace; judge
 > pods pull everything via the `worker.sandbox.imagePullSecret` dockerconfigjson
 > Secret in the sandbox namespace, `demo/…` is anonymous-pull. Setup steps
 > (signing pair, service accounts, tunnel hostname) are in the
@@ -428,9 +429,9 @@ verifies the TLS Secret, and requires Cloud Armor to allow exactly
 3. Verify the Helm release installed by the script. It renders the namespaces
    (`nojv`, `nojv-sandbox`), the two worker
    Deployments split by `WORKER_MODE` (`nojv-worker` judge / `nojv-worker-platform`
-   platform) with worker RBAC + PDBs, web (Deployment + Service + optional
+   platform) with separate service accounts and least-privilege RBAC + PDBs, web (Deployment + Service + optional
    Ingress), the worker-egress NetworkPolicy (`networkPolicy.enabled`), the
-   sandbox namespace policy (deny-all NetworkPolicy + ResourceQuota + LimitRange),
+   sandbox namespace policy (`restricted` Pod Security admission + deny-all NetworkPolicy + ResourceQuota + LimitRange),
    and the migrator as a pre-install/pre-upgrade Helm hook that runs Prisma
    migrations before the new Pods roll out. On GKE with `postgres.mode=cloudsql`,
    each worker Pod runs the Cloud SQL Auth Proxy sidecar

@@ -86,7 +86,30 @@ const KATEX_ATTRS = [
 const PURIFY_CONFIG = {
   ADD_TAGS: KATEX_TAGS,
   ADD_ATTR: KATEX_ATTRS,
+  FORBID_ATTR: ["srcset"],
 };
+
+const IMAGE_PROXY_PATH = "/api/images/proxy?url=";
+
+function proxyImageSource(value: string): string | null {
+  const source = value.trim();
+  if (source.startsWith("//")) {
+    return `${IMAGE_PROXY_PATH}${encodeURIComponent(new URL(`https:${source}`).href)}`;
+  }
+
+  let url: URL;
+  try {
+    url = new URL(source);
+  } catch {
+    return value;
+  }
+
+  if (url.protocol === "https:") {
+    url.hash = "";
+    return `${IMAGE_PROXY_PATH}${encodeURIComponent(url.href)}`;
+  }
+  return url.protocol === "data:" || url.protocol === "blob:" ? value : null;
+}
 
 function isInsideTrustedKatex(node: Element | null, nonce: string): boolean {
   for (let el: Element | null = node; el != null; el = el.parentElement) {
@@ -113,12 +136,17 @@ function createMarkdownParser(nonce: string): Marked {
 export function renderMarkdown(content: string): string {
   const nonce = crypto.randomUUID();
   const parser = createMarkdownParser(nonce);
-  const preserveTrustedKatexStyle: UponSanitizeAttributeHook = (node, data) => {
+  const sanitizeAttribute: UponSanitizeAttributeHook = (node, data) => {
     if (data.attrName === "style") {
       data.keepAttr = isInsideTrustedKatex(node, nonce);
     }
+    if (data.attrName === "src" && node.tagName.toLowerCase() === "img") {
+      const source = proxyImageSource(data.attrValue);
+      if (source === null) data.keepAttr = false;
+      else data.attrValue = source;
+    }
   };
-  DOMPurify.addHook("uponSanitizeAttribute", preserveTrustedKatexStyle);
+  DOMPurify.addHook("uponSanitizeAttribute", sanitizeAttribute);
 
   try {
     const sanitized = DOMPurify.sanitize(
@@ -127,6 +155,6 @@ export function renderMarkdown(content: string): string {
     );
     return sanitized.replaceAll(` ${NONCE_ATTR}="${nonce}"`, "");
   } finally {
-    DOMPurify.removeHook("uponSanitizeAttribute", preserveTrustedKatexStyle);
+    DOMPurify.removeHook("uponSanitizeAttribute", sanitizeAttribute);
   }
 }

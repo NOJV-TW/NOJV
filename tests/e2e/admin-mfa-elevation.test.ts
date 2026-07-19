@@ -12,7 +12,7 @@ test.setTimeout(120_000);
 const user = new DisposableCredentialUser("admin-mfa");
 
 function redis(...args: string[]): string {
-  return execFileSync("docker", ["exec", "nojv-redis-1", "redis-cli", ...args], {
+  return execFileSync("docker", ["compose", "exec", "-T", "redis", "redis-cli", ...args], {
     encoding: "utf8",
   }).trim();
 }

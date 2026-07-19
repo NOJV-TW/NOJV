@@ -85,6 +85,7 @@ Student Code ------|---> Sandbox Container     Redis
 | `/api/posts/[id]` (+ votes/comments/reports) | GET, POST, PATCH, DELETE | `requireApiAuth` + same gates; author-or-admin for edit/delete                           |
 | `/api/comments/[id]` (+ reports)             | POST, DELETE             | `requireApiAuth` + same gates; author-or-admin for delete                                |
 | `/api/problems/[id]/images`                  | POST                     | `requireApiAuth` + `canEditProblem(platformRole)`                                        |
+| `/api/images/proxy`                          | GET                      | Same-origin Markdown rewrite + API and cache-miss rate limits + SSRF-safe HTTPS fetch    |
 | `/api/problems`                              | POST                     | `requireApiAuth` + `canEditProblem(platformRole)`                                        |
 | `/api/exams/[examId]/ip-violations`          | GET                      | `requireApiAuth` + exam course staff or admin (`listExamIpViolationsForActor`)           |
 | `/api/livez`, `/api/readyz`                  | GET                      | Public exact-path probes; minimal boolean bodies, no auth/session lookup                 |
@@ -116,7 +117,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 2. **Internal network** between SvelteKit, PostgreSQL, Redis, Temporal, and S3 is not routable from the public internet in production.
 3. **Single-tenant deployment** — one NOJV instance per organization. No multi-tenant isolation concerns.
 4. **Cloudflare is the sole ingress path in production** — `getClientIp(event)` reads `CF-Connecting-IP` only, refuses any fallback to `X-Forwarded-For` / socket address, and fails with 403 if the header is missing. See [SECURITY.md — Client IP Trust Model](SECURITY.md#client-ip-trust-model-cloudflare-only).
-5. **Docker daemon access** on the worker host is restricted to the worker process. In production, Kubernetes RBAC limits the worker's service account to sandbox job creation only.
+5. **Sandbox admission** is enforced in production by the Kubernetes `restricted` Pod Security profile. The judge and platform workers use separate service accounts: only the judge identity can manage sandbox resources, while the platform identity can manage registry-GC Jobs only when the registry is enabled.
 6. **Secrets management** — production uses GCP Secret Manager. Development uses `.env` (untracked).
 7. **Redis has no authentication** in development. Production uses Memorystore with VPC-only access.
 
@@ -133,6 +134,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 - Session tokens transported as httpOnly, Secure (in production) cookies
 - IP address and user-agent tracked per session in PostgreSQL `Session` table
 - Session expiry enforced server-side
+- OAuth and password sessions for stored admin accounts start with the effective `student` role. Every transition into admin mode requires enabled 2FA plus a fresh TOTP or passkey step-up bound to the current session and security generation.
 - Profile completion gate: `hasActorUsername(actor)` required before accessing content
 - `hooks.server.ts` resolves session on every request via `auth.api.getSession()`
 
@@ -161,7 +163,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 
 **Attacker stories:**
 
-- **Privilege escalation (student -> admin)**: Student manipulates request to access admin endpoints. _Mitigation_: `requirePlatformRole(actor, "admin")` checks server-side role from session, not from request body. Role is read from `event.locals.sessionUser.platformRole`, set during session resolution in hooks.
+- **Privilege escalation (student -> admin)**: Student manipulates a request to access admin endpoints. _Mitigation_: `requirePlatformRole(actor, "admin")` checks the server-computed effective role, not a request value or the stored role directly. A stored admin role remains effectively `student` until the session has completed the 2FA-backed admin-mode transition.
 - **IDOR on submissions**: Student accesses another student's submission by guessing submission ID. _Mitigation_: `getSubmissionForUser()` checks `submission.userId === userId` unless `isAdmin` is true. Returns 404 on mismatch.
 - **IDOR on source code**: Student reads another's source code via `/api/submissions/[id]/source`. _Mitigation_: Same ownership check as above — `getSubmissionForUser(submissionId, userId, isAdmin)`.
 - **Course role bypass**: Student accesses course management without enrollment. _Mitigation_: `resolveCoursePermission(courseSlug, actor)` queries `CourseMembership` from DB. `canManageCourse()` requires admin, teacher, or TA effective role.
@@ -198,9 +200,9 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 - **Submission flooding**: Attacker submits thousands of requests to overwhelm sandbox workers. _Mitigation_: `writeApiRateLimiter` (10/min per IP). Contest submit cooldown (PostgreSQL, advisory-locked). Temporal task queue provides natural backpressure. Worker capacity model lives in [RELIABILITY.md → Worker Unavailable](RELIABILITY.md#worker-unavailable).
 - **Sandbox output manipulation**: Code produces output designed to exploit the checker. _Mitigation_: Checker scripts also run inside sandbox with same isolation. Output is treated as untrusted data throughout the pipeline.
 
-### 3.4 Image Upload and Object Storage
+### 3.4 Image Upload, Proxy, and Object Storage
 
-**Surface:** `POST /api/problems/[id]/images`
+**Surface:** `POST /api/problems/[id]/images`, `GET /api/images/proxy`
 
 **Mitigations:**
 
@@ -211,6 +213,10 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 - UUID filenames: `problems/{problemId}/images/{uuid}.{ext}` — no user-controlled path components
 - Images stored in S3-compatible storage (MinIO local, GCS/R2/S3 production)
 - URLs embedded as markdown image syntax in problem statements
+- Remote Markdown images are rewritten to the same-origin proxy before sanitized HTML reaches the browser; `img-src` allows only `self`, `data:`, and `blob:`.
+- The proxy accepts HTTPS on port 443 only, rejects credentials and non-public DNS answers, pins the chosen address into the TLS request, and repeats the checks for every redirect (maximum three).
+- Remote responses have a 5-second timeout and 5 MB streaming cap. Their bytes must pass the same png/jpeg/gif/webp magic-number validation as uploads; upstream MIME is ignored.
+- The first successful response for a canonical URL is cached atomically under `remote-images/<sha256(url)>`. Cache hits never contact the remote host, while cache misses use a separate strict 10/minute/IP limiter.
 
 **Attacker stories:**
 
@@ -218,6 +224,9 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 - **Path traversal**: Attacker manipulates `problemId` to write files outside the intended directory. _Mitigation_: `problemId` comes from URL route param (CUID format). Storage path is constructed server-side: `problems/{problemId}/images/{uuid}.{ext}`. No user-supplied path segments.
 - **Storage exhaustion**: Attacker uploads many large images to fill storage. _Mitigation_: 5 MB per file. `requireApiAuth` + `canEditProblem` limits uploaders to admin/teacher. `writeApiRateLimiter` limits upload rate. _Gap_: No per-problem or per-user storage quota.
 - **XSS via SVG**: SVG files can contain JavaScript. _Mitigation_: SVG is not in the allowed type list (`image/svg+xml` is rejected). Only `png`, `jpeg`, `gif`, `webp` are accepted.
+- **Viewer tracking through a remote Markdown image**: An author embeds a unique tracking image and observes every reader's IP and user agent. _Mitigation_: The reader connects only to NOJV. The application fetches and caches the image server-side, so the remote host sees the proxy request rather than individual readers.
+- **SSRF through the image proxy**: An attacker targets loopback, RFC1918, link-local, cloud metadata, cluster services, an encoded IP literal, DNS rebinding, or a redirect to one of those targets. _Mitigation_: only canonical HTTPS port-443 URLs are accepted; every literal and every DNS answer must be public, mixed public/private answer sets fail closed, the validated address is pinned into the TLS connection, and each redirect is independently revalidated.
+- **Proxy bandwidth or storage exhaustion**: An attacker requests many unique large image URLs. _Mitigation_: the normal read limiter bounds all proxy requests, a strict 10/minute/IP limiter gates cache misses, response bodies are stopped at 5 MB, and deterministic URL keys make repeat requests cache hits. _Gap_: as with authenticated image uploads, there is no aggregate storage quota yet.
 - **S3 credential exposure**: Attacker accesses S3 keys to read/write arbitrary objects. _Mitigation_: Credentials in environment variables, not in code. Production uses GCP Secret Manager. `.env` is gitignored.
 
 ### 3.5 Contest Integrity
@@ -322,7 +331,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 - **Secret leakage via error messages**: Application error exposes database URL or auth secret in response. _Mitigation_: `apiHandler()` classifies errors and returns only safe messages. `logger.error()` logs full details server-side only. ZodError responses include validation issues (field paths and messages) but no internal state.
 - **Exposed admin endpoints**: Health check or admin routes accessible without auth. _Mitigation_: `/api/livez` and `/api/readyz` are intentionally public but expose only one boolean each (status code carries the readiness signal). Detailed per-subsystem status is admin-only at `/api/admin/healthz`. Admin routes require `requirePlatformRole(actor, "admin")`. Temporal UI (port 8080) is published on `127.0.0.1` only and must additionally be kept off any public interface by the host firewall in production (it has no auth of its own).
 - **Misconfigured CORS**: API endpoints accessible from arbitrary origins. _Mitigation_: SvelteKit handles CORS via its built-in mechanisms. Same-origin by default for form actions.
-- **Docker daemon exposure**: Attacker accesses Docker socket to create privileged containers. _Mitigation_: In production, sandbox runs as Kubernetes Jobs with dedicated service account. Worker's K8s RBAC is scoped to sandbox namespace only. In development, Docker socket access is local.
+- **Container-orchestrator abuse**: Attacker compromises a worker and uses its runtime credentials to create privileged workloads. _Mitigation_: In production, the sandbox namespace enforces the `restricted` Pod Security profile, and split service accounts prevent the platform worker from creating sandbox workloads. The judge identity remains scoped to sandbox resources required by judging. In development, Docker socket access is local.
 - **CI/CD pipeline compromise**: Attacker injects malicious code via pull request. _Mitigation_: CD deploys only from `main` branch after CI passes. Self-hosted runner workspace is persistent. Clean checkout uses exact CI-passing SHA.
 - **Redis data poisoning**: Attacker writes to Redis to tamper with cached data or spam scoreboard-update nudges. _Mitigation_: Redis publishes its host port on `127.0.0.1` only (loopback) in the self-hosted compose; in production GCP, Memorystore is VPC-only. Scoreboards and cooldowns are not stored in Redis — leaderboards are computed from Postgres on read and cooldowns use PostgreSQL advisory locks — so Redis tampering cannot poison scores or bypass cooldown; at worst it forces extra scoreboard re-fetches. _Gap_: No Redis authentication in development — any process on the dev machine can access Redis on loopback.
 - **Local MinIO credential exposure**: Development uses MinIO default credentials (`minioadmin/minioadmin`) in `.env`. _Mitigation_: Development only. Production uses GCS/R2/S3 with credentials from Secret Manager.
@@ -356,7 +365,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | DoS via submission flooding                    | Rate limiters and Temporal backpressure mitigate, but sustained attack could degrade service.                            |
 | SSE connection exhaustion                      | Per-user cap (`acquireSseSlot`, 5) + per-IP rate limit exist; the cap is in-memory so it is per-replica, not global.     |
-| Image storage exhaustion                       | No per-problem/per-user storage quota. Teachers could fill storage with large uploads.                                   |
+| Image storage exhaustion                       | No aggregate quota for authenticated uploads or bounded remote-image cache entries.                                      |
 | Information leakage from Zod validation errors | Validation issue responses include field paths — reveals internal schema structure.                                      |
 | Plagiarism detection abuse (worker load)       | Repeated triggers load tree-sitter parsers and consume worker CPU/memory in-process.                                     |
 | Redis data manipulation (development)          | No Redis auth in dev. Any local process can read/write cache + pub-sub channels (scoreboards/cooldowns are in Postgres). |
@@ -375,7 +384,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 | #   | Gap                                                              | Current State                                                                                                                                                                                                           | Recommendation                                                                                                                            | Priority |
 | --- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------- |
 | 1   | No _global_ per-user SSE connection limit — **PARTIALLY CLOSED** | `acquireSseSlot` caps 5 concurrent streams/user (in-memory, per-replica); `apiRateLimiter` rate-limits connects per IP                                                                                                  | Move the counter to Redis if a hard cross-instance cap is needed                                                                          | Low      |
-| 2   | No per-problem/per-user storage quota                            | Teachers can upload unlimited 5 MB images                                                                                                                                                                               | Track upload count/size per problem; enforce a reasonable ceiling                                                                         | Medium   |
+| 2   | No per-problem/per-user storage quota                            | Authenticated authors can upload unlimited 5 MB images; remote-image cache misses are bounded and rate-limited but have no aggregate quota                                                                              | Track upload/cache size and enforce a reasonable ceiling if production growth warrants it                                                 | Medium   |
 | 3   | ~~Rate limiter is in-memory~~ — **CLOSED**                       | `RateLimiterRedis` keyed on `getClientIp(event)`; production falls back to `failClosedLimiter` (deny all) if Redis is unreachable. Memory fallback only in dev.                                                         | —                                                                                                                                         | —        |
 | 4   | Redis unauthenticated in development                             | Any local process can access Redis                                                                                                                                                                                      | Acceptable for development. Ensure production uses VPC-restricted Memorystore                                                             | Low      |
 | 5   | Page lock is client-side only                                    | Determined attacker can bypass with custom HTTP client                                                                                                                                                                  | Document limitation. Consider logging tab-visibility violations server-side as evidence                                                   | Low      |
