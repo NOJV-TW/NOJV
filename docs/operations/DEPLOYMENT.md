@@ -496,6 +496,25 @@ the orchestrator. Full `gcloud container node-pools create` recipes live in
 | `infra/docker/sandbox-runner.Dockerfile` | Sandbox execution runtime  |
 | `infra/docker/migrator.Dockerfile`       | Database migration runner  |
 
+#### Standard judge toolchain
+
+`packages/core/src/judge-environment.json` is the source of truth for the
+standard judge image, runner commands, and public `/environment` page. The
+sandbox Dockerfile installs these exact revisions and fails its build when the
+pinned base image no longer matches the recorded Alpine or Node.js version.
+
+| Component    | Pinned version                                                                                                                                                                                       |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Base OS      | `Alpine Linux 3.24.1`                                                                                                                                                                                |
+| Node runtime | `Node.js 24.18.0`                                                                                                                                                                                    |
+| APK packages | `bash=5.3.9-r1`, `build-base=0.5-r4`, `cargo=1.96.0-r0`, `g++=15.2.0-r5`, `gcc=15.2.0-r5`, `go=1.26.3-r0`, `openjdk21-jdk=21.0.11_p10-r0`, `python3=3.14.5-r0`, `rust=1.96.0-r0`, `socat=1.8.1.3-r0` |
+
+To upgrade the toolchain, update the base image digest and
+`judge-environment.json`, refresh this table in the same change, then run
+`pnpm lint:doc-drift` and `pnpm sandbox:build`. The documentation gate requires
+the pinned-version table and manifest to contain the exact same platform,
+runtime, and APK pin set.
+
 ### Cloudflare + Cloud Armor Setup
 
 Production depends on Cloudflare being the **only** ingress path so `getClientIp(event)` can trust `CF-Connecting-IP`. See [SECURITY.md — Client IP Trust Model](SECURITY.md#client-ip-trust-model-cloudflare-only) for the rationale.
