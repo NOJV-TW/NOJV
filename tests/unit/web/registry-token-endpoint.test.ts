@@ -173,11 +173,11 @@ describe("GET /api/registry/token", () => {
     ).rejects.toMatchObject({ status: 401 });
   });
 
-  it("grants a platform admin's credential push access to the demo namespace", async () => {
-    verifyRegistryLogin.mockResolvedValue({ kind: "admin" });
+  it("keeps a platform admin's write access inside its own namespace", async () => {
+    verifyRegistryLogin.mockResolvedValue({ kind: "teacher", namespace: "takala" });
     const res = await GET(
       makeEvent(
-        "?service=registry.test.local&scope=repository:demo/nojv-demo-advanced-run:pull,push",
+        "?service=registry.test.local&scope=repository:t/takala/run:pull,push&scope=repository:demo/nojv-demo-advanced-run:pull,push",
         basic("takala", "correct"),
       ),
     );
@@ -186,9 +186,10 @@ describe("GET /api/registry/token", () => {
     const verified = await jwtVerify(body.token, publicKey, {
       audience: "registry.test.local",
     });
-    expect(verified.payload.sub).toBe("admin");
+    expect(verified.payload.sub).toBe("takala");
     expect(verified.payload.access).toEqual([
-      { type: "repository", name: "demo/nojv-demo-advanced-run", actions: ["pull", "push"] },
+      { type: "repository", name: "t/takala/run", actions: ["pull", "push"] },
+      { type: "repository", name: "demo/nojv-demo-advanced-run", actions: ["pull"] },
     ]);
   });
 });

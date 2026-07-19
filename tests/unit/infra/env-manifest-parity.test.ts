@@ -264,6 +264,45 @@ describeHelm("production web secret parity across deploy surfaces", () => {
   });
 });
 
+describeHelm("worker Kubernetes privilege boundaries", () => {
+  it("enforces the restricted Pod Security profile in the sandbox namespace", () => {
+    const namespace = isolateDoc(renderChart(), "Namespace", "nojv-sandbox");
+    for (const mode of ["enforce", "audit", "warn"]) {
+      expect(namespace).toContain(`pod-security.kubernetes.io/${mode}: restricted`);
+      expect(namespace).toContain(`pod-security.kubernetes.io/${mode}-version: latest`);
+    }
+  });
+
+  it("binds sandbox and registry permissions to separate worker identities", () => {
+    const render = renderChart();
+    const sandboxAccess = isolateDoc(render, "RoleBinding", "nojv-worker-judge-sandbox-access");
+    const registryAccess = isolateDoc(
+      render,
+      "RoleBinding",
+      "nojv-worker-platform-registry-gc-access",
+    );
+
+    expect(sandboxAccess).toContain("name: nojv-worker-judge");
+    expect(sandboxAccess).not.toContain("name: nojv-worker-platform");
+    expect(registryAccess).toContain("name: nojv-worker-platform");
+    expect(registryAccess).not.toContain("name: nojv-worker-judge");
+  });
+
+  it("mounts API credentials only for workers that use the Kubernetes API", () => {
+    const enabled = renderChart();
+    const disabled = renderChart("values.yaml");
+    const judge = isolateDoc(enabled, "Deployment", "nojv-worker");
+    const enabledPlatform = isolateDoc(enabled, "Deployment", "nojv-worker-platform");
+    const disabledPlatform = isolateDoc(disabled, "Deployment", "nojv-worker-platform");
+
+    expect(judge).toContain("serviceAccountName: nojv-worker-judge");
+    expect(judge).toContain("automountServiceAccountToken: true");
+    expect(enabledPlatform).toContain("serviceAccountName: nojv-worker-platform");
+    expect(enabledPlatform).toContain("automountServiceAccountToken: true");
+    expect(disabledPlatform).toContain("automountServiceAccountToken: false");
+  });
+});
+
 describeHelm("storage env schema ↔ chart deployment parity", () => {
   it.each([
     ["GKE worker", "nojv-worker"],

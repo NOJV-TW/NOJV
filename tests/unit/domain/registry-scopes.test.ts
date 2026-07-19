@@ -52,13 +52,6 @@ describe("authorizeRegistryAccess", () => {
     expect(granted).toEqual([repo("t/alice/run", "pull"), repo("demo/x", "pull")]);
   });
 
-  it("admin pushes to the demo namespace (no separate push service account)", () => {
-    const granted = authorizeRegistryAccess({ kind: "admin" }, [
-      repo("demo/nojv-demo-advanced-run", "pull", "push"),
-    ]);
-    expect(granted).toEqual([repo("demo/nojv-demo-advanced-run", "pull", "push")]);
-  });
-
   it("anonymous pulls demo only", () => {
     const granted = authorizeRegistryAccess({ kind: "anonymous" }, [
       repo("demo/x", "pull", "push"),
@@ -67,19 +60,8 @@ describe("authorizeRegistryAccess", () => {
     expect(granted).toEqual([repo("demo/x", "pull")]);
   });
 
-  it("admin gets catalog access and full repository actions", () => {
-    const granted = authorizeRegistryAccess({ kind: "admin" }, [
-      { type: "registry", name: "catalog", actions: ["*"] },
-      repo("t/alice/run", "pull", "push", "delete"),
-    ]);
-    expect(granted).toEqual([
-      { type: "registry", name: "catalog", actions: ["*"] },
-      repo("t/alice/run", "pull", "push", "delete"),
-    ]);
-  });
-
-  it("non-admin never gets catalog access", () => {
-    const granted = authorizeRegistryAccess({ kind: "judge" }, [
+  it("credential principals never get catalog access", () => {
+    const granted = authorizeRegistryAccess({ kind: "teacher", namespace: "alice" }, [
       { type: "registry", name: "catalog", actions: ["*"] },
     ]);
     expect(granted).toEqual([]);

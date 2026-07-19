@@ -8,14 +8,18 @@ export {
   isStorageObjectNotFoundError,
   putImmutableObject,
   putImmutableText,
+  putObjectIfAbsent,
   storagePointerFor,
+  type PutObjectIfAbsentResult,
   type StorageObjectPointer,
 } from "./object";
 export {
   uploadProblemImage,
   uploadUserContentImage,
   downloadProblemImage,
+  downloadRemoteImage,
   downloadUserContentImage,
+  cacheRemoteImage,
 } from "./images";
 export { uploadUserAvatar, downloadUserAvatar, deleteUserAvatar } from "./avatar";
 export {

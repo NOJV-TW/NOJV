@@ -24,13 +24,11 @@ return 1
 `;
 
 const GRANT_ADMIN_ELEVATION = `
-if ARGV[3] == "1" then
-  if redis.call("GET", KEYS[1]) ~= ARGV[1] then
-    return 0
-  end
-  if redis.call("GET", KEYS[2]) ~= ARGV[1] then
-    return 0
-  end
+if redis.call("GET", KEYS[1]) ~= ARGV[1] then
+  return 0
+end
+if redis.call("GET", KEYS[2]) ~= ARGV[1] then
+  return 0
 end
 redis.call("SET", KEYS[3], ARGV[1], "EX", ARGV[2])
 return 1
@@ -41,7 +39,7 @@ local mode = redis.call("GET", KEYS[2])
 if not mode then
   return 0
 end
-if mode == ARGV[1] and (ARGV[2] == "0" or redis.call("GET", KEYS[1]) == ARGV[1]) then
+if mode == ARGV[1] and redis.call("GET", KEYS[1]) == ARGV[1] then
   return 1
 end
 redis.call("DEL", KEYS[1], KEYS[2])
@@ -55,7 +53,6 @@ export interface SecurityGenerationProof {
 
 export interface AdminElevationPrincipal extends SecurityGenerationProof {
   disabled: boolean;
-  isSuperAdmin: boolean;
   platformRole: "admin" | "teacher" | "student";
   twoFactorActivated: boolean;
 }
@@ -70,7 +67,6 @@ export function securityGenerationProof(user: {
 export function adminElevationPrincipal(user: {
   disabled: boolean;
   id: string;
-  isSuperAdmin: boolean;
   platformRole: "admin" | "teacher" | "student";
   securityGeneration: number;
   twoFactorActivated: boolean;
@@ -78,7 +74,6 @@ export function adminElevationPrincipal(user: {
   return {
     ...securityGenerationProof(user),
     disabled: user.disabled,
-    isSuperAdmin: user.isSuperAdmin,
     platformRole: user.platformRole,
     twoFactorActivated: user.twoFactorActivated,
   };
@@ -199,7 +194,7 @@ export async function grantAdminElevation(
   if (
     principal.platformRole !== "admin" ||
     principal.disabled ||
-    (principal.isSuperAdmin && !principal.twoFactorActivated) ||
+    !principal.twoFactorActivated ||
     !(await isSecurityGenerationCurrent(principal))
   ) {
     await revokeAdminElevation(sessionId);
@@ -214,7 +209,6 @@ export async function grantAdminElevation(
     keys.adminMode(sessionId),
     marker,
     ADMIN_MFA_TTL_SECONDS,
-    principal.isSuperAdmin ? "1" : "0",
   );
   return result === 1;
 }
@@ -226,7 +220,7 @@ export async function resolveAdminElevation(
   if (
     principal.platformRole !== "admin" ||
     principal.disabled ||
-    (principal.isSuperAdmin && !principal.twoFactorActivated)
+    !principal.twoFactorActivated
   ) {
     await revokeAdminElevation(sessionId);
     return false;
@@ -238,7 +232,6 @@ export async function resolveAdminElevation(
     keys.adminSessionMfa(sessionId),
     keys.adminMode(sessionId),
     marker,
-    principal.isSuperAdmin ? "1" : "0",
   );
   return result === 1;
 }

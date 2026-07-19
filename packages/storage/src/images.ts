@@ -1,10 +1,10 @@
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import type { S3Client } from "@aws-sdk/client-s3";
 import { parseRelativePath } from "@nojv/core";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import { getStorageEnv } from "./env";
-import { putImmutableObject } from "./object";
+import { putImmutableObject, putObjectIfAbsent } from "./object";
 
 let cachedBucket: string | undefined;
 function BUCKET(): string {
@@ -22,6 +22,11 @@ function imageFilename(filename: string): string {
     throw new Error("Image filename must not contain path separators");
   }
   return parsed;
+}
+
+function remoteImageKey(url: string): string {
+  const hash = createHash("sha256").update(url).digest("hex");
+  return `remote-images/${hash}`;
 }
 
 async function readObject(client: S3Client, key: string): Promise<StoredImage> {
@@ -87,4 +92,19 @@ export async function downloadUserContentImage(
   filename: string,
 ): Promise<StoredImage> {
   return readObject(client, `users/${userId}/images/${imageFilename(filename)}`);
+}
+
+export async function downloadRemoteImage(client: S3Client, url: string): Promise<StoredImage> {
+  return readObject(client, remoteImageKey(url));
+}
+
+export async function cacheRemoteImage(
+  client: S3Client,
+  url: string,
+  file: Buffer,
+  mimeType: string,
+): Promise<StoredImage> {
+  const key = remoteImageKey(url);
+  await putObjectIfAbsent(client, key, file, { contentType: mimeType });
+  return readObject(client, key);
 }
