@@ -1,0 +1,69 @@
+{
+  "platform": {
+    "name": "Alpine Linux",
+    "version": "3.24.1",
+    "nodeVersion": "24.18.0"
+  },
+  "apkPackages": {
+    "bash": "5.3.9-r1",
+    "build-base": "0.5-r4",
+    "cargo": "1.96.0-r0",
+    "g++": "15.2.0-r5",
+    "gcc": "15.2.0-r5",
+    "go": "1.26.3-r0",
+    "openjdk21-jdk": "21.0.11_p10-r0",
+    "python3": "3.14.5-r0",
+    "rust": "1.96.0-r0",
+    "socat": "1.8.1.3-r0"
+  },
+  "languages": {
+    "c": {
+      "label": "C",
+      "version": { "label": "GCC", "source": "apk:gcc" },
+      "compileCommand": ["gcc", "-O2", "-std=c17", "-o", "{output}", "{sources}"],
+      "runCommand": ["{output}"]
+    },
+    "cpp": {
+      "label": "C++",
+      "version": { "label": "G++", "source": "apk:g++" },
+      "compileCommand": ["g++", "-O2", "-std=c++20", "-o", "{output}", "{sources}"],
+      "runCommand": ["{output}"]
+    },
+    "go": {
+      "label": "Go",
+      "version": { "label": "Go", "source": "apk:go" },
+      "compileCommand": ["go", "build", "-o", "{output}", "{sourceOrPackage}"],
+      "runCommand": ["{output}"]
+    },
+    "java": {
+      "label": "Java",
+      "version": { "label": "OpenJDK", "source": "apk:openjdk21-jdk" },
+      "compileCommand": ["javac", "-d", "{workDir}", "{sources}"],
+      "runCommand": ["java", "-cp", "{workDir}", "Main"]
+    },
+    "javascript": {
+      "label": "JavaScript",
+      "version": { "label": "Node.js", "source": "node" },
+      "compileCommand": null,
+      "runCommand": ["node", "{source}"]
+    },
+    "python": {
+      "label": "Python",
+      "version": { "label": "Python", "source": "apk:python3" },
+      "compileCommand": null,
+      "runCommand": ["python3", "{source}"]
+    },
+    "rust": {
+      "label": "Rust",
+      "version": { "label": "Rust", "source": "apk:rust" },
+      "compileCommand": ["rustc", "-O", "-o", "{output}", "{source}"],
+      "runCommand": ["{output}"]
+    },
+    "typescript": {
+      "label": "TypeScript",
+      "version": { "label": "Node.js", "source": "node" },
+      "compileCommand": null,
+      "runCommand": ["node", "--experimental-strip-types", "{source}"]
+    }
+  }
+}

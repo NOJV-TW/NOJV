@@ -25,6 +25,10 @@
     <a class="transition-colors duration-fast ease-out-soft hover:text-foreground" href="/about"
       >{m.footer_about()}</a
     >
+    <a
+      class="transition-colors duration-fast ease-out-soft hover:text-foreground"
+      href="/environment">{m.footer_environment()}</a
+    >
     <a class="transition-colors duration-fast ease-out-soft hover:text-foreground" href="/docs"
       >{m.footer_apiDocs()}</a
     >
