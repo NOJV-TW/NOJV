@@ -703,7 +703,7 @@ describe("buildAdvancedRunJobManifest — untrusted run Pod", () => {
     expect(vol!.persistentVolumeClaim!.claimName).toBe("judge-sub-adv-1-runout");
   });
 
-  it("hardens the run container: runAsUser 10001, cap-drop ALL, read-only rootfs, seccomp, mem/cpu limits", () => {
+  it("hardens every run Pod container for restricted Pod Security admission", () => {
     const m = buildAdvancedRunJobManifest(RUN_PARAMS);
     const podSpec = m.spec!.template.spec!;
     expect(podSpec.securityContext).toMatchObject({
@@ -712,12 +712,16 @@ describe("buildAdvancedRunJobManifest — untrusted run Pod", () => {
       seccompProfile: { type: "RuntimeDefault" },
     });
     const run = podSpec.containers[0]!;
-    expect(run.securityContext).toMatchObject({
-      allowPrivilegeEscalation: false,
-      capabilities: { drop: ["ALL"] },
-      readOnlyRootFilesystem: true,
-      runAsUser: 10001,
-    });
+    for (const container of [...(podSpec.initContainers ?? []), ...podSpec.containers]) {
+      expect(container.securityContext).toMatchObject({
+        allowPrivilegeEscalation: false,
+        capabilities: { drop: ["ALL"] },
+        readOnlyRootFilesystem: true,
+        runAsNonRoot: true,
+        runAsUser: 10001,
+        runAsGroup: 10001,
+      });
+    }
     expect(run.resources!.limits!.memory).toBe("512Mi");
     expect(run.resources!.limits!.cpu).toBe("1");
   });
@@ -799,7 +803,7 @@ describe("buildAdvancedGradeJobManifest — trusted grade Pod, no student code",
     expect(vol!.configMap!.name).toBe("judge-sub-adv-1-grade-input");
   });
 
-  it("pins the grader non-root (runAsUser 10001, cap-drop ALL) and carries the grade egress label", () => {
+  it("hardens every grade Pod container for restricted Pod Security admission", () => {
     const m = buildAdvancedGradeJobManifest(GRADE_PARAMS);
     const podSpec = m.spec!.template.spec!;
     expect(podSpec.securityContext).toMatchObject({
@@ -807,13 +811,16 @@ describe("buildAdvancedGradeJobManifest — trusted grade Pod, no student code",
       runAsNonRoot: true,
       seccompProfile: { type: "RuntimeDefault" },
     });
-    const grader = podSpec.containers[0]!;
-    expect(grader.securityContext).toMatchObject({
-      allowPrivilegeEscalation: false,
-      capabilities: { drop: ["ALL"] },
-      readOnlyRootFilesystem: true,
-      runAsUser: 10001,
-    });
+    for (const container of [...(podSpec.initContainers ?? []), ...podSpec.containers]) {
+      expect(container.securityContext).toMatchObject({
+        allowPrivilegeEscalation: false,
+        capabilities: { drop: ["ALL"] },
+        readOnlyRootFilesystem: true,
+        runAsNonRoot: true,
+        runAsUser: 10001,
+        runAsGroup: 10001,
+      });
+    }
     expect(m.spec!.template.metadata!.labels!["nojv.egress"]).toBe("sub-adv-1-grade");
   });
 
