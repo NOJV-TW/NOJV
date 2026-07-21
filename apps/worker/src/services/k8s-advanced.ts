@@ -265,6 +265,7 @@ export function buildAdvancedRunJobManifest(params: AdvancedRunJobManifestParams
             {
               name: ADVANCED_INIT_NAME,
               image: params.sandboxImage,
+              securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
               command: ["sh", "-c", buildAdvancedInitScript()],
               volumeMounts: [
                 sharedWorkspaceMount,
@@ -274,6 +275,7 @@ export function buildAdvancedRunJobManifest(params: AdvancedRunJobManifestParams
             {
               name: ADVANCED_TRANSFER_NAME,
               image: params.sandboxImage,
+              securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
               restartPolicy: "Always",
               command: ["sh", "-c", buildAdvancedTransferWaitScript()],
               volumeMounts: [
@@ -369,6 +371,7 @@ export function buildAdvancedGradeJobManifest(
             {
               name: ADVANCED_INIT_NAME,
               image: params.sandboxImage,
+              securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
               command: [
                 "sh",
                 "-c",
@@ -386,6 +389,7 @@ chmod 0777 /workspace/output
             {
               name: ADVANCED_SIDECAR_NAME,
               image: params.sandboxImage,
+              securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
               restartPolicy: "Always",
               command: ["sh", "-c", buildAdvancedTailScript(params.totalTimeMs)],
               volumeMounts: [sharedWorkspaceMount],
