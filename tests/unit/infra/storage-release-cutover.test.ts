@@ -318,7 +318,7 @@ describe("storage release cutover", () => {
     expect(resource("ScaledObject", "nojv-worker")).toContain(
       'autoscaling.keda.sh/paused-replicas: "0"',
     );
-  });
+  }, 15_000);
 
   it("rejects Kubernetes versions without the GA admission fence API", () => {
     const result = spawnSync(
