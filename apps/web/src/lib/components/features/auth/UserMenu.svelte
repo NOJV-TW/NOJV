@@ -4,6 +4,7 @@
   import { goto, invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { authClient } from "$lib/auth.client";
+  import StepUpDialog from "$lib/components/features/account/StepUpDialog.svelte";
   import { fetchWithCsrf } from "$lib/services/http";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import SettingsIcon from "@lucide/svelte/icons/settings";
@@ -17,11 +18,60 @@
   let canActAsAdmin = $derived(user?.platformRole === "admin");
   let actingAsAdmin = $derived(page.data.actingAsAdmin ?? false);
   let adminBusy = $state(false);
+  let apiTokenBusy = $state(false);
+  let stepUpOpen = $state(false);
+  let stepUpPurpose = $state<"admin-mode" | "api-tokens">("api-tokens");
+  let hasPasskey = $state(false);
   let hydrated = $state(false);
 
   onMount(() => {
     hydrated = true;
   });
+
+  function verificationPath(purpose: "admin-mode" | "api-tokens"): string {
+    return purpose === "admin-mode"
+      ? "/account/api-tokens/verify?purpose=admin-mode"
+      : "/account/api-tokens/verify";
+  }
+
+  async function openStepUp(purpose: "admin-mode" | "api-tokens") {
+    const passkeys = await authClient.passkey.listUserPasskeys();
+    if (passkeys.error) {
+      await goto(verificationPath(purpose));
+      return;
+    }
+    hasPasskey = (passkeys.data?.length ?? 0) > 0;
+    if (!user.twoFactorEnabled && !hasPasskey) {
+      await goto(verificationPath(purpose));
+      return;
+    }
+    stepUpPurpose = purpose;
+    stepUpOpen = true;
+  }
+
+  async function openApiTokens() {
+    if (apiTokenBusy) return;
+    open = false;
+    apiTokenBusy = true;
+    try {
+      const response = await fetchWithCsrf("/api/api-token-access");
+      if (!response.ok) {
+        await goto("/account/api-tokens");
+        return;
+      }
+      const result = (await response.json()) as {
+        setupRequired: boolean;
+        verificationRequired: boolean;
+      };
+      if (result.setupRequired || !result.verificationRequired) {
+        await goto("/account/api-tokens");
+        return;
+      }
+      await openStepUp("api-tokens");
+    } finally {
+      apiTokenBusy = false;
+    }
+  }
 
   async function toggleAdminMode() {
     if (adminBusy) return;
@@ -42,11 +92,13 @@
       };
       open = false;
       if (result.verificationRequired) {
-        await goto(
-          user.twoFactorActivated
-            ? "/account/api-tokens/verify?purpose=admin-mode"
-            : "/settings?setup2fa=1&returnTo=%2Faccount%2Fapi-tokens%2Fverify%3Fpurpose%3Dadmin-mode",
-        );
+        if (user.twoFactorActivated) {
+          await openStepUp("admin-mode");
+        } else {
+          await goto(
+            "/settings?setup2fa=1&returnTo=%2Faccount%2Fapi-tokens%2Fverify%3Fpurpose%3Dadmin-mode",
+          );
+        }
         return;
       }
       if (result.active !== active) return;
@@ -205,15 +257,15 @@
             {m.navigation_settings()}
           </a>
 
-          <a
-            class="flex items-center gap-2 px-4 py-2 text-body-sm transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-accent-foreground"
-            href="/account/api-tokens"
+          <button
+            type="button"
+            class="flex w-full items-center gap-2 px-4 py-2 text-left text-body-sm transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-accent-foreground"
             role="menuitem"
-            onclick={() => (open = false)}
+            onclick={openApiTokens}
           >
             <KeyRoundIcon aria-hidden="true" size={16} />
             {m.userMenu_apiTokens()}
-          </a>
+          </button>
         {/if}
 
         {#if canActAsAdmin}
@@ -242,4 +294,11 @@
       </div>
     {/if}
   </div>
+
+  <StepUpDialog
+    bind:open={stepUpOpen}
+    purpose={stepUpPurpose}
+    hasTotp={user.twoFactorEnabled}
+    {hasPasskey}
+  />
 {/if}

@@ -1,51 +1,12 @@
 <script lang="ts">
-  import { enhance } from "$app/forms";
-  import { goto } from "$app/navigation";
-  import { authClient } from "$lib/auth.client";
-  import { fetchWithCsrf } from "$lib/services/http";
+  import StepUpForm from "$lib/components/features/account/StepUpForm.svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import { Button } from "$lib/components/primitives/ui/button";
   import { Card } from "$lib/components/primitives/ui/card";
-  import { Input } from "$lib/components/primitives/ui/input";
-  import FormField from "$lib/components/primitives/ui/FormField.svelte";
   import Section from "$lib/components/primitives/ui/Section.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
-
-  let code = $state("");
-  let submitting = $state(false);
-  let passkeyError = $state("");
-  let passkeyBusy = $state(false);
-
-  async function stepUpWithPasskey() {
-    passkeyError = "";
-    passkeyBusy = true;
-    try {
-      const res = await authClient.signIn.passkey();
-      if (res?.error) {
-        passkeyError = res.error.message ?? m.account_passkey_verifyFailed();
-        return;
-      }
-      if (data.purpose === "admin-mode") {
-        const elevation = await fetchWithCsrf("/api/admin-mode", {
-          method: "POST",
-          body: JSON.stringify({ active: true }),
-        });
-        const result = (await elevation.json()) as { active?: boolean };
-        if (!elevation.ok || result.active !== true) {
-          passkeyError = m.account_passkey_verifyFailed();
-          return;
-        }
-      }
-      await goto(data.destination);
-    } catch {
-      passkeyError = m.account_passkey_verifyFailed();
-    } finally {
-      passkeyBusy = false;
-    }
-  }
 </script>
 
 <PageContainer width="form">
@@ -56,77 +17,12 @@
     {/snippet}
 
     <Card variant="surface" size="md">
-      {#if form?.error}
-        <p class="text-caption text-destructive" role="alert">{form.error}</p>
-      {/if}
-
-      {#if data.hasTotp}
-        <form
-          class="flex flex-col gap-4"
-          method="POST"
-          use:enhance={() => {
-            submitting = true;
-            return async ({ update }) => {
-              await update();
-              submitting = false;
-            };
-          }}
-        >
-          {#if data.purpose}
-            <input type="hidden" name="purpose" value={data.purpose} />
-          {/if}
-          <FormField
-            label={m.account_apiToken_stepUp_codeLabel()}
-            hint={m.account_apiToken_stepUp_codeHint()}
-            for="api-token-stepup-code"
-            required
-          >
-            <Input
-              id="api-token-stepup-code"
-              autocomplete="off"
-              autocapitalize="none"
-              spellcheck={false}
-              name="code"
-              bind:value={code}
-              required
-              type="text"
-            />
-          </FormField>
-          <Button
-            type="submit"
-            variant="default"
-            size="lg"
-            class="w-full"
-            loading={submitting}
-            disabled={submitting || code.length < 6}
-          >
-            {m.account_apiToken_stepUp_submit()}
-          </Button>
-        </form>
-      {/if}
-
-      {#if data.hasPasskey}
-        <div
-          class="flex flex-col gap-2 {data.hasTotp
-            ? 'mt-4 border-t border-border-subtle pt-4'
-            : ''}"
-        >
-          {#if passkeyError}
-            <p class="text-caption text-destructive" role="alert">{passkeyError}</p>
-          {/if}
-          <Button
-            type="button"
-            variant={data.hasTotp ? "outline" : "default"}
-            size="lg"
-            class="w-full"
-            loading={passkeyBusy}
-            disabled={passkeyBusy}
-            onclick={stepUpWithPasskey}
-          >
-            {m.account_passkey_verifyButton()}
-          </Button>
-        </div>
-      {/if}
+      <StepUpForm
+        purpose={data.purpose === "admin-mode" ? "admin-mode" : "api-tokens"}
+        hasTotp={data.hasTotp}
+        hasPasskey={data.hasPasskey}
+        initialError={form?.error}
+      />
     </Card>
   </Section>
 </PageContainer>

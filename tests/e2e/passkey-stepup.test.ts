@@ -68,7 +68,12 @@ test("a verified passkey assertion unlocks only its new session", async ({ brows
   await dialog.getByRole("button", { name: "Add passkey" }).click();
   await expect(dialog.getByRole("button", { name: "Remove" })).toBeVisible({ timeout: 20000 });
 
-  await page.goto("/account/api-tokens/verify");
+  await page.goto("/dashboard");
+  await page.getByRole("button", { name: /open account menu/i }).click();
+  await page.getByRole("menuitem", { name: "API Tokens" }).click();
+  const stepUpDialog = page.getByRole("dialog", { name: "Verify it's you" });
+  await expect(stepUpDialog).toBeVisible();
+  await expect(page).toHaveURL(/\/dashboard$/);
   const oldSessionId = await sessionId(page);
   expect(redis("GET", `nojv:apitoken:stepup:${oldSessionId}`)).toBe("");
 
@@ -79,7 +84,7 @@ test("a verified passkey assertion unlocks only its new session", async ({ brows
         new URL(candidate.url()).pathname.endsWith("/api/auth/passkey/verify-authentication"),
       { timeout: 20_000 },
     ),
-    page.getByRole("button", { name: "Verify with passkey" }).click(),
+    stepUpDialog.getByRole("button", { name: "Verify with passkey" }).click(),
   ]);
   if (!verificationResponse.ok()) {
     throw new Error(

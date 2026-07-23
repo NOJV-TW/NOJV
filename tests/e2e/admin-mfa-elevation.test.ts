@@ -48,15 +48,24 @@ test("enrollment and concurrent admin elevation consume each TOTP exactly once",
   expect(redis("GET", `nojv:apitoken:stepup:${sessionId}`)).toBe("");
   expect(redis("GET", `nojv:admin:mode:${sessionId}`)).toBe("");
 
-  await page.goto("/account/api-tokens/verify?purpose=admin-mode");
-  await expect(page).toHaveURL(/\/account\/api-tokens\/verify\?purpose=admin-mode$/);
+  await page.goto("/dashboard");
+  await page.getByRole("button", { name: /open account menu/i }).click();
+  await page.getByRole("menuitem", { name: /switch to admin mode/i }).click();
+  const stepUpDialog = page.getByRole("dialog", { name: "Verify it's you" });
+  await expect(stepUpDialog).toBeVisible();
+  await expect(page).toHaveURL(/\/dashboard$/);
 
-  await page.locator('input[name="code"]').fill(verificationCode);
-  await page.locator('button[type="submit"]').click();
-  await expect(page.getByRole("alert")).toContainText("already used");
-  await expect(page).toHaveURL(/\/account\/api-tokens\/verify\?purpose=admin-mode$/);
+  await stepUpDialog.locator('input[name="code"]').fill(verificationCode);
+  await stepUpDialog.getByRole("button", { name: "Unlock" }).click();
+  await expect(stepUpDialog.getByRole("alert")).toContainText("already used");
+  await expect(stepUpDialog).toBeVisible();
 
-  const freshCode = await nextTotp(secret, verificationCode);
+  const modalCode = await nextTotp(secret, verificationCode);
+  await stepUpDialog.locator('input[name="code"]').fill(modalCode);
+  await stepUpDialog.getByRole("button", { name: "Unlock" }).click();
+  await expect(page).toHaveURL(/\/admin(?:\/|$)/, { timeout: 15_000 });
+
+  const freshCode = await nextTotp(secret, modalCode);
   const verificationPath = "/account/api-tokens/verify?purpose=admin-mode";
   const api = await newLiveApiContext(page);
   let results: Array<{ type: string; status: number; location?: string }>;
