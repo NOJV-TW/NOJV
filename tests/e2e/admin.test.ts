@@ -102,15 +102,18 @@ test.describe("Admin panel — gating + pages", () => {
     await expect(menuButton).toHaveAttribute("aria-expanded", "true");
     const switchButton = page.getByRole("menuitem", { name: /switch to admin mode/i });
     await expect(switchButton).toBeVisible();
-    await Promise.all([
+    const [switchResponse] = await Promise.all([
       page.waitForResponse(
         (response) =>
-          response.url().endsWith("/api/admin-mode") &&
-          response.request().method() === "POST" &&
-          response.status() === 403,
+          response.url().endsWith("/api/admin-mode") && response.request().method() === "POST",
       ),
       switchButton.click(),
     ]);
+    expect(switchResponse.status()).toBe(200);
+    await expect(switchResponse.json()).resolves.toEqual({
+      active: false,
+      verificationRequired: true,
+    });
 
     await page.waitForURL(
       (url) =>
@@ -123,28 +126,16 @@ test.describe("Admin panel — gating + pages", () => {
     ).toBeVisible();
   });
 
-  test("super-admin activation requires a verified step-up", async ({ browser }) => {
-    const context = await browser.newContext();
-    const page = await context.newPage();
-
-    await page.goto("/admin-signin", { waitUntil: "networkidle" });
-    await page.getByLabel(/username or email/i).fill("admin@nojv.local");
-    await page.getByLabel(/password/i).fill("password123");
-    await page.getByRole("button", { name: /sign in|登入/i }).click();
-    await page.waitForURL(
-      (url) =>
-        url.pathname === "/settings" &&
-        url.searchParams.get("verify") === "totp" &&
-        url.searchParams.get("returnTo") === "/account/api-tokens/verify?purpose=admin-mode",
-      { timeout: 15000 },
-    );
-
+  test("admin activation without fresh step-up requests verification", async ({ page }) => {
+    await signInWithPassword(page, regularAdmin.email);
     const denied = await page.request.post("/api/admin-mode", {
       headers: { "x-requested-with": "fetch" },
       data: { active: true },
     });
-    expect(denied.status()).toBe(403);
-
-    await context.close();
+    expect(denied.status()).toBe(200);
+    await expect(denied.json()).resolves.toEqual({
+      active: false,
+      verificationRequired: true,
+    });
   });
 });

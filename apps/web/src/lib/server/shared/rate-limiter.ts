@@ -111,6 +111,16 @@ function createRateLimiter(
     duration,
     keyPrefix,
   });
+  let connecting: Promise<void> | null = null;
+  async function ensureRedisReady(): Promise<void> {
+    if (redis.status === "ready") return;
+    if (!connecting && (redis.status === "wait" || redis.status === "end")) {
+      connecting = redis.connect().finally(() => {
+        connecting = null;
+      });
+    }
+    if (connecting) await connecting;
+  }
   const memoryFallback =
     failMode === "local"
       ? new RateLimiterMemory({ points: points * multiplier, duration })
@@ -121,6 +131,7 @@ function createRateLimiter(
     duration,
     async consume(key: string) {
       try {
+        await ensureRedisReady();
         return await consumeKnownLimiter(redisLimiter, key);
       } catch (error) {
         if (!isOperationalRedisError(error)) throw error;

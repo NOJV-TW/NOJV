@@ -6,7 +6,7 @@ import { DisposableCredentialUser, psql, signInWithPassword } from "./_disposabl
 import { readLiveSession } from "./_shared";
 import { activateTwoFactor, settingsMethodRow } from "./_two-factor";
 
-const REDIS = "nojv-redis-1";
+const REDIS = process.env.NOJV_E2E_REDIS_CONTAINER ?? "nojv-redis-1";
 
 function redis(...args: string[]): string {
   return execFileSync("docker", ["exec", REDIS, "redis-cli", ...args], {

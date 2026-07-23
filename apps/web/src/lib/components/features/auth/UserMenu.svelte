@@ -34,16 +34,22 @@
       });
       if (!r.ok) {
         open = false;
-        if (active && user?.platformRole === "admin" && r.status === 403) {
-          await goto(
-            user.twoFactorActivated
-              ? "/account/api-tokens/verify?purpose=admin-mode"
-              : "/settings?setup2fa=1&returnTo=%2Faccount%2Fapi-tokens%2Fverify%3Fpurpose%3Dadmin-mode",
-          );
-        }
         return;
       }
+      const result = (await r.json()) as {
+        active: boolean;
+        verificationRequired?: boolean;
+      };
       open = false;
+      if (result.verificationRequired) {
+        await goto(
+          user.twoFactorActivated
+            ? "/account/api-tokens/verify?purpose=admin-mode"
+            : "/settings?setup2fa=1&returnTo=%2Faccount%2Fapi-tokens%2Fverify%3Fpurpose%3Dadmin-mode",
+        );
+        return;
+      }
+      if (result.active !== active) return;
       await invalidateAll();
       if (active) {
         await goto("/admin");
