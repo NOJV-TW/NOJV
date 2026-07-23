@@ -13,6 +13,7 @@ const {
   rotateApiTokenMock,
   revokeApiTokenMock,
   stepUpConsumeMock,
+  apiConsumeMock,
   formLimitMock,
 } = vi.hoisted(() => ({
   isTwoFactorActivatedMock: vi.fn(),
@@ -26,10 +27,12 @@ const {
   rotateApiTokenMock: vi.fn(),
   revokeApiTokenMock: vi.fn(),
   stepUpConsumeMock: vi.fn(),
+  apiConsumeMock: vi.fn(),
   formLimitMock: vi.fn(),
 }));
 
 vi.mock("$lib/server/shared/rate-limiter", () => ({
+  apiRateLimiter: { consume: apiConsumeMock },
   consumeFormRateLimitInternal: formLimitMock,
   stepUpAttemptRateLimiter: { consume: stepUpConsumeMock },
 }));
@@ -67,6 +70,7 @@ vi.mock("@nojv/application", async () => {
 
 import { actions, load } from "$lib/../routes/(app)/account/api-tokens/+page.server";
 import { actions as verifyActions } from "$lib/../routes/(app)/account/api-tokens/verify/+page.server";
+import { GET as apiTokenAccess } from "$lib/../routes/api/api-token-access/+server";
 
 function makeEvent(body?: FormData): RequestEvent {
   return {
@@ -133,6 +137,7 @@ beforeEach(() => {
   rotateApiTokenMock.mockReset();
   revokeApiTokenMock.mockReset();
   stepUpConsumeMock.mockReset().mockResolvedValue("allowed");
+  apiConsumeMock.mockReset().mockResolvedValue("allowed");
   formLimitMock.mockReset().mockResolvedValue(null);
 });
 
@@ -151,6 +156,57 @@ describe("api-tokens load gate", () => {
     const thrown = await caught(() => load(makeEvent()));
     expect(thrown.status).toBe(302);
     expect(thrown.location).toBe("/account/api-tokens/verify");
+  });
+});
+
+describe("api-token access status", () => {
+  it("rejects API token authentication even when a cookie session is present", async () => {
+    const event = makeEvent();
+    event.locals.apiTokenActor = {
+      displayName: "Token owner",
+      email: "token@example.com",
+      emailVerified: true,
+      platformRole: "student",
+      userId: "usr_token",
+      username: "token-owner",
+    };
+
+    const response = await apiTokenAccess(event);
+
+    expect(response.status).toBe(401);
+    expect(isTwoFactorActivatedMock).not.toHaveBeenCalled();
+  });
+
+  it("requires setup when the master switch is off", async () => {
+    isTwoFactorActivatedMock.mockResolvedValue(false);
+
+    const response = await apiTokenAccess(makeEvent());
+
+    await expect(response.json()).resolves.toEqual({
+      setupRequired: true,
+      verificationRequired: false,
+    });
+    expect(hasTokenPageMfaMock).not.toHaveBeenCalled();
+  });
+
+  it("requires verification when the page grant is missing", async () => {
+    hasTokenPageMfaMock.mockResolvedValue(false);
+
+    const response = await apiTokenAccess(makeEvent());
+
+    await expect(response.json()).resolves.toEqual({
+      setupRequired: false,
+      verificationRequired: true,
+    });
+  });
+
+  it("allows navigation when the page grant is fresh", async () => {
+    const response = await apiTokenAccess(makeEvent());
+
+    await expect(response.json()).resolves.toEqual({
+      setupRequired: false,
+      verificationRequired: false,
+    });
   });
 });
 

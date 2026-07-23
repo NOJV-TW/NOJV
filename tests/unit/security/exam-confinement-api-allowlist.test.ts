@@ -13,6 +13,7 @@ type ExamClassification = "exam-safe" | "exam-confined" | "exam-scoped";
 
 const REVIEWED_GET_ROUTES: Record<string, ExamClassification> = {
   "/api/admin/healthz": "exam-safe",
+  "/api/api-token-access": "exam-safe",
   "/api/auth/[...path]": "exam-safe",
   "/api/clarifications": "exam-safe",
   "/api/contests/[id]/scoreboard": "exam-confined",

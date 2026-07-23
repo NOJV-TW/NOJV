@@ -95,6 +95,7 @@
   "account_apiToken_stepUp_description": "輸入驗證器產生的最新驗證碼以管理 API 權杖，通過後可在短時間內存取此頁。",
   "account_apiToken_stepUp_submit": "解鎖",
   "account_apiToken_stepUp_title": "驗證你的身分",
+  "account_adminMode_stepUp_description": "使用驗證器驗證碼或 passkey 進入管理員模式。",
   "account_avatar_cancel": "取消",
   "account_avatar_change": "更換",
   "account_avatar_dragToMove": "拖曳以調整位置 · 滾輪縮放",

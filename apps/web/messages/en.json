@@ -95,6 +95,7 @@
   "account_apiToken_stepUp_description": "Enter a fresh code from your authenticator to manage API tokens. This unlocks the page for a short time.",
   "account_apiToken_stepUp_submit": "Unlock",
   "account_apiToken_stepUp_title": "Verify it's you",
+  "account_adminMode_stepUp_description": "Use your authenticator code or passkey to enter Admin mode.",
   "account_avatar_cancel": "Cancel",
   "account_avatar_change": "Change",
   "account_avatar_dragToMove": "Drag to reposition · scroll to zoom",
