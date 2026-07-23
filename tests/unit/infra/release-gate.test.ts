@@ -349,11 +349,42 @@ describe("Build & Push Images workflow release structure", () => {
   const imageBuilder = readFileSync(imageBuilderPath, "utf8");
   const imagePromoter = readFileSync(imagePromoterPath, "utf8");
   const trigger = workflow.slice(workflow.indexOf("on:"), workflow.indexOf("concurrency:"));
-  const buildJob = workflow.slice(
-    workflow.indexOf("  build-publish:"),
+  const jobSection = (jobId: string) => {
+    const marker = `  ${jobId}:`;
+    const start = workflow.indexOf(marker);
+    if (start < 0) return "";
+    const remainder = workflow.slice(start + marker.length);
+    const nextJob = remainder.search(/\n {2}[a-z][a-z0-9-]*:\n/u);
+    return workflow.slice(start, nextJob < 0 ? undefined : start + marker.length + nextJob);
+  };
+  const prepareJob = jobSection("prepare-release");
+  const imageComponents = ["web", "worker", "migrator", "sandbox"];
+  const imageJobs = imageComponents.map((component) => jobSection(`build-${component}`));
+  const releaseJobs = workflow.slice(
+    workflow.indexOf("  prepare-release:"),
     workflow.indexOf("  deploy-ref:"),
   );
-  const deployJob = workflow.slice(workflow.indexOf("  deploy-ref:"));
+  const deployJob = jobSection("deploy-ref");
+
+  it("builds all four release images in independent jobs before deploy", () => {
+    expect(prepareJob).not.toBe("");
+    expect(workflow).not.toContain("  build-publish:");
+    for (const job of imageJobs) {
+      expect(job).not.toBe("");
+      expect(job).toContain("needs: prepare-release");
+      expect(job).not.toMatch(/needs: build-(web|worker|migrator|sandbox)/u);
+      expect(job).toContain("run: scripts/build-release-image.sh");
+    }
+    for (const dependency of [
+      "prepare-release",
+      "build-web",
+      "build-worker",
+      "build-migrator",
+      "build-sandbox",
+    ]) {
+      expect(deployJob).toContain(`- ${dependency}`);
+    }
+  });
 
   it("has no push or manual release path and listens only for completed main CI runs", () => {
     expect(trigger.trim()).toBe(
@@ -377,34 +408,40 @@ describe("Build & Push Images workflow release structure", () => {
       "workflow_run.head_branch == 'main'",
       "workflow_run.head_repository.full_name == github.repository",
     ]) {
-      expect(buildJob).toContain(condition);
+      expect(prepareJob).toContain(condition);
     }
-    expect(buildJob).toContain("run: node scripts/validate-release-run.mjs");
+    expect(prepareJob).toContain("run: node scripts/validate-release-run.mjs");
   });
 
   it("binds checkout, all four image builds and the immutable image tag to head_sha", () => {
-    expect(buildJob).toContain("ref: ${{ github.event.workflow_run.head_sha }}");
-    expect(buildJob).toContain("persist-credentials: false");
-    expect(buildJob).toContain("release_sha: ${{ steps.release.outputs.release_sha }}");
-    expect(buildJob).toContain("image_tag: ${{ steps.release.outputs.image_tag }}");
-    expect(buildJob.match(/run: scripts\/build-release-image\.sh/gu)).toHaveLength(4);
-    expect(buildJob).not.toContain(':main"');
-    expect(buildJob).not.toContain("git rev-parse --short");
+    expect(prepareJob).toContain("ref: ${{ github.event.workflow_run.head_sha }}");
+    expect(prepareJob).toContain("persist-credentials: false");
+    expect(prepareJob).toContain("release_sha: ${{ steps.release.outputs.release_sha }}");
+    expect(prepareJob).toContain("image_tag: ${{ steps.release.outputs.image_tag }}");
+    expect(releaseJobs.match(/run: scripts\/build-release-image\.sh/gu)).toHaveLength(4);
+    for (const job of imageJobs) {
+      expect(job).toContain("ref: ${{ needs.prepare-release.outputs.release_sha }}");
+      expect(job).toContain("persist-credentials: false");
+    }
+    expect(releaseJobs).not.toContain(':main"');
+    expect(releaseJobs).not.toContain("git rev-parse --short");
   });
 
   it("detects same-SHA publication state before any package write", () => {
-    const preflight = buildJob.indexOf(
-      "run: node scripts/validate-release-run.mjs publication-state",
-    );
-    expect(preflight).toBeGreaterThan(0);
-    expect(preflight).toBeLessThan(buildJob.indexOf("docker/setup-buildx-action"));
-    expect(preflight).toBeLessThan(buildJob.indexOf("docker/login-action"));
-    expect(preflight).toBeLessThan(buildJob.indexOf("scripts/build-release-image.sh"));
-    expect(buildJob).toContain("RELEASE_SHA: ${{ steps.release.outputs.release_sha }}");
-    expect(buildJob).toContain("GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}");
-    expect(buildJob).toContain(
-      "EXISTING_IMAGES: ${{ steps.publication.outputs.existing_images }}",
-    );
+    expect(prepareJob).not.toContain("packages: write");
+    expect(prepareJob).not.toContain("publication-state");
+    for (const job of imageJobs) {
+      const publicationState = job.indexOf(
+        "run: node scripts/validate-release-run.mjs publication-state",
+      );
+      expect(publicationState).toBeGreaterThan(0);
+      expect(publicationState).toBeLessThan(job.indexOf("run: scripts/build-release-image.sh"));
+      expect(job).toContain("RELEASE_SHA: ${{ needs.prepare-release.outputs.release_sha }}");
+      expect(job).toContain("GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}");
+      expect(job).toContain(
+        "EXISTING_IMAGES: ${{ steps.publication.outputs.existing_images }}",
+      );
+    }
     expect(imageBuilder).toContain("node scripts/validate-release-run.mjs published-image");
     expect(imageBuilder).toContain('gh attestation verify "oci://${ref}@${digest}"');
     expect(imageBuilder).toContain(
@@ -414,7 +451,7 @@ describe("Build & Push Images workflow release structure", () => {
     expect(imageBuilder).toContain('--source-digest "$TAG"');
     expect(imageBuilder).toContain("--deny-self-hosted-runners");
     expect(
-      buildJob.match(/uses: actions\/attest@a1948c3f048ba23858d222213b7c278aabede763/gu),
+      releaseJobs.match(/uses: actions\/attest@a1948c3f048ba23858d222213b7c278aabede763/gu),
     ).toHaveLength(4);
     expect(imageBuilder).toContain("org.opencontainers.image.revision=${TAG}");
     expect(imageBuilder).toContain("org.opencontainers.image.version=${TAG}");
@@ -423,42 +460,54 @@ describe("Build & Push Images workflow release structure", () => {
     expect(imagePromoter).toContain(
       'docker buildx imagetools create --tag "${ref}:${TAG}" "${ref}@${IMAGE_DIGEST}"',
     );
-    const retrySafeOrder = [
-      "id: web",
-      "name: Attest web image",
-      "name: Publish web release tag",
-      "id: worker",
-      "name: Attest worker image",
-      "name: Publish worker release tag",
-      "id: migrator",
-      "name: Attest migrator image",
-      "name: Publish migrator release tag",
-      "id: sandbox",
-      "name: Attest sandbox image",
-      "name: Publish sandbox release tag",
-    ].map((marker) => buildJob.indexOf(marker));
-    expect(retrySafeOrder.every((position) => position >= 0)).toBe(true);
-    expect(retrySafeOrder).toEqual([...retrySafeOrder].sort((a, b) => a - b));
+    imageJobs.forEach((job, index) => {
+      const component = imageComponents[index];
+      const retrySafeOrder = [
+        "id: image",
+        `name: Attest ${component} image`,
+        `name: Publish ${component} release tag`,
+      ].map((marker) => job.indexOf(marker));
+      expect(retrySafeOrder.every((position) => position >= 0)).toBe(true);
+      expect(retrySafeOrder).toEqual([...retrySafeOrder].sort((a, b) => a - b));
+    });
   });
 
   it("keeps package and repository writes in separate least-privilege jobs", () => {
     expect(workflow).toContain("permissions: {}");
-    expect(buildJob).toMatch(
-      /permissions:\n {6}attestations: write\n {6}contents: read\n {6}id-token: write\n {6}packages: write/,
-    );
-    expect(buildJob).not.toContain("contents: write");
-    expect(buildJob).not.toContain("git checkout -B deploy");
+    expect(prepareJob).toMatch(/permissions:\n {6}contents: read/u);
+    for (const job of imageJobs) {
+      expect(job).toMatch(
+        /permissions:\n {6}attestations: write\n {6}contents: read\n {6}id-token: write\n {6}packages: write/u,
+      );
+      expect(job).not.toContain("contents: write");
+      expect(job).not.toContain("git checkout -B deploy");
+    }
 
-    expect(deployJob).toContain("needs: build-publish");
+    for (const dependency of [
+      "prepare-release",
+      "build-web",
+      "build-worker",
+      "build-migrator",
+      "build-sandbox",
+    ]) {
+      expect(deployJob).toContain(`- ${dependency}`);
+    }
     expect(deployJob).toMatch(/permissions:\n {6}contents: write/);
     expect(deployJob).not.toContain("packages: write");
     expect(deployJob).not.toContain("docker buildx build");
   });
 
-  it("updates deploy only from the successful four-image job's exact SHA outputs", () => {
-    expect(deployJob).toContain("ref: ${{ needs.build-publish.outputs.release_sha }}");
-    expect(deployJob).toContain("RELEASE_SHA: ${{ needs.build-publish.outputs.release_sha }}");
-    expect(deployJob).toContain("IMAGE_TAG: ${{ needs.build-publish.outputs.image_tag }}");
+  it("updates deploy only from the successful preflight and four image digests", () => {
+    expect(deployJob).toContain("ref: ${{ needs.prepare-release.outputs.release_sha }}");
+    expect(deployJob).toContain(
+      "RELEASE_SHA: ${{ needs.prepare-release.outputs.release_sha }}",
+    );
+    expect(deployJob).toContain("IMAGE_TAG: ${{ needs.prepare-release.outputs.image_tag }}");
+    for (const component of imageComponents) {
+      expect(deployJob).toContain(
+        `IMAGE_DIGEST_${component.toUpperCase()}: \${{ needs.build-${component}.outputs.digest }}`,
+      );
+    }
     expect(deployJob).toContain('test "$(git rev-parse HEAD)" = "$RELEASE_SHA"');
     expect(deployJob).toContain(
       "git fetch --no-tags origin +refs/heads/deploy:refs/remotes/origin/deploy",

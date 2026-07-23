@@ -407,9 +407,12 @@ describe("Flux release artifact atomicity", () => {
     expect(helmRelease).toContain("timeout: 125m");
     expect(helmRelease).not.toContain("\n  values:\n    image:\n");
     expect(gitRepository).toContain("branch: deploy");
-    expect(workflow).toContain(
-      "IMAGE_DIGEST_WEB: ${{ needs.build-publish.outputs.web_digest }}",
-    );
+    expect(workflow).toContain("IMAGE_TAG: ${{ needs.prepare-release.outputs.image_tag }}");
+    for (const component of ["web", "worker", "sandbox", "migrator"]) {
+      expect(workflow).toContain(
+        `IMAGE_DIGEST_${component.toUpperCase()}: \${{ needs.build-${component}.outputs.digest }}`,
+      );
+    }
     expect(workflow).toContain('node scripts/update-deploy-image-values.mjs "$VALUES_FILE"');
     expect(workflow).toContain('git add "$VALUES_FILE"');
     expect(workflow).toContain('DEPLOY_TAG="nojv-deploy-${IMAGE_TAG}"');

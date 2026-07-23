@@ -13,8 +13,8 @@ concurrency:
 permissions: {}
 
 jobs:
-  build-publish:
-    name: Build & push images to GHCR
+  prepare-release:
+    name: Validate release
     if: >-
       github.event.workflow_run.name == 'CI' &&
       github.event.workflow_run.path == '.github/workflows/ci.yml' &&
@@ -23,19 +23,12 @@ jobs:
       github.event.workflow_run.head_branch == 'main' &&
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 5
     permissions:
-      attestations: write
       contents: read
-      id-token: write
-      packages: write
     outputs:
       release_sha: ${{ steps.release.outputs.release_sha }}
       image_tag: ${{ steps.release.outputs.image_tag }}
-      web_digest: ${{ steps.web.outputs.digest }}
-      worker_digest: ${{ steps.worker.outputs.digest }}
-      sandbox_digest: ${{ steps.sandbox.outputs.digest }}
-      migrator_digest: ${{ steps.migrator.outputs.digest }}
     steps:
       - name: Check out
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
@@ -55,14 +48,24 @@ jobs:
           RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: node scripts/validate-release-run.mjs
 
-      - name: Inspect immutable publication state
-        id: publication
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_API_ROOT: ${{ github.api_url }}
-          PACKAGE_OWNER: ${{ github.repository_owner }}
-          RELEASE_SHA: ${{ steps.release.outputs.release_sha }}
-        run: node scripts/validate-release-run.mjs publication-state
+  build-web:
+    name: Build & push web image
+    needs: prepare-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      attestations: write
+      contents: read
+      id-token: write
+      packages: write
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ needs.prepare-release.outputs.release_sha }}
+          persist-credentials: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
@@ -74,10 +77,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build or verify web image
-        id: web
+      - name: Inspect immutable publication state
+        id: publication
         env:
-          TAG: ${{ steps.release.outputs.image_tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_API_ROOT: ${{ github.api_url }}
+          PACKAGE_OWNER: ${{ github.repository_owner }}
+          RELEASE_SHA: ${{ needs.prepare-release.outputs.release_sha }}
+        run: node scripts/validate-release-run.mjs publication-state
+
+      - name: Build or verify web image
+        id: image
+        env:
+          TAG: ${{ needs.prepare-release.outputs.image_tag }}
           PREFIX: ghcr.io/nojv-tw
           EXISTING_IMAGES: ${{ steps.publication.outputs.existing_images }}
           RELEASE_IMAGE_NAME: nojv-web
@@ -88,23 +100,61 @@ jobs:
         uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4
         with:
           subject-name: ghcr.io/nojv-tw/nojv-web
-          subject-digest: ${{ steps.web.outputs.digest }}
+          subject-digest: ${{ steps.image.outputs.digest }}
           push-to-registry: true
           create-storage-record: false
 
       - name: Publish web release tag
-        if: steps.web.outputs.requires_promotion == 'true'
+        if: steps.image.outputs.requires_promotion == 'true'
         env:
-          TAG: ${{ steps.release.outputs.image_tag }}
+          TAG: ${{ needs.prepare-release.outputs.image_tag }}
           PREFIX: ghcr.io/nojv-tw
           RELEASE_IMAGE_NAME: nojv-web
-          IMAGE_DIGEST: ${{ steps.web.outputs.digest }}
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
         run: scripts/promote-release-image.sh
 
-      - name: Build or verify worker image
-        id: worker
+  build-worker:
+    name: Build & push worker image
+    needs: prepare-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      attestations: write
+      contents: read
+      id-token: write
+      packages: write
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ needs.prepare-release.outputs.release_sha }}
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Inspect immutable publication state
+        id: publication
         env:
-          TAG: ${{ steps.release.outputs.image_tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_API_ROOT: ${{ github.api_url }}
+          PACKAGE_OWNER: ${{ github.repository_owner }}
+          RELEASE_SHA: ${{ needs.prepare-release.outputs.release_sha }}
+        run: node scripts/validate-release-run.mjs publication-state
+
+      - name: Build or verify worker image
+        id: image
+        env:
+          TAG: ${{ needs.prepare-release.outputs.image_tag }}
           PREFIX: ghcr.io/nojv-tw
           EXISTING_IMAGES: ${{ steps.publication.outputs.existing_images }}
           RELEASE_IMAGE_NAME: nojv-worker
@@ -115,23 +165,61 @@ jobs:
         uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4
         with:
           subject-name: ghcr.io/nojv-tw/nojv-worker
-          subject-digest: ${{ steps.worker.outputs.digest }}
+          subject-digest: ${{ steps.image.outputs.digest }}
           push-to-registry: true
           create-storage-record: false
 
       - name: Publish worker release tag
-        if: steps.worker.outputs.requires_promotion == 'true'
+        if: steps.image.outputs.requires_promotion == 'true'
         env:
-          TAG: ${{ steps.release.outputs.image_tag }}
+          TAG: ${{ needs.prepare-release.outputs.image_tag }}
           PREFIX: ghcr.io/nojv-tw
           RELEASE_IMAGE_NAME: nojv-worker
-          IMAGE_DIGEST: ${{ steps.worker.outputs.digest }}
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
         run: scripts/promote-release-image.sh
 
-      - name: Build or verify migrator image
-        id: migrator
+  build-migrator:
+    name: Build & push migrator image
+    needs: prepare-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      attestations: write
+      contents: read
+      id-token: write
+      packages: write
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ needs.prepare-release.outputs.release_sha }}
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Inspect immutable publication state
+        id: publication
         env:
-          TAG: ${{ steps.release.outputs.image_tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_API_ROOT: ${{ github.api_url }}
+          PACKAGE_OWNER: ${{ github.repository_owner }}
+          RELEASE_SHA: ${{ needs.prepare-release.outputs.release_sha }}
+        run: node scripts/validate-release-run.mjs publication-state
+
+      - name: Build or verify migrator image
+        id: image
+        env:
+          TAG: ${{ needs.prepare-release.outputs.image_tag }}
           PREFIX: ghcr.io/nojv-tw
           EXISTING_IMAGES: ${{ steps.publication.outputs.existing_images }}
           RELEASE_IMAGE_NAME: nojv-migrator
@@ -142,23 +230,61 @@ jobs:
         uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4
         with:
           subject-name: ghcr.io/nojv-tw/nojv-migrator
-          subject-digest: ${{ steps.migrator.outputs.digest }}
+          subject-digest: ${{ steps.image.outputs.digest }}
           push-to-registry: true
           create-storage-record: false
 
       - name: Publish migrator release tag
-        if: steps.migrator.outputs.requires_promotion == 'true'
+        if: steps.image.outputs.requires_promotion == 'true'
         env:
-          TAG: ${{ steps.release.outputs.image_tag }}
+          TAG: ${{ needs.prepare-release.outputs.image_tag }}
           PREFIX: ghcr.io/nojv-tw
           RELEASE_IMAGE_NAME: nojv-migrator
-          IMAGE_DIGEST: ${{ steps.migrator.outputs.digest }}
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
         run: scripts/promote-release-image.sh
 
-      - name: Build or verify sandbox image
-        id: sandbox
+  build-sandbox:
+    name: Build & push sandbox image
+    needs: prepare-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      attestations: write
+      contents: read
+      id-token: write
+      packages: write
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ needs.prepare-release.outputs.release_sha }}
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Inspect immutable publication state
+        id: publication
         env:
-          TAG: ${{ steps.release.outputs.image_tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_API_ROOT: ${{ github.api_url }}
+          PACKAGE_OWNER: ${{ github.repository_owner }}
+          RELEASE_SHA: ${{ needs.prepare-release.outputs.release_sha }}
+        run: node scripts/validate-release-run.mjs publication-state
+
+      - name: Build or verify sandbox image
+        id: image
+        env:
+          TAG: ${{ needs.prepare-release.outputs.image_tag }}
           PREFIX: ghcr.io/nojv-tw
           EXISTING_IMAGES: ${{ steps.publication.outputs.existing_images }}
           RELEASE_IMAGE_NAME: nojv-sandbox
@@ -169,22 +295,27 @@ jobs:
         uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4
         with:
           subject-name: ghcr.io/nojv-tw/nojv-sandbox
-          subject-digest: ${{ steps.sandbox.outputs.digest }}
+          subject-digest: ${{ steps.image.outputs.digest }}
           push-to-registry: true
           create-storage-record: false
 
       - name: Publish sandbox release tag
-        if: steps.sandbox.outputs.requires_promotion == 'true'
+        if: steps.image.outputs.requires_promotion == 'true'
         env:
-          TAG: ${{ steps.release.outputs.image_tag }}
+          TAG: ${{ needs.prepare-release.outputs.image_tag }}
           PREFIX: ghcr.io/nojv-tw
           RELEASE_IMAGE_NAME: nojv-sandbox
-          IMAGE_DIGEST: ${{ steps.sandbox.outputs.digest }}
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
         run: scripts/promote-release-image.sh
 
   deploy-ref:
     name: Publish verified image tag to deploy branch
-    needs: build-publish
+    needs:
+      - prepare-release
+      - build-web
+      - build-worker
+      - build-migrator
+      - build-sandbox
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -193,12 +324,12 @@ jobs:
       - name: Check out the verified release commit
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
-          ref: ${{ needs.build-publish.outputs.release_sha }}
+          ref: ${{ needs.prepare-release.outputs.release_sha }}
           fetch-depth: 0
 
       - name: Verify deploy checkout
         env:
-          RELEASE_SHA: ${{ needs.build-publish.outputs.release_sha }}
+          RELEASE_SHA: ${{ needs.prepare-release.outputs.release_sha }}
         run: test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
 
       - name: Fetch current deploy ref
@@ -207,17 +338,17 @@ jobs:
       - name: Reject stale deploy candidate
         id: advance
         env:
-          RELEASE_SHA: ${{ needs.build-publish.outputs.release_sha }}
+          RELEASE_SHA: ${{ needs.prepare-release.outputs.release_sha }}
         run: node scripts/validate-release-run.mjs deploy-advance
 
       - name: Publish immutable image references to the deploy branch
         shell: bash
         env:
-          IMAGE_TAG: ${{ needs.build-publish.outputs.image_tag }}
-          IMAGE_DIGEST_WEB: ${{ needs.build-publish.outputs.web_digest }}
-          IMAGE_DIGEST_WORKER: ${{ needs.build-publish.outputs.worker_digest }}
-          IMAGE_DIGEST_SANDBOX: ${{ needs.build-publish.outputs.sandbox_digest }}
-          IMAGE_DIGEST_MIGRATOR: ${{ needs.build-publish.outputs.migrator_digest }}
+          IMAGE_TAG: ${{ needs.prepare-release.outputs.image_tag }}
+          IMAGE_DIGEST_WEB: ${{ needs.build-web.outputs.digest }}
+          IMAGE_DIGEST_WORKER: ${{ needs.build-worker.outputs.digest }}
+          IMAGE_DIGEST_SANDBOX: ${{ needs.build-sandbox.outputs.digest }}
+          IMAGE_DIGEST_MIGRATOR: ${{ needs.build-migrator.outputs.digest }}
           DEPLOY_TIP: ${{ steps.advance.outputs.deploy_tip }}
         run: |
           set -euo pipefail
