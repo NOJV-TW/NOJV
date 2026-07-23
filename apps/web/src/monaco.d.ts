@@ -1,5 +1,5 @@
-declare module "monaco-editor/esm/vs/editor/editor.api" {
+declare module "monaco-editor/editor/editor.api" {
   export * from "monaco-editor";
 }
 
-declare module "monaco-editor/esm/vs/basic-languages/*";
+declare module "monaco-editor/languages/definitions/*";
