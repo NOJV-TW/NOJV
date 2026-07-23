@@ -30,6 +30,7 @@ overrides:
   "@prisma/dev>hono": ">=4.12.25"
   "@sveltejs/kit>cookie": ^0.7.0
   tsx>esbuild: ^0.28.1
+  fast-uri: 3.1.4
 
 ignoredOptionalDependencies:
   - joi
