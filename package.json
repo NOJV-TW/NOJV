@@ -46,7 +46,7 @@
     "db:validate": "pnpm --filter @nojv/db prisma:validate"
   },
   "devDependencies": {
-    "@better-auth/core": "1.6.25",
+    "@better-auth/core": "1.6.23",
     "@kubernetes/client-node": "^1.4.0",
     "@nojv/eslint-config": "workspace:*",
     "@nojv/prettier-config": "workspace:*",
