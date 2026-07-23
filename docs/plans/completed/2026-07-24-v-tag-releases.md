@@ -1,7 +1,5 @@
 # V-Tag Releases Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
-
 **Goal:** Build, publish, and deploy production images only after pushing a stable `vX.Y.Z` tag whose commit has passed main CI.
 
 **Architecture:** The release workflow listens to tag pushes, validates the tag, main ancestry, and the successful `Verify Repository` check, then builds four images under the version tag. The deploy branch records the source commit, version tag, and registry-returned digests atomically for Flux.
@@ -60,3 +58,9 @@
 2. Run `pnpm ci:verify`.
 3. Review the final diff for fail-closed behavior.
 4. Commit, push, open a PR, and merge only after all required checks pass.
+
+## Outcome
+
+Shipped in PR #309 and released as `v0.1.0`. The release workflow published all
+four version-tagged images and advanced the deploy branch with their immutable
+digests.
