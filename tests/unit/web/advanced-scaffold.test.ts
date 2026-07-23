@@ -55,7 +55,7 @@ describe("advanced-scaffold", () => {
 
   it("run scaffold runs the student and writes outputs, holds no answers", async () => {
     const files = await unzip();
-    expect(files["run/Dockerfile"]).toContain("FROM python:3.12-slim");
+    expect(files["run/Dockerfile"]).toContain("FROM python:3.14-slim");
     expect(files["run/Dockerfile"]).toContain("COPY testcases/ /testcases/");
     expect(files["run/runner.py"]).toContain("import nojv_runner");
     expect(files["run/nojv_runner.py"]).toContain("def run_submission");
@@ -75,7 +75,7 @@ describe("advanced-scaffold", () => {
 
   it("includes an optional service template", async () => {
     const files = await unzip();
-    expect(files["service/Dockerfile"]).toContain("FROM python:3.12-slim");
+    expect(files["service/Dockerfile"]).toContain("FROM python:3.14-slim");
     expect(files["service/Dockerfile"]).toContain("USER 10001:10001");
     expect(files["service/service.py"]).toBeDefined();
   });
