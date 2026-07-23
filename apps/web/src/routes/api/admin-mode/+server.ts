@@ -26,8 +26,11 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     await revokeAdminElevation(sessionId);
     return json({ active: false });
   }
+  if (sessionUser.platformRole !== "admin") {
+    throw new HttpError("Admin mode is not available for this account.", 403);
+  }
   if (!(await grantAdminElevation(sessionId, adminElevationPrincipal(sessionUser)))) {
-    throw new HttpError("Fresh two-factor verification is required.", 403);
+    return json({ active: false, verificationRequired: true });
   }
   return json({ active: true });
 });

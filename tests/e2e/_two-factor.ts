@@ -64,7 +64,7 @@ export async function activateTwoFactor(page: Page): Promise<void> {
   const result = (await response.json()) as { type: string; status: number };
   expect(result).toMatchObject({ type: "success", status: 200 });
 
-  await page.goto("/settings", { waitUntil: "networkidle" });
+  await page.goto("/settings");
   await expect(page.getByRole("button", { name: "Turn off", exact: true })).toBeVisible();
 }
 

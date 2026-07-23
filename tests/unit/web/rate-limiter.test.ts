@@ -18,6 +18,10 @@ function mockClientIp(): void {
 
 function makeRedisClient(consume: () => Promise<unknown>): object {
   const client = {
+    status: "ready",
+    async connect() {
+      client.status = "ready";
+    },
     on() {},
     multi: () => ({}),
     defineCommand(name: string) {
@@ -64,6 +68,74 @@ describe("rate limiter fail modes in production", () => {
     await expect(mod.otpSendRateLimiter.consume("ip-prod")).resolves.toBe("unavailable");
     await expect(mod.stepUpAttemptRateLimiter.consume("ip-prod")).resolves.toBe("unavailable");
     await expect(mod.registryTokenRateLimiter.consume("ip-prod")).resolves.toBe("unavailable");
+  });
+
+  it("waits for a lazy Redis connection before the first consume", async () => {
+    let resolveConnection!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      resolveConnection = resolve;
+    });
+    const redisConsumes = vi.fn().mockResolvedValue([1, 60_000]);
+    const redis = makeRedisClient(redisConsumes) as {
+      connect: ReturnType<typeof vi.fn>;
+      status: string;
+    };
+    redis.status = "wait";
+    redis.connect = vi.fn(async () => {
+      redis.status = "connecting";
+      await ready;
+      redis.status = "ready";
+    });
+    vi.doMock("$app/environment", () => ({ browser: false, dev: false, building: false }));
+    vi.doMock("@nojv/redis", () => ({
+      createRateLimiterConnection: () => redis,
+    }));
+    mockClientIp();
+
+    const mod = await import("$lib/server/shared/rate-limiter");
+    const limiter = mod.__test.createRateLimiter("rl:test-connect", 1, 60);
+    const result = limiter.consume("ip-prod");
+    await vi.waitFor(() => expect(redis.connect).toHaveBeenCalledOnce());
+    expect(redisConsumes).not.toHaveBeenCalled();
+
+    resolveConnection();
+    await expect(result).resolves.toBe("allowed");
+    expect(redisConsumes).toHaveBeenCalledOnce();
+  });
+
+  it("shares one lazy Redis connection across concurrent first consumes", async () => {
+    let resolveConnection!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      resolveConnection = resolve;
+    });
+    const redisConsumes = vi.fn().mockResolvedValue([1, 60_000]);
+    const redis = makeRedisClient(redisConsumes) as {
+      connect: ReturnType<typeof vi.fn>;
+      status: string;
+    };
+    redis.status = "wait";
+    redis.connect = vi.fn(async () => {
+      redis.status = "connecting";
+      await ready;
+      redis.status = "ready";
+    });
+    vi.doMock("$app/environment", () => ({ browser: false, dev: false, building: false }));
+    vi.doMock("@nojv/redis", () => ({
+      createRateLimiterConnection: () => redis,
+    }));
+    mockClientIp();
+
+    const mod = await import("$lib/server/shared/rate-limiter");
+    const limiter = mod.__test.createRateLimiter("rl:test-connect-concurrent", 2, 60);
+    const first = limiter.consume("ip-prod");
+    const second = limiter.consume("ip-prod");
+    await vi.waitFor(() => expect(redis.connect).toHaveBeenCalledOnce());
+    expect(redisConsumes).not.toHaveBeenCalled();
+
+    resolveConnection();
+    await expect(Promise.all([first, second])).resolves.toEqual(["allowed", "allowed"]);
+    expect(redis.connect).toHaveBeenCalledOnce();
+    expect(redisConsumes).toHaveBeenCalledTimes(2);
   });
 
   it("read limiting retries Redis before every bounded local consume", async () => {

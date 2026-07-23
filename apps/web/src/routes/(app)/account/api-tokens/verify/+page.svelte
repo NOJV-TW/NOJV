@@ -33,7 +33,8 @@
           method: "POST",
           body: JSON.stringify({ active: true }),
         });
-        if (!elevation.ok) {
+        const result = (await elevation.json()) as { active?: boolean };
+        if (!elevation.ok || result.active !== true) {
           passkeyError = m.account_passkey_verifyFailed();
           return;
         }
