@@ -60,6 +60,14 @@ async function deactivate(user: { id: string }): Promise<Response> {
   });
 }
 
+async function expectVerificationRequired(response: Response): Promise<void> {
+  expect(response.status).toBe(200);
+  await expect(response.json()).resolves.toEqual({
+    active: false,
+    verificationRequired: true,
+  });
+}
+
 async function currentProof(userId: string) {
   const user = await testPrisma.user.findUniqueOrThrow({ where: { id: userId } });
   return securityGenerationProof(user);
@@ -78,19 +86,23 @@ async function markVerifiedSession(userId: string): Promise<void> {
 afterEach(clearElevation);
 
 describe("admin mode elevation", () => {
-  it("rejects a regular admin until 2FA is activated", { timeout: 15_000 }, async () => {
-    const user = await createTestUser({
-      platformRole: "admin",
-      twoFactorActivated: false,
-    });
+  it(
+    "requires verification for a regular admin until 2FA is activated",
+    { timeout: 15_000 },
+    async () => {
+      const user = await createTestUser({
+        platformRole: "admin",
+        twoFactorActivated: false,
+      });
 
-    const response = await activate(user);
+      const response = await activate(user);
 
-    expect(response.status).toBe(403);
-    await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
-  });
+      await expectVerificationRequired(response);
+      await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
+    },
+  );
 
-  it("rejects regular-admin activation without a fresh same-session step-up", async () => {
+  it("requires verification without a fresh same-session step-up", async () => {
     const user = await createTestUser({
       platformRole: "admin",
       twoFactorActivated: true,
@@ -100,11 +112,11 @@ describe("admin mode elevation", () => {
 
     const response = await activate(user);
 
-    expect(response.status).toBe(403);
+    await expectVerificationRequired(response);
     await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
   });
 
-  it("rejects regular-admin activation without an MFA marker for the same account", async () => {
+  it("requires verification without an MFA marker for the same account", async () => {
     const user = await createTestUser({
       platformRole: "admin",
       twoFactorActivated: true,
@@ -115,11 +127,11 @@ describe("admin mode elevation", () => {
 
     const response = await activate(user);
 
-    expect(response.status).toBe(403);
+    await expectVerificationRequired(response);
     await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
   });
 
-  it("rejects super-admin activation until 2FA is activated", async () => {
+  it("requires verification for super-admin activation until 2FA is activated", async () => {
     const user = await createTestUser({
       platformRole: "admin",
       isSuperAdmin: true,
@@ -129,7 +141,7 @@ describe("admin mode elevation", () => {
 
     const response = await activate(user);
 
-    expect(response.status).toBe(403);
+    await expectVerificationRequired(response);
     await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
   });
 
@@ -188,7 +200,7 @@ describe("admin mode elevation", () => {
 
     expect((await deactivate(user)).status).toBe(200);
 
-    expect((await activate(user)).status).toBe(403);
+    await expectVerificationRequired(await activate(user));
     await markVerifiedSession(user.id);
     expect((await activate(user)).status).toBe(200);
   });
