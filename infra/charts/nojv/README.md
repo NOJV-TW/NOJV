@@ -37,7 +37,7 @@ kubectl -n nojv apply -f secret.local.yaml
 helm upgrade --install nojv infra/charts/nojv \
   -f infra/charts/nojv/values-single-machine.yaml \
   -f production-values.yaml \
-  --set image.tag=<40-character-source-sha> \
+  --set image.tag=<vX.Y.Z> \
   --set-string release.sourceSha=<40-character-source-sha> \
   --set-string image.digests.web=<sha256:registry-verified-digest> \
   --set-string image.digests.worker=<sha256:registry-verified-digest> \
@@ -49,7 +49,8 @@ bash infra/gcp/cloud-build/deploy.sh
 ```
 
 The chart intentionally refuses to render non-local application workloads until
-the source SHA matches the image tag and all four digests are present. The
+the source SHA, immutable image tag, and all four digests are present. The
+GHCR production path additionally requires a stable `vX.Y.Z` image tag. The
 single-machine overlay additionally refuses to render until both off-host
 backup destinations are supplied in a private values file; see
 `infra/flux/README.md` for the production Secret shape.
@@ -111,7 +112,7 @@ infra/charts/nojv/
 | `image.digests.{web,worker,sandbox,migrator}`                                       | required                                                                        | registry-verified manifest digest for every deployed application image                                                                                                                                  |
 | `image.allowUnpinnedLocalBuilds`                                                    | `false`                                                                         | local-only escape hatch; requires empty registry/prefix and the exact tag `local`                                                                                                                       |
 | `image.repositories.*`                                                              | web/worker/sandbox/migrator                                                     | per-component repo suffix                                                                                                                                                                               |
-| `release.sourceSha`                                                                 | empty                                                                           | verified 40-character source commit; must equal `image.tag` and is rendered as `app.kubernetes.io/version`                                                                                              |
+| `release.sourceSha`                                                                 | empty                                                                           | verified 40-character source commit; the immutable `image.tag` is rendered as `app.kubernetes.io/version`                                                                                               |
 | `postgres.mode`                                                                     | `cnpg`                                                                          | `cnpg` \| `cloudsql` \| `external` — drives `DATABASE_URL` derivation                                                                                                                                   |
 | `postgres.cnpg.instances` / `storageSize`                                           | `1` / `10Gi`                                                                    | CNPG Cluster size                                                                                                                                                                                       |
 | `postgres.cnpg.backup.*`                                                            | shared default disabled; single-machine production enabled and required         | off-host barman-cloud `ScheduledBackup`                                                                                                                                                                 |

@@ -25,6 +25,7 @@ function helmTemplate(args: string[]): string {
 
 describe("immutable runtime images", () => {
   const releaseSha = "a".repeat(40);
+  const imageTag = "v1.2.3";
 
   it("refuses to render deployed application images without source identity or verified digests", () => {
     expect(() => helmTemplate(["-f", gkeValues])).toThrow(/release\.sourceSha is required/u);
@@ -35,7 +36,7 @@ describe("immutable runtime images", () => {
         "--set-string",
         `release.sourceSha=${releaseSha}`,
         "--set-string",
-        `image.tag=${releaseSha}`,
+        `image.tag=${imageTag}`,
       ]),
     ).toThrow(/image\.digests\.[a-z]+ is required/u);
   });
@@ -50,10 +51,10 @@ describe("immutable runtime images", () => {
     expect(images.length).toBeGreaterThan(10);
     expect(images).toEqual(
       expect.arrayContaining([
-        `asia-east1-docker.pkg.dev/nojv-test/nojv/web:${releaseSha}@sha256:1111111111111111111111111111111111111111111111111111111111111111`,
-        `asia-east1-docker.pkg.dev/nojv-test/nojv/worker:${releaseSha}@sha256:2222222222222222222222222222222222222222222222222222222222222222`,
-        `asia-east1-docker.pkg.dev/nojv-test/nojv/sandbox:${releaseSha}@sha256:3333333333333333333333333333333333333333333333333333333333333333`,
-        `asia-east1-docker.pkg.dev/nojv-test/nojv/migrator:${releaseSha}@sha256:4444444444444444444444444444444444444444444444444444444444444444`,
+        `asia-east1-docker.pkg.dev/nojv-test/nojv/web:${imageTag}@sha256:1111111111111111111111111111111111111111111111111111111111111111`,
+        `asia-east1-docker.pkg.dev/nojv-test/nojv/worker:${imageTag}@sha256:2222222222222222222222222222222222222222222222222222222222222222`,
+        `asia-east1-docker.pkg.dev/nojv-test/nojv/sandbox:${imageTag}@sha256:3333333333333333333333333333333333333333333333333333333333333333`,
+        `asia-east1-docker.pkg.dev/nojv-test/nojv/migrator:${imageTag}@sha256:4444444444444444444444444444444444444444444444444444444444444444`,
       ]),
     );
     expect(images.every((image) => /:\S+@sha256:[a-f0-9]{64}$/u.test(image))).toBe(true);
@@ -61,6 +62,21 @@ describe("immutable runtime images", () => {
       expect(rendered).toContain(`name: ${name}`);
       expect(rendered).toContain(`key: ${name}`);
     }
+  });
+
+  it("rejects source-SHA image tags for GHCR production", () => {
+    expect(() =>
+      helmTemplate([
+        "-f",
+        `${chart}/values-single-machine.yaml`,
+        "-f",
+        testDigests,
+        "-f",
+        backupConfig,
+        "--set-string",
+        `image.tag=${releaseSha}`,
+      ]),
+    ).toThrow(/GHCR production image\.tag must be stable vX\.Y\.Z/u);
   });
 
   it("allows only explicit local:local application images through the dev escape hatch", () => {

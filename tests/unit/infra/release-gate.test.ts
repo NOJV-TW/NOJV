@@ -10,6 +10,7 @@ import {
   validateCloudBuildProvenance,
   validatePublicationState,
   validatePublishedImage,
+  validateReleaseRun,
 } from "../../../scripts/validate-release-run.mjs";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
@@ -23,40 +24,25 @@ const checkedOutSha = execFileSync("git", ["rev-parse", "HEAD"], {
   encoding: "utf8",
 }).trim();
 
-const validReleaseEnv = {
-  GITHUB_REPOSITORY: "NOJV-TW/NOJV",
-  RELEASE_WORKFLOW_NAME: "CI",
-  RELEASE_WORKFLOW_PATH: ".github/workflows/ci.yml",
-  RELEASE_EVENT: "push",
-  RELEASE_CONCLUSION: "success",
-  RELEASE_BRANCH: "main",
-  RELEASE_REPOSITORY: "NOJV-TW/NOJV",
-  RELEASE_SHA: checkedOutSha,
+const releaseTag = "v1.2.3";
+const successfulCheck = {
+  name: "Verify Repository",
+  head_sha: checkedOutSha,
+  status: "completed",
+  conclusion: "success",
+  app: { slug: "github-actions" },
 };
-
-function runValidator(overrides: Record<string, string> = {}) {
-  const directory = mkdtempSync(join(tmpdir(), "nojv-release-gate-"));
-  const outputPath = join(directory, "github-output");
-  try {
-    const result = spawnSync(process.execPath, [validatorPath], {
-      cwd: repoRoot,
-      encoding: "utf8",
-      env: {
-        ...process.env,
-        ...validReleaseEnv,
-        ...overrides,
-        GITHUB_OUTPUT: outputPath,
-      },
-    });
-    return {
-      status: result.status,
-      stderr: result.stderr,
-      output: existsSync(outputPath) ? readFileSync(outputPath, "utf8") : "",
-    };
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
-}
+const validRelease = {
+  event: "push",
+  ref: `refs/tags/${releaseTag}`,
+  refName: releaseTag,
+  repository: "NOJV-TW/NOJV",
+  expectedRepository: "NOJV-TW/NOJV",
+  releaseSha: checkedOutSha,
+  checkedOutSha,
+  mainContainsRelease: true,
+  checkRuns: [successfulCheck],
+};
 
 function git(repository: string, ...args: string[]): string {
   return execFileSync("git", args, { cwd: repository, encoding: "utf8" }).trim();
@@ -122,29 +108,30 @@ describe("trusted release-run validator", () => {
     expect(result).toMatchObject({ status: 0, stdout: "function", stderr: "" });
   });
 
-  it("accepts only the successful repository CI run for the exact checked-out main SHA", () => {
-    expect(runValidator()).toEqual({
-      status: 0,
-      stderr: "",
-      output: `release_sha=${checkedOutSha}\nimage_tag=${checkedOutSha}\n`,
+  it("accepts only a stable version tag on a main commit with the required CI check", () => {
+    expect(validateReleaseRun(validRelease)).toEqual({
+      releaseSha: checkedOutSha,
+      imageTag: releaseTag,
     });
   });
 
   it.each([
-    ["failed CI", { RELEASE_CONCLUSION: "failure" }, /conclusion/],
-    ["cancelled CI", { RELEASE_CONCLUSION: "cancelled" }, /conclusion/],
-    ["non-main branch", { RELEASE_BRANCH: "feature" }, /branch/],
-    ["pull request event", { RELEASE_EVENT: "pull_request" }, /event/],
-    ["other workflow", { RELEASE_WORKFLOW_NAME: "Image Build" }, /workflow name/],
-    ["other workflow path", { RELEASE_WORKFLOW_PATH: ".github/workflows/fake.yml" }, /path/],
-    ["fork repository", { RELEASE_REPOSITORY: "attacker/NOJV" }, /repository/],
-    ["non-SHA ref", { RELEASE_SHA: "main" }, /40-character/],
-    ["checked-out SHA mismatch", { RELEASE_SHA: "0".repeat(40) }, /checked-out SHA/],
+    ["prerelease tag", { ref: "refs/tags/v1.2.3-rc.1", refName: "v1.2.3-rc.1" }, /vX\.Y\.Z/],
+    ["non-version tag", { ref: "refs/tags/latest", refName: "latest" }, /vX\.Y\.Z/],
+    ["branch push", { ref: "refs/heads/main", refName: "main" }, /vX\.Y\.Z/],
+    ["pull request event", { event: "pull_request" }, /event/],
+    ["fork repository", { repository: "attacker/NOJV" }, /repository/],
+    ["non-SHA release", { releaseSha: "main" }, /40-character/],
+    ["checked-out SHA mismatch", { releaseSha: "0".repeat(40) }, /checked-out SHA/],
+    ["commit outside main", { mainContainsRelease: false }, /main/],
+    [
+      "failed CI",
+      { checkRuns: [{ ...successfulCheck, conclusion: "failure" }] },
+      /Verify Repository/,
+    ],
+    ["missing CI", { checkRuns: [] }, /Verify Repository/],
   ])("rejects %s", (_name, overrides, expectedError) => {
-    const result = runValidator(overrides);
-    expect(result.status).not.toBe(0);
-    expect(result.stderr).toMatch(expectedError);
-    expect(result.output).toBe("");
+    expect(() => validateReleaseRun({ ...validRelease, ...overrides })).toThrow(expectedError);
   });
 });
 
@@ -168,11 +155,13 @@ describe("monotonic deploy validator", () => {
 
 describe("immutable publication preflight", () => {
   const releaseSha = "a".repeat(40);
+  const imageTag = "v1.2.3";
 
-  it("accepts a SHA absent from the deploy ref and every runtime package", () => {
+  it("accepts a version absent from the deploy ref and every runtime package", () => {
     expect(
       validatePublicationState({
         releaseSha,
+        imageTag,
         remoteDeployTags: [],
         packageTags: {},
       }),
@@ -183,7 +172,8 @@ describe("immutable publication preflight", () => {
     expect(() =>
       validatePublicationState({
         releaseSha,
-        remoteDeployTags: [`refs/tags/nojv-deploy-${releaseSha}`],
+        imageTag,
+        remoteDeployTags: [`refs/tags/nojv-deploy-${imageTag}`],
         packageTags: {},
       }),
     ).toThrow(/deploy tag already exists/u);
@@ -193,8 +183,9 @@ describe("immutable publication preflight", () => {
     expect(
       validatePublicationState({
         releaseSha,
+        imageTag,
         remoteDeployTags: [],
-        packageTags: { "nojv-worker": [releaseSha] },
+        packageTags: { "nojv-worker": [imageTag] },
       }),
     ).toEqual({ existingImages: ["nojv-worker"] });
   });
@@ -205,15 +196,16 @@ describe("immutable publication preflight", () => {
     expect(
       validatePublishedImage({
         releaseSha,
+        imageTag,
         ref,
         inspect: [
           {
-            RepoTags: [`${ref}:${releaseSha}`],
+            RepoTags: [`${ref}:${imageTag}`],
             RepoDigests: [`${ref}@${digest}`],
             Config: {
               Labels: {
                 "org.opencontainers.image.revision": releaseSha,
-                "org.opencontainers.image.version": releaseSha,
+                "org.opencontainers.image.version": imageTag,
               },
             },
           },
@@ -227,7 +219,7 @@ describe("immutable publication preflight", () => {
       "wrong revision",
       {
         "org.opencontainers.image.revision": "b".repeat(40),
-        "org.opencontainers.image.version": releaseSha,
+        "org.opencontainers.image.version": imageTag,
       },
       [`ghcr.io/nojv-tw/nojv-worker@sha256:${"1".repeat(64)}`],
       /revision/u,
@@ -236,7 +228,7 @@ describe("immutable publication preflight", () => {
       "missing digest",
       {
         "org.opencontainers.image.revision": releaseSha,
-        "org.opencontainers.image.version": releaseSha,
+        "org.opencontainers.image.version": imageTag,
       },
       [],
       /digest/u,
@@ -246,10 +238,11 @@ describe("immutable publication preflight", () => {
     expect(() =>
       validatePublishedImage({
         releaseSha,
+        imageTag,
         ref,
         inspect: [
           {
-            RepoTags: [`${ref}:${releaseSha}`],
+            RepoTags: [`${ref}:${imageTag}`],
             RepoDigests: repoDigests,
             Config: { Labels: labels },
           },
@@ -348,6 +341,7 @@ describe("Build & Push Images workflow release structure", () => {
   const workflow = readFileSync(workflowPath, "utf8");
   const imageBuilder = readFileSync(imageBuilderPath, "utf8");
   const imagePromoter = readFileSync(imagePromoterPath, "utf8");
+  const validator = readFileSync(validatorPath, "utf8");
   const trigger = workflow.slice(workflow.indexOf("on:"), workflow.indexOf("concurrency:"));
   const jobSection = (jobId: string) => {
     const marker = `  ${jobId}:`;
@@ -386,35 +380,27 @@ describe("Build & Push Images workflow release structure", () => {
     }
   });
 
-  it("has no push or manual release path and listens only for completed main CI runs", () => {
-    expect(trigger.trim()).toBe(
-      [
-        "on:",
-        "  workflow_run:",
-        "    workflows: [CI]",
-        "    types: [completed]",
-        "    branches: [main]",
-      ].join("\n"),
-    );
-    expect(workflow).toContain("group: build-images-main\n  cancel-in-progress: false");
+  it("listens only for stable-looking version tag pushes", () => {
+    expect(trigger.trim()).toBe(["on:", "  push:", "    tags:", '      - "v*.*.*"'].join("\n"));
+    expect(workflow).toContain("group: build-images-release\n  cancel-in-progress: false");
   });
 
-  it("fails closed at the job boundary for repository push CI success only", () => {
-    for (const condition of [
-      "workflow_run.name == 'CI'",
-      "workflow_run.path == '.github/workflows/ci.yml'",
-      "workflow_run.event == 'push'",
-      "workflow_run.conclusion == 'success'",
-      "workflow_run.head_branch == 'main'",
-      "workflow_run.head_repository.full_name == github.repository",
-    ]) {
-      expect(prepareJob).toContain(condition);
-    }
+  it("fails closed before package writes unless the tag commit passed main CI", () => {
+    expect(prepareJob).toContain("github.event_name == 'push'");
+    expect(prepareJob).toContain("startsWith(github.ref, 'refs/tags/v')");
+    expect(prepareJob).toContain("github.repository == 'NOJV-TW/NOJV'");
+    expect(prepareJob).toContain(
+      "git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main",
+    );
+    expect(prepareJob).toContain("checks: read");
+    expect(prepareJob).toContain("GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}");
+    expect(validator).toContain("/commits/${releaseSha}/check-runs");
+    expect(validator).toContain('"Verify Repository"');
     expect(prepareJob).toContain("run: node scripts/validate-release-run.mjs");
   });
 
-  it("binds checkout, all four image builds and the immutable image tag to head_sha", () => {
-    expect(prepareJob).toContain("ref: ${{ github.event.workflow_run.head_sha }}");
+  it("binds checkout and all four images to the source SHA and immutable version tag", () => {
+    expect(prepareJob).toContain("ref: ${{ github.ref }}");
     expect(prepareJob).toContain("persist-credentials: false");
     expect(prepareJob).toContain("release_sha: ${{ steps.release.outputs.release_sha }}");
     expect(prepareJob).toContain("image_tag: ${{ steps.release.outputs.image_tag }}");
@@ -423,11 +409,10 @@ describe("Build & Push Images workflow release structure", () => {
       expect(job).toContain("ref: ${{ needs.prepare-release.outputs.release_sha }}");
       expect(job).toContain("persist-credentials: false");
     }
-    expect(releaseJobs).not.toContain(':main"');
     expect(releaseJobs).not.toContain("git rev-parse --short");
   });
 
-  it("detects same-SHA publication state before any package write", () => {
+  it("detects same-version publication state before any package write", () => {
     expect(prepareJob).not.toContain("packages: write");
     expect(prepareJob).not.toContain("publication-state");
     for (const job of imageJobs) {
@@ -437,6 +422,7 @@ describe("Build & Push Images workflow release structure", () => {
       expect(publicationState).toBeGreaterThan(0);
       expect(publicationState).toBeLessThan(job.indexOf("run: scripts/build-release-image.sh"));
       expect(job).toContain("RELEASE_SHA: ${{ needs.prepare-release.outputs.release_sha }}");
+      expect(job).toContain("IMAGE_TAG: ${{ needs.prepare-release.outputs.image_tag }}");
       expect(job).toContain("GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}");
       expect(job).toContain(
         "EXISTING_IMAGES: ${{ steps.publication.outputs.existing_images }}",
@@ -447,13 +433,13 @@ describe("Build & Push Images workflow release structure", () => {
     expect(imageBuilder).toContain(
       '--signer-workflow "$GITHUB_REPOSITORY/.github/workflows/build-images.yml"',
     );
-    expect(imageBuilder).toContain("--source-ref refs/heads/main");
-    expect(imageBuilder).toContain('--source-digest "$TAG"');
+    expect(imageBuilder).toContain('--source-ref "refs/tags/${TAG}"');
+    expect(imageBuilder).toContain('--source-digest "$RELEASE_SHA"');
     expect(imageBuilder).toContain("--deny-self-hosted-runners");
     expect(
       releaseJobs.match(/uses: actions\/attest@a1948c3f048ba23858d222213b7c278aabede763/gu),
     ).toHaveLength(4);
-    expect(imageBuilder).toContain("org.opencontainers.image.revision=${TAG}");
+    expect(imageBuilder).toContain("org.opencontainers.image.revision=${RELEASE_SHA}");
     expect(imageBuilder).toContain("org.opencontainers.image.version=${TAG}");
     expect(imageBuilder).toContain("${TAG}-candidate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}");
     expect(imageBuilder).not.toContain('--tag "${ref}:${TAG}"');
@@ -474,7 +460,7 @@ describe("Build & Push Images workflow release structure", () => {
 
   it("keeps package and repository writes in separate least-privilege jobs", () => {
     expect(workflow).toContain("permissions: {}");
-    expect(prepareJob).toMatch(/permissions:\n {6}contents: read/u);
+    expect(prepareJob).toMatch(/permissions:\n {6}checks: read\n {6}contents: read/u);
     for (const job of imageJobs) {
       expect(job).toMatch(
         /permissions:\n {6}attestations: write\n {6}contents: read\n {6}id-token: write\n {6}packages: write/u,

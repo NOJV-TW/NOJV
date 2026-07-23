@@ -594,7 +594,7 @@ describe("GCP deploy identity preflight", () => {
     expect(invalid.status).not.toBe(0);
     expect(invalid.stderr).toContain("release.sourceSha must be a lowercase 40-character");
 
-    const mismatched = spawnSync(
+    const mutableTag = spawnSync(
       "helm",
       [
         "template",
@@ -609,12 +609,14 @@ describe("GCP deploy identity preflight", () => {
         "-f",
         "tests/fixtures/helm/production-external-backups.yaml",
         "--set-string",
-        `release.sourceSha=${"b".repeat(40)}`,
+        "image.tag=latest",
       ],
       { cwd: repoRoot, encoding: "utf8" },
     );
-    expect(mismatched.status).not.toBe(0);
-    expect(mismatched.stderr).toContain("release.sourceSha must equal image.tag");
+    expect(mutableTag.status).not.toBe(0);
+    expect(mutableTag.stderr).toContain(
+      "image.tag must be an immutable source SHA or stable vX.Y.Z",
+    );
   });
 
   it("passes the comma-separated registry allowlist to Helm as one JSON string", () => {

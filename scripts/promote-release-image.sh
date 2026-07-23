@@ -4,6 +4,7 @@ set -euo pipefail
 
 : "${RELEASE_IMAGE_NAME:?RELEASE_IMAGE_NAME is required}"
 : "${IMAGE_DIGEST:?IMAGE_DIGEST is required}"
+: "${RELEASE_SHA:?RELEASE_SHA is required}"
 : "${TAG:?TAG is required}"
 : "${PREFIX:?PREFIX is required}"
 
@@ -26,7 +27,8 @@ inspect="$(docker image inspect "${ref}:${TAG}")"
 published_digest="$(
   IMAGE_INSPECT_JSON="$inspect" \
     IMAGE_REF="$ref" \
-    RELEASE_SHA="$TAG" \
+    IMAGE_TAG="$TAG" \
+    RELEASE_SHA="$RELEASE_SHA" \
     node scripts/validate-release-run.mjs published-image
 )"
 if [[ "$published_digest" != "$IMAGE_DIGEST" ]]; then

@@ -3,7 +3,7 @@
 release:
   sourceSha: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 image:
-  tag: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  tag: v1.2.3
   digests:
     web: sha256:1111111111111111111111111111111111111111111111111111111111111111
     worker: sha256:2222222222222222222222222222222222222222222222222222222222222222

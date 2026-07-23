@@ -1,11 +1,11 @@
 release:
-  # build-images.yml replaces this with the exact main commit deployed by Flux.
+  # build-images.yml replaces this with the commit selected by the release tag.
   sourceSha: ""
 
 image:
   registry: ghcr.io
   repositoryPrefix: nojv-tw
-  tag: latest
+  tag: latest # Replaced with the stable vX.Y.Z release tag before Flux deploys.
   # The release workflow replaces these with Buildx's registry-returned digests
   # on the deploy branch. Empty values intentionally make direct renders fail.
   digests:

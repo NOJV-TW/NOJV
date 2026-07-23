@@ -4,6 +4,7 @@ set -euo pipefail
 
 : "${RELEASE_IMAGE_NAME:?RELEASE_IMAGE_NAME is required}"
 : "${RELEASE_DOCKERFILE:?RELEASE_DOCKERFILE is required}"
+: "${RELEASE_SHA:?RELEASE_SHA is required}"
 : "${TAG:?TAG is required}"
 : "${PREFIX:?PREFIX is required}"
 : "${EXISTING_IMAGES:?EXISTING_IMAGES is required}"
@@ -43,14 +44,15 @@ if node -e '
   digest="$(
     IMAGE_INSPECT_JSON="$inspect" \
       IMAGE_REF="$ref" \
-      RELEASE_SHA="$TAG" \
+      IMAGE_TAG="$TAG" \
+      RELEASE_SHA="$RELEASE_SHA" \
       node scripts/validate-release-run.mjs published-image
   )"
   gh attestation verify "oci://${ref}@${digest}" \
     --repo "$GITHUB_REPOSITORY" \
     --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/build-images.yml" \
-    --source-ref refs/heads/main \
-    --source-digest "$TAG" \
+    --source-ref "refs/tags/${TAG}" \
+    --source-digest "$RELEASE_SHA" \
     --deny-self-hosted-runners
   printf 'Reusing attested partial publication %s:%s@%s\n' "$ref" "$TAG" "$digest"
   requires_promotion=false
@@ -59,7 +61,7 @@ else
   docker buildx build \
     --file "$RELEASE_DOCKERFILE" \
     --tag "${ref}:${candidate_tag}" \
-    --label "org.opencontainers.image.revision=${TAG}" \
+    --label "org.opencontainers.image.revision=${RELEASE_SHA}" \
     --label "org.opencontainers.image.version=${TAG}" \
     --cache-from "type=registry,ref=${ref}:buildcache" \
     --cache-to "type=registry,ref=${ref}:buildcache,mode=max" \
