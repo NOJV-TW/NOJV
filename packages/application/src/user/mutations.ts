@@ -112,6 +112,14 @@ export async function markPasswordChanged(userId: string): Promise<void> {
   await userRepo.update(userId, { mustChangePassword: false });
 }
 
+export async function claimOnboardingTour(
+  userId: string,
+  role: "student" | "teacher",
+): Promise<boolean> {
+  const result = await userRepo.claimOnboardingTour(userId, role);
+  return result.count === 1;
+}
+
 export async function renameUsername(
   userId: string,
   newUsername: string,

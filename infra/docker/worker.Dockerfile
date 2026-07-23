@@ -8,14 +8,17 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends build-essential python3 \
   && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g pnpm@10.33.0
+RUN npm install -g pnpm@11.13.0
 
 WORKDIR /build
 
 # 1. Copy dependency manifests for cache-friendly install
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY patches/ patches/
-COPY tsconfig.base.json ./
+COPY tsconfig.base.json tsdown.base.mjs ./
+COPY tooling/eslint/package.json tooling/eslint/
+COPY tooling/prettier/package.json tooling/prettier/
+COPY tooling/typescript/package.json tooling/typescript/
 COPY tooling/typescript/base.json tooling/typescript/
 COPY apps/worker/package.json apps/worker/
 COPY packages/core/package.json packages/core/
@@ -28,6 +31,8 @@ COPY packages/mailer/package.json packages/mailer/
 COPY packages/sandbox-docker/package.json packages/sandbox-docker/
 
 RUN pnpm install --frozen-lockfile --filter @nojv/worker...
+
+ENV pnpm_config_verify_deps_before_run=false
 
 # 2. Copy source and build in dependency order
 COPY packages/core/ packages/core/

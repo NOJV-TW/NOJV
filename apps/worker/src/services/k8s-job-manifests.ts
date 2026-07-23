@@ -8,11 +8,44 @@ import {
 } from "./k8s-pod-spec";
 
 const TTL_AFTER_FINISHED_SECONDS = 60;
+const SUBMISSION_DATA_SIZE_LIMIT = "128Mi";
+
+function payloadVolume(name: string, configMapNames: string[]): k8s.V1Volume {
+  return {
+    name,
+    projected: {
+      sources: configMapNames.map((configMapName) => ({
+        configMap: { name: configMapName },
+      })),
+    },
+  };
+}
+
+function materializerContainer(params: {
+  name: string;
+  image: string;
+  payloadVolumeName: string;
+  submissionVolumeName: string;
+  resources: k8s.V1ResourceRequirements;
+}): k8s.V1Container {
+  return {
+    name: params.name,
+    image: params.image,
+    command: ["node", "/runner/index.js"],
+    env: [{ name: "SANDBOX_PHASE", value: "materialize" }],
+    resources: params.resources,
+    securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
+    volumeMounts: [
+      { name: params.payloadVolumeName, mountPath: "/payload", readOnly: true },
+      { name: params.submissionVolumeName, mountPath: "/submission" },
+    ],
+  };
+}
 
 export interface SandboxJobManifestParams {
   jobName: string;
   namespace: string;
-  configMapName: string;
+  configMapNames: string[];
   image: string;
   cpuRequest: string;
   cpuLimit: string;
@@ -22,6 +55,10 @@ export interface SandboxJobManifestParams {
 }
 
 export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V1Job {
+  const resources = {
+    requests: { cpu: params.cpuRequest, memory: params.memoryRequest },
+    limits: { cpu: params.cpuLimit, memory: params.memoryLimit },
+  };
   return {
     apiVersion: "batch/v1",
     kind: "Job",
@@ -44,15 +81,21 @@ export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V
           nodeSelector: SANDBOX_NODE_SELECTOR,
           tolerations: SANDBOX_TOLERATIONS,
           securityContext: SANDBOX_POD_SECURITY_CONTEXT,
+          initContainers: [
+            materializerContainer({
+              name: "materialize",
+              image: params.image,
+              payloadVolumeName: "payload",
+              submissionVolumeName: "submission-data",
+              resources,
+            }),
+          ],
           containers: [
             {
               name: "runner",
               image: params.image,
               command: ["node", "/runner/index.js"],
-              resources: {
-                requests: { cpu: params.cpuRequest, memory: params.memoryRequest },
-                limits: { cpu: params.cpuLimit, memory: params.memoryLimit },
-              },
+              resources,
               securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
               volumeMounts: [
                 {
@@ -66,10 +109,8 @@ export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V
             },
           ],
           volumes: [
-            {
-              name: "submission-data",
-              configMap: { name: params.configMapName },
-            },
+            payloadVolume("payload", params.configMapNames),
+            { name: "submission-data", emptyDir: { sizeLimit: SUBMISSION_DATA_SIZE_LIMIT } },
             {
               name: "workspace",
               emptyDir: { sizeLimit: "128Mi" },
@@ -88,7 +129,7 @@ export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V
 export interface PerCaseSandboxJobManifestParams {
   jobName: string;
   namespace: string;
-  configMapName: string;
+  configMapNames: string[];
   image: string;
   cpuRequest: string;
   cpuLimit: string;
@@ -140,6 +181,13 @@ export function buildPerCaseSandboxJobManifest(
           tolerations: SANDBOX_TOLERATIONS,
           securityContext: SANDBOX_POD_SECURITY_CONTEXT,
           initContainers: [
+            materializerContainer({
+              name: "materialize",
+              image: params.image,
+              payloadVolumeName: "payload",
+              submissionVolumeName: "submission-data",
+              resources,
+            }),
             {
               name: COMPILE_CONTAINER_NAME,
               image: params.image,
@@ -168,7 +216,8 @@ export function buildPerCaseSandboxJobManifest(
             volumeMounts: baseMounts(true, perCaseContainerName(index)),
           })),
           volumes: [
-            { name: "submission-data", configMap: { name: params.configMapName } },
+            payloadVolume("payload", params.configMapNames),
+            { name: "submission-data", emptyDir: { sizeLimit: SUBMISSION_DATA_SIZE_LIMIT } },
             { name: "artifact", emptyDir: { sizeLimit: "256Mi" } },
             { name: "scratch-tmp", emptyDir: { sizeLimit: "64Mi" } },
             { name: "scratch-workspace", emptyDir: { sizeLimit: "128Mi" } },
@@ -200,8 +249,8 @@ export function buildInteractorContainerCommand(): string[] {
 export interface InteractiveJobManifestParams {
   jobName: string;
   namespace: string;
-  solutionConfigMapName: string;
-  interactorConfigMapName: string;
+  solutionConfigMapNames: string[];
+  interactorConfigMapNames: string[];
   image: string;
   cpuRequest: string;
   cpuLimit: string;
@@ -239,6 +288,22 @@ export function buildInteractiveJobManifest(params: InteractiveJobManifestParams
           nodeSelector: SANDBOX_NODE_SELECTOR,
           tolerations: SANDBOX_TOLERATIONS,
           securityContext: SANDBOX_POD_SECURITY_CONTEXT,
+          initContainers: [
+            materializerContainer({
+              name: "materialize-solution",
+              image: params.image,
+              payloadVolumeName: "solution-payload",
+              submissionVolumeName: "solution-data",
+              resources,
+            }),
+            materializerContainer({
+              name: "materialize-interactor",
+              image: params.image,
+              payloadVolumeName: "interactor-payload",
+              submissionVolumeName: "interactor-data",
+              resources,
+            }),
+          ],
           containers: [
             {
               name: "solution",
@@ -266,14 +331,10 @@ export function buildInteractiveJobManifest(params: InteractiveJobManifestParams
             },
           ],
           volumes: [
-            {
-              name: "solution-data",
-              configMap: { name: params.solutionConfigMapName },
-            },
-            {
-              name: "interactor-data",
-              configMap: { name: params.interactorConfigMapName },
-            },
+            payloadVolume("solution-payload", params.solutionConfigMapNames),
+            payloadVolume("interactor-payload", params.interactorConfigMapNames),
+            { name: "solution-data", emptyDir: { sizeLimit: SUBMISSION_DATA_SIZE_LIMIT } },
+            { name: "interactor-data", emptyDir: { sizeLimit: SUBMISSION_DATA_SIZE_LIMIT } },
             { name: "solution-workspace", emptyDir: { sizeLimit: "128Mi" } },
             { name: "solution-tmp", emptyDir: { sizeLimit: "64Mi" } },
             { name: "interactor-workspace", emptyDir: { sizeLimit: "128Mi" } },

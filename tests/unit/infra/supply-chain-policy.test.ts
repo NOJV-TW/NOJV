@@ -116,3 +116,10 @@ describe("immutable workflow and cluster inputs", () => {
     expect(existsSync(join(repoRoot, "infra/charts/nojv/bootstrap.sh"))).toBe(false);
   });
 });
+
+describe("dependency advisory visibility", () => {
+  it("does not suppress pnpm audit advisories", () => {
+    const workspace = readFileSync(join(repoRoot, "pnpm-workspace.yaml"), "utf8");
+    expect(workspace).not.toContain("ignoreGhsas");
+  });
+});

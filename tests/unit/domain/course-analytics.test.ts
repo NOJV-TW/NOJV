@@ -41,7 +41,6 @@ beforeEach(() => {
   groupBestScoresByAssessment.mockReset();
   groupStatusByAssessments.mockReset();
   countUserStatsByProblemForAssessments.mockReset();
-  // Live per-problem max = 100 per problem (matches the fixture points).
   findScoringInputsByIds.mockReset().mockImplementation((ids: string[]) =>
     Promise.resolve(
       ids.map((id) => ({

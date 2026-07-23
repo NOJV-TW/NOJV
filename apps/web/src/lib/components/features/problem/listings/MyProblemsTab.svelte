@@ -14,7 +14,7 @@
   } from "@lucide/svelte";
   import { Button, LinkButton } from "$lib/components/primitives/ui/button";
   import { Badge } from "$lib/components/primitives/ui/badge";
-  import * as Card from "$lib/components/primitives/ui/card";
+  import { Card } from "$lib/components/primitives/ui/card";
   import { Input } from "$lib/components/primitives/ui/input";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import type { ProblemDifficulty, ProblemType, ProblemVisibility } from "@nojv/core";
@@ -197,7 +197,7 @@
       problem.status === "published"
         ? `/problems/${problem.id}`
         : `/problems/${problem.id}/edit`}
-    <Card.Root
+    <Card
       variant="surface"
       size="lg"
       class="grid gap-x-8 gap-y-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] sm:items-center"
@@ -278,7 +278,7 @@
           </Button>
         {/if}
       </div>
-    </Card.Root>
+    </Card>
   {/each}
 </section>
 

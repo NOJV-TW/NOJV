@@ -2,9 +2,6 @@ import { driver, type Config, type Driver, type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
 import { m } from "$lib/paraglide/messages.js";
 
-const SEEN_PREFIX = "nojv:tour:seen:";
-const OFF_KEY = "nojv:tour:off";
-
 type Side = "top" | "bottom" | "left" | "right";
 
 export interface Intro {
@@ -14,44 +11,12 @@ export interface Intro {
   build: () => DriveStep[];
 }
 
-let uid = "";
 let registry: Intro[] = [];
 let active: Driver | null = null;
+let manualReplay = false;
+const manualSeen = new Set<string>();
 let silent = false;
 let pendingTimer: number | undefined;
-
-function seenKey(key: string): string {
-  return `${SEEN_PREFIX}${uid}:${key}`;
-}
-
-function seen(key: string): boolean {
-  try {
-    return localStorage.getItem(seenKey(key)) === "1";
-  } catch {
-    return false;
-  }
-}
-function markSeen(key: string) {
-  try {
-    localStorage.setItem(seenKey(key), "1");
-  } catch {
-    return;
-  }
-}
-function clearSeen(intros: Intro[]) {
-  try {
-    for (const intro of intros) localStorage.removeItem(seenKey(intro.key));
-  } catch {
-    return;
-  }
-}
-function tourOff(): boolean {
-  try {
-    return localStorage.getItem(OFF_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
 
 const BASE: Config = {
   overlayOpacity: 0.6,
@@ -66,7 +31,7 @@ export function step(sel: string, title: string, description: string, side: Side
     : [];
 }
 
-function runIntro(key: string, steps: DriveStep[], pad: number) {
+function runIntro(key: string, steps: DriveStep[], pad: number, manual: boolean) {
   let closedByUser = false;
   let reachedLastStep = false;
   const d = driver({
@@ -88,9 +53,9 @@ function runIntro(key: string, steps: DriveStep[], pad: number) {
     },
     onDestroyed: () => {
       if (active === d) active = null;
-      markSeen(key);
-      if (!silent && !closedByUser && reachedLastStep) {
-        scheduleIntro(window.location.pathname, 200);
+      if (manual) manualSeen.add(key);
+      if (manual && !silent && !closedByUser && reachedLastStep) {
+        scheduleManualIntro(window.location.pathname, 200);
       }
     },
   });
@@ -98,23 +63,23 @@ function runIntro(key: string, steps: DriveStep[], pad: number) {
   d.drive();
 }
 
-function maybeRunIntro(pathname: string) {
+function maybeRunManualIntro(pathname: string) {
   if (typeof window === "undefined") return;
-  if (tourOff()) return;
+  if (!manualReplay) return;
   if (active) return;
   if (!window.matchMedia("(min-width: 1024px)").matches) return;
   for (const intro of registry) {
-    if (!intro.match(pathname) || seen(intro.key)) continue;
+    if (!intro.match(pathname) || manualSeen.has(intro.key)) continue;
     const steps = intro.build();
     if (steps.length === 0) continue;
-    runIntro(intro.key, steps, intro.pad);
+    runIntro(intro.key, steps, intro.pad, true);
     return;
   }
 }
 
-function scheduleIntro(pathname: string, delay: number) {
+function scheduleManualIntro(pathname: string, delay: number) {
   window.clearTimeout(pendingTimer);
-  pendingTimer = window.setTimeout(() => maybeRunIntro(pathname), delay);
+  pendingTimer = window.setTimeout(() => maybeRunManualIntro(pathname), delay);
 }
 
 function teardownForNav() {
@@ -125,25 +90,41 @@ function teardownForNav() {
   silent = false;
 }
 
-export function onTourNavigate(pathname: string, userId: string, intros: Intro[]): void {
+export function onTourNavigate(pathname: string, intros: Intro[]): void {
   if (typeof window === "undefined") return;
   teardownForNav();
-  uid = userId;
   registry = intros;
-  scheduleIntro(pathname, 350);
+  if (manualReplay) scheduleManualIntro(pathname, 350);
 }
 
-export function replayTour(userId: string, intros: Intro[]): void {
+export function replayTour(intros: Intro[]): void {
   if (typeof window === "undefined") return;
   teardownForNav();
-  uid = userId;
+  manualReplay = true;
   registry = intros;
-  clearSeen(intros);
+  manualSeen.clear();
   for (const intro of intros) {
     const steps = intro.build();
     if (steps.length > 0) {
-      runIntro(intro.key, steps, intro.pad);
+      runIntro(intro.key, steps, intro.pad, true);
       return;
     }
   }
+}
+
+function automaticTourBlocked(intro: Intro): boolean {
+  return active !== null || manualReplay || !intro.match(window.location.pathname);
+}
+
+export async function startAutomaticTour(
+  intro: Intro,
+  claim: () => Promise<boolean>,
+): Promise<void> {
+  if (typeof window === "undefined" || automaticTourBlocked(intro)) return;
+  if (!window.matchMedia("(min-width: 1024px)").matches) return;
+  const steps = intro.build();
+  if (steps.length === 0 || !(await claim())) return;
+  if (automaticTourBlocked(intro)) return;
+  const currentSteps = intro.build();
+  if (currentSteps.length > 0) runIntro(intro.key, currentSteps, intro.pad, false);
 }

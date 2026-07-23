@@ -343,10 +343,17 @@ export const submissionRepo = {
     );
   },
 
-  listAllPaged(opts: { limit: number; cursor?: string; userId?: string; problemId?: string }) {
+  listAllPaged(opts: {
+    limit: number;
+    cursor?: string;
+    userId?: string;
+    problemId?: string;
+    status?: SubmissionStatus;
+  }) {
     const where: Prisma.SubmissionWhereInput = { sampleOnly: false };
     if (opts.userId) where.userId = opts.userId;
     if (opts.problemId) where.problemId = opts.problemId;
+    if (opts.status) where.status = opts.status;
 
     return prisma.submission.findMany({
       where,
@@ -359,12 +366,21 @@ export const submissionRepo = {
         language: true,
         score: true,
         status: true,
+        verdictSummary: true,
         contestId: true,
         examId: true,
         assessmentId: true,
         problem: { select: problemMiniSelect },
         user: { select: userMiniSelect },
       },
+    });
+  },
+
+  listSystemErrorsForRecovery() {
+    return prisma.submission.findMany({
+      where: { status: "system_error" },
+      select: { id: true, judgeGeneration: true },
+      orderBy: { createdAt: "asc" },
     });
   },
 
@@ -819,13 +835,6 @@ export const submissionRepo = {
     });
   },
 
-  updateStatusIfIn(id: string, fromStatuses: string[], status: string) {
-    return prisma.submission.updateMany({
-      data: { status } as Prisma.SubmissionUncheckedUpdateInput,
-      where: { id, status: { in: fromStatuses as SubmissionStatus[] } },
-    });
-  },
-
   complete(id: string, data: Prisma.SubmissionUpdateInput) {
     return prisma.submission.update({
       data,
@@ -833,11 +842,12 @@ export const submissionRepo = {
     });
   },
 
-  completeIfInProgress(id: string, data: Prisma.SubmissionUpdateInput) {
+  completeIfInProgress(id: string, data: Prisma.SubmissionUpdateInput, updatedBefore?: Date) {
     return prisma.submission.updateMany({
       data,
       where: {
         id,
+        ...(updatedBefore ? { updatedAt: { lt: updatedBefore } } : {}),
         status: {
           in: ["pending_upload", "queued", "compiling", "running"] as SubmissionStatus[],
         },

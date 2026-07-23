@@ -1,8 +1,7 @@
 import { assessmentProblemRepo, assessmentRepo, submissionRepo } from "@nojv/db";
-import { submissionVerdicts } from "@nojv/core";
+import { problemLetter, submissionVerdicts } from "@nojv/core";
 
 import { getProblemTotalScores } from "../problem/total-score";
-import { problemLetter } from "../shared/problem-letter";
 
 export async function getAssignmentWithCourseId(assignmentId: string) {
   return assessmentRepo.findByIdWithCourseId(assignmentId);

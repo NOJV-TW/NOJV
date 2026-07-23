@@ -25,11 +25,6 @@ export interface ActorContext {
 
 export type CompletedActorContext = ActorContext & { username: string };
 
-/**
- * Admin accounts browse as a normal user until they toggle into "admin mode".
- * When de-elevated, their effective platform role is `student`, so every
- * admin-power check downstream stays off until they opt in.
- */
 export function resolveEffectivePlatformRole(
   storedRole: PlatformRole,
   adminModeActive: boolean,

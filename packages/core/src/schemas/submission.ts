@@ -152,6 +152,7 @@ export const verdictSummarySchema = z.object({
   }),
   subtaskSummary: z.array(z.object({ id: z.string(), score: z.number() })).optional(),
   compilerErrorTruncated: z.string().max(1024).optional(),
+  systemErrorTruncated: z.string().max(1024).optional(),
 });
 
 export type CaseResult = z.infer<typeof caseResultSchema>;

@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   StorageIntegrityError,
   getVerifiedObject,
+  putObjectIfAbsent,
   putImmutableObject,
 } from "../../../packages/storage/src/object";
 
@@ -50,6 +51,18 @@ function fakeClient(initial = new Map<string, Buffer>()) {
 }
 
 describe("immutable storage objects", () => {
+  it("reports whether a conditional object write won", async () => {
+    const fake = fakeClient();
+
+    await expect(
+      putObjectIfAbsent(fake.client, "objects/first-wins", Buffer.from("first")),
+    ).resolves.toMatchObject({ created: true });
+    await expect(
+      putObjectIfAbsent(fake.client, "objects/first-wins", Buffer.from("second")),
+    ).resolves.toMatchObject({ created: false });
+    expect(fake.objects.get("objects/first-wins")).toEqual(Buffer.from("first"));
+  });
+
   it("writes with an atomic create-only precondition and returns verified metadata", async () => {
     const fake = fakeClient();
     const body = Buffer.from("immutable");

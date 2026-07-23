@@ -15,6 +15,7 @@
 
   let userFilter = $state(untrack(() => data.userId));
   let problemFilter = $state(untrack(() => data.problemId));
+  let statusFilter = $state(untrack(() => data.status));
 
   function contextLabel(kind: "practice" | "contest" | "assignment" | "exam"): string {
     if (kind === "contest") return m.admin_submissions_contextContest();
@@ -30,6 +31,7 @@
     const p = problemFilter.trim();
     if (u) params.set("userId", u);
     if (p) params.set("problemId", p);
+    if (statusFilter) params.set("status", statusFilter);
     goto(`/admin/submissions?${params.toString()}`, { keepFocus: true, noScroll: true });
   }
 
@@ -38,6 +40,7 @@
     const params = new URLSearchParams();
     if (data.userId) params.set("userId", data.userId);
     if (data.problemId) params.set("problemId", data.problemId);
+    if (data.status) params.set("status", data.status);
     params.set("cursor", data.nextCursor);
     return `?${params.toString()}`;
   });
@@ -57,6 +60,17 @@
         bind:value={problemFilter}
         placeholder={m.admin_submissions_filterProblem()}
       />
+      <label class="sr-only" for="submission-status-filter"
+        >{m.admin_submissions_filterStatus()}</label
+      >
+      <select
+        id="submission-status-filter"
+        class="h-9 rounded-md border border-input bg-background px-3 text-body-sm"
+        bind:value={statusFilter}
+      >
+        <option value="">{m.admin_submissions_filterAll()}</option>
+        <option value="system_error">{m.admin_submissions_filterSystemError()}</option>
+      </select>
       <Button type="submit" size="sm" variant="outline"
         >{m.admin_submissions_filterBtn()}</Button
       >
@@ -82,6 +96,7 @@
             <th class="px-3 py-2 font-medium">{m.admin_submissions_colVerdict()}</th>
             <th class="px-3 py-2 font-medium">{m.admin_submissions_colScore()}</th>
             <th class="px-3 py-2 font-medium">{m.admin_submissions_colContext()}</th>
+            <th class="px-3 py-2 font-medium">{m.admin_submissions_colSystemError()}</th>
           </tr>
         </thead>
         <tbody>
@@ -104,6 +119,11 @@
               <td class="px-3 py-2 tabular-nums">{sub.score}</td>
               <td class="px-3 py-2 text-caption text-muted-foreground">
                 {contextLabel(sub.context)}
+              </td>
+              <td class="max-w-96 px-3 py-2 text-caption text-muted-foreground">
+                {sub.status === "system_error"
+                  ? (sub.systemError ?? m.admin_submissions_noSystemErrorDetail())
+                  : "—"}
               </td>
             </tr>
           {/each}

@@ -39,7 +39,7 @@ local mode = redis.call("GET", KEYS[2])
 if not mode then
   return 0
 end
-if redis.call("GET", KEYS[1]) == ARGV[1] and mode == ARGV[1] then
+if mode == ARGV[1] and redis.call("GET", KEYS[1]) == ARGV[1] then
   return 1
 end
 redis.call("DEL", KEYS[1], KEYS[2])
@@ -194,7 +194,8 @@ export async function grantAdminElevation(
   if (
     principal.platformRole !== "admin" ||
     principal.disabled ||
-    !principal.twoFactorActivated
+    !principal.twoFactorActivated ||
+    !(await isSecurityGenerationCurrent(principal))
   ) {
     await revokeAdminElevation(sessionId);
     return false;

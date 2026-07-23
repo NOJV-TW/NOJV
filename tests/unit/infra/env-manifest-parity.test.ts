@@ -207,10 +207,14 @@ describeHelm("env schema ↔ chart deployment parity", () => {
   });
 });
 
-describe("Dockerfiles that frozen-install must ship the pnpm patch files", () => {
+describe("Dockerfiles that frozen-install must ship the full pnpm workspace", () => {
   const workspaceManifest = readFileSync(join(repoRoot, "pnpm-workspace.yaml"), "utf8");
   const patchBlock = /^patchedDependencies:\n((?: {2}.+\n)+)/m.exec(workspaceManifest);
   const hasPatches = Boolean(patchBlock?.[1]?.trim());
+  const toolingManifests = readdirSync(join(repoRoot, "tooling"), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => `tooling/${entry.name}/package.json`)
+    .sort();
 
   const dockerDir = join(repoRoot, "infra/docker");
   const frozenInstallDockerfiles = readdirSync(dockerDir)
@@ -224,6 +228,31 @@ describe("Dockerfiles that frozen-install must ship the pnpm patch files", () =>
   it.each(frozenInstallDockerfiles)("%s copies patches/ before installing", (file) => {
     expect(readFileSync(join(dockerDir, file), "utf8")).toMatch(/COPY patches\//);
   });
+
+  it.each(frozenInstallDockerfiles)(
+    "%s prevents pnpm scripts from replacing the filtered frozen install",
+    (file) => {
+      const dockerfile = readFileSync(join(dockerDir, file), "utf8");
+      const install = dockerfile.indexOf("RUN pnpm install");
+      const disableAutoInstall = dockerfile.indexOf(
+        "ENV pnpm_config_verify_deps_before_run=false",
+      );
+      const firstBuild = dockerfile.indexOf("RUN pnpm --filter");
+      expect(disableAutoInstall).toBeGreaterThan(install);
+      expect(disableAutoInstall).toBeLessThan(firstBuild);
+    },
+  );
+
+  it.each(frozenInstallDockerfiles)(
+    "%s copies every tooling workspace manifest before installing",
+    (file) => {
+      const dockerfile = readFileSync(join(dockerDir, file), "utf8");
+      const beforeInstall = dockerfile.slice(0, dockerfile.indexOf("RUN pnpm install"));
+      for (const manifest of toolingManifests) {
+        expect(beforeInstall).toContain(`COPY ${manifest} `);
+      }
+    },
+  );
 });
 
 describeHelm("production web secret parity across deploy surfaces", () => {
@@ -232,6 +261,45 @@ describeHelm("production web secret parity across deploy surfaces", () => {
   it.each(requiredWebEnv)("web Deployment provides %s", (key) => {
     const web = isolateDoc(renderChart(), "Deployment", "nojv-web");
     expect(containerEnvNames(web).has(key)).toBe(true);
+  });
+});
+
+describeHelm("worker Kubernetes privilege boundaries", () => {
+  it("enforces the restricted Pod Security profile in the sandbox namespace", () => {
+    const namespace = isolateDoc(renderChart(), "Namespace", "nojv-sandbox");
+    for (const mode of ["enforce", "audit", "warn"]) {
+      expect(namespace).toContain(`pod-security.kubernetes.io/${mode}: restricted`);
+      expect(namespace).toContain(`pod-security.kubernetes.io/${mode}-version: latest`);
+    }
+  });
+
+  it("binds sandbox and registry permissions to separate worker identities", () => {
+    const render = renderChart();
+    const sandboxAccess = isolateDoc(render, "RoleBinding", "nojv-worker-judge-sandbox-access");
+    const registryAccess = isolateDoc(
+      render,
+      "RoleBinding",
+      "nojv-worker-platform-registry-gc-access",
+    );
+
+    expect(sandboxAccess).toContain("name: nojv-worker-judge");
+    expect(sandboxAccess).not.toContain("name: nojv-worker-platform");
+    expect(registryAccess).toContain("name: nojv-worker-platform");
+    expect(registryAccess).not.toContain("name: nojv-worker-judge");
+  });
+
+  it("mounts API credentials only for workers that use the Kubernetes API", () => {
+    const enabled = renderChart();
+    const disabled = renderChart("values.yaml");
+    const judge = isolateDoc(enabled, "Deployment", "nojv-worker");
+    const enabledPlatform = isolateDoc(enabled, "Deployment", "nojv-worker-platform");
+    const disabledPlatform = isolateDoc(disabled, "Deployment", "nojv-worker-platform");
+
+    expect(judge).toContain("serviceAccountName: nojv-worker-judge");
+    expect(judge).toContain("automountServiceAccountToken: true");
+    expect(enabledPlatform).toContain("serviceAccountName: nojv-worker-platform");
+    expect(enabledPlatform).toContain("automountServiceAccountToken: true");
+    expect(disabledPlatform).toContain("automountServiceAccountToken: false");
   });
 });
 

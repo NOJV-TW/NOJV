@@ -144,8 +144,9 @@ is a fitness test that fails CI if the GKE manifest omits a required worker env.
 > blobs in the in-cluster MinIO (bucket `nojv-registry`, auto-created by a Helm
 > hook) or any S3 endpoint (`registry.s3.regionendpoint` — GKE points it at
 > GCS). Auth is Docker token auth: the web app's `/api/registry/token` endpoint
-> validates platform-issued credentials (generated per-teacher from the problem
-> editor) and signs scoped JWTs — teachers push only to `t/<username>/…`, judge
+> validates platform-issued credentials (generated per-author from the problem
+> editor) and signs scoped JWTs — every human credential, including an admin's,
+> pushes only to its own `t/<username>/…` namespace; judge
 > pods pull everything via the `worker.sandbox.imagePullSecret` dockerconfigjson
 > Secret in the sandbox namespace, `demo/…` is anonymous-pull. Setup steps
 > (signing pair, service accounts, tunnel hostname) are in the
@@ -428,9 +429,9 @@ verifies the TLS Secret, and requires Cloud Armor to allow exactly
 3. Verify the Helm release installed by the script. It renders the namespaces
    (`nojv`, `nojv-sandbox`), the two worker
    Deployments split by `WORKER_MODE` (`nojv-worker` judge / `nojv-worker-platform`
-   platform) with worker RBAC + PDBs, web (Deployment + Service + optional
+   platform) with separate service accounts and least-privilege RBAC + PDBs, web (Deployment + Service + optional
    Ingress), the worker-egress NetworkPolicy (`networkPolicy.enabled`), the
-   sandbox namespace policy (deny-all NetworkPolicy + ResourceQuota + LimitRange),
+   sandbox namespace policy (`restricted` Pod Security admission + deny-all NetworkPolicy + ResourceQuota + LimitRange),
    and the migrator as a pre-install/pre-upgrade Helm hook that runs Prisma
    migrations before the new Pods roll out. On GKE with `postgres.mode=cloudsql`,
    each worker Pod runs the Cloud SQL Auth Proxy sidecar
@@ -447,7 +448,9 @@ verifies the TLS Secret, and requires Cloud Armor to allow exactly
    `--enable-network-policy`), or **Calico/Cilium**. **GKE Autopilot has
    Dataplane V2 always-on**, which is the simplest way to guarantee enforcement.
    For k3s, start the server with `--flannel-backend=none
---disable-network-policy` and install Calico or Cilium.
+--disable-network-policy --kubelet-arg=pod-max-pids=256` and install Calico or
+   Cilium. The kubelet flag bounds processes per Pod cgroup; a sandbox-side
+   `ulimit -u` is invalid here because it is shared by host UID across Pods.
 
    The worker now **fails closed**: at startup, when `EXECUTION_BACKEND=kubernetes`,
    it empirically probes a deny-all-covered Pod for outbound reachability and
@@ -493,6 +496,25 @@ the orchestrator. Full `gcloud container node-pools create` recipes live in
 | `infra/docker/worker.Dockerfile`         | Temporal worker            |
 | `infra/docker/sandbox-runner.Dockerfile` | Sandbox execution runtime  |
 | `infra/docker/migrator.Dockerfile`       | Database migration runner  |
+
+#### Standard judge toolchain
+
+`packages/core/src/judge-environment.json` is the source of truth for the
+standard judge image, runner commands, and public `/environment` page. The
+sandbox Dockerfile installs these exact revisions and fails its build when the
+pinned base image no longer matches the recorded Alpine or Node.js version.
+
+| Component    | Pinned version                                                                                                                                                                                       |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Base OS      | `Alpine Linux 3.24.1`                                                                                                                                                                                |
+| Node runtime | `Node.js 24.18.0`                                                                                                                                                                                    |
+| APK packages | `bash=5.3.9-r1`, `build-base=0.5-r4`, `cargo=1.96.1-r0`, `g++=15.2.0-r5`, `gcc=15.2.0-r5`, `go=1.26.3-r0`, `openjdk21-jdk=21.0.11_p10-r0`, `python3=3.14.5-r0`, `rust=1.96.1-r0`, `socat=1.8.1.3-r0` |
+
+To upgrade the toolchain, update the base image digest and
+`judge-environment.json`, refresh this table in the same change, then run
+`pnpm lint:doc-drift` and `pnpm sandbox:build`. The documentation gate requires
+the pinned-version table and manifest to contain the exact same platform,
+runtime, and APK pin set.
 
 ### Cloudflare + Cloud Armor Setup
 

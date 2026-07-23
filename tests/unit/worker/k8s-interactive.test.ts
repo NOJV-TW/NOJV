@@ -170,8 +170,11 @@ describe("buildInteractiveJobManifest — per-container volumeMounts isolate the
   const params = {
     jobName: "judge-sub-int-1-case-2",
     namespace: "nojv-sandbox",
-    solutionConfigMapName: "judge-sub-int-1-case-2-sol",
-    interactorConfigMapName: "judge-sub-int-1-case-2-int",
+    solutionConfigMapNames: ["judge-sub-int-1-case-2-sol-pm", "judge-sub-int-1-case-2-sol-p0"],
+    interactorConfigMapNames: [
+      "judge-sub-int-1-case-2-int-pm",
+      "judge-sub-int-1-case-2-int-p0",
+    ],
     image: "nojv-sandbox:test",
     cpuRequest: "100m",
     cpuLimit: "1",
@@ -188,7 +191,7 @@ describe("buildInteractiveJobManifest — per-container volumeMounts isolate the
     expect(names).toEqual(["interactor", "solution"]);
   });
 
-  it("solution container mounts ONLY the solution ConfigMap at /submission — NOT the interactor ConfigMap", () => {
+  it("solution container mounts ONLY the materialized solution data at /submission", () => {
     const manifest = buildInteractiveJobManifest(params);
     const containers = manifest.spec!.template.spec!.containers;
     const sol = containers.find((c) => c.name === "solution")!;
@@ -203,7 +206,7 @@ describe("buildInteractiveJobManifest — per-container volumeMounts isolate the
     expect(JSON.stringify(sol)).not.toContain("interactor-data");
   });
 
-  it("interactor container mounts ONLY the interactor ConfigMap at /submission — NOT the solution ConfigMap", () => {
+  it("interactor container mounts ONLY the materialized interactor data at /submission", () => {
     const manifest = buildInteractiveJobManifest(params);
     const containers = manifest.spec!.template.spec!.containers;
     const int = containers.find((c) => c.name === "interactor")!;
@@ -218,13 +221,26 @@ describe("buildInteractiveJobManifest — per-container volumeMounts isolate the
     expect(JSON.stringify(int)).not.toContain("solution-data");
   });
 
-  it("pod-level volumes reference the two distinct ConfigMaps", () => {
+  it("materializes the two distinct projected payloads into isolated emptyDirs", () => {
     const manifest = buildInteractiveJobManifest(params);
-    const volumes = manifest.spec!.template.spec!.volumes!;
+    const podSpec = manifest.spec!.template.spec!;
+    const volumes = podSpec.volumes!;
     const solVol = volumes.find((v) => v.name === "solution-data");
     const intVol = volumes.find((v) => v.name === "interactor-data");
-    expect(solVol?.configMap?.name).toBe("judge-sub-int-1-case-2-sol");
-    expect(intVol?.configMap?.name).toBe("judge-sub-int-1-case-2-int");
+    expect(solVol?.emptyDir).toBeDefined();
+    expect(intVol?.emptyDir).toBeDefined();
+    expect(volumes.find((v) => v.name === "solution-payload")?.projected?.sources).toEqual([
+      { configMap: { name: "judge-sub-int-1-case-2-sol-pm" } },
+      { configMap: { name: "judge-sub-int-1-case-2-sol-p0" } },
+    ]);
+    expect(volumes.find((v) => v.name === "interactor-payload")?.projected?.sources).toEqual([
+      { configMap: { name: "judge-sub-int-1-case-2-int-pm" } },
+      { configMap: { name: "judge-sub-int-1-case-2-int-p0" } },
+    ]);
+    expect(podSpec.initContainers?.map((container) => container.name)).toEqual([
+      "materialize-solution",
+      "materialize-interactor",
+    ]);
   });
 
   it("both containers get separate emptyDir /workspace + /tmp scratch", () => {

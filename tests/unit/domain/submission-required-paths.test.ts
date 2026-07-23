@@ -11,7 +11,7 @@ const {
   submissionCreate,
   submissionPublishPendingUpload,
   submissionUpdateStatus,
-  submissionUpdateStatusIfIn,
+  submissionCompleteIfInProgress,
   examSessionFindActiveForUser,
   txAssessmentProblemFindFirst,
   txContestProblemFindFirst,
@@ -28,7 +28,7 @@ const {
   submissionCreate: vi.fn(),
   submissionPublishPendingUpload: vi.fn(),
   submissionUpdateStatus: vi.fn(),
-  submissionUpdateStatusIfIn: vi.fn(),
+  submissionCompleteIfInProgress: vi.fn(),
   examSessionFindActiveForUser: vi.fn(),
   txAssessmentProblemFindFirst: vi.fn(),
   txContestProblemFindFirst: vi.fn(),
@@ -79,7 +79,7 @@ vi.mock("@nojv/db", () => {
         publishPendingUpload: submissionPublishPendingUpload,
       }),
       updateStatus: submissionUpdateStatus,
-      updateStatusIfIn: submissionUpdateStatusIfIn,
+      completeIfInProgress: submissionCompleteIfInProgress,
     },
     runTransaction: async <T>(
       fn: (tx: {
@@ -141,7 +141,7 @@ function setupPracticeDefaults() {
     id,
     status,
   }));
-  submissionUpdateStatusIfIn.mockResolvedValue({ count: 1 });
+  submissionCompleteIfInProgress.mockResolvedValue({ count: 1 });
   submissionPublishPendingUpload.mockImplementation(
     async (id: string, sourceStorage: unknown) => ({ id, sourceStorage, status: "queued" }),
   );

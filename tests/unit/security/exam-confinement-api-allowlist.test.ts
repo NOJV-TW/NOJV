@@ -20,6 +20,7 @@ const REVIEWED_GET_ROUTES: Record<string, ExamClassification> = {
   "/api/events/stream": "exam-safe",
   "/api/exams/[examId]/ip-violations": "exam-safe",
   "/api/feedback": "exam-safe",
+  "/api/images/proxy": "exam-safe",
   "/api/livez": "exam-safe",
   "/api/notifications": "exam-safe",
   "/api/notifications/unread-count": "exam-safe",

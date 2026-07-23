@@ -24,7 +24,7 @@
   import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
   import DifficultyTick from "$lib/components/primitives/visual/DifficultyTick.svelte";
   import { deriveAssignmentLiveStatus } from "$lib/utils/assignment-status";
-  import { languageLabel } from "$lib/utils/language-labels";
+  import { languageLabel } from "@nojv/core";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();

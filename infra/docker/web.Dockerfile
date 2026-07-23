@@ -3,14 +3,17 @@ FROM node:24-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
-RUN npm install -g pnpm@10.33.0
+RUN npm install -g pnpm@11.13.0
 
 WORKDIR /build
 
 # 1. Copy dependency manifests for cache-friendly install
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY patches/ patches/
-COPY tsconfig.base.json ./
+COPY tsconfig.base.json tsdown.base.mjs ./
+COPY tooling/eslint/package.json tooling/eslint/
+COPY tooling/prettier/package.json tooling/prettier/
+COPY tooling/typescript/package.json tooling/typescript/
 COPY tooling/typescript/base.json tooling/typescript/
 COPY apps/web/package.json apps/web/
 COPY packages/core/package.json packages/core/
@@ -22,6 +25,8 @@ COPY packages/mailer/package.json packages/mailer/
 COPY packages/temporal/package.json packages/temporal/
 
 RUN pnpm install --frozen-lockfile --filter @nojv/web...
+
+ENV pnpm_config_verify_deps_before_run=false
 
 # @grpc/grpc-js is marked ssr.external in the web build, so the SSR output emits a
 # bare require('@grpc/grpc-js') at runtime. pnpm leaves it nested in the virtual

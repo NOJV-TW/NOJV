@@ -22,6 +22,7 @@ import {
   type ProblemJudgeTestcase,
   type Runtime,
   type SubmissionJudgeDraft,
+  type SubmissionOperationStatus,
   type SubmissionResult,
 } from "@nojv/core";
 import {
@@ -300,22 +301,28 @@ export async function listAllSubmissionsPaged(opts: {
   cursor?: string;
   userId?: string;
   problemId?: string;
+  status?: SubmissionOperationStatus;
 }) {
   const rows = await submissionRepo.listAllPaged(opts);
   const hasMore = rows.length > opts.limit;
   const items = hasMore ? rows.slice(0, opts.limit) : rows;
   const nextCursor = hasMore ? (items[items.length - 1]?.id ?? null) : null;
   return {
-    items: items.map((s) => ({
-      id: s.id,
-      createdAt: s.createdAt,
-      language: s.language,
-      score: s.score,
-      status: s.status,
-      context: deriveSubmissionContextKind(s),
-      problem: s.problem,
-      user: s.user,
-    })),
+    items: items.map((s) => {
+      const summary =
+        s.verdictSummary === null ? null : verdictSummarySchema.safeParse(s.verdictSummary);
+      return {
+        id: s.id,
+        createdAt: s.createdAt,
+        language: s.language,
+        score: s.score,
+        status: s.status,
+        systemError: summary?.success ? (summary.data.systemErrorTruncated ?? null) : null,
+        context: deriveSubmissionContextKind(s),
+        problem: s.problem,
+        user: s.user,
+      };
+    }),
     nextCursor,
   };
 }

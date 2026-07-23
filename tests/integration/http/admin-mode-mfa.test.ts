@@ -77,25 +77,20 @@ async function markVerifiedSession(userId: string): Promise<void> {
 
 afterEach(clearElevation);
 
-describe("admin mode MFA invariant", () => {
-  it(
-    "rejects activation when the current admin account has not activated 2FA",
-    { timeout: 15_000 },
-    async () => {
-      const user = await createTestUser({
-        platformRole: "admin",
-        twoFactorActivated: false,
-      });
-      await persistVerifiedSession(sessionId, await currentProof(user.id), true);
+describe("admin mode elevation", () => {
+  it("rejects a regular admin until 2FA is activated", { timeout: 15_000 }, async () => {
+    const user = await createTestUser({
+      platformRole: "admin",
+      twoFactorActivated: false,
+    });
 
-      const response = await activate(user);
+    const response = await activate(user);
 
-      expect(response.status).toBe(403);
-      await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
-    },
-  );
+    expect(response.status).toBe(403);
+    await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
+  });
 
-  it("rejects activation without a fresh same-session step-up", async () => {
+  it("rejects regular-admin activation without a fresh same-session step-up", async () => {
     const user = await createTestUser({
       platformRole: "admin",
       twoFactorActivated: true,
@@ -109,7 +104,7 @@ describe("admin mode MFA invariant", () => {
     await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
   });
 
-  it("rejects activation without an MFA marker for the same session and account", async () => {
+  it("rejects regular-admin activation without an MFA marker for the same account", async () => {
     const user = await createTestUser({
       platformRole: "admin",
       twoFactorActivated: true,
@@ -124,7 +119,21 @@ describe("admin mode MFA invariant", () => {
     await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
   });
 
-  it("fails closed and clears stale admin mode state during request resolution", async () => {
+  it("rejects super-admin activation until 2FA is activated", async () => {
+    const user = await createTestUser({
+      platformRole: "admin",
+      isSuperAdmin: true,
+      twoFactorActivated: false,
+    });
+    await markVerifiedSession(user.id);
+
+    const response = await activate(user);
+
+    expect(response.status).toBe(403);
+    await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
+  });
+
+  it("rejects a regular admin mode marker without an MFA marker", async () => {
     const user = await createTestUser({
       platformRole: "admin",
       twoFactorActivated: true,
@@ -148,26 +157,13 @@ describe("admin mode MFA invariant", () => {
     await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
   });
 
-  it("grants a regular admin only when both MFA markers belong to the current session", async () => {
+  it.each([
+    ["regular admin", false],
+    ["super admin", true],
+  ])("grants %s activation after a same-session step-up", async (_label, isSuperAdmin) => {
     const user = await createTestUser({
       platformRole: "admin",
-      twoFactorActivated: true,
-    });
-    await markVerifiedSession(user.id);
-
-    const response = await activate(user);
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ active: true });
-    await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBe(
-      await currentElevationMarker(user.id),
-    );
-  });
-
-  it("applies the same elevation invariant to super admins", async () => {
-    const user = await createTestUser({
-      platformRole: "admin",
-      isSuperAdmin: true,
+      isSuperAdmin,
       twoFactorEnabled: true,
       twoFactorActivated: true,
     });
@@ -179,6 +175,22 @@ describe("admin mode MFA invariant", () => {
     await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBe(
       await currentElevationMarker(user.id),
     );
+  });
+
+  it("requires a new 2FA step-up after switching back to ordinary mode", async () => {
+    const user = await createTestUser({
+      platformRole: "admin",
+      twoFactorEnabled: true,
+      twoFactorActivated: true,
+    });
+    await markVerifiedSession(user.id);
+    expect((await activate(user)).status).toBe(200);
+
+    expect((await deactivate(user)).status).toBe(200);
+
+    expect((await activate(user)).status).toBe(403);
+    await markVerifiedSession(user.id);
+    expect((await activate(user)).status).toBe(200);
   });
 
   it("always permits de-elevation and atomically removes both elevation keys", async () => {

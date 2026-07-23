@@ -127,6 +127,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - |
+              {{- .Files.Get "files/in-cluster-kubeconfig.sh" | nindent 14 }}
               {{- .Files.Get "files/release-workloads.sh" | nindent 14 }}
           env:
             - name: HOME

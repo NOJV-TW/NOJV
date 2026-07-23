@@ -5,9 +5,7 @@
   import { cn } from "$lib/utils/css.js";
 
   interface Props {
-    /** Text placed on the clipboard when the button is pressed. */
     text: string;
-    /** Hide the trailing "Copy" / "Copied" label, leaving an icon-only button. */
     iconOnly?: boolean;
     class?: string | undefined;
   }
@@ -21,7 +19,6 @@
     try {
       await navigator.clipboard.writeText(text);
     } catch {
-      // Clipboard API is unavailable in insecure contexts — fail quietly.
       return;
     }
     copied = true;

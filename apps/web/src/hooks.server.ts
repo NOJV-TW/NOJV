@@ -29,12 +29,9 @@ import { healthProbeKind } from "$lib/server/health-probes";
 import { consumeStepUpHandoff } from "$lib/server/step-up-handoff";
 import {
   adminElevationPrincipal,
-  hasAdminSessionMfa,
   isSuperAdminSessionExpired,
-  isTwoFactorActivated,
   resolveAdminElevation,
   revokeAdminElevation,
-  securityGenerationProof,
 } from "$lib/server/step-up";
 import {
   apiRequestDuration,
@@ -311,61 +308,24 @@ async function resolveAdminMode(event: HandleEvent): Promise<void> {
     (await resolveAdminElevation(sessionId, adminElevationPrincipal(user)));
 }
 
-async function enforceSuperAdminSessionAge(event: HandleEvent): Promise<void> {
+async function enforceSuperAdminSessionAge(event: HandleEvent): Promise<Response | null> {
   const user = event.locals.sessionUser;
   const session = event.locals.session;
   if (!user?.isSuperAdmin || !session) {
-    return;
+    return null;
   }
   if (!isSuperAdminSessionExpired(new Date(session.createdAt))) {
-    return;
+    return null;
   }
-  try {
-    await getAuth().api.signOut({ headers: event.request.headers });
-  } catch {
-    // Best effort: the redirect below drops the session regardless.
-  }
+  const { headers } = await getAuth().api.signOut({
+    headers: event.request.headers,
+    returnHeaders: true,
+  });
   event.locals.session = null;
   event.locals.user = null;
   event.locals.sessionUser = null;
-  redirect(302, "/signin?error=session-expired");
-}
-
-async function enforceAdminTwoFactor(event: HandleEvent, cleanPath: string): Promise<void> {
-  const user = event.locals.sessionUser;
-  if (!user?.isSuperAdmin || user.mustChangePassword) {
-    return;
-  }
-  const TWO_FACTOR_ACTIONS = [
-    "/sendEmailOtp",
-    "/activate",
-    "/deactivate",
-    "/enable",
-    "/verify",
-    "/disable",
-    "/regenerate",
-    "/deletePasskey",
-  ];
-  const accountTwoFactorRequest =
-    cleanPath === "/settings" &&
-    (event.request.method === "GET" ||
-      TWO_FACTOR_ACTIONS.some((action) => event.url.searchParams.has(action)));
-  if (
-    cleanPath.startsWith("/api/") ||
-    accountTwoFactorRequest ||
-    cleanPath.startsWith("/account/api-tokens/verify") ||
-    cleanPath.startsWith("/complete-profile") ||
-    cleanPath.startsWith("/account/change-password")
-  ) {
-    return;
-  }
-  if (!(await isTwoFactorActivated(user.id))) {
-    redirect(302, "/settings?setup2fa=1");
-  }
-  const sessionId = event.locals.session?.id;
-  if (sessionId && !(await hasAdminSessionMfa(sessionId, securityGenerationProof(user)))) {
-    redirect(302, "/account/api-tokens/verify?purpose=admin-mode");
-  }
+  headers.set("location", "/signin?error=session-expired");
+  return new Response(null, { status: 302, headers });
 }
 
 async function enforcePageLock(event: HandleEvent, cleanPath: string): Promise<void> {
@@ -528,10 +488,12 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
   await loadSession(event);
   await consumeStepUpHandoff(event);
   await enforceAccountState(event, cleanPath);
-  await enforceSuperAdminSessionAge(event);
+  const expiredSessionResponse = await enforceSuperAdminSessionAge(event);
+  if (expiredSessionResponse) {
+    return expiredSessionResponse;
+  }
   enforcePasswordChange(event, cleanPath);
   await resolveAdminMode(event);
-  await enforceAdminTwoFactor(event, cleanPath);
   await enforcePageLock(event, cleanPath);
 
   const examResponse = await enforceExamGate(event, cleanPath);

@@ -1,4 +1,4 @@
-{{- if and .Values.storage.inCluster .Values.storage.minio.storageClass.create }}
+{{- if and .Values.storage.inCluster (not .Values.storage.minio.existingClaim) .Values.storage.minio.storageClass.create }}
 {{- $name := required "storage.minio.storageClass.name is required for in-cluster MinIO" .Values.storage.minio.storageClass.name }}
 {{- $provisioner := required "storage.minio.storageClass.provisioner is required when storage.minio.storageClass.create=true" .Values.storage.minio.storageClass.provisioner }}
 apiVersion: storage.k8s.io/v1

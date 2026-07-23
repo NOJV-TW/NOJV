@@ -40,7 +40,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     }
   }
 
-  // Must join the contest before answering (even once it is live).
   if (!contestData.isManager && !contestData.participation) {
     redirect(303, `/contests/${contestId}`);
   }

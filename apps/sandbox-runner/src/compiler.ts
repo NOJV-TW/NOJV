@@ -3,9 +3,16 @@ import * as fs from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { sourceFileNames, type JudgeScriptLanguage } from "@nojv/core";
+import {
+  judgeEnvironmentDefinition,
+  materializeJudgeCommand,
+  sourceFileNames,
+  type JudgeCommandReplacements,
+  type JudgeScriptLanguage,
+  type Language,
+} from "@nojv/core";
 import type { SandboxInput } from "./types.js";
-import { createBoundedBuffer, pathExists, withProcessLimit } from "./utils.js";
+import { createBoundedBuffer, pathExists, withCpuTimeLimit } from "./utils.js";
 
 const COMPILER_DIR = path.dirname(fileURLToPath(import.meta.url));
 const WRAPPERS_DIR = path.resolve(COMPILER_DIR, "../assets/wrappers");
@@ -24,6 +31,16 @@ export function sourceFileName(language: SandboxInput["language"]): string {
   return sourceFileNames[language];
 }
 
+function judgeCommand(
+  language: Language,
+  kind: "compileCommand" | "runCommand",
+  replacements: JudgeCommandReplacements,
+): string[] {
+  const template = judgeEnvironmentDefinition.languages[language][kind];
+  if (!template) throw new Error(`Missing ${kind} for judge language ${language}.`);
+  return materializeJudgeCommand(template, replacements);
+}
+
 export async function compile(
   input: SandboxInput,
   sourcePath: string,
@@ -32,64 +49,80 @@ export async function compile(
   switch (input.language) {
     case "c": {
       const cSources = await collectSourceFiles(workDir, [".c"]);
+      const outputPath = path.join(workDir, "main");
       return compileWithCommand(
-        [
-          "gcc",
-          "-O2",
-          "-std=c17",
-          "-o",
-          path.join(workDir, "main"),
-          ...(cSources.length > 0 ? cSources : [sourcePath]),
-        ],
-        [path.join(workDir, "main")],
+        judgeCommand("c", "compileCommand", {
+          "{output}": outputPath,
+          "{sources}": cSources.length > 0 ? cSources : [sourcePath],
+        }),
+        judgeCommand("c", "runCommand", { "{output}": outputPath }),
         workDir,
       );
     }
     case "cpp": {
       const cppSources = await collectSourceFiles(workDir, [".cpp", ".cc", ".cxx", ".c++"]);
+      const outputPath = path.join(workDir, "main");
       return compileWithCommand(
-        [
-          "g++",
-          "-O2",
-          "-std=c++20",
-          "-o",
-          path.join(workDir, "main"),
-          ...(cppSources.length > 0 ? cppSources : [sourcePath]),
-        ],
-        [path.join(workDir, "main")],
+        judgeCommand("cpp", "compileCommand", {
+          "{output}": outputPath,
+          "{sources}": cppSources.length > 0 ? cppSources : [sourcePath],
+        }),
+        judgeCommand("cpp", "runCommand", { "{output}": outputPath }),
         workDir,
       );
     }
     case "go": {
       const goSources = await collectSourceFiles(workDir, [".go"]);
       const hasGoMod = await pathExists(path.join(workDir, "go.mod"));
-      const goCompileCommand =
-        hasGoMod || goSources.length > 1
-          ? ["go", "build", "-o", path.join(workDir, "main"), "."]
-          : ["go", "build", "-o", path.join(workDir, "main"), sourcePath];
+      const outputPath = path.join(workDir, "main");
+      const goCompileCommand = judgeCommand("go", "compileCommand", {
+        "{output}": outputPath,
+        "{sourceOrPackage}": hasGoMod || goSources.length > 1 ? "." : sourcePath,
+      });
 
-      return compileWithCommand(goCompileCommand, [path.join(workDir, "main")], workDir);
+      return compileWithCommand(
+        goCompileCommand,
+        judgeCommand("go", "runCommand", { "{output}": outputPath }),
+        workDir,
+      );
     }
     case "java": {
       const javaSources = await collectSourceFiles(workDir, [".java"]);
       return compileWithCommand(
-        ["javac", "-d", workDir, ...(javaSources.length > 0 ? javaSources : [sourcePath])],
-        ["java", "-cp", workDir, "Main"],
+        judgeCommand("java", "compileCommand", {
+          "{workDir}": workDir,
+          "{sources}": javaSources.length > 0 ? javaSources : [sourcePath],
+        }),
+        judgeCommand("java", "runCommand", { "{workDir}": workDir }),
         workDir,
       );
     }
     case "javascript":
-      return { success: true, runCommand: ["node", sourcePath] };
+      return {
+        success: true,
+        runCommand: judgeCommand("javascript", "runCommand", { "{source}": sourcePath }),
+      };
     case "python":
-      return { success: true, runCommand: ["python3", sourcePath] };
-    case "rust":
+      return {
+        success: true,
+        runCommand: judgeCommand("python", "runCommand", { "{source}": sourcePath }),
+      };
+    case "rust": {
+      const outputPath = path.join(workDir, "main");
       return compileWithCommand(
-        ["rustc", "-O", "-o", path.join(workDir, "main"), sourcePath],
-        [path.join(workDir, "main")],
+        judgeCommand("rust", "compileCommand", {
+          "{output}": outputPath,
+          "{source}": sourcePath,
+        }),
+        judgeCommand("rust", "runCommand", { "{output}": outputPath }),
         workDir,
       );
+    }
     case "typescript":
-      return { success: true, runCommand: ["node", "--experimental-strip-types", sourcePath] };
+      return {
+        success: true,
+        runCommand: judgeCommand("typescript", "runCommand", { "{source}": sourcePath }),
+      };
   }
 }
 
@@ -149,7 +182,7 @@ function compileWithCommand(
       return;
     }
 
-    const [wrappedCmd, ...wrappedArgs] = withProcessLimit([cmd, ...args]);
+    const [wrappedCmd, ...wrappedArgs] = withCpuTimeLimit([cmd, ...args]);
     const proc = spawn(wrappedCmd, wrappedArgs, {
       cwd: workDir,
       stdio: ["ignore", "ignore", "pipe"],

@@ -31,7 +31,6 @@
     { key: "closed", label: m.assignmentsList_tabClosed(), count: counts.closed },
   ]);
 
-  // On the "all" tab, split into ended-vs-not sections like the contests page.
   const groups = $derived(
     currentFilter !== "all"
       ? []

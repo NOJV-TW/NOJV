@@ -48,6 +48,7 @@ function svelteTestPlugin() {
 
 export default defineConfig({
   test: {
+    maxWorkers: "50%",
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],

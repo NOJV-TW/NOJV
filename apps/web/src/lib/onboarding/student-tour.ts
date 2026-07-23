@@ -125,8 +125,15 @@ function problemSteps(): DriveStep[] {
   ];
 }
 
+export const studentWelcomeIntro: Intro = {
+  key: "nav",
+  pad: 2,
+  match: (p) => p === "/dashboard",
+  build: navSteps,
+};
+
 export const studentIntros: Intro[] = [
-  { key: "nav", pad: 2, match: (p) => p === "/dashboard", build: navSteps },
+  studentWelcomeIntro,
   { key: "dashboard", pad: 6, match: (p) => p === "/dashboard", build: dashboardSteps },
   { key: "problems", pad: 6, match: (p) => p === "/problems", build: problemsSteps },
   { key: "problem", pad: 4, match: (p) => PROBLEM_DETAIL.test(p), build: problemSteps },
@@ -134,6 +141,6 @@ export const studentIntros: Intro[] = [
 
 export const studentRegistry: Intro[] = [...studentIntros, ...taIntros];
 
-export function replayStudentTour(userId: string): void {
-  replayTour(userId, studentRegistry);
+export function replayStudentTour(): void {
+  replayTour(studentRegistry);
 }

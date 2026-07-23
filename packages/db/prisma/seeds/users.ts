@@ -6,6 +6,7 @@ import { readSeedAdminEnv } from "./admin";
 export async function seedUsers(prisma: PrismaClient) {
   const passwordHash = bcrypt.hashSync("password123", 10);
   const adminEnv = readSeedAdminEnv();
+  const tourSeenAt = new Date("2026-07-10T00:00:00.000Z");
 
   const admin = await prisma.user.upsert({
     create: {
@@ -26,8 +27,9 @@ export async function seedUsers(prisma: PrismaClient) {
       username: "teacher",
       platformRole: "teacher",
       canCreateAdvancedProblems: true,
+      teacherTourSeenAt: tourSeenAt,
     },
-    update: { canCreateAdvancedProblems: true },
+    update: { canCreateAdvancedProblems: true, teacherTourSeenAt: tourSeenAt },
     where: { username: "teacher" },
   });
 
@@ -37,8 +39,9 @@ export async function seedUsers(prisma: PrismaClient) {
       email: "ta-student@nojv.local",
       username: "ta-student",
       platformRole: "student",
+      studentTourSeenAt: tourSeenAt,
     },
-    update: {},
+    update: { studentTourSeenAt: tourSeenAt },
     where: { username: "ta-student" },
   });
 
@@ -48,8 +51,9 @@ export async function seedUsers(prisma: PrismaClient) {
       email: "student@nojv.local",
       username: "student",
       platformRole: "student",
+      studentTourSeenAt: tourSeenAt,
     },
-    update: {},
+    update: { studentTourSeenAt: tourSeenAt },
     where: { username: "student" },
   });
 
@@ -59,8 +63,9 @@ export async function seedUsers(prisma: PrismaClient) {
       email: "new-student@nojv.local",
       username: "new-student",
       platformRole: "student",
+      studentTourSeenAt: tourSeenAt,
     },
-    update: {},
+    update: { studentTourSeenAt: tourSeenAt },
     where: { username: "new-student" },
   });
 

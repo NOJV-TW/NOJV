@@ -111,6 +111,9 @@ describe("sweepStaleSubmissions (real DB)", () => {
       submissionRepo.findById(terminal.id),
     ]);
     expect(staleRow?.status).toBe("system_error");
+    expect(staleRow?.verdictSummary).toMatchObject({
+      systemErrorTruncated: expect.stringContaining("pending timeout"),
+    });
     expect(freshRow?.status).toBe("running");
     expect(terminalRow?.status).toBe("accepted");
   });
@@ -155,6 +158,25 @@ describe("sweepStaleSubmissions (real DB)", () => {
     expect(result.failed).toBeGreaterThanOrEqual(1);
     const row = await submissionRepo.findById(stale.id);
     expect(row?.status).toBe("compiling");
+  });
+
+  it("does not overwrite a judge run that starts during stale recovery", async () => {
+    const stale = await createTestSubmission({ status: "queued" });
+    await backdateUpdatedAt(stale.id, 60);
+    terminateSubmissionJudge.mockImplementationOnce(async () => {
+      await testPrisma.submission.update({
+        where: { id: stale.id },
+        data: { status: "running", activeJudgeRunId: "new-run" },
+      });
+    });
+
+    const result = await submissionDomain.sweepStaleSubmissions();
+
+    expect(result.killed).toBe(0);
+    await expect(submissionRepo.findById(stale.id)).resolves.toMatchObject({
+      activeJudgeRunId: "new-run",
+      status: "running",
+    });
   });
 
   it("prunes rejudge logs past the retention window and keeps recent ones", async () => {

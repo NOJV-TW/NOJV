@@ -132,16 +132,18 @@ async function persistSeedSubmissions(
   subs: SeedSubmission[],
 ): Promise<void> {
   if (subs.length === 0) return;
-  const prepared = await Promise.all(
-    subs.map(async (submission) => {
-      const sourcePlan = planSubmissionSources(submission.id, randomUUID(), submission.sources);
-      const [sourceStorage, verdictDetailStorage] = await Promise.all([
-        putSubmissionSourcePlan(storage, sourcePlan),
-        putVerdictDetail(storage, submission.id, `seed-${randomUUID()}`, submission.detail),
-      ]);
-      return { ...submission.row, sourceStorage, verdictDetailStorage };
-    }),
-  );
+  const prepared: Prisma.SubmissionCreateManyInput[] = [];
+  for (const submission of subs) {
+    const sourcePlan = planSubmissionSources(submission.id, randomUUID(), submission.sources);
+    const sourceStorage = await putSubmissionSourcePlan(storage, sourcePlan);
+    const verdictDetailStorage = await putVerdictDetail(
+      storage,
+      submission.id,
+      `seed-${randomUUID()}`,
+      submission.detail,
+    );
+    prepared.push({ ...submission.row, sourceStorage, verdictDetailStorage });
+  }
   await prisma.submission.createMany({ data: prepared });
 }
 

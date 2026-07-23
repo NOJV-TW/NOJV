@@ -168,6 +168,8 @@ Indexes & constraints: `@@index([secret])`, `@@index([userId])`
 | `securityGeneration` | `Int` | `@default(0)` |
 | `profilePublic` | `Boolean` | `@default(false)` |
 | `canCreateAdvancedProblems` | `Boolean` | `@default(false)` |
+| `studentTourSeenAt` | `DateTime?` | — |
+| `teacherTourSeenAt` | `DateTime?` | — |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |
 | `sessions` | `Session[]` | — |

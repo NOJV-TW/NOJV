@@ -1,8 +1,14 @@
 import { test, expect } from "@playwright/test";
 
+import { DisposableCredentialUser, signInWithPassword } from "./_disposable-user";
 import { adminAuth, studentAuth, teacherAuth } from "./_shared";
 
+const regularAdmin = new DisposableCredentialUser("regular-admin-mode");
+
 test.describe("Admin panel — gating + pages", () => {
+  test.beforeAll(() => regularAdmin.create({ platformRole: "admin" }));
+  test.afterAll(() => regularAdmin.cleanup());
+
   test("admin landing page redirects unauthenticated users", async ({ page }) => {
     await page.goto("/admin");
     await expect(page).toHaveURL(/signin/);
@@ -50,6 +56,10 @@ test.describe("Admin panel — gating + pages", () => {
     await expect(page.getByText("teacher@nojv.local").first()).toBeVisible({
       timeout: 10_000,
     });
+    await expect(page.getByRole("combobox", { name: /role: teacher/i })).toBeVisible();
+    await expect(page.getByRole("combobox", { name: /advanced access: teacher/i })).toHaveValue(
+      "true",
+    );
     await context.close();
   });
 
@@ -81,11 +91,42 @@ test.describe("Admin panel — gating + pages", () => {
     await context.close();
   });
 
-  test("admin-mode activation requires a verified step-up", async ({ browser }) => {
+  test("regular admin is sent to 2FA setup before switching identities", async ({ page }) => {
+    await signInWithPassword(page, regularAdmin.email);
+    await page.goto("/dashboard");
+
+    const menuButton = page.getByRole("button", { name: /open account menu/i });
+    await expect(menuButton).toBeEnabled();
+    await expect(menuButton).toHaveAttribute("aria-expanded", "false");
+    await menuButton.click();
+    await expect(menuButton).toHaveAttribute("aria-expanded", "true");
+    const switchButton = page.getByRole("menuitem", { name: /switch to admin mode/i });
+    await expect(switchButton).toBeVisible();
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().endsWith("/api/admin-mode") &&
+          response.request().method() === "POST" &&
+          response.status() === 403,
+      ),
+      switchButton.click(),
+    ]);
+
+    await page.waitForURL(
+      (url) =>
+        url.pathname === "/settings" &&
+        url.searchParams.get("setup2fa") === "1" &&
+        url.searchParams.get("returnTo") === "/account/api-tokens/verify?purpose=admin-mode",
+    );
+    await expect(
+      page.getByRole("dialog", { name: "Turn on two-factor authentication" }),
+    ).toBeVisible();
+  });
+
+  test("super-admin activation requires a verified step-up", async ({ browser }) => {
     const context = await browser.newContext();
     const page = await context.newPage();
 
-    // A fresh admin login starts de-elevated (original identity).
     await page.goto("/admin-signin", { waitUntil: "networkidle" });
     await page.getByLabel(/username or email/i).fill("admin@nojv.local");
     await page.getByLabel(/password/i).fill("password123");

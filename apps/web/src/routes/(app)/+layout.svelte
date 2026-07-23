@@ -15,9 +15,9 @@
     const sessionUser = page.data.user;
     if (!sessionUser) return;
     if (sessionUser.platformRole === "teacher") {
-      onTourNavigate(page.url.pathname, sessionUser.id, teacherIntros);
+      onTourNavigate(page.url.pathname, teacherIntros);
     } else if (sessionUser.platformRole === "student") {
-      onTourNavigate(page.url.pathname, sessionUser.id, studentRegistry);
+      onTourNavigate(page.url.pathname, studentRegistry);
     }
   });
 

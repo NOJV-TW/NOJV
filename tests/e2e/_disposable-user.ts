@@ -44,11 +44,13 @@ export class DisposableCredentialUser {
     this.name = `E2E ${this.username}`;
   }
 
-  create(input: { platformRole?: "admin" | "student" | "teacher" } = {}): void {
+  create(
+    input: { isSuperAdmin?: boolean; platformRole?: "admin" | "student" | "teacher" } = {},
+  ): void {
     const platformRole = input.platformRole ?? "student";
     psql(`
-      INSERT INTO "User" (id, email, username, name, "emailVerified", "platformRole", "createdAt", "updatedAt")
-      VALUES ('${this.id}', '${this.email}', '${this.username}', '${this.name}', true, '${platformRole}', NOW(), NOW());
+      INSERT INTO "User" (id, email, username, name, "emailVerified", "platformRole", "isSuperAdmin", "studentTourSeenAt", "teacherTourSeenAt", "createdAt", "updatedAt")
+      VALUES ('${this.id}', '${this.email}', '${this.username}', '${this.name}', true, '${platformRole}', ${String(input.isSuperAdmin ?? false)}, NOW(), NOW(), NOW(), NOW());
       INSERT INTO "Account" (id, "accountId", "providerId", "userId", password, "createdAt", "updatedAt")
       SELECT '${this.accountId}', '${this.id}', 'credential', '${this.id}', password, NOW(), NOW()
       FROM "Account"
@@ -68,7 +70,15 @@ export class DisposableCredentialUser {
       `nojv:admin:mode:${sessionId}`,
       `nojv:2fa:change-grant:${sessionId}`,
     ]);
-    execFileSync("docker", ["exec", "nojv-redis-1", "redis-cli", "DEL", ...redisKeys]);
+    execFileSync("docker", [
+      "compose",
+      "exec",
+      "-T",
+      "redis",
+      "redis-cli",
+      "DEL",
+      ...redisKeys,
+    ]);
   }
 }
 

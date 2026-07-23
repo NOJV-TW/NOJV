@@ -58,11 +58,6 @@ export async function verifyTotpStepUp(code: string, headers: Headers): Promise<
   }
 }
 
-/**
- * A user can complete a device step-up if the master switch is on and they have
- * an enrolled factor — TOTP/2FA or a passkey. Both are provider-independent, so
- * this is the same gate for password and OAuth-only accounts.
- */
 export async function hasStepUpFactor(event: RequestEvent): Promise<boolean> {
   const userId = event.locals.sessionUser?.id;
   if (!userId || !(await isTwoFactorActivated(userId))) return false;

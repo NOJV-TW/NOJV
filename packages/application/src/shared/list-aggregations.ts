@@ -92,10 +92,6 @@ interface MaxScoreRow {
   _max: { score: number | null };
 }
 
-/**
- * Live per-target max: sum each problem's real total score (from DB testcase
- * weights) across a target's problem links, instead of the stale stored points.
- */
 async function liveTotalPointsByTarget(
   links: { targetId: string; problemId: string }[],
 ): Promise<Map<string, number>> {

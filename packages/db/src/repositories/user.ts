@@ -119,6 +119,19 @@ export const userRepo = {
     });
   },
 
+  claimOnboardingTour(id: string, role: "student" | "teacher") {
+    const seenAt = new Date();
+    return role === "student"
+      ? prisma.user.updateMany({
+          where: { id, platformRole: "student", studentTourSeenAt: null },
+          data: { studentTourSeenAt: seenAt },
+        })
+      : prisma.user.updateMany({
+          where: { id, platformRole: "teacher", teacherTourSeenAt: null },
+          data: { teacherTourSeenAt: seenAt },
+        });
+  },
+
   findDisabledStatus(id: string) {
     return prisma.user.findUnique({
       where: { id },

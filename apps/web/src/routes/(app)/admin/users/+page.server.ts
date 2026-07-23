@@ -10,7 +10,7 @@ const {
   listUsersPaginated,
   updateUserRole,
   toggleUserDisabled,
-  toggleUserAdvancedCreation,
+  setUserAdvancedCreation,
   setUserDisabled,
   deleteUser,
 } = userDomain;
@@ -135,18 +135,20 @@ export const actions = {
     return { success: true };
   }),
 
-  toggleAdvancedCreation: withAction(async (event) => {
+  updateAdvancedCreation: withAction(async (event) => {
     const actor = requireAuth(event);
     if (actor.platformRole !== "admin") {
       return fail(403, { error: "Admin access required." });
     }
-    const userId = readString(await event.request.formData(), "userId");
+    const formData = await event.request.formData();
+    const userId = readString(formData, "userId");
+    const allowed = readString(formData, "allowed");
 
-    if (!userId) {
+    if (!userId || (allowed !== "true" && allowed !== "false")) {
       return fail(400, { error: "Invalid input." });
     }
 
-    const result = await toggleUserAdvancedCreation(userId);
+    const result = await setUserAdvancedCreation(userId, allowed === "true");
     if (!result) return fail(404, { error: "User not found." });
     await auditDomain.recordAdminAudit({
       actorId: actor.userId,

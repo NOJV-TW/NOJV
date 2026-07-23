@@ -89,7 +89,7 @@ infra/charts/nojv/
     ├── worker-judge.deployment.yaml     # WORKER_MODE=judge (rendered FIRST)
     ├── worker-judge.keda.yaml           # opt-in KEDA ScaledObject (worker.judge.keda.enabled)
     ├── worker-platform.deployment.yaml  # WORKER_MODE=platform
-    ├── worker-rbac.yaml             # SA + Role + RoleBinding (manage Jobs in sandbox ns)
+    ├── worker-rbac.yaml             # split judge/platform SAs + least-privilege RoleBindings
     ├── worker-pdb.yaml              # guarded by pdb.enabled
     ├── app-network-policy.yaml      # worker-egress (guarded by networkPolicy.enabled)
     ├── sandbox-policy.yaml          # deny-all NetworkPolicy + ResourceQuota + LimitRange

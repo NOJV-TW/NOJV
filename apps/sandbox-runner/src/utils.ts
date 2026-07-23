@@ -10,6 +10,10 @@ export async function pathExists(filePath: string): Promise<boolean> {
   }
 }
 
+export function readOptionalFile(filePath: string): Promise<string | undefined> {
+  return fs.readFile(filePath, "utf-8").catch(() => undefined);
+}
+
 export function parseCgroupCpuUsageUsec(
   v2Stat: string | null,
   v1Nanos: string | null,
@@ -153,25 +157,21 @@ export interface BoundedBuffer {
   get truncated(): boolean;
 }
 
-export function withProcessLimit(
+export function withCpuTimeLimit(
   command: [string, ...string[]],
   opts?: { cpuSeconds?: number },
 ): [string, ...string[]] {
-  const limits: string[] = [];
-
-  const rawNproc = process.env.SANDBOX_NPROC_LIMIT;
-  if (rawNproc) {
-    const nproc = Number(rawNproc);
-    if (Number.isFinite(nproc) && nproc > 0) limits.push(`ulimit -u ${String(nproc)}`);
-  }
-
   const cpuSeconds = opts?.cpuSeconds;
-  if (cpuSeconds !== undefined && Number.isFinite(cpuSeconds) && cpuSeconds > 0) {
-    limits.push(`ulimit -t ${String(Math.ceil(cpuSeconds))}`);
+  if (cpuSeconds === undefined || !Number.isFinite(cpuSeconds) || cpuSeconds <= 0) {
+    return command;
   }
-
-  if (limits.length === 0) return command;
-  return ["bash", "-c", `${limits.join("; ")}; exec "$@"`, "--", ...command];
+  return [
+    "bash",
+    "-c",
+    `ulimit -t ${String(Math.ceil(cpuSeconds))}; exec "$@"`,
+    "--",
+    ...command,
+  ];
 }
 
 export function createBoundedBuffer(capBytes = DEFAULT_OUTPUT_CAP_BYTES): BoundedBuffer {

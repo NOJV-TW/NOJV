@@ -144,12 +144,13 @@ describe("verifyRegistryLogin", () => {
     await expect(verifyRegistryLogin("teacher", password)).resolves.toBeNull();
   });
 
-  it("admins stay valid without the flag and get the admin principal", async () => {
+  it("keeps admin credentials scoped to their own namespace", async () => {
     credFindByUsername.mockResolvedValue(
       credRow({ platformRole: "admin", canCreateAdvancedProblems: false }),
     );
     await expect(verifyRegistryLogin("teacher", password)).resolves.toEqual({
-      kind: "admin",
+      kind: "teacher",
+      namespace: "teacher",
     });
   });
 });

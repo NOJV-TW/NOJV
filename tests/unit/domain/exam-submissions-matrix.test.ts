@@ -5,7 +5,6 @@ const { findStudents, groupByUserAndProblem, findAllOverrides, findScoringInputs
     findStudents: vi.fn(),
     groupByUserAndProblem: vi.fn(),
     findAllOverrides: vi.fn(() => Promise.resolve([])),
-    // Live per-problem max = 100 per problem (matches the input points below).
     findScoringInputsByIds: vi.fn((ids: string[]) =>
       Promise.resolve(
         ids.map((id) => ({

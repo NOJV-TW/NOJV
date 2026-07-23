@@ -28,6 +28,10 @@ function project(name: string): TestProject {
 }
 
 describe("Vitest project routing", () => {
+  it("caps worker concurrency to protect developer machines", () => {
+    expect(vitestConfig.test?.maxWorkers).toBe("50%");
+  });
+
   it("keeps K8s tests out of ordinary integration", () => {
     expect(project("integration").test).toMatchObject({
       include: ["tests/integration/**/*.test.ts"],

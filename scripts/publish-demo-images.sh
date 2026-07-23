@@ -18,12 +18,14 @@ esac
 
 publish() {
   local name="$1"
-  local context="$2"
+  local dockerfile="$2"
+  local context="$3"
   local ref="${DEMO_IMAGE_REGISTRY%/}/${name}:${DEMO_IMAGE_TAG}"
   docker buildx build \
     --platform linux/amd64,linux/arm64 \
     --push \
     --tag "$ref" \
+    --file "$dockerfile" \
     "$context" >&2
 
   local digest
@@ -35,10 +37,12 @@ publish() {
   printf '%s@%s\n' "$ref" "$digest"
 }
 
-run_ref="$(publish nojv-demo-advanced-run infra/docker/demo-advanced-run)"
-grade_ref="$(publish nojv-demo-advanced-grade infra/docker/demo-advanced-grade)"
+run_ref="$(publish nojv-demo-advanced-run infra/docker/demo-advanced-run/Dockerfile .)"
+grade_ref="$(publish nojv-demo-advanced-grade infra/docker/demo-advanced-grade/Dockerfile .)"
 service_ref="$(
-  publish nojv-demo-advanced-service apps/web/src/lib/server/advanced-scaffold/files/service
+  publish nojv-demo-advanced-service \
+    apps/web/src/lib/server/advanced-scaffold/files/service/Dockerfile \
+    apps/web/src/lib/server/advanced-scaffold/files/service
 )"
 
 printf 'SEED_ADVANCED_RUN_IMAGE=%s\n' "$run_ref"

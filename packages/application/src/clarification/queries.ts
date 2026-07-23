@@ -44,7 +44,6 @@ export async function listForViewer(
   const db = toContextDbFields(context);
   const rows = await clarificationRepo.listForContext(db.contextType, db.contextId, since);
   const isStaff = await canSeeAuthor(viewer, context);
-  // Non-staff see only their own questions plus questions staff made public.
   const visible = isStaff
     ? rows
     : rows.filter((r) => r.askedByUserId === viewer.userId || r.isPublic);

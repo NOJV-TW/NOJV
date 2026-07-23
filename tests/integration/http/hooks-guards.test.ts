@@ -1,13 +1,17 @@
+import type { RequestHandler } from "@sveltejs/kit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestUser } from "../../fixtures/factories";
 import { callRoute } from "./_harness";
 
-const { resolveAdminElevationSpy, authConsumeSpy, signInConsumeSpy } = vi.hoisted(() => ({
-  resolveAdminElevationSpy: vi.fn(),
-  authConsumeSpy: vi.fn(),
-  signInConsumeSpy: vi.fn(),
-}));
+const { resolveAdminElevationSpy, authConsumeSpy, signInConsumeSpy, signOutSpy } = vi.hoisted(
+  () => ({
+    resolveAdminElevationSpy: vi.fn(),
+    authConsumeSpy: vi.fn(),
+    signInConsumeSpy: vi.fn(),
+    signOutSpy: vi.fn(),
+  }),
+);
 
 vi.mock("$lib/server/shared/rate-limiter", () => ({
   authRateLimiter: { consume: authConsumeSpy },
@@ -24,6 +28,7 @@ vi.mock("$lib/server/step-up", async () => {
 vi.mock("$lib/auth.server", () => ({
   getAuth: () => ({
     api: {
+      signOut: signOutSpy,
       getSession: async ({ headers }: { headers: Headers }) => {
         const userId = headers.get("x-test-user-id");
         if (!userId) return null;
@@ -50,11 +55,18 @@ vi.mock("$lib/server/env", () => ({
 }));
 
 const NO_RESOLVE = {};
+const inspectAdminMode: RequestHandler = (event) =>
+  new Response(JSON.stringify({ active: event.locals.adminModeActive }));
 
 beforeEach(() => {
   resolveAdminElevationSpy.mockClear();
   authConsumeSpy.mockReset().mockResolvedValue("allowed");
   signInConsumeSpy.mockReset().mockResolvedValue("allowed");
+  signOutSpy.mockReset().mockResolvedValue({
+    headers: new Headers({
+      "set-cookie": "__Secure-better-auth.session_token=; Max-Age=0; Path=/; HttpOnly; Secure",
+    }),
+  });
 });
 
 describe("hooks.server guard chain (request-layer redirects)", () => {
@@ -172,18 +184,22 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
     expect(res.headers.get("location")).toBe("/account/change-password");
   }, 30_000);
 
-  it("redirects a super admin without the 2FA master switch on to setup on /admin", async () => {
+  it("keeps a super admin without 2FA in ordinary mode without a global redirect", async () => {
     const user = await createTestUser({
       username: "admin_user",
       platformRole: "admin",
       isSuperAdmin: true,
     });
-    const res = await callRoute({ path: "/admin", module: NO_RESOLVE, user });
-    expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("/settings?setup2fa=1");
+    const res = await callRoute({
+      path: "/dashboard",
+      module: { GET: inspectAdminMode },
+      user,
+    });
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ active: false });
   }, 30_000);
 
-  it("redirects a super admin with 2FA on but an unverified session to step-up verify", async () => {
+  it("keeps an unverified 2FA-enabled super admin in ordinary mode", async () => {
     const { getRedis, keys } = await import("@nojv/redis");
     await getRedis().del(keys.adminSessionMfa("test-session"));
     const user = await createTestUser({
@@ -193,12 +209,16 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
       twoFactorEnabled: true,
       twoFactorActivated: true,
     });
-    const res = await callRoute({ path: "/admin", module: NO_RESOLVE, user });
-    expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("/account/api-tokens/verify?purpose=admin-mode");
+    const res = await callRoute({
+      path: "/dashboard",
+      module: { GET: inspectAdminMode },
+      user,
+    });
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ active: false });
   }, 30_000);
 
-  it("allows a super admin whose session already passed 2FA", async () => {
+  it("does not auto-elevate a super admin whose session already passed 2FA", async () => {
     const { markVerifiedSession, securityGenerationProof } = await import("@nojv/application");
     const { getRedis, keys } = await import("@nojv/redis");
     const user = await createTestUser({
@@ -211,8 +231,13 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
     await expect(
       markVerifiedSession("test-session", securityGenerationProof(user), true),
     ).resolves.toBe(true);
-    const res = await callRoute({ path: "/settings", module: NO_RESOLVE, user });
-    expect(res.status).not.toBe(302);
+    const res = await callRoute({
+      path: "/dashboard",
+      module: { GET: inspectAdminMode },
+      user,
+    });
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ active: false });
     await getRedis().del(keys.adminSessionMfa("test-session"));
   }, 30_000);
 
@@ -234,9 +259,14 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
 
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toBe("/signin?error=session-expired");
+    expect(res.headers.get("set-cookie")).toContain("Max-Age=0");
+    expect(signOutSpy).toHaveBeenCalledWith({
+      headers: expect.any(Headers),
+      returnHeaders: true,
+    });
   }, 30_000);
 
-  it("binds a verified-factor handoff to the new superadmin session before the gate", async () => {
+  it("binds a verified-factor handoff without auto-elevating the new superadmin session", async () => {
     const {
       createStepUpHandoffTicket,
       hasAdminSessionMfa,
@@ -257,13 +287,14 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
     const ticket = await createStepUpHandoffTicket(proof);
 
     const res = await callRoute({
-      path: "/admin",
-      module: NO_RESOLVE,
+      path: "/dashboard",
+      module: { GET: inspectAdminMode },
       user,
       cookies: { [STEP_UP_HANDOFF_COOKIE]: ticket },
     });
 
-    expect(res.status).not.toBe(302);
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ active: false });
     await expect(hasAdminSessionMfa("test-session", proof)).resolves.toBe(true);
     await expect(hasFreshStepUp("test-session", proof)).resolves.toBe(true);
     await getRedis().del(

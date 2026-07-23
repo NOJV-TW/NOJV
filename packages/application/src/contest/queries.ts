@@ -1,5 +1,6 @@
 import { contestRepo, participationRepo, submissionRepo } from "@nojv/db";
 import {
+  problemLetter,
   submissionVerdicts,
   type ContestScoringMode,
   type Language,
@@ -8,7 +9,6 @@ import {
 } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
-import { problemLetter } from "../shared/problem-letter";
 import { canManageContest } from "./permissions";
 
 export interface ContestListItem {
@@ -278,7 +278,6 @@ export async function listContestParticipantsWithUser(contestId: string) {
   return participationRepo.listContestParticipantsWithUser(contestId);
 }
 
-/** Viewer's contest participation, or null if they have not joined. */
 export async function findViewerContestParticipation(
   userId: string,
   contestId: string,

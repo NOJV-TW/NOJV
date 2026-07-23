@@ -43,6 +43,11 @@ spec:
       containers:
         - name: migrator
           image: {{ include "nojv.image" (dict "root" . "component" "migrator") }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              {{- .Files.Get "files/in-cluster-kubeconfig.sh" | nindent 14 }}
+              exec sh packages/db/prisma/scripts/deploy-release.sh
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

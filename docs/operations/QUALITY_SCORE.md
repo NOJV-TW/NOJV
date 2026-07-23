@@ -54,19 +54,11 @@ completed in `docs/plans/completed/2026-06-12-full-audit-remediation.md`.
 Code-level audit findings (security, performance, dead contracts) are tracked
 as phases in the remediation plan, not here.
 
-## Suppressed Security Advisories
+## Security Advisory Gate
 
-`package.json` → `pnpm.auditConfig.ignoreGhsas` suppresses the advisories below so
-the blocking `pnpm audit` gate stays meaningful for _actionable_ findings. The
-"zero high/critical" claim in the Security row is true modulo this list. Re-run
-`pnpm audit` without the ignores after each dependency bump and clear entries that
-upstream has fixed.
-
-| GHSA                | Package (transitive path)                                          | Why suppressed                                                                                                                                                                  | Re-review                                  |
-| ------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| GHSA-vmh5-mc38-953g | `undici` via `jsdom` (prod: `isomorphic-dompurify`; dev: `vitest`) | No non-breaking upstream fix pulled in by `jsdom`. In prod, `undici` is only reachable through `isomorphic-dompurify`'s server-side sanitisation, which makes no network calls. | Each `isomorphic-dompurify` / `jsdom` bump |
-| GHSA-vxpw-j846-p89q | `undici` via `jsdom` (prod: `isomorphic-dompurify`; dev: `vitest`) | Same transitive path; no actionable direct dependency.                                                                                                                          | Each `isomorphic-dompurify` / `jsdom` bump |
-| GHSA-hm92-r4w5-c3mj | `undici` via `jsdom` (prod: `isomorphic-dompurify`; dev: `vitest`) | Same transitive path; no actionable direct dependency.                                                                                                                          | Each `isomorphic-dompurify` / `jsdom` bump |
+The workspace has no `pnpm audit` advisory suppressions. The blocking audit
+therefore sees the complete dependency graph and currently reports zero known
+vulnerabilities.
 
 ## Recent Milestones
 

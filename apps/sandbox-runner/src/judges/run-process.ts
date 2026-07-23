@@ -6,7 +6,7 @@ import {
   readCgroupCpuUsageUsec,
   readCgroupMemoryCurrentBytes,
   readCgroupMemoryPeakBytes,
-  withProcessLimit,
+  withCpuTimeLimit,
 } from "../utils.js";
 
 const WALL_GRACE_FACTOR = 2;
@@ -58,7 +58,7 @@ export function runProcess(
 
     const useStdin = options.stdin !== undefined;
 
-    const wrapped = withProcessLimit(
+    const wrapped = withCpuTimeLimit(
       [cmd, ...args],
       options.cpuSeconds === undefined ? undefined : { cpuSeconds: options.cpuSeconds },
     );

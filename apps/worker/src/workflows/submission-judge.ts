@@ -27,6 +27,16 @@ const platformContest = proxyActivities<typeof lifecycleActivities>({
   taskQueue: PLATFORM_QUEUE,
 });
 
+function rootErrorMessage(error: unknown): string {
+  let message = error instanceof Error ? error.message : String(error);
+  let current = error;
+  for (let depth = 0; depth < 8 && current instanceof Error; depth++) {
+    if (current.message) message = current.message;
+    current = current.cause;
+  }
+  return message;
+}
+
 export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Promise<void> {
   const judgeRunId = workflowInfo().workflowId;
   let rejudgeLogId: string | null = null;
@@ -36,9 +46,11 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
       input.submissionId,
       input.forRejudge.triggeredByUserId,
       judgeRunId,
+      input.forRejudge.expectedJudgeGeneration ?? null,
     );
-    rejudgeLogId = snap?.logId ?? null;
-    rejudgeOldStatus = snap?.oldStatus ?? null;
+    if (snap === null) return;
+    rejudgeLogId = snap.logId;
+    rejudgeOldStatus = snap.oldStatus;
   } else {
     await judge.startSubmissionJudgeRun(input.submissionId, judgeRunId);
   }
@@ -104,7 +116,11 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
       );
     } else {
       await CancellationScope.nonCancellable(() =>
-        judge.failSubmissionJudgeRun(input.submissionId, judgeRunId),
+        judge.failSubmissionJudgeRun(
+          input.submissionId,
+          judgeRunId,
+          `Judge pipeline failed: ${rootErrorMessage(err)}`,
+        ),
       );
     }
     throw err;

@@ -39,7 +39,6 @@ export interface AskInput {
 
 export interface AnswerInput {
   answerText: string;
-  /** Public answers are broadcast to every participant; private ones stay with the asker. */
   isPublic: boolean;
 }
 

@@ -4,7 +4,7 @@
   import { page } from "$app/state";
   import { CheckCircle2, FileCode, ListFilter, Loader2, Search, XCircle } from "@lucide/svelte";
   import { Button } from "$lib/components/primitives/ui/button";
-  import * as Card from "$lib/components/primitives/ui/card";
+  import { Card } from "$lib/components/primitives/ui/card";
   import * as Dialog from "$lib/components/primitives/ui/dialog";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import { difficultyClass, tagClass } from "$lib/utils/verdict-style";
@@ -169,7 +169,7 @@
       {/if}
 
       {#each allProblems as problem, index (problem.id)}
-        <Card.Root
+        <Card
           variant="surface"
           size="lg"
           interactive
@@ -250,7 +250,7 @@
               <BookmarkButton problemId={problem.id} bookmarked={problem.bookmarked} />
             </div>
           {/if}
-        </Card.Root>
+        </Card>
       {/each}
     </section>
 

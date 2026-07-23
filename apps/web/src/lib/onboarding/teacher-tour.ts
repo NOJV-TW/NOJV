@@ -174,8 +174,15 @@ function gradebookSteps(): DriveStep[] {
   ];
 }
 
+export const teacherWelcomeIntro: Intro = {
+  key: "teacher-nav",
+  pad: 2,
+  match: (p) => p === "/dashboard",
+  build: navSteps,
+};
+
 const INTROS: Intro[] = [
-  { key: "teacher-nav", pad: 2, match: (p) => p === "/dashboard", build: navSteps },
+  teacherWelcomeIntro,
   {
     key: "teacher-welcome-guide",
     pad: 6,
@@ -223,6 +230,6 @@ const TA_KEYS = new Set([
 export const teacherIntros: Intro[] = INTROS;
 export const taIntros: Intro[] = INTROS.filter((i) => TA_KEYS.has(i.key));
 
-export function replayTeacherTour(userId: string): void {
-  replayTour(userId, teacherIntros);
+export function replayTeacherTour(): void {
+  replayTour(teacherIntros);
 }

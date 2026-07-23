@@ -5,10 +5,7 @@ export interface RegistryAccessEntry {
 }
 
 export type RegistryPrincipal =
-  | { kind: "anonymous" }
-  | { kind: "teacher"; namespace: string }
-  | { kind: "judge" }
-  | { kind: "admin" };
+  { kind: "anonymous" } | { kind: "teacher"; namespace: string } | { kind: "judge" };
 
 export const REGISTRY_DEMO_PREFIX = "demo/";
 export const REGISTRY_TEACHER_PREFIX = "t/";
@@ -34,8 +31,6 @@ export function parseRegistryScopes(scopes: string[]): RegistryAccessEntry[] {
 
 function allowedRepositoryActions(principal: RegistryPrincipal, name: string): string[] {
   switch (principal.kind) {
-    case "admin":
-      return ["pull", "push", "delete"];
     case "judge":
       return ["pull"];
     case "teacher": {
@@ -55,12 +50,6 @@ export function authorizeRegistryAccess(
 ): RegistryAccessEntry[] {
   const granted: RegistryAccessEntry[] = [];
   for (const entry of requested) {
-    if (entry.type === "registry") {
-      if (principal.kind === "admin" && entry.name === "catalog") {
-        granted.push({ type: "registry", name: "catalog", actions: ["*"] });
-      }
-      continue;
-    }
     if (entry.type !== "repository") continue;
     const allowed = allowedRepositoryActions(principal, entry.name);
     const actions = entry.actions.filter((a) => allowed.includes(a));

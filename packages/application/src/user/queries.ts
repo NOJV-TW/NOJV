@@ -142,12 +142,11 @@ export async function setUserDisabled(
   return userRepo.update(userId, { disabled });
 }
 
-export async function toggleUserAdvancedCreation(userId: string) {
+export async function setUserAdvancedCreation(userId: string, allowed: boolean) {
   const user = await userRepo.findById(userId);
   if (!user) return null;
-  return userRepo.update(userId, {
-    canCreateAdvancedProblems: !user.canCreateAdvancedProblems,
-  });
+  if (user.canCreateAdvancedProblems === allowed) return user;
+  return userRepo.update(userId, { canCreateAdvancedProblems: allowed });
 }
 
 export interface DashboardStats {

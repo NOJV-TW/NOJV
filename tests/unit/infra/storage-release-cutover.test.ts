@@ -253,6 +253,15 @@ describe("storage release cutover", () => {
             new RegExp(`name:\\s*${name}(?:\\s|$)`).test(document),
         );
 
+    for (const job of [migrator, resource("Job", "nojv-workloads-ready")]) {
+      expect(job).toContain('KUBECONFIG="${TMPDIR:-/tmp}/kubeconfig"');
+      expect(job).toContain(
+        "certificate-authority: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
+      );
+      expect(job).toContain("server: https://kubernetes.default.svc");
+      expect(job).toContain("tokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token");
+      expect(job).toContain('chmod 600 "$KUBECONFIG"');
+    }
     expect(migrator).toMatch(/name: RELEASE_OPERATION\n\s+value: "upgrade"/);
     expect(resource("Job", "nojv-workloads-ready")).toContain(
       "helm.sh/hook: post-upgrade,post-rollback",
@@ -375,7 +384,7 @@ describe("storage release cutover", () => {
     );
     expect(releaseScale).toBeGreaterThan(contract);
     expect(enableHpa).toBeGreaterThan(releaseScale);
-  });
+  }, 15_000);
 
   it("re-enters maintenance when the post-upgrade workloads do not become ready", () => {
     const harness = makeHarness();

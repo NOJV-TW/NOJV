@@ -93,13 +93,6 @@
   });
 </script>
 
-<!--
-  Full-bleed Carbon top bar. The bar is always dark in both themes, so we
-  re-scope the base color tokens on the <header> element to dark-surface
-  values; every token-driven child (logo, theme toggle, bell, user menu,
-  language pills) then renders correctly on the dark bar without per-child
-  overrides. The active-state tokens (--nav-active-*) stay mode-aware.
--->
 <header
   class={cn(
     "app-nav z-[var(--z-sticky)] w-full border-b",

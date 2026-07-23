@@ -3,7 +3,7 @@ import type { SubmissionJudgeDraft } from "./schemas/submission";
 export interface SubmissionJudgeInput {
   submissionId: string;
   draft: SubmissionJudgeDraft;
-  forRejudge?: { triggeredByUserId: string };
+  forRejudge?: { triggeredByUserId: string | null; expectedJudgeGeneration?: number };
 }
 
 export type SubmissionJudgeStatus = "queued" | "compiling" | "running" | "completed" | "failed";
@@ -23,7 +23,8 @@ export type RejudgeInput =
   | {
       mode: "single";
       submissionId: string;
-      triggeredByUserId: string;
+      triggeredByUserId: string | null;
+      expectedJudgeGeneration?: number;
     };
 
 export interface RejudgeProgress {

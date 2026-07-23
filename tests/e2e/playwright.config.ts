@@ -23,7 +23,7 @@ export default defineConfig({
   globalSetup: "../setup/playwright-global-setup.ts",
   webServer: {
     command: "pnpm --filter @nojv/web exec vite dev --host localhost --port 5174 --strictPort",
-    url: `${ORIGIN}/favicon.svg`,
+    url: `${ORIGIN}/admin-signin`,
     reuseExistingServer: false,
     cwd: "../..",
     env: {

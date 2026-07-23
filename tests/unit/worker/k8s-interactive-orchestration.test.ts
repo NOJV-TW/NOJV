@@ -152,7 +152,7 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
       await expect(execution).resolves.toBeDefined();
 
       expect(clients.batchApi.deleteNamespacedJob).toHaveBeenCalledTimes(2);
-      expect(clients.coreApi.deleteNamespacedConfigMap).toHaveBeenCalledTimes(4);
+      expect(clients.coreApi.deleteNamespacedConfigMap).toHaveBeenCalledTimes(6);
     } finally {
       vi.useRealTimers();
     }
@@ -168,16 +168,18 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
       clients.coreApi.deleteNamespacedConfigMap.mockImplementation(({ name }: any) => {
         const attempt = (attempts.get(name) ?? 0) + 1;
         attempts.set(name, attempt);
-        if (String(name).endsWith("-sol") && attempt === 1) return new Promise(() => {});
-        if (String(name).endsWith("-sol")) return Promise.reject({ code: 404 });
+        if (String(name).endsWith("-sol-pm") && attempt === 1) return new Promise(() => {});
+        if (String(name).endsWith("-sol-pm")) return Promise.reject({ code: 404 });
         return Promise.resolve();
       });
 
       const execution = execute(new K8sExecutor(EXEC_CONFIG, clients), request);
       await vi.runAllTimersAsync();
       await expect(execution).resolves.toBeDefined();
-      expect(attempts.get("judge-sub-int-orch-int-0-sol")).toBe(2);
-      expect(attempts.get("judge-sub-int-orch-int-0-int")).toBe(1);
+      expect(attempts.get("judge-sub-int-orch-int-0-sol-pm")).toBe(2);
+      expect(attempts.get("judge-sub-int-orch-int-0-sol-p0")).toBe(1);
+      expect(attempts.get("judge-sub-int-orch-int-0-int-pm")).toBe(1);
+      expect(attempts.get("judge-sub-int-orch-int-0-int-p0")).toBe(1);
     } finally {
       vi.useRealTimers();
     }
@@ -198,7 +200,7 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
       await rejection;
 
       expect(clients.batchApi.deleteNamespacedJob).toHaveBeenCalledTimes(3);
-      expect(clients.coreApi.deleteNamespacedConfigMap).toHaveBeenCalledTimes(6);
+      expect(clients.coreApi.deleteNamespacedConfigMap).toHaveBeenCalledTimes(12);
     } finally {
       vi.useRealTimers();
     }
@@ -251,8 +253,10 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     await expect(operation).rejects.toBe(reason);
     expect(record.jobsDeleted.map(({ name }) => name)).toEqual(["judge-unique-run-int-0"]);
     expect(record.configMapsDeleted.map(({ name }) => name).sort()).toEqual([
-      "judge-unique-run-int-0-int",
-      "judge-unique-run-int-0-sol",
+      "judge-unique-run-int-0-int-p0",
+      "judge-unique-run-int-0-int-pm",
+      "judge-unique-run-int-0-sol-p0",
+      "judge-unique-run-int-0-sol-pm",
     ]);
   });
 
@@ -291,7 +295,7 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     expect(reason.message).toContain("cleanup denied after cancellation");
   });
 
-  it("creates two ConfigMaps + one Job per case, sequentially, and cleans all of them up", async () => {
+  it("creates two sharded payloads + one Job per case, sequentially, and cleans all of them up", async () => {
     const record = emptyRecord();
     const request = makeRequest(3);
     const perJob = new Map([
@@ -328,12 +332,18 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     ]);
 
     expect(record.configMapsCreated.map((c) => c.name)).toEqual([
-      "judge-sub-int-orch-int-0-sol",
-      "judge-sub-int-orch-int-0-int",
-      "judge-sub-int-orch-int-1-sol",
-      "judge-sub-int-orch-int-1-int",
-      "judge-sub-int-orch-int-2-sol",
-      "judge-sub-int-orch-int-2-int",
+      "judge-sub-int-orch-int-0-sol-pm",
+      "judge-sub-int-orch-int-0-sol-p0",
+      "judge-sub-int-orch-int-0-int-pm",
+      "judge-sub-int-orch-int-0-int-p0",
+      "judge-sub-int-orch-int-1-sol-pm",
+      "judge-sub-int-orch-int-1-sol-p0",
+      "judge-sub-int-orch-int-1-int-pm",
+      "judge-sub-int-orch-int-1-int-p0",
+      "judge-sub-int-orch-int-2-sol-pm",
+      "judge-sub-int-orch-int-2-sol-p0",
+      "judge-sub-int-orch-int-2-int-pm",
+      "judge-sub-int-orch-int-2-int-p0",
     ]);
 
     expect(
@@ -408,7 +418,7 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
 
     expect(record.jobsCreated).toHaveLength(2);
     expect(record.jobsDeleted).toHaveLength(2);
-    expect(record.configMapsDeleted).toHaveLength(4);
+    expect(record.configMapsDeleted).toHaveLength(8);
   });
 
   it("a failed Job (e.g. activeDeadline) results in SE for that case", async () => {
@@ -423,7 +433,7 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
 
     expect(result.testcaseResults![0]!.verdict).toBe("SE");
     expect(record.jobsDeleted).toHaveLength(1);
-    expect(record.configMapsDeleted).toHaveLength(2);
+    expect(record.configMapsDeleted).toHaveLength(4);
   });
 
   it(

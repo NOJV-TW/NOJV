@@ -11,10 +11,6 @@ import {
 
 type ScoringMode = "problem_count" | "weighted_count" | (string & {});
 
-// problem_count (解題數) and weighted_count (積分制) share the all-or-nothing +
-// penalty algorithm; they differ only in whether a solved problem is worth 1
-// (count) or its configured points (weighted). Anything else (point_sum / 累分制)
-// is the partial-credit best-score sum.
 function isSolveCountMode(scoringMode: ScoringMode): boolean {
   return scoringMode === "problem_count" || scoringMode === "weighted_count";
 }

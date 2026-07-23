@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { goto, invalidateAll } from "$app/navigation";
   import { page } from "$app/state";
@@ -20,6 +21,9 @@
   import { buildActivityModel } from "$lib/utils/activity";
   import { relativeTime } from "$lib/utils/relative-time";
   import { formatChartSummary } from "$lib/utils/chart-summary";
+  import { startAutomaticTour } from "$lib/onboarding/engine";
+  import { studentWelcomeIntro } from "$lib/onboarding/student-tour";
+  import { teacherWelcomeIntro } from "$lib/onboarding/teacher-tour";
   import type { EChartsOption } from "echarts";
 
   let { data } = $props();
@@ -54,6 +58,30 @@
   const hasVerdictData = $derived(analytics.byVerdict.length > 0);
   const hasTagData = $derived(analytics.byTag.length > 0);
   const hasLanguageData = $derived(analytics.byLanguage.length > 0);
+
+  async function claimAutomaticTour(): Promise<boolean> {
+    try {
+      const response = await fetch("/api/account/onboarding-tour", {
+        method: "POST",
+        headers: { "x-requested-with": "fetch" },
+      });
+      if (!response.ok) return false;
+      const body = (await response.json()) as { show?: unknown };
+      return body.show === true;
+    } catch {
+      return false;
+    }
+  }
+
+  onMount(() => {
+    const intro =
+      data.automaticTourRole === "student"
+        ? studentWelcomeIntro
+        : data.automaticTourRole === "teacher"
+          ? teacherWelcomeIntro
+          : null;
+    if (intro) void startAutomaticTour(intro, claimAutomaticTour);
+  });
 
   const DEFAULT_THEME_COLORS = {
     success: "#2f9d6b",
@@ -214,9 +242,6 @@
 
   const tagScrolls = $derived(analytics.byTag.length > TAG_VISIBLE);
 
-  // Pin the value axis to the global max so scrolling the tag list doesn't
-  // rescale it — a bar of 3 must stay shorter than a bar of 5 regardless of
-  // which rows are currently in view.
   const tagMax = $derived(Math.max(1, ...analytics.byTag.map((g) => g.acCount)));
 
   const tagOption: EChartsOption = $derived({

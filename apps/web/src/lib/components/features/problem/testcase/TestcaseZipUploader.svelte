@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { MAX_TESTCASE_FILE_BYTES } from "@nojv/core";
   import JSZip from "jszip";
   import { invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
@@ -71,7 +72,17 @@
       for (const name of fileNames) {
         const zipEntry = zip.files[name];
         if (!zipEntry) continue;
-        const content = await zipEntry.async("string");
+        const bytes = await zipEntry.async("uint8array");
+        if (bytes.byteLength > MAX_TESTCASE_FILE_BYTES) {
+          onError(
+            m.testcases_fileTooLarge({
+              fileName: name,
+              max: MAX_TESTCASE_FILE_BYTES / (1024 * 1024),
+            }),
+          );
+          return;
+        }
+        const content = new TextDecoder().decode(bytes);
         allFiles.push({ name, content });
       }
 

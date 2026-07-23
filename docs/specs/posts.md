@@ -250,6 +250,10 @@ no standalone post pages.
   WHEN rendered,
   THEN DOMPurify's default URI allowlist rejects the `javascript:`
   scheme and the anchor is stripped or neutered.
+- GIVEN a post containing a third-party HTTPS image,
+  WHEN rendered,
+  THEN its source points to `/api/images/proxy`, direct remote `src`/`srcset`
+  loads are absent, and a proxy failure never falls back to the third-party URL.
 
 ### In-panel UI behavior
 

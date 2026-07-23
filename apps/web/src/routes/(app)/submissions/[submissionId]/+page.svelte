@@ -5,7 +5,7 @@
   import { watchSubmissionVerdict } from "$lib/stores/sse";
   import { formatDateTime } from "$lib/utils/datetime";
   import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
-  import { languageLabel } from "$lib/utils/language-labels";
+  import { languageLabel } from "@nojv/core";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import { flattenSourcesForDisplay } from "$lib/utils/submission-source-display";
   import SubtaskResultTree from "$lib/components/features/submission/SubtaskResultTree.svelte";

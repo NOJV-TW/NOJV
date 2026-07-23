@@ -25,6 +25,7 @@ import {
   validatorTimeoutMs,
 } from "./judges/validate.js";
 import { normalizeRelativePath } from "@nojv/core";
+import { materializePayload } from "./payload-materializer.js";
 
 const SUBMISSION_DIR = "/submission";
 const ARTIFACT_DIR = "/artifact";
@@ -348,6 +349,11 @@ function resolveCaseIndex(config: SandboxInput): number | null {
 }
 
 async function main(): Promise<void> {
+  if (process.env.SANDBOX_PHASE === "materialize") {
+    await materializePayload({ payloadDir: "/payload", submissionDir: SUBMISSION_DIR });
+    return;
+  }
+
   log("Reading config...");
   const config = await readConfig();
   log(
