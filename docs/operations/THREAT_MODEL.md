@@ -213,7 +213,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 - UUID filenames: `problems/{problemId}/images/{uuid}.{ext}` — no user-controlled path components
 - Images stored in S3-compatible storage (MinIO local, GCS/R2/S3 production)
 - URLs embedded as markdown image syntax in problem statements
-- Remote Markdown images are rewritten to the same-origin proxy before sanitized HTML reaches the browser; `img-src` allows only `self`, `data:`, and `blob:`.
+- Remote Markdown images are rewritten to the same-origin proxy before sanitized HTML reaches the browser; `img-src` otherwise allows only `self`, `data:`, `blob:`, and the explicit GitHub/Google avatar hosts used by the application.
 - The proxy accepts HTTPS on port 443 only, rejects credentials and non-public DNS answers, pins the chosen address into the TLS request, and repeats the checks for every redirect (maximum three).
 - Remote responses have a 5-second timeout and 5 MB streaming cap. Their bytes must pass the same png/jpeg/gif/webp magic-number validation as uploads; upstream MIME is ignored.
 - The first successful response for a canonical URL is cached atomically under `remote-images/<sha256(url)>`. Cache hits never contact the remote host, while cache misses use a separate strict 10/minute/IP limiter.
