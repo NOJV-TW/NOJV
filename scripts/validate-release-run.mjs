@@ -5,6 +5,7 @@ import { appendFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
+const VERSION_PATTERN = /^v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/;
 const RELEASE_PACKAGES = ["nojv-web", "nojv-worker", "nojv-migrator", "nojv-sandbox"];
 
 function requireValue(label, actual, expected) {
@@ -16,13 +17,13 @@ function requireValue(label, actual, expected) {
 export function validateReleaseRun(input) {
   if (!input.expectedRepository) throw new Error("expected repository is required");
 
-  requireValue("workflow name", input.workflowName, "CI");
-  requireValue("workflow path", input.workflowPath, ".github/workflows/ci.yml");
   requireValue("event", input.event, "push");
-  requireValue("conclusion", input.conclusion, "success");
-  requireValue("branch", input.branch, "main");
   requireValue("repository", input.repository, input.expectedRepository);
 
+  if (!VERSION_PATTERN.test(input.refName ?? "")) {
+    throw new Error("release tag must be stable vX.Y.Z");
+  }
+  requireValue("ref", input.ref, `refs/tags/${input.refName}`);
   if (!SHA_PATTERN.test(input.releaseSha)) {
     throw new Error("release SHA must be a lowercase 40-character commit SHA");
   }
@@ -31,8 +32,24 @@ export function validateReleaseRun(input) {
       `checked-out SHA ${input.checkedOutSha || "<empty>"} does not match release SHA ${input.releaseSha}`,
     );
   }
+  if (!input.mainContainsRelease) {
+    throw new Error(`release SHA ${input.releaseSha} must be contained in main`);
+  }
+  if (
+    !Array.isArray(input.checkRuns) ||
+    !input.checkRuns.some(
+      (check) =>
+        check?.name === "Verify Repository" &&
+        check?.head_sha === input.releaseSha &&
+        check?.status === "completed" &&
+        check?.conclusion === "success" &&
+        check?.app?.slug === "github-actions",
+    )
+  ) {
+    throw new Error("release commit must have a successful Verify Repository check");
+  }
 
-  return { releaseSha: input.releaseSha, imageTag: input.releaseSha };
+  return { releaseSha: input.releaseSha, imageTag: input.refName };
 }
 
 export function validateDeployAdvance(input) {
@@ -62,6 +79,7 @@ export function validateDeployAdvance(input) {
 /**
  * @param {{
  *   releaseSha: string;
+ *   imageTag: string;
  *   remoteDeployTags: string[];
  *   packageTags: Record<string, string[]>;
  * }} input
@@ -70,15 +88,18 @@ export function validatePublicationState(input) {
   if (!SHA_PATTERN.test(input.releaseSha)) {
     throw new Error("release SHA must be a lowercase 40-character commit SHA");
   }
+  if (!VERSION_PATTERN.test(input.imageTag)) {
+    throw new Error("image tag must be stable vX.Y.Z");
+  }
 
-  const deployTag = `refs/tags/nojv-deploy-${input.releaseSha}`;
+  const deployTag = `refs/tags/nojv-deploy-${input.imageTag}`;
   if (input.remoteDeployTags.includes(deployTag)) {
     throw new Error(`immutable deploy tag already exists: ${deployTag}`);
   }
 
   return {
     existingImages: RELEASE_PACKAGES.filter((packageName) =>
-      (input.packageTags[packageName] ?? []).includes(input.releaseSha),
+      (input.packageTags[packageName] ?? []).includes(input.imageTag),
     ),
   };
 }
@@ -86,6 +107,9 @@ export function validatePublicationState(input) {
 export function validatePublishedImage(input) {
   if (!SHA_PATTERN.test(input.releaseSha)) {
     throw new Error("release SHA must be a lowercase 40-character commit SHA");
+  }
+  if (!VERSION_PATTERN.test(input.imageTag) && !SHA_PATTERN.test(input.imageTag)) {
+    throw new Error("image tag must be an immutable source SHA or stable vX.Y.Z");
   }
   if (
     typeof input.ref !== "string" ||
@@ -101,7 +125,7 @@ export function validatePublishedImage(input) {
     throw new Error("docker image inspect must return exactly one image");
   }
   const image = input.inspect[0];
-  const expectedTag = `${input.ref}:${input.releaseSha}`;
+  const expectedTag = `${input.ref}:${input.imageTag}`;
   if (!Array.isArray(image?.RepoTags) || !image.RepoTags.includes(expectedTag)) {
     throw new Error(`published image is missing the immutable tag ${expectedTag}`);
   }
@@ -119,8 +143,8 @@ export function validatePublishedImage(input) {
   if (labels?.["org.opencontainers.image.revision"] !== input.releaseSha) {
     throw new Error("published image OCI revision does not match the release SHA");
   }
-  if (labels?.["org.opencontainers.image.version"] !== input.releaseSha) {
-    throw new Error("published image OCI version does not match the release SHA");
+  if (labels?.["org.opencontainers.image.version"] !== input.imageTag) {
+    throw new Error("published image OCI version does not match the image tag");
   }
   return { digest };
 }
@@ -226,20 +250,59 @@ function writeOutputs(output) {
   appendFileSync(process.env.GITHUB_OUTPUT, output);
 }
 
-function validateReleaseRunFromEnvironment() {
+async function listCheckRuns({ apiRoot, repository, releaseSha, token }) {
+  const url = new URL(`/repos/${repository}/commits/${releaseSha}/check-runs`, apiRoot);
+  url.searchParams.set("check_name", "Verify Repository");
+  url.searchParams.set("filter", "latest");
+  url.searchParams.set("per_page", "100");
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${token}`,
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`GitHub check lookup failed: ${response.status} ${response.statusText}`);
+  }
+  const payload = await response.json();
+  if (!Array.isArray(payload?.check_runs)) {
+    throw new Error("GitHub check lookup returned invalid data");
+  }
+  return payload.check_runs;
+}
+
+async function validateReleaseRunFromEnvironment() {
   const checkedOutSha = execFileSync("git", ["rev-parse", "HEAD"], {
     encoding: "utf8",
   }).trim();
+  const repository = process.env.RELEASE_REPOSITORY ?? "";
+  const token = process.env.GH_TOKEN ?? "";
+  const apiRoot = process.env.GITHUB_API_ROOT ?? "";
+  if (!token || !apiRoot) throw new Error("GH_TOKEN and GITHUB_API_ROOT are required");
+  const ancestry = spawnSync(
+    "git",
+    ["merge-base", "--is-ancestor", checkedOutSha, "refs/remotes/origin/main"],
+    { encoding: "utf8" },
+  );
+  if (ancestry.status !== 0 && ancestry.status !== 1) {
+    throw new Error(ancestry.stderr.trim() || "git merge-base failed");
+  }
   const release = validateReleaseRun({
-    workflowName: process.env.RELEASE_WORKFLOW_NAME,
-    workflowPath: process.env.RELEASE_WORKFLOW_PATH,
     event: process.env.RELEASE_EVENT,
-    conclusion: process.env.RELEASE_CONCLUSION,
-    branch: process.env.RELEASE_BRANCH,
-    repository: process.env.RELEASE_REPOSITORY,
+    ref: process.env.RELEASE_REF,
+    refName: process.env.RELEASE_TAG,
+    repository,
     expectedRepository: process.env.GITHUB_REPOSITORY,
-    releaseSha: process.env.RELEASE_SHA,
+    releaseSha: checkedOutSha,
     checkedOutSha,
+    mainContainsRelease: ancestry.status === 0,
+    checkRuns: await listCheckRuns({
+      apiRoot,
+      repository,
+      releaseSha: checkedOutSha,
+      token,
+    }),
   });
   writeOutputs(`release_sha=${release.releaseSha}\nimage_tag=${release.imageTag}\n`);
 }
@@ -267,13 +330,14 @@ function validateDeployAdvanceFromEnvironment() {
 
 async function validatePublicationStateFromEnvironment() {
   const releaseSha = process.env.RELEASE_SHA ?? "";
+  const imageTag = process.env.IMAGE_TAG ?? "";
   const owner = process.env.PACKAGE_OWNER ?? "";
   const token = process.env.GH_TOKEN ?? "";
   const apiRoot = process.env.GITHUB_API_ROOT ?? "";
   if (!owner || !token || !apiRoot) {
     throw new Error("PACKAGE_OWNER, GH_TOKEN, and GITHUB_API_ROOT are required");
   }
-  const deployTag = `refs/tags/nojv-deploy-${releaseSha}`;
+  const deployTag = `refs/tags/nojv-deploy-${imageTag}`;
   const remoteDeployTags = execFileSync("git", ["ls-remote", "--tags", "origin", deployTag], {
     encoding: "utf8",
   })
@@ -288,7 +352,12 @@ async function validatePublicationStateFromEnvironment() {
       ]),
     ),
   );
-  const publication = validatePublicationState({ releaseSha, remoteDeployTags, packageTags });
+  const publication = validatePublicationState({
+    releaseSha,
+    imageTag,
+    remoteDeployTags,
+    packageTags,
+  });
   writeOutputs(`existing_images=${JSON.stringify(publication.existingImages)}\n`);
 }
 
@@ -301,6 +370,7 @@ function validatePublishedImageFromEnvironment() {
   }
   const image = validatePublishedImage({
     releaseSha: process.env.RELEASE_SHA ?? "",
+    imageTag: process.env.IMAGE_TAG ?? "",
     ref: process.env.IMAGE_REF ?? "",
     inspect,
   });

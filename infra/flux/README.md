@@ -6,18 +6,18 @@ the cluster, watches this git repo + GHCR, and reconciles the existing
 runner from the production attack surface (see
 `docs/plans/active/2026-07-08-flux-gitops-cutover.md`).
 
-## How auto-pull works (CI-driven via the `deploy` branch)
+## How releases work (`vX.Y.Z` → `deploy` branch)
 
 The org has **deploy keys disabled** and **main is branch-protected** (PR +
 approval), so neither a cluster-side Flux `ImageUpdateAutomation` nor a bot can
-push image bumps to main. Instead the image tag is published by CI to a
+push image bumps to main. Instead the version tag is published by CI to a
 dedicated **`deploy` branch** that Flux tracks — no cluster git-write, no
 change to main's protection:
 
 ```
-push to main
-  → build-images.yml (GitHub-hosted): build + push images to GHCR,
-    then `git checkout -B deploy`, write the source commit, matching image tag, and all four Buildx
+push vX.Y.Z tag for a main commit whose Verify Repository check passed
+  → build-images.yml (GitHub-hosted): build + push vX.Y.Z images to GHCR,
+    then `git checkout -B deploy`, write the source commit, version tag, and all four Buildx
     manifest digests into
     infra/charts/nojv/values-single-machine.yaml, and force-push the deploy
     branch (GITHUB_TOKEN, contents: write — allowed on the unprotected branch)
@@ -26,14 +26,24 @@ push to main
     that one revision → HelmRelease performs one upgrade → pods roll. Hands-off.
 ```
 
-`deploy` is always `main` + the source SHA, matching built tag, and registry-verified digests in the packaged chart values
+`deploy` is always the tagged main commit plus its `vX.Y.Z` image tag and
+registry-verified digests in the packaged chart values
 (force-reset each build), so chart/config and image changes cannot reconcile as
 separate Helm upgrades. The HelmRelease itself has no inline image override.
 Each successful publish also retains the exact deploy commit as
 `nojv-deploy-<image-tag>` so a known release remains recoverable after the
 branch moves.
-Pushing to `deploy` does not re-trigger CI (build-images and ci only trigger on
-main).
+Pushing to `main` runs CI but does not publish images. Release with:
+
+```bash
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
+
+The release fails before package writes unless the tag is stable SemVer, points
+to a commit contained in `main`, and that commit has a successful
+`Verify Repository` check. Pushing to `deploy` does not re-trigger CI or the
+release workflow.
 
 ## Live state (2026-07-08)
 
@@ -65,8 +75,7 @@ git push "--force-with-lease=refs/heads/deploy:${current_deploy_tip}" origin \
 The grep must return exactly those three templates; also verify the selected
 release contains the intended tag and four digests. If the candidate lacks the
 active contract, keep workloads in maintenance and ship a forward fix from
-current `main`. A later successful main build intentionally advances `deploy`
-again.
+current `main`. A later version tag intentionally advances `deploy` again.
 
 ## Files
 
@@ -118,7 +127,7 @@ HelmRelease remains failed closed if this Secret is absent or incomplete.
 
 **Release ownership handoff:** the live release is named `nojv`. `helmrelease.yaml`
 uses the same `releaseName: nojv` so Flux's helm-controller adopts it. Pin
-`release.sourceSha`, the identical `image.tag`, and every `image.digests.*` value in `values-single-machine.yaml` to
+`release.sourceSha`, its `vX.Y.Z` `image.tag`, and every `image.digests.*` value in `values-single-machine.yaml` to
 the **currently deployed** immutable references
 before the first reconcile so nothing rolls unexpectedly. **Preserve all PVCs
 — the CNPG Postgres data and MinIO buckets live on them.** If a clean reinstall

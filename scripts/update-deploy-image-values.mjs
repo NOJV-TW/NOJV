@@ -3,11 +3,15 @@ import { pathToFileURL } from "node:url";
 
 const DIGEST = /^sha256:[a-f0-9]{64}$/u;
 const SOURCE_SHA = /^[a-f0-9]{40}$/u;
+const VERSION = /^v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/u;
 const COMPONENTS = ["web", "worker", "sandbox", "migrator"];
 
-export function updateDeployImageValues(content, { tag, digests }) {
-  if (!SOURCE_SHA.test(tag)) {
-    throw new Error("IMAGE_TAG must be the lowercase 40-character release commit SHA");
+export function updateDeployImageValues(content, { sourceSha, tag, digests }) {
+  if (!SOURCE_SHA.test(sourceSha)) {
+    throw new Error("RELEASE_SHA must be the lowercase 40-character release commit SHA");
+  }
+  if (!VERSION.test(tag)) {
+    throw new Error("IMAGE_TAG must be stable vX.Y.Z");
   }
   for (const component of COMPONENTS) {
     if (!DIGEST.test(digests[component] ?? "")) {
@@ -40,7 +44,7 @@ export function updateDeployImageValues(content, { tag, digests }) {
       if (inRelease && /^\S/u.test(line)) inRelease = false;
       if (inRelease && /^  sourceSha:/u.test(line)) {
         sourceShaCount += 1;
-        return `  sourceSha: ${tag}`;
+        return `  sourceSha: ${sourceSha}`;
       }
       if (inImage && /^\S/u.test(line)) {
         inImage = false;
@@ -98,6 +102,7 @@ function main() {
     ]),
   );
   const updated = updateDeployImageValues(readFileSync(valuesFile, "utf8"), {
+    sourceSha: requiredEnvironment("RELEASE_SHA"),
     tag: requiredEnvironment("IMAGE_TAG"),
     digests,
   });

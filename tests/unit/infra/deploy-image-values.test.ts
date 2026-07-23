@@ -4,6 +4,7 @@ import { updateDeployImageValues } from "../../../scripts/update-deploy-image-va
 
 const digest = (digit: string) => `sha256:${digit.repeat(64)}`;
 const releaseSha = "a".repeat(40);
+const imageTag = "v1.2.3";
 const input = `release:
   sourceSha: ""
 image:
@@ -21,7 +22,8 @@ describe("deploy image value publication", () => {
   it("atomically records one release tag and every verified component digest", () => {
     expect(
       updateDeployImageValues(input, {
-        tag: releaseSha,
+        sourceSha: releaseSha,
+        tag: imageTag,
         digests: {
           web: digest("1"),
           worker: digest("2"),
@@ -33,7 +35,7 @@ describe("deploy image value publication", () => {
   sourceSha: ${releaseSha}
 image:
   registry: ghcr.io
-  tag: ${releaseSha}
+  tag: ${imageTag}
   digests:
     web: ${digest("1")}
     worker: ${digest("2")}
@@ -46,7 +48,8 @@ other: true
   it("rejects malformed digests and incomplete values layouts", () => {
     expect(() =>
       updateDeployImageValues(input, {
-        tag: releaseSha,
+        sourceSha: releaseSha,
+        tag: imageTag,
         digests: {
           web: "sha256:unverified",
           worker: digest("2"),
@@ -58,7 +61,8 @@ other: true
 
     expect(() =>
       updateDeployImageValues(input.replace('    sandbox: ""\n', ""), {
-        tag: releaseSha,
+        sourceSha: releaseSha,
+        tag: imageTag,
         digests: {
           web: digest("1"),
           worker: digest("2"),
@@ -69,11 +73,12 @@ other: true
     ).toThrow(/exactly one image\.digests\.sandbox/u);
   });
 
-  it.each(["latest", "main", "master", "local", "abc123", "A".repeat(40)])(
-    "rejects the non-SHA deployment tag %s",
+  it.each(["latest", "main", "v1", "v1.2", "v1.2.3-rc.1", "1.2.3"])(
+    "rejects the non-release deployment tag %s",
     (tag) => {
       expect(() =>
         updateDeployImageValues(input, {
+          sourceSha: releaseSha,
           tag,
           digests: {
             web: digest("1"),
@@ -82,14 +87,30 @@ other: true
             migrator: digest("4"),
           },
         }),
-      ).toThrow(/40-character release commit SHA/u);
+      ).toThrow(/vX\.Y\.Z/u);
     },
   );
+
+  it("rejects a malformed source commit", () => {
+    expect(() =>
+      updateDeployImageValues(input, {
+        sourceSha: "main",
+        tag: imageTag,
+        digests: {
+          web: digest("1"),
+          worker: digest("2"),
+          sandbox: digest("3"),
+          migrator: digest("4"),
+        },
+      }),
+    ).toThrow(/40-character release commit SHA/u);
+  });
 
   it("rejects a values layout without exactly one release source identity", () => {
     expect(() =>
       updateDeployImageValues(input.replace('  sourceSha: ""\n', ""), {
-        tag: releaseSha,
+        sourceSha: releaseSha,
+        tag: imageTag,
         digests: {
           web: digest("1"),
           worker: digest("2"),

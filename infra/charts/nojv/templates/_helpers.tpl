@@ -44,10 +44,15 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- if not (regexMatch "^[a-f0-9]{40}$" $sourceSha) }}
 {{- fail "release.sourceSha must be a lowercase 40-character commit SHA" }}
 {{- end }}
-{{- if ne $sourceSha (default .Chart.AppVersion .Values.image.tag) }}
-{{- fail "release.sourceSha must equal image.tag" }}
+{{- $imageTag := default .Chart.AppVersion .Values.image.tag }}
+{{- $isVersion := regexMatch "^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" $imageTag }}
+{{- if and (eq .Values.image.registry "ghcr.io") (not $isVersion) }}
+{{- fail "GHCR production image.tag must be stable vX.Y.Z" }}
 {{- end }}
-app.kubernetes.io/version: {{ $sourceSha | quote }}
+{{- if not (or (regexMatch "^[a-f0-9]{40}$" $imageTag) $isVersion) }}
+{{- fail "image.tag must be an immutable source SHA or stable vX.Y.Z" }}
+{{- end }}
+app.kubernetes.io/version: {{ $imageTag | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/part-of: nojv

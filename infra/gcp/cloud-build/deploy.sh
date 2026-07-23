@@ -350,6 +350,7 @@ validate_component_image() {
   docker pull "${ref}:${IMAGE_TAG}" >/dev/null
   inspect="$(docker image inspect "${ref}:${IMAGE_TAG}")"
   digest="$(IMAGE_INSPECT_JSON="$inspect" \
+    IMAGE_TAG="$IMAGE_TAG" \
     IMAGE_REF="$ref" \
     RELEASE_SHA="$RELEASE_SHA" \
     node "$REPO_ROOT/scripts/validate-release-run.mjs" published-image)"

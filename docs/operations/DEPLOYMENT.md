@@ -234,12 +234,18 @@ single-machine values overlay, and covers all three autoscaling layers
 (per-submission judge Pods, worker replicas, node join). It is the entry point
 on the spectrum **single-node k3s → multi-node k3s → GKE** ([GKE Rollout](#gke-rollout)).
 
-**CD pipeline (`.github/workflows/deploy.yml`).** On merge to `main`, after CI
-passes, a GitHub-hosted job builds and pushes the runtime images to GHCR
-(`ghcr.io/nojv-tw/nojv-{web,worker,sandbox,migrator}:<sha>`), then
-the self-hosted runner on the k3s box runs `helm upgrade` — k3s pulls the images
-from GHCR (no local `docker build`/`ctr import`). One-time: set those five GHCR
+**CD pipeline (`.github/workflows/build-images.yml`).** Merging to `main` runs
+CI only. Pushing a stable `vX.Y.Z` tag for a main commit whose
+`Verify Repository` check passed builds and pushes the four runtime images to
+GHCR under that version. The workflow writes the source SHA, version tag, and
+four verified digests to the `deploy` branch; Flux reconciles that branch and
+k3s pulls the digest-pinned images from GHCR. One-time: set those four GHCR
 packages to **Public** so k3s can pull without an imagePullSecret.
+
+```bash
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
 
 ### Single-machine capacity ceiling (static — autoscaling is wired but inert)
 

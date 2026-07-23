@@ -1,13 +1,19 @@
 export function validateReleaseRun(input: {
-  workflowName?: string;
-  workflowPath?: string;
   event?: string;
-  conclusion?: string;
-  branch?: string;
+  ref?: string;
+  refName?: string;
   repository?: string;
   expectedRepository?: string;
   releaseSha?: string;
   checkedOutSha?: string;
+  mainContainsRelease?: boolean;
+  checkRuns?: Array<{
+    name?: string;
+    head_sha?: string;
+    status?: string;
+    conclusion?: string;
+    app?: { slug?: string };
+  }>;
 }): { releaseSha: string; imageTag: string };
 
 export function validateDeployAdvance(input: {
@@ -18,12 +24,14 @@ export function validateDeployAdvance(input: {
 
 export function validatePublicationState(input: {
   releaseSha: string;
+  imageTag: string;
   remoteDeployTags: string[];
   packageTags: Record<string, string[]>;
 }): { existingImages: string[] };
 
 export function validatePublishedImage(input: {
   releaseSha: string;
+  imageTag: string;
   ref: string;
   inspect: Array<{
     RepoTags?: string[];
