@@ -9,6 +9,8 @@ stage="$(mktemp -d "${TMPDIR:-/tmp}/nojv-expand-migrations.XXXXXX")"
 trap 'rm -rf "$stage"' EXIT INT TERM
 
 cd "$package_root"
+PATH="$PATH:$package_root/node_modules/.bin"
+export PATH
 cp prisma/migrations/migration_lock.toml "$stage/migration_lock.toml"
 
 found_contract=false
@@ -35,4 +37,4 @@ done
   exit 1
 }
 
-PRISMA_MIGRATIONS_PATH="$stage" pnpm exec prisma migrate deploy
+PRISMA_MIGRATIONS_PATH="$stage" prisma migrate deploy

@@ -6,9 +6,11 @@ set -eu
 
 package_root="$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)"
 cd "$package_root"
+PATH="$PATH:$package_root/node_modules/.bin"
+export PATH
 
 if [ "$RELEASE_OPERATION" = install ]; then
-  exec pnpm exec prisma migrate deploy
+  exec prisma migrate deploy
 fi
 [ "$RELEASE_OPERATION" = upgrade ] || {
   echo "RELEASE_OPERATION must be install or upgrade" >&2
@@ -163,7 +165,7 @@ trap 'terminate 130' INT
 trap 'terminate 143' TERM
 
 read_contract_status() {
-  timeout "${STATUS_TIMEOUT_SECONDS}s" pnpm exec node --import tsx \
+  timeout "${STATUS_TIMEOUT_SECONDS}s" node --import tsx \
     prisma/scripts/storage-pointer-cutover.ts status
 }
 
@@ -172,7 +174,7 @@ case "$contract_status" in
   applied) ;;
   pending) run_guarded sh prisma/scripts/deploy-expand.sh ;;
   recoverable)
-    run_guarded pnpm exec prisma migrate resolve --rolled-back "$contract_migration"
+    run_guarded prisma migrate resolve --rolled-back "$contract_migration"
     contract_status="$(read_contract_status)"
     [ "$contract_status" = pending ] || {
       echo "Storage contract history recovery did not restore a pending state" >&2
@@ -255,9 +257,9 @@ if [ "$contract_status" = pending ]; then
   # From this point onward, restoring the old workloads could silently lose
   # rollback-window writes when the immutable pointers are contracted later.
   restore_safe=false
-  run_guarded pnpm exec node --import tsx prisma/scripts/storage-pointer-cutover.ts backfill
-  run_guarded pnpm exec node --import tsx prisma/scripts/storage-pointer-cutover.ts verify
-  run_guarded pnpm exec node --import tsx prisma/scripts/storage-pointer-cutover.ts preflight
+  run_guarded node --import tsx prisma/scripts/storage-pointer-cutover.ts backfill
+  run_guarded node --import tsx prisma/scripts/storage-pointer-cutover.ts verify
+  run_guarded node --import tsx prisma/scripts/storage-pointer-cutover.ts preflight
 fi
 
 assert_drained "$WEB_DEPLOYMENT" "$WEB_POD_SELECTOR"
@@ -273,6 +275,6 @@ if [ "$JUDGE_KEDA_ENABLED" = true ]; then
 fi
 
 restore_safe=false
-run_guarded pnpm exec prisma migrate deploy
+run_guarded prisma migrate deploy
 
 echo "Release migrations completed with old workloads held at zero." >&2

@@ -30,10 +30,10 @@ function makeHarness(): { bin: string; directory: string; events: string; status
   writeFileSync(join(directory, "keda-paused"), "");
 
   writeFileSync(
-    join(bin, "pnpm"),
+    join(bin, "node"),
     `#!/bin/sh
 set -eu
-printf 'pnpm %s stage=%s\n' "$*" "\${PRISMA_MIGRATIONS_PATH:-full}" >> "$EVENT_LOG"
+printf 'node %s stage=%s\n' "$*" "\${PRISMA_MIGRATIONS_PATH:-full}" >> "$EVENT_LOG"
 case "$*" in
   *"storage-pointer-cutover.ts status"*)
     calls="$(( $(cat "$HARNESS_DIR/status-calls") + 1 ))"
@@ -50,10 +50,20 @@ case "$*" in
   *"storage-pointer-cutover.ts preflight"*)
     [ "\${FAIL_STEP:-}" != preflight ]
     ;;
-  *"prisma migrate resolve --rolled-back"*)
+esac
+`,
+    { mode: 0o755 },
+  );
+  writeFileSync(
+    join(bin, "prisma"),
+    `#!/bin/sh
+set -eu
+printf 'prisma %s stage=%s\n' "$*" "\${PRISMA_MIGRATIONS_PATH:-full}" >> "$EVENT_LOG"
+case "$*" in
+  *"migrate resolve --rolled-back"*)
     printf pending > "$HARNESS_DIR/contract-status"
     ;;
-  *"prisma migrate deploy"*)
+  *"migrate deploy"*)
     if [ -z "\${PRISMA_MIGRATIONS_PATH:-}" ]; then
       case "\${FINAL_MIGRATE_RESULT:-success}" in
         pending-fail) exit 9 ;;
@@ -153,7 +163,8 @@ esac
 `,
     { mode: 0o755 },
   );
-  chmodSync(join(bin, "pnpm"), 0o755);
+  chmodSync(join(bin, "node"), 0o755);
+  chmodSync(join(bin, "prisma"), 0o755);
   chmodSync(join(bin, "kubectl"), 0o755);
   chmodSync(join(bin, "setsid"), 0o755);
   chmodSync(join(bin, "timeout"), 0o755);
@@ -204,6 +215,15 @@ afterEach(() => {
 });
 
 describe("storage release cutover", () => {
+  it("does not ask pnpm to create command shims on the read-only migrator filesystem", () => {
+    const expand = readFileSync(
+      join(repoRoot, "packages/db/prisma/scripts/deploy-expand.sh"),
+      "utf8",
+    );
+    expect(readFileSync(cutoverScript, "utf8")).not.toContain("pnpm exec");
+    expect(expand).not.toContain("pnpm exec");
+  });
+
   it("sets CDPATH explicitly without the ambiguous SC1007 assignment form", () => {
     const expand = readFileSync(
       join(repoRoot, "packages/db/prisma/scripts/deploy-expand.sh"),
