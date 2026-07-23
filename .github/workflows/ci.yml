@@ -20,7 +20,7 @@ env:
 
 jobs:
   verify:
-    name: Verify Repository
+    name: Repository checks
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -98,6 +98,56 @@ jobs:
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
 
+  coverage:
+    name: Unit and integration coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:18@sha256:b913fd5699b8bd23fa4b06d72ecdd939fad43b80fb8651bac06caa0e6d135cac
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nojv_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:8-alpine@sha256:9d317178eceac8454a2284a9e6df2466b93c745529947f0cd42a0fa9609d7005
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup monorepo
+        uses: ./.github/actions/setup
+
+      - name: Mark the destructive test database
+        run: >-
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1
+          -c "COMMENT ON DATABASE nojv_test IS 'NOJV_TEST_DATABASE:nojv_test'"
+
+      - name: Prepare coverage runtime
+        run: |
+          pnpm --filter @nojv/storage... build
+          pnpm --filter @nojv/web paraglide:compile
+          pnpm --filter @nojv/web exec svelte-kit sync
+
       - name: Run integration tests with coverage gate
         run: pnpm test:coverage
         env:
@@ -105,6 +155,22 @@ jobs:
           MAILER_MODE: sink
           NODE_ENV: test
           NODE_OPTIONS: "--max-old-space-size=4096"
+
+  verify-gate:
+    name: Verify Repository
+    if: always()
+    needs:
+      - verify
+      - coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Require repository checks and coverage
+        env:
+          VERIFY_RESULT: ${{ needs.verify.result }}
+          COVERAGE_RESULT: ${{ needs.coverage.result }}
+        run: test "$VERIFY_RESULT" = success && test "$COVERAGE_RESULT" = success
 
   security-audit:
     name: Dependency Audit

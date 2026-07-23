@@ -32,6 +32,42 @@ describe("pull-request runtime gates", () => {
     }
   });
 
+  it("runs repository verification and coverage in parallel jobs", () => {
+    const workflow = readFileSync(join(repoRoot, ".github/workflows/ci.yml"), "utf8");
+    const verify = workflow.slice(
+      workflow.indexOf("  verify:"),
+      workflow.indexOf("  coverage:"),
+    );
+    const coverage = workflow.slice(
+      workflow.indexOf("  coverage:"),
+      workflow.indexOf("  verify-gate:"),
+    );
+    const gate = workflow.slice(
+      workflow.indexOf("  verify-gate:"),
+      workflow.indexOf("  security-audit:"),
+    );
+
+    expect(verify).toContain("pnpm ci:verify");
+    expect(verify).not.toContain("pnpm test:coverage");
+    expect(coverage).toContain("pnpm test:coverage");
+    expect(coverage).not.toMatch(/^\s+needs:/mu);
+    for (const prerequisite of [
+      "pnpm --filter @nojv/storage... build",
+      "pnpm --filter @nojv/web paraglide:compile",
+      "pnpm --filter @nojv/web exec svelte-kit sync",
+    ]) {
+      expect(coverage).toContain(prerequisite);
+      expect(coverage.indexOf(prerequisite)).toBeLessThan(
+        coverage.indexOf("pnpm test:coverage"),
+      );
+    }
+    expect(gate).toContain("name: Verify Repository");
+    expect(gate).toContain("if: always()");
+    expect(gate).toMatch(/needs:\s*\n\s+- verify\s*\n\s+- coverage/u);
+    expect(gate).toContain('test "$VERIFY_RESULT" = success');
+    expect(gate).toContain('test "$COVERAGE_RESULT" = success');
+  });
+
   it("runs an unconditional real Docker sandbox boundary smoke on every PR", () => {
     const workflow = readFileSync(join(repoRoot, ".github/workflows/image-build.yml"), "utf8");
     const smoke = workflow.slice(
