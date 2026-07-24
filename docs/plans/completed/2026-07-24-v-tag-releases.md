@@ -61,6 +61,6 @@
 
 ## Outcome
 
-Shipped in PR #309 and released as `v0.1.0`. The release workflow published all
-four version-tagged images and advanced the deploy branch with their immutable
-digests.
+Shipped in PR #309 and first released as `v0.1.0`. Release `v0.1.1` then
+published PR #311 with all four version-tagged images and advanced the deploy
+branch with their immutable digests.
