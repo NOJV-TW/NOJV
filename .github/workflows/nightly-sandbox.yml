@@ -176,7 +176,7 @@ jobs:
 
       - name: Load images into the cluster
         run: |
-          k3d image import -c nojv-judge \
+          k3d image import --mode direct -c nojv-judge \
             nojv-sandbox:local \
             nojv-demo-advanced-run:local nojv-demo-advanced-grade:local \
             nojv-demo-advanced-service:local
