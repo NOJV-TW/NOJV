@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { PassThrough, Readable } from "node:stream";
 
-import archiver from "archiver";
+import * as archiver from "archiver";
 import { Open, type File as ZipFile } from "unzipper";
 
 import {
@@ -47,6 +47,10 @@ import {
 
 const MAX_BUNDLE_UNCOMPRESSED_BYTES = 50 * 1024 * 1024;
 const MAX_BUNDLE_ENTRIES = 200;
+
+const { ZipArchive } = archiver as unknown as {
+  ZipArchive: new (options?: archiver.ArchiverOptions) => archiver.Archiver;
+};
 
 const CHECKER_SCRIPT_LANG: Record<string, JudgeScriptLanguage> = {
   cpp: "cpp",
@@ -506,7 +510,7 @@ export async function exportBundle(
   const parsedCfg = judgeConfigSchema.safeParse(problem.judgeConfig);
   const cfg: JudgeConfig = parsedCfg.success ? parsedCfg.data : { type: "standard" as const };
 
-  const archive = archiver("zip", { zlib: { level: 9 } });
+  const archive = new ZipArchive({ zlib: { level: 9 } });
   const passthrough = new PassThrough();
   archive.pipe(passthrough);
 

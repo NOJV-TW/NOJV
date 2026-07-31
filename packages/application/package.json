@@ -23,7 +23,7 @@
     "@nojv/mailer": "workspace:*",
     "@nojv/redis": "workspace:*",
     "@nojv/storage": "workspace:*",
-    "archiver": "^7.0.1",
+    "archiver": "^8.0.0",
     "unzipper": "^0.12.5",
     "zod": "catalog:"
   },
