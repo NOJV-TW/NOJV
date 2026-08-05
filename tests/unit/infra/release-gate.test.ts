@@ -436,9 +436,11 @@ describe("Build & Push Images workflow release structure", () => {
     expect(imageBuilder).toContain('--source-ref "refs/tags/${TAG}"');
     expect(imageBuilder).toContain('--source-digest "$RELEASE_SHA"');
     expect(imageBuilder).toContain("--deny-self-hosted-runners");
-    expect(
-      releaseJobs.match(/uses: actions\/attest@a1948c3f048ba23858d222213b7c278aabede763/gu),
-    ).toHaveLength(4);
+    const attestPins = [
+      ...releaseJobs.matchAll(/uses: actions\/attest@([0-9a-f]{40}) # v4/gu),
+    ].map(([, sha]) => sha);
+    expect(attestPins).toHaveLength(4);
+    expect(new Set(attestPins)).toHaveLength(1);
     expect(imageBuilder).toContain("org.opencontainers.image.revision=${RELEASE_SHA}");
     expect(imageBuilder).toContain("org.opencontainers.image.version=${TAG}");
     expect(imageBuilder).toContain("${TAG}-candidate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}");
