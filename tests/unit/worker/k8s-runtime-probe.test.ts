@@ -52,6 +52,10 @@ describe("buildRuntimeProbePodManifest", () => {
     expect(pod.spec?.automountServiceAccountToken).toBe(false);
     expect(pod.spec?.imagePullSecrets).toEqual([{ name: "registry-pull" }]);
     expect(pod.spec?.containers[0]?.command).toEqual(RUNTIME_PROBE_IMAGE_COMMAND);
+    expect(pod.spec?.containers[0]?.resources?.requests).toEqual({
+      cpu: "100m",
+      memory: "64Mi",
+    });
     expect(pod.spec?.containers[0]?.securityContext).toMatchObject({
       allowPrivilegeEscalation: false,
       capabilities: { drop: ["ALL"] },

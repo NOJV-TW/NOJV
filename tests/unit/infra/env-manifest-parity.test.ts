@@ -297,6 +297,18 @@ describeHelm("worker Kubernetes privilege boundaries", () => {
     expect(registryAccess).not.toContain("name: nojv-worker-judge");
   });
 
+  it("grants the judge worker only read access to RuntimeClass for the startup probe", () => {
+    const render = renderChart();
+    const role = isolateDoc(render, "ClusterRole", "nojv-worker-judge-runtime-probe");
+    const binding = isolateDoc(render, "ClusterRoleBinding", "nojv-worker-judge-runtime-probe");
+
+    expect(role).toContain('apiGroups: ["node.k8s.io"]');
+    expect(role).toContain('resources: ["runtimeclasses"]');
+    expect(role).toContain('verbs: ["get"]');
+    expect(role).not.toContain('verbs: ["list", "watch"]');
+    expect(binding).toContain("name: nojv-worker-judge");
+  });
+
   it("mounts API credentials only for workers that use the Kubernetes API", () => {
     const enabled = renderChart();
     const disabled = renderChart("values.yaml");
