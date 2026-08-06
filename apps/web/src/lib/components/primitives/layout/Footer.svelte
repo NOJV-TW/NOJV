@@ -24,7 +24,7 @@
   <p class="tabular-nums">
     {m.footer_copyright({ year: String(year) })}
     <span aria-hidden="true"> · </span>
-    <span>{m.footer_version({ version: packageJson.version })}</span>
+    <span class="font-mono">{m.footer_version({ version: packageJson.version })}</span>
   </p>
   <nav class="flex flex-wrap items-center gap-x-6 gap-y-2">
     <a class="transition-colors duration-fast ease-out-soft hover:text-foreground" href="/about"
