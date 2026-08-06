@@ -263,6 +263,12 @@ describe("buildInteractiveJobManifest — per-container volumeMounts isolate the
     expect(podSpec.nodeSelector).toEqual({ "nojv-role": "sandbox" });
     expect(podSpec.tolerations).toEqual([
       { key: "nojv-role", operator: "Equal", value: "sandbox", effect: "NoSchedule" },
+      {
+        key: "cloud.google.com/gke-spot",
+        operator: "Equal",
+        value: "true",
+        effect: "NoSchedule",
+      },
     ]);
     expect(podSpec.securityContext).toMatchObject({
       runAsUser: 10001,

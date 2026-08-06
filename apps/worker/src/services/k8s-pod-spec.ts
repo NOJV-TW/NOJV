@@ -2,7 +2,12 @@ export const SANDBOX_NODE_SELECTOR = { "nojv-role": "sandbox" };
 
 export const SANDBOX_TOLERATIONS = [
   { key: "nojv-role", operator: "Equal", value: "sandbox", effect: "NoSchedule" },
+  { key: "cloud.google.com/gke-spot", operator: "Equal", value: "true", effect: "NoSchedule" },
 ];
+
+export function runtimeClassField(runtimeClassName?: string): { runtimeClassName?: string } {
+  return runtimeClassName ? { runtimeClassName } : {};
+}
 
 const NONROOT_SECCOMP = {
   runAsNonRoot: true,

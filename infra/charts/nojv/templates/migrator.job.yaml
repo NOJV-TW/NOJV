@@ -73,10 +73,6 @@ spec:
               value: app.kubernetes.io/name=nojv-web
             - name: JUDGE_DEPLOYMENT
               value: {{ printf "%s-worker" (include "nojv.fullname" .) | quote }}
-            - name: JUDGE_KEDA_SCALED_OBJECT
-              value: {{ printf "%s-worker" (include "nojv.fullname" .) | quote }}
-            - name: JUDGE_KEDA_ENABLED
-              value: {{ .Values.worker.judge.keda.enabled | quote }}
             - name: JUDGE_POD_SELECTOR
               value: app.kubernetes.io/name=nojv-worker
             - name: PLATFORM_DEPLOYMENT

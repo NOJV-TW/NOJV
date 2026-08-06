@@ -16,6 +16,15 @@ describe("chunkCaseIndices — quota-aware per-case waves", () => {
     expect(chunkCaseIndices([0, 1, 2], 4)).toEqual([[0, 1, 2]]);
   });
 
+  it("uses the production 20-case wave shape", () => {
+    expect(
+      chunkCaseIndices(
+        Array.from({ length: 21 }, (_, i) => i),
+        20,
+      ),
+    ).toEqual([Array.from({ length: 20 }, (_, i) => i), [20]]);
+  });
+
   it("preserves overall testcase ordering when flattened back", () => {
     const indices = Array.from({ length: 23 }, (_, i) => i);
     const waves = chunkCaseIndices(indices, 4);

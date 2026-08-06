@@ -21,6 +21,8 @@ const mocks = vi.hoisted(() => ({
   dockerSweeperDone: Promise.resolve(),
   dockerSweeperShutdown: vi.fn(),
   dockerSweeperStart: vi.fn(),
+  verifySandboxRuntime: vi.fn(),
+  verifyNetworkPolicyEnforced: vi.fn(),
 }));
 
 vi.mock("@nojv/application", async (importOriginal) => {
@@ -95,6 +97,14 @@ vi.mock("../../../apps/worker/src/services/docker-resource-sweeper.js", () => ({
   }),
 }));
 
+vi.mock("../../../apps/worker/src/services/k8s-runtime-probe.js", () => ({
+  verifySandboxRuntime: mocks.verifySandboxRuntime,
+}));
+
+vi.mock("../../../apps/worker/src/services/k8s-netpol-probe.js", () => ({
+  verifyNetworkPolicyEnforced: mocks.verifyNetworkPolicyEnforced,
+}));
+
 import { WorkerApp } from "../../../apps/worker/src/worker-app";
 
 const env: WorkerEnv = {
@@ -147,6 +157,8 @@ beforeEach(() => {
   mocks.executorShutdown.mockResolvedValue(undefined);
   mocks.dockerSweeperShutdown.mockResolvedValue(undefined);
   mocks.dockerSweeperStart.mockResolvedValue(undefined);
+  mocks.verifySandboxRuntime.mockResolvedValue({ ok: true });
+  mocks.verifyNetworkPolicyEnforced.mockResolvedValue({ enforced: false, action: "refuse" });
   mocks.healthListen.mockImplementation((_port: number, callback: () => void) => callback());
   mocks.healthClose.mockImplementation((callback: (error?: Error) => void) => callback());
 });
@@ -165,6 +177,45 @@ describe("WorkerApp lifecycle", () => {
 
     await expect(app.shutdown("startup failure")).resolves.toMatchObject({ complete: true });
     expect(mocks.dockerSweeperShutdown).toHaveBeenCalledOnce();
+  });
+
+  it("ignores the NetworkPolicy opt-out in production", async () => {
+    const productionKubernetesEnv: WorkerEnv = {
+      NODE_ENV: "production",
+      PORT: 3002,
+      REDIS_URL: "redis://localhost:6379",
+      TEMPORAL_ADDRESS: "localhost:7233",
+      TEMPORAL_NAMESPACE: "default",
+      SANDBOX_IMAGE: "sandbox:test",
+      WORKER_CONCURRENCY: 1,
+      WORKER_MODE: "judge",
+      EXECUTION_BACKEND: "kubernetes",
+      K8S_NAMESPACE: "nojv-sandbox",
+      K8S_CPU_REQUEST: "500m",
+      K8S_CASE_CPU_REQUEST: "100m",
+      K8S_CPU_LIMIT: "1",
+      K8S_MEMORY_REQUEST: "256Mi",
+      K8S_MEMORY_LIMIT: "256Mi",
+      K8S_MAX_PARALLEL_CASES: 20,
+      K8S_RUNTIME_CLASS_NAME: "gvisor",
+      SANDBOX_MEMORY_HEADROOM_MB: 64,
+      SANDBOX_MAX_MEMORY_MB: 2048,
+      REGISTRY_GC_IMAGE: "registry:2.8.3",
+      REGISTRY_GC_NAMESPACE: "nojv",
+      REGISTRY_GC_CONFIG_CONFIGMAP: "registry-config",
+      REGISTRY_GC_S3_SECRET: "registry-secret",
+    };
+    const app = new WorkerApp(productionKubernetesEnv, {
+      shutdownTimeoutMs: 100,
+      workflowsPath: "workflow.js",
+    });
+
+    await expect(app.start()).rejects.toThrow(/NetworkPolicy/);
+    expect(mocks.verifyNetworkPolicyEnforced).toHaveBeenCalledWith(
+      expect.objectContaining({ namespace: "nojv-sandbox", runtimeClassName: "gvisor" }),
+    );
+    expect(mocks.workerCreate).not.toHaveBeenCalled();
+    await expect(app.shutdown("startup failure")).resolves.toMatchObject({ complete: true });
   });
 
   it("cleans partially acquired startup resources in reverse order", async () => {

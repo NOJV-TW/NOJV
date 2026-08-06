@@ -9,12 +9,12 @@ const repoRoot = process.cwd();
 const chartRoot = join(repoRoot, "infra/charts/nojv");
 const tempDirectories: string[] = [];
 
-function renderChart(valuesFile: string): string {
+function renderChart(valuesFile: string, extraArgs = ""): string {
   const gkeFixture = valuesFile.endsWith("values-gke.yaml")
     ? " -f tests/fixtures/helm/gke-production-config.yaml"
     : "";
   return execSync(
-    `helm template nojv infra/charts/nojv -f ${valuesFile} -f tests/fixtures/helm/immutable-image-digests.yaml${gkeFixture} -f tests/fixtures/helm/production-external-backups.yaml`,
+    `helm template nojv infra/charts/nojv -f ${valuesFile} -f tests/fixtures/helm/immutable-image-digests.yaml${gkeFixture} -f tests/fixtures/helm/production-external-backups.yaml ${extraArgs}`,
     {
       cwd: repoRoot,
       encoding: "utf8",
@@ -84,7 +84,10 @@ describe("admin-elevation mixed-version deployment cutover", () => {
   });
 
   it("keeps the maintenance cutover valid when the web HPA is disabled", () => {
-    const render = renderChart("infra/charts/nojv/values-single-machine.yaml");
+    const render = renderChart(
+      "infra/charts/nojv/values-single-machine.yaml",
+      "--set web.hpa.enabled=false",
+    );
     const migrator = renderedResource(render, "Job", "nojv-migrator");
     const ready = renderedResource(render, "Job", "nojv-workloads-ready");
 
@@ -128,7 +131,6 @@ printf '2 2 2 2'
         WEB_READY_REPLICAS: "2",
         WEB_POD_SELECTOR: "app.kubernetes.io/name=nojv-web",
         JUDGE_DEPLOYMENT: "nojv-worker",
-        JUDGE_KEDA_ENABLED: "false",
         JUDGE_READY_REPLICAS: "2",
         JUDGE_POD_SELECTOR: "app.kubernetes.io/name=nojv-worker",
         PLATFORM_DEPLOYMENT: "nojv-worker-platform",

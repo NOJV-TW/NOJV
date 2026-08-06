@@ -76,12 +76,18 @@ spec:
               value: {{ .Values.worker.platform.submissionPendingTimeoutMinutes | quote }}
             - name: K8S_CPU_REQUEST
               value: {{ .Values.worker.sandbox.cpuRequest | quote }}
+            - name: K8S_CASE_CPU_REQUEST
+              value: {{ .Values.worker.sandbox.caseCpuRequest | quote }}
             - name: K8S_CPU_LIMIT
               value: {{ .Values.worker.sandbox.cpuLimit | quote }}
             - name: K8S_MEMORY_REQUEST
               value: {{ .Values.worker.sandbox.memoryRequest | quote }}
             - name: K8S_MEMORY_LIMIT
               value: {{ .Values.worker.sandbox.memoryLimit | quote }}
+            - name: K8S_MAX_PARALLEL_CASES
+              value: {{ .Values.worker.sandbox.maxParallelCases | quote }}
+            - name: K8S_RUNTIME_CLASS_NAME
+              value: {{ required "worker.sandbox.runtimeClassName is required" .Values.worker.sandbox.runtimeClassName | quote }}
             {{- if .Values.registry.enabled }}
             - name: REGISTRY_GC_IMAGE
               value: {{ .Values.registry.image | quote }}

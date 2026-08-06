@@ -10,15 +10,24 @@ const EXEC_CONFIG = {
   cpuLimit: "1",
   memoryRequest: "128Mi",
   memoryLimit: "256Mi",
+  caseCpuRequest: "100m",
+  maxParallelCases: 20,
+  runtimeClassName: "gvisor",
 };
 
-function request(input: string): SandboxRequest {
+function request(input: string, testcaseCount = 1): SandboxRequest {
   return {
     submissionId: "standard",
     sourceCode: "print(input())",
     language: "python",
     problemType: "full_source",
-    testcases: [{ index: 0, input, output: `${input}\n`, weight: 1, isSample: false }],
+    testcases: Array.from({ length: testcaseCount }, (_, index) => ({
+      index,
+      input,
+      output: `${input}\n`,
+      weight: 1,
+      isSample: false,
+    })),
     judgeType: "standard",
     judgeConfig: {},
     limits: { timeoutMs: 1_000, memoryMb: 128 },
@@ -111,5 +120,26 @@ describe("K8sExecutor sharded payload orchestration", () => {
       [...fake.record.configMapsCreated].sort(),
     );
     expect(fake.record.jobsCreated).toHaveLength(0);
+  });
+
+  it("creates one 20-case Job per wave and compiles once per wave", async () => {
+    const fake = clients();
+    const executor = new K8sExecutor(EXEC_CONFIG, fake.handles);
+
+    await executor.execute(request("x", 21), {
+      runId: "twenty-one",
+      signal: new AbortController().signal,
+    });
+
+    expect(fake.record.jobsCreated).toHaveLength(2);
+    expect(fake.record.jobsCreated[0].spec.template.spec.runtimeClassName).toBe("gvisor");
+    expect(fake.record.jobsCreated[0].spec.template.spec.initContainers).toHaveLength(2);
+    expect(fake.record.jobsCreated[0].spec.template.spec.containers).toHaveLength(20);
+    expect(
+      fake.record.jobsCreated[0].spec.template.spec.containers.every(
+        (container: any) => container.resources.requests.cpu === "100m",
+      ),
+    ).toBe(true);
+    expect(fake.record.jobsCreated[1].spec.template.spec.containers).toHaveLength(1);
   });
 });

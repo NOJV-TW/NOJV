@@ -78,7 +78,10 @@ web:
   replicas: 1
   advancedImageAllowedRegistries: "registry.nojv.tw,ghcr.io,docker.io,quay.io,registry.gitlab.com,gcr.io,public.ecr.aws,mcr.microsoft.com,registry.k8s.io"
   hpa:
-    enabled: false
+    enabled: true
+    min: 1
+    max: 3
+    targetCPU: 70
   ingress:
     enabled: false
   service:
@@ -125,8 +128,8 @@ sandbox:
     enabled: true
   resourceQuota:
     enabled: true
-    pods: "10"
+    pods: "4"
     requestsCpu: "4"
-    requestsMemory: "4Gi"
+    requestsMemory: "12Gi"
   limitRange:
     enabled: true

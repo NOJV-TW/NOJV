@@ -26,10 +26,11 @@ submissions.
 
 The worker and sandbox pods MUST run on different node pools:
 
-| Pool           | Taints                         | Labels              | Scaling          |
-| -------------- | ------------------------------ | ------------------- | ---------------- |
-| `pool-worker`  | none                           | `nojv-role=worker`  | static 2–3 nodes |
-| `pool-sandbox` | `nojv-role=sandbox:NoSchedule` | `nojv-role=sandbox` | autoscale 0 → N  |
+| Pool                | Taints                         | Labels              | Scaling                |
+| ------------------- | ------------------------------ | ------------------- | ---------------------- |
+| `pool-worker`       | none                           | `nojv-role=worker`  | static 2–3 nodes       |
+| `pool-sandbox`      | `nojv-role=sandbox:NoSchedule` | `nojv-role=sandbox` | on-demand, total 1 → 1 |
+| `pool-sandbox-spot` | `nojv-role=sandbox:NoSchedule` | `nojv-role=sandbox` | Spot, total 0 → 4      |
 
 The worker Deployment pins itself via `nodeSelector: nojv-role=worker`. Sandbox
 Pods are created with `nodeSelector: nojv-role=sandbox` and a matching
@@ -37,15 +38,16 @@ Pods are created with `nodeSelector: nojv-role=sandbox` and a matching
 split, a fork-bomb-style submission could starve the orchestrator and stop
 processing queue — which would then look like "the site is down".
 
-Create both pools with the committed bootstrap script (so this step is
+Create all three pools with the committed bootstrap script (so this step is
 reproducible and not a copy-pasted one-off):
 
 ```bash
 CLUSTER_NAME=... REGION=... infra/gcp/scripts/create-node-pools.sh
 ```
 
-It runs the two `gcloud container node-pools create` commands below (machine
-types / sandbox max-nodes are overridable via env — see the script header):
+It runs the three `gcloud container node-pools create` commands below. Both
+sandbox pools use `cos_containerd`, GKE Sandbox (`gvisor`), image streaming,
+and the checked-in kubelet PID limit:
 
 ```bash
 gcloud container node-pools create pool-worker \
@@ -55,8 +57,19 @@ gcloud container node-pools create pool-worker \
 
 gcloud container node-pools create pool-sandbox \
   --cluster=CLUSTER_NAME --region=REGION \
-  --num-nodes=0 --enable-autoscaling --min-nodes=0 --max-nodes=5 \
-  --machine-type=e2-standard-4 \
+  --num-nodes=1 --enable-autoscaling --total-min-nodes=1 --total-max-nodes=1 \
+  --machine-type=e2-standard-4 --image-type=cos_containerd \
+  --sandbox=type=gvisor --enable-image-streaming \
+  --system-config-from-file=infra/gcp/gke/sandbox-node-system-config.yaml \
+  --node-labels=nojv-role=sandbox \
+  --node-taints=nojv-role=sandbox:NoSchedule
+
+gcloud container node-pools create pool-sandbox-spot \
+  --cluster=CLUSTER_NAME --region=REGION \
+  --num-nodes=0 --enable-autoscaling --total-min-nodes=0 --total-max-nodes=4 \
+  --machine-type=e2-standard-4 --spot --image-type=cos_containerd \
+  --sandbox=type=gvisor --enable-image-streaming \
+  --system-config-from-file=infra/gcp/gke/sandbox-node-system-config.yaml \
   --node-labels=nojv-role=sandbox \
   --node-taints=nojv-role=sandbox:NoSchedule
 ```
@@ -138,29 +151,26 @@ See [`temporal/HA-PRODUCTION.md`](temporal/HA-PRODUCTION.md) for the full set of
 options (Temporal Cloud vs self-hosted HA) and
 [Reliability Invariants](../../../docs/operations/RELIABILITY.md).
 
-## Autoscaling (three layers)
+## Autoscaling (two useful layers)
 
 1. **web** — `HorizontalPodAutoscaler` on CPU (`web.hpa.enabled`, min 2 / max 15
    on GKE). Absorbs concurrent-user spikes such as an exam start. Needs
    metrics-server.
 2. **judge execution** — the elastic layer for a submission burst. The worker
    launches one sandbox-runner Job per submission into `nojv-sandbox`; concurrency
-   is capped by the `ResourceQuota` (`sandbox.resourceQuota.pods`) and the
-   `pool-sandbox` cluster-autoscaler grows nodes `0 → SANDBOX_MAX_NODES` to run
-   them. Raise both for exam scale (e.g. `SANDBOX_MAX_NODES=10` +
-   `sandbox.resourceQuota.pods`).
-3. **judge worker (dispatcher)** — fixed `replicas: 2` by default: orchestration
-   is I/O-bound and two workers already saturate the 50-pod quota, and CPU-HPA is
-   the wrong signal for an I/O-bound dispatcher. When you raise the sandbox quota
-   far enough that dispatch lags, turn on the opt-in KEDA `ScaledObject`
-   (`worker.judge.keda.enabled`, a Prometheus trigger on Temporal task-queue
-   backlog / schedule-to-start latency; requires KEDA + Prometheus scraping
-   Temporal).
+   is capped by the `ResourceQuota` (`sandbox.resourceQuota.pods`). One on-demand
+   gVisor node always remains available, while the Spot pool scales from 0 to 4
+   nodes for retryable burst work. When Spot capacity disappears, Temporal keeps
+   the workflow pending/retryable and the on-demand node drains the workload.
+
+The judge dispatcher stays at `replicas: 2` with concurrency 4. The sandbox
+quota and node-pool bounds are the capacity controls; adding another dispatcher
+autoscaler would not create execution capacity and is intentionally not enabled.
 
 ## Apply Flow
 
-> **Preflight (do not skip):** judging _silently_ fails to schedule without an
-> autoscaling `nojv-role=sandbox` pool — sandbox Jobs sit `Pending` forever and
+> **Preflight (do not skip):** judging _silently_ fails to schedule without the
+> `nojv-role=sandbox` gVisor pools — sandbox Jobs sit `Pending` forever and
 > nothing in the Helm install errors. Step 1 below is mandatory before the chart
 > is installed.
 

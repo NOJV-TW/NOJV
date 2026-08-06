@@ -3,11 +3,15 @@ import { describe, expect, it } from "vitest";
 import type * as k8s from "@kubernetes/client-node";
 
 import {
+  buildNetpolProbeEgressPolicy,
+  buildNetpolProbeIngressPolicy,
   buildNetpolProbePodManifest,
+  buildNetpolProbeTargetPodManifest,
   decideNetworkPolicyGate,
   netpolProbePodName,
-  PROBE_BLOCKED_MARKER,
-  PROBE_REACHED_MARKER,
+  PROBE_ALLOWED_REACHED_MARKER,
+  PROBE_DENIED_BLOCKED_MARKER,
+  PROBE_DENIED_REACHED_MARKER,
   verifyNetworkPolicyEnforced,
   type NetworkPolicyProbeDeps,
 } from "../../../apps/worker/src/services/k8s-netpol-probe";
@@ -16,99 +20,113 @@ const NS = "nojv-sandbox";
 
 describe("decideNetworkPolicyGate — pure decision logic", () => {
   it("BLOCKED → enforced → ok", () => {
-    expect(decideNetworkPolicyGate({ outcome: "blocked", allowUnenforced: false })).toEqual({
-      enforced: true,
-      action: "ok",
-    });
-    expect(decideNetworkPolicyGate({ outcome: "blocked", allowUnenforced: true })).toEqual({
+    expect(decideNetworkPolicyGate({ outcome: "blocked" })).toEqual({
       enforced: true,
       action: "ok",
     });
   });
 
-  it("REACHED → not enforced → refuse unless opt-out", () => {
-    expect(decideNetworkPolicyGate({ outcome: "reached", allowUnenforced: false })).toEqual({
+  it("REACHED → not enforced → refuse", () => {
+    expect(decideNetworkPolicyGate({ outcome: "reached" })).toEqual({
       enforced: false,
       action: "refuse",
     });
   });
 
-  it("REACHED with opt-out → warn-proceed", () => {
-    expect(decideNetworkPolicyGate({ outcome: "reached", allowUnenforced: true })).toEqual({
+  it("UNCONFIRMED → not enforced (same as reached) → refuse", () => {
+    expect(decideNetworkPolicyGate({ outcome: "unconfirmed" })).toEqual({
       enforced: false,
-      action: "warn-proceed",
-    });
-  });
-
-  it("UNCONFIRMED → not enforced (same as reached) → refuse unless opt-out", () => {
-    expect(decideNetworkPolicyGate({ outcome: "unconfirmed", allowUnenforced: false })).toEqual(
-      {
-        enforced: false,
-        action: "refuse",
-      },
-    );
-    expect(decideNetworkPolicyGate({ outcome: "unconfirmed", allowUnenforced: true })).toEqual({
-      enforced: false,
-      action: "warn-proceed",
+      action: "refuse",
     });
   });
 });
 
-describe("buildNetpolProbePodManifest", () => {
-  const pod = buildNetpolProbePodManifest({
-    namespace: NS,
-    image: "busybox:latest",
-    podName: netpolProbePodName(),
-  });
-
-  it("carries NO nojv.egress label so deny-all-sandbox (!nojv.egress) covers it", () => {
-    expect(pod.metadata!.labels!["nojv.egress"]).toBeUndefined();
-    expect(pod.metadata!.labels!.app).toBe("nojv-sandbox");
-  });
-
-  it("attempts an external connection and prints REACHED/BLOCKED", () => {
+describe("NetworkPolicy probe manifests", () => {
+  it("tests an allowed and a denied internal target", () => {
+    const pod = buildNetpolProbePodManifest({
+      namespace: NS,
+      image: "busybox:latest",
+      podName: netpolProbePodName(),
+      allowedTargetIp: "10.0.0.10",
+      deniedTargetIp: "10.0.0.11",
+    });
     const command = pod.spec!.containers[0]!.command!;
     const script = command[command.length - 1]!;
     expect(command[0]).toBe("sh");
-    expect(script).toContain("wget");
-    expect(script).toContain("https://1.1.1.1");
-    expect(script).toContain(PROBE_REACHED_MARKER);
-    expect(script).toContain(PROBE_BLOCKED_MARKER);
+    expect(script).toContain("http://10.0.0.10:8080");
+    expect(script).toContain("http://10.0.0.11:8080");
+    expect(script).toContain(PROBE_ALLOWED_REACHED_MARKER);
+    expect(script).toContain(PROBE_DENIED_BLOCKED_MARKER);
+    expect(script).not.toContain("1.1.1.1");
+    expect(pod.metadata!.labels!["nojv-netpol-probe-source"]).toBe("true");
   });
 
-  it("is hardened: non-root sandbox uid, cap-drop ALL, read-only rootfs, seccomp", () => {
-    expect(pod.spec!.securityContext).toMatchObject({
-      runAsUser: 10001,
-      runAsGroup: 10001,
-      runAsNonRoot: true,
-      seccompProfile: { type: "RuntimeDefault" },
+  it("allows ingress from the probe only to the target pods", () => {
+    const policy = buildNetpolProbeIngressPolicy(NS);
+    expect(policy.spec).toMatchObject({
+      podSelector: { matchLabels: { "nojv-netpol-probe-target": "true" } },
+      policyTypes: ["Ingress"],
+      ingress: [
+        {
+          _from: [{ podSelector: { matchLabels: { "nojv-netpol-probe-source": "true" } } }],
+          ports: [{ protocol: "TCP", port: 8080 }],
+        },
+      ],
     });
-    expect(pod.spec!.automountServiceAccountToken).toBe(false);
-    expect(pod.spec!.containers[0]!.securityContext).toMatchObject({
-      allowPrivilegeEscalation: false,
-      capabilities: { drop: ["ALL"] },
-      readOnlyRootFilesystem: true,
-      runAsNonRoot: true,
+  });
+
+  it("allows egress only to the allowed target", () => {
+    const policy = buildNetpolProbeEgressPolicy(NS);
+    expect(policy.spec).toMatchObject({
+      podSelector: { matchLabels: { "nojv-netpol-probe-source": "true" } },
+      policyTypes: ["Egress"],
+      egress: [
+        {
+          to: [
+            {
+              podSelector: {
+                matchLabels: {
+                  "nojv-netpol-probe-target": "true",
+                  "nojv-netpol-probe-target-kind": "allowed",
+                },
+              },
+            },
+          ],
+          ports: [{ protocol: "TCP", port: 8080 }],
+        },
+      ],
     });
   });
 
-  it("has a short activeDeadlineSeconds and restartPolicy Never", () => {
-    expect(pod.spec!.restartPolicy).toBe("Never");
-    expect(pod.spec!.activeDeadlineSeconds).toBeGreaterThan(0);
-    expect(pod.spec!.activeDeadlineSeconds).toBeLessThanOrEqual(30);
-  });
-
-  it("schedules onto the sandbox node pool", () => {
-    expect(pod.spec!.nodeSelector).toEqual({ "nojv-role": "sandbox" });
-    expect(pod.spec!.tolerations).toEqual([
-      { key: "nojv-role", operator: "Equal", value: "sandbox", effect: "NoSchedule" },
-    ]);
-  });
-
-  it("requests at least the sandbox LimitRange minimum (cpu 100m, memory 64Mi)", () => {
-    const requests = pod.spec!.containers[0]!.resources!.requests!;
-    expect(requests.cpu).toBe("100m");
-    expect(requests.memory).toBe("64Mi");
+  it("hardens both the probe and target pods", () => {
+    const target = buildNetpolProbeTargetPodManifest({
+      namespace: NS,
+      image: "busybox:latest",
+      podName: "target",
+      target: "denied",
+      runtimeClassName: "gvisor",
+    });
+    expect(target.metadata!.labels!["nojv-netpol-probe-target-kind"]).toBe("denied");
+    expect(target.spec).toMatchObject({
+      runtimeClassName: "gvisor",
+      automountServiceAccountToken: false,
+      securityContext: {
+        runAsUser: 10001,
+        runAsGroup: 10001,
+        runAsNonRoot: true,
+        seccompProfile: { type: "RuntimeDefault" },
+      },
+      containers: [
+        {
+          securityContext: {
+            allowPrivilegeEscalation: false,
+            capabilities: { drop: ["ALL"] },
+            readOnlyRootFilesystem: true,
+            runAsNonRoot: true,
+          },
+        },
+      ],
+    });
   });
 });
 
@@ -122,11 +140,20 @@ function fakeDeps(
     createPod: async (_ns: string, _body: k8s.V1Pod) => {
       created++;
     },
+    readPod: async (name: string) => ({
+      status: {
+        phase: "Running",
+        podIP: name.includes("allowed") ? "10.0.0.10" : "10.0.0.11",
+        containerStatuses: [{ name: "target", ready: true, restartCount: 0, image: "busybox" }],
+      },
+    }),
     readPodLog: async () => log,
     readPodPhase: async () => "Succeeded",
     deletePod: async (name: string) => {
       deleted.push(name);
     },
+    createNetworkPolicy: async () => undefined,
+    deleteNetworkPolicy: async () => undefined,
     sleep: async () => undefined,
     ...overrides,
   };
@@ -140,32 +167,21 @@ function fakeDeps(
 }
 
 describe("verifyNetworkPolicyEnforced — live probe wiring", () => {
-  it("REACHED log without opt-out → refuse and cleans up the probe pod", async () => {
-    const f = fakeDeps(`${PROBE_REACHED_MARKER}\n`);
+  it("DENIED_REACHED → refuse and cleans up all probe resources", async () => {
+    const f = fakeDeps(`${PROBE_DENIED_REACHED_MARKER}\n`);
     const decision = await verifyNetworkPolicyEnforced({
       namespace: NS,
-      allowUnenforced: false,
       deps: f.deps,
     });
     expect(decision).toEqual({ enforced: false, action: "refuse" });
     expect(f.deleted).toContain(netpolProbePodName());
+    expect(f.created).toBe(3);
   });
 
-  it("REACHED log with opt-out → warn-proceed", async () => {
-    const f = fakeDeps(`${PROBE_REACHED_MARKER}\n`);
+  it("ALLOWED_REACHED plus DENIED_BLOCKED → ok", async () => {
+    const f = fakeDeps(`${PROBE_ALLOWED_REACHED_MARKER}\n${PROBE_DENIED_BLOCKED_MARKER}\n`);
     const decision = await verifyNetworkPolicyEnforced({
       namespace: NS,
-      allowUnenforced: true,
-      deps: f.deps,
-    });
-    expect(decision).toEqual({ enforced: false, action: "warn-proceed" });
-  });
-
-  it("BLOCKED log → ok", async () => {
-    const f = fakeDeps(`${PROBE_BLOCKED_MARKER}\n`);
-    const decision = await verifyNetworkPolicyEnforced({
-      namespace: NS,
-      allowUnenforced: false,
       deps: f.deps,
     });
     expect(decision).toEqual({ enforced: true, action: "ok" });
@@ -175,34 +191,31 @@ describe("verifyNetworkPolicyEnforced — live probe wiring", () => {
     const f = fakeDeps("garbage output\n");
     const decision = await verifyNetworkPolicyEnforced({
       namespace: NS,
-      allowUnenforced: false,
       deps: f.deps,
     });
     expect(decision).toEqual({ enforced: false, action: "refuse" });
   });
 
-  it("clean BLOCKED is the ONLY path to ok (reached/unconfirmed all refuse)", async () => {
+  it("clean ALLOWED_REACHED plus DENIED_BLOCKED is the ONLY path to ok", async () => {
     const ok = await verifyNetworkPolicyEnforced({
       namespace: NS,
-      allowUnenforced: false,
-      deps: fakeDeps(`${PROBE_BLOCKED_MARKER}\n`).deps,
+      deps: fakeDeps(`${PROBE_ALLOWED_REACHED_MARKER}\n${PROBE_DENIED_BLOCKED_MARKER}\n`).deps,
     });
     expect(ok).toEqual({ enforced: true, action: "ok" });
 
-    for (const log of [`${PROBE_REACHED_MARKER}\n`, "garbage\n", ""]) {
+    for (const log of [`${PROBE_DENIED_REACHED_MARKER}\n`, "garbage\n", ""]) {
       const decision = await verifyNetworkPolicyEnforced({
         namespace: NS,
-        allowUnenforced: false,
         deps: fakeDeps(log).deps,
       });
       expect(decision.action).toBe("refuse");
     }
   });
 
-  it("probe Pod perpetually Pending → timeout → unconfirmed → refuse (warn-proceed with opt-out)", async () => {
+  it("probe targets perpetually Pending → timeout → unconfirmed → refuse", async () => {
     let clock = 0;
     const pendingOverrides: Partial<NetworkPolicyProbeDeps> = {
-      readPodPhase: async () => "Pending",
+      readPod: async () => ({ status: { phase: "Pending" } }),
       now: () => clock,
       sleep: async (ms: number) => {
         clock += ms;
@@ -211,49 +224,42 @@ describe("verifyNetworkPolicyEnforced — live probe wiring", () => {
 
     const refused = await verifyNetworkPolicyEnforced({
       namespace: NS,
-      allowUnenforced: false,
-      deps: fakeDeps(`${PROBE_BLOCKED_MARKER}\n`, pendingOverrides).deps,
+      deps: fakeDeps(
+        `${PROBE_ALLOWED_REACHED_MARKER}\n${PROBE_DENIED_BLOCKED_MARKER}\n`,
+        pendingOverrides,
+      ).deps,
     });
     expect(refused).toEqual({ enforced: false, action: "refuse" });
-
-    clock = 0;
-    const warned = await verifyNetworkPolicyEnforced({
-      namespace: NS,
-      allowUnenforced: true,
-      deps: fakeDeps(`${PROBE_BLOCKED_MARKER}\n`, pendingOverrides).deps,
-    });
-    expect(warned).toEqual({ enforced: false, action: "warn-proceed" });
   });
 
-  it("createPod rejects → error propagates so worker-app fails closed (no decision)", async () => {
-    const f = fakeDeps(`${PROBE_BLOCKED_MARKER}\n`, {
+  it("createPod rejects → error propagates so worker-app fails closed", async () => {
+    const f = fakeDeps(`${PROBE_ALLOWED_REACHED_MARKER}\n${PROBE_DENIED_BLOCKED_MARKER}\n`, {
       createPod: async () => {
         throw new Error("ResourceQuota exceeded");
       },
     });
-    await expect(
-      verifyNetworkPolicyEnforced({ namespace: NS, allowUnenforced: false, deps: f.deps }),
-    ).rejects.toThrow(/ResourceQuota/);
+    await expect(verifyNetworkPolicyEnforced({ namespace: NS, deps: f.deps })).rejects.toThrow(
+      /ResourceQuota/,
+    );
     expect(f.deleted).toContain(netpolProbePodName());
   });
 
   it("readPodLog throws → unconfirmed → refuse", async () => {
-    const f = fakeDeps(`${PROBE_BLOCKED_MARKER}\n`, {
+    const f = fakeDeps(`${PROBE_ALLOWED_REACHED_MARKER}\n${PROBE_DENIED_BLOCKED_MARKER}\n`, {
       readPodLog: async () => {
         throw new Error("logs unavailable");
       },
     });
     const decision = await verifyNetworkPolicyEnforced({
       namespace: NS,
-      allowUnenforced: false,
       deps: f.deps,
     });
     expect(decision).toEqual({ enforced: false, action: "refuse" });
   });
 
-  it("always deletes the probe pod (before create and in finally)", async () => {
-    const f = fakeDeps(`${PROBE_BLOCKED_MARKER}\n`);
-    await verifyNetworkPolicyEnforced({ namespace: NS, allowUnenforced: false, deps: f.deps });
+  it("always deletes the probe resources before create and in finally", async () => {
+    const f = fakeDeps(`${PROBE_ALLOWED_REACHED_MARKER}\n${PROBE_DENIED_BLOCKED_MARKER}\n`);
+    await verifyNetworkPolicyEnforced({ namespace: NS, deps: f.deps });
     expect(f.deleted.filter((n) => n === netpolProbePodName()).length).toBeGreaterThanOrEqual(
       2,
     );

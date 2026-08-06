@@ -134,17 +134,34 @@ export class WorkerApp {
       }
 
       if (this.env.EXECUTION_BACKEND === "kubernetes") {
+        const { verifySandboxRuntime } = await import("./services/k8s-runtime-probe.js");
+        const runtime = await verifySandboxRuntime({
+          namespace: this.env.K8S_NAMESPACE,
+          image: this.env.SANDBOX_IMAGE,
+          runtimeClassName: this.env.K8S_RUNTIME_CLASS_NAME,
+          ...(this.env.K8S_IMAGE_PULL_SECRET
+            ? { imagePullSecretName: this.env.K8S_IMAGE_PULL_SECRET }
+            : {}),
+        });
+        if (!runtime.ok) {
+          throw new Error(
+            `Refusing to start K8s judge worker: sandbox runtime verification failed. ${runtime.reason}`,
+          );
+        }
+
         const { verifyNetworkPolicyEnforced } = await import("./services/k8s-netpol-probe.js");
         const decision = await verifyNetworkPolicyEnforced({
           namespace: this.env.K8S_NAMESPACE,
-          allowUnenforced: this.env.NOJV_ALLOW_UNENFORCED_NETWORK_POLICY,
+          runtimeClassName: this.env.K8S_RUNTIME_CLASS_NAME,
+          ...(this.env.K8S_IMAGE_PULL_SECRET
+            ? { imagePullSecretName: this.env.K8S_IMAGE_PULL_SECRET }
+            : {}),
         });
         if (decision.action === "refuse") {
           throw new Error(
             "Refusing to start K8s judge worker: the cluster CNI does not enforce NetworkPolicy, " +
               "so sandbox egress isolation is inert. Enable a NetworkPolicy-enforcing CNI (GKE " +
-              "Dataplane V2, Calico, or Cilium), or set NOJV_ALLOW_UNENFORCED_NETWORK_POLICY=1 to " +
-              "override (DEV ONLY).",
+              "Dataplane V2, Calico, or Cilium).",
           );
         }
       }

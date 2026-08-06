@@ -75,6 +75,7 @@ describe("Temporal client lifecycle", () => {
     });
     expect(connectMock).toHaveBeenCalledWith({
       address: "temporal.example:7233",
+      connectTimeout: "2s",
       tls: true,
       apiKey: "secret",
     });

@@ -456,14 +456,12 @@ export async function submitAndDispatch(
   const submission = await createQueuedSubmissionRecord(payload, actor, clientIp);
   const judgeJob = buildSubmissionJudgeJob(payload, submission.id);
 
-  try {
-    await executeSubmissionJudgeDispatch(judgeJob);
-  } catch (error) {
+  void executeSubmissionJudgeDispatch(judgeJob).catch((error: unknown) => {
     console.warn("[submission] immediate judge dispatch deferred", {
       submissionId: submission.id,
       error: error instanceof Error ? error.message : String(error),
     });
-  }
+  });
 
   return submission;
 }

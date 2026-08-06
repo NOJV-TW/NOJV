@@ -783,6 +783,7 @@ describe("submitAndDispatch", () => {
       await expect(submitAndDispatch(baseDraft, fakeActor, "127.0.0.1")).resolves.toEqual(
         expect.objectContaining({ status: "queued" }),
       );
+      await vi.waitFor(() => expect(warning).toHaveBeenCalledOnce());
       expect(durableWorkEnqueue).toHaveBeenCalledTimes(1);
       expect(submissionCompleteIfInProgress).not.toHaveBeenCalled();
       expect(warning).toHaveBeenCalledWith(
@@ -795,5 +796,14 @@ describe("submitAndDispatch", () => {
     } finally {
       warning.mockRestore();
     }
+  });
+
+  it("returns the queued submission without waiting for Temporal", async () => {
+    dispatchSubmissionJudge.mockReturnValue(new Promise(() => {}));
+
+    await expect(submitAndDispatch(baseDraft, fakeActor, "127.0.0.1")).resolves.toEqual(
+      expect.objectContaining({ status: "queued" }),
+    );
+    expect(durableWorkEnqueue).toHaveBeenCalledTimes(1);
   });
 });
