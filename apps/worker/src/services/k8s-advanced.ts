@@ -11,6 +11,7 @@ import {
   SANDBOX_NODE_SELECTOR,
   SANDBOX_POD_SECURITY_CONTEXT_WITH_FSGROUP,
   SANDBOX_TOLERATIONS,
+  runtimeClassField,
 } from "./k8s-pod-spec";
 import { resolveSourceFiles } from "./source-files.js";
 
@@ -219,6 +220,7 @@ export interface AdvancedRunJobManifestParams {
   egressLabel?: string;
   extraEnv?: Record<string, string>;
   imagePullSecretName?: string;
+  runtimeClassName?: string;
 }
 
 export function buildAdvancedRunJobManifest(params: AdvancedRunJobManifestParams): k8s.V1Job {
@@ -254,6 +256,7 @@ export function buildAdvancedRunJobManifest(params: AdvancedRunJobManifestParams
         spec: {
           restartPolicy: "Never",
           automountServiceAccountToken: false,
+          ...runtimeClassField(params.runtimeClassName),
           ...(params.imagePullSecretName
             ? { imagePullSecrets: [{ name: params.imagePullSecretName }] }
             : {}),
@@ -328,6 +331,7 @@ export interface AdvancedGradeJobManifestParams {
   nodeName: string;
   egressLabel: string;
   imagePullSecretName?: string;
+  runtimeClassName?: string;
 }
 
 export function buildAdvancedGradeJobManifest(
@@ -360,6 +364,7 @@ export function buildAdvancedGradeJobManifest(
         spec: {
           restartPolicy: "Never",
           automountServiceAccountToken: false,
+          ...runtimeClassField(params.runtimeClassName),
           ...(params.imagePullSecretName
             ? { imagePullSecrets: [{ name: params.imagePullSecretName }] }
             : {}),

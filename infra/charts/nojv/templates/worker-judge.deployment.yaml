@@ -4,6 +4,9 @@ env source of truth the env-manifest-parity guard scans up to the first
 cloudsql-proxy sidecar). Keep the full K8s + storage env block here, in order.
 */}}
 {{- $releaseMaintenance := and .Release.IsUpgrade .Values.migrator.enabled -}}
+{{- if ne .Values.worker.sandbox.runtimeClassName "gvisor" }}
+{{- fail "worker.sandbox.runtimeClassName must be gvisor" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -70,12 +73,18 @@ spec:
               value: {{ .Values.worker.judge.concurrency | quote }}
             - name: K8S_CPU_REQUEST
               value: {{ .Values.worker.sandbox.cpuRequest | quote }}
+            - name: K8S_CASE_CPU_REQUEST
+              value: {{ .Values.worker.sandbox.caseCpuRequest | quote }}
             - name: K8S_CPU_LIMIT
               value: {{ .Values.worker.sandbox.cpuLimit | quote }}
             - name: K8S_MEMORY_REQUEST
               value: {{ .Values.worker.sandbox.memoryRequest | quote }}
             - name: K8S_MEMORY_LIMIT
               value: {{ .Values.worker.sandbox.memoryLimit | quote }}
+            - name: K8S_MAX_PARALLEL_CASES
+              value: {{ .Values.worker.sandbox.maxParallelCases | quote }}
+            - name: K8S_RUNTIME_CLASS_NAME
+              value: {{ required "worker.sandbox.runtimeClassName is required" .Values.worker.sandbox.runtimeClassName | quote }}
             {{- if .Values.registry.enabled }}
             - name: REGISTRY_GC_IMAGE
               value: {{ .Values.registry.image | quote }}

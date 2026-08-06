@@ -1,0 +1,4 @@
+{{ template "base" . }}
+
+[plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.'runsc']
+  runtime_type = "io.containerd.runsc.v1"

@@ -61,9 +61,12 @@ const validK8sEnv: Record<string, string> = {
   EXECUTION_BACKEND: "kubernetes",
   K8S_NAMESPACE: "nojv-sandbox",
   K8S_CPU_REQUEST: "500m",
+  K8S_CASE_CPU_REQUEST: "100m",
   K8S_CPU_LIMIT: "1",
   K8S_MEMORY_REQUEST: "256Mi",
   K8S_MEMORY_LIMIT: "512Mi",
+  K8S_MAX_PARALLEL_CASES: "20",
+  K8S_RUNTIME_CLASS_NAME: "gvisor",
 };
 
 function requiredKubernetesEnvKeys(): string[] {
@@ -149,6 +152,12 @@ if (!helm) {
 describe("env schema baseline (no helm required)", () => {
   it("the valid baseline env parses (sanity check for the drop-one probe)", () => {
     expect(workerEnvSchema.safeParse(validK8sEnv).success).toBe(true);
+  });
+
+  it("rejects runc for the production Kubernetes sandbox runtime", () => {
+    expect(
+      workerEnvSchema.safeParse({ ...validK8sEnv, K8S_RUNTIME_CLASS_NAME: "runc" }).success,
+    ).toBe(false);
   });
 
   it("the production storage baseline parses (sanity check for the drop-one probe)", () => {

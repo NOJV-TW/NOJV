@@ -5,6 +5,7 @@ import {
   SANDBOX_NODE_SELECTOR,
   SANDBOX_POD_SECURITY_CONTEXT,
   SANDBOX_TOLERATIONS,
+  runtimeClassField,
 } from "./k8s-pod-spec";
 
 const TTL_AFTER_FINISHED_SECONDS = 60;
@@ -52,6 +53,7 @@ export interface SandboxJobManifestParams {
   memoryRequest: string;
   memoryLimit: string;
   activeDeadlineSeconds: number;
+  runtimeClassName?: string;
 }
 
 export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V1Job {
@@ -78,6 +80,7 @@ export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V
         spec: {
           restartPolicy: "Never",
           automountServiceAccountToken: false,
+          ...runtimeClassField(params.runtimeClassName),
           nodeSelector: SANDBOX_NODE_SELECTOR,
           tolerations: SANDBOX_TOLERATIONS,
           securityContext: SANDBOX_POD_SECURITY_CONTEXT,
@@ -132,11 +135,13 @@ export interface PerCaseSandboxJobManifestParams {
   configMapNames: string[];
   image: string;
   cpuRequest: string;
+  caseCpuRequest?: string;
   cpuLimit: string;
   memoryRequest: string;
   memoryLimit: string;
   activeDeadlineSeconds: number;
   caseIndices: number[];
+  runtimeClassName?: string;
 }
 
 export function perCaseContainerName(index: number): string {
@@ -151,6 +156,10 @@ export function buildPerCaseSandboxJobManifest(
   const containerSecurityContext = HARDENED_CONTAINER_SECURITY_CONTEXT;
   const resources = {
     requests: { cpu: params.cpuRequest, memory: params.memoryRequest },
+    limits: { cpu: params.cpuLimit, memory: params.memoryLimit },
+  };
+  const caseResources = {
+    requests: { cpu: params.caseCpuRequest ?? params.cpuRequest, memory: params.memoryRequest },
     limits: { cpu: params.cpuLimit, memory: params.memoryLimit },
   };
   const baseMounts = (artifactReadOnly: boolean, scratchKey: string) => [
@@ -177,6 +186,7 @@ export function buildPerCaseSandboxJobManifest(
         spec: {
           restartPolicy: "Never",
           automountServiceAccountToken: false,
+          ...runtimeClassField(params.runtimeClassName),
           nodeSelector: SANDBOX_NODE_SELECTOR,
           tolerations: SANDBOX_TOLERATIONS,
           securityContext: SANDBOX_POD_SECURITY_CONTEXT,
@@ -211,7 +221,7 @@ export function buildPerCaseSandboxJobManifest(
               { name: "PYTHONDONTWRITEBYTECODE", value: "1" },
               { name: "HOME", value: "/tmp" },
             ],
-            resources,
+            resources: caseResources,
             securityContext: containerSecurityContext,
             volumeMounts: baseMounts(true, perCaseContainerName(index)),
           })),
@@ -257,6 +267,7 @@ export interface InteractiveJobManifestParams {
   memoryRequest: string;
   memoryLimit: string;
   activeDeadlineSeconds: number;
+  runtimeClassName?: string;
 }
 
 export function buildInteractiveJobManifest(params: InteractiveJobManifestParams): k8s.V1Job {
@@ -285,6 +296,7 @@ export function buildInteractiveJobManifest(params: InteractiveJobManifestParams
         spec: {
           restartPolicy: "Never",
           automountServiceAccountToken: false,
+          ...runtimeClassField(params.runtimeClassName),
           nodeSelector: SANDBOX_NODE_SELECTOR,
           tolerations: SANDBOX_TOLERATIONS,
           securityContext: SANDBOX_POD_SECURITY_CONTEXT,

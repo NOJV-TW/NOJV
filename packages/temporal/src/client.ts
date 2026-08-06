@@ -41,6 +41,7 @@ function connectTemporalClient(): Promise<Client> {
   try {
     connectionPromise = Connection.connect({
       address,
+      connectTimeout: "2s",
       ...(tls !== undefined ? { tls } : {}),
       ...(apiKey ? { apiKey } : {}),
     });

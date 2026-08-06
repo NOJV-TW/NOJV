@@ -20,13 +20,27 @@ spec:
         app.kubernetes.io/name: nojv-sandbox-prepull
     spec:
       restartPolicy: Never
-      {{- with .Values.worker.judge.nodeSelector }}
       nodeSelector:
-        {{- toYaml . | nindent 8 }}
+        nojv-role: sandbox
+      tolerations:
+        - key: nojv-role
+          operator: Equal
+          value: sandbox
+          effect: NoSchedule
+        - key: cloud.google.com/gke-spot
+          operator: Equal
+          value: "true"
+          effect: NoSchedule
+      automountServiceAccountToken: false
+      runtimeClassName: {{ required "worker.sandbox.runtimeClassName is required" .Values.worker.sandbox.runtimeClassName | quote }}
+      {{- with .Values.worker.sandbox.imagePullSecret }}
+      imagePullSecrets:
+        - name: {{ . }}
       {{- end }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
+        runAsGroup: 10001
         seccompProfile:
           type: RuntimeDefault
       containers:

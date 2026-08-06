@@ -10,9 +10,6 @@
 {{- $readyReplicas = .Values.web.hpa.min -}}
 {{- end -}}
 {{- $judgeReadyReplicas := .Values.worker.judge.replicas -}}
-{{- if .Values.worker.judge.keda.enabled -}}
-{{- $judgeReadyReplicas = .Values.worker.judge.keda.min -}}
-{{- end -}}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -58,13 +55,6 @@ rules:
     resourceNames:
       - {{ $webName }}
     verbs: ["get", "patch"]
-  {{- if .Values.worker.judge.keda.enabled }}
-  - apiGroups: ["keda.sh"]
-    resources: ["scaledobjects"]
-    resourceNames:
-      - {{ $judgeName }}
-    verbs: ["get", "patch"]
-  {{- end }}
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "list"]
@@ -146,10 +136,6 @@ spec:
               value: app.kubernetes.io/name=nojv-web
             - name: JUDGE_DEPLOYMENT
               value: {{ $judgeName | quote }}
-            - name: JUDGE_KEDA_SCALED_OBJECT
-              value: {{ $judgeName | quote }}
-            - name: JUDGE_KEDA_ENABLED
-              value: {{ .Values.worker.judge.keda.enabled | quote }}
             - name: JUDGE_READY_REPLICAS
               value: {{ $judgeReadyReplicas | quote }}
             - name: JUDGE_POD_SELECTOR

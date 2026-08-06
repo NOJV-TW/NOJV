@@ -83,7 +83,7 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 **Impact**: No new workflows start. In-flight workflows pause.
 **Mitigation**: Temporal auto-setup with PostgreSQL backend provides persistence.
 **Recovery**: Temporal resumes all paused workflows when it comes back. No data loss.
-**Note**: If Temporal is unavailable after a submission transaction commits, the API still returns `202 queued`. The `submission.judge.dispatch` transactional outbox remains pending and the minute-based durable-work processor retries it until the deterministic `judge-{submissionId}` workflow starts. Submissions whose workflows had already started resume when Temporal recovers.
+**Note**: If Temporal is unavailable after a submission transaction commits, the API still returns `202 queued`. The web process attempts the deterministic workflow start immediately; if that call fails, the `submission.judge.dispatch` transactional outbox remains pending and the durable-work processor retries it until the workflow starts. Submissions whose workflows had already started resume when Temporal recovers.
 
 > **SPOF caveat (current self-hosted topology).** The in-cluster Temporal control plane runs as a **single** `temporalio/auto-setup` replica backed by a **single-pod** `temporal-postgres` StatefulSet — there is no HA failover. Interim guards are in place: a PodDisruptionBudget (`minAvailable: 1`) on both pods and a `nodeSelector: nojv-role=worker` pin (so a sandbox-pool scale-down can't evict them), plus a daily `pg_dump` of the Temporal DB to GCS (installed by `infra/gcp/scripts/setup-backups.sh`). These limit voluntary disruption and data loss but do not provide live failover — a node failure still pauses all workflows until the pod reschedules.
 >
@@ -92,14 +92,22 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 ### Worker Unavailable
 
 **Impact**: No submission judging, no lifecycle transitions.
-**Mitigation**: Temporal retries activities when workers reconnect. Workers run as a static GKE Deployment with a PodDisruptionBudget (KEDA-based autoscaling removed in commit `c1ed096`); pending workflows queue in Temporal until capacity returns.
+**Mitigation**: Temporal retries activities when workers reconnect. Workers run
+as a fixed GKE Deployment with a PodDisruptionBudget; sandbox capacity is
+bounded by one on-demand gVisor node plus a 0–4 Spot burst pool, and pending
+workflows remain durable until capacity returns.
 **Recovery**: Start new worker. Temporal automatically dispatches pending activities.
 
 ### Sandbox Failure
 
-**Impact**: Individual submission fails with System Error (SE).
-**Mitigation**: Temporal retries (3 attempts for judge activities). Container recreation on failure.
-**Recovery**: Automatic retry. If persistent, check Docker daemon or K8s node health.
+**Impact**: A normal program failure produces its normal verdict; eviction,
+node shutdown, node loss, and Spot reclaim delay the submission instead of
+being reported as a student-facing System Error.
+**Mitigation**: Temporal retries judge activities up to three times, each with
+a fresh ephemeral sandbox run ID. OOM, TLE, and program errors remain normal
+verdicts.
+**Recovery**: Automatic retry. If infrastructure retries are exhausted, check
+Kubernetes node health and the sandbox quota.
 
 ## Operational Invariants
 

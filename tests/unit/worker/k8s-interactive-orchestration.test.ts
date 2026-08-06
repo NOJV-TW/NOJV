@@ -51,6 +51,7 @@ interface FakeOptions {
   perJob?: Map<string, { solution: string; interactor: string }>;
   outcomes?: Map<string, "succeeded" | "failed">;
   imagePullMessage?: string;
+  infrastructureReason?: string;
 }
 
 function buildFakeClients(record: CallRecord, opts: FakeOptions = {}) {
@@ -83,6 +84,9 @@ function buildFakeClients(record: CallRecord, opts: FakeOptions = {}) {
                   },
                 }
               : {}),
+            ...(opts.infrastructureReason
+              ? { status: { phase: "Failed", reason: opts.infrastructureReason } }
+              : {}),
           },
         ],
       };
@@ -105,6 +109,7 @@ function buildFakeClients(record: CallRecord, opts: FakeOptions = {}) {
     }),
     readNamespacedJob: vi.fn(async ({ name }: any) => {
       if (opts.imagePullMessage) return { status: { active: 1 } };
+      if (opts.infrastructureReason) return { status: { failed: 1 } };
       const status = opts.outcomes?.get(name) ?? "succeeded";
       return { status: { [status]: 1 } };
     }),
@@ -225,6 +230,15 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     expect(serialized).toContain("interactive sandbox cleanup failed");
     expect(serialized).toContain("Job nojv-sandbox/judge-sub-int-orch-int-0");
     expect(serialized).toContain("cleanup forbidden");
+  });
+
+  it("rethrows eviction as retryable infrastructure failure", async () => {
+    const record = emptyRecord();
+    const clients = buildFakeClients(record, { infrastructureReason: "Evicted" });
+
+    await expect(
+      execute(new K8sExecutor(EXEC_CONFIG, clients), makeRequest(1)),
+    ).rejects.toThrow("interrupted by infrastructure");
   });
 
   it("awaits an in-flight API stage, then cleans resources before cancellation rejects", async () => {

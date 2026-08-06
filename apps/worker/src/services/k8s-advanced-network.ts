@@ -5,6 +5,7 @@ import {
   SANDBOX_NODE_SELECTOR,
   SANDBOX_POD_SECURITY_CONTEXT_WITH_FSGROUP,
   SANDBOX_TOLERATIONS,
+  runtimeClassField,
 } from "./k8s-pod-spec";
 import {
   ADVANCED_SERVICE_PORT,
@@ -60,6 +61,7 @@ export interface ServiceSidecarParams {
   cpuLimit: string;
   port: number;
   imagePullSecretName?: string;
+  runtimeClassName?: string;
 }
 
 export function buildServiceSidecarPodManifest(params: ServiceSidecarParams): k8s.V1Pod {
@@ -74,6 +76,7 @@ export function buildServiceSidecarPodManifest(params: ServiceSidecarParams): k8
     spec: {
       restartPolicy: "Never",
       automountServiceAccountToken: false,
+      ...runtimeClassField(params.runtimeClassName),
       ...(params.imagePullSecretName
         ? { imagePullSecrets: [{ name: params.imagePullSecretName }] }
         : {}),

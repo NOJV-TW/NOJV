@@ -27,7 +27,6 @@ function makeHarness(): { bin: string; directory: string; events: string; status
     writeFileSync(join(directory, `${deployment}.replicas`), replicas);
   }
   writeFileSync(join(directory, "hpa-target"), "nojv-web");
-  writeFileSync(join(directory, "keda-paused"), "");
 
   writeFileSync(
     join(bin, "node"),
@@ -128,11 +127,6 @@ case "$verb:$1" in
   get:horizontalpodautoscaler)
     cat "$HARNESS_DIR/hpa-target"
     ;;
-  get:scaledobject)
-    case "$original" in
-      *jsonpath*) cat "$HARNESS_DIR/keda-paused" ;;
-    esac
-    ;;
   scale:deployment)
     shift
     names=""
@@ -151,12 +145,6 @@ case "$verb:$1" in
     case "$original" in
       *maintenance*) printf nojv-web-maintenance > "$HARNESS_DIR/hpa-target" ;;
       *) printf nojv-web > "$HARNESS_DIR/hpa-target" ;;
-    esac
-    ;;
-  annotate:scaledobject)
-    case "$original" in
-      *paused-replicas=0*) printf 0 > "$HARNESS_DIR/keda-paused" ;;
-      *paused-replicas-*) : > "$HARNESS_DIR/keda-paused" ;;
     esac
     ;;
 esac
@@ -191,8 +179,6 @@ function runCutover(
       WEB_HPA_ENABLED: "true",
       WEB_POD_SELECTOR: "app.kubernetes.io/name=nojv-web",
       JUDGE_DEPLOYMENT: "nojv-worker",
-      JUDGE_KEDA_SCALED_OBJECT: "nojv-worker",
-      JUDGE_KEDA_ENABLED: "true",
       JUDGE_POD_SELECTOR: "app.kubernetes.io/name=nojv-worker",
       PLATFORM_DEPLOYMENT: "nojv-worker-platform",
       PLATFORM_POD_SELECTOR: "app.kubernetes.io/name=nojv-worker-platform",
@@ -233,7 +219,7 @@ describe("storage release cutover", () => {
     expect(expand).not.toContain("CDPATH= cd --");
   });
 
-  it("renders the upgrade hook with S3, writable staging, and all autoscaler RBAC", () => {
+  it("renders the upgrade hook with S3, writable staging, and web HPA RBAC", () => {
     const render = execSync(
       [
         "helm template nojv infra/charts/nojv --is-upgrade",
@@ -241,9 +227,6 @@ describe("storage release cutover", () => {
         "-f tests/fixtures/helm/immutable-image-digests.yaml",
         "-f tests/fixtures/helm/gke-production-config.yaml",
         "-f tests/fixtures/helm/production-external-backups.yaml",
-        "--set worker.judge.keda.enabled=true",
-        "--set worker.judge.keda.prometheusAddress=http://prometheus",
-        "--set worker.judge.keda.query=queue_depth",
       ].join(" "),
       { cwd: repoRoot, encoding: "utf8" },
     );
@@ -301,7 +284,6 @@ describe("storage release cutover", () => {
     expect(migrator).toMatch(/mountPath: \/tmp[\s\S]*emptyDir:/);
     expect(role).toContain('resources: ["deployments/scale"]');
     expect(role).toContain('resources: ["horizontalpodautoscalers"]');
-    expect(role).toContain('resources: ["scaledobjects"]');
     expect(schemaFence).toContain('resources: ["deployments"]');
     expect(schemaFence).not.toContain("deployments/scale");
     expect(schemaFence).toContain('"nojv.tw/schema-contract" in');
@@ -314,9 +296,6 @@ describe("storage release cutover", () => {
     }
     expect(resource("HorizontalPodAutoscaler", "nojv-web")).toContain(
       "name: nojv-web-maintenance",
-    );
-    expect(resource("ScaledObject", "nojv-worker")).toContain(
-      'autoscaling.keda.sh/paused-replicas: "0"',
     );
   }, 15_000);
 
@@ -382,8 +361,6 @@ describe("storage release cutover", () => {
         WEB_READY_REPLICAS: "2",
         WEB_POD_SELECTOR: "app.kubernetes.io/name=nojv-web",
         JUDGE_DEPLOYMENT: "nojv-worker",
-        JUDGE_KEDA_SCALED_OBJECT: "nojv-worker",
-        JUDGE_KEDA_ENABLED: "true",
         JUDGE_READY_REPLICAS: "2",
         JUDGE_POD_SELECTOR: "app.kubernetes.io/name=nojv-worker",
         PLATFORM_DEPLOYMENT: "nojv-worker-platform",
@@ -394,7 +371,6 @@ describe("storage release cutover", () => {
       },
     });
     expect(readFileSync(join(harness.directory, "hpa-target"), "utf8")).toBe("nojv-web");
-    expect(readFileSync(join(harness.directory, "keda-paused"), "utf8")).toBe("");
     const releaseLog = events(harness);
     const releaseScale = releaseLog.findIndex((line) =>
       line.includes("scale deployment nojv-web --replicas=2"),
@@ -409,7 +385,6 @@ describe("storage release cutover", () => {
   it("re-enters maintenance when the post-upgrade workloads do not become ready", () => {
     const harness = makeHarness();
     writeFileSync(join(harness.directory, "hpa-target"), "nojv-web-maintenance");
-    writeFileSync(join(harness.directory, "keda-paused"), "0");
 
     const result = spawnSync(
       "sh",
@@ -430,8 +405,6 @@ describe("storage release cutover", () => {
           WEB_READY_REPLICAS: "2",
           WEB_POD_SELECTOR: "app.kubernetes.io/name=nojv-web",
           JUDGE_DEPLOYMENT: "nojv-worker",
-          JUDGE_KEDA_SCALED_OBJECT: "nojv-worker",
-          JUDGE_KEDA_ENABLED: "true",
           JUDGE_READY_REPLICAS: "2",
           JUDGE_POD_SELECTOR: "app.kubernetes.io/name=nojv-worker",
           PLATFORM_DEPLOYMENT: "nojv-worker-platform",
@@ -452,7 +425,6 @@ describe("storage release cutover", () => {
     expect(readFileSync(join(harness.directory, "hpa-target"), "utf8")).toBe(
       "nojv-web-maintenance",
     );
-    expect(readFileSync(join(harness.directory, "keda-paused"), "utf8")).toBe("0");
   });
 
   it("keeps workloads drained after backfill starts", () => {
@@ -527,7 +499,6 @@ describe("storage release cutover", () => {
     const harness = makeHarness();
     writeFileSync(harness.status, "applied");
     writeFileSync(join(harness.directory, "hpa-target"), "nojv-web-maintenance");
-    writeFileSync(join(harness.directory, "keda-paused"), "0");
     writeFileSync(join(harness.directory, "nojv-web.replicas"), "0");
     writeFileSync(join(harness.directory, "nojv-worker.replicas"), "0");
     writeFileSync(join(harness.directory, "nojv-worker-platform.replicas"), "0");

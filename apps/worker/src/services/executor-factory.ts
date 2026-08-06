@@ -10,9 +10,12 @@ export function createExecutorOwner(env: WorkerEnv): ExecutorOwner {
         namespace: env.K8S_NAMESPACE,
         image: env.SANDBOX_IMAGE,
         cpuRequest: env.K8S_CPU_REQUEST,
+        caseCpuRequest: env.K8S_CASE_CPU_REQUEST,
         cpuLimit: env.K8S_CPU_LIMIT,
         memoryRequest: env.K8S_MEMORY_REQUEST,
         memoryLimit: env.K8S_MEMORY_LIMIT,
+        maxParallelCases: env.K8S_MAX_PARALLEL_CASES,
+        runtimeClassName: env.K8S_RUNTIME_CLASS_NAME,
         headroomMb: env.SANDBOX_MEMORY_HEADROOM_MB,
         maxMemoryMb: env.SANDBOX_MAX_MEMORY_MB,
         ...(env.K8S_IMAGE_PULL_SECRET

@@ -47,7 +47,8 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 ### Prevention
 
 - PodDisruptionBudget for worker — chart-rendered (`infra/charts/nojv/templates/worker-pdb.yaml`, guarded by `pdb.enabled`).
-- GKE worker Deployment uses static replicas sized for peak submission rate (KEDA-based autoscaling removed in commit `c1ed096`; pending workflows queue in Temporal until capacity returns).
+- GKE worker Deployment uses fixed replicas sized for sandbox capacity; pending
+  workflows queue in Temporal while the on-demand or Spot sandbox pool recovers.
 - OOM and CPU throttling alerts on the worker pool.
 - Canary deploys for `apps/worker`; never promote to production without passing `pnpm ci:verify`.
 

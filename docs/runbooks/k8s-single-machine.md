@@ -2,13 +2,14 @@
 
 Run the **whole** NOJV judge on **one box** using the Kubernetes sandbox
 backend (`EXECUTION_BACKEND=kubernetes`) on [k3s](https://k3s.io). You get
-per-submission Pod autoscaling (judge Pods spin up on load and scale to zero
-when idle) now, and a clean upgrade path to multi-node later — without GKE.
+per-submission sandbox Jobs that queue safely at the host quota, and a clean
+upgrade path to multi-node later — without GKE.
 
 This deploys the **same Helm chart** (`infra/charts/nojv`) used for GKE, with the
 single-machine values overlay (`infra/charts/nojv/values-single-machine.yaml`);
-the only deltas are the CNI, the node labels, how images get into the cluster,
-and a single-node Temporal (the chart brings up in-cluster Postgres/Redis/MinIO).
+the only deltas are the CNI, gVisor runtime, node labels, how images get into
+the cluster, and a single-node Temporal (the chart brings up in-cluster
+Postgres/Redis/MinIO).
 
 For the managed-cloud (GKE) path instead, see
 [Deployment Guide → GKE Worker Rollout](../operations/DEPLOYMENT.md#gke-worker-rollout).
@@ -54,6 +55,8 @@ install **Calico** (or Cilium) which does enforce NetworkPolicy.
 - `docker` on the host **only** to `docker save` images into k3s
   ([§4](#4-load-images-into-k3s-containerd-not-docker)). k3s itself runs on
   containerd, not Docker.
+- gVisor's official release archive pinned to release `20260727` with the
+  SHA-512 recorded in the runtime installation step below.
 
 Throughout, run `kubectl` either via the bundled `k3s kubectl ...` or by
 exporting the k3s kubeconfig once:
@@ -117,30 +120,62 @@ kubectl get tigerastatus   # all should report AVAILABLE=True
 > flags: `cilium install --version 1.16.3` (after installing the `cilium` CLI).
 > Cilium also enforces NetworkPolicy. Pick one; do not install both.
 
+### Install the pinned gVisor runtime before the chart
+
+The production chart requires `runtimeClassName: gvisor`; it does not fall back
+to `runc`. Install the official gVisor archive, including the shim sidecar
+binaries, and install the K3s containerd v3 extension from this repository:
+
+```bash
+GVISOR_RELEASE=20260727
+GVISOR_SHA512=94a7280655629330f02ff06fbec0493b7f2f4041dd145576daeff2340577cde0fb45fe28e5f1d209f7d7c08f70b9c3e333aa1073063b1d132742120763eaf0ad
+ARCH=x86_64
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+mkdir -p /tmp/gvisor-${GVISOR_RELEASE}
+cd /tmp/gvisor-${GVISOR_RELEASE}
+curl -fsSLO "https://storage.googleapis.com/gvisor/releases/release/${GVISOR_RELEASE}/${ARCH}/gvisor.tar.bz2"
+printf '%s  gvisor.tar.bz2\n' "$GVISOR_SHA512" | sha512sum -c -
+sudo tar -xjf gvisor.tar.bz2 -C /usr/local/bin
+sudo install -m 0644 "$REPO_ROOT/infra/k3s/containerd/config-v3.toml.tmpl" \
+  /var/lib/rancher/k3s/agent/etc/containerd/config-v3.toml.tmpl
+sudo kubectl apply -f "$REPO_ROOT/infra/k3s/runtimeclass-gvisor.yaml"
+sudo systemctl restart k3s
+kubectl wait --for=condition=Ready node --all --timeout=180s
+kubectl get runtimeclass gvisor -o yaml
+```
+
+The template extends K3s's generated containerd v3 base and registers the
+`runsc` handler. Verify the handler before deploying the worker:
+
+```bash
+sudo grep -A2 "runtimes.'runsc'" \
+  /var/lib/rancher/k3s/agent/etc/containerd/config.toml
+```
+
+If the RuntimeClass or handler is missing, stop. The worker startup probe will
+also refuse to start, but the node must be repaired before judging.
+
 ### Verify enforcement (the same check the worker runs at startup)
 
 The deny-all policy and the `nojv-sandbox` namespace are rendered by the chart
-(`infra/charts/nojv/templates/sandbox-policy.yaml` + `templates/namespaces.yaml`),
-so run this check **after** [§6](#6-install-the-chart) installs the chart. Launch
-a throwaway Pod carrying the sandbox's `nojv.egress`-absent shape so the
-`deny-all-sandbox` policy applies, and confirm it **cannot** reach the internet:
+(`infra/charts/nojv/templates/sandbox-policy.yaml` + `templates/namespaces.yaml`).
+After [§6](#6-install-the-chart), restart the worker and inspect its startup
+self-check:
 
 ```bash
-kubectl run egress-check -n nojv-sandbox --rm -i --restart=Never \
-  --image=curlimages/curl --labels=app=nojv-sandbox \
-  --overrides='{"spec":{"tolerations":[{"key":"nojv-role","operator":"Equal","value":"sandbox","effect":"NoSchedule"}],"nodeSelector":{"nojv-role":"sandbox"}}}' \
-  --command -- curl -sS --max-time 5 https://1.1.1.1
+kubectl logs -n nojv deploy/nojv-worker | grep -i "NetworkPolicy"
 ```
 
-**Expected:** the `curl` times out and the Pod exits non-zero — egress is
-blocked. If it returns a response, NetworkPolicy enforcement is OFF: **stop**
-and fix the CNI before judging anything. (The deny-all `podSelector` matches
-every sandbox Pod **except** those labelled `nojv.egress=<value>`, which are the
-advanced run/grade Pods governed by their own per-submission policy — see
-`infra/charts/nojv/templates/sandbox-policy.yaml`.)
-
-The worker's startup self-check performs exactly this probe automatically, so
-even if you skip the manual check, a non-enforcing cluster cannot judge.
+**Expected:** `NetworkPolicy enforcement verified — sandbox egress is isolated`.
+The worker creates two internal target Pods plus temporary allow/deny policies;
+it must reach the explicitly allowed target and must not reach the target with
+no egress allow. This positive/negative check does not depend on an external
+firewall or Internet route, so a non-enforcing CNI cannot pass accidentally.
+If the worker logs `CRITICAL: refusing to start K8s judge worker`, **stop** and
+fix the CNI before judging anything. The temporary probe resources are removed
+automatically. The deny-all `podSelector` still matches every sandbox Pod
+except those labelled `nojv.egress=<value>`, which are governed by their own
+per-submission policies.
 
 ## 2. Node setup
 
@@ -206,12 +241,12 @@ namespace, the deny-all NetworkPolicy, the LimitRange, and the ResourceQuota fro
 - **LimitRange** — default/`max`/`min` CPU & memory per sandbox container
   (default `1` CPU / `512Mi`, max `2` CPU / `1Gi`), tunable via
   `sandbox.limitRange.*`.
-- **ResourceQuota** — the single-machine overlay sets `pods: 10`,
-  `requests.cpu: 4`, `requests.memory: 4Gi` (the shared default is 50 / 25 /
-  12Gi). **This is the concurrency ceiling**: the worker can never have more
-  sandbox Pods running than the quota allows; excess Jobs queue as `Pending`
-  until earlier ones finish. Tune it for the box via `sandbox.resourceQuota.*`
-  in your values overlay — [§8](#sizing-the-resourcequota-to-the-box).
+- **ResourceQuota** — the single-machine overlay sets `pods: 4`,
+  `requests.cpu: 4`, `requests.memory: 12Gi`. **This is the concurrency
+  ceiling**: each 20-case Job uses about 2 CPU / 5Gi, so at most two full waves
+  run at once; excess Jobs queue as `Pending` until earlier ones finish. Tune it
+  for the box via `sandbox.resourceQuota.*` in your values overlay —
+  [§8](#sizing-the-resourcequota-to-the-box).
 
 ## 4. Load images into k3s (containerd, not Docker)
 
@@ -393,15 +428,12 @@ in-cluster Postgres/Redis/MinIO. The migrator hook ([§5](#5-prerequisites-the-c
 runs first.
 
 The chart sets **all** required worker env: the Kubernetes variant of
-`parseWorkerEnv` (`apps/worker/src/env.ts`) mandates `K8S_NAMESPACE`, the four
-`K8S_*` sandbox-Pod limits, all wired from
-`worker.sandbox.{cpuRequest,cpuLimit,memoryRequest,memoryLimit}`. You don't
-hand-set any of it.
+`parseWorkerEnv` (`apps/worker/src/env.ts`) mandates the Kubernetes namespace,
+resource limits, testcase fan-out, and RuntimeClass. The chart wires all of
+them from `worker.sandbox.*`; you don't hand-set any of it.
 
-> **Do NOT set `NOJV_ALLOW_UNENFORCED_NETWORK_POLICY`.** It is the dev-only
-> opt-out for the startup CNI self-check. On this deployment Calico enforces
-> NetworkPolicy, so the check passes on its own. Setting it would let the worker
-> judge on a non-enforcing cluster — never do that outside a throwaway dev box.
+> This deployment has no NetworkPolicy bypass. Calico must enforce
+> NetworkPolicy before the judge worker starts; otherwise startup fails closed.
 
 The single-machine overlay disables the web Ingress (`web.ingress.enabled:
 false`), so reach web through its `Service` (`nojv-web` in the `nojv` namespace)
@@ -416,8 +448,9 @@ kubectl logs -n nojv deploy/nojv-worker | grep -i "NetworkPolicy"
 # Expect: "NetworkPolicy enforcement verified — sandbox egress is isolated"
 ```
 
-If instead you see `CRITICAL: refusing to start K8s judge worker`, the CNI is
-not enforcing — go back to [§1](#1-install-k3s-without-flannel--install-calico).
+If instead you see `CRITICAL: refusing to start K8s judge worker`, inspect both
+the NetworkPolicy and gVisor runtime probe logs, then go back to
+[§1](#1-install-k3s-without-flannel--install-calico).
 
 Now run the [§1 egress verification](#verify-enforcement-the-same-check-the-worker-runs-at-startup),
 which needs the chart-created `nojv-sandbox` namespace + deny-all policy.
@@ -446,13 +479,14 @@ nojv-sandbox`) and that the node has the `nojv-role=sandbox` label.
 
 Three independent layers scale separately. Tune them in this order.
 
-### Layer 1 — Judge work (inherent, no config)
+### Layer 1 — Judge work (quota-bounded)
 
-Judging is **per-submission Kubernetes Jobs/Pods**. The worker creates one Job
-per submission (`k8s-advanced.ts`, `k8s-executor.ts`); each runs in a fresh Pod
-that **dies when finished** (`restartPolicy: Never`, `ttlSecondsAfterFinished`).
-So the judge layer **scales up with load and scales to zero when idle
-automatically** — there is nothing to configure and no idle cost.
+Judging is **per-submission Kubernetes Jobs/Pods**. The worker creates one fresh
+Pod per Job wave (`k8s-advanced.ts`, `k8s-executor.ts`); standard/checker work
+uses at most 20 testcase containers per wave and **dies when finished**
+(`restartPolicy: Never`, `ttlSecondsAfterFinished`). So the judge layer is
+elastic at the Job level, while host capacity remains bounded and idle Jobs cost
+nothing.
 
 Concurrency is bounded by two things:
 
@@ -463,18 +497,19 @@ Concurrency is bounded by two things:
 
 #### Sizing the ResourceQuota to the box
 
-Each sandbox Pod requests `worker.sandbox.cpuRequest` /
-`worker.sandbox.memoryRequest` (defaults `500m` / `256Mi`). Reserve ~1–2 vCPU
-and ~2 GiB for the OS + k3s + worker + in-cluster deps, then divide the rest. On
-an **8 vCPU / 16 GiB** box, set these in your values overlay:
+Each 20-case sandbox Job requests approximately `2` CPU and `5Gi`: one 500m /
+256Mi materialize container, one 500m / 256Mi compile container, and up to twenty
+100m / 256Mi case containers. The single-machine overlay admits two such Jobs
+with quota `4` CPU / `12Gi` / `4` pods. Keep the quota aligned with actual host
+headroom; excess Jobs stay Pending.
 
 ```yaml
-# values overlay — single-node ResourceQuota tuning
+# values overlay — only raise after measuring the host
 sandbox:
   resourceQuota:
-    pods: "12" # ≈ (16Gi − ~3Gi headroom) / 256Mi, capped by CPU below
-    requestsCpu: "6" # 8 − ~2 for system/worker/deps
-    requestsMemory: "8Gi"
+    pods: "4"
+    requestsCpu: "4"
+    requestsMemory: "12Gi"
 ```
 
 Pick the **smaller** of the CPU-bound and memory-bound limits as `pods`. Raise
@@ -489,38 +524,11 @@ the same digest-pinned release command (or the explicit local-only command from
 The chart runs two worker Deployments — judge (`worker.judge.replicas`) and
 platform (`worker.platform.replicas`) — and Temporal distributes activity tasks
 across however many workers poll the queue. Orchestration work is I/O-bound and
-cheap, so **1–2 judge replicas saturate a single box's sandbox quota** — that's
-why the GKE overlay runs a static count and there is no KEDA autoscaler (see
-[Deployment Guide](../operations/DEPLOYMENT.md#service-mapping) and
-`infra/gcp/gke/README.md` → "Why No Autoscaler on the Worker"). On one node the
-single-machine overlay starts both at `1`; bump `worker.judge.replicas` to `2`
-and `helm upgrade` only if `kubectl top pod` shows the judge worker CPU-bound
-while sandbox Pods sit `Pending` for non-quota reasons.
-
-- **CPU-based (simple):** an HPA on worker CPU is the no-extra-dependency option:
-
-  ```yaml
-  apiVersion: autoscaling/v2
-  kind: HorizontalPodAutoscaler
-  metadata:
-    name: nojv-worker
-    namespace: nojv
-  spec:
-    scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: nojv-worker }
-    minReplicas: 1
-    maxReplicas: 3
-    metrics:
-      - type: Resource
-        resource: { name: cpu, target: { type: Utilization, averageUtilization: 70 } }
-  ```
-
-  (Requires the metrics-server; k3s bundles it.) Worker CPU rarely climbs,
-  so this seldom fires — it's a safety valve, not the primary lever.
-
-- **Queue-depth-based (advanced):** to scale on the _real_ signal — Temporal
-  task-queue backlog / schedule-to-start latency — you need **KEDA** with its
-  Temporal scaler. Mention/adopt this only once a metric proves the worker layer
-  (not the sandbox quota) is the bottleneck; on a single box it almost never is.
+cheap, so **one judge replica saturates the single-box sandbox quota**. The
+single-machine overlay starts judge and platform at `1`; keep those values fixed
+unless measurements show CPU starvation while sandbox Pods are Pending for a
+non-quota reason. There is no queue-depth scaler: Temporal already provides the
+durable pending state and another worker replica would not add host capacity.
 
 ### Layer 3 — Node / capacity scaling
 

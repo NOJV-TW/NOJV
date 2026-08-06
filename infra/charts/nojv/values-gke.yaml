@@ -90,8 +90,8 @@ sandbox:
     enabled: true
   resourceQuota:
     enabled: true
-    pods: "50"
-    requestsCpu: "25"
-    requestsMemory: "12Gi"
+    pods: "10"
+    requestsCpu: "10"
+    requestsMemory: "30Gi"
   limitRange:
     enabled: true

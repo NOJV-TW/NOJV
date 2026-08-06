@@ -286,13 +286,6 @@ worker:
       limits:
         cpu: "2"
         memory: 1Gi
-    keda:
-      enabled: false
-      min: 2
-      max: 10
-      prometheusAddress: ""
-      query: ""
-      threshold: "20"
   platform:
     replicas: 1
     concurrency: "4"
@@ -307,9 +300,12 @@ worker:
         memory: 512Mi
   sandbox:
     cpuRequest: "500m"
+    caseCpuRequest: "100m"
     cpuLimit: "1"
     memoryRequest: "256Mi"
     memoryLimit: "512Mi"
+    maxParallelCases: 20
+    runtimeClassName: gvisor
     # dockerconfigjson Secret (in the sandbox namespace, created out-of-band) added
     # to judge run/grade/service pods' imagePullSecrets so they can pull private
     # special_env images. Empty = no pull secret (K8S_IMAGE_PULL_SECRET unset).

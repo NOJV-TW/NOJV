@@ -43,11 +43,13 @@ const kubernetesEnvSchema = baseEnvSchema.extend({
   EXECUTION_BACKEND: z.literal("kubernetes"),
   K8S_NAMESPACE: z.string().trim().min(1),
   K8S_CPU_REQUEST: z.string().trim().min(1),
+  K8S_CASE_CPU_REQUEST: z.string().trim().min(1),
   K8S_CPU_LIMIT: z.string().trim().min(1),
   K8S_MEMORY_REQUEST: z.string().trim().min(1),
   K8S_MEMORY_LIMIT: z.string().trim().min(1),
+  K8S_MAX_PARALLEL_CASES: z.coerce.number().int().min(1).max(20),
+  K8S_RUNTIME_CLASS_NAME: z.literal("gvisor"),
   K8S_IMAGE_PULL_SECRET: z.string().trim().min(1).optional(),
-  NOJV_ALLOW_UNENFORCED_NETWORK_POLICY: z.stringbool().optional().default(false),
 });
 
 export const workerEnvSchema = z.discriminatedUnion("EXECUTION_BACKEND", [

@@ -6,7 +6,10 @@ import {
   buildRunConfigMapData,
   buildValidateConfigMapData,
 } from "../../../apps/worker/src/services/k8s-configmaps";
-import { buildSandboxJobManifest } from "../../../apps/worker/src/services/k8s-job-manifests";
+import {
+  buildPerCaseSandboxJobManifest,
+  buildSandboxJobManifest,
+} from "../../../apps/worker/src/services/k8s-job-manifests";
 
 function makeCheckerRequest(overrides?: {
   testcases?: SandboxRequest["testcases"];
@@ -179,6 +182,47 @@ describe("buildValidateConfigMapData — validate pod ships validator + per-case
   });
 });
 
+describe("buildPerCaseSandboxJobManifest — one compile plus isolated cases", () => {
+  it("keeps compile/materialize at 500m and case containers at 100m", () => {
+    const manifest = buildPerCaseSandboxJobManifest({
+      jobName: "judge-sub-1",
+      namespace: "nojv-sandbox",
+      configMapNames: ["judge-sub-1-p0"],
+      image: "nojv-sandbox:test",
+      cpuRequest: "500m",
+      caseCpuRequest: "100m",
+      cpuLimit: "1",
+      memoryRequest: "256Mi",
+      memoryLimit: "512Mi",
+      activeDeadlineSeconds: 90,
+      caseIndices: Array.from({ length: 20 }, (_, i) => i),
+      runtimeClassName: "gvisor",
+    });
+    const pod = manifest.spec!.template.spec!;
+
+    expect(pod.runtimeClassName).toBe("gvisor");
+    expect(pod.initContainers).toHaveLength(2);
+    expect(pod.initContainers?.map(({ name }) => name)).toEqual(["materialize", "compile"]);
+    expect(
+      pod.initContainers?.every(({ resources }) => resources?.requests?.cpu === "500m"),
+    ).toBe(true);
+    expect(pod.containers).toHaveLength(20);
+    expect(pod.containers?.every(({ resources }) => resources?.requests?.cpu === "100m")).toBe(
+      true,
+    );
+    expect(
+      new Set(
+        pod.containers?.flatMap(
+          ({ volumeMounts }) =>
+            volumeMounts
+              ?.filter(({ name }) => name === "scratch-workspace")
+              .map(({ subPath }) => subPath) ?? [],
+        ),
+      ),
+    ).toHaveLength(20);
+  });
+});
+
 describe("buildSandboxJobManifest — hardening parity for both run and validate pods", () => {
   const baseParams = {
     jobName: "judge-sub-1",
@@ -212,6 +256,12 @@ describe("buildSandboxJobManifest — hardening parity for both run and validate
     expect(podSpec.nodeSelector).toEqual({ "nojv-role": "sandbox" });
     expect(podSpec.tolerations).toEqual([
       { key: "nojv-role", operator: "Equal", value: "sandbox", effect: "NoSchedule" },
+      {
+        key: "cloud.google.com/gke-spot",
+        operator: "Equal",
+        value: "true",
+        effect: "NoSchedule",
+      },
     ]);
     expect(podSpec.securityContext).toMatchObject({
       runAsUser: 10001,

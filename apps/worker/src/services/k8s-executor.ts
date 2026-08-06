@@ -80,6 +80,7 @@ export interface K8sExecutorConfig {
   namespace: string;
   image: string;
   cpuRequest: string;
+  caseCpuRequest?: string;
   cpuLimit: string;
   memoryRequest: string;
   memoryLimit: string;
@@ -89,6 +90,7 @@ export interface K8sExecutorConfig {
   sidecarReadinessTimeoutMs?: number;
   sidecarReadinessIntervalMs?: number;
   maxParallelCases?: number;
+  runtimeClassName?: string;
 }
 
 function parseMemoryLimitMb(value: string): number {
@@ -136,6 +138,16 @@ function isTransientK8sError(reason: unknown): boolean {
   return (
     code === null || code === 408 || code === 409 || code === 425 || code === 429 || code >= 500
   );
+}
+
+function infrastructureFailureReason(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  return /^(Evicted|Shutdown|NodeShutdown|NodeLost|Preempted|DisruptionTarget)$/i.test(value) ||
+    /(?:node (?:was )?(?:lost|shutdown|shutting down)|spot interruption|preempted|evicted)/i.test(
+      value,
+    )
+    ? value
+    : null;
 }
 
 function boundedK8sCall<T>(operation: Promise<T>, resource: string): Promise<T> {
@@ -295,6 +307,13 @@ export class SandboxImagePullError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "SandboxImagePullError";
+  }
+}
+
+export class SandboxInfrastructureError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SandboxInfrastructureError";
   }
 }
 
@@ -467,6 +486,9 @@ export class K8sExecutor implements SandboxExecutor {
           cpuLimit: this.config.cpuLimit,
           submissionId: resourceId,
           language: request.language,
+          ...(this.config.runtimeClassName
+            ? { runtimeClassName: this.config.runtimeClassName }
+            : {}),
           ...(hasSidecar ? { egressLabel: runEgressLabel(resourceId) } : {}),
           ...(runExtraEnv ? { extraEnv: runExtraEnv } : {}),
           ...(this.config.imagePullSecretName
@@ -526,6 +548,9 @@ export class K8sExecutor implements SandboxExecutor {
           language: request.language,
           nodeName,
           egressLabel: gradeEgressLabel(resourceId),
+          ...(this.config.runtimeClassName
+            ? { runtimeClassName: this.config.runtimeClassName }
+            : {}),
           ...(this.config.imagePullSecretName
             ? { imagePullSecretName: this.config.imagePullSecretName }
             : {}),
@@ -636,6 +661,9 @@ export class K8sExecutor implements SandboxExecutor {
         memoryMb: advanced.memoryMb,
         cpuLimit: this.config.cpuLimit,
         port: SIDECAR_PORT,
+        ...(this.config.runtimeClassName
+          ? { runtimeClassName: this.config.runtimeClassName }
+          : {}),
         ...(this.config.imagePullSecretName
           ? { imagePullSecretName: this.config.imagePullSecretName }
           : {}),
@@ -830,6 +858,9 @@ export class K8sExecutor implements SandboxExecutor {
           memoryRequest: this.config.memoryRequest,
           memoryLimit: resolveK8sMemoryLimit(request, this.config),
           activeDeadlineSeconds: deadlineSeconds,
+          ...(this.config.runtimeClassName
+            ? { runtimeClassName: this.config.runtimeClassName }
+            : {}),
         }),
       });
       signal.throwIfAborted();
@@ -870,7 +901,11 @@ export class K8sExecutor implements SandboxExecutor {
         executionFailure = { reason };
         throw reason;
       }
-      if (err instanceof SandboxBackpressureError || err instanceof SandboxImagePullError) {
+      if (
+        err instanceof SandboxBackpressureError ||
+        err instanceof SandboxImagePullError ||
+        err instanceof SandboxInfrastructureError
+      ) {
         executionFailure = { reason: err };
         throw err;
       }
@@ -1058,6 +1093,12 @@ export class K8sExecutor implements SandboxExecutor {
         testcases: request.testcases.filter((tc) => waveCaseIndices.includes(tc.index)),
       };
       const deadlineSeconds = computeJobDeadlineSeconds(waveRequest);
+      const waveStartedAt = Date.now();
+      let payloadReadyAt: number | undefined;
+      let jobSubmittedAt: number | undefined;
+      let jobFinishedAt: number | undefined;
+      let compileLogsReadAt: number | undefined;
+      let caseLogsReadAt: number | undefined;
       let executionFailure: { reason: unknown } | undefined;
       let payloadNames: string[] = [];
 
@@ -1068,6 +1109,7 @@ export class K8sExecutor implements SandboxExecutor {
           buildRunConfigMapData(waveRequest),
           execution.signal,
         );
+        payloadReadyAt = Date.now();
         await this.createPerCaseJob(
           jobName,
           ns,
@@ -1077,8 +1119,10 @@ export class K8sExecutor implements SandboxExecutor {
           memoryLimit,
           execution.signal,
         );
+        jobSubmittedAt = Date.now();
 
         await this.waitForJobCompletion(jobName, ns, deadlineSeconds, execution.signal);
+        jobFinishedAt = Date.now();
 
         const compileLog = await this.getContainerLogs(
           jobName,
@@ -1086,6 +1130,7 @@ export class K8sExecutor implements SandboxExecutor {
           COMPILE_CONTAINER_NAME,
           execution.signal,
         );
+        compileLogsReadAt = Date.now();
         const compileError = parseCompilationError(compileLog);
         if (compileError) return { testcaseResults: [], compilationError: compileError };
 
@@ -1109,13 +1154,39 @@ export class K8sExecutor implements SandboxExecutor {
             },
           );
         }
+        caseLogsReadAt = Date.now();
       } catch (error) {
         executionFailure = { reason: error };
         throw error;
       } finally {
-        await runCleanupAfterExecution(executionFailure, () =>
-          this.cleanup(jobName, ns, payloadNames),
-        );
+        const cleanupStartedAt = Date.now();
+        try {
+          await runCleanupAfterExecution(executionFailure, () =>
+            this.cleanup(jobName, ns, payloadNames),
+          );
+        } finally {
+          logger.info("Kubernetes sandbox phase timings", {
+            submissionId: request.submissionId,
+            jobName,
+            waveIndex,
+            caseCount: waveCaseIndices.length,
+            materializeMs: payloadReadyAt === undefined ? null : payloadReadyAt - waveStartedAt,
+            scheduleAndExecutionMs:
+              jobSubmittedAt === undefined || jobFinishedAt === undefined
+                ? null
+                : jobFinishedAt - jobSubmittedAt,
+            compileLogsMs:
+              jobFinishedAt === undefined || compileLogsReadAt === undefined
+                ? null
+                : compileLogsReadAt - jobFinishedAt,
+            caseLogsMs:
+              compileLogsReadAt === undefined || caseLogsReadAt === undefined
+                ? null
+                : caseLogsReadAt - compileLogsReadAt,
+            cleanupMs: Date.now() - cleanupStartedAt,
+            totalMs: Date.now() - waveStartedAt,
+          });
+        }
       }
     }
 
@@ -1192,7 +1263,11 @@ export class K8sExecutor implements SandboxExecutor {
         executionFailure = { reason };
         throw reason;
       }
-      if (err instanceof SandboxBackpressureError || err instanceof SandboxImagePullError) {
+      if (
+        err instanceof SandboxBackpressureError ||
+        err instanceof SandboxImagePullError ||
+        err instanceof SandboxInfrastructureError
+      ) {
         executionFailure = { reason: err };
         throw err;
       }
@@ -1291,6 +1366,9 @@ export class K8sExecutor implements SandboxExecutor {
         memoryRequest: this.config.memoryRequest,
         memoryLimit,
         activeDeadlineSeconds: deadlineSeconds,
+        ...(this.config.runtimeClassName
+          ? { runtimeClassName: this.config.runtimeClassName }
+          : {}),
       }),
     });
     signal.throwIfAborted();
@@ -1314,11 +1392,15 @@ export class K8sExecutor implements SandboxExecutor {
         configMapNames,
         image: this.config.image,
         cpuRequest: this.config.cpuRequest,
+        ...(this.config.caseCpuRequest ? { caseCpuRequest: this.config.caseCpuRequest } : {}),
         cpuLimit: this.config.cpuLimit,
         memoryRequest: this.config.memoryRequest,
         memoryLimit,
         activeDeadlineSeconds: deadlineSeconds,
         caseIndices,
+        ...(this.config.runtimeClassName
+          ? { runtimeClassName: this.config.runtimeClassName }
+          : {}),
       }),
     });
     signal.throwIfAborted();
@@ -1352,6 +1434,7 @@ export class K8sExecutor implements SandboxExecutor {
     unschedulableReason: string | null;
     containerRunning: boolean;
     imagePull: { reason: string; message: string } | null;
+    infrastructureFailure: string | null;
   }> {
     try {
       signal.throwIfAborted();
@@ -1364,6 +1447,7 @@ export class K8sExecutor implements SandboxExecutor {
       let unschedulableReason: string | null = null;
       let containerRunning = false;
       let imagePull: { reason: string; message: string } | null = null;
+      let infrastructureFailure: string | null = null;
       for (const pod of pods.items) {
         const status = pod.status;
         const phase = status?.phase;
@@ -1372,6 +1456,13 @@ export class K8sExecutor implements SandboxExecutor {
         }
         if (phase === "Failed" && status?.startTime) {
           everStarted = true;
+        }
+        for (const value of [status?.reason, status?.message]) {
+          const reason = infrastructureFailureReason(value);
+          if (reason) {
+            infrastructureFailure = reason;
+            break;
+          }
         }
         for (const cs of [
           ...(status?.initContainerStatuses ?? []),
@@ -1387,13 +1478,30 @@ export class K8sExecutor implements SandboxExecutor {
               message: cs.state?.waiting?.message ?? waitingReason,
             };
           }
+          const containerFailure = [
+            cs.state?.terminated?.reason,
+            cs.state?.terminated?.message,
+          ].filter((value): value is string => typeof value === "string");
+          for (const value of containerFailure) {
+            const reason = infrastructureFailureReason(value);
+            if (reason) {
+              infrastructureFailure = reason;
+              break;
+            }
+          }
         }
         const scheduled = (status?.conditions ?? []).find((c) => c.type === "PodScheduled");
         if (scheduled?.status === "False" && scheduled.reason === "Unschedulable") {
           unschedulableReason = scheduled.message ?? scheduled.reason;
         }
       }
-      return { everStarted, unschedulableReason, containerRunning, imagePull };
+      return {
+        everStarted,
+        unschedulableReason,
+        containerRunning,
+        imagePull,
+        infrastructureFailure,
+      };
     } catch {
       signal.throwIfAborted();
       return {
@@ -1401,6 +1509,7 @@ export class K8sExecutor implements SandboxExecutor {
         unschedulableReason: null,
         containerRunning: false,
         imagePull: null,
+        infrastructureFailure: null,
       };
     }
   }
@@ -1432,6 +1541,21 @@ export class K8sExecutor implements SandboxExecutor {
             `Sandbox Job ${jobName} could not create pods (${blockedReason}); retrying with backoff.`,
           );
         }
+        const jobFailure = (job.status.conditions ?? [])
+          .flatMap((condition) => [condition.reason, condition.message])
+          .map(infrastructureFailureReason)
+          .find((reason): reason is string => reason !== null);
+        if (jobFailure) {
+          throw new SandboxInfrastructureError(
+            `Sandbox Job ${jobName} was interrupted by infrastructure (${jobFailure}); retrying the sandbox run.`,
+          );
+        }
+        const pods = await this.inspectJobPods(jobName, namespace, signal);
+        if (pods.infrastructureFailure) {
+          throw new SandboxInfrastructureError(
+            `Sandbox Job ${jobName} was interrupted by infrastructure (${pods.infrastructureFailure}); retrying the sandbox run.`,
+          );
+        }
         const deadlineExceeded = (job.status.conditions ?? []).some(
           (c) => c.reason === "DeadlineExceeded",
         );
@@ -1444,6 +1568,12 @@ export class K8sExecutor implements SandboxExecutor {
         if (pods.imagePull?.reason === "ImagePullBackOff") {
           throw new SandboxImagePullError(
             `Cannot pull image for Job ${jobName}: ${pods.imagePull.message}`,
+          );
+        }
+
+        if (pods.infrastructureFailure) {
+          throw new SandboxInfrastructureError(
+            `Sandbox Job ${jobName} was interrupted by infrastructure (${pods.infrastructureFailure}); retrying the sandbox run.`,
           );
         }
 

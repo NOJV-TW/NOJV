@@ -12,7 +12,6 @@ set -eu
 : "${JUDGE_POD_SELECTOR:?JUDGE_POD_SELECTOR is required}"
 : "${PLATFORM_POD_SELECTOR:?PLATFORM_POD_SELECTOR is required}"
 : "${WEB_HPA_ENABLED:=false}"
-: "${JUDGE_KEDA_ENABLED:=false}"
 : "${READY_TIMEOUT_SECONDS:=300}"
 : "${POLL_INTERVAL_SECONDS:=2}"
 : "${KUBECTL_REQUEST_TIMEOUT_SECONDS:=5}"
@@ -40,10 +39,6 @@ enter_maintenance() {
     kubectl_ns patch horizontalpodautoscaler "$WEB_HPA" --type merge \
       -p "{\"spec\":{\"scaleTargetRef\":{\"name\":\"$WEB_DEPLOYMENT-maintenance\"}}}" || \
       maintenance_failed=true
-  fi
-  if [ "$JUDGE_KEDA_ENABLED" = true ]; then
-    kubectl_ns annotate scaledobject "$JUDGE_KEDA_SCALED_OBJECT" \
-      autoscaling.keda.sh/paused-replicas=0 --overwrite || maintenance_failed=true
   fi
   kubectl_ns scale deployment "$WEB_DEPLOYMENT" "$JUDGE_DEPLOYMENT" "$PLATFORM_DEPLOYMENT" \
     --replicas=0 || maintenance_failed=true
@@ -114,12 +109,4 @@ if [ "$WEB_HPA_ENABLED" = true ]; then
   [ "$(kubectl_ns get horizontalpodautoscaler "$WEB_HPA" \
     -o 'jsonpath={.spec.scaleTargetRef.name}')" = "$WEB_DEPLOYMENT" ]
 fi
-if [ "$JUDGE_KEDA_ENABLED" = true ]; then
-  : "${JUDGE_KEDA_SCALED_OBJECT:?JUDGE_KEDA_SCALED_OBJECT is required when JUDGE_KEDA_ENABLED=true}"
-  kubectl_ns annotate scaledobject "$JUDGE_KEDA_SCALED_OBJECT" \
-    autoscaling.keda.sh/paused-replicas- --overwrite
-  [ -z "$(kubectl_ns get scaledobject "$JUDGE_KEDA_SCALED_OBJECT" \
-    -o 'jsonpath={.metadata.annotations.autoscaling\.keda\.sh/paused-replicas}')" ]
-fi
-
 released=true
