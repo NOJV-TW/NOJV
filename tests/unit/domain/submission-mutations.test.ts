@@ -27,6 +27,7 @@ const {
   durableWorkEnqueueMany,
   durableWorkCancel,
   proctoringGateInTx,
+  dispatchSubmissionJudge,
   storageRef,
   transactionState,
 } = vi.hoisted(() => ({
@@ -54,6 +55,7 @@ const {
   durableWorkEnqueueMany: vi.fn(),
   durableWorkCancel: vi.fn(),
   proctoringGateInTx: vi.fn(),
+  dispatchSubmissionJudge: vi.fn(),
   storageRef: { client: null as unknown as { send: (cmd: unknown) => Promise<unknown> } },
   transactionState: { calls: 0, depth: 0 },
 }));
@@ -140,10 +142,15 @@ vi.mock("../../../packages/application/src/shared/storage-singleton", () => ({
   },
 }));
 
+vi.mock("../../../packages/application/src/shared/orchestration", () => ({
+  getDomainOrchestration: () => ({ dispatchSubmissionJudge }),
+}));
+
 import { ConflictError, ForbiddenError, submissionDomain } from "@nojv/application";
 import { supportedLanguages } from "@nojv/core";
 
 const { createQueuedSubmissionRecord } = submissionDomain;
+const { submitAndDispatch } = submissionDomain;
 
 const fakeActor = {
   userId: "usr_student",
@@ -744,5 +751,49 @@ describe("createQueuedSubmissionRecord — upload intention lifecycle", () => {
     expect(durableWorkCancel).not.toHaveBeenCalled();
     expect(submissionPublishPendingUpload).not.toHaveBeenCalled();
     expect(durableWorkEnqueue).not.toHaveBeenCalled();
+  });
+});
+
+describe("submitAndDispatch", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupSubmitPipelineDefaults(null);
+    dispatchSubmissionJudge.mockResolvedValue(undefined);
+  });
+
+  it("dispatches the same judge job after the transaction commits", async () => {
+    await expect(submitAndDispatch(baseDraft, fakeActor, "127.0.0.1")).resolves.toEqual(
+      expect.objectContaining({ status: "queued" }),
+    );
+
+    const persistedJob = (durableWorkEnqueue.mock.calls[0]?.[0] as { payload: unknown })
+      .payload;
+    expect(dispatchSubmissionJudge).toHaveBeenCalledWith(persistedJob);
+    expect(durableWorkEnqueue.mock.invocationCallOrder[0]).toBeLessThan(
+      dispatchSubmissionJudge.mock.invocationCallOrder[0],
+    );
+    expect(transactionState.depth).toBe(0);
+  });
+
+  it("keeps the submission queued when immediate dispatch fails", async () => {
+    dispatchSubmissionJudge.mockRejectedValue(new Error("Temporal unavailable"));
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    try {
+      await expect(submitAndDispatch(baseDraft, fakeActor, "127.0.0.1")).resolves.toEqual(
+        expect.objectContaining({ status: "queued" }),
+      );
+      expect(durableWorkEnqueue).toHaveBeenCalledTimes(1);
+      expect(submissionCompleteIfInProgress).not.toHaveBeenCalled();
+      expect(warning).toHaveBeenCalledWith(
+        "[submission] immediate judge dispatch deferred",
+        expect.objectContaining({
+          submissionId: expect.any(String),
+          error: "Temporal unavailable",
+        }),
+      );
+    } finally {
+      warning.mockRestore();
+    }
   });
 });

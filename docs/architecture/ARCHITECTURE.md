@@ -332,7 +332,7 @@ The three sequence diagrams below walk through the most load-bearing runtime pat
 
 ### Submission Judging Lifecycle
 
-This is the end-to-end path from clicking "Submit" to seeing a verdict. The web layer creates a `pending_upload` row, durably writes the source blobs, promotes the row to `queued`, and dispatches a workflow — all real judging happens inside the Temporal workflow, which calls domain data functions through activities. The browser learns the final verdict by polling the submission workflow's `getStatus` query over SSE; a separate user-scoped SSE pub/sub channel (`user:{userId}`) also receives a best-effort verdict notification that the header toast listens to.
+This is the end-to-end path from clicking "Submit" to seeing a verdict. The web layer creates a `pending_upload` row, durably writes the source blobs, and atomically promotes the row to `queued` with a transactional outbox job. It starts the workflow immediately after commit; the minute-based durable-work processor is recovery for a crashed web process or an unavailable Temporal service. All real judging happens inside the Temporal workflow, which calls domain data functions through activities. The browser learns the final verdict by polling the submission workflow's `getStatus` query over SSE; a separate user-scoped SSE pub/sub channel (`user:{userId}`) also receives a best-effort verdict notification that the header toast listens to.
 
 ```mermaid
 sequenceDiagram
@@ -348,9 +348,13 @@ sequenceDiagram
     Browser->>Web: POST /api/submissions (SubmissionDraft)
     Web->>Postgres: createQueuedSubmissionRecord (status=pending_upload)
     Web->>Storage: putSubmissionSources(submissions/{id}/sources/*)
-    Web->>Postgres: updateSubmissionStatus(queued)
-    Web->>Temporal: dispatchSubmissionJudge (workflowId judge-{id}, queue "judge")
+    Web->>Postgres: transaction: source pointer + status=queued + judge outbox
+    Web->>Temporal: immediate dispatch (workflowId judge-{id}, queue "judge")
     Web-->>Browser: 202 { submissionId, pollUrl }
+
+    opt Web or Temporal fails after commit
+        Postgres->>Temporal: durable-work processor retries pending outbox
+    end
 
     Browser->>Web: GET /api/submissions/{id}/stream (SSE)
     Web->>Temporal: querySubmissionStatus (getStatus query)
@@ -371,7 +375,7 @@ sequenceDiagram
     Web-->>Browser: SSE { status: "completed", result }
 ```
 
-Edge cases: if source upload fails after the row commits, any partial source blobs are deleted best-effort and the row is marked `system_error`. If the Temporal service is down during dispatch, `dispatchSubmissionJudge` rejects and the web route marks the already-created row `system_error` before rethrowing. If the worker crashes mid-execution, Temporal retries the workflow up to `maximumAttempts: 3` from the last durable activity boundary. If Redis is down, `publishVerdict` swallows the error (best-effort), so the header toast never fires but the per-submission SSE stream still converges via the direct DB read.
+Edge cases: if source upload fails after the row commits, any partial source blobs are deleted best-effort and the row is marked `system_error`. If the immediate Temporal dispatch fails, the API still returns `202 queued`; the transactional outbox remains pending and the minute-based durable-work processor retries it. Immediate dispatch and outbox replay use `judge-{submissionId}` with `REJECT_DUPLICATE`, so they cannot create concurrent judges. If the worker crashes mid-execution, Temporal retries the workflow up to `maximumAttempts: 3` from the last durable activity boundary. If Redis is down, `publishVerdict` swallows the error (best-effort), so the header toast never fires but the per-submission SSE stream still converges via the direct DB read.
 
 ### Exam Session Lifecycle
 

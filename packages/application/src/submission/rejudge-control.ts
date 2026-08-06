@@ -103,10 +103,6 @@ export async function recoverSystemErrorSubmissions(): Promise<number> {
   return submissions.length;
 }
 
-export async function dispatchSubmissionJudge(payload: SubmissionJudgeJob): Promise<void> {
-  await enqueueSubmissionJudgeDispatch(undefined, payload);
-}
-
 export async function enqueueSubmissionJudgeDispatch(
   tx: TransactionClient | undefined,
   rawPayload: SubmissionJudgeJob,

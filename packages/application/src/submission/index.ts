@@ -62,7 +62,6 @@ export {
   assertRejudgeWorkflowId,
   cancelRejudge,
   dispatchRejudge,
-  dispatchSubmissionJudge,
   executeRejudgeDispatch,
   executeSubmissionJudgeDispatch,
   getRejudgeTriggeredBy,
