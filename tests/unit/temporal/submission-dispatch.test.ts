@@ -42,6 +42,30 @@ describe("durable submission dispatch handlers", () => {
     );
   });
 
+  it("deduplicates competing immediate and outbox dispatches by workflow id", async () => {
+    start
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(
+        new WorkflowExecutionAlreadyStartedError(
+          "already started",
+          "judge-sub_1",
+          "submissionJudgeWorkflow",
+        ),
+      );
+
+    const job = {
+      submissionId: "sub_1",
+      draft: { language: "cpp" as const, problemId: "prob_1" },
+    };
+    await expect(
+      Promise.all([dispatchSubmissionJudge(job), dispatchSubmissionJudge(job)]),
+    ).resolves.toEqual([undefined, undefined]);
+
+    expect(start).toHaveBeenCalledTimes(2);
+    expect(start.mock.calls[0]?.[1]).toMatchObject({ workflowId: "judge-sub_1" });
+    expect(start.mock.calls[1]?.[1]).toMatchObject({ workflowId: "judge-sub_1" });
+  });
+
   it("uses the persisted rejudge workflow id and rejects closed-run reuse", async () => {
     start.mockRejectedValueOnce(
       new WorkflowExecutionAlreadyStartedError(

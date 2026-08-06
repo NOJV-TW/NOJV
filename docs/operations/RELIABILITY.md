@@ -83,7 +83,7 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 **Impact**: No new workflows start. In-flight workflows pause.
 **Mitigation**: Temporal auto-setup with PostgreSQL backend provides persistence.
 **Recovery**: Temporal resumes all paused workflows when it comes back. No data loss.
-**Note**: If Temporal is unavailable while the web layer dispatches a new submission, the already-created row is marked `system_error` before the API rethrows. Submissions whose workflows had already started resume when Temporal recovers.
+**Note**: If Temporal is unavailable after a submission transaction commits, the API still returns `202 queued`. The `submission.judge.dispatch` transactional outbox remains pending and the minute-based durable-work processor retries it until the deterministic `judge-{submissionId}` workflow starts. Submissions whose workflows had already started resume when Temporal recovers.
 
 > **SPOF caveat (current self-hosted topology).** The in-cluster Temporal control plane runs as a **single** `temporalio/auto-setup` replica backed by a **single-pod** `temporal-postgres` StatefulSet — there is no HA failover. Interim guards are in place: a PodDisruptionBudget (`minAvailable: 1`) on both pods and a `nodeSelector: nojv-role=worker` pin (so a sandbox-pool scale-down can't evict them), plus a daily `pg_dump` of the Temporal DB to GCS (installed by `infra/gcp/scripts/setup-backups.sh`). These limit voluntary disruption and data loss but do not provide live failover — a node failure still pauses all workflows until the pod reschedules.
 >
@@ -105,12 +105,13 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 
 ### Submission Processing
 
-1. Every submission gets a `Submission` record in PostgreSQL before Temporal dispatch.
-2. Temporal workflow ID is deterministic and unique per submission: `judge-{submissionId}`. A re-dispatch of the same submission collides on the workflow ID and is rejected by Temporal (`WorkflowExecutionAlreadyStarted`), so a submission is never judged twice concurrently. (Note: if the web process crashes after creating the row but before dispatch, the row stays `queued` until the stale-submission sweeper recovers it — up to the pending-timeout window.)
-3. `completeSubmission` activity writes the final verdict to DB. This is the commit point.
-4. User stats and contest scores are updated after the verdict is committed.
-5. SSE notification is best-effort — the client falls back to polling Temporal/DB.
-6. A singleton cron workflow (`submissionSweeperWorkflow`, every minute) runs `sweepStaleSubmissions`: any submission stuck in `pending_upload`/`queued`/`compiling`/`running` past the configurable pending timeout (default 30 min, set at `/admin/rejudges`) is terminated and marked `system_error`. The workflow is terminated **before** the status flip when a workflow may exist, so a still-alive workflow cannot overwrite the verdict afterward. Because all `system_error` verdicts are not counted against the daily attempt limit, a swept submission effectively returns the student's attempt.
+1. Every submission gets a `Submission` record, its source pointer, and a `submission.judge.dispatch` durable-work row in PostgreSQL before Temporal dispatch.
+2. The web layer starts `submissionJudgeWorkflow` immediately after the transaction commits. The durable-work processor retries the same outbox payload when the web process or Temporal is unavailable, so a committed submission is not lost.
+3. Temporal workflow ID is deterministic and unique per submission: `judge-{submissionId}`. A re-dispatch of the same submission collides on the workflow ID and is rejected by Temporal (`WorkflowExecutionAlreadyStarted`), which the dispatcher treats as success, so a submission is never judged twice concurrently.
+4. `completeSubmission` activity writes the final verdict to DB. This is the commit point.
+5. User stats and contest scores are updated after the verdict is committed.
+6. SSE notification is best-effort — the client falls back to polling Temporal/DB.
+7. A singleton cron workflow (`submissionSweeperWorkflow`, every minute) runs `sweepStaleSubmissions`: any submission stuck in `pending_upload`/`queued`/`compiling`/`running` past the configurable pending timeout (default 30 min, set at `/admin/rejudges`) is terminated and marked `system_error`. The workflow is terminated **before** the status flip when a workflow may exist, so a still-alive workflow cannot overwrite the verdict afterward. Because all `system_error` verdicts are not counted against the daily attempt limit, a swept submission effectively returns the student's attempt.
 
 ### Contest Lifecycle
 

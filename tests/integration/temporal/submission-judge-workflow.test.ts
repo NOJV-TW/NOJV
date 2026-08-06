@@ -100,6 +100,49 @@ describe("submissionJudgeWorkflow (TestWorkflowEnvironment)", () => {
     expect(activities.snapshotSubmissionForRejudge).not.toHaveBeenCalled();
   });
 
+  it("retries a temporary activity failure and completes the submission", async () => {
+    const activities = buildActivities({
+      executeSandbox: vi
+        .fn()
+        .mockRejectedValueOnce(new Error("sandbox connection reset"))
+        .mockResolvedValue({
+          result: { testcaseResults: [] },
+          advancedJudgeVerificationSnapshot: null,
+        }),
+    });
+    const workflowId = `wf-retry-${String(Date.now())}`;
+
+    await runWorker(activities, async () => {
+      await env.client.workflow.execute(submissionJudgeWorkflow, {
+        args: [baseInput],
+        taskQueue: "judge-test",
+        workflowId,
+      });
+    });
+
+    expect(activities.executeSandbox).toHaveBeenCalledTimes(2);
+    expect(activities.completeSubmission).toHaveBeenCalledOnce();
+    expect(activities.failSubmissionJudgeRun).not.toHaveBeenCalled();
+  }, 15_000);
+
+  it("keeps a started workflow pending until the judge worker resumes", async () => {
+    const activities = buildActivities();
+    const handle = await env.client.workflow.start(submissionJudgeWorkflow, {
+      args: [baseInput],
+      taskQueue: "judge-test",
+      workflowId: `wf-worker-resume-${String(Date.now())}`,
+    });
+
+    await expect(handle.describe()).resolves.toMatchObject({
+      status: { name: "RUNNING" },
+    });
+    await runWorker(activities, async () => {
+      await handle.result();
+    });
+
+    expect(activities.completeSubmission).toHaveBeenCalledOnce();
+  });
+
   it("on rejudge: snapshots first, then finalizes the rejudge log", async () => {
     const activities = buildActivities();
     await runWorker(activities, async () => {

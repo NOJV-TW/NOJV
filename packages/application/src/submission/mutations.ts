@@ -20,7 +20,7 @@ import {
   validateRequiredPaths,
   type AdvancedJudgeVerificationSnapshot,
   type SubmissionDraft,
-  type SubmissionJudgeDraft,
+  type SubmissionJudgeJob,
   type SubmissionOperationStatus,
   type SubmissionResult,
   type VerdictSummary,
@@ -51,7 +51,10 @@ import { assertCanSubmitToVirtualContest } from "../virtual-contest/queries";
 import { assertProblemViewAccess } from "../problem/permissions";
 import { checkProctoringGateInTx } from "../proctoring/gate";
 import { normalizeSubmissionSources } from "./source-paths";
-import { enqueueSubmissionJudgeDispatch } from "./rejudge-control";
+import {
+  enqueueSubmissionJudgeDispatch,
+  executeSubmissionJudgeDispatch,
+} from "./rejudge-control";
 import type { CompletedSubmission } from "./types";
 
 export type { ActorContext };
@@ -66,6 +69,21 @@ type ActiveExamSession = NonNullable<
 >;
 type SubmissionExam = NonNullable<Awaited<ReturnType<typeof examRepo.findById>>>;
 type ContestSubmissionResult = Awaited<ReturnType<typeof ensureContestParticipation>>;
+
+function buildSubmissionJudgeJob(
+  payload: SubmissionDraft,
+  submissionId: string,
+): SubmissionJudgeJob {
+  return {
+    draft: {
+      language: payload.language,
+      problemId: payload.problemId,
+      ...(payload.runCases ? { runCases: payload.runCases } : {}),
+      ...(payload.sampleOnly !== undefined ? { sampleOnly: payload.sampleOnly } : {}),
+    },
+    submissionId,
+  };
+}
 
 async function assertActiveExamSubmissionAllowed(
   tx: TransactionClient,
@@ -258,12 +276,7 @@ export async function createQueuedSubmissionRecord(
   const sourceGeneration = randomUUID();
   const sources = normalizeSubmissionSources(payload);
   const sourcePlan = planSubmissionSources(submissionId, sourceGeneration, sources);
-  const judgeDraft: SubmissionJudgeDraft = {
-    language: payload.language,
-    problemId: payload.problemId,
-    ...(payload.runCases ? { runCases: payload.runCases } : {}),
-    ...(payload.sampleOnly !== undefined ? { sampleOnly: payload.sampleOnly } : {}),
-  };
+  const judgeJob = buildSubmissionJudgeJob(payload, submissionId);
 
   await runTransaction(async (tx) => {
     const assignmentContext = payload.context.type === "assignment" ? payload.context : null;
@@ -411,10 +424,7 @@ export async function createQueuedSubmissionRecord(
       const submission = await submissionRepo
         .withTx(tx)
         .publishPendingUpload(submissionId, sourcePlan.manifest);
-      await enqueueSubmissionJudgeDispatch(tx, {
-        draft: judgeDraft,
-        submissionId: submission.id,
-      });
+      await enqueueSubmissionJudgeDispatch(tx, judgeJob);
       return submission;
     });
   } catch (uploadError) {
@@ -444,6 +454,16 @@ export async function submitAndDispatch(
   clientIp: string,
 ) {
   const submission = await createQueuedSubmissionRecord(payload, actor, clientIp);
+  const judgeJob = buildSubmissionJudgeJob(payload, submission.id);
+
+  try {
+    await executeSubmissionJudgeDispatch(judgeJob);
+  } catch (error) {
+    console.warn("[submission] immediate judge dispatch deferred", {
+      submissionId: submission.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   return submission;
 }

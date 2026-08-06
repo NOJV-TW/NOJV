@@ -197,6 +197,9 @@ describe("WorkerApp lifecycle", () => {
 
     expect(mocks.sweepStaleSubmissions).toHaveBeenCalledOnce();
     expect(mocks.recoverSystemErrorSubmissions).toHaveBeenCalledOnce();
+    expect(mocks.sweepStaleSubmissions.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.recoverSystemErrorSubmissions.mock.invocationCallOrder[0],
+    );
 
     await expect(mocks.healthCheckTemporal?.()).resolves.toBe(true);
     const first = app.shutdown("SIGTERM");
