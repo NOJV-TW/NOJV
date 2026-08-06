@@ -90,6 +90,7 @@ jobs:
       - name: Build or verify web image
         id: image
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.prepare-release.outputs.image_tag }}
           PREFIX: ghcr.io/nojv-tw
           EXISTING_IMAGES: ${{ steps.publication.outputs.existing_images }}
@@ -158,6 +159,7 @@ jobs:
       - name: Build or verify worker image
         id: image
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.prepare-release.outputs.image_tag }}
           PREFIX: ghcr.io/nojv-tw
           EXISTING_IMAGES: ${{ steps.publication.outputs.existing_images }}
@@ -226,6 +228,7 @@ jobs:
       - name: Build or verify migrator image
         id: image
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.prepare-release.outputs.image_tag }}
           PREFIX: ghcr.io/nojv-tw
           EXISTING_IMAGES: ${{ steps.publication.outputs.existing_images }}
@@ -294,6 +297,7 @@ jobs:
       - name: Build or verify sandbox image
         id: image
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.prepare-release.outputs.image_tag }}
           PREFIX: ghcr.io/nojv-tw
           EXISTING_IMAGES: ${{ steps.publication.outputs.existing_images }}
