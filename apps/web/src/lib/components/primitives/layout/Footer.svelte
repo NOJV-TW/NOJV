@@ -1,6 +1,7 @@
 <script lang="ts">
   import Mail from "@lucide/svelte/icons/mail";
   import { m } from "$lib/paraglide/messages.js";
+  import packageJson from "../../../../../package.json";
   import GithubMark from "./GithubMark.svelte";
   import DiscordMark from "./DiscordMark.svelte";
 
@@ -20,7 +21,11 @@
 <footer
   class="mt-16 flex flex-col gap-3 border-t border-border-subtle pt-3 pb-3 text-caption text-muted-foreground sm:flex-row sm:items-center sm:justify-between"
 >
-  <p class="tabular-nums">{m.footer_copyright({ year: String(year) })}</p>
+  <p class="tabular-nums">
+    {m.footer_copyright({ year: String(year) })}
+    <span aria-hidden="true"> · </span>
+    <span>{m.footer_version({ version: packageJson.version })}</span>
+  </p>
   <nav class="flex flex-wrap items-center gap-x-6 gap-y-2">
     <a class="transition-colors duration-fast ease-out-soft hover:text-foreground" href="/about"
       >{m.footer_about()}</a
