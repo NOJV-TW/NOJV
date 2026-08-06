@@ -125,6 +125,8 @@ case "$verb:$1" in
     ;;
   get:pods) ;;
   get:horizontalpodautoscaler)
+    if [ "\${HPA_ERROR:-false}" = true ]; then echo forbidden >&2; exit 1; fi
+    if [ "\${HPA_MISSING:-false}" = true ]; then exit 0; fi
     cat "$HARNESS_DIR/hpa-target"
     ;;
   scale:deployment)
@@ -380,6 +382,25 @@ describe("storage release cutover", () => {
     );
     expect(releaseScale).toBeGreaterThan(contract);
     expect(enableHpa).toBeGreaterThan(releaseScale);
+  }, 15_000);
+
+  it("keeps the first HPA-enabled upgrade safe when the old release has no HPA", () => {
+    const harness = makeHarness();
+    const result = runCutover(harness, { HPA_MISSING: "true" });
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(events(harness)).not.toContainEqual(
+      expect.stringContaining("patch horizontalpodautoscaler"),
+    );
+    expect(result.stderr).toContain("is absent; continuing without HPA cutover");
+  }, 15_000);
+
+  it("does not treat an HPA API error as a missing HPA", () => {
+    const harness = makeHarness();
+    const result = runCutover(harness, { HPA_ERROR: "true" });
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("Unable to inspect HPA nojv-web");
   }, 15_000);
 
   it("re-enters maintenance when the post-upgrade workloads do not become ready", () => {

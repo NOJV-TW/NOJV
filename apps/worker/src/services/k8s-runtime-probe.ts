@@ -62,7 +62,7 @@ export function buildRuntimeProbePodManifest(params: RuntimeProbePodParams): k8s
           image: params.image,
           command: RUNTIME_PROBE_IMAGE_COMMAND,
           resources: {
-            requests: { cpu: "50m", memory: "64Mi" },
+            requests: { cpu: "100m", memory: "64Mi" },
             limits: { cpu: "100m", memory: "64Mi" },
           },
           securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,

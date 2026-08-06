@@ -192,16 +192,25 @@ snapshot_replicas "$PLATFORM_DEPLOYMENT"
 
 if [ "$WEB_HPA_ENABLED" = true ]; then
   : "${WEB_HPA:?WEB_HPA is required when WEB_HPA_ENABLED=true}"
-  hpa_target="$(kubectl_ns get horizontalpodautoscaler "$WEB_HPA" \
-    -o 'jsonpath={.spec.scaleTargetRef.name}')"
-  case "$hpa_target" in
-    "$WEB_DEPLOYMENT"|"$WEB_DEPLOYMENT-maintenance") ;;
-    *)
-      echo "HPA $WEB_HPA targets unexpected deployment $hpa_target" >&2
-      exit 1
-      ;;
-  esac
-  printf '%s' "$hpa_target" > "$state_dir/web-hpa-target"
+  if hpa_target="$(kubectl_ns get horizontalpodautoscaler "$WEB_HPA" \
+    --ignore-not-found=true -o 'jsonpath={.spec.scaleTargetRef.name}')"; then
+    if [ -z "$hpa_target" ]; then
+      echo "HPA $WEB_HPA is absent; continuing without HPA cutover for this upgrade" >&2
+      WEB_HPA_ENABLED=false
+    else
+      case "$hpa_target" in
+        "$WEB_DEPLOYMENT"|"$WEB_DEPLOYMENT-maintenance") ;;
+        *)
+          echo "HPA $WEB_HPA targets unexpected deployment $hpa_target" >&2
+          exit 1
+          ;;
+      esac
+      printf '%s' "$hpa_target" > "$state_dir/web-hpa-target"
+    fi
+  else
+    echo "Unable to inspect HPA $WEB_HPA; refusing release cutover" >&2
+    exit 1
+  fi
 fi
 
 if [ "$JUDGE_KEDA_ENABLED" = true ]; then
