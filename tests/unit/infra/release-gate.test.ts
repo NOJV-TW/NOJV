@@ -415,7 +415,8 @@ describe("Build & Push Images workflow release structure", () => {
   it("detects same-version publication state before any package write", () => {
     expect(prepareJob).not.toContain("packages: write");
     expect(prepareJob).not.toContain("publication-state");
-    for (const job of imageJobs) {
+    imageJobs.forEach((job, index) => {
+      const component = imageComponents[index];
       const publicationState = job.indexOf(
         "run: node scripts/validate-release-run.mjs publication-state",
       );
@@ -423,11 +424,15 @@ describe("Build & Push Images workflow release structure", () => {
       expect(publicationState).toBeLessThan(job.indexOf("run: scripts/build-release-image.sh"));
       expect(job).toContain("RELEASE_SHA: ${{ needs.prepare-release.outputs.release_sha }}");
       expect(job).toContain("IMAGE_TAG: ${{ needs.prepare-release.outputs.image_tag }}");
-      expect(job).toContain("GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}");
       expect(job).toContain(
         "EXISTING_IMAGES: ${{ steps.publication.outputs.existing_images }}",
       );
-    }
+      const buildStep = job.slice(
+        job.indexOf(`- name: Build or verify ${component} image`),
+        job.indexOf(`- name: Attest ${component} image`),
+      );
+      expect(buildStep).toContain("GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}");
+    });
     expect(imageBuilder).toContain("node scripts/validate-release-run.mjs published-image");
     expect(imageBuilder).toContain('gh attestation verify "oci://${ref}@${digest}"');
     expect(imageBuilder).toContain(
