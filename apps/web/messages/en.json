@@ -1477,6 +1477,7 @@
   "footer_discord": "Discord",
   "footer_environment": "Environment",
   "footer_copyright": "© {year} NOJV",
+  "footer_version": "v{version}",
   "footer_privacy": "Privacy",
   "footer_projectGithub": "GitHub",
   "footer_terms": "Terms",

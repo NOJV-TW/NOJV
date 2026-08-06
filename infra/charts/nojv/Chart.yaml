@@ -5,8 +5,8 @@ description: >-
   namespace policy, and optional in-cluster Redis/MinIO/PostgreSQL (CloudNativePG).
   One chart, per-environment values for single-machine k8s (k3s/kind) and GKE.
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
+version: 0.1.3
+appVersion: "0.1.3"
 kubeVersion: ">=1.30.0-0"
 keywords:
   - online-judge
