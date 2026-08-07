@@ -130,6 +130,16 @@ describe("problemCreateSchema integration with advancedRequiredPaths", () => {
     visibility: "public",
   } as const;
 
+  it("accepts an empty input format for problems without input", () => {
+    const result = problemCreateSchema.safeParse({
+      ...baseProblemInput,
+      inputFormat: "",
+      type: "full_source",
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it("rejects non-special_env problems with a non-empty advancedRequiredPaths", () => {
     const result = problemCreateSchema.safeParse({
       ...baseProblemInput,

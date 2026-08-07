@@ -95,10 +95,12 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       runResult = await runSubmission(true);
       runStatus = null;
     } catch (err) {
-      runError =
+      const message =
         err instanceof SubmissionRequestError
           ? messageForSubmitError(err.code)
           : m.editor_runFailed();
+      runError = message;
+      toasts.error(message);
       runStatus = null;
     } finally {
       isRunning = false;

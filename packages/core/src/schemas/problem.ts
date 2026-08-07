@@ -76,7 +76,7 @@ export function entryFileNameFor(language: Language): string {
 
 const problemCreateObjectSchema = z.object({
   difficulty: problemDifficultySchema,
-  inputFormat: z.string().trim().min(1, "validation_required").max(4_000, "validation_tooLong"),
+  inputFormat: z.string().trim().max(4_000, "validation_tooLong"),
   memoryLimitMb: z.coerce.number().int().min(16).max(1024).default(256),
   outputFormat: z
     .string()

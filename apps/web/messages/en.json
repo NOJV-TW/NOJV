@@ -1664,6 +1664,7 @@
   "problemDetail_fullSourceHelp": "Submit a complete program including main(). The judge compiles and runs your code against stdin and compares stdout against the expected output.",
   "problemDetail_input": "Input",
   "problemDetail_inputFormat": "Input Description",
+  "problemDetail_noInputRequired": "This problem does not require input.",
   "problemDetail_interactiveBadge": "Interactive",
   "problemDetail_interactiveHelp": "Your program talks back and forth with an interactor over stdin/stdout. Each reply from the interactor depends on your previous output — no fixed input/output file.",
   "problemDetail_judgeMethodTitle": "Judging",

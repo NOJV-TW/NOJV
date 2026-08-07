@@ -48,7 +48,6 @@
     data.problem.title.trim() !== "" &&
       data.problem.title !== "Untitled Problem" &&
       data.problem.statement !== "" &&
-      data.problem.inputFormat !== "" &&
       data.problem.outputFormat !== "",
   );
 
@@ -58,7 +57,6 @@
         ? m.admin_title()
         : null,
       data.problem.statement === "" ? m.admin_statement() : null,
-      data.problem.inputFormat === "" ? m.admin_inputFormat() : null,
       data.problem.outputFormat === "" ? m.admin_outputFormat() : null,
     ].filter((label): label is NonNullable<typeof label> => label !== null),
   );

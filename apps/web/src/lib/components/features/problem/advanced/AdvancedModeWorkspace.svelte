@@ -22,6 +22,7 @@
   import AdvancedUploader, { type StagedFile } from "./AdvancedUploader.svelte";
   import AdvancedFileManager from "./AdvancedFileManager.svelte";
   import { buildSubmissionBody } from "$lib/services/submission-service";
+  import { toasts } from "$lib/stores/toast";
 
   interface Props {
     context: SubmissionContext;
@@ -209,6 +210,7 @@
     } catch (err) {
       if ((err as { name?: string }).name === "AbortError") return;
       submitError = err instanceof Error ? err.message : m.editor_submitFailed();
+      toasts.error(submitError);
     } finally {
       isSubmitting = false;
     }
