@@ -2,7 +2,7 @@
 
 > Superseded: public production verification and release notification are now
 > owned by `NOJV-TW/status`; the GitHub release workflow ends after publishing
-> the immutable deploy ref.
+> the verified deploy branch revision.
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 

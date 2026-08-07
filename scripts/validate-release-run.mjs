@@ -80,7 +80,6 @@ export function validateDeployAdvance(input) {
  * @param {{
  *   releaseSha: string;
  *   imageTag: string;
- *   remoteDeployTags: string[];
  *   packageTags: Record<string, string[]>;
  * }} input
  */
@@ -90,11 +89,6 @@ export function validatePublicationState(input) {
   }
   if (!VERSION_PATTERN.test(input.imageTag)) {
     throw new Error("image tag must be stable vX.Y.Z");
-  }
-
-  const deployTag = `refs/tags/nojv-deploy-${input.imageTag}`;
-  if (input.remoteDeployTags.includes(deployTag)) {
-    throw new Error(`immutable deploy tag already exists: ${deployTag}`);
   }
 
   return {
@@ -337,13 +331,6 @@ async function validatePublicationStateFromEnvironment() {
   if (!owner || !token || !apiRoot) {
     throw new Error("PACKAGE_OWNER, GH_TOKEN, and GITHUB_API_ROOT are required");
   }
-  const deployTag = `refs/tags/nojv-deploy-${imageTag}`;
-  const remoteDeployTags = execFileSync("git", ["ls-remote", "--tags", "origin", deployTag], {
-    encoding: "utf8",
-  })
-    .split("\n")
-    .map((line) => line.trim().split(/\s+/u)[1])
-    .filter(Boolean);
   const packageTags = Object.fromEntries(
     await Promise.all(
       RELEASE_PACKAGES.map(async (packageName) => [
@@ -355,7 +342,6 @@ async function validatePublicationStateFromEnvironment() {
   const publication = validatePublicationState({
     releaseSha,
     imageTag,
-    remoteDeployTags,
     packageTags,
   });
   writeOutputs(`existing_images=${JSON.stringify(publication.existingImages)}\n`);

@@ -6,7 +6,7 @@
 
 **Goal:** Move production release notifications from the NOJV release workflow into the existing `NOJV-TW/status` scheduled Worker, which will notify Discord only after a stable public version and health check.
 
-**Architecture:** The status Worker polls `https://nojv.tw/api/release`, `/api/livez`, and `/api/readyz` on its existing schedule. It stores the last observed healthy release and the last notified release in its existing D1-backed Durable Object state, requiring two consecutive healthy observations before sending one webhook notification. The first healthy release establishes a silent baseline so deploying the tracker does not announce an already-running version. The NOJV release workflow ends after publishing the immutable deploy ref; the status Worker solely owns public deployment verification and Discord delivery.
+**Architecture:** The status Worker polls `https://nojv.tw/api/release`, `/api/livez`, and `/api/readyz` on its existing schedule. It stores the last observed healthy release and the last notified release in its existing D1-backed Durable Object state, requiring two consecutive healthy observations before sending one webhook notification. The first healthy release establishes a silent baseline so deploying the tracker does not announce an already-running version. The NOJV release workflow ends after publishing the verified deploy branch revision; the status Worker solely owns public deployment verification and Discord delivery.
 
 **Tech Stack:** Cloudflare Workers, Durable Objects, D1-backed UptimeFlare state, TypeScript, GitHub Actions, Discord webhook.
 
