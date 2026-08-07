@@ -201,8 +201,12 @@ describe("buildPerCaseSandboxJobManifest — one compile plus isolated cases", (
     const pod = manifest.spec!.template.spec!;
 
     expect(pod.runtimeClassName).toBe("gvisor");
-    expect(pod.initContainers).toHaveLength(2);
-    expect(pod.initContainers?.map(({ name }) => name)).toEqual(["materialize", "compile"]);
+    expect(pod.initContainers).toHaveLength(1);
+    expect(pod.initContainers?.map(({ name }) => name)).toEqual(["prepare"]);
+    expect(pod.initContainers?.[0]?.env).toContainEqual({
+      name: "SANDBOX_PHASE",
+      value: "prepare",
+    });
     expect(
       pod.initContainers?.every(({ resources }) => resources?.requests?.cpu === "500m"),
     ).toBe(true);
@@ -220,6 +224,34 @@ describe("buildPerCaseSandboxJobManifest — one compile plus isolated cases", (
         ),
       ),
     ).toHaveLength(20);
+
+    const prepare = pod.initContainers?.[0];
+    expect(prepare?.volumeMounts).toContainEqual({
+      name: "payload",
+      mountPath: "/payload",
+      readOnly: true,
+    });
+    expect(prepare?.volumeMounts).toContainEqual({
+      name: "submission-data",
+      mountPath: "/submission",
+    });
+    expect(prepare?.volumeMounts).toContainEqual({
+      name: "artifact",
+      mountPath: "/artifact",
+    });
+    expect(prepare?.volumeMounts).toContainEqual({
+      name: "scratch-tmp",
+      mountPath: "/tmp",
+      subPath: "prepare",
+    });
+    expect(
+      pod.containers?.every((container) =>
+        container.volumeMounts?.some(
+          (mount) =>
+            mount.name === "artifact" && mount.mountPath === "/artifact" && mount.readOnly,
+        ),
+      ),
+    ).toBe(true);
   });
 });
 

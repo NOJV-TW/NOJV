@@ -115,7 +115,16 @@ function buildFakeClients(record: CallRecord, opts: FakeOptions = {}) {
     }),
   } as any;
 
-  return { coreApi, batchApi };
+  const watch = {
+    watch: vi.fn(
+      async (_path: string, _query: unknown, _callback: unknown, done: (err: null) => void) => {
+        queueMicrotask(() => done(null));
+        return new AbortController();
+      },
+    ),
+  } as any;
+
+  return { coreApi, batchApi, watch };
 }
 
 function emptyRecord(): CallRecord {

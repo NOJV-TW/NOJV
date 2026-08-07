@@ -39,7 +39,7 @@ import {
   buildInteractiveJobManifest,
   buildPerCaseSandboxJobManifest,
   buildSandboxJobManifest,
-  COMPILE_CONTAINER_NAME,
+  PREPARE_CONTAINER_NAME,
   perCaseContainerName,
 } from "./k8s-job-manifests";
 import { buildPayloadConfigMaps, payloadConfigMapNames } from "./k8s-payload";
@@ -113,8 +113,10 @@ const SIDECAR_READINESS_TIMEOUT_MS = 30_000;
 const SIDECAR_READINESS_INTERVAL_MS = 500;
 
 const JOB_DEADLINE_BUFFER_SECONDS = 60;
-const JOB_POLL_INTERVAL_MS = 1_000;
 const POD_SCHEDULE_GRACE_MS = 30_000;
+const JOB_WATCH_TIMEOUT_SECONDS = 30;
+const JOB_WATCH_RECONNECT_BASE_DELAY_MS = 100;
+const JOB_WATCH_RECONNECT_MAX_DELAY_MS = 2_000;
 const POD_CLEANUP_TIMEOUT_MS = 30_000;
 const POD_CLEANUP_POLL_INTERVAL_MS = 250;
 const K8S_CLEANUP_CALL_TIMEOUT_MS = 5_000;
@@ -137,6 +139,13 @@ function isTransientK8sError(reason: unknown): boolean {
   const code = k8sErrorCode(reason);
   return (
     code === null || code === 408 || code === 409 || code === 425 || code === 429 || code >= 500
+  );
+}
+
+function jobWatchReconnectDelay(attempt: number): number {
+  return Math.min(
+    JOB_WATCH_RECONNECT_MAX_DELAY_MS,
+    JOB_WATCH_RECONNECT_BASE_DELAY_MS * 2 ** Math.min(attempt, 5),
   );
 }
 
@@ -321,6 +330,108 @@ export interface K8sClientHandles {
   coreApi: k8s.CoreV1Api;
   batchApi: k8s.BatchV1Api;
   networkingApi?: k8s.NetworkingV1Api;
+  watch: K8sWatchClient;
+}
+
+export interface K8sWatchClient {
+  watch(
+    path: string,
+    queryParams: Record<string, string | number | boolean | undefined>,
+    callback: (phase: string, apiObj: unknown) => void,
+    done: (err: unknown) => void,
+  ): Promise<AbortController>;
+}
+
+interface JobWatchSnapshot {
+  job: k8s.V1Job;
+  pods: k8s.V1Pod[];
+  jobResourceVersion?: string;
+  podResourceVersion?: string;
+}
+
+interface JobWatchEvaluation {
+  everStarted: boolean;
+  outcome: { state: "succeeded" | "failed"; deadlineExceeded: boolean } | null;
+}
+
+interface JobPodSummary {
+  everStarted: boolean;
+  unschedulableReason: string | null;
+  succeeded: boolean;
+  imagePull: { reason: string; message: string } | null;
+  infrastructureFailure: string | null;
+}
+
+function summarizeJobPods(pods: k8s.V1Pod[]): JobPodSummary {
+  let everStarted = false;
+  let unschedulableReason: string | null = null;
+  let succeeded = false;
+  let imagePull: { reason: string; message: string } | null = null;
+  let infrastructureFailure: string | null = null;
+
+  for (const pod of pods) {
+    const status = pod.status;
+    const phase = status?.phase;
+    if (phase === "Succeeded") succeeded = true;
+    if (status?.startTime || phase === "Running" || phase === "Succeeded") everStarted = true;
+    if (phase === "Failed" && status?.startTime) everStarted = true;
+
+    for (const value of [status?.reason, status?.message]) {
+      const reason = infrastructureFailureReason(value);
+      if (reason) {
+        infrastructureFailure = reason;
+        break;
+      }
+    }
+
+    for (const containerStatus of [
+      ...(status?.initContainerStatuses ?? []),
+      ...(status?.containerStatuses ?? []),
+    ]) {
+      const waitingReason = containerStatus.state?.waiting?.reason;
+      if (waitingReason === "ImagePullBackOff" || waitingReason === "ErrImagePull") {
+        imagePull = {
+          reason: waitingReason,
+          message: containerStatus.state?.waiting?.message ?? waitingReason,
+        };
+      }
+      for (const value of [
+        containerStatus.state?.terminated?.reason,
+        containerStatus.state?.terminated?.message,
+      ].filter((value): value is string => typeof value === "string")) {
+        const reason = infrastructureFailureReason(value);
+        if (reason) {
+          infrastructureFailure = reason;
+          break;
+        }
+      }
+    }
+
+    const scheduled = (status?.conditions ?? []).find(
+      (condition) => condition.type === "PodScheduled",
+    );
+    if (scheduled?.status === "False" && scheduled.reason === "Unschedulable") {
+      unschedulableReason = scheduled.message ?? scheduled.reason;
+    }
+  }
+
+  return { everStarted, unschedulableReason, succeeded, imagePull, infrastructureFailure };
+}
+
+function watchErrorCode(error: unknown): number | null {
+  if (typeof error !== "object" || error === null) return null;
+  if ("statusCode" in error && typeof error.statusCode === "number") return error.statusCode;
+  if ("code" in error && typeof error.code === "number") return error.code;
+  if (
+    "status" in error &&
+    typeof error.status === "object" &&
+    error.status !== null &&
+    "code" in error.status &&
+    typeof error.status.code === "number"
+  ) {
+    return error.status.code;
+  }
+  return null;
 }
 
 function validatorOutcomesSeForAll(rawRuns: RawCaseRun[]): Map<number, ValidatorOutcome> {
@@ -366,6 +477,7 @@ export class K8sExecutor implements SandboxExecutor {
   private readonly coreApi: k8s.CoreV1Api;
   private readonly batchApi: k8s.BatchV1Api;
   private networkingApiHandle: k8s.NetworkingV1Api | undefined;
+  private readonly watchClient: K8sWatchClient;
 
   constructor(
     private readonly config: K8sExecutorConfig,
@@ -375,6 +487,7 @@ export class K8sExecutor implements SandboxExecutor {
       this.coreApi = clients.coreApi;
       this.batchApi = clients.batchApi;
       this.networkingApiHandle = clients.networkingApi;
+      this.watchClient = clients.watch;
       return;
     }
     const k8sLib = require("@kubernetes/client-node") as typeof k8s;
@@ -383,6 +496,7 @@ export class K8sExecutor implements SandboxExecutor {
     this.coreApi = kc.makeApiClient(k8sLib.CoreV1Api);
     this.batchApi = kc.makeApiClient(k8sLib.BatchV1Api);
     this.networkingApiHandle = kc.makeApiClient(k8sLib.NetworkingV1Api);
+    this.watchClient = new k8sLib.Watch(kc);
   }
 
   private networkingApi(): k8s.NetworkingV1Api {
@@ -1129,7 +1243,7 @@ export class K8sExecutor implements SandboxExecutor {
         const compileLog = await this.getPodContainerLogs(
           podName,
           ns,
-          COMPILE_CONTAINER_NAME,
+          PREPARE_CONTAINER_NAME,
           execution.signal,
         );
         compileLogsReadAt = Date.now();
@@ -1175,12 +1289,17 @@ export class K8sExecutor implements SandboxExecutor {
             jobName,
             waveIndex,
             caseCount: waveCaseIndices.length,
-            materializeMs: payloadReadyAt === undefined ? null : payloadReadyAt - waveStartedAt,
+            payloadConfigMapsMs:
+              payloadReadyAt === undefined ? null : payloadReadyAt - waveStartedAt,
+            jobCreateMs:
+              jobSubmittedAt === undefined || payloadReadyAt === undefined
+                ? null
+                : jobSubmittedAt - payloadReadyAt,
             scheduleAndExecutionMs:
               jobSubmittedAt === undefined || jobFinishedAt === undefined
                 ? null
                 : jobFinishedAt - jobSubmittedAt,
-            compileLogsMs:
+            prepareLogsMs:
               jobFinishedAt === undefined || compileLogsReadAt === undefined
                 ? null
                 : compileLogsReadAt - jobFinishedAt,
@@ -1430,93 +1549,6 @@ export class K8sExecutor implements SandboxExecutor {
     return condition ? (condition.message ?? condition.reason ?? "FailedCreate") : null;
   }
 
-  private async inspectJobPods(
-    jobName: string,
-    namespace: string,
-    signal: AbortSignal,
-  ): Promise<{
-    everStarted: boolean;
-    unschedulableReason: string | null;
-    succeeded: boolean;
-    imagePull: { reason: string; message: string } | null;
-    infrastructureFailure: string | null;
-  }> {
-    try {
-      signal.throwIfAborted();
-      const pods = await this.coreApi.listNamespacedPod({
-        namespace,
-        labelSelector: `job-name=${jobName}`,
-      });
-      signal.throwIfAborted();
-      let everStarted = false;
-      let unschedulableReason: string | null = null;
-      let succeeded = false;
-      let imagePull: { reason: string; message: string } | null = null;
-      let infrastructureFailure: string | null = null;
-      for (const pod of pods.items) {
-        const status = pod.status;
-        const phase = status?.phase;
-        if (phase === "Succeeded") succeeded = true;
-        if (status?.startTime || phase === "Running" || phase === "Succeeded") {
-          everStarted = true;
-        }
-        if (phase === "Failed" && status?.startTime) {
-          everStarted = true;
-        }
-        for (const value of [status?.reason, status?.message]) {
-          const reason = infrastructureFailureReason(value);
-          if (reason) {
-            infrastructureFailure = reason;
-            break;
-          }
-        }
-        for (const cs of [
-          ...(status?.initContainerStatuses ?? []),
-          ...(status?.containerStatuses ?? []),
-        ]) {
-          const waitingReason = cs.state?.waiting?.reason;
-          if (waitingReason === "ImagePullBackOff" || waitingReason === "ErrImagePull") {
-            imagePull = {
-              reason: waitingReason,
-              message: cs.state?.waiting?.message ?? waitingReason,
-            };
-          }
-          const containerFailure = [
-            cs.state?.terminated?.reason,
-            cs.state?.terminated?.message,
-          ].filter((value): value is string => typeof value === "string");
-          for (const value of containerFailure) {
-            const reason = infrastructureFailureReason(value);
-            if (reason) {
-              infrastructureFailure = reason;
-              break;
-            }
-          }
-        }
-        const scheduled = (status?.conditions ?? []).find((c) => c.type === "PodScheduled");
-        if (scheduled?.status === "False" && scheduled.reason === "Unschedulable") {
-          unschedulableReason = scheduled.message ?? scheduled.reason;
-        }
-      }
-      return {
-        everStarted,
-        unschedulableReason,
-        succeeded,
-        imagePull,
-        infrastructureFailure,
-      };
-    } catch {
-      signal.throwIfAborted();
-      return {
-        everStarted: false,
-        unschedulableReason: null,
-        succeeded: false,
-        imagePull: null,
-        infrastructureFailure: null,
-      };
-    }
-  }
-
   private async waitForJobOutcome(
     jobName: string,
     namespace: string,
@@ -1526,73 +1558,45 @@ export class K8sExecutor implements SandboxExecutor {
     const startedAt = Date.now();
     const deadline = startedAt + (deadlineSeconds + JOB_DEADLINE_BUFFER_SECONDS) * 1_000;
     let everStarted = false;
+    let watchReconnectAttempt = 0;
 
     while (Date.now() < deadline) {
       signal.throwIfAborted();
-      const job = await this.batchApi.readNamespacedJob({
-        name: jobName,
-        namespace,
-      });
-      signal.throwIfAborted();
 
-      if (job.status?.succeeded) return { state: "succeeded", deadlineExceeded: false };
-      if (job.status?.failed) {
-        const blockedReason = this.jobBlockedReason(job);
-        if (blockedReason) {
-          throw new SandboxBackpressureError(
-            `Sandbox Job ${jobName} could not create pods (${blockedReason}); retrying with backoff.`,
-          );
-        }
-        const jobFailure = (job.status.conditions ?? [])
-          .flatMap((condition) => [condition.reason, condition.message])
-          .map(infrastructureFailureReason)
-          .find((reason): reason is string => reason !== null);
-        if (jobFailure) {
-          throw new SandboxInfrastructureError(
-            `Sandbox Job ${jobName} was interrupted by infrastructure (${jobFailure}); retrying the sandbox run.`,
-          );
-        }
-        const pods = await this.inspectJobPods(jobName, namespace, signal);
-        if (pods.infrastructureFailure) {
-          throw new SandboxInfrastructureError(
-            `Sandbox Job ${jobName} was interrupted by infrastructure (${pods.infrastructureFailure}); retrying the sandbox run.`,
-          );
-        }
-        const deadlineExceeded = (job.status.conditions ?? []).some(
-          (c) => c.reason === "DeadlineExceeded",
-        );
-        return { state: "failed", deadlineExceeded };
-      }
-
-      const pods = await this.inspectJobPods(jobName, namespace, signal);
-      if (pods.succeeded) return { state: "succeeded", deadlineExceeded: false };
-
-      if (pods.imagePull?.reason === "ImagePullBackOff") {
-        throw new SandboxImagePullError(
-          `Cannot pull image for Job ${jobName}: ${pods.imagePull.message}`,
-        );
-      }
-
-      if (pods.infrastructureFailure) {
+      let snapshot: JobWatchSnapshot;
+      try {
+        snapshot = await this.readJobWatchSnapshot(jobName, namespace, signal);
+      } catch {
+        signal.throwIfAborted();
         throw new SandboxInfrastructureError(
-          `Sandbox Job ${jobName} was interrupted by infrastructure (${pods.infrastructureFailure}); retrying the sandbox run.`,
+          `Sandbox Job ${jobName} status snapshot failed; retrying the sandbox run.`,
         );
       }
 
-      if (!everStarted) {
-        everStarted = pods.everStarted;
+      const current = this.evaluateJobSnapshot(
+        jobName,
+        snapshot.job,
+        snapshot.pods,
+        everStarted,
+        startedAt,
+      );
+      everStarted = current.everStarted;
+      if (current.outcome) return current.outcome;
 
-        if (!everStarted && Date.now() - startedAt > POD_SCHEDULE_GRACE_MS) {
-          const blockedReason = this.jobBlockedReason(job);
-          if (blockedReason || pods.unschedulableReason) {
-            throw new SandboxBackpressureError(
-              `Sandbox Job ${jobName} pod never scheduled (${blockedReason ?? pods.unschedulableReason ?? "quota/capacity"}); retrying with backoff.`,
-            );
-          }
-        }
-      }
+      const watched = await this.watchJobUntilChange({
+        jobName,
+        namespace,
+        snapshot,
+        everStarted,
+        startedAt,
+        deadline,
+        signal,
+      });
+      everStarted = watched.everStarted;
+      if (watched.outcome) return watched.outcome;
 
-      await this.sleep(JOB_POLL_INTERVAL_MS, signal);
+      await this.sleep(jobWatchReconnectDelay(watchReconnectAttempt), signal);
+      watchReconnectAttempt += 1;
     }
 
     if (!everStarted) {
@@ -1602,6 +1606,273 @@ export class K8sExecutor implements SandboxExecutor {
     }
 
     return { state: "failed", deadlineExceeded: true };
+  }
+
+  private async readJobWatchSnapshot(
+    jobName: string,
+    namespace: string,
+    signal: AbortSignal,
+  ): Promise<JobWatchSnapshot> {
+    signal.throwIfAborted();
+    const [job, pods] = await Promise.all([
+      this.batchApi.readNamespacedJob({ name: jobName, namespace }),
+      this.coreApi.listNamespacedPod({
+        namespace,
+        labelSelector: `job-name=${jobName}`,
+      }),
+    ]);
+    signal.throwIfAborted();
+    return {
+      job,
+      pods: pods.items,
+      ...(job.metadata?.resourceVersion
+        ? { jobResourceVersion: job.metadata.resourceVersion }
+        : {}),
+      ...(pods.metadata?.resourceVersion
+        ? { podResourceVersion: pods.metadata.resourceVersion }
+        : {}),
+    };
+  }
+
+  private evaluateJobSnapshot(
+    jobName: string,
+    job: k8s.V1Job,
+    pods: k8s.V1Pod[],
+    everStarted: boolean,
+    startedAt: number,
+  ): JobWatchEvaluation {
+    if (job.status?.succeeded) {
+      return { everStarted, outcome: { state: "succeeded", deadlineExceeded: false } };
+    }
+
+    const podState = summarizeJobPods(pods);
+    if (job.status?.failed) {
+      const blockedReason = this.jobBlockedReason(job);
+      if (blockedReason) {
+        throw new SandboxBackpressureError(
+          `Sandbox Job ${jobName} could not create pods (${blockedReason}); retrying with backoff.`,
+        );
+      }
+      const jobFailure = (job.status.conditions ?? [])
+        .flatMap((condition) => [condition.reason, condition.message])
+        .map(infrastructureFailureReason)
+        .find((reason): reason is string => reason !== null);
+      if (jobFailure) {
+        throw new SandboxInfrastructureError(
+          `Sandbox Job ${jobName} was interrupted by infrastructure (${jobFailure}); retrying the sandbox run.`,
+        );
+      }
+      if (podState.infrastructureFailure) {
+        throw new SandboxInfrastructureError(
+          `Sandbox Job ${jobName} was interrupted by infrastructure (${podState.infrastructureFailure}); retrying the sandbox run.`,
+        );
+      }
+      return {
+        everStarted: everStarted || podState.everStarted,
+        outcome: {
+          state: "failed",
+          deadlineExceeded: (job.status.conditions ?? []).some(
+            (condition) => condition.reason === "DeadlineExceeded",
+          ),
+        },
+      };
+    }
+
+    if (podState.succeeded) {
+      return { everStarted: true, outcome: { state: "succeeded", deadlineExceeded: false } };
+    }
+    if (podState.imagePull?.reason === "ImagePullBackOff") {
+      throw new SandboxImagePullError(
+        `Cannot pull image for Job ${jobName}: ${podState.imagePull.message}`,
+      );
+    }
+    if (podState.infrastructureFailure) {
+      throw new SandboxInfrastructureError(
+        `Sandbox Job ${jobName} was interrupted by infrastructure (${podState.infrastructureFailure}); retrying the sandbox run.`,
+      );
+    }
+
+    const nextEverStarted = everStarted || podState.everStarted;
+    if (!nextEverStarted && Date.now() - startedAt > POD_SCHEDULE_GRACE_MS) {
+      const blockedReason = this.jobBlockedReason(job);
+      if (blockedReason || podState.unschedulableReason) {
+        throw new SandboxBackpressureError(
+          `Sandbox Job ${jobName} pod never scheduled (${blockedReason ?? podState.unschedulableReason ?? "quota/capacity"}); retrying with backoff.`,
+        );
+      }
+    }
+
+    return { everStarted: nextEverStarted, outcome: null };
+  }
+
+  private async watchJobUntilChange(params: {
+    jobName: string;
+    namespace: string;
+    snapshot: JobWatchSnapshot;
+    everStarted: boolean;
+    startedAt: number;
+    deadline: number;
+    signal: AbortSignal;
+  }): Promise<JobWatchEvaluation> {
+    const { jobName, namespace, snapshot, startedAt, deadline, signal } = params;
+    signal.throwIfAborted();
+    let currentJob = snapshot.job;
+    const pods = new Map(
+      snapshot.pods
+        .map((pod) => [pod.metadata?.name, pod] as const)
+        .filter((entry): entry is [string, k8s.V1Pod] => entry[0] !== undefined),
+    );
+    let everStarted = params.everStarted;
+    let settled = false;
+    let resolveResult!: (value: JobWatchEvaluation) => void;
+    let rejectResult!: (reason: unknown) => void;
+    const controllers: AbortController[] = [];
+    const timerHandles: ReturnType<typeof setTimeout>[] = [];
+
+    const result = new Promise<JobWatchEvaluation>((resolve, reject) => {
+      resolveResult = resolve;
+      rejectResult = reject;
+    });
+
+    const cleanup = () => {
+      for (const timer of timerHandles) clearTimeout(timer);
+      signal.removeEventListener("abort", onAbort);
+      for (const controller of controllers) controller.abort();
+    };
+    const settle = (value: JobWatchEvaluation) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolveResult(value);
+    };
+    const fail = (error: unknown) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      rejectResult(error);
+    };
+    const onAbort = () => fail(executionAbortReason(signal));
+    const refresh = () => settle({ everStarted, outcome: null });
+    const evaluate = () => {
+      try {
+        const evaluation = this.evaluateJobSnapshot(
+          jobName,
+          currentJob,
+          [...pods.values()],
+          everStarted,
+          startedAt,
+        );
+        everStarted = evaluation.everStarted;
+        if (evaluation.outcome) settle(evaluation);
+      } catch (error) {
+        fail(error);
+      }
+    };
+    const watchFailure = (error: unknown) => {
+      const code = watchErrorCode(error);
+      if (error === null || code === 410) {
+        refresh();
+        return;
+      }
+      fail(
+        error instanceof SandboxInfrastructureError
+          ? error
+          : new SandboxInfrastructureError(
+              `Sandbox Job ${jobName} watch failed; retrying the sandbox run.`,
+            ),
+      );
+    };
+    const handleJobEvent = (phase: string, object: unknown) => {
+      if (phase === "ERROR") {
+        watchFailure(object);
+        return;
+      }
+      if (phase === "BOOKMARK") return;
+      if (phase === "DELETED") {
+        fail(
+          new SandboxInfrastructureError(`Sandbox Job ${jobName} disappeared while running.`),
+        );
+        return;
+      }
+      if (typeof object === "object" && object !== null) {
+        currentJob = object;
+        evaluate();
+      }
+    };
+    const handlePodEvent = (phase: string, object: unknown) => {
+      if (phase === "ERROR") {
+        watchFailure(object);
+        return;
+      }
+      if (phase === "BOOKMARK") return;
+      if (typeof object !== "object" || object === null) return;
+      const pod = object as k8s.V1Pod;
+      const podName = pod.metadata?.name;
+      if (!podName) return;
+      if (phase === "DELETED") pods.delete(podName);
+      else pods.set(podName, pod);
+      evaluate();
+    };
+    const register = (controller: AbortController) => {
+      if (settled) controller.abort();
+      else controllers.push(controller);
+    };
+    const startWatch = async (
+      path: string,
+      queryParams: Record<string, string | number | boolean | undefined>,
+      callback: (phase: string, object: unknown) => void,
+    ) => {
+      try {
+        const controller = await this.watchClient.watch(
+          path,
+          queryParams,
+          callback,
+          watchFailure,
+        );
+        register(controller);
+      } catch (error) {
+        watchFailure(error);
+      }
+    };
+
+    signal.addEventListener("abort", onAbort, { once: true });
+    if (signal.aborted) {
+      onAbort();
+      return result;
+    }
+    const remainingSeconds = Math.max(1, Math.ceil((deadline - Date.now()) / 1_000));
+    timerHandles.push(
+      setTimeout(refresh, Math.min(JOB_WATCH_TIMEOUT_SECONDS, remainingSeconds) * 1_000),
+    );
+    if (!everStarted) {
+      const scheduleDelay = POD_SCHEDULE_GRACE_MS - (Date.now() - startedAt);
+      if (scheduleDelay > 0) timerHandles.push(setTimeout(refresh, scheduleDelay));
+    }
+
+    void Promise.all([
+      startWatch(
+        `/apis/batch/v1/namespaces/${encodeURIComponent(namespace)}/jobs`,
+        {
+          fieldSelector: `metadata.name=${jobName}`,
+          resourceVersion: snapshot.jobResourceVersion,
+          allowWatchBookmarks: true,
+          timeoutSeconds: Math.min(JOB_WATCH_TIMEOUT_SECONDS, remainingSeconds),
+        },
+        handleJobEvent,
+      ),
+      startWatch(
+        `/api/v1/namespaces/${encodeURIComponent(namespace)}/pods`,
+        {
+          labelSelector: `job-name=${jobName}`,
+          resourceVersion: snapshot.podResourceVersion,
+          allowWatchBookmarks: true,
+          timeoutSeconds: Math.min(JOB_WATCH_TIMEOUT_SECONDS, remainingSeconds),
+        },
+        handlePodEvent,
+      ),
+    ]);
+
+    return result;
   }
 
   private async getPodLogs(

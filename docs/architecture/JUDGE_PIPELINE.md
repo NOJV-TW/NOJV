@@ -5,7 +5,7 @@ The judge pipeline is the evaluation framework that compiles, executes, and scor
 ## Standard Mode pipeline
 
 ```
-merge workspace files → compile → execute per testcase → check → score
+merge workspace files → prepare → execute per testcase → check → score
 ```
 
 ### merge workspace files
@@ -36,6 +36,13 @@ Language-specific build, run by the sandbox runner inside the isolated container
 
 Interpreted languages skip the compile step entirely — a syntax error only surfaces when `execute` tries to run the file.
 
+On Kubernetes, standard and checker run Jobs use one hardened `prepare` init
+container. It materializes the projected payload, reads the validated config,
+and compiles once into `/artifact`; the worker then starts one independent
+container per testcase. The testcase containers keep separate cgroup and
+scratch subPaths and mount the compiled artifact read-only. Docker and the
+other Kubernetes judge manifests retain their existing materialization stages.
+
 ### execute
 
 One sandboxed process per testcase. Stdin comes from the testcase `input`, stdout/stderr/exit code/runtime/memory are captured. Per-case limits come from `Problem.judgeConfig.runtime`:
@@ -48,7 +55,7 @@ One sandboxed process per testcase. Stdin comes from the testcase `input`, stdou
 
 The **effective** per-run time budget is `timeLimitMs × LANGUAGE_TIME_FACTOR[language]` (`packages/core/src/judge/time-factor.ts`), applied once where the sandbox request is built (`apps/worker/src/activities/judge.ts`). Compiled-native languages (c/cpp/rust) use factor 1.0; slower runtimes get a multiplier (go 1.5, js/ts/java 2, python 3) so the same problem is fair across languages, mirroring DOMjudge's per-language `time_factor`. Because every downstream ceiling (CPU soft TLE, CPU rlimit, wall-clock grace, docker/k8s deadlines, validator timeout) derives from this `timeoutMs`, they all scale together. The factor does not apply to Advanced Mode. Memory has no per-language factor (neither does DOMjudge).
 
-All Standard Mode containers run with `--network none`, `--cap-drop ALL`, `--security-opt no-new-privileges`, a read-only rootfs, and bounded `tmpfs` mounts on `/tmp` (64m) and `/workspace` (128m).
+All Standard Mode containers run with `--network none`, `--cap-drop ALL`, `--security-opt no-new-privileges`, a read-only rootfs, and bounded `tmpfs` mounts on `/tmp` (64m) and `/workspace` (128m). Kubernetes Job completion is observed through resource-versioned Job/Pod watches with snapshot resync on disconnect; it does not rely on a fixed polling interval.
 
 ### check
 

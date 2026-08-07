@@ -296,6 +296,11 @@ async function runCompilePhase(config: SandboxInput): Promise<void> {
   process.stdout.write(JSON.stringify({ runCommand: compileResult.runCommand }));
 }
 
+async function runPreparePhase(): Promise<void> {
+  await materializePayload({ payloadDir: "/payload", submissionDir: SUBMISSION_DIR });
+  await runCompilePhase(await readConfig());
+}
+
 async function resolveRunCommand(config: SandboxInput): Promise<string[] | null> {
   if (config.mode?.kind === "run-case") return config.mode.runCommand;
   try {
@@ -349,6 +354,10 @@ function resolveCaseIndex(config: SandboxInput): number | null {
 }
 
 async function main(): Promise<void> {
+  if (process.env.SANDBOX_PHASE === "prepare") {
+    await runPreparePhase();
+    return;
+  }
   if (process.env.SANDBOX_PHASE === "materialize") {
     await materializePayload({ payloadDir: "/payload", submissionDir: SUBMISSION_DIR });
     return;
