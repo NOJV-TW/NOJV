@@ -151,6 +151,7 @@ export async function setUserAdvancedCreation(userId: string, allowed: boolean) 
 
 export interface DashboardStats {
   totalAc: number;
+  acceptedAttempts: number;
   totalAttempts: number;
 }
 
@@ -197,7 +198,11 @@ export async function getDashboardView(userId: string): Promise<DashboardView> {
   };
 
   return {
-    stats: { totalAc: acProblems.length, totalAttempts },
+    stats: {
+      totalAc: acProblems.length,
+      acceptedAttempts: verdictGroups.find((g) => g.status === "accepted")?._count._all ?? 0,
+      totalAttempts,
+    },
     recentSubmissions,
     analytics,
   };

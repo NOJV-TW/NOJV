@@ -47,7 +47,7 @@ describe("getDashboardView — empty actor", () => {
 
     const view = await getDashboardView("usr_new");
 
-    expect(view.stats).toEqual({ totalAc: 0, totalAttempts: 0 });
+    expect(view.stats).toEqual({ totalAc: 0, acceptedAttempts: 0, totalAttempts: 0 });
     expect(view.recentSubmissions).toEqual([]);
     expect(view.analytics.byLanguage).toEqual([]);
     expect(view.analytics.byVerdict).toEqual([]);
@@ -61,7 +61,7 @@ describe("getDashboardView — empty actor", () => {
 });
 
 describe("getDashboardView — populated actor", () => {
-  it("derives totalAc from distinct-AC length and totalAttempts from count", async () => {
+  it("keeps solved problems distinct while counting every accepted attempt", async () => {
     findRecentByUser.mockResolvedValue([]);
     findDistinctAcByUser.mockResolvedValue([
       { problem: { difficulty: "easy", tags: ["dp"] } },
@@ -70,11 +70,14 @@ describe("getDashboardView — populated actor", () => {
     ]);
     count.mockResolvedValue(17);
     groupByLanguageForUser.mockResolvedValue([]);
-    groupByStatusForUser.mockResolvedValue([]);
+    groupByStatusForUser.mockResolvedValue([
+      { status: "accepted", _count: { _all: 7 } },
+      { status: "wrong_answer", _count: { _all: 10 } },
+    ]);
 
     const view = await getDashboardView("usr_1");
 
-    expect(view.stats).toEqual({ totalAc: 3, totalAttempts: 17 });
+    expect(view.stats).toEqual({ totalAc: 3, acceptedAttempts: 7, totalAttempts: 17 });
   });
 
   it("emits byDifficulty in fixed easy→medium→hard order with per-bucket counts", async () => {

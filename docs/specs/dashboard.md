@@ -122,10 +122,15 @@ timezone. There is no pre-aggregated daily-activity table.
 
 ### Stats and AC rate
 
-- GIVEN 12 accepted distinct `(userId, problemId)` rows and 30 total
-  submissions,
+- GIVEN 12 distinct solved problems, 12 accepted submissions, and 30
+  total submissions,
   WHEN the page renders the top stats block,
-  THEN `totalAc = 12`, `totalAttempts = 30`, `acRate ≈ 40%`.
+  THEN `totalAc = 12`, `acceptedAttempts = 12`, `totalAttempts = 30`,
+  `acRate ≈ 40%`.
+- GIVEN one problem has two accepted submissions and one wrong answer,
+  WHEN the AC rate is computed,
+  THEN it is `2 / 3 ≈ 66.7%`; repeated AC submissions are not collapsed
+  into the solved-problem count.
 - GIVEN zero attempts,
   WHEN the AC rate is computed,
   THEN the display falls back to `0%` — never `NaN%`.

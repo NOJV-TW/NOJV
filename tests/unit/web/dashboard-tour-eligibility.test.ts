@@ -42,7 +42,7 @@ beforeEach(() => {
   getDashboardView.mockResolvedValue({
     analytics: {},
     recentSubmissions: [],
-    stats: { totalAc: 0, totalAttempts: 0 },
+    stats: { totalAc: 0, acceptedAttempts: 0, totalAttempts: 0 },
   });
   getPlatformOverview.mockResolvedValue({});
   getSubmissionActivity.mockResolvedValue([]);
@@ -69,7 +69,7 @@ describe("dashboard automatic tour eligibility", () => {
     getDashboardView.mockResolvedValue({
       analytics: {},
       recentSubmissions: [],
-      stats: { totalAc: 0, totalAttempts: 1 },
+      stats: { totalAc: 0, acceptedAttempts: 0, totalAttempts: 1 },
     });
 
     await expect(load(eventFor("student"))).resolves.toMatchObject({ automaticTourRole: null });
