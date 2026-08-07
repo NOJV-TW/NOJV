@@ -52,6 +52,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     title: "Untitled Problem",
     type,
     visibility: "private",
+    adminMayPublish: false,
   });
 
   return json({ id: result.id, mode: type === "special_env" ? "advanced" : "standard" });

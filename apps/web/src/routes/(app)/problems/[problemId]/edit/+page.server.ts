@@ -46,7 +46,6 @@ const {
   deleteProblemRecord,
   convertProblemToAdvancedMode,
 } = problemDomain;
-
 const updateWorkspaceSchema = z.object({
   runtime: runtimeSchema.optional(),
   allowedLanguages: z.array(languageSchema).optional(),
@@ -94,6 +93,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       title: problem.title,
       type: problem.type satisfies ProblemType,
       visibility: problem.visibility,
+      adminMayPublish: problemRow?.adminMayPublish ?? false,
     },
     zod4(problemDraftSchema),
   );
@@ -106,6 +106,14 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         { totalTimeMs: problem.timeLimitMs, memoryMb: problem.memoryLimitMb },
       )
     : false;
+
+  const referenceSolution = await (async () => {
+    if (isAdvanced) return null;
+    const application = await import("@nojv/application");
+    return "submissionDomain" in application
+      ? application.submissionDomain.getProblemReferenceSolution(params.problemId)
+      : null;
+  })();
 
   const registryEnv = getWebEnv();
   const registryCredential = isAdvanced
@@ -124,6 +132,16 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         }
       : null,
     advancedJudgeVerified,
+    referenceSolution,
+    permissions: {
+      isAdmin: actor.platformRole === "admin",
+      isOwner: problemRow?.authorId === actor.userId,
+      studentPrivateOnly: actor.platformRole === "student",
+      canPublishAsAdmin:
+        actor.platformRole === "admin" &&
+        problemRow?.authorId !== actor.userId &&
+        problemRow?.adminMayPublish === true,
+    },
     advancedCreationAllowed: await problemDomain.canCreateAdvancedProblems(actor),
     advancedAllowedRegistries: allowedImageRegistries(),
     registryHost: registryEnv.REGISTRY_PUBLIC_HOST,
@@ -235,6 +253,11 @@ export const actions: Actions = {
 
   publish: problemEditAction(async ({ actor, problemId }) => {
     await updateProblemRecord(actor, problemId, { status: "published" });
+    return { success: true };
+  }),
+
+  publishAsAdmin: problemEditAction(async ({ actor, problemId }) => {
+    await problemDomain.publishProblemAsAdmin(actor, problemId);
     return { success: true };
   }),
 

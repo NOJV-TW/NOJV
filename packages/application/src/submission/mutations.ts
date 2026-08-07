@@ -293,6 +293,23 @@ export async function createQueuedSubmissionRecord(
       examSessionRepo.withTx(tx).findActiveForUser(actor.userId),
     ]);
 
+    const isReferenceSolution = payload.referenceSolution === true;
+    if (isReferenceSolution) {
+      if (payload.context.type !== "practice" || payload.sampleOnly === true) {
+        throw new ConflictError("Reference solutions must use a full practice submission.");
+      }
+      if (problem.type === "special_env") {
+        throw new ConflictError(
+          "Advanced-mode problems use their configured judge verification.",
+        );
+      }
+      if (problem.authorId !== actor.userId && actor.platformRole !== "admin") {
+        throw new ForbiddenError(
+          "Only the problem author or an admin can validate a reference solution.",
+        );
+      }
+    }
+
     if (
       activeExamSession &&
       actor.platformRole !== "admin" &&
@@ -407,12 +424,19 @@ export async function createQueuedSubmissionRecord(
       createdAt: receivedAt,
       ipAddress: clientIp,
       language: payload.language,
+      isReferenceSolution,
       problemId: problem.id,
       sampleOnly: payload.sampleOnly ?? false,
       sourceStorage: Prisma.DbNull,
       status: "pending_upload",
       userId: user.id,
     });
+    if (isReferenceSolution) {
+      await tx.problem.update({
+        where: { id: problem.id },
+        data: { referenceSolutionSubmissionId: null },
+      });
+    }
   });
 
   try {
@@ -621,6 +645,21 @@ export async function completeJudge(
             : toJsonValue(advancedConfigSnapshot),
       },
     });
+    if (current.isReferenceSolution) {
+      const latestReference = await tx.submission.findFirst({
+        where: { problemId: current.problemId, isReferenceSolution: true },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        select: { id: true },
+      });
+      if (latestReference?.id === current.id) {
+        await tx.problem.update({
+          where: { id: current.problemId },
+          data: {
+            referenceSolutionSubmissionId: result.verdict === "accepted" ? current.id : null,
+          },
+        });
+      }
+    }
     await commitStoragePointerSwap(tx, {
       added: [verdictDetailStorage],
       removed:

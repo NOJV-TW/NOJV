@@ -16,10 +16,17 @@
     formData: SuperValidated<ProblemDraft>;
     problemId: string;
     showRuntimeLimits?: boolean;
+    studentPrivateOnly?: boolean;
     ondirtychange?: (dirty: boolean) => void;
   }
 
-  let { formData, problemId, showRuntimeLimits = false, ondirtychange }: Props = $props();
+  let {
+    formData,
+    problemId,
+    showRuntimeLimits = false,
+    studentPrivateOnly = false,
+    ondirtychange,
+  }: Props = $props();
 
   let attempted = $state(false);
   let formEl = $state<HTMLFormElement | null>(null);
@@ -59,6 +66,10 @@
   let samples = $state<{ input: string; output: string }[]>($form.samples ?? []);
   $effect(() => {
     $form.samples = samples;
+  });
+
+  $effect(() => {
+    if (studentPrivateOnly && $form.visibility !== "private") $form.visibility = "private";
   });
 
   let showAdvanced = $state(false);
@@ -132,26 +143,60 @@
         >{m.admin_visibility()} <span class="text-destructive">*</span>
         <HelpTooltip text={m.admin_helpVisibility()} /></span
       >
-      <Select.Root
-        type="single"
-        name="visibility"
-        value={$form.visibility}
-        onValueChange={(v) => {
-          $form.visibility = v as ProblemVisibility;
-        }}
-      >
-        <Select.Trigger class="w-full">
-          {visibilityLabels[$form.visibility]?.() ?? $form.visibility}
-        </Select.Trigger>
-        <Select.Content>
-          <Select.Item value="private" label={m.admin_visibilityPrivate()}
-            >{m.admin_visibilityPrivate()}</Select.Item
+      {#if studentPrivateOnly}
+        <div class="grid gap-2" role="group" aria-label={m.admin_visibility()}>
+          <button
+            type="button"
+            aria-pressed={!$form.adminMayPublish}
+            class="rounded-xl border px-3 py-2 text-left text-body-sm transition-colors duration-fast ease-out-soft {!$form.adminMayPublish
+              ? 'border-primary bg-primary/10'
+              : 'border-border hover:bg-accent'}"
+            onclick={() => {
+              $form.visibility = "private";
+              $form.adminMayPublish = false;
+            }}
           >
-          <Select.Item value="public" label={m.admin_visibilityPublic()}
-            >{m.admin_visibilityPublic()}</Select.Item
+            <span class="font-semibold">{m.admin_visibilityStudentPrivate()}</span>
+          </button>
+          <button
+            type="button"
+            aria-pressed={$form.adminMayPublish}
+            class="rounded-xl border px-3 py-2 text-left text-body-sm transition-colors duration-fast ease-out-soft {$form.adminMayPublish
+              ? 'border-primary bg-primary/10'
+              : 'border-border hover:bg-accent'}"
+            onclick={() => {
+              $form.visibility = "private";
+              $form.adminMayPublish = true;
+            }}
           >
-        </Select.Content>
-      </Select.Root>
+            <span class="font-semibold">{m.admin_visibilityStudentAllowAdmin()}</span>
+            <span class="mt-0.5 block text-caption text-muted-foreground">
+              {m.admin_visibilityStudentAllowAdminHint()}
+            </span>
+          </button>
+        </div>
+      {:else}
+        <Select.Root
+          type="single"
+          name="visibility"
+          value={$form.visibility}
+          onValueChange={(v) => {
+            $form.visibility = v as ProblemVisibility;
+          }}
+        >
+          <Select.Trigger class="w-full">
+            {visibilityLabels[$form.visibility]?.() ?? $form.visibility}
+          </Select.Trigger>
+          <Select.Content>
+            <Select.Item value="private" label={m.admin_visibilityPrivate()}
+              >{m.admin_visibilityPrivate()}</Select.Item
+            >
+            <Select.Item value="public" label={m.admin_visibilityPublic()}
+              >{m.admin_visibilityPublic()}</Select.Item
+            >
+          </Select.Content>
+        </Select.Root>
+      {/if}
       {#if attempted && $errors.visibility}<span class="text-body-sm text-destructive"
           >{tr($errors.visibility)}</span
         >{/if}

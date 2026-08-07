@@ -80,6 +80,48 @@ export async function getSubmissionSources(submissionId: string): Promise<Submis
   return readSubmissionSources(submission.sourceStorage);
 }
 
+export async function getProblemReferenceSolution(problemId: string) {
+  const problem = await problemRepo.findById(problemId);
+  if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
+
+  const [latest, verified] = await Promise.all([
+    submissionRepo.findLatestReferenceForProblem(problemId),
+    problem.referenceSolutionSubmissionId
+      ? submissionRepo.findById(problem.referenceSolutionSubmissionId)
+      : null,
+  ]);
+
+  const sourceFiles =
+    verified?.sourceStorage === null || verified?.sourceStorage === undefined
+      ? []
+      : await readSubmissionSources(verified.sourceStorage);
+
+  const status = verified
+    ? ("verified" as const)
+    : latest === null
+      ? ("not_configured" as const)
+      : ["pending_upload", "queued", "compiling", "running"].includes(latest.status)
+        ? ("validating" as const)
+        : ("failed" as const);
+
+  return {
+    status,
+    submissionId: verified?.id ?? latest?.id ?? null,
+    language: verified?.language ?? latest?.language ?? null,
+    sourceFiles,
+    lastSubmission: latest
+      ? {
+          id: latest.id,
+          status: latest.status,
+          score: latest.score,
+          runtimeMs: latest.runtimeMs,
+          memoryKb: latest.memoryKb,
+          createdAt: latest.createdAt,
+        }
+      : null,
+  };
+}
+
 export async function getVerdictDetail(submissionId: string): Promise<SubmissionResult> {
   const submission = await submissionRepo.findById(submissionId);
   if (!submission) throw new NotFoundError("Submission not found.");
@@ -594,6 +636,7 @@ export async function listForRejudge(input: {
   const where: Prisma.SubmissionWhereInput = {
     problemId: input.problemId,
     sampleOnly: false,
+    isReferenceSolution: false,
     status: { notIn: [...IN_FLIGHT_SUBMISSION_STATUSES] },
   };
 
@@ -633,6 +676,7 @@ export async function findOneForRejudge(
 ): Promise<{ submissionId: string; draft: SubmissionJudgeDraft } | null> {
   const submission = await submissionRepo.findById(submissionId);
   if (!submission) return null;
+  if (submission.isReferenceSolution) return null;
   if ((IN_FLIGHT_SUBMISSION_STATUSES as readonly string[]).includes(submission.status)) {
     return null;
   }

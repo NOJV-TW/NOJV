@@ -8,6 +8,10 @@ The judge pipeline is the evaluation framework that compiles, executes, and scor
 merge workspace files → prepare → execute per testcase → check → score
 ```
 
+### Reference solution validation
+
+Problem authors can submit a complete practice solution as a private reference submission. It uses the same Standard Mode judge, testcase set, workspace merge, and source storage as an ordinary submission, but is marked `isReferenceSolution` and excluded from student history and statistics. An accepted reference submission becomes the problem's current verification pointer; failed validation clears that pointer. Changes to testcases, workspace files, judge configuration, limits, or problem type invalidate the pointer, so a standard problem cannot be published with an outdated reference solution.
+
 ### merge workspace files
 
 Before the sandbox starts, the domain layer merges `ProblemWorkspaceFile` rows (editable + readonly + hidden) with the student's submitted files. Readonly and hidden workspace files always win over student paths, so a malicious client cannot overwrite them. Hidden files are never shown in the UI but are present on disk during compile/execute. The merge is implemented in `mergeSandboxSources()` inside `apps/worker/src/activities/judge.ts`.

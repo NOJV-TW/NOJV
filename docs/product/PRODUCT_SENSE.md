@@ -13,7 +13,8 @@
 ### Problems
 
 - Problem listing with filters (difficulty, tags, solved status)
-- Problem creation: any email-verified user (including students) may create and own problems; editing existing problems beyond ownership stays admin/teacher (`canCreateProblem` vs `canEditProblem`)
+- Problem creation: any email-verified user (including students) may create and own private problems; students cannot publish public problems, while teachers/admins retain their existing own-problem publishing permissions. A student may separately authorize an admin to publish later; this is not a review request or a publication guarantee.
+- Standard publication requires an accepted current private reference solution. Admins discover all problems through the existing problems page and may publish an authorized student-owned problem without a review queue.
 - i18n problem statements (en, zh-TW) with markdown + KaTeX rendering
 - Image upload via drag-and-drop / paste into markdown textareas (S3-compatible storage)
 - Monaco Editor code workspace with multi-language support

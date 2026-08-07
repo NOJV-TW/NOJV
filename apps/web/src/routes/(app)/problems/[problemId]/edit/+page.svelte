@@ -13,6 +13,7 @@
   import WorkspaceSection from "$lib/components/features/problem/sections/WorkspaceSection.svelte";
   import AdvancedImageConfigSection from "$lib/components/features/problem/advanced/AdvancedImageConfigSection.svelte";
   import RegistryCredentialCard from "$lib/components/features/problem/advanced/RegistryCredentialCard.svelte";
+  import ReferenceSolutionSection from "$lib/components/features/problem/reference/ReferenceSolutionSection.svelte";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button } from "$lib/components/primitives/ui/button";
@@ -63,12 +64,20 @@
 
   let canPublish = $derived(
     data.problem.status === "draft" &&
+      data.permissions?.studentPrivateOnly !== true &&
+      (data.permissions?.isAdmin !== true ||
+        data.permissions?.isOwner === true ||
+        data.permissions?.canPublishAsAdmin === true) &&
       (isAdvanced
         ? isBasicInfoComplete &&
           (data.advancedConfig?.config?.run.imageRef ?? "") !== "" &&
           (data.advancedConfig?.config?.grade.imageRef ?? "") !== "" &&
           data.advancedJudgeVerified
-        : data.testcaseSets.length > 0),
+        : data.testcaseSets.length > 0 && data.referenceSolution?.status === "verified"),
+  );
+
+  let publishAction = $derived(
+    data.permissions?.canPublishAsAdmin === true ? "?/publishAsAdmin" : "?/publish",
   );
 
   const workspaceInitial = untrack(() => {
@@ -154,7 +163,7 @@
     showPublishConfirm = false;
     isPublishing = true;
     const fd = new FormData();
-    fetch(`?/publish`, { method: "POST", body: fd })
+    fetch(publishAction, { method: "POST", body: fd })
       .then(async (res) => {
         if (res.ok) {
           await invalidateAll();
@@ -304,6 +313,7 @@
             formData={data.form}
             problemId={data.problem.id}
             showRuntimeLimits={true}
+            studentPrivateOnly={data.permissions?.studentPrivateOnly === true}
             ondirtychange={(d) => (isDirty = d)}
           />
         </section>
@@ -342,6 +352,7 @@
       {isBasicInfoComplete}
       {missingBasicFields}
       testcaseCount={data.testcaseSets.length}
+      referenceSolutionStatus={data.referenceSolution?.status ?? "not_configured"}
       bind:isDirty
     >
       {#snippet railActions()}
@@ -394,6 +405,7 @@
           formData={data.form}
           problemId={data.problem.id}
           showRuntimeLimits={data.problem.type !== "multi_file"}
+          studentPrivateOnly={data.permissions?.studentPrivateOnly === true}
           ondirtychange={(d) => (isDirty = d)}
         />
       {/snippet}
@@ -421,6 +433,17 @@
           validatorScripts={data.validatorScripts}
           ondirtychange={(d) => (isDirty = d)}
         />
+      {/snippet}
+      {#snippet reference()}
+        {#if data.referenceSolution}
+          <ReferenceSolutionSection
+            problemId={data.problem.id}
+            problemType={data.problem.type === "multi_file" ? "multi_file" : "full_source"}
+            initial={data.referenceSolution}
+            starterByLanguage={data.problem.starterByLanguage}
+            workspaceFiles={data.workspaceFiles}
+          />
+        {/if}
       {/snippet}
     </ProblemSections>
   {/if}

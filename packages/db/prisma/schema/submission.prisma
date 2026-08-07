@@ -33,6 +33,7 @@ model Submission {
   courseId               String?
   assessmentId           String?
   sampleOnly             Boolean           @default(false)
+  isReferenceSolution    Boolean           @default(false)
   language               SupportedLanguage
   sourceStorage          Json?
   status                 SubmissionStatus  @default(queued)
@@ -51,6 +52,7 @@ model Submission {
 
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   problem       Problem        @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  referenceForProblem Problem? @relation("ProblemReferenceSolution")
   exam          Exam?          @relation(fields: [examId], references: [id], onDelete: Restrict)
   contest       Contest?       @relation(fields: [contestId], references: [id], onDelete: Restrict)
   participation Participation? @relation(fields: [participationId, userId], references: [id, userId], onDelete: Cascade)
@@ -70,6 +72,7 @@ model Submission {
   @@index([status, updatedAt])
   @@index([problemId, sampleOnly, userId, status])
   @@index([createdAt])
+  @@index([problemId, isReferenceSolution, createdAt])
 }
 
 model SubmissionRejudgeLog {

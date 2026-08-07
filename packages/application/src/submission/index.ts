@@ -11,6 +11,7 @@ export {
   getSubmissionDetail,
   getSubmissionForActor,
   getSubmissionSources,
+  getProblemReferenceSolution,
   getVerdictDetail,
   listForRejudge,
   listProblemSubmissions,

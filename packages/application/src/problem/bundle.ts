@@ -410,6 +410,7 @@ export async function importBundle(
     };
 
     await problemRepo.withTx(tx).update(problem.id, {
+      referenceSolutionSubmissionId: null,
       judgeConfig: nextCfg,
       checkerStorage: checkerStorage ?? Prisma.DbNull,
       interactorStorage: interactorStorage ?? Prisma.DbNull,

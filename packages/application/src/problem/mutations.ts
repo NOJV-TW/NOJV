@@ -31,7 +31,12 @@ import {
   requiredPathsSchema,
 } from "@nojv/core";
 
-import { ConflictError, NotFoundError, ValidationError } from "../shared/errors";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "../shared/errors";
 import { requireProblem } from "../shared/require";
 import { commitStoragePointerSwap } from "../shared/storage-object-lifecycle";
 import { ensureUser } from "../user/mutations";
@@ -59,6 +64,7 @@ export interface CreateProblemDefinitionInput {
   visibility?: ProblemVisibility | undefined;
   type?: ProblemType | undefined;
   advancedConfig?: AdvancedConfig | undefined;
+  adminMayPublish?: boolean | undefined;
 }
 
 export async function createProblemDefinition(
@@ -78,6 +84,7 @@ export async function createProblemDefinition(
     timeLimitMs: input.timeLimitMs ?? 1_000,
     type,
     visibility: input.visibility ?? "public",
+    adminMayPublish: input.adminMayPublish ?? false,
   };
   if (input.judgeConfig !== undefined) {
     createData.judgeConfig = input.judgeConfig as Prisma.InputJsonValue;
@@ -138,6 +145,12 @@ export async function deleteProblemRecord(actor: ProblemActorContext, problemId:
 }
 
 export async function createProblemRecord(actor: ProblemActorContext, payload: ProblemCreate) {
+  if (
+    actor.platformRole === "student" &&
+    (payload.visibility === "public" || payload.status === "published")
+  ) {
+    throw new ForbiddenError("Students can only create private draft problems.");
+  }
   if (payload.type === "special_env") {
     await assertCanCreateAdvancedProblems(actor);
   }
@@ -146,6 +159,7 @@ export async function createProblemRecord(actor: ProblemActorContext, payload: P
 
     const problem = await createProblemDefinition(tx, {
       advancedConfig: payload.advancedConfig,
+      adminMayPublish: payload.adminMayPublish,
       authorId: author.id,
       difficulty: payload.difficulty,
       inputFormat: payload.inputFormat,
@@ -153,12 +167,12 @@ export async function createProblemRecord(actor: ProblemActorContext, payload: P
       memoryLimitMb: payload.memoryLimitMb,
       outputFormat: payload.outputFormat,
       statement: payload.statement,
-      status: payload.status,
+      status: actor.platformRole === "student" ? "draft" : payload.status,
       tags: payload.tags,
       timeLimitMs: payload.timeLimitMs,
       title: payload.title,
       type: payload.type,
-      visibility: payload.visibility,
+      visibility: actor.platformRole === "student" ? "private" : payload.visibility,
     });
 
     return problem;
@@ -176,6 +190,8 @@ function buildProblemUpdateData(payload: ProblemUpdate): Record<string, unknown>
   if (payload.type !== undefined) updateData.type = payload.type;
   if (payload.samples !== undefined) updateData.samples = payload.samples;
   if (payload.advancedConfig !== undefined) updateData.advancedConfig = payload.advancedConfig;
+  if (payload.adminMayPublish !== undefined)
+    updateData.adminMayPublish = payload.adminMayPublish;
   if (payload.difficulty !== undefined) updateData.difficulty = payload.difficulty;
   if (payload.tags !== undefined) updateData.tags = payload.tags;
   return updateData;
@@ -240,6 +256,7 @@ async function assertProblemPublishable(
     advancedRequiredPaths: unknown;
     timeLimitMs: number;
     memoryLimitMb: number;
+    referenceSolutionSubmissionId: string | null;
   },
 ): Promise<void> {
   if (problem.type === "special_env") {
@@ -270,6 +287,11 @@ async function assertProblemPublishable(
   if (testcaseSetCount === 0) {
     throw new ConflictError("Problems require at least one testcase set before publishing.");
   }
+  if (!problem.referenceSolutionSubmissionId) {
+    throw new ConflictError(
+      "Problems require an accepted reference solution before publishing.",
+    );
+  }
 }
 
 export async function updateProblemRecord(
@@ -282,6 +304,22 @@ export async function updateProblemRecord(
     const problem = await requireProblem(tx, problemId);
 
     assertProblemOwnership(problem, actor);
+
+    if (
+      actor.platformRole === "student" &&
+      (payload.visibility === "public" || payload.status === "published")
+    ) {
+      throw new ForbiddenError("Students cannot publish public problems.");
+    }
+    if (
+      actor.platformRole === "admin" &&
+      problem.authorId !== actor.userId &&
+      payload.status === "published"
+    ) {
+      throw new ForbiddenError(
+        "Use the admin publish action for another author's problem after they allow it.",
+      );
+    }
 
     if (
       problem.status === "published" &&
@@ -326,6 +364,15 @@ export async function updateProblemRecord(
 
     const updateData = buildProblemUpdateData(payload);
 
+    if (
+      payload.judgeConfig !== undefined ||
+      payload.type !== undefined ||
+      payload.timeLimitMs !== undefined ||
+      payload.memoryLimitMb !== undefined
+    ) {
+      updateData.referenceSolutionSubmissionId = null;
+    }
+
     assertSpecialEnvImageConsistency(payload, problem);
 
     if (
@@ -363,6 +410,35 @@ export async function updateProblemRecord(
       );
     }
 
+    return { id: problem.id };
+  });
+}
+
+export async function publishProblemAsAdmin(actor: ProblemActorContext, problemId: string) {
+  if (actor.platformRole !== "admin") {
+    throw new ForbiddenError("Only admins can publish another author's problem.");
+  }
+
+  return runTransaction(async (tx) => {
+    await problemRepo.withTx(tx).lockForUpdate(problemId);
+    const problem = await requireProblem(tx, problemId);
+    if (problem.authorId !== actor.userId && !problem.adminMayPublish) {
+      throw new ConflictError("The author has not allowed an admin to publish this problem.");
+    }
+    if (problem.status === "published") return { id: problem.id };
+
+    await assertProblemPublishable(tx, problem);
+
+    const updateData: Record<string, unknown> = {
+      status: "published",
+      visibility: "public",
+    };
+    if (problem.displayId == null) {
+      await problemRepo.withTx(tx).acquireDisplayIdLock();
+      const agg = await problemRepo.withTx(tx).maxDisplayId();
+      updateData.displayId = (agg._max.displayId ?? 0) + 1;
+    }
+    await problemRepo.withTx(tx).update(problem.id, updateData);
     return { id: problem.id };
   });
 }
@@ -414,6 +490,7 @@ export async function saveProblemJudgeConfig(
       optionalPointerSize(current.interactorStorage);
     const nextBytes = (checkerStorage?.size ?? 0) + (interactorStorage?.size ?? 0);
     await problemRepo.withTx(tx).update(problemId, {
+      referenceSolutionSubmissionId: null,
       judgeConfig,
       checkerStorage: checkerStorage ?? Prisma.DbNull,
       interactorStorage: interactorStorage ?? Prisma.DbNull,
@@ -489,6 +566,7 @@ export async function convertProblemToAdvancedMode(
     } satisfies Prisma.InputJsonValue;
 
     await problemRepo.withTx(tx).update(problem.id, {
+      referenceSolutionSubmissionId: null,
       type: "special_env",
       samples: Prisma.JsonNull,
       judgeConfig: resetJudgeConfig,

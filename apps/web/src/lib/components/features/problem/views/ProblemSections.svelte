@@ -23,6 +23,8 @@
     workspace?: Snippet;
     testcase?: Snippet;
     judge?: Snippet;
+    reference?: Snippet;
+    referenceSolutionStatus?: "not_configured" | "validating" | "verified" | "failed";
   }
 
   let {
@@ -40,6 +42,8 @@
     workspace,
     testcase,
     judge,
+    reference,
+    referenceSolutionStatus = "not_configured",
   }: Props = $props();
 
   let showUnsavedModal = $state(false);
@@ -72,6 +76,7 @@
       : []),
     { id: "testcase", label: m.admin_tabTestcase() },
     { id: "judge", label: m.admin_tabJudge() },
+    ...(reference ? [{ id: "reference", label: m.admin_tabReferenceSolution() }] : []),
   ]);
 
   $effect(() => {
@@ -112,6 +117,7 @@
     if (isLocked(id)) return "○";
     if (id === "basic") return isBasicInfoComplete ? "✓" : "●";
     if (id === "testcase") return testcaseCount > 0 ? "✓" : "○";
+    if (id === "reference") return referenceSolutionStatus === "verified" ? "✓" : "○";
     return "✓";
   }
 </script>
@@ -204,6 +210,8 @@
       {@render testcase()}
     {:else if activeSection === "judge" && judge}
       {@render judge()}
+    {:else if activeSection === "reference" && reference}
+      {@render reference()}
     {/if}
   </div>
 

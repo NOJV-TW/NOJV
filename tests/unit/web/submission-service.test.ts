@@ -37,4 +37,16 @@ describe("buildSubmissionBody", () => {
       sourceFiles: [{ path: "main.cpp", content: "int main() {}" }],
     });
   });
+
+  it("marks a practice submission as a reference solution", () => {
+    const body = buildSubmissionBody({
+      context: { type: "practice" },
+      language: "python",
+      problemId: "problem_1",
+      referenceSolution: true,
+      sourceCode: "print(1)",
+    });
+
+    expect(body).toMatchObject({ referenceSolution: true, sampleOnly: false });
+  });
 });

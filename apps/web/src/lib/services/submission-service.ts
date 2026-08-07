@@ -32,6 +32,7 @@ export interface SubmissionRequest {
   context: SubmissionContext;
   language: Language;
   problemId: string;
+  referenceSolution?: boolean;
   runCases?: SubmissionRunCase[];
   sampleOnly?: boolean;
   sourceCode: string;
@@ -55,6 +56,7 @@ export function buildSubmissionBody(request: SubmissionRequest): Record<string, 
     context: request.context,
     language: request.language,
     problemId: request.problemId,
+    ...(request.referenceSolution === true ? { referenceSolution: true } : {}),
     sampleOnly: request.sampleOnly ?? false,
   };
 

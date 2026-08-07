@@ -110,6 +110,7 @@ const problemCreateObjectSchema = z.object({
   samples: problemSamplesSchema.optional(),
   advancedConfig: advancedConfigSchema.optional(),
   advancedRequiredPaths: requiredPathsSchema.optional(),
+  adminMayPublish: z.boolean().default(false),
 });
 
 function refineAdvancedConfig(

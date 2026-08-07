@@ -21,9 +21,11 @@
 
   <ProblemsTabs
     editableProblems={data.editableProblems}
+    adminProblems={data.adminProblems}
     publicResult={data.publicResult}
     showCreate={data.canCreate}
     loggedIn={data.loggedIn}
     advancedCreationAllowed={data.advancedCreationAllowed}
+    isAdmin={data.isAdmin}
   />
 </PageContainer>
