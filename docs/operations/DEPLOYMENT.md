@@ -249,11 +249,12 @@ packages to **Public** so k3s can pull without an imagePullSecret.
 
 After publishing `deploy`, the same workflow waits for the public web service
 to serve that exact version through `/api/release`, then requires `/api/livez`
-and `/api/readyz` to succeed before sending the release Discord webhook. This
-is a public black-box gate for the web/API rollout; worker pod readiness remains
-an in-cluster operational check because the workflow has no cluster
-credentials. Configure the GitHub Actions repository secret
-`DISCORD_RELEASE_WEBHOOK_URL` for that notification.
+and `/api/readyz` to succeed. This is a public black-box gate for the web/API
+rollout; worker pod readiness remains an in-cluster operational check because
+the workflow has no cluster credentials. The separate
+[`NOJV-TW/status`](https://github.com/NOJV-TW/status) Worker performs the same
+checks on its minute schedule and owns release notifications through the
+existing status Discord webhook.
 
 ```bash
 git tag vX.Y.Z

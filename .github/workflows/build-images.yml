@@ -387,7 +387,7 @@ jobs:
             "refs/tags/${DEPLOY_TAG}:refs/tags/${DEPLOY_TAG}"
 
   verify-production:
-    name: Verify production release and notify Discord
+    name: Verify production release
     needs:
       - prepare-release
       - deploy-ref
@@ -395,11 +395,6 @@ jobs:
     timeout-minutes: 140
     permissions: {}
     steps:
-      - name: Validate release notification configuration
-        env:
-          DISCORD_RELEASE_WEBHOOK_URL: ${{ secrets.DISCORD_RELEASE_WEBHOOK_URL }}
-        run: ': "${DISCORD_RELEASE_WEBHOOK_URL:?DISCORD_RELEASE_WEBHOOK_URL secret is required}"'
-
       - name: Wait for the released version to be healthy in production
         env:
           RELEASE_URL: https://nojv.tw
@@ -432,21 +427,3 @@ jobs:
             echo "Production is not serving ${EXPECTED_VERSION} yet (attempt ${attempt}/260)."
             sleep 30
           done
-
-      - name: Notify Discord
-        env:
-          DISCORD_RELEASE_WEBHOOK_URL: ${{ secrets.DISCORD_RELEASE_WEBHOOK_URL }}
-          RELEASE_URL: https://nojv.tw
-          RELEASE_VERSION: ${{ needs.prepare-release.outputs.image_tag }}
-          RELEASE_SHA: ${{ needs.prepare-release.outputs.release_sha }}
-        run: |
-          set -euo pipefail
-          payload="$(jq -n \
-            --arg version "${RELEASE_VERSION}" \
-            --arg sha "${RELEASE_SHA}" \
-            --arg releaseUrl "${RELEASE_URL}" \
-            '{embeds: [{title: "NOJV public production deployed", description: ("Version: " + $version + "\nCommit: " + $sha), url: $releaseUrl, color: 5763719}]}')"
-          curl --silent --show-error --fail --max-time 15 \
-            -H "content-type: application/json" \
-            --data "${payload}" \
-            "${DISCORD_RELEASE_WEBHOOK_URL}"
