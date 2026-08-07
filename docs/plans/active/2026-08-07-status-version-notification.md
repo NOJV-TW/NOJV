@@ -13,11 +13,13 @@
 ### Task 1: Add version tracker tests and pure helpers
 
 **Files:**
+
 - Modify: `NOJV-TW/status/worker/src/util.ts`
 - Create: `NOJV-TW/status/worker/src/version.ts`
 - Create: `NOJV-TW/status/worker/src/version.test.ts`
 
 **Steps:**
+
 1. Define a small release identity type and pure helpers for parsing the public release response, comparing `version + sourceSha`, and formatting a Discord release message.
 2. Add tests for valid response parsing, malformed response rejection, same-release deduplication, and different source SHA detection.
 3. Run the status Worker typecheck/test command available in the repo and keep the helpers dependency-free.
@@ -25,12 +27,14 @@
 ### Task 2: Integrate polling and D1-backed notification state
 
 **Files:**
+
 - Modify: `NOJV-TW/status/worker/src/index.ts`
 - Modify: `NOJV-TW/status/worker/src/store.ts`
 - Modify: `NOJV-TW/status/worker/src/util.ts`
 - Modify: `NOJV-TW/status/uptime.config.ts`
 
 **Steps:**
+
 1. Add one configured NOJV release tracker using the existing Worker schedule and webhook configuration.
 2. Require `/api/release`, `/api/livez`, and `/api/readyz` to succeed before counting an observation as healthy.
 3. Persist the last healthy release and consecutive observation count in the existing Durable Object state; establish the first healthy release silently, then notify only when a later release is healthy twice and differs from the last notified release.
@@ -40,10 +44,12 @@
 ### Task 3: Remove duplicate Discord delivery from NOJV
 
 **Files:**
+
 - Modify: `.github/workflows/build-images.yml`
 - Modify: `docs/operations/DEPLOYMENT.md`
 
 **Steps:**
+
 1. Keep the production release health gate so a release job still fails when the deployed version is not healthy.
 2. Remove the `DISCORD_RELEASE_WEBHOOK_URL` validation and direct Discord notification step.
 3. Document that `NOJV-TW/status` is the sole release notification owner and that the existing status bot webhook secret is used.
@@ -52,6 +58,7 @@
 ### Task 4: Review and integration handoff
 
 **Steps:**
+
 1. Review both worktree diffs for secret leakage, duplicate notifications, and state-transition errors.
 2. Run focused tests and builds in both repositories; record pre-existing NOJV environment failures separately.
 3. Commit each repository independently and open PRs for status and NOJV.
