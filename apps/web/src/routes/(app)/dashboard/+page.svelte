@@ -49,8 +49,8 @@
   }
 
   const acRate = $derived(
-    stats.totalAttempts > 0
-      ? ((stats.acceptedAttempts / stats.totalAttempts) * 100).toFixed(1) + "%"
+    stats.totalAttemptedProblems > 0
+      ? ((stats.totalAc / stats.totalAttemptedProblems) * 100).toFixed(1) + "%"
       : "0%",
   );
 
