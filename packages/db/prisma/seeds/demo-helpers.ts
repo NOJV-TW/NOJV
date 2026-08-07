@@ -1,8 +1,9 @@
-import type {
-  CaseResult,
-  SubmissionResult,
-  SubtaskResultItem,
-  VerdictSummary,
+import {
+  maxCaseRuntimeMs,
+  type CaseResult,
+  type SubmissionResult,
+  type SubtaskResultItem,
+  type VerdictSummary,
 } from "@nojv/core";
 
 import type { PrismaClient } from "../../generated/prisma/client";
@@ -168,7 +169,6 @@ export function buildVerdictDetail(args: {
 
     const totalWeight = testcases.sets.reduce((sum, s) => sum + s.weight, 0) || 1;
     let earnedWeight = 0;
-    let maxRuntime = 0;
     let maxMemory = 0;
 
     const subtaskResults: SubtaskResultItem[] = testcases.sets.map((set, setIndex) => {
@@ -179,7 +179,6 @@ export function buildVerdictDetail(args: {
       const cases: CaseResult[] = set.testcaseIds.map((tcId, i) => {
         const cv: ShortVerdict = i === failCaseIndex ? shortFail : "AC";
         const cr = caseResult(i, cv, rng, tcId);
-        maxRuntime = Math.max(maxRuntime, cr.timeMs);
         if (cr.memoryKb !== undefined) maxMemory = Math.max(maxMemory, cr.memoryKb);
         return cr;
       });
@@ -192,6 +191,7 @@ export function buildVerdictDetail(args: {
         weight: set.weight,
       };
     });
+    const maxRuntime = maxCaseRuntimeMs(subtaskResults.flatMap((subtask) => subtask.cases));
 
     const score = verdict === "accepted" ? totalWeight : earnedWeight;
     const accepted = verdict === "accepted";
@@ -214,15 +214,14 @@ export function buildVerdictDetail(args: {
       : Array.from({ length: 4 }, () => undefined);
   const failIndex = verdict === "accepted" ? -1 : rng.int(0, ids.length - 1);
 
-  let maxRuntime = 0;
   let maxMemory = 0;
   const caseResults: CaseResult[] = ids.map((tcId, i) => {
     const cv: ShortVerdict = i === failIndex ? shortFail : "AC";
     const cr = caseResult(i, cv, rng, tcId);
-    maxRuntime = Math.max(maxRuntime, cr.timeMs);
     if (cr.memoryKb !== undefined) maxMemory = Math.max(maxMemory, cr.memoryKb);
     return cr;
   });
+  const maxRuntime = maxCaseRuntimeMs(caseResults);
 
   const accepted = verdict === "accepted";
   const totalWeight = testcases.sets.reduce((sum, s) => sum + s.weight, 0);

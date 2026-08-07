@@ -142,4 +142,61 @@ describe("K8sExecutor sharded payload orchestration", () => {
     ).toBe(true);
     expect(fake.record.jobsCreated[1].spec.template.spec.containers).toHaveLength(1);
   });
+
+  it("uses a succeeded Pod without waiting for the Job controller", async () => {
+    const fake = clients();
+    fake.handles.batchApi.readNamespacedJob
+      .mockResolvedValueOnce({ status: {} })
+      .mockResolvedValue({ status: { succeeded: 1 } });
+    fake.handles.coreApi.listNamespacedPod.mockResolvedValue({
+      items: [
+        {
+          metadata: { name: "judge-standard-pod" },
+          status: { phase: "Succeeded", startTime: new Date() },
+        },
+      ],
+    });
+    const executor = new K8sExecutor(EXEC_CONFIG, fake.handles);
+
+    await executor.execute(request("x"), {
+      runId: "standard",
+      signal: new AbortController().signal,
+    });
+
+    expect(fake.handles.batchApi.readNamespacedJob).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads case logs concurrently after the Pod succeeds", async () => {
+    const fake = clients();
+    const started: string[] = [];
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    fake.handles.coreApi.readNamespacedPodLog.mockImplementation(
+      async ({ container }: { container: string }) => {
+        if (container === "compile")
+          return JSON.stringify({ runCommand: ["python3", "main.py"] });
+        started.push(container);
+        await gate;
+        const index = Number.parseInt(container.replace("case-", ""), 10);
+        return JSON.stringify({
+          rawRuns: [{ index, stdout: "ok\n", stderr: "", exitCode: 0, timeMs: 1 }],
+          testcaseResults: [],
+        });
+      },
+    );
+    const executor = new K8sExecutor(EXEC_CONFIG, fake.handles);
+    const execution = executor.execute(request("x", 3), {
+      runId: "parallel-logs",
+      signal: new AbortController().signal,
+    });
+
+    await vi.waitFor(() => expect(started.length).toBeGreaterThan(0));
+    const startedBeforeRelease = [...started];
+    release();
+    await execution;
+
+    expect(startedBeforeRelease.sort()).toEqual(["case-0", "case-1", "case-2"]);
+  });
 });

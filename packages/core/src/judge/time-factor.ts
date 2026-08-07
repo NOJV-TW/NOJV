@@ -14,3 +14,7 @@ export const LANGUAGE_TIME_FACTOR: Record<Language, number> = {
 export function effectiveTimeLimitMs(baseMs: number, language: Language): number {
   return Math.ceil(baseMs * LANGUAGE_TIME_FACTOR[language]);
 }
+
+export function maxCaseRuntimeMs(cases: readonly { timeMs: number }[]): number {
+  return cases.reduce((peak, testcase) => Math.max(peak, testcase.timeMs), 0);
+}

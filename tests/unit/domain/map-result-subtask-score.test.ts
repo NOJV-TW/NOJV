@@ -12,14 +12,14 @@ interface TestcaseSetGroup {
   weight: number;
 }
 
-function mkCase(index: number, verdict: SandboxVerdict): SandboxTestcaseResult {
+function mkCase(index: number, verdict: SandboxVerdict, timeMs = 1): SandboxTestcaseResult {
   return {
     index,
     verdict,
     stdout: "",
     stderr: "",
     exitCode: verdict === "AC" ? 0 : 1,
-    timeMs: 1,
+    timeMs,
   };
 }
 
@@ -91,5 +91,15 @@ describe("mapResult — score is the sum of passed subtask weights (no 0–100 n
     expect(result.verdict).toBe("wrong_answer");
     expect(result.accepted).toBe(false);
     expect(result.score).toBe(120);
+  });
+
+  it("reports the slowest testcase runtime instead of summing parallel cases", () => {
+    const result = mapResult(
+      { testcaseResults: [mkCase(0, "AC", 90), mkCase(1, "AC", 150), mkCase(2, "AC", 60)] },
+      [mkSet("s1", "Subtask 1", ["t1", "t2", "t3"], 100)] as never,
+      NO_ADJUSTMENT as never,
+    );
+
+    expect(result.runtimeMs).toBe(150);
   });
 });

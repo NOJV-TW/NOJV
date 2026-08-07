@@ -1,4 +1,9 @@
-import { MAX_CASE_STDERR_BYTES, MAX_CASE_STDOUT_BYTES, MAX_FEEDBACK_LEN } from "@nojv/core";
+import {
+  MAX_CASE_STDERR_BYTES,
+  MAX_CASE_STDOUT_BYTES,
+  MAX_FEEDBACK_LEN,
+  maxCaseRuntimeMs,
+} from "@nojv/core";
 import type { CaseResult, SandboxResult, SubmissionResult } from "@nojv/core";
 
 import { applyAdjustmentRules } from "./adjustments";
@@ -95,6 +100,7 @@ export function mapResult(
     (peak, t) => (t.memoryKb && t.memoryKb > peak ? t.memoryKb : peak),
     0,
   );
+  const runtimeMs = maxCaseRuntimeMs(result.testcaseResults);
   const memoryField = peakMemoryKb > 0 ? { memoryKb: peakMemoryKb } : {};
 
   if (result.compilationError) {
@@ -113,7 +119,7 @@ export function mapResult(
       accepted: false,
       caseResults,
       feedback: truncate(`[Pipeline Error] ${result.pipelineError}`, MAX_FEEDBACK_LEN),
-      runtimeMs: result.testcaseResults.reduce((s, t) => s + t.timeMs, 0),
+      runtimeMs,
       ...memoryField,
       score: 0,
       verdict: "system_error",
@@ -129,7 +135,7 @@ export function mapResult(
           "Judging failed due to a platform error. This submission was not counted; please resubmit.",
         MAX_FEEDBACK_LEN,
       ),
-      runtimeMs: result.testcaseResults.reduce((s, t) => s + t.timeMs, 0),
+      runtimeMs,
       ...memoryField,
       score: 0,
       verdict: "system_error",
@@ -152,7 +158,6 @@ export function mapResult(
     };
   }
 
-  const runtimeMs = result.testcaseResults.reduce((s, t) => s + t.timeMs, 0);
   const subtaskResults = buildSubtaskResults(result, testcaseSets);
 
   const totalWeight = subtaskResults.reduce((s, st) => s + st.weight, 0);
