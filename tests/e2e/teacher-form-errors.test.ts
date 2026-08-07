@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import path from "node:path";
 
 const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/teacher.json");
+const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
 
 const COURSE_ID = "course_os-lab-spring-2026";
 
@@ -27,6 +28,15 @@ test.describe("Teacher creation entrypoints", () => {
     const page = await context.newPage();
     await page.goto(`/contests/new`);
     await expect(page.getByRole("main")).toBeVisible();
+    await context.close();
+  });
+
+  test("student does not see the contest creation entrypoint", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: studentAuth });
+    const page = await context.newPage();
+    await page.goto("/contests");
+    await expect(page.getByRole("main")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Create contest" })).not.toBeVisible();
     await context.close();
   });
 });

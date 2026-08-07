@@ -139,10 +139,12 @@
             >
               {m.contestsList_joinByCode()}
             </Button>
-            <Button href="/contests/new" size="sm">
-              <Plus aria-hidden="true" class="h-4 w-4" />
-              {m.contestsList_create()}
-            </Button>
+            {#if data.canCreate}
+              <Button href="/contests/new" size="sm">
+                <Plus aria-hidden="true" class="h-4 w-4" />
+                {m.contestsList_create()}
+              </Button>
+            {/if}
           </div>
         {/if}
       </div>
@@ -186,10 +188,12 @@
           >
             {m.contestsList_joinByCode()}
           </Button>
-          <Button href="/contests/new" size="sm">
-            <Plus aria-hidden="true" class="h-4 w-4" />
-            {m.contestsList_create()}
-          </Button>
+          {#if data.canCreate}
+            <Button href="/contests/new" size="sm">
+              <Plus aria-hidden="true" class="h-4 w-4" />
+              {m.contestsList_create()}
+            </Button>
+          {/if}
         </div>
       {/if}
     </div>
