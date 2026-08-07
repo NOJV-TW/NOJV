@@ -43,6 +43,40 @@ function materializerContainer(params: {
   };
 }
 
+function prepareContainer(params: {
+  name: string;
+  image: string;
+  payloadVolumeName: string;
+  submissionVolumeName: string;
+  artifactVolumeName: string;
+  scratchTmpVolumeName: string;
+  scratchWorkspaceVolumeName: string;
+  resources: k8s.V1ResourceRequirements;
+}): k8s.V1Container {
+  return {
+    name: params.name,
+    image: params.image,
+    command: ["node", "/runner/index.js"],
+    env: [
+      { name: "SANDBOX_PHASE", value: "prepare" },
+      { name: "HOME", value: "/tmp" },
+    ],
+    resources: params.resources,
+    securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
+    volumeMounts: [
+      { name: params.payloadVolumeName, mountPath: "/payload", readOnly: true },
+      { name: params.submissionVolumeName, mountPath: "/submission" },
+      { name: params.artifactVolumeName, mountPath: "/artifact" },
+      { name: params.scratchTmpVolumeName, mountPath: "/tmp", subPath: "prepare" },
+      {
+        name: params.scratchWorkspaceVolumeName,
+        mountPath: "/workspace",
+        subPath: "prepare",
+      },
+    ],
+  };
+}
+
 export interface SandboxJobManifestParams {
   jobName: string;
   namespace: string;
@@ -148,7 +182,7 @@ export function perCaseContainerName(index: number): string {
   return `case-${String(index)}`;
 }
 
-export const COMPILE_CONTAINER_NAME = "compile";
+export const PREPARE_CONTAINER_NAME = "prepare";
 
 export function buildPerCaseSandboxJobManifest(
   params: PerCaseSandboxJobManifestParams,
@@ -191,25 +225,16 @@ export function buildPerCaseSandboxJobManifest(
           tolerations: SANDBOX_TOLERATIONS,
           securityContext: SANDBOX_POD_SECURITY_CONTEXT,
           initContainers: [
-            materializerContainer({
-              name: "materialize",
+            prepareContainer({
+              name: PREPARE_CONTAINER_NAME,
               image: params.image,
               payloadVolumeName: "payload",
               submissionVolumeName: "submission-data",
+              artifactVolumeName: "artifact",
+              scratchTmpVolumeName: "scratch-tmp",
+              scratchWorkspaceVolumeName: "scratch-workspace",
               resources,
             }),
-            {
-              name: COMPILE_CONTAINER_NAME,
-              image: params.image,
-              command: ["node", "/runner/index.js"],
-              env: [
-                { name: "SANDBOX_PHASE", value: "compile" },
-                { name: "HOME", value: "/tmp" },
-              ],
-              resources,
-              securityContext: containerSecurityContext,
-              volumeMounts: baseMounts(false, "compile"),
-            },
           ],
           containers: params.caseIndices.map((index) => ({
             name: perCaseContainerName(index),

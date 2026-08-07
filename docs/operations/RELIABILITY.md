@@ -105,7 +105,9 @@ node shutdown, node loss, and Spot reclaim delay the submission instead of
 being reported as a student-facing System Error.
 **Mitigation**: Temporal retries judge activities up to three times, each with
 a fresh ephemeral sandbox run ID. OOM, TLE, and program errors remain normal
-verdicts.
+verdicts. Kubernetes Job and Pod completion is observed with resource-versioned
+watches; a closed or stale watch is resynchronized, while a failed status
+snapshot remains a retryable infrastructure failure.
 **Recovery**: Automatic retry. If infrastructure retries are exhausted, check
 Kubernetes node health and the sandbox quota.
 

@@ -52,6 +52,7 @@ let clients: {
   coreApi: k8s.CoreV1Api;
   batchApi: k8s.BatchV1Api;
   networkingApi: k8s.NetworkingV1Api;
+  watch: k8s.Watch;
 } | null = null;
 let namespace = "";
 
@@ -205,7 +206,7 @@ beforeAll(async () => {
   const batchApi = kc.makeApiClient(k8sLib.BatchV1Api);
   const networkingApi = kc.makeApiClient(k8sLib.NetworkingV1Api);
   await coreApi.listNamespacedPod({ namespace });
-  clients = { coreApi, batchApi, networkingApi };
+  clients = { coreApi, batchApi, networkingApi, watch: new k8sLib.Watch(kc) };
 }, 30_000);
 
 afterEach(async () => {

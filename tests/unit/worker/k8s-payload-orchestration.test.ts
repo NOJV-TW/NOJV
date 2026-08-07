@@ -54,7 +54,7 @@ function clients(options: { failConfigMapAttempt?: number } = {}) {
       items: [{ metadata: { name: `${String(labelSelector).split("=")[1]}-pod` } }],
     })),
     readNamespacedPodLog: vi.fn(async ({ container }: any) =>
-      container === "compile"
+      container === "prepare"
         ? JSON.stringify({ runCommand: ["python3", "main.py"] })
         : JSON.stringify({
             rawRuns: [{ index: 0, stdout: "ok\n", stderr: "", exitCode: 0, timeMs: 1 }],
@@ -69,8 +69,16 @@ function clients(options: { failConfigMapAttempt?: number } = {}) {
     readNamespacedJob: vi.fn(async () => ({ status: { succeeded: 1 } })),
     deleteNamespacedJob: vi.fn(async () => undefined),
   } as any;
+  const watch = {
+    watch: vi.fn(
+      async (_path: string, _query: unknown, _callback: unknown, done: (err: null) => void) => {
+        queueMicrotask(() => done(null));
+        return new AbortController();
+      },
+    ),
+  } as any;
   return {
-    handles: { coreApi, batchApi },
+    handles: { coreApi, batchApi, watch },
     record: { configMapsCreated, configMapsDeleted, jobsCreated },
   };
 }
@@ -95,10 +103,11 @@ describe("K8sExecutor sharded payload orchestration", () => {
       [...fake.record.configMapsCreated].sort(),
     );
     const podSpec = fake.record.jobsCreated[0].spec.template.spec;
-    expect(podSpec.initContainers.map((container: any) => container.name)).toEqual([
-      "materialize",
-      "compile",
-    ]);
+    expect(podSpec.initContainers.map((container: any) => container.name)).toEqual(["prepare"]);
+    expect(podSpec.initContainers[0].env).toContainEqual({
+      name: "SANDBOX_PHASE",
+      value: "prepare",
+    });
     expect(
       podSpec.volumes.find((volume: any) => volume.name === "payload").projected.sources,
     ).toHaveLength(4);
@@ -133,7 +142,7 @@ describe("K8sExecutor sharded payload orchestration", () => {
 
     expect(fake.record.jobsCreated).toHaveLength(2);
     expect(fake.record.jobsCreated[0].spec.template.spec.runtimeClassName).toBe("gvisor");
-    expect(fake.record.jobsCreated[0].spec.template.spec.initContainers).toHaveLength(2);
+    expect(fake.record.jobsCreated[0].spec.template.spec.initContainers).toHaveLength(1);
     expect(fake.record.jobsCreated[0].spec.template.spec.containers).toHaveLength(20);
     expect(
       fake.record.jobsCreated[0].spec.template.spec.containers.every(
@@ -175,7 +184,7 @@ describe("K8sExecutor sharded payload orchestration", () => {
     });
     fake.handles.coreApi.readNamespacedPodLog.mockImplementation(
       async ({ container }: { container: string }) => {
-        if (container === "compile")
+        if (container === "prepare")
           return JSON.stringify({ runCommand: ["python3", "main.py"] });
         started.push(container);
         await gate;

@@ -266,6 +266,15 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
     }),
   } as any;
 
+  const watch = {
+    watch: vi.fn(
+      async (_path: string, _query: unknown, _callback: unknown, done: (err: null) => void) => {
+        queueMicrotask(() => done(null));
+        return new AbortController();
+      },
+    ),
+  } as any;
+
   const networkingApi = {
     createNamespacedNetworkPolicy: vi.fn(async ({ namespace, body }: any) => {
       if (activeNetworkPolicies.has(body.metadata.name)) {
@@ -281,7 +290,7 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
     }),
   } as any;
 
-  return { coreApi, batchApi, networkingApi };
+  return { coreApi, batchApi, networkingApi, watch };
 }
 
 function emptyRecord(): CallRecord {
