@@ -49,6 +49,7 @@
   <meta property="og:image:width" content="2400" />
   <meta property="og:image:height" content="1260" />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="google-site-verification" content="Fv0Uw1T8TpPiVBnpK_6p-G3McWW9o4efP37LLgDw6Sg" />
 </svelte:head>
 
 {#if showProgress}
