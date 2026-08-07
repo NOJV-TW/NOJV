@@ -359,7 +359,6 @@ describe("Build & Push Images workflow release structure", () => {
     workflow.indexOf("  deploy-ref:"),
   );
   const deployJob = jobSection("deploy-ref");
-  const verifyJob = jobSection("verify-production");
 
   it("builds all four release images in independent jobs before deploy", () => {
     expect(prepareJob).not.toBe("");
@@ -512,22 +511,10 @@ describe("Build & Push Images workflow release structure", () => {
     expect(deployJob).not.toContain("git push --atomic --force origin");
   });
 
-  it("keeps the public production health gate separate from Discord delivery", () => {
-    expect(verifyJob).toContain("- prepare-release");
-    expect(verifyJob).toContain("- deploy-ref");
-    expect(verifyJob).toContain("timeout-minutes: 140");
-    expect(verifyJob).toContain("RELEASE_URL: https://nojv.tw");
-    expect(verifyJob).toContain("/api/release");
-    expect(verifyJob).toContain(".version == $version and .sourceSha == $sha");
-    expect(verifyJob).toContain("/api/livez");
-    expect(verifyJob).toContain("/api/readyz");
-    expect(verifyJob).toContain("consecutive=0");
-    expect(verifyJob).toContain("consecutive=$((consecutive + 1))");
-    expect(verifyJob).toContain("consecutive=0");
-    expect(verifyJob).toContain("sleep 30");
-    expect(verifyJob).not.toContain("DISCORD_RELEASE_WEBHOOK_URL");
-    expect(verifyJob).not.toContain("name: Notify Discord");
-    expect(verifyJob).not.toContain("--retry-all-errors");
+  it("delegates public production verification to the status bot", () => {
+    expect(workflow).not.toContain("  verify-production:");
+    expect(workflow).not.toContain("https://nojv.tw");
+    expect(workflow).not.toContain("/api/release");
   });
 });
 

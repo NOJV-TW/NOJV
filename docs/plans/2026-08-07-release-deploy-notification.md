@@ -1,5 +1,9 @@
 # Release Deploy Notification Implementation Plan
 
+> Superseded: public production verification and release notification are now
+> owned by `NOJV-TW/status`; the GitHub release workflow ends after publishing
+> the immutable deploy ref.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Notify Discord only after the public production web service serves the released version and passes liveness and readiness checks.
