@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Notify Discord only after the production site serves the released version and passes liveness and readiness checks.
+**Goal:** Notify Discord only after the public production web service serves the released version and passes liveness and readiness checks.
 
-**Architecture:** The Helm chart injects the release tag and source SHA into the web Deployment. A public, exact-path release identity endpoint exposes those two non-secret values. The existing tag workflow waits for Flux's asynchronous rollout by polling that endpoint plus the existing health endpoints, then sends a Discord webhook from GitHub Actions.
+**Architecture:** The Helm chart injects the release tag and source SHA into the web Deployment. A public, exact-path release identity endpoint exposes those two non-secret values. The existing tag workflow waits for Flux's asynchronous web rollout by polling that endpoint plus the existing health endpoints, then sends a Discord webhook from GitHub Actions. Worker pod readiness remains an in-cluster operational check because GitHub Actions has no cluster credentials.
 
 **Tech Stack:** SvelteKit, Helm, GitHub Actions, shell `curl`/`jq`, Vitest.
 
@@ -13,6 +13,7 @@
 ### Task 1: Expose the deployed release identity
 
 **Files:**
+
 - Create: `apps/web/src/routes/api/release/+server.ts`
 - Modify: `apps/web/src/lib/server/health-probes.ts`
 - Modify: `apps/web/src/hooks.server.ts`
@@ -27,6 +28,7 @@
 ### Task 2: Document the public release contract
 
 **Files:**
+
 - Modify: `apps/web/src/lib/server/openapi/public-document.ts`
 - Modify: `apps/web/src/lib/server/openapi/token-document.ts`
 - Modify: `docs/architecture/FRONTEND.md`
@@ -42,11 +44,12 @@
 ### Task 3: Verify production before notifying Discord
 
 **Files:**
+
 - Modify: `.github/workflows/build-images.yml`
 - Test: `tests/unit/infra/release-gate.test.ts`
 
-1. Add a job depending on `deploy-ref` that polls the public release identity, liveness, and readiness endpoints until all match the tag's source SHA or the timeout expires.
-2. Add a final webhook step using a new `DISCORD_RELEASE_WEBHOOK_URL` repository secret.
+1. Add a job depending on `deploy-ref` that polls the public release identity, liveness, and readiness endpoints until all match the tag's source SHA for three consecutive samples or the timeout expires.
+2. Add a first-step secret validation and a final webhook step using a new `DISCORD_RELEASE_WEBHOOK_URL` repository secret.
 3. Keep the job read-only against production; it must not receive cluster credentials.
 4. Make the workflow test assert dependency ordering, expected identity checks, timeout, and secret usage.
 

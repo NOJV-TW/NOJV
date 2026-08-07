@@ -85,6 +85,7 @@ describe("OpenAPI contract stays in sync with API routes", () => {
     expect(publicOpenApiDocument.paths).toMatchObject({
       "/api/livez": { get: { operationId: "getLiveness" } },
       "/api/readyz": { get: { operationId: "getReadiness" } },
+      "/api/release": { get: { operationId: "getReleaseIdentity" } },
     });
     expect(publicOpenApiDocument.components.schemas).toMatchObject({
       LivenessResponse: {
@@ -94,6 +95,13 @@ describe("OpenAPI contract stays in sync with API routes", () => {
       ReadinessResponse: {
         required: ["ready"],
         properties: { ready: { type: "boolean" } },
+      },
+      ReleaseIdentityResponse: {
+        required: ["version", "sourceSha"],
+        properties: {
+          version: { type: "string" },
+          sourceSha: { type: "string" },
+        },
       },
     });
   });
@@ -107,6 +115,7 @@ describe("OpenAPI contract stays in sync with API routes", () => {
     expect(document.paths).toMatchObject({
       "/api/livez": { get: { operationId: "getLiveness" } },
       "/api/readyz": { get: { operationId: "getReadiness" } },
+      "/api/release": { get: { operationId: "getReleaseIdentity" } },
       "/api/openapi.public.json": { get: { operationId: "getOpenApiDocument" } },
     });
   });
@@ -116,7 +125,12 @@ describe("OpenAPI contract stays in sync with API routes", () => {
       .filter((rule) => rule.visibility === "public")
       .map((rule) => `${rule.method} ${rule.path}`);
     const docOps = documentedOperations(tokenOpenApiDocument);
-    for (const anonymousPath of ["/api/livez", "/api/readyz", "/api/openapi.public.json"]) {
+    for (const anonymousPath of [
+      "/api/livez",
+      "/api/readyz",
+      "/api/release",
+      "/api/openapi.public.json",
+    ]) {
       docOps.delete(`GET ${anonymousPath}`);
     }
     expect([...docOps].sort()).toEqual([...ruleOps].sort());

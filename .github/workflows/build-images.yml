@@ -381,3 +381,68 @@ jobs:
           git push --atomic "--force-with-lease=refs/heads/deploy:${DEPLOY_TIP}" origin \
             refs/heads/deploy:refs/heads/deploy \
             "refs/tags/${DEPLOY_TAG}:refs/tags/${DEPLOY_TAG}"
+
+  verify-production:
+    name: Verify production release and notify Discord
+    needs:
+      - prepare-release
+      - deploy-ref
+    runs-on: ubuntu-latest
+    timeout-minutes: 140
+    permissions: {}
+    steps:
+      - name: Validate release notification configuration
+        env:
+          DISCORD_RELEASE_WEBHOOK_URL: ${{ secrets.DISCORD_RELEASE_WEBHOOK_URL }}
+        run: ': "${DISCORD_RELEASE_WEBHOOK_URL:?DISCORD_RELEASE_WEBHOOK_URL secret is required}"'
+
+      - name: Wait for the released version to be healthy in production
+        env:
+          RELEASE_URL: https://nojv.tw
+          EXPECTED_VERSION: ${{ needs.prepare-release.outputs.image_tag }}
+          EXPECTED_SHA: ${{ needs.prepare-release.outputs.release_sha }}
+        run: |
+          set -euo pipefail
+          # ponytail: public stable-sample gate avoids cluster credentials; pod-set inspection would need cluster access.
+          consecutive=0
+          for attempt in $(seq 1 260); do
+            release_json=""
+            if release_json="$(curl --silent --show-error --fail --max-time 10 "${RELEASE_URL}/api/release")" \
+              && jq -e --arg version "${EXPECTED_VERSION}" --arg sha "${EXPECTED_SHA}" \
+                '.version == $version and .sourceSha == $sha' <<<"${release_json}" >/dev/null \
+              && curl --silent --show-error --fail --max-time 10 "${RELEASE_URL}/api/livez" >/dev/null \
+              && curl --silent --show-error --fail --max-time 10 "${RELEASE_URL}/api/readyz" >/dev/null; then
+              consecutive=$((consecutive + 1))
+              if [ "${consecutive}" -ge 3 ]; then
+                echo "Production is stably serving ${EXPECTED_VERSION} (${EXPECTED_SHA})."
+                exit 0
+              fi
+            else
+              consecutive=0
+            fi
+            if [ "${attempt}" -eq 260 ]; then
+              echo "Timed out waiting for production to serve ${EXPECTED_VERSION} (${EXPECTED_SHA})." >&2
+              echo "Last release response: ${release_json}" >&2
+              exit 1
+            fi
+            echo "Production is not serving ${EXPECTED_VERSION} yet (attempt ${attempt}/260)."
+            sleep 30
+          done
+
+      - name: Notify Discord
+        env:
+          DISCORD_RELEASE_WEBHOOK_URL: ${{ secrets.DISCORD_RELEASE_WEBHOOK_URL }}
+          RELEASE_URL: https://nojv.tw
+          RELEASE_VERSION: ${{ needs.prepare-release.outputs.image_tag }}
+          RELEASE_SHA: ${{ needs.prepare-release.outputs.release_sha }}
+        run: |
+          set -euo pipefail
+          payload="$(jq -n \
+            --arg version "${RELEASE_VERSION}" \
+            --arg sha "${RELEASE_SHA}" \
+            --arg releaseUrl "${RELEASE_URL}" \
+            '{embeds: [{title: "NOJV public production deployed", description: ("Version: " + $version + "\nCommit: " + $sha), url: $releaseUrl, color: 5763719}]}')"
+          curl --silent --show-error --fail --max-time 15 \
+            -H "content-type: application/json" \
+            --data "${payload}" \
+            "${DISCORD_RELEASE_WEBHOOK_URL}"

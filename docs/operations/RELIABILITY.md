@@ -145,6 +145,7 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 | ---------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Web        | `/api/livez`         | Startup/liveness probe. Dependency-free HTTP GET → `{ alive: true }`; never waits on PostgreSQL, Redis, Temporal, auth, or session state.         |
 | Web        | `/api/readyz`        | Readiness probe. `{ ready: boolean }`; concurrently probes only PostgreSQL + Redis with bounded timeouts. Results are cached 5 s.                 |
+| Web        | `/api/release`       | Immutable release identity. `{ version, sourceSha }`; post-deploy verification distinguishes the new rollout from a healthy old one.              |
 | Web        | `/api/admin/healthz` | Admin-only mirror. `requireApiAuth` + `platformRole === "admin"`. Returns `{ status, checks: { postgres, redis, temporal } }` for ops dashboards. |
 | Worker     | `/healthz`           | Liveness. Returns `{ status, checks: { postgres, redis, temporal } }` with 200/503. Internal — exposed only inside the cluster.                   |
 | Worker     | `/readyz`            | Readiness. Returns `{ ready: boolean }` keyed on the live Temporal connection. 503 when disconnected so K8s pulls the pod out of the ready pool.  |
