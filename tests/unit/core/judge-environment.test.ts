@@ -12,11 +12,11 @@ const expectedCommands: Record<
   { compileCommand: string | null; runCommand: string }
 > = {
   c: {
-    compileCommand: "gcc -O2 -std=c17 -o main <sources>",
+    compileCommand: "gcc -O2 -std=c17 -o main <sources> -lm",
     runCommand: "./main",
   },
   cpp: {
-    compileCommand: "g++ -O2 -std=c++20 -o main <sources>",
+    compileCommand: "g++ -O2 -std=c++20 -o main <sources> -lm",
     runCommand: "./main",
   },
   go: {
