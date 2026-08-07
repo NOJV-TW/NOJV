@@ -1124,8 +1124,10 @@ export class K8sExecutor implements SandboxExecutor {
         await this.waitForJobCompletion(jobName, ns, deadlineSeconds, execution.signal);
         jobFinishedAt = Date.now();
 
-        const compileLog = await this.getContainerLogs(
-          jobName,
+        const podName = await this.findPodName(jobName, ns, execution.signal);
+        if (!podName) throw new Error(`No pod found for job ${jobName}`);
+        const compileLog = await this.getPodContainerLogs(
+          podName,
           ns,
           COMPILE_CONTAINER_NAME,
           execution.signal,
@@ -1134,26 +1136,29 @@ export class K8sExecutor implements SandboxExecutor {
         const compileError = parseCompilationError(compileLog);
         if (compileError) return { testcaseResults: [], compilationError: compileError };
 
-        for (const index of waveCaseIndices) {
-          const logs = await this.getContainerLogs(
-            jobName,
-            ns,
-            perCaseContainerName(index),
-            execution.signal,
-          );
-          const parsed = logs ? this.parseRunnerOutput(logs) : null;
-          const run = parsed?.rawRuns?.[0];
-          rawRuns.push(
-            run ?? {
-              index,
-              stdout: "",
-              stderr: parsed?.pipelineError ?? "Case container produced no result.",
-              exitCode: -1,
-              timeMs: 0,
-              errorVerdict: "SE",
-            },
-          );
-        }
+        rawRuns.push(
+          ...(await Promise.all(
+            waveCaseIndices.map(async (index): Promise<RawCaseRun> => {
+              const logs = await this.getPodContainerLogs(
+                podName,
+                ns,
+                perCaseContainerName(index),
+                execution.signal,
+              );
+              const parsed = logs ? this.parseRunnerOutput(logs) : null;
+              return (
+                parsed?.rawRuns?.[0] ?? {
+                  index,
+                  stdout: "",
+                  stderr: parsed?.pipelineError ?? "Case container produced no result.",
+                  exitCode: -1,
+                  timeMs: 0,
+                  errorVerdict: "SE",
+                }
+              );
+            }),
+          )),
+        );
         caseLogsReadAt = Date.now();
       } catch (error) {
         executionFailure = { reason: error };
@@ -1432,7 +1437,7 @@ export class K8sExecutor implements SandboxExecutor {
   ): Promise<{
     everStarted: boolean;
     unschedulableReason: string | null;
-    containerRunning: boolean;
+    succeeded: boolean;
     imagePull: { reason: string; message: string } | null;
     infrastructureFailure: string | null;
   }> {
@@ -1445,12 +1450,13 @@ export class K8sExecutor implements SandboxExecutor {
       signal.throwIfAborted();
       let everStarted = false;
       let unschedulableReason: string | null = null;
-      let containerRunning = false;
+      let succeeded = false;
       let imagePull: { reason: string; message: string } | null = null;
       let infrastructureFailure: string | null = null;
       for (const pod of pods.items) {
         const status = pod.status;
         const phase = status?.phase;
+        if (phase === "Succeeded") succeeded = true;
         if (status?.startTime || phase === "Running" || phase === "Succeeded") {
           everStarted = true;
         }
@@ -1468,9 +1474,6 @@ export class K8sExecutor implements SandboxExecutor {
           ...(status?.initContainerStatuses ?? []),
           ...(status?.containerStatuses ?? []),
         ]) {
-          if (cs.state?.running || cs.state?.terminated) {
-            containerRunning = true;
-          }
           const waitingReason = cs.state?.waiting?.reason;
           if (waitingReason === "ImagePullBackOff" || waitingReason === "ErrImagePull") {
             imagePull = {
@@ -1498,7 +1501,7 @@ export class K8sExecutor implements SandboxExecutor {
       return {
         everStarted,
         unschedulableReason,
-        containerRunning,
+        succeeded,
         imagePull,
         infrastructureFailure,
       };
@@ -1507,7 +1510,7 @@ export class K8sExecutor implements SandboxExecutor {
       return {
         everStarted: false,
         unschedulableReason: null,
-        containerRunning: false,
+        succeeded: false,
         imagePull: null,
         infrastructureFailure: null,
       };
@@ -1523,7 +1526,6 @@ export class K8sExecutor implements SandboxExecutor {
     const startedAt = Date.now();
     const deadline = startedAt + (deadlineSeconds + JOB_DEADLINE_BUFFER_SECONDS) * 1_000;
     let everStarted = false;
-    let containerRunning = false;
 
     while (Date.now() < deadline) {
       signal.throwIfAborted();
@@ -1562,33 +1564,30 @@ export class K8sExecutor implements SandboxExecutor {
         return { state: "failed", deadlineExceeded };
       }
 
-      if (!containerRunning) {
-        const pods = await this.inspectJobPods(jobName, namespace, signal);
+      const pods = await this.inspectJobPods(jobName, namespace, signal);
+      if (pods.succeeded) return { state: "succeeded", deadlineExceeded: false };
 
-        if (pods.imagePull?.reason === "ImagePullBackOff") {
-          throw new SandboxImagePullError(
-            `Cannot pull image for Job ${jobName}: ${pods.imagePull.message}`,
-          );
-        }
+      if (pods.imagePull?.reason === "ImagePullBackOff") {
+        throw new SandboxImagePullError(
+          `Cannot pull image for Job ${jobName}: ${pods.imagePull.message}`,
+        );
+      }
 
-        if (pods.infrastructureFailure) {
-          throw new SandboxInfrastructureError(
-            `Sandbox Job ${jobName} was interrupted by infrastructure (${pods.infrastructureFailure}); retrying the sandbox run.`,
-          );
-        }
+      if (pods.infrastructureFailure) {
+        throw new SandboxInfrastructureError(
+          `Sandbox Job ${jobName} was interrupted by infrastructure (${pods.infrastructureFailure}); retrying the sandbox run.`,
+        );
+      }
 
-        containerRunning = pods.containerRunning;
+      if (!everStarted) {
+        everStarted = pods.everStarted;
 
-        if (!everStarted) {
-          everStarted = pods.everStarted;
-
-          if (!everStarted && Date.now() - startedAt > POD_SCHEDULE_GRACE_MS) {
-            const blockedReason = this.jobBlockedReason(job);
-            if (blockedReason || pods.unschedulableReason) {
-              throw new SandboxBackpressureError(
-                `Sandbox Job ${jobName} pod never scheduled (${blockedReason ?? pods.unschedulableReason ?? "quota/capacity"}); retrying with backoff.`,
-              );
-            }
+        if (!everStarted && Date.now() - startedAt > POD_SCHEDULE_GRACE_MS) {
+          const blockedReason = this.jobBlockedReason(job);
+          if (blockedReason || pods.unschedulableReason) {
+            throw new SandboxBackpressureError(
+              `Sandbox Job ${jobName} pod never scheduled (${blockedReason ?? pods.unschedulableReason ?? "quota/capacity"}); retrying with backoff.`,
+            );
           }
         }
       }
@@ -1619,18 +1618,21 @@ export class K8sExecutor implements SandboxExecutor {
     container: string,
     signal: AbortSignal,
   ): Promise<string> {
-    signal.throwIfAborted();
-    const pods = await this.coreApi.listNamespacedPod({
-      namespace,
-      labelSelector: `job-name=${jobName}`,
-    });
-    signal.throwIfAborted();
-
-    const podName = pods.items[0]?.metadata?.name;
+    const podName = await this.findPodName(jobName, namespace, signal);
     if (!podName) {
       throw new Error(`No pod found for job ${jobName}`);
     }
 
+    return this.getPodContainerLogs(podName, namespace, container, signal);
+  }
+
+  private async getPodContainerLogs(
+    podName: string,
+    namespace: string,
+    container: string,
+    signal: AbortSignal,
+  ): Promise<string> {
+    signal.throwIfAborted();
     const logs = await this.coreApi
       .readNamespacedPodLog({ container, name: podName, namespace })
       .catch(() => "");
