@@ -1,10 +1,12 @@
 # Status Version Notification Implementation Plan
 
+**Status:** Completed.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Move production release notifications from the NOJV release workflow into the existing `NOJV-TW/status` scheduled Worker, which will notify Discord only after a stable public version and health check.
 
-**Architecture:** The status Worker polls `https://nojv.tw/api/release`, `/api/livez`, and `/api/readyz` on its existing schedule. It stores the last observed healthy release and the last notified release in its existing D1-backed Durable Object state, requiring two consecutive healthy observations before sending one webhook notification. The first healthy release establishes a silent baseline so deploying the tracker does not announce an already-running version. The NOJV release workflow keeps deployment validation but no longer owns Discord delivery.
+**Architecture:** The status Worker polls `https://nojv.tw/api/release`, `/api/livez`, and `/api/readyz` on its existing schedule. It stores the last observed healthy release and the last notified release in its existing D1-backed Durable Object state, requiring two consecutive healthy observations before sending one webhook notification. The first healthy release establishes a silent baseline so deploying the tracker does not announce an already-running version. The NOJV release workflow ends after publishing the immutable deploy ref; the status Worker solely owns public deployment verification and Discord delivery.
 
 **Tech Stack:** Cloudflare Workers, Durable Objects, D1-backed UptimeFlare state, TypeScript, GitHub Actions, Discord webhook.
 
@@ -50,7 +52,7 @@
 
 **Steps:**
 
-1. Keep the production release health gate so a release job still fails when the deployed version is not healthy.
+1. Remove the duplicate production health gate from the release workflow; Flux/Kubernetes own rollout and the status Worker owns public verification.
 2. Remove the `DISCORD_RELEASE_WEBHOOK_URL` validation and direct Discord notification step.
 3. Document that `NOJV-TW/status` is the sole release notification owner and that the existing status bot webhook secret is used.
 4. Run workflow YAML/script validation and the relevant repository checks.
