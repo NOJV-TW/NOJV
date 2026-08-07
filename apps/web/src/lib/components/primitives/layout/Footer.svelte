@@ -1,7 +1,7 @@
 <script lang="ts">
   import Mail from "@lucide/svelte/icons/mail";
+  import { env } from "$env/dynamic/public";
   import { m } from "$lib/paraglide/messages.js";
-  import packageJson from "../../../../../package.json";
   import GithubMark from "./GithubMark.svelte";
   import DiscordMark from "./DiscordMark.svelte";
 
@@ -16,6 +16,7 @@
   }: Props = $props();
 
   const year = new Date().getFullYear();
+  const releaseVersion = env.PUBLIC_APP_VERSION;
 </script>
 
 <footer
@@ -23,8 +24,10 @@
 >
   <p class="tabular-nums">
     {m.footer_copyright({ year: String(year) })}
-    <span aria-hidden="true"> · </span>
-    <span class="font-mono">{m.footer_version({ version: packageJson.version })}</span>
+    {#if releaseVersion}
+      <span aria-hidden="true"> · </span>
+      <span class="font-mono">{m.footer_version({ version: releaseVersion })}</span>
+    {/if}
   </p>
   <nav class="flex flex-wrap items-center gap-x-6 gap-y-2">
     <a class="transition-colors duration-fast ease-out-soft hover:text-foreground" href="/about"
