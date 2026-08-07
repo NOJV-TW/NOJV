@@ -112,6 +112,7 @@ export async function createProblemTestcaseSetRecord(
     });
     await testcaseRepo.withTx(tx).createMany(rows);
     await problemRepo.withTx(tx).update(problem.id, {
+      referenceSolutionSubmissionId: null,
       activeStorageBytes: {
         increment: prepared.reduce(
           (total, entry) => total + testcasePointersSize(entry.blobPointers),
@@ -146,7 +147,15 @@ export async function updateTestcaseSetRecord(
     assertProblemOwnership(problem, actor);
     await requireSetInProblem(setId, problem.id, tx);
 
-    return tx.testcaseSet.update({ where: { id: setId }, data: stripUndefined(payload) });
+    const updated = await tx.testcaseSet.update({
+      where: { id: setId },
+      data: stripUndefined(payload),
+    });
+    await problemRepo.withTx(tx).update(problem.id, {
+      referenceSolutionSubmissionId: null,
+      storageGeneration: { increment: 1 },
+    });
+    return updated;
   });
 }
 
@@ -168,6 +177,7 @@ export async function deleteTestcaseSetRecord(
     );
     await testcaseSetRepo.withTx(tx).delete(setId);
     await problemRepo.withTx(tx).update(problem.id, {
+      referenceSolutionSubmissionId: null,
       activeStorageBytes: { decrement: bytes },
       storageGeneration: { increment: 1 },
     });
@@ -221,6 +231,7 @@ export async function updateTestcaseRecord(
     if (Object.keys(data).length > 0) {
       await testcaseRepo.withTx(tx).update(testcaseId, data);
       await problemRepo.withTx(tx).update(problem.id, {
+        referenceSolutionSubmissionId: null,
         activeStorageBytes: { increment: deltaBytes },
         storageGeneration: { increment: 1 },
       });
@@ -249,6 +260,7 @@ export async function deleteTestcaseRecord(
 
     await testcaseRepo.withTx(tx).delete(testcaseId);
     await problemRepo.withTx(tx).update(problem.id, {
+      referenceSolutionSubmissionId: null,
       activeStorageBytes: { decrement: persistedTestcaseSize(testcase) },
       storageGeneration: { increment: 1 },
     });

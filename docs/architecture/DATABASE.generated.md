@@ -854,6 +854,7 @@ Indexes & constraints: `@@index([contextType, contextId, triggeredAt(sort: Desc)
 | `title` | `String` | — |
 | `authorId` | `String?` | — |
 | `visibility` | `ProblemVisibility` | `@default(public)` |
+| `adminMayPublish` | `Boolean` | `@default(false)` |
 | `status` | `ProblemStatus` | `@default(draft)` |
 | `difficulty` | `ProblemDifficulty` | `@default(medium)` |
 | `tags` | `String[]` | `@default([])` |
@@ -875,6 +876,8 @@ Indexes & constraints: `@@index([contextType, contextId, triggeredAt(sort: Desc)
 | `testcaseSets` | `TestcaseSet[]` | — |
 | `workspaceFiles` | `ProblemWorkspaceFile[]` | — |
 | `submissions` | `Submission[]` | — |
+| `referenceSolutionSubmissionId` | `String?` | `@unique` |
+| `referenceSolutionSubmission` | `Submission?` | `@relation("ProblemReferenceSolution", fields: [referenceSolutionSubmissionId], references: [id], onDelete: SetNull)` |
 | `contestLinks` | `ContestProblem[]` | — |
 | `examLinks` | `ExamProblem[]` | — |
 | `assessmentLinks` | `AssessmentProblem[]` | — |
@@ -1130,6 +1133,8 @@ Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])
 | `courseId` | `String?` | — |
 | `assessmentId` | `String?` | — |
 | `sampleOnly` | `Boolean` | `@default(false)` |
+| `isReferenceSolution` | `Boolean` | `@default(false)` |
+| `referenceProblemStorageGeneration` | `Int?` | — |
 | `language` | `SupportedLanguage` | — |
 | `sourceStorage` | `Json?` | — |
 | `status` | `SubmissionStatus` | `@default(queued)` |
@@ -1146,6 +1151,7 @@ Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])
 | `updatedAt` | `DateTime` | `@updatedAt` |
 | `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
 | `problem` | `Problem` | `@relation(fields: [problemId], references: [id], onDelete: Cascade)` |
+| `referenceForProblem` | `Problem?` | `@relation("ProblemReferenceSolution")` |
 | `exam` | `Exam?` | `@relation(fields: [examId], references: [id], onDelete: Restrict)` |
 | `contest` | `Contest?` | `@relation(fields: [contestId], references: [id], onDelete: Restrict)` |
 | `participation` | `Participation?` | `@relation(fields: [participationId, userId], references: [id, userId], onDelete: Cascade)` |
@@ -1153,7 +1159,7 @@ Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])
 | `assessment` | `Assessment?` | `@relation(fields: [assessmentId, courseId], references: [id, courseId], onDelete: Restrict)` |
 | `rejudgeLogs` | `SubmissionRejudgeLog[]` | — |
 
-Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, createdAt])`, `@@index([userId, examId, sampleOnly, createdAt(sort: Desc), id(sort: Desc)])`, `@@index([courseId, assessmentId, createdAt])`, `@@index([contestId, problemId, createdAt])`, `@@index([examId, problemId, createdAt])`, `@@index([participationId, problemId, createdAt])`, `@@index([assessmentId, problemId, createdAt])`, `@@index([status, updatedAt])`, `@@index([problemId, sampleOnly, userId, status])`, `@@index([createdAt])`
+Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, createdAt])`, `@@index([userId, examId, sampleOnly, createdAt(sort: Desc), id(sort: Desc)])`, `@@index([courseId, assessmentId, createdAt])`, `@@index([contestId, problemId, createdAt])`, `@@index([examId, problemId, createdAt])`, `@@index([participationId, problemId, createdAt])`, `@@index([assessmentId, problemId, createdAt])`, `@@index([status, updatedAt])`, `@@index([problemId, sampleOnly, userId, status])`, `@@index([createdAt])`, `@@index([problemId, isReferenceSolution, createdAt])`
 
 #### `SubmissionFeedback`
 

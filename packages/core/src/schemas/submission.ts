@@ -58,6 +58,7 @@ const submissionDraftFields = {
   sampleOnly: z.boolean().optional(),
   sourceCode: sourceCodeSchema.optional(),
   sourceFiles: z.array(sourceFileSchema).max(MAX_SUBMISSION_SOURCE_FILES).optional(),
+  referenceSolution: z.boolean().optional(),
 };
 
 function enforceRunCases(

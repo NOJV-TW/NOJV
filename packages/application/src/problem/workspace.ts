@@ -172,6 +172,7 @@ export async function updateProblemWorkspace(
     );
     const nextBytes = prepared.reduce((total, file) => total + file.contentStorage.size, 0);
     await problemRepo.withTx(tx).update(problem.id, {
+      referenceSolutionSubmissionId: null,
       activeStorageBytes: { increment: nextBytes - previousBytes },
       storageGeneration: { increment: 1 },
     });
@@ -227,6 +228,7 @@ export async function setWorkspaceFile(
       orderIndex: parsed.orderIndex,
     });
     await problemRepo.withTx(tx).update(problem.id, {
+      referenceSolutionSubmissionId: null,
       activeStorageBytes: {
         increment:
           contentStorage.size -

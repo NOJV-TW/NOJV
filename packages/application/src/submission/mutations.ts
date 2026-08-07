@@ -293,6 +293,23 @@ export async function createQueuedSubmissionRecord(
       examSessionRepo.withTx(tx).findActiveForUser(actor.userId),
     ]);
 
+    const isReferenceSolution = payload.referenceSolution === true;
+    if (isReferenceSolution) {
+      if (payload.context.type !== "practice" || payload.sampleOnly === true) {
+        throw new ConflictError("Reference solutions must use a full practice submission.");
+      }
+      if (problem.type === "special_env") {
+        throw new ConflictError(
+          "Advanced-mode problems use their configured judge verification.",
+        );
+      }
+      if (problem.authorId !== actor.userId && actor.platformRole !== "admin") {
+        throw new ForbiddenError(
+          "Only the problem author or an admin can validate a reference solution.",
+        );
+      }
+    }
+
     if (
       activeExamSession &&
       actor.platformRole !== "admin" &&
@@ -407,12 +424,20 @@ export async function createQueuedSubmissionRecord(
       createdAt: receivedAt,
       ipAddress: clientIp,
       language: payload.language,
+      isReferenceSolution,
       problemId: problem.id,
+      referenceProblemStorageGeneration: isReferenceSolution ? problem.storageGeneration : null,
       sampleOnly: payload.sampleOnly ?? false,
       sourceStorage: Prisma.DbNull,
       status: "pending_upload",
       userId: user.id,
     });
+    if (isReferenceSolution) {
+      await tx.problem.update({
+        where: { id: problem.id },
+        data: { referenceSolutionSubmissionId: null },
+      });
+    }
   });
 
   try {
@@ -597,6 +622,7 @@ export async function completeJudge(
 
   const verdictSummary = deriveVerdictSummary(result);
   const submission = await runTransaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Problem" WHERE id = ${preflight.problemId} FOR UPDATE`;
     await tx.$queryRaw`SELECT id FROM "Submission" WHERE id = ${submissionId} FOR UPDATE`;
     const current = await tx.submission.findUnique({ where: { id: submissionId } });
     if (
@@ -621,6 +647,28 @@ export async function completeJudge(
             : toJsonValue(advancedConfigSnapshot),
       },
     });
+    if (current.isReferenceSolution) {
+      const problem = await tx.problem.findUnique({
+        where: { id: current.problemId },
+        select: { storageGeneration: true },
+      });
+      const latestReference = await tx.submission.findFirst({
+        where: { problemId: current.problemId, isReferenceSolution: true },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        select: { id: true },
+      });
+      if (
+        problem?.storageGeneration === current.referenceProblemStorageGeneration &&
+        latestReference?.id === current.id
+      ) {
+        await tx.problem.update({
+          where: { id: current.problemId },
+          data: {
+            referenceSolutionSubmissionId: result.verdict === "accepted" ? current.id : null,
+          },
+        });
+      }
+    }
     await commitStoragePointerSwap(tx, {
       added: [verdictDetailStorage],
       removed:

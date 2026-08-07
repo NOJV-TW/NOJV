@@ -116,6 +116,16 @@ export const problemRepo = {
     });
   },
 
+  listAllForAdmin(sort: "asc" | "desc" = "asc") {
+    return prisma.problem.findMany({
+      include: {
+        _count: { select: { workspaceFiles: true } },
+        author: { select: { username: true } },
+      },
+      orderBy: { displayId: sort },
+    });
+  },
+
   findByIds(ids: string[]) {
     return prisma.problem.findMany({
       where: { id: { in: ids } },
@@ -163,7 +173,7 @@ export const problemRepo = {
         return tx.problem.create({ data });
       },
 
-      update(id: string, data: Prisma.ProblemUpdateInput) {
+      update(id: string, data: Prisma.ProblemUpdateInput | Prisma.ProblemUncheckedUpdateInput) {
         return tx.problem.update({
           data,
           where: { id },

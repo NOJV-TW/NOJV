@@ -16,18 +16,22 @@
 
   interface Props {
     editableProblems: EditableProblemCard[] | null;
+    adminProblems: EditableProblemCard[] | null;
     publicResult: ProblemListResult;
     showCreate?: boolean;
     loggedIn?: boolean;
     advancedCreationAllowed?: boolean;
+    isAdmin?: boolean;
   }
 
   let {
     editableProblems,
+    adminProblems,
     publicResult,
     showCreate,
     loggedIn = false,
     advancedCreationAllowed = false,
+    isAdmin = false,
   }: Props = $props();
 
   let creating = $state(false);
@@ -37,8 +41,12 @@
   let menuEl = $state<HTMLDivElement | undefined>();
 
   let currentUrl = $derived(page.url);
-  let tab = $derived<"public" | "mine">(
-    showCreate && currentUrl.searchParams.get("tab") === "mine" ? "mine" : "public",
+  let tab = $derived<"public" | "mine" | "all">(
+    isAdmin && currentUrl.searchParams.get("tab") === "all"
+      ? "all"
+      : showCreate && currentUrl.searchParams.get("tab") === "mine"
+        ? "mine"
+        : "public",
   );
 
   onMount(() => {
@@ -91,7 +99,7 @@
     }
   });
 
-  function tabHref(nextTab: "public" | "mine") {
+  function tabHref(nextTab: "public" | "mine" | "all") {
     const params = new URLSearchParams(currentUrl.searchParams);
     if (nextTab === "mine") {
       params.set("tab", "mine");
@@ -156,6 +164,18 @@
         data-tour="problems-mine"
       >
         {m.problems_myProblems()}
+      </a>
+    {/if}
+    {#if isAdmin}
+      <a
+        class="rounded-full border px-4 py-2 text-body-sm font-medium transition-[transform,box-shadow,background-color] duration-fast ease-out-soft {tab ===
+        'all'
+          ? 'border-primary bg-primary text-white'
+          : 'border-border hover:-translate-y-0.5 hover:bg-[color:var(--color-panel)]'}"
+        href={tabHref("all")}
+        aria-current={tab === "all" ? "page" : undefined}
+      >
+        {m.problems_allProblems()}
       </a>
     {/if}
     {#if showCreate && mounted}
@@ -232,6 +252,15 @@
   {:else if tab === "mine" && showCreate}
     <MyProblemsTab
       editableProblems={editableProblems ?? []}
+      {deletingProblemId}
+      {isDeleting}
+      onDeleteClick={handleDeleteClick}
+    />
+  {:else if tab === "all" && isAdmin}
+    <MyProblemsTab
+      editableProblems={adminProblems ?? []}
+      emptyTitle={m.problems_allProblemsEmpty()}
+      showOwner
       {deletingProblemId}
       {isDeleting}
       onDeleteClick={handleDeleteClick}

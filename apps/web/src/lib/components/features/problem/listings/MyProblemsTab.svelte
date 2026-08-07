@@ -39,6 +39,8 @@
     tags: string[];
     title: string;
     visibility: ProblemVisibility;
+    authorUsername?: string;
+    adminMayPublish?: boolean;
   }
 
   interface Props {
@@ -46,9 +48,18 @@
     deletingProblemId: string | null;
     isDeleting: boolean;
     onDeleteClick: (problemId: string) => void;
+    emptyTitle?: string;
+    showOwner?: boolean;
   }
 
-  let { editableProblems, deletingProblemId, isDeleting, onDeleteClick }: Props = $props();
+  let {
+    editableProblems,
+    deletingProblemId,
+    isDeleting,
+    onDeleteClick,
+    emptyTitle = m.problems_myProblemsEmpty(),
+    showOwner = false,
+  }: Props = $props();
 
   let currentUrl = $derived(page.url);
   let sortDirection = $derived<"asc" | "desc">(
@@ -183,7 +194,7 @@
 
 <section class="grid gap-4">
   {#if editableProblems.length === 0}
-    <EmptyState icon={FileCode} title={m.problems_myProblemsEmpty()} />
+    <EmptyState icon={FileCode} title={emptyTitle} />
   {:else if mineFiltered.length === 0}
     <div class="flex flex-col items-center gap-4 py-16">
       <EmptyState icon={Search} variant="minimal" title={m.problems_noResults()} class="py-0" />
@@ -209,6 +220,11 @@
         >
           <h3 class="text-title font-semibold">{formatProblemDisplayName(problem)}</h3>
         </a>
+        {#if showOwner && problem.authorUsername}
+          <p class="mt-1 text-caption text-muted-foreground">
+            {m.problems_problemAuthor()}: {problem.authorUsername}
+          </p>
+        {/if}
         {#if problem.tags.length > 0}
           <div class="mt-1.5 flex flex-wrap items-center gap-1">
             {#each problem.tags as tag (tag)}

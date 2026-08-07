@@ -138,11 +138,39 @@ export const submissionRepo = {
     return prisma.submission.findUnique({ where: { id } });
   },
 
+  findLatestReferenceForProblem(problemId: string) {
+    return prisma.submission.findFirst({
+      where: { problemId, isReferenceSolution: true },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: {
+        id: true,
+        createdAt: true,
+        language: true,
+        problemId: true,
+        isReferenceSolution: true,
+        sampleOnly: true,
+        assessmentId: true,
+        contestId: true,
+        courseId: true,
+        examId: true,
+        participationId: true,
+        referenceProblemStorageGeneration: true,
+        sourceStorage: true,
+        status: true,
+        score: true,
+        runtimeMs: true,
+        memoryKb: true,
+        verdictSummary: true,
+      },
+    });
+  },
+
   findByIdForUserRead(input: { id: string; userId: string; adminRecovery: boolean }) {
     if (input.adminRecovery) return prisma.submission.findUnique({ where: { id: input.id } });
     return prisma.submission.findFirst({
       where: {
         id: input.id,
+        isReferenceSolution: false,
         ...userFacingSubmissionWhere(input.userId, true),
       },
     });
@@ -176,6 +204,7 @@ export const submissionRepo = {
         ? { id: input.id }
         : {
             id: input.id,
+            isReferenceSolution: false,
             ...userFacingSubmissionWhere(input.userId, true),
           },
       select: submissionDetailSelect,
@@ -251,6 +280,7 @@ export const submissionRepo = {
         problemId: opts.problemId,
         userId: opts.userId,
         sampleOnly: false,
+        isReferenceSolution: false,
         status: { in: opts.statusIn },
         ...(opts.contestId ? { contestId: opts.contestId } : {}),
         ...(opts.assessmentId ? { assessmentId: opts.assessmentId } : {}),
@@ -283,6 +313,7 @@ export const submissionRepo = {
     const scope = {
       ...userFacingSubmissionWhere(opts.userId, opts.enforceExamConfinement),
       sampleOnly: false,
+      isReferenceSolution: false,
     } satisfies Prisma.SubmissionWhereInput;
 
     const readPage = (
@@ -350,7 +381,10 @@ export const submissionRepo = {
     problemId?: string;
     status?: SubmissionStatus;
   }) {
-    const where: Prisma.SubmissionWhereInput = { sampleOnly: false };
+    const where: Prisma.SubmissionWhereInput = {
+      sampleOnly: false,
+      isReferenceSolution: false,
+    };
     if (opts.userId) where.userId = opts.userId;
     if (opts.problemId) where.problemId = opts.problemId;
     if (opts.status) where.status = opts.status;
@@ -385,7 +419,9 @@ export const submissionRepo = {
   },
 
   count(where: Prisma.SubmissionWhereInput) {
-    return prisma.submission.count({ where });
+    return prisma.submission.count({
+      where: where.sampleOnly === false ? { ...where, isReferenceSolution: false } : where,
+    });
   },
 
   findMostRecent(where: Prisma.SubmissionWhereInput, select?: Prisma.SubmissionSelect) {
@@ -403,7 +439,7 @@ export const submissionRepo = {
   groupByUserAndProblem(where: Prisma.SubmissionWhereInput) {
     return prisma.submission.groupBy({
       by: ["userId", "problemId"],
-      where,
+      where: { ...where, isReferenceSolution: false },
       _max: { score: true },
       _count: { id: true },
     });
@@ -413,7 +449,11 @@ export const submissionRepo = {
     return prisma.submission.groupBy({
       by: ["problemId"],
       _count: true,
-      where: { problemId: { in: problemIds }, status: "accepted" },
+      where: {
+        problemId: { in: problemIds },
+        status: "accepted",
+        isReferenceSolution: false,
+      },
     });
   },
 
@@ -429,6 +469,7 @@ export const submissionRepo = {
       where: {
         assessmentId: { in: assessmentIds },
         sampleOnly: false,
+        isReferenceSolution: false,
       },
     });
   },
@@ -442,6 +483,7 @@ export const submissionRepo = {
         assessmentId: { in: opts.assessmentIds },
         userId: opts.userId,
         sampleOnly: false,
+        isReferenceSolution: false,
         status: "accepted",
       },
     });
@@ -456,6 +498,7 @@ export const submissionRepo = {
         assessmentId: { in: opts.assessmentIds },
         userId: opts.userId,
         sampleOnly: false,
+        isReferenceSolution: false,
       },
     });
   },
@@ -468,6 +511,7 @@ export const submissionRepo = {
       where: {
         examId: { in: examIds },
         sampleOnly: false,
+        isReferenceSolution: false,
       },
     });
   },
@@ -481,6 +525,7 @@ export const submissionRepo = {
         examId: { in: opts.examIds },
         userId: opts.userId,
         sampleOnly: false,
+        isReferenceSolution: false,
         status: "accepted",
       },
     });
@@ -495,6 +540,7 @@ export const submissionRepo = {
         examId: { in: opts.examIds },
         userId: opts.userId,
         sampleOnly: false,
+        isReferenceSolution: false,
       },
     });
   },
@@ -506,6 +552,7 @@ export const submissionRepo = {
       where: {
         problemId: { in: problemIds },
         sampleOnly: false,
+        isReferenceSolution: false,
         userId,
       },
     });
@@ -513,7 +560,7 @@ export const submissionRepo = {
 
   listByContest(opts: { contestId: string; take?: number }) {
     return prisma.submission.findMany({
-      where: { contestId: opts.contestId, sampleOnly: false },
+      where: { contestId: opts.contestId, sampleOnly: false, isReferenceSolution: false },
       orderBy: { createdAt: "desc" },
       select: contestExamListSelect,
       take: opts.take ?? 100,
@@ -522,7 +569,7 @@ export const submissionRepo = {
 
   listByExam(opts: { examId: string; take?: number }) {
     return prisma.submission.findMany({
-      where: { examId: opts.examId, sampleOnly: false },
+      where: { examId: opts.examId, sampleOnly: false, isReferenceSolution: false },
       orderBy: { createdAt: "desc" },
       select: contestExamListSelect,
       take: opts.take ?? 100,
@@ -533,7 +580,7 @@ export const submissionRepo = {
     return prisma.submission.findMany({
       orderBy: { createdAt: "asc" },
       select: { ...scoringBaseSelect, userId: true },
-      where: { contestId, sampleOnly: false },
+      where: { contestId, sampleOnly: false, isReferenceSolution: false },
     });
   },
 
@@ -547,6 +594,7 @@ export const submissionRepo = {
       where: {
         participationId,
         sampleOnly: false,
+        isReferenceSolution: false,
       },
     });
   },
@@ -559,6 +607,7 @@ export const submissionRepo = {
         contestId,
         userId: { in: userIds },
         sampleOnly: false,
+        isReferenceSolution: false,
       },
     });
   },
@@ -571,6 +620,7 @@ export const submissionRepo = {
         contestId,
         userId,
         sampleOnly: false,
+        isReferenceSolution: false,
       },
     });
   },
@@ -644,7 +694,7 @@ export const submissionRepo = {
     return prisma.submission.findMany({
       take,
       orderBy: { createdAt: "desc" },
-      where: { userId, sampleOnly: false },
+      where: { userId, sampleOnly: false, isReferenceSolution: false },
       select: {
         id: true,
         status: true,
@@ -657,7 +707,7 @@ export const submissionRepo = {
 
   findDistinctAcByUser(userId: string) {
     return prisma.submission.findMany({
-      where: { userId, status: "accepted", sampleOnly: false },
+      where: { userId, status: "accepted", sampleOnly: false, isReferenceSolution: false },
       select: {
         problemId: true,
         problem: { select: { tags: true, difficulty: true } },
@@ -668,7 +718,7 @@ export const submissionRepo = {
 
   findDistinctAttemptedByUser(userId: string) {
     return prisma.submission.findMany({
-      where: { userId, sampleOnly: false },
+      where: { userId, sampleOnly: false, isReferenceSolution: false },
       select: { problemId: true },
       distinct: ["problemId"] as const,
     });
@@ -680,6 +730,7 @@ export const submissionRepo = {
         userId,
         status: "accepted",
         sampleOnly: false,
+        isReferenceSolution: false,
         problem: { visibility: "public", status: "published" },
       },
       select: {
@@ -695,7 +746,7 @@ export const submissionRepo = {
   groupByLanguageForUser(userId: string) {
     return prisma.submission.groupBy({
       by: ["language"],
-      where: { userId, sampleOnly: false },
+      where: { userId, sampleOnly: false, isReferenceSolution: false },
       _count: { _all: true },
     });
   },
@@ -703,7 +754,7 @@ export const submissionRepo = {
   groupByStatusForUser(userId: string) {
     return prisma.submission.groupBy({
       by: ["status"],
-      where: { userId, sampleOnly: false },
+      where: { userId, sampleOnly: false, isReferenceSolution: false },
       _count: { _all: true },
     });
   },
@@ -712,6 +763,7 @@ export const submissionRepo = {
     return prisma.submission.findMany({
       where: {
         sampleOnly: false,
+        isReferenceSolution: false,
         status: {
           in: [
             "compile_error",
@@ -736,14 +788,14 @@ export const submissionRepo = {
 
   findInDateRange(from: Date) {
     return prisma.submission.findMany({
-      where: { sampleOnly: false, createdAt: { gte: from } },
+      where: { sampleOnly: false, isReferenceSolution: false, createdAt: { gte: from } },
       select: { createdAt: true, status: true },
     });
   },
 
   findForPlatformStats(from: Date) {
     return prisma.submission.findMany({
-      where: { sampleOnly: false, createdAt: { gte: from } },
+      where: { sampleOnly: false, isReferenceSolution: false, createdAt: { gte: from } },
       select: {
         createdAt: true,
         status: true,
@@ -757,7 +809,7 @@ export const submissionRepo = {
   groupByStatus(from: Date) {
     return prisma.submission.groupBy({
       by: ["status"],
-      where: { sampleOnly: false, createdAt: { gte: from } },
+      where: { sampleOnly: false, isReferenceSolution: false, createdAt: { gte: from } },
       _count: { _all: true },
     });
   },
@@ -766,6 +818,7 @@ export const submissionRepo = {
     return prisma.submission.findMany({
       where: {
         sampleOnly: false,
+        isReferenceSolution: false,
         createdAt: { gte: from },
         courseId: { in: courseIds },
         assessmentId: { not: null },
@@ -791,6 +844,7 @@ export const submissionRepo = {
       where: {
         assessmentId: { in: assessmentIds },
         sampleOnly: false,
+        isReferenceSolution: false,
       },
       _count: { _all: true },
     });
@@ -809,6 +863,7 @@ export const submissionRepo = {
       where: {
         assessmentId: opts.assessmentId,
         sampleOnly: false,
+        isReferenceSolution: false,
         userId: { in: opts.studentIds },
         problemId: { in: opts.problemIds },
       },
@@ -820,6 +875,7 @@ export const submissionRepo = {
       by: ["problemId"],
       where: {
         sampleOnly: false,
+        isReferenceSolution: false,
         createdAt: { gte: from },
         status: {
           in: [
@@ -875,6 +931,7 @@ export const submissionRepo = {
         assessmentId,
         problemId,
         sampleOnly: false,
+        isReferenceSolution: false,
         status: { not: "system_error" },
         createdAt: { gte: sinceTime },
       },
@@ -917,6 +974,7 @@ export const submissionRepo = {
             assessmentId,
             problemId,
             sampleOnly: false,
+            isReferenceSolution: false,
             status: { not: "system_error" },
             createdAt: { gte: sinceTime },
           },

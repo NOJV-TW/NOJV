@@ -164,6 +164,7 @@ export function submissionContextBadge(
 export function buildSubmissionRequest(args: {
   problemId: string;
   language: Language;
+  referenceSolution?: boolean;
   isWorkspaceMode: boolean;
   drafts: Record<string, string>;
   workspaceFiles: WorkspaceFile[];
@@ -175,6 +176,7 @@ export function buildSubmissionRequest(args: {
   const base: Omit<SubmissionRequest, "sourceCode" | "sourceFiles"> = {
     language: args.language,
     problemId: args.problemId,
+    ...(args.referenceSolution === true ? { referenceSolution: true } : {}),
     sampleOnly: args.sampleOnly,
     context: args.context,
     ...(args.runCases ? { runCases: args.runCases } : {}),

@@ -255,16 +255,42 @@ function buildStatusClauses(
   status: ProblemStatusFilter,
 ): Prisma.ProblemWhereInput[] {
   if (status === "solved") {
-    return [{ submissions: { some: { userId: uid, sampleOnly: false, status: "accepted" } } }];
+    return [
+      {
+        submissions: {
+          some: {
+            userId: uid,
+            sampleOnly: false,
+            isReferenceSolution: false,
+            status: "accepted",
+          },
+        },
+      },
+    ];
   }
   if (status === "attempted") {
     return [
-      { submissions: { some: { userId: uid, sampleOnly: false } } },
-      { submissions: { none: { userId: uid, sampleOnly: false, status: "accepted" } } },
+      {
+        submissions: { some: { userId: uid, sampleOnly: false, isReferenceSolution: false } },
+      },
+      {
+        submissions: {
+          none: {
+            userId: uid,
+            sampleOnly: false,
+            isReferenceSolution: false,
+            status: "accepted",
+          },
+        },
+      },
     ];
   }
   if (status === "untried") {
-    return [{ submissions: { none: { userId: uid, sampleOnly: false } } }];
+    return [
+      {
+        submissions: { none: { userId: uid, sampleOnly: false, isReferenceSolution: false } },
+      },
+    ];
   }
   return [{ bookmarks: { some: { userId: uid } } }];
 }
@@ -408,6 +434,29 @@ export async function listEditableProblems(userId: string, sort: "asc" | "desc" 
       tags: problem.tags,
       title: problem.title,
       visibility: problem.visibility,
+    };
+  });
+}
+
+export async function listAdminProblems(sort: "asc" | "desc" = "asc") {
+  const problems = await problemRepo.listAllForAdmin(sort);
+
+  return problems.map((problem) => {
+    const judgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
+      type: "standard" as const,
+    };
+    return {
+      authorUsername: problem.author?.username ?? "course_staff",
+      difficulty: problem.difficulty,
+      displayId: problem.displayId,
+      id: problem.id,
+      judgeType: judgeConfig.type,
+      type: problem.type,
+      status: problem.status,
+      tags: problem.tags,
+      title: problem.title,
+      visibility: problem.visibility,
+      adminMayPublish: problem.adminMayPublish,
     };
   });
 }

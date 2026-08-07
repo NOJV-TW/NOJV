@@ -25,6 +25,7 @@ export async function countUserStatsByProblem(
     FROM "Submission"
     WHERE "problemId" = ANY(${problemIds}::text[])
       AND "sampleOnly" = false
+      AND "isReferenceSolution" = false
     GROUP BY "problemId"
   `;
 }
@@ -41,6 +42,7 @@ export async function countUserStatsByProblemForAssessments(
     FROM "Submission"
     WHERE "assessmentId" = ANY(${assessmentIds}::text[])
       AND "sampleOnly" = false
+      AND "isReferenceSolution" = false
     GROUP BY "problemId"
   `;
 }
@@ -58,8 +60,8 @@ export async function countProblemStatusSummaryForUser(
     LEFT JOIN (
       SELECT
         "problemId",
-        bool_or(status = 'accepted' AND "sampleOnly" = false) AS has_accepted,
-        bool_or("sampleOnly" = false) AS has_any
+        bool_or(status = 'accepted' AND "sampleOnly" = false AND "isReferenceSolution" = false) AS has_accepted,
+        bool_or("sampleOnly" = false AND "isReferenceSolution" = false) AS has_any
       FROM "Submission"
       WHERE "userId" = ${userId}
       GROUP BY "problemId"

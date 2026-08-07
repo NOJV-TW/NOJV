@@ -10,7 +10,7 @@ export async function getSubmissionActivity(
   since: Date,
 ): Promise<SubmissionActivityEvent[]> {
   const rows = await submissionRepo.findMany({
-    where: { userId, sampleOnly: false, createdAt: { gte: since } },
+    where: { userId, sampleOnly: false, isReferenceSolution: false, createdAt: { gte: since } },
     orderBy: { createdAt: "asc" },
     select: { createdAt: true, status: true },
   });

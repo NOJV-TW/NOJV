@@ -32,6 +32,7 @@ model Problem {
   title      String
   authorId   String?
   visibility ProblemVisibility @default(public)
+  adminMayPublish Boolean       @default(false)
   status     ProblemStatus     @default(draft)
   difficulty ProblemDifficulty @default(medium)
   tags       String[]          @default([])
@@ -60,6 +61,8 @@ model Problem {
   testcaseSets       TestcaseSet[]
   workspaceFiles     ProblemWorkspaceFile[]
   submissions        Submission[]
+  referenceSolutionSubmissionId String? @unique
+  referenceSolutionSubmission   Submission? @relation("ProblemReferenceSolution", fields: [referenceSolutionSubmissionId], references: [id], onDelete: SetNull)
   contestLinks       ContestProblem[]
   examLinks          ExamProblem[]
   assessmentLinks    AssessmentProblem[]
