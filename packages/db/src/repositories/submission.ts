@@ -666,6 +666,14 @@ export const submissionRepo = {
     });
   },
 
+  findDistinctAttemptedByUser(userId: string) {
+    return prisma.submission.findMany({
+      where: { userId, sampleOnly: false },
+      select: { problemId: true },
+      distinct: ["problemId"] as const,
+    });
+  },
+
   findDistinctPublicAcByUser(userId: string) {
     return prisma.submission.findMany({
       where: {

@@ -151,6 +151,7 @@ export async function setUserAdvancedCreation(userId: string, allowed: boolean) 
 
 export interface DashboardStats {
   totalAc: number;
+  totalAttemptedProblems: number;
   totalAttempts: number;
 }
 
@@ -168,14 +169,21 @@ export interface DashboardView {
 }
 
 export async function getDashboardView(userId: string): Promise<DashboardView> {
-  const [recentSubmissions, acProblems, totalAttempts, languageGroups, verdictGroups] =
-    await Promise.all([
-      submissionRepo.findRecentByUser(userId, 10),
-      submissionRepo.findDistinctAcByUser(userId),
-      submissionRepo.count({ userId, sampleOnly: false }),
-      submissionRepo.groupByLanguageForUser(userId),
-      submissionRepo.groupByStatusForUser(userId),
-    ]);
+  const [
+    recentSubmissions,
+    acProblems,
+    attemptedProblems,
+    totalAttempts,
+    languageGroups,
+    verdictGroups,
+  ] = await Promise.all([
+    submissionRepo.findRecentByUser(userId, 10),
+    submissionRepo.findDistinctAcByUser(userId),
+    submissionRepo.findDistinctAttemptedByUser(userId),
+    submissionRepo.count({ userId, sampleOnly: false }),
+    submissionRepo.groupByLanguageForUser(userId),
+    submissionRepo.groupByStatusForUser(userId),
+  ]);
 
   const difficultyCounts: Record<"easy" | "medium" | "hard", number> = {
     easy: 0,
@@ -197,7 +205,11 @@ export async function getDashboardView(userId: string): Promise<DashboardView> {
   };
 
   return {
-    stats: { totalAc: acProblems.length, totalAttempts },
+    stats: {
+      totalAc: acProblems.length,
+      totalAttemptedProblems: attemptedProblems.length,
+      totalAttempts,
+    },
     recentSubmissions,
     analytics,
   };

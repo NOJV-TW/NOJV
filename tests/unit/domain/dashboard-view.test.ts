@@ -3,12 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   findRecentByUser,
   findDistinctAcByUser,
+  findDistinctAttemptedByUser,
   count,
   groupByLanguageForUser,
   groupByStatusForUser,
 } = vi.hoisted(() => ({
   findRecentByUser: vi.fn(),
   findDistinctAcByUser: vi.fn(),
+  findDistinctAttemptedByUser: vi.fn(),
   count: vi.fn(),
   groupByLanguageForUser: vi.fn(),
   groupByStatusForUser: vi.fn(),
@@ -18,6 +20,7 @@ vi.mock("@nojv/db", () => ({
   submissionRepo: {
     findRecentByUser,
     findDistinctAcByUser,
+    findDistinctAttemptedByUser,
     count,
     groupByLanguageForUser,
     groupByStatusForUser,
@@ -32,6 +35,7 @@ const { getDashboardView } = userDomain;
 beforeEach(() => {
   findRecentByUser.mockReset();
   findDistinctAcByUser.mockReset();
+  findDistinctAttemptedByUser.mockReset();
   count.mockReset();
   groupByLanguageForUser.mockReset();
   groupByStatusForUser.mockReset();
@@ -41,13 +45,14 @@ describe("getDashboardView — empty actor", () => {
   it("returns zeroed stats and empty analytics arrays for a user with no submissions", async () => {
     findRecentByUser.mockResolvedValue([]);
     findDistinctAcByUser.mockResolvedValue([]);
+    findDistinctAttemptedByUser.mockResolvedValue([]);
     count.mockResolvedValue(0);
     groupByLanguageForUser.mockResolvedValue([]);
     groupByStatusForUser.mockResolvedValue([]);
 
     const view = await getDashboardView("usr_new");
 
-    expect(view.stats).toEqual({ totalAc: 0, totalAttempts: 0 });
+    expect(view.stats).toEqual({ totalAc: 0, totalAttemptedProblems: 0, totalAttempts: 0 });
     expect(view.recentSubmissions).toEqual([]);
     expect(view.analytics.byLanguage).toEqual([]);
     expect(view.analytics.byVerdict).toEqual([]);
@@ -61,20 +66,26 @@ describe("getDashboardView — empty actor", () => {
 });
 
 describe("getDashboardView — populated actor", () => {
-  it("derives totalAc from distinct-AC length and totalAttempts from count", async () => {
+  it("deduplicates solved and attempted problems separately from submission count", async () => {
     findRecentByUser.mockResolvedValue([]);
     findDistinctAcByUser.mockResolvedValue([
       { problem: { difficulty: "easy", tags: ["dp"] } },
       { problem: { difficulty: "medium", tags: ["dp", "graph"] } },
       { problem: { difficulty: "medium", tags: ["math"] } },
     ]);
+    findDistinctAttemptedByUser.mockResolvedValue(
+      Array.from({ length: 5 }, (_, problemId) => ({ problemId })),
+    );
     count.mockResolvedValue(17);
     groupByLanguageForUser.mockResolvedValue([]);
-    groupByStatusForUser.mockResolvedValue([]);
+    groupByStatusForUser.mockResolvedValue([
+      { status: "accepted", _count: { _all: 7 } },
+      { status: "wrong_answer", _count: { _all: 10 } },
+    ]);
 
     const view = await getDashboardView("usr_1");
 
-    expect(view.stats).toEqual({ totalAc: 3, totalAttempts: 17 });
+    expect(view.stats).toEqual({ totalAc: 3, totalAttemptedProblems: 5, totalAttempts: 17 });
   });
 
   it("emits byDifficulty in fixed easy→medium→hard order with per-bucket counts", async () => {
@@ -84,6 +95,7 @@ describe("getDashboardView — populated actor", () => {
       { problem: { difficulty: "hard", tags: [] } },
       { problem: { difficulty: "easy", tags: [] } },
     ]);
+    findDistinctAttemptedByUser.mockResolvedValue([]);
     count.mockResolvedValue(3);
     groupByLanguageForUser.mockResolvedValue([]);
     groupByStatusForUser.mockResolvedValue([]);
@@ -100,6 +112,7 @@ describe("getDashboardView — populated actor", () => {
   it("flattens language and verdict group-by rows into compact analytics shape", async () => {
     findRecentByUser.mockResolvedValue([]);
     findDistinctAcByUser.mockResolvedValue([]);
+    findDistinctAttemptedByUser.mockResolvedValue([]);
     count.mockResolvedValue(10);
     groupByLanguageForUser.mockResolvedValue([
       { language: "cpp", _count: { _all: 6 } },
@@ -129,6 +142,7 @@ describe("getDashboardView — populated actor", () => {
         problem: { difficulty: "easy", tags: [`tag${i}`] },
       })),
     );
+    findDistinctAttemptedByUser.mockResolvedValue([]);
     count.mockResolvedValue(25);
     groupByLanguageForUser.mockResolvedValue([]);
     groupByStatusForUser.mockResolvedValue([]);
