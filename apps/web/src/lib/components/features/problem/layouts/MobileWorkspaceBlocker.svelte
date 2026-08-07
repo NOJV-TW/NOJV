@@ -68,14 +68,18 @@
             <MarkdownRenderer content={problem.statement} />
           </div>
 
-          {#if problem.inputFormat}
-            <div class="mt-5">
-              <p class="text-body-sm font-semibold">{m.problemDetail_inputFormat()}:</p>
+          <div class="mt-5">
+            <p class="text-body-sm font-semibold">{m.problemDetail_inputFormat()}:</p>
+            {#if problem.inputFormat}
               <div class="mt-1 text-body-sm leading-7 text-foreground">
                 <MarkdownRenderer content={problem.inputFormat} />
               </div>
-            </div>
-          {/if}
+            {:else}
+              <p class="mt-1 text-body-sm leading-7 text-muted-foreground">
+                {m.problemDetail_noInputRequired()}
+              </p>
+            {/if}
+          </div>
 
           {#if problem.outputFormat}
             <div class="mt-5">

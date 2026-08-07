@@ -202,7 +202,7 @@
   <div class="grid gap-4 md:grid-cols-2">
     <label class="text-body-sm text-muted-foreground">
       <span
-        >{m.admin_inputFormat()} <span class="text-destructive">*</span>
+        >{m.admin_inputFormat()}
         <HelpTooltip text={m.admin_inputFormatTooltip()} /></span
       >
       <ImageDropZone
