@@ -20,7 +20,7 @@ const config = {
       mode: "auto",
       directives: {
         "default-src": ["self"],
-        "script-src": ["self"],
+        "script-src": ["self", "https://www.googletagmanager.com"],
         "style-src": ["self", "unsafe-inline"],
         "img-src": [
           "self",
@@ -29,9 +29,15 @@ const config = {
           "https://github.com",
           "https://avatars.githubusercontent.com",
           "https://*.googleusercontent.com",
+          "https://*.google-analytics.com",
         ],
         "font-src": ["self", "data:"],
-        "connect-src": ["self"],
+        "connect-src": [
+          "self",
+          "https://*.google-analytics.com",
+          "https://*.analytics.google.com",
+          "https://*.googletagmanager.com",
+        ],
         "worker-src": ["self", "blob:"],
         "frame-ancestors": ["none"],
         "base-uri": ["self"],
