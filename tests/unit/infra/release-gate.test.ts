@@ -512,11 +512,10 @@ describe("Build & Push Images workflow release structure", () => {
     expect(deployJob).not.toContain("git push --atomic --force origin");
   });
 
-  it("notifies only after the public production release matches and is healthy", () => {
+  it("keeps the public production health gate separate from Discord delivery", () => {
     expect(verifyJob).toContain("- prepare-release");
     expect(verifyJob).toContain("- deploy-ref");
     expect(verifyJob).toContain("timeout-minutes: 140");
-    expect(verifyJob).toContain("name: Validate release notification configuration");
     expect(verifyJob).toContain("RELEASE_URL: https://nojv.tw");
     expect(verifyJob).toContain("/api/release");
     expect(verifyJob).toContain(".version == $version and .sourceSha == $sha");
@@ -526,12 +525,9 @@ describe("Build & Push Images workflow release structure", () => {
     expect(verifyJob).toContain("consecutive=$((consecutive + 1))");
     expect(verifyJob).toContain("consecutive=0");
     expect(verifyJob).toContain("sleep 30");
-    expect(verifyJob).toContain("DISCORD_RELEASE_WEBHOOK_URL");
-    expect(verifyJob).toContain("secrets.DISCORD_RELEASE_WEBHOOK_URL");
+    expect(verifyJob).not.toContain("DISCORD_RELEASE_WEBHOOK_URL");
+    expect(verifyJob).not.toContain("name: Notify Discord");
     expect(verifyJob).not.toContain("--retry-all-errors");
-    expect(verifyJob.indexOf("name: Wait for the released version")).toBeLessThan(
-      verifyJob.indexOf("name: Notify Discord"),
-    );
   });
 });
 
