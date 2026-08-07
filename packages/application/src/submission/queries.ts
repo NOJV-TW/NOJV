@@ -84,12 +84,27 @@ export async function getProblemReferenceSolution(problemId: string) {
   const problem = await problemRepo.findById(problemId);
   if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
 
-  const [latest, verified] = await Promise.all([
+  const [latest, candidate] = await Promise.all([
     submissionRepo.findLatestReferenceForProblem(problemId),
     problem.referenceSolutionSubmissionId
       ? submissionRepo.findById(problem.referenceSolutionSubmissionId)
       : null,
   ]);
+
+  const verified =
+    candidate?.problemId === problemId &&
+    candidate.isReferenceSolution &&
+    candidate.status === "accepted" &&
+    !candidate.sampleOnly &&
+    candidate.assessmentId === null &&
+    candidate.contestId === null &&
+    candidate.courseId === null &&
+    candidate.examId === null &&
+    candidate.participationId === null &&
+    candidate.referenceProblemStorageGeneration === problem.storageGeneration &&
+    candidate.sourceStorage !== null
+      ? candidate
+      : null;
 
   const sourceFiles =
     verified?.sourceStorage === null || verified?.sourceStorage === undefined

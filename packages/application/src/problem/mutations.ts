@@ -256,6 +256,7 @@ async function assertProblemPublishable(
     advancedRequiredPaths: unknown;
     timeLimitMs: number;
     memoryLimitMb: number;
+    storageGeneration: number;
     referenceSolutionSubmissionId: string | null;
   },
 ): Promise<void> {
@@ -292,6 +293,39 @@ async function assertProblemPublishable(
       "Problems require an accepted reference solution before publishing.",
     );
   }
+  const reference = await tx.submission.findUnique({
+    where: { id: problem.referenceSolutionSubmissionId },
+    select: {
+      assessmentId: true,
+      contestId: true,
+      courseId: true,
+      examId: true,
+      isReferenceSolution: true,
+      participationId: true,
+      problemId: true,
+      referenceProblemStorageGeneration: true,
+      sampleOnly: true,
+      sourceStorage: true,
+      status: true,
+    },
+  });
+  if (
+    reference?.problemId !== problem.id ||
+    !reference.isReferenceSolution ||
+    reference.status !== "accepted" ||
+    reference.sampleOnly ||
+    reference.sourceStorage === null ||
+    reference.assessmentId !== null ||
+    reference.contestId !== null ||
+    reference.courseId !== null ||
+    reference.examId !== null ||
+    reference.participationId !== null ||
+    reference.referenceProblemStorageGeneration !== problem.storageGeneration
+  ) {
+    throw new ConflictError(
+      "Problems require an accepted reference solution for the current judge configuration.",
+    );
+  }
 }
 
 export async function updateProblemRecord(
@@ -318,6 +352,11 @@ export async function updateProblemRecord(
     ) {
       throw new ForbiddenError(
         "Use the admin publish action for another author's problem after they allow it.",
+      );
+    }
+    if (payload.adminMayPublish !== undefined && problem.authorId !== actor.userId) {
+      throw new ForbiddenError(
+        "Only the problem author can change admin publication permission.",
       );
     }
 
@@ -351,6 +390,12 @@ export async function updateProblemRecord(
       throw new ConflictError("Published problems cannot be reverted to draft.");
     }
 
+    const judgeConfigurationChanged =
+      payload.judgeConfig !== undefined ||
+      payload.type !== undefined ||
+      payload.timeLimitMs !== undefined ||
+      payload.memoryLimitMb !== undefined;
+
     if (payload.status === "published" && problem.status !== "published") {
       await assertProblemPublishable(tx, {
         ...problem,
@@ -359,18 +404,17 @@ export async function updateProblemRecord(
         advancedConfig: payload.advancedConfig ?? problem.advancedConfig,
         timeLimitMs: payload.timeLimitMs ?? problem.timeLimitMs,
         memoryLimitMb: payload.memoryLimitMb ?? problem.memoryLimitMb,
+        referenceSolutionSubmissionId: judgeConfigurationChanged
+          ? null
+          : problem.referenceSolutionSubmissionId,
       });
     }
 
     const updateData = buildProblemUpdateData(payload);
 
-    if (
-      payload.judgeConfig !== undefined ||
-      payload.type !== undefined ||
-      payload.timeLimitMs !== undefined ||
-      payload.memoryLimitMb !== undefined
-    ) {
+    if (judgeConfigurationChanged) {
       updateData.referenceSolutionSubmissionId = null;
+      updateData.storageGeneration = { increment: 1 };
     }
 
     assertSpecialEnvImageConsistency(payload, problem);

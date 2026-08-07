@@ -426,6 +426,7 @@ export async function createQueuedSubmissionRecord(
       language: payload.language,
       isReferenceSolution,
       problemId: problem.id,
+      referenceProblemStorageGeneration: isReferenceSolution ? problem.storageGeneration : null,
       sampleOnly: payload.sampleOnly ?? false,
       sourceStorage: Prisma.DbNull,
       status: "pending_upload",
@@ -621,6 +622,7 @@ export async function completeJudge(
 
   const verdictSummary = deriveVerdictSummary(result);
   const submission = await runTransaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Problem" WHERE id = ${preflight.problemId} FOR UPDATE`;
     await tx.$queryRaw`SELECT id FROM "Submission" WHERE id = ${submissionId} FOR UPDATE`;
     const current = await tx.submission.findUnique({ where: { id: submissionId } });
     if (
@@ -646,12 +648,19 @@ export async function completeJudge(
       },
     });
     if (current.isReferenceSolution) {
+      const problem = await tx.problem.findUnique({
+        where: { id: current.problemId },
+        select: { storageGeneration: true },
+      });
       const latestReference = await tx.submission.findFirst({
         where: { problemId: current.problemId, isReferenceSolution: true },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         select: { id: true },
       });
-      if (latestReference?.id === current.id) {
+      if (
+        problem?.storageGeneration === current.referenceProblemStorageGeneration &&
+        latestReference?.id === current.id
+      ) {
         await tx.problem.update({
           where: { id: current.problemId },
           data: {

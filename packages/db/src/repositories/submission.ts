@@ -146,6 +146,15 @@ export const submissionRepo = {
         id: true,
         createdAt: true,
         language: true,
+        problemId: true,
+        isReferenceSolution: true,
+        sampleOnly: true,
+        assessmentId: true,
+        contestId: true,
+        courseId: true,
+        examId: true,
+        participationId: true,
+        referenceProblemStorageGeneration: true,
         sourceStorage: true,
         status: true,
         score: true,
@@ -430,7 +439,7 @@ export const submissionRepo = {
   groupByUserAndProblem(where: Prisma.SubmissionWhereInput) {
     return prisma.submission.groupBy({
       by: ["userId", "problemId"],
-      where,
+      where: { ...where, isReferenceSolution: false },
       _max: { score: true },
       _count: { id: true },
     });

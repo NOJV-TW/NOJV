@@ -34,6 +34,7 @@ model Submission {
   assessmentId           String?
   sampleOnly             Boolean           @default(false)
   isReferenceSolution    Boolean           @default(false)
+  referenceProblemStorageGeneration Int?
   language               SupportedLanguage
   sourceStorage          Json?
   status                 SubmissionStatus  @default(queued)

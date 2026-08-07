@@ -151,7 +151,10 @@ export async function updateTestcaseSetRecord(
       where: { id: setId },
       data: stripUndefined(payload),
     });
-    await problemRepo.withTx(tx).update(problem.id, { referenceSolutionSubmissionId: null });
+    await problemRepo.withTx(tx).update(problem.id, {
+      referenceSolutionSubmissionId: null,
+      storageGeneration: { increment: 1 },
+    });
     return updated;
   });
 }

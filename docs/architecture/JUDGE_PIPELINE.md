@@ -10,7 +10,7 @@ merge workspace files → prepare → execute per testcase → check → score
 
 ### Reference solution validation
 
-Problem authors can submit a complete practice solution as a private reference submission. It uses the same Standard Mode judge, testcase set, workspace merge, and source storage as an ordinary submission, but is marked `isReferenceSolution` and excluded from student history and statistics. An accepted reference submission becomes the problem's current verification pointer; failed validation clears that pointer. Changes to testcases, workspace files, judge configuration, limits, or problem type invalidate the pointer, so a standard problem cannot be published with an outdated reference solution.
+Problem authors can submit a complete practice solution as a private reference submission. It uses the same Standard Mode judge, testcase set, workspace merge, and source storage as an ordinary submission, but is marked `isReferenceSolution` and excluded from student history and statistics. An accepted reference submission becomes the problem's current verification pointer; failed validation clears that pointer. The submission records the problem `storageGeneration`, and publication verifies that generation, so concurrent or completed changes to testcases, workspace files, judge configuration, limits, or problem type invalidate the pointer and cannot be published with an outdated reference solution.
 
 ### merge workspace files
 
