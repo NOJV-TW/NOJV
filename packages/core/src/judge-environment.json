@@ -20,13 +20,13 @@
     "c": {
       "label": "C",
       "version": { "label": "GCC", "source": "apk:gcc" },
-      "compileCommand": ["gcc", "-O2", "-std=c17", "-o", "{output}", "{sources}"],
+      "compileCommand": ["gcc", "-O2", "-std=c17", "-o", "{output}", "{sources}", "-lm"],
       "runCommand": ["{output}"]
     },
     "cpp": {
       "label": "C++",
       "version": { "label": "G++", "source": "apk:g++" },
-      "compileCommand": ["g++", "-O2", "-std=c++20", "-o", "{output}", "{sources}"],
+      "compileCommand": ["g++", "-O2", "-std=c++20", "-o", "{output}", "{sources}", "-lm"],
       "runCommand": ["{output}"]
     },
     "go": {
