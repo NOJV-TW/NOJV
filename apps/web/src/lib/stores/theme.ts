@@ -1,7 +1,7 @@
 export type ThemeMode = "light" | "dark" | "system";
+export type ExplicitThemeMode = Exclude<ThemeMode, "system">;
 
 const THEME_KEY = "nojv-theme";
-const CYCLE: ThemeMode[] = ["system", "light", "dark"];
 
 export function isThemeMode(value: unknown): value is ThemeMode {
   return value === "light" || value === "dark" || value === "system";
@@ -29,7 +29,9 @@ export function resolveIsDark(mode: ThemeMode, systemPrefersDark: boolean): bool
   return mode === "system" ? systemPrefersDark : mode === "dark";
 }
 
-export function nextThemeMode(mode: ThemeMode): ThemeMode {
-  const index = CYCLE.indexOf(mode);
-  return CYCLE[(index + 1) % CYCLE.length] ?? "system";
+export function toggleThemeMode(
+  mode: ThemeMode,
+  systemPrefersDark: boolean,
+): ExplicitThemeMode {
+  return resolveIsDark(mode, systemPrefersDark) ? "light" : "dark";
 }

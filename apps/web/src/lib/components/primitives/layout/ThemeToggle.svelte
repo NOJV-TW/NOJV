@@ -8,6 +8,7 @@
     persistThemeMode,
     readThemeMode,
     resolveIsDark,
+    toggleThemeMode,
     type ThemeMode,
   } from "$lib/stores/theme";
 
@@ -25,19 +26,30 @@
 
   function cycle() {
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    mode = resolveIsDark(mode, prefersDark) ? "light" : "dark";
+    mode = toggleThemeMode(mode, prefersDark);
     persistThemeMode(mode);
     applyResolved(mode, true);
   }
 
   $effect(() => {
     mode = readThemeMode();
+    applyResolved(mode, false);
+
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const onChange = () => {
       if (mode === "system") applyResolved("system", true);
     };
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== "nojv-theme" && event.key !== null) return;
+      mode = readThemeMode();
+      applyResolved(mode, true);
+    };
     mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      mq.removeEventListener("change", onChange);
+      window.removeEventListener("storage", onStorage);
+    };
   });
 
   let label = $derived(

@@ -3,10 +3,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   isThemeMode,
-  nextThemeMode,
   persistThemeMode,
   readThemeMode,
   resolveIsDark,
+  toggleThemeMode,
 } from "$lib/stores/theme";
 
 beforeEach(() => {
@@ -62,10 +62,14 @@ describe("resolveIsDark", () => {
   });
 });
 
-describe("nextThemeMode", () => {
-  it("cycles system -> light -> dark -> system", () => {
-    expect(nextThemeMode("system")).toBe("light");
-    expect(nextThemeMode("light")).toBe("dark");
-    expect(nextThemeMode("dark")).toBe("system");
+describe("toggleThemeMode", () => {
+  it("starts from the opposite of the system-resolved theme", () => {
+    expect(toggleThemeMode("system", false)).toBe("dark");
+    expect(toggleThemeMode("system", true)).toBe("light");
+  });
+
+  it("only toggles between explicit light and dark modes", () => {
+    expect(toggleThemeMode("light", false)).toBe("dark");
+    expect(toggleThemeMode("dark", true)).toBe("light");
   });
 });
