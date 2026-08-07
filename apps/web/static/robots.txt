@@ -1,2 +1,3 @@
 User-agent: *
 Allow: /
+Sitemap: https://nojv.tw/sitemap.xml
