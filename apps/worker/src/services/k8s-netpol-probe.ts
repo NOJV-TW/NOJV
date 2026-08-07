@@ -163,7 +163,13 @@ export function buildNetpolProbeTargetPodManifest(
             `while true; do printf 'HTTP/1.1 200 OK\\r\\nContent-Length: 2\\r\\n\\r\\nOK' | nc -l -p ${String(PROBE_TARGET_PORT)}; done`,
           ],
           readinessProbe: {
-            tcpSocket: { port: PROBE_TARGET_PORT },
+            exec: {
+              command: [
+                "sh",
+                "-c",
+                `wget -T 1 -q -O- ${PROBE_URL_PREFIX}127.0.0.1:${String(PROBE_TARGET_PORT)} >/dev/null`,
+              ],
+            },
             periodSeconds: 1,
             timeoutSeconds: 1,
             failureThreshold: 30,

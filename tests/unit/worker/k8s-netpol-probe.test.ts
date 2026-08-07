@@ -127,6 +127,9 @@ describe("NetworkPolicy probe manifests", () => {
         },
       ],
     });
+    const readiness = target.spec!.containers[0]!.readinessProbe!;
+    expect(readiness.tcpSocket).toBeUndefined();
+    expect(readiness.exec?.command?.join(" ")).toContain("127.0.0.1:8080");
   });
 });
 
