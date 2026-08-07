@@ -19,6 +19,12 @@ spec:
   replicas: {{ .Values.web.replicas }}
   {{- end }}
   revisionHistoryLimit: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  minReadySeconds: 10
   selector:
     matchLabels:
       app.kubernetes.io/name: nojv-web
@@ -61,6 +67,10 @@ spec:
               value: smtp
             - name: PORT
               value: {{ .Values.web.containerPort | quote }}
+            - name: NOJV_RELEASE_VERSION
+              value: {{ .Values.image.tag | quote }}
+            - name: NOJV_RELEASE_SOURCE_SHA
+              value: {{ .Values.release.sourceSha | quote }}
             {{- if .Values.web.advancedImageAllowedRegistries }}
             - name: ADVANCED_IMAGE_ALLOWED_REGISTRIES
               value: {{ .Values.web.advancedImageAllowedRegistries | quote }}

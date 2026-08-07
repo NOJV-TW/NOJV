@@ -85,6 +85,26 @@ export const openApiDocument = {
         },
       },
     },
+    "/api/release": {
+      get: {
+        tags: ["System"],
+        summary: "Get the deployed release identity",
+        operationId: "getReleaseIdentity",
+        responses: {
+          "200": {
+            description: "The version and source commit currently serving requests",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ReleaseIdentityResponse",
+                },
+                example: { version: "v1.2.3", sourceSha: "0123456789abcdef..." },
+              },
+            },
+          },
+        },
+      },
+    },
     "/api/openapi.public.json": {
       get: {
         tags: ["System"],
@@ -400,6 +420,20 @@ export const openApiDocument = {
           },
         },
         required: ["ready"],
+      },
+      ReleaseIdentityResponse: {
+        type: "object",
+        properties: {
+          version: {
+            type: "string",
+            description: "The immutable release tag serving the web process.",
+          },
+          sourceSha: {
+            type: "string",
+            description: "The lowercase source commit SHA used to build the release.",
+          },
+        },
+        required: ["version", "sourceSha"],
       },
       SupportedLanguage: {
         ...zodToOpenApiSchema(languageSchema),

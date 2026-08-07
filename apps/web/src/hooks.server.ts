@@ -25,7 +25,7 @@ import {
   type ActiveExamContext,
 } from "$lib/server/exam-lock";
 import { getWebEnv } from "$lib/server/env";
-import { healthProbeKind } from "$lib/server/health-probes";
+import { healthProbeKind, isPublicSystemPath } from "$lib/server/health-probes";
 import { consumeStepUpHandoff } from "$lib/server/step-up-handoff";
 import {
   adminElevationPrincipal,
@@ -107,6 +107,7 @@ function pageLockRedirectTarget(ctx: PageLockedContext): string {
 export const handle: Handle = async ({ event, resolve }) => {
   const startMs = performance.now();
   const probe = healthProbeKind(event.url.pathname);
+  const publicSystemPath = isPublicSystemPath(event.url.pathname);
   let recordedStatus: number | null = null;
   try {
     const response = await runHandle({ event, resolve });
@@ -123,7 +124,7 @@ export const handle: Handle = async ({ event, resolve }) => {
             ? "success"
             : "failure",
       } satisfies HealthProbeLabels);
-    } else if (!routeId.endsWith("/stream")) {
+    } else if (!publicSystemPath && !routeId.endsWith("/stream")) {
       apiRequestDuration.record((performance.now() - startMs) / 1000, {
         route: routeId,
         method: event.request.method,
@@ -462,7 +463,7 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
   event.locals.adminModeActive = false;
   event.locals.examGate = null;
 
-  if (healthProbeKind(event.url.pathname)) {
+  if (isPublicSystemPath(event.url.pathname)) {
     const response = await resolve(event);
     response.headers.set("x-request-id", event.locals.requestId);
     return response;

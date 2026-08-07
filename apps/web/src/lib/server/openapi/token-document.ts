@@ -6,7 +6,12 @@ type OperationObject = Record<string, unknown>;
 type PathsObject = Record<string, Record<string, OperationObject>>;
 type SchemasObject = Record<string, unknown>;
 
-const ANONYMOUS_PATHS = ["/api/livez", "/api/readyz", "/api/openapi.public.json"] as const;
+const ANONYMOUS_PATHS = [
+  "/api/livez",
+  "/api/readyz",
+  "/api/release",
+  "/api/openapi.public.json",
+] as const;
 
 function collectRefNames(node: unknown, out: Set<string>): void {
   if (Array.isArray(node)) {

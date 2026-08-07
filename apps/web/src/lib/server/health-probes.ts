@@ -7,12 +7,17 @@ const PROBE_PATHS: Readonly<Record<string, HealthProbeKind>> = {
   "/api/livez": "live",
   "/api/readyz": "ready",
 };
+const PUBLIC_SYSTEM_PATHS = new Set(["/api/release"]);
 
 let cached: { at: number; ready: boolean } | null = null;
 let inflight: Promise<boolean> | null = null;
 
 export function healthProbeKind(pathname: string): HealthProbeKind | null {
   return PROBE_PATHS[pathname] ?? null;
+}
+
+export function isPublicSystemPath(pathname: string): boolean {
+  return healthProbeKind(pathname) !== null || PUBLIC_SYSTEM_PATHS.has(pathname);
 }
 
 async function probeReadiness(): Promise<boolean> {

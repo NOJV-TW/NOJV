@@ -56,6 +56,18 @@ describe.each([
     expect(probePath(deployment, "startupProbe")).toBe("/api/livez");
     expect(probePath(deployment, "livenessProbe")).toBe("/api/livez");
     expect(probePath(deployment, "readinessProbe")).toBe("/api/readyz");
+    expect(deployment).toContain("maxUnavailable: 0");
+    expect(deployment).toContain("maxSurge: 1");
+    expect(deployment).toContain("minReadySeconds: 10");
+  });
+
+  it("injects the release identity into the web process", () => {
+    const deployment = webDeployment(renderChart(valuesFile));
+
+    expect(deployment).toContain('name: NOJV_RELEASE_VERSION\n              value: "v1.2.3"');
+    expect(deployment).toContain(
+      'name: NOJV_RELEASE_SOURCE_SHA\n              value: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"',
+    );
   });
 });
 

@@ -359,6 +359,7 @@ describe("Build & Push Images workflow release structure", () => {
     workflow.indexOf("  deploy-ref:"),
   );
   const deployJob = jobSection("deploy-ref");
+  const verifyJob = jobSection("verify-production");
 
   it("builds all four release images in independent jobs before deploy", () => {
     expect(prepareJob).not.toBe("");
@@ -509,6 +510,28 @@ describe("Build & Push Images workflow release structure", () => {
     expect(deployJob).toContain("DEPLOY_TIP: ${{ steps.advance.outputs.deploy_tip }}");
     expect(deployJob).toContain('"--force-with-lease=refs/heads/deploy:${DEPLOY_TIP}"');
     expect(deployJob).not.toContain("git push --atomic --force origin");
+  });
+
+  it("notifies only after the public production release matches and is healthy", () => {
+    expect(verifyJob).toContain("- prepare-release");
+    expect(verifyJob).toContain("- deploy-ref");
+    expect(verifyJob).toContain("timeout-minutes: 140");
+    expect(verifyJob).toContain("name: Validate release notification configuration");
+    expect(verifyJob).toContain("RELEASE_URL: https://nojv.tw");
+    expect(verifyJob).toContain("/api/release");
+    expect(verifyJob).toContain(".version == $version and .sourceSha == $sha");
+    expect(verifyJob).toContain("/api/livez");
+    expect(verifyJob).toContain("/api/readyz");
+    expect(verifyJob).toContain("consecutive=0");
+    expect(verifyJob).toContain("consecutive=$((consecutive + 1))");
+    expect(verifyJob).toContain("consecutive=0");
+    expect(verifyJob).toContain("sleep 30");
+    expect(verifyJob).toContain("DISCORD_RELEASE_WEBHOOK_URL");
+    expect(verifyJob).toContain("secrets.DISCORD_RELEASE_WEBHOOK_URL");
+    expect(verifyJob).not.toContain("--retry-all-errors");
+    expect(verifyJob.indexOf("name: Wait for the released version")).toBeLessThan(
+      verifyJob.indexOf("name: Notify Discord"),
+    );
   });
 });
 

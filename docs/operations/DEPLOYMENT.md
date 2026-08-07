@@ -247,6 +247,14 @@ four verified digests to the `deploy` branch; Flux reconciles that branch and
 k3s pulls the digest-pinned images from GHCR. One-time: set those four GHCR
 packages to **Public** so k3s can pull without an imagePullSecret.
 
+After publishing `deploy`, the same workflow waits for the public web service
+to serve that exact version through `/api/release`, then requires `/api/livez`
+and `/api/readyz` to succeed before sending the release Discord webhook. This
+is a public black-box gate for the web/API rollout; worker pod readiness remains
+an in-cluster operational check because the workflow has no cluster
+credentials. Configure the GitHub Actions repository secret
+`DISCORD_RELEASE_WEBHOOK_URL` for that notification.
+
 ```bash
 git tag vX.Y.Z
 git push origin vX.Y.Z

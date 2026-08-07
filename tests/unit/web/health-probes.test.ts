@@ -57,6 +57,7 @@ vi.mock("@nojv/application", async (importOriginal) => {
 
 const livez = await import("../../../apps/web/src/routes/api/livez/+server");
 const readyz = await import("../../../apps/web/src/routes/api/readyz/+server");
+const release = await import("../../../apps/web/src/routes/api/release/+server");
 const { handle } = await import("../../../apps/web/src/hooks.server");
 
 let testTime = Date.parse("2026-07-14T00:00:00.000Z");
@@ -91,6 +92,8 @@ async function callRoute(
 
 beforeEach(() => {
   vi.useFakeTimers();
+  vi.stubEnv("NOJV_RELEASE_VERSION", "v1.2.3");
+  vi.stubEnv("NOJV_RELEASE_SOURCE_SHA", "a".repeat(40));
   testTime += 60_000;
   vi.setSystemTime(testTime);
   apiRequestRecord.mockReset();
@@ -106,6 +109,18 @@ beforeEach(() => {
 });
 
 describe("web health endpoint contracts", () => {
+  it("reports the immutable release identity without cache or dependency checks", async () => {
+    const response = await release.GET({} as RequestEvent);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      version: "v1.2.3",
+      sourceSha: "a".repeat(40),
+    });
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(checkWebReadiness).not.toHaveBeenCalled();
+  });
+
   it("keeps liveness dependency-free and non-cacheable", async () => {
     const response = await livez.GET({} as RequestEvent);
 
@@ -159,6 +174,20 @@ describe("web health endpoint contracts", () => {
 });
 
 describe("health probe hook boundary", () => {
+  it("bypasses auth/session for the exact release identity path", async () => {
+    const response = await callRoute(release, "/api/release");
+
+    expect(response.headers.get("x-request-id")).toBe("probe-request-id");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(getAuth).not.toHaveBeenCalled();
+    expect(findApiTokenRouteRule).not.toHaveBeenCalled();
+    expect(verifyApiTokenForRoute).not.toHaveBeenCalled();
+    expect(authRateLimitConsume).not.toHaveBeenCalled();
+    expect(signInRateLimitConsume).not.toHaveBeenCalled();
+    expect(apiRequestRecord).not.toHaveBeenCalled();
+    expect(healthProbeRecord).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["live", "/api/livez", livez],
     ["ready", "/api/readyz", readyz],
