@@ -150,6 +150,16 @@ if (!helm) {
 }
 
 describe("env schema baseline (no helm required)", () => {
+  it("renders the frontend release version from runtime env", () => {
+    const footer = readFileSync(
+      join(repoRoot, "apps/web/src/lib/components/primitives/layout/Footer.svelte"),
+      "utf8",
+    );
+    expect(footer).toContain('from "$env/dynamic/public"');
+    expect(footer).toContain("env.PUBLIC_APP_VERSION");
+    expect(footer).not.toContain("package.json");
+  });
+
   it("the valid baseline env parses (sanity check for the drop-one probe)", () => {
     expect(workerEnvSchema.safeParse(validK8sEnv).success).toBe(true);
   });
@@ -198,6 +208,14 @@ describe("env schema baseline (no helm required)", () => {
 });
 
 describeHelm("env schema ↔ chart deployment parity", () => {
+  it.each(["values-gke.yaml", "values-single-machine.yaml"])(
+    "%s injects the deployed image tag as the public release version",
+    (valuesFile) => {
+      const web = isolateDoc(renderChart(valuesFile), "Deployment", "nojv-web");
+      expect(web).toContain('name: PUBLIC_APP_VERSION\n              value: "1.2.3"');
+    },
+  );
+
   it("GKE worker Deployment provides every env the kubernetes backend requires", () => {
     const worker = isolateDoc(renderChart(), "Deployment", "nojv-worker");
     const provided = containerEnvNames(worker);

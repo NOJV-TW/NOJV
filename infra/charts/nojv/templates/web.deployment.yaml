@@ -55,6 +55,8 @@ spec:
           env:
             - name: NODE_ENV
               value: {{ .Values.web.nodeEnv | quote }}
+            - name: PUBLIC_APP_VERSION
+              value: {{ .Values.image.tag | trimPrefix "v" | quote }}
             - name: MAILER_MODE
               value: smtp
             - name: PORT
