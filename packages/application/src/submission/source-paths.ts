@@ -1,9 +1,12 @@
-import { entryFileNameFor, parseRelativePath, type SubmissionDraft } from "@nojv/core";
+import {
+  entryFileNameFor,
+  MAX_SUBMISSION_BODY_BYTES,
+  parseRelativePath,
+  type SubmissionDraft,
+} from "@nojv/core";
 import type { SubmissionSource } from "@nojv/storage";
 
 import { ConflictError } from "../shared/errors";
-
-const MAX_SUBMISSION_BYTES = 1 * 1024 * 1024;
 
 export function normalizeSubmissionSources(payload: SubmissionDraft): SubmissionSource[] {
   const sources: SubmissionSource[] = [];
@@ -25,8 +28,8 @@ export function normalizeSubmissionSources(payload: SubmissionDraft): Submission
   for (const source of sources) {
     totalBytes += Buffer.byteLength(source.content, "utf-8");
   }
-  if (totalBytes > MAX_SUBMISSION_BYTES) {
-    throw new ConflictError("Submission exceeds 1 MB total");
+  if (totalBytes > MAX_SUBMISSION_BODY_BYTES) {
+    throw new ConflictError("Submission exceeds 2 MB total");
   }
 
   return sources;

@@ -53,12 +53,14 @@
   let contextBadge = $derived(submissionContextBadge(context));
 
   function handleSubmissionComplete(
+    submissionId: string,
     result: SubmissionResult,
     language: string,
     sourceCode: string,
   ) {
     submissions = [
       {
+        id: submissionId,
         language,
         result,
         sourceCode,
@@ -187,7 +189,12 @@
           const previewSource = staged.sourceFiles
             .map((f) => `// --- ${f.path} ---\n${f.content}`)
             .join("\n\n");
-          handleSubmissionComplete(result, uploadLanguage, previewSource);
+          handleSubmissionComplete(
+            dispatch.submissionId,
+            result,
+            uploadLanguage,
+            previewSource,
+          );
           staged = null;
           return;
         }
