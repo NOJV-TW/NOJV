@@ -157,26 +157,14 @@ describe("immutable publication preflight", () => {
   const releaseSha = "a".repeat(40);
   const imageTag = "v1.2.3";
 
-  it("accepts a version absent from the deploy ref and every runtime package", () => {
+  it("accepts a version absent from every runtime package", () => {
     expect(
       validatePublicationState({
         releaseSha,
         imageTag,
-        remoteDeployTags: [],
         packageTags: {},
       }),
     ).toEqual({ existingImages: [] });
-  });
-
-  it("rejects a completed same-SHA release before package publication", () => {
-    expect(() =>
-      validatePublicationState({
-        releaseSha,
-        imageTag,
-        remoteDeployTags: [`refs/tags/nojv-deploy-${imageTag}`],
-        packageTags: {},
-      }),
-    ).toThrow(/deploy tag already exists/u);
   });
 
   it("returns a partial same-SHA publication for provenance validation and reuse", () => {
@@ -184,7 +172,6 @@ describe("immutable publication preflight", () => {
       validatePublicationState({
         releaseSha,
         imageTag,
-        remoteDeployTags: [],
         packageTags: { "nojv-worker": [imageTag] },
       }),
     ).toEqual({ existingImages: ["nojv-worker"] });

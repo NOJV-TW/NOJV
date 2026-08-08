@@ -25,7 +25,6 @@ export function validateDeployAdvance(input: {
 export function validatePublicationState(input: {
   releaseSha: string;
   imageTag: string;
-  remoteDeployTags: string[];
   packageTags: Record<string, string[]>;
 }): { existingImages: string[] };
 

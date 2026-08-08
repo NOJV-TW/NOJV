@@ -30,9 +30,10 @@ push vX.Y.Z tag for a main commit whose Verify Repository check passed
 registry-verified digests in the packaged chart values
 (force-reset each build), so chart/config and image changes cannot reconcile as
 separate Helm upgrades. The HelmRelease itself has no inline image override.
-Each successful publish also retains the exact deploy commit as
-`nojv-deploy-<image-tag>` so a known release remains recoverable after the
-branch moves.
+The deploy branch commit is the deployment record; no second deploy tag is
+created. For recovery, operators must use an exact known-good deploy commit
+from Flux or Git history and move the branch with the lease-protected command
+below.
 Pushing to `main` runs CI but does not publish images. Release with:
 
 ```bash
@@ -60,8 +61,7 @@ Inspect the candidate and move `deploy` with an exact lease so the chart and
 images change atomically:
 
 ```bash
-git fetch origin 'refs/tags/nojv-deploy-*:refs/tags/nojv-deploy-*'
-candidate=nojv-deploy-<image-tag>
+candidate=<exact-deploy-commit-sha>
 git grep -F 'nojv.tw/schema-contract: versioned-storage-v1' "$candidate" -- \
   infra/charts/nojv/templates/web.deployment.yaml \
   infra/charts/nojv/templates/worker-judge.deployment.yaml \
@@ -69,7 +69,7 @@ git grep -F 'nojv.tw/schema-contract: versioned-storage-v1' "$candidate" -- \
 git show "$candidate":infra/charts/nojv/values-single-machine.yaml | head
 current_deploy_tip="$(git ls-remote origin refs/heads/deploy | cut -f1)"
 git push "--force-with-lease=refs/heads/deploy:${current_deploy_tip}" origin \
-  "refs/tags/$candidate":refs/heads/deploy
+  "$candidate":refs/heads/deploy
 ```
 
 The grep must return exactly those three templates; also verify the selected

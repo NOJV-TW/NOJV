@@ -12,10 +12,12 @@ const incidentRunbook = readFileSync(
 );
 
 describe("forward-only production recovery guidance", () => {
-  it("never instructs operators to force an arbitrary retained deploy tag", () => {
+  it("uses an exact deploy commit instead of a retained deploy tag", () => {
     expect(fluxRunbook).not.toContain(
       "git push --force origin refs/tags/nojv-deploy-<image-tag>:refs/heads/deploy",
     );
+    expect(fluxRunbook).not.toContain("nojv-deploy-");
+    expect(fluxRunbook).toContain("candidate=<exact-deploy-commit-sha>");
     expect(fluxRunbook).toContain("nojv.tw/schema-contract: versioned-storage-v1");
     expect(fluxRunbook).toContain("forward fix");
     expect(fluxRunbook).toContain(

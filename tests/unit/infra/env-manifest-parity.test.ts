@@ -454,7 +454,9 @@ describe("Flux release artifact atomicity", () => {
     }
     expect(workflow).toContain('node scripts/update-deploy-image-values.mjs "$VALUES_FILE"');
     expect(workflow).toContain('git add "$VALUES_FILE"');
-    expect(workflow).toContain('DEPLOY_TAG="nojv-deploy-${IMAGE_TAG}"');
+    expect(workflow).not.toContain("DEPLOY_TAG");
+    expect(workflow).not.toContain("git tag");
+    expect(workflow).not.toContain("refs/tags/nojv-deploy-");
     expect(workflow).toContain(
       'git push --atomic "--force-with-lease=refs/heads/deploy:${DEPLOY_TIP}" origin',
     );

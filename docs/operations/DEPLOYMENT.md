@@ -247,8 +247,8 @@ four verified digests to the `deploy` branch; Flux reconciles that branch and
 k3s pulls the digest-pinned images from GHCR. One-time: set those four GHCR
 packages to **Public** so k3s can pull without an imagePullSecret.
 
-The release workflow finishes after publishing the immutable `deploy` ref;
-Flux reconciliation and Kubernetes readiness own the rollout. The separate
+The release workflow finishes after publishing the verified `deploy` branch
+revision; Flux reconciliation and Kubernetes readiness own the rollout. The separate
 [`NOJV-TW/status`](https://github.com/NOJV-TW/status) Worker verifies
 `/api/release`, `/api/livez`, and `/api/readyz` on its minute schedule and owns
 release notifications through the existing status Discord webhook. This keeps
