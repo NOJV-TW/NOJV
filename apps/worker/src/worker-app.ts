@@ -204,11 +204,6 @@ export class WorkerApp {
       this.assertStarting();
     }
 
-    if (mode === "judge") {
-      await submissionDomain.recoverSystemErrorSubmissions();
-      this.assertStarting();
-    }
-
     this.registerTemporalClientCleanup();
     this.cleanupSteps.push({
       resource: "health server",

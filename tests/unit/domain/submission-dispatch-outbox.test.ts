@@ -93,38 +93,22 @@ describe("submission dispatch outbox", () => {
     expect(dispatchRejudge).toHaveBeenCalledWith(work.payload.input, result.workflowId);
   });
 
-  it("enqueues one deterministic system rejudge per failed judge generation", async () => {
-    listSystemErrorsForRecovery.mockResolvedValue([
-      { id: "sub_1", judgeGeneration: 2 },
-      { id: "sub_2", judgeGeneration: 5 },
-    ]);
+  it("automatically retries only the initial failed judge generation", async () => {
+    listSystemErrorsForRecovery.mockResolvedValue([{ id: "sub_1", judgeGeneration: 1 }]);
 
-    await expect(recoverSystemErrorSubmissions()).resolves.toBe(2);
+    await expect(recoverSystemErrorSubmissions()).resolves.toBe(1);
+    expect(listSystemErrorsForRecovery).toHaveBeenCalledWith({ limit: 100 });
     expect(enqueueMany).toHaveBeenCalledWith([
       {
         kind: REJUDGE_DISPATCH_WORK_KIND,
-        dedupeKey: "system-error:sub_1:2",
+        dedupeKey: "system-error:sub_1:1",
         payload: {
-          workflowId: "rejudge-system-error-sub_1-2",
+          workflowId: "rejudge-system-error-sub_1-1",
           input: {
             mode: "single",
             submissionId: "sub_1",
             triggeredByUserId: null,
-            expectedJudgeGeneration: 2,
-          },
-        },
-        maxAttempts: 20,
-      },
-      {
-        kind: REJUDGE_DISPATCH_WORK_KIND,
-        dedupeKey: "system-error:sub_2:5",
-        payload: {
-          workflowId: "rejudge-system-error-sub_2-5",
-          input: {
-            mode: "single",
-            submissionId: "sub_2",
-            triggeredByUserId: null,
-            expectedJudgeGeneration: 5,
+            expectedJudgeGeneration: 1,
           },
         },
         maxAttempts: 20,

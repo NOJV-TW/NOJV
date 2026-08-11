@@ -410,11 +410,12 @@ export const submissionRepo = {
     });
   },
 
-  listSystemErrorsForRecovery() {
+  listSystemErrorsForRecovery({ limit }: { limit: number }) {
     return prisma.submission.findMany({
-      where: { status: "system_error" },
+      where: { status: "system_error", judgeGeneration: 1 },
       select: { id: true, judgeGeneration: true },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
+      take: limit,
     });
   },
 

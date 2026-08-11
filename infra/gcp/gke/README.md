@@ -163,9 +163,12 @@ options (Temporal Cloud vs self-hosted HA) and
    nodes for retryable burst work. When Spot capacity disappears, Temporal keeps
    the workflow pending/retryable and the on-demand node drains the workload.
 
-The judge dispatcher stays at `replicas: 2` with concurrency 4. The sandbox
-quota and node-pool bounds are the capacity controls; adding another dispatcher
-autoscaler would not create execution capacity and is intentionally not enabled.
+The judge dispatcher stays at `replicas: 2` with concurrency 5, matching the
+ten-Pod sandbox quota. This permits ten light Jobs or five full 20-case Jobs to
+be dispatched without the worker becoming the first ceiling. The sandbox quota
+and node-pool bounds remain the execution-capacity controls; adding another
+dispatcher autoscaler would not create execution capacity and is intentionally
+not enabled.
 
 ## Apply Flow
 

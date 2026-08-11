@@ -10,10 +10,26 @@ import { applyAdjustmentRules } from "./adjustments";
 import type { SubmissionJudgeContext, TestcaseSetGroup } from "./types";
 
 const TRUNCATION_MARKER = "…[truncated]";
+const MAX_CASE_OUTPUT_TOTAL_BYTES = 256_000;
 
 function truncate(value: string, max: number): string {
   if (value.length <= max) return value;
+  if (max <= TRUNCATION_MARKER.length) return TRUNCATION_MARKER.slice(0, max);
   return value.slice(0, Math.max(0, max - TRUNCATION_MARKER.length)) + TRUNCATION_MARKER;
+}
+
+function truncateBytes(value: string, maxBytes: number): string {
+  if (Buffer.byteLength(value) <= maxBytes) return value;
+  const markerBytes = Buffer.byteLength(TRUNCATION_MARKER);
+  if (maxBytes <= markerBytes) return "";
+  let low = 0;
+  let high = value.length;
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    if (Buffer.byteLength(value.slice(0, mid)) + markerBytes <= maxBytes) low = mid;
+    else high = mid - 1;
+  }
+  return value.slice(0, low) + TRUNCATION_MARKER;
 }
 
 export interface SubtaskResultItem {
@@ -84,17 +100,27 @@ export function mapResult(
   testcaseSets: TestcaseSetGroup[],
   judgeContext: SubmissionJudgeContext,
 ): SubmissionResult {
-  const caseResults = result.testcaseResults.map((t) => ({
-    index: t.index,
-    verdict: t.verdict,
-    ...(t.stderr ? { stderr: truncate(t.stderr, MAX_CASE_STDERR_BYTES) } : {}),
-    stdout: truncate(t.stdout, MAX_CASE_STDOUT_BYTES),
-    timeMs: t.timeMs,
-    ...(t.memoryKb !== undefined && t.memoryKb > 0 ? { memoryKb: t.memoryKb } : {}),
-    ...(t.staffFeedback !== undefined
-      ? { staffFeedback: truncate(t.staffFeedback, MAX_FEEDBACK_LEN) }
-      : {}),
-  }));
+  let remainingOutputBytes = MAX_CASE_OUTPUT_TOTAL_BYTES;
+  const takeOutput = (value: string, perCaseLimitBytes: number): string => {
+    const output = truncateBytes(value, Math.min(perCaseLimitBytes, remainingOutputBytes));
+    remainingOutputBytes -= Buffer.byteLength(output);
+    return output;
+  };
+  const caseResults = result.testcaseResults.map((t) => {
+    const staffFeedback =
+      t.staffFeedback !== undefined ? takeOutput(t.staffFeedback, MAX_FEEDBACK_LEN) : undefined;
+    const stderr = t.stderr ? takeOutput(t.stderr, MAX_CASE_STDERR_BYTES) : "";
+    const stdout = takeOutput(t.stdout, MAX_CASE_STDOUT_BYTES);
+    return {
+      index: t.index,
+      verdict: t.verdict,
+      ...(stderr ? { stderr } : {}),
+      stdout,
+      timeMs: t.timeMs,
+      ...(t.memoryKb !== undefined && t.memoryKb > 0 ? { memoryKb: t.memoryKb } : {}),
+      ...(staffFeedback ? { staffFeedback } : {}),
+    };
+  });
 
   const peakMemoryKb = result.testcaseResults.reduce(
     (peak, t) => (t.memoryKb && t.memoryKb > peak ? t.memoryKb : peak),

@@ -66,4 +66,36 @@ describe("mapResult — oversized output is truncated, never throws ZodError", (
     expect(result.feedback.length).toBeLessThanOrEqual(MAX_FEEDBACK_LEN);
     expect(() => submissionResultSchema.parse(result)).not.toThrow();
   });
+
+  it("bounds aggregate case output below the Temporal payload limit", () => {
+    const sandbox: SandboxResult = {
+      testcaseResults: Array.from({ length: 20 }, (_, index) =>
+        mkCase({
+          index,
+          verdict: "WA",
+          stdout: "x".repeat(MAX_CASE_STDOUT_BYTES),
+          stderr: "e".repeat(MAX_CASE_STDERR_BYTES),
+        }),
+      ),
+    };
+
+    const result = mapResult(sandbox, [], NO_ADJUSTMENT as never);
+
+    expect(Buffer.byteLength(JSON.stringify(result))).toBeLessThan(1_000_000);
+    expect(() => submissionResultSchema.parse(result)).not.toThrow();
+  });
+
+  it("bounds staff feedback across the maximum 5,120 testcases", () => {
+    const staffFeedback = "診".repeat(MAX_FEEDBACK_LEN);
+    const sandbox: SandboxResult = {
+      testcaseResults: Array.from({ length: 5_120 }, (_, index) =>
+        mkCase({ index, staffFeedback }),
+      ),
+    };
+
+    const result = mapResult(sandbox, [], NO_ADJUSTMENT as never);
+
+    expect(Buffer.byteLength(JSON.stringify(result))).toBeLessThan(4 * 1024 * 1024);
+    expect(() => submissionResultSchema.parse(result)).not.toThrow();
+  });
 });
