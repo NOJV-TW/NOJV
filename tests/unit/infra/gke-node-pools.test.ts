@@ -7,6 +7,7 @@ const repoRoot = process.cwd();
 
 describe("GKE sandbox node-pool bootstrap", () => {
   const script = readFileSync(join(repoRoot, "infra/gcp/scripts/create-node-pools.sh"), "utf8");
+  const values = readFileSync(join(repoRoot, "infra/charts/nojv/values-gke.yaml"), "utf8");
   const systemConfig = readFileSync(
     join(repoRoot, "infra/gcp/gke/sandbox-node-system-config.yaml"),
     "utf8",
@@ -23,5 +24,13 @@ describe("GKE sandbox node-pool bootstrap", () => {
     expect(script).toContain("--enable-image-streaming");
     expect(script).toContain('--system-config-from-file="${SANDBOX_SYSTEM_CONFIG}"');
     expect(systemConfig).toContain("podPidsLimit: 1024");
+  });
+
+  it("aligns judge dispatch capacity with the sandbox quota", () => {
+    expect(script).toContain('SANDBOX_SPOT_MAX_NODES="${SANDBOX_SPOT_MAX_NODES:-4}"');
+    expect(values).toMatch(/judge:\n    replicas: 2\n    concurrency: "5"/u);
+    expect(values).toMatch(
+      /resourceQuota:\n    enabled: true\n    pods: "10"\n    requestsCpu: "10"/u,
+    );
   });
 });

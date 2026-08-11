@@ -78,7 +78,9 @@ export async function dispatchRejudge(input: RejudgeInput): Promise<{ workflowId
 }
 
 export async function recoverSystemErrorSubmissions(): Promise<number> {
-  const submissions = await submissionRepo.listSystemErrorsForRecovery();
+  const submissions = await submissionRepo.listSystemErrorsForRecovery({
+    limit: RECOVERY_BATCH_SIZE,
+  });
   for (let offset = 0; offset < submissions.length; offset += RECOVERY_BATCH_SIZE) {
     await durableWorkRepo.enqueueMany(
       submissions.slice(offset, offset + RECOVERY_BATCH_SIZE).map((submission) => {

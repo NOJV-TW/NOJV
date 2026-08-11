@@ -62,6 +62,7 @@ web:
 worker:
   judge:
     replicas: 2
+    concurrency: "5"
     nodeSelector:
       nojv-role: worker
   platform:

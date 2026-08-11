@@ -618,9 +618,9 @@ environment:
 
 ```
 Submission load ──► Capped by nojv-sandbox ResourceQuota (10 pods, 10 CPU on GKE).
-                    Worker count is static (2 replicas) — orchestrator work
-                    is I/O bound and cheap; throughput is gated by the
-                    sandbox quota, not by worker fan-out.
+                    Two static workers × concurrency 5 can dispatch every
+                    sandbox slot; throughput is gated by the sandbox quota
+                    and autoscaling node pools, not by worker fan-out.
 Contest count   ──► Platform workers handle lifecycle (low overhead).
                     Typically 1-2 platform workers suffice.
 ```
@@ -630,8 +630,9 @@ values overlay (then `helm upgrade`) and the GKE Spot pool total max, not the
 worker replica count. Keep the on-demand pool total max at 1 to preserve the
 cost ceiling.
 
-> The GKE overlay has quota `10` pods / `10` CPU, two judge workers, one
-> on-demand gVisor node, and up to four gVisor Spot nodes. The single-machine
+> The GKE overlay has quota `10` pods / `10` CPU, two judge workers at
+> concurrency `5`, one on-demand gVisor node, and up to four gVisor Spot nodes.
+> The single-machine
 > overlay has one judge worker, quota `4` pods / `4` CPU / `12Gi`, and no node
 > autoscaler; see [Single-machine capacity ceiling](#single-machine-capacity-ceiling-bounded-autoscaling).
 

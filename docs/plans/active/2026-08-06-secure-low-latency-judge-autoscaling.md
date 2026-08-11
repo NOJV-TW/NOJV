@@ -47,8 +47,10 @@ all effective.
 - Both pools use COS_CONTAINERD, gVisor, image streaming, the sandbox label and
   taint, and a Pod PID ceiling of 1024.
 - Sandbox quota: 10 Pods, 10 requested CPU, 30Gi requested memory.
-- Web HPA remains 2–15; two judge workers at concurrency 4 can dispatch all five
-  sandbox nodes. The unused Prometheus/KEDA placeholder is removed.
+- Web HPA remains 2–15; two judge workers at concurrency 5 can dispatch every
+  slot in the ten-Pod sandbox quota while the five sandbox nodes remain the
+  full 20-case execution ceiling. The unused Prometheus/KEDA placeholder is
+  removed.
 
 ## Verification and rollout
 

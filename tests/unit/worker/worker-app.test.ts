@@ -304,7 +304,7 @@ describe("WorkerApp lifecycle", () => {
     );
     const started = app.start();
     await vi.waitFor(() => expect(worker.run).toHaveBeenCalledOnce());
-    expect(mocks.recoverSystemErrorSubmissions).toHaveBeenCalledOnce();
+    expect(mocks.recoverSystemErrorSubmissions).not.toHaveBeenCalled();
 
     let finished = false;
     const stopping = app.shutdown("SIGTERM").then(() => {
