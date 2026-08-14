@@ -24,7 +24,7 @@ import { handleLoad } from "$lib/server/shared/load-wrapper";
 import type { FormMessage } from "$lib/types/form-message";
 
 const { createExamRecord } = examDomain;
-const { listEditableProblems } = problemDomain;
+const { listActivityCandidateProblems } = problemDomain;
 
 const examFormSchema = z
   .object({
@@ -97,7 +97,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       },
       zod4(examFormSchema),
     ),
-    listEditableProblems(actor.userId),
+    listActivityCandidateProblems(actor.userId),
   ]);
 
   return { form, candidateProblems };

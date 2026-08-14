@@ -157,6 +157,18 @@ export const assessmentRepo = {
     });
   },
 
+  listAllForAdmin() {
+    return prisma.assessment.findMany({
+      omit: { plagiarismResults: true },
+      include: {
+        course: { select: courseMiniSelect },
+        createdBy: { select: { name: true, username: true } },
+        _count: { select: { problems: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+  },
+
   listUpcoming(userId: string, now: Date, take: number) {
     return prisma.assessment.findMany({
       omit: { plagiarismResults: true },

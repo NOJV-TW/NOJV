@@ -853,6 +853,7 @@ Indexes & constraints: `@@index([contextType, contextId, triggeredAt(sort: Desc)
 | `displayId` | `Int?` | `@unique` |
 | `title` | `String` | — |
 | `authorId` | `String?` | — |
+| `forkedFromProblemId` | `String?` | — |
 | `visibility` | `ProblemVisibility` | `@default(public)` |
 | `adminMayPublish` | `Boolean` | `@default(false)` |
 | `status` | `ProblemStatus` | `@default(draft)` |
@@ -872,6 +873,8 @@ Indexes & constraints: `@@index([contextType, contextId, triggeredAt(sort: Desc)
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |
 | `author` | `User?` | `@relation("ProblemAuthor", fields: [authorId], references: [id], onDelete: SetNull)` |
+| `forkedFromProblem` | `Problem?` | `@relation("ProblemForks", fields: [forkedFromProblemId], references: [id], onDelete: SetNull)` |
+| `forks` | `Problem[]` | `@relation("ProblemForks")` |
 | `statement` | `ProblemStatement?` | — |
 | `testcaseSets` | `TestcaseSet[]` | — |
 | `workspaceFiles` | `ProblemWorkspaceFile[]` | — |
@@ -887,7 +890,7 @@ Indexes & constraints: `@@index([contextType, contextId, triggeredAt(sort: Desc)
 | `submissionFeedback` | `SubmissionFeedback[]` | `@relation("SubmissionFeedbackProblem")` |
 | `bookmarks` | `ProblemBookmark[]` | — |
 
-Indexes & constraints: `@@index([status, visibility, createdAt])`, `@@index([authorId])`, `@@index([difficulty])`, `@@index([tags], type: Gin)`
+Indexes & constraints: `@@index([status, visibility, createdAt])`, `@@index([authorId])`, `@@index([forkedFromProblemId])`, `@@index([difficulty])`, `@@index([tags], type: Gin)`
 
 #### `ProblemBookmark`
 

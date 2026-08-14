@@ -257,8 +257,8 @@ export const actions: Actions = {
   }),
 
   publishAsAdmin: problemEditAction(async ({ actor, problemId }) => {
-    await problemDomain.publishProblemAsAdmin(actor, problemId);
-    return { success: true };
+    const result = await problemDomain.publishProblemAsAdmin(actor, problemId);
+    return { success: true, id: result.id };
   }),
 
   deleteProblem: problemEditAction(async ({ actor, problemId }) => {

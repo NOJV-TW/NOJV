@@ -1,6 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { buildSubmissionBody } from "$lib/services/submission-service";
+import {
+  buildSubmissionBody,
+  executeSubmission,
+  SubmissionRequestError,
+} from "$lib/services/submission-service";
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("buildSubmissionBody", () => {
   it("serializes virtual submissions with participationId", () => {
@@ -48,5 +54,77 @@ describe("buildSubmissionBody", () => {
     });
 
     expect(body).toMatchObject({ referenceSolution: true, sampleOnly: false });
+  });
+});
+
+describe("executeSubmission", () => {
+  it("reports polling API failures as SubmissionRequestError", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              submissionId: "submission_1",
+              pollUrl: "/poll",
+              status: "queued",
+            }),
+            { status: 202 },
+          ),
+        )
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ message: "Judge operation unavailable" }), {
+            status: 503,
+          }),
+        ),
+    );
+
+    await expect(
+      executeSubmission({
+        context: { type: "practice" },
+        language: "python",
+        problemId: "problem_1",
+        sourceCode: "print(1)",
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<SubmissionRequestError>>({
+        name: "SubmissionRequestError",
+        message: "Judge operation unavailable",
+      }),
+    );
+  });
+
+  it("uses a stable SubmissionRequestError for non-JSON polling failures", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              submissionId: "submission_1",
+              pollUrl: "/poll",
+              status: "queued",
+            }),
+            { status: 202 },
+          ),
+        )
+        .mockResolvedValueOnce(new Response("Service unavailable", { status: 503 })),
+    );
+
+    await expect(
+      executeSubmission({
+        context: { type: "practice" },
+        language: "python",
+        problemId: "problem_1",
+        sourceCode: "print(1)",
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<SubmissionRequestError>>({
+        name: "SubmissionRequestError",
+        message: "Polling failed.",
+      }),
+    );
   });
 });

@@ -3,7 +3,6 @@ import {
   assessmentProblemRepo,
   assessmentRepo,
   courseMembershipRepo,
-  problemRepo,
   runTransaction,
   type Prisma,
   type TransactionClient,
@@ -15,6 +14,7 @@ import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors
 import { getDomainOrchestration } from "../shared/orchestration";
 import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissions";
 import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
+import { resolveActivityProblems } from "../problem/fork";
 import { getProblemTotalScore } from "../problem/total-score";
 import { stripUndefined } from "../shared/strip-undefined";
 import { assertEffectiveTimeWindow } from "../shared/effective-time-window";
@@ -94,39 +94,29 @@ function assertFieldsAllowedForStatus(
 
 async function replaceAssignmentProblems(
   tx: TransactionClient,
+  actor: ActorContext,
   assignmentId: string,
   problemIds: string[],
   allowedLanguages: Language[],
 ) {
-  const problems =
-    problemIds.length === 0
-      ? []
-      : await problemRepo.withTx(tx).findMany({ id: { in: problemIds } });
-  const problemById = new Map(problems.map((p) => [p.id, p]));
+  const problems = await resolveActivityProblems(tx, actor, problemIds);
+  const resolvedIds = problems.map((problem) => problem.id);
 
-  for (const id of problemIds) {
-    if (!problemById.has(id)) {
-      throw new NotFoundError(`Problem not found: ${id}`);
-    }
-  }
-
-  if (allowedLanguages.length > 0 && problemIds.length > 0) {
+  if (allowedLanguages.length > 0 && resolvedIds.length > 0) {
     await Promise.all(
-      problemIds.map((id) => assertProblemHasWorkspaceForLanguages(tx, id, allowedLanguages)),
+      resolvedIds.map((id) => assertProblemHasWorkspaceForLanguages(tx, id, allowedLanguages)),
     );
   }
 
   await assessmentProblemRepo.withTx(tx).deleteByAssessmentId(assignmentId);
 
   await Promise.all(
-    problemIds.map(async (id, index) => {
-      const problem = problemById.get(id);
-      if (!problem) return;
+    problems.map(async (problem, index) => {
       await assessmentProblemRepo.withTx(tx).create({
         assessmentId: assignmentId,
         ordinal: index + 1,
         points: await getProblemTotalScore(tx, problem),
-        problemId: id,
+        problemId: problem.id,
       });
     }),
   );
@@ -201,7 +191,13 @@ export async function updateAssignmentRecord(
 
     if (payload.problemIds !== undefined) {
       const enforcedLanguages = payload.allowedLanguages ?? assignment.allowedLanguages;
-      await replaceAssignmentProblems(tx, assignment.id, payload.problemIds, enforcedLanguages);
+      await replaceAssignmentProblems(
+        tx,
+        actor,
+        assignment.id,
+        payload.problemIds,
+        enforcedLanguages,
+      );
     }
 
     return {

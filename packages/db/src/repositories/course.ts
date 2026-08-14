@@ -33,6 +33,22 @@ export const courseRepo = {
     });
   },
 
+  listAllForAdmin() {
+    return prisma.course.findMany({
+      include: {
+        owner: { select: { name: true, username: true } },
+        _count: {
+          select: {
+            assessments: true,
+            exams: true,
+            memberships: { where: { status: "active" } },
+          },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+  },
+
   findByIdWithUserMembership(id: string, userId: string) {
     return prisma.course.findUnique({
       where: { id },

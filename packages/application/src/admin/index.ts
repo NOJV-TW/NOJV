@@ -15,6 +15,7 @@ import { getDomainOrchestration } from "../shared/orchestration";
 
 export { getSystemHealth } from "./system-health";
 export type { HealthStatus, SystemHealthReport } from "./system-health";
+export * from "./content";
 
 const ADMIN_DASHBOARD_CACHE_TTL_SECONDS = 300;
 

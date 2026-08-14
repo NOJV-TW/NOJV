@@ -98,6 +98,13 @@ freeze/unfreeze for the final reveal.
 
 ### Create
 
+- GIVEN an actor-owned problem, WHEN a contest is created or its problem list
+  is updated, THEN the original problem is attached directly.
+- GIVEN another author's published public problem, WHEN it is selected, THEN
+  an independent actor-owned private fork is created and attached.
+- GIVEN another author's private problem or any later failure, THEN the
+  transaction leaves neither a partial contest nor a partial fork.
+
 - GIVEN a logged-in actor, WHEN `createContestRecord` is called with a
   fresh `id`, THEN the row is inserted with `visibility: 'published'`
   and `inviteCode` defaulted to `crypto.randomBytes(4).toString('hex')`

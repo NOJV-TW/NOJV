@@ -6,27 +6,18 @@
   let { children } = $props();
 
   const tabs = [
-    { href: "/admin", key: "overview" as const },
-    { href: "/admin/users", key: "users" as const },
-    { href: "/admin/submissions", key: "submissions" as const },
-    { href: "/admin/announcements", key: "announcements" as const },
-    { href: "/admin/reports", key: "reports" as const },
-    { href: "/admin/registry", key: "registry" as const },
-    { href: "/admin/audit", key: "audit" as const },
+    { href: "/admin", label: () => m.admin_tabOverview() },
+    { href: "/admin/courses", label: () => m.navigation_courses() },
+    { href: "/admin/assignments", label: () => m.navigation_assignments() },
+    { href: "/admin/exams", label: () => m.navigation_exams() },
+    { href: "/admin/contests", label: () => m.navigation_contests() },
+    { href: "/admin/users", label: () => m.admin_tabUsers() },
+    { href: "/admin/submissions", label: () => m.admin_tabSubmissions() },
+    { href: "/admin/announcements", label: () => m.admin_tabAnnouncements() },
+    { href: "/admin/reports", label: () => m.admin_tabReports() },
+    { href: "/admin/registry", label: () => m.admin_tabRegistry() },
+    { href: "/admin/audit", label: () => m.admin_tabAudit() },
   ];
-
-  function tabLabel(
-    key:
-      "overview" | "users" | "submissions" | "announcements" | "reports" | "registry" | "audit",
-  ): string {
-    if (key === "overview") return m.admin_tabOverview();
-    if (key === "users") return m.admin_tabUsers();
-    if (key === "submissions") return m.admin_tabSubmissions();
-    if (key === "reports") return m.admin_tabReports();
-    if (key === "registry") return m.admin_tabRegistry();
-    if (key === "audit") return m.admin_tabAudit();
-    return m.admin_tabAnnouncements();
-  }
 
   let currentPath = $derived(page.url.pathname);
 </script>
@@ -48,7 +39,7 @@
         aria-current={isActive ? "page" : undefined}
         href={tab.href}
       >
-        {tabLabel(tab.key)}
+        {tab.label()}
       </a>
     {/each}
   </nav>

@@ -81,6 +81,10 @@ practice-after-close route at `/problems/[id]`.
 - `scoringMode: problem_count` (ICPC-style solved count + penalty) and
   `point_sum` (IOI-style weighted total).
 - `scoreboardMode: hidden | live | frozen`.
+- Problem resolution runs in the exam transaction: actor-owned problems are
+  attached directly, another author's published public problems become
+  actor-owned private forks, and another author's private problems are
+  rejected.
 
 ### Out of scope
 
@@ -93,6 +97,13 @@ practice-after-close route at `/problems/[id]`.
 ## Acceptance Criteria
 
 ### Create / publish
+
+- GIVEN an actor-owned problem, WHEN an exam is created or its problem list is
+  updated, THEN the original problem is attached directly.
+- GIVEN another author's published public problem, WHEN it is selected, THEN
+  an independent actor-owned private fork is created and attached.
+- GIVEN another author's private problem or any later failure, THEN the
+  transaction leaves neither a partial exam nor a partial fork.
 
 - GIVEN a course-teacher actor, WHEN `createExamRecord` is called with
   `status: 'published'`, THEN the exam is inserted, problems attached, and

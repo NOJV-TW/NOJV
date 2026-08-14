@@ -26,6 +26,7 @@
     showCreate={data.canCreate}
     loggedIn={data.loggedIn}
     advancedCreationAllowed={data.advancedCreationAllowed}
+    canFork={data.canFork}
     isAdmin={data.isAdmin}
   />
 </PageContainer>

@@ -2,7 +2,6 @@ import {
   contestProblemRepo,
   contestRepo,
   participationRepo,
-  problemRepo,
   runTransaction,
   type Prisma,
   type TransactionClient,
@@ -76,6 +75,7 @@ import { requireContest, requireUser } from "../shared/require";
 import { canManageContest } from "./permissions";
 import { canEditProblem } from "../shared/permissions";
 import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
+import { resolveActivityProblems } from "../problem/fork";
 import { getProblemTotalScore } from "../problem/total-score";
 import { stripUndefined } from "../shared/strip-undefined";
 import { getDomainOrchestration } from "../shared/orchestration";
@@ -88,33 +88,30 @@ export type { ActorContext };
 
 async function resolveAndAttachContestProblems(
   tx: TransactionClient,
+  actor: ActorContext,
   contestId: string,
   problems: ContestProblemInput[],
   allowedLanguages: Language[],
   scoringMode: ContestScoringMode,
 ) {
-  const problemIds = problems.map((p) => p.problemId);
-  const found = await problemRepo.withTx(tx).findMany({
-    id: { in: problemIds },
-  });
-  const problemById = new Map(found.map((p) => [p.id, p]));
-
-  for (const id of problemIds) {
-    if (!problemById.has(id)) {
-      throw new NotFoundError(`Problem not found: ${id}`);
-    }
-  }
+  const resolved = await resolveActivityProblems(
+    tx,
+    actor,
+    problems.map((problem) => problem.problemId),
+  );
 
   if (allowedLanguages.length > 0) {
     await Promise.all(
-      problemIds.map((id) => assertProblemHasWorkspaceForLanguages(tx, id, allowedLanguages)),
+      resolved.map((problem) =>
+        assertProblemHasWorkspaceForLanguages(tx, problem.id, allowedLanguages),
+      ),
     );
   }
 
   await Promise.all(
     problems.map(async (entry, index) => {
-      const problem = problemById.get(entry.problemId);
-      if (!problem) return;
+      const problem = resolved[index];
+      if (!problem) throw new NotFoundError(`Problem not found: ${entry.problemId}`);
       const points =
         scoringMode === "weighted_count"
           ? entry.points
@@ -211,6 +208,7 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
 
     await resolveAndAttachContestProblems(
       tx,
+      actor,
       contest.id,
       payload.problems,
       payload.allowedLanguages,
@@ -320,6 +318,7 @@ export async function updateContestRecord(
       const enforcedLanguages = payload.allowedLanguages ?? contest.allowedLanguages;
       await resolveAndAttachContestProblems(
         tx,
+        actor,
         contest.id,
         payload.problems,
         enforcedLanguages,

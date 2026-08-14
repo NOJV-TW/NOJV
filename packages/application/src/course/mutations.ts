@@ -6,7 +6,6 @@ import {
   examProblemRepo,
   examRepo,
   Prisma,
-  problemRepo,
   runTransaction,
   type TransactionClient,
 } from "@nojv/db";
@@ -28,10 +27,8 @@ import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissio
 import { requireCourse } from "../shared/require";
 import { ensureUser } from "../user/mutations";
 import * as notificationDomain from "../notification";
-import {
-  assertCourseProblemAccess,
-  assertProblemHasWorkspaceForLanguages,
-} from "../problem/permissions";
+import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
+import { resolveActivityProblems } from "../problem/fork";
 import { getProblemTotalScore } from "../problem/total-score";
 import { assignmentDueSoonInput } from "../shared/lifecycle-input";
 import { getDomainOrchestration } from "../shared/orchestration";
@@ -151,10 +148,11 @@ export async function createCourseAssignmentRecord(
 
     const assignmentId = generateAssignmentId(payload.title);
 
-    if (payload.allowedLanguages.length > 0 && payload.problemIds.length > 0) {
+    const problems = await resolveActivityProblems(tx, actor, payload.problemIds);
+    if (payload.allowedLanguages.length > 0 && problems.length > 0) {
       await Promise.all(
-        payload.problemIds.map((id) =>
-          assertProblemHasWorkspaceForLanguages(tx, id, payload.allowedLanguages),
+        problems.map((problem) =>
+          assertProblemHasWorkspaceForLanguages(tx, problem.id, payload.allowedLanguages),
         ),
       );
     }
@@ -181,25 +179,9 @@ export async function createCourseAssignmentRecord(
       ...(adjustmentRules.length > 0 ? { adjustmentRules: adjustmentRules } : {}),
     });
 
-    const problemIds = payload.problemIds;
-    if (problemIds.length > 0) {
-      const problems = await problemRepo.withTx(tx).findMany({
-        id: { in: problemIds },
-      });
-      const problemById = new Map(problems.map((p) => [p.id, p]));
-
-      for (const id of problemIds) {
-        const problem = problemById.get(id);
-        if (!problem) {
-          throw new NotFoundError(`Problem not found: ${id}`);
-        }
-        assertCourseProblemAccess(problem, actor);
-      }
-
+    if (problems.length > 0) {
       await Promise.all(
-        problemIds.map(async (id, index) => {
-          const problem = problemById.get(id);
-          if (!problem) throw new NotFoundError(`Problem not found: ${id}`);
+        problems.map(async (problem, index) => {
           await assessmentProblemRepo.withTx(tx).create({
             assessmentId: assignment.id,
             ordinal: index + 1,
@@ -331,12 +313,19 @@ export async function copyCourse(
         ...(a.adjustmentRules != null ? { adjustmentRules: a.adjustmentRules } : {}),
       });
 
-      for (const p of a.problems) {
+      const assignmentProblems = await resolveActivityProblems(
+        tx,
+        actor,
+        a.problems.map((problem) => problem.problemId),
+      );
+      for (const [index, p] of a.problems.entries()) {
+        const problem = assignmentProblems[index];
+        if (!problem) throw new NotFoundError(`Problem not found: ${p.problemId}`);
         await assessmentProblemRepo.withTx(tx).create({
           assessmentId: created.id,
           ordinal: p.ordinal,
           points: p.points,
-          problemId: p.problemId,
+          problemId: problem.id,
         });
       }
     }
@@ -363,12 +352,19 @@ export async function copyCourse(
         title: e.title,
       });
 
-      for (const p of e.problems) {
+      const examProblems = await resolveActivityProblems(
+        tx,
+        actor,
+        e.problems.map((problem) => problem.problemId),
+      );
+      for (const [index, p] of e.problems.entries()) {
+        const problem = examProblems[index];
+        if (!problem) throw new NotFoundError(`Problem not found: ${p.problemId}`);
         await examProblemRepo.withTx(tx).create({
           examId: created.id,
           ordinal: p.ordinal,
           points: p.points,
-          problemId: p.problemId,
+          problemId: problem.id,
         });
       }
     }

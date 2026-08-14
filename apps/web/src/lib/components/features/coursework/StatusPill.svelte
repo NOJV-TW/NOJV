@@ -22,6 +22,11 @@
     "background: color-mix(in oklab, var(--info) 15%, transparent); color: var(--info); border-color: color-mix(in oklab, var(--info) 32%, transparent);";
 
   const ASSIGNMENT: Record<string, Def> = {
+    draft: {
+      label: () => m.statusPill_exam_draft(),
+      cls: "bg-muted text-muted-foreground",
+      style: NEUTRAL_STYLE,
+    },
     not_started: {
       label: () => m.statusPill_assignment_notStarted(),
       cls: "",
@@ -66,6 +71,11 @@
   };
 
   const CONTEST: Record<string, Def> = {
+    draft: {
+      label: () => m.statusPill_exam_draft(),
+      cls: "bg-muted text-muted-foreground",
+      style: NEUTRAL_STYLE,
+    },
     upcoming: {
       label: () => m.statusPill_contest_upcoming(),
       cls: "",

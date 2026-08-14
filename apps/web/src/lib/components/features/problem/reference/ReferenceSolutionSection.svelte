@@ -8,7 +8,7 @@
     workspaceDraftKey,
     type WorkspaceFile,
   } from "$lib/components/features/problem/editors/editor-bindings";
-  import { executeSubmission, SubmissionRequestError } from "$lib/services/submission-service";
+  import { executeSubmission } from "$lib/services/submission-service";
   import { toasts } from "$lib/stores/toast";
 
   interface SourceFile {
@@ -101,9 +101,11 @@
   }
 
   async function submitReference() {
+    if (isSubmitting) return;
     ensureDrafts();
     isSubmitting = true;
     status = "validating";
+    let accepted = false;
     try {
       const request = buildSubmissionRequest({
         context: { type: "practice" },
@@ -121,16 +123,20 @@
         status = "failed";
         return;
       }
-      status = result.accepted ? "verified" : "failed";
-      if (result.accepted) await invalidateAll();
-      else toasts.error(result.feedback);
+      accepted = result.accepted;
+      status = accepted ? "verified" : "failed";
+      if (!accepted) toasts.error(result.feedback);
     } catch (error) {
       status = "failed";
-      toasts.error(
-        error instanceof SubmissionRequestError ? error.message : m.error_unexpected(),
-      );
+      toasts.error(error instanceof Error ? error.message : m.error_unexpected());
     } finally {
       isSubmitting = false;
+    }
+    if (!accepted) return;
+    try {
+      await invalidateAll();
+    } catch {
+      toasts.error(m.admin_referenceRefreshFailed());
     }
   }
 

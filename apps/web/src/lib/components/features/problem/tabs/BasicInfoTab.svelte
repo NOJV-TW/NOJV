@@ -9,6 +9,7 @@
   import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
   import ImageDropZone from "$lib/components/primitives/ui/ImageDropZone.svelte";
   import SamplesEditor from "$lib/components/features/problem/statement/SamplesEditor.svelte";
+  import ToggleSwitch from "$lib/components/primitives/ui/ToggleSwitch.svelte";
 
   const textareaClassName = `${inputClassName} min-h-28 resize-y`;
 
@@ -17,6 +18,7 @@
     problemId: string;
     showRuntimeLimits?: boolean;
     studentPrivateOnly?: boolean;
+    isOwner?: boolean;
     ondirtychange?: (dirty: boolean) => void;
   }
 
@@ -25,6 +27,7 @@
     problemId,
     showRuntimeLimits = false,
     studentPrivateOnly = false,
+    isOwner = false,
     ondirtychange,
   }: Props = $props();
 
@@ -196,6 +199,27 @@
             >
           </Select.Content>
         </Select.Root>
+        {#if isOwner && $form.visibility === "private"}
+          <div
+            class="mt-2 flex items-start justify-between gap-4 rounded-xl border border-border-subtle p-3"
+          >
+            <div class="min-w-0">
+              <p class="text-body-sm font-semibold">{m.admin_visibilityStudentAllowAdmin()}</p>
+              <p
+                id="admin-publication-permission-hint"
+                class="mt-0.5 text-caption text-muted-foreground"
+              >
+                {m.admin_visibilityStudentAllowAdminHint()}
+              </p>
+            </div>
+            <ToggleSwitch
+              id="admin-publication-permission"
+              label={m.admin_visibilityStudentAllowAdmin()}
+              descriptionId="admin-publication-permission-hint"
+              bind:checked={$form.adminMayPublish}
+            />
+          </div>
+        {/if}
       {/if}
       {#if attempted && $errors.visibility}<span class="text-body-sm text-destructive"
           >{tr($errors.visibility)}</span

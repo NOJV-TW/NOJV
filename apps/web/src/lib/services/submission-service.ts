@@ -129,8 +129,12 @@ async function pollOnce(
   }
 
   if (!poll.ok) {
-    const parsed = apiErrorSchema.safeParse(await poll.json());
-    throw new Error(parsed.success ? parsed.data.message : "Polling failed.");
+    const parsed = apiErrorSchema.safeParse(await poll.json().catch(() => null));
+    throw new SubmissionRequestError(
+      parsed.success ? parsed.data.message : "Polling failed.",
+      null,
+      null,
+    );
   }
 
   return submissionOperationSchema.parse(await poll.json());

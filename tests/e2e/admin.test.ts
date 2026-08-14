@@ -91,6 +91,19 @@ test.describe("Admin panel — gating + pages", () => {
     await context.close();
   });
 
+  test("admin can browse platform-wide course and activity lists", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: adminAuth });
+    const page = await context.newPage();
+
+    for (const section of ["courses", "assignments", "exams", "contests"]) {
+      await page.goto(`/admin/${section}`);
+      await expect(page.getByRole("main")).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    }
+
+    await context.close();
+  });
+
   test("regular admin is sent to 2FA setup before switching identities", async ({ page }) => {
     await signInWithPassword(page, regularAdmin.email);
     await page.goto("/dashboard");

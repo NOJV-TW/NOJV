@@ -48,6 +48,7 @@ import {
   assertProblemOwnership,
   type ProblemActorContext,
 } from "./permissions";
+import { forkProblemInTransaction } from "./fork";
 
 export interface CreateProblemDefinitionInput {
   authorId?: string | undefined;
@@ -156,10 +157,11 @@ export async function createProblemRecord(actor: ProblemActorContext, payload: P
   }
   return runTransaction(async (tx) => {
     const author = await ensureUser(tx, actor.userId, actor);
+    const visibility = actor.platformRole === "student" ? "private" : payload.visibility;
 
     const problem = await createProblemDefinition(tx, {
       advancedConfig: payload.advancedConfig,
-      adminMayPublish: payload.adminMayPublish,
+      adminMayPublish: visibility === "private" ? payload.adminMayPublish : false,
       authorId: author.id,
       difficulty: payload.difficulty,
       inputFormat: payload.inputFormat,
@@ -172,7 +174,7 @@ export async function createProblemRecord(actor: ProblemActorContext, payload: P
       timeLimitMs: payload.timeLimitMs,
       title: payload.title,
       type: payload.type,
-      visibility: actor.platformRole === "student" ? "private" : payload.visibility,
+      visibility,
     });
 
     return problem;
@@ -190,7 +192,8 @@ function buildProblemUpdateData(payload: ProblemUpdate): Record<string, unknown>
   if (payload.type !== undefined) updateData.type = payload.type;
   if (payload.samples !== undefined) updateData.samples = payload.samples;
   if (payload.advancedConfig !== undefined) updateData.advancedConfig = payload.advancedConfig;
-  if (payload.adminMayPublish !== undefined)
+  if (payload.visibility === "public") updateData.adminMayPublish = false;
+  else if (payload.adminMayPublish !== undefined)
     updateData.adminMayPublish = payload.adminMayPublish;
   if (payload.difficulty !== undefined) updateData.difficulty = payload.difficulty;
   if (payload.tags !== undefined) updateData.tags = payload.tags;
@@ -246,7 +249,7 @@ export async function hasVerifiedAdvancedJudgeRun(
   });
 }
 
-async function assertProblemPublishable(
+export async function assertProblemPublishable(
   tx: TransactionClient,
   problem: {
     id: string;
@@ -359,6 +362,14 @@ export async function updateProblemRecord(
         "Only the problem author can change admin publication permission.",
       );
     }
+    if (
+      payload.adminMayPublish === true &&
+      (payload.visibility ?? problem.visibility) !== "private"
+    ) {
+      throw new ConflictError(
+        "Admin publication permission is only available for private problems.",
+      );
+    }
 
     if (
       problem.status === "published" &&
@@ -466,24 +477,38 @@ export async function publishProblemAsAdmin(actor: ProblemActorContext, problemI
   return runTransaction(async (tx) => {
     await problemRepo.withTx(tx).lockForUpdate(problemId);
     const problem = await requireProblem(tx, problemId);
-    if (problem.authorId !== actor.userId && !problem.adminMayPublish) {
+    if (problem.authorId === actor.userId) {
+      if (problem.status === "published") return { id: problem.id };
+      await assertProblemPublishable(tx, problem);
+      const updateData: Record<string, unknown> = {
+        adminMayPublish: false,
+        status: "published",
+        visibility: "public",
+      };
+      if (problem.displayId == null) {
+        await problemRepo.withTx(tx).acquireDisplayIdLock();
+        const agg = await problemRepo.withTx(tx).maxDisplayId();
+        updateData.displayId = (agg._max.displayId ?? 0) + 1;
+      }
+      await problemRepo.withTx(tx).update(problem.id, updateData);
+      return { id: problem.id };
+    }
+    if (!problem.adminMayPublish) {
       throw new ConflictError("The author has not allowed an admin to publish this problem.");
     }
-    if (problem.status === "published") return { id: problem.id };
+    if (problem.visibility !== "private") {
+      throw new ConflictError(
+        "Admin publication permission is only available for private problems.",
+      );
+    }
 
     await assertProblemPublishable(tx, problem);
-
-    const updateData: Record<string, unknown> = {
-      status: "published",
-      visibility: "public",
-    };
-    if (problem.displayId == null) {
-      await problemRepo.withTx(tx).acquireDisplayIdLock();
-      const agg = await problemRepo.withTx(tx).maxDisplayId();
-      updateData.displayId = (agg._max.displayId ?? 0) + 1;
-    }
-    await problemRepo.withTx(tx).update(problem.id, updateData);
-    return { id: problem.id };
+    const publishedFork = await forkProblemInTransaction(tx, problem.id, {
+      authorId: actor.userId,
+      published: true,
+    });
+    await problemRepo.withTx(tx).update(problem.id, { adminMayPublish: false });
+    return { id: publishedFork.id };
   });
 }
 

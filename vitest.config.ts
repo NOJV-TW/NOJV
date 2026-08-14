@@ -29,6 +29,7 @@ const sharedAliases = {
   "$env/dynamic/private": path.resolve(__dirname, "tests/setup/stubs/env-dynamic-private.ts"),
   "$env/dynamic/public": path.resolve(__dirname, "tests/setup/stubs/env-dynamic-public.ts"),
   "$app/environment": path.resolve(__dirname, "tests/setup/stubs/app-environment.ts"),
+  "$app/navigation": path.resolve(__dirname, "tests/setup/stubs/app-navigation.ts"),
 };
 
 const componentAliases = [
@@ -89,6 +90,7 @@ export default defineConfig({
             "tests/unit/web/plagiarism-pair-diff.test.ts",
             "tests/unit/web/plagiarism-pair-diff-load-error.test.ts",
             "tests/unit/web/toggle-switch.test.ts",
+            "tests/unit/web/reference-solution-section.test.ts",
           ],
           environment: "node",
         },
@@ -104,6 +106,7 @@ export default defineConfig({
             "tests/unit/web/plagiarism-pair-diff.test.ts",
             "tests/unit/web/plagiarism-pair-diff-load-error.test.ts",
             "tests/unit/web/toggle-switch.test.ts",
+            "tests/unit/web/reference-solution-section.test.ts",
           ],
           environment: "jsdom",
         },

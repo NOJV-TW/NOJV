@@ -251,8 +251,8 @@ describe("updateAssignmentRecord", () => {
   it("stores each problem's total (Σ subtask weight) as its max", async () => {
     assessmentFindById.mockResolvedValue(draftAssessment({ allowedLanguages: [] }));
     problemFindMany.mockResolvedValue([
-      { id: "prob_a", type: "full_source" },
-      { id: "prob_b", type: "full_source" },
+      { id: "prob_a", type: "full_source", authorId: teacherActor.userId },
+      { id: "prob_b", type: "full_source", authorId: teacherActor.userId },
     ]);
     testcaseSetFindByProblemId.mockImplementation(async (problemId: string) => {
       if (problemId === "prob_a") return [{ weight: 40 }, { weight: 80 }];

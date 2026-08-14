@@ -2,7 +2,6 @@ import {
   courseRepo,
   examProblemRepo,
   examRepo,
-  problemRepo,
   runTransaction,
   type Prisma,
   type TransactionClient,
@@ -14,6 +13,7 @@ import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors
 import { isCourseStaffTx } from "../shared/permissions";
 import { requireCourse, requireUser } from "../shared/require";
 import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
+import { resolveActivityProblems } from "../problem/fork";
 import { getProblemTotalScore } from "../problem/total-score";
 import { stripUndefined } from "../shared/strip-undefined";
 import { getDomainOrchestration } from "../shared/orchestration";
@@ -26,31 +26,23 @@ export type { ActorContext };
 
 async function resolveAndAttachExamProblems(
   tx: TransactionClient,
+  actor: ActorContext,
   examId: string,
   problemIds: string[],
   allowedLanguages: Language[],
 ) {
-  const problems = await problemRepo.withTx(tx).findMany({
-    id: { in: problemIds },
-  });
-  const problemById = new Map(problems.map((p) => [p.id, p]));
-
-  for (const id of problemIds) {
-    if (!problemById.has(id)) {
-      throw new NotFoundError(`Problem not found: ${id}`);
-    }
-  }
+  const problems = await resolveActivityProblems(tx, actor, problemIds);
 
   if (allowedLanguages.length > 0) {
     await Promise.all(
-      problemIds.map((id) => assertProblemHasWorkspaceForLanguages(tx, id, allowedLanguages)),
+      problems.map((problem) =>
+        assertProblemHasWorkspaceForLanguages(tx, problem.id, allowedLanguages),
+      ),
     );
   }
 
   await Promise.all(
-    problemIds.map(async (id, index) => {
-      const problem = problemById.get(id);
-      if (!problem) return;
+    problems.map(async (problem, index) => {
       await examProblemRepo.withTx(tx).create({
         examId,
         ordinal: index + 1,
@@ -115,6 +107,7 @@ export async function createExamRecord(actor: ActorContext, payload: ExamCreate)
     if (payload.problemIds.length > 0) {
       await resolveAndAttachExamProblems(
         tx,
+        actor,
         created.id,
         payload.problemIds,
         payload.allowedLanguages,
@@ -188,7 +181,13 @@ export async function updateExamRecord(
     if (payload.problemIds !== undefined) {
       await examProblemRepo.withTx(tx).deleteByExamId(exam.id);
       const enforcedLanguages = payload.allowedLanguages ?? exam.allowedLanguages;
-      await resolveAndAttachExamProblems(tx, exam.id, payload.problemIds, enforcedLanguages);
+      await resolveAndAttachExamProblems(
+        tx,
+        actor,
+        exam.id,
+        payload.problemIds,
+        enforcedLanguages,
+      );
     }
 
     return {
