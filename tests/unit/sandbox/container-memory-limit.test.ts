@@ -6,7 +6,7 @@ import { resolveContainerMemoryMb } from "@nojv/core";
 import { resolveDockerMemoryMb } from "../../../apps/worker/src/services/docker-executor";
 import { resolveK8sMemoryLimit } from "../../../apps/worker/src/services/k8s-executor";
 
-const OPTS = { defaultMemoryMb: 256, headroomMb: 64, maxMemoryMb: 2048 };
+const OPTS = { defaultMemoryMb: 256, headroomMb: 64, maxMemoryMb: 1088 };
 
 function requestWithMemory(memoryMb: number | undefined): SandboxRequest {
   return {
@@ -27,7 +27,10 @@ function requestWithMemory(memoryMb: number | undefined): SandboxRequest {
 describe("resolveContainerMemoryMb", () => {
   it("derives the container hard limit from the per-problem limit plus headroom", () => {
     expect(resolveContainerMemoryMb(512, OPTS)).toBe(512 + 64);
-    expect(resolveContainerMemoryMb(1024, OPTS)).toBe(1024 + 64);
+  });
+
+  it("fits the largest authoring limit inside the sandbox ceiling", () => {
+    expect(resolveContainerMemoryMb(1024, OPTS)).toBe(1088);
   });
 
   it("falls back to the cluster default (plus headroom) when no per-problem limit is set", () => {
@@ -51,7 +54,7 @@ describe("docker executor derives the cgroup limit from the per-problem allowanc
     memoryMb: 256,
     pidsLimit: 64,
     headroomMb: 64,
-    maxMemoryMb: 2048,
+    maxMemoryMb: 1088,
   };
 
   it("a 512MB problem (cluster default 256) gets a cgroup limit of at least 512MB", () => {
@@ -75,7 +78,7 @@ describe("k8s executor derives the pod memory limit from the per-problem allowan
     memoryRequest: "256Mi",
     memoryLimit: "256Mi",
     headroomMb: 64,
-    maxMemoryMb: 2048,
+    maxMemoryMb: 1088,
   };
 
   function asMi(limit: string): number {

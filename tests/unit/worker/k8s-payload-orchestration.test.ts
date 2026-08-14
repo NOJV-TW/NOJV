@@ -1,7 +1,10 @@
 import type { SandboxRequest } from "@nojv/core";
 import { describe, expect, it, vi } from "vitest";
 
-import { K8sExecutor } from "../../../apps/worker/src/services/k8s-executor";
+import {
+  K8sExecutor,
+  SandboxAdmissionError,
+} from "../../../apps/worker/src/services/k8s-executor";
 
 const EXEC_CONFIG = {
   namespace: "nojv-sandbox",
@@ -34,7 +37,12 @@ function request(input: string, testcaseCount = 1): SandboxRequest {
   };
 }
 
-function clients(options: { failConfigMapAttempt?: number } = {}) {
+function clients(
+  options: {
+    failConfigMapAttempt?: number;
+    blockedEvent?: { type: string; reason: string; message: string };
+  } = {},
+) {
   const configMapsCreated: string[] = [];
   const configMapsDeleted: string[] = [];
   const jobsCreated: any[] = [];
@@ -53,6 +61,9 @@ function clients(options: { failConfigMapAttempt?: number } = {}) {
     listNamespacedPod: vi.fn(async ({ labelSelector }: any) => ({
       items: [{ metadata: { name: `${String(labelSelector).split("=")[1]}-pod` } }],
     })),
+    listNamespacedEvent: vi.fn(async () => ({
+      items: options.blockedEvent ? [options.blockedEvent] : [],
+    })),
     readNamespacedPodLog: vi.fn(async ({ container }: any) =>
       container === "prepare"
         ? JSON.stringify({ runCommand: ["python3", "main.py"] })
@@ -66,7 +77,9 @@ function clients(options: { failConfigMapAttempt?: number } = {}) {
     createNamespacedJob: vi.fn(async ({ body }: any) => {
       jobsCreated.push(body);
     }),
-    readNamespacedJob: vi.fn(async () => ({ status: { succeeded: 1 } })),
+    readNamespacedJob: vi.fn(async () => ({
+      status: options.blockedEvent ? {} : { succeeded: 1 },
+    })),
     deleteNamespacedJob: vi.fn(async () => undefined),
   } as any;
   const watch = {
@@ -129,6 +142,28 @@ describe("K8sExecutor sharded payload orchestration", () => {
       [...fake.record.configMapsCreated].sort(),
     );
     expect(fake.record.jobsCreated).toHaveLength(0);
+  });
+
+  it("fails a deterministic FailedCreate admission event without waiting for the Job deadline", async () => {
+    const fake = clients({
+      blockedEvent: {
+        type: "Warning",
+        reason: "FailedCreate",
+        message: "forbidden: maximum memory usage per Container is 1Gi, but limit is 1088Mi",
+      },
+    });
+    const executor = new K8sExecutor(EXEC_CONFIG, fake.handles);
+    const startedAt = Date.now();
+
+    await expect(
+      executor.execute(request("small"), {
+        runId: "admission",
+        signal: new AbortController().signal,
+      }),
+    ).rejects.toBeInstanceOf(SandboxAdmissionError);
+
+    expect(Date.now() - startedAt).toBeLessThan(3_000);
+    expect(fake.record.jobsCreated).toHaveLength(1);
   });
 
   it("creates one 20-case Job per wave and compiles once per wave", async () => {

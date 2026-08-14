@@ -8,7 +8,7 @@ import { resolveScoringDispatch } from "./submission-judge-helpers";
 
 const judge = proxyActivities<typeof judgeActivities>({
   startToCloseTimeout: "5m",
-  retry: { maximumAttempts: 3 },
+  retry: { maximumAttempts: 3, nonRetryableErrorTypes: ["SandboxAdmissionError"] },
 });
 
 const judgeSandbox = proxyActivities<typeof judgeActivities>({
