@@ -336,7 +336,7 @@ sandbox:
       memory: 256Mi
     max:
       cpu: "2"
-      memory: 1Gi
+      memory: 2Gi
     min:
       cpu: "100m"
       memory: 64Mi
