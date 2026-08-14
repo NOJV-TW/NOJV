@@ -1,12 +1,12 @@
-name: Nightly Sandbox Isolation
+name: Scheduled Sandbox Isolation
 
-# Builds the sandbox image (never built in PR CI) and runs the container
-# under the exact hardening flags the worker's docker executor uses, so an
+# Builds the sandbox image and runs the container under the exact hardening
+# flags the worker's docker executor uses, so an
 # isolation regression (seccomp/cap-drop/read-only/network/pids drift) is
-# caught out-of-band. Scheduled + manual only — does NOT gate pull requests.
+# caught out-of-band. Weekly + manual only — does NOT gate pull requests or update toolchain pins.
 on:
   schedule:
-    - cron: "0 17 * * *"
+    - cron: "0 17 * * 0"
   workflow_dispatch:
 
 permissions:

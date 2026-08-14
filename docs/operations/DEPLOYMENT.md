@@ -513,6 +513,13 @@ To upgrade the toolchain, update the base image digest and
 the pinned-version table and manifest to contain the exact same platform,
 runtime, and APK pin set.
 
+The standard judge toolchain is a release artifact, not a rolling dependency.
+Do not update it from scheduled CI: upgrade the full pin set only for a
+security fix, compatibility requirement, or planned toolchain review. Validate
+the rebuilt image and representative Docker/Kubernetes judge suites before
+publishing its new immutable image digest. Existing published images remain on
+their current toolchain until that digest is explicitly promoted.
+
 ### Cloudflare + Cloud Armor Setup
 
 Production depends on Cloudflare being the **only** ingress path so `getClientIp(event)` can trust `CF-Connecting-IP`. See [SECURITY.md — Client IP Trust Model](SECURITY.md#client-ip-trust-model-cloudflare-only) for the rationale.
