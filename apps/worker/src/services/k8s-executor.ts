@@ -238,6 +238,20 @@ function failureMessage(reason: unknown): string {
   }
 }
 
+export function findFailedCreateEventReason(events: readonly k8s.CoreV1Event[]): string | null {
+  const event = events.find(
+    (candidate) => candidate.type === "Warning" && candidate.reason === "FailedCreate",
+  );
+  if (!event) return null;
+  return `${event.reason ?? "FailedCreate"}: ${event.message ?? "Kubernetes rejected pod creation."}`;
+}
+
+function isDeterministicAdmissionFailure(reason: string): boolean {
+  return /forbidden|limit range|maximum .*memory|must be less|invalid.*(?:memory|cpu)/i.test(
+    reason,
+  );
+}
+
 function throwCleanupFailures(label: string, results: PromiseSettledResult<unknown>[]): void {
   const failures = results
     .filter((result): result is PromiseRejectedResult => result.status === "rejected")
@@ -309,6 +323,13 @@ export class SandboxBackpressureError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "SandboxBackpressureError";
+  }
+}
+
+export class SandboxAdmissionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SandboxAdmissionError";
   }
 }
 
@@ -1016,6 +1037,7 @@ export class K8sExecutor implements SandboxExecutor {
         throw reason;
       }
       if (
+        err instanceof SandboxAdmissionError ||
         err instanceof SandboxBackpressureError ||
         err instanceof SandboxImagePullError ||
         err instanceof SandboxInfrastructureError
@@ -1388,6 +1410,7 @@ export class K8sExecutor implements SandboxExecutor {
         throw reason;
       }
       if (
+        err instanceof SandboxAdmissionError ||
         err instanceof SandboxBackpressureError ||
         err instanceof SandboxImagePullError ||
         err instanceof SandboxInfrastructureError
@@ -1549,6 +1572,26 @@ export class K8sExecutor implements SandboxExecutor {
     return condition ? (condition.message ?? condition.reason ?? "FailedCreate") : null;
   }
 
+  private async jobEventBlockedReason(
+    jobName: string,
+    namespace: string,
+    signal: AbortSignal,
+  ): Promise<string | null> {
+    try {
+      signal.throwIfAborted();
+      const events = await this.coreApi.listNamespacedEvent({
+        namespace,
+        fieldSelector: `involvedObject.kind=Job,involvedObject.name=${jobName}`,
+        limit: 50,
+      });
+      signal.throwIfAborted();
+      return findFailedCreateEventReason(events.items);
+    } catch {
+      signal.throwIfAborted();
+      return null;
+    }
+  }
+
   private async waitForJobOutcome(
     jobName: string,
     namespace: string,
@@ -1571,6 +1614,15 @@ export class K8sExecutor implements SandboxExecutor {
         throw new SandboxInfrastructureError(
           `Sandbox Job ${jobName} status snapshot failed; retrying the sandbox run.`,
         );
+      }
+
+      if (!everStarted) {
+        const eventBlockedReason = await this.jobEventBlockedReason(jobName, namespace, signal);
+        if (eventBlockedReason && isDeterministicAdmissionFailure(eventBlockedReason)) {
+          throw new SandboxAdmissionError(
+            `Sandbox Job ${jobName} was rejected before pod creation: ${eventBlockedReason}`,
+          );
+        }
       }
 
       const current = this.evaluateJobSnapshot(
@@ -1649,6 +1701,11 @@ export class K8sExecutor implements SandboxExecutor {
     if (job.status?.failed) {
       const blockedReason = this.jobBlockedReason(job);
       if (blockedReason) {
+        if (isDeterministicAdmissionFailure(blockedReason)) {
+          throw new SandboxAdmissionError(
+            `Sandbox Job ${jobName} was rejected before pod creation: ${blockedReason}`,
+          );
+        }
         throw new SandboxBackpressureError(
           `Sandbox Job ${jobName} could not create pods (${blockedReason}); retrying with backoff.`,
         );
@@ -1695,6 +1752,11 @@ export class K8sExecutor implements SandboxExecutor {
     const nextEverStarted = everStarted || podState.everStarted;
     if (!nextEverStarted && Date.now() - startedAt > POD_SCHEDULE_GRACE_MS) {
       const blockedReason = this.jobBlockedReason(job);
+      if (blockedReason && isDeterministicAdmissionFailure(blockedReason)) {
+        throw new SandboxAdmissionError(
+          `Sandbox Job ${jobName} was rejected before pod creation: ${blockedReason}`,
+        );
+      }
       if (blockedReason || podState.unschedulableReason) {
         throw new SandboxBackpressureError(
           `Sandbox Job ${jobName} pod never scheduled (${blockedReason ?? podState.unschedulableReason ?? "quota/capacity"}); retrying with backoff.`,

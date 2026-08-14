@@ -505,7 +505,7 @@ pinned base image no longer matches the recorded Alpine or Node.js version.
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Base OS      | `Alpine Linux 3.24.1`                                                                                                                                                                               |
 | Node runtime | `Node.js 24.18.0`                                                                                                                                                                                   |
-| APK packages | `bash=5.3.9-r1`, `build-base=0.5-r4`, `cargo=1.96.1-r0`, `g++=15.2.0-r5`, `gcc=15.2.0-r5`, `go=1.26.3-r0`, `openjdk21-jdk=21.0.12_p8-r0`, `python3=3.14.5-r0`, `rust=1.96.1-r0`, `socat=1.8.1.3-r0` |
+| APK packages | `bash=5.3.9-r1`, `build-base=0.5-r4`, `cargo=1.96.1-r0`, `g++=15.2.0-r5`, `gcc=15.2.0-r5`, `go=1.26.3-r0`, `openjdk21-jdk=21.0.12_p8-r0`, `python3=3.14.7-r0`, `rust=1.96.1-r0`, `socat=1.8.1.3-r0` |
 
 To upgrade the toolchain, update the base image digest and
 `judge-environment.json`, refresh this table in the same change, then run
