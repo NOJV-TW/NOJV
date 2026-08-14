@@ -15,10 +15,10 @@ judge activity slots.
 
 ## Design
 
-- Set the sandbox container ceiling to 1088 Mi: the exact 1024 MB authoring
-  maximum plus the existing 64 MB measurement headroom. Keep the per-problem
-  limit at 1024 MB; do not increase authoring limits or node-wide capacity for
-  this bug.
+- Set the sandbox container ceiling to 1536 Mi as a platform safety margin.
+  Keep the per-problem limit at 1024 MB; its normal container limit remains
+  1088 Mi with the existing 64 MB measurement headroom. Do not increase
+  authoring limits or node-wide capacity for this bug.
 - Make the worker inspect Job warning Events when a Job has no started Pod.
   Detect `FailedCreate` admission errors, including LimitRange and forbidden
   resource messages, before the normal deadline.

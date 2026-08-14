@@ -6,7 +6,7 @@ import { resolveContainerMemoryMb } from "@nojv/core";
 import { resolveDockerMemoryMb } from "../../../apps/worker/src/services/docker-executor";
 import { resolveK8sMemoryLimit } from "../../../apps/worker/src/services/k8s-executor";
 
-const OPTS = { defaultMemoryMb: 256, headroomMb: 64, maxMemoryMb: 1088 };
+const OPTS = { defaultMemoryMb: 256, headroomMb: 64, maxMemoryMb: 1536 };
 
 function requestWithMemory(memoryMb: number | undefined): SandboxRequest {
   return {
@@ -54,7 +54,7 @@ describe("docker executor derives the cgroup limit from the per-problem allowanc
     memoryMb: 256,
     pidsLimit: 64,
     headroomMb: 64,
-    maxMemoryMb: 1088,
+    maxMemoryMb: 1536,
   };
 
   it("a 512MB problem (cluster default 256) gets a cgroup limit of at least 512MB", () => {
@@ -78,7 +78,7 @@ describe("k8s executor derives the pod memory limit from the per-problem allowan
     memoryRequest: "256Mi",
     memoryLimit: "256Mi",
     headroomMb: 64,
-    maxMemoryMb: 1088,
+    maxMemoryMb: 1536,
   };
 
   function asMi(limit: string): number {
