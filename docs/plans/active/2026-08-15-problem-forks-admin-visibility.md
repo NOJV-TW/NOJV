@@ -26,6 +26,15 @@
 - Focused unit and integration tests for error-state separation, duplicate submission prevention, URL generation, copy boundaries, authorization, rollback, activity resolution, and Admin visibility.
 - `pnpm lint`, `pnpm format`, relevant type checks, integration and E2E coverage, then `pnpm ci:verify`.
 
+## E2E Remediation
+
+1. Replace the API-token test's hard-coded Redis container with the repository's existing `docker compose exec` pattern, then rerun `api-token-step-up.test.ts`.
+2. Give the problem-lifecycle publication fixture an Accepted reference submission for the problem's current storage generation, then rerun `problem-lifecycle.test.ts`.
+3. Remove the submission-lifecycle test's contradictory hidden-input mutation and select Public once through the visible control, then rerun `submission-lifecycle.test.ts`.
+4. Wait for the hydrated settings page before opening Passkey management, then rerun `passkey-enroll.test.ts` and `passkey-stepup.test.ts`.
+5. Drive Monaco through its rendered editor instead of the nonexistent `globalThis.monaco`, verify localStorage and rendered text across reload, then rerun `workspace-multifile.test.ts`.
+6. Run the five failed files, the Admin/Fork focused files, the complete E2E suite, and `pnpm ci:verify`.
+
 ## Risks
 
 - Storage-reference accounting and Accepted reference-snapshot ownership must stay consistent when a transaction rolls back.

@@ -212,6 +212,28 @@ describe("problem forks", () => {
     ).rejects.toThrow("Only published public problems");
   });
 
+  it("rechecks source visibility from the row-locked snapshot", async () => {
+    const source = await createTestProblem();
+    const teacher = await createTestUser({ platformRole: "teacher" });
+    await testPrisma.problem.update({
+      where: { id: source.id },
+      data: { status: "draft", visibility: "private" },
+    });
+
+    await expect(
+      runTransaction((tx) =>
+        problemDomain.forkProblemInTransaction(tx, source.id, {
+          authorId: teacher.id,
+          published: false,
+          requirePublishedPublicSource: true,
+        }),
+      ),
+    ).rejects.toThrow("Only published public problems");
+    expect(await testPrisma.problem.count({ where: { forkedFromProblemId: source.id } })).toBe(
+      0,
+    );
+  });
+
   it("uses owned problems directly, forks public foreign problems, and rolls back failures", async () => {
     const actor = await createTestUser({ platformRole: "teacher" });
     const own = await createTestProblem({

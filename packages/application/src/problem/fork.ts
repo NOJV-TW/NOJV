@@ -15,6 +15,7 @@ import type { ProblemActorContext } from "./permissions";
 export interface ForkOptions {
   authorId: string;
   published: boolean;
+  requirePublishedPublicSource: boolean;
 }
 
 function nullableJson(
@@ -48,6 +49,12 @@ export async function forkProblemInTransaction(
     },
   });
   if (!source) throw new NotFoundError(`Problem not found: ${sourceProblemId}`);
+  if (
+    options.requirePublishedPublicSource &&
+    (source.visibility !== "public" || source.status !== "published")
+  ) {
+    throw new ForbiddenError("Only published public problems can be forked.");
+  }
 
   let displayId: number | null = null;
   if (options.published) {
@@ -193,6 +200,7 @@ export async function forkProblemRecord(actor: ProblemActorContext, sourceProble
     return forkProblemInTransaction(tx, source.id, {
       authorId: actor.userId,
       published: false,
+      requirePublishedPublicSource: true,
     });
   });
 }
@@ -221,6 +229,7 @@ export async function resolveActivityProblems(
       await forkProblemInTransaction(tx, problem.id, {
         authorId: actor.userId,
         published: false,
+        requirePublishedPublicSource: true,
       }),
     );
   }

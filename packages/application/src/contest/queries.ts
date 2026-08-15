@@ -189,7 +189,7 @@ export async function getContestDetail(
   options: ContestDetailOptions,
 ): Promise<ContestDetail> {
   const contest = await contestRepo.findDetailById(contestId);
-  if (contest?.visibility !== "published") {
+  if (!contest) {
     throw new NotFoundError(`Contest not found: ${contestId}`);
   }
 
@@ -199,6 +199,9 @@ export async function getContestDetail(
     contest,
     options.now,
   );
+  if (contest.visibility !== "published" && !isManager) {
+    throw new NotFoundError(`Contest not found: ${contestId}`);
+  }
 
   const hasParticipation =
     contest.inviteCode != null && !isManager && options.userId != null

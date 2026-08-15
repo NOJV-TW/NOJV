@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-import { DisposableCredentialUser, signInWithPassword } from "./_disposable-user";
+import { DisposableCredentialUser, psql, signInWithPassword } from "./_disposable-user";
 import { adminAuth, studentAuth, teacherAuth } from "./_shared";
 
 const regularAdmin = new DisposableCredentialUser("regular-admin-mode");
@@ -102,6 +102,23 @@ test.describe("Admin panel — gating + pages", () => {
     }
 
     await context.close();
+  });
+
+  test("admin can open a draft contest from the platform-wide list", async ({ browser }) => {
+    const contestId = "spring-qualifier-2026";
+    psql(`UPDATE "Contest" SET visibility = 'draft' WHERE id = '${contestId}';`);
+    const context = await browser.newContext({ storageState: adminAuth });
+    const page = await context.newPage();
+
+    try {
+      await page.goto("/admin/contests");
+      await page.locator(`a[href="/contests/${contestId}"]`).click();
+      await expect(page).toHaveURL(`/contests/${contestId}`);
+      await expect(page.getByRole("heading", { name: "Spring Qualifier 2026" })).toBeVisible();
+    } finally {
+      await context.close();
+      psql(`UPDATE "Contest" SET visibility = 'published' WHERE id = '${contestId}';`);
+    }
   });
 
   test("regular admin is sent to 2FA setup before switching identities", async ({ page }) => {

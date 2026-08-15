@@ -35,29 +35,13 @@ test.describe("Problem workspace UI", () => {
     const page = await context.newPage();
     await page.goto(`/problems/${PROBLEM_ID}`);
     await expect(page.getByRole("main")).toBeVisible();
-    await expect
-      .poll(() =>
-        page.evaluate(() => {
-          // @ts-expect-error monaco is attached to window in the editor host
-          const monaco: typeof import("monaco-editor") | undefined = globalThis.monaco;
-          return (monaco?.editor.getEditors().length ?? 0) > 0;
-        }),
-      )
-      .toBe(true);
+    const editor = page.locator(".monaco-editor").first();
+    await expect(editor).toBeVisible({ timeout: 15_000 });
 
     const stamp = `// e2e draft ${Date.now()}\n`;
-    const typed = await page.evaluate((source) => {
-      // @ts-expect-error monaco is attached to window in the editor host
-      const monaco: typeof import("monaco-editor") | undefined = globalThis.monaco;
-      if (!monaco) return false;
-      const editors = monaco.editor.getEditors();
-      const target = editors[0];
-      if (!target) return false;
-      target.setValue(source + (target.getValue() ?? ""));
-      return true;
-    }, stamp);
-
-    expect(typed, "Monaco editor must be available for the draft persistence test").toBe(true);
+    await page.getByRole("textbox", { name: "Editor content" }).focus();
+    await page.keyboard.press("ControlOrMeta+Home");
+    await page.keyboard.insertText(stamp);
 
     await expect
       .poll(() =>
@@ -77,15 +61,10 @@ test.describe("Problem workspace UI", () => {
       .toBe(true);
     await page.reload();
     await expect(page.getByRole("main")).toBeVisible();
-    await expect
-      .poll(() =>
-        page.evaluate((expected) => {
-          // @ts-expect-error monaco shimmed onto window in the editor host
-          const monaco: typeof import("monaco-editor") | undefined = globalThis.monaco;
-          return monaco?.editor.getEditors()[0]?.getValue().includes(expected) ?? false;
-        }, stamp.trim()),
-      )
-      .toBe(true);
+    await expect(page.locator(".monaco-editor .view-lines").first()).toContainText(
+      stamp.trim(),
+      { timeout: 15_000 },
+    );
     await context.close();
   });
 });

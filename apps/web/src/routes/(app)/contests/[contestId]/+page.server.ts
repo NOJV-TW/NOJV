@@ -51,7 +51,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     now,
   });
 
-  const showLeaderboard = now >= new Date(contest.startsAt);
+  const showLeaderboard =
+    contest.visibility === "published" && now >= new Date(contest.startsAt);
   const canSeeLive = await contestDomain.canViewLiveContestScoreboard(
     contest.id,
     user ? { userId: user.id, platformRole: actor?.platformRole ?? null } : null,

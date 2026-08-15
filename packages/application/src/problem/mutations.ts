@@ -506,6 +506,7 @@ export async function publishProblemAsAdmin(actor: ProblemActorContext, problemI
     const publishedFork = await forkProblemInTransaction(tx, problem.id, {
       authorId: actor.userId,
       published: true,
+      requirePublishedPublicSource: false,
     });
     await problemRepo.withTx(tx).update(problem.id, { adminMayPublish: false });
     return { id: publishedFork.id };

@@ -65,6 +65,7 @@ export async function activateTwoFactor(page: Page): Promise<void> {
   expect(result).toMatchObject({ type: "success", status: 200 });
 
   await page.goto("/settings");
+  await page.waitForTimeout(3000);
   await expect(page.getByRole("button", { name: "Turn off", exact: true })).toBeVisible();
 }
 

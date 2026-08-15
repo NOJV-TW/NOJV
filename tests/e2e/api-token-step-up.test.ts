@@ -9,7 +9,6 @@ import { activateTwoFactor, enrollTotp, nextTotp } from "./_two-factor";
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
 
 const SEED_PASSWORD = "password123";
-const REDIS = "nojv-redis-1";
 const TEMP_USER_ID = `api-token-stepup-${Date.now()}`;
 const TEMP_ACCOUNT_ID = `${TEMP_USER_ID}-account`;
 const TEMP_EMAIL = `${TEMP_USER_ID}@nojv.local`;
@@ -38,8 +37,10 @@ test.describe("API token step-up", () => {
     psql(`DELETE FROM "User" WHERE id = '${TEMP_USER_ID}';`);
     if (steppedUpSessionIds.size > 0) {
       execFileSync("docker", [
+        "compose",
         "exec",
-        REDIS,
+        "-T",
+        "redis",
         "redis-cli",
         "DEL",
         ...[...steppedUpSessionIds].map((id) => `nojv:apitoken:stepup:${id}`),

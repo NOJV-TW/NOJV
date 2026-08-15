@@ -133,12 +133,7 @@ export async function updateExamRecord(
     await examRepo.withTx(tx).lockForUpdate(examId);
     const exam = await requireExam(tx, examId);
 
-    if (exam.createdByUserId !== actor.userId) {
-      const allowed = await isCourseStaffTx(tx, actor.userId, exam.courseId);
-      if (!allowed) {
-        throw new ForbiddenError("You do not have permission to edit this exam.");
-      }
-    }
+    await assertExamManagePermission(tx, actor, exam);
 
     const updateData: Prisma.ExamUncheckedUpdateInput = stripUndefined({
       title: payload.title,
@@ -208,6 +203,7 @@ async function assertExamManagePermission(
   actor: ActorContext,
   exam: { createdByUserId: string | null; courseId: string },
 ) {
+  if (actor.platformRole === "admin") return;
   if (exam.createdByUserId === actor.userId) return;
   const allowed = await isCourseStaffTx(tx, actor.userId, exam.courseId);
   if (!allowed) {

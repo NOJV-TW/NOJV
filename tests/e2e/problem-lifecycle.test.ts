@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import path from "node:path";
 
+import { psql } from "./_disposable-user";
 import { apiWriteHeaders, formActionHeaders } from "./_shared";
 
 const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/teacher.json");
@@ -88,6 +89,19 @@ test.describe("Problem Lifecycle", () => {
     const testcaseBody = await testcaseRes.json();
     expect(testcaseBody.type).not.toBe("error");
     expect(testcaseBody.type).not.toBe("failure");
+
+    const referenceId = `reference-${problemId}`;
+    psql(`
+      INSERT INTO "Submission" (id, "userId", "problemId", "isReferenceSolution", "referenceProblemStorageGeneration", language, "sourceStorage", status, "updatedAt")
+      SELECT '${referenceId}', u.id, p.id, true, p."storageGeneration", 'c', source."sourceStorage", 'accepted', NOW()
+      FROM "Problem" p
+      JOIN "User" u ON u.email = 'teacher@nojv.local'
+      CROSS JOIN LATERAL (
+        SELECT "sourceStorage" FROM "Submission" WHERE "sourceStorage" IS NOT NULL LIMIT 1
+      ) source
+      WHERE p.id = '${problemId}';
+      UPDATE "Problem" SET "referenceSolutionSubmissionId" = '${referenceId}' WHERE id = '${problemId}';
+    `);
 
     const res = await page.request.post(`/problems/${problemId}/edit?/publish`, {
       form: {},
