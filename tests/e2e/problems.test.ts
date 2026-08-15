@@ -1,13 +1,23 @@
 import { test, expect } from "@playwright/test";
+import { PrismaPg } from "@prisma/adapter-pg";
 import path from "node:path";
 
-import { DisposableCredentialUser, psql, signInWithPassword } from "./_disposable-user";
 import { adminAuth, apiWriteHeaders, formActionHeaders } from "./_shared";
+import { PrismaClient } from "../../packages/db/generated/prisma/client";
+import { resolveDestructiveTestDatabase } from "../setup/destructive-test-database";
+
+const testPrisma = new PrismaClient({
+  adapter: new PrismaPg({
+    connectionString: resolveDestructiveTestDatabase("nojv_e2e_test"),
+  }),
+});
 
 const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/teacher.json");
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
 
 test.describe("Problems", () => {
+  test.afterAll(async () => testPrisma.$disconnect());
+
   test("can browse problem list as authenticated user", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
@@ -90,14 +100,15 @@ test.describe("Problems", () => {
   });
 
   test("student can finish and publish an owned private problem", async ({ browser }) => {
-    const user = new DisposableCredentialUser("private-problem-author");
-    user.create();
-    const context = await browser.newContext();
+    const user = await testPrisma.user.update({
+      where: { email: "student@nojv.local" },
+      data: { emailVerified: true },
+    });
+    const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
     let id = "";
 
     try {
-      await signInWithPassword(page, user.email);
       const response = await page.request.post("/api/problems", { headers: apiWriteHeaders });
       expect(response.ok()).toBe(true);
       ({ id } = await response.json());
@@ -126,17 +137,20 @@ test.describe("Problems", () => {
       expect((await testcaseResponse.json()).type).not.toBe("failure");
 
       const referenceId = `reference-${id}`;
-      psql(`
+      const inserted = await testPrisma.$executeRaw`
         INSERT INTO "Submission" (id, "userId", "problemId", "isReferenceSolution", "referenceProblemStorageGeneration", language, "sourceStorage", status, "updatedAt")
-        SELECT '${referenceId}', u.id, p.id, true, p."storageGeneration", 'c', source."sourceStorage", 'accepted', NOW()
+        SELECT ${referenceId}, ${user.id}, p.id, true, p."storageGeneration", 'c'::"SupportedLanguage", source."sourceStorage", 'accepted'::"SubmissionStatus", NOW()
         FROM "Problem" p
-        JOIN "User" u ON u.email = '${user.email}'
         CROSS JOIN LATERAL (
           SELECT "sourceStorage" FROM "Submission" WHERE "sourceStorage" IS NOT NULL LIMIT 1
         ) source
-        WHERE p.id = '${id}';
-        UPDATE "Problem" SET "referenceSolutionSubmissionId" = '${referenceId}' WHERE id = '${id}';
-      `);
+        WHERE p.id = ${id}
+      `;
+      expect(inserted).toBe(1);
+      await testPrisma.problem.update({
+        where: { id },
+        data: { referenceSolutionSubmissionId: referenceId },
+      });
 
       await page.reload();
       await expect(page.getByRole("button", { name: "Finish & Publish" })).toBeEnabled();
@@ -148,13 +162,22 @@ test.describe("Problems", () => {
       const publishBody = await publishResponse.json();
       expect(publishBody.type).not.toBe("error");
       expect(publishBody.type).not.toBe("failure");
-      expect(
-        psql(`SELECT status || '|' || visibility FROM "Problem" WHERE id = '${id}';`),
-      ).toBe("published|private");
+      await expect
+        .poll(async () => {
+          const problem = await testPrisma.problem.findUnique({
+            where: { id },
+            select: { status: true, visibility: true },
+          });
+          return `${problem?.status ?? "missing"}|${problem?.visibility ?? "missing"}`;
+        })
+        .toBe("published|private");
     } finally {
-      if (id) psql(`DELETE FROM "Problem" WHERE id = '${id}';`);
+      if (id) await testPrisma.problem.deleteMany({ where: { id } });
+      await testPrisma.user.update({
+        where: { id: user.id },
+        data: { emailVerified: false },
+      });
       await context.close();
-      user.cleanup();
     }
   });
 
