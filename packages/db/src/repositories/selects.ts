@@ -20,6 +20,18 @@ export const problemTeacherMiniSelect = {
   difficulty: true,
 } satisfies Prisma.ProblemSelect;
 
+export const problemPickerSelect = {
+  id: true,
+  displayId: true,
+  title: true,
+  difficulty: true,
+  tags: true,
+  type: true,
+  status: true,
+  visibility: true,
+  judgeConfig: true,
+} satisfies Prisma.ProblemSelect;
+
 export const courseMiniSelect = {
   id: true,
   title: true,

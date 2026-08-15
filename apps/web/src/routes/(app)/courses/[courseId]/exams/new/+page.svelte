@@ -13,7 +13,7 @@
   import PageHero from "$lib/components/primitives/layout/PageHero.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import IpWhitelistField from "$lib/components/features/course/exam/IpWhitelistField.svelte";
-  import ExamProblemPicker from "$lib/components/features/course/exam/ExamProblemPicker.svelte";
+  import ProblemPicker from "$lib/components/features/course/exam/ProblemPicker.svelte";
   import { inputClassName } from "$lib/utils/css";
   import { toggleArrayItem } from "$lib/utils";
   import { m } from "$lib/paraglide/messages.js";
@@ -135,7 +135,7 @@
         </div>
       </header>
 
-      <ExamProblemPicker
+      <ProblemPicker
         candidateProblems={data.candidateProblems}
         bind:problemIds={$form.problemIds}
         error={$errors.problemIds}

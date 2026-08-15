@@ -3,9 +3,8 @@
 
   export type ProblemsTabDetail = examDomain.ExamDetailPage;
   export type ProblemsLiveStatus = "draft" | "upcoming" | "running" | "ended";
-  export type CandidateProblem = Awaited<
-    ReturnType<typeof problemDomain.listEditableProblems>
-  >[number];
+  export type CandidateProblem = problemDomain.ProblemPickerCandidate;
+  export type CandidateProblemGroups = problemDomain.ProblemPickerGroups;
 </script>
 
 <script lang="ts">
@@ -20,6 +19,7 @@
   import RejudgeDialog from "$lib/components/features/problem/admin/RejudgeDialog.svelte";
   import { Button } from "$lib/components/primitives/ui/button";
   import { cn } from "$lib/utils/css";
+  import { matchesProblemPickerSearch } from "$lib/utils/problem-picker";
   import { m } from "$lib/paraglide/messages.js";
   import type { ActionData } from "../../../../../routes/(app)/exams/[examId]/$types";
 
@@ -28,7 +28,7 @@
     liveStatus?: ProblemsLiveStatus;
     canEdit: boolean;
     canRejudge?: boolean;
-    candidateProblems?: CandidateProblem[];
+    candidateProblems?: CandidateProblemGroups;
     form?: ActionData;
     class?: string;
   }
@@ -37,7 +37,7 @@
     detail,
     canEdit,
     canRejudge = false,
-    candidateProblems = [],
+    candidateProblems = { personalProblems: [], publicProblems: [] },
     form,
     class: className,
   }: Props = $props();
@@ -52,19 +52,28 @@
 
   const byId = $derived(new Map(detail.problems.map((p) => [p.id, p])));
 
-  const filteredCandidates = $derived.by(() => {
+  const filteredCandidateSections = $derived.by(() => {
     const selected = new Set(ids);
-    const q = attachSearch.trim().toLowerCase();
-    const pool = candidateProblems.filter((c) => !selected.has(c.id));
-    if (!q) return pool.slice(0, 20);
-    return pool
-      .filter(
-        (c) =>
-          c.title.toLowerCase().includes(q) ||
-          c.id.toLowerCase().includes(q) ||
-          c.tags.some((t) => t.toLowerCase().includes(q)),
-      )
-      .slice(0, 20);
+    return [
+      {
+        key: "public",
+        label: m.problems_publicLibrary(),
+        problems: candidateProblems.publicProblems,
+      },
+      {
+        key: "personal",
+        label: m.problems_myProblems(),
+        problems: candidateProblems.personalProblems,
+      },
+    ]
+      .map((section) => ({
+        ...section,
+        problems: section.problems
+          .filter((candidate) => !selected.has(candidate.id))
+          .filter((candidate) => matchesProblemPickerSearch(candidate, attachSearch))
+          .slice(0, 20),
+      }))
+      .filter((section) => section.problems.length > 0);
   });
 
   function move(id: string, delta: -1 | 1) {
@@ -237,45 +246,61 @@
             bind:value={attachSearch}
           />
           <span class="text-caption text-muted-foreground">
-            {m.examCreate_problemSearchCount({ count: filteredCandidates.length })}
+            {m.examCreate_problemSearchCount({
+              count: filteredCandidateSections.reduce(
+                (total, section) => total + section.problems.length,
+                0,
+              ),
+            })}
           </span>
         </div>
         <div class="max-h-56 overflow-y-auto p-1.5">
-          {#each filteredCandidates as candidate (candidate.id)}
-            <form method="POST" action="?/updateProblems" use:enhance>
-              {#each ids as id (id)}
-                <input type="hidden" name="problemIds" value={id} />
-              {/each}
-              <input type="hidden" name="problemIds" value={candidate.id} />
-              <button
-                type="submit"
-                class="flex w-full items-center gap-3.5 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-muted"
-              >
-                <span class="min-w-[96px] font-mono text-caption text-muted-foreground">
-                  {candidate.displayId == null
-                    ? m.common_problemDraft()
-                    : `#${candidate.displayId}`}
-                </span>
-                <span class="flex-1 text-body-sm font-medium">{candidate.title}</span>
-                <span
-                  class="text-micro font-semibold uppercase tracking-[0.08em] {difficultyClass(
-                    candidate.difficulty,
-                  )}"
-                >
-                  {candidate.difficulty}
-                </span>
-                <span
-                  class="flex size-6 items-center justify-center rounded-sm bg-muted text-muted-foreground"
-                >
-                  <Plus class="size-3.5" aria-hidden="true" />
-                </span>
-              </button>
-            </form>
-          {:else}
+          {#if filteredCandidateSections.length === 0}
             <p class="px-3 py-6 text-center text-body-sm text-muted-foreground">
               {m.examCreate_problemSearchEmpty()}
             </p>
-          {/each}
+          {:else}
+            {#each filteredCandidateSections as section (section.key)}
+              <section>
+                <h3
+                  class="px-3 pb-1 pt-2 text-caption font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+                >
+                  {section.label}
+                </h3>
+                {#each section.problems as candidate (candidate.id)}
+                  <form method="POST" action="?/updateProblems" use:enhance>
+                    {#each ids as id (id)}
+                      <input type="hidden" name="problemIds" value={id} />
+                    {/each}
+                    <input type="hidden" name="problemIds" value={candidate.id} />
+                    <button
+                      type="submit"
+                      class="flex w-full items-center gap-3.5 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-muted"
+                    >
+                      <span class="min-w-[96px] font-mono text-caption text-muted-foreground">
+                        {candidate.displayId == null
+                          ? m.common_problemDraft()
+                          : `#${candidate.displayId}`}
+                      </span>
+                      <span class="flex-1 text-body-sm font-medium">{candidate.title}</span>
+                      <span
+                        class="text-micro font-semibold uppercase tracking-[0.08em] {difficultyClass(
+                          candidate.difficulty,
+                        )}"
+                      >
+                        {candidate.difficulty}
+                      </span>
+                      <span
+                        class="flex size-6 items-center justify-center rounded-sm bg-muted text-muted-foreground"
+                      >
+                        <Plus class="size-3.5" aria-hidden="true" />
+                      </span>
+                    </button>
+                  </form>
+                {/each}
+              </section>
+            {/each}
+          {/if}
         </div>
       </div>
     </div>

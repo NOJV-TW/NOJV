@@ -420,22 +420,68 @@ async function computeStatusCounts(
 export async function listEditableProblems(userId: string, sort: "asc" | "desc" = "asc") {
   const problems = await problemRepo.listEditable(userId, sort);
 
-  return problems.map((problem) => {
-    const judgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
-      type: "standard" as const,
-    };
-    return {
-      difficulty: problem.difficulty,
-      displayId: problem.displayId,
-      id: problem.id,
-      judgeType: judgeConfig.type,
-      type: problem.type,
-      status: problem.status,
-      tags: problem.tags,
-      title: problem.title,
-      visibility: problem.visibility,
-    };
-  });
+  return problems.map(mapProblemPickerCandidate);
+}
+
+export interface ProblemPickerCandidate {
+  difficulty: ProblemDifficulty;
+  displayId: number | null;
+  id: string;
+  judgeType: JudgeType;
+  status: ProblemStatus;
+  tags: string[];
+  title: string;
+  type: ProblemType;
+  visibility: ProblemVisibility;
+}
+
+function mapProblemPickerCandidate(problem: {
+  difficulty: ProblemDifficulty;
+  displayId: number | null;
+  id: string;
+  judgeConfig: unknown;
+  status: ProblemStatus;
+  tags: string[];
+  title: string;
+  type: ProblemType;
+  visibility: ProblemVisibility;
+}): ProblemPickerCandidate {
+  const judgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
+    type: "standard" as const,
+  };
+  return {
+    difficulty: problem.difficulty,
+    displayId: problem.displayId,
+    id: problem.id,
+    judgeType: judgeConfig.type,
+    type: problem.type,
+    status: problem.status,
+    tags: problem.tags,
+    title: problem.title,
+    visibility: problem.visibility,
+  };
+}
+
+export interface ProblemPickerGroups {
+  personalProblems: ProblemPickerCandidate[];
+  publicProblems: ProblemPickerCandidate[];
+}
+
+export async function listProblemPickerGroups(
+  userId: string,
+  sort: "asc" | "desc" = "asc",
+): Promise<ProblemPickerGroups> {
+  const [publicProblems, editableProblems] = await Promise.all([
+    problemRepo.listPublicPicker(sort),
+    problemRepo.listEditable(userId, sort),
+  ]);
+
+  return {
+    personalProblems: editableProblems
+      .filter((problem) => problem.status === "published")
+      .map(mapProblemPickerCandidate),
+    publicProblems: publicProblems.map(mapProblemPickerCandidate),
+  };
 }
 
 export async function listActivityCandidateProblems(userId: string) {
