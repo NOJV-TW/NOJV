@@ -147,37 +147,28 @@
         <HelpTooltip text={m.admin_helpVisibility()} /></span
       >
       {#if studentPrivateOnly}
-        <div class="grid gap-2" role="group" aria-label={m.admin_visibility()}>
-          <button
-            type="button"
-            aria-pressed={!$form.adminMayPublish}
-            class="rounded-xl border px-3 py-2 text-left text-body-sm transition-colors duration-fast ease-out-soft {!$form.adminMayPublish
-              ? 'border-primary bg-primary/10'
-              : 'border-border hover:bg-accent'}"
-            onclick={() => {
-              $form.visibility = "private";
-              $form.adminMayPublish = false;
-            }}
-          >
-            <span class="font-semibold">{m.admin_visibilityStudentPrivate()}</span>
-          </button>
-          <button
-            type="button"
-            aria-pressed={$form.adminMayPublish}
-            class="rounded-xl border px-3 py-2 text-left text-body-sm transition-colors duration-fast ease-out-soft {$form.adminMayPublish
-              ? 'border-primary bg-primary/10'
-              : 'border-border hover:bg-accent'}"
-            onclick={() => {
-              $form.visibility = "private";
-              $form.adminMayPublish = true;
-            }}
-          >
-            <span class="font-semibold">{m.admin_visibilityStudentAllowAdmin()}</span>
-            <span class="mt-0.5 block text-caption text-muted-foreground">
-              {m.admin_visibilityStudentAllowAdminHint()}
-            </span>
-          </button>
-        </div>
+        <Select.Root
+          type="single"
+          value={$form.adminMayPublish ? "admin_may_publish" : "private"}
+          onValueChange={(value) => {
+            $form.visibility = "private";
+            $form.adminMayPublish = value === "admin_may_publish";
+          }}
+        >
+          <Select.Trigger class="w-full">
+            {$form.adminMayPublish
+              ? m.admin_visibilityStudentAllowAdmin()
+              : m.admin_visibilityStudentPrivate()}
+          </Select.Trigger>
+          <Select.Content>
+            <Select.Item value="private" label={m.admin_visibilityStudentPrivate()}
+              >{m.admin_visibilityStudentPrivate()}</Select.Item
+            >
+            <Select.Item value="admin_may_publish" label={m.admin_visibilityStudentAllowAdmin()}
+              >{m.admin_visibilityStudentAllowAdmin()}</Select.Item
+            >
+          </Select.Content>
+        </Select.Root>
       {:else}
         <Select.Root
           type="single"
@@ -246,24 +237,34 @@
   {#if showRuntimeLimits}
     <div class="grid gap-4 md:grid-cols-2">
       <label class="text-body-sm text-muted-foreground">
-        <span>{m.admin_timeLimitMs()}</span>
+        <span>{m.admin_timeLimitMs()} <span class="text-destructive">*</span></span>
         <input
           class={inputClassName}
+          name="timeLimitMs"
           type="number"
           min="100"
           max="30000"
+          required
           bind:value={$form.timeLimitMs}
         />
+        {#if attempted && $errors.timeLimitMs}<span class="text-body-sm text-destructive"
+            >{tr($errors.timeLimitMs)}</span
+          >{/if}
       </label>
       <label class="text-body-sm text-muted-foreground">
-        <span>{m.admin_memoryLimitMb()}</span>
+        <span>{m.admin_memoryLimitMb()} <span class="text-destructive">*</span></span>
         <input
           class={inputClassName}
+          name="memoryLimitMb"
           type="number"
           min="16"
           max="1024"
+          required
           bind:value={$form.memoryLimitMb}
         />
+        {#if attempted && $errors.memoryLimitMb}<span class="text-body-sm text-destructive"
+            >{tr($errors.memoryLimitMb)}</span
+          >{/if}
       </label>
     </div>
   {/if}

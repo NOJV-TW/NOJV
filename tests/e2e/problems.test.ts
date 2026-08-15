@@ -68,6 +68,26 @@ test.describe("Problems", () => {
     await context.close();
   });
 
+  test("problem editor uses a visibility dropdown and required runtime limits", async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({ storageState: teacherAuth });
+    const page = await context.newPage();
+    const response = await page.request.post("/api/problems", { headers: apiWriteHeaders });
+    expect(response.ok()).toBe(true);
+    const { id } = await response.json();
+
+    await page.goto(`/problems/${id}/edit`);
+    await page.waitForTimeout(3000);
+    const visibility = page.getByRole("button", { name: "Private", exact: true });
+    await visibility.click();
+    await expect(page.getByRole("option", { name: "Public" })).toBeVisible();
+    await expect(page.locator('input[name="timeLimitMs"]')).toHaveAttribute("required", "");
+    await expect(page.locator('input[name="memoryLimitMb"]')).toHaveAttribute("required", "");
+
+    await context.close();
+  });
+
   test("admin can fork a public problem into an independent draft", async ({ browser }) => {
     const context = await browser.newContext({ storageState: adminAuth });
     const page = await context.newPage();

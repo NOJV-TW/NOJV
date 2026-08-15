@@ -157,10 +157,10 @@
   </div>
 
   {#if problemType === "multi_file" && workspaceLanguages.length > 0}
-    <label class="block text-body-sm text-muted-foreground">
+    <label class="grid gap-1.5 text-body-sm text-muted-foreground">
       <span>{m.admin_referenceLanguage()}</span>
       <select
-        class="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-body-sm"
+        class="w-full rounded-md border border-border bg-background px-3 py-2 text-body-sm"
         bind:value={language}
       >
         {#each workspaceLanguages as option (option)}
@@ -184,11 +184,11 @@
   </div>
 
   {#if problemType === "full_source"}
-    <div class="space-y-2">
-      <label class="text-body-sm text-muted-foreground">
+    <div class="grid gap-3">
+      <label class="grid gap-1.5 text-body-sm text-muted-foreground">
         <span>{m.admin_referenceLanguage()}</span>
         <select
-          class="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-body-sm"
+          class="w-full rounded-md border border-border bg-background px-3 py-2 text-body-sm"
           bind:value={language}
         >
           {#each languageSchema.options as option (option)}

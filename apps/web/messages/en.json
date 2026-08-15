@@ -289,7 +289,7 @@
   "admin_fileReadonly": "Read-only",
   "admin_fileVisibility": "Visibility",
   "admin_files": "Files",
-  "admin_helpVisibility": "Public: visible in problem list, anyone can submit.\nPrivate: only the author, admins, and course members with access can view and submit.",
+  "admin_helpVisibility": "Public: everyone can find and submit the problem.\nPrivate: only the author, admins, and people with course or activity access can view it.\nAllow admin to publish: the problem stays private and only authorizes an admin to create a public copy; this is not a review request or a guarantee.",
   "admin_imageConfigFailed": "Failed to save image config",
   "admin_imageConfigSaved": "Image config saved",
   "admin_imageRefPlaceholder": "ghcr.io/your-org/your-judge:tag",

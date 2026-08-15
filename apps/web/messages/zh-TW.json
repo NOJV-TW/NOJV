@@ -289,7 +289,7 @@
   "admin_fileReadonly": "唯讀",
   "admin_fileVisibility": "可見性",
   "admin_files": "檔案",
-  "admin_helpVisibility": "公開：顯示在題目列表，任何人都可以提交。\n私有：僅作者、管理員和有權限的課程成員可以查看和提交。",
+  "admin_helpVisibility": "公開：所有人都能在題庫查看與提交。\n私有：只有作者、管理員，以及透過課程或活動取得權限的人可以查看。\n允許管理員發布：題目仍保持私有，只授權管理員建立公開副本；這不是送審，也不保證會發布。",
   "admin_imageConfigFailed": "映像檔設定儲存失敗",
   "admin_imageConfigSaved": "映像檔設定已儲存",
   "admin_imageRefPlaceholder": "ghcr.io/your-org/your-judge:tag",

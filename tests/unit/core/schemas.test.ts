@@ -4,6 +4,7 @@ import {
   contestSessionSchema,
   MAX_TESTCASE_FILE_BYTES,
   parseIpWhitelistText,
+  problemDraftSchema,
   problemJudgeTestcaseSchema,
   problemTestcaseSetCreateSchema,
   MAX_SUBMISSION_SOURCE_FILE_CHARS,
@@ -13,6 +14,35 @@ import {
   submissionJudgeDraftSchema,
   submissionResultSchema,
 } from "../../../packages/core/src/index";
+
+describe("problemDraftSchema", () => {
+  const draft = {
+    difficulty: "medium",
+    inputFormat: "",
+    memoryLimitMb: 256,
+    outputFormat: "",
+    statement: "",
+    tags: [],
+    timeLimitMs: 1000,
+    title: "",
+    type: "full_source",
+    visibility: "private",
+  } as const;
+
+  it.each(["timeLimitMs", "memoryLimitMb"] as const)("requires %s", (field) => {
+    const input: Record<string, unknown> = { ...draft };
+    delete input[field];
+
+    const result = problemDraftSchema.safeParse(input);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toContainEqual(
+        expect.objectContaining({ path: [field], message: "validation_required" }),
+      );
+    }
+  });
+});
 
 describe("submissionDraftSchema", () => {
   it("accepts practice submissions with explicit language and source", () => {
