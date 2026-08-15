@@ -64,7 +64,6 @@
 
   let canPublish = $derived(
     data.problem.status === "draft" &&
-      data.permissions?.studentPrivateOnly !== true &&
       (data.permissions?.isAdmin !== true ||
         data.permissions?.isOwner === true ||
         data.permissions?.canPublishAsAdmin === true) &&
@@ -322,7 +321,7 @@
             formData={data.form}
             problemId={data.problem.id}
             showRuntimeLimits={true}
-            studentPrivateOnly={data.permissions?.studentPrivateOnly === true}
+            privateVisibilityOnly={data.permissions?.publicVisibilityAllowed !== true}
             isOwner={data.permissions?.isOwner === true}
             ondirtychange={(d) => (isDirty = d)}
           />
@@ -415,7 +414,7 @@
           formData={data.form}
           problemId={data.problem.id}
           showRuntimeLimits={data.problem.type !== "multi_file"}
-          studentPrivateOnly={data.permissions?.studentPrivateOnly === true}
+          privateVisibilityOnly={data.permissions?.publicVisibilityAllowed !== true}
           isOwner={data.permissions?.isOwner === true}
           ondirtychange={(d) => (isDirty = d)}
         />

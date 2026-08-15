@@ -15,6 +15,11 @@ const {
   commitStoragePointerSwap,
   guardStorageObjectWrites,
   submissionFindMany,
+  submissionFindUnique,
+  testcaseSetCountByProblem,
+  courseMembershipHasActiveStaff,
+  acquireDisplayIdLock,
+  maxDisplayId,
   userFindById,
   PRISMA_JSON_NULL,
 } = vi.hoisted(() => ({
@@ -31,6 +36,11 @@ const {
   commitStoragePointerSwap: vi.fn(),
   guardStorageObjectWrites: vi.fn(),
   submissionFindMany: vi.fn(),
+  submissionFindUnique: vi.fn(),
+  testcaseSetCountByProblem: vi.fn(),
+  courseMembershipHasActiveStaff: vi.fn(),
+  acquireDisplayIdLock: vi.fn(),
+  maxDisplayId: vi.fn(),
   userFindById: vi.fn(),
   PRISMA_JSON_NULL: Symbol("Prisma.JsonNull"),
 }));
@@ -56,6 +66,8 @@ vi.mock("@nojv/db", () => {
     lockForUpdate: problemLockForUpdate,
     update: problemUpdate,
     delete: vi.fn(),
+    acquireDisplayIdLock,
+    maxDisplayId,
   };
   const statementWithTx = {
     create: problemStatementCreate,
@@ -81,9 +93,10 @@ vi.mock("@nojv/db", () => {
       withTx: () => ({ ...workspaceWithTx, findByProblemId: vi.fn().mockResolvedValue([]) }),
       findByProblemId: vi.fn().mockResolvedValue([]),
     },
-    testcaseSetRepo: { withTx: () => ({}) },
+    testcaseSetRepo: { withTx: () => ({ countByProblem: testcaseSetCountByProblem }) },
     testcaseRepo: { withTx: () => ({}) },
     submissionRepo: { findMany: submissionFindMany },
+    courseMembershipRepo: { hasActiveStaffMembership: courseMembershipHasActiveStaff },
     userRepo: { findById: userFindById },
     runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
       fn({
@@ -92,11 +105,12 @@ vi.mock("@nojv/db", () => {
           findFirst: problemFindLinked,
           delete: problemDelete,
         },
+        submission: { findUnique: submissionFindUnique },
       }),
   };
 });
 
-import { ConflictError, problemDomain } from "@nojv/application";
+import { ConflictError, ForbiddenError, problemDomain } from "@nojv/application";
 
 const {
   createProblemDefinition,
@@ -427,6 +441,85 @@ describe("updateProblemRecord — published Advanced configuration immutability"
       expect(problemUpdate).not.toHaveBeenCalled();
     },
   );
+});
+
+describe("updateProblemRecord — publication permissions", () => {
+  const student = {
+    userId: "usr_student",
+    username: "student",
+    platformRole: "student" as const,
+  };
+  const draft = {
+    id: "prob_private",
+    authorId: student.userId,
+    type: "full_source",
+    status: "draft",
+    visibility: "private",
+    title: "Private problem",
+    displayId: null,
+    advancedConfig: null,
+    advancedRequiredPaths: [],
+    timeLimitMs: 1_000,
+    memoryLimitMb: 256,
+    storageGeneration: 3,
+    referenceSolutionSubmissionId: "sub_reference",
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    problemFindById.mockResolvedValue(draft);
+    testcaseSetCountByProblem.mockResolvedValue(1);
+    submissionFindUnique.mockResolvedValue({
+      assessmentId: null,
+      contestId: null,
+      courseId: null,
+      examId: null,
+      isReferenceSolution: true,
+      participationId: null,
+      problemId: draft.id,
+      referenceProblemStorageGeneration: draft.storageGeneration,
+      sampleOnly: false,
+      sourceStorage: { key: "reference.c" },
+      status: "accepted",
+    });
+    acquireDisplayIdLock.mockResolvedValue(undefined);
+    maxDisplayId.mockResolvedValue({ _max: { displayId: 41 } });
+    problemUpdate.mockResolvedValue(undefined);
+    courseMembershipHasActiveStaff.mockResolvedValue(false);
+  });
+
+  it("allows a student author to publish a private problem", async () => {
+    await expect(
+      updateProblemRecord(student, draft.id, { status: "published" }),
+    ).resolves.toEqual({ id: draft.id });
+
+    expect(problemUpdate).toHaveBeenCalledWith(draft.id, {
+      displayId: 42,
+      status: "published",
+    });
+  });
+
+  it("rejects public publication by an ordinary student", async () => {
+    problemFindById.mockResolvedValue({ ...draft, visibility: "public" });
+
+    await expect(
+      updateProblemRecord(student, draft.id, { status: "published" }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(problemUpdate).not.toHaveBeenCalled();
+  });
+
+  it("allows an active course TA to publish a public problem", async () => {
+    problemFindById.mockResolvedValue({ ...draft, visibility: "public" });
+    courseMembershipHasActiveStaff.mockResolvedValue(true);
+
+    await expect(
+      updateProblemRecord(student, draft.id, { status: "published" }),
+    ).resolves.toEqual({ id: draft.id });
+    expect(problemUpdate).toHaveBeenCalledWith(draft.id, {
+      displayId: 42,
+      status: "published",
+    });
+  });
 });
 
 describe("deleteProblemRecord — context-link guard (P1)", () => {

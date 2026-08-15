@@ -1,7 +1,8 @@
 import { test, expect } from "@playwright/test";
 import path from "node:path";
 
-import { adminAuth, apiWriteHeaders } from "./_shared";
+import { DisposableCredentialUser, psql, signInWithPassword } from "./_disposable-user";
+import { adminAuth, apiWriteHeaders, formActionHeaders } from "./_shared";
 
 const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/teacher.json");
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
@@ -86,6 +87,75 @@ test.describe("Problems", () => {
     await expect(page.locator('input[name="memoryLimitMb"]')).toHaveAttribute("required", "");
 
     await context.close();
+  });
+
+  test("student can finish and publish an owned private problem", async ({ browser }) => {
+    const user = new DisposableCredentialUser("private-problem-author");
+    user.create();
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    let id = "";
+
+    try {
+      await signInWithPassword(page, user.email);
+      const response = await page.request.post("/api/problems", { headers: apiWriteHeaders });
+      expect(response.ok()).toBe(true);
+      ({ id } = await response.json());
+
+      await page.goto(`/problems/${id}/edit`);
+      await page.locator("input[name='title']").fill(`Private Student Problem ${Date.now()}`);
+      await page.locator("textarea[name='statement']").fill("Add two integers.");
+      await page.locator("textarea[name='inputFormat']").fill("Two integers.");
+      await page.locator("textarea[name='outputFormat']").fill("Their sum.");
+      await page.getByRole("button", { name: /save|儲存/i }).click();
+      await expect(page.getByRole("button", { name: /save|儲存/i })).toBeDisabled();
+
+      const testcaseResponse = await page.request.post(
+        `/problems/${id}/edit?/createTestcaseSet`,
+        {
+          form: {
+            data: JSON.stringify({
+              name: "Main",
+              weight: 100,
+              cases: [{ input: "1 2", output: "3" }],
+            }),
+          },
+          headers: formActionHeaders,
+        },
+      );
+      expect((await testcaseResponse.json()).type).not.toBe("failure");
+
+      const referenceId = `reference-${id}`;
+      psql(`
+        INSERT INTO "Submission" (id, "userId", "problemId", "isReferenceSolution", "referenceProblemStorageGeneration", language, "sourceStorage", status, "updatedAt")
+        SELECT '${referenceId}', u.id, p.id, true, p."storageGeneration", 'c', source."sourceStorage", 'accepted', NOW()
+        FROM "Problem" p
+        JOIN "User" u ON u.email = '${user.email}'
+        CROSS JOIN LATERAL (
+          SELECT "sourceStorage" FROM "Submission" WHERE "sourceStorage" IS NOT NULL LIMIT 1
+        ) source
+        WHERE p.id = '${id}';
+        UPDATE "Problem" SET "referenceSolutionSubmissionId" = '${referenceId}' WHERE id = '${id}';
+      `);
+
+      await page.reload();
+      await expect(page.getByRole("button", { name: "Finish & Publish" })).toBeEnabled();
+
+      const publishResponse = await page.request.post(`/problems/${id}/edit?/publish`, {
+        form: {},
+        headers: formActionHeaders,
+      });
+      const publishBody = await publishResponse.json();
+      expect(publishBody.type).not.toBe("error");
+      expect(publishBody.type).not.toBe("failure");
+      expect(
+        psql(`SELECT status || '|' || visibility FROM "Problem" WHERE id = '${id}';`),
+      ).toBe("published|private");
+    } finally {
+      if (id) psql(`DELETE FROM "Problem" WHERE id = '${id}';`);
+      await context.close();
+      user.cleanup();
+    }
   });
 
   test("admin can fork a public problem into an independent draft", async ({ browser }) => {
