@@ -170,7 +170,6 @@ export const submissionRepo = {
     return prisma.submission.findFirst({
       where: {
         id: input.id,
-        isReferenceSolution: false,
         ...userFacingSubmissionWhere(input.userId, true),
       },
     });

@@ -16,7 +16,7 @@
 
 - Inspect: `packages/core/src/judge-environment.json:15`
 
-The current base already contains the `python3=3.14.7-r0` refresh from the preceding merge. Keep that pin unchanged in this PR.
+Alpine 3.24 currently exposes `python3=3.14.7-r1`; keep the exact pin synchronized with the verified package set whenever the repository rotates revisions.
 
 ### Task 2: Sync documentation and policy
 

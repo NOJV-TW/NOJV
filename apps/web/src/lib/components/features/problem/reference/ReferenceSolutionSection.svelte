@@ -1,8 +1,9 @@
 <script lang="ts">
   import { invalidateAll } from "$app/navigation";
-  import { languageSchema, type Language } from "@nojv/core";
+  import { languageSchema, type Language, type SubmissionResult } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import MonacoScriptEditor from "$lib/components/features/problem/editors/MonacoScriptEditor.svelte";
+  import CaseResultGrid from "$lib/components/features/submission/CaseResultGrid.svelte";
   import {
     buildSubmissionRequest,
     workspaceDraftKey,
@@ -53,6 +54,7 @@
   let workspaceDrafts = $state<Record<string, string>>({});
   let selectedIndex = $state(0);
   let status = $state<ReferenceState["status"]>("not_configured");
+  let lastResult = $state<SubmissionResult | null>(null);
   let isSubmitting = $state(false);
   let initialized = $state(false);
 
@@ -63,6 +65,9 @@
     workspaceFiles.filter((file) => file.language === language && file.visibility !== "hidden"),
   );
   const selectedFile = $derived(visibleFiles[selectedIndex]);
+  const failedSubtasks = $derived(
+    lastResult?.subtaskResults?.filter((subtask) => !subtask.passed) ?? [],
+  );
 
   function sourceForPath(path: string): string | undefined {
     return initial.sourceFiles.find((file) => file.path === path)?.content;
@@ -105,6 +110,7 @@
     ensureDrafts();
     isSubmitting = true;
     status = "validating";
+    lastResult = null;
     let accepted = false;
     try {
       const request = buildSubmissionRequest({
@@ -123,6 +129,7 @@
         status = "failed";
         return;
       }
+      lastResult = result;
       accepted = result.accepted;
       status = accepted ? "verified" : "failed";
       if (!accepted) toasts.error(result.feedback);
@@ -157,10 +164,10 @@
   </div>
 
   {#if problemType === "multi_file" && workspaceLanguages.length > 0}
-    <label class="block text-body-sm text-muted-foreground">
+    <label class="grid gap-1.5 text-body-sm text-muted-foreground">
       <span>{m.admin_referenceLanguage()}</span>
       <select
-        class="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-body-sm"
+        class="w-full rounded-md border border-border bg-background px-3 py-2 text-body-sm"
         bind:value={language}
       >
         {#each workspaceLanguages as option (option)}
@@ -183,12 +190,44 @@
     {statusText()}
   </div>
 
+  {#if status === "failed" && lastResult}
+    <div
+      class="space-y-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4"
+      role="region"
+      aria-labelledby="reference-validation-details"
+    >
+      <div>
+        <h3
+          id="reference-validation-details"
+          class="text-body-sm font-semibold text-destructive"
+        >
+          {m.admin_referenceFailureDetails()}
+        </h3>
+        <p class="mt-1 text-body-sm text-foreground/80">{lastResult.feedback}</p>
+      </div>
+      {#if failedSubtasks.length > 0}
+        <div class="space-y-3">
+          {#each failedSubtasks as subtask (subtask.testcaseSetId)}
+            <div class="space-y-1.5">
+              <p class="text-body-sm font-semibold text-foreground">{subtask.label}</p>
+              <CaseResultGrid cases={subtask.cases} />
+            </div>
+          {/each}
+        </div>
+        <p class="text-caption text-foreground/80">{m.admin_referenceFailureHint()}</p>
+      {:else if lastResult.caseResults && lastResult.caseResults.length > 0}
+        <CaseResultGrid cases={lastResult.caseResults} />
+        <p class="text-caption text-foreground/80">{m.admin_referenceFailureHint()}</p>
+      {/if}
+    </div>
+  {/if}
+
   {#if problemType === "full_source"}
-    <div class="space-y-2">
-      <label class="text-body-sm text-muted-foreground">
+    <div class="grid gap-3">
+      <label class="grid gap-1.5 text-body-sm text-muted-foreground">
         <span>{m.admin_referenceLanguage()}</span>
         <select
-          class="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-body-sm"
+          class="w-full rounded-md border border-border bg-background px-3 py-2 text-body-sm"
           bind:value={language}
         >
           {#each languageSchema.options as option (option)}

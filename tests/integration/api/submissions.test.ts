@@ -80,6 +80,26 @@ describe("submission queries (real DB)", () => {
         NotFoundError,
       );
     });
+
+    it("lets the owner poll a private reference submission without listing it", async () => {
+      const owner = await createTestUser({ platformRole: "teacher" });
+      const other = await createTestUser({ platformRole: "teacher" });
+      const problem = await createTestProblem({ authorId: owner.id });
+      const reference = await createTestSubmission({
+        userId: owner.id,
+        problemId: problem.id,
+        isReferenceSolution: true,
+      });
+
+      await expect(getSubmissionForActor(actorOf(owner), reference.id)).resolves.toMatchObject({
+        id: reference.id,
+        isReferenceSolution: true,
+      });
+      await expect(getSubmissionForActor(actorOf(other), reference.id)).rejects.toThrow(
+        NotFoundError,
+      );
+      await expect(listProblemSubmissions(owner.id, problem.id)).resolves.toEqual([]);
+    });
   });
 
   describe("listProblemSubmissions", () => {
