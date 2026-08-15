@@ -2,7 +2,15 @@
   import { m } from "$lib/paraglide/messages.js";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import { CheckCircle2, FileCode, ListFilter, Loader2, Search, XCircle } from "@lucide/svelte";
+  import {
+    CheckCircle2,
+    FileCode,
+    GitFork,
+    ListFilter,
+    Loader2,
+    Search,
+    XCircle,
+  } from "@lucide/svelte";
   import { Button } from "$lib/components/primitives/ui/button";
   import { Card } from "$lib/components/primitives/ui/card";
   import * as Dialog from "$lib/components/primitives/ui/dialog";
@@ -17,14 +25,17 @@
   } from "../problem-display";
   import ProblemFilterSidebar from "./ProblemFilterSidebar.svelte";
   import BookmarkButton from "./BookmarkButton.svelte";
+  import { fetchWithCsrf } from "$lib/services/http";
+  import { toasts } from "$lib/stores/toast";
 
   interface Props {
     publicResult: problemDomain.ProblemListResult;
     loggedIn: boolean;
     showCreate?: boolean;
+    canFork?: boolean;
   }
 
-  let { publicResult, loggedIn, showCreate = false }: Props = $props();
+  let { publicResult, loggedIn, showCreate = false, canFork = false }: Props = $props();
 
   type ProblemCard = problemDomain.ProblemListResult["problems"][number];
 
@@ -42,6 +53,28 @@
   let loadingMore = $state(false);
   let exhausted = $state(false);
   let sentinel = $state<HTMLElement | null>(null);
+  let forkingProblemId = $state<string | null>(null);
+
+  async function forkProblem(problemId: string) {
+    if (forkingProblemId) return;
+    forkingProblemId = problemId;
+    try {
+      const response = await fetchWithCsrf(`/api/problems/${problemId}/fork`, {
+        method: "POST",
+      });
+      const body = (await response.json().catch(() => null)) as {
+        id?: string;
+        message?: string;
+      } | null;
+      if (!response.ok || !body?.id) {
+        throw new Error(body?.message ?? m.problems_forkFailed());
+      }
+      await goto(`/problems/${body.id}/edit`);
+    } catch (error) {
+      toasts.error(error instanceof Error ? error.message : m.problems_forkFailed());
+      forkingProblemId = null;
+    }
+  }
 
   $effect(() => {
     void publicResult;
@@ -246,7 +279,20 @@
             </p>
           </div>
           {#if loggedIn}
-            <div class="relative z-10 flex justify-end sm:justify-center">
+            <div class="relative z-10 flex justify-end gap-1 sm:justify-center">
+              {#if canFork}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={m.problems_fork()}
+                  title={m.problems_fork()}
+                  disabled={forkingProblemId !== null}
+                  loading={forkingProblemId === problem.id}
+                  onclick={() => void forkProblem(problem.id)}
+                >
+                  <GitFork class="size-4" aria-hidden="true" />
+                </Button>
+              {/if}
               <BookmarkButton problemId={problem.id} bookmarked={problem.bookmarked} />
             </div>
           {/if}

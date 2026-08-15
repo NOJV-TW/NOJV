@@ -13,8 +13,9 @@
 ### Problems
 
 - Problem listing with filters (difficulty, tags, solved status)
-- Problem creation: any email-verified user (including students) may create and own private problems; students cannot publish public problems, while teachers/admins retain their existing own-problem publishing permissions. A student may separately authorize an admin to publish later; this is not a review request or a publication guarantee.
-- Standard publication requires an accepted current private reference solution. Admins discover all problems through the existing problems page and may publish an authorized student-owned problem without a review queue.
+- Problem creation: any email-verified user (including students) may create and own private problems; students cannot publish public problems, while teachers/admins retain their existing own-problem publishing permissions. Any private-problem owner may separately grant one-time `adminMayPublish` consent; this is not a review request, queue, or publication guarantee.
+- Standard publication requires an accepted current private reference solution. When an admin publishes another author's authorized problem, the platform creates an admin-owned public fork and clears the source consent; the original private problem remains owned and editable by its author.
+- Published public problems can be forked manually by teachers, admins, and users currently serving as a course TA. A fork is an independent private draft with direct-source lineage, copied judge content, and a private snapshot of the current accepted reference solution; later edits do not synchronize between copies.
 - i18n problem statements (en, zh-TW) with markdown + KaTeX rendering
 - Image upload via drag-and-drop / paste into markdown textareas (S3-compatible storage)
 - Monaco Editor code workspace with multi-language support
@@ -60,6 +61,7 @@
 - Student progress matrix
 - Course gradebook (`/courses/[courseId]/grades`) — per-problem raw best scores (overrides applied) across all published assignments and exams, chronological columns with per-problem max; staff see every student plus CSV export, students see only their own row; no weighting or normalization by design (teachers compute ratios from the CSV)
 - Course-scoped problem management
+- Assignment and exam problem selection attaches the actor's own problem directly, automatically creates a private fork for another author's published public problem, and rejects another author's private problem. The activity and any required forks commit atomically.
 
 ### Grading (post-close)
 
@@ -131,6 +133,7 @@
 - Admin dashboard
 - User management (role assignment, disable accounts)
 - System announcements (create, manage)
+- Platform-wide course, assignment, exam, and contest lists that do not depend on the admin's course enrollment
 
 ### Real-Time Events
 

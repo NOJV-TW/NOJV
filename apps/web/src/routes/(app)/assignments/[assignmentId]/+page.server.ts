@@ -41,7 +41,7 @@ import { buildAssignmentResults } from "$lib/server/results/assignment";
 
 const { getAssignmentDetail, buildSubmissionsMatrix } = courseDomain;
 const { findPlagiarismReport, listFlagsForContext } = plagiarismDomain;
-const { listEditableProblems } = problemDomain;
+const { listActivityCandidateProblems } = problemDomain;
 const {
   deleteAssignmentDraft,
   publishAssignment,
@@ -80,7 +80,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       buildSubmissionsMatrix(courseId, assignmentId),
       findPlagiarismReport({ type: "assessment", id: assignmentId }).catch(() => null),
       listFlagsForContext("assessment", assignmentId).catch(() => []),
-      listEditableProblems(actor.userId),
+      listActivityCandidateProblems(actor.userId),
       scoreOverrideDomain.canSetScoreOverride(actor, {
         type: "assignment",
         assignmentId,

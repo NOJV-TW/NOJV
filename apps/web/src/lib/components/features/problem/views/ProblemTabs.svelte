@@ -8,6 +8,7 @@
   import { Button } from "$lib/components/primitives/ui/button";
   import { fetchWithCsrf } from "$lib/services/http";
   import { toasts } from "$lib/stores/toast";
+  import { problemTabHref } from "./problem-tab-href";
   import type { problemDomain } from "@nojv/application";
   import PublicProblemsTab from "../listings/PublicProblemsTab.svelte";
   import MyProblemsTab, { type EditableProblemCard } from "../listings/MyProblemsTab.svelte";
@@ -22,6 +23,7 @@
     loggedIn?: boolean;
     advancedCreationAllowed?: boolean;
     isAdmin?: boolean;
+    canFork?: boolean;
   }
 
   let {
@@ -32,6 +34,7 @@
     loggedIn = false,
     advancedCreationAllowed = false,
     isAdmin = false,
+    canFork = false,
   }: Props = $props();
 
   let creating = $state(false);
@@ -100,14 +103,7 @@
   });
 
   function tabHref(nextTab: "public" | "mine" | "all") {
-    const params = new URLSearchParams(currentUrl.searchParams);
-    if (nextTab === "mine") {
-      params.set("tab", "mine");
-    } else {
-      params.delete("tab");
-    }
-    const qs = params.toString();
-    return `${currentUrl.pathname}${qs ? `?${qs}` : ""}`;
+    return problemTabHref(currentUrl, nextTab);
   }
 
   let showDeleteConfirm = $state(false);
@@ -248,7 +244,7 @@
   </div>
 
   {#if tab === "public"}
-    <PublicProblemsTab {publicResult} {loggedIn} showCreate={showCreate ?? false} />
+    <PublicProblemsTab {publicResult} {loggedIn} {canFork} showCreate={showCreate ?? false} />
   {:else if tab === "mine" && showCreate}
     <MyProblemsTab
       editableProblems={editableProblems ?? []}

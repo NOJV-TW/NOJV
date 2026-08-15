@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import path from "node:path";
 
-import { apiWriteHeaders } from "./_shared";
+import { adminAuth, apiWriteHeaders } from "./_shared";
 
 const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/teacher.json");
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
@@ -65,6 +65,25 @@ test.describe("Problems", () => {
     expect(id).toBeTruthy();
     await page.goto(`/problems/${id}/edit`);
     await expect(page.getByRole("main")).toBeVisible();
+    await context.close();
+  });
+
+  test("admin can fork a public problem into an independent draft", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: adminAuth });
+    const page = await context.newPage();
+    const response = await page.request.post("/api/problems/problem_warmup-sum/fork", {
+      headers: apiWriteHeaders,
+    });
+    expect(response.status()).toBe(201);
+    const { id } = await response.json();
+
+    await page.goto(`/problems/${id}/edit`);
+    await expect(page.getByText("Draft", { exact: true })).toBeVisible();
+
+    const deleted = await page.request.delete(`/api/problems/${id}`, {
+      headers: apiWriteHeaders,
+    });
+    expect(deleted.ok()).toBe(true);
     await context.close();
   });
 });

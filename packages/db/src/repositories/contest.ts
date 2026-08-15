@@ -57,6 +57,17 @@ export const contestRepo = {
     });
   },
 
+  listAllForAdmin() {
+    return prisma.contest.findMany({
+      omit: { plagiarismResults: true },
+      include: {
+        ...contestListInclude,
+        createdBy: { select: { name: true, username: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+  },
+
   findDetailById(id: string) {
     return prisma.contest.findUnique({
       include: {

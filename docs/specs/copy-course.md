@@ -5,11 +5,11 @@ of a course's structural scaffolding into a brand-new course. Covers the
 Settings-tab action that lets a teacher fork a prior semester's course
 into a fresh one without dragging history along.
 
-> **Shared-problem contract.** Copied assessments and exams reference the
-> _same_ `Problem` rows as the source (matched by `problemId`) — problems
-> are platform-level, not course-level. Editing a problem later changes
-> it for every course that attached it, source and copy alike. This is
-> intentional and permanent; there is no per-course problem fork.
+> **Problem ownership contract.** Copied assessments and exams reuse a
+> problem already owned by the copying actor. A published public problem owned
+> by someone else is first copied to an actor-owned private fork; another
+> author's private problem is rejected. Course copy and any required forks use
+> one transaction.
 
 ## User Stories
 

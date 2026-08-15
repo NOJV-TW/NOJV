@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { deserialize } from "$app/forms";
-  import { invalidateAll } from "$app/navigation";
+  import { goto, invalidateAll } from "$app/navigation";
   import type { Language } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
@@ -166,6 +166,15 @@
     fetch(publishAction, { method: "POST", body: fd })
       .then(async (res) => {
         if (res.ok) {
+          const result = deserialize(await res.text());
+          const publishedId =
+            result.type === "success" && typeof result.data?.id === "string"
+              ? result.data.id
+              : data.problem.id;
+          if (publishedId !== data.problem.id) {
+            await goto(`/problems/${publishedId}`);
+            return;
+          }
           await invalidateAll();
           toasts.success(m.admin_publishSuccess());
         } else {
@@ -314,6 +323,7 @@
             problemId={data.problem.id}
             showRuntimeLimits={true}
             studentPrivateOnly={data.permissions?.studentPrivateOnly === true}
+            isOwner={data.permissions?.isOwner === true}
             ondirtychange={(d) => (isDirty = d)}
           />
         </section>
@@ -406,6 +416,7 @@
           problemId={data.problem.id}
           showRuntimeLimits={data.problem.type !== "multi_file"}
           studentPrivateOnly={data.permissions?.studentPrivateOnly === true}
+          isOwner={data.permissions?.isOwner === true}
           ondirtychange={(d) => (isDirty = d)}
         />
       {/snippet}

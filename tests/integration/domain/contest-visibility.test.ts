@@ -60,6 +60,23 @@ describe("getContestDetail visibility gating", () => {
     expect(result.isManager).toBe(true);
   });
 
+  it("allows platform admins to open draft contest details", async () => {
+    const owner = await createTestUser({ platformRole: "teacher" });
+    const admin = await createTestUser({ platformRole: "admin" });
+    const contest = await createTestContest({
+      visibility: "draft",
+      createdByUserId: owner.id,
+    });
+
+    const result = await getContestDetail(contest.id, {
+      userId: admin.id,
+      platformRole: "admin",
+      now: new Date(),
+    });
+
+    expect(result.isManager).toBe(true);
+  });
+
   it("reveals problems to all viewers once the contest is active", async () => {
     const contest = await createTestContest({
       visibility: "published",

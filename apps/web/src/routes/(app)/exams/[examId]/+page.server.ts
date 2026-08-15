@@ -93,7 +93,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     isManager
       ? Promise.resolve(null)
       : examDomain.session.getActiveSessionContext(actor.userId),
-    isManager ? problemDomain.listEditableProblems(actor.userId) : Promise.resolve([]),
+    isManager ? problemDomain.listActivityCandidateProblems(actor.userId) : Promise.resolve([]),
   ]);
 
   const auditActorNames = isManager

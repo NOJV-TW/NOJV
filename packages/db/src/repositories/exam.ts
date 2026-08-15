@@ -106,6 +106,17 @@ export const examRepo = {
     });
   },
 
+  listAllForAdmin() {
+    return prisma.exam.findMany({
+      omit: { plagiarismResults: true },
+      include: {
+        ...examListInclude,
+        createdBy: { select: { name: true, username: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+  },
+
   groupUpcomingCountsByCourse(courseIds: string[], now: Date) {
     if (courseIds.length === 0)
       return Promise.resolve([] as { courseId: string; _count: { _all: number } }[]);

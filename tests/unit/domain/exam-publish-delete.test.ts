@@ -85,6 +85,14 @@ const fakeOtherActor = {
   platformRole: "student" as const,
 };
 
+const fakeAdminActor = {
+  userId: "usr_admin",
+  username: "admin",
+  displayName: "Admin",
+  email: "admin@example.com",
+  platformRole: "admin" as const,
+};
+
 function publishableExam(overrides: Record<string, unknown> = {}) {
   return {
     id: "exam_1",
@@ -226,6 +234,16 @@ describe("publishExam", () => {
 
     expect(examUpdate).toHaveBeenCalledWith("exam_1", { status: "published" });
   });
+
+  it("allows platform admins to publish exams they did not create", async () => {
+    examFindById.mockResolvedValue(publishableExam({ createdByUserId: "somebody_else" }));
+    examProblemCount.mockResolvedValue(1);
+
+    await publishExam(fakeAdminActor, "exam_1");
+
+    expect(examUpdate).toHaveBeenCalledWith("exam_1", { status: "published" });
+    expect(membershipFindByComposite).not.toHaveBeenCalled();
+  });
 });
 
 describe("deleteExamDraft", () => {
@@ -275,6 +293,15 @@ describe("deleteExamDraft", () => {
       ForbiddenError,
     );
     expect(examDelete).not.toHaveBeenCalled();
+  });
+
+  it("allows platform admins to delete drafts they did not create", async () => {
+    examFindById.mockResolvedValue(publishableExam({ createdByUserId: "somebody_else" }));
+
+    await deleteExamDraft(fakeAdminActor, "exam_1");
+
+    expect(examDelete).toHaveBeenCalledWith("exam_1");
+    expect(membershipFindByComposite).not.toHaveBeenCalled();
   });
 });
 
@@ -351,5 +378,16 @@ describe("updateExamRecord — auto-close re-arming", () => {
       examFindById.mock.invocationCallOrder[0],
     );
     expect(examUpdate).not.toHaveBeenCalled();
+  });
+
+  it("allows platform admins to update exams they did not create", async () => {
+    const exam = publishableExam({ createdByUserId: "somebody_else" });
+    examFindById.mockResolvedValue(exam);
+    examUpdate.mockResolvedValue({ ...exam, title: "Admin rename" });
+
+    await updateExamRecord(fakeAdminActor, "exam_1", { title: "Admin rename" });
+
+    expect(examUpdate).toHaveBeenCalledWith("exam_1", { title: "Admin rename" });
+    expect(membershipFindByComposite).not.toHaveBeenCalled();
   });
 });

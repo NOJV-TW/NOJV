@@ -438,6 +438,26 @@ export async function listEditableProblems(userId: string, sort: "asc" | "desc" 
   });
 }
 
+export async function listActivityCandidateProblems(userId: string) {
+  const problems = await problemRepo.listActivityCandidates(userId);
+  return problems.map((problem) => {
+    const judgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
+      type: "standard" as const,
+    };
+    return {
+      difficulty: problem.difficulty,
+      displayId: problem.displayId,
+      id: problem.id,
+      judgeType: judgeConfig.type,
+      type: problem.type,
+      status: problem.status,
+      tags: problem.tags,
+      title: problem.title,
+      visibility: problem.visibility,
+    };
+  });
+}
+
 export async function listAdminProblems(sort: "asc" | "desc" = "asc") {
   const problems = await problemRepo.listAllForAdmin(sort);
 

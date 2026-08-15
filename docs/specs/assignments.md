@@ -61,6 +61,10 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
   historical-participant gate.
 - Problem attachment re-bind (wipe-and-recreate the
   `AssessmentProblem` rows) with per-problem `points` override.
+- Problem resolution runs in the assignment transaction: an actor-owned
+  problem is attached directly, another author's published public problem
+  becomes an actor-owned private fork, and another author's private problem
+  is rejected.
 - Post-close grading drawer on the submissions matrix — score
   overrides + per-cell student-visible feedback comments
   (`SubmissionFeedback`). Writes gated post-close (`closesAt < now`),
@@ -85,6 +89,16 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
   practice-after-close design doc.
 
 ## Acceptance Criteria
+
+### Problem ownership and forks
+
+- GIVEN an actor-owned problem, WHEN an assignment is created or its problem
+  list is updated, THEN the original problem is attached directly.
+- GIVEN another author's published public problem, WHEN it is selected, THEN
+  an independent actor-owned private fork is created and attached.
+- GIVEN another author's private problem, WHEN it is selected, THEN the
+  mutation is rejected. If problem resolution or assignment creation fails,
+  the transaction leaves neither a partial assignment nor a partial fork.
 
 ### Lifecycle — publish
 

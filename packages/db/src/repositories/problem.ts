@@ -116,6 +116,16 @@ export const problemRepo = {
     });
   },
 
+  listActivityCandidates(userId: string) {
+    return prisma.problem.findMany({
+      include: { _count: { select: { workspaceFiles: true } } },
+      orderBy: [{ displayId: "asc" }, { createdAt: "desc" }],
+      where: {
+        OR: [{ authorId: userId }, { visibility: "public", status: "published" }],
+      },
+    });
+  },
+
   listAllForAdmin(sort: "asc" | "desc" = "asc") {
     return prisma.problem.findMany({
       include: {

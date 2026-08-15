@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import path from "node:path";
 
+import { psql } from "./_disposable-user";
 import { apiWriteHeaders, formActionHeaders } from "./_shared";
 
 const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/teacher.json");
@@ -223,25 +224,7 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
     await page.locator("textarea[name='inputFormat']").fill(INPUT_FORMAT);
     await page.locator("textarea[name='outputFormat']").fill(OUTPUT_FORMAT);
 
-    await page.evaluate(() => {
-      const triggers = [
-        ...document.querySelectorAll<HTMLButtonElement>('[data-slot="select-trigger"]'),
-      ];
-      const visTrigger = triggers.find((t) => /private/i.test(t.textContent ?? ""));
-      if (!visTrigger) throw new Error("Visibility trigger not found");
-      const hiddenInput = visTrigger.parentElement?.querySelector<HTMLInputElement>(
-        'input[type="hidden"], input[name="visibility"]',
-      );
-      if (hiddenInput) {
-        hiddenInput.value = "public";
-        hiddenInput.dispatchEvent(new Event("input", { bubbles: true }));
-        hiddenInput.dispatchEvent(new Event("change", { bubbles: true }));
-      }
-    });
-    const visTrigger = page
-      .locator('[data-slot="select-trigger"]')
-      .filter({ hasText: /private/i });
-    await visTrigger.click();
+    await page.getByRole("button", { name: "Private", exact: true }).click();
     await page.keyboard.press("p");
     await page.keyboard.press("Enter");
 
@@ -294,6 +277,19 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
   test("teacher publishes the problem", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
+
+    const referenceId = `reference-${problemId}`;
+    psql(`
+      INSERT INTO "Submission" (id, "userId", "problemId", "isReferenceSolution", "referenceProblemStorageGeneration", language, "sourceStorage", status, "updatedAt")
+      SELECT '${referenceId}', u.id, p.id, true, p."storageGeneration", 'c', source."sourceStorage", 'accepted', NOW()
+      FROM "Problem" p
+      JOIN "User" u ON u.email = 'teacher@nojv.local'
+      CROSS JOIN LATERAL (
+        SELECT "sourceStorage" FROM "Submission" WHERE "sourceStorage" IS NOT NULL LIMIT 1
+      ) source
+      WHERE p.id = '${problemId}';
+      UPDATE "Problem" SET "referenceSolutionSubmissionId" = '${referenceId}' WHERE id = '${problemId}';
+    `);
 
     const body = await postFormAction(page, `/problems/${problemId}/edit?/publish`, {});
     expect(body.type).not.toBe("error");

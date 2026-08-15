@@ -17,12 +17,14 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   ]);
 
   const canCreate = !!actor && (await problemDomain.canAuthorProblems(actor));
+  const canFork = !!actor && (await problemDomain.canForkProblems(actor));
 
   return {
     editableProblems,
     adminProblems,
     publicResult,
     canCreate,
+    canFork,
     isAdmin: actor?.platformRole === "admin",
     loggedIn: userId !== null,
     advancedCreationAllowed: !!actor && (await problemDomain.canCreateAdvancedProblems(actor)),

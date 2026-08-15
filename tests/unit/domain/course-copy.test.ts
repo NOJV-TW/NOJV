@@ -15,6 +15,7 @@ const {
   examListWithProblems,
   examCreate,
   examProblemCreate,
+  problemFindMany,
 } = vi.hoisted(() => ({
   courseFindById: vi.fn(),
   courseLockForUpdate: vi.fn(),
@@ -30,6 +31,7 @@ const {
   examListWithProblems: vi.fn(),
   examCreate: vi.fn(),
   examProblemCreate: vi.fn(),
+  problemFindMany: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => {
@@ -84,7 +86,7 @@ vi.mock("@nojv/db", () => {
       }),
     },
     problemRepo: {
-      withTx: () => ({}),
+      withTx: () => ({ findMany: problemFindMany }),
     },
     runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
   };
@@ -197,6 +199,14 @@ function primeSuccessPath() {
   examListWithProblems.mockResolvedValue([examRow]);
   examCreate.mockResolvedValue({ id: "exam_new" });
   examProblemCreate.mockResolvedValue(undefined);
+  problemFindMany.mockImplementation(({ id: { in: ids } }) =>
+    ids.map((id: string) => ({
+      authorId: teacherActor.userId,
+      id,
+      status: "draft",
+      visibility: "private",
+    })),
+  );
 }
 
 beforeEach(() => {
@@ -310,6 +320,14 @@ describe("copyCourse — happy path", () => {
       name: adminActor.displayName,
       platformRole: adminActor.platformRole,
     });
+    problemFindMany.mockImplementation(({ id: { in: ids } }) =>
+      ids.map((id: string) => ({
+        authorId: adminActor.userId,
+        id,
+        status: "draft",
+        visibility: "private",
+      })),
+    );
 
     const result = await copyCourse(adminActor, sourceCourse.id, "Algorithms 101 (copy)");
     expect(result.newCourseId).toBe("course_new");

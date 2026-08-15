@@ -7,4 +7,5 @@ export * from "./permissions";
 export * from "./storage-budget";
 export * from "./bundle";
 export * from "./total-score";
+export * from "./fork";
 export { hydrateTestcaseSets, hydrateWorkspaceFiles, hydrateValidatorScripts } from "./blobs";
