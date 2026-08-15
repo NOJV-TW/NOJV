@@ -389,6 +389,8 @@
   "admin_referenceValidating": "Reference solution is being validated…",
   "admin_referenceVerified": "Accepted reference solution verified.",
   "admin_referenceFailed": "The latest reference solution was not accepted.",
+  "admin_referenceFailureDetails": "Validation details",
+  "admin_referenceFailureHint": "Use the testcase group and case number to find the matching entry in Testcase Management.",
   "admin_referenceSubmit": "Validate reference solution",
   "admin_referenceSubmitting": "Validating…",
   "admin_referenceLanguage": "Language",

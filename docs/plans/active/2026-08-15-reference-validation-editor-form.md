@@ -55,3 +55,17 @@
 2. Run focused unit and integration tests.
 3. Launch the web app and inspect desktop plus narrow viewport states.
 4. Run the relevant Playwright E2E tests, formatting, lint, typecheck, and `pnpm ci:verify` if focused checks pass.
+
+### Task 5: Reference validation diagnostics
+
+**Files:**
+
+- Modify: `apps/web/src/lib/components/features/problem/reference/ReferenceSolutionSection.svelte`
+- Modify: `apps/web/src/lib/components/features/submission/CaseResultGrid.svelte`
+- Modify: `apps/web/messages/en.json`
+- Modify: `apps/web/messages/zh-TW.json`
+- Test: `tests/unit/web/reference-solution-section.test.ts`
+
+1. Preserve the completed submission result after a failed reference validation.
+2. Reuse the existing testcase result component to show failed groups, case location, verdict, runtime, and memory inline.
+3. Display testcase ordinals as one-based numbers and direct authors back to Testcase Management for the matching input and expected output.

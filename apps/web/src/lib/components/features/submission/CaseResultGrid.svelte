@@ -57,7 +57,7 @@
         type="button"
         title={formatVerdictLabel(cr.verdict)}
       >
-        #{idx + 1}
+        #{cr.index + 1}
         <span class="font-semibold uppercase">{cr.verdict}</span>
         <span class="text-muted-foreground">·</span>
         {cr.timeMs}ms
@@ -71,7 +71,7 @@
         class="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-caption font-medium tabular-nums {cls}"
         title={formatVerdictLabel(cr.verdict)}
       >
-        #{idx + 1}
+        #{cr.index + 1}
         <span class="font-semibold uppercase">{cr.verdict}</span>
         <span class="text-muted-foreground">·</span>
         {cr.timeMs}ms

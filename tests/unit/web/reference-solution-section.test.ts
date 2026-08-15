@@ -86,4 +86,40 @@ describe("ReferenceSolutionSection", () => {
       expect(mocks.toastError).toHaveBeenCalledWith("Judge service unavailable");
     });
   });
+
+  it("shows the failed testcase group and one-based testcase number", async () => {
+    mocks.executeSubmission.mockResolvedValue({
+      accepted: false,
+      caseResults: [
+        { index: 0, verdict: "AC", timeMs: 4 },
+        { index: 1, verdict: "WA", timeMs: 7 },
+      ],
+      feedback: "Failed on testcase 2: wrong answer",
+      runtimeMs: 7,
+      score: 0,
+      subtaskResults: [
+        {
+          cases: [
+            { index: 0, verdict: "AC", timeMs: 4 },
+            { index: 1, verdict: "WA", timeMs: 7 },
+          ],
+          label: "Examples",
+          passed: false,
+          rawScore: 0,
+          testcaseSetId: "set_1",
+          weight: 100,
+        },
+      ],
+      verdict: "wrong_answer",
+    });
+
+    render().click();
+
+    await vi.waitFor(() => {
+      expect(target.textContent).toContain(m.admin_referenceFailureDetails());
+      expect(target.textContent).toContain("Examples");
+      expect(target.textContent).toContain("#2");
+      expect(target.textContent).toContain("WA");
+    });
+  });
 });
