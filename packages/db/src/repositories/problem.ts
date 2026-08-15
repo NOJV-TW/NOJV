@@ -1,7 +1,7 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
-import { problemMiniSelect } from "./selects";
+import { problemMiniSelect, problemPickerSelect } from "./selects";
 
 type TxClient = TransactionClient;
 
@@ -87,9 +87,7 @@ export const problemRepo = {
 
   listEditable(userId: string, sort: "asc" | "desc" = "asc") {
     return prisma.problem.findMany({
-      include: {
-        _count: { select: { workspaceFiles: true } },
-      },
+      select: problemPickerSelect,
       orderBy: { displayId: sort },
       where: {
         OR: [
@@ -133,6 +131,14 @@ export const problemRepo = {
         author: { select: { username: true } },
       },
       orderBy: { displayId: sort },
+    });
+  },
+
+  listPublicPicker(sort: "asc" | "desc" = "asc") {
+    return prisma.problem.findMany({
+      select: problemPickerSelect,
+      orderBy: { displayId: sort },
+      where: { status: "published", visibility: "public" },
     });
   },
 

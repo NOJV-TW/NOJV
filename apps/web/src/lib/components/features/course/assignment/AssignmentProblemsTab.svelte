@@ -2,9 +2,8 @@
   import type { courseDomain, problemDomain } from "@nojv/application";
 
   export type ProblemsTabProblem = courseDomain.AssignmentDetailProblem;
-  export type CandidateProblem = Awaited<
-    ReturnType<typeof problemDomain.listEditableProblems>
-  >[number];
+  export type CandidateProblem = problemDomain.ProblemPickerCandidate;
+  export type CandidateProblemGroups = problemDomain.ProblemPickerGroups;
 </script>
 
 <script lang="ts">
@@ -21,13 +20,14 @@
   import RejudgeDialog from "$lib/components/features/problem/admin/RejudgeDialog.svelte";
   import { Button } from "$lib/components/primitives/ui/button";
   import { cn } from "$lib/utils/css";
+  import { matchesProblemPickerSearch } from "$lib/utils/problem-picker";
 
   interface Props {
     problems: ProblemsTabProblem[];
     assignmentId: string;
     canEdit?: boolean;
     canRejudge?: boolean;
-    candidateProblems?: CandidateProblem[];
+    candidateProblems?: CandidateProblemGroups;
     class?: string;
   }
 
@@ -36,7 +36,7 @@
     assignmentId,
     canEdit = false,
     canRejudge = false,
-    candidateProblems = [],
+    candidateProblems = { personalProblems: [], publicProblems: [] },
     class: className,
   }: Props = $props();
 
@@ -68,18 +68,27 @@
 
   const selectedIds = $derived(new Set(editRows.map((r) => r.problemId)));
 
-  const filteredCandidates = $derived.by(() => {
-    const q = searchQuery.trim().toLowerCase();
-    const available = candidateProblems.filter((c) => !selectedIds.has(c.id));
-    if (q.length === 0) return available.slice(0, 20);
-    return available
-      .filter(
-        (c) =>
-          c.title.toLowerCase().includes(q) ||
-          c.id.toLowerCase().includes(q) ||
-          c.tags.some((t) => t.toLowerCase().includes(q)),
-      )
-      .slice(0, 20);
+  const filteredCandidateSections = $derived.by(() => {
+    return [
+      {
+        key: "public",
+        label: m.problems_publicLibrary(),
+        problems: candidateProblems.publicProblems,
+      },
+      {
+        key: "personal",
+        label: m.problems_myProblems(),
+        problems: candidateProblems.personalProblems,
+      },
+    ]
+      .map((section) => ({
+        ...section,
+        problems: section.problems
+          .filter((candidate) => !selectedIds.has(candidate.id))
+          .filter((candidate) => matchesProblemPickerSearch(candidate, searchQuery))
+          .slice(0, 20),
+      }))
+      .filter((section) => section.problems.length > 0);
   });
 
   function attach(candidate: CandidateProblem) {
@@ -291,35 +300,46 @@
         />
       </div>
       <div class="max-h-[220px] overflow-y-auto p-1.5">
-        {#if filteredCandidates.length === 0}
+        {#if filteredCandidateSections.length === 0}
           <p class="px-3 py-6 text-center text-caption text-muted-foreground">
             {m.assignmentDetail_problemsEditEmptyHint()}
           </p>
         {:else}
-          {#each filteredCandidates as candidate (candidate.id)}
-            <button
-              type="button"
-              onclick={() => attach(candidate)}
-              class="flex w-full items-center gap-3.5 rounded-md px-3 py-2.5 text-left transition-colors duration-fast hover:bg-muted"
-            >
-              <span class="min-w-[80px] font-mono text-caption text-muted-foreground">
-                {candidate.id}
-              </span>
-              <span class="flex-1 text-body-sm font-medium">{candidate.title}</span>
-              <span
-                class={cn(
-                  "text-micro font-semibold uppercase tracking-wider",
-                  difficultyClass(candidate.difficulty),
-                )}
+          {#each filteredCandidateSections as section (section.key)}
+            <section>
+              <h3
+                class="px-3 pb-1 pt-2 text-caption font-semibold uppercase tracking-[0.08em] text-muted-foreground"
               >
-                {candidate.difficulty}
-              </span>
-              <span
-                class="flex size-6 items-center justify-center rounded-sm bg-muted text-muted-foreground"
-              >
-                <Plus class="size-3.5" aria-hidden="true" />
-              </span>
-            </button>
+                {section.label}
+              </h3>
+              {#each section.problems as candidate (candidate.id)}
+                <button
+                  type="button"
+                  onclick={() => attach(candidate)}
+                  class="flex w-full items-center gap-3.5 rounded-md px-3 py-2.5 text-left transition-colors duration-fast hover:bg-muted"
+                >
+                  <span class="min-w-[80px] font-mono text-caption text-muted-foreground">
+                    {candidate.displayId == null
+                      ? m.common_problemDraft()
+                      : `#${candidate.displayId}`}
+                  </span>
+                  <span class="flex-1 text-body-sm font-medium">{candidate.title}</span>
+                  <span
+                    class={cn(
+                      "text-micro font-semibold uppercase tracking-wider",
+                      difficultyClass(candidate.difficulty),
+                    )}
+                  >
+                    {candidate.difficulty}
+                  </span>
+                  <span
+                    class="flex size-6 items-center justify-center rounded-sm bg-muted text-muted-foreground"
+                  >
+                    <Plus class="size-3.5" aria-hidden="true" />
+                  </span>
+                </button>
+              {/each}
+            </section>
           {/each}
         {/if}
       </div>

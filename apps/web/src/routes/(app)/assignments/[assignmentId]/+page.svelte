@@ -445,7 +445,9 @@
           assignmentId={detail.id}
           canEdit={data.mode === "teacher" && detail.status !== "closed"}
           canRejudge={data.mode === "teacher"}
-          candidateProblems={data.mode === "teacher" ? data.candidateProblems : []}
+          candidateProblems={data.mode === "teacher"
+            ? data.candidateProblems
+            : { personalProblems: [], publicProblems: [] }}
         />
       {:else if activeSubTab === "submissions"}
         <AssignmentSubmissionsMatrix

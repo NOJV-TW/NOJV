@@ -12,8 +12,8 @@
   import SettingsIcon from "@lucide/svelte/icons/settings";
   import CodeIcon from "@lucide/svelte/icons/code";
   import ListIcon from "@lucide/svelte/icons/list";
-  import PlusIcon from "@lucide/svelte/icons/plus";
   import XIcon from "@lucide/svelte/icons/x";
+  import ProblemPicker from "$lib/components/features/course/exam/ProblemPicker.svelte";
   import { Card } from "$lib/components/primitives/ui/card/index.js";
   import { Button } from "$lib/components/primitives/ui/button/index.js";
   import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
@@ -51,17 +51,35 @@
   );
 
   const showPointsInput = $derived(contestModeUsesPoints($form.scoringMode));
+  let selectedProblemIds = $state(
+    $form.problems.map((problem) => problem.problemId).filter((id) => id.length > 0),
+  );
+  const candidateProblemById = $derived(
+    new Map(
+      [
+        ...data.candidateProblems.publicProblems,
+        ...data.candidateProblems.personalProblems,
+      ].map((problem) => [problem.id, problem]),
+    ),
+  );
 
   function toggleLanguage(lang: Language) {
     $form.allowedLanguages = toggleArrayItem($form.allowedLanguages ?? [], lang);
   }
 
-  function addProblem() {
-    $form.problems = [...$form.problems, { problemId: "", points: 100 }];
+  function updateProblemIds(ids: string[]) {
+    const pointsById = new Map(
+      $form.problems.map((problem) => [problem.problemId, problem.points]),
+    );
+    selectedProblemIds = ids;
+    $form.problems = ids.map((problemId) => ({
+      problemId,
+      points: pointsById.get(problemId) ?? 100,
+    }));
   }
 
   function removeProblem(index: number) {
-    $form.problems = $form.problems.filter((_, i) => i !== index);
+    updateProblemIds($form.problems.filter((_, i) => i !== index).map((p) => p.problemId));
   }
 </script>
 
@@ -336,47 +354,56 @@
         <ListIcon aria-hidden="true" class="h-4 w-4" />
         <span>{m.contestCreate_problemIds()}</span>
       </div>
+      <ProblemPicker
+        candidateProblems={data.candidateProblems}
+        problemIds={selectedProblemIds}
+        onProblemIdsChange={updateProblemIds}
+        showSelected={false}
+      />
       <div class="space-y-2">
         {#each $form.problems as problem, i (i)}
-          <div class="flex items-center gap-2">
-            <span
-              class="w-6 shrink-0 text-center font-mono text-sm font-semibold text-muted-foreground"
-            >
-              {problemLetter(i + 1)}
-            </span>
-            <input
-              class={inputClassName}
-              type="text"
-              placeholder={m.contestCreate_problemIdsPlaceholder()}
-              bind:value={$form.problems[i]!.problemId}
-              aria-label={m.contestCreate_problemIds()}
-            />
-            {#if showPointsInput}
-              <input
-                class="{inputClassName} w-24 shrink-0"
-                type="number"
-                min="1"
-                step="1"
-                bind:value={$form.problems[i]!.points}
-                aria-label={m.contestCreate_problemPointsLabel()}
-              />
-            {/if}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              disabled={$form.problems.length <= 1}
-              onclick={() => removeProblem(i)}
-              aria-label={m.contestCreate_problemRemove()}
-            >
-              <XIcon aria-hidden="true" class="h-4 w-4" />
-            </Button>
-          </div>
+          {#if problem.problemId}
+            {@const selectedProblem = candidateProblemById.get(problem.problemId)}
+            <div class="flex items-center gap-2">
+              <span
+                class="w-6 shrink-0 text-center font-mono text-sm font-semibold text-muted-foreground"
+              >
+                {problemLetter(i + 1)}
+              </span>
+              <div
+                class="min-w-0 flex-1 rounded-md border border-border bg-background px-3.5 py-2.5"
+              >
+                <div class="truncate text-body-sm font-medium">
+                  {selectedProblem?.title ?? problem.problemId}
+                </div>
+                <div class="font-mono text-caption text-muted-foreground">
+                  {selectedProblem?.displayId == null
+                    ? m.common_problemDraft()
+                    : `#${selectedProblem.displayId}`}
+                </div>
+              </div>
+              {#if showPointsInput}
+                <input
+                  class="{inputClassName} w-24 shrink-0"
+                  type="number"
+                  min="1"
+                  step="1"
+                  bind:value={$form.problems[i]!.points}
+                  aria-label={m.contestCreate_problemPointsLabel()}
+                />
+              {/if}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onclick={() => removeProblem(i)}
+                aria-label={m.contestCreate_problemRemove()}
+              >
+                <XIcon aria-hidden="true" class="h-4 w-4" />
+              </Button>
+            </div>
+          {/if}
         {/each}
-        <Button type="button" variant="outline" size="sm" onclick={addProblem}>
-          <PlusIcon aria-hidden="true" class="h-4 w-4" />
-          {m.contestCreate_problemAdd()}
-        </Button>
         {#if typeof $errors.problems === "string" || Array.isArray($errors.problems)}
           <p class="mt-1 text-xs text-destructive">{m.contestCreate_problemsInvalid()}</p>
         {/if}

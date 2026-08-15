@@ -7,7 +7,7 @@ import type { Actions, PageServerLoad } from "./$types";
 import { canCreateCourse, requireAuth } from "$lib/server/auth";
 import { classifyError } from "$lib/server/shared/handle-action-error";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
-import { contestDomain } from "@nojv/application";
+import { contestDomain, problemDomain } from "@nojv/application";
 
 const { createContestRecord, contestFormSchema } = contestDomain;
 
@@ -16,8 +16,11 @@ export const load: PageServerLoad = async (event) => {
   if (!canCreateCourse(actor.platformRole)) {
     redirect(303, "/contests");
   }
-  const form = await superValidate(zod4(contestFormSchema));
-  return { form };
+  const [form, candidateProblems] = await Promise.all([
+    superValidate(zod4(contestFormSchema)),
+    problemDomain.listProblemPickerGroups(actor.userId),
+  ]);
+  return { form, candidateProblems };
 };
 
 export const actions = {

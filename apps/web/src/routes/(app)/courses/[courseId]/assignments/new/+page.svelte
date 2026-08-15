@@ -13,7 +13,7 @@
     type LatePenaltyRule,
   } from "$lib/components/features/course/LatePenaltyRuleBuilder.svelte";
   import StepCard from "$lib/components/features/coursework/StepCard.svelte";
-  import ExamProblemPicker from "$lib/components/features/course/exam/ExamProblemPicker.svelte";
+  import ProblemPicker from "$lib/components/features/course/exam/ProblemPicker.svelte";
   import type { FormMessage } from "$lib/types/form-message";
   import { toggleArrayItem } from "$lib/utils";
   import type { PageData } from "./$types";
@@ -92,8 +92,8 @@
       subtitle={m.assignmentCreate_problemsSubtitle()}
     >
       <div data-tour="assignment-picker">
-        <ExamProblemPicker
-          candidateProblems={data.candidateProblems ?? []}
+        <ProblemPicker
+          candidateProblems={data.candidateProblems}
           bind:problemIds={$form.problemIds}
           error={$errors.problemIds}
         />

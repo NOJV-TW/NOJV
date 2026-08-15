@@ -10,7 +10,7 @@ import { classifyError } from "$lib/server/shared/handle-action-error";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 
 const { createCourseAssignmentRecord } = courseDomain;
-const { listActivityCandidateProblems } = problemDomain;
+const { listProblemPickerGroups } = problemDomain;
 
 export const load: PageServerLoad = async (event) => {
   const actor = requireAuth(event);
@@ -28,7 +28,7 @@ export const load: PageServerLoad = async (event) => {
     zod4(courseAssignmentFormSchema),
   );
 
-  const candidateProblems = await listActivityCandidateProblems(actor.userId);
+  const candidateProblems = await listProblemPickerGroups(actor.userId);
 
   return { form, candidateProblems };
 };
