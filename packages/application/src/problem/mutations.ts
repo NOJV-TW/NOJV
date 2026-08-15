@@ -44,6 +44,7 @@ import { ensureUser } from "../user/mutations";
 import { writeCheckerScriptBlob, writeInteractorScriptBlob } from "./blobs";
 import {
   assertCanCreateAdvancedProblems,
+  canPublishPublicProblems,
   assertProblemEditAccess,
   assertProblemOwnership,
   type ProblemActorContext,
@@ -342,11 +343,11 @@ export async function updateProblemRecord(
 
     assertProblemOwnership(problem, actor);
 
-    if (
-      actor.platformRole === "student" &&
-      (payload.visibility === "public" || payload.status === "published")
-    ) {
-      throw new ForbiddenError("Students cannot publish public problems.");
+    const effectiveVisibility = payload.visibility ?? problem.visibility;
+    if (effectiveVisibility === "public" && !(await canPublishPublicProblems(actor))) {
+      throw new ForbiddenError(
+        "Public problems can only be published by teachers, admins, or active course TAs.",
+      );
     }
     if (
       actor.platformRole === "admin" &&

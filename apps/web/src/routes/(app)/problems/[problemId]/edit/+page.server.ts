@@ -119,6 +119,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const registryCredential = isAdvanced
     ? await registryDomain.getRegistryCredentialStatus(actor.userId)
     : null;
+  const publicVisibilityAllowed = await problemDomain.canPublishPublicProblems(actor);
 
   return {
     problem,
@@ -136,7 +137,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     permissions: {
       isAdmin: actor.platformRole === "admin",
       isOwner: problemRow?.authorId === actor.userId,
-      studentPrivateOnly: actor.platformRole === "student",
+      publicVisibilityAllowed,
       canPublishAsAdmin:
         actor.platformRole === "admin" &&
         problemRow?.authorId !== actor.userId &&

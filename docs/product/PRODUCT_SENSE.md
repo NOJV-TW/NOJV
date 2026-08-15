@@ -13,7 +13,7 @@
 ### Problems
 
 - Problem listing with filters (difficulty, tags, solved status)
-- Problem creation: any email-verified user (including students) may create and own private problems; students cannot publish public problems, while teachers/admins retain their existing own-problem publishing permissions. Any private-problem owner may separately grant one-time `adminMayPublish` consent; this is not a review request, queue, or publication guarantee.
+- Problem creation: any email-verified user (including students) may create, own, and publish private problems. Teachers, admins, and users who are active TAs in any non-archived course may publish public problems. Any private-problem owner may separately grant one-time `adminMayPublish` consent; this is not a review request, queue, or publication guarantee.
 - Standard publication requires an accepted current private reference solution. When an admin publishes another author's authorized problem, the platform creates an admin-owned public fork and clears the source consent; the original private problem remains owned and editable by its author.
 - Published public problems can be forked manually by teachers, admins, and users currently serving as a course TA. A fork is an independent private draft with direct-source lineage, copied judge content, and a private snapshot of the current accepted reference solution; later edits do not synchronize between copies.
 - i18n problem statements (en, zh-TW) with markdown + KaTeX rendering

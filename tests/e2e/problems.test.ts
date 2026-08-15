@@ -1,12 +1,23 @@
 import { test, expect } from "@playwright/test";
+import { PrismaPg } from "@prisma/adapter-pg";
 import path from "node:path";
 
-import { adminAuth, apiWriteHeaders } from "./_shared";
+import { adminAuth, apiWriteHeaders, formActionHeaders } from "./_shared";
+import { PrismaClient } from "../../packages/db/generated/prisma/client";
+import { resolveDestructiveTestDatabase } from "../setup/destructive-test-database";
+
+const testPrisma = new PrismaClient({
+  adapter: new PrismaPg({
+    connectionString: resolveDestructiveTestDatabase("nojv_e2e_test"),
+  }),
+});
 
 const teacherAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/teacher.json");
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
 
 test.describe("Problems", () => {
+  test.afterAll(async () => testPrisma.$disconnect());
+
   test("can browse problem list as authenticated user", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
@@ -86,6 +97,88 @@ test.describe("Problems", () => {
     await expect(page.locator('input[name="memoryLimitMb"]')).toHaveAttribute("required", "");
 
     await context.close();
+  });
+
+  test("student can finish and publish an owned private problem", async ({ browser }) => {
+    const user = await testPrisma.user.update({
+      where: { email: "student@nojv.local" },
+      data: { emailVerified: true },
+    });
+    const context = await browser.newContext({ storageState: studentAuth });
+    const page = await context.newPage();
+    let id = "";
+
+    try {
+      const response = await page.request.post("/api/problems", { headers: apiWriteHeaders });
+      expect(response.ok()).toBe(true);
+      ({ id } = await response.json());
+
+      await page.goto(`/problems/${id}/edit`);
+      await page.locator("input[name='title']").fill(`Private Student Problem ${Date.now()}`);
+      await page.locator("textarea[name='statement']").fill("Add two integers.");
+      await page.locator("textarea[name='inputFormat']").fill("Two integers.");
+      await page.locator("textarea[name='outputFormat']").fill("Their sum.");
+      await page.getByRole("button", { name: /save|儲存/i }).click();
+      await expect(page.getByRole("button", { name: /save|儲存/i })).toBeDisabled();
+
+      const testcaseResponse = await page.request.post(
+        `/problems/${id}/edit?/createTestcaseSet`,
+        {
+          form: {
+            data: JSON.stringify({
+              name: "Main",
+              weight: 100,
+              cases: [{ input: "1 2", output: "3" }],
+            }),
+          },
+          headers: formActionHeaders,
+        },
+      );
+      expect((await testcaseResponse.json()).type).not.toBe("failure");
+
+      const referenceId = `reference-${id}`;
+      const inserted = await testPrisma.$executeRaw`
+        INSERT INTO "Submission" (id, "userId", "problemId", "isReferenceSolution", "referenceProblemStorageGeneration", language, "sourceStorage", status, "updatedAt")
+        SELECT ${referenceId}, ${user.id}, p.id, true, p."storageGeneration", 'c'::"SupportedLanguage", source."sourceStorage", 'accepted'::"SubmissionStatus", NOW()
+        FROM "Problem" p
+        CROSS JOIN LATERAL (
+          SELECT "sourceStorage" FROM "Submission" WHERE "sourceStorage" IS NOT NULL LIMIT 1
+        ) source
+        WHERE p.id = ${id}
+      `;
+      expect(inserted).toBe(1);
+      await testPrisma.problem.update({
+        where: { id },
+        data: { referenceSolutionSubmissionId: referenceId },
+      });
+
+      await page.reload();
+      await expect(page.getByRole("button", { name: "Finish & Publish" })).toBeEnabled();
+
+      const publishResponse = await page.request.post(`/problems/${id}/edit?/publish`, {
+        form: {},
+        headers: formActionHeaders,
+      });
+      const publishBody = await publishResponse.json();
+      expect(publishBody.type).not.toBe("error");
+      expect(publishBody.type).not.toBe("failure");
+      await expect
+        .poll(async () => {
+          const problem = await testPrisma.problem.findUnique({
+            where: { id },
+            select: { status: true, visibility: true },
+          });
+          return `${problem?.status ?? "missing"}|${problem?.visibility ?? "missing"}`;
+        })
+        .toBe("published|private");
+    } finally {
+      if (id) await testPrisma.problem.deleteMany({ where: { id } });
+      await testPrisma.user.update({
+        where: { id: user.id },
+        data: { emailVerified: false },
+      });
+      await context.close();
+    }
   });
 
   test("admin can fork a public problem into an independent draft", async ({ browser }) => {

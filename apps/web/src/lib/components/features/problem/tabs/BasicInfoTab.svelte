@@ -17,7 +17,7 @@
     formData: SuperValidated<ProblemDraft>;
     problemId: string;
     showRuntimeLimits?: boolean;
-    studentPrivateOnly?: boolean;
+    privateVisibilityOnly?: boolean;
     isOwner?: boolean;
     ondirtychange?: (dirty: boolean) => void;
   }
@@ -26,7 +26,7 @@
     formData,
     problemId,
     showRuntimeLimits = false,
-    studentPrivateOnly = false,
+    privateVisibilityOnly = false,
     isOwner = false,
     ondirtychange,
   }: Props = $props();
@@ -72,7 +72,7 @@
   });
 
   $effect(() => {
-    if (studentPrivateOnly && $form.visibility !== "private") $form.visibility = "private";
+    if (privateVisibilityOnly && $form.visibility !== "private") $form.visibility = "private";
   });
 
   let showAdvanced = $state(false);
@@ -146,7 +146,7 @@
         >{m.admin_visibility()} <span class="text-destructive">*</span>
         <HelpTooltip text={m.admin_helpVisibility()} /></span
       >
-      {#if studentPrivateOnly}
+      {#if privateVisibilityOnly}
         <Select.Root
           type="single"
           value={$form.adminMayPublish ? "admin_may_publish" : "private"}

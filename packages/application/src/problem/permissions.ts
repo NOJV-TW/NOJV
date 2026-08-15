@@ -23,6 +23,14 @@ export async function canAuthorProblems(actor: {
   return courseMembershipRepo.hasActiveStaffMembership(actor.userId);
 }
 
+export async function canPublishPublicProblems(actor: {
+  userId: string;
+  platformRole: PlatformRole;
+}): Promise<boolean> {
+  if (actor.platformRole === "admin" || actor.platformRole === "teacher") return true;
+  return courseMembershipRepo.hasActiveStaffMembership(actor.userId);
+}
+
 export async function canCreateAdvancedProblems(actor: {
   userId: string;
   platformRole: PlatformRole;
