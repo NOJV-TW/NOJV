@@ -45,15 +45,24 @@ export function mergeInteractiveCase(
     ...(run.memoryKb !== undefined && run.memoryKb > 0 ? { memoryKb: run.memoryKb } : {}),
   };
 
+  if (outcome?.verdict === "SE") {
+    return {
+      ...base,
+      verdict: "SE",
+      feedback: "Interactive judge failed; this submission was not counted.",
+      ...(outcome.judgeMessage ? { staffFeedback: outcome.judgeMessage } : {}),
+    };
+  }
+
   if (run.errorVerdict) {
     return { ...base, verdict: run.errorVerdict };
   }
 
-  if (!outcome || outcome.verdict === "SE") {
+  if (!outcome) {
     return {
       ...base,
       verdict: "SE",
-      feedback: "Interactor did not report a verdict.",
+      feedback: "Interactive judge failed; this submission was not counted.",
     };
   }
 

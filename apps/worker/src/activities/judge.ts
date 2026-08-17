@@ -104,7 +104,7 @@ export function mergeSandboxSources(
   };
 }
 
-function buildSandboxTestcases(
+export function buildSandboxTestcases(
   judgeContext: submissionDomain.SubmissionJudgeContext,
   options: {
     useSamples: boolean;
@@ -113,6 +113,16 @@ function buildSandboxTestcases(
     hasRunCases: boolean;
   },
 ): SandboxRequest["testcases"] {
+  if (options.useSamples && judgeContext.judgeType === "interactive") {
+    return (judgeContext.testcaseSets[0]?.testcases ?? []).map((tc, i) => ({
+      index: i,
+      input: tc.input,
+      ...(tc.output !== undefined ? { output: tc.output } : {}),
+      weight: 0,
+      isSample: true,
+    }));
+  }
+
   if (options.hasRunCases) {
     return (options.runCases ?? []).map((tc, i) => ({
       index: i,

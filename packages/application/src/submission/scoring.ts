@@ -153,11 +153,13 @@ export function mapResult(
   }
 
   if (result.testcaseResults.some((t) => t.verdict === "SE")) {
+    const systemCase = result.testcaseResults.find((t) => t.verdict === "SE");
     return {
       accepted: false,
       caseResults,
       feedback: truncate(
         result.scoringFeedback ??
+          systemCase?.feedback ??
           "Judging failed due to a platform error. This submission was not counted; please resubmit.",
         MAX_FEEDBACK_LEN,
       ),

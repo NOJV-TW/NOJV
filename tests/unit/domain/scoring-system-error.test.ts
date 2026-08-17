@@ -55,6 +55,24 @@ describe("mapResult — sandbox SE maps to system_error (platform fault)", () =>
     expect(() => submissionResultSchema.parse(result)).not.toThrow();
   });
 
+  it("prefers a case diagnostic over the generic platform message", () => {
+    const result = mapResult(
+      {
+        testcaseResults: [
+          mkCase({
+            index: 0,
+            verdict: "SE",
+            feedback: "Interactive judge failed; this submission was not counted.",
+          }),
+        ],
+      },
+      [],
+      NO_ADJUSTMENT as never,
+    );
+
+    expect(result.feedback).toBe("Interactive judge failed; this submission was not counted.");
+  });
+
   it("maps a judge pipeline failure to system_error instead of a student compile error", () => {
     const result = mapResult(
       { pipelineError: "sandbox phase failed", testcaseResults: [] },
