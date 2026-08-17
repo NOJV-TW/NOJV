@@ -1,8 +1,6 @@
 <script lang="ts">
   import type { Language, SubmissionContext } from "@nojv/core";
-  import { goto } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
-  import { shortcuts } from "$lib/stores/shortcuts.svelte";
   import type {
     ProblemDetail,
     ProblemSubmissionEntry,
@@ -108,37 +106,6 @@
     siblingProblems?.filter((s) => s.bestScore !== undefined && s.bestScore >= s.maxScore)
       .length ?? 0,
   );
-
-  $effect(() => {
-    if (!hasSiblings || !siblingProblems) return;
-    const sibs = siblingProblems;
-    const activeIndex = sibs.findIndex((s) => s.isActive);
-    const offs = [
-      shortcuts.register({
-        id: "problem-prev",
-        keys: ["["],
-        description: m.shortcut_prevProblem(),
-        category: "navigation",
-        handler: () => {
-          const target = sibs[activeIndex - 1];
-          if (target) void goto(target.href);
-        },
-      }),
-      shortcuts.register({
-        id: "problem-next",
-        keys: ["]"],
-        description: m.shortcut_nextProblem(),
-        category: "navigation",
-        handler: () => {
-          const target = sibs[activeIndex + 1];
-          if (target) void goto(target.href);
-        },
-      }),
-    ];
-    return () => {
-      for (const off of offs) off();
-    };
-  });
 </script>
 
 <div class="lg:hidden">

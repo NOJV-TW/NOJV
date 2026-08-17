@@ -1786,8 +1786,6 @@
   "scoreboard_pendingShort": "判題中",
   "scoreboard_try": "嘗試",
   "scoreboard_wa": "答錯",
-  "shortcut_nextProblem": "下一題",
-  "shortcut_prevProblem": "上一題",
   "shortcut_saveDraft": "儲存草稿",
   "shortcut_submit": "提交解答",
   "sse_verdictToastAccepted": "提交已通過",
