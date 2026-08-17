@@ -222,7 +222,9 @@
           <div class="mt-4">
             <CaseResultGrid cases={entry.result.caseResults} />
           </div>
-        {:else if entry.result.feedback}
+        {/if}
+
+        {#if entry.result.feedback && entry.result.verdict !== "accepted"}
           {#if ["compile_error", "runtime_error", "system_error"].includes(entry.result.verdict)}
             <pre
               class="mt-3 max-h-64 overflow-auto rounded-md bg-destructive/10 px-3 py-2 font-mono text-body-sm text-destructive">{entry

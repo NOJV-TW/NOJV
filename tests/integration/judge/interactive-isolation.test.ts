@@ -165,6 +165,32 @@ describe("interactive-mode two-container isolation (Phase 2C)", () => {
   );
 
   it(
+    "reports an interactor crash as system error with a staff diagnostic",
+    { timeout: 240_000 },
+    async (ctx) => {
+      if (!(await requireSandboxImage(ctx))) return;
+
+      const result = await execute(
+        interactiveRequest({
+          submissionId: "interactive-interactor-crash",
+          sourceCode: "import sys\nprint(sys.stdin.readline(), flush=True)\n",
+          judgeConfig: {
+            interactorLanguage: "python",
+            interactorScript: 'raise ValueError("invalid secret")',
+          },
+        }),
+      );
+
+      expect(result.compilationError).toBeUndefined();
+      for (const tc of result.testcaseResults) {
+        expect(tc.verdict).toBe("SE");
+        expect(tc.feedback).toBe("Interactive judge failed; this submission was not counted.");
+        expect(tc.staffFeedback).toContain("ValueError: invalid secret");
+      }
+    },
+  );
+
+  it(
     "does not expose the secret input to the solution container",
     { timeout: 240_000 },
     async (ctx) => {

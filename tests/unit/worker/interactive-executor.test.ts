@@ -122,9 +122,28 @@ describe("mergeInteractiveCase", () => {
     const result = mergeInteractiveCase(
       TESTCASE,
       { ...ok, stderr: runStderr({ exitCode: 0, timeMs: 5, errorVerdict: null }) },
-      { ...ok, stderr: intStderr({ verdict: "SE", judgeMessage: "interactor error" }) },
+      {
+        ...ok,
+        stderr: intStderr({ verdict: "SE", judgeMessage: "ValueError: invalid secret" }),
+      },
     );
     expect(result.verdict).toBe("SE");
+    expect(result.feedback).toBe("Interactive judge failed; this submission was not counted.");
+    expect(result.staffFeedback).toBe("ValueError: invalid secret");
+  });
+
+  it("does not turn an interactor crash into a solution runtime error", () => {
+    const result = mergeInteractiveCase(
+      TESTCASE,
+      { ...ok, stderr: runStderr({ exitCode: 1, timeMs: 5, errorVerdict: "RE" }) },
+      {
+        ...ok,
+        stderr: intStderr({ verdict: "SE", judgeMessage: "ValueError: invalid secret" }),
+      },
+    );
+
+    expect(result.verdict).toBe("SE");
+    expect(result.staffFeedback).toBe("ValueError: invalid secret");
   });
 
   it("a container timeout → SE", () => {

@@ -15,7 +15,11 @@
   let { cases, allowExpand = false }: Props = $props();
 
   function hasExpandableContent(cr: CaseResult): boolean {
-    return (cr.stdout?.length ?? 0) > 0 || (cr.staffFeedback?.length ?? 0) > 0;
+    return (
+      (cr.stdout?.length ?? 0) > 0 ||
+      (cr.stderr?.length ?? 0) > 0 ||
+      (cr.staffFeedback?.length ?? 0) > 0
+    );
   }
 
   let expandedIndex = $state<number | null>(null);

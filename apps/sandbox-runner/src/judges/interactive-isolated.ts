@@ -156,9 +156,13 @@ export function runInteractiveValidator(
         clearTimeout(timer);
 
         if (forceKilled || signal) {
+          const detail = stderrBuf.toString().trim();
           emitValidateReport({
             verdict: "SE",
-            judgeMessage: `Interactor terminated (${signal ?? "timeout"}).`,
+            judgeMessage: [
+              `Interactor terminated (${signal ?? "timeout"}).`,
+              ...(detail ? [detail] : []),
+            ].join(" "),
           });
           resolve();
           return;
@@ -174,7 +178,15 @@ export function runInteractiveValidator(
         );
         if (teamMessage !== undefined) feedback.teamMessage = teamMessage;
 
-        emitValidateReport(parseValidatorFeedback(code ?? -1, feedback));
+        const outcome = parseValidatorFeedback(code ?? -1, feedback);
+        if (outcome.verdict === "SE") {
+          const detail = stderrBuf.toString().trim();
+          outcome.judgeMessage = [
+            `Interactor exited with code ${String(code ?? "unknown")}.`,
+            ...(detail ? [detail] : []),
+          ].join(" ");
+        }
+        emitValidateReport(outcome);
         resolve();
       })();
     });
