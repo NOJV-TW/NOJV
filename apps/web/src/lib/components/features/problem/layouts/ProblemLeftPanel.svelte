@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ArrowLeft } from "@lucide/svelte";
   import { untrack } from "svelte";
   import type {
     ProblemDetail,
@@ -10,8 +11,10 @@
   import SubmissionHistoryPanel from "../left-panel/SubmissionHistoryPanel.svelte";
   import PostPanel from "../left-panel/PostPanel.svelte";
 
+  type ProblemBackLinkType = "assignment" | "contest" | "exam" | "virtual" | "problems";
+
   export interface ProblemLeftPanelProps {
-    backLink?: { href: string; type: "assignment" | "contest" } | undefined;
+    backLink?: { href: string; type: ProblemBackLinkType } | undefined;
     canRejudge?: boolean;
     canViewEditorials?: boolean;
     postsEnabled?: boolean;
@@ -94,17 +97,32 @@
     leftTab = nextKey;
     document.getElementById(`${uid}-tab-${nextKey}`)?.focus();
   }
+
+  function backLinkLabel(type: ProblemBackLinkType): string {
+    switch (type) {
+      case "assignment":
+        return m.problemDetail_backToAssignment();
+      case "contest":
+        return m.problemDetail_backToContest();
+      case "exam":
+        return m.problemDetail_backToExam();
+      case "virtual":
+        return m.problemDetail_backToVirtualContest();
+      case "problems":
+        return m.problemDetail_backToProblems();
+    }
+  }
 </script>
 
 <div class="flex h-9 items-center border-b border-border-subtle px-2">
   {#if backLink}
     <a
-      class="px-3 py-1.5 text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"
+      class="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-caption text-muted-foreground transition-[color,background-color] duration-fast ease-out-soft hover:bg-muted hover:text-foreground"
       href={backLink.href}
+      data-testid="problem-back-link"
     >
-      &larr; {backLink.type === "contest"
-        ? m.problemDetail_backToContest()
-        : m.problemDetail_backToAssignment()}
+      <ArrowLeft class="size-3.5" strokeWidth={2} aria-hidden="true" />
+      {backLinkLabel(backLink.type)}
     </a>
   {/if}
   <div role="tablist" aria-label={m.problemDetail_panelTabsLabel()} class="flex items-center">

@@ -75,7 +75,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   return {
     allowedLanguages: [],
     assignmentProp: undefined,
-    backLink: undefined,
+    backLink: { href: "/problems", type: "problems" as const },
     canRejudge,
     canViewEditorials: editorialAccess,
     contestId: undefined,

@@ -50,6 +50,8 @@ const DEFAULT_TIMEOUT_MS = 600_000;
 const INITIAL_POLL_DELAY_MS = 500;
 const MAX_POLL_DELAY_MS = 5_000;
 const POLL_BACKOFF_FACTOR = 1.5;
+const INITIAL_NETWORK_RETRY_DELAY_MS = 250;
+const MAX_NETWORK_RETRY_DELAY_MS = 5_000;
 
 export function buildSubmissionBody(request: SubmissionRequest): Record<string, unknown> {
   const commonFields: Record<string, unknown> = {
@@ -116,16 +118,27 @@ async function postSubmission(
 async function pollOnce(
   pollUrl: string,
   signal?: AbortSignal,
+  deadlineMs = Number.POSITIVE_INFINITY,
 ): Promise<SubmissionOperation | null> {
   const pollInit: RequestInit = { cache: "no-store" };
   if (signal) pollInit.signal = signal;
 
-  let poll: Response;
-  try {
-    poll = await fetch(pollUrl, pollInit);
-  } catch (err) {
-    if (signal?.aborted) return null;
-    throw err;
+  let poll: Response | undefined;
+  let retryDelay = INITIAL_NETWORK_RETRY_DELAY_MS;
+  while (!poll) {
+    try {
+      poll = await fetch(pollUrl, pollInit);
+    } catch {
+      if (signal?.aborted) return null;
+      const remainingMs = deadlineMs - Date.now();
+      if (
+        remainingMs <= 0 ||
+        !(await waitForDelay(Math.min(retryDelay, remainingMs), signal))
+      ) {
+        return null;
+      }
+      retryDelay = Math.min(retryDelay * 2, MAX_NETWORK_RETRY_DELAY_MS);
+    }
   }
 
   if (!poll.ok) {
@@ -162,7 +175,7 @@ export async function executeSubmission(
     while (Date.now() - startedAt < timeoutMs) {
       if (signal?.aborted) return null;
 
-      const operation = await pollOnce(dispatch.pollUrl, signal);
+      const operation = await pollOnce(dispatch.pollUrl, signal, startedAt + timeoutMs);
       if (!operation) return null;
 
       onOperationUpdate?.(operation);
@@ -182,6 +195,26 @@ export async function executeSubmission(
   } finally {
     verdictSignal.dispose();
   }
+}
+
+function waitForDelay(ms: number, signal?: AbortSignal): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) {
+      resolve(false);
+      return;
+    }
+
+    const onAbort = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      resolve(false);
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve(true);
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 interface VerdictSignal {
