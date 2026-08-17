@@ -27,7 +27,9 @@
   interface Props {
     allowedLanguages?: Language[] | undefined;
     context: SubmissionContext;
-    backLink?: { href: string; type: "assignment" | "contest" } | undefined;
+    backLink?:
+      | { href: string; type: "assignment" | "contest" | "exam" | "virtual" | "problems" }
+      | undefined;
     canRejudge?: boolean;
     canViewEditorials?: boolean;
     postsEnabled?: boolean;

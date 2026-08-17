@@ -64,7 +64,7 @@
 
 <ProblemSolveView
   mode="practice"
-  backLink={{ href: `/contests/${data.contestId}/virtual`, type: "contest" }}
+  backLink={{ href: `/contests/${data.contestId}/virtual`, type: "virtual" }}
   problem={data.problem}
   siblingProblems={data.siblingProblems}
   submissions={data.submissions}

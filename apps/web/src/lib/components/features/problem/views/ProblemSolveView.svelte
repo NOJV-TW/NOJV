@@ -45,7 +45,9 @@
         }
       | undefined;
     endedKind?: "assignment" | "exam" | undefined;
-    backLink?: { href: string; type: "assignment" | "contest" } | undefined;
+    backLink?:
+      | { href: string; type: "assignment" | "contest" | "exam" | "virtual" | "problems" }
+      | undefined;
     canRejudge?: boolean;
     canViewEditorials?: boolean;
     postsEnabled?: boolean;

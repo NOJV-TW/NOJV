@@ -3,12 +3,8 @@
   import { m } from "$lib/paraglide/messages.js";
   import { createDocumentMouseDrag, submissionContextBadge } from "../editors/editor-bindings";
   import {
-    apiErrorSchema,
     MAX_SUBMISSION_BODY_BYTES,
     sourceExtensions,
-    submissionDispatchResponseSchema,
-    submissionOperationSchema,
-    submissionResultSchema,
     type Language,
     type SubmissionContext,
     type SubmissionResult,
@@ -21,12 +17,14 @@
   import ProblemLeftPanel from "../layouts/ProblemLeftPanel.svelte";
   import AdvancedUploader, { type StagedFile } from "./AdvancedUploader.svelte";
   import AdvancedFileManager from "./AdvancedFileManager.svelte";
-  import { buildSubmissionBody } from "$lib/services/submission-service";
+  import { buildSubmissionBody, executeSubmission } from "$lib/services/submission-service";
   import { toasts } from "$lib/stores/toast";
 
   interface Props {
     context: SubmissionContext;
-    backLink?: { href: string; type: "assignment" | "contest" } | undefined;
+    backLink?:
+      | { href: string; type: "assignment" | "contest" | "exam" | "virtual" | "problems" }
+      | undefined;
     canRejudge?: boolean;
     canViewEditorials?: boolean;
     postsEnabled?: boolean;
@@ -157,56 +155,31 @@
     const { signal } = pollAbortController;
 
     try {
-      const response = await fetch("/api/submissions", {
-        body: serializedBody,
-        headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
-        method: "POST",
-        signal,
-      });
+      let submissionId: string | null = null;
+      const result = await executeSubmission(
+        {
+          context,
+          language: uploadLanguage,
+          problemId: problem.id,
+          sampleOnly: false,
+          sourceCode: placeholderSource,
+          sourceFiles: staged.sourceFiles,
+        },
+        {
+          signal,
+          onDispatched: (dispatch) => {
+            submissionId = dispatch.submissionId;
+          },
+        },
+      );
 
-      if (!response.ok) {
-        const parsed = apiErrorSchema.safeParse(await response.json());
-        throw new Error(parsed.success ? parsed.data.message : m.editor_submitFailed());
-      }
+      if (destroyed || !result || !submissionId) return;
 
-      const dispatch = submissionDispatchResponseSchema.parse(await response.json());
-      const startedAt = Date.now();
-      let pollDelay = 500;
-
-      while (Date.now() - startedAt < 600_000) {
-        if (destroyed) return;
-
-        const poll = await fetch(dispatch.pollUrl, { cache: "no-store", signal });
-
-        if (!poll.ok) {
-          const parsed = apiErrorSchema.safeParse(await poll.json());
-          throw new Error(parsed.success ? parsed.data.message : m.editor_submitFailed());
-        }
-
-        const operation = submissionOperationSchema.parse(await poll.json());
-
-        if (operation.result) {
-          const result = submissionResultSchema.parse(operation.result);
-          const previewSource = staged.sourceFiles
-            .map((f) => `// --- ${f.path} ---\n${f.content}`)
-            .join("\n\n");
-          handleSubmissionComplete(
-            dispatch.submissionId,
-            result,
-            uploadLanguage,
-            previewSource,
-          );
-          staged = null;
-          return;
-        }
-
-        await new Promise((resolve) => {
-          setTimeout(resolve, pollDelay);
-        });
-        pollDelay = Math.min(pollDelay * 1.5, 3000);
-      }
-
-      throw new Error(m.advancedMode_judgingInProgress());
+      const previewSource = staged.sourceFiles
+        .map((f) => `// --- ${f.path} ---\n${f.content}`)
+        .join("\n\n");
+      handleSubmissionComplete(submissionId, result, uploadLanguage, previewSource);
+      staged = null;
     } catch (err) {
       if ((err as { name?: string }).name === "AbortError") return;
       submitError = err instanceof Error ? err.message : m.editor_submitFailed();

@@ -38,6 +38,7 @@
   <div class="min-h-0 flex-1">
     <ProblemSolveView
       mode="exam"
+      backLink={{ href: `/exams/${data.examContext.examId}`, type: "exam" }}
       canRejudge={data.canRejudge}
       problem={data.problem}
       submissions={data.submissions}

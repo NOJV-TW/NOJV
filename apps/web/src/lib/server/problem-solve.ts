@@ -46,7 +46,9 @@ export interface ProblemSolvePropsShape {
         courseId: string;
       }
     | undefined;
-  backLink: { href: string; type: "assignment" | "contest" } | undefined;
+  backLink:
+    | { href: string; type: "assignment" | "contest" | "exam" | "virtual" | "problems" }
+    | undefined;
   canRejudge: boolean;
   contestId: string | undefined;
   problem: Awaited<ReturnType<typeof getProblemPageData>>;

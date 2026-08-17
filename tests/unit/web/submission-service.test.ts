@@ -58,6 +58,49 @@ describe("buildSubmissionBody", () => {
 });
 
 describe("executeSubmission", () => {
+  it("retries transient poll network failures after dispatch", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            submissionId: "submission_1",
+            pollUrl: "/poll",
+            status: "queued",
+          }),
+          { status: 202 },
+        ),
+      )
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            submissionId: "submission_1",
+            status: "accepted",
+            result: {
+              accepted: true,
+              feedback: "Accepted",
+              runtimeMs: 1,
+              score: 100,
+              verdict: "accepted",
+            },
+          }),
+          { status: 200 },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      executeSubmission({
+        context: { type: "practice" },
+        language: "python",
+        problemId: "problem_1",
+        sourceCode: "print(1)",
+      }),
+    ).resolves.toMatchObject({ accepted: true, verdict: "accepted" });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
   it("reports polling API failures as SubmissionRequestError", async () => {
     vi.stubGlobal(
       "fetch",
