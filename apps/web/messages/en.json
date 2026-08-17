@@ -1689,6 +1689,7 @@
   "problemDetail_description": "Description",
   "problemDetail_panelTabsLabel": "Problem panel tabs",
   "problemDetail_editProblem": "Edit",
+  "problemDetail_previewProblem": "Preview",
   "problemDetail_fullSourceBadge": "Full source",
   "problemDetail_fullSourceHelp": "Submit a complete program including main(). The judge compiles and runs your code against stdin and compares stdout against the expected output.",
   "problemDetail_input": "Input",

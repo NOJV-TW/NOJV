@@ -254,6 +254,9 @@
                   {m.rejudge_problem_admin_button()}
                 </Button>
               {/if}
+              <Button href={`/problems/${row.problemId}`} variant="outline" size="sm">
+                {m.problemDetail_previewProblem()}
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"

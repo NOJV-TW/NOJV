@@ -167,6 +167,9 @@
                       {m.rejudge_problem_admin_button()}
                     </Button>
                   {/if}
+                  <Button href={`/problems/${problem.id}`} variant="outline" size="sm">
+                    {m.problemDetail_previewProblem()}
+                  </Button>
                   <button
                     type="button"
                     class="flex h-7 w-7 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"

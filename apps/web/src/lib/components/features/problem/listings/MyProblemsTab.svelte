@@ -5,6 +5,7 @@
   import {
     ArrowDownNarrowWide,
     ArrowUpNarrowWide,
+    Eye,
     FileCode,
     Pencil,
     RotateCcw,
@@ -277,6 +278,12 @@
             <RotateCcw class="size-3" aria-hidden="true" />
             {m.rejudge_problem_admin_button()}
           </Button>
+        {/if}
+        {#if problem.status === "draft"}
+          <LinkButton href={`/problems/${problem.id}`} variant="outline" size="sm">
+            <Eye class="size-3" aria-hidden="true" />
+            {m.problemDetail_previewProblem()}
+          </LinkButton>
         {/if}
         <LinkButton href={`/problems/${problem.id}/edit`} variant="outline" size="sm">
           <Pencil class="size-3" aria-hidden="true" />
