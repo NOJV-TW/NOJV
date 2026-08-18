@@ -11,6 +11,16 @@ export const supportedLanguages = [
   "typescript",
 ] as const;
 
+export const forgeLanguages = [
+  "c",
+  "cpp",
+  "go",
+  "javascript",
+  "python",
+  "rust",
+  "typescript",
+] as const;
+
 export const platformRoles = ["admin", "teacher", "student"] as const;
 export const apiTokenScopes = [
   "profile:read",
@@ -109,6 +119,7 @@ export const contestScoringModeSchema = z.enum(contestScoringModes);
 export const examScoringModeSchema = z.enum(examScoringModes);
 export const courseMembershipStatusSchema = z.enum(courseMembershipStatuses);
 export const languageSchema = z.enum(supportedLanguages);
+export const forgeLanguageSchema = z.enum(forgeLanguages);
 export const judgeTypeSchema = z.enum(judgeTypes);
 export const problemTypeSchema = z.enum(problemTypes);
 export const announcementStatusSchema = z.enum(announcementStatuses);
@@ -131,6 +142,7 @@ export type EffectiveCourseRole = z.infer<typeof effectiveCourseRoleSchema>;
 export type ProblemDifficulty = z.infer<typeof problemDifficultySchema>;
 export type JudgeType = z.infer<typeof judgeTypeSchema>;
 export type Language = z.infer<typeof languageSchema>;
+export type ForgeLanguage = z.infer<typeof forgeLanguageSchema>;
 export type LocaleCode = z.infer<typeof localeCodeSchema>;
 export type ScoreboardMode = z.infer<typeof scoreboardModeSchema>;
 export type PlatformRole = z.infer<typeof platformRoleSchema>;
@@ -144,6 +156,10 @@ export type ProblemType = z.infer<typeof problemTypeSchema>;
 export type AnnouncementStatus = z.infer<typeof announcementStatusSchema>;
 export type AnnouncementAudience = z.infer<typeof announcementAudienceSchema>;
 export type SubmissionOperationStatus = z.infer<typeof submissionOperationStatusSchema>;
+
+export function isForgeLanguage(language: Language): language is ForgeLanguage {
+  return forgeLanguages.includes(language as ForgeLanguage);
+}
 
 export const ipViolationModes = ["block", "notify"] as const;
 export const ipViolationModeSchema = z.enum(ipViolationModes);

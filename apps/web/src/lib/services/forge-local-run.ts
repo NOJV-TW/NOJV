@@ -1,6 +1,7 @@
 import {
   compareStandard,
   entryFileNameFor,
+  isForgeLanguage,
   type CaseResult,
   type CompareConfig,
   type Language,
@@ -10,20 +11,10 @@ import {
 import type { BuildResult, ForgeEngine, RunResult } from "@wasm-oj/forge/browser";
 import type { SubmissionRequest } from "./submission-service";
 
-const FORGE_LANGUAGES = new Set<Language>([
-  "c",
-  "cpp",
-  "go",
-  "javascript",
-  "python",
-  "rust",
-  "typescript",
-]);
-
 let forgePromise: Promise<ForgeEngine> | undefined;
 
 export function supportsForgeLocalRun(language: Language): boolean {
-  return FORGE_LANGUAGES.has(language);
+  return isForgeLanguage(language);
 }
 
 async function getForge(): Promise<ForgeEngine> {
