@@ -1,10 +1,14 @@
 <script lang="ts">
-  import { Maximize2, Minimize2, RotateCcw } from "@lucide/svelte";
+  import { Maximize2, Minimize2, Minus, Plus, RotateCcw } from "@lucide/svelte";
   import type { Language, ProblemType, SubmissionContext } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
   import { m } from "$lib/paraglide/messages.js";
   import LanguageSelector from "./LanguageSelector.svelte";
-  import { submissionContextBadge } from "./editor-bindings";
+  import {
+    MAX_EDITOR_FONT_SIZE,
+    MIN_EDITOR_FONT_SIZE,
+    submissionContextBadge,
+  } from "./editor-bindings";
 
   interface Props {
     language: Language;
@@ -12,8 +16,10 @@
     problemType: ProblemType;
     workspaceFiles: ProblemDetail["workspaceFiles"];
     context: SubmissionContext;
+    fontSize: number;
     isFullscreen: boolean;
     onLanguageChange: (next: Language) => void;
+    onFontSizeChange: (next: number) => void;
     onAvailableChange: (available: Language[]) => void;
     onReset: () => void;
     onToggleFullscreen: () => void;
@@ -25,8 +31,10 @@
     problemType,
     workspaceFiles,
     context,
+    fontSize,
     isFullscreen,
     onLanguageChange,
+    onFontSizeChange,
     onAvailableChange,
     onReset,
     onToggleFullscreen,
@@ -61,6 +69,34 @@
         {m.editor_assignmentMode()}
       </span>
     {/if}
+    <div class="flex items-center gap-0.5" aria-label={m.editor_fontSize()}>
+      <button
+        aria-label={m.editor_decreaseFontSize()}
+        class="grid h-6 w-6 place-items-center rounded text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+        disabled={fontSize <= MIN_EDITOR_FONT_SIZE}
+        onclick={() => onFontSizeChange(fontSize - 1)}
+        title={m.editor_decreaseFontSize()}
+        type="button"
+      >
+        <Minus aria-hidden="true" class="h-3.5 w-3.5" />
+      </button>
+      <span
+        class="min-w-9 text-center font-mono text-micro text-muted-foreground"
+        aria-live="polite"
+      >
+        {fontSize}px
+      </span>
+      <button
+        aria-label={m.editor_increaseFontSize()}
+        class="grid h-6 w-6 place-items-center rounded text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+        disabled={fontSize >= MAX_EDITOR_FONT_SIZE}
+        onclick={() => onFontSizeChange(fontSize + 1)}
+        title={m.editor_increaseFontSize()}
+        type="button"
+      >
+        <Plus aria-hidden="true" class="h-3.5 w-3.5" />
+      </button>
+    </div>
     <button
       aria-label={m.editor_reset()}
       class="grid h-6 w-6 place-items-center rounded text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
