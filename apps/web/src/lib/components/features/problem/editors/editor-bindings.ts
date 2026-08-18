@@ -17,7 +17,7 @@ const FONT_SIZE_STORAGE_KEY = "nojv:editor:fontSize";
 export const DEFAULT_PANEL_WIDTH = 42;
 export const MIN_PANEL_WIDTH = 20;
 export const MAX_PANEL_WIDTH = 80;
-export const EDITOR_FONT_SIZES = [12, 14, 16, 18, 20] as const;
+export const EDITOR_FONT_SIZES = [10, 12, 14, 16, 18, 20, 22, 24] as const;
 export const DEFAULT_EDITOR_FONT_SIZE = 12;
 
 export function normalizeEditorFontSize(size: number): (typeof EDITOR_FONT_SIZES)[number] {

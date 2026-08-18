@@ -40,7 +40,7 @@ describe("clampPanelWidth", () => {
 
 describe("editor font size", () => {
   it("only accepts the fixed size options", () => {
-    expect(EDITOR_FONT_SIZES).toEqual([12, 14, 16, 18, 20]);
+    expect(EDITOR_FONT_SIZES).toEqual([10, 12, 14, 16, 18, 20, 22, 24]);
     expect(normalizeEditorFontSize(16)).toBe(16);
     expect(normalizeEditorFontSize(13)).toBe(DEFAULT_EDITOR_FONT_SIZE);
   });

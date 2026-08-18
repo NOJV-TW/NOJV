@@ -72,6 +72,21 @@
     {/if}
   </div>
 
+  <div class="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-caption">
+    <span class="inline-flex items-baseline gap-1.5">
+      <span class="text-muted-foreground">{m.problemDetail_timeLimit()}:</span>
+      <span class="font-mono font-semibold tabular-nums text-foreground">
+        {(problem.timeLimitMs / 1000).toFixed(problem.timeLimitMs % 1000 === 0 ? 0 : 1)}s
+      </span>
+    </span>
+    <span class="inline-flex items-baseline gap-1.5">
+      <span class="text-muted-foreground">{m.problemDetail_memoryLimit()}:</span>
+      <span class="font-mono font-semibold tabular-nums text-foreground">
+        {problem.memoryLimitMb} MB
+      </span>
+    </span>
+  </div>
+
   {#if problem.tags.length > 0}
     <div class="mt-3 flex flex-wrap items-center gap-1.5">
       {#each problem.tags as tag (tag)}
@@ -90,21 +105,13 @@
     difficulty={problem.difficulty}
   />
 
-  <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-caption text-muted-foreground">
-    <span class="tabular-nums">
-      {m.problemDetail_timeLimit()}: {(problem.timeLimitMs / 1000).toFixed(
-        problem.timeLimitMs % 1000 === 0 ? 0 : 1,
-      )}s
-    </span>
-    <span class="tabular-nums">
-      {m.problemDetail_memoryLimit()}: {problem.memoryLimitMb} MB
-    </span>
-    {#if allowedLanguages && allowedLanguages.length > 0}
+  {#if allowedLanguages && allowedLanguages.length > 0}
+    <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-caption text-muted-foreground">
       <span>
         {m.contestDetail_allowedLanguagesLabel()}: {allowedLanguages.join(", ")}
       </span>
-    {/if}
-  </div>
+    </div>
+  {/if}
 
   <div class="mt-5 text-body leading-relaxed text-foreground">
     <MarkdownRenderer content={problem.statement} />
