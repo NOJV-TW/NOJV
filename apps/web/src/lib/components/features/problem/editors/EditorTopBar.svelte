@@ -54,7 +54,7 @@
     />
     <select
       aria-label={m.editor_fontSize()}
-      class="border-0 bg-transparent px-1 py-0.5 text-micro font-medium text-foreground outline-none focus:ring-0"
+      class="rounded-sm border border-border-subtle bg-transparent px-1.5 py-0.5 text-micro font-medium text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
       onchange={(event) =>
         onFontSizeChange(Number((event.currentTarget as HTMLSelectElement).value))}
       title={m.editor_fontSize()}
