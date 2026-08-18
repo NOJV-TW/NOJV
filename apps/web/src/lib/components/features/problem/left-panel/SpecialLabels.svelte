@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { MemoryStick, Timer } from "@lucide/svelte";
   import type { ProblemType } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
@@ -6,7 +7,8 @@
   interface Props {
     problemType: ProblemType;
     judgeType: string;
-    difficulty?: string;
+    timeLimitMs: number;
+    memoryLimitMb: number;
     isCompact?: boolean;
     which?: "both" | "problem-type" | "judge-method";
   }
@@ -14,7 +16,8 @@
   let {
     problemType,
     judgeType,
-    difficulty,
+    timeLimitMs,
+    memoryLimitMb,
     isCompact = false,
     which = "both",
   }: Props = $props();
@@ -58,12 +61,6 @@
     interactive: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
   };
 
-  const difficultyColor: Record<string, string> = {
-    easy: "bg-success/15 text-success",
-    medium: "bg-warning/15 text-warning",
-    hard: "bg-destructive/15 text-destructive",
-  };
-
   let problemLabel = $derived(problemTypeLabel[problemType]());
   let problemHelp = $derived(problemTypeHelp[problemType]());
   let problemColor = $derived(problemTypeColor[problemType]);
@@ -92,20 +89,26 @@
   <div
     class="mt-3 flex flex-wrap gap-x-8 gap-y-2 rounded-md border border-border-subtle bg-muted/30 px-3 py-2"
   >
-    {#if difficulty}
-      <div class="flex items-center gap-2">
-        <span class="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
-          {m.common_difficulty()}
-        </span>
-        <span
-          class="rounded-full px-2.5 py-0.5 text-caption font-medium capitalize {difficultyColor[
-            difficulty
-          ] ?? 'bg-muted text-muted-foreground'}"
-        >
-          {difficulty}
-        </span>
-      </div>
-    {/if}
+    <span class="inline-flex items-center gap-1.5 text-caption">
+      <Timer
+        class="size-3.5 shrink-0 text-muted-foreground"
+        aria-label={m.problemDetail_timeLimit()}
+        title={m.problemDetail_timeLimit()}
+      />
+      <span class="font-mono font-semibold tabular-nums text-foreground">
+        {(timeLimitMs / 1000).toFixed(timeLimitMs % 1000 === 0 ? 0 : 1)}s
+      </span>
+    </span>
+    <span class="inline-flex items-center gap-1.5 text-caption">
+      <MemoryStick
+        class="size-3.5 shrink-0 text-muted-foreground"
+        aria-label={m.problemDetail_memoryLimit()}
+        title={m.problemDetail_memoryLimit()}
+      />
+      <span class="font-mono font-semibold tabular-nums text-foreground">
+        {memoryLimitMb} MB
+      </span>
+    </span>
     {#if showProblemType}
       <div class="flex items-center gap-2">
         <span class="text-caption font-semibold uppercase tracking-wide text-muted-foreground">

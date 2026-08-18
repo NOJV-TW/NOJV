@@ -1,6 +1,7 @@
 <script lang="ts">
+  import { MemoryStick, Timer } from "@lucide/svelte";
   import type { ProblemDetail, ProblemTestcaseSetSummary } from "$lib/types";
-  import { tagClass } from "$lib/utils/verdict-style";
+  import { difficultyClass, tagClass } from "$lib/utils/verdict-style";
   import { m } from "$lib/paraglide/messages.js";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import { minutesToHHMM } from "$lib/utils/attempt-reset-time";
@@ -72,37 +73,28 @@
     {/if}
   </div>
 
-  <div class="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-caption">
-    <span class="inline-flex items-baseline gap-1.5">
-      <span class="text-muted-foreground">{m.problemDetail_timeLimit()}:</span>
-      <span class="font-mono font-semibold tabular-nums text-foreground">
-        {(problem.timeLimitMs / 1000).toFixed(problem.timeLimitMs % 1000 === 0 ? 0 : 1)}s
-      </span>
+  <div class="mt-3 flex flex-wrap items-center gap-1.5 text-caption">
+    <span
+      class="inline-flex items-center rounded-full border px-2 py-0.5 text-caption font-medium capitalize {difficultyClass(
+        problem.difficulty,
+      )}"
+    >
+      {problem.difficulty}
     </span>
-    <span class="inline-flex items-baseline gap-1.5">
-      <span class="text-muted-foreground">{m.problemDetail_memoryLimit()}:</span>
-      <span class="font-mono font-semibold tabular-nums text-foreground">
-        {problem.memoryLimitMb} MB
+    {#each problem.tags as tag (tag)}
+      <span
+        class="inline-flex items-center rounded-full border px-2 py-0.5 text-caption font-medium capitalize {tagClass()}"
+      >
+        {tag}
       </span>
-    </span>
+    {/each}
   </div>
-
-  {#if problem.tags.length > 0}
-    <div class="mt-3 flex flex-wrap items-center gap-1.5">
-      {#each problem.tags as tag (tag)}
-        <span
-          class="inline-flex items-center rounded-full border px-2 py-0.5 text-caption font-medium capitalize {tagClass()}"
-        >
-          {tag}
-        </span>
-      {/each}
-    </div>
-  {/if}
 
   <SpecialLabels
     problemType={problem.type}
     judgeType={problem.judgeType}
-    difficulty={problem.difficulty}
+    timeLimitMs={problem.timeLimitMs}
+    memoryLimitMb={problem.memoryLimitMb}
   />
 
   {#if allowedLanguages && allowedLanguages.length > 0}
