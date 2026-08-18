@@ -5,8 +5,10 @@
   import {
     ArrowDownNarrowWide,
     ArrowUpNarrowWide,
+    BadgeCheck,
     Eye,
     FileCode,
+    FilePenLine,
     Pencil,
     RotateCcw,
     Search,
@@ -209,10 +211,12 @@
       problem.status === "published"
         ? `/problems/${problem.id}`
         : `/problems/${problem.id}/edit`}
+    {@const statusLabel =
+      problem.status === "draft" ? m.problems_statusDraft() : m.audit_detailLifecyclePublish()}
     <Card
       variant="surface"
       size="lg"
-      class="grid gap-x-8 gap-y-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] sm:items-center"
+      class="grid gap-x-8 gap-y-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_7rem_8rem_6rem_6rem_2.5rem_auto] sm:items-center"
     >
       <div class="min-w-0">
         <a
@@ -238,38 +242,50 @@
           </div>
         {/if}
       </div>
-      <div class="flex min-w-24 flex-col items-center text-center">
+      <div class="min-w-0 text-center">
         <p class="text-body-sm text-muted-foreground">{m.problemDetail_problemTypeTitle()}</p>
-        <p class="mt-1 text-body font-semibold">{renderProblemType(problem.type)}</p>
+        <p class="mt-1 text-body font-semibold leading-tight">
+          {renderProblemType(problem.type)}
+        </p>
       </div>
-      <div class="flex min-w-24 flex-col items-center text-center">
+      <div class="min-w-0 text-center">
         <p class="text-body-sm text-muted-foreground">{m.problemDetail_judgeMethodTitle()}</p>
-        <p class="mt-1 text-body font-semibold">
+        <p class="mt-1 text-body font-semibold leading-tight">
           {renderJudgeMethod(problem.type, problem.judgeType)}
         </p>
       </div>
-      <div class="flex min-w-20 flex-col items-center text-center">
+      <div class="min-w-0 text-center">
         <p class="text-body-sm text-muted-foreground">{m.common_difficulty()}</p>
         <span
-          class="mt-1 inline-flex items-center rounded-full border px-2.5 py-0.5 text-caption font-semibold capitalize {difficultyClass(
+          class="mt-1 inline-flex max-w-full items-center rounded-full border px-2.5 py-0.5 text-caption font-semibold capitalize {difficultyClass(
             problem.difficulty,
           )}"
         >
           {problem.difficulty}
         </span>
       </div>
-      <div class="flex flex-wrap gap-1.5 sm:justify-end">
-        {#if problem.status === "draft"}
-          <Badge variant="warning" size="md">
-            {m.problems_statusDraft()}
-          </Badge>
-        {/if}
+      <div class="flex justify-center">
         <Badge
           variant={problem.visibility === "public" ? "success" : "muted"}
           size="md"
           class="capitalize"
         >
           {problem.visibility}
+        </Badge>
+      </div>
+      <div class="flex justify-center">
+        <Badge
+          variant={problem.status === "draft" ? "warning" : "success"}
+          size="md"
+          class="p-1.5"
+          aria-label={statusLabel}
+          title={statusLabel}
+        >
+          {#if problem.status === "draft"}
+            <FilePenLine aria-hidden="true" />
+          {:else}
+            <BadgeCheck aria-hidden="true" />
+          {/if}
         </Badge>
       </div>
       <div class="flex items-center gap-2">
