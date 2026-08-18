@@ -126,6 +126,23 @@ describe("submission queries (real DB)", () => {
       expect(results.every((r) => r.submittedAt)).toBe(true);
     });
 
+    it("keeps queued submissions visible while judging", async () => {
+      const user = await createTestUser();
+      const problem = await createTestProblem({ authorId: user.id });
+      const pending = await createTestSubmission({
+        userId: user.id,
+        problemId: problem.id,
+        status: "queued",
+        sampleOnly: false,
+      });
+
+      const results = await listProblemSubmissions(user.id, problem.id);
+
+      expect(results).toHaveLength(1);
+      expect(results[0]).toMatchObject({ id: pending.id });
+      expect(results[0]?.result).toBeUndefined();
+    });
+
     it("excludes sampleOnly submissions", async () => {
       const user = await createTestUser();
       const problem = await createTestProblem({ authorId: user.id });
