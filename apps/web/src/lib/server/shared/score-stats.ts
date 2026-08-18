@@ -48,11 +48,11 @@ export function buildScoreStats(
           count: 0,
         }))
       : [
-          { label: `${thresholds[0]}-${rangeMax}`, count: 0 },
-          { label: `${thresholds[1]}-${(thresholds[0] ?? 1) - 1}`, count: 0 },
-          { label: `${thresholds[2]}-${(thresholds[1] ?? 1) - 1}`, count: 0 },
-          { label: `${thresholds[3]}-${(thresholds[2] ?? 1) - 1}`, count: 0 },
-          { label: `<${thresholds[3]}`, count: 0 },
+          { label: `${String(thresholds[0])}-${String(rangeMax)}`, count: 0 },
+          { label: `${String(thresholds[1])}-${String((thresholds[0] ?? 1) - 1)}`, count: 0 },
+          { label: `${String(thresholds[2])}-${String((thresholds[1] ?? 1) - 1)}`, count: 0 },
+          { label: `${String(thresholds[3])}-${String((thresholds[2] ?? 1) - 1)}`, count: 0 },
+          { label: `<${String(thresholds[3])}`, count: 0 },
         ];
   for (const t of totals) {
     let idx: number;
