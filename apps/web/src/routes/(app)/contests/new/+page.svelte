@@ -2,9 +2,11 @@
   import { untrack } from "svelte";
   import { goto } from "$app/navigation";
   import { superForm } from "sveltekit-superforms/client";
+  import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import { supportedLanguages, type Language } from "@nojv/core";
   import { problemLetter } from "$lib/components/features/contest/format";
   import { inputClassName } from "$lib/utils/css";
+  import { moveItem } from "$lib/utils/reorder";
   import { toggleArrayItem } from "$lib/utils";
   import { m } from "$lib/paraglide/messages.js";
   import TrophyIcon from "@lucide/svelte/icons/trophy";
@@ -54,6 +56,8 @@
   let selectedProblemIds = $state(
     $form.problems.map((problem) => problem.problemId).filter((id) => id.length > 0),
   );
+  let draggedIndex = $state<number | null>(null);
+  let dragOverIndex = $state<number | null>(null);
   const candidateProblemById = $derived(
     new Map(
       [
@@ -80,6 +84,47 @@
 
   function removeProblem(index: number) {
     updateProblemIds($form.problems.filter((_, i) => i !== index).map((p) => p.problemId));
+  }
+
+  function reorderProblems(from: number, to: number) {
+    $form.problems = moveItem($form.problems, from, to);
+    selectedProblemIds = $form.problems.map((problem) => problem.problemId);
+  }
+
+  function handleDragStart(event: DragEvent, index: number) {
+    draggedIndex = index;
+    event.dataTransfer?.setData("text/plain", String(index));
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleDragOver(event: DragEvent, index: number) {
+    if (draggedIndex === null) return;
+    event.preventDefault();
+    dragOverIndex = draggedIndex === index ? null : index;
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+  }
+
+  function handleDrop(event: DragEvent, targetIndex: number) {
+    event.preventDefault();
+    const sourceIndex = draggedIndex ?? Number(event.dataTransfer?.getData("text/plain"));
+    if (Number.isInteger(sourceIndex) && sourceIndex !== targetIndex) {
+      reorderProblems(sourceIndex, targetIndex);
+    }
+    draggedIndex = null;
+    dragOverIndex = null;
+  }
+
+  function handleDragEnd() {
+    draggedIndex = null;
+    dragOverIndex = null;
+  }
+
+  function handleHandleKeydown(event: KeyboardEvent, index: number) {
+    const delta = event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" ? 1 : 0;
+    const target = index + delta;
+    if (delta === 0 || target < 0 || target >= $form.problems.length) return;
+    event.preventDefault();
+    reorderProblems(index, target);
   }
 </script>
 
@@ -361,10 +406,32 @@
         showSelected={false}
       />
       <div class="space-y-2">
+        <div class="text-right text-caption text-muted-foreground">
+          {m.common_dragToReorder()}
+        </div>
         {#each $form.problems as problem, i (i)}
           {#if problem.problemId}
             {@const selectedProblem = candidateProblemById.get(problem.problemId)}
-            <div class="flex items-center gap-2">
+            <div
+              role="listitem"
+              class="flex items-center gap-2 rounded-md border px-2 py-1 {dragOverIndex === i
+                ? 'border-primary bg-primary/5'
+                : 'border-transparent'}"
+              ondragover={(event) => handleDragOver(event, i)}
+              ondrop={(event) => handleDrop(event, i)}
+            >
+              <span
+                class="cursor-grab text-muted-foreground active:cursor-grabbing"
+                draggable="true"
+                role="button"
+                tabindex="0"
+                aria-label={m.common_dragToReorder()}
+                ondragstart={(event) => handleDragStart(event, i)}
+                ondragend={handleDragEnd}
+                onkeydown={(event) => handleHandleKeydown(event, i)}
+              >
+                <GripVertical class="size-4" aria-hidden="true" />
+              </span>
               <span
                 class="w-6 shrink-0 text-center font-mono text-sm font-semibold text-muted-foreground"
               >

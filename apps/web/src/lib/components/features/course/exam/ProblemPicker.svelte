@@ -1,12 +1,12 @@
 <script lang="ts">
-  import ChevronLeft from "@lucide/svelte/icons/chevron-left";
-  import ChevronRight from "@lucide/svelte/icons/chevron-right";
+  import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import Plus from "@lucide/svelte/icons/plus";
   import Search from "@lucide/svelte/icons/search";
   import X from "@lucide/svelte/icons/x";
   import type { problemDomain } from "@nojv/application";
 
   import { m } from "$lib/paraglide/messages.js";
+  import { moveItem } from "$lib/utils/reorder";
   import { matchesProblemPickerSearch } from "$lib/utils/problem-picker";
 
   type CandidateProblem = problemDomain.ProblemPickerCandidate;
@@ -29,6 +29,8 @@
   }: Props = $props();
 
   let problemSearch = $state("");
+  let draggedId = $state<string | null>(null);
+  let dragOverId = $state<string | null>(null);
 
   const filteredSections = $derived.by(() => {
     const selected = new Set(problemIds);
@@ -87,13 +89,48 @@
     setProblemIds(problemIds.filter((problemId) => problemId !== id));
   }
 
-  function moveProblem(id: string, delta: -1 | 1) {
-    const next = [...problemIds];
-    const index = next.indexOf(id);
-    const target = index + delta;
-    if (index < 0 || target < 0 || target >= next.length) return;
-    [next[index], next[target]] = [next[target] as string, next[index] as string];
+  function reorderProblem(sourceId: string, targetId: string) {
+    const next = moveItem(
+      problemIds,
+      problemIds.indexOf(sourceId),
+      problemIds.indexOf(targetId),
+    );
     setProblemIds(next);
+  }
+
+  function handleDragStart(event: DragEvent, id: string) {
+    draggedId = id;
+    event.dataTransfer?.setData("text/plain", id);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleDragOver(event: DragEvent, id: string) {
+    if (!draggedId) return;
+    event.preventDefault();
+    dragOverId = draggedId === id ? null : id;
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+  }
+
+  function handleDrop(event: DragEvent, targetId: string) {
+    event.preventDefault();
+    const sourceId = draggedId ?? event.dataTransfer?.getData("text/plain");
+    if (sourceId && sourceId !== targetId) reorderProblem(sourceId, targetId);
+    draggedId = null;
+    dragOverId = null;
+  }
+
+  function handleDragEnd() {
+    draggedId = null;
+    dragOverId = null;
+  }
+
+  function handleHandleKeydown(event: KeyboardEvent, id: string) {
+    const index = problemIds.indexOf(id);
+    const delta = event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" ? 1 : 0;
+    const target = index + delta;
+    if (delta === 0 || index < 0 || target < 0 || target >= problemIds.length) return;
+    event.preventDefault();
+    setProblemIds(moveItem(problemIds, index, target));
   }
 
   function difficultyClass(difficulty: string): string {
@@ -180,13 +217,31 @@
       class="flex items-center justify-between px-1 pb-2 text-caption font-semibold uppercase tracking-[0.08em] text-muted-foreground"
     >
       <span>{m.examCreate_selectedProblemsCount({ count: selectedDetails.length })}</span>
-      <span>{m.examCreate_selectedProblemsReorderHint()}</span>
+      <span>{m.common_dragToReorder()}</span>
     </div>
     <div class="space-y-2">
       {#each selectedDetails as problem, index (problem.id)}
         <div
-          class="flex items-center gap-4 rounded-md border border-border bg-[color:var(--color-panel)] px-4 py-3 transition-colors hover:border-border-strong"
+          role="listitem"
+          class="flex items-center gap-4 rounded-md border bg-[color:var(--color-panel)] px-4 py-3 transition-colors hover:border-border-strong {dragOverId ===
+          problem.id
+            ? 'border-primary bg-primary/5'
+            : 'border-border'}"
+          ondragover={(event) => handleDragOver(event, problem.id)}
+          ondrop={(event) => handleDrop(event, problem.id)}
         >
+          <span
+            class="cursor-grab text-muted-foreground active:cursor-grabbing"
+            draggable="true"
+            role="button"
+            tabindex="0"
+            aria-label={m.common_dragToReorder()}
+            ondragstart={(event) => handleDragStart(event, problem.id)}
+            ondragend={handleDragEnd}
+            onkeydown={(event) => handleHandleKeydown(event, problem.id)}
+          >
+            <GripVertical aria-hidden="true" class="h-4 w-4" />
+          </span>
           <span class="text-title-sm text-muted-foreground min-w-[20px] text-center">
             {index + 1}
           </span>
@@ -203,26 +258,6 @@
           >
             {problem.difficulty}
           </span>
-          <div class="flex items-center gap-1">
-            <button
-              type="button"
-              class="flex h-7 w-7 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
-              disabled={index === 0}
-              onclick={() => moveProblem(problem.id, -1)}
-              aria-label={m.examCreate_moveUp()}
-            >
-              <ChevronLeft aria-hidden="true" class="h-3.5 w-3.5 rotate-90" />
-            </button>
-            <button
-              type="button"
-              class="flex h-7 w-7 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
-              disabled={index === selectedDetails.length - 1}
-              onclick={() => moveProblem(problem.id, 1)}
-              aria-label={m.examCreate_moveDown()}
-            >
-              <ChevronRight aria-hidden="true" class="h-3.5 w-3.5 rotate-90" />
-            </button>
-          </div>
           <button
             type="button"
             class="flex h-7 w-7 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-[color:var(--color-destructive)]/8 hover:text-destructive"

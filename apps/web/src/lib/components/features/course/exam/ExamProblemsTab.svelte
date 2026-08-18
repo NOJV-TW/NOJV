@@ -9,8 +9,7 @@
 
 <script lang="ts">
   import { enhance } from "$app/forms";
-  import ChevronUp from "@lucide/svelte/icons/chevron-up";
-  import ChevronDown from "@lucide/svelte/icons/chevron-down";
+  import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Search from "@lucide/svelte/icons/search";
   import X from "@lucide/svelte/icons/x";
@@ -19,6 +18,7 @@
   import RejudgeDialog from "$lib/components/features/problem/admin/RejudgeDialog.svelte";
   import { Button } from "$lib/components/primitives/ui/button";
   import { cn } from "$lib/utils/css";
+  import { moveItem } from "$lib/utils/reorder";
   import { matchesProblemPickerSearch } from "$lib/utils/problem-picker";
   import { m } from "$lib/paraglide/messages.js";
   import type { ActionData } from "../../../../../routes/(app)/exams/[examId]/$types";
@@ -45,6 +45,8 @@
   let ids = $state<string[]>([]);
   let attachSearch = $state("");
   let rejudgeProblemId = $state<string | null>(null);
+  let draggedId = $state<string | null>(null);
+  let dragOverId = $state<string | null>(null);
 
   $effect(() => {
     ids = detail.problems.map((p) => p.id);
@@ -76,13 +78,43 @@
       .filter((section) => section.problems.length > 0);
   });
 
-  function move(id: string, delta: -1 | 1) {
-    const idx = ids.indexOf(id);
-    const target = idx + delta;
-    if (idx < 0 || target < 0 || target >= ids.length) return;
-    const next = ids.slice();
-    [next[idx], next[target]] = [next[target] as string, next[idx] as string];
-    ids = next;
+  function reorderProblem(sourceId: string, targetId: string) {
+    ids = moveItem(ids, ids.indexOf(sourceId), ids.indexOf(targetId));
+  }
+
+  function handleDragStart(event: DragEvent, id: string) {
+    draggedId = id;
+    event.dataTransfer?.setData("text/plain", id);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleDragOver(event: DragEvent, id: string) {
+    if (!draggedId) return;
+    event.preventDefault();
+    dragOverId = draggedId === id ? null : id;
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+  }
+
+  function handleDrop(event: DragEvent, targetId: string) {
+    event.preventDefault();
+    const sourceId = draggedId ?? event.dataTransfer?.getData("text/plain");
+    if (sourceId && sourceId !== targetId) reorderProblem(sourceId, targetId);
+    draggedId = null;
+    dragOverId = null;
+  }
+
+  function handleDragEnd() {
+    draggedId = null;
+    dragOverId = null;
+  }
+
+  function handleHandleKeydown(event: KeyboardEvent, id: string) {
+    const index = ids.indexOf(id);
+    const delta = event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" ? 1 : 0;
+    const target = index + delta;
+    if (delta === 0 || index < 0 || target < 0 || target >= ids.length) return;
+    event.preventDefault();
+    reorderProblem(id, ids[target]!);
   }
 
   function detach(id: string) {
@@ -107,7 +139,7 @@
       {m.examDetail_problemsEditHeading()}
     </h2>
     <span class="text-caption text-muted-foreground">
-      {canEdit ? m.examDetail_problemsHint() : m.examDetail_problemsEditFrozenHint()}
+      {canEdit ? m.common_dragToReorder() : m.examDetail_problemsEditFrozenHint()}
     </span>
   </header>
 
@@ -133,8 +165,25 @@
           {@const problem = byId.get(id)}
           {#if problem}
             <li
-              class="flex flex-wrap items-center gap-3 rounded-lg border border-border-subtle px-4 py-3"
+              class="flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3 {dragOverId ===
+              id
+                ? 'border-primary bg-primary/5'
+                : 'border-border-subtle'}"
+              ondragover={(event) => handleDragOver(event, id)}
+              ondrop={(event) => handleDrop(event, id)}
             >
+              <span
+                class="cursor-grab text-muted-foreground active:cursor-grabbing"
+                draggable="true"
+                role="button"
+                tabindex="0"
+                aria-label={m.common_dragToReorder()}
+                ondragstart={(event) => handleDragStart(event, id)}
+                ondragend={handleDragEnd}
+                onkeydown={(event) => handleHandleKeydown(event, id)}
+              >
+                <GripVertical class="size-4" aria-hidden="true" />
+              </span>
               <span
                 class="min-w-[28px] text-center text-title-sm font-medium text-muted-foreground"
               >
@@ -167,27 +216,13 @@
                       {m.rejudge_problem_admin_button()}
                     </Button>
                   {/if}
-                  <Button href={`/problems/${problem.id}`} variant="outline" size="sm">
+                  <Button
+                    href={`/exams/${detail.id}/problems/${problem.id}`}
+                    variant="outline"
+                    size="sm"
+                  >
                     {m.problemDetail_previewProblem()}
                   </Button>
-                  <button
-                    type="button"
-                    class="flex h-7 w-7 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
-                    disabled={index === 0}
-                    onclick={() => move(id, -1)}
-                    aria-label={m.examDetail_problemsEditMoveUp()}
-                  >
-                    <ChevronUp aria-hidden="true" class="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    class="flex h-7 w-7 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
-                    disabled={index === ids.length - 1}
-                    onclick={() => move(id, 1)}
-                    aria-label={m.examDetail_problemsEditMoveDown()}
-                  >
-                    <ChevronDown aria-hidden="true" class="h-4 w-4" />
-                  </button>
                   <button
                     type="button"
                     class="flex h-7 w-7 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-[color:var(--color-destructive)]/8 hover:text-destructive"
@@ -210,7 +245,11 @@
                       {m.rejudge_problem_admin_button()}
                     </Button>
                   {/if}
-                  <Button href={`/problems/${problem.id}`} variant="outline" size="sm">
+                  <Button
+                    href={`/exams/${detail.id}/problems/${problem.id}`}
+                    variant="outline"
+                    size="sm"
+                  >
                     {m.examDetail_problemPreview()}
                   </Button>
                 </div>

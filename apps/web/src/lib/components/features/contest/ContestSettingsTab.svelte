@@ -7,6 +7,7 @@
 
 <script lang="ts">
   import { untrack } from "svelte";
+  import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
   import Send from "@lucide/svelte/icons/send";
   import Trash2 from "@lucide/svelte/icons/trash-2";
@@ -23,6 +24,7 @@
     contestModeUsesPoints,
   } from "$lib/utils/contest-scoring";
   import { cn, inputClassName } from "$lib/utils/css";
+  import { moveItem } from "$lib/utils/reorder";
   import { toggleArrayItem } from "$lib/utils";
   import { m } from "$lib/paraglide/messages.js";
   import { problemLetter } from "$lib/components/features/contest/format";
@@ -57,6 +59,8 @@
   const isEnded = $derived(liveStatus === "ended");
 
   let confirmingDelete = $state(false);
+  let draggedIndex = $state<number | null>(null);
+  let dragOverIndex = $state<number | null>(null);
 
   const editableBasics = $derived(isDraft || isUpcoming);
   const editableScoring = $derived(isDraft || isUpcoming);
@@ -73,6 +77,48 @@
 
   function removeProblem(index: number) {
     $form.problems = $form.problems.filter((_, i) => i !== index);
+  }
+
+  function reorderProblems(from: number, to: number) {
+    $form.problems = moveItem($form.problems, from, to);
+  }
+
+  function handleDragStart(event: DragEvent, index: number) {
+    if (!editableScoring) return;
+    draggedIndex = index;
+    event.dataTransfer?.setData("text/plain", String(index));
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleDragOver(event: DragEvent, index: number) {
+    if (draggedIndex === null || !editableScoring) return;
+    event.preventDefault();
+    dragOverIndex = draggedIndex === index ? null : index;
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+  }
+
+  function handleDrop(event: DragEvent, targetIndex: number) {
+    event.preventDefault();
+    const sourceIndex = draggedIndex ?? Number(event.dataTransfer?.getData("text/plain"));
+    if (Number.isInteger(sourceIndex) && sourceIndex !== targetIndex) {
+      reorderProblems(sourceIndex, targetIndex);
+    }
+    draggedIndex = null;
+    dragOverIndex = null;
+  }
+
+  function handleDragEnd() {
+    draggedIndex = null;
+    dragOverIndex = null;
+  }
+
+  function handleHandleKeydown(event: KeyboardEvent, index: number) {
+    if (!editableScoring) return;
+    const delta = event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" ? 1 : 0;
+    const target = index + delta;
+    if (delta === 0 || target < 0 || target >= $form.problems.length) return;
+    event.preventDefault();
+    reorderProblems(index, target);
   }
 
   function lockHint(): string | null {
@@ -225,10 +271,36 @@
         </div>
 
         <div>
-          <div class="text-sm font-medium">{m.contestCreate_problemIds()}</div>
+          <div class="flex items-center justify-between gap-3">
+            <div class="text-sm font-medium">{m.contestCreate_problemIds()}</div>
+            {#if editableScoring}
+              <span class="text-caption text-muted-foreground">{m.common_dragToReorder()}</span>
+            {/if}
+          </div>
           <div class="mt-2 space-y-2">
             {#each $form.problems as problem, i (i)}
-              <div class="flex items-center gap-2">
+              <div
+                role="listitem"
+                class="flex items-center gap-2 rounded-md border px-2 py-1 {dragOverIndex === i
+                  ? 'border-primary bg-primary/5'
+                  : 'border-transparent'}"
+                ondragover={(event) => handleDragOver(event, i)}
+                ondrop={(event) => handleDrop(event, i)}
+              >
+                <span
+                  class="cursor-grab text-muted-foreground active:cursor-grabbing {editableScoring
+                    ? ''
+                    : 'cursor-not-allowed opacity-50'}"
+                  draggable={editableScoring ? "true" : "false"}
+                  role="button"
+                  tabindex={editableScoring ? 0 : -1}
+                  aria-label={m.common_dragToReorder()}
+                  ondragstart={(event) => handleDragStart(event, i)}
+                  ondragend={handleDragEnd}
+                  onkeydown={(event) => handleHandleKeydown(event, i)}
+                >
+                  <GripVertical class="size-4" aria-hidden="true" />
+                </span>
                 <span
                   class="w-6 shrink-0 text-center font-mono text-sm font-semibold text-muted-foreground"
                 >
