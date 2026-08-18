@@ -1191,6 +1191,7 @@
   "editor_emptySourceTooltip": "Type some code first",
   "editor_attemptsExhaustedTooltip": "Daily submission limit reached for this problem",
   "editor_exitFullscreen": "Exit fullscreen",
+  "editor_fontSize": "Editor text size",
   "editor_expectInteractiveNote": "Interactive problems have no fixed expected output — the interactor judges your program's replies live.",
   "editor_expectLabel": "Expect",
   "editor_fullscreen": "Fullscreen",

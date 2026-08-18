@@ -7,13 +7,15 @@
 
   interface Props {
     files: WorkspaceFile[];
+    fontSize: number;
     selectedIndex: number;
     selectedContent: string;
     onselect: (index: number) => void;
     onfilechange: (value: string) => void;
   }
 
-  let { files, selectedIndex, selectedContent, onselect, onfilechange }: Props = $props();
+  let { files, fontSize, selectedIndex, selectedContent, onselect, onfilechange }: Props =
+    $props();
 
   let filesWidth = $state(220);
   let layoutContainer: HTMLDivElement | null = $state(null);
@@ -142,6 +144,7 @@
           {#key `${file.language}::${file.path}`}
             <MonacoScriptEditor
               value={selectedContent}
+              {fontSize}
               onchange={onfilechange}
               language={file.language}
               isReadOnly={file.visibility === "readonly"}

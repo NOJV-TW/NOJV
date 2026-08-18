@@ -14,12 +14,13 @@
 
   interface Props {
     language: Language;
+    fontSize: number;
     drafts: Record<string, string>;
     isHidden?: boolean;
     onchange: (value: string) => void;
   }
 
-  let { language, drafts, isHidden = false, onchange }: Props = $props();
+  let { language, fontSize, drafts, isHidden = false, onchange }: Props = $props();
 
   const editorOptions = {
     ...MONACO_CODE_EDITOR_OPTIONS,
@@ -60,6 +61,7 @@
         const isDark = document.documentElement.classList.contains("dark");
         const editor = monaco.editor.create(editorContainer, {
           ...editorOptions,
+          fontSize,
           language: languageIdMap[language] ?? language,
           theme: getNojvThemeName(isDark),
           value: drafts[language] ?? "",
@@ -92,6 +94,12 @@
       monacoEditor = undefined;
       monacoModule = undefined;
     };
+  });
+
+  $effect(() => {
+    const size = fontSize;
+    if (!monacoEditor) return;
+    monacoEditor.updateOptions({ fontSize: size });
   });
 
   $effect(() => {

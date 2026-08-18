@@ -4,7 +4,7 @@
   import type { ProblemDetail } from "$lib/types";
   import { m } from "$lib/paraglide/messages.js";
   import LanguageSelector from "./LanguageSelector.svelte";
-  import { submissionContextBadge } from "./editor-bindings";
+  import { EDITOR_FONT_SIZES, submissionContextBadge } from "./editor-bindings";
 
   interface Props {
     language: Language;
@@ -12,8 +12,10 @@
     problemType: ProblemType;
     workspaceFiles: ProblemDetail["workspaceFiles"];
     context: SubmissionContext;
+    fontSize: number;
     isFullscreen: boolean;
     onLanguageChange: (next: Language) => void;
+    onFontSizeChange: (next: number) => void;
     onAvailableChange: (available: Language[]) => void;
     onReset: () => void;
     onToggleFullscreen: () => void;
@@ -25,8 +27,10 @@
     problemType,
     workspaceFiles,
     context,
+    fontSize,
     isFullscreen,
     onLanguageChange,
+    onFontSizeChange,
     onAvailableChange,
     onReset,
     onToggleFullscreen,
@@ -48,6 +52,18 @@
       onchange={onLanguageChange}
       onavailablechange={onAvailableChange}
     />
+    <select
+      aria-label={m.editor_fontSize()}
+      class="border-0 border-b border-border-subtle bg-transparent px-1 py-0.5 text-micro font-medium text-foreground outline-none focus:ring-0"
+      onchange={(event) =>
+        onFontSizeChange(Number((event.currentTarget as HTMLSelectElement).value))}
+      title={m.editor_fontSize()}
+      value={fontSize}
+    >
+      {#each EDITOR_FONT_SIZES as size (size)}
+        <option value={size}>{size}px</option>
+      {/each}
+    </select>
   </div>
   <div class="flex items-center gap-2">
     {#if contextBadge === "contest"}

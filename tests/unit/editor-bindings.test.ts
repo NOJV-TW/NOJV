@@ -3,16 +3,22 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   DEFAULT_PANEL_WIDTH,
+  DEFAULT_EDITOR_FONT_SIZE,
+  EDITOR_FONT_SIZES,
   MAX_PANEL_WIDTH,
   MIN_PANEL_WIDTH,
   clampPanelWidth,
   createDocumentMouseDrag,
+  normalizeEditorFontSize,
+  persistEditorFontSize,
   persistPanelWidth,
+  readEditorFontSize,
   readPanelWidth,
   submissionContextBadge,
 } from "$lib/components/features/problem/editors/editor-bindings";
 
 const PANEL_WIDTH_KEY = "nojv:editor:panelWidth";
+const FONT_SIZE_KEY = "nojv:editor:fontSize";
 
 beforeEach(() => {
   localStorage.clear();
@@ -29,6 +35,21 @@ describe("clampPanelWidth", () => {
 
   it("clamps above the maximum", () => {
     expect(clampPanelWidth(99)).toBe(MAX_PANEL_WIDTH);
+  });
+});
+
+describe("editor font size", () => {
+  it("only accepts the fixed size options", () => {
+    expect(EDITOR_FONT_SIZES).toEqual([10, 12, 14, 16, 18, 20, 22, 24]);
+    expect(normalizeEditorFontSize(16)).toBe(16);
+    expect(normalizeEditorFontSize(13)).toBe(DEFAULT_EDITOR_FONT_SIZE);
+  });
+
+  it("reads and persists the selected size", () => {
+    expect(readEditorFontSize()).toBe(DEFAULT_EDITOR_FONT_SIZE);
+    persistEditorFontSize(18);
+    expect(localStorage.getItem(FONT_SIZE_KEY)).toBe("18");
+    expect(readEditorFontSize()).toBe(18);
   });
 });
 

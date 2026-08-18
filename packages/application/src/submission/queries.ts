@@ -11,8 +11,10 @@ import {
   advancedConfigSchema,
   judgeConfigSchema,
   languageSchema,
+  submissionOperationStatuses,
+  submissionOperationStatusSchema,
+  submissionResultVerdictSchema,
   submissionResultSchema,
-  submissionVerdicts,
   submissionVerdictSchema,
   verdictSummarySchema,
   type AdjustmentRules,
@@ -424,30 +426,38 @@ export async function listProblemSubmissions(
   const submissions = await submissionRepo.listByUserAndProblem({
     problemId: problem.id,
     userId,
-    statusIn: [...submissionVerdicts],
+    statusIn: [...submissionOperationStatuses],
     ...(assessmentId ? { assessmentId } : {}),
     ...(contestId ? { contestId } : {}),
   });
 
   return submissions.map((s) => {
-    const { verdict, language } = narrowSubmissionRow(s);
+    const language = languageSchema.parse(s.language);
+    const status = submissionOperationStatusSchema.parse(s.status);
+    const parsedVerdict = submissionResultVerdictSchema.safeParse(status);
     const parsedSummary =
       s.verdictSummary == null ? null : verdictSummarySchema.safeParse(s.verdictSummary);
     const summary = parsedSummary?.success ? parsedSummary.data : null;
-    const result: SubmissionResult = {
-      accepted: verdict === "accepted",
-      verdict,
-      score: s.score,
-      runtimeMs: s.runtimeMs ?? 0,
-      feedback:
-        summary?.compilerErrorTruncated ??
-        (verdict === "accepted" ? "Accepted." : "Verdict details unavailable."),
-    };
 
     return {
       id: s.id,
       language,
-      result,
+      ...(parsedVerdict.success
+        ? {
+            result: {
+              accepted: parsedVerdict.data === "accepted",
+              verdict: parsedVerdict.data,
+              score: s.score,
+              runtimeMs: s.runtimeMs ?? 0,
+              feedback:
+                summary?.compilerErrorTruncated ??
+                summary?.systemErrorTruncated ??
+                (parsedVerdict.data === "accepted"
+                  ? "Accepted."
+                  : "Verdict details unavailable."),
+            } satisfies SubmissionResult,
+          }
+        : {}),
       submittedAt: s.createdAt.toISOString(),
       context: deriveSubmissionContextKind(s),
     };
