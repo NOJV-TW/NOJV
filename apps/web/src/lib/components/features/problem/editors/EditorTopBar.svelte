@@ -1,14 +1,10 @@
 <script lang="ts">
-  import { Maximize2, Minimize2, Minus, Plus, RotateCcw } from "@lucide/svelte";
+  import { Maximize2, Minimize2, RotateCcw } from "@lucide/svelte";
   import type { Language, ProblemType, SubmissionContext } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
   import { m } from "$lib/paraglide/messages.js";
   import LanguageSelector from "./LanguageSelector.svelte";
-  import {
-    MAX_EDITOR_FONT_SIZE,
-    MIN_EDITOR_FONT_SIZE,
-    submissionContextBadge,
-  } from "./editor-bindings";
+  import { EDITOR_FONT_SIZES, submissionContextBadge } from "./editor-bindings";
 
   interface Props {
     language: Language;
@@ -69,34 +65,18 @@
         {m.editor_assignmentMode()}
       </span>
     {/if}
-    <div class="flex items-center gap-0.5" aria-label={m.editor_fontSize()}>
-      <button
-        aria-label={m.editor_decreaseFontSize()}
-        class="grid h-6 w-6 place-items-center rounded text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-        disabled={fontSize <= MIN_EDITOR_FONT_SIZE}
-        onclick={() => onFontSizeChange(fontSize - 1)}
-        title={m.editor_decreaseFontSize()}
-        type="button"
-      >
-        <Minus aria-hidden="true" class="h-3.5 w-3.5" />
-      </button>
-      <span
-        class="min-w-9 text-center font-mono text-micro text-muted-foreground"
-        aria-live="polite"
-      >
-        {fontSize}px
-      </span>
-      <button
-        aria-label={m.editor_increaseFontSize()}
-        class="grid h-6 w-6 place-items-center rounded text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-        disabled={fontSize >= MAX_EDITOR_FONT_SIZE}
-        onclick={() => onFontSizeChange(fontSize + 1)}
-        title={m.editor_increaseFontSize()}
-        type="button"
-      >
-        <Plus aria-hidden="true" class="h-3.5 w-3.5" />
-      </button>
-    </div>
+    <select
+      aria-label={m.editor_fontSize()}
+      class="border-0 bg-transparent px-1 py-0.5 text-micro font-medium text-foreground outline-none focus:ring-0"
+      onchange={(event) =>
+        onFontSizeChange(Number((event.currentTarget as HTMLSelectElement).value))}
+      title={m.editor_fontSize()}
+      value={fontSize}
+    >
+      {#each EDITOR_FONT_SIZES as size (size)}
+        <option value={size}>{size}px</option>
+      {/each}
+    </select>
     <button
       aria-label={m.editor_reset()}
       class="grid h-6 w-6 place-items-center rounded text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground"

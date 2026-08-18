@@ -17,12 +17,13 @@ const FONT_SIZE_STORAGE_KEY = "nojv:editor:fontSize";
 export const DEFAULT_PANEL_WIDTH = 42;
 export const MIN_PANEL_WIDTH = 20;
 export const MAX_PANEL_WIDTH = 80;
+export const EDITOR_FONT_SIZES = [12, 14, 16, 18, 20] as const;
 export const DEFAULT_EDITOR_FONT_SIZE = 12;
-export const MIN_EDITOR_FONT_SIZE = 10;
-export const MAX_EDITOR_FONT_SIZE = 24;
 
-export function clampEditorFontSize(size: number): number {
-  return Math.max(MIN_EDITOR_FONT_SIZE, Math.min(MAX_EDITOR_FONT_SIZE, size));
+export function normalizeEditorFontSize(size: number): (typeof EDITOR_FONT_SIZES)[number] {
+  return EDITOR_FONT_SIZES.includes(size as (typeof EDITOR_FONT_SIZES)[number])
+    ? (size as (typeof EDITOR_FONT_SIZES)[number])
+    : DEFAULT_EDITOR_FONT_SIZE;
 }
 
 export function readEditorFontSize(): number {
@@ -30,7 +31,7 @@ export function readEditorFontSize(): number {
     const raw = localStorage.getItem(FONT_SIZE_STORAGE_KEY);
     if (raw === null) return DEFAULT_EDITOR_FONT_SIZE;
     const parsed = Number(raw);
-    if (Number.isFinite(parsed)) return clampEditorFontSize(parsed);
+    if (Number.isFinite(parsed)) return normalizeEditorFontSize(parsed);
   } catch {
     return DEFAULT_EDITOR_FONT_SIZE;
   }
@@ -39,7 +40,7 @@ export function readEditorFontSize(): number {
 
 export function persistEditorFontSize(size: number): void {
   try {
-    localStorage.setItem(FONT_SIZE_STORAGE_KEY, String(clampEditorFontSize(size)));
+    localStorage.setItem(FONT_SIZE_STORAGE_KEY, String(normalizeEditorFontSize(size)));
   } catch {
     return;
   }

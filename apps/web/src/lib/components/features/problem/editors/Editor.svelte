@@ -14,10 +14,10 @@
   import { shortcuts } from "$lib/stores/shortcuts.svelte";
   import {
     bindEscapeToExitFullscreen,
-    clampEditorFontSize,
     createDocumentMouseDrag,
     isSpecialEnvProblem,
     isWorkspaceProblem,
+    normalizeEditorFontSize,
     readEditorFontSize,
     persistLanguage,
     persistEditorFontSize,
@@ -220,7 +220,7 @@
     {fontSize}
     {isFullscreen}
     onLanguageChange={(next) => (language = next)}
-    onFontSizeChange={(next) => (fontSize = clampEditorFontSize(next))}
+    onFontSizeChange={(next) => (fontSize = normalizeEditorFontSize(next))}
     onAvailableChange={(available) => (availableLanguages = available)}
     onReset={handleReset}
     onToggleFullscreen={() => (isFullscreen = !isFullscreen)}

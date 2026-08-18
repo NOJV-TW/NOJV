@@ -4,13 +4,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_PANEL_WIDTH,
   DEFAULT_EDITOR_FONT_SIZE,
-  MAX_EDITOR_FONT_SIZE,
+  EDITOR_FONT_SIZES,
   MAX_PANEL_WIDTH,
-  MIN_EDITOR_FONT_SIZE,
   MIN_PANEL_WIDTH,
-  clampEditorFontSize,
   clampPanelWidth,
   createDocumentMouseDrag,
+  normalizeEditorFontSize,
   persistEditorFontSize,
   persistPanelWidth,
   readEditorFontSize,
@@ -40,10 +39,10 @@ describe("clampPanelWidth", () => {
 });
 
 describe("editor font size", () => {
-  it("keeps values within the supported range", () => {
-    expect(clampEditorFontSize(5)).toBe(MIN_EDITOR_FONT_SIZE);
-    expect(clampEditorFontSize(16)).toBe(16);
-    expect(clampEditorFontSize(30)).toBe(MAX_EDITOR_FONT_SIZE);
+  it("only accepts the fixed size options", () => {
+    expect(EDITOR_FONT_SIZES).toEqual([12, 14, 16, 18, 20]);
+    expect(normalizeEditorFontSize(16)).toBe(16);
+    expect(normalizeEditorFontSize(13)).toBe(DEFAULT_EDITOR_FONT_SIZE);
   });
 
   it("reads and persists the selected size", () => {
