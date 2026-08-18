@@ -52,6 +52,18 @@
       onchange={onLanguageChange}
       onavailablechange={onAvailableChange}
     />
+    <select
+      aria-label={m.editor_fontSize()}
+      class="border-0 bg-transparent px-1 py-0.5 text-micro font-medium text-foreground outline-none focus:ring-0"
+      onchange={(event) =>
+        onFontSizeChange(Number((event.currentTarget as HTMLSelectElement).value))}
+      title={m.editor_fontSize()}
+      value={fontSize}
+    >
+      {#each EDITOR_FONT_SIZES as size (size)}
+        <option value={size}>{size}px</option>
+      {/each}
+    </select>
   </div>
   <div class="flex items-center gap-2">
     {#if contextBadge === "contest"}
@@ -65,18 +77,6 @@
         {m.editor_assignmentMode()}
       </span>
     {/if}
-    <select
-      aria-label={m.editor_fontSize()}
-      class="border-0 bg-transparent px-1 py-0.5 text-micro font-medium text-foreground outline-none focus:ring-0"
-      onchange={(event) =>
-        onFontSizeChange(Number((event.currentTarget as HTMLSelectElement).value))}
-      title={m.editor_fontSize()}
-      value={fontSize}
-    >
-      {#each EDITOR_FONT_SIZES as size (size)}
-        <option value={size}>{size}px</option>
-      {/each}
-    </select>
     <button
       aria-label={m.editor_reset()}
       class="grid h-6 w-6 place-items-center rounded text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
