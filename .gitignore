@@ -21,6 +21,7 @@
 .turbo
 .pnpm-store
 .worktrees
+apps/web/static/forge/
 /packages/db/generated
 
 # misc

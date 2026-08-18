@@ -31,6 +31,17 @@
 5. Add tests for mapping, cancellation, compile errors, multi-file sources, and output matching.
 6. Run the benchmark and document measured parity/performance before considering server cutover.
 
+## First measurement
+
+On the local Apple Silicon development machine, `pnpm forge:benchmark` compiled a
+three-case C++ add program with Forge server mode and verified all three outputs.
+The cold run measured 2,874 ms compile time and 978.6 ms for the first execution;
+the warm cache run measured 2 ms compile time, 94.3 ms p50 execution, and 94.9 ms
+p95 execution. Forge reported 128 KiB peak linear memory. This is a Forge-only
+baseline, not yet a legacy-executor comparison. A repeated warm run measured
+96.2 ms p50 and 123.9 ms p95, so the benchmark needs a larger sample before
+making a stable latency claim.
+
 ## Explicitly deferred
 
 - Java compiler/runtime support.

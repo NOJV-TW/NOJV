@@ -34,6 +34,7 @@
     "@temporalio/activity": "catalog:",
     "@temporalio/worker": "catalog:",
     "@temporalio/workflow": "catalog:",
+    "@wasm-oj/forge": "0.1.0",
     "ioredis": "catalog:",
     "pino": "catalog:",
     "zod": "catalog:"

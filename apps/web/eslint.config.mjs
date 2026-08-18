@@ -125,6 +125,9 @@ const primitivesNoFeaturesRule = [
 export default [
   ...baseConfig,
   {
+    ignores: ["static/forge/**"],
+  },
+  {
     files: ["src/**/*.svelte"],
     plugins: {
       svelte: sveltePlugin,

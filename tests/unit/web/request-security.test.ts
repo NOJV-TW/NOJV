@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { enforceCsrf } from "$lib/server/hooks/request-security";
+import { enforceCsrf, setSecurityHeaders } from "$lib/server/hooks/request-security";
 
 const ORIGIN = "https://nojv.tw";
 
@@ -87,6 +87,17 @@ describe("enforceCsrf — page routes (parity with SvelteKit checkOrigin)", () =
 
   it("ignores GET requests", () => {
     expect(run({ method: "GET", path: "/problems" })).toBeNull();
+  });
+});
+
+describe("setSecurityHeaders", () => {
+  it("enables cross-origin isolation for browser-local execution", () => {
+    const response = new Response();
+    setSecurityHeaders(response);
+
+    expect(response.headers.get("Cross-Origin-Opener-Policy")).toBe("same-origin");
+    expect(response.headers.get("Cross-Origin-Embedder-Policy")).toBe("credentialless");
+    expect(response.headers.get("Cross-Origin-Resource-Policy")).toBe("same-origin");
   });
 });
 
