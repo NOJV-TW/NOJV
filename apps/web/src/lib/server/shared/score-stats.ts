@@ -39,21 +39,28 @@ export function buildScoreStats(
   const max = totals.length > 0 ? Math.max(...totals) : 0;
   const min = totals.length > 0 ? Math.min(...totals) : 0;
 
-  const denom = maxScore > 0 ? maxScore : Math.max(max, 1);
-  const buckets: ScoreBucket[] = [
-    { label: "90-100", count: 0 },
-    { label: "80-89", count: 0 },
-    { label: "70-79", count: 0 },
-    { label: "60-69", count: 0 },
-    { label: "<60", count: 0 },
-  ];
+  const rangeMax = max > 0 ? max : maxScore > 0 ? maxScore : 100;
+  const thresholds = [90, 80, 70, 60].map((percent) => Math.ceil((rangeMax * percent) / 100));
+  const buckets: ScoreBucket[] =
+    rangeMax < 5
+      ? Array.from({ length: rangeMax + 1 }, (_, index) => ({
+          label: String(rangeMax - index),
+          count: 0,
+        }))
+      : [
+          { label: `${thresholds[0]}-${rangeMax}`, count: 0 },
+          { label: `${thresholds[1]}-${(thresholds[0] ?? 1) - 1}`, count: 0 },
+          { label: `${thresholds[2]}-${(thresholds[1] ?? 1) - 1}`, count: 0 },
+          { label: `${thresholds[3]}-${(thresholds[2] ?? 1) - 1}`, count: 0 },
+          { label: `<${thresholds[3]}`, count: 0 },
+        ];
   for (const t of totals) {
-    const pct = (t / denom) * 100;
     let idx: number;
-    if (pct >= 90) idx = 0;
-    else if (pct >= 80) idx = 1;
-    else if (pct >= 70) idx = 2;
-    else if (pct >= 60) idx = 3;
+    if (rangeMax < 5) idx = rangeMax - t;
+    else if (t >= (thresholds[0] ?? 0)) idx = 0;
+    else if (t >= (thresholds[1] ?? 0)) idx = 1;
+    else if (t >= (thresholds[2] ?? 0)) idx = 2;
+    else if (t >= (thresholds[3] ?? 0)) idx = 3;
     else idx = 4;
     const bucket = buckets[idx];
     if (bucket) bucket.count++;
