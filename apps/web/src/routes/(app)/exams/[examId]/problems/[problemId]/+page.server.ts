@@ -5,12 +5,32 @@ import { examDomain } from "@nojv/application";
 import { requireAuth } from "$lib/server/auth";
 import { getClientIp } from "$lib/server/shared/client-ip";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { loadProblemSolveData } from "$lib/server/problem-solve";
 
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   const actor = requireAuth(event);
   const { examId, problemId } = event.params;
+  const parent = await event.parent();
+
+  if (parent.isManager) {
+    const detail = await examDomain.getExamDetailPage(examId, {
+      viewerUserId: actor.userId,
+      isManager: true,
+    });
+    if (!detail?.problems.some((problem) => problem.id === problemId)) {
+      error(404, "Problem not found in this exam");
+    }
+
+    const solveProps = await loadProblemSolveData(problemId, actor, {
+      kind: "preview",
+      allowedLanguages: [],
+      backLink: { href: `/exams/${examId}`, type: "exam" },
+      problemInScope: true,
+    });
+    return { mode: "preview" as const, solveProps };
+  }
 
   const exam = await examDomain.getExamById(examId);
   if (!exam) error(404, "Exam not found");

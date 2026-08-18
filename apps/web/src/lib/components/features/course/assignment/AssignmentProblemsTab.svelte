@@ -8,8 +8,7 @@
 
 <script lang="ts">
   import { invalidateAll } from "$app/navigation";
-  import ArrowDown from "@lucide/svelte/icons/arrow-down";
-  import ArrowUp from "@lucide/svelte/icons/arrow-up";
+  import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import Plus from "@lucide/svelte/icons/plus";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Search from "@lucide/svelte/icons/search";
@@ -20,6 +19,7 @@
   import RejudgeDialog from "$lib/components/features/problem/admin/RejudgeDialog.svelte";
   import { Button } from "$lib/components/primitives/ui/button";
   import { cn } from "$lib/utils/css";
+  import { moveItem } from "$lib/utils/reorder";
   import { matchesProblemPickerSearch } from "$lib/utils/problem-picker";
 
   interface Props {
@@ -53,6 +53,8 @@
   let saving = $state(false);
   let errorMsg = $state<string | null>(null);
   let rejudgeProblemId = $state<string | null>(null);
+  let draggedProblemId = $state<string | null>(null);
+  let dragOverProblemId = $state<string | null>(null);
 
   function seedRows(source: ProblemsTabProblem[]) {
     editRows = source.map((p) => ({
@@ -108,15 +110,47 @@
       .map((r, i) => ({ ...r, letter: problemLetter(i + 1) }));
   }
 
-  function swap(i: number, j: number) {
-    if (i < 0 || j < 0 || i >= editRows.length || j >= editRows.length) return;
-    const next = [...editRows];
-    const tmp = next[i];
-    const other = next[j];
-    if (!tmp || !other) return;
-    next[i] = other;
-    next[j] = tmp;
-    editRows = next.map((r, idx) => ({ ...r, letter: problemLetter(idx + 1) }));
+  function reorderEditRow(sourceId: string, targetId: string) {
+    editRows = moveItem(
+      editRows,
+      editRows.findIndex((r) => r.problemId === sourceId),
+      editRows.findIndex((r) => r.problemId === targetId),
+    ).map((r, idx) => ({ ...r, letter: problemLetter(idx + 1) }));
+  }
+
+  function handleDragStart(event: DragEvent, problemId: string) {
+    draggedProblemId = problemId;
+    event.dataTransfer?.setData("text/plain", problemId);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleDragOver(event: DragEvent, problemId: string) {
+    if (!draggedProblemId) return;
+    event.preventDefault();
+    dragOverProblemId = draggedProblemId === problemId ? null : problemId;
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+  }
+
+  function handleDrop(event: DragEvent, targetId: string) {
+    event.preventDefault();
+    const sourceId = draggedProblemId ?? event.dataTransfer?.getData("text/plain");
+    if (sourceId && sourceId !== targetId) reorderEditRow(sourceId, targetId);
+    draggedProblemId = null;
+    dragOverProblemId = null;
+  }
+
+  function handleDragEnd() {
+    draggedProblemId = null;
+    dragOverProblemId = null;
+  }
+
+  function handleHandleKeydown(event: KeyboardEvent, problemId: string) {
+    const index = editRows.findIndex((r) => r.problemId === problemId);
+    const delta = event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" ? 1 : 0;
+    const target = index + delta;
+    if (delta === 0 || index < 0 || target < 0 || target >= editRows.length) return;
+    event.preventDefault();
+    reorderEditRow(problemId, editRows[target]!.problemId);
   }
 
   async function savePayload() {
@@ -151,7 +185,7 @@
       {/if}
     </h2>
     <span class="text-caption text-muted-foreground">
-      {m.assignmentDetail_teacherProblemsHint()}
+      {canEdit ? m.common_dragToReorder() : m.assignmentDetail_teacherProblemsHint()}
     </span>
   </div>
 
@@ -229,14 +263,34 @@
       </p>
     {:else}
       <div class="grid gap-2">
-        {#each editRows as row, index (row.problemId)}
+        {#each editRows as row (row.problemId)}
           <div
-            class="grid grid-cols-[auto_1fr_auto_auto] items-center gap-4 rounded-md border border-border bg-[color:var(--color-panel)] px-4 py-3"
+            role="listitem"
+            class="grid grid-cols-[auto_1fr_auto_auto] items-center gap-4 rounded-md border bg-[color:var(--color-panel)] px-4 py-3 {dragOverProblemId ===
+            row.problemId
+              ? 'border-primary bg-primary/5'
+              : 'border-border'}"
+            ondragover={(event) => handleDragOver(event, row.problemId)}
+            ondrop={(event) => handleDrop(event, row.problemId)}
           >
-            <div
-              class="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-muted text-body-lg font-medium text-muted-foreground"
-            >
-              {row.letter}
+            <div class="flex items-center gap-2">
+              <span
+                class="cursor-grab text-muted-foreground active:cursor-grabbing"
+                draggable="true"
+                role="button"
+                tabindex="0"
+                aria-label={m.common_dragToReorder()}
+                ondragstart={(event) => handleDragStart(event, row.problemId)}
+                ondragend={handleDragEnd}
+                onkeydown={(event) => handleHandleKeydown(event, row.problemId)}
+              >
+                <GripVertical class="size-4" aria-hidden="true" />
+              </span>
+              <div
+                class="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-muted text-body-lg font-medium text-muted-foreground"
+              >
+                {row.letter}
+              </div>
             </div>
             <div class="min-w-0">
               <div class="truncate text-body-sm font-semibold">{row.title}</div>
@@ -254,28 +308,12 @@
                   {m.rejudge_problem_admin_button()}
                 </Button>
               {/if}
-              <Button href={`/problems/${row.problemId}`} variant="outline" size="sm">
+              <Button
+                href={`/assignments/${assignmentId}/problems/${row.problemId}`}
+                variant="outline"
+                size="sm"
+              >
                 {m.problemDetail_previewProblem()}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                type="button"
-                aria-label={m.assignmentDetail_problemsEditMoveUp()}
-                disabled={index === 0}
-                onclick={() => swap(index, index - 1)}
-              >
-                <ArrowUp class="size-4" aria-hidden="true" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                type="button"
-                aria-label={m.assignmentDetail_problemsEditMoveDown()}
-                disabled={index === editRows.length - 1}
-                onclick={() => swap(index, index + 1)}
-              >
-                <ArrowDown class="size-4" aria-hidden="true" />
               </Button>
             </div>
             <Button

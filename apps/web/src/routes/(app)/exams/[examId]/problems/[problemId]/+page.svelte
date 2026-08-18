@@ -7,6 +7,7 @@
 
   $effect(() => {
     if (typeof window === "undefined") return;
+    if (data.mode === "preview") return;
 
     const examPath = `/exams/${data.examContext.examId}`;
 
@@ -33,17 +34,29 @@
   });
 </script>
 
-<div class="flex h-full flex-col">
-  <ExamTopStrip context={data.examContext} />
-  <div class="min-h-0 flex-1">
-    <ProblemSolveView
-      mode="exam"
-      backLink={{ href: `/exams/${data.examContext.examId}`, type: "exam" }}
-      canRejudge={data.canRejudge}
-      problem={data.problem}
-      submissions={data.submissions}
-      siblingProblems={data.siblingProblems}
-      examContext={data.examContext}
-    />
+{#if data.mode === "preview"}
+  <ProblemSolveView
+    mode="practice"
+    allowedLanguages={data.solveProps.allowedLanguages}
+    backLink={data.solveProps.backLink}
+    canRejudge={data.solveProps.canRejudge}
+    problem={data.solveProps.problem}
+    submissions={data.solveProps.submissions}
+    testcaseSets={data.solveProps.testcaseSets}
+  />
+{:else}
+  <div class="flex h-full flex-col">
+    <ExamTopStrip context={data.examContext} />
+    <div class="min-h-0 flex-1">
+      <ProblemSolveView
+        mode="exam"
+        backLink={{ href: `/exams/${data.examContext.examId}`, type: "exam" }}
+        canRejudge={data.canRejudge}
+        problem={data.problem}
+        submissions={data.submissions}
+        siblingProblems={data.siblingProblems}
+        examContext={data.examContext}
+      />
+    </div>
   </div>
-</div>
+{/if}
