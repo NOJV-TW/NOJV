@@ -85,6 +85,9 @@ describe("AssessmentGradesTab", () => {
     expect(target.textContent).toContain("Average 80");
     expect(target.textContent).toContain("Median 80");
     expect(target.textContent).toContain("80–100");
+    const overview = target.querySelector('[data-slot="grades-overview"]');
+    expect(overview?.textContent).toContain("1/1");
+    expect(overview?.textContent).toContain("80–100");
 
     await unmount(component);
     target.remove();

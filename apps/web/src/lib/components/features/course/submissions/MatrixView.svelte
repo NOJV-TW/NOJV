@@ -79,6 +79,7 @@
     showRoleFilter?: boolean;
     viewHref?: (userId: string) => string;
     oncellclick?: ((userId: string, problemId: string) => void) | undefined;
+    showHint?: boolean;
     class?: string | undefined;
   }
 
@@ -90,6 +91,7 @@
     showRoleFilter = false,
     viewHref,
     oncellclick,
+    showHint = true,
     class: className,
   }: Props = $props();
 
@@ -170,9 +172,11 @@
       <h2 class="text-title font-medium leading-tight">
         {labels.heading()}
       </h2>
-      <p class="mt-1 text-caption text-muted-foreground">
-        {labels.hint()}
-      </p>
+      {#if showHint}
+        <p class="mt-1 text-caption text-muted-foreground">
+          {labels.hint()}
+        </p>
+      {/if}
     </div>
     <span class="text-caption text-muted-foreground">
       {labels.meta({
