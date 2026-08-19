@@ -4,8 +4,8 @@
   import { cn } from "$lib/utils/css.js";
   import { formatDateTimeCompact } from "$lib/utils/datetime";
   import AssignmentProblemsTab from "$lib/components/features/course/assignment/AssignmentProblemsTab.svelte";
-  import AssignmentSubmissionsMatrix from "$lib/components/features/course/assignment/AssignmentSubmissionsMatrix.svelte";
   import AssignmentResultsTab from "$lib/components/features/course/assignment/AssignmentResultsTab.svelte";
+  import LiveSubmissionsFeed from "$lib/components/features/coursework/LiveSubmissionsFeed.svelte";
   import AssignmentPlagiarismReport from "$lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
   import AssignmentSettingsTab from "$lib/components/features/course/assignment/AssignmentSettingsTab.svelte";
   import AuditTimeline from "$lib/components/features/audit/AuditTimeline.svelte";
@@ -450,14 +450,15 @@
             : { personalProblems: [], publicProblems: [] }}
         />
       {:else if activeSubTab === "submissions"}
-        <AssignmentSubmissionsMatrix
+        <LiveSubmissionsFeed rows={data.recentSubmissions} />
+      {:else if activeSubTab === "results" && data.results}
+        <AssignmentResultsTab
+          data={data.results}
           matrix={data.matrix}
           courseId={detail.courseId}
           assignmentId={detail.id}
           oncellclick={canSetOverride ? gradeCell : undefined}
         />
-      {:else if activeSubTab === "results" && data.results}
-        <AssignmentResultsTab data={data.results} />
       {:else if activeSubTab === "plagiarism"}
         <AssignmentPlagiarismReport
           report={data.plagiarism}

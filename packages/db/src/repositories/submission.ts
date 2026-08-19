@@ -409,6 +409,32 @@ export const submissionRepo = {
     });
   },
 
+  listRecentForContext(opts: {
+    context: { type: "assignment"; id: string } | { type: "exam"; id: string };
+    limit: number;
+  }) {
+    return prisma.submission.findMany({
+      where: {
+        sampleOnly: false,
+        isReferenceSolution: false,
+        ...(opts.context.type === "assignment"
+          ? { assessmentId: opts.context.id }
+          : { examId: opts.context.id }),
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: opts.limit,
+      select: {
+        id: true,
+        createdAt: true,
+        language: true,
+        score: true,
+        status: true,
+        problem: { select: problemMiniSelect },
+        user: { select: userMiniSelect },
+      },
+    });
+  },
+
   listSystemErrorsForRecovery({ limit }: { limit: number }) {
     return prisma.submission.findMany({
       where: { status: "system_error", judgeGeneration: 1 },

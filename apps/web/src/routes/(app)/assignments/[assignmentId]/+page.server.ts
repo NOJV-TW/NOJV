@@ -21,6 +21,7 @@ import {
   plagiarismDomain,
   problemDomain,
   scoreOverrideDomain,
+  submissionDomain,
   userDomain,
 } from "@nojv/application";
 
@@ -72,6 +73,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       canAnswerClar,
       canViewClar,
       auditEvents,
+      recentSubmissions,
     ] = await Promise.all([
       getAssignmentDetail(courseId, assignmentId, {
         viewerUserId: actor.userId,
@@ -89,6 +91,9 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       clarificationDomain.canAnswerInContext(actor, { type: "assignment", assignmentId }),
       clarificationDomain.canViewClarifications(actor, { type: "assignment", assignmentId }),
       auditDomain.listAuditTimelineForContext({ type: "assignment", assignmentId }),
+      submissionDomain.listRecentContextSubmissions({
+        context: { type: "assignment", id: assignmentId },
+      }),
     ]);
 
     const auditActorNames = await userDomain.listUserDisplayNames([
@@ -127,6 +132,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       plagiarismFlags: serializePlagiarismFlags(plagiarismFlags),
       auditEvents,
       auditActorNames,
+      recentSubmissions,
     };
   }
 

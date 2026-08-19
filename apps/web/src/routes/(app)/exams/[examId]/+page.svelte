@@ -11,7 +11,7 @@
   import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
   import DifficultyTick from "$lib/components/primitives/visual/DifficultyTick.svelte";
-  import ExamSubmissionsMatrix from "$lib/components/features/course/exam/ExamSubmissionsMatrix.svelte";
+  import LiveSubmissionsFeed from "$lib/components/features/coursework/LiveSubmissionsFeed.svelte";
   import ExamSettingsTab from "$lib/components/features/course/exam/ExamSettingsTab.svelte";
   import ExamProblemsTab from "$lib/components/features/course/exam/ExamProblemsTab.svelte";
   import ExamProctoringTab from "$lib/components/features/course/exam/ExamProctoringTab.svelte";
@@ -585,13 +585,14 @@
       id="exam-manage"
     >
       {#if activeSubTabKey === "submissions" && data.matrix}
-        <ExamSubmissionsMatrix
+        <LiveSubmissionsFeed rows={data.recentSubmissions} />
+      {:else if activeSubTabKey === "results" && data.results && data.matrix}
+        <ExamResultsTab
+          data={data.results}
           matrix={data.matrix}
           examId={detail.id}
           oncellclick={canSetOverride ? gradeCell : undefined}
         />
-      {:else if activeSubTabKey === "results" && data.results}
-        <ExamResultsTab data={data.results} />
       {:else if activeSubTabKey === "plagiarism"}
         <AssignmentPlagiarismReport
           report={data.plagiarism}

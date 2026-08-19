@@ -386,6 +386,15 @@ export async function listAllSubmissionsPaged(opts: {
   };
 }
 
+export async function listRecentContextSubmissions(opts: {
+  context: { type: "assignment"; id: string } | { type: "exam"; id: string };
+  limit?: number;
+}) {
+  const limit = Math.min(Math.max(opts.limit ?? 50, 1), 100);
+  const rows = await submissionRepo.listRecentForContext({ context: opts.context, limit });
+  return rows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString() }));
+}
+
 export async function countAssignmentProblemAttemptsInWindow(
   userId: string,
   assignmentId: string,
