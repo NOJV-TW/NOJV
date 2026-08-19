@@ -70,7 +70,7 @@
 
   let verdictFilter = $state("");
   let languageFilter = $state("");
-  let titleQuery = $state("");
+  let problemFilter = $state("");
 
   const RESULT_VERDICTS: readonly string[] = submissionResultVerdicts;
   let verdictOptions = $derived([
@@ -80,16 +80,18 @@
       .sort(),
   ]);
   let languageOptions = $derived([...new Set(allRows.map((s) => s.language))].sort());
+  let problemOptions = $derived.by(() => {
+    const unique = new Map(
+      allRows.map((submission) => [submission.problemId, submission.problemTitle]),
+    );
+    return [...unique.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  });
 
   let filtered = $derived(
     allRows.filter((sub) => {
       if (verdictFilter && sub.status !== verdictFilter) return false;
       if (languageFilter && sub.language !== languageFilter) return false;
-      if (
-        titleQuery &&
-        !sub.problemTitle.toLowerCase().includes(titleQuery.trim().toLowerCase())
-      )
-        return false;
+      if (problemFilter && sub.problemId !== problemFilter) return false;
       return true;
     }),
   );
@@ -143,79 +145,112 @@
         ]}
       />
     {:else}
-      <div class="glass mb-4 flex flex-wrap items-center gap-3 rounded-xl px-4 py-3">
-        <label class="flex items-center gap-2 text-caption text-muted-foreground">
-          <span>{m.submissions_filterVerdict()}</span>
-          <select
-            class="rounded-md border border-border bg-background px-2 py-1 text-body-sm"
-            bind:value={verdictFilter}
+      <div class="overflow-x-auto">
+        <table class="w-full text-body-sm">
+          <thead
+            class="bg-muted/40 font-mono text-micro uppercase tracking-wider text-muted-foreground"
           >
-            <option value="">{m.submissions_filterAll()}</option>
-            {#each verdictOptions as status (status)}
-              <option value={status}>{formatVerdictLabel(status)}</option>
-            {/each}
-          </select>
-        </label>
-        <label class="flex items-center gap-2 text-caption text-muted-foreground">
-          <span>{m.submissions_filterLanguage()}</span>
-          <select
-            class="rounded-md border border-border bg-background px-2 py-1 text-body-sm"
-            bind:value={languageFilter}
-          >
-            <option value="">{m.submissions_filterAll()}</option>
-            {#each languageOptions as lang (lang)}
-              <option value={lang}>{languageLabel(lang)}</option>
-            {/each}
-          </select>
-        </label>
-        <label class="flex flex-1 items-center gap-2 text-caption text-muted-foreground">
-          <span>{m.submissions_filterProblem()}</span>
-          <input
-            class="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1 text-body-sm"
-            type="search"
-            placeholder={m.submissions_filterProblem()}
-            bind:value={titleQuery}
-          />
-        </label>
-      </div>
-
-      {#if filtered.length === 0}
-        <p class="py-8 text-center text-body-sm text-muted-foreground">
-          {m.submissions_noMatches()}
-        </p>
-      {:else}
-        <div class="grid gap-2">
-          {#each filtered as sub (sub.id)}
-            <a
-              class="glass hover-lift rounded-xl px-5 py-4 no-underline shadow-rest"
-              href="/submissions/{sub.id}"
-            >
-              <div class="flex items-baseline justify-between gap-3">
-                <span class="truncate text-body-sm font-semibold text-foreground">
-                  {sub.problemTitle}
-                </span>
-                <span class="shrink-0 text-caption text-muted-foreground tabular-nums">
-                  {formatDateTime(sub.createdAt)}
-                </span>
-              </div>
-              <div
-                class="mt-1 flex flex-wrap items-center gap-3 text-caption text-muted-foreground"
+            <tr>
+              <th class="px-4 py-2.5 text-left font-medium">{m.admin_submissions_colTime()}</th>
+              <th class="px-2 py-1.5 text-left font-medium">
+                <select
+                  aria-label={m.submissions_filterProblem()}
+                  class="h-8 max-w-48 rounded border border-transparent bg-transparent px-1 font-mono text-micro uppercase tracking-wider hover:border-border focus:border-border"
+                  bind:value={problemFilter}
+                >
+                  <option value="">{m.admin_submissions_colProblem()}</option>
+                  {#each problemOptions as [id, title] (id)}
+                    <option value={id}>{title}</option>
+                  {/each}
+                </select>
+              </th>
+              <th class="px-3 py-2.5 text-left font-medium"
+                >{m.admin_submissions_colContext()}</th
               >
-                <VerdictBadge verdict={sub.status} />
-                <Badge variant="outline" size="xs">{contextLabel(sub.context)}</Badge>
-                <span>{languageLabel(sub.language)}</span>
-                <span class="tabular-nums">{sub.score}/{sub.totalScore}</span>
-                {#if sub.runtimeMs && sub.runtimeMs > 0}
-                  <span class="tabular-nums">{sub.runtimeMs} ms</span>
-                {/if}
-                {#if sub.memoryKb && sub.memoryKb > 0}
-                  <span class="tabular-nums">{formatMemory(sub.memoryKb)}</span>
-                {/if}
-              </div>
-            </a>
-          {/each}
-        </div>
-      {/if}
+              <th class="px-2 py-1.5 text-left font-medium">
+                <select
+                  aria-label={m.submissions_filterLanguage()}
+                  class="h-8 rounded border border-transparent bg-transparent px-1 font-mono text-micro uppercase tracking-wider hover:border-border focus:border-border"
+                  bind:value={languageFilter}
+                >
+                  <option value="">{m.submissions_filterLanguage()}</option>
+                  {#each languageOptions as lang (lang)}
+                    <option value={lang}>{languageLabel(lang)}</option>
+                  {/each}
+                </select>
+              </th>
+              <th class="px-2 py-1.5 text-left font-medium">
+                <select
+                  aria-label={m.submissions_filterVerdict()}
+                  class="h-8 rounded border border-transparent bg-transparent px-1 font-mono text-micro uppercase tracking-wider hover:border-border focus:border-border"
+                  bind:value={verdictFilter}
+                >
+                  <option value="">{m.admin_submissions_colVerdict()}</option>
+                  {#each verdictOptions as status (status)}
+                    <option value={status}>{formatVerdictLabel(status)}</option>
+                  {/each}
+                </select>
+              </th>
+              <th class="px-3 py-2.5 text-right font-medium"
+                >{m.admin_submissions_colScore()}</th
+              >
+              <th class="px-3 py-2.5 text-right font-medium">{m.submissionDetail_runtime()}</th>
+              <th class="px-4 py-2.5 text-right font-medium">{m.submissionDetail_memory()}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#if filtered.length === 0}
+              <tr class="border-t border-border-subtle">
+                <td class="px-6 py-14 text-center text-muted-foreground" colspan="8">
+                  {m.submissions_noMatches()}
+                </td>
+              </tr>
+            {:else}
+              {#each filtered as sub (sub.id)}
+                <tr class="border-t border-border-subtle transition-colors hover:bg-muted/25">
+                  <td
+                    class="whitespace-nowrap px-4 py-3 font-mono text-caption text-muted-foreground"
+                  >
+                    <a
+                      class="hover:text-foreground hover:underline"
+                      href={`/submissions/${sub.id}`}
+                    >
+                      {formatDateTime(sub.createdAt)}
+                    </a>
+                  </td>
+                  <td class="px-3 py-3">
+                    <a class="font-medium hover:underline" href={`/submissions/${sub.id}`}>
+                      {sub.problemTitle}
+                    </a>
+                  </td>
+                  <td class="px-3 py-3">
+                    <Badge variant="outline" size="xs">{contextLabel(sub.context)}</Badge>
+                  </td>
+                  <td
+                    class="whitespace-nowrap px-3 py-3 font-mono text-caption text-muted-foreground"
+                  >
+                    {languageLabel(sub.language)}
+                  </td>
+                  <td class="px-3 py-3"><VerdictBadge verdict={sub.status} /></td>
+                  <td class="px-3 py-3 text-right font-mono font-semibold tabular-nums">
+                    {sub.score}/{sub.totalScore}
+                  </td>
+                  <td
+                    class="whitespace-nowrap px-3 py-3 text-right font-mono text-caption text-muted-foreground tabular-nums"
+                  >
+                    {sub.runtimeMs && sub.runtimeMs > 0 ? `${sub.runtimeMs} ms` : "—"}
+                  </td>
+                  <td
+                    class="whitespace-nowrap px-4 py-3 text-right font-mono text-caption text-muted-foreground tabular-nums"
+                  >
+                    {sub.memoryKb && sub.memoryKb > 0 ? formatMemory(sub.memoryKb) : "—"}
+                  </td>
+                </tr>
+              {/each}
+            {/if}
+          </tbody>
+        </table>
+      </div>
 
       {#if activeCursor}
         <div class="mt-4 flex justify-center">
