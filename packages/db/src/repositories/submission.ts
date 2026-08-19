@@ -426,6 +426,7 @@ export const submissionRepo = {
       select: {
         id: true,
         createdAt: true,
+        ipAddress: true,
         language: true,
         score: true,
         status: true,

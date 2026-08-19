@@ -106,6 +106,7 @@ function makeSubmission(args: {
     language,
     status: statusFor(verdict),
     score,
+    ipAddress: `203.0.113.${String((rng.int(1, 12) + userId.length) % 254 || 1)}`,
     runtimeMs,
     memoryKb,
     verdictSummary: deriveSeedVerdictSummary(detail) as unknown as Prisma.InputJsonValue,
@@ -356,6 +357,72 @@ export async function seedSubmissions(
             createdAt: new Date(when),
             language: rng.pick(EXAM_LANGS),
             context: { kind: "exam", examId: EXAM_ID },
+          }),
+        );
+      }
+    }
+  });
+
+  const LARGE_CLASS_ASSIGNMENT_ID = "hw-demo-active";
+  const LARGE_CLASS_EXAM_ID = "exam_demo_gradebook_active";
+  const LARGE_CLASS_ASSIGNMENT_PROBLEMS = [
+    "problem_warmup-sum",
+    "problem_add-two-numbers",
+    "problem_float-compare",
+    "problem_graph-docking",
+  ] as const;
+  const LARGE_CLASS_EXAM_PROBLEMS = [
+    "problem_warmup-sum",
+    "problem_add-two-numbers",
+    "problem_memory-leak-forensics",
+    "problem_graph-docking",
+  ] as const;
+  const largeClassStudents = [student, ...demoStudents];
+
+  largeClassStudents.forEach((s, idx) => {
+    // Keep a few completely empty rows visible in the grade matrix.
+    if (idx % 11 === 10) return;
+    const assignmentRng = new SeededRng(0x5eed_6000 + idx);
+    for (const problemId of LARGE_CLASS_ASSIGNMENT_PROBLEMS) {
+      if (!assignmentRng.chance(0.78)) continue;
+      const attempts = assignmentRng.int(1, 3);
+      for (let attempt = 0; attempt < attempts; attempt++) {
+        subs.push(
+          makeSubmission({
+            rng: assignmentRng,
+            userId: s.id,
+            problemId,
+            testcases: tc(problemId),
+            verdict:
+              attempt === attempts - 1
+                ? pickAssignmentFinal(assignmentRng)
+                : pickAssignmentEarly(assignmentRng),
+            createdAt: new Date(
+              now - assignmentRng.int(2, 360) * 60 * 1000 - attempt * 30 * 1000,
+            ),
+            context: { kind: "assignment", assessmentId: LARGE_CLASS_ASSIGNMENT_ID },
+          }),
+        );
+      }
+    }
+
+    const examRng = new SeededRng(0x5eed_7000 + idx);
+    for (const problemId of LARGE_CLASS_EXAM_PROBLEMS) {
+      if (!examRng.chance(0.72)) continue;
+      const attempts = examRng.int(1, 3);
+      for (let attempt = 0; attempt < attempts; attempt++) {
+        subs.push(
+          makeSubmission({
+            rng: examRng,
+            userId: s.id,
+            problemId,
+            testcases: tc(problemId),
+            verdict:
+              attempt === attempts - 1
+                ? pickAssignmentFinal(examRng)
+                : pickAssignmentEarly(examRng),
+            createdAt: new Date(now - examRng.int(1, 240) * 60 * 1000 - attempt * 30 * 1000),
+            context: { kind: "exam", examId: LARGE_CLASS_EXAM_ID },
           }),
         );
       }

@@ -39,6 +39,7 @@ describe("listRecentContextSubmissions", () => {
     listRecentForContext.mockResolvedValue([
       {
         id: "sub_1",
+        ipAddress: "203.0.113.42",
         createdAt: new Date("2026-08-19T12:34:56.000Z"),
         language: "cpp17",
         score: 80,
@@ -54,6 +55,7 @@ describe("listRecentContextSubmissions", () => {
 
     expect(rows[0]).toMatchObject({
       id: "sub_1",
+      ipAddress: "203.0.113.42",
       createdAt: "2026-08-19T12:34:56.000Z",
       language: "cpp17",
       score: 80,
