@@ -150,10 +150,10 @@ async function persistSeedSubmissions(
 
 export async function seedSubmissions(
   prisma: PrismaClient,
-  refs: { admin: User; student: User; demoStudents: User[] },
+  refs: { admin: User; teacher: User; student: User; demoStudents: User[] },
 ): Promise<void> {
   const now = Date.now();
-  const { admin, student, demoStudents } = refs;
+  const { admin, teacher, student, demoStudents } = refs;
   const storage = createStorageClient();
 
   await prisma.submission.deleteMany({});
@@ -378,6 +378,39 @@ export async function seedSubmissions(
     "problem_graph-docking",
   ] as const;
   const largeClassStudents = [student, ...demoStudents];
+
+  const teacherRng = new SeededRng(0x5eed_8000);
+  const teacherVerdicts: LongVerdict[] = [
+    "wrong_answer",
+    "compile_error",
+    "accepted",
+    "time_limit_exceeded",
+    "accepted",
+  ];
+  teacherVerdicts.forEach((verdict, index) => {
+    const assignmentProblem = LARGE_CLASS_ASSIGNMENT_PROBLEMS[index % 4]!;
+    const examProblem = LARGE_CLASS_EXAM_PROBLEMS[index % 4]!;
+    subs.push(
+      makeSubmission({
+        rng: teacherRng,
+        userId: teacher.id,
+        problemId: assignmentProblem,
+        testcases: tc(assignmentProblem),
+        verdict,
+        createdAt: new Date(now - (index * 9 + 3) * 60 * 1000),
+        context: { kind: "assignment", assessmentId: LARGE_CLASS_ASSIGNMENT_ID },
+      }),
+      makeSubmission({
+        rng: teacherRng,
+        userId: teacher.id,
+        problemId: examProblem,
+        testcases: tc(examProblem),
+        verdict: teacherVerdicts[(index + 2) % teacherVerdicts.length]!,
+        createdAt: new Date(now - (index * 11 + 5) * 60 * 1000),
+        context: { kind: "exam", examId: LARGE_CLASS_EXAM_ID },
+      }),
+    );
+  });
 
   largeClassStudents.forEach((s, idx) => {
     // Keep a few completely empty rows visible in the grade matrix.
