@@ -25,7 +25,7 @@
 
   let { immersive = false }: { immersive?: boolean } = $props();
 
-  const localeLabels: Record<string, string> = { en: "English", "zh-TW": "中文" };
+  const localeLabels: Record<string, string> = { en: "En", "zh-TW": "中" };
 
   function cycleLocale() {
     const idx = locales.indexOf(currentLocale);
