@@ -12,6 +12,7 @@
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
   import DifficultyTick from "$lib/components/primitives/visual/DifficultyTick.svelte";
   import LiveSubmissionsFeed from "$lib/components/features/coursework/LiveSubmissionsFeed.svelte";
+  import SubmissionHistoryActions from "$lib/components/features/coursework/SubmissionHistoryActions.svelte";
   import ExamSettingsTab from "$lib/components/features/course/exam/ExamSettingsTab.svelte";
   import ExamProblemsTab from "$lib/components/features/course/exam/ExamProblemsTab.svelte";
   import ExamProctoringTab from "$lib/components/features/course/exam/ExamProctoringTab.svelte";
@@ -102,6 +103,8 @@
     | "clarifications"
     | "audit";
   let activeSubTabKey = $state<SubTab>("problems");
+  let submissionSearch = $state("");
+  let visibleSubmissionCount = $state(0);
 
   const subTabs = $derived<{ key: SubTab; label: string }[]>([
     { key: "problems", label: m.examDetail_subTabProblems() },
@@ -584,8 +587,21 @@
       label={m.examDetail_subTabsLabel()}
       id="exam-manage"
     >
+      {#snippet actions()}
+        {#if activeSubTabKey === "submissions"}
+          <SubmissionHistoryActions
+            bind:search={submissionSearch}
+            visibleCount={visibleSubmissionCount}
+            totalCount={data.recentSubmissions.length}
+          />
+        {/if}
+      {/snippet}
       {#if activeSubTabKey === "submissions" && data.matrix}
-        <LiveSubmissionsFeed rows={data.recentSubmissions} />
+        <LiveSubmissionsFeed
+          rows={data.recentSubmissions}
+          bind:search={submissionSearch}
+          bind:visibleCount={visibleSubmissionCount}
+        />
       {:else if activeSubTabKey === "results" && data.results && data.matrix}
         <ExamResultsTab
           data={data.results}

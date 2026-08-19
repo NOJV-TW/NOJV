@@ -11,6 +11,7 @@
     label,
     id = "tabs",
     children,
+    actions,
     class: className,
     contentClass = "p-6",
   }: {
@@ -19,6 +20,7 @@
     label: string;
     id?: string;
     children: Snippet;
+    actions?: Snippet;
     class?: string;
     contentClass?: string;
   } = $props();
@@ -45,44 +47,47 @@
 </script>
 
 <GlassPanel class={cn("overflow-hidden", className)}>
-  <div
-    role="tablist"
-    aria-label={label}
-    class="flex items-center gap-1 overflow-x-auto border-b border-border-subtle px-3 py-2"
-  >
-    {#each tabs as tab (tab.key)}
-      {@const isActive = value === tab.key}
-      <button
-        id={`${id}-tab-${tab.key}`}
-        type="button"
-        role="tab"
-        aria-selected={isActive}
-        aria-controls={`${id}-panel`}
-        tabindex={isActive ? 0 : -1}
-        onclick={() => (value = tab.key)}
-        onkeydown={onTabKeydown}
-        class={cn(
-          "focus-ring inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3.5 text-body-sm font-medium transition-colors",
-          isActive
-            ? "bg-[color:var(--color-primary)]/14 text-primary"
-            : "text-muted-foreground hover:text-foreground",
-        )}
-      >
-        <span>{tab.label}</span>
-        {#if tab.count !== undefined}
-          <span
-            class={cn(
-              "inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-micro font-semibold tabular-nums",
-              isActive
-                ? "bg-[color:var(--color-primary)]/20 text-primary"
-                : "bg-muted text-muted-foreground",
-            )}
-          >
-            {tab.count}
-          </span>
-        {/if}
-      </button>
-    {/each}
+  <div class="flex items-center gap-2 overflow-x-auto border-b border-border-subtle px-3 py-2">
+    <div role="tablist" aria-label={label} class="flex items-center gap-1">
+      {#each tabs as tab (tab.key)}
+        {@const isActive = value === tab.key}
+        <button
+          id={`${id}-tab-${tab.key}`}
+          type="button"
+          role="tab"
+          aria-selected={isActive}
+          aria-controls={`${id}-panel`}
+          tabindex={isActive ? 0 : -1}
+          onclick={() => (value = tab.key)}
+          onkeydown={onTabKeydown}
+          class={cn(
+            "focus-ring inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3.5 text-body-sm font-medium transition-colors",
+            isActive
+              ? "bg-[color:var(--color-primary)]/14 text-primary"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <span>{tab.label}</span>
+          {#if tab.count !== undefined}
+            <span
+              class={cn(
+                "inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-micro font-semibold tabular-nums",
+                isActive
+                  ? "bg-[color:var(--color-primary)]/20 text-primary"
+                  : "bg-muted text-muted-foreground",
+              )}
+            >
+              {tab.count}
+            </span>
+          {/if}
+        </button>
+      {/each}
+    </div>
+    {#if actions}
+      <div class="ml-auto flex shrink-0 items-center gap-3">
+        {@render actions()}
+      </div>
+    {/if}
   </div>
 
   <div

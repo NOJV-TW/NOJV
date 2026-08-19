@@ -6,6 +6,7 @@
   import AssignmentProblemsTab from "$lib/components/features/course/assignment/AssignmentProblemsTab.svelte";
   import AssignmentResultsTab from "$lib/components/features/course/assignment/AssignmentResultsTab.svelte";
   import LiveSubmissionsFeed from "$lib/components/features/coursework/LiveSubmissionsFeed.svelte";
+  import SubmissionHistoryActions from "$lib/components/features/coursework/SubmissionHistoryActions.svelte";
   import AssignmentPlagiarismReport from "$lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
   import AssignmentSettingsTab from "$lib/components/features/course/assignment/AssignmentSettingsTab.svelte";
   import AuditTimeline from "$lib/components/features/audit/AuditTimeline.svelte";
@@ -40,6 +41,8 @@
     | "clarifications"
     | "audit";
   let activeSubTab = $state<SubTabKey>("submissions");
+  let submissionSearch = $state("");
+  let visibleSubmissionCount = $state(0);
 
   const clarificationProblems = $derived(
     detail.problems.map((p) => ({ id: p.problemId, title: p.title })),
@@ -439,6 +442,15 @@
       label={m.assignmentDetail_sectionsNavLabel()}
       id="assignment-manage"
     >
+      {#snippet actions()}
+        {#if activeSubTab === "submissions"}
+          <SubmissionHistoryActions
+            bind:search={submissionSearch}
+            visibleCount={visibleSubmissionCount}
+            totalCount={data.recentSubmissions?.length ?? 0}
+          />
+        {/if}
+      {/snippet}
       {#if activeSubTab === "problems"}
         <AssignmentProblemsTab
           problems={detail.problems}
@@ -450,7 +462,11 @@
             : { personalProblems: [], publicProblems: [] }}
         />
       {:else if activeSubTab === "submissions"}
-        <LiveSubmissionsFeed rows={data.recentSubmissions} />
+        <LiveSubmissionsFeed
+          rows={data.recentSubmissions ?? []}
+          bind:search={submissionSearch}
+          bind:visibleCount={visibleSubmissionCount}
+        />
       {:else if activeSubTab === "results" && data.results}
         <AssignmentResultsTab
           data={data.results}
