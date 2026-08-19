@@ -17,7 +17,7 @@ vi.mock("$lib/components/primitives/ui/button", async () => ({
 }));
 
 describe("submissions page", () => {
-  it("uses a table with problem, language, and verdict filters in its headers", async () => {
+  it("uses problem, context, language, and verdict filters without performance columns", async () => {
     const { default: SubmissionsPage } =
       await import("../../../apps/web/src/routes/(app)/submissions/+page.svelte");
     const target = document.createElement("div");
@@ -47,9 +47,14 @@ describe("submissions page", () => {
     });
 
     expect(target.querySelector("table")).not.toBeNull();
-    for (const label of ["Problem", "Language", "Verdict"]) {
+    for (const label of ["Problem", "Context", "Language", "Verdict"]) {
       expect(target.querySelector(`[aria-label="${label}"]`)?.closest("th")).not.toBeNull();
     }
+    const headerLabels = [...target.querySelectorAll("thead th")].map((header) =>
+      header.textContent?.trim(),
+    );
+    expect(headerLabels).not.toContain("Runtime");
+    expect(headerLabels).not.toContain("Memory");
 
     await unmount(component);
     target.remove();

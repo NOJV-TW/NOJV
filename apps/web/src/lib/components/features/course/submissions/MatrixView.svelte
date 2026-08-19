@@ -69,15 +69,12 @@
   import { cn } from "$lib/utils/css.js";
   import MatrixTable from "./MatrixTable.svelte";
   import MatrixLegend from "./MatrixLegend.svelte";
-  import MatrixToolbar from "./MatrixToolbar.svelte";
 
   interface Props {
     matrix: MatrixViewData;
     csvDownloadName: string;
     labels: MatrixViewLabels;
     dataSlot: string;
-    showRoleFilter?: boolean;
-    viewHref?: (userId: string) => string;
     oncellclick?: ((userId: string, problemId: string) => void) | undefined;
     showHeader?: boolean;
     showHint?: boolean;
@@ -89,17 +86,16 @@
     csvDownloadName,
     labels,
     dataSlot,
-    showRoleFilter = false,
-    viewHref,
     oncellclick,
     showHeader = true,
     showHint = true,
     class: className,
   }: Props = $props();
 
-  type SortKey = "totalDesc" | "handleAsc" | "nameAsc";
+  type SortDirection = "asc" | "desc";
 
-  let sortKey = $state<SortKey>("totalDesc");
+  let sortKey = $state("total");
+  let sortDirection = $state<SortDirection>("desc");
   let search = $state("");
   let page = $state(0);
   const PAGE_SIZE = 25;
@@ -111,18 +107,18 @@
           (r) => r.handle.toLowerCase().includes(q) || r.displayName.toLowerCase().includes(q),
         )
       : [...matrix.rows];
-    switch (sortKey) {
-      case "handleAsc":
-        base.sort((a, b) => a.handle.localeCompare(b.handle));
-        break;
-      case "nameAsc":
-        base.sort((a, b) => a.displayName.localeCompare(b.displayName));
-        break;
-      case "totalDesc":
-      default:
-        base.sort((a, b) => b.total - a.total);
-        break;
-    }
+    const multiplier = sortDirection === "desc" ? -1 : 1;
+    base.sort((a, b) => {
+      const aScore =
+        sortKey === "total"
+          ? a.total
+          : (a.cells.find((cell) => cell.problemId === sortKey)?.score ?? -Infinity);
+      const bScore =
+        sortKey === "total"
+          ? b.total
+          : (b.cells.find((cell) => cell.problemId === sortKey)?.score ?? -Infinity);
+      return (aScore - bScore) * multiplier || a.handle.localeCompare(b.handle);
+    });
     return base;
   });
 
@@ -166,6 +162,15 @@
   function nextPage() {
     if ((page + 1) * PAGE_SIZE < totalRows) page += 1;
   }
+
+  function toggleSort(key: string) {
+    if (sortKey === key) sortDirection = sortDirection === "desc" ? "asc" : "desc";
+    else {
+      sortKey = key;
+      sortDirection = "desc";
+    }
+    page = 0;
+  }
 </script>
 
 <section data-slot={dataSlot} class={cn("space-y-4", className)}>
@@ -191,7 +196,11 @@
     </div>
   {/if}
 
-  <MatrixToolbar bind:sortKey bind:search {showRoleFilter} {labels} onExport={exportCsv} />
+  <div class="flex justify-end">
+    <Button variant="outline" size="sm" onclick={exportCsv}>
+      {labels.exportCsv()}
+    </Button>
+  </div>
 
   {#if totalRows === 0}
     <div
@@ -205,7 +214,10 @@
       rows={pageRows}
       totalPoints={matrix.totalPoints}
       {labels}
-      {viewHref}
+      bind:search
+      {sortKey}
+      {sortDirection}
+      onsort={toggleSort}
       {oncellclick}
     />
 

@@ -50,11 +50,6 @@
     }
   }
 
-  function formatMemory(kb: number): string {
-    if (kb >= 1024) return `${(kb / 1024).toFixed(1)} MB`;
-    return `${String(kb)} KB`;
-  }
-
   function contextLabel(kind: SubmissionRow["context"]): string {
     switch (kind) {
       case "assignment":
@@ -71,6 +66,7 @@
   let verdictFilter = $state("");
   let languageFilter = $state("");
   let problemFilter = $state("");
+  let contextFilter = $state("");
 
   const RESULT_VERDICTS: readonly string[] = submissionResultVerdicts;
   let verdictOptions = $derived([
@@ -80,6 +76,7 @@
       .sort(),
   ]);
   let languageOptions = $derived([...new Set(allRows.map((s) => s.language))].sort());
+  let contextOptions = $derived([...new Set(allRows.map((s) => s.context))].sort());
   let problemOptions = $derived.by(() => {
     const unique = new Map(
       allRows.map((submission) => [submission.problemId, submission.problemTitle]),
@@ -92,6 +89,7 @@
       if (verdictFilter && sub.status !== verdictFilter) return false;
       if (languageFilter && sub.language !== languageFilter) return false;
       if (problemFilter && sub.problemId !== problemFilter) return false;
+      if (contextFilter && sub.context !== contextFilter) return false;
       return true;
     }),
   );
@@ -164,9 +162,18 @@
                   {/each}
                 </select>
               </th>
-              <th class="px-3 py-2.5 text-left font-medium"
-                >{m.admin_submissions_colContext()}</th
-              >
+              <th class="px-2 py-1.5 text-left font-medium">
+                <select
+                  aria-label={m.admin_submissions_colContext()}
+                  class="h-8 rounded border border-transparent bg-transparent px-1 font-mono text-micro uppercase tracking-wider hover:border-border focus:border-border"
+                  bind:value={contextFilter}
+                >
+                  <option value="">{m.admin_submissions_colContext()}</option>
+                  {#each contextOptions as context (context)}
+                    <option value={context}>{contextLabel(context)}</option>
+                  {/each}
+                </select>
+              </th>
               <th class="px-2 py-1.5 text-left font-medium">
                 <select
                   aria-label={m.submissions_filterLanguage()}
@@ -194,14 +201,12 @@
               <th class="px-3 py-2.5 text-right font-medium"
                 >{m.admin_submissions_colScore()}</th
               >
-              <th class="px-3 py-2.5 text-right font-medium">{m.submissionDetail_runtime()}</th>
-              <th class="px-4 py-2.5 text-right font-medium">{m.submissionDetail_memory()}</th>
             </tr>
           </thead>
           <tbody>
             {#if filtered.length === 0}
               <tr class="border-t border-border-subtle">
-                <td class="px-6 py-14 text-center text-muted-foreground" colspan="8">
+                <td class="px-6 py-14 text-center text-muted-foreground" colspan="6">
                   {m.submissions_noMatches()}
                 </td>
               </tr>
@@ -234,16 +239,6 @@
                   <td class="px-3 py-3"><VerdictBadge verdict={sub.status} /></td>
                   <td class="px-3 py-3 text-right font-mono font-semibold tabular-nums">
                     {sub.score}/{sub.totalScore}
-                  </td>
-                  <td
-                    class="whitespace-nowrap px-3 py-3 text-right font-mono text-caption text-muted-foreground tabular-nums"
-                  >
-                    {sub.runtimeMs && sub.runtimeMs > 0 ? `${sub.runtimeMs} ms` : "—"}
-                  </td>
-                  <td
-                    class="whitespace-nowrap px-4 py-3 text-right font-mono text-caption text-muted-foreground tabular-nums"
-                  >
-                    {sub.memoryKb && sub.memoryKb > 0 ? formatMemory(sub.memoryKb) : "—"}
                   </td>
                 </tr>
               {/each}

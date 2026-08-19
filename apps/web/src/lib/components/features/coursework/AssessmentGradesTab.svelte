@@ -24,21 +24,10 @@
     csvDownloadName: string;
     dataSlot: string;
     labels: MatrixViewLabels;
-    showRoleFilter?: boolean;
-    viewHref?: (userId: string) => string;
     oncellclick?: ((userId: string, problemId: string) => void) | undefined;
   }
 
-  let {
-    matrix,
-    stats,
-    csvDownloadName,
-    dataSlot,
-    labels,
-    showRoleFilter = false,
-    viewHref,
-    oncellclick,
-  }: Props = $props();
+  let { matrix, stats, csvDownloadName, dataSlot, labels, oncellclick }: Props = $props();
 </script>
 
 <div class="space-y-5">
@@ -103,9 +92,7 @@
       {csvDownloadName}
       {dataSlot}
       {labels}
-      {showRoleFilter}
       showHeader={false}
-      {...viewHref ? { viewHref } : {}}
       {...oncellclick ? { oncellclick } : {}}
     />
   </GlassPanel>

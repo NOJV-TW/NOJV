@@ -20,8 +20,6 @@
   stats={data}
   csvDownloadName={`assignment-${assignmentId}-grades.csv`}
   dataSlot="assignment-grade-matrix"
-  showRoleFilter
-  viewHref={(userId) => `/courses/${courseId}/members?student=${userId}`}
   {oncellclick}
   labels={{
     heading: m.assignmentDetail_matrixHeading,

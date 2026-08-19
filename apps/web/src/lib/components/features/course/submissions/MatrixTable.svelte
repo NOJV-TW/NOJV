@@ -12,11 +12,24 @@
     rows: MatrixRow[];
     totalPoints: number;
     labels: MatrixViewLabels;
-    viewHref?: ((userId: string) => string) | undefined;
+    search: string;
+    sortKey: string;
+    sortDirection: "asc" | "desc";
+    onsort: (key: string) => void;
     oncellclick?: ((userId: string, problemId: string) => void) | undefined;
   }
 
-  let { problems, rows, totalPoints, labels, viewHref, oncellclick }: Props = $props();
+  let {
+    problems,
+    rows,
+    totalPoints,
+    labels,
+    search = $bindable(),
+    sortKey,
+    sortDirection,
+    onsort,
+    oncellclick,
+  }: Props = $props();
 </script>
 
 {#snippet cellBody(cell: MatrixCell)}
@@ -49,36 +62,65 @@
           class="sticky left-0 z-[3] border-b border-r border-border-subtle bg-muted px-5 py-3 text-left text-caption font-semibold uppercase tracking-[0.06em] text-muted-foreground"
           style="min-width: 200px"
         >
-          {labels.student()}
+          <input
+            type="search"
+            bind:value={search}
+            aria-label={labels.searchPlaceholder()}
+            placeholder={labels.searchPlaceholder()}
+            class="h-8 w-full rounded border border-border bg-background px-2 font-normal normal-case tracking-normal text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          />
         </th>
         {#each problems as problem (problem.problemId)}
           <th
             class="border-b border-r border-border-subtle bg-muted px-3 py-3 text-center text-caption font-semibold"
             style="min-width: 88px"
+            aria-sort={sortKey === problem.problemId
+              ? sortDirection === "desc"
+                ? "descending"
+                : "ascending"
+              : "none"}
           >
-            <span
-              class="block text-title font-medium leading-none tracking-[-0.02em] text-foreground"
+            <button
+              type="button"
+              class="w-full cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-primary"
+              onclick={() => onsort(problem.problemId)}
             >
-              {problem.letter}
-            </span>
-            <span class="mt-1 block text-micro font-normal text-muted-foreground">
-              {labels.maxPoints({ points: problem.points })}
-            </span>
+              <span
+                class="block text-title font-medium leading-none tracking-[-0.02em] text-foreground"
+              >
+                {problem.letter}{sortKey === problem.problemId
+                  ? sortDirection === "desc"
+                    ? " ↓"
+                    : " ↑"
+                  : ""}
+              </span>
+              <span class="mt-1 block text-micro font-normal text-muted-foreground">
+                {labels.maxPoints({ points: problem.points })}
+              </span>
+            </button>
           </th>
         {/each}
         <th
           class="border-b border-r border-border-subtle bg-primary/8 px-3 py-3 text-center text-caption font-semibold text-primary"
           style="min-width: 110px"
+          aria-sort={sortKey === "total"
+            ? sortDirection === "desc"
+              ? "descending"
+              : "ascending"
+            : "none"}
         >
-          {labels.total()}
-        </th>
-        {#if viewHref}
-          <th
-            class="border-b border-border-subtle bg-muted px-3 py-3 text-center text-caption font-semibold uppercase tracking-[0.06em] text-muted-foreground"
-            style="min-width: 72px"
+          <button
+            type="button"
+            class="w-full cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-primary"
+            onclick={() => onsort("total")}
           >
-          </th>
-        {/if}
+            {labels.total()}{sortKey === "total"
+              ? sortDirection === "desc"
+                ? " ↓"
+                : " ↑"
+              : ""}
+          </button>
+        </th>
       </tr>
     </thead>
     <tbody>
@@ -131,16 +173,6 @@
               {totalPoints}
             </span>
           </td>
-          {#if viewHref}
-            <td class="border-b border-border-subtle px-3 py-3 text-center">
-              <a
-                href={viewHref(row.userId)}
-                class="text-caption font-medium text-primary hover:underline"
-              >
-                {labels.viewAction?.()}
-              </a>
-            </td>
-          {/if}
         </tr>
       {/each}
     </tbody>

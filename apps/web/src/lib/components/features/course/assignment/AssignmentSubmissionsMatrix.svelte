@@ -23,8 +23,6 @@
   {matrix}
   csvDownloadName={`assignment-${assignmentId}-matrix.csv`}
   dataSlot="assignment-submissions-matrix"
-  showRoleFilter
-  viewHref={(userId) => `/courses/${courseId}/members?student=${userId}`}
   {oncellclick}
   class={className}
   labels={{
