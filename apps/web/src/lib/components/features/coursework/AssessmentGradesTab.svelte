@@ -104,7 +104,7 @@
       {dataSlot}
       {labels}
       {showRoleFilter}
-      showHint={false}
+      showHeader={false}
       {...viewHref ? { viewHref } : {}}
       {...oncellclick ? { oncellclick } : {}}
     />

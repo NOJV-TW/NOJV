@@ -79,6 +79,7 @@
     showRoleFilter?: boolean;
     viewHref?: (userId: string) => string;
     oncellclick?: ((userId: string, problemId: string) => void) | undefined;
+    showHeader?: boolean;
     showHint?: boolean;
     class?: string | undefined;
   }
@@ -91,6 +92,7 @@
     showRoleFilter = false,
     viewHref,
     oncellclick,
+    showHeader = true,
     showHint = true,
     class: className,
   }: Props = $props();
@@ -167,25 +169,27 @@
 </script>
 
 <section data-slot={dataSlot} class={cn("space-y-4", className)}>
-  <div class="flex items-baseline justify-between gap-4">
-    <div>
-      <h2 class="text-title font-medium leading-tight">
-        {labels.heading()}
-      </h2>
-      {#if showHint}
-        <p class="mt-1 text-caption text-muted-foreground">
-          {labels.hint()}
-        </p>
-      {/if}
+  {#if showHeader}
+    <div class="flex items-baseline justify-between gap-4">
+      <div>
+        <h2 class="text-title font-medium leading-tight">
+          {labels.heading()}
+        </h2>
+        {#if showHint}
+          <p class="mt-1 text-caption text-muted-foreground">
+            {labels.hint()}
+          </p>
+        {/if}
+      </div>
+      <span class="text-caption text-muted-foreground">
+        {labels.meta({
+          students: matrix.studentCount,
+          problems: matrix.problems.length,
+          total: matrix.totalPoints,
+        })}
+      </span>
     </div>
-    <span class="text-caption text-muted-foreground">
-      {labels.meta({
-        students: matrix.studentCount,
-        problems: matrix.problems.length,
-        total: matrix.totalPoints,
-      })}
-    </span>
-  </div>
+  {/if}
 
   <MatrixToolbar bind:sortKey bind:search {showRoleFilter} {labels} onExport={exportCsv} />
 
