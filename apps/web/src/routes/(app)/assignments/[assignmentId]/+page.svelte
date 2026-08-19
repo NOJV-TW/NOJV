@@ -27,20 +27,13 @@
   import { deriveAssignmentLiveStatus } from "$lib/utils/assignment-status";
   import { languageLabel } from "@nojv/core";
   import type { PageData } from "./$types";
+  import { buildAssignmentManageTabs, type AssignmentManageTabKey } from "./tabs";
 
   let { data }: { data: PageData } = $props();
 
   const detail = $derived(data.detail);
 
-  type SubTabKey =
-    | "problems"
-    | "submissions"
-    | "results"
-    | "plagiarism"
-    | "settings"
-    | "clarifications"
-    | "audit";
-  let activeSubTab = $state<SubTabKey>("submissions");
+  let activeSubTab = $state<AssignmentManageTabKey>("submissions");
   let submissionSearch = $state("");
   let visibleSubmissionCount = $state(0);
 
@@ -81,23 +74,20 @@
       : [],
   );
 
-  const subTabs: { key: SubTabKey; label: string; count?: number }[] = $derived([
-    { key: "problems", label: m.assignmentDetail_tabProblems() },
-    data.mode === "teacher"
-      ? {
-          key: "submissions",
-          label: m.assignmentDetail_tabSubmissions(),
-          count: data.matrix.studentCount,
-        }
-      : { key: "submissions", label: m.assignmentDetail_tabSubmissions() },
-    { key: "results", label: m.assignmentDetail_tabResults() },
-    { key: "plagiarism", label: m.assignmentDetail_tabPlagiarism() },
-    { key: "settings", label: m.assignmentDetail_tabSettings() },
-    ...(clarificationEnabled
-      ? [{ key: "clarifications" as const, label: m.clarification_tab_title() }]
-      : []),
-    { key: "audit", label: m.assignmentDetail_tabAudit() },
-  ]);
+  const subTabs = $derived(
+    buildAssignmentManageTabs(
+      {
+        problems: m.assignmentDetail_tabProblems(),
+        submissions: m.assignmentDetail_tabSubmissions(),
+        results: m.assignmentDetail_tabResults(),
+        plagiarism: m.assignmentDetail_tabPlagiarism(),
+        settings: m.assignmentDetail_tabSettings(),
+        clarifications: m.clarification_tab_title(),
+        audit: m.assignmentDetail_tabAudit(),
+      },
+      clarificationEnabled,
+    ),
+  );
 
   function verdictLabel(status: string): string {
     if (status === "accepted") return "AC";
