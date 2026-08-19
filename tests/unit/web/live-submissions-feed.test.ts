@@ -34,6 +34,15 @@ describe("LiveSubmissionsFeed", () => {
     document.body.append(target);
     const component = mount(LiveSubmissionsFeed, { target, props: { rows } });
 
+    const table = target.querySelector("table");
+    const search = target.querySelector('[aria-label="Search student number or IP"]');
+    expect(search?.compareDocumentPosition(table!) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(
+      0,
+    );
+    for (const label of ["Verdict", "Language", "Problem"]) {
+      expect(target.querySelector(`[aria-label="${label}"]`)?.closest("th")).not.toBeNull();
+    }
+
     const setValue = async (selector: string, value: string) => {
       const control = target.querySelector<HTMLInputElement | HTMLSelectElement>(selector);
       expect(control).not.toBeNull();
