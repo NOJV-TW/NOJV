@@ -49,9 +49,9 @@
 </script>
 
 <div class="space-y-3">
-  <div class="flex items-baseline gap-2">
-    <span class="text-body-sm font-semibold text-foreground">{m.subtask_breakdownLabel()}</span>
+  <div class="flex items-center justify-end">
     <span
+      data-testid="subtask-score"
       class="text-body-lg font-bold tabular-nums {earnedWeight === totalWeight
         ? 'text-success'
         : earnedWeight > 0
