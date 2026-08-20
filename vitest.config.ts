@@ -34,6 +34,10 @@ const sharedAliases = {
 
 const componentAliases = [
   {
+    find: /^@lucide\/svelte\/icons\/rotate-ccw$/,
+    replacement: path.resolve(__dirname, "tests/unit/web/fixtures/empty-component.svelte"),
+  },
+  {
     find: /^@lucide\/svelte$/,
     replacement: path.resolve(__dirname, "tests/unit/web/fixtures/lucide.ts"),
   },
@@ -103,6 +107,7 @@ export default defineConfig({
             "tests/unit/web/submissions-page-table.test.ts",
             "tests/unit/web/problem-left-panel.test.ts",
             "tests/unit/web/subtask-result-tree.test.ts",
+            "tests/unit/web/submission-history-panel.test.ts",
           ],
           environment: "node",
         },
@@ -127,6 +132,7 @@ export default defineConfig({
             "tests/unit/web/submissions-page-table.test.ts",
             "tests/unit/web/problem-left-panel.test.ts",
             "tests/unit/web/subtask-result-tree.test.ts",
+            "tests/unit/web/submission-history-panel.test.ts",
           ],
           environment: "jsdom",
         },
