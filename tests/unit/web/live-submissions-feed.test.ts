@@ -3,6 +3,9 @@
 import { mount, tick, unmount } from "svelte";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const mocks = vi.hoisted(() => ({ goto: vi.fn() }));
+vi.mock("$app/navigation", () => ({ goto: mocks.goto }));
+
 import LiveSubmissionsFeed from "$lib/components/features/coursework/LiveSubmissionsFeed.svelte";
 
 const rows = [
@@ -30,8 +33,31 @@ const rows = [
 
 describe("LiveSubmissionsFeed", () => {
   afterEach(() => {
+    mocks.goto.mockReset();
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it("opens a submission from anywhere on the row with mouse or keyboard", async () => {
+    const target = document.createElement("div");
+    document.body.append(target);
+    const component = mount(LiveSubmissionsFeed, {
+      target,
+      props: { rows, refreshUrl: "/api/submissions?context=assignment&id=a1" },
+    });
+    const row = target.querySelector<HTMLTableRowElement>("tbody tr");
+
+    expect(row?.getAttribute("role")).toBe("link");
+    row
+      ?.querySelector("td:nth-child(2)")
+      ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(mocks.goto).toHaveBeenLastCalledWith("/submissions/sub_1");
+
+    row?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(mocks.goto).toHaveBeenCalledTimes(2);
+
+    await unmount(component);
+    target.remove();
   });
 
   it("combines verdict, language, problem, student number, and IP filters", async () => {

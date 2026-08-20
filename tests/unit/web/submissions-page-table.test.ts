@@ -3,6 +3,8 @@
 import { mount, unmount } from "svelte";
 import { describe, expect, it, vi } from "vitest";
 
+const mocks = vi.hoisted(() => ({ goto: vi.fn(), invalidateAll: vi.fn() }));
+
 vi.mock("@lucide/svelte", async () => {
   const Empty = (await import("./fixtures/empty-component.svelte")).default;
   return { Code2: Empty, History: Empty, Loader2: Empty };
@@ -14,6 +16,10 @@ vi.mock("$lib/components/primitives/ui/EmptyState.svelte", async () => ({
 }));
 vi.mock("$lib/components/primitives/ui/button", async () => ({
   Button: (await import("./fixtures/empty-component.svelte")).default,
+}));
+vi.mock("$app/navigation", () => ({
+  goto: mocks.goto,
+  invalidateAll: mocks.invalidateAll,
 }));
 
 describe("submissions page", () => {
@@ -55,6 +61,13 @@ describe("submissions page", () => {
     );
     expect(headerLabels).not.toContain("Runtime");
     expect(headerLabels).not.toContain("Memory");
+
+    const row = target.querySelector<HTMLTableRowElement>("tbody tr");
+    expect(row?.getAttribute("role")).toBe("link");
+    row
+      ?.querySelector("td:last-child")
+      ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(mocks.goto).toHaveBeenCalledWith("/submissions/sub_1");
 
     await unmount(component);
     target.remove();
