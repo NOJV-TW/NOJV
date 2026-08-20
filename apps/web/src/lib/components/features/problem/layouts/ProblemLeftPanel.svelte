@@ -127,11 +127,6 @@
         type="button"
       >
         {t.label}
-        {#if t.key === "submissions" && submissions.length > 0}
-          <span class="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-micro tabular-nums">
-            {submissions.length}
-          </span>
-        {/if}
       </button>
     {/each}
   </div>

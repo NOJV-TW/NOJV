@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Code2, History } from "@lucide/svelte";
   import { languageLabel, submissionResultVerdicts } from "@nojv/core";
-  import { invalidateAll } from "$app/navigation";
+  import { goto, invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { watchSubmissionVerdict } from "$lib/stores/sse";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
@@ -98,6 +98,16 @@
   const pendingIds = $derived(
     allRows.filter((sub) => PENDING_STATUSES.has(sub.status)).map((sub) => sub.id),
   );
+
+  function openSubmission(id: string) {
+    void goto(`/submissions/${id}`);
+  }
+
+  function handleRowKeydown(event: KeyboardEvent, id: string) {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    openSubmission(id);
+  }
 
   $effect(() => {
     if (pendingIds.length === 0) return;
@@ -212,21 +222,20 @@
               </tr>
             {:else}
               {#each filtered as sub (sub.id)}
-                <tr class="border-t border-border-subtle transition-colors hover:bg-muted/25">
+                <tr
+                  class="cursor-pointer border-t border-border-subtle transition-colors hover:bg-muted/25 focus-visible:bg-muted/25 focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-primary"
+                  role="link"
+                  tabindex="0"
+                  onclick={() => openSubmission(sub.id)}
+                  onkeydown={(event) => handleRowKeydown(event, sub.id)}
+                >
                   <td
                     class="whitespace-nowrap px-4 py-3 font-mono text-caption text-muted-foreground"
                   >
-                    <a
-                      class="hover:text-foreground hover:underline"
-                      href={`/submissions/${sub.id}`}
-                    >
-                      {formatDateTime(sub.createdAt)}
-                    </a>
+                    {formatDateTime(sub.createdAt)}
                   </td>
                   <td class="px-3 py-3">
-                    <a class="font-medium hover:underline" href={`/submissions/${sub.id}`}>
-                      {sub.problemTitle}
-                    </a>
+                    <span class="font-medium">{sub.problemTitle}</span>
                   </td>
                   <td class="px-3 py-3">
                     <Badge variant="outline" size="xs">{contextLabel(sub.context)}</Badge>

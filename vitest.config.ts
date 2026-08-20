@@ -34,6 +34,10 @@ const sharedAliases = {
 
 const componentAliases = [
   {
+    find: /^@lucide\/svelte\/icons\/rotate-ccw$/,
+    replacement: path.resolve(__dirname, "tests/unit/web/fixtures/empty-component.svelte"),
+  },
+  {
     find: /^@lucide\/svelte$/,
     replacement: path.resolve(__dirname, "tests/unit/web/fixtures/lucide.ts"),
   },
@@ -97,9 +101,13 @@ export default defineConfig({
             "tests/unit/web/reference-solution-section.test.ts",
             "tests/unit/web/assessment-grades-tab.test.ts",
             "tests/unit/web/live-submissions-feed.test.ts",
+            "tests/unit/web/highlighted-code.test.ts",
             "tests/unit/web/tabs-actions.test.ts",
             "tests/unit/web/matrix-view-header.test.ts",
             "tests/unit/web/submissions-page-table.test.ts",
+            "tests/unit/web/problem-left-panel.test.ts",
+            "tests/unit/web/subtask-result-tree.test.ts",
+            "tests/unit/web/submission-history-panel.test.ts",
           ],
           environment: "node",
         },
@@ -118,9 +126,13 @@ export default defineConfig({
             "tests/unit/web/reference-solution-section.test.ts",
             "tests/unit/web/assessment-grades-tab.test.ts",
             "tests/unit/web/live-submissions-feed.test.ts",
+            "tests/unit/web/highlighted-code.test.ts",
             "tests/unit/web/tabs-actions.test.ts",
             "tests/unit/web/matrix-view-header.test.ts",
             "tests/unit/web/submissions-page-table.test.ts",
+            "tests/unit/web/problem-left-panel.test.ts",
+            "tests/unit/web/subtask-result-tree.test.ts",
+            "tests/unit/web/submission-history-panel.test.ts",
           ],
           environment: "jsdom",
         },

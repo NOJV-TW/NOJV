@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { formatDateTime } from "$lib/utils/datetime";
   import { formatVerdictLabel } from "$lib/utils/verdict-style";
@@ -58,6 +59,16 @@
   $effect(() => {
     visibleCount = filteredRows.length;
   });
+
+  function openSubmission(id: string) {
+    void goto(`/submissions/${id}`);
+  }
+
+  function handleRowKeydown(event: KeyboardEvent, id: string) {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    openSubmission(id);
+  }
 
   onMount(() => {
     let refreshing = false;
@@ -147,16 +158,17 @@
           </tr>
         {:else}
           {#each filteredRows as row (row.id)}
-            <tr class="border-t border-border-subtle transition-colors hover:bg-muted/25">
+            <tr
+              class="cursor-pointer border-t border-border-subtle transition-colors hover:bg-muted/25 focus-visible:bg-muted/25 focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-primary"
+              role="link"
+              tabindex="0"
+              onclick={() => openSubmission(row.id)}
+              onkeydown={(event) => handleRowKeydown(event, row.id)}
+            >
               <td
                 class="whitespace-nowrap px-4 py-3 font-mono text-caption text-muted-foreground"
               >
-                <a
-                  class="hover:text-foreground hover:underline"
-                  href={`/submissions/${row.id}`}
-                >
-                  {formatDateTime(row.createdAt)}
-                </a>
+                {formatDateTime(row.createdAt)}
               </td>
               <td class="px-3 py-3">
                 <div class="font-medium">{row.user?.name ?? "—"}</div>
@@ -165,9 +177,7 @@
                 </div>
               </td>
               <td class="px-3 py-3">
-                <a class="font-medium hover:underline" href={`/problems/${row.problem.id}`}
-                  >{row.problem.title}</a
-                >
+                <span class="font-medium">{row.problem.title}</span>
               </td>
               <td
                 class="whitespace-nowrap px-3 py-3 font-mono text-caption text-muted-foreground"

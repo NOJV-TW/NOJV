@@ -8,9 +8,10 @@
 
   interface Props {
     subtaskResults: SubtaskResultItem[];
+    showScore?: boolean;
   }
 
-  let { subtaskResults }: Props = $props();
+  let { subtaskResults, showScore = true }: Props = $props();
 
   let expanded = $state<Record<number, boolean>>({});
 
@@ -49,18 +50,20 @@
 </script>
 
 <div class="space-y-3">
-  <div class="flex items-baseline gap-2">
-    <span class="text-body-sm font-semibold text-foreground">{m.subtask_breakdownLabel()}</span>
-    <span
-      class="text-body-lg font-bold tabular-nums {earnedWeight === totalWeight
-        ? 'text-success'
-        : earnedWeight > 0
-          ? 'text-warning'
-          : 'text-destructive'}"
-    >
-      {earnedWeight}/{totalWeight}
-    </span>
-  </div>
+  {#if showScore}
+    <div class="flex items-center justify-end">
+      <span
+        data-testid="subtask-score"
+        class="text-body-lg font-bold tabular-nums {earnedWeight === totalWeight
+          ? 'text-success'
+          : earnedWeight > 0
+            ? 'text-warning'
+            : 'text-destructive'}"
+      >
+        {earnedWeight}/{totalWeight}
+      </span>
+    </div>
+  {/if}
 
   {#each subtaskResults as subtask, index (`subtask-${subtask.testcaseSetId}`)}
     {@const isExpanded = expanded[index] ?? true}
