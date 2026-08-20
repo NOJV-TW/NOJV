@@ -192,8 +192,10 @@
                           <Button
                             type="submit"
                             variant="ghost"
-                            size="sm"
-                            class="text-destructive hover:bg-destructive/10"
+                            size="icon"
+                            class="text-destructive hover:bg-transparent hover:text-destructive"
+                            aria-label={m.admin_registry_deleteTag()}
+                            title={m.admin_registry_deleteTag()}
                             onclick={(e) =>
                               requestConfirm(e, {
                                 title: m.admin_registry_deleteConfirmTitle(),
@@ -202,8 +204,7 @@
                                 variant: "danger",
                               })}
                           >
-                            <Trash2 aria-hidden="true" class="h-3.5 w-3.5" />
-                            {m.admin_registry_deleteTag()}
+                            <Trash2 aria-hidden="true" class="size-4" />
                           </Button>
                         </form>
                       {:else}

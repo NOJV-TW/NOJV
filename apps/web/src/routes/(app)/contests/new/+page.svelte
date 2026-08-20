@@ -14,7 +14,7 @@
   import SettingsIcon from "@lucide/svelte/icons/settings";
   import CodeIcon from "@lucide/svelte/icons/code";
   import ListIcon from "@lucide/svelte/icons/list";
-  import XIcon from "@lucide/svelte/icons/x";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
   import ProblemPicker from "$lib/components/features/course/exam/ProblemPicker.svelte";
   import { Card } from "$lib/components/primitives/ui/card/index.js";
   import { Button } from "$lib/components/primitives/ui/button/index.js";
@@ -463,10 +463,12 @@
                 type="button"
                 variant="ghost"
                 size="icon"
+                class="hover:bg-transparent"
                 onclick={() => removeProblem(i)}
                 aria-label={m.contestCreate_problemRemove()}
+                title={m.contestCreate_problemRemove()}
               >
-                <XIcon aria-hidden="true" class="h-4 w-4" />
+                <Trash2 aria-hidden="true" class="size-4" />
               </Button>
             </div>
           {/if}

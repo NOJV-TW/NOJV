@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Flag, Trash2 } from "@lucide/svelte";
   import type { ProblemPostType } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { Button } from "$lib/components/primitives/ui/button";
@@ -153,20 +154,24 @@
       {/if}
       {#if comment.authorId !== viewerId}
         <button
-          class="transition-[color] duration-fast ease-out-soft hover:text-destructive"
+          class="inline-flex size-6 items-center justify-center rounded bg-transparent transition-[color] duration-fast ease-out-soft hover:bg-transparent hover:text-destructive"
           onclick={() => openReport(comment.id)}
           type="button"
+          aria-label={m.posts_report()}
+          title={m.posts_report()}
         >
-          {m.posts_report()}
+          <Flag aria-hidden="true" class="size-3.5" />
         </button>
       {/if}
       {#if canDelete(comment)}
         <button
-          class="transition-[color] duration-fast ease-out-soft hover:text-destructive"
+          class="inline-flex size-6 items-center justify-center rounded bg-transparent transition-[color] duration-fast ease-out-soft hover:bg-transparent hover:text-destructive"
           onclick={() => (pendingDeleteId = comment.id)}
           type="button"
+          aria-label={m.posts_delete()}
+          title={m.posts_delete()}
         >
-          {m.posts_delete()}
+          <Trash2 aria-hidden="true" class="size-3.5" />
         </button>
       {/if}
     </div>

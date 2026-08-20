@@ -10,7 +10,7 @@
     class?: string | undefined;
   }
 
-  let { text, iconOnly = false, class: className }: Props = $props();
+  let { text, iconOnly = true, class: className }: Props = $props();
 
   let copied = $state(false);
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -33,7 +33,7 @@
   type="button"
   onclick={handleCopy}
   class={cn(
-    "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-caption text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground",
+    "inline-flex size-7 items-center justify-center rounded bg-transparent p-1 text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-transparent hover:text-foreground",
     className,
   )}
   title={copied ? m.common_copied() : m.common_copy()}

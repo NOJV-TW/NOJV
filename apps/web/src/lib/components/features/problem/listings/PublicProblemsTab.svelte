@@ -286,6 +286,7 @@
                   size="icon"
                   aria-label={m.problems_fork()}
                   title={m.problems_fork()}
+                  class="hover:bg-transparent"
                   disabled={forkingProblemId !== null}
                   loading={forkingProblemId === problem.id}
                   onclick={() => void forkProblem(problem.id)}

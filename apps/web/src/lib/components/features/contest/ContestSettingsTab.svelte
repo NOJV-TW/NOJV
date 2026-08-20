@@ -7,15 +7,18 @@
 
 <script lang="ts">
   import { untrack } from "svelte";
+  import type { problemDomain } from "@nojv/application";
   import GripVertical from "@lucide/svelte/icons/grip-vertical";
+  import Plus from "@lucide/svelte/icons/plus";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
   import Send from "@lucide/svelte/icons/send";
   import Trash2 from "@lucide/svelte/icons/trash-2";
-  import PlusIcon from "@lucide/svelte/icons/plus";
-  import XIcon from "@lucide/svelte/icons/x";
 
   import { supportedLanguages, type Language } from "@nojv/core";
   import { Button } from "$lib/components/primitives/ui/button";
+  import ProblemSelectDialog, {
+    type CandidateProblem,
+  } from "$lib/components/features/problem/ProblemSelectDialog.svelte";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
   import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
   import {
@@ -33,10 +36,16 @@
   interface Props {
     form: SuperValidated<ContestSettingsForm, FormMessage>;
     liveStatus: ContestLiveStatus;
+    candidateProblems?: problemDomain.ProblemPickerGroups;
     class?: string;
   }
 
-  let { form: formProp, liveStatus, class: className }: Props = $props();
+  let {
+    form: formProp,
+    liveStatus,
+    candidateProblems = { personalProblems: [], publicProblems: [] },
+    class: className,
+  }: Props = $props();
 
   const {
     form,
@@ -59,6 +68,7 @@
   const isEnded = $derived(liveStatus === "ended");
 
   let confirmingDelete = $state(false);
+  let pickerOpen = $state(false);
   let draggedIndex = $state<number | null>(null);
   let dragOverIndex = $state<number | null>(null);
 
@@ -71,8 +81,22 @@
     $form.allowedLanguages = toggleArrayItem($form.allowedLanguages ?? [], lang);
   }
 
-  function addProblem() {
-    $form.problems = [...$form.problems, { problemId: "", points: 100 }];
+  const candidateProblemById = $derived(
+    new Map(
+      [...candidateProblems.publicProblems, ...candidateProblems.personalProblems].map(
+        (problem) => [problem.id, problem],
+      ),
+    ),
+  );
+
+  function addProblems(problems: CandidateProblem[]) {
+    const existing = new Set($form.problems.map((problem) => problem.problemId));
+    $form.problems = [
+      ...$form.problems,
+      ...problems
+        .filter((problem) => !existing.has(problem.id))
+        .map((problem) => ({ problemId: problem.id, points: 100 })),
+    ];
   }
 
   function removeProblem(index: number) {
@@ -273,12 +297,10 @@
         <div>
           <div class="flex items-center justify-between gap-3">
             <div class="text-sm font-medium">{m.contestCreate_problemIds()}</div>
-            {#if editableScoring}
-              <span class="text-caption text-muted-foreground">{m.common_dragToReorder()}</span>
-            {/if}
           </div>
           <div class="mt-2 space-y-2">
             {#each $form.problems as problem, i (i)}
+              {@const selectedProblem = candidateProblemById.get(problem.problemId)}
               <div
                 role="listitem"
                 class="flex items-center gap-2 rounded-md border px-2 py-1 {dragOverIndex === i
@@ -306,14 +328,15 @@
                 >
                   {problemLetter(i + 1)}
                 </span>
-                <input
-                  class={inputClassName}
-                  type="text"
-                  placeholder={m.contestCreate_problemIdsPlaceholder()}
-                  bind:value={$form.problems[i]!.problemId}
-                  disabled={!editableScoring}
-                  aria-label={m.contestCreate_problemIds()}
-                />
+                <input type="hidden" bind:value={$form.problems[i]!.problemId} />
+                <div class="min-w-0 flex-1">
+                  <div class="truncate text-body-sm font-medium">
+                    {selectedProblem?.title ?? problem.problemId}
+                  </div>
+                  <div class="mt-1 font-mono text-caption text-muted-foreground">
+                    {problem.problemId}
+                  </div>
+                </div>
                 {#if showPointsInput}
                   <input
                     class="{inputClassName} w-24 shrink-0"
@@ -329,18 +352,25 @@
                   type="button"
                   variant="ghost"
                   size="icon"
+                  class="hover:bg-transparent"
                   disabled={!editableScoring || $form.problems.length <= 1}
                   onclick={() => removeProblem(i)}
                   aria-label={m.contestCreate_problemRemove()}
+                  title={m.contestCreate_problemRemove()}
                 >
-                  <XIcon aria-hidden="true" class="h-4 w-4" />
+                  <Trash2 aria-hidden="true" class="size-4" />
                 </Button>
               </div>
             {/each}
             {#if editableScoring}
-              <Button type="button" variant="outline" size="sm" onclick={addProblem}>
-                <PlusIcon aria-hidden="true" class="h-4 w-4" />
-                {m.contestCreate_problemAdd()}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onclick={() => (pickerOpen = true)}
+              >
+                <Plus aria-hidden="true" class="size-4" />
+                {m.problemPicker_addButton()}
               </Button>
             {/if}
           </div>
@@ -489,3 +519,12 @@
     {/if}
   </form>
 </section>
+
+{#if editableScoring}
+  <ProblemSelectDialog
+    bind:open={pickerOpen}
+    {candidateProblems}
+    selectedIds={$form.problems.map((problem) => problem.problemId)}
+    onConfirm={addProblems}
+  />
+{/if}

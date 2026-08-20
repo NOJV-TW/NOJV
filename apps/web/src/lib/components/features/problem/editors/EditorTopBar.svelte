@@ -79,7 +79,7 @@
     {/if}
     <button
       aria-label={m.editor_reset()}
-      class="grid h-6 w-6 place-items-center rounded text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
+      class="grid h-6 w-6 place-items-center rounded bg-transparent text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-transparent hover:text-foreground"
       onclick={onReset}
       title={m.editor_reset()}
       type="button"
@@ -88,7 +88,7 @@
     </button>
     <button
       aria-label={isFullscreen ? m.editor_exitFullscreen() : m.editor_fullscreen()}
-      class="grid h-6 w-6 place-items-center rounded text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
+      class="grid h-6 w-6 place-items-center rounded bg-transparent text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-transparent hover:text-foreground"
       onclick={onToggleFullscreen}
       title={isFullscreen ? m.editor_exitFullscreen() : m.editor_fullscreen()}
       type="button"

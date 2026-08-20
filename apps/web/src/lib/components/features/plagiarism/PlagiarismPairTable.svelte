@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Eye from "@lucide/svelte/icons/eye";
   import { m } from "$lib/paraglide/messages.js";
   import { Button, LinkButton } from "$lib/components/primitives/ui/button";
   import { cn } from "$lib/utils/css.js";
@@ -95,8 +96,15 @@
           {problemLetter(pair.problemId)} · {problemTitle(pair.problemId)}
         </span>
         {#if diffHref}
-          <LinkButton href={diffHref} variant="outline" size="sm">
-            {m.plagiarism_openDiff()}
+          <LinkButton
+            href={diffHref}
+            variant="ghost"
+            size="icon"
+            aria-label={m.plagiarism_openDiff()}
+            title={m.plagiarism_openDiff()}
+            class="hover:bg-transparent"
+          >
+            <Eye aria-hidden="true" class="size-4" />
           </LinkButton>
         {/if}
         {#if isHigh}

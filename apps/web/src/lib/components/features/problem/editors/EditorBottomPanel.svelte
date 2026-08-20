@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Plus from "@lucide/svelte/icons/plus";
+  import X from "@lucide/svelte/icons/x";
   import type { JudgeType, SubmissionResult } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
@@ -127,28 +129,31 @@
                 </button>
                 {#if runCases.length > 1}
                   <button
-                    class="mr-1 rounded text-muted-foreground opacity-0 transition-[color,opacity] duration-fast ease-out-soft hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+                    class="mr-1 inline-flex size-5 items-center justify-center rounded bg-transparent text-muted-foreground opacity-0 transition-[color,opacity] duration-fast ease-out-soft hover:bg-transparent hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
                     type="button"
                     aria-label={m.editor_removeCase({ index: index + 1 })}
+                    title={m.editor_removeCase({ index: index + 1 })}
                     onclick={() => {
                       runCases = runCases.filter((_, i) => i !== index);
                       selectedCase = Math.min(selectedCase, runCases.length - 1);
                     }}
                   >
-                    &times;
+                    <X aria-hidden="true" class="size-3.5" />
                   </button>
                 {/if}
               </div>
             {/each}
             <button
-              class="rounded-md px-2 py-1 text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"
+              class="inline-flex size-7 items-center justify-center rounded bg-transparent text-muted-foreground transition-[color] duration-fast ease-out-soft hover:bg-transparent hover:text-foreground"
+              aria-label={m.editor_testcase()}
+              title={m.editor_testcase()}
               onclick={() => {
                 runCases = [...runCases, { input: "", expectedOutput: "" }];
                 selectedCase = runCases.length - 1;
               }}
               type="button"
             >
-              +
+              <Plus aria-hidden="true" class="size-4" />
             </button>
           </div>
 

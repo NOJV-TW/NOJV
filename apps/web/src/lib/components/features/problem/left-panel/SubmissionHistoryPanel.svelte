@@ -1,4 +1,5 @@
 <script lang="ts">
+  import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import type { ProblemSubmissionEntry } from "$lib/types";
   import type { SubmissionResult } from "@nojv/core";
   import { formatSmartTimestamp } from "$lib/utils/datetime";
@@ -195,12 +196,14 @@
           {/if}
           {#if canRejudge && entry.id}
             <button
-              class="ml-auto rounded-md border border-border px-2.5 py-1 text-caption font-medium transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:border-primary/40 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+              class="ml-auto inline-flex size-7 items-center justify-center rounded bg-transparent text-muted-foreground transition-[color] duration-fast ease-out-soft hover:bg-transparent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
               disabled={rejudgingId === entry.id}
               onclick={() => handleRejudge(entry.id!)}
               type="button"
+              aria-label={m.rejudge_single_button()}
+              title={m.rejudge_single_button()}
             >
-              {m.rejudge_single_button()}
+              <RotateCcw aria-hidden="true" class="size-4" />
             </button>
           {/if}
         </div>
