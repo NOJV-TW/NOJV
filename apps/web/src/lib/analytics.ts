@@ -8,11 +8,11 @@ interface AnalyticsWindow extends Window {
 
 export function initializeGoogleAnalytics(document: Document): () => void {
   const window = document.defaultView as AnalyticsWindow | null;
-  if (!window) return () => {};
+  if (!window) return () => undefined;
 
-  window.dataLayer ??= [];
+  const dataLayer = (window.dataLayer ??= []);
   window.gtag ??= (...args: unknown[]) => {
-    window.dataLayer!.push(args);
+    dataLayer.push(args);
   };
 
   window.gtag("js", new Date());
@@ -32,6 +32,6 @@ export function initializeGoogleAnalytics(document: Document): () => void {
   }
 
   return () => {
-    if (createdScript) script?.remove();
+    if (createdScript) script.remove();
   };
 }
