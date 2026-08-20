@@ -15,6 +15,7 @@ export {
   getVerdictDetail,
   listForRejudge,
   listProblemSubmissions,
+  listRecentContextSubmissions,
   listUserSubmissions,
 } from "./queries";
 export type { SubmissionSource } from "@nojv/storage";

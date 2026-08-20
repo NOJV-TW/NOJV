@@ -34,6 +34,10 @@ const sharedAliases = {
 
 const componentAliases = [
   {
+    find: /^@lucide\/svelte$/,
+    replacement: path.resolve(__dirname, "tests/unit/web/fixtures/lucide.ts"),
+  },
+  {
     find: /^svelte$/,
     replacement: path.resolve(
       path.dirname(requireFromWeb.resolve("svelte/package.json")),
@@ -91,6 +95,11 @@ export default defineConfig({
             "tests/unit/web/plagiarism-pair-diff-load-error.test.ts",
             "tests/unit/web/toggle-switch.test.ts",
             "tests/unit/web/reference-solution-section.test.ts",
+            "tests/unit/web/assessment-grades-tab.test.ts",
+            "tests/unit/web/live-submissions-feed.test.ts",
+            "tests/unit/web/tabs-actions.test.ts",
+            "tests/unit/web/matrix-view-header.test.ts",
+            "tests/unit/web/submissions-page-table.test.ts",
           ],
           environment: "node",
         },
@@ -107,6 +116,11 @@ export default defineConfig({
             "tests/unit/web/plagiarism-pair-diff-load-error.test.ts",
             "tests/unit/web/toggle-switch.test.ts",
             "tests/unit/web/reference-solution-section.test.ts",
+            "tests/unit/web/assessment-grades-tab.test.ts",
+            "tests/unit/web/live-submissions-feed.test.ts",
+            "tests/unit/web/tabs-actions.test.ts",
+            "tests/unit/web/matrix-view-header.test.ts",
+            "tests/unit/web/submissions-page-table.test.ts",
           ],
           environment: "jsdom",
         },

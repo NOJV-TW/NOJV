@@ -1,6 +1,7 @@
 import { MAX_SUBMISSION_BODY_BYTES, submissionDraftSchema } from "@nojv/core";
 import { submissionDomain, HttpError } from "@nojv/application";
 import { error, json } from "@sveltejs/kit";
+import { z } from "zod";
 
 import type { RequestHandler } from "./$types";
 
@@ -9,9 +10,24 @@ import { apiHandler, writeApiHandler, readJsonBody } from "$lib/server/shared/ap
 import { getClientIp } from "$lib/server/shared/client-ip";
 
 const SUBMISSIONS_PAGE_SIZE = 50;
+const contextQuerySchema = z.object({
+  context: z.enum(["assignment", "exam"]),
+  id: z.string().min(1),
+});
 
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
+  const contextType = event.url.searchParams.get("context");
+  const contextId = event.url.searchParams.get("id");
+  if (contextType !== null || contextId !== null) {
+    const context = contextQuerySchema.parse({ context: contextType, id: contextId });
+    const items = await submissionDomain.listRecentContextSubmissions({
+      actor,
+      context: { type: context.context, id: context.id },
+    });
+    return json({ items });
+  }
+
   const cursor = event.url.searchParams.get("cursor")?.trim();
   const page = await submissionDomain.listUserSubmissions({
     actor,

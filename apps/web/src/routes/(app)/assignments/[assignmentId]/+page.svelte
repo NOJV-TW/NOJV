@@ -4,8 +4,9 @@
   import { cn } from "$lib/utils/css.js";
   import { formatDateTimeCompact } from "$lib/utils/datetime";
   import AssignmentProblemsTab from "$lib/components/features/course/assignment/AssignmentProblemsTab.svelte";
-  import AssignmentSubmissionsMatrix from "$lib/components/features/course/assignment/AssignmentSubmissionsMatrix.svelte";
   import AssignmentResultsTab from "$lib/components/features/course/assignment/AssignmentResultsTab.svelte";
+  import LiveSubmissionsFeed from "$lib/components/features/coursework/LiveSubmissionsFeed.svelte";
+  import SubmissionHistoryActions from "$lib/components/features/coursework/SubmissionHistoryActions.svelte";
   import AssignmentPlagiarismReport from "$lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
   import AssignmentSettingsTab from "$lib/components/features/course/assignment/AssignmentSettingsTab.svelte";
   import AuditTimeline from "$lib/components/features/audit/AuditTimeline.svelte";
@@ -27,11 +28,7 @@
   import { languageLabel } from "@nojv/core";
   import type { PageData } from "./$types";
 
-  let { data }: { data: PageData } = $props();
-
-  const detail = $derived(data.detail);
-
-  type SubTabKey =
+  type AssignmentManageTabKey =
     | "problems"
     | "submissions"
     | "results"
@@ -39,7 +36,14 @@
     | "settings"
     | "clarifications"
     | "audit";
-  let activeSubTab = $state<SubTabKey>("submissions");
+
+  let { data }: { data: PageData } = $props();
+
+  const detail = $derived(data.detail);
+
+  let activeSubTab = $state<AssignmentManageTabKey>("submissions");
+  let submissionSearch = $state("");
+  let visibleSubmissionCount = $state(0);
 
   const clarificationProblems = $derived(
     detail.problems.map((p) => ({ id: p.problemId, title: p.title })),
@@ -78,22 +82,16 @@
       : [],
   );
 
-  const subTabs: { key: SubTabKey; label: string; count?: number }[] = $derived([
-    { key: "problems", label: m.assignmentDetail_tabProblems() },
-    data.mode === "teacher"
-      ? {
-          key: "submissions",
-          label: m.assignmentDetail_tabSubmissions(),
-          count: data.matrix.studentCount,
-        }
-      : { key: "submissions", label: m.assignmentDetail_tabSubmissions() },
-    { key: "results", label: m.assignmentDetail_tabResults() },
-    { key: "plagiarism", label: m.assignmentDetail_tabPlagiarism() },
-    { key: "settings", label: m.assignmentDetail_tabSettings() },
+  const subTabs = $derived([
+    { key: "problems" as const, label: m.assignmentDetail_tabProblems() },
+    { key: "submissions" as const, label: m.assignmentDetail_tabSubmissions() },
+    { key: "results" as const, label: m.assignmentDetail_tabResults() },
+    { key: "plagiarism" as const, label: m.assignmentDetail_tabPlagiarism() },
+    { key: "settings" as const, label: m.assignmentDetail_tabSettings() },
     ...(clarificationEnabled
       ? [{ key: "clarifications" as const, label: m.clarification_tab_title() }]
       : []),
-    { key: "audit", label: m.assignmentDetail_tabAudit() },
+    { key: "audit" as const, label: m.assignmentDetail_tabAudit() },
   ]);
 
   function verdictLabel(status: string): string {
@@ -439,6 +437,15 @@
       label={m.assignmentDetail_sectionsNavLabel()}
       id="assignment-manage"
     >
+      {#snippet actions()}
+        {#if activeSubTab === "submissions"}
+          <SubmissionHistoryActions
+            bind:search={submissionSearch}
+            visibleCount={visibleSubmissionCount}
+            totalCount={data.recentSubmissions?.length ?? 0}
+          />
+        {/if}
+      {/snippet}
       {#if activeSubTab === "problems"}
         <AssignmentProblemsTab
           problems={detail.problems}
@@ -450,14 +457,19 @@
             : { personalProblems: [], publicProblems: [] }}
         />
       {:else if activeSubTab === "submissions"}
-        <AssignmentSubmissionsMatrix
+        <LiveSubmissionsFeed
+          rows={data.recentSubmissions ?? []}
+          refreshUrl={`/api/submissions?context=assignment&id=${detail.id}`}
+          bind:search={submissionSearch}
+          bind:visibleCount={visibleSubmissionCount}
+        />
+      {:else if activeSubTab === "results" && data.results}
+        <AssignmentResultsTab
+          data={data.results}
           matrix={data.matrix}
-          courseId={detail.courseId}
           assignmentId={detail.id}
           oncellclick={canSetOverride ? gradeCell : undefined}
         />
-      {:else if activeSubTab === "results" && data.results}
-        <AssignmentResultsTab data={data.results} />
       {:else if activeSubTab === "plagiarism"}
         <AssignmentPlagiarismReport
           report={data.plagiarism}

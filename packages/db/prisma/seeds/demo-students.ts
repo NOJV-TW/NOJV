@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import type { PrismaClient, User } from "../../generated/prisma/client";
 
 const COURSE_ID = "course_os-lab-spring-2026";
-const ROSTER_SIZE = 10;
+const ROSTER_SIZE = 36;
 
 export async function seedDemoStudents(
   prisma: PrismaClient,

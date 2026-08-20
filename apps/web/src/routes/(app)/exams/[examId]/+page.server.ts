@@ -19,6 +19,7 @@ import {
   problemDomain,
   proctoringDomain,
   scoreOverrideDomain,
+  submissionDomain,
   userDomain,
 } from "@nojv/application";
 
@@ -68,6 +69,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     auditEvents,
     viewerSession,
     candidateProblems,
+    recentSubmissions,
   ] = await Promise.all([
     getExamDetailPage(examId, { viewerUserId: actor.userId, isManager }),
     isManager
@@ -96,6 +98,12 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     isManager
       ? problemDomain.listProblemPickerGroups(actor.userId)
       : Promise.resolve({ personalProblems: [], publicProblems: [] }),
+    isManager
+      ? submissionDomain.listRecentContextSubmissions({
+          actor,
+          context: { type: "exam", id: examId },
+        })
+      : Promise.resolve([]),
   ]);
 
   const auditActorNames = isManager
@@ -180,6 +188,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     auditEvents,
     auditActorNames,
     candidateProblems,
+    recentSubmissions,
   };
 });
 
