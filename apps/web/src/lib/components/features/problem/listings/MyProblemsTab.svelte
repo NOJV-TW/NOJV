@@ -5,8 +5,8 @@
   import {
     ArrowDownNarrowWide,
     ArrowUpNarrowWide,
-    BadgeCheck,
     Eye,
+    FileCheck,
     FileCode,
     FilePenLine,
     Pencil,
@@ -216,12 +216,24 @@
     <Card
       variant="surface"
       size="lg"
-      class="grid gap-x-8 gap-y-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_7rem_8rem_6rem_6rem_2.5rem_auto] sm:items-center"
+      class="grid gap-x-8 gap-y-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_7rem_8rem_6rem_6rem_auto] sm:items-center"
     >
-      <div class="min-w-0">
+      <div class="flex min-w-0 items-start gap-2">
+        <span
+          class="mt-1 shrink-0 {problem.status === 'draft' ? 'text-warning' : 'text-success'}"
+          role="img"
+          aria-label={statusLabel}
+          title={statusLabel}
+        >
+          {#if problem.status === "draft"}
+            <FilePenLine aria-hidden="true" class="size-4" />
+          {:else}
+            <FileCheck aria-hidden="true" class="size-4" />
+          {/if}
+        </span>
         <a
           href={titleHref}
-          class="transition-[opacity] duration-fast ease-out-soft hover:opacity-80"
+          class="min-w-0 transition-[opacity] duration-fast ease-out-soft hover:opacity-80"
         >
           <h3 class="text-title font-semibold">{formatProblemDisplayName(problem)}</h3>
         </a>
@@ -273,47 +285,52 @@
           {problem.visibility}
         </Badge>
       </div>
-      <div class="flex justify-center">
-        <Badge
-          variant={problem.status === "draft" ? "warning" : "success"}
-          size="md"
-          class="p-1.5"
-          aria-label={statusLabel}
-          title={statusLabel}
-        >
-          {#if problem.status === "draft"}
-            <FilePenLine aria-hidden="true" />
-          {:else}
-            <BadgeCheck aria-hidden="true" />
-          {/if}
-        </Badge>
-      </div>
       <div class="flex items-center gap-2">
         {#if problem.status !== "draft"}
-          <Button variant="outline" size="sm" onclick={() => (rejudgeProblemId = problem.id)}>
-            <RotateCcw class="size-3" aria-hidden="true" />
-            {m.rejudge_problem_admin_button()}
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={m.rejudge_problem_admin_button()}
+            title={m.rejudge_problem_admin_button()}
+            class="hover:bg-transparent"
+            onclick={() => (rejudgeProblemId = problem.id)}
+          >
+            <RotateCcw class="size-4" aria-hidden="true" />
           </Button>
         {/if}
         {#if problem.status === "draft"}
-          <LinkButton href={`/problems/${problem.id}`} variant="outline" size="sm">
-            <Eye class="size-3" aria-hidden="true" />
-            {m.problemDetail_previewProblem()}
+          <LinkButton
+            href={`/problems/${problem.id}`}
+            variant="ghost"
+            size="icon"
+            aria-label={m.problemDetail_previewProblem()}
+            title={m.problemDetail_previewProblem()}
+            class="hover:bg-transparent"
+          >
+            <Eye class="size-4" aria-hidden="true" />
           </LinkButton>
         {/if}
-        <LinkButton href={`/problems/${problem.id}/edit`} variant="outline" size="sm">
-          <Pencil class="size-3" aria-hidden="true" />
-          {m.problemDetail_editProblem()}
+        <LinkButton
+          href={`/problems/${problem.id}/edit`}
+          variant="ghost"
+          size="icon"
+          aria-label={m.problemDetail_editProblem()}
+          title={m.problemDetail_editProblem()}
+          class="hover:bg-transparent"
+        >
+          <Pencil class="size-4" aria-hidden="true" />
         </LinkButton>
         {#if problem.status === "draft"}
           <Button
-            variant="destructive"
-            size="sm"
+            variant="ghost"
+            size="icon"
+            aria-label={m.common_delete()}
+            title={m.common_delete()}
+            class="text-destructive hover:bg-transparent hover:text-destructive"
             disabled={isDeleting && deletingProblemId === problem.id}
             onclick={() => onDeleteClick(problem.id)}
           >
-            <Trash2 class="size-3" aria-hidden="true" />
-            {m.common_delete()}
+            <Trash2 class="size-4" aria-hidden="true" />
           </Button>
         {/if}
       </div>

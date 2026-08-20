@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Trash2 from "@lucide/svelte/icons/trash-2";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button } from "$lib/components/primitives/ui/button";
   import { cn } from "$lib/utils/css.js";
@@ -84,13 +85,15 @@
     {#if canAnswer}
       <Button
         variant="ghost"
-        size="sm"
+        size="icon"
         type="button"
-        class="ml-auto text-destructive"
+        class="ml-auto text-destructive hover:bg-transparent hover:text-destructive"
         disabled={deleting}
         onclick={handleDelete}
+        aria-label={m.clarification_deleteBtn()}
+        title={m.clarification_deleteBtn()}
       >
-        {m.clarification_deleteBtn()}
+        <Trash2 aria-hidden="true" class="size-4" />
       </Button>
     {/if}
   </header>

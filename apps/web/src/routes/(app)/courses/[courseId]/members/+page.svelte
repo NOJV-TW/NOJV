@@ -212,8 +212,9 @@
             {#if isManager && member.role !== "teacher"}
               <button
                 type="button"
-                class="rounded-sm p-1.5 text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-destructive/10 hover:text-destructive"
+                class="rounded-sm bg-transparent p-1.5 text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-transparent hover:text-destructive"
                 aria-label={m.members_removeAction()}
+                title={m.members_removeAction()}
                 onclick={() => (pendingRemove = { userId: member.userId, name: member.name })}
               >
                 <X aria-hidden="true" class="size-4" />

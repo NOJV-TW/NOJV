@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Pencil, Trash2 } from "@lucide/svelte";
   import { toasts } from "$lib/stores/toast";
   import { Button } from "$lib/components/primitives/ui/button";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
@@ -108,16 +109,27 @@
             </td>
             <td class="px-3 py-2 text-right">
               <div class="inline-flex items-center gap-2">
-                <Button variant="outline" size="sm" type="button" onclick={() => onedit(row)}>
-                  {m.override_staff_editBtn()}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  type="button"
+                  aria-label={m.override_staff_editBtn()}
+                  title={m.override_staff_editBtn()}
+                  class="hover:bg-transparent"
+                  onclick={() => onedit(row)}
+                >
+                  <Pencil aria-hidden="true" class="size-4" />
                 </Button>
                 <Button
-                  variant="outline"
-                  size="sm"
+                  variant="ghost"
+                  size="icon"
                   type="button"
+                  aria-label={m.override_staff_deleteBtn()}
+                  title={m.override_staff_deleteBtn()}
+                  class="text-destructive hover:bg-transparent hover:text-destructive"
                   onclick={() => (pendingDeleteId = row.id)}
                 >
-                  {m.override_staff_deleteBtn()}
+                  <Trash2 aria-hidden="true" class="size-4" />
                 </Button>
               </div>
             </td>

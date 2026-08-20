@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Plus from "@lucide/svelte/icons/plus";
   import type { WorkspaceFile } from "./WorkspaceFileEditor.svelte";
   import { m } from "$lib/paraglide/messages.js";
 
@@ -27,12 +28,12 @@
     </span>
     <button
       type="button"
-      class="inline-flex size-6 items-center justify-center rounded-md text-body text-muted-foreground transition-[color,background-color] duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
+      class="inline-flex size-6 items-center justify-center rounded-md bg-transparent text-muted-foreground transition-[color] duration-fast ease-out-soft hover:bg-transparent hover:text-foreground"
       onclick={onadd}
       aria-label={m.admin_addFile()}
       title={m.admin_addFile()}
     >
-      +
+      <Plus aria-hidden="true" class="size-4" />
     </button>
   </div>
 

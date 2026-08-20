@@ -327,9 +327,9 @@
                         <input type="hidden" name="id" value={ann.id} />
                         <button
                           type="submit"
-                          class="inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors duration-fast ease-out-soft {ann.pinned
-                            ? 'border-primary bg-primary/10 text-primary hover:bg-primary/15'
-                            : 'border-border bg-[color:var(--color-panel)] text-muted-foreground hover:border-border-strong hover:text-foreground'}"
+                          class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent transition-colors duration-fast ease-out-soft {ann.pinned
+                            ? 'bg-transparent text-primary hover:bg-transparent hover:text-primary'
+                            : 'bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground'}"
                           title={ann.pinned
                             ? m.admin_announcementsUnpin()
                             : m.admin_announcementsPin()}
@@ -345,9 +345,9 @@
                         <input type="hidden" name="id" value={ann.id} />
                         <button
                           type="submit"
-                          class="inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors duration-fast ease-out-soft {ann.published
-                            ? 'border-success bg-success/10 text-success hover:bg-success/15'
-                            : 'border-border bg-[color:var(--color-panel)] text-muted-foreground hover:border-border-strong hover:text-foreground'}"
+                          class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent transition-colors duration-fast ease-out-soft {ann.published
+                            ? 'bg-transparent text-success hover:bg-transparent hover:text-success'
+                            : 'bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground'}"
                           title={ann.published
                             ? m.admin_announcementsUnpublish()
                             : m.admin_announcementsPublish()}
@@ -361,7 +361,7 @@
                       </form>
                       <button
                         type="button"
-                        class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-[color:var(--color-panel)] text-muted-foreground transition-colors duration-fast ease-out-soft hover:border-border-strong hover:text-foreground"
+                        class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-transparent hover:text-foreground"
                         title={m.common_edit()}
                         aria-label={m.common_edit()}
                         onclick={() => (editingId = ann.id)}
@@ -380,7 +380,7 @@
                         <input type="hidden" name="id" value={ann.id} />
                         <button
                           type="submit"
-                          class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-[color:var(--color-panel)] text-muted-foreground transition-colors duration-fast ease-out-soft hover:border-destructive hover:text-destructive"
+                          class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-transparent hover:text-destructive"
                           title={m.common_delete()}
                           aria-label={m.common_delete()}
                         >

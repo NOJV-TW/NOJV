@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Trash2 } from "@lucide/svelte";
   import { invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/stores/toast";
@@ -148,11 +149,13 @@
   {#if image}
     <button
       type="button"
-      class="text-caption text-muted-foreground transition-colors duration-fast ease-out-soft hover:text-foreground disabled:opacity-50"
+      class="inline-flex size-7 items-center justify-center rounded bg-transparent text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-transparent hover:text-destructive disabled:opacity-50"
       onclick={removeAvatar}
       disabled={busy}
+      aria-label={m.account_avatar_remove()}
+      title={m.account_avatar_remove()}
     >
-      {m.account_avatar_remove()}
+      <Trash2 aria-hidden="true" class="size-4" />
     </button>
   {/if}
 </div>

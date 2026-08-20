@@ -1,4 +1,5 @@
 <script lang="ts">
+  import X from "@lucide/svelte/icons/x";
   import { inputClassName, monoTextareaClassName } from "$lib/utils/css";
   import { m } from "$lib/paraglide/messages.js";
 
@@ -62,11 +63,12 @@
             </span>
             <button
               type="button"
-              class="rounded text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-destructive"
+              class="rounded p-1 text-muted-foreground transition-[color] duration-fast ease-out-soft hover:bg-transparent hover:text-destructive"
               onclick={() => removeSample(index)}
               aria-label={m.admin_removeSample()}
+              title={m.admin_removeSample()}
             >
-              &times; {m.admin_removeSample()}
+              <X aria-hidden="true" class="size-4" />
             </button>
           </div>
           <div class="mt-2 grid gap-3 md:grid-cols-2">

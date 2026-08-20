@@ -186,9 +186,9 @@
                       <input type="hidden" name="id" value={announcement.id} />
                       <button
                         type="submit"
-                        class="inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors duration-fast ease-out-soft {announcement.pinned
-                          ? 'border-primary bg-primary/10 text-primary hover:bg-primary/15'
-                          : 'border-border bg-[color:var(--color-panel)] text-muted-foreground hover:border-border-strong hover:text-foreground'}"
+                        class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent transition-colors duration-fast ease-out-soft {announcement.pinned
+                          ? 'bg-transparent text-primary hover:bg-transparent hover:text-primary'
+                          : 'bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground'}"
                         title={announcement.pinned
                           ? m.admin_announcementsUnpin()
                           : m.admin_announcementsPin()}
@@ -202,7 +202,7 @@
                     </form>
                     <button
                       type="button"
-                      class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-[color:var(--color-panel)] text-muted-foreground transition-colors duration-fast ease-out-soft hover:border-border-strong hover:text-foreground"
+                      class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-transparent hover:text-foreground"
                       title={m.courseOverview_editAnnouncement()}
                       aria-label={m.courseOverview_editAnnouncement()}
                       onclick={() => openEdit(announcement)}
@@ -211,7 +211,7 @@
                     </button>
                     <button
                       type="button"
-                      class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-[color:var(--color-panel)] text-muted-foreground transition-colors duration-fast ease-out-soft hover:border-destructive hover:text-destructive"
+                      class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-transparent hover:text-destructive"
                       title={m.common_delete()}
                       aria-label={m.common_delete()}
                       onclick={() => (pendingDeleteId = announcement.id)}

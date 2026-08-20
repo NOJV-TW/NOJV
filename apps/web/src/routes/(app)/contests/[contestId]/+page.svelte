@@ -303,7 +303,11 @@
           </div>
         {/if}
         {#if data.settingsForm}
-          <ContestSettingsTab form={data.settingsForm} liveStatus={settingsLiveStatus} />
+          <ContestSettingsTab
+            form={data.settingsForm}
+            liveStatus={settingsLiveStatus}
+            candidateProblems={data.candidateProblems}
+          />
         {:else}
           <div class="py-12 text-center text-body text-muted-foreground">
             {m.contestDetail_settingsTabPlaceholder()}

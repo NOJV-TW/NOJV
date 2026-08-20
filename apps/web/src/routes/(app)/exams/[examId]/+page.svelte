@@ -533,10 +533,11 @@
         <button
           type="button"
           onclick={() => (activeSubTabKey = "settings")}
-          class="inline-flex items-center gap-1.5 rounded-md border border-border-subtle px-2.5 py-1 text-caption font-medium transition-colors hover:border-border"
+          class="inline-flex size-7 items-center justify-center rounded-md bg-transparent text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground"
+          aria-label={m.examDetail_managerEditButton()}
+          title={m.examDetail_managerEditButton()}
         >
           <Pencil aria-hidden="true" class="size-3" />
-          {m.examDetail_managerEditButton()}
         </button>
       </div>
       <p class="text-body-sm text-muted-foreground">
