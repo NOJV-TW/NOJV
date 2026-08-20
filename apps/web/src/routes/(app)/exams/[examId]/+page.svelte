@@ -599,6 +599,7 @@
       {#if activeSubTabKey === "submissions" && data.matrix}
         <LiveSubmissionsFeed
           rows={data.recentSubmissions}
+          refreshUrl={`/api/submissions?context=exam&id=${detail.id}`}
           bind:search={submissionSearch}
           bind:visibleCount={visibleSubmissionCount}
         />

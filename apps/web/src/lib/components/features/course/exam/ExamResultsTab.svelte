@@ -37,11 +37,11 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
   import AssessmentGradesTab from "$lib/components/features/coursework/AssessmentGradesTab.svelte";
-  import type { ExamSubmissionsMatrixData } from "./ExamSubmissionsMatrix.svelte";
+  import type { examDomain } from "@nojv/application";
 
   interface Props {
     data: ExamResultsTabData;
-    matrix: ExamSubmissionsMatrixData;
+    matrix: examDomain.ExamSubmissionsMatrix;
     examId: string;
     oncellclick?: ((userId: string, problemId: string) => void) | undefined;
   }
@@ -64,9 +64,6 @@
     maxPoints: m.examDetail_submissionsMaxPoints,
     attempts: m.examDetail_submissionsAttempts,
     searchPlaceholder: m.examDetail_submissionsSearchPlaceholder,
-    sortTotalDesc: m.examDetail_submissionsSortTotalDesc,
-    sortHandleAsc: m.examDetail_submissionsSortHandleAsc,
-    sortNameAsc: m.examDetail_submissionsSortNameAsc,
     exportCsv: m.examDetail_submissionsExportCsv,
     empty: m.examDetail_submissionsEmpty,
     legendAc: m.examDetail_submissionsLegendAc,

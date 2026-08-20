@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { mount, tick, unmount } from "svelte";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import LiveSubmissionsFeed from "$lib/components/features/coursework/LiveSubmissionsFeed.svelte";
 
@@ -29,6 +29,11 @@ const rows = [
 ];
 
 describe("LiveSubmissionsFeed", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
   it("combines verdict, language, problem, student number, and IP filters", async () => {
     const target = document.createElement("div");
     document.body.append(target);
@@ -55,6 +60,43 @@ describe("LiveSubmissionsFeed", () => {
     await setValue('[aria-label="Problem"]', "p1");
     expect(target.textContent).toContain("student01");
     expect(target.textContent).not.toContain("student02");
+
+    await unmount(component);
+    target.remove();
+  });
+
+  it("refreshes only the feed while the page is visible", async () => {
+    vi.useFakeTimers();
+    const refreshedRows = [
+      { ...rows[0]!, id: "sub_3", user: { ...rows[0]!.user, name: "Carol" } },
+    ];
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ items: refreshedRows }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "visible",
+    });
+
+    const target = document.createElement("div");
+    document.body.append(target);
+    const component = mount(LiveSubmissionsFeed, {
+      target,
+      props: { rows, refreshUrl: "/api/submissions?context=assignment&id=a1" },
+    });
+
+    await vi.advanceTimersByTimeAsync(5000);
+    await tick();
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(target.textContent).toContain("Carol");
+    expect(target.textContent).not.toContain("Bob");
+
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(fetchMock).toHaveBeenCalledOnce();
 
     await unmount(component);
     target.remove();

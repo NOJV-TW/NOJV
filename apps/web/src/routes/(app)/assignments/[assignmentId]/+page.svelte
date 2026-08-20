@@ -27,7 +27,15 @@
   import { deriveAssignmentLiveStatus } from "$lib/utils/assignment-status";
   import { languageLabel } from "@nojv/core";
   import type { PageData } from "./$types";
-  import { buildAssignmentManageTabs, type AssignmentManageTabKey } from "./tabs";
+
+  type AssignmentManageTabKey =
+    | "problems"
+    | "submissions"
+    | "results"
+    | "plagiarism"
+    | "settings"
+    | "clarifications"
+    | "audit";
 
   let { data }: { data: PageData } = $props();
 
@@ -74,20 +82,17 @@
       : [],
   );
 
-  const subTabs = $derived(
-    buildAssignmentManageTabs(
-      {
-        problems: m.assignmentDetail_tabProblems(),
-        submissions: m.assignmentDetail_tabSubmissions(),
-        results: m.assignmentDetail_tabResults(),
-        plagiarism: m.assignmentDetail_tabPlagiarism(),
-        settings: m.assignmentDetail_tabSettings(),
-        clarifications: m.clarification_tab_title(),
-        audit: m.assignmentDetail_tabAudit(),
-      },
-      clarificationEnabled,
-    ),
-  );
+  const subTabs = $derived([
+    { key: "problems" as const, label: m.assignmentDetail_tabProblems() },
+    { key: "submissions" as const, label: m.assignmentDetail_tabSubmissions() },
+    { key: "results" as const, label: m.assignmentDetail_tabResults() },
+    { key: "plagiarism" as const, label: m.assignmentDetail_tabPlagiarism() },
+    { key: "settings" as const, label: m.assignmentDetail_tabSettings() },
+    ...(clarificationEnabled
+      ? [{ key: "clarifications" as const, label: m.clarification_tab_title() }]
+      : []),
+    { key: "audit" as const, label: m.assignmentDetail_tabAudit() },
+  ]);
 
   function verdictLabel(status: string): string {
     if (status === "accepted") return "AC";
@@ -454,6 +459,7 @@
       {:else if activeSubTab === "submissions"}
         <LiveSubmissionsFeed
           rows={data.recentSubmissions ?? []}
+          refreshUrl={`/api/submissions?context=assignment&id=${detail.id}`}
           bind:search={submissionSearch}
           bind:visibleCount={visibleSubmissionCount}
         />
@@ -461,7 +467,6 @@
         <AssignmentResultsTab
           data={data.results}
           matrix={data.matrix}
-          courseId={detail.courseId}
           assignmentId={detail.id}
           oncellclick={canSetOverride ? gradeCell : undefined}
         />

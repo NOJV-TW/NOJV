@@ -1,18 +1,17 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
   import AssessmentGradesTab from "$lib/components/features/coursework/AssessmentGradesTab.svelte";
-  import type { SubmissionsMatrixData } from "./AssignmentSubmissionsMatrix.svelte";
   import type { AssignmentResults } from "$lib/server/results/assignment";
+  import type { courseDomain } from "@nojv/application";
 
   interface Props {
     data: AssignmentResults;
-    matrix: SubmissionsMatrixData;
-    courseId: string;
+    matrix: courseDomain.SubmissionsMatrix;
     assignmentId: string;
     oncellclick?: ((userId: string, problemId: string) => void) | undefined;
   }
 
-  let { data, matrix, courseId, assignmentId, oncellclick }: Props = $props();
+  let { data, matrix, assignmentId, oncellclick }: Props = $props();
 </script>
 
 <AssessmentGradesTab
@@ -30,9 +29,6 @@
     maxPoints: m.assignmentDetail_matrixMaxPoints,
     attempts: m.assignmentDetail_matrixAttempts,
     searchPlaceholder: m.assignmentDetail_matrixSearchPlaceholder,
-    sortTotalDesc: m.assignmentDetail_matrixSortTotalDesc,
-    sortHandleAsc: m.assignmentDetail_matrixSortHandleAsc,
-    sortNameAsc: m.assignmentDetail_matrixSortNameAsc,
     exportCsv: m.assignmentDetail_matrixExportCsv,
     empty: m.assignmentDetail_matrixEmpty,
     legendAc: m.assignmentDetail_legendAc,
@@ -44,10 +40,6 @@
     paginationLabel: m.assignmentDetail_matrixPaginationLabel,
     prev: m.assignmentDetail_matrixPrev,
     next: m.assignmentDetail_matrixNext,
-    filterAll: m.assignmentDetail_matrixFilterAll,
-    filterStudents: m.assignmentDetail_matrixFilterStudents,
-    roleFilterTooltip: m.matrix_roleFilterTooltip,
-    viewAction: m.assignmentDetail_matrixView,
     gradeCellTitle: m.matrix_gradeCellTitle,
   }}
 />

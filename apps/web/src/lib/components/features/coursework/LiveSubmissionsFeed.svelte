@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { formatDateTime } from "$lib/utils/datetime";
   import { formatVerdictLabel } from "$lib/utils/verdict-style";
@@ -20,24 +19,33 @@
 
   interface Props {
     rows: SubmissionRow[];
+    refreshUrl: string;
     search?: string;
     visibleCount?: number;
   }
 
-  let { rows, search = $bindable(""), visibleCount = $bindable(rows.length) }: Props = $props();
+  let {
+    rows,
+    refreshUrl,
+    search = $bindable(""),
+    visibleCount = $bindable(rows.length),
+  }: Props = $props();
+  let refreshedRows = $state<SubmissionRow[] | null>(null);
   let verdictFilter = $state("");
   let languageFilter = $state("");
   let problemFilter = $state("");
 
-  const verdicts = $derived([...new Set(rows.map((row) => row.status))].sort());
-  const languages = $derived([...new Set(rows.map((row) => row.language))].sort());
+  const liveRows = $derived(refreshedRows ?? rows);
+
+  const verdicts = $derived([...new Set(liveRows.map((row) => row.status))].sort());
+  const languages = $derived([...new Set(liveRows.map((row) => row.language))].sort());
   const problems = $derived.by(() => {
-    const unique = new Map(rows.map((row) => [row.problem.id, row.problem]));
+    const unique = new Map(liveRows.map((row) => [row.problem.id, row.problem]));
     return [...unique.values()].sort((a, b) => a.title.localeCompare(b.title));
   });
   const filteredRows = $derived.by(() => {
     const query = search.trim().toLocaleLowerCase();
-    return rows.filter((row) => {
+    return liveRows.filter((row) => {
       if (verdictFilter && row.status !== verdictFilter) return false;
       if (languageFilter && row.language !== languageFilter) return false;
       if (problemFilter && row.problem.id !== problemFilter) return false;
@@ -52,12 +60,32 @@
   });
 
   onMount(() => {
-    const timer = window.setInterval(() => void invalidateAll(), 5000);
-    return () => window.clearInterval(timer);
+    let refreshing = false;
+    const refresh = async () => {
+      if (document.visibilityState !== "visible" || refreshing) return;
+      refreshing = true;
+      try {
+        const response = await fetch(refreshUrl, { headers: { accept: "application/json" } });
+        if (response.ok) {
+          refreshedRows = ((await response.json()) as { items: SubmissionRow[] }).items;
+        }
+      } catch {
+        return;
+      } finally {
+        refreshing = false;
+      }
+    };
+    const onVisibilityChange = () => void refresh();
+    const timer = window.setInterval(() => void refresh(), 5000);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   });
 </script>
 
-{#if rows.length === 0}
+{#if liveRows.length === 0}
   <div class="px-6 py-14 text-center text-body-sm text-muted-foreground">
     {m.liveSubmissions_empty()}
   </div>

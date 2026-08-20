@@ -1,5 +1,7 @@
 import {
   assessmentRepo,
+  courseRepo,
+  examRepo,
   problemRepo,
   submissionRepo,
   submissionRejudgeLogRepo,
@@ -43,10 +45,12 @@ import { buildProblemSamples } from "../problem/queries";
 import type { ActorContext } from "../shared/actor-context";
 import {
   ConflictError,
+  ForbiddenError,
   IntegrityError,
   NotFoundError,
   ValidationError,
 } from "../shared/errors";
+import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissions";
 import { storage } from "../shared/storage-singleton";
 import { canOperateOnSubmission } from "./permissions";
 import { sanitizeStudentResult } from "./scoring";
@@ -387,9 +391,38 @@ export async function listAllSubmissionsPaged(opts: {
 }
 
 export async function listRecentContextSubmissions(opts: {
+  actor: ActorContext;
   context: { type: "assignment"; id: string } | { type: "exam"; id: string };
   limit?: number;
 }) {
+  const entity =
+    opts.context.type === "assignment"
+      ? await assessmentRepo.findByIdWithCourseId(opts.context.id)
+      : await examRepo.findById(opts.context.id);
+  if (!entity) {
+    throw new NotFoundError(
+      opts.context.type === "assignment" ? "Assignment not found." : "Exam not found.",
+    );
+  }
+
+  const course = await courseRepo.findByIdWithUserMembership(
+    entity.courseId,
+    opts.actor.userId,
+  );
+  if (!course) throw new NotFoundError("Course not found.");
+  const membership = course.memberships[0] ?? null;
+  const canManage =
+    course.ownerId === opts.actor.userId ||
+    canManageCourse(
+      resolveEffectiveCourseRole(
+        opts.actor.platformRole,
+        membership?.status === "active" ? membership.role : null,
+      ),
+    );
+  if (!canManage) {
+    throw new ForbiddenError("Not authorized to view context submissions.");
+  }
+
   const limit = Math.min(Math.max(opts.limit ?? 50, 1), 100);
   const rows = await submissionRepo.listRecentForContext({ context: opts.context, limit });
   return rows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString() }));

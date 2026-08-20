@@ -99,7 +99,10 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       ? problemDomain.listProblemPickerGroups(actor.userId)
       : Promise.resolve({ personalProblems: [], publicProblems: [] }),
     isManager
-      ? submissionDomain.listRecentContextSubmissions({ context: { type: "exam", id: examId } })
+      ? submissionDomain.listRecentContextSubmissions({
+          actor,
+          context: { type: "exam", id: examId },
+        })
       : Promise.resolve([]),
   ]);
 

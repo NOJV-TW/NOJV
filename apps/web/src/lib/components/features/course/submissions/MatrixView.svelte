@@ -42,9 +42,6 @@
     maxPoints: (args: { points: number }) => string;
     attempts: (args: { count: number }) => string;
     searchPlaceholder: () => string;
-    sortTotalDesc: () => string;
-    sortHandleAsc: () => string;
-    sortNameAsc: () => string;
     exportCsv: () => string;
     empty: () => string;
     legendAc: () => string;
@@ -56,10 +53,6 @@
     paginationLabel: (args: { from: number; to: number; total: number }) => string;
     prev: () => string;
     next: () => string;
-    filterAll?: () => string;
-    filterStudents?: () => string;
-    roleFilterTooltip?: () => string;
-    viewAction?: () => string;
     gradeCellTitle?: () => string;
   }
 </script>

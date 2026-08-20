@@ -92,6 +92,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       clarificationDomain.canViewClarifications(actor, { type: "assignment", assignmentId }),
       auditDomain.listAuditTimelineForContext({ type: "assignment", assignmentId }),
       submissionDomain.listRecentContextSubmissions({
+        actor,
         context: { type: "assignment", id: assignmentId },
       }),
     ]);
