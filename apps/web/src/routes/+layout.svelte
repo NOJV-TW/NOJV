@@ -5,10 +5,14 @@
   import { useGlobalShortcuts } from "$lib/stores/shortcuts.svelte.js";
   import { onNavigate } from "$app/navigation";
   import { navigating } from "$app/state";
+  import { onMount } from "svelte";
+  import { initializeGoogleAnalytics } from "$lib/analytics";
 
   let { children } = $props();
 
   useGlobalShortcuts();
+
+  onMount(() => initializeGoogleAnalytics(document));
 
   let showProgress = $state(false);
 
@@ -41,15 +45,6 @@
 
 <svelte:head>
   <title>NOJV</title>
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-QKWPSQVRGG"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag() {
-      window.dataLayer.push(arguments);
-    }
-    gtag("js", new Date());
-    gtag("config", "G-QKWPSQVRGG");
-  </script>
   <meta property="og:site_name" content="NOJV" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="NOJV" />
