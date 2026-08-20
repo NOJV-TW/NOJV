@@ -21,9 +21,9 @@ let highlighterPromise: Promise<HighlighterCore> | null = null;
 
 async function getHighlighter(): Promise<HighlighterCore> {
   highlighterPromise ??= (async () => {
-    const [{ createHighlighterCore }, { createOnigurumaEngine }] = await Promise.all([
+    const [{ createHighlighterCore }, { createJavaScriptRegexEngine }] = await Promise.all([
       import("shiki/core"),
-      import("shiki/engine/oniguruma"),
+      import("shiki/engine/javascript"),
     ]);
     return createHighlighterCore({
       themes: [import("@shikijs/themes/github-light"), import("@shikijs/themes/github-dark")],
@@ -37,7 +37,7 @@ async function getHighlighter(): Promise<HighlighterCore> {
         import("@shikijs/langs/rust"),
         import("@shikijs/langs/typescript"),
       ],
-      engine: createOnigurumaEngine(import("shiki/wasm")),
+      engine: createJavaScriptRegexEngine(),
     });
   })();
   return highlighterPromise;
