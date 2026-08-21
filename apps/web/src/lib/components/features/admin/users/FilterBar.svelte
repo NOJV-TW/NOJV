@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { CircleDot, Search, Shield } from "@lucide/svelte";
-  import { Button } from "$lib/components/primitives/ui/button";
+  import { CircleDot, Shield } from "@lucide/svelte";
   import { Card } from "$lib/components/primitives/ui/card";
   import { Input } from "$lib/components/primitives/ui/input";
   import FormField from "$lib/components/primitives/ui/FormField.svelte";
@@ -27,6 +26,7 @@
       <FormField label={m.admin_usersSearch()} for="search">
         <Input
           id="search"
+          class="rounded-none border-0 border-b border-border bg-transparent px-1 shadow-none focus-visible:border-ring focus-visible:ring-0"
           placeholder={m.admin_usersSearchPlaceholder()}
           type="text"
           bind:value={search}
@@ -44,7 +44,7 @@
       </label>
       <select
         id="role-filter"
-        class="flex h-11 w-full min-w-0 rounded-sm border border-input bg-background px-3 py-2 text-body shadow-rest outline-none transition-[border-color,box-shadow] duration-fast ease-out-soft focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        class="flex h-11 w-full min-w-0 rounded-none border-0 border-b border-border bg-transparent px-1 py-2 text-body shadow-none outline-none transition-[border-color] duration-fast ease-out-soft focus-visible:border-ring"
         bind:value={role}
         onchange={onApply}
       >
@@ -64,7 +64,7 @@
       </label>
       <select
         id="status-filter"
-        class="flex h-11 w-full min-w-0 rounded-sm border border-input bg-background px-3 py-2 text-body shadow-rest outline-none transition-[border-color,box-shadow] duration-fast ease-out-soft focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        class="flex h-11 w-full min-w-0 rounded-none border-0 border-b border-border bg-transparent px-1 py-2 text-body shadow-none outline-none transition-[border-color] duration-fast ease-out-soft focus-visible:border-ring"
         bind:value={status}
         onchange={onApply}
       >
@@ -73,9 +73,5 @@
         <option value="disabled">{m.admin_usersStatusDisabled()}</option>
       </select>
     </div>
-    <Button variant="default" type="button" onclick={onApply}>
-      <Search aria-hidden="true" class="h-4 w-4" />
-      {m.admin_usersSearch()}
-    </Button>
   </div>
 </Card>

@@ -129,7 +129,7 @@
                 </button>
                 {#if runCases.length > 1}
                   <button
-                    class="inline-flex size-6 shrink-0 items-center justify-center rounded-full border border-transparent bg-transparent text-muted-foreground opacity-0 transition-[color,opacity] duration-fast ease-out-soft hover:border-destructive/30 hover:bg-transparent hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+                    class="inline-flex size-6 shrink-0 items-center justify-center rounded-full border border-transparent bg-transparent text-muted-foreground transition-[color] duration-fast ease-out-soft hover:border-destructive/30 hover:bg-transparent hover:text-destructive"
                     type="button"
                     aria-label={m.editor_removeCase({ index: index + 1 })}
                     title={m.editor_removeCase({ index: index + 1 })}

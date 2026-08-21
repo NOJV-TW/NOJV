@@ -64,7 +64,7 @@
               aria-hidden="true"
             />
             <input
-              class="h-9 w-full rounded-md border border-border bg-background pl-9 pr-3 text-body-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+              class="h-9 w-full rounded-none border-0 border-b border-border bg-transparent pl-9 pr-1 text-body-sm text-foreground shadow-none outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
               type="search"
               bind:value={search}
               placeholder={m.adminReports_filterSearch()}
@@ -80,7 +80,9 @@
             value={typeFilter || "__all"}
             onValueChange={(value) => (typeFilter = value === "__all" ? "" : value)}
           >
-            <Select.Trigger class="mt-1 h-9 w-full border-transparent bg-transparent px-2">
+            <Select.Trigger
+              class="mt-1 h-9 w-full rounded-none border-0 border-b border-border bg-transparent px-1 shadow-none focus-visible:border-ring"
+            >
               {typeFilter
                 ? typeLabel(typeFilter as "editorial" | "discussion" | "comment")
                 : m.adminReports_filterAll()}
@@ -230,7 +232,7 @@
             <input type="hidden" name="id" value={selected.id} />
             <button
               type="submit"
-              class="rounded-md bg-destructive px-3 py-1.5 text-caption font-medium text-destructive-foreground hover:bg-destructive/90"
+              class="rounded-md bg-destructive px-3 py-1.5 text-caption font-medium text-white hover:bg-destructive/90"
               >{m.adminReports_resolve()}</button
             >
           </form>

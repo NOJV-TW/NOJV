@@ -23,7 +23,7 @@
 
 {#if firstAcTime !== null}
   <div
-    class="inline-flex flex-col items-center gap-0.5 rounded-md px-2 py-1.5 min-w-[64px]"
+    class="flex min-h-[72px] w-full flex-col items-center justify-center gap-0.5 px-2 py-1.5"
     style="background: color-mix(in oklab, var(--success) 18%, transparent);"
   >
     <span
@@ -41,7 +41,7 @@
   </div>
 {:else if isPending}
   <div
-    class="inline-flex flex-col items-center gap-0.5 rounded-md px-2 py-1.5 min-w-[64px]"
+    class="flex min-h-[72px] w-full flex-col items-center justify-center gap-0.5 px-2 py-1.5"
     style="background: color-mix(in oklab, var(--info) 14%, transparent);"
   >
     <span
@@ -56,7 +56,7 @@
   </div>
 {:else if attempts > 0}
   <div
-    class="inline-flex flex-col items-center gap-0.5 rounded-md px-2 py-1.5 min-w-[64px]"
+    class="flex min-h-[72px] w-full flex-col items-center justify-center gap-0.5 px-2 py-1.5"
     style="background: color-mix(in oklab, var(--destructive) 14%, transparent);"
   >
     <span
@@ -72,5 +72,9 @@
     >
   </div>
 {:else}
-  <span class="text-muted-foreground font-mono opacity-40">·</span>
+  <div
+    class="flex min-h-[72px] w-full items-center justify-center text-muted-foreground font-mono opacity-40"
+  >
+    ·
+  </div>
 {/if}

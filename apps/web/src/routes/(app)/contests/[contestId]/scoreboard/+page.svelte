@@ -43,13 +43,56 @@
       };
     });
   }
+
+  export function buildChartTicks(
+    series: { points: { time: number; score: number }[] }[],
+    width: number,
+    height: number,
+    padding: number,
+    count: number,
+  ): {
+    x: { label: string; position: number }[];
+    y: { label: string; position: number }[];
+  } {
+    let maxTime = 0;
+    let maxScore = 0;
+    for (const item of series) {
+      for (const point of item.points) {
+        maxTime = Math.max(maxTime, point.time);
+        maxScore = Math.max(maxScore, point.score);
+      }
+    }
+    maxTime = Math.max(maxTime, 1);
+    maxScore = Math.max(maxScore, 1);
+    const plotW = width - padding * 2;
+    const plotH = height - padding * 2;
+    const yCount = Math.min(count, Math.max(1, Math.floor(maxScore)));
+    const formatTime = (seconds: number) => {
+      const minutes = Math.round(seconds / 60);
+      return minutes >= 60 ? `${Math.floor(minutes / 60)}h` : `${minutes}m`;
+    };
+
+    return {
+      x: Array.from({ length: count + 1 }, (_, index) => {
+        const value = (maxTime * index) / count;
+        return { label: formatTime(value), position: padding + (value / maxTime) * plotW };
+      }),
+      y: Array.from({ length: yCount + 1 }, (_, index) => {
+        const value = (maxScore * index) / yCount;
+        return {
+          label: String(Math.round(value)),
+          position: height - padding - (value / maxScore) * plotH,
+        };
+      }),
+    };
+  }
 </script>
 
 <script lang="ts">
   import { onMount, untrack } from "svelte";
   import { flip } from "svelte/animate";
   import { cubicOut } from "svelte/easing";
-  import { Snowflake, Trophy } from "@lucide/svelte";
+  import { Trophy } from "@lucide/svelte";
   import { invalidate } from "$app/navigation";
   import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
@@ -58,13 +101,10 @@
   import { problemLetter } from "$lib/components/features/contest/format";
   import { Button } from "$lib/components/primitives/ui/button/index.js";
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
-  import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import RankBadge from "$lib/components/primitives/visual/RankBadge.svelte";
-  import StatRail from "$lib/components/primitives/visual/StatRail.svelte";
-  import StatTile from "$lib/components/primitives/visual/StatTile.svelte";
   import TabStrip from "$lib/components/primitives/visual/TabStrip.svelte";
   import SolveCountCell from "$lib/components/features/contest/SolveCountCell.svelte";
   import PointSumCell from "$lib/components/features/contest/PointSumCell.svelte";
@@ -176,8 +216,6 @@
     return `color-mix(in oklab, ${token} 65%, var(--panel))`;
   }
 
-  const contestLive = $derived(new Date(data.endsAt).getTime() > nowTick);
-
   function stickyBg(isMe: boolean): string {
     const base = "linear-gradient(var(--panel), var(--panel)), var(--background)";
     return isMe
@@ -213,6 +251,7 @@
   });
 
   const chartPaths = $derived(buildChartPaths(chart.series, 800, 300, 40));
+  const chartTicks = $derived(buildChartTicks(chart.series, 800, 300, 40, 4));
 </script>
 
 <PageContainer class="space-y-6 fade-up">
@@ -223,71 +262,6 @@
       { label: m.contestDetail_scoreboard() },
     ]}
   />
-
-  <div class="glass rounded-xl shadow-rest p-4 flex flex-wrap items-center gap-6">
-    <div class="flex-1 min-w-0">
-      <div
-        class="flex items-center gap-2 text-micro font-mono uppercase tracking-[0.2em] text-muted-foreground"
-      >
-        <Trophy aria-hidden="true" class="size-3.5" />
-        <span
-          >{m.contestDetail_scoreboard()} · {isSolveCount
-            ? m.contestScoreboard_formatSolveCount()
-            : m.contestScoreboard_formatPointSum()}</span
-        >
-      </div>
-      <h1 class="mt-2 text-headline font-semibold tracking-tight">
-        {m.contestScoreboard_heroHeading()}
-      </h1>
-      <p class="text-caption text-muted-foreground">
-        {isSolveCount
-          ? m.contestScoreboard_heroHintSolveCount()
-          : m.contestScoreboard_heroHintPointSum()}
-      </p>
-    </div>
-
-    {#if contestLive}
-      <div class="text-center">
-        <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
-          {m.contests_timeLeft()}
-        </div>
-        <div class="mt-1">
-          <Countdown iso={data.endsAt} />
-        </div>
-      </div>
-    {/if}
-
-    {#if scoreboard.isFrozen}
-      <div
-        class="rounded-lg border p-2 min-w-[200px]"
-        style="border-color: color-mix(in oklab, var(--info) 35%, transparent); background: color-mix(in oklab, var(--info) 8%, transparent);"
-      >
-        <div
-          class="flex items-center gap-2 text-micro font-mono uppercase tracking-wider"
-          style="color: var(--info);"
-        >
-          <Snowflake aria-hidden="true" class="size-3.5" />
-          <span>{m.contestDetail_frozen().toUpperCase()}</span>
-        </div>
-        <div class="mt-1 font-mono text-caption text-muted-foreground">
-          {m.contestScoreboard_frozenNote()}
-        </div>
-      </div>
-    {/if}
-
-    <StatRail>
-      <StatTile label={m.contestScoreboard_kpiEntries()}>
-        {#snippet value()}{scoreboard.entries.length}{/snippet}
-      </StatTile>
-      <StatTile label={m.contestScoreboard_kpiProblems()}>
-        {#snippet value()}{scoreboard.problems.length}{/snippet}
-      </StatTile>
-      <StatTile label={m.contestScoreboard_kpiYourRank()}>
-        {#snippet value()}<span style="color: var(--primary);">#{myRow?.rank ?? "—"}</span
-          >{/snippet}
-      </StatTile>
-    </StatRail>
-  </div>
 
   <GlassPanel class="overflow-hidden">
     <div
@@ -440,7 +414,7 @@
                   {Math.round(r.totalPenalty / 60)}
                 </td>
                 {#each r.problems as ps, pi (pi)}
-                  <td class="px-2 py-3 text-center">
+                  <td class="p-0 text-center">
                     <SolveCountCell
                       firstAcTime={ps.firstAcTime}
                       attempts={ps.attempts}
@@ -530,7 +504,7 @@
                   {r.totalScore}
                 </td>
                 {#each r.problems as ps, pi (pi)}
-                  <td class="px-3 py-3 text-center">
+                  <td class="p-0 text-center">
                     <PointSumCell
                       firstAcTime={ps.firstAcTime}
                       score={ps.score}
@@ -631,6 +605,38 @@
             stroke-opacity="0.15"
           />
           <line x1="40" y1="40" x2="40" y2="260" stroke="currentColor" stroke-opacity="0.15" />
+          {#each chartTicks.y as tick}
+            <line
+              x1="40"
+              y1={tick.position}
+              x2="760"
+              y2={tick.position}
+              stroke="currentColor"
+              stroke-opacity="0.08"
+            />
+            <text
+              x="34"
+              y={tick.position + 4}
+              text-anchor="end"
+              class="fill-muted-foreground font-mono text-[10px]">{tick.label}</text
+            >
+          {/each}
+          {#each chartTicks.x as tick}
+            <line
+              x1={tick.position}
+              y1="260"
+              x2={tick.position}
+              y2="264"
+              stroke="currentColor"
+              stroke-opacity="0.2"
+            />
+            <text
+              x={tick.position}
+              y="280"
+              text-anchor="middle"
+              class="fill-muted-foreground font-mono text-[10px]">{tick.label}</text
+            >
+          {/each}
           {#each chartPaths as path (path.username)}
             <polyline
               points={path.points}

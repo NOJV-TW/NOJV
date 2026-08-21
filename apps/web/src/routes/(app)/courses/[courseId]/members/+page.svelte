@@ -125,7 +125,7 @@
         type="text"
         bind:value={search}
         placeholder={m.members_searchPlaceholder()}
-        class="w-full rounded-md border border-border bg-[color:var(--color-panel)] py-2.5 pl-10 pr-3 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+        class="w-full rounded-none border-0 border-b border-border bg-transparent py-2.5 pl-10 pr-1 text-body-sm shadow-none focus-visible:border-ring focus-visible:outline-none focus-visible:ring-0"
       />
     </div>
   </div>

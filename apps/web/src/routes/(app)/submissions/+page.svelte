@@ -176,7 +176,7 @@
                   onValueChange={(value) => (problemFilter = selectValue(value))}
                 >
                   <Select.Trigger
-                    class="h-8 max-w-48 border-transparent bg-transparent px-1 font-mono text-micro uppercase tracking-wider hover:border-border"
+                    class="h-8 max-w-48 rounded-none border-0 border-b border-border bg-transparent px-1 font-mono text-micro uppercase tracking-wider shadow-none focus-visible:border-ring"
                     aria-label={m.submissions_filterProblem()}
                   >
                     {problemFilter
@@ -201,7 +201,7 @@
                   onValueChange={(value) => (contextFilter = selectValue(value))}
                 >
                   <Select.Trigger
-                    class="h-8 border-transparent bg-transparent px-1 font-mono text-micro uppercase tracking-wider hover:border-border"
+                    class="h-8 rounded-none border-0 border-b border-border bg-transparent px-1 font-mono text-micro uppercase tracking-wider shadow-none focus-visible:border-ring"
                     aria-label={m.admin_submissions_colContext()}
                   >
                     {contextFilter
@@ -227,7 +227,7 @@
                   onValueChange={(value) => (languageFilter = selectValue(value))}
                 >
                   <Select.Trigger
-                    class="h-8 border-transparent bg-transparent px-1 font-mono text-micro uppercase tracking-wider hover:border-border"
+                    class="h-8 rounded-none border-0 border-b border-border bg-transparent px-1 font-mono text-micro uppercase tracking-wider shadow-none focus-visible:border-ring"
                     aria-label={m.submissions_filterLanguage()}
                   >
                     {languageFilter
@@ -253,7 +253,7 @@
                   onValueChange={(value) => (verdictFilter = selectValue(value))}
                 >
                   <Select.Trigger
-                    class="h-8 border-transparent bg-transparent px-1 font-mono text-micro uppercase tracking-wider hover:border-border"
+                    class="h-8 rounded-none border-0 border-b border-border bg-transparent px-1 font-mono text-micro uppercase tracking-wider shadow-none focus-visible:border-ring"
                     aria-label={m.submissions_filterVerdict()}
                   >
                     {verdictFilter

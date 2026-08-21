@@ -42,13 +42,13 @@ function normalizeVerdict(verdict: string): string {
 }
 
 const VERDICT_LABEL: Record<string, string> = {
-  accepted: "Accepted",
-  wrong_answer: "Wrong Answer",
-  runtime_error: "Runtime Error",
-  compile_error: "Compile Error",
-  time_limit_exceeded: "Time Limit Exceeded",
-  memory_limit_exceeded: "Memory Limit Exceeded",
-  system_error: "System Error",
+  accepted: "AC",
+  wrong_answer: "WA",
+  runtime_error: "RE",
+  compile_error: "CE",
+  time_limit_exceeded: "TLE",
+  memory_limit_exceeded: "MLE",
+  system_error: "SE",
   pending_upload: "Pending",
   queued: "Queued",
   running: "Running",

@@ -61,12 +61,12 @@
     <h1 class="text-title-lg font-semibold">{m.admin_submissions_title()}</h1>
     <form class="flex flex-wrap items-center gap-2" onsubmit={applyFilter}>
       <Input
-        class="h-9 w-48"
+        class="h-9 w-48 rounded-none border-0 border-b border-border bg-transparent px-1 shadow-none focus-visible:border-ring focus-visible:ring-0"
         bind:value={userFilter}
         placeholder={m.admin_submissions_filterUser()}
       />
       <Input
-        class="h-9 w-48"
+        class="h-9 w-48 rounded-none border-0 border-b border-border bg-transparent px-1 shadow-none focus-visible:border-ring focus-visible:ring-0"
         bind:value={problemFilter}
         placeholder={m.admin_submissions_filterProblem()}
       />
@@ -75,7 +75,7 @@
       >
       <select
         id="submission-status-filter"
-        class="h-9 rounded-md border border-input bg-background px-3 text-body-sm"
+        class="h-9 rounded-none border-0 border-b border-border bg-transparent px-1 text-body-sm shadow-none outline-none focus:border-ring"
         bind:value={statusFilter}
       >
         <option value="">{m.admin_submissions_filterAll()}</option>

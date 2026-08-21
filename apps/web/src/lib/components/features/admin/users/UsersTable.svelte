@@ -387,7 +387,7 @@
   <label class="min-w-56 flex-1 text-caption font-medium text-muted-foreground">
     {m.admin_usersFilterSearch()}
     <input
-      class="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-body-sm text-foreground outline-none focus:border-primary"
+      class="mt-1 h-9 w-full rounded-none border-0 border-b border-border bg-transparent px-1 text-body-sm text-foreground shadow-none outline-none focus:border-primary"
       type="search"
       bind:value={search}
       placeholder={m.admin_usersFilterSearch()}

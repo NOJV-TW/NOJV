@@ -11,7 +11,6 @@
   import LatePenaltyRuleBuilder, {
     type LatePenaltyRule,
   } from "$lib/components/features/course/LatePenaltyRuleBuilder.svelte";
-  import StepCard from "$lib/components/features/coursework/StepCard.svelte";
   import ProblemPicker from "$lib/components/features/course/exam/ProblemPicker.svelte";
   import type { FormMessage } from "$lib/types/form-message";
   import { toggleArrayItem } from "$lib/utils";
@@ -45,17 +44,45 @@
     "w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30";
 
   const courseId = $derived(data.form.data.courseId ?? "");
+
+  function scheduleFieldLabel(field: "opensAt" | "dueAt" | "closesAt"): string {
+    if (field === "opensAt") return m.assignmentCreate_opensLabel();
+    if (field === "dueAt") return m.assignmentCreate_dueLabel();
+    return m.assignmentCreate_finalDayLabel();
+  }
+
+  function scheduleError(error: unknown, field: "opensAt" | "dueAt" | "closesAt") {
+    const raw = Array.isArray(error) ? error[0] : error;
+    if (typeof raw !== "string" || !raw) return null;
+    if (raw.includes("dueAt must be later than opensAt")) {
+      return m.assignmentCreate_scheduleDueAfterOpen();
+    }
+    if (raw.includes("closesAt must be later than or equal to dueAt")) {
+      return m.assignmentCreate_scheduleFinalAfterDue();
+    }
+    if (raw.includes("Too small") || raw.includes("expected")) {
+      return m.assignmentCreate_scheduleRequired({ field: scheduleFieldLabel(field) });
+    }
+    return m.assignmentCreate_scheduleInvalid({ field: scheduleFieldLabel(field) });
+  }
 </script>
 
 <PageContainer width="form">
   <form method="POST" use:enhance class="animate-in animate-in-1 space-y-6">
     <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
 
-    <StepCard
-      number={1}
-      title={m.assignmentCreate_basicsTitle()}
-      subtitle={m.assignmentCreate_basicsSubtitle()}
+    <div
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
     >
+      <div class="mb-6">
+        <h2 class="text-title-sm font-medium tracking-[-0.01em]">
+          {m.assignmentCreate_basicsTitle()}
+        </h2>
+        <p class="mt-0.5 text-caption text-muted-foreground">
+          {m.assignmentCreate_basicsSubtitle()}
+        </p>
+      </div>
+
       <div>
         <label class="text-body-sm font-medium" for="title">
           {m.assignmentCreate_titleLabel()}
@@ -73,191 +100,202 @@
           <p class="mt-1 text-caption text-destructive">{$errors.title}</p>
         {/if}
       </div>
-    </StepCard>
 
-    <StepCard
-      number={2}
-      title={m.assignmentCreate_problemsTitle()}
-      subtitle={m.assignmentCreate_problemsSubtitle()}
-    >
-      <div data-tour="assignment-picker">
-        <ProblemPicker
-          candidateProblems={data.candidateProblems}
-          bind:problemIds={$form.problemIds}
-          error={$errors.problemIds}
-        />
-      </div>
-    </StepCard>
-
-    <StepCard
-      number={3}
-      title={m.assignmentCreate_scheduleTitle()}
-      subtitle={m.assignmentCreate_scheduleSubtitle()}
-      required
-    >
-      <div class="grid gap-5 md:grid-cols-3" data-tour="assignment-schedule">
-        <div>
-          <label class="text-body-sm font-medium" for="opensAt">
-            {m.assignmentCreate_opensLabel()}
-          </label>
-          <input
-            id="opensAt"
-            name="opensAt"
-            type="datetime-local"
-            bind:value={$form.opensAt}
-            class="mt-2 {inputClass}"
-          />
-          {#if $errors.opensAt}
-            <p class="mt-1 text-caption text-destructive">{$errors.opensAt}</p>
-          {/if}
-        </div>
-        <div>
-          <label class="text-body-sm font-medium" for="dueAt">
-            {m.assignmentCreate_dueLabel()}
-          </label>
-          <input
-            id="dueAt"
-            name="dueAt"
-            type="datetime-local"
-            bind:value={$form.dueAt}
-            class="mt-2 {inputClass}"
-          />
-          {#if $errors.dueAt}
-            <p class="mt-1 text-caption text-destructive">{$errors.dueAt}</p>
-          {/if}
-        </div>
-        <div>
-          <label class="text-body-sm font-medium" for="closesAt">
-            {m.assignmentCreate_finalDayLabel()}
-          </label>
-          <input
-            id="closesAt"
-            name="closesAt"
-            type="datetime-local"
-            bind:value={$form.closesAt}
-            class="mt-2 {inputClass}"
-          />
-          {#if $errors.closesAt}
-            <p class="mt-1 text-caption text-destructive">{$errors.closesAt}</p>
-          {/if}
-        </div>
-      </div>
-    </StepCard>
-
-    <div
-      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
-    >
-      <button
-        type="button"
-        onclick={() => (advancedOpen = !advancedOpen)}
-        class="flex w-full cursor-pointer items-center gap-2 text-left"
-        aria-expanded={advancedOpen}
-      >
-        <span class="transition-transform duration-fast {advancedOpen ? 'rotate-90' : ''}">
-          <ChevronRight class="size-4" aria-hidden="true" />
-        </span>
-        <div>
+      <section class="mt-8 border-t border-border-subtle pt-6">
+        <div class="mb-6">
           <h2 class="text-title-sm font-medium tracking-[-0.01em]">
-            {m.assignmentCreate_advancedTitle()}
+            {m.assignmentCreate_problemsTitle()}
           </h2>
           <p class="mt-0.5 text-caption text-muted-foreground">
-            {m.assignmentCreate_advancedSubtitle()}
+            {m.assignmentCreate_problemsSubtitle()}
           </p>
         </div>
-      </button>
+        <div data-tour="assignment-picker">
+          <ProblemPicker
+            candidateProblems={data.candidateProblems}
+            bind:problemIds={$form.problemIds}
+            error={$errors.problemIds}
+          />
+        </div>
+      </section>
 
-      {#if advancedOpen}
-        <div class="mt-6 space-y-6 border-t border-border-subtle pt-6">
-          <label class="flex items-center gap-2 text-body-sm font-medium">
-            <input type="checkbox" bind:checked={attemptsEnabled} />
-            {m.assignmentCreate_attemptsToggle()}
-          </label>
-
+      <section class="mt-8 border-t border-border-subtle pt-6">
+        <div class="mb-6">
+          <h2 class="text-title-sm font-medium tracking-[-0.01em]">
+            {m.assignmentCreate_scheduleTitle()} <span class="text-destructive">*</span>
+          </h2>
+          <p class="mt-0.5 text-caption text-muted-foreground">
+            {m.assignmentCreate_scheduleSubtitle()}
+          </p>
+        </div>
+        <div class="grid gap-5 md:grid-cols-3" data-tour="assignment-schedule">
           <div>
-            <label class="text-body-sm font-medium" for="allowedLanguages">
-              {m.assignmentCreate_languagesLabel()}
+            <label class="text-body-sm font-medium" for="opensAt">
+              {m.assignmentCreate_opensLabel()}
             </label>
-            <p class="mt-1 text-caption text-muted-foreground">
-              {m.assignmentCreate_languagesDesc()}
-            </p>
-            <div class="mt-3 flex flex-wrap gap-2">
-              {#each supportedLanguages as lang (lang)}
-                {@const checked = ($form.allowedLanguages ?? []).includes(lang)}
-                <button
-                  type="button"
-                  onclick={() => toggleLanguage(lang)}
-                  class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-2 text-body-sm font-medium transition-colors duration-fast {checked
-                    ? 'border-foreground bg-foreground text-background'
-                    : 'border-border bg-[color:var(--color-panel)]'}"
-                >
-                  {lang}
-                </button>
-              {/each}
-            </div>
-          </div>
-
-          {#if attemptsEnabled}
-            <div>
-              <label class="text-body-sm font-medium" for="maxAttemptsPerDay">
-                {m.assignmentCreate_maxAttemptsLabel()}
-              </label>
-              <input
-                id="maxAttemptsPerDay"
-                name="maxAttemptsPerDay"
-                type="number"
-                min="1"
-                max="999"
-                placeholder={m.assignmentCreate_maxAttemptsPlaceholder()}
-                bind:value={$form.maxAttemptsPerDay}
-                class="mt-2 {inputClass} max-w-[200px]"
-              />
-              <p class="mt-1 text-caption text-muted-foreground">
-                {m.assignmentCreate_maxAttemptsDesc()}
-              </p>
-              {#if $errors.maxAttemptsPerDay}
-                <p class="mt-1 text-caption text-destructive">
-                  {$errors.maxAttemptsPerDay}
-                </p>
-              {/if}
-            </div>
-
-            <div>
-              <label class="text-body-sm font-medium" for="attemptResetTime">
-                {m.assignmentDetail_settingsResetTimeLabel()}
-              </label>
-              <input
-                id="attemptResetTime"
-                type="time"
-                value={minutesToHHMM($form.attemptResetMinuteOfDay)}
-                oninput={(e) =>
-                  ($form.attemptResetMinuteOfDay = hhmmToMinutes(e.currentTarget.value))}
-                class="mt-2 {inputClass} max-w-[200px]"
-              />
-              <input
-                type="hidden"
-                name="attemptResetMinuteOfDay"
-                value={$form.attemptResetMinuteOfDay ?? 300}
-              />
-              <p class="mt-1 text-caption text-muted-foreground">
-                {m.assignmentDetail_settingsResetTimeDesc()}
-              </p>
-            </div>
-          {/if}
-
-          <div>
-            <label class="text-body-sm font-medium" for="latePenalty">
-              {m.assignmentCreate_latePenaltyLabel()}
-            </label>
-            <p class="mt-1 mb-3 text-caption text-muted-foreground">
-              {m.assignmentCreate_latePenaltyDesc()}
-            </p>
-            <LatePenaltyRuleBuilder
-              value={$form.latePenalty as LatePenaltyRule}
-              onChange={handleLatePenaltyChange}
+            <input
+              id="opensAt"
+              name="opensAt"
+              type="datetime-local"
+              bind:value={$form.opensAt}
+              class="mt-2 {inputClass}"
             />
+            {#if scheduleError($errors.opensAt, "opensAt")}
+              <p class="mt-1 text-caption text-destructive">
+                {scheduleError($errors.opensAt, "opensAt")}
+              </p>
+            {/if}
+          </div>
+          <div>
+            <label class="text-body-sm font-medium" for="dueAt">
+              {m.assignmentCreate_dueLabel()}
+            </label>
+            <input
+              id="dueAt"
+              name="dueAt"
+              type="datetime-local"
+              bind:value={$form.dueAt}
+              class="mt-2 {inputClass}"
+            />
+            {#if scheduleError($errors.dueAt, "dueAt")}
+              <p class="mt-1 text-caption text-destructive">
+                {scheduleError($errors.dueAt, "dueAt")}
+              </p>
+            {/if}
+          </div>
+          <div>
+            <label class="text-body-sm font-medium" for="closesAt">
+              {m.assignmentCreate_finalDayLabel()}
+            </label>
+            <input
+              id="closesAt"
+              name="closesAt"
+              type="datetime-local"
+              bind:value={$form.closesAt}
+              class="mt-2 {inputClass}"
+            />
+            {#if scheduleError($errors.closesAt, "closesAt")}
+              <p class="mt-1 text-caption text-destructive">
+                {scheduleError($errors.closesAt, "closesAt")}
+              </p>
+            {/if}
           </div>
         </div>
-      {/if}
+      </section>
+
+      <section class="mt-8 border-t border-border-subtle pt-6">
+        <button
+          type="button"
+          onclick={() => (advancedOpen = !advancedOpen)}
+          class="flex w-full cursor-pointer items-center gap-2 text-left"
+          aria-expanded={advancedOpen}
+        >
+          <span class="transition-transform duration-fast {advancedOpen ? 'rotate-90' : ''}">
+            <ChevronRight class="size-4" aria-hidden="true" />
+          </span>
+          <div>
+            <h2 class="text-title-sm font-medium tracking-[-0.01em]">
+              {m.assignmentCreate_advancedTitle()}
+            </h2>
+            <p class="mt-0.5 text-caption text-muted-foreground">
+              {m.assignmentCreate_advancedSubtitle()}
+            </p>
+          </div>
+        </button>
+
+        {#if advancedOpen}
+          <div class="mt-6 space-y-6 border-t border-border-subtle pt-6">
+            <label class="flex items-center gap-2 text-body-sm font-medium">
+              <input type="checkbox" bind:checked={attemptsEnabled} />
+              {m.assignmentCreate_attemptsToggle()}
+            </label>
+
+            <div>
+              <label class="text-body-sm font-medium" for="allowedLanguages">
+                {m.assignmentCreate_languagesLabel()}
+              </label>
+              <p class="mt-1 text-caption text-muted-foreground">
+                {m.assignmentCreate_languagesDesc()}
+              </p>
+              <div class="mt-3 flex flex-wrap gap-2">
+                {#each supportedLanguages as lang (lang)}
+                  {@const checked = ($form.allowedLanguages ?? []).includes(lang)}
+                  <button
+                    type="button"
+                    onclick={() => toggleLanguage(lang)}
+                    class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-2 text-body-sm font-medium transition-colors duration-fast {checked
+                      ? 'border-foreground bg-foreground text-background'
+                      : 'border-border bg-[color:var(--color-panel)]'}"
+                  >
+                    {lang}
+                  </button>
+                {/each}
+              </div>
+            </div>
+
+            {#if attemptsEnabled}
+              <div>
+                <label class="text-body-sm font-medium" for="maxAttemptsPerDay">
+                  {m.assignmentCreate_maxAttemptsLabel()}
+                </label>
+                <input
+                  id="maxAttemptsPerDay"
+                  name="maxAttemptsPerDay"
+                  type="number"
+                  min="1"
+                  max="999"
+                  placeholder={m.assignmentCreate_maxAttemptsPlaceholder()}
+                  bind:value={$form.maxAttemptsPerDay}
+                  class="mt-2 {inputClass} max-w-[200px]"
+                />
+                <p class="mt-1 text-caption text-muted-foreground">
+                  {m.assignmentCreate_maxAttemptsDesc()}
+                </p>
+                {#if $errors.maxAttemptsPerDay}
+                  <p class="mt-1 text-caption text-destructive">
+                    {$errors.maxAttemptsPerDay}
+                  </p>
+                {/if}
+              </div>
+
+              <div>
+                <label class="text-body-sm font-medium" for="attemptResetTime">
+                  {m.assignmentDetail_settingsResetTimeLabel()}
+                </label>
+                <input
+                  id="attemptResetTime"
+                  type="time"
+                  value={minutesToHHMM($form.attemptResetMinuteOfDay)}
+                  oninput={(e) =>
+                    ($form.attemptResetMinuteOfDay = hhmmToMinutes(e.currentTarget.value))}
+                  class="mt-2 {inputClass} max-w-[200px]"
+                />
+                <input
+                  type="hidden"
+                  name="attemptResetMinuteOfDay"
+                  value={$form.attemptResetMinuteOfDay ?? 300}
+                />
+                <p class="mt-1 text-caption text-muted-foreground">
+                  {m.assignmentDetail_settingsResetTimeDesc()}
+                </p>
+              </div>
+            {/if}
+
+            <div>
+              <label class="text-body-sm font-medium" for="latePenalty">
+                {m.assignmentCreate_latePenaltyLabel()}
+              </label>
+              <p class="mt-1 mb-3 text-caption text-muted-foreground">
+                {m.assignmentCreate_latePenaltyDesc()}
+              </p>
+              <LatePenaltyRuleBuilder
+                value={$form.latePenalty as LatePenaltyRule}
+                onChange={handleLatePenaltyChange}
+              />
+            </div>
+          </div>
+        {/if}
+      </section>
     </div>
 
     <input type="hidden" name="courseId" value={$form.courseId} />
