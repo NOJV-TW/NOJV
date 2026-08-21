@@ -1,4 +1,5 @@
 <script lang="ts">
+  import X from "@lucide/svelte/icons/x";
   import { MAX_TESTCASE_FILE_BYTES } from "@nojv/core";
   import JSZip from "jszip";
   import { invalidateAll } from "$app/navigation";
@@ -304,11 +305,13 @@
               </span>
               {#if subtasks.length > 1}
                 <button
-                  class="ml-auto mt-auto text-body-sm text-destructive transition-[opacity] duration-fast ease-out-soft hover:opacity-80"
+                  class="ml-auto mt-auto inline-flex size-7 items-center justify-center rounded bg-transparent text-destructive transition-[color] duration-fast ease-out-soft hover:bg-transparent hover:text-destructive"
                   onclick={() => (subtasks = subtasks.filter((_, i) => i !== si))}
                   type="button"
+                  aria-label={m.testcases_removeSubtask()}
+                  title={m.testcases_removeSubtask()}
                 >
-                  {m.testcases_removeSubtask()}
+                  <X aria-hidden="true" class="size-4" />
                 </button>
               {/if}
             </div>

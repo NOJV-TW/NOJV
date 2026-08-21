@@ -1,4 +1,5 @@
 <script lang="ts">
+  import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import type { ProblemSubmissionEntry } from "$lib/types";
   import type { SubmissionResult } from "@nojv/core";
   import { formatSmartTimestamp } from "$lib/utils/datetime";
@@ -26,6 +27,11 @@
       default:
         return null;
     }
+  }
+
+  function formatMemory(kb: number): string {
+    if (kb >= 1024) return `${(kb / 1024).toFixed(1)} MB`;
+    return `${String(kb)} KB`;
   }
 
   interface Props {
@@ -194,30 +200,41 @@
               {m.submissionDetail_runtime()}: {String(entry.result.runtimeMs)} ms
             </span>
           {/if}
+          {#if entry.result.memoryKb != null && entry.result.memoryKb > 0}
+            <span class="text-caption text-muted-foreground tabular-nums">
+              {m.submissionDetail_memory()}: {formatMemory(entry.result.memoryKb)}
+            </span>
+          {/if}
+          <span
+            data-testid="submission-score"
+            class="ml-auto text-body-sm font-semibold tabular-nums {verdictTone(
+              entry.result.verdict,
+            )}"
+          >
+            {String(entry.result.score)}/{total}
+          </span>
           {#if canRejudge && entry.id}
             <button
-              class="ml-auto rounded-md border border-border px-2.5 py-1 text-caption font-medium transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:border-primary/40 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+              class="inline-flex size-7 items-center justify-center rounded bg-transparent text-muted-foreground transition-[color] duration-fast ease-out-soft hover:bg-transparent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
               disabled={rejudgingId === entry.id}
               onclick={() => handleRejudge(entry.id!)}
               type="button"
+              aria-label={m.rejudge_single_button()}
+              title={m.rejudge_single_button()}
             >
-              {m.rejudge_single_button()}
+              <RotateCcw aria-hidden="true" class="size-4" />
             </button>
           {/if}
         </div>
 
         <div class="mt-1 flex items-center gap-3 text-caption text-muted-foreground">
           <span>{entry.language}</span>
-          <span class="tabular-nums" title={m.submissionDetail_finalScoreHint()}>
-            {m.submissionDetail_finalScoreLabel()}
-            {String(entry.result.score)}/{total}
-          </span>
           <span class="tabular-nums">{formatSmartTimestamp(entry.submittedAt)}</span>
         </div>
 
         {#if entry.result.subtaskResults && entry.result.subtaskResults.length > 0}
           <div class="mt-4">
-            <SubtaskResultTree subtaskResults={entry.result.subtaskResults} />
+            <SubtaskResultTree subtaskResults={entry.result.subtaskResults} showScore={false} />
           </div>
         {:else if entry.result.caseResults && entry.result.caseResults.length > 0}
           <div class="mt-4">

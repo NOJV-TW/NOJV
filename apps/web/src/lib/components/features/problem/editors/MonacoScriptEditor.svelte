@@ -13,6 +13,7 @@
   interface Props {
     value: string;
     onchange?: (value: string) => void;
+    fontSize?: number;
     language?: string;
     height?: string;
     isReadOnly?: boolean;
@@ -21,6 +22,7 @@
   let {
     value,
     onchange,
+    fontSize = MONACO_CODE_EDITOR_OPTIONS.fontSize,
     language = "python",
     height = "300px",
     isReadOnly = false,
@@ -46,6 +48,7 @@
         const isDark = document.documentElement.classList.contains("dark");
         const editor = monaco.editor.create(editorContainer, {
           ...MONACO_CODE_EDITOR_OPTIONS,
+          fontSize,
           language: getMonacoLanguage(language),
           readOnly: isReadOnly,
           theme: getNojvThemeName(isDark),
@@ -75,6 +78,12 @@
       monacoEditor = undefined;
       monacoModule = undefined;
     };
+  });
+
+  $effect(() => {
+    const size = fontSize;
+    if (!monacoEditor) return;
+    monacoEditor.updateOptions({ fontSize: size });
   });
 
   $effect(() => {

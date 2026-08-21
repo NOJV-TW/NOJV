@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowLeft, ChevronDown, ChevronUp } from "@lucide/svelte";
+  import { ArrowLeft, ChevronDown, ChevronUp, Flag, Pencil, Trash2 } from "@lucide/svelte";
   import type { ProblemPostType } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
@@ -155,27 +155,33 @@
           <span class="tabular-nums">{formatDate(post.createdAt)}</span>
           {#if !isOwn}
             <button
-              class="transition-[color] duration-fast ease-out-soft hover:text-destructive"
+              class="inline-flex size-6 items-center justify-center rounded bg-transparent transition-[color] duration-fast ease-out-soft hover:bg-transparent hover:text-destructive"
               onclick={() => (reportOpen = true)}
               type="button"
+              aria-label={m.posts_report()}
+              title={m.posts_report()}
             >
-              {m.posts_report()}
+              <Flag aria-hidden="true" class="size-3.5" />
             </button>
           {/if}
           {#if canManage}
             <button
-              class="transition-[color] duration-fast ease-out-soft hover:text-foreground"
+              class="inline-flex size-6 items-center justify-center rounded bg-transparent transition-[color] duration-fast ease-out-soft hover:bg-transparent hover:text-foreground"
               onclick={() => post !== null && onEdit(post)}
               type="button"
+              aria-label={m.posts_edit()}
+              title={m.posts_edit()}
             >
-              {m.posts_edit()}
+              <Pencil aria-hidden="true" class="size-3.5" />
             </button>
             <button
-              class="transition-[color] duration-fast ease-out-soft hover:text-destructive"
+              class="inline-flex size-6 items-center justify-center rounded bg-transparent transition-[color] duration-fast ease-out-soft hover:bg-transparent hover:text-destructive"
               onclick={() => (confirmDeleteOpen = true)}
               type="button"
+              aria-label={m.posts_delete()}
+              title={m.posts_delete()}
             >
-              {m.posts_delete()}
+              <Trash2 aria-hidden="true" class="size-3.5" />
             </button>
           {/if}
         </div>

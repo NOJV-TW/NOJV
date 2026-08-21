@@ -30,16 +30,16 @@
       <span></span>
     {/if}
     <button
-      class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground"
+      class="inline-flex size-7 items-center justify-center rounded bg-transparent p-1 text-muted-foreground transition hover:bg-transparent hover:text-foreground"
       onclick={handleCopy}
       type="button"
+      aria-label={isCopied ? m.common_copied() : m.common_copy()}
+      title={isCopied ? m.common_copied() : m.common_copy()}
     >
       {#if isCopied}
         <Check aria-hidden="true" class="h-3.5 w-3.5 text-emerald-500" />
-        <span class="text-emerald-500">{m.common_copied()}</span>
       {:else}
         <Copy aria-hidden="true" class="h-3.5 w-3.5" />
-        <span>{m.common_copy()}</span>
       {/if}
     </button>
   </div>

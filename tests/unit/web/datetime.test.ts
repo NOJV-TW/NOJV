@@ -42,10 +42,10 @@ describe("formatDateTime", () => {
     expect(enOut).toMatch(/2026/);
   });
 
-  it("appends a timezone short name by default", () => {
+  it("omits the timezone marker by default", () => {
     const value = new Date("2026-05-20T10:30:00Z");
     const out = formatDateTime(value);
-    expect(out).toMatch(/GMT|UTC|[+-]\d/);
+    expect(out).not.toMatch(/GMT|UTC|[+-]\d/);
   });
 
   it("lets caller options override defaults", () => {

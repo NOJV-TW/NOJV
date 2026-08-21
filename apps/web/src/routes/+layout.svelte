@@ -5,10 +5,14 @@
   import { useGlobalShortcuts } from "$lib/stores/shortcuts.svelte.js";
   import { onNavigate } from "$app/navigation";
   import { navigating } from "$app/state";
+  import { onMount } from "svelte";
+  import { initializeGoogleAnalytics } from "$lib/analytics";
 
   let { children } = $props();
 
   useGlobalShortcuts();
+
+  onMount(() => initializeGoogleAnalytics(document));
 
   let showProgress = $state(false);
 

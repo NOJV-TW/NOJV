@@ -70,6 +70,8 @@ model Submission {
   @@index([examId, problemId, createdAt])
   @@index([participationId, problemId, createdAt])
   @@index([assessmentId, problemId, createdAt])
+  @@index([assessmentId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([examId, createdAt(sort: Desc), id(sort: Desc)])
   @@index([status, updatedAt])
   @@index([problemId, sampleOnly, userId, status])
   @@index([createdAt])

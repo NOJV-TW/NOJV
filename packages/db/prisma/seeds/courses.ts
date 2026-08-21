@@ -223,21 +223,77 @@ export async function seedCourses(
     where: { id: "hw-demo-active" },
   });
 
-  await prisma.assessmentProblem.upsert({
-    create: {
-      assessmentId: hwActive.id,
-      ordinal: 1,
-      points: 100,
-      problemId: "problem_warmup-sum",
-    },
-    update: { ordinal: 1, points: 100 },
-    where: {
-      assessmentId_problemId: {
+  const activeHomeworkProblems = [
+    "problem_warmup-sum",
+    "problem_add-two-numbers",
+    "problem_float-compare",
+    "problem_graph-docking",
+  ];
+  for (const [index, problemId] of activeHomeworkProblems.entries()) {
+    await prisma.assessmentProblem.upsert({
+      create: {
         assessmentId: hwActive.id,
-        problemId: "problem_warmup-sum",
+        ordinal: index + 1,
+        points: 100,
+        problemId,
       },
+      update: { ordinal: index + 1, points: 100 },
+      where: {
+        assessmentId_problemId: {
+          assessmentId: hwActive.id,
+          problemId,
+        },
+      },
+    });
+  }
+
+  const gradebookDemoExam = await prisma.exam.upsert({
+    create: {
+      id: "exam_demo_gradebook_active",
+      allowedLanguages: ["c", "cpp", "python"],
+      courseId: osLabCourse.id,
+      createdByUserId: teacher.id,
+      startsAt: new Date(now - 2 * DAY),
+      endsAt: new Date(now + 5 * DAY),
+      pageLockEnabled: false,
+      ipBindingEnabled: false,
+      ipWhitelistEnabled: false,
+      scoreboardMode: "hidden",
+      status: "published",
+      summary: "大量班級成績與即時提交紀錄的展示用考試。",
+      title: "Demo: Large Class Gradebook",
     },
+    update: {
+      startsAt: new Date(now - 2 * DAY),
+      endsAt: new Date(now + 5 * DAY),
+      status: "published",
+    },
+    where: { id: "exam_demo_gradebook_active" },
   });
+
+  const gradebookExamProblems = [
+    "problem_warmup-sum",
+    "problem_add-two-numbers",
+    "problem_memory-leak-forensics",
+    "problem_graph-docking",
+  ];
+  for (const [index, problemId] of gradebookExamProblems.entries()) {
+    await prisma.examProblem.upsert({
+      create: {
+        examId: gradebookDemoExam.id,
+        ordinal: index + 1,
+        points: 100,
+        problemId,
+      },
+      update: { ordinal: index + 1, points: 100 },
+      where: {
+        examId_problemId: {
+          examId: gradebookDemoExam.id,
+          problemId,
+        },
+      },
+    });
+  }
 
   const examUpcomingDemo = await prisma.exam.upsert({
     create: {

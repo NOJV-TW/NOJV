@@ -6,7 +6,9 @@
     ArrowDownNarrowWide,
     ArrowUpNarrowWide,
     Eye,
+    FileCheck,
     FileCode,
+    FilePenLine,
     Pencil,
     RotateCcw,
     Search,
@@ -209,15 +211,29 @@
       problem.status === "published"
         ? `/problems/${problem.id}`
         : `/problems/${problem.id}/edit`}
+    {@const statusLabel =
+      problem.status === "draft" ? m.problems_statusDraft() : m.audit_detailLifecyclePublish()}
     <Card
       variant="surface"
       size="lg"
-      class="grid gap-x-8 gap-y-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto_auto] sm:items-center"
+      class="grid gap-x-8 gap-y-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_7rem_8rem_6rem_6rem_auto] sm:items-center"
     >
-      <div class="min-w-0">
+      <div class="flex min-w-0 items-start gap-2">
+        <span
+          class="mt-1 shrink-0 {problem.status === 'draft' ? 'text-warning' : 'text-success'}"
+          role="img"
+          aria-label={statusLabel}
+          title={statusLabel}
+        >
+          {#if problem.status === "draft"}
+            <FilePenLine aria-hidden="true" class="size-4" />
+          {:else}
+            <FileCheck aria-hidden="true" class="size-4" />
+          {/if}
+        </span>
         <a
           href={titleHref}
-          class="transition-[opacity] duration-fast ease-out-soft hover:opacity-80"
+          class="min-w-0 transition-[opacity] duration-fast ease-out-soft hover:opacity-80"
         >
           <h3 class="text-title font-semibold">{formatProblemDisplayName(problem)}</h3>
         </a>
@@ -238,32 +254,29 @@
           </div>
         {/if}
       </div>
-      <div class="flex min-w-24 flex-col items-center text-center">
+      <div class="min-w-0 text-center">
         <p class="text-body-sm text-muted-foreground">{m.problemDetail_problemTypeTitle()}</p>
-        <p class="mt-1 text-body font-semibold">{renderProblemType(problem.type)}</p>
+        <p class="mt-1 text-body font-semibold leading-tight">
+          {renderProblemType(problem.type)}
+        </p>
       </div>
-      <div class="flex min-w-24 flex-col items-center text-center">
+      <div class="min-w-0 text-center">
         <p class="text-body-sm text-muted-foreground">{m.problemDetail_judgeMethodTitle()}</p>
-        <p class="mt-1 text-body font-semibold">
+        <p class="mt-1 text-body font-semibold leading-tight">
           {renderJudgeMethod(problem.type, problem.judgeType)}
         </p>
       </div>
-      <div class="flex min-w-20 flex-col items-center text-center">
+      <div class="min-w-0 text-center">
         <p class="text-body-sm text-muted-foreground">{m.common_difficulty()}</p>
         <span
-          class="mt-1 inline-flex items-center rounded-full border px-2.5 py-0.5 text-caption font-semibold capitalize {difficultyClass(
+          class="mt-1 inline-flex max-w-full items-center rounded-full border px-2.5 py-0.5 text-caption font-semibold capitalize {difficultyClass(
             problem.difficulty,
           )}"
         >
           {problem.difficulty}
         </span>
       </div>
-      <div class="flex flex-wrap gap-1.5 sm:justify-end">
-        {#if problem.status === "draft"}
-          <Badge variant="warning" size="md">
-            {m.problems_statusDraft()}
-          </Badge>
-        {/if}
+      <div class="flex justify-center">
         <Badge
           variant={problem.visibility === "public" ? "success" : "muted"}
           size="md"
@@ -274,30 +287,50 @@
       </div>
       <div class="flex items-center gap-2">
         {#if problem.status !== "draft"}
-          <Button variant="outline" size="sm" onclick={() => (rejudgeProblemId = problem.id)}>
-            <RotateCcw class="size-3" aria-hidden="true" />
-            {m.rejudge_problem_admin_button()}
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={m.rejudge_problem_admin_button()}
+            title={m.rejudge_problem_admin_button()}
+            class="hover:bg-transparent"
+            onclick={() => (rejudgeProblemId = problem.id)}
+          >
+            <RotateCcw class="size-4" aria-hidden="true" />
           </Button>
         {/if}
         {#if problem.status === "draft"}
-          <LinkButton href={`/problems/${problem.id}`} variant="outline" size="sm">
-            <Eye class="size-3" aria-hidden="true" />
-            {m.problemDetail_previewProblem()}
+          <LinkButton
+            href={`/problems/${problem.id}`}
+            variant="ghost"
+            size="icon"
+            aria-label={m.problemDetail_previewProblem()}
+            title={m.problemDetail_previewProblem()}
+            class="hover:bg-transparent"
+          >
+            <Eye class="size-4" aria-hidden="true" />
           </LinkButton>
         {/if}
-        <LinkButton href={`/problems/${problem.id}/edit`} variant="outline" size="sm">
-          <Pencil class="size-3" aria-hidden="true" />
-          {m.problemDetail_editProblem()}
+        <LinkButton
+          href={`/problems/${problem.id}/edit`}
+          variant="ghost"
+          size="icon"
+          aria-label={m.problemDetail_editProblem()}
+          title={m.problemDetail_editProblem()}
+          class="hover:bg-transparent"
+        >
+          <Pencil class="size-4" aria-hidden="true" />
         </LinkButton>
         {#if problem.status === "draft"}
           <Button
-            variant="destructive"
-            size="sm"
+            variant="ghost"
+            size="icon"
+            aria-label={m.common_delete()}
+            title={m.common_delete()}
+            class="text-destructive hover:bg-transparent hover:text-destructive"
             disabled={isDeleting && deletingProblemId === problem.id}
             onclick={() => onDeleteClick(problem.id)}
           >
-            <Trash2 class="size-3" aria-hidden="true" />
-            {m.common_delete()}
+            <Trash2 class="size-4" aria-hidden="true" />
           </Button>
         {/if}
       </div>

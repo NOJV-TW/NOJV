@@ -17,7 +17,10 @@
     createDocumentMouseDrag,
     isSpecialEnvProblem,
     isWorkspaceProblem,
+    normalizeEditorFontSize,
+    readEditorFontSize,
     persistLanguage,
+    persistEditorFontSize,
     workspaceDraftKey,
   } from "./editor-bindings";
   import { createDraftController } from "./use-draft.svelte";
@@ -69,6 +72,7 @@
   }
 
   let language = $state<Language>(resolveInitialLanguage());
+  let fontSize = $state(readEditorFontSize());
   let drafts = $state({ ...initialProblem.starterByLanguage });
   let isFullscreen = $state(false);
   let isBrowserEngineInitializing = $state(false);
@@ -136,6 +140,10 @@
 
   $effect(() => {
     persistLanguage(language);
+  });
+
+  $effect(() => {
+    persistEditorFontSize(fontSize);
   });
 
   const draftController = createDraftController({
@@ -246,8 +254,10 @@
     problemType={problem.type}
     workspaceFiles={problem.workspaceFiles}
     {context}
+    {fontSize}
     {isFullscreen}
     onLanguageChange={(next) => (language = next)}
+    onFontSizeChange={(next) => (fontSize = normalizeEditorFontSize(next))}
     onAvailableChange={(available) => (availableLanguages = available)}
     onReset={handleReset}
     onToggleFullscreen={() => (isFullscreen = !isFullscreen)}
@@ -256,6 +266,7 @@
   <div class="relative min-h-0 flex-1">
     <EditorCore
       {language}
+      {fontSize}
       {drafts}
       isHidden={isWorkspaceMode}
       onchange={(value) => (drafts[language] = value)}
@@ -263,6 +274,7 @@
     {#if isWorkspaceMode}
       <StudentProblemView
         files={workspaceFilesForLanguage}
+        {fontSize}
         selectedIndex={workspaceFiles.selectedIndex}
         selectedContent={workspaceFiles.selectedContent}
         onselect={(index) => workspaceFiles.select(index)}

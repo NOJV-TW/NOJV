@@ -18,7 +18,6 @@ const DATE_TIME_DEFAULTS: Intl.DateTimeFormatOptions = {
   day: "numeric",
   hour: "numeric",
   minute: "2-digit",
-  timeZoneName: "short",
 };
 
 const DATE_DEFAULTS: Intl.DateTimeFormatOptions = {

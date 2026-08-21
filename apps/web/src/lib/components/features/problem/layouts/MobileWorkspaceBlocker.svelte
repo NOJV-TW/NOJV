@@ -55,7 +55,7 @@
             {problem.title}
           </Dialog.Title>
           <Dialog.Close
-            class="-mr-2 inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
+            class="-mr-2 inline-flex h-9 w-9 items-center justify-center rounded-md bg-transparent text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-transparent hover:text-foreground"
             aria-label={m.mobile_closeStatement()}
           >
             <X class="size-5" aria-hidden="true" />

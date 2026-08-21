@@ -113,13 +113,15 @@
           </a>
           {#if isManager}
             <Button
-              variant="outline"
-              size="sm"
+              variant="ghost"
+              size="icon"
               type="button"
+              aria-label={m.rejudge_problem_admin_button()}
+              title={m.rejudge_problem_admin_button()}
+              class="hover:bg-transparent"
               onclick={() => (rejudgeProblemId = p.id)}
             >
-              <RotateCcw class="size-3" aria-hidden="true" />
-              {m.rejudge_problem_admin_button()}
+              <RotateCcw class="size-4" aria-hidden="true" />
             </Button>
           {/if}
         </div>

@@ -53,7 +53,7 @@
   aria-label={active ? m.problems_bookmarkRemove() : m.problems_bookmarkAdd()}
   title={active ? m.problems_bookmarkRemove() : m.problems_bookmarkAdd()}
   class={cn(
-    "inline-flex shrink-0 items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,transform] duration-fast ease-out-soft hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50",
+    "inline-flex shrink-0 items-center justify-center rounded-full text-muted-foreground transition-[color,transform] duration-fast ease-out-soft hover:bg-transparent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50",
     size === "md" ? "size-9" : "size-8",
     active && "text-primary hover:text-primary",
     className,

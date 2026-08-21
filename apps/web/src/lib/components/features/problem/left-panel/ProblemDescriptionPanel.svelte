@@ -1,6 +1,7 @@
 <script lang="ts">
+  import { MemoryStick, Timer } from "@lucide/svelte";
   import type { ProblemDetail, ProblemTestcaseSetSummary } from "$lib/types";
-  import { tagClass } from "$lib/utils/verdict-style";
+  import { difficultyClass, tagClass } from "$lib/utils/verdict-style";
   import { m } from "$lib/paraglide/messages.js";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import { minutesToHHMM } from "$lib/utils/attempt-reset-time";
@@ -72,39 +73,37 @@
     {/if}
   </div>
 
-  {#if problem.tags.length > 0}
-    <div class="mt-3 flex flex-wrap items-center gap-1.5">
-      {#each problem.tags as tag (tag)}
-        <span
-          class="inline-flex items-center rounded-full border px-2 py-0.5 text-caption font-medium capitalize {tagClass()}"
-        >
-          {tag}
-        </span>
-      {/each}
-    </div>
-  {/if}
+  <div class="mt-3 flex flex-wrap items-center gap-1.5 text-caption">
+    <span
+      class="inline-flex items-center rounded-full border px-2 py-0.5 text-caption font-medium capitalize {difficultyClass(
+        problem.difficulty,
+      )}"
+    >
+      {problem.difficulty}
+    </span>
+    {#each problem.tags as tag (tag)}
+      <span
+        class="inline-flex items-center rounded-full border px-2 py-0.5 text-caption font-medium capitalize {tagClass()}"
+      >
+        {tag}
+      </span>
+    {/each}
+  </div>
 
   <SpecialLabels
     problemType={problem.type}
     judgeType={problem.judgeType}
-    difficulty={problem.difficulty}
+    timeLimitMs={problem.timeLimitMs}
+    memoryLimitMb={problem.memoryLimitMb}
   />
 
-  <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-caption text-muted-foreground">
-    <span class="tabular-nums">
-      {m.problemDetail_timeLimit()}: {(problem.timeLimitMs / 1000).toFixed(
-        problem.timeLimitMs % 1000 === 0 ? 0 : 1,
-      )}s
-    </span>
-    <span class="tabular-nums">
-      {m.problemDetail_memoryLimit()}: {problem.memoryLimitMb} MB
-    </span>
-    {#if allowedLanguages && allowedLanguages.length > 0}
+  {#if allowedLanguages && allowedLanguages.length > 0}
+    <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-caption text-muted-foreground">
       <span>
         {m.contestDetail_allowedLanguagesLabel()}: {allowedLanguages.join(", ")}
       </span>
-    {/if}
-  </div>
+    </div>
+  {/if}
 
   <div class="mt-5 text-body leading-relaxed text-foreground">
     <MarkdownRenderer content={problem.statement} />
@@ -149,7 +148,7 @@
             <CopyButton
               text={sample.input}
               iconOnly
-              class="pointer-events-none absolute right-1.5 top-1.5 bg-muted opacity-0 transition-opacity duration-fast ease-out-soft group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
+              class="pointer-events-none absolute right-1.5 top-1.5 opacity-0 transition-opacity duration-fast ease-out-soft group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
             />
           </div>
         </div>
@@ -163,7 +162,7 @@
             <CopyButton
               text={sample.output}
               iconOnly
-              class="pointer-events-none absolute right-1.5 top-1.5 bg-muted opacity-0 transition-opacity duration-fast ease-out-soft group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
+              class="pointer-events-none absolute right-1.5 top-1.5 opacity-0 transition-opacity duration-fast ease-out-soft group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
             />
           </div>
         </div>

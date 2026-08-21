@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   createTestProblem,
+  createTestCourse,
   createTestSubmission,
   createTestUser,
   testPrisma,
 } from "../../fixtures/factories";
 
 import { submissionDomain, type ActorContext } from "@nojv/application";
+import { submissionRepo } from "@nojv/db";
 import { assertStorageObjectPointer } from "@nojv/storage";
 
 const { getSubmissionForActor, getSubmissionSources, listProblemSubmissions } =
@@ -31,6 +33,55 @@ function actorOf(user: {
 }
 
 describe("submission queries (real DB)", () => {
+  describe("listRecentForContext", () => {
+    it("returns only recent non-sample assignment submissions in stable order", async () => {
+      const teacher = await createTestUser({ platformRole: "teacher" });
+      const student = await createTestUser();
+      const course = await createTestCourse({ ownerId: teacher.id });
+      const problem = await createTestProblem({ authorId: teacher.id });
+      const assignment = await testPrisma.assessment.create({
+        data: {
+          courseId: course.id,
+          createdByUserId: teacher.id,
+          title: "Recent submissions",
+          summary: "Recent submissions",
+          opensAt: new Date("2026-01-01T00:00:00Z"),
+          closesAt: new Date("2026-12-31T23:59:59Z"),
+        },
+      });
+      const createdAt = new Date("2026-08-20T08:00:00Z");
+      const context = { assessmentId: assignment.id, courseId: course.id };
+
+      await createTestSubmission({
+        id: "recent_assignment_a",
+        userId: student.id,
+        problemId: problem.id,
+        createdAt,
+        ...context,
+      });
+      await createTestSubmission({
+        id: "recent_assignment_b",
+        userId: student.id,
+        problemId: problem.id,
+        createdAt,
+        ...context,
+      });
+      await createTestSubmission({
+        userId: student.id,
+        problemId: problem.id,
+        sampleOnly: true,
+        ...context,
+      });
+
+      const rows = await submissionRepo.listRecentForContext({
+        context: { type: "assignment", id: assignment.id },
+        limit: 2,
+      });
+
+      expect(rows.map((row) => row.id)).toEqual(["recent_assignment_b", "recent_assignment_a"]);
+    });
+  });
+
   describe("getSubmissionForActor", () => {
     it("returns submission when user is the owner", async () => {
       const user = await createTestUser();
@@ -124,6 +175,23 @@ describe("submission queries (real DB)", () => {
       expect(results).toHaveLength(2);
       expect(results.every((r) => r.id)).toBe(true);
       expect(results.every((r) => r.submittedAt)).toBe(true);
+    });
+
+    it("keeps queued submissions visible while judging", async () => {
+      const user = await createTestUser();
+      const problem = await createTestProblem({ authorId: user.id });
+      const pending = await createTestSubmission({
+        userId: user.id,
+        problemId: problem.id,
+        status: "queued",
+        sampleOnly: false,
+      });
+
+      const results = await listProblemSubmissions(user.id, problem.id);
+
+      expect(results).toHaveLength(1);
+      expect(results[0]).toMatchObject({ id: pending.id });
+      expect(results[0]?.result).toBeUndefined();
     });
 
     it("excludes sampleOnly submissions", async () => {

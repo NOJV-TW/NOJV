@@ -291,25 +291,26 @@
         </div>
         <div class="flex items-center gap-1">
           <button
-            class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-caption text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            class="inline-flex size-7 items-center justify-center rounded-md bg-transparent text-muted-foreground transition hover:bg-transparent hover:text-foreground"
             onclick={handleCopy}
             type="button"
+            aria-label={copied ? m.common_copied() : m.common_copy()}
+            title={copied ? m.common_copied() : m.common_copy()}
           >
             {#if copied}
               <Check aria-hidden="true" class="size-3.5 text-success" />
-              <span class="text-success">{m.common_copied()}</span>
             {:else}
               <Copy aria-hidden="true" class="size-3.5" />
-              <span>{m.common_copy()}</span>
             {/if}
           </button>
           <button
-            class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-caption text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            class="inline-flex size-7 items-center justify-center rounded-md bg-transparent text-muted-foreground transition hover:bg-transparent hover:text-foreground"
             onclick={handleDownload}
             type="button"
+            aria-label={m.submissionDetail_downloadCode()}
+            title={m.submissionDetail_downloadCode()}
           >
             <Download aria-hidden="true" class="size-3.5" />
-            <span>{m.submissionDetail_downloadCode()}</span>
           </button>
         </div>
       </header>

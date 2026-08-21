@@ -1,5 +1,7 @@
 import {
   assessmentRepo,
+  courseRepo,
+  examRepo,
   problemRepo,
   submissionRepo,
   submissionRejudgeLogRepo,
@@ -11,8 +13,10 @@ import {
   advancedConfigSchema,
   judgeConfigSchema,
   languageSchema,
+  submissionOperationStatuses,
+  submissionOperationStatusSchema,
+  submissionResultVerdictSchema,
   submissionResultSchema,
-  submissionVerdicts,
   submissionVerdictSchema,
   verdictSummarySchema,
   type AdjustmentRules,
@@ -41,10 +45,12 @@ import { buildProblemSamples } from "../problem/queries";
 import type { ActorContext } from "../shared/actor-context";
 import {
   ConflictError,
+  ForbiddenError,
   IntegrityError,
   NotFoundError,
   ValidationError,
 } from "../shared/errors";
+import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissions";
 import { storage } from "../shared/storage-singleton";
 import { canOperateOnSubmission } from "./permissions";
 import { sanitizeStudentResult } from "./scoring";
@@ -384,6 +390,44 @@ export async function listAllSubmissionsPaged(opts: {
   };
 }
 
+export async function listRecentContextSubmissions(opts: {
+  actor: ActorContext;
+  context: { type: "assignment"; id: string } | { type: "exam"; id: string };
+  limit?: number;
+}) {
+  const entity =
+    opts.context.type === "assignment"
+      ? await assessmentRepo.findByIdWithCourseId(opts.context.id)
+      : await examRepo.findById(opts.context.id);
+  if (!entity) {
+    throw new NotFoundError(
+      opts.context.type === "assignment" ? "Assignment not found." : "Exam not found.",
+    );
+  }
+
+  const course = await courseRepo.findByIdWithUserMembership(
+    entity.courseId,
+    opts.actor.userId,
+  );
+  if (!course) throw new NotFoundError("Course not found.");
+  const membership = course.memberships[0] ?? null;
+  const canManage =
+    course.ownerId === opts.actor.userId ||
+    canManageCourse(
+      resolveEffectiveCourseRole(
+        opts.actor.platformRole,
+        membership?.status === "active" ? membership.role : null,
+      ),
+    );
+  if (!canManage) {
+    throw new ForbiddenError("Not authorized to view context submissions.");
+  }
+
+  const limit = Math.min(Math.max(opts.limit ?? 50, 1), 100);
+  const rows = await submissionRepo.listRecentForContext({ context: opts.context, limit });
+  return rows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString() }));
+}
+
 export async function countAssignmentProblemAttemptsInWindow(
   userId: string,
   assignmentId: string,
@@ -424,30 +468,38 @@ export async function listProblemSubmissions(
   const submissions = await submissionRepo.listByUserAndProblem({
     problemId: problem.id,
     userId,
-    statusIn: [...submissionVerdicts],
+    statusIn: [...submissionOperationStatuses],
     ...(assessmentId ? { assessmentId } : {}),
     ...(contestId ? { contestId } : {}),
   });
 
   return submissions.map((s) => {
-    const { verdict, language } = narrowSubmissionRow(s);
+    const language = languageSchema.parse(s.language);
+    const status = submissionOperationStatusSchema.parse(s.status);
+    const parsedVerdict = submissionResultVerdictSchema.safeParse(status);
     const parsedSummary =
       s.verdictSummary == null ? null : verdictSummarySchema.safeParse(s.verdictSummary);
     const summary = parsedSummary?.success ? parsedSummary.data : null;
-    const result: SubmissionResult = {
-      accepted: verdict === "accepted",
-      verdict,
-      score: s.score,
-      runtimeMs: s.runtimeMs ?? 0,
-      feedback:
-        summary?.compilerErrorTruncated ??
-        (verdict === "accepted" ? "Accepted." : "Verdict details unavailable."),
-    };
 
     return {
       id: s.id,
       language,
-      result,
+      ...(parsedVerdict.success
+        ? {
+            result: {
+              accepted: parsedVerdict.data === "accepted",
+              verdict: parsedVerdict.data,
+              score: s.score,
+              runtimeMs: s.runtimeMs ?? 0,
+              feedback:
+                summary?.compilerErrorTruncated ??
+                summary?.systemErrorTruncated ??
+                (parsedVerdict.data === "accepted"
+                  ? "Accepted."
+                  : "Verdict details unavailable."),
+            } satisfies SubmissionResult,
+          }
+        : {}),
       submittedAt: s.createdAt.toISOString(),
       context: deriveSubmissionContextKind(s),
     };

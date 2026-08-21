@@ -12,6 +12,7 @@ import {
   clarificationDomain,
   contestDomain,
   plagiarismDomain,
+  problemDomain,
   scoreOverrideDomain,
   userDomain,
 } from "@nojv/application";
@@ -76,6 +77,10 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   let settingsForm: Awaited<
     ReturnType<typeof superValidate<ContestSettingsForm, FormMessage>>
   > | null = null;
+  let candidateProblems: problemDomain.ProblemPickerGroups = {
+    personalProblems: [],
+    publicProblems: [],
+  };
 
   let plagiarism: Awaited<ReturnType<typeof plagiarismDomain.findPlagiarismReport>> = null;
   let plagiarismFlags: Awaited<ReturnType<typeof plagiarismDomain.listFlagsForContext>> = [];
@@ -86,18 +91,21 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   if (contest.isManager) {
     const actor = getActorContext(event);
     if (actor && hasActorUsername(actor)) {
-      const [allowed, participants, plagReport, plagFlags, audit] = await Promise.all([
-        scoreOverrideDomain.canSetScoreOverride(actor, {
-          type: "contest",
-          contestId: contest.id,
-        }),
-        listContestParticipantsWithUser(contest.id),
-        plagiarismDomain
-          .findPlagiarismReport({ type: "contest", id: contest.id })
-          .catch(() => null),
-        plagiarismDomain.listFlagsForContext("contest", contest.id).catch(() => []),
-        auditDomain.listAuditTimelineForContext({ type: "contest", contestId: contest.id }),
-      ]);
+      const [allowed, participants, plagReport, plagFlags, audit, availableProblems] =
+        await Promise.all([
+          scoreOverrideDomain.canSetScoreOverride(actor, {
+            type: "contest",
+            contestId: contest.id,
+          }),
+          listContestParticipantsWithUser(contest.id),
+          plagiarismDomain
+            .findPlagiarismReport({ type: "contest", id: contest.id })
+            .catch(() => null),
+          plagiarismDomain.listFlagsForContext("contest", contest.id).catch(() => []),
+          auditDomain.listAuditTimelineForContext({ type: "contest", contestId: contest.id }),
+          problemDomain.listProblemPickerGroups(actor.userId),
+        ]);
+      candidateProblems = availableProblems;
       auditEvents = audit;
       auditActorNames = await userDomain.listUserDisplayNames([
         ...new Set(audit.flatMap((e) => (e.actorUserId ? [e.actorUserId] : []))),
@@ -179,6 +187,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     results,
     matrix,
     settingsForm,
+    candidateProblems,
     plagiarism: serializePlagiarismReport(plagiarism),
     plagiarismFlags: serializePlagiarismFlags(plagiarismFlags),
     clarification: {

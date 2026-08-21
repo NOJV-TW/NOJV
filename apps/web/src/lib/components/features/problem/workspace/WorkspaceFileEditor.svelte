@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Trash2 from "@lucide/svelte/icons/trash-2";
   import type { Language } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { inputClassName } from "$lib/utils/css";
@@ -55,10 +56,12 @@
     </label>
     <button
       type="button"
-      class="self-end rounded-md border border-border px-3 py-1.5 text-caption text-muted-foreground transition-[color,border-color] duration-fast ease-out-soft hover:border-destructive hover:text-destructive"
+      class="self-end rounded-md bg-transparent p-1.5 text-muted-foreground transition-[color] duration-fast ease-out-soft hover:bg-transparent hover:text-destructive"
       onclick={() => ondelete?.()}
+      aria-label={m.common_delete()}
+      title={m.common_delete()}
     >
-      {m.common_delete()}
+      <Trash2 aria-hidden="true" class="size-4" />
     </button>
   </div>
 

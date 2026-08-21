@@ -11,7 +11,8 @@
   import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
   import DifficultyTick from "$lib/components/primitives/visual/DifficultyTick.svelte";
-  import ExamSubmissionsMatrix from "$lib/components/features/course/exam/ExamSubmissionsMatrix.svelte";
+  import LiveSubmissionsFeed from "$lib/components/features/coursework/LiveSubmissionsFeed.svelte";
+  import SubmissionHistoryActions from "$lib/components/features/coursework/SubmissionHistoryActions.svelte";
   import ExamSettingsTab from "$lib/components/features/course/exam/ExamSettingsTab.svelte";
   import ExamProblemsTab from "$lib/components/features/course/exam/ExamProblemsTab.svelte";
   import ExamProctoringTab from "$lib/components/features/course/exam/ExamProctoringTab.svelte";
@@ -102,6 +103,8 @@
     | "clarifications"
     | "audit";
   let activeSubTabKey = $state<SubTab>("problems");
+  let submissionSearch = $state("");
+  let visibleSubmissionCount = $state(0);
 
   const subTabs = $derived<{ key: SubTab; label: string }[]>([
     { key: "problems", label: m.examDetail_subTabProblems() },
@@ -533,10 +536,11 @@
         <button
           type="button"
           onclick={() => (activeSubTabKey = "settings")}
-          class="inline-flex items-center gap-1.5 rounded-md border border-border-subtle px-2.5 py-1 text-caption font-medium transition-colors hover:border-border"
+          class="inline-flex size-7 items-center justify-center rounded-md bg-transparent text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground"
+          aria-label={m.examDetail_managerEditButton()}
+          title={m.examDetail_managerEditButton()}
         >
           <Pencil aria-hidden="true" class="size-3" />
-          {m.examDetail_managerEditButton()}
         </button>
       </div>
       <p class="text-body-sm text-muted-foreground">
@@ -584,14 +588,29 @@
       label={m.examDetail_subTabsLabel()}
       id="exam-manage"
     >
+      {#snippet actions()}
+        {#if activeSubTabKey === "submissions"}
+          <SubmissionHistoryActions
+            bind:search={submissionSearch}
+            visibleCount={visibleSubmissionCount}
+            totalCount={data.recentSubmissions.length}
+          />
+        {/if}
+      {/snippet}
       {#if activeSubTabKey === "submissions" && data.matrix}
-        <ExamSubmissionsMatrix
+        <LiveSubmissionsFeed
+          rows={data.recentSubmissions}
+          refreshUrl={`/api/submissions?context=exam&id=${detail.id}`}
+          bind:search={submissionSearch}
+          bind:visibleCount={visibleSubmissionCount}
+        />
+      {:else if activeSubTabKey === "results" && data.results && data.matrix}
+        <ExamResultsTab
+          data={data.results}
           matrix={data.matrix}
           examId={detail.id}
           oncellclick={canSetOverride ? gradeCell : undefined}
         />
-      {:else if activeSubTabKey === "results" && data.results}
-        <ExamResultsTab data={data.results} />
       {:else if activeSubTabKey === "plagiarism"}
         <AssignmentPlagiarismReport
           report={data.plagiarism}

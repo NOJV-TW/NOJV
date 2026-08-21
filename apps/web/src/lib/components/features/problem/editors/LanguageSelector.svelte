@@ -56,7 +56,7 @@
 
 <select
   data-tour="problem-language"
-  class="border-0 bg-transparent px-1 py-0.5 text-micro font-medium text-foreground outline-none focus:ring-0"
+  class="border-0 border-b border-border-subtle bg-transparent px-1 py-0.5 text-micro font-medium text-foreground outline-none focus:ring-0"
   onchange={(e) => {
     const parsed = languageSchema.safeParse((e.target as HTMLSelectElement).value);
     if (parsed.success) onchange(parsed.data);

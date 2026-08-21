@@ -97,21 +97,6 @@
     leftTab = nextKey;
     document.getElementById(`${uid}-tab-${nextKey}`)?.focus();
   }
-
-  function backLinkLabel(type: ProblemBackLinkType): string {
-    switch (type) {
-      case "assignment":
-        return m.problemDetail_backToAssignment();
-      case "contest":
-        return m.problemDetail_backToContest();
-      case "exam":
-        return m.problemDetail_backToExam();
-      case "virtual":
-        return m.problemDetail_backToVirtualContest();
-      case "problems":
-        return m.problemDetail_backToProblems();
-    }
-  }
 </script>
 
 <div class="flex h-9 items-center border-b border-border-subtle px-2">
@@ -122,7 +107,7 @@
       data-testid="problem-back-link"
     >
       <ArrowLeft class="size-3.5" strokeWidth={2} aria-hidden="true" />
-      {backLinkLabel(backLink.type)}
+      {m.common_back()}
     </a>
   {/if}
   <div role="tablist" aria-label={m.problemDetail_panelTabsLabel()} class="flex items-center">
@@ -142,11 +127,6 @@
         type="button"
       >
         {t.label}
-        {#if t.key === "submissions" && submissions.length > 0}
-          <span class="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-micro tabular-nums">
-            {submissions.length}
-          </span>
-        {/if}
       </button>
     {/each}
   </div>

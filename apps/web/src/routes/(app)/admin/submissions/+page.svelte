@@ -35,6 +35,16 @@
     goto(`/admin/submissions?${params.toString()}`, { keepFocus: true, noScroll: true });
   }
 
+  function openSubmission(id: string) {
+    void goto(`/submissions/${id}`);
+  }
+
+  function handleRowKeydown(event: KeyboardEvent, id: string) {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    openSubmission(id);
+  }
+
   let nextHref = $derived.by(() => {
     if (!data.nextCursor) return null;
     const params = new URLSearchParams();
@@ -101,19 +111,21 @@
         </thead>
         <tbody>
           {#each data.submissions as sub (sub.id)}
-            <tr class="border-b border-border-subtle last:border-b-0">
+            <tr
+              class="cursor-pointer border-b border-border-subtle transition-colors last:border-b-0 hover:bg-muted/25 focus-visible:bg-muted/25 focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-primary"
+              role="link"
+              tabindex="0"
+              onclick={() => openSubmission(sub.id)}
+              onkeydown={(event) => handleRowKeydown(event, sub.id)}
+            >
               <td class="px-3 py-2 text-caption text-muted-foreground whitespace-nowrap">
-                <a class="font-mono hover:underline" href="/submissions/{sub.id}">
-                  {formatDateTime(sub.createdAt)}
-                </a>
+                <span class="font-mono">{formatDateTime(sub.createdAt)}</span>
               </td>
               <td class="px-3 py-2 text-caption"
                 >{sub.user?.username ?? sub.user?.name ?? "—"}</td
               >
               <td class="px-3 py-2">
-                <a class="hover:underline" href="/problems/{sub.problem.id}">
-                  {sub.problem.title}
-                </a>
+                {sub.problem.title}
               </td>
               <td class="px-3 py-2"><VerdictBadge verdict={sub.status} /></td>
               <td class="px-3 py-2 tabular-nums">{sub.score}</td>

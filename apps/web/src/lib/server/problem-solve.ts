@@ -36,6 +36,12 @@ export type ProblemSolveContext =
       allowedLanguages: Language[];
       backLink: { href: string; type: "assignment" };
       problemInScope: boolean;
+    }
+  | {
+      kind: "preview";
+      allowedLanguages: Language[];
+      backLink: { href: string; type: "exam" };
+      problemInScope: boolean;
     };
 
 export interface ProblemSolvePropsShape {

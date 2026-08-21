@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Plus from "@lucide/svelte/icons/plus";
+  import X from "@lucide/svelte/icons/x";
   import { m } from "$lib/paraglide/messages.js";
   import { inputClassName } from "$lib/utils/css";
 
@@ -52,10 +54,12 @@
       <span class="text-caption font-semibold text-muted-foreground">{m.admin_envVars()}</span>
       <button
         type="button"
-        class="text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"
+        class="inline-flex size-7 items-center justify-center rounded bg-transparent text-muted-foreground transition-[color] duration-fast ease-out-soft hover:bg-transparent hover:text-foreground"
         onclick={addEnvRow}
+        aria-label={m.admin_envAdd()}
+        title={m.admin_envAdd()}
       >
-        {m.admin_envAdd()}
+        <Plus aria-hidden="true" class="size-4" />
       </button>
     </div>
     {#if envRows.length === 0}
@@ -78,11 +82,12 @@
             />
             <button
               type="button"
-              class="rounded border border-border px-2 text-caption text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-destructive"
+              class="rounded bg-transparent p-1 text-muted-foreground transition-[color] duration-fast ease-out-soft hover:bg-transparent hover:text-destructive"
               onclick={() => removeEnvRow(i)}
               aria-label={m.admin_envRemove()}
+              title={m.admin_envRemove()}
             >
-              &times;
+              <X aria-hidden="true" class="size-4" />
             </button>
           </div>
         {/each}

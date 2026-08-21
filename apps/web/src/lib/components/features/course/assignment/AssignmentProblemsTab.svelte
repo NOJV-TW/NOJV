@@ -8,19 +8,22 @@
 
 <script lang="ts">
   import { invalidateAll } from "$app/navigation";
-  import ArrowDown from "@lucide/svelte/icons/arrow-down";
-  import ArrowUp from "@lucide/svelte/icons/arrow-up";
+  import GripVertical from "@lucide/svelte/icons/grip-vertical";
+  import Eye from "@lucide/svelte/icons/eye";
   import Plus from "@lucide/svelte/icons/plus";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
-  import Search from "@lucide/svelte/icons/search";
-  import X from "@lucide/svelte/icons/x";
+  import Save from "@lucide/svelte/icons/save";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
   import { problemLetter } from "@nojv/core";
 
   import { m } from "$lib/paraglide/messages.js";
   import RejudgeDialog from "$lib/components/features/problem/admin/RejudgeDialog.svelte";
+  import ProblemSelectDialog, {
+    type CandidateProblem as PickerCandidate,
+  } from "$lib/components/features/problem/ProblemSelectDialog.svelte";
   import { Button } from "$lib/components/primitives/ui/button";
   import { cn } from "$lib/utils/css";
-  import { matchesProblemPickerSearch } from "$lib/utils/problem-picker";
+  import { moveItem } from "$lib/utils/reorder";
 
   interface Props {
     problems: ProblemsTabProblem[];
@@ -49,10 +52,12 @@
   type EditRow = { problemId: string; title: string; letter: string };
 
   let editRows = $state<EditRow[]>([]);
-  let searchQuery = $state("");
+  let pickerOpen = $state(false);
   let saving = $state(false);
   let errorMsg = $state<string | null>(null);
   let rejudgeProblemId = $state<string | null>(null);
+  let draggedProblemId = $state<string | null>(null);
+  let dragOverProblemId = $state<string | null>(null);
 
   function seedRows(source: ProblemsTabProblem[]) {
     editRows = source.map((p) => ({
@@ -66,39 +71,14 @@
     seedRows(problems);
   });
 
-  const selectedIds = $derived(new Set(editRows.map((r) => r.problemId)));
-
-  const filteredCandidateSections = $derived.by(() => {
-    return [
-      {
-        key: "public",
-        label: m.problems_publicLibrary(),
-        problems: candidateProblems.publicProblems,
-      },
-      {
-        key: "personal",
-        label: m.problems_myProblems(),
-        problems: candidateProblems.personalProblems,
-      },
-    ]
-      .map((section) => ({
-        ...section,
-        problems: section.problems
-          .filter((candidate) => !selectedIds.has(candidate.id))
-          .filter((candidate) => matchesProblemPickerSearch(candidate, searchQuery))
-          .slice(0, 20),
-      }))
-      .filter((section) => section.problems.length > 0);
-  });
-
-  function attach(candidate: CandidateProblem) {
+  function attachProblems(candidates: PickerCandidate[]) {
     editRows = [
       ...editRows,
-      {
+      ...candidates.map((candidate, index) => ({
         problemId: candidate.id,
         title: candidate.title,
-        letter: problemLetter(editRows.length + 1),
-      },
+        letter: problemLetter(editRows.length + index + 1),
+      })),
     ];
   }
 
@@ -108,15 +88,47 @@
       .map((r, i) => ({ ...r, letter: problemLetter(i + 1) }));
   }
 
-  function swap(i: number, j: number) {
-    if (i < 0 || j < 0 || i >= editRows.length || j >= editRows.length) return;
-    const next = [...editRows];
-    const tmp = next[i];
-    const other = next[j];
-    if (!tmp || !other) return;
-    next[i] = other;
-    next[j] = tmp;
-    editRows = next.map((r, idx) => ({ ...r, letter: problemLetter(idx + 1) }));
+  function reorderEditRow(sourceId: string, targetId: string) {
+    editRows = moveItem(
+      editRows,
+      editRows.findIndex((r) => r.problemId === sourceId),
+      editRows.findIndex((r) => r.problemId === targetId),
+    ).map((r, idx) => ({ ...r, letter: problemLetter(idx + 1) }));
+  }
+
+  function handleDragStart(event: DragEvent, problemId: string) {
+    draggedProblemId = problemId;
+    event.dataTransfer?.setData("text/plain", problemId);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleDragOver(event: DragEvent, problemId: string) {
+    if (!draggedProblemId) return;
+    event.preventDefault();
+    dragOverProblemId = draggedProblemId === problemId ? null : problemId;
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+  }
+
+  function handleDrop(event: DragEvent, targetId: string) {
+    event.preventDefault();
+    const sourceId = draggedProblemId ?? event.dataTransfer?.getData("text/plain");
+    if (sourceId && sourceId !== targetId) reorderEditRow(sourceId, targetId);
+    draggedProblemId = null;
+    dragOverProblemId = null;
+  }
+
+  function handleDragEnd() {
+    draggedProblemId = null;
+    dragOverProblemId = null;
+  }
+
+  function handleHandleKeydown(event: KeyboardEvent, problemId: string) {
+    const index = editRows.findIndex((r) => r.problemId === problemId);
+    const delta = event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" ? 1 : 0;
+    const target = index + delta;
+    if (delta === 0 || index < 0 || target < 0 || target >= editRows.length) return;
+    event.preventDefault();
+    reorderEditRow(problemId, editRows[target]!.problemId);
   }
 
   async function savePayload() {
@@ -142,17 +154,41 @@
 </script>
 
 <section data-slot="assignment-problems-tab" class={cn("space-y-3", className)}>
-  <div class="mb-4 flex items-baseline justify-between gap-4">
-    <h2 class="text-title font-medium leading-tight">
-      {#if canEdit}
-        {m.assignmentDetail_problemsEditHeading()}
-      {:else}
-        {m.assignmentDetail_teacherProblemsHeading()}
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h2 class="text-title font-medium leading-tight">
+        {#if canEdit}
+          {m.assignmentDetail_problemsEditHeading()}
+        {:else}
+          {m.assignmentDetail_teacherProblemsHeading()}
+        {/if}
+      </h2>
+      {#if !canEdit}
+        <span class="text-caption text-muted-foreground">
+          {m.assignmentDetail_teacherProblemsHint()}
+        </span>
       {/if}
-    </h2>
-    <span class="text-caption text-muted-foreground">
-      {m.assignmentDetail_teacherProblemsHint()}
-    </span>
+    </div>
+    {#if canEdit}
+      <div class="flex flex-wrap items-center gap-2">
+        <Button type="button" variant="outline" size="sm" onclick={() => (pickerOpen = true)}>
+          <Plus class="size-4" aria-hidden="true" />
+          {m.problemPicker_addButton()}
+        </Button>
+        {#if editRows.length > 0}
+          <Button
+            type="button"
+            variant="default"
+            size="sm"
+            disabled={saving}
+            onclick={savePayload}
+          >
+            <Save class="size-4" aria-hidden="true" />
+            {m.assignmentDetail_problemsEditSaveButton()}
+          </Button>
+        {/if}
+      </div>
+    {/if}
   </div>
 
   {#if !canEdit}
@@ -200,13 +236,15 @@
           </a>
           {#if canRejudge}
             <Button
-              variant="outline"
-              size="sm"
+              variant="ghost"
+              size="icon"
               type="button"
+              aria-label={m.rejudge_problem_admin_button()}
+              title={m.rejudge_problem_admin_button()}
+              class="hover:bg-transparent"
               onclick={() => (rejudgeProblemId = problem.problemId)}
             >
-              <RotateCcw class="size-3" aria-hidden="true" />
-              {m.rejudge_problem_admin_button()}
+              <RotateCcw class="size-4" aria-hidden="true" />
             </Button>
           {/if}
         </div>
@@ -229,14 +267,34 @@
       </p>
     {:else}
       <div class="grid gap-2">
-        {#each editRows as row, index (row.problemId)}
+        {#each editRows as row (row.problemId)}
           <div
-            class="grid grid-cols-[auto_1fr_auto_auto] items-center gap-4 rounded-md border border-border bg-[color:var(--color-panel)] px-4 py-3"
+            role="listitem"
+            class="grid grid-cols-[auto_1fr_auto_auto] items-center gap-4 rounded-md border bg-[color:var(--color-panel)] px-4 py-3 {dragOverProblemId ===
+            row.problemId
+              ? 'border-primary bg-primary/5'
+              : 'border-border'}"
+            ondragover={(event) => handleDragOver(event, row.problemId)}
+            ondrop={(event) => handleDrop(event, row.problemId)}
           >
-            <div
-              class="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-muted text-body-lg font-medium text-muted-foreground"
-            >
-              {row.letter}
+            <div class="flex items-center gap-2">
+              <span
+                class="cursor-grab text-muted-foreground active:cursor-grabbing"
+                draggable="true"
+                role="button"
+                tabindex="0"
+                aria-label={m.common_dragToReorder()}
+                ondragstart={(event) => handleDragStart(event, row.problemId)}
+                ondragend={handleDragEnd}
+                onkeydown={(event) => handleHandleKeydown(event, row.problemId)}
+              >
+                <GripVertical class="size-4" aria-hidden="true" />
+              </span>
+              <div
+                class="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-muted text-body-lg font-medium text-muted-foreground"
+              >
+                {row.letter}
+              </div>
             </div>
             <div class="min-w-0">
               <div class="truncate text-body-sm font-semibold">{row.title}</div>
@@ -245,116 +303,54 @@
             <div class="flex items-center gap-1">
               {#if canRejudge}
                 <Button
-                  variant="outline"
-                  size="sm"
+                  variant="ghost"
+                  size="icon"
                   type="button"
+                  aria-label={m.rejudge_problem_admin_button()}
+                  title={m.rejudge_problem_admin_button()}
+                  class="hover:bg-transparent"
                   onclick={() => (rejudgeProblemId = row.problemId)}
                 >
-                  <RotateCcw class="size-3" aria-hidden="true" />
-                  {m.rejudge_problem_admin_button()}
+                  <RotateCcw class="size-4" aria-hidden="true" />
                 </Button>
               {/if}
-              <Button href={`/problems/${row.problemId}`} variant="outline" size="sm">
-                {m.problemDetail_previewProblem()}
-              </Button>
               <Button
+                href={`/assignments/${assignmentId}/problems/${row.problemId}`}
                 variant="ghost"
                 size="icon"
-                type="button"
-                aria-label={m.assignmentDetail_problemsEditMoveUp()}
-                disabled={index === 0}
-                onclick={() => swap(index, index - 1)}
+                aria-label={m.problemDetail_previewProblem()}
+                title={m.problemDetail_previewProblem()}
+                class="hover:bg-transparent"
               >
-                <ArrowUp class="size-4" aria-hidden="true" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                type="button"
-                aria-label={m.assignmentDetail_problemsEditMoveDown()}
-                disabled={index === editRows.length - 1}
-                onclick={() => swap(index, index + 1)}
-              >
-                <ArrowDown class="size-4" aria-hidden="true" />
+                <Eye class="size-4" aria-hidden="true" />
               </Button>
             </div>
             <Button
               variant="ghost"
               size="icon"
+              class="hover:bg-transparent"
               type="button"
               aria-label={m.assignmentDetail_problemsEditDetachButton()}
+              title={m.assignmentDetail_problemsEditDetachButton()}
               onclick={() => detach(row.problemId)}
             >
-              <X class="size-4" aria-hidden="true" />
+              <Trash2 class="size-4" aria-hidden="true" />
             </Button>
           </div>
         {/each}
       </div>
     {/if}
-
-    <div class="mt-4 rounded-md border border-border bg-[color:var(--color-panel-strong)]/40">
-      <div class="flex items-center gap-2.5 border-b border-border-subtle px-4 py-2.5">
-        <Search class="size-4 text-muted-foreground" aria-hidden="true" />
-        <input
-          type="text"
-          placeholder={m.assignmentDetail_problemsEditSearchPlaceholder()}
-          bind:value={searchQuery}
-          class="flex-1 border-none bg-transparent text-body-sm outline-none"
-        />
-      </div>
-      <div class="max-h-[220px] overflow-y-auto p-1.5">
-        {#if filteredCandidateSections.length === 0}
-          <p class="px-3 py-6 text-center text-caption text-muted-foreground">
-            {m.assignmentDetail_problemsEditEmptyHint()}
-          </p>
-        {:else}
-          {#each filteredCandidateSections as section (section.key)}
-            <section>
-              <h3
-                class="px-3 pb-1 pt-2 text-caption font-semibold uppercase tracking-[0.08em] text-muted-foreground"
-              >
-                {section.label}
-              </h3>
-              {#each section.problems as candidate (candidate.id)}
-                <button
-                  type="button"
-                  onclick={() => attach(candidate)}
-                  class="flex w-full items-center gap-3.5 rounded-md px-3 py-2.5 text-left transition-colors duration-fast hover:bg-muted"
-                >
-                  <span class="min-w-[80px] font-mono text-caption text-muted-foreground">
-                    {candidate.displayId == null
-                      ? m.common_problemDraft()
-                      : `#${candidate.displayId}`}
-                  </span>
-                  <span class="flex-1 text-body-sm font-medium">{candidate.title}</span>
-                  <span
-                    class={cn(
-                      "text-micro font-semibold uppercase tracking-wider",
-                      difficultyClass(candidate.difficulty),
-                    )}
-                  >
-                    {candidate.difficulty}
-                  </span>
-                  <span
-                    class="flex size-6 items-center justify-center rounded-sm bg-muted text-muted-foreground"
-                  >
-                    <Plus class="size-3.5" aria-hidden="true" />
-                  </span>
-                </button>
-              {/each}
-            </section>
-          {/each}
-        {/if}
-      </div>
-    </div>
-
-    <div class="flex items-center justify-end gap-2 pt-3">
-      <Button type="button" variant="default" size="sm" disabled={saving} onclick={savePayload}>
-        {m.assignmentDetail_problemsEditSaveButton()}
-      </Button>
-    </div>
   {/if}
 </section>
+
+{#if canEdit}
+  <ProblemSelectDialog
+    bind:open={pickerOpen}
+    {candidateProblems}
+    selectedIds={editRows.map((row) => row.problemId)}
+    onConfirm={attachProblems}
+  />
+{/if}
 
 {#if rejudgeProblemId}
   <RejudgeDialog

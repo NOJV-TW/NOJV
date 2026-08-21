@@ -137,7 +137,7 @@
   );
 
   const iconBtnClass =
-    "grid h-6 w-6 shrink-0 place-items-center rounded text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground";
+    "grid h-6 w-6 shrink-0 place-items-center rounded bg-transparent text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-transparent hover:text-foreground";
   const inputClass =
     "min-w-0 flex-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30";
 </script>

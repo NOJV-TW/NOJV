@@ -124,7 +124,7 @@
       </div>
       <div class="flex shrink-0 gap-1">
         <button
-          class="rounded-full border border-border p-1 text-muted-foreground transition-[transform,box-shadow,background-color,color] duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
+          class="rounded p-1 text-muted-foreground transition-[color] duration-fast ease-out-soft hover:bg-transparent hover:text-foreground"
           onclick={onStartEdit}
           type="button"
           title={m.testcases_editTestcase()}
@@ -132,7 +132,7 @@
           <Pencil aria-hidden="true" class="size-3" />
         </button>
         <button
-          class="rounded-full border border-border p-1 text-muted-foreground transition-[transform,box-shadow,background-color,color] duration-fast ease-out-soft hover:bg-destructive/10 hover:text-destructive"
+          class="rounded p-1 text-muted-foreground transition-[color] duration-fast ease-out-soft hover:bg-transparent hover:text-destructive"
           onclick={onStartDelete}
           type="button"
           title={m.testcases_deleteTestcase()}
