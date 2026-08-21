@@ -120,10 +120,6 @@
       <Button variant="outline" type="button" onclick={() => (showOverrideDrawer = true)}>
         {m.grading_openButton()}
       </Button>
-    {:else}
-      <span class="inline-flex items-center text-caption text-muted-foreground">
-        {m.grading_availableAfterClose()}
-      </span>
     {/if}
   {/if}
   <Button
@@ -202,36 +198,38 @@
     {#snippet badges()}
       <StatusPill {status} type="contest" />
     {/snippet}
+    {#snippet meta()}
+      <StatRail>
+        <StatTile
+          embedded
+          label={isLive
+            ? m.contestDetail_clockRunning()
+            : isPast
+              ? m.contestDetail_clockEnded()
+              : m.contestDetail_clockUntilStart()}
+        >
+          {#snippet value()}
+            {#if isPast}
+              <span class="font-mono">{fmtDate(contest.startsAt)}</span>
+            {:else}
+              <Countdown iso={isLive ? contest.endsAt : contest.startsAt} />
+            {/if}
+          {/snippet}
+        </StatTile>
+        <StatTile embedded label={m.contestDetail_participantsLabel()}>
+          {#snippet value()}
+            {m.contestDetail_participantsCount({ count: contest.participantCount })}
+          {/snippet}
+        </StatTile>
+        <StatTile embedded label={m.contestDetail_scoringLabel()}>
+          {#snippet value()}{scoringLabel}{/snippet}
+        </StatTile>
+        <StatTile embedded label={m.contestDetail_scoreboardLabel()}>
+          {#snippet value()}{scoreboardModeLabel}{/snippet}
+        </StatTile>
+      </StatRail>
+    {/snippet}
   </AssessmentHero>
-
-  <StatRail>
-    <StatTile
-      label={isLive
-        ? m.contestDetail_clockRunning()
-        : isPast
-          ? m.contestDetail_clockEnded()
-          : m.contestDetail_clockUntilStart()}
-    >
-      {#snippet value()}
-        {#if isPast}
-          <span class="font-mono">{fmtDate(contest.startsAt)}</span>
-        {:else}
-          <Countdown iso={isLive ? contest.endsAt : contest.startsAt} />
-        {/if}
-      {/snippet}
-    </StatTile>
-    <StatTile label={m.contestDetail_participantsLabel()}>
-      {#snippet value()}
-        {m.contestDetail_participantsCount({ count: contest.participantCount })}
-      {/snippet}
-    </StatTile>
-    <StatTile label={m.contestDetail_scoringLabel()}>
-      {#snippet value()}{scoringLabel}{/snippet}
-    </StatTile>
-    <StatTile label={m.contestDetail_scoreboardLabel()}>
-      {#snippet value()}{scoreboardModeLabel}{/snippet}
-    </StatTile>
-  </StatRail>
 
   {#if isManager}
     <div class="flex flex-wrap items-center justify-end gap-3">

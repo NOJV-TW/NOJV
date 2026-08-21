@@ -41,6 +41,7 @@ const {
 vi.mock("@nojv/db", () => {
   return {
     durableWorkRepo: {
+      cancel: durableWorkCancel,
       enqueueMany: durableWorkEnqueueMany,
       withTx: () => ({ enqueue: durableWorkEnqueue, cancel: durableWorkCancel }),
     },

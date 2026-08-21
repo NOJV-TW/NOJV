@@ -4,6 +4,7 @@ import {
   assessmentProblemRepo,
   contestProblemRepo,
   courseMembershipRepo,
+  durableWorkRepo,
   examProblemRepo,
   examRepo,
   examSessionRepo,
@@ -35,7 +36,12 @@ import {
 } from "@nojv/storage";
 
 import type { ActorContext } from "../shared/actor-context";
-import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ServiceUnavailableError,
+} from "../shared/errors";
 import { storage } from "../shared/storage-singleton";
 import { toJsonValue } from "../shared/to-json-value";
 import {
@@ -52,6 +58,7 @@ import { assertProblemViewAccess } from "../problem/permissions";
 import { checkProctoringGateInTx } from "../proctoring/gate";
 import { normalizeSubmissionSources } from "./source-paths";
 import {
+  SUBMISSION_JUDGE_DISPATCH_WORK_KIND,
   enqueueSubmissionJudgeDispatch,
   executeSubmissionJudgeDispatch,
 } from "./rejudge-control";
@@ -69,6 +76,25 @@ type ActiveExamSession = NonNullable<
 >;
 type SubmissionExam = NonNullable<Awaited<ReturnType<typeof examRepo.findById>>>;
 type ContestSubmissionResult = Awaited<ReturnType<typeof ensureContestParticipation>>;
+
+const SUBMISSION_DISPATCH_TIMEOUT_MS = 3_000;
+
+async function dispatchWithTimeout(payload: SubmissionJudgeJob): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      executeSubmissionJudgeDispatch(payload),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("Judge worker dispatch timed out.")),
+          SUBMISSION_DISPATCH_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 function buildSubmissionJudgeJob(
   payload: SubmissionDraft,
@@ -481,12 +507,27 @@ export async function submitAndDispatch(
   const submission = await createQueuedSubmissionRecord(payload, actor, clientIp);
   const judgeJob = buildSubmissionJudgeJob(payload, submission.id);
 
-  void executeSubmissionJudgeDispatch(judgeJob).catch((error: unknown) => {
-    console.warn("[submission] immediate judge dispatch deferred", {
-      submissionId: submission.id,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  });
+  try {
+    await dispatchWithTimeout(judgeJob);
+  } catch (error) {
+    await Promise.allSettled([
+      durableWorkRepo.cancel({
+        kind: SUBMISSION_JUDGE_DISPATCH_WORK_KIND,
+        dedupeKey: submission.id,
+        now: new Date(),
+      }),
+      submissionRepo.completeIfInProgress(submission.id, {
+        status: "system_error",
+        verdictSummary: toJsonValue(
+          deriveSystemErrorVerdictSummary(
+            "Judge worker unavailable: " +
+              (error instanceof Error ? error.message : String(error)),
+          ),
+        ),
+      }),
+    ]);
+    throw new ServiceUnavailableError("Judge worker is unavailable. Please try again.");
+  }
 
   return submission;
 }

@@ -163,10 +163,6 @@
     >
       {m.grading_openButton()}
     </Button>
-  {:else}
-    <p class="text-caption text-muted-foreground">
-      {m.grading_availableAfterClose()}
-    </p>
   {/if}
 {/snippet}
 
@@ -208,38 +204,42 @@
         </span>
       {/if}
     {/snippet}
-  </AssessmentHero>
-
-  <StatRail>
-    <StatTile
-      label={detail.dueAt ? m.assignmentDetail_metaDueAt() : m.assignmentDetail_metaClosesAt()}
-    >
-      {#snippet value()}<Countdown iso={targetIso} />{/snippet}
-    </StatTile>
-    <StatTile label={m.assignmentDetail_metaProgress()}>
-      {#snippet value()}
-        {solved}<span class="text-muted-foreground"
-          >/{m.assignmentDetail_problemsCountWithUnit({ count: detail.problemCount })}</span
+    {#snippet meta()}
+      <StatRail>
+        <StatTile
+          embedded
+          label={detail.dueAt
+            ? m.assignmentDetail_metaDueAt()
+            : m.assignmentDetail_metaClosesAt()}
         >
-      {/snippet}
-    </StatTile>
-    <StatTile label={m.assignmentDetail_metaScore()}>
-      {#snippet value()}
-        {myScore}<span class="text-muted-foreground">/{detail.totalPoints}</span>
-      {/snippet}
-    </StatTile>
-    <StatTile label={m.assignmentDetail_metaAllowedLanguages()}>
-      {#snippet value()}
-        <span class="text-title-sm">
-          {#if detail.allowedLanguages.length > 0}
-            {detail.allowedLanguages.map(languageLabel).join(" / ")}
-          {:else}
-            {m.assignmentDetail_metaAttemptsUnlimited2()}
-          {/if}
-        </span>
-      {/snippet}
-    </StatTile>
-  </StatRail>
+          {#snippet value()}<Countdown iso={targetIso} />{/snippet}
+        </StatTile>
+        <StatTile embedded label={m.assignmentDetail_metaProgress()}>
+          {#snippet value()}
+            {solved}<span class="text-muted-foreground"
+              >/{m.assignmentDetail_problemsCountWithUnit({ count: detail.problemCount })}</span
+            >
+          {/snippet}
+        </StatTile>
+        <StatTile embedded label={m.assignmentDetail_metaScore()}>
+          {#snippet value()}
+            {myScore}<span class="text-muted-foreground">/{detail.totalPoints}</span>
+          {/snippet}
+        </StatTile>
+        <StatTile embedded label={m.assignmentDetail_metaAllowedLanguages()}>
+          {#snippet value()}
+            <span class="text-title-sm">
+              {#if detail.allowedLanguages.length > 0}
+                {detail.allowedLanguages.map(languageLabel).join(" / ")}
+              {:else}
+                {m.assignmentDetail_metaAttemptsUnlimited2()}
+              {/if}
+            </span>
+          {/snippet}
+        </StatTile>
+      </StatRail>
+    {/snippet}
+  </AssessmentHero>
 
   {#if data.mode === "student"}
     <GlassPanel class="overflow-hidden">

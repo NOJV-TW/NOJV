@@ -52,7 +52,7 @@
           { href: "/problems", label: m.navigation_problems(), icon: Code2 },
           { href: "/submissions", label: m.navigation_submissions(), icon: History },
           { href: "/courses", label: m.navigation_courses(), icon: GraduationCap },
-          ...(effectiveRole === "student"
+          ...(effectiveRole === "student" || actingAsAdmin
             ? [
                 {
                   href: "/assignments",

@@ -196,59 +196,61 @@
         </div>
       {/if}
     {/snippet}
-  </AssessmentHero>
-
-  <StatRail>
-    <StatTile
-      label={past
-        ? m.examDetail_clockHeld()
-        : liveStatus === "running"
-          ? m.examDetail_clockRunning()
-          : m.examDetail_clockUntilStart()}
-    >
-      {#snippet value()}
-        {#if past}
-          <span class="font-mono">{fmtDate(detail.startsAt)}</span>
-        {:else if liveStatus === "running"}
-          <Countdown iso={detail.endsAt} />
+    {#snippet meta()}
+      <StatRail>
+        <StatTile
+          embedded
+          label={past
+            ? m.examDetail_clockHeld()
+            : liveStatus === "running"
+              ? m.examDetail_clockRunning()
+              : m.examDetail_clockUntilStart()}
+        >
+          {#snippet value()}
+            {#if past}
+              <span class="font-mono">{fmtDate(detail.startsAt)}</span>
+            {:else if liveStatus === "running"}
+              <Countdown iso={detail.endsAt} />
+            {:else}
+              <Countdown iso={detail.startsAt} />
+            {/if}
+          {/snippet}
+        </StatTile>
+        <StatTile embedded label={m.examDetail_clockDurationLabel()}>
+          {#snippet value()}{m.examDetail_durationMinutes({ count: durationMinutes })}{/snippet}
+        </StatTile>
+        <StatTile embedded label={m.examDetail_pointsLabel()}>
+          {#snippet value()}{detail.totalPoints}{/snippet}
+        </StatTile>
+        {#if past && !isManager && detail.viewerScore !== null}
+          <StatTile embedded label={m.examDetail_scoreLabel()}>
+            {#snippet value()}
+              <span style="color: var(--primary);">{detail.viewerScore}</span>
+              <span class="text-body-sm text-muted-foreground"> / {detail.totalPoints}</span>
+            {/snippet}
+          </StatTile>
         {:else}
-          <Countdown iso={detail.startsAt} />
+          <StatTile embedded label={m.examDetail_settingsSectionProctoring()}>
+            {#snippet value()}
+              {#if detail.pageLockEnabled || detail.ipBindingEnabled || detail.ipWhitelistEnabled}
+                <span class="text-title-sm">
+                  {[
+                    detail.pageLockEnabled ? m.examDetail_featurePageLock() : null,
+                    detail.ipBindingEnabled ? m.examDetail_featureIpBinding() : null,
+                    detail.ipWhitelistEnabled ? m.examDetail_featureIpWhitelist() : null,
+                  ]
+                    .filter(Boolean)
+                    .join(m.examDetail_featuresSeparator())}
+                </span>
+              {:else}
+                <span class="text-muted-foreground">—</span>
+              {/if}
+            {/snippet}
+          </StatTile>
         {/if}
-      {/snippet}
-    </StatTile>
-    <StatTile label={m.examDetail_clockDurationLabel()}>
-      {#snippet value()}{m.examDetail_durationMinutes({ count: durationMinutes })}{/snippet}
-    </StatTile>
-    <StatTile label={m.examDetail_pointsLabel()}>
-      {#snippet value()}{detail.totalPoints}{/snippet}
-    </StatTile>
-    {#if past && !isManager && detail.viewerScore !== null}
-      <StatTile label={m.examDetail_scoreLabel()}>
-        {#snippet value()}
-          <span style="color: var(--primary);">{detail.viewerScore}</span>
-          <span class="text-body-sm text-muted-foreground"> / {detail.totalPoints}</span>
-        {/snippet}
-      </StatTile>
-    {:else}
-      <StatTile label={m.examDetail_settingsSectionProctoring()}>
-        {#snippet value()}
-          {#if detail.pageLockEnabled || detail.ipBindingEnabled || detail.ipWhitelistEnabled}
-            <span class="text-title-sm">
-              {[
-                detail.pageLockEnabled ? m.examDetail_featurePageLock() : null,
-                detail.ipBindingEnabled ? m.examDetail_featureIpBinding() : null,
-                detail.ipWhitelistEnabled ? m.examDetail_featureIpWhitelist() : null,
-              ]
-                .filter(Boolean)
-                .join(m.examDetail_featuresSeparator())}
-            </span>
-          {:else}
-            <span class="text-muted-foreground">—</span>
-          {/if}
-        {/snippet}
-      </StatTile>
-    {/if}
-  </StatRail>
+      </StatRail>
+    {/snippet}
+  </AssessmentHero>
 
   {#if form?.error}
     <div
@@ -574,10 +576,6 @@
           >
             {m.grading_openButton()}
           </button>
-        {:else}
-          <span class="inline-flex items-center px-1 py-2 text-caption text-muted-foreground">
-            {m.grading_availableAfterClose()}
-          </span>
         {/if}
       </div>
     {/if}

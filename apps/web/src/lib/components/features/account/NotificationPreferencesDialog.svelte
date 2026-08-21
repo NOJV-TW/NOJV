@@ -216,10 +216,6 @@
         </div>
       </section>
 
-      <p class="text-caption text-muted-foreground">
-        {m.account_notifications_emailOnlyHint()}
-      </p>
-
       <Dialog.Footer>
         <button
           type="button"

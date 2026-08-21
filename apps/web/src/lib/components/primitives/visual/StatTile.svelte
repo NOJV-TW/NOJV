@@ -6,15 +6,21 @@
   interface Props {
     label: string;
     value: Snippet;
+    embedded?: boolean;
     class?: string;
   }
 
-  let { label, value, class: className }: Props = $props();
+  let { label, value, embedded = false, class: className }: Props = $props();
 </script>
 
-<GlassPanel class={cn("flex min-w-[150px] flex-1 flex-col justify-between p-4", className)}>
-  <div class="eyebrow text-muted-foreground">
-    {label}
+{#if embedded}
+  <div class={cn("min-w-[150px] flex-1", className)}>
+    <div class="eyebrow text-muted-foreground">{label}</div>
+    <div class="mt-2 text-title-sm font-semibold tabular-nums">{@render value()}</div>
   </div>
-  <div class="mt-2 text-title-sm font-semibold tabular-nums">{@render value()}</div>
-</GlassPanel>
+{:else}
+  <GlassPanel class={cn("flex min-w-[150px] flex-1 flex-col justify-between p-4", className)}>
+    <div class="eyebrow text-muted-foreground">{label}</div>
+    <div class="mt-2 text-title-sm font-semibold tabular-nums">{@render value()}</div>
+  </GlassPanel>
+{/if}

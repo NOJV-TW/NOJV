@@ -1,16 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { applyAction, enhance as kitEnhance } from "$app/forms";
-  import {
-    AlertTriangle,
-    Archive,
-    ArchiveRestore,
-    Copy,
-    Info,
-    Save,
-    Settings,
-    Trash2,
-  } from "@lucide/svelte";
+  import { Archive, ArchiveRestore, Copy, Info, Save, Settings, Trash2 } from "@lucide/svelte";
   import { superForm } from "sveltekit-superforms/client";
   import { m } from "$lib/paraglide/messages.js";
   import * as Dialog from "$lib/components/primitives/ui/dialog/index.js";
@@ -37,6 +28,7 @@
 
   let typedConfirmation = $state("");
   let deleting = $state(false);
+  let deleteOpen = $state(false);
   let copying = $state(false);
   let copyOpen = $state(false);
   let copyTitleInput = $state(untrack(() => data.copyPreview?.suggestedTitle ?? ""));
@@ -225,89 +217,47 @@
   </section>
 
   <section
-    class="animate-in animate-in-2 rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur-sm"
+    class="animate-in animate-in-2 rounded-xl border border-destructive/30 bg-destructive/[0.04] p-5"
   >
-    <div class="mb-6 flex items-start gap-3.5">
-      <span
-        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"
-        aria-hidden="true"
+    <div class="mb-5 flex justify-end">
+      <form
+        method="POST"
+        action="?/toggleArchive"
+        use:kitEnhance={() => {
+          archiveSubmitting = true;
+          archivedLocal = !archivedLocal;
+          return async ({ result, update }) => {
+            archiveSubmitting = false;
+            if (result.type !== "success") {
+              archivedLocal = !archivedLocal;
+            } else {
+              toasts.success(
+                archivedLocal
+                  ? m.courseSettings_archiveSuccess()
+                  : m.courseSettings_unarchiveSuccess(),
+              );
+            }
+            await applyAction(result);
+            await update({ reset: false });
+          };
+        }}
       >
-        {#if archivedLocal}
-          <ArchiveRestore aria-hidden="true" class="h-5 w-5" />
-        {:else}
-          <Archive aria-hidden="true" class="h-5 w-5" />
-        {/if}
-      </span>
-      <div>
-        <h2 class="text-title-sm font-medium tracking-[-0.01em]">
-          {archivedLocal
-            ? m.courseSettings_archiveCardTitleArchived()
-            : m.courseSettings_archiveCardTitleActive()}
-        </h2>
-        <p class="mt-1 text-caption text-muted-foreground">
-          {m.courseSettings_archiveCardDesc()}
-        </p>
-      </div>
-    </div>
-
-    <form
-      method="POST"
-      action="?/toggleArchive"
-      use:kitEnhance={() => {
-        archiveSubmitting = true;
-        archivedLocal = !archivedLocal;
-        return async ({ result, update }) => {
-          archiveSubmitting = false;
-          if (result.type !== "success") {
-            archivedLocal = !archivedLocal;
-          } else {
-            toasts.success(
-              archivedLocal
-                ? m.courseSettings_archiveSuccess()
-                : m.courseSettings_unarchiveSuccess(),
-            );
-          }
-          await applyAction(result);
-          await update({ reset: false });
-        };
-      }}
-    >
-      <input type="hidden" name="archived" value={String(!archivedLocal)} />
-      <Button
-        type="submit"
-        variant="outline"
-        loading={archiveSubmitting}
-        disabled={archiveSubmitting}
-      >
-        {#if archivedLocal}
-          <ArchiveRestore class="h-4 w-4" aria-hidden="true" />
-          {m.courseSettings_unarchiveButton()}
-        {:else}
-          <Archive class="h-4 w-4" aria-hidden="true" />
-          {m.courseSettings_archiveButton()}
-        {/if}
-      </Button>
-    </form>
-  </section>
-
-  <section
-    class="animate-in animate-in-3 rounded-xl border border-destructive/30 bg-destructive/[0.04] p-5"
-  >
-    <div class="mb-6 flex items-start gap-3.5">
-      <span
-        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-destructive/15 text-destructive"
-        aria-hidden="true"
-      >
-        <AlertTriangle aria-hidden="true" class="h-5 w-5" />
-      </span>
-      <div>
-        <h2 class="text-title-sm font-medium tracking-[-0.01em] text-destructive">
-          {m.courseSettings_dangerCardTitle()}
-        </h2>
-        <p class="mt-1 text-caption text-muted-foreground">
-          {m.courseSettings_dangerCardDesc()}
-        </p>
-      </div>
+        <input type="hidden" name="archived" value={String(!archivedLocal)} />
+        <Button
+          type="submit"
+          variant="outline"
+          loading={archiveSubmitting}
+          disabled={archiveSubmitting}
+        >
+          {#if archivedLocal}
+            <ArchiveRestore class="h-4 w-4" aria-hidden="true" />
+            {m.courseSettings_unarchiveButton()}
+          {:else}
+            <Archive class="h-4 w-4" aria-hidden="true" />
+            {m.courseSettings_archiveButton()}
+          {/if}
+        </Button>
+      </form>
     </div>
 
     {#if dangerBanner}
@@ -316,7 +266,6 @@
         aria-live="polite"
         class="mb-4 flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/15 px-4 py-3 text-destructive"
       >
-        <AlertTriangle class="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
         <p class="text-body-sm font-medium leading-snug">{dangerBanner}</p>
       </div>
     {/if}
@@ -347,46 +296,10 @@
           {m.courseSettings_deleteDesc()}
         </p>
 
-        <form
-          method="POST"
-          action="?/deleteCourse"
-          use:kitEnhance={() => {
-            deleting = true;
-            return async ({ result, update }) => {
-              deleting = false;
-              if (result.type === "redirect") {
-                toasts.success(m.courseSettings_deleteSuccess());
-              }
-              await applyAction(result);
-              await update({ reset: false });
-            };
-          }}
-          class="mt-3 rounded-md border border-dashed border-destructive/30 bg-[color:var(--color-panel)] px-4 py-3.5"
-        >
-          <label for="typedConfirmation" class="text-caption font-medium text-muted-foreground">
-            {m.courseSettings_deleteConfirmLabel({ title: courseTitle })}
-          </label>
-          <input
-            id="typedConfirmation"
-            name="typedConfirmation"
-            type="text"
-            bind:value={typedConfirmation}
-            placeholder={courseTitle}
-            class="mt-1.5 w-full rounded-sm border border-border bg-transparent px-3 py-2 font-mono text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
-            autocomplete="off"
-          />
-          <div class="mt-3 flex items-center justify-end">
-            <Button
-              type="submit"
-              variant="destructive"
-              loading={deleting}
-              disabled={!canDelete || deleting}
-            >
-              <Trash2 class="h-4 w-4" aria-hidden="true" />
-              {m.courseSettings_deleteButton()}
-            </Button>
-          </div>
-        </form>
+        <Button class="mt-3" variant="destructive" onclick={() => (deleteOpen = true)}>
+          <Trash2 class="h-4 w-4" aria-hidden="true" />
+          {m.courseSettings_deleteButton()}
+        </Button>
       </div>
     </div>
   </section>
@@ -486,5 +399,57 @@
         </Dialog.Footer>
       </form>
     {/if}
+  </Dialog.Content>
+</Dialog.Root>
+
+<Dialog.Root bind:open={deleteOpen}>
+  <Dialog.Content class="max-w-lg">
+    <Dialog.Header>
+      <Dialog.Title>{m.courseSettings_deleteTitle()}</Dialog.Title>
+      <Dialog.Description>{m.courseSettings_deleteDesc()}</Dialog.Description>
+    </Dialog.Header>
+    <form
+      method="POST"
+      action="?/deleteCourse"
+      use:kitEnhance={() => {
+        deleting = true;
+        return async ({ result, update }) => {
+          deleting = false;
+          if (result.type === "redirect") {
+            toasts.success(m.courseSettings_deleteSuccess());
+          }
+          await applyAction(result);
+          await update({ reset: false });
+        };
+      }}
+      class="space-y-4"
+    >
+      <label for="typedConfirmation" class="text-caption font-medium text-muted-foreground">
+        {m.courseSettings_deleteConfirmLabel({ title: courseTitle })}
+      </label>
+      <input
+        id="typedConfirmation"
+        name="typedConfirmation"
+        type="text"
+        bind:value={typedConfirmation}
+        placeholder={courseTitle}
+        class="w-full rounded-sm border border-border bg-transparent px-3 py-2 font-mono text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+        autocomplete="off"
+      />
+      <Dialog.Footer>
+        <Button type="button" variant="outline" onclick={() => (deleteOpen = false)}>
+          {m.courseSettings_copyCancel()}
+        </Button>
+        <Button
+          type="submit"
+          variant="destructive"
+          loading={deleting}
+          disabled={!canDelete || deleting}
+        >
+          <Trash2 class="h-4 w-4" aria-hidden="true" />
+          {m.courseSettings_deleteButton()}
+        </Button>
+      </Dialog.Footer>
+    </form>
   </Dialog.Content>
 </Dialog.Root>

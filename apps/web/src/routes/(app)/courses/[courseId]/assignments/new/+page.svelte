@@ -1,13 +1,12 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { ChevronRight, Info } from "@lucide/svelte";
+  import { ChevronRight } from "@lucide/svelte";
   import { superForm } from "sveltekit-superforms/client";
   import { supportedLanguages, type Language } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { minutesToHHMM, hhmmToMinutes } from "$lib/utils/attempt-reset-time";
   import { Button } from "$lib/components/primitives/ui/button";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
-  import PageHero from "$lib/components/primitives/layout/PageHero.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import LatePenaltyRuleBuilder, {
     type LatePenaltyRule,
@@ -32,6 +31,7 @@
   );
 
   let advancedOpen = $state(true);
+  let attemptsEnabled = $state(false);
 
   function toggleLanguage(lang: Language) {
     $form.allowedLanguages = toggleArrayItem($form.allowedLanguages ?? [], lang);
@@ -48,17 +48,6 @@
 </script>
 
 <PageContainer width="form">
-  <PageHero
-    variant="workspace"
-    breadcrumbHref={`/courses/${courseId}/assignments`}
-    breadcrumbLabel={m.assignmentCreate_breadcrumb()}
-    eyebrow={m.assignmentCreate_eyebrow()}
-    title={m.assignmentCreate_title()}
-  />
-  <p class="animate-in mt-4 mb-8 max-w-2xl text-body-sm text-muted-foreground">
-    {m.assignmentCreate_subtitle()}
-  </p>
-
   <form method="POST" use:enhance class="animate-in animate-in-1 space-y-6">
     <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
 
@@ -97,18 +86,6 @@
           bind:problemIds={$form.problemIds}
           error={$errors.problemIds}
         />
-      </div>
-
-      <div
-        class="mt-4 flex items-start gap-3.5 rounded-md border border-dashed border-info/30 bg-info/5 px-5 py-4 text-body-sm leading-relaxed text-muted-foreground"
-      >
-        <Info class="mt-0.5 size-5 shrink-0 text-info" aria-hidden="true" />
-        <div>
-          <strong class="font-semibold text-foreground"
-            >{m.assignmentCreate_emptyAllowedHeadline()}</strong
-          >
-          {m.assignmentCreate_emptyAllowedHint()}
-        </div>
       </div>
     </StepCard>
 
@@ -191,6 +168,11 @@
 
       {#if advancedOpen}
         <div class="mt-6 space-y-6 border-t border-border-subtle pt-6">
+          <label class="flex items-center gap-2 text-body-sm font-medium">
+            <input type="checkbox" bind:checked={attemptsEnabled} />
+            {m.assignmentCreate_attemptsToggle()}
+          </label>
+
           <div>
             <label class="text-body-sm font-medium" for="allowedLanguages">
               {m.assignmentCreate_languagesLabel()}
@@ -214,51 +196,53 @@
             </div>
           </div>
 
-          <div>
-            <label class="text-body-sm font-medium" for="maxAttemptsPerDay">
-              {m.assignmentCreate_maxAttemptsLabel()}
-            </label>
-            <input
-              id="maxAttemptsPerDay"
-              name="maxAttemptsPerDay"
-              type="number"
-              min="1"
-              max="999"
-              placeholder={m.assignmentCreate_maxAttemptsPlaceholder()}
-              bind:value={$form.maxAttemptsPerDay}
-              class="mt-2 {inputClass} max-w-[200px]"
-            />
-            <p class="mt-1 text-caption text-muted-foreground">
-              {m.assignmentCreate_maxAttemptsDesc()}
-            </p>
-            {#if $errors.maxAttemptsPerDay}
-              <p class="mt-1 text-caption text-destructive">
-                {$errors.maxAttemptsPerDay}
+          {#if attemptsEnabled}
+            <div>
+              <label class="text-body-sm font-medium" for="maxAttemptsPerDay">
+                {m.assignmentCreate_maxAttemptsLabel()}
+              </label>
+              <input
+                id="maxAttemptsPerDay"
+                name="maxAttemptsPerDay"
+                type="number"
+                min="1"
+                max="999"
+                placeholder={m.assignmentCreate_maxAttemptsPlaceholder()}
+                bind:value={$form.maxAttemptsPerDay}
+                class="mt-2 {inputClass} max-w-[200px]"
+              />
+              <p class="mt-1 text-caption text-muted-foreground">
+                {m.assignmentCreate_maxAttemptsDesc()}
               </p>
-            {/if}
-          </div>
+              {#if $errors.maxAttemptsPerDay}
+                <p class="mt-1 text-caption text-destructive">
+                  {$errors.maxAttemptsPerDay}
+                </p>
+              {/if}
+            </div>
 
-          <div>
-            <label class="text-body-sm font-medium" for="attemptResetTime">
-              {m.assignmentDetail_settingsResetTimeLabel()}
-            </label>
-            <input
-              id="attemptResetTime"
-              type="time"
-              value={minutesToHHMM($form.attemptResetMinuteOfDay)}
-              oninput={(e) =>
-                ($form.attemptResetMinuteOfDay = hhmmToMinutes(e.currentTarget.value))}
-              class="mt-2 {inputClass} max-w-[200px]"
-            />
-            <input
-              type="hidden"
-              name="attemptResetMinuteOfDay"
-              value={$form.attemptResetMinuteOfDay ?? 300}
-            />
-            <p class="mt-1 text-caption text-muted-foreground">
-              {m.assignmentDetail_settingsResetTimeDesc()}
-            </p>
-          </div>
+            <div>
+              <label class="text-body-sm font-medium" for="attemptResetTime">
+                {m.assignmentDetail_settingsResetTimeLabel()}
+              </label>
+              <input
+                id="attemptResetTime"
+                type="time"
+                value={minutesToHHMM($form.attemptResetMinuteOfDay)}
+                oninput={(e) =>
+                  ($form.attemptResetMinuteOfDay = hhmmToMinutes(e.currentTarget.value))}
+                class="mt-2 {inputClass} max-w-[200px]"
+              />
+              <input
+                type="hidden"
+                name="attemptResetMinuteOfDay"
+                value={$form.attemptResetMinuteOfDay ?? 300}
+              />
+              <p class="mt-1 text-caption text-muted-foreground">
+                {m.assignmentDetail_settingsResetTimeDesc()}
+              </p>
+            </div>
+          {/if}
 
           <div>
             <label class="text-body-sm font-medium" for="latePenalty">

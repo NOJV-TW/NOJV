@@ -384,12 +384,12 @@
   {:else}
     <div class="space-y-6">
       <div class="grid gap-4 lg:grid-cols-2">
-        <Card variant="surface" size="lg" data-tour="dashboard-stats">
-          <div class="flex flex-col gap-6">
+        <Card variant="surface" size="md" data-tour="dashboard-stats">
+          <div class="flex flex-col gap-4">
             <div class="flex items-baseline justify-between gap-4">
               <h2 class="text-title-sm font-semibold">{m.dashboard_statsTitle()}</h2>
               <span class="text-caption text-muted-foreground">
-                {m.dashboard_last30Days()}
+                {m.dashboard_allTime()}
               </span>
             </div>
             <div class="grid grid-cols-2 gap-x-6 gap-y-5">
@@ -535,7 +535,7 @@
               <div
                 class="pointer-events-none absolute inset-x-0 top-[45%] flex -translate-y-1/2 flex-col items-center"
               >
-                <span class="text-headline font-semibold leading-none tabular-nums">
+                <span class="text-title-sm font-semibold leading-none tabular-nums">
                   {acRate}
                 </span>
                 <span class="mt-1 text-caption text-muted-foreground">
@@ -586,7 +586,7 @@
                   </td>
                   <td class="py-3.5 pr-6">
                     <a
-                      href="/problems/{sub.problem.id}"
+                      href="/submissions/{sub.id}"
                       class="block truncate font-medium hover:underline"
                     >
                       {formatProblemDisplayName(sub.problem)}

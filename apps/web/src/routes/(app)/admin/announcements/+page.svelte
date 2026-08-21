@@ -58,7 +58,6 @@
 </script>
 
 {#snippet announcementsActions()}
-  <Badge variant="muted" size="sm">{data.announcements.length}</Badge>
   <Button
     variant="default"
     size="default"

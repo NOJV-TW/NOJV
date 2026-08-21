@@ -66,6 +66,7 @@ vi.mock("@nojv/db", () => {
       withTx: () => ({ findById: problemFindById }),
     },
     durableWorkRepo: {
+      cancel: durableWorkCancel,
       enqueueMany: durableWorkEnqueueMany,
       withTx: () => ({ enqueue: durableWorkEnqueue, cancel: durableWorkCancel }),
     },
@@ -775,35 +776,31 @@ describe("submitAndDispatch", () => {
     expect(transactionState.depth).toBe(0);
   });
 
-  it("keeps the submission queued when immediate dispatch fails", async () => {
+  it("fails fast and marks the submission as a system error when dispatch fails", async () => {
     dispatchSubmissionJudge.mockRejectedValue(new Error("Temporal unavailable"));
-    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    try {
-      await expect(submitAndDispatch(baseDraft, fakeActor, "127.0.0.1")).resolves.toEqual(
-        expect.objectContaining({ status: "queued" }),
-      );
-      await vi.waitFor(() => expect(warning).toHaveBeenCalledOnce());
-      expect(durableWorkEnqueue).toHaveBeenCalledTimes(1);
-      expect(submissionCompleteIfInProgress).not.toHaveBeenCalled();
-      expect(warning).toHaveBeenCalledWith(
-        "[submission] immediate judge dispatch deferred",
-        expect.objectContaining({
-          submissionId: expect.any(String),
-          error: "Temporal unavailable",
-        }),
-      );
-    } finally {
-      warning.mockRestore();
-    }
+    await expect(submitAndDispatch(baseDraft, fakeActor, "127.0.0.1")).rejects.toMatchObject({
+      status: 503,
+    });
+    expect(durableWorkEnqueue).toHaveBeenCalledTimes(1);
+    expect(submissionCompleteIfInProgress).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ status: "system_error" }),
+    );
+    expect(durableWorkCancel).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "submission.judge.dispatch" }),
+    );
   });
 
-  it("returns the queued submission without waiting for Temporal", async () => {
+  it("fails instead of waiting indefinitely for Temporal", async () => {
     dispatchSubmissionJudge.mockReturnValue(new Promise(() => {}));
 
-    await expect(submitAndDispatch(baseDraft, fakeActor, "127.0.0.1")).resolves.toEqual(
-      expect.objectContaining({ status: "queued" }),
-    );
+    await expect(submitAndDispatch(baseDraft, fakeActor, "127.0.0.1")).rejects.toMatchObject({
+      status: 503,
+    });
     expect(durableWorkEnqueue).toHaveBeenCalledTimes(1);
+    expect(submissionCompleteIfInProgress).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ status: "system_error" }),
+    );
   });
 });

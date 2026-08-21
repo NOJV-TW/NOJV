@@ -124,7 +124,7 @@ export const courseAssignmentFormSchema = z
     opensAt: z.string().trim().min(1),
     problemIds: z.array(z.string().trim().min(1)).max(64).default([]),
     status: z.enum(["draft", "published"]).default("draft"),
-    title: z.string().trim().min(3).max(120),
+    title: z.string().trim().min(1).max(120),
   })
   .superRefine((value, ctx) => {
     const opensAt = new Date(value.opensAt);

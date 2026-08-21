@@ -109,9 +109,11 @@ export async function loadProblemSolveData(
     listProblemSubmissions(
       actor.userId,
       problemId,
-      context.kind === "assignment" || context.kind === "exam"
+      context.kind === "assignment"
         ? { assignmentId: context.assignmentId, courseId: context.courseId }
-        : undefined,
+        : context.kind === "contest"
+          ? { contestId: context.contestId }
+          : undefined,
     ),
     canOperateOnSubmission(
       {

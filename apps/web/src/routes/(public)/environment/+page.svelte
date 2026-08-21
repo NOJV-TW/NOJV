@@ -74,4 +74,5 @@
       </table>
     </div>
   </Card>
+  <p class="max-w-3xl text-caption text-muted-foreground">{m.environment_typescriptNote()}</p>
 </div>

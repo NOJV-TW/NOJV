@@ -189,7 +189,7 @@
       />
     </Card>
 
-    <Card variant="surface" size="md" class="self-start">
+    <Card variant="surface" size="md" class="h-full">
       <div>
         <h2 class="inline-flex items-center gap-1.5 text-body-sm font-semibold text-foreground">
           <ShieldCheck aria-hidden="true" class="h-3.5 w-3.5" />
@@ -340,21 +340,15 @@
                     >{formatDateTime(row.createdAt)}</td
                   >
                   <td class="px-3 py-2">
-                    <a class="hover:underline" href="/problems/{row.problem.id}"
+                    <a class="hover:underline" href="/submissions/{row.id}"
                       >{formatProblemDisplayName(row.problem)}</a
                     >
                   </td>
                   <td class="px-3 py-2 text-caption">{row.user.username ?? row.user.name}</td>
                   <td class="px-3 py-2">
-                    {#if row.status === "runtime_error"}
-                      <Badge variant="verdict-re" size="xs"
-                        >{row.status.replaceAll("_", " ")}</Badge
-                      >
-                    {:else}
-                      <Badge variant="warning" size="xs"
-                        >{row.status.replaceAll("_", " ")}</Badge
-                      >
-                    {/if}
+                    <span class="font-mono font-semibold text-destructive" title={row.status}
+                      >SE</span
+                    >
                   </td>
                 </tr>
               {/each}

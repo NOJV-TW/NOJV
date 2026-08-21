@@ -17,6 +17,12 @@ vi.mock("$lib/components/primitives/ui/EmptyState.svelte", async () => ({
 vi.mock("$lib/components/primitives/ui/button", async () => ({
   Button: (await import("./fixtures/empty-component.svelte")).default,
 }));
+vi.mock("$lib/components/primitives/ui/select", async () => ({
+  Root: (await import("./fixtures/select-root.svelte")).default,
+  Trigger: (await import("./fixtures/select-trigger.svelte")).default,
+  Content: (await import("./fixtures/select-content.svelte")).default,
+  Item: (await import("./fixtures/select-item.svelte")).default,
+}));
 vi.mock("$app/navigation", () => ({
   goto: mocks.goto,
   invalidateAll: mocks.invalidateAll,

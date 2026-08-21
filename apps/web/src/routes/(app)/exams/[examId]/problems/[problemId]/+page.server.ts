@@ -1,6 +1,6 @@
 import { error, redirect } from "@sveltejs/kit";
 
-import { examDomain } from "@nojv/application";
+import { examDomain, problemDomain } from "@nojv/application";
 
 import { requireAuth } from "$lib/server/auth";
 import { getClientIp } from "$lib/server/shared/client-ip";
@@ -40,11 +40,14 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 
   await examDomain.session.requireActiveSessionForUserExam(actor.userId, examId);
 
-  const view = await examDomain.getExamProblemViewByProblemId({
-    examId,
-    problemId,
-    actorUserId: actor.userId,
-  });
+  const [view, testcaseSets] = await Promise.all([
+    examDomain.getExamProblemViewByProblemId({
+      examId,
+      problemId,
+      actorUserId: actor.userId,
+    }),
+    problemDomain.getProblemTestcaseSets(problemId),
+  ]);
 
   if (!view) {
     error(404, "Problem not found in this exam");
@@ -56,6 +59,14 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     mode: "exam" as const,
     problem: view.problem,
     submissions: view.submissions,
+    testcaseSets: testcaseSets.map((set) => ({
+      id: set.id,
+      name: set.name,
+      description: set.description,
+      weight: set.weight,
+      ordinal: set.ordinal,
+      caseCount: set.testcases.length,
+    })),
     siblingProblems: view.siblingProblems,
     canRejudge: false,
     examContext: {

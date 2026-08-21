@@ -70,6 +70,18 @@
     ].slice(0, 50);
   }
 
+  function handleSubmissionDispatched(submissionId: string, language: string) {
+    submissions = [
+      {
+        id: submissionId,
+        language,
+        submittedAt: new Date().toISOString(),
+        context: context.type,
+      },
+      ...submissions,
+    ].slice(0, 50);
+  }
+
   let leftPanelWidth = $state(42);
   let isResizing = $state(false);
 
@@ -169,6 +181,7 @@
           signal,
           onDispatched: (dispatch) => {
             submissionId = dispatch.submissionId;
+            handleSubmissionDispatched(dispatch.submissionId, uploadLanguage);
           },
         },
       );

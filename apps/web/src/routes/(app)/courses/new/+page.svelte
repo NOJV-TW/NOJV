@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { ArrowRight, ChevronLeft, Info } from "@lucide/svelte";
+  import { ArrowRight, ChevronLeft } from "@lucide/svelte";
   import { superForm } from "sveltekit-superforms/client";
   import { m } from "$lib/paraglide/messages.js";
   import { Button } from "$lib/components/primitives/ui/button";
@@ -139,18 +139,6 @@
             {/if}
           </div>
         </div>
-      </div>
-
-      <div
-        class="mt-5 flex items-start gap-3 rounded-md border border-info/20 bg-info/5 px-4 py-3.5 text-body-sm leading-snug text-muted-foreground"
-      >
-        <Info class="mt-0.5 size-5 shrink-0 text-info" aria-hidden="true" />
-        <p>
-          <strong class="font-semibold text-foreground"
-            >{m.coursesNew_placeholderInfoLead()}</strong
-          >
-          {m.coursesNew_placeholderInfoBody()}
-        </p>
       </div>
     </StepCard>
 

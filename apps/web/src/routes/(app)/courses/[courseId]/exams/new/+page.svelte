@@ -10,7 +10,6 @@
   import { Button } from "$lib/components/primitives/ui/button";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
   import ToggleSwitch from "$lib/components/primitives/ui/ToggleSwitch.svelte";
-  import PageHero from "$lib/components/primitives/layout/PageHero.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import IpWhitelistField from "$lib/components/features/course/exam/IpWhitelistField.svelte";
   import ProblemPicker from "$lib/components/features/course/exam/ProblemPicker.svelte";
@@ -45,17 +44,6 @@
 </script>
 
 <PageContainer width="form" class="space-y-6">
-  <PageHero
-    variant="workspace"
-    breadcrumbHref={`/courses/${courseId}/exams`}
-    breadcrumbLabel={m.examCreate_breadcrumb()}
-    eyebrow={m.examCreate_eyebrow()}
-    title={m.examCreate_title()}
-  />
-  <p class="animate-in max-w-2xl text-body-sm text-muted-foreground">
-    {m.examCreate_subtitle()}
-  </p>
-
   {#if $formMessage?.kind === "success"}
     <p class="text-body-sm text-success">{$formMessage.text}</p>
   {/if}
@@ -69,10 +57,6 @@
       class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
       <header class="mb-6 flex items-center gap-3">
-        <span
-          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-caption font-semibold text-background"
-          >1</span
-        >
         <div>
           <h2 class="text-title-sm font-medium">
             {m.examCreate_basicsCardTitle()}
@@ -121,10 +105,6 @@
       class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
       <header class="mb-6 flex items-center gap-3">
-        <span
-          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-caption font-semibold text-background"
-          >2</span
-        >
         <div>
           <h2 class="text-title-sm font-medium">
             {m.examCreate_problemsCardTitle()}
@@ -146,10 +126,6 @@
       class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
       <header class="mb-6 flex items-center gap-3">
-        <span
-          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-caption font-semibold text-background"
-          >3</span
-        >
         <div>
           <h2 class="text-title-sm font-medium">
             {m.examCreate_scheduleCardTitle()}
@@ -248,10 +224,6 @@
       class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
       <header class="mb-6 flex items-center gap-3">
-        <span
-          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-caption font-semibold text-background"
-          >4</span
-        >
         <div>
           <h2 class="text-title-sm font-medium">
             {m.examCreate_proctoringCardTitle()}
@@ -420,10 +392,6 @@
       class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest backdrop-blur"
     >
       <header class="mb-6 flex items-center gap-3">
-        <span
-          class="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-caption font-semibold text-background"
-          >5</span
-        >
         <div>
           <h2 class="text-title-sm font-medium">
             {m.examCreate_scoringCardTitle()}

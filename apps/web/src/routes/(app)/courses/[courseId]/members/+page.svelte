@@ -172,7 +172,7 @@
 
             {#if isManager}
               <div
-                class="truncate font-mono text-caption text-muted-foreground"
+                class="truncate text-left font-mono text-caption text-muted-foreground"
                 aria-label="email"
               >
                 {member.email ?? "—"}
@@ -188,14 +188,12 @@
             </div>
 
             {#if member.role === "teacher"}
-              <span
-                class="inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-caption font-medium text-primary"
-              >
+              <span class="text-right text-caption font-medium text-primary">
                 {m.members_roleTeacher()}
               </span>
             {:else if isManager}
               <select
-                class="rounded-md border border-border bg-transparent py-1.5 pl-3 pr-2 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                class="rounded-none border-0 border-b border-border bg-transparent py-1.5 pl-1 pr-2 text-right text-caption focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
                 aria-label={m.members_roleFor({ name: member.name })}
                 value={member.role}
                 onchange={(e) => handleRoleChange(e, member.userId, member.role)}

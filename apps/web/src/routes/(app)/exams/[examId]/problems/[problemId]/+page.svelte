@@ -56,6 +56,7 @@
         submissions={data.submissions}
         siblingProblems={data.siblingProblems}
         examContext={data.examContext}
+        testcaseSets={data.testcaseSets}
       />
     </div>
   </div>
