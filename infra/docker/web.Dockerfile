@@ -45,6 +45,7 @@ COPY packages/storage/ packages/storage/
 COPY packages/mailer/ packages/mailer/
 COPY packages/temporal/ packages/temporal/
 COPY packages/application/ packages/application/
+COPY scripts/prepare-wasm-oj-assets.mjs scripts/
 COPY apps/web/ apps/web/
 
 RUN pnpm --filter @nojv/db build
