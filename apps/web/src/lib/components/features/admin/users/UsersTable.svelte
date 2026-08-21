@@ -41,14 +41,23 @@
     users: UsersTableUser[];
     actorId: string | undefined;
     canManageAdmins: boolean;
+    search: string;
+    roleFilter: string;
+    statusFilter: string;
+    onApply: () => void;
   }
 
-  let { users, actorId, canManageAdmins }: Props = $props();
+  let {
+    users,
+    actorId,
+    canManageAdmins,
+    search = $bindable(),
+    roleFilter = $bindable(),
+    statusFilter = $bindable(),
+    onApply,
+  }: Props = $props();
 
   let selected = $state<Set<string>>(new Set());
-  let search = $state("");
-  let roleFilter = $state<PlatformRole | "">("");
-  let statusFilter = $state<"active" | "disabled" | "">("");
 
   $effect(() => {
     void users;
@@ -383,41 +392,6 @@
   </div>
 {/if}
 
-<div class="flex flex-wrap items-end gap-3 border-b border-border-subtle p-4">
-  <label class="min-w-56 flex-1 text-caption font-medium text-muted-foreground">
-    {m.admin_usersFilterSearch()}
-    <input
-      class="mt-1 h-9 w-full rounded-none border-0 border-b border-border bg-transparent px-1 text-body-sm text-foreground shadow-none outline-none focus:border-primary"
-      type="search"
-      bind:value={search}
-      placeholder={m.admin_usersFilterSearch()}
-    />
-  </label>
-  <label class="text-caption font-medium text-muted-foreground">
-    {m.admin_usersFilterRole()}
-    <select
-      class="mt-1 h-9 min-w-32 border-0 border-b border-border bg-transparent px-1 text-body-sm outline-none focus:border-primary"
-      bind:value={roleFilter}
-    >
-      <option value="">{m.admin_usersFilterAll()}</option>
-      <option value="admin">{m.common_roleAdmin()}</option>
-      <option value="teacher">{m.common_roleTeacher()}</option>
-      <option value="student">{m.common_roleStudent()}</option>
-    </select>
-  </label>
-  <label class="text-caption font-medium text-muted-foreground">
-    {m.admin_usersFilterStatus()}
-    <select
-      class="mt-1 h-9 min-w-32 border-0 border-b border-border bg-transparent px-1 text-body-sm outline-none focus:border-primary"
-      bind:value={statusFilter}
-    >
-      <option value="">{m.admin_usersFilterAll()}</option>
-      <option value="active">{m.admin_usersStatusActive()}</option>
-      <option value="disabled">{m.admin_usersStatusDisabled()}</option>
-    </select>
-  </label>
-</div>
-
 <div class="overflow-x-auto">
   <table class="w-full text-body-sm">
     <thead>
@@ -443,6 +417,16 @@
             {m.admin_usersUsername()}
             {@render sortArrow("username")}
           </button>
+          <label class="mt-2 block">
+            <span class="sr-only">{m.admin_usersFilterSearch()}</span>
+            <input
+              class="h-8 w-full min-w-40 rounded-none border-0 border-b border-border bg-transparent px-1 text-caption font-normal text-foreground shadow-none outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-0"
+              type="search"
+              bind:value={search}
+              placeholder={m.admin_usersFilterSearch()}
+              onkeydown={(event) => event.key === "Enter" && onApply()}
+            />
+          </label>
         </th>
         <th class="px-5 py-3 font-medium" aria-sort={ariaSort("email")}>
           <button
@@ -474,6 +458,19 @@
             {m.admin_usersRole()}
             {@render sortArrow("role")}
           </button>
+          <label class="mt-2 block">
+            <span class="sr-only">{m.admin_usersFilterRole()}</span>
+            <select
+              class="h-8 min-w-28 w-full rounded-none border-0 border-b border-border bg-transparent px-1 text-caption font-normal shadow-none outline-none focus:border-ring focus:ring-0"
+              bind:value={roleFilter}
+              onchange={onApply}
+            >
+              <option value="">{m.admin_usersFilterAll()}</option>
+              <option value="admin">{m.common_roleAdmin()}</option>
+              <option value="teacher">{m.common_roleTeacher()}</option>
+              <option value="student">{m.common_roleStudent()}</option>
+            </select>
+          </label>
         </th>
         <th class="px-5 py-3 font-medium">{m.admin_usersAdvancedColumn()}</th>
         <th class="px-5 py-3 font-medium" aria-sort={ariaSort("status")}>
@@ -485,6 +482,18 @@
             {m.admin_usersStatus()}
             {@render sortArrow("status")}
           </button>
+          <label class="mt-2 block">
+            <span class="sr-only">{m.admin_usersFilterStatus()}</span>
+            <select
+              class="h-8 min-w-28 w-full rounded-none border-0 border-b border-border bg-transparent px-1 text-caption font-normal shadow-none outline-none focus:border-ring focus:ring-0"
+              bind:value={statusFilter}
+              onchange={onApply}
+            >
+              <option value="">{m.admin_usersFilterAll()}</option>
+              <option value="active">{m.admin_usersStatusActive()}</option>
+              <option value="disabled">{m.admin_usersStatusDisabled()}</option>
+            </select>
+          </label>
         </th>
         <th class="px-5 py-3 font-medium" aria-sort={ariaSort("createdAt")}>
           <button

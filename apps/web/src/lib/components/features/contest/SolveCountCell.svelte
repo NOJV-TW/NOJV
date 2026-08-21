@@ -24,27 +24,17 @@
 {#if firstAcTime !== null}
   <div
     class="relative flex min-h-[72px] w-full flex-col items-center justify-center gap-0.5 px-2 py-1"
-    style="background: color-mix(in oklab, var(--success) 18%, transparent);"
+    style="background: {isFirstBlood
+      ? 'var(--success-strong)'
+      : 'color-mix(in oklab, var(--success) 18%, transparent)'}; color: {isFirstBlood
+      ? 'var(--background)'
+      : 'color-mix(in oklab, var(--success) 50%, var(--foreground))'};"
+    title={isFirstBlood ? m.contestDetail_firstBlood() : undefined}
   >
-    {#if isFirstBlood}
-      <span
-        class="absolute -top-1 -right-1 inline-grid place-items-center size-3.5 rounded-full text-[8px] font-bold"
-        style="background: var(--chart-4); color: white;"
-        title={m.contestDetail_firstBlood()}
-      >
-        ★
-      </span>
-    {/if}
-    <span
-      class="font-mono text-caption font-semibold tabular-nums"
-      style="color: color-mix(in oklab, var(--success) 50%, var(--foreground));"
-    >
+    <span class="font-mono text-caption font-semibold tabular-nums">
       {fmtTime(firstAcTime)}
     </span>
-    <span
-      class="font-mono text-micro tabular-nums"
-      style="color: color-mix(in oklab, var(--success) 50%, var(--foreground));"
-    >
+    <span class="font-mono text-micro tabular-nums">
       {fmtAttempts(attempts)}
     </span>
   </div>

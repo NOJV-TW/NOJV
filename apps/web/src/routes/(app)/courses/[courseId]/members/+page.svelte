@@ -3,7 +3,7 @@
   import { Search, X } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/stores/toast";
-  import FilterChips from "$lib/components/primitives/ui/FilterChips.svelte";
+  import * as Select from "$lib/components/primitives/ui/select";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import BulkHandleAddPanel from "$lib/components/features/course/BulkHandleAddPanel.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
@@ -19,27 +19,6 @@
 
   let roleFilter = $state<RoleFilter>("all");
   let search = $state("");
-
-  const counts = $derived.by(() => {
-    let all = 0;
-    let teacher = 0;
-    let ta = 0;
-    let student = 0;
-    for (const member of members) {
-      all += 1;
-      if (member.role === "teacher") teacher += 1;
-      else if (member.role === "ta") ta += 1;
-      else if (member.role === "student") student += 1;
-    }
-    return { all, teacher, ta, student };
-  });
-
-  const filterOptions = $derived([
-    { value: "all", label: m.members_tabAll(), count: counts.all },
-    { value: "teacher", label: m.members_tabTeachers(), count: counts.teacher },
-    { value: "ta", label: m.members_tabTas(), count: counts.ta },
-    { value: "student", label: m.members_tabStudents(), count: counts.student },
-  ]);
 
   const filtered = $derived.by(() => {
     const needle = search.trim().toLowerCase();
@@ -102,33 +81,16 @@
     const date = formatDate(iso, { month: "short", day: "numeric", year: undefined });
     return m.members_joinedOn({ date });
   }
+
+  function updateRoleFilter(value: string | undefined): void {
+    roleFilter = !value || value === "__all" ? "all" : (value as RoleFilter);
+  }
 </script>
 
 <PageContainer class="space-y-8">
   {#if isManager}
     <BulkHandleAddPanel form={bulkAddForm} />
   {/if}
-
-  <div class="animate-in animate-in-2 flex flex-wrap items-center gap-4">
-    <FilterChips
-      options={filterOptions}
-      value={roleFilter}
-      onChange={(next) => (roleFilter = next as RoleFilter)}
-      ariaLabel={m.members_title()}
-    />
-    <div class="relative max-w-xs flex-1">
-      <Search
-        class="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-        aria-hidden="true"
-      />
-      <input
-        type="text"
-        bind:value={search}
-        placeholder={m.members_searchPlaceholder()}
-        class="w-full rounded-none border-0 border-b border-border bg-transparent py-2.5 pl-10 pr-1 text-body-sm shadow-none focus-visible:border-ring focus-visible:outline-none focus-visible:ring-0"
-      />
-    </div>
-  </div>
 
   <div class="animate-in animate-in-3">
     {#if filtered.length === 0}
@@ -141,6 +103,64 @@
       <div
         class="overflow-hidden rounded-xl border border-border bg-[color:var(--color-panel)]"
       >
+        <div
+          class="grid items-center gap-4 border-b border-border-subtle px-6 py-2 font-mono text-micro uppercase tracking-wider text-muted-foreground"
+          style="grid-template-columns: auto minmax(0, 1fr) {isManager
+            ? 'minmax(0, 1fr)'
+            : ''} auto auto auto;"
+        >
+          <span aria-hidden="true"></span>
+          <div class="relative min-w-0">
+            <Search
+              class="pointer-events-none absolute left-0 top-1/2 size-3.5 -translate-y-1/2"
+              aria-hidden="true"
+            />
+            <input
+              type="text"
+              bind:value={search}
+              placeholder={m.members_searchPlaceholder()}
+              aria-label={m.members_searchPlaceholder()}
+              class="w-full rounded-none border-0 border-b border-border bg-transparent py-2 pl-6 pr-1 font-mono text-micro uppercase tracking-wider shadow-none focus-visible:border-ring focus-visible:outline-none focus-visible:ring-0"
+            />
+          </div>
+          {#if isManager}<span aria-hidden="true"></span>{/if}
+          <span aria-hidden="true"></span>
+          <Select.Root
+            type="single"
+            value={roleFilter === "all" ? "__all" : roleFilter}
+            onValueChange={updateRoleFilter}
+          >
+            <Select.Trigger
+              class="h-8 max-w-48 justify-end rounded-none border-0 border-b border-border bg-transparent px-1 font-mono text-micro uppercase tracking-wider shadow-none focus-visible:border-ring"
+              aria-label={m.members_roleLabel()}
+            >
+              {#if roleFilter === "all"}
+                {m.members_tabAll()}
+              {:else if roleFilter === "teacher"}
+                {m.members_tabTeachers()}
+              {:else if roleFilter === "ta"}
+                {m.members_tabTas()}
+              {:else}
+                {m.members_tabStudents()}
+              {/if}
+            </Select.Trigger>
+            <Select.Content>
+              <Select.Item value="__all" label={m.members_tabAll()}
+                >{m.members_tabAll()}</Select.Item
+              >
+              <Select.Item value="teacher" label={m.members_tabTeachers()}>
+                {m.members_tabTeachers()}
+              </Select.Item>
+              <Select.Item value="ta" label={m.members_tabTas()}
+                >{m.members_tabTas()}</Select.Item
+              >
+              <Select.Item value="student" label={m.members_tabStudents()}>
+                {m.members_tabStudents()}
+              </Select.Item>
+            </Select.Content>
+          </Select.Root>
+          <span aria-hidden="true"></span>
+        </div>
         {#each filtered as member (member.userId)}
           <div
             class="grid items-center gap-4 border-b border-border-subtle px-6 py-4 transition-colors duration-fast ease-out-soft last:border-b-0 hover:bg-primary/[0.03]"

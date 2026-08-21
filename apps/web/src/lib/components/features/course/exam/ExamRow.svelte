@@ -8,6 +8,7 @@
     endsAt: string | null;
     durationMinutes: number | null;
     scoringMode: "problem_count" | "weighted_count" | "point_sum";
+    totalPoints?: number;
     myStatus: { score: number; totalPoints: number } | null;
   }
 
@@ -39,33 +40,24 @@
   context={exam.courseTitle}
   title={exam.title}
   status={pillStatus(exam.status)}
-  dateIso={exam.startsAt}
+  startsAt={exam.startsAt}
+  endsAt={exam.endsAt}
   {delay}
 >
   {#snippet timing()}
     {#if exam.status === "upcoming" && exam.startsAt}
-      {m.examRow_ctaUpcoming()} <Countdown iso={exam.startsAt} isCompact />
+      <Countdown iso={exam.startsAt} isCompact />
     {:else if exam.status === "running" && exam.endsAt}
-      {m.examRow_ctaRunning()} <Countdown iso={exam.endsAt} isCompact />
-    {:else if exam.status === "ended"}
-      {#if exam.myStatus}
-        {m.examRow_scoreLabel()}
-        <span class="font-semibold text-foreground">{exam.myStatus.score}</span>
-        / {exam.myStatus.totalPoints}
-      {:else if exam.endsAt}
-        {m.examRow_ctaEnded()}
-        {new Date(exam.endsAt).getMonth() + 1}/{new Date(exam.endsAt).getDate()}
-      {/if}
+      <Countdown iso={exam.endsAt} isCompact />
     {/if}
   {/snippet}
   {#snippet foot()}
-    {#if exam.durationMinutes != null}
-      {m.examRow_durationLabel()}
-      {m.examDetail_durationMinutes({ count: exam.durationMinutes })} ·
+    {#if exam.myStatus}
+      {exam.myStatus.score} / {exam.myStatus.totalPoints}
+    {:else if exam.totalPoints != null}
+      — / {exam.totalPoints}
+    {:else}
+      —
     {/if}
-    {m.examRow_scoringLabel()}
-    {exam.scoringMode === "point_sum"
-      ? m.examRow_scoringPointSum()
-      : m.examRow_scoringProblemCount()}
   {/snippet}
 </AssessmentRow>

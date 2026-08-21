@@ -8,7 +8,7 @@
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { formatDate } from "$lib/utils/datetime";
-  import { Flag, Search } from "@lucide/svelte";
+  import { Flag } from "@lucide/svelte";
 
   let { data } = $props();
   let search = $state("");
@@ -55,55 +55,50 @@
         description={m.adminReports_emptyHint()}
       />
     {:else}
-      <div class="flex flex-wrap items-end gap-3 border-b border-border-subtle p-4">
-        <label class="min-w-56 flex-1 text-caption font-medium text-muted-foreground">
-          {m.adminReports_filterSearch()}
-          <span class="relative mt-1 block">
-            <Search
-              class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <input
-              class="h-9 w-full rounded-none border-0 border-b border-border bg-transparent pl-9 pr-1 text-body-sm text-foreground shadow-none outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
-              type="search"
-              bind:value={search}
-              placeholder={m.adminReports_filterSearch()}
-            />
-          </span>
-        </label>
-        <div class="min-w-44">
-          <span class="text-caption font-medium text-muted-foreground"
-            >{m.adminReports_colType()}</span
-          >
-          <Select.Root
-            type="single"
-            value={typeFilter || "__all"}
-            onValueChange={(value) => (typeFilter = value === "__all" ? "" : value)}
-          >
-            <Select.Trigger
-              class="mt-1 h-9 w-full rounded-none border-0 border-b border-border bg-transparent px-1 shadow-none focus-visible:border-ring"
-            >
-              {typeFilter
-                ? typeLabel(typeFilter as "editorial" | "discussion" | "comment")
-                : m.adminReports_filterAll()}
-            </Select.Trigger>
-            <Select.Content>
-              <Select.Item value="__all">{m.adminReports_filterAll()}</Select.Item>
-              <Select.Item value="editorial">{m.adminReports_typeEditorial()}</Select.Item>
-              <Select.Item value="discussion">{m.adminReports_typeDiscussion()}</Select.Item>
-              <Select.Item value="comment">{m.adminReports_typeComment()}</Select.Item>
-            </Select.Content>
-          </Select.Root>
-        </div>
-      </div>
       <div class="overflow-x-auto">
         <table class="w-full text-body-sm">
           <thead>
             <tr
               class="border-b border-border-subtle text-left text-caption text-muted-foreground"
             >
-              <th class="px-3 py-2 font-medium">{m.adminReports_colType()}</th>
-              <th class="px-3 py-2 font-medium">{m.adminReports_colContent()}</th>
+              <th class="px-3 py-2 font-medium">
+                {m.adminReports_colType()}
+                <Select.Root
+                  type="single"
+                  value={typeFilter || "__all"}
+                  onValueChange={(value) => (typeFilter = value === "__all" ? "" : value)}
+                >
+                  <Select.Trigger
+                    class="mt-2 h-8 w-full min-w-28 rounded-none border-0 border-b border-border bg-transparent px-1 text-caption font-normal shadow-none focus-visible:border-ring focus-visible:ring-0"
+                    aria-label={m.adminReports_colType()}
+                  >
+                    {typeFilter
+                      ? typeLabel(typeFilter as "editorial" | "discussion" | "comment")
+                      : m.adminReports_filterAll()}
+                  </Select.Trigger>
+                  <Select.Content>
+                    <Select.Item value="__all">{m.adminReports_filterAll()}</Select.Item>
+                    <Select.Item value="editorial">{m.adminReports_typeEditorial()}</Select.Item
+                    >
+                    <Select.Item value="discussion"
+                      >{m.adminReports_typeDiscussion()}</Select.Item
+                    >
+                    <Select.Item value="comment">{m.adminReports_typeComment()}</Select.Item>
+                  </Select.Content>
+                </Select.Root>
+              </th>
+              <th class="px-3 py-2 font-medium">
+                {m.adminReports_colContent()}
+                <label class="mt-2 block">
+                  <span class="sr-only">{m.adminReports_filterSearch()}</span>
+                  <input
+                    class="h-8 w-full min-w-44 rounded-none border-0 border-b border-border bg-transparent px-1 text-caption font-normal text-foreground shadow-none outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-0"
+                    type="search"
+                    bind:value={search}
+                    placeholder={m.adminReports_filterSearch()}
+                  />
+                </label>
+              </th>
               <th class="px-3 py-2 font-medium">{m.adminReports_colProblem()}</th>
               <th class="px-3 py-2 font-medium">{m.adminReports_colAuthor()}</th>
               <th class="px-3 py-2 font-medium">{m.adminReports_colReporter()}</th>
@@ -127,16 +122,9 @@
                 <td class="px-3 py-3">
                   <span class="font-medium">{typeLabel(report.targetType)}</span>
                 </td>
-                <td class="max-w-xs px-3 py-3">
-                  <span class="font-medium">{report.preview}</span>
-                  {#if report.postTitle}
-                    <span class="text-muted-foreground"> · {report.postTitle}</span>
-                  {/if}
-                  {#if report.targetDeleted}
-                    <span class="text-caption text-muted-foreground">
-                      · {m.adminReports_deletedTarget()}</span
-                    >
-                  {/if}
+                <td class="px-3 py-3 text-caption text-muted-foreground">
+                  <span aria-hidden="true">—</span>
+                  <span class="sr-only">{m.adminReports_colContent()}</span>
                 </td>
                 <td class="px-3 py-3">
                   <a
@@ -159,7 +147,7 @@
             {#if filteredReports.length === 0}
               <tr
                 ><td
-                  colspan="7"
+                  colspan="6"
                   class="px-4 py-10 text-center text-body-sm text-muted-foreground"
                   >{m.submissions_noMatches()}</td
                 ></tr

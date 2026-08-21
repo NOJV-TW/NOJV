@@ -34,7 +34,8 @@
           context={contest.ownerDisplayName}
           title={contest.title}
           status={pillStatus(contest.status)}
-          dateIso={contest.startsAt}
+          startsAt={contest.startsAt}
+          endsAt={contest.endsAt}
           delay={index * 30}
         >
           {#snippet foot()}

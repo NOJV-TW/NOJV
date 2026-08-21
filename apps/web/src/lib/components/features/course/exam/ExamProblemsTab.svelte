@@ -8,6 +8,7 @@
 </script>
 
 <script lang="ts">
+  import { beforeNavigate } from "$app/navigation";
   import { enhance } from "$app/forms";
   import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import Eye from "@lucide/svelte/icons/eye";
@@ -66,6 +67,13 @@
   });
 
   const ids = $derived(editProblems.map((problem) => problem.id));
+  const hasChanges = $derived(
+    ids.join("\0") !== detail.problems.map((problem) => problem.id).join("\0"),
+  );
+
+  beforeNavigate(({ cancel }) => {
+    if (hasChanges && !confirm(m.admin_unsavedChangesMessage())) cancel();
+  });
 
   function reorderProblem(sourceId: string, targetId: string) {
     editProblems = moveItem(
@@ -159,7 +167,7 @@
           <Plus class="size-4" aria-hidden="true" />
           {m.problemPicker_addButton()}
         </Button>
-        {#if ids.length > 0}
+        {#if hasChanges}
           <Button type="submit" form="exam-problems-form" size="sm" variant="default">
             <Save class="size-4" aria-hidden="true" />
             {m.examDetail_problemsEditSaveButton()}

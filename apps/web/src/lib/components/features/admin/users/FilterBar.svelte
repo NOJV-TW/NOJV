@@ -1,6 +1,5 @@
 <script lang="ts">
   import { CircleDot, Shield } from "@lucide/svelte";
-  import { Card } from "$lib/components/primitives/ui/card";
   import { Input } from "$lib/components/primitives/ui/input";
   import FormField from "$lib/components/primitives/ui/FormField.svelte";
   import { m } from "$lib/paraglide/messages.js";
@@ -20,7 +19,7 @@
   }: Props = $props();
 </script>
 
-<Card variant="flat" size="md">
+<div class="border-b border-border-subtle pb-3">
   <div class="flex flex-wrap items-end gap-3">
     <div class="min-w-[240px] flex-1">
       <FormField label={m.admin_usersSearch()} for="search">
@@ -74,4 +73,4 @@
       </select>
     </div>
   </div>
-</Card>
+</div>

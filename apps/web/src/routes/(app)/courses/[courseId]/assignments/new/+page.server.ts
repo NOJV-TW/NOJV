@@ -26,6 +26,7 @@ export const load: PageServerLoad = async (event) => {
       status: "draft",
     },
     zod4(courseAssignmentFormSchema),
+    { errors: false },
   );
 
   const candidateProblems = await listProblemPickerGroups(actor.userId);

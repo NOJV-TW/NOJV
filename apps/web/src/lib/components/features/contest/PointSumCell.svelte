@@ -6,9 +6,10 @@
     score: number;
     attempts: number;
     isPending: boolean;
+    isFirstBlood: boolean;
   }
 
-  let { firstAcTime, score, attempts, isPending }: Props = $props();
+  let { firstAcTime, score, attempts, isPending, isFirstBlood }: Props = $props();
 
   function fmtTime(sec: number): string {
     return String(Math.floor(sec / 60));
@@ -24,18 +25,17 @@
 {#if firstAcTime !== null}
   <div
     class="flex min-h-[72px] w-full flex-col items-center justify-center gap-0.5 px-2 py-1.5"
-    style="background: color-mix(in oklab, var(--success) 18%, transparent);"
+    style="background: {isFirstBlood
+      ? 'var(--success-strong)'
+      : 'color-mix(in oklab, var(--success) 18%, transparent)'}; color: {isFirstBlood
+      ? 'var(--background)'
+      : 'color-mix(in oklab, var(--success) 50%, var(--foreground))'};"
+    title={isFirstBlood ? m.contestDetail_firstBlood() : undefined}
   >
-    <span
-      class="font-mono text-caption font-semibold tabular-nums"
-      style="color: color-mix(in oklab, var(--success) 50%, var(--foreground));"
-    >
+    <span class="font-mono text-caption font-semibold tabular-nums">
       {score}
     </span>
-    <span
-      class="font-mono text-micro tabular-nums"
-      style="color: color-mix(in oklab, var(--success) 50%, var(--foreground));"
-    >
+    <span class="font-mono text-micro tabular-nums">
       {fmtTime(firstAcTime)} · {fmtAttempts(attempts)}
     </span>
   </div>

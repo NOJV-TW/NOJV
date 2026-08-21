@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { applyAction, enhance as kitEnhance } from "$app/forms";
-  import { Archive, ArchiveRestore, Copy, Info, Save, Settings, Trash2 } from "@lucide/svelte";
+  import { Copy, Info, Save, Settings, Trash2 } from "@lucide/svelte";
   import { superForm } from "sveltekit-superforms/client";
   import { m } from "$lib/paraglide/messages.js";
   import * as Dialog from "$lib/components/primitives/ui/dialog/index.js";
@@ -217,9 +217,33 @@
   </section>
 
   <section
-    class="animate-in animate-in-2 rounded-xl border border-destructive/30 bg-destructive/[0.04] p-5"
+    class="animate-in animate-in-2 rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-5 shadow-rest"
   >
-    <div class="mb-5 flex justify-end">
+    {#if dangerBanner}
+      <div
+        role="alert"
+        aria-live="polite"
+        class="mb-4 flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-destructive"
+      >
+        <p class="text-body-sm font-medium leading-snug">{dangerBanner}</p>
+      </div>
+    {/if}
+
+    <div
+      class="flex flex-col gap-4 border-b border-border-subtle pb-5 md:flex-row md:items-center md:justify-between"
+    >
+      <div>
+        <h2 class="text-body-lg font-semibold tracking-[-0.005em]">
+          {#if archivedLocal}
+            {m.courseSettings_archiveCardTitleArchived()}
+          {:else}
+            {m.courseSettings_archiveCardTitleActive()}
+          {/if}
+        </h2>
+        <p class="mt-1.5 max-w-2xl text-caption leading-relaxed text-muted-foreground">
+          {m.courseSettings_archiveCardDesc()}
+        </p>
+      </div>
       <form
         method="POST"
         action="?/toggleArchive"
@@ -250,54 +274,49 @@
           disabled={archiveSubmitting}
         >
           {#if archivedLocal}
-            <ArchiveRestore class="h-4 w-4" aria-hidden="true" />
             {m.courseSettings_unarchiveButton()}
           {:else}
-            <Archive class="h-4 w-4" aria-hidden="true" />
             {m.courseSettings_archiveButton()}
           {/if}
         </Button>
       </form>
     </div>
 
-    {#if dangerBanner}
+    <div class="mt-4 grid gap-3">
       <div
-        role="alert"
-        aria-live="polite"
-        class="mb-4 flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/15 px-4 py-3 text-destructive"
+        class="flex flex-col gap-4 rounded-lg border border-border-subtle bg-background/30 p-4 md:flex-row md:items-center md:justify-between"
       >
-        <p class="text-body-sm font-medium leading-snug">{dangerBanner}</p>
+        <div class="min-w-0">
+          <h3 class="text-body-lg font-semibold tracking-[-0.005em]">
+            {m.courseSettings_copyTitle()}
+          </h3>
+          <p class="mt-1.5 text-caption leading-relaxed text-muted-foreground">
+            {m.courseSettings_copyDesc()}
+          </p>
+        </div>
+        <Button
+          class="shrink-0"
+          variant="outline"
+          onclick={() => (copyOpen = true)}
+          disabled={copying}
+        >
+          <Copy class="h-4 w-4" aria-hidden="true" />
+          {m.courseSettings_copyButton()}
+        </Button>
       </div>
-    {/if}
 
-    <div
-      class="grid grid-cols-1 items-start gap-4 border-b border-destructive/20 py-5 md:grid-cols-[1fr_auto] md:gap-6"
-    >
-      <div>
-        <h3 class="text-body-lg font-semibold tracking-[-0.005em]">
-          {m.courseSettings_copyTitle()}
-        </h3>
-        <p class="mt-1.5 text-caption leading-relaxed text-muted-foreground">
-          {m.courseSettings_copyDesc()}
-        </p>
-      </div>
-      <Button variant="outline" onclick={() => (copyOpen = true)} disabled={copying}>
-        <Copy class="h-4 w-4" aria-hidden="true" />
-        {m.courseSettings_copyButton()}
-      </Button>
-    </div>
-
-    <div class="grid grid-cols-1 items-start gap-4 py-5 md:grid-cols-[1fr_auto] md:gap-6">
-      <div>
-        <h3 class="text-body-lg font-semibold tracking-[-0.005em]">
-          {m.courseSettings_deleteTitle()}
-        </h3>
-        <p class="mt-1.5 text-caption leading-relaxed text-muted-foreground">
-          {m.courseSettings_deleteDesc()}
-        </p>
-
-        <Button class="mt-3" variant="destructive" onclick={() => (deleteOpen = true)}>
-          <Trash2 class="h-4 w-4" aria-hidden="true" />
+      <div
+        class="flex flex-col gap-4 rounded-lg border border-border-subtle bg-background/30 p-4 md:flex-row md:items-center md:justify-between"
+      >
+        <div class="min-w-0">
+          <h3 class="text-body-lg font-semibold tracking-[-0.005em]">
+            {m.courseSettings_deleteTitle()}
+          </h3>
+          <p class="mt-1.5 text-caption leading-relaxed text-muted-foreground">
+            {m.courseSettings_deleteDesc()}
+          </p>
+        </div>
+        <Button class="shrink-0" variant="destructive" onclick={() => (deleteOpen = true)}>
           {m.courseSettings_deleteButton()}
         </Button>
       </div>
@@ -446,7 +465,6 @@
           loading={deleting}
           disabled={!canDelete || deleting}
         >
-          <Trash2 class="h-4 w-4" aria-hidden="true" />
           {m.courseSettings_deleteButton()}
         </Button>
       </Dialog.Footer>

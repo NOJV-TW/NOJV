@@ -96,6 +96,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         submitCooldownSec: 0,
       },
       zod4(examFormSchema),
+      { errors: false },
     ),
     listProblemPickerGroups(actor.userId),
   ]);

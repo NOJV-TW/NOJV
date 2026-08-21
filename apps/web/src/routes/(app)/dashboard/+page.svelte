@@ -48,10 +48,14 @@
     });
   }
 
+  const verdictTotal = $derived(
+    analytics.byVerdict.reduce((total, entry) => total + entry.count, 0),
+  );
+  const acceptedAttempts = $derived(
+    analytics.byVerdict.find((entry) => entry.status === "accepted")?.count ?? 0,
+  );
   const acRate = $derived(
-    stats.totalAttemptedProblems > 0
-      ? ((stats.totalAc / stats.totalAttemptedProblems) * 100).toFixed(1) + "%"
-      : "0%",
+    verdictTotal > 0 ? ((acceptedAttempts / verdictTotal) * 100).toFixed(1) + "%" : "0%",
   );
 
   const hasDifficultyData = $derived(analytics.byDifficulty.some((d) => d.acCount > 0));
@@ -535,10 +539,10 @@
               <div
                 class="pointer-events-none absolute inset-x-0 top-[45%] flex -translate-y-1/2 flex-col items-center"
               >
-                <span class="text-title-sm font-semibold leading-none tabular-nums">
+                <span class="text-body-lg font-semibold leading-none tabular-nums">
                   {acRate}
                 </span>
-                <span class="mt-1 text-caption text-muted-foreground">
+                <span class="mt-1 text-micro text-muted-foreground">
                   {m.dashboard_acRate()}
                 </span>
               </div>

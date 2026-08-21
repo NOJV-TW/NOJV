@@ -2,6 +2,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { Card } from "$lib/components/primitives/ui/card";
+  import { verdictTone } from "$lib/utils/verdict-style";
 
   const verdicts = [
     ["AC", () => m.verdicts_ac()],
@@ -36,7 +37,11 @@
       <tbody>
         {#each verdicts as [code, description] (code)}
           <tr class="border-b border-border-subtle last:border-0">
-            <th class="px-4 py-3 text-left font-mono text-body font-semibold">{code}</th>
+            <th
+              class="px-4 py-3 text-left font-mono text-body font-semibold {verdictTone(code)}"
+            >
+              {code}
+            </th>
             <td class="px-4 py-3 text-muted-foreground">{description()}</td>
           </tr>
         {/each}

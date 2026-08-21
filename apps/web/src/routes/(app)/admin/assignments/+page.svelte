@@ -35,7 +35,8 @@
           context={`${assignment.courseTitle} · ${assignment.ownerDisplayName}`}
           title={assignment.title}
           status={pillStatus(assignment.status)}
-          dateIso={assignment.closesAt}
+          startsAt={assignment.opensAt}
+          endsAt={assignment.closesAt}
           delay={index * 30}
         >
           {#snippet foot()}{m.admin_contentProblemCount({

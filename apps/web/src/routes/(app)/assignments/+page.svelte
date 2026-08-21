@@ -11,7 +11,7 @@
 
   let { data }: { data: PageData } = $props();
 
-  const { assignments, counts, currentFilter } = $derived(data);
+  const { assignments, currentFilter } = $derived(data);
 
   function setTab(next: string) {
     const url = new URL(page.url);
@@ -25,10 +25,10 @@
   }
 
   const tabs = $derived([
-    { key: "all", label: m.assignmentsList_tabAll(), count: counts.all },
-    { key: "open", label: m.assignmentsList_tabOpen(), count: counts.open },
-    { key: "upcoming", label: m.assignmentsList_tabUpcoming(), count: counts.upcoming },
-    { key: "closed", label: m.assignmentsList_tabClosed(), count: counts.closed },
+    { key: "all", label: m.assignmentsList_tabAll() },
+    { key: "open", label: m.assignmentsList_tabOpen() },
+    { key: "upcoming", label: m.assignmentsList_tabUpcoming() },
+    { key: "closed", label: m.assignmentsList_tabClosed() },
   ]);
 
   const groups = $derived(
@@ -79,18 +79,11 @@
             role="tab"
             aria-selected={isActive}
             onclick={() => setTab(tab.key)}
-            class="-mb-px inline-flex items-center gap-2 border-b-2 px-5 py-3.5 text-body-sm font-medium transition-colors duration-fast ease-out-soft {isActive
+            class="-mb-px inline-flex items-center gap-2 whitespace-nowrap border-b-2 px-5 py-3.5 text-body-sm font-medium transition-colors duration-fast ease-out-soft {isActive
               ? 'border-primary text-foreground'
               : 'border-transparent text-muted-foreground hover:text-foreground'}"
           >
             <span>{tab.label}</span>
-            <span
-              class="inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-micro font-semibold tabular-nums {isActive
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground'}"
-            >
-              {tab.count}
-            </span>
           </button>
         {/each}
       </div>
@@ -123,9 +116,6 @@
           <section>
             <div class="mb-4 flex items-end gap-3">
               <span class="text-body font-semibold">{g.label}</span>
-              <span class="text-caption text-muted-foreground tabular-nums"
-                >{g.items.length}</span
-              >
               <div class="ml-1 flex-1 border-t border-border-subtle"></div>
             </div>
             <div class="grid gap-2">

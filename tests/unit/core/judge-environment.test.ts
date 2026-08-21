@@ -32,7 +32,7 @@ const expectedCommands: Record<
   rust: { compileCommand: "rustc -O -o main main.rs", runCommand: "./main" },
   typescript: {
     compileCommand: null,
-    runCommand: "node --experimental-strip-types main.ts",
+    runCommand: "node main.ts",
   },
 };
 

@@ -11,6 +11,7 @@
   import LatePenaltyRuleBuilder, {
     type LatePenaltyRule,
   } from "$lib/components/features/course/LatePenaltyRuleBuilder.svelte";
+  import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
   import ProblemPicker from "$lib/components/features/course/exam/ProblemPicker.svelte";
   import type { FormMessage } from "$lib/types/form-message";
   import { toggleArrayItem } from "$lib/utils";
@@ -30,7 +31,7 @@
   );
 
   let advancedOpen = $state(true);
-  let attemptsEnabled = $state(false);
+  let attemptsEnabled = $state(untrack(() => data.form.data.maxAttemptsPerDay != null));
 
   function toggleLanguage(lang: Language) {
     $form.allowedLanguages = toggleArrayItem($form.allowedLanguages ?? [], lang);
@@ -38,6 +39,14 @@
 
   function handleLatePenaltyChange(value: LatePenaltyRule) {
     $form.latePenalty = value;
+  }
+
+  function toggleAttempts() {
+    attemptsEnabled = !attemptsEnabled;
+    if (!attemptsEnabled) {
+      $form.maxAttemptsPerDay = undefined;
+      $form.attemptResetMinuteOfDay = undefined;
+    }
   }
 
   const inputClass =
@@ -78,9 +87,6 @@
         <h2 class="text-title-sm font-medium tracking-[-0.01em]">
           {m.assignmentCreate_basicsTitle()}
         </h2>
-        <p class="mt-0.5 text-caption text-muted-foreground">
-          {m.assignmentCreate_basicsSubtitle()}
-        </p>
       </div>
 
       <div>
@@ -106,9 +112,6 @@
           <h2 class="text-title-sm font-medium tracking-[-0.01em]">
             {m.assignmentCreate_problemsTitle()}
           </h2>
-          <p class="mt-0.5 text-caption text-muted-foreground">
-            {m.assignmentCreate_problemsSubtitle()}
-          </p>
         </div>
         <div data-tour="assignment-picker">
           <ProblemPicker
@@ -124,14 +127,12 @@
           <h2 class="text-title-sm font-medium tracking-[-0.01em]">
             {m.assignmentCreate_scheduleTitle()} <span class="text-destructive">*</span>
           </h2>
-          <p class="mt-0.5 text-caption text-muted-foreground">
-            {m.assignmentCreate_scheduleSubtitle()}
-          </p>
         </div>
         <div class="grid gap-5 md:grid-cols-3" data-tour="assignment-schedule">
           <div>
             <label class="text-body-sm font-medium" for="opensAt">
               {m.assignmentCreate_opensLabel()}
+              <HelpTooltip text={m.assignmentCreate_opensHint()} />
             </label>
             <input
               id="opensAt"
@@ -149,6 +150,7 @@
           <div>
             <label class="text-body-sm font-medium" for="dueAt">
               {m.assignmentCreate_dueLabel()}
+              <HelpTooltip text={m.assignmentCreate_dueHint()} />
             </label>
             <input
               id="dueAt"
@@ -166,6 +168,7 @@
           <div>
             <label class="text-body-sm font-medium" for="closesAt">
               {m.assignmentCreate_finalDayLabel()}
+              <HelpTooltip text={m.assignmentCreate_finalDayHint()} />
             </label>
             <input
               id="closesAt"
@@ -197,16 +200,13 @@
             <h2 class="text-title-sm font-medium tracking-[-0.01em]">
               {m.assignmentCreate_advancedTitle()}
             </h2>
-            <p class="mt-0.5 text-caption text-muted-foreground">
-              {m.assignmentCreate_advancedSubtitle()}
-            </p>
           </div>
         </button>
 
         {#if advancedOpen}
           <div class="mt-6 space-y-6 border-t border-border-subtle pt-6">
             <label class="flex items-center gap-2 text-body-sm font-medium">
-              <input type="checkbox" bind:checked={attemptsEnabled} />
+              <input type="checkbox" checked={attemptsEnabled} onchange={toggleAttempts} />
               {m.assignmentCreate_attemptsToggle()}
             </label>
 
@@ -214,9 +214,6 @@
               <label class="text-body-sm font-medium" for="allowedLanguages">
                 {m.assignmentCreate_languagesLabel()}
               </label>
-              <p class="mt-1 text-caption text-muted-foreground">
-                {m.assignmentCreate_languagesDesc()}
-              </p>
               <div class="mt-3 flex flex-wrap gap-2">
                 {#each supportedLanguages as lang (lang)}
                   {@const checked = ($form.allowedLanguages ?? []).includes(lang)}
@@ -233,7 +230,7 @@
               </div>
             </div>
 
-            {#if attemptsEnabled}
+            <div class="grid gap-6 md:grid-cols-2 {attemptsEnabled ? '' : 'opacity-50'}">
               <div>
                 <label class="text-body-sm font-medium" for="maxAttemptsPerDay">
                   {m.assignmentCreate_maxAttemptsLabel()}
@@ -246,11 +243,9 @@
                   max="999"
                   placeholder={m.assignmentCreate_maxAttemptsPlaceholder()}
                   bind:value={$form.maxAttemptsPerDay}
-                  class="mt-2 {inputClass} max-w-[200px]"
+                  disabled={!attemptsEnabled}
+                  class="mt-2 {inputClass} max-w-[200px] disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
                 />
-                <p class="mt-1 text-caption text-muted-foreground">
-                  {m.assignmentCreate_maxAttemptsDesc()}
-                </p>
                 {#if $errors.maxAttemptsPerDay}
                   <p class="mt-1 text-caption text-destructive">
                     {$errors.maxAttemptsPerDay}
@@ -268,26 +263,22 @@
                   value={minutesToHHMM($form.attemptResetMinuteOfDay)}
                   oninput={(e) =>
                     ($form.attemptResetMinuteOfDay = hhmmToMinutes(e.currentTarget.value))}
-                  class="mt-2 {inputClass} max-w-[200px]"
+                  disabled={!attemptsEnabled}
+                  class="mt-2 {inputClass} max-w-[200px] disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
                 />
                 <input
                   type="hidden"
                   name="attemptResetMinuteOfDay"
                   value={$form.attemptResetMinuteOfDay ?? 300}
+                  disabled={!attemptsEnabled}
                 />
-                <p class="mt-1 text-caption text-muted-foreground">
-                  {m.assignmentDetail_settingsResetTimeDesc()}
-                </p>
               </div>
-            {/if}
+            </div>
 
             <div>
-              <label class="text-body-sm font-medium" for="latePenalty">
+              <label class="text-body-sm font-medium" for="late-penalty-rule">
                 {m.assignmentCreate_latePenaltyLabel()}
               </label>
-              <p class="mt-1 mb-3 text-caption text-muted-foreground">
-                {m.assignmentCreate_latePenaltyDesc()}
-              </p>
               <LatePenaltyRuleBuilder
                 value={$form.latePenalty as LatePenaltyRule}
                 onChange={handleLatePenaltyChange}
@@ -303,9 +294,6 @@
     <div
       class="flex flex-wrap items-center justify-end gap-3 border-t border-border-subtle pt-6"
     >
-      <span class="mr-auto text-caption text-muted-foreground">
-        {m.assignmentCreate_hintDraftTaVisible()}
-      </span>
       <Button href={`/courses/${courseId}/assignments`} variant="ghost">
         {m.assignmentCreate_cancel()}
       </Button>

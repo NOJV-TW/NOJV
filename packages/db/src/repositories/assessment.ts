@@ -145,6 +145,7 @@ export const assessmentRepo = {
       include: {
         _count: { select: { problems: true } },
         course: { select: courseMiniSelect },
+        problems: { select: { problemId: true } },
       },
       orderBy: { opensAt: "desc" },
       where: {

@@ -313,6 +313,22 @@ export const submissionRepo = {
     });
   },
 
+  countByUser(opts: { userId: string; enforceExamConfinement: boolean }) {
+    return prisma.submission.count({
+      where: {
+        ...userFacingSubmissionWhere(opts.userId, opts.enforceExamConfinement),
+        sampleOnly: false,
+        isReferenceSolution: false,
+      },
+    });
+  },
+
+  countAll() {
+    return prisma.submission.count({
+      where: { sampleOnly: false, isReferenceSolution: false },
+    });
+  },
+
   async listByUser(opts: {
     userId: string;
     enforceExamConfinement: boolean;
@@ -413,7 +429,14 @@ export const submissionRepo = {
         contestId: true,
         examId: true,
         assessmentId: true,
-        problem: { select: problemMiniSelect },
+        problem: {
+          select: {
+            ...problemMiniSelect,
+            type: true,
+            advancedConfig: true,
+            testcaseSets: { select: { weight: true } },
+          },
+        },
         user: { select: userMiniSelect },
       },
     });

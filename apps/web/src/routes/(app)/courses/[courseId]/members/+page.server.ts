@@ -36,17 +36,21 @@ const removeSchema = z.object({
 });
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
+  const actor = requireAuth(event);
   const parent = await event.parent();
   const { course, isManager } = parent;
 
   const [members, bulkAddForm] = await Promise.all([
     listMembersForCourse(course.id),
-    superValidate({ handles: "", role: "student" as const }, zod4(bulkAddSchema)),
+    superValidate({ handles: "", role: "student" as const }, zod4(bulkAddSchema), {
+      errors: false,
+    }),
   ]);
 
   const visibleMembers = members
     .filter((member) => member.status === "active")
     .filter((member) => isManager || !member.isPlaceholder)
+    .filter((member) => member.userId !== actor.userId || member.role !== "teacher")
     .map((member) => ({
       userId: member.userId,
       name: member.name,

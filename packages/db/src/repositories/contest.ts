@@ -7,6 +7,8 @@ type TxClient = TransactionClient;
 
 const contestListInclude = {
   _count: { select: { participations: { where: { type: "contest" } }, problems: true } },
+  createdBy: { select: { name: true, username: true } },
+  problems: { select: { points: true } },
 } as const;
 
 export const contestRepo = {
@@ -46,6 +48,14 @@ export const contestRepo = {
         visibility: "published",
         participations: { some: { type: "contest", userId } },
       },
+    });
+  },
+
+  async listScoresForUser(userId: string, contestIds: string[]) {
+    if (contestIds.length === 0) return [];
+    return prisma.participation.findMany({
+      where: { type: "contest", userId, contestId: { in: contestIds } },
+      select: { contestId: true, score: true },
     });
   },
 

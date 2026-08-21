@@ -2,6 +2,7 @@ import { courseMembershipRepo, examRepo } from "@nojv/db";
 import type { ContestScoringMode } from "@nojv/core";
 
 import { aggregateExamMyStatus } from "../shared/list-aggregations";
+import { getProblemTotalScores } from "../problem/total-score";
 
 export type ExamAcrossStatus = "running" | "upcoming" | "ended";
 
@@ -18,6 +19,7 @@ export interface ExamAcrossRow {
   durationMinutes: number;
   scoringMode: ContestScoringMode;
   problemCount: number;
+  totalPoints: number;
   myStatus: {
     solved: number;
     total: number;
@@ -76,6 +78,9 @@ export async function listExamsAcrossCoursesForUser(
   }
 
   const flat = await examRepo.listByCourseIds(courseIds);
+  const maxScoreByProblem = await getProblemTotalScores(
+    flat.flatMap((exam) => exam.problems.map((problem) => problem.problemId)),
+  );
 
   const rows: ExamAcrossRow[] = flat.map((e) => {
     const status = deriveStatus(e.startsAt, e.endsAt, now);
@@ -93,6 +98,10 @@ export async function listExamsAcrossCoursesForUser(
       durationMinutes,
       scoringMode: e.scoringMode,
       problemCount: e._count.problems,
+      totalPoints: e.problems.reduce(
+        (sum, problem) => sum + (maxScoreByProblem.get(problem.problemId) ?? 0),
+        0,
+      ),
       myStatus: null,
     };
   });

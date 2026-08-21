@@ -26,7 +26,7 @@
     return () => clearInterval(id);
   });
 
-  function pillStatus(status: AssignmentRow["status"]): string {
+  function statusKind(status: AssignmentRow["status"]): string {
     switch (status) {
       case "upcoming":
         return "not_started";
@@ -40,24 +40,16 @@
     }
   }
 
-  const solved = $derived(assignment.myStatus?.solved ?? 0);
-  const total = $derived(assignment.myStatus?.total ?? assignment.problemCount);
   const score = $derived(assignment.myStatus?.score ?? 0);
-  const totalPoints = $derived(assignment.myStatus?.totalPoints ?? 0);
-  const status = $derived(pillStatus(assignment.status));
-  const showScore = $derived(
-    assignment.classStats === null &&
-      assignment.status !== "upcoming" &&
-      assignment.status !== "draft",
+  const totalPoints = $derived(assignment.myStatus?.totalPoints ?? assignment.totalPoints);
+  const status = $derived(statusKind(assignment.status));
+  const countdownIso = $derived(
+    assignment.status === "upcoming" ? assignment.opensAt : assignment.closesAt,
   );
 
   const countdown = $derived(
-    assignment.closesAt ? fmtCountdown(diffMs(assignment.closesAt, new Date(now))) : null,
+    countdownIso ? fmtCountdown(diffMs(countdownIso, new Date(now))) : null,
   );
-  const urgent = $derived(
-    !!countdown && !countdown.past && countdown.d < 2 && assignment.status === "open",
-  );
-
   const isManagerRow = $derived(assignment.classStats !== null);
 </script>
 
@@ -68,31 +60,23 @@
   context={assignment.courseTitle}
   title={assignment.title}
   {status}
-  dateIso={assignment.closesAt}
+  startsAt={assignment.opensAt}
+  endsAt={assignment.closesAt}
   {delay}
 >
   {#snippet timing()}
-    {#if assignment.closesAt && countdown}
-      {#if countdown.past}
-        {m.countdown_past()}
-      {:else}
-        {m.assignmentCard_countdownPrefix()}
-        <Countdown iso={assignment.closesAt} isCompact />
-        {#if urgent}
-          <span style="color: var(--primary);">· {m.assignmentCard_dueSoon()}</span>
-        {/if}
-      {/if}
-    {:else}
-      {m.assignmentCard_unscheduled()}
+    {#if countdownIso && countdown && !countdown.past && assignment.status !== "draft"}
+      <Countdown iso={countdownIso} isCompact />
     {/if}
   {/snippet}
   {#snippet foot()}
-    {#if isManagerRow && assignment.classStats}
-      {assignment.classStats.submittedUsers} / {assignment.classStats.totalStudents}
-    {:else if showScore}
-      {score} / {totalPoints}
+    {#if assignment.myStatus}
+      {#if totalPoints != null}{score} / {totalPoints}{:else}{score}{/if}
+    {:else if isManagerRow && assignment.classStats}
+      {#if totalPoints != null}{assignment.classStats.avgScore} / {totalPoints}{:else}{assignment
+          .classStats.avgScore}{/if}
     {:else}
-      {solved} / {total}
+      {totalPoints != null ? `— / ${totalPoints}` : "—"}
     {/if}
   {/snippet}
 </AssessmentRow>

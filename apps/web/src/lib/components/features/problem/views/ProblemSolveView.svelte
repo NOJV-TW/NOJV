@@ -10,6 +10,7 @@
   import MobileWorkspaceBlocker from "../layouts/MobileWorkspaceBlocker.svelte";
   import ProblemSwitcherDrawer from "../layouts/ProblemSwitcherDrawer.svelte";
   import ProblemWorkspace from "../layouts/ProblemWorkspace.svelte";
+  import type { ProblemWorkspaceTimer } from "../layouts/ProblemLeftPanel.svelte";
 
   export interface ProblemSolveSibling {
     id: string;
@@ -54,6 +55,7 @@
     dailyAttempts?: { used: number; max: number | null; resetMinuteOfDay: number } | undefined;
     siblingProblems?: ProblemSolveSibling[] | undefined;
     examContext?: ProblemSolveExamContext | undefined;
+    workspaceTimer?: ProblemWorkspaceTimer | undefined;
   }
 
   let {
@@ -73,6 +75,7 @@
     dailyAttempts,
     siblingProblems,
     examContext,
+    workspaceTimer,
   }: Props = $props();
 
   let submissionContext = $derived.by<SubmissionContext>(() => {
@@ -143,6 +146,7 @@
             {problem}
             requiredPaths={problem.advancedRequiredPaths ?? []}
             {testcaseSets}
+            {workspaceTimer}
           />
         {:else}
           <ProblemWorkspace
@@ -156,6 +160,7 @@
             initialSubmissions={submissions}
             {problem}
             {testcaseSets}
+            {workspaceTimer}
           />
         {/if}
       {/key}

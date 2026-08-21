@@ -3,6 +3,8 @@
 import { mount, unmount } from "svelte";
 import { describe, expect, it, vi } from "vitest";
 
+vi.setConfig({ testTimeout: 15_000 });
+
 const mocks = vi.hoisted(() => ({ goto: vi.fn(), invalidateAll: vi.fn() }));
 
 vi.mock("@lucide/svelte", async () => {

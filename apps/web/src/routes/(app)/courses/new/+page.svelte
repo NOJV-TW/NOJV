@@ -145,9 +145,6 @@
     <div
       class="flex flex-wrap items-center justify-end gap-3 border-t border-border-subtle pt-6"
     >
-      <span class="mr-auto text-caption text-muted-foreground">
-        {m.coursesNew_actionsHint()}
-      </span>
       <Button href="/courses" variant="ghost">{m.common_cancel()}</Button>
       <Button type="submit" disabled={$submitting}>
         {m.coursesNew_submit()}

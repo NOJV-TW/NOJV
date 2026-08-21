@@ -11,8 +11,7 @@
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
   import ContestPoster from "$lib/components/features/contest/ContestPoster.svelte";
   import ContestRowPast from "$lib/components/features/contest/ContestRowPast.svelte";
-  import { contestStatusFor, durationMinutes } from "$lib/components/features/contest/format";
-  import { contestScoringLabel } from "$lib/utils/contest-scoring";
+  import { contestStatusFor } from "$lib/components/features/contest/format";
 
   let { data, form: actionData } = $props();
 
@@ -25,8 +24,6 @@
     return {
       raw: c,
       status,
-      scoringLabel: contestScoringLabel(c.scoringMode),
-      durationMin: durationMinutes(c.startsAt, c.endsAt),
     };
   }
 
@@ -58,10 +55,10 @@
   }
 
   const tabs = $derived([
-    { key: "all", label: m.contestsList_tabAll(), count: all.length },
-    { key: "live", label: m.contestsList_tabLive(), count: live.length },
-    { key: "upcoming", label: m.contestsList_tabUpcoming(), count: upcoming.length },
-    { key: "ended", label: m.contestsList_tabEnded(), count: past.length },
+    { key: "all", label: m.contestsList_tabAll() },
+    { key: "live", label: m.contestsList_tabLive() },
+    { key: "upcoming", label: m.contestsList_tabUpcoming() },
+    { key: "ended", label: m.contestsList_tabEnded() },
   ]);
 
   const allGroups = $derived(
@@ -90,14 +87,14 @@
         {#each items as c, i (c.raw.id)}
           <ContestPoster
             href="/contests/{c.raw.id}"
-            scoringLabel={c.scoringLabel}
+            scoringLabel={c.raw.organizer}
             status={c.status}
             title={c.raw.title}
             summary={c.raw.summary}
             startsAt={c.raw.startsAt}
             endsAt={c.raw.endsAt}
-            durationMin={c.durationMin}
-            participants={c.raw.participantCount}
+            score={c.raw.score}
+            totalPoints={c.raw.totalPoints}
             delay={i * 80}
           />
         {/each}
@@ -109,10 +106,12 @@
         {#each items as c, i (c.raw.id)}
           <ContestRowPast
             href="/contests/{c.raw.id}"
-            scoringLabel={c.scoringLabel}
+            scoringLabel={c.raw.organizer}
             title={c.raw.title}
             startsAt={c.raw.startsAt}
-            participants={c.raw.participantCount}
+            endsAt={c.raw.endsAt}
+            score={c.raw.score}
+            totalPoints={c.raw.totalPoints}
             delay={i * 60}
           />
         {/each}
@@ -163,18 +162,11 @@
             role="tab"
             aria-selected={isActive}
             onclick={() => setTab(tab.key)}
-            class="-mb-px inline-flex items-center gap-2 border-b-2 px-5 py-3.5 text-body-sm font-medium transition-colors duration-fast ease-out-soft {isActive
+            class="-mb-px inline-flex items-center gap-2 whitespace-nowrap border-b-2 px-5 py-3.5 text-body-sm font-medium transition-colors duration-fast ease-out-soft {isActive
               ? 'border-primary text-foreground'
               : 'border-transparent text-muted-foreground hover:text-foreground'}"
           >
             <span>{tab.label}</span>
-            <span
-              class="inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-micro font-semibold tabular-nums {isActive
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground'}"
-            >
-              {tab.count}
-            </span>
           </button>
         {/each}
       </div>
@@ -207,9 +199,6 @@
             <section>
               <div class="mb-4 flex items-end gap-3">
                 <span class="text-body font-semibold">{g.label}</span>
-                <span class="text-caption text-muted-foreground tabular-nums"
-                  >{g.items.length}</span
-                >
                 <div class="ml-1 flex-1 border-t border-border-subtle"></div>
               </div>
               {#if g.past}{@render pastGrid(g.items)}{:else}{@render posterGrid(g.items)}{/if}

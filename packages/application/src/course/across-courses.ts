@@ -4,6 +4,7 @@ import {
   aggregateAssignmentClassStats,
   aggregateAssignmentMyStatus,
 } from "../shared/list-aggregations";
+import { getProblemTotalScores } from "../problem/total-score";
 
 export type AssignmentsTopStatusFilter = "all" | "open" | "upcoming" | "closed";
 
@@ -18,6 +19,7 @@ export interface AssignmentsTopRow {
   opensAt: string | null;
   closesAt: string | null;
   problemCount: number;
+  totalPoints?: number;
   myStatus: {
     solved: number;
     total: number;
@@ -98,6 +100,9 @@ export async function listAssignmentsAcrossCoursesForUser(
     managerCourseIds,
     limit * 3,
   );
+  const maxScoreByProblem = await getProblemTotalScores(
+    rawRows.flatMap((raw) => raw.problems.map((problem) => problem.problemId)),
+  );
 
   interface Mapped {
     row: AssignmentsTopRow;
@@ -115,6 +120,10 @@ export async function listAssignmentsAcrossCoursesForUser(
       opensAt: status === "draft" ? null : raw.opensAt.toISOString(),
       closesAt: status === "draft" ? null : raw.closesAt.toISOString(),
       problemCount: raw._count.problems,
+      totalPoints: raw.problems.reduce(
+        (sum, problem) => sum + (maxScoreByProblem.get(problem.problemId) ?? 0),
+        0,
+      ),
       myStatus: null,
       classStats: null,
     };

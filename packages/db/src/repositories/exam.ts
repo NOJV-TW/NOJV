@@ -10,6 +10,11 @@ const examListInclude = {
   course: { select: courseMiniSelect },
 } as const;
 
+const examAcrossCoursesInclude = {
+  ...examListInclude,
+  problems: { select: { problemId: true } },
+} as const;
+
 export const examRepo = {
   findById(id: string) {
     return prisma.exam.findUnique({ where: { id } });
@@ -44,7 +49,7 @@ export const examRepo = {
   listByCourseIds(courseIds: string[]) {
     return prisma.exam.findMany({
       omit: { plagiarismResults: true },
-      include: examListInclude,
+      include: examAcrossCoursesInclude,
       orderBy: { startsAt: "desc" },
       where: {
         courseId: { in: courseIds },

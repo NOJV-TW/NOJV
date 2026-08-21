@@ -17,7 +17,7 @@ export const load: PageServerLoad = async (event) => {
     redirect(303, "/contests");
   }
   const [form, candidateProblems] = await Promise.all([
-    superValidate(zod4(contestFormSchema)),
+    superValidate(zod4(contestFormSchema), { errors: false }),
     problemDomain.listProblemPickerGroups(actor.userId),
   ]);
   return { form, candidateProblems };

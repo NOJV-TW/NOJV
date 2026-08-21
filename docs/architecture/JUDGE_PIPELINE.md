@@ -27,16 +27,16 @@ The worker writes the merged source files plus testcase + config payloads to a t
 
 Language-specific build, run by the sandbox runner inside the isolated container:
 
-| Language   | Build command                                   | Entry file  |
-| ---------- | ----------------------------------------------- | ----------- |
-| C          | `gcc -O2 -std=c17 -o main ...`                  | `main.c`    |
-| C++        | `g++ -O2 -std=c++20 -o main ...`                | `main.cpp`  |
-| Go         | `go build -o main .` (or single file)           | `main.go`   |
-| Java       | `javac -d . ...` then `java -cp . Main`         | `Main.java` |
-| JavaScript | none; `node main.mjs`                           | `main.mjs`  |
-| Python     | none; `python3 main.py`                         | `main.py`   |
-| Rust       | `rustc -O -o main main.rs`                      | `main.rs`   |
-| TypeScript | none; `node --experimental-strip-types main.ts` | `main.ts`   |
+| Language   | Build command                           | Entry file  |
+| ---------- | --------------------------------------- | ----------- |
+| C          | `gcc -O2 -std=c17 -o main ...`          | `main.c`    |
+| C++        | `g++ -O2 -std=c++20 -o main ...`        | `main.cpp`  |
+| Go         | `go build -o main .` (or single file)   | `main.go`   |
+| Java       | `javac -d . ...` then `java -cp . Main` | `Main.java` |
+| JavaScript | none; `node main.mjs`                   | `main.mjs`  |
+| Python     | none; `python3 main.py`                 | `main.py`   |
+| Rust       | `rustc -O -o main main.rs`              | `main.rs`   |
+| TypeScript | none; `node main.ts`                    | `main.ts`   |
 
 Interpreted languages skip the compile step entirely — a syntax error only surfaces when `execute` tries to run the file.
 

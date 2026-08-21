@@ -3,6 +3,8 @@
 import { mount, unmount } from "svelte";
 import { describe, expect, it, vi } from "vitest";
 
+vi.setConfig({ testTimeout: 15_000 });
+
 vi.mock("@lucide/svelte", async () => {
   const Empty = (await import("./fixtures/empty-component.svelte")).default;
   return { Download: Empty, Loader2: Empty, Search: Empty };

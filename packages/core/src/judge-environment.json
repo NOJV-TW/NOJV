@@ -63,7 +63,7 @@
       "label": "TypeScript",
       "version": { "label": "Node.js", "source": "node" },
       "compileCommand": null,
-      "runCommand": ["node", "--experimental-strip-types", "{source}"]
+      "runCommand": ["node", "{source}"]
     }
   }
 }

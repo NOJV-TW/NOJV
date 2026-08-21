@@ -1,4 +1,13 @@
 <script lang="ts" module>
+  const RANK_COLUMN_WIDTH = 64;
+  const PARTICIPANT_COLUMN_WIDTH = 196;
+  const PROBLEM_COLUMN_WIDTH = 104;
+  const SUMMARY_COLUMN_WIDTH = 96;
+
+  function tableMinWidth(problemCount: number, summaryColumns: number): string {
+    return `${RANK_COLUMN_WIDTH + PARTICIPANT_COLUMN_WIDTH + problemCount * PROBLEM_COLUMN_WIDTH + summaryColumns * SUMMARY_COLUMN_WIDTH}px`;
+  }
+
   const chartColors = [
     "var(--chart-1)",
     "var(--chart-2)",
@@ -12,6 +21,7 @@
     width: number,
     height: number,
     padding: number,
+    durationSeconds = 0,
   ): { color: string; username: string; points: string }[] {
     if (series.length === 0) return [];
     let maxTime = 0;
@@ -22,7 +32,7 @@
         if (pt.score > maxScore) maxScore = pt.score;
       }
     }
-    if (maxTime === 0) maxTime = 1;
+    maxTime = Math.max(maxTime, durationSeconds, 1);
     if (maxScore === 0) maxScore = 1;
 
     const plotW = width - padding * 2;
@@ -41,6 +51,11 @@
         const previousY = height - padding - (previous.score / maxScore) * plotH;
         pathPoints.push(`${String(x)},${String(previousY)}`, `${String(x)},${String(y)}`);
       }
+      const lastPoint = s.points.at(-1) ?? { time: 0, score: 0 };
+      if (lastPoint.time < maxTime) {
+        const lastY = height - padding - (lastPoint.score / maxScore) * plotH;
+        pathPoints.push(`${String(padding + plotW)},${String(lastY)}`);
+      }
       return {
         color: chartColors[i % chartColors.length] ?? "var(--chart-1)",
         username: s.username,
@@ -55,6 +70,7 @@
     height: number,
     padding: number,
     count: number,
+    durationSeconds = 0,
   ): {
     x: { label: string; position: number }[];
     y: { label: string; position: number }[];
@@ -67,14 +83,13 @@
         maxScore = Math.max(maxScore, point.score);
       }
     }
-    maxTime = Math.max(maxTime, 1);
+    maxTime = Math.max(maxTime, durationSeconds, 1);
     maxScore = Math.max(maxScore, 1);
     const plotW = width - padding * 2;
     const plotH = height - padding * 2;
     const yCount = Math.min(count, Math.max(1, Math.floor(maxScore)));
     const formatTime = (seconds: number) => {
-      const minutes = Math.round(seconds / 60);
-      return minutes >= 60 ? `${Math.floor(minutes / 60)}h` : `${minutes}m`;
+      return String(Math.round(seconds / 60));
     };
 
     return {
@@ -255,8 +270,36 @@
     });
   });
 
-  const chartPaths = $derived(buildChartPaths(chart.series, 800, 300, 40));
-  const chartTicks = $derived(buildChartTicks(chart.series, 800, 300, 40, 4));
+  let selectedChartUserId = $state<string | null>(null);
+  const selectedChartSeries = $derived(
+    chart.series.find((series) => series.userId === selectedChartUserId) ??
+      chart.series[0] ??
+      null,
+  );
+
+  $effect(() => {
+    const firstUserId = chart.series[0]?.userId ?? null;
+    if (
+      selectedChartUserId === null ||
+      !chart.series.some((series) => series.userId === selectedChartUserId)
+    ) {
+      untrack(() => (selectedChartUserId = firstUserId));
+    }
+  });
+
+  const chartSeries = $derived(selectedChartSeries ? [selectedChartSeries] : []);
+  const contestDurationSeconds = $derived(
+    Math.max(
+      1,
+      Math.floor((new Date(data.endsAt).getTime() - new Date(data.startsAt).getTime()) / 1000),
+    ),
+  );
+  const chartPaths = $derived(
+    buildChartPaths(chartSeries, 800, 300, 40, contestDurationSeconds),
+  );
+  const chartTicks = $derived(
+    buildChartTicks(chartSeries, 800, 300, 40, 4, contestDurationSeconds),
+  );
 </script>
 
 <PageContainer class="space-y-6 fade-up">
@@ -292,6 +335,12 @@
             ? m.contestScoreboard_sortHintSolveCount()
             : m.contestScoreboard_sortHintPointSum()}
         </span>
+        {#if scoreboard.isFrozen}
+          <span class="flex items-center gap-1.5 text-caption text-info">
+            <span class="size-1.5 rounded-full bg-info"></span>
+            {m.contestScoreboard_frozenNote()}
+          </span>
+        {/if}
       </div>
       <div class="flex items-center gap-3">
         <span
@@ -341,15 +390,29 @@
       <EmptyState icon={Trophy} title={m.contestScoreboard_empty()} />
     {:else if isSolveCount}
       <div class="overflow-auto max-h-[70vh]">
-        <table class="w-full text-body-sm">
+        <table
+          class="w-full table-fixed text-body-sm"
+          style="min-width: {tableMinWidth(scoreboard.problems.length, 1)};"
+        >
+          <colgroup>
+            <col style="width: {RANK_COLUMN_WIDTH}px;" />
+            <col style="width: {PARTICIPANT_COLUMN_WIDTH}px;" />
+            <col style="width: {SUMMARY_COLUMN_WIDTH}px;" />
+            {#each scoreboard.problems as p (p.id)}
+              <col style="width: {PROBLEM_COLUMN_WIDTH}px;" />
+            {/each}
+          </colgroup>
           <thead>
             <tr class="text-micro font-mono uppercase tracking-wider text-muted-foreground">
               <th class="sticky left-0 top-0 z-30 bg-muted text-left px-2 py-3 w-16">#</th>
               <th class="sticky left-16 top-0 z-30 bg-muted text-left px-4 py-3"
                 >{m.contestScoreboard_colParticipant()}</th
               >
+              <th class="sticky top-0 z-20 bg-muted text-center px-3 py-3">
+                {m.contestScoreboard_colScore()}
+              </th>
               {#each scoreboard.problems as p (p.id)}
-                <th class="sticky top-0 z-20 bg-muted text-center px-2 py-3 w-[72px]">
+                <th class="sticky top-0 z-20 bg-muted text-center px-2 py-3">
                   <div class="font-bold text-foreground">
                     {problemLetter(p.ordinal)}
                   </div>
@@ -358,12 +421,6 @@
                   </div>
                 </th>
               {/each}
-              <th class="sticky top-0 z-20 bg-muted text-center px-3 py-3 w-24"
-                >{m.contestScoreboard_colPenalty()}</th
-              >
-              <th class="sticky top-0 z-20 bg-muted text-center px-3 py-3 w-20"
-                >{m.contestScoreboard_colSolved()}</th
-              >
             </tr>
           </thead>
           <tbody class="divide-y" style="border-color: var(--border-subtle);">
@@ -394,12 +451,15 @@
                       class="size-7 rounded-full"
                       style="background: {avatarBg(r.username)};"
                     ></div>
-                    <span
-                      class={r.userId === myRow?.userId ? "font-semibold" : ""}
+                    <button
+                      type="button"
+                      class="truncate text-left transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      class:font-semibold={r.userId === myRow?.userId}
                       style={r.userId === myRow?.userId ? "color: var(--primary);" : ""}
+                      onclick={() => (selectedChartUserId = r.userId)}
                     >
                       {r.username}
-                    </span>
+                    </button>
                     {#if r.userId === myRow?.userId}
                       <span
                         class="text-micro font-mono uppercase tracking-wider"
@@ -408,6 +468,14 @@
                         {m.results_youBadge()}
                       </span>
                     {/if}
+                  </div>
+                </td>
+                <td class="px-3 py-3 text-center font-mono tabular-nums">
+                  <div class="flex flex-col items-center leading-tight">
+                    <span class="text-title-sm font-semibold">{r.totalScore}</span>
+                    <span class="text-caption text-muted-foreground">
+                      {Math.round(r.totalPenalty / 60)}
+                    </span>
                   </div>
                 </td>
                 {#each r.problems as ps, pi (pi)}
@@ -420,14 +488,6 @@
                     />
                   </td>
                 {/each}
-                <td class="px-3 py-3 text-center font-mono tabular-nums text-muted-foreground">
-                  {Math.round(r.totalPenalty / 60)}
-                </td>
-                <td
-                  class="px-3 py-3 text-center font-mono tabular-nums font-semibold text-title-sm"
-                >
-                  {r.totalScore}
-                </td>
               </tr>
             {/each}
           </tbody>
@@ -435,7 +495,18 @@
       </div>
     {:else}
       <div class="overflow-auto max-h-[70vh]">
-        <table class="w-full text-body-sm">
+        <table
+          class="w-full table-fixed text-body-sm"
+          style="min-width: {tableMinWidth(scoreboard.problems.length, 1)};"
+        >
+          <colgroup>
+            <col style="width: {RANK_COLUMN_WIDTH}px;" />
+            <col style="width: {PARTICIPANT_COLUMN_WIDTH}px;" />
+            {#each scoreboard.problems as p (p.id)}
+              <col style="width: {PROBLEM_COLUMN_WIDTH}px;" />
+            {/each}
+            <col style="width: {SUMMARY_COLUMN_WIDTH}px;" />
+          </colgroup>
           <thead>
             <tr class="text-micro font-mono uppercase tracking-wider text-muted-foreground">
               <th class="sticky left-0 top-0 z-30 bg-muted text-left px-2 py-3 w-16">#</th>
@@ -443,7 +514,7 @@
                 >{m.contestScoreboard_colParticipant()}</th
               >
               {#each scoreboard.problems as p (p.id)}
-                <th class="sticky top-0 z-20 bg-muted text-center px-3 py-3 w-24">
+                <th class="sticky top-0 z-20 bg-muted text-center px-3 py-3">
                   <div class="font-bold text-foreground">
                     {problemLetter(p.ordinal)}
                   </div>
@@ -487,12 +558,15 @@
                       class="size-7 rounded-full"
                       style="background: {avatarBg(r.username)};"
                     ></div>
-                    <span
-                      class={r.userId === myRow?.userId ? "font-semibold" : ""}
+                    <button
+                      type="button"
+                      class="truncate text-left transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      class:font-semibold={r.userId === myRow?.userId}
                       style={r.userId === myRow?.userId ? "color: var(--primary);" : ""}
+                      onclick={() => (selectedChartUserId = r.userId)}
                     >
                       {r.username}
-                    </span>
+                    </button>
                     {#if r.userId === myRow?.userId}
                       <span
                         class="text-micro font-mono uppercase tracking-wider"
@@ -510,6 +584,7 @@
                       score={ps.score}
                       attempts={ps.attempts}
                       isPending={ps.isPending}
+                      isFirstBlood={r.isFirstBlood[pi] ?? false}
                     />
                   </td>
                 {/each}
@@ -539,12 +614,7 @@
             {m.contestScoreboard_legendAc()}
           </span>
           <span class="flex items-center gap-1.5">
-            <span
-              class="inline-grid place-items-center size-3.5 rounded-[2px] text-[8px]"
-              style="background: var(--chart-4); color: white;"
-            >
-              ★
-            </span>
+            <span class="size-2.5 rounded" style="background: var(--success-strong);"></span>
             {m.contestScoreboard_legendFirstBlood()}
           </span>
           <span class="flex items-center gap-1.5">
@@ -568,6 +638,10 @@
             {m.contestScoreboard_legendScoredAc()}
           </span>
           <span class="flex items-center gap-1.5">
+            <span class="size-2.5 rounded" style="background: var(--success-strong);"></span>
+            {m.contestScoreboard_legendFirstBlood()}
+          </span>
+          <span class="flex items-center gap-1.5">
             <span
               class="size-2.5 rounded"
               style="background: color-mix(in oklab, var(--destructive) 25%, transparent);"
@@ -586,13 +660,25 @@
 
   {#if chart.series.length > 0}
     <GlassPanel class="p-6">
-      <div class="flex items-baseline justify-between mb-3">
+      <div class="mb-3 flex flex-wrap items-end justify-between gap-3">
         <h3
           id="scoreboard-chart-heading"
           class="font-mono text-micro uppercase tracking-wider text-muted-foreground"
         >
-          {m.contestScoreboard_chartHeading({ count: chart.series.length })}
+          {m.contestScoreboard_chartHeading({ username: selectedChartSeries?.username ?? "—" })}
         </h3>
+        <label class="flex items-center gap-2 text-caption text-muted-foreground">
+          <span>{m.contestScoreboard_chartUserLabel()}</span>
+          <select
+            class="border-0 border-b border-border bg-transparent px-1 py-1 text-body-sm text-foreground shadow-none outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+            aria-label={m.contestScoreboard_chartUserLabel()}
+            bind:value={selectedChartUserId}
+          >
+            {#each chart.series as series (series.userId)}
+              <option value={series.userId}>{series.username}</option>
+            {/each}
+          </select>
+        </label>
       </div>
       <div class="overflow-x-auto rounded-sm" style="background: var(--panel-strong);">
         <svg
@@ -652,17 +738,6 @@
             />
           {/each}
         </svg>
-        <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 px-2">
-          {#each chartPaths as path (path.username)}
-            <div class="flex items-center gap-1.5 text-caption">
-              <span
-                class="inline-block h-2.5 w-2.5 rounded-full"
-                style="background: {path.color};"
-              ></span>
-              <span class="tabular-nums">{path.username}</span>
-            </div>
-          {/each}
-        </div>
       </div>
     </GlassPanel>
   {/if}

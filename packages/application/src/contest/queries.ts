@@ -16,9 +16,12 @@ export interface ContestListItem {
   endsAt: string;
   id: string;
   participantCount: number;
+  organizer: string;
   problemCount: number;
   scoreboardMode: ScoreboardMode;
   scoringMode: ContestScoringMode;
+  score: number | null;
+  totalPoints: number;
   startsAt: string;
   summary: string;
   title: string;
@@ -73,15 +76,22 @@ type ContestWithCounts = NonNullable<
   Awaited<ReturnType<typeof contestRepo.listPublished>>
 >[number];
 
-function mapContestListItem(c: ContestWithCounts): ContestListItem {
+function mapContestListItem(
+  c: ContestWithCounts,
+  score: number | null = null,
+): ContestListItem {
+  const problemPoints = c.problems.reduce((sum, problem) => sum + problem.points, 0);
   return {
     allowedLanguages: c.allowedLanguages,
     endsAt: c.endsAt.toISOString(),
     id: c.id,
     participantCount: c._count.participations,
+    organizer: c.createdBy?.name ?? c.createdBy?.username ?? "NOJV",
     problemCount: c._count.problems,
     scoreboardMode: c.scoreboardMode,
     scoringMode: c.scoringMode,
+    score,
+    totalPoints: c.scoringMode === "problem_count" ? c.problems.length : problemPoints,
     startsAt: c.startsAt.toISOString(),
     summary: c.summary,
     title: c.title,
@@ -138,15 +148,24 @@ export async function listContestsForUser(
     contestRepo.listParticipatedContestsForUser(userId),
   ]);
 
+  const contestIds = [...managedRows, ...publishedRows, ...participatedRows].map((c) => c.id);
+  const scoreByContestId = new Map(
+    (await contestRepo.listScoresForUser(userId, contestIds))
+      .filter((row): row is { contestId: string; score: number } => row.contestId !== null)
+      .map((row) => [row.contestId, row.score]),
+  );
+
   const managedIds = new Set(managedRows.map((c) => c.id));
   const byId = new Map<string, ContestWithCounts>();
   for (const c of [...publishedRows, ...participatedRows]) {
     if (!managedIds.has(c.id)) byId.set(c.id, c);
   }
-  const participable = [...byId.values()].map(mapContestListItem);
+  const participable = [...byId.values()].map((row) =>
+    mapContestListItem(row, scoreByContestId.get(row.id) ?? null),
+  );
 
   const managed: ContestListItemForUser[] = managedRows.map((row) => ({
-    ...mapContestListItem(row),
+    ...mapContestListItem(row, scoreByContestId.get(row.id) ?? null),
     visibility: row.visibility,
   }));
 
