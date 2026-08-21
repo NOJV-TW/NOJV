@@ -11,13 +11,13 @@
   let { firstAcTime, score, attempts, isPending }: Props = $props();
 
   function fmtTime(sec: number): string {
-    const totalMin = Math.floor(sec / 60);
-    const h = Math.floor(totalMin / 60);
-    const m = totalMin % 60;
-    if (h > 0) {
-      return `${String(h)}:${m < 10 ? `0${String(m)}` : String(m)}`;
-    }
-    return `${m < 10 ? `0${String(m)}` : String(m)}m`;
+    return String(Math.floor(sec / 60));
+  }
+
+  function fmtAttempts(count: number): string {
+    return count === 1
+      ? m.scoreboard_attemptsOne({ count })
+      : m.scoreboard_attemptsMany({ count });
   }
 </script>
 
@@ -30,13 +30,13 @@
       class="font-mono text-caption font-semibold tabular-nums"
       style="color: color-mix(in oklab, var(--success) 50%, var(--foreground));"
     >
-      +{score}
+      {score}
     </span>
     <span
       class="font-mono text-micro tabular-nums"
       style="color: color-mix(in oklab, var(--success) 50%, var(--foreground));"
     >
-      {fmtTime(firstAcTime)}
+      {fmtTime(firstAcTime)} · {fmtAttempts(attempts)}
     </span>
   </div>
 {:else if isPending}
@@ -60,15 +60,9 @@
     style="background: color-mix(in oklab, var(--destructive) 14%, transparent);"
   >
     <span
-      class="font-mono text-caption font-semibold"
+      class="font-mono text-caption font-semibold tabular-nums"
       style="color: color-mix(in oklab, var(--destructive) 50%, var(--foreground));"
-    >
-      −{attempts}
-    </span>
-    <span
-      class="font-mono text-micro"
-      style="color: color-mix(in oklab, var(--destructive) 50%, var(--foreground));"
-      >{m.scoreboard_try()}</span
+      >{fmtAttempts(attempts)}</span
     >
   </div>
 {:else}

@@ -62,6 +62,7 @@ describe("buildScoreboard (dispatcher)", () => {
     expect(board[0]!.userId).toBe("u1");
     expect(board[0]!.totalScore).toBe(1);
     expect(board[0]!.totalPenalty).toBe(5 * 60);
+    expect(board[0]!.problems[0]!.attempts).toBe(1);
     expect(board[1]!.totalScore).toBe(1);
     expect(board[1]!.totalPenalty).toBe(15 * 60);
   });
@@ -181,14 +182,15 @@ describe("buildScoreboardChartSeries", () => {
     ]);
   });
 
-  it("IOI: adds a chart point whenever a user improves their best score", () => {
+  it("IOI: only adds chart points when an accepted submission improves the score", () => {
     const subsByUser = new Map([
       [
         "u1",
         [
           mkSub("u1", "P1", 40, 5, "wrong_answer"),
           mkSub("u1", "P1", 70, 15, "wrong_answer"),
-          mkSub("u1", "P1", 50, 25, "wrong_answer"), // not an improvement — skipped
+          mkSub("u1", "P1", 50, 25, "wrong_answer"),
+          mkSub("u1", "P1", 70, 30),
           mkSub("u1", "P2", 100, 40),
         ],
       ],
@@ -203,18 +205,14 @@ describe("buildScoreboardChartSeries", () => {
     );
     expect(series[0]!.points).toEqual([
       { time: 0, score: 0 },
-      { time: 5 * 60, score: 40 },
-      { time: 15 * 60, score: 70 },
+      { time: 30 * 60, score: 70 },
       { time: 40 * 60, score: 170 },
     ]);
   });
 
-  it("IOI: cumulative score only counts the delta on each improvement", () => {
+  it("IOI: cumulative score only counts the delta on each accepted improvement", () => {
     const subsByUser = new Map([
-      [
-        "u1",
-        [mkSub("u1", "P1", 30, 10, "wrong_answer"), mkSub("u1", "P1", 90, 20, "wrong_answer")],
-      ],
+      ["u1", [mkSub("u1", "P1", 30, 10), mkSub("u1", "P1", 90, 20)]],
     ]);
     const series = buildScoreboardChartSeries(
       SESSION_START,

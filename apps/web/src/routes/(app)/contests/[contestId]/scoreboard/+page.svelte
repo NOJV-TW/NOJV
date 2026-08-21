@@ -29,17 +29,22 @@
     const plotH = height - padding * 2;
 
     return series.map((s, i) => {
-      const points = s.points
-        .map((pt) => {
-          const x = padding + (pt.time / maxTime) * plotW;
-          const y = height - padding - (pt.score / maxScore) * plotH;
-          return `${String(x)},${String(y)}`;
-        })
-        .join(" ");
+      const pathPoints: string[] = [];
+      for (const [index, pt] of s.points.entries()) {
+        const x = padding + (pt.time / maxTime) * plotW;
+        const y = height - padding - (pt.score / maxScore) * plotH;
+        if (index === 0) {
+          pathPoints.push(`${String(x)},${String(y)}`);
+          continue;
+        }
+        const previous = s.points[index - 1]!;
+        const previousY = height - padding - (previous.score / maxScore) * plotH;
+        pathPoints.push(`${String(x)},${String(previousY)}`, `${String(x)},${String(y)}`);
+      }
       return {
         color: chartColors[i % chartColors.length] ?? "var(--chart-1)",
         username: s.username,
-        points,
+        points: pathPoints.join(" "),
       };
     });
   }
@@ -343,12 +348,6 @@
               <th class="sticky left-16 top-0 z-30 bg-muted text-left px-4 py-3"
                 >{m.contestScoreboard_colParticipant()}</th
               >
-              <th class="sticky top-0 z-20 bg-muted text-center px-3 py-3 w-20"
-                >{m.contestScoreboard_colSolved()}</th
-              >
-              <th class="sticky top-0 z-20 bg-muted text-center px-3 py-3 w-24"
-                >{m.contestScoreboard_colPenalty()}</th
-              >
               {#each scoreboard.problems as p (p.id)}
                 <th class="sticky top-0 z-20 bg-muted text-center px-2 py-3 w-[72px]">
                   <div class="font-bold text-foreground">
@@ -359,6 +358,12 @@
                   </div>
                 </th>
               {/each}
+              <th class="sticky top-0 z-20 bg-muted text-center px-3 py-3 w-24"
+                >{m.contestScoreboard_colPenalty()}</th
+              >
+              <th class="sticky top-0 z-20 bg-muted text-center px-3 py-3 w-20"
+                >{m.contestScoreboard_colSolved()}</th
+              >
             </tr>
           </thead>
           <tbody class="divide-y" style="border-color: var(--border-subtle);">
@@ -405,14 +410,6 @@
                     {/if}
                   </div>
                 </td>
-                <td
-                  class="px-3 py-3 text-center font-mono tabular-nums font-semibold text-title-sm"
-                >
-                  {r.totalScore}
-                </td>
-                <td class="px-3 py-3 text-center font-mono tabular-nums text-muted-foreground">
-                  {Math.round(r.totalPenalty / 60)}
-                </td>
                 {#each r.problems as ps, pi (pi)}
                   <td class="p-0 text-center">
                     <SolveCountCell
@@ -423,6 +420,14 @@
                     />
                   </td>
                 {/each}
+                <td class="px-3 py-3 text-center font-mono tabular-nums text-muted-foreground">
+                  {Math.round(r.totalPenalty / 60)}
+                </td>
+                <td
+                  class="px-3 py-3 text-center font-mono tabular-nums font-semibold text-title-sm"
+                >
+                  {r.totalScore}
+                </td>
               </tr>
             {/each}
           </tbody>
@@ -437,9 +442,6 @@
               <th class="sticky left-16 top-0 z-30 bg-muted text-left px-4 py-3"
                 >{m.contestScoreboard_colParticipant()}</th
               >
-              <th class="sticky top-0 z-20 bg-muted text-right px-4 py-3 w-24"
-                >{m.contestScoreboard_colTotal()}</th
-              >
               {#each scoreboard.problems as p (p.id)}
                 <th class="sticky top-0 z-20 bg-muted text-center px-3 py-3 w-24">
                   <div class="font-bold text-foreground">
@@ -452,6 +454,9 @@
                   </div>
                 </th>
               {/each}
+              <th class="sticky top-0 z-20 bg-muted text-right px-4 py-3 w-24"
+                >{m.contestScoreboard_colTotal()}</th
+              >
             </tr>
           </thead>
           <tbody class="divide-y" style="border-color: var(--border-subtle);">
@@ -498,11 +503,6 @@
                     {/if}
                   </div>
                 </td>
-                <td
-                  class="px-4 py-3 text-right font-mono tabular-nums font-semibold text-title-sm"
-                >
-                  {r.totalScore}
-                </td>
                 {#each r.problems as ps, pi (pi)}
                   <td class="p-0 text-center">
                     <PointSumCell
@@ -513,6 +513,11 @@
                     />
                   </td>
                 {/each}
+                <td
+                  class="px-4 py-3 text-right font-mono tabular-nums font-semibold text-title-sm"
+                >
+                  {r.totalScore}
+                </td>
               </tr>
             {/each}
           </tbody>

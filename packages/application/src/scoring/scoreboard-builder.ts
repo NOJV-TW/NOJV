@@ -86,6 +86,7 @@ export function buildScoreboardChartSeries(
       let cumScore = 0;
 
       for (const sub of userSubs) {
+        if (sub.status !== "accepted") continue;
         const current = bestByProblem.get(sub.problemId) ?? 0;
         if (sub.score > current) {
           cumScore += sub.score - current;
