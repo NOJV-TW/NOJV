@@ -30,10 +30,11 @@ const browserPackageRoot = dirname(workspaceRequire.resolve("@wasm-oj/browser/pa
 const browserAssetDirectory = join(browserPackageRoot, "dist/assets");
 await rm(browserRuntimeDestination, { recursive: true, force: true });
 await mkdir(browserRuntimeDestination, { recursive: true });
-for (const assetName of (await readdir(browserAssetDirectory)).filter((name) =>
-  name.endsWith(".wasm"),
-)) {
-  await cp(join(browserAssetDirectory, assetName), join(browserRuntimeDestination, assetName));
+for (const assetName of await readdir(browserAssetDirectory)) {
+  await cp(join(browserAssetDirectory, assetName), join(browserRuntimeDestination, assetName), {
+    recursive: true,
+    force: true,
+  });
 }
 
 console.log(`Prepared WASM-OJ browser toolchain assets in ${destination}`);
