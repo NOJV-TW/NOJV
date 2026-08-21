@@ -1,0 +1,25 @@
+# NOJV
+
+> NOJV is an open-source, self-hostable online judge for competitive programming and computer science courses. It supports contests, course assessments, practice submissions, sandboxed code execution, and plagiarism detection.
+
+## Product
+
+- [NOJV](https://nojv.tw/): Online judge platform for contests, courses, assessments, and practice.
+- [About NOJV](https://nojv.tw/about): Project, open-source, and contact information.
+- [Judge environment](https://nojv.tw/environment): Supported languages, compiler versions, and run commands.
+- [Advanced Mode guide](https://nojv.tw/guides/advanced-mode): Custom Docker-based grading workflow and runtime contract.
+
+## API and source
+
+- [Public OpenAPI document](https://nojv.tw/api/openapi.public.json): Machine-readable public API description.
+- [API reference](https://nojv.tw/docs): Interactive reference for the public API.
+- [GitHub repository](https://github.com/TakalaWang/NOJV): Source code, issues, and contribution history.
+- [README](https://github.com/TakalaWang/NOJV/blob/main/README.md): Features, local setup, deployment overview, and documentation index.
+- [Architecture overview](https://github.com/TakalaWang/NOJV/blob/main/docs/architecture/ARCHITECTURE.md): System layers, domains, packages, and runtime entry points.
+- [Frontend surface](https://github.com/TakalaWang/NOJV/blob/main/docs/architecture/FRONTEND.md): Public routes, API routes, and frontend boundaries.
+- [Judge pipeline](https://github.com/TakalaWang/NOJV/blob/main/docs/architecture/JUDGE_PIPELINE.md): Submission lifecycle, sandbox execution, and verdict computation.
+
+## Policies
+
+- [Privacy policy](https://nojv.tw/legal/privacy): Data collection, use, retention, and deletion.
+- [Terms of service](https://nojv.tw/legal/terms): Terms governing use of NOJV.
