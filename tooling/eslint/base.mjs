@@ -17,6 +17,7 @@ const sharedIgnores = [
   "**/prisma/**",
   "**/prisma.config.ts",
   "**/svelte.config.js",
+  "**/static/_app/**",
   "**/tsdown.config.ts",
   "**/vite.config.ts",
   "**/vitest.config.ts",

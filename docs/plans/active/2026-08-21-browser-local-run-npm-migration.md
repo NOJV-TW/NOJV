@@ -16,8 +16,9 @@
 
 ## Verification
 
-- Toolchain assets are copied to `/wasm-oj/toolchains/`, and browser runtime WASM
-  assets are copied to SvelteKit's same-origin `/_app/immutable/assets/` path.
+- Toolchain assets are copied to `/wasm-oj/toolchains/`, and all browser package
+  runtime assets are copied to SvelteKit's same-origin `/_app/immutable/assets/`
+  path so dynamic worker imports resolve in production.
 - Standard sample/custom local execution is covered by browser-local mapping tests and a local browser smoke test.
 - Web check, lint, build, and relevant unit tests pass on the isolated branch.
 
