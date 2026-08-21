@@ -11,8 +11,8 @@
     summary: string;
     startsAt: string;
     endsAt: string;
-    durationMin: number;
-    participants: number;
+    score: number | null;
+    totalPoints: number;
     delay?: number;
   }
 
@@ -24,8 +24,8 @@
     summary,
     startsAt,
     endsAt,
-    durationMin,
-    participants,
+    score,
+    totalPoints,
     delay = 0,
   }: Props = $props();
 
@@ -39,16 +39,14 @@
   context={scoringLabel}
   {title}
   {status}
-  dateIso={startsAt}
+  {startsAt}
+  {endsAt}
   {delay}
 >
   {#snippet timing()}
-    {isLive ? m.contestPoster_remaining() : m.contestPoster_untilStart()}
     <Countdown iso={isLive ? endsAt : startsAt} isCompact />
   {/snippet}
   {#snippet foot()}
-    {m.contestPoster_participantsLabel()}{m.contestPoster_participantsCount({
-      count: participants,
-    })}
+    {score == null ? `— / ${totalPoints}` : `${score} / ${totalPoints}`}
   {/snippet}
 </AssessmentRow>

@@ -1,3 +1,4 @@
+import { submissionResultVerdicts } from "@nojv/core";
 import { runTransaction, submissionRepo, userRepo, type Prisma } from "@nojv/db";
 
 import * as notificationDomain from "../notification";
@@ -180,7 +181,11 @@ export async function getDashboardView(userId: string): Promise<DashboardView> {
     submissionRepo.findRecentByUser(userId, 10),
     submissionRepo.findDistinctAcByUser(userId),
     submissionRepo.findDistinctAttemptedByUser(userId),
-    submissionRepo.count({ userId, sampleOnly: false }),
+    submissionRepo.count({
+      userId,
+      sampleOnly: false,
+      status: { in: [...submissionResultVerdicts] },
+    }),
     submissionRepo.groupByLanguageForUser(userId),
     submissionRepo.groupByStatusForUser(userId),
   ]);

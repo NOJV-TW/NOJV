@@ -29,7 +29,7 @@ const { listProblemPickerGroups } = problemDomain;
 const examFormSchema = z
   .object({
     courseId: z.string().min(1),
-    title: z.string().trim().min(3).max(120),
+    title: z.string().trim().min(1).max(120),
     summary: z.string().trim().max(4_000).default(""),
     problemIds: z.array(z.string().min(1)).default([]),
     startsAt: z.string().trim().min(1),
@@ -96,6 +96,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         submitCooldownSec: 0,
       },
       zod4(examFormSchema),
+      { errors: false },
     ),
     listProblemPickerGroups(actor.userId),
   ]);

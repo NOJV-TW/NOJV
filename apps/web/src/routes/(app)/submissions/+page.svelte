@@ -1,13 +1,21 @@
 <script lang="ts">
-  import { Code2, History } from "@lucide/svelte";
-  import { languageLabel, submissionResultVerdicts } from "@nojv/core";
+  import {
+    ChevronFirst,
+    ChevronLast,
+    ChevronLeft,
+    ChevronRight,
+    Code2,
+    History,
+  } from "@lucide/svelte";
+  import { languageLabel, languageSchema, submissionResultVerdicts } from "@nojv/core";
   import { goto, invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { watchSubmissionVerdict } from "$lib/stores/sse";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
-  import { Badge } from "$lib/components/primitives/ui/badge";
+  import { Button } from "$lib/components/primitives/ui/button";
+  import * as Select from "$lib/components/primitives/ui/select";
   import { formatDateTime } from "$lib/utils/datetime";
   import { formatVerdictLabel } from "$lib/utils/verdict-style";
   import VerdictBadge from "$lib/components/primitives/ui/VerdictBadge.svelte";
@@ -16,37 +24,67 @@
 
   type SubmissionRow = (typeof data.submissions)[number];
 
-  let loaded = $state<SubmissionRow[]>([]);
-  let moreCursor = $state<string | null>(null);
-  let loadingMore = $state(false);
+  let pages = $state<SubmissionRow[][]>([]);
+  let pageCursors = $state<(string | null)[]>([]);
+  let currentPage = $state(1);
+  let loadingPage = $state(false);
 
-  const activeCursor = $derived(loaded.length === 0 ? data.nextCursor : moreCursor);
+  const currentRows = $derived(
+    currentPage === 1 ? data.submissions : (pages[currentPage - 2] ?? []),
+  );
+  const totalPages = $derived(data.totalPages);
+  const pageNumbers = $derived.by(() => {
+    const visibleCount = 5;
+    if (totalPages <= visibleCount) {
+      return Array.from({ length: totalPages }, (_, index) => index + 1);
+    }
+    const start = Math.min(Math.max(1, currentPage - 2), totalPages - visibleCount + 1);
+    return Array.from({ length: visibleCount }, (_, index) => start + index);
+  });
 
   const allRows = $derived.by(() => {
     const seen = new Set<string>();
     const rows: SubmissionRow[] = [];
-    for (const row of [...data.submissions, ...loaded]) {
-      if (seen.has(row.id)) continue;
-      seen.add(row.id);
-      rows.push(row);
+    for (const pageRows of [data.submissions, ...pages]) {
+      for (const row of pageRows) {
+        if (seen.has(row.id)) continue;
+        seen.add(row.id);
+        rows.push(row);
+      }
     }
     return rows;
   });
 
-  async function loadMore() {
-    if (loadingMore || !activeCursor) return;
-    loadingMore = true;
+  async function fetchPage(cursor: string) {
+    const res = await fetch(`/api/submissions?cursor=${encodeURIComponent(cursor)}`);
+    if (!res.ok) return null;
+    return (await res.json()) as {
+      items: SubmissionRow[];
+      nextCursor: string | null;
+    };
+  }
+
+  async function goToPage(target: number) {
+    if (loadingPage || target < 1 || target > totalPages || target === currentPage) return;
+    if (target === 1) {
+      currentPage = 1;
+      return;
+    }
+
+    loadingPage = true;
     try {
-      const res = await fetch(`/api/submissions?cursor=${encodeURIComponent(activeCursor)}`);
-      if (!res.ok) return;
-      const page = (await res.json()) as {
-        items: SubmissionRow[];
-        nextCursor: string | null;
-      };
-      loaded = [...loaded, ...page.items];
-      moreCursor = page.nextCursor;
+      while (pages.length < target - 1) {
+        const cursor =
+          pages.length === 0 ? data.nextCursor : pageCursors[pageCursors.length - 1];
+        if (!cursor) return;
+        const page = await fetchPage(cursor);
+        if (!page) return;
+        pages = [...pages, page.items];
+        pageCursors = [...pageCursors, page.nextCursor];
+      }
+      if (pages[target - 2]) currentPage = target;
     } finally {
-      loadingMore = false;
+      loadingPage = false;
     }
   }
 
@@ -61,6 +99,11 @@
       default:
         return m.submissions_kind_practice();
     }
+  }
+
+  function displayLanguage(value: string): string {
+    const parsed = languageSchema.safeParse(value);
+    return parsed.success ? languageLabel(parsed.data) : value;
   }
 
   let verdictFilter = $state("");
@@ -85,7 +128,7 @@
   });
 
   let filtered = $derived(
-    allRows.filter((sub) => {
+    currentRows.filter((sub) => {
       if (verdictFilter && sub.status !== verdictFilter) return false;
       if (languageFilter && sub.language !== languageFilter) return false;
       if (problemFilter && sub.problemId !== problemFilter) return false;
@@ -104,9 +147,25 @@
   }
 
   function handleRowKeydown(event: KeyboardEvent, id: string) {
-    if (event.key !== "Enter") return;
+    if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
     openSubmission(id);
+  }
+
+  function selectValue(value: string | undefined): string {
+    return value === "__all" || value === undefined ? "" : value;
+  }
+
+  function updateFilter(
+    filter: "problem" | "context" | "language" | "verdict",
+    value: string | undefined,
+  ) {
+    currentPage = 1;
+    const nextValue = selectValue(value);
+    if (filter === "problem") problemFilter = nextValue;
+    if (filter === "context") contextFilter = nextValue;
+    if (filter === "language") languageFilter = nextValue;
+    if (filter === "verdict") verdictFilter = nextValue;
   }
 
   $effect(() => {
@@ -155,58 +214,111 @@
     {:else}
       <div class="overflow-x-auto">
         <table class="w-full text-body-sm">
-          <thead
-            class="bg-muted/40 font-mono text-micro uppercase tracking-wider text-muted-foreground"
-          >
+          <thead class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
             <tr>
               <th class="px-4 py-2.5 text-left font-medium">{m.admin_submissions_colTime()}</th>
               <th class="px-2 py-1.5 text-left font-medium">
-                <select
-                  aria-label={m.submissions_filterProblem()}
-                  class="h-8 max-w-48 rounded border border-transparent bg-transparent px-1 font-mono text-micro uppercase tracking-wider hover:border-border focus:border-border"
-                  bind:value={problemFilter}
+                <Select.Root
+                  type="single"
+                  value={problemFilter || "__all"}
+                  onValueChange={(value) => updateFilter("problem", value)}
                 >
-                  <option value="">{m.admin_submissions_colProblem()}</option>
-                  {#each problemOptions as [id, title] (id)}
-                    <option value={id}>{title}</option>
-                  {/each}
-                </select>
+                  <Select.Trigger
+                    class="h-8 max-w-48 rounded-none border-0 border-b border-border bg-transparent px-1 font-mono text-micro uppercase tracking-wider shadow-none focus-visible:border-ring"
+                    aria-label={m.submissions_filterProblem()}
+                  >
+                    {problemFilter
+                      ? (problemOptions.find(([id]) => id === problemFilter)?.[1] ??
+                        m.admin_submissions_colProblem())
+                      : m.admin_submissions_colProblem()}
+                  </Select.Trigger>
+                  <Select.Content>
+                    <Select.Item value="__all" label={m.admin_submissions_colProblem()}
+                      >{m.admin_submissions_colProblem()}</Select.Item
+                    >
+                    {#each problemOptions as [id, title] (id)}
+                      <Select.Item value={id} label={title}>{title}</Select.Item>
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
               </th>
               <th class="px-2 py-1.5 text-left font-medium">
-                <select
-                  aria-label={m.admin_submissions_colContext()}
-                  class="h-8 rounded border border-transparent bg-transparent px-1 font-mono text-micro uppercase tracking-wider hover:border-border focus:border-border"
-                  bind:value={contextFilter}
+                <Select.Root
+                  type="single"
+                  value={contextFilter || "__all"}
+                  onValueChange={(value) => updateFilter("context", value)}
                 >
-                  <option value="">{m.admin_submissions_colContext()}</option>
-                  {#each contextOptions as context (context)}
-                    <option value={context}>{contextLabel(context)}</option>
-                  {/each}
-                </select>
+                  <Select.Trigger
+                    class="h-8 rounded-none border-0 border-b border-border bg-transparent px-1 font-mono text-micro uppercase tracking-wider shadow-none focus-visible:border-ring"
+                    aria-label={m.admin_submissions_colContext()}
+                  >
+                    {contextFilter
+                      ? contextLabel(contextFilter as SubmissionRow["context"])
+                      : m.admin_submissions_colContext()}
+                  </Select.Trigger>
+                  <Select.Content>
+                    <Select.Item value="__all" label={m.admin_submissions_colContext()}
+                      >{m.admin_submissions_colContext()}</Select.Item
+                    >
+                    {#each contextOptions as context (context)}
+                      <Select.Item value={context} label={contextLabel(context)}
+                        >{contextLabel(context)}</Select.Item
+                      >
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
               </th>
               <th class="px-2 py-1.5 text-left font-medium">
-                <select
-                  aria-label={m.submissions_filterLanguage()}
-                  class="h-8 rounded border border-transparent bg-transparent px-1 font-mono text-micro uppercase tracking-wider hover:border-border focus:border-border"
-                  bind:value={languageFilter}
+                <Select.Root
+                  type="single"
+                  value={languageFilter || "__all"}
+                  onValueChange={(value) => updateFilter("language", value)}
                 >
-                  <option value="">{m.submissions_filterLanguage()}</option>
-                  {#each languageOptions as lang (lang)}
-                    <option value={lang}>{languageLabel(lang)}</option>
-                  {/each}
-                </select>
+                  <Select.Trigger
+                    class="h-8 rounded-none border-0 border-b border-border bg-transparent px-1 font-mono text-micro uppercase tracking-wider shadow-none focus-visible:border-ring"
+                    aria-label={m.submissions_filterLanguage()}
+                  >
+                    {languageFilter
+                      ? displayLanguage(languageFilter)
+                      : m.submissions_filterLanguage()}
+                  </Select.Trigger>
+                  <Select.Content>
+                    <Select.Item value="__all" label={m.submissions_filterLanguage()}
+                      >{m.submissions_filterLanguage()}</Select.Item
+                    >
+                    {#each languageOptions as lang (lang)}
+                      <Select.Item value={lang} label={displayLanguage(lang)}
+                        >{displayLanguage(lang)}</Select.Item
+                      >
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
               </th>
               <th class="px-2 py-1.5 text-left font-medium">
-                <select
-                  aria-label={m.submissions_filterVerdict()}
-                  class="h-8 rounded border border-transparent bg-transparent px-1 font-mono text-micro uppercase tracking-wider hover:border-border focus:border-border"
-                  bind:value={verdictFilter}
+                <Select.Root
+                  type="single"
+                  value={verdictFilter || "__all"}
+                  onValueChange={(value) => updateFilter("verdict", value)}
                 >
-                  <option value="">{m.admin_submissions_colVerdict()}</option>
-                  {#each verdictOptions as status (status)}
-                    <option value={status}>{formatVerdictLabel(status)}</option>
-                  {/each}
-                </select>
+                  <Select.Trigger
+                    class="h-8 rounded-none border-0 border-b border-border bg-transparent px-1 font-mono text-micro uppercase tracking-wider shadow-none focus-visible:border-ring"
+                    aria-label={m.submissions_filterVerdict()}
+                  >
+                    {verdictFilter
+                      ? formatVerdictLabel(verdictFilter)
+                      : m.admin_submissions_colVerdict()}
+                  </Select.Trigger>
+                  <Select.Content>
+                    <Select.Item value="__all" label={m.admin_submissions_colVerdict()}
+                      >{m.admin_submissions_colVerdict()}</Select.Item
+                    >
+                    {#each verdictOptions as status (status)}
+                      <Select.Item value={status} label={formatVerdictLabel(status)}
+                        >{formatVerdictLabel(status)}</Select.Item
+                      >
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
               </th>
               <th class="px-3 py-2.5 text-right font-medium"
                 >{m.admin_submissions_colScore()}</th
@@ -237,17 +349,32 @@
                   <td class="px-3 py-3">
                     <span class="font-medium">{sub.problemTitle}</span>
                   </td>
-                  <td class="px-3 py-3">
-                    <Badge variant="outline" size="xs">{contextLabel(sub.context)}</Badge>
+                  <td class="px-3 py-3 text-caption text-muted-foreground">
+                    {contextLabel(sub.context)}
                   </td>
                   <td
                     class="whitespace-nowrap px-3 py-3 font-mono text-caption text-muted-foreground"
                   >
                     {languageLabel(sub.language)}
                   </td>
-                  <td class="px-3 py-3"><VerdictBadge verdict={sub.status} /></td>
-                  <td class="px-3 py-3 text-right font-mono font-semibold tabular-nums">
-                    {sub.score}/{sub.totalScore}
+                  <td class="px-3 py-3">
+                    {#if PENDING_STATUSES.has(sub.status)}
+                      <span
+                        class="inline-flex items-center gap-1.5 text-caption text-muted-foreground"
+                      >
+                        <span
+                          class="size-3.5 animate-spin rounded-full border-2 border-border border-t-foreground"
+                          aria-hidden="true"
+                        ></span>
+                        {m.submission_pending()}
+                      </span>
+                    {:else}
+                      <VerdictBadge verdict={sub.status} />
+                    {/if}
+                  </td>
+                  <td class="px-3 py-3 text-right font-mono tabular-nums">
+                    <span class="text-body-sm font-semibold text-foreground">{sub.score}</span>
+                    <span class="text-caption text-muted-foreground">/{sub.totalScore}</span>
                   </td>
                 </tr>
               {/each}
@@ -256,25 +383,62 @@
         </table>
       </div>
 
-      {#if activeCursor}
-        <div class="mt-4 flex justify-center">
-          <button
-            class="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-5 py-2 text-body-sm font-medium transition-[background-color] duration-fast ease-out-soft hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-            type="button"
-            disabled={loadingMore}
-            onclick={loadMore}
+      {#if totalPages > 1}
+        <nav
+          class="mt-4 flex items-center justify-center gap-1"
+          aria-label={m.problems_pagination()}
+        >
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={m.submissions_first()}
+            title={m.submissions_first()}
+            disabled={currentPage === 1 || loadingPage}
+            onclick={() => void goToPage(1)}
           >
-            {#if loadingMore}
-              <span
-                class="size-3.5 animate-spin rounded-full border-2 border-border border-t-foreground"
-                aria-hidden="true"
-              ></span>
-              {m.submissions_loadingMore()}
-            {:else}
-              {m.submissions_loadMore()}
-            {/if}
-          </button>
-        </div>
+            <ChevronFirst class="size-4" aria-hidden="true" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={m.submissions_previous()}
+            title={m.submissions_previous()}
+            disabled={currentPage === 1 || loadingPage}
+            onclick={() => void goToPage(currentPage - 1)}
+          >
+            <ChevronLeft class="size-4" aria-hidden="true" />
+          </Button>
+          {#each pageNumbers as page}
+            <Button
+              variant={page === currentPage ? "secondary" : "ghost"}
+              size="icon-sm"
+              aria-label={m.submissions_page({ page })}
+              aria-current={page === currentPage ? "page" : undefined}
+              disabled={loadingPage}
+              onclick={() => void goToPage(page)}>{page}</Button
+            >
+          {/each}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={m.submissions_next()}
+            title={m.submissions_next()}
+            disabled={currentPage === totalPages || loadingPage}
+            onclick={() => void goToPage(currentPage + 1)}
+          >
+            <ChevronRight class="size-4" aria-hidden="true" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={m.submissions_last()}
+            title={m.submissions_last()}
+            disabled={currentPage === totalPages || loadingPage}
+            onclick={() => void goToPage(totalPages)}
+          >
+            <ChevronLast class="size-4" aria-hidden="true" />
+          </Button>
+        </nav>
       {/if}
     {/if}
   </div>

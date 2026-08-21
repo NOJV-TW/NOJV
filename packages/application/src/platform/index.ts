@@ -1,3 +1,4 @@
+import { submissionResultVerdicts } from "@nojv/core";
 import { problemRepo, submissionRepo, userRepo } from "@nojv/db";
 import { getRedis, keys } from "@nojv/redis";
 import { z } from "zod";
@@ -125,6 +126,7 @@ async function computePlatformOverview(): Promise<PlatformOverview> {
   const problemCounts = new Map<string, { attempts: number; accepted: number }>();
 
   for (const row of rows) {
+    if (!(submissionResultVerdicts as readonly string[]).includes(row.status)) continue;
     const isAc = row.status === "accepted";
     const bucket = dailyMap.get(dayKey(row.createdAt));
     if (bucket) {

@@ -175,14 +175,16 @@ describe("submission reads during an active exam", () => {
     });
   });
 
-  it("keeps an effective admin's list scoped to their own submissions", async () => {
+  it("allows an effective admin to list all submissions", async () => {
     const { admin, problem, rows } = await createFixture();
     const own = await createTestSubmission({ userId: admin.id, problemId: problem.id });
 
     const page = await listUserSubmissions({ actor: actorOf(admin), limit: 50 });
+    const ids = page.items.map((item) => item.id);
 
-    expect(page.items.map((item) => item.id)).toEqual([own.id]);
-    expect(page.items.map((item) => item.id)).not.toContain(rows.practice.id);
+    expect(new Set(ids)).toEqual(
+      new Set([own.id, ...Object.values(rows).map((submission) => submission.id)]),
+    );
   });
 
   it("SQL-scopes both pages to the active exam across a 52-row result set", async () => {

@@ -5,7 +5,6 @@
   import { Card } from "$lib/components/primitives/ui/card";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
-  import FilterBar from "$lib/components/features/admin/users/FilterBar.svelte";
   import UsersTable from "$lib/components/features/admin/users/UsersTable.svelte";
   import Pagination from "$lib/components/features/admin/users/Pagination.svelte";
   import { m } from "$lib/paraglide/messages.js";
@@ -36,13 +35,6 @@
     </p>
   </header>
 
-  <FilterBar
-    bind:search={searchValue}
-    bind:role={roleValue}
-    bind:status={statusValue}
-    onApply={applyFilters}
-  />
-
   <Card variant="surface" size="lg" class="overflow-hidden p-0">
     {#if data.users.length === 0}
       <EmptyState
@@ -56,6 +48,10 @@
         users={data.users}
         actorId={data.actor?.userId}
         canManageAdmins={data.canManageAdmins}
+        bind:search={searchValue}
+        bind:roleFilter={roleValue}
+        bind:statusFilter={statusValue}
+        onApply={applyFilters}
       />
     {/if}
   </Card>

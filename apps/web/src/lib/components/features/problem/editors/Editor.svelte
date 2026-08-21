@@ -113,9 +113,11 @@
   );
 
   const workspaceFiles = createWorkspaceFilesController({
+    problemId: initialProblem.id,
     initialFiles: initialProblem.workspaceFiles,
     filesForLanguage: () => workspaceFilesForLanguage,
     language: () => language,
+    draftContext: () => draftContext,
   });
 
   let resetConfirmOpen = $state(false);

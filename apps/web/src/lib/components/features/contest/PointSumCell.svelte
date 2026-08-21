@@ -6,42 +6,42 @@
     score: number;
     attempts: number;
     isPending: boolean;
+    isFirstBlood: boolean;
   }
 
-  let { firstAcTime, score, attempts, isPending }: Props = $props();
+  let { firstAcTime, score, attempts, isPending, isFirstBlood }: Props = $props();
 
   function fmtTime(sec: number): string {
-    const totalMin = Math.floor(sec / 60);
-    const h = Math.floor(totalMin / 60);
-    const m = totalMin % 60;
-    if (h > 0) {
-      return `${String(h)}:${m < 10 ? `0${String(m)}` : String(m)}`;
-    }
-    return `${m < 10 ? `0${String(m)}` : String(m)}m`;
+    return String(Math.floor(sec / 60));
+  }
+
+  function fmtAttempts(count: number): string {
+    return count === 1
+      ? m.scoreboard_attemptsOne({ count })
+      : m.scoreboard_attemptsMany({ count });
   }
 </script>
 
 {#if firstAcTime !== null}
   <div
-    class="inline-flex flex-col items-center gap-0.5 rounded-md px-2 py-1.5 min-w-[64px]"
-    style="background: color-mix(in oklab, var(--success) 18%, transparent);"
+    class="flex min-h-[72px] w-full flex-col items-center justify-center gap-0.5 px-2 py-1.5"
+    style="background: {isFirstBlood
+      ? 'var(--success-strong)'
+      : 'color-mix(in oklab, var(--success) 18%, transparent)'}; color: {isFirstBlood
+      ? 'var(--background)'
+      : 'color-mix(in oklab, var(--success) 50%, var(--foreground))'};"
+    title={isFirstBlood ? m.contestDetail_firstBlood() : undefined}
   >
-    <span
-      class="font-mono text-caption font-semibold tabular-nums"
-      style="color: color-mix(in oklab, var(--success) 50%, var(--foreground));"
-    >
-      +{score}
+    <span class="font-mono text-caption font-semibold tabular-nums">
+      {score}
     </span>
-    <span
-      class="font-mono text-micro tabular-nums"
-      style="color: color-mix(in oklab, var(--success) 50%, var(--foreground));"
-    >
-      {fmtTime(firstAcTime)}
+    <span class="font-mono text-micro tabular-nums">
+      {fmtTime(firstAcTime)} · {fmtAttempts(attempts)}
     </span>
   </div>
 {:else if isPending}
   <div
-    class="inline-flex flex-col items-center gap-0.5 rounded-md px-2 py-1.5 min-w-[64px]"
+    class="flex min-h-[72px] w-full flex-col items-center justify-center gap-0.5 px-2 py-1.5"
     style="background: color-mix(in oklab, var(--info) 14%, transparent);"
   >
     <span
@@ -56,21 +56,19 @@
   </div>
 {:else if attempts > 0}
   <div
-    class="inline-flex flex-col items-center gap-0.5 rounded-md px-2 py-1.5 min-w-[64px]"
+    class="flex min-h-[72px] w-full flex-col items-center justify-center gap-0.5 px-2 py-1.5"
     style="background: color-mix(in oklab, var(--destructive) 14%, transparent);"
   >
     <span
-      class="font-mono text-caption font-semibold"
+      class="font-mono text-caption font-semibold tabular-nums"
       style="color: color-mix(in oklab, var(--destructive) 50%, var(--foreground));"
-    >
-      −{attempts}
-    </span>
-    <span
-      class="font-mono text-micro"
-      style="color: color-mix(in oklab, var(--destructive) 50%, var(--foreground));"
-      >{m.scoreboard_try()}</span
+      >{fmtAttempts(attempts)}</span
     >
   </div>
 {:else}
-  <span class="text-muted-foreground font-mono opacity-40">·</span>
+  <div
+    class="flex min-h-[72px] w-full items-center justify-center text-muted-foreground font-mono opacity-40"
+  >
+    ·
+  </div>
 {/if}

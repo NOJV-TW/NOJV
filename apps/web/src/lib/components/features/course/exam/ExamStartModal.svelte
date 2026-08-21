@@ -88,15 +88,22 @@
       </ul>
     </div>
 
-    <label class="mt-4 flex cursor-pointer select-none items-center gap-2.5 text-body-sm">
-      <input
-        type="checkbox"
-        bind:checked={hasAgreed}
-        class="size-4 rounded"
-        style="accent-color: var(--primary);"
-      />
+    <button
+      type="button"
+      aria-pressed={hasAgreed}
+      onclick={() => (hasAgreed = !hasAgreed)}
+      class="mt-4 flex w-full items-center gap-2.5 rounded-md border px-3 py-2.5 text-left text-body-sm transition-colors {hasAgreed
+        ? 'border-primary bg-primary/10 text-foreground'
+        : 'border-border text-muted-foreground hover:border-border-strong hover:text-foreground'}"
+    >
+      <span
+        aria-hidden="true"
+        class="flex size-4 shrink-0 items-center justify-center rounded border text-micro {hasAgreed
+          ? 'border-primary bg-primary text-primary-foreground'
+          : 'border-border'}">{hasAgreed ? "✓" : ""}</span
+      >
       <span>{m.examStartModal_agree()}</span>
-    </label>
+    </button>
 
     {#if errorMessage}
       <p

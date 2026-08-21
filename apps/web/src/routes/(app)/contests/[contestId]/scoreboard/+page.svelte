@@ -1,4 +1,13 @@
 <script lang="ts" module>
+  const RANK_COLUMN_WIDTH = 64;
+  const PARTICIPANT_COLUMN_WIDTH = 196;
+  const PROBLEM_COLUMN_WIDTH = 104;
+  const SUMMARY_COLUMN_WIDTH = 96;
+
+  function tableMinWidth(problemCount: number, summaryColumns: number): string {
+    return `${RANK_COLUMN_WIDTH + PARTICIPANT_COLUMN_WIDTH + problemCount * PROBLEM_COLUMN_WIDTH + summaryColumns * SUMMARY_COLUMN_WIDTH}px`;
+  }
+
   const chartColors = [
     "var(--chart-1)",
     "var(--chart-2)",
@@ -12,6 +21,7 @@
     width: number,
     height: number,
     padding: number,
+    durationSeconds = 0,
   ): { color: string; username: string; points: string }[] {
     if (series.length === 0) return [];
     let maxTime = 0;
@@ -22,26 +32,79 @@
         if (pt.score > maxScore) maxScore = pt.score;
       }
     }
-    if (maxTime === 0) maxTime = 1;
+    maxTime = Math.max(maxTime, durationSeconds, 1);
     if (maxScore === 0) maxScore = 1;
 
     const plotW = width - padding * 2;
     const plotH = height - padding * 2;
 
     return series.map((s, i) => {
-      const points = s.points
-        .map((pt) => {
-          const x = padding + (pt.time / maxTime) * plotW;
-          const y = height - padding - (pt.score / maxScore) * plotH;
-          return `${String(x)},${String(y)}`;
-        })
-        .join(" ");
+      const pathPoints: string[] = [];
+      for (const [index, pt] of s.points.entries()) {
+        const x = padding + (pt.time / maxTime) * plotW;
+        const y = height - padding - (pt.score / maxScore) * plotH;
+        if (index === 0) {
+          pathPoints.push(`${String(x)},${String(y)}`);
+          continue;
+        }
+        const previous = s.points[index - 1]!;
+        const previousY = height - padding - (previous.score / maxScore) * plotH;
+        pathPoints.push(`${String(x)},${String(previousY)}`, `${String(x)},${String(y)}`);
+      }
+      const lastPoint = s.points.at(-1) ?? { time: 0, score: 0 };
+      if (lastPoint.time < maxTime) {
+        const lastY = height - padding - (lastPoint.score / maxScore) * plotH;
+        pathPoints.push(`${String(padding + plotW)},${String(lastY)}`);
+      }
       return {
         color: chartColors[i % chartColors.length] ?? "var(--chart-1)",
         username: s.username,
-        points,
+        points: pathPoints.join(" "),
       };
     });
+  }
+
+  export function buildChartTicks(
+    series: { points: { time: number; score: number }[] }[],
+    width: number,
+    height: number,
+    padding: number,
+    count: number,
+    durationSeconds = 0,
+  ): {
+    x: { label: string; position: number }[];
+    y: { label: string; position: number }[];
+  } {
+    let maxTime = 0;
+    let maxScore = 0;
+    for (const item of series) {
+      for (const point of item.points) {
+        maxTime = Math.max(maxTime, point.time);
+        maxScore = Math.max(maxScore, point.score);
+      }
+    }
+    maxTime = Math.max(maxTime, durationSeconds, 1);
+    maxScore = Math.max(maxScore, 1);
+    const plotW = width - padding * 2;
+    const plotH = height - padding * 2;
+    const yCount = Math.min(count, Math.max(1, Math.floor(maxScore)));
+    const formatTime = (seconds: number) => {
+      return String(Math.round(seconds / 60));
+    };
+
+    return {
+      x: Array.from({ length: count + 1 }, (_, index) => {
+        const value = (maxTime * index) / count;
+        return { label: formatTime(value), position: padding + (value / maxTime) * plotW };
+      }),
+      y: Array.from({ length: yCount + 1 }, (_, index) => {
+        const value = (maxScore * index) / yCount;
+        return {
+          label: String(Math.round(value)),
+          position: height - padding - (value / maxScore) * plotH,
+        };
+      }),
+    };
   }
 </script>
 
@@ -49,7 +112,7 @@
   import { onMount, untrack } from "svelte";
   import { flip } from "svelte/animate";
   import { cubicOut } from "svelte/easing";
-  import { Snowflake, Trophy } from "@lucide/svelte";
+  import { Trophy } from "@lucide/svelte";
   import { invalidate } from "$app/navigation";
   import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
@@ -58,13 +121,10 @@
   import { problemLetter } from "$lib/components/features/contest/format";
   import { Button } from "$lib/components/primitives/ui/button/index.js";
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
-  import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import RankBadge from "$lib/components/primitives/visual/RankBadge.svelte";
-  import StatRail from "$lib/components/primitives/visual/StatRail.svelte";
-  import StatTile from "$lib/components/primitives/visual/StatTile.svelte";
   import TabStrip from "$lib/components/primitives/visual/TabStrip.svelte";
   import SolveCountCell from "$lib/components/features/contest/SolveCountCell.svelte";
   import PointSumCell from "$lib/components/features/contest/PointSumCell.svelte";
@@ -176,8 +236,6 @@
     return `color-mix(in oklab, ${token} 65%, var(--panel))`;
   }
 
-  const contestLive = $derived(new Date(data.endsAt).getTime() > nowTick);
-
   function stickyBg(isMe: boolean): string {
     const base = "linear-gradient(var(--panel), var(--panel)), var(--background)";
     return isMe
@@ -212,7 +270,36 @@
     });
   });
 
-  const chartPaths = $derived(buildChartPaths(chart.series, 800, 300, 40));
+  let selectedChartUserId = $state<string | null>(null);
+  const selectedChartSeries = $derived(
+    chart.series.find((series) => series.userId === selectedChartUserId) ??
+      chart.series[0] ??
+      null,
+  );
+
+  $effect(() => {
+    const firstUserId = chart.series[0]?.userId ?? null;
+    if (
+      selectedChartUserId === null ||
+      !chart.series.some((series) => series.userId === selectedChartUserId)
+    ) {
+      untrack(() => (selectedChartUserId = firstUserId));
+    }
+  });
+
+  const chartSeries = $derived(selectedChartSeries ? [selectedChartSeries] : []);
+  const contestDurationSeconds = $derived(
+    Math.max(
+      1,
+      Math.floor((new Date(data.endsAt).getTime() - new Date(data.startsAt).getTime()) / 1000),
+    ),
+  );
+  const chartPaths = $derived(
+    buildChartPaths(chartSeries, 800, 300, 40, contestDurationSeconds),
+  );
+  const chartTicks = $derived(
+    buildChartTicks(chartSeries, 800, 300, 40, 4, contestDurationSeconds),
+  );
 </script>
 
 <PageContainer class="space-y-6 fade-up">
@@ -223,71 +310,6 @@
       { label: m.contestDetail_scoreboard() },
     ]}
   />
-
-  <div class="glass rounded-xl shadow-rest p-4 flex flex-wrap items-center gap-6">
-    <div class="flex-1 min-w-0">
-      <div
-        class="flex items-center gap-2 text-micro font-mono uppercase tracking-[0.2em] text-muted-foreground"
-      >
-        <Trophy aria-hidden="true" class="size-3.5" />
-        <span
-          >{m.contestDetail_scoreboard()} · {isSolveCount
-            ? m.contestScoreboard_formatSolveCount()
-            : m.contestScoreboard_formatPointSum()}</span
-        >
-      </div>
-      <h1 class="mt-2 text-headline font-semibold tracking-tight">
-        {m.contestScoreboard_heroHeading()}
-      </h1>
-      <p class="text-caption text-muted-foreground">
-        {isSolveCount
-          ? m.contestScoreboard_heroHintSolveCount()
-          : m.contestScoreboard_heroHintPointSum()}
-      </p>
-    </div>
-
-    {#if contestLive}
-      <div class="text-center">
-        <div class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
-          {m.contests_timeLeft()}
-        </div>
-        <div class="mt-1">
-          <Countdown iso={data.endsAt} />
-        </div>
-      </div>
-    {/if}
-
-    {#if scoreboard.isFrozen}
-      <div
-        class="rounded-lg border p-2 min-w-[200px]"
-        style="border-color: color-mix(in oklab, var(--info) 35%, transparent); background: color-mix(in oklab, var(--info) 8%, transparent);"
-      >
-        <div
-          class="flex items-center gap-2 text-micro font-mono uppercase tracking-wider"
-          style="color: var(--info);"
-        >
-          <Snowflake aria-hidden="true" class="size-3.5" />
-          <span>{m.contestDetail_frozen().toUpperCase()}</span>
-        </div>
-        <div class="mt-1 font-mono text-caption text-muted-foreground">
-          {m.contestScoreboard_frozenNote()}
-        </div>
-      </div>
-    {/if}
-
-    <StatRail>
-      <StatTile label={m.contestScoreboard_kpiEntries()}>
-        {#snippet value()}{scoreboard.entries.length}{/snippet}
-      </StatTile>
-      <StatTile label={m.contestScoreboard_kpiProblems()}>
-        {#snippet value()}{scoreboard.problems.length}{/snippet}
-      </StatTile>
-      <StatTile label={m.contestScoreboard_kpiYourRank()}>
-        {#snippet value()}<span style="color: var(--primary);">#{myRow?.rank ?? "—"}</span
-          >{/snippet}
-      </StatTile>
-    </StatRail>
-  </div>
 
   <GlassPanel class="overflow-hidden">
     <div
@@ -313,6 +335,12 @@
             ? m.contestScoreboard_sortHintSolveCount()
             : m.contestScoreboard_sortHintPointSum()}
         </span>
+        {#if scoreboard.isFrozen}
+          <span class="flex items-center gap-1.5 text-caption text-info">
+            <span class="size-1.5 rounded-full bg-info"></span>
+            {m.contestScoreboard_frozenNote()}
+          </span>
+        {/if}
       </div>
       <div class="flex items-center gap-3">
         <span
@@ -362,21 +390,29 @@
       <EmptyState icon={Trophy} title={m.contestScoreboard_empty()} />
     {:else if isSolveCount}
       <div class="overflow-auto max-h-[70vh]">
-        <table class="w-full text-body-sm">
+        <table
+          class="w-full table-fixed text-body-sm"
+          style="min-width: {tableMinWidth(scoreboard.problems.length, 1)};"
+        >
+          <colgroup>
+            <col style="width: {RANK_COLUMN_WIDTH}px;" />
+            <col style="width: {PARTICIPANT_COLUMN_WIDTH}px;" />
+            <col style="width: {SUMMARY_COLUMN_WIDTH}px;" />
+            {#each scoreboard.problems as p (p.id)}
+              <col style="width: {PROBLEM_COLUMN_WIDTH}px;" />
+            {/each}
+          </colgroup>
           <thead>
             <tr class="text-micro font-mono uppercase tracking-wider text-muted-foreground">
               <th class="sticky left-0 top-0 z-30 bg-muted text-left px-2 py-3 w-16">#</th>
               <th class="sticky left-16 top-0 z-30 bg-muted text-left px-4 py-3"
                 >{m.contestScoreboard_colParticipant()}</th
               >
-              <th class="sticky top-0 z-20 bg-muted text-center px-3 py-3 w-20"
-                >{m.contestScoreboard_colSolved()}</th
-              >
-              <th class="sticky top-0 z-20 bg-muted text-center px-3 py-3 w-24"
-                >{m.contestScoreboard_colPenalty()}</th
-              >
+              <th class="sticky top-0 z-20 bg-muted text-center px-3 py-3">
+                {m.contestScoreboard_colScore()}
+              </th>
               {#each scoreboard.problems as p (p.id)}
-                <th class="sticky top-0 z-20 bg-muted text-center px-2 py-3 w-[72px]">
+                <th class="sticky top-0 z-20 bg-muted text-center px-2 py-3">
                   <div class="font-bold text-foreground">
                     {problemLetter(p.ordinal)}
                   </div>
@@ -415,12 +451,15 @@
                       class="size-7 rounded-full"
                       style="background: {avatarBg(r.username)};"
                     ></div>
-                    <span
-                      class={r.userId === myRow?.userId ? "font-semibold" : ""}
+                    <button
+                      type="button"
+                      class="truncate text-left transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      class:font-semibold={r.userId === myRow?.userId}
                       style={r.userId === myRow?.userId ? "color: var(--primary);" : ""}
+                      onclick={() => (selectedChartUserId = r.userId)}
                     >
                       {r.username}
-                    </span>
+                    </button>
                     {#if r.userId === myRow?.userId}
                       <span
                         class="text-micro font-mono uppercase tracking-wider"
@@ -431,16 +470,16 @@
                     {/if}
                   </div>
                 </td>
-                <td
-                  class="px-3 py-3 text-center font-mono tabular-nums font-semibold text-title-sm"
-                >
-                  {r.totalScore}
-                </td>
-                <td class="px-3 py-3 text-center font-mono tabular-nums text-muted-foreground">
-                  {Math.round(r.totalPenalty / 60)}
+                <td class="px-3 py-3 text-center font-mono tabular-nums">
+                  <div class="flex flex-col items-center leading-tight">
+                    <span class="text-title-sm font-semibold">{r.totalScore}</span>
+                    <span class="text-caption text-muted-foreground">
+                      {Math.round(r.totalPenalty / 60)}
+                    </span>
+                  </div>
                 </td>
                 {#each r.problems as ps, pi (pi)}
-                  <td class="px-2 py-3 text-center">
+                  <td class="p-0 text-center">
                     <SolveCountCell
                       firstAcTime={ps.firstAcTime}
                       attempts={ps.attempts}
@@ -456,18 +495,26 @@
       </div>
     {:else}
       <div class="overflow-auto max-h-[70vh]">
-        <table class="w-full text-body-sm">
+        <table
+          class="w-full table-fixed text-body-sm"
+          style="min-width: {tableMinWidth(scoreboard.problems.length, 1)};"
+        >
+          <colgroup>
+            <col style="width: {RANK_COLUMN_WIDTH}px;" />
+            <col style="width: {PARTICIPANT_COLUMN_WIDTH}px;" />
+            {#each scoreboard.problems as p (p.id)}
+              <col style="width: {PROBLEM_COLUMN_WIDTH}px;" />
+            {/each}
+            <col style="width: {SUMMARY_COLUMN_WIDTH}px;" />
+          </colgroup>
           <thead>
             <tr class="text-micro font-mono uppercase tracking-wider text-muted-foreground">
               <th class="sticky left-0 top-0 z-30 bg-muted text-left px-2 py-3 w-16">#</th>
               <th class="sticky left-16 top-0 z-30 bg-muted text-left px-4 py-3"
                 >{m.contestScoreboard_colParticipant()}</th
               >
-              <th class="sticky top-0 z-20 bg-muted text-right px-4 py-3 w-24"
-                >{m.contestScoreboard_colTotal()}</th
-              >
               {#each scoreboard.problems as p (p.id)}
-                <th class="sticky top-0 z-20 bg-muted text-center px-3 py-3 w-24">
+                <th class="sticky top-0 z-20 bg-muted text-center px-3 py-3">
                   <div class="font-bold text-foreground">
                     {problemLetter(p.ordinal)}
                   </div>
@@ -478,6 +525,9 @@
                   </div>
                 </th>
               {/each}
+              <th class="sticky top-0 z-20 bg-muted text-right px-4 py-3 w-24"
+                >{m.contestScoreboard_colTotal()}</th
+              >
             </tr>
           </thead>
           <tbody class="divide-y" style="border-color: var(--border-subtle);">
@@ -508,12 +558,15 @@
                       class="size-7 rounded-full"
                       style="background: {avatarBg(r.username)};"
                     ></div>
-                    <span
-                      class={r.userId === myRow?.userId ? "font-semibold" : ""}
+                    <button
+                      type="button"
+                      class="truncate text-left transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      class:font-semibold={r.userId === myRow?.userId}
                       style={r.userId === myRow?.userId ? "color: var(--primary);" : ""}
+                      onclick={() => (selectedChartUserId = r.userId)}
                     >
                       {r.username}
-                    </span>
+                    </button>
                     {#if r.userId === myRow?.userId}
                       <span
                         class="text-micro font-mono uppercase tracking-wider"
@@ -524,21 +577,22 @@
                     {/if}
                   </div>
                 </td>
-                <td
-                  class="px-4 py-3 text-right font-mono tabular-nums font-semibold text-title-sm"
-                >
-                  {r.totalScore}
-                </td>
                 {#each r.problems as ps, pi (pi)}
-                  <td class="px-3 py-3 text-center">
+                  <td class="p-0 text-center">
                     <PointSumCell
                       firstAcTime={ps.firstAcTime}
                       score={ps.score}
                       attempts={ps.attempts}
                       isPending={ps.isPending}
+                      isFirstBlood={r.isFirstBlood[pi] ?? false}
                     />
                   </td>
                 {/each}
+                <td
+                  class="px-4 py-3 text-right font-mono tabular-nums font-semibold text-title-sm"
+                >
+                  {r.totalScore}
+                </td>
               </tr>
             {/each}
           </tbody>
@@ -560,12 +614,7 @@
             {m.contestScoreboard_legendAc()}
           </span>
           <span class="flex items-center gap-1.5">
-            <span
-              class="inline-grid place-items-center size-3.5 rounded-[2px] text-[8px]"
-              style="background: var(--chart-4); color: white;"
-            >
-              ★
-            </span>
+            <span class="size-2.5 rounded" style="background: var(--success-strong);"></span>
             {m.contestScoreboard_legendFirstBlood()}
           </span>
           <span class="flex items-center gap-1.5">
@@ -589,6 +638,10 @@
             {m.contestScoreboard_legendScoredAc()}
           </span>
           <span class="flex items-center gap-1.5">
+            <span class="size-2.5 rounded" style="background: var(--success-strong);"></span>
+            {m.contestScoreboard_legendFirstBlood()}
+          </span>
+          <span class="flex items-center gap-1.5">
             <span
               class="size-2.5 rounded"
               style="background: color-mix(in oklab, var(--destructive) 25%, transparent);"
@@ -607,13 +660,25 @@
 
   {#if chart.series.length > 0}
     <GlassPanel class="p-6">
-      <div class="flex items-baseline justify-between mb-3">
+      <div class="mb-3 flex flex-wrap items-end justify-between gap-3">
         <h3
           id="scoreboard-chart-heading"
           class="font-mono text-micro uppercase tracking-wider text-muted-foreground"
         >
-          {m.contestScoreboard_chartHeading({ count: chart.series.length })}
+          {m.contestScoreboard_chartHeading({ username: selectedChartSeries?.username ?? "—" })}
         </h3>
+        <label class="flex items-center gap-2 text-caption text-muted-foreground">
+          <span>{m.contestScoreboard_chartUserLabel()}</span>
+          <select
+            class="border-0 border-b border-border bg-transparent px-1 py-1 text-body-sm text-foreground shadow-none outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+            aria-label={m.contestScoreboard_chartUserLabel()}
+            bind:value={selectedChartUserId}
+          >
+            {#each chart.series as series (series.userId)}
+              <option value={series.userId}>{series.username}</option>
+            {/each}
+          </select>
+        </label>
       </div>
       <div class="overflow-x-auto rounded-sm" style="background: var(--panel-strong);">
         <svg
@@ -631,6 +696,38 @@
             stroke-opacity="0.15"
           />
           <line x1="40" y1="40" x2="40" y2="260" stroke="currentColor" stroke-opacity="0.15" />
+          {#each chartTicks.y as tick}
+            <line
+              x1="40"
+              y1={tick.position}
+              x2="760"
+              y2={tick.position}
+              stroke="currentColor"
+              stroke-opacity="0.08"
+            />
+            <text
+              x="34"
+              y={tick.position + 4}
+              text-anchor="end"
+              class="fill-muted-foreground font-mono text-[10px]">{tick.label}</text
+            >
+          {/each}
+          {#each chartTicks.x as tick}
+            <line
+              x1={tick.position}
+              y1="260"
+              x2={tick.position}
+              y2="264"
+              stroke="currentColor"
+              stroke-opacity="0.2"
+            />
+            <text
+              x={tick.position}
+              y="280"
+              text-anchor="middle"
+              class="fill-muted-foreground font-mono text-[10px]">{tick.label}</text
+            >
+          {/each}
           {#each chartPaths as path (path.username)}
             <polyline
               points={path.points}
@@ -641,17 +738,6 @@
             />
           {/each}
         </svg>
-        <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 px-2">
-          {#each chartPaths as path (path.username)}
-            <div class="flex items-center gap-1.5 text-caption">
-              <span
-                class="inline-block h-2.5 w-2.5 rounded-full"
-                style="background: {path.color};"
-              ></span>
-              <span class="tabular-nums">{path.username}</span>
-            </div>
-          {/each}
-        </div>
       </div>
     </GlassPanel>
   {/if}

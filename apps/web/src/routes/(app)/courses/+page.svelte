@@ -3,12 +3,10 @@
   import { page } from "$app/state";
   import { ArrowRight, BookOpen, GraduationCap, Plus } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button } from "$lib/components/primitives/ui/button";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
-  import TeacherBadge from "$lib/components/features/course/TeacherBadge.svelte";
   import type { PageData } from "./$types";
 
   type TabKey = "enrolled" | "managing";
@@ -80,13 +78,7 @@
             : 'border-transparent text-muted-foreground hover:text-foreground'}"
         >
           <span>{tab.label}</span>
-          <span
-            class="inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-micro font-semibold tabular-nums {isActive
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-muted text-muted-foreground'}"
-          >
-            {tab.count}
-          </span>
+          <span class="text-caption tabular-nums text-muted-foreground">{tab.count}</span>
         </button>
       {/each}
     </div>
@@ -145,11 +137,11 @@
         >
           <div class="mb-3.5 flex items-center justify-end">
             {#if course.role === "teacher"}
-              <TeacherBadge role="teacher" />
+              <span class="text-caption text-muted-foreground">{m.common_roleTeacher()}</span>
             {:else if course.role === "ta"}
-              <TeacherBadge role="ta" />
+              <span class="text-caption text-muted-foreground">{m.common_roleTa()}</span>
             {:else}
-              <Badge variant="muted">{roleLabel(course.role)}</Badge>
+              <span class="text-caption text-muted-foreground">{roleLabel(course.role)}</span>
             {/if}
           </div>
 
@@ -182,37 +174,37 @@
           >
             {#if course.role === "student"}
               {#if course.myAllCaughtUp}
-                <Badge variant="success" dot>{m.courses_allCaughtUp()}</Badge>
+                <span class="text-caption text-success">{m.courses_allCaughtUp()}</span>
               {:else}
                 {#if course.myDueCount > 0}
-                  <Badge variant="warning" dot
-                    >{m.courses_dueCount({ count: course.myDueCount })}</Badge
+                  <span class="text-caption text-warning"
+                    >{m.courses_dueCount({ count: course.myDueCount })}</span
                   >
                 {/if}
                 {#if course.myUpcomingCount > 0}
-                  <Badge variant="info"
-                    >{m.courses_upcomingCount({ count: course.myUpcomingCount })}</Badge
+                  <span class="text-caption text-info"
+                    >{m.courses_upcomingCount({ count: course.myUpcomingCount })}</span
                   >
                 {/if}
               {/if}
             {:else}
               {#if course.openAssignments > 0}
-                <Badge variant="default" dot
-                  >{m.courses_openCount({ count: course.openAssignments })}</Badge
+                <span class="text-caption text-success"
+                  >{m.courses_openCount({ count: course.openAssignments })}</span
                 >
               {/if}
               {#if course.draftAssignments > 0}
-                <Badge variant="muted"
-                  >{m.courses_draftCount({ count: course.draftAssignments })}</Badge
+                <span class="text-caption text-muted-foreground"
+                  >{m.courses_draftCount({ count: course.draftAssignments })}</span
                 >
               {/if}
               {#if course.upcomingExams > 0}
-                <Badge variant="info"
-                  >{m.courses_examCount({ count: course.upcomingExams })}</Badge
+                <span class="text-caption text-info"
+                  >{m.courses_examCount({ count: course.upcomingExams })}</span
                 >
               {/if}
               {#if course.openAssignments === 0 && course.draftAssignments === 0 && course.upcomingExams === 0}
-                <Badge variant="muted">{m.courses_noOpenWork()}</Badge>
+                <span class="text-caption text-muted-foreground">{m.courses_noOpenWork()}</span>
               {/if}
             {/if}
             <span

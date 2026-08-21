@@ -17,6 +17,16 @@ import {
 type TxClient = TransactionClient;
 type SubmissionClient = Pick<TxClient, "submission">;
 
+const submissionResultStatuses: SubmissionStatus[] = [
+  "accepted",
+  "wrong_answer",
+  "compile_error",
+  "runtime_error",
+  "time_limit_exceeded",
+  "memory_limit_exceeded",
+  "system_error",
+];
+
 export type SubmissionCreateContext =
   | { type: "practice" }
   | { type: "assignment"; assessmentId: string; courseId: string }
@@ -303,6 +313,22 @@ export const submissionRepo = {
     });
   },
 
+  countByUser(opts: { userId: string; enforceExamConfinement: boolean }) {
+    return prisma.submission.count({
+      where: {
+        ...userFacingSubmissionWhere(opts.userId, opts.enforceExamConfinement),
+        sampleOnly: false,
+        isReferenceSolution: false,
+      },
+    });
+  },
+
+  countAll() {
+    return prisma.submission.count({
+      where: { sampleOnly: false, isReferenceSolution: false },
+    });
+  },
+
   async listByUser(opts: {
     userId: string;
     enforceExamConfinement: boolean;
@@ -403,7 +429,14 @@ export const submissionRepo = {
         contestId: true,
         examId: true,
         assessmentId: true,
-        problem: { select: problemMiniSelect },
+        problem: {
+          select: {
+            ...problemMiniSelect,
+            type: true,
+            advancedConfig: true,
+            testcaseSets: { select: { weight: true } },
+          },
+        },
         user: { select: userMiniSelect },
       },
     });
@@ -745,7 +778,12 @@ export const submissionRepo = {
 
   findDistinctAttemptedByUser(userId: string) {
     return prisma.submission.findMany({
-      where: { userId, sampleOnly: false, isReferenceSolution: false },
+      where: {
+        userId,
+        sampleOnly: false,
+        isReferenceSolution: false,
+        status: { in: submissionResultStatuses },
+      },
       select: { problemId: true },
       distinct: ["problemId"] as const,
     });
@@ -773,7 +811,12 @@ export const submissionRepo = {
   groupByLanguageForUser(userId: string) {
     return prisma.submission.groupBy({
       by: ["language"],
-      where: { userId, sampleOnly: false, isReferenceSolution: false },
+      where: {
+        userId,
+        sampleOnly: false,
+        isReferenceSolution: false,
+        status: { in: submissionResultStatuses },
+      },
       _count: { _all: true },
     });
   },
@@ -781,7 +824,12 @@ export const submissionRepo = {
   groupByStatusForUser(userId: string) {
     return prisma.submission.groupBy({
       by: ["status"],
-      where: { userId, sampleOnly: false, isReferenceSolution: false },
+      where: {
+        userId,
+        sampleOnly: false,
+        isReferenceSolution: false,
+        status: { in: submissionResultStatuses },
+      },
       _count: { _all: true },
     });
   },
@@ -791,14 +839,7 @@ export const submissionRepo = {
       where: {
         sampleOnly: false,
         isReferenceSolution: false,
-        status: {
-          in: [
-            "compile_error",
-            "runtime_error",
-            "time_limit_exceeded",
-            "memory_limit_exceeded",
-          ],
-        },
+        status: "system_error",
       },
       orderBy: { createdAt: "desc" },
       take,
@@ -815,14 +856,24 @@ export const submissionRepo = {
 
   findInDateRange(from: Date) {
     return prisma.submission.findMany({
-      where: { sampleOnly: false, isReferenceSolution: false, createdAt: { gte: from } },
+      where: {
+        sampleOnly: false,
+        isReferenceSolution: false,
+        createdAt: { gte: from },
+        status: { in: submissionResultStatuses },
+      },
       select: { createdAt: true, status: true },
     });
   },
 
   findForPlatformStats(from: Date) {
     return prisma.submission.findMany({
-      where: { sampleOnly: false, isReferenceSolution: false, createdAt: { gte: from } },
+      where: {
+        sampleOnly: false,
+        isReferenceSolution: false,
+        createdAt: { gte: from },
+        status: { in: submissionResultStatuses },
+      },
       select: {
         createdAt: true,
         status: true,
@@ -836,7 +887,12 @@ export const submissionRepo = {
   groupByStatus(from: Date) {
     return prisma.submission.groupBy({
       by: ["status"],
-      where: { sampleOnly: false, isReferenceSolution: false, createdAt: { gte: from } },
+      where: {
+        sampleOnly: false,
+        isReferenceSolution: false,
+        createdAt: { gte: from },
+        status: { in: submissionResultStatuses },
+      },
       _count: { _all: true },
     });
   },

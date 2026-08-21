@@ -22,7 +22,7 @@
     persistPanelWidth,
     readPanelWidth,
   } from "../editors/editor-bindings";
-  import ProblemLeftPanel from "./ProblemLeftPanel.svelte";
+  import ProblemLeftPanel, { type ProblemWorkspaceTimer } from "./ProblemLeftPanel.svelte";
 
   interface Props {
     allowedLanguages?: Language[] | undefined;
@@ -37,6 +37,7 @@
     initialSubmissions?: ProblemSubmissionEntry[];
     problem: ProblemDetail;
     testcaseSets?: ProblemTestcaseSetSummary[];
+    workspaceTimer?: ProblemWorkspaceTimer | undefined;
   }
 
   let {
@@ -50,9 +51,25 @@
     initialSubmissions,
     problem,
     testcaseSets = [],
+    workspaceTimer,
   }: Props = $props();
 
   let submissions = $state<ProblemSubmissionEntry[]>(untrack(() => initialSubmissions) ?? []);
+
+  $effect(() => {
+    const incoming = initialSubmissions;
+    if (!incoming) return;
+    const current = untrack(() => submissions);
+    const currentById = new Map(
+      current.filter((entry) => entry.id).map((entry) => [entry.id, entry]),
+    );
+    const merged = incoming.map((entry) => ({ ...currentById.get(entry.id), ...entry }));
+    const incomingIds = new Set(incoming.map((entry) => entry.id).filter(Boolean));
+    submissions = [
+      ...merged,
+      ...current.filter((entry) => entry.id && !incomingIds.has(entry.id)),
+    ].slice(0, 50);
+  });
 
   let draftContext = $derived(draftContextFromSubmissionContext(context));
 
@@ -155,6 +172,7 @@
     {problem}
     {testcaseSets}
     {allowedLanguages}
+    {workspaceTimer}
   />
 </div>
 

@@ -25,7 +25,6 @@
     CalendarClock,
     CircleCheck,
     Mail,
-    MoreHorizontal,
     Trash2,
     User,
     UserCog,
@@ -42,9 +41,21 @@
     users: UsersTableUser[];
     actorId: string | undefined;
     canManageAdmins: boolean;
+    search: string;
+    roleFilter: string;
+    statusFilter: string;
+    onApply: () => void;
   }
 
-  let { users, actorId, canManageAdmins }: Props = $props();
+  let {
+    users,
+    actorId,
+    canManageAdmins,
+    search = $bindable(),
+    roleFilter = $bindable(),
+    statusFilter = $bindable(),
+    onApply,
+  }: Props = $props();
 
   let selected = $state<Set<string>>(new Set());
 
@@ -60,73 +71,6 @@
     if (next.has(id)) next.delete(id);
     else next.add(id);
     selected = next;
-  }
-
-  let openMenuId = $state<string | null>(null);
-  let menuEl = $state<HTMLDivElement | undefined>();
-  let triggerEl = $state<HTMLButtonElement | undefined>();
-  let menuPos = $state<{ top: number; right: number } | null>(null);
-
-  function computeMenuPos() {
-    if (!triggerEl) return;
-    const rect = triggerEl.getBoundingClientRect();
-    menuPos = { top: rect.bottom + 4, right: window.innerWidth - rect.right };
-  }
-
-  function toggleMenu(id: string, e: MouseEvent) {
-    if (openMenuId === id) {
-      closeMenu();
-    } else {
-      openMenuId = id;
-      triggerEl = e.currentTarget as HTMLButtonElement;
-      computeMenuPos();
-    }
-  }
-
-  function closeMenu() {
-    openMenuId = null;
-  }
-
-  $effect(() => {
-    if (openMenuId === null) return;
-    menuEl?.querySelector<HTMLElement>("[role='menuitem']:not([disabled])")?.focus();
-    function onKeydown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        const t = triggerEl;
-        closeMenu();
-        t?.focus();
-      }
-    }
-    document.addEventListener("keydown", onKeydown);
-    window.addEventListener("scroll", computeMenuPos, true);
-    window.addEventListener("resize", computeMenuPos);
-    return () => {
-      document.removeEventListener("keydown", onKeydown);
-      window.removeEventListener("scroll", computeMenuPos, true);
-      window.removeEventListener("resize", computeMenuPos);
-    };
-  });
-
-  function onMenuKeydown(e: KeyboardEvent) {
-    if (!menuEl) return;
-    const items = Array.from(
-      menuEl.querySelectorAll<HTMLElement>("[role='menuitem']:not([disabled])"),
-    );
-    if (items.length === 0) return;
-    const current = items.indexOf(document.activeElement as HTMLElement);
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      items[(current + 1) % items.length]?.focus();
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      items[(current - 1 + items.length) % items.length]?.focus();
-    } else if (e.key === "Home") {
-      e.preventDefault();
-      items[0]?.focus();
-    } else if (e.key === "End") {
-      e.preventDefault();
-      items[items.length - 1]?.focus();
-    }
   }
 
   function roleBadgeVariant(role: PlatformRole): "warning" | "info" | "success" {
@@ -179,11 +123,24 @@
     return sortDir === "asc" ? "ascending" : "descending";
   }
 
+  const filteredUsers = $derived(
+    users.filter((user) => {
+      const query = search.trim().toLocaleLowerCase();
+      if (roleFilter && user.platformRole !== roleFilter) return false;
+      if (statusFilter === "active" && user.disabled) return false;
+      if (statusFilter === "disabled" && !user.disabled) return false;
+      if (!query) return true;
+      return [user.username, user.email, user.name]
+        .filter(Boolean)
+        .some((value) => value!.toLocaleLowerCase().includes(query));
+    }),
+  );
+
   const sortedUsers = $derived.by(() => {
     const key = sortKey;
-    if (!key) return users;
+    if (!key) return filteredUsers;
     const dir = sortDir === "asc" ? 1 : -1;
-    return [...users].sort((a, b) => {
+    return [...filteredUsers].sort((a, b) => {
       let cmp = 0;
       if (key === "role") {
         cmp = roleRank(a.platformRole) - roleRank(b.platformRole);
@@ -351,16 +308,6 @@
   }
 </script>
 
-<svelte:window
-  onclick={(e) => {
-    if (openMenuId === null || pending !== null) return;
-    const target = e.target as HTMLElement;
-    if (!target.closest("[role='menu']") && !target.closest("[aria-haspopup='menu']")) {
-      closeMenu();
-    }
-  }}
-/>
-
 {#if selected.size > 0}
   <div
     class="flex flex-wrap items-center gap-3 border-b border-border-subtle bg-muted/40 px-5 py-3"
@@ -470,6 +417,16 @@
             {m.admin_usersUsername()}
             {@render sortArrow("username")}
           </button>
+          <label class="mt-2 block">
+            <span class="sr-only">{m.admin_usersFilterSearch()}</span>
+            <input
+              class="h-8 w-full min-w-40 rounded-none border-0 border-b border-border bg-transparent px-1 text-caption font-normal text-foreground shadow-none outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-0"
+              type="search"
+              bind:value={search}
+              placeholder={m.admin_usersFilterSearch()}
+              onkeydown={(event) => event.key === "Enter" && onApply()}
+            />
+          </label>
         </th>
         <th class="px-5 py-3 font-medium" aria-sort={ariaSort("email")}>
           <button
@@ -501,6 +458,19 @@
             {m.admin_usersRole()}
             {@render sortArrow("role")}
           </button>
+          <label class="mt-2 block">
+            <span class="sr-only">{m.admin_usersFilterRole()}</span>
+            <select
+              class="h-8 min-w-28 w-full rounded-none border-0 border-b border-border bg-transparent px-1 text-caption font-normal shadow-none outline-none focus:border-ring focus:ring-0"
+              bind:value={roleFilter}
+              onchange={onApply}
+            >
+              <option value="">{m.admin_usersFilterAll()}</option>
+              <option value="admin">{m.common_roleAdmin()}</option>
+              <option value="teacher">{m.common_roleTeacher()}</option>
+              <option value="student">{m.common_roleStudent()}</option>
+            </select>
+          </label>
         </th>
         <th class="px-5 py-3 font-medium">{m.admin_usersAdvancedColumn()}</th>
         <th class="px-5 py-3 font-medium" aria-sort={ariaSort("status")}>
@@ -512,6 +482,18 @@
             {m.admin_usersStatus()}
             {@render sortArrow("status")}
           </button>
+          <label class="mt-2 block">
+            <span class="sr-only">{m.admin_usersFilterStatus()}</span>
+            <select
+              class="h-8 min-w-28 w-full rounded-none border-0 border-b border-border bg-transparent px-1 text-caption font-normal shadow-none outline-none focus:border-ring focus:ring-0"
+              bind:value={statusFilter}
+              onchange={onApply}
+            >
+              <option value="">{m.admin_usersFilterAll()}</option>
+              <option value="active">{m.admin_usersStatusActive()}</option>
+              <option value="disabled">{m.admin_usersStatusDisabled()}</option>
+            </select>
+          </label>
         </th>
         <th class="px-5 py-3 font-medium" aria-sort={ariaSort("createdAt")}>
           <button
@@ -564,7 +546,7 @@
                   name="role"
                   value={user.platformRole}
                   aria-label={`${m.admin_usersRole()}: ${displayName(user)}`}
-                  class="rounded-md border border-border bg-background px-2 py-1 text-caption font-medium focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                  class="rounded-none border-0 border-b border-border bg-transparent px-1 py-1 text-caption font-medium focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
                   onchange={(e) => handleRoleChange(e, user)}
                 >
                   {#each assignableRoles as role (role)}
@@ -593,7 +575,7 @@
                   name="allowed"
                   value={String(user.canCreateAdvancedProblems)}
                   aria-label={`${m.admin_usersAdvancedColumn()}: ${displayName(user)}`}
-                  class="rounded-md border border-border bg-background px-2 py-1 text-caption font-medium focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                  class="rounded-none border-0 border-b border-border bg-transparent px-1 py-1 text-caption font-medium focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
                   onchange={(e) => (e.currentTarget as HTMLSelectElement).form?.requestSubmit()}
                 >
                   <option value="true">{m.admin_usersAdvancedAllowed()}</option>
@@ -620,98 +602,78 @@
           </td>
           <td class="px-5 py-3 text-right">
             {#if canManage(user)}
-              <div class="relative inline-block text-left">
-                <button
-                  type="button"
-                  class="inline-flex size-8 cursor-pointer items-center justify-center rounded-sm text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  aria-label={m.admin_usersActions()}
-                  aria-haspopup="menu"
-                  aria-expanded={openMenuId === user.id}
-                  onclick={(e) => toggleMenu(user.id, e)}
+              <div class="inline-flex items-center justify-end gap-1">
+                <form
+                  method="POST"
+                  action="?/toggleDisabled"
+                  use:enhance={() => {
+                    const name = displayName(user);
+                    const willDisable = !user.disabled;
+                    return async ({ result, update }) => {
+                      if (result.type === "success") {
+                        toasts.success(
+                          willDisable
+                            ? m.admin_usersDisableSuccess({ username: name })
+                            : m.admin_usersEnableSuccess({ username: name }),
+                        );
+                        await update();
+                      } else if (result.type === "failure") {
+                        const err =
+                          (result.data as { error?: string } | undefined)?.error ??
+                          m.admin_usersDisableFailed();
+                        toasts.error(err);
+                      } else {
+                        await update();
+                      }
+                    };
+                  }}
                 >
-                  <MoreHorizontal aria-hidden="true" class="h-4 w-4" />
-                </button>
-
-                {#if openMenuId === user.id && menuPos}
-                  <div
-                    bind:this={menuEl}
-                    class="fixed z-50 min-w-[12rem] overflow-hidden rounded-lg border border-border bg-popover py-1 text-left text-popover-foreground shadow-modal"
-                    style="top: {menuPos.top}px; right: {menuPos.right}px;"
-                    role="menu"
-                    tabindex="-1"
-                    onkeydown={onMenuKeydown}
+                  <input type="hidden" name="userId" value={user.id} />
+                  <button
+                    type="submit"
+                    class="inline-flex size-8 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    aria-label={user.disabled ? m.admin_usersEnable() : m.admin_usersDisable()}
+                    title={user.disabled ? m.admin_usersEnable() : m.admin_usersDisable()}
+                    onclick={(e) => maybeConfirmDisable(e, user)}
                   >
-                    <form
-                      method="POST"
-                      action="?/toggleDisabled"
-                      use:enhance={() => {
-                        const name = displayName(user);
-                        const willDisable = !user.disabled;
-                        closeMenu();
-                        return async ({ result, update }) => {
-                          if (result.type === "success") {
-                            toasts.success(
-                              willDisable
-                                ? m.admin_usersDisableSuccess({ username: name })
-                                : m.admin_usersEnableSuccess({ username: name }),
-                            );
-                            await update();
-                          } else if (result.type === "failure") {
-                            const err =
-                              (result.data as { error?: string } | undefined)?.error ??
-                              m.admin_usersDisableFailed();
-                            toasts.error(err);
-                          } else {
-                            await update();
-                          }
-                        };
-                      }}
-                    >
-                      <input type="hidden" name="userId" value={user.id} />
-                      <button
-                        type="submit"
-                        class="flex w-full items-center px-3 py-2 text-body-sm transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-accent-foreground"
-                        role="menuitem"
-                        onclick={(e) => maybeConfirmDisable(e, user)}
-                      >
-                        {user.disabled ? m.admin_usersEnable() : m.admin_usersDisable()}
-                      </button>
-                    </form>
-
-                    <form
-                      method="POST"
-                      action="?/deleteUser"
-                      use:enhance={() => {
-                        const name = displayName(user);
-                        closeMenu();
-                        return async ({ result, update }) => {
-                          if (result.type === "success") {
-                            toasts.success(m.admin_usersDeleteSuccess({ username: name }));
-                            await update();
-                          } else if (result.type === "failure") {
-                            const err =
-                              (result.data as { error?: string } | undefined)?.error ??
-                              m.admin_usersDeleteFailed();
-                            toasts.error(err);
-                          } else {
-                            await update();
-                          }
-                        };
-                      }}
-                    >
-                      <input type="hidden" name="userId" value={user.id} />
-                      <button
-                        type="submit"
-                        class="flex w-full items-center gap-2 px-3 py-2 text-body-sm text-destructive transition-colors duration-fast ease-out-soft hover:bg-destructive/10"
-                        role="menuitem"
-                        onclick={(e) => confirmDelete(e, user)}
-                      >
-                        <Trash2 aria-hidden="true" class="h-3.5 w-3.5" />
-                        {m.admin_usersDeleteAccount()}
-                      </button>
-                    </form>
-                  </div>
-                {/if}
+                    {#if user.disabled}
+                      <CircleCheck aria-hidden="true" class="h-4 w-4" />
+                    {:else}
+                      <Ban aria-hidden="true" class="h-4 w-4" />
+                    {/if}
+                  </button>
+                </form>
+                <form
+                  method="POST"
+                  action="?/deleteUser"
+                  use:enhance={() => {
+                    const name = displayName(user);
+                    return async ({ result, update }) => {
+                      if (result.type === "success") {
+                        toasts.success(m.admin_usersDeleteSuccess({ username: name }));
+                        await update();
+                      } else if (result.type === "failure") {
+                        const err =
+                          (result.data as { error?: string } | undefined)?.error ??
+                          m.admin_usersDeleteFailed();
+                        toasts.error(err);
+                      } else {
+                        await update();
+                      }
+                    };
+                  }}
+                >
+                  <input type="hidden" name="userId" value={user.id} />
+                  <button
+                    type="submit"
+                    class="inline-flex size-8 items-center justify-center rounded-sm text-destructive transition-colors hover:bg-destructive/10"
+                    aria-label={m.admin_usersDeleteAccount()}
+                    title={m.admin_usersDeleteAccount()}
+                    onclick={(e) => confirmDelete(e, user)}
+                  >
+                    <Trash2 aria-hidden="true" class="h-4 w-4" />
+                  </button>
+                </form>
               </div>
             {:else}
               <span class="text-caption text-muted-foreground">—</span>

@@ -271,7 +271,7 @@
           <div
             class="pointer-events-none absolute inset-x-0 top-[45%] flex -translate-y-1/2 flex-col items-center"
           >
-            <span class="text-headline font-semibold leading-none tabular-nums">
+            <span class="text-title-sm font-semibold leading-none tabular-nums">
               {overview.totals.acRate30d}%
             </span>
             <span class="mt-1 text-caption text-muted-foreground">

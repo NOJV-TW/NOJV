@@ -73,14 +73,18 @@ describe("verdictTone", () => {
 
 describe("formatVerdictLabel", () => {
   it("formats accepted", () => {
-    expect(formatVerdictLabel("accepted")).toBe("Accepted");
+    expect(formatVerdictLabel("accepted")).toBe("AC");
   });
 
-  it("formats wrong_answer with spaces and capitalization", () => {
-    expect(formatVerdictLabel("wrong_answer")).toBe("Wrong Answer");
+  it("formats terminal verdicts as compact codes", () => {
+    expect(formatVerdictLabel("wrong_answer")).toBe("WA");
+    expect(formatVerdictLabel("runtime_error")).toBe("RE");
+    expect(formatVerdictLabel("compile_error")).toBe("CE");
+    expect(formatVerdictLabel("memory_limit_exceeded")).toBe("MLE");
+    expect(formatVerdictLabel("system_error")).toBe("SE");
   });
 
   it("formats time_limit_exceeded", () => {
-    expect(formatVerdictLabel("time_limit_exceeded")).toBe("Time Limit Exceeded");
+    expect(formatVerdictLabel("time_limit_exceeded")).toBe("TLE");
   });
 });

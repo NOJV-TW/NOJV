@@ -33,7 +33,8 @@
           context={`${exam.courseTitle} · ${exam.ownerDisplayName}`}
           title={exam.title}
           status={pillStatus(exam.status)}
-          dateIso={exam.startsAt}
+          startsAt={exam.startsAt}
+          endsAt={exam.endsAt}
           delay={index * 30}
         >
           {#snippet foot()}{m.admin_contentProblemCount({ count: exam.problemCount })}{/snippet}

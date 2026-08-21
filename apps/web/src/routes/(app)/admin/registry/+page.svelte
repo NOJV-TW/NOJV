@@ -11,6 +11,25 @@
 
   let { data } = $props();
 
+  let tagFilter = $state("");
+  let sizeFilter = $state("");
+  let digestFilter = $state("");
+
+  type RegistryTag = { tag: string; size: number | null; digest: string | null };
+
+  function filteredTags(tags: RegistryTag[]): RegistryTag[] {
+    const tagQuery = tagFilter.trim().toLowerCase();
+    const sizeQuery = sizeFilter.trim().toLowerCase();
+    const digestQuery = digestFilter.trim().toLowerCase();
+    return tags.filter((tag) => {
+      const matchesTag = !tagQuery || tag.tag.toLowerCase().includes(tagQuery);
+      const matchesSize = !sizeQuery || formatSize(tag.size).toLowerCase().includes(sizeQuery);
+      const matchesDigest =
+        !digestQuery || shortDigest(tag.digest).toLowerCase().includes(digestQuery);
+      return matchesTag && matchesSize && matchesDigest;
+    });
+  }
+
   function shortDigest(digest: string | null): string {
     if (!digest) return "—";
     const hex = digest.includes(":") ? (digest.split(":")[1] ?? digest) : digest;
@@ -163,16 +182,49 @@
                 <tr
                   class="border-b border-border-subtle text-left text-caption uppercase tracking-wider text-muted-foreground"
                 >
-                  <th class="px-5 py-2 font-medium">{m.admin_registry_colTag()}</th>
-                  <th class="px-5 py-2 font-medium">{m.admin_registry_colSize()}</th>
-                  <th class="px-5 py-2 font-medium">{m.admin_registry_colDigest()}</th>
+                  <th class="px-5 py-2 font-medium">
+                    {m.admin_registry_colTag()}
+                    <label class="mt-2 block normal-case tracking-normal">
+                      <span class="sr-only">{m.admin_registry_colTag()}</span>
+                      <input
+                        class="h-8 w-full min-w-36 rounded-none border-0 border-b border-border bg-transparent px-1 text-caption font-normal text-foreground shadow-none outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-0"
+                        type="search"
+                        bind:value={tagFilter}
+                        placeholder={m.admin_registry_colTag()}
+                      />
+                    </label>
+                  </th>
+                  <th class="px-5 py-2 font-medium">
+                    {m.admin_registry_colSize()}
+                    <label class="mt-2 block normal-case tracking-normal">
+                      <span class="sr-only">{m.admin_registry_colSize()}</span>
+                      <input
+                        class="h-8 w-full min-w-28 rounded-none border-0 border-b border-border bg-transparent px-1 text-caption font-normal text-foreground shadow-none outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-0"
+                        type="search"
+                        bind:value={sizeFilter}
+                        placeholder={m.admin_registry_colSize()}
+                      />
+                    </label>
+                  </th>
+                  <th class="px-5 py-2 font-medium">
+                    {m.admin_registry_colDigest()}
+                    <label class="mt-2 block normal-case tracking-normal">
+                      <span class="sr-only">{m.admin_registry_colDigest()}</span>
+                      <input
+                        class="h-8 w-full min-w-40 rounded-none border-0 border-b border-border bg-transparent px-1 text-caption font-normal text-foreground shadow-none outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-0"
+                        type="search"
+                        bind:value={digestFilter}
+                        placeholder={m.admin_registry_colDigest()}
+                      />
+                    </label>
+                  </th>
                   <th class="px-5 py-2 text-right font-medium"
                     >{m.admin_registry_colActions()}</th
                   >
                 </tr>
               </thead>
               <tbody>
-                {#each repo.tags as t (t.tag)}
+                {#each filteredTags(repo.tags) as t (t.tag)}
                   <tr class="border-b border-border-subtle last:border-b-0">
                     <td class="px-5 py-3 font-mono">{t.tag}</td>
                     <td class="px-5 py-3 text-muted-foreground">{formatSize(t.size)}</td>
@@ -213,6 +265,16 @@
                     </td>
                   </tr>
                 {/each}
+                {#if filteredTags(repo.tags).length === 0}
+                  <tr>
+                    <td
+                      colspan="4"
+                      class="px-5 py-8 text-center text-caption text-muted-foreground"
+                    >
+                      {m.submissions_noMatches()}
+                    </td>
+                  </tr>
+                {/if}
               </tbody>
             </table>
           </div>

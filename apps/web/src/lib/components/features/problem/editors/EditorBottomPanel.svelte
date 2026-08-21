@@ -116,13 +116,13 @@
           <div class="flex items-center gap-1" data-tour="problem-samples">
             {#each runCases as _, index (`tab-${index}`)}
               <div
-                class="group flex items-center rounded-md transition-[background-color] duration-fast ease-out-soft {selectedCase ===
+                class="group inline-flex items-center gap-1 rounded-full border border-border-subtle px-1 py-0.5 transition-[background-color,border-color] duration-fast ease-out-soft {selectedCase ===
                 index
-                  ? 'bg-muted text-foreground'
+                  ? 'border-primary/35 bg-muted text-foreground'
                   : 'text-muted-foreground'}"
               >
                 <button
-                  class="rounded-md px-3 py-1 text-caption font-medium transition-[color] duration-fast ease-out-soft hover:text-foreground"
+                  class="inline-flex min-h-7 items-center justify-center rounded-full px-3 py-1 text-caption font-medium transition-[color] duration-fast ease-out-soft hover:text-foreground"
                   onclick={() => (selectedCase = index)}
                   type="button"
                 >
@@ -130,7 +130,7 @@
                 </button>
                 {#if runCases.length > 1}
                   <button
-                    class="mr-1 inline-flex size-5 items-center justify-center rounded bg-transparent text-muted-foreground opacity-0 transition-[color,opacity] duration-fast ease-out-soft hover:bg-transparent hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+                    class="inline-flex size-6 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-transparent text-muted-foreground transition-[color,border-color] duration-fast ease-out-soft hover:border-destructive/40 hover:bg-transparent hover:text-destructive"
                     type="button"
                     aria-label={m.editor_removeCase({ index: index + 1 })}
                     title={m.editor_removeCase({ index: index + 1 })}

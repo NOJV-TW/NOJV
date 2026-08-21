@@ -26,6 +26,7 @@ export const contestFormSchema = z
     allowedLanguages: z.array(languageSchema).max(8).default([]),
     endsAt: z.string().min(1),
     frozenAt: z.string().optional(),
+    freezeMinutes: z.coerce.number().int().min(1).max(10_080).optional(),
     inviteCode: z.string().max(32).optional(),
     isPublic: z.boolean().default(true),
     problems: z
@@ -55,11 +56,15 @@ export const contestFormSchema = z
         path: ["inviteCode"],
       });
     }
-    if (data.scoreboardMode === "frozen" && (data.frozenAt ?? "").trim().length === 0) {
+    if (
+      data.scoreboardMode === "frozen" &&
+      data.freezeMinutes == null &&
+      (data.frozenAt ?? "").trim().length === 0
+    ) {
       ctx.addIssue({
         code: "custom",
         message: "Freeze time is required when the scoreboard mode is frozen.",
-        path: ["frozenAt"],
+        path: ["freezeMinutes"],
       });
     }
   });

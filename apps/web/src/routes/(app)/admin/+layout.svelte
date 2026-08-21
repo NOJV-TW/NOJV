@@ -7,12 +7,7 @@
 
   const tabs = [
     { href: "/admin", label: () => m.admin_tabOverview() },
-    { href: "/admin/courses", label: () => m.navigation_courses() },
-    { href: "/admin/assignments", label: () => m.navigation_assignments() },
-    { href: "/admin/exams", label: () => m.navigation_exams() },
-    { href: "/admin/contests", label: () => m.navigation_contests() },
     { href: "/admin/users", label: () => m.admin_tabUsers() },
-    { href: "/admin/submissions", label: () => m.admin_tabSubmissions() },
     { href: "/admin/announcements", label: () => m.admin_tabAnnouncements() },
     { href: "/admin/reports", label: () => m.admin_tabReports() },
     { href: "/admin/registry", label: () => m.admin_tabRegistry() },

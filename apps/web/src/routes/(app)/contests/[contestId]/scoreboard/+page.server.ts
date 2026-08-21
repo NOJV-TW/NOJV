@@ -34,7 +34,7 @@ export const load: PageServerLoad = handleLoad(async (event) => {
   const canSeeLive = detail.isManager;
 
   const scoreboard = await getScoreboard(contestId, { canSeeLive });
-  const chart = await getScoreboardChart(contestId, 10, {
+  const chart = await getScoreboardChart(contestId, scoreboard.entries.length, {
     canSeeLive,
     precomputed: scoreboard,
   });
@@ -44,6 +44,7 @@ export const load: PageServerLoad = handleLoad(async (event) => {
     chart,
     contestId,
     endsAt: detail.endsAt,
+    startsAt: detail.startsAt,
     scoreboard,
   };
 });

@@ -111,7 +111,7 @@ export function buildProblemCountScoreboard(
       }
 
       problemScores.push({
-        attempts: result.wrongAttempts,
+        attempts: result.wrongAttempts + (result.solved ? 1 : 0),
         firstAcTime: result.firstAcTimeSec,
         isFrozen,
         isPending: isFrozen,

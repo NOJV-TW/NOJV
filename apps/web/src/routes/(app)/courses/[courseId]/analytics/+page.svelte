@@ -139,12 +139,6 @@
               </div>
               <div class="flex items-center gap-8 font-mono tabular-nums">
                 <div class="text-right">
-                  <div class="text-title-sm font-semibold">{summary.studentCount}</div>
-                  <div class="text-micro uppercase tracking-wide text-muted-foreground">
-                    {m.courseAnalytics_metricStudents()}
-                  </div>
-                </div>
-                <div class="text-right">
                   <div class="text-title-sm font-semibold">{summary.avgScore}</div>
                   <div class="text-micro uppercase tracking-wide text-muted-foreground">
                     {m.courseAnalytics_metricAvgScore()}

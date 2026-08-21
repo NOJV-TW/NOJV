@@ -14,7 +14,9 @@
     ProblemSubmissionEntry,
     ProblemTestcaseSetSummary,
   } from "$lib/types";
-  import ProblemLeftPanel from "../layouts/ProblemLeftPanel.svelte";
+  import ProblemLeftPanel, {
+    type ProblemWorkspaceTimer,
+  } from "../layouts/ProblemLeftPanel.svelte";
   import AdvancedUploader, { type StagedFile } from "./AdvancedUploader.svelte";
   import AdvancedFileManager from "./AdvancedFileManager.svelte";
   import { buildSubmissionBody, executeSubmission } from "$lib/services/submission-service";
@@ -33,6 +35,7 @@
     problem: ProblemDetail;
     requiredPaths?: string[];
     testcaseSets?: ProblemTestcaseSetSummary[];
+    workspaceTimer?: ProblemWorkspaceTimer | undefined;
   }
 
   let {
@@ -46,9 +49,25 @@
     problem,
     requiredPaths = [],
     testcaseSets = [],
+    workspaceTimer,
   }: Props = $props();
 
   let submissions = $state<ProblemSubmissionEntry[]>(untrack(() => initialSubmissions) ?? []);
+
+  $effect(() => {
+    const incoming = initialSubmissions;
+    if (!incoming) return;
+    const current = untrack(() => submissions);
+    const currentById = new Map(
+      current.filter((entry) => entry.id).map((entry) => [entry.id, entry]),
+    );
+    const merged = incoming.map((entry) => ({ ...currentById.get(entry.id), ...entry }));
+    const incomingIds = new Set(incoming.map((entry) => entry.id).filter(Boolean));
+    submissions = [
+      ...merged,
+      ...current.filter((entry) => entry.id && !incomingIds.has(entry.id)),
+    ].slice(0, 50);
+  });
   let contextBadge = $derived(submissionContextBadge(context));
 
   function handleSubmissionComplete(
@@ -63,6 +82,18 @@
         language,
         result,
         sourceCode,
+        submittedAt: new Date().toISOString(),
+        context: context.type,
+      },
+      ...submissions,
+    ].slice(0, 50);
+  }
+
+  function handleSubmissionDispatched(submissionId: string, language: string) {
+    submissions = [
+      {
+        id: submissionId,
+        language,
         submittedAt: new Date().toISOString(),
         context: context.type,
       },
@@ -169,6 +200,7 @@
           signal,
           onDispatched: (dispatch) => {
             submissionId = dispatch.submissionId;
+            handleSubmissionDispatched(dispatch.submissionId, uploadLanguage);
           },
         },
       );
@@ -203,6 +235,7 @@
     bind:submissions
     {problem}
     {testcaseSets}
+    {workspaceTimer}
   />
 </div>
 

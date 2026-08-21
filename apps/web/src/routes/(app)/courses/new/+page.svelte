@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { ArrowRight, ChevronLeft, Info } from "@lucide/svelte";
+  import { ArrowRight, ChevronLeft } from "@lucide/svelte";
   import { superForm } from "sveltekit-superforms/client";
   import { m } from "$lib/paraglide/messages.js";
   import { Button } from "$lib/components/primitives/ui/button";
@@ -140,26 +140,11 @@
           </div>
         </div>
       </div>
-
-      <div
-        class="mt-5 flex items-start gap-3 rounded-md border border-info/20 bg-info/5 px-4 py-3.5 text-body-sm leading-snug text-muted-foreground"
-      >
-        <Info class="mt-0.5 size-5 shrink-0 text-info" aria-hidden="true" />
-        <p>
-          <strong class="font-semibold text-foreground"
-            >{m.coursesNew_placeholderInfoLead()}</strong
-          >
-          {m.coursesNew_placeholderInfoBody()}
-        </p>
-      </div>
     </StepCard>
 
     <div
       class="flex flex-wrap items-center justify-end gap-3 border-t border-border-subtle pt-6"
     >
-      <span class="mr-auto text-caption text-muted-foreground">
-        {m.coursesNew_actionsHint()}
-      </span>
       <Button href="/courses" variant="ghost">{m.common_cancel()}</Button>
       <Button type="submit" disabled={$submitting}>
         {m.coursesNew_submit()}

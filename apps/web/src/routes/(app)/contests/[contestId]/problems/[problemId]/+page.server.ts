@@ -5,7 +5,7 @@ import { m } from "$lib/paraglide/messages.js";
 import { contestDomain, problemDomain, submissionDomain } from "@nojv/application";
 
 const { getContestWorkspaceData, listContestProblemSiblings } = contestDomain;
-const { getProblemPageData } = problemDomain;
+const { getProblemPageData, getProblemTestcaseSets } = problemDomain;
 const { canOperateOnSubmission, listProblemSubmissions } = submissionDomain;
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
@@ -15,13 +15,14 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const { contestId, problemId } = event.params;
   const now = new Date();
 
-  const [contestData, problem, submissions] = await Promise.all([
+  const [contestData, problem, submissions, testcaseSets] = await Promise.all([
     getContestWorkspaceData(contestId, actor.userId, {
       now,
       platformRole: actor.platformRole,
     }),
     getProblemPageData(problemId),
     listProblemSubmissions(actor.userId, problemId, { contestId }),
+    getProblemTestcaseSets(problemId),
   ]);
 
   const problemsList = contestData.problems ?? [];
@@ -69,5 +70,13 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     problem,
     siblingProblems,
     submissions,
+    testcaseSets: testcaseSets.map((set) => ({
+      id: set.id,
+      name: set.name,
+      description: set.description,
+      weight: set.weight,
+      ordinal: set.ordinal,
+      caseCount: set.testcases.length,
+    })),
   };
 });

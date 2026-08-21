@@ -13,12 +13,22 @@
     title: string;
     summary?: string;
     badges?: Snippet;
+    meta?: Snippet;
     actions?: Snippet | undefined;
     aside?: Snippet<[string]>;
     class?: string;
   }
 
-  let { kind, title, summary, badges, actions, aside, class: className }: Props = $props();
+  let {
+    kind,
+    title,
+    summary,
+    badges,
+    meta,
+    actions,
+    aside,
+    class: className,
+  }: Props = $props();
 
   const accent = $derived(typeAccentVar(kind));
 </script>
@@ -65,4 +75,9 @@
       </div>
     {/if}
   </div>
+  {#if meta}
+    <div class="relative mt-6">
+      {@render meta()}
+    </div>
+  {/if}
 </GlassPanel>

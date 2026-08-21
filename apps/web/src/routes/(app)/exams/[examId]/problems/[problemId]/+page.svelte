@@ -1,6 +1,5 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import ExamTopStrip from "$lib/components/features/problem/layouts/ExamTopStrip.svelte";
   import ProblemSolveView from "$lib/components/features/problem/views/ProblemSolveView.svelte";
 
   let { data } = $props();
@@ -45,18 +44,19 @@
     testcaseSets={data.solveProps.testcaseSets}
   />
 {:else}
-  <div class="flex h-full flex-col">
-    <ExamTopStrip context={data.examContext} />
-    <div class="min-h-0 flex-1">
-      <ProblemSolveView
-        mode="exam"
-        backLink={{ href: `/exams/${data.examContext.examId}`, type: "exam" }}
-        canRejudge={data.canRejudge}
-        problem={data.problem}
-        submissions={data.submissions}
-        siblingProblems={data.siblingProblems}
-        examContext={data.examContext}
-      />
-    </div>
-  </div>
+  <ProblemSolveView
+    mode="exam"
+    backLink={{ href: `/exams/${data.examContext.examId}`, type: "exam" }}
+    canRejudge={data.canRejudge}
+    problem={data.problem}
+    submissions={data.submissions}
+    siblingProblems={data.siblingProblems}
+    examContext={data.examContext}
+    workspaceTimer={{
+      type: "exam",
+      examId: data.examContext.examId,
+      endsAt: data.examContext.endsAt,
+    }}
+    testcaseSets={data.testcaseSets}
+  />
 {/if}

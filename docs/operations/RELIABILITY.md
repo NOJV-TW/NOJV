@@ -83,7 +83,7 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 **Impact**: No new workflows start. In-flight workflows pause.
 **Mitigation**: Temporal auto-setup with PostgreSQL backend provides persistence.
 **Recovery**: Temporal resumes all paused workflows when it comes back. No data loss.
-**Note**: If Temporal is unavailable after a submission transaction commits, the API still returns `202 queued`. The web process attempts the deterministic workflow start immediately; if that call fails, the `submission.judge.dispatch` transactional outbox remains pending and the durable-work processor retries it until the workflow starts. Submissions whose workflows had already started resume when Temporal recovers.
+**Note**: The web process attempts the deterministic workflow start immediately. If dispatch cannot complete within three seconds, the API returns `503` and marks the submission `system_error` instead of leaving the client waiting. A process failure before the handoff can still leave the `submission.judge.dispatch` outbox for the durable-work processor to retry.
 
 > **SPOF caveat (current self-hosted topology).** The in-cluster Temporal control plane runs as a **single** `temporalio/auto-setup` replica backed by a **single-pod** `temporal-postgres` StatefulSet — there is no HA failover. Interim guards are in place: a PodDisruptionBudget (`minAvailable: 1`) on both pods and a `nodeSelector: nojv-role=worker` pin (so a sandbox-pool scale-down can't evict them), plus a daily `pg_dump` of the Temporal DB to GCS (installed by `infra/gcp/scripts/setup-backups.sh`). These limit voluntary disruption and data loss but do not provide live failover — a node failure still pauses all workflows until the pod reschedules.
 >
@@ -91,12 +91,12 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 
 ### Worker Unavailable
 
-**Impact**: No submission judging, no lifecycle transitions.
+**Impact**: No new submission judging or lifecycle transitions.
 **Mitigation**: Temporal retries activities when workers reconnect. Workers run
 as a fixed GKE Deployment with a PodDisruptionBudget; sandbox capacity is
 bounded by one on-demand gVisor node plus a 0–4 Spot burst pool, and pending
 workflows remain durable until capacity returns.
-**Recovery**: Start new worker. Temporal automatically dispatches pending activities.
+**Recovery**: Start a new worker. Workflows already accepted by Temporal resume; new submissions fail fast until the dispatch path is available.
 
 ### Sandbox Failure
 
@@ -116,7 +116,7 @@ Kubernetes node health and the sandbox quota.
 ### Submission Processing
 
 1. Every submission gets a `Submission` record, its source pointer, and a `submission.judge.dispatch` durable-work row in PostgreSQL before Temporal dispatch.
-2. The web layer starts `submissionJudgeWorkflow` immediately after the transaction commits. The durable-work processor retries the same outbox payload when the web process or Temporal is unavailable, so a committed submission is not lost.
+2. The web layer starts `submissionJudgeWorkflow` immediately after the transaction commits. If the handoff cannot complete within the bounded dispatch timeout, it cancels the dispatch row and records `system_error`; failures before that handoff remain retryable through the durable-work processor.
 3. Temporal workflow ID is deterministic and unique per submission: `judge-{submissionId}`. A re-dispatch of the same submission collides on the workflow ID and is rejected by Temporal (`WorkflowExecutionAlreadyStarted`), which the dispatcher treats as success, so a submission is never judged twice concurrently.
 4. `completeSubmission` activity writes the final verdict to DB. This is the commit point.
 5. User stats and contest scores are updated after the verdict is committed.

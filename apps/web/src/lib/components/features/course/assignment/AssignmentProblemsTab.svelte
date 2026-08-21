@@ -7,7 +7,7 @@
 </script>
 
 <script lang="ts">
-  import { invalidateAll } from "$app/navigation";
+  import { beforeNavigate, invalidateAll } from "$app/navigation";
   import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import Eye from "@lucide/svelte/icons/eye";
   import Plus from "@lucide/svelte/icons/plus";
@@ -69,6 +69,15 @@
 
   $effect(() => {
     seedRows(problems);
+  });
+
+  const hasChanges = $derived(
+    editRows.map((row) => row.problemId).join("\0") !==
+      problems.map((problem) => problem.problemId).join("\0"),
+  );
+
+  beforeNavigate(({ cancel }) => {
+    if (hasChanges && !confirm(m.admin_unsavedChangesMessage())) cancel();
   });
 
   function attachProblems(candidates: PickerCandidate[]) {
@@ -175,12 +184,12 @@
           <Plus class="size-4" aria-hidden="true" />
           {m.problemPicker_addButton()}
         </Button>
-        {#if editRows.length > 0}
+        {#if hasChanges}
           <Button
             type="button"
             variant="default"
             size="sm"
-            disabled={saving}
+            disabled={saving || !hasChanges}
             onclick={savePayload}
           >
             <Save class="size-4" aria-hidden="true" />

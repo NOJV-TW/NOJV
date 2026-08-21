@@ -17,7 +17,7 @@ export const load: PageServerLoad = async (event) => {
     redirect(303, "/contests");
   }
   const [form, candidateProblems] = await Promise.all([
-    superValidate(zod4(contestFormSchema)),
+    superValidate(zod4(contestFormSchema), { errors: false }),
     problemDomain.listProblemPickerGroups(actor.userId),
   ]);
   return { form, candidateProblems };
@@ -33,14 +33,20 @@ export const actions = {
     const form = await superValidate(event, zod4(contestFormSchema));
     if (!form.valid) return fail(400, { form });
 
-    const { startsAt, endsAt, frozenAt, inviteCode, isPublic, ...rest } = form.data;
+    const { startsAt, endsAt, frozenAt, freezeMinutes, inviteCode, isPublic, ...rest } =
+      form.data;
 
     try {
       const payload = contestCreateSchema.parse({
         ...rest,
         inviteCode: isPublic ? undefined : (inviteCode ?? undefined),
         endsAt: new Date(endsAt).toISOString(),
-        frozenAt: frozenAt ? new Date(frozenAt).toISOString() : undefined,
+        frozenAt:
+          freezeMinutes != null
+            ? new Date(new Date(endsAt).getTime() - freezeMinutes * 60_000).toISOString()
+            : frozenAt
+              ? new Date(frozenAt).toISOString()
+              : undefined,
         startsAt: new Date(startsAt).toISOString(),
       });
       await createContestRecord(actor, payload);

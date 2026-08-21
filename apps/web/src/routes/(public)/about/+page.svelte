@@ -23,10 +23,7 @@
 
 <div class="space-y-16 pt-4">
   <section class="text-center animate-[fade-up_700ms_var(--ease-out-soft)_both]">
-    <p class="text-caption font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-      {m.hero_eyebrow()}
-    </p>
-    <h1 class="mt-4 text-display font-bold leading-tight text-foreground sm:text-display-lg">
+    <h1 class="text-display font-bold leading-tight text-foreground sm:text-display-lg">
       {m.about_heroTitle()}
     </h1>
     <p class="mx-auto mt-5 max-w-2xl text-body-lg text-muted-foreground">

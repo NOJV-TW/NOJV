@@ -141,7 +141,9 @@
     <form method="POST" action="?/create" use:enhance class="space-y-5">
       <FormError message={$formMessage?.kind === "error" ? m.contestCreate_error() : null} />
       <div>
-        <label class="text-sm font-medium" for="id">{m.contestCreate_slug()}</label>
+        <label class="text-sm font-medium" for="id"
+          >{m.contestCreate_slug()} <span class="text-destructive">*</span></label
+        >
         <input
           class={inputClassName}
           id="id"
@@ -159,7 +161,9 @@
       </div>
 
       <div>
-        <label class="text-sm font-medium" for="title">{m.contestCreate_titleField()}</label>
+        <label class="text-sm font-medium" for="title"
+          >{m.contestCreate_titleField()} <span class="text-destructive">*</span></label
+        >
         <input
           class={inputClassName}
           id="title"
@@ -176,7 +180,9 @@
       </div>
 
       <div>
-        <label class="text-sm font-medium" for="summary">{m.contestCreate_summary()}</label>
+        <label class="text-sm font-medium" for="summary"
+          >{m.contestCreate_summary()} <span class="text-destructive">*</span></label
+        >
         <textarea
           class="{inputClassName} min-h-24 resize-y"
           id="summary"
@@ -196,7 +202,9 @@
       </div>
       <div class="grid gap-4 sm:grid-cols-2">
         <div>
-          <label class="text-sm font-medium" for="startsAt">{m.contestCreate_startsAt()}</label>
+          <label class="text-sm font-medium" for="startsAt"
+            >{m.contestCreate_startsAt()} <span class="text-destructive">*</span></label
+          >
           <input
             class={inputClassName}
             id="startsAt"
@@ -211,7 +219,9 @@
             </p>{/if}
         </div>
         <div>
-          <label class="text-sm font-medium" for="endsAt">{m.contestCreate_endsAt()}</label>
+          <label class="text-sm font-medium" for="endsAt"
+            >{m.contestCreate_endsAt()} <span class="text-destructive">*</span></label
+          >
           <input
             class={inputClassName}
             id="endsAt"
@@ -313,14 +323,24 @@
       </div>
 
       <div>
-        <label class="text-sm font-medium" for="frozenAt">{m.contestCreate_freezeAt()}</label>
+        <label class="text-sm font-medium" for="freezeMinutes"
+          >{m.contestCreate_freezeAt()}</label
+        >
         <input
           class={inputClassName}
-          id="frozenAt"
-          name="frozenAt"
-          type="datetime-local"
-          bind:value={$form.frozenAt}
+          id="freezeMinutes"
+          name="freezeMinutes"
+          type="number"
+          min="1"
+          max="10080"
+          placeholder={m.contestCreate_freezeMinutesPlaceholder()}
+          bind:value={$form.freezeMinutes}
+          aria-invalid={Boolean($errors.freezeMinutes)}
         />
+        <p class="mt-1 text-xs text-muted-foreground">{m.contestCreate_freezeMinutesHint()}</p>
+        {#if $errors.freezeMinutes}
+          <p class="mt-1 text-xs text-destructive">{$errors.freezeMinutes}</p>
+        {/if}
       </div>
 
       <div>
@@ -406,9 +426,6 @@
         showSelected={false}
       />
       <div class="space-y-2">
-        <div class="text-right text-caption text-muted-foreground">
-          {m.common_dragToReorder()}
-        </div>
         {#each $form.problems as problem, i (i)}
           {#if problem.problemId}
             {@const selectedProblem = candidateProblemById.get(problem.problemId)}
@@ -478,10 +495,12 @@
         {/if}
       </div>
 
-      <Button type="submit" size="lg" loading={$submitting}>
-        <TrophyIcon aria-hidden="true" class="h-4 w-4" />
-        {m.contestCreate_button()}
-      </Button>
+      <div class="flex justify-end">
+        <Button type="submit" size="lg" loading={$submitting}>
+          <TrophyIcon aria-hidden="true" class="h-4 w-4" />
+          {m.contestCreate_button()}
+        </Button>
+      </div>
     </form>
   </Card>
 </PageContainer>

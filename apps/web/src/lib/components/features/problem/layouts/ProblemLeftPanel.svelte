@@ -10,8 +10,12 @@
   import ProblemDescriptionPanel from "../left-panel/ProblemDescriptionPanel.svelte";
   import SubmissionHistoryPanel from "../left-panel/SubmissionHistoryPanel.svelte";
   import PostPanel from "../left-panel/PostPanel.svelte";
+  import WorkspaceTimer from "./WorkspaceTimer.svelte";
 
   type ProblemBackLinkType = "assignment" | "contest" | "exam" | "virtual" | "problems";
+
+  export type ProblemWorkspaceTimer =
+    { type: "exam"; examId: string; endsAt: string } | { type: "contest"; endsAt: string };
 
   export interface ProblemLeftPanelProps {
     backLink?: { href: string; type: ProblemBackLinkType } | undefined;
@@ -25,6 +29,7 @@
     problem: ProblemDetail;
     testcaseSets?: ProblemTestcaseSetSummary[];
     allowedLanguages?: string[] | undefined;
+    workspaceTimer?: ProblemWorkspaceTimer | undefined;
   }
 
   let {
@@ -39,6 +44,7 @@
     problem,
     testcaseSets = [],
     allowedLanguages,
+    workspaceTimer,
   }: ProblemLeftPanelProps = $props();
 
   let leftTab = $state<"description" | "editorials" | "discussions" | "submissions">(
@@ -130,6 +136,9 @@
       </button>
     {/each}
   </div>
+  {#if workspaceTimer}
+    <WorkspaceTimer timer={workspaceTimer} />
+  {/if}
 </div>
 
 <div

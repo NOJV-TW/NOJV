@@ -98,6 +98,12 @@
           : undefined}
       type="button"
     >
+      {#if isSubmitting}
+        <span
+          class="mr-1.5 inline-block size-3 animate-spin rounded-full border-2 border-white/40 border-t-white align-[-2px]"
+          aria-hidden="true"
+        ></span>
+      {/if}
       {#if cooldownRemaining > 0}
         {m.editor_submitCooldown({ seconds: cooldownRemaining })}
       {:else if isSubmitting}

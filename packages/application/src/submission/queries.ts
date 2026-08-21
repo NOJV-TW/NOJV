@@ -309,13 +309,26 @@ export async function listUserSubmissions(opts: {
   limit: number;
   cursor?: string;
 }) {
-  const rows = await submissionRepo.listByUser({
-    userId: opts.actor.userId,
-    enforceExamConfinement: opts.actor.platformRole !== "admin",
-    limit: opts.limit,
-    ...(opts.cursor ? { cursor: opts.cursor } : {}),
-  });
+  const rows =
+    opts.actor.platformRole === "admin"
+      ? await submissionRepo.listAllPaged({
+          limit: opts.limit,
+          ...(opts.cursor ? { cursor: opts.cursor } : {}),
+        })
+      : await submissionRepo.listByUser({
+          userId: opts.actor.userId,
+          enforceExamConfinement: true,
+          limit: opts.limit,
+          ...(opts.cursor ? { cursor: opts.cursor } : {}),
+        });
   if (rows === null) throw new ValidationError("Invalid submission cursor.");
+  const totalCount =
+    opts.actor.platformRole === "admin"
+      ? await submissionRepo.countAll()
+      : await submissionRepo.countByUser({
+          userId: opts.actor.userId,
+          enforceExamConfinement: true,
+        });
   const hasMore = rows.length > opts.limit;
   const items = hasMore ? rows.slice(0, opts.limit) : rows;
   const nextCursor = hasMore ? (items[items.length - 1]?.id ?? null) : null;
@@ -330,8 +343,8 @@ export async function listUserSubmissions(opts: {
         language,
         problemId: s.problem.id,
         problemTitle: s.problem.title,
-        runtimeMs: s.runtimeMs,
-        memoryKb: s.memoryKb,
+        runtimeMs: "runtimeMs" in s ? s.runtimeMs : null,
+        memoryKb: "memoryKb" in s ? s.memoryKb : null,
         score: s.score,
         totalScore: computeProblemTotalScore({
           type: s.problem.type,
@@ -342,7 +355,10 @@ export async function listUserSubmissions(opts: {
         context: deriveSubmissionContextKind(s),
       };
     }),
+    pageSize: opts.limit,
     nextCursor,
+    totalCount,
+    totalPages: Math.max(1, Math.ceil(totalCount / opts.limit)),
   };
 }
 

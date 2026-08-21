@@ -43,3 +43,9 @@ export class ConfigurationError extends HttpError {
     super(message, 500);
   }
 }
+
+export class ServiceUnavailableError extends HttpError {
+  constructor(message = "Service unavailable.") {
+    super(message, 503);
+  }
+}

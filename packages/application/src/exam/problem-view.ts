@@ -1,7 +1,9 @@
 import { examRepo, submissionRepo } from "@nojv/db";
 import {
   problemLetter,
-  submissionVerdicts,
+  languageSchema,
+  submissionOperationStatuses,
+  submissionResultVerdictSchema,
   verdictSummarySchema,
   type Language,
   type SubmissionResult,
@@ -11,7 +13,6 @@ import { NotFoundError } from "../shared/errors";
 import { getProblemPageData } from "../problem/queries";
 import type { ProblemDetail } from "../problem/queries";
 import { getProblemTotalScores } from "../problem/total-score";
-import { narrowSubmissionRow } from "../submission/queries";
 
 export interface ExamProblemViewSibling {
   id: string;
@@ -26,7 +27,7 @@ export interface ExamProblemViewSibling {
 export interface ExamProblemViewSubmission {
   id: string;
   language: Language;
-  result: SubmissionResult;
+  result?: SubmissionResult;
   submittedAt: string;
   context: "exam";
 }
@@ -93,7 +94,7 @@ export async function getExamProblemViewByProblemId(options: {
         userId: options.actorUserId,
         problemId: current.problem.id,
         sampleOnly: false,
-        status: { in: [...submissionVerdicts] },
+        status: { in: [...submissionOperationStatuses] },
       },
       orderBy: { createdAt: "desc" },
       select: {
@@ -116,23 +117,26 @@ export async function getExamProblemViewByProblemId(options: {
   ]);
 
   const submissions: ExamProblemViewSubmission[] = submissionRows.map((s) => {
-    const { verdict, language } = narrowSubmissionRow(s);
+    const language = languageSchema.parse(s.language);
+    const parsedVerdict = submissionResultVerdictSchema.safeParse(s.status);
     const parsedSummary =
       s.verdictSummary == null ? null : verdictSummarySchema.safeParse(s.verdictSummary);
     const summary = parsedSummary?.success ? parsedSummary.data : null;
-    const result: SubmissionResult = {
-      accepted: verdict === "accepted",
-      verdict,
-      score: s.score,
-      runtimeMs: s.runtimeMs ?? 0,
-      feedback:
-        summary?.compilerErrorTruncated ??
-        (verdict === "accepted" ? "Accepted." : "Verdict details unavailable."),
-    };
+    const result = parsedVerdict.success
+      ? {
+          accepted: parsedVerdict.data === "accepted",
+          verdict: parsedVerdict.data,
+          score: s.score,
+          runtimeMs: s.runtimeMs ?? 0,
+          feedback:
+            summary?.compilerErrorTruncated ??
+            (parsedVerdict.data === "accepted" ? "Accepted." : "Verdict details unavailable."),
+        }
+      : undefined;
     return {
       id: s.id,
       language,
-      result,
+      ...(result ? { result } : {}),
       submittedAt: s.createdAt.toISOString(),
       context: "exam" as const,
     };

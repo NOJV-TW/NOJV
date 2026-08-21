@@ -6,7 +6,7 @@ import type { PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 
-const { getProblemPageData } = problemDomain;
+const { getProblemPageData, getProblemTestcaseSets } = problemDomain;
 const { getVirtualContestForUser, listVirtualContestProblemSubmissions } = virtualContestDomain;
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
@@ -27,9 +27,10 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     error(404, "Problem not found in this contest.");
   }
 
-  const [problem, submissions] = await Promise.all([
+  const [problem, submissions, testcaseSets] = await Promise.all([
     getProblemPageData(problemId),
     listVirtualContestProblemSubmissions(virtual.participationId, actor.userId, problemId),
+    getProblemTestcaseSets(problemId),
   ]);
 
   const siblingProblems = virtual.problems.map((p) => ({
@@ -48,5 +49,13 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     problem,
     submissions,
     siblingProblems,
+    testcaseSets: testcaseSets.map((set) => ({
+      id: set.id,
+      name: set.name,
+      description: set.description,
+      weight: set.weight,
+      ordinal: set.ordinal,
+      caseCount: set.testcases.length,
+    })),
   };
 });

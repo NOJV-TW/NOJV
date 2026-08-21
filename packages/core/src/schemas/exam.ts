@@ -26,7 +26,7 @@ const examCreateBaseSchema = z.object({
   status: examPublishStatusSchema.default("draft"),
   submitCooldownSec: z.coerce.number().int().min(0).max(3600).default(0),
   summary: z.string().trim().max(4_000).optional(),
-  title: z.string().trim().min(3).max(120),
+  title: z.string().trim().min(1).max(120),
 });
 
 export const examCreateSchema = examCreateBaseSchema.refine(

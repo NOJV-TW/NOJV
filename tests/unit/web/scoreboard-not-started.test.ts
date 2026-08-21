@@ -52,7 +52,8 @@ describe("scoreboard not-started i18n", () => {
     }
   });
 
-  it("unifies the Chinese naming on 計分榜 (no 計分板 / 排行榜)", () => {
-    expect(JSON.stringify(zh)).not.toMatch(/計分板|排行榜/);
+  it("uses 排行榜 consistently and removes 計分板", () => {
+    expect(JSON.stringify(zh)).toMatch(/排行榜/);
+    expect(JSON.stringify(zh)).not.toMatch(/計分板/);
   });
 });

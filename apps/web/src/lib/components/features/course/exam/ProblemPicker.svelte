@@ -141,7 +141,6 @@
       class="flex items-center justify-between px-1 pb-2 text-caption font-semibold uppercase tracking-[0.08em] text-muted-foreground"
     >
       <span>{m.examCreate_selectedProblemsCount({ count: selectedDetails.length })}</span>
-      <span>{m.common_dragToReorder()}</span>
     </div>
     <div class="space-y-2">
       {#each selectedDetails as problem, index (problem.id)}
@@ -195,12 +194,6 @@
       {/each}
     </div>
   </div>
-{:else if showSelected}
-  <p
-    class="mt-4 rounded-md border border-dashed border-info/30 bg-[color:var(--color-info)]/5 px-4 py-3 text-body-sm text-muted-foreground"
-  >
-    {m.problemPicker_emptySelected()}
-  </p>
 {/if}
 
 {#if errorText}

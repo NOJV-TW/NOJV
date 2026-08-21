@@ -9,6 +9,8 @@
 
   const gradebook = $derived(data.gradebook);
   const isManager = $derived(data.isManager);
+  let sortKey = $state("name");
+  let sortDescending = $state(false);
 
   function cellKey(contextType: string, contextId: string, problemId: string): string {
     return `${contextType}:${contextId}:${problemId}`;
@@ -17,6 +19,45 @@
   function cellScore(row: PageData["gradebook"]["rows"][number], key: string): number | null {
     return row.cells[key] ?? null;
   }
+
+  function toggleSort(key: string) {
+    if (sortKey === key) sortDescending = !sortDescending;
+    else {
+      sortKey = key;
+      sortDescending = false;
+    }
+  }
+
+  function sortValue(row: PageData["gradebook"]["rows"][number]): number | string {
+    if (sortKey === "name") return row.name.toLocaleLowerCase();
+    if (sortKey === "total") return row.total;
+    if (sortKey.split(":").length === 2) {
+      const [contextType = "", contextId = ""] = sortKey.split(":");
+      const column = gradebook.columns.find(
+        (entry) => entry.contextType === contextType && entry.contextId === contextId,
+      );
+      return (
+        column?.problems.reduce(
+          (total, problem) =>
+            total + (cellScore(row, cellKey(contextType, contextId, problem.problemId)) ?? 0),
+          0,
+        ) ?? 0
+      );
+    }
+    return cellScore(row, sortKey) ?? -1;
+  }
+
+  const sortedRows = $derived.by(() =>
+    [...gradebook.rows].sort((a, b) => {
+      const left = sortValue(a);
+      const right = sortValue(b);
+      const result =
+        typeof left === "string" && typeof right === "string"
+          ? left.localeCompare(right)
+          : Number(left) - Number(right);
+      return sortDescending ? -result : result;
+    }),
+  );
 
   function csvEscape(value: string | number): string {
     const s = String(value);
@@ -72,9 +113,6 @@
         <h2 class="text-title font-medium leading-tight">
           {isManager ? m.courseGradebook_heading() : m.courseGradebook_headingOwn()}
         </h2>
-        <p class="mt-1 text-caption text-muted-foreground">
-          {isManager ? m.courseGradebook_hint() : m.courseGradebook_hintOwn()}
-        </p>
       </div>
       {#if isManager && gradebook.rows.length > 0}
         <Button variant="outline" size="sm" onclick={exportCsv} data-tour="gradebook-export">
@@ -100,14 +138,20 @@
                 class="sticky left-0 z-[3] border-b border-r border-border-subtle bg-muted px-5 py-3 text-left text-caption font-semibold uppercase tracking-[0.06em] text-muted-foreground"
                 style="min-width: 200px"
               >
-                {m.courseGradebook_student()}
+                <button type="button" class="text-left" onclick={() => toggleSort("name")}>
+                  {m.courseGradebook_student()}
+                </button>
               </th>
               {#each gradebook.columns as column (column.contextType + column.contextId)}
                 <th
                   colspan={column.problems.length}
                   class="border-b border-r border-border-subtle bg-muted px-3 py-2.5 text-center text-caption font-semibold text-foreground"
                 >
-                  {column.contextTitle}
+                  <button
+                    type="button"
+                    onclick={() => toggleSort(`${column.contextType}:${column.contextId}`)}
+                    >{column.contextTitle}</button
+                  >
                 </th>
               {/each}
               <th
@@ -115,7 +159,9 @@
                 class="border-b border-border-subtle bg-primary/8 px-3 py-3 text-center text-caption font-semibold text-primary"
                 style="min-width: 110px"
               >
-                {m.courseGradebook_total()}
+                <button type="button" onclick={() => toggleSort("total")}
+                  >{m.courseGradebook_total()}</button
+                >
                 <span class="mt-1 block text-micro font-normal text-muted-foreground">
                   {m.courseGradebook_maxPoints({ points: gradebook.maxTotal })}
                 </span>
@@ -129,9 +175,14 @@
                     style="min-width: 80px"
                     title={problem.title}
                   >
-                    <span class="block leading-none text-foreground">
-                      {m.courseGradebook_problemOrdinal({ n: problem.ordinal })}
-                    </span>
+                    <button
+                      type="button"
+                      class="block w-full leading-none text-foreground"
+                      onclick={() =>
+                        toggleSort(
+                          cellKey(column.contextType, column.contextId, problem.problemId),
+                        )}>{m.courseGradebook_problemOrdinal({ n: problem.ordinal })}</button
+                    >
                     <span class="mt-1 block text-micro font-normal text-muted-foreground">
                       {m.courseGradebook_maxPoints({ points: problem.maxScore })}
                     </span>
@@ -141,7 +192,7 @@
             </tr>
           </thead>
           <tbody>
-            {#each gradebook.rows as row (row.userId)}
+            {#each sortedRows as row (row.userId)}
               <tr>
                 <td
                   class="sticky left-0 z-[1] border-b border-r border-border-subtle bg-background px-5 py-3 text-left before:absolute before:inset-0 before:-z-[1] before:bg-[color:var(--color-panel)] before:content-['']"
@@ -164,8 +215,10 @@
                       null
                         ? 'text-muted-foreground'
                         : score >= problem.maxScore
-                          ? 'font-semibold text-success'
-                          : 'text-foreground'}"
+                          ? 'bg-success/18 font-semibold text-success'
+                          : score === 0
+                            ? 'bg-destructive/18 text-destructive'
+                            : 'bg-warning/18 text-foreground'}"
                     >
                       {score ?? "—"}
                     </td>
