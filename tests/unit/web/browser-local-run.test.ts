@@ -7,10 +7,12 @@ import {
   browserLocalTerminationFeedback,
   browserLocalTerminationVerdict,
   mapBrowserLocalRunResult,
+  runBrowserLocally,
   shouldUseBrowserLocalRun,
   supportsBrowserLocalRun,
 } from "$lib/services/browser-local-run";
-import type { RunResult } from "@wasm-oj/browser";
+
+type RunResult = Parameters<typeof mapBrowserLocalRunResult>[0];
 
 function browserRun(overrides: Partial<RunResult>): RunResult {
   return {
@@ -198,6 +200,28 @@ describe("browser local run result mapping", () => {
       verdict: "compile_error",
       feedback: "Browser local compilation failed.\nentry not found",
     });
+  });
+
+  it("surfaces browser engine initialization errors", async () => {
+    const result = await runBrowserLocally({
+      request: {
+        context: { type: "practice" },
+        language: "python",
+        problemId: "problem_1",
+        sourceCode: "print(1)",
+      },
+      cases: [],
+      compare: null,
+      problemId: "problem_1",
+      timeLimitMs: 1_000,
+      memoryLimitMb: 16,
+      signal: new AbortController().signal,
+    });
+
+    expect(result).toMatchObject({
+      verdict: "compile_error",
+    });
+    expect(result?.feedback).toContain("A module Worker requires a browser base URL.");
   });
 
   it("cleans ANSI diagnostics and hides the internal runner frame", () => {
