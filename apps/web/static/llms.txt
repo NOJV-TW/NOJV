@@ -13,11 +13,11 @@
 
 - [Public OpenAPI document](https://nojv.tw/api/openapi.public.json): Machine-readable public API description.
 - [API reference](https://nojv.tw/docs): Interactive reference for the public API.
-- [GitHub repository](https://github.com/TakalaWang/NOJV): Source code, issues, and contribution history.
-- [README](https://github.com/TakalaWang/NOJV/blob/main/README.md): Features, local setup, deployment overview, and documentation index.
-- [Architecture overview](https://github.com/TakalaWang/NOJV/blob/main/docs/architecture/ARCHITECTURE.md): System layers, domains, packages, and runtime entry points.
-- [Frontend surface](https://github.com/TakalaWang/NOJV/blob/main/docs/architecture/FRONTEND.md): Public routes, API routes, and frontend boundaries.
-- [Judge pipeline](https://github.com/TakalaWang/NOJV/blob/main/docs/architecture/JUDGE_PIPELINE.md): Submission lifecycle, sandbox execution, and verdict computation.
+- [GitHub repository](https://github.com/NOJV-TW/NOJV): Source code, issues, and contribution history.
+- [README](https://github.com/NOJV-TW/NOJV/blob/main/README.md): Features, local setup, deployment overview, and documentation index.
+- [Architecture overview](https://github.com/NOJV-TW/NOJV/blob/main/docs/architecture/ARCHITECTURE.md): System layers, domains, packages, and runtime entry points.
+- [Frontend surface](https://github.com/NOJV-TW/NOJV/blob/main/docs/architecture/FRONTEND.md): Public routes, API routes, and frontend boundaries.
+- [Judge pipeline](https://github.com/NOJV-TW/NOJV/blob/main/docs/architecture/JUDGE_PIPELINE.md): Submission lifecycle, sandbox execution, and verdict computation.
 
 ## Policies
 
