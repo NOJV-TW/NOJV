@@ -209,19 +209,19 @@ importers:
       '@nojv/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.13.3
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
       zod:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.13.3
       esbuild:
         specifier: 'catalog:'
         version: 0.28.1
-      typescript:
-        specifier: 'catalog:'
-        version: 6.0.3
 
   apps/web:
     dependencies:
