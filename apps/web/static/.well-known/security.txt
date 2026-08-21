@@ -1,0 +1,6 @@
+Canonical: https://nojv.tw/.well-known/security.txt
+Contact: https://github.com/NOJV-TW/NOJV/security/advisories/new
+Contact: mailto:nojv.tw@gmail.com
+Policy: https://github.com/NOJV-TW/NOJV/security/policy
+Preferred-Languages: en, zh-TW
+Expires: 2027-08-21T23:59:59Z

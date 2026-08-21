@@ -5,6 +5,8 @@ import {
   type SandboxTestcaseResult,
 } from "@nojv/core";
 
+import { errorVerdictFeedback } from "./check-standard";
+
 export interface InteractiveSideResult {
   stderr: string;
   timedOut: boolean;
@@ -55,7 +57,12 @@ export function mergeInteractiveCase(
   }
 
   if (run.errorVerdict) {
-    return { ...base, verdict: run.errorVerdict };
+    const feedback = errorVerdictFeedback(run.errorVerdict, run.stderr ?? "");
+    return {
+      ...base,
+      verdict: run.errorVerdict,
+      ...(feedback !== undefined ? { feedback } : {}),
+    };
   }
 
   if (!outcome) {

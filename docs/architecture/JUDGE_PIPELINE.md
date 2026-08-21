@@ -2,6 +2,17 @@
 
 The judge pipeline is the evaluation framework that compiles, executes, and scores submissions. It runs as a Temporal activity inside `apps/worker`. Problems come in two modes: **Standard Mode** for classic competitive-programming problems and **Advanced Mode** as an escape hatch for anything Standard Mode cannot express. The pipeline has no user-configurable stage graph — both modes run a fixed flow.
 
+## Browser-local sample/custom tests
+
+For Standard Mode problems, the editor's **Test** action can run sample and
+user-defined custom cases in the browser through `@wasm-oj/browser`. This path
+does not create a submission, does not enter Temporal, and is not trusted for
+official scoring. The editor prewarms one shared browser engine and shows only
+`初始化中...` while it is preparing and `測試中...` while a local run is active.
+
+Official **Submit** always uses the server pipeline below. Checker, interactive,
+Advanced Mode, and other special environments also remain server-side.
+
 ## Standard Mode pipeline
 
 ```
@@ -27,18 +38,18 @@ The worker writes the merged source files plus testcase + config payloads to a t
 
 Language-specific build, run by the sandbox runner inside the isolated container:
 
-| Language   | Build command                           | Entry file  |
-| ---------- | --------------------------------------- | ----------- |
-| C          | `gcc -O2 -std=c17 -o main ...`          | `main.c`    |
-| C++        | `g++ -O2 -std=c++20 -o main ...`        | `main.cpp`  |
-| Go         | `go build -o main .` (or single file)   | `main.go`   |
-| Java       | `javac -d . ...` then `java -cp . Main` | `Main.java` |
-| JavaScript | none; `node main.mjs`                   | `main.mjs`  |
-| Python     | none; `python3 main.py`                 | `main.py`   |
-| Rust       | `rustc -O -o main main.rs`              | `main.rs`   |
-| TypeScript | none; `node main.ts`                    | `main.ts`   |
+| Language   | Build command                                            | Entry file         |
+| ---------- | -------------------------------------------------------- | ------------------ |
+| C          | `gcc -O2 -std=c17 -o main ...`                           | `main.c`           |
+| C++        | `g++ -O2 -std=c++20 -o main ...`                         | `main.cpp`         |
+| Go         | `go build -o main .` (or single file)                    | `main.go`          |
+| Java       | `javac -d . ...` then `java -cp . Main`                  | `Main.java`        |
+| JavaScript | none; `node main.mjs`                                    | `main.mjs`         |
+| Python     | none; `python3 main.py`                                  | `main.py`          |
+| Rust       | `rustc -O -o main main.rs`                               | `main.rs`          |
+| TypeScript | `tsc --strict --noEmitOnError ... --outDir compiled ...` | `compiled/main.js` |
 
-Interpreted languages skip the compile step entirely — a syntax error only surfaces when `execute` tries to run the file.
+JavaScript and Python skip the compile step entirely — a syntax error only surfaces when `execute` tries to run the file. TypeScript is compiled and type-checked with the pinned `tsc` toolchain; only the emitted JavaScript is executed.
 
 On Kubernetes, standard and checker run Jobs use one hardened `prepare` init
 container. It materializes the projected payload, reads the validated config,

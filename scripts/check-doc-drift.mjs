@@ -44,6 +44,9 @@ const requiredToolchainReferences = [
   ...Object.entries(judgeEnvironment.apkPackages).map(
     ([name, version]) => `${name}=${version}`,
   ),
+  ...Object.entries(judgeEnvironment.npmPackages).map(
+    ([name, version]) => `${name}@${version}`,
+  ),
 ];
 const toolchainSectionHeading = "#### Standard judge toolchain";
 const toolchainSectionStart = deploymentGuide.indexOf(toolchainSectionHeading);

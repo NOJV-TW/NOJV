@@ -44,8 +44,20 @@ describe("resolveStandardResults", () => {
       );
       expect(result!.verdict).toBe(errorVerdict);
       expect(result!.stderr).toBe("boom");
+      if (errorVerdict === "RE") expect(result!.feedback).toBe("boom");
+      if (errorVerdict === "TLE") expect(result!.feedback).toBe("Time limit exceeded.");
+      if (errorVerdict === "MLE") expect(result!.feedback).toBe("Memory limit exceeded.");
+      if (errorVerdict === "SE") expect(result).not.toHaveProperty("feedback");
     },
   );
+
+  it("uses a fallback diagnostic when a runtime error has no stderr", () => {
+    const [result] = resolveStandardResults(
+      [rawRun({ index: 0, errorVerdict: "RE", stderr: "" })],
+      [testcase(0, "42")],
+    );
+    expect(result!.feedback).toBe("Runtime error.");
+  });
 
   it("returns SE when the matching testcase has no expected output", () => {
     const [result] = resolveStandardResults(

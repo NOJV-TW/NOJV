@@ -66,7 +66,7 @@ describe("compiler edge cases", () => {
     expect(sourceFileName("typescript")).toBe("main.ts");
   });
 
-  it("compile TypeScript project with multiple source files", async () => {
+  it("compile and run TypeScript project with multiple source files", async () => {
     const input: SandboxInput = {
       submissionId: "test",
       language: "typescript",
@@ -81,7 +81,7 @@ describe("compiler edge cases", () => {
     await mkdir(helperDir, { recursive: true });
     await writeFile(
       srcFile,
-      `import { add } from "./lib/add.ts";
+      `import { add } from "./lib/add";
 import * as readline from "node:readline";
 const rl: readline.Interface = readline.createInterface({ input: process.stdin });
 rl.on("line", (line: string) => {
@@ -106,6 +106,24 @@ rl.on("line", (line: string) => {
       TIMEOUT_MS,
     );
     expect(verdict.verdict).toBe("AC");
+  }, 30_000);
+
+  it("type-check TypeScript before execution", async () => {
+    const input: SandboxInput = {
+      submissionId: "test",
+      language: "typescript",
+      judgeType: "standard",
+      problemType: "full_source",
+      limits: { timeoutMs: 5000, memoryMb: 256 },
+    };
+
+    const srcFile = join(workDir, "main.ts");
+    await writeFile(srcFile, "const value: number = 1; value.toUpperCase();");
+
+    const result = await compile(input, srcFile, workDir);
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error).toContain("toUpperCase");
   }, 30_000);
 });
 

@@ -125,6 +125,9 @@ const primitivesNoFeaturesRule = [
 export default [
   ...baseConfig,
   {
+    ignores: ["static/wasm-oj/**"],
+  },
+  {
     files: ["src/**/*.svelte"],
     plugins: {
       svelte: sveltePlugin,

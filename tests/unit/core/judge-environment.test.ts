@@ -31,8 +31,9 @@ const expectedCommands: Record<
   python: { compileCommand: null, runCommand: "python3 main.py" },
   rust: { compileCommand: "rustc -O -o main main.rs", runCommand: "./main" },
   typescript: {
-    compileCommand: null,
-    runCommand: "node main.ts",
+    compileCommand:
+      "tsc --pretty false --strict --noEmitOnError --target ES2023 --module Node16 --moduleResolution Node16 --esModuleInterop --skipLibCheck --types node --typeRoots <typeRoots> --rewriteRelativeImportExtensions --outDir main --rootDir . <sources>",
+    runCommand: "node ./main",
   },
 };
 
@@ -48,6 +49,11 @@ describe("judge environment manifest", () => {
         expectedCommands[language].runCommand,
       );
     }
+
+    expect(judgeEnvironment.npmPackages).toEqual({
+      "@types/node": "24.13.3",
+      typescript: "6.0.3",
+    });
   });
 
   it("rejects unresolved command placeholders", () => {

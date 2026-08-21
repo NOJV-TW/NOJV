@@ -15,12 +15,13 @@ interface JudgeLanguageDefinition {
   runCommand: string[];
 }
 
-type CompiledLanguage = Extract<Language, "c" | "cpp" | "go" | "java" | "rust">;
+type CompiledLanguage = Extract<Language, "c" | "cpp" | "go" | "java" | "rust" | "typescript">;
 type DirectLanguage = Exclude<Language, CompiledLanguage>;
 
 interface JudgeEnvironmentDefinition {
   platform: { name: string; version: string; nodeVersion: string };
   apkPackages: Record<string, string>;
+  npmPackages: Record<string, string>;
   languages: Record<CompiledLanguage, JudgeLanguageDefinition & { compileCommand: string[] }> &
     Record<DirectLanguage, JudgeLanguageDefinition & { compileCommand: null }>;
 }
@@ -45,6 +46,12 @@ export function materializeJudgeCommand(
 
 function pinnedVersion(source: string): string {
   if (source === "node") return judgeEnvironmentDefinition.platform.nodeVersion;
+  if (source.startsWith("npm:")) {
+    const packageName = source.slice(4);
+    const version = judgeEnvironmentDefinition.npmPackages[packageName];
+    if (!version) throw new Error(`Unknown judge npm package: ${packageName}`);
+    return version;
+  }
   if (!source.startsWith("apk:")) throw new Error(`Unknown judge version source: ${source}`);
 
   const packageName = source.slice(4);
@@ -59,6 +66,7 @@ function displayCommand(language: Language, template: string[], output: string):
     "{source}": sourceFileNames[language],
     "{sources}": "<sources>",
     "{sourceOrPackage}": "<source or package>",
+    "{typeRoots}": "<typeRoots>",
     "{workDir}": ".",
   }).join(" ");
 }
@@ -66,10 +74,12 @@ function displayCommand(language: Language, template: string[], output: string):
 export const judgeEnvironment: {
   platform: JudgeEnvironmentDefinition["platform"];
   apkPackages: JudgeEnvironmentDefinition["apkPackages"];
+  npmPackages: JudgeEnvironmentDefinition["npmPackages"];
   languages: Record<Language, JudgeLanguageEnvironment>;
 } = {
   platform: judgeEnvironmentDefinition.platform,
   apkPackages: judgeEnvironmentDefinition.apkPackages,
+  npmPackages: judgeEnvironmentDefinition.npmPackages,
   languages: Object.fromEntries(
     Object.entries(judgeEnvironmentDefinition.languages).map(([language, definition]) => [
       language,

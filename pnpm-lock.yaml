@@ -209,19 +209,19 @@ importers:
       '@nojv/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.13.3
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
       zod:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 24.13.3
       esbuild:
         specifier: 'catalog:'
         version: 0.28.1
-      typescript:
-        specifier: 'catalog:'
-        version: 6.0.3
 
   apps/web:
     dependencies:
@@ -288,6 +288,27 @@ importers:
       '@shikijs/themes':
         specifier: 4.3.1
         version: 4.3.1
+      '@wasm-oj/browser':
+        specifier: 0.2.0
+        version: 0.2.0
+      '@wasm-oj/toolchain-clang':
+        specifier: 0.1.0
+        version: 0.1.0
+      '@wasm-oj/toolchain-go':
+        specifier: 0.1.0
+        version: 0.1.0
+      '@wasm-oj/toolchain-java':
+        specifier: 0.1.0
+        version: 0.1.0
+      '@wasm-oj/toolchain-javascript':
+        specifier: 0.1.0
+        version: 0.1.0
+      '@wasm-oj/toolchain-python':
+        specifier: 0.1.0
+        version: 0.1.0
+      '@wasm-oj/toolchain-rust':
+        specifier: 0.1.0
+        version: 0.1.0
       bcryptjs:
         specifier: 'catalog:'
         version: 3.0.3
@@ -3350,6 +3371,45 @@ packages:
   '@vitest/utils@4.1.10':
     resolution: {integrity: sha512-fy9am/HWxbaGt/Sawrp90vt6Y6jQwf1RX77cz3uwoJwJVMli/e1IEwRPnMNJ7vKfPTwo0diXifkpPvwH9v7nGA==}
 
+  '@wasm-oj/browser@0.2.0':
+    resolution: {integrity: sha512-Qo/vmMGDLXS0fqq0oQhbtl4OKh9bkI8zTKVFjxvuc1JJBUobnTud5M+B95ae2WhZdY1wkcHv6Z36rjXcoj3X5g==}
+    engines: {node: '>=24.18.0 <25'}
+
+  '@wasm-oj/contracts@0.2.0':
+    resolution: {integrity: sha512-3e+6aJXiZzprhPcUN/rBGe20jnpmixdcHmrTKHr6tFnZyRxPtCFrtzKOx/ESdJ8uznJ8JGQyqnha46xzS3jRbw==}
+    engines: {node: '>=24.18.0 <25'}
+
+  '@wasm-oj/core@0.2.0':
+    resolution: {integrity: sha512-PxvK9/IOL4JSdPko6YqUYmUmfdbEmCwh3avaAaASmmRKKUm2c6dz4y0IkalFqPo8fnRbPYRAqNOHPN9CZNVmFA==}
+    engines: {node: '>=24.18.0 <25'}
+
+  '@wasm-oj/toolchain-clang@0.1.0':
+    resolution: {integrity: sha512-kbJpQzC2JKPS3fOACxebsbAqGuKZRuVGyONvqA+FN9FNjcPdDQuPzChbuBp8llPDte7LDPTu1zjotoayDL9RWA==}
+    engines: {node: '>=24.18.0 <25'}
+
+  '@wasm-oj/toolchain-go@0.1.0':
+    resolution: {integrity: sha512-LKt4XJv6G+amjCsdT2TAkgx3nQk4sBc2Y0t/iuw4bqRiEfetv6aLBingvpqqWHVsVkKlJqgHRxuGwn6qHIPfNg==}
+    engines: {node: '>=24.18.0 <25'}
+
+  '@wasm-oj/toolchain-java@0.1.0':
+    resolution: {integrity: sha512-tEbEQmZem8zvrTYqktMTNcByc64davQZxjATA7Am8PHGunbAgDe9y7aphwl+lS5XFMQqcQN16ZizaqvRZm+FHw==}
+    engines: {node: '>=24.18.0 <25'}
+
+  '@wasm-oj/toolchain-javascript@0.1.0':
+    resolution: {integrity: sha512-ohy3NMPlGFKk0Dqpl1dVaE/ZaplTDzqdhL9v77VHwBssrdkuiDv4MQf4FC3fnRHCXHfO5XmpXop3xcsYXzfDyg==}
+    engines: {node: '>=24.18.0 <25'}
+
+  '@wasm-oj/toolchain-python@0.1.0':
+    resolution: {integrity: sha512-rwCntQaJGwf+Uf94BK8UmgUlioCzq15W43XOBzliE5ZUIDN4e3P3jaqru+Jba8+ymTIaf/PKgYu6f9jpkWsQEA==}
+    engines: {node: '>=24.18.0 <25'}
+
+  '@wasm-oj/toolchain-rust@0.1.0':
+    resolution: {integrity: sha512-ZzkpMYQreWINeAe+bwX9eDOtrdnc7mxRHMO0tg5y/yxjyyoIvOgxUWp3ex8KCt/k0skkQwqU72RPcrokGreEqA==}
+    engines: {node: '>=24.18.0 <25'}
+
+  '@wasmer/sdk@0.10.0':
+    resolution: {integrity: sha512-YQ+s5tGag6P/I8kp9BTH+XhjoS9UFvWiZJvnWEEovClHffhYToKhprWr4UJG7wLP7c/2HQpGkF7ZrjoUvKjdmA==}
+
   '@webassemblyjs/ast@1.14.1':
     resolution: {integrity: sha512-nuBEDgQfm1ccRp/8bCQrx1frohyufl4JlbMMZ4P1wpeOfDhF6FQkxZJ1b/e+PLwr6X1Nhw6OLme5usuBWYBvuQ==}
 
@@ -4173,6 +4233,9 @@ packages:
   es-module-lexer@2.3.0:
     resolution: {integrity: sha512-KLdwQm2NvGLDkQDCGvmiQrhkd0JbMzXthwQAUgWjQuQdBLFa3eiBP5arXZyA+f8x+x7OXgud6bq2rxjGtHV2tw==}
 
+  es-module-lexer@2.3.1:
+    resolution: {integrity: sha512-shc1dbU90Yl/xq1QrC7QRtfcwURZuVRfPhZbDoldJ1cn1gzDvBaBWlv0eFolj5+0znnPJz5TXLxsN77X/12KTA==}
+
   es-object-atoms@1.1.1:
     resolution: {integrity: sha512-FGgH2h8zKNim9ljj7dankFPcICIK9Cp5bm+c2gQSYePhpaG5+esrLODihIorn+Pe6FGJzWhXQotPv73jTaldXA==}
     engines: {node: '>= 0.4'}
@@ -4344,6 +4407,9 @@ packages:
   fetch-blob@3.2.0:
     resolution: {integrity: sha512-7yAQpD2UMJzLi1Dqv7qFYnPbaPx7ZfFK6PiIxQ4PfkGPyNyl2Ugx+a/umUonmKqjhM4DnfbMvdX6otXq83soQQ==}
     engines: {node: ^12.20 || >= 14.13}
+
+  fflate@0.8.3:
+    resolution: {integrity: sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA==}
 
   file-entry-cache@8.0.0:
     resolution: {integrity: sha512-XXTUwCvisa5oacNGRP9SfNtYBNAMi+RPwBFmblZEF7N7swHYQS6/Zfk7SRwx4D5j3CH211YNRco1DEMNVfZCnQ==}
@@ -6362,6 +6428,9 @@ packages:
   web-streams-polyfill@3.3.3:
     resolution: {integrity: sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==}
     engines: {node: '>= 8'}
+
+  web-worker@1.5.0:
+    resolution: {integrity: sha512-RiMReJrTAiA+mBjGONMnjVDP2u3p9R1vkcGz6gDIrOMT3oGuYwX2WRMYI9ipkphSuE5XKEhydbhNEJh4NY9mlw==}
 
   webidl-conversions@3.0.1:
     resolution: {integrity: sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==}
@@ -9574,6 +9643,49 @@ snapshots:
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
 
+  '@wasm-oj/browser@0.2.0':
+    dependencies:
+      '@wasm-oj/contracts': 0.2.0
+      '@wasm-oj/core': 0.2.0
+      '@wasmer/sdk': 0.10.0
+      es-module-lexer: 2.3.1
+      fflate: 0.8.3
+
+  '@wasm-oj/contracts@0.2.0': {}
+
+  '@wasm-oj/core@0.2.0':
+    dependencies:
+      '@wasm-oj/contracts': 0.2.0
+      fflate: 0.8.3
+
+  '@wasm-oj/toolchain-clang@0.1.0':
+    dependencies:
+      '@wasm-oj/contracts': 0.2.0
+
+  '@wasm-oj/toolchain-go@0.1.0':
+    dependencies:
+      '@wasm-oj/contracts': 0.2.0
+
+  '@wasm-oj/toolchain-java@0.1.0':
+    dependencies:
+      '@wasm-oj/contracts': 0.2.0
+
+  '@wasm-oj/toolchain-javascript@0.1.0':
+    dependencies:
+      '@wasm-oj/contracts': 0.2.0
+
+  '@wasm-oj/toolchain-python@0.1.0':
+    dependencies:
+      '@wasm-oj/contracts': 0.2.0
+
+  '@wasm-oj/toolchain-rust@0.1.0':
+    dependencies:
+      '@wasm-oj/contracts': 0.2.0
+
+  '@wasmer/sdk@0.10.0':
+    dependencies:
+      web-worker: 1.5.0
+
   '@webassemblyjs/ast@1.14.1':
     dependencies:
       '@webassemblyjs/helper-numbers': 1.13.2
@@ -10270,6 +10382,8 @@ snapshots:
 
   es-module-lexer@2.3.0: {}
 
+  es-module-lexer@2.3.1: {}
+
   es-object-atoms@1.1.1:
     dependencies:
       es-errors: 1.3.0
@@ -10478,6 +10592,8 @@ snapshots:
     dependencies:
       node-domexception: 1.0.0
       web-streams-polyfill: 3.3.3
+
+  fflate@0.8.3: {}
 
   file-entry-cache@8.0.0:
     dependencies:
@@ -12466,6 +12582,8 @@ snapshots:
       graceful-fs: 4.2.11
 
   web-streams-polyfill@3.3.3: {}
+
+  web-worker@1.5.0: {}
 
   webidl-conversions@3.0.1: {}
 

@@ -20,7 +20,7 @@ const config = {
       mode: "auto",
       directives: {
         "default-src": ["self"],
-        "script-src": ["self", "https://www.googletagmanager.com"],
+        "script-src": ["self", "wasm-unsafe-eval", "https://www.googletagmanager.com"],
         "style-src": ["self", "unsafe-inline"],
         "img-src": [
           "self",

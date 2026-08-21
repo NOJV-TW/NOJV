@@ -16,12 +16,12 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@types/node": "catalog:",
     "@nojv/core": "workspace:*",
+    "typescript": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@types/node": "catalog:",
-    "esbuild": "catalog:",
-    "typescript": "catalog:"
+    "esbuild": "catalog:"
   }
 }

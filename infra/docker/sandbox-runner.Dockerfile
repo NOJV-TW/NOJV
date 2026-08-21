@@ -19,6 +19,9 @@ COPY packages/core/ packages/core/
 COPY apps/sandbox-runner/ apps/sandbox-runner/
 RUN pnpm --filter @nojv/core build
 RUN pnpm --filter @nojv/sandbox-runner build
+RUN mkdir -p /judge-toolchain/node_modules/@types \
+  && cp -RL "$(pnpm root -w)/typescript" /judge-toolchain/node_modules/typescript \
+  && cp -RL "$(pnpm root -w)/@types/node" /judge-toolchain/node_modules/@types/node
 
 FROM node:24-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd
 
@@ -33,6 +36,8 @@ RUN test "$(cat /etc/alpine-release)" = "$(node -p "require('/runner/judge-envir
   && chown -R sandbox:sandbox /runner /workspace /tmp /home/sandbox
 
 COPY --from=builder /build/apps/sandbox-runner/dist/ /runner/
+COPY --from=builder /judge-toolchain/node_modules/ /node_modules/
+RUN ln -s /node_modules/typescript/bin/tsc /usr/local/bin/tsc
 # Python wrapper assets must travel with the runner. compiler.ts resolves
 # them at `<dirname-of-compiler.js>/../assets/wrappers/...`, so with
 # compiler.js at /runner/compiler.js the wrappers must live at

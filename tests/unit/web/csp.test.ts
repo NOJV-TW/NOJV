@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 import config from "../../../apps/web/svelte.config.js";
 
 describe("web content security policy", () => {
-  it("does not allow eval-capable script sources", () => {
+  it("allows WebAssembly without enabling JavaScript eval", () => {
     const scriptSources = config.kit?.csp?.directives?.["script-src"];
 
+    expect(scriptSources).toContain("wasm-unsafe-eval");
     expect(scriptSources).not.toContain("unsafe-eval");
-    expect(scriptSources).not.toContain("wasm-unsafe-eval");
   });
 
   it("allows only the external image hosts used by OAuth avatars and the about page", () => {
