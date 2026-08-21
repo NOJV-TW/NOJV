@@ -1,6 +1,7 @@
 import {
   compareStandard,
   entryFileNameFor,
+  effectiveTimeLimitMs,
   isBrowserLocalLanguage,
   type CaseResult,
   type CompareConfig,
@@ -244,17 +245,18 @@ export async function runBrowserLocally(args: {
       };
     }
 
+    const effectiveTimeLimit = effectiveTimeLimitMs(args.timeLimitMs, args.request.language);
     const caseResults: CaseResult[] = [];
     for (const [index, testCase] of args.cases.entries()) {
       const run = await browserEngine.run(build.artifact, {
         stdin: browserLocalStdin(args.request.language, testCase.input),
         resources: {
-          logicalTimeLimitMs: args.timeLimitMs,
+          logicalTimeLimitMs: effectiveTimeLimit,
           memoryLimitBytes: args.memoryLimitMb * 1024 * 1024,
           outputLimitBytes: 1_000_000,
           filesystemWriteLimitBytes: 64 * 1024 * 1024,
           filesystemEntryLimit: 4096,
-          wallTimeLimitMs: Math.min(600_000, Math.max(1_000, args.timeLimitMs * 3)),
+          wallTimeLimitMs: Math.min(600_000, Math.max(1_000, effectiveTimeLimit * 3)),
         },
       });
       caseResults.push(

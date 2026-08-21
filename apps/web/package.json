@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "vite build",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check": "pnpm run paraglide:compile && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "dev": "vite dev",
     "dev:host": "vite dev --host 0.0.0.0 --port 5173 --strictPort",
     "wasm-oj:assets": "node ../../scripts/prepare-wasm-oj-assets.mjs",
@@ -18,7 +18,7 @@
     "predev": "pnpm --filter @nojv/core build && pnpm run wasm-oj:assets",
     "preview": "vite preview",
     "start": "node build",
-    "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+    "typecheck": "pnpm run paraglide:compile && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {
     "@better-auth/core": "1.6.23",
