@@ -1203,6 +1203,7 @@
   "editor_runCasesDisabled": "此題目使用自訂評測環境，測試時會採用題目內建的測試資料，無法在此編輯。",
   "editor_runFailed": "測試失敗，請再試一次。",
   "editor_runFirst": "按「測試」以查看結果。",
+  "editor_initializing": "初始化中...",
   "editor_running": "測試中...",
   "editor_submitButton": "提交",
   "editor_submitFailed": "提交失敗，請再試一次。",

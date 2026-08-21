@@ -2,6 +2,7 @@
   import type { ProblemSubmissionEntry } from "$lib/types";
   import type { SubmissionResult } from "@nojv/core";
   import { formatSmartTimestamp } from "$lib/utils/datetime";
+  import { formatJudgeOutput } from "$lib/utils/judge-output";
   import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
   import { m } from "$lib/paraglide/messages.js";
   import { fetchWithCsrf } from "$lib/services/http";
@@ -227,8 +228,9 @@
         {#if entry.result.feedback && entry.result.verdict !== "accepted"}
           {#if ["compile_error", "runtime_error", "system_error"].includes(entry.result.verdict)}
             <pre
-              class="mt-3 max-h-64 overflow-auto rounded-md bg-destructive/10 px-3 py-2 font-mono text-body-sm text-destructive">{entry
-                .result.feedback}</pre>
+              class="mt-3 max-h-64 overflow-auto rounded-md bg-destructive/10 px-3 py-2 font-mono text-body-sm text-destructive">{formatJudgeOutput(
+                entry.result.feedback,
+              )}</pre>
           {:else}
             <p class="mt-3 text-body-sm leading-6 text-muted-foreground">
               {entry.result.feedback}

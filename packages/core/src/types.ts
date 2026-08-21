@@ -11,10 +11,11 @@ export const supportedLanguages = [
   "typescript",
 ] as const;
 
-export const forgeLanguages = [
+export const browserLocalLanguages = [
   "c",
   "cpp",
   "go",
+  "java",
   "javascript",
   "python",
   "rust",
@@ -119,7 +120,7 @@ export const contestScoringModeSchema = z.enum(contestScoringModes);
 export const examScoringModeSchema = z.enum(examScoringModes);
 export const courseMembershipStatusSchema = z.enum(courseMembershipStatuses);
 export const languageSchema = z.enum(supportedLanguages);
-export const forgeLanguageSchema = z.enum(forgeLanguages);
+export const browserLocalLanguageSchema = z.enum(browserLocalLanguages);
 export const judgeTypeSchema = z.enum(judgeTypes);
 export const problemTypeSchema = z.enum(problemTypes);
 export const announcementStatusSchema = z.enum(announcementStatuses);
@@ -142,7 +143,7 @@ export type EffectiveCourseRole = z.infer<typeof effectiveCourseRoleSchema>;
 export type ProblemDifficulty = z.infer<typeof problemDifficultySchema>;
 export type JudgeType = z.infer<typeof judgeTypeSchema>;
 export type Language = z.infer<typeof languageSchema>;
-export type ForgeLanguage = z.infer<typeof forgeLanguageSchema>;
+export type BrowserLocalLanguage = z.infer<typeof browserLocalLanguageSchema>;
 export type LocaleCode = z.infer<typeof localeCodeSchema>;
 export type ScoreboardMode = z.infer<typeof scoreboardModeSchema>;
 export type PlatformRole = z.infer<typeof platformRoleSchema>;
@@ -157,8 +158,8 @@ export type AnnouncementStatus = z.infer<typeof announcementStatusSchema>;
 export type AnnouncementAudience = z.infer<typeof announcementAudienceSchema>;
 export type SubmissionOperationStatus = z.infer<typeof submissionOperationStatusSchema>;
 
-export function isForgeLanguage(language: Language): language is ForgeLanguage {
-  return forgeLanguages.includes(language as ForgeLanguage);
+export function isBrowserLocalLanguage(language: Language): language is BrowserLocalLanguage {
+  return browserLocalLanguages.includes(language);
 }
 
 export const ipViolationModes = ["block", "notify"] as const;

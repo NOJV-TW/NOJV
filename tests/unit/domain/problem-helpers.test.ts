@@ -53,7 +53,7 @@ describe("assertProblemHasWorkspaceForLanguages — multi_file", () => {
     problemFindById.mockResolvedValue({ id: "p2", type: "multi_file" });
     workspaceFindByProblemId.mockResolvedValue([
       { language: "python", path: "main.py", visibility: "editable" },
-      { language: "java", path: "main.java", visibility: "editable" },
+      { language: "java", path: "Main.java", visibility: "editable" },
     ]);
 
     await expect(

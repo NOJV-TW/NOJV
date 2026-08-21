@@ -41,15 +41,6 @@
 
 <svelte:head>
   <title>NOJV</title>
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-QKWPSQVRGG"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag() {
-      window.dataLayer.push(arguments);
-    }
-    gtag("js", new Date());
-    gtag("config", "G-QKWPSQVRGG");
-  </script>
   <meta property="og:site_name" content="NOJV" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="NOJV" />

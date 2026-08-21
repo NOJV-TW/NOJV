@@ -2,6 +2,7 @@
   import type { JudgeType, SubmissionResult } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
+  import { formatJudgeOutput } from "$lib/utils/judge-output";
   import { Badge } from "$lib/components/primitives/ui/badge";
 
   interface RunCase {
@@ -255,7 +256,9 @@
                         {m.submissionDetail_stderr()}
                       </p>
                       <pre
-                        class="mt-1 overflow-x-auto rounded-md bg-destructive/10 px-3 py-2 font-mono text-body-sm text-destructive">{caseData.stderr}</pre>
+                        class="mt-1 overflow-x-auto rounded-md bg-destructive/10 px-3 py-2 font-mono text-body-sm text-destructive">{formatJudgeOutput(
+                          caseData.stderr,
+                        )}</pre>
                     </div>
                   {/if}
                 {/if}
@@ -275,7 +278,9 @@
             {:else if runResult.feedback}
               {#if ["compile_error", "runtime_error", "system_error"].includes(runResult.verdict)}
                 <pre
-                  class="mt-3 max-h-64 overflow-auto rounded-md bg-destructive/10 px-3 py-2 font-mono text-body-sm text-destructive">{runResult.feedback}</pre>
+                  class="mt-3 max-h-64 overflow-auto rounded-md bg-destructive/10 px-3 py-2 font-mono text-body-sm text-destructive">{formatJudgeOutput(
+                    runResult.feedback,
+                  )}</pre>
               {:else}
                 <p class="mt-2 text-body-sm leading-6 text-muted-foreground">
                   {runResult.feedback}

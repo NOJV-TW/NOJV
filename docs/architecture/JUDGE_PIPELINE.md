@@ -2,6 +2,17 @@
 
 The judge pipeline is the evaluation framework that compiles, executes, and scores submissions. It runs as a Temporal activity inside `apps/worker`. Problems come in two modes: **Standard Mode** for classic competitive-programming problems and **Advanced Mode** as an escape hatch for anything Standard Mode cannot express. The pipeline has no user-configurable stage graph — both modes run a fixed flow.
 
+## Browser-local sample/custom tests
+
+For Standard Mode problems, the editor's **Test** action can run sample and
+user-defined custom cases in the browser through `@wasm-oj/browser`. This path
+does not create a submission, does not enter Temporal, and is not trusted for
+official scoring. The editor prewarms one shared browser engine and shows only
+`初始化中...` while it is preparing and `測試中...` while a local run is active.
+
+Official **Submit** always uses the server pipeline below. Checker, interactive,
+Advanced Mode, and other special environments also remain server-side.
+
 ## Standard Mode pipeline
 
 ```

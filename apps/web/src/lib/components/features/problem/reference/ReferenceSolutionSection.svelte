@@ -10,6 +10,7 @@
     type WorkspaceFile,
   } from "$lib/components/features/problem/editors/editor-bindings";
   import { executeSubmission } from "$lib/services/submission-service";
+  import { formatJudgeOutput } from "$lib/utils/judge-output";
   import { toasts } from "$lib/stores/toast";
 
   interface SourceFile {
@@ -132,7 +133,7 @@
       lastResult = result;
       accepted = result.accepted;
       status = accepted ? "verified" : "failed";
-      if (!accepted) toasts.error(result.feedback);
+      if (!accepted) toasts.error(formatJudgeOutput(result.feedback));
     } catch (error) {
       status = "failed";
       toasts.error(error instanceof Error ? error.message : m.error_unexpected());
@@ -203,7 +204,9 @@
         >
           {m.admin_referenceFailureDetails()}
         </h3>
-        <p class="mt-1 text-body-sm text-foreground/80">{lastResult.feedback}</p>
+        <p class="mt-1 whitespace-pre-wrap text-body-sm text-foreground/80">
+          {formatJudgeOutput(lastResult.feedback)}
+        </p>
       </div>
       {#if failedSubtasks.length > 0}
         <div class="space-y-3">

@@ -1203,6 +1203,7 @@
   "editor_runCasesDisabled": "This problem uses a custom judge image, so Test uses the testcases bundled with the problem. You cannot edit test cases here.",
   "editor_runFailed": "Test failed. Please try again.",
   "editor_runFirst": "Press \"Test\" to see results.",
+  "editor_initializing": "Initializing...",
   "editor_running": "Testing...",
   "editor_submitButton": "Submit",
   "editor_submitFailed": "Submission failed. Please try again.",

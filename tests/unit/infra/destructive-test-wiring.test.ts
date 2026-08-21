@@ -37,7 +37,7 @@ describe("destructive database provisioning and CI wiring", () => {
 });
 
 describe("Playwright destructive database isolation", () => {
-  it("uses only nojv_e2e_test on strict port 5174 and never reuses a server", async () => {
+  it("uses one worker for the shared E2E database on strict port 5174", async () => {
     vi.stubEnv("TEST_DATABASE_URL", e2eUrl);
     vi.stubEnv("NOJV_DESTRUCTIVE_TEST_DATABASE", "nojv_e2e_test");
     vi.resetModules();
@@ -45,6 +45,7 @@ describe("Playwright destructive database isolation", () => {
     const config = (await import("../../e2e/playwright.config.ts")).default;
 
     expect(config.use?.baseURL).toBe("http://localhost:5174");
+    expect(config.workers).toBe(1);
     expect(existsSync(join(repoRoot, "apps/web/static/favicon.svg"))).toBe(true);
     expect(config.webServer).toMatchObject({
       reuseExistingServer: false,

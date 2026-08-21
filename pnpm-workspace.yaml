@@ -118,3 +118,12 @@ minimumReleaseAgeExclude:
   - js-yaml@4.3.1
   - "@sveltejs/kit@2.70.2"
   - "@hono/node-server@1.19.15"
+  - "@wasm-oj/browser@0.2.0"
+  - "@wasm-oj/contracts@0.2.0"
+  - "@wasm-oj/core@0.2.0"
+  - "@wasm-oj/toolchain-clang@0.1.0"
+  - "@wasm-oj/toolchain-go@0.1.0"
+  - "@wasm-oj/toolchain-java@0.1.0"
+  - "@wasm-oj/toolchain-javascript@0.1.0"
+  - "@wasm-oj/toolchain-python@0.1.0"
+  - "@wasm-oj/toolchain-rust@0.1.0"

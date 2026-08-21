@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, untrack } from "svelte";
+  import { onDestroy, onMount, untrack } from "svelte";
   import { m } from "$lib/paraglide/messages.js";
   import type { Language, SubmissionContext, SubmissionResult } from "@nojv/core";
   import type { ProblemDetail } from "$lib/types";
@@ -23,6 +23,10 @@
   import { createDraftController } from "./use-draft.svelte";
   import { createEditorRunController } from "./use-editor-run.svelte";
   import { createWorkspaceFilesController } from "./use-workspace-files.svelte";
+  import {
+    prewarmBrowserLocalEngine,
+    shouldUseBrowserLocalRun,
+  } from "$lib/services/browser-local-run";
 
   interface Props {
     allowedLanguages?: Language[] | undefined;
@@ -67,9 +71,38 @@
   let language = $state<Language>(resolveInitialLanguage());
   let drafts = $state({ ...initialProblem.starterByLanguage });
   let isFullscreen = $state(false);
+  let isBrowserEngineInitializing = $state(false);
 
   let isWorkspaceMode = $derived(isWorkspaceProblem(problem.type));
   let isSpecialEnv = $derived(isSpecialEnvProblem(problem.type));
+
+  onMount(() => {
+    if (
+      !shouldUseBrowserLocalRun({
+        sampleOnly: true,
+        specialEnv: isSpecialEnv,
+        judgeType: initialProblem.judgeType,
+        language,
+      })
+    ) {
+      return;
+    }
+
+    isBrowserEngineInitializing = true;
+    let active = true;
+    const timer = window.setTimeout(() => {
+      void prewarmBrowserLocalEngine()
+        .catch(() => undefined)
+        .finally(() => {
+          if (active) isBrowserEngineInitializing = false;
+        });
+    }, 0);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  });
 
   let workspaceFilesForLanguage = $derived(
     problem.workspaceFiles.filter((f) => f.language === language),
@@ -240,6 +273,7 @@
 
   <EditorActionBar
     isRunning={runController.isRunning}
+    {isBrowserEngineInitializing}
     isSubmitting={runController.isSubmitting}
     {hasSubmittableSource}
     {attemptsExhausted}

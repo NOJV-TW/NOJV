@@ -71,6 +71,7 @@ export function languageExtension(language: Language): string {
 export const ENTRY_FILE_BASENAME = "main";
 
 export function entryFileNameFor(language: Language): string {
+  if (language === "java") return "Main.java";
   return `${ENTRY_FILE_BASENAME}.${languageExtension(language)}`;
 }
 

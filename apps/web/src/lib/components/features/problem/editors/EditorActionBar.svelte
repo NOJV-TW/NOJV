@@ -3,6 +3,7 @@
 
   interface Props {
     isRunning: boolean;
+    isBrowserEngineInitializing?: boolean;
     isSubmitting: boolean;
     hasSubmittableSource: boolean;
     availableLanguageCount: number;
@@ -17,6 +18,7 @@
 
   let {
     isRunning,
+    isBrowserEngineInitializing = false,
     isSubmitting,
     hasSubmittableSource,
     availableLanguageCount,
@@ -70,13 +72,19 @@
   <div class="flex items-center gap-2">
     <button
       class="rounded-full border border-border px-3 py-1 text-caption font-medium text-foreground transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
-      disabled={isRunning || disabled}
-      aria-busy={isRunning}
+      disabled={isRunning || isBrowserEngineInitializing || disabled}
+      aria-busy={isRunning || isBrowserEngineInitializing}
       onclick={onRun}
       title={!hasSubmittableSource ? m.editor_emptySourceTooltip() : undefined}
       type="button"
     >
-      {isRunning ? m.editor_running() : m.editor_run()}
+      {#if isBrowserEngineInitializing}
+        {m.editor_initializing()}
+      {:else if isRunning}
+        {m.editor_running()}
+      {:else}
+        {m.editor_run()}
+      {/if}
     </button>
     <button
       class="rounded-full bg-success px-3 py-1 text-caption font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"

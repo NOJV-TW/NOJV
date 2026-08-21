@@ -287,7 +287,25 @@ importers:
       '@shikijs/themes':
         specifier: 4.3.1
         version: 4.3.1
-      '@wasm-oj/forge':
+      '@wasm-oj/browser':
+        specifier: 0.2.0
+        version: 0.2.0
+      '@wasm-oj/toolchain-clang':
+        specifier: 0.1.0
+        version: 0.1.0
+      '@wasm-oj/toolchain-go':
+        specifier: 0.1.0
+        version: 0.1.0
+      '@wasm-oj/toolchain-java':
+        specifier: 0.1.0
+        version: 0.1.0
+      '@wasm-oj/toolchain-javascript':
+        specifier: 0.1.0
+        version: 0.1.0
+      '@wasm-oj/toolchain-python':
+        specifier: 0.1.0
+        version: 0.1.0
+      '@wasm-oj/toolchain-rust':
         specifier: 0.1.0
         version: 0.1.0
       bcryptjs:
@@ -459,9 +477,6 @@ importers:
       '@temporalio/workflow':
         specifier: 1.20.3
         version: 1.20.3
-      '@wasm-oj/forge':
-        specifier: 0.1.0
-        version: 0.1.0
       ioredis:
         specifier: 'catalog:'
         version: 5.11.1
@@ -3355,9 +3370,41 @@ packages:
   '@vitest/utils@4.1.10':
     resolution: {integrity: sha512-fy9am/HWxbaGt/Sawrp90vt6Y6jQwf1RX77cz3uwoJwJVMli/e1IEwRPnMNJ7vKfPTwo0diXifkpPvwH9v7nGA==}
 
-  '@wasm-oj/forge@0.1.0':
-    resolution: {integrity: sha512-/1oQVOoroIs0vicwEGquuwT/1SXqy22j58n4BPCVQf+MqykGYv9bgpLi1NgcbQ1+elEy5YhC/J6rM4GVXSPrtw==}
-    engines: {node: '>=22.13.0'}
+  '@wasm-oj/browser@0.2.0':
+    resolution: {integrity: sha512-Qo/vmMGDLXS0fqq0oQhbtl4OKh9bkI8zTKVFjxvuc1JJBUobnTud5M+B95ae2WhZdY1wkcHv6Z36rjXcoj3X5g==}
+    engines: {node: '>=24.18.0 <25'}
+
+  '@wasm-oj/contracts@0.2.0':
+    resolution: {integrity: sha512-3e+6aJXiZzprhPcUN/rBGe20jnpmixdcHmrTKHr6tFnZyRxPtCFrtzKOx/ESdJ8uznJ8JGQyqnha46xzS3jRbw==}
+    engines: {node: '>=24.18.0 <25'}
+
+  '@wasm-oj/core@0.2.0':
+    resolution: {integrity: sha512-PxvK9/IOL4JSdPko6YqUYmUmfdbEmCwh3avaAaASmmRKKUm2c6dz4y0IkalFqPo8fnRbPYRAqNOHPN9CZNVmFA==}
+    engines: {node: '>=24.18.0 <25'}
+
+  '@wasm-oj/toolchain-clang@0.1.0':
+    resolution: {integrity: sha512-kbJpQzC2JKPS3fOACxebsbAqGuKZRuVGyONvqA+FN9FNjcPdDQuPzChbuBp8llPDte7LDPTu1zjotoayDL9RWA==}
+    engines: {node: '>=24.18.0 <25'}
+
+  '@wasm-oj/toolchain-go@0.1.0':
+    resolution: {integrity: sha512-LKt4XJv6G+amjCsdT2TAkgx3nQk4sBc2Y0t/iuw4bqRiEfetv6aLBingvpqqWHVsVkKlJqgHRxuGwn6qHIPfNg==}
+    engines: {node: '>=24.18.0 <25'}
+
+  '@wasm-oj/toolchain-java@0.1.0':
+    resolution: {integrity: sha512-tEbEQmZem8zvrTYqktMTNcByc64davQZxjATA7Am8PHGunbAgDe9y7aphwl+lS5XFMQqcQN16ZizaqvRZm+FHw==}
+    engines: {node: '>=24.18.0 <25'}
+
+  '@wasm-oj/toolchain-javascript@0.1.0':
+    resolution: {integrity: sha512-ohy3NMPlGFKk0Dqpl1dVaE/ZaplTDzqdhL9v77VHwBssrdkuiDv4MQf4FC3fnRHCXHfO5XmpXop3xcsYXzfDyg==}
+    engines: {node: '>=24.18.0 <25'}
+
+  '@wasm-oj/toolchain-python@0.1.0':
+    resolution: {integrity: sha512-rwCntQaJGwf+Uf94BK8UmgUlioCzq15W43XOBzliE5ZUIDN4e3P3jaqru+Jba8+ymTIaf/PKgYu6f9jpkWsQEA==}
+    engines: {node: '>=24.18.0 <25'}
+
+  '@wasm-oj/toolchain-rust@0.1.0':
+    resolution: {integrity: sha512-ZzkpMYQreWINeAe+bwX9eDOtrdnc7mxRHMO0tg5y/yxjyyoIvOgxUWp3ex8KCt/k0skkQwqU72RPcrokGreEqA==}
+    engines: {node: '>=24.18.0 <25'}
 
   '@wasmer/sdk@0.10.0':
     resolution: {integrity: sha512-YQ+s5tGag6P/I8kp9BTH+XhjoS9UFvWiZJvnWEEovClHffhYToKhprWr4UJG7wLP7c/2HQpGkF7ZrjoUvKjdmA==}
@@ -9595,11 +9642,44 @@ snapshots:
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
 
-  '@wasm-oj/forge@0.1.0':
+  '@wasm-oj/browser@0.2.0':
     dependencies:
+      '@wasm-oj/contracts': 0.2.0
+      '@wasm-oj/core': 0.2.0
       '@wasmer/sdk': 0.10.0
       es-module-lexer: 2.3.1
       fflate: 0.8.3
+
+  '@wasm-oj/contracts@0.2.0': {}
+
+  '@wasm-oj/core@0.2.0':
+    dependencies:
+      '@wasm-oj/contracts': 0.2.0
+      fflate: 0.8.3
+
+  '@wasm-oj/toolchain-clang@0.1.0':
+    dependencies:
+      '@wasm-oj/contracts': 0.2.0
+
+  '@wasm-oj/toolchain-go@0.1.0':
+    dependencies:
+      '@wasm-oj/contracts': 0.2.0
+
+  '@wasm-oj/toolchain-java@0.1.0':
+    dependencies:
+      '@wasm-oj/contracts': 0.2.0
+
+  '@wasm-oj/toolchain-javascript@0.1.0':
+    dependencies:
+      '@wasm-oj/contracts': 0.2.0
+
+  '@wasm-oj/toolchain-python@0.1.0':
+    dependencies:
+      '@wasm-oj/contracts': 0.2.0
+
+  '@wasm-oj/toolchain-rust@0.1.0':
+    dependencies:
+      '@wasm-oj/contracts': 0.2.0
 
   '@wasmer/sdk@0.10.0':
     dependencies:

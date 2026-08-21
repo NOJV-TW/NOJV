@@ -8,7 +8,7 @@ import type {
 import { m } from "$lib/paraglide/messages.js";
 import { executeSubmission, SubmissionRequestError } from "$lib/services/submission-service";
 import { toasts } from "$lib/stores/toast";
-import { runForgeLocally, supportsForgeLocalRun } from "$lib/services/forge-local-run";
+import { runBrowserLocally, shouldUseBrowserLocalRun } from "$lib/services/browser-local-run";
 import type { ProblemDetail } from "$lib/types";
 import {
   buildSubmissionRequest,
@@ -93,12 +93,14 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
     });
 
     if (
-      sampleOnly &&
-      !args.isSpecialEnv() &&
-      args.judgeType() === "standard" &&
-      supportsForgeLocalRun(args.language())
+      shouldUseBrowserLocalRun({
+        sampleOnly,
+        specialEnv: args.isSpecialEnv(),
+        judgeType: args.judgeType(),
+        language: args.language(),
+      })
     ) {
-      const result = await runForgeLocally({
+      const result = await runBrowserLocally({
         request,
         cases: runCases ?? [],
         compare: args.judgeConfig().compare,
