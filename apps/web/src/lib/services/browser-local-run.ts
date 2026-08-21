@@ -213,11 +213,12 @@ export async function runBrowserLocally(args: {
   memoryLimitMb: number;
   signal: AbortSignal;
 }): Promise<SubmissionResult | null> {
-  const browserEngine = await getBrowserEngine();
+  let browserEngine: Engine;
   const cancel = () => browserEngine.cancel();
-  args.signal.addEventListener("abort", cancel, { once: true });
 
   try {
+    browserEngine = await getBrowserEngine();
+    args.signal.addEventListener("abort", cancel, { once: true });
     if (args.signal.aborted) return null;
     const { entry, files } = browserLocalFiles(args.request);
     const build = await browserEngine.compile(
