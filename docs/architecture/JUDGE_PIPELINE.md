@@ -38,18 +38,18 @@ The worker writes the merged source files plus testcase + config payloads to a t
 
 Language-specific build, run by the sandbox runner inside the isolated container:
 
-| Language   | Build command                                   | Entry file  |
-| ---------- | ----------------------------------------------- | ----------- |
-| C          | `gcc -O2 -std=c17 -o main ...`                  | `main.c`    |
-| C++        | `g++ -O2 -std=c++20 -o main ...`                | `main.cpp`  |
-| Go         | `go build -o main .` (or single file)           | `main.go`   |
-| Java       | `javac -d . ...` then `java -cp . Main`         | `Main.java` |
-| JavaScript | none; `node main.mjs`                           | `main.mjs`  |
-| Python     | none; `python3 main.py`                         | `main.py`   |
-| Rust       | `rustc -O -o main main.rs`                      | `main.rs`   |
-| TypeScript | none; `node --experimental-strip-types main.ts` | `main.ts`   |
+| Language   | Build command                                            | Entry file         |
+| ---------- | -------------------------------------------------------- | ------------------ |
+| C          | `gcc -O2 -std=c17 -o main ...`                           | `main.c`           |
+| C++        | `g++ -O2 -std=c++20 -o main ...`                         | `main.cpp`         |
+| Go         | `go build -o main .` (or single file)                    | `main.go`          |
+| Java       | `javac -d . ...` then `java -cp . Main`                  | `Main.java`        |
+| JavaScript | none; `node main.mjs`                                    | `main.mjs`         |
+| Python     | none; `python3 main.py`                                  | `main.py`          |
+| Rust       | `rustc -O -o main main.rs`                               | `main.rs`          |
+| TypeScript | `tsc --strict --noEmitOnError ... --outDir compiled ...` | `compiled/main.js` |
 
-Interpreted languages skip the compile step entirely — a syntax error only surfaces when `execute` tries to run the file.
+JavaScript and Python skip the compile step entirely — a syntax error only surfaces when `execute` tries to run the file. TypeScript is compiled and type-checked with the pinned `tsc` toolchain; only the emitted JavaScript is executed.
 
 On Kubernetes, standard and checker run Jobs use one hardened `prepare` init
 container. It materializes the projected payload, reads the validated config,

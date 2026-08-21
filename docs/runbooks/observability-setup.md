@@ -195,8 +195,9 @@ The worker boots OTel via the side-effect `import "./otel.js"` at the very
 top of `apps/worker/src/index.ts` — before anything imports `pg` or
 `ioredis`, so the auto-instrumentation hooks can monkey-patch those modules
 first. In dev, `--import tsx` is the TypeScript loader (it transpiles the
-`.ts` entry on the fly); the OTel ordering still comes from that top-of-file
-import, not from a separate bootstrap file. There is no
+`.ts` entry on the fly); this is separate from the standard judge, which runs
+the pinned `tsc` compile/type-check phase and executes emitted JavaScript.
+The OTel ordering still comes from that top-of-file import, not from a separate bootstrap file. There is no
 `apps/worker/src/otel-bootstrap.ts`.
 
 ### Auto-instrumentation

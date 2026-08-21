@@ -176,6 +176,10 @@ const invalidSources: Record<string, LangEntry> = {
   go: { language: "go", source: "not valid" },
   java: { language: "java", source: "not valid" },
   rust: { language: "rust", source: "not valid" },
+  typescript: {
+    language: "typescript",
+    source: `const value: number = "not a number"; console.log(value);`,
+  },
 };
 
 const mlePrograms: Record<string, LangEntry> = {

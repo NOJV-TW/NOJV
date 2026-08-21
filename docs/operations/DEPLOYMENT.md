@@ -498,14 +498,16 @@ the orchestrator. Full `gcloud container node-pools create` recipes live in
 
 `packages/core/src/judge-environment.json` is the source of truth for the
 standard judge image, runner commands, and public `/environment` page. The
-sandbox Dockerfile installs these exact revisions and fails its build when the
-pinned base image no longer matches the recorded Alpine or Node.js version.
+sandbox Dockerfile installs the exact APK revisions and copies the exact npm
+judge-toolchain revisions, then fails its build when the pinned base image no
+longer matches the recorded Alpine or Node.js version.
 
 | Component    | Pinned version                                                                                                                                                                                      |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Base OS      | `Alpine Linux 3.24.1`                                                                                                                                                                               |
 | Node runtime | `Node.js 24.18.0`                                                                                                                                                                                   |
 | APK packages | `bash=5.3.9-r1`, `build-base=0.5-r4`, `cargo=1.96.1-r0`, `g++=15.2.0-r5`, `gcc=15.2.0-r5`, `go=1.26.3-r0`, `openjdk21-jdk=21.0.12_p8-r0`, `python3=3.14.7-r1`, `rust=1.96.1-r0`, `socat=1.8.1.3-r0` |
+| npm packages | `@types/node@24.13.3`, `typescript@6.0.3`                                                                                                                                                           |
 
 To upgrade the toolchain, update the base image digest and
 `judge-environment.json`, refresh this table in the same change, then run

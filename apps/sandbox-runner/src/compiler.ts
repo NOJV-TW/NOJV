@@ -41,6 +41,17 @@ function judgeCommand(
   return materializeJudgeCommand(template, replacements);
 }
 
+async function resolveNodeTypeRoots(): Promise<string> {
+  const candidates = [
+    path.resolve(process.cwd(), "node_modules/@types"),
+    "/node_modules/@types",
+  ];
+  for (const candidate of candidates) {
+    if (await pathExists(candidate)) return candidate;
+  }
+  return candidates[0] ?? "/node_modules/@types";
+}
+
 export async function compile(
   input: SandboxInput,
   sourcePath: string,
@@ -118,11 +129,26 @@ export async function compile(
         workDir,
       );
     }
-    case "typescript":
-      return {
-        success: true,
-        runCommand: judgeCommand("typescript", "runCommand", { "{source}": sourcePath }),
-      };
+    case "typescript": {
+      const tsSources = await collectSourceFiles(workDir, [".ts"]);
+      const outputDir = path.join(workDir, "compiled");
+      const relativeSourcePath = path.relative(workDir, sourcePath);
+      const outputSourcePath = path.join(
+        outputDir,
+        relativeSourcePath.slice(0, -path.extname(relativeSourcePath).length) + ".js",
+      );
+
+      return compileWithCommand(
+        judgeCommand("typescript", "compileCommand", {
+          "{output}": outputDir,
+          "{sources}": tsSources.length > 0 ? tsSources : [sourcePath],
+          "{typeRoots}": await resolveNodeTypeRoots(),
+          "{workDir}": workDir,
+        }),
+        judgeCommand("typescript", "runCommand", { "{output}": outputSourcePath }),
+        workDir,
+      );
+    }
   }
 }
 
@@ -185,11 +211,15 @@ function compileWithCommand(
     const [wrappedCmd, ...wrappedArgs] = withCpuTimeLimit([cmd, ...args]);
     const proc = spawn(wrappedCmd, wrappedArgs, {
       cwd: workDir,
-      stdio: ["ignore", "ignore", "pipe"],
+      stdio: ["ignore", "pipe", "pipe"],
       timeout: 90_000,
     });
 
+    const stdoutBuf = createBoundedBuffer();
     const stderrBuf = createBoundedBuffer();
+    proc.stdout.on("data", (chunk: Buffer) => {
+      stdoutBuf.push(chunk);
+    });
     proc.stderr.on("data", (chunk: Buffer) => {
       stderrBuf.push(chunk);
     });
@@ -198,10 +228,13 @@ function compileWithCommand(
       if (code === 0) {
         resolve({ success: true, runCommand });
       } else {
-        const stderr = stderrBuf.toString().trim();
+        const diagnostics = [stdoutBuf.toString(), stderrBuf.toString()]
+          .map((value) => value.trim())
+          .filter(Boolean)
+          .join("\n");
         resolve({
           success: false,
-          error: stderr || `Compiler exited with code ${String(code ?? "unknown")}.`,
+          error: diagnostics || `Compiler exited with code ${String(code ?? "unknown")}.`,
         });
       }
     });
