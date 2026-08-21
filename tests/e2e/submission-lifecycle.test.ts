@@ -224,9 +224,11 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
     await page.locator("textarea[name='inputFormat']").fill(INPUT_FORMAT);
     await page.locator("textarea[name='outputFormat']").fill(OUTPUT_FORMAT);
 
-    await page.getByRole("button", { name: "Private", exact: true }).click();
-    await page.keyboard.press("p");
-    await page.keyboard.press("Enter");
+    const visibility = page.getByRole("button", { name: "Private", exact: true });
+    await visibility.click();
+    const publicOption = page.getByRole("option", { name: "Public", exact: true });
+    await expect(publicOption).toBeVisible();
+    await publicOption.click();
 
     await page
       .getByRole("button", { name: /save|儲存/i })

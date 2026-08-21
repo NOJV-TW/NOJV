@@ -5,8 +5,25 @@ import {
   type SandboxResult,
   type SandboxTestcase,
   type SandboxTestcaseResult,
+  type SandboxVerdict,
   type ValidatorOutcome,
 } from "@nojv/core";
+
+export function errorVerdictFeedback(
+  verdict: Extract<SandboxVerdict, "TLE" | "MLE" | "RE" | "SE">,
+  stderr: string,
+): string | undefined {
+  switch (verdict) {
+    case "RE":
+      return stderr.trim() || "Runtime error.";
+    case "TLE":
+      return "Time limit exceeded.";
+    case "MLE":
+      return "Memory limit exceeded.";
+    case "SE":
+      return undefined;
+  }
+}
 
 export function enforceMemoryLimit(
   results: SandboxTestcaseResult[],
@@ -40,7 +57,12 @@ export function resolveStandardResults(
     };
 
     if (run.errorVerdict) {
-      return { ...base, verdict: run.errorVerdict };
+      const feedback = errorVerdictFeedback(run.errorVerdict, run.stderr);
+      return {
+        ...base,
+        verdict: run.errorVerdict,
+        ...(feedback !== undefined ? { feedback } : {}),
+      };
     }
 
     const expected = expectedByIndex.get(run.index);
@@ -72,7 +94,12 @@ export function mergeCheckerResults(
     };
 
     if (run.errorVerdict) {
-      return { ...base, verdict: run.errorVerdict };
+      const feedback = errorVerdictFeedback(run.errorVerdict, run.stderr);
+      return {
+        ...base,
+        verdict: run.errorVerdict,
+        ...(feedback !== undefined ? { feedback } : {}),
+      };
     }
 
     const outcome = outcomes.get(run.index);

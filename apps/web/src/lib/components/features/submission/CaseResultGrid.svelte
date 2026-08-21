@@ -6,6 +6,7 @@
     verdictBadgeVariant,
     type VerdictBadgeVariant,
   } from "$lib/utils/verdict-style";
+  import { formatJudgeOutput } from "$lib/utils/judge-output";
 
   interface Props {
     cases: CaseResult[];
@@ -106,7 +107,9 @@
           {m.submissionDetail_stderr()}
         </p>
         <pre
-          class="mt-1 max-h-48 overflow-auto rounded-md bg-destructive/10 px-3 py-2 font-mono text-body-sm text-destructive">{expandedCase.stderr}</pre>
+          class="mt-1 max-h-48 overflow-auto rounded-md bg-destructive/10 px-3 py-2 font-mono text-body-sm text-destructive">{formatJudgeOutput(
+            expandedCase.stderr,
+          )}</pre>
       </div>
     {/if}
     {#if expandedCase.staffFeedback}
@@ -115,7 +118,9 @@
           {m.submissionDetail_staffFeedback()}
         </p>
         <pre
-          class="mt-1 max-h-48 overflow-auto rounded-md border border-info/30 bg-info/5 px-3 py-2 font-mono text-body-sm text-foreground">{expandedCase.staffFeedback}</pre>
+          class="mt-1 max-h-48 overflow-auto rounded-md border border-info/30 bg-info/5 px-3 py-2 font-mono text-body-sm text-foreground">{formatJudgeOutput(
+            expandedCase.staffFeedback,
+          )}</pre>
       </div>
     {/if}
   </div>

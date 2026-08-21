@@ -1,7 +1,14 @@
-import type { Language, SubmissionContext, SubmissionResult } from "@nojv/core";
+import type {
+  JudgeConfig,
+  JudgeType,
+  Language,
+  SubmissionContext,
+  SubmissionResult,
+} from "@nojv/core";
 import { m } from "$lib/paraglide/messages.js";
 import { executeSubmission, SubmissionRequestError } from "$lib/services/submission-service";
 import { toasts } from "$lib/stores/toast";
+import { runBrowserLocally, shouldUseBrowserLocalRun } from "$lib/services/browser-local-run";
 import type { ProblemDetail } from "$lib/types";
 import {
   buildSubmissionRequest,
@@ -16,6 +23,10 @@ interface EditorRunArgs {
   language: () => Language;
   isWorkspaceMode: () => boolean;
   isSpecialEnv: () => boolean;
+  judgeType: () => JudgeType;
+  judgeConfig: () => JudgeConfig;
+  timeLimitMs: number;
+  memoryLimitMb: number;
   drafts: () => Record<string, string>;
   workspaceDrafts: () => Record<string, string>;
   workspaceFiles: () => WorkspaceFile[];
@@ -80,6 +91,26 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       workspaceFiles: args.workspaceFiles(),
       ...(runCases ? { runCases } : {}),
     });
+
+    if (
+      shouldUseBrowserLocalRun({
+        sampleOnly,
+        specialEnv: args.isSpecialEnv(),
+        judgeType: args.judgeType(),
+        language: args.language(),
+      })
+    ) {
+      const result = await runBrowserLocally({
+        request,
+        cases: runCases ?? [],
+        compare: args.judgeConfig().compare,
+        problemId: args.problemId,
+        timeLimitMs: args.timeLimitMs,
+        memoryLimitMb: args.memoryLimitMb,
+        signal,
+      });
+      return destroyed ? null : result;
+    }
 
     const result = await executeSubmission(request, { signal });
     return destroyed ? null : result;

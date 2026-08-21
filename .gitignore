@@ -21,6 +21,7 @@
 .turbo
 .pnpm-store
 .worktrees
+apps/web/static/wasm-oj/
 /packages/db/generated
 
 # misc

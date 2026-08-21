@@ -4,6 +4,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { watchSubmissionVerdict } from "$lib/stores/sse";
   import { formatDateTime } from "$lib/utils/datetime";
+  import { formatJudgeOutput } from "$lib/utils/judge-output";
   import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
   import { languageLabel } from "@nojv/core";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
@@ -246,7 +247,9 @@
             {m.submissionDetail_feedback()}
           </h2>
           <pre
-            class="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-subtle bg-muted/30 px-3 py-2 font-mono text-body-sm text-foreground">{result.feedback}</pre>
+            class="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-subtle bg-muted/30 px-3 py-2 font-mono text-body-sm text-foreground">{formatJudgeOutput(
+              result.feedback,
+            )}</pre>
         </div>
       {/if}
 

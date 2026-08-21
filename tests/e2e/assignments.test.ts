@@ -81,7 +81,7 @@ test.describe("Assignments — list + detail", () => {
     const page = await context.newPage();
     await page.goto("/assignments?tab=closed");
     await expect(page.getByRole("main")).toBeVisible();
-    expect(page.url()).toContain("tab=closed");
+    await expect(page).toHaveURL(/\/assignments\?tab=closed$/);
     await context.close();
   });
 });

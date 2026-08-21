@@ -54,6 +54,8 @@ Turbo task wiring lives in `turbo.json`. `test:unit` does not depend on `build` 
 - **Integration**: a running PostgreSQL, Redis, and Temporal, plus the explicitly provisioned `nojv_test` database.
 - **E2E**: the same services, plus the explicitly provisioned `nojv_e2e_test` database. Playwright starts its own strict-port web server on `127.0.0.1:5174`; do not start one manually.
 
+E2E tests intentionally run with one Playwright worker because they share the single destructive database and some lifecycle cases mutate seeded rows. Do not override this with `--workers`.
+
 Global Vitest setup (test users, seeded DB state) is in `tests/setup/`.
 
 ### Provision destructive test databases

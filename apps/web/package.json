@@ -4,15 +4,18 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=24.18.0 <25"
   },
   "scripts": {
     "build": "vite build",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "dev": "vite dev",
     "dev:host": "vite dev --host 0.0.0.0 --port 5173 --strictPort",
+    "wasm-oj:assets": "node ../../scripts/prepare-wasm-oj-assets.mjs",
     "lint": "svelte-kit sync && eslint .",
     "paraglide:compile": "paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide",
+    "prebuild": "pnpm --filter @nojv/core build && pnpm run wasm-oj:assets",
+    "predev": "pnpm --filter @nojv/core build && pnpm run wasm-oj:assets",
     "preview": "vite preview",
     "start": "node build",
     "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
@@ -39,6 +42,13 @@
     "@scalar/sveltekit": "^0.3.11",
     "@shikijs/langs": "4.3.1",
     "@shikijs/themes": "4.3.1",
+    "@wasm-oj/browser": "0.2.0",
+    "@wasm-oj/toolchain-clang": "0.1.0",
+    "@wasm-oj/toolchain-go": "0.1.0",
+    "@wasm-oj/toolchain-java": "0.1.0",
+    "@wasm-oj/toolchain-javascript": "0.1.0",
+    "@wasm-oj/toolchain-python": "0.1.0",
+    "@wasm-oj/toolchain-rust": "0.1.0",
     "bcryptjs": "catalog:",
     "better-auth": "^1.6.23",
     "bits-ui": "^2.18.1",

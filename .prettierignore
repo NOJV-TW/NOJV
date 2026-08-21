@@ -6,6 +6,7 @@ coverage
 dist
 node_modules
 test-results
+.playwright-cli
 apps/web/.next
 apps/web/build
 packages/db/generated
