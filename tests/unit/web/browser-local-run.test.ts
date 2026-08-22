@@ -172,7 +172,32 @@ describe("browser local run result mapping", () => {
       2,
     );
 
-    expect(result).toMatchObject({ index: 2, verdict: "AC", timeMs: 12, memoryKb: 2 });
+    expect(result).toMatchObject({ index: 2, verdict: "AC", timeMs: 1, memoryKb: 2 });
+  });
+
+  it("reports deterministic logical time instead of host wall-clock duration", () => {
+    const result = mapBrowserLocalRunResult(
+      browserRun({
+        durationMs: 3_000,
+        metrics: { ...browserRun({}).metrics, logicalTimeNs: 2_500_000 },
+      }),
+      undefined,
+      undefined,
+      0,
+    );
+
+    expect(result.timeMs).toBe(3);
+  });
+
+  it("falls back to rounded wall-clock duration when logical time is absent", () => {
+    const result = mapBrowserLocalRunResult(
+      browserRun({ metrics: { ...browserRun({}).metrics, logicalTimeNs: null } }),
+      undefined,
+      undefined,
+      0,
+    );
+
+    expect(result.timeMs).toBe(12);
   });
 
   it("keeps wrong answers and non-zero exits distinct", () => {
