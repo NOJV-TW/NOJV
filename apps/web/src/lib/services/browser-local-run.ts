@@ -149,10 +149,17 @@ export function mapBrowserLocalRunResult(
     run.stderr.length > 0
       ? run.stderr
       : browserLocalTerminationFeedback(run.termination, run.code, run.trapMessage);
+  // durationMs includes one-off WASM runner startup that dwarfs guest execution
+  // for trivial programs; prefer the deterministic clock the TLE verdict uses.
+  const logicalTimeNs = run.metrics.logicalTimeNs;
+  const timeMs =
+    logicalTimeNs != null
+      ? Math.max(0, Math.ceil(logicalTimeNs / 1_000_000))
+      : Math.max(0, Math.round(run.durationMs));
   return {
     index,
     verdict,
-    timeMs: Math.max(0, Math.round(run.durationMs)),
+    timeMs,
     ...(run.metrics.memoryBytes != null
       ? { memoryKb: Math.max(0, Math.ceil(run.metrics.memoryBytes / 1024)) }
       : {}),

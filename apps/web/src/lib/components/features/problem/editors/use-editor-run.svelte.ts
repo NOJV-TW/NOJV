@@ -47,6 +47,7 @@ export interface EditorRunController {
   readonly isSubmitting: boolean;
   readonly bottomTab: "testcase" | "result";
   readonly runResult: SubmissionResult | null;
+  readonly runSource: "local" | "server" | null;
   readonly runStatus: string | null;
   readonly runError: string | null;
   readonly cooldownUntil: number | null;
@@ -62,6 +63,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
   let isSubmitting = $state(false);
   let bottomTab = $state<"testcase" | "result">("testcase");
   let runResult = $state<SubmissionResult | null>(null);
+  let runSource = $state<"local" | "server" | null>(null);
   let runStatus = $state<string | null>(null);
   let runError = $state<string | null>(null);
   let cooldownUntil = $state<number | null>(null);
@@ -100,6 +102,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
         language: args.language(),
       })
     ) {
+      runSource = "local";
       const result = await runBrowserLocally({
         request,
         cases: runCases ?? [],
@@ -112,6 +115,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       return destroyed ? null : result;
     }
 
+    runSource = "server";
     const result = await executeSubmission(request, { signal });
     return destroyed ? null : result;
   }
@@ -119,6 +123,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
   async function run() {
     isRunning = true;
     runResult = null;
+    runSource = null;
     runStatus = m.editor_running();
     runError = null;
     bottomTab = "result";
@@ -224,6 +229,9 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
     },
     get runResult() {
       return runResult;
+    },
+    get runSource() {
+      return runSource;
     },
     get runStatus() {
       return runStatus;

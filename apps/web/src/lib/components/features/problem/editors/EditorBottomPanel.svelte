@@ -18,6 +18,7 @@
     judgeType?: JudgeType;
     tab: "testcase" | "result";
     runResult: SubmissionResult | null;
+    runSource?: "local" | "server" | null;
     runStatus: string | null;
     runError: string | null;
     ontabchange: (tab: "testcase" | "result") => void;
@@ -29,6 +30,7 @@
     judgeType,
     tab,
     runResult,
+    runSource = null,
     runStatus,
     runError,
     ontabchange,
@@ -208,7 +210,9 @@
               <Badge variant="muted" size="xs">{m.editor_samplesOnly()}</Badge>
               {#if runResult.runtimeMs > 0}
                 <span class="text-caption text-muted-foreground tabular-nums">
-                  {m.submissionDetail_runtime()}: {String(runResult.runtimeMs)} ms
+                  {runSource === "local"
+                    ? m.editor_localRuntime()
+                    : m.submissionDetail_runtime()}: {String(runResult.runtimeMs)} ms
                 </span>
               {/if}
             </div>

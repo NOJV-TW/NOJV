@@ -316,6 +316,7 @@
       judgeType={problem.judgeType}
       tab={runController.bottomTab}
       runResult={runController.runResult}
+      runSource={runController.runSource}
       runStatus={runController.runStatus}
       runError={runController.runError}
       ontabchange={(next) => runController.setBottomTab(next)}
