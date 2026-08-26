@@ -17,7 +17,7 @@
   import { Button } from "$lib/components/primitives/ui/button";
   import * as Select from "$lib/components/primitives/ui/select";
   import { formatDateTime } from "$lib/utils/datetime";
-  import { formatVerdictLabel } from "$lib/utils/verdict-style";
+  import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
   import VerdictBadge from "$lib/components/primitives/ui/VerdictBadge.svelte";
 
   let { data } = $props();
@@ -224,7 +224,7 @@
                   onValueChange={(value) => updateFilter("problem", value)}
                 >
                   <Select.Trigger
-                    class="h-8 max-w-48 rounded-none border-0 border-b border-border bg-transparent px-1 font-mono text-micro uppercase tracking-wider shadow-none focus-visible:border-ring"
+                    class="h-8 max-w-48 rounded-none border-0 border-border bg-transparent px-1 font-mono text-micro uppercase tracking-wider !shadow-none dark:bg-transparent dark:hover:bg-transparent focus-visible:border-ring"
                     aria-label={m.submissions_filterProblem()}
                   >
                     {problemFilter
@@ -249,7 +249,7 @@
                   onValueChange={(value) => updateFilter("context", value)}
                 >
                   <Select.Trigger
-                    class="h-8 rounded-none border-0 border-b border-border bg-transparent px-1 font-mono text-micro uppercase tracking-wider shadow-none focus-visible:border-ring"
+                    class="h-8 rounded-none border-0 border-border bg-transparent px-1 font-mono text-micro uppercase tracking-wider !shadow-none dark:bg-transparent dark:hover:bg-transparent focus-visible:border-ring"
                     aria-label={m.admin_submissions_colContext()}
                   >
                     {contextFilter
@@ -275,7 +275,7 @@
                   onValueChange={(value) => updateFilter("language", value)}
                 >
                   <Select.Trigger
-                    class="h-8 rounded-none border-0 border-b border-border bg-transparent px-1 font-mono text-micro uppercase tracking-wider shadow-none focus-visible:border-ring"
+                    class="h-8 rounded-none border-0 border-border bg-transparent px-1 font-mono text-micro uppercase tracking-wider !shadow-none dark:bg-transparent dark:hover:bg-transparent focus-visible:border-ring"
                     aria-label={m.submissions_filterLanguage()}
                   >
                     {languageFilter
@@ -301,12 +301,14 @@
                   onValueChange={(value) => updateFilter("verdict", value)}
                 >
                   <Select.Trigger
-                    class="h-8 rounded-none border-0 border-b border-border bg-transparent px-1 font-mono text-micro uppercase tracking-wider shadow-none focus-visible:border-ring"
+                    class="h-8 rounded-none border-0 border-border bg-transparent px-1 font-mono text-micro uppercase tracking-wider !shadow-none dark:bg-transparent dark:hover:bg-transparent focus-visible:border-ring"
                     aria-label={m.submissions_filterVerdict()}
                   >
-                    {verdictFilter
-                      ? formatVerdictLabel(verdictFilter)
-                      : m.admin_submissions_colVerdict()}
+                    <span class={verdictFilter ? verdictTone(verdictFilter) : ""}>
+                      {verdictFilter
+                        ? formatVerdictLabel(verdictFilter)
+                        : m.admin_submissions_colVerdict()}
+                    </span>
                   </Select.Trigger>
                   <Select.Content>
                     <Select.Item value="__all" label={m.admin_submissions_colVerdict()}
@@ -314,7 +316,8 @@
                     >
                     {#each verdictOptions as status (status)}
                       <Select.Item value={status} label={formatVerdictLabel(status)}
-                        >{formatVerdictLabel(status)}</Select.Item
+                        ><span class={verdictTone(status)}>{formatVerdictLabel(status)}</span
+                        ></Select.Item
                       >
                     {/each}
                   </Select.Content>

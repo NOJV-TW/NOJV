@@ -64,6 +64,15 @@ describe("submissions page", () => {
     for (const label of ["Problem", "Context", "Language", "Verdict"]) {
       expect(target.querySelector(`[aria-label="${label}"]`)?.closest("th")).not.toBeNull();
     }
+    const filterTriggers = [...target.querySelectorAll("thead [aria-label]")];
+    expect(filterTriggers).toHaveLength(4);
+    for (const trigger of filterTriggers) {
+      expect(trigger.className).toContain("dark:bg-transparent");
+      expect(trigger.className).toContain("dark:hover:bg-transparent");
+      expect(trigger.className).toContain("!shadow-none");
+      expect(trigger.className.split(/\s+/)).not.toContain("border-b");
+    }
+    expect(target.querySelector("thead .text-success")).not.toBeNull();
     const headerLabels = [...target.querySelectorAll("thead th")].map((header) =>
       header.textContent?.trim(),
     );
