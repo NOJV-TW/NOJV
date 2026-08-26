@@ -42,7 +42,7 @@
   <meta name="description" content={m.home_productDescription()} />
 </svelte:head>
 
-<div class="grid gap-8 lg:grid-cols-[1fr_1fr]">
+<div class="grid items-start gap-8 lg:grid-cols-[1fr_1fr]">
   <Card variant="surface" size="lg" class="animate-[fade-up_700ms_var(--ease-out-soft)_both]">
     <h2 class="text-title-lg leading-tight text-foreground">
       {m.home_announcements()}
@@ -56,7 +56,7 @@
         description={m.home_announcementsEmptyDescription()}
       />
     {:else}
-      <div class="mt-6 space-y-3">
+      <div class="mt-0 space-y-3">
         {#each data.announcements as announcement (announcement.id)}
           <button
             type="button"
@@ -135,7 +135,7 @@
           description={m.home_assessmentsEmptyDescription()}
         />
       {:else}
-        <div class="mt-6 space-y-3">
+        <div class="mt-0 space-y-3">
           {#each data.assessments as assessment (assessment.type + assessment.id)}
             {@const href = assessmentPath(assessment)}
             <a
