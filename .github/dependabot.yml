@@ -42,7 +42,6 @@ updates:
       - dependency-name: "*"
         update-types:
           - "version-update:semver-major"
-
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -92,3 +91,6 @@ updates:
       - dependency-name: "*"
         update-types:
           - "version-update:semver-major"
+      - dependency-name: "alpine/k8s"
+        update-types:
+          - "version-update:semver-minor"
