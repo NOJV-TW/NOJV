@@ -88,3 +88,7 @@ updates:
         patterns:
           - "*"
         group-by: dependency-name
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
