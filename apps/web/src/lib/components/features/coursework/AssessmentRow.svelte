@@ -109,6 +109,8 @@
         {/if}
       </span>
     </div>
+  {:else}
+    <span class="sr-only">{statusLabel()}</span>
   {/if}
 
   {#if startDate || endDate}

@@ -38,11 +38,13 @@
   const groups = $derived(
     currentFilter !== "all"
       ? []
-      : [
-          { key: "running", label: m.examsTop_filterRunning() },
-          { key: "upcoming", label: m.examsTop_filterUpcoming() },
-          { key: "ended", label: m.examsTop_filterEnded() },
-        ]
+      : (
+          [
+            { key: "running", label: m.examsTop_filterRunning() },
+            { key: "upcoming", label: m.examsTop_filterUpcoming() },
+            { key: "ended", label: m.examsTop_filterEnded() },
+          ] as const
+        )
           .map((g) => ({ ...g, items: sorted.filter((e) => e.status === g.key) }))
           .filter((g) => g.items.length > 0),
   );
