@@ -18,6 +18,7 @@
     endsAt?: string | null;
     timing?: Snippet;
     foot?: Snippet;
+    showStatusIcon?: boolean;
     delay?: number;
     class?: string;
   }
@@ -33,6 +34,7 @@
     endsAt,
     timing,
     foot,
+    showStatusIcon = true,
     delay = 0,
     class: className,
   }: Props = $props();
@@ -93,19 +95,21 @@
     aria-hidden="true"
   ></span>
 
-  <div class="flex min-w-[2rem] shrink-0 items-center">
-    <span class="inline-flex size-8 items-center justify-center" title={statusLabel()}>
-      {#if status === "live" || status === "in_progress" || status === "open"}
-        <Radio class="size-5 text-primary" aria-label={statusLabel()} />
-      {:else if status === "ended" || status === "closed" || status === "submitted"}
-        <CalendarCheck2 class="size-5 text-muted-foreground" aria-label={statusLabel()} />
-      {:else if status === "draft"}
-        <Calendar class="size-5 text-muted-foreground" aria-label={statusLabel()} />
-      {:else}
-        <CalendarClock class="size-5 text-primary" aria-label={statusLabel()} />
-      {/if}
-    </span>
-  </div>
+  {#if showStatusIcon}
+    <div class="flex min-w-[2rem] shrink-0 items-center">
+      <span class="inline-flex size-8 items-center justify-center" title={statusLabel()}>
+        {#if status === "live" || status === "in_progress" || status === "open"}
+          <Radio class="size-5 text-primary" aria-label={statusLabel()} />
+        {:else if status === "ended" || status === "closed" || status === "submitted"}
+          <CalendarCheck2 class="size-5 text-muted-foreground" aria-label={statusLabel()} />
+        {:else if status === "draft"}
+          <Calendar class="size-5 text-muted-foreground" aria-label={statusLabel()} />
+        {:else}
+          <CalendarClock class="size-5 text-primary" aria-label={statusLabel()} />
+        {/if}
+      </span>
+    </div>
+  {/if}
 
   {#if startDate || endDate}
     <div class="flex shrink-0 items-center gap-2">

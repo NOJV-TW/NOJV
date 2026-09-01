@@ -27,10 +27,11 @@
 
   interface Props {
     exam: ExamRowData;
+    showStatusIcon?: boolean;
     delay?: number;
   }
 
-  let { exam, delay = 0 }: Props = $props();
+  let { exam, showStatusIcon = true, delay = 0 }: Props = $props();
 </script>
 
 <AssessmentRow
@@ -42,6 +43,7 @@
   status={pillStatus(exam.status)}
   startsAt={exam.startsAt}
   endsAt={exam.endsAt}
+  {showStatusIcon}
   {delay}
 >
   {#snippet timing()}

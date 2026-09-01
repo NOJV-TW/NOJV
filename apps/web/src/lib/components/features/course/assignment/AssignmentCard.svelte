@@ -13,10 +13,11 @@
 
   interface Props {
     assignment: AssignmentRow;
+    showStatusIcon?: boolean;
     delay?: number;
   }
 
-  let { assignment, delay = 0 }: Props = $props();
+  let { assignment, showStatusIcon = true, delay = 0 }: Props = $props();
 
   let now = $state(Date.now());
   onMount(() => {
@@ -62,6 +63,7 @@
   {status}
   startsAt={assignment.opensAt}
   endsAt={assignment.closesAt}
+  {showStatusIcon}
   {delay}
 >
   {#snippet timing()}

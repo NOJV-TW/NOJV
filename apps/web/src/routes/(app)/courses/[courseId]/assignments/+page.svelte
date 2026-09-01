@@ -5,6 +5,7 @@
   import { Button } from "$lib/components/primitives/ui/button";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import AssignmentCard from "$lib/components/features/course/assignment/AssignmentCard.svelte";
+  import AssessmentGroupHeading from "$lib/components/features/coursework/AssessmentGroupHeading.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -53,16 +54,12 @@
     <div class="animate-in animate-in-2 space-y-8">
       {#each groups as g (g.key)}
         <section>
-          <div class="mb-4 flex items-end gap-3">
-            <span class="text-body font-semibold">{g.label}</span>
-            <span class="text-caption text-muted-foreground tabular-nums">{g.items.length}</span
-            >
-            <div class="ml-1 flex-1 border-t border-border-subtle"></div>
-          </div>
+          <AssessmentGroupHeading label={g.label} status={g.key} count={g.items.length} />
           <div class="grid gap-2">
             {#each g.items as assignment, i (assignment.id)}
               <AssignmentCard
                 assignment={{ ...assignment, courseId, courseTitle: "" }}
+                showStatusIcon={false}
                 delay={i * 60}
               />
             {/each}

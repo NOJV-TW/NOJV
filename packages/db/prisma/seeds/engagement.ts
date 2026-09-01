@@ -22,6 +22,7 @@ import {
 const HW1_ID = "hw1-process-trace";
 const SPRING_CONTEST_ID = "spring-qualifier-2026";
 const LIVE_CONTEST_ID = "contest_demo_live";
+const MAZE_PROBLEM_ID = "problem_distributed-labyrinth";
 
 async function ensureAcceptedPractice(
   prisma: PrismaClient,
@@ -151,6 +152,30 @@ export async function seedEngagement(
       content:
         '## 兩數相加（C）\n\n用 `scanf` 讀入、`%lld` 印出總和，注意輸出後換行：\n\n```c\n#include <stdio.h>\nint main(){ long long a,b; scanf("%lld %lld",&a,&b); printf("%lld\\n",a+b); }\n```',
       createdAt: new Date(now - 14 * DAY),
+    },
+  });
+
+  await prisma.problemPost.create({
+    data: {
+      type: "discussion",
+      authorId: student.id,
+      problemId: MAZE_PROBLEM_ID,
+      title: "BFS 的距離陣列要怎麼初始化？",
+      content:
+        "這題的每一步代價都相同，所以可以用 BFS 從 `(0, 0)` 開始探索。\n\n我會把距離陣列先填成 `-1`，第一次走到一格時記錄 `dist[nr][nc] = dist[r][c] + 1`，如此就能保證第一次抵達終點時拿到最短步數。記得先處理起點或終點是 `#` 的情況。",
+      createdAt: new Date(now - 13 * DAY),
+    },
+  });
+
+  await prisma.problemPost.create({
+    data: {
+      type: "editorial",
+      authorId: teacher.id,
+      problemId: MAZE_PROBLEM_ID,
+      title: "Maze Shortest Path：BFS 解題指南",
+      content:
+        "## 解法\n\n迷宮中的每一步移動成本都相同，從左上角開始做廣度優先搜尋（BFS）即可。BFS 會按照距離由小到大拜訪格子，因此某個格子第一次被拜訪時，記錄的距離就是最短距離。\n\n### 實作步驟\n\n1. 若起點或終點是牆，直接輸出 `-1`。\n2. 建立 `dist` 矩陣並填入 `-1`，將起點距離設為 `0` 後放入 queue。\n3. 每次取出一格，嘗試四個方向；只走到範圍內、不是牆且尚未拜訪的格子。\n4. 抵達右下角時輸出距離；queue 清空仍未抵達則輸出 `-1`。\n\n```cpp\n#include <array>\n#include <iostream>\n#include <queue>\n#include <string>\n#include <vector>\n\nint main() {\n    int rows, cols;\n    std::cin >> rows >> cols;\n    std::vector<std::string> grid(rows);\n    for (auto& row : grid) std::cin >> row;\n\n    if (grid[0][0] == '#' || grid[rows - 1][cols - 1] == '#') {\n        std::cout << -1 << '\\n';\n        return 0;\n    }\n\n    std::vector<std::vector<int>> dist(rows, std::vector<int>(cols, -1));\n    std::queue<std::pair<int, int>> q;\n    q.push({0, 0});\n    dist[0][0] = 0;\n    constexpr std::array<int, 4> dr{1, -1, 0, 0};\n    constexpr std::array<int, 4> dc{0, 0, 1, -1};\n\n    while (!q.empty()) {\n        auto [r, c] = q.front();\n        q.pop();\n        for (int k = 0; k < 4; ++k) {\n            int nr = r + dr[k];\n            int nc = c + dc[k];\n            if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;\n            if (grid[nr][nc] == '#' || dist[nr][nc] != -1) continue;\n            dist[nr][nc] = dist[r][c] + 1;\n            q.push({nr, nc});\n        }\n    }\n\n    std::cout << dist[rows - 1][cols - 1] << '\\n';\n}\n```\n\n時間複雜度是 `O(RC)`，空間複雜度也是 `O(RC)`。",
+      createdAt: new Date(now - 12 * DAY),
     },
   });
 
@@ -372,6 +397,6 @@ export async function seedEngagement(
   });
 
   console.log(
-    "  Engagement: 3 editorial posts (+1 report), 5 clarifications, 4 bookmarks, 5 notifications, plagiarism flag+log, 2 feedback, 1 score override",
+    "  Engagement: 4 editorial posts + 1 discussion (+1 report), 5 clarifications, 4 bookmarks, 5 notifications, plagiarism flag+log, 2 feedback, 1 score override",
   );
 }

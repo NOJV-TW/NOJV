@@ -5,6 +5,7 @@
   import { Button } from "$lib/components/primitives/ui/button";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import ExamRow from "$lib/components/features/course/exam/ExamRow.svelte";
+  import AssessmentGroupHeading from "$lib/components/features/coursework/AssessmentGroupHeading.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -53,15 +54,14 @@
     <div class="animate-in animate-in-2 space-y-8">
       {#each groups as g (g.key)}
         <section>
-          <div class="mb-4 flex items-end gap-3">
-            <span class="text-body font-semibold">{g.label}</span>
-            <span class="text-caption text-muted-foreground tabular-nums">{g.items.length}</span
-            >
-            <div class="ml-1 flex-1 border-t border-border-subtle"></div>
-          </div>
+          <AssessmentGroupHeading label={g.label} status={g.key} count={g.items.length} />
           <div class="grid gap-2">
             {#each g.items as exam, i (exam.id)}
-              <ExamRow exam={{ ...exam, courseTitle: "" }} delay={i * 80} />
+              <ExamRow
+                exam={{ ...exam, courseTitle: "" }}
+                showStatusIcon={false}
+                delay={i * 80}
+              />
             {/each}
           </div>
         </section>
