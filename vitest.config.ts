@@ -30,11 +30,16 @@ const sharedAliases = {
   "$env/dynamic/public": path.resolve(__dirname, "tests/setup/stubs/env-dynamic-public.ts"),
   "$app/environment": path.resolve(__dirname, "tests/setup/stubs/app-environment.ts"),
   "$app/navigation": path.resolve(__dirname, "tests/setup/stubs/app-navigation.ts"),
+  "$app/state": path.resolve(__dirname, "tests/setup/stubs/app-state.ts"),
 };
 
 const componentAliases = [
   {
     find: /^@lucide\/svelte\/icons\/rotate-ccw$/,
+    replacement: path.resolve(__dirname, "tests/unit/web/fixtures/empty-component.svelte"),
+  },
+  {
+    find: /^@lucide\/svelte\/icons\/mail$/,
     replacement: path.resolve(__dirname, "tests/unit/web/fixtures/empty-component.svelte"),
   },
   {
@@ -108,6 +113,9 @@ export default defineConfig({
             "tests/unit/web/problem-left-panel.test.ts",
             "tests/unit/web/subtask-result-tree.test.ts",
             "tests/unit/web/submission-history-panel.test.ts",
+            "tests/unit/web/home-page-layout.test.ts",
+            "tests/unit/web/footer.test.ts",
+            "tests/unit/web/assessment-row.test.ts",
           ],
           environment: "node",
         },
@@ -133,6 +141,9 @@ export default defineConfig({
             "tests/unit/web/problem-left-panel.test.ts",
             "tests/unit/web/subtask-result-tree.test.ts",
             "tests/unit/web/submission-history-panel.test.ts",
+            "tests/unit/web/home-page-layout.test.ts",
+            "tests/unit/web/footer.test.ts",
+            "tests/unit/web/assessment-row.test.ts",
           ],
           environment: "jsdom",
         },

@@ -10,6 +10,7 @@
     endsAt: string;
     score: number | null;
     totalPoints: number;
+    showStatusIcon?: boolean;
     delay?: number;
   }
 
@@ -21,6 +22,7 @@
     endsAt,
     score,
     totalPoints,
+    showStatusIcon = true,
     delay = 0,
   }: Props = $props();
 </script>
@@ -34,6 +36,7 @@
   status="ended"
   {startsAt}
   {endsAt}
+  {showStatusIcon}
   {delay}
 >
   {#snippet foot()}

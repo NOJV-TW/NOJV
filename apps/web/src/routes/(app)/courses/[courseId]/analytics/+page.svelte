@@ -14,6 +14,7 @@
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { formatVerdictLabel } from "$lib/utils/verdict-style";
+  import { stablePieChartOptions } from "$lib/utils/chart-options";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -74,10 +75,11 @@
   });
 
   const verdictOption: EChartsOption = $derived({
-    tooltip: { trigger: "item" },
+    ...stablePieChartOptions,
     legend: { bottom: 0, type: "scroll" },
     series: [
       {
+        ...stablePieChartOptions.series[0],
         type: "pie",
         radius: ["42%", "68%"],
         label: {

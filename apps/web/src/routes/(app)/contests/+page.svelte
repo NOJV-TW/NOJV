@@ -11,6 +11,7 @@
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
   import ContestPoster from "$lib/components/features/contest/ContestPoster.svelte";
   import ContestRowPast from "$lib/components/features/contest/ContestRowPast.svelte";
+  import AssessmentGroupHeading from "$lib/components/features/coursework/AssessmentGroupHeading.svelte";
   import { contestStatusFor } from "$lib/components/features/contest/format";
 
   let { data, form: actionData } = $props();
@@ -62,11 +63,13 @@
   ]);
 
   const allGroups = $derived(
-    [
-      { key: "live", label: m.contestsList_tabLive(), items: live, past: false },
-      { key: "upcoming", label: m.contestsList_tabUpcoming(), items: upcoming, past: false },
-      { key: "ended", label: m.contestsList_tabEnded(), items: past, past: true },
-    ].filter((g) => g.items.length > 0),
+    (
+      [
+        { key: "live", label: m.contestsList_tabLive(), items: live, past: false },
+        { key: "upcoming", label: m.contestsList_tabUpcoming(), items: upcoming, past: false },
+        { key: "ended", label: m.contestsList_tabEnded(), items: past, past: true },
+      ] as const
+    ).filter((g) => g.items.length > 0),
   );
 </script>
 
@@ -93,6 +96,7 @@
             summary={c.raw.summary}
             startsAt={c.raw.startsAt}
             endsAt={c.raw.endsAt}
+            showStatusIcon={currentTab !== "all"}
             score={c.raw.score}
             totalPoints={c.raw.totalPoints}
             delay={i * 80}
@@ -110,6 +114,7 @@
             title={c.raw.title}
             startsAt={c.raw.startsAt}
             endsAt={c.raw.endsAt}
+            showStatusIcon={currentTab !== "all"}
             score={c.raw.score}
             totalPoints={c.raw.totalPoints}
             delay={i * 60}
@@ -197,10 +202,7 @@
         <div class="space-y-8">
           {#each allGroups as g (g.key)}
             <section>
-              <div class="mb-4 flex items-end gap-3">
-                <span class="text-body font-semibold">{g.label}</span>
-                <div class="ml-1 flex-1 border-t border-border-subtle"></div>
-              </div>
+              <AssessmentGroupHeading label={g.label} status={g.key} />
               {#if g.past}{@render pastGrid(g.items)}{:else}{@render posterGrid(g.items)}{/if}
             </section>
           {/each}

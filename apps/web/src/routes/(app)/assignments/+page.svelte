@@ -7,6 +7,7 @@
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
   import AssignmentCard from "$lib/components/features/course/assignment/AssignmentCard.svelte";
+  import AssessmentGroupHeading from "$lib/components/features/coursework/AssessmentGroupHeading.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -34,23 +35,25 @@
   const groups = $derived(
     currentFilter !== "all"
       ? []
-      : [
-          {
-            key: "open",
-            label: m.assignmentsList_tabOpen(),
-            items: assignments.filter((a) => a.status === "open"),
-          },
-          {
-            key: "upcoming",
-            label: m.assignmentsList_tabUpcoming(),
-            items: assignments.filter((a) => a.status === "upcoming" || a.status === "draft"),
-          },
-          {
-            key: "closed",
-            label: m.assignmentsList_tabClosed(),
-            items: assignments.filter((a) => a.status === "closed"),
-          },
-        ].filter((g) => g.items.length > 0),
+      : (
+          [
+            {
+              key: "open",
+              label: m.assignmentsList_tabOpen(),
+              items: assignments.filter((a) => a.status === "open"),
+            },
+            {
+              key: "upcoming",
+              label: m.assignmentsList_tabUpcoming(),
+              items: assignments.filter((a) => a.status === "upcoming" || a.status === "draft"),
+            },
+            {
+              key: "closed",
+              label: m.assignmentsList_tabClosed(),
+              items: assignments.filter((a) => a.status === "closed"),
+            },
+          ] as const
+        ).filter((g) => g.items.length > 0),
   );
 </script>
 
@@ -114,13 +117,10 @@
       <div class="space-y-8">
         {#each groups as g (g.key)}
           <section>
-            <div class="mb-4 flex items-end gap-3">
-              <span class="text-body font-semibold">{g.label}</span>
-              <div class="ml-1 flex-1 border-t border-border-subtle"></div>
-            </div>
+            <AssessmentGroupHeading label={g.label} status={g.key} />
             <div class="grid gap-2">
               {#each g.items as assignment, i (assignment.id)}
-                <AssignmentCard {assignment} delay={i * 60} />
+                <AssignmentCard {assignment} showStatusIcon={false} delay={i * 60} />
               {/each}
             </div>
           </section>

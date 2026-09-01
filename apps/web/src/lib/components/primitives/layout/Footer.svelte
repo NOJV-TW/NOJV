@@ -37,6 +37,10 @@
       class="transition-colors duration-fast ease-out-soft hover:text-foreground"
       href="/environment">{m.footer_environment()}</a
     >
+    <a
+      class="transition-colors duration-fast ease-out-soft hover:text-foreground"
+      href="/verdicts">{m.footer_verdicts()}</a
+    >
     <a class="transition-colors duration-fast ease-out-soft hover:text-foreground" href="/docs"
       >{m.footer_apiDocs()}</a
     >
@@ -72,10 +76,6 @@
     <a
       class="transition-colors duration-fast ease-out-soft hover:text-foreground"
       href="/legal/terms">{m.footer_terms()}</a
-    >
-    <a
-      class="transition-colors duration-fast ease-out-soft hover:text-foreground"
-      href="/verdicts">{m.footer_verdicts()}</a
     >
   </nav>
 </footer>
