@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { notificationRepo } from "@nojv/db";
-import { announcementDomain } from "@nojv/application";
+import { announcementDomain, courseDomain, notificationDomain } from "@nojv/application";
 
-import { createTestUser } from "../../fixtures/factories";
+import { createTestCourse, createTestUser } from "../../fixtures/factories";
 
 async function createActiveUsers(count: number) {
   const users = [];
@@ -34,7 +34,7 @@ describe("announcement publish fan-out", () => {
       expect(rows).toHaveLength(1);
       const row = rows[0];
       expect(row.type).toBe("announcement_published");
-      expect(row.linkUrl).toBeNull();
+      expect(row.linkUrl).toBe(`/?announcement=${encodeURIComponent(announcement.id)}`);
       const params = row.params as {
         announcementId: string;
         titleEn: string;
@@ -60,6 +60,74 @@ describe("announcement publish fan-out", () => {
       const rows = await notificationRepo.listRecent(user.id, 10);
       expect(rows).toHaveLength(0);
     }
+  });
+
+  it("resolves the source link for legacy announcement notifications", async () => {
+    const user = await createTestUser({ status: "active" });
+    const announcement = await announcementDomain.createAnnouncement({
+      title: "Legacy link",
+      content: "Existing notification",
+      pinned: false,
+      published: false,
+    });
+
+    const legacy = await notificationDomain.createNotification({
+      userId: user.id,
+      type: "announcement_published",
+      params: {
+        announcementId: announcement.id,
+        titleEn: "Legacy link",
+        titleZhTw: "Legacy link",
+      },
+      linkUrl: null,
+      dedupeKey: `legacy-announcement:${user.id}`,
+    });
+    const malformed = await notificationDomain.createNotification({
+      userId: user.id,
+      type: "announcement_published",
+      params: { announcementId: null },
+      linkUrl: null,
+      dedupeKey: `malformed-announcement:${user.id}`,
+    });
+
+    const rows = await notificationDomain.listRecent(user.id, 10);
+    expect(rows.find((row) => row.id === legacy.id)?.linkUrl).toBe(
+      `/?announcement=${encodeURIComponent(announcement.id)}`,
+    );
+    expect(rows.find((row) => row.id === malformed.id)?.linkUrl).toBeNull();
+  });
+
+  it("links course announcement notifications to their course", async () => {
+    const admin = await createTestUser({ platformRole: "admin", status: "active" });
+    const course = await createTestCourse({ ownerId: admin.id });
+    const member = await courseDomain.manuallyEnrollCourseMember(
+      {
+        userId: admin.id,
+        username: admin.username ?? admin.id,
+        displayName: admin.name,
+        email: admin.email,
+        platformRole: admin.platformRole,
+      },
+      {
+        courseId: course.id,
+        displayName: "Course Member",
+        email: "course-member@test.local",
+        username: "course-member",
+        role: "student",
+      },
+    );
+
+    await announcementDomain.createAnnouncement({
+      title: "Course update",
+      content: "New material",
+      pinned: false,
+      published: true,
+      courseId: course.id,
+    });
+
+    const rows = await notificationRepo.listRecent(member.userId, 10);
+    const row = rows.find((item) => item.type === "announcement_published");
+    expect(row?.linkUrl).toBe(`/courses/${encodeURIComponent(course.id)}`);
   });
 
   it("fans out on draft → published update transition", async () => {

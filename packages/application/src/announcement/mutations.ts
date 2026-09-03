@@ -49,7 +49,9 @@ async function fanoutAnnouncementPublished(
         titleZhTw: title,
         ...(courseId ? { courseId } : {}),
       },
-      linkUrl: null,
+      linkUrl: courseId
+        ? `/courses/${encodeURIComponent(courseId)}`
+        : `/?announcement=${encodeURIComponent(announcementId)}`,
       dedupeKey: `announcement_published:${announcementId}:${publishedAt.toISOString()}:${userId}`,
     })),
   );

@@ -54,7 +54,7 @@ function toSseEvent(row: {
     id: row.id,
     notificationType: row.type,
     params: toInputJson(row.params),
-    linkUrl: row.linkUrl,
+    linkUrl: resolveLinkUrl(row.type, row.params, row.linkUrl),
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -82,6 +82,20 @@ function toNotificationInput(row: NotificationDeliveryRow): NotificationCreateIn
 function toInputJson(value: Prisma.JsonValue): NotificationCreateInput["params"] {
   if (value === null) throw new TypeError("Notification params must not be null.");
   return value;
+}
+
+function resolveLinkUrl(type: string, params: Prisma.JsonValue, linkUrl: string | null) {
+  if (linkUrl !== null || type !== "announcement_published") return linkUrl;
+  if (typeof params !== "object" || params === null || Array.isArray(params)) return null;
+
+  const announcementId = (params as { announcementId?: unknown }).announcementId;
+  if (typeof announcementId !== "string" || announcementId.length === 0) return null;
+
+  const courseId = (params as { courseId?: unknown }).courseId;
+  if (courseId === undefined) return `/?announcement=${encodeURIComponent(announcementId)}`;
+  return typeof courseId === "string" && courseId.length > 0
+    ? `/courses/${encodeURIComponent(courseId)}`
+    : null;
 }
 
 async function enqueueNotificationDeliveries(
@@ -165,7 +179,11 @@ export {
 
 export async function listRecent(userId: string, limit: number) {
   const safeLimit = Math.min(Math.max(limit, 1), 50);
-  return notificationRepo.listRecent(userId, safeLimit);
+  const rows = await notificationRepo.listRecent(userId, safeLimit);
+  return rows.map((row) => ({
+    ...row,
+    linkUrl: resolveLinkUrl(row.type, row.params, row.linkUrl),
+  }));
 }
 
 export async function countUnread(userId: string) {
