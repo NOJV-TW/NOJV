@@ -36,7 +36,6 @@ overrides:
   "@prisma/dev>hono": ">=4.12.25"
   "@sveltejs/kit>cookie": ^0.7.0
   tsx>esbuild: ^0.28.1
-  fast-uri: 3.1.5
   "@hono/node-server@<1.19.15": ^1.19.15
   "@sveltejs/kit@<=2.70.1": ^2.70.2
   brace-expansion@>=2.0.0 <2.1.3: ^2.1.3
@@ -45,7 +44,8 @@ overrides:
   brace-expansion@>=4.0.0 <5.0.9: ^5.0.9
   dompurify@<=3.4.11: ^3.4.12
   dompurify@<=3.4.12: ^3.4.13
-  fast-uri@>=3.0.0 <3.1.5: ^3.1.5
+  browserslist@<=4.28.6: 4.28.7
+  fast-uri@>=3.0.0 <3.1.6: 3.1.6
   hono@<4.12.34: ^4.12.34
   hono@>=3.8.0 <4.12.34: ^4.12.34
   hono@>=4.12.0 <4.12.34: ^4.12.34
@@ -54,6 +54,7 @@ overrides:
   ip-address@>=10.1.1 <=10.2.0: ^10.2.1
   ip-address@>=10.1.1 <=10.2.1: ^10.2.2
   js-yaml@>=4.0.0 <4.3.1: ^4.3.1
+  mysql2@<3.22.0: 3.22.0
   protobufjs@>=8.0.0 <=8.6.5: ^8.6.6
   protobufjs@>=8.2.0 <=8.6.4: ^8.6.5
   undici@>=7.0.0 <7.29.0: ^7.29.0
@@ -113,10 +114,12 @@ minimumReleaseAgeExclude:
   - brace-expansion@2.1.3 || 2.1.4 || 5.0.8 || 5.0.9
   - postcss@8.5.18 || 8.5.23
   - undici@7.29.0
-  - fast-uri@3.1.5
+  - browserslist@4.28.7
+  - fast-uri@3.1.6
   - ip-address@10.2.1 || 10.2.2 || 10.3.1
   - hono@4.12.34
   - js-yaml@4.3.1
+  - mysql2@3.22.0
   - "@sveltejs/kit@2.70.2"
   - "@hono/node-server@1.19.15"
   - "@wasm-oj/browser@0.2.0"
