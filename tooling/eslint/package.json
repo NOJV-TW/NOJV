@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@eslint/js": "^10.0.1",
-    "globals": "^17.7.0",
-    "typescript-eslint": "^8.65.0"
+    "globals": "^17.11.0",
+    "typescript-eslint": "^8.68.0"
   }
 }
