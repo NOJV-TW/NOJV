@@ -20,8 +20,8 @@ function audiencesVisibleTo(actor: ActorRoleHint | null | undefined): Announceme
   return ["all", "students"];
 }
 
-export function listPublicAnnouncements(actor: ActorRoleHint | null | undefined, take = 20) {
-  return announcementRepo.listPublished(take, audiencesVisibleTo(actor));
+export function listPublicAnnouncements(actor: ActorRoleHint | null | undefined) {
+  return announcementRepo.listPublished(audiencesVisibleTo(actor));
 }
 
 export function listPublicAnnouncementsForCourse(

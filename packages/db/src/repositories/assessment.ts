@@ -170,7 +170,7 @@ export const assessmentRepo = {
     });
   },
 
-  listUpcoming(userId: string, now: Date, take: number) {
+  listUpcoming(userId: string, now: Date, take?: number) {
     return prisma.assessment.findMany({
       omit: { plagiarismResults: true },
       include: {
@@ -186,7 +186,7 @@ export const assessmentRepo = {
         closesAt: { gte: now },
         status: "published",
       },
-      take,
+      ...(take === undefined ? {} : { take }),
     });
   },
 

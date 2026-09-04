@@ -9,6 +9,7 @@ const {
   countUserStatsByProblem,
   countSubmissions,
   countCourses,
+  listPublished,
 } = vi.hoisted(() => ({
   listWithCounts: vi.fn(),
   findDetailById: vi.fn(),
@@ -18,6 +19,7 @@ const {
   countUserStatsByProblem: vi.fn(),
   countSubmissions: vi.fn(),
   countCourses: vi.fn(),
+  listPublished: vi.fn(),
 }));
 
 vi.mock("$app/environment", () => ({
@@ -66,7 +68,7 @@ vi.mock("@nojv/db", () => ({
     count: countCourses,
   },
   announcementRepo: {
-    listPublished: vi.fn().mockResolvedValue([]),
+    listPublished,
   },
   assessmentRepo: {
     listByUser: vi.fn().mockResolvedValue([]),
@@ -77,7 +79,7 @@ vi.mock("@nojv/db", () => ({
 import { courseDomain, problemDomain } from "@nojv/application";
 
 const { listProblemCards, getProblemPageData } = problemDomain;
-const { getDashboardStats } = courseDomain;
+const { getDashboardStats, listAnnouncements } = courseDomain;
 
 describe("DB-backed read model", () => {
   beforeEach(() => {
@@ -90,6 +92,13 @@ describe("DB-backed read model", () => {
     countUserStatsByProblem.mockResolvedValue([]);
     countSubmissions.mockResolvedValue(0);
     countCourses.mockResolvedValue(0);
+    listPublished.mockResolvedValue([]);
+  });
+
+  it("requests every visible homepage announcement", async () => {
+    await listAnnouncements({ platformRole: "student" });
+
+    expect(listPublished).toHaveBeenCalledWith(["all", "students"]);
   });
 
   it("surfaces persisted public problems in the practice catalog", async () => {
