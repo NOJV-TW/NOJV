@@ -9,7 +9,7 @@ vi.mock("@lucide/svelte", async () => {
 });
 
 vi.mock("$app/state", () => ({
-  page: { data: { user: { id: "user-1" } } },
+  page: { data: { user: { id: "user-1" } }, url: new URL("http://localhost/") },
 }));
 
 vi.mock("$lib/components/features/announcement/AnnouncementViewDialog.svelte", async () => ({
@@ -17,7 +17,7 @@ vi.mock("$lib/components/features/announcement/AnnouncementViewDialog.svelte", a
 }));
 
 describe("home page layout", () => {
-  it("keeps the announcements card at its content height", async () => {
+  it("keeps desktop panels equal-height with independently scrollable lists", async () => {
     const { default: HomePage } =
       await import("../../../apps/web/src/routes/(public)/+page.svelte");
     const target = document.createElement("div");
@@ -49,19 +49,35 @@ describe("home page layout", () => {
               windowState: "open",
               windowStateColor: "",
             },
+            {
+              id: "assessment-2",
+              type: "exam",
+              title: "Midterm",
+              courseTitle: "Operating Systems Lab",
+              opensAt: "2026-09-20T00:00:00.000Z",
+              dueAt: "2026-09-20T02:00:00.000Z",
+              windowState: "upcoming",
+              windowStateColor: "",
+            },
           ],
         },
       },
     });
 
     const cards = target.querySelectorAll('[data-slot="card"]');
-    expect(cards[0]?.parentElement?.classList.contains("items-start")).toBe(true);
-    expect(cards[0]?.querySelector("h2")?.nextElementSibling?.classList.contains("mt-0")).toBe(
-      true,
-    );
-    expect(cards[1]?.querySelector("h2")?.nextElementSibling?.classList.contains("mt-0")).toBe(
-      true,
-    );
+    expect(cards[0]?.parentElement?.classList.contains("items-stretch")).toBe(true);
+    for (const card of cards) {
+      expect(card.classList.contains("lg:h-[clamp(28rem,60svh,36rem)]")).toBe(true);
+      const body = card.querySelector("h2")?.nextElementSibling;
+      expect(body?.classList.contains("min-h-0")).toBe(true);
+      expect(body?.classList.contains("flex-1")).toBe(true);
+      expect(body?.classList.contains("lg:overflow-y-auto")).toBe(true);
+    }
+    expect(
+      Array.from(target.querySelectorAll("[data-assessment-group]"), (group) =>
+        group.getAttribute("data-assessment-group"),
+      ),
+    ).toEqual(["active", "upcoming"]);
 
     await unmount(component);
     target.remove();

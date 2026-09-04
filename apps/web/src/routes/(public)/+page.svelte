@@ -28,6 +28,23 @@
     return m.home_assignment();
   }
 
+  let assessmentGroups = $derived(
+    [
+      {
+        key: "active" as const,
+        items: data.assessments
+          .filter((assessment) => assessment.windowState !== "upcoming")
+          .sort((a, b) => a.dueAt.localeCompare(b.dueAt)),
+      },
+      {
+        key: "upcoming" as const,
+        items: data.assessments
+          .filter((assessment) => assessment.windowState === "upcoming")
+          .sort((a, b) => a.opensAt.localeCompare(b.opensAt)),
+      },
+    ].filter((group) => group.items.length > 0),
+  );
+
   let viewing = $state<AnnouncementRow | null>(null);
   let viewOpen = $state(false);
 
@@ -48,8 +65,12 @@
   <meta name="description" content={m.home_productDescription()} />
 </svelte:head>
 
-<div class="grid items-start gap-8 lg:grid-cols-[1fr_1fr]">
-  <Card variant="surface" size="lg" class="animate-[fade-up_700ms_var(--ease-out-soft)_both]">
+<div class="grid items-stretch gap-8 lg:grid-cols-[1fr_1fr]">
+  <Card
+    variant="surface"
+    size="lg"
+    class="animate-[fade-up_700ms_var(--ease-out-soft)_both] lg:h-[clamp(28rem,60svh,36rem)]"
+  >
     <h2 class="text-title-lg leading-tight text-foreground">
       {m.home_announcements()}
     </h2>
@@ -60,9 +81,12 @@
         icon={Megaphone}
         title={m.home_noAnnouncements()}
         description={m.home_announcementsEmptyDescription()}
+        class="min-h-0 flex-1 lg:py-0"
       />
     {:else}
-      <div class="mt-0 space-y-3">
+      <div
+        class="min-h-0 flex-1 space-y-3 lg:overflow-y-auto lg:overscroll-contain lg:pr-1 lg:[scrollbar-color:var(--border)_transparent] lg:[scrollbar-gutter:stable] lg:[scrollbar-width:thin]"
+      >
         {#each data.announcements as announcement (announcement.id)}
           <button
             type="button"
@@ -104,7 +128,7 @@
     <Card
       variant="strong"
       size="hero"
-      class="flex items-center justify-center text-center animate-[fade-up_700ms_var(--ease-out-soft)_200ms_both]"
+      class="flex items-center justify-center text-center animate-[fade-up_700ms_var(--ease-out-soft)_200ms_both] lg:h-[clamp(28rem,60svh,36rem)]"
     >
       <div>
         <p class="text-caption font-semibold uppercase tracking-[0.24em] text-muted-foreground">
@@ -127,7 +151,7 @@
     <Card
       variant="surface"
       size="lg"
-      class="animate-[fade-up_700ms_var(--ease-out-soft)_200ms_both]"
+      class="animate-[fade-up_700ms_var(--ease-out-soft)_200ms_both] lg:h-[clamp(28rem,60svh,36rem)]"
     >
       <h2 class="text-title-lg leading-tight text-foreground">
         {m.home_upcomingAssessments()}
@@ -139,44 +163,58 @@
           icon={Calendar}
           title={m.home_noAssessments()}
           description={m.home_assessmentsEmptyDescription()}
+          class="min-h-0 flex-1 lg:py-0"
         />
       {:else}
-        <div class="mt-0 space-y-3">
-          {#each data.assessments as assessment (assessment.type + assessment.id)}
-            {@const href = assessmentPath(assessment)}
-            <a
-              {href}
-              class="block rounded-md border border-border bg-[color:var(--color-panel-strong)] px-4 py-3 backdrop-blur-sm transition-transform duration-fast ease-out-soft hover:-translate-y-0.5"
-            >
-              <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0 flex-1">
-                  {#if assessment.courseTitle}
-                    <p
-                      class="text-caption font-semibold uppercase tracking-[0.24em] text-muted-foreground"
-                    >
-                      {assessment.courseTitle}
-                    </p>
-                  {/if}
-                  <h3 class="mt-1 text-body-sm font-semibold text-foreground">
-                    {assessment.title}
-                  </h3>
-                  <div
-                    class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-caption text-muted-foreground tabular-nums"
-                  >
-                    <span>{m.assessment_opens()}: {formatDate(assessment.opensAt)}</span>
-                    <span>{m.home_due()}: {formatDate(assessment.dueAt)}</span>
+        <div
+          class="min-h-0 flex-1 space-y-5 lg:overflow-y-auto lg:overscroll-contain lg:pr-1 lg:[scrollbar-color:var(--border)_transparent] lg:[scrollbar-gutter:stable] lg:[scrollbar-width:thin]"
+        >
+          {#each assessmentGroups as group (group.key)}
+            <section class="space-y-3" data-assessment-group={group.key}>
+              <h3
+                class="sticky top-0 z-10 bg-[color:var(--color-panel)] py-2 text-caption font-semibold uppercase tracking-[0.18em] text-muted-foreground backdrop-blur-sm"
+              >
+                {group.key === "active"
+                  ? m.home_activeAssessments()
+                  : m.home_upcomingAssessmentGroup()}
+              </h3>
+              {#each group.items as assessment (assessment.type + assessment.id)}
+                {@const href = assessmentPath(assessment)}
+                <a
+                  {href}
+                  class="block rounded-md border border-border bg-[color:var(--color-panel-strong)] px-4 py-3 backdrop-blur-sm transition-transform duration-fast ease-out-soft hover:-translate-y-0.5"
+                >
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0 flex-1">
+                      {#if assessment.courseTitle}
+                        <p
+                          class="text-caption font-semibold uppercase tracking-[0.24em] text-muted-foreground"
+                        >
+                          {assessment.courseTitle}
+                        </p>
+                      {/if}
+                      <h4 class="mt-1 text-body-sm font-semibold text-foreground">
+                        {assessment.title}
+                      </h4>
+                      <div
+                        class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-caption text-muted-foreground tabular-nums"
+                      >
+                        <span>{m.assessment_opens()}: {formatDate(assessment.opensAt)}</span>
+                        <span>{m.home_due()}: {formatDate(assessment.dueAt)}</span>
+                      </div>
+                    </div>
+                    <div class="flex shrink-0 flex-col items-end gap-1.5">
+                      <Badge variant="info" size="xs">
+                        {assessment.windowState}
+                      </Badge>
+                      <Badge variant="muted" size="xs">
+                        {assessmentTypeLabel(assessment)}
+                      </Badge>
+                    </div>
                   </div>
-                </div>
-                <div class="flex shrink-0 flex-col items-end gap-1.5">
-                  <Badge variant="info" size="xs">
-                    {assessment.windowState}
-                  </Badge>
-                  <Badge variant="muted" size="xs">
-                    {assessmentTypeLabel(assessment)}
-                  </Badge>
-                </div>
-              </div>
-            </a>
+                </a>
+              {/each}
+            </section>
           {/each}
         </div>
       {/if}

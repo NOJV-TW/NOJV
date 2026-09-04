@@ -3,7 +3,7 @@ import type { Prisma, AnnouncementAudience } from "../../generated/prisma/client
 import type { TransactionClient } from "../transaction";
 
 export const announcementRepo = {
-  listPublished(take: number, audiences?: AnnouncementAudience[]) {
+  listPublished(audiences?: AnnouncementAudience[]) {
     const now = new Date();
     return prisma.announcement.findMany({
       where: {
@@ -17,7 +17,6 @@ export const announcementRepo = {
         translations: true,
         createdBy: { select: { id: true, name: true } },
       },
-      take,
     });
   },
 
