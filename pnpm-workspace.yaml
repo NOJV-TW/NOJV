@@ -84,13 +84,13 @@ catalog:
 
   # Prisma client + CLI + adapter must match.
   "@prisma/client": ^7.8.0
-  "@temporalio/activity": ^1.21.1
+  "@temporalio/activity": ^1.23.0
 
   # Temporal client + worker SDKs must match versions.
-  "@temporalio/client": ^1.21.1
-  "@temporalio/worker": ^1.21.1
-  "@temporalio/testing": ^1.21.1
-  "@temporalio/workflow": ^1.21.1
+  "@temporalio/client": ^1.23.0
+  "@temporalio/worker": ^1.23.0
+  "@temporalio/testing": ^1.23.0
+  "@temporalio/workflow": ^1.23.0
   "@types/node": ^24.13.3
   bcryptjs: ^3.0.3
   esbuild: ^0.28.1
