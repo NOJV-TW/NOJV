@@ -3,6 +3,10 @@
 import { mount, tick, unmount } from "svelte";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@lucide/svelte", async () => ({
+  ListFilter: (await import("./fixtures/empty-component.svelte")).default,
+}));
+
 const mocks = vi.hoisted(() => ({ goto: vi.fn() }));
 vi.mock("$app/navigation", () => ({ goto: mocks.goto }));
 

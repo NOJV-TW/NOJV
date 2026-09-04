@@ -20,19 +20,18 @@
   import {
     ArrowDown,
     ArrowUp,
-    ArrowUpDown,
     Ban,
-    CalendarClock,
     CircleCheck,
-    Mail,
+    ListFilter,
     Trash2,
-    User,
     UserCog,
     X,
   } from "@lucide/svelte";
+  import { Popover } from "bits-ui";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button } from "$lib/components/primitives/ui/button";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
+  import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/stores/toast";
   import { formatDate } from "$lib/utils/datetime";
@@ -41,9 +40,12 @@
     users: UsersTableUser[];
     actorId: string | undefined;
     canManageAdmins: boolean;
-    search: string;
-    roleFilter: string;
-    statusFilter: string;
+    usernameFilter: string;
+    emailFilter: string;
+    nameFilter: string;
+    roleFilter: PlatformRole | "";
+    statusFilter: "active" | "disabled" | "";
+    createdAtOrder: "asc" | "desc";
     onApply: () => void;
   }
 
@@ -51,9 +53,12 @@
     users,
     actorId,
     canManageAdmins,
-    search = $bindable(),
+    usernameFilter = $bindable(),
+    emailFilter = $bindable(),
+    nameFilter = $bindable(),
     roleFilter = $bindable(),
     statusFilter = $bindable(),
+    createdAtOrder = $bindable(),
     onApply,
   }: Props = $props();
 
@@ -85,12 +90,6 @@
     return m.common_roleStudent();
   }
 
-  function roleRank(role: PlatformRole): number {
-    if (role === "admin") return 2;
-    if (role === "teacher") return 1;
-    return 0;
-  }
-
   const assignableRoles = $derived<PlatformRole[]>(
     canManageAdmins ? ["admin", "teacher", "student"] : ["teacher", "student"],
   );
@@ -105,57 +104,45 @@
     return user.username ?? user.name;
   }
 
-  type SortKey = "username" | "email" | "name" | "role" | "status" | "createdAt";
-  let sortKey = $state<SortKey | null>(null);
-  let sortDir = $state<"asc" | "desc">("asc");
+  let roleFilterOpen = $state(false);
+  let statusFilterOpen = $state(false);
+  let createdAtOrderOpen = $state(false);
 
-  function toggleSort(key: SortKey) {
-    if (sortKey === key) {
-      sortDir = sortDir === "asc" ? "desc" : "asc";
-    } else {
-      sortKey = key;
-      sortDir = "asc";
-    }
+  const roleFilterOptions = [
+    { value: "", label: m.admin_usersFilterAll },
+    { value: "admin", label: m.common_roleAdmin },
+    { value: "teacher", label: m.common_roleTeacher },
+    { value: "student", label: m.common_roleStudent },
+  ] as const;
+
+  const statusFilterOptions = [
+    { value: "", label: m.admin_usersFilterAll },
+    { value: "active", label: m.admin_usersStatusActive },
+    { value: "disabled", label: m.admin_usersStatusDisabled },
+  ] as const;
+
+  const createdAtOrderOptions = [
+    { value: "desc", label: m.admin_usersNewestFirst },
+    { value: "asc", label: m.admin_usersOldestFirst },
+  ] as const;
+
+  function applyRoleFilter(value: PlatformRole | "") {
+    roleFilter = value;
+    roleFilterOpen = false;
+    onApply();
   }
 
-  function ariaSort(key: SortKey): "ascending" | "descending" | "none" {
-    if (sortKey !== key) return "none";
-    return sortDir === "asc" ? "ascending" : "descending";
+  function applyStatusFilter(value: "active" | "disabled" | "") {
+    statusFilter = value;
+    statusFilterOpen = false;
+    onApply();
   }
 
-  const filteredUsers = $derived(
-    users.filter((user) => {
-      const query = search.trim().toLocaleLowerCase();
-      if (roleFilter && user.platformRole !== roleFilter) return false;
-      if (statusFilter === "active" && user.disabled) return false;
-      if (statusFilter === "disabled" && !user.disabled) return false;
-      if (!query) return true;
-      return [user.username, user.email, user.name]
-        .filter(Boolean)
-        .some((value) => value!.toLocaleLowerCase().includes(query));
-    }),
-  );
-
-  const sortedUsers = $derived.by(() => {
-    const key = sortKey;
-    if (!key) return filteredUsers;
-    const dir = sortDir === "asc" ? 1 : -1;
-    return [...filteredUsers].sort((a, b) => {
-      let cmp = 0;
-      if (key === "role") {
-        cmp = roleRank(a.platformRole) - roleRank(b.platformRole);
-      } else if (key === "status") {
-        cmp = Number(a.disabled) - Number(b.disabled);
-      } else if (key === "createdAt") {
-        cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-      } else if (key === "username") {
-        cmp = (a.username ?? "").localeCompare(b.username ?? "");
-      } else {
-        cmp = a[key].localeCompare(b[key]);
-      }
-      return cmp * dir;
-    });
-  });
+  function applyCreatedAtOrder(value: "asc" | "desc") {
+    createdAtOrder = value;
+    createdAtOrderOpen = false;
+    onApply();
+  }
 
   let pending = $state<{
     form: HTMLFormElement;
@@ -274,7 +261,7 @@
     };
   }
 
-  const selectableUsers = $derived(sortedUsers.filter(canManage));
+  const selectableUsers = $derived(users.filter(canManage));
   const allSelected = $derived(
     selectableUsers.length > 0 && selectableUsers.every((u) => selected.has(u.id)),
   );
@@ -395,7 +382,7 @@
 <div class="overflow-x-auto">
   <table class="w-full text-body-sm">
     <thead>
-      <tr class="border-b border-border-subtle text-left">
+      <tr class="border-b border-border-subtle text-left whitespace-nowrap">
         <th class="w-10 px-5 py-3">
           <input
             type="checkbox"
@@ -407,104 +394,173 @@
             onchange={toggleAll}
           />
         </th>
-        <th class="px-5 py-3 font-medium" aria-sort={ariaSort("username")}>
-          <button
-            type="button"
-            class="group -mx-1 inline-flex items-center gap-1 rounded-sm px-1 py-0.5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onclick={() => toggleSort("username")}
-          >
-            <User aria-hidden="true" class="h-3.5 w-3.5 text-muted-foreground" />
-            {m.admin_usersUsername()}
-            {@render sortArrow("username")}
-          </button>
-          <label class="mt-2 block">
-            <span class="sr-only">{m.admin_usersFilterSearch()}</span>
-            <input
-              class="h-8 w-full min-w-40 rounded-none border-0 border-b border-border bg-transparent px-1 text-caption font-normal text-foreground shadow-none outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-0"
-              type="search"
-              bind:value={search}
-              placeholder={m.admin_usersFilterSearch()}
-              onkeydown={(event) => event.key === "Enter" && onApply()}
-            />
-          </label>
+        <th class="px-5 py-3 font-medium">
+          <TableTextColumnFilter
+            label={m.admin_usersUsername()}
+            filterLabel={m.admin_usersFilterUsername()}
+            inputId="admin-user-username-filter"
+            applyLabel={m.admin_usersSearch()}
+            bind:value={usernameFilter}
+            {onApply}
+          />
         </th>
-        <th class="px-5 py-3 font-medium" aria-sort={ariaSort("email")}>
-          <button
-            type="button"
-            class="group -mx-1 inline-flex items-center gap-1 rounded-sm px-1 py-0.5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onclick={() => toggleSort("email")}
-          >
-            <Mail aria-hidden="true" class="h-3.5 w-3.5 text-muted-foreground" />
-            {m.admin_usersEmail()}
-            {@render sortArrow("email")}
-          </button>
+        <th class="px-5 py-3 font-medium">
+          <TableTextColumnFilter
+            label={m.admin_usersEmail()}
+            filterLabel={m.admin_usersFilterEmail()}
+            inputId="admin-user-email-filter"
+            applyLabel={m.admin_usersSearch()}
+            bind:value={emailFilter}
+            {onApply}
+          />
         </th>
-        <th class="px-5 py-3 font-medium" aria-sort={ariaSort("name")}>
-          <button
-            type="button"
-            class="group -mx-1 inline-flex items-center gap-1 rounded-sm px-1 py-0.5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onclick={() => toggleSort("name")}
-          >
-            {m.admin_usersName()}
-            {@render sortArrow("name")}
-          </button>
+        <th class="px-5 py-3 font-medium">
+          <TableTextColumnFilter
+            label={m.admin_usersName()}
+            filterLabel={m.admin_usersFilterName()}
+            inputId="admin-user-name-filter"
+            applyLabel={m.admin_usersSearch()}
+            bind:value={nameFilter}
+            {onApply}
+          />
         </th>
-        <th class="px-5 py-3 font-medium" aria-sort={ariaSort("role")}>
-          <button
-            type="button"
-            class="group -mx-1 inline-flex items-center gap-1 rounded-sm px-1 py-0.5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onclick={() => toggleSort("role")}
-          >
-            {m.admin_usersRole()}
-            {@render sortArrow("role")}
-          </button>
-          <label class="mt-2 block">
-            <span class="sr-only">{m.admin_usersFilterRole()}</span>
-            <select
-              class="h-8 min-w-28 w-full rounded-none border-0 border-b border-border bg-transparent px-1 text-caption font-normal shadow-none outline-none focus:border-ring focus:ring-0"
-              bind:value={roleFilter}
-              onchange={onApply}
-            >
-              <option value="">{m.admin_usersFilterAll()}</option>
-              <option value="admin">{m.common_roleAdmin()}</option>
-              <option value="teacher">{m.common_roleTeacher()}</option>
-              <option value="student">{m.common_roleStudent()}</option>
-            </select>
-          </label>
+        <th class="px-5 py-3 font-medium">
+          <div class="flex items-center gap-1">
+            <Popover.Root bind:open={roleFilterOpen}>
+              <Popover.Trigger
+                type="button"
+                class="-ml-1 inline-flex h-8 items-center gap-1.5 rounded-sm px-1 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring {roleFilter
+                  ? 'bg-primary/10 text-primary hover:bg-primary/15'
+                  : 'hover:bg-muted hover:text-foreground'}"
+                aria-label={m.admin_usersFilterRole()}
+                aria-pressed={Boolean(roleFilter)}
+              >
+                <span>{roleFilter ? roleLabel(roleFilter) : m.admin_usersRole()}</span>
+                <ListFilter aria-hidden="true" class="size-3.5 shrink-0" />
+              </Popover.Trigger>
+              <Popover.Portal>
+                <Popover.Content
+                  sideOffset={6}
+                  align="start"
+                  role="dialog"
+                  aria-label={m.admin_usersFilterRole()}
+                  class="z-50 w-48 rounded-md border border-border bg-popover p-1.5 text-popover-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+                >
+                  <p class="px-2 pb-1.5 pt-1 text-caption font-medium text-muted-foreground">
+                    {m.admin_usersFilterRole()}
+                  </p>
+                  {#each roleFilterOptions as option}
+                    <button
+                      type="button"
+                      class="flex w-full items-center justify-between rounded-sm px-2 py-2 text-left text-body-sm font-normal hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-pressed={roleFilter === option.value}
+                      onclick={() => applyRoleFilter(option.value)}
+                    >
+                      {option.label()}
+                      {#if roleFilter === option.value}
+                        <CircleCheck aria-hidden="true" class="size-4 text-primary" />
+                      {/if}
+                    </button>
+                  {/each}
+                </Popover.Content>
+              </Popover.Portal>
+            </Popover.Root>
+          </div>
         </th>
         <th class="px-5 py-3 font-medium">{m.admin_usersAdvancedColumn()}</th>
-        <th class="px-5 py-3 font-medium" aria-sort={ariaSort("status")}>
-          <button
-            type="button"
-            class="group -mx-1 inline-flex items-center gap-1 rounded-sm px-1 py-0.5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onclick={() => toggleSort("status")}
-          >
-            {m.admin_usersStatus()}
-            {@render sortArrow("status")}
-          </button>
-          <label class="mt-2 block">
-            <span class="sr-only">{m.admin_usersFilterStatus()}</span>
-            <select
-              class="h-8 min-w-28 w-full rounded-none border-0 border-b border-border bg-transparent px-1 text-caption font-normal shadow-none outline-none focus:border-ring focus:ring-0"
-              bind:value={statusFilter}
-              onchange={onApply}
-            >
-              <option value="">{m.admin_usersFilterAll()}</option>
-              <option value="active">{m.admin_usersStatusActive()}</option>
-              <option value="disabled">{m.admin_usersStatusDisabled()}</option>
-            </select>
-          </label>
+        <th class="px-5 py-3 font-medium">
+          <div class="flex items-center gap-1">
+            <Popover.Root bind:open={statusFilterOpen}>
+              <Popover.Trigger
+                type="button"
+                class="-ml-1 inline-flex h-8 items-center gap-1.5 rounded-sm px-1 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring {statusFilter
+                  ? 'bg-primary/10 text-primary hover:bg-primary/15'
+                  : 'hover:bg-muted hover:text-foreground'}"
+                aria-label={m.admin_usersFilterStatus()}
+                aria-pressed={Boolean(statusFilter)}
+              >
+                <span>
+                  {statusFilter === "active"
+                    ? m.admin_usersStatusActive()
+                    : statusFilter === "disabled"
+                      ? m.admin_usersStatusDisabled()
+                      : m.admin_usersStatus()}
+                </span>
+                <ListFilter aria-hidden="true" class="size-3.5 shrink-0" />
+              </Popover.Trigger>
+              <Popover.Portal>
+                <Popover.Content
+                  sideOffset={6}
+                  align="start"
+                  role="dialog"
+                  aria-label={m.admin_usersFilterStatus()}
+                  class="z-50 w-48 rounded-md border border-border bg-popover p-1.5 text-popover-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+                >
+                  <p class="px-2 pb-1.5 pt-1 text-caption font-medium text-muted-foreground">
+                    {m.admin_usersFilterStatus()}
+                  </p>
+                  {#each statusFilterOptions as option}
+                    <button
+                      type="button"
+                      class="flex w-full items-center justify-between rounded-sm px-2 py-2 text-left text-body-sm font-normal hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-pressed={statusFilter === option.value}
+                      onclick={() => applyStatusFilter(option.value)}
+                    >
+                      {option.label()}
+                      {#if statusFilter === option.value}
+                        <CircleCheck aria-hidden="true" class="size-4 text-primary" />
+                      {/if}
+                    </button>
+                  {/each}
+                </Popover.Content>
+              </Popover.Portal>
+            </Popover.Root>
+          </div>
         </th>
-        <th class="px-5 py-3 font-medium" aria-sort={ariaSort("createdAt")}>
-          <button
-            type="button"
-            class="group -mx-1 inline-flex items-center gap-1 rounded-sm px-1 py-0.5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onclick={() => toggleSort("createdAt")}
-          >
-            <CalendarClock aria-hidden="true" class="h-3.5 w-3.5 text-muted-foreground" />
-            {m.admin_usersCreated()}
-            {@render sortArrow("createdAt")}
-          </button>
+        <th
+          class="px-5 py-3 font-medium"
+          aria-sort={createdAtOrder === "asc" ? "ascending" : "descending"}
+        >
+          <Popover.Root bind:open={createdAtOrderOpen}>
+            <Popover.Trigger
+              type="button"
+              class="-ml-1 inline-flex h-8 items-center gap-1.5 rounded-sm px-1 font-medium transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={m.admin_usersSortCreated()}
+            >
+              <span>{m.admin_usersCreated()}</span>
+              {#if createdAtOrder === "asc"}
+                <ArrowUp aria-hidden="true" class="size-3.5" />
+              {:else}
+                <ArrowDown aria-hidden="true" class="size-3.5" />
+              {/if}
+            </Popover.Trigger>
+            <Popover.Portal>
+              <Popover.Content
+                sideOffset={6}
+                align="start"
+                role="dialog"
+                aria-label={m.admin_usersSortCreated()}
+                class="z-50 w-48 rounded-md border border-border bg-popover p-1.5 text-popover-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+              >
+                <p class="px-2 pb-1.5 pt-1 text-caption font-medium text-muted-foreground">
+                  {m.admin_usersSortCreated()}
+                </p>
+                {#each createdAtOrderOptions as option}
+                  <button
+                    type="button"
+                    class="flex w-full items-center justify-between rounded-sm px-2 py-2 text-left text-body-sm font-normal hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-pressed={createdAtOrder === option.value}
+                    onclick={() => applyCreatedAtOrder(option.value)}
+                  >
+                    {option.label()}
+                    {#if createdAtOrder === option.value}
+                      <CircleCheck aria-hidden="true" class="size-4 text-primary" />
+                    {/if}
+                  </button>
+                {/each}
+              </Popover.Content>
+            </Popover.Portal>
+          </Popover.Root>
         </th>
         <th class="px-5 py-3 text-right font-medium">
           <span class="inline-flex items-center gap-1">
@@ -517,7 +573,15 @@
       </tr>
     </thead>
     <tbody>
-      {#each sortedUsers as user (user.id)}
+      {#if users.length === 0}
+        <tr>
+          <td colspan="9" class="px-5 py-12 text-center">
+            <p class="font-medium">{m.admin_usersEmpty()}</p>
+            <p class="mt-1 text-caption text-muted-foreground">{m.admin_usersEmptyHint()}</p>
+          </td>
+        </tr>
+      {/if}
+      {#each users as user (user.id)}
         <tr class="border-b border-border-subtle last:border-b-0">
           <td class="px-5 py-3">
             {#if canManage(user)}
@@ -591,11 +655,19 @@
             {/if}
           </td>
           <td class="px-5 py-3">
-            {#if user.disabled}
-              <Badge variant="destructive" size="xs">{m.admin_usersStatusDisabled()}</Badge>
-            {:else}
-              <Badge variant="success" size="xs" dot>{m.admin_usersStatusActive()}</Badge>
-            {/if}
+            <span
+              class="inline-flex items-center gap-2 text-caption font-medium {user.disabled
+                ? 'text-destructive'
+                : 'text-muted-foreground'}"
+            >
+              <span
+                aria-hidden="true"
+                class="size-1.5 shrink-0 rounded-full {user.disabled
+                  ? 'bg-destructive'
+                  : 'bg-success'}"
+              ></span>
+              {user.disabled ? m.admin_usersStatusDisabled() : m.admin_usersStatusActive()}
+            </span>
           </td>
           <td class="px-5 py-3 text-caption text-muted-foreground">
             {formatDate(user.createdAt)}
@@ -694,18 +766,3 @@
   onconfirm={runConfirm}
   oncancel={cancelConfirm}
 />
-
-{#snippet sortArrow(key: SortKey)}
-  {#if sortKey === key}
-    {#if sortDir === "asc"}
-      <ArrowUp aria-hidden="true" class="h-3 w-3" />
-    {:else}
-      <ArrowDown aria-hidden="true" class="h-3 w-3" />
-    {/if}
-  {:else}
-    <ArrowUpDown
-      aria-hidden="true"
-      class="h-3 w-3 opacity-0 transition-opacity duration-fast group-hover:opacity-40"
-    />
-  {/if}
-{/snippet}
