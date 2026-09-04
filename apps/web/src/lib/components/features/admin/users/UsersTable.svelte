@@ -435,8 +435,8 @@
                 aria-label={m.admin_usersFilterRole()}
                 aria-pressed={Boolean(roleFilter)}
               >
-                <span>{m.admin_usersRole()}</span>
-                <ListFilter aria-hidden="true" class="size-3.5" />
+                <span>{roleFilter ? roleLabel(roleFilter) : m.admin_usersRole()}</span>
+                <ListFilter aria-hidden="true" class="size-3.5 shrink-0" />
               </Popover.Trigger>
               <Popover.Portal>
                 <Popover.Content
@@ -465,13 +465,6 @@
                 </Popover.Content>
               </Popover.Portal>
             </Popover.Root>
-            {#if roleFilter}
-              <span
-                class="rounded-sm bg-primary/10 px-1.5 py-0.5 text-caption font-medium text-primary"
-              >
-                {roleLabel(roleFilter)}
-              </span>
-            {/if}
           </div>
         </th>
         <th class="px-5 py-3 font-medium">{m.admin_usersAdvancedColumn()}</th>
@@ -486,8 +479,14 @@
                 aria-label={m.admin_usersFilterStatus()}
                 aria-pressed={Boolean(statusFilter)}
               >
-                <span>{m.admin_usersStatus()}</span>
-                <ListFilter aria-hidden="true" class="size-3.5" />
+                <span>
+                  {statusFilter === "active"
+                    ? m.admin_usersStatusActive()
+                    : statusFilter === "disabled"
+                      ? m.admin_usersStatusDisabled()
+                      : m.admin_usersStatus()}
+                </span>
+                <ListFilter aria-hidden="true" class="size-3.5 shrink-0" />
               </Popover.Trigger>
               <Popover.Portal>
                 <Popover.Content
@@ -516,15 +515,6 @@
                 </Popover.Content>
               </Popover.Portal>
             </Popover.Root>
-            {#if statusFilter}
-              <span
-                class="rounded-sm bg-primary/10 px-1.5 py-0.5 text-caption font-medium text-primary"
-              >
-                {statusFilter === "active"
-                  ? m.admin_usersStatusActive()
-                  : m.admin_usersStatusDisabled()}
-              </span>
-            {/if}
           </div>
         </th>
         <th
@@ -665,11 +655,19 @@
             {/if}
           </td>
           <td class="px-5 py-3">
-            {#if user.disabled}
-              <Badge variant="destructive" size="xs">{m.admin_usersStatusDisabled()}</Badge>
-            {:else}
-              <Badge variant="success" size="xs" dot>{m.admin_usersStatusActive()}</Badge>
-            {/if}
+            <span
+              class="inline-flex items-center gap-2 text-caption font-medium {user.disabled
+                ? 'text-destructive'
+                : 'text-muted-foreground'}"
+            >
+              <span
+                aria-hidden="true"
+                class="size-1.5 shrink-0 rounded-full {user.disabled
+                  ? 'bg-destructive'
+                  : 'bg-success'}"
+              ></span>
+              {user.disabled ? m.admin_usersStatusDisabled() : m.admin_usersStatusActive()}
+            </span>
           </td>
           <td class="px-5 py-3 text-caption text-muted-foreground">
             {formatDate(user.createdAt)}

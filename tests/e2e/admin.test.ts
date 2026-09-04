@@ -73,6 +73,9 @@ test.describe("Admin panel — gating + pages", () => {
       .getByRole("button", { name: "Teacher" })
       .click();
     await expect(page).toHaveURL(/role=teacher/);
+    await expect(page.getByRole("columnheader", { name: "Filter role" })).toContainText(
+      "Teacher",
+    );
     await page.getByRole("button", { name: "Filter status" }).click();
     await page
       .getByRole("dialog", { name: "Filter status" })
@@ -80,6 +83,9 @@ test.describe("Admin panel — gating + pages", () => {
       .click();
     await expect(page).toHaveURL(/role=teacher/);
     await expect(page).toHaveURL(/status=active/);
+    await expect(page.getByRole("columnheader", { name: "Filter status" })).toContainText(
+      "Active",
+    );
     await context.close();
   });
 

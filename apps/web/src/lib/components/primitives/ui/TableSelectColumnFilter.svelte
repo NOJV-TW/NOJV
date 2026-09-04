@@ -34,32 +34,24 @@
   }
 </script>
 
-<div class="flex min-w-0 items-center gap-1">
-  <label
-    class="relative -ml-1 inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-sm px-1 font-medium transition-colors focus-within:outline-none focus-within:ring-2 focus-within:ring-ring {value
-      ? 'bg-primary/10 text-primary hover:bg-primary/15'
-      : 'hover:bg-muted hover:text-foreground'}"
+<label
+  class="relative -ml-1 inline-flex h-8 min-w-0 cursor-pointer items-center gap-1.5 rounded-sm px-1 font-medium transition-colors focus-within:outline-none focus-within:ring-2 focus-within:ring-ring {value
+    ? 'bg-primary/10 text-primary hover:bg-primary/15'
+    : 'hover:bg-muted hover:text-foreground'}"
+>
+  <span class="max-w-32 truncate" title={value ? activeLabel : undefined}>
+    {value ? activeLabel : label}
+  </span>
+  <ListFilter aria-hidden="true" class="size-3.5 shrink-0" />
+  <select
+    class="absolute inset-0 size-full cursor-pointer opacity-0"
+    aria-label={filterLabel}
+    bind:value
+    onchange={handleChange}
   >
-    <span>{label}</span>
-    <ListFilter aria-hidden="true" class="size-3.5" />
-    <select
-      class="absolute inset-0 size-full cursor-pointer opacity-0"
-      aria-label={filterLabel}
-      bind:value
-      onchange={handleChange}
-    >
-      <option value="">{allLabel}</option>
-      {#each options as option (option.value)}
-        <option value={option.value}>{option.label}</option>
-      {/each}
-    </select>
-  </label>
-  {#if value}
-    <span
-      class="max-w-32 truncate rounded-sm bg-primary/10 px-1.5 py-0.5 text-caption font-medium normal-case tracking-normal text-primary"
-      title={activeLabel}
-    >
-      {activeLabel}
-    </span>
-  {/if}
-</div>
+    <option value="">{allLabel}</option>
+    {#each options as option (option.value)}
+      <option value={option.value}>{option.label}</option>
+    {/each}
+  </select>
+</label>

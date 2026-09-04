@@ -90,6 +90,9 @@ describe("submissions page", () => {
     verdictFilter.value = "wrong_answer";
     verdictFilter.dispatchEvent(new Event("change", { bubbles: true }));
     await tick();
+    expect(verdictFilter.closest("label")?.querySelector("span")?.textContent?.trim()).toBe(
+      "WA",
+    );
     expect(target.textContent).toContain("No submissions match these filters.");
 
     await unmount(component);
