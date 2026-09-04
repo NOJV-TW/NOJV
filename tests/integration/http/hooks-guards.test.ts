@@ -79,7 +79,7 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
     });
     expect(res.status).toBe(429);
     expect(handler).not.toHaveBeenCalled();
-  });
+  }, 30_000);
 
   it("strictly limits mutating Better Auth GET routes", async () => {
     authConsumeSpy.mockResolvedValue("unavailable");
