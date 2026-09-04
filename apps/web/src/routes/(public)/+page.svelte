@@ -85,7 +85,7 @@
       />
     {:else}
       <div
-        class="min-h-0 flex-1 space-y-3 lg:overflow-y-auto lg:overscroll-contain lg:pr-1 lg:[scrollbar-color:var(--border)_transparent] lg:[scrollbar-gutter:stable] lg:[scrollbar-width:thin]"
+        class="min-h-0 flex-1 space-y-3 lg:-mb-4 lg:overflow-y-auto lg:overscroll-contain lg:pb-4 lg:pr-1 lg:[scrollbar-color:var(--border)_transparent] lg:[scrollbar-gutter:stable] lg:[scrollbar-width:thin]"
       >
         {#each data.announcements as announcement (announcement.id)}
           <button
@@ -167,7 +167,7 @@
         />
       {:else}
         <div
-          class="min-h-0 flex-1 space-y-5 lg:overflow-y-auto lg:overscroll-contain lg:pr-1 lg:[scrollbar-color:var(--border)_transparent] lg:[scrollbar-gutter:stable] lg:[scrollbar-width:thin]"
+          class="min-h-0 flex-1 space-y-5 lg:-mb-4 lg:overflow-y-auto lg:overscroll-contain lg:pb-4 lg:pr-1 lg:[scrollbar-color:var(--border)_transparent] lg:[scrollbar-gutter:stable] lg:[scrollbar-width:thin]"
         >
           {#each assessmentGroups as group (group.key)}
             <section class="space-y-3" data-assessment-group={group.key}>

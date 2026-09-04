@@ -72,6 +72,8 @@ describe("home page layout", () => {
       expect(body?.classList.contains("min-h-0")).toBe(true);
       expect(body?.classList.contains("flex-1")).toBe(true);
       expect(body?.classList.contains("lg:overflow-y-auto")).toBe(true);
+      expect(body?.classList.contains("lg:-mb-4")).toBe(true);
+      expect(body?.classList.contains("lg:pb-4")).toBe(true);
     }
     expect(
       Array.from(target.querySelectorAll("[data-assessment-group]"), (group) =>
