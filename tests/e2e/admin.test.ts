@@ -63,23 +63,59 @@ test.describe("Admin panel — gating + pages", () => {
     await context.close();
   });
 
-  test("admin users page accepts a role filter via querystring", async ({ browser }) => {
+  test("admin users page applies a role filter from the column header", async ({ browser }) => {
     const context = await browser.newContext({ storageState: adminAuth });
     const page = await context.newPage();
-    await page.goto("/admin/users?role=teacher");
-    await expect(page.getByRole("main")).toBeVisible();
-    expect(page.url()).toContain("role=teacher");
+    await page.goto("/admin/users");
+    await page.getByRole("button", { name: "Filter role" }).click();
+    await page
+      .getByRole("dialog", { name: "Filter role" })
+      .getByRole("button", { name: "Teacher" })
+      .click();
+    await expect(page).toHaveURL(/role=teacher/);
     await context.close();
   });
 
-  test("admin users page accepts a search query", async ({ browser }) => {
+  test("admin users page filters text columns and sorts created time", async ({ browser }) => {
     const context = await browser.newContext({ storageState: adminAuth });
     const page = await context.newPage();
-    await page.goto("/admin/users?search=admin");
-    await expect(page.getByRole("main")).toBeVisible();
+    await page.goto("/admin/users");
+
+    await page.getByRole("button", { name: "Filter username" }).click();
+    await page.getByRole("searchbox", { name: "Filter username" }).fill("admin");
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await expect(page).toHaveURL(/username=admin/);
     await expect(page.getByText("admin@nojv.local").first()).toBeVisible({
       timeout: 10_000,
     });
+
+    await page.goBack();
+    await page.getByRole("button", { name: "Filter email" }).click();
+    await page.getByRole("searchbox", { name: "Filter email" }).fill("teacher@nojv.local");
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await expect(page).toHaveURL(/email=teacher%40nojv\.local/);
+
+    await page.goBack();
+    await page.getByRole("button", { name: "Filter name" }).click();
+    await page.getByRole("searchbox", { name: "Filter name" }).fill("Teacher");
+    await page.getByRole("searchbox", { name: "Filter name" }).press("Enter");
+    await expect(page).toHaveURL(/name=Teacher/);
+
+    await page.goBack();
+    await page.getByRole("button", { name: "Sort created time" }).click();
+    await page
+      .getByRole("dialog", { name: "Sort created time" })
+      .getByRole("button", { name: "Oldest first" })
+      .click();
+    await expect(page).toHaveURL(/created=asc/);
+    await expect(page.getByRole("columnheader", { name: "Sort created time" })).toHaveAttribute(
+      "aria-sort",
+      "ascending",
+    );
+
+    await page.goto("/admin/users?username=__no_such_user__");
+    await expect(page.getByText("No users found", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Filter username" })).toBeVisible();
     await context.close();
   });
 

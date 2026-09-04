@@ -5,19 +5,34 @@
   interface Props {
     page: number;
     totalPages: number;
-    search: string;
+    usernameFilter: string;
+    emailFilter: string;
+    nameFilter: string;
     roleFilter: string;
     statusFilter: string;
+    createdAtOrder: "asc" | "desc";
   }
 
-  let { page, totalPages, search, roleFilter, statusFilter }: Props = $props();
+  let {
+    page,
+    totalPages,
+    usernameFilter,
+    emailFilter,
+    nameFilter,
+    roleFilter,
+    statusFilter,
+    createdAtOrder,
+  }: Props = $props();
 
   function hrefFor(target: number): string {
     const params = new URLSearchParams();
     params.set("page", String(target));
-    if (search) params.set("search", search);
+    if (usernameFilter) params.set("username", usernameFilter);
+    if (emailFilter) params.set("email", emailFilter);
+    if (nameFilter) params.set("name", nameFilter);
     if (roleFilter) params.set("role", roleFilter);
     if (statusFilter) params.set("status", statusFilter);
+    if (createdAtOrder === "asc") params.set("created", "asc");
     return `/admin/users?${params.toString()}`;
   }
 </script>
