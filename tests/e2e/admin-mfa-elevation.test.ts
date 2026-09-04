@@ -3,11 +3,11 @@ import { execFileSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
 
 import { DisposableCredentialUser, psql, signInWithPassword } from "./_disposable-user";
-import { formActionHeaders, newLiveApiContext, readLiveSession } from "./_shared";
-import { activateTwoFactor, enrollTotp, nextTotp } from "./_two-factor";
+import { readLiveSession } from "./_shared";
+import { currentTotp, enrollTotp, unlockSecuritySettings } from "./_two-factor";
 
 test.describe.configure({ retries: 0 });
-test.setTimeout(120_000);
+test.setTimeout(90_000);
 
 const user = new DisposableCredentialUser("admin-mfa");
 
@@ -18,100 +18,51 @@ function redis(...args: string[]): string {
 }
 
 test.beforeAll(() => {
-  user.create({ platformRole: "admin", isSuperAdmin: true });
+  user.create({ platformRole: "admin" });
 });
 
 test.afterAll(() => {
   user.cleanup();
 });
 
-async function currentSessionId(page: import("@playwright/test").Page): Promise<string> {
-  return (await readLiveSession(page)).session.id;
-}
-
-test("enrollment and concurrent admin elevation consume each TOTP exactly once", async ({
+test("a regular admin reuses one verification when entering admin mode again", async ({
   page,
 }) => {
   await signInWithPassword(page, user.email);
-  await activateTwoFactor(page);
-  const { secret, verificationCode } = await enrollTotp(page);
+  await unlockSecuritySettings(page);
+  const { secret } = await enrollTotp(page);
 
-  const sessionId = await currentSessionId(page);
-  const securityGeneration = psql(
-    `SELECT "securityGeneration" FROM "User" WHERE id = '${user.id}';`,
-  );
-  const marker = `sg1:${user.id}:${securityGeneration}`;
-
-  // Enrollment mutates the factor set. It must not turn the enrollment proof
-  // into a post-mutation elevation grant.
-  expect(redis("GET", `nojv:admin:mfa:${sessionId}`)).toBe("");
-  expect(redis("GET", `nojv:apitoken:stepup:${sessionId}`)).toBe("");
+  const sessionId = (await readLiveSession(page)).session.id;
+  const generation = psql(`SELECT "securityGeneration" FROM "User" WHERE id = '${user.id}';`);
+  const marker = `sg1:${user.id}:${generation}`;
+  expect(redis("GET", `nojv:admin:mfa:${sessionId}`)).toBe(marker);
   expect(redis("GET", `nojv:admin:mode:${sessionId}`)).toBe("");
 
   await page.goto("/dashboard");
   await page.getByRole("button", { name: /open account menu/i }).click();
   await page.getByRole("menuitem", { name: /switch to admin mode/i }).click();
-  const stepUpDialog = page.getByRole("dialog", { name: "Verify it's you" });
-  await expect(stepUpDialog).toBeVisible();
-  await expect(page).toHaveURL(/\/dashboard$/);
-
-  await stepUpDialog.locator('input[name="code"]').fill(verificationCode);
-  await stepUpDialog.getByRole("button", { name: "Unlock" }).click();
-  await expect(stepUpDialog.getByRole("alert")).toContainText("already used");
-  await expect(stepUpDialog).toBeVisible();
-
-  const modalCode = await nextTotp(secret, verificationCode);
-  await stepUpDialog.locator('input[name="code"]').fill(modalCode);
-  await stepUpDialog.getByRole("button", { name: "Unlock" }).click();
   await expect(page).toHaveURL(/\/admin(?:\/|$)/, { timeout: 15_000 });
-
-  const freshCode = await nextTotp(secret, modalCode);
-  const verificationPath = "/account/api-tokens/verify?purpose=admin-mode";
-  const api = await newLiveApiContext(page);
-  let results: Array<{ type: string; status: number; location?: string }>;
-  try {
-    const submissions = await Promise.all([
-      api.post(verificationPath, {
-        form: { code: freshCode, purpose: "admin-mode" },
-        headers: {
-          ...formActionHeaders,
-          accept: "application/json",
-          "x-sveltekit-action": "true",
-        },
-        maxRedirects: 0,
-      }),
-      api.post(verificationPath, {
-        form: { code: freshCode, purpose: "admin-mode" },
-        headers: {
-          ...formActionHeaders,
-          accept: "application/json",
-          "x-sveltekit-action": "true",
-        },
-        maxRedirects: 0,
-      }),
-    ]);
-    results = (await Promise.all(submissions.map((response) => response.json()))) as Array<{
-      type: string;
-      status: number;
-      location?: string;
-    }>;
-  } finally {
-    await api.dispose();
-  }
-
-  expect(results.map(({ type, status }) => ({ type, status }))).toEqual(
-    expect.arrayContaining([
-      { type: "redirect", status: 303 },
-      { type: "failure", status: 401 },
-    ]),
-  );
-  expect(results.find((result) => result.type === "redirect")?.location).toBe("/admin");
-
-  await page.goto("/admin");
-  await expect(page).toHaveURL(/\/admin(?:\/|$)/, { timeout: 15_000 });
-  await expect(page.getByRole("main")).toBeVisible();
-
-  expect(await currentSessionId(page)).toBe(sessionId);
-  expect(redis("GET", `nojv:admin:mfa:${sessionId}`)).toBe(marker);
   expect(redis("GET", `nojv:admin:mode:${sessionId}`)).toBe(marker);
+
+  await page.getByRole("button", { name: /open account menu/i }).click();
+  await page.getByRole("menuitem", { name: /exit admin mode/i }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  expect(redis("GET", `nojv:admin:mfa:${sessionId}`)).toBe(marker);
+
+  await page.getByRole("button", { name: /open account menu/i }).click();
+  await page.getByRole("menuitem", { name: /switch to admin mode/i }).click();
+  await expect(page).toHaveURL(/\/admin(?:\/|$)/, { timeout: 15_000 });
+  await expect(page.getByRole("dialog", { name: "Verify it's you" })).toBeHidden();
+
+  await page.context().clearCookies();
+  await page.goto("/admin-signin");
+  await page.getByLabel("Username or email").fill(user.email);
+  await page.getByLabel("Password").fill("password123");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  const totpInput = page.getByLabel("Code from your current authenticator");
+  await expect(totpInput).toBeVisible();
+  await expect(page.getByRole("button", { name: "Recover account" })).toBeHidden();
+  await totpInput.fill(currentTotp(secret));
+  await page.getByRole("button", { name: "Verify and continue" }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
 });

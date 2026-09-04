@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 
 import type { Page } from "@playwright/test";
 import { resolveDestructiveTestDatabase } from "../setup/destructive-test-database";
+import { apiWriteHeaders } from "./_shared";
 
 export const TEST_PASSWORD = "password123";
 
@@ -45,12 +46,16 @@ export class DisposableCredentialUser {
   }
 
   create(
-    input: { isSuperAdmin?: boolean; platformRole?: "admin" | "student" | "teacher" } = {},
+    input: {
+      isSuperAdmin?: boolean;
+      mustChangePassword?: boolean;
+      platformRole?: "admin" | "student" | "teacher";
+    } = {},
   ): void {
     const platformRole = input.platformRole ?? "student";
     psql(`
-      INSERT INTO "User" (id, email, username, name, "emailVerified", "platformRole", "isSuperAdmin", "studentTourSeenAt", "teacherTourSeenAt", "createdAt", "updatedAt")
-      VALUES ('${this.id}', '${this.email}', '${this.username}', '${this.name}', true, '${platformRole}', ${String(input.isSuperAdmin ?? false)}, NOW(), NOW(), NOW(), NOW());
+      INSERT INTO "User" (id, email, username, name, "emailVerified", "platformRole", "isSuperAdmin", "mustChangePassword", "studentTourSeenAt", "teacherTourSeenAt", "createdAt", "updatedAt")
+      VALUES ('${this.id}', '${this.email}', '${this.username}', '${this.name}', true, '${platformRole}', ${String(input.isSuperAdmin ?? false)}, ${String(input.mustChangePassword ?? false)}, NOW(), NOW(), NOW(), NOW());
       INSERT INTO "Account" (id, "accountId", "providerId", "userId", password, "createdAt", "updatedAt")
       SELECT '${this.accountId}', '${this.id}', 'credential', '${this.id}', password, NOW(), NOW()
       FROM "Account"
@@ -68,8 +73,15 @@ export class DisposableCredentialUser {
       `nojv:apitoken:page-mfa:${sessionId}`,
       `nojv:admin:mfa:${sessionId}`,
       `nojv:admin:mode:${sessionId}`,
-      `nojv:2fa:change-grant:${sessionId}`,
+      `nojv:security:settings-grant:${sessionId}`,
+      `nojv:security:pending-totp:${sessionId}`,
     ]);
+    redisKeys.push(
+      `nojv:security:setup-otp:${this.id}`,
+      `nojv:security:setup-otp-attempts:${this.id}`,
+      `nojv:super-admin:recovery-otp:${this.id}`,
+      `nojv:super-admin:recovery-otp-attempts:${this.id}`,
+    );
     execFileSync("docker", [
       "compose",
       "exec",
@@ -82,10 +94,17 @@ export class DisposableCredentialUser {
   }
 }
 
-export async function signInWithPassword(page: Page, email: string): Promise<void> {
-  await page.goto("/admin-signin", { waitUntil: "networkidle" });
-  await page.getByLabel(/username or email/i).fill(email);
-  await page.getByLabel(/password/i).fill(TEST_PASSWORD);
-  await page.getByRole("button", { name: /sign in|登入/i }).click();
-  await page.waitForURL((url) => !url.pathname.includes("signin"), { timeout: 15_000 });
+export async function signInWithPassword(
+  page: Page,
+  email: string,
+  password = TEST_PASSWORD,
+): Promise<void> {
+  const response = await page.request.post("/api/auth/sign-in/email", {
+    data: { email, password },
+    headers: apiWriteHeaders,
+  });
+  if (!response.ok()) {
+    throw new Error(`Password sign-in failed with HTTP ${String(response.status())}.`);
+  }
+  await page.goto("/dashboard", { waitUntil: "networkidle" });
 }

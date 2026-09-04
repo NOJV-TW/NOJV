@@ -148,11 +148,11 @@ test.describe("Admin panel — gating + pages", () => {
     await page.waitForURL(
       (url) =>
         url.pathname === "/settings" &&
-        url.searchParams.get("setup2fa") === "1" &&
+        url.searchParams.get("setupSecurity") === "1" &&
         url.searchParams.get("returnTo") === "/account/api-tokens/verify?purpose=admin-mode",
     );
     await expect(
-      page.getByRole("dialog", { name: "Turn on two-factor authentication" }),
+      page.getByRole("dialog", { name: "Verify to edit security settings" }),
     ).toBeVisible();
   });
 

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { DisposableCredentialUser, psql, signInWithPassword } from "./_disposable-user";
-import { activateTwoFactor, settingsMethodRow } from "./_two-factor";
+import { settingsMethodRow, unlockSecuritySettings } from "./_two-factor";
 
 test.describe.configure({ retries: 0 });
 
@@ -32,7 +32,7 @@ test("enroll a passkey via a WebAuthn virtual authenticator", async ({ page, con
   expect(psql(`select count(*) from "Passkey" where "userId" = '${user.id}';`)).toBe("0");
 
   await signInWithPassword(page, user.email);
-  await activateTwoFactor(page);
+  await unlockSecuritySettings(page);
   await settingsMethodRow(page, "Passkey")
     .getByRole("button", { name: "Set up", exact: true })
     .click();

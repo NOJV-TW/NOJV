@@ -66,7 +66,7 @@ async function createSignedInCredentialUser(): Promise<{
   userId: string;
 }> {
   const password = "correct horse battery staple";
-  const user = await createTestUser({ emailVerified: true, twoFactorActivated: false });
+  const user = await createTestUser({ emailVerified: true });
   await testPrisma.account.create({
     data: {
       id: `credential-${user.id}`,

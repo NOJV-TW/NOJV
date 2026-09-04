@@ -1,14 +1,21 @@
 import {
-  clearTwoFactorChangeGrant,
-  generateActivationOtp,
-  hasTwoFactorChangeGrant,
-  isTwoFactorActivated,
-  consumeTotpCode,
-  markTwoFactorChangeGrant,
+  areSecuritySettingsUnlocked,
+  adminMfaKind,
+  generateSecuritySetupOtp,
+  getSecurityFactorState,
+  markFactorChangeVerifiedSession,
+  markVerifiedSession,
+  removePasskeySecurityFactor,
+  removeTotpSecurityFactor,
+  rebindSecuritySettingsAfterSecurityChange,
+  rebindVerifiedSessionAfterSecurityChange,
+  replaceBackupCodes,
   securityGenerationProof,
-  setTwoFactorActivated,
-  storeActivationOtp,
-  verifyActivationOtp,
+  storeSecuritySetupOtp,
+  unlockSecuritySettings,
+  verifySecuritySetupOtp,
+  type SecurityFactorState,
+  type SecurityGenerationProof,
 } from "@nojv/application";
 import { getMailer, renderEmail } from "@nojv/mailer";
 import { fail, redirect } from "@sveltejs/kit";
@@ -16,10 +23,6 @@ import type { Actions, RequestEvent } from "@sveltejs/kit";
 
 import { getAuth } from "$lib/auth.server";
 import { requireAuth } from "$lib/server/auth";
-import {
-  factorMutationPath,
-  runInternalFactorMutation,
-} from "$lib/server/auth-factor-mutation";
 import { getWebEnv } from "$lib/server/env";
 import { createLogger } from "$lib/server/logger";
 import {
@@ -28,170 +31,52 @@ import {
   type RateLimitResult,
 } from "$lib/server/shared/rate-limiter";
 import {
-  clearStepUp,
-  hasFreshStepUp,
-  hasStepUpFactor,
+  clearVerifiedSessionProofs,
   userHasCredentialPassword,
   validateStepUpCode,
   verifyStepUpCode,
 } from "$lib/server/step-up";
+import {
+  confirmPendingTotp,
+  generateNewBackupCodes,
+  startPendingTotp,
+} from "$lib/server/totp-enrollment";
 
-const logger = createLogger("two-factor");
-
-function sanitizeReturnTo(value: string | null): string | null {
-  return typeof value === "string" && value.startsWith("/account/") ? value : null;
-}
-
-function forwardSetCookies(event: RequestEvent, headers: Headers): void {
-  for (const raw of headers.getSetCookie()) {
-    const parts = raw.split(";");
-    const pair = parts[0];
-    if (!pair) continue;
-    const attrs = parts.slice(1);
-    const eq = pair.indexOf("=");
-    if (eq < 0) continue;
-    const name = pair.slice(0, eq).trim();
-    const value = pair.slice(eq + 1).trim();
-    const options: Parameters<typeof event.cookies.set>[2] = {
-      path: "/",
-      httpOnly: true,
-      sameSite: "lax",
-      encode: (v) => v,
-    };
-    for (const attr of attrs) {
-      const i = attr.indexOf("=");
-      const key = (i < 0 ? attr : attr.slice(0, i)).trim().toLowerCase();
-      const val = i < 0 ? "" : attr.slice(i + 1).trim();
-      if (key === "path") options.path = val;
-      else if (key === "domain") options.domain = val;
-      else if (key === "max-age") options.maxAge = Number(val);
-      else if (key === "expires") options.expires = new Date(val);
-      else if (key === "samesite")
-        options.sameSite = val.toLowerCase() as "lax" | "strict" | "none";
-      else if (key === "secure") options.secure = true;
-      else if (key === "httponly") options.httpOnly = true;
-    }
-    event.cookies.set(name, value, options);
-  }
-}
+const logger = createLogger("security-settings");
 
 function formString(formData: FormData, name: string): string {
   const value = formData.get(name);
   return (typeof value === "string" ? value : "").trim();
 }
 
-function otpEmailHtml(code: string): string {
+function sanitizeReturnTo(value: string | null): string | null {
+  return value?.startsWith("/") && !value.startsWith("//") && !value.includes("\\")
+    ? value
+    : null;
+}
+
+function setupOtpEmailHtml(code: string): string {
   return renderEmail({
-    heading: "兩步驟驗證碼 · Two-factor verification code",
-    intro: `<p>請在 NOJV 頁面輸入以下驗證碼以繼續。</p><p>Enter this code on NOJV to continue.</p><p style="font-size:28px;font-weight:700;letter-spacing:6px;margin:20px 0">${code}</p>`,
+    heading: "登入與安全驗證碼 · Login and security code",
+    intro: `<p>請在 NOJV 輸入以下驗證碼，開始設定第一個安全驗證方式。</p><p>Enter this code on NOJV to set up your first security factor.</p><p style="font-size:28px;font-weight:700;letter-spacing:6px;margin:20px 0">${code}</p>`,
     outro:
-      "此驗證碼 10 分鐘內有效，且僅能使用一次。若你並未要求此驗證碼，請忽略這封信並儘速確認帳號安全。<br>This code is valid for 10 minutes and can be used once. If you didn't request it, ignore this email and secure your account.",
+      "此驗證碼 10 分鐘內有效，且僅能使用一次。若你未要求此驗證碼，請忽略這封信。<br>This code is valid for 10 minutes and can be used once. If you did not request it, ignore this email.",
   });
 }
 
-function activatedEmailHtml(): string {
-  return renderEmail({
-    heading: "已開啟兩步驟驗證 · Two-factor turned on",
-    intro:
-      "<p>你的 NOJV 帳號已開啟兩步驟驗證。管理 API 權杖等敏感操作將要求第二重驗證(驗證器或 passkey)。</p><p>Two-factor authentication is now on for your NOJV account. Sensitive actions such as managing API tokens will require a second factor (authenticator or passkey).</p>",
-    outro:
-      "若這不是你本人操作，請立即聯絡管理員。<br>If this wasn't you, contact an administrator immediately.",
-  });
-}
-
-function deactivatedEmailHtml(): string {
-  return renderEmail({
-    heading: "已關閉兩步驟驗證 · Two-factor turned off",
-    intro:
-      "<p>你的 NOJV 帳號已關閉兩步驟驗證。你設定的驗證器與 passkey 仍會保留，重新開啟後即可再次生效。</p><p>Two-factor authentication has been turned off for your NOJV account. Your authenticator and passkeys are kept and will work again once you turn it back on.</p>",
-    outro:
-      "若這不是你本人操作，請立即聯絡管理員並檢查帳號安全。<br>If this wasn't you, contact an administrator and secure your account.",
-  });
-}
-
-const STEP_UP_FAIL_MESSAGE: Record<
-  "factor_unavailable" | "malformed" | "replayed" | "invalid" | "stale",
-  string
-> = {
-  factor_unavailable: "Set up and verify an authenticator before using its code.",
+const STEP_UP_FAIL_MESSAGE = {
+  factor_unavailable: "This authenticator is not available.",
   malformed: "Enter the 6-digit code from your authenticator.",
   replayed: "That code was already used. Wait for a new code.",
   invalid: "Invalid code. Try again.",
   stale: "Your security settings changed. Reload and verify again.",
-};
+} as const;
 
-const EMAIL_OTP_FAIL_MESSAGE: Record<"expired" | "invalid" | "locked", string> = {
+const EMAIL_OTP_FAIL_MESSAGE = {
   expired: "That code has expired. Request a new one.",
   invalid: "Invalid code. Try again.",
   locked: "Too many attempts. Request a new code.",
-};
-
-interface StepUpFailure {
-  ok: false;
-  status: 400 | 401 | 403;
-  error?: string;
-  needsStepUp?: boolean;
-}
-
-async function authorizeTwoFactorChange(
-  event: RequestEvent,
-  formData: FormData,
-  opts: { allowChangeGrant: boolean },
-): Promise<{ ok: true } | StepUpFailure> {
-  const actor = requireAuth(event);
-  const sessionId = event.locals.session?.id;
-  const sessionUser = event.locals.sessionUser;
-  if (!sessionId || !sessionUser) return { ok: false, status: 403, needsStepUp: true };
-  const proof = securityGenerationProof(sessionUser);
-
-  if (opts.allowChangeGrant && (await hasTwoFactorChangeGrant(sessionId, proof))) {
-    return { ok: true };
-  }
-
-  if (await hasStepUpFactor(event)) {
-    const code = formString(formData, "code");
-    if (code) {
-      const result = await verifyStepUpCode(
-        proof,
-        code,
-        event.request.headers,
-        sessionUser.twoFactorEnabled,
-      );
-      if (result.ok) return { ok: true };
-      return {
-        ok: false,
-        status:
-          result.reason === "malformed"
-            ? 400
-            : result.reason === "stale" || result.reason === "factor_unavailable"
-              ? 403
-              : 401,
-        error: STEP_UP_FAIL_MESSAGE[result.reason],
-      };
-    }
-    if (await hasFreshStepUp(sessionId, proof)) return { ok: true };
-    return { ok: false, status: 403, needsStepUp: true };
-  }
-
-  const otp = formString(formData, "otp");
-  if (!otp) return { ok: false, status: 403, needsStepUp: true };
-  const result = await verifyActivationOtp(actor.userId, otp);
-  if (result.ok) return { ok: true };
-  return {
-    ok: false,
-    status: result.reason === "invalid" ? 401 : 400,
-    error: EMAIL_OTP_FAIL_MESSAGE[result.reason],
-  };
-}
-
-async function passwordBodyForBetterAuth(
-  userId: string,
-  formData: FormData,
-): Promise<{ password?: string }> {
-  if (!(await userHasCredentialPassword(userId))) return {};
-  const password = formString(formData, "password");
-  return password ? { password } : {};
-}
+} as const;
 
 function rateLimitFailure(result: RateLimitResult, limitedMessage: string) {
   if (result === "allowed") return null;
@@ -200,308 +85,296 @@ function rateLimitFailure(result: RateLimitResult, limitedMessage: string) {
     : fail(503, { error: "Rate limiter unavailable. Please try again later." });
 }
 
-async function consumeStepUpAttemptLimit(userId: string) {
-  return rateLimitFailure(
-    await stepUpAttemptRateLimiter.consume(userId),
-    "Too many attempts. Please try again later.",
-  );
+async function requireSecuritySettingsUnlock(event: RequestEvent) {
+  const actor = requireAuth(event);
+  const sessionId = event.locals.session?.id;
+  const sessionUser = event.locals.sessionUser;
+  if (!sessionId || !sessionUser) {
+    return {
+      ok: false as const,
+      response: fail(403, { error: "Session authentication is required." }),
+    };
+  }
+  const state = await getSecurityFactorState(actor.userId);
+  if (!state) {
+    return { ok: false as const, response: fail(404, { error: "Account not found." }) };
+  }
+  const proof = securityGenerationProof(sessionUser);
+  if (
+    state.securityGeneration !== proof.securityGeneration ||
+    !(await areSecuritySettingsUnlocked(sessionId, proof))
+  ) {
+    return { ok: false as const, response: fail(403, { needsStepUp: true }) };
+  }
+  return {
+    ok: true as const,
+    adminMfa: adminMfaKind(sessionUser),
+    proof,
+    sessionId,
+    state,
+  };
+}
+
+async function rebindAfterFactorChange(
+  sessionId: string,
+  previousProof: SecurityGenerationProof,
+  state: SecurityFactorState,
+): Promise<boolean> {
+  const currentProof = {
+    userId: previousProof.userId,
+    securityGeneration: state.securityGeneration,
+  };
+  if (state.hasSecurityFactor) {
+    return rebindVerifiedSessionAfterSecurityChange(sessionId, previousProof, currentProof);
+  }
+  await clearVerifiedSessionProofs(sessionId);
+  return rebindSecuritySettingsAfterSecurityChange(sessionId, previousProof, currentProof);
 }
 
 export const loadTwoFactor = async (event: RequestEvent) => {
   const actor = requireAuth(event);
-  const passkeys = await getAuth().api.listPasskeys({ headers: event.request.headers });
+  const sessionId = event.locals.session?.id;
+  const sessionUser = event.locals.sessionUser;
+  const [passkeys, state] = await Promise.all([
+    getAuth().api.listPasskeys({ headers: event.request.headers }),
+    getSecurityFactorState(actor.userId),
+  ]);
+  if (!state) throw new Error("Authenticated account not found.");
+  const securitySettingsUnlocked =
+    !!sessionId &&
+    !!sessionUser &&
+    (await areSecuritySettingsUnlocked(sessionId, securityGenerationProof(sessionUser)));
   return {
-    twoFactorActivated: await isTwoFactorActivated(actor.userId),
-    twoFactorEnabled: event.locals.sessionUser?.twoFactorEnabled ?? false,
-    isSuperAdmin: event.locals.sessionUser?.isSuperAdmin ?? false,
+    hasSecurityFactor: state.hasSecurityFactor,
+    hasTotp: state.hasTotp,
+    isSuperAdmin: state.isSuperAdmin,
+    canRemoveLastFactor: !state.isSuperAdmin,
     hasPassword: await userHasCredentialPassword(actor.userId),
     returnTo: sanitizeReturnTo(event.url.searchParams.get("returnTo")),
-    verifyAutoOpen: event.url.searchParams.get("verify") === "totp",
-    activateAutoOpen: event.url.searchParams.get("setup2fa") === "1",
-    passkeys: passkeys.map((p) => ({
-      id: p.id,
-      name: p.name ?? "Passkey",
-      createdAt: p.createdAt,
+    setupAutoOpen: event.url.searchParams.get("setupSecurity") === "1",
+    securitySettingsUnlocked,
+    passkeys: passkeys.map((passkey) => ({
+      id: passkey.id,
+      name: passkey.name ?? "Passkey",
+      createdAt: passkey.createdAt,
+      canRemove:
+        !state.isSuperAdmin ||
+        state.hasTotp ||
+        passkeys.some((other) => other.id !== passkey.id),
     })),
   };
 };
 
 export const twoFactorActions = {
-  sendEmailOtp: async (event) => {
+  sendSecuritySetupOtp: async (event) => {
     const actor = requireAuth(event);
-    const activated = await isTwoFactorActivated(actor.userId);
-    const passkeys = await getAuth().api.listPasskeys({ headers: event.request.headers });
-    const hasDeviceFactor =
-      (event.locals.sessionUser?.twoFactorEnabled ?? false) || passkeys.length > 0;
-    if (activated && hasDeviceFactor) {
-      return fail(400, { error: "Use your authenticator or passkey to verify." });
+    if ((await getSecurityFactorState(actor.userId))?.hasSecurityFactor) {
+      return fail(400, {
+        error: "Use your authenticator or passkey to unlock these settings.",
+      });
     }
-    const rateLimit = rateLimitFailure(
+    const limited = rateLimitFailure(
       await otpSendRateLimiter.consume(actor.userId),
       "Too many requests. Please try again later.",
     );
-    if (rateLimit) return rateLimit;
-    const otp = generateActivationOtp();
-    await storeActivationOtp(actor.userId, otp);
+    if (limited) return limited;
+    const otp = generateSecuritySetupOtp();
+    await storeSecuritySetupOtp(actor.userId, otp);
     try {
       const delivery = await getMailer().sendEmail({
         to: actor.email,
-        subject: "NOJV 兩步驟驗證碼",
-        html: otpEmailHtml(otp),
+        subject: "NOJV 登入與安全驗證碼",
+        html: setupOtpEmailHtml(otp),
       });
-      if (delivery === "suppressed") {
-        logger.error("2FA email OTP delivery suppressed");
+      if (delivery === "suppressed" && getWebEnv().NODE_ENV !== "test") {
         return fail(503, { error: "Email delivery is unavailable. Please try again later." });
       }
-    } catch (err) {
-      logger.error("2FA email OTP send failed", {
-        err: err instanceof Error ? err.message : String(err),
+    } catch (error) {
+      logger.error("Security setup OTP send failed", {
+        error: error instanceof Error ? error.message : String(error),
       });
       return fail(502, { error: "Could not send the code. Please try again." });
     }
-    if (getWebEnv().NODE_ENV === "development") {
-      return { sent: true, devOtp: otp };
-    }
-    return { sent: true };
+    return getWebEnv().NODE_ENV === "development"
+      ? { sent: true, devOtp: otp }
+      : { sent: true };
   },
 
-  activate: async (event) => {
+  unlockSecuritySettings: async (event) => {
     const actor = requireAuth(event);
     const sessionId = event.locals.session?.id;
-    if (!sessionId) return fail(403, { error: "Session authentication is required." });
-    if (await isTwoFactorActivated(actor.userId)) {
-      return fail(400, { error: "Two-factor authentication is already on." });
+    const sessionUser = event.locals.sessionUser;
+    if (!sessionId || !sessionUser) {
+      return fail(403, { error: "Session authentication is required." });
     }
-    const rateLimit = await consumeStepUpAttemptLimit(actor.userId);
-    if (rateLimit) return rateLimit;
-    const otp = formString(await event.request.formData(), "otp");
-    const result = await verifyActivationOtp(actor.userId, otp);
+    const proof = securityGenerationProof(sessionUser);
+    if (await areSecuritySettingsUnlocked(sessionId, proof)) return { unlocked: true };
+    const limited = rateLimitFailure(
+      await stepUpAttemptRateLimiter.consume(actor.userId),
+      "Too many attempts. Please try again later.",
+    );
+    if (limited) return limited;
+    const state = await getSecurityFactorState(actor.userId);
+    if (!state) return fail(404, { error: "Account not found." });
+    const formData = await event.request.formData();
+    if (state.hasSecurityFactor) {
+      const result = await verifyStepUpCode(
+        proof,
+        formString(formData, "code"),
+        event.request.headers,
+        state.hasTotp,
+      );
+      if (!result.ok) {
+        return fail(result.reason === "malformed" ? 400 : 401, {
+          error: STEP_UP_FAIL_MESSAGE[result.reason],
+        });
+      }
+      if (!(await markVerifiedSession(sessionId, proof, adminMfaKind(sessionUser)))) {
+        return fail(409, { error: "Your security settings changed. Reload and verify again." });
+      }
+      return { unlocked: true };
+    }
+    const result = await verifySecuritySetupOtp(actor.userId, formString(formData, "otp"));
     if (!result.ok) {
       return fail(result.reason === "invalid" ? 401 : 400, {
         error: EMAIL_OTP_FAIL_MESSAGE[result.reason],
       });
     }
-    const proof = await setTwoFactorActivated(actor.userId, true);
-    if (!(await markTwoFactorChangeGrant(sessionId, proof))) {
-      return fail(409, {
-        error: "Your security settings changed. Reload before configuring a factor.",
-      });
+    if (!(await unlockSecuritySettings(sessionId, proof))) {
+      return fail(409, { error: "Your security settings changed. Reload and verify again." });
     }
-    try {
-      const delivery = await getMailer().sendEmail({
-        to: actor.email,
-        subject: "NOJV 已開啟兩步驟驗證",
-        html: activatedEmailHtml(),
-      });
-      if (delivery === "suppressed") {
-        logger.warn("2FA activated notification email suppressed");
-      }
-    } catch (err) {
-      logger.error("2FA activated notification email failed", {
-        err: err instanceof Error ? err.message : String(err),
-      });
-    }
-    return { activated: true };
+    return { unlocked: true };
   },
 
-  deactivate: async (event) => {
+  beginTotpSetup: async (event) => {
     const actor = requireAuth(event);
-    if (!(await isTwoFactorActivated(actor.userId))) {
-      return fail(400, { error: "Two-factor authentication is not on." });
-    }
-    const rateLimit = await consumeStepUpAttemptLimit(actor.userId);
-    if (rateLimit) return rateLimit;
-    const formData = await event.request.formData();
-    const authz = await authorizeTwoFactorChange(event, formData, { allowChangeGrant: false });
-    if (!authz.ok) {
-      return fail(
-        authz.status,
-        authz.needsStepUp ? { needsStepUp: true } : { error: authz.error },
-      );
-    }
-    await setTwoFactorActivated(actor.userId, false);
-    const sessionId = event.locals.session?.id;
-    if (sessionId) {
-      await clearStepUp(sessionId);
-      await clearTwoFactorChangeGrant(sessionId);
-    }
-    try {
-      const delivery = await getMailer().sendEmail({
-        to: actor.email,
-        subject: "NOJV 已關閉兩步驟驗證",
-        html: deactivatedEmailHtml(),
-      });
-      if (delivery === "suppressed") {
-        logger.warn("2FA deactivated notification email suppressed");
-      }
-    } catch (err) {
-      logger.error("2FA deactivated notification email failed", {
-        err: err instanceof Error ? err.message : String(err),
-      });
-    }
-    return { deactivated: true };
+    const authorization = await requireSecuritySettingsUnlock(event);
+    if (!authorization.ok) return authorization.response;
+    const result = await startPendingTotp(
+      authorization.sessionId,
+      authorization.proof,
+      actor.email,
+    );
+    return (
+      result ?? fail(409, { error: "Your security settings changed. Reload and try again." })
+    );
   },
 
-  enable: async (event) => {
+  confirmTotpSetup: async (event) => {
     const actor = requireAuth(event);
-    if (!(await isTwoFactorActivated(actor.userId))) {
-      return fail(400, { needsActivation: true });
-    }
-    const formData = await event.request.formData();
-    const authz = await authorizeTwoFactorChange(event, formData, { allowChangeGrant: true });
-    if (!authz.ok) {
-      return fail(
-        authz.status,
-        authz.needsStepUp ? { needsStepUp: true } : { error: authz.error },
-      );
-    }
-    const body = await passwordBodyForBetterAuth(actor.userId, formData);
-    try {
-      const res = await runInternalFactorMutation(factorMutationPath.enable, () =>
-        getAuth().api.enableTwoFactor({
-          body,
-          headers: event.request.headers,
-        }),
-      );
-      return { totpURI: res.totpURI, backupCodes: res.backupCodes };
-    } catch {
-      return fail(400, {
-        error: "Could not start enrollment. Check your details and try again.",
-      });
-    }
-  },
-
-  verify: async (event) => {
-    const actor = requireAuth(event);
+    const authorization = await requireSecuritySettingsUnlock(event);
+    if (!authorization.ok) return authorization.response;
     const formData = await event.request.formData();
     const code = formString(formData, "code");
     if (!validateStepUpCode(code)) {
-      return fail(400, { error: "Enter the 6-digit code from your authenticator." });
+      return fail(400, { error: "Enter the 6-digit code from the new authenticator." });
     }
-    try {
-      if (!(await consumeTotpCode(actor.userId, code))) {
-        return fail(401, { error: "That code was already used. Wait for a new code." });
-      }
-    } catch (error) {
-      logger.error("Could not reserve TOTP enrollment code", {
-        userId: actor.userId,
-        error: error instanceof Error ? error.message : String(error),
+    const result = await confirmPendingTotp(authorization.sessionId, authorization.proof, code);
+    if (!result.ok) {
+      return fail(result.reason === "invalid" || result.reason === "replayed" ? 401 : 409, {
+        error:
+          result.reason === "invalid"
+            ? "That code does not match the new authenticator. Try the current code."
+            : result.reason === "replayed"
+              ? "That code was already used. Wait for a new code."
+              : "The setup expired or your security settings changed. Start again.",
       });
-      return fail(503, { error: "Could not verify the code safely. Wait for a new code." });
     }
-    let headers: Headers;
-    try {
-      ({ headers } = await runInternalFactorMutation(factorMutationPath.verifyTotp, () =>
-        getAuth().api.verifyTOTP({
-          body: { code },
-          headers: event.request.headers,
-          returnHeaders: true,
-        }),
-      ));
-    } catch {
-      // The reservation intentionally remains consumed on invalid codes and
-      // transient provider failures. Releasing it would reopen the race with a
-      // concurrent privileged verifier using the same time-window code.
-      return fail(401, { error: "Invalid code. Wait for a new code before retrying." });
+    const previousProof = authorization.proof;
+    const proof = { userId: actor.userId, securityGeneration: result.state.securityGeneration };
+    if (
+      !(await markFactorChangeVerifiedSession(
+        authorization.sessionId,
+        previousProof,
+        proof,
+        authorization.adminMfa,
+      ))
+    ) {
+      return fail(409, { error: "The factor was saved, but this settings window expired." });
     }
-    forwardSetCookies(event, headers);
     const returnTo = sanitizeReturnTo(
       formString(formData, "returnTo") || event.url.searchParams.get("returnTo"),
     );
-    if (returnTo) {
-      redirect(303, returnTo);
-    }
+    if (returnTo) redirect(303, returnTo);
     return { enabled: true };
   },
 
-  disable: async (event) => {
-    const actor = requireAuth(event);
-    if (!event.locals.sessionUser?.twoFactorEnabled) {
-      return fail(400, { error: "Two-factor authentication is not enabled." });
+  removeTotp: async (event) => {
+    const authorization = await requireSecuritySettingsUnlock(event);
+    if (!authorization.ok) return authorization.response;
+    const result = await removeTotpSecurityFactor(
+      authorization.proof.userId,
+      authorization.state.securityGeneration,
+    );
+    if (result.outcome === "stale") {
+      return fail(409, { error: "Your security settings changed. Reload and verify again." });
     }
-    const rateLimit = await consumeStepUpAttemptLimit(actor.userId);
-    if (rateLimit) return rateLimit;
-    const formData = await event.request.formData();
-    const authz = await authorizeTwoFactorChange(event, formData, { allowChangeGrant: false });
-    if (!authz.ok) {
-      return fail(
-        authz.status,
-        authz.needsStepUp ? { needsStepUp: true } : { error: authz.error },
-      );
+    if (result.outcome === "last_super_admin_factor") {
+      return fail(403, { error: "A super admin must keep at least one security factor." });
     }
-    const body = await passwordBodyForBetterAuth(actor.userId, formData);
-    try {
-      const { headers } = await runInternalFactorMutation(factorMutationPath.disable, () =>
-        getAuth().api.disableTwoFactor({
-          body,
-          headers: event.request.headers,
-          returnHeaders: true,
-        }),
-      );
-      forwardSetCookies(event, headers);
-      const sessionId = event.locals.session?.id;
-      if (sessionId) await clearStepUp(sessionId);
-      return { disabled: true };
-    } catch {
-      return fail(400, { error: "Could not disable. Check your details and try again." });
-    }
-  },
-
-  regenerate: async (event) => {
-    const actor = requireAuth(event);
-    if (!event.locals.sessionUser?.twoFactorEnabled) {
-      return fail(400, { error: "Two-factor authentication is not enabled." });
-    }
-    const rateLimit = await consumeStepUpAttemptLimit(actor.userId);
-    if (rateLimit) return rateLimit;
-    const formData = await event.request.formData();
-    const authz = await authorizeTwoFactorChange(event, formData, { allowChangeGrant: false });
-    if (!authz.ok) {
-      return fail(
-        authz.status,
-        authz.needsStepUp ? { needsStepUp: true } : { error: authz.error },
-      );
-    }
-    const body = await passwordBodyForBetterAuth(actor.userId, formData);
-    try {
-      const res = await runInternalFactorMutation(
-        factorMutationPath.regenerateBackupCodes,
-        () =>
-          getAuth().api.generateBackupCodes({
-            body,
-            headers: event.request.headers,
-          }),
-      );
-      return { backupCodes: res.backupCodes };
-    } catch {
-      return fail(400, {
-        error: "Could not regenerate codes. Check your details and try again.",
+    if (result.outcome === "missing") return fail(404, { error: "Authenticator not found." });
+    if (
+      !(await rebindAfterFactorChange(
+        authorization.sessionId,
+        authorization.proof,
+        result.state,
+      ))
+    ) {
+      return fail(409, {
+        error: "Your security settings changed. Reload and unlock them again.",
       });
     }
+    return { removedTotp: true };
+  },
+
+  regenerateBackupCodes: async (event) => {
+    const authorization = await requireSecuritySettingsUnlock(event);
+    if (!authorization.ok) return authorization.response;
+    if (!authorization.state.hasTotp) {
+      return fail(400, { error: "Set up an authenticator before generating backup codes." });
+    }
+    const codes = await generateNewBackupCodes();
+    const state = await replaceBackupCodes(
+      authorization.proof.userId,
+      codes.encryptedBackupCodes,
+      authorization.state.securityGeneration,
+    );
+    if (!state) {
+      return fail(409, { error: "Your security settings changed. Reload and verify again." });
+    }
+    if (!(await rebindAfterFactorChange(authorization.sessionId, authorization.proof, state))) {
+      return fail(409, { error: "Backup codes changed. Reload and unlock settings again." });
+    }
+    return { backupCodes: codes.backupCodes };
   },
 
   deletePasskey: async (event) => {
-    const actor = requireAuth(event);
-    const formData = await event.request.formData();
-    const id = formString(formData, "id");
-    if (!id) {
-      return fail(400, { error: "Missing passkey id." });
+    const authorization = await requireSecuritySettingsUnlock(event);
+    if (!authorization.ok) return authorization.response;
+    const id = formString(await event.request.formData(), "id");
+    if (!id) return fail(400, { error: "Missing passkey id." });
+    const result = await removePasskeySecurityFactor(
+      authorization.proof.userId,
+      id,
+      authorization.state.securityGeneration,
+    );
+    if (result.outcome === "stale") {
+      return fail(409, { error: "Your security settings changed. Reload and verify again." });
     }
-    const rateLimit = await consumeStepUpAttemptLimit(actor.userId);
-    if (rateLimit) return rateLimit;
-    const authz = await authorizeTwoFactorChange(event, formData, { allowChangeGrant: false });
-    if (!authz.ok) {
-      return fail(
-        authz.status,
-        authz.needsStepUp ? { needsStepUp: true } : { error: authz.error },
-      );
+    if (result.outcome === "last_super_admin_factor") {
+      return fail(403, { error: "A super admin must keep at least one security factor." });
     }
-    try {
-      await runInternalFactorMutation(factorMutationPath.deletePasskey, () =>
-        getAuth().api.deletePasskey({ body: { id }, headers: event.request.headers }),
-      );
-    } catch {
-      return fail(400, { error: "Could not remove this passkey." });
+    if (result.outcome === "missing") return fail(404, { error: "Passkey not found." });
+    if (
+      !(await rebindAfterFactorChange(
+        authorization.sessionId,
+        authorization.proof,
+        result.state,
+      ))
+    ) {
+      return fail(409, {
+        error: "Your security settings changed. Reload and unlock them again.",
+      });
     }
     return { deletedPasskey: true };
   },

@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 
 import { DisposableCredentialUser, psql, signInWithPassword } from "./_disposable-user";
 import { readLiveSession } from "./_shared";
-import { activateTwoFactor, settingsMethodRow } from "./_two-factor";
+import { settingsMethodRow, unlockSecuritySettings } from "./_two-factor";
 
 function redis(...args: string[]): string {
   return execFileSync("docker", ["compose", "exec", "-T", "redis", "redis-cli", ...args], {
@@ -35,7 +35,13 @@ test.beforeAll(() => {
 test.afterAll(() => {
   user.cleanup();
   if (sessionIds.size > 0) {
-    redis("DEL", ...[...sessionIds].map((id) => `nojv:apitoken:stepup:${id}`));
+    redis(
+      "DEL",
+      ...[...sessionIds].flatMap((id) => [
+        `nojv:apitoken:stepup:${id}`,
+        `nojv:apitoken:page-mfa:${id}`,
+      ]),
+    );
   }
 });
 
@@ -57,7 +63,7 @@ test("a verified passkey assertion unlocks only its new session", async ({ brows
     },
   });
   await signInWithPassword(page, user.email);
-  await activateTwoFactor(page);
+  await unlockSecuritySettings(page);
   await signInWithPassword(otherPage, user.email);
   await settingsMethodRow(page, "Passkey")
     .getByRole("button", { name: "Set up", exact: true })
@@ -66,13 +72,19 @@ test("a verified passkey assertion unlocks only its new session", async ({ brows
   await dialog.getByRole("button", { name: "Add passkey" }).click();
   await expect(dialog.getByRole("button", { name: "Remove" })).toBeVisible({ timeout: 20000 });
 
+  const oldSessionId = await sessionId(page);
+  redis(
+    "DEL",
+    `nojv:apitoken:stepup:${oldSessionId}`,
+    `nojv:apitoken:page-mfa:${oldSessionId}`,
+  );
+
   await page.goto("/dashboard");
   await page.getByRole("button", { name: /open account menu/i }).click();
   await page.getByRole("menuitem", { name: "API Tokens" }).click();
   const stepUpDialog = page.getByRole("dialog", { name: "Verify it's you" });
   await expect(stepUpDialog).toBeVisible();
   await expect(page).toHaveURL(/\/dashboard$/);
-  const oldSessionId = await sessionId(page);
   expect(redis("GET", `nojv:apitoken:stepup:${oldSessionId}`)).toBe("");
 
   const [verificationResponse] = await Promise.all([

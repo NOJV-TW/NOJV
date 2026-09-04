@@ -28,10 +28,10 @@ import { getWebEnv } from "$lib/server/env";
 import { healthProbeKind, isPublicSystemPath } from "$lib/server/health-probes";
 import { consumeStepUpHandoff } from "$lib/server/step-up-handoff";
 import {
-  adminElevationPrincipal,
+  adminAccessPrincipal,
   isSuperAdminSessionExpired,
-  resolveAdminElevation,
-  revokeAdminElevation,
+  resolveAdminAccess,
+  revokeAdminAccess,
 } from "$lib/server/step-up";
 import {
   apiRequestDuration,
@@ -269,7 +269,7 @@ async function enforceAccountState(event: HandleEvent, cleanPath: string): Promi
   if (event.locals.sessionUser?.disabled) {
     const sessionId = event.locals.session?.id;
     if (sessionId) {
-      await revokeAdminElevation(sessionId);
+      await revokeAdminAccess(sessionId);
     }
     event.locals.session = null;
     event.locals.user = null;
@@ -293,20 +293,41 @@ function enforcePasswordChange(event: HandleEvent, cleanPath: string): void {
     event.locals.sessionUser?.mustChangePassword &&
     !cleanPath.startsWith("/api/") &&
     !cleanPath.startsWith("/account/change-password") &&
+    !cleanPath.startsWith("/admin-signin") &&
     !cleanPath.startsWith("/complete-profile") &&
     !cleanPath.startsWith("/signin")
   ) {
-    redirect(302, "/account/change-password");
+    redirect(
+      302,
+      event.locals.sessionUser.isSuperAdmin ? "/admin-signin" : "/account/change-password",
+    );
   }
 }
 
-async function resolveAdminMode(event: HandleEvent): Promise<void> {
+function enforceSuperAdminVerification(event: HandleEvent, cleanPath: string): Response | null {
+  const user = event.locals.sessionUser;
+  if (!user?.isSuperAdmin || event.locals.adminAccessActive) return null;
+  if (cleanPath.startsWith("/admin-signin")) return null;
+  if (cleanPath.startsWith("/api/")) {
+    return jsonErrorResponse({
+      code: "super_admin_mfa_required",
+      message: "Complete super admin security verification first.",
+      requestId: event.locals.requestId,
+      status: 403,
+    });
+  }
+  const returnTo =
+    cleanPath.startsWith("/") && !cleanPath.startsWith("//") ? cleanPath : "/admin";
+  redirect(302, `/admin-signin?returnTo=${encodeURIComponent(returnTo)}`);
+}
+
+async function resolveRequestAdminAccess(event: HandleEvent): Promise<void> {
   const user = event.locals.sessionUser;
   const sessionId = event.locals.session?.id;
-  event.locals.adminModeActive =
+  event.locals.adminAccessActive =
     user?.platformRole === "admin" &&
     !!sessionId &&
-    (await resolveAdminElevation(sessionId, adminElevationPrincipal(user)));
+    (await resolveAdminAccess(sessionId, adminAccessPrincipal(user)));
 }
 
 async function enforceSuperAdminSessionAge(event: HandleEvent): Promise<Response | null> {
@@ -325,7 +346,7 @@ async function enforceSuperAdminSessionAge(event: HandleEvent): Promise<Response
   event.locals.session = null;
   event.locals.user = null;
   event.locals.sessionUser = null;
-  headers.set("location", "/signin?error=session-expired");
+  headers.set("location", "/admin-signin?error=session-expired");
   return new Response(null, { status: 302, headers });
 }
 
@@ -460,7 +481,7 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
   event.locals.requestId = deriveRequestId(event.request.headers);
   event.locals.apiToken = null;
   event.locals.apiTokenActor = null;
-  event.locals.adminModeActive = false;
+  event.locals.adminAccessActive = false;
   event.locals.examGate = null;
 
   if (isPublicSystemPath(event.url.pathname)) {
@@ -494,7 +515,9 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
     return expiredSessionResponse;
   }
   enforcePasswordChange(event, cleanPath);
-  await resolveAdminMode(event);
+  await resolveRequestAdminAccess(event);
+  const superAdminVerificationResponse = enforceSuperAdminVerification(event, cleanPath);
+  if (superAdminVerificationResponse) return superAdminVerificationResponse;
   await enforcePageLock(event, cleanPath);
 
   const examResponse = await enforceExamGate(event, cleanPath);

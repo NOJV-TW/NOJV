@@ -92,6 +92,11 @@ describe("collectReplayStatements", () => {
     expect(joined).toContain(
       'DROP TRIGGER IF EXISTS passkey_security_generation_credential_change ON "Passkey"',
     );
+    const userStateTriggers = stmts.filter((statement) =>
+      statement.includes("CREATE TRIGGER user_security_generation_state_change"),
+    );
+    expect(userStateTriggers).toHaveLength(1);
+    expect(userStateTriggers[0]).not.toContain("twoFactorActivated");
   });
 
   it("replays storage pointer validators idempotently before their constraints", () => {

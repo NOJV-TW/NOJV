@@ -5,11 +5,7 @@ import type { RequestHandler } from "./$types";
 
 import { HttpError, requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler, readJsonBody } from "$lib/server/shared/api-handler";
-import {
-  adminElevationPrincipal,
-  grantAdminElevation,
-  revokeAdminElevation,
-} from "$lib/server/step-up";
+import { adminAccessPrincipal, exitAdminMode, grantAdminMode } from "$lib/server/step-up";
 
 const bodySchema = z.object({ active: z.boolean() });
 
@@ -22,14 +18,17 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   }
 
   const { active } = bodySchema.parse(await readJsonBody(event));
+  if (sessionUser.isSuperAdmin) {
+    throw new HttpError("Super admins do not use Admin mode.", 403);
+  }
   if (!active) {
-    await revokeAdminElevation(sessionId);
+    await exitAdminMode(sessionId);
     return json({ active: false });
   }
   if (sessionUser.platformRole !== "admin") {
     throw new HttpError("Admin mode is not available for this account.", 403);
   }
-  if (!(await grantAdminElevation(sessionId, adminElevationPrincipal(sessionUser)))) {
+  if (!(await grantAdminMode(sessionId, adminAccessPrincipal(sessionUser)))) {
     return json({ active: false, verificationRequired: true });
   }
   return json({ active: true });

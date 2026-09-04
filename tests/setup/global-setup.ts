@@ -27,6 +27,9 @@ export default async function globalSetup() {
   try {
     const proof = await assertLiveTestDatabase(preflight, "nojv_test");
     console.info(`Destructive test database preflight: ${formatTestDatabaseProof(proof)}`);
+    await preflight.$executeRawUnsafe(
+      'DROP TRIGGER IF EXISTS user_security_generation_state_change ON "User"',
+    );
   } finally {
     await preflight.$disconnect();
   }

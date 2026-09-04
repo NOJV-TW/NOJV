@@ -11,7 +11,7 @@ async function generation(userId: string): Promise<number> {
 }
 
 describe("durable user security generation", () => {
-  it("advances on every privilege, disablement, and 2FA state transition", async () => {
+  it("advances on every privilege, disablement, and Better Auth TOTP state transition", async () => {
     const user = await createTestUser();
     expect(user.securityGeneration).toBe(0);
 
@@ -28,20 +28,9 @@ describe("durable user security generation", () => {
 
     await testPrisma.user.update({
       where: { id: user.id },
-      data: { twoFactorActivated: true },
-    });
-    expect(await generation(user.id)).toBe(4);
-    await testPrisma.user.update({
-      where: { id: user.id },
-      data: { twoFactorActivated: false },
-    });
-    expect(await generation(user.id)).toBe(5);
-
-    await testPrisma.user.update({
-      where: { id: user.id },
       data: { twoFactorEnabled: true, isSuperAdmin: true },
     });
-    expect(await generation(user.id)).toBe(6);
+    expect(await generation(user.id)).toBe(4);
   });
 
   it("does not advance for no-op state writes or profile-only changes", async () => {

@@ -147,7 +147,7 @@ Commit.
 - Create: `apps/web/src/routes/(public)/users/[id]/+page.svelte`
 - Modify: messages en/zh-TW (`userProfile_*` keys)
 
-Load: viewer = `locals.sessionUser` (nullable in public group); admin check must use effective role (`resolveEffectivePlatformRole` with `locals.adminModeActive` — stored role alone bypasses admin-mode toggle, see permissions feedback). `canViewProfile` false or user missing → `NotFoundError` (404, both cases identical). UI: avatar `/api/storage/avatars/{id}` with `user.image` fallback, name/username/joined date, `ActivityHeatmap` (reuse `buildActivityModel` from `$lib/utils/activity.ts`), difficulty + language cards via `EChart` (copy option builders from `dashboard/+page.svelte`), solved problems list linking to `/problems/[id]`. Private-but-visible (self/admin viewing a private profile) shows a "not public" badge. `<title>` per root layout convention. Commit.
+Load: viewer = `locals.sessionUser` (nullable in public group); admin check must use effective role (`resolveEffectivePlatformRole` with `locals.adminAccessActive` — stored role alone bypasses the admin-access gate, see permissions feedback). `canViewProfile` false or user missing → `NotFoundError` (404, both cases identical). UI: avatar `/api/storage/avatars/{id}` with `user.image` fallback, name/username/joined date, `ActivityHeatmap` (reuse `buildActivityModel` from `$lib/utils/activity.ts`), difficulty + language cards via `EChart` (copy option builders from `dashboard/+page.svelte`), solved problems list linking to `/problems/[id]`. Private-but-visible (self/admin viewing a private profile) shows a "not public" badge. `<title>` per root layout convention. Commit.
 
 ### Task B4: settings toggle
 

@@ -15,7 +15,7 @@ export const load: LayoutServerLoad = (event) => {
 
   return {
     user: event.locals.sessionUser,
-    actingAsAdmin: event.locals.adminModeActive,
+    adminAccessActive: event.locals.adminAccessActive,
     editorLanguage: event.cookies.get(EDITOR_LANGUAGE_COOKIE),
   };
 };

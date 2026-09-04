@@ -93,12 +93,12 @@ describe("Playwright destructive database isolation", () => {
     expect(integrationStep).toContain("APP_BASE_URL: http://localhost:5173");
   });
 
-  it("seeds activation OTP state authoritatively without invoking suppressed email", () => {
+  it("seeds first-factor setup OTP state through the security-settings flow", () => {
     const helper = readFileSync(join(repoRoot, "tests/e2e/_two-factor.ts"), "utf8");
-    expect(helper).toContain("storeActivationOtp");
-    expect(helper).toContain('page.request.post("/settings?/activate"');
-    expect(helper).toContain('page.goto("/settings?verify=totp")');
-    expect(helper).not.toContain("sendEmailOtp");
+    expect(helper).toContain("storeSecuritySetupOtp");
+    expect(helper).toContain('page.goto("/settings?setupSecurity=1")');
+    expect(helper).toContain('name: "Verify to edit security settings"');
+    expect(helper).not.toContain("storeActivationOtp");
     expect(helper).not.toContain("devOtp");
   });
 

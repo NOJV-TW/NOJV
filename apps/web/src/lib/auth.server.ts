@@ -6,9 +6,13 @@ import { twoFactor, username } from "better-auth/plugins";
 import bcrypt from "bcryptjs";
 
 import {
+  areSecuritySettingsUnlocked,
+  adminMfaKind,
   createStepUpHandoffTicket,
-  hasFreshStepUp,
-  hasTwoFactorChangeGrant,
+  hasAdminSessionMfa,
+  isSuperAdminSessionExpired,
+  markFactorChangeVerifiedSession,
+  markVerifiedSession,
   passkeyRegistrationDenialReason,
   securityGenerationProof,
 } from "@nojv/application";
@@ -21,9 +25,17 @@ import {
 } from "$lib/server/auth-factor-mutation";
 import {
   getPasskeyAuthenticationProof,
+  getPasskeyRegistrationProof,
   setPasskeyAuthenticationProof,
+  setPasskeyRegistrationProof,
 } from "$lib/server/passkey-request-proof";
 import { STEP_UP_HANDOFF_COOKIE } from "$lib/server/step-up-handoff";
+import {
+  consumeSuperAdminPasswordProof,
+  isSuperAdminPasswordProofSessionValid,
+  passwordProofTicketFromCookieHeader,
+  readSuperAdminPasswordProof,
+} from "$lib/server/super-admin-password-proof";
 import { extractStudentId, parseSchoolEmail } from "$lib/utils/school";
 import { createLogger } from "$lib/server/logger";
 
@@ -32,6 +44,20 @@ const authLogger = createLogger("auth-hooks");
 const internalFactorMutationPaths = new Set<FactorMutationPath>(
   Object.values(factorMutationPath),
 );
+
+const unfinishedSuperAdminAuthPaths = new Set([
+  "/change-password",
+  "/get-session",
+  "/passkey/generate-authenticate-options",
+  "/passkey/generate-register-options",
+  "/passkey/verify-authentication",
+  "/passkey/verify-registration",
+  "/sign-in/email",
+  "/sign-in/username",
+  "/sign-out",
+  "/two-factor/verify-backup-code",
+  "/two-factor/verify-totp",
+]);
 
 function isInternalFactorMutationPath(path: string): path is FactorMutationPath {
   return internalFactorMutationPaths.has(path as FactorMutationPath);
@@ -144,7 +170,6 @@ function createAuth() {
         isSuperAdmin: { type: "boolean", defaultValue: false, input: false },
         status: { type: "string", defaultValue: "active", input: false },
         mustChangePassword: { type: "boolean", defaultValue: false, input: false },
-        twoFactorActivated: { type: "boolean", defaultValue: false, input: false },
         securityGeneration: { type: "number", defaultValue: 0, input: false },
       },
     },
@@ -156,6 +181,40 @@ function createAuth() {
       },
     },
     databaseHooks: {
+      account: {
+        create: {
+          before: async (account) => {
+            if (account.providerId === "credential") return;
+            const user = await prisma.user.findUnique({
+              where: { id: account.userId },
+              select: { isSuperAdmin: true },
+            });
+            if (user?.isSuperAdmin) {
+              throw new APIError("FORBIDDEN", {
+                message: "Super admin accounts cannot link OAuth providers.",
+              });
+            }
+          },
+        },
+      },
+      session: {
+        create: {
+          before: async (session) => {
+            const proof = await getPasskeyAuthenticationProof();
+            if (!proof?.authenticatedAt || proof.userId !== session.userId) return;
+            const authenticatedAt = new Date(proof.authenticatedAt);
+            const maximumExpiry = new Date(authenticatedAt.getTime() + 24 * 60 * 60 * 1000);
+            return {
+              data: {
+                ...session,
+                createdAt: authenticatedAt,
+                expiresAt:
+                  session.expiresAt < maximumExpiry ? session.expiresAt : maximumExpiry,
+              },
+            };
+          },
+        },
+      },
       user: {
         create: {
           after: async (user) => {
@@ -168,6 +227,30 @@ function createAuth() {
     },
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
+        const activeSession = await getSessionFromCtx(ctx);
+        if (
+          activeSession?.user.isSuperAdmin &&
+          !unfinishedSuperAdminAuthPaths.has(ctx.path) &&
+          !(await hasAdminSessionMfa(
+            activeSession.session.id,
+            securityGenerationProof(
+              activeSession.user as typeof activeSession.user & {
+                securityGeneration: number;
+              },
+            ),
+          ))
+        ) {
+          throw new APIError("FORBIDDEN", {
+            message: "Complete super admin security verification first.",
+          });
+        }
+        if (ctx.path === "/link-social") {
+          if (activeSession?.user.isSuperAdmin) {
+            throw new APIError("FORBIDDEN", {
+              message: "Super admin accounts cannot link OAuth providers.",
+            });
+          }
+        }
         if (isInternalFactorMutationPath(ctx.path)) {
           const session = await getSessionFromCtx(ctx);
           const isSignInTotpVerification =
@@ -186,21 +269,54 @@ function createAuth() {
           const passkeyRecord = await prisma.passkey.findFirst({
             where: { credentialID },
             select: {
-              user: { select: { id: true, securityGeneration: true } },
+              user: {
+                select: { id: true, isSuperAdmin: true, securityGeneration: true },
+              },
             },
           });
           if (passkeyRecord) {
+            const proof = securityGenerationProof(passkeyRecord.user);
+            let authenticatedAt: string | undefined;
+            let passwordProofTicket: string | undefined;
+            if (passkeyRecord.user.isSuperAdmin) {
+              const session = activeSession;
+              if (
+                session?.user.id === proof.userId &&
+                !isSuperAdminSessionExpired(new Date(session.session.createdAt)) &&
+                (await hasAdminSessionMfa(session.session.id, proof))
+              ) {
+                authenticatedAt = new Date(session.session.createdAt).toISOString();
+              } else {
+                const ticket = passwordProofTicketFromCookieHeader(
+                  ctx.headers?.get("cookie") ?? null,
+                );
+                const passwordProof = ticket ? await readSuperAdminPasswordProof(ticket) : null;
+                if (
+                  !ticket ||
+                  passwordProof?.userId !== proof.userId ||
+                  !isSuperAdminPasswordProofSessionValid(
+                    passwordProof,
+                    session?.session.id ?? null,
+                  )
+                ) {
+                  throw new APIError("FORBIDDEN", {
+                    message:
+                      "Super admin passkey sign-in requires password verification first.",
+                  });
+                }
+                authenticatedAt = passwordProof.authenticatedAt;
+                passwordProofTicket = ticket;
+              }
+            }
             await setPasskeyAuthenticationProof({
               credentialID,
-              ...securityGenerationProof(passkeyRecord.user),
+              ...proof,
+              ...(authenticatedAt ? { authenticatedAt } : {}),
+              ...(passwordProofTicket ? { passwordProofTicket } : {}),
             });
           }
           return;
         }
-        // Adding a passkey is a 2FA configuration change: it requires the master
-        // switch to be on and a valid step-up (a recent activation grant or a
-        // fresh device verification). Without this, a client could add a passkey
-        // straight through the API and bypass the master-switch model.
         if (
           ctx.path === "/passkey/generate-register-options" ||
           ctx.path === "/passkey/verify-registration"
@@ -211,7 +327,7 @@ function createAuth() {
           if (!userId || !sessionId) return;
           const securityState = await prisma.user.findUnique({
             where: { id: userId },
-            select: { id: true, securityGeneration: true, twoFactorActivated: true },
+            select: { id: true, securityGeneration: true },
           });
           if (!securityState) {
             throw new APIError("UNAUTHORIZED", {
@@ -219,23 +335,86 @@ function createAuth() {
             });
           }
           const proof = securityGenerationProof(securityState);
-          const [hasGrant, hasFresh] = await Promise.all([
-            hasTwoFactorChangeGrant(sessionId, proof),
-            hasFreshStepUp(sessionId, proof),
-          ]);
+          const securitySettingsUnlocked = await areSecuritySettingsUnlocked(sessionId, proof);
           const denial = passkeyRegistrationDenialReason({
-            activated: securityState.twoFactorActivated,
-            hasGrant,
-            hasFresh,
+            securitySettingsUnlocked,
           });
-          if (denial === "not_activated") {
+          if (denial) {
             throw new APIError("FORBIDDEN", {
-              message: "Turn on two-factor authentication first.",
+              message: "Unlock login and security settings first.",
             });
           }
-          if (denial === "needs_step_up") {
-            throw new APIError("FORBIDDEN", {
-              message: "Verify with your authenticator or passkey first.",
+          if (ctx.path === "/passkey/verify-registration") {
+            const credentialID = credentialIdFromPasskeyVerification(ctx.body);
+            if (credentialID) {
+              await setPasskeyRegistrationProof({ ...proof, credentialID, sessionId });
+            }
+          }
+        }
+      }),
+      after: createAuthMiddleware(async (ctx) => {
+        if (ctx.path === "/two-factor/verify-totp") {
+          const session = ctx.context.newSession ?? (await getSessionFromCtx(ctx));
+          if (!session) return;
+          const user = await prisma.user.findUnique({
+            where: { id: session.user.id },
+            select: {
+              id: true,
+              isSuperAdmin: true,
+              platformRole: true,
+              securityGeneration: true,
+            },
+          });
+          if (user) {
+            const ticket = passwordProofTicketFromCookieHeader(
+              ctx.headers?.get("cookie") ?? null,
+            );
+            if (user.isSuperAdmin && ticket) {
+              await consumeSuperAdminPasswordProof(ticket, user.id);
+            }
+            await markVerifiedSession(
+              session.session.id,
+              securityGenerationProof(user),
+              adminMfaKind(user),
+            );
+          }
+          return;
+        }
+        if (ctx.path === "/passkey/verify-registration") {
+          const registration = await getPasskeyRegistrationProof();
+          if (!registration) return;
+          const user = await prisma.user.findUnique({
+            where: { id: registration.userId },
+            select: {
+              id: true,
+              isSuperAdmin: true,
+              platformRole: true,
+              securityGeneration: true,
+            },
+          });
+          if (!user) return;
+          const proof = securityGenerationProof(user);
+          let rebound = false;
+          try {
+            rebound = await markFactorChangeVerifiedSession(
+              registration.sessionId,
+              registration,
+              proof,
+              adminMfaKind(user),
+            );
+          } finally {
+            if (!rebound) {
+              await prisma.passkey.deleteMany({
+                where: {
+                  credentialID: registration.credentialID,
+                  userId: registration.userId,
+                },
+              });
+            }
+          }
+          if (!rebound) {
+            throw new APIError("CONFLICT", {
+              message: "Security settings changed during passkey registration. Try again.",
             });
           }
         }
@@ -266,7 +445,19 @@ function createAuth() {
               select: { userId: true },
             });
             if (passkeyRecord?.userId !== proof.userId) return;
-            const ticket = await createStepUpHandoffTicket(proof);
+            if (
+              proof.passwordProofTicket &&
+              !(await consumeSuperAdminPasswordProof(proof.passwordProofTicket, proof.userId))
+            ) {
+              throw new APIError("FORBIDDEN", {
+                message: "The password verification expired. Sign in again.",
+              });
+            }
+            const ticket = await createStepUpHandoffTicket(
+              proof,
+              "verified",
+              proof.authenticatedAt,
+            );
             ctx.setCookie(STEP_UP_HANDOFF_COOKIE, ticket, {
               httpOnly: true,
               maxAge: 60,

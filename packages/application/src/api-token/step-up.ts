@@ -5,8 +5,11 @@ import { getRedis, keys } from "@nojv/redis";
 
 const STEPUP_TTL_SECONDS = 600;
 const STEPUP_HANDOFF_TICKET_TTL_SECONDS = 60;
-const ADMIN_MFA_TTL_SECONDS = 604800;
+const ADMIN_MFA_TTL_SECONDS = 600;
+const ADMIN_MODE_TTL_SECONDS = 604800;
+const SUPER_ADMIN_MFA_TTL_SECONDS = 86400;
 const TOKEN_PAGE_MFA_TTL_SECONDS = 3600;
+const SECURITY_SETTINGS_TTL_SECONDS = 600;
 const OTP_DEDUPE_TTL_SECONDS = 120;
 const SUPER_ADMIN_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const TOTP_CODE_LENGTH = 6;
@@ -20,6 +23,7 @@ redis.call("SET", KEYS[2], ARGV[1], "EX", ARGV[3])
 if ARGV[4] == "1" then
   redis.call("SET", KEYS[3], ARGV[1], "EX", ARGV[5])
 end
+redis.call("SET", KEYS[4], ARGV[1], "EX", ARGV[6])
 return 1
 `;
 
@@ -39,11 +43,59 @@ local mode = redis.call("GET", KEYS[2])
 if not mode then
   return 0
 end
-if mode == ARGV[1] and redis.call("GET", KEYS[1]) == ARGV[1] then
+if mode == ARGV[1] then
   return 1
 end
-redis.call("DEL", KEYS[1], KEYS[2])
+redis.call("DEL", KEYS[2])
+if redis.call("GET", KEYS[1]) ~= ARGV[1] then
+  redis.call("DEL", KEYS[1])
+end
 return 0
+`;
+
+const REBIND_VERIFIED_SESSION = `
+for i = 1, 4 do
+  if redis.call("GET", KEYS[i]) == ARGV[1] then
+    local ttl = redis.call("TTL", KEYS[i])
+    if ttl > 0 then
+      redis.call("SET", KEYS[i], ARGV[2], "EX", ttl)
+    else
+      redis.call("DEL", KEYS[i])
+    end
+  end
+end
+redis.call("DEL", KEYS[5])
+return 1
+`;
+
+const MARK_FACTOR_CHANGE_VERIFIED_SESSION = `
+if redis.call("GET", KEYS[4]) ~= ARGV[1] then
+  return 0
+end
+local settingsTtl = redis.call("TTL", KEYS[4])
+if settingsTtl <= 0 then
+  redis.call("DEL", KEYS[4])
+  return 0
+end
+
+local function rebindOrCreate(key, defaultTtl, enabled)
+  if enabled == "0" then
+    redis.call("DEL", key)
+    return
+  end
+  local ttl = -1
+  if redis.call("GET", key) == ARGV[1] then
+    ttl = redis.call("TTL", key)
+  end
+  redis.call("SET", key, ARGV[2], "EX", ttl > 0 and ttl or defaultTtl)
+end
+
+rebindOrCreate(KEYS[1], ARGV[3], "1")
+rebindOrCreate(KEYS[2], ARGV[4], "1")
+rebindOrCreate(KEYS[3], ARGV[6], ARGV[5])
+redis.call("SET", KEYS[4], ARGV[2], "EX", settingsTtl)
+redis.call("DEL", KEYS[5])
+return 1
 `;
 
 export interface SecurityGenerationProof {
@@ -51,10 +103,25 @@ export interface SecurityGenerationProof {
   userId: string;
 }
 
-export interface AdminElevationPrincipal extends SecurityGenerationProof {
+export interface StepUpHandoff extends SecurityGenerationProof {
+  authenticatedAt?: string;
+  kind: "setup-only" | "verified";
+}
+
+export interface AdminAccessPrincipal extends SecurityGenerationProof {
   disabled: boolean;
+  isSuperAdmin: boolean;
   platformRole: "admin" | "teacher" | "student";
-  twoFactorActivated: boolean;
+}
+
+export type AdminMfaKind = "none" | "regular" | "super";
+
+export function adminMfaKind(user: {
+  isSuperAdmin: boolean;
+  platformRole: "admin" | "teacher" | "student";
+}): AdminMfaKind {
+  if (user.platformRole !== "admin") return "none";
+  return user.isSuperAdmin ? "super" : "regular";
 }
 
 export function securityGenerationProof(user: {
@@ -64,18 +131,18 @@ export function securityGenerationProof(user: {
   return { userId: user.id, securityGeneration: user.securityGeneration };
 }
 
-export function adminElevationPrincipal(user: {
+export function adminAccessPrincipal(user: {
   disabled: boolean;
   id: string;
+  isSuperAdmin: boolean;
   platformRole: "admin" | "teacher" | "student";
   securityGeneration: number;
-  twoFactorActivated: boolean;
-}): AdminElevationPrincipal {
+}): AdminAccessPrincipal {
   return {
     ...securityGenerationProof(user),
     disabled: user.disabled,
+    isSuperAdmin: user.isSuperAdmin,
     platformRole: user.platformRole,
-    twoFactorActivated: user.twoFactorActivated,
   };
 }
 
@@ -124,13 +191,24 @@ export async function clearStepUp(sessionId: string): Promise<void> {
   await getRedis().del(keys.apiTokenStepUp(sessionId));
 }
 
+export async function clearVerifiedSessionProofs(sessionId: string): Promise<void> {
+  await getRedis().del(
+    keys.apiTokenStepUp(sessionId),
+    keys.tokenPageMfa(sessionId),
+    keys.adminSessionMfa(sessionId),
+    keys.adminMode(sessionId),
+  );
+}
+
 export async function createStepUpHandoffTicket(
   proof: SecurityGenerationProof,
+  kind: "setup-only" | "verified" = "verified",
+  authenticatedAt?: string,
 ): Promise<string> {
   const ticket = randomBytes(32).toString("base64url");
   await getRedis().set(
     keys.stepUpHandoffTicket(ticket),
-    JSON.stringify(proof),
+    JSON.stringify({ ...proof, kind, ...(authenticatedAt ? { authenticatedAt } : {}) }),
     "EX",
     STEPUP_HANDOFF_TICKET_TTL_SECONDS,
   );
@@ -139,30 +217,98 @@ export async function createStepUpHandoffTicket(
 
 export async function consumeStepUpHandoffTicket(
   ticket: string,
-): Promise<SecurityGenerationProof | null> {
+): Promise<StepUpHandoff | null> {
   const value = await getRedis().getdel(keys.stepUpHandoffTicket(ticket));
-  return value === null ? null : parseSecurityGenerationProof(value);
+  if (value === null) return null;
+  const proof = parseSecurityGenerationProof(value);
+  if (!proof) return null;
+  const parsed = JSON.parse(value) as Record<string, unknown>;
+  if (parsed.kind !== "setup-only" && parsed.kind !== "verified") return null;
+  if (
+    parsed.authenticatedAt !== undefined &&
+    (typeof parsed.authenticatedAt !== "string" ||
+      Number.isNaN(new Date(parsed.authenticatedAt).getTime()))
+  ) {
+    return null;
+  }
+  return {
+    ...proof,
+    kind: parsed.kind,
+    ...(typeof parsed.authenticatedAt === "string"
+      ? { authenticatedAt: parsed.authenticatedAt }
+      : {}),
+  };
 }
 
 export async function markVerifiedSession(
   sessionId: string,
   proof: SecurityGenerationProof,
-  adminMfa: boolean,
+  adminMfa: AdminMfaKind,
 ): Promise<boolean> {
   if (!(await isSecurityGenerationCurrent(proof))) return false;
   await getRedis().eval(
     MARK_VERIFIED_SESSION,
-    3,
+    4,
     keys.apiTokenStepUp(sessionId),
     keys.tokenPageMfa(sessionId),
     keys.adminSessionMfa(sessionId),
+    keys.securitySettingsGrant(sessionId),
     securityGenerationMarker(proof),
     STEPUP_TTL_SECONDS,
     TOKEN_PAGE_MFA_TTL_SECONDS,
-    adminMfa ? "1" : "0",
-    ADMIN_MFA_TTL_SECONDS,
+    adminMfa === "none" ? "0" : "1",
+    adminMfa === "super" ? SUPER_ADMIN_MFA_TTL_SECONDS : ADMIN_MFA_TTL_SECONDS,
+    SECURITY_SETTINGS_TTL_SECONDS,
   );
   return true;
+}
+
+export async function rebindVerifiedSessionAfterSecurityChange(
+  sessionId: string,
+  previousProof: SecurityGenerationProof,
+  currentProof: SecurityGenerationProof,
+): Promise<boolean> {
+  if (!(await isSecurityGenerationCurrent(currentProof))) return false;
+  await getRedis().eval(
+    REBIND_VERIFIED_SESSION,
+    5,
+    keys.apiTokenStepUp(sessionId),
+    keys.tokenPageMfa(sessionId),
+    keys.adminSessionMfa(sessionId),
+    keys.securitySettingsGrant(sessionId),
+    keys.adminMode(sessionId),
+    securityGenerationMarker(previousProof),
+    securityGenerationMarker(currentProof),
+  );
+  return true;
+}
+
+export async function markFactorChangeVerifiedSession(
+  sessionId: string,
+  previousProof: SecurityGenerationProof,
+  currentProof: SecurityGenerationProof,
+  adminMfa: AdminMfaKind,
+): Promise<boolean> {
+  if (!(await isSecurityGenerationCurrent(currentProof))) return false;
+  return (
+    Number(
+      await getRedis().eval(
+        MARK_FACTOR_CHANGE_VERIFIED_SESSION,
+        5,
+        keys.apiTokenStepUp(sessionId),
+        keys.tokenPageMfa(sessionId),
+        keys.adminSessionMfa(sessionId),
+        keys.securitySettingsGrant(sessionId),
+        keys.adminMode(sessionId),
+        securityGenerationMarker(previousProof),
+        securityGenerationMarker(currentProof),
+        STEPUP_TTL_SECONDS,
+        TOKEN_PAGE_MFA_TTL_SECONDS,
+        adminMfa === "none" ? "0" : "1",
+        adminMfa === "super" ? SUPER_ADMIN_MFA_TTL_SECONDS : ADMIN_MFA_TTL_SECONDS,
+      ),
+    ) === 1
+  );
 }
 
 export async function hasAdminSessionMfa(
@@ -187,17 +333,17 @@ export function isSuperAdminSessionExpired(createdAt: Date, now: Date = new Date
   return now.getTime() - createdAt.getTime() > SUPER_ADMIN_SESSION_MAX_AGE_MS;
 }
 
-export async function grantAdminElevation(
+export async function grantAdminMode(
   sessionId: string,
-  principal: AdminElevationPrincipal,
+  principal: AdminAccessPrincipal,
 ): Promise<boolean> {
   if (
     principal.platformRole !== "admin" ||
     principal.disabled ||
-    !principal.twoFactorActivated ||
+    principal.isSuperAdmin ||
     !(await isSecurityGenerationCurrent(principal))
   ) {
-    await revokeAdminElevation(sessionId);
+    await revokeAdminAccess(sessionId);
     return false;
   }
   const marker = securityGenerationMarker(principal);
@@ -208,24 +354,23 @@ export async function grantAdminElevation(
     keys.apiTokenStepUp(sessionId),
     keys.adminMode(sessionId),
     marker,
-    ADMIN_MFA_TTL_SECONDS,
+    ADMIN_MODE_TTL_SECONDS,
   );
   return result === 1;
 }
 
-export async function resolveAdminElevation(
+export async function resolveAdminAccess(
   sessionId: string,
-  principal: AdminElevationPrincipal,
+  principal: AdminAccessPrincipal,
 ): Promise<boolean> {
-  if (
-    principal.platformRole !== "admin" ||
-    principal.disabled ||
-    !principal.twoFactorActivated
-  ) {
-    await revokeAdminElevation(sessionId);
+  if (principal.platformRole !== "admin" || principal.disabled) {
+    await revokeAdminAccess(sessionId);
     return false;
   }
   const marker = securityGenerationMarker(principal);
+  if (principal.isSuperAdmin) {
+    return (await getRedis().get(keys.adminSessionMfa(sessionId))) === marker;
+  }
   const result = await getRedis().eval(
     RESOLVE_ADMIN_ELEVATION,
     2,
@@ -236,7 +381,11 @@ export async function resolveAdminElevation(
   return result === 1;
 }
 
-export async function revokeAdminElevation(sessionId: string): Promise<void> {
+export async function exitAdminMode(sessionId: string): Promise<void> {
+  await getRedis().del(keys.adminMode(sessionId));
+}
+
+export async function revokeAdminAccess(sessionId: string): Promise<void> {
   await getRedis().del(keys.adminSessionMfa(sessionId), keys.adminMode(sessionId));
 }
 

@@ -31,7 +31,7 @@ function stubEvent(user: SessionLike | null): RequestEvent {
   return {
     locals: {
       sessionUser: user,
-      adminModeActive: user?.platformRole === "admin",
+      adminAccessActive: user?.platformRole === "admin",
     },
   } as unknown as RequestEvent;
 }

@@ -27,9 +27,9 @@ export type CompletedActorContext = ActorContext & { username: string };
 
 export function resolveEffectivePlatformRole(
   storedRole: PlatformRole,
-  adminModeActive: boolean,
+  adminAccessActive: boolean,
 ): PlatformRole {
-  if (storedRole === "admin" && !adminModeActive) return "student";
+  if (storedRole === "admin" && !adminAccessActive) return "student";
   return storedRole;
 }
 
@@ -51,7 +51,7 @@ export function getActorContext(event: Pick<RequestEvent, "locals">): ActorConte
     username: sessionUser.username,
     platformRole: resolveEffectivePlatformRole(
       sessionUser.platformRole,
-      event.locals.adminModeActive,
+      event.locals.adminAccessActive,
     ),
     userId: sessionUser.id,
   };

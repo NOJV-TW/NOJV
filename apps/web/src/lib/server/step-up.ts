@@ -1,19 +1,19 @@
-import type { RequestEvent } from "@sveltejs/kit";
-
 import {
-  adminElevationPrincipal,
+  adminAccessPrincipal,
   clearStepUp,
+  clearVerifiedSessionProofs,
   consumeTotpCode,
-  grantAdminElevation,
+  exitAdminMode,
+  grantAdminMode,
   hasAdminSessionMfa,
   hasFreshStepUp,
   hasTokenPageMfa,
   isSecurityGenerationCurrent,
   isSuperAdminSessionExpired,
-  isTwoFactorActivated,
   markVerifiedSession,
-  resolveAdminElevation,
-  revokeAdminElevation,
+  rebindVerifiedSessionAfterSecurityChange,
+  resolveAdminAccess,
+  revokeAdminAccess,
   securityGenerationMarker,
   securityGenerationProof,
   userHasCredentialPassword,
@@ -28,19 +28,21 @@ import {
 } from "$lib/server/auth-factor-mutation";
 
 export {
-  adminElevationPrincipal,
+  adminAccessPrincipal,
   clearStepUp,
+  clearVerifiedSessionProofs,
   consumeTotpCode,
-  grantAdminElevation,
+  exitAdminMode,
+  grantAdminMode,
   hasAdminSessionMfa,
   hasFreshStepUp,
   hasTokenPageMfa,
   isSecurityGenerationCurrent,
   isSuperAdminSessionExpired,
-  isTwoFactorActivated,
   markVerifiedSession,
-  resolveAdminElevation,
-  revokeAdminElevation,
+  rebindVerifiedSessionAfterSecurityChange,
+  resolveAdminAccess,
+  revokeAdminAccess,
   securityGenerationMarker,
   securityGenerationProof,
   userHasCredentialPassword,
@@ -56,14 +58,6 @@ export async function verifyTotpStepUp(code: string, headers: Headers): Promise<
   } catch {
     return false;
   }
-}
-
-export async function hasStepUpFactor(event: RequestEvent): Promise<boolean> {
-  const userId = event.locals.sessionUser?.id;
-  if (!userId || !(await isTwoFactorActivated(userId))) return false;
-  if (event.locals.sessionUser?.twoFactorEnabled) return true;
-  const passkeys = await getAuth().api.listPasskeys({ headers: event.request.headers });
-  return passkeys.length > 0;
 }
 
 export type StepUpVerifyResult =

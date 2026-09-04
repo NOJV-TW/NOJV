@@ -135,7 +135,9 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 - Session tokens transported as httpOnly, Secure (in production) cookies
 - IP address and user-agent tracked per session in PostgreSQL `Session` table
 - Session expiry enforced server-side
-- OAuth and password sessions for stored admin accounts start with the effective `student` role. Every transition into admin mode requires enabled 2FA plus a fresh TOTP or passkey step-up bound to the current session and security generation.
+- Regular admin sessions start with the effective `student` role. TOTP/passkey verification creates a generation-bound ten-minute re-entry proof; `/api/admin-mode` turns that into a seven-day per-session admin-access grant. Super admins instead require password plus TOTP/passkey on every new session and receive admin access directly, with a 24-hour maximum measured from the original password authentication.
+- Super admins cannot sign in or link through OAuth, cannot use a passkey before password verification, and cannot call `/api/admin-mode`. Passkey session replacement preserves the original authentication time.
+- Security settings are unlocked for ten minutes by first-setup email OTP only when no factor exists, otherwise by TOTP/passkey. Backup codes and recovery email OTP issue setup-only recovery authority, never admin authority. Redis failure, stale generation, and concurrent final-factor removal fail closed.
 - Profile completion gate: `hasActorUsername(actor)` required before accessing content
 - `hooks.server.ts` resolves session on every request via `auth.api.getSession()`
 
@@ -145,6 +147,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 - **Session hijack via cookie theft**: XSS or network interception steals session cookie. _Mitigation_: httpOnly prevents JS access. Secure flag in production enforces HTTPS. Session IP/UA tracking enables anomaly detection.
 - **OAuth callback replay**: Attacker captures and replays OAuth authorization code. _Mitigation_: better-auth validates `state` parameter and uses single-use authorization codes per OAuth spec.
 - **Session fixation**: Attacker pre-sets a session token before victim authenticates. _Mitigation_: better-auth generates new session token on successful authentication.
+- **Recovery bypass to admin access**: Attacker uses a stolen backup code or email account to recover a super admin. _Mitigation_: recovery also requires the credential password, revokes other sessions, deletes old factors, and restricts the resulting session to new-factor setup until a TOTP/passkey assertion succeeds.
 - **`BETTER_AUTH_SECRET` leakage**: Attacker reads secret from exposed `.env` or logs. _Mitigation_: `.env` is gitignored. Production secrets stored in GCP Secret Manager. Secret never logged.
 
 ### 3.2 API Authorization and Role Enforcement
@@ -164,7 +167,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 
 **Attacker stories:**
 
-- **Privilege escalation (student -> admin)**: Student manipulates a request to access admin endpoints. _Mitigation_: `requirePlatformRole(actor, "admin")` checks the server-computed effective role, not a request value or the stored role directly. A stored admin role remains effectively `student` until the session has completed the 2FA-backed admin-mode transition.
+- **Privilege escalation (student -> admin)**: Student manipulates a request to access admin endpoints. _Mitigation_: `requirePlatformRole(actor, "admin")` checks the server-computed effective role, not a request value or stored role alone. Regular admins need a valid admin-mode grant; super admins need a valid password-plus-factor session proof.
 - **IDOR on submissions**: Student accesses another student's submission by guessing submission ID. _Mitigation_: `getSubmissionForUser()` checks `submission.userId === userId` unless `isAdmin` is true. Returns 404 on mismatch.
 - **IDOR on source code**: Student reads another's source code via `/api/submissions/[id]/source`. _Mitigation_: Same ownership check as above — `getSubmissionForUser(submissionId, userId, isAdmin)`.
 - **Course role bypass**: Student accesses course management without enrollment. _Mitigation_: `resolveCoursePermission(courseSlug, actor)` queries `CourseMembership` from DB. `canManageCourse()` requires admin, teacher, or TA effective role.

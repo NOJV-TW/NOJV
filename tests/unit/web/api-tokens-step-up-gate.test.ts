@@ -2,11 +2,11 @@ import type { RequestEvent } from "@sveltejs/kit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  isTwoFactorActivatedMock,
+  getSecurityFactorStateMock,
   hasTokenPageMfaMock,
   hasFreshStepUpMock,
   markVerifiedSessionMock,
-  grantAdminElevationMock,
+  grantAdminModeMock,
   verifyStepUpCodeMock,
   createApiTokenMock,
   updateApiTokenMock,
@@ -16,11 +16,11 @@ const {
   apiConsumeMock,
   formLimitMock,
 } = vi.hoisted(() => ({
-  isTwoFactorActivatedMock: vi.fn(),
+  getSecurityFactorStateMock: vi.fn(),
   hasTokenPageMfaMock: vi.fn(),
   hasFreshStepUpMock: vi.fn(),
   markVerifiedSessionMock: vi.fn(),
-  grantAdminElevationMock: vi.fn(),
+  grantAdminModeMock: vi.fn(),
   verifyStepUpCodeMock: vi.fn(),
   createApiTokenMock: vi.fn(),
   updateApiTokenMock: vi.fn(),
@@ -42,11 +42,10 @@ vi.mock("$lib/server/step-up", async () => {
     await vi.importActual<typeof import("$lib/server/step-up")>("$lib/server/step-up");
   return {
     ...actual,
-    isTwoFactorActivated: isTwoFactorActivatedMock,
     hasTokenPageMfa: hasTokenPageMfaMock,
     hasFreshStepUp: hasFreshStepUpMock,
     markVerifiedSession: markVerifiedSessionMock,
-    grantAdminElevation: grantAdminElevationMock,
+    grantAdminMode: grantAdminModeMock,
     verifyStepUpCode: verifyStepUpCodeMock,
   };
 });
@@ -55,6 +54,7 @@ vi.mock("@nojv/application", async () => {
   const actual = await vi.importActual<typeof import("@nojv/application")>("@nojv/application");
   return {
     ...actual,
+    getSecurityFactorState: getSecurityFactorStateMock,
     apiTokenDomain: {
       ...actual.apiTokenDomain,
       createApiToken: createApiTokenMock,
@@ -85,7 +85,6 @@ function makeEvent(body?: FormData): RequestEvent {
         emailVerified: true,
         platformRole: "student",
         twoFactorEnabled: true,
-        twoFactorActivated: true,
         disabled: false,
         isSuperAdmin: false,
         mustChangePassword: false,
@@ -126,11 +125,15 @@ async function caught(
 }
 
 beforeEach(() => {
-  isTwoFactorActivatedMock.mockReset().mockResolvedValue(true);
+  getSecurityFactorStateMock.mockReset().mockResolvedValue({
+    hasPasskey: false,
+    hasSecurityFactor: true,
+    hasTotp: true,
+  });
   hasTokenPageMfaMock.mockReset().mockResolvedValue(true);
   hasFreshStepUpMock.mockReset().mockResolvedValue(true);
   markVerifiedSessionMock.mockReset().mockResolvedValue(true);
-  grantAdminElevationMock.mockReset().mockResolvedValue(true);
+  grantAdminModeMock.mockReset().mockResolvedValue(true);
   verifyStepUpCodeMock.mockReset();
   createApiTokenMock.mockReset();
   updateApiTokenMock.mockReset();
@@ -142,12 +145,12 @@ beforeEach(() => {
 });
 
 describe("api-tokens load gate", () => {
-  it("redirects to account setup when the master switch is off", async () => {
-    isTwoFactorActivatedMock.mockResolvedValue(false);
+  it("redirects to account setup when no security factor exists", async () => {
+    getSecurityFactorStateMock.mockResolvedValue({ hasSecurityFactor: false });
     const thrown = await caught(() => load(makeEvent()));
     expect(thrown.status).toBe(302);
     expect(thrown.location).toBe(
-      "/settings?setup2fa=1&returnTo=" + encodeURIComponent("/account/api-tokens"),
+      "/settings?setupSecurity=1&returnTo=" + encodeURIComponent("/account/api-tokens"),
     );
   });
 
@@ -174,11 +177,11 @@ describe("api-token access status", () => {
     const response = await apiTokenAccess(event);
 
     expect(response.status).toBe(401);
-    expect(isTwoFactorActivatedMock).not.toHaveBeenCalled();
+    expect(getSecurityFactorStateMock).not.toHaveBeenCalled();
   });
 
-  it("requires setup when the master switch is off", async () => {
-    isTwoFactorActivatedMock.mockResolvedValue(false);
+  it("requires setup when no security factor exists", async () => {
+    getSecurityFactorStateMock.mockResolvedValue({ hasSecurityFactor: false });
 
     const response = await apiTokenAccess(makeEvent());
 
@@ -244,16 +247,16 @@ describe("api-tokens action guard", () => {
   );
 
   it.each(guardedActions)(
-    "%s returns fail(403) when the master switch is off",
+    "%s returns fail(403) when no security factor exists",
     async (_name, getAction, domainMock) => {
-      isTwoFactorActivatedMock.mockResolvedValue(false);
+      getSecurityFactorStateMock.mockResolvedValue({ hasSecurityFactor: false });
       const result = await getAction()(makeEvent());
       expect(result).toMatchObject({ status: 403 });
       expect(domainMock).not.toHaveBeenCalled();
     },
   );
 
-  it("create proceeds to the domain call when activated and the step-up is fresh", async () => {
+  it("create proceeds when a factor exists and the step-up is fresh", async () => {
     createApiTokenMock.mockResolvedValue({ token: "tok", item: { id: "t1" } });
     const result = await actions.create(makeEvent());
     expect(createApiTokenMock).toHaveBeenCalledOnce();
@@ -313,7 +316,7 @@ describe("api-tokens verify action", () => {
     expect(markVerifiedSessionMock).toHaveBeenCalledWith(
       "sess_1",
       { userId: "usr_1", securityGeneration: 7 },
-      false,
+      "none",
     );
     expect(thrown.status).toBe(303);
     expect(thrown.location).toBe("/account/api-tokens");
@@ -335,12 +338,12 @@ describe("api-tokens verify action", () => {
     );
 
     const proof = { userId: "usr_1", securityGeneration: 7 };
-    expect(markVerifiedSessionMock).toHaveBeenCalledWith("sess_1", proof, true);
-    expect(grantAdminElevationMock).toHaveBeenCalledWith("sess_1", {
+    expect(markVerifiedSessionMock).toHaveBeenCalledWith("sess_1", proof, "regular");
+    expect(grantAdminModeMock).toHaveBeenCalledWith("sess_1", {
       ...proof,
       disabled: false,
       platformRole: "admin",
-      twoFactorActivated: true,
+      isSuperAdmin: false,
     });
     expect(thrown).toEqual({ status: 303, location: "/admin" });
   });
@@ -354,7 +357,7 @@ describe("api-tokens verify action", () => {
       ),
     );
 
-    expect(grantAdminElevationMock).not.toHaveBeenCalled();
+    expect(grantAdminModeMock).not.toHaveBeenCalled();
     expect(thrown).toEqual({ status: 303, location: "/account/api-tokens" });
   });
 

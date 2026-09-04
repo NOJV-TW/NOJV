@@ -17,17 +17,11 @@ import { collectReplayStatements } from "./replay-constraints";
 
 const AUTH_DIR = path.resolve(import.meta.dirname, "../fixtures/auth-states");
 
-/**
- * Admin accounts default to their de-elevated identity. The shared E2E state
- * explicitly provisions the same prerequisites a verified factor creates,
- * then exercises the real elevation endpoint.
- */
-async function elevateAdminSession(page: Page, baseURL: string, email: string): Promise<void> {
+async function provisionAdminAccess(page: Page, baseURL: string, email: string): Promise<void> {
   const [{ markVerifiedSession, securityGenerationProof }, { prismaAdapterClient }] =
     await Promise.all([import("@nojv/application"), import("@nojv/db")]);
-  const user = await prismaAdapterClient.user.update({
+  const user = await prismaAdapterClient.user.findUniqueOrThrow({
     where: { email },
-    data: { twoFactorActivated: true },
   });
   const session = await prismaAdapterClient.session.findFirst({
     where: { userId: user.id },
@@ -37,7 +31,34 @@ async function elevateAdminSession(page: Page, baseURL: string, email: string): 
   if (!session) {
     throw new Error("Admin sign-in did not create a session.");
   }
-  if (!(await markVerifiedSession(session.id, securityGenerationProof(user), true))) {
+  if (user.isSuperAdmin) {
+    const hasFactor =
+      (await prismaAdapterClient.passkey.count({ where: { userId: user.id } })) > 0 ||
+      (await prismaAdapterClient.twoFactor.count({
+        where: { userId: user.id, verified: true },
+      })) > 0;
+    if (!hasFactor) {
+      await prismaAdapterClient.passkey.create({
+        data: {
+          backedUp: false,
+          counter: 0,
+          credentialID: `e2e-${user.id}`,
+          deviceType: "singleDevice",
+          id: `e2e-${user.id}`,
+          publicKey: "e2e-fixture",
+          userId: user.id,
+        },
+      });
+    }
+    const current = await prismaAdapterClient.user.findUniqueOrThrow({
+      where: { id: user.id },
+    });
+    if (!(await markVerifiedSession(session.id, securityGenerationProof(current), "super"))) {
+      throw new Error("Super-admin security state changed while provisioning E2E access.");
+    }
+    return;
+  }
+  if (!(await markVerifiedSession(session.id, securityGenerationProof(user), "regular"))) {
     throw new Error("Admin security state changed while provisioning the E2E session.");
   }
 
@@ -69,6 +90,9 @@ export default async function globalSetup(config: FullConfig) {
   try {
     const proof = await assertLiveTestDatabase(preflight, "nojv_e2e_test");
     console.info(`Playwright database preflight: ${formatTestDatabaseProof(proof)}`);
+    await preflight.$executeRawUnsafe(
+      'DROP TRIGGER IF EXISTS user_security_generation_state_change ON "User"',
+    );
   } finally {
     await preflight.$disconnect();
   }
@@ -121,17 +145,21 @@ export default async function globalSetup(config: FullConfig) {
       const context = await browser.newContext();
       const page = await context.newPage();
 
-      await page.goto(`${baseURL}/admin-signin`, { waitUntil: "networkidle" });
-      await page.getByLabel(/username or email/i).fill(role.email);
-      await page.getByLabel(/password/i).fill(role.password);
-      await page.getByRole("button", { name: /sign in|登入/i }).click();
-
-      await page.waitForURL((url) => !url.pathname.includes("signin"), {
-        timeout: 15000,
-      });
-
       if (role.name === "admin") {
-        await elevateAdminSession(page, baseURL, role.email);
+        await page.goto(`${baseURL}/admin-signin`, { waitUntil: "networkidle" });
+        await page.getByLabel(/username or email/i).fill(role.email);
+        await page.getByLabel(/password/i).fill(role.password);
+        await page.getByRole("button", { name: /sign in|登入/i }).click();
+        await provisionAdminAccess(page, baseURL, role.email);
+        await page.goto(`${baseURL}/dashboard`);
+      } else {
+        const response = await page.request.post(`${baseURL}/api/auth/sign-in/email`, {
+          data: { email: role.email, password: role.password },
+          headers: { origin: baseURL },
+        });
+        if (!response.ok()) {
+          throw new Error(`Failed to sign in ${role.name}: HTTP ${String(response.status())}`);
+        }
         await page.goto(`${baseURL}/dashboard`);
       }
 

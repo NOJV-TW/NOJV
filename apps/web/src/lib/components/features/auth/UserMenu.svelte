@@ -15,8 +15,8 @@
 
   let user = $derived(page.data.user);
   let session = $derived(page.data.session);
-  let canActAsAdmin = $derived(user?.platformRole === "admin");
-  let actingAsAdmin = $derived(page.data.actingAsAdmin ?? false);
+  let canSwitchAdminMode = $derived(user?.platformRole === "admin" && !user.isSuperAdmin);
+  let adminAccessActive = $derived(page.data.adminAccessActive ?? false);
   let adminBusy = $state(false);
   let apiTokenBusy = $state(false);
   let stepUpOpen = $state(false);
@@ -76,7 +76,7 @@
   async function toggleAdminMode() {
     if (adminBusy) return;
     adminBusy = true;
-    const active = !actingAsAdmin;
+    const active = !adminAccessActive;
     try {
       const r = await fetchWithCsrf("/api/admin-mode", {
         method: "POST",
@@ -92,13 +92,7 @@
       };
       open = false;
       if (result.verificationRequired) {
-        if (user.twoFactorActivated) {
-          await openStepUp("admin-mode");
-        } else {
-          await goto(
-            "/settings?setup2fa=1&returnTo=%2Faccount%2Fapi-tokens%2Fverify%3Fpurpose%3Dadmin-mode",
-          );
-        }
+        await openStepUp("admin-mode");
         return;
       }
       if (result.active !== active) return;
@@ -268,17 +262,17 @@
           </button>
         {/if}
 
-        {#if canActAsAdmin}
+        {#if canSwitchAdminMode}
           <button
             class="flex w-full items-center gap-2 px-4 py-2 text-left text-body-sm transition-colors duration-fast ease-out-soft hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
-            class:text-primary={actingAsAdmin}
+            class:text-primary={adminAccessActive}
             onclick={toggleAdminMode}
             disabled={adminBusy}
             type="button"
             role="menuitem"
           >
             <ShieldIcon aria-hidden="true" size={16} />
-            {actingAsAdmin ? m.userMenu_exitAdminMode() : m.userMenu_enterAdminMode()}
+            {adminAccessActive ? m.userMenu_exitAdminMode() : m.userMenu_enterAdminMode()}
           </button>
         {/if}
 

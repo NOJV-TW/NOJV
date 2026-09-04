@@ -1,10 +1,10 @@
-import { securityGenerationProof } from "@nojv/application";
+import { getSecurityFactorState, securityGenerationProof } from "@nojv/application";
 import { json } from "@sveltejs/kit";
 
 import type { RequestHandler } from "./$types";
 
 import { HttpError, requireApiAuth } from "$lib/server/auth";
-import { hasTokenPageMfa, isTwoFactorActivated } from "$lib/server/step-up";
+import { hasTokenPageMfa } from "$lib/server/step-up";
 import { apiHandler } from "$lib/server/shared/api-handler";
 
 export const GET: RequestHandler = apiHandler(async (event) => {
@@ -15,7 +15,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
     throw new HttpError("Session authentication is required.", 401);
   }
 
-  if (!(await isTwoFactorActivated(sessionUser.id))) {
+  if (!(await getSecurityFactorState(sessionUser.id))?.hasSecurityFactor) {
     return json({ setupRequired: true, verificationRequired: false });
   }
 

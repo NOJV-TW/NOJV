@@ -145,7 +145,7 @@ Indexes & constraints: `@@index([userId])`
 | `lockedUntil` | `DateTime?` | — |
 | `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
 
-Indexes & constraints: `@@index([secret])`, `@@index([userId])`
+Indexes & constraints: `@@unique([userId])`, `@@index([secret])`
 
 #### `User`
 
@@ -164,7 +164,6 @@ Indexes & constraints: `@@index([secret])`, `@@index([userId])`
 | `status` | `UserStatus` | `@default(active)` |
 | `mustChangePassword` | `Boolean` | `@default(false)` |
 | `twoFactorEnabled` | `Boolean` | `@default(false)` |
-| `twoFactorActivated` | `Boolean` | `@default(false)` |
 | `securityGeneration` | `Int` | `@default(0)` |
 | `profilePublic` | `Boolean` | `@default(false)` |
 | `canCreateAdvancedProblems` | `Boolean` | `@default(false)` |

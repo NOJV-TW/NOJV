@@ -2,10 +2,9 @@ import { createHmac } from "node:crypto";
 
 import { expect, type Page } from "@playwright/test";
 
-import { TEST_PASSWORD } from "./_disposable-user";
-import { formActionHeaders, readLiveSession } from "./_shared";
+import { readLiveSession } from "./_shared";
 
-const ACTIVATION_OTP = "314159";
+const EMAIL_OTP = "314159";
 
 function base32Decode(input: string): Buffer {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -45,28 +44,22 @@ export async function nextTotp(secretBase32: string, previousCode: string): Prom
   return code;
 }
 
-export async function activateTwoFactor(page: Page): Promise<void> {
-  await page.goto("/settings?setup2fa=1");
-
-  const dialog = page.getByRole("dialog", { name: "Turn on two-factor authentication" });
+export async function unlockSecuritySettings(page: Page): Promise<void> {
+  await page.goto("/settings?setupSecurity=1");
+  const dialog = page.getByRole("dialog", { name: "Verify to edit security settings" });
   await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Email me a code" }).click();
+  const otpInput = dialog.getByLabel("6-digit email code");
+  await expect(otpInput).toBeVisible();
 
-  const [{ user }, { storeActivationOtp }] = await Promise.all([
+  const [{ user }, { storeSecuritySetupOtp }] = await Promise.all([
     readLiveSession(page),
     import("@nojv/application"),
   ]);
-  await storeActivationOtp(user.id, ACTIVATION_OTP);
-
-  const response = await page.request.post("/settings?/activate", {
-    form: { otp: ACTIVATION_OTP },
-    headers: formActionHeaders,
-  });
-  const result = (await response.json()) as { type: string; status: number };
-  expect(result).toMatchObject({ type: "success", status: 200 });
-
-  await page.goto("/settings");
-  await page.waitForTimeout(3000);
-  await expect(page.getByRole("button", { name: "Turn off", exact: true })).toBeVisible();
+  await storeSecuritySetupOtp(user.id, EMAIL_OTP);
+  await otpInput.fill(EMAIL_OTP);
+  await dialog.getByRole("button", { name: "Verify and continue" }).click();
+  await expect(dialog).toBeHidden({ timeout: 10_000 });
 }
 
 export function settingsMethodRow(page: Page, method: string) {
@@ -75,15 +68,14 @@ export function settingsMethodRow(page: Page, method: string) {
 
 export async function enrollTotp(
   page: Page,
-  password: string = TEST_PASSWORD,
 ): Promise<{ secret: string; verificationCode: string }> {
-  await page.goto("/settings?verify=totp");
+  await page.goto("/settings", { waitUntil: "networkidle" });
+  await settingsMethodRow(page, "Authenticator app (TOTP)")
+    .getByRole("button", { name: "Set up", exact: true })
+    .click();
   const dialog = page.getByRole("dialog", { name: "Authenticator app (TOTP)" });
   await expect(dialog).toBeVisible();
-  await dialog.locator('input[name="password"]').fill(password);
-  const enableButton = dialog.getByRole("button", { name: "Enable 2FA" });
-  await expect(enableButton).toBeEnabled();
-  await enableButton.click();
+  await dialog.getByRole("button", { name: "Set up", exact: true }).click();
 
   const manualKey = dialog.locator("code").first();
   await expect(manualKey).toBeVisible({ timeout: 10_000 });
@@ -92,8 +84,10 @@ export async function enrollTotp(
 
   await dialog.locator('input[type="checkbox"]').check();
   const verificationCode = currentTotp(secret);
-  await dialog.locator('form[action="?/verify"] input[name="code"]').fill(verificationCode);
-  await dialog.getByRole("button", { name: "Verify & activate" }).click();
+  await dialog
+    .locator('form[action="?/confirmTotpSetup"] input[name="code"]')
+    .fill(verificationCode);
+  await dialog.getByRole("button", { name: "Confirm and finish setup" }).click();
   await expect(dialog).toBeHidden({ timeout: 10_000 });
   return { secret, verificationCode };
 }

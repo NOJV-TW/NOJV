@@ -4,11 +4,10 @@ import path from "node:path";
 
 import { psql, signInWithPassword } from "./_disposable-user";
 import { readLiveSession } from "./_shared";
-import { activateTwoFactor, enrollTotp, nextTotp } from "./_two-factor";
+import { enrollTotp, nextTotp, unlockSecuritySettings } from "./_two-factor";
 
 const studentAuth = path.resolve(import.meta.dirname, "../fixtures/auth-states/student.json");
 
-const SEED_PASSWORD = "password123";
 const TEMP_USER_ID = `api-token-stepup-${Date.now()}`;
 const TEMP_ACCOUNT_ID = `${TEMP_USER_ID}-account`;
 const TEMP_EMAIL = `${TEMP_USER_ID}@nojv.local`;
@@ -55,7 +54,9 @@ test.describe("API token step-up", () => {
     const page = await context.newPage();
 
     await page.goto("/account/api-tokens");
-    await expect(page).toHaveURL(/\/settings\?setup2fa=1&returnTo=%2Faccount%2Fapi-tokens/);
+    await expect(page).toHaveURL(
+      /\/settings\?setupSecurity=1&returnTo=%2Faccount%2Fapi-tokens/,
+    );
 
     await context.close();
   });
@@ -71,40 +72,29 @@ test.describe("API token step-up", () => {
     await signInWithPassword(page, TEMP_EMAIL);
     await signInWithPassword(otherPage, TEMP_EMAIL);
 
-    await activateTwoFactor(page);
+    await unlockSecuritySettings(page);
 
-    const { secret, verificationCode } = await enrollTotp(page, SEED_PASSWORD);
+    const { secret, verificationCode } = await enrollTotp(page);
 
-    // Enrollment changes the factor set, so its assertion cannot authorize the
-    // post-enrollment security generation. The same TOTP is explicitly replay-blocked.
+    // Enrollment binds the shared session proof to the new security generation.
     await page.goto("/account/api-tokens");
-    await expect(page).toHaveURL(/\/account\/api-tokens\/verify$/);
-    const enrollingStepUpCode = page.locator('input[name="code"]');
-    await enrollingStepUpCode.fill(verificationCode);
-    await page.locator('button[type="submit"]').click();
-    await expect(page.getByRole("alert")).toContainText("already used");
-
-    const firstFreshCode = await nextTotp(secret, verificationCode);
-    await enrollingStepUpCode.fill(firstFreshCode);
-    await page.locator('button[type="submit"]').click();
     await expect(page).toHaveURL(/\/account\/api-tokens$/);
     await expect(page.getByRole("button", { name: /Create token/i })).toBeVisible();
     const enrolledSession = await readLiveSession(page);
     steppedUpSessionIds.add(enrolledSession.session.id);
 
-    // A different session receives no grant. TOTP replay prevention is
-    // account-wide, so it must wait for one more authenticator window.
+    // A different session receives no grant.
     await otherPage.goto("/account/api-tokens");
     await expect(otherPage).toHaveURL(/\/account\/api-tokens\/verify/);
 
     const stepUpCode = otherPage.locator('input[name="code"]');
     await stepUpCode.waitFor({ state: "visible" });
-    await stepUpCode.fill(firstFreshCode);
+    await stepUpCode.fill(verificationCode);
     await otherPage.locator('button[type="submit"]').click();
     await expect(otherPage.getByRole("alert")).toContainText("already used");
 
-    const secondFreshCode = await nextTotp(secret, firstFreshCode);
-    await stepUpCode.fill(secondFreshCode);
+    const freshCode = await nextTotp(secret, verificationCode);
+    await stepUpCode.fill(freshCode);
     await otherPage.locator('button[type="submit"]').click();
 
     await expect(otherPage).toHaveURL(/\/account\/api-tokens$/, { timeout: 10000 });

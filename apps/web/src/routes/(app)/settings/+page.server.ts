@@ -44,18 +44,20 @@ export const load: PageServerLoad = async (event) => {
   const prefs = await notificationDomain.getNotificationPreferences(locals.user.id);
   const notificationForm = await superValidate(prefs, zod4(notificationPreferencesSchema));
 
-  const linkedProviderIds = await listProviderIds(event);
   const twoFactor = await loadTwoFactor(event);
+  const linkedProviderIds = sessionUser?.isSuperAdmin ? [] : await listProviderIds(event);
 
   return {
     platformRole,
     notificationForm,
     email: locals.user.email,
     isSchoolVerified,
-    providers: LINKABLE_PROVIDERS.map((provider) => ({
-      provider,
-      linked: linkedProviderIds.includes(provider),
-    })),
+    providers: sessionUser?.isSuperAdmin
+      ? []
+      : LINKABLE_PROVIDERS.map((provider) => ({
+          provider,
+          linked: linkedProviderIds.includes(provider),
+        })),
     ...twoFactor,
   };
 };
@@ -79,6 +81,9 @@ export const actions = {
 
   link: withRateLimit(async (event) => {
     requireAuth(event);
+    if (event.locals.sessionUser?.isSuperAdmin) {
+      return fail(403, { error: "linkFailed" });
+    }
     const provider = formString(await event.request.formData(), "provider");
     if (!isLinkProvider(provider)) {
       return fail(400, { error: "unknownProvider" });
@@ -95,6 +100,9 @@ export const actions = {
 
   unlink: withRateLimit(async (event) => {
     requireAuth(event);
+    if (event.locals.sessionUser?.isSuperAdmin) {
+      return fail(403, { error: "unlinkFailed" });
+    }
     const provider = formString(await event.request.formData(), "provider");
     if (!isLinkProvider(provider)) {
       return fail(400, { error: "unknownProvider" });

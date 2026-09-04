@@ -102,13 +102,12 @@ describe("form rate-limit wrapper", () => {
       data: { error: "Rate limiter unavailable." },
     });
     const actionNames = [
-      "sendEmailOtp",
-      "activate",
-      "deactivate",
-      "enable",
-      "verify",
-      "disable",
-      "regenerate",
+      "sendSecuritySetupOtp",
+      "unlockSecuritySettings",
+      "beginTotpSetup",
+      "confirmTotpSetup",
+      "removeTotp",
+      "regenerateBackupCodes",
       "deletePasskey",
     ] as const;
     const rawActions = Object.fromEntries(actionNames.map((name) => [name, vi.fn()]));
