@@ -3,23 +3,30 @@
   import { Popover } from "bits-ui";
   import { Button } from "$lib/components/primitives/ui/button";
   import { Input } from "$lib/components/primitives/ui/input";
-  import { m } from "$lib/paraglide/messages.js";
 
   interface Props {
     label: string;
     filterLabel: string;
     inputId: string;
+    applyLabel: string;
     value: string;
-    onApply: () => void;
+    onApply?: () => void;
   }
 
-  let { label, filterLabel, inputId, value = $bindable(), onApply }: Props = $props();
+  let {
+    label,
+    filterLabel,
+    inputId,
+    applyLabel,
+    value = $bindable(),
+    onApply,
+  }: Props = $props();
   let open = $state(false);
   let draft = $state(value);
 
   function applyFilter() {
     value = draft.trim();
-    onApply();
+    onApply?.();
     open = false;
   }
 
@@ -30,7 +37,7 @@
   }
 </script>
 
-<div class="flex items-center gap-1">
+<div class="flex min-w-0 items-center gap-1">
   <Popover.Root
     bind:open
     onOpenChange={(nextOpen) => {
@@ -39,7 +46,7 @@
   >
     <Popover.Trigger
       type="button"
-      class="-ml-1 inline-flex h-8 items-center gap-1.5 rounded-sm px-1 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring {value
+      class="-ml-1 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-sm px-1 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring {value
         ? 'bg-primary/10 text-primary hover:bg-primary/15'
         : 'hover:bg-muted hover:text-foreground'}"
       aria-label={filterLabel}
@@ -65,14 +72,14 @@
             placeholder={filterLabel}
             onkeydown={handleKeydown}
           />
-          <Button type="button" size="sm" onclick={applyFilter}>{m.admin_usersSearch()}</Button>
+          <Button type="button" size="sm" onclick={applyFilter}>{applyLabel}</Button>
         </div>
       </Popover.Content>
     </Popover.Portal>
   </Popover.Root>
   {#if value}
     <span
-      class="max-w-24 truncate rounded-sm bg-primary/10 px-1.5 py-0.5 text-caption font-medium text-primary"
+      class="max-w-28 truncate rounded-sm bg-primary/10 px-1.5 py-0.5 text-caption font-medium normal-case tracking-normal text-primary"
       title={value}
     >
       {value}

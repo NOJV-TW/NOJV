@@ -31,7 +31,7 @@
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button } from "$lib/components/primitives/ui/button";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
-  import UserTextColumnFilter from "$lib/components/features/admin/users/UserTextColumnFilter.svelte";
+  import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/stores/toast";
   import { formatDate } from "$lib/utils/datetime";
@@ -395,28 +395,31 @@
           />
         </th>
         <th class="px-5 py-3 font-medium">
-          <UserTextColumnFilter
+          <TableTextColumnFilter
             label={m.admin_usersUsername()}
             filterLabel={m.admin_usersFilterUsername()}
             inputId="admin-user-username-filter"
+            applyLabel={m.admin_usersSearch()}
             bind:value={usernameFilter}
             {onApply}
           />
         </th>
         <th class="px-5 py-3 font-medium">
-          <UserTextColumnFilter
+          <TableTextColumnFilter
             label={m.admin_usersEmail()}
             filterLabel={m.admin_usersFilterEmail()}
             inputId="admin-user-email-filter"
+            applyLabel={m.admin_usersSearch()}
             bind:value={emailFilter}
             {onApply}
           />
         </th>
         <th class="px-5 py-3 font-medium">
-          <UserTextColumnFilter
+          <TableTextColumnFilter
             label={m.admin_usersName()}
             filterLabel={m.admin_usersFilterName()}
             inputId="admin-user-name-filter"
+            applyLabel={m.admin_usersSearch()}
             bind:value={nameFilter}
             {onApply}
           />

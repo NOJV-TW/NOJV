@@ -14,10 +14,10 @@
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
+  import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectColumnFilter.svelte";
   import { Button } from "$lib/components/primitives/ui/button";
-  import * as Select from "$lib/components/primitives/ui/select";
   import { formatDateTime } from "$lib/utils/datetime";
-  import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
+  import { formatVerdictLabel } from "$lib/utils/verdict-style";
   import VerdictBadge from "$lib/components/primitives/ui/VerdictBadge.svelte";
 
   let { data } = $props();
@@ -152,22 +152,6 @@
     openSubmission(id);
   }
 
-  function selectValue(value: string | undefined): string {
-    return value === "__all" || value === undefined ? "" : value;
-  }
-
-  function updateFilter(
-    filter: "problem" | "context" | "language" | "verdict",
-    value: string | undefined,
-  ) {
-    currentPage = 1;
-    const nextValue = selectValue(value);
-    if (filter === "problem") problemFilter = nextValue;
-    if (filter === "context") contextFilter = nextValue;
-    if (filter === "language") languageFilter = nextValue;
-    if (filter === "verdict") verdictFilter = nextValue;
-  }
-
   $effect(() => {
     if (pendingIds.length === 0) return;
     const unwatchers = pendingIds.map((id) =>
@@ -216,114 +200,55 @@
         <table class="w-full text-body-sm">
           <thead class="font-mono text-micro uppercase tracking-wider text-muted-foreground">
             <tr>
-              <th class="px-4 py-2.5 text-left font-medium">{m.admin_submissions_colTime()}</th>
-              <th class="px-2 py-1.5 text-left font-medium">
-                <Select.Root
-                  type="single"
-                  value={problemFilter || "__all"}
-                  onValueChange={(value) => updateFilter("problem", value)}
-                >
-                  <Select.Trigger
-                    class="h-8 max-w-48 rounded-none border-0 border-border bg-transparent px-1 font-mono text-micro uppercase tracking-wider !shadow-none dark:bg-transparent dark:hover:bg-transparent focus-visible:border-ring"
-                    aria-label={m.submissions_filterProblem()}
-                  >
-                    {problemFilter
-                      ? (problemOptions.find(([id]) => id === problemFilter)?.[1] ??
-                        m.admin_submissions_colProblem())
-                      : m.admin_submissions_colProblem()}
-                  </Select.Trigger>
-                  <Select.Content>
-                    <Select.Item value="__all" label={m.admin_submissions_colProblem()}
-                      >{m.admin_submissions_colProblem()}</Select.Item
-                    >
-                    {#each problemOptions as [id, title] (id)}
-                      <Select.Item value={id} label={title}>{title}</Select.Item>
-                    {/each}
-                  </Select.Content>
-                </Select.Root>
+              <th class="px-4 py-3 text-left align-middle font-medium">
+                {m.admin_submissions_colTime()}
               </th>
-              <th class="px-2 py-1.5 text-left font-medium">
-                <Select.Root
-                  type="single"
-                  value={contextFilter || "__all"}
-                  onValueChange={(value) => updateFilter("context", value)}
-                >
-                  <Select.Trigger
-                    class="h-8 rounded-none border-0 border-border bg-transparent px-1 font-mono text-micro uppercase tracking-wider !shadow-none dark:bg-transparent dark:hover:bg-transparent focus-visible:border-ring"
-                    aria-label={m.admin_submissions_colContext()}
-                  >
-                    {contextFilter
-                      ? contextLabel(contextFilter as SubmissionRow["context"])
-                      : m.admin_submissions_colContext()}
-                  </Select.Trigger>
-                  <Select.Content>
-                    <Select.Item value="__all" label={m.admin_submissions_colContext()}
-                      >{m.admin_submissions_colContext()}</Select.Item
-                    >
-                    {#each contextOptions as context (context)}
-                      <Select.Item value={context} label={contextLabel(context)}
-                        >{contextLabel(context)}</Select.Item
-                      >
-                    {/each}
-                  </Select.Content>
-                </Select.Root>
+              <th class="px-2 py-3 text-left align-middle font-medium">
+                <TableSelectColumnFilter
+                  label={m.admin_submissions_colProblem()}
+                  filterLabel={m.submissions_filterProblem()}
+                  options={problemOptions.map(([value, label]) => ({ value, label }))}
+                  bind:value={problemFilter}
+                  onChange={() => (currentPage = 1)}
+                />
               </th>
-              <th class="px-2 py-1.5 text-left font-medium">
-                <Select.Root
-                  type="single"
-                  value={languageFilter || "__all"}
-                  onValueChange={(value) => updateFilter("language", value)}
-                >
-                  <Select.Trigger
-                    class="h-8 rounded-none border-0 border-border bg-transparent px-1 font-mono text-micro uppercase tracking-wider !shadow-none dark:bg-transparent dark:hover:bg-transparent focus-visible:border-ring"
-                    aria-label={m.submissions_filterLanguage()}
-                  >
-                    {languageFilter
-                      ? displayLanguage(languageFilter)
-                      : m.submissions_filterLanguage()}
-                  </Select.Trigger>
-                  <Select.Content>
-                    <Select.Item value="__all" label={m.submissions_filterLanguage()}
-                      >{m.submissions_filterLanguage()}</Select.Item
-                    >
-                    {#each languageOptions as lang (lang)}
-                      <Select.Item value={lang} label={displayLanguage(lang)}
-                        >{displayLanguage(lang)}</Select.Item
-                      >
-                    {/each}
-                  </Select.Content>
-                </Select.Root>
+              <th class="px-2 py-3 text-left align-middle font-medium">
+                <TableSelectColumnFilter
+                  label={m.admin_submissions_colContext()}
+                  filterLabel={m.admin_submissions_colContext()}
+                  options={contextOptions.map((value) => ({
+                    value,
+                    label: contextLabel(value),
+                  }))}
+                  bind:value={contextFilter}
+                  onChange={() => (currentPage = 1)}
+                />
               </th>
-              <th class="px-2 py-1.5 text-left font-medium">
-                <Select.Root
-                  type="single"
-                  value={verdictFilter || "__all"}
-                  onValueChange={(value) => updateFilter("verdict", value)}
-                >
-                  <Select.Trigger
-                    class="h-8 rounded-none border-0 border-border bg-transparent px-1 font-mono text-micro uppercase tracking-wider !shadow-none dark:bg-transparent dark:hover:bg-transparent focus-visible:border-ring"
-                    aria-label={m.submissions_filterVerdict()}
-                  >
-                    <span class={verdictFilter ? verdictTone(verdictFilter) : ""}>
-                      {verdictFilter
-                        ? formatVerdictLabel(verdictFilter)
-                        : m.admin_submissions_colVerdict()}
-                    </span>
-                  </Select.Trigger>
-                  <Select.Content>
-                    <Select.Item value="__all" label={m.admin_submissions_colVerdict()}
-                      >{m.admin_submissions_colVerdict()}</Select.Item
-                    >
-                    {#each verdictOptions as status (status)}
-                      <Select.Item value={status} label={formatVerdictLabel(status)}
-                        ><span class={verdictTone(status)}>{formatVerdictLabel(status)}</span
-                        ></Select.Item
-                      >
-                    {/each}
-                  </Select.Content>
-                </Select.Root>
+              <th class="px-2 py-3 text-left align-middle font-medium">
+                <TableSelectColumnFilter
+                  label={m.submissions_filterLanguage()}
+                  filterLabel={m.submissions_filterLanguage()}
+                  options={languageOptions.map((value) => ({
+                    value,
+                    label: displayLanguage(value),
+                  }))}
+                  bind:value={languageFilter}
+                  onChange={() => (currentPage = 1)}
+                />
               </th>
-              <th class="px-3 py-2.5 text-right font-medium"
+              <th class="px-2 py-3 text-left align-middle font-medium">
+                <TableSelectColumnFilter
+                  label={m.admin_submissions_colVerdict()}
+                  filterLabel={m.submissions_filterVerdict()}
+                  options={verdictOptions.map((value) => ({
+                    value,
+                    label: formatVerdictLabel(value),
+                  }))}
+                  bind:value={verdictFilter}
+                  onChange={() => (currentPage = 1)}
+                />
+              </th>
+              <th class="px-3 py-3 text-right align-middle font-medium"
                 >{m.admin_submissions_colScore()}</th
               >
             </tr>

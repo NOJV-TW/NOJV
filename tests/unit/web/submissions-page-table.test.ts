@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { mount, unmount } from "svelte";
+import { mount, tick, unmount } from "svelte";
 import { describe, expect, it, vi } from "vitest";
 
 vi.setConfig({ testTimeout: 15_000 });
@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({ goto: vi.fn(), invalidateAll: vi.fn() }));
 
 vi.mock("@lucide/svelte", async () => {
   const Empty = (await import("./fixtures/empty-component.svelte")).default;
-  return { Code2: Empty, History: Empty, Loader2: Empty };
+  return { Code2: Empty, History: Empty, ListFilter: Empty, Loader2: Empty };
 });
 
 vi.mock("$lib/stores/sse", () => ({ watchSubmissionVerdict: () => () => undefined }));
@@ -64,15 +64,15 @@ describe("submissions page", () => {
     for (const label of ["Problem", "Context", "Language", "Verdict"]) {
       expect(target.querySelector(`[aria-label="${label}"]`)?.closest("th")).not.toBeNull();
     }
-    const filterTriggers = [...target.querySelectorAll("thead [aria-label]")];
+    const filterTriggers = [
+      ...target.querySelectorAll<HTMLSelectElement>("thead select[aria-label]"),
+    ];
     expect(filterTriggers).toHaveLength(4);
     for (const trigger of filterTriggers) {
-      expect(trigger.className).toContain("dark:bg-transparent");
-      expect(trigger.className).toContain("dark:hover:bg-transparent");
-      expect(trigger.className).toContain("!shadow-none");
-      expect(trigger.className.split(/\s+/)).not.toContain("border-b");
+      expect(trigger.className).toContain("opacity-0");
+      expect(trigger.closest("label")?.className).toContain("items-center");
     }
-    expect(target.querySelector("thead .text-success")).not.toBeNull();
+    expect(target.querySelectorAll("thead tr")).toHaveLength(1);
     const headerLabels = [...target.querySelectorAll("thead th")].map((header) =>
       header.textContent?.trim(),
     );
@@ -85,6 +85,12 @@ describe("submissions page", () => {
       ?.querySelector("td:last-child")
       ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(mocks.goto).toHaveBeenCalledWith("/submissions/sub_1");
+
+    const verdictFilter = target.querySelector<HTMLSelectElement>('[aria-label="Verdict"]')!;
+    verdictFilter.value = "wrong_answer";
+    verdictFilter.dispatchEvent(new Event("change", { bubbles: true }));
+    await tick();
+    expect(target.textContent).toContain("No submissions match these filters.");
 
     await unmount(component);
     target.remove();
