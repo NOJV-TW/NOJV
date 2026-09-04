@@ -415,7 +415,7 @@
   "admin_usersDisableSuccess": "已停用使用者 {username}",
   "admin_usersEmail": "Email",
   "admin_usersEmpty": "找不到使用者",
-  "admin_usersEmptyHint": "請嘗試不同的搜尋關鍵字或角色篩選。",
+  "admin_usersEmptyHint": "請調整或清除欄位篩選條件。",
   "admin_usersEnable": "啟用帳號",
   "admin_usersEnableSuccess": "已啟用使用者 {username}",
   "admin_usersFound": "{count} 位使用者",

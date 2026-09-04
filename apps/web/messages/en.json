@@ -415,7 +415,7 @@
   "admin_usersDisableSuccess": "Disabled user {username}",
   "admin_usersEmail": "Email",
   "admin_usersEmpty": "No users found",
-  "admin_usersEmptyHint": "Try a different search term or role filter.",
+  "admin_usersEmptyHint": "Try adjusting or clearing the column filters.",
   "admin_usersEnable": "Enable account",
   "admin_usersEnableSuccess": "Enabled user {username}",
   "admin_usersFound": "{count} users found",

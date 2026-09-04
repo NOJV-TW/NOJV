@@ -63,7 +63,7 @@ test.describe("Admin panel — gating + pages", () => {
     await context.close();
   });
 
-  test("admin users page applies a role filter from the column header", async ({ browser }) => {
+  test("admin users page combines option filters from column headers", async ({ browser }) => {
     const context = await browser.newContext({ storageState: adminAuth });
     const page = await context.newPage();
     await page.goto("/admin/users");
@@ -73,6 +73,13 @@ test.describe("Admin panel — gating + pages", () => {
       .getByRole("button", { name: "Teacher" })
       .click();
     await expect(page).toHaveURL(/role=teacher/);
+    await page.getByRole("button", { name: "Filter status" }).click();
+    await page
+      .getByRole("dialog", { name: "Filter status" })
+      .getByRole("button", { name: "Active" })
+      .click();
+    await expect(page).toHaveURL(/role=teacher/);
+    await expect(page).toHaveURL(/status=active/);
     await context.close();
   });
 
