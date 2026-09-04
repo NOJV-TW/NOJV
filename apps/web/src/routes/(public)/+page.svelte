@@ -35,6 +35,12 @@
     viewing = announcement;
     viewOpen = true;
   }
+
+  $effect(() => {
+    const announcementId = page.url.searchParams.get("announcement");
+    const announcement = data.announcements.find((item) => item.id === announcementId);
+    if (announcement) openView(announcement);
+  });
 </script>
 
 <svelte:head>
