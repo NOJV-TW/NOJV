@@ -27,12 +27,12 @@ Problem authors can submit a complete practice solution as a private reference s
 
 Before the sandbox starts, the domain layer merges `ProblemWorkspaceFile` rows (editable + readonly + hidden) with the student's submitted files. Readonly and hidden workspace files always win over student paths, so a malicious client cannot overwrite them. Hidden files are never shown in the UI but are present on disk during compile/execute. The merge is implemented in `mergeSandboxSources()` inside `apps/worker/src/activities/judge.ts`.
 
-The worker writes the merged source files plus testcase + config payloads to a tempdir that gets mounted into the sandbox. The sandbox runner then re-materialises any `sourceFiles` / `sourceFileMap` entries inside its private `workDir` before compile — see `materializeConfiguredSources()` in `apps/sandbox-runner/src/index.ts`. This second pass is what bridges the two layouts the runner has to accept:
-
-- **Docker volume mount layout** — testcases live as `/submission/testcases/{index}/input.txt`, source files are addressed by relative path.
-- **Flat ConfigMap layout (K8s)** — ConfigMaps don't support nested directories, so testcases become `testcase-{i}-input.txt` / `testcase-{i}-expected.txt`, and source files are stored under opaque keys `source-file-{n}` and mapped back to their real path via `sourceFileMap`.
-
-`loadTestcases()` in the runner tries the directory layout first, falls back to the flat keys.
+Docker volumes and Kubernetes ConfigMaps use the same flat payload: testcase files
+use `testcase-{i}-input.txt` / `testcase-{i}-expected.txt`, while merged source files
+use opaque keys `source-file-{n}`. `sourceFileMap` restores the original workspace
+paths inside the runner's private `workDir` before compilation. These separate
+names prevent workspace paths from colliding with testcase or config payloads.
+`readTestcase()` reads only the requested index.
 
 ### compile
 
@@ -394,13 +394,31 @@ The standard-vs-advanced mode is decided by a small **inline expression in the w
 - DOMjudge Python wrappers — `apps/sandbox-runner/assets/wrappers/python-validator.py`, `python-interactor-domjudge.py`
 - Temporal judge workflow — `apps/worker/src/workflows/submission-judge.ts`
 - Temporal judge activity — `apps/worker/src/activities/judge.ts`
-- Judge context builder (`getJudgeContext` / `parseAdvancedConfig`) — `packages/application/src/submission/queries.ts`
+- Judge context builder (`getJudgeContext` / `parsePersistedAdvancedConfig`) — `packages/application/src/submission/queries.ts`
 - Score aggregation (`buildSubtaskResults`, `mapResult`) — `packages/application/src/submission/scoring.ts`
 - Score adjustments — `packages/application/src/submission/adjustments.ts`
 - `judgeConfigSchema` — `packages/core/src/schemas/judge-config.ts`
 - `advancedResultSchema` + `advancedConfigSchema` — `packages/core/src/schemas/advanced-mode.ts`
 - `adjustmentRuleSchema` — `packages/core/src/schemas/assessment-adjustments.ts`
 - `ProblemWorkspaceFile` table — `packages/db/prisma/schema/problem.prisma`
+
+## Payload and failure contracts
+
+Worker and runner import the same Zod output schemas from `@nojv/core`; types are
+inferred from those schemas, and parsing failures preserve field paths and reasons.
+Docker and Kubernetes use flat testcase payload files. A `run-case` process reads
+only its requested testcase input; unused grading metadata is not sent to the runner.
+Checker and interactor language each travel with their own script. Missing required
+language or malformed persisted configuration is an integrity failure, never a
+request to select another language or judge mode.
+
+Standard and sample scoring validate expected testcase count and distinct,
+zero-based indices before aggregation. Subtask results match cases by index,
+regardless of arrival order. Missing, duplicate, or out-of-range cases cannot
+produce Accepted. Advanced results retain their separate scoring contract.
+Checker results must also match the requested index set exactly once before the
+worker constructs its outcome map, so conflicting duplicate outcomes cannot
+overwrite an earlier failure.
 
 ## Related docs
 

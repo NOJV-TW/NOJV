@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertJsonBodyWithinLimit,
   JSON_BODY_LIMIT_BYTES,
+  readJsonBody,
 } from "$lib/server/shared/api-handler";
 
 function eventWithContentLength(value: string | null) {
@@ -29,5 +30,23 @@ describe("assertJsonBodyWithinLimit", () => {
   it("honors a caller-supplied limit", () => {
     expect(() => assertJsonBodyWithinLimit(eventWithContentLength("2000"), 1000)).toThrow();
     expect(() => assertJsonBodyWithinLimit(eventWithContentLength("800"), 1000)).not.toThrow();
+  });
+});
+
+describe("readJsonBody", () => {
+  function event(body: string) {
+    return { request: new Request("http://localhost/test", { method: "POST", body }) } as never;
+  }
+
+  it("validates actual bytes without a Content-Length header", async () => {
+    await expect(readJsonBody(event('"éé"'), 5)).rejects.toMatchObject({ status: 413 });
+    await expect(readJsonBody(event('"éé"'), 6)).resolves.toBe("éé");
+  });
+
+  it("rejects malformed JSON with a clear 400", async () => {
+    await expect(readJsonBody(event("{"))).rejects.toMatchObject({
+      status: 400,
+      body: { message: "Invalid request body: expected valid JSON." },
+    });
   });
 });

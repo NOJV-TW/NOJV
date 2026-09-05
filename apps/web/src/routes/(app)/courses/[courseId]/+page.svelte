@@ -11,8 +11,8 @@
     Trash2,
   } from "@lucide/svelte";
   import { enhance } from "$app/forms";
-  import { invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
+  import { toasts } from "$lib/stores/toast";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button } from "$lib/components/primitives/ui/button";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
@@ -176,10 +176,16 @@
                       method="POST"
                       action="?/togglePinAnnouncement"
                       use:enhance={() => {
-                        return async ({ result }) => {
-                          if (result.type === "success" || result.type === "redirect") {
-                            await invalidateAll();
+                        return async ({ result, update }) => {
+                          if (result.type === "failure") {
+                            toasts.error(
+                              typeof result.data?.error === "string"
+                                ? result.data.error
+                                : m.error_unexpected(),
+                            );
+                            return;
                           }
+                          await update();
                         };
                       }}
                     >
@@ -446,11 +452,15 @@
     method="POST"
     action="?/deleteAnnouncement"
     use:enhance={() => {
-      return async ({ result }) => {
-        pendingDeleteId = null;
-        if (result.type === "success" || result.type === "redirect") {
-          await invalidateAll();
+      return async ({ result, update }) => {
+        if (result.type === "failure") {
+          toasts.error(
+            typeof result.data?.error === "string" ? result.data.error : m.error_unexpected(),
+          );
+          return;
         }
+        await update();
+        if (result.type === "success") pendingDeleteId = null;
       };
     }}
     class="hidden"

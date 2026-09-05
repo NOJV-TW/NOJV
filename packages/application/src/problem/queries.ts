@@ -9,8 +9,6 @@ import {
 } from "@nojv/db";
 import {
   LANGUAGE_TEMPLATES,
-  advancedConfigSchema,
-  judgeConfigSchema,
   judgeTypes,
   problemDifficultySchema,
   problemSampleSchema,
@@ -28,6 +26,7 @@ import { NotFoundError } from "../shared/errors";
 
 import { readWorkspaceFileBlob } from "./blobs";
 import { computeProblemTotalScore } from "./total-score";
+import { parsePersistedJudgeConfig, parsePersistedAdvancedConfig } from "./judge-config";
 
 export interface ProblemDetail {
   acceptanceRate: number;
@@ -96,51 +95,19 @@ export function buildStarterByLanguage(
 }
 
 async function mapPersistedProblemDetail(
-  problem: {
-    author?: { username: string | null } | null;
-    title: string;
-    displayId: number | null;
-    id: string;
-    difficulty?: ProblemDifficulty;
-    judgeConfig?: unknown;
-    memoryLimitMb?: number;
-    samples?: unknown;
-    statement?: {
-      bodyMarkdown: string;
-      inputFormat?: string;
-      outputFormat?: string;
-    } | null;
-    tags?: string[];
-    status?: ProblemStatus;
-    timeLimitMs?: number;
-    visibility: ProblemVisibility;
-    type: ProblemType;
-    advancedConfig?: unknown;
-    advancedRequiredPaths?: string[];
-    testcaseSets?: { weight: number }[];
-    workspaceFiles?: {
-      language: string;
-      path: string;
-      contentStorage: unknown;
-      visibility: string;
-      orderIndex?: number;
-      description?: string;
-    }[];
-  },
+  problem: NonNullable<Awaited<ReturnType<typeof problemRepo.findDetailById>>>,
   attempters: number,
   solvers: number,
 ): Promise<ProblemDetail> {
-  const tags = problem.tags ?? [];
+  const tags = problem.tags;
   const statement = problem.statement ?? null;
 
-  const judgeConfig: JudgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
-    type: "standard",
-  };
+  const judgeConfig: JudgeConfig = parsePersistedJudgeConfig(problem.judgeConfig, problem.id);
 
-  const rawFiles = problem.workspaceFiles ?? [];
+  const rawFiles = problem.workspaceFiles;
   const visibleWorkspaceFiles = await Promise.all(
     rawFiles.map(async (f) => {
-      const visibility = f.visibility as "editable" | "readonly" | "hidden";
+      const visibility = f.visibility;
       const content =
         visibility === "hidden" ? "" : await readWorkspaceFileBlob(f.contentStorage);
       return {
@@ -148,7 +115,7 @@ async function mapPersistedProblemDetail(
         path: f.path,
         content,
         visibility,
-        description: f.description ?? "",
+        description: f.description,
       };
     }),
   );
@@ -158,32 +125,33 @@ async function mapPersistedProblemDetail(
   return {
     acceptanceRate: attempters > 0 ? solvers / attempters : 0,
     totalScore: computeProblemTotalScore({
+      id: problem.id,
       type,
-      testcaseSets: problem.testcaseSets ?? [],
+      testcaseSets: problem.testcaseSets,
       advancedConfig: problem.advancedConfig,
     }),
     authorUsername: problem.author?.username ?? "course_staff",
-    difficulty: problem.difficulty ?? "medium",
+    difficulty: problem.difficulty,
     displayId: problem.displayId,
     id: problem.id,
     inputFormat: statement?.inputFormat ?? "",
     judgeConfig,
     judgeType: judgeConfig.type,
-    memoryLimitMb: problem.memoryLimitMb ?? 256,
+    memoryLimitMb: problem.memoryLimitMb,
     outputFormat: statement?.outputFormat ?? "",
     type,
     samples: buildProblemSamples(problem),
     starterByLanguage: buildStarterByLanguage(type, visibleWorkspaceFiles),
     statement: statement?.bodyMarkdown ?? "",
-    status: problem.status ?? "published",
+    status: problem.status,
     tags,
-    timeLimitMs: problem.timeLimitMs ?? 1_000,
+    timeLimitMs: problem.timeLimitMs,
     title: problem.title,
     totalSubmissions: attempters,
     visibility: problem.visibility,
     workspaceFiles: visibleWorkspaceFiles,
-    advancedConfig: advancedConfigSchema.safeParse(problem.advancedConfig).data ?? null,
-    advancedRequiredPaths: problem.advancedRequiredPaths ?? [],
+    advancedConfig: parsePersistedAdvancedConfig(problem.advancedConfig, problem.id),
+    advancedRequiredPaths: problem.advancedRequiredPaths,
   };
 }
 
@@ -387,9 +355,7 @@ export async function listProblemCards(
     const stats = statsByProblemId.get(problem.id);
     const attempters = stats?.attempters ?? 0;
     const solvers = stats?.solvers ?? 0;
-    const judgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
-      type: "standard" as const,
-    };
+    const judgeConfig = parsePersistedJudgeConfig(problem.judgeConfig, problem.id);
     return {
       acceptanceRate: attempters > 0 ? solvers / attempters : 0,
       bookmarked: bookmarkedIds.has(problem.id),
@@ -446,9 +412,7 @@ function mapProblemPickerCandidate(problem: {
   type: ProblemType;
   visibility: ProblemVisibility;
 }): ProblemPickerCandidate {
-  const judgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
-    type: "standard" as const,
-  };
+  const judgeConfig = parsePersistedJudgeConfig(problem.judgeConfig, problem.id);
   return {
     difficulty: problem.difficulty,
     displayId: problem.displayId,
@@ -487,9 +451,7 @@ export async function listProblemPickerGroups(
 export async function listActivityCandidateProblems(userId: string) {
   const problems = await problemRepo.listActivityCandidates(userId);
   return problems.map((problem) => {
-    const judgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
-      type: "standard" as const,
-    };
+    const judgeConfig = parsePersistedJudgeConfig(problem.judgeConfig, problem.id);
     return {
       difficulty: problem.difficulty,
       displayId: problem.displayId,
@@ -508,9 +470,7 @@ export async function listAdminProblems(sort: "asc" | "desc" = "asc") {
   const problems = await problemRepo.listAllForAdmin(sort);
 
   return problems.map((problem) => {
-    const judgeConfig = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
-      type: "standard" as const,
-    };
+    const judgeConfig = parsePersistedJudgeConfig(problem.judgeConfig, problem.id);
     return {
       authorUsername: problem.author?.username ?? "course_staff",
       difficulty: problem.difficulty,

@@ -35,16 +35,7 @@ export {
   submissionSourceManifestKey,
   submissionVerdictDetailKey,
 } from "./keys";
-export {
-  putText,
-  getObject,
-  getText,
-  copyBlob,
-  deleteBlob,
-  deleteBlobsByPrefix,
-  listByPrefix,
-  sumSizesByPrefix,
-} from "./blobs";
+export { getObject, getText, deleteBlob, deleteBlobsByPrefix, listByPrefix } from "./blobs";
 export {
   putSubmissionSources,
   planSubmissionSources,

@@ -250,7 +250,7 @@
             hasTotp = (result.data.hasTotp as boolean) ?? hasTotp;
             hasPasskey = (result.data.hasPasskey as boolean) ?? hasPasskey;
             if (result.data.regularAdmin) {
-              destination = "/dashboard";
+              destination = result.data.destination as string;
               recoveryMode = false;
               regularAdmin = true;
             }

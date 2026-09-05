@@ -1,11 +1,11 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { enhance } from "$app/forms";
-  import { invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import * as Dialog from "$lib/components/primitives/ui/dialog";
   import { Input } from "$lib/components/primitives/ui/input";
   import FormField from "$lib/components/primitives/ui/FormField.svelte";
+  import FormError from "$lib/components/primitives/ui/FormError.svelte";
   import ImageDropZone from "$lib/components/primitives/ui/ImageDropZone.svelte";
 
   interface AnnouncementInitial {
@@ -34,11 +34,16 @@
   }
 
   let submitting = $state(false);
+  let errorMessage = $state<string | null>(null);
   let content = $state(untrack(() => initial?.content ?? ""));
   const action = $derived(mode === "create" ? "?/createAnnouncement" : "?/updateAnnouncement");
 
   $effect(() => {
     content = initial?.content ?? "";
+  });
+
+  $effect(() => {
+    if (!open) errorMessage = null;
   });
 </script>
 
@@ -58,16 +63,23 @@
       {action}
       use:enhance={() => {
         submitting = true;
-        return async ({ result }) => {
+        errorMessage = null;
+        return async ({ result, update }) => {
           submitting = false;
-          if (result.type === "success" || result.type === "redirect") {
-            await invalidateAll();
+          if (result.type === "failure") {
+            errorMessage =
+              typeof result.data?.error === "string" ? result.data.error : m.error_unexpected();
+            return;
+          }
+          await update();
+          if (result.type === "success") {
             open = false;
             onclose?.();
           }
         };
       }}
     >
+      <FormError message={errorMessage} />
       {#if mode === "edit" && initial}
         <input type="hidden" name="id" value={initial.id} />
       {/if}

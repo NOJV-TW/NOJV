@@ -90,13 +90,13 @@ describe("remote image proxy route", () => {
   });
 
   it("fails closed for a missing URL or unavailable miss limiter", async () => {
-    await expect(GET(event(""))).rejects.toMatchObject({ status: 400 });
+    await expect(GET(event(""))).resolves.toMatchObject({ status: 400 });
 
     const missing = new Error("NoSuchKey");
     missing.name = "NoSuchKey";
     readRemoteImage.mockRejectedValue(missing);
     fetchConsume.mockResolvedValue("unavailable");
-    await expect(GET(event())).rejects.toMatchObject({ status: 503 });
+    await expect(GET(event())).resolves.toMatchObject({ status: 503 });
     expect(fetchRemoteImage).not.toHaveBeenCalled();
   });
 

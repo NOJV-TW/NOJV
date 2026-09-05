@@ -987,6 +987,42 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     expect(result.testcaseResults[0]!.verdict).toBe("TLE");
   });
 
+  it("preserves grade log read failures for Temporal retry", async () => {
+    const record = emptyRecord();
+    const clients = buildFakeClients(record);
+    const failure = new Error("grade log API unavailable");
+    clients.coreApi.readNamespacedPodLog.mockRejectedValue(failure);
+    await expect(
+      execute(new K8sExecutor(EXEC_CONFIG, clients), makeAdvancedRequest()),
+    ).rejects.toMatchObject({
+      name: "SandboxInfrastructureError",
+      cause: failure,
+      message: expect.stringContaining("emit-result"),
+    });
+    expect(record.jobsDeleted).toHaveLength(2);
+    expect(record.pvcsDeleted).toHaveLength(1);
+  });
+
+  it("preserves service readiness API failures instead of reporting a bad service image", async () => {
+    const record = emptyRecord();
+    const clients = buildFakeClients(record);
+    const failure = new Error("service log API unavailable");
+    clients.coreApi.readNamespacedPodLog.mockRejectedValue(failure);
+    await expect(
+      execute(
+        new K8sExecutor(EXEC_CONFIG, clients),
+        makeAdvancedRequest({
+          network: {
+            mode: "service",
+            service: { imageRef: "registry.example.com/ta/svc:1.0", imageSource: "registry" },
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({ name: "SandboxInfrastructureError", cause: failure });
+    expect(record.jobsCreated).toHaveLength(0);
+    expect(record.podsDeleted).toHaveLength(1);
+  });
+
   it("missing result.json (grade sidecar emits {missing:true}) → SE", async () => {
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ missing: true });

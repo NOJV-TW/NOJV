@@ -28,6 +28,7 @@ export type RejudgeInput =
     };
 
 export interface RejudgeProgress {
+  status: "queued" | "running" | "completed" | "failed" | "cancelled";
   completed: number;
   total: number;
 }

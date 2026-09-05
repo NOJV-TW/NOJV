@@ -53,6 +53,24 @@ function checkerRequest(overrides: Partial<SandboxRequest>): SandboxRequest {
 }
 
 describe("checker-mode isolated validation (Phase 2B)", () => {
+  it("executes a C++ checker in its declared language", { timeout: 180_000 }, async (ctx) => {
+    if (!(await requireSandboxImage(ctx))) return;
+    const result = await execute(
+      checkerRequest({
+        submissionId: "checker-cpp-language",
+        sourceCode: "print('ok')",
+        testcases: [{ index: 0, input: "", output: "ok", weight: 1, isSample: false }],
+        judgeConfig: {
+          checkerLanguage: "cpp",
+          checkerScript:
+            "#include <fstream>\n#include <iostream>\n#include <string>\nint main(int argc, char** argv) { std::ifstream answer(argv[2]); std::string expected, actual; answer >> expected; std::cin >> actual; return expected == actual ? 42 : 43; }",
+        },
+      }),
+    );
+    expect(result.testcaseResults).toHaveLength(1);
+    expect(result.testcaseResults[0]!.verdict).toBe("AC");
+  });
+
   it(
     "grades a correct solution as AC via the isolated validator",
     { timeout: 180_000 },
@@ -149,10 +167,9 @@ chunks = []
 for p in ["/submission/validator.py", "/submission/validator.cpp"]:
     try: chunks.append(open(p).read())
     except OSError: pass
-for d in glob.glob("/submission/cases/*") + glob.glob("/submission/testcases/*"):
-    for name in ("answer.txt", "expected.txt"):
-        try: chunks.append(open(os.path.join(d, name)).read())
-        except OSError: pass
+assert glob.glob("/submission/testcase-*-input.txt"), "current testcase payload not inspected"
+for p in glob.glob("/submission/*-answer.txt") + glob.glob("/submission/*-expected.txt"):
+    chunks.append(open(p).read())
 print("".join(chunks))
 `;
 

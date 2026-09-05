@@ -7,8 +7,8 @@ import { canManageCourse, canManageMembers, courseDomain } from "@nojv/applicati
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { getCoursePermissionRole, requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
-import { classifyError } from "$lib/server/shared/handle-action-error";
-import { withRateLimit } from "$lib/server/shared/action-handlers";
+import { classifyRequestError } from "$lib/server/shared/handle-action-error";
+import { withAction } from "$lib/server/shared/action-handlers";
 import type { FormMessage } from "$lib/types/form-message";
 
 const {
@@ -68,26 +68,30 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 });
 
 export const actions = {
-  bulkAdd: withRateLimit(async (event) => {
+  bulkAdd: withAction(async (event) => {
     const actor = requireAuth(event);
-    const role = await getCoursePermissionRole(event.params.courseId, actor);
-    if (!canManageCourse(role)) {
-      return fail(403, { error: "Forbidden" });
-    }
-
     const form = await superValidate(event, zod4(bulkAddSchema));
-    if (!form.valid) return fail(400, { form });
-
-    const handles = parseHandleInput(form.data.handles);
-    if (handles.length === 0) {
-      return message<FormMessage>(
-        form,
-        { kind: "error", text: "No valid handles in input." },
-        { status: 400 },
-      );
-    }
 
     try {
+      const role = await getCoursePermissionRole(event.params.courseId, actor);
+      if (!canManageCourse(role)) {
+        return message<FormMessage>(
+          form,
+          { kind: "error", text: "Forbidden" },
+          { status: 403 },
+        );
+      }
+      if (!form.valid) return fail(400, { form });
+
+      const handles = parseHandleInput(form.data.handles);
+      if (handles.length === 0) {
+        return message<FormMessage>(
+          form,
+          { kind: "error", text: "No valid handles in input." },
+          { status: 400 },
+        );
+      }
+
       const result = await bulkAddByHandle(actor, event.params.courseId, {
         handles,
         role: form.data.role,
@@ -97,16 +101,16 @@ export const actions = {
         text: `Added ${String(result.added)} members (${String(result.placeholdersCreated)} new placeholders, ${String(result.skipped)} skipped)`,
       });
     } catch (err) {
-      const classified = classifyError(err);
+      const classified = classifyRequestError(err, event);
       return message<FormMessage>(
         form,
         { kind: "error", text: classified.message },
-        { status: 400 },
+        { status: classified.status },
       );
     }
   }),
 
-  changeRole: withRateLimit(async (event) => {
+  changeRole: withAction(async (event) => {
     const actor = requireAuth(event);
     const role = await getCoursePermissionRole(event.params.courseId, actor);
     if (!canManageMembers(role)) {
@@ -122,21 +126,11 @@ export const actions = {
       return fail(400, { error: "Invalid role change request" });
     }
 
-    try {
-      await changeMemberRole(
-        actor,
-        event.params.courseId,
-        parsed.data.userId,
-        parsed.data.role,
-      );
-      return { success: true };
-    } catch (err) {
-      const classified = classifyError(err);
-      return fail(classified.status, { error: classified.message });
-    }
+    await changeMemberRole(actor, event.params.courseId, parsed.data.userId, parsed.data.role);
+    return { success: true };
   }),
 
-  remove: withRateLimit(async (event) => {
+  remove: withAction(async (event) => {
     const actor = requireAuth(event);
     const role = await getCoursePermissionRole(event.params.courseId, actor);
     if (!canManageMembers(role)) {
@@ -149,12 +143,7 @@ export const actions = {
       return fail(400, { error: "Invalid remove request" });
     }
 
-    try {
-      await removeMember(actor, event.params.courseId, parsed.data.userId);
-      return { success: true };
-    } catch (err) {
-      const classified = classifyError(err);
-      return fail(classified.status, { error: classified.message });
-    }
+    await removeMember(actor, event.params.courseId, parsed.data.userId);
+    return { success: true };
   }),
 } satisfies Actions;

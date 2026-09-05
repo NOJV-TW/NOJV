@@ -74,8 +74,14 @@ Run integration tests with the integration database named in both required varia
 ```bash
 TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/nojv_test \
 NOJV_DESTRUCTIVE_TEST_DATABASE=nojv_test \
+MAILER_MODE=sink APP_BASE_URL=http://localhost:5173 \
 pnpm test:integration
 ```
+
+Sink mode requires all `SMTP_*` keys to be absent, including empty values. The
+integration suite loads `.env`; keep its service configuration aligned with
+`.env.example`. Notification transactions validate mailer configuration when
+creating delivery work, even when the test does not send email.
 
 Run Playwright against the separate E2E database:
 

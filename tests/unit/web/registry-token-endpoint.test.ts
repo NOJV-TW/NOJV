@@ -120,7 +120,7 @@ describe("GET /api/registry/token", () => {
   });
 
   it("rejects an unknown service", async () => {
-    await expect(GET(makeEvent("?service=evil.example.com"))).rejects.toMatchObject({
+    await expect(GET(makeEvent("?service=evil.example.com"))).resolves.toMatchObject({
       status: 400,
     });
   });
@@ -145,7 +145,7 @@ describe("GET /api/registry/token", () => {
     verifyRegistryLogin.mockResolvedValue(null);
     await expect(
       GET(makeEvent("?service=registry.test.local", basic("alice", "wrong"))),
-    ).rejects.toMatchObject({ status: 401 });
+    ).resolves.toMatchObject({ status: 401 });
   });
 
   it("issues a namespace-scoped token for a valid teacher login", async () => {
@@ -170,7 +170,7 @@ describe("GET /api/registry/token", () => {
   it("rejects service accounts when their hash is unset", async () => {
     await expect(
       GET(makeEvent("?service=registry.test.local", basic("judge-pull", "whatever"))),
-    ).rejects.toMatchObject({ status: 401 });
+    ).resolves.toMatchObject({ status: 401 });
   });
 
   it("keeps a platform admin's write access inside its own namespace", async () => {
@@ -216,7 +216,7 @@ describe("POST /api/registry/token (OAuth2 password grant, containerd/docker log
   it("rejects an unknown service", async () => {
     await expect(
       POST(makePostEvent({ grant_type: "password", service: "evil.example.com" })),
-    ).rejects.toMatchObject({ status: 400 });
+    ).resolves.toMatchObject({ status: 400 });
   });
 
   it("issues a namespace-scoped token from body credentials with space-joined scopes", async () => {
@@ -254,7 +254,7 @@ describe("POST /api/registry/token (OAuth2 password grant, containerd/docker log
           password: "wrong",
         }),
       ),
-    ).rejects.toMatchObject({ status: 401 });
+    ).resolves.toMatchObject({ status: 401 });
   });
 
   it("returns 503 instead of 429 when credential limiting is unavailable", async () => {
@@ -269,7 +269,7 @@ describe("POST /api/registry/token (OAuth2 password grant, containerd/docker log
           password: "wrong",
         }),
       ),
-    ).rejects.toMatchObject({ status: 503 });
+    ).resolves.toMatchObject({ status: 503 });
   });
 
   it("returns 429 when invalid-credential quota is exhausted", async () => {
@@ -284,7 +284,7 @@ describe("POST /api/registry/token (OAuth2 password grant, containerd/docker log
           password: "wrong",
         }),
       ),
-    ).rejects.toMatchObject({ status: 429 });
+    ).resolves.toMatchObject({ status: 429 });
   });
 
   it("does not disguise an unknown credential-limiter error as quota exhaustion", async () => {

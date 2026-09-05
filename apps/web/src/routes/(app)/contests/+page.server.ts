@@ -5,7 +5,7 @@ import { m } from "$lib/paraglide/messages.js";
 import { canCreateCourse, getActorContext, requireAuth } from "$lib/server/auth";
 import { withAction } from "$lib/server/shared/action-handlers";
 import { readString } from "$lib/server/shared/form-utils";
-import { contestDomain } from "@nojv/application";
+import { contestDomain, NotFoundError } from "@nojv/application";
 
 const { joinContestByCode, listContestsForUser } = contestDomain;
 
@@ -34,7 +34,8 @@ export const actions = {
     let contestId: string;
     try {
       ({ contestId } = await joinContestByCode(actor, code));
-    } catch {
+    } catch (error) {
+      if (!(error instanceof NotFoundError)) throw error;
       return fail(404, { codeError: m.contestsList_codeErrorInvalid() });
     }
 

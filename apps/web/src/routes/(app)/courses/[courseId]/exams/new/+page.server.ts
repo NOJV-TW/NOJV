@@ -18,8 +18,8 @@ import { canManageCourse, examDomain, problemDomain } from "@nojv/application";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent, RequestEvent } from "./$types";
 import { getCoursePermissionRole, requireAuth } from "$lib/server/auth";
-import { classifyError } from "$lib/server/shared/handle-action-error";
-import { withRateLimit } from "$lib/server/shared/action-handlers";
+import { classifyRequestError } from "$lib/server/shared/handle-action-error";
+import { withAction } from "$lib/server/shared/action-handlers";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import type { FormMessage } from "$lib/types/form-message";
 
@@ -133,38 +133,40 @@ function buildCreatePayload(form: ExamFormData, status: ExamPublishStatus): Exam
 }
 
 function runCreateAction(status: ExamPublishStatus) {
-  return withRateLimit(async (event: RequestEvent) => {
+  return withAction(async (event: RequestEvent) => {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
-    const permissionRole = await getCoursePermissionRole(courseId, actor);
-    if (!canManageCourse(permissionRole)) {
-      return fail(403, { error: "Forbidden" });
-    }
-
     const form = await superValidate<ExamFormData, FormMessage>(event, zod4(examFormSchema));
-    if (!form.valid) {
-      return fail(400, { form });
-    }
-
-    if (form.data.courseId !== courseId) {
-      return message<FormMessage>(
-        form,
-        { kind: "error", text: "Course mismatch." },
-        { status: 400 },
-      );
-    }
 
     let examId: string;
     try {
+      const permissionRole = await getCoursePermissionRole(courseId, actor);
+      if (!canManageCourse(permissionRole)) {
+        return message<FormMessage>(
+          form,
+          { kind: "error", text: "Forbidden" },
+          { status: 403 },
+        );
+      }
+      if (!form.valid) return fail(400, { form });
+
+      if (form.data.courseId !== courseId) {
+        return message<FormMessage>(
+          form,
+          { kind: "error", text: "Course mismatch." },
+          { status: 400 },
+        );
+      }
+
       const payload = buildCreatePayload(form.data, status);
       const created = await createExamRecord(actor, payload);
       examId = created.id;
     } catch (err) {
-      const classified = classifyError(err);
+      const classified = classifyRequestError(err, event);
       return message<FormMessage>(
         form,
         { kind: "error", text: classified.message },
-        { status: 400 },
+        { status: classified.status },
       );
     }
 

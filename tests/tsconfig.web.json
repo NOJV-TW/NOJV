@@ -7,6 +7,9 @@
       "$app/types": ["../apps/web/.svelte-kit/types/index.d.ts"],
       "$lib": ["../apps/web/src/lib"],
       "$lib/*": ["../apps/web/src/lib/*"],
+      "sveltekit-superforms/server": [
+        "../apps/web/node_modules/sveltekit-superforms/dist/server/index.d.ts"
+      ],
       "@nojv/core": ["../packages/core/src/index.ts"],
       "@nojv/db": ["../packages/db/src/index.ts"],
       "@nojv/application": ["../packages/application/src/index.ts"],
@@ -23,6 +26,10 @@
     "../apps/web/src/app.d.ts",
     "integration/http/submission-exam-confinement.test.ts",
     "unit/web/problem-testcase-action-auth.test.ts",
+    "unit/web/post-access.test.ts",
+    "unit/web/form-action-errors.test.ts",
+    "unit/web/contest-join-error.test.ts",
+    "unit/web/course-announcement-errors.test.ts",
     "unit/security/exam-confinement-api-allowlist.test.ts"
   ]
 }

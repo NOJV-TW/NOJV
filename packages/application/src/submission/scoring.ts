@@ -7,6 +7,7 @@ import {
 import type { CaseResult, SandboxResult, SubmissionResult } from "@nojv/core";
 
 import { applyAdjustmentRules } from "./adjustments";
+import { IntegrityError } from "../shared/errors";
 import type { SubmissionJudgeContext, TestcaseSetGroup } from "./types";
 
 const TRUNCATION_MARKER = "…[truncated]";
@@ -60,19 +61,22 @@ export function buildSubtaskResults(
   testcaseSets: TestcaseSetGroup[],
 ): SubtaskResultItem[] {
   let flatIndex = 0;
+  const resultsByIndex = new Map(result.testcaseResults.map((item) => [item.index, item]));
   const subtaskResults: SubtaskResultItem[] = [];
 
   for (const ts of testcaseSets) {
     const cases: SubtaskResultItem["cases"] = [];
-    for (let ordinal = 0; ordinal < ts.testcases.length; ordinal++) {
-      const sandboxCase = result.testcaseResults[flatIndex++];
-      const verdict = sandboxCase?.verdict ?? "SE";
+    for (const [ordinal, testcase] of ts.testcases.entries()) {
+      const sandboxCase = resultsByIndex.get(flatIndex++);
+      if (!sandboxCase) {
+        throw new IntegrityError(`Missing judge result for testcase ${testcase.id}`);
+      }
       cases.push({
         index: ordinal,
-        verdict,
-        timeMs: sandboxCase?.timeMs ?? 0,
-        testcaseId: ts.testcases[ordinal]?.id ?? "",
-        ...(sandboxCase?.memoryKb !== undefined && sandboxCase.memoryKb > 0
+        verdict: sandboxCase.verdict,
+        timeMs: sandboxCase.timeMs,
+        testcaseId: testcase.id,
+        ...(sandboxCase.memoryKb !== undefined && sandboxCase.memoryKb > 0
           ? { memoryKb: sandboxCase.memoryKb }
           : {}),
       });
@@ -99,6 +103,9 @@ export function mapResult(
   result: SandboxResult,
   testcaseSets: TestcaseSetGroup[],
   judgeContext: SubmissionJudgeContext,
+  expectedCaseCount: number | undefined = testcaseSets.length > 0
+    ? testcaseSets.reduce((total, set) => total + set.testcases.length, 0)
+    : undefined,
 ): SubmissionResult {
   let remainingOutputBytes = MAX_CASE_OUTPUT_TOTAL_BYTES;
   const takeOutput = (value: string, perCaseLimitBytes: number): string => {
@@ -168,6 +175,27 @@ export function mapResult(
       score: 0,
       verdict: "system_error",
     };
+  }
+
+  if (expectedCaseCount !== undefined) {
+    const indices = new Set(result.testcaseResults.map((item) => item.index));
+    if (
+      result.testcaseResults.length !== expectedCaseCount ||
+      indices.size !== expectedCaseCount ||
+      [...indices].some(
+        (index) => !Number.isInteger(index) || index < 0 || index >= expectedCaseCount,
+      )
+    ) {
+      return {
+        accepted: false,
+        caseResults: [],
+        feedback: `Invalid judging results: expected ${String(expectedCaseCount)} distinct testcase results with indices 0 through ${String(expectedCaseCount - 1)}, received ${String(result.testcaseResults.length)} results with ${String(indices.size)} distinct indices. This submission was not counted.`,
+        runtimeMs,
+        ...memoryField,
+        score: 0,
+        verdict: "system_error",
+      };
+    }
   }
 
   if (result.testcaseResults.length === 0) {
@@ -289,16 +317,7 @@ export function mapResult(
     }
   }
 
-  return {
-    accepted: false,
-    caseResults,
-    feedback: "Unknown error",
-    runtimeMs,
-    ...memoryField,
-    score,
-    subtaskResults,
-    verdict: "runtime_error" as const,
-  };
+  throw new IntegrityError("Judging result contains no supported verdict.");
 }
 
 export function stripStaffFeedback(result: SubmissionResult): SubmissionResult {

@@ -39,7 +39,7 @@
 - Scoreboard freeze and admin-controlled unfreeze
 - IP binding (block or notify mode) and IP whitelisting
 - Page lock (browser visibility API enforcement)
-- Per-contest submit cooldown (Redis-backed)
+- Per-contest submit cooldown (PostgreSQL advisory locks)
 - Invite code join flow
 
 ### Post-Contest

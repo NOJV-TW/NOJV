@@ -10,8 +10,8 @@ export interface SystemHealthReport {
   database: HealthStatus;
   redis: HealthStatus;
   temporal: HealthStatus;
-  pendingJudging: number;
-  staleJudging: number;
+  pendingJudging: number | null;
+  staleJudging: number | null;
 }
 
 const JUDGING_STATUSES = ["queued", "compiling", "running"] as const;
@@ -32,10 +32,16 @@ export async function getSystemHealth(): Promise<SystemHealthReport> {
     probe(() => userRepo.count({})),
     probe(() => getRedis().ping()),
     probe(() => getDomainOrchestration().probeTemporal()),
-    submissionRepo.count({ status: { in: [...JUDGING_STATUSES] } }).catch(() => 0),
+    submissionRepo.count({ status: { in: [...JUDGING_STATUSES] } }).catch((error: unknown) => {
+      console.error("Failed to count pending submissions", error);
+      return null;
+    }),
     submissionRepo
       .count({ status: { in: [...JUDGING_STATUSES] }, createdAt: { lt: cutoff } })
-      .catch(() => 0),
+      .catch((error: unknown) => {
+        console.error("Failed to count stale submissions", error);
+        return null;
+      }),
   ]);
 
   return { database, redis, temporal, pendingJudging, staleJudging };

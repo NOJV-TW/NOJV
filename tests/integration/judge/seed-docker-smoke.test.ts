@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 
 import {
   effectiveTimeLimitMs,
+  judgeScriptLanguageSchema,
   type AdvancedConfig,
   type Language,
   type SandboxRequest,
@@ -122,9 +123,10 @@ function judgeConfigFor(def: SeedProblemDef): SandboxRequest["judgeConfig"] {
   const out: SandboxRequest["judgeConfig"] = {};
   if (typeof cfg.checkerScript === "string") out.checkerScript = cfg.checkerScript;
   if (typeof cfg.interactorScript === "string") out.interactorScript = cfg.interactorScript;
-  if (typeof cfg.checkerLanguage === "string") out.checkerLanguage = cfg.checkerLanguage;
+  if (typeof cfg.checkerLanguage === "string")
+    out.checkerLanguage = judgeScriptLanguageSchema.parse(cfg.checkerLanguage);
   if (typeof cfg.interactorLanguage === "string")
-    out.interactorLanguage = cfg.interactorLanguage;
+    out.interactorLanguage = judgeScriptLanguageSchema.parse(cfg.interactorLanguage);
   return out;
 }
 

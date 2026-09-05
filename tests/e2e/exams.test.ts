@@ -88,4 +88,33 @@ test.describe("Exams — list, detail, problem visibility", () => {
     expect(Array.isArray(body.violations)).toBe(true);
     await context.close();
   });
+
+  test("active exam workspace keeps its countdown and end-session action", async ({
+    browser,
+  }) => {
+    const examId = "exam_demo_gradebook_active";
+    const context = await browser.newContext({ storageState: studentAuth });
+    const page = await context.newPage();
+    try {
+      const response = await page.request.post(`/exams/${examId}?/startExam`, {
+        form: {},
+        headers: apiWriteHeaders,
+      });
+      expect((await response.json()).type).toBe("success");
+      await page.goto(`/exams/${examId}/problems/problem_warmup-sum`);
+      const countdown = page.getByText(/^\d{2,}:\d{2}:\d{2}$/);
+      await expect(countdown).toBeVisible();
+      const initial = await countdown.textContent();
+      await expect.poll(() => countdown.textContent()).not.toBe(initial);
+      page.once("dialog", (dialog) => void dialog.accept());
+      await page.getByRole("button", { name: /end exam/i }).click();
+      await expect(page).toHaveURL(new RegExp(`/exams/${examId}$`));
+    } finally {
+      await page.request.post(`/exams/${examId}?/releaseSession`, {
+        form: {},
+        headers: apiWriteHeaders,
+      });
+      await context.close();
+    }
+  });
 });

@@ -48,12 +48,11 @@ for _ in range(20):
 
 const EXPLOIT_SOLUTION = `import sys, glob, os
 secret = None
-for d in glob.glob("/submission/cases/*") + glob.glob("/submission/testcases/*"):
-    for name in ("input.txt", "answer.txt", "expected.txt"):
-        try:
-            secret = open(os.path.join(d, name)).read().split()[0]
-        except OSError:
-            pass
+for p in glob.glob("/submission/case-*-*.txt") + glob.glob("/submission/testcase-*-*.txt"):
+    try:
+        secret = open(p).read().split()[0]
+    except (OSError, IndexError):
+        pass
 if secret is None:
     secret = "-1"
 for _ in range(20):
@@ -97,6 +96,28 @@ function interactiveRequest(overrides: Partial<SandboxRequest>): SandboxRequest 
 }
 
 describe("interactive-mode two-container isolation (Phase 2C)", () => {
+  it(
+    "executes a C++ interactor in its declared language",
+    { timeout: 180_000 },
+    async (ctx) => {
+      if (!(await requireSandboxImage(ctx))) return;
+      const result = await execute(
+        interactiveRequest({
+          submissionId: "interactor-cpp-language",
+          sourceCode: "print(42, flush=True)",
+          testcases: [{ index: 0, input: "42", weight: 1, isSample: false }],
+          judgeConfig: {
+            interactorLanguage: "cpp",
+            interactorScript:
+              "#include <fstream>\n#include <iostream>\nint main(int argc, char** argv) { std::ifstream input(argv[1]); int secret, guess; input >> secret; std::cin >> guess; return secret == guess ? 42 : 43; }",
+          },
+        }),
+      );
+      expect(result.testcaseResults).toHaveLength(1);
+      expect(result.testcaseResults[0]!.verdict).toBe("AC");
+    },
+  );
+
   it(
     "grades a correct binary-search solution as AC with a partial score",
     { timeout: 240_000 },

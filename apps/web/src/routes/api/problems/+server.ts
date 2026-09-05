@@ -1,5 +1,6 @@
 import { json, error } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
+import { z } from "zod";
 import type { ProblemType } from "@nojv/core";
 import { requireApiAuth } from "$lib/server/auth";
 import {
@@ -12,6 +13,9 @@ import { parseProblemListQuery } from "$lib/server/shared/problem-list-query";
 import { problemDomain } from "@nojv/application";
 
 const { createProblemRecord, listProblemCards } = problemDomain;
+const createProblemRequestSchema = z.strictObject({
+  mode: z.enum(["standard", "advanced"]).default("standard"),
+});
 
 export const GET: RequestHandler = apiHandler(async (event) => {
   const params = parseProblemListQuery(event.url);
@@ -27,10 +31,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     error(403, "Not authorized to create problems");
   }
 
-  const body = (await readJsonBody(event).catch(() => null)) as {
-    mode?: unknown;
-  } | null;
-  const mode = body?.mode;
+  const { mode } = createProblemRequestSchema.parse(await readJsonBody(event));
 
   let type: ProblemType = "full_source";
   if (mode === "advanced") {

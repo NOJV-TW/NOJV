@@ -14,7 +14,7 @@
 - `src/images.ts` — `uploadProblemImage` / `uploadUserContentImage` / `deleteProblemImage`
 - `src/avatar.ts` — `uploadUserAvatar` / `deleteUserAvatar`
 - `src/keys.ts` — `testcaseInputKey` / `testcaseOutputKey` / `workspaceFileKey` / `problemPrefix`
-- `src/blobs.ts` — `putText` / `getText` / `deleteBlob` / `deleteBlobsByPrefix`
+- `src/blobs.ts` — `getText` / `deleteBlob` / `deleteBlobsByPrefix`
 
 ## 依賴
 

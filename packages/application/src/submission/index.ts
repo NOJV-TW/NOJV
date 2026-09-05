@@ -66,7 +66,6 @@ export {
   dispatchRejudge,
   executeRejudgeDispatch,
   executeSubmissionJudgeDispatch,
-  getRejudgeTriggeredBy,
   queryRejudgeProgress,
   recoverSystemErrorSubmissions,
   REJUDGE_DISPATCH_WORK_KIND,

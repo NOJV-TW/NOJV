@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
+  import { z } from "zod";
+  import type { RejudgeProgress } from "@nojv/core";
 
   import * as Dialog from "$lib/components/primitives/ui/dialog";
   import { Button } from "$lib/components/primitives/ui/button";
@@ -24,58 +26,71 @@
   let submitting = $state(false);
   let error = $state<string | null>(null);
 
+  const progressSchema = z.object({
+    status: z.enum(["queued", "running", "completed", "failed", "cancelled"]),
+    completed: z.number().int().nonnegative(),
+    total: z.number().int().nonnegative(),
+  });
+
   let workflowId = $state<string | null>(null);
-  let progress = $state<{ completed: number; total: number }>({ completed: 0, total: 0 });
-  let done = $state(false);
+  let progress = $state<RejudgeProgress>({ status: "queued", completed: 0, total: 0 });
+  let done = $derived(
+    progress.status === "completed" ||
+      progress.status === "failed" ||
+      progress.status === "cancelled",
+  );
   let cancelling = $state(false);
-  let pollTimer: ReturnType<typeof setInterval> | null = null;
+  let cancellationRequested = $state(false);
+  let queryError = $state<string | null>(null);
+  let pollTimer: ReturnType<typeof setTimeout> | null = null;
+  let disposed = false;
 
   function stopPolling() {
     if (pollTimer) {
-      clearInterval(pollTimer);
+      clearTimeout(pollTimer);
       pollTimer = null;
     }
   }
 
   async function pollOnce() {
-    if (!workflowId) return;
+    const id = workflowId;
+    if (!id || disposed) return;
     try {
-      const res = await fetch(`/api/rejudges/${workflowId}`, {
+      const res = await fetch(`/api/rejudges/${id}`, {
         headers: { "X-Requested-With": "fetch" },
       });
-      if (res.ok) {
-        const body = (await res.json()) as { completed: number; total: number; done: boolean };
-        progress = { completed: body.completed, total: body.total };
-        if (body.done) {
-          done = true;
-          stopPolling();
-        }
-      }
+      if (!res.ok) throw new Error(m.rejudge_progress_unavailable());
+      const next = progressSchema.parse(await res.json());
+      if (workflowId !== id || disposed) return;
+      progress = next;
+      queryError = null;
     } catch {
-      return;
+      if (workflowId === id && !disposed) queryError = m.rejudge_progress_unavailable();
+    } finally {
+      if (workflowId === id && !disposed && !done) {
+        pollTimer = setTimeout(() => void pollOnce(), 1500);
+      }
     }
   }
 
   function startPolling() {
     stopPolling();
-    pollTimer = setInterval(() => void pollOnce(), 1500);
+    void pollOnce();
   }
 
   async function handleCancel() {
-    if (!workflowId || cancelling) return;
+    const id = workflowId;
+    if (!id || cancelling || cancellationRequested) return;
     cancelling = true;
     try {
-      const res = await fetch(`/api/rejudges/${workflowId}/cancel`, {
+      const res = await fetch(`/api/rejudges/${id}/cancel`, {
         method: "POST",
         headers: { "X-Requested-With": "fetch" },
       });
-      if (res.ok) {
-        toasts.success(m.rejudge_toast_cancelled());
-        done = true;
-        stopPolling();
-      } else {
-        toasts.error(m.rejudge_toast_error());
-      }
+      if (!res.ok) throw new Error(m.rejudge_toast_error());
+      if (workflowId !== id || disposed) return;
+      cancellationRequested = true;
+      toasts.success(m.rejudge_cancel_requested());
     } catch {
       toasts.error(m.rejudge_toast_error());
     } finally {
@@ -87,8 +102,9 @@
     error = null;
     stopPolling();
     workflowId = null;
-    progress = { completed: 0, total: 0 };
-    done = false;
+    progress = { status: "queued", completed: 0, total: 0 };
+    queryError = null;
+    cancellationRequested = false;
     cancelling = false;
   }
 
@@ -97,7 +113,10 @@
     onOpenChange(v);
   }
 
-  onDestroy(stopPolling);
+  onDestroy(() => {
+    disposed = true;
+    stopPolling();
+  });
 
   function scopeDescription(): string {
     if (scope.type === "practice") return m.rejudge_dialog_problemScope();
@@ -133,8 +152,7 @@
       if (res.ok) {
         const body = (await res.json()) as { workflowId: string };
         workflowId = body.workflowId;
-        progress = { completed: 0, total: 0 };
-        done = false;
+        progress = { status: "queued", completed: 0, total: 0 };
         startPolling();
       } else {
         let msg: string = m.rejudge_toast_error();
@@ -151,6 +169,21 @@
     }
   }
 
+  function progressLabel() {
+    switch (progress.status) {
+      case "queued":
+        return m.rejudge_progress_queued();
+      case "running":
+        return m.rejudge_progress_running();
+      case "completed":
+        return m.rejudge_progress_done();
+      case "failed":
+        return m.rejudge_progress_failed();
+      case "cancelled":
+        return m.rejudge_progress_cancelled();
+    }
+  }
+
   let percent = $derived(
     progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0,
   );
@@ -161,15 +194,23 @@
     <Dialog.Header>
       <Dialog.Title>{m.rejudge_dialog_title()}</Dialog.Title>
       <Dialog.Description>
-        {workflowId ? m.rejudge_progress_queued() : scopeDescription()}
+        {scopeDescription()}
       </Dialog.Description>
     </Dialog.Header>
 
     {#if workflowId}
       <div class="space-y-4">
+        {#if queryError}
+          <p class="text-caption text-destructive" role="alert">{queryError}</p>
+        {/if}
+        {#if cancellationRequested && !done}
+          <p class="text-caption text-muted-foreground" role="status">
+            {m.rejudge_cancel_requested()}
+          </p>
+        {/if}
         <div class="flex items-center justify-between text-body-sm">
           <span class="font-medium">
-            {done ? m.rejudge_progress_done() : m.rejudge_progress_running()}
+            {progressLabel()}
           </span>
           <span class="tabular-nums text-muted-foreground">
             {m.rejudge_progress_status({
@@ -178,10 +219,17 @@
             })}
           </span>
         </div>
-        <div class="h-2 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          class="h-2 w-full overflow-hidden rounded-full bg-muted"
+          role="progressbar"
+          aria-label={progressLabel()}
+          aria-valuemin="0"
+          aria-valuemax={progress.total || 1}
+          aria-valuenow={progress.completed}
+        >
           <div
             class="h-full rounded-full bg-success transition-[width] duration-300 ease-out"
-            style="width: {done ? 100 : percent}%"
+            style="width: {percent}%"
           ></div>
         </div>
 
@@ -192,7 +240,7 @@
               variant="destructive"
               onclick={handleCancel}
               loading={cancelling}
-              disabled={cancelling}
+              disabled={cancelling || cancellationRequested}
             >
               {m.rejudge_progress_cancelBtn()}
             </Button>

@@ -17,6 +17,10 @@ const sharedAliases = {
   nodemailer: requireFromMailer.resolve("nodemailer"),
   jose: requireFromWeb.resolve("jose"),
   echarts: requireFromWeb.resolve("echarts"),
+  "sveltekit-superforms/server": requireFromWeb.resolve("sveltekit-superforms/server"),
+  "sveltekit-superforms/adapters": requireFromWeb.resolve("sveltekit-superforms/adapters"),
+  "sveltekit-superforms/client": requireFromWeb.resolve("sveltekit-superforms/client"),
+  "sveltekit-superforms": requireFromWeb.resolve("sveltekit-superforms"),
   "@temporalio/client": requireFromTemporal.resolve("@temporalio/client"),
   "@nojv/db": path.resolve(__dirname, "packages/db/src/index.ts"),
   "@nojv/core": path.resolve(__dirname, "packages/core/src/index.ts"),
@@ -35,11 +39,14 @@ const sharedAliases = {
 
 const componentAliases = [
   {
-    find: /^@lucide\/svelte\/icons\/rotate-ccw$/,
-    replacement: path.resolve(__dirname, "tests/unit/web/fixtures/empty-component.svelte"),
+    find: "$app/forms",
+    replacement: path.join(
+      path.dirname(requireFromWeb.resolve("@sveltejs/kit/package.json")),
+      "src/runtime/app/forms.js",
+    ),
   },
   {
-    find: /^@lucide\/svelte\/icons\/mail$/,
+    find: /^@lucide\/svelte\/icons\/[^/]+$/,
     replacement: path.resolve(__dirname, "tests/unit/web/fixtures/empty-component.svelte"),
   },
   {
@@ -93,13 +100,19 @@ export default defineConfig({
     projects: [
       {
         plugins: [svelteTestPlugin()],
-        resolve: { alias: sharedAliases },
+        resolve: { alias: sharedAliases, dedupe: ["@sveltejs/kit"] },
         test: {
           name: "unit",
           include: ["tests/unit/**/*.test.ts"],
           exclude: [
             "tests/unit/web/echart-lifecycle.test.ts",
             "tests/unit/web/clarification-tab-error.test.ts",
+            "tests/unit/web/rejudge-dialog.test.ts",
+            "tests/unit/web/user-menu.test.ts",
+            "tests/unit/web/editor-shortcuts.test.ts",
+            "tests/unit/web/comment-section-error.test.ts",
+            "tests/unit/web/contest-join-error.test.ts",
+            "tests/unit/web/course-announcement-errors.test.ts",
             "tests/unit/web/plagiarism-pair-diff.test.ts",
             "tests/unit/web/plagiarism-pair-diff-load-error.test.ts",
             "tests/unit/web/toggle-switch.test.ts",
@@ -122,12 +135,23 @@ export default defineConfig({
       },
       {
         plugins: [svelteTestPlugin()],
-        resolve: { alias: componentAliases, conditions: ["browser"] },
+        resolve: {
+          alias: componentAliases,
+          conditions: ["browser"],
+          dedupe: ["@sveltejs/kit"],
+        },
         test: {
           name: "component",
+          server: { deps: { inline: ["bits-ui", "runed", "svelte-toolbelt"] } },
           include: [
             "tests/unit/web/echart-lifecycle.test.ts",
             "tests/unit/web/clarification-tab-error.test.ts",
+            "tests/unit/web/rejudge-dialog.test.ts",
+            "tests/unit/web/user-menu.test.ts",
+            "tests/unit/web/editor-shortcuts.test.ts",
+            "tests/unit/web/comment-section-error.test.ts",
+            "tests/unit/web/contest-join-error.test.ts",
+            "tests/unit/web/course-announcement-errors.test.ts",
             "tests/unit/web/plagiarism-pair-diff.test.ts",
             "tests/unit/web/plagiarism-pair-diff-load-error.test.ts",
             "tests/unit/web/toggle-switch.test.ts",
@@ -150,7 +174,7 @@ export default defineConfig({
       },
       {
         plugins: [svelteTestPlugin()],
-        resolve: { alias: sharedAliases },
+        resolve: { alias: sharedAliases, dedupe: ["@sveltejs/kit"] },
         test: {
           name: "integration",
           include: ["tests/integration/**/*.test.ts"],
@@ -169,7 +193,7 @@ export default defineConfig({
       },
       {
         plugins: [svelteTestPlugin()],
-        resolve: { alias: sharedAliases },
+        resolve: { alias: sharedAliases, dedupe: ["@sveltejs/kit"] },
         test: {
           name: "k8s-integration",
           include: ["tests/integration/k8s/**/*.test.ts"],

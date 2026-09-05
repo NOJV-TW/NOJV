@@ -22,7 +22,6 @@
   const uid = $props.id();
 
   let comments = $state<PostCommentEntry[]>([]);
-  let loaded = $state(false);
   let loadFailed = $state(false);
   let newComment = $state("");
   let replyTo = $state<string | null>(null);
@@ -53,7 +52,7 @@
     try {
       const res = await fetch(`/api/posts/${postId}/comments`);
       if (!res.ok) {
-        loadFailed = !loaded;
+        loadFailed = true;
         return;
       }
       const rows: PostCommentEntry[] = await res.json();
@@ -66,10 +65,9 @@
         author: row.author,
         deleted: row.deleted,
       }));
-      loaded = true;
       loadFailed = false;
     } catch {
-      loadFailed = !loaded;
+      loadFailed = true;
     }
   }
 
@@ -189,7 +187,7 @@
   {/if}
 
   {#if loadFailed}
-    <p class="mt-3 text-body-sm text-muted-foreground">{m.posts_loadError()}</p>
+    <p role="alert" class="mt-3 text-body-sm text-muted-foreground">{m.posts_loadError()}</p>
   {/if}
 
   <div class="mt-3">

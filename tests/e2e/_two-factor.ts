@@ -69,7 +69,6 @@ export function settingsMethodRow(page: Page, method: string) {
 export async function enrollTotp(
   page: Page,
 ): Promise<{ secret: string; verificationCode: string }> {
-  await page.goto("/settings", { waitUntil: "networkidle" });
   await settingsMethodRow(page, "Authenticator app (TOTP)")
     .getByRole("button", { name: "Set up", exact: true })
     .click();

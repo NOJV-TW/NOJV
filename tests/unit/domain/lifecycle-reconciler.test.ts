@@ -46,7 +46,6 @@ beforeEach(() => {
     ensureAssignmentDueSoon,
     ensureContestLifecycle,
     ensureExamAutoClose,
-    getRejudgeTriggeredBy: vi.fn(),
     probeTemporal: vi.fn(),
     queryRejudgeProgress: vi.fn(),
     replaceAssignmentDueSoon: vi.fn(),

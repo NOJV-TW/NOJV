@@ -187,6 +187,29 @@ function assertCanonicalIdentity(
 
 function createDurableWorkRepository(client: DurableWorkClient) {
   return {
+    findByWorkflowId(kind: string, workflowId: string): Promise<DurableWorkRow | null> {
+      assertIdentifier("kind", kind, MAX_KIND_LENGTH);
+      assertIdentifier("workflowId", workflowId, MAX_DEDUPE_KEY_LENGTH);
+      return client.durableWork.findFirst({
+        where: { kind, payload: { path: ["workflowId"], equals: workflowId } },
+      });
+    },
+
+    async cancelUnattempted(input: DurableWorkCancelInput): Promise<boolean> {
+      assertKey(input);
+      assertValidDate("now", input.now);
+      const result = await client.durableWork.updateMany({
+        where: {
+          kind: input.kind,
+          dedupeKey: input.dedupeKey,
+          status: "pending",
+          attempt: 0,
+        },
+        data: { status: "cancelled", completedAt: input.now, updatedAt: input.now },
+      });
+      return result.count === 1;
+    },
+
     async enqueue(input: DurableWorkEnqueueInput): Promise<DurableWorkRow> {
       const { maxAttempts, availableAt } = validatedEnqueueInput(input);
       await client.durableWork.createMany({

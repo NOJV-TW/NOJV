@@ -40,7 +40,7 @@ import {
   type ApiRequestLabels,
   type HealthProbeLabels,
 } from "$lib/server/metrics";
-import { classifyError } from "$lib/server/shared/handle-action-error";
+import { classifyError, classifyRequestError } from "$lib/server/shared/handle-action-error";
 import { getClientIp } from "$lib/server/shared/client-ip";
 import {
   authRateLimiter,
@@ -189,7 +189,7 @@ async function authenticateApiToken(
     event.locals.apiToken = verified;
     event.locals.apiTokenActor = verified.actor;
   } catch (err) {
-    const classified = classifyError(err);
+    const classified = classifyRequestError(err, event);
     return jsonErrorResponse({
       message: classified.message,
       requestId: event.locals.requestId,
@@ -546,6 +546,9 @@ export const handleError: HandleServerError = ({ error, event, status, message }
   const requestId = event.locals.requestId;
 
   if (classified.type === "http") {
+    if (classified.status >= 500) {
+      return { message: classifyRequestError(error, event).message };
+    }
     errorLogger.warn("Unwrapped domain HttpError reached handleError", {
       method: event.request.method,
       requestId,
@@ -566,14 +569,12 @@ export const handleError: HandleServerError = ({ error, event, status, message }
     return { message };
   }
 
-  errorLogger.error("Unhandled server error", {
-    err: error instanceof Error ? error.message : String(error),
+  errorLogger.error("Request failed", {
+    err: error,
     method: event.request.method,
     requestId,
-    stack: error instanceof Error ? error.stack : undefined,
     status,
     url: event.url.pathname,
   });
-
-  return { message };
+  return { message: "Internal server error." };
 };

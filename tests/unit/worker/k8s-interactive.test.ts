@@ -101,6 +101,22 @@ describe("buildInteractiveInteractorConfigMapData — interactor container holds
     expect(config.judgeType).toBe("interactive");
   });
 
+  it("keeps an explicit Python interactor independent of checkerLanguage", () => {
+    const req = makeInteractiveRequest();
+    req.judgeConfig.checkerLanguage = "cpp";
+    const data = buildInteractiveInteractorConfigMapData(req, tcs[0]!);
+    expect(data["interactor.py"]).toBe(INTERACTOR_SCRIPT);
+    expect(JSON.parse(data["config.json"]!).interactive.language).toBe("python");
+  });
+
+  it("rejects missing interactorLanguage instead of guessing", () => {
+    const req = makeInteractiveRequest();
+    delete req.judgeConfig.interactorLanguage;
+    expect(() => buildInteractiveInteractorConfigMapData(req, tcs[0]!)).toThrow(
+      "interactorLanguage",
+    );
+  });
+
   it("uses the cpp extension when interactorLanguage is cpp", () => {
     const req = makeInteractiveRequest({ interactorLanguage: "cpp", testcases: tcs });
     const data = buildInteractiveInteractorConfigMapData(req, tcs[0]!);
