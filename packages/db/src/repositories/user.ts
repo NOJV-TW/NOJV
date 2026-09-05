@@ -71,7 +71,12 @@ export const userRepo = {
     });
   },
 
-  listPaginated(opts: { where: Prisma.UserWhereInput; skip: number; take: number }) {
+  listPaginated(opts: {
+    where: Prisma.UserWhereInput;
+    skip: number;
+    take: number;
+    orderBy?: Prisma.UserOrderByWithRelationInput | Prisma.UserOrderByWithRelationInput[];
+  }) {
     return prisma.user.findMany({
       where: opts.where,
       select: {
@@ -84,7 +89,7 @@ export const userRepo = {
         canCreateAdvancedProblems: true,
         createdAt: true,
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: opts.orderBy ?? { createdAt: "desc" },
       take: opts.take,
       skip: opts.skip,
     });

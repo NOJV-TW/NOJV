@@ -45,9 +45,12 @@ export async function listUserDisplayNames(
 }
 
 export interface UserSearchParams {
-  search?: string;
+  usernameFilter?: string;
+  emailFilter?: string;
+  nameFilter?: string;
   roleFilter?: string;
   statusFilter?: "active" | "disabled";
+  createdAtOrder?: "asc" | "desc";
   page?: number;
   take?: number;
 }
@@ -59,12 +62,14 @@ export async function listUsersPaginated(params: UserSearchParams) {
 
   const where: Prisma.UserWhereInput = {};
 
-  if (params.search) {
-    where.OR = [
-      { username: { contains: params.search, mode: "insensitive" } },
-      { email: { contains: params.search, mode: "insensitive" } },
-      { name: { contains: params.search, mode: "insensitive" } },
-    ];
+  if (params.usernameFilter) {
+    where.username = { contains: params.usernameFilter, mode: "insensitive" };
+  }
+  if (params.emailFilter) {
+    where.email = { contains: params.emailFilter, mode: "insensitive" };
+  }
+  if (params.nameFilter) {
+    where.name = { contains: params.nameFilter, mode: "insensitive" };
   }
 
   if (
@@ -82,7 +87,15 @@ export async function listUsersPaginated(params: UserSearchParams) {
   }
 
   const [users, totalCount] = await Promise.all([
-    userRepo.listPaginated({ where, skip, take }),
+    userRepo.listPaginated({
+      where,
+      skip,
+      take,
+      orderBy: [
+        { createdAt: params.createdAtOrder ?? "desc" },
+        { id: params.createdAtOrder ?? "desc" },
+      ],
+    }),
     userRepo.count(where),
   ]);
   return { users, totalCount, page, totalPages: Math.max(1, Math.ceil(totalCount / take)) };
