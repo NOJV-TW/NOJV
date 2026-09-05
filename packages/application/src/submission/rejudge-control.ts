@@ -5,7 +5,13 @@ import { submissionJudgeJobSchema } from "@nojv/core";
 import { durableWorkRepo, submissionRepo, type TransactionClient } from "@nojv/db";
 import { z } from "zod";
 
-import { ForbiddenError } from "../shared/errors";
+import {
+  ForbiddenError,
+  IntegrityError,
+  NotFoundError,
+  ServiceUnavailableError,
+} from "../shared/errors";
+import type { ActorContext } from "../shared/actor-context";
 import { getDomainOrchestration } from "../shared/orchestration";
 import { toJsonValue } from "../shared/to-json-value";
 
@@ -46,24 +52,118 @@ const rejudgeDispatchPayloadSchema = z
   .strict();
 
 export function assertRejudgeWorkflowId(workflowId: string): void {
-  if (!workflowId.startsWith(REJUDGE_WORKFLOW_PREFIX)) {
-    throw new ForbiddenError("Not a rejudge workflow.");
+  if (
+    !workflowId.startsWith(REJUDGE_WORKFLOW_PREFIX) ||
+    workflowId.length > 256 ||
+    workflowId !== workflowId.trim()
+  ) {
+    throw new NotFoundError("Rejudge not found.");
   }
 }
 
-export async function cancelRejudge(workflowId: string): Promise<void> {
+type RejudgeActor = Pick<ActorContext, "userId" | "platformRole">;
+
+async function requireRejudge(actor: RejudgeActor, workflowId: string) {
   assertRejudgeWorkflowId(workflowId);
-  await getDomainOrchestration().cancelRejudge(workflowId);
+  let work;
+  try {
+    work = await durableWorkRepo.findByWorkflowId(REJUDGE_DISPATCH_WORK_KIND, workflowId);
+  } catch (cause) {
+    throw new ServiceUnavailableError("Unable to read rejudge status. Please retry.", {
+      cause,
+    });
+  }
+  if (!work) throw new NotFoundError("Rejudge not found.");
+  const payload = rejudgeDispatchPayloadSchema.safeParse(work.payload);
+  if (!payload.success) {
+    throw new IntegrityError(
+      `Invalid rejudge dispatch payload for ${workflowId}: ${payload.error.issues
+        .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+        .join("; ")}`,
+    );
+  }
+  if (actor.platformRole !== "admin" && payload.data.input.triggeredByUserId !== actor.userId) {
+    throw new ForbiddenError("Only the rejudge requester or an administrator may access it.");
+  }
+  return work;
 }
 
-export async function queryRejudgeProgress(workflowId: string): Promise<RejudgeProgress> {
-  assertRejudgeWorkflowId(workflowId);
-  return getDomainOrchestration().queryRejudgeProgress(workflowId);
+async function queryWorkflowProgress(workflowId: string) {
+  try {
+    return await getDomainOrchestration().queryRejudgeProgress(workflowId);
+  } catch (cause) {
+    throw new ServiceUnavailableError("Unable to refresh rejudge progress. Please retry.", {
+      cause,
+    });
+  }
 }
 
-export async function getRejudgeTriggeredBy(workflowId: string): Promise<string | null> {
-  assertRejudgeWorkflowId(workflowId);
-  return getDomainOrchestration().getRejudgeTriggeredBy(workflowId);
+export async function queryRejudgeProgress(
+  actor: RejudgeActor,
+  workflowId: string,
+): Promise<RejudgeProgress> {
+  const work = await requireRejudge(actor, workflowId);
+  if (work.attempt === 0 && (work.status === "pending" || work.status === "cancelled")) {
+    return {
+      status: work.status === "pending" ? "queued" : "cancelled",
+      completed: 0,
+      total: 0,
+    };
+  }
+  const progress = await queryWorkflowProgress(workflowId);
+  if (progress) return progress;
+  if (work.status === "pending" || work.status === "leased") {
+    return { status: "queued", completed: 0, total: 0 };
+  }
+  if (work.status === "dead") return { status: "failed", completed: 0, total: 0 };
+  throw new NotFoundError("Rejudge workflow is no longer available.");
+}
+
+export async function cancelRejudge(
+  actor: RejudgeActor,
+  workflowId: string,
+): Promise<{ status: "requested" | "completed" | "failed" | "cancelled" }> {
+  const work = await requireRejudge(actor, workflowId);
+  if (work.status === "cancelled" && work.attempt === 0) return { status: "cancelled" };
+  if (work.status === "pending" && work.attempt === 0) {
+    try {
+      const cancelled = await durableWorkRepo.cancelUnattempted({
+        kind: REJUDGE_DISPATCH_WORK_KIND,
+        dedupeKey: work.dedupeKey,
+        now: new Date(),
+      });
+      if (cancelled) return { status: "cancelled" };
+    } catch (cause) {
+      throw new ServiceUnavailableError("Unable to cancel the queued rejudge. Please retry.", {
+        cause,
+      });
+    }
+  }
+  const progress = await queryWorkflowProgress(workflowId);
+  if (!progress) {
+    if (work.status === "dead") return { status: "failed" };
+    if (work.status === "pending" || work.status === "leased") {
+      throw new ServiceUnavailableError(
+        "Rejudge dispatch is in progress. Please retry cancellation shortly.",
+      );
+    }
+    throw new NotFoundError("Rejudge workflow is no longer available.");
+  }
+  if (
+    progress.status === "completed" ||
+    progress.status === "failed" ||
+    progress.status === "cancelled"
+  ) {
+    return { status: progress.status };
+  }
+  try {
+    await getDomainOrchestration().cancelRejudge(workflowId);
+  } catch (cause) {
+    throw new ServiceUnavailableError("Unable to request rejudge cancellation. Please retry.", {
+      cause,
+    });
+  }
+  return { status: "requested" };
 }
 
 export async function dispatchRejudge(input: RejudgeInput): Promise<{ workflowId: string }> {

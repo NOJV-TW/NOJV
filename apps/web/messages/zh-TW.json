@@ -2393,5 +2393,12 @@
   "posts_loadError": "無法載入內容。",
   "posts_lockedDuringEvent": "此題目前列於進行中的作業或考試，結束後才會開放討論。",
   "notification_post_removed": "你的文章「{title}」已被移除",
-  "notification_comment_removed": "你在「{postTitle}」的留言已被移除"
+  "notification_comment_removed": "你在「{postTitle}」的留言已被移除",
+  "admin_healthStatusUnavailable": "無法取得",
+  "admin_healthPendingUnavailable": "無法取得佇列筆數",
+  "admin_healthStaleUnavailable": "無法取得逾時筆數",
+  "rejudge_progress_failed": "重新評測失敗",
+  "rejudge_progress_cancelled": "重新評測已取消",
+  "rejudge_progress_unavailable": "無法更新進度，正在重試⋯",
+  "rejudge_cancel_requested": "已提出取消要求"
 }

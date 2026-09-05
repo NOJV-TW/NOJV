@@ -1,9 +1,8 @@
-import { json, error, isRedirect, isHttpError as isSvelteKitError } from "@sveltejs/kit";
+import { json, error, isRedirect } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 import { ZodError } from "zod";
 
-import { createLogger } from "../logger";
-import { classifyError } from "./handle-action-error";
+import { classifyRequestError } from "./handle-action-error";
 import {
   apiRateLimiter,
   registryTokenRateLimiter,
@@ -11,8 +10,6 @@ import {
   type RateLimiterLike,
 } from "./rate-limiter";
 import { getClientIp } from "./client-ip";
-
-const logger = createLogger("api");
 
 type ApiHandler = (event: RequestEvent) => Promise<Response>;
 
@@ -57,45 +54,23 @@ export async function readJsonBody(
   maxBytes: number = JSON_BODY_LIMIT_BYTES,
 ): Promise<unknown> {
   const text = await readBodyTextWithinLimit(event.request, maxBytes);
-  return JSON.parse(text);
-}
-
-function zodErrorResponse(error: ZodError, event: RequestEvent): Response {
-  logger.warn("API validation failed", {
-    issues: error.issues.map((issue) => ({
-      code: issue.code,
-      message: issue.message,
-      path: issue.path.map(String).join("."),
-    })),
-    method: event.request.method,
-    url: event.url.pathname,
-  });
-  const first = error.issues[0];
-  const path = first?.path.map(String).join(".");
-  let message = "Invalid request";
-  if (first) {
-    message = path ? `${path}: ${first.message}` : first.message;
+  try {
+    return JSON.parse(text);
+  } catch (reason) {
+    if (!(reason instanceof SyntaxError)) throw reason;
+    error(400, "Invalid request body: expected valid JSON.");
   }
-  return json({ message, issues: error.issues }, { status: 400 });
 }
 
 function errorResponse(error: unknown, event: RequestEvent): Response {
-  if (error instanceof ZodError) {
-    return zodErrorResponse(error, event);
-  }
-
-  const classified = classifyError(error);
-
-  if (classified.type === "unknown") {
-    logger.error("Unhandled API error", {
-      err: error instanceof Error ? error.message : String(error),
-      method: event.request.method,
-      stack: error instanceof Error ? error.stack : undefined,
-      url: event.url.pathname,
-    });
-  }
-
-  return json({ message: classified.message }, { status: classified.status });
+  const classified = classifyRequestError(error, event);
+  return json(
+    {
+      message: classified.message,
+      ...(error instanceof ZodError ? { issues: error.issues } : {}),
+    },
+    { status: classified.status },
+  );
 }
 
 function resolveRateLimitKey(event: RequestEvent): string {
@@ -116,7 +91,7 @@ function wrapHandler(handler: ApiHandler, rateLimiter: RateLimiterLike): ApiHand
     try {
       return await handler(event);
     } catch (error) {
-      if (isRedirect(error) || isSvelteKitError(error)) {
+      if (isRedirect(error)) {
         throw error;
       }
       return errorResponse(error, event);

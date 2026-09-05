@@ -27,7 +27,6 @@ import { assertStorageObjectPointer, type StorageObjectPointer } from "@nojv/sto
 import {
   advancedConfigSchema,
   advancedJudgeVerificationSnapshotSchema,
-  judgeConfigSchema,
   requiredPathsSchema,
 } from "@nojv/core";
 
@@ -42,6 +41,7 @@ import { commitStoragePointerSwap } from "../shared/storage-object-lifecycle";
 import { ensureUser } from "../user/mutations";
 
 import { writeCheckerScriptBlob, writeInteractorScriptBlob } from "./blobs";
+import { parsePersistedJudgeConfig } from "./judge-config";
 import {
   assertCanCreateAdvancedProblems,
   canPublishPublicProblems,
@@ -693,9 +693,7 @@ export async function setProblemInteractor(
 
   const problem = await problemRepo.findById(problemId);
   if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
-  const existing = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
-    type: "interactive" as const,
-  };
+  const existing = parsePersistedJudgeConfig(problem.judgeConfig, problem.id);
   return saveProblemJudgeConfig(actor, problemId, {
     judgeConfig: { ...existing, type: "interactive", interactorLanguage: input.language },
     interactorScript: input.content,
@@ -717,9 +715,7 @@ export async function setProblemChecker(
   const problem = await problemRepo.findById(problemId);
   if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
 
-  const existing = judgeConfigSchema.safeParse(problem.judgeConfig).data ?? {
-    type: "checker" as const,
-  };
+  const existing = parsePersistedJudgeConfig(problem.judgeConfig, problem.id);
 
   return saveProblemJudgeConfig(actor, problemId, {
     judgeConfig: { ...existing, type: "checker", checkerLanguage: input.language },

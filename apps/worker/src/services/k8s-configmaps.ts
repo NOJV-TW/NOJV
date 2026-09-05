@@ -48,8 +48,10 @@ export function buildValidateConfigMapData(
   rawRuns: RawCaseRun[],
 ): Record<string, string> {
   const data: Record<string, string> = {};
-  const validatorScript = request.judgeConfig.checkerScript ?? "";
-  const validatorLanguage = request.judgeConfig.checkerLanguage === "cpp" ? "cpp" : "python";
+  const validatorScript = request.judgeConfig.checkerScript;
+  if (!validatorScript) throw new Error("Checker judge is missing its validator script.");
+  const validatorLanguage = request.judgeConfig.checkerLanguage;
+  if (!validatorLanguage) throw new Error("Checker judge is missing checkerLanguage.");
   const ext = sourceExtension(validatorLanguage);
   data[`validator.${ext}`] = validatorScript;
 
@@ -101,11 +103,10 @@ export function buildInteractiveInteractorConfigMapData(
   request: SandboxRequest,
   testcase: SandboxTestcase,
 ): Record<string, string> {
-  const interactorScript = request.judgeConfig.interactorScript ?? "";
-  const checkerFallbackLanguage =
-    request.judgeConfig.checkerLanguage === "cpp" ? "cpp" : "python";
-  const interactorLanguage =
-    request.judgeConfig.interactorLanguage === "cpp" ? "cpp" : checkerFallbackLanguage;
+  const interactorScript = request.judgeConfig.interactorScript;
+  if (!interactorScript) throw new Error("Interactive judge is missing its interactor script.");
+  const interactorLanguage = request.judgeConfig.interactorLanguage;
+  if (!interactorLanguage) throw new Error("Interactive judge is missing interactorLanguage.");
   const ext = sourceExtension(interactorLanguage);
 
   const data: Record<string, string> = {};

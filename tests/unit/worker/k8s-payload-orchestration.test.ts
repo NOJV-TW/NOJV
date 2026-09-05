@@ -97,6 +97,42 @@ function clients(
 }
 
 describe("K8sExecutor sharded payload orchestration", () => {
+  it.each([403, 503])(
+    "preserves log API %i errors for infrastructure retry",
+    async (status) => {
+      const fake = clients();
+      const failure = new Error(`Kubernetes API ${String(status)}`);
+      fake.handles.coreApi.readNamespacedPodLog.mockRejectedValue(failure);
+      const execution = new K8sExecutor(EXEC_CONFIG, fake.handles).execute(request("ok"), {
+        runId: "log-failure",
+        signal: new AbortController().signal,
+      });
+      await expect(execution).rejects.toMatchObject({
+        name: "SandboxInfrastructureError",
+        cause: failure,
+        message: expect.stringContaining("nojv-sandbox/judge-log-failure-pod (prepare)"),
+      });
+      expect(fake.record.configMapsDeleted).toEqual(fake.record.configMapsCreated);
+    },
+  );
+
+  it("ignores unrelated JSON logging after a valid runner report", async () => {
+    const fake = clients();
+    fake.handles.coreApi.readNamespacedPodLog.mockImplementation(
+      async ({ container }: { container: string }) =>
+        container === "prepare"
+          ? JSON.stringify({ runCommand: ["python3", "main.py"] })
+          : JSON.stringify({
+              rawRuns: [{ index: 0, stdout: "ok\n", stderr: "", exitCode: 0, timeMs: 1 }],
+            }) + '\n{"level":"info","message":"finished"}',
+    );
+    const result = await new K8sExecutor(EXEC_CONFIG, fake.handles).execute(request("ok"), {
+      runId: "json-log",
+      signal: new AbortController().signal,
+    });
+    expect(result.testcaseResults[0]!.verdict).toBe("AC");
+  });
+
   it("runs a multi-ConfigMap payload and removes every shard", async () => {
     const fake = clients();
     const executor = new K8sExecutor(EXEC_CONFIG, fake.handles);

@@ -31,19 +31,16 @@ async function contextGateOpen(context: PostViewContext): Promise<boolean> {
     case "practice":
       return true;
     case "contest": {
-      const contest = await contestRepo.findById(context.contestId).catch(() => null);
+      const contest = await contestRepo.findById(context.contestId);
       if (!contest) return false;
       return context.now.getTime() >= contest.endsAt.getTime();
     }
     case "assignment": {
-      const assessment = await assessmentRepo
-        .findInfoById(context.assignmentId)
-        .catch(() => null);
-      if (!assessment) return false;
+      const assessment = await assessmentRepo.findInfoById(context.assignmentId);
       return context.now.getTime() >= assessment.closesAt.getTime();
     }
     case "exam": {
-      const exam = await examRepo.findById(context.examId).catch(() => null);
+      const exam = await examRepo.findById(context.examId);
       if (!exam) return false;
       return context.now.getTime() >= exam.endsAt.getTime();
     }

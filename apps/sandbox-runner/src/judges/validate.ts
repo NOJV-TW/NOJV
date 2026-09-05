@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { parseValidatorFeedback, type ValidatorFeedbackFiles } from "@nojv/core";
 import type { ValidatorCaseOutcome } from "../types.js";
-import { pathExists, readOptionalFile } from "../utils.js";
+import { readOptionalFile } from "../utils.js";
 import { runProcess } from "./run-process.js";
 
 const VALIDATOR_TIMEOUT_FLOOR_MS = 30_000;
@@ -21,24 +21,12 @@ export async function resolveValidateCaseFiles(
   submissionDir: string,
   index: number,
 ): Promise<ValidateCaseFiles> {
-  const dirInput = path.join(submissionDir, "cases", String(index), "input.txt");
-  if (await pathExists(dirInput)) {
-    const caseDir = path.join(submissionDir, "cases", String(index));
-    const teamOutput = await fs
-      .readFile(path.join(caseDir, "team.txt"), "utf-8")
-      .catch(() => "");
-    return {
-      inputFile: dirInput,
-      answerFile: path.join(caseDir, "answer.txt"),
-      teamOutput,
-    };
-  }
-
   const inputFile = path.join(submissionDir, `case-${String(index)}-input.txt`);
   const answerFile = path.join(submissionDir, `case-${String(index)}-answer.txt`);
-  const teamOutput = await fs
-    .readFile(path.join(submissionDir, `case-${String(index)}-team.txt`), "utf-8")
-    .catch(() => "");
+  const teamOutput = await fs.readFile(
+    path.join(submissionDir, `case-${String(index)}-team.txt`),
+    "utf-8",
+  );
   return { inputFile, answerFile, teamOutput };
 }
 

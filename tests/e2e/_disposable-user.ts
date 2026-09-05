@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 
-import type { Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { resolveDestructiveTestDatabase } from "../setup/destructive-test-database";
 import { apiWriteHeaders } from "./_shared";
 
@@ -106,5 +106,6 @@ export async function signInWithPassword(
   if (!response.ok()) {
     throw new Error(`Password sign-in failed with HTTP ${String(response.status())}.`);
   }
-  await page.goto("/dashboard", { waitUntil: "networkidle" });
+  await page.goto("/dashboard");
+  await expect(page.getByRole("button", { name: /open account menu/i })).toBeVisible();
 }

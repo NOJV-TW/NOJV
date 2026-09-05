@@ -1,11 +1,8 @@
-import { fail } from "@sveltejs/kit";
-
 import { contestDomain, virtualContestDomain } from "@nojv/application";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";
-import { withRateLimit } from "$lib/server/shared/action-handlers";
-import { classifyError } from "$lib/server/shared/handle-action-error";
+import { withAction } from "$lib/server/shared/action-handlers";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 
 const { getContestDetail } = contestDomain;
@@ -40,14 +37,9 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 });
 
 export const actions: Actions = {
-  start: withRateLimit(async (event) => {
+  start: withAction(async (event) => {
     const actor = requireAuth(event);
-    try {
-      await startVirtualContest(actor, event.params.contestId);
-    } catch (err) {
-      const classified = classifyError(err);
-      return fail(classified.status, { error: classified.message });
-    }
+    await startVirtualContest(actor, event.params.contestId);
     return { started: true };
   }),
 };

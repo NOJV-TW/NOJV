@@ -1,7 +1,7 @@
 import { fail, isHttpError as isSvelteKitError, isRedirect } from "@sveltejs/kit";
 import type { ActionFailure, RequestEvent } from "@sveltejs/kit";
 import { consumeFormRateLimitInternal } from "./rate-limiter";
-import { classifyError } from "./handle-action-error";
+import { classifyRequestError } from "./handle-action-error";
 
 type RateLimitFailure = NonNullable<Awaited<ReturnType<typeof consumeFormRateLimitInternal>>>;
 type RequestAction = (event: RequestEvent) => Promise<unknown>;
@@ -36,8 +36,8 @@ export function withAction<E extends RequestEvent, R>(handler: (event: E) => Pro
     try {
       return await handler(event);
     } catch (err) {
-      if (isRedirect(err) || isSvelteKitError(err)) throw err;
-      const classified = classifyError(err);
+      if (isRedirect(err) || (isSvelteKitError(err) && err.status < 500)) throw err;
+      const classified = classifyRequestError(err, event);
       return fail(classified.status, { error: classified.message });
     }
   });

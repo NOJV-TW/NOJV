@@ -101,7 +101,7 @@ rl.on("line", (line: string) => {
 
     const verdict = await judge(
       compileResult.runCommand,
-      { index: 0, input: "3 5\n", weight: 1, isSample: true },
+      { index: 0, input: "3 5\n" },
       "8\n",
       TIMEOUT_MS,
     );
@@ -129,7 +129,7 @@ rl.on("line", (line: string) => {
 
 describe("standard judge edge cases", () => {
   it("solution spawn error → SE", async () => {
-    const tc: TestcaseFiles = { index: 0, input: "", weight: 1, isSample: true };
+    const tc: TestcaseFiles = { index: 0, input: "" };
     const verdict = await judge(["/nonexistent/program"], tc, "", TIMEOUT_MS);
 
     expect(verdict.verdict).toBe("SE");
@@ -137,7 +137,7 @@ describe("standard judge edge cases", () => {
   });
 
   it("empty run command → SE", async () => {
-    const tc: TestcaseFiles = { index: 0, input: "", weight: 1, isSample: true };
+    const tc: TestcaseFiles = { index: 0, input: "" };
     const verdict = await judge([], tc, "", TIMEOUT_MS);
 
     expect(verdict.verdict).toBe("SE");
@@ -157,8 +157,6 @@ print(len(data))`,
     const tc: TestcaseFiles = {
       index: 0,
       input: largeInput,
-      weight: 1,
-      isSample: false,
     };
 
     const verdict = await judge(
@@ -178,8 +176,6 @@ print(len(data))`,
     const tc: TestcaseFiles = {
       index: 0,
       input: "",
-      weight: 1,
-      isSample: false,
     };
 
     const verdict = await judge(["python3", solutionFile], tc, expected, TIMEOUT_MS);
@@ -199,8 +195,6 @@ print(line.strip())`,
     const tc: TestcaseFiles = {
       index: 0,
       input: unicodeText,
-      weight: 1,
-      isSample: true,
     };
 
     const verdict = await judge(["python3", solutionFile], tc, unicodeText, TIMEOUT_MS);
@@ -214,8 +208,6 @@ print(line.strip())`,
     const tc: TestcaseFiles = {
       index: 0,
       input: "",
-      weight: 1,
-      isSample: true,
     };
 
     const verdict = await judge(
@@ -239,8 +231,6 @@ print("")  # Empty output`,
     const tc: TestcaseFiles = {
       index: 0,
       input: "",
-      weight: 1,
-      isSample: true,
     };
 
     const verdict = await judge(["python3", solutionFile], tc, "", TIMEOUT_MS);
@@ -255,8 +245,6 @@ print("")  # Empty output`,
     const tc: TestcaseFiles = {
       index: 0,
       input: "",
-      weight: 1,
-      isSample: true,
     };
 
     const verdict = await judge(["python3", solutionFile], tc, "line1\n\nline2\n", TIMEOUT_MS);
@@ -270,8 +258,6 @@ print("")  # Empty output`,
     const tc: TestcaseFiles = {
       index: 0,
       input: "",
-      weight: 1,
-      isSample: true,
     };
 
     const verdict = await judge(["python3", solutionFile], tc, "", TIMEOUT_MS);
@@ -289,10 +275,10 @@ print(a + b)`,
     );
 
     const testcases: { tc: TestcaseFiles; expected: string }[] = [
-      { tc: { index: 0, input: "1 2", weight: 1, isSample: true }, expected: "3" },
-      { tc: { index: 1, input: "10 20", weight: 1, isSample: false }, expected: "30" },
-      { tc: { index: 2, input: "0 0", weight: 1, isSample: false }, expected: "0" },
-      { tc: { index: 3, input: "-5 5", weight: 2, isSample: false }, expected: "0" },
+      { tc: { index: 0, input: "1 2" }, expected: "3" },
+      { tc: { index: 1, input: "10 20" }, expected: "30" },
+      { tc: { index: 2, input: "0 0" }, expected: "0" },
+      { tc: { index: 3, input: "-5 5" }, expected: "0" },
     ];
 
     const results = [];
@@ -318,9 +304,9 @@ print(a + b)`,
     );
 
     const testcases: { tc: TestcaseFiles; expected: string }[] = [
-      { tc: { index: 0, input: "1 2", weight: 1, isSample: true }, expected: "3" },
-      { tc: { index: 1, input: "-5 5", weight: 1, isSample: false }, expected: "0" },
-      { tc: { index: 2, input: "10 20", weight: 1, isSample: false }, expected: "999" },
+      { tc: { index: 0, input: "1 2" }, expected: "3" },
+      { tc: { index: 1, input: "-5 5" }, expected: "0" },
+      { tc: { index: 2, input: "10 20" }, expected: "999" },
     ];
 
     const results = [];
@@ -341,8 +327,6 @@ print(a + b)`,
     const tc: TestcaseFiles = {
       index: 5,
       input: "",
-      weight: 10,
-      isSample: false,
     };
     const verdict = await judge(["python3", solutionFile], tc, "42", TIMEOUT_MS);
 
@@ -363,8 +347,6 @@ print("done")`,
     const tc: TestcaseFiles = {
       index: 0,
       input: "",
-      weight: 1,
-      isSample: true,
     };
     const verdict = await judge(["python3", solutionFile], tc, "done", 100);
 
@@ -379,8 +361,6 @@ print("done")`,
     const tc: TestcaseFiles = {
       index: 0,
       input: "",
-      weight: 1,
-      isSample: true,
     };
     const verdict = await judge(["python3", solutionFile], tc, "test", 1);
 
@@ -397,8 +377,6 @@ print("done")`,
       const tc: TestcaseFiles = {
         index: idx,
         input: "",
-        weight: 1,
-        isSample: true,
       };
 
       const verdict = await judge(["python3", solutionFile], tc, "test", TIMEOUT_MS);

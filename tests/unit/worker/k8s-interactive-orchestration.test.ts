@@ -147,6 +147,21 @@ const EXEC_CONFIG = {
 };
 
 describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup", () => {
+  it("rethrows interactor log API failure with its cause after cleanup", async () => {
+    const record = emptyRecord();
+    const clients = buildFakeClients(record);
+    const failure = new Error("Kubernetes log API unavailable");
+    clients.coreApi.readNamespacedPodLog.mockRejectedValue(failure);
+    await expect(
+      execute(new K8sExecutor(EXEC_CONFIG, clients), makeRequest(1)),
+    ).rejects.toMatchObject({
+      name: "SandboxInfrastructureError",
+      cause: failure,
+    });
+    expect(record.jobsDeleted).toHaveLength(1);
+    expect(record.configMapsDeleted).toHaveLength(record.configMapsCreated.length);
+  });
+
   it("retries transient cleanup failures until every Job and ConfigMap is removed", async () => {
     vi.useFakeTimers();
     try {

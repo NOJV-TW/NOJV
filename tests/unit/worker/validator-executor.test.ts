@@ -1,12 +1,24 @@
 import { mkdtemp, readFile, rm, access } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { SandboxRequest } from "@nojv/core";
+import { buildValidateConfigMapData } from "../../../apps/worker/src/services/k8s-configmaps";
+import { resolveValidateCaseFiles } from "../../../apps/sandbox-runner/src/judges/validate";
 
 import {
   writeValidatorFiles,
+  runValidator,
   type ValidatorRunParams,
 } from "../../../apps/worker/src/services/validator-executor";
+
+const { spawnDockerContainer } = vi.hoisted(() => ({ spawnDockerContainer: vi.fn() }));
+vi.mock("../../../apps/worker/src/services/docker-process", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../../../apps/worker/src/services/docker-process")
+  >()),
+  spawnDockerContainer,
+}));
 
 function exists(path: string): Promise<boolean> {
   return access(path).then(
@@ -19,6 +31,7 @@ describe("writeValidatorFiles", () => {
   let tempDir: string;
 
   const params: ValidatorRunParams = {
+    runId: "run-1",
     submissionId: "sub-1",
     validatorScript: "accept()\n",
     validatorLanguage: "python",
@@ -37,6 +50,41 @@ describe("writeValidatorFiles", () => {
     await rm(tempDir, { recursive: true, force: true });
   });
 
+  it.each([
+    [{ spawnError: "docker unavailable" }, "docker unavailable"],
+    [{ timedOut: true }, "timed out"],
+    [{ exitCode: 1, stderr: "container failure" }, "container failure"],
+    [{ stdout: "invalid json" }, "Invalid validator JSON"],
+    [
+      { stdout: JSON.stringify({ validatorOutcomes: [{ index: 0, verdict: "bogus" }] }) },
+      "verdict",
+    ],
+    [
+      { stdout: JSON.stringify({ compilationError: "C++ compiler failure" }) },
+      "C++ compiler failure",
+    ],
+  ])("preserves validator infrastructure diagnostics (%s)", async (overrides, message) => {
+    spawnDockerContainer.mockResolvedValue({
+      exitCode: 0,
+      stdout: "",
+      stderr: "",
+      timedOut: false,
+      sizeExceeded: false,
+      spawnError: null,
+      ...overrides,
+    });
+    const outcomes = await runValidator(tempDir, params, new AbortController().signal, {
+      cpuLimit: "1",
+      image: "test",
+      memoryMb: 256,
+      pidsLimit: 64,
+    });
+    expect(outcomes.get(0)).toMatchObject({
+      verdict: "SE",
+      judgeMessage: expect.stringContaining(message),
+    });
+  });
+
   it("writes the validator source with the language extension", async () => {
     await writeValidatorFiles(tempDir, params);
     expect(await exists(join(tempDir, "validator.py"))).toBe(true);
@@ -52,12 +100,51 @@ describe("writeValidatorFiles", () => {
     });
   });
 
-  it("writes per-case input/answer/team files under cases/{index}/", async () => {
+  it("writes per-case input/answer/team files using the shared flat layout", async () => {
     await writeValidatorFiles(tempDir, params);
-    expect(await readFile(join(tempDir, "cases", "0", "input.txt"), "utf8")).toBe("1\n");
-    expect(await readFile(join(tempDir, "cases", "0", "answer.txt"), "utf8")).toBe("ans0\n");
-    expect(await readFile(join(tempDir, "cases", "0", "team.txt"), "utf8")).toBe("team0\n");
-    expect(await readFile(join(tempDir, "cases", "1", "team.txt"), "utf8")).toBe("team1\n");
+    expect(await readFile(join(tempDir, "case-0-input.txt"), "utf8")).toBe("1\n");
+    expect(await readFile(join(tempDir, "case-0-answer.txt"), "utf8")).toBe("ans0\n");
+    expect(await readFile(join(tempDir, "case-0-team.txt"), "utf8")).toBe("team0\n");
+    expect(await readFile(join(tempDir, "case-1-team.txt"), "utf8")).toBe("team1\n");
+  });
+
+  it("Docker and K8s validation payloads share the runner contract", async () => {
+    const request: SandboxRequest = {
+      submissionId: params.submissionId,
+      sourceCode: "",
+      language: "python",
+      problemType: "full_source",
+      judgeType: "checker",
+      judgeConfig: {
+        checkerScript: params.validatorScript,
+        checkerLanguage: params.validatorLanguage,
+      },
+      limits: params.limits,
+      testcases: params.cases.map((c) => ({
+        index: c.index,
+        input: c.input,
+        output: c.answer,
+        weight: 1,
+        isSample: false,
+      })),
+    };
+    const rawRuns = params.cases.map((c) => ({
+      index: c.index,
+      stdout: c.teamOutput,
+      stderr: "",
+      exitCode: 0,
+      timeMs: 1,
+    }));
+    const k8sData = buildValidateConfigMapData(request, rawRuns);
+    await writeValidatorFiles(tempDir, params);
+    for (const [key, value] of Object.entries(k8sData)) {
+      const dockerValue = await readFile(join(tempDir, key), "utf8");
+      if (key === "config.json") expect(JSON.parse(dockerValue)).toEqual(JSON.parse(value));
+      else expect(dockerValue).toBe(value);
+    }
+    expect((await resolveValidateCaseFiles(tempDir, 1)).teamOutput).toBe(
+      params.cases[1]!.teamOutput,
+    );
   });
 
   it("uses the cpp extension for cpp validators", async () => {

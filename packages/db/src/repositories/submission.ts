@@ -233,6 +233,7 @@ export const submissionRepo = {
       select: {
         problem: {
           select: {
+            id: true,
             type: true,
             advancedConfig: true,
             advancedRequiredPaths: true,

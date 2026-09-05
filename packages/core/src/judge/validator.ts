@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { SandboxVerdict } from "../sandbox";
+import type { ValidatorCaseOutcome } from "../schemas/sandbox-output";
 
 export const VALIDATOR_EXIT_ACCEPT = 42;
 export const VALIDATOR_EXIT_WRONG = 43;
@@ -10,11 +11,7 @@ export interface ValidatorFeedbackFiles {
   teamMessage?: string;
 }
 
-export interface ValidatorOutcome {
-  verdict: Extract<SandboxVerdict, "AC" | "WA" | "SE">;
-  teamMessage?: string;
-  judgeMessage?: string;
-}
+export type ValidatorOutcome = Omit<ValidatorCaseOutcome, "index">;
 
 function trimmedOrUndefined(raw: string | undefined): string | undefined {
   if (raw === undefined) return undefined;

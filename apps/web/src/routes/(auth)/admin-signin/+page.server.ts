@@ -225,6 +225,7 @@ const actionHandlers = {
     if (!user.isSuperAdmin) {
       return "twoFactorRedirect" in signInResponse && signInResponse.twoFactorRedirect
         ? {
+            destination: "/dashboard",
             hasPasskey: state.hasPasskey,
             hasTotp: state.hasTotp,
             phase: "verify-factor" as const,

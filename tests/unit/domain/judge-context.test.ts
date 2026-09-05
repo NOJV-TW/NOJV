@@ -158,6 +158,7 @@ describe("getJudgeContext", () => {
       pointer("problems/prob_1/validators/v1/checker"),
     );
     expect(ctx.checkerScript).toBe("checker source");
+    expect(ctx.checkerLanguage).toBe("python");
     expect(ctx.interactorScript).toBeNull();
   });
 
@@ -182,6 +183,17 @@ describe("getJudgeContext", () => {
       pointer("problems/prob_1/validators/v1/interactor"),
     );
     expect(ctx.interactorScript).toBe("interactor source");
+    expect(ctx.interactorLanguage).toBe("cpp");
+  });
+
+  it.each([
+    ["checker", "checkerLanguage"],
+    ["interactive", "interactorLanguage"],
+  ])("rejects %s judging without its language", async (type, field) => {
+    findByIdWithJudgeContext.mockResolvedValue(mkSubmissionRow({}, { judgeConfig: { type } }));
+    await expect(getJudgeContext("sub_1")).rejects.toThrow(
+      `Problem prob_1: ${field} is required`,
+    );
   });
 
   it("falls back to standard judge type when judgeConfig is null", async () => {
@@ -373,7 +385,7 @@ describe("getJudgeContext", () => {
       expect(ctx.advanced?.config.grade.imageRef).toBe("registry.example.com/judge:v2");
     });
 
-    it("returns advanced=null for special_env when advancedConfig is missing (config not yet attached)", async () => {
+    it("rejects judging special_env when advancedConfig is missing", async () => {
       const row = mkSubmissionRow(
         {},
         {
@@ -383,8 +395,9 @@ describe("getJudgeContext", () => {
       );
       findByIdWithJudgeContext.mockResolvedValue(row);
 
-      const ctx = await getJudgeContext("sub_1");
-      expect(ctx.advanced).toBeNull();
+      await expect(getJudgeContext("sub_1")).rejects.toThrow(
+        /Problem prob_1: advancedConfig is required/,
+      );
     });
 
     it("throws IntegrityError for special_env with a present-but-invalid advancedConfig", async () => {
@@ -424,8 +437,10 @@ describe("getJudgeContext", () => {
       expect(deriveJudgeMode({ problemType: "full_source", advanced: null })).toBe("standard");
     });
 
-    it('returns "standard" when problemType is special_env but advanced is null', () => {
-      expect(deriveJudgeMode({ problemType: "special_env", advanced: null })).toBe("standard");
+    it("rejects advanced judging with missing configuration", () => {
+      expect(() => deriveJudgeMode({ problemType: "special_env", advanced: null })).toThrow(
+        IntegrityError,
+      );
     });
   });
 

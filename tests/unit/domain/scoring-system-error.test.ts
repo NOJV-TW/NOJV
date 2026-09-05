@@ -55,7 +55,7 @@ describe("mapResult — sandbox SE maps to system_error (platform fault)", () =>
     expect(() => submissionResultSchema.parse(result)).not.toThrow();
   });
 
-  it("prefers a case diagnostic over the generic platform message", () => {
+  it("preserves a platform failure diagnostic even when it prevented other cases running", () => {
     const result = mapResult(
       {
         testcaseResults: [
@@ -63,14 +63,20 @@ describe("mapResult — sandbox SE maps to system_error (platform fault)", () =>
             index: 0,
             verdict: "SE",
             feedback: "Interactive judge failed; this submission was not counted.",
+            staffFeedback: "Interactor process exited with signal SIGSEGV.",
           }),
         ],
       },
       [],
       NO_ADJUSTMENT as never,
+      2,
     );
 
     expect(result.feedback).toBe("Interactive judge failed; this submission was not counted.");
+    expect(result.caseResults?.[0]?.staffFeedback).toBe(
+      "Interactor process exited with signal SIGSEGV.",
+    );
+    expect(result).toMatchObject({ accepted: false, score: 0, verdict: "system_error" });
   });
 
   it("maps a judge pipeline failure to system_error instead of a student compile error", () => {
@@ -89,5 +95,57 @@ describe("mapResult — sandbox SE maps to system_error (platform fault)", () =>
 
   it("system_error stays out of the graded/counted verdict set", () => {
     expect(submissionVerdicts as readonly string[]).not.toContain("system_error");
+  });
+});
+
+describe("mapResult — complete testcase contract", () => {
+  it.each([[0], [0, 0], [0, 2], [-1, 1], [0, 0.5], [0, 1, 2]])(
+    "rejects missing, duplicate or invalid indices: %j",
+    (...indices) => {
+      const result = mapResult(
+        { testcaseResults: indices.map((index) => mkCase({ index })) },
+        [],
+        NO_ADJUSTMENT as never,
+        2,
+      );
+      expect(result).toMatchObject({ accepted: false, verdict: "system_error", score: 0 });
+      expect(result.feedback).toContain("expected 2 distinct testcase results");
+      expect(() => submissionResultSchema.parse(result)).not.toThrow();
+    },
+  );
+
+  it("accepts complete results and preserves sample scoring", () => {
+    const result = mapResult(
+      { testcaseResults: [mkCase({ index: 0 }), mkCase({ index: 1 })] },
+      [],
+      NO_ADJUSTMENT as never,
+      2,
+    );
+    expect(result).toMatchObject({ accepted: true, verdict: "accepted", score: 0 });
+  });
+
+  it("matches subtask results by index even when executor results arrive out of order", () => {
+    const sets = [
+      {
+        id: "set-1",
+        name: "All",
+        weight: 100,
+        testcases: [
+          { id: "case-0", input: "", output: "", inputFiles: {}, weight: 1 },
+          { id: "case-1", input: "", output: "", inputFiles: {}, weight: 1 },
+        ],
+      },
+    ];
+    const result = mapResult(
+      { testcaseResults: [mkCase({ index: 1, verdict: "WA" }), mkCase({ index: 0 })] },
+      sets,
+      NO_ADJUSTMENT as never,
+    );
+    expect(
+      result.subtaskResults?.[0]?.cases.map(({ testcaseId, verdict }) => [testcaseId, verdict]),
+    ).toEqual([
+      ["case-0", "AC"],
+      ["case-1", "WA"],
+    ]);
   });
 });

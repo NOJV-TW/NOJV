@@ -204,8 +204,8 @@ describe("interactive container file layout", () => {
   it("interactor container holds interactor + the secret input/answer", async () => {
     await writeInteractorFiles(intDir, request, TESTCASE, "accept()\n", "python");
     expect(await readFile(join(intDir, "interactor.py"), "utf8")).toBe("accept()\n");
-    expect(await readFile(join(intDir, "cases", "2", "input.txt"), "utf8")).toBe("secret 7\n");
-    expect(await readFile(join(intDir, "cases", "2", "answer.txt"), "utf8")).toBe("answer 7\n");
+    expect(await readFile(join(intDir, "case-2-input.txt"), "utf8")).toBe("secret 7\n");
+    expect(await readFile(join(intDir, "case-2-answer.txt"), "utf8")).toBe("answer 7\n");
     const config = JSON.parse(await readFile(join(intDir, "config.json"), "utf8"));
     expect(config.interactive).toEqual({ role: "validator", language: "python", index: 2 });
     expect(await exists(join(intDir, "main.py"))).toBe(false);

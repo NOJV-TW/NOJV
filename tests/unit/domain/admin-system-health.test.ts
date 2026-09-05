@@ -66,3 +66,17 @@ describe("getSystemHealth", () => {
     expect(health.staleJudging).toBe(1);
   });
 });
+
+it("keeps a failed queue query distinct from zero and logs the cause", async () => {
+  const reason = new Error("queue count timeout");
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  submissionCount.mockRejectedValueOnce(reason).mockResolvedValueOnce(0);
+  try {
+    const health = await getSystemHealth();
+    expect(health.pendingJudging).toBeNull();
+    expect(health.staleJudging).toBe(0);
+    expect(log).toHaveBeenCalledWith("Failed to count pending submissions", reason);
+  } finally {
+    log.mockRestore();
+  }
+});

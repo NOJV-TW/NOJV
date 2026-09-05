@@ -12,7 +12,6 @@ import * as path from "node:path";
 import {
   createBoundedBuffer,
   createMemoryPoller,
-  pathExists,
   readOptionalFile,
   withCpuTimeLimit,
 } from "../utils.js";
@@ -96,17 +95,10 @@ export interface InteractiveCaseFiles {
   answerFile: string;
 }
 
-export async function resolveInteractiveCaseFiles(
+export function resolveInteractiveCaseFiles(
   submissionDir: string,
   index: number,
-): Promise<InteractiveCaseFiles> {
-  const dirInput = path.join(submissionDir, "cases", String(index), "input.txt");
-  if (await pathExists(dirInput)) {
-    return {
-      inputFile: dirInput,
-      answerFile: path.join(submissionDir, "cases", String(index), "answer.txt"),
-    };
-  }
+): InteractiveCaseFiles {
   return {
     inputFile: path.join(submissionDir, `case-${String(index)}-input.txt`),
     answerFile: path.join(submissionDir, `case-${String(index)}-answer.txt`),

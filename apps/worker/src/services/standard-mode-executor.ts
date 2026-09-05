@@ -61,7 +61,8 @@ async function resolveCheckerResult(
     return sandboxSystemError("Checker judge is missing its validator script.");
   }
 
-  const validatorLanguage = request.judgeConfig.checkerLanguage === "cpp" ? "cpp" : "python";
+  const validatorLanguage = request.judgeConfig.checkerLanguage;
+  if (!validatorLanguage) throw new Error("Checker judge is missing checkerLanguage.");
 
   const testcaseByIndex = new Map(request.testcases.map((tc) => [tc.index, tc]));
 
@@ -134,15 +135,10 @@ export async function writeSubmissionFiles(
 
   await Promise.all(fileWrites);
 
-  const testcasesDir = join(tempDir, "testcases");
-  await mkdir(testcasesDir, { recursive: true });
-
   await Promise.all(
-    request.testcases.map(async (tc) => {
-      const tcDir = join(testcasesDir, String(tc.index));
-      await mkdir(tcDir, { recursive: true });
-      await writeFile(join(tcDir, "input.txt"), tc.input, "utf8");
-    }),
+    request.testcases.map((tc) =>
+      writeFile(join(tempDir, `testcase-${String(tc.index)}-input.txt`), tc.input, "utf8"),
+    ),
   );
 
   await mkdir(join(tempDir, "artifacts"), { recursive: true });
@@ -174,7 +170,7 @@ function extractCaseRun(phase: DockerRunResult, index: number): RawCaseRun {
     return caseSystemError(index, `Failed to parse run output.\nstdout: ${phase.stdout}`);
   }
   if (!parsed.success) {
-    return caseSystemError(index, `Invalid run output.\nstdout: ${phase.stdout}`);
+    return caseSystemError(index, `Invalid run output: ${parsed.error.message}`);
   }
   const run = parsed.data.rawRuns?.[0];
   if (!run) {
@@ -241,7 +237,7 @@ async function runContainer(
       return sandboxSystemError(`Failed to parse compile output.\nstdout: ${compile.stdout}`);
     }
     if (!compileParsed.success) {
-      return sandboxSystemError(`Invalid compile output.\nstdout: ${compile.stdout}`);
+      return sandboxSystemError(`Invalid compile output: ${compileParsed.error.message}`);
     }
     const compileOut = compileParsed.data;
     if (compileOut.compilationError) {

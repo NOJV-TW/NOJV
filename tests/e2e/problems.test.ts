@@ -70,7 +70,10 @@ test.describe("Problems", () => {
   test("teacher can create a problem via API and access edit page", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
-    const res = await page.request.post("/api/problems", { headers: apiWriteHeaders });
+    const res = await page.request.post("/api/problems", {
+      headers: apiWriteHeaders,
+      data: {},
+    });
     expect(res.ok()).toBe(true);
     const { id } = await res.json();
     expect(id).toBeTruthy();
@@ -84,7 +87,10 @@ test.describe("Problems", () => {
   }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
-    const response = await page.request.post("/api/problems", { headers: apiWriteHeaders });
+    const response = await page.request.post("/api/problems", {
+      headers: apiWriteHeaders,
+      data: {},
+    });
     expect(response.ok()).toBe(true);
     const { id } = await response.json();
 
@@ -109,7 +115,10 @@ test.describe("Problems", () => {
     let id = "";
 
     try {
-      const response = await page.request.post("/api/problems", { headers: apiWriteHeaders });
+      const response = await page.request.post("/api/problems", {
+        headers: apiWriteHeaders,
+        data: {},
+      });
       expect(response.ok()).toBe(true);
       ({ id } = await response.json());
 

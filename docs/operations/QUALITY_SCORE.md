@@ -18,6 +18,13 @@ ledger. **Not a changelog** — for batch-by-batch detail see git log and
 | Schema documentation       | B+    | Domain model overview, enums, relationships, ERD (`DATABASE.md`); `pnpm db:docs` emits exhaustive field-level reference (`DATABASE.generated.md`), CI-gated for drift.                                                                                                                                                                                                                                              | Cross-link the generated field reference from the feature specs that consume it.                                                |
 | Test coverage              | B     | Vitest unit + integration + Playwright E2E (157 unit files / ~1289 tests + integration suite, incl. in-process HTTP route harness). v8 coverage thresholds ratchet domain + core.                                                                                                                                                                                                                                   | Expand route-level integration coverage on the new HTTP harness.                                                                |
 
+## Current architecture review
+
+The 2026-09-05 review found silent failure-to-success conversions, duplicated
+sandbox contracts, and unused UI infrastructure. Implementation and fresh validation
+are tracked in [Architecture simplification](../plans/active/2026-09-05-architecture-simplification.md).
+Historical grades below are not evidence that these new failure paths are covered.
+
 ## Outstanding Drift
 
 Add an entry here when code lands without its documentation, or vice

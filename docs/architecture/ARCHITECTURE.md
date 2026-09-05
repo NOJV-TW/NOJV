@@ -101,9 +101,10 @@ No cycles. `application` exposes orchestration-shaped functions, but reaches Tem
 | `worker`         | `core`, `temporal`, `application`, `db`, `redis`, `storage`, `sandbox-docker` | web                                                                            |
 | `sandbox-runner` | `core`                                                                        | everything else                                                                |
 
-\* `application` reaches into `storage` from `problem/blobs.ts` to write
-problem image blobs alongside the DB row inside the same transaction.
-The transaction would lose atomicity if storage writes lived in `web`.
+\* `application` coordinates immutable storage uploads with PostgreSQL pointer
+updates. S3 writes are not part of a database transaction: uploads are guarded
+first, and `commitStoragePointerSwap` atomically updates durable object ownership
+with the business rows. Cleanup reconciles abandoned objects through durable work.
 
 † `web` uses `@nojv/redis` directly in five files that want the raw
 Redis client rather than a domain-shaped wrapper: the SSE subscriber

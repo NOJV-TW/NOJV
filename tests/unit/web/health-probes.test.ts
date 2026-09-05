@@ -1,5 +1,7 @@
 import type { RequestEvent } from "@sveltejs/kit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
+import { handleLoad } from "$lib/server/shared/load-wrapper";
 
 const {
   apiRequestRecord,
@@ -7,6 +9,7 @@ const {
   findApiTokenRouteRule,
   getAuth,
   healthProbeRecord,
+  loggerError,
   authRateLimitConsume,
   signInRateLimitConsume,
   verifyApiTokenForRoute,
@@ -16,6 +19,7 @@ const {
   findApiTokenRouteRule: vi.fn(),
   getAuth: vi.fn(),
   healthProbeRecord: vi.fn(),
+  loggerError: vi.fn(),
   authRateLimitConsume: vi.fn(),
   signInRateLimitConsume: vi.fn(),
   verifyApiTokenForRoute: vi.fn(),
@@ -24,6 +28,9 @@ const {
 vi.mock("$lib/server/otel", () => ({}));
 vi.mock("$lib/server/domain-orchestration", () => ({}));
 vi.mock("$lib/server/mailer-startup", () => ({}));
+vi.mock("$lib/server/logger", () => ({
+  createLogger: () => ({ error: loggerError, warn: vi.fn(), info: vi.fn() }),
+}));
 vi.mock("$lib/auth.server", () => ({ getAuth }));
 vi.mock("$lib/server/env", () => ({
   getWebEnv: () => ({ NODE_ENV: "test" }),
@@ -58,7 +65,7 @@ vi.mock("@nojv/application", async (importOriginal) => {
 const livez = await import("../../../apps/web/src/routes/api/livez/+server");
 const readyz = await import("../../../apps/web/src/routes/api/readyz/+server");
 const release = await import("../../../apps/web/src/routes/api/release/+server");
-const { handle } = await import("../../../apps/web/src/hooks.server");
+const { handle, handleError } = await import("../../../apps/web/src/hooks.server");
 
 let testTime = Date.parse("2026-07-14T00:00:00.000Z");
 
@@ -104,8 +111,38 @@ beforeEach(() => {
     throw new Error("getSession called");
   });
   healthProbeRecord.mockReset();
+  loggerError.mockReset();
   signInRateLimitConsume.mockReset().mockRejectedValue(new Error("sign-in limiter called"));
   verifyApiTokenForRoute.mockReset().mockRejectedValue(new Error("token auth called"));
+});
+
+describe("unexpected server errors", () => {
+  it("logs persisted-data validation failures without exposing schema details", async () => {
+    const event = routeEvent("/submissions/private-id");
+    event.locals.requestId = "failed-load-request";
+    const parsed = z.enum(["cpp", "python"]).safeParse("private persisted value");
+    if (parsed.success) throw new Error("Expected invalid persisted data");
+    const load = handleLoad(async () => {
+      throw parsed.error;
+    });
+
+    await expect(load(event)).rejects.toBe(parsed.error);
+    const result = await handleError({
+      error: parsed.error,
+      event,
+      status: 500,
+      message: "Internal Error",
+    });
+
+    expect(result).toEqual({ message: "Internal server error." });
+    expect(loggerError).toHaveBeenCalledExactlyOnceWith("Request failed", {
+      err: parsed.error,
+      method: "GET",
+      requestId: "failed-load-request",
+      status: 500,
+      url: "/submissions/private-id",
+    });
+  });
 });
 
 describe("web health endpoint contracts", () => {

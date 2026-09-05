@@ -544,6 +544,7 @@ export const internalSchemas = {
   },
   CreateProblemRequest: {
     type: "object",
+    additionalProperties: false,
     properties: {
       mode: {
         type: "string",

@@ -103,9 +103,10 @@ beforeEach(() => {
     ensureAssignmentDueSoon: vi.fn(() => Promise.resolve()),
     ensureContestLifecycle,
     ensureExamAutoClose: vi.fn(() => Promise.resolve()),
-    getRejudgeTriggeredBy: vi.fn(() => Promise.resolve(null)),
     probeTemporal: vi.fn(() => Promise.resolve()),
-    queryRejudgeProgress: vi.fn(() => Promise.resolve({ completed: 0, total: 0 })),
+    queryRejudgeProgress: vi.fn(() =>
+      Promise.resolve({ status: "running" as const, completed: 0, total: 0 }),
+    ),
     replaceAssignmentDueSoon: vi.fn(() => Promise.resolve()),
     replaceContestLifecycle,
     replaceExamAutoClose: vi.fn(() => Promise.resolve()),

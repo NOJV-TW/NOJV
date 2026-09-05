@@ -223,16 +223,23 @@
               ><Cpu aria-hidden="true" class="h-3.5 w-3.5" />
               {m.admin_healthJudgeWorker()}</span
             >
-            {#if data.health.staleJudging > 0}
+            {#if data.health.staleJudging === null || data.health.pendingJudging === null}
+              <Badge variant="warning" size="sm" dot>{m.admin_healthStatusUnavailable()}</Badge>
+            {:else if data.health.staleJudging > 0}
               <Badge variant="warning" size="sm" dot>{m.admin_healthStatusDegraded()}</Badge>
             {:else}
               <Badge variant="success" size="sm" dot>{m.admin_healthStatusOk()}</Badge>
             {/if}
           </div>
           <p class="mt-1 text-caption text-muted-foreground">
-            {m.admin_healthPending({
-              count: data.health.pendingJudging,
-            })}{#if data.health.staleJudging > 0}
+            {#if data.health.pendingJudging === null}
+              {m.admin_healthPendingUnavailable()}
+            {:else}
+              {m.admin_healthPending({ count: data.health.pendingJudging })}
+            {/if}
+            {#if data.health.staleJudging === null}
+              · {m.admin_healthStaleUnavailable()}
+            {:else if data.health.staleJudging > 0}
               · <span class="text-warning"
                 >{m.admin_healthStale({ count: data.health.staleJudging })}</span
               >{/if}

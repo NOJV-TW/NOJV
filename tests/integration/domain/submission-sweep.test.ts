@@ -41,9 +41,12 @@ beforeEach(() => {
     ensureAssignmentDueSoon: vi.fn(async () => {}),
     ensureContestLifecycle: vi.fn(async () => {}),
     ensureExamAutoClose: vi.fn(async () => {}),
-    getRejudgeTriggeredBy: vi.fn(async () => null),
     probeTemporal: vi.fn(async () => {}),
-    queryRejudgeProgress: vi.fn(async () => ({ completed: 0, total: 0 })),
+    queryRejudgeProgress: vi.fn(async () => ({
+      status: "running" as const,
+      completed: 0,
+      total: 0,
+    })),
     replaceAssignmentDueSoon: vi.fn(async () => {}),
     replaceContestLifecycle: vi.fn(async () => {}),
     replaceExamAutoClose: vi.fn(async () => {}),
@@ -149,7 +152,9 @@ describe("sweepStaleSubmissions (real DB)", () => {
   });
 
   it("skips marking when workflow termination fails", async () => {
-    terminateSubmissionJudge.mockRejectedValueOnce(new Error("temporal unreachable"));
+    const failure = new Error("temporal unreachable");
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+    terminateSubmissionJudge.mockRejectedValueOnce(failure);
     const stale = await createTestSubmission({ status: "compiling" });
     await backdateUpdatedAt(stale.id, 60);
 
@@ -158,6 +163,12 @@ describe("sweepStaleSubmissions (real DB)", () => {
     expect(result.failed).toBeGreaterThanOrEqual(1);
     const row = await submissionRepo.findById(stale.id);
     expect(row?.status).toBe("compiling");
+    expect(errorLog).toHaveBeenCalledWith(
+      "Failed to reconcile stale submission",
+      { submissionId: stale.id },
+      failure,
+    );
+    errorLog.mockRestore();
   });
 
   it("does not overwrite a judge run that starts during stale recovery", async () => {

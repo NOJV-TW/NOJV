@@ -74,6 +74,24 @@ describe("mergeCheckerResults", () => {
     expect(result!.verdict).toBe("SE");
   });
 
+  it("retains a validator failure only in staff feedback", () => {
+    const [result] = mergeCheckerResults(
+      [rawRun({ index: 0 })],
+      new Map([
+        [
+          0,
+          {
+            verdict: "SE" as const,
+            judgeMessage: "Validator crashed (SIGSEGV). Secret answer: 42",
+          },
+        ],
+      ]),
+    );
+    expect(result!.staffFeedback).toContain("SIGSEGV");
+    expect(result!.feedback).not.toContain("42");
+    expect(result!.stderr).not.toContain("42");
+  });
+
   it("carries run telemetry onto the merged result", () => {
     const [result] = mergeCheckerResults(
       [rawRun({ index: 2, timeMs: 123, memoryKb: 4096, exitCode: 0 })],

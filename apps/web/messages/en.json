@@ -2393,5 +2393,12 @@
   "posts_loadError": "Could not load this content.",
   "posts_lockedDuringEvent": "This problem is part of an ongoing assessment or exam. Discussions open once it ends.",
   "notification_post_removed": "Your post “{title}” was removed",
-  "notification_comment_removed": "Your comment on “{postTitle}” was removed"
+  "notification_comment_removed": "Your comment on “{postTitle}” was removed",
+  "admin_healthStatusUnavailable": "Unavailable",
+  "admin_healthPendingUnavailable": "Queue count unavailable",
+  "admin_healthStaleUnavailable": "Stale count unavailable",
+  "rejudge_progress_failed": "Rejudge failed",
+  "rejudge_progress_cancelled": "Rejudge cancelled",
+  "rejudge_progress_unavailable": "Unable to refresh progress. Retrying…",
+  "rejudge_cancel_requested": "Cancellation requested"
 }

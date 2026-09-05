@@ -14,11 +14,12 @@ vi.mock("@temporalio/activity", () => ({
   heartbeat: vi.fn(),
 }));
 
-vi.mock("@nojv/application", () => ({
+vi.mock("@nojv/application", async () => ({
   submissionDomain: {
     getSubmissionSources: getSourcesMock,
     getJudgeContext: getJudgeContextMock,
     deriveJudgeMode: deriveModeMock,
+    mapResult: (await import("../../../packages/application/src/submission/scoring")).mapResult,
   },
 }));
 
@@ -103,6 +104,105 @@ describe("executeSandbox — missing sources guard (A7)", () => {
       requiredPaths: ["main.py"],
       resourceLimits: { totalTimeMs: 1_000, memoryMb: 256 },
     });
+  });
+
+  it.each(["checker", "interactive"] as const)(
+    "passes the persisted %s language into the executor",
+    async (judgeType) => {
+      const captured = new Error("captured sandbox request");
+      const executor: SandboxExecutor = {
+        execute: vi.fn(async () => {
+          throw captured;
+        }),
+      };
+      installExecutor(executor);
+      getSourcesMock.mockResolvedValue([{ path: "main.py", content: "print(1)" }]);
+      getJudgeContextMock.mockResolvedValue({
+        advanced: null,
+        checkerScript: "checker code",
+        interactorScript: "interactor code",
+        checkerLanguage: "cpp",
+        interactorLanguage: "cpp",
+        compareOptions: null,
+        judgeType,
+        problemType: "full_source",
+        samples: [],
+        testcaseSets: [],
+        workspaceFiles: [],
+        runtime: { env: {}, memoryLimitMb: 128, timeLimitMs: 1000 },
+      });
+      await expect(
+        executeSandbox("language-contract", {
+          problemId: "prob_x",
+          language: "python",
+          sourceCode: "print(1)",
+        }),
+      ).rejects.toBe(captured);
+      expect(executor.execute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          judgeConfig: expect.objectContaining({
+            checkerLanguage: "cpp",
+            interactorLanguage: "cpp",
+          }),
+        }),
+        expect.anything(),
+      );
+    },
+  );
+
+  it("accepts Advanced sample runs without comparing synthetic grade cases to public samples", async () => {
+    const executor: SandboxExecutor = {
+      execute: vi.fn(async () => ({
+        testcaseResults: [{ index: 0, verdict: "AC", stdout: "", timeMs: 5 }],
+        customScore: 100,
+        overallVerdict: "AC",
+      })),
+    };
+    installExecutor(executor);
+    deriveModeMock.mockReturnValue("advanced");
+    getSourcesMock.mockResolvedValue([{ path: "main.py", content: "print(1)" }]);
+    getJudgeContextMock.mockResolvedValue({
+      advanced: {
+        config: {
+          run: { imageRef: "run-image", imageSource: "registry" },
+          grade: { imageRef: "grade-image", imageSource: "registry" },
+          network: { mode: "none" },
+          maxScore: 100,
+        },
+        requiredPaths: [],
+        resourceLimits: { totalTimeMs: 1000, memoryMb: 128 },
+      },
+      adjustment: { assignmentAdjustmentRules: null },
+      checkerScript: null,
+      interactorScript: null,
+      checkerLanguage: null,
+      interactorLanguage: null,
+      compareOptions: null,
+      judgeType: "standard",
+      problemType: "special_env",
+      samples: [],
+      testcaseSets: [],
+      workspaceFiles: [],
+      runtime: { env: {}, memoryLimitMb: 128, timeLimitMs: 1000 },
+    });
+
+    const execution = await executeSandbox("advanced-sample", {
+      problemId: "prob_x",
+      language: "python",
+      sourceCode: "print(1)",
+      sampleOnly: true,
+    });
+
+    expect(execution.result).toMatchObject({
+      accepted: true,
+      verdict: "accepted",
+      score: 0,
+      caseResults: [{ index: 0, verdict: "AC" }],
+    });
+    expect(executor.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ testcases: [], advanced: expect.any(Object) }),
+      expect.anything(),
+    );
   });
 
   it("forwards Temporal cancellation to the owned executor", async () => {

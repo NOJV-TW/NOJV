@@ -341,8 +341,8 @@ export class SandboxImagePullError extends Error {
 }
 
 export class SandboxInfrastructureError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = "SandboxInfrastructureError";
   }
 }
@@ -455,11 +455,14 @@ function watchErrorCode(error: unknown): number | null {
   return null;
 }
 
-function validatorOutcomesSeForAll(rawRuns: RawCaseRun[]): Map<number, ValidatorOutcome> {
+function validatorOutcomesSeForAll(
+  rawRuns: RawCaseRun[],
+  judgeMessage: string,
+): Map<number, ValidatorOutcome> {
   return new Map(
     rawRuns
       .filter((r) => !r.errorVerdict)
-      .map((r): [number, ValidatorOutcome] => [r.index, { verdict: "SE" }]),
+      .map((r): [number, ValidatorOutcome] => [r.index, { verdict: "SE", judgeMessage }]),
   );
 }
 
@@ -468,8 +471,28 @@ function parseValidatorOutcomesFromLogs(
   rawRuns: RawCaseRun[],
 ): Map<number, ValidatorOutcome> | null {
   return scanJsonLinesFromEnd(logs, (json) => {
+    if (
+      typeof json !== "object" ||
+      json === null ||
+      !("validatorOutcomes" in json || "compilationError" in json || "testcaseResults" in json)
+    )
+      return null;
     const parsed = parseValidateOutput(json);
-    if (!parsed.success || parsed.data.validatorOutcomes === undefined) return null;
+    if (!parsed.success) {
+      const fatal = parseSandboxResult(json);
+      const diagnostic = fatal.success
+        ? (fatal.data.pipelineError ??
+          fatal.data.testcaseResults.find((result) => result.verdict === "SE")?.stderr)
+        : undefined;
+      return validatorOutcomesSeForAll(
+        rawRuns,
+        diagnostic ?? `Invalid validator output: ${parsed.error.message}`,
+      );
+    }
+    if (parsed.data.compilationError !== undefined)
+      return validatorOutcomesSeForAll(rawRuns, parsed.data.compilationError);
+    if (!parsed.data.validatorOutcomes)
+      return validatorOutcomesSeForAll(rawRuns, "Validator produced no case outcomes.");
 
     const outcomes = new Map<number, ValidatorOutcome>();
     for (const o of parsed.data.validatorOutcomes) {
@@ -478,7 +501,10 @@ function parseValidatorOutcomesFromLogs(
     }
     for (const r of rawRuns) {
       if (!r.errorVerdict && !outcomes.has(r.index)) {
-        outcomes.set(r.index, { verdict: "SE" });
+        outcomes.set(r.index, {
+          verdict: "SE",
+          judgeMessage: `Validator did not report case ${String(r.index)}.`,
+        });
       }
     }
     return outcomes;
@@ -595,6 +621,8 @@ export class K8sExecutor implements SandboxExecutor {
         );
       } catch (err) {
         execution.signal.throwIfAborted();
+        if (err instanceof SandboxInfrastructureError || err instanceof SandboxImagePullError)
+          throw err;
         return advancedFallbackResult(
           request,
           `Advanced network setup failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -699,13 +727,12 @@ export class K8sExecutor implements SandboxExecutor {
         return advancedFallbackResult(request, "Advanced grade phase produced no pod.");
       }
 
-      const sidecarLog = await this.coreApi
-        .readNamespacedPodLog({
-          name: gradePodName,
-          namespace: ns,
-          container: ADVANCED_SIDECAR_NAME,
-        })
-        .catch(() => "");
+      const sidecarLog = await this.getPodContainerLogs(
+        gradePodName,
+        ns,
+        ADVANCED_SIDECAR_NAME,
+        execution.signal,
+      );
       execution.signal.throwIfAborted();
 
       const raw = parseAdvancedResultLog(sidecarLog);
@@ -852,11 +879,32 @@ export class K8sExecutor implements SandboxExecutor {
     const intervalMs = this.config.sidecarReadinessIntervalMs ?? SIDECAR_READINESS_INTERVAL_MS;
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
-      const log = await this.coreApi
-        .readNamespacedPodLog({ name: podName, namespace: ns })
-        .catch(() => "");
+      let pods: k8s.V1PodList;
+      try {
+        pods = await this.coreApi.listNamespacedPod({
+          namespace: ns,
+          fieldSelector: `metadata.name=${podName}`,
+        });
+      } catch (error) {
+        signal.throwIfAborted();
+        throw new SandboxInfrastructureError(
+          `Could not inspect service pod ${ns}/${podName}: ${error instanceof Error ? error.message : String(error)}`,
+          { cause: error },
+        );
+      }
       signal.throwIfAborted();
-      if (log.includes(marker)) return true;
+      const pod = pods.items[0];
+      const waiting = pod?.status?.containerStatuses?.find(
+        (status) => status.name === "service",
+      )?.state?.waiting;
+      if (waiting?.reason === "ImagePullBackOff")
+        throw new SandboxImagePullError(
+          `Service image pull failed for ${ns}/${podName}: ${waiting.message ?? waiting.reason}`,
+        );
+      if (pod && pod.status?.phase !== "Pending" && !waiting) {
+        const log = await this.getPodContainerLogs(podName, ns, "service", signal);
+        if (log.includes(marker)) return true;
+      }
       await this.sleep(intervalMs, signal);
     }
     return false;
@@ -1010,12 +1058,8 @@ export class K8sExecutor implements SandboxExecutor {
       }
 
       const [solLogs, intLogs] = await Promise.all([
-        this.coreApi
-          .readNamespacedPodLog({ name: podName, namespace, container: "solution" })
-          .catch(() => ""),
-        this.coreApi
-          .readNamespacedPodLog({ name: podName, namespace, container: "interactor" })
-          .catch(() => ""),
+        this.getPodContainerLogs(podName, namespace, "solution", signal),
+        this.getPodContainerLogs(podName, namespace, "interactor", signal),
       ]);
       signal.throwIfAborted();
 
@@ -1149,9 +1193,12 @@ export class K8sExecutor implements SandboxExecutor {
       });
       signal.throwIfAborted();
       return pods.items[0]?.metadata?.name ?? null;
-    } catch {
+    } catch (error) {
       signal.throwIfAborted();
-      return null;
+      throw new SandboxInfrastructureError(
+        `Could not find sandbox pod for ${namespace}/${jobName}: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
     }
   }
 
@@ -1174,9 +1221,12 @@ export class K8sExecutor implements SandboxExecutor {
       );
       const transferCaptureOk = transferStatus?.state?.terminated?.exitCode === 0;
       return { nodeName, transferCaptureOk };
-    } catch {
+    } catch (error) {
       signal.throwIfAborted();
-      return { nodeName: null, transferCaptureOk: false };
+      throw new SandboxInfrastructureError(
+        `Could not inspect sandbox pod for ${namespace}/${jobName}: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
     }
   }
 
@@ -1397,11 +1447,15 @@ export class K8sExecutor implements SandboxExecutor {
         deadlineSeconds,
         signal,
       );
-      if (outcome === "failed") return validatorOutcomesSeForAll(rawRuns);
-
       const logs = await this.getPodLogs(jobName, namespace, signal);
       return (
-        parseValidatorOutcomesFromLogs(logs, rawRuns) ?? validatorOutcomesSeForAll(rawRuns)
+        parseValidatorOutcomesFromLogs(logs, rawRuns) ??
+        validatorOutcomesSeForAll(
+          rawRuns,
+          outcome === "failed"
+            ? `Validator job failed or timed out. ${logs.slice(0, 4096)}`
+            : `Validator produced no result. ${logs.slice(0, 4096)}`,
+        )
       );
     } catch (err) {
       if (signal.aborted) {
@@ -1423,7 +1477,10 @@ export class K8sExecutor implements SandboxExecutor {
         jobName,
         err: err instanceof Error ? err.message : String(err),
       });
-      return validatorOutcomesSeForAll(rawRuns);
+      return validatorOutcomesSeForAll(
+        rawRuns,
+        `Validator job failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
       await runCleanupAfterExecution(executionFailure, () =>
         runCleanupOperations("checker validation sandbox", [
@@ -1966,11 +2023,21 @@ export class K8sExecutor implements SandboxExecutor {
     signal: AbortSignal,
   ): Promise<string> {
     signal.throwIfAborted();
-    const logs = await this.coreApi
-      .readNamespacedPodLog({ container, name: podName, namespace })
-      .catch(() => "");
-    signal.throwIfAborted();
-    return logs;
+    try {
+      const logs = await this.coreApi.readNamespacedPodLog({
+        container,
+        name: podName,
+        namespace,
+      });
+      signal.throwIfAborted();
+      return logs;
+    } catch (error) {
+      signal.throwIfAborted();
+      throw new SandboxInfrastructureError(
+        `Could not read sandbox logs for ${namespace}/${podName} (${container}): ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
   }
 
   private sleep(ms: number, signal: AbortSignal): Promise<void> {
@@ -1990,8 +2057,24 @@ export class K8sExecutor implements SandboxExecutor {
 
   private parseRunnerOutput(logs: string): SandboxResult | null {
     return scanJsonLinesFromEnd(logs, (json) => {
+      if (
+        typeof json !== "object" ||
+        json === null ||
+        !(
+          "rawRuns" in json ||
+          "testcaseResults" in json ||
+          "pipelineError" in json ||
+          "compilationError" in json
+        )
+      )
+        return null;
       const parsed = parseSandboxResult(json);
-      return parsed.success ? parsed.data : null;
+      return parsed.success
+        ? parsed.data
+        : {
+            testcaseResults: [],
+            pipelineError: `Invalid sandbox output: ${parsed.error.message}`,
+          };
     });
   }
 

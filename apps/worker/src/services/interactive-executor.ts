@@ -95,14 +95,19 @@ export async function writeInteractorFiles(
     interactive: { role: "validator", language: interactorLanguage, index: testcase.index },
   };
 
-  const caseDir = join(tempDir, "cases", String(testcase.index));
-  await mkdir(caseDir, { recursive: true });
-
   await Promise.all([
     writeFile(join(tempDir, `interactor.${ext}`), interactorScript, "utf8"),
     writeFile(join(tempDir, "config.json"), JSON.stringify(config), "utf8"),
-    writeFile(join(caseDir, "input.txt"), testcase.input, "utf8"),
-    writeFile(join(caseDir, "answer.txt"), testcase.output ?? "", "utf8"),
+    writeFile(
+      join(tempDir, `case-${String(testcase.index)}-input.txt`),
+      testcase.input,
+      "utf8",
+    ),
+    writeFile(
+      join(tempDir, `case-${String(testcase.index)}-answer.txt`),
+      testcase.output ?? "",
+      "utf8",
+    ),
   ]);
 
   await chmod(tempDir, 0o755);
@@ -309,10 +314,8 @@ export async function runInteractiveMode(
   if (!interactorScript) {
     return sandboxSystemError("Interactive judge is missing its interactor script.");
   }
-  const checkerFallbackLanguage =
-    request.judgeConfig.checkerLanguage === "cpp" ? "cpp" : "python";
-  const interactorLanguage =
-    request.judgeConfig.interactorLanguage === "cpp" ? "cpp" : checkerFallbackLanguage;
+  const interactorLanguage = request.judgeConfig.interactorLanguage;
+  if (!interactorLanguage) throw new Error("Interactive judge is missing interactorLanguage.");
 
   const results: SandboxTestcaseResult[] = [];
   for (const testcase of request.testcases) {

@@ -1,6 +1,14 @@
 import type { JudgeType, Language, ProblemType } from "./types";
 import type { AdvancedConfig } from "./schemas/advanced-mode";
-import type { CompareConfig } from "./schemas/judge-config";
+import type { z } from "zod";
+import type {
+  rawCaseRunSchema,
+  sandboxOutputSchema,
+  sandboxTestcaseResultSchema,
+} from "./schemas/sandbox-output";
+import type { sandboxVerdicts } from "./schemas/sandbox-output";
+export { sandboxVerdicts } from "./schemas/sandbox-output";
+import type { CompareConfig, JudgeScriptLanguage } from "./schemas/judge-config";
 import { parseRelativePath } from "./schemas/path";
 
 export interface SandboxTestcase {
@@ -37,8 +45,8 @@ export interface SandboxRequest {
   judgeConfig: {
     checkerScript?: string;
     interactorScript?: string;
-    checkerLanguage?: string;
-    interactorLanguage?: string;
+    checkerLanguage?: JudgeScriptLanguage;
+    interactorLanguage?: JudgeScriptLanguage;
     compare?: CompareConfig;
   };
   limits: {
@@ -49,40 +57,10 @@ export interface SandboxRequest {
   advanced?: SandboxAdvancedRequest;
 }
 
-export const sandboxVerdicts = ["AC", "WA", "TLE", "MLE", "RE", "SE"] as const;
 export type SandboxVerdict = (typeof sandboxVerdicts)[number];
-
-export interface SandboxTestcaseResult {
-  index: number;
-  verdict: SandboxVerdict;
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  timeMs: number;
-  memoryKb?: number;
-  feedback?: string;
-  staffFeedback?: string;
-}
-
-export interface RawCaseRun {
-  index: number;
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  timeMs: number;
-  memoryKb?: number;
-  errorVerdict?: Extract<SandboxVerdict, "TLE" | "MLE" | "RE" | "SE">;
-}
-
-export interface SandboxResult {
-  compilationError?: string;
-  pipelineError?: string;
-  testcaseResults: SandboxTestcaseResult[];
-  rawRuns?: RawCaseRun[];
-  customScore?: number;
-  scoringFeedback?: string;
-  overallVerdict?: SandboxVerdict;
-}
+export type SandboxTestcaseResult = z.infer<typeof sandboxTestcaseResultSchema>;
+export type RawCaseRun = z.infer<typeof rawCaseRunSchema>;
+export type SandboxResult = z.infer<typeof sandboxOutputSchema>;
 
 export interface SandboxExecutionContext {
   runId: string;

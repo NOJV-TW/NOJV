@@ -14,17 +14,21 @@ describe("computeProblemTotalScore", () => {
   it("sums subtask weights for standard problems", () => {
     expect(
       computeProblemTotalScore({
+        id: "problem-1",
         type: "full_source",
         testcaseSets: [{ weight: 80 }, { weight: 120 }],
       }),
     ).toBe(200);
   });
   it("returns 100 for special_env (advanced) problems with no advancedConfig", () => {
-    expect(computeProblemTotalScore({ type: "special_env", testcaseSets: [] })).toBe(100);
+    expect(
+      computeProblemTotalScore({ id: "problem-1", type: "special_env", testcaseSets: [] }),
+    ).toBe(100);
   });
   it("returns the declared maxScore for special_env problems", () => {
     expect(
       computeProblemTotalScore({
+        id: "problem-1",
         type: "special_env",
         testcaseSets: [],
         advancedConfig: {
@@ -36,18 +40,20 @@ describe("computeProblemTotalScore", () => {
       }),
     ).toBe(250);
   });
-  it("returns 100 for special_env when advancedConfig is invalid", () => {
-    expect(
+  it("rejects malformed persisted advancedConfig", () => {
+    expect(() =>
       computeProblemTotalScore({
+        id: "problem-1",
         type: "special_env",
         testcaseSets: [],
         advancedConfig: { bogus: true },
       }),
-    ).toBe(100);
+    ).toThrow(/Invalid advancedConfig for problem problem-1/);
   });
   it("defaults special_env maxScore to 100 when advancedConfig omits it", () => {
     expect(
       computeProblemTotalScore({
+        id: "problem-1",
         type: "special_env",
         testcaseSets: [],
         advancedConfig: {
@@ -58,7 +64,9 @@ describe("computeProblemTotalScore", () => {
     ).toBe(100);
   });
   it("returns 100 when a standard problem has no testcase sets yet", () => {
-    expect(computeProblemTotalScore({ type: "full_source", testcaseSets: [] })).toBe(100);
+    expect(
+      computeProblemTotalScore({ id: "problem-1", type: "full_source", testcaseSets: [] }),
+    ).toBe(100);
   });
 });
 

@@ -35,11 +35,7 @@ const sharedAliases = {
 
 const componentAliases = [
   {
-    find: /^@lucide\/svelte\/icons\/rotate-ccw$/,
-    replacement: path.resolve(__dirname, "tests/unit/web/fixtures/empty-component.svelte"),
-  },
-  {
-    find: /^@lucide\/svelte\/icons\/mail$/,
+    find: /^@lucide\/svelte\/icons\/[^/]+$/,
     replacement: path.resolve(__dirname, "tests/unit/web/fixtures/empty-component.svelte"),
   },
   {
@@ -93,13 +89,17 @@ export default defineConfig({
     projects: [
       {
         plugins: [svelteTestPlugin()],
-        resolve: { alias: sharedAliases },
+        resolve: { alias: sharedAliases, dedupe: ["@sveltejs/kit"] },
         test: {
           name: "unit",
           include: ["tests/unit/**/*.test.ts"],
           exclude: [
             "tests/unit/web/echart-lifecycle.test.ts",
             "tests/unit/web/clarification-tab-error.test.ts",
+            "tests/unit/web/rejudge-dialog.test.ts",
+            "tests/unit/web/user-menu.test.ts",
+            "tests/unit/web/editor-shortcuts.test.ts",
+            "tests/unit/web/comment-section-error.test.ts",
             "tests/unit/web/plagiarism-pair-diff.test.ts",
             "tests/unit/web/plagiarism-pair-diff-load-error.test.ts",
             "tests/unit/web/toggle-switch.test.ts",
@@ -122,12 +122,21 @@ export default defineConfig({
       },
       {
         plugins: [svelteTestPlugin()],
-        resolve: { alias: componentAliases, conditions: ["browser"] },
+        resolve: {
+          alias: componentAliases,
+          conditions: ["browser"],
+          dedupe: ["@sveltejs/kit"],
+        },
         test: {
           name: "component",
+          server: { deps: { inline: ["bits-ui", "runed", "svelte-toolbelt"] } },
           include: [
             "tests/unit/web/echart-lifecycle.test.ts",
             "tests/unit/web/clarification-tab-error.test.ts",
+            "tests/unit/web/rejudge-dialog.test.ts",
+            "tests/unit/web/user-menu.test.ts",
+            "tests/unit/web/editor-shortcuts.test.ts",
+            "tests/unit/web/comment-section-error.test.ts",
             "tests/unit/web/plagiarism-pair-diff.test.ts",
             "tests/unit/web/plagiarism-pair-diff-load-error.test.ts",
             "tests/unit/web/toggle-switch.test.ts",
@@ -150,7 +159,7 @@ export default defineConfig({
       },
       {
         plugins: [svelteTestPlugin()],
-        resolve: { alias: sharedAliases },
+        resolve: { alias: sharedAliases, dedupe: ["@sveltejs/kit"] },
         test: {
           name: "integration",
           include: ["tests/integration/**/*.test.ts"],
@@ -169,7 +178,7 @@ export default defineConfig({
       },
       {
         plugins: [svelteTestPlugin()],
-        resolve: { alias: sharedAliases },
+        resolve: { alias: sharedAliases, dedupe: ["@sveltejs/kit"] },
         test: {
           name: "k8s-integration",
           include: ["tests/integration/k8s/**/*.test.ts"],

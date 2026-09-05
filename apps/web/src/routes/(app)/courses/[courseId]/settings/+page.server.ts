@@ -7,8 +7,8 @@ import { zod4 } from "sveltekit-superforms/adapters";
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
-import { classifyError } from "$lib/server/shared/handle-action-error";
-import { withRateLimit } from "$lib/server/shared/action-handlers";
+import { classifyRequestError } from "$lib/server/shared/handle-action-error";
+import { withAction } from "$lib/server/shared/action-handlers";
 
 const {
   findCourseWithMembership,
@@ -55,7 +55,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 });
 
 export const actions = {
-  updateInfo: withRateLimit(async (event) => {
+  updateInfo: withAction(async (event) => {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
 
@@ -65,14 +65,18 @@ export const actions = {
     try {
       await updateCourse(actor, courseId, form.data);
     } catch (err) {
-      const classified = classifyError(err);
-      return message(form, { kind: "error", text: classified.message }, { status: 400 });
+      const classified = classifyRequestError(err, event);
+      return message(
+        form,
+        { kind: "error", text: classified.message },
+        { status: classified.status },
+      );
     }
 
     return message(form, { kind: "success", text: "ok" });
   }),
 
-  copyCourse: withRateLimit(async (event) => {
+  copyCourse: withAction(async (event) => {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
 
@@ -82,36 +86,24 @@ export const actions = {
       return fail(400, { error: "invalid_title" });
     }
 
-    let newCourseId: string;
-    try {
-      const result = await copyCourse(actor, courseId, parsed.data.newTitle);
-      newCourseId = result.newCourseId;
-    } catch (err) {
-      const classified = classifyError(err);
-      return fail(classified.status, { error: classified.message });
-    }
+    const { newCourseId } = await copyCourse(actor, courseId, parsed.data.newTitle);
 
     redirect(303, `/courses/${newCourseId}/settings`);
   }),
 
-  toggleArchive: withRateLimit(async (event) => {
+  toggleArchive: withAction(async (event) => {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
 
     const formData = await event.request.formData();
     const next = formData.get("archived") === "true";
 
-    try {
-      await setCourseArchived(actor, courseId, next);
-    } catch (err) {
-      const classified = classifyError(err);
-      return fail(classified.status, { error: classified.message });
-    }
+    await setCourseArchived(actor, courseId, next);
 
     return { archived: next };
   }),
 
-  deleteCourse: withRateLimit(async (event) => {
+  deleteCourse: withAction(async (event) => {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
 
@@ -126,12 +118,7 @@ export const actions = {
       return fail(400, { error: "delete_mismatch" });
     }
 
-    try {
-      await deleteCourse(actor, courseId);
-    } catch (err) {
-      const classified = classifyError(err);
-      return fail(classified.status, { error: classified.message });
-    }
+    await deleteCourse(actor, courseId);
 
     redirect(303, "/courses");
   }),

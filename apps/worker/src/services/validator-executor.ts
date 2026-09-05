@@ -1,4 +1,4 @@
-import { chmod, mkdir, writeFile } from "node:fs/promises";
+import { chmod, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { ValidatorOutcome } from "@nojv/core";
@@ -57,20 +57,13 @@ export async function writeValidatorFiles(
     writeFile(join(tempDir, "config.json"), JSON.stringify(config), "utf8"),
   ];
 
-  const casesDir = join(tempDir, "cases");
-  await mkdir(casesDir, { recursive: true });
-
   await Promise.all([
     ...fileWrites,
-    ...params.cases.map(async (c) => {
-      const caseDir = join(casesDir, String(c.index));
-      await mkdir(caseDir, { recursive: true });
-      await Promise.all([
-        writeFile(join(caseDir, "input.txt"), c.input, "utf8"),
-        writeFile(join(caseDir, "answer.txt"), c.answer, "utf8"),
-        writeFile(join(caseDir, "team.txt"), c.teamOutput, "utf8"),
-      ]);
-    }),
+    ...params.cases.flatMap((c) => [
+      writeFile(join(tempDir, `case-${String(c.index)}-input.txt`), c.input, "utf8"),
+      writeFile(join(tempDir, `case-${String(c.index)}-answer.txt`), c.answer, "utf8"),
+      writeFile(join(tempDir, `case-${String(c.index)}-team.txt`), c.teamOutput, "utf8"),
+    ]),
   ]);
 
   await chmod(tempDir, 0o755);
@@ -104,26 +97,47 @@ export async function runValidator(
 
   const result = await spawnDockerContainer({ args, containerName, outerTimeoutMs, signal });
 
-  const seForAll = (): Map<number, ValidatorOutcome> =>
-    new Map(params.cases.map((c): [number, ValidatorOutcome] => [c.index, { verdict: "SE" }]));
+  const seForAll = (judgeMessage: string): Map<number, ValidatorOutcome> =>
+    new Map(
+      params.cases.map((c): [number, ValidatorOutcome] => [
+        c.index,
+        { verdict: "SE", judgeMessage },
+      ]),
+    );
 
-  if (result.timedOut || result.exitCode !== 0) return seForAll();
+  if (result.spawnError)
+    return seForAll(`Validator container failed to start: ${result.spawnError}`);
+  if (result.timedOut) return seForAll("Validator container timed out.");
+  if (result.exitCode !== 0) {
+    return seForAll(
+      `Validator container exited with code ${String(result.exitCode)}: ${result.stderr}`,
+    );
+  }
 
   let parsed: ReturnType<typeof parseValidateOutput>;
   try {
     parsed = parseValidateOutput(JSON.parse(result.stdout));
-  } catch {
-    return seForAll();
+  } catch (error) {
+    return seForAll(
+      `Invalid validator JSON: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
-  if (!parsed.success || parsed.data.validatorOutcomes === undefined) return seForAll();
+  if (!parsed.success) return seForAll(`Invalid validator output: ${parsed.error.message}`);
+  if (parsed.data.compilationError !== undefined) return seForAll(parsed.data.compilationError);
+  const reported = parsed.data.validatorOutcomes;
+  if (!reported) return seForAll("Validator produced no case outcomes.");
 
   const outcomes = new Map<number, ValidatorOutcome>();
-  for (const o of parsed.data.validatorOutcomes) {
+  for (const o of reported) {
     const { index, ...outcome } = o;
     outcomes.set(index, outcome);
   }
   for (const c of params.cases) {
-    if (!outcomes.has(c.index)) outcomes.set(c.index, { verdict: "SE" });
+    if (!outcomes.has(c.index))
+      outcomes.set(c.index, {
+        verdict: "SE",
+        judgeMessage: `Validator did not report case ${String(c.index)}.`,
+      });
   }
   return outcomes;
 }

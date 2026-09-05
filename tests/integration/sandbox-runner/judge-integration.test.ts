@@ -257,7 +257,7 @@ function makeInput(lang: SandboxInput["language"]): SandboxInput {
 const DEFAULT_EXPECTED = "8\n";
 
 function makeTestcase(overrides: Partial<TestcaseFiles> = {}): TestcaseFiles {
-  return { index: 0, input: "3 5\n", weight: 1, isSample: true, ...overrides };
+  return { index: 0, input: "3 5\n", ...overrides };
 }
 
 async function compileProgram(lang: SandboxInput["language"], source: string) {
