@@ -136,26 +136,28 @@ function runCreateAction(status: ExamPublishStatus) {
   return withAction(async (event: RequestEvent) => {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
-    const permissionRole = await getCoursePermissionRole(courseId, actor);
-    if (!canManageCourse(permissionRole)) {
-      return fail(403, { error: "Forbidden" });
-    }
-
     const form = await superValidate<ExamFormData, FormMessage>(event, zod4(examFormSchema));
-    if (!form.valid) {
-      return fail(400, { form });
-    }
-
-    if (form.data.courseId !== courseId) {
-      return message<FormMessage>(
-        form,
-        { kind: "error", text: "Course mismatch." },
-        { status: 400 },
-      );
-    }
 
     let examId: string;
     try {
+      const permissionRole = await getCoursePermissionRole(courseId, actor);
+      if (!canManageCourse(permissionRole)) {
+        return message<FormMessage>(
+          form,
+          { kind: "error", text: "Forbidden" },
+          { status: 403 },
+        );
+      }
+      if (!form.valid) return fail(400, { form });
+
+      if (form.data.courseId !== courseId) {
+        return message<FormMessage>(
+          form,
+          { kind: "error", text: "Course mismatch." },
+          { status: 400 },
+        );
+      }
+
       const payload = buildCreatePayload(form.data, status);
       const created = await createExamRecord(actor, payload);
       examId = created.id;

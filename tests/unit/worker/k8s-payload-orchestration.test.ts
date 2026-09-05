@@ -97,6 +97,81 @@ function clients(
 }
 
 describe("K8sExecutor sharded payload orchestration", () => {
+  it.each([
+    [
+      "duplicate",
+      [
+        { index: 0, verdict: "WA" },
+        { index: 0, verdict: "AC" },
+      ],
+    ],
+    ["missing", []],
+    ["unexpected", [{ index: 1, verdict: "AC" }]],
+  ])("rejects %s validator case indices", async (_name, validatorOutcomes) => {
+    const fake = clients();
+    fake.handles.coreApi.readNamespacedPodLog.mockImplementation(
+      async ({ container }: { container: string }) => {
+        if (container === "runner") return JSON.stringify({ validatorOutcomes });
+        if (container === "prepare")
+          return JSON.stringify({ runCommand: ["python3", "main.py"] });
+        return JSON.stringify({
+          rawRuns: [{ index: 0, stdout: "ok\n", stderr: "", exitCode: 0, timeMs: 1 }],
+        });
+      },
+    );
+    const result = await new K8sExecutor(EXEC_CONFIG, fake.handles).execute(
+      {
+        ...request("ok"),
+        judgeType: "checker",
+        judgeConfig: { checkerScript: "accept()", checkerLanguage: "python" },
+      },
+      { runId: "invalid-validator", signal: new AbortController().signal },
+    );
+    expect(result.testcaseResults[0]).toMatchObject({
+      verdict: "SE",
+      staffFeedback: expect.stringContaining("expected testcase indices exactly once"),
+    });
+  });
+
+  it("validates the sparse set of clean runs independently of result order", async () => {
+    const fake = clients();
+    fake.handles.coreApi.readNamespacedPodLog.mockImplementation(
+      async ({ container }: { container: string }) => {
+        if (container === "runner")
+          return JSON.stringify({
+            validatorOutcomes: [
+              { index: 2, verdict: "AC" },
+              { index: 0, verdict: "AC" },
+            ],
+          });
+        if (container === "prepare")
+          return JSON.stringify({ runCommand: ["python3", "main.py"] });
+        const index = Number(container.replace("case-", ""));
+        return JSON.stringify({
+          rawRuns: [
+            {
+              index,
+              stdout: "ok\n",
+              stderr: "",
+              exitCode: index === 1 ? 1 : 0,
+              timeMs: 1,
+              ...(index === 1 ? { errorVerdict: "RE" } : {}),
+            },
+          ],
+        });
+      },
+    );
+    const result = await new K8sExecutor(EXEC_CONFIG, fake.handles).execute(
+      {
+        ...request("ok", 3),
+        judgeType: "checker",
+        judgeConfig: { checkerScript: "accept()", checkerLanguage: "python" },
+      },
+      { runId: "sparse-validator", signal: new AbortController().signal },
+    );
+    expect(result.testcaseResults.map(({ verdict }) => verdict)).toEqual(["AC", "RE", "AC"]);
+  });
+
   it.each([403, 503])(
     "preserves log API %i errors for infrastructure retry",
     async (status) => {

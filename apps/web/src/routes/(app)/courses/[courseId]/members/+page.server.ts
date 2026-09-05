@@ -70,24 +70,28 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 export const actions = {
   bulkAdd: withAction(async (event) => {
     const actor = requireAuth(event);
-    const role = await getCoursePermissionRole(event.params.courseId, actor);
-    if (!canManageCourse(role)) {
-      return fail(403, { error: "Forbidden" });
-    }
-
     const form = await superValidate(event, zod4(bulkAddSchema));
-    if (!form.valid) return fail(400, { form });
-
-    const handles = parseHandleInput(form.data.handles);
-    if (handles.length === 0) {
-      return message<FormMessage>(
-        form,
-        { kind: "error", text: "No valid handles in input." },
-        { status: 400 },
-      );
-    }
 
     try {
+      const role = await getCoursePermissionRole(event.params.courseId, actor);
+      if (!canManageCourse(role)) {
+        return message<FormMessage>(
+          form,
+          { kind: "error", text: "Forbidden" },
+          { status: 403 },
+        );
+      }
+      if (!form.valid) return fail(400, { form });
+
+      const handles = parseHandleInput(form.data.handles);
+      if (handles.length === 0) {
+        return message<FormMessage>(
+          form,
+          { kind: "error", text: "No valid handles in input." },
+          { status: 400 },
+        );
+      }
+
       const result = await bulkAddByHandle(actor, event.params.courseId, {
         handles,
         role: form.data.role,

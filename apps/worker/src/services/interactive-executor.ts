@@ -1,5 +1,5 @@
 import { spawn, type ChildProcessByStdio } from "node:child_process";
-import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Readable, Writable } from "node:stream";
@@ -56,14 +56,9 @@ export async function writeSolutionFiles(
   const sourceFileMap: { path: string; key: string }[] = [];
 
   for (const sf of resolveSourceFiles(request)) {
-    const destination = join(tempDir, sf.path);
-    sourceFileMap.push({ path: sf.path, key: sf.path });
-    fileWrites.push(
-      (async () => {
-        await mkdir(join(destination, ".."), { recursive: true });
-        await writeFile(destination, sf.content, "utf8");
-      })(),
-    );
+    const key = `source-file-${String(sourceFileMap.length)}`;
+    sourceFileMap.push({ path: sf.path, key });
+    fileWrites.push(writeFile(join(tempDir, key), sf.content, "utf8"));
   }
 
   const config = {

@@ -26,7 +26,7 @@ export type PostViewContext =
   | { kind: "assignment"; assignmentId: string; now: Date }
   | { kind: "exam"; examId: string; now: Date };
 
-async function contextGateOpen(context: PostViewContext): Promise<boolean> {
+export async function contextGateOpen(context: PostViewContext): Promise<boolean> {
   switch (context.kind) {
     case "practice":
       return true;

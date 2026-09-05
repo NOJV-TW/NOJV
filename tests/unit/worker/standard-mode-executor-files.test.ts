@@ -2,7 +2,7 @@ import { mkdtemp, rm, access, mkdir, readFile, writeFile } from "node:fs/promise
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { SandboxRequest } from "@nojv/core";
+import { problemWorkspaceFileSchema, type SandboxRequest } from "@nojv/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { readTestcase } from "../../../apps/sandbox-runner/src/testcase-files";
@@ -42,6 +42,32 @@ describe("writeSubmissionFiles expected-output gating", () => {
 
   afterEach(async () => {
     await rm(tempDir, { recursive: true, force: true });
+  });
+
+  it("preserves workspace files whose paths collide with testcase or payload keys", async () => {
+    const sources = [
+      "testcase-0-input.txt",
+      "config.json",
+      "source-file-0",
+      "nested/asset.txt",
+    ].map((path) =>
+      problemWorkspaceFileSchema.parse({
+        path,
+        content: `asset ${path}`,
+        language: "python",
+        visibility: "readonly",
+      }),
+    );
+    const request = { ...makeRequest("standard"), sourceFiles: sources };
+    const sourceMap = await writeSubmissionFiles(tempDir, request);
+    for (const source of sources) {
+      const key = sourceMap.find((entry) => entry.path === source.path)!.key;
+      expect(await readFile(join(tempDir, key), "utf8")).toBe(source.content);
+    }
+    expect(await readTestcase(tempDir, 0)).toEqual({
+      index: 0,
+      input: request.testcases[0]!.input,
+    });
   });
 
   it.each(["docker", "kubernetes"])(

@@ -477,7 +477,10 @@ function parseValidatorOutcomesFromLogs(
       !("validatorOutcomes" in json || "compilationError" in json || "testcaseResults" in json)
     )
       return null;
-    const parsed = parseValidateOutput(json);
+    const parsed = parseValidateOutput(
+      json,
+      rawRuns.filter((run) => !run.errorVerdict).map(({ index }) => index),
+    );
     if (!parsed.success) {
       const fatal = parseSandboxResult(json);
       const diagnostic = fatal.success
@@ -494,20 +497,9 @@ function parseValidatorOutcomesFromLogs(
     if (!parsed.data.validatorOutcomes)
       return validatorOutcomesSeForAll(rawRuns, "Validator produced no case outcomes.");
 
-    const outcomes = new Map<number, ValidatorOutcome>();
-    for (const o of parsed.data.validatorOutcomes) {
-      const { index, ...rest } = o;
-      outcomes.set(index, rest);
-    }
-    for (const r of rawRuns) {
-      if (!r.errorVerdict && !outcomes.has(r.index)) {
-        outcomes.set(r.index, {
-          verdict: "SE",
-          judgeMessage: `Validator did not report case ${String(r.index)}.`,
-        });
-      }
-    }
-    return outcomes;
+    return new Map(
+      parsed.data.validatorOutcomes.map(({ index, ...outcome }) => [index, outcome]),
+    );
   });
 }
 

@@ -224,8 +224,10 @@
         <form class="flex flex-col gap-4" method="POST" action="?/joinByCode" use:enhance>
           <!-- svelte-ignore a11y_autofocus -->
           <Input name="code" placeholder="spring-2026-final" autofocus />
-          {#if actionData?.codeError}
-            <p class="text-body-sm text-destructive">{actionData.codeError}</p>
+          {#if actionData?.codeError || actionData?.error}
+            <p role="alert" class="text-body-sm text-destructive">
+              {actionData.codeError ?? actionData.error}
+            </p>
           {/if}
           <div class="flex justify-end">
             <Button type="submit">{m.contestsList_joinSubmit()}</Button>

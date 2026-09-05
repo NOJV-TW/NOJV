@@ -17,6 +17,10 @@ const sharedAliases = {
   nodemailer: requireFromMailer.resolve("nodemailer"),
   jose: requireFromWeb.resolve("jose"),
   echarts: requireFromWeb.resolve("echarts"),
+  "sveltekit-superforms/server": requireFromWeb.resolve("sveltekit-superforms/server"),
+  "sveltekit-superforms/adapters": requireFromWeb.resolve("sveltekit-superforms/adapters"),
+  "sveltekit-superforms/client": requireFromWeb.resolve("sveltekit-superforms/client"),
+  "sveltekit-superforms": requireFromWeb.resolve("sveltekit-superforms"),
   "@temporalio/client": requireFromTemporal.resolve("@temporalio/client"),
   "@nojv/db": path.resolve(__dirname, "packages/db/src/index.ts"),
   "@nojv/core": path.resolve(__dirname, "packages/core/src/index.ts"),
@@ -34,6 +38,13 @@ const sharedAliases = {
 };
 
 const componentAliases = [
+  {
+    find: "$app/forms",
+    replacement: path.join(
+      path.dirname(requireFromWeb.resolve("@sveltejs/kit/package.json")),
+      "src/runtime/app/forms.js",
+    ),
+  },
   {
     find: /^@lucide\/svelte\/icons\/[^/]+$/,
     replacement: path.resolve(__dirname, "tests/unit/web/fixtures/empty-component.svelte"),
@@ -100,6 +111,8 @@ export default defineConfig({
             "tests/unit/web/user-menu.test.ts",
             "tests/unit/web/editor-shortcuts.test.ts",
             "tests/unit/web/comment-section-error.test.ts",
+            "tests/unit/web/contest-join-error.test.ts",
+            "tests/unit/web/course-announcement-errors.test.ts",
             "tests/unit/web/plagiarism-pair-diff.test.ts",
             "tests/unit/web/plagiarism-pair-diff-load-error.test.ts",
             "tests/unit/web/toggle-switch.test.ts",
@@ -137,6 +150,8 @@ export default defineConfig({
             "tests/unit/web/user-menu.test.ts",
             "tests/unit/web/editor-shortcuts.test.ts",
             "tests/unit/web/comment-section-error.test.ts",
+            "tests/unit/web/contest-join-error.test.ts",
+            "tests/unit/web/course-announcement-errors.test.ts",
             "tests/unit/web/plagiarism-pair-diff.test.ts",
             "tests/unit/web/plagiarism-pair-diff-load-error.test.ts",
             "tests/unit/web/toggle-switch.test.ts",

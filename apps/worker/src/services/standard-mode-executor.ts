@@ -1,6 +1,6 @@
 import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import {
   type RawCaseRun,
@@ -123,14 +123,9 @@ export async function writeSubmissionFiles(
   const sourceFileMap: { path: string; key: string }[] = [];
 
   for (const sf of resolveSourceFiles(request)) {
-    const destination = join(tempDir, sf.path);
-    sourceFileMap.push({ path: sf.path, key: sf.path });
-    fileWrites.push(
-      (async () => {
-        await mkdir(dirname(destination), { recursive: true });
-        await writeFile(destination, sf.content, "utf8");
-      })(),
-    );
+    const key = `source-file-${String(sourceFileMap.length)}`;
+    sourceFileMap.push({ path: sf.path, key });
+    fileWrites.push(writeFile(join(tempDir, key), sf.content, "utf8"));
   }
 
   await Promise.all(fileWrites);

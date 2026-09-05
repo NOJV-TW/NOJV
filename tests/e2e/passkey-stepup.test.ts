@@ -1,16 +1,9 @@
-import { execFileSync } from "node:child_process";
-
+import { getRedis } from "@nojv/redis";
 import { expect, test } from "@playwright/test";
 
 import { DisposableCredentialUser, psql, signInWithPassword } from "./_disposable-user";
 import { readLiveSession } from "./_shared";
 import { settingsMethodRow, unlockSecuritySettings } from "./_two-factor";
-
-function redis(...args: string[]): string {
-  return execFileSync("docker", ["compose", "exec", "-T", "redis", "redis-cli", ...args], {
-    encoding: "utf8",
-  }).trim();
-}
 
 test.describe.configure({ retries: 0 });
 
@@ -32,11 +25,10 @@ test.beforeAll(() => {
   user.create();
 });
 
-test.afterAll(() => {
+test.afterAll(async () => {
   user.cleanup();
   if (sessionIds.size > 0) {
-    redis(
-      "DEL",
+    await getRedis().del(
       ...[...sessionIds].flatMap((id) => [
         `nojv:apitoken:stepup:${id}`,
         `nojv:apitoken:page-mfa:${id}`,
@@ -73,8 +65,7 @@ test("a verified passkey assertion unlocks only its new session", async ({ brows
   await expect(dialog.getByRole("button", { name: "Remove" })).toBeVisible({ timeout: 20000 });
 
   const oldSessionId = await sessionId(page);
-  redis(
-    "DEL",
+  await getRedis().del(
     `nojv:apitoken:stepup:${oldSessionId}`,
     `nojv:apitoken:page-mfa:${oldSessionId}`,
   );
@@ -85,7 +76,7 @@ test("a verified passkey assertion unlocks only its new session", async ({ brows
   const stepUpDialog = page.getByRole("dialog", { name: "Verify it's you" });
   await expect(stepUpDialog).toBeVisible();
   await expect(page).toHaveURL(/\/dashboard$/);
-  expect(redis("GET", `nojv:apitoken:stepup:${oldSessionId}`)).toBe("");
+  expect(await getRedis().get(`nojv:apitoken:stepup:${oldSessionId}`)).toBeNull();
 
   const [verificationResponse] = await Promise.all([
     page.waitForResponse(
@@ -105,11 +96,11 @@ test("a verified passkey assertion unlocks only its new session", async ({ brows
   const newSessionId = await sessionId(page);
   expect(newSessionId).not.toBe(oldSessionId);
   await expect
-    .poll(() => redis("GET", `nojv:apitoken:stepup:${newSessionId}`))
+    .poll(() => getRedis().get(`nojv:apitoken:stepup:${newSessionId}`))
     .toBe(securityMarker());
 
   const otherSessionId = await sessionId(otherPage);
-  expect(redis("GET", `nojv:apitoken:stepup:${otherSessionId}`)).toBe("");
+  expect(await getRedis().get(`nojv:apitoken:stepup:${otherSessionId}`)).toBeNull();
   await otherPage.goto("/account/api-tokens");
   await expect(otherPage).toHaveURL(/\/account\/api-tokens\/verify$/);
 

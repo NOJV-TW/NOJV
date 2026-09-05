@@ -25,6 +25,8 @@ test.describe("Authentication flow", () => {
       await page.keyboard.press("ArrowDown");
       const menu = page.getByRole("menu");
       const items = menu.getByRole("menuitem");
+      await expect(menu).toBeInViewport();
+      await expect(menu).not.toHaveAttribute("data-starting-style", "");
       await expect(items.first()).toBeFocused();
       await page.keyboard.press("ArrowDown");
       await expect(items.nth(1)).toBeFocused();

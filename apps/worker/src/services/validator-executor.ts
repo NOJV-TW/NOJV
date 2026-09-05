@@ -116,7 +116,10 @@ export async function runValidator(
 
   let parsed: ReturnType<typeof parseValidateOutput>;
   try {
-    parsed = parseValidateOutput(JSON.parse(result.stdout));
+    parsed = parseValidateOutput(
+      JSON.parse(result.stdout),
+      params.cases.map(({ index }) => index),
+    );
   } catch (error) {
     return seForAll(
       `Invalid validator JSON: ${error instanceof Error ? error.message : String(error)}`,
@@ -127,17 +130,5 @@ export async function runValidator(
   const reported = parsed.data.validatorOutcomes;
   if (!reported) return seForAll("Validator produced no case outcomes.");
 
-  const outcomes = new Map<number, ValidatorOutcome>();
-  for (const o of reported) {
-    const { index, ...outcome } = o;
-    outcomes.set(index, outcome);
-  }
-  for (const c of params.cases) {
-    if (!outcomes.has(c.index))
-      outcomes.set(c.index, {
-        verdict: "SE",
-        judgeMessage: `Validator did not report case ${String(c.index)}.`,
-      });
-  }
-  return outcomes;
+  return new Map(reported.map(({ index, ...outcome }) => [index, outcome]));
 }

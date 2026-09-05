@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SandboxRequest } from "@nojv/core";
 import { buildValidateConfigMapData } from "../../../apps/worker/src/services/k8s-configmaps";
 import { resolveValidateCaseFiles } from "../../../apps/sandbox-runner/src/judges/validate";
+import { mergeCheckerResults } from "../../../apps/worker/src/services/check-standard";
+import { mapResult } from "../../../packages/application/src/submission/scoring";
 
 import {
   writeValidatorFiles,
@@ -48,6 +50,86 @@ describe("writeValidatorFiles", () => {
 
   afterEach(async () => {
     await rm(tempDir, { recursive: true, force: true });
+  });
+
+  it.each([
+    [
+      "duplicate",
+      [
+        { index: 0, verdict: "WA" },
+        { index: 0, verdict: "AC" },
+        { index: 1, verdict: "AC" },
+      ],
+    ],
+    ["missing", [{ index: 0, verdict: "AC" }]],
+    [
+      "unexpected",
+      [
+        { index: 0, verdict: "AC" },
+        { index: 2, verdict: "AC" },
+      ],
+    ],
+  ])(
+    "rejects %s validator case indices before mapping the final verdict",
+    async (_name, validatorOutcomes) => {
+      spawnDockerContainer.mockResolvedValue({
+        exitCode: 0,
+        stdout: JSON.stringify({ validatorOutcomes }),
+        stderr: "",
+        timedOut: false,
+        spawnError: null,
+      });
+      const outcomes = await runValidator(tempDir, params, new AbortController().signal, {
+        cpuLimit: "1",
+        image: "test",
+        memoryMb: 256,
+        pidsLimit: 64,
+      });
+      const testcaseResults = mergeCheckerResults(
+        params.cases.map(({ index, teamOutput }) => ({
+          index,
+          stdout: teamOutput,
+          stderr: "",
+          exitCode: 0,
+          timeMs: 1,
+        })),
+        outcomes,
+      );
+      expect(
+        mapResult(
+          { testcaseResults },
+          [],
+          { adjustment: { assignmentAdjustmentRules: null } } as never,
+          2,
+        ),
+      ).toMatchObject({ accepted: false, verdict: "system_error" });
+      expect(testcaseResults[0]?.staffFeedback).toContain(
+        "expected testcase indices exactly once",
+      );
+    },
+  );
+
+  it("accepts unordered outcomes for the exact sparse set of cases sent to the validator", async () => {
+    spawnDockerContainer.mockResolvedValue({
+      exitCode: 0,
+      stdout: JSON.stringify({
+        validatorOutcomes: [
+          { index: 2, verdict: "WA" },
+          { index: 0, verdict: "AC" },
+        ],
+      }),
+      stderr: "",
+      timedOut: false,
+      spawnError: null,
+    });
+    const outcomes = await runValidator(
+      tempDir,
+      { ...params, cases: [params.cases[0]!, { ...params.cases[1]!, index: 2 }] },
+      new AbortController().signal,
+      { cpuLimit: "1", image: "test", memoryMb: 256, pidsLimit: 64 },
+    );
+    expect(outcomes.get(0)).toEqual({ verdict: "AC" });
+    expect(outcomes.get(2)).toEqual({ verdict: "WA" });
   });
 
   it.each([

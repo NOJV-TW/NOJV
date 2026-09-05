@@ -193,9 +193,19 @@ describe("interactive container file layout", () => {
   });
 
   it("solution container holds source + config(role=solution) and NO secret", async () => {
-    await writeSolutionFiles(solDir, request);
-    expect(await readFile(join(solDir, "main.py"), "utf8")).toBe("print('hi')\n");
+    await writeSolutionFiles(solDir, {
+      ...request,
+      sourceFiles: [{ path: "config.json", content: "workspace asset" }],
+    });
     const config = JSON.parse(await readFile(join(solDir, "config.json"), "utf8"));
+    const sourceMap = config.sourceFileMap as { path: string; key: string }[];
+    for (const [path, content] of [
+      ["main.py", request.sourceCode],
+      ["config.json", "workspace asset"],
+    ]) {
+      const key = sourceMap.find((entry) => entry.path === path)!.key;
+      expect(await readFile(join(solDir, key), "utf8")).toBe(content);
+    }
     expect(config.interactive).toEqual({ role: "solution" });
     expect(await exists(join(solDir, "cases"))).toBe(false);
     expect(await exists(join(solDir, "interactor.py"))).toBe(false);

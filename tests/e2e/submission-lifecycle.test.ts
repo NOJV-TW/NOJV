@@ -327,8 +327,8 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
         context: { type: "practice" },
         problemId,
         language: "c",
-        sourceCode: MAIN_C,
         sourceFiles: [
+          { path: "main.c", content: MAIN_C },
           { path: "parallelogram.h", content: PARALLELOGRAM_H },
           { path: "parallelogram.c", content: PARALLELOGRAM_C },
         ],
@@ -349,25 +349,18 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
       const pollBody = await pollRes.json();
       expect(pollBody.submissionId).toBe(created.submissionId);
       lastStatus = pollBody.status;
-      if (lastStatus !== "queued" && lastStatus !== "running") {
+      if (!["queued", "compiling", "running"].includes(lastStatus)) {
         break;
       }
       await page.waitForTimeout(1500);
     }
 
-    const terminalStatuses = [
-      "accepted",
-      "wrong_answer",
-      "compile_error",
-      "runtime_error",
-      "time_limit_exceeded",
-      "memory_limit_exceeded",
-    ];
-
     if (process.env.NOJV_E2E_RUN_JUDGE === "1") {
-      expect(terminalStatuses).toContain(lastStatus);
+      expect(lastStatus, "The complete multi-file C solution must be accepted").toBe(
+        "accepted",
+      );
     } else {
-      expect([...terminalStatuses, "queued", "running"]).toContain(lastStatus);
+      expect(["queued", "compiling", "running", "accepted"]).toContain(lastStatus);
     }
 
     await context.close();
