@@ -56,9 +56,9 @@ test.describe("Admin panel — gating + pages", () => {
     await expect(page.getByText("teacher@nojv.local").first()).toBeVisible({
       timeout: 10_000,
     });
-    await expect(page.getByRole("combobox", { name: /role: teacher/i })).toBeVisible();
-    await expect(page.getByRole("combobox", { name: /advanced access: teacher/i })).toHaveValue(
-      "true",
+    await expect(page.getByRole("button", { name: /role: teacher/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /advanced access: teacher/i })).toHaveText(
+      "Allowed",
     );
     await context.close();
   });

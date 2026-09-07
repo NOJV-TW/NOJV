@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from "$app/navigation";
   import { X } from "@lucide/svelte";
+  import * as Select from "$lib/components/primitives/ui/select";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/stores/toast";
   import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
@@ -55,24 +56,26 @@
     }
   }
 
-  async function handleRoleChange(event: Event, userId: string, previousRole: string) {
-    const select = event.currentTarget as HTMLSelectElement;
-    const role = select.value;
+  let roleDrafts = $state<Record<string, string | undefined>>({});
+
+  async function handleRoleChange(role: string, userId: string, previousRole: string) {
+    if (role === previousRole) return;
+    roleDrafts[userId] = role;
     try {
       const body = new FormData();
       body.set("userId", userId);
       body.set("role", role);
       const res = await fetch("?/changeRole", { method: "POST", body });
       if (!res.ok) {
-        select.value = previousRole;
         toasts.error(m.members_roleChangeError());
         return;
       }
       await invalidateAll();
       toasts.success(m.members_roleChangeSuccess());
     } catch {
-      select.value = previousRole;
       toasts.error(m.members_roleChangeError());
+    } finally {
+      roleDrafts[userId] = undefined;
     }
   }
 
@@ -181,15 +184,27 @@
                 {#if member.role === "teacher"}
                   <span class="font-medium text-primary">{m.members_roleTeacher()}</span>
                 {:else if isManager}
-                  <select
-                    class="rounded-none border-0 border-b border-border bg-transparent py-1.5 pl-1 pr-2 text-caption focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
-                    aria-label={m.members_roleFor({ name: member.name })}
-                    value={member.role}
-                    onchange={(e) => handleRoleChange(e, member.userId, member.role)}
+                  <Select.Root
+                    type="single"
+                    value={roleDrafts[member.userId] ?? member.role}
+                    disabled={Boolean(roleDrafts[member.userId])}
+                    onValueChange={(value) =>
+                      void handleRoleChange(value, member.userId, member.role)}
                   >
-                    <option value="student">{m.members_roleStudent()}</option>
-                    <option value="ta">{m.members_roleTa()}</option>
-                  </select>
+                    <Select.Trigger
+                      size="sm"
+                      class="rounded-none border-0 border-b border-border bg-transparent px-1 text-caption shadow-none! dark:bg-transparent dark:hover:bg-transparent"
+                      aria-label={m.members_roleFor({ name: member.name })}
+                    >
+                      {(roleDrafts[member.userId] ?? member.role) === "ta"
+                        ? m.members_roleTa()
+                        : m.members_roleStudent()}
+                    </Select.Trigger>
+                    <Select.Content>
+                      <Select.Item value="student" label={m.members_roleStudent()} />
+                      <Select.Item value="ta" label={m.members_roleTa()} />
+                    </Select.Content>
+                  </Select.Root>
                 {:else}
                   <span class="text-muted-foreground">
                     {member.role === "ta" ? m.members_roleTa() : m.members_roleStudent()}

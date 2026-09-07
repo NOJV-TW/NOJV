@@ -1,6 +1,6 @@
 <script lang="ts">
   import * as Dialog from "$lib/components/primitives/ui/dialog";
-  import { Button } from "$lib/components/primitives/ui/button";
+  import { Button, buttonVariants } from "$lib/components/primitives/ui/button";
   import { m } from "$lib/paraglide/messages.js";
 
   interface Props {
@@ -38,9 +38,9 @@
     </Dialog.Header>
     <p class="text-sm text-muted-foreground">{message}</p>
     <Dialog.Footer>
-      <Button variant="outline" onclick={() => (open = false)}>
+      <Dialog.Close class={buttonVariants({ variant: "outline" })}>
         {cancelText}
-      </Button>
+      </Dialog.Close>
       <Button
         variant={variant === "danger" ? "destructive" : "default"}
         onclick={() => onconfirm?.()}
