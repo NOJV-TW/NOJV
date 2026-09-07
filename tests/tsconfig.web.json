@@ -27,6 +27,8 @@
     "integration/api/removed-course-staff.test.ts",
     "integration/http/submission-exam-confinement.test.ts",
     "unit/web/problem-testcase-action-auth.test.ts",
+    "unit/web/browser-local-execution.test.ts",
+    "unit/web/browser-local-run.test.ts",
     "unit/web/post-access.test.ts",
     "unit/web/form-action-errors.test.ts",
     "unit/web/contest-join-error.test.ts",

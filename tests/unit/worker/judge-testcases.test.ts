@@ -28,4 +28,23 @@ describe("buildSandboxTestcases", () => {
       }),
     ).toEqual([{ index: 0, input: "42", output: "", weight: 0, isSample: true }]);
   });
+  it.each(["standard", "checker"] as const)(
+    "prepares %s sample, custom and official stdin consistently",
+    (judgeType) => {
+      const context = {
+        judgeType,
+        samples: [{ input: "(())", output: "YES" }],
+        testcaseSets: [{ testcases: [{ input: "(())", output: "YES", weight: 1 }] }],
+      } as SubmissionJudgeContext;
+      for (const mode of ["sample", "custom", "official"]) {
+        const cases = buildSandboxTestcases(context, {
+          useSamples: mode !== "official",
+          useAdvanced: false,
+          runCases: mode === "custom" ? [{ input: "(())", expectedOutput: "YES" }] : undefined,
+          hasRunCases: mode === "custom",
+        });
+        expect(cases[0]?.input).toBe("(())");
+      }
+    },
+  );
 });

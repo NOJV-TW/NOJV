@@ -68,6 +68,23 @@ describe("resolveStandardResults", () => {
     expect(result!.feedback).toMatch(/missing expected output/i);
   });
 
+  it("allows custom sample runs without an expected answer while preserving failures", () => {
+    const cases = [{ ...testcase(0), isSample: true }];
+    expect(
+      resolveStandardResults([rawRun({ index: 0, stdout: "42" })], cases)[0]?.verdict,
+    ).toBe("AC");
+    expect(
+      resolveStandardResults([rawRun({ index: 0, errorVerdict: "RE", exitCode: 1 })], cases)[0]
+        ?.verdict,
+    ).toBe("RE");
+    expect(
+      resolveStandardResults(
+        [rawRun({ index: 0, stdout: "42" })],
+        [{ ...testcase(0, ""), isSample: true }],
+      )[0]?.verdict,
+    ).toBe("WA");
+  });
+
   it("returns SE when no testcase matches the run index", () => {
     const [result] = resolveStandardResults(
       [rawRun({ index: 7, stdout: "42" })],

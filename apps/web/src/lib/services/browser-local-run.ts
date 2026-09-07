@@ -6,6 +6,7 @@ import {
   type CaseResult,
   type CompareConfig,
   type JudgeType,
+  type JudgeConfig,
   type Language,
   type SubmissionResult,
   type SubmissionRunCase,
@@ -38,10 +39,17 @@ export function shouldUseBrowserLocalRun(args: {
   specialEnv: boolean;
   judgeType: JudgeType;
   language: Language;
+  hasHiddenFiles: boolean;
+  cases: readonly Pick<SubmissionRunCase, "input">[];
 }): boolean {
   return (
     args.sampleOnly &&
     !args.specialEnv &&
+    !args.hasHiddenFiles &&
+    !(
+      args.language === "python" &&
+      args.cases.some(({ input }) => input.length > 0 && !input.endsWith("\n"))
+    ) &&
     args.judgeType === "standard" &&
     supportsBrowserLocalRun(args.language)
   );
@@ -88,12 +96,6 @@ export function browserLocalFiles(request: SubmissionRequest): {
     files["bits/stdc++.h"] ??= WASM_OJ_LIBCXX_PCH_HEADER;
   }
   return { entry, files };
-}
-
-export function browserLocalStdin(language: Language, input: string): string {
-  return language === "python" && input.length > 0 && !input.endsWith("\n")
-    ? `${input}\n`
-    : input;
 }
 
 export function browserLocalTerminationVerdict(
@@ -202,25 +204,26 @@ export function browserLocalErrorResult(error: unknown): SubmissionResult {
   return {
     accepted: false,
     caseResults: [],
-    feedback: formatJudgeOutput(`Browser local compilation failed.\n${message}`).slice(
-      0,
-      10_000,
-    ),
+    feedback: formatJudgeOutput(`Browser local execution failed.\n${message}`).slice(0, 10_000),
     runtimeMs: 0,
     score: 0,
-    verdict: "compile_error",
+    verdict: "system_error",
   };
 }
 
 export async function runBrowserLocally(args: {
   request: SubmissionRequest;
   cases: SubmissionRunCase[];
-  compare: CompareConfig | null | undefined;
+  judgeConfig: JudgeConfig;
   problemId: string;
   timeLimitMs: number;
   memoryLimitMb: number;
   signal: AbortSignal;
 }): Promise<SubmissionResult | null> {
+  if (args.cases.length === 0) {
+    if (args.signal.aborted) return null;
+    return browserLocalErrorResult(new Error("No testcases were provided."));
+  }
   let browserEngine: Engine;
   const cancel = () => browserEngine.cancel();
 
@@ -252,14 +255,20 @@ export async function runBrowserLocally(args: {
       };
     }
 
-    const effectiveTimeLimit = effectiveTimeLimitMs(args.timeLimitMs, args.request.language);
+    const runtime = args.judgeConfig.runtime ?? {
+      timeLimitMs: args.timeLimitMs,
+      memoryLimitMb: args.memoryLimitMb,
+      env: {},
+    };
+    const effectiveTimeLimit = effectiveTimeLimitMs(runtime.timeLimitMs, args.request.language);
     const caseResults: CaseResult[] = [];
     for (const [index, testCase] of args.cases.entries()) {
       const run = await browserEngine.run(build.artifact, {
-        stdin: browserLocalStdin(args.request.language, testCase.input),
+        stdin: testCase.input,
+        env: runtime.env,
         resources: {
           logicalTimeLimitMs: effectiveTimeLimit,
-          memoryLimitBytes: args.memoryLimitMb * 1024 * 1024,
+          memoryLimitBytes: runtime.memoryLimitMb * 1024 * 1024,
           outputLimitBytes: 1_000_000,
           filesystemWriteLimitBytes: 64 * 1024 * 1024,
           filesystemEntryLimit: 4096,
@@ -267,7 +276,7 @@ export async function runBrowserLocally(args: {
         },
       });
       caseResults.push(
-        mapBrowserLocalRunResult(run, testCase.expectedOutput, args.compare, index),
+        mapBrowserLocalRunResult(run, testCase.expectedOutput, args.judgeConfig.compare, index),
       );
     }
 

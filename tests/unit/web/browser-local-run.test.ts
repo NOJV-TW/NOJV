@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   browserLocalFiles,
   browserLocalErrorResult,
-  browserLocalStdin,
   browserLocalTerminationFeedback,
   browserLocalTerminationVerdict,
   mapBrowserLocalRunResult,
@@ -64,6 +63,8 @@ describe("browser local run result mapping", () => {
       shouldUseBrowserLocalRun({
         sampleOnly: true,
         specialEnv: false,
+        hasHiddenFiles: false,
+        cases: [],
         judgeType: "standard",
         language: "java",
       }),
@@ -75,6 +76,8 @@ describe("browser local run result mapping", () => {
       shouldUseBrowserLocalRun({
         sampleOnly: true,
         specialEnv: false,
+        hasHiddenFiles: false,
+        cases: [],
         judgeType: "standard",
         language: "python",
       }),
@@ -83,6 +86,8 @@ describe("browser local run result mapping", () => {
       shouldUseBrowserLocalRun({
         sampleOnly: false,
         specialEnv: false,
+        hasHiddenFiles: false,
+        cases: [],
         judgeType: "standard",
         language: "python",
       }),
@@ -91,6 +96,8 @@ describe("browser local run result mapping", () => {
       shouldUseBrowserLocalRun({
         sampleOnly: true,
         specialEnv: false,
+        hasHiddenFiles: false,
+        cases: [],
         judgeType: "checker",
         language: "python",
       }),
@@ -146,10 +153,34 @@ describe("browser local run result mapping", () => {
     });
   });
 
-  it("terminates non-empty Python input with a newline", () => {
-    expect(browserLocalStdin("python", "1 2")).toBe("1 2\n");
-    expect(browserLocalStdin("python", "1 2\n")).toBe("1 2\n");
-    expect(browserLocalStdin("cpp", "1 2")).toBe("1 2");
+  it("uses the server when the selected language needs hidden workspace files", () => {
+    expect(
+      shouldUseBrowserLocalRun({
+        sampleOnly: true,
+        specialEnv: false,
+        judgeType: "standard",
+        language: "c",
+        hasHiddenFiles: true,
+        cases: [],
+      }),
+    ).toBe(false);
+  });
+
+  it.each([
+    ["abc", false],
+    ["abc\n", true],
+    ["", true],
+  ] as const)("routes Python stdin %j according to EOF compatibility", (input, expected) => {
+    expect(
+      shouldUseBrowserLocalRun({
+        sampleOnly: true,
+        specialEnv: false,
+        judgeType: "standard",
+        language: "python",
+        hasHiddenFiles: false,
+        cases: [{ input }],
+      }),
+    ).toBe(expected);
   });
 
   it("maps resource termination to NOJV verdicts", () => {
@@ -220,10 +251,10 @@ describe("browser local run result mapping", () => {
     expect(result).toMatchObject({ verdict: "RE", stderr: "unreachable executed" });
   });
 
-  it("keeps browser compiler errors visible to local testers", () => {
+  it("reports browser engine failures as system errors", () => {
     expect(browserLocalErrorResult(new Error("entry not found"))).toMatchObject({
-      verdict: "compile_error",
-      feedback: "Browser local compilation failed.\nentry not found",
+      verdict: "system_error",
+      feedback: "Browser local execution failed.\nentry not found",
     });
   });
 
@@ -235,8 +266,8 @@ describe("browser local run result mapping", () => {
         problemId: "problem_1",
         sourceCode: "print(1)",
       },
-      cases: [],
-      compare: null,
+      cases: [{ input: "1" }],
+      judgeConfig: { type: "standard" },
       problemId: "problem_1",
       timeLimitMs: 1_000,
       memoryLimitMb: 16,
@@ -244,7 +275,7 @@ describe("browser local run result mapping", () => {
     });
 
     expect(result).toMatchObject({
-      verdict: "compile_error",
+      verdict: "system_error",
     });
     expect(result?.feedback).toContain("A module Worker requires a browser base URL.");
   });

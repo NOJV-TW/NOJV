@@ -99,6 +99,8 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
         sampleOnly,
         specialEnv: args.isSpecialEnv(),
         judgeType: args.judgeType(),
+        hasHiddenFiles: args.workspaceFiles().some((file) => file.visibility === "hidden"),
+        cases: runCases ?? [],
         language: args.language(),
       })
     ) {
@@ -106,7 +108,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       const result = await runBrowserLocally({
         request,
         cases: runCases ?? [],
-        compare: args.judgeConfig().compare,
+        judgeConfig: args.judgeConfig(),
         problemId: args.problemId,
         timeLimitMs: args.timeLimitMs,
         memoryLimitMb: args.memoryLimitMb,
