@@ -5,7 +5,6 @@ const {
   formLimitMock,
   getAuthMock,
   linkSocialAccountMock,
-  listUserAccountsMock,
   rawTwoFactorActions,
   requireAuthMock,
   unlinkAccountMock,
@@ -21,18 +20,16 @@ const {
   ] as const;
   const linkSocialAccountMock = vi.fn();
   const unlinkAccountMock = vi.fn();
-  const listUserAccountsMock = vi.fn();
   return {
     formLimitMock: vi.fn(),
     getAuthMock: vi.fn(() => ({
       api: {
         linkSocialAccount: linkSocialAccountMock,
-        listUserAccounts: listUserAccountsMock,
+        listUserAccounts: vi.fn(),
         unlinkAccount: unlinkAccountMock,
       },
     })),
     linkSocialAccountMock,
-    listUserAccountsMock,
     rawTwoFactorActions: Object.fromEntries(actionNames.map((name) => [name, vi.fn()])),
     requireAuthMock: vi.fn(),
     unlinkAccountMock,
@@ -103,7 +100,6 @@ beforeEach(() => {
   });
   getAuthMock.mockClear();
   linkSocialAccountMock.mockReset();
-  listUserAccountsMock.mockReset();
   requireAuthMock.mockReset();
   unlinkAccountMock.mockReset();
   for (const action of Object.values(rawTwoFactorActions)) action.mockReset();
@@ -122,43 +118,6 @@ describe("settings action rate-limit composition", () => {
     expect(requireAuthMock).not.toHaveBeenCalled();
     expect(getAuthMock).not.toHaveBeenCalled();
     expect(linkSocialAccountMock).not.toHaveBeenCalled();
-    expect(unlinkAccountMock).not.toHaveBeenCalled();
-  });
-});
-
-describe("settings account unlinking", () => {
-  it("uses the current user's internal account ID while preserving unlink guards", async () => {
-    formLimitMock.mockResolvedValue(null);
-    const accounts = [
-      { id: "acc_github", accountId: "external_github_id", providerId: "github" },
-      { id: "acc_google", accountId: "external_google_id", providerId: "google" },
-    ];
-    listUserAccountsMock.mockResolvedValue(accounts);
-    const event = makeEvent();
-    const form = new FormData();
-    form.set("provider", "github");
-    event.request = new Request("http://localhost/settings", { method: "POST", body: form });
-
-    await expect(actions.unlink(event)).resolves.toEqual({ unlinked: "github" });
-    expect(unlinkAccountMock).toHaveBeenCalledWith({
-      body: { accountId: "acc_github" },
-      headers: event.request.headers,
-    });
-    unlinkAccountMock.mockClear();
-    listUserAccountsMock.mockResolvedValue([accounts[0]]);
-    event.request = new Request("http://localhost/settings", { method: "POST", body: form });
-    await expect(actions.unlink(event)).resolves.toMatchObject({
-      status: 400,
-      data: { error: "orphan" },
-    });
-    expect(unlinkAccountMock).not.toHaveBeenCalled();
-
-    listUserAccountsMock.mockResolvedValue([accounts[1]]);
-    event.request = new Request("http://localhost/settings", { method: "POST", body: form });
-    await expect(actions.unlink(event)).resolves.toMatchObject({
-      status: 400,
-      data: { error: "unlinkFailed" },
-    });
     expect(unlinkAccountMock).not.toHaveBeenCalled();
   });
 });

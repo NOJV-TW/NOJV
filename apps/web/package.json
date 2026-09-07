@@ -21,8 +21,8 @@
     "typecheck": "pnpm run paraglide:compile && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {
-    "@better-auth/core": "1.7.2",
-    "@better-auth/passkey": "1.7.2",
+    "@better-auth/core": "1.6.23",
+    "@better-auth/passkey": "1.6.23",
     "@better-auth/utils": "0.4.2",
     "@fontsource/jetbrains-mono": "^5.3.0",
     "@fontsource/manrope": "^5.3.0",
@@ -51,7 +51,7 @@
     "@wasm-oj/toolchain-python": "0.1.0",
     "@wasm-oj/toolchain-rust": "0.1.0",
     "bcryptjs": "catalog:",
-    "better-auth": "^1.7.2",
+    "better-auth": "1.6.23",
     "bits-ui": "^2.19.0",
     "clsx": "^2.1.1",
     "driver.js": "^1.8.0",
