@@ -234,11 +234,11 @@ describe("problem forks", () => {
     );
   });
 
-  it("uses owned problems directly, forks public foreign problems, and rolls back failures", async () => {
+  it("uses published private problems directly, forks public problems, and rolls back failures", async () => {
     const actor = await createTestUser({ platformRole: "teacher" });
     const own = await createTestProblem({
       authorId: actor.id,
-      status: "draft",
+      status: "published",
       visibility: "private",
     });
     const foreign = await createTestProblem();

@@ -12,14 +12,13 @@ import type { ProblemTestcaseSetCreate, TestcaseSetUpdate, TestcaseUpdate } from
 import { assertStorageObjectPointer, type StorageObjectPointer } from "@nojv/storage";
 
 import { ConflictError, NotFoundError } from "../shared/errors";
-import { requireProblem } from "../shared/require";
 import { stripUndefined } from "../shared/strip-undefined";
 import { commitStoragePointerSwap } from "../shared/storage-object-lifecycle";
 
 import { writeTestcaseField, writeTestcaseBlobs, type TestcaseBlobPointers } from "./blobs";
 import {
   assertProblemEditAccess,
-  assertProblemOwnership,
+  lockProblemForEdit,
   type ProblemActorContext,
 } from "./permissions";
 
@@ -74,9 +73,7 @@ export async function createProblemTestcaseSetRecord(
   );
 
   return runTransaction(async (tx) => {
-    await problemRepo.withTx(tx).lockForUpdate(problemId);
-    const problem = await requireProblem(tx, problemId);
-    assertProblemOwnership(problem, actor);
+    const problem = await lockProblemForEdit(tx, actor, problemId);
 
     const existingCount = await testcaseSetRepo.withTx(tx).countByProblem(problem.id);
     if (existingCount >= MAX_TESTCASE_SETS_PER_PROBLEM) {
@@ -142,9 +139,7 @@ export async function updateTestcaseSetRecord(
   await assertProblemEditAccess(actor, problemId);
 
   return runTransaction(async (tx) => {
-    await problemRepo.withTx(tx).lockForUpdate(problemId);
-    const problem = await requireProblem(tx, problemId);
-    assertProblemOwnership(problem, actor);
+    const problem = await lockProblemForEdit(tx, actor, problemId);
     await requireSetInProblem(setId, problem.id, tx);
 
     const updated = await tx.testcaseSet.update({
@@ -167,9 +162,7 @@ export async function deleteTestcaseSetRecord(
   await assertProblemEditAccess(actor, problemId);
 
   await runTransaction(async (tx) => {
-    await problemRepo.withTx(tx).lockForUpdate(problemId);
-    const problem = await requireProblem(tx, problemId);
-    assertProblemOwnership(problem, actor);
+    const problem = await lockProblemForEdit(tx, actor, problemId);
     const existing = await requireSetInProblem(setId, problemId, tx);
     const bytes = existing.testcases.reduce(
       (total, testcase) => total + persistedTestcaseSize(testcase),
@@ -205,9 +198,7 @@ export async function updateTestcaseRecord(
   }
 
   await runTransaction(async (tx) => {
-    await problemRepo.withTx(tx).lockForUpdate(problemId);
-    const problem = await requireProblem(tx, problemId);
-    assertProblemOwnership(problem, actor);
+    const problem = await lockProblemForEdit(tx, actor, problemId);
     const testcase = await requireTestcaseInProblem(testcaseId, problem.id, tx);
     const data: Prisma.TestcaseUpdateInput = {};
     const removed: StorageObjectPointer[] = [];
@@ -253,9 +244,7 @@ export async function deleteTestcaseRecord(
   await assertProblemEditAccess(actor, problemId);
 
   await runTransaction(async (tx) => {
-    await problemRepo.withTx(tx).lockForUpdate(problemId);
-    const problem = await requireProblem(tx, problemId);
-    assertProblemOwnership(problem, actor);
+    const problem = await lockProblemForEdit(tx, actor, problemId);
     const testcase = await requireTestcaseInProblem(testcaseId, problem.id, tx);
 
     await testcaseRepo.withTx(tx).delete(testcaseId);

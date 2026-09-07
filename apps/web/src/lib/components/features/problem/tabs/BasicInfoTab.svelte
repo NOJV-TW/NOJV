@@ -19,6 +19,7 @@
     showRuntimeLimits?: boolean;
     privateVisibilityOnly?: boolean;
     isOwner?: boolean;
+    canManageVisibility?: boolean;
     ondirtychange?: (dirty: boolean) => void;
   }
 
@@ -28,6 +29,7 @@
     showRuntimeLimits = false,
     privateVisibilityOnly = false,
     isOwner = false,
+    canManageVisibility = true,
     ondirtychange,
   }: Props = $props();
 
@@ -72,7 +74,8 @@
   });
 
   $effect(() => {
-    if (privateVisibilityOnly && $form.visibility !== "private") $form.visibility = "private";
+    if (canManageVisibility && privateVisibilityOnly && $form.visibility !== "private")
+      $form.visibility = "private";
   });
 
   let showAdvanced = $state(false);
@@ -146,7 +149,11 @@
         >{m.admin_visibility()} <span class="text-destructive">*</span>
         <HelpTooltip text={m.admin_helpVisibility()} /></span
       >
-      {#if privateVisibilityOnly}
+      {#if !canManageVisibility}
+        <p class="py-2 text-body-sm">
+          {visibilityLabels[$form.visibility]?.() ?? $form.visibility}
+        </p>
+      {:else if privateVisibilityOnly}
         <Select.Root
           type="single"
           value={$form.adminMayPublish ? "admin_may_publish" : "private"}

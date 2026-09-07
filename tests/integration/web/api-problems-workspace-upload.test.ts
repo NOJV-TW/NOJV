@@ -25,7 +25,7 @@ describe("POST /api/problems/[id]/workspace/files (W3.A)", () => {
 
     await problemDomain.assertProblemEditAccess(actorOf(teacher), problem.id);
 
-    await problemDomain.setWorkspaceFile(problem.id, {
+    await problemDomain.setWorkspaceFile(actorOf(teacher), problem.id, {
       language: "python",
       path: "main.py",
       visibility: "editable",

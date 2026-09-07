@@ -284,7 +284,7 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
     const page = await context.newPage();
 
     const referenceId = `reference-${problemId}`;
-    psql(`
+    await psql(`
       INSERT INTO "Submission" (id, "userId", "problemId", "isReferenceSolution", "referenceProblemStorageGeneration", language, "sourceStorage", status, "updatedAt")
       SELECT '${referenceId}', u.id, p.id, true, p."storageGeneration", 'c', source."sourceStorage", 'accepted', NOW()
       FROM "Problem" p

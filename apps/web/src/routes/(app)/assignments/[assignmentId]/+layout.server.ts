@@ -34,8 +34,7 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
     actor.platformRole,
     membership?.role ?? null,
   );
-  const isCourseOwner = course.ownerId === actor.userId;
-  const isManager = canManageCourse(effectiveRole) || isCourseOwner;
+  const isManager = canManageCourse(effectiveRole);
   const isEnrolled = membership?.status === "active";
 
   if (!isManager && !isEnrolled) {

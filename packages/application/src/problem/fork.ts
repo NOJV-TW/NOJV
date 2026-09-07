@@ -1,5 +1,6 @@
 import {
   courseMembershipRepo,
+  courseProblemRepo,
   Prisma,
   problemRepo,
   runTransaction,
@@ -8,9 +9,11 @@ import {
 } from "@nojv/db";
 import type { PlatformRole } from "@nojv/core";
 
-import { ForbiddenError, NotFoundError } from "../shared/errors";
+import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
 
 import type { ProblemActorContext } from "./permissions";
+import { isCourseStaffTx } from "../shared/permissions";
+import { requireCourse } from "../shared/require";
 
 export interface ForkOptions {
   authorId: string;
@@ -209,30 +212,82 @@ export async function resolveActivityProblems(
   tx: TransactionClient,
   actor: ProblemActorContext,
   problemIds: readonly string[],
+  options: {
+    courseId?: string;
+    existingProblemIds?: readonly string[];
+    allowDraftPrivate?: boolean;
+  } = {},
 ) {
+  const { courseId } = options;
+  if (courseId !== undefined) {
+    const course = await requireCourse(tx, courseId);
+    if (
+      actor.platformRole !== "admin" &&
+      !(await isCourseStaffTx(tx, actor.userId, courseId))
+    ) {
+      throw new ForbiddenError("You do not have permission to manage this course.");
+    }
+    if (course.archived) throw new ValidationError("Archived courses are read-only.");
+  }
   if (problemIds.length === 0) return [];
-  const found = await problemRepo.withTx(tx).findMany({ id: { in: [...problemIds] } });
-  const byId = new Map(found.map((problem) => [problem.id, problem]));
-  const resolved = [];
 
-  for (const id of problemIds) {
+  // Callers hold the course/activity locks and obtain existing IDs from that activity in DB.
+  const existing = new Set(options.existingProblemIds);
+  const ids = [...new Set(problemIds)].sort();
+  if (courseId !== undefined) {
+    for (const id of ids) {
+      await tx.$queryRaw`SELECT "courseId" FROM "CourseProblem" WHERE "courseId" = ${courseId} AND "problemId" = ${id} FOR UPDATE`;
+    }
+  }
+  for (const id of ids) await problemRepo.withTx(tx).lockForUpdate(id);
+
+  const found = await problemRepo.withTx(tx).findMany({ id: { in: ids } });
+  const byId = new Map(found.map((problem) => [problem.id, problem]));
+  const links =
+    courseId === undefined
+      ? []
+      : await tx.courseProblem.findMany({
+          where: { courseId, problemId: { in: ids } },
+          select: { problemId: true },
+        });
+  const shared = new Set(links.map((link) => link.problemId));
+  const resolved = new Map<string, (typeof found)[number]>();
+
+  for (const id of ids) {
     const problem = byId.get(id);
     if (!problem) throw new NotFoundError(`Problem not found: ${id}`);
-    if (problem.authorId === actor.userId) {
-      resolved.push(problem);
+    if (existing.has(id)) {
+      resolved.set(id, problem);
       continue;
     }
-    if (problem.visibility !== "public" || problem.status !== "published") {
-      throw new ForbiddenError("Private problems can only be attached by their author.");
-    }
-    resolved.push(
-      await forkProblemInTransaction(tx, problem.id, {
+    let selected = problem;
+    if (problem.visibility === "public") {
+      selected = await forkProblemInTransaction(tx, id, {
         authorId: actor.userId,
         published: false,
         requirePublishedPublicSource: true,
-      }),
-    );
+      });
+    } else if (problem.authorId !== actor.userId && !shared.has(id)) {
+      throw new ForbiddenError(
+        "Private problems must be shared with this course by their owner.",
+      );
+    }
+    if (
+      problem.visibility === "private" &&
+      problem.status !== "published" &&
+      !options.allowDraftPrivate
+    ) {
+      throw new ValidationError("Publish private problems before adding them to an activity.");
+    }
+    if (courseId !== undefined) {
+      await courseProblemRepo.withTx(tx).add(courseId, selected.id, actor.userId);
+    }
+    resolved.set(id, selected);
   }
 
-  return resolved;
+  return problemIds.map((id) => {
+    const problem = resolved.get(id);
+    if (!problem) throw new NotFoundError(`Problem not found: ${id}`);
+    return problem;
+  });
 }

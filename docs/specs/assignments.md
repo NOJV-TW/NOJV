@@ -59,10 +59,11 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 - Practice-after-close read/write access via `assertProblemViewAccess`
   historical-participant gate.
 - Problem attachment updates preserve retained link identities. Link `points` stores this assignment's allocation; the original problem remains unchanged.
-- Problem resolution runs in the assignment transaction: an actor-owned
-  problem is attached directly, another author's published public problem
-  becomes an actor-owned private fork, and another author's private problem
-  is rejected.
+- Problem resolution and `CourseProblem` sharing run in the assignment transaction.
+  Actor-owned private problems and private problems already shared with this course
+  are reused. Every newly selected published public problem becomes an actor-owned
+  private fork, including public problems owned by the actor. Other private
+  problems are rejected; existing activity references loaded from DB keep their IDs.
 - Post-close grading drawer on the submissions matrix — score
   overrides + per-cell student-visible feedback comments
   (`SubmissionFeedback`). Writes gated post-close (`closesAt < now`),
@@ -102,13 +103,27 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 
 ### Problem ownership and forks
 
-- GIVEN an actor-owned problem, WHEN an assignment is created or its problem
-  list is updated, THEN the original problem is attached directly.
-- GIVEN another author's published public problem, WHEN it is selected, THEN
-  an independent actor-owned private fork is created and attached.
-- GIVEN another author's private problem, WHEN it is selected, THEN the
-  mutation is rejected. If problem resolution or assignment creation fails,
-  the transaction leaves neither a partial assignment nor a partial fork.
+- GIVEN an actor-owned private problem or a private problem already shared with
+  this course, WHEN selected, THEN the same problem is attached and the course
+  library relation is retained or created without changing its owner.
+- GIVEN a newly selected published public problem, including the actor's own,
+  THEN create an independent actor-owned private fork and share it with the course.
+- GIVEN existing activity references loaded from DB, including historical public
+  problems or private drafts, WHEN retained in an update, THEN preserve their IDs.
+  Activity pickers offer published candidates; historical drafts remain available
+  only as existing selections. Client-supplied existing IDs grant no exception.
+- GIVEN an unrelated private problem or any later failure, THEN reject and roll
+  back the activity, forks, and new library relations together.
+- Removing an activity attachment or deleting a draft assignment keeps the course
+  library relation. Library removal is separate and rejects activity/history references,
+  including retained history for detached activity problems.
+- The staff-only course library accepts the owner's private drafts, exposes owner,
+  source and activity links, and has no problem-creation button. Archived libraries
+  stay readable and expose no editing, add or remove controls.
+
+See [Database](../architecture/DATABASE.md) and the
+[problem permissions plan](../plans/active/2026-09-08-problem-permissions.md)
+for ownership and sharing details.
 
 ### Late collection and scoring
 
@@ -185,11 +200,13 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 
 ### Permissions
 
-- GIVEN a non-owner non-admin actor without active teacher/TA membership on
-  the hosting course, WHEN any assignment mutation is called,
-  THEN `ForbiddenError("You do not have permission to edit this assignment.")`.
-- GIVEN a student actor, WHEN they call any mutation on an assessment,
-  THEN the same `ForbiddenError` fires (defense-in-depth — routes gate too).
+- GIVEN an actor without a bound, active teacher/TA membership on the hosting
+  course or effective admin access, WHEN any assignment mutation is called, THEN
+  reject. Course ownership or activity creation alone is not a permission grant;
+  pending usernames and removed memberships grant no access. A platform student
+  serving as an active course TA is allowed.
+- GIVEN an archived course, THEN activity mutations are rejected even for staff;
+  content reads remain subject to the existing course and problem read gates.
 
 ### Problem attachment
 

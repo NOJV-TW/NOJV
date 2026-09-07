@@ -38,8 +38,7 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
     actor.platformRole,
     membership?.role ?? null,
   );
-  const isCourseOwner = course.ownerId === actor.userId;
-  const isManager = canManageCourse(effectiveRole) || isCourseOwner;
+  const isManager = canManageCourse(effectiveRole);
 
   if (!isManager) {
     const cachedGate = event.locals.examGate;

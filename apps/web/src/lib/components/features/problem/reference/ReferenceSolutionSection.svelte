@@ -3,6 +3,7 @@
   import { languageSchema, type Language, type SubmissionResult } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import MonacoScriptEditor from "$lib/components/primitives/ui/MonacoScriptEditor.svelte";
+  import CodeBlock from "$lib/components/primitives/ui/CodeBlock.svelte";
   import CaseResultGrid from "$lib/components/features/submission/CaseResultGrid.svelte";
   import {
     buildSubmissionRequest,
@@ -26,13 +27,21 @@
 
   interface Props {
     problemId: string;
+    readOnly?: boolean;
     problemType: "full_source" | "multi_file";
     initial: ReferenceState;
     starterByLanguage: Record<string, string>;
     workspaceFiles: WorkspaceFile[];
   }
 
-  let { problemId, problemType, initial, starterByLanguage, workspaceFiles }: Props = $props();
+  let {
+    problemId,
+    readOnly = false,
+    problemType,
+    initial,
+    starterByLanguage,
+    workspaceFiles,
+  }: Props = $props();
 
   function resolveInitialLanguage(): Language {
     if (problemType === "multi_file") {
@@ -107,7 +116,7 @@
   }
 
   async function submitReference() {
-    if (isSubmitting) return;
+    if (readOnly || isSubmitting) return;
     ensureDrafts();
     isSubmitting = true;
     status = "validating";
@@ -164,7 +173,7 @@
     <p class="mt-1 text-body-sm text-muted-foreground">{m.admin_referenceDescription()}</p>
   </div>
 
-  {#if problemType === "multi_file" && workspaceLanguages.length > 0}
+  {#if !readOnly && problemType === "multi_file" && workspaceLanguages.length > 0}
     <label class="grid gap-1.5 text-body-sm text-muted-foreground">
       <span>{m.admin_referenceLanguage()}</span>
       <select
@@ -225,7 +234,19 @@
     </div>
   {/if}
 
-  {#if problemType === "full_source"}
+  {#if readOnly}
+    <p class="text-body-sm text-muted-foreground">
+      {m.admin_referenceLanguage()}: {initial.language ?? "—"}
+    </p>
+    {#each initial.sourceFiles as file (file.path)}
+      <details class="rounded-lg border border-border-subtle p-3">
+        <summary class="cursor-pointer font-mono text-body-sm">{file.path}</summary>
+        <div class="mt-3">
+          <CodeBlock code={file.content} language={initial.language ?? ""} />
+        </div>
+      </details>
+    {/each}
+  {:else if problemType === "full_source"}
     <div class="grid gap-3">
       <label class="grid gap-1.5 text-body-sm text-muted-foreground">
         <span>{m.admin_referenceLanguage()}</span>
@@ -309,7 +330,9 @@
     <button
       type="button"
       class="rounded-full bg-primary px-4 py-2 text-body-sm font-semibold text-primary-foreground transition-colors duration-fast ease-out-soft hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
-      disabled={isSubmitting || (problemType === "multi_file" && visibleFiles.length === 0)}
+      disabled={readOnly ||
+        isSubmitting ||
+        (problemType === "multi_file" && visibleFiles.length === 0)}
       onclick={() => void submitReference()}
     >
       {isSubmitting ? m.admin_referenceSubmitting() : m.admin_referenceSubmit()}

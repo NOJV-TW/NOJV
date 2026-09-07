@@ -11,17 +11,10 @@ const MAX_WORKSPACE_FILE_SIZE = 5 * 1024 * 1024;
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
-  if (!(await problemDomain.canAuthorProblems(actor))) {
-    error(403, "Not authorized to edit problems");
-  }
-
   const problemId = event.params.id;
   if (!problemId) error(400, "Missing problem id");
 
-  await problemDomain.assertProblemEditAccess(
-    { platformRole: actor.platformRole, userId: actor.userId, username: actor.username },
-    problemId,
-  );
+  await problemDomain.assertProblemEditAccess(actor, problemId);
 
   const contentLength = Number(event.request.headers.get("content-length"));
   if (Number.isFinite(contentLength) && contentLength > MAX_WORKSPACE_FILE_SIZE * 2) {
@@ -48,7 +41,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
 
   const content = await file.text();
 
-  await problemDomain.setWorkspaceFile(problemId, {
+  await problemDomain.setWorkspaceFile(actor, problemId, {
     language,
     path,
     visibility,

@@ -25,6 +25,7 @@ vi.mock("@nojv/db", () => ({
   runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
     fn({
       $executeRaw: mocks.lock,
+      $queryRaw: mocks.lock,
       user: { findMany: mocks.findUsers },
       courseMembership: {
         findUnique: mocks.findMember,
@@ -201,6 +202,7 @@ describe("bulk roster authorization and input", () => {
     mocks.listMembers.mockResolvedValue([
       {
         id: MEMBER,
+        courseId: COURSE,
         userId: null,
         pendingUsername: "alice",
         role: "teacher",

@@ -51,7 +51,13 @@
       resetForm: false,
       invalidateAll: true,
       onSubmit: ({ jsonData }) => {
-        jsonData(serializeDateTimeFields($form, ["startsAt", "dueAt", "endsAt"]));
+        jsonData(
+          serializeDateTimeFields($form, ["startsAt", "dueAt", "endsAt"], undefined, {
+            startsAt: detail.startsAt,
+            dueAt: detail.dueAt ?? detail.endsAt,
+            endsAt: detail.endsAt,
+          }),
+        );
       },
       onUpdate: ({ form }) => {
         form.data = restoreDateTimeFields(form.data, ["startsAt", "dueAt", "endsAt"]);

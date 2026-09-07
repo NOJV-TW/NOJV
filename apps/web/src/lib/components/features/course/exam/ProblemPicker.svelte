@@ -36,9 +36,11 @@
 
   const selectedDetails = $derived.by(() => {
     const lookup = new Map<CandidateProblem["id"], CandidateProblem>(
-      [...candidateProblems.publicProblems, ...candidateProblems.personalProblems].map(
-        (problem) => [problem.id, problem],
-      ),
+      [
+        ...candidateProblems.publicProblems,
+        ...candidateProblems.personalProblems,
+        ...(candidateProblems.courseProblems ?? []),
+      ].map((problem) => [problem.id, problem]),
     );
     return problemIds
       .map((id) => lookup.get(id))

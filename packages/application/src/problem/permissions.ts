@@ -2,6 +2,7 @@ import {
   assessmentProblemRepo,
   contestProblemRepo,
   courseMembershipRepo,
+  courseProblemRepo,
   examProblemRepo,
   problemRepo,
   problemWorkspaceFileRepo,
@@ -87,7 +88,70 @@ export async function assertProblemEditAccess(
 ): Promise<void> {
   const problem = await problemRepo.findById(problemId);
   if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
-  assertProblemOwnership(problem, actor);
+  if (!(await canProblemContentEdit(problem, actor))) {
+    throw new ForbiddenError("Not permitted to edit this problem.");
+  }
+}
+
+export async function canProblemContentRead(
+  problem: { id: string; authorId: string | null; visibility: string },
+  actor: ProblemActorContext | null,
+): Promise<boolean> {
+  if (!actor) return false;
+  if (actor.platformRole === "admin" || problem.authorId === actor.userId) return true;
+  return (
+    problem.visibility === "private" &&
+    (await courseProblemRepo.hasStaffAccess(problem.id, actor.userId))
+  );
+}
+
+export async function canProblemContentEdit(
+  problem: { id: string; authorId: string | null; visibility: string },
+  actor: ProblemActorContext | null,
+): Promise<boolean> {
+  if (!actor) return false;
+  if (actor.platformRole === "admin" || problem.authorId === actor.userId) return true;
+  return (
+    problem.visibility === "private" &&
+    (await courseProblemRepo.hasStaffAccess(problem.id, actor.userId, true))
+  );
+}
+
+export async function assertProblemContentReadAccess(
+  actor: ProblemActorContext,
+  problemId: string,
+) {
+  const problem = await problemRepo.findById(problemId);
+  if (!problem || !(await canProblemContentRead(problem, actor))) {
+    throw new NotFoundError(`Problem not found: ${problemId}`);
+  }
+  return problem;
+}
+
+export async function lockProblemForEdit(
+  tx: TransactionClient,
+  actor: ProblemActorContext,
+  problemId: string,
+) {
+  const problem = await problemRepo.withTx(tx).findById(problemId);
+  if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
+  const repo = courseProblemRepo.withTx(tx);
+  const independent = actor.platformRole === "admin" || problem.authorId === actor.userId;
+  const staffAccess =
+    !independent &&
+    problem.visibility === "private" &&
+    (await repo.lockStaffEditAccess(problemId, actor.userId));
+  const locked = await repo.lockProblem(problemId);
+  if (!locked) throw new NotFoundError(`Problem not found: ${problemId}`);
+  if (
+    actor.platformRole !== "admin" &&
+    locked.authorId !== actor.userId &&
+    !(staffAccess && locked.visibility === "private")
+  ) {
+    throw new ForbiddenError("Not permitted to edit this problem.");
+  }
+  if (locked.type === "special_env") await assertCanCreateAdvancedProblems(actor);
+  return locked;
 }
 
 export async function assertProblemViewAccess(
@@ -99,6 +163,7 @@ export async function assertProblemViewAccess(
   if (actor?.platformRole === "admin") return;
   if (actor?.userId === problem.authorId) return;
   if (opts?.contextIncludesProblem) return;
+  if (await canProblemContentRead(problem, actor)) return;
 
   if (actor?.userId) {
     const now = opts?.now ?? new Date();
@@ -124,7 +189,7 @@ export async function assertProblemHasWorkspaceForLanguages(
   if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
   if (problem.type !== "multi_file") return;
 
-  const workspaceFiles = await problemWorkspaceFileRepo.findByProblemId(problemId);
+  const workspaceFiles = await problemWorkspaceFileRepo.withTx(tx).findByProblemId(problemId);
 
   const missing: Language[] = [];
   for (const language of allowedLanguages) {

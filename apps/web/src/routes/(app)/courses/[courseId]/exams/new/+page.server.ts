@@ -17,7 +17,7 @@ import {
   type ExamCreate,
   type ExamPublishStatus,
 } from "@nojv/core";
-import { canManageCourse, examDomain, problemDomain } from "@nojv/application";
+import { canManageCourse, examDomain, courseDomain } from "@nojv/application";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent, RequestEvent } from "./$types";
 import { getCoursePermissionRole, requireAuth } from "$lib/server/auth";
@@ -27,7 +27,7 @@ import { handleLoad } from "$lib/server/shared/load-wrapper";
 import type { FormMessage } from "$lib/types/form-message";
 
 const { createExamRecord } = examDomain;
-const { listProblemPickerGroups } = problemDomain;
+const { listCourseProblemPickerGroups } = courseDomain;
 
 const examFormSchema = z
   .object({
@@ -113,7 +113,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       zod4(examFormSchema),
       { errors: false },
     ),
-    listProblemPickerGroups(actor.userId),
+    listCourseProblemPickerGroups(actor, course.id),
   ]);
 
   return { form, candidateProblems };

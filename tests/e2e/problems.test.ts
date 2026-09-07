@@ -82,7 +82,7 @@ test.describe("Problems", () => {
     await context.close();
   });
 
-  test("problem editor uses a visibility dropdown and required runtime limits", async ({
+  test("private problem editor offers publication consent and required runtime limits", async ({
     browser,
   }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
@@ -95,10 +95,13 @@ test.describe("Problems", () => {
     const { id } = await response.json();
 
     await page.goto(`/problems/${id}/edit`);
-    await page.waitForTimeout(3000);
+    await expect(page.getByRole("button", { name: /Open account menu/ })).toBeEnabled();
     const visibility = page.getByRole("button", { name: "Private", exact: true });
     await visibility.click();
-    await expect(page.getByRole("option", { name: "Public" })).toBeVisible();
+    await expect(page.getByRole("option", { name: "Private", exact: true })).toBeVisible();
+    await expect(page.getByRole("option", { name: /Allow admin/ })).toBeVisible();
+    await expect(page.getByRole("option", { name: "Public", exact: true })).toHaveCount(0);
+    await page.keyboard.press("Escape");
     await expect(page.locator('input[name="timeLimitMs"]')).toHaveAttribute("required", "");
     await expect(page.locator('input[name="memoryLimitMb"]')).toHaveAttribute("required", "");
 

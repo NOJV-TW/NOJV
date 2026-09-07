@@ -187,11 +187,7 @@ export async function listExamIpViolationsForActor(actor: ActorContext, examId: 
   }
   if (actor.platformRole !== "admin") {
     const memberships = await courseMembershipRepo.listActiveForUser(actor.userId);
-    const canManage = canManageExam(
-      actor.userId,
-      { createdByUserId: exam.createdByUserId, courseId: exam.courseId },
-      memberships,
-    );
+    const canManage = canManageExam(actor.userId, { courseId: exam.courseId }, memberships);
     if (!canManage) {
       throw new ForbiddenError("Not authorized to view this exam's IP violations");
     }

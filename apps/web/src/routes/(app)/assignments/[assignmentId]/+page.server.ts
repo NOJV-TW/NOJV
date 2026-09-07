@@ -17,7 +17,6 @@ import {
   courseDomain,
   feedbackDomain,
   plagiarismDomain,
-  problemDomain,
   scoreOverrideDomain,
   submissionDomain,
   userDomain,
@@ -40,7 +39,6 @@ import { buildAssignmentResults } from "$lib/server/results/assignment";
 
 const { getAssignmentDetail, buildSubmissionsMatrix } = courseDomain;
 const { findPlagiarismReport, listFlagsForContext } = plagiarismDomain;
-const { listActivityProblemPickerGroups } = problemDomain;
 const {
   deleteAssignmentDraft,
   publishAssignment,
@@ -65,7 +63,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       matrix,
       plagiarism,
       plagiarismFlags,
-      candidateProblems,
       canSetOverride,
       canAskClar,
       canAnswerClar,
@@ -80,7 +77,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       buildSubmissionsMatrix(courseId, assignmentId),
       findPlagiarismReport({ type: "assessment", id: assignmentId }),
       listFlagsForContext("assessment", assignmentId),
-      listActivityProblemPickerGroups(actor, { type: "assignment", assignmentId }),
       scoreOverrideDomain.canSetScoreOverride(actor, {
         type: "assignment",
         assignmentId,
@@ -94,6 +90,12 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         context: { type: "assignment", id: assignmentId },
       }),
     ]);
+
+    const candidateProblems = await courseDomain.listCourseProblemPickerGroups(
+      actor,
+      courseId,
+      detail.problems.map((problem) => problem.problemId),
+    );
 
     const auditActorNames = await userDomain.listUserDisplayNames([
       ...new Set(auditEvents.flatMap((e) => (e.actorUserId ? [e.actorUserId] : []))),

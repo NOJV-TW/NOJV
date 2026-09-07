@@ -7,12 +7,15 @@ import { entryFileNameFor, problemWorkspaceFileSchema } from "@nojv/core";
 import { assertStorageObjectPointer, type StorageObjectPointer } from "@nojv/storage";
 
 import { ConflictError, ValidationError } from "../shared/errors";
-import { requireProblem } from "../shared/require";
 import { commitStoragePointerSwap } from "../shared/storage-object-lifecycle";
 
 import { writeWorkspaceFileBlob } from "./blobs";
 import { parsePersistedJudgeConfig } from "./judge-config";
-import { assertProblemOwnership, type ProblemActorContext } from "./permissions";
+import {
+  assertProblemEditAccess,
+  lockProblemForEdit,
+  type ProblemActorContext,
+} from "./permissions";
 
 export interface UpdateWorkspaceInput {
   runtime?: {
@@ -105,10 +108,7 @@ export async function updateProblemWorkspace(
   assertMultiFileEntries(payload);
   assertWorkspaceByteLimit(payload.files);
 
-  await runTransaction(async (tx) => {
-    const problem = await requireProblem(tx, problemId);
-    assertProblemOwnership(problem, actor);
-  });
+  await assertProblemEditAccess(actor, problemId);
 
   interface PreparedWorkspaceFile {
     id: string;
@@ -124,9 +124,7 @@ export async function updateProblemWorkspace(
   );
 
   const result = await runTransaction(async (tx) => {
-    await problemRepo.withTx(tx).lockForUpdate(problemId);
-    const problem = await requireProblem(tx, problemId);
-    assertProblemOwnership(problem, actor);
+    const problem = await lockProblemForEdit(tx, actor, problemId);
     const existingFiles = await problemWorkspaceFileRepo.withTx(tx).findByProblemId(problem.id);
 
     await problemWorkspaceFileRepo.withTx(tx).deleteByProblemId(problem.id);
@@ -198,6 +196,7 @@ export interface SetWorkspaceFileInput {
 }
 
 export async function setWorkspaceFile(
+  actor: ProblemActorContext,
   problemId: string,
   file: SetWorkspaceFileInput,
 ): Promise<{ id: string; problemId: string; path: string; language: Language }> {
@@ -209,12 +208,12 @@ export async function setWorkspaceFile(
     orderIndex: file.orderIndex ?? 0,
   });
 
+  await assertProblemEditAccess(actor, problemId);
   const id = randomUUID();
   const contentStorage = await writeWorkspaceFileBlob(problemId, id, parsed.content);
 
   const row = await runTransaction(async (tx) => {
-    await problemRepo.withTx(tx).lockForUpdate(problemId);
-    const problem = await requireProblem(tx, problemId);
+    const problem = await lockProblemForEdit(tx, actor, problemId);
     const existing = await problemWorkspaceFileRepo
       .withTx(tx)
       .findOne(problemId, parsed.language, parsed.path);

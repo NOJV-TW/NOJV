@@ -55,14 +55,16 @@ release workflow.
 
 The storage schema is forward-only. An emergency app rollback is allowed only
 to a retained release whose web, judge, and platform Deployment templates all
-carry `nojv.tw/schema-contract: versioned-storage-v1`. A pre-contract release
+carry `nojv.tw/schema-contract: versioned-storage-v1`,
+`nojv.tw/course-roster-contract: membership-v1`, and
+`nojv.tw/problem-library-contract: problem-library-v1`. A pre-contract release
 is rejected by the admission fence and cannot be made safe by retrying it.
 Inspect the candidate and move `deploy` with an exact lease so the chart and
 images change atomically:
 
 ```bash
 candidate=<exact-deploy-commit-sha>
-git grep -F 'nojv.tw/schema-contract: versioned-storage-v1' "$candidate" -- \
+git grep -E 'nojv.tw/(schema-contract: versioned-storage-v1|course-roster-contract: membership-v1|problem-library-contract: problem-library-v1)' "$candidate" -- \
   infra/charts/nojv/templates/web.deployment.yaml \
   infra/charts/nojv/templates/worker-judge.deployment.yaml \
   infra/charts/nojv/templates/worker-platform.deployment.yaml
@@ -72,7 +74,7 @@ git push "--force-with-lease=refs/heads/deploy:${current_deploy_tip}" origin \
   "$candidate":refs/heads/deploy
 ```
 
-The grep must return exactly those three templates; also verify the selected
+The grep must return all three required labels in each of those three templates; also verify the selected
 release contains the intended tag and four digests. If the candidate lacks the
 active contract, keep workloads in maintenance and ship a forward fix from
 current `main`. A later version tag intentionally advances `deploy` again.

@@ -59,6 +59,9 @@ describe("lifecycle cancellation outbox", () => {
       platformRole: "teacher" as const,
     };
     const course = await createTestCourse({ ownerId: teacher.id });
+    await testPrisma.courseMembership.create({
+      data: { courseId: course.id, userId: teacher.id, role: "teacher" },
+    });
     const startsAt = new Date("2030-01-01T00:00:00.000Z");
     const endsAt = new Date("2030-01-02T00:00:00.000Z");
     const [assignment, exam, contest] = await Promise.all([

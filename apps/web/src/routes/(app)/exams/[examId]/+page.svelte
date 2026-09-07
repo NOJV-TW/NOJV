@@ -109,7 +109,6 @@
   let activeSubTabKey = $derived<ExamSubTab>(parseExamSubTab(page.url.searchParams.get("tab")));
 
   function setActiveSubTab(next: ExamSubTab): void {
-    activeSubTabKey = next;
     const nextUrl = examSubTabHref(page.url, next);
     const currentUrl = `${page.url.pathname}${page.url.search}${page.url.hash}`;
     if (nextUrl === currentUrl) return;
@@ -614,7 +613,7 @@
 
     <Tabs
       tabs={subTabs}
-      bind:value={activeSubTabKey}
+      value={activeSubTabKey}
       onValueChange={setActiveSubTab}
       label={m.examDetail_subTabsLabel()}
       id="exam-manage"

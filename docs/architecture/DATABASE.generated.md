@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_48 models and 38 enums across 9 schema files._
+_49 models and 38 enums across 9 schema files._
 
 ## `auth.prisma`
 
@@ -175,6 +175,7 @@ Indexes & constraints: `@@unique([userId])`, `@@index([secret])`
 | `ownedCourses` | `Course[]` | `@relation("CourseOwner")` |
 | `courseMemberships` | `CourseMembership[]` | `@relation("CourseMembershipUser")` |
 | `createdMemberships` | `CourseMembership[]` | `@relation("CourseMembershipCreator")` |
+| `addedCourseProblems` | `CourseProblem[]` | `@relation("CourseProblemCreator")` |
 | `createdAssessments` | `Assessment[]` | `@relation("AssessmentCreator")` |
 | `createdContests` | `Contest[]` | `@relation("ContestCreator")` |
 | `createdExams` | `Exam[]` | `@relation("ExamCreator")` |
@@ -607,6 +608,7 @@ Indexes & constraints: `@@unique([assessmentId, problemId])`, `@@unique([assessm
 | `updatedAt` | `DateTime` | `@updatedAt` |
 | `owner` | `User` | `@relation("CourseOwner", fields: [ownerId], references: [id], onDelete: Restrict)` |
 | `memberships` | `CourseMembership[]` | — |
+| `problems` | `CourseProblem[]` | — |
 | `assessments` | `Assessment[]` | — |
 | `exams` | `Exam[]` | — |
 | `submissions` | `Submission[]` | — |
@@ -635,6 +637,20 @@ Indexes & constraints: `@@unique([assessmentId, problemId])`, `@@unique([assessm
 | `submissionFeedback` | `SubmissionFeedback[]` | — |
 
 Indexes & constraints: `@@unique([courseId, userId])`, `@@unique([courseId, pendingUsername])`, `@@index([courseId, role, status])`, `@@index([userId, status])`
+
+#### `CourseProblem`
+
+| Field | Type | Attributes |
+| ----- | ---- | ---------- |
+| `courseId` | `String` | — |
+| `problemId` | `String` | — |
+| `addedByUserId` | `String?` | — |
+| `createdAt` | `DateTime` | `@default(now())` |
+| `course` | `Course` | `@relation(fields: [courseId], references: [id], onDelete: Cascade)` |
+| `problem` | `Problem` | `@relation(fields: [problemId], references: [id], onDelete: Restrict)` |
+| `addedBy` | `User?` | `@relation("CourseProblemCreator", fields: [addedByUserId], references: [id], onDelete: SetNull)` |
+
+Indexes & constraints: `@@id([courseId, problemId])`, `@@index([problemId])`
 
 ## `notification.prisma`
 
@@ -857,7 +873,7 @@ Indexes & constraints: `@@index([contextType, contextId, triggeredAt(sort: Desc)
 | `id` | `String` | `@id @default(cuid())` |
 | `displayId` | `Int?` | `@unique` |
 | `title` | `String` | — |
-| `authorId` | `String?` | — |
+| `authorId` | `String` | — |
 | `forkedFromProblemId` | `String?` | — |
 | `visibility` | `ProblemVisibility` | `@default(public)` |
 | `adminMayPublish` | `Boolean` | `@default(false)` |
@@ -877,7 +893,7 @@ Indexes & constraints: `@@index([contextType, contextId, triggeredAt(sort: Desc)
 | `interactorStorage` | `Json?` | — |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |
-| `author` | `User?` | `@relation("ProblemAuthor", fields: [authorId], references: [id], onDelete: SetNull)` |
+| `author` | `User` | `@relation("ProblemAuthor", fields: [authorId], references: [id], onDelete: Restrict)` |
 | `forkedFromProblem` | `Problem?` | `@relation("ProblemForks", fields: [forkedFromProblemId], references: [id], onDelete: SetNull)` |
 | `forks` | `Problem[]` | `@relation("ProblemForks")` |
 | `statement` | `ProblemStatement?` | — |
@@ -889,6 +905,7 @@ Indexes & constraints: `@@index([contextType, contextId, triggeredAt(sort: Desc)
 | `contestLinks` | `ContestProblem[]` | — |
 | `examLinks` | `ExamProblem[]` | — |
 | `assessmentLinks` | `AssessmentProblem[]` | — |
+| `courseLinks` | `CourseProblem[]` | — |
 | `posts` | `ProblemPost[]` | — |
 | `scoreOverrides` | `ScoreOverride[]` | `@relation("ScoreOverrideProblem")` |
 | `clarifications` | `Clarification[]` | `@relation("ProblemClarifications")` |

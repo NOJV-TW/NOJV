@@ -1,4 +1,5 @@
 import { execFileSync, execSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   chmodSync,
   cpSync,
@@ -332,6 +333,15 @@ describe("storage release cutover", () => {
     expect(schemaFence).toContain(
       'object.spec.template.metadata.labels["nojv.tw/course-roster-contract"] == "membership-v1"',
     );
+    expect(schemaFence).toContain('"nojv.tw/problem-library-contract" in');
+    expect(schemaFence).toContain(
+      'object.spec.template.metadata.labels["nojv.tw/problem-library-contract"] == "problem-library-v1"',
+    );
+    const legacyFenceName = `nojv-schema-fence-${createHash("sha256").update("nojv/nojv").digest("hex").slice(0, 16)}`;
+    expect(schemaFence).toContain(`name: ${legacyFenceName}-problem-library-v1\n`);
+    expect(schemaFenceBinding).toContain(`policyName: ${legacyFenceName}-problem-library-v1\n`);
+    expect(schemaFence).not.toContain("hook-succeeded");
+    expect(schemaFenceBinding).not.toContain("hook-succeeded");
     expect(schemaFence).toContain("failurePolicy: Fail");
     expect(schemaFenceBinding).toContain("validationActions: [Deny]");
     for (const name of ["nojv-web", "nojv-worker", "nojv-worker-platform"]) {
@@ -339,6 +349,7 @@ describe("storage release cutover", () => {
       expect(deployment).toMatch(/spec:\n\s+replicas: 0/);
       expect(deployment).toContain("nojv.tw/schema-contract: versioned-storage-v1");
       expect(deployment).toContain("nojv.tw/course-roster-contract: membership-v1");
+      expect(deployment).toContain("nojv.tw/problem-library-contract: problem-library-v1");
     }
     expect(resource("HorizontalPodAutoscaler", "nojv-web")).toContain(
       "name: nojv-web-maintenance",

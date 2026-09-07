@@ -279,8 +279,8 @@ describe("Submission canonical context migration", () => {
         `);
         await transaction.$executeRawUnsafe(`
           INSERT INTO "Problem" (
-            "id", "title", "timeLimitMs", "memoryLimitMb", "judgeConfig", "updatedAt"
-          ) VALUES ('problem-a', 'Problem A', 1000, 256, '{"type":"standard"}', NOW())
+            "id", "title", "authorId", "timeLimitMs", "memoryLimitMb", "judgeConfig", "updatedAt"
+          ) VALUES ('problem-a', 'Problem A', 'teacher', 1000, 256, '{"type":"standard"}', NOW())
         `);
         await transaction.$executeRawUnsafe(`
           INSERT INTO "Submission" (

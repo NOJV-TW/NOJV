@@ -16,10 +16,10 @@ import type { JudgeConfig, JudgeScriptLanguage, Language } from "@nojv/core";
 import { parsePersistedJudgeConfig } from "./judge-config";
 
 import { ConflictError, ValidationError } from "../shared/errors";
-import { requireProblem } from "../shared/require";
 
 import {
   assertProblemEditAccess,
+  lockProblemForEdit,
   assertProblemOwnership,
   type ProblemActorContext,
 } from "./permissions";
@@ -342,10 +342,8 @@ export async function importBundle(
   assertNoDuplicateWorkspaceFiles(preparedWorkspace);
 
   const result = await runTransaction(async (tx) => {
-    await problemRepo.withTx(tx).lockForUpdate(problemId);
-    const problem = await requireProblem(tx, problemId);
+    const problem = await lockProblemForEdit(tx, actor, problemId);
     const currentCfg = parsePersistedJudgeConfig(problem.judgeConfig, problem.id);
-    assertProblemOwnership(problem, actor);
     const [existingSets, existingWorkspace] = await Promise.all([
       testcaseSetRepo.withTx(tx).findByProblemId(problem.id),
       problemWorkspaceFileRepo.withTx(tx).findByProblemId(problem.id),
@@ -484,6 +482,8 @@ export async function exportBundle(
   if (!problem) {
     throw new Error(`Problem disappeared after edit-access check: ${problemId}`);
   }
+
+  assertProblemOwnership(problem, actor);
 
   const [sets, workspaceFiles] = await Promise.all([
     testcaseSetRepo.findByProblemId(problemId),

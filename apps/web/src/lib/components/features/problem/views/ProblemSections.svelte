@@ -11,6 +11,7 @@
   interface Props {
     activeSection?: string;
     problemType: ProblemType;
+    readOnly?: boolean;
     isBasicInfoComplete?: boolean;
     missingBasicFields?: string[];
     isDirty?: boolean;
@@ -30,6 +31,7 @@
   let {
     activeSection = $bindable("basic"),
     problemType,
+    readOnly = false,
     isBasicInfoComplete = false,
     missingBasicFields = [],
     isDirty = $bindable(false),
@@ -110,7 +112,7 @@
   }
 
   function isLocked(id: string): boolean {
-    return id !== "basic" && !isBasicInfoComplete;
+    return !readOnly && id !== "basic" && !isBasicInfoComplete;
   }
 
   function statusBadge(id: string): string {

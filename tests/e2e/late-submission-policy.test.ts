@@ -56,11 +56,13 @@ for (const kind of ["assignments", "exams"] as const) {
     }
     await expect(page.getByText(/10%/).first()).toBeVisible();
     await page.reload();
+    await expect(page.getByRole("button", { name: /Open account menu/ })).toBeEnabled();
     await page.getByRole("tab", { name: "Settings", exact: true }).click();
     await expect(page.locator("#late-penalty-rule")).toHaveValue("daily_late_penalty");
     await expect(page.locator("#dueAt")).toHaveValue("2030-01-02T09:00");
     await expect(page.locator(finalSelector)).toHaveValue("2030-01-04T09:00");
     await page.locator("#late-penalty-rule").selectOption("flat_late_penalty");
+    await expect(page.locator("[data-slot=late-penalty-rule-builder] input")).toHaveValue("20");
     const updateResponse = page.waitForResponse(
       (response) =>
         response.request().method() === "POST" && response.url().includes("updateSettings"),
@@ -68,9 +70,10 @@ for (const kind of ["assignments", "exams"] as const) {
     await page
       .locator('form[action="?/updateSettings"] button[type="submit"]:not([formaction])')
       .click();
-    expect((await updateResponse).ok()).toBe(true);
+    expect((await (await updateResponse).json()).type).toBe("success");
     await expect(page.getByText(/20%/).first()).toBeVisible();
     await page.reload();
+    await expect(page.getByRole("button", { name: /Open account menu/ })).toBeEnabled();
     await page.getByRole("tab", { name: "Settings", exact: true }).click();
     await expect(page.locator("#late-penalty-rule")).toHaveValue("flat_late_penalty");
     await page.getByRole("checkbox", { name: "Allow late submissions" }).uncheck();
@@ -81,8 +84,9 @@ for (const kind of ["assignments", "exams"] as const) {
     await page
       .locator('form[action="?/updateSettings"] button[type="submit"]:not([formaction])')
       .click();
-    expect((await disableResponse).ok()).toBe(true);
+    expect((await (await disableResponse).json()).type).toBe("success");
     await page.reload();
+    await expect(page.getByRole("button", { name: /Open account menu/ })).toBeEnabled();
     await page.getByRole("tab", { name: "Settings", exact: true }).click();
     await expect(
       page.getByRole("checkbox", { name: "Allow late submissions" }),
@@ -104,6 +108,7 @@ for (const kind of ["assignments", "exams"] as const) {
       await database.$disconnect();
     }
     await page.reload();
+    await expect(page.getByRole("button", { name: /Open account menu/ })).toBeEnabled();
     await page.getByRole("tab", { name: "Settings", exact: true }).click();
     await expect(page.locator("#dueAt")).toHaveValue("2030-01-02T09:00");
     await context.close();

@@ -16,7 +16,7 @@ import {
   feedbackDomain,
   listExamIpViolations,
   plagiarismDomain,
-  problemDomain,
+  courseDomain,
   proctoringDomain,
   scoreOverrideDomain,
   submissionDomain,
@@ -68,7 +68,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     feedback,
     auditEvents,
     viewerSession,
-    candidateProblems,
     recentSubmissions,
   ] = await Promise.all([
     getExamDetailPage(examId, { viewerUserId: actor.userId, isManager }),
@@ -94,15 +93,21 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       ? Promise.resolve(null)
       : examDomain.session.getSessionState(actor.userId, examId),
     isManager
-      ? problemDomain.listActivityProblemPickerGroups(actor, { type: "exam", examId })
-      : Promise.resolve({ personalProblems: [], publicProblems: [] }),
-    isManager
       ? submissionDomain.listRecentContextSubmissions({
           actor,
           context: { type: "exam", id: examId },
         })
       : Promise.resolve([]),
   ]);
+
+  const candidateProblems =
+    isManager && detail
+      ? await courseDomain.listCourseProblemPickerGroups(
+          actor,
+          detail.courseId,
+          detail.problems.map((problem) => problem.id),
+        )
+      : { personalProblems: [], publicProblems: [] };
 
   const auditActorNames = isManager
     ? await userDomain.listUserDisplayNames([

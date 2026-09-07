@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type * as Storage from "@nojv/storage";
 
 const {
   commitStoragePointerSwap,
   guardStorageObjectWrites,
   problemFindById,
+  problemLock,
+  hasStaffAccess,
+  lockStaffEditAccess,
   problemUpdate,
   putImmutableText,
   runTransaction,
@@ -21,6 +25,9 @@ const {
   commitStoragePointerSwap: vi.fn(),
   guardStorageObjectWrites: vi.fn(),
   problemFindById: vi.fn(),
+  problemLock: vi.fn(),
+  hasStaffAccess: vi.fn(),
+  lockStaffEditAccess: vi.fn(),
   problemUpdate: vi.fn(),
   putImmutableText: vi.fn(),
   runTransaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
@@ -39,7 +46,7 @@ const {
 }));
 
 vi.mock("@nojv/storage", async (importOriginal) => {
-  const original = await importOriginal<typeof import("@nojv/storage")>();
+  const original = await importOriginal<typeof Storage>();
   return { ...original, createStorageClient: vi.fn(() => ({})), putImmutableText };
 });
 
@@ -51,6 +58,10 @@ vi.mock("../../../packages/application/src/shared/storage-object-lifecycle", () 
 vi.mock("@nojv/db", () => ({
   Prisma: {},
   runTransaction,
+  courseProblemRepo: {
+    hasStaffAccess,
+    withTx: () => ({ lockProblem: problemLock, lockStaffEditAccess }),
+  },
   problemRepo: {
     findById: problemFindById,
     withTx: () => ({
@@ -96,6 +107,16 @@ const oldOutput = { key: "old/output", sha256: "c".repeat(64), size: 4 };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  hasStaffAccess.mockResolvedValue(false);
+  lockStaffEditAccess.mockResolvedValue(false);
+  problemLock.mockResolvedValue({
+    id: "prob_1",
+    authorId: actor.userId,
+    visibility: "private",
+    type: "full_source",
+    checkerStorage: null,
+    interactorStorage: null,
+  });
   problemFindById.mockResolvedValue({ id: "prob_1", authorId: actor.userId });
   problemUpdate.mockResolvedValue({ id: "prob_1" });
   testcaseSetCount.mockResolvedValue(0);
@@ -148,7 +169,11 @@ function expectNoMutationSideEffects() {
 
 describe("testcase immutable object mutations", () => {
   it.each([
-    ["a non-owner", { id: "prob_1", authorId: "usr_other" }, /author or an admin/i],
+    [
+      "a non-owner without course access",
+      { id: "prob_1", authorId: "usr_other", visibility: "private" },
+      /not permitted to edit/i,
+    ],
     ["an absent problem", null, /problem not found/i],
   ])(
     "rejects every testcase mutation for %s before storage or transaction side effects",
@@ -185,12 +210,18 @@ describe("testcase immutable object mutations", () => {
       expect.objectContaining({ added: [rows[0]!.inputStorage, rows[0]!.outputStorage] }),
     );
     expect(problemFindById).toHaveBeenCalledTimes(2);
+    expect(problemLock).toHaveBeenCalledWith("prob_1");
+    expect(problemLock.mock.invocationCallOrder[0]).toBeLessThan(
+      testcaseCreateMany.mock.invocationCallOrder[0],
+    );
   });
 
   it("rechecks ownership after locking even when the side-effect-free check passed", async () => {
-    problemFindById
-      .mockResolvedValueOnce({ id: "prob_1", authorId: actor.userId })
-      .mockResolvedValueOnce({ id: "prob_1", authorId: "usr_other" });
+    problemLock.mockResolvedValueOnce({
+      id: "prob_1",
+      authorId: "usr_other",
+      visibility: "private",
+    });
 
     await expect(
       createProblemTestcaseSetRecord(actor, "prob_1", {
@@ -199,7 +230,7 @@ describe("testcase immutable object mutations", () => {
         description: "",
         cases: [{ input: "1", output: "1" }],
       }),
-    ).rejects.toThrow(/author or an admin/i);
+    ).rejects.toThrow(/not permitted to edit/i);
 
     expect(putImmutableText).toHaveBeenCalledTimes(2);
     expect(testcaseSetCreate).not.toHaveBeenCalled();
@@ -256,3 +287,46 @@ describe("testcase immutable object mutations", () => {
     );
   });
 });
+
+it.each([true, false])(
+  "rechecks shared-course permission after staging testcase objects (still authorized=%s)",
+  async (stillAuthorized) => {
+    const shared = {
+      id: "prob_1",
+      authorId: "usr_other",
+      visibility: "private",
+      type: "full_source",
+    };
+    problemFindById.mockResolvedValue(shared);
+    problemLock.mockResolvedValue(shared);
+    hasStaffAccess.mockResolvedValue(true);
+    lockStaffEditAccess.mockResolvedValue(stillAuthorized);
+    const write = createProblemTestcaseSetRecord(
+      { ...actor, platformRole: "student" },
+      "prob_1",
+      {
+        name: "sample",
+        weight: 1,
+        description: "",
+        cases: [{ input: "1", output: "1" }],
+      },
+    );
+    if (stillAuthorized) {
+      await expect(write).resolves.toMatchObject({ id: "set_1" });
+      expect(commitStoragePointerSwap).toHaveBeenCalledOnce();
+    } else {
+      await expect(write).rejects.toThrow(/not permitted to edit/i);
+      expect(testcaseSetCreate).not.toHaveBeenCalled();
+      expect(testcaseCreateMany).not.toHaveBeenCalled();
+      expect(problemUpdate).not.toHaveBeenCalled();
+      expect(commitStoragePointerSwap).not.toHaveBeenCalled();
+    }
+    expect(putImmutableText).toHaveBeenCalledTimes(2);
+    expect(putImmutableText.mock.invocationCallOrder[0]).toBeLessThan(
+      lockStaffEditAccess.mock.invocationCallOrder[0],
+    );
+    expect(lockStaffEditAccess.mock.invocationCallOrder[0]).toBeLessThan(
+      problemLock.mock.invocationCallOrder[0],
+    );
+  },
+);

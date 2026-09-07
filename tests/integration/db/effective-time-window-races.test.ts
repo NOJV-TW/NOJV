@@ -157,6 +157,9 @@ describe("effective time-window row-lock barriers", () => {
   it("serializes an Exam end patch behind a concurrent start update", async () => {
     const teacher = await createTestUser({ platformRole: "teacher" });
     const course = await createTestCourse({ ownerId: teacher.id });
+    await testPrisma.courseMembership.create({
+      data: { courseId: course.id, userId: teacher.id, role: "teacher" },
+    });
     const exam = await createTestExam({
       courseId: course.id,
       createdByUserId: teacher.id,
@@ -207,6 +210,9 @@ describe("effective time-window row-lock barriers", () => {
   it("serializes an Assessment close patch behind a concurrent open update", async () => {
     const teacher = await createTestUser({ platformRole: "teacher" });
     const course = await createTestCourse({ ownerId: teacher.id });
+    await testPrisma.courseMembership.create({
+      data: { courseId: course.id, userId: teacher.id, role: "teacher" },
+    });
     const assessment = await testPrisma.assessment.create({
       data: {
         courseId: course.id,

@@ -5,11 +5,15 @@ of a course's structural scaffolding into a brand-new course. Covers the
 Settings-tab action that lets a teacher fork a prior semester's course
 into a fresh one without dragging history along.
 
-> **Problem ownership contract.** Copied assessments and exams reuse a
-> problem already owned by the copying actor. A published public problem owned
-> by someone else is first copied to an actor-owned private fork; another
-> author's private problem is rejected. Course copy and any required forks use
-> one transaction.
+> **Problem ownership contract.** Copy reuses the actor's private problems.
+> Every published public source, including the actor's own, becomes a new
+> actor-owned private fork. Each distinct source is resolved once and reused
+> across the copied activities. Source-course co-edit access does not authorize
+> sharing another owner's private problem with the new course, even for admin.
+> The new course, activities, forks and `CourseProblem` relations commit together.
+
+See [Database](../architecture/DATABASE.md) and the
+[problem permissions plan](../plans/active/2026-09-08-problem-permissions.md).
 
 ## User Stories
 
@@ -42,8 +46,8 @@ into a fresh one without dragging history along.
   Carried fields: `title`, `summary`, `allowedLanguages`, `opensAt`,
   `closesAt`, `dueAt`, `maxAttemptsPerDay`, `adjustmentRules`.
 - `AssessmentProblem` rows — every attached problem on every
-  cloned assessment, preserving `ordinal` and `points`. Problem rows
-  themselves are shared by reference (same `problemId`).
+  cloned assessment, preserving `ordinal` and `points`. `problemId` maps to
+  the reused private problem or the newly created private fork.
 - `Exam` rows — every exam of the source is cloned, each reset to
   `status: 'draft'`. (Exams no longer have an `archived` status either;
   the parent course is what gets archived.) Carried fields: `title`,
@@ -52,11 +56,13 @@ into a fresh one without dragging history along.
   (`pageLockEnabled`, `ipBindingEnabled`, `ipWhitelistEnabled`,
   `ipWhitelist`, `ipViolationMode`).
 - `ExamProblem` rows — every attached problem, preserving `ordinal`
-  and `points`.
+  and `points`, using the same source-to-target problem mapping as assignments.
+- `CourseProblem` rows — resolved activity problems are shared with the new course.
 
 ### Out of scope — explicitly NOT copied
 
 - Other `CourseMembership` rows (students, other teachers, TAs).
+- Library-only problems with no assignment or exam attachment.
 - `Submission` rows (tied to the source course via
   `assessmentId` / `examId`).
 - `ContestParticipation` / `ExamParticipation` / `ActiveExamSession`
@@ -78,8 +84,9 @@ into a fresh one without dragging history along.
   THEN `ForbiddenError("You do not have permission to manage this course.")`.
 - GIVEN a platform admin, WHEN copy runs, THEN allowed even without
   course membership.
-- GIVEN a `teacher` or `ta` membership with `status: 'active'`, THEN
-  allowed.
+- GIVEN a `teacher` or `ta` membership with `status: 'active'` and
+  `userId` bound to the actor, THEN allowed. Pending usernames and removed
+  memberships grant no access.
 - GIVEN a `student` membership, THEN denied.
 
 ### Source existence
@@ -118,7 +125,7 @@ addedByUserId: actor.userId)`.
   - Fresh `id` (slug regeneration — the domain code does NOT preserve
     the source id; assessmentRepo's `create` generates one).
 - For each cloned assessment, every source `AssessmentProblem`
-  becomes a new row preserving `ordinal`, `points`, `problemId`.
+  becomes a new row preserving `ordinal` and `points`, with `problemId` resolved under the ownership contract.
 
 ### Exam clones
 
@@ -131,7 +138,7 @@ addedByUserId: actor.userId)`.
   - `status: 'draft'` (always reset).
   - `createdByUserId: actor.userId`.
 - For each cloned exam, every source `ExamProblem` becomes a new row
-  preserving `ordinal`, `points`, `problemId`.
+  preserving `ordinal` and `points`, with `problemId` resolved under the ownership contract.
 - No `ActiveExamSession`, `ExamParticipation`, or `IpViolationLog`
   rows are created for the new exam.
 
@@ -139,7 +146,7 @@ addedByUserId: actor.userId)`.
 
 - `copyCourse` runs inside a single `runTransaction` — if any step
   fails, the entire clone is rolled back: no new course, no new
-  memberships, no new assessments, no new exams.
+  memberships, no new assessments, no new exams, forks or library relations.
 
 ### Post-copy navigation
 
@@ -152,12 +159,10 @@ addedByUserId: actor.userId)`.
 
 - **Source course with 0 assessments + 0 exams.** Copy succeeds; new
   course has just the teacher membership. Valid and tested.
-- **Source has assessments pointing to `draft` problems.** Problem rows
-  are shared (same `problemId`), so the new assessment references the
-  same draft problem. The `assertCourseProblemAccess` gate in
-  `createAssessmentRecord` is NOT re-checked during `copyCourse`;
-  since the actor already has manager access to the source course they
-  implicitly passed that gate when the assessment was first attached.
+- **Source activities reference private drafts.** The actor's own private
+  draft can be reused. Another owner's private draft is rejected; source-course
+  management does not authorize sharing it with the target course. A public draft
+  fails the published-public-source check. Any failure rolls back the full copy.
 - **Source has 10000 assessments.** The clone uses sequential `await`
   inside a transaction — this is intentional for correctness; extreme
   sizes may hit the Postgres statement-timeout. Not a real-world case.
@@ -173,21 +178,20 @@ addedByUserId: actor.userId)`.
   domain assumes Prisma storage guarantees structural validity; a
   corrupted row would throw on re-serialization and the whole tx rolls
   back. No special handling.
-- **Concurrent copy calls on the same source course.** Both succeed
-  (they create different `newCourseId`s). The source is read-only in
-  this flow; no lock needed.
+- **Concurrent copy calls on the same source course.** The source Course row
+  is locked before authorization and reads. Copies serialize on that lock and
+  create distinct target courses if both pass the ownership checks.
 
 ## Implementation References
 
 ### Domain
 
-- `packages/application/src/course/mutations.ts` — `copyCourse` (whole
-  function body lives here, ~90 lines under the `export async function
-copyCourse` comment block).
+- `packages/application/src/course/mutations.ts` — `copyCourse`.
+- `packages/application/src/problem/fork.ts` — `resolveActivityProblems`.
 - `packages/application/src/course/mutations.ts` — `assertCourseManager`
   (permission gate reused by copy + other course mutations).
-- `packages/application/src/user/mutations.ts` — `ensureUser` (used to
-  materialize the actor record inside the tx).
+- `packages/application/src/shared/require.ts` — `requireUser` (requires the
+  existing actor record inside the transaction; does not create a placeholder).
 
 ### Schema
 

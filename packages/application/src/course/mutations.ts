@@ -25,6 +25,7 @@ import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissio
 import { requireCourse } from "../shared/require";
 import { requireUser } from "../shared/require";
 import { resolveActivityProblems } from "../problem/fork";
+import { lockCourseForStaffMutation } from "./problem-library";
 import { assignmentDueSoonInput } from "../shared/lifecycle-input";
 import { getDomainOrchestration } from "../shared/orchestration";
 
@@ -89,9 +90,7 @@ export async function createCourseAssignmentRecord(
   payload: CourseAssignmentFormData,
 ) {
   const assignment = await runTransaction(async (tx) => {
-    await courseRepo.withTx(tx).lockForUpdate(courseId);
-    const course = await requireCourse(tx, courseId);
-    await assertCourseManager(tx, actor, course.id);
+    const course = await lockCourseForStaffMutation(tx, actor, courseId);
     const creator = await requireUser(tx, actor.userId);
 
     const assignmentId = generateAssignmentId(payload.title);
@@ -244,6 +243,22 @@ export async function copyCourse(
       .withTx(tx)
       .listByCourseIdAllWithProblems(source.id);
 
+    const sourceExams = await examRepo.withTx(tx).listByCourseIdAllWithProblems(source.id);
+    const sourceProblemIds = [
+      ...new Set(
+        [...sourceAssignments, ...sourceExams].flatMap((activity) =>
+          activity.problems.map(({ problemId }) => problemId),
+        ),
+      ),
+    ];
+    const resolvedProblems = await resolveActivityProblems(tx, actor, sourceProblemIds, {
+      courseId: newCourse.id,
+      allowDraftPrivate: true,
+    });
+    const copiedProblems = new Map(
+      sourceProblemIds.map((id, index) => [id, resolvedProblems[index]]),
+    );
+
     for (const a of sourceAssignments) {
       const created = await assessmentRepo.withTx(tx).create({
         allowedLanguages: a.allowedLanguages,
@@ -263,13 +278,8 @@ export async function copyCourse(
         ...(a.adjustmentRules != null ? { adjustmentRules: a.adjustmentRules } : {}),
       });
 
-      const assignmentProblems = await resolveActivityProblems(
-        tx,
-        actor,
-        a.problems.map((problem) => problem.problemId),
-      );
-      for (const [index, p] of a.problems.entries()) {
-        const problem = assignmentProblems[index];
+      for (const p of a.problems) {
+        const problem = copiedProblems.get(p.problemId);
         if (!problem) throw new NotFoundError(`Problem not found: ${p.problemId}`);
         await assessmentProblemRepo.withTx(tx).create({
           assessmentId: created.id,
@@ -279,8 +289,6 @@ export async function copyCourse(
         });
       }
     }
-
-    const sourceExams = await examRepo.withTx(tx).listByCourseIdAllWithProblems(source.id);
 
     for (const e of sourceExams) {
       const created = await examRepo.withTx(tx).create({
@@ -305,13 +313,8 @@ export async function copyCourse(
         totalPoints: e.totalPoints,
       });
 
-      const examProblems = await resolveActivityProblems(
-        tx,
-        actor,
-        e.problems.map((problem) => problem.problemId),
-      );
-      for (const [index, p] of e.problems.entries()) {
-        const problem = examProblems[index];
+      for (const p of e.problems) {
+        const problem = copiedProblems.get(p.problemId);
         if (!problem) throw new NotFoundError(`Problem not found: ${p.problemId}`);
         await examProblemRepo.withTx(tx).create({
           examId: created.id,

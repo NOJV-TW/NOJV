@@ -28,6 +28,12 @@ export async function deleteUser(
       throw new ForbiddenError("Only a super admin can delete an admin account.");
     }
 
+    if (await tx.problem.count({ where: { authorId: userId } })) {
+      throw new ConflictError(
+        "Transfer ownership of this user's problems or delete unused drafts before deleting the account.",
+      );
+    }
+
     const blockers = await users.countDeletionBlockers(userId);
     if (blockers > 0) {
       await users.anonymizeAndDisable(userId);

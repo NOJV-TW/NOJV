@@ -108,6 +108,37 @@ describe("submission reads during an active exam", () => {
     vi.mocked(storageGetSubmissionSources).mockClear();
   });
 
+  it("keeps a private practice reference hidden from its owner and course staff during an exam", async () => {
+    const { owner, other, admin, course, examA, problem, session } = await createFixture();
+    await testPrisma.courseMembership.create({
+      data: { courseId: course.id, userId: other.id, role: "ta" },
+    });
+    await testPrisma.courseProblem.create({
+      data: { courseId: course.id, problemId: problem.id },
+    });
+    const reference = await createTestSubmission({
+      userId: owner.id,
+      problemId: problem.id,
+      isReferenceSolution: true,
+    });
+    await testPrisma.activeExamSession.create({ data: { userId: other.id, examId: examA.id } });
+    for (const reader of [owner, other]) {
+      await expectGenericNotFound(getSubmissionForActor(actorOf(reader), reference.id));
+      await expectGenericNotFound(getSubmissionDetail(actorOf(reader), reference.id));
+    }
+    expect(storageGetSubmissionSources).not.toHaveBeenCalled();
+    await expect(getSubmissionForActor(actorOf(admin), reference.id)).resolves.toMatchObject({
+      id: reference.id,
+    });
+    await testPrisma.activeExamSession.update({
+      where: { id: session.id },
+      data: { endedAt: new Date() },
+    });
+    await expect(getSubmissionForActor(actorOf(owner), reference.id)).resolves.toMatchObject({
+      id: reference.id,
+    });
+  });
+
   it("returns identical 404s for the owner's practice, assignment, contest, and other-exam points", async () => {
     const { owner, rows } = await createFixture();
     const actor = actorOf(owner);

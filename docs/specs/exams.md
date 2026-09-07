@@ -80,10 +80,10 @@ practice-after-close route at `/problems/[id]`.
   allows accessing the problems via `/problems/[id]` (no context).
 - `scoringMode: point_sum` with activity allocations.
 - `scoreboardMode: hidden | live | frozen`.
-- Problem resolution runs in the exam transaction: actor-owned problems are
-  attached directly, another author's published public problems become
-  actor-owned private forks, and another author's private problems are
-  rejected.
+- Problem resolution and course-library sharing run in the exam transaction.
+  Actor-owned private problems and private problems already shared with this course
+  are reused; newly selected published public problems always become actor-owned
+  private forks. Retained references loaded from the existing exam keep their IDs.
 
 ### Out of scope
 
@@ -114,12 +114,26 @@ Each grading change enqueues durable `score.converge` work for every participant
 
 ### Create / publish
 
-- GIVEN an actor-owned problem, WHEN an exam is created or its problem list is
-  updated, THEN the original problem is attached directly.
-- GIVEN another author's published public problem, WHEN it is selected, THEN
-  an independent actor-owned private fork is created and attached.
-- GIVEN another author's private problem or any later failure, THEN the
-  transaction leaves neither a partial exam nor a partial fork.
+- GIVEN an actor-owned private problem or a private problem already shared with
+  this course, WHEN selected, THEN reuse it without changing ownership and retain
+  or create its `CourseProblem` relation.
+- GIVEN a newly selected published public problem, including the actor's own,
+  THEN create an independent actor-owned private fork in the same transaction.
+- GIVEN existing exam references loaded from DB, including historical public
+  problems or private drafts, WHEN retained, THEN preserve the original IDs.
+  Activity pickers offer published candidates; historical drafts remain existing
+  selections only. Client input cannot supply trusted existing IDs.
+- GIVEN an unrelated private problem or any later failure, THEN reject and roll
+  back the exam, new library relations, and forks together.
+- Removing an exam attachment does not remove its course-library relation.
+- Management requires bound, active course teacher/TA membership or effective
+  admin access. The creator alone, a pending username or a removed membership
+  grants no management rights; a platform student with active TA membership does.
+  Archived courses reject mutations and keep the library readable.
+
+See [Assignments — course library](assignments.md#problem-ownership-and-forks),
+[Database](../architecture/DATABASE.md), and the
+[problem permissions plan](../plans/active/2026-09-08-problem-permissions.md).
 
 - GIVEN a course-teacher actor, WHEN `createExamRecord` is called with
   `status: 'published'`, THEN the exam is inserted, problems attached, and

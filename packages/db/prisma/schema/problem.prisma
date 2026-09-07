@@ -30,7 +30,7 @@ model Problem {
   id         String            @id @default(cuid())
   displayId  Int?              @unique
   title      String
-  authorId   String?
+  authorId   String
   forkedFromProblemId String?
   visibility ProblemVisibility @default(public)
   adminMayPublish Boolean       @default(false)
@@ -57,7 +57,7 @@ model Problem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  author             User?                  @relation("ProblemAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  author             User                   @relation("ProblemAuthor", fields: [authorId], references: [id], onDelete: Restrict)
   forkedFromProblem  Problem?               @relation("ProblemForks", fields: [forkedFromProblemId], references: [id], onDelete: SetNull)
   forks              Problem[]              @relation("ProblemForks")
   statement          ProblemStatement?
@@ -69,6 +69,7 @@ model Problem {
   contestLinks       ContestProblem[]
   examLinks          ExamProblem[]
   assessmentLinks    AssessmentProblem[]
+  courseLinks        CourseProblem[]
   posts              ProblemPost[]
   scoreOverrides     ScoreOverride[]        @relation("ScoreOverrideProblem")
   clarifications     Clarification[]        @relation("ProblemClarifications")

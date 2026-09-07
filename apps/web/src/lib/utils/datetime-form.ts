@@ -93,12 +93,20 @@ export function serializeDateTimeFields<T extends Record<string, unknown>>(
   data: T,
   fields: readonly (keyof T)[],
   timezoneOffsetMinutes?: number,
+  original?: Partial<T>,
 ): T {
   const result = { ...data };
   for (const field of fields) {
     const value = result[field];
     if (typeof value === "string") {
-      result[field] = localDateTimeToIso(value, timezoneOffsetMinutes) as T[keyof T];
+      const previous = original?.[field];
+      result[field] = localDateTimeToIso(
+        typeof previous === "string" &&
+          value === isoDateTimeToLocal(previous, timezoneOffsetMinutes)
+          ? previous
+          : value,
+        timezoneOffsetMinutes,
+      ) as T[keyof T];
     }
   }
   return result;

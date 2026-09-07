@@ -22,6 +22,7 @@ export const TABLES = [
   "AssessmentAuditLog",
   "AssessmentProblem",
   "Assessment",
+  "CourseProblem",
   "CourseMembership",
   "Course",
   "Contest",

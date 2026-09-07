@@ -1,5 +1,5 @@
 import { courseAssignmentFormSchema } from "@nojv/core";
-import { courseDomain, problemDomain } from "@nojv/application";
+import { courseDomain } from "@nojv/application";
 import { fail, redirect, type RequestEvent } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
@@ -10,7 +10,7 @@ import { classifyRequestError } from "$lib/server/shared/handle-action-error";
 import { withAction } from "$lib/server/shared/action-handlers";
 
 const { createCourseAssignmentRecord } = courseDomain;
-const { listProblemPickerGroups } = problemDomain;
+const { listCourseProblemPickerGroups } = courseDomain;
 
 export const load: PageServerLoad = async (event) => {
   const actor = requireAuth(event);
@@ -29,7 +29,7 @@ export const load: PageServerLoad = async (event) => {
     { errors: false },
   );
 
-  const candidateProblems = await listProblemPickerGroups(actor.userId);
+  const candidateProblems = await listCourseProblemPickerGroups(actor, course.id);
 
   return { form, candidateProblems };
 };

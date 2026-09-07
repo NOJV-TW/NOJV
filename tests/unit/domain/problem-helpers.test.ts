@@ -10,7 +10,10 @@ vi.mock("@nojv/db", () => ({
     withTx: () => ({ findById: problemFindById }),
   },
   problemWorkspaceFileRepo: {
-    findByProblemId: workspaceFindByProblemId,
+    withTx: (transaction: unknown) => {
+      expect(transaction).toBe(tx);
+      return { findByProblemId: workspaceFindByProblemId };
+    },
   },
   assessmentProblemRepo: {},
   contestProblemRepo: {},

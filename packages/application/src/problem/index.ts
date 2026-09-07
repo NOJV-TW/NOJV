@@ -8,4 +8,5 @@ export * from "./storage-budget";
 export * from "./bundle";
 export * from "./total-score";
 export * from "./fork";
+export * from "./images";
 export { hydrateTestcaseSets, hydrateWorkspaceFiles, hydrateValidatorScripts } from "./blobs";

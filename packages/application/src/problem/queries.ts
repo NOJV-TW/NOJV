@@ -133,7 +133,7 @@ async function mapPersistedProblemDetail(
       testcaseSets: problem.testcaseSets,
       advancedConfig: problem.advancedConfig,
     }),
-    authorUsername: problem.author?.username ?? "course_staff",
+    authorUsername: problem.author.username ?? "",
     difficulty: problem.difficulty,
     displayId: problem.displayId,
     id: problem.id,
@@ -404,7 +404,7 @@ export interface ProblemPickerCandidate {
   visibility: ProblemVisibility;
 }
 
-function mapProblemPickerCandidate(problem: {
+export function mapProblemPickerCandidate(problem: {
   difficulty: ProblemDifficulty;
   displayId: number | null;
   id: string;
@@ -432,6 +432,7 @@ function mapProblemPickerCandidate(problem: {
 export interface ProblemPickerGroups {
   personalProblems: ProblemPickerCandidate[];
   publicProblems: ProblemPickerCandidate[];
+  courseProblems?: ProblemPickerCandidate[];
 }
 
 export async function listProblemPickerGroups(
@@ -475,7 +476,7 @@ export async function listAdminProblems(sort: "asc" | "desc" = "asc") {
   return problems.map((problem) => {
     const judgeConfig = parsePersistedJudgeConfig(problem.judgeConfig, problem.id);
     return {
-      authorUsername: problem.author?.username ?? "course_staff",
+      authorUsername: problem.author.username ?? "",
       difficulty: problem.difficulty,
       displayId: problem.displayId,
       id: problem.id,

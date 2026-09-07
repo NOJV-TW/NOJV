@@ -7,3 +7,10 @@ export * from "./mutations";
 export * from "./overview";
 export * from "./queries";
 export * from "./submissions-matrix";
+
+export {
+  getCourseProblemLibrary,
+  addCourseProblems,
+  removeCourseProblem,
+  listCourseProblemPickerGroups,
+} from "./problem-library";

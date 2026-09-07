@@ -114,6 +114,15 @@ export async function bulkAddByHandle(
       where: { username: { in: handles } },
       select: { id: true, username: true },
     });
+    const pendingCourses = await tx.courseMembership.findMany({
+      where: { pendingUsername: { in: handles } },
+      select: { courseId: true },
+    });
+    for (const id of [
+      ...new Set([courseId, ...pendingCourses.map((row) => row.courseId)]),
+    ].sort()) {
+      await lockCourseMembers(tx, id);
+    }
     for (const user of users) {
       if (user.username)
         await bindPendingMemberships(
@@ -123,7 +132,6 @@ export async function bulkAddByHandle(
           isCanonicalSchoolUsername(user.username),
         );
     }
-    await lockCourseMembers(tx, courseId);
     const course = await requireCourse(tx, courseId);
     const actorRole = await resolveActorCourseRoleTx(tx, actor, courseId);
     if (

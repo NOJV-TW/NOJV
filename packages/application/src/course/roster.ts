@@ -11,7 +11,7 @@ export async function lockCourseMembers(
   tx: TransactionClient,
   courseId: string,
 ): Promise<void> {
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`course-members:${courseId}`}, 0))`;
+  await tx.$queryRaw`SELECT id FROM "Course" WHERE id = ${courseId} FOR UPDATE`;
 }
 
 async function mergeGrades(

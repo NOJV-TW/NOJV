@@ -8,13 +8,15 @@
 - **Contest organizer**: timed ICPC/IOI competitions with real-time scoreboard, scoreboard freeze/unfreeze, IP binding and whitelisting, page lock, submit cooldown
 - **Exam proctor**: session-based course exams with start/end lifecycle, IP pinning, page-lock visibility enforcement, submissions matrix for grading review
 
-## Shipped Scope
+## Implemented Scope
+
+This describes repository behavior; release and deployment verification are tracked separately.
 
 ### Problems
 
 - Problem listing with filters (difficulty, tags, solved status)
 - Problem creation: any email-verified user (including students) may create, own, and publish private problems. Teachers, admins, and users who are active TAs in any non-archived course may publish public problems. Any private-problem owner may separately grant one-time `adminMayPublish` consent; this is not a review request, queue, or publication guarantee.
-- Standard publication requires an accepted current private reference solution. When an admin publishes another author's authorized problem, the platform creates an admin-owned public fork and clears the source consent; the original private problem remains owned and editable by its author.
+- Standard publication requires an accepted current private reference solution. Publishing a private problem publicly creates a publisher-owned public copy; the private source and its course sharing remain intact. An admin publishing for another owner requires and consumes that owner's one-time consent. Course co-editors can publish a private draft for use and maintain its reference solution, but cannot grant public consent or change ownership merely through co-edit access.
 - Published public problems can be forked manually by teachers, admins, and users currently serving as a course TA. A fork is an independent private draft with direct-source lineage, copied judge content, and a private snapshot of the current accepted reference solution; later edits do not synchronize between copies.
 - i18n problem statements (en, zh-TW) with markdown + KaTeX rendering
 - Image upload via drag-and-drop / paste into markdown textareas (S3-compatible storage)
@@ -62,8 +64,10 @@
 - Practice-after-close: students retain problem access after assessment/contest/exam ends, submissions no longer attributed to the original context
 - Student progress matrix, gradebook, analytics roster, and CSV include pending students; activity counts still represent actual submissions/participations. Notifications target only linked users.
 - Course gradebook (`/courses/[courseId]/grades`) — per-problem raw best scores (overrides applied) across all published assignments and exams, chronological columns with per-problem max; staff see every student plus CSV export, students see only their own row; no weighting or normalization by design (teachers compute ratios from the CSV)
-- Course-scoped problem management
-- Assignment and exam problem selection attaches the actor's own problem directly, automatically creates a private fork for another author's published public problem, and rejects another author's private problem. The activity and any required forks commit atomically.
+- Staff-only course library at `/courses/[courseId]/problems`: share one's own private problems including drafts, import public problems, search by title/ID/owner, and inspect sources and activity usage. Problems retain individual owners; the library has no create-problem button.
+- Bound active teachers and TAs can co-edit private library problems, including content, testcases and reference solutions. Platform student status does not disqualify an active TA. Pending usernames and removed memberships grant no access. Archived libraries remain readable without editing/add/remove controls.
+- Assignment and exam selection reuses an actor-owned private problem or a private problem already shared with that course. Every newly selected published public problem, including the actor's own, becomes an actor-owned private fork. Existing references loaded from DB retain their IDs; activity pickers offer published candidates and preserve selected historical drafts. Activities, forks and library relations commit atomically.
+- Detaching activity problems keeps library sharing. Removing a library entry leaves the individual problem intact and rejects activity/history references. Copying a course cannot extend another owner's private sharing; it reuses owned private problems and forks public sources once per distinct problem. See [Database](../architecture/DATABASE.md) and the [problem permissions plan](../plans/active/2026-09-08-problem-permissions.md).
 
 ### Grading (post-close)
 

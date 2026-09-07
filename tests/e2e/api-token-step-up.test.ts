@@ -1,8 +1,7 @@
 import { test, expect } from "@playwright/test";
-import { execFileSync } from "node:child_process";
 import path from "node:path";
 
-import { psql, signInWithPassword } from "./_disposable-user";
+import { getTestRedis, psql, signInWithPassword } from "./_disposable-user";
 import { readLiveSession } from "./_shared";
 import { enrollTotp, nextTotp, unlockSecuritySettings } from "./_two-factor";
 
@@ -18,10 +17,10 @@ test.describe("API token step-up", () => {
   test.describe.configure({ retries: 0 });
   test.setTimeout(150_000);
 
-  test.beforeAll(() => {
+  test.beforeAll(async () => {
     // Use a disposable credential account. Enabling TOTP correctly rotates the
     // account's sessions, so a shared fixture would invalidate later tests.
-    psql(`
+    await psql(`
       INSERT INTO "User" (id, email, username, name, "emailVerified", "createdAt", "updatedAt")
       VALUES ('${TEMP_USER_ID}', '${TEMP_EMAIL}', '${TEMP_USERNAME}', 'API token E2E', true, NOW(), NOW());
       INSERT INTO "Account" (id, "accountId", "providerId", "userId", password, "createdAt", "updatedAt")
@@ -32,18 +31,11 @@ test.describe("API token step-up", () => {
     `);
   });
 
-  test.afterAll(() => {
-    psql(`DELETE FROM "User" WHERE id = '${TEMP_USER_ID}';`);
+  test.afterAll(async () => {
+    const redis = getTestRedis();
+    await psql(`DELETE FROM "User" WHERE id = '${TEMP_USER_ID}';`);
     if (steppedUpSessionIds.size > 0) {
-      execFileSync("docker", [
-        "compose",
-        "exec",
-        "-T",
-        "redis",
-        "redis-cli",
-        "DEL",
-        ...[...steppedUpSessionIds].map((id) => `nojv:apitoken:stepup:${id}`),
-      ]);
+      await redis.del(...[...steppedUpSessionIds].map((id) => `nojv:apitoken:stepup:${id}`));
     }
   });
 
