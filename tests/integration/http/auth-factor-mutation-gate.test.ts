@@ -2,7 +2,7 @@ import { createHmac } from "node:crypto";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { createTestUser, testPrisma } from "../../fixtures/factories";
 import { callRoute } from "./_harness";
@@ -19,6 +19,11 @@ import {
   factorMutationPath,
   runInternalFactorMutation,
 } from "$lib/server/auth-factor-mutation";
+
+beforeAll(async () => {
+  await import("$lib/../hooks.server");
+  await getAuth().$context;
+}, 30_000);
 
 const authRoute = await import("../../../apps/web/src/routes/api/auth/[...path]/+server");
 const requireFromWeb = createRequire(join(process.cwd(), "apps/web/package.json"));
