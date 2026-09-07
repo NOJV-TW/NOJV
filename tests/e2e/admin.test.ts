@@ -71,25 +71,26 @@ test.describe("Admin panel — gating + pages", () => {
     const context = await browser.newContext({ storageState: adminAuth });
     const page = await context.newPage();
     await page.goto("/admin/users");
-    await page.getByRole("button", { name: "Filter role" }).click();
+    await expect(page.getByRole("button", { name: /Open account menu/ })).toBeEnabled();
+    await page.getByRole("button", { name: "Filter role", exact: true }).click();
     await page
       .getByRole("dialog", { name: "Filter role" })
-      .getByRole("button", { name: "Teacher" })
+      .getByRole("button", { name: "Teacher", exact: true })
       .click();
     await expect(page).toHaveURL(/role=teacher/);
-    await expect(page.getByRole("columnheader", { name: "Filter role" })).toContainText(
+    await expect(page.getByRole("button", { name: "Filter role", exact: true })).toContainText(
       "Teacher",
     );
-    await page.getByRole("button", { name: "Filter status" }).click();
+    await page.getByRole("button", { name: "Filter status", exact: true }).click();
     await page
       .getByRole("dialog", { name: "Filter status" })
-      .getByRole("button", { name: "Active" })
+      .getByRole("button", { name: "Active", exact: true })
       .click();
     await expect(page).toHaveURL(/role=teacher/);
     await expect(page).toHaveURL(/status=active/);
-    await expect(page.getByRole("columnheader", { name: "Filter status" })).toContainText(
-      "Active",
-    );
+    await expect(
+      page.getByRole("button", { name: "Filter status", exact: true }),
+    ).toContainText("Active");
     await context.close();
   });
 
@@ -97,10 +98,14 @@ test.describe("Admin panel — gating + pages", () => {
     const context = await browser.newContext({ storageState: adminAuth });
     const page = await context.newPage();
     await page.goto("/admin/users");
+    await expect(page.getByRole("button", { name: /Open account menu/ })).toBeEnabled();
 
     await page.getByRole("button", { name: "Filter username" }).click();
     await page.getByRole("searchbox", { name: "Filter username" }).fill("admin");
-    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await page
+      .getByRole("dialog", { name: "Filter username" })
+      .getByRole("button", { name: "Search", exact: true })
+      .click();
     await expect(page).toHaveURL(/username=admin/);
     await expect(page.getByText("admin@nojv.local").first()).toBeVisible({
       timeout: 10_000,
@@ -109,7 +114,10 @@ test.describe("Admin panel — gating + pages", () => {
     await page.goBack();
     await page.getByRole("button", { name: "Filter email" }).click();
     await page.getByRole("searchbox", { name: "Filter email" }).fill("teacher@nojv.local");
-    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await page
+      .getByRole("dialog", { name: "Filter email" })
+      .getByRole("button", { name: "Search", exact: true })
+      .click();
     await expect(page).toHaveURL(/email=teacher%40nojv\.local/);
 
     await page.goBack();

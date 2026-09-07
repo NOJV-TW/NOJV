@@ -19,7 +19,7 @@ This isolated worktree owns the problem-library/permissions implementation, the 
 - [x] Independent review of all pending migrations, identity/grading flows, and other release changes.
 - [ ] Fresh primary identity and reference inventory; private, checksummed backup outside the repository.
 - [x] Local restore and official migration rehearsal: exact expected records, unchanged unrelated rows, constraints, rerun, ordinary upgraded backup restore.
-- [ ] Current release code passes local CI, real database integration, affected browser flows, and Helm maintenance checks.
+- [x] Current release code passes local CI, real database integration, affected browser flows, and Helm maintenance checks.
 - [ ] Exact post-merge main SHA passes GitHub Verify Repository before tagging.
 - [ ] Immutable images built; stop web and both workers with autoscalers held, obtain and verify a new cutover backup before allowing the migration.
 - [ ] Apply through Helm/Flux; failures after schema commit remain in maintenance for a compatible forward fix.
@@ -36,5 +36,5 @@ Production mutations remain gated on the preceding review and rehearsal results.
 - Synthetic scored/audited/removed-member cases and 14 targeted rollback failures passed. Root SQL diagnostics are checked separately because Prisma can mask transactional errors; timestamps use independent database clock bounds.
 - Integrated weights PR #422 and role-preservation tests #423 from main `60d60176f91cae856412ef0008fb3c2fac5912df`. The independent review's confinement, transactional workspace read, ownership-lock and private-draft-copy findings were repaired and have regression checks.
 - Final local CI passes 3,107 unit and 55 component tests, including the reviewed fixes. Full integration passes 689 tests; 22 focused database checks separately confirm the final confinement, workspace-copy and private-draft-copy fixes. Browser validation runs after builds complete because rebuilding package outputs invalidates a running Vite test server.
-- Browser review found and fixed premature exam settings rendering during tab navigation, which could reset edits when the server load completed. Course-library import/reuse/removal and archived full-content navigation, roster activation, activity weights, problem lifecycle and late-policy flows pass. Final authentication/admin browser checks remain in progress.
+- Browser review found and fixed premature exam settings rendering during tab navigation, which could reset edits when the server load completed. Course-library import/reuse/removal and archived full-content navigation, roster activation, activity weights, problem lifecycle and late-policy flows pass. All 28 selected browser checks pass across the final run and targeted rerun: MFA, passkeys, regular/super-admin sign-in, admin filters, roster, library, weights and late policy. The additional eight problem lifecycle checks passed earlier. Admin filter tests now wait for hydration and scope actions to the open dialog.
 - No production writes, maintenance switch, tag publication, Flux suspension or migration occurred in this task.
