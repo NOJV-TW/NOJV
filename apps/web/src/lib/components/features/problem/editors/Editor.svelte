@@ -86,8 +86,6 @@
         specialEnv: isSpecialEnv,
         judgeType: initialProblem.judgeType,
         language,
-        hasHiddenFiles: workspaceFilesForLanguage.some((file) => file.visibility === "hidden"),
-        cases: initialProblem.samples,
       })
     ) {
       return;

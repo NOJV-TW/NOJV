@@ -39,17 +39,10 @@ export function shouldUseBrowserLocalRun(args: {
   specialEnv: boolean;
   judgeType: JudgeType;
   language: Language;
-  hasHiddenFiles: boolean;
-  cases: readonly Pick<SubmissionRunCase, "input">[];
 }): boolean {
   return (
     args.sampleOnly &&
     !args.specialEnv &&
-    !args.hasHiddenFiles &&
-    !(
-      args.language === "python" &&
-      args.cases.some(({ input }) => input.length > 0 && !input.endsWith("\n"))
-    ) &&
     args.judgeType === "standard" &&
     supportsBrowserLocalRun(args.language)
   );

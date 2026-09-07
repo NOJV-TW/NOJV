@@ -54,6 +54,14 @@ describe("browser local run result mapping", () => {
     "accepts %s for browser local runs",
     (language) => {
       expect(supportsBrowserLocalRun(language)).toBe(true);
+      expect(
+        shouldUseBrowserLocalRun({
+          sampleOnly: true,
+          specialEnv: false,
+          judgeType: "standard",
+          language,
+        }),
+      ).toBe(true);
     },
   );
 
@@ -63,8 +71,6 @@ describe("browser local run result mapping", () => {
       shouldUseBrowserLocalRun({
         sampleOnly: true,
         specialEnv: false,
-        hasHiddenFiles: false,
-        cases: [],
         judgeType: "standard",
         language: "java",
       }),
@@ -76,8 +82,6 @@ describe("browser local run result mapping", () => {
       shouldUseBrowserLocalRun({
         sampleOnly: true,
         specialEnv: false,
-        hasHiddenFiles: false,
-        cases: [],
         judgeType: "standard",
         language: "python",
       }),
@@ -86,8 +90,6 @@ describe("browser local run result mapping", () => {
       shouldUseBrowserLocalRun({
         sampleOnly: false,
         specialEnv: false,
-        hasHiddenFiles: false,
-        cases: [],
         judgeType: "standard",
         language: "python",
       }),
@@ -96,8 +98,6 @@ describe("browser local run result mapping", () => {
       shouldUseBrowserLocalRun({
         sampleOnly: true,
         specialEnv: false,
-        hasHiddenFiles: false,
-        cases: [],
         judgeType: "checker",
         language: "python",
       }),
@@ -151,36 +151,6 @@ describe("browser local run result mapping", () => {
         "Main.java": "public class Main { public static void main(String[] args) {} }",
       },
     });
-  });
-
-  it("uses the server when the selected language needs hidden workspace files", () => {
-    expect(
-      shouldUseBrowserLocalRun({
-        sampleOnly: true,
-        specialEnv: false,
-        judgeType: "standard",
-        language: "c",
-        hasHiddenFiles: true,
-        cases: [],
-      }),
-    ).toBe(false);
-  });
-
-  it.each([
-    ["abc", false],
-    ["abc\n", true],
-    ["", true],
-  ] as const)("routes Python stdin %j according to EOF compatibility", (input, expected) => {
-    expect(
-      shouldUseBrowserLocalRun({
-        sampleOnly: true,
-        specialEnv: false,
-        judgeType: "standard",
-        language: "python",
-        hasHiddenFiles: false,
-        cases: [{ input }],
-      }),
-    ).toBe(expected);
   });
 
   it("maps resource termination to NOJV verdicts", () => {

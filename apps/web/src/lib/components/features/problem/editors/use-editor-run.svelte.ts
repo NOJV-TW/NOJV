@@ -99,8 +99,6 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
         sampleOnly,
         specialEnv: args.isSpecialEnv(),
         judgeType: args.judgeType(),
-        hasHiddenFiles: args.workspaceFiles().some((file) => file.visibility === "hidden"),
-        cases: runCases ?? [],
         language: args.language(),
       })
     ) {

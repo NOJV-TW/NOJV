@@ -18,12 +18,9 @@ Custom sample runs without an expected answer report execution success;
 missing expected answers in official testcases remain a system error.
 
 Browser runs honor `judgeConfig.runtime` limits and environment variables, using
-problem limits when no runtime override exists. A selected language with hidden
-workspace files runs on the server so the authoritative workspace can be assembled.
-The browser never receives hidden file contents. Python cases with non-empty input
-missing final LF also run on the server: WASM-OJ 0.2.0 Python `input()` loses the
-last character at EOF. Routing preserves bytes instead of adding a newline that
-would change `sys.stdin.read()` and byte-counting programs.
+problem limits when no runtime override exists. Standard browser Test stays local
+for all supported languages, including Python input without a final newline.
+The browser never receives hidden file contents.
 
 Browser results remain a preview: WASI toolchains, logical time, linear memory,
 output/filesystem caps, and platform APIs differ from native compilation and
