@@ -13,7 +13,7 @@ const {
   markFactorChangeMock,
   passkeyRecords,
   registrationDenialMock,
-  userRepoMock,
+  linkRosterMock,
 } = vi.hoisted(() => ({
   areUnlockedMock: vi.fn(),
   createTicketMock: vi.fn(),
@@ -26,11 +26,7 @@ const {
     { isSuperAdmin?: boolean; userId: string; securityGeneration: number }
   >(),
   registrationDenialMock: vi.fn(),
-  userRepoMock: {
-    findByUsername: vi.fn(),
-    attachPlaceholderToAuth: vi.fn(),
-    update: vi.fn(),
-  },
+  linkRosterMock: vi.fn(),
 }));
 
 vi.mock("better-auth/adapters/prisma", () => ({ prismaAdapter: () => ({}) }));
@@ -46,6 +42,7 @@ vi.mock("better-auth/plugins", () => ({
 }));
 
 vi.mock("@nojv/application", () => ({
+  userDomain: { linkUserCourseRoster: linkRosterMock },
   adminMfaKind: (user: { isSuperAdmin: boolean; platformRole: string }) =>
     user.platformRole !== "admin" ? "none" : user.isSuperAdmin ? "super" : "regular",
   areSecuritySettingsUnlocked: areUnlockedMock,
@@ -77,7 +74,6 @@ vi.mock("@nojv/db", () => ({
     passkey: { deleteMany: deletePasskeysMock, findFirst: findPasskeyMock },
     user: { findUnique: findUserMock },
   },
-  userRepo: userRepoMock,
 }));
 
 vi.mock("$lib/server/env", () => ({
@@ -101,7 +97,7 @@ import {
 } from "$lib/server/auth-factor-mutation";
 
 interface PasskeyHookContext {
-  body: { response: { id: string } } | Record<string, never>;
+  body: { response: { id: string } } | { username?: string; displayUsername?: string };
   context?: {
     session?: {
       session: { id: string };
@@ -124,6 +120,9 @@ interface PasskeyAfterVerificationInput {
 
 interface CapturedAuthOptions {
   databaseHooks: {
+    session: {
+      create: { before: (session: { userId: string; expiresAt: Date }) => Promise<unknown> };
+    };
     account: {
       create: { before: (account: { providerId: string; userId: string }) => Promise<void> };
     };
@@ -156,6 +155,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   passkeyRecords.clear();
+  linkRosterMock.mockReset().mockResolvedValue(undefined);
   areUnlockedMock.mockReset().mockResolvedValue(true);
   createTicketMock
     .mockReset()
@@ -372,4 +372,30 @@ describe("super admin account-linking boundary", () => {
       beforeCreate({ providerId: "google", userId: "super-admin" }),
     ).rejects.toMatchObject({ status: "FORBIDDEN" });
   });
+});
+
+describe("course roster auth wiring", () => {
+  it("retries roster linking on each session creation and propagates failures", async () => {
+    const { options } = getAuth() as unknown as { options: CapturedAuthOptions };
+    const session = { userId: "student", expiresAt: new Date("2099-01-01") };
+    linkRosterMock.mockRejectedValueOnce(new Error("retry enrollment"));
+    await expect(options.databaseHooks.session.create.before(session)).rejects.toThrow(
+      "retry enrollment",
+    );
+    await runWithRequestState(new WeakMap(), () =>
+      options.databaseHooks.session.create.before(session),
+    );
+    expect(linkRosterMock).toHaveBeenCalledTimes(2);
+    expect(linkRosterMock).toHaveBeenLastCalledWith("student");
+  });
+
+  it.each([{ username: "ntu_b12345678" }, { displayUsername: "student" }])(
+    "blocks username changes through the generic auth endpoint: %j",
+    async (body) => {
+      const { before } = productionPasskeyCallbacks();
+      await expect(before({ path: "/update-user", body })).rejects.toMatchObject({
+        status: "FORBIDDEN",
+      });
+    },
+  );
 });

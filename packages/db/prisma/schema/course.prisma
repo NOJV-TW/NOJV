@@ -40,21 +40,26 @@ model Course {
 }
 
 model CourseMembership {
-  id            String                 @id @default(cuid())
-  courseId      String
-  userId        String
-  role          CourseRole
-  status        CourseMembershipStatus @default(active)
-  addedByUserId String?
-  joinedAt      DateTime               @default(now())
-  removedAt     DateTime?
-  createdAt     DateTime               @default(now())
-  updatedAt     DateTime               @updatedAt
-  course        Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  user          User                   @relation("CourseMembershipUser", fields: [userId], references: [id], onDelete: Cascade)
-  addedBy       User?                  @relation("CourseMembershipCreator", fields: [addedByUserId], references: [id], onDelete: SetNull)
+  id              String                 @id @default(cuid())
+  courseId        String
+  userId          String?
+  pendingUsername String?
+  role            CourseRole
+  status          CourseMembershipStatus @default(active)
+  addedByUserId   String?
+  joinedAt        DateTime               @default(now())
+  removedAt       DateTime?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  course          Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user            User?                  @relation("CourseMembershipUser", fields: [userId], references: [id], onDelete: Restrict)
+  addedBy         User?                  @relation("CourseMembershipCreator", fields: [addedByUserId], references: [id], onDelete: SetNull)
+
+  scoreOverrides     ScoreOverride[]
+  submissionFeedback SubmissionFeedback[]
 
   @@unique([courseId, userId])
+  @@unique([courseId, pendingUsername])
   @@index([courseId, role, status])
   @@index([userId, status])
 }

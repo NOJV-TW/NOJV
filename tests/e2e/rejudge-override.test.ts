@@ -98,7 +98,7 @@ test.describe("Score override API", () => {
     const page = await context.newPage();
     const res = await page.request.post(`/api/overrides`, {
       data: {
-        userId: "user_does-not-exist",
+        courseMembershipId: "membership_does-not-exist",
         problemId: PROBLEM_ID,
         context: { type: "assignment", assignmentId: HW1_ID },
         overrideScore: -5,

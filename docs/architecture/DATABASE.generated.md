@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_48 models and 39 enums across 9 schema files._
+_48 models and 38 enums across 9 schema files._
 
 ## `auth.prisma`
 
@@ -20,10 +20,6 @@ _48 models and 39 enums across 9 schema files._
 #### `PlatformRole`
 
 `admin` · `teacher` · `student`
-
-#### `UserStatus`
-
-`active` · `pending_first_login`
 
 ### Models
 
@@ -161,7 +157,6 @@ Indexes & constraints: `@@unique([userId])`, `@@index([secret])`
 | `platformRole` | `PlatformRole` | `@default(student)` |
 | `isSuperAdmin` | `Boolean` | `@default(false)` |
 | `disabled` | `Boolean` | `@default(false)` |
-| `status` | `UserStatus` | `@default(active)` |
 | `mustChangePassword` | `Boolean` | `@default(false)` |
 | `twoFactorEnabled` | `Boolean` | `@default(false)` |
 | `securityGeneration` | `Int` | `@default(0)` |
@@ -205,7 +200,6 @@ Indexes & constraints: `@@unique([userId])`, `@@index([secret])`
 | `assessmentAuditLogs` | `AssessmentAuditLog[]` | `@relation("AssessmentAuditActor")` |
 | `contentReportsFiled` | `ContentReport[]` | `@relation("ContentReportReporter")` |
 | `contentReportsResolved` | `ContentReport[]` | `@relation("ContentReportResolver")` |
-| `submissionFeedbackReceived` | `SubmissionFeedback[]` | `@relation("SubmissionFeedbackStudent")` |
 | `submissionFeedbackAuthored` | `SubmissionFeedback[]` | `@relation("SubmissionFeedbackAuthor")` |
 | `submissionFeedbackAuditChanges` | `SubmissionFeedbackAuditLog[]` | `@relation("SubmissionFeedbackAuditChanger")` |
 | `triggeredPlagiarismLogs` | `PlagiarismTriggerLog[]` | `@relation("PlagiarismTriggerLogTriggerer")` |
@@ -616,7 +610,8 @@ Indexes & constraints: `@@unique([assessmentId, problemId])`, `@@unique([assessm
 | ----- | ---- | ---------- |
 | `id` | `String` | `@id @default(cuid())` |
 | `courseId` | `String` | — |
-| `userId` | `String` | — |
+| `userId` | `String?` | — |
+| `pendingUsername` | `String?` | — |
 | `role` | `CourseRole` | — |
 | `status` | `CourseMembershipStatus` | `@default(active)` |
 | `addedByUserId` | `String?` | — |
@@ -625,10 +620,12 @@ Indexes & constraints: `@@unique([assessmentId, problemId])`, `@@unique([assessm
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |
 | `course` | `Course` | `@relation(fields: [courseId], references: [id], onDelete: Cascade)` |
-| `user` | `User` | `@relation("CourseMembershipUser", fields: [userId], references: [id], onDelete: Cascade)` |
+| `user` | `User?` | `@relation("CourseMembershipUser", fields: [userId], references: [id], onDelete: Restrict)` |
 | `addedBy` | `User?` | `@relation("CourseMembershipCreator", fields: [addedByUserId], references: [id], onDelete: SetNull)` |
+| `scoreOverrides` | `ScoreOverride[]` | — |
+| `submissionFeedback` | `SubmissionFeedback[]` | — |
 
-Indexes & constraints: `@@unique([courseId, userId])`, `@@index([courseId, role, status])`, `@@index([userId, status])`
+Indexes & constraints: `@@unique([courseId, userId])`, `@@unique([courseId, pendingUsername])`, `@@index([courseId, role, status])`, `@@index([userId, status])`
 
 ## `notification.prisma`
 
@@ -986,11 +983,11 @@ Indexes & constraints: `@@unique([problemId, name])`, `@@unique([problemId, ordi
 
 #### `ScoreOverrideAction`
 
-`create` · `update` · `delete`
+`create` · `update` · `delete` · `merge`
 
 #### `SubmissionFeedbackAction`
 
-`create` · `update` · `delete`
+`create` · `update` · `delete` · `merge`
 
 #### `SubmissionStatus`
 
@@ -1082,7 +1079,8 @@ Indexes & constraints: `@@index([problemId, type, createdAt])`
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
 | `id` | `String` | `@id @default(cuid())` |
-| `userId` | `String` | — |
+| `userId` | `String?` | — |
+| `courseMembershipId` | `String?` | — |
 | `problemId` | `String` | — |
 | `contextType` | `OverrideContextType` | — |
 | `contextId` | `String` | — |
@@ -1092,13 +1090,14 @@ Indexes & constraints: `@@index([problemId, type, createdAt])`
 | `updatedByUserId` | `String?` | — |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |
-| `user` | `User` | `@relation("ScoreOverrideUser", fields: [userId], references: [id], onDelete: Cascade)` |
+| `user` | `User?` | `@relation("ScoreOverrideUser", fields: [userId], references: [id], onDelete: Cascade)` |
 | `problem` | `Problem` | `@relation("ScoreOverrideProblem", fields: [problemId], references: [id], onDelete: Cascade)` |
 | `createdBy` | `User?` | `@relation("ScoreOverrideCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)` |
 | `updatedBy` | `User?` | `@relation("ScoreOverrideEditor", fields: [updatedByUserId], references: [id], onDelete: SetNull)` |
+| `membership` | `CourseMembership?` | `@relation(fields: [courseMembershipId], references: [id], onDelete: Cascade)` |
 | `auditLogs` | `ScoreOverrideAuditLog[]` | — |
 
-Indexes & constraints: `@@unique([userId, problemId, contextType, contextId])`, `@@index([contextType, contextId])`
+Indexes & constraints: `@@unique([userId, problemId, contextType, contextId])`, `@@unique([courseMembershipId, problemId, contextType, contextId])`, `@@index([contextType, contextId])`
 
 #### `ScoreOverrideAuditLog`
 
@@ -1106,7 +1105,9 @@ Indexes & constraints: `@@unique([userId, problemId, contextType, contextId])`, 
 | ----- | ---- | ---------- |
 | `id` | `String` | `@id @default(cuid())` |
 | `overrideId` | `String?` | — |
-| `userId` | `String` | — |
+| `userId` | `String?` | — |
+| `courseMembershipId` | `String?` | — |
+| `sourceMembershipId` | `String?` | — |
 | `problemId` | `String` | — |
 | `contextType` | `OverrideContextType` | — |
 | `contextId` | `String` | — |
@@ -1120,7 +1121,7 @@ Indexes & constraints: `@@unique([userId, problemId, contextType, contextId])`, 
 | `override` | `ScoreOverride?` | `@relation(fields: [overrideId], references: [id], onDelete: SetNull)` |
 | `changedBy` | `User?` | `@relation("ScoreOverrideAuditChanger", fields: [changedByUserId], references: [id], onDelete: SetNull)` |
 
-Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])`, `@@index([userId, problemId, createdAt(sort: Desc)])`
+Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])`, `@@index([userId, problemId, createdAt(sort: Desc)])`, `@@index([courseMembershipId, problemId, createdAt(sort: Desc)])`
 
 #### `Submission`
 
@@ -1168,7 +1169,7 @@ Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, crea
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
 | `id` | `String` | `@id @default(cuid())` |
-| `studentUserId` | `String` | — |
+| `courseMembershipId` | `String` | — |
 | `problemId` | `String` | — |
 | `assessmentId` | `String?` | — |
 | `examId` | `String?` | — |
@@ -1176,14 +1177,14 @@ Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, crea
 | `authorUserId` | `String?` | — |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |
-| `student` | `User` | `@relation("SubmissionFeedbackStudent", fields: [studentUserId], references: [id], onDelete: Cascade)` |
+| `membership` | `CourseMembership` | `@relation(fields: [courseMembershipId], references: [id], onDelete: Cascade)` |
 | `problem` | `Problem` | `@relation("SubmissionFeedbackProblem", fields: [problemId], references: [id], onDelete: Cascade)` |
 | `assessment` | `Assessment?` | `@relation(fields: [assessmentId], references: [id], onDelete: Cascade)` |
 | `exam` | `Exam?` | `@relation(fields: [examId], references: [id], onDelete: Cascade)` |
 | `author` | `User?` | `@relation("SubmissionFeedbackAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)` |
 | `auditLogs` | `SubmissionFeedbackAuditLog[]` | — |
 
-Indexes & constraints: `@@unique([assessmentId, problemId, studentUserId])`, `@@unique([examId, problemId, studentUserId])`
+Indexes & constraints: `@@unique([assessmentId, problemId, courseMembershipId])`, `@@unique([examId, problemId, courseMembershipId])`
 
 #### `SubmissionFeedbackAuditLog`
 
@@ -1191,7 +1192,9 @@ Indexes & constraints: `@@unique([assessmentId, problemId, studentUserId])`, `@@
 | ----- | ---- | ---------- |
 | `id` | `String` | `@id @default(cuid())` |
 | `feedbackId` | `String?` | — |
-| `studentUserId` | `String` | — |
+| `studentUserId` | `String?` | — |
+| `courseMembershipId` | `String?` | — |
+| `sourceMembershipId` | `String?` | — |
 | `problemId` | `String` | — |
 | `assessmentId` | `String?` | — |
 | `examId` | `String?` | — |
@@ -1203,7 +1206,7 @@ Indexes & constraints: `@@unique([assessmentId, problemId, studentUserId])`, `@@
 | `feedback` | `SubmissionFeedback?` | `@relation(fields: [feedbackId], references: [id], onDelete: SetNull)` |
 | `changedBy` | `User?` | `@relation("SubmissionFeedbackAuditChanger", fields: [changedByUserId], references: [id], onDelete: SetNull)` |
 
-Indexes & constraints: `@@index([assessmentId, problemId, createdAt(sort: Desc)])`, `@@index([examId, problemId, createdAt(sort: Desc)])`, `@@index([studentUserId, problemId, createdAt(sort: Desc)])`
+Indexes & constraints: `@@index([assessmentId, problemId, createdAt(sort: Desc)])`, `@@index([examId, problemId, createdAt(sort: Desc)])`, `@@index([studentUserId, problemId, createdAt(sort: Desc)])`, `@@index([courseMembershipId, problemId, createdAt(sort: Desc)])`
 
 #### `SubmissionRejudgeLog`
 

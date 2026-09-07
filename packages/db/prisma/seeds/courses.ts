@@ -57,6 +57,18 @@ export async function seedCourses(
     });
   }
 
+  await prisma.courseMembership.upsert({
+    create: {
+      id: "membership_demo_pending",
+      courseId: osLabCourse.id,
+      pendingUsername: "b11902999",
+      role: "student",
+      addedByUserId: teacher.id,
+    },
+    update: {},
+    where: { id: "membership_demo_pending" },
+  });
+
   const hw1 = await prisma.assessment.upsert({
     create: {
       allowedLanguages: ["c", "cpp", "python"],

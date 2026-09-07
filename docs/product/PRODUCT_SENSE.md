@@ -50,7 +50,8 @@
 ### Courses
 
 - Course creation and management
-- Manual, teacher-driven student enrollment (`courseMembership.upsert`; no join-token flow)
+- Teacher-driven enrollment by full username, with durable roster rows before an account exists. Teachers use bare NTNU student IDs, `ntu_` / `ntust_` prefixes for NTU / NTUST, or general usernames; prefixes are never inferred.
+- Students and TAs bind automatically when the matching account obtains its username. School verification keeps the existing account and its credentials/submissions; a school roster collision keeps the school row and its conflicting role, status, scores, and feedback. A general rename keeps the already-linked row. Nonconflicting data and both audit histories survive; login never reactivates removed enrollment.
 - Course roles: teacher, TA, student
 - Assessment management with open/due/close lifecycle (Temporal-managed)
 - Assessment Settings tab: publish / archive / revert-to-draft / delete-draft with status-aware field locks
@@ -58,7 +59,7 @@
 - Course duplication: single-transaction copy of course + assessments + exams + problem attachments (new copy drops to draft)
 - Class stats aggregation (submittedUsers / totalStudents / avgScore) and per-student myStatus (solved/total) rendered on list pages
 - Practice-after-close: students retain problem access after assessment/contest/exam ends, submissions no longer attributed to the original context
-- Student progress matrix
+- Student progress matrix, gradebook, analytics roster, and CSV include pending students; activity counts still represent actual submissions/participations. Notifications target only linked users.
 - Course gradebook (`/courses/[courseId]/grades`) — per-problem raw best scores (overrides applied) across all published assignments and exams, chronological columns with per-problem max; staff see every student plus CSV export, students see only their own row; no weighting or normalization by design (teachers compute ratios from the CSV)
 - Course-scoped problem management
 - Assignment and exam problem selection attaches the actor's own problem directly, automatically creates a private fork for another author's published public problem, and rejects another author's private problem. The activity and any required forks commit atomically.
@@ -67,6 +68,7 @@
 
 - Grading drawer on the manager submissions matrix — opens once the context has closed (`closesAt`/`endsAt < now`); before that the entry button is hidden and a "grading available after close" note is shown in its place
 - Score overrides (existing) are now gated to post-close on assignment + exam + contest; `platformRole === "admin"` bypasses the gate for emergency fixes
+- Pending students can receive assignment/exam manual scores and feedback after close without participation or submissions; staff permissions and point-sum scoring rules still apply.
 - Per-cell student-visible feedback comments on assignment + exam (no contest feedback); students see the comment on the assignment / exam detail page and on the submission detail page once the context has closed
 - Audit timeline tab on assignment / exam / contest manage pages — merged reverse-chronological view of lifecycle transitions, score-override changes, and rejudges (staff-only)
 

@@ -71,7 +71,13 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     : [];
 
   let canSetOverride = false;
-  let overrideStudents: { id: string; username: string; name: string }[] = [];
+  let overrideStudents: {
+    rowId: string;
+    courseMembershipId: null;
+    userId: string;
+    username: string;
+    name: string;
+  }[] = [];
   let results: ContestResults | null = null;
   let matrix: contestDomain.ContestSubmissionsMatrix | null = null;
   let settingsForm: Awaited<
@@ -120,7 +126,9 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       overrideStudents = participants.map((p) => {
         scores.push(p.score);
         return {
-          id: p.user.id,
+          rowId: p.user.id,
+          courseMembershipId: null,
+          userId: p.user.id,
           username: p.user.username ?? "",
           name: p.user.name,
         };

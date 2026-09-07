@@ -670,6 +670,49 @@ pointers. The chart keeps all three new Deployments in maintenance through
 Helm's apply/wait phase; the post-upgrade hook explicitly starts and verifies
 the new workloads before restoring the web HPA target.
 
+### Course roster contract
+
+`20260907000000_course_roster_contract` converts placeholder accounts into durable
+course memberships in one transaction. It remains outside `deploy-expand.sh`'s
+staging boundary, which stops at the earlier storage contract. Even when that
+contract is already applied, `deploy-release.sh` drains web, judge worker, and
+platform worker, disables the web HPA target (and pauses KEDA if configured),
+then rechecks deployments, pods, and autoscalers immediately before the full
+migration run. Do not apply this contract with a standalone production
+`prisma migrate deploy` command while writers are running.
+
+Before releasing, verify a recoverable backup and the exact primary/database
+identity, then refresh the placeholder IDs, memberships, and all references.
+The migration takes an exclusive lock, snapshots pending users and memberships,
+validates synthetic emails/status, and inventories every User foreign key from
+PostgreSQL's catalog. Only roster ownership and convertible course score/feedback
+subjects may reference placeholders; credentials, sessions, submissions, contest
+scores, audit actors, and any other references fail closed. Course subjects and
+mapped audit identities are backfilled before users are detached/deleted;
+historical snapshots from deleted contexts are retained. IDs, roles, status,
+creator, and timestamps must survive exactly. All data writes, subject/identity
+constraints, User-status removal, and security-generation trigger replacement
+commit together. Unique constraints build under the maintenance lock; the next
+migration builds only the two audit lookup indexes concurrently.
+
+The existing admission fence requires both `nojv.tw/schema-contract:
+versioned-storage-v1` and `nojv.tw/course-roster-contract: membership-v1` on all
+three workload pod templates. Once the final migration run starts, a failure
+keeps writers at zero; use a compatible forward fix and inspect Prisma migration
+history before retrying. Never remove the fence to start an older writer.
+
+The rehearsal is `tests/integration/db/course-roster-migration.test.ts`, using
+full historical migrations in an isolated schema under the existing destructive
+test-database guard. Coordinate execution on the explicit, safety-marked local
+test database; it is not a production test. It covers eight placeholders (seven
+students, one TA, two courses), removed/scored/audited variants, unknown FK
+refusal, historical deleted contexts, and transaction rollback. The dependency-free
+maintenance tests exercise staging, drain refusal, repeat upgrades, and chart
+labels. After release, separately verify exact image/source revision, readiness
+of all three workloads, zero synthetic User rows, preserved roster IDs/roles,
+no orphan live grading subjects, and unaffected real accounts. Test results and
+rendered charts alone are not production rollout evidence.
+
 ## Backup Automation
 
 **Default (in-cluster Postgres):** the chart provisions Postgres as a
@@ -739,13 +782,14 @@ out-of-band and restart the affected Deployment to pick them up.
 
 Database migrations are forward-only. The chart installs a persistent admission
 fence before migration; it rejects any web or worker Deployment whose pod
-template does not declare the current `versioned-storage-v1` schema contract.
+template does not declare both the `versioned-storage-v1` storage contract and
+`membership-v1` course-roster contract.
 This intentionally blocks rollback to a pre-contract image even though Helm
 still lists that revision. The migrator does not run during `helm rollback`.
 
 1. Inspect the target revision's rendered web and worker pod-template labels.
-2. If it lacks `nojv.tw/schema-contract: versioned-storage-v1`, do not delete or
-   bypass the fence. Build and deploy a forward fix from a compatible revision.
+2. If it lacks `nojv.tw/schema-contract: versioned-storage-v1` or
+   `nojv.tw/course-roster-contract: membership-v1`, do not delete or bypass the fence. Build and deploy a forward fix from a compatible revision.
 3. For a revision carrying the same contract, run
    `helm rollback nojv <revision> -n nojv --wait --timeout 125m`.
 4. Confirm all three app Deployments are healthy, validate key flows, and monitor

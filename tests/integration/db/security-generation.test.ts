@@ -44,7 +44,7 @@ describe("durable user security generation", () => {
     expect(await generation(user.id)).toBe(0);
   });
 
-  it("advances for identity, super-admin, onboarding, and password-policy changes", async () => {
+  it("advances for identity, super-admin, and password-policy changes", async () => {
     const user = await createTestUser();
 
     await testPrisma.user.update({
@@ -61,13 +61,13 @@ describe("durable user security generation", () => {
 
     await testPrisma.user.update({
       where: { id: user.id },
-      data: { status: "pending_first_login" },
+      data: { mustChangePassword: true },
     });
     expect(await generation(user.id)).toBe(4);
 
     await testPrisma.user.update({
       where: { id: user.id },
-      data: { mustChangePassword: true },
+      data: { mustChangePassword: false },
     });
     expect(await generation(user.id)).toBe(5);
   });

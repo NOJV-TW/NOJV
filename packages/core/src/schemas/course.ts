@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { courseRoleSchema, isoDateTimeSchema, languageSchema, slugSchema } from "../types";
+import { isoDateTimeSchema, languageSchema, slugSchema } from "../types";
 import { adjustmentRuleSchema, adjustmentRulesSchema } from "./assessment-adjustments";
 
 const academicTermFields = {
@@ -46,19 +46,6 @@ export const courseProblemAttachSchema = z.object({
 
 export const copyCourseSchema = z.object({
   newTitle: z.string().trim().min(3).max(120),
-});
-
-export const manualCourseEnrollmentSchema = z.object({
-  courseId: z.string().trim().min(1),
-  displayName: z.string().trim().min(2).max(120),
-  email: z.email(),
-  username: z
-    .string()
-    .trim()
-    .min(3)
-    .max(64)
-    .regex(/^[a-z0-9._-]+$/),
-  role: courseRoleSchema.default("student"),
 });
 
 export const assessmentContextSchema = z.object({
@@ -230,4 +217,3 @@ export type CopyCourse = z.infer<typeof copyCourseSchema>;
 export type CourseCreate = z.infer<typeof courseCreateSchema>;
 export type CourseProblemAttach = z.infer<typeof courseProblemAttachSchema>;
 export type CourseUpdate = z.infer<typeof courseUpdateSchema>;
-export type ManualCourseEnrollment = z.infer<typeof manualCourseEnrollmentSchema>;

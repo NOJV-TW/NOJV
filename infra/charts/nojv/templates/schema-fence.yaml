@@ -32,6 +32,10 @@ spec:
         "nojv.tw/schema-contract" in object.spec.template.metadata.labels &&
         object.spec.template.metadata.labels["nojv.tw/schema-contract"] == "versioned-storage-v1"
       message: NOJV workload image is incompatible with the contracted storage schema
+    - expression: >-
+        "nojv.tw/course-roster-contract" in object.spec.template.metadata.labels &&
+        object.spec.template.metadata.labels["nojv.tw/course-roster-contract"] == "membership-v1"
+      message: NOJV workload image is incompatible with the contracted course roster schema
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicyBinding

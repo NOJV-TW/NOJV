@@ -14,24 +14,38 @@ test.describe("Course members + settings", () => {
       page.getByRole("button", { name: "Open account menu for Teacher", exact: true }),
     ).toBeEnabled();
     const table = page.getByRole("table", { name: "Members", exact: true });
+    const memberRows = table.locator("tbody tr[data-membership-id]");
     await expect(table).toBeVisible();
     await expect(table.getByRole("columnheader", { name: "Email", exact: true })).toBeVisible();
     await expect(
-      page.getByText("Placeholder rows are visually dimmed", { exact: false }),
-    ).toHaveCount(0);
+      table.getByRole("columnheader", { name: "Joined", exact: true }),
+    ).toBeVisible();
+    await expect(memberRows.first()).toHaveAttribute("data-membership-id", /.+/);
+    const membershipIds = await memberRows.evaluateAll((rows) =>
+      rows.map((row) => row.getAttribute("data-membership-id")),
+    );
+    expect(new Set(membershipIds).size).toBe(membershipIds.length);
+    for (const row of await memberRows.all()) {
+      await expect(row).toHaveAttribute("data-is-pending", /^(true|false)$/);
+      if ((await row.getAttribute("data-is-pending")) === "true") {
+        await expect(row).toContainText("Not yet activated");
+        await expect(row.locator('a[href^="/users/"]')).toHaveCount(0);
+      }
+    }
 
     const roleFilter = table
       .locator("thead")
       .getByRole("button", { name: "Role", exact: true });
     await roleFilter.click();
     await page.getByRole("option", { name: "TAs", exact: true }).click();
-    await expect(table.locator("tbody tr")).toHaveCount(1);
-    await expect(
-      table.locator("tbody").getByRole("button", { name: /Change role for/ }),
-    ).toHaveText("Teaching Assistant");
+    await expect(memberRows).toHaveCount(1);
+    await expect(memberRows.getByRole("button", { name: /Change role for/ })).toHaveText(
+      "Teaching Assistant",
+    );
+    await expect(table.locator("tbody select")).toHaveCount(0);
     await roleFilter.click();
     await page.getByRole("option", { name: "All", exact: true }).click();
-    const memberCount = await table.locator("tbody tr").count();
+    const memberCount = await memberRows.count();
     expect(memberCount).toBeGreaterThan(1);
 
     const search = table.getByRole("button", { name: "Search handle or name", exact: true });
@@ -40,11 +54,12 @@ test.describe("Course members + settings", () => {
     await input.fill("no-matching-member-408");
     await input.press("Enter");
     await expect(table.getByText("No members match your filters.")).toBeVisible();
+    await expect(memberRows).toHaveCount(0);
     await expect(roleFilter).toBeVisible();
     await search.click();
     await input.fill("");
     await input.press("Enter");
-    await expect(table.locator("tbody tr")).toHaveCount(memberCount);
+    await expect(memberRows).toHaveCount(memberCount);
 
     await page.setViewportSize({ width: 390, height: 844 });
     const emailCell = table.locator("tbody tr").first().locator("td").nth(1);
@@ -79,6 +94,7 @@ test.describe("Course members + settings", () => {
     await expect(page.getByRole("button", { name: /add members|新增成員/i })).not.toBeVisible();
     await expect(page.getByRole("columnheader", { name: "Email", exact: true })).toHaveCount(0);
     await expect(page.getByRole("table").locator("thead th")).toHaveCount(3);
+    await expect(page.locator('tr[data-is-pending="true"]')).toHaveCount(0);
     await context.close();
   });
 
@@ -102,7 +118,7 @@ test.describe("Course members + settings", () => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
     const res = await page.request.post(`/courses/${COURSE_ID}/members?/changeRole`, {
-      form: { userId: "user_someone", role: "ta" },
+      form: { membershipId: "membership_someone", role: "ta" },
       headers: formActionHeaders,
     });
     const body = await res.json().catch(() => null);

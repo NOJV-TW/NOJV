@@ -21,7 +21,8 @@ export interface GradebookColumn {
 }
 
 export interface GradebookRow {
-  userId: string;
+  membershipId: string;
+  userId: string | null;
   name: string;
   username: string | null;
   cells: Record<string, number | null>;
@@ -101,16 +102,17 @@ export async function buildCourseGradebook(
       columns,
       maxTotal,
       rows: students.map((s) => ({
+        membershipId: s.id,
         userId: s.userId,
-        name: s.user.name,
-        username: s.user.username,
+        name: s.user?.name ?? s.pendingUsername ?? "",
+        username: s.user?.username ?? s.pendingUsername,
         cells: {},
         total: 0,
       })),
     };
   }
 
-  const studentIds = students.map((s) => s.userId);
+  const studentIds = students.flatMap((s) => (s.userId === null ? [] : [s.userId]));
 
   const perContext = await Promise.all(
     columns.map(async (column) => {
@@ -145,18 +147,22 @@ export async function buildCourseGradebook(
     let total = 0;
     for (const { column, best, overrides } of perContext) {
       for (const problem of column.problems) {
-        const key = `${student.userId}::${problem.problemId}`;
-        const override = overrides.get(key);
-        const score = override ?? best.get(key) ?? null;
+        const override = overrides.get(`${student.id}::${problem.problemId}`);
+        const submittedScore =
+          student.userId === null
+            ? undefined
+            : best.get(`${student.userId}::${problem.problemId}`);
+        const score = override ?? submittedScore ?? null;
         cells[gradebookCellKey(column.contextType, column.contextId, problem.problemId)] =
           score;
         total += score ?? 0;
       }
     }
     return {
+      membershipId: student.id,
       userId: student.userId,
-      name: student.user.name,
-      username: student.user.username,
+      name: student.user?.name ?? student.pendingUsername ?? "",
+      username: student.user?.username ?? student.pendingUsername,
       cells,
       total,
     };

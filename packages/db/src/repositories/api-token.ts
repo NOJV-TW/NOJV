@@ -24,7 +24,6 @@ export const apiTokenRepo = {
             id: true,
             name: true,
             platformRole: true,
-            status: true,
             username: true,
           },
         },

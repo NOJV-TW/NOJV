@@ -275,3 +275,4 @@ jobs:
         run: >-
           pnpm exec playwright test --config tests/e2e/playwright.config.ts
           tests/e2e/auth.test.ts tests/e2e/dashboard.test.ts tests/e2e/problems.test.ts
+          tests/e2e/course-roster.test.ts tests/e2e/course-roster-activation.test.ts

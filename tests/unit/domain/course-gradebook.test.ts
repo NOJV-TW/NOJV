@@ -39,7 +39,12 @@ import { courseDomain } from "@nojv/application";
 const { buildCourseGradebook } = courseDomain;
 
 function fakeStudent(userId: string, name: string, username: string | null = null) {
-  return { userId, user: { id: userId, name, username } };
+  return {
+    id: `m_${userId}`,
+    pendingUsername: null,
+    userId,
+    user: { id: userId, name, username },
+  };
 }
 
 function fakeAssessment(id: string, title: string, opensAt: Date, problemIds: string[]) {
@@ -136,23 +141,25 @@ describe("buildCourseGradebook", () => {
     );
     findAllOverrides.mockImplementation((contextType: string) =>
       Promise.resolve(
-        contextType === "exam" ? [{ userId: "u2", problemId: "p3", overrideScore: 55 }] : [],
+        contextType === "exam"
+          ? [{ userId: null, courseMembershipId: "m_u2", problemId: "p3", overrideScore: 55 }]
+          : [],
       ),
     );
 
     const out = await buildCourseGradebook("course_1");
 
-    const alice = out.rows.find((r) => r.userId === "u1")!;
-    expect(alice.cells["assignment:a1:p1"]).toBe(100);
-    expect(alice.cells["assignment:a1:p2"]).toBe(40);
-    expect(alice.cells["exam:e1:p3"]).toBe(70);
-    expect(alice.total).toBe(210);
+    const alice = out.rows.find((r) => r.userId === "u1");
+    expect(alice?.cells["assignment:a1:p1"]).toBe(100);
+    expect(alice?.cells["assignment:a1:p2"]).toBe(40);
+    expect(alice?.cells["exam:e1:p3"]).toBe(70);
+    expect(alice?.total).toBe(210);
 
-    const bob = out.rows.find((r) => r.userId === "u2")!;
-    expect(bob.cells["assignment:a1:p1"]).toBe(0);
-    expect(bob.cells["assignment:a1:p2"]).toBeNull();
-    expect(bob.cells["exam:e1:p3"]).toBe(55);
-    expect(bob.total).toBe(55);
+    const bob = out.rows.find((r) => r.userId === "u2");
+    expect(bob?.cells["assignment:a1:p1"]).toBe(0);
+    expect(bob?.cells["assignment:a1:p2"]).toBeNull();
+    expect(bob?.cells["exam:e1:p3"]).toBe(55);
+    expect(bob?.total).toBe(55);
   });
 
   it("scopes submission queries per context", async () => {
@@ -211,4 +218,42 @@ describe("buildCourseGradebook", () => {
     expect(out.rows).toEqual([]);
     expect(groupByUserAndProblem).not.toHaveBeenCalled();
   });
+});
+
+it("keeps pending membership grades separate and exposes them after account linking", async () => {
+  findStudents.mockResolvedValue([
+    { id: "mem_pending", userId: null, pendingUsername: "ntu_b123", user: null },
+    fakeStudent("u1", "Alice"),
+  ]);
+  listAssessments.mockResolvedValue([
+    fakeAssessment("a1", "HW", new Date("2020-01-01"), ["p1"]),
+  ]);
+  findAllOverrides.mockResolvedValue([
+    { userId: null, courseMembershipId: "mem_pending", problemId: "p1", overrideScore: 90 },
+  ]);
+  const staff = await buildCourseGradebook("course_1");
+  expect(staff.rows[0]).toMatchObject({
+    membershipId: "mem_pending",
+    userId: null,
+    name: "ntu_b123",
+    total: 90,
+  });
+  expect(staff.rows[1].total).toBe(0);
+  expect(groupByUserAndProblem).toHaveBeenCalledWith(
+    expect.objectContaining({ userId: { in: ["u1"] } }),
+  );
+  expect((await buildCourseGradebook("course_1", { forUserId: "mem_pending" })).rows).toEqual(
+    [],
+  );
+  findStudents.mockResolvedValue([
+    {
+      id: "mem_pending",
+      userId: "real_user",
+      pendingUsername: null,
+      user: { id: "real_user", name: "Real", username: "ntu_b123" },
+    },
+  ]);
+  expect(
+    (await buildCourseGradebook("course_1", { forUserId: "real_user" })).rows[0],
+  ).toMatchObject({ membershipId: "mem_pending", userId: "real_user", total: 90 });
 });

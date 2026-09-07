@@ -241,7 +241,7 @@ export async function verifyApiTokenForRoute(input: {
   if (row.expiresAt.getTime() <= Date.now()) {
     throw new HttpError("API token has expired.", 401);
   }
-  if (row.user.disabled || row.user.status !== "active") {
+  if (row.user.disabled) {
     throw new HttpError("API token owner is disabled.", 401);
   }
 

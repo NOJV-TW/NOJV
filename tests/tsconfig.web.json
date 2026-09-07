@@ -24,6 +24,7 @@
     "../apps/web/.svelte-kit/non-ambient.d.ts",
     "../apps/web/.svelte-kit/types/**/$types.d.ts",
     "../apps/web/src/app.d.ts",
+    "integration/api/removed-course-staff.test.ts",
     "integration/http/submission-exam-confinement.test.ts",
     "unit/web/problem-testcase-action-auth.test.ts",
     "unit/web/post-access.test.ts",

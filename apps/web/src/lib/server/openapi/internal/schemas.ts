@@ -9,19 +9,19 @@ import {
   postVoteSchema,
   problemPostTypeSchema,
   scoreboardModeSchema,
+  scoreOverrideCreateSchema,
+  scoreOverrideContextSchema,
 } from "@nojv/core";
 import { z } from "zod";
 
 import { zodToOpenApiSchema } from "../zod-schema";
 
 const feedbackContextSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("assignment"), assignmentId: z.string().min(1) }),
-  z.object({ type: z.literal("exam"), examId: z.string().min(1) }),
+  z.strictObject({ type: z.literal("assignment"), assignmentId: z.string().min(1) }),
+  z.strictObject({ type: z.literal("exam"), examId: z.string().min(1) }),
 ]);
-
-const upsertGradingFeedbackRequestSchema = z.object({
+const upsertGradingFeedbackRequestSchema = feedbackUpsertSchema.extend({
   context: feedbackContextSchema,
-  ...feedbackUpsertSchema.shape,
 });
 
 export const internalSchemas = {
@@ -434,7 +434,15 @@ export const internalSchemas = {
   GradingFeedbackItem: {
     type: "object",
     additionalProperties: true,
-    description: "Submission feedback row returned by the domain layer.",
+    description:
+      "Course feedback addressed by membership, including students who have not activated an account.",
+    properties: {
+      id: { type: "string" },
+      courseMembershipId: { type: "string" },
+      problemId: { type: "string" },
+      comment: { type: "string" },
+    },
+    required: ["id", "courseMembershipId", "problemId", "comment"],
   },
   GradingFeedbackListResponse: {
     type: "object",
@@ -450,37 +458,22 @@ export const internalSchemas = {
     ...zodToOpenApiSchema(upsertGradingFeedbackRequestSchema),
   },
   ScoreOverrideContext: {
-    oneOf: [
-      {
-        type: "object",
-        properties: {
-          type: { type: "string", enum: ["assignment"] },
-          assignmentId: { type: "string", minLength: 1 },
-        },
-        required: ["type", "assignmentId"],
-      },
-      {
-        type: "object",
-        properties: {
-          type: { type: "string", enum: ["exam"] },
-          examId: { type: "string", minLength: 1 },
-        },
-        required: ["type", "examId"],
-      },
-      {
-        type: "object",
-        properties: {
-          type: { type: "string", enum: ["contest"] },
-          contestId: { type: "string", minLength: 1 },
-        },
-        required: ["type", "contestId"],
-      },
-    ],
+    ...zodToOpenApiSchema(scoreOverrideContextSchema),
   },
   ScoreOverrideItem: {
     type: "object",
     additionalProperties: true,
-    description: "Score override row returned by the domain layer.",
+    description:
+      "Course overrides use courseMembershipId with null userId; contest overrides use userId with null courseMembershipId.",
+    properties: {
+      id: { type: "string" },
+      courseMembershipId: { type: ["string", "null"] },
+      userId: { type: ["string", "null"] },
+      problemId: { type: "string" },
+      overrideScore: { type: "integer" },
+      reason: { type: "string" },
+    },
+    required: ["id", "courseMembershipId", "userId", "problemId", "overrideScore", "reason"],
   },
   ScoreOverrideListResponse: {
     type: "object",
@@ -493,30 +486,7 @@ export const internalSchemas = {
     required: ["items"],
   },
   CreateScoreOverrideRequest: {
-    type: "object",
-    properties: {
-      userId: {
-        type: "string",
-        minLength: 1,
-      },
-      problemId: {
-        type: "string",
-        minLength: 1,
-      },
-      context: {
-        $ref: "#/components/schemas/ScoreOverrideContext",
-      },
-      overrideScore: {
-        type: "integer",
-        minimum: 0,
-      },
-      reason: {
-        type: "string",
-        minLength: 1,
-        maxLength: 500,
-      },
-    },
-    required: ["userId", "problemId", "context", "overrideScore", "reason"],
+    ...zodToOpenApiSchema(scoreOverrideCreateSchema),
   },
   PatchScoreOverrideRequest: {
     type: "object",

@@ -38,7 +38,7 @@ import {
 } from "../shared/errors";
 import { requireProblem } from "../shared/require";
 import { commitStoragePointerSwap } from "../shared/storage-object-lifecycle";
-import { ensureUser } from "../user/mutations";
+import { requireUser } from "../shared/require";
 
 import { writeCheckerScriptBlob, writeInteractorScriptBlob } from "./blobs";
 import { parsePersistedJudgeConfig } from "./judge-config";
@@ -157,7 +157,7 @@ export async function createProblemRecord(actor: ProblemActorContext, payload: P
     await assertCanCreateAdvancedProblems(actor);
   }
   return runTransaction(async (tx) => {
-    const author = await ensureUser(tx, actor.userId, actor);
+    const author = await requireUser(tx, actor.userId);
     const visibility = actor.platformRole === "student" ? "private" : payload.visibility;
 
     const problem = await createProblemDefinition(tx, {

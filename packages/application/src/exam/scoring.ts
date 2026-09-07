@@ -27,7 +27,7 @@ export async function updateExamScores(examId: string, userId: string): Promise<
         orderBy: { createdAt: "asc" },
         select: { createdAt: true, problemId: true, score: true, status: true },
       }),
-    overrides: (p) => scoreOverrideRepo.findAllByContext("exam", p.exam.id),
+    overrides: (p) => scoreOverrideRepo.findForExamUser(p.exam.id, p.userId),
     problemIds: (p) => new Set(p.exam.problems.map((ep) => ep.problemId)),
     problemPoints: (p) => new Map(p.exam.problems.map((ep) => [ep.problemId, ep.points])),
     scoringMode: (p) => p.exam.scoringMode,

@@ -8,7 +8,7 @@ export interface BestScoreState {
 export function computeBestScoreState(args: {
   submissions: readonly { problemId: string; score: number }[];
   problemIds: ReadonlySet<string>;
-  overrides: readonly { userId: string; problemId: string; overrideScore: number }[];
+  overrides: readonly { userId: string | null; problemId: string; overrideScore: number }[];
   userId: string;
 }): BestScoreState {
   const { submissions, problemIds, overrides, userId } = args;

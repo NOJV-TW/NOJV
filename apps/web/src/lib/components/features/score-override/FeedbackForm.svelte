@@ -1,13 +1,14 @@
 <script lang="ts" module>
   export interface FeedbackRow {
     id: string;
-    studentUserId: string;
+    courseMembershipId: string;
     problemId: string;
     comment: string;
   }
 </script>
 
 <script lang="ts">
+  import { untrack } from "svelte";
   import { Button } from "$lib/components/primitives/ui/button";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/stores/toast";
@@ -20,6 +21,8 @@
     students: StudentOption[];
     problems: ProblemOption[];
     existing?: FeedbackRow | null | undefined;
+    initialCourseMembershipId?: string | undefined;
+    initialProblemId?: string | undefined;
     onsuccess: () => void;
     oncancel?: (() => void) | undefined;
   }
@@ -31,17 +34,25 @@
     students,
     problems,
     existing = null,
+    initialCourseMembershipId,
+    initialProblemId,
     onsuccess,
     oncancel,
   }: Props = $props();
 
-  let studentUserId = $state<string>(
-    ((): string => existing?.studentUserId ?? students[0]?.id ?? "")(),
+  let courseMembershipId = $state<string>(
+    untrack(
+      () =>
+        existing?.courseMembershipId ??
+        initialCourseMembershipId ??
+        students[0]?.courseMembershipId ??
+        "",
+    ),
   );
   let problemId = $state<string>(
-    ((): string => existing?.problemId ?? problems[0]?.id ?? "")(),
+    untrack(() => existing?.problemId ?? initialProblemId ?? problems[0]?.id ?? ""),
   );
-  let comment = $state<string>(((): string => existing?.comment ?? "")());
+  let comment = $state(untrack(() => existing?.comment ?? ""));
   let submitting = $state(false);
   let error = $state<string | null>(null);
 
@@ -54,6 +65,10 @@
     if (submitting) return;
     error = null;
 
+    if (!courseMembershipId || !problemId) {
+      error = m.feedback_staff_toastError();
+      return;
+    }
     if (commentEmpty) {
       error = m.feedback_staff_commentMinError();
       return;
@@ -72,7 +87,7 @@
       const res = await fetch("/api/feedback", {
         method: "PUT",
         headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
-        body: JSON.stringify({ context, studentUserId, problemId, comment }),
+        body: JSON.stringify({ context, courseMembershipId, problemId, comment }),
       });
 
       if (res.ok) {
@@ -80,7 +95,7 @@
           mode === "create" ? m.feedback_staff_toastCreated() : m.feedback_staff_toastUpdated(),
         );
         if (mode === "create") {
-          studentUserId = students[0]?.id ?? "";
+          courseMembershipId = students[0]?.courseMembershipId ?? "";
           problemId = problems[0]?.id ?? "";
           comment = "";
         }
@@ -110,13 +125,17 @@
       <select
         id="fb-student"
         class="h-11 rounded-md border border-input bg-background px-3 py-2 text-body-sm"
-        bind:value={studentUserId}
+        bind:value={courseMembershipId}
         disabled={mode === "edit" || submitting}
       >
-        {#each students as s (s.id)}
-          <option value={s.id}>
-            {s.name}{s.username ? ` (${s.username})` : ""}
-          </option>
+        {#each students as s (s.rowId)}
+          {#if s.courseMembershipId}
+            <option value={s.courseMembershipId}>
+              {s.name}{s.username ? ` (${s.username})` : ""}{s.userId === null
+                ? ` · ${m.members_pendingActivation()}`
+                : ""}
+            </option>
+          {/if}
         {/each}
       </select>
     </div>

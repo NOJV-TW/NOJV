@@ -141,17 +141,19 @@
   );
 
   let showOverrideDrawer = $state(false);
-  let overridePrefill = $state<{ userId: string; problemId: string } | null>(null);
+  let overridePrefill = $state<{ rowId: string; problemId: string } | null>(null);
   const canSetOverride = $derived(data.canSetOverride ?? false);
 
-  function gradeCell(userId: string, problemId: string) {
-    overridePrefill = { userId, problemId };
+  function gradeCell(rowId: string, problemId: string) {
+    overridePrefill = { rowId, problemId };
     showOverrideDrawer = true;
   }
   const overrideStudents = $derived(
     data.matrix
       ? data.matrix.rows.map((r) => ({
-          id: r.userId,
+          rowId: r.rowId,
+          courseMembershipId: r.courseMembershipId,
+          userId: r.userId,
           username: r.handle,
           name: r.displayName,
         }))
@@ -628,11 +630,11 @@
             title: p.title,
           }))}
           students={data.matrix
-            ? data.matrix.rows.map((r) => ({
-                userId: r.userId,
-                displayName: r.displayName,
-                handle: r.handle,
-              }))
+            ? data.matrix.rows.flatMap((r) =>
+                r.userId === null
+                  ? []
+                  : [{ userId: r.userId, displayName: r.displayName, handle: r.handle }],
+              )
             : []}
         />
       {:else if activeSubTabKey === "proctoring"}

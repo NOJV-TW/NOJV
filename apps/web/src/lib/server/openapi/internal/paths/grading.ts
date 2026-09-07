@@ -61,7 +61,7 @@ export const gradingPaths = {
       summary: "Create or update grading feedback",
       operationId: "upsertGradingFeedback",
       description:
-        "Creates or updates one feedback row for a student/problem within an assignment or exam context.",
+        "Creates or updates feedback for a courseMembershipId/problem after the assignment or exam closes. Includes students who have not activated an account. Requires course staff permissions.",
       requestBody: {
         required: true,
         content: {
@@ -210,6 +210,8 @@ export const gradingPaths = {
       tags: ["Grading"],
       summary: "Create score override",
       operationId: "createScoreOverride",
+      description:
+        "After close, assignment/exam overrides require courseMembershipId and forbid userId; contest overrides require userId and forbid courseMembershipId. Staff permission and point-sum scoring rules apply.",
       requestBody: {
         required: true,
         content: {

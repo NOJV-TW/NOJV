@@ -4,11 +4,6 @@ enum PlatformRole {
   student
 }
 
-enum UserStatus {
-  active
-  pending_first_login
-}
-
 enum ApiTokenStatus {
   active
   revoked
@@ -26,7 +21,6 @@ model User {
   platformRole              PlatformRole @default(student)
   isSuperAdmin              Boolean      @default(false)
   disabled                  Boolean      @default(false)
-  status                    UserStatus   @default(active)
   mustChangePassword        Boolean      @default(false)
   twoFactorEnabled          Boolean      @default(false)
   securityGeneration        Int          @default(0)
@@ -72,7 +66,6 @@ model User {
   assessmentAuditLogs            AssessmentAuditLog[]         @relation("AssessmentAuditActor")
   contentReportsFiled            ContentReport[]              @relation("ContentReportReporter")
   contentReportsResolved         ContentReport[]              @relation("ContentReportResolver")
-  submissionFeedbackReceived     SubmissionFeedback[]         @relation("SubmissionFeedbackStudent")
   submissionFeedbackAuthored     SubmissionFeedback[]         @relation("SubmissionFeedbackAuthor")
   submissionFeedbackAuditChanges SubmissionFeedbackAuditLog[] @relation("SubmissionFeedbackAuditChanger")
   triggeredPlagiarismLogs        PlagiarismTriggerLog[]       @relation("PlagiarismTriggerLogTriggerer")

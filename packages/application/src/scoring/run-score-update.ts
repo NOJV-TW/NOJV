@@ -13,7 +13,7 @@ interface ScoredSubmission {
 }
 
 interface OverrideRow {
-  userId: string;
+  userId: string | null;
   problemId: string;
   overrideScore: number;
 }

@@ -1,5 +1,5 @@
 import { json } from "@sveltejs/kit";
-import { z } from "zod";
+import type { z } from "zod";
 
 import type { RequestHandler } from "./$types";
 
@@ -11,20 +11,10 @@ import {
   readJsonBody,
 } from "$lib/server/shared/api-handler";
 import { scoreOverrideDomain } from "@nojv/application";
-
-const contextSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("assignment"), assignmentId: z.string().min(1) }),
-  z.object({ type: z.literal("exam"), examId: z.string().min(1) }),
-  z.object({ type: z.literal("contest"), contestId: z.string().min(1) }),
-]);
-
-const createSchema = z.object({
-  userId: z.string().min(1),
-  problemId: z.string().min(1),
-  context: contextSchema,
-  overrideScore: z.number().int().min(0),
-  reason: z.string().min(1).max(500),
-});
+import {
+  scoreOverrideContextSchema as contextSchema,
+  scoreOverrideCreateSchema,
+} from "@nojv/core";
 
 function parseContextQuery(url: URL): z.infer<typeof contextSchema> {
   const type = url.searchParams.get("type");
@@ -53,7 +43,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
-  const body = createSchema.parse(await readJsonBody(event));
+  const body = scoreOverrideCreateSchema.parse(await readJsonBody(event));
 
   const row = await scoreOverrideDomain.createOverride(actor, body);
   return json(row, { status: 201 });

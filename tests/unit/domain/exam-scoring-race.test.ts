@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   findExamForScoring,
   findMany,
-  findAllByContext,
+  findForExamUser,
   updateWithVersion,
   UnifiedParticipationVersionConflict,
 } = vi.hoisted(() => {
@@ -20,7 +20,7 @@ const {
   return {
     findExamForScoring: vi.fn(),
     findMany: vi.fn(),
-    findAllByContext: vi.fn(),
+    findForExamUser: vi.fn(),
     updateWithVersion: vi.fn(),
     UnifiedParticipationVersionConflict,
   };
@@ -36,7 +36,7 @@ vi.mock("@nojv/db", () => ({
     findMany,
   },
   scoreOverrideRepo: {
-    findAllByContext,
+    findForExamUser,
   },
   UnifiedParticipationVersionConflict,
 }));
@@ -70,7 +70,7 @@ function participationFixture(version: number) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  findAllByContext.mockResolvedValue([]);
+  findForExamUser.mockResolvedValue([]);
 });
 
 describe("updateExamScores — optimistic locking", () => {
@@ -187,5 +187,20 @@ describe("updateExamScores — judge-pipeline entry point", () => {
     await updateExamScores(EXAM_ID, USER_ID);
 
     expect(updateWithVersion).not.toHaveBeenCalled();
+  });
+});
+
+it("applies a linked membership's manual grade through normal optimistic score persistence", async () => {
+  findExamForScoring.mockResolvedValue(participationFixture(2));
+  findMany.mockResolvedValue([]);
+  findForExamUser.mockResolvedValue([
+    { userId: USER_ID, problemId: PROBLEM_ID, overrideScore: 90 },
+  ]);
+  updateWithVersion.mockResolvedValue({ id: PARTICIPATION_ID, version: 3 });
+  await updateExamScores(EXAM_ID, USER_ID);
+  expect(findForExamUser).toHaveBeenCalledWith(EXAM_ID, USER_ID);
+  expect(updateWithVersion).toHaveBeenCalledWith(PARTICIPATION_ID, 2, {
+    score: 90,
+    subtaskScores: { [PROBLEM_ID]: 90 },
   });
 });

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { enhance } from "$app/forms";
+  import { deserialize, enhance } from "$app/forms";
   import { goto, invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { authClient } from "$lib/auth.client";
@@ -93,15 +93,33 @@
 
     loading = true;
 
-    const { error: updateError } = await authClient.updateUser({
-      username: normalized,
-    });
-
-    loading = false;
-
-    if (updateError) {
-      error = updateError.message ?? m.onboarding_failedToSaveUsername();
+    try {
+      const body = new FormData();
+      body.set("username", normalized);
+      const response = await fetch("?/setUsername", {
+        method: "POST",
+        body,
+        headers: { accept: "application/json", "x-sveltekit-action": "true" },
+      });
+      const result = deserialize(await response.text());
+      if (result.type !== "success") {
+        const parsed =
+          result.type === "failure" ? actionErrorSchema.safeParse(result.data) : null;
+        const code = parsed?.success ? parsed.data.error : "";
+        const messages: Record<string, string> = {
+          TAKEN: m.account_usernameTaken(),
+          VERIFIED_LOCKED: m.account_usernameLockedByVerification(),
+          RESERVED_FORMAT: m.onboarding_usernameReserved(),
+          INVALID_FORMAT: m.onboarding_usernamePatternError(),
+        };
+        error = messages[code] ?? (code || m.onboarding_failedToSaveUsername());
+        return;
+      }
+    } catch {
+      error = m.onboarding_failedToSaveUsername();
       return;
+    } finally {
+      loading = false;
     }
 
     await invalidateAll();

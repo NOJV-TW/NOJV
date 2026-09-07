@@ -260,6 +260,22 @@ docker compose exec -T postgres \
 Keep a rolling window (e.g. 30 daily dumps) and delete older ones. Verify
 a dump is non-empty and restorable, not just that the file exists.
 
+### Historical storage-pointer dumps
+
+Migration `20260907000002_storage_pointer_map_restore` qualifies the nested
+`public.storage_pointer_valid` call so testcase map CHECKs work with
+`pg_restore`'s empty `search_path`. Older custom-format archives retain the
+unqualified function body and can fail during `COPY Testcase`.
+
+For those archives, on the isolated restore target: restore `--section=pre-data`,
+run `ALTER FUNCTION public.storage_pointer_map_valid(jsonb) SET search_path = public;`,
+then restore `--section=data` and `--section=post-data`. Use `--exit-on-error`
+for each restore. Finally run
+`ALTER FUNCTION public.storage_pointer_map_valid(jsonb) RESET search_path;`
+and apply the unchanged forward migrations before starting application writers.
+The temporary function setting allows the historical data to restore without
+disabling CHECKs or changing the archive; the forward migration fixes future dumps.
+
 ### Restore procedure
 
 Restore into a **fresh** database, validate, then cut over — never restore

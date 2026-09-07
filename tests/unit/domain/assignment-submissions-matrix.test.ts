@@ -10,7 +10,7 @@ const {
   findDetailById: vi.fn(),
   findStudents: vi.fn(),
   groupByUserAndProblem: vi.fn(),
-  findAllOverrides: vi.fn(() => Promise.resolve([])),
+  findAllOverrides: vi.fn(),
   findScoringInputsByIds: vi.fn((ids: string[]) =>
     Promise.resolve(
       ids.map((id) => ({
@@ -51,6 +51,8 @@ function fakeAssignment(closesAt: Date) {
 
 function fakeStudent(userId: string, name: string, username: string | null = null) {
   return {
+    id: `m_${userId}`,
+    pendingUsername: null,
     userId,
     user: { id: userId, name, username },
   };
@@ -141,4 +143,23 @@ describe("buildSubmissionsMatrix", () => {
     });
     expect(out.rows[0]?.total).toBe(0);
   });
+});
+
+it("shows a pending student's manual assignment grade without inventing attempts", async () => {
+  findDetailById.mockResolvedValue(fakeAssignment(new Date("2020-01-01")));
+  findStudents.mockResolvedValue([
+    { id: "mem_pending", userId: null, pendingUsername: "student_future", user: null },
+  ]);
+  groupByUserAndProblem.mockResolvedValue([]);
+  findAllOverrides.mockResolvedValue([
+    { userId: null, courseMembershipId: "mem_pending", problemId: "p1", overrideScore: 75 },
+  ]);
+  const out = await buildSubmissionsMatrix("course_1", "a1");
+  expect(out.rows[0]).toMatchObject({
+    rowId: "mem_pending",
+    courseMembershipId: "mem_pending",
+    userId: null,
+    total: 75,
+  });
+  expect(out.rows[0].cells[0]).toMatchObject({ score: 75, attempts: 0, practiceAttempts: 0 });
 });

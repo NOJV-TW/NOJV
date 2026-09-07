@@ -95,6 +95,7 @@ export function resolveScoredState(score: number, points: number): ExamProblemVi
 async function computeViewerScores(
   examId: string,
   viewerUserId: string,
+  courseMembershipId: string | null,
   problemRows: ExamDetailProblemRow[],
   maxByProblem: Map<string, number>,
 ): Promise<{
@@ -121,8 +122,10 @@ async function computeViewerScores(
   let total = 0;
   for (const ep of problemRows) {
     const max = maxByProblem.get(ep.problem.id) ?? ep.points;
-    const overrideKey = `${viewerUserId}::${ep.problem.id}`;
-    const override = overrides.get(overrideKey);
+    const override =
+      courseMembershipId === null
+        ? undefined
+        : overrides.get(`${courseMembershipId}::${ep.problem.id}`);
     const hit = bestByProblem.get(ep.problem.id);
     let score: number;
     let state: ExamProblemViewerState;
@@ -175,7 +178,13 @@ export async function getExamDetailPage(
     !options.isManager && derivedStatus === "ended" && problemRows.length > 0;
 
   const viewerScores = enrichWithViewerScores
-    ? await computeViewerScores(examId, options.viewerUserId, problemRows, maxByProblem)
+    ? await computeViewerScores(
+        examId,
+        options.viewerUserId,
+        students.find((s) => s.userId === options.viewerUserId)?.id ?? null,
+        problemRows,
+        maxByProblem,
+      )
     : {
         viewerStateByProblem: new Map<string, ExamProblemViewerState>(),
         viewerTotalScore: null,

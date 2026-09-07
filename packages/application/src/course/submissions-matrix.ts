@@ -14,7 +14,9 @@ export type { MatrixCellState } from "../shared/submissions-matrix";
 export type { MatrixCell, MatrixProblemColumn };
 
 export interface MatrixRow {
-  userId: string;
+  rowId: string;
+  courseMembershipId: string | null;
+  userId: string | null;
   displayName: string;
   handle: string;
   cells: MatrixCell[];
@@ -64,7 +66,10 @@ export async function buildSubmissionsMatrix(
     };
   }
 
-  const studentIds = students.map((s) => s.userId);
+  const studentIds = students.flatMap((s) => (s.userId === null ? [] : [s.userId]));
+  const membershipByUser = new Map(
+    students.flatMap((s) => (s.userId === null ? [] : [[s.userId, s.id] as const])),
+  );
   const problemIds = problems.map((p) => p.problemId);
   const closed = assignment.closesAt < (options.now ?? new Date());
 
@@ -92,13 +97,17 @@ export async function buildSubmissionsMatrix(
       : Promise.resolve([]),
   ]);
   for (const g of grouped) {
-    scoreIndex.set(`${g.userId}::${g.problemId}`, {
+    const membershipId = membershipByUser.get(g.userId);
+    if (!membershipId) continue;
+    scoreIndex.set(`${membershipId}::${g.problemId}`, {
       best: g._max.score ?? 0,
       count: g._count.id,
     });
   }
   for (const g of practiceGrouped) {
-    practiceIndex.set(`${g.userId}::${g.problemId}`, {
+    const membershipId = membershipByUser.get(g.userId);
+    if (!membershipId) continue;
+    practiceIndex.set(`${membershipId}::${g.problemId}`, {
       best: g._max.score ?? 0,
       count: g._count.id,
     });
@@ -112,9 +121,11 @@ export async function buildSubmissionsMatrix(
   return assembleMatrix({
     problems,
     participants: students.map((student) => ({
+      rowId: student.id,
+      courseMembershipId: student.id,
       userId: student.userId,
-      displayName: student.user.name,
-      handle: student.user.username ?? "",
+      displayName: student.user?.name ?? student.pendingUsername ?? "",
+      handle: student.user?.username ?? student.pendingUsername ?? "",
     })),
     scoreIndex,
     overrides,

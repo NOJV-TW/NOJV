@@ -36,7 +36,7 @@
     return trimmed.length > 0 ? trimmed.charAt(0) : "?";
   }
 
-  let pendingRemove = $state<{ userId: string; name: string } | null>(null);
+  let pendingRemove = $state<{ membershipId: string; name: string } | null>(null);
 
   async function confirmRemove() {
     const target = pendingRemove;
@@ -44,7 +44,7 @@
     if (!target) return;
     try {
       const body = new FormData();
-      body.set("userId", target.userId);
+      body.set("membershipId", target.membershipId);
       const res = await fetch("?/remove", { method: "POST", body });
       if (!res.ok) {
         toasts.error(m.members_removeError());
@@ -58,12 +58,12 @@
 
   let roleDrafts = $state<Record<string, string | undefined>>({});
 
-  async function handleRoleChange(role: string, userId: string, previousRole: string) {
+  async function handleRoleChange(role: string, membershipId: string, previousRole: string) {
     if (role === previousRole) return;
-    roleDrafts[userId] = role;
+    roleDrafts[membershipId] = role;
     try {
       const body = new FormData();
-      body.set("userId", userId);
+      body.set("membershipId", membershipId);
       body.set("role", role);
       const res = await fetch("?/changeRole", { method: "POST", body });
       if (!res.ok) {
@@ -75,7 +75,7 @@
     } catch {
       toasts.error(m.members_roleChangeError());
     } finally {
-      roleDrafts[userId] = undefined;
+      roleDrafts[membershipId] = undefined;
     }
   }
 
@@ -142,12 +142,16 @@
             </td>
           </tr>
         {:else}
-          {#each filtered as member (member.userId)}
-            <tr class="border-t border-border-subtle transition-colors hover:bg-muted/25">
+          {#each filtered as member (member.membershipId)}
+            <tr
+              data-membership-id={member.membershipId}
+              data-is-pending={member.isPending}
+              class="border-t border-border-subtle transition-colors hover:bg-muted/25"
+            >
               <td class="px-4 py-3">
                 <div class="flex items-center gap-3">
                   <div
-                    class="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-body font-semibold text-primary-foreground {member.isPlaceholder
+                    class="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-body font-semibold text-primary-foreground {member.isPending
                       ? 'opacity-50'
                       : ''}"
                     aria-hidden="true"
@@ -159,12 +163,12 @@
                         class="size-full rounded-full object-cover"
                       />
                     {:else}
-                      {member.isPlaceholder ? "?" : initialFor(member.name)}
+                      {member.isPending ? "?" : initialFor(member.name)}
                     {/if}
                   </div>
                   <div class="whitespace-nowrap">
-                    <div class={member.isPlaceholder ? "text-muted-foreground" : "font-medium"}>
-                      {member.isPlaceholder ? m.members_placeholderNotLoggedIn() : member.name}
+                    <div class={member.isPending ? "text-muted-foreground" : "font-medium"}>
+                      {member.isPending ? m.members_pendingActivation() : member.name}
                     </div>
                     <div class="mt-0.5 font-mono text-caption text-muted-foreground">
                       {member.username ?? "—"}
@@ -182,11 +186,7 @@
               <td
                 class="whitespace-nowrap px-4 py-3 text-caption text-muted-foreground tabular-nums"
               >
-                {#if member.isPlaceholder}
-                  {m.members_placeholderJoined()}
-                {:else}
-                  {formatJoined(member.joinedAt)}
-                {/if}
+                {formatJoined(member.joinedAt)}
               </td>
               <td class="whitespace-nowrap px-4 py-3 text-caption">
                 {#if member.role === "teacher"}
@@ -194,17 +194,17 @@
                 {:else if isManager}
                   <Select.Root
                     type="single"
-                    value={roleDrafts[member.userId] ?? member.role}
-                    disabled={Boolean(roleDrafts[member.userId])}
+                    value={roleDrafts[member.membershipId] ?? member.role}
+                    disabled={Boolean(roleDrafts[member.membershipId])}
                     onValueChange={(value) =>
-                      void handleRoleChange(value, member.userId, member.role)}
+                      void handleRoleChange(value, member.membershipId, member.role)}
                   >
                     <Select.Trigger
                       size="sm"
                       class="rounded-none border-0 border-b border-border bg-transparent px-1 text-caption shadow-none! dark:bg-transparent dark:hover:bg-transparent"
                       aria-label={m.members_roleFor({ name: member.name })}
                     >
-                      {(roleDrafts[member.userId] ?? member.role) === "ta"
+                      {(roleDrafts[member.membershipId] ?? member.role) === "ta"
                         ? m.members_roleTa()
                         : m.members_roleStudent()}
                     </Select.Trigger>
@@ -228,7 +228,10 @@
                       aria-label={m.members_removeAction()}
                       title={m.members_removeAction()}
                       onclick={() =>
-                        (pendingRemove = { userId: member.userId, name: member.name })}
+                        (pendingRemove = {
+                          membershipId: member.membershipId,
+                          name: member.name,
+                        })}
                     >
                       <X aria-hidden="true" class="size-4" />
                     </button>

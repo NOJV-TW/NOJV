@@ -8,7 +8,7 @@
     data: AssignmentResults;
     matrix: courseDomain.SubmissionsMatrix;
     assignmentId: string;
-    oncellclick?: ((userId: string, problemId: string) => void) | undefined;
+    oncellclick?: ((rowId: string, problemId: string) => void) | undefined;
   }
 
   let { data, matrix, assignmentId, oncellclick }: Props = $props();
