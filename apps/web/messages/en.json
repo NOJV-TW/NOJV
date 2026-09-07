@@ -2409,5 +2409,11 @@
   "rejudge_cancel_requested": "Cancellation requested",
   "audit_detailScoreOverrideMerge": "Course records merged: {oldScore} → {newScore}",
   "members_addSuccess": "Added {added} members ({pending} new members awaiting activation, {skipped} skipped)",
-  "members_pendingActivation": "Not yet activated"
+  "members_pendingActivation": "Not yet activated",
+  "members_correctUsername": "Correct username",
+  "members_usernameCorrected": "Username corrected",
+  "members_usernameCorrectionError": "Could not correct the username. Please try again.",
+  "members_alreadyLinked": "This membership is already linked. Please refresh the page.",
+  "members_accountUnavailable": "This account is disabled and cannot be linked.",
+  "members_usernameConflict": "This username already has a course membership. No data was changed."
 }

@@ -103,11 +103,38 @@ describe("course roster grading contract (real DB)", () => {
       total: 180,
     });
 
-    const student = await createTestUser({ username: "ntu_b12345678" });
-    await testPrisma.courseMembership.update({
-      where: { id: membership.id },
-      data: { userId: student.id, pendingUsername: null },
+    const feedbackBefore = await testPrisma.submissionFeedback.findMany({
+      where: { courseMembershipId: membership.id },
     });
+    await courseDomain.correctPendingUsername(
+      actor,
+      course.id,
+      membership.id,
+      " NTU_B12345679 ",
+    );
+    expect(
+      await testPrisma.courseMembership.findUnique({ where: { id: membership.id } }),
+    ).toEqual({ ...membership, pendingUsername: "ntu_b12345679", updatedAt: expect.any(Date) });
+    const student = await createTestUser({ username: "ntu_b12345679" });
+    await courseDomain.correctPendingUsername(
+      actor,
+      course.id,
+      membership.id,
+      student.username!,
+    );
+    expect(
+      await testPrisma.scoreOverride.findMany({ where: { courseMembershipId: membership.id } }),
+    ).toEqual(scores);
+    expect(
+      await testPrisma.scoreOverrideAuditLog.findMany({
+        where: { courseMembershipId: membership.id },
+      }),
+    ).toEqual(audits);
+    expect(
+      await testPrisma.submissionFeedback.findMany({
+        where: { courseMembershipId: membership.id },
+      }),
+    ).toEqual(feedbackBefore);
     const stranger = await createTestUser();
     for (const context of contexts) {
       expect(await feedbackDomain.getFeedbackForStudent(stranger.id, context)).toEqual([]);

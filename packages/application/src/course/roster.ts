@@ -129,15 +129,17 @@ export async function bindPendingMemberships(
   userId: string,
   username: string,
   schoolVerified: boolean,
+  courseId?: string,
 ): Promise<number> {
+  const where = { pendingUsername: username, ...(courseId ? { courseId } : {}) };
   const courses = await tx.courseMembership.findMany({
-    where: { pendingUsername: username },
+    where,
     select: { courseId: true },
     orderBy: { courseId: "asc" },
   });
   for (const row of courses) await lockCourseMembers(tx, row.courseId);
   const pending = await tx.courseMembership.findMany({
-    where: { pendingUsername: username },
+    where,
     include: { course: { select: { ownerId: true, title: true } } },
     orderBy: { courseId: "asc" },
   });
@@ -153,7 +155,8 @@ export async function bindPendingMemberships(
       const source = keepPending ? existing : row;
       targetId = target.id;
       await mergeGrades(tx, source.id, target.id, userId);
-      if (keepPending && (existing.role === "teacher" || row.course.ownerId === userId)) {
+      const protectedMember = existing.role === "teacher" || row.course.ownerId === userId;
+      if (keepPending && protectedMember) {
         await tx.courseMembership.update({
           where: { id: target.id },
           data: {
@@ -161,6 +164,15 @@ export async function bindPendingMemberships(
             status: existing.status,
             removedAt: existing.removedAt,
           },
+        });
+      } else if (
+        !protectedMember &&
+        source.status === "removed" &&
+        target.status !== "removed"
+      ) {
+        await tx.courseMembership.update({
+          where: { id: target.id },
+          data: { status: "removed", removedAt: source.removedAt },
         });
       }
       await tx.courseMembership.delete({ where: { id: source.id } });

@@ -29,7 +29,7 @@ test("staff can enroll all school username formats and manage pending membership
       memberships.push(membershipId!);
       await expect(row.locator('a[href^="/users/"]')).toHaveCount(0);
     }
-    const row = page.locator("[data-membership-id]").filter({ hasText: handles[3]! });
+    const row = page.locator(`[data-membership-id="${memberships[3]}"]`);
     const roleButton = row.getByRole("button", { name: /Change role for/ });
     const changed = page.waitForRequest((request) => request.url().includes("?/changeRole"));
     await roleButton.click();
@@ -39,6 +39,13 @@ test("staff can enroll all school username formats and manage pending membership
     expect(request.postData()).not.toContain('name="userId"');
     await expect(roleButton).toBeEnabled();
     await expect(roleButton).toHaveText("Teaching Assistant");
+
+    await row.getByRole("button", { name: "Correct username", exact: true }).click();
+    await row.getByRole("textbox", { name: "Correct username", exact: true }).fill(handles[0]!);
+    await row.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(row.getByRole("alert")).toContainText("already has a course membership");
+    await row.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(row).toContainText(handles[3]!);
 
     const studentPage = await student.newPage();
     await studentPage.goto(membersUrl);
@@ -81,7 +88,7 @@ for (const assessment of [
     const teacher = await browser.newContext({ storageState: teacherAuth });
     const student = await browser.newContext({ storageState: studentAuth });
     const page = await teacher.newPage();
-    const handle = `grade_${randomUUID()}`;
+    let handle = `grade_${randomUUID()}`;
     let membershipId: string | null = null;
     let overrideId: string | null = null;
     let feedbackId: string | null = null;
@@ -147,6 +154,22 @@ for (const assessment of [
       feedbackId = (await feedback.json()).id;
       await page.keyboard.press("Escape");
       await expect(gradeRow).toContainText("80");
+
+      await page.goto(membersUrl);
+      await expect(
+        page.getByRole("button", { name: "Open account menu for Teacher", exact: true }),
+      ).toBeEnabled();
+      const correctionRow = page.locator(`[data-membership-id="${membershipId}"]`);
+      await correctionRow
+        .getByRole("button", { name: "Correct username", exact: true })
+        .click();
+      handle = `corrected_${randomUUID()}`;
+      await correctionRow
+        .getByRole("textbox", { name: "Correct username", exact: true })
+        .fill(handle);
+      await correctionRow.getByRole("button", { name: "Save", exact: true }).click();
+      await expect(correctionRow.getByRole("textbox")).toHaveCount(0);
+      await expect(correctionRow).toContainText(handle);
 
       await page.goto(`/courses/${courseId}/grades`);
       await expect(

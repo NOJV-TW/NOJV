@@ -163,7 +163,11 @@ and `pendingUsername` is set. Pending usernames are normalized lowercase handles
 cover `(courseId, userId)` and `(courseId, pendingUsername)`. Binding clears the
 pending username while preserving the membership ID, role, enrollment status,
 creator, and timestamps. Removed enrollment remains removed when an account
-signs in. `User` represents actual accounts; `disabled` controls account access.
+signs in, verifies a school identity, or renames its username. When two rows merge,
+either row's removal takes precedence, except for protected existing owner/teacher
+memberships. Correcting an unlinked username preserves its membership ID and all
+grading relations; collisions with another course membership are rejected.
+`User` represents actual accounts; `disabled` controls account access.
 Deleting a User with memberships is restricted; account removal must preserve
 that identity through anonymization and disabling.
 

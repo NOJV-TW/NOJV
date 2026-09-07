@@ -13,7 +13,12 @@ import {
 } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
-import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "../shared/errors";
 import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissions";
 import { requireCourse } from "../shared/require";
 import * as notificationDomain from "../notification";
@@ -82,6 +87,17 @@ export interface BulkAddResult {
   reactivated: number;
 }
 
+function validateRosterUsername(handle: string): void {
+  if (
+    !userHandleSchema.safeParse(handle).success ||
+    (isReservedUsername(handle) && !isCanonicalSchoolUsername(handle))
+  ) {
+    throw new ValidationError(
+      "Use a valid username: NTNU student ID, ntu_ student ID, ntust_ student ID, or a general username.",
+    );
+  }
+}
+
 export async function bulkAddByHandle(
   actor: ActorContext,
   courseId: string,
@@ -90,18 +106,8 @@ export async function bulkAddByHandle(
   const handles = [
     ...new Set(payload.handles.map((handle) => handle.trim().toLowerCase())),
   ].filter(Boolean);
-  if (
-    handles.length === 0 ||
-    handles.some(
-      (handle) =>
-        !userHandleSchema.safeParse(handle).success ||
-        (isReservedUsername(handle) && !isCanonicalSchoolUsername(handle)),
-    )
-  ) {
-    throw new ValidationError(
-      "Use a valid username: NTNU student ID, ntu_ student ID, ntust_ student ID, or a general username.",
-    );
-  }
+  if (handles.length === 0) throw new ValidationError("Enter at least one username.");
+  handles.forEach(validateRosterUsername);
   return runTransaction(async (tx) => {
     await lockRosterIdentity(tx);
     const users = await tx.user.findMany({
@@ -242,6 +248,44 @@ export async function changeMemberRole(
     if (role === "teacher" && actorRole !== "admin")
       throw new ForbiddenError("Only an admin can promote a member to teacher.");
     return courseMembershipAdminRepo.withTx(tx).updateRole(courseId, membershipId, role);
+  });
+}
+
+export async function correctPendingUsername(
+  actor: ActorContext,
+  courseId: string,
+  membershipId: string,
+  username: string,
+) {
+  const normalized = username.trim().toLowerCase();
+  validateRosterUsername(normalized);
+  return runTransaction(async (tx) => {
+    await lockRosterIdentity(tx);
+    const { member } = await requireManagedMember(tx, actor, courseId, membershipId);
+    if (member.userId !== null) throw new ConflictError("ROSTER_ALREADY_LINKED");
+    const user = await tx.user.findUnique({ where: { username: normalized } });
+    if (user?.disabled) throw new ConflictError("ROSTER_ACCOUNT_UNAVAILABLE");
+    const conflict = await tx.courseMembership.findFirst({
+      where: {
+        courseId,
+        id: { not: membershipId },
+        OR: [{ pendingUsername: normalized }, ...(user ? [{ userId: user.id }] : [])],
+      },
+    });
+    if (conflict) throw new ConflictError("ROSTER_USERNAME_CONFLICT");
+    await tx.courseMembership.update({
+      where: { id: membershipId },
+      data: { pendingUsername: normalized },
+    });
+    if (user) {
+      await bindPendingMemberships(
+        tx,
+        user.id,
+        normalized,
+        isCanonicalSchoolUsername(normalized),
+        courseId,
+      );
+    }
   });
 }
 

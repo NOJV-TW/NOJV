@@ -2409,5 +2409,11 @@
   "rejudge_cancel_requested": "已提出取消要求",
   "audit_detailScoreOverrideMerge": "合併課程紀錄：{oldScore} → {newScore}",
   "members_addSuccess": "已加入 {added} 位成員（新增 {pending} 筆尚未啟用名單，略過 {skipped} 位）",
-  "members_pendingActivation": "尚未啟用"
+  "members_pendingActivation": "尚未啟用",
+  "members_correctUsername": "更正帳號",
+  "members_usernameCorrected": "帳號已更正",
+  "members_usernameCorrectionError": "無法更正帳號，請重試。",
+  "members_alreadyLinked": "此名單已連結帳號，請重新整理頁面。",
+  "members_accountUnavailable": "此帳號已停用，無法連結。",
+  "members_usernameConflict": "此帳號已有課程名單，未變更任何資料。"
 }
