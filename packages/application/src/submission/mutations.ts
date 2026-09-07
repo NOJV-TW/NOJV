@@ -305,6 +305,11 @@ export async function createQueuedSubmissionRecord(
   const judgeJob = buildSubmissionJudgeJob(payload, submissionId);
 
   await runTransaction(async (tx) => {
+    if (payload.context.type === "exam") {
+      const lockKey = `exam-session:${actor.userId}`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
+    }
+
     const assignmentContext = payload.context.type === "assignment" ? payload.context : null;
     const [problem, courseContext, user, activeExamSession] = await Promise.all([
       requireProblem(tx, payload.problemId),

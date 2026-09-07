@@ -76,13 +76,19 @@ export async function startSession(actor: ActorContext, { examId }: { examId: st
     const existingParticipation = await participationRepo
       .withTx(tx)
       .findExamParticipation(examId, actor.userId);
+    const existing = await examSessionRepo.withTx(tx).findByUserAndExam(actor.userId, examId);
+    if (
+      existing?.releaseReason === "submitted" ||
+      existingParticipation?.status === "submitted"
+    ) {
+      throw new ForbiddenError("You have already submitted this exam.");
+    }
+
     const activateOnEntry =
       !existingParticipation || existingParticipation.status === "registered";
     await participationRepo
       .withTx(tx)
       .upsertExamActive(examId, actor.userId, activateOnEntry, new Date());
-
-    const existing = await examSessionRepo.withTx(tx).findByUserAndExam(actor.userId, examId);
 
     if (existing?.endedAt === null) {
       return existing;
@@ -114,6 +120,9 @@ export async function endSession(
   { examId, reason }: { examId: string; reason: ExamSessionReleaseReason },
 ) {
   return runTransaction(async (tx) => {
+    const lockKey = `exam-session:${actor.userId}`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
+
     await assertEnrolledInExamCourse(tx, actor.userId, examId);
 
     const session = await examSessionRepo.withTx(tx).findByUserAndExam(actor.userId, examId);
@@ -122,8 +131,15 @@ export async function endSession(
       throw new NotFoundError("No active exam session to end.");
     }
 
+    if (session.releaseReason === "submitted") return session;
+
+    const now = new Date();
+    if (reason === "submitted") {
+      await participationRepo.withTx(tx).markExamSubmitted(examId, actor.userId, now);
+    }
+
     const updated = await examSessionRepo.withTx(tx).update(session.id, {
-      endedAt: new Date(),
+      endedAt: now,
       releaseReason: reason,
     });
 
@@ -222,6 +238,18 @@ export async function getActiveSessionContext(
       id: exam.courseId,
     },
   };
+}
+
+export async function getSessionState(userId: string, examId: string) {
+  return runTransaction(async (tx) => {
+    const [session, participation] = await Promise.all([
+      examSessionRepo.withTx(tx).findByUserAndExam(userId, examId),
+      participationRepo.withTx(tx).findExamParticipation(examId, userId),
+    ]);
+    const hasSubmitted =
+      session?.releaseReason === "submitted" || participation?.status === "submitted";
+    return { hasActiveSession: !hasSubmitted && session?.endedAt === null, hasSubmitted };
+  });
 }
 
 export async function requireActiveSessionForUserExam(userId: string, examId: string) {

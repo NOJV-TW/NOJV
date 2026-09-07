@@ -536,6 +536,30 @@ describe("createQueuedSubmissionRecord — exam time window", () => {
     expect(submissionCreate).not.toHaveBeenCalled();
   });
 
+  it("waits for hand-in to finish before reading the active session", async () => {
+    setupExamSubmitDefaults(new Date("2026-04-14T10:00:00.000Z"));
+    vi.setSystemTime(new Date("2026-04-14T09:30:00.000Z"));
+    let releaseLock!: () => void;
+    txExecuteRaw.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseLock = resolve;
+        }),
+    );
+
+    const pending = createQueuedSubmissionRecord(examDraft, fakeActor, "127.0.0.1");
+    expect(txExecuteRaw).toHaveBeenCalledWith(
+      expect.any(Array),
+      `exam-session:${fakeActor.userId}`,
+    );
+    expect(examSessionFindActiveForUser).not.toHaveBeenCalled();
+    examSessionFindActiveForUser.mockResolvedValue(null);
+    releaseLock();
+
+    await expect(pending).rejects.toThrow("An active session for this exam is required.");
+    expect(submissionCreate).not.toHaveBeenCalled();
+  });
+
   it("accepts a submission while the exam is still running and tags it from the session", async () => {
     setupExamSubmitDefaults(new Date("2026-04-14T10:00:00.000Z"));
     vi.setSystemTime(new Date("2026-04-14T09:30:00.000Z"));

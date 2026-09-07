@@ -1442,6 +1442,7 @@
   "examMode_countdownThreshold": "本次考試剩餘 {minutes} 分鐘。",
   "examMode_lockTooltip": "你正在考試模式，無法離開此頁面。",
   "examMode_timeUp": "時間到，你的作答已儲存。",
+  "examDetail_submittedNotice": "你已交卷，無法重新進入考試或繼續提交答案。整場考試結束後即可查看作答結果。",
   "examMode_submitEndButton": "提交並結束考試",
   "examMode_submitEndConfirm": "提交答案並結束考試？結束後將無法再修改。",
   "examMode_submitEndFailed": "提交失敗，請再試一次。",

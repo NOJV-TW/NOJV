@@ -6,11 +6,13 @@ import {
   ForbiddenError,
   HttpError,
   NotFoundError,
+  submissionDomain,
 } from "@nojv/application";
 
 import {
   createTestCourse,
   createTestExam,
+  createTestProblem,
   createTestUser,
   testPrisma,
 } from "../../fixtures/factories";
@@ -241,12 +243,68 @@ describe("examDomain.session — end (submitted)", () => {
     expect(updated.id).toBe(started.id);
     expect(updated.endedAt).not.toBeNull();
     expect(updated.releaseReason).toBe("submitted");
+    expect(
+      await testPrisma.participation.findUnique({
+        where: { type_examId_userId: { type: "exam", examId: exam.id, userId: actor.userId } },
+      }),
+    ).toMatchObject({ status: "submitted", submittedAt: updated.endedAt });
+    await expect(session.startSessionWithGate(actor, { examId: exam.id })).rejects.toThrow(
+      "You have already submitted this exam.",
+    );
+    await expect(
+      session.requireActiveSessionForUserExam(actor.userId, exam.id),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    const retried = await session.endSession(actor, { examId: exam.id, reason: "submitted" });
+    expect(retried.endedAt).toEqual(updated.endedAt);
+    expect(await session.getSessionState(actor.userId, exam.id)).toEqual({
+      hasActiveSession: false,
+      hasSubmitted: true,
+    });
+
+    const problem = await createTestProblem();
+    await expect(
+      submissionDomain.createQueuedSubmissionRecord(
+        {
+          problemId: problem.id,
+          language: "cpp17",
+          sourceCode: "int main() { return 0; }",
+          context: { type: "exam", examId: exam.id },
+          sampleOnly: false,
+        },
+        actor,
+        "127.0.0.1",
+      ),
+    ).rejects.toThrow("An active session for this exam is required.");
+    expect(
+      await testPrisma.submission.count({ where: { userId: actor.userId, examId: exam.id } }),
+    ).toBe(0);
 
     const events = await testPrisma.examSessionEvent.findMany({
       where: { sessionId: started.id, eventType: "release" },
     });
     expect(events).toHaveLength(1);
     expect(events[0]!.metadata).toEqual({ reason: "submitted" });
+  });
+
+  it("keeps hand-in final when start and end requests overlap", async () => {
+    const actor = await buildActor();
+    const { course } = await createCourseWithMember(actor.userId);
+    const exam = await createTestExam({
+      courseId: course.id,
+      status: "published",
+      ...inWindow(),
+    });
+    await session.startSessionWithGate(actor, { examId: exam.id });
+
+    const [ended] = await Promise.allSettled([
+      session.endSession(actor, { examId: exam.id, reason: "submitted" }),
+      session.startSessionWithGate(actor, { examId: exam.id }),
+    ]);
+    expect(ended.status).toBe("fulfilled");
+    expect(await session.getActiveSessionContext(actor.userId)).toBeNull();
+    await expect(session.startSessionWithGate(actor, { examId: exam.id })).rejects.toThrow(
+      "You have already submitted this exam.",
+    );
   });
 
   it("throws NotFoundError when a different student tries to end the wrong session", async () => {
@@ -344,6 +402,44 @@ describe("examDomain.session — end (released_by_instructor)", () => {
     });
 
     expect(updated.releaseReason).toBe("released_by_instructor");
+    await expect(
+      session.startSessionWithGate(studentActor, { examId: exam.id }),
+    ).resolves.toMatchObject({
+      session: { endedAt: null },
+    });
+    expect(await session.getSessionState(studentActor.userId, exam.id)).toEqual({
+      hasActiveSession: true,
+      hasSubmitted: false,
+    });
+  });
+
+  it("finalizes hand-in from a stale tab after an instructor release", async () => {
+    const teacher = await buildActor({ platformRole: "teacher" });
+    const student = await buildActor();
+    const { course } = await createCourseWithMember(teacher.userId, "teacher");
+    await testPrisma.courseMembership.create({
+      data: { courseId: course.id, userId: student.userId, role: "student", status: "active" },
+    });
+    const exam = await createTestExam({
+      courseId: course.id,
+      status: "published",
+      ...inWindow(),
+    });
+    await session.startSessionWithGate(student, { examId: exam.id });
+    await session.releaseSessionAsInstructor(teacher, {
+      examId: exam.id,
+      targetUserId: student.userId,
+    });
+
+    await session.endSession(student, { examId: exam.id, reason: "submitted" });
+
+    expect(await session.getSessionState(student.userId, exam.id)).toEqual({
+      hasActiveSession: false,
+      hasSubmitted: true,
+    });
+    await expect(session.startSessionWithGate(student, { examId: exam.id })).rejects.toThrow(
+      "You have already submitted this exam.",
+    );
   });
 
   it("throws ForbiddenError when a plain student tries to release another student's session", async () => {

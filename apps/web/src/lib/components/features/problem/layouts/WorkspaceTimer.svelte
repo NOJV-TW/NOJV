@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
+  import { deserialize } from "$app/forms";
   import { X } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/stores/toast";
@@ -49,14 +50,16 @@
     try {
       const response = await fetch(`/exams/${timer.examId}?/releaseSession`, {
         method: "POST",
+        headers: { accept: "application/json", "x-sveltekit-action": "true" },
         body: new FormData(),
       });
-      if (!response.ok) {
+      const result = deserialize(await response.text());
+      if (!response.ok || result.type !== "success") {
         toasts.error(m.examMode_submitEndFailed());
         ending = false;
         return;
       }
-      await goto(`/exams/${timer.examId}`);
+      await goto(`/exams/${timer.examId}`, { invalidateAll: true });
     } catch {
       toasts.error(m.examMode_submitEndFailed());
       ending = false;

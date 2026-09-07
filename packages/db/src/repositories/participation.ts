@@ -194,6 +194,13 @@ export const participationRepo = {
         });
       },
 
+      markExamSubmitted(examId: string, userId: string, submittedAt: Date) {
+        return tx.participation.updateMany({
+          where: { type: "exam", examId, userId, status: "active" },
+          data: { status: "submitted", submittedAt, version: { increment: 1 } },
+        });
+      },
+
       findExamIpPin(examId: string, userId: string) {
         return tx.participation.findUnique({
           select: { id: true, ipPin: true, ipGateExemptUntil: true },
