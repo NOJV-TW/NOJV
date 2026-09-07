@@ -41,6 +41,7 @@ model User {
   ownedCourses                   Course[]                     @relation("CourseOwner")
   courseMemberships              CourseMembership[]           @relation("CourseMembershipUser")
   createdMemberships             CourseMembership[]           @relation("CourseMembershipCreator")
+  addedCourseProblems            CourseProblem[]              @relation("CourseProblemCreator")
   createdAssessments             Assessment[]                 @relation("AssessmentCreator")
   createdContests                Contest[]                    @relation("ContestCreator")
   createdExams                   Exam[]                       @relation("ExamCreator")

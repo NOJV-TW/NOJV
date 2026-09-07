@@ -93,6 +93,22 @@ beforeEach(() => {
 });
 
 describe("problem testcase action authentication", () => {
+  it("allows an existing owner to import without creation eligibility", async () => {
+    const owner = { ...actor, emailVerified: false, platformRole: "student" as const };
+    requireApiAuth.mockReturnValue(owner);
+    canAuthorProblems.mockResolvedValue(false);
+    await importProblemBundle({
+      params: { id: "prob_1" },
+      request: new Request("http://localhost/api/problems/prob_1/bundle", {
+        method: "POST",
+        body: new Uint8Array([1, 2, 3]),
+      }),
+    } as unknown as Parameters<typeof importProblemBundle>[0]);
+    expect(canAuthorProblems).not.toHaveBeenCalled();
+    expect(assertProblemEditAccess).toHaveBeenCalledWith(owner, "prob_1");
+    expect(importBundle).toHaveBeenCalledWith(owner, "prob_1", Buffer.from([1, 2, 3]));
+  });
+
   it.each([
     "createTestcaseSet",
     "updateTestcaseSet",

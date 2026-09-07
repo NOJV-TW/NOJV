@@ -50,10 +50,18 @@ vi.mock("@nojv/db", async (importOriginal) => {
     findByComposite: courseMembershipFindByComposite,
   };
   const problemWithTx = {
+    lockForUpdate: vi.fn(),
     findMany: problemFindMany,
   };
   return {
     Prisma: actual.Prisma,
+    courseRepo: {
+      withTx: () => ({
+        lockForUpdate: vi.fn(),
+        findById: vi.fn(async () => ({ id: "crs_1", archived: false })),
+      }),
+    },
+    courseProblemRepo: { withTx: () => ({ add: vi.fn() }) },
     assessmentRepo: {
       withTx: () => assessmentWithTx,
     },
@@ -80,7 +88,12 @@ vi.mock("@nojv/db", async (importOriginal) => {
       withTx: () => ({ findByProblemId: testcaseSetFindByProblemId }),
     },
     runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
-      fn({ assessmentProblem: { findMany: assessmentProblemFindByAssessmentId } }),
+      fn({
+        $queryRaw: vi.fn(),
+        assessment: { findUnique: vi.fn(async () => ({ courseId: "crs_1" })) },
+        assessmentProblem: { findMany: assessmentProblemFindByAssessmentId },
+        courseProblem: { findMany: vi.fn(async () => []) },
+      }),
   };
 });
 
@@ -98,6 +111,7 @@ const replaceAssignmentDueSoon = vi.fn(async () => {});
 const cancelAssignmentDueSoon = vi.fn(async () => {});
 
 beforeEach(() => {
+  assessmentProblemFindByAssessmentId.mockResolvedValue([]);
   configureDomainOrchestration({
     cancelAssignmentDueSoon,
     cancelContestLifecycle: vi.fn(async () => {}),

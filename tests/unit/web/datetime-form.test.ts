@@ -37,6 +37,17 @@ describe("local datetime form conversion", () => {
     ).toEqual({ startsAt: "2026-09-07T16:30", title: "Exam" });
   });
 
+  it("preserves seconds in unchanged settings while serializing an edited deadline", () => {
+    expect(
+      serializeDateTimeFields(
+        { startsAt: "2026-09-07T16:30", endsAt: "2026-09-07T18:00" },
+        ["startsAt", "endsAt"],
+        -480,
+        { startsAt: "2026-09-07T08:30:30.123Z", endsAt: "2026-09-07T09:00:45.000Z" },
+      ),
+    ).toEqual({ startsAt: "2026-09-07T08:30:30.123Z", endsAt: "2026-09-07T10:00:00.000Z" });
+  });
+
   it("serializes datetime-local values in a regular enhanced FormData submission", () => {
     const formData = new FormData();
     formData.set("expiresAt", "2026-09-07T16:30");

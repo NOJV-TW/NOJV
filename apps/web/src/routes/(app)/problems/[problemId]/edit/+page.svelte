@@ -14,6 +14,9 @@
   import AdvancedImageConfigSection from "$lib/components/features/problem/advanced/AdvancedImageConfigSection.svelte";
   import RegistryCredentialCard from "$lib/components/features/problem/advanced/RegistryCredentialCard.svelte";
   import ReferenceSolutionSection from "$lib/components/features/problem/reference/ReferenceSolutionSection.svelte";
+  import CodeBlock from "$lib/components/primitives/ui/CodeBlock.svelte";
+  import CopyButton from "$lib/components/primitives/ui/CopyButton.svelte";
+  import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button } from "$lib/components/primitives/ui/button";
@@ -44,6 +47,11 @@
   let showPublishConfirm = $state(false);
   let showDeleteConfirm = $state(false);
   let isDeleting = $state(false);
+  let publishPublicCopy = $state(false);
+  let newOwnerUsername = $state("");
+  let isTransferring = $state(false);
+  let showTransferConfirm = $state(false);
+  const managesOwnership = $derived(data.permissions.isOwner || data.permissions.isAdmin);
 
   let isBasicInfoComplete = $derived(
     data.problem.title.trim() !== "" &&
@@ -64,9 +72,7 @@
 
   let canPublish = $derived(
     data.problem.status === "draft" &&
-      (data.permissions?.isAdmin !== true ||
-        data.permissions?.isOwner === true ||
-        data.permissions?.canPublishAsAdmin === true) &&
+      data.permissions.canEdit &&
       (isAdvanced
         ? isBasicInfoComplete &&
           (data.advancedConfig?.config?.run.imageRef ?? "") !== "" &&
@@ -76,7 +82,11 @@
   );
 
   let publishAction = $derived(
-    data.permissions?.canPublishAsAdmin === true ? "?/publishAsAdmin" : "?/publish",
+    publishPublicCopy
+      ? data.permissions.canPublishAsAdmin
+        ? "?/publishAsAdmin"
+        : "?/publishPublicCopy"
+      : "?/publish",
   );
 
   const workspaceInitial = untrack(() => {
@@ -131,7 +141,33 @@
   }
 
   function handlePublishClick() {
+    publishPublicCopy = false;
     showPublishConfirm = true;
+  }
+
+  async function transferOwnership() {
+    showTransferConfirm = false;
+    isTransferring = true;
+    const body = new FormData();
+    body.set("username", newOwnerUsername);
+    try {
+      const response = await fetch("?/transferOwnership", { method: "POST", body });
+      const result = deserialize(await response.text());
+      if (result.type !== "success") {
+        toasts.error(
+          result.type === "failure" && typeof result.data?.error === "string"
+            ? result.data.error
+            : m.error_unexpected(),
+        );
+        return;
+      }
+      toasts.success(m.problem_transferSuccess());
+      await goto("/problems?tab=mine");
+    } catch {
+      toasts.error(m.error_unexpected());
+    } finally {
+      isTransferring = false;
+    }
   }
 
   function handleDeleteConfirmed() {
@@ -206,8 +242,75 @@
   ]);
 </script>
 
+{#snippet readOnlyCode(label: string, code: string, language = "")}
+  <section class="space-y-2" aria-label={label}>
+    <h3 class="text-body-sm font-semibold">{label}</h3>
+    <CodeBlock {code} {language} />
+  </section>
+{/snippet}
+
+{#snippet basicContent()}
+  {#if data.permissions.canEdit}
+    <BasicInfoTab
+      bind:this={basicTab}
+      formData={data.form}
+      problemId={data.problem.id}
+      showRuntimeLimits={data.problem.type !== "multi_file"}
+      privateVisibilityOnly={data.problem.visibility === "private"}
+      canManageVisibility={data.permissions.isOwner ||
+        (data.permissions.isAdmin && data.problem.visibility === "public")}
+      isOwner={data.permissions?.isOwner === true}
+      ondirtychange={(d) => (isDirty = d)}
+    />
+  {:else}
+    <div class="space-y-4">
+      <dl class="grid gap-3 sm:grid-cols-2">
+        {#each [[m.admin_title(), data.problem.title], [m.admin_difficulty(), data.problem.difficulty], [m.admin_visibility(), data.problem.visibility], [m.admin_timeLimitMs(), data.problem.timeLimitMs], [m.admin_memoryLimitMb(), data.problem.memoryLimitMb]] as [label, value] (label)}
+          <div>
+            <dt class="text-caption text-muted-foreground">{label}</dt>
+            <dd class="whitespace-pre-wrap text-body-sm">{value}</dd>
+          </div>
+        {/each}
+      </dl>
+      {#each [{ label: m.admin_statement(), content: data.problem.statement }, { label: m.admin_inputFormat(), content: data.problem.inputFormat }, { label: m.admin_outputFormat(), content: data.problem.outputFormat }] as { label, content } (label)}
+        <section class="space-y-2" aria-label={label}>
+          <div class="flex items-center justify-between">
+            <h3 class="text-body-sm font-semibold">{label}</h3>
+            <CopyButton text={content} />
+          </div>
+          <MarkdownRenderer {content} />
+        </section>
+      {/each}
+      {#each data.problem.samples as sample, index (index)}
+        <section class="space-y-3">
+          <h3 class="text-body-sm font-semibold">
+            {m.admin_sampleNumber({ number: index + 1 })}
+          </h3>
+          {@render readOnlyCode(m.admin_sampleInput(), sample.input)}
+          {@render readOnlyCode(m.admin_sampleOutput(), sample.output)}
+        </section>
+      {/each}
+      <details class="rounded-lg border border-border-subtle p-3">
+        <summary class="cursor-pointer text-body-sm">{m.admin_advancedOptions()}</summary>
+        <p class="mt-2 text-body-sm">{m.admin_tags()}: {data.problem.tags.join(", ")}</p>
+      </details>
+      {#if data.problem.type === "full_source"}
+        {#each Object.entries(data.problem.starterByLanguage) as [language, code] (language)}
+          {#if code}
+            {@render readOnlyCode(language, code, language)}
+          {/if}
+        {/each}
+      {/if}
+    </div>
+  {/if}
+{/snippet}
+
 <PageContainer class="space-y-6">
   <BreadcrumbBackLink href="/problems?tab=mine" label={m.problems_myProblems()} />
+
+  {#if !data.permissions.canEdit}
+    <p role="note" class="text-body-sm text-muted-foreground">{m.problem_readOnly()}</p>
+  {/if}
 
   <div class="flex items-center gap-3">
     <h1 class="text-title-lg">
@@ -231,146 +334,15 @@
     {/if}
   </div>
 
-  {#if isAdvanced}
-    {#snippet advancedActions()}
-      <Button
-        variant="outline"
-        size="sm"
-        class="w-full"
-        disabled={!isDirty}
-        onclick={() => basicTab?.save()}
-      >
-        {m.common_saveDraft()}
-      </Button>
-      {#if data.problem.status === "draft"}
-        <Button
-          size="sm"
-          class="w-full"
-          loading={isPublishing}
-          disabled={!canPublish || isPublishing}
-          onclick={handlePublishClick}
-        >
-          {isPublishing ? m.admin_publishingProblem() : m.admin_publishProblem()}
-        </Button>
-        {#if !canPublish}
-          <p class="px-1 text-micro leading-relaxed text-muted-foreground">
-            {m.admin_advancedPublishHint()}
-          </p>
-        {/if}
+  <div class="min-w-0 space-y-6">
+    {#if isAdvanced}
+      {#snippet advancedActions()}
         <Button
           variant="outline"
           size="sm"
           class="w-full"
-          loading={isDeleting}
-          disabled={isDeleting}
-          onclick={() => (showDeleteConfirm = true)}
-        >
-          {isDeleting ? m.common_deleting() : m.admin_deleteProblemTitle()}
-        </Button>
-      {/if}
-    {/snippet}
-    <div class="flex flex-col gap-6 lg:flex-row" data-testid="advanced-edit-layout">
-      <EditRail actions={advancedActions} tourTarget={false} mobileFullWidth={true}>
-        {#snippet nav()}
-          <ol class="space-y-1">
-            {#each advancedSteps as step, i (step.label)}
-              <li
-                class="flex items-center gap-2 rounded-md px-3 py-2 text-body-sm font-medium text-muted-foreground"
-              >
-                <span
-                  class="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-caption font-semibold text-primary"
-                >
-                  {i + 1}
-                </span>
-                <span class="flex-1">{step.label}</span>
-                {#if step.done}
-                  <span class="text-caption text-muted-foreground">✓</span>
-                {/if}
-              </li>
-            {/each}
-          </ol>
-          <div class="mt-3 flex flex-col gap-1 border-t border-border-subtle pt-3">
-            <a
-              class="rounded-md px-3 py-1.5 text-caption font-medium text-primary transition-[background-color,color] duration-fast ease-out-soft hover:bg-accent"
-              href="/problems/{data.problem.id}"
-            >
-              {m.advancedImages_openWorkspace()}
-            </a>
-            <a
-              class="rounded-md px-3 py-1.5 text-caption font-medium text-muted-foreground transition-[background-color,color] duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
-              href="/api/problems/advanced-scaffold"
-            >
-              {m.advancedImages_downloadTemplates()}
-            </a>
-            <a
-              class="rounded-md px-3 py-1.5 text-caption font-medium text-muted-foreground transition-[background-color,color] duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
-              href="/guides/advanced-mode"
-            >
-              {m.advancedPackage_guide()}
-            </a>
-          </div>
-        {/snippet}
-      </EditRail>
-
-      <div class="min-w-0 flex-1 space-y-6">
-        <section
-          class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
-        >
-          <BasicInfoTab
-            bind:this={basicTab}
-            formData={data.form}
-            problemId={data.problem.id}
-            showRuntimeLimits={true}
-            privateVisibilityOnly={data.permissions?.publicVisibilityAllowed !== true}
-            isOwner={data.permissions?.isOwner === true}
-            ondirtychange={(d) => (isDirty = d)}
-          />
-        </section>
-
-        {#if data.registryHost}
-          <section
-            class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
-          >
-            <RegistryCredentialCard
-              registryHost={data.registryHost}
-              credential={data.registryCredential}
-            />
-          </section>
-        {/if}
-
-        <section
-          class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
-        >
-          <AdvancedImageConfigSection
-            config={data.advancedConfig?.config ?? null}
-            allowedRegistries={data.advancedAllowedRegistries}
-            registryHost={data.registryHost}
-            registryNamespace={data.registryCredential?.username ?? ""}
-            requiredPaths={data.problem.advancedRequiredPaths ?? []}
-            editable={data.problem.status === "draft"}
-          />
-        </section>
-      </div>
-    </div>
-  {:else}
-    <ProblemSections
-      bind:activeSection
-      problemType={data.problem.type}
-      showConvertToAdvanced={data.problem.status === "draft"}
-      convertToAdvancedAllowed={data.advancedCreationAllowed}
-      {isBasicInfoComplete}
-      {missingBasicFields}
-      testcaseCount={data.testcaseSets.length}
-      referenceSolutionStatus={data.referenceSolution?.status ?? "not_configured"}
-      bind:isDirty
-    >
-      {#snippet railActions()}
-        <Button
-          variant="outline"
-          size="sm"
-          class="w-full"
-          disabled={!isDirty || !activeSectionSavable}
-          onclick={saveActiveSection}
+          disabled={!data.permissions.canEdit || !isDirty}
+          onclick={() => basicTab?.save()}
         >
           {m.common_saveDraft()}
         </Button>
@@ -381,82 +353,328 @@
             loading={isPublishing}
             disabled={!canPublish || isPublishing}
             onclick={handlePublishClick}
-            data-tour="problem-publish"
           >
             {isPublishing ? m.admin_publishingProblem() : m.admin_publishProblem()}
           </Button>
           {#if !canPublish}
             <p class="px-1 text-micro leading-relaxed text-muted-foreground">
-              {m.admin_publishTooltip()}
+              {m.admin_advancedPublishHint()}
             </p>
+          {/if}
+          {#if managesOwnership}
+            <Button
+              variant="outline"
+              size="sm"
+              class="w-full"
+              loading={isDeleting}
+              disabled={!data.permissions.canEdit || isDeleting}
+              onclick={() => (showDeleteConfirm = true)}
+            >
+              {isDeleting ? m.common_deleting() : m.admin_deleteProblemTitle()}
+            </Button>
           {/if}
         {/if}
       {/snippet}
+      <div class="flex flex-col gap-6 lg:flex-row" data-testid="advanced-edit-layout">
+        <EditRail actions={advancedActions} tourTarget={false} mobileFullWidth={true}>
+          {#snippet nav()}
+            <ol class="space-y-1">
+              {#each advancedSteps as step, i (step.label)}
+                <li
+                  class="flex items-center gap-2 rounded-md px-3 py-2 text-body-sm font-medium text-muted-foreground"
+                >
+                  <span
+                    class="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-caption font-semibold text-primary"
+                  >
+                    {i + 1}
+                  </span>
+                  <span class="flex-1">{step.label}</span>
+                  {#if step.done}
+                    <span class="text-caption text-muted-foreground">✓</span>
+                  {/if}
+                </li>
+              {/each}
+            </ol>
+            <div class="mt-3 flex flex-col gap-1 border-t border-border-subtle pt-3">
+              <a
+                class="rounded-md px-3 py-1.5 text-caption font-medium text-primary transition-[background-color,color] duration-fast ease-out-soft hover:bg-accent"
+                href="/problems/{data.problem.id}"
+              >
+                {m.advancedImages_openWorkspace()}
+              </a>
+              <a
+                class="rounded-md px-3 py-1.5 text-caption font-medium text-muted-foreground transition-[background-color,color] duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
+                href="/api/problems/advanced-scaffold"
+              >
+                {m.advancedImages_downloadTemplates()}
+              </a>
+              <a
+                class="rounded-md px-3 py-1.5 text-caption font-medium text-muted-foreground transition-[background-color,color] duration-fast ease-out-soft hover:bg-accent hover:text-foreground"
+                href="/guides/advanced-mode"
+              >
+                {m.advancedPackage_guide()}
+              </a>
+            </div>
+          {/snippet}
+        </EditRail>
 
-      {#snippet dangerActions()}
-        {#if data.problem.status === "draft"}
+        <div class="min-w-0 flex-1 space-y-6">
+          <section
+            class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
+          >
+            {@render basicContent()}
+          </section>
+
+          {#if data.permissions.canEdit && data.registryHost}
+            <section
+              class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
+            >
+              <RegistryCredentialCard
+                registryHost={data.registryHost}
+                credential={data.registryCredential}
+              />
+            </section>
+          {/if}
+
+          <section
+            class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
+          >
+            {#if data.permissions.canEdit}
+              <AdvancedImageConfigSection
+                config={data.advancedConfig?.config ?? null}
+                allowedRegistries={data.advancedAllowedRegistries}
+                registryHost={data.registryHost}
+                registryNamespace={data.registryCredential?.username ?? ""}
+                requiredPaths={data.problem.advancedRequiredPaths ?? []}
+                editable={data.problem.status === "draft"}
+              />
+            {:else}
+              {@render readOnlyCode(
+                m.advancedImages_title(),
+                JSON.stringify(data.advancedConfig?.config ?? null, null, 2),
+                "json",
+              )}
+              {@render readOnlyCode(
+                m.advancedImages_requiredPathsLabel(),
+                data.problem.advancedRequiredPaths.join("\n"),
+              )}
+            {/if}
+          </section>
+        </div>
+      </div>
+    {:else}
+      <ProblemSections
+        bind:activeSection
+        problemType={data.problem.type}
+        readOnly={!data.permissions.canEdit}
+        showConvertToAdvanced={data.permissions.canEdit && data.problem.status === "draft"}
+        convertToAdvancedAllowed={data.advancedCreationAllowed}
+        {isBasicInfoComplete}
+        {missingBasicFields}
+        testcaseCount={data.testcaseSets.length}
+        referenceSolutionStatus={data.referenceSolution?.status ?? "not_configured"}
+        bind:isDirty
+      >
+        {#snippet railActions()}
           <Button
             variant="outline"
             size="sm"
             class="w-full"
-            loading={isDeleting}
-            disabled={isDeleting}
-            onclick={() => (showDeleteConfirm = true)}
+            disabled={!data.permissions.canEdit || !isDirty || !activeSectionSavable}
+            onclick={saveActiveSection}
           >
-            {isDeleting ? m.common_deleting() : m.admin_deleteProblemTitle()}
+            {m.common_saveDraft()}
           </Button>
-        {/if}
-      {/snippet}
+          {#if data.problem.status === "draft"}
+            <Button
+              size="sm"
+              class="w-full"
+              loading={isPublishing}
+              disabled={!canPublish || isPublishing}
+              onclick={handlePublishClick}
+              data-tour="problem-publish"
+            >
+              {isPublishing ? m.admin_publishingProblem() : m.admin_publishProblem()}
+            </Button>
+            {#if !canPublish}
+              <p class="px-1 text-micro leading-relaxed text-muted-foreground">
+                {m.admin_publishTooltip()}
+              </p>
+            {/if}
+          {/if}
+        {/snippet}
 
-      {#snippet basic()}
-        <BasicInfoTab
-          bind:this={basicTab}
-          formData={data.form}
-          problemId={data.problem.id}
-          showRuntimeLimits={data.problem.type !== "multi_file"}
-          privateVisibilityOnly={data.permissions?.publicVisibilityAllowed !== true}
-          isOwner={data.permissions?.isOwner === true}
-          ondirtychange={(d) => (isDirty = d)}
-        />
-      {/snippet}
+        {#snippet dangerActions()}
+          {#if data.problem.status === "draft" && managesOwnership}
+            <Button
+              variant="outline"
+              size="sm"
+              class="w-full"
+              loading={isDeleting}
+              disabled={!data.permissions.canEdit || isDeleting}
+              onclick={() => (showDeleteConfirm = true)}
+            >
+              {isDeleting ? m.common_deleting() : m.admin_deleteProblemTitle()}
+            </Button>
+          {/if}
+        {/snippet}
 
-      {#snippet workspace()}
-        {#if workspaceInitial}
-          <WorkspaceSection
-            bind:this={workspaceTab}
-            initial={workspaceInitial}
-            ondirtychange={(d) => (isDirty = d)}
-            onsave={handleWorkspaceSave}
-            onUploadFile={handleWorkspaceFileUpload}
+        {#snippet basic()}
+          {@render basicContent()}
+        {/snippet}
+
+        {#snippet workspace()}
+          {#if workspaceInitial && data.permissions.canEdit}
+            <WorkspaceSection
+              bind:this={workspaceTab}
+              initial={workspaceInitial}
+              ondirtychange={(d) => (isDirty = d)}
+              onsave={handleWorkspaceSave}
+              onUploadFile={handleWorkspaceFileUpload}
+            />
+          {:else if workspaceInitial}
+            <div class="space-y-4">
+              {@render readOnlyCode(
+                m.admin_runtime(),
+                JSON.stringify(workspaceInitial.runtime, null, 2),
+                "json",
+              )}
+              {#each data.workspaceFiles as file (`${file.language}:${file.path}`)}
+                <details class="rounded-lg border border-border-subtle p-3">
+                  <summary class="cursor-pointer font-mono text-body-sm"
+                    >{file.language} / {file.path} · {file.visibility}</summary
+                  >
+                  <p class="my-2 whitespace-pre-wrap text-body-sm text-muted-foreground">
+                    {file.description}
+                  </p>
+                  <CodeBlock code={file.content} language={file.language} />
+                </details>
+              {/each}
+            </div>
+          {/if}
+        {/snippet}
+
+        {#snippet testcase()}
+          {#if data.permissions.canEdit}
+            <TestcaseTab testcaseSets={data.testcaseSets} problemId={data.problem.id} />
+          {:else}
+            <div class="space-y-4">
+              {#each data.testcaseSets as set (set.id)}
+                <details class="rounded-lg border border-border-subtle p-3">
+                  <summary class="cursor-pointer text-body-sm font-semibold"
+                    >{set.name} · {set.weight}
+                    {m.admin_pts()} · {m.testcases_casesCount({
+                      count: set.testcases.length,
+                    })}</summary
+                  >
+                  {#each set.testcases as testcase (testcase.id)}
+                    <section class="mt-4 space-y-3" aria-label={`#${testcase.ordinal}`}>
+                      <h3 class="text-body-sm font-semibold">#{testcase.ordinal}</h3>
+                      {@render readOnlyCode(m.testcases_input(), testcase.input)}
+                      {@render readOnlyCode(m.testcases_output(), testcase.output ?? "")}
+                    </section>
+                  {/each}
+                </details>
+              {/each}
+            </div>
+          {/if}
+        {/snippet}
+
+        {#snippet judge()}
+          {#if data.permissions.canEdit}
+            <JudgeTab
+              bind:this={judgeTab}
+              problem={data.problem}
+              validatorScripts={data.validatorScripts}
+              ondirtychange={(d) => (isDirty = d)}
+            />
+          {:else}
+            <div class="space-y-4">
+              {@render readOnlyCode(
+                m.admin_tabJudge(),
+                JSON.stringify(data.problem.judgeConfig, null, 2),
+                "json",
+              )}
+              {#if data.validatorScripts.checkerScript}
+                {@render readOnlyCode(
+                  m.admin_judgeChecker(),
+                  data.validatorScripts.checkerScript,
+                  data.problem.judgeConfig.checkerLanguage ?? "",
+                )}
+              {/if}
+              {#if data.validatorScripts.interactorScript}
+                {@render readOnlyCode(
+                  m.admin_judgeInteractive(),
+                  data.validatorScripts.interactorScript,
+                  data.problem.judgeConfig.interactorLanguage ?? "",
+                )}
+              {/if}
+            </div>
+          {/if}
+        {/snippet}
+        {#snippet reference()}
+          {#if data.referenceSolution}
+            <ReferenceSolutionSection
+              problemId={data.problem.id}
+              problemType={data.problem.type === "multi_file" ? "multi_file" : "full_source"}
+              readOnly={!data.permissions.canEdit}
+              initial={data.referenceSolution}
+              starterByLanguage={data.problem.starterByLanguage}
+              workspaceFiles={data.workspaceFiles}
+            />
+          {/if}
+        {/snippet}
+      </ProblemSections>
+    {/if}
+
+    {#if data.permissions.canPublishPublicCopy}
+      <Button
+        variant="outline"
+        disabled={isPublishing}
+        onclick={() => {
+          publishPublicCopy = true;
+          showPublishConfirm = true;
+        }}
+      >
+        {m.problem_publishCopy()}
+      </Button>
+    {/if}
+
+    {#if managesOwnership}
+      <form
+        class="flex flex-wrap items-end gap-3 border-t border-border-subtle pt-5"
+        onsubmit={(event) => {
+          event.preventDefault();
+          showTransferConfirm = true;
+        }}
+      >
+        <label class="grid gap-1 text-body-sm">
+          <span>{m.problem_newOwnerUsername()}</span>
+          <input
+            class="rounded-md border border-border bg-background px-3 py-2"
+            bind:value={newOwnerUsername}
+            required
+            minlength="3"
+            maxlength="64"
+            autocomplete="off"
+            disabled={isTransferring}
           />
-        {/if}
-      {/snippet}
+        </label>
+        <Button type="submit" variant="outline" disabled={isTransferring}
+          >{m.problem_transferOwnership()}</Button
+        >
+      </form>
+    {/if}
+  </div>
 
-      {#snippet testcase()}
-        <TestcaseTab testcaseSets={data.testcaseSets} problemId={data.problem.id} />
-      {/snippet}
-
-      {#snippet judge()}
-        <JudgeTab
-          bind:this={judgeTab}
-          problem={data.problem}
-          validatorScripts={data.validatorScripts}
-          ondirtychange={(d) => (isDirty = d)}
-        />
-      {/snippet}
-      {#snippet reference()}
-        {#if data.referenceSolution}
-          <ReferenceSolutionSection
-            problemId={data.problem.id}
-            problemType={data.problem.type === "multi_file" ? "multi_file" : "full_source"}
-            initial={data.referenceSolution}
-            starterByLanguage={data.problem.starterByLanguage}
-            workspaceFiles={data.workspaceFiles}
-          />
-        {/if}
-      {/snippet}
-    </ProblemSections>
-  {/if}
+  <ConfirmDialog
+    bind:open={showTransferConfirm}
+    title={m.problem_transferOwnership()}
+    message={m.problem_transferHint()}
+    confirmText={m.problem_transferOwnership()}
+    cancelText={m.admin_cancel()}
+    onconfirm={transferOwnership}
+  />
 
   <ConfirmDialog
     bind:open={showDeleteConfirm}

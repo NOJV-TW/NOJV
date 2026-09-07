@@ -53,17 +53,20 @@ export async function saveActivityGrading(
     ...current.problems.map((p) => p.problemId),
     ...current.detachedProblemIds,
   ]);
+  const selected = await resolveActivityProblems(
+    tx,
+    actor,
+    input.problems.map(({ problemId }) => problemId),
+    { courseId: current.courseId, existingProblemIds: [...knownIds] },
+  );
   const resolved: ActivityProblem[] = [];
-  for (const entry of input.problems) {
-    let problemId = entry.problemId;
-    if (!knownIds.has(problemId)) {
-      const [resolvedProblem] = await resolveActivityProblems(tx, actor, [problemId]);
-      if (!resolvedProblem) throw new ValidationError("Problem could not be attached.");
-      problemId = resolvedProblem.id;
-      if (input.allowedLanguages.length)
-        await assertProblemHasWorkspaceForLanguages(tx, problemId, input.allowedLanguages);
+  for (const [index, entry] of input.problems.entries()) {
+    const problem = selected[index];
+    if (!problem) throw new ValidationError("Problem could not be attached.");
+    if (!knownIds.has(entry.problemId) && input.allowedLanguages.length) {
+      await assertProblemHasWorkspaceForLanguages(tx, problem.id, input.allowedLanguages);
     }
-    resolved.push({ problemId, points: entry.points });
+    resolved.push({ problemId: problem.id, points: entry.points });
   }
   const ids = resolved.map((p) => p.problemId);
   if (isExam) {

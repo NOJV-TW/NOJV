@@ -10,6 +10,8 @@ import {
   testcaseUpdateSchema,
   judgeConfigSchema,
   problemTags,
+  advancedConfigSchema,
+  userHandleSchema,
 } from "@nojv/core";
 import type { ProblemType } from "@nojv/core";
 import { message, superValidate } from "sveltekit-superforms";
@@ -60,7 +62,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   }
 
   const actor = requireAuth(event);
-  await problemDomain.assertProblemEditAccess(actor, params.problemId);
+  await problemDomain.assertProblemContentReadAccess(actor, params.problemId);
 
   const [problem, problemRow, rawTestcaseSets, rawWorkspaceFiles] = await Promise.all([
     getProblemPageData(params.problemId, { includeAdvancedConfig: true }),
@@ -79,6 +81,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   ]);
 
   const isAdvanced = problem.type === "special_env";
+  const advancedCreationAllowed = await problemDomain.canCreateAdvancedProblems(actor);
   const form = await superValidate(
     {
       difficulty: problem.difficulty,
@@ -111,7 +114,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     if (isAdvanced) return null;
     const application = await import("@nojv/application");
     return "submissionDomain" in application
-      ? application.submissionDomain.getProblemReferenceSolution(params.problemId)
+      ? application.submissionDomain.getProblemReferenceSolution(actor, params.problemId)
       : null;
   })();
 
@@ -135,15 +138,24 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     advancedJudgeVerified,
     referenceSolution,
     permissions: {
+      canEdit:
+        problemRow !== null &&
+        (!isAdvanced || advancedCreationAllowed) &&
+        (await problemDomain.canProblemContentEdit(problemRow, actor)),
       isAdmin: actor.platformRole === "admin",
       isOwner: problemRow?.authorId === actor.userId,
       publicVisibilityAllowed,
+      canPublishPublicCopy:
+        problemRow?.visibility === "private" &&
+        publicVisibilityAllowed &&
+        (problemRow.authorId === actor.userId ||
+          (actor.platformRole === "admin" && problemRow.adminMayPublish)),
       canPublishAsAdmin:
         actor.platformRole === "admin" &&
         problemRow?.authorId !== actor.userId &&
         problemRow?.adminMayPublish === true,
     },
-    advancedCreationAllowed: await problemDomain.canCreateAdvancedProblems(actor),
+    advancedCreationAllowed,
     advancedAllowedRegistries: allowedImageRegistries(),
     registryHost: registryEnv.REGISTRY_PUBLIC_HOST,
     registryCredential: registryCredential
@@ -190,7 +202,8 @@ export const actions: Actions = {
   update: problemEditAction(async ({ actor, problemId, event }) => {
     const form = await superValidate(event, zod4(problemDraftSchema));
     if (!form.valid) return fail(400, { form });
-    await updateProblemRecord(actor, problemId, form.data);
+    const result = await updateProblemRecord(actor, problemId, form.data);
+    if (result.id !== problemId) redirect(303, `/problems/${result.id}/edit`);
     return message(form, "ok");
   }),
 
@@ -253,7 +266,22 @@ export const actions: Actions = {
   }),
 
   publish: problemEditAction(async ({ actor, problemId }) => {
-    await updateProblemRecord(actor, problemId, { status: "published" });
+    const result = await updateProblemRecord(actor, problemId, { status: "published" });
+    return { success: true, id: result.id };
+  }),
+
+  publishPublicCopy: problemEditAction(async ({ actor, problemId }) => {
+    const result = await updateProblemRecord(actor, problemId, {
+      status: "published",
+      visibility: "public",
+    });
+    return { success: true, id: result.id };
+  }),
+
+  transferOwnership: problemEditAction(async ({ actor, problemId, event }) => {
+    const data = await event.request.formData();
+    const username = userHandleSchema.parse(data.get("username"));
+    await problemDomain.transferProblemOwnership(actor, problemId, username);
     return { success: true };
   }),
 
@@ -295,10 +323,22 @@ export const actions: Actions = {
     }
 
     const registryCredential = await registryDomain.getRegistryCredentialStatus(actor.userId);
+    const currentProblem = await problemDomain.getProblemRowById(problemId);
+    const currentConfig = advancedConfigSchema.safeParse(currentProblem?.advancedConfig);
+    const existingImageRefs = currentConfig.success
+      ? [
+          currentConfig.data.run.imageRef,
+          currentConfig.data.grade.imageRef,
+          ...(currentConfig.data.network.service
+            ? [currentConfig.data.network.service.imageRef]
+            : []),
+        ]
+      : [];
     const parsed = createAdvancedImageConfigInputSchema({
       allowAnyPlatformRegistryNamespace: actor.platformRole === "admin",
       platformRegistryHost: getWebEnv().REGISTRY_PUBLIC_HOST,
       platformRegistryNamespace: registryCredential?.username ?? null,
+      existingImageRefs,
     }).safeParse(json);
     if (!parsed.success) {
       return fail(400, { error: parsed.error.issues.map((issue) => issue.message).join(" ") });
@@ -307,6 +347,11 @@ export const actions: Actions = {
     await problemDomain.updateAdvancedJudgeConfiguration(actor, problemId, {
       config: buildAdvancedConfigFromInput(parsed.data),
       requiredPaths: parsed.data.requiredPaths,
+      retainedImageRefs: [
+        parsed.data.runImageRef,
+        parsed.data.gradeImageRef,
+        parsed.data.serviceImageRef,
+      ].filter((ref): ref is string => ref !== undefined && existingImageRefs.includes(ref)),
     });
     return { success: true };
   }),

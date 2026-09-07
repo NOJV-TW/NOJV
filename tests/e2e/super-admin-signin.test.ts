@@ -54,14 +54,22 @@ async function expectDirectSuperAdminAccess(page: Page): Promise<void> {
   await expect(page.getByRole("menuitem", { name: /admin mode/i })).toHaveCount(0);
 }
 
-test.beforeAll(() => {
-  totpAdmin.create({ isSuperAdmin: true, mustChangePassword: true, platformRole: "admin" });
-  passkeyAdmin.create({ isSuperAdmin: true, mustChangePassword: true, platformRole: "admin" });
+test.beforeAll(async () => {
+  await totpAdmin.create({
+    isSuperAdmin: true,
+    mustChangePassword: true,
+    platformRole: "admin",
+  });
+  await passkeyAdmin.create({
+    isSuperAdmin: true,
+    mustChangePassword: true,
+    platformRole: "admin",
+  });
 });
 
-test.afterAll(() => {
-  totpAdmin.cleanup();
-  passkeyAdmin.cleanup();
+test.afterAll(async () => {
+  await totpAdmin.cleanup();
+  await passkeyAdmin.cleanup();
 });
 
 test("first login and later password plus TOTP login lead directly to /admin", async ({

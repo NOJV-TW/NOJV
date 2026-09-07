@@ -7,12 +7,12 @@ test.describe.configure({ retries: 0 });
 
 const user = new DisposableCredentialUser("passkey-enroll");
 
-test.beforeAll(() => {
-  user.create();
+test.beforeAll(async () => {
+  await user.create();
 });
 
-test.afterAll(() => {
-  user.cleanup();
+test.afterAll(async () => {
+  await user.cleanup();
 });
 
 test("enroll a passkey via a WebAuthn virtual authenticator", async ({ page, context }) => {
@@ -29,7 +29,7 @@ test("enroll a passkey via a WebAuthn virtual authenticator", async ({ page, con
     },
   });
 
-  expect(psql(`select count(*) from "Passkey" where "userId" = '${user.id}';`)).toBe("0");
+  expect(await psql(`select count(*) from "Passkey" where "userId" = '${user.id}';`)).toBe("0");
 
   await signInWithPassword(page, user.email);
   await unlockSecuritySettings(page);
@@ -40,5 +40,5 @@ test("enroll a passkey via a WebAuthn virtual authenticator", async ({ page, con
   await dialog.getByRole("button", { name: "Add passkey" }).click();
 
   await expect(dialog.getByRole("button", { name: "Remove" })).toBeVisible({ timeout: 20000 });
-  expect(psql(`select count(*) from "Passkey" where "userId" = '${user.id}';`)).toBe("1");
+  expect(await psql(`select count(*) from "Passkey" where "userId" = '${user.id}';`)).toBe("1");
 });

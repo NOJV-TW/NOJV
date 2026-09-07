@@ -6,8 +6,12 @@ import { adminAuth, studentAuth, teacherAuth } from "./_shared";
 const regularAdmin = new DisposableCredentialUser("regular-admin-mode");
 
 test.describe("Admin panel — gating + pages", () => {
-  test.beforeAll(() => regularAdmin.create({ platformRole: "admin" }));
-  test.afterAll(() => regularAdmin.cleanup());
+  test.beforeAll(async () => {
+    await regularAdmin.create({ platformRole: "admin" });
+  });
+  test.afterAll(async () => {
+    await regularAdmin.cleanup();
+  });
 
   test("admin landing page redirects unauthenticated users", async ({ page }) => {
     await page.goto("/admin");
@@ -155,7 +159,7 @@ test.describe("Admin panel — gating + pages", () => {
 
   test("admin can open a draft contest from the platform-wide list", async ({ browser }) => {
     const contestId = "spring-qualifier-2026";
-    psql(`UPDATE "Contest" SET visibility = 'draft' WHERE id = '${contestId}';`);
+    await psql(`UPDATE "Contest" SET visibility = 'draft' WHERE id = '${contestId}';`);
     const context = await browser.newContext({ storageState: adminAuth });
     const page = await context.newPage();
 
@@ -166,7 +170,7 @@ test.describe("Admin panel — gating + pages", () => {
       await expect(page.getByRole("heading", { name: "Spring Qualifier 2026" })).toBeVisible();
     } finally {
       await context.close();
-      psql(`UPDATE "Contest" SET visibility = 'published' WHERE id = '${contestId}';`);
+      await psql(`UPDATE "Contest" SET visibility = 'published' WHERE id = '${contestId}';`);
     }
   });
 

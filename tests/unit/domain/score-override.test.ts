@@ -111,7 +111,7 @@ vi.mock("@nojv/db", () => ({
   },
   durableWorkRepo: { withTx: () => ({ enqueue: durableWorkEnqueue }) },
   runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
-    fn({ $executeRaw: gradingLock }),
+    fn({ $queryRaw: gradingLock }),
 }));
 
 import {
@@ -634,7 +634,7 @@ describe("course roster grading", () => {
   ])("grades pending students in $type without a participant or fake user", async (context) => {
     findCourseStudent.mockResolvedValue({ id: "mem_student", userId: null });
     await createOverride(actor({ userId: "usr_t" }), { ...baseInput, context });
-    expect(gradingLock).toHaveBeenCalledWith(expect.anything(), "course-members:crs_1");
+    expect(gradingLock).toHaveBeenCalledWith(expect.anything(), "crs_1");
     expect(gradingLock.mock.invocationCallOrder[0]).toBeLessThan(
       findCourseStudent.mock.invocationCallOrder[0],
     );

@@ -89,28 +89,7 @@ export const problemRepo = {
     return prisma.problem.findMany({
       select: problemPickerSelect,
       orderBy: { displayId: sort },
-      where: {
-        OR: [
-          { authorId: userId },
-          {
-            assessmentLinks: {
-              some: {
-                assessment: {
-                  course: {
-                    memberships: {
-                      some: {
-                        userId,
-                        role: { in: ["teacher", "ta"] },
-                        status: "active",
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        ],
-      },
+      where: { authorId: userId },
     });
   },
 

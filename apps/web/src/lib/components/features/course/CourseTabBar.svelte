@@ -1,6 +1,13 @@
 <script lang="ts" module>
   export type CourseTabKey =
-    "overview" | "assignments" | "exams" | "grades" | "members" | "analytics" | "settings";
+    | "overview"
+    | "assignments"
+    | "exams"
+    | "problems"
+    | "grades"
+    | "members"
+    | "analytics"
+    | "settings";
 
   export interface CourseTabCounts {
     assignments?: number;
@@ -17,6 +24,7 @@
     courseId: string;
     activeTabKey: CourseTabKey;
     counts?: CourseTabCounts;
+    showProblems?: boolean;
     showAnalytics: boolean;
     showSettings: boolean;
     class?: string;
@@ -26,6 +34,7 @@
     courseId,
     activeTabKey,
     counts,
+    showProblems = false,
     showAnalytics,
     showSettings,
     class: className,
@@ -56,6 +65,16 @@
       counts?.assignments,
     ),
     makeTab("exams", m.course_tabExams(), `/courses/${courseId}/exams`, counts?.exams),
+    ...(showProblems
+      ? [
+          makeTab(
+            "problems",
+            m.course_problemLibrary(),
+            `/courses/${courseId}/problems`,
+            undefined,
+          ),
+        ]
+      : []),
     makeTab("grades", m.course_tabGrades(), `/courses/${courseId}/grades`, undefined),
     makeTab("members", m.course_tabMembers(), `/courses/${courseId}/members`, counts?.members),
     ...(showAnalytics

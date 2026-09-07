@@ -94,7 +94,7 @@ test.describe("Problem Lifecycle", () => {
     expect(testcaseBody.type).not.toBe("failure");
 
     const referenceId = `reference-${problemId}`;
-    psql(`
+    await psql(`
       INSERT INTO "Submission" (id, "userId", "problemId", "isReferenceSolution", "referenceProblemStorageGeneration", language, "sourceStorage", status, "updatedAt")
       SELECT '${referenceId}', u.id, p.id, true, p."storageGeneration", 'c', source."sourceStorage", 'accepted', NOW()
       FROM "Problem" p

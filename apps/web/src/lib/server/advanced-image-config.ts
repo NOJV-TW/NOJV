@@ -15,6 +15,7 @@ export interface AdvancedImageConfigValidationContext {
   allowAnyPlatformRegistryNamespace: boolean;
   platformRegistryHost: string;
   platformRegistryNamespace: string | null;
+  existingImageRefs?: readonly string[];
 }
 
 function pinnedImageRefSchema(context: AdvancedImageConfigValidationContext) {
@@ -47,6 +48,8 @@ function pinnedImageRefSchema(context: AdvancedImageConfigValidationContext) {
       ) {
         return;
       }
+
+      if (context.existingImageRefs?.includes(ref)) return;
 
       const namespace = context.platformRegistryNamespace;
       if (!namespace) {

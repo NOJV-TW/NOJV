@@ -1,10 +1,10 @@
 # 題目權限與課程題庫設計
 
-狀態：2026-09-08 review 後修訂。已用 production 備份做本地資料庫演練；新權限與 UI 尚未實作，production 尚未遷移。本文是待實作契約，不代表目前程式行為。
+狀態：2026-09-08 實作與完整驗證進行中。權限、題庫 UI 與正式 migration 已加入工作樹；production 尚未遷移。聯合發布證據記錄於 [v1.1.0 發布計畫](2026-09-08-prod-roster-release.md)。
 
 ## 本 PR 與下一版本交接
 
-本 PR 提交權限設計、review 結果與資料遷移驗證紀錄，不包含 `CourseProblem` migration 或應用程式功能變更。負責下一版本的任務承接本 PR 的 CI、merge 與部署整合；不能將合併本文視為課程共編功能已上線。
+PR #421 最初僅提交權限設計、review 結果與候選資料遷移驗證紀錄。後續實作使用 [正式 migration](../../../packages/db/prisma/migrations/20260908000002_course_problem_permissions/migration.sql)；合併設計文件不能視為課程共編功能已上線。
 
 建立 PR 時已重新核對 `origin/main`（`02df37ef`）：[PR #412](https://github.com/NOJV-TW/NOJV/pull/412) 已包含 [storage pointer 還原修正](../../../packages/db/prisma/migrations/20260907000002_storage_pointer_map_restore/migration.sql) 及 [空 search_path 回歸測試](../../../tests/integration/db/storage-pointer-migration.test.ts)。下一版本沿用這個 migration，不新增重複修正；上線時確認它實際套用，並以新備份驗證一般還原。舊備份的還原程序沿用 [Backup & Restore](../../runbooks/backup-restore.md)。本次未重新查詢 production 是否已套用，不能以 main 已合併代替部署證據。
 
@@ -209,7 +209,7 @@ admin 只採用已有提升權限的有效角色，不能用帳號的原始平�
 
 ### 正式上線前仍須完成
 
-- 新權限後端、所有 caller、題庫 UI、帳號交接／刪除處理與 Advanced／reference 路徑尚未實作；目前不能宣稱應用程式遷移已通過。
+- 新權限後端、caller、題庫 UI、帳號交接／刪除處理與 Advanced／reference 路徑已實作，仍須通過完整 CI、真實 DB、瀏覽器驗證及獨立 review。
 - 待正式 migration 與程式完成後，重新用當時的 prod 備份，跑完整升級及 API／UI 驗證，包含有效 TA、移除 TA、owner、非成員、admin 與撤權競爭案例。
 - 本次未複製或驗證 MinIO 物件內容。候選資料遷移不改 storage pointers，也不新增 fork 或上傳物件；新版本的 fork 功能仍須驗證現有物件引用與回收計數。
 - CNPG 當下沒有 `spec.backup`、Backup／ScheduledBackup 資源，namespace 也沒有備份 CronJob。雖 WAL archiver 顯示成功，這不證明存在可用的 base backup 或 PITR。此次已取得可經修復程序還原的邏輯備份，仍須建立正式切換點的備份與保留方式；[PostgreSQL 說明](https://www.postgresql.org/docs/18/continuous-archiving.html)也明確區分邏輯 dump 與 PITR。

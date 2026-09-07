@@ -60,18 +60,11 @@ async function waitForCourseLockWaiter(holderPid: number) {
   await vi.waitFor(
     async () => {
       const waiters = await testPrisma.$queryRaw<{ pid: number }[]>`
-      SELECT waiting.pid
-      FROM pg_locks AS waiting
-      JOIN pg_locks AS held
-        ON held.locktype = waiting.locktype
-        AND held.database = waiting.database
-        AND held.classid = waiting.classid
-        AND held.objid = waiting.objid
-        AND held.objsubid = waiting.objsubid
-      WHERE held.pid = ${holderPid}
-        AND held.locktype = 'advisory'
-        AND held.granted
-        AND NOT waiting.granted
+      SELECT pid FROM pg_stat_activity
+      WHERE datname = current_database()
+        AND ${holderPid} = ANY(pg_blocking_pids(pid))
+        AND wait_event_type = 'Lock'
+        AND query LIKE '%Course%'
     `;
       expect(waiters).toHaveLength(1);
     },

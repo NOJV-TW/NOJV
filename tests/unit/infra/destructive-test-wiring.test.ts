@@ -159,9 +159,11 @@ describe("Playwright destructive database isolation", () => {
     );
 
     expect(disposableUser).toContain('resolveDestructiveTestDatabase("nojv_e2e_test")');
-    expect(disposableUser).toMatch(/"compose",\s*"exec",\s*"-T",\s*"postgres"/s);
+    expect(disposableUser).toContain("new PrismaPg({ connectionString: databaseUrl })");
+    expect(disposableUser).toContain('assertLiveTestDatabase(tx, "nojv_e2e_test")');
+    expect(disposableUser).not.toContain('"compose"');
     expect(disposableUser).not.toMatch(/"-d",\s*"nojv"/s);
-    expect(apiTokenStepUp).toContain("import { psql, signInWithPassword }");
+    expect(apiTokenStepUp).toContain("import { getTestRedis, psql, signInWithPassword }");
     expect(apiTokenStepUp).not.toContain("function pg(");
   });
 });

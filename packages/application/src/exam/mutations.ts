@@ -1,19 +1,13 @@
 import { assertLateSubmissionPolicy } from "../shared/late-submission-policy";
 import { saveActivityGrading } from "../scoring/activity-grading";
 import { assertActivityAllocation } from "../scoring/activity-points";
-import {
-  courseRepo,
-  examRepo,
-  runTransaction,
-  type Prisma,
-  type TransactionClient,
-} from "@nojv/db";
+import { examRepo, runTransaction, type Prisma, type TransactionClient } from "@nojv/db";
 import { adjustmentRulesSchema, type ExamCreate, type ExamUpdate } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
-import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
-import { isCourseStaffTx } from "../shared/permissions";
-import { requireCourse, requireUser } from "../shared/require";
+import { NotFoundError, ValidationError } from "../shared/errors";
+import { lockCourseForStaffMutation } from "../course/problem-library";
+import { requireUser } from "../shared/require";
 import { stripUndefined } from "../shared/strip-undefined";
 import { getDomainOrchestration } from "../shared/orchestration";
 import { enforceSubmitCooldown } from "../shared/submit-cooldown";
@@ -45,15 +39,7 @@ export async function checkExamSubmitCooldown(
 export async function createExamRecord(actor: ActorContext, payload: ExamCreate) {
   const exam = await runTransaction(async (tx) => {
     await requireUser(tx, actor.userId);
-    await courseRepo.withTx(tx).lockForUpdate(payload.courseId);
-    const course = await requireCourse(tx, payload.courseId);
-
-    if (actor.platformRole === "student") {
-      const allowed = await isCourseStaffTx(tx, actor.userId, course.id);
-      if (!allowed) {
-        throw new ForbiddenError("Only course teachers and TAs may create exams.");
-      }
-    }
+    const course = await lockCourseForStaffMutation(tx, actor, payload.courseId);
 
     const dueAt = payload.dueAt ? new Date(payload.dueAt) : null;
     const endsAt = new Date(payload.endsAt);
@@ -110,10 +96,7 @@ export async function updateExamRecord(
   payload: ExamUpdate,
 ) {
   const result = await runTransaction(async (tx) => {
-    await examRepo.withTx(tx).lockForUpdate(examId);
-    const exam = await requireExam(tx, examId);
-
-    await assertExamManagePermission(tx, actor, exam);
+    const exam = await requireManagedExam(tx, actor, examId);
 
     const updateData: Prisma.ExamUncheckedUpdateInput = stripUndefined({
       title: payload.title,
@@ -230,24 +213,17 @@ export async function updateExamRecord(
   return { id: result.exam.id };
 }
 
-async function assertExamManagePermission(
-  tx: TransactionClient,
-  actor: ActorContext,
-  exam: { createdByUserId: string | null; courseId: string },
-) {
-  if (actor.platformRole === "admin") return;
-  if (exam.createdByUserId === actor.userId) return;
-  const allowed = await isCourseStaffTx(tx, actor.userId, exam.courseId);
-  if (!allowed) {
-    throw new ForbiddenError("You do not have permission to manage this exam.");
-  }
+async function requireManagedExam(tx: TransactionClient, actor: ActorContext, examId: string) {
+  const scope = await tx.exam.findUnique({ where: { id: examId }, select: { courseId: true } });
+  if (!scope) throw new NotFoundError(`Exam not found: ${examId}`);
+  await lockCourseForStaffMutation(tx, actor, scope.courseId);
+  await examRepo.withTx(tx).lockForUpdate(examId);
+  return requireExam(tx, examId);
 }
 
 export async function publishExam(actor: ActorContext, examId: string): Promise<void> {
   const published = await runTransaction(async (tx) => {
-    await examRepo.withTx(tx).lockForUpdate(examId);
-    const exam = await requireExam(tx, examId);
-    await assertExamManagePermission(tx, actor, exam);
+    const exam = await requireManagedExam(tx, actor, examId);
 
     if (exam.status !== "draft") {
       throw new ValidationError("Only draft exams can be published.");
@@ -286,9 +262,7 @@ export async function publishExam(actor: ActorContext, examId: string): Promise<
 
 export async function deleteExamDraft(actor: ActorContext, examId: string): Promise<void> {
   await runTransaction(async (tx) => {
-    await examRepo.withTx(tx).lockForUpdate(examId);
-    const exam = await requireExam(tx, examId);
-    await assertExamManagePermission(tx, actor, exam);
+    const exam = await requireManagedExam(tx, actor, examId);
 
     if (exam.status !== "draft") {
       throw new ValidationError("Only draft exams can be deleted.");

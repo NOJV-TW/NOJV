@@ -1,21 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type * as Storage from "@nojv/storage";
 
 const {
   commitStoragePointerSwap,
   guardStorageObjectWrites,
   problemFindById,
+  problemLock,
+  hasStaffAccess,
+  lockStaffEditAccess,
   problemUpdate,
   putImmutableText,
 } = vi.hoisted(() => ({
   commitStoragePointerSwap: vi.fn(),
   guardStorageObjectWrites: vi.fn(),
   problemFindById: vi.fn(),
+  problemLock: vi.fn(),
+  hasStaffAccess: vi.fn(),
+  lockStaffEditAccess: vi.fn(),
   problemUpdate: vi.fn(),
   putImmutableText: vi.fn(),
 }));
 
 vi.mock("@nojv/storage", async (importOriginal) => {
-  const original = await importOriginal<typeof import("@nojv/storage")>();
+  const original = await importOriginal<typeof Storage>();
   return { ...original, createStorageClient: vi.fn(() => ({})), putImmutableText };
 });
 
@@ -27,6 +34,10 @@ vi.mock("../../../packages/application/src/shared/storage-object-lifecycle", () 
 vi.mock("@nojv/db", () => ({
   Prisma: { DbNull: { __dbNull: true } },
   runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
+  courseProblemRepo: {
+    hasStaffAccess,
+    withTx: () => ({ lockProblem: problemLock, lockStaffEditAccess }),
+  },
   problemRepo: {
     findById: problemFindById,
     withTx: () => ({
@@ -52,6 +63,16 @@ const actor = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  hasStaffAccess.mockResolvedValue(false);
+  lockStaffEditAccess.mockResolvedValue(false);
+  problemLock.mockResolvedValue({
+    id: "prob_1",
+    authorId: actor.userId,
+    visibility: "private",
+    type: "full_source",
+    checkerStorage: null,
+    interactorStorage: null,
+  });
   problemFindById.mockResolvedValue({
     id: "prob_1",
     authorId: "usr_author",
@@ -91,6 +112,10 @@ describe("saveProblemJudgeConfig", () => {
     expect(persisted.judgeConfig).toEqual({ type: "checker", checkerLanguage: "python" });
     expect(persisted.judgeConfig).not.toHaveProperty("checkerKey");
     expect(persisted.checkerStorage.key).toMatch(/\/validators\/[^/]+\/checker$/);
+    expect(problemLock).toHaveBeenCalledWith("prob_1");
+    expect(problemLock.mock.invocationCallOrder[0]).toBeLessThan(
+      problemUpdate.mock.invocationCallOrder[0],
+    );
   });
 
   it("uploads a versioned interactor for interactive judges", async () => {
@@ -154,5 +179,42 @@ it.each([setProblemChecker, setProblemInteractor])(
     ).rejects.toThrow(/Invalid judgeConfig for problem prob_1: runtime.memoryLimitMb/);
     expect(putImmutableText).not.toHaveBeenCalled();
     expect(problemUpdate).not.toHaveBeenCalled();
+  },
+);
+
+it.each([true, false])(
+  "rechecks shared-course permission after uploading a checker (still authorized=%s)",
+  async (stillAuthorized) => {
+    const shared = {
+      id: "prob_1",
+      authorId: "usr_other",
+      visibility: "private",
+      type: "full_source",
+      checkerStorage: null,
+      interactorStorage: null,
+    };
+    problemFindById.mockResolvedValue(shared);
+    problemLock.mockResolvedValue(shared);
+    hasStaffAccess.mockResolvedValue(true);
+    lockStaffEditAccess.mockResolvedValue(stillAuthorized);
+    const write = saveProblemJudgeConfig({ ...actor, platformRole: "student" }, "prob_1", {
+      judgeConfig: { type: "checker", checkerLanguage: "python" },
+      checkerScript: "accept()",
+    });
+    if (stillAuthorized) {
+      await expect(write).resolves.toEqual({ id: "prob_1" });
+      expect(commitStoragePointerSwap).toHaveBeenCalledOnce();
+    } else {
+      await expect(write).rejects.toThrow(/not permitted to edit/i);
+      expect(problemUpdate).not.toHaveBeenCalled();
+      expect(commitStoragePointerSwap).not.toHaveBeenCalled();
+    }
+    expect(putImmutableText).toHaveBeenCalledOnce();
+    expect(putImmutableText.mock.invocationCallOrder[0]).toBeLessThan(
+      lockStaffEditAccess.mock.invocationCallOrder[0],
+    );
+    expect(lockStaffEditAccess.mock.invocationCallOrder[0]).toBeLessThan(
+      problemLock.mock.invocationCallOrder[0],
+    );
   },
 );

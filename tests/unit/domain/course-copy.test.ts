@@ -86,9 +86,14 @@ vi.mock("@nojv/db", () => {
       }),
     },
     problemRepo: {
-      withTx: () => ({ findMany: problemFindMany }),
+      withTx: () => ({ findMany: problemFindMany, lockForUpdate: vi.fn() }),
     },
-    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
+    courseProblemRepo: { withTx: () => ({ add: vi.fn() }) },
+    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
+      fn({
+        $queryRaw: vi.fn(),
+        courseProblem: { findMany: vi.fn(async () => []) },
+      }),
   };
 });
 
@@ -203,7 +208,7 @@ function primeSuccessPath() {
     ids.map((id: string) => ({
       authorId: teacherActor.userId,
       id,
-      status: "draft",
+      status: "published",
       visibility: "private",
     })),
   );
@@ -324,7 +329,7 @@ describe("copyCourse — happy path", () => {
       ids.map((id: string) => ({
         authorId: adminActor.userId,
         id,
-        status: "draft",
+        status: "published",
         visibility: "private",
       })),
     );
@@ -397,5 +402,22 @@ describe("copyCourse — empty source course", () => {
     expect(examCreate).not.toHaveBeenCalled();
     expect(examProblemCreate).not.toHaveBeenCalled();
     expect(membershipCreate).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("copyCourse sharing scope", () => {
+  it("rejects another owner's private problem instead of reusing the source course authorization", async () => {
+    primeSuccessPath();
+    problemFindMany.mockImplementation(({ id: { in: ids } }) =>
+      ids.map((id: string) => ({
+        id,
+        authorId: "other_owner",
+        status: "published",
+        visibility: "private",
+      })),
+    );
+    await expect(copyCourse(teacherActor, sourceCourse.id, "Copy")).rejects.toThrow(/owner/);
+    expect(assessmentProblemCreate).not.toHaveBeenCalled();
+    expect(examProblemCreate).not.toHaveBeenCalled();
   });
 });

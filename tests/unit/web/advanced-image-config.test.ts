@@ -101,6 +101,27 @@ describe("advancedImageConfigInputSchema", () => {
       }).success,
     ).toBe(true);
   });
+
+  it("permits only exact existing digests without granting another owner's namespace", () => {
+    const existing = `docker.io/t/bob/grade@${DIGEST}`;
+    const schema = createAdvancedImageConfigInputSchema({
+      allowAnyPlatformRegistryNamespace: false,
+      platformRegistryHost: "docker.io",
+      platformRegistryNamespace: null,
+      existingImageRefs: [existing],
+    });
+    expect(schema.safeParse({ ...baseInput, gradeImageRef: existing }).success).toBe(true);
+    expect(
+      schema.safeParse({ ...baseInput, gradeImageRef: existing.replace("grade@", "run@") })
+        .success,
+    ).toBe(false);
+    expect(
+      schema.safeParse({
+        ...baseInput,
+        gradeImageRef: existing.replace(DIGEST, `sha256:${"b".repeat(64)}`),
+      }).success,
+    ).toBe(false);
+  });
 });
 
 describe("buildAdvancedConfigFromInput", () => {

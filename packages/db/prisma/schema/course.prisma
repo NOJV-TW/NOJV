@@ -32,6 +32,7 @@ model Course {
   updatedAt           DateTime             @updatedAt
   owner               User                 @relation("CourseOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   memberships         CourseMembership[]
+  problems            CourseProblem[]
   assessments         Assessment[]
   exams               Exam[]
   submissions         Submission[]
@@ -134,4 +135,18 @@ model AssessmentAuditLog {
 
   @@index([assessmentId, createdAt])
   @@index([courseId, createdAt])
+}
+
+model CourseProblem {
+  courseId      String
+  problemId     String
+  addedByUserId String?
+  createdAt     DateTime @default(now())
+
+  course  Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  problem Problem @relation(fields: [problemId], references: [id], onDelete: Restrict)
+  addedBy User? @relation("CourseProblemCreator", fields: [addedByUserId], references: [id], onDelete: SetNull)
+
+  @@id([courseId, problemId])
+  @@index([problemId])
 }

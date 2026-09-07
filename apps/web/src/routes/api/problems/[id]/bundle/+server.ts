@@ -11,10 +11,6 @@ const MAX_UPLOAD_BYTES = 60 * 1024 * 1024;
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
-  if (!(await problemDomain.canAuthorProblems(actor))) {
-    error(403, "Not authorized to edit problems");
-  }
-
   const problemId = event.params.id;
   if (!problemId) error(400, "Missing problem id");
   await problemDomain.assertProblemEditAccess(actor, problemId);
@@ -30,11 +26,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     error(413, `Bundle exceeds ${String(MAX_UPLOAD_BYTES)} bytes`);
   }
 
-  const result = await problemDomain.importBundle(
-    { platformRole: actor.platformRole, userId: actor.userId, username: actor.username },
-    problemId,
-    Buffer.from(arr),
-  );
+  const result = await problemDomain.importBundle(actor, problemId, Buffer.from(arr));
 
   return json(result);
 });
@@ -42,17 +34,10 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
-  if (!(await problemDomain.canAuthorProblems(actor))) {
-    error(403, "Not authorized to edit problems");
-  }
-
   const problemId = event.params.id;
   if (!problemId) error(400, "Missing problem id");
 
-  const stream = await problemDomain.exportBundle(
-    { platformRole: actor.platformRole, userId: actor.userId, username: actor.username },
-    problemId,
-  );
+  const stream = await problemDomain.exportBundle(actor, problemId);
 
   return new Response(stream, {
     headers: {

@@ -11,6 +11,8 @@ const {
   problemUpdate,
   problemDelete,
   problemFindLinked,
+  scoreAuditFind,
+  feedbackAuditFind,
   putImmutableText,
   commitStoragePointerSwap,
   guardStorageObjectWrites,
@@ -21,6 +23,12 @@ const {
   acquireDisplayIdLock,
   maxDisplayId,
   userFindById,
+  courseProblemHasStaff,
+  courseProblemLockStaff,
+  forkProblem,
+  userFindByUsername,
+  userLock,
+  statementUpsert,
   PRISMA_JSON_NULL,
 } = vi.hoisted(() => ({
   problemCreate: vi.fn(),
@@ -32,6 +40,8 @@ const {
   problemUpdate: vi.fn(),
   problemDelete: vi.fn(),
   problemFindLinked: vi.fn(),
+  scoreAuditFind: vi.fn(),
+  feedbackAuditFind: vi.fn(),
   putImmutableText: vi.fn(),
   commitStoragePointerSwap: vi.fn(),
   guardStorageObjectWrites: vi.fn(),
@@ -42,6 +52,12 @@ const {
   acquireDisplayIdLock: vi.fn(),
   maxDisplayId: vi.fn(),
   userFindById: vi.fn(),
+  courseProblemHasStaff: vi.fn(),
+  courseProblemLockStaff: vi.fn(),
+  forkProblem: vi.fn(),
+  userFindByUsername: vi.fn(),
+  userLock: vi.fn(),
+  statementUpsert: vi.fn(),
   PRISMA_JSON_NULL: Symbol("Prisma.JsonNull"),
 }));
 
@@ -71,7 +87,7 @@ vi.mock("@nojv/db", () => {
   };
   const statementWithTx = {
     create: problemStatementCreate,
-    upsert: vi.fn(),
+    upsert: statementUpsert,
   };
   const workspaceWithTx = {
     deleteByProblemId: workspaceDeleteByProblemId,
@@ -97,18 +113,38 @@ vi.mock("@nojv/db", () => {
     testcaseRepo: { withTx: () => ({}) },
     submissionRepo: { findMany: submissionFindMany },
     courseMembershipRepo: { hasActiveStaffMembership: courseMembershipHasActiveStaff },
-    userRepo: { findById: userFindById },
+    courseProblemRepo: {
+      hasStaffAccess: courseProblemHasStaff,
+      withTx: () => ({
+        lockStaffEditAccess: courseProblemLockStaff,
+        lockProblem: async (id: string): Promise<unknown> => {
+          await problemLockForUpdate(id);
+          return problemFindById(id);
+        },
+      }),
+    },
+    userRepo: {
+      findById: userFindById,
+      withTx: () => ({ findById: userFindById, findByUsername: userFindByUsername }),
+    },
     runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
       fn({
+        $queryRaw: userLock,
         problem: {
           findUnique: problemFindById,
           findFirst: problemFindLinked,
           delete: problemDelete,
         },
         submission: { findUnique: submissionFindUnique },
+        scoreOverrideAuditLog: { findFirst: scoreAuditFind },
+        submissionFeedbackAuditLog: { findFirst: feedbackAuditFind },
       }),
   };
 });
+
+vi.mock("../../../packages/application/src/problem/fork", () => ({
+  forkProblemInTransaction: forkProblem,
+}));
 
 import { ConflictError, ForbiddenError, problemDomain } from "@nojv/application";
 
@@ -545,6 +581,8 @@ describe("deleteProblemRecord — context-link guard (P1)", () => {
     vi.clearAllMocks();
     problemFindById.mockResolvedValue(ownedProblem);
     problemDelete.mockResolvedValue(ownedProblem);
+    scoreAuditFind.mockResolvedValue(null);
+    feedbackAuditFind.mockResolvedValue(null);
   });
 
   it("refuses to delete a problem still linked to a contest/exam/assignment", async () => {
@@ -560,6 +598,32 @@ describe("deleteProblemRecord — context-link guard (P1)", () => {
     await expect(deleteProblemRecord(actor, "prob_1")).resolves.toBeDefined();
     expect(problemDelete).toHaveBeenCalledWith({ where: { id: "prob_1" } });
   });
+
+  it.each([
+    ["score override", scoreAuditFind],
+    ["submission feedback", feedbackAuditFind],
+  ] as const)(
+    "retains a draft referenced only by %s audit history, even for admins",
+    async (_name, findAudit) => {
+      problemFindLinked.mockResolvedValue(null);
+      findAudit.mockResolvedValue({ id: "historical_audit" });
+
+      for (const platformRole of ["teacher", "admin"] as const) {
+        await expect(
+          deleteProblemRecord({ ...actor, platformRole }, ownedProblem.id),
+        ).rejects.toThrow(/historical grading/);
+      }
+      expect(findAudit).toHaveBeenCalledWith({
+        where: { problemId: ownedProblem.id },
+        select: { id: true },
+      });
+      expect(problemLockForUpdate.mock.invocationCallOrder[0]).toBeLessThan(
+        findAudit.mock.invocationCallOrder[0],
+      );
+      expect(problemDelete).not.toHaveBeenCalled();
+      expect(commitStoragePointerSwap).not.toHaveBeenCalled();
+    },
+  );
 
   it("refuses to delete a published problem, guarding its submission history", async () => {
     problemFindById.mockResolvedValue({ ...ownedProblem, status: "published" });
@@ -696,5 +760,285 @@ describe("hasVerifiedAdvancedJudgeRun — publish gate signal", () => {
     await expect(
       hasVerifiedAdvancedJudgeRun("prob_1", serviceConfig, ["main.py"], resourceLimits),
     ).resolves.toBe(false);
+  });
+});
+
+describe("course content publication and ownership", () => {
+  const owner = { userId: "owner", username: "owner", platformRole: "teacher" as const };
+  const ta = { userId: "ta", username: "ta", platformRole: "student" as const };
+  const admin = { userId: "admin", username: "admin", platformRole: "admin" as const };
+  const problem = {
+    id: "private",
+    authorId: owner.userId,
+    visibility: "private",
+    status: "draft",
+    adminMayPublish: false,
+    title: "Shared",
+    type: "full_source",
+    displayId: null,
+    advancedConfig: null,
+    advancedRequiredPaths: [],
+    timeLimitMs: 1000,
+    memoryLimitMb: 256,
+    judgeConfig: { type: "standard" },
+    storageGeneration: 2,
+    referenceSolutionSubmissionId: "ref",
+  };
+  beforeEach(() => {
+    vi.clearAllMocks();
+    problemFindById.mockResolvedValue(problem);
+    courseProblemHasStaff.mockResolvedValue(true);
+    courseProblemLockStaff.mockResolvedValue(true);
+    courseMembershipHasActiveStaff.mockResolvedValue(true);
+    testcaseSetCountByProblem.mockResolvedValue(1);
+    submissionFindUnique.mockResolvedValue({
+      problemId: problem.id,
+      isReferenceSolution: true,
+      sampleOnly: false,
+      status: "accepted",
+      sourceStorage: {},
+      assessmentId: null,
+      contestId: null,
+      courseId: null,
+      examId: null,
+      participationId: null,
+      referenceProblemStorageGeneration: problem.storageGeneration,
+    });
+    forkProblem.mockResolvedValue({
+      ...problem,
+      id: "public-fork",
+      displayId: 42,
+      status: "published",
+      visibility: "public",
+    });
+    maxDisplayId.mockResolvedValue({ _max: { displayId: 41 } });
+    userFindByUsername.mockResolvedValue({ id: "target" });
+    userFindById.mockResolvedValue({
+      id: "target",
+      username: "new_owner",
+      disabled: false,
+      canCreateAdvancedProblems: true,
+    });
+  });
+
+  it("allows a TA to publish private content with unchanged management and judge fields", async () => {
+    await expect(
+      updateProblemRecord(ta, problem.id, {
+        title: "Edited",
+        visibility: "private",
+        adminMayPublish: false,
+        status: "published",
+        timeLimitMs: 1000,
+        memoryLimitMb: 256,
+        type: "full_source",
+        judgeConfig: { type: "standard" },
+      }),
+    ).resolves.toEqual({ id: problem.id });
+    const data: unknown = problemUpdate.mock.calls[0][1];
+    expect(data).toMatchObject({ title: "Edited", status: "published" });
+    expect(data).not.toHaveProperty("adminMayPublish");
+    expect(data).not.toHaveProperty("storageGeneration");
+    expect(forkProblem).not.toHaveBeenCalled();
+  });
+
+  it.each([{ visibility: "public" as const }, { adminMayPublish: true }])(
+    "rejects coeditor management changes %o",
+    async (payload) => {
+      await expect(updateProblemRecord(ta, problem.id, payload)).rejects.toBeInstanceOf(
+        ForbiddenError,
+      );
+      expect(problemUpdate).not.toHaveBeenCalled();
+      expect(forkProblem).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([owner, { ...admin, userId: owner.userId }])(
+    "forks owner publication without mutating private content ($platformRole)",
+    async (actor) => {
+      await expect(
+        updateProblemRecord(actor, problem.id, {
+          visibility: "public",
+          statement: "Published text",
+        }),
+      ).resolves.toEqual({ id: "public-fork" });
+      expect(forkProblem).toHaveBeenCalledWith(expect.anything(), problem.id, {
+        authorId: actor.userId,
+        published: true,
+        requirePublishedPublicSource: false,
+      });
+      expect(problemUpdate.mock.calls.every(([id]) => id === "public-fork")).toBe(true);
+      expect(statementUpsert).toHaveBeenCalledWith(
+        "public-fork",
+        expect.objectContaining({ problemId: "public-fork" }),
+        expect.anything(),
+      );
+    },
+  );
+
+  it("forks the admin's own already-published private problem", async () => {
+    problemFindById.mockResolvedValue({
+      ...problem,
+      authorId: admin.userId,
+      status: "published",
+    });
+    await expect(problemDomain.publishProblemAsAdmin(admin, problem.id)).resolves.toEqual({
+      id: "public-fork",
+    });
+    expect(problemUpdate).not.toHaveBeenCalled();
+  });
+
+  it("requires and consumes owner consent for admin publication", async () => {
+    await expect(problemDomain.publishProblemAsAdmin(admin, problem.id)).rejects.toBeInstanceOf(
+      ConflictError,
+    );
+    expect(forkProblem).not.toHaveBeenCalled();
+    problemFindById.mockResolvedValue({ ...problem, adminMayPublish: true });
+    await expect(problemDomain.publishProblemAsAdmin(admin, problem.id)).resolves.toEqual({
+      id: "public-fork",
+    });
+    expect(problemUpdate).toHaveBeenCalledExactlyOnceWith(problem.id, {
+      adminMayPublish: false,
+    });
+  });
+
+  it("does not consume consent if the public fork fails", async () => {
+    problemFindById.mockResolvedValue({ ...problem, adminMayPublish: true });
+    forkProblem.mockRejectedValueOnce(new Error("fork failed"));
+    await expect(problemDomain.publishProblemAsAdmin(admin, problem.id)).rejects.toThrow(
+      "fork failed",
+    );
+    expect(problemUpdate).not.toHaveBeenCalled();
+  });
+
+  it.each([owner, admin])(
+    "preserves existing public maintenance for $platformRole",
+    async (actor) => {
+      problemFindById.mockResolvedValue({
+        ...problem,
+        visibility: "public",
+        status: "published",
+      });
+      await expect(
+        updateProblemRecord(actor, problem.id, {
+          title: "Maintained",
+          status: "published",
+          adminMayPublish: false,
+        }),
+      ).resolves.toEqual({ id: problem.id });
+      expect(forkProblem).not.toHaveBeenCalled();
+    },
+  );
+
+  it("transfers to a locked available username and clears the former owner's consent", async () => {
+    await expect(
+      problemDomain.transferProblemOwnership(owner, problem.id, "NEW_OWNER"),
+    ).resolves.toEqual({ id: problem.id, authorId: "target" });
+    expect(userFindByUsername).toHaveBeenCalledWith("new_owner");
+    expect(problemLockForUpdate.mock.invocationCallOrder[0]).toBeLessThan(
+      userLock.mock.invocationCallOrder[0],
+    );
+    expect(problemUpdate).toHaveBeenCalledWith(problem.id, {
+      authorId: "target",
+      adminMayPublish: false,
+    });
+  });
+
+  it("does not give a coeditor ownership management", async () => {
+    await expect(
+      problemDomain.transferProblemOwnership(ta, problem.id, "new_owner"),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(problemUpdate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    null,
+    { id: "target", disabled: true, username: "new_owner" },
+    { id: "target", disabled: false, username: "renamed" },
+  ])("rejects an unavailable target after its user lock: %o", async (target) => {
+    userFindById.mockResolvedValue(target);
+    await expect(
+      problemDomain.transferProblemOwnership(owner, problem.id, "new_owner"),
+    ).rejects.toThrow();
+    expect(problemUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unregistered username", async () => {
+    userFindByUsername.mockResolvedValue(null);
+    await expect(
+      problemDomain.transferProblemOwnership(owner, problem.id, "new_owner"),
+    ).rejects.toThrow(/existing user/);
+    expect(problemUpdate).not.toHaveBeenCalled();
+  });
+
+  it.each([owner, ta])(
+    "checks Advanced authorization before the generic config guard for $username",
+    async (actor) => {
+      const config = {
+        run: {
+          imageRef: `ghcr.io/nojv/run@sha256:${"a".repeat(64)}`,
+          imageSource: "registry" as const,
+        },
+        grade: {
+          imageRef: `ghcr.io/nojv/grade@sha256:${"b".repeat(64)}`,
+          imageSource: "registry" as const,
+        },
+        network: { mode: "none" as const },
+        maxScore: 100,
+      };
+      const payload = { type: "special_env" as const, advancedConfig: config };
+      userFindById.mockResolvedValue({ canCreateAdvancedProblems: false });
+      await expect(updateProblemRecord(actor, problem.id, payload)).rejects.toBeInstanceOf(
+        ForbiddenError,
+      );
+      expect(userFindById).toHaveBeenCalledWith(actor.userId);
+      expect(problemUpdate).not.toHaveBeenCalled();
+
+      userFindById.mockResolvedValue({ canCreateAdvancedProblems: true });
+      await expect(updateProblemRecord(actor, problem.id, payload)).rejects.toThrow(
+        "Use the Advanced judge configuration action to change images.",
+      );
+      expect(problemUpdate).not.toHaveBeenCalled();
+    },
+  );
+
+  it("checks retained image refs against the locked configuration", async () => {
+    const config = {
+      run: {
+        imageRef: `ghcr.io/nojv/run@sha256:${"a".repeat(64)}`,
+        imageSource: "registry" as const,
+      },
+      grade: {
+        imageRef: `ghcr.io/nojv/grade@sha256:${"b".repeat(64)}`,
+        imageSource: "registry" as const,
+      },
+      network: { mode: "none" as const },
+      maxScore: 100,
+    };
+    problemFindById.mockResolvedValue({
+      ...problem,
+      type: "special_env",
+      advancedConfig: config,
+    });
+    await expect(
+      updateAdvancedJudgeConfiguration(ta, problem.id, {
+        config,
+        requiredPaths: [],
+        retainedImageRefs: [config.run.imageRef],
+      }),
+    ).resolves.toBeUndefined();
+    problemUpdate.mockClear();
+    problemFindById.mockResolvedValue({
+      ...problem,
+      type: "special_env",
+      advancedConfig: { ...config, run: config.grade },
+    });
+    await expect(
+      updateAdvancedJudgeConfiguration(ta, problem.id, {
+        config,
+        requiredPaths: [],
+        retainedImageRefs: [config.run.imageRef],
+      }),
+    ).rejects.toThrow(/changed during validation/);
+    expect(problemUpdate).not.toHaveBeenCalled();
   });
 });

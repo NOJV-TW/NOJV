@@ -15,6 +15,7 @@ export type {
 } from "./clarification";
 export { contestRepo, contestProblemRepo } from "./contest";
 export { courseRepo, courseMembershipRepo } from "./course";
+export { courseProblemRepo } from "./course-problem";
 export { participationRepo, UnifiedParticipationVersionConflict } from "./participation";
 export { courseMembershipAdminRepo } from "./course-membership";
 export { contentReportRepo } from "./content-report";

@@ -1,8 +1,5 @@
-import {
-  createStorageClient,
-  downloadProblemImage as storageDownload,
-  uploadProblemImage as storageUpload,
-} from "@nojv/storage";
+import { problemDomain, type ActorContext } from "@nojv/application";
+import { createStorageClient, downloadProblemImage as storageDownload } from "@nojv/storage";
 
 function problemImageUrl(problemId: string, key: string): string {
   const prefix = `problems/${problemId}/images/`;
@@ -14,12 +11,12 @@ function problemImageUrl(problemId: string, key: string): string {
 }
 
 export async function uploadProblemImage(
+  actor: ActorContext,
   problemId: string,
   buffer: Buffer,
   contentType: string,
 ): Promise<string> {
-  const client = createStorageClient();
-  const key = await storageUpload(client, problemId, buffer, contentType);
+  const key = await problemDomain.uploadProblemImage(actor, problemId, buffer, contentType);
   return problemImageUrl(problemId, key);
 }
 

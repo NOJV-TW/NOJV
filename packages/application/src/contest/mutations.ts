@@ -99,10 +99,15 @@ async function resolveAndAttachContestProblems(
   allowedLanguages: Language[],
   scoringMode: ContestScoringMode,
 ) {
+  const existing = await tx.contestProblem.findMany({
+    where: { contestId },
+    select: { problemId: true },
+  });
   const resolved = await resolveActivityProblems(
     tx,
     actor,
     problems.map((problem) => problem.problemId),
+    { existingProblemIds: existing.map(({ problemId }) => problemId) },
   );
 
   if (allowedLanguages.length > 0) {
@@ -113,6 +118,7 @@ async function resolveAndAttachContestProblems(
     );
   }
 
+  await contestProblemRepo.withTx(tx).deleteByContestId(contestId);
   await Promise.all(
     problems.map(async (entry, index) => {
       const problem = resolved[index];
@@ -318,8 +324,6 @@ export async function updateContestRecord(
 
     const editable = contest.visibility === "draft" || contest.startsAt > new Date();
     if (payload.problems !== undefined && editable) {
-      await contestProblemRepo.withTx(tx).deleteByContestId(contest.id);
-
       const enforcedLanguages = payload.allowedLanguages ?? contest.allowedLanguages;
       await resolveAndAttachContestProblems(
         tx,

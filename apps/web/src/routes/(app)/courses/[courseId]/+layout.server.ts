@@ -22,12 +22,13 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
   const membership = course.memberships[0] ?? null;
   const effectiveRole = resolveEffectiveCourseRole(
     actor.platformRole,
-    membership?.role ?? null,
+    membership?.status === "active" && membership.userId === actor.userId
+      ? membership.role
+      : null,
   );
-  const isCourseOwner = course.ownerId === actor.userId;
-  const isManager = canManageCourse(effectiveRole) || isCourseOwner;
+  const isManager = canManageCourse(effectiveRole);
 
-  const isEnrolled = membership?.status === "active";
+  const isEnrolled = membership?.status === "active" && membership.userId === actor.userId;
   if (!isManager && !isEnrolled) {
     throw new ForbiddenError("You are not a member of this course.");
   }

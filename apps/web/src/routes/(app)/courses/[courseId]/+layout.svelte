@@ -28,6 +28,8 @@
         return "assignments";
       case "exams":
         return "exams";
+      case "problems":
+        return "problems";
       case "grades":
         return "grades";
       case "members":
@@ -47,6 +49,7 @@
   courseId={data.course.id}
   {activeTabKey}
   counts={data.counts}
+  showProblems={data.isManager}
   showAnalytics={data.isManager}
   showSettings={data.isManager}
 />

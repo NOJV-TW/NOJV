@@ -25,6 +25,7 @@ Problem ──┬── ProblemStatement (single statement per problem)
           ├── ContestProblem ──→ Contest
           ├── ExamProblem ──→ Exam
           ├── AssessmentProblem ──→ Assessment
+          ├── CourseProblem ──→ Course
           └── ProblemPost (editorial | discussion)
 
 Contest ──┬── ContestProblem
@@ -53,6 +54,7 @@ field-level reference).
 ```mermaid
 erDiagram
     User ||--o{ Submission : submits
+    User ||--o{ Problem : owns
     User |o--o{ CourseMembership : joins
     User ||--o{ Participation : enters
     User ||--o{ ProblemPost : writes
@@ -63,12 +65,14 @@ erDiagram
     Course ||--o{ CourseMembership : has
     Course ||--o{ Assessment : owns
     Course ||--o{ Exam : embeds
+    Course ||--o{ CourseProblem : lists
 
     Assessment ||--o{ AssessmentProblem : links
     Assessment ||--o{ Submission : scopes
 
     Problem ||--o{ Submission : "judged in"
     Problem ||--o{ AssessmentProblem : "attached to"
+    Problem ||--o{ CourseProblem : "shared with"
     Problem ||--o{ ContestProblem : "attached to"
     Problem ||--o{ ExamProblem : "attached to"
     Problem ||--o{ ProblemPost : "discussed in"
@@ -193,7 +197,8 @@ production conversion and rollback fence.
 | `id`                            | String            | CUID, primary key                                                                                                                                                                                                                         |
 | `displayId`                     | Int?              | Unique human-friendly number ("#N") shown in the UI. Null while a draft; assigned `max(displayId)+1` (under an advisory lock) the first time the problem is published, then never changes. Routes/foreign keys use `id` (cuid), not this. |
 | `title`                         | String            | Problem title                                                                                                                                                                                                                             |
-| `visibility`                    | ProblemVisibility | public or private (course-only)                                                                                                                                                                                                           |
+| `authorId`                      | String            | Required individual owner; User deletion is restricted until explicit transfer or eligible problem deletion                                                                                                                               |
+| `visibility`                    | ProblemVisibility | public or private; private problems may be personal or shared through course libraries                                                                                                                                                    |
 | `adminMayPublish`               | Boolean           | One-time owner consent for an admin to create a published public fork; valid only while the source is private, separate from `visibility`, and default `false`                                                                            |
 | `forkedFromProblemId`           | String?           | Self-FK to the direct source problem (`ON DELETE SET NULL`); forks are independent snapshots and do not synchronize                                                                                                                       |
 | `status`                        | ProblemStatus     | draft or published                                                                                                                                                                                                                        |
@@ -315,6 +320,7 @@ One row per event per recipient. `type` is a `NotificationType` enum (e.g. `assi
 | `CourseMembership`           | Durable course roster identity: User or pending username, role, active/removed status                                                                                                                                          | `schema/course.prisma`        |
 | `Assessment`                 | Homework assignment (opens / due / close, adjustment rules, no proctoring)                                                                                                                                                     | `schema/course.prisma`        |
 | `AssessmentProblem`          | Join table: problems attached to an assessment with ordinal + points                                                                                                                                                           | `schema/course.prisma`        |
+| `CourseProblem`              | Persistent course library pair, addition actor and time; see Problem Ownership And Course Library below                                                                                                                        | `schema/course.prisma`        |
 | `AssessmentAuditLog`         | Append-only publish / revert / delete-draft trail for course assessments                                                                                                                                                       | `schema/course.prisma`        |
 | `Notification`               | Per-recipient event row (type + params JSON, `readAt` for unread state)                                                                                                                                                        | `schema/notification.prisma`  |
 | `Announcement`               | Platform / course announcement (pinned, audience, published window)                                                                                                                                                            | `schema/ops.prisma`           |
@@ -356,6 +362,47 @@ Deep field-level detail intentionally stays in the Prisma schema files themselve
 | `Submission.verdictSummary`                           | `VerdictSummary`      | Small case-counter + per-subtask summary + truncated compiler error (full detail lives in S3 at `verdictDetailStorageKey`) |
 | `Participation.subtaskScores`                         | Score breakdown       | Per-subtask scores (contest / exam / virtual)                                                                              |
 | `*.plagiarismResults`                                 | Dolos result array    | Similarity pairs (similarity, longest, overlap) on Assessment / Exam / Contest                                             |
+
+## Problem Ownership And Course Library
+
+`Problem.authorId` is required and references an individual `User` with `ON DELETE RESTRICT`.
+Account removal requires an explicit ownership transfer or deletion of an eligible unused draft.
+Course sharing never changes ownership. `CourseProblem` has primary key `(courseId, problemId)`
+and a reverse `problemId` index; deleting a course removes its library links, while a library
+link prevents deletion of the problem. `addedByUserId` records the actor for new additions;
+historical additions use NULL and the migration time, without inventing consent or an original actor.
+
+The `20260908000002_course_problem_permissions` migration backfills the distinct union of
+assignment and exam problem links and verified historical submissions. Assignment submissions
+must match their assessment's course; exam submissions have NULL `Submission.courseId`, so their
+course comes from `Exam.courseId`. Practice and independent contest submissions grant no course
+sharing. The migration verifies both missing and extra pairs and preserves every existing row,
+problem ID, owner, visibility, activity reference, and grade. Missing or dangling owners stop the
+transaction with the affected problem ID and an explicit-transfer instruction.
+
+Both this migration and `20260908000000_exam_late_submission_policy` use explicit transactions,
+a 10-second lock timeout, and a 5-minute statement timeout. Late-policy preflight runs before
+persisted DDL or updates: unknown or malformed rules and multiple retained late penalties fail
+with the assessment ID. It does not infer combined penalties. Known retired `final_day_zero`
+and `startFrom: final_day` rules are removed; valid runtime bonuses and remaining rule order
+are preserved, including bonus fields tolerated by both validators. SQL and JSON NULL remain
+valid no-policy values. Strict-field checks apply only to retained late penalties; retired rules
+do not fail merely for extra fields accepted by the old validator. A failed Prisma migration must
+be reviewed and resolved as rolled back before
+retrying after the underlying data or operational issue is corrected.
+Prisma's failed-step log update can itself fail inside the aborted transaction, leaving
+`_prisma_migrations.logs` empty and surfacing only `current transaction is aborted` in the CLI.
+The PostgreSQL ERROR and HINT contain the original preflight failure and affected ID. Verify
+rollback and migration history before resolving; the CLI message alone is not the root cause.
+
+Web, judge worker, and platform worker require `nojv.tw/problem-library-contract: problem-library-v1`
+in addition to the storage and roster contracts. The persistent admission fence uses its own
+contract-specific name, so an older chart's schema-fence hook cannot replace it. Restoring an
+old runtime with only `membership-v1` is rejected. Follow the existing
+[deployment maintenance workflow](../operations/DEPLOYMENT.md); schema rollback requires a
+verified compatible recovery, not just a Helm rollback. Real migration rollback, history, rerun,
+and data-preservation checks live in
+[`problem-library-migration.test.ts`](../../tests/integration/db/problem-library-migration.test.ts).
 
 ## Seed Data
 

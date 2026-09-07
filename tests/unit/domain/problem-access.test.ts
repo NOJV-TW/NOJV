@@ -9,6 +9,7 @@ const { hasEndedAssessmentForUser, hasEndedContestForUser, hasEndedExamForUser }
 );
 
 vi.mock("@nojv/db", () => ({
+  courseProblemRepo: { hasStaffAccess: vi.fn().mockResolvedValue(false) },
   assessmentProblemRepo: { hasEndedAssessmentForUser },
   contestProblemRepo: { hasEndedContestForUser },
   examProblemRepo: { hasEndedExamForUser },

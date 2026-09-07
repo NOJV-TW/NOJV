@@ -8,6 +8,7 @@ import {
   runTransaction,
   submissionRepo,
   testcaseSetRepo,
+  userRepo,
   type TransactionClient,
 } from "@nojv/db";
 import type {
@@ -28,6 +29,7 @@ import {
   advancedConfigSchema,
   advancedJudgeVerificationSnapshotSchema,
   requiredPathsSchema,
+  userHandleSchema,
 } from "@nojv/core";
 
 import {
@@ -47,12 +49,13 @@ import {
   canPublishPublicProblems,
   assertProblemEditAccess,
   assertProblemOwnership,
+  lockProblemForEdit,
   type ProblemActorContext,
 } from "./permissions";
 import { forkProblemInTransaction } from "./fork";
 
 export interface CreateProblemDefinitionInput {
-  authorId?: string | undefined;
+  authorId: string;
   difficulty?: ProblemDifficulty | undefined;
   inputFormat?: string | undefined;
   judgeConfig?: unknown;
@@ -76,7 +79,7 @@ export async function createProblemDefinition(
   const type: ProblemType = input.type ?? "full_source";
 
   const createData: Prisma.ProblemUncheckedCreateInput = {
-    authorId: input.authorId ?? null,
+    authorId: input.authorId,
     title: input.title,
     difficulty: input.difficulty ?? "medium",
     memoryLimitMb: input.memoryLimitMb ?? 256,
@@ -130,6 +133,11 @@ export async function deleteProblemRecord(actor: ProblemActorContext, problemId:
           { contestLinks: { some: {} } },
           { examLinks: { some: {} } },
           { assessmentLinks: { some: {} } },
+          { courseLinks: { some: {} } },
+          { submissions: { some: {} } },
+          { posts: { some: {} } },
+          { scoreOverrides: { some: {} } },
+          { submissionFeedback: { some: {} } },
         ],
       },
       select: { id: true },
@@ -138,6 +146,19 @@ export async function deleteProblemRecord(actor: ProblemActorContext, problemId:
       throw new ConflictError(
         "This problem is used in a contest, exam, or assignment and cannot be deleted. Remove it from those first.",
       );
+    }
+    const [scoreAudit, feedbackAudit] = await Promise.all([
+      tx.scoreOverrideAuditLog.findFirst({
+        where: { problemId },
+        select: { id: true },
+      }),
+      tx.submissionFeedbackAuditLog.findFirst({
+        where: { problemId },
+        select: { id: true },
+      }),
+    ]);
+    if (scoreAudit || feedbackAudit) {
+      throw new ConflictError("Problems with historical grading records cannot be deleted.");
     }
     const removed = problemStoragePointers(problem);
     const deleted = await tx.problem.delete({ where: { id: problemId } });
@@ -338,35 +359,33 @@ export async function updateProblemRecord(
   payload: ProblemUpdate,
 ) {
   return runTransaction(async (tx) => {
-    await problemRepo.withTx(tx).lockForUpdate(problemId);
-    const problem = await requireProblem(tx, problemId);
-
-    assertProblemOwnership(problem, actor);
+    const problem = await lockProblemForEdit(tx, actor, problemId);
+    if ((payload.type ?? problem.type) === "special_env") {
+      await assertCanCreateAdvancedProblems(actor);
+    }
 
     const effectiveVisibility = payload.visibility ?? problem.visibility;
+    const publishesFork = problem.visibility === "private" && effectiveVisibility === "public";
+    if (payload.visibility !== undefined && payload.visibility !== problem.visibility) {
+      assertProblemOwnership(problem, actor);
+    }
     if (effectiveVisibility === "public" && !(await canPublishPublicProblems(actor))) {
       throw new ForbiddenError(
         "Public problems can only be published by teachers, admins, or active course TAs.",
       );
     }
-    if (
-      actor.platformRole === "admin" &&
-      problem.authorId !== actor.userId &&
-      payload.status === "published"
-    ) {
-      throw new ForbiddenError(
-        "Use the admin publish action for another author's problem after they allow it.",
-      );
+    if (publishesFork && problem.authorId !== actor.userId && !problem.adminMayPublish) {
+      throw new ConflictError("The author has not allowed an admin to publish this problem.");
     }
-    if (payload.adminMayPublish !== undefined && problem.authorId !== actor.userId) {
+    const consentChanged =
+      payload.adminMayPublish !== undefined &&
+      payload.adminMayPublish !== problem.adminMayPublish;
+    if (consentChanged && problem.authorId !== actor.userId) {
       throw new ForbiddenError(
         "Only the problem author can change admin publication permission.",
       );
     }
-    if (
-      payload.adminMayPublish === true &&
-      (payload.visibility ?? problem.visibility) !== "private"
-    ) {
+    if (consentChanged && payload.adminMayPublish && effectiveVisibility !== "private") {
       throw new ConflictError(
         "Admin publication permission is only available for private problems.",
       );
@@ -375,9 +394,11 @@ export async function updateProblemRecord(
     if (
       problem.status === "published" &&
       problem.type === "special_env" &&
-      (payload.advancedConfig !== undefined ||
-        payload.timeLimitMs !== undefined ||
-        payload.memoryLimitMb !== undefined)
+      ((payload.advancedConfig !== undefined &&
+        !isDeepStrictEqual(payload.advancedConfig, problem.advancedConfig)) ||
+        (payload.timeLimitMs !== undefined && payload.timeLimitMs !== problem.timeLimitMs) ||
+        (payload.memoryLimitMb !== undefined &&
+          payload.memoryLimitMb !== problem.memoryLimitMb))
     ) {
       throw new ConflictError(
         "Published Advanced-mode judge configuration and resource limits cannot be changed.",
@@ -392,10 +413,11 @@ export async function updateProblemRecord(
       throw new ConflictError("Published problems cannot change type.");
     }
 
-    const becomesSpecialEnv =
-      (payload.type ?? problem.type) === "special_env" && problem.type !== "special_env";
-    if (becomesSpecialEnv || payload.advancedConfig !== undefined) {
-      await assertCanCreateAdvancedProblems(actor);
+    if (
+      payload.advancedConfig !== undefined &&
+      !isDeepStrictEqual(payload.advancedConfig, problem.advancedConfig)
+    ) {
+      throw new ConflictError("Use the Advanced judge configuration action to change images.");
     }
 
     if (payload.status === "draft" && problem.status === "published") {
@@ -403,12 +425,13 @@ export async function updateProblemRecord(
     }
 
     const judgeConfigurationChanged =
-      payload.judgeConfig !== undefined ||
-      payload.type !== undefined ||
-      payload.timeLimitMs !== undefined ||
-      payload.memoryLimitMb !== undefined;
+      (payload.judgeConfig !== undefined &&
+        !isDeepStrictEqual(payload.judgeConfig, problem.judgeConfig)) ||
+      (payload.type !== undefined && payload.type !== problem.type) ||
+      (payload.timeLimitMs !== undefined && payload.timeLimitMs !== problem.timeLimitMs) ||
+      (payload.memoryLimitMb !== undefined && payload.memoryLimitMb !== problem.memoryLimitMb);
 
-    if (payload.status === "published" && problem.status !== "published") {
+    if (publishesFork || (payload.status === "published" && problem.status !== "published")) {
       await assertProblemPublishable(tx, {
         ...problem,
         type: payload.type ?? problem.type,
@@ -423,6 +446,7 @@ export async function updateProblemRecord(
     }
 
     const updateData = buildProblemUpdateData(payload);
+    if (!consentChanged) delete updateData.adminMayPublish;
 
     if (judgeConfigurationChanged) {
       updateData.referenceSolutionSubmissionId = null;
@@ -431,7 +455,23 @@ export async function updateProblemRecord(
 
     assertSpecialEnvImageConsistency(payload, problem);
 
+    const target = publishesFork
+      ? await forkProblemInTransaction(tx, problem.id, {
+          authorId: actor.userId,
+          published: true,
+          requirePublishedPublicSource: false,
+        })
+      : problem;
+    if (publishesFork) {
+      updateData.status = "published";
+      updateData.adminMayPublish = false;
+      if (problem.authorId !== actor.userId) {
+        await problemRepo.withTx(tx).update(problem.id, { adminMayPublish: false });
+      }
+    }
+
     if (
+      !publishesFork &&
       payload.status === "published" &&
       problem.status !== "published" &&
       problem.displayId == null
@@ -442,7 +482,7 @@ export async function updateProblemRecord(
     }
 
     if (Object.keys(updateData).length > 0) {
-      await problemRepo.withTx(tx).update(problem.id, updateData);
+      await problemRepo.withTx(tx).update(target.id, updateData);
     }
 
     if (
@@ -451,12 +491,12 @@ export async function updateProblemRecord(
       payload.outputFormat !== undefined
     ) {
       await problemStatementRepo.withTx(tx).upsert(
-        problem.id,
+        target.id,
         {
           bodyMarkdown: payload.statement ?? "",
           inputFormat: payload.inputFormat ?? "",
           outputFormat: payload.outputFormat ?? "",
-          problemId: problem.id,
+          problemId: target.id,
         },
         {
           ...(payload.statement !== undefined ? { bodyMarkdown: payload.statement } : {}),
@@ -466,7 +506,7 @@ export async function updateProblemRecord(
       );
     }
 
-    return { id: problem.id };
+    return { id: target.id };
   });
 }
 
@@ -476,31 +516,21 @@ export async function publishProblemAsAdmin(actor: ProblemActorContext, problemI
   }
 
   return runTransaction(async (tx) => {
-    await problemRepo.withTx(tx).lockForUpdate(problemId);
-    const problem = await requireProblem(tx, problemId);
-    if (problem.authorId === actor.userId) {
+    const problem = await lockProblemForEdit(tx, actor, problemId);
+    if (problem.visibility === "public") {
       if (problem.status === "published") return { id: problem.id };
       await assertProblemPublishable(tx, problem);
-      const updateData: Record<string, unknown> = {
-        adminMayPublish: false,
+      await problemRepo.withTx(tx).acquireDisplayIdLock();
+      const maximum = await problemRepo.withTx(tx).maxDisplayId();
+      await problemRepo.withTx(tx).update(problem.id, {
         status: "published",
-        visibility: "public",
-      };
-      if (problem.displayId == null) {
-        await problemRepo.withTx(tx).acquireDisplayIdLock();
-        const agg = await problemRepo.withTx(tx).maxDisplayId();
-        updateData.displayId = (agg._max.displayId ?? 0) + 1;
-      }
-      await problemRepo.withTx(tx).update(problem.id, updateData);
+        adminMayPublish: false,
+        displayId: problem.displayId ?? (maximum._max.displayId ?? 0) + 1,
+      });
       return { id: problem.id };
     }
-    if (!problem.adminMayPublish) {
+    if (problem.authorId !== actor.userId && !problem.adminMayPublish) {
       throw new ConflictError("The author has not allowed an admin to publish this problem.");
-    }
-    if (problem.visibility !== "private") {
-      throw new ConflictError(
-        "Admin publication permission is only available for private problems.",
-      );
     }
 
     await assertProblemPublishable(tx, problem);
@@ -509,8 +539,38 @@ export async function publishProblemAsAdmin(actor: ProblemActorContext, problemI
       published: true,
       requirePublishedPublicSource: false,
     });
-    await problemRepo.withTx(tx).update(problem.id, { adminMayPublish: false });
+    if (problem.authorId !== actor.userId) {
+      await problemRepo.withTx(tx).update(problem.id, { adminMayPublish: false });
+    }
     return { id: publishedFork.id };
+  });
+}
+
+export async function transferProblemOwnership(
+  actor: ProblemActorContext,
+  problemId: string,
+  targetUsername: string,
+): Promise<{ id: string; authorId: string }> {
+  const parsed = userHandleSchema.safeParse(targetUsername);
+  if (!parsed.success) throw new ValidationError("Invalid owner username.");
+  return runTransaction(async (tx) => {
+    await problemRepo.withTx(tx).lockForUpdate(problemId);
+    const problem = await requireProblem(tx, problemId);
+    assertProblemOwnership(problem, actor);
+    const candidate = await userRepo.withTx(tx).findByUsername(parsed.data);
+    if (!candidate) throw new NotFoundError("The new owner must be an existing user.");
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${candidate.id} FOR SHARE`;
+    const target = await requireUser(tx, candidate.id);
+    if (target.disabled || target.username !== parsed.data) {
+      throw new ConflictError("The new owner must be an available user with that username.");
+    }
+    if (problem.authorId !== target.id) {
+      await problemRepo.withTx(tx).update(problem.id, {
+        authorId: target.id,
+        adminMayPublish: false,
+      });
+    }
+    return { id: problem.id, authorId: target.id };
   });
 }
 
@@ -527,7 +587,7 @@ export async function saveProblemJudgeConfig(
 ): Promise<{ id: string }> {
   const problem = await problemRepo.findById(problemId);
   if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
-  assertProblemOwnership(problem, actor);
+  await assertProblemEditAccess(actor, problemId);
 
   const { type } = input.judgeConfig;
   const checkerBody =
@@ -553,9 +613,7 @@ export async function saveProblemJudgeConfig(
   };
 
   return runTransaction(async (tx) => {
-    await problemRepo.withTx(tx).lockForUpdate(problemId);
-    const current = await requireProblem(tx, problemId);
-    assertProblemOwnership(current, actor);
+    const current = await lockProblemForEdit(tx, actor, problemId);
     const previousBytes =
       optionalPointerSize(current.checkerStorage) +
       optionalPointerSize(current.interactorStorage);
@@ -583,13 +641,11 @@ export async function saveProblemJudgeConfig(
 export async function updateAdvancedJudgeConfiguration(
   actor: ProblemActorContext,
   problemId: string,
-  input: AdvancedJudgeConfiguration,
+  input: AdvancedJudgeConfiguration & { retainedImageRefs?: string[] },
 ): Promise<void> {
   await assertCanCreateAdvancedProblems(actor);
   await runTransaction(async (tx) => {
-    await problemRepo.withTx(tx).lockForUpdate(problemId);
-    const problem = await requireProblem(tx, problemId);
-    assertProblemOwnership(problem, actor);
+    const problem = await lockProblemForEdit(tx, actor, problemId);
 
     if (problem.status === "published") {
       throw new ConflictError("Published Advanced-mode judge configuration cannot be changed.");
@@ -597,6 +653,22 @@ export async function updateAdvancedJudgeConfiguration(
     if (problem.type !== "special_env") {
       throw new ConflictError(
         "Advanced judge configuration requires an Advanced-mode problem.",
+      );
+    }
+
+    const current = advancedConfigSchema.safeParse(problem.advancedConfig);
+    const currentRefs = current.success
+      ? [
+          current.data.run.imageRef,
+          current.data.grade.imageRef,
+          ...(current.data.network.mode === "service" && current.data.network.service
+            ? [current.data.network.service.imageRef]
+            : []),
+        ]
+      : [];
+    if (input.retainedImageRefs?.some((ref) => !currentRefs.includes(ref))) {
+      throw new ConflictError(
+        "Advanced images changed during validation. Reload and try again.",
       );
     }
 
@@ -613,9 +685,7 @@ export async function convertProblemToAdvancedMode(
 ): Promise<void> {
   await assertCanCreateAdvancedProblems(actor);
   await runTransaction(async (tx) => {
-    await problemRepo.withTx(tx).lockForUpdate(problemId);
-    const problem = await requireProblem(tx, problemId);
-    assertProblemOwnership(problem, actor);
+    const problem = await lockProblemForEdit(tx, actor, problemId);
 
     if (problem.status !== "draft") {
       throw new ConflictError("Only draft problems can be converted to Advanced Mode.");

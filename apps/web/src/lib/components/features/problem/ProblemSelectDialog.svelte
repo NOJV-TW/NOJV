@@ -18,18 +18,27 @@
     candidateProblems: CandidateProblemGroups;
     selectedIds: string[];
     open?: boolean;
+    mode?: "activity" | "library";
     onConfirm: (problems: CandidateProblem[]) => void;
   }
 
-  let { candidateProblems, selectedIds, open = $bindable(false), onConfirm }: Props = $props();
+  let {
+    candidateProblems,
+    selectedIds,
+    open = $bindable(false),
+    mode = "activity",
+    onConfirm,
+  }: Props = $props();
 
   let searchQuery = $state("");
+  let source = $state("personal");
   let pendingIds = $state<Set<string>>(new Set());
   let wasOpen = false;
 
   $effect(() => {
     if (open && !wasOpen) {
       searchQuery = "";
+      source = "personal";
       pendingIds = new Set();
     }
     wasOpen = open;
@@ -37,28 +46,39 @@
 
   const selectedIdSet = $derived(new Set(selectedIds));
   const sections = $derived.by(() => {
+    const courseProblems = candidateProblems.courseProblems ?? [];
+    const courseIds = new Set(courseProblems.map((problem) => problem.id));
     const publicIds = new Set(candidateProblems.publicProblems.map((problem) => problem.id));
     return [
       {
+        key: "course",
+        label: m.course_problemLibrary(),
+        problems: courseProblems,
+      },
+      {
         key: "public",
         label: m.problems_publicLibrary(),
-        problems: candidateProblems.publicProblems,
+        problems: candidateProblems.publicProblems.filter(
+          (problem) => !courseIds.has(problem.id),
+        ),
       },
       {
         key: "personal",
         label: m.problems_myProblems(),
         problems: candidateProblems.personalProblems.filter(
-          (problem) => !publicIds.has(problem.id),
+          (problem) => !publicIds.has(problem.id) && !courseIds.has(problem.id),
         ),
       },
     ];
   });
   const filteredSections = $derived(
     sections
+      .filter((section) => mode !== "library" || section.key === source)
       .map((section) => ({
         ...section,
         problems: section.problems
           .filter((problem) => !selectedIdSet.has(problem.id))
+          .filter((problem) => mode === "library" || problem.status === "published")
           .filter(
             (problem) =>
               !searchQuery.trim() || matchesProblemPickerSearch(problem, searchQuery),
@@ -71,11 +91,18 @@
     filteredSections.reduce((count, section) => count + section.problems.length, 0),
   );
   const availableCount = $derived(
-    sections.reduce(
-      (count, section) =>
-        count + section.problems.filter((problem) => !selectedIdSet.has(problem.id)).length,
-      0,
-    ),
+    sections
+      .filter((section) => mode !== "library" || section.key === source)
+      .reduce(
+        (count, section) =>
+          count +
+          section.problems.filter(
+            (problem) =>
+              !selectedIdSet.has(problem.id) &&
+              (mode === "library" || problem.status === "published"),
+          ).length,
+        0,
+      ),
   );
 
   function toggleProblem(problemId: string) {
@@ -110,8 +137,41 @@
     class="max-h-[min(760px,calc(100dvh-2rem))] max-w-3xl grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0"
   >
     <Dialog.Header class="border-b border-border-subtle px-6 pb-4 pt-6 pe-14">
-      <Dialog.Title>{m.problemPicker_dialogTitle()}</Dialog.Title>
-      <Dialog.Description>{m.problemPicker_dialogDescription()}</Dialog.Description>
+      <Dialog.Title
+        >{mode === "library"
+          ? m.course_problemLibraryAdd()
+          : m.problemPicker_dialogTitle()}</Dialog.Title
+      >
+      <Dialog.Description
+        >{mode === "library"
+          ? m.course_problemLibraryAddHint()
+          : m.problemPicker_dialogDescription()}</Dialog.Description
+      >
+      {#if mode === "library"}
+        <fieldset class="mt-4 flex flex-wrap gap-x-6 gap-y-3 text-body-sm">
+          <legend class="sr-only">{m.course_problemLibrarySource()}</legend>
+          <label class="flex items-center gap-2">
+            <input
+              type="radio"
+              name="problem-source"
+              value="personal"
+              bind:group={source}
+              class="accent-primary"
+            />
+            {m.course_problemLibraryAddOwn()}
+          </label>
+          <label class="flex items-center gap-2">
+            <input
+              type="radio"
+              name="problem-source"
+              value="public"
+              bind:group={source}
+              class="accent-primary"
+            />
+            {m.course_problemLibraryImportPublic()}
+          </label>
+        </fieldset>
+      {/if}
     </Dialog.Header>
 
     <div class="flex items-center gap-2.5 border-b border-border-subtle px-6 py-3">

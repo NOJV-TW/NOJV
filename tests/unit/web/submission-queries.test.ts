@@ -12,6 +12,7 @@ const { findByIdForUserRead, listAllPaged, listByUser, countAll, countByUser } =
 
 vi.mock("@nojv/db", () => ({
   submissionRepo: {
+    findById: vi.fn().mockResolvedValue(null),
     findByIdForUserRead,
     listAllPaged,
     listByUser,

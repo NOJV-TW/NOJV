@@ -60,7 +60,7 @@ vi.mock("@nojv/db", () => ({
     create: feedbackAuditCreate,
   },
   runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
-    fn({ $executeRaw: vi.fn() }),
+    fn({ $queryRaw: vi.fn() }),
 }));
 
 import {

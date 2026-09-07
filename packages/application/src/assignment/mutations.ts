@@ -4,7 +4,6 @@ import { assertActivityAllocation } from "../scoring/activity-points";
 import {
   assessmentAuditLogRepo,
   assessmentRepo,
-  courseMembershipRepo,
   runTransaction,
   type Prisma,
   type TransactionClient,
@@ -12,9 +11,9 @@ import {
 import { adjustmentRulesSchema, type AssessmentUpdate } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
-import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
+import { NotFoundError, ValidationError } from "../shared/errors";
 import { getDomainOrchestration } from "../shared/orchestration";
-import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissions";
+import { lockCourseForStaffMutation } from "../course/problem-library";
 import { stripUndefined } from "../shared/strip-undefined";
 import { assertEffectiveTimeWindow } from "../shared/effective-time-window";
 import { assignmentDueSoonInput } from "../shared/lifecycle-input";
@@ -28,24 +27,19 @@ async function requireAssignment(tx: TransactionClient, assignmentId: string) {
   return assignment;
 }
 
-async function assertAssignmentManager(
+async function requireManagedAssignment(
   tx: TransactionClient,
   actor: ActorContext,
-  assignment: { courseId: string; createdByUserId: string },
+  assignmentId: string,
 ) {
-  if (actor.platformRole === "admin") return;
-  if (assignment.createdByUserId === actor.userId) return;
-
-  const membership = await courseMembershipRepo
-    .withTx(tx)
-    .findByComposite(assignment.courseId, actor.userId);
-  const effectiveRole = resolveEffectiveCourseRole(
-    actor.platformRole,
-    membership?.role ?? null,
-  );
-  if (!canManageCourse(effectiveRole) || membership?.status !== "active") {
-    throw new ForbiddenError("You do not have permission to edit this assignment.");
-  }
+  const scope = await tx.assessment.findUnique({
+    where: { id: assignmentId },
+    select: { courseId: true },
+  });
+  if (!scope) throw new NotFoundError(`Assignment not found: ${assignmentId}`);
+  await lockCourseForStaffMutation(tx, actor, scope.courseId);
+  await assessmentRepo.withTx(tx).lockForUpdate(assignmentId);
+  return requireAssignment(tx, assignmentId);
 }
 
 type AssignmentLiveStatus = "draft" | "upcoming" | "open" | "closed";
@@ -104,9 +98,7 @@ export async function updateAssignmentRecord(
   payload: AssessmentUpdate,
 ): Promise<{ id: string }> {
   const result = await runTransaction(async (tx) => {
-    await assessmentRepo.withTx(tx).lockForUpdate(assignmentId);
-    const assignment = await requireAssignment(tx, assignmentId);
-    await assertAssignmentManager(tx, actor, assignment);
+    const assignment = await requireManagedAssignment(tx, actor, assignmentId);
 
     const liveStatus = deriveLiveStatus(assignment, new Date());
     assertFieldsAllowedForStatus(
@@ -230,9 +222,7 @@ export async function publishAssignment(
   assignmentId: string,
 ): Promise<void> {
   const published = await runTransaction(async (tx) => {
-    await assessmentRepo.withTx(tx).lockForUpdate(assignmentId);
-    const assignment = await requireAssignment(tx, assignmentId);
-    await assertAssignmentManager(tx, actor, assignment);
+    const assignment = await requireManagedAssignment(tx, actor, assignmentId);
 
     if (assignment.status !== "draft") {
       throw new ValidationError("Only draft assignments can be published.");
@@ -291,9 +281,7 @@ export async function deleteAssignmentDraft(
   assignmentId: string,
 ): Promise<void> {
   await runTransaction(async (tx) => {
-    await assessmentRepo.withTx(tx).lockForUpdate(assignmentId);
-    const assignment = await requireAssignment(tx, assignmentId);
-    await assertAssignmentManager(tx, actor, assignment);
+    const assignment = await requireManagedAssignment(tx, actor, assignmentId);
 
     if (assignment.status !== "draft") {
       throw new ValidationError("Only draft assignments can be deleted.");
@@ -318,9 +306,7 @@ export async function revertAssignmentToDraft(
   assignmentId: string,
 ): Promise<void> {
   await runTransaction(async (tx) => {
-    await assessmentRepo.withTx(tx).lockForUpdate(assignmentId);
-    const assignment = await requireAssignment(tx, assignmentId);
-    await assertAssignmentManager(tx, actor, assignment);
+    const assignment = await requireManagedAssignment(tx, actor, assignmentId);
 
     if (assignment.status !== "published") {
       throw new ValidationError("Only published assignments can be reverted to draft.");

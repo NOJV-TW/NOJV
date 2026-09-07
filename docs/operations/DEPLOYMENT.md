@@ -670,6 +670,22 @@ pointers. The chart keeps all three new Deployments in maintenance through
 Helm's apply/wait phase; the post-upgrade hook explicitly starts and verifies
 the new workloads before restoring the web HPA target.
 
+### Course problem library contract
+
+`20260908000002_course_problem_permissions` uses the same drained release gate.
+It rejects problems without an existing owner, makes `Problem.authorId` required
+with a restrictive deletion relation, and backfills `CourseProblem` from current
+assignment/exam links and verified historical submission contexts. Existing
+problem IDs, owners, visibility, activity references and submissions remain intact;
+only future public selections create private copies. Backfilled links have no
+invented creator and use the migration transaction timestamp.
+
+Rehearse the complete roster, late-policy, activity-weight and library migration
+sequence on a privately restored backup. Compare expected subjects, decimal
+allocations, all retained records and the exact course/problem pairs; verify
+rollback, reruns, schema drift and a full upgraded dump/restore. During cutover,
+obtain a fresh backup after all writers stop before allowing the migration hook.
+
 ### Course roster contract
 
 `20260907000000_course_roster_contract` converts placeholder accounts into durable
@@ -695,9 +711,10 @@ constraints, User-status removal, and security-generation trigger replacement
 commit together. Unique constraints build under the maintenance lock; the next
 migration builds only the two audit lookup indexes concurrently.
 
-The existing admission fence requires both `nojv.tw/schema-contract:
-versioned-storage-v1` and `nojv.tw/course-roster-contract: membership-v1` on all
-three workload pod templates. Once the final migration run starts, a failure
+The existing admission fence requires `nojv.tw/schema-contract:
+versioned-storage-v1`, `nojv.tw/course-roster-contract: membership-v1`, and
+`nojv.tw/problem-library-contract: problem-library-v1` on all three workload pod
+templates. The library fence has its own name so an older chart cannot replace it. Once the final migration run starts, a failure
 keeps writers at zero; use a compatible forward fix and inspect Prisma migration
 history before retrying. Never remove the fence to start an older writer.
 

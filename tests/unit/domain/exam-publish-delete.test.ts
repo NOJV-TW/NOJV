@@ -28,6 +28,12 @@ vi.mock("@nojv/db", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@nojv/db")>();
   return {
     Prisma: actual.Prisma,
+    courseRepo: {
+      withTx: () => ({
+        lockForUpdate: vi.fn(),
+        findById: vi.fn(async () => ({ id: "course_1", archived: false })),
+      }),
+    },
     examRepo: {
       withTx: () => ({
         findById: examFindById,
@@ -60,6 +66,7 @@ vi.mock("@nojv/db", async (importOriginal) => {
     },
     runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
       fn({
+        exam: { findUnique: vi.fn(async () => ({ courseId: "course_1" })) },
         examProblem: {
           findMany: async () => {
             const count = await examProblemCount();
@@ -123,6 +130,7 @@ function publishableExam(overrides: Record<string, unknown> = {}) {
 }
 
 beforeEach(() => {
+  membershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
   configureDomainOrchestration({
     cancelAssignmentDueSoon: vi.fn(async () => {}),
     cancelContestLifecycle: vi.fn(async () => {}),

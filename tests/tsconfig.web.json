@@ -31,6 +31,7 @@
     "unit/web/form-action-errors.test.ts",
     "unit/web/contest-join-error.test.ts",
     "unit/web/course-announcement-errors.test.ts",
+    "unit/web/course-problem-library.test.ts",
     "unit/security/exam-confinement-api-allowlist.test.ts"
   ]
 }

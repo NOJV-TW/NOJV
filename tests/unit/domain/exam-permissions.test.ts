@@ -9,8 +9,11 @@ describe("canManageExam", () => {
     expect(canManageExam(null, exam, [])).toBe(false);
   });
 
-  it("returns true when user is the exam creator", () => {
-    expect(canManageExam("owner-1", exam, [])).toBe(true);
+  it("does not grant permanent access to the exam creator", () => {
+    expect(canManageExam("owner-1", exam, [])).toBe(false);
+    expect(
+      canManageExam("owner-1", exam, [{ courseId: "course-1", role: "ta", status: "removed" }]),
+    ).toBe(false);
   });
 
   it("returns true for an active teacher of the course", () => {

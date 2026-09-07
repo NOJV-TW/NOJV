@@ -54,7 +54,7 @@ import { attemptWindowStart, DEFAULT_ATTEMPT_RESET_MINUTE } from "./attempt-wind
 import { ensureContestParticipation, checkSubmitCooldown } from "../contest/mutations";
 import { checkExamSubmitCooldown } from "../exam/mutations";
 import { assertCanSubmitToVirtualContest } from "../virtual-contest/queries";
-import { assertProblemViewAccess } from "../problem/permissions";
+import { assertProblemViewAccess, lockProblemForEdit } from "../problem/permissions";
 import { checkProctoringGateInTx } from "../proctoring/gate";
 import { normalizeSubmissionSources } from "./source-paths";
 import {
@@ -310,9 +310,18 @@ export async function createQueuedSubmissionRecord(
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
     }
 
+    const isReferenceSolution = payload.referenceSolution === true;
+    if (
+      isReferenceSolution &&
+      (payload.context.type !== "practice" || payload.sampleOnly === true)
+    ) {
+      throw new ConflictError("Reference solutions must use a full practice submission.");
+    }
     const assignmentContext = payload.context.type === "assignment" ? payload.context : null;
-    const [problem, courseContext, user, activeExamSession] = await Promise.all([
-      requireProblem(tx, payload.problemId),
+    const problem = isReferenceSolution
+      ? await lockProblemForEdit(tx, actor, payload.problemId)
+      : await requireProblem(tx, payload.problemId);
+    const [courseContext, user, activeExamSession] = await Promise.all([
       assignmentContext
         ? requireCourseAssignment(
             tx,
@@ -324,21 +333,10 @@ export async function createQueuedSubmissionRecord(
       examSessionRepo.withTx(tx).findActiveForUser(actor.userId),
     ]);
 
-    const isReferenceSolution = payload.referenceSolution === true;
-    if (isReferenceSolution) {
-      if (payload.context.type !== "practice" || payload.sampleOnly === true) {
-        throw new ConflictError("Reference solutions must use a full practice submission.");
-      }
-      if (problem.type === "special_env") {
-        throw new ConflictError(
-          "Advanced-mode problems use their configured judge verification.",
-        );
-      }
-      if (problem.authorId !== actor.userId && actor.platformRole !== "admin") {
-        throw new ForbiddenError(
-          "Only the problem author or an admin can validate a reference solution.",
-        );
-      }
+    if (isReferenceSolution && problem.type === "special_env") {
+      throw new ConflictError(
+        "Advanced-mode problems use their configured judge verification.",
+      );
     }
 
     if (
@@ -400,7 +398,9 @@ export async function createQueuedSubmissionRecord(
     }
 
     const contextIncludesProblem = payload.context.type !== "practice";
-    await assertProblemViewAccess(problem, actor, { contextIncludesProblem });
+    if (!isReferenceSolution) {
+      await assertProblemViewAccess(problem, actor, { contextIncludesProblem });
+    }
 
     assertLanguageAllowed(payload, problem, contestResult, courseContext, exam);
 
@@ -476,6 +476,9 @@ export async function createQueuedSubmissionRecord(
     await putSubmissionSourcePlan(storage(), sourcePlan);
 
     return await runTransaction(async (tx) => {
+      if (payload.referenceSolution === true) {
+        await lockProblemForEdit(tx, actor, payload.problemId);
+      }
       await commitStoragePointerSwap(tx, { added: sourcePlan.pointers });
       const submission = await submissionRepo
         .withTx(tx)

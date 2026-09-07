@@ -88,8 +88,8 @@ describe("storage release migration history", () => {
         `);
         await transaction.$executeRawUnsafe(`
           INSERT INTO "Problem" (
-            "id", "title", "timeLimitMs", "memoryLimitMb", "judgeConfig", "updatedAt"
-          ) VALUES ('problem', 'Problem', 1000, 256, '{"type":"standard"}', NOW())
+            "id", "title", "authorId", "timeLimitMs", "memoryLimitMb", "judgeConfig", "updatedAt"
+          ) VALUES ('problem', 'Problem', 'student', 1000, 256, '{"type":"standard"}', NOW())
         `);
         await transaction.$executeRawUnsafe(`
           INSERT INTO "TestcaseSet" ("id", "problemId", "name", "updatedAt")

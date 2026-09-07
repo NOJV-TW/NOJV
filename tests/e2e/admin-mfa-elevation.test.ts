@@ -1,7 +1,11 @@
-import { getRedis } from "@nojv/redis";
 import { expect, test } from "@playwright/test";
 
-import { DisposableCredentialUser, psql, signInWithPassword } from "./_disposable-user";
+import {
+  DisposableCredentialUser,
+  getTestRedis,
+  psql,
+  signInWithPassword,
+} from "./_disposable-user";
 import { readLiveSession } from "./_shared";
 import { currentTotp, enrollTotp, unlockSecuritySettings } from "./_two-factor";
 
@@ -10,12 +14,12 @@ test.setTimeout(90_000);
 
 const user = new DisposableCredentialUser("admin-mfa");
 
-test.beforeAll(() => {
-  user.create({ platformRole: "admin" });
+test.beforeAll(async () => {
+  await user.create({ platformRole: "admin" });
 });
 
-test.afterAll(() => {
-  user.cleanup();
+test.afterAll(async () => {
+  await user.cleanup();
 });
 
 test("a regular admin reuses one verification when entering admin mode again", async ({
@@ -26,16 +30,18 @@ test("a regular admin reuses one verification when entering admin mode again", a
   const { secret } = await enrollTotp(page);
 
   const sessionId = (await readLiveSession(page)).session.id;
-  const generation = psql(`SELECT "securityGeneration" FROM "User" WHERE id = '${user.id}';`);
+  const generation = await psql(
+    `SELECT "securityGeneration" FROM "User" WHERE id = '${user.id}';`,
+  );
   const marker = `sg1:${user.id}:${generation}`;
-  expect(await getRedis().get(`nojv:admin:mfa:${sessionId}`)).toBe(marker);
-  expect(await getRedis().get(`nojv:admin:mode:${sessionId}`)).toBeNull();
+  expect(await getTestRedis().get(`nojv:admin:mfa:${sessionId}`)).toBe(marker);
+  expect(await getTestRedis().get(`nojv:admin:mode:${sessionId}`)).toBeNull();
 
   await page.goto("/dashboard");
   await page.getByRole("button", { name: /open account menu/i }).click();
   await page.getByRole("menuitem", { name: /switch to admin mode/i }).click();
   await expect(page).toHaveURL(/\/admin(?:\/|$)/, { timeout: 15_000 });
-  expect(await getRedis().get(`nojv:admin:mode:${sessionId}`)).toBe(marker);
+  expect(await getTestRedis().get(`nojv:admin:mode:${sessionId}`)).toBe(marker);
 
   for (const resource of ["courses", "assignments", "exams", "contests"]) {
     const link = page.locator(`header a[href="/admin/${resource}"]`);
@@ -58,7 +64,7 @@ test("a regular admin reuses one verification when entering admin mode again", a
   await page.getByRole("button", { name: /open account menu/i }).click();
   await page.getByRole("menuitem", { name: /exit admin mode/i }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
-  expect(await getRedis().get(`nojv:admin:mfa:${sessionId}`)).toBe(marker);
+  expect(await getTestRedis().get(`nojv:admin:mfa:${sessionId}`)).toBe(marker);
 
   await page.getByRole("button", { name: /open account menu/i }).click();
   await page.getByRole("menuitem", { name: /switch to admin mode/i }).click();

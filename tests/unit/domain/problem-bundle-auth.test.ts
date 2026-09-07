@@ -18,6 +18,9 @@ const {
 vi.mock("@nojv/db", () => ({
   Prisma: { DbNull: null },
   runTransaction: async (fn: (tx: unknown) => Promise<unknown>) => fn({}),
+  courseProblemRepo: {
+    withTx: () => ({ lockProblem: problemTxFindById }),
+  },
   problemRepo: {
     findById: problemFindById,
     withTx: () => ({
@@ -74,7 +77,9 @@ describe("problem bundle authorization", () => {
     const zip = new JSZip();
     const bundle = Buffer.from(await zip.generateAsync({ type: "nodebuffer" }));
 
-    await expect(importBundle(actor, "prob_1", bundle)).rejects.toThrow(/author or an admin/i);
+    await expect(importBundle(actor, "prob_1", bundle)).rejects.toThrow(
+      /not permitted to edit/i,
+    );
 
     expect(testcaseSetDelete).not.toHaveBeenCalled();
     expect(workspaceDelete).not.toHaveBeenCalled();

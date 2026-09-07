@@ -30,6 +30,9 @@ const {
   dispatchSubmissionJudge,
   storageRef,
   transactionState,
+  referenceLockStaff,
+  referenceLockProblem,
+  problemUpdateReference,
 } = vi.hoisted(() => ({
   problemFindById: vi.fn(),
   userFindById: vi.fn(),
@@ -58,10 +61,19 @@ const {
   dispatchSubmissionJudge: vi.fn(),
   storageRef: { client: null as unknown as { send: (cmd: unknown) => Promise<unknown> } },
   transactionState: { calls: 0, depth: 0 },
+  referenceLockStaff: vi.fn(),
+  referenceLockProblem: vi.fn(),
+  problemUpdateReference: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => {
   return {
+    courseProblemRepo: {
+      withTx: () => ({
+        lockStaffEditAccess: referenceLockStaff,
+        lockProblem: referenceLockProblem,
+      }),
+    },
     problemRepo: {
       withTx: () => ({ findById: problemFindById }),
     },
@@ -123,7 +135,10 @@ vi.mock("@nojv/db", () => {
       transactionState.calls += 1;
       transactionState.depth += 1;
       try {
-        return await fn({ $executeRaw: txExecuteRaw });
+        return await fn({
+          $executeRaw: txExecuteRaw,
+          problem: { update: problemUpdateReference },
+        } as never);
       } finally {
         transactionState.depth -= 1;
       }
@@ -826,5 +841,66 @@ describe("submitAndDispatch", () => {
       expect.any(String),
       expect.objectContaining({ status: "system_error" }),
     );
+  });
+});
+
+describe("reference submission authorization", () => {
+  const reference = {
+    ...baseDraft,
+    context: { type: "practice" as const },
+    referenceSolution: true,
+  };
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupSubmitPipelineDefaults(null);
+    const privateProblem = { ...fakeProblem, visibility: "private", storageGeneration: 7 };
+    problemFindById.mockResolvedValue(privateProblem);
+    referenceLockProblem.mockResolvedValue(privateProblem);
+    referenceLockStaff.mockResolvedValue(true);
+  });
+
+  it("allows a platform student TA to submit a full reference under their own identity", async () => {
+    await expect(
+      createQueuedSubmissionRecord(reference, fakeActor, "127.0.0.1"),
+    ).resolves.toMatchObject({ status: "queued" });
+    expect(submissionCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: fakeActor.userId,
+        context: { type: "practice" },
+        isReferenceSolution: true,
+        referenceProblemStorageGeneration: 7,
+        sampleOnly: false,
+      }),
+    );
+    expect(referenceLockStaff).toHaveBeenCalledTimes(2);
+    expect(referenceLockStaff.mock.invocationCallOrder[0]).toBeLessThan(
+      referenceLockProblem.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("rejects revoked staff at upload publication before dispatching or attaching source", async () => {
+    referenceLockStaff.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    await expect(
+      createQueuedSubmissionRecord(reference, fakeActor, "127.0.0.1"),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(submissionPublishPendingUpload).not.toHaveBeenCalled();
+    expect(durableWorkEnqueue).not.toHaveBeenCalled();
+    expect(submissionCompleteIfInProgress).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ status: "system_error" }),
+    );
+  });
+
+  it.each([
+    { ...reference, sampleOnly: true },
+    { ...reference, context: baseDraft.context },
+    { ...reference, context: { type: "contest" as const, contestId: "contest" } },
+    { ...reference, context: { type: "exam" as const, examId: "exam" } },
+    { ...reference, context: { type: "virtual" as const, participationId: "participation" } },
+  ])("rejects a reference that is not a full practice submission: %o", async (draft) => {
+    await expect(createQueuedSubmissionRecord(draft, fakeActor, "127.0.0.1")).rejects.toThrow(
+      /full practice/,
+    );
+    expect(submissionCreate).not.toHaveBeenCalled();
   });
 });

@@ -4,6 +4,7 @@ import {
   assessmentRepo,
   courseRepo,
   examRepo,
+  examSessionRepo,
   problemRepo,
   submissionRepo,
   submissionRejudgeLogRepo,
@@ -44,6 +45,7 @@ import {
 } from "../problem/judge-config";
 import { computeProblemTotalScore } from "../problem/total-score";
 import { buildProblemSamples } from "../problem/queries";
+import { assertProblemContentReadAccess, canProblemContentRead } from "../problem/permissions";
 import type { ActorContext } from "../shared/actor-context";
 import {
   ConflictError,
@@ -64,18 +66,48 @@ import type {
   WorkspaceFileEntry,
 } from "./types";
 
+function isFullPracticeReference(submission: {
+  isReferenceSolution: boolean;
+  sampleOnly: boolean;
+  assessmentId: string | null;
+  contestId: string | null;
+  courseId: string | null;
+  examId: string | null;
+  participationId: string | null;
+}): boolean {
+  return (
+    submission.isReferenceSolution &&
+    !submission.sampleOnly &&
+    submission.assessmentId === null &&
+    submission.contestId === null &&
+    submission.courseId === null &&
+    submission.examId === null &&
+    submission.participationId === null
+  );
+}
+
+async function canReadReferenceSubmission(
+  actor: ActorContext,
+  submission: NonNullable<Awaited<ReturnType<typeof submissionRepo.findById>>>,
+): Promise<boolean> {
+  if (!isFullPracticeReference(submission)) return false;
+  if (actor.platformRole !== "admin" && (await examSessionRepo.findActiveForUser(actor.userId)))
+    return false;
+  const problem = await problemRepo.findById(submission.problemId);
+  return problem !== null && (await canProblemContentRead(problem, actor));
+}
+
 export async function getSubmissionForActor(actor: ActorContext, submissionId: string) {
   const submission = await submissionRepo.findByIdForUserRead({
     id: submissionId,
     userId: actor.userId,
     adminRecovery: actor.platformRole === "admin",
   });
+  if (submission && !submission.isReferenceSolution) return submission;
 
-  if (!submission) {
-    throw new NotFoundError("Submission not found.");
-  }
-
-  return submission;
+  const reference = submission ?? (await submissionRepo.findById(submissionId));
+  if (reference && (await canReadReferenceSubmission(actor, reference))) return reference;
+  throw new NotFoundError("Submission not found.");
 }
 
 export async function getSubmissionById(id: string) {
@@ -88,27 +120,24 @@ export async function getSubmissionSources(submissionId: string): Promise<Submis
   return readSubmissionSources(submission.sourceStorage);
 }
 
-export async function getProblemReferenceSolution(problemId: string) {
-  const problem = await problemRepo.findById(problemId);
-  if (!problem) throw new NotFoundError(`Problem not found: ${problemId}`);
+export async function getProblemReferenceSolution(actor: ActorContext, problemId: string) {
+  const problem = await assertProblemContentReadAccess(actor, problemId);
 
-  const [latest, candidate] = await Promise.all([
+  const [latestCandidate, candidate] = await Promise.all([
     submissionRepo.findLatestReferenceForProblem(problemId),
     problem.referenceSolutionSubmissionId
       ? submissionRepo.findById(problem.referenceSolutionSubmissionId)
       : null,
   ]);
 
+  const latest =
+    latestCandidate?.problemId === problemId && isFullPracticeReference(latestCandidate)
+      ? latestCandidate
+      : null;
   const verified =
     candidate?.problemId === problemId &&
-    candidate.isReferenceSolution &&
+    isFullPracticeReference(candidate) &&
     candidate.status === "accepted" &&
-    !candidate.sampleOnly &&
-    candidate.assessmentId === null &&
-    candidate.contestId === null &&
-    candidate.courseId === null &&
-    candidate.examId === null &&
-    candidate.participationId === null &&
     candidate.referenceProblemStorageGeneration === problem.storageGeneration &&
     candidate.sourceStorage !== null
       ? candidate
@@ -184,13 +213,15 @@ export async function getSubmissionDetail(actor: ActorContext, submissionId: str
   let viewerIsStaff = false;
   if (!submission && actor.platformRole !== "admin") {
     const candidate = await submissionRepo.findByIdForStaffDetailCandidate(submissionId);
-    if (
-      candidate &&
-      candidate.userId !== actor.userId &&
-      (await canOperateOnSubmission(actor, candidate))
-    ) {
-      submission = candidate;
-      viewerIsStaff = true;
+    if (candidate) {
+      const record = await submissionRepo.findById(submissionId);
+      const allowed = record?.isReferenceSolution
+        ? await canReadReferenceSubmission(actor, record)
+        : candidate.userId !== actor.userId && (await canOperateOnSubmission(actor, candidate));
+      if (allowed) {
+        submission = candidate;
+        viewerIsStaff = true;
+      }
     }
   }
   if (!submission) throw new NotFoundError("Submission not found.");

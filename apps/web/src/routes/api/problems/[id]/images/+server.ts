@@ -13,17 +13,10 @@ import { uploadProblemImage } from "$lib/server/storage/problem-image";
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);
 
-  if (!(await problemDomain.canAuthorProblems(actor))) {
-    error(403, "Not authorized to edit problems");
-  }
-
   const problemId = event.params.id;
   if (!problemId) error(400, "Missing problem id");
 
-  await problemDomain.assertProblemEditAccess(
-    { platformRole: actor.platformRole, userId: actor.userId, username: actor.username },
-    problemId,
-  );
+  await problemDomain.assertProblemEditAccess(actor, problemId);
 
   const formData = await event.request.formData();
   const file = formData.get("image");
@@ -47,7 +40,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     error(400, "Invalid file type. File content does not match an allowed image format.");
   }
 
-  const url = await uploadProblemImage(problemId, buffer, detectedType);
+  const url = await uploadProblemImage(actor, problemId, buffer, detectedType);
 
   return json({ url });
 });
