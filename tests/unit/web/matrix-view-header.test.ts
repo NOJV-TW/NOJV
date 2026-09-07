@@ -2,6 +2,7 @@
 
 import { mount, unmount } from "svelte";
 import { describe, expect, it, vi } from "vitest";
+import MatrixView from "$lib/components/features/course/submissions/MatrixView.svelte";
 
 vi.mock("@lucide/svelte", async () => {
   const Empty = (await import("./fixtures/empty-component.svelte")).default;
@@ -17,8 +18,6 @@ vi.mock("$lib/components/primitives/ui/button", async () => ({
 
 describe("MatrixView header", () => {
   it("can hide the heading and matrix metadata without hiding its controls", async () => {
-    const { default: MatrixView } =
-      await import("$lib/components/features/course/submissions/MatrixView.svelte");
     const target = document.createElement("div");
     document.body.append(target);
     const component = mount(MatrixView, {
@@ -63,8 +62,6 @@ describe("MatrixView header", () => {
   });
 
   it("searches from the student header and toggles problem and total sorting", async () => {
-    const { default: MatrixView } =
-      await import("$lib/components/features/course/submissions/MatrixView.svelte");
     const target = document.createElement("div");
     document.body.append(target);
     const component = mount(MatrixView, {
