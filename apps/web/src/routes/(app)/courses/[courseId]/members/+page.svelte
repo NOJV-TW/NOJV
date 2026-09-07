@@ -101,13 +101,13 @@
       </div>
     {:else}
       <div
-        class="overflow-hidden rounded-xl border border-border bg-[color:var(--color-panel)]"
+        class="grid overflow-hidden rounded-xl border border-border bg-[color:var(--color-panel)]"
+        style="grid-template-columns: auto minmax(0, 1fr) {isManager
+          ? 'minmax(0, 1fr)'
+          : ''} auto auto auto;"
       >
         <div
-          class="grid items-center gap-4 border-b border-border-subtle px-6 py-2 font-mono text-micro uppercase tracking-wider text-muted-foreground"
-          style="grid-template-columns: auto minmax(0, 1fr) {isManager
-            ? 'minmax(0, 1fr)'
-            : ''} auto auto auto;"
+          class="col-span-full grid grid-cols-subgrid items-center gap-4 border-b border-border-subtle px-6 py-2 font-mono text-micro uppercase tracking-wider text-muted-foreground"
         >
           <span aria-hidden="true"></span>
           <div class="relative min-w-0">
@@ -131,7 +131,7 @@
             onValueChange={updateRoleFilter}
           >
             <Select.Trigger
-              class="h-8 max-w-48 justify-end rounded-none border-0 border-b border-border bg-transparent px-1 font-mono text-micro uppercase tracking-wider shadow-none focus-visible:border-ring"
+              class="h-8 max-w-48 justify-end rounded-none border-0 border-b border-border bg-transparent px-1 font-mono text-micro uppercase tracking-wider shadow-none! focus-visible:border-ring dark:bg-transparent dark:hover:bg-transparent"
               aria-label={m.members_roleLabel()}
             >
               {#if roleFilter === "all"}
@@ -163,10 +163,7 @@
         </div>
         {#each filtered as member (member.userId)}
           <div
-            class="grid items-center gap-4 border-b border-border-subtle px-6 py-4 transition-colors duration-fast ease-out-soft last:border-b-0 hover:bg-primary/[0.03]"
-            style="grid-template-columns: auto minmax(0, 1fr) {isManager
-              ? 'minmax(0, 1fr)'
-              : ''} auto auto auto;"
+            class="col-span-full grid grid-cols-subgrid items-center gap-4 border-b border-border-subtle px-6 py-4 transition-colors duration-fast ease-out-soft last:border-b-0 hover:bg-primary/[0.03]"
           >
             <div
               class="flex size-10 items-center justify-center rounded-full text-body font-semibold text-primary-foreground {member.isPlaceholder
