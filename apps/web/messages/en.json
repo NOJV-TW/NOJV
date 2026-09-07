@@ -761,6 +761,8 @@
   "nav_openMenu": "Open menu",
   "common_confirm": "Confirm",
   "common_copied": "Copied",
+  "submission_id": "Submission ID",
+  "submission_copyId": "Copy submission ID",
   "common_copy": "Copy",
   "common_delete": "Delete",
   "common_deleting": "Deleting...",

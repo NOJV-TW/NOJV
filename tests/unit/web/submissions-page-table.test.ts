@@ -86,6 +86,8 @@ describe("submissions page", () => {
 
       const row = target.querySelector<HTMLTableRowElement>("tbody tr");
       expect(row?.getAttribute("role")).toBe("link");
+      expect(row?.querySelector("[data-submission-id]")).toBeNull();
+      expect(row?.querySelector('[aria-label="Copy submission ID"]')).toBeNull();
       row
         ?.querySelector("td:last-child")
         ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));

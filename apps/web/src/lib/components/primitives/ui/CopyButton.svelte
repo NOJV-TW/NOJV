@@ -7,10 +7,11 @@
   interface Props {
     text: string;
     iconOnly?: boolean;
+    label?: string;
     class?: string | undefined;
   }
 
-  let { text, iconOnly = true, class: className }: Props = $props();
+  let { text, iconOnly = true, label, class: className }: Props = $props();
 
   let copied = $state(false);
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -33,11 +34,11 @@
   type="button"
   onclick={handleCopy}
   class={cn(
-    "inline-flex size-7 items-center justify-center rounded bg-transparent p-1 text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-transparent hover:text-foreground",
+    "inline-flex size-7 items-center justify-center rounded bg-transparent p-1 focus-visible:outline-2 focus-visible:outline-ring text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-transparent hover:text-foreground",
     className,
   )}
-  title={copied ? m.common_copied() : m.common_copy()}
-  aria-label={copied ? m.common_copied() : m.common_copy()}
+  title={copied ? m.common_copied() : (label ?? m.common_copy())}
+  aria-label={copied ? m.common_copied() : (label ?? m.common_copy())}
 >
   {#if copied}
     <Check aria-hidden="true" class="size-3.5 text-primary" />

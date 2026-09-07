@@ -761,6 +761,8 @@
   "nav_openMenu": "開啟選單",
   "common_confirm": "確認",
   "common_copied": "已複製",
+  "submission_id": "提交 ID",
+  "submission_copyId": "複製提交 ID",
   "common_copy": "複製",
   "common_delete": "刪除",
   "common_deleting": "刪除中...",

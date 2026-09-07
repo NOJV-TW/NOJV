@@ -1,3 +1,4 @@
+export { default as Copy } from "./empty-component.svelte";
 export { default as Check } from "./empty-component.svelte";
 export { default as Code2 } from "./empty-component.svelte";
 export { default as Download } from "./empty-component.svelte";

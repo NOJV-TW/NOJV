@@ -133,7 +133,7 @@ export const plagiarismPaths = {
       summary: "Get plagiarism source files",
       operationId: "getPlagiarismSourceFiles",
       description:
-        "Returns source files for a user's top submission for the target/problem pair. The files value can be null when no matching submission exists.",
+        "Returns the ID and source files of a user's top submission for the target/problem pair. Both submissionId and files are null when no matching submission exists.",
       parameters: [
         {
           name: "assignmentId",

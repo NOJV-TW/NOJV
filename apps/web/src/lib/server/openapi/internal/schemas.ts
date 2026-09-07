@@ -321,6 +321,7 @@ export const internalSchemas = {
   PlagiarismSourceResponse: {
     type: "object",
     properties: {
+      submissionId: { type: ["string", "null"] },
       files: {
         oneOf: [
           {
@@ -331,7 +332,7 @@ export const internalSchemas = {
         ],
       },
     },
-    required: ["files"],
+    required: ["submissionId", "files"],
   },
   CreatePlagiarismFlagRequest: {
     type: "object",

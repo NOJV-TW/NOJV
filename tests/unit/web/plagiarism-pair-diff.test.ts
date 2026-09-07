@@ -41,12 +41,14 @@ function pairData(pairKey: string, source: string): PlagiarismPairDiffData {
     contextId: "course-1",
     pair: { similarity: 91, longest: 12, overlap: 8, problemId: "problem-1" },
     left: {
+      submissionId: "left-submission",
       userId: `${pairKey}-left`,
       displayName: null,
       username: `${pairKey}-left-user`,
       files: [{ path: "main.ts", content: `${source} left` }],
     },
     right: {
+      submissionId: "right-submission",
       userId: `${pairKey}-right`,
       displayName: null,
       username: `${pairKey}-right-user`,

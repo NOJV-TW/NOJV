@@ -14,12 +14,14 @@ export interface PlagiarismPairDiffData {
     userId: string;
     displayName: string | null;
     username: string | null;
+    submissionId: string | null;
     files: SubmissionSource[] | null;
   };
   right: {
     userId: string;
     displayName: string | null;
     username: string | null;
+    submissionId: string | null;
     files: SubmissionSource[] | null;
   };
   flag: {

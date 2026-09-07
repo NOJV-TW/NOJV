@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SubmissionId from "$lib/components/features/submission/SubmissionId.svelte";
   import { onMount } from "svelte";
 
   import { m } from "$lib/paraglide/messages.js";
@@ -228,8 +229,18 @@
   <div
     class="grid grid-cols-2 gap-0 border-b border-border bg-muted/40 px-4 py-2 font-mono text-caption text-muted-foreground rounded-t-md border-x border-t border-border"
   >
-    <span>{leftLabel} / source</span>
-    <span>{rightLabel} / source</span>
+    <div class="min-w-0">
+      <span>{leftLabel} / source</span>
+      {#if data.left.submissionId}
+        <div><SubmissionId id={data.left.submissionId} /></div>
+      {/if}
+    </div>
+    <div class="min-w-0">
+      <span>{rightLabel} / source</span>
+      {#if data.right.submissionId}
+        <div><SubmissionId id={data.right.submissionId} /></div>
+      {/if}
+    </div>
   </div>
   <div
     bind:this={diffContainer}
