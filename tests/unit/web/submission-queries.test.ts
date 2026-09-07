@@ -1,12 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { findByIdForUserRead } = vi.hoisted(() => ({
-  findByIdForUserRead: vi.fn(),
-}));
+const { findByIdForUserRead, listAllPaged, listByUser, countAll, countByUser } = vi.hoisted(
+  () => ({
+    findByIdForUserRead: vi.fn(),
+    listAllPaged: vi.fn(),
+    listByUser: vi.fn(),
+    countAll: vi.fn(),
+    countByUser: vi.fn(),
+  }),
+);
 
 vi.mock("@nojv/db", () => ({
   submissionRepo: {
     findByIdForUserRead,
+    listAllPaged,
+    listByUser,
+    countAll,
+    countByUser,
   },
   assessmentRepo: {
     findByCourseAndId: vi.fn(),
@@ -72,4 +82,39 @@ describe("getSubmissionForActor", () => {
 
     await expect(getSubmissionForActor(actor, "sub_1")).rejects.toThrow(NotFoundError);
   });
+});
+
+describe("listUserSubmissions", () => {
+  it.each(["admin", "student"] as const)(
+    "returns submitter identity only for %s access",
+    async (platformRole) => {
+      const user = { name: "Alice", username: "alice" };
+      const submission = {
+        id: "sub_1",
+        createdAt: new Date("2026-09-07T00:00:00Z"),
+        language: "cpp",
+        score: 100,
+        status: "accepted",
+        problem: {
+          id: "p1",
+          title: "A + B",
+          type: "standard",
+          testcaseSets: [{ weight: 100 }],
+          advancedConfig: null,
+        },
+        user,
+      };
+      listAllPaged.mockResolvedValue([submission]);
+      listByUser.mockResolvedValue([submission]);
+      countAll.mockResolvedValue(1);
+      countByUser.mockResolvedValue(1);
+
+      const page = await submissionDomain.listUserSubmissions({
+        actor: { ...actor, platformRole },
+        limit: 50,
+      });
+
+      expect(page.items[0]?.user).toEqual(platformRole === "admin" ? user : null);
+    },
+  );
 });
