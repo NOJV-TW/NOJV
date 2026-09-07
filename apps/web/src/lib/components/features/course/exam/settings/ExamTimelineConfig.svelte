@@ -32,7 +32,6 @@
   {editableEnd}
   editableDue={editableEnd}
   pointsBased={$form.scoringMode === "point_sum"}
-  exam
 >
   {#snippet startField()}
     <div>

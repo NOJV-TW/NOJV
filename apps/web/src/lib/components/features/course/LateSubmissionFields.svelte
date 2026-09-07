@@ -19,7 +19,6 @@
     editableEnd?: boolean;
     editableDue?: boolean;
     pointsBased?: boolean;
-    exam?: boolean;
   }
 
   let {
@@ -36,7 +35,6 @@
     editableEnd = true,
     editableDue = editablePolicy,
     pointsBased = true,
-    exam = false,
   }: Props = $props();
 </script>
 
@@ -64,14 +62,9 @@
 
   <div class="space-y-5 border-t border-border-subtle pt-5">
     <div class="flex items-center justify-between gap-4">
-      <div>
-        <label class="cursor-pointer text-sm font-medium" for="allow-late-submissions">
-          {m.lateSubmission_allowLabel()}
-        </label>
-        <p id="allow-late-hint" class="mt-1 text-caption text-muted-foreground">
-          {m.lateSubmission_allowHint()}
-        </p>
-      </div>
+      <label class="cursor-pointer text-sm font-medium" for="allow-late-submissions">
+        {m.lateSubmission_allowLabel()}
+      </label>
       <input
         id="allow-late-submissions"
         name="allowLateSubmissions"
@@ -79,7 +72,6 @@
         class="size-5 shrink-0 cursor-pointer accent-primary disabled:cursor-not-allowed"
         bind:checked={allowLateSubmissions}
         disabled={!editablePolicy}
-        aria-describedby="allow-late-hint"
         onchange={(event) => {
           if (!event.currentTarget.checked) latePenalty = null;
         }}
@@ -127,14 +119,6 @@
             </p>{/if}
         </div>
       </div>
-      {#if latePenalty?.type === "daily_late_penalty" || exam}
-        <div class="space-y-1 text-caption leading-relaxed text-muted-foreground">
-          {#if latePenalty?.type === "daily_late_penalty"}<p>
-              {m.latePenalty_dailyHint()}
-            </p>{/if}
-          {#if exam}<p>{m.lateSubmission_examHint()}</p>{/if}
-        </div>
-      {/if}
     {/if}
   </div>
 </div>

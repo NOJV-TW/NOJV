@@ -26,7 +26,6 @@ const initial = {
   allowLateSubmissions: false,
   latePenalty: null,
   finalName: "endsAt" as const,
-  exam: true,
 };
 
 describe("LateSubmissionFields", () => {
@@ -48,7 +47,6 @@ describe("LateSubmissionFields", () => {
     select.value = "daily_late_penalty";
     select.dispatchEvent(new Event("change", { bubbles: true }));
     await tick();
-    expect(target.textContent).toContain(m.latePenalty_dailyHint());
     expect(target.querySelector<HTMLInputElement>('input[type="number"]')?.value).toBe("10");
     toggle.click();
     await tick();

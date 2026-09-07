@@ -23,7 +23,6 @@ for (const kind of ["assignments", "exams"] as const) {
     await page.getByRole("checkbox", { name: "Allow late submissions" }).check();
     await page.locator(finalSelector).fill("2030-01-04T09:00");
     await page.locator("#late-penalty-rule").selectOption("daily_late_penalty");
-    await expect(page.getByText(/Each started 24-hour period counts as one day/)).toBeVisible();
     await page.locator("#late-penalty-rule").blur();
     const schedule = page.locator('[data-slot="late-submission-fields"]');
     await schedule.screenshot({ path: `output/late-policy-${kind}-desktop.png` });

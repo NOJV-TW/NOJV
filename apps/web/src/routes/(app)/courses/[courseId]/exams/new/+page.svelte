@@ -156,7 +156,6 @@
           finalErrors={$errors.endsAt}
           penaltyInvalid={!!$errors.latePenalty}
           pointsBased={$form.scoringMode === "point_sum"}
-          exam
         >
           {#snippet startField()}
             <div>
