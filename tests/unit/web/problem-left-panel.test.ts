@@ -7,6 +7,7 @@ import EmptyComponent from "./fixtures/empty-component.svelte";
 
 vi.setConfig({ testTimeout: 15_000 });
 
+vi.mock("$app/forms", () => ({ deserialize: vi.fn() }));
 vi.mock("@lucide/svelte", () => ({ ArrowLeft: EmptyComponent }));
 vi.mock("$lib/components/features/problem/left-panel/ProblemDescriptionPanel.svelte", () => ({
   default: EmptyComponent,
