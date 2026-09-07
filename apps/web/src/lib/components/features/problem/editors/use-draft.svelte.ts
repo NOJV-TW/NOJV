@@ -1,7 +1,6 @@
 import { m } from "$lib/paraglide/messages.js";
 import { buildDraftKey, loadDraft, saveDraft, type DraftContext } from "$lib/stores/code-draft";
 import { createDraftAutosaveQueue, type DraftSnapshot } from "$lib/stores/draft-autosave";
-import { shortcuts } from "$lib/stores/shortcuts.svelte";
 import { toasts } from "$lib/stores/toast";
 import type { Language } from "@nojv/core";
 
@@ -23,7 +22,6 @@ export interface DraftController {
   save: () => void;
   scheduleAutosave: () => void;
   dispose: () => void;
-  registerShortcut: () => (() => void) | undefined;
 }
 
 const AUTOSAVE_DELAY_MS = 1200;
@@ -113,18 +111,6 @@ export function createDraftController(args: DraftControllerArgs): DraftControlle
     if (snapshot && enabled && isDirty && !currentWasPending) persist(snapshot, false);
   }
 
-  function registerShortcut() {
-    if (args.isWorkspaceMode()) return undefined;
-    return shortcuts.register({
-      id: `editor-save:${args.problemId}`,
-      keys: ["Ctrl", "S"],
-      description: m.shortcut_saveDraft(),
-      category: "actions",
-      allowInInputs: true,
-      handler: () => save(),
-    });
-  }
-
   return {
     get enabled() {
       return enabled;
@@ -139,6 +125,5 @@ export function createDraftController(args: DraftControllerArgs): DraftControlle
     save,
     scheduleAutosave,
     dispose,
-    registerShortcut,
   };
 }

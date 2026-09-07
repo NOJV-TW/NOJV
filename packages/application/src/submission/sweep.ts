@@ -70,7 +70,8 @@ export async function sweepStaleSubmissions(): Promise<SweepStaleSubmissionsResu
         cutoff,
       );
       killed += updated.count;
-    } catch {
+    } catch (error) {
+      console.error("Failed to reconcile stale submission", { submissionId: id }, error);
       failed += 1;
     }
   }

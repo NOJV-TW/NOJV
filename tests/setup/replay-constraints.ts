@@ -89,7 +89,7 @@ export function collectReplayStatements(): string[] {
   const indexes = new Map<string, Ddl>();
   const foreignKeys = new Map<string, Ddl>();
   const functions: string[] = [];
-  const triggers: string[] = [];
+  const triggers = new Map<string, Ddl>();
 
   const dirs = readdirSync(MIGRATIONS_DIR, { withFileTypes: true })
     .filter((d) => d.isDirectory())
@@ -103,8 +103,21 @@ export function collectReplayStatements(): string[] {
         functions.push(stmt);
         continue;
       }
-      if (/^(?:CREATE|DROP)\s+TRIGGER\b/is.test(stmt)) {
-        triggers.push(stmt);
+      const createTrigger = /^CREATE\s+TRIGGER\s+("?\w+"?)[\s\S]+?\sON\s+("?\w+"?)/is.exec(
+        stmt,
+      );
+      if (createTrigger) {
+        const [, name, table] = createTrigger;
+        triggers.set(name, {
+          table,
+          drop: `DROP TRIGGER IF EXISTS ${name} ON ${table}`,
+          create: stmt,
+        });
+        continue;
+      }
+      const dropTrigger = /^DROP\s+TRIGGER(?:\s+IF\s+EXISTS)?\s+("?\w+"?)/is.exec(stmt);
+      if (dropTrigger) {
+        triggers.delete(dropTrigger[1]);
         continue;
       }
       const rename = RENAME_COL_RE.exec(stmt);
@@ -191,6 +204,6 @@ export function collectReplayStatements(): string[] {
     ...[...checks.values(), ...indexes.values(), ...foreignKeys.values()].flatMap(
       ({ drop, create, validate }) => [drop, create, ...(validate ? [validate] : [])],
     ),
-    ...triggers,
+    ...[...triggers.values()].flatMap(({ drop, create }) => [drop, create]),
   ];
 }

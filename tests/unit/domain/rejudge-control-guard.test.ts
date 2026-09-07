@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ForbiddenError, submissionDomain } from "@nojv/application";
+import { NotFoundError, submissionDomain } from "@nojv/application";
 
 const { assertRejudgeWorkflowId } = submissionDomain;
 
@@ -15,7 +15,7 @@ describe("assertRejudgeWorkflowId — rejudge cancel/progress 前綴守衛 (P0)"
     "rejudgex-no-boundary",
     "",
   ])("拒絕非 rejudge workflowId: %s", (id) => {
-    expect(() => assertRejudgeWorkflowId(id)).toThrow(ForbiddenError);
+    expect(() => assertRejudgeWorkflowId(id)).toThrow(NotFoundError);
   });
 
   it.each(["rejudge-prob_1-0190abcdef", "rejudge-sub_1-deadbeef", "rejudge-exam_1-uuid"])(

@@ -14,23 +14,25 @@
   const courseId = $derived(page.params.courseId ?? "");
 
   const groups = $derived(
-    [
-      {
-        key: "running",
-        label: m.examsTop_filterRunning(),
-        items: exams.filter((e) => e.status === "running"),
-      },
-      {
-        key: "upcoming",
-        label: m.examsTop_filterUpcoming(),
-        items: exams.filter((e) => e.status === "upcoming" || e.status === "draft"),
-      },
-      {
-        key: "ended",
-        label: m.examsTop_filterEnded(),
-        items: exams.filter((e) => e.status === "ended"),
-      },
-    ].filter((g) => g.items.length > 0),
+    (
+      [
+        {
+          key: "running",
+          label: m.examsTop_filterRunning(),
+          items: exams.filter((e) => e.status === "running"),
+        },
+        {
+          key: "upcoming",
+          label: m.examsTop_filterUpcoming(),
+          items: exams.filter((e) => e.status === "upcoming" || e.status === "draft"),
+        },
+        {
+          key: "ended",
+          label: m.examsTop_filterEnded(),
+          items: exams.filter((e) => e.status === "ended"),
+        },
+      ] as const
+    ).filter((g) => g.items.length > 0),
   );
 </script>
 

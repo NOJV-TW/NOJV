@@ -31,9 +31,8 @@ export interface DomainOrchestrationAdapter {
   ensureAssignmentDueSoon(input: AssignmentDueSoonInput): Promise<void>;
   ensureContestLifecycle(input: ContestLifecycleInput): Promise<void>;
   ensureExamAutoClose(input: ExamAutoCloseInput): Promise<void>;
-  getRejudgeTriggeredBy(workflowId: string): Promise<string | null>;
   probeTemporal(): Promise<void>;
-  queryRejudgeProgress(workflowId: string): Promise<RejudgeProgress>;
+  queryRejudgeProgress(workflowId: string): Promise<RejudgeProgress | null>;
   replaceAssignmentDueSoon(input: AssignmentDueSoonInput): Promise<void>;
   replaceContestLifecycle(input: ContestLifecycleInput): Promise<void>;
   replaceExamAutoClose(input: ExamAutoCloseInput): Promise<void>;

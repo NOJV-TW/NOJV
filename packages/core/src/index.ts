@@ -20,6 +20,7 @@ export * from "./judge-job";
 export * from "./workflow-types";
 export * from "./redis-connection";
 export * from "./sandbox";
+export * from "./schemas/sandbox-output";
 export * from "./judge/compare";
 export * from "./judge/validator";
 export * from "./judge/time-factor";

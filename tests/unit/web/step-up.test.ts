@@ -35,6 +35,7 @@ vi.mock("@nojv/redis", () => ({
         store.set(keys[0]!, argv[0]!);
         store.set(keys[1]!, argv[0]!);
         if (argv[3] === "1") store.set(keys[2]!, argv[0]!);
+        store.set(keys[3]!, argv[0]!);
         return Promise.resolve(1);
       }
       if (script.includes('redis.call("SET", KEYS[3], ARGV[1], "EX", ARGV[2])')) {
@@ -45,12 +46,19 @@ vi.mock("@nojv/redis", () => ({
         return Promise.resolve(1);
       }
       if (script.includes("local mode = redis.call")) {
-        if (store.get(keys[1]!) === argv[0] && store.get(keys[0]!) === argv[0]) {
+        if (store.get(keys[1]!) === argv[0]) {
           return Promise.resolve(1);
         }
-        store.delete(keys[0]!);
         store.delete(keys[1]!);
+        if (store.get(keys[0]!) !== argv[0]) store.delete(keys[0]!);
         return Promise.resolve(0);
+      }
+      if (script.includes("for i = 1, 4 do")) {
+        for (const key of keys.slice(0, 4)) {
+          if (store.get(key) === argv[0]) store.set(key, argv[1]!);
+        }
+        store.delete(keys[4]!);
+        return Promise.resolve(1);
       }
       throw new Error("Unexpected Redis script in step-up unit test");
     },
@@ -60,6 +68,7 @@ vi.mock("@nojv/redis", () => ({
     tokenPageMfa: (sessionId: string) => `nojv:apitoken:page-mfa:${sessionId}`,
     adminSessionMfa: (sessionId: string) => `nojv:admin:mfa:${sessionId}`,
     adminMode: (sessionId: string) => `nojv:admin:mode:${sessionId}`,
+    securitySettingsGrant: (sessionId: string) => `nojv:security:settings-grant:${sessionId}`,
     stepUpHandoffTicket: (ticket: string) => `nojv:stepup:handoff:${ticket}`,
     twoFactorTotpSeen: (userId: string, code: string) => `nojv:2fa:totp-seen:${userId}:${code}`,
   },
@@ -77,13 +86,15 @@ vi.mock("$lib/auth.server", () => ({
 import {
   clearStepUp,
   consumeTotpCode,
-  grantAdminElevation,
+  exitAdminMode,
+  grantAdminMode,
   hasAdminSessionMfa,
   hasFreshStepUp,
   hasTokenPageMfa,
+  isSuperAdminSessionExpired,
   markVerifiedSession,
-  resolveAdminElevation,
-  revokeAdminElevation,
+  resolveAdminAccess,
+  revokeAdminAccess,
   securityGenerationMarker,
   validateStepUpCode,
   verifyStepUpCode,
@@ -127,7 +138,7 @@ describe("durable security-generation markers", () => {
   });
 
   it("marks only a still-current session proof", async () => {
-    await expect(markVerifiedSession("sess_1", proof, true)).resolves.toBe(true);
+    await expect(markVerifiedSession("sess_1", proof, "regular")).resolves.toBe(true);
     await expect(hasFreshStepUp("sess_1", proof)).resolves.toBe(true);
     await expect(hasTokenPageMfa("sess_1", proof)).resolves.toBe(true);
     await expect(hasAdminSessionMfa("sess_1", proof)).resolves.toBe(true);
@@ -140,7 +151,7 @@ describe("durable security-generation markers", () => {
   it("does not write when the captured generation is stale", async () => {
     generationMatchesMock.mockResolvedValue(false);
 
-    await expect(markVerifiedSession("sess_1", proof, true)).resolves.toBe(false);
+    await expect(markVerifiedSession("sess_1", proof, "regular")).resolves.toBe(false);
     expect(store.size).toBe(0);
   });
 });
@@ -149,36 +160,55 @@ describe("admin elevation", () => {
   const admin = {
     ...proof,
     disabled: false,
+    isSuperAdmin: false,
     platformRole: "admin" as const,
-    twoFactorActivated: true,
   };
 
-  it("requires two-factor activation for every admin", async () => {
-    await expect(
-      grantAdminElevation("sess_1", { ...admin, twoFactorActivated: false }),
-    ).resolves.toBe(false);
-  });
-
   it("requires a fresh two-factor marker before every elevation", async () => {
-    await expect(grantAdminElevation("sess_1", admin)).resolves.toBe(false);
-    await expect(resolveAdminElevation("sess_1", admin)).resolves.toBe(false);
+    await expect(grantAdminMode("sess_1", admin)).resolves.toBe(false);
+    await expect(resolveAdminAccess("sess_1", admin)).resolves.toBe(false);
   });
 
   it("grants and resolves admin mode after verified two-factor step-up", async () => {
-    await markVerifiedSession("sess_1", proof, true);
+    await markVerifiedSession("sess_1", proof, "regular");
 
-    await expect(grantAdminElevation("sess_1", admin)).resolves.toBe(true);
-    await expect(resolveAdminElevation("sess_1", admin)).resolves.toBe(true);
+    await expect(grantAdminMode("sess_1", admin)).resolves.toBe(true);
+    await expect(resolveAdminAccess("sess_1", admin)).resolves.toBe(true);
   });
 
-  it("requires another two-factor step-up after switching admin mode off", async () => {
-    await markVerifiedSession("sess_1", proof, true);
-    await expect(grantAdminElevation("sess_1", admin)).resolves.toBe(true);
+  it("keeps the 10-minute proof after switching admin mode off", async () => {
+    await markVerifiedSession("sess_1", proof, "regular");
+    await expect(grantAdminMode("sess_1", admin)).resolves.toBe(true);
 
-    await revokeAdminElevation("sess_1");
+    await exitAdminMode("sess_1");
 
-    await expect(grantAdminElevation("sess_1", admin)).resolves.toBe(false);
-    await expect(resolveAdminElevation("sess_1", admin)).resolves.toBe(false);
+    await expect(resolveAdminAccess("sess_1", admin)).resolves.toBe(false);
+    await expect(grantAdminMode("sess_1", admin)).resolves.toBe(true);
+  });
+
+  it("gives a verified super admin direct access without an admin-mode marker", async () => {
+    const superAdmin = { ...admin, isSuperAdmin: true };
+    await markVerifiedSession("sess_1", proof, "regular");
+
+    await expect(resolveAdminAccess("sess_1", superAdmin)).resolves.toBe(true);
+    await expect(grantAdminMode("sess_1", superAdmin)).resolves.toBe(false);
+  });
+
+  it("revokes all admin access proofs only when the session is invalidated", async () => {
+    await markVerifiedSession("sess_1", proof, "regular");
+    await grantAdminMode("sess_1", admin);
+    await revokeAdminAccess("sess_1");
+
+    await expect(resolveAdminAccess("sess_1", admin)).resolves.toBe(false);
+  });
+});
+
+describe("super admin session age", () => {
+  const now = new Date("2026-09-04T12:00:00.000Z");
+
+  it("allows exactly 24 hours but rejects any later session", () => {
+    expect(isSuperAdminSessionExpired(new Date("2026-09-03T12:00:00.000Z"), now)).toBe(false);
+    expect(isSuperAdminSessionExpired(new Date("2026-09-03T11:59:59.999Z"), now)).toBe(true);
   });
 });
 
@@ -187,14 +217,19 @@ describe("session-rotation handoff ticket", () => {
     const ticket = await createStepUpHandoffTicket(proof);
 
     expect(ticket).toMatch(/^[A-Za-z0-9_-]{43}$/);
-    expect(store.get(`nojv:stepup:handoff:${ticket}`)).toBe(JSON.stringify(proof));
-    await expect(consumeStepUpHandoffTicket(ticket)).resolves.toEqual(proof);
+    expect(store.get(`nojv:stepup:handoff:${ticket}`)).toBe(
+      JSON.stringify({ ...proof, kind: "verified" }),
+    );
+    await expect(consumeStepUpHandoffTicket(ticket)).resolves.toEqual({
+      ...proof,
+      kind: "verified",
+    });
     await expect(consumeStepUpHandoffTicket(ticket)).resolves.toBeNull();
   });
 
   it("fails closed for legacy uid-only and uid-generation tickets", async () => {
     store.set("nojv:stepup:handoff:legacy-uid", proof.userId);
-    store.set("nojv:stepup:handoff:legacy-epoch", `${proof.userId}:7`);
+    store.set("nojv:stepup:handoff:legacy-epoch", JSON.stringify(proof));
 
     await expect(consumeStepUpHandoffTicket("legacy-uid")).resolves.toBeNull();
     await expect(consumeStepUpHandoffTicket("legacy-epoch")).resolves.toBeNull();

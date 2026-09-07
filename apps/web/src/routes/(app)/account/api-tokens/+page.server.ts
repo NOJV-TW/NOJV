@@ -1,15 +1,19 @@
-import { apiTokenDomain, securityGenerationProof } from "@nojv/application";
+import {
+  apiTokenDomain,
+  getSecurityFactorState,
+  securityGenerationProof,
+} from "@nojv/application";
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, RequestEvent } from "@sveltejs/kit";
 
 import { ForbiddenError, requireAuth } from "$lib/server/auth";
-import { hasFreshStepUp, hasTokenPageMfa, isTwoFactorActivated } from "$lib/server/step-up";
+import { hasFreshStepUp, hasTokenPageMfa } from "$lib/server/step-up";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 
 async function requireTokenMutationStepUp(event: RequestEvent): Promise<void> {
   const actor = requireAuth(event);
-  if (!(await isTwoFactorActivated(actor.userId))) {
-    throw new ForbiddenError("Two-factor authentication is required.");
+  if (!(await getSecurityFactorState(actor.userId))?.hasSecurityFactor) {
+    throw new ForbiddenError("Set up an authenticator or passkey first.");
   }
   const sessionId = event.locals.session?.id;
   const sessionUser = event.locals.sessionUser;
@@ -56,8 +60,11 @@ export const load = async (event: RequestEvent) => {
 
   const actor = requireAuth(event);
 
-  if (!(await isTwoFactorActivated(actor.userId))) {
-    redirect(302, "/settings?setup2fa=1&returnTo=" + encodeURIComponent("/account/api-tokens"));
+  if (!(await getSecurityFactorState(actor.userId))?.hasSecurityFactor) {
+    redirect(
+      302,
+      "/settings?setupSecurity=1&returnTo=" + encodeURIComponent("/account/api-tokens"),
+    );
   }
   const sessionId = event.locals.session?.id;
   const sessionUser = event.locals.sessionUser;

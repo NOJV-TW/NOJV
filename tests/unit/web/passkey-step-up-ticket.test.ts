@@ -1,15 +1,24 @@
 import type { RequestEvent } from "@sveltejs/kit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { consumeTicketMock, markVerifiedSessionMock, cookieDeleteMock } = vi.hoisted(() => ({
+const {
+  consumeTicketMock,
+  markVerifiedSessionMock,
+  unlockSecuritySettingsMock,
+  cookieDeleteMock,
+} = vi.hoisted(() => ({
   consumeTicketMock: vi.fn(),
   markVerifiedSessionMock: vi.fn(),
+  unlockSecuritySettingsMock: vi.fn(),
   cookieDeleteMock: vi.fn(),
 }));
 
 vi.mock("@nojv/application", () => ({
+  adminMfaKind: (user: { isSuperAdmin: boolean; platformRole: string }) =>
+    user.platformRole !== "admin" ? "none" : user.isSuperAdmin ? "super" : "regular",
   consumeStepUpHandoffTicket: consumeTicketMock,
   markVerifiedSession: markVerifiedSessionMock,
+  unlockSecuritySettings: unlockSecuritySettingsMock,
 }));
 
 import { consumeStepUpHandoff, STEP_UP_HANDOFF_COOKIE } from "$lib/server/step-up-handoff";
@@ -45,6 +54,7 @@ function event(input?: {
 beforeEach(() => {
   consumeTicketMock.mockReset();
   markVerifiedSessionMock.mockReset().mockResolvedValue(true);
+  unlockSecuritySettingsMock.mockReset().mockResolvedValue(true);
   cookieDeleteMock.mockReset();
 });
 
@@ -57,7 +67,11 @@ describe("step-up handoff", () => {
   });
 
   it("consumes but rejects a ticket issued for another user", async () => {
-    consumeTicketMock.mockResolvedValue({ userId: "usr_2", securityGeneration: 7 });
+    consumeTicketMock.mockResolvedValue({
+      kind: "verified",
+      userId: "usr_2",
+      securityGeneration: 7,
+    });
 
     await expect(
       consumeStepUpHandoff(event({ cookie: "ticket", sessionId: "sess_1", userId: "usr_1" })),
@@ -68,7 +82,11 @@ describe("step-up handoff", () => {
   });
 
   it("binds a valid ticket to the new session and grants superadmin MFA", async () => {
-    consumeTicketMock.mockResolvedValue({ userId: "usr_1", securityGeneration: 7 });
+    consumeTicketMock.mockResolvedValue({
+      kind: "verified",
+      userId: "usr_1",
+      securityGeneration: 7,
+    });
 
     await expect(
       consumeStepUpHandoff(
@@ -84,12 +102,16 @@ describe("step-up handoff", () => {
     expect(markVerifiedSessionMock).toHaveBeenCalledWith(
       "sess_new",
       { userId: "usr_1", securityGeneration: 7 },
-      true,
+      "super",
     );
   });
 
   it("grants the same session-bound MFA marker to a regular platform admin", async () => {
-    consumeTicketMock.mockResolvedValue({ userId: "usr_1", securityGeneration: 7 });
+    consumeTicketMock.mockResolvedValue({
+      kind: "verified",
+      userId: "usr_1",
+      securityGeneration: 7,
+    });
 
     await expect(
       consumeStepUpHandoff(
@@ -105,12 +127,34 @@ describe("step-up handoff", () => {
     expect(markVerifiedSessionMock).toHaveBeenCalledWith(
       "sess_new",
       { userId: "usr_1", securityGeneration: 7 },
-      true,
+      "regular",
     );
   });
 
+  it("binds a setup-only handoff without granting a verified-session proof", async () => {
+    consumeTicketMock.mockResolvedValue({
+      kind: "setup-only",
+      userId: "usr_1",
+      securityGeneration: 7,
+    });
+
+    await expect(
+      consumeStepUpHandoff(event({ cookie: "ticket", sessionId: "sess_new", userId: "usr_1" })),
+    ).resolves.toBe(true);
+
+    expect(unlockSecuritySettingsMock).toHaveBeenCalledWith("sess_new", {
+      userId: "usr_1",
+      securityGeneration: 7,
+    });
+    expect(markVerifiedSessionMock).not.toHaveBeenCalled();
+  });
+
   it("rejects a ticket from an older security generation", async () => {
-    consumeTicketMock.mockResolvedValue({ userId: "usr_1", securityGeneration: 6 });
+    consumeTicketMock.mockResolvedValue({
+      kind: "verified",
+      userId: "usr_1",
+      securityGeneration: 6,
+    });
 
     await expect(
       consumeStepUpHandoff(event({ cookie: "ticket", sessionId: "sess_new", userId: "usr_1" })),

@@ -11,9 +11,8 @@ import {
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";
 import { readCheckbox, readString } from "$lib/server/shared/form-utils";
-import { classifyError } from "$lib/server/shared/handle-action-error";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
-import { withRateLimit } from "$lib/server/shared/action-handlers";
+import { withAction } from "$lib/server/shared/action-handlers";
 
 const {
   listRecentAnnouncementsForCourse,
@@ -92,16 +91,11 @@ function readExpiresAt(formData: FormData): Date | null {
 }
 
 export const actions = {
-  createAnnouncement: withRateLimit(async (event) => {
+  createAnnouncement: withAction(async (event) => {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
 
-    try {
-      await assertCourseManager(actor.userId, actor.platformRole, courseId);
-    } catch (err) {
-      const c = classifyError(err);
-      return fail(c.status, { error: c.message });
-    }
+    await assertCourseManager(actor.userId, actor.platformRole, courseId);
 
     const formData = await event.request.formData();
     const title = readString(formData, "title");
@@ -110,35 +104,25 @@ export const actions = {
       return fail(400, { error: "Title and content are required." });
     }
 
-    try {
-      await createAnnouncement({
-        title,
-        content,
-        pinned: readCheckbox(formData, "pinned"),
-        published: true,
-        audience: "all",
-        expiresAt: readExpiresAt(formData),
-        courseId,
-        createdByUserId: actor.userId,
-      });
-    } catch (err) {
-      const c = classifyError(err);
-      return fail(c.status, { error: c.message });
-    }
+    await createAnnouncement({
+      title,
+      content,
+      pinned: readCheckbox(formData, "pinned"),
+      published: true,
+      audience: "all",
+      expiresAt: readExpiresAt(formData),
+      courseId,
+      createdByUserId: actor.userId,
+    });
 
     return { success: true };
   }),
 
-  updateAnnouncement: withRateLimit(async (event) => {
+  updateAnnouncement: withAction(async (event) => {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
 
-    try {
-      await assertCourseManager(actor.userId, actor.platformRole, courseId);
-    } catch (err) {
-      const c = classifyError(err);
-      return fail(c.status, { error: c.message });
-    }
+    await assertCourseManager(actor.userId, actor.platformRole, courseId);
 
     const formData = await event.request.formData();
     const id = readString(formData, "id");
@@ -153,33 +137,23 @@ export const actions = {
       return fail(404, { error: "Announcement not found in this course." });
     }
 
-    try {
-      await updateAnnouncement(id, {
-        title,
-        content,
-        pinned: readCheckbox(formData, "pinned"),
-        published: true,
-        audience: "all",
-        expiresAt: readExpiresAt(formData),
-      });
-    } catch (err) {
-      const c = classifyError(err);
-      return fail(c.status, { error: c.message });
-    }
+    await updateAnnouncement(id, {
+      title,
+      content,
+      pinned: readCheckbox(formData, "pinned"),
+      published: true,
+      audience: "all",
+      expiresAt: readExpiresAt(formData),
+    });
 
     return { success: true };
   }),
 
-  togglePinAnnouncement: withRateLimit(async (event) => {
+  togglePinAnnouncement: withAction(async (event) => {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
 
-    try {
-      await assertCourseManager(actor.userId, actor.platformRole, courseId);
-    } catch (err) {
-      const c = classifyError(err);
-      return fail(c.status, { error: c.message });
-    }
+    await assertCourseManager(actor.userId, actor.platformRole, courseId);
 
     const id = readString(await event.request.formData(), "id");
     if (!id) return fail(400, { error: "ID is required." });
@@ -189,26 +163,16 @@ export const actions = {
       return fail(404, { error: "Announcement not found in this course." });
     }
 
-    try {
-      await toggleAnnouncementPin(id);
-    } catch (err) {
-      const c = classifyError(err);
-      return fail(c.status, { error: c.message });
-    }
+    await toggleAnnouncementPin(id);
 
     return { success: true };
   }),
 
-  deleteAnnouncement: withRateLimit(async (event) => {
+  deleteAnnouncement: withAction(async (event) => {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
 
-    try {
-      await assertCourseManager(actor.userId, actor.platformRole, courseId);
-    } catch (err) {
-      const c = classifyError(err);
-      return fail(c.status, { error: c.message });
-    }
+    await assertCourseManager(actor.userId, actor.platformRole, courseId);
 
     const id = readString(await event.request.formData(), "id");
     if (!id) return fail(400, { error: "ID is required." });
@@ -218,12 +182,7 @@ export const actions = {
       return fail(404, { error: "Announcement not found in this course." });
     }
 
-    try {
-      await deleteAnnouncement(id);
-    } catch (err) {
-      const c = classifyError(err);
-      return fail(c.status, { error: c.message });
-    }
+    await deleteAnnouncement(id);
 
     return { success: true };
   }),

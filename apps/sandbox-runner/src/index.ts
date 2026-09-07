@@ -3,15 +3,13 @@ import * as path from "node:path";
 import * as os from "node:os";
 import {
   SandboxInputSchema,
-  TestcaseMetaSchema,
   type SandboxInput,
   type SandboxOutput,
-  type TestcaseFiles,
-  type TestcaseMeta,
   type ValidateOutput,
   type ValidatorCaseOutcome,
 } from "./types.js";
 import { compile, compileInteractor, compileValidator, sourceFileName } from "./compiler.js";
+import { readTestcase } from "./testcase-files.js";
 import { cleanupTempDir, pathExists } from "./utils.js";
 import { runSolution } from "./judges/standard.js";
 import {
@@ -30,7 +28,6 @@ import { materializePayload } from "./payload-materializer.js";
 const SUBMISSION_DIR = "/submission";
 const ARTIFACT_DIR = "/artifact";
 const RUN_COMMAND_FILE = path.join(ARTIFACT_DIR, "run-command.json");
-const DEFAULT_TESTCASE_META = { weight: 1, isSample: false } as const;
 
 function log(message: string): void {
   process.stderr.write(`[sandbox-runner] ${message}\n`);
@@ -39,26 +36,6 @@ function log(message: string): void {
 async function readConfig(): Promise<SandboxInput> {
   const raw = await fs.readFile(path.join(SUBMISSION_DIR, "config.json"), "utf-8");
   return SandboxInputSchema.parse(JSON.parse(raw));
-}
-
-async function readSourceCode(
-  language: SandboxInput["language"],
-  entryFile?: string,
-): Promise<string> {
-  const fileCandidates = [entryFile, sourceFileName(language)].filter(
-    (value, index, values): value is string =>
-      Boolean(value) && values.indexOf(value) === index,
-  );
-
-  for (const fileName of fileCandidates) {
-    try {
-      return await fs.readFile(path.join(SUBMISSION_DIR, fileName), "utf-8");
-    } catch {
-      continue;
-    }
-  }
-
-  throw new Error(`Source file not found. Tried: ${fileCandidates.join(", ")}`);
 }
 
 async function writeWorkFile(
@@ -86,80 +63,6 @@ async function materializeConfiguredSources(
     const content = await fs.readFile(path.join(SUBMISSION_DIR, normalizedKey), "utf-8");
     await writeWorkFile(workDir, normalizedPath, content);
   }
-}
-
-async function loadTestcases(): Promise<TestcaseFiles[]> {
-  const testcasesDir = path.join(SUBMISSION_DIR, "testcases");
-
-  try {
-    const entries = await fs.readdir(testcasesDir, { withFileTypes: true });
-    const dirs = entries
-      .filter((e) => e.isDirectory())
-      .map((e) => e.name)
-      .sort((a, b) => Number.parseInt(a, 10) - Number.parseInt(b, 10));
-
-    if (dirs.length > 0) {
-      return await loadTestcasesFromDirs(testcasesDir, dirs);
-    }
-  } catch {
-    return loadTestcasesFromFlatKeys();
-  }
-
-  return loadTestcasesFromFlatKeys();
-}
-
-async function loadTestcasesFromDirs(
-  testcasesDir: string,
-  dirs: string[],
-): Promise<TestcaseFiles[]> {
-  const testcases: TestcaseFiles[] = [];
-
-  for (const dirName of dirs) {
-    const tcDir = path.join(testcasesDir, dirName);
-    const index = Number.parseInt(dirName, 10);
-
-    const input = await fs.readFile(path.join(tcDir, "input.txt"), "utf-8");
-
-    let meta: TestcaseMeta = {};
-    try {
-      const metaRaw = await fs.readFile(path.join(tcDir, "meta.json"), "utf-8");
-      const parsed = TestcaseMetaSchema.safeParse(JSON.parse(metaRaw));
-      if (parsed.success) meta = parsed.data;
-    } catch {
-      meta = {};
-    }
-
-    testcases.push({
-      index,
-      input,
-      weight: meta.weight ?? DEFAULT_TESTCASE_META.weight,
-      isSample: meta.isSample ?? DEFAULT_TESTCASE_META.isSample,
-    });
-  }
-
-  return testcases;
-}
-
-async function loadTestcasesFromFlatKeys(): Promise<TestcaseFiles[]> {
-  const entries = await fs.readdir(SUBMISSION_DIR);
-  const inputFiles = entries
-    .filter((e) => /^testcase-\d+-input\.txt$/.test(e))
-    .sort((a, b) => {
-      const ai = Number.parseInt(a.split("-")[1] ?? "", 10);
-      const bi = Number.parseInt(b.split("-")[1] ?? "", 10);
-      return ai - bi;
-    });
-
-  const testcases: TestcaseFiles[] = [];
-
-  for (const inputFile of inputFiles) {
-    const index = Number.parseInt(inputFile.split("-")[1] ?? "", 10);
-    const input = await fs.readFile(path.join(SUBMISSION_DIR, inputFile), "utf-8");
-
-    testcases.push({ index, input, ...DEFAULT_TESTCASE_META });
-  }
-
-  return testcases;
 }
 
 async function findScript(prefix: string): Promise<string | null> {
@@ -234,7 +137,7 @@ async function compileSubmission(
 
   if (!(await pathExists(srcFile))) {
     log("Reading source code...");
-    const rawSource = await readSourceCode(config.language, entryFile);
+    const rawSource = await fs.readFile(path.join(SUBMISSION_DIR, entryFile), "utf-8");
     await writeWorkFile(workDir, entryFile, rawSource);
   }
 
@@ -266,7 +169,7 @@ async function runInteractive(workDir: string, config: SandboxInput): Promise<vo
     return;
   }
 
-  const interactorLang = interactive.language ?? config.interactorLanguage ?? "python";
+  const interactorLang = interactive.language;
   log("Compiling interactor...");
   const compiled = await compileInteractor(interactorPath, interactorLang, workDir);
   if (!compiled.success) {
@@ -274,8 +177,8 @@ async function runInteractive(workDir: string, config: SandboxInput): Promise<vo
     return;
   }
 
-  const index = interactive.index ?? 0;
-  const { inputFile, answerFile } = await resolveInteractiveCaseFiles(SUBMISSION_DIR, index);
+  const index = interactive.index;
+  const { inputFile, answerFile } = resolveInteractiveCaseFiles(SUBMISSION_DIR, index);
   const feedbackDir = await fs.mkdtemp(path.join(workDir, "fb-"));
 
   log(`Running interactor for case ${String(index)}...`);
@@ -328,11 +231,7 @@ async function runSingleCase(config: SandboxInput, caseIndex: number): Promise<v
     return;
   }
 
-  const testcase = (await loadTestcases()).find((tc) => tc.index === caseIndex);
-  if (!testcase) {
-    emit({ pipelineError: `Testcase ${String(caseIndex)} not found in submission bundle.` });
-    return;
-  }
+  const testcase = await readTestcase(SUBMISSION_DIR, caseIndex);
 
   const run = await runSolution(
     runCommand,
@@ -347,8 +246,8 @@ async function runSingleCase(config: SandboxInput, caseIndex: number): Promise<v
 function resolveCaseIndex(config: SandboxInput): number | null {
   const fromEnv = process.env.SANDBOX_CASE_INDEX;
   if (fromEnv !== undefined) {
-    const parsed = Number.parseInt(fromEnv, 10);
-    return Number.isInteger(parsed) ? parsed : null;
+    const parsed = Number(fromEnv);
+    return fromEnv.trim() && Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
   }
   return config.mode?.kind === "run-case" ? config.mode.caseIndex : null;
 }

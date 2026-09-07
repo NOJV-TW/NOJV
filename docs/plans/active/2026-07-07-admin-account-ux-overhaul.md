@@ -13,7 +13,7 @@
 ## 進度
 
 - [x] 項 8 — 清本地 stale build artifacts(`.svelte-kit`/`build`);IP gate source 正常、61 測試綠、cf-connecting-ip 正確,prod 走 GHCR clean build 不受影響。
-- [x] 項 1 — admin 切換鈕過期:`(app)/+layout.server.ts` 加 `void event.url.pathname` 讓 layout load 每次導覽重評估 `canActAsAdmin`/`actingAsAdmin`。根因是 layout server load 被快取、client 導覽不重跑,`canActAsAdmin`(=`platformRole==="admin"`,stored role 非 effective)停在過期值;新增 passkey 的 `invalidateAll()` 只是巧合刷新。
+- [x] 項 1 — admin 切換鈕過期:`(app)/+layout.server.ts` 加 `void event.url.pathname` 讓 layout load 每次導覽重評估 `canActAsAdmin`/`adminAccessActive`。根因是 layout server load 被快取、client 導覽不重跑,`canActAsAdmin`(=`platformRole==="admin"`,stored role 非 effective)停在過期值;新增 passkey 的 `invalidateAll()` 只是巧合刷新。
 - [ ] 項 2 — 帳號頁「變更密碼」對所有人顯示(缺 hasPassword gate)。⚠️ **之前做過且 typecheck 綠,但被並行 reset 丟失,要重做**:`account/+page.server.ts` load 加 `hasPassword: await userHasCredentialPassword(locals.user.id)`(import 自 `$lib/server/step-up`);`account/+page.svelte` 的變更密碼連結包 `{#if data.hasPassword}`;`change-password/+page.server.ts` load 無密碼時 `redirect(303,"/account")`。只有 super admin 有密碼。
 - [x] 項 3 — **DONE(commit `91a113b7`)**:passkey 從 connections 移到 two-factor(load `listPasskeys` + `deletePasskey` action + `addPasskey` UI,獨立 Card 放在 TOTP 卡片下方)。
 - [x] 項 4 — **DONE(commit `91a113b7`)**:OAuth 上移 account 主頁(load `providers` + `link`/`unlink` action + OAuth Card 放在安全性卡片下方);**`account/connections/` 資料夾已刪除**。

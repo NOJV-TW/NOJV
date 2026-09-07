@@ -38,7 +38,11 @@ vi.mock("@nojv/db", () => ({
   problemStatementRepo: { withTx: () => ({ upsert: vi.fn() }) },
 }));
 
-import { saveProblemJudgeConfig } from "../../../packages/application/src/problem/mutations";
+import {
+  saveProblemJudgeConfig,
+  setProblemChecker,
+  setProblemInteractor,
+} from "../../../packages/application/src/problem/mutations";
 
 const actor = {
   userId: "usr_author",
@@ -134,3 +138,21 @@ describe("saveProblemJudgeConfig", () => {
     });
   });
 });
+
+it.each([setProblemChecker, setProblemInteractor])(
+  "does not overwrite malformed persisted configuration",
+  async (setScript) => {
+    const corrupt = { type: "standard", runtime: { memoryLimitMb: "broken" } };
+    problemFindById.mockResolvedValue({
+      id: "prob_1",
+      authorId: "usr_author",
+      type: "full_source",
+      judgeConfig: corrupt,
+    });
+    await expect(
+      setScript(actor, "prob_1", { language: "python", content: "accept()" }),
+    ).rejects.toThrow(/Invalid judgeConfig for problem prob_1: runtime.memoryLimitMb/);
+    expect(putImmutableText).not.toHaveBeenCalled();
+    expect(problemUpdate).not.toHaveBeenCalled();
+  },
+);

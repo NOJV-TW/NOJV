@@ -28,7 +28,10 @@ test.describe("Contests", () => {
     const page = await context.newPage();
     await page.goto("/contests/spring-qualifier-2026/scoreboard");
     await expect(page.getByRole("main")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Live ranking", level: 1 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Live ranking" })).toBeVisible();
+    await expect(
+      page.getByRole("columnheader", { name: "Participant", exact: true }),
+    ).toBeVisible();
     await context.close();
   });
 });

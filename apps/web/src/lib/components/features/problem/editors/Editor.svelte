@@ -11,7 +11,6 @@
   import EditorResizeHandle from "./EditorResizeHandle.svelte";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import { type DraftContext } from "$lib/stores/code-draft";
-  import { shortcuts } from "$lib/stores/shortcuts.svelte";
   import {
     bindEscapeToExitFullscreen,
     createDocumentMouseDrag,
@@ -163,8 +162,6 @@
     draftController.hydrate();
   });
 
-  $effect(() => draftController.registerShortcut());
-
   $effect(() => {
     void drafts[language];
     draftController.scheduleAutosave();
@@ -211,21 +208,19 @@
 
   $effect(() => () => runController.markDestroyed());
 
-  $effect(() =>
-    shortcuts.register({
-      id: `editor-submit:${initialProblem.id}`,
-      keys: ["Ctrl", "Enter"],
-      description: m.shortcut_submit(),
-      category: "actions",
-      allowInInputs: true,
-      handler: () => {
-        if (!runController.isSubmitting && hasSubmittableSource) {
-          isFullscreen = false;
-          void runController.submit();
-        }
-      },
-    }),
-  );
+  function handleShortcut(event: KeyboardEvent) {
+    if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey) return;
+    if (event.key.toLowerCase() === "s" && !isWorkspaceMode) {
+      event.preventDefault();
+      draftController.save();
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      if (!runController.isSubmitting && hasSubmittableSource) {
+        isFullscreen = false;
+        void runController.submit();
+      }
+    }
+  }
 
   let bottomPanelHeight = $state(260);
   let outerContainer: HTMLDivElement = $state(null!);
@@ -243,6 +238,8 @@
   });
   onDestroy(bottomResize.dispose);
 </script>
+
+<svelte:window onkeydown={handleShortcut} />
 
 <div
   bind:this={outerContainer}

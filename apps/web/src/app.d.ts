@@ -11,7 +11,7 @@ declare global {
       user: User | null;
       apiToken: VerifiedApiTokenContext | null;
       apiTokenActor: ActorContext | null;
-      adminModeActive: boolean;
+      adminAccessActive: boolean;
       requestId: string;
       examGate: {
         entityId: string;

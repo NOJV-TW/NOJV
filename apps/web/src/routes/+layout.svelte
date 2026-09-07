@@ -2,15 +2,12 @@
   import "../app.css";
   import { m } from "$lib/paraglide/messages.js";
   import ToastProvider from "$lib/components/primitives/ui/ToastProvider.svelte";
-  import { useGlobalShortcuts } from "$lib/stores/shortcuts.svelte.js";
   import { onNavigate } from "$app/navigation";
   import { navigating } from "$app/state";
   import { onMount } from "svelte";
   import { initializeGoogleAnalytics } from "$lib/analytics";
 
   let { children } = $props();
-
-  useGlobalShortcuts();
 
   onMount(() => initializeGoogleAnalytics(document));
 

@@ -258,6 +258,12 @@ export async function executeSandbox(
     testcases: testcasesForSandbox,
     judgeType: judgeContext.judgeType,
     judgeConfig: {
+      ...(judgeContext.checkerLanguage != null
+        ? { checkerLanguage: judgeContext.checkerLanguage }
+        : {}),
+      ...(judgeContext.interactorLanguage != null
+        ? { interactorLanguage: judgeContext.interactorLanguage }
+        : {}),
       ...(judgeContext.checkerScript != null
         ? { checkerScript: judgeContext.checkerScript }
         : {}),
@@ -299,7 +305,12 @@ export async function executeSandbox(
   }
 
   if (useSamples) {
-    const mapped = submissionDomain.mapResult(result, [], judgeContext);
+    const mapped = submissionDomain.mapResult(
+      result,
+      [],
+      judgeContext,
+      useAdvanced ? undefined : testcasesForSandbox.length,
+    );
     mapped.score = 0;
     return {
       result: submissionResultSchema.parse(mapped),
@@ -309,7 +320,12 @@ export async function executeSandbox(
 
   return {
     result: submissionResultSchema.parse(
-      submissionDomain.mapResult(result, activeSets, judgeContext),
+      submissionDomain.mapResult(
+        result,
+        activeSets,
+        judgeContext,
+        useAdvanced ? undefined : testcasesForSandbox.length,
+      ),
     ),
     advancedJudgeVerificationSnapshot,
   };

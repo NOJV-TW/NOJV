@@ -6,12 +6,17 @@ Redis 8 serves as the real-time data layer. It does not store durable state — 
 
 Both keyed state and pub/sub channels use the prefix `nojv:{domain}:{identifier}` — see `packages/redis/src/keys.ts`. The only unprefixed keys are the `rl:*` rate-limiter keys.
 
-| Pattern                        | Type                  | TTL    | Purpose                                         |
-| ------------------------------ | --------------------- | ------ | ----------------------------------------------- |
-| `nojv:cache:admin-dashboard`   | String (JSON)         | 300 s  | Admin dashboard read-through cache              |
-| `nojv:cache:platform-overview` | String (JSON)         | 300 s  | Dashboard site-wide overview read-through cache |
-| `nojv:sb-throttle:{id}`        | String                | 10 s   | Scoreboard SSE-nudge throttle (per contest)     |
-| `rl:*` (no `nojv:` prefix)     | rate-limiter-flexible | varies | API / form / sign-in rate limiting              |
+| Pattern                                    | Type                  | TTL          | Purpose                                                |
+| ------------------------------------------ | --------------------- | ------------ | ------------------------------------------------------ |
+| `nojv:cache:admin-dashboard`               | String (JSON)         | 300 s        | Admin dashboard read-through cache                     |
+| `nojv:cache:platform-overview`             | String (JSON)         | 300 s        | Dashboard site-wide overview read-through cache        |
+| `nojv:sb-throttle:{id}`                    | String                | 10 s         | Scoreboard SSE-nudge throttle (per contest)            |
+| `nojv:security:settings-grant:{sessionId}` | String                | 600 s        | Session + `securityGeneration` settings unlock         |
+| `nojv:security:pending-totp:{sessionId}`   | JSON                  | 600 s        | Encrypted TOTP and backup codes pending confirmation   |
+| `nojv:super-admin:password-proof:{ticket}` | JSON                  | 600 s        | Password-first proof for MFA or recovery               |
+| `nojv:admin:mfa:{sessionId}`               | String                | 600 s / 24 h | Regular re-entry proof or super-admin session MFA      |
+| `nojv:admin:mode:{sessionId}`              | String                | 7 d          | Regular-admin access grant; never used by super admins |
+| `rl:*` (no `nojv:` prefix)                 | rate-limiter-flexible | varies       | API / form / sign-in rate limiting                     |
 
 ## Pub/Sub
 

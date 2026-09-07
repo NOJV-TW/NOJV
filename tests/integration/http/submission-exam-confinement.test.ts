@@ -185,7 +185,7 @@ describe("submission detail at the real SSR loader boundary", () => {
 
     for (const staff of [teacher, ta]) {
       const page = (await load({
-        locals: { sessionUser: staff, adminModeActive: false },
+        locals: { sessionUser: staff, adminAccessActive: false },
         params: { submissionId: submission.id },
       } as never)) as {
         submission: Record<string, unknown> & { id: string; viewerIsStaff: boolean };
@@ -209,7 +209,7 @@ describe("submission detail at the real SSR loader boundary", () => {
 
     await expect(
       load({
-        locals: { sessionUser: outsider, adminModeActive: false },
+        locals: { sessionUser: outsider, adminAccessActive: false },
         params: { submissionId: submission.id },
       } as never),
     ).rejects.toMatchObject({ status: 404, body: { message: "Submission not found." } });

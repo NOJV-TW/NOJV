@@ -13,7 +13,6 @@ import {
   clarificationDomain,
   examDomain,
   feedbackDomain,
-  HttpError,
   listExamIpViolations,
   plagiarismDomain,
   problemDomain,
@@ -28,8 +27,8 @@ import { requireAuth } from "$lib/server/auth";
 import { invalidateExamContextCaches } from "$lib/server/exam-context-cache";
 import { getClientIp } from "$lib/server/shared/client-ip";
 import { createLogger } from "$lib/server/logger";
-import { withRateLimit } from "$lib/server/shared/action-handlers";
-import { classifyError } from "$lib/server/shared/handle-action-error";
+import { withAction } from "$lib/server/shared/action-handlers";
+import { classifyRequestError } from "$lib/server/shared/handle-action-error";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import {
   serializePlagiarismFlags,
@@ -79,12 +78,10 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     clarificationDomain.canAnswerInContext(actor, { type: "exam", examId }),
     clarificationDomain.canViewClarifications(actor, { type: "exam", examId }),
     isManager
-      ? plagiarismDomain.findPlagiarismReport({ type: "exam", id: examId }).catch(() => null)
+      ? plagiarismDomain.findPlagiarismReport({ type: "exam", id: examId })
       : Promise.resolve(null),
-    isManager
-      ? plagiarismDomain.listFlagsForContext("exam", examId).catch(() => [])
-      : Promise.resolve([]),
-    isManager ? listExamIpViolations({ examId }).catch(() => []) : Promise.resolve([]),
+    isManager ? plagiarismDomain.listFlagsForContext("exam", examId) : Promise.resolve([]),
+    isManager ? listExamIpViolations({ examId }) : Promise.resolve([]),
     isManager ? examDomain.session.listActiveSessions(examId) : Promise.resolve([]),
     isManager
       ? Promise.resolve([])
@@ -193,7 +190,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 });
 
 export const actions = {
-  startExam: withRateLimit(async (event) => {
+  startExam: withAction(async (event) => {
     const actor = requireAuth(event);
     const examId = event.params.examId;
     const clientIp = getClientIp(event);
@@ -213,100 +210,66 @@ export const actions = {
           err: err instanceof Error ? err.message : String(err),
         });
       }
-    } catch (err) {
-      if (err instanceof HttpError) {
-        return fail(err.status, { error: err.message });
-      }
-      throw err;
     } finally {
       invalidateExamContextCaches(actor.userId);
     }
     return { success: true };
   }),
 
-  releaseSession: withRateLimit(async (event) => {
+  releaseSession: withAction(async (event) => {
     const actor = requireAuth(event);
     try {
       await examDomain.session.endSession(actor, {
         examId: event.params.examId,
         reason: "submitted",
       });
-    } catch (err) {
-      if (err instanceof HttpError) {
-        return fail(err.status, { error: err.message });
-      }
-      throw err;
     } finally {
       invalidateExamContextCaches(actor.userId);
     }
     return { success: true };
   }),
 
-  releaseAllSessions: withRateLimit(async (event) => {
+  releaseAllSessions: withAction(async (event) => {
     const actor = requireAuth(event);
-    try {
-      const { releasedUserIds } = await examDomain.session.releaseAllSessionsAsInstructor(
-        actor,
-        {
-          examId: event.params.examId,
-        },
-      );
-      for (const releasedUserId of releasedUserIds) {
-        invalidateExamContextCaches(releasedUserId);
-      }
-    } catch (err) {
-      if (err instanceof HttpError) {
-        return fail(err.status, { error: err.message });
-      }
-      throw err;
+    const { releasedUserIds } = await examDomain.session.releaseAllSessionsAsInstructor(actor, {
+      examId: event.params.examId,
+    });
+    for (const releasedUserId of releasedUserIds) {
+      invalidateExamContextCaches(releasedUserId);
     }
     return { success: true };
   }),
 
-  releaseStudentSession: withRateLimit(async (event) => {
+  releaseStudentSession: withAction(async (event) => {
     const actor = requireAuth(event);
     const formData = await event.request.formData();
     const targetUserId = formData.get("targetUserId");
     if (typeof targetUserId !== "string" || targetUserId.length === 0) {
       return fail(400, { error: "Missing target user." });
     }
-    try {
-      await examDomain.session.releaseSessionAsInstructor(actor, {
-        examId: event.params.examId,
-        targetUserId,
-      });
-      invalidateExamContextCaches(targetUserId);
-    } catch (err) {
-      if (err instanceof HttpError) {
-        return fail(err.status, { error: err.message });
-      }
-      throw err;
-    }
+    await examDomain.session.releaseSessionAsInstructor(actor, {
+      examId: event.params.examId,
+      targetUserId,
+    });
+    invalidateExamContextCaches(targetUserId);
     return { success: true };
   }),
 
-  resetStudentIpBinding: withRateLimit(async (event) => {
+  resetStudentIpBinding: withAction(async (event) => {
     const actor = requireAuth(event);
     const formData = await event.request.formData();
     const targetUserId = formData.get("targetUserId");
     if (typeof targetUserId !== "string" || targetUserId.length === 0) {
       return fail(400, { error: "Missing target user." });
     }
-    try {
-      await examDomain.session.resetStudentIpBinding(actor, {
-        examId: event.params.examId,
-        targetUserId,
-      });
-    } catch (err) {
-      if (err instanceof HttpError) {
-        return fail(err.status, { error: err.message });
-      }
-      throw err;
-    }
+    await examDomain.session.resetStudentIpBinding(actor, {
+      examId: event.params.examId,
+      targetUserId,
+    });
     return { success: true };
   }),
 
-  updateSettings: withRateLimit(async (event) => {
+  updateSettings: withAction(async (event) => {
     const actor = requireAuth(event);
     const form = await superValidate<ExamSettingsForm, FormMessage>(
       event,
@@ -344,11 +307,11 @@ export const actions = {
     try {
       await updateExamRecord(actor, event.params.examId, parsed.data);
     } catch (err) {
-      const classified = classifyError(err);
+      const classified = classifyRequestError(err, event);
       return message<FormMessage>(
         form,
         { kind: "error", text: classified.message },
-        { status: 400 },
+        { status: classified.status },
       );
     }
 
@@ -358,7 +321,7 @@ export const actions = {
     });
   }),
 
-  publishExam: withRateLimit(async (event) => {
+  publishExam: withAction(async (event) => {
     const actor = requireAuth(event);
     const form = await superValidate<ExamSettingsForm, FormMessage>(
       event,
@@ -367,17 +330,17 @@ export const actions = {
     try {
       await publishExam(actor, event.params.examId);
     } catch (err) {
-      const classified = classifyError(err);
+      const classified = classifyRequestError(err, event);
       return message<FormMessage>(
         form,
         { kind: "error", text: classified.message },
-        { status: 400 },
+        { status: classified.status },
       );
     }
     return { success: true };
   }),
 
-  deleteExam: withRateLimit(async (event) => {
+  deleteExam: withAction(async (event) => {
     const actor = requireAuth(event);
     const form = await superValidate<ExamSettingsForm, FormMessage>(
       event,
@@ -386,17 +349,17 @@ export const actions = {
     try {
       await deleteExamDraft(actor, event.params.examId);
     } catch (err) {
-      const classified = classifyError(err);
+      const classified = classifyRequestError(err, event);
       return message<FormMessage>(
         form,
         { kind: "error", text: classified.message },
-        { status: 400 },
+        { status: classified.status },
       );
     }
     redirect(303, "/exams");
   }),
 
-  updateProblems: withRateLimit(async (event) => {
+  updateProblems: withAction(async (event) => {
     const actor = requireAuth(event);
     const formData = await event.request.formData();
     const seen = new Set<string>();
@@ -407,12 +370,7 @@ export const actions = {
       seen.add(id);
       problemIds.push(id);
     }
-    try {
-      await updateExamRecord(actor, event.params.examId, { problemIds });
-    } catch (err) {
-      if (err instanceof HttpError) return fail(err.status, { error: err.message });
-      throw err;
-    }
+    await updateExamRecord(actor, event.params.examId, { problemIds });
 
     return { success: true };
   }),

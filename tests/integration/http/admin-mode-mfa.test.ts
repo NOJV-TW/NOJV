@@ -3,8 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   createStepUpHandoffTicket,
+  adminMfaKind,
   hasAdminSessionMfa,
-  markVerifiedSession as persistVerifiedSession,
+  markVerifiedSession,
   securityGenerationMarker,
   securityGenerationProof,
 } from "@nojv/application";
@@ -22,7 +23,7 @@ vi.mock("$lib/auth.server", () => ({
         const { testPrisma } = await import("../../fixtures/factories");
         const user = await testPrisma.user.findUnique({ where: { id: userId } });
         return user
-          ? { session: { id: "test-session", userId, createdAt: new Date() }, user }
+          ? { session: { createdAt: new Date(), id: "test-session", userId }, user }
           : null;
       },
     },
@@ -31,418 +32,177 @@ vi.mock("$lib/auth.server", () => ({
 
 const sessionId = "test-session";
 const adminModeRoute = await import("$lib/../routes/api/admin-mode/+server");
+const inspectAccess: RequestHandler = (event) =>
+  new Response(JSON.stringify({ active: event.locals.adminAccessActive }));
 
-async function clearElevation(): Promise<void> {
+async function clearProofs(): Promise<void> {
   await getRedis().del(
     keys.apiTokenStepUp(sessionId),
+    keys.tokenPageMfa(sessionId),
     keys.adminSessionMfa(sessionId),
     keys.adminMode(sessionId),
+    keys.securitySettingsGrant(sessionId),
   );
 }
 
-async function activate(user: { id: string }): Promise<Response> {
+async function postMode(user: { id: string }, active: boolean): Promise<Response> {
   return callRoute({
-    path: "/api/admin-mode",
+    body: { active },
     method: "POST",
     module: adminModeRoute,
-    user,
-    body: { active: true },
-  });
-}
-
-async function deactivate(user: { id: string }): Promise<Response> {
-  return callRoute({
     path: "/api/admin-mode",
-    method: "POST",
-    module: adminModeRoute,
     user,
-    body: { active: false },
-  });
-}
-
-async function expectVerificationRequired(response: Response): Promise<void> {
-  expect(response.status).toBe(200);
-  await expect(response.json()).resolves.toEqual({
-    active: false,
-    verificationRequired: true,
   });
 }
 
 async function currentProof(userId: string) {
+  return securityGenerationProof(
+    await testPrisma.user.findUniqueOrThrow({ where: { id: userId } }),
+  );
+}
+
+async function verifySession(userId: string): Promise<void> {
   const user = await testPrisma.user.findUniqueOrThrow({ where: { id: userId } });
-  return securityGenerationProof(user);
-}
-
-async function currentElevationMarker(userId: string): Promise<string> {
-  return securityGenerationMarker(await currentProof(userId));
-}
-
-async function markVerifiedSession(userId: string): Promise<void> {
   await expect(
-    persistVerifiedSession(sessionId, await currentProof(userId), true),
+    markVerifiedSession(sessionId, securityGenerationProof(user), adminMfaKind(user)),
   ).resolves.toBe(true);
 }
 
-afterEach(clearElevation);
+afterEach(clearProofs);
 
-describe("admin mode elevation", () => {
-  it(
-    "requires verification for a regular admin until 2FA is activated",
-    { timeout: 15_000 },
-    async () => {
-      const user = await createTestUser({
-        platformRole: "admin",
-        twoFactorActivated: false,
-      });
-
-      const response = await activate(user);
-
-      await expectVerificationRequired(response);
-      await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
-    },
-  );
-
-  it("requires verification without a fresh same-session step-up", async () => {
-    const user = await createTestUser({
-      platformRole: "admin",
-      twoFactorActivated: true,
-    });
-    const marker = await currentElevationMarker(user.id);
-    await getRedis().set(keys.adminSessionMfa(sessionId), marker, "EX", 600);
-
-    const response = await activate(user);
-
-    await expectVerificationRequired(response);
-    await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
-  });
-
-  it("requires verification without an MFA marker for the same account", async () => {
-    const user = await createTestUser({
-      platformRole: "admin",
-      twoFactorActivated: true,
-    });
-    const marker = await currentElevationMarker(user.id);
-    await getRedis().set(keys.apiTokenStepUp(sessionId), marker, "EX", 600);
-    await getRedis().set(keys.adminSessionMfa(sessionId), "sg1:another-user:0", "EX", 600);
-
-    const response = await activate(user);
-
-    await expectVerificationRequired(response);
-    await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
-  });
-
-  it("requires verification for super-admin activation until 2FA is activated", async () => {
-    const user = await createTestUser({
-      platformRole: "admin",
-      isSuperAdmin: true,
-      twoFactorActivated: false,
-    });
-    await markVerifiedSession(user.id);
-
-    const response = await activate(user);
-
-    await expectVerificationRequired(response);
-    await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
-  });
-
-  it("rejects a regular admin mode marker without an MFA marker", async () => {
-    const user = await createTestUser({
-      platformRole: "admin",
-      twoFactorActivated: true,
-    });
-    await getRedis().set(
-      keys.adminMode(sessionId),
-      await currentElevationMarker(user.id),
-      "EX",
-      600,
-    );
-    const inspectLocals: RequestHandler = (event) =>
-      new Response(JSON.stringify({ active: event.locals.adminModeActive }));
-
-    const response = await callRoute({
-      path: "/dashboard",
-      module: { GET: inspectLocals },
-      user,
-    });
-
-    await expect(response.json()).resolves.toEqual({ active: false });
-    await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
-  });
-
-  it.each([
-    ["regular admin", false],
-    ["super admin", true],
-  ])("grants %s activation after a same-session step-up", async (_label, isSuperAdmin) => {
-    const user = await createTestUser({
-      platformRole: "admin",
-      isSuperAdmin,
-      twoFactorEnabled: true,
-      twoFactorActivated: true,
-    });
-    await markVerifiedSession(user.id);
-
-    const response = await activate(user);
-
+describe("admin access", () => {
+  it("requires a same-session verification proof for a regular admin", async () => {
+    const user = await createTestUser({ platformRole: "admin" });
+    const response = await postMode(user, true);
     expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      active: false,
+      verificationRequired: true,
+    });
+  });
+
+  it("enters regular admin mode after one shared verification", async () => {
+    const user = await createTestUser({ platformRole: "admin", twoFactorEnabled: true });
+    await verifySession(user.id);
+    await expect((await postMode(user, true)).json()).resolves.toEqual({ active: true });
     await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBe(
-      await currentElevationMarker(user.id),
+      securityGenerationMarker(await currentProof(user.id)),
     );
+    expect(await getRedis().ttl(keys.adminSessionMfa(sessionId))).toBeGreaterThan(0);
+    expect(await getRedis().ttl(keys.adminSessionMfa(sessionId))).toBeLessThanOrEqual(600);
+    expect(await getRedis().ttl(keys.adminMode(sessionId))).toBeGreaterThan(600);
   });
 
-  it("requires a new 2FA step-up after switching back to ordinary mode", async () => {
-    const user = await createTestUser({
-      platformRole: "admin",
-      twoFactorEnabled: true,
-      twoFactorActivated: true,
-    });
-    await markVerifiedSession(user.id);
-    expect((await activate(user)).status).toBe(200);
-
-    expect((await deactivate(user)).status).toBe(200);
-
-    await expectVerificationRequired(await activate(user));
-    await markVerifiedSession(user.id);
-    expect((await activate(user)).status).toBe(200);
+  it("preserves the 10-minute proof when leaving and re-entering regular admin mode", async () => {
+    const user = await createTestUser({ platformRole: "admin", twoFactorEnabled: true });
+    await verifySession(user.id);
+    expect((await postMode(user, true)).status).toBe(200);
+    await expect((await postMode(user, false)).json()).resolves.toEqual({ active: false });
+    await expect(getRedis().get(keys.adminSessionMfa(sessionId))).resolves.not.toBeNull();
+    await expect(getRedis().get(keys.apiTokenStepUp(sessionId))).resolves.not.toBeNull();
+    await expect((await postMode(user, true)).json()).resolves.toEqual({ active: true });
   });
 
-  it("always permits de-elevation and atomically removes both elevation keys", async () => {
-    const user = await createTestUser({ platformRole: "teacher" });
-    const marker = await currentElevationMarker(user.id);
-    await getRedis().set(keys.adminSessionMfa(sessionId), marker, "EX", 600);
-    await getRedis().set(keys.adminMode(sessionId), marker, "EX", 600);
-
-    const response = await deactivate(user);
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ active: false });
-    const [mfa, mode] = await getRedis().mget(
-      keys.adminSessionMfa(sessionId),
-      keys.adminMode(sessionId),
-    );
-    expect([mfa, mode]).toEqual([null, null]);
+  it("keeps an entered regular admin mode after the 10-minute re-entry proof expires", async () => {
+    const user = await createTestUser({ platformRole: "admin", twoFactorEnabled: true });
+    await verifySession(user.id);
+    expect((await postMode(user, true)).status).toBe(200);
+    await getRedis().del(keys.adminSessionMfa(sessionId), keys.apiTokenStepUp(sessionId));
+    const response = await callRoute({ module: { GET: inspectAccess }, path: "/admin", user });
+    await expect(response.json()).resolves.toEqual({ active: true });
   });
 
-  it("fails closed when a non-admin account has stale elevation keys", async () => {
-    const user = await createTestUser({ platformRole: "teacher", twoFactorActivated: true });
-    const marker = await currentElevationMarker(user.id);
-    await getRedis().set(keys.adminSessionMfa(sessionId), marker, "EX", 600);
-    await getRedis().set(keys.adminMode(sessionId), marker, "EX", 600);
-    const inspectLocals: RequestHandler = (event) =>
-      new Response(JSON.stringify({ active: event.locals.adminModeActive }));
+  it("rejects the admin-mode endpoint for super admins", async () => {
+    const user = await createTestUser({ isSuperAdmin: true, platformRole: "admin" });
+    await verifySession(user.id);
+    expect((await postMode(user, true)).status).toBe(403);
+    expect((await postMode(user, false)).status).toBe(403);
+    await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
+  });
 
+  it("gives a verified super admin direct access without a mode marker", async () => {
+    const user = await createTestUser({ isSuperAdmin: true, platformRole: "admin" });
+    await verifySession(user.id);
     const response = await callRoute({
-      path: "/dashboard",
-      module: { GET: inspectLocals },
+      module: { GET: inspectAccess },
+      path: "/admin",
       user,
     });
-
-    await expect(response.json()).resolves.toEqual({ active: false });
+    await expect(response.json()).resolves.toEqual({ active: true });
+    await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
+    expect(await getRedis().ttl(keys.adminSessionMfa(sessionId))).toBeGreaterThan(600);
+    expect(await getRedis().ttl(keys.adminSessionMfa(sessionId))).toBeLessThanOrEqual(86_400);
   });
 
-  it("clears elevation before redirecting a disabled admin", async () => {
-    const user = await createTestUser({
-      platformRole: "admin",
-      disabled: true,
-      twoFactorActivated: true,
-    });
-    const marker = await currentElevationMarker(user.id);
-    await getRedis().set(keys.adminSessionMfa(sessionId), marker, "EX", 600);
-    await getRedis().set(keys.adminMode(sessionId), marker, "EX", 600);
-
-    const response = await callRoute({ path: "/dashboard", module: {}, user });
-
-    expect(response.status).toBe(302);
-    const [mfa, mode] = await getRedis().mget(
-      keys.adminSessionMfa(sessionId),
-      keys.adminMode(sessionId),
-    );
-    expect([mfa, mode]).toEqual([null, null]);
-  });
-
-  it("does not revive elevation recreated during demotion after re-promotion", async () => {
-    const { userDomain } = await import("@nojv/application");
-    const user = await createTestUser({
-      platformRole: "admin",
-      twoFactorActivated: true,
-    });
-    const staleMarker = await currentElevationMarker(user.id);
-    await getRedis().set(keys.adminSessionMfa(sessionId), staleMarker, "EX", 600);
-    await getRedis().set(keys.adminMode(sessionId), staleMarker, "EX", 600);
-
-    await userDomain.updateUserRole(true, user.id, "teacher");
-    // Models a grant that passed its role check before demotion and wrote after
-    // the demotion's session snapshot had already been cleaned.
-    await getRedis().set(keys.adminSessionMfa(sessionId), staleMarker, "EX", 600);
-    await getRedis().set(keys.adminMode(sessionId), staleMarker, "EX", 600);
-    await userDomain.updateUserRole(true, user.id, "admin");
-
-    const inspectLocals: RequestHandler = (event) =>
-      new Response(JSON.stringify({ active: event.locals.adminModeActive }));
+  it("rejects an admin mode marker from an older security generation", async () => {
+    const user = await createTestUser({ platformRole: "admin" });
+    await getRedis().set(keys.adminMode(sessionId), `sg1:${user.id}:999`, "EX", 600);
     const response = await callRoute({
+      module: { GET: inspectAccess },
       path: "/dashboard",
-      module: { GET: inspectLocals },
       user,
     });
-
     await expect(response.json()).resolves.toEqual({ active: false });
-    const [mfa, mode] = await getRedis().mget(
-      keys.adminSessionMfa(sessionId),
-      keys.adminMode(sessionId),
-    );
-    expect([mfa, mode]).toEqual([null, null]);
+    await expect(getRedis().get(keys.adminMode(sessionId))).resolves.toBeNull();
   });
 
-  it("rejects a handoff verified before demotion after the account is re-promoted", async () => {
+  it("fails closed for non-admin and disabled accounts", async () => {
+    for (const user of [
+      await createTestUser({ platformRole: "teacher" }),
+      await createTestUser({ disabled: true, platformRole: "admin" }),
+    ]) {
+      const marker = securityGenerationMarker(await currentProof(user.id));
+      await getRedis().set(keys.adminSessionMfa(sessionId), marker, "EX", 600);
+      await getRedis().set(keys.adminMode(sessionId), marker, "EX", 600);
+      const response = await callRoute({
+        module: { GET: inspectAccess },
+        path: "/dashboard",
+        user,
+      });
+      if (!user.disabled) await expect(response.json()).resolves.toEqual({ active: false });
+      else expect(response.status).toBe(302);
+      await clearProofs();
+    }
+  });
+
+  it("invalidates existing proofs when a factor changes the durable generation", async () => {
+    const user = await createTestUser({ platformRole: "admin" });
+    await verifySession(user.id);
+    expect((await postMode(user, true)).status).toBe(200);
+    await testPrisma.passkey.create({
+      data: {
+        backedUp: false,
+        counter: 0,
+        credentialID: `credential-${user.id}`,
+        deviceType: "singleDevice",
+        id: `passkey-${user.id}`,
+        publicKey: "public-key",
+        userId: user.id,
+      },
+    });
+    const response = await callRoute({
+      module: { GET: inspectAccess },
+      path: "/dashboard",
+      user,
+    });
+    await expect(response.json()).resolves.toEqual({ active: false });
+  });
+
+  it("rejects a verification handoff created before a role-generation change", async () => {
     const { userDomain } = await import("@nojv/application");
     const { STEP_UP_HANDOFF_COOKIE } = await import("$lib/server/step-up-handoff");
-    const user = await createTestUser({
-      platformRole: "admin",
-      twoFactorActivated: true,
-    });
+    const user = await createTestUser({ platformRole: "admin" });
     const ticket = await createStepUpHandoffTicket(await currentProof(user.id));
-
     await userDomain.updateUserRole(true, user.id, "teacher");
     await userDomain.updateUserRole(true, user.id, "admin");
     await callRoute({
-      path: "/dashboard",
-      module: {},
-      user,
       cookies: { [STEP_UP_HANDOFF_COOKIE]: ticket },
+      module: {},
+      path: "/dashboard",
+      user,
     });
-
     await expect(hasAdminSessionMfa(sessionId, await currentProof(user.id))).resolves.toBe(
       false,
     );
-  });
-
-  it("does not make an old marker valid when its Redis generation is missing", async () => {
-    const { userDomain } = await import("@nojv/application");
-    const user = await createTestUser({
-      platformRole: "admin",
-      twoFactorActivated: true,
-    });
-    await markVerifiedSession(user.id);
-    expect((await activate(user)).status).toBe(200);
-    const staleMarker = await getRedis().get(keys.adminMode(sessionId));
-    expect(staleMarker).not.toBeNull();
-
-    await userDomain.updateUserRole(true, user.id, "teacher");
-    await userDomain.updateUserRole(true, user.id, "admin");
-    await getRedis().set(keys.adminSessionMfa(sessionId), staleMarker!, "EX", 600);
-    await getRedis().set(keys.adminMode(sessionId), staleMarker!, "EX", 600);
-    // The legacy Redis epoch is deliberately irrelevant: deleting it must not
-    // make a marker from an older durable database generation valid again.
-    await getRedis().del(`nojv:admin:epoch:${user.id}`);
-    const inspectLocals: RequestHandler = (event) =>
-      new Response(JSON.stringify({ active: event.locals.adminModeActive }));
-
-    const response = await callRoute({
-      path: "/dashboard",
-      module: { GET: inspectLocals },
-      user,
-    });
-
-    await expect(response.json()).resolves.toEqual({ active: false });
-  });
-
-  it("invalidates elevation across disable and re-enable", async () => {
-    const { userDomain } = await import("@nojv/application");
-    const user = await createTestUser({
-      platformRole: "admin",
-      twoFactorActivated: true,
-    });
-    await markVerifiedSession(user.id);
-    expect((await activate(user)).status).toBe(200);
-
-    await userDomain.setUserDisabled(true, user.id, true);
-    await userDomain.setUserDisabled(true, user.id, false);
-    const inspectLocals: RequestHandler = (event) =>
-      new Response(JSON.stringify({ active: event.locals.adminModeActive }));
-    const response = await callRoute({
-      path: "/dashboard",
-      module: { GET: inspectLocals },
-      user,
-    });
-
-    await expect(response.json()).resolves.toEqual({ active: false });
-  });
-
-  it("invalidates elevation across 2FA deactivation and reactivation", async () => {
-    const { setTwoFactorActivated } = await import("@nojv/application");
-    const user = await createTestUser({
-      platformRole: "admin",
-      twoFactorActivated: true,
-    });
-    await markVerifiedSession(user.id);
-    expect((await activate(user)).status).toBe(200);
-
-    await setTwoFactorActivated(user.id, false);
-    await setTwoFactorActivated(user.id, true);
-    const inspectLocals: RequestHandler = (event) =>
-      new Response(JSON.stringify({ active: event.locals.adminModeActive }));
-    const response = await callRoute({
-      path: "/dashboard",
-      module: { GET: inspectLocals },
-      user,
-    });
-
-    await expect(response.json()).resolves.toEqual({ active: false });
-  });
-
-  it("invalidates elevation when a TOTP factor is added directly", async () => {
-    const user = await createTestUser({
-      platformRole: "admin",
-      twoFactorActivated: true,
-    });
-    await markVerifiedSession(user.id);
-    expect((await activate(user)).status).toBe(200);
-
-    await testPrisma.twoFactor.create({
-      data: {
-        id: `totp-${user.id}`,
-        userId: user.id,
-        secret: "encrypted-secret",
-        backupCodes: "encrypted-backup-codes",
-      },
-    });
-    const inspectLocals: RequestHandler = (event) =>
-      new Response(JSON.stringify({ active: event.locals.adminModeActive }));
-    const response = await callRoute({
-      path: "/dashboard",
-      module: { GET: inspectLocals },
-      user,
-    });
-
-    await expect(response.json()).resolves.toEqual({ active: false });
-  });
-
-  it("invalidates elevation when a passkey is added directly", async () => {
-    const user = await createTestUser({
-      platformRole: "admin",
-      twoFactorActivated: true,
-    });
-    await markVerifiedSession(user.id);
-    expect((await activate(user)).status).toBe(200);
-
-    await testPrisma.passkey.create({
-      data: {
-        id: `passkey-${user.id}`,
-        userId: user.id,
-        publicKey: "public-key",
-        credentialID: `credential-${user.id}`,
-        counter: 0,
-        deviceType: "singleDevice",
-        backedUp: false,
-      },
-    });
-    const inspectLocals: RequestHandler = (event) =>
-      new Response(JSON.stringify({ active: event.locals.adminModeActive }));
-    const response = await callRoute({
-      path: "/dashboard",
-      module: { GET: inspectLocals },
-      user,
-    });
-
-    await expect(response.json()).resolves.toEqual({ active: false });
   });
 });

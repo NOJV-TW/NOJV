@@ -5,6 +5,7 @@
   import { Card } from "$lib/components/primitives/ui/card";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
+  import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/stores/toast";
@@ -180,45 +181,36 @@
             <table class="w-full text-body-sm">
               <thead>
                 <tr
-                  class="border-b border-border-subtle text-left text-caption uppercase tracking-wider text-muted-foreground"
+                  class="border-b border-border-subtle text-left text-caption whitespace-nowrap text-muted-foreground"
                 >
-                  <th class="px-5 py-2 font-medium">
-                    {m.admin_registry_colTag()}
-                    <label class="mt-2 block normal-case tracking-normal">
-                      <span class="sr-only">{m.admin_registry_colTag()}</span>
-                      <input
-                        class="h-8 w-full min-w-36 rounded-none border-0 border-b border-border bg-transparent px-1 text-caption font-normal text-foreground shadow-none outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-0"
-                        type="search"
-                        bind:value={tagFilter}
-                        placeholder={m.admin_registry_colTag()}
-                      />
-                    </label>
+                  <th class="px-5 py-3 align-middle font-medium">
+                    <TableTextColumnFilter
+                      label={m.admin_registry_colTag()}
+                      filterLabel={m.admin_registry_filterTag()}
+                      inputId={`registry-${repo.repo}-tag-filter`}
+                      applyLabel={m.common_applyFilter()}
+                      bind:value={tagFilter}
+                    />
                   </th>
-                  <th class="px-5 py-2 font-medium">
-                    {m.admin_registry_colSize()}
-                    <label class="mt-2 block normal-case tracking-normal">
-                      <span class="sr-only">{m.admin_registry_colSize()}</span>
-                      <input
-                        class="h-8 w-full min-w-28 rounded-none border-0 border-b border-border bg-transparent px-1 text-caption font-normal text-foreground shadow-none outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-0"
-                        type="search"
-                        bind:value={sizeFilter}
-                        placeholder={m.admin_registry_colSize()}
-                      />
-                    </label>
+                  <th class="px-5 py-3 align-middle font-medium">
+                    <TableTextColumnFilter
+                      label={m.admin_registry_colSize()}
+                      filterLabel={m.admin_registry_filterSize()}
+                      inputId={`registry-${repo.repo}-size-filter`}
+                      applyLabel={m.common_applyFilter()}
+                      bind:value={sizeFilter}
+                    />
                   </th>
-                  <th class="px-5 py-2 font-medium">
-                    {m.admin_registry_colDigest()}
-                    <label class="mt-2 block normal-case tracking-normal">
-                      <span class="sr-only">{m.admin_registry_colDigest()}</span>
-                      <input
-                        class="h-8 w-full min-w-40 rounded-none border-0 border-b border-border bg-transparent px-1 text-caption font-normal text-foreground shadow-none outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-0"
-                        type="search"
-                        bind:value={digestFilter}
-                        placeholder={m.admin_registry_colDigest()}
-                      />
-                    </label>
+                  <th class="px-5 py-3 align-middle font-medium">
+                    <TableTextColumnFilter
+                      label={m.admin_registry_colDigest()}
+                      filterLabel={m.admin_registry_filterDigest()}
+                      inputId={`registry-${repo.repo}-digest-filter`}
+                      applyLabel={m.common_applyFilter()}
+                      bind:value={digestFilter}
+                    />
                   </th>
-                  <th class="px-5 py-2 text-right font-medium"
+                  <th class="px-5 py-3 text-right align-middle font-medium"
                     >{m.admin_registry_colActions()}</th
                   >
                 </tr>

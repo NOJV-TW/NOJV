@@ -93,7 +93,7 @@ export async function loadPlagiarismPair(
   const canonicalPairKey = buildPairKey(userAId, userBId, problemId);
 
   const [report, leftSource, rightSource, flags, leftUser, rightUser] = await Promise.all([
-    findPlagiarismReport(input.target).catch(() => null),
+    findPlagiarismReport(input.target),
     getPlagiarismSourceCode(input.target, userAId, problemId),
     getPlagiarismSourceCode(input.target, userBId, problemId),
     listFlagsForContext(input.flagContext, input.target.id),

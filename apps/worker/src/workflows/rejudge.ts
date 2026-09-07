@@ -15,7 +15,9 @@ import { executeRejudgeBatches, RejudgeBatchError } from "./rejudge-batches";
 
 const judge = proxyActivities<typeof judgeActivities>(SHORT_ACTIVITY);
 
-export const getProgressQuery = defineQuery<RejudgeProgress>("getProgress");
+type RejudgeCounts = Pick<RejudgeProgress, "completed" | "total">;
+
+export const getProgressQuery = defineQuery<RejudgeCounts>("getProgress");
 
 export async function rejudgeWorkflow(input: RejudgeInput): Promise<void> {
   let completed = 0;

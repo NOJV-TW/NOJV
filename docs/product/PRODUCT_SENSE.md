@@ -39,7 +39,7 @@
 - Scoreboard freeze and admin-controlled unfreeze
 - IP binding (block or notify mode) and IP whitelisting
 - Page lock (browser visibility API enforcement)
-- Per-contest submit cooldown (Redis-backed)
+- Per-contest submit cooldown (PostgreSQL advisory locks)
 - Invite code join flow
 
 ### Post-Contest
@@ -126,7 +126,8 @@
 
 - Third-party sign-in only — GitHub OAuth + Google OAuth (no public email/password flow)
 - Profile completion and email verification flow on first OAuth sign-in
-- Admin-specific sign-in page (seeded credentials only — no self-serve email/password registration, no password-reset flow)
+- Admin-specific credential sign-in page. Regular admins explicitly enter admin mode after TOTP/passkey verification; super admins use password plus TOTP/passkey and receive admin access directly.
+- Super admins cannot use or link OAuth. First login changes the seeded password and sets up TOTP or passkey; password-first backup-code/email recovery grants factor setup only.
 
 ### Administration
 

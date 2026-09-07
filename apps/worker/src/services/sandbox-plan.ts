@@ -1,10 +1,12 @@
-import { sourceExtensions, type SandboxRequest, type SandboxResult } from "@nojv/core";
+import {
+  sourceExtensions,
+  type SandboxRequest,
+  type SandboxResult,
+  type JudgeScriptLanguage,
+} from "@nojv/core";
 
-export function sourceExtension(language: string | undefined): string {
-  if (language && language in sourceExtensions) {
-    return sourceExtensions[language as SandboxRequest["language"]];
-  }
-  return "py";
+export function sourceExtension(language: JudgeScriptLanguage): string {
+  return sourceExtensions[language];
 }
 
 export function buildSandboxConfigJson(

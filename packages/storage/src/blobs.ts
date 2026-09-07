@@ -1,8 +1,6 @@
 import {
-  PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
-  CopyObjectCommand,
   ListObjectsV2Command,
   DeleteObjectsCommand,
 } from "@aws-sdk/client-s3";
@@ -15,22 +13,7 @@ function BUCKET(): string {
   return (cachedBucket ??= getStorageEnv().S3_BUCKET);
 }
 
-const TEXT_CONTENT_TYPE = "text/plain; charset=utf-8";
-
 const DELETE_BATCH_SIZE = 1000;
-
-export async function putText(client: S3Client, key: string, content: string): Promise<void> {
-  const body = Buffer.from(content, "utf-8");
-  await client.send(
-    new PutObjectCommand({
-      Bucket: BUCKET(),
-      Key: key,
-      Body: body,
-      ContentLength: body.byteLength,
-      ContentType: TEXT_CONTENT_TYPE,
-    }),
-  );
-}
 
 export async function getObject(client: S3Client, key: string): Promise<Buffer> {
   const response = await client.send(
@@ -79,50 +62,11 @@ export async function listByPrefix(client: S3Client, prefix: string): Promise<st
   return keys;
 }
 
-export async function sumSizesByPrefix(client: S3Client, prefix: string): Promise<number> {
-  let total = 0;
-  let continuationToken: string | undefined;
-
-  do {
-    const response = await client.send(
-      new ListObjectsV2Command({
-        Bucket: BUCKET(),
-        Prefix: prefix,
-        ContinuationToken: continuationToken,
-      }),
-    );
-
-    for (const object of response.Contents ?? []) {
-      if (typeof object.Size === "number") {
-        total += object.Size;
-      }
-    }
-
-    continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
-  } while (continuationToken);
-
-  return total;
-}
-
 export async function deleteBlob(client: S3Client, key: string): Promise<void> {
   await client.send(
     new DeleteObjectCommand({
       Bucket: BUCKET(),
       Key: key,
-    }),
-  );
-}
-
-export async function copyBlob(
-  client: S3Client,
-  fromKey: string,
-  toKey: string,
-): Promise<void> {
-  await client.send(
-    new CopyObjectCommand({
-      Bucket: BUCKET(),
-      CopySource: `${encodeURIComponent(BUCKET())}/${encodeStorageKey(fromKey)}`,
-      Key: toKey,
     }),
   );
 }
@@ -161,8 +105,4 @@ export async function deleteBlobsByPrefix(client: S3Client, prefix: string): Pro
       ? listResponse.NextContinuationToken
       : undefined;
   } while (continuationToken);
-}
-
-function encodeStorageKey(key: string): string {
-  return key.split("/").map(encodeURIComponent).join("/");
 }

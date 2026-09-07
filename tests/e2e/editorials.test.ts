@@ -11,11 +11,11 @@ async function openPostsTab(page: Page, problemId: string, tab: "Editorials" | "
   }).toPass({ timeout: 45000 });
 }
 
-const PROBLEM_ID = "problem_warmup-sum";
+const PROBLEM_ID = "problem_greatest-common-divisor";
 const DISCUSSION_PROBLEM_ID = "problem_balanced-brackets";
 
-const WARMUP_SUM_PYTHON_AC = `a, b = map(int, input().split())
-print(a + b)
+const GCD_PYTHON_AC = `from math import gcd
+print(gcd(*map(int, input().split())))
 `;
 
 async function submitAcAndAwait(
@@ -23,31 +23,26 @@ async function submitAcAndAwait(
   problemId: string,
   deadlineMs = 90_000,
 ): Promise<string> {
-  let res;
-  try {
-    res = await request.post("/api/submissions", {
-      data: {
-        context: { type: "practice" },
-        problemId,
-        language: "python",
-        sourceCode: WARMUP_SUM_PYTHON_AC,
-      },
-      headers: apiWriteHeaders,
-    });
-  } catch {
-    return "dispatch_failed";
-  }
-  if (res.status() !== 202) return `dispatch_failed_${res.status()}`;
+  const res = await request.post("/api/submissions", {
+    data: {
+      context: { type: "practice" },
+      problemId,
+      language: "python",
+      sourceCode: GCD_PYTHON_AC,
+    },
+    headers: apiWriteHeaders,
+  });
+  expect(res.status(), "Submission API must accept the judge request").toBe(202);
 
   const created = (await res.json()) as { submissionId: string; pollUrl: string };
   const deadline = Date.now() + deadlineMs;
   let lastStatus = "queued";
   while (Date.now() < deadline) {
     const poll = await request.get(created.pollUrl);
-    if (!poll.ok()) return "poll_failed";
+    expect(poll.ok(), `Submission polling returned HTTP ${String(poll.status())}`).toBe(true);
     const body = (await poll.json()) as { status: string };
     lastStatus = body.status;
-    if (lastStatus !== "queued" && lastStatus !== "running") break;
+    if (!["queued", "compiling", "running"].includes(lastStatus)) break;
     await new Promise((r) => setTimeout(r, 1500));
   }
   return lastStatus;
@@ -308,15 +303,14 @@ test.describe("Editorial posts — happy path (AC required)", () => {
   let postId = "";
   let acReached = false;
 
-  test("student submits an AC solution to warmup-sum", async ({ browser }) => {
+  test("student submits an AC solution to greatest-common-divisor", async ({ browser }) => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
 
     const verdict = await submitAcAndAwait(page.request, PROBLEM_ID);
-    expect(
-      verdict,
-      `judge did not accept the warmup-sum AC solution (final verdict: ${verdict})`,
-    ).toBe("accepted");
+    expect(verdict, `judge did not accept the GCD solution (final verdict: ${verdict})`).toBe(
+      "accepted",
+    );
     acReached = true;
     await context.close();
   });
@@ -341,7 +335,7 @@ test.describe("Editorial posts — happy path (AC required)", () => {
       data: {
         type: "editorial",
         title: `Editorial ${stamp}`,
-        content: `# Editorial ${stamp}\n\nRead two integers, print their sum. Trivial warmup.`,
+        content: `# Editorial ${stamp}\n\nUse Euclid's algorithm to compute the greatest common divisor.`,
       },
       headers: apiWriteHeaders,
     });

@@ -193,9 +193,19 @@ describe("interactive container file layout", () => {
   });
 
   it("solution container holds source + config(role=solution) and NO secret", async () => {
-    await writeSolutionFiles(solDir, request);
-    expect(await readFile(join(solDir, "main.py"), "utf8")).toBe("print('hi')\n");
+    await writeSolutionFiles(solDir, {
+      ...request,
+      sourceFiles: [{ path: "config.json", content: "workspace asset" }],
+    });
     const config = JSON.parse(await readFile(join(solDir, "config.json"), "utf8"));
+    const sourceMap = config.sourceFileMap as { path: string; key: string }[];
+    for (const [path, content] of [
+      ["main.py", request.sourceCode],
+      ["config.json", "workspace asset"],
+    ]) {
+      const key = sourceMap.find((entry) => entry.path === path)!.key;
+      expect(await readFile(join(solDir, key), "utf8")).toBe(content);
+    }
     expect(config.interactive).toEqual({ role: "solution" });
     expect(await exists(join(solDir, "cases"))).toBe(false);
     expect(await exists(join(solDir, "interactor.py"))).toBe(false);
@@ -204,8 +214,8 @@ describe("interactive container file layout", () => {
   it("interactor container holds interactor + the secret input/answer", async () => {
     await writeInteractorFiles(intDir, request, TESTCASE, "accept()\n", "python");
     expect(await readFile(join(intDir, "interactor.py"), "utf8")).toBe("accept()\n");
-    expect(await readFile(join(intDir, "cases", "2", "input.txt"), "utf8")).toBe("secret 7\n");
-    expect(await readFile(join(intDir, "cases", "2", "answer.txt"), "utf8")).toBe("answer 7\n");
+    expect(await readFile(join(intDir, "case-2-input.txt"), "utf8")).toBe("secret 7\n");
+    expect(await readFile(join(intDir, "case-2-answer.txt"), "utf8")).toBe("answer 7\n");
     const config = JSON.parse(await readFile(join(intDir, "config.json"), "utf8"));
     expect(config.interactive).toEqual({ role: "validator", language: "python", index: 2 });
     expect(await exists(join(intDir, "main.py"))).toBe(false);

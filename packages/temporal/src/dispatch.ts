@@ -173,19 +173,6 @@ export async function dispatchRejudge(
   return { workflowId };
 }
 
-export async function getRejudgeTriggeredBy(workflowId: string): Promise<string | null> {
-  const client = await getTemporalClient();
-  const handle = client.workflow.getHandle(workflowId);
-  try {
-    const description = await handle.describe();
-    const value = description.memo?.triggeredByUserId;
-    return typeof value === "string" ? value : null;
-  } catch (err) {
-    if (err instanceof WorkflowNotFoundError) return null;
-    throw err;
-  }
-}
-
 interface LifecycleWorkflowSpec<T extends LifecycleScheduleIdentity> {
   input: T;
   mode: LifecycleReconciliationMode;
@@ -365,14 +352,48 @@ function plagiarismWorkflowId(
   return `plagiarism-${targetType}-${targetId}`;
 }
 
-export async function queryRejudgeProgress(workflowId: string): Promise<RejudgeProgress> {
+type RejudgeCounts = Pick<RejudgeProgress, "completed" | "total">;
+
+export async function queryRejudgeProgress(
+  workflowId: string,
+): Promise<RejudgeProgress | null> {
   const client = await getTemporalClient();
-  const handle = client.workflow.getHandle(workflowId);
-  return handle.query<RejudgeProgress>("getProgress");
+  return client.connection.withDeadline(Date.now() + 5_000, async () => {
+    const handle = client.workflow.getHandle(workflowId);
+    let description;
+    try {
+      description = await handle.describe();
+    } catch (error) {
+      if (error instanceof WorkflowNotFoundError) return null;
+      throw error;
+    }
+
+    let status: RejudgeProgress["status"];
+    switch (description.status.name) {
+      case "RUNNING":
+        status = "running";
+        break;
+      case "COMPLETED":
+        status = "completed";
+        break;
+      case "CANCELLED":
+        status = "cancelled";
+        break;
+      case "FAILED":
+      case "TIMED_OUT":
+      case "TERMINATED":
+        status = "failed";
+        break;
+      default:
+        throw new Error(`Unexpected rejudge workflow status: ${description.status.name}`);
+    }
+    const progress = await handle.query<RejudgeCounts>("getProgress");
+    return { ...progress, status };
+  });
 }
 
 export async function cancelRejudge(workflowId: string): Promise<void> {
   const client = await getTemporalClient();
   const handle = client.workflow.getHandle(workflowId);
-  await handle.cancel();
+  await client.connection.withDeadline(Date.now() + 5_000, () => handle.cancel());
 }

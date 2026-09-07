@@ -1,4 +1,4 @@
-FROM python:3.14-slim@sha256:cea0e6040540fb2b965b6e7fb5ffa00871e632eef63719f0ea54bca189ce14a6
+FROM python:3.14-slim@sha256:656d12e70054d5fda18a045e2494c96701e9792dd1445f95b3d038df954f57e9
 WORKDIR /grade
 
 # Bake the ANSWERS + grading code into the image. The answers live ONLY in this

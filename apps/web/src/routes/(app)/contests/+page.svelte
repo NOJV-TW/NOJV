@@ -63,11 +63,13 @@
   ]);
 
   const allGroups = $derived(
-    [
-      { key: "live", label: m.contestsList_tabLive(), items: live, past: false },
-      { key: "upcoming", label: m.contestsList_tabUpcoming(), items: upcoming, past: false },
-      { key: "ended", label: m.contestsList_tabEnded(), items: past, past: true },
-    ].filter((g) => g.items.length > 0),
+    (
+      [
+        { key: "live", label: m.contestsList_tabLive(), items: live, past: false },
+        { key: "upcoming", label: m.contestsList_tabUpcoming(), items: upcoming, past: false },
+        { key: "ended", label: m.contestsList_tabEnded(), items: past, past: true },
+      ] as const
+    ).filter((g) => g.items.length > 0),
   );
 </script>
 
@@ -222,8 +224,10 @@
         <form class="flex flex-col gap-4" method="POST" action="?/joinByCode" use:enhance>
           <!-- svelte-ignore a11y_autofocus -->
           <Input name="code" placeholder="spring-2026-final" autofocus />
-          {#if actionData?.codeError}
-            <p class="text-body-sm text-destructive">{actionData.codeError}</p>
+          {#if actionData?.codeError || actionData?.error}
+            <p role="alert" class="text-body-sm text-destructive">
+              {actionData.codeError ?? actionData.error}
+            </p>
           {/if}
           <div class="flex justify-end">
             <Button type="submit">{m.contestsList_joinSubmit()}</Button>

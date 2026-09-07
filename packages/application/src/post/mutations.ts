@@ -3,7 +3,7 @@ import type { ProblemPostType } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError, NotFoundError } from "../shared/errors";
-import { canViewPosts, resolveActiveContextForUser } from "./queries";
+import { canViewPosts, contextGateOpen, resolveActiveContextForUser } from "./queries";
 
 export async function assertCanInteractWithPosts(
   userId: string,
@@ -12,7 +12,12 @@ export async function assertCanInteractWithPosts(
   message: string,
 ) {
   const context = await resolveActiveContextForUser(userId, problemId, new Date());
-  const allowed = await canViewPosts(userId, problemId, type, context);
+  if (!(await contextGateOpen(context))) {
+    throw new ForbiddenError(
+      "Posts are unavailable until the active contest, assignment, or exam ends.",
+    );
+  }
+  const allowed = await canViewPosts(userId, problemId, type);
   if (!allowed) {
     throw new ForbiddenError(message);
   }

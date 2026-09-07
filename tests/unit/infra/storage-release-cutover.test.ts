@@ -1,5 +1,13 @@
 import { execFileSync, execSync, spawnSync } from "node:child_process";
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -12,11 +20,27 @@ const tempDirectories: string[] = [];
 function makeHarness(): { bin: string; directory: string; events: string; status: string } {
   const directory = mkdtempSync(join(tmpdir(), "nojv-storage-cutover-"));
   const bin = join(directory, "bin");
+  const packageRoot = join(directory, "db");
+  const packageBin = join(packageRoot, "node_modules/.bin");
+  mkdirSync(packageBin, { recursive: true });
+  cpSync(
+    join(repoRoot, "packages/db/prisma/migrations"),
+    join(packageRoot, "prisma/migrations"),
+    { recursive: true },
+  );
+  mkdirSync(join(packageRoot, "prisma/scripts"), { recursive: true });
+  for (const script of ["deploy-expand.sh", "deploy-release.sh"]) {
+    cpSync(
+      join(repoRoot, "packages/db/prisma/scripts", script),
+      join(packageRoot, "prisma/scripts", script),
+    );
+  }
   const events = join(directory, "events.log");
   const status = join(directory, "contract-status");
   const statusCalls = join(directory, "status-calls");
   tempDirectories.push(directory);
   execFileSync("mkdir", ["-p", bin]);
+  writeFileSync(join(bin, "prisma"), "#!/bin/sh\nexit 97\n", { mode: 0o755 });
   writeFileSync(status, "pending");
   writeFileSync(statusCalls, "0");
   for (const [deployment, replicas] of [
@@ -54,7 +78,7 @@ esac
     { mode: 0o755 },
   );
   writeFileSync(
-    join(bin, "prisma"),
+    join(packageBin, "prisma"),
     `#!/bin/sh
 set -eu
 printf 'prisma %s stage=%s\n' "$*" "\${PRISMA_MIGRATIONS_PATH:-full}" >> "$EVENT_LOG"
@@ -165,7 +189,7 @@ function runCutover(
   harness: ReturnType<typeof makeHarness>,
   extraEnv: Record<string, string> = {},
 ) {
-  return spawnSync("sh", [cutoverScript], {
+  return spawnSync("sh", [join(harness.directory, "db/prisma/scripts/deploy-release.sh")], {
     cwd: repoRoot,
     encoding: "utf8",
     env: {

@@ -1,6 +1,11 @@
 import type { RequestEvent } from "@sveltejs/kit";
 
-import { consumeStepUpHandoffTicket, markVerifiedSession } from "@nojv/application";
+import {
+  adminMfaKind,
+  consumeStepUpHandoffTicket,
+  markVerifiedSession,
+  unlockSecuritySettings,
+} from "@nojv/application";
 
 export const STEP_UP_HANDOFF_COOKIE = "nojv.step_up_handoff";
 
@@ -21,5 +26,12 @@ export async function consumeStepUpHandoff(event: RequestEvent): Promise<boolean
     return false;
   }
 
-  return markVerifiedSession(sessionId, proof, sessionUser.platformRole === "admin");
+  const securityProof = {
+    securityGeneration: proof.securityGeneration,
+    userId: proof.userId,
+  };
+
+  return proof.kind === "verified"
+    ? markVerifiedSession(sessionId, securityProof, adminMfaKind(sessionUser))
+    : unlockSecuritySettings(sessionId, securityProof);
 }

@@ -71,6 +71,7 @@ export { postVoteRepo } from "./post-vote";
 export { problemBookmarkRepo } from "./problem-bookmark";
 export { registryCredentialRepo } from "./registry-credential";
 export { schoolVerificationTokenRepo } from "./school-verification";
+export { securityFactorRepo, type SecurityFactorState } from "./security-factor";
 export {
   scoreOverrideRepo,
   scoreOverrideAuditLogRepo,

@@ -15,13 +15,12 @@ export interface UpcomingAssessment {
 export async function listUpcomingAssessments(
   userId: string,
   now: Date = new Date(),
-  take = 10,
 ): Promise<UpcomingAssessment[]> {
   const memberships = await courseMembershipRepo.listActiveForUser(userId);
   const courseIds = memberships.map((m) => m.courseId);
 
   const [assignments, exams, contests] = await Promise.all([
-    assessmentRepo.listUpcoming(userId, now, take),
+    assessmentRepo.listUpcoming(userId, now),
     courseIds.length > 0 ? examRepo.listByCourseIds(courseIds) : Promise.resolve([]),
     contestRepo.listParticipatedContestsForUser(userId),
   ]);
@@ -61,5 +60,5 @@ export async function listUpcomingAssessments(
   ];
 
   items.sort((a, b) => a.opensAt.localeCompare(b.opensAt));
-  return items.slice(0, take);
+  return items;
 }

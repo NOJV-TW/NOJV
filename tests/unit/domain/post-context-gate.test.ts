@@ -88,7 +88,7 @@ describe("canViewPosts — context gate (editorial)", () => {
     ).resolves.toBe(false);
   });
 
-  it("M3 fix: denies AC + contest lookup throwing (fail-closed)", async () => {
+  it("propagates a contest lookup failure without authorizing access", async () => {
     submissionCount.mockResolvedValue(1);
     contestFindById.mockRejectedValue(new Error("connection lost"));
     await expect(
@@ -97,7 +97,7 @@ describe("canViewPosts — context gate (editorial)", () => {
         contestId: "ctx_1",
         now: NOW,
       }),
-    ).resolves.toBe(false);
+    ).rejects.toThrow("connection lost");
   });
 
   it("denies AC + assignment before closesAt", async () => {
@@ -124,16 +124,16 @@ describe("canViewPosts — context gate (editorial)", () => {
     ).resolves.toBe(true);
   });
 
-  it("M3 fix: denies AC + assignment missing (fail-closed)", async () => {
+  it("propagates an assignment lookup failure", async () => {
     submissionCount.mockResolvedValue(1);
-    assessmentFindInfoById.mockRejectedValue(new Error("not found"));
+    assessmentFindInfoById.mockRejectedValue(new Error("Assignment lookup failed"));
     await expect(
       canViewPosts("usr_1", "prob_1", "editorial", {
         kind: "assignment",
         assignmentId: "asn_missing",
         now: NOW,
       }),
-    ).resolves.toBe(false);
+    ).rejects.toThrow("Assignment lookup failed");
   });
 
   it("denies AC + exam in progress", async () => {

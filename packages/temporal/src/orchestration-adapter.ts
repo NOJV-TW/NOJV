@@ -12,7 +12,6 @@ import {
   ensureAssignmentDueSoon,
   ensureContestLifecycle,
   ensureExamAutoClose,
-  getRejudgeTriggeredBy,
   queryRejudgeProgress,
   replaceAssignmentDueSoon,
   replaceContestLifecycle,
@@ -34,7 +33,6 @@ export function buildDomainOrchestrationAdapter() {
     ensureAssignmentDueSoon,
     ensureContestLifecycle,
     ensureExamAutoClose,
-    getRejudgeTriggeredBy,
     async probeTemporal() {
       const client = await getTemporalClient();
       await client.connection.workflowService.getSystemInfo({});

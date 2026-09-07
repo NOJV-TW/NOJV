@@ -6,8 +6,8 @@ import { zod4 } from "sveltekit-superforms/adapters";
 
 import type { Actions, PageServerLoad } from "./$types";
 import { requireAuth } from "$lib/server/auth";
-import { classifyError } from "$lib/server/shared/handle-action-error";
-import { withRateLimit } from "$lib/server/shared/action-handlers";
+import { classifyRequestError } from "$lib/server/shared/handle-action-error";
+import { withAction } from "$lib/server/shared/action-handlers";
 
 const { createCourseAssignmentRecord } = courseDomain;
 const { listProblemPickerGroups } = problemDomain;
@@ -35,7 +35,7 @@ export const load: PageServerLoad = async (event) => {
 };
 
 function submitAssignment(status: "draft" | "published") {
-  return withRateLimit(async (event: RequestEvent) => {
+  return withAction(async (event: RequestEvent) => {
     const actor = requireAuth(event);
     const courseId = event.params.courseId ?? "";
 
@@ -48,8 +48,12 @@ function submitAssignment(status: "draft" | "published") {
         status,
       });
     } catch (err) {
-      const classified = classifyError(err);
-      return message(form, { kind: "error", text: classified.message }, { status: 400 });
+      const classified = classifyRequestError(err, event);
+      return message(
+        form,
+        { kind: "error", text: classified.message },
+        { status: classified.status },
+      );
     }
 
     redirect(303, `/courses/${courseId}/assignments`);

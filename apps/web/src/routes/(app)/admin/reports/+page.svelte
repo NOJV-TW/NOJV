@@ -1,11 +1,12 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
   import * as Dialog from "$lib/components/primitives/ui/dialog";
-  import * as Select from "$lib/components/primitives/ui/select";
   import { Card } from "$lib/components/primitives/ui/card";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
+  import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectColumnFilter.svelte";
+  import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { formatDate } from "$lib/utils/datetime";
   import { Flag } from "@lucide/svelte";
@@ -59,50 +60,34 @@
         <table class="w-full text-body-sm">
           <thead>
             <tr
-              class="border-b border-border-subtle text-left text-caption text-muted-foreground"
+              class="border-b border-border-subtle text-left text-caption whitespace-nowrap text-muted-foreground"
             >
-              <th class="px-3 py-2 font-medium">
-                {m.adminReports_colType()}
-                <Select.Root
-                  type="single"
-                  value={typeFilter || "__all"}
-                  onValueChange={(value) => (typeFilter = value === "__all" ? "" : value)}
-                >
-                  <Select.Trigger
-                    class="mt-2 h-8 w-full min-w-28 rounded-none border-0 border-b border-border bg-transparent px-1 text-caption font-normal shadow-none focus-visible:border-ring focus-visible:ring-0"
-                    aria-label={m.adminReports_colType()}
-                  >
-                    {typeFilter
-                      ? typeLabel(typeFilter as "editorial" | "discussion" | "comment")
-                      : m.adminReports_filterAll()}
-                  </Select.Trigger>
-                  <Select.Content>
-                    <Select.Item value="__all">{m.adminReports_filterAll()}</Select.Item>
-                    <Select.Item value="editorial">{m.adminReports_typeEditorial()}</Select.Item
-                    >
-                    <Select.Item value="discussion"
-                      >{m.adminReports_typeDiscussion()}</Select.Item
-                    >
-                    <Select.Item value="comment">{m.adminReports_typeComment()}</Select.Item>
-                  </Select.Content>
-                </Select.Root>
+              <th class="px-3 py-3 align-middle font-medium">
+                <TableSelectColumnFilter
+                  label={m.adminReports_colType()}
+                  filterLabel={m.adminReports_filterType()}
+                  allLabel={m.adminReports_filterAll()}
+                  options={[
+                    { value: "editorial", label: m.adminReports_typeEditorial() },
+                    { value: "discussion", label: m.adminReports_typeDiscussion() },
+                    { value: "comment", label: m.adminReports_typeComment() },
+                  ]}
+                  bind:value={typeFilter}
+                />
               </th>
-              <th class="px-3 py-2 font-medium">
-                {m.adminReports_colContent()}
-                <label class="mt-2 block">
-                  <span class="sr-only">{m.adminReports_filterSearch()}</span>
-                  <input
-                    class="h-8 w-full min-w-44 rounded-none border-0 border-b border-border bg-transparent px-1 text-caption font-normal text-foreground shadow-none outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-0"
-                    type="search"
-                    bind:value={search}
-                    placeholder={m.adminReports_filterSearch()}
-                  />
-                </label>
+              <th class="px-3 py-3 align-middle font-medium">
+                <TableTextColumnFilter
+                  label={m.adminReports_colContent()}
+                  filterLabel={m.adminReports_filterSearch()}
+                  inputId="admin-reports-search-filter"
+                  applyLabel={m.common_applyFilter()}
+                  bind:value={search}
+                />
               </th>
-              <th class="px-3 py-2 font-medium">{m.adminReports_colProblem()}</th>
-              <th class="px-3 py-2 font-medium">{m.adminReports_colAuthor()}</th>
-              <th class="px-3 py-2 font-medium">{m.adminReports_colReporter()}</th>
-              <th class="px-3 py-2 font-medium">{m.adminReports_colReported()}</th>
+              <th class="px-3 py-3 align-middle font-medium">{m.adminReports_colProblem()}</th>
+              <th class="px-3 py-3 align-middle font-medium">{m.adminReports_colAuthor()}</th>
+              <th class="px-3 py-3 align-middle font-medium">{m.adminReports_colReporter()}</th>
+              <th class="px-3 py-3 align-middle font-medium">{m.adminReports_colReported()}</th>
             </tr>
           </thead>
           <tbody>

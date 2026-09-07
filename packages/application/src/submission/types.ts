@@ -3,6 +3,7 @@ import type {
   AdvancedConfig,
   CompareConfig,
   JudgeType,
+  JudgeScriptLanguage,
   ProblemJudgeTestcase,
   ProblemSample,
   ProblemType,
@@ -43,7 +44,9 @@ export interface AdvancedModeContext {
 export interface SubmissionJudgeContext {
   adjustment: AdjustmentContext;
   checkerScript: string | null;
+  checkerLanguage: JudgeScriptLanguage | null;
   interactorScript: string | null;
+  interactorLanguage: JudgeScriptLanguage | null;
   compareOptions: CompareConfig | null;
   judgeType: JudgeType;
   runtime: Runtime;

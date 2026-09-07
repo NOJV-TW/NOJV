@@ -38,7 +38,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const viewer = sessionUser
     ? {
         userId: sessionUser.id,
-        isAdmin: sessionUser.platformRole === "admin" && event.locals.adminModeActive,
+        isAdmin: sessionUser.platformRole === "admin" && event.locals.adminAccessActive,
       }
     : null;
 

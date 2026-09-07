@@ -13,7 +13,7 @@ import {
   testcaseSetRepo,
 } from "@nojv/db";
 import type { JudgeConfig, JudgeScriptLanguage, Language } from "@nojv/core";
-import { judgeConfigSchema } from "@nojv/core";
+import { parsePersistedJudgeConfig } from "./judge-config";
 
 import { ConflictError, ValidationError } from "../shared/errors";
 import { requireProblem } from "../shared/require";
@@ -344,6 +344,7 @@ export async function importBundle(
   const result = await runTransaction(async (tx) => {
     await problemRepo.withTx(tx).lockForUpdate(problemId);
     const problem = await requireProblem(tx, problemId);
+    const currentCfg = parsePersistedJudgeConfig(problem.judgeConfig, problem.id);
     assertProblemOwnership(problem, actor);
     const [existingSets, existingWorkspace] = await Promise.all([
       testcaseSetRepo.withTx(tx).findByProblemId(problem.id),
@@ -389,11 +390,6 @@ export async function importBundle(
       );
       await problemWorkspaceFileRepo.withTx(tx).createMany(rows);
     }
-
-    const parsedCfg = judgeConfigSchema.safeParse(problem.judgeConfig);
-    const currentCfg: JudgeConfig = parsedCfg.success
-      ? parsedCfg.data
-      : { type: "standard" as const };
 
     const interactorOrCurrentType = parsed.interactor ? "interactive" : currentCfg.type;
     const nextCfg: JudgeConfig = {
@@ -508,8 +504,7 @@ export async function exportBundle(
     }
   }
 
-  const parsedCfg = judgeConfigSchema.safeParse(problem.judgeConfig);
-  const cfg: JudgeConfig = parsedCfg.success ? parsedCfg.data : { type: "standard" as const };
+  const cfg = parsePersistedJudgeConfig(problem.judgeConfig, problem.id);
 
   const archive = new ZipArchive({ zlib: { level: 9 } });
   const passthrough = new PassThrough();

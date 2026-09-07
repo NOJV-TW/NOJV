@@ -31,8 +31,8 @@ import {
   serializePlagiarismFlags,
   serializePlagiarismReport,
 } from "$lib/server/shared/plagiarism-view";
-import { classifyError } from "$lib/server/shared/handle-action-error";
-import { withRateLimit } from "$lib/server/shared/action-handlers";
+import { classifyRequestError } from "$lib/server/shared/handle-action-error";
+import { withAction } from "$lib/server/shared/action-handlers";
 import {
   toDateTimeLocal,
   toIsoOrUndefined,
@@ -80,8 +80,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         isManager: true,
       }),
       buildSubmissionsMatrix(courseId, assignmentId),
-      findPlagiarismReport({ type: "assessment", id: assignmentId }).catch(() => null),
-      listFlagsForContext("assessment", assignmentId).catch(() => []),
+      findPlagiarismReport({ type: "assessment", id: assignmentId }),
+      listFlagsForContext("assessment", assignmentId),
       listProblemPickerGroups(actor.userId),
       scoreOverrideDomain.canSetScoreOverride(actor, {
         type: "assignment",
@@ -163,7 +163,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 });
 
 export const actions = {
-  updateSettings: withRateLimit(async (event) => {
+  updateSettings: withAction(async (event) => {
     const actor = requireAuth(event);
     const assignmentId = event.params.assignmentId;
 
@@ -185,14 +185,18 @@ export const actions = {
     try {
       await updateAssignmentRecord(actor, assignmentId, payload);
     } catch (err) {
-      const classified = classifyError(err);
-      return message(form, { kind: "error", text: classified.message }, { status: 400 });
+      const classified = classifyRequestError(err, event);
+      return message(
+        form,
+        { kind: "error", text: classified.message },
+        { status: classified.status },
+      );
     }
 
     return message(form, { kind: "success", text: "ok" });
   }),
 
-  updateProblems: withRateLimit(async (event) => {
+  updateProblems: withAction(async (event) => {
     const actor = requireAuth(event);
     const assignmentId = event.params.assignmentId;
 
@@ -203,17 +207,12 @@ export const actions = {
 
     const payload: AssessmentUpdate = { problemIds };
 
-    try {
-      await updateAssignmentRecord(actor, assignmentId, payload);
-    } catch (err) {
-      const classified = classifyError(err);
-      return fail(classified.status, { error: classified.message });
-    }
+    await updateAssignmentRecord(actor, assignmentId, payload);
 
     return { success: true };
   }),
 
-  publishAssignment: withRateLimit(async (event) => {
+  publishAssignment: withAction(async (event) => {
     const actor = requireAuth(event);
     const assignmentId = event.params.assignmentId;
 
@@ -221,14 +220,18 @@ export const actions = {
     try {
       await publishAssignment(actor, assignmentId);
     } catch (err) {
-      const classified = classifyError(err);
-      return message(form, { kind: "error", text: classified.message }, { status: 400 });
+      const classified = classifyRequestError(err, event);
+      return message(
+        form,
+        { kind: "error", text: classified.message },
+        { status: classified.status },
+      );
     }
 
     return { success: true };
   }),
 
-  revertToDraft: withRateLimit(async (event) => {
+  revertToDraft: withAction(async (event) => {
     const actor = requireAuth(event);
     const assignmentId = event.params.assignmentId;
 
@@ -236,14 +239,18 @@ export const actions = {
     try {
       await revertAssignmentToDraft(actor, assignmentId);
     } catch (err) {
-      const classified = classifyError(err);
-      return message(form, { kind: "error", text: classified.message }, { status: 400 });
+      const classified = classifyRequestError(err, event);
+      return message(
+        form,
+        { kind: "error", text: classified.message },
+        { status: classified.status },
+      );
     }
 
     return { success: true };
   }),
 
-  deleteAssignment: withRateLimit(async (event) => {
+  deleteAssignment: withAction(async (event) => {
     const actor = requireAuth(event);
     const assignmentId = event.params.assignmentId;
 
@@ -251,8 +258,12 @@ export const actions = {
     try {
       await deleteAssignmentDraft(actor, assignmentId);
     } catch (err) {
-      const classified = classifyError(err);
-      return message(form, { kind: "error", text: classified.message }, { status: 400 });
+      const classified = classifyRequestError(err, event);
+      return message(
+        form,
+        { kind: "error", text: classified.message },
+        { status: classified.status },
+      );
     }
 
     redirect(303, "/assignments");

@@ -4,10 +4,28 @@ import {
 } from "@better-auth/core/context";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createTicketMock, findPasskeyMock, passkeyRecords, userRepoMock } = vi.hoisted(() => ({
+const {
+  areUnlockedMock,
+  createTicketMock,
+  deletePasskeysMock,
+  findPasskeyMock,
+  findUserMock,
+  markFactorChangeMock,
+  passkeyRecords,
+  registrationDenialMock,
+  userRepoMock,
+} = vi.hoisted(() => ({
+  areUnlockedMock: vi.fn(),
   createTicketMock: vi.fn(),
+  deletePasskeysMock: vi.fn(),
   findPasskeyMock: vi.fn(),
-  passkeyRecords: new Map<string, { userId: string; securityGeneration: number }>(),
+  findUserMock: vi.fn(),
+  markFactorChangeMock: vi.fn(),
+  passkeyRecords: new Map<
+    string,
+    { isSuperAdmin?: boolean; userId: string; securityGeneration: number }
+  >(),
+  registrationDenialMock: vi.fn(),
   userRepoMock: {
     findByUsername: vi.fn(),
     attachPlaceholderToAuth: vi.fn(),
@@ -28,18 +46,37 @@ vi.mock("better-auth/plugins", () => ({
 }));
 
 vi.mock("@nojv/application", () => ({
+  adminMfaKind: (user: { isSuperAdmin: boolean; platformRole: string }) =>
+    user.platformRole !== "admin" ? "none" : user.isSuperAdmin ? "super" : "regular",
+  areSecuritySettingsUnlocked: areUnlockedMock,
   createStepUpHandoffTicket: createTicketMock,
+  hasAdminSessionMfa: vi.fn(),
   hasFreshStepUp: vi.fn(),
-  hasTwoFactorChangeGrant: vi.fn(),
-  passkeyRegistrationDenialReason: vi.fn(),
+  isSuperAdminSessionExpired: vi.fn(),
+  markFactorChangeVerifiedSession: markFactorChangeMock,
+  markVerifiedSession: vi.fn(),
+  passkeyRegistrationDenialReason: registrationDenialMock,
   securityGenerationProof: (user: { id: string; securityGeneration: number }) => ({
     userId: user.id,
     securityGeneration: user.securityGeneration,
   }),
 }));
 
+vi.mock("$lib/server/super-admin-password-proof", () => ({
+  consumeSuperAdminPasswordProof: vi.fn(),
+  isSuperAdminPasswordProofSessionValid: vi.fn(
+    (proof: { sessionId: string | null }, sessionId: string | null) =>
+      proof.sessionId === null || proof.sessionId === sessionId,
+  ),
+  passwordProofTicketFromCookieHeader: vi.fn(() => null),
+  readSuperAdminPasswordProof: vi.fn(),
+}));
+
 vi.mock("@nojv/db", () => ({
-  prismaAdapterClient: { passkey: { findFirst: findPasskeyMock } },
+  prismaAdapterClient: {
+    passkey: { deleteMany: deletePasskeysMock, findFirst: findPasskeyMock },
+    user: { findUnique: findUserMock },
+  },
   userRepo: userRepoMock,
 }));
 
@@ -56,6 +93,7 @@ vi.mock("$lib/server/logger", () => ({
 }));
 
 import { getAuth } from "$lib/auth.server";
+import { getPasskeyRegistrationProof } from "$lib/server/passkey-request-proof";
 import {
   consumeInternalFactorMutationAuthority,
   factorMutationPath,
@@ -64,6 +102,18 @@ import {
 
 interface PasskeyHookContext {
   body: { response: { id: string } } | Record<string, never>;
+  context?: {
+    session?: {
+      session: { id: string };
+      user: {
+        id: string;
+        isSuperAdmin: boolean;
+        platformRole: string;
+        securityGeneration: number;
+      };
+    };
+  };
+  headers?: Headers;
   path: string;
 }
 
@@ -73,7 +123,15 @@ interface PasskeyAfterVerificationInput {
 }
 
 interface CapturedAuthOptions {
-  hooks: { before: (ctx: PasskeyHookContext) => Promise<void> };
+  databaseHooks: {
+    account: {
+      create: { before: (account: { providerId: string; userId: string }) => Promise<void> };
+    };
+  };
+  hooks: {
+    after: (ctx: Pick<PasskeyHookContext, "path">) => Promise<void>;
+    before: (ctx: PasskeyHookContext) => Promise<void>;
+  };
   plugins: Array<{
     id: string;
     options?: {
@@ -89,7 +147,7 @@ function productionPasskeyCallbacks() {
   const plugin = options.plugins.find(({ id }) => id === "passkey");
   const afterVerification = plugin?.options?.authentication?.afterVerification;
   if (!afterVerification) throw new Error("Production passkey callback was not wired");
-  return { before: options.hooks.before, afterVerification };
+  return { after: options.hooks.after, before: options.hooks.before, afterVerification };
 }
 
 beforeAll(async () => {
@@ -98,6 +156,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   passkeyRecords.clear();
+  areUnlockedMock.mockReset().mockResolvedValue(true);
   createTicketMock
     .mockReset()
     .mockImplementation(
@@ -117,12 +176,17 @@ beforeEach(() => {
           ? {
               user: {
                 id: record.userId,
+                isSuperAdmin: record.isSuperAdmin ?? false,
                 securityGeneration: record.securityGeneration,
               },
             }
           : { userId: record.userId };
       },
     );
+  findUserMock.mockReset();
+  markFactorChangeMock.mockReset().mockResolvedValue(true);
+  deletePasskeysMock.mockReset().mockResolvedValue({ count: 1 });
+  registrationDenialMock.mockReset().mockReturnValue(null);
 });
 
 async function authenticateConcurrently(
@@ -154,6 +218,25 @@ async function authenticateConcurrently(
 }
 
 describe("production passkey authentication wiring", () => {
+  it("blocks direct passkey sign-in for a super admin without a password-first proof", async () => {
+    passkeyRecords.set("super-credential", {
+      isSuperAdmin: true,
+      securityGeneration: 9,
+      userId: "super-admin",
+    });
+    const { before } = productionPasskeyCallbacks();
+
+    await expect(
+      runWithRequestState(new WeakMap(), () =>
+        before({
+          body: { response: { id: "super-credential" } },
+          headers: new Headers(),
+          path: "/passkey/verify-authentication",
+        }),
+      ),
+    ).rejects.toMatchObject({ status: "FORBIDDEN" });
+  });
+
   it("does not cross-bind concurrent users between the before and verified callbacks", async () => {
     passkeyRecords.set("credential-a", { userId: "user-a", securityGeneration: 3 });
     passkeyRecords.set("credential-b", { userId: "user-b", securityGeneration: 8 });
@@ -184,6 +267,48 @@ describe("production passkey authentication wiring", () => {
 });
 
 describe("production factor-mutation wiring", () => {
+  it("rolls back a passkey when the generation-bound settings grant becomes stale", async () => {
+    const { after, before } = productionPasskeyCallbacks();
+    findUserMock.mockResolvedValue({
+      id: "user-1",
+      isSuperAdmin: false,
+      platformRole: "student",
+      securityGeneration: 8,
+    });
+    markFactorChangeMock.mockResolvedValue(false);
+
+    await expect(
+      runWithRequestState(new WeakMap(), async () => {
+        await before({
+          body: { response: { id: "new-credential" } },
+          context: {
+            session: {
+              session: { id: "session-1" },
+              user: {
+                id: "user-1",
+                isSuperAdmin: false,
+                platformRole: "student",
+                securityGeneration: 7,
+              },
+            },
+          },
+          path: "/passkey/verify-registration",
+        });
+        expect(findUserMock).toHaveBeenCalled();
+        expect(await getPasskeyRegistrationProof()).toEqual({
+          credentialID: "new-credential",
+          securityGeneration: 8,
+          sessionId: "session-1",
+          userId: "user-1",
+        });
+        await after({ path: "/passkey/verify-registration" });
+      }),
+    ).rejects.toMatchObject({ status: "CONFLICT" });
+    expect(deletePasskeysMock).toHaveBeenCalledWith({
+      where: { credentialID: "new-credential", userId: "user-1" },
+    });
+  });
+
   it.each([
     "/two-factor/enable",
     "/two-factor/disable",
@@ -231,5 +356,20 @@ describe("production factor-mutation wiring", () => {
     );
 
     expect(consumed.filter(Boolean)).toHaveLength(1);
+  });
+});
+
+describe("super admin account-linking boundary", () => {
+  it("allows credentials but rejects OAuth account creation", async () => {
+    const options = (getAuth() as unknown as { options: CapturedAuthOptions }).options;
+    const beforeCreate = options.databaseHooks.account.create.before;
+    findUserMock.mockResolvedValue({ isSuperAdmin: true });
+
+    await expect(
+      beforeCreate({ providerId: "credential", userId: "super-admin" }),
+    ).resolves.toBeUndefined();
+    await expect(
+      beforeCreate({ providerId: "google", userId: "super-admin" }),
+    ).rejects.toMatchObject({ status: "FORBIDDEN" });
   });
 });

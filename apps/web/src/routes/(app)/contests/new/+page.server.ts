@@ -5,8 +5,8 @@ import { zod4 } from "sveltekit-superforms/adapters";
 
 import type { Actions, PageServerLoad } from "./$types";
 import { canCreateCourse, requireAuth } from "$lib/server/auth";
-import { classifyError } from "$lib/server/shared/handle-action-error";
-import { withRateLimit } from "$lib/server/shared/action-handlers";
+import { classifyRequestError } from "$lib/server/shared/handle-action-error";
+import { withAction } from "$lib/server/shared/action-handlers";
 import { contestDomain, problemDomain } from "@nojv/application";
 
 const { createContestRecord, contestFormSchema } = contestDomain;
@@ -24,7 +24,7 @@ export const load: PageServerLoad = async (event) => {
 };
 
 export const actions = {
-  create: withRateLimit(async (event) => {
+  create: withAction(async (event) => {
     const actor = requireAuth(event);
     if (!canCreateCourse(actor.platformRole)) {
       redirect(303, "/contests");
@@ -51,8 +51,12 @@ export const actions = {
       });
       await createContestRecord(actor, payload);
     } catch (err) {
-      const classified = classifyError(err);
-      return message(form, { kind: "error", text: classified.message }, { status: 400 });
+      const classified = classifyRequestError(err, event);
+      return message(
+        form,
+        { kind: "error", text: classified.message },
+        { status: classified.status },
+      );
     }
 
     return message(form, { kind: "success", text: "ok" });

@@ -1,16 +1,9 @@
-import { execFileSync } from "node:child_process";
-
+import { getRedis } from "@nojv/redis";
 import { expect, test } from "@playwright/test";
 
 import { DisposableCredentialUser, psql, signInWithPassword } from "./_disposable-user";
 import { readLiveSession } from "./_shared";
-import { activateTwoFactor, settingsMethodRow } from "./_two-factor";
-
-function redis(...args: string[]): string {
-  return execFileSync("docker", ["compose", "exec", "-T", "redis", "redis-cli", ...args], {
-    encoding: "utf8",
-  }).trim();
-}
+import { settingsMethodRow, unlockSecuritySettings } from "./_two-factor";
 
 test.describe.configure({ retries: 0 });
 
@@ -32,10 +25,15 @@ test.beforeAll(() => {
   user.create();
 });
 
-test.afterAll(() => {
+test.afterAll(async () => {
   user.cleanup();
   if (sessionIds.size > 0) {
-    redis("DEL", ...[...sessionIds].map((id) => `nojv:apitoken:stepup:${id}`));
+    await getRedis().del(
+      ...[...sessionIds].flatMap((id) => [
+        `nojv:apitoken:stepup:${id}`,
+        `nojv:apitoken:page-mfa:${id}`,
+      ]),
+    );
   }
 });
 
@@ -57,7 +55,7 @@ test("a verified passkey assertion unlocks only its new session", async ({ brows
     },
   });
   await signInWithPassword(page, user.email);
-  await activateTwoFactor(page);
+  await unlockSecuritySettings(page);
   await signInWithPassword(otherPage, user.email);
   await settingsMethodRow(page, "Passkey")
     .getByRole("button", { name: "Set up", exact: true })
@@ -66,14 +64,19 @@ test("a verified passkey assertion unlocks only its new session", async ({ brows
   await dialog.getByRole("button", { name: "Add passkey" }).click();
   await expect(dialog.getByRole("button", { name: "Remove" })).toBeVisible({ timeout: 20000 });
 
+  const oldSessionId = await sessionId(page);
+  await getRedis().del(
+    `nojv:apitoken:stepup:${oldSessionId}`,
+    `nojv:apitoken:page-mfa:${oldSessionId}`,
+  );
+
   await page.goto("/dashboard");
   await page.getByRole("button", { name: /open account menu/i }).click();
   await page.getByRole("menuitem", { name: "API Tokens" }).click();
   const stepUpDialog = page.getByRole("dialog", { name: "Verify it's you" });
   await expect(stepUpDialog).toBeVisible();
   await expect(page).toHaveURL(/\/dashboard$/);
-  const oldSessionId = await sessionId(page);
-  expect(redis("GET", `nojv:apitoken:stepup:${oldSessionId}`)).toBe("");
+  expect(await getRedis().get(`nojv:apitoken:stepup:${oldSessionId}`)).toBeNull();
 
   const [verificationResponse] = await Promise.all([
     page.waitForResponse(
@@ -93,11 +96,11 @@ test("a verified passkey assertion unlocks only its new session", async ({ brows
   const newSessionId = await sessionId(page);
   expect(newSessionId).not.toBe(oldSessionId);
   await expect
-    .poll(() => redis("GET", `nojv:apitoken:stepup:${newSessionId}`))
+    .poll(() => getRedis().get(`nojv:apitoken:stepup:${newSessionId}`))
     .toBe(securityMarker());
 
   const otherSessionId = await sessionId(otherPage);
-  expect(redis("GET", `nojv:apitoken:stepup:${otherSessionId}`)).toBe("");
+  expect(await getRedis().get(`nojv:apitoken:stepup:${otherSessionId}`)).toBeNull();
   await otherPage.goto("/account/api-tokens");
   await expect(otherPage).toHaveURL(/\/account\/api-tokens\/verify$/);
 

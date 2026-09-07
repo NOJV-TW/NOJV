@@ -6,7 +6,7 @@ set -eu
 
 package_root="$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)"
 cd "$package_root"
-PATH="$PATH:$package_root/node_modules/.bin"
+PATH="$package_root/node_modules/.bin:$PATH"
 export PATH
 
 if [ "$RELEASE_OPERATION" = install ]; then

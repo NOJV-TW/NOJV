@@ -7,7 +7,7 @@ export const problemsPaths = {
       description:
         "Creates a draft problem for an editor/admin. Advanced mode requires the Docker execution backend.",
       requestBody: {
-        required: false,
+        required: true,
         content: {
           "application/json": {
             schema: { $ref: "#/components/schemas/CreateProblemRequest" },

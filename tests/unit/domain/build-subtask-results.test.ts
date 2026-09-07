@@ -84,15 +84,14 @@ describe("buildSubtaskResults — all-or-nothing only (no per-subset partial sco
       expect(result[0]!.rawScore).toBe(0);
     });
 
-    it("falls back to verdict 'SE' when the sandbox is missing a case slot", () => {
+    it("rejects a missing case rather than fabricating a result", () => {
       const sets = [mkSet("s1", "Subtask 1", ["t1", "t2", "t3"])];
       const partial: SandboxResult = {
         testcaseResults: [mkCase(0, "AC"), mkCase(1, "AC")],
       };
-      const result = buildSubtaskResults(partial, sets);
-      expect(result[0]!.cases.map((c) => c.verdict)).toEqual(["AC", "AC", "SE"]);
-      expect(result[0]!.passed).toBe(false);
-      expect(result[0]!.rawScore).toBe(0);
+      expect(() => buildSubtaskResults(partial, sets)).toThrow(
+        "Missing judge result for testcase t3",
+      );
     });
 
     it("uses the per-case timeMs from the sandbox payload", () => {

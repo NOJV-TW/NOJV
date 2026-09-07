@@ -36,17 +36,25 @@ function isPlatformRole(value: string): value is PlatformRole {
 }
 
 export const load: PageServerLoad = async ({ url, locals }) => {
-  const search = url.searchParams.get("search") ?? "";
-  const roleFilter = url.searchParams.get("role") ?? "";
+  const usernameFilter = url.searchParams.get("username")?.trim() ?? "";
+  const emailFilter = url.searchParams.get("email")?.trim() ?? "";
+  const nameFilter = url.searchParams.get("name")?.trim() ?? "";
+  const roleParam = url.searchParams.get("role") ?? "";
+  const roleFilter = isPlatformRole(roleParam) ? roleParam : undefined;
   const statusParam = url.searchParams.get("status") ?? "";
   const statusFilter =
     statusParam === "active" || statusParam === "disabled" ? statusParam : undefined;
+  const createdAtOrder: "asc" | "desc" =
+    url.searchParams.get("created") === "asc" ? "asc" : "desc";
   const page = Math.max(1, Number(url.searchParams.get("page") ?? "1"));
 
   const { users, totalCount, totalPages } = await listUsersPaginated({
-    ...(search ? { search } : {}),
+    ...(usernameFilter ? { usernameFilter } : {}),
+    ...(emailFilter ? { emailFilter } : {}),
+    ...(nameFilter ? { nameFilter } : {}),
     ...(roleFilter ? { roleFilter } : {}),
     ...(statusFilter ? { statusFilter } : {}),
+    createdAtOrder,
     page,
   });
 
@@ -55,9 +63,12 @@ export const load: PageServerLoad = async ({ url, locals }) => {
     totalCount,
     page,
     totalPages,
-    search,
-    roleFilter,
+    usernameFilter,
+    emailFilter,
+    nameFilter,
+    roleFilter: roleFilter ?? "",
     statusFilter: statusFilter ?? "",
+    createdAtOrder,
     canManageAdmins: locals.sessionUser?.isSuperAdmin === true,
   };
 };

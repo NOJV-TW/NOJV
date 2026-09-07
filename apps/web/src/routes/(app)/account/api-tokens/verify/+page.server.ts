@@ -1,12 +1,11 @@
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, RequestEvent } from "@sveltejs/kit";
+import { adminMfaKind, getSecurityFactorState } from "@nojv/application";
 
-import { getAuth } from "$lib/auth.server";
 import { requireAuth } from "$lib/server/auth";
 import {
-  adminElevationPrincipal,
-  grantAdminElevation,
-  isTwoFactorActivated,
+  adminAccessPrincipal,
+  grantAdminMode,
   markVerifiedSession,
   securityGenerationProof,
   verifyStepUpCode,
@@ -28,16 +27,15 @@ export const load = async (event: RequestEvent) => {
     ? "/account/api-tokens/verify?purpose=admin-mode"
     : "/account/api-tokens/verify";
 
-  if (!(await isTwoFactorActivated(actor.userId))) {
-    redirect(302, "/settings?setup2fa=1&returnTo=" + encodeURIComponent(verifyPath));
+  const state = await getSecurityFactorState(actor.userId);
+  if (!state?.hasSecurityFactor) {
+    redirect(302, "/settings?setupSecurity=1&returnTo=" + encodeURIComponent(verifyPath));
   }
 
-  const hasTotp = event.locals.sessionUser?.twoFactorEnabled ?? false;
-  const passkeys = await getAuth().api.listPasskeys({ headers: event.request.headers });
-  const hasPasskey = passkeys.length > 0;
+  const { hasTotp, hasPasskey } = state;
 
   if (!hasTotp && !hasPasskey) {
-    redirect(302, "/settings?verify=totp&returnTo=" + encodeURIComponent(verifyPath));
+    redirect(302, "/settings?setupSecurity=1&returnTo=" + encodeURIComponent(verifyPath));
   }
 
   return {
@@ -70,11 +68,12 @@ export const actions = {
       return fail(403, { error: "Session authentication is required." });
     }
     const proof = securityGenerationProof(sessionUser);
+    const state = await getSecurityFactorState(sessionUser.id);
     const result = await verifyStepUpCode(
       proof,
       code,
       event.request.headers,
-      sessionUser.twoFactorEnabled,
+      state?.hasTotp ?? false,
     );
     if (!result.ok) {
       if (result.reason === "malformed") {
@@ -94,13 +93,13 @@ export const actions = {
     const sessionId = event.locals.session?.id;
     if (
       !sessionId ||
-      !(await markVerifiedSession(sessionId, proof, sessionUser.platformRole === "admin"))
+      !(await markVerifiedSession(sessionId, proof, adminMfaKind(sessionUser)))
     ) {
       return fail(403, { error: "The account security state changed. Verify again." });
     }
 
     if (adminModePurpose) {
-      if (!(await grantAdminElevation(sessionId, adminElevationPrincipal(sessionUser)))) {
+      if (!(await grantAdminMode(sessionId, adminAccessPrincipal(sessionUser)))) {
         return fail(403, { error: "Admin mode is not available for this account." });
       }
       redirect(303, "/admin");

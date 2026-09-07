@@ -104,4 +104,22 @@ describe("listUpcomingAssessments", () => {
     await listUpcomingAssessments("u1", NOW);
     expect(listByCourseIds).not.toHaveBeenCalled();
   });
+
+  it("returns every unfinished assessment without a homepage cap", async () => {
+    listUpcoming.mockResolvedValue(
+      Array.from({ length: 11 }, (_, index) => ({
+        id: `a${index}`,
+        title: `HW${index}`,
+        course: { title: "CS101" },
+        opensAt: d(`2026-07-${String(index + 9).padStart(2, "0")}T00:00:00Z`),
+        closesAt: d("2026-08-01T00:00:00Z"),
+        dueAt: d("2026-07-31T00:00:00Z"),
+      })),
+    );
+
+    const result = await listUpcomingAssessments("u1", NOW);
+
+    expect(listUpcoming).toHaveBeenCalledWith("u1", NOW);
+    expect(result).toHaveLength(11);
+  });
 });

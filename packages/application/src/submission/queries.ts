@@ -10,8 +10,6 @@ import type { Prisma } from "@nojv/db";
 import { attemptWindowStart } from "./attempt-window";
 import {
   adjustmentRulesSchema,
-  advancedConfigSchema,
-  judgeConfigSchema,
   languageSchema,
   submissionOperationStatuses,
   submissionOperationStatusSchema,
@@ -20,8 +18,6 @@ import {
   submissionVerdictSchema,
   verdictSummarySchema,
   type AdjustmentRules,
-  type AdvancedConfig,
-  type JudgeConfig,
   type Language,
   type ProblemJudgeTestcase,
   type Runtime,
@@ -40,6 +36,10 @@ import {
   readValidatorScriptBlob,
   readWorkspaceFileBlob,
 } from "../problem/blobs";
+import {
+  parsePersistedAdvancedConfig,
+  parsePersistedJudgeConfig,
+} from "../problem/judge-config";
 import { computeProblemTotalScore } from "../problem/total-score";
 import { buildProblemSamples } from "../problem/queries";
 import type { ActorContext } from "../shared/actor-context";
@@ -232,6 +232,7 @@ export async function getSubmissionDetail(actor: ActorContext, submissionId: str
       title: submission.problem.title,
     },
     totalScore: computeProblemTotalScore({
+      id: submission.problem.id,
       type: submission.problem.type,
       testcaseSets: submission.problem.testcaseSets,
       advancedConfig: submission.problem.advancedConfig,
@@ -347,6 +348,7 @@ export async function listUserSubmissions(opts: {
         memoryKb: "memoryKb" in s ? s.memoryKb : null,
         score: s.score,
         totalScore: computeProblemTotalScore({
+          id: s.problem.id,
           type: s.problem.type,
           testcaseSets: s.problem.testcaseSets,
           advancedConfig: s.problem.advancedConfig,
@@ -532,19 +534,6 @@ export function narrowSubmissionRow(row: { status: string; language: string }): 
   };
 }
 
-const DEFAULT_JUDGE_CONFIG: JudgeConfig = { type: "standard" };
-
-function parseJudgeConfig(raw: unknown, submissionId: string): JudgeConfig {
-  if (raw == null) return DEFAULT_JUDGE_CONFIG;
-  const result = judgeConfigSchema.safeParse(raw);
-  if (result.success) return result.data;
-  throw new IntegrityError(
-    `Invalid judgeConfig for submission ${submissionId}: ${result.error.issues
-      .map((issue) => issue.path.join(".") || issue.code)
-      .join(", ")}`,
-  );
-}
-
 function parseAdjustmentRules(raw: unknown, submissionId: string): AdjustmentRules | null {
   if (raw == null) return null;
   const result = adjustmentRulesSchema.safeParse(raw);
@@ -556,23 +545,13 @@ function parseAdjustmentRules(raw: unknown, submissionId: string): AdjustmentRul
   );
 }
 
-function parseAdvancedConfig(raw: unknown, submissionId: string): AdvancedConfig | null {
-  if (raw == null) return null;
-  const result = advancedConfigSchema.safeParse(raw);
-  if (result.success) return result.data;
-  throw new IntegrityError(
-    `Invalid advancedConfig for submission ${submissionId}: ${result.error.issues
-      .map((issue) => issue.path.join(".") || issue.code)
-      .join(", ")}`,
-  );
-}
-
 export function deriveJudgeMode(
   context: Pick<SubmissionJudgeContext, "problemType" | "advanced">,
 ): "standard" | "advanced" {
-  return context.problemType === "special_env" && context.advanced !== null
-    ? "advanced"
-    : "standard";
+  if (context.problemType !== "special_env") return "standard";
+  if (context.advanced === null)
+    throw new IntegrityError("Advanced judge configuration is missing.");
+  return "advanced";
 }
 
 export async function getJudgeContext(submissionId: string): Promise<SubmissionJudgeContext> {
@@ -581,7 +560,17 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
   if (!submission) throw new NotFoundError(`Submission ${submissionId} not found`);
 
   const { problem } = submission;
-  const judgeConfig = parseJudgeConfig(problem.judgeConfig, submissionId);
+  const judgeConfig = parsePersistedJudgeConfig(problem.judgeConfig, problem.id);
+  if (judgeConfig.type === "checker" && !judgeConfig.checkerLanguage) {
+    throw new IntegrityError(
+      `Problem ${problem.id}: checkerLanguage is required to judge a submission.`,
+    );
+  }
+  if (judgeConfig.type === "interactive" && !judgeConfig.interactorLanguage) {
+    throw new IntegrityError(
+      `Problem ${problem.id}: interactorLanguage is required to judge a submission.`,
+    );
+  }
 
   const testcaseSets: TestcaseSetGroup[] = await Promise.all(
     problem.testcaseSets.map(async (ts) => {
@@ -640,7 +629,12 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
   };
 
   const problemType = problem.type;
-  const advancedConfig = parseAdvancedConfig(problem.advancedConfig, submissionId);
+  const advancedConfig = parsePersistedAdvancedConfig(problem.advancedConfig, problem.id);
+  if (problem.type === "special_env" && advancedConfig === null) {
+    throw new IntegrityError(
+      `Problem ${problem.id}: advancedConfig is required to judge a submission.`,
+    );
+  }
   const advanced: AdvancedModeContext | null =
     problemType === "special_env" && advancedConfig !== null
       ? {
@@ -665,7 +659,9 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
   return {
     adjustment,
     checkerScript,
+    checkerLanguage: judgeConfig.checkerLanguage ?? null,
     interactorScript,
+    interactorLanguage: judgeConfig.interactorLanguage ?? null,
     compareOptions: judgeConfig.compare ?? null,
     judgeType: judgeConfig.type,
     runtime,
@@ -684,7 +680,12 @@ export async function getJudgeDispatchMeta(submissionId: string): Promise<JudgeD
   if (!submission) throw new NotFoundError(`Submission ${submissionId} not found`);
 
   const { problem } = submission;
-  const advancedConfig = parseAdvancedConfig(problem.advancedConfig, submissionId);
+  const advancedConfig = parsePersistedAdvancedConfig(problem.advancedConfig, problem.id);
+  if (problem.type === "special_env" && advancedConfig === null) {
+    throw new IntegrityError(
+      `Problem ${problem.id}: advancedConfig is required to judge a submission.`,
+    );
+  }
   const advanced: AdvancedModeContext | null =
     problem.type === "special_env" && advancedConfig !== null
       ? {

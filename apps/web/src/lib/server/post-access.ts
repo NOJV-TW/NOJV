@@ -1,9 +1,9 @@
 import type { ProblemPostType } from "@nojv/core";
 import { postDomain, problemDomain } from "@nojv/application";
 
-import { ForbiddenError, NotFoundError, type ActorContext } from "$lib/server/auth";
+import { NotFoundError, type ActorContext } from "$lib/server/auth";
 
-const { canViewPosts, getPostById, resolveActiveContextForUser } = postDomain;
+const { assertCanInteractWithPosts, getPostById } = postDomain;
 const { getProblemRowById } = problemDomain;
 
 const VIEW_GATE_MESSAGES: Record<ProblemPostType, string> = {
@@ -21,9 +21,7 @@ export async function requireProblemPostAccess(
   if (!problem) throw new NotFoundError("Problem not found.");
   if (isAdmin) return problem;
 
-  const context = await resolveActiveContextForUser(userId, problemId, new Date());
-  const canView = await canViewPosts(userId, problemId, type, context);
-  if (!canView) throw new ForbiddenError(VIEW_GATE_MESSAGES[type]);
+  await assertCanInteractWithPosts(userId, problemId, type, VIEW_GATE_MESSAGES[type]);
 
   return problem;
 }

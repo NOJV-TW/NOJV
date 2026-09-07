@@ -61,7 +61,7 @@ PostgreSQL is the single durable store. All other systems derive from it:
 - **Temporal**: Workflow state is durable within Temporal, but final verdicts are persisted to PostgreSQL.
 - **SSE events**: Ephemeral notifications. Clients reconnect and read latest state from DB/Temporal.
 
-If Redis is lost, the system continues with degraded performance (no cache, no real-time events). Scoreboards can be rebuilt from `ContestParticipation` records.
+Redis loss disables real-time events and security state access. Redis-backed rate limits fail closed with 503, and privileged session checks must not grant access without their proofs. Scoreboards continue to use PostgreSQL on every read; there is no Redis scoreboard to rebuild.
 
 ## Critical Failure Modes
 
@@ -73,9 +73,9 @@ If Redis is lost, the system continues with degraded performance (no cache, no r
 
 ### Redis Unavailable
 
-**Impact**: Degraded — no real-time SSE events and no live scoreboard ZSET; the scoreboard read path falls back to rebuilding from PostgreSQL. Submission cooldown enforcement is unaffected (it uses PostgreSQL advisory locks, not Redis).
+**Impact**: No real-time SSE events; Redis-backed request limits and security proofs fail closed. Submission cooldown enforcement remains in PostgreSQL advisory locks. Already-dispatched judging continues through Temporal.
 **Mitigation**: Memorystore HA (automatic failover).
-**Recovery**: Automatic failover. Scoreboard ZSETs rebuild on first write.
+**Recovery**: Restore Redis connectivity. Clients reconnect and read the current PostgreSQL state; invalidated security proofs require fresh verification.
 **Note**: Submissions still process (Temporal handles orchestration). SSE clients reconnect.
 
 ### Temporal Unavailable
@@ -99,6 +99,11 @@ workflows remain durable until capacity returns.
 **Recovery**: Start a new worker. Workflows already accepted by Temporal resume; new submissions fail fast until the dispatch path is available.
 
 ### Sandbox Failure
+
+Reading a required sandbox payload or result log must either succeed or report the
+original I/O failure. Infrastructure failures remain retryable activity failures;
+a successfully read but malformed result becomes an explicit system error.
+Validator diagnostics stay in staff feedback, never in student output.
 
 **Impact**: A normal program failure produces its normal verdict; eviction,
 node shutdown, node loss, and Spot reclaim delay the submission instead of

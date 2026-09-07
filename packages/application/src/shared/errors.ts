@@ -2,8 +2,9 @@ export class HttpError extends Error {
   constructor(
     message: string,
     public readonly status: number,
+    options?: ErrorOptions,
   ) {
-    super(message);
+    super(message, options);
     this.name = this.constructor.name;
   }
 }
@@ -45,7 +46,7 @@ export class ConfigurationError extends HttpError {
 }
 
 export class ServiceUnavailableError extends HttpError {
-  constructor(message = "Service unavailable.") {
-    super(message, 503);
+  constructor(message = "Service unavailable.", options?: ErrorOptions) {
+    super(message, 503, options);
   }
 }

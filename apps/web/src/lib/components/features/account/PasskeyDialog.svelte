@@ -8,25 +8,22 @@
 
   interface Props {
     open: boolean;
-    activated: boolean;
-    passkeys: { id: string; name: string }[];
+    passkeys: { canRemove: boolean; id: string; name: string }[];
   }
 
-  let { open = $bindable(false), activated, passkeys }: Props = $props();
-
+  let { open = $bindable(false), passkeys }: Props = $props();
   let busy = $state(false);
   let error = $state("");
-  const steppedUp = new Set<string>();
 
   async function addPasskey() {
     error = "";
     busy = true;
     try {
-      const res = await authClient.passkey.addPasskey({
+      const result = await authClient.passkey.addPasskey({
         name: `Passkey ${passkeys.length + 1}`,
       });
-      if (res?.error) {
-        error = res.error.message ?? m.account_passkey_addError();
+      if (result?.error) {
+        error = result.error.message ?? m.account_passkey_addError();
         return;
       }
       toasts.success(m.account_passkey_addSuccess());
@@ -48,60 +45,47 @@
 
     <div class="flex flex-col gap-3">
       {#if error}
-        <p class="text-caption text-destructive" role="alert">{error}</p>
-      {/if}
-      {#if !activated}
-        <p class="text-body-sm text-muted-foreground">{m.account_2fa_methodsLockedHint()}</p>
+        <p class="text-body-sm text-destructive" role="alert">{error}</p>
       {/if}
       {#each passkeys as passkey (passkey.id)}
         <div
           class="flex items-center justify-between gap-4 rounded-md border border-border px-4 py-3"
         >
           <span class="text-body-sm font-medium">{passkey.name}</span>
-          <form
-            method="POST"
-            action="?/deletePasskey"
-            use:enhance={({ formElement }) => {
-              error = "";
-              busy = true;
-              return async ({ result }) => {
-                busy = false;
-                if (result.type === "failure") {
-                  if (result.data?.needsStepUp && !steppedUp.has(passkey.id)) {
-                    const res = await authClient.signIn.passkey();
-                    if (res?.error) {
-                      error = res.error.message ?? m.account_passkey_verifyFailed();
-                      return;
-                    }
-                    steppedUp.add(passkey.id);
-                    formElement.requestSubmit();
+          {#if passkey.canRemove}
+            <form
+              method="POST"
+              action="?/deletePasskey"
+              use:enhance={() => {
+                error = "";
+                busy = true;
+                return async ({ result }) => {
+                  busy = false;
+                  if (result.type === "failure") {
+                    error = (result.data?.error as string) ?? m.account_passkey_verifyFailed();
                     return;
                   }
-                  error = (result.data?.error as string) ?? m.account_passkey_verifyFailed();
-                  return;
-                }
-                steppedUp.delete(passkey.id);
-                toasts.success(m.account_passkey_removeSuccess());
-                await invalidateAll();
-              };
-            }}
-          >
-            <input type="hidden" name="id" value={passkey.id} />
-            <button
-              type="submit"
-              disabled={busy}
-              class="rounded-md border border-destructive/40 px-3 py-1.5 text-caption font-medium text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+                  toasts.success(m.account_passkey_removeSuccess());
+                  await invalidateAll();
+                };
+              }}
             >
-              {m.account_passkey_remove()}
-            </button>
-          </form>
+              <input type="hidden" name="id" value={passkey.id} />
+              <button
+                type="submit"
+                disabled={busy}
+                class="rounded-md border border-destructive/40 px-3 py-1.5 text-caption font-medium text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {m.account_passkey_remove()}
+              </button>
+            </form>
+          {/if}
         </div>
       {/each}
       <button
         type="button"
         onclick={addPasskey}
-        disabled={busy || !activated}
-        title={activated ? undefined : m.account_2fa_methodsLockedHint()}
+        disabled={busy}
         class="self-start rounded-md border border-border px-3 py-1.5 text-caption font-medium disabled:cursor-not-allowed disabled:opacity-50"
       >
         {m.account_passkey_add()}

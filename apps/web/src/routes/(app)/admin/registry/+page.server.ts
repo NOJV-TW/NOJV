@@ -25,32 +25,17 @@ export const load: PageServerLoad = async (event) => {
     return { configured: false as const };
   }
 
-  let repoNames: string[];
-  try {
-    repoNames = await listRepositories();
-  } catch {
-    return { configured: true as const, repositories: [] };
-  }
-
+  const repoNames = await listRepositories();
   const repositories = await Promise.all(
-    repoNames.map(async (repo) => {
-      try {
-        const tagNames = await listTags(repo);
-        const tags = await Promise.all(
-          tagNames.map(async (tag) => {
-            try {
-              const { digest, size } = await getManifestDigestAndSize(repo, tag);
-              return { tag, digest, size };
-            } catch {
-              return { tag, digest: null, size: null };
-            }
-          }),
-        );
-        return { repo, tags };
-      } catch {
-        return { repo, tags: [] };
-      }
-    }),
+    repoNames.map(async (repo) => ({
+      repo,
+      tags: await Promise.all(
+        (await listTags(repo)).map(async (tag) => ({
+          tag,
+          ...(await getManifestDigestAndSize(repo, tag)),
+        })),
+      ),
+    })),
   );
 
   return { configured: true as const, repositories };

@@ -25,8 +25,12 @@ export const keys = {
   adminSessionMfa: (sessionId: string) => `nojv:admin:mfa:${sessionId}`,
   adminMode: (sessionId: string) => `nojv:admin:mode:${sessionId}`,
   twoFactorTotpSeen: (userId: string, code: string) => `nojv:2fa:totp-seen:${userId}:${code}`,
-  twoFactorActivationOtp: (userId: string) => `nojv:2fa:activation-otp:${userId}`,
-  twoFactorActivationOtpAttempts: (userId: string) =>
-    `nojv:2fa:activation-otp-attempts:${userId}`,
-  twoFactorChangeGrant: (sessionId: string) => `nojv:2fa:change-grant:${sessionId}`,
+  securitySetupOtp: (userId: string) => `nojv:security:setup-otp:${userId}`,
+  securitySetupOtpAttempts: (userId: string) => `nojv:security:setup-otp-attempts:${userId}`,
+  securitySettingsGrant: (sessionId: string) => `nojv:security:settings-grant:${sessionId}`,
+  pendingTotp: (sessionId: string) => `nojv:security:pending-totp:${sessionId}`,
+  superAdminPasswordProof: (ticket: string) => `nojv:super-admin:password-proof:${ticket}`,
+  superAdminRecoveryOtp: (userId: string) => `nojv:super-admin:recovery-otp:${userId}`,
+  superAdminRecoveryOtpAttempts: (userId: string) =>
+    `nojv:super-admin:recovery-otp-attempts:${userId}`,
 } as const;

@@ -19,8 +19,8 @@ import {
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth, getActorContext, hasActorUsername } from "$lib/server/auth";
-import { withRateLimit } from "$lib/server/shared/action-handlers";
-import { classifyError } from "$lib/server/shared/handle-action-error";
+import { withAction } from "$lib/server/shared/action-handlers";
+import { classifyRequestError } from "$lib/server/shared/handle-action-error";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import {
   serializePlagiarismFlags,
@@ -98,10 +98,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
             contestId: contest.id,
           }),
           listContestParticipantsWithUser(contest.id),
-          plagiarismDomain
-            .findPlagiarismReport({ type: "contest", id: contest.id })
-            .catch(() => null),
-          plagiarismDomain.listFlagsForContext("contest", contest.id).catch(() => []),
+          plagiarismDomain.findPlagiarismReport({ type: "contest", id: contest.id }),
+          plagiarismDomain.listFlagsForContext("contest", contest.id),
           auditDomain.listAuditTimelineForContext({ type: "contest", contestId: contest.id }),
           problemDomain.listProblemPickerGroups(actor.userId),
         ]);
@@ -201,7 +199,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 });
 
 export const actions: Actions = {
-  updateSettings: withRateLimit(async (event) => {
+  updateSettings: withAction(async (event) => {
     const actor = requireAuth(event);
     const form = await superValidate<ContestSettingsForm, FormMessage>(
       event,
@@ -235,29 +233,24 @@ export const actions: Actions = {
     try {
       await updateContestRecord(actor, event.params.contestId, parsed.data);
     } catch (err) {
-      const classified = classifyError(err);
+      const classified = classifyRequestError(err, event);
       return message<FormMessage>(
         form,
         { kind: "error", text: classified.message },
-        { status: 400 },
+        { status: classified.status },
       );
     }
 
     return message<FormMessage>(form, { kind: "success", text: "Saved." });
   }),
 
-  joinContest: withRateLimit(async (event) => {
+  joinContest: withAction(async (event) => {
     const actor = requireAuth(event);
-    try {
-      await contestDomain.joinContest(actor, event.params.contestId);
-    } catch (err) {
-      const classified = classifyError(err);
-      return fail(classified.status, { error: classified.message });
-    }
+    await contestDomain.joinContest(actor, event.params.contestId);
     return { success: true };
   }),
 
-  publishContest: withRateLimit(async (event) => {
+  publishContest: withAction(async (event) => {
     const actor = requireAuth(event);
     const form = await superValidate<ContestSettingsForm, FormMessage>(
       event,
@@ -266,17 +259,17 @@ export const actions: Actions = {
     try {
       await publishContest(actor, event.params.contestId);
     } catch (err) {
-      const classified = classifyError(err);
+      const classified = classifyRequestError(err, event);
       return message<FormMessage>(
         form,
         { kind: "error", text: classified.message },
-        { status: 400 },
+        { status: classified.status },
       );
     }
     return { success: true };
   }),
 
-  deleteContest: withRateLimit(async (event) => {
+  deleteContest: withAction(async (event) => {
     const actor = requireAuth(event);
     const form = await superValidate<ContestSettingsForm, FormMessage>(
       event,
@@ -285,11 +278,11 @@ export const actions: Actions = {
     try {
       await deleteContestDraft(actor, event.params.contestId);
     } catch (err) {
-      const classified = classifyError(err);
+      const classified = classifyRequestError(err, event);
       return message<FormMessage>(
         form,
         { kind: "error", text: classified.message },
-        { status: 400 },
+        { status: classified.status },
       );
     }
     redirect(303, "/contests");

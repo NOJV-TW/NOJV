@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { Prisma } from "@nojv/db";
 import { problemRepo, problemWorkspaceFileRepo, runTransaction } from "@nojv/db";
 import type { Language, ProblemType } from "@nojv/core";
-import { entryFileNameFor, judgeConfigSchema, problemWorkspaceFileSchema } from "@nojv/core";
+import { entryFileNameFor, problemWorkspaceFileSchema } from "@nojv/core";
 import { assertStorageObjectPointer, type StorageObjectPointer } from "@nojv/storage";
 
 import { ConflictError, ValidationError } from "../shared/errors";
@@ -11,6 +11,7 @@ import { requireProblem } from "../shared/require";
 import { commitStoragePointerSwap } from "../shared/storage-object-lifecycle";
 
 import { writeWorkspaceFileBlob } from "./blobs";
+import { parsePersistedJudgeConfig } from "./judge-config";
 import { assertProblemOwnership, type ProblemActorContext } from "./permissions";
 
 export interface UpdateWorkspaceInput {
@@ -146,8 +147,7 @@ export async function updateProblemWorkspace(
 
     const updateData: Prisma.ProblemUpdateInput = {};
     if (payload.runtime) {
-      const parsed = judgeConfigSchema.safeParse(problem.judgeConfig);
-      const currentConfig = parsed.success ? parsed.data : { type: "standard" as const };
+      const currentConfig = parsePersistedJudgeConfig(problem.judgeConfig, problem.id);
       updateData.judgeConfig = {
         ...currentConfig,
         runtime: payload.runtime,

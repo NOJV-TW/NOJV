@@ -36,7 +36,7 @@
 
   const viewerId = $derived(page.data.user?.id ?? "");
   const isAdmin = $derived(
-    page.data.user?.platformRole === "admin" && (page.data.actingAsAdmin ?? false),
+    page.data.user?.platformRole === "admin" && (page.data.adminAccessActive ?? false),
   );
 
   let requestSeq = 0;

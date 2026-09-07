@@ -29,7 +29,6 @@ model User {
   status                    UserStatus   @default(active)
   mustChangePassword        Boolean      @default(false)
   twoFactorEnabled          Boolean      @default(false)
-  twoFactorActivated        Boolean      @default(false)
   securityGeneration        Int          @default(0)
   profilePublic             Boolean      @default(false)
   canCreateAdvancedProblems Boolean      @default(false)
@@ -95,8 +94,8 @@ model TwoFactor {
   lockedUntil             DateTime?
   user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([userId])
   @@index([secret])
-  @@index([userId])
 }
 
 model Passkey {

@@ -9,6 +9,7 @@ const {
   countUserStatsByProblem,
   countSubmissions,
   countCourses,
+  listPublished,
 } = vi.hoisted(() => ({
   listWithCounts: vi.fn(),
   findDetailById: vi.fn(),
@@ -18,6 +19,7 @@ const {
   countUserStatsByProblem: vi.fn(),
   countSubmissions: vi.fn(),
   countCourses: vi.fn(),
+  listPublished: vi.fn(),
 }));
 
 vi.mock("$app/environment", () => ({
@@ -35,10 +37,7 @@ vi.mock("@nojv/storage", async (importOriginal) => {
     getVerifiedText: vi.fn((_client: unknown, pointer: { key: string }) =>
       Promise.resolve(blobStore.get(pointer.key) ?? ""),
     ),
-    putText: vi.fn((_client: unknown, key: string, content: string) => {
-      blobStore.set(key, content);
-      return Promise.resolve();
-    }),
+
     deleteBlob: vi.fn(() => Promise.resolve()),
     deleteBlobsByPrefix: vi.fn(() => Promise.resolve()),
     __blobStore: blobStore,
@@ -66,7 +65,7 @@ vi.mock("@nojv/db", () => ({
     count: countCourses,
   },
   announcementRepo: {
-    listPublished: vi.fn().mockResolvedValue([]),
+    listPublished,
   },
   assessmentRepo: {
     listByUser: vi.fn().mockResolvedValue([]),
@@ -77,7 +76,7 @@ vi.mock("@nojv/db", () => ({
 import { courseDomain, problemDomain } from "@nojv/application";
 
 const { listProblemCards, getProblemPageData } = problemDomain;
-const { getDashboardStats } = courseDomain;
+const { getDashboardStats, listAnnouncements } = courseDomain;
 
 describe("DB-backed read model", () => {
   beforeEach(() => {
@@ -90,6 +89,13 @@ describe("DB-backed read model", () => {
     countUserStatsByProblem.mockResolvedValue([]);
     countSubmissions.mockResolvedValue(0);
     countCourses.mockResolvedValue(0);
+    listPublished.mockResolvedValue([]);
+  });
+
+  it("requests every visible homepage announcement", async () => {
+    await listAnnouncements({ platformRole: "student" });
+
+    expect(listPublished).toHaveBeenCalledWith(["all", "students"]);
   });
 
   it("surfaces persisted public problems in the practice catalog", async () => {
@@ -138,6 +144,15 @@ describe("DB-backed read model", () => {
       difficulty: "easy",
       title: "A+B Problem",
       id: "prob_ab",
+      status: "published",
+      displayId: null,
+      timeLimitMs: 1000,
+      memoryLimitMb: 256,
+      judgeConfig: null,
+      advancedConfig: null,
+      advancedRequiredPaths: [],
+      workspaceFiles: [],
+      testcaseSets: [],
       statement: {
         bodyMarkdown: "Given two integers, compute their sum.",
         inputFormat: "Two integers a and b",
@@ -189,6 +204,15 @@ describe("DB-backed read model", () => {
       author: { username: "teacher" },
       title: "Fill in the Blanks",
       id: "prob_blanks",
+      status: "published",
+      difficulty: "easy",
+      displayId: null,
+      timeLimitMs: 1000,
+      memoryLimitMb: 256,
+      judgeConfig: null,
+      advancedConfig: null,
+      advancedRequiredPaths: [],
+      testcaseSets: [],
       statement: {
         bodyMarkdown: "Implement the missing function.",
         inputFormat: "",

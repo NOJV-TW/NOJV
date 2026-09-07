@@ -59,6 +59,32 @@ describe("listUsersPaginated — statusFilter", () => {
   });
 });
 
+describe("listUsersPaginated — column filters and ordering", () => {
+  it("combines username, email, and name filters", async () => {
+    await listUsersPaginated({
+      usernameFilter: "alice",
+      emailFilter: "school.edu",
+      nameFilter: "Alice",
+    });
+
+    const where = {
+      username: { contains: "alice", mode: "insensitive" },
+      email: { contains: "school.edu", mode: "insensitive" },
+      name: { contains: "Alice", mode: "insensitive" },
+    };
+    expect(listPaginated).toHaveBeenCalledWith(expect.objectContaining({ where }));
+    expect(count).toHaveBeenCalledWith(where);
+  });
+
+  it("passes the requested created-at ordering", async () => {
+    await listUsersPaginated({ createdAtOrder: "asc" });
+
+    expect(listPaginated).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: [{ createdAt: "asc" }, { id: "asc" }] }),
+    );
+  });
+});
+
 describe("setUserDisabled — explicit idempotent set", () => {
   it("sets disabled = true regardless of current value", async () => {
     findDisabledStatus.mockResolvedValue({ disabled: true, isSuperAdmin: false });

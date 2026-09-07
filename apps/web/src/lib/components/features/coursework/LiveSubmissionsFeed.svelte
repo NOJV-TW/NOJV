@@ -4,6 +4,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { formatDateTime } from "$lib/utils/datetime";
   import { formatVerdictLabel } from "$lib/utils/verdict-style";
+  import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectColumnFilter.svelte";
   import VerdictBadge from "$lib/components/primitives/ui/VerdictBadge.svelte";
   import { languageLabel, type Language } from "@nojv/core";
 
@@ -107,46 +108,48 @@
         class="bg-muted/40 font-mono text-micro uppercase tracking-wider text-muted-foreground"
       >
         <tr>
-          <th class="px-4 py-2.5 text-left font-medium">{m.admin_submissions_colTime()}</th>
-          <th class="px-3 py-2.5 text-left font-medium">{m.admin_submissions_colUser()}</th>
-          <th class="px-2 py-1.5 text-left font-medium">
-            <select
-              aria-label={m.submissions_filterProblem()}
-              class="h-8 max-w-48 rounded border border-transparent bg-transparent px-1 font-mono text-micro uppercase tracking-wider hover:border-border focus:border-border"
+          <th class="px-4 py-3 text-left align-middle font-medium">
+            {m.admin_submissions_colTime()}
+          </th>
+          <th class="px-3 py-3 text-left align-middle font-medium">
+            {m.admin_submissions_colUser()}
+          </th>
+          <th class="px-2 py-3 text-left align-middle font-medium">
+            <TableSelectColumnFilter
+              label={m.admin_submissions_colProblem()}
+              filterLabel={m.submissions_filterProblem()}
+              options={problems.map((problem) => ({
+                value: problem.id,
+                label: problem.title,
+              }))}
               bind:value={problemFilter}
-            >
-              <option value="">{m.admin_submissions_colProblem()}</option>
-              {#each problems as problem (problem.id)}
-                <option value={problem.id}>{problem.title}</option>
-              {/each}
-            </select>
+            />
           </th>
-          <th class="px-2 py-1.5 text-left font-medium">
-            <select
-              aria-label={m.submissions_filterLanguage()}
-              class="h-8 rounded border border-transparent bg-transparent px-1 font-mono text-micro uppercase tracking-wider hover:border-border focus:border-border"
+          <th class="px-2 py-3 text-left align-middle font-medium">
+            <TableSelectColumnFilter
+              label={m.liveSubmissions_language()}
+              filterLabel={m.submissions_filterLanguage()}
+              options={languages.map((value) => ({ value, label: languageLabel(value) }))}
               bind:value={languageFilter}
-            >
-              <option value="">{m.liveSubmissions_language()}</option>
-              {#each languages as language (language)}
-                <option value={language}>{languageLabel(language)}</option>
-              {/each}
-            </select>
+            />
           </th>
-          <th class="px-3 py-2.5 text-left font-medium">{m.liveSubmissions_ipAddress()}</th>
-          <th class="px-2 py-1.5 text-left font-medium">
-            <select
-              aria-label={m.submissions_filterVerdict()}
-              class="h-8 rounded border border-transparent bg-transparent px-1 font-mono text-micro uppercase tracking-wider hover:border-border focus:border-border"
+          <th class="px-3 py-3 text-left align-middle font-medium">
+            {m.liveSubmissions_ipAddress()}
+          </th>
+          <th class="px-2 py-3 text-left align-middle font-medium">
+            <TableSelectColumnFilter
+              label={m.admin_submissions_colVerdict()}
+              filterLabel={m.submissions_filterVerdict()}
+              options={verdicts.map((value) => ({
+                value,
+                label: formatVerdictLabel(value),
+              }))}
               bind:value={verdictFilter}
-            >
-              <option value="">{m.admin_submissions_colVerdict()}</option>
-              {#each verdicts as verdict (verdict)}
-                <option value={verdict}>{formatVerdictLabel(verdict)}</option>
-              {/each}
-            </select>
+            />
           </th>
-          <th class="px-4 py-2.5 text-right font-medium">{m.admin_submissions_colScore()}</th>
+          <th class="px-4 py-3 text-right align-middle font-medium">
+            {m.admin_submissions_colScore()}
+          </th>
         </tr>
       </thead>
       <tbody>

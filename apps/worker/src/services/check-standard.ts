@@ -107,7 +107,9 @@ export function mergeCheckerResults(
       return {
         ...base,
         verdict: "SE",
-        feedback: "Validator did not report a verdict for this case.",
+        feedback: "Validator failed; this submission was not counted.",
+        staffFeedback:
+          outcome?.judgeMessage ?? `Validator did not report case ${String(run.index)}.`,
       };
     }
 

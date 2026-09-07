@@ -143,16 +143,19 @@ erDiagram
 
 Central identity. Links to sessions, OAuth accounts, submissions, course memberships, contest participations, and stats.
 
-| Field             | Type         | Notes                                                                                                             |
-| ----------------- | ------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `email`           | String       | Unique                                                                                                            |
-| `username`        | String?      | Unique, optional until profile completion                                                                         |
-| `displayUsername` | String?      | better-auth display variant of `username` (original-case copy)                                                    |
-| `name`            | String       | Required display name (better-auth core field)                                                                    |
-| `platformRole`    | PlatformRole | Default: student. `admin` grants admin capability (exercised only via the session admin-mode toggle)              |
-| `isSuperAdmin`    | Boolean      | Default: false. `true` only when `platformRole = admin`; super admins grant/revoke admin and require 2FA at login |
-| `status`          | UserStatus   | active / disabled / pending_first_login — see schema/auth.prisma for the placeholder-user flow                    |
-| `disabled`        | Boolean      | Admin soft-lock used by better-auth sign-in checks                                                                |
+| Field                | Type         | Notes                                                                                                             |
+| -------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `email`              | String       | Unique                                                                                                            |
+| `username`           | String?      | Unique, optional until profile completion                                                                         |
+| `displayUsername`    | String?      | better-auth display variant of `username` (original-case copy)                                                    |
+| `name`               | String       | Required display name (better-auth core field)                                                                    |
+| `platformRole`       | PlatformRole | Default: student. Regular admins exercise it through admin mode; verified super-admin sessions use it directly    |
+| `isSuperAdmin`       | Boolean      | Default: false. `true` only when `platformRole = admin`; requires password plus TOTP/passkey on every new session |
+| `status`             | UserStatus   | active / disabled / pending_first_login — see schema/auth.prisma for the placeholder-user flow                    |
+| `disabled`           | Boolean      | Admin soft-lock used by better-auth sign-in checks                                                                |
+| `mustChangePassword` | Boolean      | Forces the seeded super-admin first-login password-change phase                                                   |
+| `twoFactorEnabled`   | Boolean      | Better Auth sign-in projection maintained with the verified TOTP row; not the configured-state source of truth    |
+| `securityGeneration` | Int          | Monotonic invalidation version bound into Redis security and admin-access proofs                                  |
 
 ### Problem
 
@@ -203,7 +206,7 @@ Indexed on: `[problemId, createdAt]`, `[userId, createdAt]`, `[userId, examId, s
 
 User-facing submission point and list reads are scoped in PostgreSQL against the caller's active exam session. If no session is active, an owner can read their history; while a session is active, only that owner's submissions for the active exam match. Effective admin sessions have an explicit point-read recovery path, while their personal history list remains user-scoped. Cursor validation and the following page query share one repeatable-read snapshot.
 
-**Source code and verdict detail live in `@nojv/storage`, not the DB.** Submission create writes the DB row first with `status = pending_upload` and `sourceStoragePrefix = submissions/<id>/sources/`, then writes per-file source blobs to S3 via `putSubmissionSources(client, submissionId, sources)`. Once the upload succeeds, the row moves to `queued` and can be dispatched to Temporal. A source upload failure, or a failure while promoting the row to `queued`, deletes any partial source blobs best-effort and marks the row `system_error` so the worker never grades a row whose source prefix is missing or incomplete. The full `SubmissionResult` is written by `putVerdictDetail` at `submissionVerdictDetailKey(submissionId)` = `submissions/<id>/verdict-detail.json` and the small `verdictSummary` JSON + the storage key are persisted on the row. See `packages/storage/src/keys.ts` + `packages/storage/src/submission.ts`.
+**Source code and verdict detail live in `@nojv/storage`, not the DB.** A submission first records a `pending_upload` intention. Sources are uploaded under immutable generation-specific keys with a manifest containing their size and SHA-256 pointers. A PostgreSQL transaction then commits object ownership, publishes `sourceStorage`, advances the submission to `queued`, and enqueues `submission.judge.dispatch`. Failed uploads mark the intention `system_error`; guarded orphan objects remain reclaimable by durable cleanup. Each judge run writes an immutable verdict detail object and persists its pointer in `verdictDetailStorage`, with the display summary in `verdictSummary`. Reads verify pointer shape, byte count, and SHA-256. See `packages/storage/src/keys.ts`, `packages/storage/src/submission.ts`, and `packages/application/src/shared/storage-object-lifecycle.ts`.
 
 ### Contest
 
@@ -305,8 +308,8 @@ One row per event per recipient. `type` is a `NotificationType` enum (e.g. `assi
 | `SubmissionFeedback`         | Per-`(context, problem, student)` grader comment on a submission                                                                                                                                                               | `schema/submission.prisma`    |
 | `SubmissionFeedbackAuditLog` | Append-only create / update / delete trail for `SubmissionFeedback`                                                                                                                                                            | `schema/submission.prisma`    |
 | `ProblemBookmark`            | Per-`(user, problem)` bookmark on the practice problem list                                                                                                                                                                    | `schema/problem.prisma`       |
-| `TwoFactor`                  | better-auth TOTP secret + backup codes per user                                                                                                                                                                                | `schema/auth.prisma`          |
-| `Passkey`                    | better-auth WebAuthn credential (step-up auth)                                                                                                                                                                                 | `schema/auth.prisma`          |
+| `TwoFactor`                  | At most one verified better-auth TOTP secret + encrypted backup-code set per user                                                                                                                                              | `schema/auth.prisma`          |
+| `Passkey`                    | better-auth WebAuthn credential used for settings verification and admin MFA                                                                                                                                                   | `schema/auth.prisma`          |
 | `ApiToken`                   | Personal API token (hashed secret, expiry; creation requires 2FA step-up)                                                                                                                                                      | `schema/auth.prisma`          |
 | `NotificationPreference`     | Per-user email notification channel opt-ins + lead-day settings                                                                                                                                                                | `schema/notification.prisma`  |
 | `AdminAuditLog`              | Append-only trail of admin actions (actor, action, target, summary)                                                                                                                                                            | `schema/ops.prisma`           |

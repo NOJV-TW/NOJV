@@ -91,13 +91,17 @@ describe("Playwright global setup fail-closed ordering", () => {
       S3_REGION: "us-east-1",
       S3_SECRET_KEY: "minioadmin",
     });
-    expect(executeRawMock).toHaveBeenCalledOnce();
-    expect(executeRawMock).toHaveBeenCalledWith("SELECT destructive_replay()");
+    expect(executeRawMock).toHaveBeenCalledTimes(2);
+    expect(executeRawMock).toHaveBeenNthCalledWith(
+      1,
+      'DROP TRIGGER IF EXISTS user_security_generation_state_change ON "User"',
+    );
+    expect(executeRawMock).toHaveBeenNthCalledWith(2, "SELECT destructive_replay()");
     expect(launchMock).not.toHaveBeenCalled();
 
     const dbPushOrder = execFileSyncMock.mock.invocationCallOrder[0]!;
     const replayProofOrder = queryRawMock.mock.invocationCallOrder[1]!;
-    const replayOrder = executeRawMock.mock.invocationCallOrder[0]!;
+    const replayOrder = executeRawMock.mock.invocationCallOrder[1]!;
     const seedOrder = execFileSyncMock.mock.invocationCallOrder[1]!;
     expect(dbPushOrder).toBeLessThan(replayProofOrder);
     expect(replayProofOrder).toBeLessThan(replayOrder);
@@ -116,14 +120,16 @@ describe("Playwright global setup fail-closed ordering", () => {
         serverPort: 5432,
       },
     ]);
-    executeRawMock.mockRejectedValue(new Error("invariant replay failed"));
+    executeRawMock
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("invariant replay failed"));
 
     await expect(playwrightGlobalSetup({ projects: [] } as never)).rejects.toThrow(
       "invariant replay failed",
     );
 
     expect(queryRawMock).toHaveBeenCalledTimes(2);
-    expect(executeRawMock).toHaveBeenCalledOnce();
+    expect(executeRawMock).toHaveBeenCalledTimes(2);
     expect(execFileSyncMock).toHaveBeenCalledOnce();
     expect(launchMock).not.toHaveBeenCalled();
   });

@@ -1,10 +1,10 @@
 <script lang="ts">
   import { CalendarCheck2, CalendarClock, Radio } from "@lucide/svelte";
-  import { assessmentGroupIcon } from "$lib/utils/assessment-group";
+  import { assessmentGroupIcon, type AssessmentGroupStatus } from "$lib/utils/assessment-group";
 
   interface Props {
     label: string;
-    status: string;
+    status: AssessmentGroupStatus;
     count?: number;
   }
 

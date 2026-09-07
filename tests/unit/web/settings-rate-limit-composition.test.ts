@@ -10,13 +10,12 @@ const {
   unlinkAccountMock,
 } = vi.hoisted(() => {
   const actionNames = [
-    "sendEmailOtp",
-    "activate",
-    "deactivate",
-    "enable",
-    "verify",
-    "disable",
-    "regenerate",
+    "sendSecuritySetupOtp",
+    "unlockSecuritySettings",
+    "beginTotpSetup",
+    "confirmTotpSetup",
+    "removeTotp",
+    "regenerateBackupCodes",
     "deletePasskey",
   ] as const;
   const linkSocialAccountMock = vi.fn();
@@ -67,13 +66,12 @@ vi.mock("sveltekit-superforms/adapters", () => ({ zod4: vi.fn() }));
 const { actions } = await import("$lib/../routes/(app)/settings/+page.server");
 
 const GUARDED_ACTIONS = [
-  "sendEmailOtp",
-  "activate",
-  "deactivate",
-  "enable",
-  "verify",
-  "disable",
-  "regenerate",
+  "sendSecuritySetupOtp",
+  "unlockSecuritySettings",
+  "beginTotpSetup",
+  "confirmTotpSetup",
+  "removeTotp",
+  "regenerateBackupCodes",
   "deletePasskey",
   "link",
   "unlink",

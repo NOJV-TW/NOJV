@@ -64,7 +64,7 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
     );
 
     const mode: "standard" | "advanced" =
-      meta.problemType === "special_env" && meta.advanced !== null ? "advanced" : "standard";
+      meta.problemType === "special_env" ? "advanced" : "standard";
     const submission = await judge.completeSubmission(
       input.submissionId,
       judgeRunId,
