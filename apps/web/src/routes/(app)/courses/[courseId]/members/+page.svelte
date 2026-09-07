@@ -169,12 +169,16 @@
               : ''} auto auto auto;"
           >
             <div
-              class="flex size-10 items-center justify-center rounded-full text-body font-semibold text-primary-foreground {member.isPlaceholder
+              class="flex size-10 items-center justify-center overflow-hidden rounded-full text-body font-semibold text-primary-foreground {member.isPlaceholder
                 ? 'bg-primary opacity-50'
                 : 'bg-primary'}"
               aria-hidden="true"
             >
-              {member.isPlaceholder ? "?" : initialFor(member.name)}
+              {#if member.image}
+                <img src={member.image} alt={member.name} class="size-full object-cover" />
+              {:else}
+                {member.isPlaceholder ? "?" : initialFor(member.name)}
+              {/if}
             </div>
 
             <div class="min-w-0">

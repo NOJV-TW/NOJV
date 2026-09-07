@@ -55,6 +55,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       userId: member.userId,
       name: member.name,
       username: member.username,
+      image: member.image,
       email: isManager ? member.email : null,
       role: member.role,
       isPlaceholder: member.isPlaceholder,
