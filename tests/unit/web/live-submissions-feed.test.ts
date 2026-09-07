@@ -3,6 +3,10 @@
 import { mount, tick, unmount } from "svelte";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("$lib/components/primitives/ui/select/select-content.svelte", async () => ({
+  default: (await import("./fixtures/select-content.svelte")).default,
+}));
+
 vi.mock("@lucide/svelte", async () => ({
   ListFilter: (await import("./fixtures/empty-component.svelte")).default,
 }));
@@ -76,12 +80,18 @@ describe("LiveSubmissionsFeed", () => {
     }
 
     const setValue = async (selector: string, value: string) => {
-      const control = target.querySelector<HTMLInputElement | HTMLSelectElement>(selector);
+      const control = target.querySelector<HTMLButtonElement>(selector);
       expect(control).not.toBeNull();
-      control!.value = value;
-      control!.dispatchEvent(
-        new Event(control instanceof HTMLSelectElement ? "change" : "input", { bubbles: true }),
-      );
+      control!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+      await tick();
+      const option = await vi.waitFor(() => {
+        const item = document.querySelector<HTMLElement>(
+          `[role="option"][data-value="${value}"]`,
+        );
+        expect(item).not.toBeNull();
+        return item!;
+      });
+      option.dispatchEvent(new MouseEvent("pointerup", { bubbles: true }));
       await tick();
     };
 

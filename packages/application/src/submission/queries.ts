@@ -344,6 +344,10 @@ export async function listUserSubmissions(opts: {
         language,
         problemId: s.problem.id,
         problemTitle: s.problem.title,
+        user:
+          opts.actor.platformRole === "admin" && "user" in s
+            ? { name: s.user.name, username: s.user.username }
+            : null,
         runtimeMs: "runtimeMs" in s ? s.runtimeMs : null,
         memoryKb: "memoryKb" in s ? s.memoryKb : null,
         score: s.score,
