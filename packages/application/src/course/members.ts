@@ -38,6 +38,7 @@ export interface CourseMemberRow {
   userId: string | null;
   name: string;
   username: string | null;
+  image: string | null;
   email: string | null;
   role: CourseRole;
   status: "active" | "removed";
@@ -53,6 +54,7 @@ export async function listMembersForCourse(courseId: string): Promise<CourseMemb
     userId: row.userId,
     name: row.user?.name ?? row.pendingUsername ?? "",
     username: row.user?.username ?? row.pendingUsername,
+    image: row.user?.image ?? null,
     email: row.user?.email ?? null,
     role: row.role,
     status: row.status,

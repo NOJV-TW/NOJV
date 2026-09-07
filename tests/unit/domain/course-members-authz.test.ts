@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActorContext } from "../../../packages/application/src/shared/actor-context";
 
 const mocks = vi.hoisted(() => ({
+  listWithUserByCourse: vi.fn(),
   findActorMembership: vi.fn(),
   findMember: vi.fn(),
   findCourse: vi.fn(),
@@ -18,6 +19,7 @@ vi.mock("@nojv/db", () => ({
   courseRepo: { withTx: () => ({ findById: mocks.findCourse }) },
   courseMembershipRepo: { withTx: () => ({ findByComposite: mocks.findActorMembership }) },
   courseMembershipAdminRepo: {
+    listWithUserByCourse: mocks.listWithUserByCourse,
     withTx: () => ({ updateRole: mocks.updateRole, removeFromCourse: mocks.removeFromCourse }),
   },
   runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
@@ -40,6 +42,7 @@ import {
 } from "../../../packages/application/src/shared/errors";
 import {
   bulkAddByHandle,
+  listMembersForCourse,
   changeMemberRole,
   parseHandleInput,
   removeMember,
@@ -229,5 +232,39 @@ describe("bulk roster authorization and input", () => {
     expect(
       parseHandleInput("  41047001A, NTU_B11902001;\nntust_b11902001 alice ALICE "),
     ).toEqual(["41047001a", "ntu_b11902001", "ntust_b11902001", "alice"]);
+  });
+});
+
+describe("listMembersForCourse", () => {
+  it("preserves configured avatars and leaves pending member images empty", async () => {
+    const base = {
+      role: "student",
+      status: "active",
+      joinedAt: new Date("2026-09-07T00:00:00Z"),
+      removedAt: null,
+    };
+    mocks.listWithUserByCourse.mockResolvedValue([
+      {
+        ...base,
+        id: "linked",
+        userId: "student-1",
+        pendingUsername: null,
+        user: {
+          name: "Student",
+          username: "student",
+          email: "student@example.test",
+          image: "https://example.test/avatar.png",
+        },
+      },
+      { ...base, id: "pending", userId: null, pendingUsername: "newcomer", user: null },
+    ]);
+    expect(await listMembersForCourse(COURSE)).toEqual([
+      expect.objectContaining({
+        membershipId: "linked",
+        image: "https://example.test/avatar.png",
+        isPending: false,
+      }),
+      expect.objectContaining({ membershipId: "pending", image: null, isPending: true }),
+    ]);
   });
 });

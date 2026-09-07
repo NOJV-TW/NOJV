@@ -30,12 +30,15 @@ test("staff can enroll all school username formats and manage pending membership
       await expect(row.locator('a[href^="/users/"]')).toHaveCount(0);
     }
     const row = page.locator("[data-membership-id]").filter({ hasText: handles[3]! });
+    const roleButton = row.getByRole("button", { name: /Change role for/ });
     const changed = page.waitForRequest((request) => request.url().includes("?/changeRole"));
-    await row.locator("select").selectOption("ta");
+    await roleButton.click();
+    await page.getByRole("option", { name: "Teaching Assistant", exact: true }).click();
     const request = await changed;
     expect(request.postData()).toContain('name="membershipId"');
     expect(request.postData()).not.toContain('name="userId"');
-    await expect(row.locator("select")).toHaveValue("ta");
+    await expect(roleButton).toBeEnabled();
+    await expect(roleButton).toHaveText("Teaching Assistant");
 
     const studentPage = await student.newPage();
     await studentPage.goto(membersUrl);

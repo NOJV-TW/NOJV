@@ -39,7 +39,10 @@ test.describe("Course members + settings", () => {
     await roleFilter.click();
     await page.getByRole("option", { name: "TAs", exact: true }).click();
     await expect(memberRows).toHaveCount(1);
-    await expect(table.locator("tbody select")).toHaveValue("ta");
+    await expect(memberRows.getByRole("button", { name: /Change role for/ })).toHaveText(
+      "Teaching Assistant",
+    );
+    await expect(table.locator("tbody select")).toHaveCount(0);
     await roleFilter.click();
     await page.getByRole("option", { name: "All", exact: true }).click();
     const memberCount = await memberRows.count();
