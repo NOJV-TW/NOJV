@@ -37,6 +37,24 @@ test("a regular admin reuses one verification when entering admin mode again", a
   await expect(page).toHaveURL(/\/admin(?:\/|$)/, { timeout: 15_000 });
   expect(await getRedis().get(`nojv:admin:mode:${sessionId}`)).toBe(marker);
 
+  for (const resource of ["courses", "assignments", "exams", "contests"]) {
+    const link = page.locator(`header a[href="/admin/${resource}"]`);
+    await expect(link).toBeVisible();
+    await link.click();
+    await expect(page).toHaveURL(new RegExp(`/admin/${resource}$`));
+    await expect(link).toHaveAttribute("aria-current", "page");
+    await expect(page.locator('header a[href="/admin"]')).not.toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await expect(page.getByRole("tablist")).toHaveCount(0);
+    await expect(
+      page.getByRole("navigation", { name: "Admin panel", exact: true }),
+    ).toHaveCount(0);
+    await page.goto(`/${resource}?tab=enrolled`);
+    await expect(page).toHaveURL(new RegExp(`/admin/${resource}$`));
+  }
+
   await page.getByRole("button", { name: /open account menu/i }).click();
   await page.getByRole("menuitem", { name: /exit admin mode/i }).click();
   await expect(page).toHaveURL(/\/dashboard$/);

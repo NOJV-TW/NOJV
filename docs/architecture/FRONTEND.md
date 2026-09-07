@@ -6,6 +6,12 @@ SvelteKit application with server-side rendering, client hydration, and file-bas
 
 ### (app) — Authenticated Routes
 
+With effective admin access, the main Course / Assignment / Exam / Contest navigation
+opens the corresponding `/admin/*` global content list. Direct visits to the four
+personal list routes redirect there as well. These global lists omit admin-panel
+tabs; resource detail pages retain their management tabs. Regular admins outside
+admin mode continue to see the personal lists.
+
 Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/signin` if no session.
 
 | Route                                                | Purpose                                                                                                                                                                                                                                                                                                                                                              |

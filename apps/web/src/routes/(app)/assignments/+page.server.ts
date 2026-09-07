@@ -1,3 +1,4 @@
+import { redirect } from "@sveltejs/kit";
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
 import { courseDomain } from "@nojv/application";
 import { requireAuth } from "$lib/server/auth";
@@ -20,6 +21,7 @@ function parseStatusFilter(raw: string | null): AssignmentsTopStatusFilter {
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   const actor = requireAuth(event);
+  if (actor.platformRole === "admin") redirect(303, "/admin/assignments");
   const currentFilter = parseStatusFilter(event.url.searchParams.get("tab"));
 
   const { rows, counts, hasNoCourses } = await listAssignmentsAcrossCoursesForUser(
