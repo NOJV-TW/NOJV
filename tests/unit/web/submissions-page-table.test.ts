@@ -7,6 +7,10 @@ vi.setConfig({ testTimeout: 15_000 });
 
 const mocks = vi.hoisted(() => ({ goto: vi.fn(), invalidateAll: vi.fn() }));
 
+vi.mock("$lib/components/primitives/ui/select/select-content.svelte", async () => ({
+  default: (await import("./fixtures/select-content.svelte")).default,
+}));
+
 vi.mock("@lucide/svelte", async () => {
   const Empty = (await import("./fixtures/empty-component.svelte")).default;
   return { Code2: Empty, History: Empty, ListFilter: Empty, Loader2: Empty };
@@ -18,12 +22,6 @@ vi.mock("$lib/components/primitives/ui/EmptyState.svelte", async () => ({
 }));
 vi.mock("$lib/components/primitives/ui/button", async () => ({
   Button: (await import("./fixtures/empty-component.svelte")).default,
-}));
-vi.mock("$lib/components/primitives/ui/select", async () => ({
-  Root: (await import("./fixtures/select-root.svelte")).default,
-  Trigger: (await import("./fixtures/select-trigger.svelte")).default,
-  Content: (await import("./fixtures/select-content.svelte")).default,
-  Item: (await import("./fixtures/select-item.svelte")).default,
 }));
 vi.mock("$app/navigation", () => ({
   goto: mocks.goto,
@@ -69,12 +67,12 @@ describe("submissions page", () => {
         expect(target.querySelector(`[aria-label="${label}"]`)?.closest("th")).not.toBeNull();
       }
       const filterTriggers = [
-        ...target.querySelectorAll<HTMLSelectElement>("thead select[aria-label]"),
+        ...target.querySelectorAll<HTMLButtonElement>('thead button[aria-haspopup="listbox"]'),
       ];
       expect(filterTriggers).toHaveLength(4);
       for (const trigger of filterTriggers) {
-        expect(trigger.className).toContain("opacity-0");
-        expect(trigger.closest("label")?.className).toContain("items-center");
+        expect(trigger.tagName).toBe("BUTTON");
+        expect(trigger.className).toContain("items-center");
       }
       expect(target.querySelectorAll("thead tr")).toHaveLength(1);
       const headerLabels = [...target.querySelectorAll("thead th")].map((header) =>
@@ -93,13 +91,21 @@ describe("submissions page", () => {
         ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       expect(mocks.goto).toHaveBeenCalledWith("/submissions/sub_1");
 
-      const verdictFilter = target.querySelector<HTMLSelectElement>('[aria-label="Verdict"]')!;
-      verdictFilter.value = "wrong_answer";
-      verdictFilter.dispatchEvent(new Event("change", { bubbles: true }));
-      await tick();
-      expect(verdictFilter.closest("label")?.querySelector("span")?.textContent?.trim()).toBe(
-        "WA",
+      const verdictFilter = target.querySelector<HTMLButtonElement>('[aria-label="Verdict"]')!;
+      verdictFilter.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
       );
+      await tick();
+      const option = await vi.waitFor(() => {
+        const item = document.querySelector<HTMLElement>(
+          '[role="option"][data-value="wrong_answer"]',
+        );
+        expect(item).not.toBeNull();
+        return item!;
+      });
+      option.dispatchEvent(new MouseEvent("pointerup", { bubbles: true }));
+      await tick();
+      expect(verdictFilter.textContent?.trim()).toBe("WA");
       expect(target.textContent).toContain("No submissions match these filters.");
       expect(target.querySelector("tbody td")?.getAttribute("colspan")).toBe(
         adminAccessActive ? "7" : "6",
