@@ -14,7 +14,7 @@ import {
 } from "./rank-util";
 
 export interface ScoreOverrideRow {
-  userId: string;
+  userId: string | null;
   problemId: string;
   overrideScore: number;
 }
@@ -31,6 +31,7 @@ export function buildPointSumScoreboard(
 
   const overrideByUser = new Map<string, Map<string, number>>();
   for (const o of overrides) {
+    if (o.userId === null) continue;
     let byProblem = overrideByUser.get(o.userId);
     if (!byProblem) {
       byProblem = new Map();

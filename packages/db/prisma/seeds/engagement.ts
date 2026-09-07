@@ -360,9 +360,17 @@ export async function seedEngagement(
     },
   });
 
+  const membershipFor = (user: User) =>
+    prisma.courseMembership.findUniqueOrThrow({
+      where: {
+        courseId_userId: { courseId: "course_os-lab-spring-2026", userId: user.id },
+      },
+      select: { id: true },
+    });
+
   await prisma.submissionFeedback.create({
     data: {
-      studentUserId: (demoStudents[0] ?? student).id,
+      courseMembershipId: (await membershipFor(demoStudents[0] ?? student)).id,
       problemId: "problem_warmup-sum",
       assessmentId: HW1_ID,
       comment: "解法正確，但建議加上輸入邊界檢查，整體完成度很好。",
@@ -373,7 +381,7 @@ export async function seedEngagement(
 
   await prisma.submissionFeedback.create({
     data: {
-      studentUserId: (demoStudents[1] ?? student).id,
+      courseMembershipId: (await membershipFor(demoStudents[1] ?? student)).id,
       problemId: "problem_process-log-parser",
       assessmentId: HW1_ID,
       comment: "fork 鏈處理有小瑕疵，請參考題解的巢狀範例再檢查一次。",
@@ -385,7 +393,7 @@ export async function seedEngagement(
   const overrideStudent = demoStudents[2] ?? student;
   await prisma.scoreOverride.create({
     data: {
-      userId: overrideStudent.id,
+      courseMembershipId: (await membershipFor(overrideStudent)).id,
       problemId: "problem_warmup-sum",
       contextType: "assignment",
       contextId: HW1_ID,

@@ -1,72 +1,10 @@
-import {
-  courseMembershipRepo,
-  runTransaction,
-  userRepo,
-  type TransactionClient,
-} from "@nojv/db";
-import { isReservedUsername } from "@nojv/core";
+import { runTransaction, userRepo } from "@nojv/db";
+import { isReservedUsername, userHandleSchema } from "@nojv/core";
+
+import { lockRosterIdentity, bindPendingMemberships } from "../course/roster";
 
 import { ConflictError, ForbiddenError, ValidationError } from "../shared/errors";
 
-export interface EnsureUserInput {
-  displayName?: string;
-  email?: string;
-  username?: string;
-  platformRole?: "admin" | "student" | "teacher";
-}
-
-function sanitizeIdentitySegment(value: string) {
-  const normalized = value
-    .toLowerCase()
-    .replaceAll(/[^a-z0-9._-]/g, "-")
-    .replaceAll(/-+/g, "-")
-    .replaceAll(/^-+|-+$/g, "");
-
-  return normalized.length > 0 ? normalized : "local-user";
-}
-
-function createLocalEmail(userId: string) {
-  return `${sanitizeIdentitySegment(userId)}@local.nojv.dev`;
-}
-
-function createLocalDisplayName(userId: string) {
-  return `Local ${userId.replaceAll(/[_-]+/g, " ")}`;
-}
-
-function createLocalUsername(userId: string) {
-  return sanitizeIdentitySegment(userId);
-}
-
-export async function ensureUser(
-  tx: TransactionClient,
-  userId: string,
-  input: EnsureUserInput = {},
-) {
-  const existing = await userRepo.withTx(tx).findById(userId);
-
-  if (existing) {
-    const updates: Record<string, string> = {};
-    if (input.displayName) updates.name = input.displayName;
-    if (input.email) updates.email = input.email;
-    if (input.username) updates.username = input.username;
-    if (input.platformRole) updates.platformRole = input.platformRole;
-
-    if (Object.keys(updates).length === 0) return existing;
-
-    return userRepo.withTx(tx).update(existing.id, updates);
-  }
-
-  return userRepo.withTx(tx).create({
-    id: userId,
-    name: input.displayName ?? createLocalDisplayName(userId),
-    email: input.email ?? createLocalEmail(userId),
-    username: input.username ?? createLocalUsername(userId),
-    platformRole: input.platformRole ?? "student",
-  });
-}
-
-const USERNAME_FORMAT_RE = /^[a-z0-9._-]+$/;
-const USERNAME_MAX_LENGTH = 64;
 const NAME_MAX_LENGTH = 64;
 
 export interface DeleteUserResult {
@@ -78,22 +16,27 @@ export async function deleteUser(
   actorIsSuperAdmin: boolean,
   userId: string,
 ): Promise<DeleteUserResult | null> {
-  const user = await userRepo.findById(userId);
-  if (!user) return null;
+  return runTransaction(async (tx) => {
+    await lockRosterIdentity(tx);
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
+    const users = userRepo.withTx(tx);
+    const user = await users.findById(userId);
+    if (!user) return null;
 
-  const involvesAdmin = user.platformRole === "admin" || user.isSuperAdmin;
-  if (involvesAdmin && !actorIsSuperAdmin) {
-    throw new ForbiddenError("Only a super admin can delete an admin account.");
-  }
+    const involvesAdmin = user.platformRole === "admin" || user.isSuperAdmin;
+    if (involvesAdmin && !actorIsSuperAdmin) {
+      throw new ForbiddenError("Only a super admin can delete an admin account.");
+    }
 
-  const blockers = await userRepo.countDeletionBlockers(userId);
-  if (blockers > 0) {
-    await userRepo.anonymizeAndDisable(userId);
-    return { mode: "soft", name: user.name };
-  }
+    const blockers = await users.countDeletionBlockers(userId);
+    if (blockers > 0) {
+      await users.anonymizeAndDisable(userId);
+      return { mode: "soft", name: user.name };
+    }
 
-  await userRepo.delete(userId);
-  return { mode: "hard", name: user.name };
+    await users.delete(userId);
+    return { mode: "hard", name: user.name };
+  });
 }
 
 export async function renameName(userId: string, newName: string): Promise<void> {
@@ -124,61 +67,25 @@ export async function renameUsername(
   userId: string,
   newUsername: string,
 ): Promise<{ merged: boolean }> {
-  return runTransaction(async (tx) => {
-    const user = await userRepo.withTx(tx).findById(userId);
-    if (!user) {
-      throw new ForbiddenError("PLACEHOLDER_LOCKED");
-    }
-    if (user.status === "pending_first_login") {
-      throw new ForbiddenError("PLACEHOLDER_LOCKED");
-    }
+  const parsed = userHandleSchema.safeParse(newUsername);
+  if (!parsed.success) throw new ValidationError("INVALID_FORMAT");
+  const normalized = parsed.data;
+  if (isReservedUsername(normalized)) throw new ConflictError("RESERVED_FORMAT");
 
-    const current = user.username;
-    if (current !== null && isReservedUsername(current)) {
+  return runTransaction(async (tx) => {
+    await lockRosterIdentity(tx);
+    const user = await userRepo.withTx(tx).findById(userId);
+    if (!user || user.disabled) throw new ForbiddenError("User is unavailable.");
+    if (user.username && isReservedUsername(user.username)) {
       throw new ConflictError("VERIFIED_LOCKED");
     }
-
-    const normalized = newUsername.trim().toLowerCase();
-    if (
-      normalized.length === 0 ||
-      normalized.length > USERNAME_MAX_LENGTH ||
-      !USERNAME_FORMAT_RE.test(normalized)
-    ) {
-      throw new ValidationError("INVALID_FORMAT");
-    }
-    if (isReservedUsername(normalized)) {
-      throw new ConflictError("RESERVED_FORMAT");
-    }
-
-    if (normalized === current) {
-      return { merged: false };
-    }
-
     const conflict = await userRepo.withTx(tx).findByUsername(normalized);
-    if (!conflict) {
-      await userRepo.withTx(tx).update(userId, {
-        username: normalized,
-        displayUsername: normalized,
-      });
-      return { merged: false };
-    }
-
-    if (conflict.status === "pending_first_login") {
-      const elevatedMembership = await courseMembershipRepo
-        .withTx(tx)
-        .findElevatedMembership(conflict.id);
-      if (elevatedMembership) {
-        throw new ConflictError("TAKEN");
-      }
-
-      await userRepo.attachPlaceholderInTx(tx, conflict.id, userId);
-      await userRepo.withTx(tx).update(userId, {
-        username: normalized,
-        displayUsername: normalized,
-      });
-      return { merged: true };
-    }
-
-    throw new ConflictError("TAKEN");
+    if (conflict && conflict.id !== userId) throw new ConflictError("TAKEN");
+    const linked = await bindPendingMemberships(tx, userId, normalized, false);
+    await userRepo.withTx(tx).update(userId, {
+      username: normalized,
+      displayUsername: normalized,
+    });
+    return { merged: linked > 0 };
   });
 }

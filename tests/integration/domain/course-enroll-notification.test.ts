@@ -1,77 +1,56 @@
 import { describe, expect, it } from "vitest";
 
 import { notificationRepo } from "@nojv/db";
-import { courseDomain } from "@nojv/application";
+import { courseDomain, userDomain } from "@nojv/application";
 
-import { createTestCourse, createTestUser } from "../../fixtures/factories";
+import { createTestCourse, createTestUser, testPrisma } from "../../fixtures/factories";
 
-interface ActorOverrides {
-  platformRole?: "student" | "teacher" | "admin";
-}
-
-async function buildActor(overrides: ActorOverrides = {}) {
-  const user = await createTestUser({ platformRole: overrides.platformRole ?? "teacher" });
-  return {
-    userId: user.id,
-    username: user.username ?? user.id,
-    displayName: user.name,
-    email: user.email,
-    platformRole: user.platformRole,
+async function setupCourse() {
+  const teacher = await createTestUser({ platformRole: "admin" });
+  const course = await createTestCourse({ ownerId: teacher.id });
+  const actor = {
+    userId: teacher.id,
+    username: teacher.username!,
+    displayName: teacher.name,
+    email: teacher.email,
+    platformRole: teacher.platformRole,
   };
+  return { actor, course };
 }
 
-describe("manuallyEnrollCourseMember notifications", () => {
-  it("writes a course_enrolled notification for a newly enrolled student", async () => {
-    const teacher = await buildActor({ platformRole: "teacher" });
-    const course = await createTestCourse({ ownerId: teacher.userId });
-
-    const membership = await courseDomain.manuallyEnrollCourseMember(teacher, {
-      courseId: course.id,
-      displayName: "Alice Student",
-      email: "alice@test.local",
-      username: "alice",
+describe("course enrollment notifications", () => {
+  it("notifies a real student once and sends no notification to a pending roster row", async () => {
+    const { actor, course } = await setupCourse();
+    const student = await createTestUser({ username: "alice" });
+    await courseDomain.bulkAddByHandle(actor, course.id, {
+      handles: ["alice", "future_student"],
       role: "student",
     });
-
-    const rows = await notificationRepo.listRecent(membership.userId, 10);
+    await courseDomain.bulkAddByHandle(actor, course.id, {
+      handles: ["alice", "future_student"],
+      role: "student",
+    });
+    const rows = await notificationRepo.listRecent(student.id, 10);
     expect(rows).toHaveLength(1);
-    const row = rows[0]!;
-    expect(row.type).toBe("course_enrolled");
-    expect(row.linkUrl).toBe(`/courses/${course.id}`);
-    const params = row.params as { courseId: string; courseName: string };
-    expect(params.courseId).toBe(course.id);
-    expect(params.courseName).toBe(course.title);
-  });
-
-  it("does NOT write a notification when enrolling a teacher", async () => {
-    const teacher = await buildActor({ platformRole: "teacher" });
-    const course = await createTestCourse({ ownerId: teacher.userId });
-
-    const membership = await courseDomain.manuallyEnrollCourseMember(teacher, {
-      courseId: course.id,
-      displayName: "Ted Teacher",
-      email: "ted@test.local",
-      username: "ted",
-      role: "teacher",
+    expect(rows[0]).toMatchObject({
+      type: "course_enrolled",
+      linkUrl: `/courses/${course.id}`,
+      params: { courseId: course.id, courseName: course.title },
     });
-
-    const rows = await notificationRepo.listRecent(membership.userId, 10);
-    expect(rows).toHaveLength(0);
+    expect(await testPrisma.notification.count()).toBe(1);
+    const future = await createTestUser({ username: "future_student" });
+    await userDomain.linkUserCourseRoster(future.id);
+    await userDomain.linkUserCourseRoster(future.id);
+    expect(await notificationRepo.listRecent(future.id, 10)).toHaveLength(1);
   });
 
-  it("does NOT write a notification when enrolling a TA", async () => {
-    const teacher = await buildActor({ platformRole: "teacher" });
-    const course = await createTestCourse({ ownerId: teacher.userId });
-
-    const membership = await courseDomain.manuallyEnrollCourseMember(teacher, {
-      courseId: course.id,
-      displayName: "Tara TA",
-      email: "tara@test.local",
-      username: "tara",
-      role: "ta",
-    });
-
-    const rows = await notificationRepo.listRecent(membership.userId, 10);
-    expect(rows).toHaveLength(0);
-  });
+  it.each(["teacher", "ta"] as const)(
+    "does not send student enrollment notifications to a %s",
+    async (role) => {
+      const { actor, course } = await setupCourse();
+      const user = await createTestUser({ username: "staff_member" });
+      await courseDomain.bulkAddByHandle(actor, course.id, { handles: ["staff_member"], role });
+      expect(await notificationRepo.listRecent(user.id, 10)).toHaveLength(0);
+    },
+  );
 });

@@ -27,6 +27,8 @@ describe("AssessmentGradesTab", () => {
           problems: [{ problemId: "p1", letter: "A", ordinal: 1, title: "A + B", points: 100 }],
           rows: [
             {
+              rowId: "membership-1",
+              courseMembershipId: "membership-1",
               userId: "u1",
               displayName: "Alice",
               handle: "alice",

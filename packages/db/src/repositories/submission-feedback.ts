@@ -8,7 +8,7 @@ export type SubmissionFeedbackContext =
   { assessmentId: string; examId?: undefined } | { examId: string; assessmentId?: undefined };
 
 export type SubmissionFeedbackUpsertData = SubmissionFeedbackContext & {
-  studentUserId: string;
+  courseMembershipId: string;
   problemId: string;
   comment: string;
   authorUserId: string | null;
@@ -16,7 +16,9 @@ export type SubmissionFeedbackUpsertData = SubmissionFeedbackContext & {
 
 export interface SubmissionFeedbackAuditCreateData {
   feedbackId: string | null;
-  studentUserId: string;
+  studentUserId: string | null;
+  courseMembershipId?: string | null;
+  sourceMembershipId?: string | null;
   problemId: string;
   assessmentId: string | null;
   examId: string | null;
@@ -27,7 +29,14 @@ export interface SubmissionFeedbackAuditCreateData {
 }
 
 const feedbackInclude = {
-  student: { select: { id: true, username: true, name: true } },
+  membership: {
+    select: {
+      id: true,
+      userId: true,
+      pendingUsername: true,
+      user: { select: { id: true, username: true, name: true } },
+    },
+  },
   problem: { select: { id: true, title: true } },
 } satisfies Prisma.SubmissionFeedbackInclude;
 
@@ -42,23 +51,23 @@ export const submissionFeedbackRepo = {
     const where: Prisma.SubmissionFeedbackWhereUniqueInput =
       data.assessmentId !== undefined
         ? {
-            assessmentId_problemId_studentUserId: {
+            assessmentId_problemId_courseMembershipId: {
               assessmentId: data.assessmentId,
               problemId: data.problemId,
-              studentUserId: data.studentUserId,
+              courseMembershipId: data.courseMembershipId,
             },
           }
         : {
-            examId_problemId_studentUserId: {
+            examId_problemId_courseMembershipId: {
               examId: data.examId,
               problemId: data.problemId,
-              studentUserId: data.studentUserId,
+              courseMembershipId: data.courseMembershipId,
             },
           };
     return tx.submissionFeedback.upsert({
       where,
       create: {
-        studentUserId: data.studentUserId,
+        courseMembershipId: data.courseMembershipId,
         problemId: data.problemId,
         assessmentId: data.assessmentId ?? null,
         examId: data.examId ?? null,
@@ -80,16 +89,19 @@ export const submissionFeedbackRepo = {
     });
   },
 
-  findForStudentInContext(studentUserId: string, context: SubmissionFeedbackContext) {
+  findForStudentInContext(userId: string, context: SubmissionFeedbackContext) {
     return prisma.submissionFeedback.findMany({
-      where: { studentUserId, ...contextWhere(context) },
+      where: {
+        membership: { userId, role: "student", status: "active" },
+        ...contextWhere(context),
+      },
       orderBy: { createdAt: "desc" },
       include: feedbackInclude,
     });
   },
 
-  findById(id: string) {
-    return prisma.submissionFeedback.findUnique({ where: { id } });
+  findById(id: string, tx?: TxClient) {
+    return (tx ?? prisma).submissionFeedback.findUnique({ where: { id } });
   },
 
   deleteById(tx: TxClient, id: string) {
@@ -100,17 +112,17 @@ export const submissionFeedbackRepo = {
     const where: Prisma.SubmissionFeedbackWhereUniqueInput =
       data.assessmentId !== undefined
         ? {
-            assessmentId_problemId_studentUserId: {
+            assessmentId_problemId_courseMembershipId: {
               assessmentId: data.assessmentId,
               problemId: data.problemId,
-              studentUserId: data.studentUserId,
+              courseMembershipId: data.courseMembershipId,
             },
           }
         : {
-            examId_problemId_studentUserId: {
+            examId_problemId_courseMembershipId: {
               examId: data.examId,
               problemId: data.problemId,
-              studentUserId: data.studentUserId,
+              courseMembershipId: data.courseMembershipId,
             },
           };
     return tx.submissionFeedback.findUnique({ where });

@@ -36,7 +36,7 @@
     return trimmed.length > 0 ? trimmed.charAt(0) : "?";
   }
 
-  let pendingRemove = $state<{ userId: string; name: string } | null>(null);
+  let pendingRemove = $state<{ membershipId: string; name: string } | null>(null);
 
   async function confirmRemove() {
     const target = pendingRemove;
@@ -44,7 +44,7 @@
     if (!target) return;
     try {
       const body = new FormData();
-      body.set("userId", target.userId);
+      body.set("membershipId", target.membershipId);
       const res = await fetch("?/remove", { method: "POST", body });
       if (!res.ok) {
         toasts.error(m.members_removeError());
@@ -56,12 +56,12 @@
     }
   }
 
-  async function handleRoleChange(event: Event, userId: string, previousRole: string) {
+  async function handleRoleChange(event: Event, membershipId: string, previousRole: string) {
     const select = event.currentTarget as HTMLSelectElement;
     const role = select.value;
     try {
       const body = new FormData();
-      body.set("userId", userId);
+      body.set("membershipId", membershipId);
       body.set("role", role);
       const res = await fetch("?/changeRole", { method: "POST", body });
       if (!res.ok) {
@@ -161,29 +161,30 @@
           </Select.Root>
           <span aria-hidden="true"></span>
         </div>
-        {#each filtered as member (member.userId)}
+        {#each filtered as member (member.membershipId)}
           <div
+            data-membership-id={member.membershipId}
             class="grid items-center gap-4 border-b border-border-subtle px-6 py-4 transition-colors duration-fast ease-out-soft last:border-b-0 hover:bg-primary/[0.03]"
             style="grid-template-columns: auto minmax(0, 1fr) {isManager
               ? 'minmax(0, 1fr)'
               : ''} auto auto auto;"
           >
             <div
-              class="flex size-10 items-center justify-center rounded-full text-body font-semibold text-primary-foreground {member.isPlaceholder
+              class="flex size-10 items-center justify-center rounded-full text-body font-semibold text-primary-foreground {member.isPending
                 ? 'bg-primary opacity-50'
                 : 'bg-primary'}"
               aria-hidden="true"
             >
-              {member.isPlaceholder ? "?" : initialFor(member.name)}
+              {member.isPending ? "?" : initialFor(member.name)}
             </div>
 
             <div class="min-w-0">
               <div
-                class="truncate text-body {member.isPlaceholder
+                class="truncate text-body {member.isPending
                   ? 'font-normal text-muted-foreground'
                   : 'font-semibold tracking-[-0.005em]'}"
               >
-                {member.isPlaceholder ? m.members_placeholderNotLoggedIn() : member.name}
+                {member.isPending ? m.members_pendingActivation() : member.name}
               </div>
               <div class="mt-0.5 truncate font-mono text-caption text-muted-foreground">
                 {member.username ?? "—"}
@@ -200,11 +201,7 @@
             {/if}
 
             <div class="text-caption text-muted-foreground tabular-nums">
-              {#if member.isPlaceholder}
-                {m.members_placeholderJoined()}
-              {:else}
-                {formatJoined(member.joinedAt)}
-              {/if}
+              {formatJoined(member.joinedAt)}
             </div>
 
             {#if member.role === "teacher"}
@@ -216,7 +213,7 @@
                 class="rounded-none border-0 border-b border-border bg-transparent py-1.5 pl-1 pr-2 text-right text-caption focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
                 aria-label={m.members_roleFor({ name: member.name })}
                 value={member.role}
-                onchange={(e) => handleRoleChange(e, member.userId, member.role)}
+                onchange={(e) => handleRoleChange(e, member.membershipId, member.role)}
               >
                 <option value="student">{m.members_roleStudent()}</option>
                 <option value="ta">{m.members_roleTa()}</option>
@@ -233,7 +230,8 @@
                 class="rounded-sm bg-transparent p-1.5 text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-transparent hover:text-destructive"
                 aria-label={m.members_removeAction()}
                 title={m.members_removeAction()}
-                onclick={() => (pendingRemove = { userId: member.userId, name: member.name })}
+                onclick={() =>
+                  (pendingRemove = { membershipId: member.membershipId, name: member.name })}
               >
                 <X aria-hidden="true" class="size-4" />
               </button>
@@ -247,7 +245,7 @@
 
     {#if isManager}
       <p class="mt-4 text-center text-caption text-muted-foreground">
-        {m.members_placeholderFooter()}
+        {m.members_pendingFooter()}
       </p>
     {/if}
   </div>

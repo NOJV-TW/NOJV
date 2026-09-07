@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { invalidateAll } from "$app/navigation";
   import * as Dialog from "$lib/components/primitives/ui/dialog";
   import { Button } from "$lib/components/primitives/ui/button";
   import { m } from "$lib/paraglide/messages.js";
@@ -19,7 +20,7 @@
     contextId: string;
     students: StudentOption[];
     problems: ProblemOption[];
-    prefill?: { userId: string; problemId: string } | null | undefined;
+    prefill?: { rowId: string; problemId: string } | null | undefined;
   }
 
   let {
@@ -33,7 +34,7 @@
   }: Props = $props();
 
   const showFeedback = $derived(contextType !== "contest");
-  const prefillKey = $derived(prefill ? `${prefill.userId}:${prefill.problemId}` : "__new__");
+  const prefillKey = $derived(prefill ? `${prefill.rowId}:${prefill.problemId}` : "__new__");
 
   let rows = $state<OverrideListRow[]>([]);
   let loading = $state(false);
@@ -146,7 +147,10 @@
             {students}
             {problems}
             onedit={(r) => (editTarget = r)}
-            ondelete={() => void reload()}
+            ondelete={() => {
+              void reload();
+              void invalidateAll();
+            }}
           />
         {/if}
       </section>
@@ -170,11 +174,12 @@
             {students}
             {problems}
             existing={editTarget}
-            initialUserId={editTarget ? undefined : (prefill?.userId ?? undefined)}
+            initialRowId={editTarget ? undefined : (prefill?.rowId ?? undefined)}
             initialProblemId={editTarget ? undefined : (prefill?.problemId ?? undefined)}
             onsuccess={() => {
               editTarget = null;
               void reload();
+              void invalidateAll();
             }}
             oncancel={editTarget ? () => (editTarget = null) : undefined}
           />
@@ -203,7 +208,10 @@
               {students}
               {problems}
               onedit={(r) => (feedbackEditTarget = r)}
-              ondelete={() => void reloadFeedback()}
+              ondelete={() => {
+                void reloadFeedback();
+                void invalidateAll();
+              }}
             />
           {/if}
 
@@ -222,7 +230,7 @@
               </Button>
             {/if}
           </div>
-          {#key feedbackEditTarget?.id ?? "__new__"}
+          {#key feedbackEditTarget?.id ?? prefillKey}
             <FeedbackForm
               mode={feedbackEditTarget ? "edit" : "create"}
               contextType={feedbackContextType}
@@ -230,9 +238,17 @@
               {students}
               {problems}
               existing={feedbackEditTarget}
+              initialCourseMembershipId={feedbackEditTarget
+                ? undefined
+                : (students.find((s) => s.rowId === prefill?.rowId)?.courseMembershipId ??
+                  undefined)}
+              initialProblemId={feedbackEditTarget
+                ? undefined
+                : (prefill?.problemId ?? undefined)}
               onsuccess={() => {
                 feedbackEditTarget = null;
                 void reloadFeedback();
+                void invalidateAll();
               }}
               oncancel={feedbackEditTarget ? () => (feedbackEditTarget = null) : undefined}
             />

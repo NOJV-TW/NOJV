@@ -6,6 +6,7 @@ export * from "./schemas/exam";
 export * from "./schemas/submission";
 export * from "./schemas/post";
 export * from "./schemas/feedback";
+export * from "./schemas/score-override";
 export * from "./schemas/judge-config";
 export * from "./schemas/assessment-adjustments";
 export * from "./schemas/advanced-mode";
@@ -29,3 +30,5 @@ export * from "./reserved-username";
 export * from "./language-templates";
 export * from "./language-labels";
 export * from "./problem-letter";
+
+export * from "./school";

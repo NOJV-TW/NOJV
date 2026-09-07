@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   listPublishedWithProblemsByCourse,
+  findAllOverrides,
   findStudents,
   groupBestScoresByAssessment,
   groupStatusByAssessments,
@@ -9,6 +10,7 @@ const {
   findScoringInputsByIds,
 } = vi.hoisted(() => ({
   listPublishedWithProblemsByCourse: vi.fn(),
+  findAllOverrides: vi.fn(),
   findStudents: vi.fn(),
   groupBestScoresByAssessment: vi.fn(),
   groupStatusByAssessments: vi.fn(),
@@ -18,6 +20,7 @@ const {
 
 vi.mock("@nojv/db", () => ({
   assessmentRepo: { listPublishedWithProblemsByCourse },
+  scoreOverrideRepo: { findAllByContext: findAllOverrides },
   courseMembershipRepo: { findStudents },
   submissionRepo: {
     groupBestScoresByAssessment,
@@ -32,11 +35,12 @@ import { courseDomain } from "@nojv/application";
 const { getCourseAnalytics } = courseDomain;
 
 function student(userId: string, name: string, username: string | null) {
-  return { userId, user: { name, username } };
+  return { id: `m_${userId}`, pendingUsername: null, userId, user: { name, username } };
 }
 
 beforeEach(() => {
   listPublishedWithProblemsByCourse.mockReset();
+  findAllOverrides.mockReset().mockResolvedValue([]);
   findStudents.mockReset();
   groupBestScoresByAssessment.mockReset();
   groupStatusByAssessments.mockReset();
@@ -68,8 +72,20 @@ describe("getCourseAnalytics", () => {
     expect(result.hardestProblems).toEqual([]);
     expect(result.verdictDistribution).toEqual([]);
     expect(result.studentsAtRisk).toEqual([
-      { userId: "u1", name: "Alice", username: "alice", reason: "no_submissions" },
-      { userId: "u2", name: "Bob", username: "bob", reason: "no_submissions" },
+      {
+        membershipId: "m_u1",
+        userId: "u1",
+        name: "Alice",
+        username: "alice",
+        reason: "no_submissions",
+      },
+      {
+        membershipId: "m_u2",
+        userId: "u2",
+        name: "Bob",
+        username: "bob",
+        reason: "no_submissions",
+      },
     ]);
     expect(groupBestScoresByAssessment).not.toHaveBeenCalled();
   });
@@ -127,8 +143,53 @@ describe("getCourseAnalytics", () => {
     ]);
 
     expect(result.studentsAtRisk).toEqual([
-      { userId: "u3", name: "Carol", username: "carol", reason: "all_zero" },
-      { userId: "u4", name: "Dave", username: "dave", reason: "no_submissions" },
+      {
+        membershipId: "m_u3",
+        userId: "u3",
+        name: "Carol",
+        username: "carol",
+        reason: "all_zero",
+      },
+      {
+        membershipId: "m_u4",
+        userId: "u4",
+        name: "Dave",
+        username: "dave",
+        reason: "no_submissions",
+      },
     ]);
   });
+});
+
+it("includes pending manual scores in analytics while retaining real activity counts", async () => {
+  listPublishedWithProblemsByCourse.mockResolvedValue([
+    {
+      id: "a1",
+      title: "HW",
+      problems: [{ problem: { id: "p1", title: "Problem", displayId: 1 } }],
+    },
+  ]);
+  findStudents.mockResolvedValue([
+    { id: "pending", userId: null, pendingUsername: "future_student", user: null },
+  ]);
+  groupBestScoresByAssessment.mockResolvedValue([]);
+  groupStatusByAssessments.mockResolvedValue([]);
+  countUserStatsByProblemForAssessments.mockResolvedValue([]);
+  findAllOverrides.mockResolvedValue([
+    { courseMembershipId: "pending", userId: null, problemId: "p1", overrideScore: 100 },
+  ]);
+  const result = await getCourseAnalytics("c1");
+  expect(result.assessmentSummaries[0]).toMatchObject({
+    studentCount: 1,
+    avgScore: 100,
+    completionRate: 1,
+  });
+  expect(result.studentsAtRisk[0]).toMatchObject({
+    membershipId: "pending",
+    userId: null,
+    name: "future_student",
+    reason: "no_submissions",
+  });
+  expect(result.verdictDistribution).toEqual([]);
+  expect(result.hardestProblems).toEqual([]);
 });

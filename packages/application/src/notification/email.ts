@@ -143,17 +143,12 @@ const EMAIL_SPECS: Partial<Record<NotificationCreateInput["type"], EmailSpec>> =
   },
 };
 
-function isPlaceholderEmail(email: string): boolean {
-  return email.endsWith("@placeholder.nojv.local") || email.endsWith("@deleted.nojv.local");
-}
-
 const PRE_DELIVERY_SUPPRESSION_REASONS = [
   "notification_missing",
   "missing_recipient",
   "recipient_disabled",
-  "recipient_inactive",
   "unverified_recipient",
-  "placeholder_recipient",
+  "deleted_recipient",
   "preference_disabled",
   "unsupported_notification_type",
 ] as const;
@@ -273,14 +268,11 @@ export async function deliverNotificationEmail(
   if (recipient.disabled) {
     return { transport: "email", outcome: "suppressed", reason: "recipient_disabled" };
   }
-  if (recipient.status !== "active") {
-    return { transport: "email", outcome: "suppressed", reason: "recipient_inactive" };
-  }
   if (!recipient.emailVerified) {
     return { transport: "email", outcome: "suppressed", reason: "unverified_recipient" };
   }
-  if (isPlaceholderEmail(recipient.email)) {
-    return { transport: "email", outcome: "suppressed", reason: "placeholder_recipient" };
+  if (recipient.email.endsWith("@deleted.nojv.local")) {
+    return { transport: "email", outcome: "suppressed", reason: "deleted_recipient" };
   }
   const preferences = notificationPreferencesSchema.parse(
     recipient.notificationPreference ?? DEFAULT_NOTIFICATION_PREFERENCES,

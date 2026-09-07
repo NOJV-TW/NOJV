@@ -53,10 +53,12 @@ field-level reference).
 ```mermaid
 erDiagram
     User ||--o{ Submission : submits
-    User ||--o{ CourseMembership : joins
+    User |o--o{ CourseMembership : joins
     User ||--o{ Participation : enters
     User ||--o{ ProblemPost : writes
-    User ||--o{ ScoreOverride : grades
+    User |o--o{ ScoreOverride : "contest subject"
+    CourseMembership ||--o{ ScoreOverride : "course subject"
+    CourseMembership ||--o{ SubmissionFeedback : receives
 
     Course ||--o{ CourseMembership : has
     Course ||--o{ Assessment : owns
@@ -79,8 +81,6 @@ erDiagram
     PostComment ||--o{ ContentReport : reported
 
     Submission ||--o{ SubmissionRejudgeLog : "re-judged by"
-    Submission ||--o{ ScoreOverride : "overridden by"
-    Submission ||--o{ SubmissionFeedback : annotated
 
     Contest ||--o{ ContestProblem : links
     Contest ||--o{ Participation : tracks
@@ -107,7 +107,6 @@ erDiagram
 | `ProblemStatus`            | draft, published                                                                                                                                                                                                                  |
 | `WorkspaceFileVisibility`  | editable, readonly, hidden                                                                                                                                                                                                        |
 | `PlatformRole`             | admin, teacher, student                                                                                                                                                                                                           |
-| `UserStatus`               | active, disabled, pending_first_login                                                                                                                                                                                             |
 | `CourseRole`               | teacher, ta, student                                                                                                                                                                                                              |
 | `CourseMembershipStatus`   | active, removed                                                                                                                                                                                                                   |
 | `AssessmentStatus`         | draft, published                                                                                                                                                                                                                  |
@@ -127,8 +126,8 @@ erDiagram
 | `PlagiarismReportStatus`   | pending, running, completed, failed                                                                                                                                                                                               |
 | `PlagiarismContext`        | assessment, exam, contest                                                                                                                                                                                                         |
 | `OverrideContextType`      | assignment, exam, contest                                                                                                                                                                                                         |
-| `ScoreOverrideAction`      | create, update, delete                                                                                                                                                                                                            |
-| `SubmissionFeedbackAction` | create, update, delete                                                                                                                                                                                                            |
+| `ScoreOverrideAction`      | create, update, delete, merge                                                                                                                                                                                                     |
+| `SubmissionFeedbackAction` | create, update, delete, merge                                                                                                                                                                                                     |
 | `ProblemPostType`          | editorial, discussion                                                                                                                                                                                                             |
 | `ContentReportStatus`      | open, resolved, dismissed                                                                                                                                                                                                         |
 | `ClarificationContextType` | contest, exam, assignment                                                                                                                                                                                                         |
@@ -151,11 +150,37 @@ Central identity. Links to sessions, OAuth accounts, submissions, course members
 | `name`               | String       | Required display name (better-auth core field)                                                                    |
 | `platformRole`       | PlatformRole | Default: student. Regular admins exercise it through admin mode; verified super-admin sessions use it directly    |
 | `isSuperAdmin`       | Boolean      | Default: false. `true` only when `platformRole = admin`; requires password plus TOTP/passkey on every new session |
-| `status`             | UserStatus   | active / disabled / pending_first_login — see schema/auth.prisma for the placeholder-user flow                    |
 | `disabled`           | Boolean      | Admin soft-lock used by better-auth sign-in checks                                                                |
 | `mustChangePassword` | Boolean      | Forces the seeded super-admin first-login password-change phase                                                   |
 | `twoFactorEnabled`   | Boolean      | Better Auth sign-in projection maintained with the verified TOTP row; not the configured-state source of truth    |
 | `securityGeneration` | Int          | Monotonic invalidation version bound into Redis security and admin-access proofs                                  |
+
+### Course roster and grading subjects
+
+`CourseMembership.id` is the durable course identity. Exactly one of `userId`
+and `pendingUsername` is set. Pending usernames are normalized lowercase handles
+(3–64 letters, digits, dots, underscores, or hyphens); separate unique constraints
+cover `(courseId, userId)` and `(courseId, pendingUsername)`. Binding clears the
+pending username while preserving the membership ID, role, enrollment status,
+creator, and timestamps. Removed enrollment remains removed when an account
+signs in. `User` represents actual accounts; `disabled` controls account access.
+Deleting a User with memberships is restricted; account removal must preserve
+that identity through anonymization and disabling.
+
+Course score overrides use `courseMembershipId` with `userId = NULL`; contest
+overrides use `userId` with `courseMembershipId = NULL`. The database checks this
+context-dependent XOR and enforces subject-specific uniqueness. Assignment and
+exam feedback require a membership ID. No participation or submission row is
+required for manual grading of a pending student.
+
+Both audit logs retain nullable historical user IDs and carry nullable
+`courseMembershipId` / `sourceMembershipId` snapshots without foreign keys.
+`merge` records explain conflict decisions; deleting or merging a roster row
+must not destroy its history. The forward migration enriches mapped histories
+and preserves unmappable snapshots from deleted contexts; unmappable **live**
+grading subjects abort the transaction. See the
+[maintenance contract](../operations/DEPLOYMENT.md#course-roster-contract) for the
+production conversion and rollback fence.
 
 ### Problem
 
@@ -283,7 +308,7 @@ One row per event per recipient. `type` is a `NotificationType` enum (e.g. `assi
 | `ActiveExamSession`          | Phase 4 exam lock — at most one active row per user across all exams; historical rows are reused per `(user, exam)`, and `endedAt` closes the active row                                                                       | `schema/contest.prisma`       |
 | `ExamSessionEvent`           | Append-only audit log per `ActiveExamSession` (enter / leave / release / …)                                                                                                                                                    | `schema/contest.prisma`       |
 | `Course`                     | Course container (title, owner, `academicYear` / `semester`, archived flag)                                                                                                                                                    | `schema/course.prisma`        |
-| `CourseMembership`           | `(course, user, role)` with `active` / `removed` status + audit trail                                                                                                                                                          | `schema/course.prisma`        |
+| `CourseMembership`           | Durable course roster identity: User or pending username, role, active/removed status                                                                                                                                          | `schema/course.prisma`        |
 | `Assessment`                 | Homework assignment (opens / due / close, adjustment rules, no proctoring)                                                                                                                                                     | `schema/course.prisma`        |
 | `AssessmentProblem`          | Join table: problems attached to an assessment with ordinal + points                                                                                                                                                           | `schema/course.prisma`        |
 | `AssessmentAuditLog`         | Append-only publish / revert / delete-draft trail for course assessments                                                                                                                                                       | `schema/course.prisma`        |
@@ -299,14 +324,14 @@ One row per event per recipient. `type` is a `NotificationType` enum (e.g. `assi
 | `ProblemWorkspaceFile`       | Per-language workspace file (path, content S3 key, visibility, order)                                                                                                                                                          | `schema/problem.prisma`       |
 | `Submission`                 | Judge submission row (S3 prefix for sources + verdict summary + verdict S3 key, score, mode derived from FKs)                                                                                                                  | `schema/submission.prisma`    |
 | `SubmissionRejudgeLog`       | Two-pass audit log for rejudge runs (snapshot of old / new verdict + score)                                                                                                                                                    | `schema/submission.prisma`    |
-| `ScoreOverride`              | Staff-only manual score override per `(user, problem, context)`                                                                                                                                                                | `schema/submission.prisma`    |
-| `ScoreOverrideAuditLog`      | Append-only create / update / delete trail for `ScoreOverride`                                                                                                                                                                 | `schema/submission.prisma`    |
+| `ScoreOverride`              | Staff-only score per `(subject, problem, context)`; membership for courses, User for contests                                                                                                                                  | `schema/submission.prisma`    |
+| `ScoreOverrideAuditLog`      | Append-only create / update / delete / merge trail with origin membership and user snapshots                                                                                                                                   | `schema/submission.prisma`    |
 | `ProblemPost`                | Per-problem community article; `type` = `editorial` (AC-gated) or `discussion` (any signed-in user); title + markdown content, soft-deleted via `deletedAt`                                                                    | `schema/submission.prisma`    |
 | `PostVote`                   | Per-`(post, user)` up/down vote (`value`)                                                                                                                                                                                      | `schema/submission.prisma`    |
 | `PostComment`                | Two-level comment thread on a post (`parentId` self-relation, max one reply level); soft-delete renders a tombstone                                                                                                            | `schema/submission.prisma`    |
 | `ContentReport`              | User-filed report against a post or comment (exactly one target via DB CHECK; open / resolved / dismissed; resolve soft-deletes the target)                                                                                    | `schema/submission.prisma`    |
-| `SubmissionFeedback`         | Per-`(context, problem, student)` grader comment on a submission                                                                                                                                                               | `schema/submission.prisma`    |
-| `SubmissionFeedbackAuditLog` | Append-only create / update / delete trail for `SubmissionFeedback`                                                                                                                                                            | `schema/submission.prisma`    |
+| `SubmissionFeedback`         | Per-`(context, problem, courseMembership)` grader comment, including pending students                                                                                                                                          | `schema/submission.prisma`    |
+| `SubmissionFeedbackAuditLog` | Append-only create / update / delete / merge trail with origin membership and user snapshots                                                                                                                                   | `schema/submission.prisma`    |
 | `ProblemBookmark`            | Per-`(user, problem)` bookmark on the practice problem list                                                                                                                                                                    | `schema/problem.prisma`       |
 | `TwoFactor`                  | At most one verified better-auth TOTP secret + encrypted backup-code set per user                                                                                                                                              | `schema/auth.prisma`          |
 | `Passkey`                    | better-auth WebAuthn credential used for settings verification and admin MFA                                                                                                                                                   | `schema/auth.prisma`          |

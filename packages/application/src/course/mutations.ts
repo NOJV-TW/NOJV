@@ -9,12 +9,7 @@ import {
   runTransaction,
   type TransactionClient,
 } from "@nojv/db";
-import type {
-  CourseAssignmentFormData,
-  CourseCreate,
-  CourseUpdate,
-  ManualCourseEnrollment,
-} from "@nojv/core";
+import type { CourseAssignmentFormData, CourseCreate, CourseUpdate } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
 import {
@@ -25,8 +20,7 @@ import {
 } from "../shared/errors";
 import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissions";
 import { requireCourse } from "../shared/require";
-import { ensureUser } from "../user/mutations";
-import * as notificationDomain from "../notification";
+import { requireUser } from "../shared/require";
 import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
 import { resolveActivityProblems } from "../problem/fork";
 import { getProblemTotalScore } from "../problem/total-score";
@@ -54,7 +48,7 @@ async function assertCourseManager(
 
 export async function createCourseRecord(actor: ActorContext, payload: CourseCreate) {
   return runTransaction(async (tx) => {
-    const owner = await ensureUser(tx, actor.userId, actor);
+    const owner = await requireUser(tx, actor.userId);
     const course = await courseRepo.withTx(tx).create({
       description: payload.description,
       ownerId: owner.id,
@@ -73,53 +67,6 @@ export async function createCourseRecord(actor: ActorContext, payload: CourseCre
     });
 
     return { course };
-  });
-}
-
-export async function manuallyEnrollCourseMember(
-  actor: ActorContext,
-  payload: ManualCourseEnrollment,
-) {
-  return runTransaction(async (tx) => {
-    const course = await requireCourse(tx, payload.courseId);
-    const manager = await ensureUser(tx, actor.userId, actor);
-    const user = await ensureUser(tx, `usr_${payload.username}`, {
-      displayName: payload.displayName,
-      email: payload.email,
-      username: payload.username,
-      platformRole: payload.role === "teacher" ? "teacher" : "student",
-    });
-
-    const membership = await courseMembershipRepo.withTx(tx).upsert(
-      course.id,
-      user.id,
-      {
-        addedByUserId: manager.id,
-        courseId: course.id,
-        joinedAt: new Date(),
-        role: payload.role,
-        status: "active",
-        userId: user.id,
-      },
-      {
-        addedByUserId: manager.id,
-        joinedAt: new Date(),
-        role: payload.role,
-        status: "active",
-      },
-    );
-
-    if (payload.role === "student") {
-      await notificationDomain.createNotificationInTransaction(tx, {
-        userId: membership.userId,
-        type: "course_enrolled",
-        params: { courseId: course.id, courseName: course.title },
-        linkUrl: `/courses/${course.id}`,
-        dedupeKey: `course_enrolled:${membership.id}:${membership.joinedAt.toISOString()}`,
-      });
-    }
-
-    return membership;
   });
 }
 
@@ -144,7 +91,7 @@ export async function createCourseAssignmentRecord(
     await courseRepo.withTx(tx).lockForUpdate(courseId);
     const course = await requireCourse(tx, courseId);
     await assertCourseManager(tx, actor, course.id);
-    const creator = await ensureUser(tx, actor.userId, actor);
+    const creator = await requireUser(tx, actor.userId);
 
     const assignmentId = generateAssignmentId(payload.title);
 
@@ -272,7 +219,7 @@ export async function copyCourse(
     const source = await requireCourse(tx, sourceCourseId);
     await assertCourseManager(tx, actor, source.id);
 
-    const owner = await ensureUser(tx, actor.userId, actor);
+    const owner = await requireUser(tx, actor.userId);
 
     const newCourse = await courseRepo.withTx(tx).create({
       description: source.description,

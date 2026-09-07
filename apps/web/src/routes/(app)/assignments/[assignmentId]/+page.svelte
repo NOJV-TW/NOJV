@@ -57,20 +57,22 @@
   );
 
   let showOverrideDrawer = $state(false);
-  let overridePrefill = $state<{ userId: string; problemId: string } | null>(null);
+  let overridePrefill = $state<{ rowId: string; problemId: string } | null>(null);
   const canSetOverride = $derived(
     data.mode === "teacher" ? (data.canSetOverride ?? false) : false,
   );
 
-  function gradeCell(userId: string, problemId: string) {
-    overridePrefill = { userId, problemId };
+  function gradeCell(rowId: string, problemId: string) {
+    overridePrefill = { rowId, problemId };
     showOverrideDrawer = true;
   }
   const assignmentClosed = $derived(detail.status === "closed");
   const overrideStudents = $derived(
     data.mode === "teacher"
       ? data.matrix.rows.map((r) => ({
-          id: r.userId,
+          rowId: r.rowId,
+          courseMembershipId: r.courseMembershipId,
+          userId: r.userId,
           username: r.handle,
           name: r.displayName,
         }))
@@ -480,11 +482,11 @@
             letter: p.letter,
             title: p.title,
           }))}
-          students={data.matrix.rows.map((r) => ({
-            userId: r.userId,
-            displayName: r.displayName,
-            handle: r.handle,
-          }))}
+          students={data.matrix.rows.flatMap((r) =>
+            r.userId === null
+              ? []
+              : [{ userId: r.userId, displayName: r.displayName, handle: r.handle }],
+          )}
         />
       {:else if activeSubTab === "settings" && data.mode === "teacher"}
         <AssignmentSettingsTab

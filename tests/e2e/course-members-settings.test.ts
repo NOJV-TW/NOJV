@@ -52,7 +52,7 @@ test.describe("Course members + settings", () => {
     const context = await browser.newContext({ storageState: studentAuth });
     const page = await context.newPage();
     const res = await page.request.post(`/courses/${COURSE_ID}/members?/changeRole`, {
-      form: { userId: "user_someone", role: "ta" },
+      form: { membershipId: "membership_someone", role: "ta" },
       headers: formActionHeaders,
     });
     const body = await res.json().catch(() => null);

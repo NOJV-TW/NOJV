@@ -48,7 +48,7 @@ import {
   commitStoragePointerSwap,
   guardStorageObjectWrites,
 } from "../shared/storage-object-lifecycle";
-import { ensureUser } from "../user/mutations";
+import { requireUser } from "../shared/require";
 import { requireCourseAssignment, requireProblem } from "../shared/require";
 import { attemptWindowStart, DEFAULT_ATTEMPT_RESET_MINUTE } from "./attempt-window";
 import { ensureContestParticipation, checkSubmitCooldown } from "../contest/mutations";
@@ -70,7 +70,7 @@ type SubmissionStatus = SubmissionOperationStatus;
 
 type SubmissionProblem = Awaited<ReturnType<typeof requireProblem>>;
 type SubmissionCourseContext = Awaited<ReturnType<typeof requireCourseAssignment>>;
-type SubmissionUser = Awaited<ReturnType<typeof ensureUser>>;
+type SubmissionUser = Awaited<ReturnType<typeof requireUser>>;
 type ActiveExamSession = NonNullable<
   Awaited<ReturnType<typeof examSessionRepo.findActiveForUser>>
 >;
@@ -315,7 +315,7 @@ export async function createQueuedSubmissionRecord(
             assignmentContext.assessmentId,
           )
         : null,
-      ensureUser(tx, actor.userId, actor),
+      requireUser(tx, actor.userId),
       examSessionRepo.withTx(tx).findActiveForUser(actor.userId),
     ]);
 

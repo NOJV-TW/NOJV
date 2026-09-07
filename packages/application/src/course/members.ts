@@ -2,24 +2,22 @@ import {
   courseMembershipAdminRepo,
   courseMembershipRepo,
   runTransaction,
-  userRepo,
   type TransactionClient,
 } from "@nojv/db";
-import type { CourseRole, EffectiveCourseRole } from "@nojv/core";
+import {
+  isCanonicalSchoolUsername,
+  isReservedUsername,
+  userHandleSchema,
+  type CourseRole,
+  type EffectiveCourseRole,
+} from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
-import { ForbiddenError } from "../shared/errors";
-import { resolveEffectiveCourseRole } from "../shared/permissions";
+import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
+import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissions";
 import { requireCourse } from "../shared/require";
-
-async function resolveActorCourseRole(
-  actor: ActorContext,
-  courseId: string,
-): Promise<EffectiveCourseRole | null> {
-  const membership = await courseMembershipRepo.findByComposite(courseId, actor.userId);
-  const courseRole = membership?.status === "active" ? membership.role : null;
-  return resolveEffectiveCourseRole(actor.platformRole, courseRole);
-}
+import * as notificationDomain from "../notification";
+import { bindPendingMemberships, lockCourseMembers, lockRosterIdentity } from "./roster";
 
 async function resolveActorCourseRoleTx(
   tx: TransactionClient,
@@ -29,31 +27,21 @@ async function resolveActorCourseRoleTx(
   const membership = await courseMembershipRepo
     .withTx(tx)
     .findByComposite(courseId, actor.userId);
-  const courseRole = membership?.status === "active" ? membership.role : null;
-  return resolveEffectiveCourseRole(actor.platformRole, courseRole);
-}
-
-async function activeMemberRoleTx(
-  tx: TransactionClient,
-  courseId: string,
-  userId: string,
-): Promise<CourseRole | null> {
-  const membership = await courseMembershipRepo.withTx(tx).findByComposite(courseId, userId);
-  return membership?.status === "active" ? membership.role : null;
-}
-
-async function lockCourseMembers(tx: TransactionClient, courseId: string): Promise<void> {
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`course-members:${courseId}`}, 0))`;
+  return resolveEffectiveCourseRole(
+    actor.platformRole,
+    membership?.status === "active" ? membership.role : null,
+  );
 }
 
 export interface CourseMemberRow {
-  userId: string;
+  membershipId: string;
+  userId: string | null;
   name: string;
   username: string | null;
-  email: string;
+  email: string | null;
   role: CourseRole;
   status: "active" | "removed";
-  isPlaceholder: boolean;
+  isPending: boolean;
   joinedAt: string;
   removedAt: string | null;
 }
@@ -61,34 +49,33 @@ export interface CourseMemberRow {
 export async function listMembersForCourse(courseId: string): Promise<CourseMemberRow[]> {
   const rows = await courseMembershipAdminRepo.listWithUserByCourse(courseId);
   return rows.map((row) => ({
-    userId: row.user.id,
-    name: row.user.name,
-    username: row.user.username,
-    email: row.user.email,
+    membershipId: row.id,
+    userId: row.userId,
+    name: row.user?.name ?? row.pendingUsername ?? "",
+    username: row.user?.username ?? row.pendingUsername,
+    email: row.user?.email ?? null,
     role: row.role,
     status: row.status,
-    isPlaceholder: row.user.status === "pending_first_login",
+    isPending: row.userId === null,
     joinedAt: row.joinedAt.toISOString(),
     removedAt: row.removedAt?.toISOString() ?? null,
   }));
 }
 
 export function parseHandleInput(raw: string): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const token of raw.split(/[\s,;]+/)) {
-    const handle = token.trim().toLowerCase();
-    if (!handle) continue;
-    if (seen.has(handle)) continue;
-    seen.add(handle);
-    out.push(handle);
-  }
-  return out;
+  return [
+    ...new Set(
+      raw
+        .split(/[\s,;]+/)
+        .map((token) => token.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  ];
 }
 
 export interface BulkAddResult {
   added: number;
-  placeholdersCreated: number;
+  pendingCreated: number;
   skipped: number;
   reactivated: number;
 }
@@ -98,125 +85,171 @@ export async function bulkAddByHandle(
   courseId: string,
   payload: { handles: string[]; role: CourseRole },
 ): Promise<BulkAddResult> {
-  if (payload.role === "ta") {
-    const actorRole = await resolveActorCourseRole(actor, courseId);
-    if (actorRole !== "admin" && actorRole !== "teacher") {
-      throw new ForbiddenError("Only teachers or admins can add teaching assistants.");
-    }
+  const handles = [
+    ...new Set(payload.handles.map((handle) => handle.trim().toLowerCase())),
+  ].filter(Boolean);
+  if (
+    handles.length === 0 ||
+    handles.some(
+      (handle) =>
+        !userHandleSchema.safeParse(handle).success ||
+        (isReservedUsername(handle) && !isCanonicalSchoolUsername(handle)),
+    )
+  ) {
+    throw new ValidationError(
+      "Use a valid username: NTNU student ID, ntu_ student ID, ntust_ student ID, or a general username.",
+    );
   }
-
-  const uniqueHandles = Array.from(
-    new Set(payload.handles.map((h) => h.trim().toLowerCase())),
-  ).filter((h) => h.length > 0);
-
   return runTransaction(async (tx) => {
+    await lockRosterIdentity(tx);
+    const users = await tx.user.findMany({
+      where: { username: { in: handles } },
+      select: { id: true, username: true },
+    });
+    for (const user of users) {
+      if (user.username)
+        await bindPendingMemberships(
+          tx,
+          user.id,
+          user.username,
+          isCanonicalSchoolUsername(user.username),
+        );
+    }
+    await lockCourseMembers(tx, courseId);
     const course = await requireCourse(tx, courseId);
+    const actorRole = await resolveActorCourseRoleTx(tx, actor, courseId);
+    if (
+      !canManageCourse(actorRole) ||
+      (payload.role === "ta" && actorRole !== "teacher" && actorRole !== "admin") ||
+      (payload.role === "teacher" && actorRole !== "admin")
+    ) {
+      throw new ForbiddenError("You cannot add members with this role.");
+    }
+    const usersByHandle = new Map(users.map((user) => [user.username, user.id]));
+    const existing = await tx.courseMembership.findMany({ where: { courseId } });
+    const existingByUser = new Map(
+      existing.filter((row) => row.userId !== null).map((row) => [row.userId, row]),
+    );
+    const existingByHandle = new Map(
+      existing
+        .filter((row) => row.pendingUsername !== null)
+        .map((row) => [row.pendingUsername, row]),
+    );
     const now = new Date();
-    let added = 0;
-    let placeholdersCreated = 0;
+    const additions: {
+      courseId: string;
+      userId: string | null;
+      pendingUsername: string | null;
+      role: CourseRole;
+      addedByUserId: string;
+      joinedAt: Date;
+    }[] = [];
+    const restored: string[] = [];
     let skipped = 0;
-    let reactivated = 0;
-
-    for (const handle of uniqueHandles) {
-      let user = await userRepo.withTx(tx).findByUsername(handle);
-
-      if (!user) {
-        user = await createPlaceholderInTx(tx, handle);
-        placeholdersCreated += 1;
-      }
-
-      const existing = await courseMembershipRepo
-        .withTx(tx)
-        .findByComposite(course.id, user.id);
-
-      if (existing?.status === "active") {
-        skipped += 1;
+    let pendingCreated = 0;
+    for (const handle of handles) {
+      const userId = usersByHandle.get(handle) ?? null;
+      const member = userId ? existingByUser.get(userId) : existingByHandle.get(handle);
+      if (member?.status === "active") {
+        skipped++;
         continue;
       }
-
-      if (existing?.status === "removed") {
-        await courseMembershipRepo.withTx(tx).updateById(existing.id, {
+      if (member) {
+        if (member.role === "teacher" && actorRole !== "admin")
+          throw new ForbiddenError("Only an admin can restore another teacher.");
+        restored.push(member.id);
+      } else {
+        additions.push({
+          courseId: course.id,
+          userId,
+          pendingUsername: userId ? null : handle,
           role: payload.role,
-          status: "active",
           joinedAt: now,
-          removedAt: null,
           addedByUserId: actor.userId,
         });
-        reactivated += 1;
-        added += 1;
-        continue;
+        if (!userId) pendingCreated++;
       }
-
-      await courseMembershipRepo.withTx(tx).create({
-        courseId: course.id,
-        userId: user.id,
-        role: payload.role,
-        status: "active",
-        joinedAt: now,
-        addedByUserId: actor.userId,
-      });
-      added += 1;
     }
-
-    return { added, placeholdersCreated, skipped, reactivated };
+    const members = restored.length
+      ? await tx.courseMembership.updateManyAndReturn({
+          where: { id: { in: restored } },
+          data: {
+            role: payload.role,
+            status: "active",
+            joinedAt: now,
+            removedAt: null,
+            addedByUserId: actor.userId,
+          },
+        })
+      : [];
+    if (additions.length)
+      members.push(...(await tx.courseMembership.createManyAndReturn({ data: additions })));
+    if (payload.role === "student") {
+      for (const member of members) {
+        if (!member.userId) continue;
+        await notificationDomain.createNotificationInTransaction(tx, {
+          userId: member.userId,
+          type: "course_enrolled",
+          params: { courseId, courseName: course.title },
+          linkUrl: `/courses/${courseId}`,
+          dedupeKey: `course_enrolled:${member.id}:${member.joinedAt.toISOString()}`,
+        });
+      }
+    }
+    return {
+      added: additions.length + restored.length,
+      pendingCreated,
+      skipped,
+      reactivated: restored.length,
+    };
   });
+}
+
+async function requireManagedMember(
+  tx: TransactionClient,
+  actor: ActorContext,
+  courseId: string,
+  membershipId: string,
+) {
+  await lockCourseMembers(tx, courseId);
+  const actorRole = await resolveActorCourseRoleTx(tx, actor, courseId);
+  if (actorRole !== "admin" && actorRole !== "teacher")
+    throw new ForbiddenError("Only teachers or admins can manage members.");
+  const member = await tx.courseMembership.findUnique({
+    where: { id: membershipId, courseId },
+    include: { course: { select: { ownerId: true } } },
+  });
+  if (!member) throw new NotFoundError("Course member not found.");
+  if (member.userId === member.course.ownerId)
+    throw new ForbiddenError("The course owner must remain a teacher.");
+  if (actorRole === "teacher" && (member.userId === actor.userId || member.role === "teacher"))
+    throw new ForbiddenError(
+      "Teachers cannot change their own or another teacher's membership.",
+    );
+  return { member, actorRole };
 }
 
 export async function changeMemberRole(
   actor: ActorContext,
   courseId: string,
-  userId: string,
+  membershipId: string,
   role: CourseRole,
 ) {
   return runTransaction(async (tx) => {
-    await lockCourseMembers(tx, courseId);
-    const actorRole = await resolveActorCourseRoleTx(tx, actor, courseId);
-    if (actorRole !== "admin" && actorRole !== "teacher") {
-      throw new ForbiddenError("Only teachers or admins can change member roles.");
-    }
-    if (actorRole === "teacher") {
-      if (userId === actor.userId) {
-        throw new ForbiddenError("You cannot change your own role.");
-      }
-      if (role === "teacher") {
-        throw new ForbiddenError("Only an admin can promote a member to teacher.");
-      }
-      if ((await activeMemberRoleTx(tx, courseId, userId)) === "teacher") {
-        throw new ForbiddenError("Teachers cannot change another teacher's role.");
-      }
-    }
-    return courseMembershipAdminRepo.withTx(tx).updateRole(courseId, userId, role);
+    const { actorRole } = await requireManagedMember(tx, actor, courseId, membershipId);
+    if (role === "teacher" && actorRole !== "admin")
+      throw new ForbiddenError("Only an admin can promote a member to teacher.");
+    return courseMembershipAdminRepo.withTx(tx).updateRole(courseId, membershipId, role);
   });
 }
 
-export async function removeMember(actor: ActorContext, courseId: string, userId: string) {
+export async function removeMember(
+  actor: ActorContext,
+  courseId: string,
+  membershipId: string,
+) {
   return runTransaction(async (tx) => {
-    await lockCourseMembers(tx, courseId);
-    const actorRole = await resolveActorCourseRoleTx(tx, actor, courseId);
-    if (actorRole !== "admin" && actorRole !== "teacher") {
-      throw new ForbiddenError("Only teachers or admins can remove members.");
-    }
-    if (actorRole === "teacher") {
-      if (userId === actor.userId) {
-        throw new ForbiddenError("You cannot remove yourself.");
-      }
-      if ((await activeMemberRoleTx(tx, courseId, userId)) === "teacher") {
-        throw new ForbiddenError("Teachers cannot remove another teacher.");
-      }
-    }
-    return courseMembershipAdminRepo.withTx(tx).removeFromCourse(courseId, userId);
-  });
-}
-
-async function createPlaceholderInTx(tx: TransactionClient, username: string) {
-  return userRepo.withTx(tx).create({
-    email: `placeholder+${username}@placeholder.nojv.local`,
-    username,
-    displayUsername: username,
-    name: username,
-    emailVerified: false,
-    status: "pending_first_login",
-    disabled: false,
-    platformRole: "student",
+    await requireManagedMember(tx, actor, courseId, membershipId);
+    return courseMembershipAdminRepo.withTx(tx).removeFromCourse(courseId, membershipId);
   });
 }

@@ -23,7 +23,6 @@ export async function seedDemoStudents(
         email: `${username}@nojv.local`,
         username,
         platformRole: "student",
-        status: "active",
         emailVerified: true,
       },
       update: {},

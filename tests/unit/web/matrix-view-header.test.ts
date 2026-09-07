@@ -74,6 +74,8 @@ describe("MatrixView header", () => {
           problems: [{ problemId: "p1", letter: "A", ordinal: 1, title: "A + B", points: 100 }],
           rows: [
             {
+              rowId: "membership-1",
+              courseMembershipId: "membership-1",
               userId: "u1",
               displayName: "Alice",
               handle: "s001",
@@ -90,6 +92,8 @@ describe("MatrixView header", () => {
               ],
             },
             {
+              rowId: "membership-2",
+              courseMembershipId: "membership-2",
               userId: "u2",
               displayName: "Bob",
               handle: "s002",
@@ -111,7 +115,6 @@ describe("MatrixView header", () => {
         },
         csvDownloadName: "grades.csv",
         dataSlot: "matrix-sort-test",
-        viewHref: (userId: string) => `/students/${userId}`,
         labels: {
           heading: () => "成績矩陣",
           hint: () => "描述",

@@ -32,7 +32,6 @@ export const apiTokenScopes = [
   "assignments:read",
   "admin:read",
 ] as const;
-export const userStatuses = ["active", "pending_first_login"] as const;
 export const courseRoles = ["teacher", "ta", "student"] as const;
 export const effectiveCourseRoles = ["admin", "teacher", "ta", "student"] as const;
 export const problemDifficulties = ["easy", "medium", "hard"] as const;
@@ -109,7 +108,6 @@ export const DEFAULT_LOCALE = "zh-TW";
 
 export const platformRoleSchema = z.enum(platformRoles);
 export const apiTokenScopeSchema = z.enum(apiTokenScopes);
-export const userStatusSchema = z.enum(userStatuses);
 export const courseRoleSchema = z.enum(courseRoles);
 export const effectiveCourseRoleSchema = z.enum(effectiveCourseRoles);
 export const problemDifficultySchema = z.enum(problemDifficulties);
@@ -148,7 +146,6 @@ export type LocaleCode = z.infer<typeof localeCodeSchema>;
 export type ScoreboardMode = z.infer<typeof scoreboardModeSchema>;
 export type PlatformRole = z.infer<typeof platformRoleSchema>;
 export type ApiTokenScope = z.infer<typeof apiTokenScopeSchema>;
-export type UserStatus = z.infer<typeof userStatusSchema>;
 export type ProblemVisibility = z.infer<typeof problemVisibilitySchema>;
 export type ProblemStatus = z.infer<typeof problemStatusSchema>;
 export type ContestScoringMode = z.infer<typeof contestScoringModeSchema>;
@@ -213,7 +210,6 @@ export const sessionUserSchema = z.object({
   image: z.string().nullable().optional(),
   platformRole: platformRoleSchema,
   isSuperAdmin: z.boolean().default(false),
-  status: userStatusSchema.default("active"),
   mustChangePassword: z.boolean().default(false),
   twoFactorEnabled: z.boolean().default(false),
   securityGeneration: z.number().int().nonnegative(),
