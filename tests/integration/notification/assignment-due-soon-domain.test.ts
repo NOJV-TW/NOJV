@@ -34,6 +34,7 @@ describe("notificationDomain.fanoutAssignmentDueSoon", () => {
         courseId: course.id,
         createdByUserId: teacher.id,
         title: "HW 1",
+        totalPoints: 20,
         summary: "Due soon test",
         status: "published",
         opensAt: new Date(Date.now() - 3600_000),

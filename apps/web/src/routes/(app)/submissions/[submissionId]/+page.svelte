@@ -145,6 +145,9 @@
             / {submission.totalScore}</span
           >
         </p>
+        {#if submission.activityContribution}<p class="text-body-sm text-muted-foreground">
+            {m.activityWeights_contribution(submission.activityContribution)}
+          </p>{/if}
       </div>
 
       <dl class="grid grid-cols-2 gap-3 rounded-lg border border-border-subtle bg-muted/20 p-4">
@@ -160,6 +163,7 @@
             {/if}
           </dd>
         </div>
+
         <div class="flex flex-col gap-0.5">
           <dt class="text-caption uppercase tracking-wide text-muted-foreground">
             {m.submissionDetail_memory()}

@@ -181,15 +181,27 @@ export const participationRepo = {
         });
       },
 
-      upsertExamActive(
+      async upsertExamActive(
         examId: string,
         userId: string,
         activateOnEntry: boolean,
         startedAt: Date,
       ) {
+        await tx.$queryRaw`SELECT id FROM "Exam" WHERE id = ${examId} FOR UPDATE`;
+        const exam = await tx.exam.findUniqueOrThrow({
+          where: { id: examId },
+          select: { gradingRevision: true },
+        });
         return tx.participation.upsert({
           where: { type_examId_userId: { type: "exam", examId, userId } },
-          create: { type: "exam", examId, userId, status: "active", startedAt },
+          create: {
+            type: "exam",
+            examId,
+            userId,
+            status: "active",
+            startedAt,
+            gradingRevision: exam.gradingRevision,
+          },
           update: activateOnEntry ? { status: "active" } : {},
         });
       },

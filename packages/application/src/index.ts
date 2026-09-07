@@ -55,3 +55,5 @@ export type { TagAcCount } from "./user/queries";
 export type { SubmissionSource } from "@nojv/storage";
 export type { SecurityFactorState } from "@nojv/db";
 export { isReservedUsername } from "@nojv/core";
+
+export * from "./shared/score-stats";

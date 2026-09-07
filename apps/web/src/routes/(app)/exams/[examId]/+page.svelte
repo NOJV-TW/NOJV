@@ -175,6 +175,10 @@
   }
 </script>
 
+{#if data.detail?.gradingPending}<p role="status" class="text-body-sm text-muted-foreground">
+    {m.activityWeights_pending()}
+  </p>{/if}
+
 <PageContainer class="space-y-6 fade-up">
   <Crumbs items={[{ label: m.navigation_exams(), href: "/exams" }, { label: examCode }]} />
 
@@ -677,7 +681,7 @@
         <ExamProblemsTab
           {detail}
           {liveStatus}
-          canEdit={liveStatus === "draft" || liveStatus === "upcoming"}
+          canEdit={isManager}
           canRejudge={isManager}
           candidateProblems={data.candidateProblems}
           {form}

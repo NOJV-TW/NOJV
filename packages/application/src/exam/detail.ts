@@ -1,3 +1,5 @@
+import { activityScore, sumActivityScores } from "../scoring/activity-points";
+import { gradingRepo } from "@nojv/db";
 import { courseMembershipRepo, examRepo, participationRepo, submissionRepo } from "@nojv/db";
 import {
   extractLatePenalty,
@@ -8,7 +10,7 @@ import {
 } from "@nojv/core";
 
 import { getOverridesForContext } from "../scoring/resolve-final-score";
-import { getProblemTotalScores } from "../problem/total-score";
+import { getProblemTotalScores, requireProblemTotalScore } from "../problem/total-score";
 
 export type ExamDetailStatus = "draft" | "upcoming" | "running" | "ended";
 
@@ -20,6 +22,7 @@ export interface ExamDetailProblem {
   title: string;
   difficulty: "easy" | "medium" | "hard";
   points: number;
+  rawMaxScore: number;
   ordinal: number;
   letter: string;
   viewerState: ExamProblemViewerState | null;
@@ -61,6 +64,8 @@ export interface ExamDetailPage {
   totalStudents: number;
   viewerScore: number | null;
   totalPoints: number;
+  gradingRevision: number;
+  gradingPending: boolean;
   roster: ExamRosterEntry[] | null;
   manager: ExamDetailManagerFields | null;
 }
@@ -106,6 +111,7 @@ async function computeViewerScores(
   courseMembershipId: string | null,
   problemRows: ExamDetailProblemRow[],
   maxByProblem: Map<string, number>,
+  endsAt: Date,
 ): Promise<{
   viewerStateByProblem: Map<string, ExamProblemViewerState>;
   viewerTotalScore: number;
@@ -117,6 +123,7 @@ async function computeViewerScores(
       userId: viewerUserId,
       problemId: { in: problemIds },
       sampleOnly: false,
+      createdAt: { lt: endsAt },
     }),
     getOverridesForContext({ type: "exam", examId }),
   ]);
@@ -127,9 +134,9 @@ async function computeViewerScores(
   }
 
   const viewerStateByProblem = new Map<string, ExamProblemViewerState>();
-  let total = 0;
+  const scores: ReturnType<typeof activityScore>[] = [];
   for (const ep of problemRows) {
-    const max = maxByProblem.get(ep.problem.id) ?? ep.points;
+    const max = requireProblemTotalScore(maxByProblem, ep.problem.id);
     const override =
       courseMembershipId === null
         ? undefined
@@ -148,10 +155,10 @@ async function computeViewerScores(
       state = resolveScoredState(hit.best, max);
     }
     viewerStateByProblem.set(ep.problem.id, state);
-    total += score;
+    scores.push(activityScore(score, max, ep.points));
   }
 
-  return { viewerStateByProblem, viewerTotalScore: total };
+  return { viewerStateByProblem, viewerTotalScore: sumActivityScores(scores) };
 }
 
 export async function getExamDetailPage(
@@ -180,7 +187,8 @@ export async function getExamDetailPage(
   const problemRows = hideProblemsFromViewer ? [] : exam.problems;
 
   const maxByProblem = await getProblemTotalScores(problemRows.map((ep) => ep.problem.id));
-  const maxFor = (ep: ExamDetailProblemRow) => maxByProblem.get(ep.problem.id) ?? ep.points;
+  const maxFor = (ep: ExamDetailProblemRow) =>
+    requireProblemTotalScore(maxByProblem, ep.problem.id);
 
   const enrichWithViewerScores =
     !options.isManager && derivedStatus === "ended" && problemRows.length > 0;
@@ -192,6 +200,7 @@ export async function getExamDetailPage(
         students.find((s) => s.userId === options.viewerUserId)?.id ?? null,
         problemRows,
         maxByProblem,
+        exam.endsAt,
       )
     : {
         viewerStateByProblem: new Map<string, ExamProblemViewerState>(),
@@ -204,13 +213,14 @@ export async function getExamDetailPage(
     displayId: ep.problem.displayId,
     title: ep.problem.title,
     difficulty: ep.problem.difficulty,
-    points: maxFor(ep),
+    points: Number(ep.points),
+    rawMaxScore: maxFor(ep),
     ordinal: ep.ordinal,
     letter: letterFromOrdinal(ep.ordinal),
     viewerState: viewerStateByProblem.get(ep.problem.id) ?? null,
   }));
 
-  const totalPoints = problems.reduce((sum, p) => sum + p.points, 0);
+  const totalPoints = Number(exam.totalPoints);
 
   const rosterMapped: ExamRosterEntry[] | null =
     roster === null
@@ -253,6 +263,8 @@ export async function getExamDetailPage(
     totalStudents: students.length,
     viewerScore: viewerTotalScore,
     totalPoints,
+    gradingRevision: exam.gradingRevision,
+    gradingPending: (await gradingRepo.countPendingExam(exam.id, exam.gradingRevision)) > 0,
     roster: rosterMapped,
     manager,
   };

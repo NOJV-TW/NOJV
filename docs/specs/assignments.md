@@ -49,8 +49,7 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 - Status-aware field locks:
   - `draft`/`upcoming` → all fields editable.
   - `open` → `opensAt` frozen; `closesAt`/`dueAt` extend-only.
-  - `closed` → no field edits (only delete-draft is meaningful, and only
-    for never-published rows).
+  - `closed` → only total points, problem membership/order, and allocations remain editable. Other settings stay locked.
 - Per-assignment `maxAttemptsPerDay` counted **per problem**, with a configurable daily reset time `attemptResetMinuteOfDay` (minutes since Taipei midnight, default 300 = 05:00 Asia/Taipei). Each `(student, assignment, problem)` gets its own daily allowance; sample-only runs never count, and any `system_error` verdict is refunded (see stale reaper).
 - Per-assignment `allowedLanguages` subset of platform-supported list.
 - `adjustmentRules` (e.g. late penalty decay) applied at submission score
@@ -59,8 +58,7 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
   including cross-course dashboard (`listAssignmentsAcrossCoursesForUser`).
 - Practice-after-close read/write access via `assertProblemViewAccess`
   historical-participant gate.
-- Problem attachment re-bind (wipe-and-recreate the
-  `AssessmentProblem` rows) with per-problem `points` override.
+- Problem attachment updates preserve retained link identities. Link `points` stores this assignment's allocation; the original problem remains unchanged.
 - Problem resolution runs in the assignment transaction: an actor-owned
   problem is attached directly, another author's published public problem
   becomes an actor-owned private fork, and another author's private problem
@@ -74,7 +72,7 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
   to official cell score, row total, class stats, score overrides, or
   feedback context.
 - Audit sub-tab — staff-only merged feed of lifecycle, score
-  override, and rejudge events
+  override and rejudge events
   (`listAuditTimelineForContext({ type: "assignment", id })`).
 
 ### Out of scope
@@ -89,6 +87,18 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
   practice-after-close design doc.
 
 ## Acceptance Criteria
+
+### Activity allocation and official scores
+
+- GIVEN a new activity, THEN its total defaults to 100. The weight editor appears below the question list for both assignments and exams. Teachers enter percentages to two decimal places; the form sends `totalPoints` and `problems: [{ problemId, points }]`. Only allocated points are persisted.
+- GIVEN a draft, THEN incomplete allocations can be saved. Publishing and saving published activities require positive total points, nonnegative allocations, unique problems, and allocations summing exactly to the total.
+- GIVEN scores 80/100 and 50/100, weights 40% and 60%, and total 100, THEN the official score is 62. Each effective raw score (including existing late adjustment or raw manual override) is divided by the original problem maximum and multiplied by its allocation. Decimal values are retained until the final total is rounded half up to two decimal places.
+- GIVEN a zero-weight question, THEN its contribution is zero while its solved state still depends on the raw score. Missing submissions remain missing. Practice after the activity deadline contributes nothing to official grades.
+- WHEN total points change, THEN proportions remain unchanged. Add/remove/reorder preserves other allocations. Equal distribution uses basis-point remainders in question order (three questions: 33.34%, 33.33%, 33.33%). An unchanged legacy allocation never round-trips through its rounded display percentage.
+- WHEN a published grading configuration changes, THEN it saves without a reason or allocation audit log. The activity revision commits with the configuration. Stale editor revisions fail without writes. Closed activities support these changes without reopening other settings.
+- WHEN a question is removed, THEN only its activity link is removed. Submissions, overrides, and feedback survive. Reattaching its historical ID retains its identity and uses only eligible original activity records. Editing allocations as another course manager does not fork an already-attached question.
+- WHEN grades are read in details, matrices, gradebooks/exports, lists, or analytics, THEN the same weighted official score is used. Submission records retain the raw scale and activity views supplement it with the allocated contribution.
+- GIVEN existing nonempty activities at migration, THEN allocations are backfilled from the original maxima used by the old official readers and total points becomes their sum. Raw submissions and overrides are preserved; each conversion factor remains one. Empty drafts receive total 100.
 
 ### Problem ownership and forks
 
@@ -171,8 +181,7 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
   the current `dueAt`,
   THEN `ValidationError("dueAt can only be extended, not moved earlier.")`.
 - GIVEN a `closed` assignment (`closesAt < now`), WHEN
-  `updateAssignmentRecord` is called, THEN the mutation is rejected — a
-  closed assignment is read-only forever.
+  a non-grading setting is changed, THEN the mutation is rejected. Grading-only changes remain available without a reason.
 
 ### Permissions
 
@@ -184,10 +193,8 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 
 ### Problem attachment
 
-- WHEN `updateAssignmentRecord` includes `problemIds`, THEN all existing
-  `AssessmentProblem` rows are deleted, then re-created preserving the
-  submitted order as `ordinal = index + 1` with per-row `points` (default 100).
-- GIVEN `allowedLanguages` is non-empty and any attached problem is
+- WHEN `updateAssignmentRecord` includes `problems: [{ problemId, points }]` and `totalPoints`, THEN retained links update in place, removed links detach, and new links follow the existing ownership/fork rules. The submitted order becomes `ordinal = index + 1`. New selections start at zero points.
+- GIVEN `allowedLanguages` is non-empty and a newly attached problem is
   missing an editable `main.<ext>` for one of those languages,
   THEN `ValidationError(...missing editable main.<ext>...)` before any row
   write.

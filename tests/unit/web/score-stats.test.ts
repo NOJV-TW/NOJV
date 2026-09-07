@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { buildAssignmentResults } from "$lib/server/results/assignment";
 import { buildExamResults } from "$lib/server/results/exam";
 
-import { buildScoreStats } from "$lib/server/shared/score-stats";
+import { buildScoreStats } from "../../../packages/application/src/shared/score-stats";
 
 describe("buildScoreStats", () => {
   it("buckets raw scores around the highest achieved score", () => {

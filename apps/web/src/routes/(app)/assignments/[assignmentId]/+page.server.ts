@@ -1,17 +1,15 @@
+import { activityGradingUpdateSchema } from "@nojv/core";
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { fail, redirect } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
-import { z } from "zod";
 import {
   assessmentSettingsFormSchema,
   type AssessmentSettingsFormData,
   type AssessmentUpdate,
 } from "@nojv/core";
 
-const updateProblemsPayloadSchema = z.object({
-  problemIds: z.array(z.string()).default([]),
-});
+const updateProblemsPayloadSchema = activityGradingUpdateSchema;
 import {
   assignmentDomain,
   auditDomain,
@@ -42,7 +40,7 @@ import { buildAssignmentResults } from "$lib/server/results/assignment";
 
 const { getAssignmentDetail, buildSubmissionsMatrix } = courseDomain;
 const { findPlagiarismReport, listFlagsForContext } = plagiarismDomain;
-const { listProblemPickerGroups } = problemDomain;
+const { listActivityProblemPickerGroups } = problemDomain;
 const {
   deleteAssignmentDraft,
   publishAssignment,
@@ -82,7 +80,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       buildSubmissionsMatrix(courseId, assignmentId),
       findPlagiarismReport({ type: "assessment", id: assignmentId }),
       listFlagsForContext("assessment", assignmentId),
-      listProblemPickerGroups(actor.userId),
+      listActivityProblemPickerGroups(actor, { type: "assignment", assignmentId }),
       scoreOverrideDomain.canSetScoreOverride(actor, {
         type: "assignment",
         assignmentId,
@@ -209,9 +207,7 @@ export const actions = {
     const formData = await event.request.formData();
     const parsed = tryParseJsonField(formData.get("payload"), updateProblemsPayloadSchema);
     if (!parsed.ok) return fail(400, { error: "invalid_payload" });
-    const { problemIds } = parsed.data;
-
-    const payload: AssessmentUpdate = { problemIds };
+    const payload: AssessmentUpdate = parsed.data;
 
     await updateAssignmentRecord(actor, assignmentId, payload);
 

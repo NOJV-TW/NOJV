@@ -1,6 +1,7 @@
+import { activityScore, sumActivityScores } from "../scoring/activity-points";
 import { assessmentRepo, courseMembershipRepo, examRepo, submissionRepo } from "@nojv/db";
 
-import { getProblemTotalScores } from "../problem/total-score";
+import { getProblemTotalScores, requireProblemTotalScore } from "../problem/total-score";
 import { getOverridesForContext } from "../scoring/resolve-final-score";
 
 export type GradebookContextType = "assignment" | "exam";
@@ -10,6 +11,7 @@ export interface GradebookProblemColumn {
   ordinal: number;
   title: string;
   maxScore: number;
+  rawMaxScore: number;
 }
 
 export interface GradebookColumn {
@@ -63,14 +65,18 @@ export async function buildCourseGradebook(
       contextId: a.id,
       contextTitle: a.title,
       sortAt: a.opensAt,
+      deadline: a.closesAt,
       problems: a.problems,
+      totalPoints: Number(a.totalPoints),
     })),
     ...exams.map((e) => ({
       contextType: "exam" as const,
       contextId: e.id,
       contextTitle: e.title,
       sortAt: e.startsAt,
+      deadline: e.endsAt,
       problems: e.problems,
+      totalPoints: Number(e.totalPoints),
     })),
   ].sort((a, b) => a.sortAt.getTime() - b.sortAt.getTime());
 
@@ -85,14 +91,15 @@ export async function buildCourseGradebook(
       problemId: p.problem.id,
       ordinal: index + 1,
       title: p.problem.title,
-      maxScore: maxByProblem.get(p.problem.id) ?? p.points,
+      maxScore: Number(p.points),
+      rawMaxScore: requireProblemTotalScore(maxByProblem, p.problem.id),
     }));
     return {
       contextType: ctx.contextType,
       contextId: ctx.contextId,
       contextTitle: ctx.contextTitle,
       problems,
-      maxTotal: problems.reduce((sum, p) => sum + p.maxScore, 0),
+      maxTotal: ctx.totalPoints,
     };
   });
   const maxTotal = columns.reduce((sum, c) => sum + c.maxTotal, 0);
@@ -115,7 +122,9 @@ export async function buildCourseGradebook(
   const studentIds = students.flatMap((s) => (s.userId === null ? [] : [s.userId]));
 
   const perContext = await Promise.all(
-    columns.map(async (column) => {
+    columns.map(async (column, index) => {
+      const context = contexts[index];
+      if (!context) throw new Error("Gradebook context missing.");
       const problemIds = column.problems.map((p) => p.problemId);
       const contextWhere =
         column.contextType === "assignment"
@@ -127,6 +136,7 @@ export async function buildCourseGradebook(
           userId: { in: studentIds },
           problemId: { in: problemIds },
           sampleOnly: false,
+          ...(column.contextType === "exam" ? { createdAt: { lt: context.deadline } } : {}),
         }),
         getOverridesForContext(
           column.contextType === "assignment"
@@ -146,17 +156,23 @@ export async function buildCourseGradebook(
     const cells: Record<string, number | null> = {};
     let total = 0;
     for (const { column, best, overrides } of perContext) {
+      const contextScores: ReturnType<typeof activityScore>[] = [];
       for (const problem of column.problems) {
         const override = overrides.get(`${student.id}::${problem.problemId}`);
         const submittedScore =
           student.userId === null
             ? undefined
             : best.get(`${student.userId}::${problem.problemId}`);
-        const score = override ?? submittedScore ?? null;
+        const rawScore = override ?? submittedScore ?? null;
+        const score =
+          rawScore === null
+            ? null
+            : activityScore(rawScore, problem.rawMaxScore, problem.maxScore);
         cells[gradebookCellKey(column.contextType, column.contextId, problem.problemId)] =
-          score;
-        total += score ?? 0;
+          score?.toNumber() ?? null;
+        if (score !== null) contextScores.push(score);
       }
+      total += sumActivityScores(contextScores);
     }
     return {
       membershipId: student.id,
@@ -164,7 +180,7 @@ export async function buildCourseGradebook(
       name: student.user?.name ?? student.pendingUsername ?? "",
       username: student.user?.username ?? student.pendingUsername,
       cells,
-      total,
+      total: sumActivityScores([total]),
     };
   });
 

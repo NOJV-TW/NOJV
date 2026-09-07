@@ -1,3 +1,4 @@
+import { activityProblemsSchema, activityTotalPointsSchema } from "@nojv/core";
 import { z } from "zod";
 import { fail, redirect } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
@@ -33,7 +34,8 @@ const examFormSchema = z
     courseId: z.string().min(1),
     title: z.string().trim().min(1).max(120),
     summary: z.string().trim().max(4_000).default(""),
-    problemIds: z.array(z.string().min(1)).default([]),
+    problems: activityProblemsSchema.default([]),
+    totalPoints: activityTotalPointsSchema.default(100),
     startsAt: z.string().trim().min(1),
     endsAt: z.string().trim().default(""),
     dueAt: z.string().trim().min(1),
@@ -91,7 +93,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         courseId: course.id,
         title: "",
         summary: "",
-        problemIds: [],
+        problems: [],
+        totalPoints: 100,
         startsAt: "",
         endsAt: "",
         dueAt: "",
@@ -135,7 +138,8 @@ function buildCreatePayload(form: ExamFormData, status: ExamPublishStatus): Exam
     ipWhitelist: form.ipWhitelistEnabled ? parseIpWhitelistText(form.ipWhitelistText) : [],
     ipWhitelistEnabled: form.ipWhitelistEnabled,
     pageLockEnabled: form.pageLockEnabled,
-    problemIds: form.problemIds,
+    problems: form.problems,
+    totalPoints: form.totalPoints,
     scoreboardMode: form.scoreboardMode,
     scoringMode: form.scoringMode,
     startsAt: toIsoOrEmpty(form.startsAt),

@@ -94,3 +94,5 @@ export type {
   SubmissionRejudgeLogUpdateInput,
 } from "./submission-rejudge-log";
 export { userRepo } from "./user";
+
+export { gradingRepo } from "./grading";

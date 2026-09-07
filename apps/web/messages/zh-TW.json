@@ -1713,7 +1713,7 @@
   "override_staff_emptyList": "尚未有任何調整",
   "override_staff_fieldProblem": "題目",
   "override_staff_fieldReason": "原因（僅 staff 可見）",
-  "override_staff_fieldScore": "分數",
+  "override_staff_fieldScore": "原始分數",
   "override_staff_fieldStudent": "學生",
   "override_staff_newBtn": "新增調整",
   "override_staff_reasonHint": "不會顯示給學生",
@@ -2428,5 +2428,15 @@
   "members_usernameCorrectionError": "無法更正帳號，請重試。",
   "members_alreadyLinked": "此名單已連結帳號，請重新整理頁面。",
   "members_accountUnavailable": "此帳號已停用，無法連結。",
-  "members_usernameConflict": "此帳號已有課程名單，未變更任何資料。"
+  "members_usernameConflict": "此帳號已有課程名單，未變更任何資料。",
+  "activityWeights_heading": "配分",
+  "activityWeights_percentage": "比例",
+  "activityWeights_total": "總分",
+  "activityWeights_equal": "平均分配",
+  "activityWeights_weight": "{title} 權重",
+  "activityWeights_points": "{points} 分",
+  "activityWeights_sum": "權重合計：{percent}%／100%",
+  "activityWeights_incomplete": "草稿可儲存未完成配分；發布或儲存已發布資料時，合計須為 100%。",
+  "activityWeights_pending": "成績正在重新計算。",
+  "activityWeights_contribution": "本次計入：{score}／{points} 分"
 }

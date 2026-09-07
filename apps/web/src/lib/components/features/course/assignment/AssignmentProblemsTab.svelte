@@ -7,6 +7,8 @@
 </script>
 
 <script lang="ts">
+  import ActivityWeights from "../ActivityWeights.svelte";
+  import { deserialize } from "$app/forms";
   import { beforeNavigate, invalidateAll } from "$app/navigation";
   import GripVertical from "@lucide/svelte/icons/grip-vertical";
   import Eye from "@lucide/svelte/icons/eye";
@@ -28,6 +30,8 @@
   interface Props {
     problems: ProblemsTabProblem[];
     assignmentId: string;
+    totalPoints: number;
+    gradingRevision: number;
     canEdit?: boolean;
     canRejudge?: boolean;
     candidateProblems?: CandidateProblemGroups;
@@ -37,6 +41,8 @@
   let {
     problems,
     assignmentId,
+    totalPoints,
+    gradingRevision,
     canEdit = false,
     canRejudge = false,
     candidateProblems = { personalProblems: [], publicProblems: [] },
@@ -49,7 +55,8 @@
     return "text-destructive";
   }
 
-  type EditRow = { problemId: string; title: string; letter: string };
+  type EditRow = { problemId: string; title: string; letter: string; points: number };
+  let editTotal = $state(100);
 
   let editRows = $state<EditRow[]>([]);
   let pickerOpen = $state(false);
@@ -64,16 +71,19 @@
       problemId: p.problemId,
       title: p.title,
       letter: p.letter,
+      points: p.points,
     }));
   }
 
   $effect(() => {
     seedRows(problems);
+    editTotal = totalPoints;
   });
 
   const hasChanges = $derived(
-    editRows.map((row) => row.problemId).join("\0") !==
-      problems.map((problem) => problem.problemId).join("\0"),
+    editTotal !== totalPoints ||
+      JSON.stringify(editRows.map(({ problemId, points }) => ({ problemId, points }))) !==
+        JSON.stringify(problems.map(({ problemId, points }) => ({ problemId, points }))),
   );
 
   beforeNavigate(({ cancel }) => {
@@ -85,6 +95,7 @@
       ...editRows,
       ...candidates.map((candidate, index) => ({
         problemId: candidate.id,
+        points: 0,
         title: candidate.title,
         letter: problemLetter(editRows.length + index + 1),
       })),
@@ -144,14 +155,20 @@
     saving = true;
     errorMsg = null;
     const payload = {
-      problemIds: editRows.map((r) => r.problemId),
+      problems: editRows.map(({ problemId, points }) => ({ problemId, points })),
+      totalPoints: editTotal,
+      gradingRevision,
     };
     const fd = new FormData();
     fd.set("payload", JSON.stringify(payload));
     const res = await fetch(`?/updateProblems`, { method: "POST", body: fd });
     saving = false;
-    if (!res.ok) {
-      errorMsg = `Save failed (${res.status})`;
+    const result = deserialize(await res.text());
+    if (!res.ok || result.type !== "success") {
+      errorMsg =
+        result.type === "failure"
+          ? String(result.data?.error ?? result.data?.message ?? "Save failed")
+          : `Save failed (${res.status})`;
       return;
     }
     await invalidateAll();
@@ -349,6 +366,18 @@
         {/each}
       </div>
     {/if}
+  {/if}
+  {#if canEdit}
+    <ActivityWeights
+      bind:totalPoints={editTotal}
+      problems={editRows}
+      titles={Object.fromEntries(editRows.map((p) => [p.problemId, p.title]))}
+      onchange={(rows) =>
+        (editRows = rows.map((p) => ({
+          ...editRows.find((r) => r.problemId === p.problemId)!,
+          ...p,
+        })))}
+    />
   {/if}
 </section>
 

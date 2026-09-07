@@ -110,7 +110,7 @@ describe("submit → judge → score-persist end-to-end (real DB)", () => {
     const updatedParticipation = await testPrisma.participation.findUnique({
       where: { id: participation.id },
     });
-    expect(updatedParticipation?.score).toBe(100);
+    expect(Number(updatedParticipation?.score)).toBe(100);
   });
 
   it("WA submission keeps participation.score at 0", async () => {
@@ -145,7 +145,7 @@ describe("submit → judge → score-persist end-to-end (real DB)", () => {
     const updated = await testPrisma.participation.findUnique({
       where: { id: participation.id },
     });
-    expect(updated?.score).toBe(0);
+    expect(Number(updated?.score)).toBe(0);
   });
 
   it("two participants get distinct persisted scores after judging completes", async () => {
@@ -197,8 +197,8 @@ describe("submit → judge → score-persist end-to-end (real DB)", () => {
       testPrisma.participation.findUnique({ where: { id: partA.id } }),
       testPrisma.participation.findUnique({ where: { id: partB.id } }),
     ]);
-    expect(rowA?.score).toBe(100);
-    expect(rowB?.score).toBe(30);
+    expect(Number(rowA?.score)).toBe(100);
+    expect(Number(rowB?.score)).toBe(30);
   });
 
   it("rejudging a submission upward replays the new score onto the participation row", async () => {
@@ -229,7 +229,9 @@ describe("submit → judge → score-persist end-to-end (real DB)", () => {
     });
     await contestDomain.updateContestScores(contest.id, student.id);
     expect(
-      (await testPrisma.participation.findUnique({ where: { id: participation.id } }))?.score,
+      Number(
+        (await testPrisma.participation.findUnique({ where: { id: participation.id } }))?.score,
+      ),
     ).toBe(0);
 
     const rejudgeRunId = `rejudge-${submission.id}`;
@@ -251,6 +253,6 @@ describe("submit → judge → score-persist end-to-end (real DB)", () => {
     const updated = await testPrisma.participation.findUnique({
       where: { id: participation.id },
     });
-    expect(updated?.score).toBe(100);
+    expect(Number(updated?.score)).toBe(100);
   });
 });

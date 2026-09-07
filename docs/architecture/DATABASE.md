@@ -368,3 +368,9 @@ Seed contents (users / problems / contests / course) are described in [Getting S
 - [Architecture Overview](./ARCHITECTURE.md)
 - [Judge Pipeline](./JUDGE_PIPELINE.md)
 - [Security Requirements](../operations/SECURITY.md)
+
+## Activity grading
+
+`Assessment.totalPoints` and `Exam.totalPoints` store the activity maximum (`Decimal(18,4)`, default 100). Their problem links store allocated `points` (`Decimal(18,8)`); percentages are derived and are never persisted separately. Raw problem maxima, submission scores, and score overrides retain the problem scale. `Participation.score` uses `Decimal(18,2)` for rounded exam totals; contest algorithms remain unchanged.
+
+`Assessment.detachedProblemIds` and `Exam.detachedProblemIds` retain only currently detached question IDs for exact-ID reattachment. Reattached IDs leave this set. Allocation changes do not store a reason or audit history. Activity revisions and exam participant grading revisions govern durable convergence. See the [assignment contract](../specs/assignments.md#activity-allocation-and-official-scores) and [exam convergence](../specs/exams.md#activity-allocations).

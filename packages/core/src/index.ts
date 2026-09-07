@@ -3,6 +3,7 @@ export * from "./schemas/problem";
 export * from "./schemas/course";
 export * from "./schemas/contest";
 export * from "./schemas/exam";
+export * from "./schemas/activity-grading";
 export * from "./schemas/submission";
 export * from "./schemas/post";
 export * from "./schemas/feedback";

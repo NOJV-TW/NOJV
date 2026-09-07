@@ -18,7 +18,7 @@ describe("participationRepo — unified participation optimistic lock", () => {
 
     const updated = await participationRepo.updateWithVersion(created.id, 0, { score: 10 });
     expect(updated.version).toBe(1);
-    expect(updated.score).toBe(10);
+    expect(Number(updated.score)).toBe(10);
 
     await expect(
       participationRepo.updateWithVersion(created.id, 0, { score: 20 }),

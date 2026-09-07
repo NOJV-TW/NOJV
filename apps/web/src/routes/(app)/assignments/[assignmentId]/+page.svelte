@@ -125,9 +125,7 @@
   }
 
   const solved = $derived(detail.problems.filter((p) => p.myStatus?.state === "ac").length);
-  const myScore = $derived(
-    detail.problems.reduce((sum, p) => sum + (p.myStatus?.bestScore ?? 0), 0),
-  );
+  const myScore = $derived(detail.viewerScore);
   const pct = $derived(
     detail.problemCount > 0 ? Math.round((solved / detail.problemCount) * 100) : 0,
   );
@@ -459,7 +457,9 @@
         <AssignmentProblemsTab
           problems={detail.problems}
           assignmentId={detail.id}
-          canEdit={data.mode === "teacher" && detail.status !== "closed"}
+          canEdit={data.mode === "teacher"}
+          totalPoints={detail.totalPoints}
+          gradingRevision={detail.gradingRevision}
           canRejudge={data.mode === "teacher"}
           candidateProblems={data.mode === "teacher"
             ? data.candidateProblems

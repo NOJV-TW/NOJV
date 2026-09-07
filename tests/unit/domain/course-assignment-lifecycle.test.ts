@@ -1,3 +1,6 @@
+vi.mock("../../../packages/application/src/scoring/activity-grading", () => ({
+  saveActivityGrading: vi.fn(async () => {}),
+}));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -94,8 +97,9 @@ describe("createCourseAssignmentRecord lifecycle", () => {
       closesAt: "2030-01-10T00:00:00.000Z",
       status: "published",
       allowedLanguages: [],
-      problemIds: [],
       allowLateSubmissions: true,
+      problems: [],
+      totalPoints: 100,
       latePenalty: null,
     });
 

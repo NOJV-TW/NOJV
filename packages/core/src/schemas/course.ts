@@ -1,3 +1,4 @@
+import { activityProblemsSchema, activityTotalPointsSchema } from "./activity-grading";
 import { z } from "zod";
 
 import { isoDateTimeSchema, languageSchema, slugSchema } from "../types";
@@ -67,7 +68,8 @@ export const assessmentCreateSchema = z
     maxAttemptsPerDay: z.coerce.number().int().min(1).max(999).nullish(),
     attemptResetMinuteOfDay: z.coerce.number().int().min(0).max(1439).nullish(),
     opensAt: isoDateTimeSchema,
-    problemIds: z.array(z.string().trim().min(1)).min(1).max(32),
+    problems: activityProblemsSchema.default([]),
+    totalPoints: activityTotalPointsSchema.default(100),
     id: slugSchema,
     summary: z.string().trim().min(8).max(2_000),
     title: z.string().trim().min(3).max(120),
@@ -114,7 +116,8 @@ export const courseAssignmentFormSchema = z
     maxAttemptsPerDay: z.coerce.number().int().min(1).max(999).nullish(),
     attemptResetMinuteOfDay: z.coerce.number().int().min(0).max(1439).nullish(),
     opensAt: z.string().trim().min(1),
-    problemIds: z.array(z.string().trim().min(1)).max(64).default([]),
+    problems: activityProblemsSchema.default([]),
+    totalPoints: activityTotalPointsSchema.default(100),
     status: z.enum(["draft", "published"]).default("draft"),
     title: z.string().trim().min(1).max(120),
   })
@@ -161,7 +164,9 @@ export const assessmentUpdateSchema = z
     maxAttemptsPerDay: z.coerce.number().int().min(1).max(999).nullish(),
     attemptResetMinuteOfDay: z.coerce.number().int().min(0).max(1439).nullish(),
     opensAt: isoDateTimeSchema.optional(),
-    problemIds: z.array(z.string().trim().min(1)).max(32).optional(),
+    problems: activityProblemsSchema.optional(),
+    totalPoints: activityTotalPointsSchema.optional(),
+    gradingRevision: z.number().int().nonnegative().optional(),
     adjustmentRules: adjustmentRulesSchema.optional(),
     latePenalty: latePenaltyRuleSchema.nullable().optional(),
     summary: z.string().trim().max(2_000).optional(),

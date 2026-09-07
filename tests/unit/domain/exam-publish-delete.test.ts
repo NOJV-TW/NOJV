@@ -24,8 +24,10 @@ const {
   durableWorkEnqueue: vi.fn(),
 }));
 
-vi.mock("@nojv/db", () => {
+vi.mock("@nojv/db", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@nojv/db")>();
   return {
+    Prisma: actual.Prisma,
     examRepo: {
       withTx: () => ({
         findById: examFindById,
@@ -56,7 +58,18 @@ vi.mock("@nojv/db", () => {
     durableWorkRepo: {
       withTx: () => ({ enqueue: durableWorkEnqueue }),
     },
-    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
+    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
+      fn({
+        examProblem: {
+          findMany: async () => {
+            const count = await examProblemCount();
+            return Array.from({ length: count }, (_, i) => ({
+              problemId: `p${i}`,
+              points: 100 / count,
+            }));
+          },
+        },
+      }),
   };
 });
 
@@ -99,6 +112,7 @@ function publishableExam(overrides: Record<string, unknown> = {}) {
     courseId: "course_1",
     createdByUserId: fakeActor.userId,
     status: "draft",
+    totalPoints: 100,
     startsAt: new Date(Date.now() + 60 * 60_000),
     endsAt: new Date(Date.now() + 120 * 60_000),
     allowedLanguages: ["cpp17"],

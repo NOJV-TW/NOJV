@@ -1,22 +1,20 @@
 import { assertLateSubmissionPolicy } from "../shared/late-submission-policy";
+import { saveActivityGrading } from "../scoring/activity-grading";
+import { assertActivityAllocation } from "../scoring/activity-points";
 import {
   assessmentAuditLogRepo,
-  assessmentProblemRepo,
   assessmentRepo,
   courseMembershipRepo,
   runTransaction,
   type Prisma,
   type TransactionClient,
 } from "@nojv/db";
-import { adjustmentRulesSchema, type AssessmentUpdate, type Language } from "@nojv/core";
+import { adjustmentRulesSchema, type AssessmentUpdate } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
 import { getDomainOrchestration } from "../shared/orchestration";
 import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissions";
-import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
-import { resolveActivityProblems } from "../problem/fork";
-import { getProblemTotalScore } from "../problem/total-score";
 import { stripUndefined } from "../shared/strip-undefined";
 import { assertEffectiveTimeWindow } from "../shared/effective-time-window";
 import { assignmentDueSoonInput } from "../shared/lifecycle-input";
@@ -68,6 +66,13 @@ function assertFieldsAllowedForStatus(
   payload: AssessmentUpdate,
 ): void {
   if (liveStatus === "closed") {
+    if (
+      Object.entries(payload).every(
+        ([key, value]) =>
+          value === undefined || ["problems", "totalPoints", "gradingRevision"].includes(key),
+      )
+    )
+      return;
     throw new ValidationError("Closed assignments are read-only.");
   }
 
@@ -91,36 +96,6 @@ function assertFieldsAllowedForStatus(
       throw new ValidationError("dueAt can only be extended, not moved earlier.");
     }
   }
-}
-
-async function replaceAssignmentProblems(
-  tx: TransactionClient,
-  actor: ActorContext,
-  assignmentId: string,
-  problemIds: string[],
-  allowedLanguages: Language[],
-) {
-  const problems = await resolveActivityProblems(tx, actor, problemIds);
-  const resolvedIds = problems.map((problem) => problem.id);
-
-  if (allowedLanguages.length > 0 && resolvedIds.length > 0) {
-    await Promise.all(
-      resolvedIds.map((id) => assertProblemHasWorkspaceForLanguages(tx, id, allowedLanguages)),
-    );
-  }
-
-  await assessmentProblemRepo.withTx(tx).deleteByAssessmentId(assignmentId);
-
-  await Promise.all(
-    problems.map(async (problem, index) => {
-      await assessmentProblemRepo.withTx(tx).create({
-        assessmentId: assignmentId,
-        ordinal: index + 1,
-        points: await getProblemTotalScore(tx, problem),
-        problemId: problem.id,
-      });
-    }),
-  );
 }
 
 export async function updateAssignmentRecord(
@@ -215,15 +190,24 @@ export async function updateAssignmentRecord(
         ? await assessmentRepo.withTx(tx).update(assignment.id, updateData)
         : assignment;
 
-    if (payload.problemIds !== undefined) {
-      const enforcedLanguages = payload.allowedLanguages ?? assignment.allowedLanguages;
-      await replaceAssignmentProblems(
-        tx,
-        actor,
-        assignment.id,
-        payload.problemIds,
-        enforcedLanguages,
-      );
+    if (payload.problems !== undefined || payload.totalPoints !== undefined) {
+      const links = await tx.assessmentProblem.findMany({
+        where: { assessmentId: assignment.id },
+        orderBy: { ordinal: "asc" },
+      });
+      if (payload.gradingRevision === undefined)
+        throw new ValidationError("Grading revision is required.");
+      await saveActivityGrading(tx, actor, {
+        type: "assignment",
+        id: assignment.id,
+        totalPoints: payload.totalPoints ?? Number(assignment.totalPoints),
+        problems:
+          payload.problems ??
+          links.map((p) => ({ problemId: p.problemId, points: Number(p.points) })),
+        published: assignment.status === "published",
+        allowedLanguages: payload.allowedLanguages ?? assignment.allowedLanguages,
+        expectedRevision: payload.gradingRevision,
+      });
     }
 
     return {
@@ -258,10 +242,17 @@ export async function publishAssignment(
       throw new ValidationError("Select at least one allowed language before publishing.");
     }
 
-    const attached = await assessmentProblemRepo.findByAssessmentId(assignment.id);
+    const attached = await tx.assessmentProblem.findMany({
+      where: { assessmentId: assignment.id },
+    });
     if (attached.length < 1) {
       throw new ValidationError("Attach at least one problem before publishing.");
     }
+    assertActivityAllocation(
+      Number(assignment.totalPoints),
+      attached.map((p) => ({ problemId: p.problemId, points: Number(p.points) })),
+      true,
+    );
 
     const now = new Date();
     if (assignment.closesAt <= now) {

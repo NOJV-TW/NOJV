@@ -25,7 +25,8 @@ const {
   ),
 }));
 
-vi.mock("@nojv/db", () => ({
+vi.mock("@nojv/db", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@nojv/db")>()),
   courseMembershipRepo: { findStudents },
   assessmentRepo: { listPublishedWithProblemsByCourse: listAssessments },
   examRepo: { listPublishedWithProblemsByCourse: listExams },
@@ -52,6 +53,7 @@ function fakeAssessment(id: string, title: string, opensAt: Date, problemIds: st
     id,
     title,
     opensAt,
+    totalPoints: problemIds.length * 100,
     problems: problemIds.map((pid) => ({
       points: 100,
       problem: { id: pid, displayId: null, title: `Problem ${pid}` },
@@ -64,6 +66,7 @@ function fakeExam(id: string, title: string, startsAt: Date, problemIds: string[
     id,
     title,
     startsAt,
+    totalPoints: problemIds.length * 100,
     problems: problemIds.map((pid) => ({
       points: 100,
       problem: { id: pid, displayId: null, title: `Problem ${pid}` },
@@ -113,8 +116,8 @@ describe("buildCourseGradebook", () => {
       maxTotal: 200,
     });
     expect(out.columns[1].problems).toEqual([
-      { problemId: "p1", ordinal: 1, title: "Problem p1", maxScore: 100 },
-      { problemId: "p2", ordinal: 2, title: "Problem p2", maxScore: 100 },
+      { problemId: "p1", ordinal: 1, title: "Problem p1", maxScore: 100, rawMaxScore: 100 },
+      { problemId: "p2", ordinal: 2, title: "Problem p2", maxScore: 100, rawMaxScore: 100 },
     ]);
     expect(out.maxTotal).toBe(300);
   });

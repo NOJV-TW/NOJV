@@ -1,26 +1,19 @@
 import { assertLateSubmissionPolicy } from "../shared/late-submission-policy";
+import { saveActivityGrading } from "../scoring/activity-grading";
+import { assertActivityAllocation } from "../scoring/activity-points";
 import {
   courseRepo,
-  examProblemRepo,
   examRepo,
   runTransaction,
   type Prisma,
   type TransactionClient,
 } from "@nojv/db";
-import {
-  adjustmentRulesSchema,
-  type ExamCreate,
-  type ExamUpdate,
-  type Language,
-} from "@nojv/core";
+import { adjustmentRulesSchema, type ExamCreate, type ExamUpdate } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
 import { isCourseStaffTx } from "../shared/permissions";
 import { requireCourse, requireUser } from "../shared/require";
-import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
-import { resolveActivityProblems } from "../problem/fork";
-import { getProblemTotalScore } from "../problem/total-score";
 import { stripUndefined } from "../shared/strip-undefined";
 import { getDomainOrchestration } from "../shared/orchestration";
 import { enforceSubmitCooldown } from "../shared/submit-cooldown";
@@ -29,35 +22,6 @@ import { examAutoCloseInput } from "../shared/lifecycle-input";
 import { enqueueLifecycleCancellation } from "../shared/lifecycle-cancellation";
 
 export type { ActorContext };
-
-async function resolveAndAttachExamProblems(
-  tx: TransactionClient,
-  actor: ActorContext,
-  examId: string,
-  problemIds: string[],
-  allowedLanguages: Language[],
-) {
-  const problems = await resolveActivityProblems(tx, actor, problemIds);
-
-  if (allowedLanguages.length > 0) {
-    await Promise.all(
-      problems.map((problem) =>
-        assertProblemHasWorkspaceForLanguages(tx, problem.id, allowedLanguages),
-      ),
-    );
-  }
-
-  await Promise.all(
-    problems.map(async (problem, index) => {
-      await examProblemRepo.withTx(tx).create({
-        examId,
-        ordinal: index + 1,
-        points: await getProblemTotalScore(tx, problem),
-        problemId: problem.id,
-      });
-    }),
-  );
-}
 
 async function requireExam(tx: TransactionClient, examId: string) {
   const exam = await examRepo.withTx(tx).findById(examId);
@@ -121,17 +85,16 @@ export async function createExamRecord(actor: ActorContext, payload: ExamCreate)
       title: payload.title,
     });
 
-    if (payload.problemIds.length > 0) {
-      await resolveAndAttachExamProblems(
-        tx,
-        actor,
-        created.id,
-        payload.problemIds,
-        payload.allowedLanguages,
-      );
-    }
+    const grading = await saveActivityGrading(tx, actor, {
+      type: "exam",
+      id: created.id,
+      totalPoints: payload.totalPoints,
+      problems: payload.problems,
+      published: payload.status === "published",
+      allowedLanguages: payload.allowedLanguages,
+    });
 
-    return created;
+    return { ...created, ...grading };
   });
 
   if (exam.status === "published") {
@@ -234,16 +197,24 @@ export async function updateExamRecord(
         ? await examRepo.withTx(tx).update(exam.id, updateData)
         : exam;
 
-    if (payload.problemIds !== undefined) {
-      await examProblemRepo.withTx(tx).deleteByExamId(exam.id);
-      const enforcedLanguages = payload.allowedLanguages ?? exam.allowedLanguages;
-      await resolveAndAttachExamProblems(
-        tx,
-        actor,
-        exam.id,
-        payload.problemIds,
-        enforcedLanguages,
-      );
+    if (payload.problems !== undefined || payload.totalPoints !== undefined) {
+      const links = await tx.examProblem.findMany({
+        where: { examId: exam.id },
+        orderBy: { ordinal: "asc" },
+      });
+      if (payload.gradingRevision === undefined)
+        throw new ValidationError("Grading revision is required.");
+      await saveActivityGrading(tx, actor, {
+        type: "exam",
+        id: exam.id,
+        totalPoints: payload.totalPoints ?? Number(exam.totalPoints),
+        problems:
+          payload.problems ??
+          links.map((p) => ({ problemId: p.problemId, points: Number(p.points) })),
+        published: exam.status === "published",
+        allowedLanguages: payload.allowedLanguages ?? exam.allowedLanguages,
+        expectedRevision: payload.gradingRevision,
+      });
     }
 
     return {
@@ -282,7 +253,13 @@ export async function publishExam(actor: ActorContext, examId: string): Promise<
       throw new ValidationError("Only draft exams can be published.");
     }
 
-    const problemCount = await examProblemRepo.withTx(tx).countByExamId(exam.id);
+    const attached = await tx.examProblem.findMany({ where: { examId: exam.id } });
+    const problemCount = attached.length;
+    assertActivityAllocation(
+      Number(exam.totalPoints),
+      attached.map((p) => ({ problemId: p.problemId, points: Number(p.points) })),
+      true,
+    );
 
     if (problemCount === 0) {
       throw new ValidationError("Add at least one problem before publishing.");

@@ -1,7 +1,12 @@
+import {
+  activityScore,
+  averageActivityScores,
+  sumActivityScores,
+} from "../scoring/activity-points";
+import { getOverridesForContext } from "../scoring/resolve-final-score";
 import { assessmentRepo, courseMembershipRepo, submissionRepo } from "@nojv/db";
 
-import { getOverridesForContext } from "../scoring/resolve-final-score";
-import { getProblemTotalScores } from "../problem/total-score";
+import { getProblemTotalScores, requireProblemTotalScore } from "../problem/total-score";
 
 export interface AssessmentSummary {
   assessmentId: string;
@@ -129,16 +134,16 @@ function summarizeAssessment(
 ): AssessmentSummary {
   const problemIds = assessment.problems.map((p) => p.problem.id);
 
-  let scoreSum = 0;
-  let submitterCount = 0;
+  const totals: number[] = [];
   let completedCount = 0;
 
   for (const student of students) {
-    let total = 0;
+    const scores: ReturnType<typeof activityScore>[] = [];
     let attempted = false;
     let completedAll = problemIds.length > 0;
 
-    for (const problemId of problemIds) {
+    for (const link of assessment.problems) {
+      const problemId = link.problem.id;
       const submittedScore =
         student.userId === null
           ? undefined
@@ -149,15 +154,17 @@ function summarizeAssessment(
         continue;
       }
       attempted = true;
-      total += score;
+      const points = link.points;
+      scores.push(
+        activityScore(score, requireProblemTotalScore(maxByProblem, problemId), points),
+      );
       if (score < (maxByProblem.get(problemId) ?? Infinity)) {
         completedAll = false;
       }
     }
 
     if (attempted) {
-      scoreSum += total;
-      submitterCount += 1;
+      totals.push(sumActivityScores(scores));
     }
     if (completedAll) completedCount += 1;
   }
@@ -167,7 +174,7 @@ function summarizeAssessment(
     title: assessment.title,
     problemCount: assessment.problems.length,
     studentCount: students.length,
-    avgScore: submitterCount === 0 ? 0 : Math.round(scoreSum / submitterCount),
+    avgScore: averageActivityScores(totals),
     completionRate: students.length === 0 ? 0 : completedCount / students.length,
   };
 }

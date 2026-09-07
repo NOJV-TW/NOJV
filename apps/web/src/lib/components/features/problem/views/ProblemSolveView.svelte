@@ -18,6 +18,8 @@
     title: string;
     bestScore?: number | undefined;
     maxScore: number;
+    rawBestScore?: number | undefined;
+    rawMaxScore?: number;
     isActive: boolean;
     href: string;
   }
@@ -106,8 +108,11 @@
   let hasSiblings = $derived((siblingProblems?.length ?? 0) > 0);
 
   let solvedCount = $derived(
-    siblingProblems?.filter((s) => s.bestScore !== undefined && s.bestScore >= s.maxScore)
-      .length ?? 0,
+    siblingProblems?.filter(
+      (s) =>
+        s.bestScore !== undefined &&
+        (s.rawBestScore ?? s.bestScore) >= (s.rawMaxScore ?? s.maxScore),
+    ).length ?? 0,
   );
 </script>
 

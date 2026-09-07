@@ -45,3 +45,12 @@ export async function getProblemTotalScores(
     ]),
   );
 }
+
+export function requireProblemTotalScore(
+  totals: Map<string, number>,
+  problemId: string,
+): number {
+  const total = totals.get(problemId);
+  if (total === undefined) throw new Error(`Problem maximum missing: ${problemId}`);
+  return total;
+}
