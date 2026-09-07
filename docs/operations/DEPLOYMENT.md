@@ -487,20 +487,25 @@ the orchestrator. Full `gcloud container node-pools create` recipes live in
 
 ### Dockerfiles
 
-| Dockerfile                               | Purpose                    |
-| ---------------------------------------- | -------------------------- |
-| `infra/docker/web.Dockerfile`            | SvelteKit production build |
-| `infra/docker/worker.Dockerfile`         | Temporal worker            |
-| `infra/docker/sandbox-runner.Dockerfile` | Sandbox execution runtime  |
-| `infra/docker/migrator.Dockerfile`       | Database migration runner  |
+| Dockerfile                                  | Purpose                             |
+| ------------------------------------------- | ----------------------------------- |
+| `infra/docker/web.Dockerfile`               | SvelteKit production build          |
+| `infra/docker/worker.Dockerfile`            | Temporal worker                     |
+| `infra/docker/sandbox-runner.Dockerfile`    | Sandbox execution runtime           |
+| `infra/docker/sandbox-toolchain.Dockerfile` | Published Alpine/Node/APK toolchain |
+| `infra/docker/migrator.Dockerfile`          | Database migration runner           |
 
 #### Standard judge toolchain
 
 `packages/core/src/judge-environment.json` is the source of truth for the
 standard judge image, runner commands, and public `/environment` page. The
-sandbox Dockerfile installs the exact APK revisions and copies the exact npm
-judge-toolchain revisions, then fails its build when the pinned base image no
-longer matches the recorded Alpine or Node.js version.
+sandbox runner builds on a public, digest-pinned `nojv-sandbox:toolchain-<version>` image
+containing Alpine, Node.js, and the installed APK packages. Only the dedicated
+`infra/docker/sandbox-toolchain.Dockerfile` installs APK packages; PR, scheduled,
+and release runner builds check the installed versions with networking disabled.
+They still compile the current runner source and copy the lockfile-pinned npm
+judge dependencies from the builder. A platform or APK manifest change without
+a matching toolchain image fails the build.
 
 | Component    | Pinned version                                                                                                                                                                                      |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -509,18 +514,36 @@ longer matches the recorded Alpine or Node.js version.
 | APK packages | `bash=5.3.9-r1`, `build-base=0.5-r4`, `cargo=1.96.1-r0`, `g++=15.2.0-r5`, `gcc=15.2.0-r5`, `go=1.26.3-r0`, `openjdk21-jdk=21.0.12_p8-r0`, `python3=3.14.7-r1`, `rust=1.96.1-r0`, `socat=1.8.1.3-r0` |
 | npm packages | `@types/node@24.13.3`, `typescript@6.0.3`                                                                                                                                                           |
 
-To upgrade the toolchain, update the base image digest and
-`judge-environment.json`, refresh this table in the same change, then run
-`pnpm lint:doc-drift` and `pnpm sandbox:build`. The documentation gate requires
-the pinned-version table and manifest to contain the exact same platform,
-runtime, and APK pin set.
+The standard judge toolchain is a release artifact. Upgrade it deliberately for
+a security fix, compatibility requirement, or planned review; do not let
+Dependabot or scheduled CI move its digest automatically.
 
-The standard judge toolchain is a release artifact, not a rolling dependency.
-Do not update it from scheduled CI: upgrade the full pin set only for a
-security fix, compatibility requirement, or planned toolchain review. Validate
-the rebuilt image and representative Docker/Kubernetes judge suites before
-publishing its new immutable image digest. Existing published images remain on
-their current toolchain until that digest is explicitly promoted.
+To upgrade:
+
+1. Update the Node base digest in both sandbox Dockerfiles, the complete pin set
+   in `judge-environment.json`, and the table above. Keep npm pins aligned with
+   the workspace lockfile. Run `pnpm lint:doc-drift`.
+2. Build and publish a new candidate from a trusted maintainer environment with
+   GHCR write access and a multi-platform Buildx builder:
+
+   ```bash
+   docker buildx build --platform linux/amd64,linux/arm64 \
+     -f infra/docker/sandbox-toolchain.Dockerfile \
+     -t ghcr.io/nojv-tw/nojv-sandbox:toolchain-<new-version> --push .
+   docker buildx imagetools inspect ghcr.io/nojv-tw/nojv-sandbox:toolchain-<new-version>
+   ```
+
+3. Use the existing public `nojv-sandbox` GHCR package so unauthenticated and
+   fork PR builds can pull it.
+   Pin the returned multi-platform digest, with its readable version tag, in
+   `sandbox-runner.Dockerfile`; retain referenced versions in GHCR.
+4. Run `pnpm sandbox:build`, the hardened Docker smoke, and the representative
+   Docker/Kubernetes judge suites before merging the new pin. Check both amd64
+   and arm64 builds. Existing production releases keep their deployed digest.
+
+Publishing a toolchain candidate does not update the runner pin or deploy it.
+If old APK revisions have disappeared upstream, reuse the retained toolchain
+image; a Docker cache is not the source of truth for future runner builds.
 
 ### Cloudflare + Cloud Armor Setup
 

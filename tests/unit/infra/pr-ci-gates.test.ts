@@ -68,6 +68,24 @@ describe("pull-request runtime gates", () => {
     expect(gate).toContain('test "$COVERAGE_RESULT" = success');
   });
 
+  it("checks the installed toolchain offline instead of resolving APK packages on PRs", () => {
+    const dockerfile = readFileSync(
+      join(repoRoot, "infra/docker/sandbox-runner.Dockerfile"),
+      "utf8",
+    );
+
+    expect(dockerfile).toMatch(
+      /^FROM ghcr\.io\/nojv-tw\/nojv-sandbox:toolchain-[^\s@]+@sha256:[a-f0-9]{64}$/mu,
+    );
+    expect(dockerfile).not.toMatch(/apk add/u);
+    expect(dockerfile).toContain("RUN --network=none");
+    expect(dockerfile).toContain("apk info --exists");
+    expect(dockerfile).toContain("judge-environment.json");
+    expect(dockerfile).toContain(
+      "COPY --from=builder /build/apps/sandbox-runner/dist/ /runner/",
+    );
+  });
+
   it("runs an unconditional real Docker sandbox boundary smoke on every PR", () => {
     const workflow = readFileSync(join(repoRoot, ".github/workflows/image-build.yml"), "utf8");
     const smoke = workflow.slice(
