@@ -3,6 +3,8 @@ import {
   runWithRequestState,
 } from "@better-auth/core/context";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { APIError } from "@better-auth/core/error";
+import { markVerifiedSession } from "@nojv/application";
 
 const {
   areUnlockedMock,
@@ -129,7 +131,11 @@ interface CapturedAuthOptions {
     };
   };
   hooks: {
-    after: (ctx: Pick<PasskeyHookContext, "path">) => Promise<void>;
+    after: (
+      ctx: Pick<PasskeyHookContext, "path"> & {
+        context?: { returned?: unknown; session?: unknown; newSession?: unknown };
+      },
+    ) => Promise<void>;
     before: (ctx: PasskeyHookContext) => Promise<void>;
   };
   plugins: Array<{
@@ -301,7 +307,7 @@ describe("production factor-mutation wiring", () => {
           sessionId: "session-1",
           userId: "user-1",
         });
-        await after({ path: "/passkey/verify-registration" });
+        await after({ path: "/passkey/verify-registration", context: { returned: {} } });
       }),
     ).rejects.toMatchObject({ status: "CONFLICT" });
     expect(deletePasskeysMock).toHaveBeenCalledWith({
@@ -371,5 +377,60 @@ describe("super admin account-linking boundary", () => {
     await expect(
       beforeCreate({ providerId: "google", userId: "super-admin" }),
     ).rejects.toMatchObject({ status: "FORBIDDEN" });
+  });
+});
+
+describe("verification privilege boundary", () => {
+  const user = {
+    id: "user-1",
+    isSuperAdmin: false,
+    platformRole: "admin",
+    securityGeneration: 8,
+  };
+  const session = { session: { id: "session-1" }, user };
+
+  it.each([
+    new APIError("UNAUTHORIZED", { message: "Invalid code" }),
+    { token: "token", user },
+  ])("leaves authenticated step-up authorization to its caller (%j)", async (returned) => {
+    vi.mocked(markVerifiedSession).mockClear();
+    findUserMock.mockResolvedValue(user);
+    await productionPasskeyCallbacks().after({
+      path: "/two-factor/verify-totp",
+      context: { returned, session },
+    });
+    expect(markVerifiedSession).not.toHaveBeenCalled();
+  });
+
+  it("marks a successful TOTP sign-in's new session", async () => {
+    vi.mocked(markVerifiedSession).mockClear();
+    findUserMock.mockResolvedValue(user);
+    await productionPasskeyCallbacks().after({
+      path: "/two-factor/verify-totp",
+      context: { returned: { token: "token", user }, newSession: session },
+    });
+    expect(markVerifiedSession).toHaveBeenCalledWith(
+      "session-1",
+      { userId: "user-1", securityGeneration: 8 },
+      "regular",
+    );
+  });
+
+  it("does not grant MFA when passkey registration fails", async () => {
+    const { after, before } = productionPasskeyCallbacks();
+    findUserMock.mockResolvedValue({ ...user, isSuperAdmin: true });
+    await runWithRequestState(new WeakMap(), async () => {
+      await before({
+        path: "/passkey/verify-registration",
+        body: { response: { id: "invalid-credential" } },
+        context: { session: { ...session, user: { ...user, isSuperAdmin: true } } },
+      });
+      await after({
+        path: "/passkey/verify-registration",
+        context: { returned: new APIError("BAD_REQUEST", { message: "Invalid registration" }) },
+      });
+    });
+    expect(markFactorChangeMock).not.toHaveBeenCalled();
+    expect(deletePasskeysMock).not.toHaveBeenCalled();
   });
 });

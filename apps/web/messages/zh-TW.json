@@ -678,7 +678,7 @@
   "auth_adminFlow_verifyHint": "密碼已確認。請使用驗證器或 passkey 完成此 session 的第二步。",
   "auth_adminFlow_chooseTotp": "設定驗證器",
   "auth_adminFlow_choosePasskey": "設定 passkey",
-  "auth_adminFlow_progress": "步驟 {current}／{total}",
+  "auth_adminFlow_restart": "重新登入",
   "auth_adminFlow_recovery": "無法使用目前的驗證方式？進行帳號復原",
   "auth_adminFlow_recoveryTitle": "復原安全驗證方式",
   "auth_adminFlow_recoveryHint": "密碼已確認。請使用備援碼或 Email 驗證碼清除舊因子。",
