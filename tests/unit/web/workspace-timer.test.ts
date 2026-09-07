@@ -7,6 +7,7 @@ import WorkspaceTimer from "$lib/components/features/problem/layouts/WorkspaceTi
 
 const mocks = vi.hoisted(() => ({ goto: vi.fn() }));
 vi.mock("$app/navigation", () => ({ goto: mocks.goto }));
+vi.mock("$app/forms", () => ({ deserialize: vi.fn() }));
 vi.mock("@lucide/svelte", async () => ({
   X: (await import("./fixtures/empty-component.svelte")).default,
 }));
