@@ -80,6 +80,183 @@ async function waitForCourseLockWaiter(holderPid: number) {
 }
 
 describe("roster enrollment and identity binding", () => {
+  it.each([
+    { school: true, removed: "existing" },
+    { school: true, removed: "pending" },
+    { school: false, removed: "existing" },
+    { school: false, removed: "pending" },
+  ])(
+    "keeps $removed removal when school=$school identities merge",
+    async ({ school, removed }) => {
+      const { course, actor } = await classroom();
+      const username = school ? "ntu_b11902001" : "correct_alias";
+      const user = await createTestUser();
+      const existing = await testPrisma.courseMembership.create({
+        data: { courseId: course.id, userId: user.id, role: "student" },
+      });
+      await courseDomain.bulkAddByHandle(actor, course.id, { handles: [username], role: "ta" });
+      const pending = await pendingMember(course.id, username);
+      const removedId = removed === "existing" ? existing.id : pending.id;
+      await courseDomain.removeMember(actor, course.id, removedId);
+      const before = await testPrisma.courseMembership.findUniqueOrThrow({
+        where: { id: removedId },
+      });
+      if (school)
+        await userDomain.processSchoolVerification(await verificationToken(user.id, username));
+      else await userDomain.renameUsername(user.id, username);
+      await userDomain.linkUserCourseRoster(user.id);
+      const survivorId = school ? pending.id : existing.id;
+      expect(
+        await testPrisma.courseMembership.findMany({
+          where: { courseId: course.id, userId: user.id },
+        }),
+      ).toMatchObject([{ id: survivorId, status: "removed", removedAt: before.removedAt }]);
+      await courseDomain.bulkAddByHandle(actor, course.id, {
+        handles: [username],
+        role: "student",
+      });
+      expect(
+        await testPrisma.courseMembership.findUnique({ where: { id: survivorId } }),
+      ).toMatchObject({ status: "active", removedAt: null, role: "student" });
+    },
+  );
+
+  it("rejects correction of linked rows, other courses, and unauthorized actors", async () => {
+    const { course, actor, ownerMembership } = await classroom();
+    await courseDomain.bulkAddByHandle(actor, course.id, {
+      handles: ["misspelled"],
+      role: "student",
+    });
+    const pending = await pendingMember(course.id, "misspelled");
+    const other = await classroom();
+    await expect(
+      courseDomain.correctPendingUsername(other.actor, course.id, pending.id, "corrected"),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    await testPrisma.courseMembership.create({
+      data: { courseId: course.id, userId: other.actor.userId, role: "ta" },
+    });
+    await expect(
+      courseDomain.correctPendingUsername(other.actor, course.id, pending.id, "corrected"),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(
+      courseDomain.correctPendingUsername(
+        other.actor,
+        other.course.id,
+        pending.id,
+        "corrected",
+      ),
+    ).rejects.toMatchObject({ status: 404 });
+    await expect(
+      courseDomain.correctPendingUsername(actor, course.id, pending.id, "bad username"),
+    ).rejects.toMatchObject({ status: 400 });
+    const user = await createTestUser();
+    const linked = await testPrisma.courseMembership.create({
+      data: { courseId: course.id, userId: user.id, role: "student" },
+    });
+    await expect(
+      courseDomain.correctPendingUsername(actor, course.id, linked.id, "corrected"),
+    ).rejects.toThrow("ROSTER_ALREADY_LINKED");
+    await expect(
+      courseDomain.correctPendingUsername(actor, course.id, ownerMembership.id, "corrected"),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(await pendingMember(course.id, "misspelled")).toEqual(pending);
+  });
+
+  it.each(["pending", "linked", "removed", "disabled"])(
+    "rejects correction into a %s conflict without changing either row",
+    async (kind) => {
+      const { course, actor } = await classroom();
+      await courseDomain.bulkAddByHandle(actor, course.id, {
+        handles: ["misspelled"],
+        role: "student",
+      });
+      const pending = await pendingMember(course.id, "misspelled");
+      if (kind !== "pending")
+        await createTestUser({ username: "corrected", disabled: kind === "disabled" });
+      if (kind !== "disabled") {
+        await courseDomain.bulkAddByHandle(actor, course.id, {
+          handles: ["corrected"],
+          role: "student",
+        });
+        if (kind === "removed")
+          await testPrisma.courseMembership.updateMany({
+            where: { courseId: course.id, id: { not: pending.id }, role: "student" },
+            data: { status: "removed", removedAt: new Date() },
+          });
+      }
+      const before = await testPrisma.courseMembership.findMany({
+        where: { courseId: course.id },
+        orderBy: { id: "asc" },
+      });
+      await expect(
+        courseDomain.correctPendingUsername(actor, course.id, pending.id, "corrected"),
+      ).rejects.toBeInstanceOf(ConflictError);
+      expect(
+        await testPrisma.courseMembership.findMany({
+          where: { courseId: course.id },
+          orderBy: { id: "asc" },
+        }),
+      ).toEqual(before);
+    },
+  );
+
+  it("serializes competing corrections without merging memberships", async () => {
+    const { course, actor } = await classroom();
+    await courseDomain.bulkAddByHandle(actor, course.id, {
+      handles: ["typo_one", "typo_two"],
+      role: "student",
+    });
+    const rows = await testPrisma.courseMembership.findMany({
+      where: { courseId: course.id, role: "student" },
+    });
+    const results = await Promise.allSettled(
+      rows.map((row) =>
+        courseDomain.correctPendingUsername(actor, course.id, row.id, "corrected"),
+      ),
+    );
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+    expect(
+      await testPrisma.courseMembership.count({
+        where: { courseId: course.id, role: "student" },
+      }),
+    ).toBe(2);
+    expect(
+      await testPrisma.courseMembership.count({
+        where: { courseId: course.id, pendingUsername: "corrected" },
+      }),
+    ).toBe(1);
+  });
+
+  it.each(["student", "ta"] as const)(
+    "corrects a removed %s without restoring it or touching another course",
+    async (role) => {
+      const { course, actor } = await classroom();
+      const other = await classroom();
+      await courseDomain.bulkAddByHandle(actor, course.id, { handles: ["misspelled"], role });
+      await courseDomain.bulkAddByHandle(other.actor, other.course.id, {
+        handles: ["corrected"],
+        role,
+      });
+      const otherPending = await pendingMember(other.course.id, "corrected");
+      const pending = await pendingMember(course.id, "misspelled");
+      await courseDomain.removeMember(actor, course.id, pending.id);
+      const removed = await pendingMember(course.id, "misspelled");
+      const user = await createTestUser({ username: "corrected" });
+      await courseDomain.correctPendingUsername(actor, course.id, pending.id, "corrected");
+      expect(
+        await testPrisma.courseMembership.findUnique({ where: { id: pending.id } }),
+      ).toEqual({
+        ...removed,
+        pendingUsername: null,
+        userId: user.id,
+        updatedAt: expect.any(Date),
+      });
+      expect(await pendingMember(other.course.id, "corrected")).toEqual(otherPending);
+      expect(await testPrisma.notification.count({ where: { userId: user.id } })).toBe(0);
+    },
+  );
+
   it.each(schoolIdentities)(
     "binds verified school OAuth email $email to $username",
     async ({ username, email }) => {

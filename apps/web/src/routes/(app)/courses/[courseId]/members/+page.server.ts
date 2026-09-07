@@ -17,6 +17,7 @@ const {
   bulkAddByHandle,
   changeMemberRole,
   removeMember,
+  correctPendingUsername,
   parseHandleInput,
 } = courseDomain;
 
@@ -40,6 +41,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const actor = requireAuth(event);
   const parent = await event.parent();
   const { course, isManager } = parent;
+  const canCorrectUsername = canManageMembers(await getCoursePermissionRole(course.id, actor));
 
   const [members, bulkAddForm] = await Promise.all([
     listMembersForCourse(course.id),
@@ -61,6 +63,10 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       email: isManager ? member.email : null,
       role: member.role,
       isPending: member.isPending,
+      canCorrectUsername:
+        canCorrectUsername &&
+        member.isPending &&
+        (member.role !== "teacher" || actor.platformRole === "admin"),
       joinedAt: member.joinedAt,
     }));
 
@@ -71,6 +77,38 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 });
 
 export const actions = {
+  correctUsername: withAction(async (event) => {
+    const actor = requireAuth(event);
+    const data = await event.request.formData();
+    const parsed = z
+      .object({
+        membershipId: z.string().trim().min(1),
+        username: z.string().trim().min(3).max(64),
+      })
+      .safeParse({ membershipId: data.get("membershipId"), username: data.get("username") });
+    if (!parsed.success) return fail(400, { error: m.account_usernameInvalid() });
+    try {
+      await correctPendingUsername(
+        actor,
+        event.params.courseId,
+        parsed.data.membershipId,
+        parsed.data.username,
+      );
+      return { success: true };
+    } catch (err) {
+      const classified = classifyRequestError(err, event);
+      const errors: Record<string, string> = {
+        ROSTER_ALREADY_LINKED: m.members_alreadyLinked(),
+        ROSTER_ACCOUNT_UNAVAILABLE: m.members_accountUnavailable(),
+        ROSTER_USERNAME_CONFLICT: m.members_usernameConflict(),
+      };
+      return fail(classified.status, {
+        error:
+          errors[classified.message] ??
+          (classified.status === 400 ? m.account_usernameInvalid() : classified.message),
+      });
+    }
+  }),
   bulkAdd: withAction(async (event) => {
     const actor = requireAuth(event);
     const form = await superValidate(event, zod4(bulkAddSchema));

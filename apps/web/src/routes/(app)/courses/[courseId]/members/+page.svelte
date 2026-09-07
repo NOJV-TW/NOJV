@@ -1,6 +1,8 @@
 <script lang="ts">
   import { invalidateAll } from "$app/navigation";
-  import { X } from "@lucide/svelte";
+  import { enhance } from "$app/forms";
+  import { Pencil, X } from "@lucide/svelte";
+  import { Button } from "$lib/components/primitives/ui/button";
   import * as Select from "$lib/components/primitives/ui/select";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/stores/toast";
@@ -19,6 +21,10 @@
 
   let roleFilter = $state("");
   let search = $state("");
+  let editingMembershipId = $state<string | null>(null);
+  let correctedUsername = $state("");
+  let correcting = $state(false);
+  let correctionError = $state("");
 
   const filtered = $derived.by(() => {
     const needle = search.trim().toLowerCase();
@@ -171,7 +177,82 @@
                       {member.isPending ? m.members_pendingActivation() : member.name}
                     </div>
                     <div class="mt-0.5 font-mono text-caption text-muted-foreground">
-                      {member.username ?? "—"}
+                      {#if editingMembershipId === member.membershipId}
+                        <form
+                          method="POST"
+                          action="?/correctUsername"
+                          class="space-y-2"
+                          use:enhance={() => {
+                            correcting = true;
+                            correctionError = "";
+                            return async ({ result, update }) => {
+                              try {
+                                if (result.type === "success") {
+                                  await update({ reset: false });
+                                  editingMembershipId = null;
+                                  toasts.success(m.members_usernameCorrected());
+                                } else {
+                                  correctionError =
+                                    result.type === "failure" &&
+                                    typeof result.data?.error === "string"
+                                      ? result.data.error
+                                      : m.members_usernameCorrectionError();
+                                }
+                              } finally {
+                                correcting = false;
+                              }
+                            };
+                          }}
+                        >
+                          <input
+                            type="hidden"
+                            name="membershipId"
+                            value={member.membershipId}
+                          />
+                          <input
+                            name="username"
+                            aria-label={m.members_correctUsername()}
+                            bind:value={correctedUsername}
+                            required
+                            minlength="3"
+                            maxlength="64"
+                            disabled={correcting}
+                            class="w-full rounded-md border border-input bg-background px-3 py-2 text-body-sm"
+                          />
+                          <div class="flex gap-2">
+                            <Button type="submit" size="sm" disabled={correcting}
+                              >{m.common_save()}</Button
+                            >
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={correcting}
+                              onclick={() => (editingMembershipId = null)}
+                              >{m.common_cancel()}</Button
+                            >
+                          </div>
+                          {#if correctionError}<p role="alert" class="text-destructive">
+                              {correctionError}
+                            </p>{/if}
+                        </form>
+                      {:else}
+                        {member.username ?? "—"}
+                        {#if member.canCorrectUsername}
+                          <button
+                            type="button"
+                            aria-label={m.members_correctUsername()}
+                            title={m.members_correctUsername()}
+                            disabled={correcting}
+                            class="ml-2 rounded-sm p-1 hover:text-foreground"
+                            onclick={() => {
+                              editingMembershipId = member.membershipId;
+                              correctedUsername = member.username ?? "";
+                              correctionError = "";
+                            }}><Pencil class="size-3.5" aria-hidden="true" /></button
+                          >
+                        {/if}
+                      {/if}
                     </div>
                   </div>
                 </div>

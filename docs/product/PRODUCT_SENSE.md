@@ -51,7 +51,8 @@
 
 - Course creation and management
 - Teacher-driven enrollment by full username, with durable roster rows before an account exists. Teachers use bare NTNU student IDs, `ntu_` / `ntust_` prefixes for NTU / NTUST, or general usernames; prefixes are never inferred.
-- Students and TAs bind automatically when the matching account obtains its username. School verification keeps the existing account and its credentials/submissions; a school roster collision keeps the school row and its conflicting role, status, scores, and feedback. A general rename keeps the already-linked row. Nonconflicting data and both audit histories survive; login never reactivates removed enrollment.
+- Students and TAs bind automatically when the matching account obtains its username. School verification keeps the existing account and its credentials/submissions; a school roster collision keeps the school row and its conflicting role, scores, and feedback. A general rename keeps the already-linked row. If either enrollment was removed, the merged enrollment stays removed until a teacher restores it; existing owner/teacher membership protections still apply. Nonconflicting data and both audit histories survive.
+- Teachers can correct an unlinked roster username without changing its membership ID, grades, feedback, role, or enrollment dates. An existing account links immediately if it has no other membership in the course. Conflicting course memberships and already-linked roster identities cannot be overwritten by this action.
 - Course roles: teacher, TA, student
 - Assessment management with open/due/close lifecycle (Temporal-managed)
 - Assessment Settings tab: publish / archive / revert-to-draft / delete-draft with status-aware field locks

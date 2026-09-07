@@ -8,7 +8,7 @@ Replace placeholder Users with durable CourseMembership rows. Teachers can enrol
 - General usernames are supported: teacher entry authorizes eventual matching account ownership, including TA roles. No invitation or additional approval workflow.
 - Assignment and exam manual scores and feedback work before activation. Keep existing timing and scoring-mode rules; do not fabricate participation or submission rows.
 - School verification updates the existing User's username, preserving its ID, credentials, and submissions.
-- On same-course collisions, the school roster row survives and its conflicting manual scores, feedback, role, and status win. Merge nonconflicting data and preserve both histories. General renames instead preserve the already-linked row and its conflicting data/role/status.
+- On same-course collisions, the school roster row survives and its conflicting manual scores, feedback, and role win. Merge nonconflicting data and preserve both histories. General renames instead preserve the already-linked row and its conflicting data/role. Either row's removed status wins, subject to existing owner/teacher protections.
 - Login and verification alone never reactivate a removed enrollment. Protected course owners/teacher roles remain protected.
 
 ## Model and integration contract
@@ -31,8 +31,18 @@ Replace placeholder Users with durable CourseMembership rows. Teachers can enrol
 - [x] Members/gradebook/matrix UI, translations, CSV, and browser tests.
 - [x] Atomic production migration, guarded cleanup, schema rollback fence, seed/docs cleanup, and migration rehearsal.
 - [x] Full local checks and independent review.
-- [ ] Exact-head remote CI and authorized admin PR merge.
+- [x] Exact-head remote CI and authorized admin PR merge (PR #412, `bebf0857`).
 - [ ] Production release, data, and workload verification (on hold for a later user instruction).
+
+## Authorized review corrections
+
+The user accepted two review fixes: identity merges must retain a removal from either roster row, and teachers need an unlinked username correction action preserving membership/grading identity. Do not add merge-rule explanations to the verification UI. Correction uses the existing identity/course locks and common linking flow, rejects already-linked/disabled accounts and same-course collisions, and does not merge another student's records. No schema migration is needed for these corrections.
+
+- [x] Removal precedence regressions, correction authorization/conflict/concurrency and grade preservation tests.
+- [x] Inline correction UI, bilingual action/error text, and real browser grading/correction flows.
+- [ ] Follow-up PR exact-head CI/admin merge; production remains on hold.
+
+Local correction validation passed: `pnpm ci:verify` (341 unit files / 2,933 tests, 25 component files / 49 tests, build/lint/typechecks); 48 real-DB roster/grading tests; 12 Playwright membership, activation, and grading/correction cases without retries. Independent review found no P1/P2 issues. The initial correction preservation assertion was corrected to permit the membership's normal `updatedAt` change; the initial browser conflict test was corrected to locate by stable membership ID while the username is being edited. Final runs pass with those fixes.
 
 ## Migration and deployment
 
