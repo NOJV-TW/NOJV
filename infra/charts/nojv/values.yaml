@@ -302,7 +302,7 @@ worker:
     cpuRequest: "500m"
     caseCpuRequest: "100m"
     cpuLimit: "1"
-    memoryRequest: "256Mi"
+    memoryRequest: "64Mi"
     memoryLimit: "512Mi"
     maxParallelCases: 20
     runtimeClassName: gvisor
