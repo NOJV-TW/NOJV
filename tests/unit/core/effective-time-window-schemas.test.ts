@@ -48,4 +48,19 @@ describe("effective time-window update schemas", () => {
   it("allows clearing an assessment dueAt", () => {
     expect(assessmentUpdateSchema.safeParse({ dueAt: null }).success).toBe(true);
   });
+
+  it("does not inject an empty problem list into partial exam updates", () => {
+    const result = examUpdateSchema.safeParse({ allowedLanguages: ["c"] });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    expect(result.data.problemIds).toBeUndefined();
+  });
+
+  it("preserves an explicitly supplied problem list for exam updates", () => {
+    expect(examUpdateSchema.parse({ problemIds: ["problem_1"] }).problemIds).toEqual([
+      "problem_1",
+    ]);
+  });
 });

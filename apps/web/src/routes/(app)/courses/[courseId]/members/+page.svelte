@@ -152,7 +152,15 @@
                       : ''}"
                     aria-hidden="true"
                   >
-                    {member.isPlaceholder ? "?" : initialFor(member.name)}
+                    {#if member.image}
+                      <img
+                        src={member.image}
+                        alt={member.name}
+                        class="size-full rounded-full object-cover"
+                      />
+                    {:else}
+                      {member.isPlaceholder ? "?" : initialFor(member.name)}
+                    {/if}
                   </div>
                   <div class="whitespace-nowrap">
                     <div class={member.isPlaceholder ? "text-muted-foreground" : "font-medium"}>

@@ -13,13 +13,15 @@ export const examPublishStatuses = ["draft", "published"] as const;
 export const examPublishStatusSchema = z.enum(examPublishStatuses);
 export type ExamPublishStatus = z.infer<typeof examPublishStatusSchema>;
 
+const examProblemIdsSchema = z.array(z.string().trim().min(1)).max(32);
+
 const examCreateBaseSchema = z.object({
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   courseId: z.string().trim().min(1),
   endsAt: isoDateTimeSchema,
   ...ipLockFields,
   pageLockEnabled: z.boolean().default(false),
-  problemIds: z.array(z.string().trim().min(1)).max(32).default([]),
+  problemIds: examProblemIdsSchema.default([]),
   scoreboardMode: scoreboardModeSchema.default("hidden"),
   scoringMode: examScoringModeSchema.default("point_sum"),
   startsAt: isoDateTimeSchema,
@@ -39,6 +41,9 @@ export const examCreateSchema = examCreateBaseSchema.refine(
 
 export const examUpdateSchema = examCreateBaseSchema
   .partial()
+  .extend({
+    problemIds: examProblemIdsSchema.optional(),
+  })
   .refine(
     (value) =>
       value.startsAt === undefined ||

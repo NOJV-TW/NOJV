@@ -13,6 +13,7 @@ export const courseMembershipAdminRepo = {
             name: true,
             username: true,
             email: true,
+            image: true,
             status: true,
           },
         },

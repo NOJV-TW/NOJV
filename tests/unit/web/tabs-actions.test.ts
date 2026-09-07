@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { mount, unmount } from "svelte";
+import { mount, tick, unmount } from "svelte";
 import { describe, expect, it } from "vitest";
 
 import TabsWithActions from "./fixtures/tabs-with-actions.svelte";
@@ -16,6 +16,22 @@ describe("Tabs actions", () => {
     expect(
       search?.parentElement?.parentElement?.querySelector('[role="tablist"]'),
     ).not.toBeNull();
+
+    await unmount(component);
+    target.remove();
+  });
+
+  it("notifies the parent when a tab changes", async () => {
+    const target = document.createElement("div");
+    document.body.append(target);
+    const component = mount(TabsWithActions, { target });
+
+    target.querySelector<HTMLButtonElement>("#tabs-tab-results")?.click();
+    await tick();
+
+    expect(target.querySelector("[data-tab-value]")?.getAttribute("data-tab-value")).toBe(
+      "results",
+    );
 
     await unmount(component);
     target.remove();

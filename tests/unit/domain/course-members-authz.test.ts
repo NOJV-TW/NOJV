@@ -1,17 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { findByComposite, updateRole, removeFromCourse, runTransaction } = vi.hoisted(() => ({
-  findByComposite: vi.fn(),
-  updateRole: vi.fn(),
-  removeFromCourse: vi.fn(),
-  runTransaction: vi.fn(<T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
-    fn({ $executeRaw: async () => 0 }),
-  ),
-}));
+const { findByComposite, listWithUserByCourse, updateRole, removeFromCourse, runTransaction } =
+  vi.hoisted(() => ({
+    findByComposite: vi.fn(),
+    listWithUserByCourse: vi.fn(),
+    updateRole: vi.fn(),
+    removeFromCourse: vi.fn(),
+    runTransaction: vi.fn(<T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
+      fn({ $executeRaw: () => Promise.resolve(0) }),
+    ),
+  }));
 
 vi.mock("@nojv/db", () => ({
   courseMembershipRepo: { findByComposite, withTx: () => ({ findByComposite }) },
   courseMembershipAdminRepo: {
+    listWithUserByCourse,
     updateRole,
     removeFromCourse,
     withTx: () => ({ updateRole, removeFromCourse }),
@@ -23,6 +26,7 @@ import {
   changeMemberRole,
   removeMember,
   bulkAddByHandle,
+  listMembersForCourse,
 } from "../../../packages/application/src/course/members";
 import { canManageMembers } from "../../../packages/application/src/shared/permissions";
 
@@ -30,7 +34,7 @@ type Role = "student" | "ta" | "teacher";
 
 const COURSE = "crs_1";
 
-function setMemberships(map: Record<string, { role: Role; status?: string }>) {
+function setMemberships(map: Partial<Record<string, { role: Role; status?: string }>>) {
   findByComposite.mockImplementation((_courseId: string, userId: string) => {
     const m = map[userId];
     if (!m) return Promise.resolve(null);
@@ -70,6 +74,31 @@ describe("canManageMembers", () => {
     expect(canManageMembers("ta")).toBe(false);
     expect(canManageMembers("student")).toBe(false);
     expect(canManageMembers(null)).toBe(false);
+  });
+});
+
+describe("listMembersForCourse", () => {
+  it("keeps each member's configured avatar URL", async () => {
+    listWithUserByCourse.mockResolvedValue([
+      {
+        role: "student",
+        status: "active",
+        joinedAt: new Date("2026-09-07T00:00:00.000Z"),
+        removedAt: null,
+        user: {
+          id: "usr_student",
+          name: "Student",
+          username: "student",
+          email: "student@example.com",
+          image: "/api/storage/avatars/usr_student/avatar.webp",
+          status: "active",
+        },
+      },
+    ]);
+
+    const [member] = await listMembersForCourse(COURSE);
+
+    expect(member).toHaveProperty("image", "/api/storage/avatars/usr_student/avatar.webp");
   });
 });
 
