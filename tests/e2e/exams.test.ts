@@ -136,6 +136,17 @@ test.describe("Exams — list, detail, problem visibility", () => {
       page.once("dialog", (dialog) => void dialog.accept());
       await page.getByRole("button", { name: /end exam/i }).click();
       await expect(page).toHaveURL(new RegExp(`/exams/${examId}$`));
+      await expect(page.getByRole("heading", { name: "Submitted", exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: /start exam/i })).toHaveCount(0);
+      await page.reload();
+      await expect(page.getByRole("heading", { name: "Submitted", exact: true })).toBeVisible();
+      const restart = await page.request.post(`/exams/${examId}?/startExam`, {
+        form: {},
+        headers: apiWriteHeaders,
+      });
+      expect(await restart.json()).toMatchObject({ type: "failure", status: 403 });
+      const problem = await page.request.get(`/exams/${examId}/problems/problem_warmup-sum`);
+      expect(problem.status()).toBe(403);
     } finally {
       await page.request.post(`/exams/${examId}?/releaseSession`, {
         form: {},

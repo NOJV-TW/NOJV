@@ -392,7 +392,14 @@
         </GlassPanel>
       {/if}
     {:else}
-      {#if hasActiveSession && liveStatus === "running"}
+      {#if data.hasSubmitted}
+        <GlassPanel class="p-7">
+          <h2 class="text-title font-semibold">{m.statusPill_exam_submitted()}</h2>
+          <p class="mt-2 text-body-sm text-muted-foreground">
+            {m.examDetail_submittedNotice()}
+          </p>
+        </GlassPanel>
+      {:else if hasActiveSession && liveStatus === "running"}
         <GlassPanel class="overflow-hidden">
           <div
             class="flex items-center justify-between border-b border-border-subtle px-6 py-4"

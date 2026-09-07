@@ -149,6 +149,26 @@ START_GRACE_MS` (5 min) and `now < endsAt`, and the actor is an active
   WHEN start runs,
   THEN `ForbiddenError("This course is archived; new exam sessions are not allowed.")`.
 
+### Session — student hand-in
+
+- WHEN a student confirms end exam, THEN `endSession` atomically closes their
+  session with `releaseReason: submitted` and changes their active Participation
+  to `submitted` with the same `submittedAt`. Repeating the request preserves the
+  original end time and does not append another release event.
+- GIVEN either a submitted session or submitted Participation, WHEN either
+  `startSession` or `startSessionWithGate` is called, THEN
+  `ForbiddenError("You have already submitted this exam.")` is thrown before any
+  session or participation mutation.
+- Student start, end, and exam submission admission share the per-user transaction
+  advisory lock. After hand-in succeeds, stale tabs cannot submit new answers;
+  previously admitted submissions can still finish judging.
+- GIVEN a submitted student while the exam is running, WHEN the exam detail page
+  loads or reloads, THEN it shows a submitted notice without start controls or
+  problem links. Normal post-exam review remains available once `endsAt` passes.
+- Instructor release remains re-enterable while the exam window is open and the
+  student has not submitted. If the student then confirms hand-in from a stale
+  workspace tab, that request still finalizes their participation.
+
 ### Session — post-start problem list
 
 - GIVEN a student with an active session on a running exam E

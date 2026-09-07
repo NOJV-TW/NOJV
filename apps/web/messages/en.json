@@ -1440,6 +1440,7 @@
   "examMode_countdownThreshold": "{minutes} minutes remaining in this exam.",
   "examMode_lockTooltip": "You're in exam mode — leaving this page is not allowed.",
   "examMode_timeUp": "Time is up. Your work has been saved.",
+  "examDetail_submittedNotice": "You have submitted this exam and cannot re-enter or submit more answers. You can review it after the exam ends.",
   "examMode_submitEndButton": "Submit and end exam",
   "examMode_submitEndConfirm": "Submit your work and end the exam? You won't be able to make any more changes.",
   "examMode_submitEndFailed": "Submit failed — please try again.",

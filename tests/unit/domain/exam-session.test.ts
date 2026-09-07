@@ -12,6 +12,7 @@ const {
   txCourseFindUnique,
   participationUpsertExamActive,
   participationFindExamParticipation,
+  participationMarkExamSubmitted,
 } = vi.hoisted(() => ({
   examFindById: vi.fn(),
   examFindByIdOrThrow: vi.fn(),
@@ -24,6 +25,7 @@ const {
   txCourseFindUnique: vi.fn(),
   participationUpsertExamActive: vi.fn(),
   participationFindExamParticipation: vi.fn(),
+  participationMarkExamSubmitted: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => {
@@ -52,6 +54,7 @@ vi.mock("@nojv/db", () => {
       withTx: () => ({
         upsertExamActive: participationUpsertExamActive,
         findExamParticipation: participationFindExamParticipation,
+        markExamSubmitted: participationMarkExamSubmitted,
       }),
     },
     runTransaction: async <T>(
@@ -80,6 +83,7 @@ const fakeActor = {
 
 function setupEnrolledStudent({ archived = false }: { archived?: boolean } = {}) {
   examFindById.mockResolvedValue(fakeExam);
+  participationFindExamParticipation.mockResolvedValue(null);
   membershipFindByComposite.mockResolvedValue({
     courseId: fakeExam.courseId,
     userId: fakeActor.userId,
@@ -140,14 +144,14 @@ describe("examDomain.session.startSession", () => {
     expect(sessionRecordEvent).not.toHaveBeenCalled();
   });
 
-  it("re-opens an ended session by clearing endedAt and records a fresh enter event", async () => {
+  it("re-opens an instructor-released session and records a fresh enter event", async () => {
     setupEnrolledStudent();
     sessionFindByUserAndExam.mockResolvedValue({
       id: "sess_old",
       userId: fakeActor.userId,
       examId: fakeExam.id,
       endedAt: new Date("2026-04-13T10:00:00.000Z"),
-      releaseReason: "submitted",
+      releaseReason: "released_by_instructor",
     });
     sessionUpdate.mockResolvedValue({
       id: "sess_old",
@@ -169,6 +173,29 @@ describe("examDomain.session.startSession", () => {
       expect.objectContaining({ sessionId: "sess_old", eventType: "enter" }),
     );
   });
+
+  it.each(["session", "participation"])(
+    "rejects re-entry after submitted %s without changing any state",
+    async (source) => {
+      setupEnrolledStudent();
+      sessionFindActiveForUser.mockResolvedValue(null);
+      sessionFindByUserAndExam.mockResolvedValue({
+        id: "sess_submitted",
+        endedAt: new Date(),
+        releaseReason: source === "session" ? "submitted" : "released_by_instructor",
+      });
+      participationFindExamParticipation.mockResolvedValue({
+        status: source === "participation" ? "submitted" : "active",
+      });
+
+      await expect(session.startSession(fakeActor, { examId: fakeExam.id })).rejects.toThrow(
+        "You have already submitted this exam.",
+      );
+      expect(sessionUpdate).not.toHaveBeenCalled();
+      expect(participationUpsertExamActive).not.toHaveBeenCalled();
+      expect(sessionRecordEvent).not.toHaveBeenCalled();
+    },
+  );
 
   it("throws ForbiddenError when actor is not enrolled in the exam's course", async () => {
     examFindById.mockResolvedValue(fakeExam);
@@ -229,6 +256,11 @@ describe("examDomain.session.endSession", () => {
     const [, updateData] = sessionUpdate.mock.calls[0] as [string, Record<string, unknown>];
     expect(updateData.endedAt).toBeInstanceOf(Date);
     expect(updateData.releaseReason).toBe("submitted");
+    expect(participationMarkExamSubmitted).toHaveBeenCalledWith(
+      fakeExam.id,
+      fakeActor.userId,
+      updateData.endedAt,
+    );
     expect(sessionRecordEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         sessionId: "sess_1",
@@ -236,6 +268,19 @@ describe("examDomain.session.endSession", () => {
         metadata: { reason: "submitted" },
       }),
     );
+  });
+
+  it("keeps an ended session unchanged when hand-in is retried", async () => {
+    setupEnrolledStudent();
+    const ended = { id: "sess_1", endedAt: new Date(), releaseReason: "submitted" };
+    sessionFindByUserAndExam.mockResolvedValue(ended);
+
+    expect(
+      await session.endSession(fakeActor, { examId: fakeExam.id, reason: "submitted" }),
+    ).toEqual(ended);
+    expect(sessionUpdate).not.toHaveBeenCalled();
+    expect(participationMarkExamSubmitted).not.toHaveBeenCalled();
+    expect(sessionRecordEvent).not.toHaveBeenCalled();
   });
 
   it("throws NotFoundError when no session exists for the actor", async () => {

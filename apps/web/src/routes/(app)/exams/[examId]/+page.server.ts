@@ -91,7 +91,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       : Promise.resolve([] as auditDomain.AuditEvent[]),
     isManager
       ? Promise.resolve(null)
-      : examDomain.session.getActiveSessionContext(actor.userId),
+      : examDomain.session.getSessionState(actor.userId, examId),
     isManager
       ? problemDomain.listProblemPickerGroups(actor.userId)
       : Promise.resolve({ personalProblems: [], publicProblems: [] }),
@@ -151,11 +151,12 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         )
       : null;
 
-  const hasActiveSession = viewerSession?.session.examId === examId;
+  const hasActiveSession = viewerSession?.hasActiveSession ?? false;
 
   return {
     detail,
     hasActiveSession,
+    hasSubmitted: viewerSession?.hasSubmitted ?? false,
     matrix,
     isManager,
     activeSessions,
