@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { m } from "$lib/paraglide/messages.js";
   import { cn } from "$lib/utils/css.js";
   import type {
     MatrixCell,
@@ -16,7 +17,7 @@
     sortKey: string;
     sortDirection: "asc" | "desc";
     onsort: (key: string) => void;
-    oncellclick?: ((userId: string, problemId: string) => void) | undefined;
+    oncellclick?: ((rowId: string, problemId: string) => void) | undefined;
   }
 
   let {
@@ -124,12 +125,17 @@
       </tr>
     </thead>
     <tbody>
-      {#each rows as row (row.userId)}
+      {#each rows as row (row.rowId)}
         <tr>
           <td
             class="sticky left-0 z-[1] border-b border-r border-border-subtle bg-background px-5 py-3 text-left before:absolute before:inset-0 before:-z-[1] before:bg-[color:var(--color-panel)] before:content-['']"
           >
             <div class="font-medium tracking-[-0.005em] text-foreground">{row.displayName}</div>
+            {#if row.userId === null}
+              <div class="text-caption text-muted-foreground">
+                {m.members_pendingActivation()}
+              </div>
+            {/if}
             {#if row.handle}
               <div class="mt-0.5 font-mono text-caption text-muted-foreground">
                 {row.handle}
@@ -156,7 +162,7 @@
                   class="block h-full w-full cursor-pointer px-3 py-3 transition-colors hover:bg-foreground/5 focus-visible:outline-2 focus-visible:outline-primary"
                   title={labels.gradeCellTitle?.()}
                   aria-label={labels.gradeCellTitle?.()}
-                  onclick={() => oncellclick?.(row.userId, cell.problemId)}
+                  onclick={() => oncellclick?.(row.rowId, cell.problemId)}
                 >
                   {@render cellBody(cell)}
                 </button>

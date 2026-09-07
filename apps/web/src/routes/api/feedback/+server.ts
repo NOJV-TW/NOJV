@@ -14,14 +14,11 @@ import { feedbackUpsertSchema } from "@nojv/core";
 import { feedbackDomain } from "@nojv/application";
 
 const contextSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("assignment"), assignmentId: z.string().min(1) }),
-  z.object({ type: z.literal("exam"), examId: z.string().min(1) }),
+  z.strictObject({ type: z.literal("assignment"), assignmentId: z.string().min(1) }),
+  z.strictObject({ type: z.literal("exam"), examId: z.string().min(1) }),
 ]);
 
-const upsertSchema = z.object({
-  context: contextSchema,
-  ...feedbackUpsertSchema.shape,
-});
+const upsertSchema = feedbackUpsertSchema.extend({ context: contextSchema });
 
 function parseContextQuery(url: URL): z.infer<typeof contextSchema> {
   const type = url.searchParams.get("type");

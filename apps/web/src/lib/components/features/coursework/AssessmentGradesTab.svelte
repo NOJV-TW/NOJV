@@ -24,7 +24,7 @@
     csvDownloadName: string;
     dataSlot: string;
     labels: MatrixViewLabels;
-    oncellclick?: ((userId: string, problemId: string) => void) | undefined;
+    oncellclick?: ((rowId: string, problemId: string) => void) | undefined;
   }
 
   let { matrix, stats, csvDownloadName, dataSlot, labels, oncellclick }: Props = $props();

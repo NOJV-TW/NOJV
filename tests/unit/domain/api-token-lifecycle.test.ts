@@ -9,7 +9,6 @@ interface MockUser {
   id: string;
   name: string;
   platformRole: "admin" | "teacher" | "student";
-  status: "active" | "disabled" | "pending_first_login";
   username: string | null;
 }
 
@@ -43,7 +42,6 @@ function ownerOf(userId: string): MockUser {
       id: userId,
       name: "Owner",
       platformRole: "student",
-      status: "active",
       username: "owner",
     }
   );
@@ -257,12 +255,18 @@ describe("API token lifecycle and verification", () => {
     expect(err.message).toMatch(/expired/i);
   });
 
-  it("rejects a token whose owner is disabled", async () => {
-    setUser("usr_1", { disabled: true });
+  it("re-checks owner disablement after token issuance and allows re-enabled users", async () => {
+    setUser("usr_1");
     const created = await create({ scopes: ["submissions:write"] });
+    expect((await verify(created.token)).actor.userId).toBe("usr_1");
 
+    setUser("usr_1", { disabled: true });
     const err = await catchError(verify(created.token));
     expect(err.status).toBe(401);
+    expect(err.message).toMatch(/owner is disabled/i);
+
+    setUser("usr_1", { disabled: false });
+    expect((await verify(created.token)).actor.userId).toBe("usr_1");
   });
 
   it("enforces the required route scope at verification time", async () => {

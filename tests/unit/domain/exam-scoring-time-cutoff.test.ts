@@ -1,13 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { findExamForScoring, findMany, findAllByContext, updateWithVersion } = vi.hoisted(
-  () => ({
-    findExamForScoring: vi.fn(),
-    findMany: vi.fn(),
-    findAllByContext: vi.fn(),
-    updateWithVersion: vi.fn(),
-  }),
-);
+const { findExamForScoring, findMany, findForExamUser, updateWithVersion } = vi.hoisted(() => ({
+  findExamForScoring: vi.fn(),
+  findMany: vi.fn(),
+  findForExamUser: vi.fn(),
+  updateWithVersion: vi.fn(),
+}));
 
 vi.mock("@nojv/db", () => ({
   participationRepo: {
@@ -19,7 +17,7 @@ vi.mock("@nojv/db", () => ({
     findMany,
   },
   scoreOverrideRepo: {
-    findAllByContext,
+    findForExamUser,
   },
   UnifiedParticipationVersionConflict: class extends Error {},
 }));
@@ -55,7 +53,7 @@ function participationFixture() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  findAllByContext.mockResolvedValue([]);
+  findForExamUser.mockResolvedValue([]);
 });
 
 describe("updateExamScores — read-side time cutoff", () => {
@@ -66,16 +64,14 @@ describe("updateExamScores — read-side time cutoff", () => {
 
     await updateExamScores(EXAM_ID, USER_ID);
 
-    expect(findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          examId: EXAM_ID,
-          userId: USER_ID,
-          sampleOnly: false,
-          createdAt: { lte: ENDS_AT },
-        }),
-      }),
-    );
+    expect(findMany.mock.calls[0]?.[0]).toMatchObject({
+      where: {
+        examId: EXAM_ID,
+        userId: USER_ID,
+        sampleOnly: false,
+        createdAt: { lte: ENDS_AT },
+      },
+    });
   });
 
   it("excludes a submission created after endsAt from the exam score", async () => {

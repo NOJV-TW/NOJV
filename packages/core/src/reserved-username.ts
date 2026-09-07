@@ -17,3 +17,7 @@ export function isReservedUsername(username: string): boolean {
 
   return false;
 }
+
+export function isCanonicalSchoolUsername(username: string): boolean {
+  return NTNU_ID_RE.test(username) || /^(?:ntu|ntust)_[a-z]\d{8}$/.test(username);
+}

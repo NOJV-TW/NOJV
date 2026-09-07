@@ -43,7 +43,7 @@ export function buildExamResults(
     lastRank = rank;
     return {
       rank,
-      user: r.displayName || r.handle || r.userId,
+      user: r.displayName || r.handle || "—",
       sid: r.handle,
       total: r.total,
       scores: r.cells.map((c) => c.score ?? 0),
@@ -54,5 +54,10 @@ export function buildExamResults(
   const totals = rows.map((r) => r.total);
   const stats = buildScoreStats(totals, matrix.studentCount, matrix.totalPoints);
 
-  return { ...stats, problems, rows };
+  return {
+    ...stats,
+    submitted: matrix.rows.filter((r) => r.cells.some((c) => c.attempts > 0)).length,
+    problems,
+    rows,
+  };
 }

@@ -9,6 +9,7 @@ import { getCoursePermissionRole, requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { classifyRequestError } from "$lib/server/shared/handle-action-error";
 import { withAction } from "$lib/server/shared/action-handlers";
+import { m } from "$lib/paraglide/messages.js";
 import type { FormMessage } from "$lib/types/form-message";
 
 const {
@@ -27,12 +28,12 @@ const bulkAddSchema = z.object({
 });
 
 const changeRoleSchema = z.object({
-  userId: z.string().trim().min(1),
+  membershipId: z.string().trim().min(1),
   role: z.enum(["student", "ta", "teacher"]),
 });
 
 const removeSchema = z.object({
-  userId: z.string().trim().min(1),
+  membershipId: z.string().trim().min(1),
 });
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
@@ -49,16 +50,17 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 
   const visibleMembers = members
     .filter((member) => member.status === "active")
-    .filter((member) => isManager || !member.isPlaceholder)
+    .filter((member) => isManager || !member.isPending)
     .filter((member) => member.userId !== actor.userId || member.role !== "teacher")
     .map((member) => ({
+      membershipId: member.membershipId,
       userId: member.userId,
       name: member.name,
       username: member.username,
       image: member.image,
       email: isManager ? member.email : null,
       role: member.role,
-      isPlaceholder: member.isPlaceholder,
+      isPending: member.isPending,
       joinedAt: member.joinedAt,
     }));
 
@@ -99,7 +101,11 @@ export const actions = {
       });
       return message<FormMessage>(form, {
         kind: "success",
-        text: `Added ${String(result.added)} members (${String(result.placeholdersCreated)} new placeholders, ${String(result.skipped)} skipped)`,
+        text: m.members_addSuccess({
+          added: result.added,
+          pending: result.pendingCreated,
+          skipped: result.skipped,
+        }),
       });
     } catch (err) {
       const classified = classifyRequestError(err, event);
@@ -120,14 +126,19 @@ export const actions = {
 
     const form = await event.request.formData();
     const parsed = changeRoleSchema.safeParse({
-      userId: form.get("userId"),
+      membershipId: form.get("membershipId"),
       role: form.get("role"),
     });
     if (!parsed.success) {
       return fail(400, { error: "Invalid role change request" });
     }
 
-    await changeMemberRole(actor, event.params.courseId, parsed.data.userId, parsed.data.role);
+    await changeMemberRole(
+      actor,
+      event.params.courseId,
+      parsed.data.membershipId,
+      parsed.data.role,
+    );
     return { success: true };
   }),
 
@@ -139,12 +150,12 @@ export const actions = {
     }
 
     const form = await event.request.formData();
-    const parsed = removeSchema.safeParse({ userId: form.get("userId") });
+    const parsed = removeSchema.safeParse({ membershipId: form.get("membershipId") });
     if (!parsed.success) {
       return fail(400, { error: "Invalid remove request" });
     }
 
-    await removeMember(actor, event.params.courseId, parsed.data.userId);
+    await removeMember(actor, event.params.courseId, parsed.data.membershipId);
     return { success: true };
   }),
 } satisfies Actions;

@@ -10,7 +10,9 @@ import { getOverridesForContext } from "../scoring/resolve-final-score";
 import type { ContestProblemSummary } from "./queries";
 
 export interface ContestMatrixRow {
-  userId: string;
+  rowId: string;
+  courseMembershipId: string | null;
+  userId: string | null;
   displayName: string;
   handle: string;
   cells: MatrixCell[];
@@ -82,6 +84,8 @@ export async function buildContestSubmissionsMatrix(
   return assembleMatrix({
     problems,
     participants: input.participants.map((p) => ({
+      rowId: p.userId,
+      courseMembershipId: null,
       userId: p.userId,
       displayName: p.user.name,
       handle: p.user.username ?? "",

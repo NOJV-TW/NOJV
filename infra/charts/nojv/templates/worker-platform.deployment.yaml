@@ -26,6 +26,7 @@ spec:
         nojv-role: worker
         nojv-mailer: enabled
         nojv.tw/schema-contract: versioned-storage-v1
+        nojv.tw/course-roster-contract: membership-v1
     spec:
       serviceAccountName: {{ include "nojv.fullname" . }}-worker-platform
       automountServiceAccountToken: {{ .Values.registry.enabled }}

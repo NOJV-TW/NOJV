@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { feedbackUpsertSchema } from "@nojv/core";
 
 const {
   assessmentFindByIdWithCourseId,
   examFindById,
+  assessmentProblemExists,
+  examProblemExists,
+  findCourseStudent,
   courseMembershipFindByComposite,
   feedbackUpsert,
   feedbackFindForContext,
@@ -14,6 +18,9 @@ const {
 } = vi.hoisted(() => ({
   assessmentFindByIdWithCourseId: vi.fn(),
   examFindById: vi.fn(),
+  assessmentProblemExists: vi.fn(),
+  examProblemExists: vi.fn(),
+  findCourseStudent: vi.fn(),
   courseMembershipFindByComposite: vi.fn(),
   feedbackUpsert: vi.fn(),
   feedbackFindForContext: vi.fn(),
@@ -25,10 +32,22 @@ const {
 }));
 
 vi.mock("@nojv/db", () => ({
-  assessmentRepo: { findByIdWithCourseId: assessmentFindByIdWithCourseId },
-  examRepo: { findById: examFindById },
+  assessmentRepo: {
+    findByIdWithCourseId: assessmentFindByIdWithCourseId,
+    withTx: () => ({ findById: assessmentFindByIdWithCourseId, lockForUpdate: vi.fn() }),
+  },
+  examRepo: {
+    findById: examFindById,
+    withTx: () => ({ findById: examFindById, lockForUpdate: vi.fn() }),
+  },
   contestRepo: { findById: vi.fn() },
-  courseMembershipRepo: { findByComposite: courseMembershipFindByComposite },
+  assessmentProblemRepo: { withTx: () => ({ findLink: assessmentProblemExists }) },
+  examProblemRepo: { withTx: () => ({ exists: examProblemExists }) },
+  scoreOverrideRepo: { findCourseStudent },
+  courseMembershipRepo: {
+    findByComposite: courseMembershipFindByComposite,
+    withTx: () => ({ findByComposite: courseMembershipFindByComposite }),
+  },
   submissionFeedbackRepo: {
     upsert: feedbackUpsert,
     findForContext: feedbackFindForContext,
@@ -40,7 +59,8 @@ vi.mock("@nojv/db", () => ({
   submissionFeedbackAuditLogRepo: {
     create: feedbackAuditCreate,
   },
-  runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
+  runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
+    fn({ $executeRaw: vi.fn() }),
 }));
 
 import {
@@ -79,13 +99,22 @@ const OPEN_AT = new Date("2999-01-01T00:00:00Z");
 
 const assignmentContext = { type: "assignment", assignmentId: "ca_hw1" } as const;
 const baseInput = {
-  studentUserId: "usr_student",
+  courseMembershipId: "mem_student",
   problemId: "prob_1",
   comment: "Nice solution, but watch the edge cases.",
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  assessmentProblemExists.mockResolvedValue(true);
+  examProblemExists.mockResolvedValue(true);
+  findCourseStudent.mockResolvedValue({
+    id: "mem_student",
+    userId: "usr_student",
+    courseId: "crs_1",
+    role: "student",
+    status: "active",
+  });
 });
 
 describe("upsertFeedback", () => {
@@ -110,17 +139,17 @@ describe("upsertFeedback", () => {
     });
 
     expect(feedbackUpsert).toHaveBeenCalledTimes(2);
-    const firstData = feedbackUpsert.mock.calls[0]?.[1];
-    const secondData = feedbackUpsert.mock.calls[1]?.[1];
+    const firstData: unknown = feedbackUpsert.mock.calls[0]?.[1];
+    const secondData: unknown = feedbackUpsert.mock.calls[1]?.[1];
     expect(firstData).toMatchObject({
-      studentUserId: "usr_student",
+      courseMembershipId: "mem_student",
       problemId: "prob_1",
       assessmentId: "ca_hw1",
       comment: baseInput.comment,
       authorUserId: "usr_t",
     });
     expect(secondData).toMatchObject({
-      studentUserId: "usr_student",
+      courseMembershipId: "mem_student",
       problemId: "prob_1",
       assessmentId: "ca_hw1",
       comment: "Updated comment after re-grade.",
@@ -161,7 +190,7 @@ describe("deleteFeedback", () => {
   beforeEach(() => {
     feedbackFindById.mockResolvedValue({
       id: "fb_1",
-      studentUserId: "usr_student",
+      courseMembershipId: "mem_student",
       problemId: "prob_1",
       assessmentId: "ca_hw1",
       examId: null,
@@ -264,5 +293,72 @@ describe("read vs write authorization split", () => {
         assignmentContext,
       ),
     ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+});
+
+describe("pending roster feedback", () => {
+  beforeEach(() => {
+    assessmentFindByIdWithCourseId.mockResolvedValue({
+      id: "ca_hw1",
+      courseId: "crs_1",
+      closesAt: CLOSED_AT,
+    });
+    examFindById.mockResolvedValue({ id: "e1", courseId: "crs_1", endsAt: CLOSED_AT });
+    courseMembershipFindByComposite.mockResolvedValue({ role: "ta", status: "active" });
+    findCourseStudent.mockResolvedValue({ id: "mem_student", userId: null });
+    feedbackUpsert.mockImplementation((_tx, data) => Promise.resolve({ id: "fb_1", ...data }));
+  });
+
+  it.each([assignmentContext, { type: "exam", examId: "e1" } as const])(
+    "writes $type feedback and nullable historical account provenance",
+    async (context) => {
+      await upsertFeedback(actor({ userId: "usr_t" }), { context, input: baseInput });
+      expect(feedbackAuditCreate).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          studentUserId: null,
+          courseMembershipId: "mem_student",
+          sourceMembershipId: "mem_student",
+        }),
+      );
+    },
+  );
+
+  it("rejects a problem outside the assignment", async () => {
+    assessmentProblemExists.mockResolvedValue(false);
+    await expect(
+      upsertFeedback(actor(), { context: assignmentContext, input: baseInput }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(feedbackUpsert).not.toHaveBeenCalled();
+  });
+
+  it("rejects a problem outside the exam", async () => {
+    examProblemExists.mockResolvedValue(false);
+    await expect(
+      upsertFeedback(actor(), { context: { type: "exam", examId: "e1" }, input: baseInput }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(feedbackUpsert).not.toHaveBeenCalled();
+  });
+
+  it("rejects an inactive, nonstudent, or wrong-course target", async () => {
+    findCourseStudent.mockResolvedValue(null);
+    await expect(
+      upsertFeedback(actor(), { context: assignmentContext, input: baseInput }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(findCourseStudent).toHaveBeenCalledWith(expect.anything(), "crs_1", "mem_student");
+    expect(feedbackUpsert).not.toHaveBeenCalled();
+  });
+
+  it("rejects legacy or mixed account subjects at the API boundary", () => {
+    expect(
+      feedbackUpsertSchema.safeParse({
+        studentUserId: "usr_student",
+        problemId: "prob_1",
+        comment: "x",
+      }).success,
+    ).toBe(false);
+    expect(
+      feedbackUpsertSchema.safeParse({ ...baseInput, studentUserId: "usr_student" }).success,
+    ).toBe(false);
   });
 });

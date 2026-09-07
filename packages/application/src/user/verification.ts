@@ -1,6 +1,10 @@
 import { randomBytes } from "node:crypto";
 
-import { schoolVerificationTokenRepo, userRepo } from "@nojv/db";
+import { runTransaction, schoolVerificationTokenRepo, userRepo } from "@nojv/db";
+import { isCanonicalSchoolUsername } from "@nojv/core";
+
+import { lockRosterIdentity } from "../course/roster";
+import { setVerifiedUsername } from "./identity";
 
 export type InitiateVerificationResult =
   | { status: "error"; detail: string; httpStatus: 400 | 409 }
@@ -10,22 +14,21 @@ export async function initiateSchoolVerification(
   userId: string,
   username: string,
 ): Promise<InitiateVerificationResult> {
-  const existing = await userRepo.findByUsername(username);
-  if (existing && existing.id !== userId) {
-    return { status: "error", detail: "Username already taken", httpStatus: 409 };
-  }
-
-  const token = randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
-
-  await schoolVerificationTokenRepo.create({
-    token,
-    userId,
-    username,
-    expiresAt,
+  if (!isCanonicalSchoolUsername(username))
+    return { status: "error", detail: "Invalid school username", httpStatus: 400 };
+  return runTransaction(async (tx) => {
+    await lockRosterIdentity(tx);
+    const user = await tx.user.findUnique({ where: { id: userId } });
+    if (!user || user.disabled)
+      return { status: "error", detail: "User is unavailable", httpStatus: 400 };
+    const existing = await tx.user.findUnique({ where: { username } });
+    if (existing && existing.id !== userId)
+      return { status: "error", detail: "Username already taken", httpStatus: 409 };
+    const token = randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+    await tx.schoolVerificationToken.create({ data: { token, userId, username, expiresAt } });
+    return { status: "success", token, expiresAt };
   });
-
-  return { status: "success", token, expiresAt };
 }
 
 export type PeekSchoolResult =
@@ -33,16 +36,11 @@ export type PeekSchoolResult =
 
 export async function peekSchoolVerification(token: string): Promise<PeekSchoolResult> {
   const record = await schoolVerificationTokenRepo.findById(token);
-
-  if (!record || record.expiresAt < new Date()) {
+  if (!record || record.expiresAt <= new Date())
     return { status: "error", detail: "驗證連結已過期或無效" };
-  }
-
   const existing = await userRepo.findByUsername(record.username);
-  if (existing && existing.id !== record.userId) {
+  if (existing && existing.id !== record.userId)
     return { status: "error", detail: "此學號已被其他帳號使用" };
-  }
-
   return { status: "valid", username: record.username };
 }
 
@@ -50,27 +48,18 @@ export type VerifySchoolResult =
   { status: "error"; detail: string } | { status: "success"; username: string };
 
 export async function processSchoolVerification(token: string): Promise<VerifySchoolResult> {
-  const record = await schoolVerificationTokenRepo.findById(token);
-
-  if (!record || record.expiresAt < new Date()) {
-    if (record) {
-      await schoolVerificationTokenRepo.delete(token);
+  return runTransaction(async (tx) => {
+    await lockRosterIdentity(tx);
+    const record = await tx.schoolVerificationToken.findUnique({ where: { token } });
+    if (!record || record.expiresAt <= new Date()) {
+      if (record) await tx.schoolVerificationToken.delete({ where: { token } });
+      return { status: "error", detail: "驗證連結已過期或無效" };
     }
-    return { status: "error", detail: "驗證連結已過期或無效" };
-  }
-
-  const existing = await userRepo.findByUsername(record.username);
-  if (existing && existing.id !== record.userId) {
-    await schoolVerificationTokenRepo.delete(token);
-    return { status: "error", detail: "此學號已被其他帳號使用" };
-  }
-
-  await userRepo.update(record.userId, {
-    username: record.username,
-    displayUsername: record.username,
+    const existing = await tx.user.findUnique({ where: { username: record.username } });
+    if (existing && existing.id !== record.userId)
+      return { status: "error", detail: "此學號已被其他帳號使用" };
+    await setVerifiedUsername(tx, record.userId, record.username);
+    await tx.schoolVerificationToken.delete({ where: { token } });
+    return { status: "success", username: record.username };
   });
-
-  await schoolVerificationTokenRepo.delete(token);
-
-  return { status: "success", username: record.username };
 }

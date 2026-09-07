@@ -2,6 +2,7 @@ import {
   assessmentProblemRepo,
   courseMembershipRepo,
   examProblemRepo,
+  scoreOverrideRepo,
   submissionRepo,
 } from "@nojv/db";
 
@@ -40,6 +41,7 @@ function avgScoreFromUserTotals(userTotals: Map<string, number>): number {
 }
 
 interface ScoreGroupRow {
+  problemId: string;
   userId: string;
   _max: { score: number | null };
 }
@@ -48,6 +50,7 @@ async function aggregateClassStats<G extends ScoreGroupRow>(
   rows: { id: string; courseId: string }[],
   loadScoreGroups: (ids: string[]) => Promise<G[]>,
   fk: (g: G) => string | null,
+  contextType: "assignment" | "exam",
 ): Promise<Map<string, ClassStats>> {
   const out = new Map<string, ClassStats>();
   if (rows.length === 0) return out;
@@ -55,30 +58,42 @@ async function aggregateClassStats<G extends ScoreGroupRow>(
   const ids = rows.map((r) => r.id);
   const courseIds = Array.from(new Set(rows.map((r) => r.courseId)));
 
-  const [scoreGroups, studentCountByCourse] = await Promise.all([
+  const [scoreGroups, studentCountByCourse, overrides] = await Promise.all([
     loadScoreGroups(ids),
     courseMembershipRepo.countStudentsByCourse(courseIds),
+    scoreOverrideRepo.findCourseOverrides(contextType, ids),
   ]);
 
-  const perTarget = new Map<string, Map<string, number>>();
-  for (const g of scoreGroups) {
-    const tid = fk(g);
-    if (!tid) continue;
-    let userTotals = perTarget.get(tid);
-    if (!userTotals) {
-      userTotals = new Map();
-      perTarget.set(tid, userTotals);
-    }
-    const score = g._max.score ?? 0;
-    userTotals.set(g.userId, (userTotals.get(g.userId) ?? 0) + score);
+  const perTarget = new Map<string, Map<string, Map<string, number>>>();
+  function setScore(targetId: string, rowId: string, problemId: string, score: number) {
+    let target = perTarget.get(targetId);
+    if (!target) perTarget.set(targetId, (target = new Map<string, Map<string, number>>()));
+    let scores = target.get(rowId);
+    if (!scores) target.set(rowId, (scores = new Map<string, number>()));
+    scores.set(problemId, score);
   }
-
+  for (const g of scoreGroups) {
+    const targetId = fk(g);
+    if (targetId) setScore(targetId, g.userId, g.problemId, g._max.score ?? 0);
+  }
+  const submittedByTarget = new Map([...perTarget].map(([id, rows]) => [id, rows.size]));
+  for (const override of overrides) {
+    const rowId = override.membership?.userId ?? override.courseMembershipId;
+    if (rowId !== null)
+      setScore(override.contextId, rowId, override.problemId, override.overrideScore);
+  }
   for (const row of rows) {
-    const userTotals = perTarget.get(row.id) ?? new Map<string, number>();
+    const totals = new Map<string, number>();
+    for (const [rowId, scores] of perTarget.get(row.id) ?? []) {
+      totals.set(
+        rowId,
+        [...scores.values()].reduce((sum, score) => sum + score, 0),
+      );
+    }
     out.set(row.id, {
-      submittedUsers: userTotals.size,
+      submittedUsers: submittedByTarget.get(row.id) ?? 0,
       totalStudents: studentCountByCourse.get(row.courseId) ?? 0,
-      avgScore: avgScoreFromUserTotals(userTotals),
+      avgScore: avgScoreFromUserTotals(totals),
     });
   }
   return out;
@@ -89,6 +104,7 @@ interface AcceptedGroupRow {
 }
 
 interface MaxScoreRow {
+  problemId: string;
   _max: { score: number | null };
 }
 
@@ -108,6 +124,7 @@ async function aggregateMyStatus<A extends AcceptedGroupRow, S extends MaxScoreR
   loaders: {
     accepted: () => Promise<A[]>;
     scores: () => Promise<S[]>;
+    overrides: () => ReturnType<typeof scoreOverrideRepo.findCourseOverrides>;
     totalPoints: () => Promise<Map<string, number>>;
   },
   fk: (g: A | S) => string | null,
@@ -115,10 +132,11 @@ async function aggregateMyStatus<A extends AcceptedGroupRow, S extends MaxScoreR
   const out = new Map<string, MyStatus>();
   if (rows.length === 0) return out;
 
-  const [accepted, scores, totalPointsByTarget] = await Promise.all([
+  const [accepted, scores, totalPointsByTarget, overrides] = await Promise.all([
     loaders.accepted(),
     loaders.scores(),
     loaders.totalPoints(),
+    loaders.overrides(),
   ]);
 
   const solvedByTarget = new Map<string, Set<string>>();
@@ -134,11 +152,21 @@ async function aggregateMyStatus<A extends AcceptedGroupRow, S extends MaxScoreR
   }
 
   const scoreByTarget = new Map<string, number>();
+  const scoresByProblem = new Map<string, number>();
   for (const g of scores) {
     const tid = fk(g);
     if (!tid) continue;
     const score = g._max.score ?? 0;
+    scoresByProblem.set(`${tid}::${g.problemId}`, score);
     scoreByTarget.set(tid, (scoreByTarget.get(tid) ?? 0) + score);
+  }
+
+  for (const override of overrides) {
+    const oldScore = scoresByProblem.get(`${override.contextId}::${override.problemId}`) ?? 0;
+    scoreByTarget.set(
+      override.contextId,
+      (scoreByTarget.get(override.contextId) ?? 0) - oldScore + override.overrideScore,
+    );
   }
 
   for (const row of rows) {
@@ -159,6 +187,7 @@ export function aggregateAssignmentClassStats(
     rows,
     (ids) => submissionRepo.groupBestScoresByAssessment(ids),
     (g) => g.assessmentId,
+    "assignment",
   );
 }
 
@@ -170,6 +199,8 @@ export function aggregateAssignmentMyStatus(
   return aggregateMyStatus(
     rows,
     {
+      overrides: () =>
+        scoreOverrideRepo.findCourseOverrides("assignment", assignmentIds, userId),
       accepted: () =>
         submissionRepo.groupAcceptedByAssessmentForUser({
           assessmentIds: assignmentIds,
@@ -196,6 +227,7 @@ export function aggregateExamClassStats(rows: ExamRowLike[]): Promise<Map<string
     rows,
     (ids) => submissionRepo.groupBestScoresByExam(ids),
     (g) => g.examId,
+    "exam",
   );
 }
 
@@ -207,6 +239,7 @@ export function aggregateExamMyStatus(
   return aggregateMyStatus(
     rows,
     {
+      overrides: () => scoreOverrideRepo.findCourseOverrides("exam", examIds, userId),
       accepted: () => submissionRepo.groupAcceptedByExamForUser({ examIds, userId }),
       scores: () => submissionRepo.groupBestScoresByExamForUser({ examIds, userId }),
       totalPoints: async () => {

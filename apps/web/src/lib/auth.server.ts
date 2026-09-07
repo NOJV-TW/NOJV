@@ -7,6 +7,7 @@ import bcrypt from "bcryptjs";
 
 import {
   areSecuritySettingsUnlocked,
+  userDomain,
   adminMfaKind,
   createStepUpHandoffTicket,
   hasAdminSessionMfa,
@@ -16,7 +17,7 @@ import {
   passkeyRegistrationDenialReason,
   securityGenerationProof,
 } from "@nojv/application";
-import { prismaAdapterClient as prisma, userRepo } from "@nojv/db";
+import { prismaAdapterClient as prisma } from "@nojv/db";
 import { getWebEnv } from "$lib/server/env";
 import {
   consumeInternalFactorMutationAuthority,
@@ -36,10 +37,6 @@ import {
   passwordProofTicketFromCookieHeader,
   readSuperAdminPasswordProof,
 } from "$lib/server/super-admin-password-proof";
-import { extractStudentId, parseSchoolEmail } from "$lib/utils/school";
-import { createLogger } from "$lib/server/logger";
-
-const authLogger = createLogger("auth-hooks");
 
 const internalFactorMutationPaths = new Set<FactorMutationPath>(
   Object.values(factorMutationPath),
@@ -68,37 +65,6 @@ function credentialIdFromPasskeyVerification(body: unknown): string | null {
   const response = body.response;
   if (!response || typeof response !== "object" || !("id" in response)) return null;
   return typeof response.id === "string" ? response.id : null;
-}
-
-async function mergePlaceholderIfAny(newUser: { id: string; email: string }): Promise<void> {
-  const parsed = parseSchoolEmail(newUser.email);
-  if (!parsed) return;
-
-  const handle = extractStudentId(parsed.school, parsed.studentId);
-  const placeholder = await userRepo.findByUsername(handle);
-  if (!placeholder) return;
-  if (placeholder.id === newUser.id) return;
-  if (placeholder.status !== "pending_first_login") return;
-
-  try {
-    await userRepo.attachPlaceholderToAuth(placeholder.id, newUser.id);
-    await userRepo.update(newUser.id, {
-      username: handle,
-      displayUsername: handle,
-    });
-    authLogger.info("Merged placeholder user into OAuth signup", {
-      placeholderId: placeholder.id,
-      userId: newUser.id,
-      handle,
-    });
-  } catch (err) {
-    authLogger.error("Placeholder merge failed", {
-      placeholderId: placeholder.id,
-      userId: newUser.id,
-      handle,
-      err: err instanceof Error ? err.message : String(err),
-    });
-  }
 }
 
 function buildSocialProviders(env: ReturnType<typeof getWebEnv>) {
@@ -168,7 +134,6 @@ function createAuth() {
         disabled: { type: "boolean", defaultValue: false, input: false },
         platformRole: { type: "string", defaultValue: "student", input: false },
         isSuperAdmin: { type: "boolean", defaultValue: false, input: false },
-        status: { type: "string", defaultValue: "active", input: false },
         mustChangePassword: { type: "boolean", defaultValue: false, input: false },
         securityGeneration: { type: "number", defaultValue: 0, input: false },
       },
@@ -200,6 +165,7 @@ function createAuth() {
       session: {
         create: {
           before: async (session) => {
+            await userDomain.linkUserCourseRoster(session.userId);
             const proof = await getPasskeyAuthenticationProof();
             if (!proof?.authenticatedAt || proof.userId !== session.userId) return;
             const authenticatedAt = new Date(proof.authenticatedAt);
@@ -215,18 +181,19 @@ function createAuth() {
           },
         },
       },
-      user: {
-        create: {
-          after: async (user) => {
-            if (user.id && typeof user.email === "string") {
-              await mergePlaceholderIfAny({ id: user.id, email: user.email });
-            }
-          },
-        },
-      },
     },
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
+        if (
+          ctx.path === "/update-user" &&
+          ctx.body &&
+          typeof ctx.body === "object" &&
+          ("username" in ctx.body || "displayUsername" in ctx.body)
+        ) {
+          throw new APIError("FORBIDDEN", {
+            message: "Change usernames through the verified profile flow.",
+          });
+        }
         const activeSession = await getSessionFromCtx(ctx);
         if (
           activeSession?.user.isSuperAdmin &&

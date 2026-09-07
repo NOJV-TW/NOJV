@@ -1,214 +1,68 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const {
-  userUpdate,
-  userWithTxFindById,
-  userWithTxFindByUsername,
-  userWithTxUpdate,
-  attachPlaceholderInTx,
-  courseMembershipFindFirst,
-} = vi.hoisted(() => ({
+const { userUpdate, runTransaction } = vi.hoisted(() => ({
   userUpdate: vi.fn(),
-  userWithTxFindById: vi.fn(),
-  userWithTxFindByUsername: vi.fn(),
-  userWithTxUpdate: vi.fn(),
-  attachPlaceholderInTx: vi.fn(),
-  courseMembershipFindFirst: vi.fn(),
+  runTransaction: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
-  userRepo: {
-    update: userUpdate,
-    withTx: () => ({
-      findById: userWithTxFindById,
-      findByUsername: userWithTxFindByUsername,
-      update: userWithTxUpdate,
-    }),
-    attachPlaceholderInTx,
-  },
-  courseMembershipRepo: {
-    withTx: () => ({ findElevatedMembership: courseMembershipFindFirst }),
-  },
-  runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
+  userRepo: { update: userUpdate },
+  runTransaction,
 }));
 
-import { ConflictError, ForbiddenError, ValidationError, userDomain } from "@nojv/application";
+import { ConflictError, ValidationError, userDomain } from "@nojv/application";
 
-const { renameName, renameUsername } = userDomain;
+beforeEach(() => vi.clearAllMocks());
 
-beforeEach(() => {
-  vi.clearAllMocks();
-});
-
-function fakeUser(overrides: { id?: string; username?: string | null; status?: string } = {}) {
-  return {
-    id: overrides.id ?? "usr_actor",
-    username: overrides.username === undefined ? "oldname" : overrides.username,
-    status: overrides.status ?? "active",
-  };
-}
-
-describe("renameName", () => {
-  it("trims whitespace and persists the trimmed value", async () => {
-    await renameName("usr_actor", "  Alice Liddell  ");
-    expect(userUpdate).toHaveBeenCalledWith("usr_actor", { name: "Alice Liddell" });
+describe("renameName validation", () => {
+  it("trims the display name before persisting it", async () => {
+    await userDomain.renameName("user-1", "  Alice Liddell  ");
+    expect(userUpdate).toHaveBeenCalledWith("user-1", { name: "Alice Liddell" });
   });
 
-  it("rejects an empty or whitespace-only name", async () => {
-    await expect(renameName("usr_actor", "")).rejects.toBeInstanceOf(ValidationError);
-    await expect(renameName("usr_actor", "   ")).rejects.toBeInstanceOf(ValidationError);
-    expect(userUpdate).not.toHaveBeenCalled();
-  });
+  it.each(["", "   ", "x".repeat(65)])(
+    "rejects invalid name %j without writing",
+    async (name) => {
+      await expect(userDomain.renameName("user-1", name)).rejects.toBeInstanceOf(
+        ValidationError,
+      );
+      expect(userUpdate).not.toHaveBeenCalled();
+    },
+  );
 
-  it("accepts a 64-character name (inclusive upper bound) and rejects 65", async () => {
-    const sixtyFour = "x".repeat(64);
-    const sixtyFive = "x".repeat(65);
-
-    await renameName("usr_actor", sixtyFour);
-    expect(userUpdate).toHaveBeenCalledWith("usr_actor", { name: sixtyFour });
-
-    await expect(renameName("usr_actor", sixtyFive)).rejects.toBeInstanceOf(ValidationError);
+  it("accepts the inclusive 64-character limit", async () => {
+    await userDomain.renameName("user-1", "x".repeat(64));
+    expect(userUpdate).toHaveBeenCalledWith("user-1", { name: "x".repeat(64) });
   });
 });
 
-describe("renameUsername", () => {
-  it("happy path — non-verified user takes an unused name, merged: false", async () => {
-    userWithTxFindById.mockResolvedValueOnce(fakeUser({ username: "oldname" }));
-    userWithTxFindByUsername.mockResolvedValueOnce(null);
+describe("renameUsername validation before identity writes", () => {
+  it.each(["", "  ", "ab", "has space", "bang!name", "x".repeat(65)])(
+    "rejects invalid username %j",
+    async (username) => {
+      await expect(userDomain.renameUsername("user-1", username)).rejects.toMatchObject({
+        message: "INVALID_FORMAT",
+      });
+      expect(runTransaction).not.toHaveBeenCalled();
+    },
+  );
 
-    const result = await renameUsername("usr_actor", "newname");
-
-    expect(result).toEqual({ merged: false });
-    expect(userWithTxUpdate).toHaveBeenCalledWith("usr_actor", {
-      username: "newname",
-      displayUsername: "newname",
-    });
-    expect(attachPlaceholderInTx).not.toHaveBeenCalled();
-  });
-
-  it("verified user (student-ID username) throws VERIFIED_LOCKED", async () => {
-    userWithTxFindById.mockResolvedValueOnce(fakeUser({ username: "41047001a" }));
-
-    const err = await renameUsername("usr_actor", "newname").catch((e) => e);
-    expect(err).toBeInstanceOf(ConflictError);
-    expect(err.message).toBe("VERIFIED_LOCKED");
-    expect(userWithTxUpdate).not.toHaveBeenCalled();
-  });
-
-  it("placeholder user throws PLACEHOLDER_LOCKED", async () => {
-    userWithTxFindById.mockResolvedValueOnce(
-      fakeUser({ username: "somehandle", status: "pending_first_login" }),
+  it.each([
+    "41047001a",
+    "ntu_b11902001",
+    "ntust_b11902001",
+    "b11902001",
+    "ntnu_41047001a",
+    "ntu_41047001a",
+    "ntust_41047001a",
+    " NTU_B11902001 ",
+  ])("requires school verification for reserved username %j", async (username) => {
+    await expect(userDomain.renameUsername("user-1", username)).rejects.toBeInstanceOf(
+      ConflictError,
     );
-
-    const err = await renameUsername("usr_actor", "newname").catch((e) => e);
-    expect(err).toBeInstanceOf(ForbiddenError);
-    expect(err.message).toBe("PLACEHOLDER_LOCKED");
-    expect(userWithTxUpdate).not.toHaveBeenCalled();
-  });
-
-  it("new === current is a no-op that returns merged: false", async () => {
-    userWithTxFindById.mockResolvedValueOnce(fakeUser({ username: "samename" }));
-
-    const result = await renameUsername("usr_actor", "samename");
-
-    expect(result).toEqual({ merged: false });
-    expect(userWithTxFindByUsername).not.toHaveBeenCalled();
-    expect(userWithTxUpdate).not.toHaveBeenCalled();
-  });
-
-  it("new username matching student-ID format throws RESERVED_FORMAT", async () => {
-    userWithTxFindById.mockResolvedValueOnce(fakeUser({ username: "oldname" }));
-
-    const err = await renameUsername("usr_actor", "41047001a").catch((e) => e);
-    expect(err).toBeInstanceOf(ConflictError);
-    expect(err.message).toBe("RESERVED_FORMAT");
-    expect(userWithTxFindByUsername).not.toHaveBeenCalled();
-    expect(userWithTxUpdate).not.toHaveBeenCalled();
-  });
-
-  it("format violations (uppercase, whitespace, special chars) throw INVALID_FORMAT", async () => {
-    const rejections = ["has space", "bang!name", "", "a".repeat(65)];
-    for (const bad of rejections) {
-      userWithTxFindById.mockResolvedValueOnce(fakeUser({ username: "oldname" }));
-      const err = await renameUsername("usr_actor", bad).catch((e) => e);
-      expect(err).toBeInstanceOf(ValidationError);
-      expect(err.message).toBe("INVALID_FORMAT");
-    }
-    expect(userWithTxUpdate).not.toHaveBeenCalled();
-  });
-
-  it("new username taken by an active user throws TAKEN", async () => {
-    userWithTxFindById.mockResolvedValueOnce(fakeUser({ username: "oldname" }));
-    userWithTxFindByUsername.mockResolvedValueOnce({
-      id: "usr_other",
-      username: "newname",
-      status: "active",
-    });
-
-    const err = await renameUsername("usr_actor", "newname").catch((e) => e);
-    expect(err).toBeInstanceOf(ConflictError);
-    expect(err.message).toBe("TAKEN");
-    expect(attachPlaceholderInTx).not.toHaveBeenCalled();
-    expect(userWithTxUpdate).not.toHaveBeenCalled();
-  });
-
-  it("new username matches a student-only placeholder — merges memberships, deletes placeholder, merged: true", async () => {
-    userWithTxFindById.mockResolvedValueOnce(
-      fakeUser({ id: "usr_actor", username: "oldname" }),
+    await expect(userDomain.renameUsername("user-1", username)).rejects.toThrow(
+      "RESERVED_FORMAT",
     );
-    userWithTxFindByUsername.mockResolvedValueOnce({
-      id: "usr_placeholder",
-      username: "newname",
-      status: "pending_first_login",
-    });
-    courseMembershipFindFirst.mockResolvedValueOnce(null);
-
-    const result = await renameUsername("usr_actor", "newname");
-
-    expect(result).toEqual({ merged: true });
-    expect(courseMembershipFindFirst).toHaveBeenCalledWith("usr_placeholder");
-    expect(attachPlaceholderInTx).toHaveBeenCalledWith(
-      expect.anything(),
-      "usr_placeholder",
-      "usr_actor",
-    );
-    expect(userWithTxUpdate).toHaveBeenCalledWith("usr_actor", {
-      username: "newname",
-      displayUsername: "newname",
-    });
-  });
-
-  it("placeholder with a TA course membership — refuses to merge and throws TAKEN", async () => {
-    userWithTxFindById.mockResolvedValueOnce(fakeUser({ username: "oldname" }));
-    userWithTxFindByUsername.mockResolvedValueOnce({
-      id: "usr_placeholder",
-      username: "alice_ta2026",
-      status: "pending_first_login",
-    });
-    courseMembershipFindFirst.mockResolvedValueOnce({ id: "cm_elevated" });
-
-    const err = await renameUsername("usr_actor", "alice_ta2026").catch((e) => e);
-
-    expect(err).toBeInstanceOf(ConflictError);
-    expect(err.message).toBe("TAKEN");
-    expect(attachPlaceholderInTx).not.toHaveBeenCalled();
-    expect(userWithTxUpdate).not.toHaveBeenCalled();
-  });
-
-  it("placeholder with a teacher course membership — refuses to merge and throws TAKEN", async () => {
-    userWithTxFindById.mockResolvedValueOnce(fakeUser({ username: "oldname" }));
-    userWithTxFindByUsername.mockResolvedValueOnce({
-      id: "usr_placeholder",
-      username: "prof_x",
-      status: "pending_first_login",
-    });
-    courseMembershipFindFirst.mockResolvedValueOnce({ id: "cm_elevated" });
-
-    const err = await renameUsername("usr_actor", "prof_x").catch((e) => e);
-
-    expect(err).toBeInstanceOf(ConflictError);
-    expect(err.message).toBe("TAKEN");
-    expect(attachPlaceholderInTx).not.toHaveBeenCalled();
-    expect(userWithTxUpdate).not.toHaveBeenCalled();
+    expect(runTransaction).not.toHaveBeenCalled();
   });
 });

@@ -14,13 +14,13 @@ import type { ActorContext } from "../../../packages/application/src/shared/acto
 function actorOf(user: {
   id: string;
   email: string;
-  username: string;
+  username: string | null;
   name: string;
 }): ActorContext {
   return {
     userId: user.id,
     email: user.email,
-    username: user.username,
+    username: user.username ?? user.id,
     displayName: user.name,
     platformRole: "teacher",
   };
@@ -40,6 +40,9 @@ describe("feedback API domain layer (real DB)", () => {
       const course = await createTestCourse();
       const teacher = await makeCourseTeacher(course.id);
       const student = await createTestUser({ platformRole: "student" });
+      const membership = await testPrisma.courseMembership.create({
+        data: { courseId: course.id, userId: student.id, role: "student", status: "active" },
+      });
       const problem = await createTestProblem({ authorId: teacher.id });
 
       const assignment = await testPrisma.assessment.create({
@@ -53,11 +56,18 @@ describe("feedback API domain layer (real DB)", () => {
           closesAt: new Date(Date.now() + 3600_000),
         },
       });
+      await testPrisma.assessmentProblem.create({
+        data: { assessmentId: assignment.id, problemId: problem.id, ordinal: 1, points: 100 },
+      });
 
       await expect(
         feedbackDomain.upsertFeedback(actorOf(teacher), {
           context: { type: "assignment", assignmentId: assignment.id },
-          input: { studentUserId: student.id, problemId: problem.id, comment: "Nice work" },
+          input: {
+            courseMembershipId: membership.id,
+            problemId: problem.id,
+            comment: "Nice work",
+          },
         }),
       ).rejects.toThrow(/still open/i);
     });
@@ -66,6 +76,9 @@ describe("feedback API domain layer (real DB)", () => {
       const course = await createTestCourse();
       const teacher = await makeCourseTeacher(course.id);
       const student = await createTestUser({ platformRole: "student" });
+      const membership = await testPrisma.courseMembership.create({
+        data: { courseId: course.id, userId: student.id, role: "student", status: "active" },
+      });
       const problem = await createTestProblem({ authorId: teacher.id });
 
       const assignment = await testPrisma.assessment.create({
@@ -79,26 +92,36 @@ describe("feedback API domain layer (real DB)", () => {
           closesAt: new Date(Date.now() - 3600_000),
         },
       });
+      await testPrisma.assessmentProblem.create({
+        data: { assessmentId: assignment.id, problemId: problem.id, ordinal: 1, points: 100 },
+      });
 
       const context = { type: "assignment" as const, assignmentId: assignment.id };
 
       const row = await feedbackDomain.upsertFeedback(actorOf(teacher), {
         context,
-        input: { studentUserId: student.id, problemId: problem.id, comment: "Well done" },
+        input: {
+          courseMembershipId: membership.id,
+          problemId: problem.id,
+          comment: "Well done",
+        },
       });
       expect(row.comment).toBe("Well done");
-      expect(row.studentUserId).toBe(student.id);
+      expect(row.courseMembershipId).toBe(membership.id);
 
       const items = await feedbackDomain.listFeedbackForContext(context);
       expect(items).toHaveLength(1);
-      expect(items[0]!.id).toBe(row.id);
-      expect(items[0]!.comment).toBe("Well done");
+      expect(items[0].id).toBe(row.id);
+      expect(items[0].comment).toBe("Well done");
     });
 
     it("upsert is idempotent on the (student, problem, context) triple — second call edits", async () => {
       const course = await createTestCourse();
       const teacher = await makeCourseTeacher(course.id);
       const student = await createTestUser({ platformRole: "student" });
+      const membership = await testPrisma.courseMembership.create({
+        data: { courseId: course.id, userId: student.id, role: "student", status: "active" },
+      });
       const problem = await createTestProblem({ authorId: teacher.id });
 
       const assignment = await testPrisma.assessment.create({
@@ -112,21 +135,28 @@ describe("feedback API domain layer (real DB)", () => {
           closesAt: new Date(Date.now() - 3600_000),
         },
       });
+      await testPrisma.assessmentProblem.create({
+        data: { assessmentId: assignment.id, problemId: problem.id, ordinal: 1, points: 100 },
+      });
       const context = { type: "assignment" as const, assignmentId: assignment.id };
 
       const first = await feedbackDomain.upsertFeedback(actorOf(teacher), {
         context,
-        input: { studentUserId: student.id, problemId: problem.id, comment: "First pass" },
+        input: {
+          courseMembershipId: membership.id,
+          problemId: problem.id,
+          comment: "First pass",
+        },
       });
       const second = await feedbackDomain.upsertFeedback(actorOf(teacher), {
         context,
-        input: { studentUserId: student.id, problemId: problem.id, comment: "Revised" },
+        input: { courseMembershipId: membership.id, problemId: problem.id, comment: "Revised" },
       });
 
       expect(second.id).toBe(first.id);
       const items = await feedbackDomain.listFeedbackForContext(context);
       expect(items).toHaveLength(1);
-      expect(items[0]!.comment).toBe("Revised");
+      expect(items[0].comment).toBe("Revised");
     });
   });
 
@@ -135,6 +165,9 @@ describe("feedback API domain layer (real DB)", () => {
       const course = await createTestCourse();
       const teacher = await makeCourseTeacher(course.id);
       const student = await createTestUser({ platformRole: "student" });
+      const membership = await testPrisma.courseMembership.create({
+        data: { courseId: course.id, userId: student.id, role: "student", status: "active" },
+      });
       const problem = await createTestProblem({ authorId: teacher.id });
 
       const exam = await testPrisma.exam.create({
@@ -147,11 +180,18 @@ describe("feedback API domain layer (real DB)", () => {
           endsAt: new Date(Date.now() + 3600_000),
         },
       });
+      await testPrisma.examProblem.create({
+        data: { examId: exam.id, problemId: problem.id, ordinal: 1, points: 100 },
+      });
 
       await expect(
         feedbackDomain.upsertFeedback(actorOf(teacher), {
           context: { type: "exam", examId: exam.id },
-          input: { studentUserId: student.id, problemId: problem.id, comment: "See me" },
+          input: {
+            courseMembershipId: membership.id,
+            problemId: problem.id,
+            comment: "See me",
+          },
         }),
       ).rejects.toThrow(/still open/i);
     });
@@ -160,6 +200,9 @@ describe("feedback API domain layer (real DB)", () => {
       const course = await createTestCourse();
       const teacher = await makeCourseTeacher(course.id);
       const student = await createTestUser({ platformRole: "student" });
+      const membership = await testPrisma.courseMembership.create({
+        data: { courseId: course.id, userId: student.id, role: "student", status: "active" },
+      });
       const problem = await createTestProblem({ authorId: teacher.id });
 
       const exam = await testPrisma.exam.create({
@@ -172,17 +215,24 @@ describe("feedback API domain layer (real DB)", () => {
           endsAt: new Date(Date.now() - 3600_000),
         },
       });
+      await testPrisma.examProblem.create({
+        data: { examId: exam.id, problemId: problem.id, ordinal: 1, points: 100 },
+      });
       const context = { type: "exam" as const, examId: exam.id };
 
       const row = await feedbackDomain.upsertFeedback(actorOf(teacher), {
         context,
-        input: { studentUserId: student.id, problemId: problem.id, comment: "Good exam" },
+        input: {
+          courseMembershipId: membership.id,
+          problemId: problem.id,
+          comment: "Good exam",
+        },
       });
 
       const items = await feedbackDomain.listFeedbackForContext(context);
       expect(items).toHaveLength(1);
-      expect(items[0]!.id).toBe(row.id);
-      expect(items[0]!.comment).toBe("Good exam");
+      expect(items[0].id).toBe(row.id);
+      expect(items[0].comment).toBe("Good exam");
     });
   });
 
@@ -191,6 +241,9 @@ describe("feedback API domain layer (real DB)", () => {
       const course = await createTestCourse();
       const teacher = await makeCourseTeacher(course.id);
       const student = await createTestUser({ platformRole: "student" });
+      const membership = await testPrisma.courseMembership.create({
+        data: { courseId: course.id, userId: student.id, role: "student", status: "active" },
+      });
       const problem = await createTestProblem({ authorId: teacher.id });
 
       const assignment = await testPrisma.assessment.create({
@@ -204,19 +257,22 @@ describe("feedback API domain layer (real DB)", () => {
           closesAt: new Date(Date.now() - 3600_000),
         },
       });
+      await testPrisma.assessmentProblem.create({
+        data: { assessmentId: assignment.id, problemId: problem.id, ordinal: 1, points: 100 },
+      });
 
       await expect(
         feedbackDomain.upsertFeedback(
           {
             userId: student.id,
             email: student.email,
-            username: student.username,
+            username: student.username ?? student.id,
             displayName: student.name,
             platformRole: "student",
           },
           {
             context: { type: "assignment", assignmentId: assignment.id },
-            input: { studentUserId: student.id, problemId: problem.id, comment: "x" },
+            input: { courseMembershipId: membership.id, problemId: problem.id, comment: "x" },
           },
         ),
       ).rejects.toThrow(/not permitted/i);

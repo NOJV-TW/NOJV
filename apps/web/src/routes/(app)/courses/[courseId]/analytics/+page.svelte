@@ -245,7 +245,7 @@
       <div
         class="overflow-hidden rounded-xl border border-border bg-[color:var(--color-panel)]"
       >
-        {#each analytics.studentsAtRisk as student (student.userId)}
+        {#each analytics.studentsAtRisk as student (student.membershipId)}
           <div
             class="flex items-center justify-between gap-4 border-b border-border-subtle px-5 py-4 last:border-b-0"
           >
@@ -258,6 +258,11 @@
               </span>
               <div class="min-w-0">
                 <div class="truncate text-body font-medium">{student.name}</div>
+                {#if student.userId === null}
+                  <div class="text-caption text-muted-foreground">
+                    {m.members_pendingActivation()}
+                  </div>
+                {/if}
                 <div class="truncate font-mono text-caption text-muted-foreground">
                   {student.username ?? "—"}
                 </div>

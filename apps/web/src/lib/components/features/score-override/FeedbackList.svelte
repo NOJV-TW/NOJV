@@ -22,15 +22,15 @@
 
   let { rows, students, problems, onedit, ondelete }: Props = $props();
 
-  const studentById = $derived(new Map(students.map((s) => [s.id, s])));
+  const studentById = $derived(new Map(students.map((s) => [s.courseMembershipId, s])));
   const problemById = $derived(new Map(problems.map((p) => [p.id, p])));
 
   let pendingDeleteId = $state<string | null>(null);
   let deleting = $state(false);
 
-  function studentLabel(userId: string): string {
-    const s = studentById.get(userId);
-    if (!s) return userId;
+  function studentLabel(courseMembershipId: string): string {
+    const s = studentById.get(courseMembershipId);
+    if (!s) return courseMembershipId;
     return s.username ? `${s.name} (${s.username})` : s.name;
   }
 
@@ -94,7 +94,7 @@
       <tbody>
         {#each rows as row (row.id)}
           <tr class="border-t border-border-subtle">
-            <td class="px-3 py-2">{studentLabel(row.studentUserId)}</td>
+            <td class="px-3 py-2">{studentLabel(row.courseMembershipId)}</td>
             <td class="px-3 py-2">{problemTitle(row.problemId)}</td>
             <td class="px-3 py-2 text-muted-foreground" title={row.comment}>
               {truncate(row.comment, 40)}

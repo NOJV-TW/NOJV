@@ -14,7 +14,6 @@ export const courseMembershipAdminRepo = {
             username: true,
             email: true,
             image: true,
-            status: true,
           },
         },
       },
@@ -22,9 +21,9 @@ export const courseMembershipAdminRepo = {
     });
   },
 
-  removeFromCourse(courseId: string, userId: string) {
+  removeFromCourse(courseId: string, membershipId: string) {
     return prisma.courseMembership.update({
-      where: { courseId_userId: { courseId, userId } },
+      where: { id: membershipId, courseId },
       data: {
         status: "removed",
         removedAt: new Date(),
@@ -32,25 +31,25 @@ export const courseMembershipAdminRepo = {
     });
   },
 
-  updateRole(courseId: string, userId: string, role: CourseRole) {
+  updateRole(courseId: string, membershipId: string, role: CourseRole) {
     return prisma.courseMembership.update({
-      where: { courseId_userId: { courseId, userId } },
+      where: { id: membershipId, courseId },
       data: { role },
     });
   },
 
   withTx(tx: TransactionClient) {
     return {
-      removeFromCourse(courseId: string, userId: string) {
+      removeFromCourse(courseId: string, membershipId: string) {
         return tx.courseMembership.update({
-          where: { courseId_userId: { courseId, userId } },
+          where: { id: membershipId, courseId },
           data: { status: "removed", removedAt: new Date() },
         });
       },
 
-      updateRole(courseId: string, userId: string, role: CourseRole) {
+      updateRole(courseId: string, membershipId: string, role: CourseRole) {
         return tx.courseMembership.update({
-          where: { courseId_userId: { courseId, userId } },
+          where: { id: membershipId, courseId },
           data: { role },
         });
       },

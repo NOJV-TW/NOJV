@@ -69,21 +69,6 @@ export async function seedUsers(prisma: PrismaClient) {
     where: { username: "new-student" },
   });
 
-  const placeholderUsername = "b11902999";
-  const placeholder = await prisma.user.upsert({
-    create: {
-      name: placeholderUsername,
-      displayUsername: placeholderUsername,
-      email: `placeholder+${placeholderUsername}@placeholder.nojv.local`,
-      username: placeholderUsername,
-      platformRole: "student",
-      status: "pending_first_login",
-      emailVerified: false,
-    },
-    update: {},
-    where: { username: placeholderUsername },
-  });
-
   const adminPasswordHash = bcrypt.hashSync(adminEnv.password, 10);
   const credentialedUsers = [
     { user: admin, hash: adminPasswordHash },
@@ -107,9 +92,7 @@ export async function seedUsers(prisma: PrismaClient) {
     });
   }
 
-  console.log(
-    `  Users: ${credentialedUsers.length} credentialed + 1 pending_first_login placeholder upserted`,
-  );
+  console.log(`  Users: ${credentialedUsers.length} credentialed users upserted`);
 
-  return { admin, teacher, taStudent, student, newStudent, placeholder };
+  return { admin, teacher, taStudent, student, newStudent };
 }
