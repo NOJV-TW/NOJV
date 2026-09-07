@@ -61,10 +61,7 @@
   </div>
 
   <div class="space-y-5 border-t border-border-subtle pt-5">
-    <div class="flex items-center justify-between gap-4">
-      <label class="cursor-pointer text-sm font-medium" for="allow-late-submissions">
-        {m.lateSubmission_allowLabel()}
-      </label>
+    <div class="flex items-center gap-2">
       <input
         id="allow-late-submissions"
         name="allowLateSubmissions"
@@ -76,6 +73,9 @@
           if (!event.currentTarget.checked) latePenalty = null;
         }}
       />
+      <label class="cursor-pointer text-sm font-medium" for="allow-late-submissions">
+        {m.lateSubmission_allowLabel()}
+      </label>
     </div>
     {#if allowLateSubmissions}
       <div class="grid items-start gap-5 @xl:grid-cols-2">
