@@ -144,7 +144,7 @@
               <td class="px-4 py-3">
                 <div class="flex items-center gap-3">
                   <div
-                    class="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-body font-semibold text-primary-foreground {member.isPlaceholder
+                    class="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-body font-semibold text-primary-foreground {member.isPlaceholder
                       ? 'opacity-50'
                       : ''}"
                     aria-hidden="true"
@@ -153,7 +153,7 @@
                       <img
                         src={member.image}
                         alt={member.name}
-                        class="size-full object-cover"
+                        class="size-full rounded-full object-cover"
                       />
                     {:else}
                       {member.isPlaceholder ? "?" : initialFor(member.name)}
