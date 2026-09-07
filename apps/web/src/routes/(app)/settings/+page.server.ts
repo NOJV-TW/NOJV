@@ -107,12 +107,22 @@ export const actions = {
     if (!isLinkProvider(provider)) {
       return fail(400, { error: "unknownProvider" });
     }
-    if (wouldOrphanAccount(await listProviderIds(event), provider)) {
+    const accounts = await getAuth().api.listUserAccounts({ headers: event.request.headers });
+    const account = accounts.find((account) => account.providerId === provider);
+    if (!account) {
+      return fail(400, { error: "unlinkFailed" });
+    }
+    if (
+      wouldOrphanAccount(
+        accounts.map((account) => account.providerId),
+        provider,
+      )
+    ) {
       return fail(400, { error: "orphan" });
     }
     try {
       await getAuth().api.unlinkAccount({
-        body: { providerId: provider },
+        body: { accountId: account.id },
         headers: event.request.headers,
       });
     } catch {

@@ -59,7 +59,7 @@
     "@temporalio/testing": "catalog:",
     "@temporalio/worker": "catalog:",
     "@types/node": "catalog:",
-    "@vitest/coverage-v8": "4.1.10",
+    "@vitest/coverage-v8": "4.1.11",
     "axe-core": "4.12.1",
     "eslint": "^10.8.0",
     "globals": "^17.12.0",
