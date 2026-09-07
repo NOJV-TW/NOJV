@@ -234,6 +234,7 @@ $$;
 
 DROP TRIGGER user_security_generation_state_change ON "User";
 ALTER TABLE "User" DROP COLUMN "status";
+DROP TABLE course_roster_pending_users;
 DROP TYPE "UserStatus";
 CREATE TRIGGER user_security_generation_state_change
 BEFORE UPDATE OF "email", "emailVerified", "platformRole", "isSuperAdmin", "disabled",
