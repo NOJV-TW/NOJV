@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { workerEnvSchema } from "../../../apps/worker/src/env";
+import { DEFAULT_MEMORY_HEADROOM_MB } from "../../../packages/core/src/sandbox";
 import { mailerEnvSchema } from "../../../packages/mailer/src/index";
 import { storageEnvSchema } from "../../../packages/storage/src/env";
 
@@ -208,6 +209,16 @@ describe("env schema baseline (no helm required)", () => {
 });
 
 describeHelm("env schema ↔ chart deployment parity", () => {
+  it.each(["values-gke.yaml", "values-single-machine.yaml"])(
+    "%s can schedule the minimum supported problem memory limit",
+    (valuesFile) => {
+      const worker = isolateDoc(renderChart(valuesFile), "Deployment", "nojv-worker");
+      const memoryRequest = /name: K8S_MEMORY_REQUEST\s+value: "(\d+)Mi"/.exec(worker);
+      expect(memoryRequest).not.toBeNull();
+      expect(Number(memoryRequest?.[1])).toBeLessThanOrEqual(16 + DEFAULT_MEMORY_HEADROOM_MB);
+    },
+  );
+
   it.each(["values-gke.yaml", "values-single-machine.yaml"])(
     "%s injects the deployed image tag as the public release version",
     (valuesFile) => {

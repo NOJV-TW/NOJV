@@ -17,13 +17,13 @@ This isolated worktree owns the problem-library/permissions implementation, the 
 ## Gates
 
 - [x] Independent review of all pending migrations, identity/grading flows, and other release changes.
-- [ ] Fresh primary identity and reference inventory; private, checksummed backup outside the repository.
+- [x] Fresh primary identity and reference inventory; private, checksummed backup outside the repository.
 - [x] Local restore and official migration rehearsal: exact expected records, unchanged unrelated rows, constraints, rerun, ordinary upgraded backup restore.
 - [x] Current release code passes local CI, real database integration, affected browser flows, and Helm maintenance checks.
-- [ ] Exact post-merge main SHA passes GitHub Verify Repository before tagging.
-- [ ] Immutable images built; stop web and both workers with autoscalers held, obtain and verify a new cutover backup before allowing the migration.
-- [ ] Apply through Helm/Flux; failures after schema commit remain in maintenance for a compatible forward fix.
-- [ ] Verify migrated rows and all unaffected records against cutover evidence; confirm schema and migration history.
+- [x] Exact post-merge main SHA passes GitHub Verify Repository before tagging.
+- [x] Immutable images built; stop web and both workers with autoscalers held, obtain and verify a new cutover backup before allowing the migration.
+- [x] Apply through Helm/Flux; failures after schema commit remain in maintenance for a compatible forward fix.
+- [x] Verify migrated rows and all unaffected records against cutover evidence; confirm schema and migration history.
 - [ ] Verify exact source/image revisions, all workloads, public endpoints, authenticated primary workflows, object reads, judging and stability.
 
 Production mutations remain gated on the preceding review and rehearsal results. Sensitive snapshots and credentials never belong in this plan or a PR.
@@ -37,4 +37,7 @@ Production mutations remain gated on the preceding review and rehearsal results.
 - Integrated weights PR #422 and role-preservation tests #423 from main `60d60176f91cae856412ef0008fb3c2fac5912df`. The independent review's confinement, transactional workspace read, ownership-lock and private-draft-copy findings were repaired and have regression checks.
 - Final local CI passes 3,107 unit and 55 component tests, including the reviewed fixes. Full integration passes 689 tests; 22 focused database checks separately confirm the final confinement, workspace-copy and private-draft-copy fixes. Browser validation runs after builds complete because rebuilding package outputs invalidates a running Vite test server.
 - Browser review found and fixed premature exam settings rendering during tab navigation, which could reset edits when the server load completed. Course-library import/reuse/removal and archived full-content navigation, roster activation, activity weights, problem lifecycle and late-policy flows pass. All 28 selected browser checks pass across the final run and targeted rerun: MFA, passkeys, regular/super-admin sign-in, admin filters, roster, library, weights and late policy. The additional eight problem lifecycle checks passed earlier. Admin filter tests now wait for hydration and scope actions to the open dialog.
-- No production writes, maintenance switch, tag publication, Flux suspension or migration occurred in this task.
+- PR #424 merged as `cb1b416da2c47c09d24364e2568149e7b14d8611`. Its exact main CI passed in run `34160985138` before publishing `v1.1.0`; release run `34161659852` verified all four images and published deploy revision `ad48929e3b38bd657ef02f50f23afe5b52e19172`.
+- The stopped-write backup contained 99 users, nine pending accounts, 68 memberships and 230 submissions. Its local rehearsal passed before production migration. With all writers still at zero, the production result was backed up and restored locally: all 50 tables, exact values, schema catalog and old migration history matched the independently validated result. All six new migration checksums match. Nine pending users were removed; 90 formal users, 68 memberships and 230 submissions were retained, with three course-library bindings initialized.
+- Helm revision 214 held the migrated release at zero for that comparison; revision 215 restored the verified images and HPA. The actual sandbox probe then exposed the pre-existing 256Mi memory reservation rejecting supported small-memory problems. A 64Mi reservation passed AC, WA and multi-file AC probes at both 16Mi and 128Mi problem limits. The cluster-owned production values now use 64Mi, applied through Helm revision 216; the immutable `v1.1.0` source and image digests are unchanged. Chart defaults and the environment example receive the same correction with a regression check for both production overlays.
+- Production object verification passed for all 2,026 referenced objects, including problem assets, testcase files, workspace files and 230 submission manifests. Sandbox startup verified gVisor and active NetworkPolicy enforcement. Authenticated production UI verification is pending because the Mac is locked; local browser flows passed as recorded above. Detailed operational evidence is retained privately outside the repository.
