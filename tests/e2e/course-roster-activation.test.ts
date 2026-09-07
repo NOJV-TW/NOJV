@@ -42,6 +42,7 @@ test("first general username setup links the same User to an already graded rost
     const problem = await testPrisma.assessmentProblem.findFirstOrThrow({
       where: { assessmentId: "hw1-process-trace" },
       orderBy: { ordinal: "asc" },
+      include: { problem: { include: { testcaseSets: true } } },
     });
     const graded = await teacher.request.post("/api/overrides", {
       data: {
@@ -80,7 +81,9 @@ test("first general username setup links the same User to an already graded rost
     await page.goto(`/courses/${courseId}/grades`);
     await expect(page.getByRole("heading", { name: "My grades" })).toBeVisible();
     await expect(page.locator("tbody tr")).toHaveCount(1);
-    await expect(page.locator("tbody tr")).toContainText("80");
+    const rawMax = problem.problem.testcaseSets.reduce((sum, set) => sum + set.weight, 0);
+    const weightedScore = Number(((80 / rawMax) * Number(problem.points)).toFixed(2));
+    await expect(page.locator("tbody tr td").last()).toHaveText(String(weightedScore));
     expect(await testPrisma.participation.count({ where: { userId: user.id } })).toBe(0);
   } finally {
     if (membershipId) await testPrisma.courseMembership.delete({ where: { id: membershipId } });

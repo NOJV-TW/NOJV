@@ -12,6 +12,7 @@ const { findMembership, findStudents, findOverrides, grouped, assignmentDetail, 
 
 vi.mock("@nojv/db", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@nojv/db")>()),
+  gradingRepo: { countPendingExam: vi.fn().mockResolvedValue(0) },
   courseMembershipRepo: { findByComposite: findMembership, findStudents },
   scoreOverrideRepo: { findAllByContext: findOverrides },
   submissionRepo: {

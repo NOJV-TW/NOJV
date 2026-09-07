@@ -70,6 +70,10 @@ async function fixture(role: "ta" | "teacher") {
     data: { courseId: course.id, pendingUsername: "pending.student", role: "student" },
   });
   const problem = await createTestProblem({ authorId: owner.id });
+  await testPrisma.testcaseSet.updateMany({
+    where: { problemId: problem.id },
+    data: { weight: 100 },
+  });
   const assignment = await testPrisma.assessment.create({
     data: {
       courseId: course.id,
