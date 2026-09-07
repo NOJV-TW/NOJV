@@ -31,6 +31,33 @@ test.describe("Exams — list, detail, problem visibility", () => {
     await context.close();
   });
 
+  test("exam tabs follow client navigation and survive refresh", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: teacherAuth });
+    const page = await context.newPage();
+    try {
+      await page.goto(`/exams/${MIDTERM_ID}?tab=results`);
+      const selectedTab = page.locator('[role="tab"][aria-selected="true"]');
+      await expect(selectedTab).toHaveAttribute("id", "exam-manage-tab-results");
+      await page.locator("#exam-manage-tab-submissions").click();
+      await expect(page).toHaveURL(/\?tab=submissions$/);
+      await page.evaluate((href) => {
+        const link = document.createElement("a");
+        link.href = href;
+        link.id = "exam-navigation-link";
+        link.textContent = "Open exam audit";
+        document.body.append(link);
+      }, `/exams/${MIDTERM_ID}?tab=audit`);
+      await page.locator("#exam-navigation-link").click();
+      await expect(selectedTab).toHaveAttribute("id", "exam-manage-tab-audit");
+      await page.goBack();
+      await expect(selectedTab).toHaveAttribute("id", "exam-manage-tab-submissions");
+      await page.reload();
+      await expect(selectedTab).toHaveAttribute("id", "exam-manage-tab-submissions");
+    } finally {
+      await context.close();
+    }
+  });
+
   test("student opening an upcoming exam sees no problem titles before start", async ({
     browser,
   }) => {

@@ -100,7 +100,7 @@
 
   let showStartModal = $state(false);
 
-  let activeSubTabKey = $state<ExamSubTab>(parseExamSubTab(page.url.searchParams.get("tab")));
+  let activeSubTabKey = $derived<ExamSubTab>(parseExamSubTab(page.url.searchParams.get("tab")));
 
   function setActiveSubTab(next: ExamSubTab): void {
     activeSubTabKey = next;
