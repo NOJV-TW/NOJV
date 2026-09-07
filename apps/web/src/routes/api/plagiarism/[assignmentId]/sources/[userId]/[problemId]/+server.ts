@@ -25,6 +25,6 @@ export const GET: RequestHandler = apiHandler(async (event) => {
     "Only staff can view plagiarism source code.",
   );
 
-  const files = await getPlagiarismSourceCode(resolved.target, userId, problemId);
-  return json({ files });
+  const source = await getPlagiarismSourceCode(resolved.target, userId, problemId);
+  return json({ files: source?.files ?? null, submissionId: source?.submissionId ?? null });
 });

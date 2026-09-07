@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SubmissionId from "$lib/components/features/submission/SubmissionId.svelte";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import type { ProblemSubmissionEntry } from "$lib/types";
   import type { SubmissionResult } from "@nojv/core";
@@ -185,6 +186,14 @@
             </span>
           </div>
         </div>
+        {#if entry.id}
+          <div class="mt-3">
+            <p class="text-caption uppercase tracking-wide text-muted-foreground">
+              {m.submission_id()}
+            </p>
+            <SubmissionId id={entry.id} />
+          </div>
+        {/if}
       {:else}
         {@const label = formatVerdictLabel(entry.result.verdict)}
         <div class="flex items-baseline gap-3">
@@ -231,6 +240,15 @@
           <span>{entry.language}</span>
           <span class="tabular-nums">{formatSmartTimestamp(entry.submittedAt)}</span>
         </div>
+
+        {#if entry.id}
+          <div class="mt-3">
+            <p class="text-caption uppercase tracking-wide text-muted-foreground">
+              {m.submission_id()}
+            </p>
+            <SubmissionId id={entry.id} />
+          </div>
+        {/if}
 
         {#if entry.result.subtaskResults && entry.result.subtaskResults.length > 0}
           <div class="mt-4">

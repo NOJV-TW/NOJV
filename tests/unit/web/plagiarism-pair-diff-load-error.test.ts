@@ -23,12 +23,14 @@ const data: PlagiarismPairDiffData = {
   contextId: "assessment-1",
   pair: { similarity: 91, longest: 12, overlap: 8, problemId: "problem-1" },
   left: {
+    submissionId: "left-submission",
     userId: "left",
     displayName: null,
     username: "left-user",
     files: [{ path: "main.ts", content: "left" }],
   },
   right: {
+    submissionId: "right-submission",
     userId: "right",
     displayName: null,
     username: "right-user",

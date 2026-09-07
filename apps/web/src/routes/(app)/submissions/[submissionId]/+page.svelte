@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SubmissionId from "$lib/components/features/submission/SubmissionId.svelte";
   import { ArrowLeft, Check, Copy, Download } from "@lucide/svelte";
   import { invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
@@ -146,7 +147,7 @@
         </p>
       </div>
 
-      <dl class="grid grid-cols-2 gap-3 rounded-lg border border-border-subtle bg-muted/20 p-2">
+      <dl class="grid grid-cols-2 gap-3 rounded-lg border border-border-subtle bg-muted/20 p-4">
         <div class="flex flex-col gap-0.5">
           <dt class="text-caption uppercase tracking-wide text-muted-foreground">
             {m.submissionDetail_runtime()}
@@ -182,6 +183,12 @@
             {m.submissionDetail_submittedAt()}
           </dt>
           <dd class="text-body-sm tabular-nums">{submittedAt}</dd>
+        </div>
+        <div class="col-span-2 min-w-0 border-t border-border-subtle pt-3">
+          <dt class="text-caption uppercase tracking-wide text-muted-foreground">
+            {m.submission_id()}
+          </dt>
+          <dd class="mt-1"><SubmissionId id={submission.id} /></dd>
         </div>
       </dl>
 

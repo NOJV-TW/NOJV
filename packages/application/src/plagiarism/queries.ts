@@ -194,7 +194,7 @@ export async function getPlagiarismSourceCode(
   target: PlagiarismTarget,
   userId: string,
   problemId: string,
-): Promise<SubmissionSource[] | null> {
+): Promise<{ submissionId: string; files: SubmissionSource[] } | null> {
   const submission = await submissionRepo.findMany({
     where: {
       ...plagiarismTargetFilter(target),
@@ -207,7 +207,7 @@ export async function getPlagiarismSourceCode(
   });
   const top = submission[0];
   if (!top) return null;
-  return getSubmissionSources(top.id);
+  return { submissionId: top.id, files: await getSubmissionSources(top.id) };
 }
 
 export async function listAssignmentPlagiarismReports(

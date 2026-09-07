@@ -56,6 +56,8 @@ describe("LiveSubmissionsFeed", () => {
     const row = target.querySelector<HTMLTableRowElement>("tbody tr");
 
     expect(row?.getAttribute("role")).toBe("link");
+    expect(row?.querySelector("[data-submission-id]")).toBeNull();
+    expect(row?.querySelector('[aria-label="Copy submission ID"]')).toBeNull();
     row
       ?.querySelector("td:nth-child(2)")
       ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));

@@ -127,13 +127,15 @@ export async function loadPlagiarismPair(
       userId: userAId,
       displayName: leftUser?.name ?? null,
       username: leftUser?.username ?? null,
-      files: leftSource,
+      submissionId: leftSource?.submissionId ?? null,
+      files: leftSource?.files ?? null,
     },
     right: {
       userId: userBId,
       displayName: rightUser?.name ?? null,
       username: rightUser?.username ?? null,
-      files: rightSource,
+      submissionId: rightSource?.submissionId ?? null,
+      files: rightSource?.files ?? null,
     },
     flag: flag
       ? {
