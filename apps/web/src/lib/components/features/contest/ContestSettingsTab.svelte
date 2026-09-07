@@ -6,6 +6,7 @@
 </script>
 
 <script lang="ts">
+  import { onMount } from "svelte";
   import { untrack } from "svelte";
   import type { problemDomain } from "@nojv/application";
   import GripVertical from "@lucide/svelte/icons/grip-vertical";
@@ -27,6 +28,11 @@
     contestModeUsesPoints,
   } from "$lib/utils/contest-scoring";
   import { cn, inputClassName } from "$lib/utils/css";
+  import {
+    isoDateTimeToLocal,
+    restoreDateTimeFields,
+    serializeDateTimeFields,
+  } from "$lib/utils/datetime-form";
   import { moveItem } from "$lib/utils/reorder";
   import { toggleArrayItem } from "$lib/utils";
   import { m } from "$lib/paraglide/messages.js";
@@ -36,6 +42,11 @@
   interface Props {
     form: SuperValidated<ContestSettingsForm, FormMessage>;
     liveStatus: ContestLiveStatus;
+    initialSchedule: {
+      startsAt: string;
+      endsAt: string;
+      frozenAt: string | null;
+    };
     candidateProblems?: problemDomain.ProblemPickerGroups;
     class?: string;
   }
@@ -43,6 +54,7 @@
   let {
     form: formProp,
     liveStatus,
+    initialSchedule,
     candidateProblems = { personalProblems: [], publicProblems: [] },
     class: className,
   }: Props = $props();
@@ -59,8 +71,29 @@
       dataType: "json",
       resetForm: false,
       invalidateAll: true,
+      onSubmit: ({ jsonData }) => {
+        jsonData(serializeDateTimeFields($form, ["startsAt", "endsAt", "frozenAt"]));
+      },
+      onUpdate: ({ form }) => {
+        form.data = restoreDateTimeFields(form.data, ["startsAt", "endsAt", "frozenAt"]);
+      },
+      onUpdated: ({ form: updatedForm }) => {
+        if (!updatedForm.valid || updatedForm.message?.kind !== "success") return;
+        form.update((data) => ({
+          ...data,
+          startsAt: isoDateTimeToLocal(initialSchedule.startsAt),
+          endsAt: isoDateTimeToLocal(initialSchedule.endsAt),
+          frozenAt: isoDateTimeToLocal(initialSchedule.frozenAt),
+        }));
+      },
     },
   );
+
+  onMount(() => {
+    $form.startsAt = isoDateTimeToLocal(initialSchedule.startsAt);
+    $form.endsAt = isoDateTimeToLocal(initialSchedule.endsAt);
+    $form.frozenAt = isoDateTimeToLocal(initialSchedule.frozenAt);
+  });
 
   const isDraft = $derived(liveStatus === "draft");
   const isUpcoming = $derived(liveStatus === "upcoming");

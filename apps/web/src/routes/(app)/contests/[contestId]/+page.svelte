@@ -303,6 +303,11 @@
         {#if data.settingsForm}
           <ContestSettingsTab
             form={data.settingsForm}
+            initialSchedule={{
+              startsAt: contest.startsAt,
+              endsAt: contest.endsAt,
+              frozenAt: contest.frozenAt,
+            }}
             liveStatus={settingsLiveStatus}
             candidateProblems={data.candidateProblems}
           />

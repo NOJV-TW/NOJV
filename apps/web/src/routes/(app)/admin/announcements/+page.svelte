@@ -12,6 +12,7 @@
   import { Input } from "$lib/components/primitives/ui/input";
   import { m } from "$lib/paraglide/messages.js";
   import { formatDate } from "$lib/utils/datetime";
+  import { serializeDateTimeFormData } from "$lib/utils/datetime-form";
   import { Megaphone, Pencil, Pin, Plus, Send, Trash2 } from "@lucide/svelte";
 
   let { data } = $props();
@@ -80,7 +81,14 @@
   {#if showCreateForm}
     <Card variant="flat" size="md">
       <h3 class="text-title-sm font-semibold">{m.admin_announcementsNew()}</h3>
-      <form class="space-y-4" method="POST" action="?/create" use:enhance>
+      <form
+        class="space-y-4"
+        method="POST"
+        action="?/create"
+        use:enhance={(event) => {
+          if (event.formData) serializeDateTimeFormData(event.formData, ["expiresAt"]);
+        }}
+      >
         <FormField label={m.admin_announcementsFieldTitle()} for="create-title" required>
           <Input
             id="create-title"
@@ -178,7 +186,8 @@
                 class="space-y-4"
                 method="POST"
                 action="?/update"
-                use:enhance={() => {
+                use:enhance={(event) => {
+                  if (event.formData) serializeDateTimeFormData(event.formData, ["expiresAt"]);
                   return async ({ update }) => {
                     editingId = null;
                     await update();

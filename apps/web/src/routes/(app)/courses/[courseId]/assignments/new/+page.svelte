@@ -5,6 +5,7 @@
   import { supportedLanguages, type Language } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { minutesToHHMM, hhmmToMinutes } from "$lib/utils/attempt-reset-time";
+  import { restoreDateTimeFields, serializeDateTimeFields } from "$lib/utils/datetime-form";
   import { Button } from "$lib/components/primitives/ui/button";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
@@ -27,7 +28,16 @@
     submitting,
   } = superForm<typeof data.form.data, FormMessage>(
     untrack(() => data.form),
-    { dataType: "json", resetForm: false },
+    {
+      dataType: "json",
+      resetForm: false,
+      onSubmit: ({ jsonData }) => {
+        jsonData(serializeDateTimeFields($form, ["opensAt", "dueAt", "closesAt"]));
+      },
+      onUpdate: ({ form }) => {
+        form.data = restoreDateTimeFields(form.data, ["opensAt", "dueAt", "closesAt"]);
+      },
+    },
   );
 
   let advancedOpen = $state(true);
