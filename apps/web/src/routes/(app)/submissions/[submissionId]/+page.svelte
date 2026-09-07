@@ -277,7 +277,7 @@
     </aside>
 
     <section
-      class="flex min-h-[60vh] flex-col overflow-hidden rounded-lg border border-border lg:h-[calc(100vh-9rem)] lg:sticky lg:top-4"
+      class="flex h-[60vh] flex-col overflow-hidden rounded-lg border border-border lg:h-[calc(100vh-9rem)] lg:sticky lg:top-4"
     >
       <header
         class="flex items-center justify-between gap-3 border-b border-border-subtle bg-muted/60 px-4 py-2"
@@ -314,7 +314,7 @@
           </button>
         </div>
       </header>
-      <div class="flex-1 overflow-hidden">
+      <div class="min-h-0 flex-1 overflow-hidden">
         <HighlightedCode code={sourceCode} language={submission.language} />
       </div>
     </section>

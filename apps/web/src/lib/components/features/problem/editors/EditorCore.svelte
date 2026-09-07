@@ -22,11 +22,6 @@
 
   let { language, fontSize, drafts, isHidden = false, onchange }: Props = $props();
 
-  const editorOptions = {
-    ...MONACO_CODE_EDITOR_OPTIONS,
-    fontFamily: '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
-  };
-
   const languageIdMap: Record<string, string> = {
     c: "c",
     cpp: "cpp",
@@ -60,7 +55,7 @@
 
         const isDark = document.documentElement.classList.contains("dark");
         const editor = monaco.editor.create(editorContainer, {
-          ...editorOptions,
+          ...MONACO_CODE_EDITOR_OPTIONS,
           fontSize,
           language: languageIdMap[language] ?? language,
           theme: getNojvThemeName(isDark),

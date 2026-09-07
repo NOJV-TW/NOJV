@@ -4,7 +4,7 @@
   import type { JudgeScriptLanguage, JudgeType } from "@nojv/core";
   import { inputClassName } from "$lib/utils/css";
   import { m } from "$lib/paraglide/messages.js";
-  import MonacoScriptEditor from "$lib/components/features/problem/editors/MonacoScriptEditor.svelte";
+  import MonacoScriptEditor from "$lib/components/primitives/ui/MonacoScriptEditor.svelte";
   import UploadDropZone from "$lib/components/features/problem/admin/UploadDropZone.svelte";
   import { toasts } from "$lib/stores/toast";
   import {
