@@ -3,7 +3,7 @@
   import type { Language } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { inputClassName } from "$lib/utils/css";
-  import MonacoScriptEditor from "$lib/components/features/problem/editors/MonacoScriptEditor.svelte";
+  import MonacoScriptEditor from "$lib/components/primitives/ui/MonacoScriptEditor.svelte";
 
   export interface WorkspaceFile {
     path: string;

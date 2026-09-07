@@ -58,7 +58,7 @@ Three font families, all self-hosted via `@fontsource`:
 | `--font-display` | Fraunces       | 400, 700      | Brand wordmark ("NOJV"), section headings in contest/course views |
 | `--font-mono`    | JetBrains Mono | 400, 500, 700 | Code editor, code blocks, sample I/O, character counts            |
 
-Monaco Editor uses `"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace` at 14px with no minimap.
+Monaco Editor uses `"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace` at 12px by default with no minimap. Submission source views use the same Monaco theme and editor settings in read-only mode.
 
 ### Color System
 

@@ -35,6 +35,7 @@ export function getNojvThemeName(isDark: boolean): string {
 export const MONACO_CODE_EDITOR_OPTIONS = {
   automaticLayout: true,
   fontSize: 12,
+  fontFamily: '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
   hideCursorInOverviewRuler: true,
   lineDecorationsWidth: 0,
   lineNumbersMinChars: 2,

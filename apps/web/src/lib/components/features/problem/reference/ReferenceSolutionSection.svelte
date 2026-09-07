@@ -2,7 +2,7 @@
   import { invalidateAll } from "$app/navigation";
   import { languageSchema, type Language, type SubmissionResult } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
-  import MonacoScriptEditor from "$lib/components/features/problem/editors/MonacoScriptEditor.svelte";
+  import MonacoScriptEditor from "$lib/components/primitives/ui/MonacoScriptEditor.svelte";
   import CaseResultGrid from "$lib/components/features/submission/CaseResultGrid.svelte";
   import {
     buildSubmissionRequest,
