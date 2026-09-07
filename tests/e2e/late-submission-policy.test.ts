@@ -8,7 +8,11 @@ const courseId = "course_os-lab-spring-2026";
 
 for (const kind of ["assignments", "exams"] as const) {
   test(`${kind}: create, reload, edit and disable late collection`, async ({ browser }) => {
-    const context = await browser.newContext({ storageState: teacherAuth, locale: "en-US" });
+    const context = await browser.newContext({
+      storageState: teacherAuth,
+      locale: "en-US",
+      timezoneId: "Asia/Taipei",
+    });
     const page = await context.newPage();
     await page.goto(`/courses/${courseId}/${kind}/new`);
     await expect(page.locator("#title")).toBeVisible();
@@ -84,6 +88,24 @@ for (const kind of ["assignments", "exams"] as const) {
       page.getByRole("checkbox", { name: "Allow late submissions" }),
     ).not.toBeChecked();
     await expect(page.locator(finalSelector)).toHaveCount(0);
+    const database = new PrismaClient({
+      adapter: new PrismaPg({
+        connectionString: resolveDestructiveTestDatabase("nojv_e2e_test"),
+      }),
+    });
+    try {
+      const id = new URL(page.url()).pathname.split("/").at(-1)!;
+      if (kind === "assignments") {
+        await database.assessment.update({ where: { id }, data: { dueAt: null } });
+      } else {
+        await database.exam.update({ where: { id }, data: { dueAt: null } });
+      }
+    } finally {
+      await database.$disconnect();
+    }
+    await page.reload();
+    await page.getByRole("tab", { name: "Settings", exact: true }).click();
+    await expect(page.locator("#dueAt")).toHaveValue("2030-01-02T09:00");
     await context.close();
   });
 }

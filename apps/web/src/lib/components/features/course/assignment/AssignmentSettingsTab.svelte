@@ -64,7 +64,7 @@
         form.update((data) => ({
           ...data,
           opensAt: isoDateTimeToLocal(initialSchedule.opensAt),
-          dueAt: isoDateTimeToLocal(initialSchedule.dueAt),
+          dueAt: isoDateTimeToLocal(initialSchedule.dueAt ?? initialSchedule.closesAt),
           closesAt: isoDateTimeToLocal(initialSchedule.closesAt),
         }));
       },
@@ -73,7 +73,7 @@
 
   onMount(() => {
     $form.opensAt = isoDateTimeToLocal(initialSchedule.opensAt);
-    $form.dueAt = isoDateTimeToLocal(initialSchedule.dueAt);
+    $form.dueAt = isoDateTimeToLocal(initialSchedule.dueAt ?? initialSchedule.closesAt);
     $form.closesAt = isoDateTimeToLocal(initialSchedule.closesAt);
   });
 

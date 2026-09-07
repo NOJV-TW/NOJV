@@ -37,10 +37,10 @@
       dataType: "json",
       resetForm: false,
       onSubmit: ({ jsonData }) => {
-        jsonData(serializeDateTimeFields($form, ["startsAt", "endsAt"]));
+        jsonData(serializeDateTimeFields($form, ["startsAt", "dueAt", "endsAt"]));
       },
       onUpdate: ({ form }) => {
-        form.data = restoreDateTimeFields(form.data, ["startsAt", "endsAt"]);
+        form.data = restoreDateTimeFields(form.data, ["startsAt", "dueAt", "endsAt"]);
       },
     },
   );
