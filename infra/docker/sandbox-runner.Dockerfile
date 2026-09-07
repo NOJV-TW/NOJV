@@ -23,7 +23,7 @@ RUN mkdir -p /judge-toolchain/node_modules/@types \
   && cp -RL "$(pnpm root -w)/typescript" /judge-toolchain/node_modules/typescript \
   && cp -RL "$(pnpm root -w)/@types/node" /judge-toolchain/node_modules/@types/node
 
-FROM ghcr.io/nojv-tw/nojv-sandbox:toolchain-2026-09-07@sha256:afc15b9725a22fe2c6d42627ead2bf949c0afb7ccea5c469fbf16b67ccb8e776
+FROM ghcr.io/nojv-tw/nojv-sandbox:toolchain-2026-09-07-go1.26.8@sha256:19c6a5da784e809c3113c1fc7e69bad1d0035972f502c878b3ab23a8202ad1d3
 
 COPY packages/core/src/judge-environment.json /runner/judge-environment.json
 
