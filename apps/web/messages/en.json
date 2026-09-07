@@ -677,7 +677,7 @@
   "auth_adminFlow_verifyHint": "Your password is confirmed. Use an authenticator or passkey to finish this session's second step.",
   "auth_adminFlow_chooseTotp": "Set up authenticator",
   "auth_adminFlow_choosePasskey": "Set up passkey",
-  "auth_adminFlow_progress": "Step {current} of {total}",
+  "auth_adminFlow_restart": "Start sign-in again",
   "auth_adminFlow_recovery": "Cannot use your current factor? Recover your account",
   "auth_adminFlow_recoveryTitle": "Recover security factors",
   "auth_adminFlow_recoveryHint": "Your password is confirmed. Use a backup code or email code to clear the old factors.",

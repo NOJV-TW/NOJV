@@ -72,6 +72,8 @@ test("a regular admin reuses one verification when entering admin mode again", a
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   const totpInput = page.getByLabel("Code from your current authenticator");
   await expect(totpInput).toBeVisible();
+  await page.reload();
+  await expect(totpInput).toBeVisible();
   await expect(page.getByRole("button", { name: "Recover account" })).toBeHidden();
   await totpInput.fill(currentTotp(secret));
   await page.getByRole("button", { name: "Verify and continue" }).click();

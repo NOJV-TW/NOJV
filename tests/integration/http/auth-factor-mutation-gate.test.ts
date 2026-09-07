@@ -2,15 +2,28 @@ import { createHmac } from "node:crypto";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { createTestUser, testPrisma } from "../../fixtures/factories";
 import { callRoute } from "./_harness";
 import { getAuth } from "$lib/auth.server";
+import { pendingRegularAdminSignIn } from "$lib/server/admin-signin-state";
+import { verifyStepUpCode } from "$lib/server/step-up";
+import {
+  clearVerifiedSessionProofs,
+  hasAdminSessionMfa,
+  securityGenerationProof,
+  unlockSecuritySettings,
+} from "@nojv/application";
 import {
   factorMutationPath,
   runInternalFactorMutation,
 } from "$lib/server/auth-factor-mutation";
+
+beforeAll(async () => {
+  await import("$lib/../hooks.server");
+  await getAuth().$context;
+}, 30_000);
 
 const authRoute = await import("../../../apps/web/src/routes/api/auth/[...path]/+server");
 const requireFromWeb = createRequire(join(process.cwd(), "apps/web/package.json"));
@@ -59,14 +72,16 @@ function currentTotp(secret: string): string {
   return (code % 1_000_000).toString().padStart(6, "0");
 }
 
-async function createSignedInCredentialUser(): Promise<{
+async function createSignedInCredentialUser(
+  overrides: { platformRole?: "admin"; isSuperAdmin?: boolean } = {},
+): Promise<{
   cookie: string;
   email: string;
   password: string;
   userId: string;
 }> {
   const password = "correct horse battery staple";
-  const user = await createTestUser({ emailVerified: true });
+  const user = await createTestUser({ emailVerified: true, ...overrides });
   await testPrisma.account.create({
     data: {
       id: `credential-${user.id}`,
@@ -197,5 +212,130 @@ describe("Better Auth factor-mutation route gate", () => {
     });
 
     expect(verification.status).toBe(200);
+  });
+});
+
+describe("admin authentication regression checks", () => {
+  async function enrolledAdmin() {
+    const account = await createSignedInCredentialUser({ platformRole: "admin" });
+    const enrollment = await beginTrustedEnrollment(account.cookie, account.password);
+    await testPrisma.twoFactor.updateMany({
+      where: { userId: account.userId },
+      data: { verified: true },
+    });
+    const user = await testPrisma.user.update({
+      where: { id: account.userId },
+      data: { twoFactorEnabled: true },
+    });
+    const headers = new Headers({ cookie: account.cookie });
+    const session = await getAuth().api.getSession({ headers });
+    expect(session).not.toBeNull();
+    return {
+      ...account,
+      headers,
+      user,
+      sessionId: session!.session.id,
+      secret: new URL(enrollment.totpURI).searchParams.get("secret")!,
+    };
+  }
+
+  it("never grants admin MFA for an incorrect or replayed authenticated TOTP", async () => {
+    const account = await enrolledAdmin();
+    const proof = securityGenerationProof(account.user);
+    const code = currentTotp(account.secret);
+    const wrongCode = `${(Number(code[0]) + 1) % 10}${code.slice(1)}`;
+    await clearVerifiedSessionProofs(account.sessionId);
+    await expect(
+      verifyStepUpCode(proof, wrongCode, account.headers, true),
+    ).resolves.toMatchObject({ ok: false, reason: "invalid" });
+    await expect(hasAdminSessionMfa(account.sessionId, proof)).resolves.toBe(false);
+    await expect(verifyStepUpCode(proof, code, account.headers, true)).resolves.toEqual({
+      ok: true,
+    });
+    await expect(verifyStepUpCode(proof, code, account.headers, true)).resolves.toMatchObject({
+      ok: false,
+      reason: "replayed",
+    });
+    await expect(hasAdminSessionMfa(account.sessionId, proof)).resolves.toBe(false);
+  });
+
+  it("does not grant super admin MFA after rejected passkey registration", async () => {
+    const account = await createSignedInCredentialUser({
+      platformRole: "admin",
+      isSuperAdmin: true,
+    });
+    const headers = new Headers({ cookie: account.cookie });
+    const session = await getAuth().api.getSession({ headers });
+    const user = await testPrisma.user.findUniqueOrThrow({ where: { id: account.userId } });
+    const proof = securityGenerationProof(user);
+    await unlockSecuritySettings(session!.session.id, proof);
+    const response = await callRoute({
+      path: "/api/auth/passkey/verify-registration",
+      method: "POST",
+      module: authRoute,
+      headers: { cookie: account.cookie },
+      body: {
+        response: {
+          id: "invalid-registration",
+          rawId: "invalid-registration",
+          type: "public-key",
+          response: { clientDataJSON: "invalid", attestationObject: "invalid" },
+          clientExtensionResults: {},
+        },
+      },
+    });
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    await expect(hasAdminSessionMfa(session!.session.id, proof)).resolves.toBe(false);
+    await expect(testPrisma.passkey.count({ where: { userId: user.id } })).resolves.toBe(0);
+  });
+
+  it("resumes only a signed, live regular-admin challenge and stops after verification", async () => {
+    const account = await enrolledAdmin();
+    const signIn = await callRoute({
+      path: "/api/auth/sign-in/email",
+      method: "POST",
+      module: authRoute,
+      body: { email: account.email, password: account.password },
+    });
+    expect(signIn.status).toBe(200);
+    const cookie = cookieHeader(signIn);
+    const headers = new Headers({ cookie });
+    await expect(pendingRegularAdminSignIn(headers)).resolves.toBe(account.userId);
+    await expect(pendingRegularAdminSignIn(new Headers())).resolves.toBeNull();
+    await expect(
+      pendingRegularAdminSignIn(new Headers({ cookie: cookie.replace("2fa-", "forged-") })),
+    ).resolves.toBeNull();
+    const verification = await callRoute({
+      path: "/api/auth/two-factor/verify-totp",
+      method: "POST",
+      module: authRoute,
+      headers: { cookie },
+      body: { code: currentTotp(account.secret) },
+    });
+    expect(verification.status).toBe(200);
+    await expect(pendingRegularAdminSignIn(headers)).resolves.toBeNull();
+    const session = await getAuth().api.getSession({
+      headers: new Headers({ cookie: cookieHeader(verification) }),
+    });
+    await expect(
+      hasAdminSessionMfa(session!.session.id, securityGenerationProof(account.user)),
+    ).resolves.toBe(true);
+  });
+
+  it("rejects an expired pending challenge", async () => {
+    const account = await enrolledAdmin();
+    const signIn = await callRoute({
+      path: "/api/auth/sign-in/email",
+      method: "POST",
+      module: authRoute,
+      body: { email: account.email, password: account.password },
+    });
+    const headers = new Headers({ cookie: cookieHeader(signIn) });
+    await expect(pendingRegularAdminSignIn(headers)).resolves.toBe(account.userId);
+    await testPrisma.verification.updateMany({
+      where: { value: account.userId },
+      data: { expiresAt: new Date(0) },
+    });
+    await expect(pendingRegularAdminSignIn(headers)).resolves.toBeNull();
   });
 });

@@ -132,6 +132,14 @@ test("first login and later password plus passkey login preserve setup-only reco
 
   await context.clearCookies();
   await submitPassword(page, passkeyAdmin.email, newPassword);
+  await context.clearCookies({ name: "nojv.super_admin_password" });
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Admin login", exact: true })).toBeVisible();
+  await submitPassword(page, passkeyAdmin.email, newPassword);
+  await context.clearCookies({ name: "nojv.super_admin_password" });
+  await page.getByRole("button", { name: "Start sign-in again" }).click();
+  await expect(page.getByLabel("Username or email")).toBeVisible();
+  await submitPassword(page, passkeyAdmin.email, newPassword);
   await page.getByRole("button", { name: "Verify with passkey" }).click();
   await expectDirectSuperAdminAccess(page);
 

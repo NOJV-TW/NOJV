@@ -1,7 +1,7 @@
 import { passkey } from "@better-auth/passkey";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
+import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from "better-auth/api";
 import { twoFactor, username } from "better-auth/plugins";
 import bcrypt from "bcryptjs";
 
@@ -320,8 +320,9 @@ function createAuth() {
         }
       }),
       after: createAuthMiddleware(async (ctx) => {
+        if (isAPIError(ctx.context.returned)) return;
         if (ctx.path === "/two-factor/verify-totp") {
-          const session = ctx.context.newSession ?? (await getSessionFromCtx(ctx));
+          const session = ctx.context.newSession;
           if (!session) return;
           const user = await prisma.user.findUnique({
             where: { id: session.user.id },

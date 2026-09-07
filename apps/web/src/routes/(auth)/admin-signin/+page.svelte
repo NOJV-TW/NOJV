@@ -51,7 +51,9 @@
   let destination = $state(
     (initialAction?.destination as string | undefined) ?? initialData.returnTo,
   );
-  let regularAdmin = $state((initialAction?.regularAdmin as boolean | undefined) ?? false);
+  let regularAdmin = $state(
+    (initialAction?.regularAdmin as boolean | undefined) ?? initialData.regularAdmin,
+  );
   let recoveryMode = $state(initialRecoveryMode);
   let recoveryEmailSent = $state(initialRecoveryMode && initialAction?.sent === true);
   let backupCode = $state("");
@@ -67,31 +69,26 @@
     switch (phase) {
       case "change-password":
         return {
-          current: 2,
           title: m.auth_adminFlow_changePasswordTitle(),
           hint: m.auth_adminFlow_changePasswordHint(),
         };
       case "email-setup":
         return {
-          current: 3,
           title: m.auth_adminFlow_emailTitle(),
           hint: m.auth_adminFlow_emailHint(),
         };
       case "choose-factor":
         return {
-          current: 4,
           title: m.auth_adminFlow_chooseTitle(),
           hint: m.auth_adminFlow_chooseHint(),
         };
       case "totp-setup":
         return {
-          current: 4,
           title: m.auth_adminFlow_totpTitle(),
           hint: m.account_totp_setupHint(),
         };
       case "verify-factor":
         return {
-          current: 2,
           title: recoveryMode
             ? m.auth_adminFlow_recoveryTitle()
             : m.auth_adminFlow_verifyTitle(),
@@ -99,7 +96,6 @@
         };
       default:
         return {
-          current: 1,
           title: m.auth_adminSignIn(),
           hint: m.auth_adminFlow_passwordHint(),
         };
@@ -203,11 +199,6 @@
         <Badge variant="outline" size="sm">{m.auth_adminBadge()}</Badge>
       </div>
       <p class="text-body-sm text-muted-foreground">{phaseMeta.hint}</p>
-      {#if phase !== "password"}
-        <p class="text-caption font-medium text-muted-foreground">
-          {m.auth_adminFlow_progress({ current: phaseMeta.current, total: 4 })}
-        </p>
-      {/if}
     </div>
 
     {#if error}
@@ -751,6 +742,18 @@
           </button>
         {/if}
       </div>
+    {/if}
+
+    {#if phase !== "password"}
+      <form method="POST" action="?/restart" class="text-center">
+        <button
+          type="submit"
+          disabled={loading}
+          class="text-body-sm text-muted-foreground underline-offset-4 hover:underline"
+        >
+          {m.auth_adminFlow_restart()}
+        </button>
+      </form>
     {/if}
 
     {#if phase === "password"}

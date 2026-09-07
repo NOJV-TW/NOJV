@@ -21,6 +21,7 @@ import { fail, redirect } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 
 import { getAuth } from "$lib/auth.server";
+import { pendingRegularAdminSignIn } from "$lib/server/admin-signin-state";
 import { getWebEnv } from "$lib/server/env";
 import { createLogger } from "$lib/server/logger";
 import { getClientIp } from "$lib/server/shared/client-ip";
@@ -28,6 +29,7 @@ import { withRateLimitActions } from "$lib/server/shared/action-handlers";
 import { signInRateLimiter } from "$lib/server/shared/rate-limiter";
 import { otpSendRateLimiter } from "$lib/server/shared/rate-limiter";
 import {
+  clearSuperAdminPasswordProof,
   issueSuperAdminPasswordProof,
   isSuperAdminPasswordProofSessionValid,
   readSuperAdminPasswordProof,
@@ -136,10 +138,11 @@ function forwardSetCookies(event: RequestEvent, headers: Headers): void {
   }
 }
 
-async function phaseForSuperAdmin(event: RequestEvent): Promise<{
+async function phaseForAdmin(event: RequestEvent): Promise<{
   hasPasskey: boolean;
   hasTotp: boolean;
   phase: AdminSignInPhase;
+  regularAdmin?: boolean;
 }> {
   const user = event.locals.sessionUser;
   const session = event.locals.session;
@@ -159,12 +162,21 @@ async function phaseForSuperAdmin(event: RequestEvent): Promise<{
       );
       return { ...state, phase: unlocked ? "choose-factor" : "email-setup" };
     }
-    return { ...state, phase: "verify-factor" };
+    return {
+      ...state,
+      phase: (await requirePasswordProof(event)) ? "verify-factor" : "password",
+    };
   }
 
   const ticket = event.cookies.get(SUPER_ADMIN_PASSWORD_PROOF_COOKIE);
   const proof = ticket ? await readSuperAdminPasswordProof(ticket) : null;
-  if (!proof) return { hasPasskey: false, hasTotp: false, phase: "password" };
+  if (!proof) {
+    const regularAdminId = await pendingRegularAdminSignIn(event.request.headers);
+    const state = regularAdminId ? await getSecurityFactorState(regularAdminId) : null;
+    return state?.hasTotp
+      ? { ...state, phase: "verify-factor", regularAdmin: true }
+      : { hasPasskey: false, hasTotp: false, phase: "password" };
+  }
   const state = await getSecurityFactorState(proof.userId);
   return state
     ? { ...state, phase: "verify-factor" }
@@ -175,13 +187,33 @@ export const load: PageServerLoad = async (event) => {
   if (event.locals.sessionUser && !event.locals.sessionUser.isSuperAdmin) {
     redirect(303, "/dashboard");
   }
+  const state = await phaseForAdmin(event);
   return {
-    ...(await phaseForSuperAdmin(event)),
-    returnTo: safeReturnTo(event.url.searchParams.get("returnTo")),
+    ...state,
+    regularAdmin: state.regularAdmin ?? false,
+    returnTo: state.regularAdmin
+      ? "/dashboard"
+      : safeReturnTo(event.url.searchParams.get("returnTo")),
   };
 };
 
 const actionHandlers = {
+  restart: async (event: RequestEvent) => {
+    const auth = getAuth();
+    const result = await auth.api.signOut({
+      headers: event.request.headers,
+      returnHeaders: true,
+    });
+    forwardSetCookies(event, result.headers);
+    await clearSuperAdminPasswordProof(event.cookies);
+    const context = await auth.$context;
+    const cookie = context.createAuthCookie("two_factor");
+    event.cookies.delete(cookie.name, { path: cookie.attributes.path ?? "/" });
+    redirect(
+      303,
+      `${event.url.pathname}?returnTo=${encodeURIComponent(safeReturnTo(event.url.searchParams.get("returnTo")))}`,
+    );
+  },
   password: async (event: RequestEvent) => {
     const rateLimit = await signInRateLimiter.consume(getClientIp(event));
     if (rateLimit !== "allowed") {
