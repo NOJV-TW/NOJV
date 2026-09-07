@@ -176,9 +176,19 @@ describe("submission detail at the real SSR loader boundary", () => {
       courseId: course.id,
       assessmentId: assignment.id,
     });
+    const membership = await testPrisma.courseMembership.create({
+      data: { courseId: course.id, userId: student.id, role: "student", status: "active" },
+    });
+    await testPrisma.assessmentProblem.create({
+      data: { assessmentId: assignment.id, problemId: problem.id, ordinal: 1, points: 100 },
+    });
     await feedbackDomain.upsertFeedback(actorOf(teacher), {
       context: { type: "assignment", assignmentId: assignment.id },
-      input: { studentUserId: student.id, problemId: problem.id, comment: "Student feedback" },
+      input: {
+        courseMembershipId: membership.id,
+        problemId: problem.id,
+        comment: "Student feedback",
+      },
     });
     const { load } =
       await import("../../../apps/web/src/routes/(app)/submissions/[submissionId]/+page.server");
@@ -196,6 +206,7 @@ describe("submission detail at the real SSR loader boundary", () => {
       expect(page.feedback).toBe("Student feedback");
       expect(page.submission).not.toHaveProperty("feedbackStudentUserId");
       expect(JSON.stringify(page)).not.toContain(student.id);
+      expect(JSON.stringify(page)).not.toContain(membership.id);
     }
   }, 30_000);
 

@@ -19,7 +19,9 @@
   }
 
   export interface MatrixRow {
-    userId: string;
+    rowId: string;
+    courseMembershipId: string | null;
+    userId: string | null;
     displayName: string;
     handle: string;
     cells: MatrixCell[];
@@ -68,7 +70,7 @@
     csvDownloadName: string;
     labels: MatrixViewLabels;
     dataSlot: string;
-    oncellclick?: ((userId: string, problemId: string) => void) | undefined;
+    oncellclick?: ((rowId: string, problemId: string) => void) | undefined;
     showHeader?: boolean;
     showHint?: boolean;
     class?: string | undefined;

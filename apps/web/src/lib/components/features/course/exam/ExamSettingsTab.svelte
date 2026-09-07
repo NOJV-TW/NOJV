@@ -8,6 +8,7 @@
 </script>
 
 <script lang="ts">
+  import { onMount } from "svelte";
   import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
   import Trash2 from "@lucide/svelte/icons/trash-2";
@@ -16,6 +17,11 @@
   import { Button } from "$lib/components/primitives/ui/button";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
   import { cn } from "$lib/utils/css";
+  import {
+    isoDateTimeToLocal,
+    restoreDateTimeFields,
+    serializeDateTimeFields,
+  } from "$lib/utils/datetime-form";
   import { m } from "$lib/paraglide/messages.js";
   import type { FormMessage } from "$lib/types/form-message";
   import ExamBasicSettings from "./settings/ExamBasicSettings.svelte";
@@ -30,7 +36,7 @@
     class?: string;
   }
 
-  let { form: formProp, detail: _detail, liveStatus, class: className }: Props = $props();
+  let { form: formProp, detail, liveStatus, class: className }: Props = $props();
 
   const {
     form,
@@ -44,8 +50,27 @@
       dataType: "json",
       resetForm: false,
       invalidateAll: true,
+      onSubmit: ({ jsonData }) => {
+        jsonData(serializeDateTimeFields($form, ["startsAt", "endsAt"]));
+      },
+      onUpdate: ({ form }) => {
+        form.data = restoreDateTimeFields(form.data, ["startsAt", "endsAt"]);
+      },
+      onUpdated: ({ form: updatedForm }) => {
+        if (!updatedForm.valid || updatedForm.message?.kind !== "success") return;
+        form.update((data) => ({
+          ...data,
+          startsAt: isoDateTimeToLocal(detail.startsAt),
+          endsAt: isoDateTimeToLocal(detail.endsAt),
+        }));
+      },
     },
   );
+
+  onMount(() => {
+    $form.startsAt = isoDateTimeToLocal(detail.startsAt);
+    $form.endsAt = isoDateTimeToLocal(detail.endsAt);
+  });
 
   const isDraft = $derived(liveStatus === "draft");
   const isUpcoming = $derived(liveStatus === "upcoming");

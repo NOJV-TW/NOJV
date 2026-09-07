@@ -1,44 +1,8 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
-import { runTransaction, type TransactionClient } from "../transaction";
+import type { TransactionClient } from "../transaction";
 
 type TxClient = TransactionClient;
-
-function synthesizePlaceholderEmail(username: string): string {
-  return `placeholder+${username}@placeholder.nojv.local`;
-}
-
-async function attachPlaceholderInTx(
-  tx: TxClient,
-  placeholderId: string,
-  realUserId: string,
-): Promise<void> {
-  const placeholderMemberships = await tx.courseMembership.findMany({
-    where: { userId: placeholderId },
-    select: { id: true, courseId: true },
-  });
-  for (const mem of placeholderMemberships) {
-    const existing = await tx.courseMembership.findUnique({
-      where: { courseId_userId: { courseId: mem.courseId, userId: realUserId } },
-      select: { id: true },
-    });
-    if (existing) {
-      await tx.courseMembership.delete({ where: { id: mem.id } });
-    } else {
-      await tx.courseMembership.update({
-        where: { id: mem.id },
-        data: { userId: realUserId },
-      });
-    }
-  }
-
-  await tx.courseMembership.updateMany({
-    where: { addedByUserId: placeholderId },
-    data: { addedByUserId: realUserId },
-  });
-
-  await tx.user.delete({ where: { id: placeholderId } });
-}
 
 export const userRepo = {
   findById(id: string) {
@@ -112,7 +76,7 @@ export const userRepo = {
 
   listActiveIds() {
     return prisma.user.findMany({
-      where: { status: "active" },
+      where: { disabled: false },
       select: { id: true },
     });
   },
@@ -144,67 +108,40 @@ export const userRepo = {
     });
   },
 
-  async countDeletionBlockers(id: string): Promise<number> {
-    const [ownedCourses, createdAssessments, submissions, participations] = await Promise.all([
-      prisma.course.count({ where: { ownerId: id } }),
-      prisma.assessment.count({ where: { createdByUserId: id } }),
-      prisma.submission.count({ where: { userId: id } }),
-      prisma.participation.count({ where: { userId: id } }),
-    ]);
-    return ownedCourses + createdAssessments + submissions + participations;
-  },
-
-  delete(id: string) {
-    return prisma.user.delete({ where: { id } });
-  },
-
-  anonymizeAndDisable(id: string) {
-    return prisma.user.update({
-      where: { id },
-      data: {
-        disabled: true,
-        isSuperAdmin: false,
-        platformRole: "student",
-        username: null,
-        displayUsername: null,
-        image: null,
-        name: "Deleted user",
-        email: `deleted+${id}@deleted.nojv.local`,
-      },
-    });
-  },
-
-  createPlaceholder(input: { username: string; addedByUserId: string | null }) {
-    return prisma.user.create({
-      data: {
-        email: synthesizePlaceholderEmail(input.username),
-        username: input.username,
-        displayUsername: input.username,
-        name: input.username,
-        emailVerified: false,
-        status: "pending_first_login",
-        disabled: false,
-        platformRole: "student",
-      },
-    });
-  },
-
-  async attachPlaceholderToAuth(placeholderId: string, realUserId: string) {
-    if (placeholderId === realUserId) {
-      throw new Error("attachPlaceholderToAuth: placeholder and real user must differ");
-    }
-    await runTransaction((tx) => attachPlaceholderInTx(tx, placeholderId, realUserId));
-  },
-
-  attachPlaceholderInTx(tx: TxClient, placeholderId: string, realUserId: string) {
-    if (placeholderId === realUserId) {
-      throw new Error("attachPlaceholderInTx: placeholder and real user must differ");
-    }
-    return attachPlaceholderInTx(tx, placeholderId, realUserId);
-  },
-
   withTx(tx: TxClient) {
     return {
+      async countDeletionBlockers(id: string): Promise<number> {
+        const [ownedCourses, createdAssessments, submissions, participations, memberships] =
+          await Promise.all([
+            tx.course.count({ where: { ownerId: id } }),
+            tx.assessment.count({ where: { createdByUserId: id } }),
+            tx.submission.count({ where: { userId: id } }),
+            tx.participation.count({ where: { userId: id } }),
+            tx.courseMembership.count({ where: { userId: id } }),
+          ]);
+        return ownedCourses + createdAssessments + submissions + participations + memberships;
+      },
+
+      delete(id: string) {
+        return tx.user.delete({ where: { id } });
+      },
+
+      anonymizeAndDisable(id: string) {
+        return tx.user.update({
+          where: { id },
+          data: {
+            disabled: true,
+            isSuperAdmin: false,
+            platformRole: "student",
+            username: null,
+            displayUsername: null,
+            image: null,
+            name: "Deleted user",
+            email: `deleted+${id}@deleted.nojv.local`,
+          },
+        });
+      },
+
       findById(id: string) {
         return tx.user.findUnique({ where: { id } });
       },
@@ -215,7 +152,7 @@ export const userRepo = {
 
       listActiveIds() {
         return tx.user.findMany({
-          where: { status: "active" },
+          where: { disabled: false },
           select: { id: true },
         });
       },

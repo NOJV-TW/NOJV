@@ -54,7 +54,7 @@ export const courseRepo = {
       where: { id },
       include: {
         memberships: {
-          where: { userId },
+          where: { userId, status: "active" },
           take: 1,
         },
       },
@@ -67,7 +67,7 @@ export const courseRepo = {
       include: {
         owner: { select: { name: true } },
         memberships: {
-          where: { userId },
+          where: { userId, status: "active" },
           take: 1,
         },
         _count: {
@@ -184,7 +184,9 @@ export const courseMembershipRepo = {
     return prisma.courseMembership.findMany({
       where: { courseId, role: "student", status: "active" },
       select: {
+        id: true,
         userId: true,
+        pendingUsername: true,
         user: { select: userPublicSelect },
       },
       orderBy: { user: { username: "asc" } },
@@ -194,19 +196,19 @@ export const courseMembershipRepo = {
   listActiveStudentUserIds(courseId: string) {
     return prisma.courseMembership
       .findMany({
-        where: { courseId, role: "student", status: "active" },
+        where: { courseId, role: "student", status: "active", userId: { not: null } },
         select: { userId: true },
       })
-      .then((rows) => rows.map((r) => r.userId));
+      .then((rows) => rows.flatMap((r) => (r.userId === null ? [] : [r.userId])));
   },
 
   listActiveMemberUserIds(courseId: string) {
     return prisma.courseMembership
       .findMany({
-        where: { courseId, status: "active" },
+        where: { courseId, status: "active", userId: { not: null } },
         select: { userId: true },
       })
-      .then((rows) => rows.map((r) => r.userId));
+      .then((rows) => rows.flatMap((r) => (r.userId === null ? [] : [r.userId])));
   },
 
   listActiveForUser(userId: string) {
@@ -232,10 +234,10 @@ export const courseMembershipRepo = {
 
       async listActiveMemberUserIds(courseId: string) {
         const rows = await tx.courseMembership.findMany({
-          where: { courseId, status: "active" },
+          where: { courseId, status: "active", userId: { not: null } },
           select: { userId: true },
         });
-        return rows.map((row) => row.userId);
+        return rows.flatMap((row) => (row.userId === null ? [] : [row.userId]));
       },
 
       create(data: Prisma.CourseMembershipUncheckedCreateInput) {

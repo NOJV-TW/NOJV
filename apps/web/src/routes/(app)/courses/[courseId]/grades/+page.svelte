@@ -192,12 +192,17 @@
             </tr>
           </thead>
           <tbody>
-            {#each sortedRows as row (row.userId)}
+            {#each sortedRows as row (row.membershipId)}
               <tr>
                 <td
                   class="sticky left-0 z-[1] border-b border-r border-border-subtle bg-background px-5 py-3 text-left before:absolute before:inset-0 before:-z-[1] before:bg-[color:var(--color-panel)] before:content-['']"
                 >
                   <div class="font-medium tracking-[-0.005em] text-foreground">{row.name}</div>
+                  {#if row.userId === null}
+                    <div class="text-caption text-muted-foreground">
+                      {m.members_pendingActivation()}
+                    </div>
+                  {/if}
                   {#if row.username}
                     <div class="mt-0.5 font-mono text-caption text-muted-foreground">
                       {row.username}

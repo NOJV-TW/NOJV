@@ -10,6 +10,7 @@ import { splitStatements } from "../../setup/replay-constraints";
 const MIGRATIONS = [
   "20260716000011_versioned_blob_pointers_expand",
   "20260716000012_versioned_blob_pointers_contract",
+  "20260907000002_storage_pointer_map_restore",
 ] as const;
 
 async function createLegacyTables(schema: string): Promise<void> {
@@ -50,7 +51,7 @@ async function applyMigration(schema: string, migration: (typeof MIGRATIONS)[num
   const sql = readFileSync(
     join(process.cwd(), "packages/db/prisma/migrations", migration, "migration.sql"),
     "utf8",
-  );
+  ).replaceAll('"public".', `"${schema}".`);
   await testPrisma.$transaction(async (transaction) => {
     await transaction.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
     for (const statement of splitStatements(sql)) {
@@ -64,6 +65,41 @@ function pointer(key: string): string {
 }
 
 describe("versioned storage pointer migration", () => {
+  it("validates restored testcase maps with pg_restore's empty search_path", async () => {
+    const schema = `storage_restore_${randomUUID().replaceAll("-", "")}`;
+    await createLegacyTables(schema);
+    try {
+      await applyMigration(schema, MIGRATIONS[0]);
+      await applyMigration(schema, MIGRATIONS[1]);
+      const validMap = `{"input.txt":${pointer("testcase/input-file")}}`;
+      const restoreRow = (id: string, inputFileStorage: string) =>
+        testPrisma.$transaction(async (transaction) => {
+          await transaction.$executeRawUnsafe("SET LOCAL search_path TO ''");
+          return transaction.$executeRawUnsafe(
+            `INSERT INTO "${schema}"."Testcase" ("id", "inputStorage", "inputFileStorage")
+             VALUES ($1, $2::jsonb, $3::jsonb)`,
+            id,
+            pointer("testcase/input"),
+            inputFileStorage,
+          );
+        });
+
+      await expect(restoreRow("before-fix", validMap)).rejects.toThrow(
+        /function storage_pointer_valid\(jsonb\) does not exist/,
+      );
+      await applyMigration(schema, MIGRATIONS[2]);
+      await expect(restoreRow("after-fix", validMap)).resolves.toBe(1);
+      await expect(
+        restoreRow(
+          "invalid",
+          '{"input.txt":{"key":"testcase/input-file","sha256":"invalid","size":1}}',
+        ),
+      ).rejects.toThrow(/Testcase_input_file_storage_pointer_chk/);
+    } finally {
+      await testPrisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+    }
+  });
+
   it("keeps the destructive contract atomic after the external preflight", async () => {
     const schema = `storage_pointer_${randomUUID().replaceAll("-", "")}`;
     await createLegacyTables(schema);

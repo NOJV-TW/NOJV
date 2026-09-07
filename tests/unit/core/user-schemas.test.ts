@@ -16,13 +16,13 @@ describe("userHandleSchema", () => {
     expect(userHandleSchema.parse("  ntu_b11902001  ")).toBe("ntu_b11902001");
   });
 
-  it("rejects dots and hyphens — stricter than better-auth's username regex", () => {
-    expect(userHandleSchema.safeParse("b.11902001").success).toBe(false);
-    expect(userHandleSchema.safeParse("b-11902001").success).toBe(false);
+  it("accepts the same general username characters as account registration", () => {
+    expect(userHandleSchema.safeParse("b.11902001").success).toBe(true);
+    expect(userHandleSchema.safeParse("b-11902001").success).toBe(true);
   });
 
-  it("rejects uppercase input", () => {
-    expect(userHandleSchema.safeParse("NTU_B11902001").success).toBe(false);
+  it("normalizes uppercase input", () => {
+    expect(userHandleSchema.parse("NTU_B11902001")).toBe("ntu_b11902001");
   });
 
   it("rejects email addresses pasted by accident", () => {
@@ -31,8 +31,8 @@ describe("userHandleSchema", () => {
 
   it("enforces length bounds", () => {
     expect(userHandleSchema.safeParse("ab").success).toBe(false);
-    expect(userHandleSchema.safeParse("a".repeat(33)).success).toBe(false);
+    expect(userHandleSchema.safeParse("a".repeat(65)).success).toBe(false);
     expect(userHandleSchema.safeParse("abc").success).toBe(true);
-    expect(userHandleSchema.safeParse("a".repeat(32)).success).toBe(true);
+    expect(userHandleSchema.safeParse("a".repeat(64)).success).toBe(true);
   });
 });

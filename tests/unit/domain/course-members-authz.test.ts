@@ -1,182 +1,270 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ActorContext } from "../../../packages/application/src/shared/actor-context";
 
-const { findByComposite, updateRole, removeFromCourse, runTransaction } = vi.hoisted(() => ({
-  findByComposite: vi.fn(),
+const mocks = vi.hoisted(() => ({
+  listWithUserByCourse: vi.fn(),
+  findActorMembership: vi.fn(),
+  findMember: vi.fn(),
+  findCourse: vi.fn(),
+  findUsers: vi.fn(),
+  listMembers: vi.fn(),
+  createMembers: vi.fn(),
+  restoreMembers: vi.fn(),
   updateRole: vi.fn(),
   removeFromCourse: vi.fn(),
-  runTransaction: vi.fn(<T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
-    fn({ $executeRaw: async () => 0 }),
-  ),
+  lock: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
-  courseMembershipRepo: { findByComposite, withTx: () => ({ findByComposite }) },
+  courseRepo: { withTx: () => ({ findById: mocks.findCourse }) },
+  courseMembershipRepo: { withTx: () => ({ findByComposite: mocks.findActorMembership }) },
   courseMembershipAdminRepo: {
-    updateRole,
-    removeFromCourse,
-    withTx: () => ({ updateRole, removeFromCourse }),
+    listWithUserByCourse: mocks.listWithUserByCourse,
+    withTx: () => ({ updateRole: mocks.updateRole, removeFromCourse: mocks.removeFromCourse }),
   },
-  runTransaction,
+  runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
+    fn({
+      $executeRaw: mocks.lock,
+      user: { findMany: mocks.findUsers },
+      courseMembership: {
+        findUnique: mocks.findMember,
+        findMany: mocks.listMembers,
+        createManyAndReturn: mocks.createMembers,
+        updateManyAndReturn: mocks.restoreMembers,
+      },
+    }),
 }));
 
 import {
-  changeMemberRole,
-  removeMember,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "../../../packages/application/src/shared/errors";
+import {
   bulkAddByHandle,
+  listMembersForCourse,
+  changeMemberRole,
+  parseHandleInput,
+  removeMember,
 } from "../../../packages/application/src/course/members";
 import { canManageMembers } from "../../../packages/application/src/shared/permissions";
 
-type Role = "student" | "ta" | "teacher";
-
-const COURSE = "crs_1";
-
-function setMemberships(map: Record<string, { role: Role; status?: string }>) {
-  findByComposite.mockImplementation((_courseId: string, userId: string) => {
-    const m = map[userId];
-    if (!m) return Promise.resolve(null);
-    return Promise.resolve({
-      courseId: COURSE,
-      userId,
-      role: m.role,
-      status: m.status ?? "active",
-    });
-  });
-}
-
-function actor(
-  overrides: Partial<{ userId: string; platformRole: "admin" | "teacher" | "student" }> = {},
-) {
-  return {
-    userId: overrides.userId ?? "usr_actor",
-    username: "actor",
-    platformRole: overrides.platformRole ?? ("student" as const),
-    displayName: "Actor",
-    email: "actor@example.com",
-  };
-}
-
-const teacher = () => actor({ userId: "usr_teacher", platformRole: "teacher" });
-const ta = () => actor({ userId: "usr_ta", platformRole: "student" });
-const admin = () => actor({ userId: "usr_admin", platformRole: "admin" });
+const COURSE = "course-1";
+const MEMBER = "membership-1";
+const actor: ActorContext = {
+  userId: "actor-1",
+  username: "teacher",
+  platformRole: "teacher",
+  displayName: "Teacher",
+  email: "teacher@example.com",
+};
+const admin: ActorContext = { ...actor, platformRole: "admin" };
+const member = {
+  id: MEMBER,
+  courseId: COURSE,
+  userId: "student-1",
+  role: "student",
+  course: { ownerId: "owner-1" },
+};
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
+  mocks.findActorMembership.mockResolvedValue({ role: "teacher", status: "active" });
+  mocks.findMember.mockResolvedValue(member);
+  mocks.findCourse.mockResolvedValue({ id: COURSE, ownerId: "owner-1" });
+  mocks.findUsers.mockResolvedValue([]);
+  mocks.listMembers.mockResolvedValue([]);
+  mocks.createMembers.mockResolvedValue([{ id: MEMBER, userId: null }]);
 });
 
-describe("canManageMembers", () => {
-  it("admits admins and teachers but not TAs or students", () => {
-    expect(canManageMembers("admin")).toBe(true);
-    expect(canManageMembers("teacher")).toBe(true);
-    expect(canManageMembers("ta")).toBe(false);
-    expect(canManageMembers("student")).toBe(false);
-    expect(canManageMembers(null)).toBe(false);
+describe("member authorization", () => {
+  it("restricts role/removal management to teachers and admins", () => {
+    for (const role of ["admin", "teacher"] as const) expect(canManageMembers(role)).toBe(true);
+    for (const role of ["ta", "student", null] as const)
+      expect(canManageMembers(role)).toBe(false);
+  });
+
+  for (const operation of ["change role", "remove"] as const) {
+    const mutate = (acting: ActorContext) =>
+      operation === "change role"
+        ? changeMemberRole(acting, COURSE, MEMBER, "ta")
+        : removeMember(acting, COURSE, MEMBER);
+
+    describe(operation, () => {
+      it.each([
+        null,
+        { role: "student", status: "active" },
+        { role: "ta", status: "active" },
+        { role: "teacher", status: "removed" },
+      ])("denies a non-managing membership %j", async (membership) => {
+        mocks.findActorMembership.mockResolvedValue(membership);
+        await expect(mutate(actor)).rejects.toBeInstanceOf(ForbiddenError);
+        expect(mocks.updateRole).not.toHaveBeenCalled();
+        expect(mocks.removeFromCourse).not.toHaveBeenCalled();
+      });
+
+      it.each(["student-1", null])(
+        "lets a teacher manage linked or pending student %j by membership ID",
+        async (userId) => {
+          mocks.findMember.mockResolvedValue({ ...member, userId });
+          await mutate(actor);
+          if (operation === "change role") {
+            expect(mocks.updateRole).toHaveBeenCalledWith(COURSE, MEMBER, "ta");
+          } else {
+            expect(mocks.removeFromCourse).toHaveBeenCalledWith(COURSE, MEMBER);
+          }
+        },
+      );
+
+      it.each([actor, admin])(
+        "protects the course owner even from an admin",
+        async (acting) => {
+          mocks.findMember.mockResolvedValue({ ...member, userId: "owner-1", role: "teacher" });
+          await expect(mutate(acting)).rejects.toThrow(/course owner/i);
+          expect(mocks.updateRole).not.toHaveBeenCalled();
+          expect(mocks.removeFromCourse).not.toHaveBeenCalled();
+        },
+      );
+
+      it.each(["other-teacher", actor.userId])(
+        "protects teacher membership %s from a teacher",
+        async (userId) => {
+          mocks.findMember.mockResolvedValue({ ...member, role: "teacher", userId });
+          await expect(mutate(actor)).rejects.toBeInstanceOf(ForbiddenError);
+          expect(mocks.updateRole).not.toHaveBeenCalled();
+          expect(mocks.removeFromCourse).not.toHaveBeenCalled();
+        },
+      );
+
+      it("rejects a membership outside the requested course", async () => {
+        mocks.findMember.mockResolvedValue(null);
+        await expect(mutate(admin)).rejects.toBeInstanceOf(NotFoundError);
+        expect(mocks.findMember).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { id: MEMBER, courseId: COURSE },
+          }),
+        );
+        expect(mocks.updateRole).not.toHaveBeenCalled();
+        expect(mocks.removeFromCourse).not.toHaveBeenCalled();
+      });
+
+      it("lets an admin manage a teacher who is not the owner", async () => {
+        mocks.findMember.mockResolvedValue({ ...member, role: "teacher" });
+        await mutate(admin);
+        expect(
+          operation === "change role" ? mocks.updateRole : mocks.removeFromCourse,
+        ).toHaveBeenCalledOnce();
+      });
+    });
+  }
+
+  it("only lets an admin promote a pending student to teacher", async () => {
+    mocks.findMember.mockResolvedValue({ ...member, userId: null });
+    await expect(changeMemberRole(actor, COURSE, MEMBER, "teacher")).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
+    expect(mocks.updateRole).not.toHaveBeenCalled();
+    await changeMemberRole(admin, COURSE, MEMBER, "teacher");
+    expect(mocks.updateRole).toHaveBeenCalledWith(COURSE, MEMBER, "teacher");
   });
 });
 
-describe("changeMemberRole", () => {
-  it("blocks a TA from promoting themselves to teacher", async () => {
-    setMemberships({ usr_ta: { role: "ta" } });
-    await expect(changeMemberRole(ta(), COURSE, "usr_ta", "teacher")).rejects.toThrow(
-      /teachers or admins/i,
-    );
-    expect(updateRole).not.toHaveBeenCalled();
-  });
-
-  it("blocks a TA from changing any other member's role", async () => {
-    setMemberships({ usr_ta: { role: "ta" }, usr_student: { role: "student" } });
-    await expect(changeMemberRole(ta(), COURSE, "usr_student", "ta")).rejects.toThrow(
-      /teachers or admins/i,
-    );
-    expect(updateRole).not.toHaveBeenCalled();
-  });
-
-  it("blocks a plain student", async () => {
-    setMemberships({ usr_student: { role: "student" } });
+describe("bulk roster authorization and input", () => {
+  it.each([
+    ["student", "student"],
+    ["ta", "ta"],
+    ["ta", "teacher"],
+    ["teacher", "teacher"],
+  ] as const)("denies course %s enrollment of %s", async (actorRole, requestedRole) => {
+    mocks.findActorMembership.mockResolvedValue({ role: actorRole, status: "active" });
     await expect(
-      changeMemberRole(actor({ userId: "usr_student" }), COURSE, "usr_other", "ta"),
-    ).rejects.toThrow(/teachers or admins/i);
-    expect(updateRole).not.toHaveBeenCalled();
+      bulkAddByHandle(actor, COURSE, { handles: ["alice"], role: requestedRole }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(mocks.createMembers).not.toHaveBeenCalled();
+    expect(mocks.restoreMembers).not.toHaveBeenCalled();
   });
 
-  it("lets a teacher move a student to TA", async () => {
-    setMemberships({ usr_teacher: { role: "teacher" }, usr_student: { role: "student" } });
-    await changeMemberRole(teacher(), COURSE, "usr_student", "ta");
-    expect(updateRole).toHaveBeenCalledWith(COURSE, "usr_student", "ta");
-  });
-
-  it("forbids a teacher from promoting anyone to teacher", async () => {
-    setMemberships({ usr_teacher: { role: "teacher" }, usr_student: { role: "student" } });
-    await expect(changeMemberRole(teacher(), COURSE, "usr_student", "teacher")).rejects.toThrow(
-      /admin/i,
-    );
-    expect(updateRole).not.toHaveBeenCalled();
-  });
-
-  it("forbids a teacher from demoting another teacher", async () => {
-    setMemberships({ usr_teacher: { role: "teacher" }, usr_coteacher: { role: "teacher" } });
+  it("allows a TA to enroll students", async () => {
+    mocks.findActorMembership.mockResolvedValue({ role: "ta", status: "active" });
     await expect(
-      changeMemberRole(teacher(), COURSE, "usr_coteacher", "student"),
-    ).rejects.toThrow(/another teacher/i);
-    expect(updateRole).not.toHaveBeenCalled();
+      bulkAddByHandle(actor, COURSE, { handles: ["alice"], role: "student" }),
+    ).resolves.toEqual({
+      added: 1,
+      pendingCreated: 1,
+      skipped: 0,
+      reactivated: 0,
+    });
+    expect(mocks.createMembers).toHaveBeenCalledOnce();
   });
 
-  it("forbids a teacher from changing their own role", async () => {
-    setMemberships({ usr_teacher: { role: "teacher" } });
-    await expect(changeMemberRole(teacher(), COURSE, "usr_teacher", "ta")).rejects.toThrow(
-      /your own role/i,
-    );
-    expect(updateRole).not.toHaveBeenCalled();
+  it("does not let a teacher restore a removed teacher as a student", async () => {
+    mocks.listMembers.mockResolvedValue([
+      {
+        id: MEMBER,
+        userId: null,
+        pendingUsername: "alice",
+        role: "teacher",
+        status: "removed",
+      },
+    ]);
+    await expect(
+      bulkAddByHandle(actor, COURSE, { handles: ["alice"], role: "student" }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(mocks.restoreMembers).not.toHaveBeenCalled();
   });
 
-  it("lets an admin promote a student to teacher", async () => {
-    setMemberships({ usr_student: { role: "student" } });
-    await changeMemberRole(admin(), COURSE, "usr_student", "teacher");
-    expect(updateRole).toHaveBeenCalledWith(COURSE, "usr_student", "teacher");
+  it.each(
+    [[], ["ab"], ["has space"], ["b11902001"], ["ntnu_41047001a"], ["ntu_41047001a"]].map(
+      (handles) => ({ handles }),
+    ),
+  )(
+    "rejects malformed or noncanonical school enrollment %j before writes",
+    async ({ handles }) => {
+      await expect(
+        bulkAddByHandle(actor, COURSE, { handles, role: "student" }),
+      ).rejects.toBeInstanceOf(ValidationError);
+      expect(mocks.lock).not.toHaveBeenCalled();
+      expect(mocks.createMembers).not.toHaveBeenCalled();
+    },
+  );
+
+  it("normalizes separators and case without inventing school prefixes", () => {
+    expect(
+      parseHandleInput("  41047001A, NTU_B11902001;\nntust_b11902001 alice ALICE "),
+    ).toEqual(["41047001a", "ntu_b11902001", "ntust_b11902001", "alice"]);
   });
 });
 
-describe("removeMember", () => {
-  it("blocks a TA from removing anyone", async () => {
-    setMemberships({ usr_ta: { role: "ta" }, usr_student: { role: "student" } });
-    await expect(removeMember(ta(), COURSE, "usr_student")).rejects.toThrow(
-      /teachers or admins/i,
-    );
-    expect(removeFromCourse).not.toHaveBeenCalled();
-  });
-
-  it("lets a teacher remove a student", async () => {
-    setMemberships({ usr_teacher: { role: "teacher" }, usr_student: { role: "student" } });
-    await removeMember(teacher(), COURSE, "usr_student");
-    expect(removeFromCourse).toHaveBeenCalledWith(COURSE, "usr_student");
-  });
-
-  it("forbids a teacher from removing another teacher", async () => {
-    setMemberships({ usr_teacher: { role: "teacher" }, usr_coteacher: { role: "teacher" } });
-    await expect(removeMember(teacher(), COURSE, "usr_coteacher")).rejects.toThrow(
-      /another teacher/i,
-    );
-    expect(removeFromCourse).not.toHaveBeenCalled();
-  });
-
-  it("forbids a teacher from removing themselves", async () => {
-    setMemberships({ usr_teacher: { role: "teacher" } });
-    await expect(removeMember(teacher(), COURSE, "usr_teacher")).rejects.toThrow(/yourself/i);
-    expect(removeFromCourse).not.toHaveBeenCalled();
-  });
-
-  it("lets an admin remove a teacher", async () => {
-    setMemberships({ usr_coteacher: { role: "teacher" } });
-    await removeMember(admin(), COURSE, "usr_coteacher");
-    expect(removeFromCourse).toHaveBeenCalledWith(COURSE, "usr_coteacher");
-  });
-});
-
-describe("bulkAddByHandle", () => {
-  it("blocks a TA from adding teaching assistants", async () => {
-    setMemberships({ usr_ta: { role: "ta" } });
-    await expect(
-      bulkAddByHandle(ta(), COURSE, { handles: ["alice"], role: "ta" }),
-    ).rejects.toThrow(/teaching assistants/i);
-    expect(runTransaction).not.toHaveBeenCalled();
+describe("listMembersForCourse", () => {
+  it("preserves configured avatars and leaves pending member images empty", async () => {
+    const base = {
+      role: "student",
+      status: "active",
+      joinedAt: new Date("2026-09-07T00:00:00Z"),
+      removedAt: null,
+    };
+    mocks.listWithUserByCourse.mockResolvedValue([
+      {
+        ...base,
+        id: "linked",
+        userId: "student-1",
+        pendingUsername: null,
+        user: {
+          name: "Student",
+          username: "student",
+          email: "student@example.test",
+          image: "https://example.test/avatar.png",
+        },
+      },
+      { ...base, id: "pending", userId: null, pendingUsername: "newcomer", user: null },
+    ]);
+    expect(await listMembersForCourse(COURSE)).toEqual([
+      expect.objectContaining({
+        membershipId: "linked",
+        image: "https://example.test/avatar.png",
+        isPending: false,
+      }),
+      expect.objectContaining({ membershipId: "pending", image: null, isPending: true }),
+    ]);
   });
 });

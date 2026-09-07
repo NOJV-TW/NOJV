@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   assessmentFindByIdWithCourseId,
   examFindById,
+  findCourseStudent,
   courseMembershipFindByComposite,
   feedbackUpsert,
   feedbackFindExistingForUpsert,
@@ -12,6 +13,7 @@ const {
 } = vi.hoisted(() => ({
   assessmentFindByIdWithCourseId: vi.fn(),
   examFindById: vi.fn(),
+  findCourseStudent: vi.fn(),
   courseMembershipFindByComposite: vi.fn(),
   feedbackUpsert: vi.fn(),
   feedbackFindExistingForUpsert: vi.fn(),
@@ -21,10 +23,24 @@ const {
 }));
 
 vi.mock("@nojv/db", () => ({
-  assessmentRepo: { findByIdWithCourseId: assessmentFindByIdWithCourseId },
-  examRepo: { findById: examFindById },
+  assessmentRepo: {
+    findByIdWithCourseId: assessmentFindByIdWithCourseId,
+    withTx: () => ({ findById: assessmentFindByIdWithCourseId, lockForUpdate: vi.fn() }),
+  },
+  examRepo: {
+    findById: examFindById,
+    withTx: () => ({ findById: examFindById, lockForUpdate: vi.fn() }),
+  },
   contestRepo: { findById: vi.fn() },
-  courseMembershipRepo: { findByComposite: courseMembershipFindByComposite },
+  assessmentProblemRepo: {
+    withTx: () => ({ findLink: vi.fn(() => Promise.resolve({ id: "link" })) }),
+  },
+  examProblemRepo: { withTx: () => ({ exists: vi.fn(() => Promise.resolve(true)) }) },
+  scoreOverrideRepo: { findCourseStudent },
+  courseMembershipRepo: {
+    findByComposite: courseMembershipFindByComposite,
+    withTx: () => ({ findByComposite: courseMembershipFindByComposite }),
+  },
   submissionFeedbackRepo: {
     upsert: feedbackUpsert,
     findForContext: vi.fn(),
@@ -36,7 +52,8 @@ vi.mock("@nojv/db", () => ({
   submissionFeedbackAuditLogRepo: {
     create: auditCreate,
   },
-  runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
+  runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
+    fn({ $executeRaw: vi.fn() }),
 }));
 
 import { feedbackDomain } from "@nojv/application";
@@ -58,12 +75,12 @@ const CLOSED_AT = new Date("2020-01-01T00:00:00Z");
 const assignmentContext = { type: "assignment", assignmentId: "ca_hw1" } as const;
 const examContext = { type: "exam", examId: "ex_mid" } as const;
 const baseInput = {
-  studentUserId: "usr_student",
+  courseMembershipId: "mem_student",
   problemId: "prob_1",
   comment: "Nice solution, but watch the edge cases.",
 };
 
-type AuditCall = {
+interface AuditCall {
   feedbackId: string | null;
   studentUserId: string;
   problemId: string;
@@ -73,10 +90,17 @@ type AuditCall = {
   oldComment: string | null;
   newComment: string | null;
   changedByUserId: string | null;
-};
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
+  findCourseStudent.mockResolvedValue({
+    id: "mem_student",
+    userId: "usr_student",
+    courseId: "crs_1",
+    role: "student",
+    status: "active",
+  });
   assessmentFindByIdWithCourseId.mockResolvedValue({
     id: "ca_hw1",
     courseId: "crs_1",
@@ -162,7 +186,7 @@ describe("deleteFeedback audit trail", () => {
   beforeEach(() => {
     feedbackFindById.mockResolvedValue({
       id: "fb_1",
-      studentUserId: "usr_student",
+      courseMembershipId: "mem_student",
       problemId: "prob_1",
       assessmentId: "ca_hw1",
       examId: null,

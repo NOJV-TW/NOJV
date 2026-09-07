@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import { notificationRepo } from "@nojv/db";
-import { announcementDomain, courseDomain, notificationDomain } from "@nojv/application";
+import { announcementDomain, notificationDomain } from "@nojv/application";
 
-import { createTestCourse, createTestUser } from "../../fixtures/factories";
+import { createTestCourse, createTestUser, testPrisma } from "../../fixtures/factories";
 
 async function createActiveUsers(count: number) {
   const users = [];
   for (let i = 0; i < count; i++) {
-    users.push(await createTestUser({ status: "active" }));
+    users.push(await createTestUser());
   }
   return users;
 }
@@ -63,7 +63,7 @@ describe("announcement publish fan-out", () => {
   });
 
   it("resolves the source link for legacy announcement notifications", async () => {
-    const user = await createTestUser({ status: "active" });
+    const user = await createTestUser();
     const announcement = await announcementDomain.createAnnouncement({
       title: "Legacy link",
       content: "Existing notification",
@@ -97,25 +97,16 @@ describe("announcement publish fan-out", () => {
     expect(rows.find((row) => row.id === malformed.id)?.linkUrl).toBeNull();
   });
 
-  it("links course announcement notifications to their course", async () => {
-    const admin = await createTestUser({ platformRole: "admin", status: "active" });
+  it("links course announcements for real members and skips pending roster entries", async () => {
+    const admin = await createTestUser({ platformRole: "admin" });
     const course = await createTestCourse({ ownerId: admin.id });
-    const member = await courseDomain.manuallyEnrollCourseMember(
-      {
-        userId: admin.id,
-        username: admin.username ?? admin.id,
-        displayName: admin.name,
-        email: admin.email,
-        platformRole: admin.platformRole,
-      },
-      {
-        courseId: course.id,
-        displayName: "Course Member",
-        email: "course-member@test.local",
-        username: "course-member",
-        role: "student",
-      },
-    );
+    const member = await createTestUser();
+    await testPrisma.courseMembership.createMany({
+      data: [
+        { courseId: course.id, userId: member.id, role: "student" },
+        { courseId: course.id, pendingUsername: "pending_student", role: "student" },
+      ],
+    });
 
     await announcementDomain.createAnnouncement({
       title: "Course update",
@@ -125,9 +116,15 @@ describe("announcement publish fan-out", () => {
       courseId: course.id,
     });
 
-    const rows = await notificationRepo.listRecent(member.userId, 10);
+    const rows = await notificationRepo.listRecent(member.id, 10);
     const row = rows.find((item) => item.type === "announcement_published");
     expect(row?.linkUrl).toBe(`/courses/${encodeURIComponent(course.id)}`);
+    await expect(
+      testPrisma.notification.findMany({
+        where: { type: "announcement_published" },
+        select: { userId: true },
+      }),
+    ).resolves.toEqual([{ userId: member.id }]);
   });
 
   it("fans out on draft → published update transition", async () => {
@@ -204,9 +201,9 @@ describe("announcement publish fan-out", () => {
     }
   });
 
-  it("skips users whose status is not active", async () => {
-    const active = await createTestUser({ status: "active" });
-    const pending = await createTestUser({ status: "pending_first_login" });
+  it("skips disabled users", async () => {
+    const active = await createTestUser();
+    const disabled = await createTestUser({ disabled: true });
 
     await announcementDomain.createAnnouncement({
       title: "Active only",
@@ -216,7 +213,7 @@ describe("announcement publish fan-out", () => {
     });
 
     expect(await countNotificationsByType(active.id, "announcement_published")).toBe(1);
-    expect(await countNotificationsByType(pending.id, "announcement_published")).toBe(0);
+    expect(await countNotificationsByType(disabled.id, "announcement_published")).toBe(0);
   });
 
   it("toggleAnnouncementPublish fans out on draft → published", async () => {

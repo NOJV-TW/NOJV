@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { buildAssignmentResults } from "$lib/server/results/assignment";
+import { buildExamResults } from "$lib/server/results/exam";
+
 import { buildScoreStats } from "$lib/server/shared/score-stats";
 
 describe("buildScoreStats", () => {
@@ -31,5 +34,61 @@ describe("buildScoreStats", () => {
       { label: "1", count: 1 },
       { label: "0", count: 1 },
     ]);
+  });
+});
+
+it("keeps pending manual grades in course statistics without fabricating submissions", () => {
+  const matrix: Parameters<typeof buildAssignmentResults>[0] = {
+    problems: [{ problemId: "problem", letter: "A", ordinal: 1, title: "A", points: 100 }],
+    rows: [
+      {
+        rowId: "pending",
+        courseMembershipId: "pending",
+        userId: null,
+        displayName: "Pending Student",
+        handle: "pending_student",
+        total: 80,
+        cells: [
+          {
+            problemId: "problem",
+            state: "partial",
+            score: 80,
+            attempts: 0,
+            practiceScore: null,
+            practiceAttempts: 0,
+          },
+        ],
+      },
+      {
+        rowId: "linked",
+        courseMembershipId: "linked",
+        userId: "user",
+        displayName: "Student",
+        handle: "student",
+        total: 0,
+        cells: [
+          {
+            problemId: "problem",
+            state: "zero",
+            score: 0,
+            attempts: 1,
+            practiceScore: null,
+            practiceAttempts: 0,
+          },
+        ],
+      },
+    ],
+    studentCount: 2,
+    totalPoints: 100,
+  };
+  for (const stats of [buildAssignmentResults(matrix), buildExamResults(matrix, "user")]) {
+    expect(stats.submitted).toBe(1);
+    expect(stats.total).toBe(2);
+    expect(stats.classAvg).toBe(40);
+    expect(stats.max).toBe(80);
+  }
+  expect(buildExamResults(matrix, "user").rows[0]).toMatchObject({
+    user: "Pending Student",
+    me: false,
   });
 });

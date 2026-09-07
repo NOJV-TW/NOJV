@@ -12,6 +12,7 @@
     id = "tabs",
     children,
     actions,
+    onValueChange,
     class: className,
     contentClass = "p-6",
   }: {
@@ -21,9 +22,15 @@
     id?: string;
     children: Snippet;
     actions?: Snippet;
+    onValueChange?: (value: K) => void;
     class?: string;
     contentClass?: string;
   } = $props();
+
+  function selectTab(next: K) {
+    value = next;
+    onValueChange?.(next);
+  }
 
   function onTabKeydown(event: KeyboardEvent) {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
@@ -41,7 +48,7 @@
             : (cur + 1) % keys.length;
     const nextKey = keys[next];
     if (!nextKey) return;
-    value = nextKey;
+    selectTab(nextKey);
     document.getElementById(`${id}-tab-${nextKey}`)?.focus();
   }
 </script>
@@ -59,7 +66,7 @@
             aria-selected={isActive}
             aria-controls={`${id}-panel`}
             tabindex={isActive ? 0 : -1}
-            onclick={() => (value = tab.key)}
+            onclick={() => selectTab(tab.key)}
             onkeydown={onTabKeydown}
             class={cn(
               "focus-ring inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3.5 text-body-sm font-medium transition-colors",

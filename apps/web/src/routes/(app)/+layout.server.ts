@@ -4,8 +4,8 @@ import { EDITOR_LANGUAGE_COOKIE } from "$lib/components/features/problem/editors
 import type { LayoutServerLoad } from "./$types";
 
 export const load: LayoutServerLoad = (event) => {
-  // Touch `url` so this layout load re-runs on every navigation. Otherwise
   // Re-run after navigation so role and admin-mode changes reach the header.
+  // eslint-disable-next-line @typescript-eslint/no-meaningless-void-operator -- SvelteKit tracks this property read.
   void event.url.pathname;
 
   const session = event.locals.session;

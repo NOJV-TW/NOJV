@@ -37,7 +37,6 @@ function currentContext(
     email: string;
     emailVerified: boolean;
     disabled: boolean;
-    status: "active" | "pending_first_login";
     notificationPreference: Record<string, unknown> | null;
   }> = {},
 ) {
@@ -51,7 +50,6 @@ function currentContext(
         email: "student@example.com",
         emailVerified: true,
         disabled: false,
-        status: "active" as const,
         notificationPreference: null,
         ...recipient,
       },
@@ -120,19 +118,14 @@ describe("notification email durable delivery", () => {
     ["account deletion", { notification: null, recipientExists: false }, "missing_recipient"],
     ["account disable", currentContext({ disabled: true }), "recipient_disabled"],
     [
-      "account status change",
-      currentContext({ status: "pending_first_login" }),
-      "recipient_inactive",
+      "account anonymization",
+      currentContext({ email: "deleted+user-1@deleted.nojv.local" }),
+      "deleted_recipient",
     ],
     [
       "email verification revocation",
       currentContext({ emailVerified: false }),
       "unverified_recipient",
-    ],
-    [
-      "address replacement with a placeholder",
-      currentContext({ email: "student@placeholder.nojv.local" }),
-      "placeholder_recipient",
     ],
     [
       "preference opt-out",
@@ -157,26 +150,27 @@ describe("notification email durable delivery", () => {
     },
   );
 
-  it("resolves the current verified address at execution instead of using the enqueued address", async () => {
-    findEmailDeliveryContext.mockResolvedValue(
-      currentContext({ email: "current@example.com" }),
-    );
-    const work = buildNotificationEmailWork(
-      "notification-1",
-      input("course_enrolled", { courseName: "Algorithms" }),
-    );
+  it.each(["current@example.com", "student@placeholder.nojv.local"])(
+    "delivers to the real user's current verified address %s",
+    async (email) => {
+      findEmailDeliveryContext.mockResolvedValue(currentContext({ email }));
+      const work = buildNotificationEmailWork(
+        "notification-1",
+        input("course_enrolled", { courseName: "Algorithms" }),
+      );
 
-    await expect(deliverNotificationEmail(work)).resolves.toMatchObject({
-      outcome: "accepted",
-      deliverySemantics: "at_least_once",
-    });
-    expect(sendEmail).toHaveBeenCalledWith(
-      expect.objectContaining({
-        to: "current@example.com",
-        messageId: "<notification.notification-1@nojv.local>",
-      }),
-    );
-  });
+      await expect(deliverNotificationEmail(work)).resolves.toMatchObject({
+        outcome: "accepted",
+        deliverySemantics: "at_least_once",
+      });
+      expect(sendEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: email,
+          messageId: "<notification.notification-1@nojv.local>",
+        }),
+      );
+    },
+  );
 
   it("rejects a durable payload whose immutable event identity does not match the row", async () => {
     findEmailDeliveryContext.mockResolvedValue({

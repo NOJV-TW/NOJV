@@ -24,41 +24,41 @@ enum SubmissionStatus {
 }
 
 model Submission {
-  id                     String            @id @default(cuid())
-  userId                 String
-  problemId              String
-  examId                 String?
-  contestId              String?
-  participationId        String?
-  courseId               String?
-  assessmentId           String?
-  sampleOnly             Boolean           @default(false)
-  isReferenceSolution    Boolean           @default(false)
+  id                                String            @id @default(cuid())
+  userId                            String
+  problemId                         String
+  examId                            String?
+  contestId                         String?
+  participationId                   String?
+  courseId                          String?
+  assessmentId                      String?
+  sampleOnly                        Boolean           @default(false)
+  isReferenceSolution               Boolean           @default(false)
   referenceProblemStorageGeneration Int?
-  language               SupportedLanguage
-  sourceStorage          Json?
-  status                 SubmissionStatus  @default(queued)
-  score                  Int               @default(0)
-  runtimeMs              Int?
-  memoryKb               Int?
-  verdictSummary         Json?
-  verdictDetailStorage   Json?
-  judgeGeneration        Int               @default(0)
-  activeJudgeRunId       String?
-  advancedConfigSnapshot Json?
-  ipAddress              String?
+  language                          SupportedLanguage
+  sourceStorage                     Json?
+  status                            SubmissionStatus  @default(queued)
+  score                             Int               @default(0)
+  runtimeMs                         Int?
+  memoryKb                          Int?
+  verdictSummary                    Json?
+  verdictDetailStorage              Json?
+  judgeGeneration                   Int               @default(0)
+  activeJudgeRunId                  String?
+  advancedConfigSnapshot            Json?
+  ipAddress                         String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  problem       Problem        @relation(fields: [problemId], references: [id], onDelete: Cascade)
-  referenceForProblem Problem? @relation("ProblemReferenceSolution")
-  exam          Exam?          @relation(fields: [examId], references: [id], onDelete: Restrict)
-  contest       Contest?       @relation(fields: [contestId], references: [id], onDelete: Restrict)
-  participation Participation? @relation(fields: [participationId, userId], references: [id, userId], onDelete: Cascade)
-  course        Course?        @relation(fields: [courseId], references: [id], onDelete: Restrict)
-  assessment    Assessment?    @relation(fields: [assessmentId, courseId], references: [id, courseId], onDelete: Restrict)
+  user                User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problem             Problem        @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  referenceForProblem Problem?       @relation("ProblemReferenceSolution")
+  exam                Exam?          @relation(fields: [examId], references: [id], onDelete: Restrict)
+  contest             Contest?       @relation(fields: [contestId], references: [id], onDelete: Restrict)
+  participation       Participation? @relation(fields: [participationId, userId], references: [id, userId], onDelete: Cascade)
+  course              Course?        @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  assessment          Assessment?    @relation(fields: [assessmentId, courseId], references: [id, courseId], onDelete: Restrict)
 
   rejudgeLogs SubmissionRejudgeLog[]
 
@@ -110,95 +110,105 @@ enum ScoreOverrideAction {
   create
   update
   delete
+  merge
 }
 
 model ScoreOverride {
-  id              String              @id @default(cuid())
-  userId          String
-  problemId       String
-  contextType     OverrideContextType
-  contextId       String
-  overrideScore   Int
-  reason          String              @db.Text
-  createdByUserId String?
-  updatedByUserId String?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  id                 String              @id @default(cuid())
+  userId             String?
+  courseMembershipId String?
+  problemId          String
+  contextType        OverrideContextType
+  contextId          String
+  overrideScore      Int
+  reason             String              @db.Text
+  createdByUserId    String?
+  updatedByUserId    String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
-  user      User    @relation("ScoreOverrideUser", fields: [userId], references: [id], onDelete: Cascade)
+  user      User?   @relation("ScoreOverrideUser", fields: [userId], references: [id], onDelete: Cascade)
   problem   Problem @relation("ScoreOverrideProblem", fields: [problemId], references: [id], onDelete: Cascade)
   createdBy User?   @relation("ScoreOverrideCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
   updatedBy User?   @relation("ScoreOverrideEditor", fields: [updatedByUserId], references: [id], onDelete: SetNull)
 
-  auditLogs ScoreOverrideAuditLog[]
+  membership CourseMembership?       @relation(fields: [courseMembershipId], references: [id], onDelete: Cascade)
+  auditLogs  ScoreOverrideAuditLog[]
 
   @@unique([userId, problemId, contextType, contextId])
+  @@unique([courseMembershipId, problemId, contextType, contextId])
   @@index([contextType, contextId])
 }
 
 model ScoreOverrideAuditLog {
-  id              String              @id @default(cuid())
-  overrideId      String?
-  userId          String
-  problemId       String
-  contextType     OverrideContextType
-  contextId       String
-  action          ScoreOverrideAction
-  oldScore        Int?
-  newScore        Int?
-  oldReason       String?
-  newReason       String?
-  changedByUserId String?
-  createdAt       DateTime            @default(now())
+  id                 String              @id @default(cuid())
+  overrideId         String?
+  userId             String?
+  courseMembershipId String?
+  sourceMembershipId String?
+  problemId          String
+  contextType        OverrideContextType
+  contextId          String
+  action             ScoreOverrideAction
+  oldScore           Int?
+  newScore           Int?
+  oldReason          String?
+  newReason          String?
+  changedByUserId    String?
+  createdAt          DateTime            @default(now())
 
   override  ScoreOverride? @relation(fields: [overrideId], references: [id], onDelete: SetNull)
   changedBy User?          @relation("ScoreOverrideAuditChanger", fields: [changedByUserId], references: [id], onDelete: SetNull)
 
   @@index([contextType, contextId, createdAt(sort: Desc)])
   @@index([userId, problemId, createdAt(sort: Desc)])
+  @@index([courseMembershipId, problemId, createdAt(sort: Desc)])
 }
 
 model SubmissionFeedback {
-  id            String   @id @default(cuid())
-  studentUserId String
-  problemId     String
-  assessmentId  String?
-  examId        String?
-  comment       String   @db.Text
-  authorUserId  String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  courseMembershipId String
+  problemId          String
+  assessmentId       String?
+  examId             String?
+  comment            String   @db.Text
+  authorUserId       String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  student    User        @relation("SubmissionFeedbackStudent", fields: [studentUserId], references: [id], onDelete: Cascade)
-  problem    Problem     @relation("SubmissionFeedbackProblem", fields: [problemId], references: [id], onDelete: Cascade)
-  assessment Assessment? @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  exam       Exam?       @relation(fields: [examId], references: [id], onDelete: Cascade)
-  author     User?       @relation("SubmissionFeedbackAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+  membership CourseMembership @relation(fields: [courseMembershipId], references: [id], onDelete: Cascade)
+  problem    Problem          @relation("SubmissionFeedbackProblem", fields: [problemId], references: [id], onDelete: Cascade)
+  assessment Assessment?      @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  exam       Exam?            @relation(fields: [examId], references: [id], onDelete: Cascade)
+  author     User?            @relation("SubmissionFeedbackAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
 
   auditLogs SubmissionFeedbackAuditLog[]
 
-  @@unique([assessmentId, problemId, studentUserId])
-  @@unique([examId, problemId, studentUserId])
+  @@unique([assessmentId, problemId, courseMembershipId])
+  @@unique([examId, problemId, courseMembershipId])
 }
 
 enum SubmissionFeedbackAction {
   create
   update
   delete
+  merge
 }
 
 model SubmissionFeedbackAuditLog {
-  id              String                   @id @default(cuid())
-  feedbackId      String?
-  studentUserId   String
-  problemId       String
-  assessmentId    String?
-  examId          String?
-  action          SubmissionFeedbackAction
-  oldComment      String?                  @db.Text
-  newComment      String?                  @db.Text
-  changedByUserId String?
-  createdAt       DateTime                 @default(now())
+  id                 String                   @id @default(cuid())
+  feedbackId         String?
+  studentUserId      String?
+  courseMembershipId String?
+  sourceMembershipId String?
+  problemId          String
+  assessmentId       String?
+  examId             String?
+  action             SubmissionFeedbackAction
+  oldComment         String?                  @db.Text
+  newComment         String?                  @db.Text
+  changedByUserId    String?
+  createdAt          DateTime                 @default(now())
 
   feedback  SubmissionFeedback? @relation(fields: [feedbackId], references: [id], onDelete: SetNull)
   changedBy User?               @relation("SubmissionFeedbackAuditChanger", fields: [changedByUserId], references: [id], onDelete: SetNull)
@@ -206,6 +216,7 @@ model SubmissionFeedbackAuditLog {
   @@index([assessmentId, problemId, createdAt(sort: Desc)])
   @@index([examId, problemId, createdAt(sort: Desc)])
   @@index([studentUserId, problemId, createdAt(sort: Desc)])
+  @@index([courseMembershipId, problemId, createdAt(sort: Desc)])
 }
 
 enum ContentReportStatus {

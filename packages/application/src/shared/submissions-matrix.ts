@@ -23,13 +23,17 @@ export interface MatrixRowResult {
 }
 
 export interface AssembledMatrixParticipant {
-  userId: string;
+  rowId: string;
+  courseMembershipId: string | null;
+  userId: string | null;
   displayName: string;
   handle: string;
 }
 
 export interface AssembledMatrixRow {
-  userId: string;
+  rowId: string;
+  courseMembershipId: string | null;
+  userId: string | null;
   displayName: string;
   handle: string;
   cells: MatrixCell[];
@@ -50,14 +54,14 @@ function cellState(score: number, pointsMax: number): MatrixCellState {
 }
 
 export function buildMatrixRowCells(opts: {
-  userId: string;
+  rowId: string;
   problems: MatrixProblemColumn[];
   scoreIndex: Map<string, { best: number; count: number }>;
   overrides: Map<string, number>;
   practiceIndex?: Map<string, { best: number; count: number }>;
 }): MatrixRowResult {
   const cells: MatrixCell[] = opts.problems.map((problem) => {
-    const key = `${opts.userId}::${problem.problemId}`;
+    const key = `${opts.rowId}::${problem.problemId}`;
     const override = opts.overrides.get(key);
     const hit = opts.scoreIndex.get(key);
     const practice = opts.practiceIndex?.get(key);
@@ -107,13 +111,15 @@ export function assembleMatrix(input: {
 
   const rows: AssembledMatrixRow[] = input.participants.map((participant) => {
     const { cells, total } = buildMatrixRowCells({
-      userId: participant.userId,
+      rowId: participant.rowId,
       problems: input.problems,
       scoreIndex: input.scoreIndex,
       overrides: input.overrides,
       ...(input.practiceIndex ? { practiceIndex: input.practiceIndex } : {}),
     });
     return {
+      rowId: participant.rowId,
+      courseMembershipId: participant.courseMembershipId,
       userId: participant.userId,
       displayName: participant.displayName,
       handle: participant.handle,

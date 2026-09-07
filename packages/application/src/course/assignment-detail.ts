@@ -1,4 +1,9 @@
-import { assessmentAuditLogRepo, assessmentRepo, submissionRepo } from "@nojv/db";
+import {
+  assessmentAuditLogRepo,
+  assessmentRepo,
+  courseMembershipRepo,
+  submissionRepo,
+} from "@nojv/db";
 import {
   adjustmentRulesSchema,
   problemLetter,
@@ -213,7 +218,7 @@ export async function getAssignmentDetail(
 
   if (!options.isManager && problems.length > 0) {
     const problemIds = problems.map((p) => p.problemId);
-    const [grouped, recent] = await Promise.all([
+    const [grouped, recent, membership] = await Promise.all([
       submissionRepo.groupByUserAndProblem({
         assessmentId: assignmentId,
         userId: options.viewerUserId,
@@ -236,6 +241,7 @@ export async function getAssignmentDetail(
           createdAt: true,
         },
       }),
+      courseMembershipRepo.findByComposite(courseId, options.viewerUserId),
     ]);
 
     const statsByProblem = new Map<string, { bestScore: number; attempts: number }>();
@@ -260,8 +266,10 @@ export async function getAssignmentDetail(
 
     for (const problem of problems) {
       const stats = statsByProblem.get(problem.problemId);
-      const overrideKey = `${options.viewerUserId}::${problem.problemId}`;
-      const override = overrides.get(overrideKey);
+      const override =
+        membership?.role === "student" && membership.status === "active"
+          ? overrides.get(`${membership.id}::${problem.problemId}`)
+          : undefined;
       problem.myStatus = resolveProblemStatus(
         problem,
         stats,

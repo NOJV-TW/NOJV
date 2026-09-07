@@ -14,7 +14,7 @@
 </script>
 
 <script lang="ts">
-  import { untrack } from "svelte";
+  import { tick, untrack } from "svelte";
   import type { SubmitFunction } from "@sveltejs/kit";
   import { enhance } from "$app/forms";
   import {
@@ -28,6 +28,7 @@
     X,
   } from "@lucide/svelte";
   import { Popover } from "bits-ui";
+  import * as Select from "$lib/components/primitives/ui/select";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button } from "$lib/components/primitives/ui/button";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
@@ -192,11 +193,15 @@
     pending = null;
   }
 
-  function handleRoleChange(e: Event, user: UsersTableUser) {
-    const select = e.currentTarget as HTMLSelectElement;
-    const form = select.form;
-    const targetRole = select.value as PlatformRole;
-    if (!form || targetRole === user.platformRole) return;
+  let roleDrafts = $state<Record<string, PlatformRole | undefined>>({});
+  let advancedDrafts = $state<Record<string, string | undefined>>({});
+
+  async function handleRoleChange(targetRole: PlatformRole, user: UsersTableUser) {
+    if (targetRole === user.platformRole) return;
+    roleDrafts[user.id] = targetRole;
+    await tick();
+    const form = document.getElementById(`user-role-${user.id}`) as HTMLFormElement | null;
+    if (!form) return;
     if (user.platformRole === "admin" || targetRole === "admin") {
       pending = {
         form,
@@ -211,6 +216,14 @@
       return;
     }
     form.requestSubmit();
+  }
+
+  async function handleAdvancedChange(value: string, user: UsersTableUser) {
+    if (value === String(user.canCreateAdvancedProblems)) return;
+    advancedDrafts[user.id] = value;
+    await tick();
+    const form = document.getElementById(`user-advanced-${user.id}`) as HTMLFormElement | null;
+    form?.requestSubmit();
   }
 
   function roleSubmission(user: UsersTableUser): SubmitFunction {
@@ -602,21 +615,36 @@
               <form
                 class="inline"
                 method="POST"
+                id={`user-role-${user.id}`}
                 action="?/updateRole"
+                onreset={() => (roleDrafts[user.id] = undefined)}
                 use:enhance={roleSubmission(user)}
               >
                 <input type="hidden" name="userId" value={user.id} />
-                <select
+                <input
+                  type="hidden"
                   name="role"
-                  value={user.platformRole}
-                  aria-label={`${m.admin_usersRole()}: ${displayName(user)}`}
-                  class="rounded-none border-0 border-b border-border bg-transparent px-1 py-1 text-caption font-medium focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
-                  onchange={(e) => handleRoleChange(e, user)}
+                  value={roleDrafts[user.id] ?? user.platformRole}
+                />
+                <Select.Root
+                  type="single"
+                  value={roleDrafts[user.id] ?? user.platformRole}
+                  disabled={roleDrafts[user.id] !== undefined}
+                  onValueChange={(value) => void handleRoleChange(value as PlatformRole, user)}
                 >
-                  {#each assignableRoles as role (role)}
-                    <option value={role}>{roleLabel(role)}</option>
-                  {/each}
-                </select>
+                  <Select.Trigger
+                    size="sm"
+                    aria-label={`${m.admin_usersRole()}: ${displayName(user)}`}
+                    class="rounded-none border-0 border-b border-border bg-transparent px-1 text-caption font-medium shadow-none! dark:bg-transparent dark:hover:bg-transparent"
+                  >
+                    {roleLabel(roleDrafts[user.id] ?? user.platformRole)}
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each assignableRoles as role (role)}
+                      <Select.Item value={role} label={roleLabel(role)} />
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
               </form>
             {:else}
               <Badge variant={roleBadgeVariant(user.platformRole)} size="sm">
@@ -631,20 +659,38 @@
               <form
                 class="inline"
                 method="POST"
+                id={`user-advanced-${user.id}`}
                 action="?/updateAdvancedCreation"
+                onreset={() => (advancedDrafts[user.id] = undefined)}
                 use:enhance={advancedSubmission(user)}
               >
                 <input type="hidden" name="userId" value={user.id} />
-                <select
+                <input
+                  type="hidden"
                   name="allowed"
-                  value={String(user.canCreateAdvancedProblems)}
-                  aria-label={`${m.admin_usersAdvancedColumn()}: ${displayName(user)}`}
-                  class="rounded-none border-0 border-b border-border bg-transparent px-1 py-1 text-caption font-medium focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
-                  onchange={(e) => (e.currentTarget as HTMLSelectElement).form?.requestSubmit()}
+                  value={advancedDrafts[user.id] ?? String(user.canCreateAdvancedProblems)}
+                />
+                <Select.Root
+                  type="single"
+                  value={advancedDrafts[user.id] ?? String(user.canCreateAdvancedProblems)}
+                  disabled={advancedDrafts[user.id] !== undefined}
+                  onValueChange={(value) => void handleAdvancedChange(value, user)}
                 >
-                  <option value="true">{m.admin_usersAdvancedAllowed()}</option>
-                  <option value="false">{m.admin_usersAdvancedDenied()}</option>
-                </select>
+                  <Select.Trigger
+                    size="sm"
+                    aria-label={`${m.admin_usersAdvancedColumn()}: ${displayName(user)}`}
+                    class="rounded-none border-0 border-b border-border bg-transparent px-1 text-caption font-medium shadow-none! dark:bg-transparent dark:hover:bg-transparent"
+                  >
+                    {(advancedDrafts[user.id] ?? String(user.canCreateAdvancedProblems)) ===
+                    "true"
+                      ? m.admin_usersAdvancedAllowed()
+                      : m.admin_usersAdvancedDenied()}
+                  </Select.Trigger>
+                  <Select.Content>
+                    <Select.Item value="true" label={m.admin_usersAdvancedAllowed()} />
+                    <Select.Item value="false" label={m.admin_usersAdvancedDenied()} />
+                  </Select.Content>
+                </Select.Root>
               </form>
             {:else}
               <Badge variant={user.canCreateAdvancedProblems ? "success" : "outline"} size="sm">

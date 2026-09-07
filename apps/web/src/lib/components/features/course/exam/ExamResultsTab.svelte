@@ -43,7 +43,7 @@
     data: ExamResultsTabData;
     matrix: examDomain.ExamSubmissionsMatrix;
     examId: string;
-    oncellclick?: ((userId: string, problemId: string) => void) | undefined;
+    oncellclick?: ((rowId: string, problemId: string) => void) | undefined;
   }
 
   let { data, matrix, examId, oncellclick }: Props = $props();

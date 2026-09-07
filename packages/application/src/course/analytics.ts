@@ -1,5 +1,6 @@
 import { assessmentRepo, courseMembershipRepo, submissionRepo } from "@nojv/db";
 
+import { getOverridesForContext } from "../scoring/resolve-final-score";
 import { getProblemTotalScores } from "../problem/total-score";
 
 export interface AssessmentSummary {
@@ -21,7 +22,8 @@ export interface HardestProblem {
 }
 
 export interface StudentAtRisk {
-  userId: string;
+  membershipId: string;
+  userId: string | null;
   name: string;
   username: string | null;
   reason: "no_submissions" | "all_zero";
@@ -57,9 +59,10 @@ export async function getCourseAnalytics(courseId: string): Promise<CourseAnalyt
       assessmentSummaries: [],
       hardestProblems: [],
       studentsAtRisk: students.map((s) => ({
+        membershipId: s.id,
         userId: s.userId,
-        name: s.user.name,
-        username: s.user.username,
+        name: s.user?.name ?? s.pendingUsername ?? "",
+        username: s.user?.username ?? s.pendingUsername,
         reason: "no_submissions" as const,
       })),
       verdictDistribution: [],
@@ -82,8 +85,16 @@ export async function getCourseAnalytics(courseId: string): Promise<CourseAnalyt
     bestScore.set(`${aid}::${g.userId}::${g.problemId}`, g._max.score ?? 0);
   }
 
-  const assessmentSummaries = assessments.map((assessment) =>
-    summarizeAssessment(assessment, students, bestScore, maxByProblem),
+  const assessmentSummaries = await Promise.all(
+    assessments.map(async (assessment) =>
+      summarizeAssessment(
+        assessment,
+        students,
+        bestScore,
+        maxByProblem,
+        await getOverridesForContext({ type: "assignment", assignmentId: assessment.id }),
+      ),
+    ),
   );
 
   const hardestProblems = rankHardestProblems(assessments, problemStats);
@@ -114,6 +125,7 @@ function summarizeAssessment(
   students: StudentRow[],
   bestScore: Map<string, number>,
   maxByProblem: Map<string, number>,
+  overrides: Map<string, number>,
 ): AssessmentSummary {
   const problemIds = assessment.problems.map((p) => p.problem.id);
 
@@ -127,7 +139,11 @@ function summarizeAssessment(
     let completedAll = problemIds.length > 0;
 
     for (const problemId of problemIds) {
-      const score = bestScore.get(`${assessment.id}::${student.userId}::${problemId}`);
+      const submittedScore =
+        student.userId === null
+          ? undefined
+          : bestScore.get(`${assessment.id}::${student.userId}::${problemId}`);
+      const score = overrides.get(`${student.id}::${problemId}`) ?? submittedScore;
       if (score === undefined) {
         completedAll = false;
         continue;
@@ -206,18 +222,20 @@ function findStudentsAtRisk(
 
   const atRisk: StudentAtRisk[] = [];
   for (const student of students) {
-    if (!hasSubmission.has(student.userId)) {
+    if (student.userId === null || !hasSubmission.has(student.userId)) {
       atRisk.push({
+        membershipId: student.id,
         userId: student.userId,
-        name: student.user.name,
-        username: student.user.username,
+        name: student.user?.name ?? student.pendingUsername ?? "",
+        username: student.user?.username ?? student.pendingUsername,
         reason: "no_submissions",
       });
     } else if ((maxScoreByUser.get(student.userId) ?? 0) === 0) {
       atRisk.push({
+        membershipId: student.id,
         userId: student.userId,
-        name: student.user.name,
-        username: student.user.username,
+        name: student.user?.name ?? student.pendingUsername ?? "",
+        username: student.user?.username ?? student.pendingUsername,
         reason: "all_zero",
       });
     }

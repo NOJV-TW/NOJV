@@ -34,7 +34,6 @@ export const notificationRepo = {
             email: true,
             emailVerified: true,
             disabled: true,
-            status: true,
             notificationPreference: true,
           },
         },

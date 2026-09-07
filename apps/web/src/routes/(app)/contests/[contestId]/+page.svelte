@@ -279,11 +279,11 @@
             title: p.title,
           }))}
           students={data.matrix
-            ? data.matrix.rows.map((r) => ({
-                userId: r.userId,
-                displayName: r.displayName,
-                handle: r.handle,
-              }))
+            ? data.matrix.rows.flatMap((r) =>
+                r.userId === null
+                  ? []
+                  : [{ userId: r.userId, displayName: r.displayName, handle: r.handle }],
+              )
             : []}
         />
       {:else if activeSubTab === "settings"}
@@ -303,6 +303,11 @@
         {#if data.settingsForm}
           <ContestSettingsTab
             form={data.settingsForm}
+            initialSchedule={{
+              startsAt: contest.startsAt,
+              endsAt: contest.endsAt,
+              frozenAt: contest.frozenAt,
+            }}
             liveStatus={settingsLiveStatus}
             candidateProblems={data.candidateProblems}
           />

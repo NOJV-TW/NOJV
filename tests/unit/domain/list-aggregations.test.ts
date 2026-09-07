@@ -7,6 +7,7 @@ const {
   groupBestScoresByExam,
   groupAcceptedByExamForUser,
   groupBestScoresByExamForUser,
+  findCourseOverrides,
   countStudentsByCourse,
   listAssessmentProblemLinks,
   listExamProblemLinks,
@@ -18,6 +19,7 @@ const {
   groupBestScoresByExam: vi.fn(),
   groupAcceptedByExamForUser: vi.fn(),
   groupBestScoresByExamForUser: vi.fn(),
+  findCourseOverrides: vi.fn(),
   countStudentsByCourse: vi.fn(),
   listAssessmentProblemLinks: vi.fn(),
   listExamProblemLinks: vi.fn(),
@@ -33,6 +35,7 @@ vi.mock("@nojv/db", () => ({
     groupAcceptedByExamForUser,
     groupBestScoresByExamForUser,
   },
+  scoreOverrideRepo: { findCourseOverrides },
   courseMembershipRepo: { countStudentsByCourse },
   assessmentProblemRepo: { listProblemLinks: listAssessmentProblemLinks },
   examProblemRepo: { listProblemLinks: listExamProblemLinks },
@@ -61,6 +64,7 @@ beforeEach(() => {
   groupBestScoresByExam.mockReset();
   groupAcceptedByExamForUser.mockReset();
   groupBestScoresByExamForUser.mockReset();
+  findCourseOverrides.mockReset().mockResolvedValue([]);
   countStudentsByCourse.mockReset();
   listAssessmentProblemLinks.mockReset().mockResolvedValue([]);
   listExamProblemLinks.mockReset().mockResolvedValue([]);
@@ -201,4 +205,52 @@ describe("aggregateExamMyStatus", () => {
     const out = await aggregateExamMyStatus("u1", [{ id: "e1", problemCount: 4 }]);
     expect(out.get("e1")).toEqual({ solved: 2, total: 4, score: 140, totalPoints: 200 });
   });
+});
+
+it("includes pending manual grades in class averages without counting them as submitters", async () => {
+  groupBestScoresByAssessment.mockResolvedValue([
+    { assessmentId: "a1", userId: "u1", problemId: "p1", _max: { score: 40 } },
+  ]);
+  countStudentsByCourse.mockResolvedValue(new Map([["c1", 2]]));
+  findCourseOverrides.mockResolvedValue([
+    {
+      contextId: "a1",
+      courseMembershipId: "m1",
+      membership: { userId: "u1" },
+      problemId: "p1",
+      overrideScore: 80,
+    },
+    {
+      contextId: "a1",
+      courseMembershipId: "pending",
+      membership: { userId: null },
+      problemId: "p1",
+      overrideScore: 100,
+    },
+  ]);
+  expect(
+    (await aggregateAssignmentClassStats([{ id: "a1", courseId: "c1", problemCount: 1 }])).get(
+      "a1",
+    ),
+  ).toEqual({ submittedUsers: 1, totalStudents: 2, avgScore: 90 });
+});
+
+it("uses authenticated account ownership when reading manual exam scores", async () => {
+  groupAcceptedByExamForUser.mockResolvedValue([]);
+  groupBestScoresByExamForUser.mockResolvedValue([
+    { examId: "e1", problemId: "p1", _max: { score: 40 } },
+  ]);
+  findCourseOverrides.mockResolvedValue([
+    {
+      contextId: "e1",
+      courseMembershipId: "m1",
+      membership: { userId: "u1" },
+      problemId: "p1",
+      overrideScore: 90,
+    },
+  ]);
+  expect(
+    (await aggregateExamMyStatus("u1", [{ id: "e1", problemCount: 1 }])).get("e1"),
+  ).toMatchObject({ score: 90, solved: 0 });
+  expect(findCourseOverrides).toHaveBeenCalledWith("exam", ["e1"], "u1");
 });

@@ -38,8 +38,6 @@
     switch (code) {
       case "VERIFIED_LOCKED":
         return m.account_usernameLockedByVerification();
-      case "PLACEHOLDER_LOCKED":
-        return m.account_usernameLockedByPlaceholder();
       case "TAKEN":
         return m.account_usernameTaken();
       case "RESERVED_FORMAT":
@@ -129,11 +127,7 @@
   );
 
   const usernameLockReason = $derived(
-    owner.canEditUsername
-      ? null
-      : owner.isSchoolVerified
-        ? m.account_usernameLockedByVerification()
-        : m.account_usernameLockedByPlaceholder(),
+    owner.isSchoolVerified ? m.account_usernameLockedByVerification() : null,
   );
 
   const iconBtnClass =

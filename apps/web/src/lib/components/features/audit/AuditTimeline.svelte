@@ -67,6 +67,11 @@
           oldScore: score(detail.oldScore),
           newScore: score(detail.newScore),
         });
+      case "merge":
+        return m.audit_detailScoreOverrideMerge({
+          oldScore: score(detail.oldScore),
+          newScore: score(detail.newScore),
+        });
       case "delete":
         return m.audit_detailScoreOverrideDelete({ oldScore: score(detail.oldScore) });
     }

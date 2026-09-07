@@ -16,6 +16,7 @@
   import ProblemPicker from "$lib/components/features/course/exam/ProblemPicker.svelte";
   import { inputClassName } from "$lib/utils/css";
   import { toggleArrayItem } from "$lib/utils";
+  import { restoreDateTimeFields, serializeDateTimeFields } from "$lib/utils/datetime-form";
   import { m } from "$lib/paraglide/messages.js";
   import type { FormMessage } from "$lib/types/form-message";
   import type { PageData } from "./$types";
@@ -34,6 +35,12 @@
     {
       dataType: "json",
       resetForm: false,
+      onSubmit: ({ jsonData }) => {
+        jsonData(serializeDateTimeFields($form, ["startsAt", "endsAt"]));
+      },
+      onUpdate: ({ form }) => {
+        form.data = restoreDateTimeFields(form.data, ["startsAt", "endsAt"]);
+      },
     },
   );
 

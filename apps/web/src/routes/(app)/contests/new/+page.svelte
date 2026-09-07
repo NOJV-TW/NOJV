@@ -6,6 +6,7 @@
   import { supportedLanguages, type Language } from "@nojv/core";
   import { problemLetter } from "$lib/components/features/contest/format";
   import { inputClassName } from "$lib/utils/css";
+  import { restoreDateTimeFields, serializeDateTimeFields } from "$lib/utils/datetime-form";
   import { moveItem } from "$lib/utils/reorder";
   import { toggleArrayItem } from "$lib/utils";
   import { m } from "$lib/paraglide/messages.js";
@@ -43,6 +44,12 @@
     {
       dataType: "json",
       resetForm: false,
+      onSubmit: ({ jsonData }) => {
+        jsonData(serializeDateTimeFields($form, ["startsAt", "endsAt", "frozenAt"]));
+      },
+      onUpdate: ({ form }) => {
+        form.data = restoreDateTimeFields(form.data, ["startsAt", "endsAt", "frozenAt"]);
+      },
       onUpdated({ form }) {
         if (form.message?.kind === "success") {
           toasts.success(m.contestCreate_success());

@@ -73,13 +73,26 @@
       : [],
   );
 
+  const contentPaths = ["/courses", "/assignments", "/exams", "/contests"];
+
   function isActive(href: string): boolean {
+    if (href === "/admin" && contentPaths.some((path) => currentPath === `/admin${path}`)) {
+      return false;
+    }
+    if (contentPaths.includes(href) && currentPath === `/admin${href}`) return true;
     if (href === "/dashboard") return currentPath === "/dashboard";
     return currentPath === href || currentPath.startsWith(`${href}/`);
   }
 
   function withActive(items: NavItem[]): NavLink[] {
-    return items.map((item) => ({ ...item, active: isActive(item.href) }));
+    return items.map((item) => ({
+      ...item,
+      href:
+        effectiveRole === "admin" && contentPaths.includes(item.href)
+          ? `/admin${item.href}`
+          : item.href,
+      active: isActive(item.href),
+    }));
   }
 
   let baseNavLinks = $derived(withActive(baseNavItems));

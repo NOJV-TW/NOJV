@@ -24,7 +24,6 @@ interface SessionLike {
   username: string | null;
   platformRole: SessionRole;
   disabled?: boolean;
-  status?: "active" | "disabled" | "deleted";
 }
 
 function stubEvent(user: SessionLike | null): RequestEvent {

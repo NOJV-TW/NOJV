@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { goto } from "$app/navigation";
+  import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
   import { cn } from "$lib/utils/css.js";
   import { ChevronRight, Monitor, Pencil } from "@lucide/svelte";
@@ -24,6 +26,11 @@
   import ClarificationTab from "$lib/components/features/clarification/ClarificationTab.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { Tabs } from "$lib/components/primitives/ui/tabs";
+  import {
+    examSubTabHref,
+    parseExamSubTab,
+    type ExamSubTab,
+  } from "$lib/components/features/course/exam/exam-tab-state";
   import { fmtDate } from "$lib/utils/datetime.js";
   import type { ActionData, PageData } from "./$types";
 
@@ -93,20 +100,20 @@
 
   let showStartModal = $state(false);
 
-  type SubTab =
-    | "problems"
-    | "submissions"
-    | "results"
-    | "plagiarism"
-    | "proctoring"
-    | "settings"
-    | "clarifications"
-    | "audit";
-  let activeSubTabKey = $state<SubTab>("problems");
+  let activeSubTabKey = $derived<ExamSubTab>(parseExamSubTab(page.url.searchParams.get("tab")));
+
+  function setActiveSubTab(next: ExamSubTab): void {
+    activeSubTabKey = next;
+    const nextUrl = examSubTabHref(page.url, next);
+    const currentUrl = `${page.url.pathname}${page.url.search}${page.url.hash}`;
+    if (nextUrl === currentUrl) return;
+    void goto(nextUrl, { keepFocus: true, noScroll: true, replaceState: true });
+  }
+
   let submissionSearch = $state("");
   let visibleSubmissionCount = $state(0);
 
-  const subTabs = $derived<{ key: SubTab; label: string }[]>([
+  const subTabs = $derived<{ key: ExamSubTab; label: string }[]>([
     { key: "problems", label: m.examDetail_subTabProblems() },
     { key: "submissions", label: m.examDetail_subTabSubmissions() },
     { key: "results", label: m.examDetail_subTabResults() },
@@ -134,17 +141,19 @@
   );
 
   let showOverrideDrawer = $state(false);
-  let overridePrefill = $state<{ userId: string; problemId: string } | null>(null);
+  let overridePrefill = $state<{ rowId: string; problemId: string } | null>(null);
   const canSetOverride = $derived(data.canSetOverride ?? false);
 
-  function gradeCell(userId: string, problemId: string) {
-    overridePrefill = { userId, problemId };
+  function gradeCell(rowId: string, problemId: string) {
+    overridePrefill = { rowId, problemId };
     showOverrideDrawer = true;
   }
   const overrideStudents = $derived(
     data.matrix
       ? data.matrix.rows.map((r) => ({
-          id: r.userId,
+          rowId: r.rowId,
+          courseMembershipId: r.courseMembershipId,
+          userId: r.userId,
           username: r.handle,
           name: r.displayName,
         }))
@@ -537,7 +546,7 @@
         </div>
         <button
           type="button"
-          onclick={() => (activeSubTabKey = "settings")}
+          onclick={() => setActiveSubTab("settings")}
           class="inline-flex size-7 items-center justify-center rounded-md bg-transparent text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground"
           aria-label={m.examDetail_managerEditButton()}
           title={m.examDetail_managerEditButton()}
@@ -583,6 +592,7 @@
     <Tabs
       tabs={subTabs}
       bind:value={activeSubTabKey}
+      onValueChange={setActiveSubTab}
       label={m.examDetail_subTabsLabel()}
       id="exam-manage"
     >
@@ -620,11 +630,11 @@
             title: p.title,
           }))}
           students={data.matrix
-            ? data.matrix.rows.map((r) => ({
-                userId: r.userId,
-                displayName: r.displayName,
-                handle: r.handle,
-              }))
+            ? data.matrix.rows.flatMap((r) =>
+                r.userId === null
+                  ? []
+                  : [{ userId: r.userId, displayName: r.displayName, handle: r.handle }],
+              )
             : []}
         />
       {:else if activeSubTabKey === "proctoring"}

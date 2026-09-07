@@ -33,6 +33,7 @@ spec:
       labels:
         app.kubernetes.io/name: nojv-web
         nojv.tw/schema-contract: versioned-storage-v1
+        nojv.tw/course-roster-contract: membership-v1
     spec:
       terminationGracePeriodSeconds: 60
       {{- with .Values.web.nodeSelector }}

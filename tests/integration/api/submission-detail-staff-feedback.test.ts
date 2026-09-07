@@ -13,14 +13,14 @@ const { getSubmissionDetail, listProblemSubmissions } = submissionDomain;
 
 function asActor(user: {
   id: string;
-  username: string;
+  username: string | null;
   email: string;
   name: string;
   platformRole: string;
 }): ActorContext {
   return {
     userId: user.id,
-    username: user.username,
+    username: user.username ?? user.id,
     email: user.email,
     displayName: user.name,
     platformRole: user.platformRole as ActorContext["platformRole"],
@@ -62,7 +62,7 @@ describe("getSubmissionDetail — staffFeedback server-side strip", () => {
     expect(detail.result).not.toBeNull();
     expect(JSON.stringify(detail.result)).not.toContain("staffFeedback");
     expect(JSON.stringify(detail.result)).not.toContain("OPERATOR_SECRET_DIAGNOSTIC");
-    for (const cr of detail.result!.caseResults ?? []) {
+    for (const cr of detail.result?.caseResults ?? []) {
       expect(cr).not.toHaveProperty("staffFeedback");
     }
   });
@@ -82,7 +82,7 @@ describe("getSubmissionDetail — staffFeedback server-side strip", () => {
 
     expect(detail.viewerIsStaff).toBe(true);
     expect(detail.result).not.toBeNull();
-    expect(detail.result!.caseResults![0]!.staffFeedback).toBe("OPERATOR_SECRET_DIAGNOSTIC");
+    expect(detail.result?.caseResults?.[0]?.staffFeedback).toBe("OPERATOR_SECRET_DIAGNOSTIC");
   });
 
   it("ADMIN viewing their OWN submission is not 'staff' for this gate → still stripped", async () => {

@@ -1,14 +1,17 @@
 <script lang="ts" module>
   export interface OverrideRow {
     id: string;
-    userId: string;
+    courseMembershipId: string | null;
+    userId: string | null;
     problemId: string;
     overrideScore: number;
     reason: string;
   }
 
   export interface StudentOption {
-    id: string;
+    rowId: string;
+    courseMembershipId: string | null;
+    userId: string | null;
     username: string;
     name: string;
   }
@@ -33,7 +36,7 @@
     students: StudentOption[];
     problems: ProblemOption[];
     existing?: OverrideRow | null | undefined;
-    initialUserId?: string | undefined;
+    initialRowId?: string | undefined;
     initialProblemId?: string | undefined;
     onsuccess: () => void;
     oncancel?: (() => void) | undefined;
@@ -46,14 +49,21 @@
     students,
     problems,
     existing = null,
-    initialUserId,
+    initialRowId,
     initialProblemId,
     onsuccess,
     oncancel,
   }: Props = $props();
 
-  let userId = $state(
-    untrack(() => existing?.userId ?? initialUserId ?? students[0]?.id ?? ""),
+  let rowId = $state(
+    untrack(
+      () =>
+        existing?.courseMembershipId ??
+        existing?.userId ??
+        initialRowId ??
+        students[0]?.rowId ??
+        "",
+    ),
   );
   let problemId = $state(
     untrack(() => existing?.problemId ?? initialProblemId ?? problems[0]?.id ?? ""),
@@ -95,11 +105,23 @@
             : contextType === "exam"
               ? { type: contextType, examId: contextId }
               : { type: contextType, contestId: contextId };
+        const student = students.find((s) => s.rowId === rowId);
+        const subject =
+          contextType === "contest"
+            ? { userId: student?.userId }
+            : { courseMembershipId: student?.courseMembershipId };
+        if (
+          !student ||
+          (contextType === "contest" ? !student.userId : !student.courseMembershipId)
+        ) {
+          error = m.override_staff_toastError();
+          return;
+        }
         res = await fetch("/api/overrides", {
           method: "POST",
           headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
           body: JSON.stringify({
-            userId,
+            ...subject,
             problemId,
             context,
             overrideScore,
@@ -124,7 +146,7 @@
           mode === "create" ? m.override_staff_toastCreated() : m.override_staff_toastUpdated(),
         );
         if (mode === "create") {
-          userId = students[0]?.id ?? "";
+          rowId = students[0]?.rowId ?? "";
           problemId = problems[0]?.id ?? "";
           overrideScore = 0;
           reason = "";
@@ -155,12 +177,14 @@
       <select
         id="ov-student"
         class="h-11 rounded-md border border-input bg-background px-3 py-2 text-body-sm"
-        bind:value={userId}
+        bind:value={rowId}
         disabled={mode === "edit" || submitting}
       >
-        {#each students as s (s.id)}
-          <option value={s.id}>
-            {s.name}{s.username ? ` (${s.username})` : ""}
+        {#each students as s (s.rowId)}
+          <option value={s.rowId}>
+            {s.name}{s.username ? ` (${s.username})` : ""}{s.userId === null
+              ? ` · ${m.members_pendingActivation()}`
+              : ""}
           </option>
         {/each}
       </select>

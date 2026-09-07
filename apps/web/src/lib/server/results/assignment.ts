@@ -8,5 +8,8 @@ export function buildAssignmentResults(
   matrix: courseDomain.SubmissionsMatrix,
 ): AssignmentResults {
   const totals = matrix.rows.map((r) => r.total);
-  return buildScoreStats(totals, matrix.studentCount, matrix.totalPoints);
+  return {
+    ...buildScoreStats(totals, matrix.studentCount, matrix.totalPoints),
+    submitted: matrix.rows.filter((r) => r.cells.some((c) => c.attempts > 0)).length,
+  };
 }

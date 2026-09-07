@@ -14,7 +14,6 @@ const { canViewProfile, getPublicProfile } = userDomain;
 
 const ERROR_STATUS: Record<string, number> = {
   VERIFIED_LOCKED: 409,
-  PLACEHOLDER_LOCKED: 403,
   TAKEN: 409,
   RESERVED_FORMAT: 409,
   INVALID_FORMAT: 400,
@@ -55,7 +54,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     owner = {
       platformRole: sessionUser.platformRole,
       isSchoolVerified,
-      canEditUsername: !isSchoolVerified && sessionUser.status !== "pending_first_login",
+      canEditUsername: !isSchoolVerified,
       nameForm: await superValidate({ name: profile.user.name }, zod4(nameSchema)),
       usernameForm: await superValidate({ username: username ?? "" }, zod4(usernameSchema)),
     };
