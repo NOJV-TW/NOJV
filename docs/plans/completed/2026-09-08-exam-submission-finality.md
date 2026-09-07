@@ -30,7 +30,7 @@
 
 ## Verification evidence
 
-- Local implementation complete on `codex/exam-submission-finality`; pending integration/deployment.
+- Implementation and local verification complete on `codex/exam-submission-finality`; PR integration is CI-gated. Deployment is outside this change.
 - Baseline: 24 session unit tests passed before changes.
 - Regression evidence: submitted re-entry, final participation, and idempotent hand-in tests failed before the fix; instructor-release/stale-tab regression also failed before its correction.
 - Final targeted unit run: 132 tests in 14 files passed.
