@@ -99,7 +99,7 @@ describe("writeValidatorFiles", () => {
         mapResult(
           { testcaseResults },
           [],
-          { adjustment: { assignmentAdjustmentRules: null } } as never,
+          { adjustment: { adjustmentRules: null } } as never,
           2,
         ),
       ).toMatchObject({ accepted: false, verdict: "system_error" });

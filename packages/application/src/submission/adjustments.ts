@@ -4,7 +4,6 @@ export interface AdjustmentInputs {
   rules: AdjustmentRules | null;
   submittedAt: Date;
   dueAt: Date | null;
-  finalDay: Date | null;
   runtimeMs: number;
   rawScore: number;
   maxScore?: number;
@@ -14,144 +13,36 @@ export function applyAdjustmentRules(inputs: AdjustmentInputs): {
   score: number;
   adjustments: { rule: AdjustmentRule["type"]; delta: number }[];
 } {
-  const { rules, submittedAt, dueAt, finalDay, runtimeMs, rawScore } = inputs;
+  const { rules, submittedAt, dueAt, runtimeMs, rawScore } = inputs;
   const maxScore = inputs.maxScore ?? 100;
-  if (!rules || rules.length === 0) {
-    return { score: clampScore(rawScore, maxScore), adjustments: [] };
-  }
-
   let score = rawScore;
-  const log: { rule: AdjustmentRule["type"]; delta: number }[] = [];
+  const adjustments: { rule: AdjustmentRule["type"]; delta: number }[] = [];
 
-  for (const rule of rules) {
+  for (const rule of rules ?? []) {
     const before = score;
-
-    score = applyRule(rule, score, { submittedAt, dueAt, finalDay, runtimeMs });
-
+    if (rule.type === "time_bonus") {
+      if (rule.baselineMs > 0 && runtimeMs >= 0) {
+        score += Math.max(0, 1 - runtimeMs / rule.baselineMs) * rule.maxBonusPercent;
+      }
+    } else {
+      if (!dueAt) throw new Error("Late penalties require an on-time deadline.");
+      if (submittedAt > dueAt) {
+        const percentage =
+          rule.type === "flat_late_penalty"
+            ? rule.penaltyPct
+            : Math.ceil((submittedAt.getTime() - dueAt.getTime()) / 86_400_000) *
+              rule.perDayPct;
+        score *= Math.max(0, 1 - percentage / 100);
+      }
+    }
     score = clampScore(score, maxScore);
-    if (score !== before) {
-      log.push({ rule: rule.type, delta: score - before });
-    }
+    if (score !== before) adjustments.push({ rule: rule.type, delta: score - before });
   }
 
-  return { score, adjustments: log };
+  return { score: clampScore(score, maxScore), adjustments };
 }
 
-interface RuleContext {
-  submittedAt: Date;
-  dueAt: Date | null;
-  finalDay: Date | null;
-  runtimeMs: number;
-}
-
-type RuleOfType<T extends AdjustmentRule["type"]> = Extract<AdjustmentRule, { type: T }>;
-
-function applyTimeBonus(
-  rule: RuleOfType<"time_bonus">,
-  score: number,
-  runtimeMs: number,
-): number {
-  if (rule.baselineMs > 0 && runtimeMs >= 0) {
-    const ratio = Math.max(0, 1 - runtimeMs / rule.baselineMs);
-    return score + ratio * rule.maxBonusPercent;
-  }
-  return score;
-}
-
-function applyFlatLatePenalty(
-  rule: RuleOfType<"flat_late_penalty">,
-  score: number,
-  submittedAt: Date,
-  dueAt: Date | null,
-  finalDay: Date | null,
-): number {
-  const anchor = resolveAnchor(rule.startFrom, dueAt, finalDay, rule.type);
-  if (anchor && submittedAt > anchor) {
-    return score * (1 - rule.penaltyPct / 100);
-  }
-  return score;
-}
-
-function applyDailyLatePenalty(
-  rule: RuleOfType<"daily_late_penalty">,
-  score: number,
-  submittedAt: Date,
-  dueAt: Date | null,
-  finalDay: Date | null,
-): number {
-  const anchor = resolveAnchor(rule.startFrom, dueAt, finalDay, rule.type);
-  if (anchor && submittedAt > anchor) {
-    const msLate = submittedAt.getTime() - anchor.getTime();
-    const daysLate = Math.floor(msLate / (24 * 60 * 60 * 1000));
-    if (daysLate >= 1) {
-      const multiplier = Math.max(0, 1 - (daysLate * rule.perDayPct) / 100);
-      return score * multiplier;
-    }
-  }
-  return score;
-}
-
-function applyFinalDayZero(
-  rule: RuleOfType<"final_day_zero">,
-  score: number,
-  submittedAt: Date,
-  finalDay: Date | null,
-): number {
-  if (!finalDay) {
-    warnMissingAnchor(rule.type, "final_day");
-  } else if (submittedAt > finalDay) {
-    return 0;
-  }
-  return score;
-}
-
-function applyRule(rule: AdjustmentRule, score: number, ctx: RuleContext): number {
-  const { submittedAt, dueAt, finalDay, runtimeMs } = ctx;
-  switch (rule.type) {
-    case "time_bonus":
-      return applyTimeBonus(rule, score, runtimeMs);
-    case "flat_late_penalty":
-      return applyFlatLatePenalty(rule, score, submittedAt, dueAt, finalDay);
-    case "daily_late_penalty":
-      return applyDailyLatePenalty(rule, score, submittedAt, dueAt, finalDay);
-    case "final_day_zero":
-      return applyFinalDayZero(rule, score, submittedAt, finalDay);
-  }
-}
-
-function resolveAnchor(
-  startFrom: "due" | "final_day",
-  dueAt: Date | null,
-  finalDay: Date | null,
-  ruleType: AdjustmentRule["type"],
-): Date | null {
-  if (startFrom === "due") {
-    if (!dueAt) {
-      warnMissingAnchor(ruleType, "due");
-      return null;
-    }
-    return dueAt;
-  }
-  if (!finalDay) {
-    warnMissingAnchor(ruleType, "final_day");
-    return null;
-  }
-  return finalDay;
-}
-
-const warnedAnchors = new Set<string>();
-function warnMissingAnchor(ruleType: AdjustmentRule["type"], anchor: "due" | "final_day") {
-  const key = `${ruleType}:${anchor}`;
-  if (warnedAnchors.has(key)) return;
-  warnedAnchors.add(key);
-  console.warn(
-    `[adjustments] rule "${ruleType}" requested missing anchor "${anchor}" — skipping this rule for affected submissions`,
-  );
-}
-
-function clampScore(s: number, maxScore: number): number {
-  if (Number.isNaN(s)) return 0;
-  if (s < 0) return 0;
-  if (s > maxScore) return maxScore;
-  return Math.round(s);
+function clampScore(score: number, maxScore: number): number {
+  if (Number.isNaN(score)) return 0;
+  return Math.round(Math.max(0, Math.min(score, maxScore)));
 }

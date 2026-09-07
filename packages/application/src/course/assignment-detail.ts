@@ -5,28 +5,15 @@ import {
   submissionRepo,
 } from "@nojv/db";
 import {
-  adjustmentRulesSchema,
+  extractLatePenalty,
   problemLetter,
-  type AdjustmentRule,
+  type LatePenaltyRule,
   type Language,
 } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
 import { getOverridesForContext } from "../scoring/resolve-final-score";
 import { getProblemTotalScores } from "../problem/total-score";
-
-function extractLatePenalty(raw: unknown): AdjustmentRule | null {
-  const parsed = adjustmentRulesSchema.safeParse(raw);
-  if (!parsed.success) return null;
-  return (
-    parsed.data.find(
-      (r) =>
-        r.type === "flat_late_penalty" ||
-        r.type === "daily_late_penalty" ||
-        r.type === "final_day_zero",
-    ) ?? null
-  );
-}
 
 export type AssignmentDetailStatus = "draft" | "upcoming" | "open" | "closed";
 
@@ -78,7 +65,7 @@ export interface AssignmentDetail {
   maxAttemptsPerDay: number | null;
   attemptResetMinuteOfDay: number | null;
   allowedLanguages: Language[];
-  latePenalty: AdjustmentRule | null;
+  latePenalty: LatePenaltyRule | null;
   totalPoints: number;
   problemCount: number;
   problems: AssignmentDetailProblem[];

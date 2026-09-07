@@ -348,14 +348,14 @@ Deep field-level detail intentionally stays in the Prisma schema files themselve
 
 ## JSON Columns
 
-| Model.Field                   | Schema                | Purpose                                                                                                                    |
-| ----------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `Problem.judgeConfig`         | `JudgeConfig`         | type / compare / checker / interactor / runtime / subtaskStrategies                                                        |
-| `Problem.samples`             | `{ input, output }[]` | Sample I/O pairs rendered on the student problem page                                                                      |
-| `Assessment.adjustmentRules`  | `AdjustmentRule[]`    | Late penalty / time bonus / memory penalty rules (applied post-judge)                                                      |
-| `Submission.verdictSummary`   | `VerdictSummary`      | Small case-counter + per-subtask summary + truncated compiler error (full detail lives in S3 at `verdictDetailStorageKey`) |
-| `Participation.subtaskScores` | Score breakdown       | Per-subtask scores (contest / exam / virtual)                                                                              |
-| `*.plagiarismResults`         | Dolos result array    | Similarity pairs (similarity, longest, overlap) on Assessment / Exam / Contest                                             |
+| Model.Field                                           | Schema                | Purpose                                                                                                                    |
+| ----------------------------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `Problem.judgeConfig`                                 | `JudgeConfig`         | type / compare / checker / interactor / runtime / subtaskStrategies                                                        |
+| `Problem.samples`                                     | `{ input, output }[]` | Sample I/O pairs rendered on the student problem page                                                                      |
+| `Assessment.adjustmentRules` / `Exam.adjustmentRules` | `AdjustmentRule[]`    | Fixed/daily late percentage rules (post-judge); assignments also support runtime bonuses                                   |
+| `Submission.verdictSummary`                           | `VerdictSummary`      | Small case-counter + per-subtask summary + truncated compiler error (full detail lives in S3 at `verdictDetailStorageKey`) |
+| `Participation.subtaskScores`                         | Score breakdown       | Per-subtask scores (contest / exam / virtual)                                                                              |
+| `*.plagiarismResults`                                 | Dolos result array    | Similarity pairs (similarity, longest, overlap) on Assessment / Exam / Contest                                             |
 
 ## Seed Data
 

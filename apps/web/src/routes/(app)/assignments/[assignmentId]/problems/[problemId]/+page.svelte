@@ -17,4 +17,10 @@
   siblingProblems={data.siblingProblems}
   submissions={data.solveProps.submissions}
   testcaseSets={data.solveProps.testcaseSets}
+  workspaceTimer={{
+    type: "assignment",
+    endsAt: data.assignment.closesAt,
+    dueAt: data.assignment.dueAt,
+    latePenalty: data.assignment.latePenalty,
+  }}
 />

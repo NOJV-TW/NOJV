@@ -1,3 +1,4 @@
+import { assertLateSubmissionPolicy } from "../shared/late-submission-policy";
 import {
   courseRepo,
   examProblemRepo,
@@ -6,7 +7,12 @@ import {
   type Prisma,
   type TransactionClient,
 } from "@nojv/db";
-import type { ExamCreate, ExamUpdate, Language } from "@nojv/core";
+import {
+  adjustmentRulesSchema,
+  type ExamCreate,
+  type ExamUpdate,
+  type Language,
+} from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
@@ -85,11 +91,22 @@ export async function createExamRecord(actor: ActorContext, payload: ExamCreate)
       }
     }
 
+    const dueAt = payload.dueAt ? new Date(payload.dueAt) : null;
+    const endsAt = new Date(payload.endsAt);
+    assertEffectiveTimeWindow({
+      start: new Date(payload.startsAt),
+      due: dueAt,
+      end: endsAt,
+      fields: { start: "startsAt", due: "dueAt", end: "endsAt" },
+    });
+    assertLateSubmissionPolicy(payload.adjustmentRules, dueAt, endsAt, payload.scoringMode);
     const created = await examRepo.withTx(tx).create({
       allowedLanguages: payload.allowedLanguages,
       courseId: course.id,
       createdByUserId: actor.userId,
-      endsAt: new Date(payload.endsAt),
+      endsAt,
+      dueAt,
+      ...(payload.adjustmentRules ? { adjustmentRules: payload.adjustmentRules } : {}),
       ipBindingEnabled: payload.ipBindingEnabled,
       ipViolationMode: payload.ipViolationMode,
       ipWhitelist: payload.ipWhitelist,
@@ -153,6 +170,49 @@ export async function updateExamRecord(
       payload.startsAt === undefined ? exam.startsAt : new Date(payload.startsAt);
     const effectiveEndsAt =
       payload.endsAt === undefined ? exam.endsAt : new Date(payload.endsAt);
+    const effectiveDueAt =
+      payload.dueAt === undefined ? exam.dueAt : payload.dueAt ? new Date(payload.dueAt) : null;
+    const currentRules = adjustmentRulesSchema.parse(exam.adjustmentRules ?? []);
+    const effectiveRules = adjustmentRulesSchema.parse(payload.adjustmentRules ?? currentRules);
+    assertLateSubmissionPolicy(
+      effectiveRules,
+      effectiveDueAt,
+      effectiveEndsAt,
+      payload.scoringMode ?? exam.scoringMode,
+    );
+    const now = new Date();
+    const policyChanged =
+      (effectiveDueAt ?? effectiveEndsAt).getTime() !== (exam.dueAt ?? exam.endsAt).getTime() ||
+      JSON.stringify(effectiveRules) !== JSON.stringify(currentRules);
+    if (exam.status === "published" && now >= exam.startsAt) {
+      if (
+        now >= exam.endsAt &&
+        (policyChanged || effectiveEndsAt.getTime() !== exam.endsAt.getTime())
+      ) {
+        throw new ValidationError("Ended exam deadlines and penalties are read-only.");
+      }
+      if (
+        effectiveStartsAt.getTime() !== exam.startsAt.getTime() ||
+        effectiveEndsAt < exam.endsAt
+      ) {
+        throw new ValidationError("Running exams may only extend their final collection time.");
+      }
+      const currentDue = exam.dueAt ?? exam.endsAt;
+      if ((effectiveDueAt ?? effectiveEndsAt) < currentDue) {
+        throw new ValidationError("dueAt can only be extended, not moved earlier.");
+      }
+      if (JSON.stringify(effectiveRules) !== JSON.stringify(currentRules)) {
+        throw new ValidationError(
+          "Late penalties cannot be changed once the exam has started.",
+        );
+      }
+      if (payload.scoringMode !== undefined && payload.scoringMode !== exam.scoringMode) {
+        throw new ValidationError("scoringMode cannot be changed once the exam has started.");
+      }
+    }
+    if (payload.dueAt !== undefined) updateData.dueAt = effectiveDueAt;
+    if (payload.adjustmentRules !== undefined)
+      updateData.adjustmentRules = payload.adjustmentRules;
     const windowChanged =
       effectiveStartsAt.getTime() !== exam.startsAt.getTime() ||
       effectiveEndsAt.getTime() !== exam.endsAt.getTime();
@@ -165,7 +225,8 @@ export async function updateExamRecord(
     assertEffectiveTimeWindow({
       start: effectiveStartsAt,
       end: effectiveEndsAt,
-      fields: { start: "startsAt", end: "endsAt" },
+      due: effectiveDueAt,
+      fields: { start: "startsAt", due: "dueAt", end: "endsAt" },
     });
 
     const persisted =
@@ -232,8 +293,10 @@ export async function publishExam(actor: ActorContext, examId: string): Promise<
     assertEffectiveTimeWindow({
       start: exam.startsAt,
       end: exam.endsAt,
-      fields: { start: "startsAt", end: "endsAt" },
+      due: exam.dueAt,
+      fields: { start: "startsAt", due: "dueAt", end: "endsAt" },
     });
+    assertLateSubmissionPolicy(exam.adjustmentRules, exam.dueAt, exam.endsAt, exam.scoringMode);
     if (exam.endsAt <= new Date()) {
       throw new ValidationError("End time must be in the future.");
     }

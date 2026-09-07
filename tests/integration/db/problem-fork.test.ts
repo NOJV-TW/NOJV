@@ -309,6 +309,7 @@ describe("problem forks", () => {
         closesAt: endsAt,
         courseId: course.id,
         dueAt,
+        allowLateSubmissions: true,
         latePenalty: null,
         opensAt: startsAt,
         problemIds: [source.id],

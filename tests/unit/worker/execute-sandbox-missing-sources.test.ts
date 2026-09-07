@@ -172,7 +172,7 @@ describe("executeSandbox — missing sources guard (A7)", () => {
         requiredPaths: [],
         resourceLimits: { totalTimeMs: 1000, memoryMb: 128 },
       },
-      adjustment: { assignmentAdjustmentRules: null },
+      adjustment: { adjustmentRules: null },
       checkerScript: null,
       interactorScript: null,
       checkerLanguage: null,

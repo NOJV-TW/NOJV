@@ -57,7 +57,7 @@ beforeEach(() => {
 });
 
 describe("updateExamScores — read-side time cutoff", () => {
-  it("queries submissions with a createdAt <= endsAt cutoff", async () => {
+  it("queries submissions with a createdAt < endsAt cutoff", async () => {
     findExamForScoring.mockResolvedValue(participationFixture());
     findMany.mockResolvedValue([]);
     updateWithVersion.mockResolvedValue({ id: PARTICIPATION_ID, score: 0, version: 1 });
@@ -69,16 +69,16 @@ describe("updateExamScores — read-side time cutoff", () => {
         examId: EXAM_ID,
         userId: USER_ID,
         sampleOnly: false,
-        createdAt: { lte: ENDS_AT },
+        createdAt: { lt: ENDS_AT },
       },
     });
   });
 
-  it("excludes a submission created after endsAt from the exam score", async () => {
+  it("excludes a submission created at or after endsAt from the exam score", async () => {
     findExamForScoring.mockResolvedValue(participationFixture());
 
-    findMany.mockImplementation((query: { where: { createdAt?: { lte: Date } } }) => {
-      const cutoff = query.where.createdAt?.lte;
+    findMany.mockImplementation((query: { where: { createdAt?: { lt: Date } } }) => {
+      const cutoff = query.where.createdAt?.lt;
       const allRows = [
         {
           problemId: PROBLEM_ID,
@@ -90,10 +90,10 @@ describe("updateExamScores — read-side time cutoff", () => {
           problemId: PROBLEM_ID,
           score: 100,
           status: "accepted",
-          createdAt: new Date("2026-05-15T13:00:00Z"),
+          createdAt: ENDS_AT,
         },
       ];
-      return Promise.resolve(cutoff ? allRows.filter((r) => r.createdAt <= cutoff) : allRows);
+      return Promise.resolve(cutoff ? allRows.filter((r) => r.createdAt < cutoff) : allRows);
     });
 
     updateWithVersion.mockResolvedValue({ id: PARTICIPATION_ID, version: 1 });

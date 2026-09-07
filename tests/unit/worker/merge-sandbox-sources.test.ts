@@ -12,9 +12,9 @@ function makeJudgeContext(
 ): submissionDomain.SubmissionJudgeContext {
   return {
     adjustment: {
-      assignmentAdjustmentRules: null,
+      adjustmentRules: null,
       dueAt: null,
-      finalDay: null,
+
       submittedAt: new Date(0),
     },
     checkerScript: null,

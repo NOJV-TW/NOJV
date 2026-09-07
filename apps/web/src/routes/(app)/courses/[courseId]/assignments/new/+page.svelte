@@ -9,12 +9,11 @@
   import { Button } from "$lib/components/primitives/ui/button";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import LatePenaltyRuleBuilder, {
-    type LatePenaltyRule,
-  } from "$lib/components/features/course/LatePenaltyRuleBuilder.svelte";
+  import LateSubmissionFields from "$lib/components/features/course/LateSubmissionFields.svelte";
   import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
   import ProblemPicker from "$lib/components/features/course/exam/ProblemPicker.svelte";
   import type { FormMessage } from "$lib/types/form-message";
+  import { inputClassName } from "$lib/utils/css";
   import { toggleArrayItem } from "$lib/utils";
   import type { PageData } from "./$types";
 
@@ -45,10 +44,6 @@
 
   function toggleLanguage(lang: Language) {
     $form.allowedLanguages = toggleArrayItem($form.allowedLanguages ?? [], lang);
-  }
-
-  function handleLatePenaltyChange(value: LatePenaltyRule) {
-    $form.latePenalty = value;
   }
 
   function toggleAttempts() {
@@ -138,61 +133,38 @@
             {m.assignmentCreate_scheduleTitle()} <span class="text-destructive">*</span>
           </h2>
         </div>
-        <div class="grid gap-5 md:grid-cols-3" data-tour="assignment-schedule">
-          <div>
-            <label class="text-body-sm font-medium" for="opensAt">
-              {m.assignmentCreate_opensLabel()}
-              <HelpTooltip text={m.assignmentCreate_opensHint()} />
-            </label>
-            <input
-              id="opensAt"
-              name="opensAt"
-              type="datetime-local"
-              bind:value={$form.opensAt}
-              class="mt-2 {inputClass}"
-            />
-            {#if scheduleError($errors.opensAt, "opensAt")}
-              <p class="mt-1 text-caption text-destructive">
-                {scheduleError($errors.opensAt, "opensAt")}
-              </p>
-            {/if}
-          </div>
-          <div>
-            <label class="text-body-sm font-medium" for="dueAt">
-              {m.assignmentCreate_dueLabel()}
-              <HelpTooltip text={m.assignmentCreate_dueHint()} />
-            </label>
-            <input
-              id="dueAt"
-              name="dueAt"
-              type="datetime-local"
-              bind:value={$form.dueAt}
-              class="mt-2 {inputClass}"
-            />
-            {#if scheduleError($errors.dueAt, "dueAt")}
-              <p class="mt-1 text-caption text-destructive">
-                {scheduleError($errors.dueAt, "dueAt")}
-              </p>
-            {/if}
-          </div>
-          <div>
-            <label class="text-body-sm font-medium" for="closesAt">
-              {m.assignmentCreate_finalDayLabel()}
-              <HelpTooltip text={m.assignmentCreate_finalDayHint()} />
-            </label>
-            <input
-              id="closesAt"
-              name="closesAt"
-              type="datetime-local"
-              bind:value={$form.closesAt}
-              class="mt-2 {inputClass}"
-            />
-            {#if scheduleError($errors.closesAt, "closesAt")}
-              <p class="mt-1 text-caption text-destructive">
-                {scheduleError($errors.closesAt, "closesAt")}
-              </p>
-            {/if}
-          </div>
+        <div data-tour="assignment-schedule">
+          <LateSubmissionFields
+            bind:dueAt={$form.dueAt}
+            bind:finalAt={$form.closesAt}
+            bind:allowLateSubmissions={$form.allowLateSubmissions}
+            bind:latePenalty={$form.latePenalty}
+            finalName="closesAt"
+            dueErrors={$errors.dueAt}
+            finalErrors={$errors.closesAt}
+            penaltyInvalid={!!$errors.latePenalty}
+          >
+            {#snippet startField()}
+              <div>
+                <label class="text-body-sm font-medium" for="opensAt">
+                  {m.assignmentCreate_opensLabel()}
+                  <HelpTooltip text={m.assignmentCreate_opensHint()} />
+                </label>
+                <input
+                  id="opensAt"
+                  name="opensAt"
+                  type="datetime-local"
+                  bind:value={$form.opensAt}
+                  class={inputClassName}
+                />
+                {#if scheduleError($errors.opensAt, "opensAt")}
+                  <p class="mt-1 text-caption text-destructive">
+                    {scheduleError($errors.opensAt, "opensAt")}
+                  </p>
+                {/if}
+              </div>
+            {/snippet}
+          </LateSubmissionFields>
         </div>
       </section>
 
@@ -283,16 +255,6 @@
                   disabled={!attemptsEnabled}
                 />
               </div>
-            </div>
-
-            <div>
-              <label class="text-body-sm font-medium" for="late-penalty-rule">
-                {m.assignmentCreate_latePenaltyLabel()}
-              </label>
-              <LatePenaltyRuleBuilder
-                value={$form.latePenalty as LatePenaltyRule}
-                onChange={handleLatePenaltyChange}
-              />
             </div>
           </div>
         {/if}

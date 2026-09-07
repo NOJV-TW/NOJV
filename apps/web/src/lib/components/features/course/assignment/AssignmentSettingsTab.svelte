@@ -27,9 +27,6 @@
   import { m } from "$lib/paraglide/messages.js";
   import type { FormMessage } from "$lib/types/form-message";
   import AssignmentBasicSection from "./AssignmentBasicSection.svelte";
-  import LatePenaltyRuleBuilder, {
-    type LatePenaltyRule,
-  } from "$lib/components/features/course/LatePenaltyRuleBuilder.svelte";
 
   interface Props {
     form: SuperValidated<AssessmentSettingsFormData, FormMessage>;
@@ -67,7 +64,7 @@
         form.update((data) => ({
           ...data,
           opensAt: isoDateTimeToLocal(initialSchedule.opensAt),
-          dueAt: isoDateTimeToLocal(initialSchedule.dueAt),
+          dueAt: isoDateTimeToLocal(initialSchedule.dueAt ?? initialSchedule.closesAt),
           closesAt: isoDateTimeToLocal(initialSchedule.closesAt),
         }));
       },
@@ -76,7 +73,7 @@
 
   onMount(() => {
     $form.opensAt = isoDateTimeToLocal(initialSchedule.opensAt);
-    $form.dueAt = isoDateTimeToLocal(initialSchedule.dueAt);
+    $form.dueAt = isoDateTimeToLocal(initialSchedule.dueAt ?? initialSchedule.closesAt);
     $form.closesAt = isoDateTimeToLocal(initialSchedule.closesAt);
   });
 
@@ -208,17 +205,6 @@
             {m.assignmentDetail_settingsResetTimeDesc()}
           </p>
         </div>
-
-        <fieldset disabled={!editableBasics} class="m-0 min-w-0 border-0 p-0">
-          <div class="text-sm font-medium">{m.assignmentCreate_latePenaltyLabel()}</div>
-          <p class="mt-1 mb-3 text-caption text-muted-foreground">
-            {m.assignmentCreate_latePenaltyDesc()}
-          </p>
-          <LatePenaltyRuleBuilder
-            value={$form.latePenalty as LatePenaltyRule}
-            onChange={(value) => ($form.latePenalty = value)}
-          />
-        </fieldset>
       </div>
     </section>
 

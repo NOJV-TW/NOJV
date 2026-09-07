@@ -1,5 +1,11 @@
 import { courseMembershipRepo, examRepo, participationRepo, submissionRepo } from "@nojv/db";
-import type { ContestScoringMode, Language, ScoreboardMode } from "@nojv/core";
+import {
+  extractLatePenalty,
+  type LatePenaltyRule,
+  type ContestScoringMode,
+  type Language,
+  type ScoreboardMode,
+} from "@nojv/core";
 
 import { getOverridesForContext } from "../scoring/resolve-final-score";
 import { getProblemTotalScores } from "../problem/total-score";
@@ -40,6 +46,8 @@ export interface ExamDetailPage {
   summary: string;
   startsAt: string;
   endsAt: string;
+  dueAt: string | null;
+  latePenalty: LatePenaltyRule | null;
   status: ExamDetailStatus;
   scoringMode: ContestScoringMode;
   scoreboardMode: ScoreboardMode;
@@ -230,6 +238,8 @@ export async function getExamDetailPage(
     summary: exam.summary,
     startsAt: exam.startsAt.toISOString(),
     endsAt: exam.endsAt.toISOString(),
+    dueAt: exam.dueAt?.toISOString() ?? null,
+    latePenalty: extractLatePenalty(exam.adjustmentRules),
     status: derivedStatus,
     scoringMode: exam.scoringMode,
     scoreboardMode: exam.scoreboardMode,

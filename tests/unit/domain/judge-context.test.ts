@@ -445,12 +445,12 @@ describe("getJudgeContext", () => {
   });
 
   describe("adjustment context", () => {
-    it("uses assessment.dueAt and closesAt when the submission belongs to an assessment", async () => {
+    it("uses assessment.dueAt when the submission belongs to an assessment", async () => {
       const dueAt = new Date("2026-04-19T12:00:00Z");
       const closesAt = new Date("2026-04-21T12:00:00Z");
       const row = mkSubmissionRow({
         assessment: {
-          adjustmentRules: [{ type: "flat_late_penalty", penaltyPct: 10, startFrom: "due" }],
+          adjustmentRules: [{ type: "flat_late_penalty", penaltyPct: 10 }],
           dueAt,
           closesAt,
           opensAt: new Date("2026-04-15T00:00:00Z"),
@@ -460,12 +460,23 @@ describe("getJudgeContext", () => {
 
       const ctx = await getJudgeContext("sub_1");
       expect(ctx.adjustment.dueAt).toEqual(dueAt);
-      expect(ctx.adjustment.finalDay).toEqual(closesAt);
-      expect(ctx.adjustment.assignmentAdjustmentRules).toHaveLength(1);
+
+      expect(ctx.adjustment.adjustmentRules).toHaveLength(1);
       expect(ctx.adjustment.submittedAt).toEqual(row.createdAt);
     });
 
-    it("falls back to contest.endsAt when the submission belongs to a contest (no assessment)", async () => {
+    it("uses exam deadline and penalties for exam judging", async () => {
+      const dueAt = new Date("2026-04-19T12:00:00Z");
+      const rules = [{ type: "daily_late_penalty", perDayPct: 10 }];
+      findByIdWithJudgeContext.mockResolvedValue(
+        mkSubmissionRow({ exam: { dueAt, adjustmentRules: rules } }),
+      );
+      const ctx = await getJudgeContext("sub_1");
+      expect(ctx.adjustment.dueAt).toEqual(dueAt);
+      expect(ctx.adjustment.adjustmentRules).toEqual(rules);
+    });
+
+    it("does not apply adjustment deadlines to contests", async () => {
       const endsAt = new Date("2026-04-20T18:00:00Z");
       const row = mkSubmissionRow({
         contest: {
@@ -476,17 +487,17 @@ describe("getJudgeContext", () => {
       findByIdWithJudgeContext.mockResolvedValue(row);
 
       const ctx = await getJudgeContext("sub_1");
-      expect(ctx.adjustment.dueAt).toEqual(endsAt);
-      expect(ctx.adjustment.finalDay).toEqual(endsAt);
-      expect(ctx.adjustment.assignmentAdjustmentRules).toBeFalsy();
+      expect(ctx.adjustment.dueAt).toBeNull();
+
+      expect(ctx.adjustment.adjustmentRules).toBeFalsy();
     });
 
-    it("returns null dueAt / finalDay for free-practice submissions (no context)", async () => {
+    it("returns null dueAt for free-practice submissions (no context)", async () => {
       findByIdWithJudgeContext.mockResolvedValue(mkSubmissionRow());
       const ctx = await getJudgeContext("sub_1");
       expect(ctx.adjustment.dueAt).toBeNull();
-      expect(ctx.adjustment.finalDay).toBeNull();
-      expect(ctx.adjustment.assignmentAdjustmentRules).toBeFalsy();
+
+      expect(ctx.adjustment.adjustmentRules).toBeFalsy();
     });
   });
 });

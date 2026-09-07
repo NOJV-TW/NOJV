@@ -3,6 +3,7 @@
   import type { ValidationErrors } from "sveltekit-superforms";
   import type { AssessmentSettingsFormData } from "@nojv/core";
   import { inputClassName } from "$lib/utils/css";
+  import LateSubmissionFields from "../LateSubmissionFields.svelte";
   import { m } from "$lib/paraglide/messages.js";
 
   interface Props {
@@ -51,52 +52,36 @@
         disabled={!editableBasics}></textarea>
     </div>
 
-    <div class="grid gap-4 md:grid-cols-3">
-      <div>
-        <label class="text-sm font-medium" for="settings-opens">
-          {m.assignmentDetail_settingsOpensLabel()}
-        </label>
-        <input
-          id="settings-opens"
-          class={inputClassName}
-          type="datetime-local"
-          bind:value={$form.opensAt}
-          disabled={!editableOpensAt}
-        />
-        {#if $errors.opensAt}
-          <p class="mt-1 text-xs text-destructive">{$errors.opensAt}</p>
-        {/if}
-      </div>
-      <div>
-        <label class="text-sm font-medium" for="settings-due">
-          {m.assignmentDetail_settingsDueLabel()}
-        </label>
-        <input
-          id="settings-due"
-          class={inputClassName}
-          type="datetime-local"
-          bind:value={$form.dueAt}
-          disabled={!editableDeadlines}
-        />
-        {#if $errors.dueAt}
-          <p class="mt-1 text-xs text-destructive">{$errors.dueAt}</p>
-        {/if}
-      </div>
-      <div>
-        <label class="text-sm font-medium" for="settings-closes">
-          {m.assignmentDetail_settingsClosesLabel()}
-        </label>
-        <input
-          id="settings-closes"
-          class={inputClassName}
-          type="datetime-local"
-          bind:value={$form.closesAt}
-          disabled={!editableDeadlines}
-        />
-        {#if $errors.closesAt}
-          <p class="mt-1 text-xs text-destructive">{$errors.closesAt}</p>
-        {/if}
-      </div>
-    </div>
+    <LateSubmissionFields
+      bind:dueAt={$form.dueAt}
+      bind:finalAt={$form.closesAt}
+      bind:allowLateSubmissions={$form.allowLateSubmissions}
+      bind:latePenalty={$form.latePenalty}
+      finalName="closesAt"
+      dueErrors={$errors.dueAt}
+      finalErrors={$errors.closesAt}
+      penaltyInvalid={!!$errors.latePenalty}
+      editablePolicy={editableOpensAt}
+      editableDue={editableDeadlines}
+      editableEnd={editableDeadlines}
+    >
+      {#snippet startField()}
+        <div>
+          <label class="text-sm font-medium" for="settings-opens">
+            {m.assignmentDetail_settingsOpensLabel()}
+          </label>
+          <input
+            id="settings-opens"
+            class={inputClassName}
+            type="datetime-local"
+            bind:value={$form.opensAt}
+            disabled={!editableOpensAt}
+          />
+          {#if $errors.opensAt}
+            <p class="mt-1 text-xs text-destructive">{$errors.opensAt}</p>
+          {/if}
+        </div>
+      {/snippet}
+    </LateSubmissionFields>
   </div>
 </section>

@@ -100,6 +100,15 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
   mutation is rejected. If problem resolution or assignment creation fails,
   the transaction leaves neither a partial assignment nor a partial fork.
 
+### Late collection and scoring
+
+- Create and settings forms show an on-time deadline and an allow-late toggle. When disabled, the final deadline equals the on-time deadline and no late penalty is saved. When enabled, the final collection time is required and must be strictly later than the on-time deadline.
+- Penalty choices are none, a fixed percentage, or a daily percentage. Penalties always begin strictly after `dueAt`; a partial 24-hour day counts as a whole day. Exactly at `dueAt` is on time while collection remains open.
+- GIVEN a student submits at or after `closesAt`, THEN reject the official submission. Closing never resets a previously earned grade. Subsequent practice submissions remain separate.
+- GIVEN an open assignment, THEN existing due/final deadlines may be extended but penalties cannot change. Validate the combined persisted and requested settings for partial updates.
+- Both the overview and the workspace show the on-time/final deadlines and penalty terms, including the transition to late collection.
+- Detailed formulas and adjustment invariants live in [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#adjustment-rules).
+
 ### Lifecycle — publish
 
 - GIVEN an assignment in `draft` with ≥1 attached problem, ≥1 allowed
@@ -113,7 +122,7 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 - GIVEN an assignment in `draft` with an empty `allowedLanguages`,
   WHEN publish is attempted,
   THEN `ValidationError("Select at least one allowed language before publishing.")`.
-- GIVEN an assignment whose `closesAt <= now`,
+- GIVEN an assignment whose `closesAt < now`,
   WHEN publish is attempted,
   THEN `ValidationError("closesAt must be in the future.")`.
 - GIVEN an assignment already in `published`,

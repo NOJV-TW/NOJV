@@ -11,6 +11,7 @@
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
   import ToggleSwitch from "$lib/components/primitives/ui/ToggleSwitch.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import LateSubmissionFields from "$lib/components/features/course/LateSubmissionFields.svelte";
   import IpWhitelistField from "$lib/components/features/course/exam/IpWhitelistField.svelte";
   import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
   import ProblemPicker from "$lib/components/features/course/exam/ProblemPicker.svelte";
@@ -36,10 +37,10 @@
       dataType: "json",
       resetForm: false,
       onSubmit: ({ jsonData }) => {
-        jsonData(serializeDateTimeFields($form, ["startsAt", "endsAt"]));
+        jsonData(serializeDateTimeFields($form, ["startsAt", "dueAt", "endsAt"]));
       },
       onUpdate: ({ form }) => {
-        form.data = restoreDateTimeFields(form.data, ["startsAt", "endsAt"]);
+        form.data = restoreDateTimeFields(form.data, ["startsAt", "dueAt", "endsAt"]);
       },
     },
   );
@@ -145,46 +146,39 @@
           </div>
         </header>
 
-        <div class="grid gap-5 md:grid-cols-3">
-          <div>
-            <label class="text-sm font-medium" for="startsAt">
-              {m.examCreate_startsLabel()}
-              <HelpTooltip text={m.assignmentCreate_opensHint()} />
-              <span class="text-destructive">*</span>
-            </label>
-            <input
-              id="startsAt"
-              class={inputClassName}
-              type="datetime-local"
-              bind:value={$form.startsAt}
-              aria-invalid={$errors.startsAt ? "true" : undefined}
-            />
-            {#if scheduleError($errors.startsAt, "startsAt")}
-              <p class="mt-1 text-xs text-destructive">
-                {scheduleError($errors.startsAt, "startsAt")}
-              </p>
-            {/if}
-          </div>
-          <div>
-            <label class="text-sm font-medium" for="endsAt">
-              {m.examCreate_endsLabel()}
-              <HelpTooltip text={m.assignmentCreate_finalDayHint()} />
-              <span class="text-destructive">*</span>
-            </label>
-            <input
-              id="endsAt"
-              class={inputClassName}
-              type="datetime-local"
-              bind:value={$form.endsAt}
-              aria-invalid={$errors.endsAt ? "true" : undefined}
-            />
-            {#if scheduleError($errors.endsAt, "endsAt")}
-              <p class="mt-1 text-xs text-destructive">
-                {scheduleError($errors.endsAt, "endsAt")}
-              </p>
-            {/if}
-          </div>
-        </div>
+        <LateSubmissionFields
+          bind:dueAt={$form.dueAt}
+          bind:finalAt={$form.endsAt}
+          bind:allowLateSubmissions={$form.allowLateSubmissions}
+          bind:latePenalty={$form.latePenalty}
+          finalName="endsAt"
+          dueErrors={$errors.dueAt}
+          finalErrors={$errors.endsAt}
+          penaltyInvalid={!!$errors.latePenalty}
+          pointsBased={$form.scoringMode === "point_sum"}
+        >
+          {#snippet startField()}
+            <div>
+              <label class="text-sm font-medium" for="startsAt">
+                {m.examCreate_startsLabel()}
+                <HelpTooltip text={m.assignmentCreate_opensHint()} />
+                <span class="text-destructive">*</span>
+              </label>
+              <input
+                id="startsAt"
+                class={inputClassName}
+                type="datetime-local"
+                bind:value={$form.startsAt}
+                aria-invalid={$errors.startsAt ? "true" : undefined}
+              />
+              {#if scheduleError($errors.startsAt, "startsAt")}
+                <p class="mt-1 text-xs text-destructive">
+                  {scheduleError($errors.startsAt, "startsAt")}
+                </p>
+              {/if}
+            </div>
+          {/snippet}
+        </LateSubmissionFields>
       </section>
 
       <section class="border-t border-border-subtle pt-8">

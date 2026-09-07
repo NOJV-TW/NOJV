@@ -1,3 +1,5 @@
+import { assertEffectiveTimeWindow } from "../shared/effective-time-window";
+import { assertLateSubmissionPolicy } from "../shared/late-submission-policy";
 import {
   assessmentProblemRepo,
   assessmentRepo,
@@ -104,14 +106,28 @@ export async function createCourseAssignmentRecord(
       );
     }
 
-    const adjustmentRules = payload.latePenalty ? [payload.latePenalty] : [];
+    const closesAt = new Date(payload.allowLateSubmissions ? payload.closesAt : payload.dueAt);
+    const dueAt = new Date(payload.dueAt);
+    const adjustmentRules =
+      payload.allowLateSubmissions && payload.latePenalty ? [payload.latePenalty] : [];
+    assertEffectiveTimeWindow({
+      start: new Date(payload.opensAt),
+      due: dueAt,
+      end: closesAt,
+      fields: { start: "opensAt", due: "dueAt", end: "closesAt" },
+    });
+    if (payload.allowLateSubmissions && closesAt <= dueAt)
+      throw new ValidationError(
+        "closesAt must be later than dueAt when late submissions are allowed.",
+      );
+    assertLateSubmissionPolicy(adjustmentRules, dueAt, closesAt);
 
     const assignment = await assessmentRepo.withTx(tx).create({
       allowedLanguages: payload.allowedLanguages,
-      closesAt: new Date(payload.closesAt),
+      closesAt,
       courseId: course.id,
       createdByUserId: creator.id,
-      dueAt: new Date(payload.dueAt),
+      dueAt,
       opensAt: new Date(payload.opensAt),
       id: assignmentId,
       status: payload.status,
@@ -285,6 +301,8 @@ export async function copyCourse(
         courseId: newCourse.id,
         createdByUserId: owner.id,
         endsAt: e.endsAt,
+        dueAt: e.dueAt,
+        ...(e.adjustmentRules != null ? { adjustmentRules: e.adjustmentRules } : {}),
         ipBindingEnabled: e.ipBindingEnabled,
         ipViolationMode: e.ipViolationMode,
         ipWhitelist: e.ipWhitelist,

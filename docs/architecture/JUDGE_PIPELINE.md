@@ -271,18 +271,15 @@ Visibility is enforced on the server: `mergeSandboxSources()` rebuilds the sandb
 
 ## Adjustment rules
 
-Late penalties and time bonuses are applied at the `Assessment` level via the `adjustmentRules` JSON column, **not per-problem and not on contests** — contests do not carry adjustment rules. The post-judge step in `mapResult()` calls `applyAdjustmentRules()` from `packages/application/src/submission/adjustments.ts` with the raw 0–100 score and the submission context (runtime, `submittedAt`, `dueAt`, `finalDay`).
+Late penalties are configured on assignments and exams through `adjustmentRules`. The post-judge `mapResult()` step calls `applyAdjustmentRules()` with the raw problem score, problem maximum, runtime, submission receipt time and on-time deadline (`dueAt`). Contests do not carry adjustment rules.
 
-Rule types, defined in `packages/core/src/schemas/assessment-adjustments.ts`:
+- `time_bonus` (assignments only): linear runtime bonus, skipped when `baselineMs <= 0`.
+- `flat_late_penalty`: if `submittedAt > dueAt`, multiply the score by `1 - penaltyPct / 100` once.
+- `daily_late_penalty`: if `submittedAt > dueAt`, multiply by `max(0, 1 - ceil((submittedAt - dueAt) / 86_400_000) * perDayPct / 100)`. A fraction of a day counts as a full day. Exactly 24 hours is one day; 24 hours plus 1 ms is two days.
 
-- `time_bonus` — linear bonus scaling from `maxBonusPercent` at 0 ms down to 0 at `baselineMs`. Skipped when `baselineMs ≤ 0` (avoids divide-by-zero NaN that would wipe the score).
-- `flat_late_penalty` — one-shot multiplicative penalty `score *= (1 - penaltyPct/100)` if `submittedAt > anchor`. `startFrom` picks the anchor: `"due"` uses `dueAt`, `"final_day"` uses `finalDay`.
-- `daily_late_penalty` — multiplicative per-day-late penalty `score *= max(0, 1 - daysLate * perDayPct/100)`. Days-late uses a `Math.floor` of the elapsed window, so the first 24 h past the anchor are penalty-free. Same `startFrom` choice as `flat_late_penalty`.
-- `final_day_zero` — if `submittedAt > finalDay`, set score to 0. No-op (with a one-time warning log) when `finalDay` is missing.
+After each adjustment the score is rounded and clamped to the problem's maximum. Each activity supports at most one late penalty; assignments may additionally have runtime bonuses. A late penalty requires a due date strictly before the final collection deadline. Missing due dates with configured penalties are invalid, not silently ignored.
 
-Rules are applied in array order and the running score is clamped to `[0, 100]` after each step. Up to 10 rules per assessment.
-
-Exponential late-decay (with `halfLifeHours`) and a per-submission memory penalty are intentionally **not** part of the schema — they used to be discussed in early drafts but were removed. Use `daily_late_penalty` for time-based decay; memory limits are enforced as hard MLE verdicts, not as score deductions.
+The hard collection deadline is enforced when accepting submissions, separately from grading: `Assessment.closesAt` / `Exam.endsAt` reject submissions at or after the deadline. Rules cannot start from the hard deadline, and closing an activity never zeroes previously earned scores. Official per-problem grades use the best adjusted submission score; practice submissions have no activity context and never enter those grades. Exam sessions and proctoring continue until `endsAt`, including the late window.
 
 ## Sandbox verdicts
 

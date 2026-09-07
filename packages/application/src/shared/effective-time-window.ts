@@ -17,6 +17,13 @@ export function assertEffectiveTimeWindow({
   due,
   fields,
 }: EffectiveTimeWindow): void {
+  for (const [name, date] of [
+    [fields.start, start],
+    [fields.end, end],
+    [fields.due ?? "dueAt", due],
+  ] as const) {
+    if (date && !Number.isFinite(date.getTime())) throw new ValidationError(`Invalid ${name}.`);
+  }
   if (start >= end) {
     throw new ValidationError(`${fields.end} must be later than ${fields.start}.`);
   }

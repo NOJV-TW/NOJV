@@ -5,14 +5,11 @@ import { submissionDomain } from "@nojv/application";
 const { applyAdjustmentRules } = submissionDomain;
 
 const dueAt = new Date("2026-04-10T12:00:00Z");
-const finalDay = new Date("2026-04-12T12:00:00Z");
 const onTime = new Date("2026-04-10T11:00:00Z");
 const exactlyOnDue = new Date("2026-04-10T12:00:00Z");
 const oneHourLate = new Date("2026-04-10T13:00:00Z");
 const oneDayLate = new Date("2026-04-11T12:00:01Z");
 const threeDaysLate = new Date("2026-04-13T12:00:01Z");
-const afterFinalDay = new Date("2026-04-12T12:00:01Z");
-const beforeFinalDay = new Date("2026-04-12T11:59:59Z");
 
 describe("applyAdjustmentRules", () => {
   it("returns the raw score unchanged when no rules are configured", () => {
@@ -20,7 +17,7 @@ describe("applyAdjustmentRules", () => {
       rules: null,
       submittedAt: oneHourLate,
       dueAt,
-      finalDay,
+
       runtimeMs: 100,
       rawScore: 80,
     });
@@ -34,7 +31,7 @@ describe("applyAdjustmentRules", () => {
         rules: null,
         submittedAt: onTime,
         dueAt,
-        finalDay,
+
         runtimeMs: 0,
         rawScore: 150,
       }).score,
@@ -45,7 +42,7 @@ describe("applyAdjustmentRules", () => {
         rules: null,
         submittedAt: onTime,
         dueAt,
-        finalDay,
+
         runtimeMs: 0,
         rawScore: -5,
       }).score,
@@ -57,7 +54,7 @@ describe("applyAdjustmentRules", () => {
       rules: [{ type: "time_bonus", baselineMs: 0, maxBonusPercent: 10 }],
       submittedAt: onTime,
       dueAt,
-      finalDay,
+
       runtimeMs: 100,
       rawScore: 80,
     });
@@ -69,7 +66,7 @@ describe("applyAdjustmentRules", () => {
       rules: [{ type: "time_bonus", baselineMs: 1000, maxBonusPercent: 10 }],
       submittedAt: onTime,
       dueAt,
-      finalDay,
+
       runtimeMs: 500,
       rawScore: 80,
     });
@@ -78,10 +75,10 @@ describe("applyAdjustmentRules", () => {
 
   it("does not apply flat_late_penalty when submitted on time", () => {
     const result = applyAdjustmentRules({
-      rules: [{ type: "flat_late_penalty", penaltyPct: 20, startFrom: "due" }],
+      rules: [{ type: "flat_late_penalty", penaltyPct: 20 }],
       submittedAt: onTime,
       dueAt,
-      finalDay,
+
       runtimeMs: 0,
       rawScore: 100,
     });
@@ -90,10 +87,10 @@ describe("applyAdjustmentRules", () => {
 
   it("does not apply flat_late_penalty exactly at the due instant (not strictly after)", () => {
     const result = applyAdjustmentRules({
-      rules: [{ type: "flat_late_penalty", penaltyPct: 20, startFrom: "due" }],
+      rules: [{ type: "flat_late_penalty", penaltyPct: 20 }],
       submittedAt: exactlyOnDue,
       dueAt,
-      finalDay,
+
       runtimeMs: 0,
       rawScore: 100,
     });
@@ -102,10 +99,10 @@ describe("applyAdjustmentRules", () => {
 
   it("applies flat_late_penalty as a one-shot percentage when submitted late", () => {
     const result = applyAdjustmentRules({
-      rules: [{ type: "flat_late_penalty", penaltyPct: 20, startFrom: "due" }],
+      rules: [{ type: "flat_late_penalty", penaltyPct: 20 }],
       submittedAt: oneHourLate,
       dueAt,
-      finalDay,
+
       runtimeMs: 0,
       rawScore: 100,
     });
@@ -113,12 +110,12 @@ describe("applyAdjustmentRules", () => {
   });
 
   it("flat_late_penalty is independent of how late (1h late == 3d late)", () => {
-    const rule = { type: "flat_late_penalty", penaltyPct: 25, startFrom: "due" } as const;
+    const rule = { type: "flat_late_penalty", penaltyPct: 25 } as const;
     const a = applyAdjustmentRules({
       rules: [rule],
       submittedAt: oneHourLate,
       dueAt,
-      finalDay,
+
       runtimeMs: 0,
       rawScore: 80,
     });
@@ -126,7 +123,7 @@ describe("applyAdjustmentRules", () => {
       rules: [rule],
       submittedAt: threeDaysLate,
       dueAt,
-      finalDay,
+
       runtimeMs: 0,
       rawScore: 80,
     });
@@ -136,166 +133,70 @@ describe("applyAdjustmentRules", () => {
 
   it("flat_late_penalty clamps to 0 when penaltyPct >= 100", () => {
     const result = applyAdjustmentRules({
-      rules: [{ type: "flat_late_penalty", penaltyPct: 100, startFrom: "due" }],
+      rules: [{ type: "flat_late_penalty", penaltyPct: 100 }],
       submittedAt: oneHourLate,
       dueAt,
-      finalDay,
+
       runtimeMs: 0,
       rawScore: 80,
     });
     expect(result.score).toBe(0);
   });
 
-  it("flat_late_penalty with startFrom=final_day uses the finalDay anchor", () => {
-    const rule = { type: "flat_late_penalty", penaltyPct: 50, startFrom: "final_day" } as const;
-    expect(
-      applyAdjustmentRules({
-        rules: [rule],
-        submittedAt: oneHourLate,
-        dueAt,
-        finalDay,
-        runtimeMs: 0,
-        rawScore: 100,
-      }).score,
-    ).toBe(100);
-    expect(
-      applyAdjustmentRules({
-        rules: [rule],
-        submittedAt: afterFinalDay,
-        dueAt,
-        finalDay,
-        runtimeMs: 0,
-        rawScore: 100,
-      }).score,
-    ).toBe(50);
-  });
-
-  it("skips flat_late_penalty when the requested anchor is missing from context", () => {
+  it("counts a partial first day for daily_late_penalty", () => {
     const result = applyAdjustmentRules({
-      rules: [{ type: "flat_late_penalty", penaltyPct: 50, startFrom: "due" }],
-      submittedAt: oneHourLate,
-      dueAt: null,
-      finalDay,
-      runtimeMs: 0,
-      rawScore: 100,
-    });
-    expect(result.score).toBe(100);
-  });
-
-  it("does not apply daily_late_penalty when daysLate < 1", () => {
-    const result = applyAdjustmentRules({
-      rules: [{ type: "daily_late_penalty", perDayPct: 10, startFrom: "due" }],
+      rules: [{ type: "daily_late_penalty", perDayPct: 10 }],
       submittedAt: oneHourLate,
       dueAt,
-      finalDay,
-      runtimeMs: 0,
-      rawScore: 100,
-    });
-    expect(result.score).toBe(100);
-  });
 
-  it("applies daily_late_penalty once per full day past the anchor", () => {
-    const result = applyAdjustmentRules({
-      rules: [{ type: "daily_late_penalty", perDayPct: 10, startFrom: "due" }],
-      submittedAt: oneDayLate,
-      dueAt,
-      finalDay,
       runtimeMs: 0,
       rawScore: 100,
     });
     expect(result.score).toBe(90);
   });
 
-  it("applies daily_late_penalty linearly across multiple days", () => {
+  it("counts a partial second day for daily_late_penalty", () => {
     const result = applyAdjustmentRules({
-      rules: [{ type: "daily_late_penalty", perDayPct: 10, startFrom: "due" }],
-      submittedAt: threeDaysLate,
+      rules: [{ type: "daily_late_penalty", perDayPct: 10 }],
+      submittedAt: oneDayLate,
       dueAt,
-      finalDay,
+
       runtimeMs: 0,
       rawScore: 100,
     });
-    expect(result.score).toBe(70);
+    expect(result.score).toBe(80);
+  });
+
+  it("applies daily_late_penalty linearly across multiple days", () => {
+    const result = applyAdjustmentRules({
+      rules: [{ type: "daily_late_penalty", perDayPct: 10 }],
+      submittedAt: threeDaysLate,
+      dueAt,
+
+      runtimeMs: 0,
+      rawScore: 100,
+    });
+    expect(result.score).toBe(60);
   });
 
   it("daily_late_penalty clamps to 0 once the cumulative penalty exceeds 100%", () => {
     const result = applyAdjustmentRules({
-      rules: [{ type: "daily_late_penalty", perDayPct: 50, startFrom: "due" }],
+      rules: [{ type: "daily_late_penalty", perDayPct: 50 }],
       submittedAt: threeDaysLate,
       dueAt,
-      finalDay,
+
       runtimeMs: 0,
       rawScore: 100,
     });
     expect(result.score).toBe(0);
-  });
-
-  it("skips daily_late_penalty when the requested anchor is missing from context", () => {
-    const result = applyAdjustmentRules({
-      rules: [{ type: "daily_late_penalty", perDayPct: 50, startFrom: "final_day" }],
-      submittedAt: threeDaysLate,
-      dueAt,
-      finalDay: null,
-      runtimeMs: 0,
-      rawScore: 100,
-    });
-    expect(result.score).toBe(100);
-  });
-
-  it("does not zero the score strictly before the final day", () => {
-    const result = applyAdjustmentRules({
-      rules: [{ type: "final_day_zero" }],
-      submittedAt: beforeFinalDay,
-      dueAt,
-      finalDay,
-      runtimeMs: 0,
-      rawScore: 100,
-    });
-    expect(result.score).toBe(100);
-  });
-
-  it("does not zero the score exactly at the final day instant", () => {
-    const result = applyAdjustmentRules({
-      rules: [{ type: "final_day_zero" }],
-      submittedAt: finalDay,
-      dueAt,
-      finalDay,
-      runtimeMs: 0,
-      rawScore: 100,
-    });
-    expect(result.score).toBe(100);
-  });
-
-  it("zeroes the score strictly after the final day", () => {
-    const result = applyAdjustmentRules({
-      rules: [{ type: "final_day_zero" }],
-      submittedAt: afterFinalDay,
-      dueAt,
-      finalDay,
-      runtimeMs: 0,
-      rawScore: 100,
-    });
-    expect(result.score).toBe(0);
-  });
-
-  it("skips final_day_zero when finalDay is missing from context", () => {
-    const result = applyAdjustmentRules({
-      rules: [{ type: "final_day_zero" }],
-      submittedAt: afterFinalDay,
-      dueAt,
-      finalDay: null,
-      runtimeMs: 0,
-      rawScore: 100,
-    });
-    expect(result.score).toBe(100);
   });
 
   it("scales a late penalty off the problem total (maxScore: 200), not 100", () => {
     const result = applyAdjustmentRules({
-      rules: [{ type: "flat_late_penalty", penaltyPct: 20, startFrom: "due" }],
+      rules: [{ type: "flat_late_penalty", penaltyPct: 20 }],
       submittedAt: oneHourLate,
       dueAt,
-      finalDay,
+
       runtimeMs: 0,
       rawScore: 200,
       maxScore: 200,
@@ -308,7 +209,7 @@ describe("applyAdjustmentRules", () => {
       rules: [{ type: "time_bonus", baselineMs: 1000, maxBonusPercent: 50 }],
       submittedAt: onTime,
       dueAt,
-      finalDay,
+
       runtimeMs: 0,
       rawScore: 200,
       maxScore: 200,
@@ -322,11 +223,42 @@ describe("applyAdjustmentRules", () => {
         rules: null,
         submittedAt: onTime,
         dueAt,
-        finalDay,
+
         runtimeMs: 0,
         rawScore: 250,
         maxScore: 200,
       }).score,
     ).toBe(200);
+  });
+  it.each([
+    [-1, 80],
+    [0, 80],
+    [1, 72],
+    [86_400_000, 72],
+    [86_400_001, 64],
+    [172_800_000, 64],
+    [864_000_000, 0],
+  ])("rounds each started late day up (%i ms => %i)", (elapsed, expected) => {
+    expect(
+      applyAdjustmentRules({
+        rules: [{ type: "daily_late_penalty", perDayPct: 10 }],
+        dueAt,
+        submittedAt: new Date(dueAt.getTime() + elapsed),
+        rawScore: 80,
+        runtimeMs: 0,
+      }).score,
+    ).toBe(expected);
+  });
+
+  it("rejects a late rule missing its required deadline", () => {
+    expect(() =>
+      applyAdjustmentRules({
+        rules: [{ type: "daily_late_penalty", perDayPct: 10 }],
+        dueAt: null,
+        submittedAt: oneHourLate,
+        rawScore: 80,
+        runtimeMs: 0,
+      }),
+    ).toThrow("on-time deadline");
   });
 });

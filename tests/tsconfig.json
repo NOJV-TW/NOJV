@@ -21,6 +21,7 @@
     "integration/api/account-edit.test.ts",
     "integration/api/feedback.test.ts",
     "integration/api/submission-detail-staff-feedback.test.ts",
+    "integration/db/late-submission-policy.test.ts",
     "integration/db/constraint-replay.test.ts",
     "integration/db/course-roster-migration.test.ts",
     "integration/db/effective-time-window-migration.test.ts",

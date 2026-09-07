@@ -9,6 +9,8 @@ import {
   IP_WHITELIST_MAX_TEXT_LENGTH,
   ipViolationModeSchema,
   languageSchema,
+  latePenaltyRuleSchema,
+  refineLateSubmissionWindow,
   parseIpWhitelistText,
   scoreboardModeSchema,
   type ExamCreate,
@@ -33,7 +35,10 @@ const examFormSchema = z
     summary: z.string().trim().max(4_000).default(""),
     problemIds: z.array(z.string().min(1)).default([]),
     startsAt: z.string().trim().min(1),
-    endsAt: z.string().trim().min(1),
+    endsAt: z.string().trim().default(""),
+    dueAt: z.string().trim().min(1),
+    allowLateSubmissions: z.boolean().default(false),
+    latePenalty: latePenaltyRuleSchema.nullable().default(null),
     allowedLanguages: z.array(languageSchema).max(8).default([]),
     pageLockEnabled: z.boolean().default(false),
     ipBindingEnabled: z.boolean().default(false),
@@ -46,21 +51,25 @@ const examFormSchema = z
   })
   .superRefine((value, ctx) => {
     const startsAt = new Date(value.startsAt);
-    const endsAt = new Date(value.endsAt);
+    refineLateSubmissionWindow(value, value.endsAt, ctx, "endsAt");
+    const dueAt = new Date(value.dueAt);
 
     if (Number.isNaN(startsAt.getTime())) {
       ctx.addIssue({ code: "custom", message: "Invalid startsAt", path: ["startsAt"] });
       return;
     }
-    if (Number.isNaN(endsAt.getTime())) {
-      ctx.addIssue({ code: "custom", message: "Invalid endsAt", path: ["endsAt"] });
-      return;
-    }
-    if (endsAt <= startsAt) {
+    if (dueAt <= startsAt) {
       ctx.addIssue({
         code: "custom",
-        message: "endsAt must be later than startsAt",
-        path: ["endsAt"],
+        message: "dueAt must be later than startsAt",
+        path: ["dueAt"],
+      });
+    }
+    if (value.allowLateSubmissions && value.latePenalty && value.scoringMode !== "point_sum") {
+      ctx.addIssue({
+        code: "custom",
+        message: "Late penalties require point-sum scoring",
+        path: ["latePenalty"],
       });
     }
   });
@@ -85,6 +94,9 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         problemIds: [],
         startsAt: "",
         endsAt: "",
+        dueAt: "",
+        allowLateSubmissions: false,
+        latePenalty: null,
         allowedLanguages: [],
         pageLockEnabled: false,
         ipBindingEnabled: false,
@@ -115,7 +127,9 @@ function buildCreatePayload(form: ExamFormData, status: ExamPublishStatus): Exam
   return examCreateSchema.parse({
     allowedLanguages: form.allowedLanguages,
     courseId: form.courseId,
-    endsAt: toIsoOrEmpty(form.endsAt),
+    endsAt: toIsoOrEmpty(form.allowLateSubmissions ? form.endsAt : form.dueAt),
+    dueAt: toIsoOrEmpty(form.dueAt),
+    adjustmentRules: form.allowLateSubmissions && form.latePenalty ? [form.latePenalty] : [],
     ipBindingEnabled: form.ipBindingEnabled,
     ipViolationMode: form.ipViolationMode,
     ipWhitelist: form.ipWhitelistEnabled ? parseIpWhitelistText(form.ipWhitelistText) : [],

@@ -26,9 +26,8 @@ export interface WorkspaceFileEntry {
 }
 
 export interface AdjustmentContext {
-  assignmentAdjustmentRules: AdjustmentRules | null;
+  adjustmentRules: AdjustmentRules | null;
   dueAt: Date | null;
-  finalDay: Date | null;
   submittedAt: Date;
 }
 

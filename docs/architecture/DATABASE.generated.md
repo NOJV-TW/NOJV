@@ -390,6 +390,8 @@ Indexes & constraints: `@@unique([contestId, problemId])`, `@@unique([contestId,
 | `summary` | `String` | `@db.Text` |
 | `startsAt` | `DateTime` | — |
 | `endsAt` | `DateTime` | — |
+| `dueAt` | `DateTime?` | — |
+| `adjustmentRules` | `Json?` | — |
 | `scheduleRevision` | `Int` | `@default(0)` |
 | `timerFingerprint` | `String` | `@default(dbgenerated())` |
 | `status` | `ExamStatus` | `@default(draft)` |

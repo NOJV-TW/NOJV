@@ -51,16 +51,17 @@
       resetForm: false,
       invalidateAll: true,
       onSubmit: ({ jsonData }) => {
-        jsonData(serializeDateTimeFields($form, ["startsAt", "endsAt"]));
+        jsonData(serializeDateTimeFields($form, ["startsAt", "dueAt", "endsAt"]));
       },
       onUpdate: ({ form }) => {
-        form.data = restoreDateTimeFields(form.data, ["startsAt", "endsAt"]);
+        form.data = restoreDateTimeFields(form.data, ["startsAt", "dueAt", "endsAt"]);
       },
       onUpdated: ({ form: updatedForm }) => {
         if (!updatedForm.valid || updatedForm.message?.kind !== "success") return;
         form.update((data) => ({
           ...data,
           startsAt: isoDateTimeToLocal(detail.startsAt),
+          dueAt: isoDateTimeToLocal(detail.dueAt ?? detail.endsAt),
           endsAt: isoDateTimeToLocal(detail.endsAt),
         }));
       },
@@ -69,6 +70,7 @@
 
   onMount(() => {
     $form.startsAt = isoDateTimeToLocal(detail.startsAt);
+    $form.dueAt = isoDateTimeToLocal(detail.dueAt ?? detail.endsAt);
     $form.endsAt = isoDateTimeToLocal(detail.endsAt);
   });
 

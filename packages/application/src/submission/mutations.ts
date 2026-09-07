@@ -189,7 +189,7 @@ async function assertCourseSubmissionAllowed(
     if (receivedAt < assignment.opensAt) {
       throw new ForbiddenError("Assignment has not opened yet.");
     }
-    if (receivedAt > assignment.closesAt) {
+    if (receivedAt >= assignment.closesAt) {
       throw new ForbiddenError("Assignment has ended.");
     }
   }

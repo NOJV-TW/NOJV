@@ -6,6 +6,7 @@
   import { ChevronRight, Monitor, Pencil } from "@lucide/svelte";
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
   import AssessmentHero from "$lib/components/features/coursework/AssessmentHero.svelte";
+  import LateSubmissionSummary from "$lib/components/features/course/LateSubmissionSummary.svelte";
   import HeroSchedule from "$lib/components/features/coursework/HeroSchedule.svelte";
   import StatRail from "$lib/components/primitives/visual/StatRail.svelte";
   import StatTile from "$lib/components/primitives/visual/StatTile.svelte";
@@ -50,7 +51,12 @@
 
   const startsAtMs = $derived(new Date(detail.startsAt).getTime());
   const endsAtMs = $derived(new Date(detail.endsAt).getTime());
-  const durationMinutes = $derived(Math.max(0, Math.round((endsAtMs - startsAtMs) / 60_000)));
+  const durationMinutes = $derived(
+    Math.max(
+      0,
+      Math.round((new Date(detail.dueAt ?? detail.endsAt).getTime() - startsAtMs) / 60_000),
+    ),
+  );
 
   type LiveStatus = "draft" | "upcoming" | "running" | "ended";
   const liveStatus: LiveStatus = $derived.by(() => {
@@ -183,9 +189,9 @@
       <HeroSchedule
         {accent}
         startIso={detail.startsAt}
-        endIso={detail.endsAt}
+        endIso={detail.dueAt ?? detail.endsAt}
         startLabel={m.schedule_starts()}
-        endLabel={m.schedule_ends()}
+        endLabel={m.lateSubmission_dueLabel()}
       />
     {/snippet}
     {#snippet badges()}
@@ -260,6 +266,12 @@
       </StatRail>
     {/snippet}
   </AssessmentHero>
+
+  <LateSubmissionSummary
+    dueAt={detail.dueAt}
+    finalAt={detail.endsAt}
+    latePenalty={detail.latePenalty}
+  />
 
   {#if form?.error}
     <div

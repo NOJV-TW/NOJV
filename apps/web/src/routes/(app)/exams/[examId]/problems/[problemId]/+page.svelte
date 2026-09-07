@@ -56,6 +56,8 @@
       type: "exam",
       examId: data.examContext.examId,
       endsAt: data.examContext.endsAt,
+      dueAt: data.examContext.dueAt,
+      latePenalty: data.examContext.latePenalty,
     }}
     testcaseSets={data.testcaseSets}
   />

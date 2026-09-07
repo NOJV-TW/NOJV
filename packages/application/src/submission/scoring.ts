@@ -223,7 +223,7 @@ export function mapResult(
     score = result.customScore;
   }
 
-  const adjustmentRules = judgeContext.adjustment.assignmentAdjustmentRules ?? null;
+  const adjustmentRules = judgeContext.adjustment.adjustmentRules ?? null;
 
   if (adjustmentRules && adjustmentRules.length > 0) {
     const problemTotal = judgeContext.advanced
@@ -233,7 +233,7 @@ export function mapResult(
         : 100;
     const adjusted = applyAdjustmentRules({
       dueAt: judgeContext.adjustment.dueAt,
-      finalDay: judgeContext.adjustment.finalDay,
+
       maxScore: problemTotal,
       rawScore: score,
       rules: adjustmentRules,
