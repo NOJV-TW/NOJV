@@ -59,6 +59,9 @@ test("first general username setup links the same User to an already graded rost
       data: { username: null, displayUsername: null },
     });
     await page.goto("/complete-profile");
+    await expect(
+      page.getByRole("button", { name: "Open account menu for New Student", exact: true }),
+    ).toBeEnabled();
     await page.getByRole("button", { name: /General Account/ }).click();
     await page.locator("#general-username").fill(handle);
     const actionResponse = page.waitForResponse(

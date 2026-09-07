@@ -16,6 +16,9 @@ test("staff can enroll all school username formats and manage pending membership
   const memberships: string[] = [];
   try {
     await page.goto(membersUrl);
+    await expect(
+      page.getByRole("button", { name: "Open account menu for Teacher", exact: true }),
+    ).toBeEnabled();
     await page.locator("#bulk-handles").fill(handles.join("\n"));
     await page.locator('form[action="?/bulkAdd"] button[type="submit"]').click();
     for (const handle of handles) {
@@ -92,6 +95,9 @@ for (const assessment of [
       expect(membershipId).toBeTruthy();
 
       await page.goto(assessment.url);
+      await expect(
+        page.getByRole("button", { name: "Open account menu for Teacher", exact: true }),
+      ).toBeEnabled();
       await page.getByRole("tab", { name: "Results", exact: true }).click();
       const matrix = page.locator(`[data-slot="${assessment.slot}"]`);
       await matrix.getByRole("searchbox").fill(handle);
@@ -140,6 +146,9 @@ for (const assessment of [
       await expect(gradeRow).toContainText("80");
 
       await page.goto(`/courses/${courseId}/grades`);
+      await expect(
+        page.getByRole("button", { name: "Open account menu for Teacher", exact: true }),
+      ).toBeEnabled();
       await expect(page.locator("tbody tr").filter({ hasText: handle })).toContainText("80");
       const downloadPromise = page.waitForEvent("download");
       await page.getByRole("button", { name: /export csv/i }).click();
