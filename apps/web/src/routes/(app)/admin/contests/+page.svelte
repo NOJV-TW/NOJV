@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { Trophy } from "@lucide/svelte";
+  import { Plus, Trophy } from "@lucide/svelte";
 
   import type { PageData } from "./$types";
   import { m } from "$lib/paraglide/messages.js";
   import AssessmentRow from "$lib/components/features/coursework/AssessmentRow.svelte";
+  import { Button } from "$lib/components/primitives/ui/button";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
 
@@ -16,11 +17,17 @@
 </script>
 
 <PageContainer class="animate-in animate-in-2 space-y-5">
-  <div>
-    <h1 class="text-title-lg font-semibold">{m.navigation_contests()}</h1>
-    <p class="mt-1 text-body-sm text-muted-foreground">
-      {m.admin_contentContestsDescription()}
-    </p>
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-title-lg font-semibold">{m.navigation_contests()}</h1>
+      <p class="mt-1 text-body-sm text-muted-foreground">
+        {m.admin_contentContestsDescription()}
+      </p>
+    </div>
+    <Button href="/contests/new">
+      <Plus aria-hidden="true" class="h-4 w-4" />
+      {m.contestsList_create()}
+    </Button>
   </div>
   {#if data.contests.length === 0}
     <EmptyState icon={Trophy} title={m.admin_contentEmpty()} />

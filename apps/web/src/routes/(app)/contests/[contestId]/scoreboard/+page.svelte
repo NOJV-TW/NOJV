@@ -113,6 +113,7 @@
   import { flip } from "svelte/animate";
   import { cubicOut } from "svelte/easing";
   import { Trophy } from "@lucide/svelte";
+  import * as Select from "$lib/components/primitives/ui/select";
   import { invalidate } from "$app/navigation";
   import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
@@ -667,18 +668,25 @@
         >
           {m.contestScoreboard_chartHeading({ username: selectedChartSeries?.username ?? "—" })}
         </h3>
-        <label class="flex items-center gap-2 text-caption text-muted-foreground">
+        <div class="flex items-center gap-2 text-caption text-muted-foreground">
           <span>{m.contestScoreboard_chartUserLabel()}</span>
-          <select
-            class="border-0 border-b border-border bg-transparent px-1 py-1 text-body-sm text-foreground shadow-none outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
-            aria-label={m.contestScoreboard_chartUserLabel()}
-            bind:value={selectedChartUserId}
+          <Select.Root
+            type="single"
+            value={selectedChartUserId ?? ""}
+            onValueChange={(value) => (selectedChartUserId = value)}
           >
-            {#each chart.series as series (series.userId)}
-              <option value={series.userId}>{series.username}</option>
-            {/each}
-          </select>
-        </label>
+            <Select.Trigger size="sm" aria-label={m.contestScoreboard_chartUserLabel()}>
+              {selectedChartSeries?.username ?? ""}
+            </Select.Trigger>
+            <Select.Content>
+              {#each chart.series as series (series.userId)}
+                <Select.Item value={series.userId} label={series.username}>
+                  {series.username}
+                </Select.Item>
+              {/each}
+            </Select.Content>
+          </Select.Root>
+        </div>
       </div>
       <div class="overflow-x-auto rounded-sm" style="background: var(--panel-strong);">
         <svg

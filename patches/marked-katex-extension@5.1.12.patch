@@ -1,0 +1,26 @@
+diff --git a/src/index.ts b/src/index.ts
+index 2e9499eb4d1e09683d34cfb1951168c6ec93f301..d1b764bb2af2e644084279142bc8eaa2a3485952 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -63,8 +63,8 @@ function inlineKatex(options: MarkedKatexOptions, renderer: (token: KatexToken)
+         return {
+           type: 'inlineKatex',
+           raw: match[0],
+-          text: match[2].trim(),
+-          displayMode: match[1].length === 2,
++          text: match[2]!.trim(),
++          displayMode: match[1]!.length === 2,
+         };
+       }
+     },
+@@ -82,8 +82,8 @@ function blockKatex(options: MarkedKatexOptions, renderer: (token: KatexToken) =
+         return {
+           type: 'blockKatex',
+           raw: match[0],
+-          text: match[2].trim(),
+-          displayMode: match[1].length === 2,
++          text: match[2]!.trim(),
++          displayMode: match[1]!.length === 2,
+         };
+       }
+     },

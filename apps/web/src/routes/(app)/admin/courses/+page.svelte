@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { GraduationCap, Users } from "@lucide/svelte";
+  import { GraduationCap, Plus, Users } from "@lucide/svelte";
 
   import type { PageData } from "./$types";
   import { m } from "$lib/paraglide/messages.js";
   import { Badge } from "$lib/components/primitives/ui/badge";
+  import { Button } from "$lib/components/primitives/ui/button";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
 
@@ -11,9 +12,17 @@
 </script>
 
 <PageContainer class="animate-in animate-in-2 space-y-5">
-  <div>
-    <h1 class="text-title-lg font-semibold">{m.navigation_courses()}</h1>
-    <p class="mt-1 text-body-sm text-muted-foreground">{m.admin_contentCoursesDescription()}</p>
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-title-lg font-semibold">{m.navigation_courses()}</h1>
+      <p class="mt-1 text-body-sm text-muted-foreground">
+        {m.admin_contentCoursesDescription()}
+      </p>
+    </div>
+    <Button href="/courses/new">
+      <Plus aria-hidden="true" class="h-4 w-4" />
+      {m.courses_createNew()}
+    </Button>
   </div>
 
   {#if data.courses.length === 0}

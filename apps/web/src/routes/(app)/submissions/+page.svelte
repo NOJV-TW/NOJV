@@ -203,6 +203,11 @@
               <th class="px-4 py-3 text-left align-middle font-medium">
                 {m.admin_submissions_colTime()}
               </th>
+              {#if data.adminAccessActive}
+                <th class="px-4 py-3 text-left align-middle font-medium">
+                  {m.admin_submissions_colUser()}
+                </th>
+              {/if}
               <th class="px-2 py-3 text-left align-middle font-medium">
                 <TableSelectColumnFilter
                   label={m.admin_submissions_colProblem()}
@@ -256,7 +261,10 @@
           <tbody>
             {#if filtered.length === 0}
               <tr class="border-t border-border-subtle">
-                <td class="px-6 py-14 text-center text-muted-foreground" colspan="6">
+                <td
+                  class="px-6 py-14 text-center text-muted-foreground"
+                  colspan={data.adminAccessActive ? 7 : 6}
+                >
                   {m.submissions_noMatches()}
                 </td>
               </tr>
@@ -274,6 +282,18 @@
                   >
                     {formatDateTime(sub.createdAt)}
                   </td>
+                  {#if data.adminAccessActive}
+                    <td class="px-4 py-3">
+                      {#if sub.user}
+                        <div class="font-medium">{sub.user.name}</div>
+                        {#if sub.user.username}
+                          <div class="font-mono text-caption text-muted-foreground">
+                            @{sub.user.username}
+                          </div>
+                        {/if}
+                      {/if}
+                    </td>
+                  {/if}
                   <td class="px-3 py-3">
                     <span class="font-medium">{sub.problemTitle}</span>
                   </td>

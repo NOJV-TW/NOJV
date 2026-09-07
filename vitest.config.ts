@@ -8,6 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const requireFromMailer = createRequire(path.join(__dirname, "packages/mailer/package.json"));
 const requireFromWeb = createRequire(path.join(__dirname, "apps/web/package.json"));
+const requireFromWorker = createRequire(path.join(__dirname, "apps/worker/package.json"));
 const requireFromTemporal = createRequire(
   path.join(__dirname, "packages/temporal/package.json"),
 );
@@ -22,6 +23,7 @@ const sharedAliases = {
   "sveltekit-superforms/client": requireFromWeb.resolve("sveltekit-superforms/client"),
   "sveltekit-superforms": requireFromWeb.resolve("sveltekit-superforms"),
   "@temporalio/client": requireFromTemporal.resolve("@temporalio/client"),
+  "@temporalio/worker": requireFromWorker.resolve("@temporalio/worker"),
   "@nojv/db": path.resolve(__dirname, "packages/db/src/index.ts"),
   "@nojv/core": path.resolve(__dirname, "packages/core/src/index.ts"),
   "@nojv/application": path.resolve(__dirname, "packages/application/src/index.ts"),
@@ -47,6 +49,10 @@ const componentAliases = [
   },
   {
     find: /^@lucide\/svelte\/icons\/[^/]+$/,
+    replacement: path.resolve(__dirname, "tests/unit/web/fixtures/empty-component.svelte"),
+  },
+  {
+    find: /^@lucide\/svelte\/icons\/mail$/,
     replacement: path.resolve(__dirname, "tests/unit/web/fixtures/empty-component.svelte"),
   },
   {

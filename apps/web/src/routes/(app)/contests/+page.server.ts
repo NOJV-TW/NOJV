@@ -11,6 +11,7 @@ const { joinContestByCode, listContestsForUser } = contestDomain;
 
 export const load: PageServerLoad = async (event) => {
   const actor = getActorContext(event);
+  if (actor?.platformRole === "admin") redirect(303, "/admin/contests");
   const { managed, participable } = await listContestsForUser(actor?.userId ?? null);
   return {
     managed,
