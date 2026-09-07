@@ -7,6 +7,7 @@
   import FormField from "$lib/components/primitives/ui/FormField.svelte";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
   import ImageDropZone from "$lib/components/primitives/ui/ImageDropZone.svelte";
+  import { serializeDateTimeFormData } from "$lib/utils/datetime-form";
 
   interface AnnouncementInitial {
     id: string;
@@ -61,7 +62,8 @@
       class="space-y-4"
       method="POST"
       {action}
-      use:enhance={() => {
+      use:enhance={(event) => {
+        if (event.formData) serializeDateTimeFormData(event.formData, ["expiresAt"]);
         submitting = true;
         errorMessage = null;
         return async ({ result, update }) => {

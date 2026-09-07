@@ -50,6 +50,10 @@ const componentAliases = [
     replacement: path.resolve(__dirname, "tests/unit/web/fixtures/empty-component.svelte"),
   },
   {
+    find: /^@lucide\/svelte\/icons\/mail$/,
+    replacement: path.resolve(__dirname, "tests/unit/web/fixtures/empty-component.svelte"),
+  },
+  {
     find: /^@lucide\/svelte$/,
     replacement: path.resolve(__dirname, "tests/unit/web/fixtures/lucide.ts"),
   },

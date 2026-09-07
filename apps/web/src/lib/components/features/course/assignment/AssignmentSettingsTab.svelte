@@ -6,6 +6,7 @@
 </script>
 
 <script lang="ts">
+  import { onMount } from "svelte";
   import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
 
@@ -16,6 +17,11 @@
   import { Button } from "$lib/components/primitives/ui/button";
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
   import { cn, inputClassName } from "$lib/utils/css";
+  import {
+    isoDateTimeToLocal,
+    restoreDateTimeFields,
+    serializeDateTimeFields,
+  } from "$lib/utils/datetime-form";
   import { minutesToHHMM, hhmmToMinutes } from "$lib/utils/attempt-reset-time";
   import { toggleArrayItem } from "$lib/utils";
   import { m } from "$lib/paraglide/messages.js";
@@ -28,10 +34,15 @@
   interface Props {
     form: SuperValidated<AssessmentSettingsFormData, FormMessage>;
     liveStatus: SettingsLiveStatus;
+    initialSchedule: {
+      opensAt: string;
+      dueAt: string | null;
+      closesAt: string;
+    };
     class?: string;
   }
 
-  let { form: formProp, liveStatus, class: className }: Props = $props();
+  let { form: formProp, liveStatus, initialSchedule, class: className }: Props = $props();
 
   const {
     form,
@@ -45,8 +56,29 @@
       dataType: "json",
       resetForm: false,
       invalidateAll: true,
+      onSubmit: ({ jsonData }) => {
+        jsonData(serializeDateTimeFields($form, ["opensAt", "dueAt", "closesAt"]));
+      },
+      onUpdate: ({ form }) => {
+        form.data = restoreDateTimeFields(form.data, ["opensAt", "dueAt", "closesAt"]);
+      },
+      onUpdated: ({ form: updatedForm }) => {
+        if (!updatedForm.valid || updatedForm.message?.kind !== "success") return;
+        form.update((data) => ({
+          ...data,
+          opensAt: isoDateTimeToLocal(initialSchedule.opensAt),
+          dueAt: isoDateTimeToLocal(initialSchedule.dueAt),
+          closesAt: isoDateTimeToLocal(initialSchedule.closesAt),
+        }));
+      },
     },
   );
+
+  onMount(() => {
+    $form.opensAt = isoDateTimeToLocal(initialSchedule.opensAt);
+    $form.dueAt = isoDateTimeToLocal(initialSchedule.dueAt);
+    $form.closesAt = isoDateTimeToLocal(initialSchedule.closesAt);
+  });
 
   const isDraft = $derived(liveStatus === "draft");
   const isUpcoming = $derived(liveStatus === "upcoming");

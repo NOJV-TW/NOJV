@@ -489,6 +489,11 @@
       {:else if activeSubTab === "settings" && data.mode === "teacher"}
         <AssignmentSettingsTab
           form={data.settingsForm}
+          initialSchedule={{
+            opensAt: detail.opensAt,
+            dueAt: detail.dueAt,
+            closesAt: detail.closesAt,
+          }}
           liveStatus={deriveAssignmentLiveStatus(
             data.assignment.status,
             detail.opensAt,
