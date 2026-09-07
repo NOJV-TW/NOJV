@@ -86,7 +86,6 @@ export async function seedCourses(
         {
           type: "flat_late_penalty",
           penaltyPct: 20,
-          startFrom: "due",
         },
       ],
     },

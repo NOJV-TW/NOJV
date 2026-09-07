@@ -75,6 +75,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       examTitle: view.examTitle,
       courseLabel: view.courseLabel,
       endsAt: view.exam.endsAt,
+      dueAt: view.exam.dueAt,
+      latePenalty: view.exam.latePenalty,
       countdownMs,
       userHandle: actor.username,
       ipAddress: getClientIp(event),

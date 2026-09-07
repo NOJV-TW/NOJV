@@ -1,7 +1,11 @@
 import { z } from "zod";
 
 import { isoDateTimeSchema, languageSchema, slugSchema } from "../types";
-import { adjustmentRuleSchema, adjustmentRulesSchema } from "./assessment-adjustments";
+import {
+  latePenaltyRuleSchema,
+  adjustmentRulesSchema,
+  refineLateSubmissionWindow,
+} from "./assessment-adjustments";
 
 const academicTermFields = {
   academicYear: z.coerce.number().int().min(100).max(999).nullish(),
@@ -102,10 +106,11 @@ export const assessmentCreateSchema = z
 export const courseAssignmentFormSchema = z
   .object({
     allowedLanguages: z.array(languageSchema).max(8).default([]),
-    closesAt: z.string().trim().min(1),
+    closesAt: z.string().trim().default(""),
     courseId: z.string().trim().min(1),
     dueAt: z.string().trim().min(1),
-    latePenalty: adjustmentRuleSchema.nullable().default(null),
+    allowLateSubmissions: z.boolean().default(false),
+    latePenalty: latePenaltyRuleSchema.nullable().default(null),
     maxAttemptsPerDay: z.coerce.number().int().min(1).max(999).nullish(),
     attemptResetMinuteOfDay: z.coerce.number().int().min(0).max(1439).nullish(),
     opensAt: z.string().trim().min(1),
@@ -115,7 +120,8 @@ export const courseAssignmentFormSchema = z
   })
   .superRefine((value, ctx) => {
     const opensAt = new Date(value.opensAt);
-    const closesAt = new Date(value.closesAt);
+    const closesAt = new Date(value.allowLateSubmissions ? value.closesAt : value.dueAt);
+    refineLateSubmissionWindow(value, value.closesAt, ctx, "closesAt");
     const dueAt = new Date(value.dueAt);
 
     if (Number.isNaN(opensAt.getTime())) {
@@ -157,10 +163,18 @@ export const assessmentUpdateSchema = z
     opensAt: isoDateTimeSchema.optional(),
     problemIds: z.array(z.string().trim().min(1)).max(32).optional(),
     adjustmentRules: adjustmentRulesSchema.optional(),
+    latePenalty: latePenaltyRuleSchema.nullable().optional(),
     summary: z.string().trim().max(2_000).optional(),
     title: z.string().trim().min(3).max(120).optional(),
   })
   .superRefine((value, ctx) => {
+    if (value.adjustmentRules !== undefined && value.latePenalty !== undefined) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Use either adjustmentRules or latePenalty",
+        path: ["latePenalty"],
+      });
+    }
     if (
       value.opensAt !== undefined &&
       value.closesAt !== undefined &&
@@ -196,17 +210,22 @@ export const assessmentUpdateSchema = z
     }
   });
 
-export const assessmentSettingsFormSchema = z.object({
-  title: z.string().trim().min(3).max(120),
-  summary: z.string().trim().max(2_000).default(""),
-  opensAt: z.string().trim().min(1),
-  dueAt: z.string().trim().default(""),
-  closesAt: z.string().trim().min(1),
-  allowedLanguages: z.array(languageSchema).max(8).default([]),
-  maxAttemptsPerDay: z.coerce.number().int().min(1).max(999).nullish(),
-  attemptResetMinuteOfDay: z.coerce.number().int().min(0).max(1439).nullish(),
-  latePenalty: adjustmentRuleSchema.nullable().default(null),
-});
+export const assessmentSettingsFormSchema = z
+  .object({
+    title: z.string().trim().min(3).max(120),
+    summary: z.string().trim().max(2_000).default(""),
+    opensAt: z.string().trim().min(1),
+    dueAt: z.string().trim().min(1),
+    closesAt: z.string().trim().default(""),
+    allowedLanguages: z.array(languageSchema).max(8).default([]),
+    maxAttemptsPerDay: z.coerce.number().int().min(1).max(999).nullish(),
+    attemptResetMinuteOfDay: z.coerce.number().int().min(0).max(1439).nullish(),
+    allowLateSubmissions: z.boolean().default(false),
+    latePenalty: latePenaltyRuleSchema.nullable().default(null),
+  })
+  .superRefine((value, ctx) =>
+    refineLateSubmissionWindow(value, value.closesAt, ctx, "closesAt"),
+  );
 
 export type AssessmentContext = z.infer<typeof assessmentContextSchema>;
 export type AssessmentSettingsFormData = z.infer<typeof assessmentSettingsFormSchema>;

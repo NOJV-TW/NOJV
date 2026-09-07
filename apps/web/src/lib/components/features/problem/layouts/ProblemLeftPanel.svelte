@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { LatePenaltyRule } from "@nojv/core";
   import { ArrowLeft } from "@lucide/svelte";
   import { untrack } from "svelte";
   import type {
@@ -15,7 +16,20 @@
   type ProblemBackLinkType = "assignment" | "contest" | "exam" | "virtual" | "problems";
 
   export type ProblemWorkspaceTimer =
-    { type: "exam"; examId: string; endsAt: string } | { type: "contest"; endsAt: string };
+    | {
+        type: "exam";
+        examId: string;
+        endsAt: string;
+        dueAt: string | null;
+        latePenalty: LatePenaltyRule | null;
+      }
+    | {
+        type: "assignment";
+        endsAt: string;
+        dueAt: string | null;
+        latePenalty: LatePenaltyRule | null;
+      }
+    | { type: "contest"; endsAt: string };
 
   export interface ProblemLeftPanelProps {
     backLink?: { href: string; type: ProblemBackLinkType } | undefined;
@@ -136,10 +150,16 @@
       </button>
     {/each}
   </div>
-  {#if workspaceTimer}
+  {#if workspaceTimer?.type === "contest"}
     <WorkspaceTimer timer={workspaceTimer} />
   {/if}
 </div>
+
+{#if workspaceTimer && workspaceTimer.type !== "contest"}
+  <div class="border-b border-border-subtle px-3 py-2">
+    <WorkspaceTimer timer={workspaceTimer} />
+  </div>
+{/if}
 
 <div
   id={`${uid}-panel`}

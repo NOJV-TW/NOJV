@@ -11,6 +11,7 @@
   import FormError from "$lib/components/primitives/ui/FormError.svelte";
   import ToggleSwitch from "$lib/components/primitives/ui/ToggleSwitch.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import LateSubmissionFields from "$lib/components/features/course/LateSubmissionFields.svelte";
   import IpWhitelistField from "$lib/components/features/course/exam/IpWhitelistField.svelte";
   import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
   import ProblemPicker from "$lib/components/features/course/exam/ProblemPicker.svelte";
@@ -165,24 +166,19 @@
               </p>
             {/if}
           </div>
-          <div>
-            <label class="text-sm font-medium" for="endsAt">
-              {m.examCreate_endsLabel()}
-              <HelpTooltip text={m.assignmentCreate_finalDayHint()} />
-              <span class="text-destructive">*</span>
-            </label>
-            <input
-              id="endsAt"
-              class={inputClassName}
-              type="datetime-local"
-              bind:value={$form.endsAt}
-              aria-invalid={$errors.endsAt ? "true" : undefined}
+          <div class="md:col-span-2">
+            <LateSubmissionFields
+              bind:dueAt={$form.dueAt}
+              bind:finalAt={$form.endsAt}
+              bind:allowLateSubmissions={$form.allowLateSubmissions}
+              bind:latePenalty={$form.latePenalty}
+              finalName="endsAt"
+              dueErrors={$errors.dueAt}
+              finalErrors={$errors.endsAt}
+              penaltyInvalid={!!$errors.latePenalty}
+              pointsBased={$form.scoringMode === "point_sum"}
+              exam
             />
-            {#if scheduleError($errors.endsAt, "endsAt")}
-              <p class="mt-1 text-xs text-destructive">
-                {scheduleError($errors.endsAt, "endsAt")}
-              </p>
-            {/if}
           </div>
         </div>
       </section>

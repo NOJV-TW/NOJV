@@ -94,6 +94,17 @@ practice-after-close route at `/problems/[id]`.
 - Remote proctoring features (webcam, screen recording, browser
   lockdown) — out of scope by current product decision.
 
+## Late collection and scoring
+
+Exams use the same on-time deadline / allow-late / final collection controls as assignments. `dueAt` is the on-time deadline and `endsAt` remains the hard end for official submissions, sessions, proctoring, grading access and practice-after-close. Without late collection, the form saves equal due/end timestamps; older null due dates also mean no late window.
+
+- Enabled late collection requires `startsAt < dueAt < endsAt`; a late window may have no penalty, a fixed percentage, or a daily percentage. The existing point-sum exam mode uses the shared [adjustment formulas](../architecture/JUDGE_PIPELINE.md#adjustment-rules).
+- Any fraction of a late day counts as a whole day. Exactly due is on time, 1 ms late is day one, exactly 24 hours is day one, and 24 hours plus 1 ms is day two.
+- Submission acceptance and score aggregation stop at `endsAt`. The due date never releases sessions or unlocks the exam. The workspace changes from an on-time countdown to a clearly labelled late/final countdown.
+- The overview shows both deadlines and the penalty before the student starts. Settings round-trip the policy; disabling late collection clears its penalty and makes the hard end equal to due.
+- Once running, deadlines can only be extended, penalties and scoring mode cannot change. Validate effective windows on partial edits and before publishing. Extending the hard end reschedules the existing auto-close workflow.
+- Copying a course preserves exam due/final dates and penalty rules in the new draft.
+
 ## Acceptance Criteria
 
 ### Create / publish

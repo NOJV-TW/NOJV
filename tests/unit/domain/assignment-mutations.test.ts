@@ -202,13 +202,11 @@ describe("updateAssignmentRecord", () => {
     assessmentFindById.mockResolvedValue(draftAssessment());
 
     await updateAssignmentRecord(teacherActor, "asg_1", {
-      adjustmentRules: [{ type: "flat_late_penalty", penaltyPct: 25, startFrom: "due" }],
+      adjustmentRules: [{ type: "flat_late_penalty", penaltyPct: 25 }],
     });
 
     const [, data] = assessmentUpdate.mock.calls[0];
-    expect(data.adjustmentRules).toEqual([
-      { type: "flat_late_penalty", penaltyPct: 25, startFrom: "due" },
-    ]);
+    expect(data.adjustmentRules).toEqual([{ type: "flat_late_penalty", penaltyPct: 25 }]);
   });
 
   it("clears adjustmentRules when an empty array is sent", async () => {

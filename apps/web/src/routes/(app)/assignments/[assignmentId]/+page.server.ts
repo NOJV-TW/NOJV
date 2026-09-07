@@ -106,7 +106,11 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         title: detail.title,
         summary: detail.summary,
         opensAt: toDateTimeLocal(detail.opensAt),
-        dueAt: toDateTimeLocal(detail.dueAt),
+        dueAt: toDateTimeLocal(detail.dueAt ?? detail.closesAt),
+        allowLateSubmissions:
+          !!detail.dueAt &&
+          !!detail.closesAt &&
+          new Date(detail.closesAt) > new Date(detail.dueAt),
         closesAt: toDateTimeLocal(detail.closesAt),
         allowedLanguages: detail.allowedLanguages,
         maxAttemptsPerDay: detail.maxAttemptsPerDay ?? null,
@@ -177,9 +181,11 @@ export const actions = {
       maxAttemptsPerDay: form.data.maxAttemptsPerDay ?? null,
       attemptResetMinuteOfDay: form.data.attemptResetMinuteOfDay ?? null,
       opensAt: localToIso(form.data.opensAt),
-      closesAt: localToIso(form.data.closesAt),
+      closesAt: localToIso(
+        form.data.allowLateSubmissions ? form.data.closesAt : form.data.dueAt,
+      ),
       dueAt: form.data.dueAt ? localToIso(form.data.dueAt) : null,
-      adjustmentRules: form.data.latePenalty ? [form.data.latePenalty] : [],
+      latePenalty: form.data.allowLateSubmissions ? form.data.latePenalty : null,
     };
 
     try {

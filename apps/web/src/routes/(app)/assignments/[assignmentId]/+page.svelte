@@ -18,6 +18,7 @@
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
   import AssessmentHero from "$lib/components/features/coursework/AssessmentHero.svelte";
+  import LateSubmissionSummary from "$lib/components/features/course/LateSubmissionSummary.svelte";
   import HeroSchedule from "$lib/components/features/coursework/HeroSchedule.svelte";
   import StatRail from "$lib/components/primitives/visual/StatRail.svelte";
   import StatTile from "$lib/components/primitives/visual/StatTile.svelte";
@@ -191,7 +192,7 @@
           startIso={detail.opensAt}
           endIso={targetIso}
           startLabel={m.schedule_opens()}
-          endLabel={m.schedule_closes()}
+          endLabel={m.lateSubmission_dueLabel()}
         />
       {/if}
     {/snippet}
@@ -242,6 +243,12 @@
       </StatRail>
     {/snippet}
   </AssessmentHero>
+
+  <LateSubmissionSummary
+    dueAt={detail.dueAt}
+    finalAt={detail.closesAt}
+    latePenalty={detail.latePenalty}
+  />
 
   {#if data.mode === "student"}
     <GlassPanel class="overflow-hidden">

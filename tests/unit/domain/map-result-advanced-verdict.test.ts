@@ -20,9 +20,9 @@ function mkCase(
 
 const NO_ADJUSTMENT = {
   adjustment: {
-    assignmentAdjustmentRules: null,
+    adjustmentRules: null,
     dueAt: null,
-    finalDay: null,
+
     submittedAt: new Date(),
   },
   compareOptions: null,

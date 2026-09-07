@@ -137,6 +137,10 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
             summary: detail.summary,
             startsAt: toDateTimeLocal(detail.startsAt),
             endsAt: toDateTimeLocal(detail.endsAt),
+            dueAt: toDateTimeLocal(detail.dueAt ?? detail.endsAt),
+            allowLateSubmissions:
+              !!detail.dueAt && new Date(detail.endsAt) > new Date(detail.dueAt),
+            latePenalty: detail.latePenalty,
             scoringMode: "point_sum",
             scoreboardMode: detail.scoreboardMode,
             allowedLanguages: detail.manager.allowedLanguages,
@@ -284,7 +288,12 @@ export const actions = {
       title: form.data.title,
       summary: form.data.summary ? form.data.summary : undefined,
       startsAt: toIsoOrUndefined(form.data.startsAt),
-      endsAt: toIsoOrUndefined(form.data.endsAt),
+      endsAt: toIsoOrUndefined(
+        form.data.allowLateSubmissions ? form.data.endsAt : form.data.dueAt,
+      ),
+      dueAt: toIsoOrUndefined(form.data.dueAt),
+      adjustmentRules:
+        form.data.allowLateSubmissions && form.data.latePenalty ? [form.data.latePenalty] : [],
       scoringMode: form.data.scoringMode,
       scoreboardMode: form.data.scoreboardMode,
       allowedLanguages: form.data.allowedLanguages,

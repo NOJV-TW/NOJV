@@ -252,7 +252,10 @@ export const submissionRepo = {
           select: { endsAt: true, startsAt: true },
         },
         assessment: {
-          select: { adjustmentRules: true, closesAt: true, dueAt: true, opensAt: true },
+          select: { adjustmentRules: true, dueAt: true },
+        },
+        exam: {
+          select: { adjustmentRules: true, dueAt: true },
         },
         problem: {
           include: {

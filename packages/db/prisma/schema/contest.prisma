@@ -110,6 +110,8 @@ model Exam {
   summary          String   @db.Text
   startsAt         DateTime
   endsAt           DateTime
+  dueAt            DateTime?
+  adjustmentRules  Json?
   scheduleRevision Int      @default(0)
   timerFingerprint String   @default(dbgenerated())
 

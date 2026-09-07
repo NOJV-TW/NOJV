@@ -1,6 +1,8 @@
 import { examRepo, submissionRepo } from "@nojv/db";
 import {
   problemLetter,
+  extractLatePenalty,
+  type LatePenaltyRule,
   languageSchema,
   submissionOperationStatuses,
   submissionResultVerdictSchema,
@@ -38,6 +40,8 @@ export interface ExamProblemViewExam {
   title: string;
   startsAt: string;
   endsAt: string;
+  dueAt: string | null;
+  latePenalty: LatePenaltyRule | null;
 }
 
 export interface ExamProblemView {
@@ -171,6 +175,8 @@ export async function getExamProblemViewByProblemId(options: {
       title: exam.title,
       startsAt: exam.startsAt.toISOString(),
       endsAt: exam.endsAt.toISOString(),
+      dueAt: exam.dueAt?.toISOString() ?? null,
+      latePenalty: extractLatePenalty(exam.adjustmentRules),
     },
     examTitle: exam.title,
     courseLabel: exam.course.title,

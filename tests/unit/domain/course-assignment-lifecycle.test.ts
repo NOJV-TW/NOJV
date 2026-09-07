@@ -95,6 +95,7 @@ describe("createCourseAssignmentRecord lifecycle", () => {
       status: "published",
       allowedLanguages: [],
       problemIds: [],
+      allowLateSubmissions: true,
       latePenalty: null,
     });
 

@@ -22,7 +22,7 @@ export async function updateExamScores(examId: string, userId: string): Promise<
           examId: p.exam.id,
           userId: p.userId,
           sampleOnly: false,
-          createdAt: { lte: p.exam.endsAt },
+          createdAt: { lt: p.exam.endsAt },
         },
         orderBy: { createdAt: "asc" },
         select: { createdAt: true, problemId: true, score: true, status: true },

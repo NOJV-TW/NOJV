@@ -1,3 +1,4 @@
+import { extractLatePenalty } from "@nojv/core";
 import type { LayoutServerLoad, LayoutServerLoadEvent } from "./$types";
 import {
   assignmentDomain,
@@ -59,6 +60,8 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
       status: assignment.status,
       opensAt: assignment.opensAt.toISOString(),
       closesAt: assignment.closesAt.toISOString(),
+      dueAt: assignment.dueAt?.toISOString() ?? null,
+      latePenalty: extractLatePenalty(assignment.adjustmentRules),
       allowedLanguages: assignment.allowedLanguages,
       maxAttemptsPerDay: assignment.maxAttemptsPerDay,
       attemptResetMinuteOfDay: assignment.attemptResetMinuteOfDay,

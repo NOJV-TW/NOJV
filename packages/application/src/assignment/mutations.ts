@@ -1,3 +1,4 @@
+import { assertLateSubmissionPolicy } from "../shared/late-submission-policy";
 import {
   assessmentAuditLogRepo,
   assessmentProblemRepo,
@@ -7,7 +8,7 @@ import {
   type Prisma,
   type TransactionClient,
 } from "@nojv/db";
-import type { AssessmentUpdate, Language } from "@nojv/core";
+import { adjustmentRulesSchema, type AssessmentUpdate, type Language } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
@@ -167,6 +168,31 @@ export async function updateAssignmentRecord(
       fields: { start: "opensAt", due: "dueAt", end: "closesAt" },
     });
 
+    const currentRules = adjustmentRulesSchema.parse(assignment.adjustmentRules ?? []);
+    let effectiveRules = adjustmentRulesSchema.parse(payload.adjustmentRules ?? currentRules);
+    if (payload.latePenalty !== undefined) {
+      if (payload.adjustmentRules !== undefined)
+        throw new ValidationError("Use either adjustmentRules or latePenalty.");
+      const replacement = payload.latePenalty ? [payload.latePenalty] : [];
+      const index = currentRules.findIndex((rule) => rule.type !== "time_bonus");
+      effectiveRules =
+        index < 0
+          ? [...currentRules, ...replacement]
+          : currentRules.toSpliced(index, 1, ...replacement);
+    }
+    assertLateSubmissionPolicy(effectiveRules, effectiveDueAt, effectiveClosesAt);
+    if (liveStatus === "open") {
+      if (JSON.stringify(effectiveRules) !== JSON.stringify(currentRules)) {
+        throw new ValidationError(
+          "Late penalties cannot be changed once the assignment is open.",
+        );
+      }
+      const currentDue = assignment.dueAt ?? assignment.closesAt;
+      if (effectiveDueAt && effectiveDueAt < currentDue) {
+        throw new ValidationError("dueAt can only be extended, not moved earlier.");
+      }
+    }
+
     const updateData: Prisma.AssessmentUncheckedUpdateInput = stripUndefined({
       title: payload.title,
       summary: payload.summary,
@@ -180,8 +206,8 @@ export async function updateAssignmentRecord(
     if (payload.dueAt !== undefined) {
       updateData.dueAt = payload.dueAt ? new Date(payload.dueAt) : null;
     }
-    if (payload.adjustmentRules !== undefined) {
-      updateData.adjustmentRules = payload.adjustmentRules;
+    if (payload.adjustmentRules !== undefined || payload.latePenalty !== undefined) {
+      updateData.adjustmentRules = effectiveRules;
     }
 
     const persisted =
@@ -248,6 +274,11 @@ export async function publishAssignment(
       fields: { start: "opensAt", due: "dueAt", end: "closesAt" },
     });
 
+    assertLateSubmissionPolicy(
+      assignment.adjustmentRules,
+      assignment.dueAt,
+      assignment.closesAt,
+    );
     const persisted = await assessmentRepo.withTx(tx).update(assignment.id, {
       status: "published",
     });

@@ -622,13 +622,12 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
 
   const assignment = submission.assessment;
 
-  const contestEnd = submission.contest?.endsAt ?? null;
+  const context = assignment ?? submission.exam;
   const adjustment: AdjustmentContext = {
-    assignmentAdjustmentRules: assignment
-      ? parseAdjustmentRules(assignment.adjustmentRules, submissionId)
+    adjustmentRules: context
+      ? parseAdjustmentRules(context.adjustmentRules, submissionId)
       : null,
-    dueAt: assignment?.dueAt ?? contestEnd,
-    finalDay: assignment?.closesAt ?? contestEnd,
+    dueAt: context?.dueAt ?? null,
     submittedAt: submission.createdAt,
   };
 
