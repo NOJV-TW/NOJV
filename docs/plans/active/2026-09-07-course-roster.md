@@ -30,7 +30,8 @@ Replace placeholder Users with durable CourseMembership rows. Teachers can enrol
 - [x] Course grading/feedback APIs, scoring, query/DTO updates, and tests.
 - [x] Members/gradebook/matrix UI, translations, CSV, and browser tests.
 - [x] Atomic production migration, guarded cleanup, schema rollback fence, seed/docs cleanup, and migration rehearsal.
-- [ ] Full local checks, independent review, CI, and authorized admin PR merge.
+- [x] Full local checks and independent review.
+- [ ] Exact-head remote CI and authorized admin PR merge.
 - [ ] Production release, data, and workload verification (on hold for a later user instruction).
 
 ## Migration and deployment
@@ -65,15 +66,11 @@ Implementation worktree starts from origin/main `0c18c9cb`; the user's main chec
 - Unchanged `prisma migrate deploy` passed against an empty local database and the restored pre-contract backup, with schema diff=0 and a no-change second deploy. The original snapshot retained all 65 memberships, all 89 real Users, and every unaffected table row, while detaching exactly eight pending Users. A second restored variant also preserved three manual scores, two feedback records, five score audits, and four feedback audits.
 - Live restore exposed an existing storage-map validator lookup bug under pg_restore's empty search_path. The new forward migration qualifies its helper reference; historical archives use the documented staged restore without disabling CHECKs. A new dump of the upgraded database then passed ordinary pg_dump/pg_restore with no workaround and exact preservation of all table rows. The 18 roster/storage migration regressions passed after this fix.
 - All 38 relevant Playwright cases passed in one run without retries: member table/filter management, all three school formats and general names, pending assignment/exam scores and feedback, CSV, first username activation retaining User/membership identity and grades, authentication, account editing, exam access, and rejudge/override APIs. New tests wait for the existing hydrated account-menu control before client-only actions. The final restore-fix increment received independent review with no P1/P2 findings.
+- Integrated subsequent origin/main `743aab92` role-dropdown, avatar, and exam-tab updates. Final local ci:verify passed: 341 unit files / 2,933 tests and 25 component files / 49 tests, with build/typecheck/lint clean. The 39 affected DB cases passed again; all 25 affected browser cases passed without retries, including pending-role menus, avatar-compatible DTOs, exam tab refresh, and cancelled/failed menu actions.
 - Refreshed production read-only counts remain 89 real accounts and eight pending accounts / eight memberships (seven students and one TA), with zero manual grades, feedback, or grading audit rows. All 44 User foreign keys were rechecked; the only nonzero placeholder references are eight CourseMembership.userId rows. Primary `nojv-pg-1`, database `nojv`, 17 MB. No CNPG Backup or namespace CronJob resources were found; a restricted custom-format dump was captured off-host and fully decoded successfully. The subsequent live local restore and upgraded archive round trip passed, as recorded above. Backup SHA-256: `0863d7adda90445f4ffa7c3dce85a6c99118876945c339589d7c20a007233937`.
 - Remote CI and the authorized admin merge are the next delivery step. No release, production schema conversion, or placeholder deletions have occurred. Leave this plan active until all deployment acceptance checks pass.
 
-### Next required validation steps
+### Remaining delivery steps
 
-With explicit consent for the two local destructive test databases:
-
-1. Run roster binding/merge/removal/deletion regressions, grading/feedback API and domain tests, security-generation tests, and full historical migration rehearsal in `nojv_test`; then the complete relevant integration suite.
-2. Exercise unchanged `prisma migrate deploy` transaction/index behavior and schema drift against an empty test database and a restored pre-contract snapshot. The existing isolated-schema rehearsal deliberately strips `CONCURRENTLY` and controls transaction boundaries; it does not replace this check. Verify the off-host dump by a live local restore before relying on it for production.
-3. Run Playwright course-roster, course-roster-activation, course-members-settings, grading/feedback, and account onboarding/verification flows in `nojv_e2e_test`; inspect rendered pending rows and linked-student views.
-4. Finish fresh local `ci:verify`, independent review, and exact-head remote CI; perform the explicitly authorized admin merge. Verify the merge commit on main. Stop before version tagging, image publication, deploy-branch updates, or production writes.
-5. Only after a later production instruction, refresh production primary, backup, candidate IDs and all FK references immediately before maintenance; preserve memberships, apply the atomic conversion, verify counts/roles and real-user integrity, then validate workload images and public release/readiness. No standalone live `DELETE` shortcut.
+1. Require all remote CI jobs for the final PR head, then perform the explicitly authorized admin merge and verify its commit on main. Stop before version tagging, image publication, deploy-branch updates, or production writes.
+2. Only after a later production instruction, refresh production primary, backup, candidate IDs and all FK references immediately before maintenance; preserve memberships, apply the atomic conversion, verify counts/roles and real-user integrity, then validate workload images and public release/readiness. No standalone live `DELETE` shortcut.
