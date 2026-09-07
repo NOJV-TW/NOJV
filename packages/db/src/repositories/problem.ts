@@ -142,6 +142,10 @@ export const problemRepo = {
     });
   },
 
+  listPickerByIds(ids: string[]) {
+    return prisma.problem.findMany({ where: { id: { in: ids } }, select: problemPickerSelect });
+  },
+
   findByIds(ids: string[]) {
     return prisma.problem.findMany({
       where: { id: { in: ids } },

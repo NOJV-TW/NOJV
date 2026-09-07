@@ -1,3 +1,4 @@
+import { activityGradingUpdateSchema } from "@nojv/core";
 import { error, fail, redirect } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
@@ -93,7 +94,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       ? Promise.resolve(null)
       : examDomain.session.getSessionState(actor.userId, examId),
     isManager
-      ? problemDomain.listProblemPickerGroups(actor.userId)
+      ? problemDomain.listActivityProblemPickerGroups(actor, { type: "exam", examId })
       : Promise.resolve({ personalProblems: [], publicProblems: [] }),
     isManager
       ? submissionDomain.listRecentContextSubmissions({
@@ -114,6 +115,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       ? await buildExamSubmissionsMatrix({
           examId,
           courseId: detail.courseId,
+          totalPoints: detail.totalPoints,
+          endsAt: new Date(detail.endsAt),
           problems: detail.problems.map((p) => ({
             problemId: p.id,
             ordinal: p.ordinal,
@@ -372,15 +375,16 @@ export const actions = {
   updateProblems: withAction(async (event) => {
     const actor = requireAuth(event);
     const formData = await event.request.formData();
-    const seen = new Set<string>();
-    const problemIds: string[] = [];
-    for (const raw of formData.getAll("problemIds")) {
-      const id = typeof raw === "string" ? raw.trim() : "";
-      if (!id || seen.has(id)) continue;
-      seen.add(id);
-      problemIds.push(id);
+    const raw = formData.get("payload");
+    let payload: unknown;
+    try {
+      payload = JSON.parse(typeof raw === "string" ? raw : "");
+    } catch {
+      return fail(400, { error: "Invalid grading payload" });
     }
-    await updateExamRecord(actor, event.params.examId, { problemIds });
+    const parsed = activityGradingUpdateSchema.safeParse(payload);
+    if (!parsed.success) return fail(400, { error: parsed.error.issues[0]?.message });
+    await updateExamRecord(actor, event.params.examId, parsed.data);
 
     return { success: true };
   }),

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { mount, unmount } from "svelte";
+import Footer from "$lib/components/primitives/layout/Footer.svelte";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@lucide/svelte/icons/mail", async () => ({
@@ -9,7 +10,6 @@ vi.mock("@lucide/svelte/icons/mail", async () => ({
 
 describe("Footer", () => {
   it("places the verdict explanation next to the environment link", async () => {
-    const { default: Footer } = await import("$lib/components/primitives/layout/Footer.svelte");
     const target = document.createElement("div");
     document.body.append(target);
     const component = mount(Footer, { target });

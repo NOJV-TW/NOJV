@@ -101,7 +101,7 @@ On K8s, `checker` runs as a **two-Job pipeline**: the run Job's ConfigMap omits 
 
 Subtask scoring is **all-or-nothing**: a `TestcaseSet` (subtask) earns its full `weight` only if **every** case in it is AC, otherwise 0. There is no per-subtask strategy column and no per-case partial credit — checkers/interactors render AC/WA only. This is uniform across practice, assignment, contest, and exam; contests adjust whole-**problem** aggregation (see [Architecture](./ARCHITECTURE.md)), not the subtask AC-all decision.
 
-The final 0–100 score is `round((Σ rawScore / Σ weight) * 100)`, where each subtask's `rawScore` is `weight` (all cases AC) or `0`. This happens in `buildSubtaskResults()` and `mapResult()` inside `packages/application/src/submission/scoring.ts`. The raw score then goes through the post-judge adjustment step (see [Adjustment rules](#adjustment-rules)).
+The raw score is `Σ rawScore`, where each subtask's `rawScore` is `weight` (all cases AC) or `0`. This happens in `buildSubtaskResults()` and `mapResult()` inside `packages/application/src/submission/scoring.ts`. The raw score then goes through the post-judge adjustment step (see [Adjustment rules](#adjustment-rules)).
 
 ### Judge-type parity note
 
@@ -165,7 +165,7 @@ Unchanged — validated against `advancedResultSchema` in `packages/core/src/sch
 }
 ```
 
-The grade harness owns grading: `score` (0–100) is authoritative; per-case detail flows through `testcases[]` (advanced problems have no platform testcase sets). A `compile_error` verdict is surfaced as a compile failure (score 0), matching standard mode.
+The grade harness owns grading: `score` (0 to the configured `maxScore`, default 100) is authoritative; per-case detail flows through `testcases[]` (advanced problems have no platform testcase sets). A `compile_error` verdict is surfaced as a compile failure (score 0), matching standard mode.
 
 ### Verdict ownership and System Errors
 
@@ -421,3 +421,5 @@ overwrite an earlier failure.
 
 - [Architecture Overview](./ARCHITECTURE.md)
 - [Database Schema](./DATABASE.md)
+
+Assignment and exam allocations are applied after effective raw scoring, outside judging. Changing allocations does not rejudge submissions; see [activity grading](../specs/assignments.md#activity-allocation-and-official-scores).

@@ -17,7 +17,8 @@ const { findStudents, groupByUserAndProblem, findAllOverrides, findScoringInputs
     ),
   }));
 
-vi.mock("@nojv/db", () => ({
+vi.mock("@nojv/db", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@nojv/db")>()),
   courseMembershipRepo: { findStudents },
   submissionRepo: { groupByUserAndProblem },
   scoreOverrideRepo: { findAllByContext: findAllOverrides },
@@ -32,6 +33,8 @@ function buildInput(
   problems: { id: string; ordinal: number; points: number; title: string }[] = [],
 ) {
   return {
+    endsAt: new Date("2030-01-01"),
+    totalPoints: problems.reduce((sum, p) => sum + p.points, 0),
     examId: "exam_1",
     courseId: "course_1",
     problems: problems.map((p) => ({

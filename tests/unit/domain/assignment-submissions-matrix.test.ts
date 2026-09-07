@@ -23,7 +23,8 @@ const {
   ),
 }));
 
-vi.mock("@nojv/db", () => ({
+vi.mock("@nojv/db", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@nojv/db")>()),
   assessmentRepo: { findDetailById },
   courseMembershipRepo: { findStudents },
   submissionRepo: { groupByUserAndProblem },
@@ -39,6 +40,7 @@ function fakeAssignment(closesAt: Date) {
   return {
     id: "asg_1",
     closesAt,
+    totalPoints: 100,
     problems: [
       {
         ordinal: 1,

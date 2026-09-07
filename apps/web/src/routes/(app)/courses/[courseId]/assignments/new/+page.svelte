@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ActivityWeights from "$lib/components/features/course/ActivityWeights.svelte";
   import { untrack } from "svelte";
   import { ChevronRight } from "@lucide/svelte";
   import { superForm } from "sveltekit-superforms/client";
@@ -121,8 +122,27 @@
         <div data-tour="assignment-picker">
           <ProblemPicker
             candidateProblems={data.candidateProblems}
-            bind:problemIds={$form.problemIds}
-            error={$errors.problemIds}
+            problemIds={$form.problems.map((p) => p.problemId)}
+            onProblemIdsChange={(ids) =>
+              ($form.problems = ids.map(
+                (id) =>
+                  $form.problems.find((p) => p.problemId === id) ?? {
+                    problemId: id,
+                    points: 0,
+                  },
+              ))}
+            error={$errors.problems}
+          />
+          <ActivityWeights
+            bind:totalPoints={$form.totalPoints}
+            problems={$form.problems}
+            titles={Object.fromEntries(
+              [
+                ...data.candidateProblems.personalProblems,
+                ...data.candidateProblems.publicProblems,
+              ].map((p) => [p.id, p.title]),
+            )}
+            onchange={(rows) => ($form.problems = rows)}
           />
         </div>
       </section>

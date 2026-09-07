@@ -1,5 +1,8 @@
+import { assertCanViewScoreOverrides } from "../score-override/permissions";
+import type { ActorContext } from "../shared/actor-context";
 import {
   Prisma,
+  gradingRepo,
   problemBookmarkRepo,
   problemRepo,
   problemStatementRepo,
@@ -522,4 +525,20 @@ export async function getProblemRowById(id: string) {
 
 export async function listProblemWorkspaceFiles(problemId: string) {
   return problemWorkspaceFileRepo.findByProblemId(problemId);
+}
+
+export async function listActivityProblemPickerGroups(
+  actor: ActorContext,
+  context: { type: "assignment"; assignmentId: string } | { type: "exam"; examId: string },
+): Promise<ProblemPickerGroups> {
+  await assertCanViewScoreOverrides(actor, context);
+  const id = context.type === "exam" ? context.examId : context.assignmentId;
+  const [groups, ids] = await Promise.all([
+    listProblemPickerGroups(actor.userId),
+    gradingRepo.listDetachedProblemIds(context.type, id),
+  ]);
+  const detached = await problemRepo.listPickerByIds(ids);
+  const personal = new Map(groups.personalProblems.map((p) => [p.id, p]));
+  for (const problem of detached) personal.set(problem.id, mapProblemPickerCandidate(problem));
+  return { ...groups, personalProblems: [...personal.values()] };
 }

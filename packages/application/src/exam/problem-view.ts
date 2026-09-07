@@ -1,3 +1,5 @@
+import { activityScore } from "../scoring/activity-points";
+import { scoreOverrideRepo } from "@nojv/db";
 import { examRepo, submissionRepo } from "@nojv/db";
 import {
   problemLetter,
@@ -14,7 +16,7 @@ import {
 import { NotFoundError } from "../shared/errors";
 import { getProblemPageData } from "../problem/queries";
 import type { ProblemDetail } from "../problem/queries";
-import { getProblemTotalScores } from "../problem/total-score";
+import { getProblemTotalScores, requireProblemTotalScore } from "../problem/total-score";
 
 export interface ExamProblemViewSibling {
   id: string;
@@ -22,6 +24,8 @@ export interface ExamProblemViewSibling {
   title: string;
   bestScore?: number | undefined;
   maxScore: number;
+  rawBestScore?: number | undefined;
+  rawMaxScore: number;
   isActive: boolean;
   href: string;
 }
@@ -117,6 +121,7 @@ export async function getExamProblemViewByProblemId(options: {
       userId: options.actorUserId,
       problemId: { in: problemIds },
       sampleOnly: false,
+      createdAt: { lt: exam.endsAt },
     }),
   ]);
 
@@ -154,13 +159,27 @@ export async function getExamProblemViewByProblemId(options: {
   }
 
   const maxByProblem = await getProblemTotalScores(problemIds);
+  const overrides = await scoreOverrideRepo.findForExamUser(
+    options.examId,
+    options.actorUserId,
+  );
+  for (const override of overrides)
+    bestByProblemId.set(override.problemId, override.overrideScore);
 
   const siblingProblems: ExamProblemViewSibling[] = problems.map((ep, index) => ({
     id: ep.problem.id,
     letter: problemLetter(index + 1),
     title: ep.problem.title,
-    bestScore: bestByProblemId.get(ep.problem.id),
-    maxScore: maxByProblem.get(ep.problem.id) ?? ep.points,
+    bestScore: bestByProblemId.has(ep.problem.id)
+      ? activityScore(
+          bestByProblemId.get(ep.problem.id) ?? 0,
+          requireProblemTotalScore(maxByProblem, ep.problem.id),
+          ep.points,
+        ).toNumber()
+      : undefined,
+    rawBestScore: bestByProblemId.get(ep.problem.id),
+    rawMaxScore: requireProblemTotalScore(maxByProblem, ep.problem.id),
+    maxScore: Number(ep.points),
     isActive: index === activeIdx,
     href: `/exams/${exam.id}/problems/${ep.problem.id}`,
   }));

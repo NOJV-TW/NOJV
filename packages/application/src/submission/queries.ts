@@ -1,3 +1,5 @@
+import { gradingRepo } from "@nojv/db";
+import { activityScore, sumActivityScores } from "../scoring/activity-points";
 import {
   assessmentRepo,
   courseRepo,
@@ -215,7 +217,27 @@ export async function getSubmissionDetail(actor: ActorContext, submissionId: str
       ? rawResult
       : sanitizeStudentResult(rawResult, { sampleOnly: submission.sampleOnly });
 
+  const allocation = submission.sampleOnly
+    ? null
+    : await gradingRepo.findAllocation(
+        { assessmentId: submission.assessmentId, examId: submission.examId },
+        submission.problemId,
+      );
+  const rawMax = computeProblemTotalScore({
+    id: submission.problem.id,
+    type: submission.problem.type,
+    testcaseSets: submission.problem.testcaseSets,
+    advancedConfig: submission.problem.advancedConfig,
+  });
   return {
+    activityContribution: allocation
+      ? {
+          score: sumActivityScores([
+            activityScore(submission.score, rawMax, allocation.points),
+          ]),
+          points: Number(allocation.points),
+        }
+      : null,
     id: submission.id,
     createdAt: submission.createdAt.toISOString(),
     language,

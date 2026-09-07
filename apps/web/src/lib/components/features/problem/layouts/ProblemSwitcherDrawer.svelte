@@ -32,10 +32,13 @@
 
   function rowClass(s: ProblemSolveSibling): string {
     if (s.isActive) return "border-primary bg-card shadow-rest";
-    if (s.bestScore !== undefined && s.bestScore >= s.maxScore) {
+    if (
+      s.bestScore !== undefined &&
+      (s.rawBestScore ?? s.bestScore) >= (s.rawMaxScore ?? s.maxScore)
+    ) {
       return "border-transparent hover:border-success/30 hover:bg-success/5";
     }
-    if (s.bestScore !== undefined && s.bestScore > 0) {
+    if (s.bestScore !== undefined && (s.rawBestScore ?? s.bestScore) > 0) {
       return "border-transparent hover:border-destructive/30 hover:bg-destructive/5";
     }
     return "border-transparent hover:bg-muted";
@@ -43,10 +46,13 @@
 
   function miniChipClass(s: ProblemSolveSibling): string {
     if (s.isActive) return "bg-primary text-primary-foreground ring-1 ring-primary";
-    if (s.bestScore !== undefined && s.bestScore >= s.maxScore) {
+    if (
+      s.bestScore !== undefined &&
+      (s.rawBestScore ?? s.bestScore) >= (s.rawMaxScore ?? s.maxScore)
+    ) {
       return "bg-success/20 text-success hover:bg-success/30";
     }
-    if (s.bestScore !== undefined && s.bestScore > 0) {
+    if (s.bestScore !== undefined && (s.rawBestScore ?? s.bestScore) > 0) {
       return "bg-destructive/20 text-destructive hover:bg-destructive/30";
     }
     return "bg-muted text-muted-foreground hover:bg-accent";
@@ -54,10 +60,13 @@
 
   function chipClass(s: ProblemSolveSibling): string {
     if (s.isActive) return "bg-primary text-primary-foreground";
-    if (s.bestScore !== undefined && s.bestScore >= s.maxScore) {
+    if (
+      s.bestScore !== undefined &&
+      (s.rawBestScore ?? s.bestScore) >= (s.rawMaxScore ?? s.maxScore)
+    ) {
       return "bg-success/15 text-success";
     }
-    if (s.bestScore !== undefined && s.bestScore > 0) {
+    if (s.bestScore !== undefined && (s.rawBestScore ?? s.bestScore) > 0) {
       return "bg-destructive/15 text-destructive";
     }
     return "bg-muted text-muted-foreground";
@@ -65,14 +74,15 @@
 
   function scoreClass(s: ProblemSolveSibling): string {
     if (s.bestScore === undefined) return "text-muted-foreground";
-    if (s.bestScore >= s.maxScore) return "text-success";
-    if (s.bestScore > 0) return "text-destructive";
+    if ((s.rawBestScore ?? s.bestScore) >= (s.rawMaxScore ?? s.maxScore)) return "text-success";
+    if ((s.rawBestScore ?? s.bestScore) > 0) return "text-destructive";
     return "text-muted-foreground";
   }
 
   function formatScore(s: ProblemSolveSibling): string {
     if (s.bestScore === undefined) return "—";
-    if (s.bestScore >= s.maxScore) return String(s.maxScore);
+    if ((s.rawBestScore ?? s.bestScore) >= (s.rawMaxScore ?? s.maxScore))
+      return String(s.maxScore);
     return `${String(s.bestScore)}/${String(s.maxScore)}`;
   }
 </script>

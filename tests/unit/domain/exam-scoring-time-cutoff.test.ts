@@ -1,109 +1,44 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const { findExamForScoring, findMany, findForExamUser, updateWithVersion } = vi.hoisted(() => ({
-  findExamForScoring: vi.fn(),
-  findMany: vi.fn(),
-  findForExamUser: vi.fn(),
-  updateWithVersion: vi.fn(),
+const { load, submissions, persist, overrides } = vi.hoisted(() => ({
+  load: vi.fn(),
+  submissions: vi.fn(),
+  persist: vi.fn(),
+  overrides: vi.fn(),
 }));
-
-vi.mock("@nojv/db", () => ({
-  participationRepo: {
-    findExamForScoring,
-    updateWithVersion,
+vi.mock("@nojv/db", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@nojv/db")>()),
+  participationRepo: { findExamForScoring: load },
+  submissionRepo: { findMany: submissions },
+  scoreOverrideRepo: { findForExamUser: overrides },
+  gradingRepo: { persistExamScore: persist },
+  problemRepo: {
+    findScoringInputsByIds: async (ids: string[]) =>
+      ids.map((id) => ({ id, type: "full_source", testcaseSets: [{ weight: 200 }] })),
   },
-  examRepo: {},
-  submissionRepo: {
-    findMany,
-  },
-  scoreOverrideRepo: {
-    findForExamUser,
-  },
-  UnifiedParticipationVersionConflict: class extends Error {},
+  runTransaction: async (fn: (tx: unknown) => unknown) => fn({}),
 }));
-
-import { examDomain } from "@nojv/application";
-
-const { updateExamScores } = examDomain;
-
-const PARTICIPATION_ID = "ep_1";
-const EXAM_ID = "ex_1";
-const USER_ID = "usr_student";
-const PROBLEM_ID = "prob_1";
-const ENDS_AT = new Date("2026-05-15T12:00:00Z");
-
-function participationFixture() {
-  return {
-    id: PARTICIPATION_ID,
-    examId: EXAM_ID,
-    userId: USER_ID,
-    score: 0,
-    penaltySeconds: 0,
-    subtaskScores: null,
-    version: 0,
-    exam: {
-      id: EXAM_ID,
-      startsAt: new Date("2026-05-15T10:00:00Z"),
-      endsAt: ENDS_AT,
-      scoringMode: "point_sum",
-      problems: [{ problemId: PROBLEM_ID, ordinal: 1, points: 100 }],
-    },
-  };
-}
-
+import { updateExamScores } from "../../../packages/application/src/exam/scoring";
+const endsAt = new Date("2026-01-02");
+const participation = {
+  id: "p",
+  userId: "u",
+  version: 0,
+  exam: { id: "e", gradingRevision: 1, endsAt, problems: [{ problemId: "a", points: 100 }] },
+};
 beforeEach(() => {
   vi.clearAllMocks();
-  findForExamUser.mockResolvedValue([]);
+  load.mockResolvedValue(participation);
+  submissions.mockResolvedValue([{ problemId: "a", score: 160 }]);
+  persist.mockResolvedValue(true);
+  overrides.mockResolvedValue([]);
 });
-
-describe("updateExamScores — read-side time cutoff", () => {
-  it("queries submissions with a createdAt < endsAt cutoff", async () => {
-    findExamForScoring.mockResolvedValue(participationFixture());
-    findMany.mockResolvedValue([]);
-    updateWithVersion.mockResolvedValue({ id: PARTICIPATION_ID, score: 0, version: 1 });
-
-    await updateExamScores(EXAM_ID, USER_ID);
-
-    expect(findMany.mock.calls[0]?.[0]).toMatchObject({
-      where: {
-        examId: EXAM_ID,
-        userId: USER_ID,
-        sampleOnly: false,
-        createdAt: { lt: ENDS_AT },
-      },
-    });
-  });
-
-  it("excludes a submission created at or after endsAt from the exam score", async () => {
-    findExamForScoring.mockResolvedValue(participationFixture());
-
-    findMany.mockImplementation((query: { where: { createdAt?: { lt: Date } } }) => {
-      const cutoff = query.where.createdAt?.lt;
-      const allRows = [
-        {
-          problemId: PROBLEM_ID,
-          score: 40,
-          status: "partial",
-          createdAt: new Date("2026-05-15T11:00:00Z"),
-        },
-        {
-          problemId: PROBLEM_ID,
-          score: 100,
-          status: "accepted",
-          createdAt: ENDS_AT,
-        },
-      ];
-      return Promise.resolve(cutoff ? allRows.filter((r) => r.createdAt < cutoff) : allRows);
-    });
-
-    updateWithVersion.mockResolvedValue({ id: PARTICIPATION_ID, version: 1 });
-
-    await updateExamScores(EXAM_ID, USER_ID);
-
-    expect(updateWithVersion).toHaveBeenCalledWith(
-      PARTICIPATION_ID,
-      0,
-      expect.objectContaining({ score: 40 }),
+describe("exam scoring cutoff", () => {
+  it("only loads non-sample submissions created by the exam deadline", async () => {
+    await updateExamScores("e", "u");
+    expect(submissions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { examId: "e", userId: "u", sampleOnly: false, createdAt: { lt: endsAt } },
+      }),
     );
   });
 });

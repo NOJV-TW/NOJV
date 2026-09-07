@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { mount, unmount } from "svelte";
+import HomePage from "../../../apps/web/src/routes/(public)/+page.svelte";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@lucide/svelte", async () => {
@@ -18,8 +19,6 @@ vi.mock("$lib/components/features/announcement/AnnouncementViewDialog.svelte", a
 
 describe("home page layout", () => {
   it("keeps desktop panels equal-height with independently scrollable lists", async () => {
-    const { default: HomePage } =
-      await import("../../../apps/web/src/routes/(public)/+page.svelte");
     const target = document.createElement("div");
     document.body.append(target);
     const component = mount(HomePage, {

@@ -182,11 +182,13 @@ describe("shared late submission policy", () => {
         ).toBe(1);
         await examDomain.updateExamScores(f.exam.id, f.student.id);
         expect(
-          (
-            await testPrisma.participation.findFirstOrThrow({
-              where: { examId: f.exam.id, userId: f.student.id },
-            })
-          ).score,
+          Number(
+            (
+              await testPrisma.participation.findFirstOrThrow({
+                where: { examId: f.exam.id, userId: f.student.id },
+              })
+            ).score,
+          ),
         ).toBe(100);
       }
       vi.setSystemTime(end);

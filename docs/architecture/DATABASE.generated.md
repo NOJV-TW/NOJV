@@ -384,6 +384,9 @@ Indexes & constraints: `@@unique([contestId, problemId])`, `@@unique([contestId,
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
+| `detachedProblemIds` | `String[]` | `@default([])` |
+| `totalPoints` | `Decimal` | `@default(100) @db.Decimal(18, 4)` |
+| `gradingRevision` | `Int` | `@default(0)` |
 | `id` | `String` | `@id @default(cuid())` |
 | `courseId` | `String` | — |
 | `title` | `String` | — |
@@ -433,7 +436,7 @@ Indexes & constraints: `@@index([courseId, status])`
 | `examId` | `String` | — |
 | `problemId` | `String` | — |
 | `ordinal` | `Int` | — |
-| `points` | `Int` | `@default(100)` |
+| `points` | `Decimal` | `@default(0) @db.Decimal(18, 8)` |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `exam` | `Exam` | `@relation(fields: [examId], references: [id], onDelete: Cascade)` |
 | `problem` | `Problem` | `@relation(fields: [problemId], references: [id], onDelete: Restrict)` |
@@ -478,7 +481,8 @@ Indexes & constraints: `@@index([examId, createdAt])`, `@@index([userId, created
 | `userId` | `String` | — |
 | `contestId` | `String?` | — |
 | `examId` | `String?` | — |
-| `score` | `Int` | `@default(0)` |
+| `score` | `Decimal` | `@default(0) @db.Decimal(18, 2)` |
+| `gradingRevision` | `Int` | `@default(0)` |
 | `penaltySeconds` | `Int` | `@default(0)` |
 | `subtaskScores` | `Json?` | — |
 | `status` | `ParticipationStatus` | — |
@@ -523,6 +527,9 @@ Indexes & constraints: `@@unique([id, userId])`, `@@unique([type, contestId, use
 
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
+| `detachedProblemIds` | `String[]` | `@default([])` |
+| `totalPoints` | `Decimal` | `@default(100) @db.Decimal(18, 4)` |
+| `gradingRevision` | `Int` | `@default(0)` |
 | `id` | `String` | `@id @default(cuid())` |
 | `courseId` | `String` | — |
 | `title` | `String` | — |
@@ -578,7 +585,7 @@ Indexes & constraints: `@@index([assessmentId, createdAt])`, `@@index([courseId,
 | `assessmentId` | `String` | — |
 | `problemId` | `String` | — |
 | `ordinal` | `Int` | — |
-| `points` | `Int` | `@default(100)` |
+| `points` | `Decimal` | `@default(0) @db.Decimal(18, 8)` |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `assessment` | `Assessment` | `@relation(fields: [assessmentId], references: [id], onDelete: Cascade)` |
 | `problem` | `Problem` | `@relation(fields: [problemId], references: [id], onDelete: Restrict)` |

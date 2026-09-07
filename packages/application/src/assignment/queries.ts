@@ -1,7 +1,13 @@
-import { assessmentProblemRepo, assessmentRepo, submissionRepo } from "@nojv/db";
+import { activityScore, sumActivityScores } from "../scoring/activity-points";
+import {
+  assessmentProblemRepo,
+  assessmentRepo,
+  scoreOverrideRepo,
+  submissionRepo,
+} from "@nojv/db";
 import { problemLetter, submissionVerdicts } from "@nojv/core";
 
-import { getProblemTotalScores } from "../problem/total-score";
+import { getProblemTotalScores, requireProblemTotalScore } from "../problem/total-score";
 
 export async function getAssignmentWithCourseId(assignmentId: string) {
   return assessmentRepo.findByIdWithCourseId(assignmentId);
@@ -20,6 +26,8 @@ export interface AssignmentProblemSibling {
   title: string;
   bestScore?: number | undefined;
   maxScore: number;
+  rawBestScore?: number | undefined;
+  rawMaxScore: number;
   isActive: boolean;
   href: string;
 }
@@ -51,13 +59,28 @@ export async function listAssignmentProblemSiblings(options: {
   }
 
   const maxByProblem = await getProblemTotalScores(problemIds);
+  const overrides = await scoreOverrideRepo.findCourseOverrides(
+    "assignment",
+    [options.assignmentId],
+    options.actorUserId,
+  );
+  for (const override of overrides)
+    bestByProblemId.set(override.problemId, override.overrideScore);
 
   return ordered.map((r, index) => ({
     id: r.problemId,
     letter: problemLetter(index + 1),
     title: r.problem.title,
-    bestScore: bestByProblemId.get(r.problemId),
-    maxScore: maxByProblem.get(r.problemId) ?? r.points,
+    bestScore: bestByProblemId.has(r.problemId)
+      ? activityScore(
+          bestByProblemId.get(r.problemId) ?? 0,
+          requireProblemTotalScore(maxByProblem, r.problemId),
+          r.points,
+        ).toNumber()
+      : undefined,
+    rawBestScore: bestByProblemId.get(r.problemId),
+    rawMaxScore: requireProblemTotalScore(maxByProblem, r.problemId),
+    maxScore: Number(r.points),
     isActive: r.problemId === options.activeProblemId,
     href: `/assignments/${options.assignmentId}/problems/${r.problemId}`,
   }));
@@ -72,27 +95,35 @@ export async function listStudentsBelowMaxScore(
   const problems = await assessmentProblemRepo.findByAssessmentId(assignmentId);
   if (problems.length === 0) return userIds;
 
+  const assignment = await assessmentRepo.findByIdWithCourseId(assignmentId);
+  if (!assignment) return userIds;
   const maxByProblem = await getProblemTotalScores(problems.map((p) => p.problemId));
-  const pointsByProblem = new Map(
-    problems.map((p) => [p.problemId, maxByProblem.get(p.problemId) ?? p.points]),
-  );
-  let totalMax = 0;
-  for (const v of pointsByProblem.values()) totalMax += v;
-  if (totalMax === 0) return userIds;
-
-  const grouped = await submissionRepo.groupBestScores({
+  const grouped = await submissionRepo.groupByUserAndProblem({
     assessmentId: assignmentId,
-    studentIds: userIds,
-    problemIds: problems.map((p) => p.problemId),
+    userId: { in: userIds },
+    problemId: { in: problems.map((p) => p.problemId) },
+    sampleOnly: false,
+
+    status: { in: [...submissionVerdicts] },
   });
-
-  const sumByUser = new Map<string, number>();
-  for (const row of grouped) {
-    const maxPts = pointsByProblem.get(row.problemId);
-    if (maxPts == null) continue;
-    const best = Math.min(row._max.score ?? 0, maxPts);
-    sumByUser.set(row.userId, (sumByUser.get(row.userId) ?? 0) + best);
+  const scores = new Map(
+    grouped.map((row) => [`${row.userId}::${row.problemId}`, row._max.score ?? 0]),
+  );
+  const overrides = await scoreOverrideRepo.findCourseOverrides("assignment", [assignmentId]);
+  for (const override of overrides) {
+    const userId = override.membership?.userId;
+    if (userId) scores.set(`${userId}::${override.problemId}`, override.overrideScore);
   }
-
-  return userIds.filter((id) => (sumByUser.get(id) ?? 0) < totalMax);
+  return userIds.filter(
+    (userId) =>
+      sumActivityScores(
+        problems.map((problem) =>
+          activityScore(
+            scores.get(`${userId}::${problem.problemId}`) ?? 0,
+            requireProblemTotalScore(maxByProblem, problem.problemId),
+            problem.points,
+          ),
+        ),
+      ) < Number(assignment.totalPoints),
+  );
 }

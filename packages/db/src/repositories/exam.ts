@@ -88,6 +88,8 @@ export const examRepo = {
       orderBy: { startsAt: "asc" },
       select: {
         id: true,
+        totalPoints: true,
+        endsAt: true,
         title: true,
         startsAt: true,
         problems: {

@@ -1,3 +1,4 @@
+import { activityScore, sumActivityScores } from "../scoring/activity-points";
 import {
   assessmentAuditLogRepo,
   assessmentRepo,
@@ -13,7 +14,7 @@ import {
 
 import { NotFoundError } from "../shared/errors";
 import { getOverridesForContext } from "../scoring/resolve-final-score";
-import { getProblemTotalScores } from "../problem/total-score";
+import { getProblemTotalScores, requireProblemTotalScore } from "../problem/total-score";
 
 export type AssignmentDetailStatus = "draft" | "upcoming" | "open" | "closed";
 
@@ -27,6 +28,7 @@ export interface AssignmentDetailProblem {
   title: string;
   difficulty: "easy" | "medium" | "hard";
   points: number;
+  rawMaxScore: number;
   myStatus: {
     bestScore: number | null;
     attempts: number;
@@ -67,6 +69,8 @@ export interface AssignmentDetail {
   allowedLanguages: Language[];
   latePenalty: LatePenaltyRule | null;
   totalPoints: number;
+  viewerScore: number;
+  gradingRevision: number;
   problemCount: number;
   problems: AssignmentDetailProblem[];
   myRecentSubmissions: AssignmentDetailSubmissionLogEntry[] | null;
@@ -102,11 +106,11 @@ function resolveProblemStatus(
 ): AssignmentDetailProblem["myStatus"] {
   if (override !== undefined) {
     let state: ProblemSolveState = "none";
-    if (override >= problem.points) state = "ac";
+    if (override >= problem.rawMaxScore) state = "ac";
     else if (override > 0) state = "partial";
     else if ((stats?.attempts ?? 0) > 0) state = "attempted";
     return {
-      bestScore: override,
+      bestScore: activityScore(override, problem.rawMaxScore, problem.points).toNumber(),
       attempts: stats?.attempts ?? 0,
       lastSubmissionAt,
       state,
@@ -125,11 +129,11 @@ function resolveProblemStatus(
   }
 
   let state: ProblemSolveState = "none";
-  if (stats.bestScore >= problem.points) state = "ac";
+  if (stats.bestScore >= problem.rawMaxScore) state = "ac";
   else if (stats.bestScore > 0) state = "partial";
   else if (stats.attempts > 0) state = "attempted";
   return {
-    bestScore: stats.bestScore,
+    bestScore: activityScore(stats.bestScore, problem.rawMaxScore, problem.points).toNumber(),
     attempts: stats.attempts,
     lastSubmissionAt,
     state,
@@ -148,7 +152,10 @@ function buildRecentSubmissionLog(
   problems: AssignmentDetailProblem[],
 ): AssignmentDetailSubmissionLogEntry[] {
   const problemLookup = new Map(
-    problems.map((p) => [p.problemId, { letter: p.letter, title: p.title, points: p.points }]),
+    problems.map((p) => [
+      p.problemId,
+      { letter: p.letter, title: p.title, points: p.rawMaxScore },
+    ]),
   );
   return recent.map((s) => {
     const p = problemLookup.get(s.problemId);
@@ -184,7 +191,7 @@ export async function getAssignmentDetail(
 
   const maxByProblem = await getProblemTotalScores(row.problems.map((p) => p.problem.id));
   const maxFor = (p: (typeof row.problems)[number]) =>
-    maxByProblem.get(p.problem.id) ?? p.points;
+    requireProblemTotalScore(maxByProblem, p.problem.id);
 
   const problems: AssignmentDetailProblem[] = hideProblemsFromViewer
     ? []
@@ -195,12 +202,14 @@ export async function getAssignmentDetail(
         displayId: p.problem.displayId,
         title: p.problem.title,
         difficulty: p.problem.difficulty,
-        points: maxFor(p),
+        points: Number(p.points),
+        rawMaxScore: maxFor(p),
         myStatus: null,
       }));
 
-  const totalPoints = row.problems.reduce((sum, p) => sum + maxFor(p), 0);
+  const totalPoints = Number(row.totalPoints);
 
+  let viewerScore = 0;
   let myRecentSubmissions: AssignmentDetailSubmissionLogEntry[] | null = null;
 
   if (!options.isManager && problems.length > 0) {
@@ -265,6 +274,17 @@ export async function getAssignmentDetail(
       );
     }
 
+    viewerScore = sumActivityScores(
+      problems.map((problem) =>
+        activityScore(
+          (membership ? overrides.get(`${membership.id}::${problem.problemId}`) : undefined) ??
+            statsByProblem.get(problem.problemId)?.bestScore ??
+            0,
+          problem.rawMaxScore,
+          problem.points,
+        ),
+      ),
+    );
     myRecentSubmissions = buildRecentSubmissionLog(recent, problems);
   }
 
@@ -292,6 +312,8 @@ export async function getAssignmentDetail(
     latePenalty: extractLatePenalty(row.adjustmentRules),
     auditLog,
     totalPoints,
+    viewerScore,
+    gradingRevision: row.gradingRevision,
     problemCount: row.problems.length,
     problems,
     myRecentSubmissions,

@@ -1,5 +1,6 @@
 import { assertEffectiveTimeWindow } from "../shared/effective-time-window";
 import { assertLateSubmissionPolicy } from "../shared/late-submission-policy";
+import { saveActivityGrading } from "../scoring/activity-grading";
 import {
   assessmentProblemRepo,
   assessmentRepo,
@@ -23,9 +24,7 @@ import {
 import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissions";
 import { requireCourse } from "../shared/require";
 import { requireUser } from "../shared/require";
-import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
 import { resolveActivityProblems } from "../problem/fork";
-import { getProblemTotalScore } from "../problem/total-score";
 import { assignmentDueSoonInput } from "../shared/lifecycle-input";
 import { getDomainOrchestration } from "../shared/orchestration";
 
@@ -97,15 +96,6 @@ export async function createCourseAssignmentRecord(
 
     const assignmentId = generateAssignmentId(payload.title);
 
-    const problems = await resolveActivityProblems(tx, actor, payload.problemIds);
-    if (payload.allowedLanguages.length > 0 && problems.length > 0) {
-      await Promise.all(
-        problems.map((problem) =>
-          assertProblemHasWorkspaceForLanguages(tx, problem.id, payload.allowedLanguages),
-        ),
-      );
-    }
-
     const closesAt = new Date(payload.allowLateSubmissions ? payload.closesAt : payload.dueAt);
     const dueAt = new Date(payload.dueAt);
     const adjustmentRules =
@@ -142,20 +132,16 @@ export async function createCourseAssignmentRecord(
       ...(adjustmentRules.length > 0 ? { adjustmentRules: adjustmentRules } : {}),
     });
 
-    if (problems.length > 0) {
-      await Promise.all(
-        problems.map(async (problem, index) => {
-          await assessmentProblemRepo.withTx(tx).create({
-            assessmentId: assignment.id,
-            ordinal: index + 1,
-            points: await getProblemTotalScore(tx, problem),
-            problemId: problem.id,
-          });
-        }),
-      );
-    }
+    const grading = await saveActivityGrading(tx, actor, {
+      type: "assignment",
+      id: assignment.id,
+      totalPoints: payload.totalPoints,
+      problems: payload.problems,
+      published: payload.status === "published",
+      allowedLanguages: payload.allowedLanguages,
+    });
 
-    return assignment;
+    return { ...assignment, ...grading };
   });
 
   if (assignment.status === "published") {
@@ -269,6 +255,7 @@ export async function copyCourse(
         status: "draft",
         summary: a.summary,
         title: a.title,
+        totalPoints: a.totalPoints,
         ...(a.maxAttemptsPerDay != null ? { maxAttemptsPerDay: a.maxAttemptsPerDay } : {}),
         ...(a.attemptResetMinuteOfDay != null
           ? { attemptResetMinuteOfDay: a.attemptResetMinuteOfDay }
@@ -315,6 +302,7 @@ export async function copyCourse(
         submitCooldownSec: e.submitCooldownSec,
         summary: e.summary,
         title: e.title,
+        totalPoints: e.totalPoints,
       });
 
       const examProblems = await resolveActivityProblems(

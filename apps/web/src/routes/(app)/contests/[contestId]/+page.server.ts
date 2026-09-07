@@ -124,7 +124,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       canSetOverride = allowed;
       const scores: number[] = [];
       overrideStudents = participants.map((p) => {
-        scores.push(p.score);
+        scores.push(Number(p.score));
         return {
           rowId: p.user.id,
           courseMembershipId: null,

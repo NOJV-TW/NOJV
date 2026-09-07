@@ -23,7 +23,7 @@ describe("assessmentCreateSchema", () => {
       closesAt: "2026-03-20T12:00:00.000Z",
       courseId: "course_os-lab-spring-2026",
       opensAt: "2026-03-18T12:00:00.000Z",
-      problemIds: ["warmup-sum"],
+      problems: ["warmup-sum"].map((problemId) => ({ problemId, points: 100 })),
       id: "hw1-process-warmup",
       summary: "First assignment",
       title: "Homework 1",
@@ -39,7 +39,10 @@ describe("assessmentCreateSchema", () => {
       courseId: "course_os-lab-spring-2026",
       opensAt: "2026-03-18T12:00:00.000Z",
       dueAt: "2026-03-25T12:00:00.000Z",
-      problemIds: ["problem_warmup-sum", "problem_add-two-numbers"],
+      problems: ["problem_warmup-sum", "problem_add-two-numbers"].map((problemId) => ({
+        problemId,
+        points: 100,
+      })),
       id: "hw1-process-warmup",
       summary: "Process warmup with two easy problems.",
       title: "HW1 Process Warmup",
@@ -48,18 +51,18 @@ describe("assessmentCreateSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects empty problemIds array", () => {
+  it("accepts an empty draft allocation", () => {
     const result = assessmentCreateSchema.safeParse({
       closesAt: "2026-03-30T12:00:00.000Z",
       courseId: "course_os-lab-spring-2026",
       opensAt: "2026-03-18T12:00:00.000Z",
-      problemIds: [],
+      problems: [].map((problemId) => ({ problemId, points: 100 })),
       id: "hw1-process-warmup",
       summary: "Process warmup with two easy problems.",
       title: "HW1 Process Warmup",
     });
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it("rejects problemIds whose entries are empty strings", () => {
@@ -67,7 +70,7 @@ describe("assessmentCreateSchema", () => {
       closesAt: "2026-03-30T12:00:00.000Z",
       courseId: "course_os-lab-spring-2026",
       opensAt: "2026-03-18T12:00:00.000Z",
-      problemIds: [""],
+      problems: [""].map((problemId) => ({ problemId, points: 100 })),
       id: "hw1-process-warmup",
       summary: "Process warmup with two easy problems.",
       title: "HW1 Process Warmup",

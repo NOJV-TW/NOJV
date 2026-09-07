@@ -26,6 +26,10 @@ async function gradingFixture() {
     data: { courseId: course.id, pendingUsername: "ntu_b12345678", role: "student" },
   });
   const problem = await createTestProblem({ authorId: teacher.id });
+  await testPrisma.testcaseSet.updateMany({
+    where: { problemId: problem.id },
+    data: { weight: 100 },
+  });
   const assignment = await testPrisma.assessment.create({
     data: {
       courseId: course.id,
@@ -173,8 +177,10 @@ describe("course roster grading contract (real DB)", () => {
     });
     await examDomain.updateExamScores(exam.id, student.id);
     expect(
-      (await testPrisma.participation.findUniqueOrThrow({ where: { id: participation.id } }))
-        .score,
+      Number(
+        (await testPrisma.participation.findUniqueOrThrow({ where: { id: participation.id } }))
+          .score,
+      ),
     ).toBe(90);
   });
 

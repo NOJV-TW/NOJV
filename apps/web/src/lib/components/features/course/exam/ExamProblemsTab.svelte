@@ -8,6 +8,7 @@
 </script>
 
 <script lang="ts">
+  import ActivityWeights from "../ActivityWeights.svelte";
   import { beforeNavigate } from "$app/navigation";
   import { enhance } from "$app/forms";
   import GripVertical from "@lucide/svelte/icons/grip-vertical";
@@ -48,9 +49,10 @@
 
   type EditableProblem = Pick<
     ProblemsTabDetail["problems"][number],
-    "id" | "title" | "difficulty" | "displayId"
+    "id" | "title" | "difficulty" | "displayId" | "points"
   >;
 
+  let editTotal = $state(100);
   let editProblems = $state<EditableProblem[]>([]);
   let pickerOpen = $state(false);
   let rejudgeProblemId = $state<string | null>(null);
@@ -58,17 +60,21 @@
   let dragOverId = $state<string | null>(null);
 
   $effect(() => {
+    editTotal = detail.totalPoints;
     editProblems = detail.problems.map((problem) => ({
       id: problem.id,
       title: problem.title,
       difficulty: problem.difficulty,
       displayId: problem.displayId,
+      points: problem.points,
     }));
   });
 
   const ids = $derived(editProblems.map((problem) => problem.id));
   const hasChanges = $derived(
-    ids.join("\0") !== detail.problems.map((problem) => problem.id).join("\0"),
+    editTotal !== detail.totalPoints ||
+      JSON.stringify(editProblems.map(({ id, points }) => ({ id, points }))) !==
+        JSON.stringify(detail.problems.map(({ id, points }) => ({ id, points }))),
   );
 
   beforeNavigate(({ cancel }) => {
@@ -133,6 +139,7 @@
           title: problem.title,
           difficulty: problem.difficulty,
           displayId: problem.displayId,
+          points: 0,
         })),
     ];
   }
@@ -186,20 +193,20 @@
     </div>
   {/if}
 
-  {#if ids.length === 0}
-    <div
-      class="rounded-lg border border-dashed border-border px-4 py-8 text-center text-body-sm text-muted-foreground"
-    >
-      {m.examDetail_problemsEditEmptyHint()}
-    </div>
-  {:else}
-    <form
-      id="exam-problems-form"
-      method="POST"
-      action="?/updateProblems"
-      use:enhance
-      class="space-y-3"
-    >
+  <form
+    id="exam-problems-form"
+    method="POST"
+    action="?/updateProblems"
+    use:enhance
+    class="space-y-3"
+  >
+    {#if ids.length === 0}
+      <div
+        class="rounded-lg border border-dashed border-border px-4 py-8 text-center text-body-sm text-muted-foreground"
+      >
+        {m.examDetail_problemsEditEmptyHint()}
+      </div>
+    {:else}
       <ul class="space-y-2.5">
         {#each editProblems as problem, index (problem.id)}
           <li
@@ -306,12 +313,30 @@
           </li>
         {/each}
       </ul>
+    {/if}
 
-      {#each ids as id (id)}
-        <input type="hidden" name="problemIds" value={id} />
-      {/each}
-    </form>
-  {/if}
+    {#if canEdit}
+      <ActivityWeights
+        bind:totalPoints={editTotal}
+        problems={editProblems.map((p) => ({ problemId: p.id, points: p.points }))}
+        titles={Object.fromEntries(editProblems.map((p) => [p.id, p.title]))}
+        onchange={(rows) =>
+          (editProblems = rows.map((p) => ({
+            ...editProblems.find((r) => r.id === p.problemId)!,
+            points: p.points,
+          })))}
+      />
+    {/if}
+    <input
+      type="hidden"
+      name="payload"
+      value={JSON.stringify({
+        totalPoints: editTotal,
+        gradingRevision: detail.gradingRevision,
+        problems: editProblems.map((p) => ({ problemId: p.id, points: p.points })),
+      })}
+    />
+  </form>
 </section>
 
 {#if canEdit}

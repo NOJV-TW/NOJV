@@ -151,8 +151,8 @@ export async function listContestsForUser(
   const contestIds = [...managedRows, ...publishedRows, ...participatedRows].map((c) => c.id);
   const scoreByContestId = new Map(
     (await contestRepo.listScoresForUser(userId, contestIds))
-      .filter((row): row is { contestId: string; score: number } => row.contestId !== null)
-      .map((row) => [row.contestId, row.score]),
+      .filter((row) => row.contestId !== null)
+      .map((row) => [row.contestId, Number(row.score)]),
   );
 
   const managedIds = new Set(managedRows.map((c) => c.id));
@@ -277,7 +277,7 @@ export async function getContestWorkspaceData(
     participation: participation
       ? {
           penaltySeconds: participation.penaltySeconds,
-          score: participation.score,
+          score: Number(participation.score),
           startedAt: participation.startedAt?.toISOString() ?? null,
           status: participation.status,
         }

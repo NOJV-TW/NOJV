@@ -1,3 +1,4 @@
+import { activityProblemsSchema, activityTotalPointsSchema } from "./activity-grading";
 import { z } from "zod";
 
 import {
@@ -15,9 +16,8 @@ export const examPublishStatuses = ["draft", "published"] as const;
 export const examPublishStatusSchema = z.enum(examPublishStatuses);
 export type ExamPublishStatus = z.infer<typeof examPublishStatusSchema>;
 
-const examProblemIdsSchema = z.array(z.string().trim().min(1)).max(32);
-
 const examCreateBaseSchema = z.object({
+  gradingRevision: z.number().int().nonnegative().optional(),
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   courseId: z.string().trim().min(1),
   endsAt: isoDateTimeSchema,
@@ -25,7 +25,8 @@ const examCreateBaseSchema = z.object({
   adjustmentRules: z.array(latePenaltyRuleSchema).max(1).optional(),
   ...ipLockFields,
   pageLockEnabled: z.boolean().default(false),
-  problemIds: examProblemIdsSchema.default([]),
+  problems: activityProblemsSchema.default([]),
+  totalPoints: activityTotalPointsSchema.default(100),
   scoreboardMode: scoreboardModeSchema.default("hidden"),
   scoringMode: examScoringModeSchema.default("point_sum"),
   startsAt: isoDateTimeSchema,
@@ -80,7 +81,18 @@ export const examCreateSchema = examCreateBaseSchema
 export const examUpdateSchema = examCreateBaseSchema
   .partial()
   .extend({
-    problemIds: examProblemIdsSchema.optional(),
+    allowedLanguages: examCreateBaseSchema.shape.allowedLanguages.unwrap().optional(),
+    pageLockEnabled: examCreateBaseSchema.shape.pageLockEnabled.unwrap().optional(),
+    scoreboardMode: examCreateBaseSchema.shape.scoreboardMode.unwrap().optional(),
+    scoringMode: examCreateBaseSchema.shape.scoringMode.unwrap().optional(),
+    status: examCreateBaseSchema.shape.status.unwrap().optional(),
+    submitCooldownSec: examCreateBaseSchema.shape.submitCooldownSec.unwrap().optional(),
+    ipBindingEnabled: examCreateBaseSchema.shape.ipBindingEnabled.unwrap().optional(),
+    ipViolationMode: examCreateBaseSchema.shape.ipViolationMode.unwrap().optional(),
+    ipWhitelist: examCreateBaseSchema.shape.ipWhitelist.unwrap().optional(),
+    ipWhitelistEnabled: examCreateBaseSchema.shape.ipWhitelistEnabled.unwrap().optional(),
+    problems: activityProblemsSchema.optional(),
+    totalPoints: activityTotalPointsSchema.optional(),
   })
   .superRefine(refineExamPolicy)
   .refine(

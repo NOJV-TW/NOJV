@@ -1,6 +1,6 @@
 import type { courseDomain } from "@nojv/application";
 
-import { buildScoreStats, type ScoreStats } from "../shared/score-stats";
+import { buildScoreStats, type ScoreStats } from "@nojv/application";
 
 export type AssignmentResults = ScoreStats;
 

@@ -223,6 +223,8 @@ export const assessmentRepo = {
       orderBy: { opensAt: "asc" },
       select: {
         id: true,
+        totalPoints: true,
+        closesAt: true,
         title: true,
         opensAt: true,
         problems: {
@@ -241,6 +243,8 @@ export const assessmentRepo = {
       where: { id: assessmentId, courseId },
       select: {
         id: true,
+        totalPoints: true,
+        gradingRevision: true,
         courseId: true,
         title: true,
         summary: true,

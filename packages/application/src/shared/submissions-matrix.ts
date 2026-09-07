@@ -1,3 +1,4 @@
+import { activityScore, sumActivityScores } from "../scoring/activity-points";
 export type MatrixCellState = "ac" | "partial" | "zero" | "empty";
 
 export interface MatrixProblemColumn {
@@ -6,6 +7,7 @@ export interface MatrixProblemColumn {
   ordinal: number;
   title: string;
   points: number;
+  rawMaxScore?: number;
 }
 
 export interface MatrixCell {
@@ -72,9 +74,12 @@ export function buildMatrixRowCells(opts: {
     if (override !== undefined) {
       return {
         problemId: problem.problemId,
-        score: override,
+        score:
+          problem.rawMaxScore === undefined
+            ? override
+            : activityScore(override, problem.rawMaxScore, problem.points).toNumber(),
         attempts: hit?.count ?? 0,
-        state: cellState(override, problem.points),
+        state: cellState(override, problem.rawMaxScore ?? problem.points),
         ...practiceFields,
       };
     }
@@ -89,13 +94,24 @@ export function buildMatrixRowCells(opts: {
     }
     return {
       problemId: problem.problemId,
-      score: hit.best,
+      score:
+        problem.rawMaxScore === undefined
+          ? hit.best
+          : activityScore(hit.best, problem.rawMaxScore, problem.points).toNumber(),
       attempts: hit.count,
-      state: cellState(hit.best, problem.points),
+      state: cellState(hit.best, problem.rawMaxScore ?? problem.points),
       ...practiceFields,
     };
   });
-  const total = cells.reduce((sum, c) => sum + (c.score ?? 0), 0);
+  const total = sumActivityScores(
+    opts.problems.map((problem) => {
+      const key = `${opts.rowId}::${problem.problemId}`;
+      const raw = opts.overrides.get(key) ?? opts.scoreIndex.get(key)?.best ?? 0;
+      return problem.rawMaxScore === undefined
+        ? raw
+        : activityScore(raw, problem.rawMaxScore, problem.points);
+    }),
+  );
   return { cells, total };
 }
 
@@ -106,8 +122,9 @@ export function assembleMatrix(input: {
   overrides: Map<string, number>;
   practiceIndex?: Map<string, { best: number; count: number }>;
   studentCount: number;
+  totalPoints?: number;
 }): AssembledMatrix {
-  const totalPoints = input.problems.reduce((sum, p) => sum + p.points, 0);
+  const totalPoints = input.totalPoints ?? input.problems.reduce((sum, p) => sum + p.points, 0);
 
   const rows: AssembledMatrixRow[] = input.participants.map((participant) => {
     const { cells, total } = buildMatrixRowCells({

@@ -1729,7 +1729,7 @@
   "override_staff_emptyList": "No overrides yet",
   "override_staff_fieldProblem": "Problem",
   "override_staff_fieldReason": "Reason (staff-only)",
-  "override_staff_fieldScore": "Score",
+  "override_staff_fieldScore": "Raw score",
   "override_staff_fieldStudent": "Student",
   "override_staff_newBtn": "New Override",
   "override_staff_reasonHint": "Not shown to students",
@@ -2428,5 +2428,15 @@
   "members_usernameCorrectionError": "Could not correct the username. Please try again.",
   "members_alreadyLinked": "This membership is already linked. Please refresh the page.",
   "members_accountUnavailable": "This account is disabled and cannot be linked.",
-  "members_usernameConflict": "This username already has a course membership. No data was changed."
+  "members_usernameConflict": "This username already has a course membership. No data was changed.",
+  "activityWeights_heading": "Point allocation",
+  "activityWeights_percentage": "Percentage",
+  "activityWeights_total": "Total points",
+  "activityWeights_equal": "Split equally",
+  "activityWeights_weight": "{title} weight",
+  "activityWeights_points": "{points} points",
+  "activityWeights_sum": "Allocated: {percent}% / 100%",
+  "activityWeights_incomplete": "Drafts can be saved incomplete. Published activities must allocate exactly 100%.",
+  "activityWeights_pending": "Grades are being recalculated.",
+  "activityWeights_contribution": "Counts toward this activity: {score} / {points}"
 }

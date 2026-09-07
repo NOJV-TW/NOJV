@@ -55,12 +55,12 @@ describe("effective time-window update schemas", () => {
     expect(result.success).toBe(true);
     if (!result.success) return;
 
-    expect(result.data.problemIds).toBeUndefined();
+    expect(result.data.problems).toBeUndefined();
+    expect(result.data.totalPoints).toBeUndefined();
   });
 
   it("preserves an explicitly supplied problem list for exam updates", () => {
-    expect(examUpdateSchema.parse({ problemIds: ["problem_1"] }).problemIds).toEqual([
-      "problem_1",
-    ]);
+    const allocation = { totalPoints: 80, problems: [{ problemId: "problem_1", points: 80 }] };
+    expect(examUpdateSchema.parse(allocation)).toEqual(allocation);
   });
 });

@@ -18,7 +18,8 @@ const {
   findScoringInputsByIds: vi.fn(),
 }));
 
-vi.mock("@nojv/db", () => ({
+vi.mock("@nojv/db", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@nojv/db")>()),
   assessmentRepo: { listPublishedWithProblemsByCourse },
   scoreOverrideRepo: { findAllByContext: findAllOverrides },
   courseMembershipRepo: { findStudents },
@@ -131,7 +132,7 @@ describe("getCourseAnalytics", () => {
     const summary = result.assessmentSummaries[0];
     expect(summary.assessmentId).toBe("a1");
     expect(summary.problemCount).toBe(2);
-    expect(summary.avgScore).toBe(113);
+    expect(summary.avgScore).toBe(113.33);
     expect(summary.completionRate).toBeCloseTo(0.25);
 
     expect(result.hardestProblems.map((p) => p.problemId)).toEqual(["p2", "p1"]);
@@ -166,7 +167,7 @@ it("includes pending manual scores in analytics while retaining real activity co
     {
       id: "a1",
       title: "HW",
-      problems: [{ problem: { id: "p1", title: "Problem", displayId: 1 } }],
+      problems: [{ points: 100, problem: { id: "p1", title: "Problem", displayId: 1 } }],
     },
   ]);
   findStudents.mockResolvedValue([

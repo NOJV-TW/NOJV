@@ -45,8 +45,8 @@ describe("course roster demo seed", () => {
       user: { findUnique: vi.fn().mockResolvedValue(null) },
       course: { upsert },
       courseMembership: { upsert: memberships },
-      assessment: { upsert },
-      exam: { upsert },
+      assessment: { upsert, findMany: vi.fn().mockResolvedValue([]) },
+      exam: { upsert, findMany: vi.fn().mockResolvedValue([]) },
       problem: {
         findUniqueOrThrow: vi.fn(({ where }: { where: { id: string } }) => where),
       },

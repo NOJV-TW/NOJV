@@ -1,7 +1,7 @@
 import { courseMembershipRepo, submissionRepo } from "@nojv/db";
 import { problemLetter } from "@nojv/core";
 
-import { getProblemTotalScores } from "../problem/total-score";
+import { getProblemTotalScores, requireProblemTotalScore } from "../problem/total-score";
 import {
   assembleMatrix,
   type MatrixCell,
@@ -36,6 +36,8 @@ export interface ExamMatrixProblemInput {
 export interface BuildExamMatrixInput {
   examId: string;
   courseId: string;
+  totalPoints: number;
+  endsAt: Date;
   problems: ExamMatrixProblemInput[];
 }
 
@@ -50,9 +52,10 @@ export async function buildExamSubmissionsMatrix(
     letter: problemLetter(p.ordinal),
     ordinal: p.ordinal,
     title: p.title,
-    points: maxByProblem.get(p.problemId) ?? p.points,
+    points: p.points,
+    rawMaxScore: requireProblemTotalScore(maxByProblem, p.problemId),
   }));
-  const totalPoints = problems.reduce((sum, p) => sum + p.points, 0);
+  const totalPoints = input.totalPoints;
 
   if (students.length === 0 || problems.length === 0) {
     return {
@@ -75,6 +78,7 @@ export async function buildExamSubmissionsMatrix(
       userId: { in: studentIds },
       problemId: { in: problemIds },
       sampleOnly: false,
+      createdAt: { lt: input.endsAt },
     }),
     getOverridesForContext({ type: "exam", examId: input.examId }),
   ]);
@@ -91,6 +95,7 @@ export async function buildExamSubmissionsMatrix(
 
   return assembleMatrix({
     problems,
+    totalPoints,
     participants: students.map((student) => ({
       rowId: student.id,
       courseMembershipId: student.id,

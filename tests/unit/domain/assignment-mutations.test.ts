@@ -1,3 +1,7 @@
+const { saveGrading } = vi.hoisted(() => ({ saveGrading: vi.fn(async () => {}) }));
+vi.mock("../../../packages/application/src/scoring/activity-grading", () => ({
+  saveActivityGrading: saveGrading,
+}));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -30,7 +34,8 @@ const {
   durableWorkEnqueue: vi.fn(),
 }));
 
-vi.mock("@nojv/db", () => {
+vi.mock("@nojv/db", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@nojv/db")>();
   const assessmentWithTx = {
     findById: assessmentFindById,
     lockForUpdate: assessmentLockForUpdate,
@@ -48,7 +53,7 @@ vi.mock("@nojv/db", () => {
     findMany: problemFindMany,
   };
   return {
-    Prisma: {},
+    Prisma: actual.Prisma,
     assessmentRepo: {
       withTx: () => assessmentWithTx,
     },
@@ -74,7 +79,8 @@ vi.mock("@nojv/db", () => {
     testcaseSetRepo: {
       withTx: () => ({ findByProblemId: testcaseSetFindByProblemId }),
     },
-    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
+    runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
+      fn({ assessmentProblem: { findMany: assessmentProblemFindByAssessmentId } }),
   };
 });
 
@@ -142,6 +148,8 @@ function draftAssessment(overrides: Record<string, unknown> = {}) {
     id: "asg_1",
     courseId: "crs_1",
     createdByUserId: "usr_teacher",
+    totalPoints: 100,
+    gradingRevision: 0,
     status: "draft",
     opensAt: new Date("2030-01-01T00:00:00Z"),
     dueAt: new Date("2030-01-10T00:00:00Z"),
@@ -249,29 +257,24 @@ describe("updateAssignmentRecord", () => {
     ).rejects.toThrow(/permission/i);
   });
 
-  it("stores each problem's total (Σ subtask weight) as its max", async () => {
+  it("passes teacher allocations to the grading transaction instead of replacing raw problem scores", async () => {
     assessmentFindById.mockResolvedValue(draftAssessment({ allowedLanguages: [] }));
-    problemFindMany.mockResolvedValue([
-      { id: "prob_a", type: "full_source", authorId: teacherActor.userId },
-      { id: "prob_b", type: "full_source", authorId: teacherActor.userId },
-    ]);
-    testcaseSetFindByProblemId.mockImplementation(async (problemId: string) => {
-      if (problemId === "prob_a") return [{ weight: 40 }, { weight: 80 }];
-      if (problemId === "prob_b") return [{ weight: 200 }];
-      return [];
-    });
-
+    assessmentProblemFindByAssessmentId.mockResolvedValue([]);
+    const problems = [
+      { problemId: "prob_a", points: 40 },
+      { problemId: "prob_b", points: 60 },
+    ];
     await updateAssignmentRecord(teacherActor, "asg_1", {
-      problemIds: ["prob_a", "prob_b"],
+      problems,
+      totalPoints: 100,
+      gradingRevision: 0,
     });
-
-    expect(assessmentProblemDeleteByAssessmentId).toHaveBeenCalledWith("asg_1");
-    expect(assessmentProblemCreate).toHaveBeenCalledTimes(2);
-    const pointsByProblem = new Map(
-      assessmentProblemCreate.mock.calls.map((c) => [c[0].problemId, c[0].points]),
+    expect(saveGrading).toHaveBeenCalledWith(
+      expect.anything(),
+      teacherActor,
+      expect.objectContaining({ problems, totalPoints: 100, expectedRevision: 0 }),
     );
-    expect(pointsByProblem.get("prob_a")).toBe(120);
-    expect(pointsByProblem.get("prob_b")).toBe(200);
+    expect(testcaseSetFindByProblemId).not.toHaveBeenCalled();
   });
 
   it("blocks changing opensAt once the assignment is open", async () => {
@@ -370,7 +373,7 @@ describe("publishAssignment", () => {
       scheduleRevision: 2,
     }));
     assessmentProblemFindByAssessmentId.mockResolvedValue([
-      { id: "pair_1", assessmentId: "asg_1", problemId: "prob_a" },
+      { id: "pair_1", assessmentId: "asg_1", problemId: "prob_a", points: 100 },
     ]);
     courseMembershipFindByComposite.mockResolvedValue({
       role: "teacher",

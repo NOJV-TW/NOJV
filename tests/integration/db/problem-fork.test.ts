@@ -312,7 +312,8 @@ describe("problem forks", () => {
         allowLateSubmissions: true,
         latePenalty: null,
         opensAt: startsAt,
-        problemIds: [source.id],
+        totalPoints: 100,
+        problems: [{ problemId: source.id, points: 100 }],
         status: "draft",
         title: "Forked assignment",
       },
@@ -321,7 +322,9 @@ describe("problem forks", () => {
       where: { assessmentId: assignment.id },
     });
     await assignmentDomain.updateAssignmentRecord(actorOf(teacher), assignment.id, {
-      problemIds: [assignmentLink.problemId],
+      totalPoints: 100,
+      gradingRevision: 1,
+      problems: [{ problemId: assignmentLink.problemId, points: 100 }],
     });
 
     const exam = await examDomain.createExamRecord(actorOf(teacher), {
@@ -333,7 +336,8 @@ describe("problem forks", () => {
       ipWhitelist: [],
       ipWhitelistEnabled: false,
       pageLockEnabled: false,
-      problemIds: [source.id],
+      totalPoints: 100,
+      problems: [{ problemId: source.id, points: 100 }],
       scoreboardMode: "hidden",
       scoringMode: "point_sum",
       startsAt,
@@ -346,7 +350,9 @@ describe("problem forks", () => {
       where: { examId: exam.id },
     });
     await examDomain.updateExamRecord(actorOf(teacher), exam.id, {
-      problemIds: [examLink.problemId],
+      totalPoints: 100,
+      gradingRevision: 1,
+      problems: [{ problemId: examLink.problemId, points: 100 }],
     });
 
     const contest = await contestDomain.createContestRecord(actorOf(teacher), {

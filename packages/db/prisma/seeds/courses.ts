@@ -440,4 +440,36 @@ export async function seedCourses(
   });
 
   console.log(`  Courses: 1 upserted with memberships and problem-linked assessments`);
+  for (const assessment of await prisma.assessment.findMany({
+    where: { id: { in: [hw1.id, hw2.id, hwActive.id] } },
+    include: { problems: true },
+  })) {
+    if (assessment.problems.length)
+      await prisma.assessment.update({
+        where: { id: assessment.id },
+        data: {
+          totalPoints: assessment.problems.reduce((sum, p) => sum + Number(p.points), 0),
+        },
+      });
+  }
+  for (const exam of await prisma.exam.findMany({
+    where: {
+      id: {
+        in: [
+          midterm.id,
+          gradebookDemoExam.id,
+          examUpcomingDemo.id,
+          activeAdvancedExam.id,
+          upcomingDemo.id,
+        ],
+      },
+    },
+    include: { problems: true },
+  })) {
+    if (exam.problems.length)
+      await prisma.exam.update({
+        where: { id: exam.id },
+        data: { totalPoints: exam.problems.reduce((sum, p) => sum + Number(p.points), 0) },
+      });
+  }
 }

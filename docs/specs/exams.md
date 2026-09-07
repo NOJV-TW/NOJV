@@ -12,7 +12,7 @@ practice-after-close route at `/problems/[id]`.
 ## User Stories
 
 - As a **teacher** or **TA**, I want to configure an exam with start/end
-  times, allowed languages, scoring mode (point sum or problem count),
+  times, allowed languages, weighted point-sum scoring,
   scoreboard mode (hidden/live/frozen), and per-problem points, so that a
   single exam row captures the whole assessment contract.
 - As a **teacher** or **TA**, I want to toggle `pageLockEnabled`,
@@ -78,8 +78,7 @@ practice-after-close route at `/problems/[id]`.
   (`viewerState`/`viewerScore`). `getExamDetailPage` returns null for
   non-managers only on DRAFT exams. Practice-after-close additionally
   allows accessing the problems via `/problems/[id]` (no context).
-- `scoringMode: problem_count` (ICPC-style solved count + penalty) and
-  `point_sum` (IOI-style weighted total).
+- `scoringMode: point_sum` with activity allocations.
 - `scoreboardMode: hidden | live | frozen`.
 - Problem resolution runs in the exam transaction: actor-owned problems are
   attached directly, another author's published public problems become
@@ -104,6 +103,12 @@ Exams use the same on-time deadline / allow-late / final collection controls as 
 - The overview shows both deadlines and the penalty before the student starts. Settings round-trip the policy; disabling late collection clears its penalty and makes the hard end equal to due.
 - Once running, deadlines can only be extended, penalties and scoring mode cannot change. Validate effective windows on partial edits and before publishing. Extending the hard end reschedules the existing auto-close workflow.
 - Copying a course preserves exam due/final dates and penalty rules in the new draft.
+
+## Activity allocations
+
+Exams follow the [activity allocation and official score contract](assignments.md#activity-allocation-and-official-scores), including total points, percentage editing, raw overrides, exact-ID reattachment, closed edits without a reason or allocation audit log, and lossless legacy import.
+
+Each grading change enqueues durable `score.converge` work for every participant in the same transaction. Convergence uses only non-sample submissions within the original exam deadline and never dispatches judging. It retries on conflict or durable-work failure. Writeback checks both the activity grading revision and participation version, preventing stale scores from replacing current grades. Entering an exam serializes against the grading transaction so a newly created participant starts at the current revision. While any participant revision lags, the detail page displays a recalculation notice; detail and matrix scores calculate from current allocations.
 
 ## Acceptance Criteria
 
@@ -269,8 +274,8 @@ examId })` is called, THEN every currently-active session for the exam
 - WHEN `getExamSubmissionsMatrix(examId)` is called, THEN `rows` lists
   each active-student member of the parent course once with cells per
   problem. Each cell carries `{ problemId, score, attempts, state }`.
-- `state === 'ac'` iff `best >= problem.points`; `'partial'` iff
-  `0 < best < problem.points`; `'zero'` iff `best === 0`; `'empty'` iff
+- `state === 'ac'` iff raw best reaches the original problem maximum; `'partial'` iff
+  raw best is positive but below that maximum; `'zero'` iff raw best is zero; `'empty'` iff
   no submissions (`attempts === 0`).
 - Only non-sample submissions (`sampleOnly: false`) count toward the
   matrix.

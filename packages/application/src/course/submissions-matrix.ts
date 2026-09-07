@@ -2,7 +2,7 @@ import { assessmentRepo, courseMembershipRepo, submissionRepo } from "@nojv/db";
 import { problemLetter } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
-import { getProblemTotalScores } from "../problem/total-score";
+import { getProblemTotalScores, requireProblemTotalScore } from "../problem/total-score";
 import {
   assembleMatrix,
   type MatrixCell,
@@ -53,9 +53,10 @@ export async function buildSubmissionsMatrix(
     letter: problemLetter(p.ordinal),
     ordinal: p.ordinal,
     title: p.problem.title,
-    points: maxByProblem.get(p.problem.id) ?? p.points,
+    points: Number(p.points),
+    rawMaxScore: requireProblemTotalScore(maxByProblem, p.problem.id),
   }));
-  const totalPoints = problems.reduce((sum, p) => sum + p.points, 0);
+  const totalPoints = Number(assignment.totalPoints);
 
   if (students.length === 0 || problems.length === 0) {
     return {
@@ -120,6 +121,7 @@ export async function buildSubmissionsMatrix(
 
   return assembleMatrix({
     problems,
+    totalPoints,
     participants: students.map((student) => ({
       rowId: student.id,
       courseMembershipId: student.id,

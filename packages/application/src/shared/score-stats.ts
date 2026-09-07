@@ -1,3 +1,6 @@
+import { Prisma } from "@nojv/db";
+import { averageActivityScores } from "../scoring/activity-points";
+
 export interface ScoreBucket {
   label: string;
   count: number;
@@ -21,7 +24,7 @@ function median(nums: number[]): number {
   if (sorted.length % 2 === 0) {
     const a = sorted[mid - 1] ?? 0;
     const b = sorted[mid] ?? 0;
-    return Math.round((a + b) / 2);
+    return new Prisma.Decimal(a).add(b).div(2).toDecimalPlaces(2).toNumber();
   }
   return sorted[mid] ?? 0;
 }
@@ -33,30 +36,43 @@ export function buildScoreStats(
 ): ScoreStats {
   const totals = scores;
   const submitted = totals.filter((t) => t > 0).length;
-  const classAvg =
-    totals.length > 0 ? Math.round(totals.reduce((s, n) => s + n, 0) / totals.length) : 0;
+  const classAvg = averageActivityScores(totals);
   const med = median(totals);
   const max = totals.length > 0 ? Math.max(...totals) : 0;
   const min = totals.length > 0 ? Math.min(...totals) : 0;
 
   const rangeMax = max > 0 ? max : maxScore > 0 ? maxScore : 100;
-  const thresholds = [90, 80, 70, 60].map((percent) => Math.ceil((rangeMax * percent) / 100));
-  const buckets: ScoreBucket[] =
-    rangeMax < 5
-      ? Array.from({ length: rangeMax + 1 }, (_, index) => ({
-          label: String(rangeMax - index),
+  const fractional = ![maxScore, ...totals].every(Number.isInteger);
+  const discrete = rangeMax < 5 && !fractional;
+  const thresholds = [90, 80, 70, 60].map((percent) =>
+    fractional
+      ? Number(((rangeMax * percent) / 100).toFixed(2))
+      : Math.ceil((rangeMax * percent) / 100),
+  );
+  const buckets: ScoreBucket[] = discrete
+    ? Array.from({ length: rangeMax + 1 }, (_, index) => ({
+        label: String(rangeMax - index),
+        count: 0,
+      }))
+    : [
+        { label: `${String(thresholds[0])}-${String(rangeMax)}`, count: 0 },
+        {
+          label: `${String(thresholds[1])}-${fractional ? `<${String(thresholds[0])}` : String((thresholds[0] ?? 1) - 1)}`,
           count: 0,
-        }))
-      : [
-          { label: `${String(thresholds[0])}-${String(rangeMax)}`, count: 0 },
-          { label: `${String(thresholds[1])}-${String((thresholds[0] ?? 1) - 1)}`, count: 0 },
-          { label: `${String(thresholds[2])}-${String((thresholds[1] ?? 1) - 1)}`, count: 0 },
-          { label: `${String(thresholds[3])}-${String((thresholds[2] ?? 1) - 1)}`, count: 0 },
-          { label: `<${String(thresholds[3])}`, count: 0 },
-        ];
+        },
+        {
+          label: `${String(thresholds[2])}-${fractional ? `<${String(thresholds[1])}` : String((thresholds[1] ?? 1) - 1)}`,
+          count: 0,
+        },
+        {
+          label: `${String(thresholds[3])}-${fractional ? `<${String(thresholds[2])}` : String((thresholds[2] ?? 1) - 1)}`,
+          count: 0,
+        },
+        { label: `<${String(thresholds[3])}`, count: 0 },
+      ];
   for (const t of totals) {
     let idx: number;
-    if (rangeMax < 5) idx = rangeMax - t;
+    if (discrete) idx = rangeMax - t;
     else if (t >= (thresholds[0] ?? 0)) idx = 0;
     else if (t >= (thresholds[1] ?? 0)) idx = 1;
     else if (t >= (thresholds[2] ?? 0)) idx = 2;

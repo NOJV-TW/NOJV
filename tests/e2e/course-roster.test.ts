@@ -1,7 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "../../packages/db/generated/prisma/client";
+import { resolveDestructiveTestDatabase } from "../setup/destructive-test-database";
 import { apiWriteHeaders, formActionHeaders, studentAuth, teacherAuth } from "./_shared";
+
+const testPrisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: resolveDestructiveTestDatabase("nojv_e2e_test") }),
+});
+test.afterAll(async () => testPrisma.$disconnect());
 
 const courseId = "course_os-lab-spring-2026";
 const membersUrl = `/courses/${courseId}/members`;
@@ -120,6 +128,18 @@ for (const assessment of [
       await expect(drawer.locator("#fb-student")).toHaveValue(membershipId!);
       const problemId = await drawer.locator("#ov-problem").inputValue();
       await expect(drawer.locator("#fb-problem")).toHaveValue(problemId);
+      const link =
+        assessment.type === "assignment"
+          ? await testPrisma.assessmentProblem.findUniqueOrThrow({
+              where: { assessmentId_problemId: { assessmentId: assessment.id, problemId } },
+              include: { problem: { include: { testcaseSets: true } } },
+            })
+          : await testPrisma.examProblem.findUniqueOrThrow({
+              where: { examId_problemId: { examId: assessment.id, problemId } },
+              include: { problem: { include: { testcaseSets: true } } },
+            });
+      const rawMax = link.problem.testcaseSets.reduce((sum, set) => sum + set.weight, 0);
+      const weightedScore = Number(((80 / rawMax) * Number(link.points)).toFixed(2));
       await drawer.locator("#ov-score").fill("80");
       await drawer.locator("#ov-reason").fill("Roster manual grade");
       const overrideResponse = page.waitForResponse(
@@ -153,7 +173,9 @@ for (const assessment of [
       expect(feedback.request().postDataJSON()).not.toHaveProperty("studentUserId");
       feedbackId = (await feedback.json()).id;
       await page.keyboard.press("Escape");
-      await expect(gradeRow).toContainText("80");
+      await expect(gradeRow.locator("td").last()).toHaveText(
+        new RegExp(`^${String(weightedScore).replace(".", "\\.")}\\s*/`),
+      );
 
       await page.goto(membersUrl);
       await expect(
@@ -175,13 +197,23 @@ for (const assessment of [
       await expect(
         page.getByRole("button", { name: "Open account menu for Teacher", exact: true }),
       ).toBeEnabled();
-      await expect(page.locator("tbody tr").filter({ hasText: handle })).toContainText("80");
+      await expect(
+        page.locator("tbody tr").filter({ hasText: handle }).locator("td").last(),
+      ).toHaveText(String(weightedScore));
       const downloadPromise = page.waitForEvent("download");
       await page.getByRole("button", { name: /export csv/i }).click();
       const downloadPath = await (await downloadPromise).path();
       expect(downloadPath).toBeTruthy();
       const csv = await readFile(downloadPath!, "utf8");
       expect(csv).toContain(handle);
+      expect(
+        csv
+          .split("\n")
+          .find((row) => row.includes(handle))
+          ?.trim()
+          .split(",")
+          .at(-1),
+      ).toBe(String(weightedScore));
       expect(csv).not.toContain(membershipId!);
 
       const studentPage = await student.newPage();
