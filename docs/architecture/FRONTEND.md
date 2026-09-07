@@ -164,6 +164,7 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 
 ## Shared UI Contracts
 
+- Table headers use `TableTextColumnFilter` for text search and `TableSelectColumnFilter` for selection filters. Selection filters use Bits UI menus with the shared Select content and item styling. Course members follow the submissions table layout, retain filter headers for empty results, and scroll horizontally on narrow screens.
 - `ProblemWorkspace.svelte` owns the problem-solving surface: split-pane layout with problem statement (left) and Monaco code editor (right), resizable divider, submission panel, and testcase results.
 - `MarkdownRenderer` renders problem statements, problem posts, and input/output format descriptions using `marked` + KaTeX + DOMPurify. Remote HTTPS image sources are rewritten at render time to `/api/images/proxy`; existing stored Markdown does not change.
 - `ImageDropZone` wraps textareas with drag-and-drop and paste image upload support. Used in problem editor for statement, inputFormat, and outputFormat fields.

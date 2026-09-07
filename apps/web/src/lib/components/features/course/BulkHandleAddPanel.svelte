@@ -171,9 +171,6 @@
           {m.members_confirmAdd({ count: previewHandles.length })}
           <Check class="size-4" aria-hidden="true" />
         </Button>
-        <p class="text-center text-caption text-muted-foreground">
-          {m.members_hint()}
-        </p>
       </div>
     </form>
   </div>

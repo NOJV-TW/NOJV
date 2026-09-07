@@ -1624,7 +1624,7 @@
   "members_empty": "沒有符合條件的成員。",
   "members_handlesHelp": "請輸入完整帳號：臺師大 41247001s、臺大 ntu_b11902001、臺科大 ntust_b11215001，或一般帳號（例如 newcomer2026）。\n系統不會自動補上前綴；使用學校帳號的學生須完成學校驗證。",
   "members_handlesLabel": "學號 / 帳號",
-  "members_hint": "不會寄信、不會產生加入連結",
+  "members_joinedLabel": "加入日期",
   "members_joinedOn": "{date} 加入",
   "members_previewLabel": "解析後（{count} 個 handles）",
   "members_removeAction": "移除成員",
@@ -2409,6 +2409,5 @@
   "rejudge_cancel_requested": "已提出取消要求",
   "audit_detailScoreOverrideMerge": "合併課程紀錄：{oldScore} → {newScore}",
   "members_addSuccess": "已加入 {added} 位成員（新增 {pending} 筆尚未啟用名單，略過 {skipped} 位）",
-  "members_pendingActivation": "尚未啟用",
-  "members_pendingFooter": "尚未啟用的學生仍可接受評分與回饋；設定相同帳號或完成學校驗證後，課程紀錄會自動連結。"
+  "members_pendingActivation": "尚未啟用"
 }

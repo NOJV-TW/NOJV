@@ -1,5 +1,7 @@
 <script lang="ts">
   import { ListFilter } from "@lucide/svelte";
+  import { Select as SelectPrimitive } from "bits-ui";
+  import * as Select from "$lib/components/primitives/ui/select";
 
   interface Option {
     value: string;
@@ -28,30 +30,29 @@
     options.find((option) => option.value === value)?.label ?? value,
   );
 
-  function handleChange(event: Event) {
-    value = (event.currentTarget as HTMLSelectElement).value;
+  function handleChange(nextValue: string) {
+    value = nextValue;
     onChange?.(value);
   }
 </script>
 
-<label
-  class="relative -ml-1 inline-flex h-8 min-w-0 cursor-pointer items-center gap-1.5 rounded-sm px-1 font-medium transition-colors focus-within:outline-none focus-within:ring-2 focus-within:ring-ring {value
-    ? 'bg-primary/10 text-primary hover:bg-primary/15'
-    : 'hover:bg-muted hover:text-foreground'}"
->
-  <span class="max-w-32 truncate" title={value ? activeLabel : undefined}>
-    {value ? activeLabel : label}
-  </span>
-  <ListFilter aria-hidden="true" class="size-3.5 shrink-0" />
-  <select
-    class="absolute inset-0 size-full cursor-pointer opacity-0"
+<Select.Root type="single" bind:value onValueChange={handleChange}>
+  <SelectPrimitive.Trigger
+    type="button"
+    class="-ml-1 inline-flex h-8 min-w-0 items-center gap-1.5 rounded-sm px-1 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring {value
+      ? 'bg-primary/10 text-primary hover:bg-primary/15'
+      : 'hover:bg-muted hover:text-foreground'}"
     aria-label={filterLabel}
-    bind:value
-    onchange={handleChange}
   >
-    <option value="">{allLabel}</option>
+    <span class="max-w-32 truncate" title={value ? activeLabel : undefined}>
+      {value ? activeLabel : label}
+    </span>
+    <ListFilter aria-hidden="true" class="size-3.5 shrink-0" />
+  </SelectPrimitive.Trigger>
+  <Select.Content>
+    <Select.Item value="" label={allLabel}>{allLabel}</Select.Item>
     {#each options as option (option.value)}
-      <option value={option.value}>{option.label}</option>
+      <Select.Item value={option.value} label={option.label}>{option.label}</Select.Item>
     {/each}
-  </select>
-</label>
+  </Select.Content>
+</Select.Root>

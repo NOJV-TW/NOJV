@@ -1624,7 +1624,7 @@
   "members_empty": "No members match your filters.",
   "members_handlesHelp": "Enter the full username: NTNU 41247001s, NTU ntu_b11902001, NTUST ntust_b11215001, or a general username such as newcomer2026.\nPrefixes are not added automatically. Students using school usernames must verify their school account.",
   "members_handlesLabel": "Handles",
-  "members_hint": "No email will be sent and no join link is generated.",
+  "members_joinedLabel": "Joined",
   "members_joinedOn": "Joined {date}",
   "members_previewLabel": "Parsed ({count} handles)",
   "members_removeAction": "Remove member",
@@ -2409,6 +2409,5 @@
   "rejudge_cancel_requested": "Cancellation requested",
   "audit_detailScoreOverrideMerge": "Course records merged: {oldScore} → {newScore}",
   "members_addSuccess": "Added {added} members ({pending} new members awaiting activation, {skipped} skipped)",
-  "members_pendingActivation": "Not yet activated",
-  "members_pendingFooter": "Students who have not activated an account can still receive grades and feedback. Their records link automatically when they set the matching username or verify their school account."
+  "members_pendingActivation": "Not yet activated"
 }
