@@ -13,6 +13,7 @@
   import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
   import ProblemPicker from "$lib/components/features/course/exam/ProblemPicker.svelte";
   import type { FormMessage } from "$lib/types/form-message";
+  import { inputClassName } from "$lib/utils/css";
   import { toggleArrayItem } from "$lib/utils";
   import type { PageData } from "./$types";
 
@@ -132,37 +133,38 @@
             {m.assignmentCreate_scheduleTitle()} <span class="text-destructive">*</span>
           </h2>
         </div>
-        <div class="grid gap-5 md:grid-cols-3" data-tour="assignment-schedule">
-          <div>
-            <label class="text-body-sm font-medium" for="opensAt">
-              {m.assignmentCreate_opensLabel()}
-              <HelpTooltip text={m.assignmentCreate_opensHint()} />
-            </label>
-            <input
-              id="opensAt"
-              name="opensAt"
-              type="datetime-local"
-              bind:value={$form.opensAt}
-              class="mt-2 {inputClass}"
-            />
-            {#if scheduleError($errors.opensAt, "opensAt")}
-              <p class="mt-1 text-caption text-destructive">
-                {scheduleError($errors.opensAt, "opensAt")}
-              </p>
-            {/if}
-          </div>
-          <div class="md:col-span-2">
-            <LateSubmissionFields
-              bind:dueAt={$form.dueAt}
-              bind:finalAt={$form.closesAt}
-              bind:allowLateSubmissions={$form.allowLateSubmissions}
-              bind:latePenalty={$form.latePenalty}
-              finalName="closesAt"
-              dueErrors={$errors.dueAt}
-              finalErrors={$errors.closesAt}
-              penaltyInvalid={!!$errors.latePenalty}
-            />
-          </div>
+        <div data-tour="assignment-schedule">
+          <LateSubmissionFields
+            bind:dueAt={$form.dueAt}
+            bind:finalAt={$form.closesAt}
+            bind:allowLateSubmissions={$form.allowLateSubmissions}
+            bind:latePenalty={$form.latePenalty}
+            finalName="closesAt"
+            dueErrors={$errors.dueAt}
+            finalErrors={$errors.closesAt}
+            penaltyInvalid={!!$errors.latePenalty}
+          >
+            {#snippet startField()}
+              <div>
+                <label class="text-body-sm font-medium" for="opensAt">
+                  {m.assignmentCreate_opensLabel()}
+                  <HelpTooltip text={m.assignmentCreate_opensHint()} />
+                </label>
+                <input
+                  id="opensAt"
+                  name="opensAt"
+                  type="datetime-local"
+                  bind:value={$form.opensAt}
+                  class={inputClassName}
+                />
+                {#if scheduleError($errors.opensAt, "opensAt")}
+                  <p class="mt-1 text-caption text-destructive">
+                    {scheduleError($errors.opensAt, "opensAt")}
+                  </p>
+                {/if}
+              </div>
+            {/snippet}
+          </LateSubmissionFields>
         </div>
       </section>
 

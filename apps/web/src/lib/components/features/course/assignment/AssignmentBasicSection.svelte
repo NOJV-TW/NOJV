@@ -52,37 +52,36 @@
         disabled={!editableBasics}></textarea>
     </div>
 
-    <div class="grid gap-4 md:grid-cols-3">
-      <div>
-        <label class="text-sm font-medium" for="settings-opens">
-          {m.assignmentDetail_settingsOpensLabel()}
-        </label>
-        <input
-          id="settings-opens"
-          class={inputClassName}
-          type="datetime-local"
-          bind:value={$form.opensAt}
-          disabled={!editableOpensAt}
-        />
-        {#if $errors.opensAt}
-          <p class="mt-1 text-xs text-destructive">{$errors.opensAt}</p>
-        {/if}
-      </div>
-      <div class="md:col-span-2">
-        <LateSubmissionFields
-          bind:dueAt={$form.dueAt}
-          bind:finalAt={$form.closesAt}
-          bind:allowLateSubmissions={$form.allowLateSubmissions}
-          bind:latePenalty={$form.latePenalty}
-          finalName="closesAt"
-          dueErrors={$errors.dueAt}
-          finalErrors={$errors.closesAt}
-          penaltyInvalid={!!$errors.latePenalty}
-          editablePolicy={editableOpensAt}
-          editableDue={editableDeadlines}
-          editableEnd={editableDeadlines}
-        />
-      </div>
-    </div>
+    <LateSubmissionFields
+      bind:dueAt={$form.dueAt}
+      bind:finalAt={$form.closesAt}
+      bind:allowLateSubmissions={$form.allowLateSubmissions}
+      bind:latePenalty={$form.latePenalty}
+      finalName="closesAt"
+      dueErrors={$errors.dueAt}
+      finalErrors={$errors.closesAt}
+      penaltyInvalid={!!$errors.latePenalty}
+      editablePolicy={editableOpensAt}
+      editableDue={editableDeadlines}
+      editableEnd={editableDeadlines}
+    >
+      {#snippet startField()}
+        <div>
+          <label class="text-sm font-medium" for="settings-opens">
+            {m.assignmentDetail_settingsOpensLabel()}
+          </label>
+          <input
+            id="settings-opens"
+            class={inputClassName}
+            type="datetime-local"
+            bind:value={$form.opensAt}
+            disabled={!editableOpensAt}
+          />
+          {#if $errors.opensAt}
+            <p class="mt-1 text-xs text-destructive">{$errors.opensAt}</p>
+          {/if}
+        </div>
+      {/snippet}
+    </LateSubmissionFields>
   </div>
 </section>

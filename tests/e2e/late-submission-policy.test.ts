@@ -24,14 +24,16 @@ for (const kind of ["assignments", "exams"] as const) {
     await page.locator(finalSelector).fill("2030-01-04T09:00");
     await page.locator("#late-penalty-rule").selectOption("daily_late_penalty");
     await expect(page.getByText(/Each started 24-hour period counts as one day/)).toBeVisible();
-    await page.screenshot({ path: `output/late-policy-${kind}-desktop.png`, fullPage: true });
+    await page.locator("#late-penalty-rule").blur();
+    const schedule = page.locator('[data-slot="late-submission-fields"]');
+    await schedule.screenshot({ path: `output/late-policy-${kind}-desktop.png` });
     await page.setViewportSize({ width: 390, height: 844 });
     await expect
       .poll(() =>
         page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
       )
       .toBe(true);
-    await page.screenshot({ path: `output/late-policy-${kind}-mobile.png`, fullPage: true });
+    await schedule.screenshot({ path: `output/late-policy-${kind}-mobile.png` });
     await page.setViewportSize({ width: 1280, height: 900 });
     const createResponsePromise = page.waitForResponse(
       (response) => response.request().method() === "POST",

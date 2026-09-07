@@ -37,3 +37,9 @@
 - Test databases and Redis run on dedicated local containers (`127.0.0.1:55438` and `127.0.0.1:56388`); no production data was changed.
 - `pnpm test:e2e tests/e2e/late-submission-policy.test.ts --reporter=line --retries=0`: all 3 tests passed. Both assessment types persist daily/flat penalties and normalize disabled late collection after reload; a student can enter an exam during late collection and its final-deadline countdown continues ticking.
 - Integration/merge/deployment are outside this local implementation; retain this worktree for review.
+
+## Schedule layout revision
+
+The schedule now uses equal-width start/due fields, followed by a full-width allow-late row and aligned final-deadline/penalty controls. The percentage sits beside its penalty selector. Container queries stack the same reading order on narrow forms; existing policy locks and validation remain intact. All four assignment/exam create/settings surfaces share this composition.
+
+Validation: Svelte check (0 errors / 0 warnings), web lint, 4 component tests and 5 form-action tests passed. Live Traditional Chinese desktop/mobile views showed no horizontal overflow; light/dark screenshots and the layout detector were checked. E2E screenshot capture now targets the schedule itself so fixed navigation cannot obscure the design in full-page captures.

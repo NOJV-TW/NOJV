@@ -146,41 +146,40 @@
           </div>
         </header>
 
-        <div class="grid gap-5 md:grid-cols-3">
-          <div>
-            <label class="text-sm font-medium" for="startsAt">
-              {m.examCreate_startsLabel()}
-              <HelpTooltip text={m.assignmentCreate_opensHint()} />
-              <span class="text-destructive">*</span>
-            </label>
-            <input
-              id="startsAt"
-              class={inputClassName}
-              type="datetime-local"
-              bind:value={$form.startsAt}
-              aria-invalid={$errors.startsAt ? "true" : undefined}
-            />
-            {#if scheduleError($errors.startsAt, "startsAt")}
-              <p class="mt-1 text-xs text-destructive">
-                {scheduleError($errors.startsAt, "startsAt")}
-              </p>
-            {/if}
-          </div>
-          <div class="md:col-span-2">
-            <LateSubmissionFields
-              bind:dueAt={$form.dueAt}
-              bind:finalAt={$form.endsAt}
-              bind:allowLateSubmissions={$form.allowLateSubmissions}
-              bind:latePenalty={$form.latePenalty}
-              finalName="endsAt"
-              dueErrors={$errors.dueAt}
-              finalErrors={$errors.endsAt}
-              penaltyInvalid={!!$errors.latePenalty}
-              pointsBased={$form.scoringMode === "point_sum"}
-              exam
-            />
-          </div>
-        </div>
+        <LateSubmissionFields
+          bind:dueAt={$form.dueAt}
+          bind:finalAt={$form.endsAt}
+          bind:allowLateSubmissions={$form.allowLateSubmissions}
+          bind:latePenalty={$form.latePenalty}
+          finalName="endsAt"
+          dueErrors={$errors.dueAt}
+          finalErrors={$errors.endsAt}
+          penaltyInvalid={!!$errors.latePenalty}
+          pointsBased={$form.scoringMode === "point_sum"}
+          exam
+        >
+          {#snippet startField()}
+            <div>
+              <label class="text-sm font-medium" for="startsAt">
+                {m.examCreate_startsLabel()}
+                <HelpTooltip text={m.assignmentCreate_opensHint()} />
+                <span class="text-destructive">*</span>
+              </label>
+              <input
+                id="startsAt"
+                class={inputClassName}
+                type="datetime-local"
+                bind:value={$form.startsAt}
+                aria-invalid={$errors.startsAt ? "true" : undefined}
+              />
+              {#if scheduleError($errors.startsAt, "startsAt")}
+                <p class="mt-1 text-xs text-destructive">
+                  {scheduleError($errors.startsAt, "startsAt")}
+                </p>
+              {/if}
+            </div>
+          {/snippet}
+        </LateSubmissionFields>
       </section>
 
       <section class="border-t border-border-subtle pt-8">

@@ -3,7 +3,7 @@
   type LatePenaltyOptionKey = "none" | LatePenaltyRule["type"];
 
   import { m } from "$lib/paraglide/messages.js";
-  import { cn } from "$lib/utils/css.js";
+  import { inputClassName, cn } from "$lib/utils/css.js";
 
   interface Props {
     value: LatePenaltyRule | null;
@@ -75,12 +75,9 @@
       title: m.latePenalty_dailyTitle(),
     },
   ]);
-
-  const paramInputClass =
-    "w-[84px] rounded-sm border border-border bg-background px-2 py-1 text-right font-mono text-body-sm font-semibold tabular-nums focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30";
 </script>
 
-<div data-slot="late-penalty-rule-builder" class={cn("space-y-3", className)}>
+<div data-slot="late-penalty-rule-builder" class={cn("flex items-center gap-2", className)}>
   <select
     id={name}
     {name}
@@ -88,53 +85,29 @@
     aria-label={m.assignmentCreate_latePenaltyLabel()}
     value={selectedKey}
     onchange={(event) => handleSelect(event.currentTarget.value as LatePenaltyOptionKey)}
-    class="w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+    class={cn(inputClassName, "min-w-0 flex-1")}
   >
-    {#each options as option (option.key)}
-      <option value={option.key}>{option.title}</option>
-    {/each}
+    {#each options as option (option.key)}<option value={option.key}>{option.title}</option
+      >{/each}
   </select>
-
-  {#if selectedKey === "flat_late_penalty" && value?.type === "flat_late_penalty"}
-    <div
-      class="flex flex-wrap items-center gap-3 rounded-sm bg-[color:var(--color-panel-strong)] px-3.5 py-3"
-    >
-      <span class="text-caption text-muted-foreground">
-        {m.latePenalty_flatDeductLabel()}
-      </span>
+  {#if value}
+    <div class="flex shrink-0 items-center gap-1.5">
       <input
         {disabled}
         type="number"
         min="0"
         max="100"
-        value={value.penaltyPct}
-        oninput={(e) => updateFlatPct(e.currentTarget.value)}
-        class={paramInputClass}
-        aria-label={m.latePenalty_flatDeductLabel()}
+        value={value.type === "flat_late_penalty" ? value.penaltyPct : value.perDayPct}
+        oninput={(event) =>
+          value?.type === "flat_late_penalty"
+            ? updateFlatPct(event.currentTarget.value)
+            : updateDailyPct(event.currentTarget.value)}
+        class={cn(inputClassName, "w-20 tabular-nums")}
+        aria-label={value.type === "flat_late_penalty"
+          ? m.latePenalty_flatDeductLabel()
+          : m.latePenalty_dailyPerDayLabel()}
       />
-      <span class="text-caption">%</span>
+      <span class="mt-2 text-sm text-muted-foreground" aria-hidden="true">%</span>
     </div>
-  {:else if selectedKey === "daily_late_penalty" && value?.type === "daily_late_penalty"}
-    <div
-      class="flex flex-wrap items-center gap-3 rounded-sm bg-[color:var(--color-panel-strong)] px-3.5 py-3"
-    >
-      <span class="text-caption text-muted-foreground">
-        {m.latePenalty_dailyPerDayLabel()}
-      </span>
-      <input
-        {disabled}
-        type="number"
-        min="0"
-        max="100"
-        value={value.perDayPct}
-        oninput={(e) => updateDailyPct(e.currentTarget.value)}
-        class={paramInputClass}
-        aria-label={m.latePenalty_dailyPerDayLabel()}
-      />
-      <span class="text-caption">%</span>
-    </div>
-  {/if}
-  {#if value?.type === "daily_late_penalty"}
-    <p class="text-caption text-muted-foreground">{m.latePenalty_dailyHint()}</p>
   {/if}
 </div>
