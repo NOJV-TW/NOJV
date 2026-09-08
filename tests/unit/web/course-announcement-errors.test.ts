@@ -2,7 +2,7 @@
 
 import type { ActionResult, SubmitFunction } from "@sveltejs/kit";
 import { mount, tick, unmount } from "svelte";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import { m } from "$lib/paraglide/messages.js";
 
 const mocks = vi.hoisted(() => ({
@@ -55,15 +55,14 @@ const failure: ActionResult = {
   data: { error: "Internal server error." },
 };
 beforeEach(() => {
-  vi.useFakeTimers();
   mocks.forms.clear();
   vi.clearAllMocks();
 });
 
-afterEach(() => {
-  vi.runOnlyPendingTimers();
-  vi.useRealTimers();
-});
+async function unmountAndFlush(component: ReturnType<typeof mount>) {
+  await unmount(component);
+  await new Promise<void>((resolve) => setTimeout(resolve, 50));
+}
 
 async function respond(action: string, result = failure) {
   const handler = await mocks.forms.get(action)!({} as never);
@@ -102,7 +101,7 @@ it.each(["create", "edit"] as const)(
       );
       expect(boundary).toHaveBeenCalledOnce();
     } finally {
-      await unmount(component);
+      await unmountAndFlush(component);
       target.remove();
     }
   },
@@ -149,7 +148,7 @@ it.each(["togglePinAnnouncement", "deleteAnnouncement"])(
       });
       expect(boundary).toHaveBeenCalledOnce();
     } finally {
-      await unmount(component);
+      await unmountAndFlush(component);
       target.remove();
     }
   },
