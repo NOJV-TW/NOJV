@@ -59,6 +59,11 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
+async function unmountAndFlush(component: ReturnType<typeof mount>) {
+  await unmount(component);
+  await new Promise<void>((resolve) => setTimeout(resolve, 50));
+}
+
 async function respond(action: string, result = failure) {
   const handler = await mocks.forms.get(action)!({} as never);
   if (!handler) throw new Error("Expected an enhanced form callback");
@@ -96,7 +101,7 @@ it.each(["create", "edit"] as const)(
       );
       expect(boundary).toHaveBeenCalledOnce();
     } finally {
-      await unmount(component);
+      await unmountAndFlush(component);
       target.remove();
     }
   },
@@ -143,7 +148,7 @@ it.each(["togglePinAnnouncement", "deleteAnnouncement"])(
       });
       expect(boundary).toHaveBeenCalledOnce();
     } finally {
-      await unmount(component);
+      await unmountAndFlush(component);
       target.remove();
     }
   },

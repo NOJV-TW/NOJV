@@ -2,6 +2,7 @@ import type { RequestEvent } from "@sveltejs/kit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
+  changeEmailMock,
   formLimitMock,
   getAuthMock,
   linkSocialAccountMock,
@@ -19,11 +20,14 @@ const {
     "deletePasskey",
   ] as const;
   const linkSocialAccountMock = vi.fn();
+  const changeEmailMock = vi.fn();
   const unlinkAccountMock = vi.fn();
   return {
+    changeEmailMock,
     formLimitMock: vi.fn(),
     getAuthMock: vi.fn(() => ({
       api: {
+        changeEmail: changeEmailMock,
         linkSocialAccount: linkSocialAccountMock,
         listUserAccounts: vi.fn(),
         unlinkAccount: unlinkAccountMock,
@@ -75,6 +79,7 @@ const GUARDED_ACTIONS = [
   "deletePasskey",
   "link",
   "unlink",
+  "changeEmail",
 ] as const;
 
 function makeEvent(): RequestEvent {
@@ -99,6 +104,7 @@ beforeEach(() => {
     data: { error: "Rate limiter unavailable." },
   });
   getAuthMock.mockClear();
+  changeEmailMock.mockReset();
   linkSocialAccountMock.mockReset();
   requireAuthMock.mockReset();
   unlinkAccountMock.mockReset();
@@ -106,7 +112,7 @@ beforeEach(() => {
 });
 
 describe("settings action rate-limit composition", () => {
-  it("blocks every two-factor and connection action before any side effect", async () => {
+  it("blocks every security, connection, and email action before any side effect", async () => {
     for (const name of GUARDED_ACTIONS) {
       await expect(actions[name](makeEvent())).resolves.toMatchObject({ status: 503 });
     }
@@ -119,5 +125,6 @@ describe("settings action rate-limit composition", () => {
     expect(getAuthMock).not.toHaveBeenCalled();
     expect(linkSocialAccountMock).not.toHaveBeenCalled();
     expect(unlinkAccountMock).not.toHaveBeenCalled();
+    expect(changeEmailMock).not.toHaveBeenCalled();
   });
 });
