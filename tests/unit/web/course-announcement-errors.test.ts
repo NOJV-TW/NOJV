@@ -2,7 +2,7 @@
 
 import type { ActionResult, SubmitFunction } from "@sveltejs/kit";
 import { mount, tick, unmount } from "svelte";
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { m } from "$lib/paraglide/messages.js";
 
 const mocks = vi.hoisted(() => ({
@@ -55,8 +55,14 @@ const failure: ActionResult = {
   data: { error: "Internal server error." },
 };
 beforeEach(() => {
+  vi.useFakeTimers();
   mocks.forms.clear();
   vi.clearAllMocks();
+});
+
+afterEach(() => {
+  vi.runOnlyPendingTimers();
+  vi.useRealTimers();
 });
 
 async function respond(action: string, result = failure) {
