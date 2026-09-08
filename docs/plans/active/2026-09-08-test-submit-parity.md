@@ -48,7 +48,7 @@ The code fixes remain on codex/test-submit-parity and require application releas
 
 [wasm-oj/forge PR #78](https://github.com/wasm-oj/forge/pull/78) fixes the shared WASI fd_fdstat_get import, which incorrectly described redirected stdio as CharacterDevice. CPython selected its interactive input branch and stripped the final byte at EOF. The adapter reports Unknown (WASI has no FIFO type) while preserving errno, rights, flags, and non-stdio metadata.
 
-Removed the proposed server-routing gates from this NOJV branch. Standard Test remains browser-local for all eight supported languages, with exact stdin bytes. The upstream runtime fix still needs to be merged and released before NOJV can consume a published dependency update; no application deployment was performed.
+Removed the proposed server-routing gates from this NOJV branch. Standard Test remains browser-local for all eight supported languages, with exact stdin bytes. The upstream fix was merged and published in @wasm-oj/browser 0.2.1. This branch pins that release and its matching core/contracts dependencies; independently versioned toolchain assets remain at 0.1.0. No application deployment has been performed yet.
 
 Validation of upstream commit 98cad7b: 84 Rust runtime/CLI tests, 12 conformance unit tests, WASM runtime and 13 package builds, and actual Chromium execution of all eight languages plus two EOF/raw-stdin cases (10 cases, twice each) passed. Browser probes for abc, one character, Unicode, empty stdin, and final LF passed. The reported C loop matches native results on six LF/EOF variants. NOJV after removing the gates: 31 browser-service tests, test typecheck, changed-source lint, and whitespace checks passed.
 
@@ -62,4 +62,10 @@ DOMjudge reference source 3a45e072c846f9862e729854082ed493535a4db4 was checked d
 
 The upstream corpus contains 112 cases (14 per language), checked against actual browser results. Java coverage uses BufferedReader.readLine, which matched Linux for all 14 inputs; it does not cover the failing raw/Scanner APIs. QuickJS uses its supported std.in.readAsString API rather than Node fs. Comparator regressions also cover 2^100 hex conversion, native-range overflow, and bounded conversion of a 100,000-digit hex token. Extreme long-double rounding boundaries remain platform-dependent.
 
-Local evidence: output/io-parity under this worktree (validator cases/results and full unit log) and the forge-python-stdin worktree (matrix, native/browser results, differences, probes). After rebasing onto main 02df37ef and refreshing dependencies, the NOJV full unit suite passes: 343 files, 2,969 tests. Published-dependency adoption and production deployment remain outstanding; Java/Node API compatibility is not claimed.
+Local evidence: output/io-parity under this worktree (validator cases/results and full unit log) and the forge-python-stdin worktree (matrix, native/browser results, differences, probes). After rebasing onto main 02df37ef and refreshing dependencies, the NOJV full unit suite passes: 343 files, 2,969 tests. Published-dependency adoption is complete; production deployment remains outstanding. Java/Node API compatibility is not claimed.
+
+## Published 0.2.1 adoption
+
+Pinned the released npm browser package and verified its runtime WASM SHA-256 as e4c7fca566ff5ba66931e0cf11cacbf37610d35c36d5f3ee97d719468a2f6466. Toolchain packages remain at 0.1.0 per the upstream release contract. Exact-version release-age exceptions cover the verified new browser/core/contracts packages.
+
+On main 7f6f41d9, actual Chromium execution through NOJV runBrowserLocally passed all 114 stdin/EOF corpus cases with exact stdout checks and all 18 original production C sample/testcase snapshots with stdout identical to the recorded native runs. Local build, package/type/test checks, lint, tracked-file formatting, 3,132 unit tests and 55 component tests pass. Full-directory formatting also sees untracked local evidence; it is excluded from the tracked-file check and is not committed. Production remains v1.1.0 pending PR review, CI, merge and the release gate.
