@@ -18,6 +18,7 @@ import {
   securityGenerationProof,
 } from "@nojv/application";
 import { prismaAdapterClient as prisma } from "@nojv/db";
+import { getMailer, renderEmail } from "@nojv/mailer";
 import { getWebEnv } from "$lib/server/env";
 import {
   consumeInternalFactorMutationAuthority,
@@ -105,6 +106,38 @@ function buildSocialProviders(env: ReturnType<typeof getWebEnv>) {
   };
 }
 
+async function sendEmailVerificationMessage({
+  to,
+  url,
+  subject,
+  heading,
+  intro,
+  actionLabel,
+  outro,
+}: {
+  to: string;
+  url: string;
+  subject: string;
+  heading: string;
+  intro: string;
+  actionLabel: string;
+  outro: string;
+}): Promise<void> {
+  const delivery = await getMailer().sendEmail({
+    to,
+    subject,
+    html: renderEmail({
+      heading,
+      intro,
+      action: { url, label: actionLabel },
+      outro,
+    }),
+  });
+  if (delivery === "suppressed") {
+    throw new Error("Email delivery is unavailable.");
+  }
+}
+
 function createAuth() {
   const env = getWebEnv();
   const isProduction = env.NODE_ENV === "production";
@@ -128,8 +161,40 @@ function createAuth() {
         verify: async ({ hash, password }) => bcrypt.compare(password, hash),
       },
     },
+    emailVerification: {
+      expiresIn: 30 * 60,
+      sendVerificationEmail: async ({ user, url }) => {
+        await sendEmailVerificationMessage({
+          to: user.email,
+          url,
+          subject: "NOJV 電子郵件驗證 · Verify your email",
+          heading: "驗證電子郵件 · Verify your email",
+          intro:
+            "請點擊下方按鈕完成電子郵件驗證。<br>Click the button below to verify your email address.",
+          actionLabel: "驗證電子郵件 · Verify email",
+          outro:
+            "此連結將在 30 分鐘後失效。若你沒有提出變更，請忽略這封信。<br>This link expires in 30 minutes. If you did not request this change, you can ignore this email.",
+        });
+      },
+    },
     socialProviders: buildSocialProviders(env),
     user: {
+      changeEmail: {
+        enabled: true,
+        updateEmailWithoutVerification: false,
+        sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
+          await sendEmailVerificationMessage({
+            to: user.email,
+            url,
+            subject: "NOJV 信箱變更確認 · Confirm email change",
+            heading: "確認信箱變更 · Confirm email change",
+            intro: `有人要求將你的 NOJV 信箱變更為 <strong>${newEmail}</strong>。請先確認這項要求。<br>Someone requested to change your NOJV email address to <strong>${newEmail}</strong>. Confirm this request first.`,
+            actionLabel: "確認變更 · Confirm change",
+            outro:
+              "確認後，系統會再寄一封驗證信到新信箱。若你沒有提出變更，請忽略這封信。<br>After confirmation, we will send a verification email to the new address. If you did not request this change, ignore this email.",
+          });
+        },
+      },
       additionalFields: {
         disabled: { type: "boolean", defaultValue: false, input: false },
         platformRole: { type: "string", defaultValue: "student", input: false },

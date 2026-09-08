@@ -18,6 +18,7 @@ import { withRateLimit, withRateLimitActions } from "$lib/server/shared/action-h
 import type { FormMessage } from "$lib/types/form-message";
 
 import type { Actions, PageServerLoad } from "./$types";
+import { changeEmailSchema } from "./email-schema";
 import { loadTwoFactor, twoFactorActions } from "./two-factor-actions";
 
 function formString(formData: FormData, name: string): string {
@@ -43,6 +44,7 @@ export const load: PageServerLoad = async (event) => {
 
   const prefs = await notificationDomain.getNotificationPreferences(locals.user.id);
   const notificationForm = await superValidate(prefs, zod4(notificationPreferencesSchema));
+  const emailForm = await superValidate({ newEmail: "" }, zod4(changeEmailSchema));
 
   const twoFactor = await loadTwoFactor(event);
   const linkedProviderIds = sessionUser?.isSuperAdmin ? [] : await listProviderIds(event);
@@ -50,6 +52,7 @@ export const load: PageServerLoad = async (event) => {
   return {
     platformRole,
     notificationForm,
+    emailForm,
     email: locals.user.email,
     isSchoolVerified,
     providers: sessionUser?.isSuperAdmin
@@ -64,6 +67,35 @@ export const load: PageServerLoad = async (event) => {
 
 export const actions = {
   ...withRateLimitActions(twoFactorActions),
+
+  changeEmail: withRateLimit(async (event) => {
+    requireAuth(event);
+    const form = await superValidate(event, zod4(changeEmailSchema));
+    if (!form.valid) {
+      return fail(400, { form });
+    }
+
+    try {
+      await getAuth().api.changeEmail({
+        body: {
+          newEmail: form.data.newEmail,
+          callbackURL: "/settings",
+        },
+        headers: event.request.headers,
+      });
+    } catch {
+      return message<FormMessage>(
+        form,
+        { kind: "error", text: "account_emailChange_failed" },
+        { status: 400 },
+      );
+    }
+
+    return message<FormMessage>(form, {
+      kind: "success",
+      text: "account_emailChange_verificationSent",
+    });
+  }),
 
   sendVerification: handleSendVerificationAction,
 
