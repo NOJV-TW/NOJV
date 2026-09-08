@@ -22,8 +22,8 @@ import { changeEmailSchema } from "./email-schema";
 import { loadTwoFactor, twoFactorActions } from "./two-factor-actions";
 
 const emailVerificationErrors = {
-  INVALID_TOKEN: "invalidToken",
-  TOKEN_EXPIRED: "tokenExpired",
+  "Invalid token": "invalidToken",
+  "Token expired": "tokenExpired",
 } as const;
 
 type EmailVerificationError =

@@ -141,8 +141,8 @@ describe("settings email change action", () => {
 
 describe("settings email verification callback", () => {
   it.each([
-    ["INVALID_TOKEN", "invalidToken"],
-    ["TOKEN_EXPIRED", "tokenExpired"],
+    ["Invalid token", "invalidToken"],
+    ["Token expired", "tokenExpired"],
   ])("exposes %s as a localized callback error", async (error, expected) => {
     const event = {
       locals: {
