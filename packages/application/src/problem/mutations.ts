@@ -30,6 +30,7 @@ import {
   advancedJudgeVerificationSnapshotSchema,
   requiredPathsSchema,
   userHandleSchema,
+  submissionResultVerdicts,
 } from "@nojv/core";
 
 import {
@@ -126,6 +127,7 @@ export async function deleteProblemRecord(actor: ProblemActorContext, problemId:
     if (problem.status !== "draft") {
       throw new ConflictError("Only draft problems can be deleted.");
     }
+    await tx.$queryRaw`SELECT id FROM "Submission" WHERE "problemId" = ${problemId} ORDER BY id FOR UPDATE`;
     const linked = await tx.problem.findFirst({
       where: {
         id: problemId,
@@ -134,7 +136,22 @@ export async function deleteProblemRecord(actor: ProblemActorContext, problemId:
           { examLinks: { some: {} } },
           { assessmentLinks: { some: {} } },
           { courseLinks: { some: {} } },
-          { submissions: { some: {} } },
+          {
+            submissions: {
+              some: {
+                NOT: {
+                  isReferenceSolution: true,
+                  sampleOnly: false,
+                  status: { in: [...submissionResultVerdicts] },
+                  courseId: null,
+                  assessmentId: null,
+                  examId: null,
+                  contestId: null,
+                  participationId: null,
+                },
+              },
+            },
+          },
           { posts: { some: {} } },
           { scoreOverrides: { some: {} } },
           { submissionFeedback: { some: {} } },
@@ -160,7 +177,18 @@ export async function deleteProblemRecord(actor: ProblemActorContext, problemId:
     if (scoreAudit || feedbackAudit) {
       throw new ConflictError("Problems with historical grading records cannot be deleted.");
     }
-    const removed = problemStoragePointers(problem);
+    const references = await tx.submission.findMany({
+      where: { problemId },
+      select: { sourceStorage: true, verdictDetailStorage: true },
+    });
+    const removed = [
+      ...problemStoragePointers(problem),
+      ...references.flatMap(({ sourceStorage, verdictDetailStorage }) =>
+        [sourceStorage, verdictDetailStorage]
+          .filter((pointer) => pointer !== null)
+          .map(assertStorageObjectPointer),
+      ),
+    ];
     const deleted = await tx.problem.delete({ where: { id: problemId } });
     await commitStoragePointerSwap(tx, { added: [], removed });
     return deleted;

@@ -135,7 +135,7 @@ vi.mock("@nojv/db", () => {
           findFirst: problemFindLinked,
           delete: problemDelete,
         },
-        submission: { findUnique: submissionFindUnique },
+        submission: { findUnique: submissionFindUnique, findMany: submissionFindMany },
         scoreOverrideAuditLog: { findFirst: scoreAuditFind },
         submissionFeedbackAuditLog: { findFirst: feedbackAuditFind },
       }),
@@ -581,6 +581,7 @@ describe("deleteProblemRecord — context-link guard (P1)", () => {
     vi.clearAllMocks();
     problemFindById.mockResolvedValue(ownedProblem);
     problemDelete.mockResolvedValue(ownedProblem);
+    submissionFindMany.mockResolvedValue([]);
     scoreAuditFind.mockResolvedValue(null);
     feedbackAuditFind.mockResolvedValue(null);
   });

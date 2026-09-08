@@ -121,12 +121,11 @@
     isDeleting = true;
     const problemId = deletingProblemId;
     try {
-      const fd = new FormData();
-      const res = await fetch(`/problems/${problemId}/edit?/deleteProblem`, {
-        method: "POST",
-        body: fd,
-      });
-      if (!res.ok) throw new Error(m.problems_deleteFailed());
+      const res = await fetchWithCsrf(`/api/problems/${problemId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(body?.message ?? m.problems_deleteFailed());
+      }
       await invalidateAll();
     } catch (e) {
       toasts.error(e instanceof Error ? e.message : m.problems_deleteFailed());
