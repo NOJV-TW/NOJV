@@ -23,6 +23,7 @@
   import BreadcrumbBackLink from "$lib/components/primitives/layout/BreadcrumbBackLink.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { toasts } from "$lib/stores/toast";
+  import { fetchWithCsrf } from "$lib/services/http";
 
   let { data } = $props();
 
@@ -170,28 +171,24 @@
     }
   }
 
-  function handleDeleteConfirmed() {
+  async function handleDeleteConfirmed() {
+    if (isDeleting) return;
     showDeleteConfirm = false;
     isDeleting = true;
-    const fd = new FormData();
-    fetch(`?/deleteProblem`, { method: "POST", body: fd, redirect: "follow" })
-      .then(async (res) => {
-        if (res.ok) {
-          window.location.href = "/problems?tab=mine";
-          return;
-        }
-        const result = deserialize(await res.text());
-        toasts.error(
-          result.type === "failure" && typeof result.data?.error === "string"
-            ? result.data.error
-            : m.error_unexpected(),
-        );
-        isDeleting = false;
-      })
-      .catch(() => {
-        toasts.error(m.error_unexpected());
-        isDeleting = false;
+    try {
+      const res = await fetchWithCsrf(`/api/problems/${data.problem.id}`, {
+        method: "DELETE",
       });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(body?.message ?? m.problems_deleteFailed());
+      }
+      await goto("/problems?tab=mine");
+    } catch (e) {
+      toasts.error(e instanceof Error ? e.message : m.problems_deleteFailed());
+    } finally {
+      isDeleting = false;
+    }
   }
 
   function handlePublishConfirmed() {
