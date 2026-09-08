@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   browserLocalFiles,
   browserLocalErrorResult,
-  browserLocalStdin,
   browserLocalTerminationFeedback,
   browserLocalTerminationVerdict,
   mapBrowserLocalRunResult,
@@ -55,6 +54,14 @@ describe("browser local run result mapping", () => {
     "accepts %s for browser local runs",
     (language) => {
       expect(supportsBrowserLocalRun(language)).toBe(true);
+      expect(
+        shouldUseBrowserLocalRun({
+          sampleOnly: true,
+          specialEnv: false,
+          judgeType: "standard",
+          language,
+        }),
+      ).toBe(true);
     },
   );
 
@@ -146,12 +153,6 @@ describe("browser local run result mapping", () => {
     });
   });
 
-  it("terminates non-empty Python input with a newline", () => {
-    expect(browserLocalStdin("python", "1 2")).toBe("1 2\n");
-    expect(browserLocalStdin("python", "1 2\n")).toBe("1 2\n");
-    expect(browserLocalStdin("cpp", "1 2")).toBe("1 2");
-  });
-
   it("maps resource termination to NOJV verdicts", () => {
     expect(browserLocalTerminationVerdict("logical-time-limit", 0)).toBe("TLE");
     expect(browserLocalTerminationVerdict("wall-time-limit", 0)).toBe("TLE");
@@ -220,10 +221,10 @@ describe("browser local run result mapping", () => {
     expect(result).toMatchObject({ verdict: "RE", stderr: "unreachable executed" });
   });
 
-  it("keeps browser compiler errors visible to local testers", () => {
+  it("reports browser engine failures as system errors", () => {
     expect(browserLocalErrorResult(new Error("entry not found"))).toMatchObject({
-      verdict: "compile_error",
-      feedback: "Browser local compilation failed.\nentry not found",
+      verdict: "system_error",
+      feedback: "Browser local execution failed.\nentry not found",
     });
   });
 
@@ -235,8 +236,8 @@ describe("browser local run result mapping", () => {
         problemId: "problem_1",
         sourceCode: "print(1)",
       },
-      cases: [],
-      compare: null,
+      cases: [{ input: "1" }],
+      judgeConfig: { type: "standard" },
       problemId: "problem_1",
       timeLimitMs: 1_000,
       memoryLimitMb: 16,
@@ -244,7 +245,7 @@ describe("browser local run result mapping", () => {
     });
 
     expect(result).toMatchObject({
-      verdict: "compile_error",
+      verdict: "system_error",
     });
     expect(result?.feedback).toContain("A module Worker requires a browser base URL.");
   });

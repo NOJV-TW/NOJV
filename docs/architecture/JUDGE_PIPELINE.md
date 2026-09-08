@@ -10,6 +10,24 @@ does not create a submission, does not enter Temporal, and is not trusted for
 official scoring. The editor prewarms one shared browser engine and shows only
 `初始化中...` while it is preparing and `測試中...` while a local run is active.
 
+Browser and server runs preserve exact stdin bytes, including empty input,
+missing final LF, CRLF, whitespace, and trailing blank lines. Samples are problem
+data: their input must reflect the intended format, including any final newline.
+Neither execution path silently repairs a program's EOF handling by appending data.
+Custom sample runs without an expected answer report execution success;
+missing expected answers in official testcases remain a system error.
+
+Browser runs honor `judgeConfig.runtime` limits and environment variables, using
+problem limits when no runtime override exists. Standard browser Test stays local
+for all supported languages, including Python input without a final newline.
+The browser never receives hidden file contents.
+
+Browser results remain a preview: WASI toolchains, logical time, linear memory,
+output/filesystem caps, and platform APIs differ from native compilation and
+CPU/cgroup accounting. Identical inputs and comparison settings do not guarantee
+identical verdicts for platform-dependent programs or resource-limit boundaries.
+Passing samples also does not imply passing hidden official tests.
+
 Official **Submit** always uses the server pipeline below. Checker, interactive,
 Advanced Mode, and other special environments also remain server-side.
 
@@ -86,9 +104,9 @@ the container that runs untrusted student code never mounts the expected answers
 or the validator source. Only the worker (or a second isolated container that
 holds no student code) makes the AC/WA decision.
 
-- **`standard`** — token-based comparison matching the DOMjudge/ICPC default output validator, in `packages/core/src/judge/compare.ts` (`compareStandard`). Both sides are split on any run of whitespace (spaces, tabs, **and newlines**), and the resulting token lists must match element-for-element. Whitespace amount and line structure are therefore always irrelevant (`"1 2"` = `"1  2"` = `"1\n2"`); this is hard-wired and not configurable. Two per-problem knobs, set by the problem author and stored in `judgeConfig.compare`, refine token matching:
-  - `caseSensitive` (default `true`) — when `false`, tokens compare case-insensitively. Note: NOJV defaults to **strict** case matching, the opposite of DOMjudge's default validator (case-insensitive); authors who want DOMjudge-equivalent leniency must set this `false` per problem.
-  - `floatTolerance` (default unset = exact) — when set to ε, two numeric tokens match if they are within absolute **or** relative error ε (the DOMjudge `float_tolerance` shorthand). Non-numeric tokens always compare exactly.
+- **`standard`** — token-based comparison matching the DOMjudge/ICPC default output validator, in `packages/core/src/judge/compare.ts` (`compareStandard`). Both sides are split on runs of ASCII whitespace (space, tab, CR/LF, vertical tab, and form feed), and the resulting token lists must match element-for-element. Whitespace amount and line structure are therefore always irrelevant (`"1 2"` = `"1  2"` = `"1\n2"`); this is hard-wired and not configurable. Two per-problem knobs, set by the problem author and stored in `judgeConfig.compare`, refine token matching:
+  - `caseSensitive` (default `true`) — when `false`, ASCII letters compare case-insensitively; Unicode letters are preserved. Note: NOJV defaults to **strict** case matching, the opposite of DOMjudge's default validator (case-insensitive); authors who want DOMjudge-equivalent leniency must set this `false` per problem.
+  - `floatTolerance` (default unset = exact) — when set to ε, two numeric tokens match if they are within absolute **or** relative error ε (the DOMjudge `float_tolerance` shorthand). Decimal and hexadecimal float tokens use 40-digit decimal arithmetic to avoid losing 64-bit integer distinctions through JavaScript Number. NaN matches NaN; infinities must have the same sign. Text tokens follow the configured case rule. This does not promise bit-identical rounding at every platform-specific native long-double boundary.
 
   The run container only emits each case's raw stdout/stderr/exit (`rawRuns`); the worker performs the comparison against the answer it holds, so `judgeConfig.compare` only needs to reach the worker. Anything token comparison cannot express (multiple valid answers, structural checks, etc.) must be implemented as a **checker**.
 

@@ -76,4 +76,23 @@ describe("compareStandard — token-based (DOMjudge default semantics)", () => {
       expect(compareStandard("abc", "abd", { floatTolerance: 1e-6 })).toBe(false);
     });
   });
+  it.each([
+    ["1\u00a02", "1 2", {}, false],
+    ["\ufeffYES", "YES", {}, false],
+    ["Ä", "ä", { caseSensitive: false }, false],
+    ["9007199254740993", "9007199254740992", { floatTolerance: 1e-18 }, false],
+    ["nan", "NaN", { floatTolerance: 1e-6 }, true],
+    ["inf", "Infinity", { floatTolerance: 1e-6 }, true],
+    ["-inf", "Infinity", { floatTolerance: 1e-6 }, false],
+    ["0b10", "2", { floatTolerance: 1e-6 }, false],
+    ["0x1p2", "4", { floatTolerance: 1e-6 }, true],
+    ["0x1p100", "1267650600228229401496703205376", { floatTolerance: 1e-25 }, true],
+    ["1e5000", "inf", { floatTolerance: 1e-6 }, true],
+    ["0x" + "f".repeat(100_000), "inf", { floatTolerance: 1e-6 }, true],
+  ] as const)(
+    "matches DOMjudge token boundary %j / %j",
+    (actual, expected, options, accepted) => {
+      expect(compareStandard(actual, expected, options)).toBe(accepted);
+    },
+  );
 });

@@ -44,7 +44,7 @@ export function resolveStandardResults(
   testcases: SandboxTestcase[],
   compare?: CompareConfig,
 ): SandboxTestcaseResult[] {
-  const expectedByIndex = new Map(testcases.map((tc) => [tc.index, tc.output]));
+  const testcaseByIndex = new Map(testcases.map((tc) => [tc.index, tc]));
 
   return rawRuns.map((run) => {
     const base = {
@@ -65,7 +65,9 @@ export function resolveStandardResults(
       };
     }
 
-    const expected = expectedByIndex.get(run.index);
+    const testcase = testcaseByIndex.get(run.index);
+    const expected = testcase?.output;
+    if (expected === undefined && testcase?.isSample) return { ...base, verdict: "AC" };
     if (expected === undefined) {
       return {
         ...base,

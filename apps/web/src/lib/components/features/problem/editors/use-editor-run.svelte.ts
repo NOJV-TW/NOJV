@@ -106,7 +106,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       const result = await runBrowserLocally({
         request,
         cases: runCases ?? [],
-        compare: args.judgeConfig().compare,
+        judgeConfig: args.judgeConfig(),
         problemId: args.problemId,
         timeLimitMs: args.timeLimitMs,
         memoryLimitMb: args.memoryLimitMb,
