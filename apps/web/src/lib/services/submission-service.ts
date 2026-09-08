@@ -1,5 +1,7 @@
 import {
   apiErrorSchema,
+  MAX_SUBMISSION_BODY_BYTES,
+  submissionDraftSchema,
   submissionDispatchResponseSchema,
   submissionOperationSchema,
   submissionResultSchema,
@@ -73,7 +75,6 @@ export function buildSubmissionBody(request: SubmissionRequest): Record<string, 
   if (request.sourceFiles && request.sourceFiles.length > 0) {
     return {
       ...commonFields,
-      sourceCode: request.sourceCode,
       sourceFiles: request.sourceFiles,
     };
   }
@@ -82,6 +83,21 @@ export function buildSubmissionBody(request: SubmissionRequest): Record<string, 
     ...commonFields,
     sourceCode: request.sourceCode,
   };
+}
+
+export function submissionRequestValidationError(
+  request: SubmissionRequest,
+): "invalid_source" | "invalid_run_cases" | "request_too_large" | null {
+  const body = buildSubmissionBody(request);
+  const parsed = submissionDraftSchema.safeParse(body);
+  if (!parsed.success) {
+    return parsed.error.issues.some((issue) => issue.path[0] === "runCases")
+      ? "invalid_run_cases"
+      : "invalid_source";
+  }
+  return new TextEncoder().encode(JSON.stringify(body)).byteLength > MAX_SUBMISSION_BODY_BYTES
+    ? "request_too_large"
+    : null;
 }
 
 type SubmissionOperation = ReturnType<typeof submissionOperationSchema.parse>;
@@ -118,7 +134,6 @@ async function postSubmission(
 async function pollOnce(
   pollUrl: string,
   signal?: AbortSignal,
-  deadlineMs = Number.POSITIVE_INFINITY,
 ): Promise<SubmissionOperation | null> {
   const pollInit: RequestInit = { cache: "no-store" };
   if (signal) pollInit.signal = signal;
@@ -130,13 +145,7 @@ async function pollOnce(
       poll = await fetch(pollUrl, pollInit);
     } catch {
       if (signal?.aborted) return null;
-      const remainingMs = deadlineMs - Date.now();
-      if (
-        remainingMs <= 0 ||
-        !(await waitForDelay(Math.min(retryDelay, remainingMs), signal))
-      ) {
-        return null;
-      }
+      if (!(await waitForDelay(retryDelay, signal))) return null;
       retryDelay = Math.min(retryDelay * 2, MAX_NETWORK_RETRY_DELAY_MS);
     }
   }
@@ -157,43 +166,50 @@ export async function executeSubmission(
   request: SubmissionRequest,
   options: ExecuteSubmissionOptions = {},
 ): Promise<SubmissionResult | null> {
-  const { signal, timeoutMs = DEFAULT_TIMEOUT_MS, onDispatched, onOperationUpdate } = options;
-
-  const body = buildSubmissionBody(request);
-
-  const dispatch = await postSubmission(body, signal);
-  if (!dispatch) return null;
-
-  onDispatched?.(dispatch);
-
-  const verdictSignal = createVerdictSignal(dispatch.submissionId);
+  const { timeoutMs = DEFAULT_TIMEOUT_MS, onDispatched, onOperationUpdate } = options;
+  const deadline = new AbortController();
+  const signal = options.signal
+    ? AbortSignal.any([options.signal, deadline.signal])
+    : deadline.signal;
+  const timer = setTimeout(
+    () =>
+      deadline.abort(
+        new SubmissionRequestError("Submission timed out.", "SUBMISSION_TIMEOUT", null),
+      ),
+    timeoutMs,
+  );
+  let verdictSignal: VerdictSignal | undefined;
 
   try {
-    const startedAt = Date.now();
+    if (signal.aborted) return null;
+    const dispatch = await postSubmission(buildSubmissionBody(request), signal);
+    signal.throwIfAborted();
+    if (!dispatch) return null;
+    onDispatched?.(dispatch);
+    verdictSignal = createVerdictSignal(dispatch.submissionId);
     let pollDelay = INITIAL_POLL_DELAY_MS;
 
-    while (Date.now() - startedAt < timeoutMs) {
-      if (signal?.aborted) return null;
-
-      const operation = await pollOnce(dispatch.pollUrl, signal, startedAt + timeoutMs);
+    for (;;) {
+      signal.throwIfAborted();
+      const operation = await pollOnce(dispatch.pollUrl, signal);
+      signal.throwIfAborted();
       if (!operation) return null;
-
       onOperationUpdate?.(operation);
-
-      if (operation.result) {
-        return submissionResultSchema.parse(operation.result);
-      }
+      if (operation.result) return submissionResultSchema.parse(operation.result);
 
       const wokeEarly = await waitForPollTick(pollDelay, verdictSignal.promise, signal);
-      if (signal?.aborted) return null;
+      if (wokeEarly) verdictSignal.reset();
       pollDelay = wokeEarly
         ? INITIAL_POLL_DELAY_MS
         : Math.min(pollDelay * POLL_BACKOFF_FACTOR, MAX_POLL_DELAY_MS);
     }
-
-    return null;
+  } catch (error) {
+    if (options.signal?.aborted) return null;
+    if (deadline.signal.aborted) throw deadline.signal.reason;
+    throw error;
   } finally {
-    verdictSignal.dispose();
+    clearTimeout(timer);
+    verdictSignal?.dispose();
   }
 }
 
@@ -220,20 +236,23 @@ function waitForDelay(ms: number, signal?: AbortSignal): Promise<boolean> {
 interface VerdictSignal {
   promise: Promise<void>;
   dispose: () => void;
+  reset: () => void;
 }
 
 function createVerdictSignal(submissionId: string): VerdictSignal {
   let resolve!: () => void;
-  const promise = new Promise<void>((res) => {
-    resolve = res;
-  });
-  const unsubscribe = watchSubmissionVerdict(submissionId, () => {
-    resolve();
-  });
-  return {
-    promise,
-    dispose: unsubscribe,
+  const nextPromise = () =>
+    new Promise<void>((res) => {
+      resolve = res;
+    });
+  const state: VerdictSignal = {
+    promise: nextPromise(),
+    dispose: watchSubmissionVerdict(submissionId, () => resolve()),
+    reset: () => {
+      state.promise = nextPromise();
+    },
   };
+  return state;
 }
 
 async function waitForPollTick(
@@ -241,23 +260,16 @@ async function waitForPollTick(
   verdictPromise: Promise<void>,
   signal?: AbortSignal,
 ): Promise<boolean> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeoutPromise = new Promise<boolean>((resolve) => {
-    if (signal?.aborted) {
-      resolve(false);
-      return;
-    }
-    timer = setTimeout(() => {
-      signal?.removeEventListener("abort", onAbort);
-      resolve(false);
-    }, ms);
-    const onAbort = () => {
-      if (timer) clearTimeout(timer);
-      resolve(false);
-    };
-    signal?.addEventListener("abort", onAbort, { once: true });
-  });
-  const result = await Promise.race([timeoutPromise, verdictPromise.then(() => true)]);
-  if (timer) clearTimeout(timer);
-  return result;
+  const cancelDelay = new AbortController();
+  const delaySignal = signal
+    ? AbortSignal.any([signal, cancelDelay.signal])
+    : cancelDelay.signal;
+  try {
+    return await Promise.race([
+      waitForDelay(ms, delaySignal).then(() => false),
+      verdictPromise.then(() => true),
+    ]);
+  } finally {
+    cancelDelay.abort();
+  }
 }

@@ -14,22 +14,51 @@ Browser and server runs preserve exact stdin bytes, including empty input,
 missing final LF, CRLF, whitespace, and trailing blank lines. Samples are problem
 data: their input must reflect the intended format, including any final newline.
 Neither execution path silently repairs a program's EOF handling by appending data.
-Custom sample runs without an expected answer report execution success;
+Custom sample runs without an expected answer report execution success. The server
+checker API follows the same absent-answer rule. An explicit empty answer still enables comparison;
 missing expected answers in official testcases remain a system error.
 
 Browser runs honor `judgeConfig.runtime` limits and environment variables, using
 problem limits when no runtime override exists. Standard browser Test stays local
 for all supported languages, including Python input without a final newline.
-The browser never receives hidden file contents.
+The Test controller never dispatches a server workflow. Custom images and private
+checker/interactor programs require public browser-compatible Test assets; until
+those are available, the controller reports the missing capability. The browser
+never receives hidden file contents. Browser source assembly and the worker share
+workspace merge rules; only editable student files count toward the submission
+body limit, and public teacher files are added locally afterward.
 
-Browser results remain a preview: WASI toolchains, logical time, linear memory,
-output/filesystem caps, and platform APIs differ from native compilation and
-CPU/cgroup accounting. Identical inputs and comparison settings do not guarantee
+Browser and native standard runs share a 16 MiB combined stdout/stderr execution
+limit. Exceeding it stops the solution with RE; validator overflow is SE. This
+limit is independent of the smaller result-display limits. Docker protocol capture
+allows JSON escaping of both compiler diagnostic streams plus envelope metadata.
+Browser and native standard runs use the same 2× effective time limit as their
+wall-clock ceiling. Standard/checker
+prepare containers use a separate 256 MiB compiler scratch directory and at least
+512 MiB memory, so cold compilation does not consume the solution's smaller
+scratch or memory budget. Checker execution mounts its prepared artifact read-only
+and retains the original runtime memory limit and 64 MiB temporary scratch.
+Kubernetes Job deadlines include the compiler timeout, full per-case wall budget
+and scheduling overhead. Validator outer deadlines also include the 30-second
+per-case timeout floor, while retaining the existing total Docker/K8s deadline caps.
+Interactive peers still compile and execute within their respective runtime
+containers; they do not receive the separate compiler resource allowance.
+Runtime limits remain problem-specific. Submission source is
+preserved byte-for-byte; validation rejects all-whitespace source without trimming
+valid programs. Server request deadlines cover dispatch and polling, and an early
+verdict notification wakes polling once without creating a busy loop.
+
+Browser results remain a preview: WASI toolchains, host elapsed time, linear memory,
+filesystem caps and platform APIs differ from native compilation and
+CPU/cgroup accounting. Browser Test uses the SDK's maximum instruction ceiling
+and enforces the configured wall deadline instead of its unrelated default fuel
+budget; even Python syntax diagnostics can exceed that default within one second.
+Identical inputs and comparison settings do not guarantee
 identical verdicts for platform-dependent programs or resource-limit boundaries.
 Passing samples also does not imply passing hidden official tests.
 
-Official **Submit** always uses the server pipeline below. Checker, interactive,
-Advanced Mode, and other special environments also remain server-side.
+Official **Submit** always uses the server pipeline below, including checker,
+interactive, Advanced Mode, and special-environment judging.
 
 ## Standard Mode pipeline
 
@@ -110,7 +139,7 @@ holds no student code) makes the AC/WA decision.
 
   The run container only emits each case's raw stdout/stderr/exit (`rawRuns`); the worker performs the comparison against the answer it holds, so `judgeConfig.compare` only needs to reach the worker. Anything token comparison cannot express (multiple valid answers, structural checks, etc.) must be implemented as a **checker**.
 
-- **`checker`** — a teacher-provided **DOMjudge output validator** (`python` / `cpp`) that renders an **AC/WA verdict only** (no partial scoring). The run container produces `rawRuns` (no answer present); the worker then launches a **second isolated validator container** (`validator-executor.ts` → sandbox-runner `runValidate`) per clean case. The validator is invoked as `validator <input> <judge_answer> <feedback_dir>` with the team output on stdin and must **exit 42 (accept) or 43 (wrong)**; any other exit is treated as a validator/system error. Feedback travels through files in `feedback_dir`: `teammessage.txt` (shown to the student) and an optional `judgemessage.txt` (operator-only). Python TAs get a wrapper binding `judge_input` / `judge_answer` / `team_output` plus `accept()` / `wrong()` / `judge_log()` (`apps/sandbox-runner/assets/wrappers/python-validator.py`); C++ TAs implement the bare interface.
+- **`checker`** — a teacher-provided **DOMjudge output validator** (`python` / `cpp`) that renders an **AC/WA verdict only** (no partial scoring). The run container produces `rawRuns` (no answer present); the worker prepares the checker in a separate compile container, then launches an **isolated validator container** (`validator-executor.ts` → sandbox-runner `runValidate`) for the clean cases. The validator is invoked as `validator <input> <judge_answer> <feedback_dir>` with the team output on stdin and must **exit 42 (accept) or 43 (wrong)**; any other exit is treated as a validator/system error. Feedback travels through files in `feedback_dir`: `teammessage.txt` (shown to the student) and an optional `judgemessage.txt` (operator-only). Python TAs get a wrapper binding `judge_input` / `judge_answer` / `team_output` plus `accept()` / `wrong()` / `judge_log()` (`apps/sandbox-runner/assets/wrappers/python-validator.py`); C++ TAs implement the bare interface.
 - **`interactive`** — a teacher-provided **DOMjudge interactor**, run as **two isolated containers** wired by a worker byte proxy (`interactive-executor.ts` → sandbox-runner `runInteractive`): the solution container runs student code with its stdio bridged to the interactor container, and the secret input/answer is mounted only into the interactor side. The interactor uses the same exit-42/43 + `feedback_dir` protocol as the validator, but its Python wrapper exposes live `read()` / `write()` instead of a fixed `team_output` blob (`apps/sandbox-runner/assets/wrappers/python-interactor-domjudge.py`).
 
 On K8s, `checker` runs as a **two-Job pipeline**: the run Job's ConfigMap omits both the expected answer and the validator script; a second `judge-<sub>-validate` Job (separate ConfigMap, identical hardening, NO student source) compiles the validator and grades the captured team outputs against the answers, and the worker merges the outcomes via `mergeCheckerResults` (same merge as Docker). Per-case files reach the validate pod via flat keys (`case-{i}-{input,answer,team}.txt`) because ConfigMaps cannot hold nested directories. `interactive` **also runs on K8s** (`K8sExecutor.executeInteractive` → `runInteractiveCase`): one Job per testcase with two containers (solution + interactor) wired over a `socat` TCP bridge on port 7777, the secret input/answer mounted only into the interactor side. `advanced` **also runs on K8s** (`K8sExecutor.executeAdvanced` → two Jobs + PVC). See [backends](#sandbox-verdicts) and `k8s-executor.ts`.

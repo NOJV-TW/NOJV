@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { MAX_EXECUTION_OUTPUT_BYTES } from "@nojv/core";
 
 import { createBoundedStringBuffer } from "./bounded-buffer";
 import { executionAbortReason } from "./execution-abort";
@@ -7,6 +8,10 @@ const DOCKER_CLEANUP_TIMEOUT_MS = 5_000;
 const DOCKER_INSPECT_TIMEOUT_MS = 5_000;
 const DOCKER_LOG_TIMEOUT_MS = 10_000;
 const DOCKER_COMMAND_OUTPUT_BYTES = 64 * 1024;
+// Compiler diagnostics can contain two independently capped streams; a byte
+// can become six JSON bytes (\u0000). Reserve command-sized envelope diagnostics.
+const SANDBOX_JSON_OUTPUT_BYTES =
+  6 * (2 * MAX_EXECUTION_OUTPUT_BYTES) + DOCKER_COMMAND_OUTPUT_BYTES;
 
 export type DockerCommandFailure = "spawn" | "timeout" | "exit";
 
@@ -199,7 +204,7 @@ export async function spawnDockerContainer(opts: DockerRunOptions): Promise<Dock
 
   return new Promise<DockerRunResult>((resolve, reject) => {
     const child = spawn("docker", opts.args, { env: process.env, stdio: "pipe" });
-    const stdoutBuf = createBoundedStringBuffer();
+    const stdoutBuf = createBoundedStringBuffer(SANDBOX_JSON_OUTPUT_BYTES);
     const stderrBuf = createBoundedStringBuffer();
     let timedOut = false;
     let sizeExceeded = false;

@@ -45,6 +45,34 @@ describe("buildSandboxDockerArgs hardening profile", () => {
     swapMatchesMemory(buildSandboxDockerArgs(base), "256m");
   });
 
+  it("isolates larger compiler scratch from testcase runtime scratch", () => {
+    const compile = buildSandboxDockerArgs({
+      ...base,
+      artifactMount: { hostDir: "/tmp/artifact", readOnly: false },
+    });
+    const run = buildSandboxDockerArgs({
+      ...base,
+      artifactMount: { hostDir: "/tmp/artifact", readOnly: true },
+    });
+    expect(compile).toContain("/tmp:rw,exec,nosuid,nodev,size=256m");
+    expect(run).toContain("/tmp:rw,exec,nosuid,nodev,size=64m");
+    swapMatchesMemory(compile, "512m");
+    swapMatchesMemory(run, "256m");
+    swapMatchesMemory(
+      buildSandboxDockerArgs({
+        ...base,
+        memoryMb: 1088,
+        artifactMount: { hostDir: "/tmp/artifact", readOnly: false },
+      }),
+      "1088m",
+    );
+    for (const args of [compile, run]) {
+      expect(args).toContain("/workspace:rw,exec,nosuid,nodev,size=128m");
+      expect(args).toContain("--read-only");
+      expect(args).toContain("10001:10001");
+    }
+  });
+
   it("attaches stdin in interactive mode with -i immediately after run", () => {
     const args = buildSandboxDockerArgs({ ...base, interactive: true });
     expect(args[0]).toBe("run");

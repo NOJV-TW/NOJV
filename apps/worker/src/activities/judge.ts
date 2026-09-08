@@ -1,6 +1,7 @@
 import {
   effectiveTimeLimitMs,
   entryFileNameFor,
+  mergeWorkspaceSources,
   submissionResultSchema,
   validateRequiredPaths,
   type AdvancedJudgeVerificationSnapshot,
@@ -77,28 +78,10 @@ export function mergeSandboxSources(
     };
   }
 
-  const merged = new Map<string, string>();
-  for (const wf of langFiles) {
-    merged.set(wf.path, wf.content);
-  }
-
-  const editablePaths = new Set(
-    langFiles.filter((wf) => wf.visibility === "editable").map((wf) => wf.path),
-  );
-
-  for (const f of studentSources) {
-    if (editablePaths.has(f.path)) {
-      merged.set(f.path, f.content);
-    }
-  }
-
-  const sourceFiles = Array.from(merged.entries()).map(([path, content]) => ({
-    path,
-    content,
-  }));
+  const sourceFiles = mergeWorkspaceSources(studentSources, langFiles);
 
   return {
-    sourceCode: merged.get(mainPath) ?? mainSource,
+    sourceCode: sourceFiles.find((file) => file.path === mainPath)?.content ?? mainSource,
     sourceFiles,
     entryFile: mainPath,
   };

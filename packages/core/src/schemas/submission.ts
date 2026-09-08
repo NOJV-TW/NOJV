@@ -26,7 +26,7 @@ const problemIdentifierSchema = z
   .max(128, "validation_tooLong")
   .regex(/^[A-Za-z0-9_-]+$/, "validation_slugFormat");
 
-const MAX_RUN_CASES = 10;
+export const MAX_RUN_CASES = 10;
 const MAX_RUN_CASE_FIELD_LEN = 200_000;
 
 export const runCaseSchema = z.object({

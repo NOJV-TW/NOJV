@@ -1,3 +1,4 @@
+import { MAX_EXECUTION_OUTPUT_BYTES } from "@nojv/core";
 import * as fs from "node:fs/promises";
 import { readdirSync, readFileSync } from "node:fs";
 
@@ -149,7 +150,7 @@ export function createMemoryPoller(pid: number): MemoryPoller {
   };
 }
 
-const DEFAULT_OUTPUT_CAP_BYTES = 16 * 1024 * 1024;
+const DEFAULT_OUTPUT_CAP_BYTES = MAX_EXECUTION_OUTPUT_BYTES;
 
 export interface BoundedBuffer {
   push(chunk: Buffer): void;

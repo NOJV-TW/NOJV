@@ -239,3 +239,55 @@ describe("K8sExecutor Job/Pod watch completion", () => {
     expect(jobWatchStarts[2]! - jobWatchStarts[1]!).toBeGreaterThanOrEqual(160);
   });
 });
+
+it.each([false, true])(
+  "checker execution-only cases do not poison validator outcomes (mixed answers: %s)",
+  async (hasAnswer) => {
+    const fake = clients({
+      readJob: () => ({ metadata: { resourceVersion: "done" }, status: { succeeded: 1 } }),
+      watch: () => undefined,
+    });
+    fake.handles.coreApi.readNamespacedPodLog.mockImplementation(
+      async ({ container }: { container: string }) => {
+        if (container === "prepare")
+          return JSON.stringify({ runCommand: ["python3", "main.py"] });
+        if (container === "runner")
+          return JSON.stringify({ validatorOutcomes: [{ index: 1, verdict: "WA" }] });
+        return JSON.stringify({
+          rawRuns: [
+            {
+              index: Number(container.slice(5)),
+              stdout: "wrong",
+              stderr: "",
+              exitCode: 0,
+              timeMs: 1,
+            },
+          ],
+        });
+      },
+    );
+    const result = await new K8sExecutor(EXEC_CONFIG, fake.handles).execute(
+      {
+        ...request(),
+        judgeType: "checker",
+        judgeConfig: { checkerLanguage: "python", checkerScript: "accept()" },
+        testcases: [
+          { index: 0, input: "", weight: 0, isSample: true },
+          {
+            index: 1,
+            input: "",
+            weight: 0,
+            isSample: true,
+            ...(hasAnswer ? { output: "" } : {}),
+          },
+        ],
+      },
+      { runId: "checker-custom", signal: new AbortController().signal },
+    );
+    expect(result.testcaseResults.map((run) => run.verdict)).toEqual([
+      "AC",
+      hasAnswer ? "WA" : "AC",
+    ]);
+    expect(fake.handles.batchApi.createNamespacedJob).toHaveBeenCalledTimes(hasAnswer ? 2 : 1);
+  },
+);

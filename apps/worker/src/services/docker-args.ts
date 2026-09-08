@@ -1,3 +1,4 @@
+import { COMPILER_SCRATCH_MB, MIN_COMPILER_MEMORY_MB } from "@nojv/core";
 import { dockerLabelArgs } from "./docker-resource";
 
 export interface SandboxDockerArgsParams {
@@ -16,6 +17,10 @@ export interface SandboxDockerArgsParams {
 
 export function buildSandboxDockerArgs(params: SandboxDockerArgsParams): string[] {
   const interactiveArgs = params.interactive ? ["-i"] : [];
+  const compiling = params.artifactMount?.readOnly === false;
+  const memoryMb = compiling
+    ? Math.max(params.memoryMb, MIN_COMPILER_MEMORY_MB)
+    : params.memoryMb;
   const artifactArgs = params.artifactMount
     ? [
         "-v",
@@ -40,7 +45,7 @@ export function buildSandboxDockerArgs(params: SandboxDockerArgsParams): string[
     "no-new-privileges",
     "--read-only",
     "--tmpfs",
-    "/tmp:rw,exec,nosuid,nodev,size=64m",
+    `/tmp:rw,exec,nosuid,nodev,size=${compiling ? String(COMPILER_SCRATCH_MB) : "64"}m`,
     "--tmpfs",
     "/workspace:rw,exec,nosuid,nodev,size=128m",
     "-v",
@@ -49,9 +54,9 @@ export function buildSandboxDockerArgs(params: SandboxDockerArgsParams): string[
     "--cpus",
     params.cpuLimit,
     "--memory",
-    `${String(params.memoryMb)}m`,
+    `${String(memoryMb)}m`,
     "--memory-swap",
-    `${String(params.memoryMb)}m`,
+    `${String(memoryMb)}m`,
     "--pids-limit",
     String(params.pidsLimit),
     "--env",

@@ -17,17 +17,14 @@ import {
   runInteractiveSolution,
   runInteractiveValidator,
 } from "./judges/interactive-isolated.js";
-import {
-  resolveValidateCaseFiles,
-  validateCase,
-  validatorTimeoutMs,
-} from "./judges/validate.js";
-import { normalizeRelativePath } from "@nojv/core";
+import { resolveValidateCaseFiles, validateCase } from "./judges/validate.js";
+import { compileOutputSchema, normalizeRelativePath, validatorTimeoutMs } from "@nojv/core";
 import { materializePayload } from "./payload-materializer.js";
 
 const SUBMISSION_DIR = "/submission";
 const ARTIFACT_DIR = "/artifact";
 const RUN_COMMAND_FILE = path.join(ARTIFACT_DIR, "run-command.json");
+const VALIDATOR_BUILD_FILE = path.join(ARTIFACT_DIR, "validator-build.json");
 
 function log(message: string): void {
   process.stderr.write(`[sandbox-runner] ${message}\n`);
@@ -90,18 +87,14 @@ async function runValidate(workDir: string, config: SandboxInput): Promise<void>
     return;
   }
 
-  const validatorPath = await findScript("validator");
-  if (!validatorPath) {
-    emitValidate({ compilationError: "Validate phase requires a validator script." });
+  const compiled = compileOutputSchema.parse(
+    JSON.parse(await fs.readFile(VALIDATOR_BUILD_FILE, "utf-8")),
+  );
+  if (compiled.compilationError !== undefined) {
+    emitValidate({ compilationError: compiled.compilationError });
     return;
   }
-
-  log("Compiling validator...");
-  const compiled = await compileValidator(validatorPath, validate.language, workDir);
-  if (!compiled.success) {
-    emitValidate({ compilationError: `Validator compilation failed: ${compiled.error}` });
-    return;
-  }
+  if (!compiled.runCommand) throw new Error("Validator build is missing a run command.");
 
   const timeoutMs = validatorTimeoutMs(config.limits.timeoutMs);
   const validatorOutcomes: ValidatorCaseOutcome[] = [];
@@ -199,6 +192,22 @@ async function runCompilePhase(config: SandboxInput): Promise<void> {
   process.stdout.write(JSON.stringify({ runCommand: compileResult.runCommand }));
 }
 
+async function runValidatorCompilePhase(config: SandboxInput): Promise<void> {
+  const validatorPath = await findScript("validator");
+  const compiled =
+    validatorPath && config.validate
+      ? await compileValidator(validatorPath, config.validate.language, ARTIFACT_DIR)
+      : {
+          success: false as const,
+          error: "Validate phase requires a validator script and config.",
+        };
+  const output = compiled.success
+    ? { runCommand: compiled.runCommand }
+    : { compilationError: `Validator compilation failed: ${compiled.error}` };
+  await fs.writeFile(VALIDATOR_BUILD_FILE, JSON.stringify(output), "utf-8");
+  process.stdout.write(JSON.stringify(output));
+}
+
 async function runPreparePhase(): Promise<void> {
   await materializePayload({ payloadDir: "/payload", submissionDir: SUBMISSION_DIR });
   await runCompilePhase(await readConfig());
@@ -257,6 +266,11 @@ async function main(): Promise<void> {
     await runPreparePhase();
     return;
   }
+  if (process.env.SANDBOX_PHASE === "prepare-validator") {
+    await materializePayload({ payloadDir: "/payload", submissionDir: SUBMISSION_DIR });
+    await runValidatorCompilePhase(await readConfig());
+    return;
+  }
   if (process.env.SANDBOX_PHASE === "materialize") {
     await materializePayload({ payloadDir: "/payload", submissionDir: SUBMISSION_DIR });
     return;
@@ -270,6 +284,10 @@ async function main(): Promise<void> {
 
   const phase = process.env.SANDBOX_PHASE ?? config.mode?.kind;
 
+  if (phase === "compile-validator") {
+    await runValidatorCompilePhase(config);
+    return;
+  }
   if (phase === "compile") {
     await runCompilePhase(config);
     return;

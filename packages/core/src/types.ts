@@ -133,7 +133,11 @@ export const slugSchema = z
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "validation_slugFormat");
 
 export const isoDateTimeSchema = z.iso.datetime();
-export const sourceCodeSchema = z.string().trim().min(1).max(50_000);
+export const sourceCodeSchema = z
+  .string()
+  .min(1)
+  .max(50_000)
+  .refine((source) => source.trim().length > 0, "validation_required");
 
 export type CourseMembershipStatus = z.infer<typeof courseMembershipStatusSchema>;
 export type CourseRole = z.infer<typeof courseRoleSchema>;

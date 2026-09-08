@@ -1,4 +1,9 @@
-import type { RawCaseRun, SandboxRequest, ValidatorOutcome } from "@nojv/core";
+import {
+  resolveContainerMemoryMb,
+  type RawCaseRun,
+  type SandboxRequest,
+  type ValidatorOutcome,
+} from "@nojv/core";
 import { describe, expect, it } from "vitest";
 
 import { mergeCheckerResults } from "../../../apps/worker/src/services/check-standard";
@@ -192,8 +197,9 @@ describe("buildPerCaseSandboxJobManifest — one compile plus isolated cases", (
       cpuRequest: "500m",
       caseCpuRequest: "100m",
       cpuLimit: "1",
-      memoryRequest: "256Mi",
-      memoryLimit: "512Mi",
+      memoryRequest: "128Mi",
+      memoryLimit: "192Mi",
+      compilerMemoryLimit: "512Mi",
       activeDeadlineSeconds: 90,
       caseIndices: Array.from({ length: 20 }, (_, i) => i),
       runtimeClassName: "gvisor",
@@ -226,6 +232,10 @@ describe("buildPerCaseSandboxJobManifest — one compile plus isolated cases", (
     ).toHaveLength(20);
 
     const prepare = pod.initContainers?.[0];
+    expect(prepare?.resources?.limits?.memory).toBe("512Mi");
+    expect(pod.containers.every(({ resources }) => resources?.limits?.memory === "192Mi")).toBe(
+      true,
+    );
     expect(prepare?.volumeMounts).toContainEqual({
       name: "payload",
       mountPath: "/payload",
@@ -240,10 +250,23 @@ describe("buildPerCaseSandboxJobManifest — one compile plus isolated cases", (
       mountPath: "/artifact",
     });
     expect(prepare?.volumeMounts).toContainEqual({
-      name: "scratch-tmp",
+      name: "compiler-tmp",
       mountPath: "/tmp",
       subPath: "prepare",
     });
+    expect(pod.volumes).toContainEqual({
+      name: "compiler-tmp",
+      emptyDir: { sizeLimit: "256Mi" },
+    });
+    expect(pod.volumes).toContainEqual({
+      name: "scratch-tmp",
+      emptyDir: { sizeLimit: "64Mi" },
+    });
+    expect(
+      pod.containers.every((container) =>
+        container.volumeMounts?.every((mount) => mount.name !== "compiler-tmp"),
+      ),
+    ).toBe(true);
     expect(
       pod.containers?.every((container) =>
         container.volumeMounts?.some(
@@ -265,6 +288,7 @@ describe("buildSandboxJobManifest — hardening parity for both run and validate
     cpuLimit: "1",
     memoryRequest: "128Mi",
     memoryLimit: "256Mi",
+    compilerMemoryLimit: "512Mi",
     activeDeadlineSeconds: 120,
   };
 
@@ -325,8 +349,11 @@ describe("buildSandboxJobManifest — hardening parity for both run and validate
       { configMap: { name: "judge-sub-1-validate-p0" } },
     ]);
 
-    const materializer = podSpec.initContainers?.find((c) => c.name === "materialize");
-    expect(materializer?.env).toContainEqual({ name: "SANDBOX_PHASE", value: "materialize" });
+    const materializer = podSpec.initContainers?.find((c) => c.name === "prepare-validator");
+    expect(materializer?.env).toContainEqual({
+      name: "SANDBOX_PHASE",
+      value: "prepare-validator",
+    });
     expect(materializer?.securityContext).toMatchObject({
       allowPrivilegeEscalation: false,
       readOnlyRootFilesystem: true,
@@ -363,10 +390,107 @@ describe("K8s checker uses the same mergeCheckerResults as Docker", () => {
       [2, { verdict: "WA" }],
     ]);
 
-    const merged = mergeCheckerResults(rawRuns, outcomes);
+    const merged = mergeCheckerResults(rawRuns, outcomes, makeCheckerRequest().testcases);
 
     expect(merged[0]!.verdict).toBe("AC");
     expect(merged[1]!.verdict).toBe("TLE");
     expect(merged[2]!.verdict).toBe("WA");
   });
+});
+
+it("caps resource requests at the derived low problem limit while reserving compiler memory separately", () => {
+  const memoryMb = resolveContainerMemoryMb(16, {
+    defaultMemoryMb: 512,
+    headroomMb: 64,
+    maxMemoryMb: 1536,
+  });
+  expect(memoryMb).toBe(80);
+  const params = {
+    jobName: "small-memory",
+    namespace: "nojv-sandbox",
+    configMapNames: ["payload"],
+    image: "sandbox:test",
+    cpuRequest: "500m",
+    caseCpuRequest: "100m",
+    cpuLimit: "0.05",
+    memoryRequest: "128Mi",
+    memoryLimit: `${memoryMb}Mi`,
+    compilerMemoryLimit: "512Mi",
+    activeDeadlineSeconds: 90,
+    caseIndices: [0],
+  };
+  const pod = buildPerCaseSandboxJobManifest(params).spec!.template.spec!;
+  expect(pod.initContainers![0]!.resources).toEqual({
+    requests: { cpu: "0.05", memory: "128Mi" },
+    limits: { cpu: "0.05", memory: "512Mi" },
+  });
+  expect(pod.containers[0]!.resources).toEqual({
+    requests: { cpu: "0.05", memory: "80Mi" },
+    limits: { cpu: "0.05", memory: "80Mi" },
+  });
+  const validator = buildSandboxJobManifest(params).spec!.template.spec!;
+  expect(validator.initContainers![0]!.resources).toEqual({
+    requests: { cpu: "0.05", memory: "128Mi" },
+    limits: { cpu: "0.05", memory: "512Mi" },
+  });
+  expect(validator.initContainers![0]!.volumeMounts).toContainEqual({
+    name: "artifact",
+    mountPath: "/artifact",
+  });
+  expect(validator.containers[0]!.volumeMounts).toContainEqual({
+    name: "artifact",
+    mountPath: "/artifact",
+    readOnly: true,
+  });
+  expect(validator.volumes).toContainEqual({
+    name: "compiler-tmp",
+    emptyDir: { sizeLimit: "256Mi" },
+  });
+  expect(validator.volumes).toContainEqual({ name: "tmp", emptyDir: { sizeLimit: "64Mi" } });
+  expect(validator.containers[0]!.resources).toEqual({
+    requests: { cpu: "0.05", memory: "80Mi" },
+    limits: { cpu: "0.05", memory: "80Mi" },
+  });
+});
+
+it.each([
+  { memoryRequest: "1.5Gi", memoryLimit: "1Gi", expected: "1Gi" },
+  { memoryRequest: "1.5Gi", memoryLimit: "2Gi", expected: "1.5Gi" },
+  { memoryRequest: "0.5G", memoryLimit: "400M", expected: "400M" },
+  { memoryRequest: "0.5G", memoryLimit: "512Mi", expected: "0.5G" },
+  { memoryRequest: "1e8", memoryLimit: "128Mi", expected: "1e8" },
+])(
+  "compares valid fractional and exponent quantities without changing under-limit text: $memoryRequest",
+  ({ memoryRequest, memoryLimit, expected }) => {
+    const pod = buildSandboxJobManifest({
+      jobName: "quantities",
+      namespace: "nojv-sandbox",
+      configMapNames: ["payload"],
+      image: "sandbox:test",
+      cpuRequest: "0.5",
+      cpuLimit: "750m",
+      memoryRequest,
+      memoryLimit,
+      compilerMemoryLimit: "512Mi",
+      activeDeadlineSeconds: 90,
+    }).spec!.template.spec!;
+    expect(pod.containers[0]!.resources?.requests).toEqual({ cpu: "0.5", memory: expected });
+  },
+);
+
+it("rejects non-finite resource quantities", () => {
+  expect(() =>
+    buildSandboxJobManifest({
+      jobName: "quantities",
+      namespace: "nojv-sandbox",
+      configMapNames: ["payload"],
+      image: "sandbox:test",
+      cpuRequest: "1",
+      cpuLimit: "1",
+      memoryRequest: "1e309",
+      memoryLimit: "512Mi",
+      compilerMemoryLimit: "512Mi",
+      activeDeadlineSeconds: 90,
+    }),
+  ).toThrow("Invalid Kubernetes resource quantity");
 });

@@ -1,4 +1,11 @@
-import type { RawCaseRun, SandboxRequest, SandboxTestcase } from "@nojv/core";
+import {
+  COMPILATION_TIMEOUT_MS,
+  executionWallTimeLimitMs,
+  validatorTimeoutMs,
+  type RawCaseRun,
+  type SandboxRequest,
+  type SandboxTestcase,
+} from "@nojv/core";
 
 import { resolveSourceFiles } from "./source-files.js";
 import { buildSandboxConfigJson, sourceExtension } from "./sandbox-plan";
@@ -9,11 +16,26 @@ const JOB_DEADLINE_BUFFER_SECONDS = 60;
 
 export const CONFIGMAP_MAX_BYTES = 1_000_000;
 
-export function computeJobDeadlineSeconds(request: SandboxRequest): number {
-  const numCases = Math.max(1, request.testcases.length);
+function computePreparedJobDeadlineSeconds(executionBudgetMs: number): number {
   const compute =
-    Math.ceil((request.limits.timeoutMs * numCases) / 1000) + JOB_DEADLINE_BUFFER_SECONDS;
+    Math.ceil((COMPILATION_TIMEOUT_MS + executionBudgetMs) / 1000) +
+    JOB_DEADLINE_BUFFER_SECONDS;
   return Math.min(Math.max(compute, JOB_DEADLINE_FLOOR_SECONDS), JOB_DEADLINE_CAP_SECONDS);
+}
+
+export function computeJobDeadlineSeconds(request: SandboxRequest): number {
+  return computePreparedJobDeadlineSeconds(
+    executionWallTimeLimitMs(request.limits.timeoutMs) * Math.max(1, request.testcases.length),
+  );
+}
+
+export function computeValidatorJobDeadlineSeconds(
+  solutionTimeoutMs: number,
+  caseCount: number,
+): number {
+  return computePreparedJobDeadlineSeconds(
+    executionWallTimeLimitMs(validatorTimeoutMs(solutionTimeoutMs)) * Math.max(1, caseCount),
+  );
 }
 
 export function buildTestcaseConfigMapData(request: SandboxRequest): Record<string, string> {

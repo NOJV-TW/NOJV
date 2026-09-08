@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  COMPILATION_TIMEOUT_MS,
   judgeEnvironmentDefinition,
   materializeJudgeCommand,
   sourceFileNames,
@@ -212,7 +213,7 @@ function compileWithCommand(
     const proc = spawn(wrappedCmd, wrappedArgs, {
       cwd: workDir,
       stdio: ["ignore", "pipe", "pipe"],
-      timeout: 90_000,
+      timeout: COMPILATION_TIMEOUT_MS,
     });
 
     const stdoutBuf = createBoundedBuffer();
