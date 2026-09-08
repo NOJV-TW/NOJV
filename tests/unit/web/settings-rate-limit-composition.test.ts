@@ -8,7 +8,6 @@ const {
   linkSocialAccountMock,
   rawTwoFactorActions,
   requireAuthMock,
-  sendVerificationEmailMock,
   unlinkAccountMock,
 } = vi.hoisted(() => {
   const actionNames = [
@@ -22,7 +21,6 @@ const {
   ] as const;
   const linkSocialAccountMock = vi.fn();
   const changeEmailMock = vi.fn();
-  const sendVerificationEmailMock = vi.fn();
   const unlinkAccountMock = vi.fn();
   return {
     changeEmailMock,
@@ -32,14 +30,12 @@ const {
         changeEmail: changeEmailMock,
         linkSocialAccount: linkSocialAccountMock,
         listUserAccounts: vi.fn(),
-        sendVerificationEmail: sendVerificationEmailMock,
         unlinkAccount: unlinkAccountMock,
       },
     })),
     linkSocialAccountMock,
     rawTwoFactorActions: Object.fromEntries(actionNames.map((name) => [name, vi.fn()])),
     requireAuthMock: vi.fn(),
-    sendVerificationEmailMock,
     unlinkAccountMock,
   };
 });
@@ -84,7 +80,6 @@ const GUARDED_ACTIONS = [
   "link",
   "unlink",
   "changeEmail",
-  "resendEmailVerification",
 ] as const;
 
 function makeEvent(): RequestEvent {
@@ -110,7 +105,6 @@ beforeEach(() => {
   });
   getAuthMock.mockClear();
   changeEmailMock.mockReset();
-  sendVerificationEmailMock.mockReset();
   linkSocialAccountMock.mockReset();
   requireAuthMock.mockReset();
   unlinkAccountMock.mockReset();
@@ -132,6 +126,5 @@ describe("settings action rate-limit composition", () => {
     expect(linkSocialAccountMock).not.toHaveBeenCalled();
     expect(unlinkAccountMock).not.toHaveBeenCalled();
     expect(changeEmailMock).not.toHaveBeenCalled();
-    expect(sendVerificationEmailMock).not.toHaveBeenCalled();
   });
 });

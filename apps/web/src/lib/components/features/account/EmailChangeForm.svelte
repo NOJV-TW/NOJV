@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
-  import { enhance as enhanceAction } from "$app/forms";
   import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
 
@@ -24,8 +22,6 @@
   let callbackError = $state<"invalidToken" | "tokenExpired" | null>(
     untrack(() => verificationError),
   );
-  let resendBusy = $state(false);
-  let resendError = $state(false);
 
   const { form, errors, enhance, message, submitting } = superForm<
     ChangeEmailData,
@@ -64,7 +60,6 @@
   function startEditing() {
     $form.newEmail = "";
     callbackError = null;
-    resendError = false;
     editing = true;
   }
 </script>
@@ -76,46 +71,9 @@
       role="alert"
     >
       <p class="text-body-sm text-destructive">{callbackErrorText}</p>
-      {#if emailVerified}
-        <Button variant="outline" size="sm" onclick={startEditing}>
-          {m.account_emailVerification_retryChange()}
-        </Button>
-      {:else}
-        <form
-          method="POST"
-          action="?/resendEmailVerification"
-          use:enhanceAction={() => {
-            resendBusy = true;
-            resendError = false;
-            return async ({ result }) => {
-              resendBusy = false;
-              if (result.type === "success") {
-                resendError = false;
-                callbackError = null;
-                toasts.success(m.account_emailVerification_resendSuccess());
-                await goto("/settings", { replaceState: true, invalidateAll: true });
-              } else if (result.type === "failure") {
-                resendError = true;
-              }
-            };
-          }}
-        >
-          <Button
-            type="submit"
-            variant="outline"
-            size="sm"
-            disabled={resendBusy}
-            loading={resendBusy}
-          >
-            {m.account_emailVerification_resend()}
-          </Button>
-        </form>
-      {/if}
-      {#if resendError}
-        <p class="basis-full text-caption text-destructive">
-          {m.account_emailVerification_resendFailed()}
-        </p>
-      {/if}
+      <Button variant="outline" size="sm" onclick={startEditing}>
+        {m.account_emailVerification_retryChange()}
+      </Button>
     </div>
   {/if}
 

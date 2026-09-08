@@ -4,7 +4,7 @@
 
 **Goal:** Resolve the four requested changes on PR #426 so email-change requests are secure, accurately described for verified and unverified accounts, and recoverable after invalid or expired verification links.
 
-**Architecture:** Keep Better Auth as the source of truth for the two email-change paths. The settings server action selects the success copy from the authenticated session's `emailVerified` state, while a dedicated rate-limited resend action invokes Better Auth's `sendVerificationEmail` endpoint. Settings load maps Better Auth's callback error query values into localized UI data; the email-change component renders the alert and resend form.
+**Architecture:** Keep Better Auth as the source of truth for the two email-change paths. The settings server action selects the success copy from the authenticated session's `emailVerified` state. Settings load maps Better Auth's callback error query codes into localized UI data; the email-change component renders the alert and lets the user re-enter the destination address so the original `changeEmail` flow is started again.
 
 **Tech Stack:** SvelteKit server actions/load functions, Svelte 5, `sveltekit-superforms`, Better Auth 1.6.23, Paraglide messages, Vitest.
 
@@ -15,6 +15,7 @@
 - Preserve Better Auth's existing two-stage flow for verified accounts and direct-new-address verification for unverified accounts.
 - Never interpolate a user-controlled email address into HTML without escaping.
 - Keep all email-related actions behind the existing `withRateLimit` wrapper.
+- Do not use the ordinary `sendVerificationEmail` flow to recover an email-change request; it cannot carry the pending destination address.
 - Keep English and zh-TW message keys in sync.
 - Add regression tests before production changes and run targeted tests plus `git diff --check`.
 
@@ -29,13 +30,13 @@
 **Interfaces:**
 
 - Tests consume the settings action contract and captured Better Auth options.
-- Tests produce expectations for dynamic success message keys, resend behavior, initial form errors, and escaped confirmation-email content.
+- Tests produce expectations for dynamic success message keys, email-change retry behavior, initial form errors, and escaped confirmation-email content.
 
 - [ ] **Step 1: Write failing tests**
   - Assert verified sessions return `account_emailChange_verificationSent`.
   - Assert unverified sessions return `account_emailChange_verificationSentUnverified`.
   - Assert the load form is initialized with errors disabled.
-  - Assert `resendEmailVerification` calls `sendVerificationEmail` with the current email and settings callback URL, and maps Better Auth failures to a form error.
+  - Assert no ordinary verification resend action is exposed for email-change recovery.
   - Assert the captured `sendChangeEmailConfirmation` callback does not leave `<script>`/raw quoted email markup in rendered HTML.
   - Assert settings load maps `INVALID_TOKEN` and `TOKEN_EXPIRED` to their localized error keys.
 - [ ] **Step 2: Run the new tests and verify they fail for the expected missing behavior**
@@ -44,7 +45,7 @@
 CI=true pnpm exec vitest run --project unit tests/unit/web/settings-change-email.test.ts tests/unit/web/settings-rate-limit-composition.test.ts tests/unit/web/auth-email-change-wiring.test.ts
 ```
 
-Expected: failures for the missing unverified success key, resend action, error-aware load data, and HTML escaping.
+Expected: failures for the missing unverified success key, callback error mapping, retry flow, and HTML escaping.
 
 ### Task 2: Fix server-side email-change and verification flows
 
@@ -57,7 +58,7 @@ Expected: failures for the missing unverified success key, resend action, error-
 
 - `load` returns `emailVerificationError: "invalidToken" | "tokenExpired" | null`.
 - `changeEmail` returns the existing verified success key or the new unverified success key based on `actor.emailVerified`.
-- `resendEmailVerification` is a rate-limited action that calls `getAuth().api.sendVerificationEmail` with `{ email, callbackURL: "/settings" }`.
+- No separate resend action is exposed for email-change recovery; both account states reuse the existing `changeEmail` action.
 
 - [ ] **Step 1: Initialize the email form without initial validation errors**
 
@@ -73,20 +74,16 @@ const emailForm = await superValidate({ newEmail: "" }, zod4(changeEmailSchema),
 - [ ] **Step 3: Add the unverified-account success message selection**
   - Store `const actor = requireAuth(event)` once at the start of the action.
   - Call Better Auth as before, then return `account_emailChange_verificationSent` only when `actor.emailVerified` is true; otherwise return `account_emailChange_verificationSentUnverified`.
-- [ ] **Step 4: Add the rate-limited resend action**
-  - Require authentication and call `sendVerificationEmail` using the session headers and `event.locals.user.email`.
-  - Use `callbackURL: "/settings"` so invalid/expired links return to the settings page.
-  - Return a localized success or error `FormMessage` without exposing Better Auth internals.
-- [ ] **Step 5: Escape the user-controlled address before constructing the confirmation-email intro**
+- [ ] **Step 4: Escape the user-controlled address before constructing the confirmation-email intro**
   - Add a local HTML escape helper for `&`, `<`, `>`, `"`, and `'` in `auth.server.ts`.
   - Use the escaped value only in the HTML intro; keep the actual `to` address and Better Auth token untouched.
-- [ ] **Step 6: Run the targeted tests and confirm they pass**
+- [ ] **Step 5: Run the targeted tests and confirm they pass**
 
 ```bash
 CI=true pnpm exec vitest run --project unit tests/unit/web/settings-change-email.test.ts tests/unit/web/settings-rate-limit-composition.test.ts tests/unit/web/auth-email-change-wiring.test.ts
 ```
 
-### Task 3: Add localized settings UI for verification errors and resend
+### Task 3: Add localized settings UI for verification errors and retry
 
 **Files:**
 
@@ -98,15 +95,15 @@ CI=true pnpm exec vitest run --project unit tests/unit/web/settings-change-email
 **Interfaces:**
 
 - `EmailChangeForm` accepts `verificationError: "invalidToken" | "tokenExpired" | null`.
-- The component shows a localized alert and a `?/resendEmailVerification` form only for those callback errors.
+- The component shows a localized alert and a retry button that opens the `?/changeEmail` form for those callback errors, regardless of verification state.
 
 - [ ] **Step 1: Add bilingual copy keys**
   - Add distinct success text for unverified accounts.
-  - Add invalid-token, expired-token, resend, resend-success, and resend-failed labels/messages in both locale files.
+  - Add invalid-token, expired-token, and retry labels/messages in both locale files.
 - [ ] **Step 2: Pass the server load value into `EmailChangeForm`**
-- [ ] **Step 3: Render the callback error and resend entry**
-  - Use SvelteKit `enhance` to submit the resend form without navigation.
-  - Show loading state, success toast, and an alert on failure.
+- [ ] **Step 3: Render the callback error and retry entry**
+  - Use the existing `startEditing` handler for both verified and unverified accounts.
+  - Show the existing change-email form with `?/changeEmail` so the user supplies the destination address again.
   - Keep the existing change-email form behavior unchanged.
 - [ ] **Step 4: Compile Paraglide and run Svelte type checks**
 

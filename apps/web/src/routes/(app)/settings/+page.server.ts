@@ -22,8 +22,8 @@ import { changeEmailSchema } from "./email-schema";
 import { loadTwoFactor, twoFactorActions } from "./two-factor-actions";
 
 const emailVerificationErrors = {
-  "Invalid token": "invalidToken",
-  "Token expired": "tokenExpired",
+  INVALID_TOKEN: "invalidToken",
+  TOKEN_EXPIRED: "tokenExpired",
 } as const;
 
 type EmailVerificationError =
@@ -116,27 +116,6 @@ export const actions = {
         ? "account_emailChange_verificationSent"
         : "account_emailChange_verificationSentUnverified",
     });
-  }),
-
-  resendEmailVerification: withRateLimit(async (event) => {
-    const actor = requireAuth(event);
-    if (actor.emailVerified || !event.locals.user?.email) {
-      return fail(400, { error: "account_emailVerification_resendFailed" });
-    }
-
-    try {
-      await getAuth().api.sendVerificationEmail({
-        body: {
-          email: event.locals.user.email,
-          callbackURL: "/settings",
-        },
-        headers: event.request.headers,
-      });
-    } catch {
-      return fail(400, { error: "account_emailVerification_resendFailed" });
-    }
-
-    return { success: true };
   }),
 
   sendVerification: handleSendVerificationAction,

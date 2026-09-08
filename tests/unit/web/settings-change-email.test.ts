@@ -7,7 +7,6 @@ const mocks = vi.hoisted(() => ({
   getNotificationPreferences: vi.fn(),
   message: vi.fn(),
   requireAuth: vi.fn(),
-  sendVerificationEmail: vi.fn(),
   superValidate: vi.fn(),
 }));
 
@@ -19,7 +18,6 @@ vi.mock("$lib/auth.server", () => ({
     api: {
       changeEmail: mocks.changeEmail,
       listUserAccounts: vi.fn(),
-      sendVerificationEmail: mocks.sendVerificationEmail,
     },
   }),
 }));
@@ -72,7 +70,6 @@ beforeEach(() => {
     ...(options ?? {}),
   }));
   mocks.changeEmail.mockResolvedValue({ status: true });
-  mocks.sendVerificationEmail.mockResolvedValue({ status: true });
 });
 
 describe("settings email change action", () => {
@@ -104,27 +101,8 @@ describe("settings email change action", () => {
     });
   });
 
-  it("resends verification to the current address", async () => {
-    mocks.requireAuth.mockReturnValue({ userId: "usr_1", emailVerified: false });
-
-    await expect(actions.resendEmailVerification(makeEvent())).resolves.toEqual({
-      success: true,
-    });
-
-    expect(mocks.sendVerificationEmail).toHaveBeenCalledWith({
-      body: { email: "new@example.com", callbackURL: "/settings" },
-      headers: expect.any(Headers),
-    });
-  });
-
-  it("returns a form error when resending verification fails", async () => {
-    mocks.requireAuth.mockReturnValue({ userId: "usr_1", emailVerified: false });
-    mocks.sendVerificationEmail.mockRejectedValueOnce(new Error("expired request"));
-
-    await expect(actions.resendEmailVerification(makeEvent())).resolves.toMatchObject({
-      status: 400,
-      data: { error: "account_emailVerification_resendFailed" },
-    });
+  it("does not expose a regular verification resend action for email changes", () => {
+    expect(actions.resendEmailVerification).toBeUndefined();
   });
 
   it("returns a form error when Better Auth rejects the request", async () => {
@@ -141,8 +119,8 @@ describe("settings email change action", () => {
 
 describe("settings email verification callback", () => {
   it.each([
-    ["Invalid token", "invalidToken"],
-    ["Token expired", "tokenExpired"],
+    ["INVALID_TOKEN", "invalidToken"],
+    ["TOKEN_EXPIRED", "tokenExpired"],
   ])("exposes %s as a localized callback error", async (error, expected) => {
     const event = {
       locals: {
