@@ -99,7 +99,12 @@
           <h2 class="text-title-sm">{m.account_loginSecurity_title()}</h2>
           <p class="text-body-sm text-muted-foreground">{m.account_loginSecurity_hint()}</p>
         </div>
-        <EmailChangeForm currentEmail={data.email} data={data.emailForm} />
+        <EmailChangeForm
+          currentEmail={data.email}
+          data={data.emailForm}
+          emailVerified={data.emailVerified}
+          verificationError={data.emailVerificationError}
+        />
         <div class="flex flex-col gap-2">
           {#if data.hasPassword}
             <a href="/account/change-password" class={settingLinkClass}>

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { goto } from "$app/navigation";
+  import { enhance as enhanceAction } from "$app/forms";
   import { untrack } from "svelte";
   import { superForm, type SuperValidated } from "sveltekit-superforms";
 
@@ -13,10 +15,17 @@
   interface Props {
     currentEmail: string;
     data: SuperValidated<ChangeEmailData, FormMessage>;
+    emailVerified: boolean;
+    verificationError: "invalidToken" | "tokenExpired" | null;
   }
 
-  let { currentEmail, data }: Props = $props();
+  let { currentEmail, data, emailVerified, verificationError }: Props = $props();
   let editing = $state(false);
+  let callbackError = $state<"invalidToken" | "tokenExpired" | null>(
+    untrack(() => verificationError),
+  );
+  let resendBusy = $state(false);
+  let resendError = $state(false);
 
   const { form, errors, enhance, message, submitting } = superForm<
     ChangeEmailData,
@@ -28,7 +37,11 @@
       taintedMessage: null,
       onUpdated({ form }) {
         if (form.message?.kind === "success") {
-          toasts.success(m.account_emailChange_verificationSent());
+          toasts.success(
+            emailVerified
+              ? m.account_emailChange_verificationSent()
+              : m.account_emailChange_verificationSentUnverified(),
+          );
           editing = false;
         }
       },
@@ -40,14 +53,72 @@
   const formError = $derived(
     $message?.kind === "error" ? m.account_emailChange_failed() : undefined,
   );
+  const callbackErrorText = $derived(
+    callbackError === "invalidToken"
+      ? m.account_emailVerification_invalidToken()
+      : callbackError === "tokenExpired"
+        ? m.account_emailVerification_tokenExpired()
+        : undefined,
+  );
 
   function startEditing() {
     $form.newEmail = "";
+    callbackError = null;
+    resendError = false;
     editing = true;
   }
 </script>
 
 <div class="flex flex-col gap-3">
+  {#if callbackErrorText}
+    <div
+      class="flex flex-wrap items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3"
+      role="alert"
+    >
+      <p class="text-body-sm text-destructive">{callbackErrorText}</p>
+      {#if emailVerified}
+        <Button variant="outline" size="sm" onclick={startEditing}>
+          {m.account_emailVerification_retryChange()}
+        </Button>
+      {:else}
+        <form
+          method="POST"
+          action="?/resendEmailVerification"
+          use:enhanceAction={() => {
+            resendBusy = true;
+            resendError = false;
+            return async ({ result }) => {
+              resendBusy = false;
+              if (result.type === "success") {
+                resendError = false;
+                callbackError = null;
+                toasts.success(m.account_emailVerification_resendSuccess());
+                await goto("/settings", { replaceState: true, invalidateAll: true });
+              } else if (result.type === "failure") {
+                resendError = true;
+              }
+            };
+          }}
+        >
+          <Button
+            type="submit"
+            variant="outline"
+            size="sm"
+            disabled={resendBusy}
+            loading={resendBusy}
+          >
+            {m.account_emailVerification_resend()}
+          </Button>
+        </form>
+      {/if}
+      {#if resendError}
+        <p class="basis-full text-caption text-destructive">
+          {m.account_emailVerification_resendFailed()}
+        </p>
+      {/if}
+    </div>
+  {/if}
+
   <div class="flex items-start justify-between gap-4 rounded-md border border-border px-4 py-3">
     <div class="flex min-w-0 flex-col gap-1">
       <span class="text-caption uppercase tracking-wide text-muted-foreground">

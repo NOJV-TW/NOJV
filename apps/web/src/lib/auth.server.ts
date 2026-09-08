@@ -138,6 +138,18 @@ async function sendEmailVerificationMessage({
   }
 }
 
+const HTML_ESCAPES: Record<string, string> = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;",
+};
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => HTML_ESCAPES[character] ?? character);
+}
+
 function createAuth() {
   const env = getWebEnv();
   const isProduction = env.NODE_ENV === "production";
@@ -183,12 +195,13 @@ function createAuth() {
         enabled: true,
         updateEmailWithoutVerification: false,
         sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
+          const safeNewEmail = escapeHtml(newEmail);
           await sendEmailVerificationMessage({
             to: user.email,
             url,
             subject: "NOJV 信箱變更確認 · Confirm email change",
             heading: "確認信箱變更 · Confirm email change",
-            intro: `有人要求將你的 NOJV 信箱變更為 <strong>${newEmail}</strong>。請先確認這項要求。<br>Someone requested to change your NOJV email address to <strong>${newEmail}</strong>. Confirm this request first.`,
+            intro: `有人要求將你的 NOJV 信箱變更為 <strong>${safeNewEmail}</strong>。請先確認這項要求。<br>Someone requested to change your NOJV email address to <strong>${safeNewEmail}</strong>. Confirm this request first.`,
             actionLabel: "確認變更 · Confirm change",
             outro:
               "確認後，系統會再寄一封驗證信到新信箱。若你沒有提出變更，請忽略這封信。<br>After confirmation, we will send a verification email to the new address. If you did not request this change, ignore this email.",

@@ -21,6 +21,21 @@ import type { Actions, PageServerLoad } from "./$types";
 import { changeEmailSchema } from "./email-schema";
 import { loadTwoFactor, twoFactorActions } from "./two-factor-actions";
 
+const emailVerificationErrors = {
+  INVALID_TOKEN: "invalidToken",
+  TOKEN_EXPIRED: "tokenExpired",
+} as const;
+
+type EmailVerificationError =
+  (typeof emailVerificationErrors)[keyof typeof emailVerificationErrors];
+
+function getEmailVerificationError(event: RequestEvent): EmailVerificationError | null {
+  const error = event.url.searchParams.get("error");
+  return error && error in emailVerificationErrors
+    ? emailVerificationErrors[error as keyof typeof emailVerificationErrors]
+    : null;
+}
+
 function formString(formData: FormData, name: string): string {
   const value = formData.get(name);
   return typeof value === "string" ? value : "";
@@ -44,7 +59,9 @@ export const load: PageServerLoad = async (event) => {
 
   const prefs = await notificationDomain.getNotificationPreferences(locals.user.id);
   const notificationForm = await superValidate(prefs, zod4(notificationPreferencesSchema));
-  const emailForm = await superValidate({ newEmail: "" }, zod4(changeEmailSchema));
+  const emailForm = await superValidate({ newEmail: "" }, zod4(changeEmailSchema), {
+    errors: false,
+  });
 
   const twoFactor = await loadTwoFactor(event);
   const linkedProviderIds = sessionUser?.isSuperAdmin ? [] : await listProviderIds(event);
@@ -54,6 +71,8 @@ export const load: PageServerLoad = async (event) => {
     notificationForm,
     emailForm,
     email: locals.user.email,
+    emailVerified: locals.user.emailVerified,
+    emailVerificationError: getEmailVerificationError(event),
     isSchoolVerified,
     providers: sessionUser?.isSuperAdmin
       ? []
@@ -69,7 +88,7 @@ export const actions = {
   ...withRateLimitActions(twoFactorActions),
 
   changeEmail: withRateLimit(async (event) => {
-    requireAuth(event);
+    const actor = requireAuth(event);
     const form = await superValidate(event, zod4(changeEmailSchema));
     if (!form.valid) {
       return fail(400, { form });
@@ -93,8 +112,31 @@ export const actions = {
 
     return message<FormMessage>(form, {
       kind: "success",
-      text: "account_emailChange_verificationSent",
+      text: actor.emailVerified
+        ? "account_emailChange_verificationSent"
+        : "account_emailChange_verificationSentUnverified",
     });
+  }),
+
+  resendEmailVerification: withRateLimit(async (event) => {
+    const actor = requireAuth(event);
+    if (actor.emailVerified || !event.locals.user?.email) {
+      return fail(400, { error: "account_emailVerification_resendFailed" });
+    }
+
+    try {
+      await getAuth().api.sendVerificationEmail({
+        body: {
+          email: event.locals.user.email,
+          callbackURL: "/settings",
+        },
+        headers: event.request.headers,
+      });
+    } catch {
+      return fail(400, { error: "account_emailVerification_resendFailed" });
+    }
+
+    return { success: true };
   }),
 
   sendVerification: handleSendVerificationAction,
