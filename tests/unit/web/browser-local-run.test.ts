@@ -215,7 +215,7 @@ describe("browser local run result mapping", () => {
     expect(result).toMatchObject({ index: 2, verdict: "AC", timeMs: 1, memoryKb: 2 });
   });
 
-  it("reports guest execution time instead of virtual clock or preparation time", () => {
+  it("reports Forge logical time independently of observed guest duration", () => {
     const result = mapBrowserLocalRunResult(
       browserRun({
         durationMs: 3_000,
@@ -227,15 +227,7 @@ describe("browser local run result mapping", () => {
       0,
     );
 
-    expect(result.timeMs).toBe(16);
-  });
-
-  it("uses total duration when a runtime does not provide guest timing", () => {
-    const run = browserRun({});
-    delete run.executionDurationMs;
-    const result = mapBrowserLocalRunResult(run, undefined, undefined, 0);
-
-    expect(result.timeMs).toBe(13);
+    expect(result.timeMs).toBe(3);
   });
 
   it("keeps wrong answers and non-zero exits distinct", () => {

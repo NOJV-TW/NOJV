@@ -1,6 +1,5 @@
 import {
   MAX_EXECUTION_OUTPUT_BYTES,
-  executionWallTimeLimitMs,
   compareStandard,
   entryFileNameFor,
   effectiveTimeLimitMs,
@@ -16,7 +15,6 @@ import {
 import {
   WASM_OJ_LIBCXX_PCH_HEADER,
   createBrowserEngine,
-  createDefaultCostBaselineRegistry,
   type BuildResult,
   type Engine,
   type RunResult,
@@ -180,7 +178,7 @@ export function mapBrowserLocalRunResult(
     run.stderr.length > 0
       ? run.stderr
       : browserLocalTerminationFeedback(run.termination, run.code, run.trapMessage);
-  const timeMs = Math.max(0, Math.ceil(run.executionDurationMs ?? run.durationMs));
+  const timeMs = Math.max(0, Math.ceil((run.metrics.logicalTimeNs ?? 0) / 1_000_000));
   return {
     index,
     verdict,
@@ -285,23 +283,17 @@ export async function runBrowserLocally(args: {
       env: {},
     };
     const effectiveTimeLimit = effectiveTimeLimitMs(runtime.timeLimitMs, args.request.language);
-    const instructionBudget =
-      Number.MAX_SAFE_INTEGER -
-      createDefaultCostBaselineRegistry().baseline(build.artifact.costProfile);
     const caseResults: CaseResult[] = [];
     for (const [index, testCase] of args.cases.entries()) {
       const run = await browserEngine.run(build.artifact, {
         stdin: testCase.input,
         env: runtime.env,
-        determinism: { clockMode: "host" },
         resources: {
-          instructionBudget,
           logicalTimeLimitMs: effectiveTimeLimit,
           memoryLimitBytes: runtime.memoryLimitMb * 1024 * 1024,
           outputLimitBytes: MAX_EXECUTION_OUTPUT_BYTES,
           filesystemWriteLimitBytes: 64 * 1024 * 1024,
           filesystemEntryLimit: 4096,
-          wallTimeLimitMs: executionWallTimeLimitMs(effectiveTimeLimit),
         },
       });
       args.signal.throwIfAborted();

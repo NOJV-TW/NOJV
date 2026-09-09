@@ -2317,7 +2317,7 @@
   "editor_loadingEditor": "Loading editor…",
   "editor_loadFailed": "The code editor could not be loaded. Reload the page to try again.",
   "chart_loadFailed": "The chart could not be loaded. Its data summary is still available to assistive technology.",
-  "editor_localRuntime": "Execution time (this device)",
+  "editor_localRuntime": "Logical time",
   "editor_resetConfirmTitle": "Reset editor",
   "editor_samplesOnly": "Samples only",
   "editor_submitCooldown": "Submit in {seconds}s",

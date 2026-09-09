@@ -32,8 +32,10 @@ Browser and native standard runs share a 16 MiB combined stdout/stderr execution
 limit. Exceeding it stops the solution with RE; validator overflow is SE. This
 limit is independent of the smaller result-display limits. Docker protocol capture
 allows JSON escaping of both compiler diagnostic streams plus envelope metadata.
-Browser and native standard runs use the same 2× effective time limit as their
-wall-clock ceiling. Standard/checker
+Native standard runs use a 2× effective time limit as their wall-clock ceiling.
+Browser Test retains Forge's deterministic clock, normalized instruction budget
+and default emergency wall deadline; the problem time limit sets its logical-time
+budget. Standard/checker
 prepare containers use a separate 256 MiB compiler scratch directory and at least
 512 MiB memory, so cold compilation does not consume the solution's smaller
 scratch or memory budget. Checker execution mounts its prepared artifact read-only
@@ -48,11 +50,11 @@ preserved byte-for-byte; validation rejects all-whitespace source without trimmi
 valid programs. Server request deadlines cover dispatch and polling, and an early
 verdict notification wakes polling once without creating a busy loop.
 
-Browser results remain a preview: WASI toolchains, host elapsed time, linear memory,
-filesystem caps and platform APIs differ from native compilation and
-CPU/cgroup accounting. Browser Test uses the SDK's maximum instruction ceiling
-and enforces the configured wall deadline instead of its unrelated default fuel
-budget; even Python syntax diagnostics can exceed that default within one second.
+Browser results remain a preview: WASI toolchains, deterministic logical time,
+linear memory, filesystem caps and platform APIs differ from native compilation
+and CPU/cgroup accounting. The editor displays Forge logical time, not elapsed
+host time. Instruction or logical-time exhaustion remains TLE; NOJV does not
+raise instruction limits to force a native-looking verdict.
 Identical inputs and comparison settings do not guarantee
 identical verdicts for platform-dependent programs or resource-limit boundaries.
 Passing samples also does not imply passing hidden official tests.

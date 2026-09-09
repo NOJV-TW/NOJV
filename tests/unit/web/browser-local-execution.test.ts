@@ -15,12 +15,10 @@ const engine = vi.hoisted(() => ({
     metrics: { logicalTimeNs: 1, memoryBytes: 1024 },
   }),
   cancel: vi.fn(),
-  baseline: vi.fn((profile: string) => (profile === "java-profile" ? 2419 : 0)),
 }));
 vi.mock("../../../apps/web/node_modules/@wasm-oj/browser", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../apps/web/node_modules/@wasm-oj/browser")>()),
   createBrowserEngine: vi.fn().mockResolvedValue(engine),
-  createDefaultCostBaselineRegistry: () => ({ baseline: engine.baseline }),
 }));
 
 it("passes Standard Mode stdin and configured runtime to the browser engine", async () => {
@@ -48,11 +46,8 @@ it("passes Standard Mode stdin and configured runtime to the browser engine", as
     expect.objectContaining({
       stdin: "(())",
       env: { MODE: "strict" },
-      determinism: { clockMode: "host" },
       resources: expect.objectContaining({
-        instructionBudget: Number.MAX_SAFE_INTEGER,
         logicalTimeLimitMs: 750,
-        wallTimeLimitMs: 1500,
         memoryLimitBytes: 64 * 1024 * 1024,
         outputLimitBytes: 16 * 1024 * 1024,
       }),
@@ -197,12 +192,12 @@ it("keeps short C wall limits aligned with the native 2x grace, without a browse
   expect(engine.run).toHaveBeenLastCalledWith(
     expect.anything(),
     expect.objectContaining({
-      resources: expect.objectContaining({ logicalTimeLimitMs: 100, wallTimeLimitMs: 200 }),
+      resources: expect.objectContaining({ logicalTimeLimitMs: 100 }),
     }),
   );
 });
 
-it("reserves the measured Java baseline without overflowing the raw instruction ceiling", async () => {
+it("leaves the clock, instruction budget and host safety deadline to Forge defaults", async () => {
   const costProfile = "java-profile";
   engine.compile.mockResolvedValueOnce({
     success: true,
@@ -222,13 +217,8 @@ it("reserves the measured Java baseline without overflowing the raw instruction 
     memoryLimitMb: 128,
     signal: new AbortController().signal,
   });
-  expect(engine.baseline).toHaveBeenLastCalledWith(costProfile);
-  expect(engine.run).toHaveBeenLastCalledWith(
-    { id: "java", costProfile },
-    expect.objectContaining({
-      resources: expect.objectContaining({
-        instructionBudget: Number.MAX_SAFE_INTEGER - 2419,
-      }),
-    }),
-  );
+  const config = engine.run.mock.calls.at(-1)?.[1] as Record<string, unknown>;
+  expect(config).not.toHaveProperty("determinism");
+  expect(config.resources).not.toHaveProperty("instructionBudget");
+  expect(config.resources).not.toHaveProperty("wallTimeLimitMs");
 });
