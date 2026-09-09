@@ -20,7 +20,6 @@ function browserRun(overrides: Partial<RunResult>): RunResult {
     stderr: "",
     files: {},
     durationMs: 12.4,
-    executionDurationMs: 0.4,
     determinism: { randomSeed: 1, realtimeEpochMs: 0, clockStepNs: 1_000_000 },
     resources: {
       instructionBudget: 1,
@@ -215,11 +214,10 @@ describe("browser local run result mapping", () => {
     expect(result).toMatchObject({ index: 2, verdict: "AC", timeMs: 1, memoryKb: 2 });
   });
 
-  it("reports Forge logical time independently of observed guest duration", () => {
+  it("reports Forge logical time independently of total host duration", () => {
     const result = mapBrowserLocalRunResult(
       browserRun({
         durationMs: 3_000,
-        executionDurationMs: 15.2,
         metrics: { ...browserRun({}).metrics, logicalTimeNs: 2_500_000 },
       }),
       undefined,
