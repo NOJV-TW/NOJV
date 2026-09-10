@@ -16,8 +16,8 @@
   const activeTab = $derived<TabKey>(deriveTab(page.url.searchParams.get("tab")));
 
   function deriveTab(raw: string | null): TabKey {
-    if (raw === "managing") return "managing";
-    return "enrolled";
+    if (raw === "enrolled" || raw === "managing") return raw;
+    return data.canCreate ? "managing" : "enrolled";
   }
 
   function setTab(next: TabKey) {
