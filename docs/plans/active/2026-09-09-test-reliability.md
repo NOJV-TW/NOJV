@@ -74,3 +74,7 @@ The modifications remain separated by repository, with no CSP relaxation or new 
 ## Final time-model correction (2026-09-09)
 
 The user explicitly rejected host-clock mode. Removed it from Forge types, native/browser runtime branches, environment overrides, real-sleep implementation, fixtures and documentation. Unknown clockMode project input is rejected. NOJV no longer selects host clocks or overrides the SDK instruction budget/emergency wall deadline; displayed time is Forge logical time. The earlier native-parity timing proposal is withdrawn. Browser result collection/lifecycle fixes remain separate infrastructure protections. The earlier 23-case parity result used a now-withdrawn policy and is not evidence for the corrected time model. Revalidate under deterministic settings without requiring native timing/verdict equivalence.
+
+## Published package adoption (2026-09-10)
+
+Forge PR #83 is merged and npm now contains browser/core/contracts 0.2.2 and all six toolchains 0.2.0. NOJV pins these published versions and their registry integrity hashes; the earlier unpublished-package blocker is resolved. Release validation uses these installed packages with deterministic guest time. The historical reassessment and withdrawn host-clock evidence above do not describe the current release gate. Fresh local checks, PR CI, post-merge CI, and production rollout remain separate gates.
