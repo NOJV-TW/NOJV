@@ -4,15 +4,21 @@ import type {
   Language,
   SubmissionContext,
   SubmissionResult,
+  SubmissionRunCase,
 } from "@nojv/core";
 import { m } from "$lib/paraglide/messages.js";
-import { executeSubmission, SubmissionRequestError } from "$lib/services/submission-service";
+import {
+  executeSubmission,
+  submissionRequestValidationError,
+  SubmissionRequestError,
+} from "$lib/services/submission-service";
 import { toasts } from "$lib/stores/toast";
 import { runBrowserLocally, shouldUseBrowserLocalRun } from "$lib/services/browser-local-run";
 import type { ProblemDetail } from "$lib/types";
 import {
   buildSubmissionRequest,
   projectRunCasesForRequest,
+  projectBrowserSubmission,
   projectSubmittedSource,
   type WorkspaceFile,
 } from "./editor-bindings";
@@ -47,11 +53,11 @@ export interface EditorRunController {
   readonly isSubmitting: boolean;
   readonly bottomTab: "testcase" | "result";
   readonly runResult: SubmissionResult | null;
-  readonly runSource: "local" | "server" | null;
+  readonly runSource: "local" | null;
   readonly runStatus: string | null;
   readonly runError: string | null;
   readonly cooldownUntil: number | null;
-  panelRunCases: { input: string; expectedOutput: string }[];
+  panelRunCases: SubmissionRunCase[];
   setBottomTab: (tab: "testcase" | "result") => void;
   run: () => Promise<void>;
   submit: () => Promise<void>;
@@ -63,11 +69,11 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
   let isSubmitting = $state(false);
   let bottomTab = $state<"testcase" | "result">("testcase");
   let runResult = $state<SubmissionResult | null>(null);
-  let runSource = $state<"local" | "server" | null>(null);
+  let runSource = $state<"local" | null>(null);
   let runStatus = $state<string | null>(null);
   let runError = $state<string | null>(null);
   let cooldownUntil = $state<number | null>(null);
-  let panelRunCases = $state<{ input: string; expectedOutput: string }[]>(
+  let panelRunCases = $state<SubmissionRunCase[]>(
     args.initialSamples.map((s) => ({ input: s.input, expectedOutput: s.output })),
   );
 
@@ -75,12 +81,26 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
   let abortController: AbortController | null = null;
   const inflightSubmits = new Set<AbortController>();
 
-  async function runSubmission(sampleOnly: boolean): Promise<SubmissionResult | null> {
+  async function runSubmission(): Promise<SubmissionResult | null> {
+    if (args.isSpecialEnv())
+      throw new SubmissionRequestError(
+        "Client Test requires a browser runtime.",
+        "client_test_custom_image",
+        null,
+      );
+    if (args.judgeType() !== "standard")
+      throw new SubmissionRequestError(
+        "Client Test requires a public judge program.",
+        "client_test_private_judge",
+        null,
+      );
+
     abortController = new AbortController();
     const { signal } = abortController;
 
-    const runCases =
-      sampleOnly && !args.isSpecialEnv() ? projectRunCasesForRequest(panelRunCases) : undefined;
+    const runCases = projectRunCasesForRequest(panelRunCases);
+    if (runCases.length === 0)
+      throw new SubmissionRequestError("No testcases provided.", "invalid_run_cases", null);
 
     const request = buildSubmissionRequest({
       drafts: args.drafts(),
@@ -88,35 +108,39 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       language: args.language(),
       problemId: args.problemId,
       context: args.context(),
-      sampleOnly,
+      sampleOnly: true,
       workspaceDrafts: args.workspaceDrafts(),
       workspaceFiles: args.workspaceFiles(),
-      ...(runCases ? { runCases } : {}),
+      runCases,
     });
 
+    const validationError = submissionRequestValidationError(request);
+    if (validationError)
+      throw new SubmissionRequestError("Invalid submission input.", validationError, null);
+
     if (
-      shouldUseBrowserLocalRun({
-        sampleOnly,
-        specialEnv: args.isSpecialEnv(),
-        judgeType: args.judgeType(),
+      !shouldUseBrowserLocalRun({
+        sampleOnly: true,
+        specialEnv: false,
+        judgeType: "standard",
         language: args.language(),
       })
-    ) {
-      runSource = "local";
-      const result = await runBrowserLocally({
-        request,
-        cases: runCases ?? [],
-        judgeConfig: args.judgeConfig(),
-        problemId: args.problemId,
-        timeLimitMs: args.timeLimitMs,
-        memoryLimitMb: args.memoryLimitMb,
-        signal,
-      });
-      return destroyed ? null : result;
-    }
-
-    runSource = "server";
-    const result = await executeSubmission(request, { signal });
+    )
+      throw new SubmissionRequestError(
+        "Client runtime is unavailable.",
+        "client_test_language",
+        null,
+      );
+    runSource = "local";
+    const result = await runBrowserLocally({
+      request: projectBrowserSubmission(request, args.workspaceFiles()),
+      cases: runCases,
+      judgeConfig: args.judgeConfig(),
+      problemId: args.problemId,
+      timeLimitMs: args.timeLimitMs,
+      memoryLimitMb: args.memoryLimitMb,
+      signal,
+    });
     return destroyed ? null : result;
   }
 
@@ -128,7 +152,7 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
     runError = null;
     bottomTab = "result";
     try {
-      runResult = await runSubmission(true);
+      runResult = await runSubmission();
       runStatus = null;
     } catch (err) {
       const message =
@@ -145,6 +169,20 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
 
   function messageForSubmitError(code: string | null): string {
     switch (code) {
+      case "client_test_custom_image":
+        return m.editor_clientTestCustomImage();
+      case "client_test_private_judge":
+        return m.editor_clientTestPrivateJudge();
+      case "client_test_language":
+        return m.editor_clientTestLanguage();
+      case "invalid_source":
+        return m.editor_invalidSource();
+      case "invalid_run_cases":
+        return m.editor_invalidRunCases();
+      case "request_too_large":
+        return m.editor_requestTooLarge();
+      case "SUBMISSION_TIMEOUT":
+        return m.editor_requestTimedOut();
       case "daily_limit":
         return m.submit_error_dailyLimit();
       case "window_closed":
@@ -185,6 +223,9 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
 
     const dispatched: { submissionId: string | null } = { submissionId: null };
     try {
+      const validationError = submissionRequestValidationError(request);
+      if (validationError)
+        throw new SubmissionRequestError("Invalid submission input.", validationError, null);
       const result = await executeSubmission(request, {
         signal: controller.signal,
         onDispatched: (dispatch) => {

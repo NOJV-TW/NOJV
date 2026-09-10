@@ -12,6 +12,7 @@ describe("mergeCheckerResults", () => {
     const [result] = mergeCheckerResults(
       [rawRun({ index: 0, stdout: "out" })],
       new Map<number, ValidatorOutcome>([[0, { verdict: "AC" }]]),
+      [],
     );
     expect(result!.verdict).toBe("AC");
     expect(result!.stdout).toBe("out");
@@ -21,6 +22,7 @@ describe("mergeCheckerResults", () => {
     const [result] = mergeCheckerResults(
       [rawRun({ index: 0 })],
       new Map<number, ValidatorOutcome>([[0, { verdict: "WA" }]]),
+      [],
     );
     expect(result!.verdict).toBe("WA");
   });
@@ -31,6 +33,7 @@ describe("mergeCheckerResults", () => {
       new Map<number, ValidatorOutcome>([
         [0, { verdict: "WA", teamMessage: "off by one", judgeMessage: "secret answer was 42" }],
       ]),
+      [],
     );
     expect(result!.feedback).toBe("off by one");
     expect(result!.staffFeedback).toBe("secret answer was 42");
@@ -41,6 +44,7 @@ describe("mergeCheckerResults", () => {
     const [result] = mergeCheckerResults(
       [rawRun({ index: 0 })],
       new Map<number, ValidatorOutcome>([[0, { verdict: "AC", teamMessage: "ok" }]]),
+      [],
     );
     expect(result!.feedback).toBe("ok");
     expect(result).not.toHaveProperty("staffFeedback");
@@ -52,6 +56,7 @@ describe("mergeCheckerResults", () => {
       const [result] = mergeCheckerResults(
         [rawRun({ index: 0, errorVerdict, stderr: "boom" })],
         new Map<number, ValidatorOutcome>([[0, { verdict: "AC" }]]),
+        [],
       );
       expect(result!.verdict).toBe(errorVerdict);
       expect(result!.stderr).toBe("boom");
@@ -62,6 +67,7 @@ describe("mergeCheckerResults", () => {
     const [result] = mergeCheckerResults(
       [rawRun({ index: 0 })],
       new Map<number, ValidatorOutcome>(),
+      [],
     );
     expect(result!.verdict).toBe("SE");
   });
@@ -70,6 +76,7 @@ describe("mergeCheckerResults", () => {
     const [result] = mergeCheckerResults(
       [rawRun({ index: 0 })],
       new Map<number, ValidatorOutcome>([[0, { verdict: "SE" }]]),
+      [],
     );
     expect(result!.verdict).toBe("SE");
   });
@@ -86,6 +93,7 @@ describe("mergeCheckerResults", () => {
           },
         ],
       ]),
+      [],
     );
     expect(result!.staffFeedback).toContain("SIGSEGV");
     expect(result!.feedback).not.toContain("42");
@@ -96,9 +104,38 @@ describe("mergeCheckerResults", () => {
     const [result] = mergeCheckerResults(
       [rawRun({ index: 2, timeMs: 123, memoryKb: 4096, exitCode: 0 })],
       new Map<number, ValidatorOutcome>([[2, { verdict: "AC" }]]),
+      [],
     );
     expect(result!.index).toBe(2);
     expect(result!.timeMs).toBe(123);
     expect(result!.memoryKb).toBe(4096);
   });
+});
+
+it("skips comparison only for custom checker cases with no answer, preserving runtime and judge failures", () => {
+  const runs = [
+    rawRun({ index: 0, stdout: "anything" }),
+    rawRun({ index: 1, errorVerdict: "RE" }),
+    rawRun({ index: 2 }),
+    rawRun({ index: 3 }),
+    rawRun({ index: 4 }),
+    rawRun({ index: 5 }),
+  ];
+  const cases = [
+    { index: 0, input: "", weight: 0, isSample: true },
+    { index: 1, input: "", weight: 0, isSample: true },
+    { index: 2, input: "", weight: 1, isSample: false },
+    { index: 3, input: "", output: "", weight: 0, isSample: true },
+    { index: 4, input: "", output: "answer", weight: 0, isSample: true },
+    { index: 5, input: "", output: "", weight: 0, isSample: true },
+  ];
+  const results = mergeCheckerResults(
+    runs,
+    new Map([
+      [3, { verdict: "WA" }],
+      [4, { verdict: "AC" }],
+    ]),
+    cases,
+  );
+  expect(results.map((result) => result.verdict)).toEqual(["AC", "RE", "SE", "WA", "AC", "SE"]);
 });

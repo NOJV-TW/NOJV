@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
+import { sandboxOutputSchema } from "@nojv/core";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -237,4 +238,35 @@ describe("spawnDockerContainer cancellation", () => {
     failed.emit("error", new Error("docker executable missing"));
     await expect(logs).rejects.toMatchObject({ failure: "spawn" });
   });
+});
+
+it("preserves JSON-escaped output at the execution cap across stdout and stderr", async () => {
+  const runChild = child(false);
+  mocks.spawn.mockReturnValue(runChild);
+  const operation = spawnDockerContainer({
+    args: ["run"],
+    containerName: "escaped-output",
+    outerTimeoutMs: 60_000,
+    signal: new AbortController().signal,
+  });
+  const size = 16 * 1024 * 1024;
+  const output = JSON.stringify({
+    testcaseResults: [],
+    rawRuns: [
+      {
+        index: 0,
+        stdout: "\0".repeat(size / 2),
+        stderr: "\0".repeat(size / 2),
+        exitCode: 0,
+        timeMs: 1,
+        memoryKb: 1,
+      },
+    ],
+  });
+  for (let start = 0; start < output.length; start += 64 * 1024)
+    runChild.stdout.write(output.slice(start, start + 64 * 1024));
+  runChild.emit("close", 0);
+  const result = await operation;
+  const parsed = sandboxOutputSchema.parse(JSON.parse(result.stdout));
+  expect(parsed.rawRuns?.map((run) => run.stdout.length + run.stderr.length)).toEqual([size]);
 });

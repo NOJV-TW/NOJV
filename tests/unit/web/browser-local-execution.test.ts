@@ -2,9 +2,10 @@ import { expect, it, vi } from "vitest";
 import { runBrowserLocally } from "$lib/services/browser-local-run";
 
 const engine = vi.hoisted(() => ({
-  compile: vi
-    .fn<(...args: unknown[]) => Promise<unknown>>()
-    .mockResolvedValue({ success: true, artifact: { id: "compiled" } }),
+  compile: vi.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue({
+    success: true,
+    artifact: { id: "compiled", costProfile: "test-profile" },
+  }),
   run: vi.fn().mockResolvedValue({
     termination: "exited",
     code: 0,
@@ -41,13 +42,14 @@ it("passes Standard Mode stdin and configured runtime to the browser engine", as
   });
   expect(result?.feedback).toBe("Local browser run completed.");
   expect(engine.run).toHaveBeenCalledWith(
-    { id: "compiled" },
+    { id: "compiled", costProfile: "test-profile" },
     expect.objectContaining({
       stdin: "(())",
       env: { MODE: "strict" },
       resources: expect.objectContaining({
         logicalTimeLimitMs: 750,
         memoryLimitBytes: 64 * 1024 * 1024,
+        outputLimitBytes: 16 * 1024 * 1024,
       }),
     }),
   );
@@ -82,7 +84,7 @@ it.each(["", "a", "a\n", "a\r\n", "a\n\n", " \t"])(
         signal: new AbortController().signal,
       });
       expect(engine.run).toHaveBeenLastCalledWith(
-        { id: "compiled" },
+        { id: "compiled", costProfile: "test-profile" },
         expect.objectContaining({ stdin: input }),
       );
     }
@@ -131,4 +133,92 @@ it("distinguishes engine failures from compilation rejection", async () => {
     diagnostics: [],
   });
   expect(await runBrowserLocally(args)).toMatchObject({ verdict: "compile_error" });
+});
+
+it.each(["compile", "run"] as const)(
+  "discards a completed %s result after cancellation and does not start another case",
+  async (phase) => {
+    const controller = new AbortController();
+    const runsBefore = engine.run.mock.calls.length;
+    const cancellationsBefore = engine.cancel.mock.calls.length;
+    engine[phase].mockImplementationOnce(async () => {
+      controller.abort();
+      return phase === "compile"
+        ? { success: true, artifact: { id: "compiled", costProfile: "test-profile" } }
+        : {
+            termination: "exited",
+            code: 0,
+            stdout: "YES",
+            stderr: "",
+            durationMs: 1,
+            metrics: { logicalTimeNs: 1, memoryBytes: 1024 },
+          };
+    });
+    const result = await runBrowserLocally({
+      request: {
+        context: { type: "practice" },
+        language: "c",
+        problemId: "cancelled",
+        sourceCode: "source",
+      },
+      cases: [{ input: "first" }, { input: "second" }],
+      judgeConfig: { type: "standard" },
+      problemId: "cancelled",
+      timeLimitMs: 1000,
+      memoryLimitMb: 256,
+      signal: controller.signal,
+    });
+    expect(result).toBeNull();
+    expect(engine.run.mock.calls.length - runsBefore).toBe(phase === "compile" ? 0 : 1);
+    expect(engine.cancel.mock.calls.length - cancellationsBefore).toBe(1);
+  },
+);
+
+it("keeps short C wall limits aligned with the native 2x grace, without a browser-only floor", async () => {
+  await runBrowserLocally({
+    request: {
+      context: { type: "practice" },
+      language: "c",
+      problemId: "short",
+      sourceCode: "int main(){}",
+    },
+    cases: [{ input: "" }],
+    judgeConfig: { type: "standard" },
+    problemId: "short",
+    timeLimitMs: 100,
+    memoryLimitMb: 128,
+    signal: new AbortController().signal,
+  });
+  expect(engine.run).toHaveBeenLastCalledWith(
+    expect.anything(),
+    expect.objectContaining({
+      resources: expect.objectContaining({ logicalTimeLimitMs: 100 }),
+    }),
+  );
+});
+
+it("leaves the clock, instruction budget and host safety deadline to Forge defaults", async () => {
+  const costProfile = "java-profile";
+  engine.compile.mockResolvedValueOnce({
+    success: true,
+    artifact: { id: "java", costProfile },
+  });
+  await runBrowserLocally({
+    request: {
+      context: { type: "practice" },
+      language: "java",
+      problemId: "fuel",
+      sourceCode: "class Main {}",
+    },
+    cases: [{ input: "" }],
+    judgeConfig: { type: "standard" },
+    problemId: "fuel",
+    timeLimitMs: 1000,
+    memoryLimitMb: 128,
+    signal: new AbortController().signal,
+  });
+  const config = engine.run.mock.calls.at(-1)?.[1] as Record<string, unknown>;
+  expect(config).not.toHaveProperty("determinism");
+  expect(config.resources).not.toHaveProperty("instructionBudget");
+  expect(config.resources).not.toHaveProperty("wallTimeLimitMs");
 });

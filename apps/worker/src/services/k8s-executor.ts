@@ -9,6 +9,7 @@ import {
   validateAdvancedResultForMaxScore,
   DEFAULT_MAX_MEMORY_MB,
   DEFAULT_MEMORY_HEADROOM_MB,
+  MIN_COMPILER_MEMORY_MB,
   resolveContainerMemoryMb,
   type RawCaseRun,
   type SandboxExecutionContext,
@@ -32,6 +33,7 @@ import {
   buildInteractiveSolutionConfigMapData,
   buildValidateConfigMapData,
   computeJobDeadlineSeconds,
+  computeValidatorJobDeadlineSeconds,
   CONFIGMAP_MAX_BYTES,
   JOB_DEADLINE_FLOOR_SECONDS,
 } from "./k8s-configmaps";
@@ -1399,12 +1401,18 @@ export class K8sExecutor implements SandboxExecutor {
     const runResult = await this.runPerCasePod(request, execution);
     if (!runResult.rawRuns) return runResult;
     const rawRuns = runResult.rawRuns;
-    const hasGradableCase = rawRuns.some((r) => !r.errorVerdict);
-    const outcomes = hasGradableCase
-      ? await this.runValidateJob(validateName, ns, request, rawRuns, execution.signal)
-      : new Map<number, ValidatorOutcome>();
+    const answeredCaseIndices = new Set(
+      request.testcases.filter((tc) => tc.output !== undefined).map((tc) => tc.index),
+    );
+    const gradableRuns = rawRuns.filter(
+      (r) => !r.errorVerdict && answeredCaseIndices.has(r.index),
+    );
+    const outcomes =
+      gradableRuns.length > 0
+        ? await this.runValidateJob(validateName, ns, request, gradableRuns, execution.signal)
+        : new Map<number, ValidatorOutcome>();
 
-    return { testcaseResults: mergeCheckerResults(rawRuns, outcomes) };
+    return { testcaseResults: mergeCheckerResults(rawRuns, outcomes, request.testcases) };
   }
 
   private async runValidateJob(
@@ -1417,7 +1425,10 @@ export class K8sExecutor implements SandboxExecutor {
     let payloadNames: string[] = [];
     let executionFailure: { reason: unknown } | undefined;
     try {
-      const deadlineSeconds = computeJobDeadlineSeconds(request);
+      const deadlineSeconds = computeValidatorJobDeadlineSeconds(
+        request.limits.timeoutMs,
+        rawRuns.length,
+      );
       payloadNames = await this.createPayloadConfigMaps(
         jobName,
         namespace,
@@ -1561,6 +1572,7 @@ export class K8sExecutor implements SandboxExecutor {
         cpuLimit: this.config.cpuLimit,
         memoryRequest: this.config.memoryRequest,
         memoryLimit,
+        compilerMemoryLimit: `${String(Math.max(parseMemoryLimitMb(memoryLimit), MIN_COMPILER_MEMORY_MB))}Mi`,
         activeDeadlineSeconds: deadlineSeconds,
         ...(this.config.runtimeClassName
           ? { runtimeClassName: this.config.runtimeClassName }
@@ -1592,6 +1604,7 @@ export class K8sExecutor implements SandboxExecutor {
         cpuLimit: this.config.cpuLimit,
         memoryRequest: this.config.memoryRequest,
         memoryLimit,
+        compilerMemoryLimit: `${String(Math.max(parseMemoryLimitMb(memoryLimit), MIN_COMPILER_MEMORY_MB))}Mi`,
         activeDeadlineSeconds: deadlineSeconds,
         caseIndices,
         ...(this.config.runtimeClassName

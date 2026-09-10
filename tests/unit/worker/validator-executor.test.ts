@@ -45,6 +45,14 @@ describe("writeValidatorFiles", () => {
   };
 
   beforeEach(async () => {
+    spawnDockerContainer.mockReset().mockResolvedValueOnce({
+      exitCode: 0,
+      stdout: JSON.stringify({ runCommand: ["/artifact/validator"] }),
+      stderr: "",
+      timedOut: false,
+      sizeExceeded: false,
+      spawnError: null,
+    });
     tempDir = await mkdtemp(join(tmpdir(), "nojv-validate-test-"));
   });
 
@@ -94,6 +102,13 @@ describe("writeValidatorFiles", () => {
           timeMs: 1,
         })),
         outcomes,
+        params.cases.map(({ index, input, answer }) => ({
+          index,
+          input,
+          output: answer,
+          weight: 1,
+          isSample: false,
+        })),
       );
       expect(
         mapResult(
@@ -165,6 +180,85 @@ describe("writeValidatorFiles", () => {
       verdict: "SE",
       judgeMessage: expect.stringContaining(message),
     });
+  });
+
+  it("compiles a checker separately without raising its execution memory or scratch limits", async () => {
+    spawnDockerContainer.mockResolvedValue({
+      exitCode: 0,
+      stdout: JSON.stringify({
+        validatorOutcomes: [
+          { index: 0, verdict: "AC" },
+          { index: 1, verdict: "AC" },
+        ],
+      }),
+      stderr: "",
+      timedOut: false,
+      sizeExceeded: false,
+      spawnError: null,
+    });
+    const outcomes = await runValidator(
+      tempDir,
+      { ...params, validatorLanguage: "cpp", limits: { timeoutMs: 1000, memoryMb: 16 } },
+      new AbortController().signal,
+      {
+        cpuLimit: "1",
+        image: "test",
+        memoryMb: 80,
+        pidsLimit: 64,
+      },
+    );
+    expect(outcomes.get(0)?.verdict).toBe("AC");
+    const compileArgs = spawnDockerContainer.mock.calls[0]![0].args as string[];
+    const runArgs = spawnDockerContainer.mock.calls[1]![0].args as string[];
+    expect(compileArgs[compileArgs.indexOf("--memory") + 1]).toBe("512m");
+    expect(runArgs[runArgs.indexOf("--memory") + 1]).toBe("80m");
+    expect(compileArgs).toContain("/tmp:rw,exec,nosuid,nodev,size=256m");
+    expect(runArgs).toContain("/tmp:rw,exec,nosuid,nodev,size=64m");
+    expect(compileArgs).toContain("SANDBOX_PHASE=compile-validator");
+    const artifactMount = compileArgs.find((arg) => arg.endsWith(":/artifact:rw"))!;
+    expect(runArgs).toContain(artifactMount.replace(":rw", ":ro"));
+    expect(await exists(artifactMount.split(":")[0]!)).toBe(false);
+    expect(spawnDockerContainer.mock.calls[1]![0].outerTimeoutMs).toBe(150_000);
+  });
+
+  it("preserves the total Docker validator deadline cap", async () => {
+    spawnDockerContainer.mockResolvedValue({
+      exitCode: 0,
+      stdout: JSON.stringify({
+        validatorOutcomes: [
+          { index: 0, verdict: "AC" },
+          { index: 1, verdict: "AC" },
+        ],
+      }),
+      stderr: "",
+      timedOut: false,
+      spawnError: null,
+    });
+    await runValidator(
+      tempDir,
+      { ...params, limits: { timeoutMs: 500_000, memoryMb: 256 } },
+      new AbortController().signal,
+      { cpuLimit: "1", image: "test", memoryMb: 256, pidsLimit: 64 },
+    );
+    expect(spawnDockerContainer.mock.calls[1]![0].outerTimeoutMs).toBe(540_000);
+  });
+
+  it("stops after checker compilation failure and removes the prepared artifact", async () => {
+    spawnDockerContainer.mockReset().mockResolvedValue({
+      exitCode: 0,
+      stdout: JSON.stringify({ compilationError: "invalid checker source" }),
+      stderr: "",
+      timedOut: false,
+      spawnError: null,
+    });
+    const outcomes = await runValidator(tempDir, params, new AbortController().signal, {
+      cpuLimit: "1",
+      image: "test",
+      memoryMb: 80,
+      pidsLimit: 64,
+    });
+    expect(outcomes.get(0)).toEqual({ verdict: "SE", judgeMessage: "invalid checker source" });
+    expect(spawnDockerContainer).toHaveBeenCalledTimes(1);
   });
 
   it("writes the validator source with the language extension", async () => {

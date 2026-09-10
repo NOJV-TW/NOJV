@@ -1,4 +1,5 @@
 import {
+  MAX_EXECUTION_OUTPUT_BYTES,
   compareStandard,
   entryFileNameFor,
   effectiveTimeLimitMs,
@@ -26,6 +27,45 @@ import { browserSource as pythonSource } from "@wasm-oj/toolchain-python";
 import { browserSource as rustSource } from "@wasm-oj/toolchain-rust";
 import { formatJudgeOutput } from "$lib/utils/judge-output";
 import type { SubmissionRequest } from "./submission-service";
+
+const CPP_STANDARD_HEADER = `${WASM_OJ_LIBCXX_PCH_HEADER}
+#include <any>
+#include <atomic>
+#include <bit>
+#include <cfenv>
+#include <cinttypes>
+#include <clocale>
+#include <codecvt>
+#include <complex>
+#include <cstdarg>
+#include <ctime>
+#include <cuchar>
+#include <cwchar>
+#include <cwctype>
+#include <filesystem>
+#include <format>
+#include <forward_list>
+#include <fstream>
+#include <initializer_list>
+#include <istream>
+#include <list>
+#include <locale>
+#include <memory_resource>
+#include <new>
+#include <numbers>
+#include <ostream>
+#include <ratio>
+#include <regex>
+#include <scoped_allocator>
+#include <source_location>
+#include <stdexcept>
+#include <streambuf>
+#include <system_error>
+#include <typeindex>
+#include <typeinfo>
+#include <valarray>
+#include <version>
+`;
 
 const BROWSER_TOOLCHAIN_BASE_URL = "/wasm-oj/toolchains/";
 let browserEnginePromise: Promise<Engine> | undefined;
@@ -79,14 +119,8 @@ export function browserLocalFiles(request: SubmissionRequest): {
     request.sourceFiles && request.sourceFiles.length > 0
       ? Object.fromEntries(request.sourceFiles.map((file) => [file.path, file.content]))
       : { [entry]: request.sourceCode };
-  if (
-    request.language === "cpp" &&
-    Object.values(files).some((content) => content.includes("#include <bits/stdc++.h>"))
-  ) {
-    for (const [path, content] of Object.entries(files)) {
-      files[path] = content.replaceAll("#include <bits/stdc++.h>", '#include "bits/stdc++.h"');
-    }
-    files["bits/stdc++.h"] ??= WASM_OJ_LIBCXX_PCH_HEADER;
+  if (request.language === "cpp") {
+    files["src/bits/stdc++.h"] ??= files["bits/stdc++.h"] ?? CPP_STANDARD_HEADER;
   }
   return { entry, files };
 }
@@ -144,13 +178,7 @@ export function mapBrowserLocalRunResult(
     run.stderr.length > 0
       ? run.stderr
       : browserLocalTerminationFeedback(run.termination, run.code, run.trapMessage);
-  // durationMs includes one-off WASM runner startup that dwarfs guest execution
-  // for trivial programs; prefer the deterministic clock the TLE verdict uses.
-  const logicalTimeNs = run.metrics.logicalTimeNs;
-  const timeMs =
-    logicalTimeNs != null
-      ? Math.max(0, Math.ceil(logicalTimeNs / 1_000_000))
-      : Math.max(0, Math.round(run.durationMs));
+  const timeMs = Math.max(0, Math.ceil((run.metrics.logicalTimeNs ?? 0) / 1_000_000));
   return {
     index,
     verdict,
@@ -213,17 +241,17 @@ export async function runBrowserLocally(args: {
   memoryLimitMb: number;
   signal: AbortSignal;
 }): Promise<SubmissionResult | null> {
-  if (args.cases.length === 0) {
-    if (args.signal.aborted) return null;
-    return browserLocalErrorResult(new Error("No testcases were provided."));
-  }
   let browserEngine: Engine;
   const cancel = () => browserEngine.cancel();
 
   try {
+    args.signal.throwIfAborted();
+    if (args.cases.length === 0) {
+      return browserLocalErrorResult(new Error("No testcases were provided."));
+    }
     browserEngine = await getBrowserEngine();
     args.signal.addEventListener("abort", cancel, { once: true });
-    if (args.signal.aborted) return null;
+    args.signal.throwIfAborted();
     const { entry, files } = browserLocalFiles(args.request);
     const build = await browserEngine.compile(
       {
@@ -237,6 +265,7 @@ export async function runBrowserLocally(args: {
       },
       { cache: true },
     );
+    args.signal.throwIfAborted();
     if (!build.success || !build.artifact) {
       return {
         accepted: false,
@@ -262,12 +291,12 @@ export async function runBrowserLocally(args: {
         resources: {
           logicalTimeLimitMs: effectiveTimeLimit,
           memoryLimitBytes: runtime.memoryLimitMb * 1024 * 1024,
-          outputLimitBytes: 1_000_000,
+          outputLimitBytes: MAX_EXECUTION_OUTPUT_BYTES,
           filesystemWriteLimitBytes: 64 * 1024 * 1024,
           filesystemEntryLimit: 4096,
-          wallTimeLimitMs: Math.min(600_000, Math.max(1_000, effectiveTimeLimit * 3)),
         },
       });
+      args.signal.throwIfAborted();
       caseResults.push(
         mapBrowserLocalRunResult(run, testCase.expectedOutput, args.judgeConfig.compare, index),
       );

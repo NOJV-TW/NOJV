@@ -84,7 +84,9 @@ export function resolveStandardResults(
 export function mergeCheckerResults(
   rawRuns: RawCaseRun[],
   outcomes: Map<number, ValidatorOutcome>,
+  testcases: SandboxTestcase[],
 ): SandboxTestcaseResult[] {
+  const testcaseByIndex = new Map(testcases.map((tc) => [tc.index, tc]));
   return rawRuns.map((run) => {
     const base = {
       index: run.index,
@@ -103,6 +105,9 @@ export function mergeCheckerResults(
         ...(feedback !== undefined ? { feedback } : {}),
       };
     }
+
+    const testcase = testcaseByIndex.get(run.index);
+    if (testcase?.isSample && testcase.output === undefined) return { ...base, verdict: "AC" };
 
     const outcome = outcomes.get(run.index);
     if (outcome === undefined || outcome.verdict === "SE") {

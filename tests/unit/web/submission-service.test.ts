@@ -28,7 +28,7 @@ describe("buildSubmissionBody", () => {
     expect(body).not.toHaveProperty("participationId");
   });
 
-  it("includes advanced source files without dropping the placeholder source", () => {
+  it("omits redundant sourceCode when source files provide the submission", () => {
     const body = buildSubmissionBody({
       context: { type: "practice" },
       language: "cpp",
@@ -39,9 +39,9 @@ describe("buildSubmissionBody", () => {
 
     expect(body).toMatchObject({
       context: { type: "practice" },
-      sourceCode: "// advanced-mode upload",
       sourceFiles: [{ path: "main.cpp", content: "int main() {}" }],
     });
+    expect(body).not.toHaveProperty("sourceCode");
   });
 
   it("marks a practice submission as a reference solution", () => {

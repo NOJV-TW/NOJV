@@ -45,6 +45,19 @@ describe("problemDraftSchema", () => {
 });
 
 describe("submissionDraftSchema", () => {
+  it("preserves source whitespace while rejecting whitespace-only programs", () => {
+    const draft = {
+      context: { type: "practice" },
+      language: "python",
+      problemId: "source-preservation",
+      sourceCode: "\n  print(42)\n",
+    };
+    expect(submissionDraftSchema.parse(draft).sourceCode).toBe(draft.sourceCode);
+    expect(submissionDraftSchema.safeParse({ ...draft, sourceCode: " \n\t" }).success).toBe(
+      false,
+    );
+  });
+
   it("accepts practice submissions with explicit language and source", () => {
     const result = submissionDraftSchema.parse({
       context: { type: "practice" },

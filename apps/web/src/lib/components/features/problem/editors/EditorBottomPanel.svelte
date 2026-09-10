@@ -1,24 +1,24 @@
 <script lang="ts">
   import Plus from "@lucide/svelte/icons/plus";
   import X from "@lucide/svelte/icons/x";
-  import type { JudgeType, SubmissionResult } from "@nojv/core";
+  import {
+    MAX_RUN_CASES,
+    type JudgeType,
+    type SubmissionResult,
+    type SubmissionRunCase,
+  } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
   import { formatJudgeOutput } from "$lib/utils/judge-output";
   import { Badge } from "$lib/components/primitives/ui/badge";
 
-  interface RunCase {
-    input: string;
-    expectedOutput: string;
-  }
-
   interface Props {
-    runCases: RunCase[];
+    runCases: SubmissionRunCase[];
     isReadOnly?: boolean;
     judgeType?: JudgeType;
     tab: "testcase" | "result";
     runResult: SubmissionResult | null;
-    runSource?: "local" | "server" | null;
+    runSource?: "local" | null;
     runStatus: string | null;
     runError: string | null;
     ontabchange: (tab: "testcase" | "result") => void;
@@ -150,8 +150,9 @@
               class="inline-flex size-7 items-center justify-center rounded bg-transparent text-muted-foreground transition-[color] duration-fast ease-out-soft hover:bg-transparent hover:text-foreground"
               aria-label={m.editor_testcase()}
               title={m.editor_testcase()}
+              disabled={runCases.length >= MAX_RUN_CASES}
               onclick={() => {
-                runCases = [...runCases, { input: "", expectedOutput: "" }];
+                runCases = [...runCases, { input: "" }];
                 selectedCase = runCases.length - 1;
               }}
               type="button"
@@ -180,8 +181,26 @@
             </p>
           {:else}
             <div class="mt-3">
-              <p class="text-caption text-muted-foreground">{m.editor_expectLabel()}</p>
+              <label class="flex items-center gap-2 text-caption text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={runCases[selectedCase]?.expectedOutput !== undefined}
+                  onchange={(event) => {
+                    const checked = event.currentTarget.checked;
+                    runCases = runCases.map((tc, i) =>
+                      i !== selectedCase
+                        ? tc
+                        : checked
+                          ? { ...tc, expectedOutput: "" }
+                          : { input: tc.input },
+                    );
+                  }}
+                />
+                {m.editor_compareOutput()}
+              </label>
               <textarea
+                aria-label={m.editor_expectLabel()}
+                disabled={runCases[selectedCase]?.expectedOutput === undefined}
                 class="mt-1 w-full rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground outline-none transition-[box-shadow] duration-fast ease-out-soft focus:ring-1 focus:ring-border"
                 oninput={(e) => {
                   const val = (e.target as HTMLTextAreaElement).value;
@@ -272,7 +291,7 @@
                   {/if}
                 {/if}
 
-                {#if runCases[selectedResultCase]?.expectedOutput}
+                {#if runCases[selectedResultCase]?.expectedOutput !== undefined}
                   <div>
                     <p class="text-caption font-medium text-muted-foreground">
                       {m.editor_expectLabel()}
@@ -280,7 +299,7 @@
                     <pre
                       class="mt-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-body-sm text-foreground">{runCases[
                         selectedResultCase
-                      ]!.expectedOutput}</pre>
+                      ]!.expectedOutput || m.common_emptyOutput()}</pre>
                   </div>
                 {/if}
               </div>

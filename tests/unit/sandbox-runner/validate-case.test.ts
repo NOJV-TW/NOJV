@@ -1,12 +1,10 @@
+import { validatorTimeoutMs } from "@nojv/core";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import {
-  validateCase,
-  validatorTimeoutMs,
-} from "../../../apps/sandbox-runner/src/judges/validate.js";
+import { validateCase } from "../../../apps/sandbox-runner/src/judges/validate.js";
 
 const NODE_VALIDATOR = `const fs = require("fs");
 const [, , inputF, answerF, fbDir] = process.argv;

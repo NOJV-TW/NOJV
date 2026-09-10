@@ -116,7 +116,7 @@ describe("browser local run result mapping", () => {
           { path: "include/value.hpp", content: "#pragma once" },
         ],
       }),
-    ).toEqual({
+    ).toMatchObject({
       entry: "main.cpp",
       files: {
         "main.cpp": "int main() {}",
@@ -125,16 +125,54 @@ describe("browser local run result mapping", () => {
     });
   });
 
-  it("provides a browser-compatible bits/stdc++.h header", () => {
+  it.each([
+    "#include <bits/stdc++.h>",
+    "# include<bits/stdc++.h>",
+    "#include /* header */ <bits/stdc++.h>",
+    "#include\\\n<bits/stdc++.h>",
+    "#define HEADER <bits/stdc++.h>\n#include HEADER",
+    'const char *text = "#include <bits/stdc++.h>";',
+    'const char *text = R"raw(#include <bits/stdc++.h>)raw";',
+    "// #include <bits/stdc++.h>",
+    "/* #include <bits/stdc++.h> */",
+  ])(
+    "supplies the C++ header through Clang's include path without editing %j",
+    (sourceCode) => {
+      const result = browserLocalFiles({
+        context: { type: "practice" },
+        language: "cpp",
+        problemId: "problem_1",
+        sourceCode,
+      });
+
+      expect(result.files["main.cpp"]).toBe(sourceCode);
+      for (const header of [
+        "vector",
+        "list",
+        "complex",
+        "regex",
+        "fstream",
+        "valarray",
+        "format",
+      ]) {
+        expect(result.files["src/bits/stdc++.h"]).toContain(`#include <${header}>`);
+      }
+    },
+  );
+
+  it.each(["bits/stdc++.h", "src/bits/stdc++.h"])("preserves a user-provided %s", (path) => {
     const result = browserLocalFiles({
       context: { type: "practice" },
       language: "cpp",
       problemId: "problem_1",
-      sourceCode: "#include <bits/stdc++.h>\nint main() {}",
+      sourceCode: "#include <bits/stdc++.h>",
+      sourceFiles: [
+        { path: "main.cpp", content: "#include <bits/stdc++.h>" },
+        { path, content: "#define CUSTOM_HEADER 1" },
+      ],
     });
-
-    expect(result.files["main.cpp"]).toContain('#include "bits/stdc++.h"');
-    expect(result.files["bits/stdc++.h"]).toContain("#include <vector>");
+    expect(result.files[path]).toBe("#define CUSTOM_HEADER 1");
+    expect(result.files["src/bits/stdc++.h"]).toBe("#define CUSTOM_HEADER 1");
   });
 
   it("uses Main.java as the Java browser entry", () => {
@@ -176,7 +214,7 @@ describe("browser local run result mapping", () => {
     expect(result).toMatchObject({ index: 2, verdict: "AC", timeMs: 1, memoryKb: 2 });
   });
 
-  it("reports deterministic logical time instead of host wall-clock duration", () => {
+  it("reports Forge logical time independently of total host duration", () => {
     const result = mapBrowserLocalRunResult(
       browserRun({
         durationMs: 3_000,
@@ -188,17 +226,6 @@ describe("browser local run result mapping", () => {
     );
 
     expect(result.timeMs).toBe(3);
-  });
-
-  it("falls back to rounded wall-clock duration when logical time is absent", () => {
-    const result = mapBrowserLocalRunResult(
-      browserRun({ metrics: { ...browserRun({}).metrics, logicalTimeNs: null } }),
-      undefined,
-      undefined,
-      0,
-    );
-
-    expect(result.timeMs).toBe(12);
   });
 
   it("keeps wrong answers and non-zero exits distinct", () => {

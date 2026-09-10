@@ -91,7 +91,7 @@ async function resolveCheckerResult(
         })
       : new Map<number, ValidatorOutcome>();
 
-  return { testcaseResults: mergeCheckerResults(rawRuns, outcomes) };
+  return { testcaseResults: mergeCheckerResults(rawRuns, outcomes, request.testcases) };
 }
 
 async function runValidatorInTempDir(

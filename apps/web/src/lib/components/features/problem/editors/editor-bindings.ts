@@ -1,8 +1,10 @@
 import {
   entryFileNameFor,
+  mergeWorkspaceSources,
   type Language,
   type ProblemType,
   type SubmissionContext,
+  type SubmissionRunCase,
 } from "@nojv/core";
 import type { ProblemDetail } from "$lib/types";
 import type {
@@ -103,26 +105,21 @@ export function seedWorkspaceDrafts(files: WorkspaceFile[]): Record<string, stri
 function projectWorkspaceFilesForSubmit(
   files: WorkspaceFile[],
   drafts: Record<string, string>,
+  language: Language,
 ): SubmissionWorkspaceFile[] {
   return files
-    .filter((f) => f.visibility !== "hidden")
+    .filter((f) => f.language === language && f.visibility === "editable")
     .map((f) => ({
       path: f.path,
-      content:
-        f.visibility === "editable"
-          ? (drafts[workspaceDraftKey(f.language, f.path)] ?? f.content)
-          : f.content,
+      content: drafts[workspaceDraftKey(f.language, f.path)] ?? f.content,
     }));
 }
 
-export function projectRunCasesForRequest(
-  cases: { input: string; expectedOutput: string }[],
-): { input: string; expectedOutput?: string }[] {
-  return cases.map((tc) => {
-    const mapped: { input: string; expectedOutput?: string } = { input: tc.input };
-    if (tc.expectedOutput !== "") mapped.expectedOutput = tc.expectedOutput;
-    return mapped;
-  });
+export function projectRunCasesForRequest(cases: SubmissionRunCase[]): SubmissionRunCase[] {
+  return cases.map(({ input, expectedOutput }) => ({
+    input,
+    ...(expectedOutput !== undefined ? { expectedOutput } : {}),
+  }));
 }
 
 export function isWorkspaceProblem(type: ProblemType): boolean {
@@ -199,7 +196,7 @@ export function buildSubmissionRequest(args: {
   workspaceFiles: WorkspaceFile[];
   workspaceDrafts: Record<string, string>;
   sampleOnly: boolean;
-  runCases?: { input: string; expectedOutput?: string }[] | undefined;
+  runCases?: SubmissionRunCase[] | undefined;
   context: SubmissionContext;
 }): SubmissionRequest {
   const base: Omit<SubmissionRequest, "sourceCode" | "sourceFiles"> = {
@@ -211,7 +208,11 @@ export function buildSubmissionRequest(args: {
     ...(args.runCases ? { runCases: args.runCases } : {}),
   };
   if (args.isWorkspaceMode) {
-    const files = projectWorkspaceFilesForSubmit(args.workspaceFiles, args.workspaceDrafts);
+    const files = projectWorkspaceFilesForSubmit(
+      args.workspaceFiles,
+      args.workspaceDrafts,
+      args.language,
+    );
     const firstEditable =
       args.workspaceFiles.find((f) => f.visibility === "editable") ?? args.workspaceFiles[0];
     const sourceCode = firstEditable
@@ -230,7 +231,25 @@ export function projectSubmittedSource(args: {
   workspaceDrafts: Record<string, string>;
 }): string {
   if (!args.isWorkspaceMode) return args.drafts[args.language] ?? "";
-  return projectWorkspaceFilesForSubmit(args.workspaceFiles, args.workspaceDrafts)
+  return projectWorkspaceFilesForSubmit(
+    args.workspaceFiles,
+    args.workspaceDrafts,
+    args.language,
+  )
     .map((f) => `// --- ${f.path} ---\n${f.content}`)
     .join("\n\n");
+}
+
+export function projectBrowserSubmission(
+  request: SubmissionRequest,
+  workspaceFiles: WorkspaceFile[],
+): SubmissionRequest {
+  const publicFiles = workspaceFiles.filter(
+    (file) => file.language === request.language && file.visibility !== "hidden",
+  );
+  if (publicFiles.length === 0) return request;
+  const sources = request.sourceFiles?.length
+    ? request.sourceFiles
+    : [{ path: entryFileNameFor(request.language), content: request.sourceCode }];
+  return { ...request, sourceFiles: mergeWorkspaceSources(sources, publicFiles) };
 }

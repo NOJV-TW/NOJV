@@ -13,6 +13,7 @@ function makeResult(overrides: Partial<RunProcessResult>): RunProcessResult {
     timedOut: false,
     signal: null,
     spawnError: false,
+    outputLimitExceeded: false,
     ...overrides,
   };
 }

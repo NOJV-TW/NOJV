@@ -57,6 +57,15 @@
     <p class="mt-0.5 text-caption leading-relaxed text-muted-foreground">{filesHint}</p>
   </div>
 
+  {#if files.some((file) => file.visibility === "hidden")}
+    <p
+      class="mt-3 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-caption text-warning"
+      role="status"
+    >
+      {m.admin_workspaceHiddenTestNote()}
+    </p>
+  {/if}
+
   {#if mode === "multi_file" && missingEntryLanguages.length > 0}
     <div
       class="mt-3 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-caption text-warning"

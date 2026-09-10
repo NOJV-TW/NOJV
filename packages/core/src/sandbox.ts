@@ -1,4 +1,5 @@
 import type { JudgeType, Language, ProblemType } from "./types";
+import type { ProblemWorkspaceFile } from "./schemas/problem";
 import type { AdvancedConfig } from "./schemas/advanced-mode";
 import type { z } from "zod";
 import type {
@@ -11,6 +12,19 @@ export { sandboxVerdicts } from "./schemas/sandbox-output";
 import type { CompareConfig, JudgeScriptLanguage } from "./schemas/judge-config";
 import { parseRelativePath } from "./schemas/path";
 
+export const MAX_EXECUTION_OUTPUT_BYTES = 16 * 1024 * 1024;
+export function executionWallTimeLimitMs(cpuTimeLimitMs: number): number {
+  return cpuTimeLimitMs * 2;
+}
+
+export function validatorTimeoutMs(solutionTimeoutMs: number): number {
+  return Math.max(30_000, solutionTimeoutMs);
+}
+
+export const COMPILATION_TIMEOUT_MS = 90_000;
+export const COMPILER_SCRATCH_MB = 256;
+export const MIN_COMPILER_MEMORY_MB = 512;
+
 export interface SandboxTestcase {
   index: number;
   input: string;
@@ -22,6 +36,22 @@ export interface SandboxTestcase {
 export interface SandboxSourceFile {
   path: string;
   content: string;
+}
+
+export function mergeWorkspaceSources(
+  sources: readonly SandboxSourceFile[],
+  workspaceFiles: readonly Pick<ProblemWorkspaceFile, "path" | "content" | "visibility">[],
+): SandboxSourceFile[] {
+  if (workspaceFiles.length === 0)
+    return sources.map(({ path, content }) => ({ path, content }));
+  const merged = new Map(workspaceFiles.map((file) => [file.path, file.content]));
+  const editablePaths = new Set(
+    workspaceFiles.filter((file) => file.visibility === "editable").map((file) => file.path),
+  );
+  for (const file of sources) {
+    if (editablePaths.has(file.path)) merged.set(file.path, file.content);
+  }
+  return Array.from(merged, ([path, content]) => ({ path, content }));
 }
 
 export interface SandboxAdvancedRequest {

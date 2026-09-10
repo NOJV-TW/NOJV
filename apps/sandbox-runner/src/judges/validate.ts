@@ -5,12 +5,6 @@ import type { ValidatorCaseOutcome } from "../types.js";
 import { readOptionalFile } from "../utils.js";
 import { runProcess } from "./run-process.js";
 
-const VALIDATOR_TIMEOUT_FLOOR_MS = 30_000;
-
-export function validatorTimeoutMs(solutionTimeoutMs: number): number {
-  return Math.max(VALIDATOR_TIMEOUT_FLOOR_MS, solutionTimeoutMs);
-}
-
 export interface ValidateCaseFiles {
   inputFile: string;
   answerFile: string;
@@ -47,6 +41,9 @@ export async function validateCase(
 
   if (run.spawnError) {
     return { index, verdict: "SE", judgeMessage: `Validator failed to start: ${run.stderr}` };
+  }
+  if (run.outputLimitExceeded) {
+    return { index, verdict: "SE", judgeMessage: "Validator output limit exceeded." };
   }
   if (run.timedOut) {
     return { index, verdict: "SE", judgeMessage: "Validator timed out." };

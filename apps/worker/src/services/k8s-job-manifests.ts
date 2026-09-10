@@ -1,4 +1,6 @@
 import type * as k8s from "@kubernetes/client-node";
+import { findSuffix, quantityToScalar } from "@kubernetes/client-node/dist/util.js";
+import { COMPILER_SCRATCH_MB } from "@nojv/core";
 
 import {
   HARDENED_CONTAINER_SECURITY_CONTEXT,
@@ -10,6 +12,20 @@ import {
 
 const TTL_AFTER_FINISHED_SECONDS = 60;
 const SUBMISSION_DATA_SIZE_LIMIT = "128Mi";
+
+function quantityValue(quantity: string): number {
+  const suffix = findSuffix(quantity);
+  const value = suffix
+    ? Number(quantity.slice(0, -suffix.length)) * Number(quantityToScalar(`1${suffix}`))
+    : Number(quantityToScalar(quantity));
+  if (!Number.isFinite(value))
+    throw new Error(`Invalid Kubernetes resource quantity: ${quantity}`);
+  return value;
+}
+
+function boundedRequest(request: string, limit: string): string {
+  return quantityValue(request) > quantityValue(limit) ? limit : request;
+}
 
 function payloadVolume(name: string, configMapNames: string[]): k8s.V1Volume {
   return {
@@ -49,6 +65,7 @@ function prepareContainer(params: {
   payloadVolumeName: string;
   submissionVolumeName: string;
   artifactVolumeName: string;
+  phase: "prepare" | "prepare-validator";
   scratchTmpVolumeName: string;
   scratchWorkspaceVolumeName: string;
   resources: k8s.V1ResourceRequirements;
@@ -58,7 +75,7 @@ function prepareContainer(params: {
     image: params.image,
     command: ["node", "/runner/index.js"],
     env: [
-      { name: "SANDBOX_PHASE", value: "prepare" },
+      { name: "SANDBOX_PHASE", value: params.phase },
       { name: "HOME", value: "/tmp" },
     ],
     resources: params.resources,
@@ -86,14 +103,25 @@ export interface SandboxJobManifestParams {
   cpuLimit: string;
   memoryRequest: string;
   memoryLimit: string;
+  compilerMemoryLimit: string;
   activeDeadlineSeconds: number;
   runtimeClassName?: string;
 }
 
 export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V1Job {
   const resources = {
-    requests: { cpu: params.cpuRequest, memory: params.memoryRequest },
+    requests: {
+      cpu: boundedRequest(params.cpuRequest, params.cpuLimit),
+      memory: boundedRequest(params.memoryRequest, params.memoryLimit),
+    },
     limits: { cpu: params.cpuLimit, memory: params.memoryLimit },
+  };
+  const compilerResources = {
+    requests: {
+      cpu: boundedRequest(params.cpuRequest, params.cpuLimit),
+      memory: boundedRequest(params.memoryRequest, params.compilerMemoryLimit),
+    },
+    limits: { cpu: params.cpuLimit, memory: params.compilerMemoryLimit },
   };
   return {
     apiVersion: "batch/v1",
@@ -119,12 +147,16 @@ export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V
           tolerations: SANDBOX_TOLERATIONS,
           securityContext: SANDBOX_POD_SECURITY_CONTEXT,
           initContainers: [
-            materializerContainer({
-              name: "materialize",
+            prepareContainer({
+              name: "prepare-validator",
+              phase: "prepare-validator",
               image: params.image,
               payloadVolumeName: "payload",
               submissionVolumeName: "submission-data",
-              resources,
+              artifactVolumeName: "artifact",
+              scratchTmpVolumeName: "compiler-tmp",
+              scratchWorkspaceVolumeName: "workspace",
+              resources: compilerResources,
             }),
           ],
           containers: [
@@ -132,6 +164,10 @@ export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V
               name: "runner",
               image: params.image,
               command: ["node", "/runner/index.js"],
+              env: [
+                { name: "PYTHONDONTWRITEBYTECODE", value: "1" },
+                { name: "HOME", value: "/tmp" },
+              ],
               resources,
               securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
               volumeMounts: [
@@ -140,7 +176,8 @@ export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V
                   mountPath: "/submission",
                   readOnly: true,
                 },
-                { name: "workspace", mountPath: "/workspace" },
+                { name: "artifact", mountPath: "/artifact", readOnly: true },
+                { name: "workspace", mountPath: "/workspace", subPath: "validate" },
                 { name: "tmp", mountPath: "/tmp" },
               ],
             },
@@ -148,6 +185,11 @@ export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V
           volumes: [
             payloadVolume("payload", params.configMapNames),
             { name: "submission-data", emptyDir: { sizeLimit: SUBMISSION_DATA_SIZE_LIMIT } },
+            { name: "artifact", emptyDir: { sizeLimit: "256Mi" } },
+            {
+              name: "compiler-tmp",
+              emptyDir: { sizeLimit: `${String(COMPILER_SCRATCH_MB)}Mi` },
+            },
             {
               name: "workspace",
               emptyDir: { sizeLimit: "128Mi" },
@@ -173,6 +215,7 @@ export interface PerCaseSandboxJobManifestParams {
   cpuLimit: string;
   memoryRequest: string;
   memoryLimit: string;
+  compilerMemoryLimit: string;
   activeDeadlineSeconds: number;
   caseIndices: number[];
   runtimeClassName?: string;
@@ -189,11 +232,17 @@ export function buildPerCaseSandboxJobManifest(
 ): k8s.V1Job {
   const containerSecurityContext = HARDENED_CONTAINER_SECURITY_CONTEXT;
   const resources = {
-    requests: { cpu: params.cpuRequest, memory: params.memoryRequest },
-    limits: { cpu: params.cpuLimit, memory: params.memoryLimit },
+    requests: {
+      cpu: boundedRequest(params.cpuRequest, params.cpuLimit),
+      memory: boundedRequest(params.memoryRequest, params.compilerMemoryLimit),
+    },
+    limits: { cpu: params.cpuLimit, memory: params.compilerMemoryLimit },
   };
   const caseResources = {
-    requests: { cpu: params.caseCpuRequest ?? params.cpuRequest, memory: params.memoryRequest },
+    requests: {
+      cpu: boundedRequest(params.caseCpuRequest ?? params.cpuRequest, params.cpuLimit),
+      memory: boundedRequest(params.memoryRequest, params.memoryLimit),
+    },
     limits: { cpu: params.cpuLimit, memory: params.memoryLimit },
   };
   const baseMounts = (artifactReadOnly: boolean, scratchKey: string) => [
@@ -227,11 +276,12 @@ export function buildPerCaseSandboxJobManifest(
           initContainers: [
             prepareContainer({
               name: PREPARE_CONTAINER_NAME,
+              phase: "prepare",
               image: params.image,
               payloadVolumeName: "payload",
               submissionVolumeName: "submission-data",
               artifactVolumeName: "artifact",
-              scratchTmpVolumeName: "scratch-tmp",
+              scratchTmpVolumeName: "compiler-tmp",
               scratchWorkspaceVolumeName: "scratch-workspace",
               resources,
             }),
@@ -254,6 +304,10 @@ export function buildPerCaseSandboxJobManifest(
             payloadVolume("payload", params.configMapNames),
             { name: "submission-data", emptyDir: { sizeLimit: SUBMISSION_DATA_SIZE_LIMIT } },
             { name: "artifact", emptyDir: { sizeLimit: "256Mi" } },
+            {
+              name: "compiler-tmp",
+              emptyDir: { sizeLimit: `${String(COMPILER_SCRATCH_MB)}Mi` },
+            },
             { name: "scratch-tmp", emptyDir: { sizeLimit: "64Mi" } },
             { name: "scratch-workspace", emptyDir: { sizeLimit: "128Mi" } },
           ],
@@ -298,7 +352,10 @@ export interface InteractiveJobManifestParams {
 export function buildInteractiveJobManifest(params: InteractiveJobManifestParams): k8s.V1Job {
   const containerSecurityContext = HARDENED_CONTAINER_SECURITY_CONTEXT;
   const resources = {
-    requests: { cpu: params.cpuRequest, memory: params.memoryRequest },
+    requests: {
+      cpu: boundedRequest(params.cpuRequest, params.cpuLimit),
+      memory: boundedRequest(params.memoryRequest, params.memoryLimit),
+    },
     limits: { cpu: params.cpuLimit, memory: params.memoryLimit },
   };
 

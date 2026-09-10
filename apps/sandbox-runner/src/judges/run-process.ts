@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { MAX_EXECUTION_OUTPUT_BYTES, executionWallTimeLimitMs } from "@nojv/core";
 import type { TestcaseResult } from "../types.js";
 import {
   createBoundedBuffer,
@@ -9,7 +10,6 @@ import {
   withCpuTimeLimit,
 } from "../utils.js";
 
-const WALL_GRACE_FACTOR = 2;
 const ignoreStreamError = () => undefined;
 
 export interface RunProcessResult {
@@ -21,6 +21,7 @@ export interface RunProcessResult {
   timedOut: boolean;
   signal: string | null;
   spawnError: boolean;
+  outputLimitExceeded: boolean;
 }
 
 export function runProcess(
@@ -39,7 +40,7 @@ export function runProcess(
       ? readCgroupMemoryCurrentBytes()
       : null;
     const startTime = performance.now();
-    const wallBudgetMs = options.timeoutMs * WALL_GRACE_FACTOR;
+    const wallBudgetMs = executionWallTimeLimitMs(options.timeoutMs);
     const [cmd, ...args] = command;
 
     if (!cmd) {
@@ -52,6 +53,7 @@ export function runProcess(
         timedOut: false,
         signal: null,
         spawnError: true,
+        outputLimitExceeded: false,
       });
       return;
     }
@@ -70,16 +72,28 @@ export function runProcess(
       ...(options.env ? { env: { ...process.env, ...options.env } } : {}),
     });
 
-    const stdoutBuf = createBoundedBuffer();
-    const stderrBuf = createBoundedBuffer();
+    const stdoutBuf = createBoundedBuffer(MAX_EXECUTION_OUTPUT_BYTES);
+    const stderrBuf = createBoundedBuffer(MAX_EXECUTION_OUTPUT_BYTES);
+    let outputBytes = 0;
+    let outputLimitExceeded = false;
+    function captureOutput(buffer: ReturnType<typeof createBoundedBuffer>, chunk: Buffer) {
+      if (outputLimitExceeded) return;
+      const remaining = MAX_EXECUTION_OUTPUT_BYTES - outputBytes;
+      buffer.push(chunk.subarray(0, remaining));
+      outputBytes += chunk.byteLength;
+      if (outputBytes > MAX_EXECUTION_OUTPUT_BYTES) {
+        outputLimitExceeded = true;
+        proc.kill("SIGKILL");
+      }
+    }
     const memoryPoller = typeof proc.pid === "number" ? createMemoryPoller(proc.pid) : null;
     let forceKilledViaFallbackTimer = false;
 
     proc.stdout?.on("data", (chunk: Buffer) => {
-      stdoutBuf.push(chunk);
+      captureOutput(stdoutBuf, chunk);
     });
     proc.stderr?.on("data", (chunk: Buffer) => {
-      stderrBuf.push(chunk);
+      captureOutput(stderrBuf, chunk);
     });
 
     if (useStdin) {
@@ -119,7 +133,11 @@ export function runProcess(
           /: line \d+: \S+: (No such file or directory|Permission denied|cannot execute|not found)/.test(
             rawStderr,
           ));
-      const stderr = execFailed ? `Failed to spawn process: ${rawStderr}` : rawStderr;
+      const stderr = outputLimitExceeded
+        ? `Output limit exceeded.\n${rawStderr}`
+        : execFailed
+          ? `Failed to spawn process: ${rawStderr}`
+          : rawStderr;
       resolve({
         stdout: stdoutBuf.toString(),
         stderr,
@@ -133,6 +151,7 @@ export function runProcess(
           judgedMs > options.timeoutMs,
         signal,
         spawnError: execFailed,
+        outputLimitExceeded,
       });
     });
 
@@ -148,6 +167,7 @@ export function runProcess(
         timedOut: false,
         signal: null,
         spawnError: true,
+        outputLimitExceeded: false,
       });
     });
   });
@@ -167,6 +187,7 @@ export function classifySolutionVerdict(
   };
 
   if (result.spawnError) return { ...base, verdict: "SE" };
+  if (result.outputLimitExceeded) return { ...base, verdict: "RE" };
   if (result.timedOut) return { ...base, verdict: "TLE" };
   if (result.signal === "SIGKILL") return { ...base, verdict: "MLE" };
   if (result.exitCode !== 0) return { ...base, verdict: "RE" };
