@@ -10,21 +10,36 @@ test.describe("Courses", () => {
     const page = await context.newPage();
     await page.goto("/courses");
     await expect(page.getByRole("main")).toBeVisible();
+    await expect(page.getByRole("tab", { name: /my courses/i })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     await expect(page.getByText("Operating Systems Lab")).toBeVisible();
     await context.close();
   });
 
-  test("teacher sees managed courses and create link under the managing tab", async ({
+  test("teacher defaults to managed courses and can switch to enrolled courses", async ({
     browser,
   }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
-    await page.goto("/courses?tab=managing");
+    await page.goto("/courses");
     await expect(page.getByRole("main")).toBeVisible();
+    await expect(page.getByRole("tab", { name: /managing/i })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     await expect(page.getByText("Operating Systems Lab")).toBeVisible();
     await expect(
       page.getByRole("link", { name: /new course|create your first/i }),
     ).toBeVisible();
+    await page.getByRole("tab", { name: /my courses/i }).click();
+    await expect(page).toHaveURL(/tab=enrolled/);
+    await page.reload();
+    await expect(page.getByRole("tab", { name: /my courses/i })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     await context.close();
   });
 
