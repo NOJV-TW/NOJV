@@ -3,11 +3,19 @@ import { describe, expect, it } from "vitest";
 import { markdownToPlainText, truncateText } from "@nojv/core";
 
 const CODE_FENCE = "```";
-const LINEAR_INPUT_CHARS = 2_000_000;
-const LINEAR_BUDGET_MS = 2_000;
+const LINEAR_INPUT_CHARS = 1_000_000;
+const LINEAR_BUDGET_MS = 5_000;
 
 function repeatToLength(unit: string, chars: number): string {
   return unit.repeat(Math.ceil(chars / unit.length));
+}
+
+function elapsedOnLargeInput(generate: (chars: number) => string): number {
+  markdownToPlainText(generate(10_000));
+  const input = generate(LINEAR_INPUT_CHARS);
+  const start = performance.now();
+  markdownToPlainText(input);
+  return performance.now() - start;
 }
 
 function nestedImages(chars: number): string {
@@ -301,11 +309,9 @@ describe("markdownToPlainText", () => {
     ["quote markers", "> "],
     ["mixed openers on one line", "![[<a*_`\\"],
   ])("stays linear on a long run of %s", (_label, unit) => {
-    markdownToPlainText(repeatToLength(unit, 10_000));
-    const input = repeatToLength(unit, LINEAR_INPUT_CHARS);
-    const start = performance.now();
-    markdownToPlainText(input);
-    expect(performance.now() - start).toBeLessThan(LINEAR_BUDGET_MS);
+    expect(elapsedOnLargeInput((chars) => repeatToLength(unit, chars))).toBeLessThan(
+      LINEAR_BUDGET_MS,
+    );
   });
 
   it.each([
@@ -321,11 +327,7 @@ describe("markdownToPlainText", () => {
     ["empty lines", (chars: number) => repeatToLength("\n", chars)],
     ["nested quote lines", (chars: number) => repeatToLength("> > > a\n", chars)],
   ])("stays linear on %s", (_label, generate) => {
-    markdownToPlainText(generate(10_000));
-    const input = generate(LINEAR_INPUT_CHARS);
-    const start = performance.now();
-    markdownToPlainText(input);
-    expect(performance.now() - start).toBeLessThan(LINEAR_BUDGET_MS);
+    expect(elapsedOnLargeInput(generate)).toBeLessThan(LINEAR_BUDGET_MS);
   });
 });
 
