@@ -18,7 +18,7 @@ procedure (chart install + prerequisites) is in
 | ----------- | ---------------------------- | ---------- | ---------------------------- |
 | postgres    | postgres:18-alpine           | 5432       | Database (app + Temporal)    |
 | redis       | redis:8-alpine               | 6379       | Cache, pub/sub, scoreboard   |
-| minio       | minio/minio                  | 9000, 9001 | S3-compatible object storage |
+| minio       | quay.io/minio/minio          | 9000, 9001 | S3-compatible object storage |
 | temporal    | temporalio/auto-setup:1.29.1 | 7233       | Workflow engine              |
 | temporal-ui | temporalio/ui:2.38.2         | 8080       | Workflow monitoring          |
 

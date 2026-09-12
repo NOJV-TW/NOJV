@@ -1,9 +1,20 @@
-import { getAppBaseUrl, getMailer, renderEmail } from "@nojv/mailer";
+import { getAppBaseUrl, getMailer, renderEmail, renderMarkdownForEmail } from "@nojv/mailer";
 import { notificationRepo, type NotificationCreateInput } from "@nojv/db";
-import { DEFAULT_NOTIFICATION_PREFERENCES, notificationPreferencesSchema } from "@nojv/core";
+import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  markdownToPlainText,
+  notificationPreferencesSchema,
+  truncateText,
+} from "@nojv/core";
 import { z } from "zod";
 
 type Params = Record<string, unknown>;
+
+export type NotificationEmailParams = Record<string, string | number | boolean | null>;
+
+export interface NotificationEmailOptions {
+  emailParams?: NotificationEmailParams;
+}
 
 const NOTIFICATION_TYPES = [
   "assignment_started",
@@ -36,9 +47,25 @@ type NotificationEmailPreferenceKey = (typeof EMAIL_PREFERENCE_KEYS)[number];
 interface EmailSpec {
   prefKey: (params: Params) => NotificationEmailPreferenceKey;
   subject: (params: Params) => string;
+  eyebrow?: (params: Params) => string;
   heading: (params: Params) => string;
+  meta?: (params: Params) => string;
   intro: (params: Params) => string;
+  body?: (params: Params, baseUrl: string) => string;
+  preheader?: (params: Params) => string;
+  actionLabel?: (params: Params) => string;
 }
+
+const DEFAULT_ACTION_LABEL = "前往查看 · View";
+const ANNOUNCEMENT_EXCERPT_LIMIT = 1800;
+const PREHEADER_LIMIT = 140;
+
+const TAIPEI_DATE = new Intl.DateTimeFormat("zh-TW", {
+  timeZone: "Asia/Taipei",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
 
 function str(value: unknown): string {
   return typeof value === "string" ? value : "";
@@ -58,6 +85,30 @@ function esc(value: unknown): string {
 
 function announcementTitle(params: Params): string {
   return str(params.titleZhTw) || str(params.titleEn);
+}
+
+function announcementCourseName(params: Params): string {
+  return str(params.courseName);
+}
+
+function announcementContent(params: Params): string {
+  return str(params.content).trim();
+}
+
+function formatPublishedDate(value: unknown): string {
+  const date = new Date(str(value));
+  return Number.isNaN(date.getTime()) ? "" : TAIPEI_DATE.format(date);
+}
+
+export function excerptMarkdown(markdown: string, limit: number): string {
+  if (markdown.length <= limit) return markdown;
+  const head = markdown.slice(0, limit);
+  const paragraphBreak = head.lastIndexOf("\n\n");
+  const cut =
+    paragraphBreak > limit / 2
+      ? paragraphBreak
+      : Math.max(head.lastIndexOf("\n"), head.lastIndexOf(" "), Math.floor(limit / 2));
+  return `${markdown.slice(0, cut).trimEnd()}\n\n…`;
 }
 
 const ROLE_LABELS: Record<string, { zh: string; en: string }> = {
@@ -101,10 +152,38 @@ const EMAIL_SPECS: Partial<Record<NotificationCreateInput["type"], EmailSpec>> =
   },
   announcement_published: {
     prefKey: (p) => (p.courseId ? "emailCourseAnnouncement" : "emailSystemAnnouncement"),
-    subject: (p) => `【NOJV】新公告：${announcementTitle(p)}`,
-    heading: () => "新公告 · New announcement",
+    subject: (p) => {
+      const courseName = announcementCourseName(p);
+      return courseName
+        ? `【NOJV】${courseName} 課程公告：${announcementTitle(p)}`
+        : `【NOJV】公告：${announcementTitle(p)}`;
+    },
+    eyebrow: (p) =>
+      p.courseId ? "課程公告 · Course announcement" : "系統公告 · System announcement",
+    heading: (p) => esc(announcementTitle(p)),
+    meta: (p) =>
+      [announcementCourseName(p) || "NOJV", formatPublishedDate(p.publishedAt)]
+        .filter((part) => part !== "")
+        .map(esc)
+        .join(" · "),
     intro: (p) =>
-      `<p>發布了一則新公告：${esc(announcementTitle(p))}</p><p>A new announcement was published: ${esc(announcementTitle(p))}</p>`,
+      announcementContent(p)
+        ? ""
+        : `<p>發布了一則新公告：${esc(announcementTitle(p))}</p><p>A new announcement was published: ${esc(announcementTitle(p))}</p>`,
+    body: (p, baseUrl) => {
+      const content = announcementContent(p);
+      return content
+        ? renderMarkdownForEmail(excerptMarkdown(content, ANNOUNCEMENT_EXCERPT_LIMIT), {
+            baseUrl,
+          })
+        : "";
+    },
+    preheader: (p) =>
+      truncateText(
+        markdownToPlainText(announcementContent(p)) || announcementTitle(p),
+        PREHEADER_LIMIT,
+      ),
+    actionLabel: () => "閱讀完整公告 · Read the announcement",
   },
   course_enrolled: {
     prefKey: () => "emailCourseEnrolled",
@@ -215,12 +294,17 @@ function suppressedEmailWork(
 export function buildNotificationEmailWork(
   notificationId: string,
   input: NotificationCreateInput,
+  options: NotificationEmailOptions = {},
 ): NotificationEmailWorkPayload {
   const spec = EMAIL_SPECS[input.type];
   if (!spec) return suppressedEmailWork(notificationId, input, "unsupported_notification_type");
 
-  const params = input.params as Params;
+  const params: Params = { ...(input.params as Params), ...options.emailParams };
   const base = getAppBaseUrl();
+  const preheader = spec.preheader?.(params);
+  const eyebrow = spec.eyebrow?.(params);
+  const meta = spec.meta?.(params);
+  const body = spec.body?.(params, base);
   return {
     notificationId,
     userId: input.userId,
@@ -230,10 +314,19 @@ export function buildNotificationEmailWork(
     messageId: `<notification.${notificationId}@nojv.local>`,
     subject: spec.subject(params),
     html: renderEmail({
+      ...(preheader ? { preheader } : {}),
+      ...(eyebrow ? { eyebrow } : {}),
       heading: spec.heading(params),
+      ...(meta ? { meta } : {}),
       intro: spec.intro(params),
+      ...(body ? { body } : {}),
       ...(input.linkUrl
-        ? { action: { url: `${base}${input.linkUrl}`, label: "前往查看 · View" } }
+        ? {
+            action: {
+              url: `${base}${input.linkUrl}`,
+              label: spec.actionLabel?.(params) ?? DEFAULT_ACTION_LABEL,
+            },
+          }
         : {}),
       outro: preferenceOutro(base),
     }),

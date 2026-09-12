@@ -1,5 +1,5 @@
 import { prisma } from "../client";
-import type { Prisma } from "../../generated/prisma/client";
+import type { Prisma, PlatformRole } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
 import { userPublicSelect } from "./selects";
 
@@ -232,9 +232,14 @@ export const courseMembershipRepo = {
         });
       },
 
-      async listActiveMemberUserIds(courseId: string) {
+      async listActiveMemberUserIds(courseId: string, platformRoles?: readonly PlatformRole[]) {
         const rows = await tx.courseMembership.findMany({
-          where: { courseId, status: "active", userId: { not: null } },
+          where: {
+            courseId,
+            status: "active",
+            userId: { not: null },
+            ...(platformRoles ? { user: { platformRole: { in: [...platformRoles] } } } : {}),
+          },
           select: { userId: true },
         });
         return rows.flatMap((row) => (row.userId === null ? [] : [row.userId]));

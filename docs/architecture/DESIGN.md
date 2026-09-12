@@ -124,6 +124,14 @@ Charts read the live token values at runtime via `getComputedStyle` (with teal h
 - `isomorphic-dompurify` for XSS sanitization (with KaTeX MathML tags/attributes allowlisted)
 - `katex/dist/katex.min.css` for math rendering styles
 
+List previews (home, course overview, admin announcements) show `markdownToPlainText` from `@nojv/core` instead of raw Markdown, so image and link syntax never leaks into two-line summaries. Announcement bodies are edited with `ImageDropZone` (system announcements in `/admin/announcements`, course announcements in `CourseAnnouncementDialog`), which uploads dropped, pasted, or picked images through `/api/uploads/image` and inserts the Markdown image reference.
+
+### Email Templates
+
+`@nojv/mailer` owns the transactional email look. `renderEmail` renders one white card on the neutral background with these optional sections in order: hidden preheader (drives the inbox snippet), eyebrow (small teal caps such as `系統公告 · System announcement`), heading, meta line (course · date), intro paragraphs, article body, action button with a plain-text fallback link, and outro. Copy is bilingual with zh-TW first and English second; the eyebrow and button carry both languages on one line rather than repeating every sentence twice.
+
+Announcement emails embed the announcement itself. `renderMarkdownForEmail` converts the Markdown body to inline-styled HTML (no `<style>` block, so Gmail and Outlook render it), rewrites root-relative image and link paths to absolute `APP_BASE_URL` URLs, escapes raw HTML, and drops non-http(s)/mailto URLs. Long bodies are cut at a paragraph boundary and the button links to the full announcement. Colors mirror the light theme tokens as literal hex values because email clients cannot read CSS variables.
+
 ### Internationalization
 
 Paraglide JS (`@inlang/paraglide-js`) with locale-aware routing. Shipped locales: `en` (`baseLocale`, default), `zh-TW`. The header contains a pill-style locale switcher where the active locale gets `bg-primary text-white`.

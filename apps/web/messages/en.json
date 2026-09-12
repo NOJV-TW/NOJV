@@ -262,7 +262,7 @@
   "admin_announcementsEmptyHint": "Create your first announcement to keep users informed.",
   "admin_announcementsFieldContent": "Content",
   "admin_announcementsFieldTitle": "Title",
-  "admin_announcementsMarkdownHint": "Markdown supported",
+  "admin_announcementsMarkdownHint": "Markdown supported. Drag and drop, paste, or pick images to insert them.",
   "admin_announcementsNew": "New announcement",
   "admin_announcementsPin": "Pin",
   "admin_announcementsPinned": "Pinned",
