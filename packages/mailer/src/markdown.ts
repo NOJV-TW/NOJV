@@ -20,19 +20,32 @@ const CODE_STYLE = `padding:1px 5px;border-radius:4px;background-color:${BACKGRO
 const PRE_STYLE = `margin:0 0 12px;padding:12px 14px;border-radius:10px;background-color:${BACKGROUND};overflow-x:auto;font-family:${MONO_FONT};font-size:13px;line-height:1.6`;
 const CELL_STYLE = `padding:6px 10px;border:1px solid ${BORDER};text-align:left;vertical-align:top`;
 
+const IMAGE_PROXY_PATH = "/api/images/proxy?url=";
+
+function proxiedImageUrl(url: URL, baseUrl: string): string | null {
+  if (url.protocol !== "https:") return null;
+  url.hash = "";
+  return `${new URL(IMAGE_PROXY_PATH, baseUrl).href}${encodeURIComponent(url.href)}`;
+}
+
 function resolveEmailUrl(raw: string, baseUrl: string, kind: "link" | "image"): string | null {
   const value = raw.trim();
   if (value === "") return null;
-  if (value.startsWith("/") && !value.startsWith("//")) return new URL(value, baseUrl).href;
+  if (value.startsWith("//")) {
+    return kind === "image" ? proxiedImageUrl(new URL(`https:${value}`), baseUrl) : null;
+  }
+  if (value.startsWith("/")) return new URL(value, baseUrl).href;
   let url: URL;
   try {
     url = new URL(value);
   } catch {
     return null;
   }
+  if (kind === "image") {
+    return url.origin === new URL(baseUrl).origin ? url.href : proxiedImageUrl(url, baseUrl);
+  }
   if (url.protocol === "https:" || url.protocol === "http:") return url.href;
-  if (kind === "link" && url.protocol === "mailto:") return url.href;
-  return null;
+  return url.protocol === "mailto:" ? url.href : null;
 }
 
 function headingSize(depth: number): number {

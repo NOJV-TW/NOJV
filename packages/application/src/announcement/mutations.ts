@@ -8,9 +8,11 @@ import {
   type TransactionClient,
 } from "@nojv/db";
 import { DEFAULT_LOCALE, announcementAudienceSchema } from "@nojv/core";
+import type { AnnouncementAudience } from "@nojv/core";
 import { z } from "zod";
 
 import * as notificationDomain from "../notification";
+import { platformRolesForAudience } from "./queries";
 
 export const announcementCreateSchema = z.object({
   title: z.string().trim().min(1),
@@ -32,17 +34,19 @@ interface AnnouncementPublication {
   announcementId: string;
   title: string;
   content: string;
+  audience: AnnouncementAudience;
   courseId: string | null;
   publishedAt: Date;
 }
 
 async function fanoutAnnouncementPublished(
   tx: TransactionClient,
-  { announcementId, title, content, courseId, publishedAt }: AnnouncementPublication,
+  { announcementId, title, content, audience, courseId, publishedAt }: AnnouncementPublication,
 ) {
+  const roles = platformRolesForAudience(audience);
   const recipientIds = courseId
-    ? await courseMembershipRepo.withTx(tx).listActiveMemberUserIds(courseId)
-    : (await userRepo.withTx(tx).listActiveIds()).map((u) => u.id);
+    ? await courseMembershipRepo.withTx(tx).listActiveMemberUserIds(courseId, roles)
+    : (await userRepo.withTx(tx).listActiveIds(roles)).map((u) => u.id);
   if (recipientIds.length === 0) return;
   const course = courseId ? await courseRepo.withTx(tx).findById(courseId) : null;
   const courseName = course?.title ?? null;
@@ -91,6 +95,7 @@ export async function createAnnouncement(data: AnnouncementCreateInput) {
         announcementId: announcement.id,
         title: parsed.title,
         content: parsed.content,
+        audience: parsed.audience,
         courseId: parsed.courseId ?? null,
         publishedAt,
       });
@@ -120,6 +125,7 @@ export async function updateAnnouncement(id: string, data: AnnouncementUpdateInp
         announcementId: id,
         title: parsed.title,
         content: parsed.content,
+        audience: parsed.audience,
         courseId: prior?.courseId ?? null,
         publishedAt,
       });
@@ -156,6 +162,7 @@ export async function toggleAnnouncementPublish(id: string) {
         announcementId: id,
         title: translation?.title ?? id,
         content: translation?.content ?? "",
+        audience: announcement.audience,
         courseId: announcement.courseId,
         publishedAt,
       });

@@ -38,6 +38,11 @@
     editingContent = announcement.content;
   }
 
+  function closeCreateForm() {
+    showCreateForm = false;
+    createContent = "";
+  }
+
   type Audience = "all" | "students" | "teachers";
 
   const AUDIENCE_OPTIONS: { value: Audience; label: () => string }[] = [
@@ -72,7 +77,7 @@
     variant="default"
     size="default"
     type="button"
-    onclick={() => (showCreateForm = !showCreateForm)}
+    onclick={() => (showCreateForm ? closeCreateForm() : (showCreateForm = true))}
   >
     <Plus aria-hidden="true" class="h-4 w-4" />
     {m.admin_announcementsNew()}
@@ -98,10 +103,7 @@
           if (event.formData) serializeDateTimeFormData(event.formData, ["expiresAt"]);
           return async ({ result, update }) => {
             await update();
-            if (result.type === "success") {
-              createContent = "";
-              showCreateForm = false;
-            }
+            if (result.type === "success") closeCreateForm();
           };
         }}
       >
@@ -175,7 +177,7 @@
           <Button type="submit" variant="default">
             {m.admin_announcementsCreate()}
           </Button>
-          <Button type="button" variant="ghost" onclick={() => (showCreateForm = false)}>
+          <Button type="button" variant="ghost" onclick={closeCreateForm}>
             {m.common_cancel()}
           </Button>
         </div>

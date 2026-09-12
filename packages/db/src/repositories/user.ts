@@ -1,5 +1,5 @@
 import { prisma } from "../client";
-import type { Prisma } from "../../generated/prisma/client";
+import type { Prisma, PlatformRole } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
 
 type TxClient = TransactionClient;
@@ -150,9 +150,12 @@ export const userRepo = {
         return tx.user.findUnique({ where: { username } });
       },
 
-      listActiveIds() {
+      listActiveIds(platformRoles?: readonly PlatformRole[]) {
         return tx.user.findMany({
-          where: { disabled: false },
+          where: {
+            disabled: false,
+            ...(platformRoles ? { platformRole: { in: [...platformRoles] } } : {}),
+          },
           select: { id: true },
         });
       },

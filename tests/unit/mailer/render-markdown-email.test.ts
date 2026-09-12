@@ -29,14 +29,40 @@ describe("renderMarkdownForEmail", () => {
     expect(html).toContain('<a href="https://nojv.tw/settings"');
   });
 
-  it("keeps absolute https links, images, and mailto links", () => {
+  it("keeps absolute https links and mailto links", () => {
     const html = renderMarkdownForEmail(
-      "![img](https://cdn.example.com/a.png) [site](https://example.com/x?y=1) <mail@example.com>",
+      "[site](https://example.com/x?y=1) <mail@example.com>",
       options,
     );
-    expect(html).toContain('src="https://cdn.example.com/a.png"');
     expect(html).toContain('href="https://example.com/x?y=1"');
     expect(html).toContain('href="mailto:mail@example.com"');
+  });
+
+  it("routes third-party images through the NOJV image proxy", () => {
+    const html = renderMarkdownForEmail(
+      "![a](https://tracker.example/view.png)\n\n![b](//cdn.example.com/b.png)",
+      options,
+    );
+    expect(html).toContain(
+      'src="https://nojv.tw/api/images/proxy?url=https%3A%2F%2Ftracker.example%2Fview.png"',
+    );
+    expect(html).toContain(
+      'src="https://nojv.tw/api/images/proxy?url=https%3A%2F%2Fcdn.example.com%2Fb.png"',
+    );
+    expect(html).not.toContain('src="https://tracker.example');
+    expect(html).not.toContain('src="//cdn.example.com');
+  });
+
+  it("serves same-origin images directly and drops non-https image sources", () => {
+    const html = renderMarkdownForEmail(
+      "![a](/api/storage/x.png) ![b](https://nojv.tw/api/storage/y.png) ![c](http://insecure.example/z.png)",
+      options,
+    );
+    expect(html).toContain('src="https://nojv.tw/api/storage/x.png"');
+    expect(html).toContain('src="https://nojv.tw/api/storage/y.png"');
+    expect(html).not.toContain("images/proxy");
+    expect(html).not.toContain("insecure.example");
+    expect(html).toContain("c");
   });
 
   it("drops unsafe link and image protocols but keeps their text", () => {

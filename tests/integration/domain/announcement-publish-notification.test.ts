@@ -64,6 +64,75 @@ describe("announcement publish fan-out", () => {
     expect(payload.html).toContain("課程公告 · Course announcement");
   });
 
+  it("keeps a teachers-only announcement away from students", async () => {
+    const student = await createTestUser({ platformRole: "student" });
+    const teacher = await createTestUser({ platformRole: "teacher" });
+    const admin = await createTestUser({ platformRole: "admin" });
+
+    await announcementDomain.createAnnouncement({
+      title: "教師會議",
+      content: "只有教師看得到的內容",
+      pinned: false,
+      published: true,
+      audience: "teachers",
+    });
+
+    expect(await countNotificationsByType(student.id, "announcement_published")).toBe(0);
+    expect(await countNotificationsByType(teacher.id, "announcement_published")).toBe(1);
+    expect(await countNotificationsByType(admin.id, "announcement_published")).toBe(1);
+
+    const emailWork = await testPrisma.durableWork.findMany({
+      where: { kind: notificationDomain.NOTIFICATION_EMAIL_WORK_KIND },
+    });
+    expect(emailWork).toHaveLength(2);
+    for (const work of emailWork) {
+      expect(JSON.stringify(work.payload)).toContain("只有教師看得到的內容");
+    }
+    const rows = await notificationRepo.listRecent(student.id, 10);
+    expect(rows).toHaveLength(0);
+  });
+
+  it("fans a students audience out to every role, matching the site listing", async () => {
+    const student = await createTestUser({ platformRole: "student" });
+    const teacher = await createTestUser({ platformRole: "teacher" });
+
+    await announcementDomain.createAnnouncement({
+      title: "學生公告",
+      content: "x",
+      pinned: false,
+      published: true,
+      audience: "students",
+    });
+
+    expect(await countNotificationsByType(student.id, "announcement_published")).toBe(1);
+    expect(await countNotificationsByType(teacher.id, "announcement_published")).toBe(1);
+  });
+
+  it("filters course announcement recipients by audience too", async () => {
+    const owner = await createTestUser({ platformRole: "admin" });
+    const course = await createTestCourse({ ownerId: owner.id });
+    const student = await createTestUser({ platformRole: "student" });
+    const teacher = await createTestUser({ platformRole: "teacher" });
+    await testPrisma.courseMembership.createMany({
+      data: [
+        { courseId: course.id, userId: student.id, role: "student" },
+        { courseId: course.id, userId: teacher.id, role: "teacher" },
+      ],
+    });
+
+    await announcementDomain.createAnnouncement({
+      title: "課程教師公告",
+      content: "教師限定",
+      pinned: false,
+      published: true,
+      audience: "teachers",
+      courseId: course.id,
+    });
+
+    expect(await countNotificationsByType(student.id, "announcement_published")).toBe(0);
+    expect(await countNotificationsByType(teacher.id, "announcement_published")).toBe(1);
+  });
+
   it("writes announcement_published to every active user when created with published=true", async () => {
     const users = await createActiveUsers(3);
 
