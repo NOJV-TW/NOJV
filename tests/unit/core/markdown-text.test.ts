@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { markdownToPlainText, truncateText } from "@nojv/core";
 
+const CODE_FENCE = "```";
+
 describe("markdownToPlainText", () => {
   it("strips block syntax and keeps readable text", () => {
     const text = markdownToPlainText(
@@ -32,6 +34,19 @@ describe("markdownToPlainText", () => {
 
   it("keeps fenced code contents", () => {
     expect(markdownToPlainText("```ts\nconst x = 1;\n```")).toBe("const x = 1;");
+  });
+
+  it("keeps text around a fence and drops an unclosed fence marker", () => {
+    expect(markdownToPlainText("before\n\n```ts\nconst x = 1;\n```\n\nafter")).toBe(
+      "before const x = 1; after",
+    );
+    expect(markdownToPlainText("intro\n\n```sh\nls -la")).toBe("intro ls -la");
+  });
+
+  it("stays linear on a long run of fence markers", () => {
+    const start = performance.now();
+    expect(markdownToPlainText(CODE_FENCE.repeat(20_000))).toBe("");
+    expect(performance.now() - start).toBeLessThan(1_000);
   });
 
   it("strips task list markers", () => {

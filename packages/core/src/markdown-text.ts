@@ -1,4 +1,4 @@
-const FENCED_CODE = /```[^\n]*\n([\s\S]*?)```/g;
+const CODE_FENCE = "```";
 const IMAGE = /!\[[^\]]*\]\([^)]*\)/g;
 const LINK = /\[([^\]]*)\]\([^)]*\)/g;
 const HTML_TAG = /<\/?[a-zA-Z][^>]*>/g;
@@ -12,9 +12,21 @@ const STAR_EMPHASIS = /(\*{1,3}|~~)(\S[^*~\n]*?\S|\S)\1/g;
 const UNDERSCORE_EMPHASIS = /(?<![A-Za-z0-9])(_{1,3})(\S[^_\n]*?\S|\S)\1(?![A-Za-z0-9])/g;
 const WHITESPACE = /\s+/g;
 
+function stripCodeFences(markdown: string): string {
+  if (!markdown.includes(CODE_FENCE)) return markdown;
+  const segments = markdown.split(CODE_FENCE);
+  let text = segments[0] ?? "";
+  for (let index = 1; index < segments.length; index += 2) {
+    const block = segments[index] ?? "";
+    const infoEnd = block.indexOf("\n");
+    const body = infoEnd === -1 ? block : block.slice(infoEnd + 1);
+    text += ` ${body} ${segments[index + 1] ?? ""}`;
+  }
+  return text;
+}
+
 export function markdownToPlainText(markdown: string): string {
-  return markdown
-    .replace(FENCED_CODE, " $1 ")
+  return stripCodeFences(markdown)
     .replace(IMAGE, " ")
     .replace(LINK, "$1")
     .replace(HTML_TAG, " ")
