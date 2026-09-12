@@ -262,7 +262,7 @@
   "admin_announcementsEmptyHint": "建立第一則公告，讓使用者掌握最新資訊。",
   "admin_announcementsFieldContent": "內容",
   "admin_announcementsFieldTitle": "標題",
-  "admin_announcementsMarkdownHint": "支援 Markdown 語法",
+  "admin_announcementsMarkdownHint": "支援 Markdown 語法，可拖曳、貼上或選擇圖片插入",
   "admin_announcementsNew": "新增公告",
   "admin_announcementsPin": "置頂",
   "admin_announcementsPinned": "置頂",

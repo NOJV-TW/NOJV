@@ -2,6 +2,7 @@
   import { enhance } from "$app/forms";
   import { RadioGroup } from "bits-ui";
   import AnnouncementViewDialog from "$lib/components/features/announcement/AnnouncementViewDialog.svelte";
+  import ImageDropZone from "$lib/components/primitives/ui/ImageDropZone.svelte";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Button } from "$lib/components/primitives/ui/button";
   import { Card } from "$lib/components/primitives/ui/card";
@@ -13,6 +14,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { formatDate } from "$lib/utils/datetime";
   import { serializeDateTimeFormData } from "$lib/utils/datetime-form";
+  import { markdownToPlainText } from "@nojv/core";
   import { Megaphone, Pencil, Pin, Plus, Send, Trash2 } from "@lucide/svelte";
 
   let { data } = $props();
@@ -20,6 +22,8 @@
   type AnnouncementRow = (typeof data.announcements)[number];
 
   let editingId = $state<string | null>(null);
+  let editingContent = $state("");
+  let createContent = $state("");
   let showCreateForm = $state(false);
   let viewing = $state<AnnouncementRow | null>(null);
   let viewOpen = $state(false);
@@ -27,6 +31,11 @@
   function openView(announcement: AnnouncementRow) {
     viewing = announcement;
     viewOpen = true;
+  }
+
+  function startEditing(announcement: AnnouncementRow) {
+    editingId = announcement.id;
+    editingContent = announcement.content;
   }
 
   type Audience = "all" | "students" | "teachers";
@@ -87,6 +96,13 @@
         action="?/create"
         use:enhance={(event) => {
           if (event.formData) serializeDateTimeFormData(event.formData, ["expiresAt"]);
+          return async ({ result, update }) => {
+            await update();
+            if (result.type === "success") {
+              createContent = "";
+              showCreateForm = false;
+            }
+          };
         }}
       >
         <FormField label={m.admin_announcementsFieldTitle()} for="create-title" required>
@@ -103,13 +119,15 @@
           for="create-content"
           required
         >
-          <textarea
+          <ImageDropZone
             id="create-content"
-            class="flex min-h-32 w-full min-w-0 rounded-sm border border-input bg-background px-3 py-2 text-body shadow-rest outline-none transition-[border-color,box-shadow] duration-fast ease-out-soft placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             name="content"
-            placeholder={m.admin_announcementsFieldContent()}
             required
-            rows="4"></textarea>
+            rows="6"
+            class="flex min-h-32 w-full min-w-0 rounded-sm border border-input bg-background px-3 py-2 text-body shadow-rest outline-none transition-[border-color,box-shadow] duration-fast ease-out-soft placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            placeholder={m.admin_announcementsFieldContent()}
+            bind:value={createContent}
+          />
         </FormField>
         <FormField label={m.admin_announcement_audience_label()} for="create-audience-all">
           <RadioGroup.Root
@@ -208,13 +226,14 @@
                   for="edit-content-{ann.id}"
                   required
                 >
-                  <textarea
+                  <ImageDropZone
                     id="edit-content-{ann.id}"
-                    class="flex min-h-32 w-full min-w-0 rounded-sm border border-input bg-background px-3 py-2 text-body shadow-rest outline-none transition-[border-color,box-shadow] duration-fast ease-out-soft placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     name="content"
-                    rows="4"
-                    required>{ann.content}</textarea
-                  >
+                    required
+                    rows="6"
+                    class="flex min-h-32 w-full min-w-0 rounded-sm border border-input bg-background px-3 py-2 text-body shadow-rest outline-none transition-[border-color,box-shadow] duration-fast ease-out-soft placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    bind:value={editingContent}
+                  />
                 </FormField>
                 <FormField
                   label={m.admin_announcement_audience_label()}
@@ -315,7 +334,7 @@
                     </h3>
                     {#if ann.content}
                       <p class="mt-1 line-clamp-2 text-body-sm text-muted-foreground">
-                        {ann.content}
+                        {markdownToPlainText(ann.content)}
                       </p>
                     {/if}
                   </div>
@@ -372,7 +391,7 @@
                         class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-transparent text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-transparent hover:text-foreground"
                         title={m.common_edit()}
                         aria-label={m.common_edit()}
-                        onclick={() => (editingId = ann.id)}
+                        onclick={() => startEditing(ann)}
                       >
                         <Pencil aria-hidden="true" class="h-3.5 w-3.5" />
                       </button>

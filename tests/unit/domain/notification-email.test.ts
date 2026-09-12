@@ -14,15 +14,19 @@ vi.mock("@nojv/db", () => ({
   notificationRepo: { findEmailDeliveryContext },
 }));
 
-vi.mock("@nojv/mailer", () => ({
-  getMailer: () => ({ sendEmail }),
-  getAppBaseUrl: () => "https://nojv.tw",
-  renderEmail: (content: unknown) => JSON.stringify(content),
-}));
+vi.mock("@nojv/mailer", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@nojv/mailer")>();
+  return {
+    ...actual,
+    getMailer: () => ({ sendEmail }),
+    getAppBaseUrl: () => "https://nojv.tw",
+  };
+});
 
 import {
   buildNotificationEmailWork,
   deliverNotificationEmail,
+  excerptMarkdown,
 } from "../../../packages/application/src/notification/email";
 
 function input(
@@ -250,5 +254,115 @@ describe("notification email durable delivery", () => {
     expect(work.subject).toContain('<a href="evil">x</a>');
     expect(work.html).toContain("&lt;a href=&quot;evil&quot;&gt;x&lt;/a&gt;");
     expect(work.html).not.toContain('<a href="evil">');
+  });
+});
+
+describe("announcement email content", () => {
+  const params = {
+    announcementId: "a1",
+    titleEn: "期中考公告",
+    titleZhTw: "期中考公告",
+    courseId: "c1",
+    courseName: "演算法",
+  };
+  const emailParams = {
+    content:
+      "## 時間\n\n**10/20** 上午 9 點\n\n![座位表](/api/storage/user-content-images/u1/seats.png)\n\n<script>alert(1)</script>",
+    courseName: "演算法",
+    publishedAt: "2026-09-01T13:31:00.000Z",
+  };
+
+  function sendWork(work: ReturnType<typeof buildNotificationEmailWork>) {
+    if (work.disposition !== "send") throw new Error("Expected send work.");
+    return work;
+  }
+
+  it("snapshots the rendered body, course name, date, and preheader into the email", () => {
+    const work = sendWork(
+      buildNotificationEmailWork("n1", input("announcement_published", params), {
+        emailParams,
+      }),
+    );
+
+    expect(work.subject).toBe("【NOJV】演算法 課程公告：期中考公告");
+    expect(work.preferenceKey).toBe("emailCourseAnnouncement");
+    expect(work.html).toContain("課程公告 · Course announcement");
+    expect(work.html).toContain("演算法 · 2026/09/01");
+    expect(work.html).toContain("<strong>10/20</strong>");
+    expect(work.html).toContain(
+      '<img src="https://nojv.tw/api/storage/user-content-images/u1/seats.png" alt="座位表"',
+    );
+    expect(work.html).not.toContain("<script>");
+    expect(work.html).toContain("&lt;script&gt;");
+    expect(work.html).toContain("閱讀完整公告");
+    expect(work.html).toContain("https://nojv.tw/target");
+    expect(work.html).not.toContain("發布了一則新公告");
+    expect(work.html.indexOf("時間 10/20 上午 9 點")).toBeLessThan(work.html.indexOf("<h2"));
+  });
+
+  it("falls back to the title-only intro for notifications without a content snapshot", () => {
+    const work = sendWork(
+      buildNotificationEmailWork(
+        "n1",
+        input("announcement_published", { announcementId: "a1", titleZhTw: "舊公告" }),
+      ),
+    );
+
+    expect(work.subject).toBe("【NOJV】公告：舊公告");
+    expect(work.preferenceKey).toBe("emailSystemAnnouncement");
+    expect(work.html).toContain("系統公告 · System announcement");
+    expect(work.html).toContain("發布了一則新公告：舊公告");
+  });
+
+  it("truncates long bodies at a paragraph boundary and keeps the read-more button", () => {
+    const paragraph = "段落內容".repeat(50);
+    const content = Array.from({ length: 20 }, (_, i) => `${String(i)} ${paragraph}`).join(
+      "\n\n",
+    );
+    const work = sendWork(
+      buildNotificationEmailWork("n1", input("announcement_published", params), {
+        emailParams: { ...emailParams, content },
+      }),
+    );
+
+    expect(work.html).toContain("0 段落內容");
+    expect(work.html).not.toContain("19 段落內容");
+    expect(work.html).toContain("…");
+    expect(work.html).toContain("閱讀完整公告");
+  });
+
+  it("escapes the announcement title in the heading while keeping the subject plain", () => {
+    const work = sendWork(
+      buildNotificationEmailWork(
+        "n1",
+        input("announcement_published", { announcementId: "a1", titleZhTw: "<b>x</b>" }),
+        { emailParams: { content: "hi", courseName: null, publishedAt: "" } },
+      ),
+    );
+
+    expect(work.subject).toBe("【NOJV】公告：<b>x</b>");
+    expect(work.html).toContain("&lt;b&gt;x&lt;/b&gt;");
+    expect(work.html).not.toContain("<b>x</b>");
+    expect(work.html).toContain(
+      '<p style="margin:0 0 20px;font-size:13px;color:#5f6875">NOJV</p>',
+    );
+  });
+});
+
+describe("excerptMarkdown", () => {
+  it("returns short markdown unchanged", () => {
+    expect(excerptMarkdown("short", 100)).toBe("short");
+  });
+
+  it("cuts at the last paragraph break before the limit", () => {
+    const markdown = `${"a".repeat(60)}\n\n${"b".repeat(60)}\n\n${"c".repeat(60)}`;
+    expect(excerptMarkdown(markdown, 150)).toBe(`${"a".repeat(60)}\n\n${"b".repeat(60)}\n\n…`);
+  });
+
+  it("falls back to a word boundary when there is no paragraph break", () => {
+    const markdown = `${"word ".repeat(40)}tail`;
+    const excerpt = excerptMarkdown(markdown, 100);
+    expect(excerpt.endsWith("\n\n…")).toBe(true);
+    expect(excerpt.length).toBeLessThanOrEqual(103);
   });
 });

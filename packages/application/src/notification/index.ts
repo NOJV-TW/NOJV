@@ -19,6 +19,8 @@ import {
   buildNotificationEmailWork,
   deliverNotificationEmail,
   notificationEmailWorkPayloadSchema,
+  type NotificationEmailOptions,
+  type NotificationEmailParams,
   type NotificationEmailWorkPayload,
 } from "./email";
 import { getEffectiveNotificationPreferences } from "./preferences";
@@ -101,13 +103,14 @@ function resolveLinkUrl(type: string, params: Prisma.JsonValue, linkUrl: string 
 async function enqueueNotificationDeliveries(
   tx: TransactionClient,
   rows: readonly NotificationDeliveryRow[],
+  options: NotificationEmailOptions,
 ): Promise<void> {
   if (rows.length === 0) return;
 
   await durableWorkRepo.withTx(tx).enqueueMany(
     rows.flatMap((row) => {
       const input = toNotificationInput(row);
-      const emailWork = buildNotificationEmailWork(row.id, input);
+      const emailWork = buildNotificationEmailWork(row.id, input, options);
       return [
         {
           kind: NOTIFICATION_SSE_WORK_KIND,
@@ -131,21 +134,26 @@ async function enqueueNotificationDeliveries(
 export async function createNotificationInTransaction(
   tx: TransactionClient,
   input: NotificationCreateInput,
+  options: NotificationEmailOptions = {},
 ) {
   const { row, created } = await notificationRepo.withTx(tx).createAndCap(input);
   if (created) {
-    await enqueueNotificationDeliveries(tx, [row]);
+    await enqueueNotificationDeliveries(tx, [row], options);
   }
   return row;
 }
 
-export function createNotification(input: NotificationCreateInput) {
-  return runTransaction((tx) => createNotificationInTransaction(tx, input));
+export function createNotification(
+  input: NotificationCreateInput,
+  options: NotificationEmailOptions = {},
+) {
+  return runTransaction((tx) => createNotificationInTransaction(tx, input, options));
 }
 
 export async function createNotificationBatchInTransaction(
   tx: TransactionClient,
   inputs: readonly NotificationCreateInput[],
+  options: NotificationEmailOptions = {},
 ): Promise<number> {
   if (inputs.length === 0) return 0;
   const batchSize = 500;
@@ -154,14 +162,17 @@ export async function createNotificationBatchInTransaction(
     const rows = await notificationRepo
       .withTx(tx)
       .createManyAndCap(inputs.slice(offset, offset + batchSize));
-    await enqueueNotificationDeliveries(tx, rows);
+    await enqueueNotificationDeliveries(tx, rows, options);
     total += rows.length;
   }
   return total;
 }
 
-export function createNotificationBatch(inputs: NotificationCreateInput[]): Promise<number> {
-  return runTransaction((tx) => createNotificationBatchInTransaction(tx, inputs));
+export function createNotificationBatch(
+  inputs: NotificationCreateInput[],
+  options: NotificationEmailOptions = {},
+): Promise<number> {
+  return runTransaction((tx) => createNotificationBatchInTransaction(tx, inputs, options));
 }
 
 export async function publishNotificationSse(
@@ -174,6 +185,8 @@ export async function publishNotificationSse(
 export {
   deliverNotificationEmail,
   notificationEmailWorkPayloadSchema,
+  type NotificationEmailOptions,
+  type NotificationEmailParams,
   type NotificationEmailWorkPayload,
 };
 

@@ -8,6 +8,7 @@
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import AnnouncementViewDialog from "$lib/components/features/announcement/AnnouncementViewDialog.svelte";
   import { formatDate } from "$lib/utils/datetime";
+  import { markdownToPlainText } from "@nojv/core";
 
   let { data } = $props();
 
@@ -108,7 +109,7 @@
                   <span class="truncate">{announcement.title}</span>
                 </h3>
                 <p class="mt-1 line-clamp-2 text-body-sm text-muted-foreground">
-                  {announcement.content}
+                  {markdownToPlainText(announcement.content)}
                 </p>
               </div>
               <time

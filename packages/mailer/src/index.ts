@@ -6,6 +6,8 @@ import type { Mailer } from "./types";
 export type { Mailer, SendEmailInput, SendEmailResult } from "./types";
 export { renderEmail } from "./template";
 export type { EmailContent } from "./template";
+export { renderMarkdownForEmail } from "./markdown";
+export type { EmailMarkdownOptions } from "./markdown";
 
 export const SMTP_CONNECTION_TIMEOUT_MS = 10_000;
 export const SMTP_GREETING_TIMEOUT_MS = 10_000;

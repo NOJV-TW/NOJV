@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { notificationRepo } from "@nojv/db";
 import { announcementDomain, notificationDomain } from "@nojv/application";
+import { getAppBaseUrl } from "@nojv/mailer";
 
 import { createTestCourse, createTestUser, testPrisma } from "../../fixtures/factories";
 
@@ -19,6 +20,50 @@ async function countNotificationsByType(userId: string, type: string) {
 }
 
 describe("announcement publish fan-out", () => {
+  it("snapshots the announcement body and course name into the email work only", async () => {
+    const admin = await createTestUser({ platformRole: "admin" });
+    const course = await createTestCourse({ ownerId: admin.id, title: "演算法導論" });
+    const member = await createTestUser();
+    await testPrisma.courseMembership.create({
+      data: { courseId: course.id, userId: member.id, role: "student" },
+    });
+
+    await announcementDomain.createAnnouncement({
+      title: "期中考",
+      content:
+        "**10/20** 上午 9 點\n\n![座位表](/api/storage/user-content-images/u1/seats.png)",
+      pinned: false,
+      published: true,
+      courseId: course.id,
+    });
+
+    const row = (await notificationRepo.listRecent(member.id, 10)).find(
+      (item) => item.type === "announcement_published",
+    );
+    if (!row) throw new Error("Expected an announcement notification.");
+    expect(row.params).toMatchObject({ courseId: course.id, courseName: "演算法導論" });
+    expect(row.params).not.toHaveProperty("content");
+
+    const emailWork = await testPrisma.durableWork.findUniqueOrThrow({
+      where: {
+        kind_dedupeKey: {
+          kind: notificationDomain.NOTIFICATION_EMAIL_WORK_KIND,
+          dedupeKey: row.id,
+        },
+      },
+    });
+    const payload = notificationDomain.notificationEmailWorkPayloadSchema.parse(
+      emailWork.payload,
+    );
+    if (payload.disposition !== "send") throw new Error("Expected send work.");
+    expect(payload.subject).toBe("【NOJV】演算法導論 課程公告：期中考");
+    expect(payload.html).toContain("<strong>10/20</strong>");
+    expect(payload.html).toContain(
+      `<img src="${getAppBaseUrl()}/api/storage/user-content-images/u1/seats.png"`,
+    );
+    expect(payload.html).toContain("課程公告 · Course announcement");
+  });
+
   it("writes announcement_published to every active user when created with published=true", async () => {
     const users = await createActiveUsers(3);
 
