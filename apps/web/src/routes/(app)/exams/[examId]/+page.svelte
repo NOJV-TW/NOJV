@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
@@ -117,6 +118,7 @@
 
   let submissionSearch = $state("");
   let visibleSubmissionCount = $state(0);
+  let totalSubmissionCount = $state(untrack(() => data.recentSubmissions.length));
 
   const subTabs = $derived<{ key: ExamSubTab; label: string }[]>([
     { key: "problems", label: m.examDetail_subTabProblems() },
@@ -623,7 +625,7 @@
           <SubmissionHistoryActions
             bind:search={submissionSearch}
             visibleCount={visibleSubmissionCount}
-            totalCount={data.recentSubmissions.length}
+            totalCount={totalSubmissionCount}
           />
         {/if}
       {/snippet}
@@ -633,6 +635,7 @@
           refreshUrl={`/api/submissions?context=exam&id=${detail.id}`}
           bind:search={submissionSearch}
           bind:visibleCount={visibleSubmissionCount}
+          bind:totalCount={totalSubmissionCount}
         />
       {:else if activeSubTabKey === "results" && data.results && data.matrix}
         <ExamResultsTab

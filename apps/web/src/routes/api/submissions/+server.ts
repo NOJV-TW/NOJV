@@ -13,6 +13,7 @@ const SUBMISSIONS_PAGE_SIZE = 50;
 const contextQuerySchema = z.object({
   context: z.enum(["assignment", "exam"]),
   id: z.string().min(1),
+  search: z.string().trim().max(120).optional(),
 });
 
 export const GET: RequestHandler = apiHandler(async (event) => {
@@ -20,10 +21,16 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   const contextType = event.url.searchParams.get("context");
   const contextId = event.url.searchParams.get("id");
   if (contextType !== null || contextId !== null) {
-    const context = contextQuerySchema.parse({ context: contextType, id: contextId });
+    const search = event.url.searchParams.get("search")?.trim() || undefined;
+    const context = contextQuerySchema.parse({
+      context: contextType,
+      id: contextId,
+      ...(search ? { search } : {}),
+    });
     const items = await submissionDomain.listRecentContextSubmissions({
       actor,
       context: { type: context.context, id: context.id },
+      ...(context.search ? { search: context.search } : {}),
     });
     return json({ items });
   }

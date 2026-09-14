@@ -46,6 +46,26 @@ describe("listRecentContextSubmissions", () => {
     expect(submissionDomain.listRecentContextSubmissions).toBeTypeOf("function");
   });
 
+  it("passes a student or IP search to the context query", async () => {
+    const listContextSubmissions = submissionDomain.listRecentContextSubmissions as (options: {
+      actor: ActorContext;
+      context: { type: "assignment"; id: string };
+      search: string;
+    }) => Promise<unknown>;
+
+    await listContextSubmissions({
+      actor,
+      context: { type: "assignment", id: "assignment_1" },
+      search: "41147042s",
+    });
+
+    expect(listRecentForContext).toHaveBeenCalledWith({
+      context: { type: "assignment", id: "assignment_1" },
+      limit: 100,
+      search: "41147042s",
+    });
+  });
+
   it.each([
     ["assignment", "assignment_1"],
     ["exam", "exam_1"],

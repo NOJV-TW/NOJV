@@ -449,7 +449,9 @@ export const submissionRepo = {
   listRecentForContext(opts: {
     context: { type: "assignment"; id: string } | { type: "exam"; id: string };
     limit: number;
+    search?: string;
   }) {
+    const search = opts.search?.trim();
     return prisma.submission.findMany({
       where: {
         sampleOnly: false,
@@ -457,6 +459,14 @@ export const submissionRepo = {
         ...(opts.context.type === "assignment"
           ? { assessmentId: opts.context.id }
           : { examId: opts.context.id }),
+        ...(search
+          ? {
+              OR: [
+                { ipAddress: { contains: search, mode: "insensitive" as const } },
+                { user: { username: { contains: search, mode: "insensitive" as const } } },
+              ],
+            }
+          : {}),
       },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: opts.limit,

@@ -469,6 +469,7 @@ export async function listRecentContextSubmissions(opts: {
   actor: ActorContext;
   context: { type: "assignment"; id: string } | { type: "exam"; id: string };
   limit?: number;
+  search?: string;
 }) {
   const entity =
     opts.context.type === "assignment"
@@ -498,8 +499,13 @@ export async function listRecentContextSubmissions(opts: {
     throw new ForbiddenError("Not authorized to view context submissions.");
   }
 
-  const limit = Math.min(Math.max(opts.limit ?? 50, 1), 100);
-  const rows = await submissionRepo.listRecentForContext({ context: opts.context, limit });
+  const search = opts.search?.trim() || undefined;
+  const limit = Math.min(Math.max(opts.limit ?? (search ? 100 : 50), 1), 100);
+  const rows = await submissionRepo.listRecentForContext({
+    context: opts.context,
+    limit,
+    ...(search ? { search } : {}),
+  });
   return rows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString() }));
 }
 
