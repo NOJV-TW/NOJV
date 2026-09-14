@@ -499,7 +499,7 @@ export async function listRecentContextSubmissions(opts: {
     throw new ForbiddenError("Not authorized to view context submissions.");
   }
 
-  const search = opts.search?.trim() || undefined;
+  const search = opts.search?.trim() ?? undefined;
   const limit = Math.min(Math.max(opts.limit ?? (search ? 100 : 50), 1), 100);
   const rows = await submissionRepo.listRecentForContext({
     context: opts.context,
