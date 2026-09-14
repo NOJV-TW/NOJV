@@ -184,6 +184,7 @@ export default defineConfig({
             "tests/unit/web/footer.test.ts",
             "tests/unit/web/assessment-row.test.ts",
             "tests/unit/web/email-change-form.test.ts",
+            "tests/component/web/problem-select-dialog.test.ts",
           ],
           environment: "jsdom",
         },

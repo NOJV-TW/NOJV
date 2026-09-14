@@ -206,18 +206,16 @@
             <div class="space-y-1">
               {#each section.problems as problem (problem.id)}
                 {@const checked = pendingIds.has(problem.id)}
-                <label
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={checked}
                   class={cn(
-                    "flex cursor-pointer items-center gap-3 rounded-md px-3 py-3 transition-colors",
+                    "flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                     checked ? "bg-primary/8" : "hover:bg-muted",
                   )}
+                  onclick={() => toggleProblem(problem.id)}
                 >
-                  <input
-                    type="checkbox"
-                    {checked}
-                    onchange={() => toggleProblem(problem.id)}
-                    class="peer sr-only"
-                  />
                   <span
                     class={cn(
                       "flex size-5 shrink-0 items-center justify-center rounded border transition-colors",
@@ -248,7 +246,7 @@
                       <span>{problem.judgeType}</span>
                     </span>
                   </span>
-                </label>
+                </button>
               {/each}
             </div>
           </section>
