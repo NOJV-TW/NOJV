@@ -46,7 +46,7 @@
     "db:validate": "pnpm --filter @nojv/db prisma:validate"
   },
   "devDependencies": {
-    "@better-auth/core": "1.6.23",
+    "@better-auth/core": "1.7.4",
     "@kubernetes/client-node": "^1.4.0",
     "@nojv/eslint-config": "workspace:*",
     "@nojv/prettier-config": "workspace:*",
@@ -71,7 +71,7 @@
     "tsx": "^4.23.13",
     "turbo": "^2.10.12",
     "typescript": "catalog:",
-    "typescript-eslint": "^8.69.0",
+    "typescript-eslint": "^8.70.0",
     "vitest": "catalog:",
     "zod": "catalog:"
   }
