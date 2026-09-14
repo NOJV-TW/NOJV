@@ -21,7 +21,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   const contextType = event.url.searchParams.get("context");
   const contextId = event.url.searchParams.get("id");
   if (contextType !== null || contextId !== null) {
-    const search = event.url.searchParams.get("search")?.trim() || undefined;
+    const search = event.url.searchParams.get("search")?.trim() ?? undefined;
     const context = contextQuerySchema.parse({
       context: contextType,
       id: contextId,
