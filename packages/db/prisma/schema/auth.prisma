@@ -71,6 +71,8 @@ model User {
   submissionFeedbackAuditChanges SubmissionFeedbackAuditLog[] @relation("SubmissionFeedbackAuditChanger")
   triggeredPlagiarismLogs        PlagiarismTriggerLog[]       @relation("PlagiarismTriggerLogTriggerer")
   problemBookmarks               ProblemBookmark[]
+  publicationRequests             ProblemPublicationRequest[] @relation("ProblemPublicationRequestRequester")
+  reviewedPublicationRequests     ProblemPublicationRequest[] @relation("ProblemPublicationRequestReviewer")
   apiTokens                      ApiToken[]
   registryCredential             RegistryCredential?
   revokedApiTokens               ApiToken[]                   @relation("ApiTokenRevoker")

@@ -98,6 +98,8 @@ enum AdminAuditAction {
   announcement_delete
   registry_tag_delete
   registry_gc
+  problem_publication_approve
+  problem_publication_reject
 }
 
 model AdminAuditLog {
