@@ -66,8 +66,8 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/signin`           | Sign in — GitHub / Google OAuth only (general users do not use password sign-in)                                                                                             |
 | `/admin-signin`     | Admin password flow. Super admins continue through password change/setup/recovery and TOTP or passkey before direct `/admin` access; rate-limited 5 attempts / 15 min per IP |
-| `/complete-profile` | Onboarding: username, email verification                                                                                                                                     |
-| `/verify-school`    | School-email verification flow (parses the email domain, attaches a school + student-id placeholder if eligible)                                                             |
+| `/complete-profile` | Onboarding: choose a unique general username; school-ID formats are reserved                                                                                                 |
+| `/verify-school`    | Confirm explicit school-email verification and replace the existing username with the verified student ID                                                                    |
 
 ### Public Routes
 

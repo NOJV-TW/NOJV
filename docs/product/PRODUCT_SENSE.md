@@ -132,7 +132,8 @@ This describes repository behavior; release and deployment verification are trac
 ### Authentication
 
 - Third-party sign-in only — GitHub OAuth + Google OAuth (no public email/password flow)
-- Profile completion and email verification flow on first OAuth sign-in
+- First OAuth sign-in requires a unique general username; school-ID formats are reserved and cannot be chosen during onboarding.
+- Explicit three-school verification in settings replaces the existing username with the verified student ID. Sign-in, primary-email changes, and linked login providers preserve the username; login only binds pending course memberships to the username already owned by the account.
 - Admin-specific credential sign-in page. Regular admins explicitly enter admin mode after TOTP/passkey verification; super admins use password plus TOTP/passkey and receive admin access directly.
 - Super admins cannot use or link OAuth. First login changes the seeded password and sets up TOTP or passkey; password-first backup-code/email recovery grants factor setup only.
 
