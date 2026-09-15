@@ -10,6 +10,7 @@ const {
   importBundle,
   requireApiAuth,
   requireAuth,
+  requestPublicPublication,
   updateTestcaseRecord,
   updateTestcaseSetRecord,
 } = vi.hoisted(() => ({
@@ -21,6 +22,7 @@ const {
   importBundle: vi.fn(),
   requireApiAuth: vi.fn(),
   requireAuth: vi.fn(),
+  requestPublicPublication: vi.fn(),
   updateTestcaseRecord: vi.fn(),
   updateTestcaseSetRecord: vi.fn(),
 }));
@@ -52,6 +54,7 @@ vi.mock("sveltekit-superforms/adapters", () => ({ zod4: vi.fn() }));
 vi.mock("@nojv/application", () => ({
   problemDomain: {
     assertProblemEditAccess,
+    requestPublicProblemPublication: requestPublicPublication,
     canAuthorProblems,
     createProblemTestcaseSetRecord: createTestcaseSetRecord,
     deleteTestcaseRecord,
@@ -90,9 +93,24 @@ beforeEach(() => {
   canAuthorProblems.mockResolvedValue(true);
   createTestcaseSetRecord.mockResolvedValue({ id: "set_1" });
   importBundle.mockResolvedValue({ id: "prob_1", testcaseCount: 1, workspaceCount: 0 });
+  requestPublicPublication.mockResolvedValue({ id: "request-1", status: "pending" });
 });
 
 describe("problem testcase action authentication", () => {
+  it("submits a public publication request after checking edit access", async () => {
+    const action = actions.requestPublicPublication;
+    if (!action) throw new Error("Missing action: requestPublicPublication");
+    await expect(
+      action({
+        locals: {},
+        params: { problemId: "prob_1" },
+        request: { formData: vi.fn() },
+      } as unknown as Parameters<typeof action>[0]),
+    ).resolves.toEqual({ id: "request-1", status: "pending", success: true });
+    expect(assertProblemEditAccess).toHaveBeenCalledWith(actor, "prob_1");
+    expect(requestPublicPublication).toHaveBeenCalledWith(actor, "prob_1");
+  });
+
   it("allows an existing owner to import without creation eligibility", async () => {
     const owner = { ...actor, emailVerified: false, platformRole: "student" as const };
     requireApiAuth.mockReturnValue(owner);

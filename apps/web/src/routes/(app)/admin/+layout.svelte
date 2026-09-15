@@ -10,6 +10,7 @@
     { href: "/admin/users", label: () => m.admin_tabUsers() },
     { href: "/admin/announcements", label: () => m.admin_tabAnnouncements() },
     { href: "/admin/reports", label: () => m.admin_tabReports() },
+    { href: "/admin/problem-publications", label: () => m.admin_tabProblemPublications() },
     { href: "/admin/registry", label: () => m.admin_tabRegistry() },
     { href: "/admin/audit", label: () => m.admin_tabAudit() },
   ];

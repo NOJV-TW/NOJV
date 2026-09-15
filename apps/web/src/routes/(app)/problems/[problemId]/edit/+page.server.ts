@@ -123,6 +123,14 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     ? await registryDomain.getRegistryCredentialStatus(actor.userId)
     : null;
   const publicVisibilityAllowed = await problemDomain.canPublishPublicProblems(actor);
+  const canRequestPublicPublication =
+    problemRow?.visibility === "private" &&
+    problemRow.authorId === actor.userId &&
+    problemDomain.canRequestPublicProblemPublication(actor);
+  const publicationRequest =
+    problemRow?.authorId === actor.userId || actor.platformRole === "admin"
+      ? await problemDomain.getLatestPublicProblemPublicationRequest(actor, params.problemId)
+      : null;
 
   return {
     problem,
@@ -150,11 +158,21 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         publicVisibilityAllowed &&
         (problemRow.authorId === actor.userId ||
           (actor.platformRole === "admin" && problemRow.adminMayPublish)),
+      canRequestPublicPublication,
       canPublishAsAdmin:
         actor.platformRole === "admin" &&
         problemRow?.authorId !== actor.userId &&
         problemRow?.adminMayPublish === true,
     },
+    publicationRequest: publicationRequest
+      ? {
+          id: publicationRequest.id,
+          status: publicationRequest.status,
+          reviewNote: publicationRequest.reviewNote,
+          createdAt: publicationRequest.createdAt.toISOString(),
+          reviewedAt: publicationRequest.reviewedAt?.toISOString() ?? null,
+        }
+      : null,
     advancedCreationAllowed,
     advancedAllowedRegistries: allowedImageRegistries(),
     registryHost: registryEnv.REGISTRY_PUBLIC_HOST,
@@ -276,6 +294,11 @@ export const actions: Actions = {
       visibility: "public",
     });
     return { success: true, id: result.id };
+  }),
+
+  requestPublicPublication: problemEditAction(async ({ actor, problemId }) => {
+    const result = await problemDomain.requestPublicProblemPublication(actor, problemId);
+    return { success: true, id: result.id, status: result.status };
   }),
 
   transferOwnership: problemEditAction(async ({ actor, problemId, event }) => {

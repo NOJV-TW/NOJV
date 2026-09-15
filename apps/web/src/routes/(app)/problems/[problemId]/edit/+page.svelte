@@ -44,6 +44,7 @@
     else if (activeSection === "judge") judgeTab?.save();
   }
   let isPublishing = $state(false);
+  let isRequestingPublicPublication = $state(false);
   let isDirty = $state(false);
   let showPublishConfirm = $state(false);
   let showDeleteConfirm = $state(false);
@@ -53,6 +54,7 @@
   let isTransferring = $state(false);
   let showTransferConfirm = $state(false);
   const managesOwnership = $derived(data.permissions.isOwner || data.permissions.isAdmin);
+  const publicationRequestPending = $derived(data.publicationRequest?.status === "pending");
 
   let isBasicInfoComplete = $derived(
     data.problem.title.trim() !== "" &&
@@ -144,6 +146,32 @@
   function handlePublishClick() {
     publishPublicCopy = false;
     showPublishConfirm = true;
+  }
+
+  async function handleRequestPublicPublication() {
+    if (isRequestingPublicPublication || publicationRequestPending) return;
+    isRequestingPublicPublication = true;
+    try {
+      const response = await fetch("?/requestPublicPublication", {
+        method: "POST",
+        body: new FormData(),
+      });
+      const result = deserialize(await response.text());
+      if (result.type !== "success") {
+        toasts.error(
+          result.type === "failure" && typeof result.data?.error === "string"
+            ? result.data.error
+            : m.error_unexpected(),
+        );
+        return;
+      }
+      await invalidateAll();
+      toasts.success(m.problem_publicationRequestSubmitted());
+    } catch {
+      toasts.error(m.error_unexpected());
+    } finally {
+      isRequestingPublicPublication = false;
+    }
   }
 
   async function transferOwnership() {
@@ -371,6 +399,35 @@
             </Button>
           {/if}
         {/if}
+        {#if data.permissions.canRequestPublicPublication}
+          <Button
+            variant="outline"
+            size="sm"
+            class="w-full"
+            loading={isRequestingPublicPublication}
+            disabled={isRequestingPublicPublication || publicationRequestPending}
+            onclick={handleRequestPublicPublication}
+          >
+            {#if publicationRequestPending}
+              {m.problem_publicationRequestPending()}
+            {:else if data.publicationRequest?.status === "rejected"}
+              {m.problem_publicationRequestResubmit()}
+            {:else}
+              {m.problem_publicationRequestSubmit()}
+            {/if}
+          </Button>
+          {#if publicationRequestPending}
+            <p class="px-1 text-micro leading-relaxed text-muted-foreground">
+              {m.problem_publicationRequestPendingHint()}
+            </p>
+          {:else if data.publicationRequest?.status === "rejected" && data.publicationRequest.reviewNote}
+            <p class="px-1 text-micro leading-relaxed text-muted-foreground">
+              {m.problem_publicationRequestRejected({
+                note: data.publicationRequest.reviewNote,
+              })}
+            </p>
+          {/if}
+        {/if}
       {/snippet}
       <div class="flex flex-col gap-6 lg:flex-row" data-testid="advanced-edit-layout">
         <EditRail actions={advancedActions} tourTarget={false} mobileFullWidth={true}>
@@ -496,6 +553,35 @@
             {#if !canPublish}
               <p class="px-1 text-micro leading-relaxed text-muted-foreground">
                 {m.admin_publishTooltip()}
+              </p>
+            {/if}
+          {/if}
+          {#if data.permissions.canRequestPublicPublication}
+            <Button
+              variant="outline"
+              size="sm"
+              class="w-full"
+              loading={isRequestingPublicPublication}
+              disabled={isRequestingPublicPublication || publicationRequestPending}
+              onclick={handleRequestPublicPublication}
+            >
+              {#if publicationRequestPending}
+                {m.problem_publicationRequestPending()}
+              {:else if data.publicationRequest?.status === "rejected"}
+                {m.problem_publicationRequestResubmit()}
+              {:else}
+                {m.problem_publicationRequestSubmit()}
+              {/if}
+            </Button>
+            {#if publicationRequestPending}
+              <p class="px-1 text-micro leading-relaxed text-muted-foreground">
+                {m.problem_publicationRequestPendingHint()}
+              </p>
+            {:else if data.publicationRequest?.status === "rejected" && data.publicationRequest.reviewNote}
+              <p class="px-1 text-micro leading-relaxed text-muted-foreground">
+                {m.problem_publicationRequestRejected({
+                  note: data.publicationRequest.reviewNote,
+                })}
               </p>
             {/if}
           {/if}
