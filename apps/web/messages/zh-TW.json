@@ -364,7 +364,6 @@
   "admin_contentOwner": "擁有者：{owner}",
   "admin_contentActive": "使用中",
   "admin_contentArchived": "已封存",
-  "admin_contentProblemCount": "{count} 題",
   "admin_contentParticipantCount": "{count} 位參賽者",
   "admin_overviewTime": "時間",
   "admin_overviewTitle": "管理總覽",
