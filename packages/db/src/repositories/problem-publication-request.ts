@@ -1,8 +1,5 @@
 import { prisma } from "../client";
-import type {
-  Prisma,
-  ProblemPublicationRequestStatus,
-} from "../../generated/prisma/client";
+import type { Prisma, ProblemPublicationRequestStatus } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
 
 const publicationRequestInclude = {
@@ -14,6 +11,7 @@ const publicationRequestInclude = {
       authorId: true,
       visibility: true,
       status: true,
+      author: { select: { id: true, username: true, name: true } },
     },
   },
   requestedBy: { select: { id: true, username: true, name: true } },
@@ -42,10 +40,7 @@ export interface RejectProblemPublicationRequestInput {
   reviewedAt?: Date;
 }
 
-type RequestClient = Pick<
-  TransactionClient,
-  "$queryRaw" | "problemPublicationRequest"
->;
+type RequestClient = Pick<TransactionClient, "$queryRaw" | "problemPublicationRequest">;
 
 function listArgs(opts: {
   status?: ProblemPublicationRequestStatus;
@@ -89,8 +84,10 @@ export const problemPublicationRequestRepo = {
     status?: ProblemPublicationRequestStatus;
     limit: number;
     cursor?: string;
-  }) {
-    return prisma.problemPublicationRequest.findMany(listArgs(opts));
+  }): Promise<ProblemPublicationRequestRow[]> {
+    return prisma.problemPublicationRequest.findMany(listArgs(opts)) as Promise<
+      ProblemPublicationRequestRow[]
+    >;
   },
 
   createPending(input: CreatePendingProblemPublicationRequestInput) {

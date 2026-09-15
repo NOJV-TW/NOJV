@@ -28,7 +28,19 @@ export async function canPublishPublicProblems(actor: {
   userId: string;
   platformRole: PlatformRole;
 }): Promise<boolean> {
-  if (actor.platformRole === "admin" || actor.platformRole === "teacher") return true;
+  return await Promise.resolve(actor.platformRole === "admin" || actor.platformRole === "teacher");
+}
+
+/**
+ * Course staff who are platform students may request publication of a private
+ * problem they own. The request is reviewed by an administrator before a
+ * public fork is created.
+ */
+export async function canRequestPublicProblemPublication(actor: {
+  userId: string;
+  platformRole: PlatformRole;
+}): Promise<boolean> {
+  if (actor.platformRole !== "student") return false;
   return courseMembershipRepo.hasActiveStaffMembership(actor.userId);
 }
 

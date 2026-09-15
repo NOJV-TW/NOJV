@@ -544,17 +544,14 @@ describe("updateProblemRecord — publication permissions", () => {
     expect(problemUpdate).not.toHaveBeenCalled();
   });
 
-  it("allows an active course TA to publish a public problem", async () => {
+  it("rejects direct public publication by an active course TA", async () => {
     problemFindById.mockResolvedValue({ ...draft, visibility: "public" });
     courseMembershipHasActiveStaff.mockResolvedValue(true);
 
     await expect(
       updateProblemRecord(student, draft.id, { status: "published" }),
-    ).resolves.toEqual({ id: draft.id });
-    expect(problemUpdate).toHaveBeenCalledWith(draft.id, {
-      displayId: 42,
-      status: "published",
-    });
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(problemUpdate).not.toHaveBeenCalled();
   });
 });
 

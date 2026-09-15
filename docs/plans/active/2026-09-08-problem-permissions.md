@@ -107,12 +107,13 @@ Public 新加入課程時一律 fork，課程成員只編輯 private 副本，�
 
 Private 題對外公開一律建立獨立 public fork，不把課程正在共編的 private 原題直接改成 public；即使 publisher 本人是 owner 或 admin 也一樣。共編內容更新不能包含 visibility 或公開同意變更。
 
-1. owner 依目前發布資格自行公開；或 owner 給予一次性的 `adminMayPublish` 同意，由 admin 代為公開。
-2. publisher 核對內容並通過發布驗證後，建立自己持有的 public fork；若使用 owner 的一次同意則予以消耗。
-3. 原 private 題及課程共編關係保留。後續 private 修改不影響 public；public 修改也不影響課程副本。
-4. Public 原題按既有 owner 發布資格與有效 admin 權限維護，不從課程關係取得編輯權；不新增待審修改、同步或合併系統。
+1. teacher 或 admin 可依目前資格直接公開；platform student 身分的課程 teacher／TA 必須提交 publication request，由 admin 審核。
+2. 同一 private 題同時只允許一筆 pending request；request 歷史永久保留。Rejected request 可重新提交，不覆寫舊紀錄。
+3. admin 核准時重新驗證最新題目內容與發布條件，再建立 admin 持有的 public fork；原 private 題及課程共編關係保留。
+4. admin 拒絕時可留下原因，不改變 private 題；public fork 的建立只發生在核准交易中。後續 private 修改不影響既有 public fork；public 修改也不影響課程副本。
+5. `adminMayPublish` 仍是 owner 授予 admin 的一次性直接代發布同意，與 TA review queue 分開。
 
-是否將所有 public 發布與維護收斂成 admin-only 尚未獲得決定。本次 production 切換不夾帶這項政策變更，也不重新指派已存在的 public owner。若日後採用 admin-only，另訂 owner 權限接管與通知／交接計畫。
+Public 原題按既有 owner 發布資格與有效 admin 權限維護，不從課程關係取得編輯權；publication request 只處理 private 題建立 public fork，不新增同步或合併系統。
 
 admin 只採用已有提升權限的有效角色，不能用帳號的原始平台角色跳過目前的 admin-mode 邊界。owner 對公開的同意不得由課程共編者或非 owner 的 admin 代填。
 
