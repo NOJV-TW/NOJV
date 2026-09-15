@@ -15,6 +15,7 @@ import {
 } from "$lib/server/account-connections";
 import { handleSendVerificationAction } from "$lib/server/shared/school-verification";
 import { withRateLimit, withRateLimitActions } from "$lib/server/shared/action-handlers";
+import { forwardSetCookies } from "$lib/server/shared/auth-cookies";
 import type { FormMessage } from "$lib/types/form-message";
 
 import type { Actions, PageServerLoad } from "./$types";
@@ -144,9 +145,11 @@ export const actions = {
     const res = await getAuth().api.linkSocialAccount({
       body: { provider, callbackURL: "/settings" },
       headers: event.request.headers,
+      returnHeaders: true,
     });
-    if (res.url) {
-      redirect(303, res.url);
+    if (res.response.url) {
+      forwardSetCookies(event, res.headers);
+      redirect(303, res.response.url);
     }
     return fail(400, { error: "linkFailed" });
   }),

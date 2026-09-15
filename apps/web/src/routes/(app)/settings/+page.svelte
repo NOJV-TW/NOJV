@@ -78,7 +78,7 @@
   const settingChevronClass =
     "h-4 w-4 text-muted-foreground transition-transform duration-fast ease-out-soft group-hover:translate-x-0.5";
   const methodRowClass =
-    "flex items-center justify-between gap-3 rounded-md border border-border px-4 py-3 text-body-sm font-medium";
+    "flex items-center justify-between gap-3 px-4 py-3 text-body-sm font-medium";
   const methodBtnClass =
     "shrink-0 rounded-md border border-border px-3 py-1.5 text-caption font-medium transition-colors duration-fast ease-out-soft hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30";
 </script>
@@ -116,69 +116,93 @@
             </a>
           {/if}
 
-          <div class={methodRowClass}>
-            <span class="flex min-w-0 items-center gap-2.5">
-              <ShieldCheck aria-hidden="true" class="h-4 w-4 shrink-0 text-muted-foreground" />
-              <span class="truncate">{m.account_loginSecurity_factors()}</span>
-              <Badge variant={data.hasSecurityFactor ? "success" : "muted"} size="sm" dot>
-                {data.hasSecurityFactor
-                  ? m.account_loginSecurity_configured({ count: factorKindCount })
-                  : m.account_loginSecurity_notConfigured()}
-              </Badge>
-            </span>
-            {#if data.securitySettingsUnlocked}
-              <Badge variant="success" size="sm">{m.account_loginSecurity_unlocked()}</Badge>
-            {:else}
-              <button type="button" class={methodBtnClass} onclick={() => (unlockOpen = true)}>
-                {m.account_loginSecurity_unlock()}
-              </button>
+          <section
+            aria-labelledby="security-factors-heading"
+            class="overflow-hidden rounded-md border border-border"
+          >
+            <div
+              class="flex flex-wrap items-center justify-between gap-3 bg-muted/40 px-4 py-3"
+            >
+              <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                <h3 id="security-factors-heading" class="text-body-sm font-semibold">
+                  {m.account_loginSecurity_factors()}
+                </h3>
+                <Badge variant={data.hasSecurityFactor ? "success" : "muted"} size="sm" dot>
+                  {data.hasSecurityFactor
+                    ? m.account_loginSecurity_configured({ count: factorKindCount })
+                    : m.account_loginSecurity_notConfigured()}
+                </Badge>
+              </div>
+              {#if data.securitySettingsUnlocked}
+                <Badge variant="success" size="sm">{m.account_loginSecurity_unlocked()}</Badge>
+              {:else}
+                <button
+                  type="button"
+                  class={methodBtnClass}
+                  onclick={() => (unlockOpen = true)}
+                >
+                  {m.account_loginSecurity_unlock()}
+                </button>
+              {/if}
+            </div>
+
+            <div class="divide-y divide-border-subtle border-t border-border-subtle">
+              <div class={methodRowClass}>
+                <span class="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
+                  <ShieldCheck
+                    aria-hidden="true"
+                    class="h-4 w-4 shrink-0 text-muted-foreground"
+                  />
+                  <span>{m.account_verification_totp()}</span>
+                  <Badge variant={data.hasTotp ? "success" : "muted"} size="sm" dot>
+                    {data.hasTotp
+                      ? m.account_verification_statusEnabled()
+                      : m.account_verification_statusInactive()}
+                  </Badge>
+                </span>
+                <button
+                  type="button"
+                  class={methodBtnClass}
+                  onclick={() => openSecurityMethod("totp")}
+                >
+                  {data.hasTotp
+                    ? m.account_verification_manage()
+                    : m.account_verification_setup()}
+                </button>
+              </div>
+
+              <div class={methodRowClass}>
+                <span class="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
+                  <Fingerprint
+                    aria-hidden="true"
+                    class="h-4 w-4 shrink-0 text-muted-foreground"
+                  />
+                  <span>Passkey</span>
+                  <Badge variant={passkeyEnabled ? "success" : "muted"} size="sm" dot>
+                    {passkeyEnabled
+                      ? m.account_verification_statusEnabled()
+                      : m.account_verification_statusInactive()}
+                  </Badge>
+                </span>
+                <button
+                  type="button"
+                  class={methodBtnClass}
+                  onclick={() => openSecurityMethod("passkey")}
+                >
+                  {passkeyEnabled
+                    ? m.account_verification_manage()
+                    : m.account_verification_setup()}
+                </button>
+              </div>
+            </div>
+            {#if data.isSuperAdmin}
+              <p
+                class="border-t border-border-subtle px-4 py-3 text-caption text-muted-foreground"
+              >
+                {m.account_security_superAdminRequirement()}
+              </p>
             {/if}
-          </div>
-
-          <div class={methodRowClass}>
-            <span class="flex min-w-0 items-center gap-2.5">
-              <ShieldCheck aria-hidden="true" class="h-4 w-4 shrink-0 text-muted-foreground" />
-              <span class="truncate">{m.account_verification_totp()}</span>
-              <Badge variant={data.hasTotp ? "success" : "muted"} size="sm" dot>
-                {data.hasTotp
-                  ? m.account_verification_statusEnabled()
-                  : m.account_verification_statusInactive()}
-              </Badge>
-            </span>
-            <button
-              type="button"
-              class={methodBtnClass}
-              onclick={() => openSecurityMethod("totp")}
-            >
-              {data.hasTotp ? m.account_verification_manage() : m.account_verification_setup()}
-            </button>
-          </div>
-
-          <div class={methodRowClass}>
-            <span class="flex min-w-0 items-center gap-2.5">
-              <Fingerprint aria-hidden="true" class="h-4 w-4 shrink-0 text-muted-foreground" />
-              <span class="truncate">Passkey</span>
-              <Badge variant={passkeyEnabled ? "success" : "muted"} size="sm" dot>
-                {passkeyEnabled
-                  ? m.account_verification_statusEnabled()
-                  : m.account_verification_statusInactive()}
-              </Badge>
-            </span>
-            <button
-              type="button"
-              class={methodBtnClass}
-              onclick={() => openSecurityMethod("passkey")}
-            >
-              {passkeyEnabled
-                ? m.account_verification_manage()
-                : m.account_verification_setup()}
-            </button>
-          </div>
-          {#if data.isSuperAdmin}
-            <p class="text-caption text-muted-foreground">
-              {m.account_security_superAdminRequirement()}
-            </p>
-          {/if}
+          </section>
         </div>
       </section>
 
