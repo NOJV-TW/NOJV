@@ -12,8 +12,8 @@
 
   function statusLabel(status: (typeof data.requests)[number]["status"]): string {
     if (status === "pending") return m.problem_publicationRequestPending();
-    if (status === "approved") return m.admin_problemPublicationsApprove();
-    return m.problem_publicationRequestRejected({ note: "" });
+    if (status === "approved") return m.admin_problemPublicationsApproved();
+    return m.admin_problemPublicationsRejected();
   }
 
   function statusClass(status: (typeof data.requests)[number]["status"]): string {
@@ -49,8 +49,8 @@
       >
         <option value="all">All</option>
         <option value="pending">{m.problem_publicationRequestPending()}</option>
-        <option value="approved">{m.admin_problemPublicationsApprove()}</option>
-        <option value="rejected">{m.admin_problemPublicationsReject()}</option>
+        <option value="approved">{m.admin_problemPublicationsApproved()}</option>
+        <option value="rejected">{m.admin_problemPublicationsRejected()}</option>
       </select>
     </label>
   </div>
@@ -91,7 +91,8 @@
                 </a>
                 <div class="mt-1 text-caption text-muted-foreground">
                   {request.author.name}
-                  {#if request.author.username} · @{request.author.username}{/if}
+                  {#if request.author.username}
+                    · @{request.author.username}{/if}
                 </div>
               </td>
               <td class="px-3 py-3">
