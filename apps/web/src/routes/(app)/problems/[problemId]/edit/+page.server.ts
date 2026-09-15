@@ -126,7 +126,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const canRequestPublicPublication =
     problemRow?.visibility === "private" &&
     problemRow.authorId === actor.userId &&
-    problemDomain.canRequestPublicProblemPublication(actor);
+    (await problemDomain.canRequestPublicProblemPublication(actor));
   const publicationRequest =
     problemRow?.authorId === actor.userId || actor.platformRole === "admin"
       ? await problemDomain.getLatestPublicProblemPublicationRequest(actor, params.problemId)

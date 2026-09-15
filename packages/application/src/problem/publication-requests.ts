@@ -1,4 +1,9 @@
-import { problemPublicationRequestRepo, problemRepo, runTransaction } from "@nojv/db";
+import {
+  courseMembershipRepo,
+  problemPublicationRequestRepo,
+  problemRepo,
+  runTransaction,
+} from "@nojv/db";
 
 import { recordAdminAudit } from "../audit";
 import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
@@ -35,6 +40,12 @@ export async function requestPublicProblemPublication(
       }
       if (problem.visibility !== "private") {
         throw new ConflictError("Only private problems can be submitted for public review.");
+      }
+      const staffMembership = await courseMembershipRepo
+        .withTx(tx)
+        .hasActiveStaffMembership(actor.userId);
+      if (!staffMembership) {
+        throw new ForbiddenError("Only active course staff can request public publication.");
       }
 
       const requests = problemPublicationRequestRepo.withTx(tx);

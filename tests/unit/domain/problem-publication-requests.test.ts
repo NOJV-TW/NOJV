@@ -27,7 +27,10 @@ const {
 }));
 
 vi.mock("@nojv/db", () => ({
-  courseMembershipRepo: { hasActiveStaffMembership: hasActiveStaff },
+  courseMembershipRepo: {
+    hasActiveStaffMembership: hasActiveStaff,
+    withTx: () => ({ hasActiveStaffMembership: hasActiveStaff }),
+  },
   problemRepo: {
     withTx: () => ({
       findById: problemFindById,
@@ -110,6 +113,15 @@ describe("requestPublicProblemPublication", () => {
 
     await expect(requestPublicProblemPublication(ta, privateProblem.id)).rejects.toThrow(
       /already pending/,
+    );
+    expect(requestCreatePending).not.toHaveBeenCalled();
+  });
+
+  it("rechecks active staff access inside the transaction", async () => {
+    hasActiveStaff.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+
+    await expect(requestPublicProblemPublication(ta, privateProblem.id)).rejects.toThrow(
+      /Only active course staff/,
     );
     expect(requestCreatePending).not.toHaveBeenCalled();
   });
