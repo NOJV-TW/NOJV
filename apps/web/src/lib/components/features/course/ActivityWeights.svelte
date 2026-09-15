@@ -9,12 +9,19 @@
     problems,
     titles = {},
     onchange,
+    allocationError,
+    totalErrors,
   }: {
+    allocationError?: string | undefined;
+    totalErrors?: string[] | undefined;
     totalPoints: number;
     problems: ActivityProblem[];
     titles?: Record<string, string>;
     onchange: (rows: ActivityProblem[]) => void;
   } = $props();
+  const id = $props.id();
+  const errorId = `${id}-error`;
+  const totalErrorId = `${id}-total-error`;
   const allocated = $derived(problems.reduce((sum, p) => sum + p.points, 0));
   const complete = $derived(Math.abs(allocated - totalPoints) < 0.00000001);
 
@@ -63,8 +70,10 @@
     <label class="justify-self-end space-y-1 text-body-sm font-medium">
       <span class="block w-24 text-center">{m.activityWeights_total()}</span>
       <input
-        class="h-9 w-24 rounded-md border border-border bg-background px-2 py-1 text-right tabular-nums"
+        class="h-9 w-24 rounded-md border border-border aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20 bg-background px-2 py-1 text-right tabular-nums"
         aria-label={m.activityWeights_total()}
+        aria-invalid={totalErrors?.length ? "true" : undefined}
+        aria-describedby={totalErrors?.length ? totalErrorId : undefined}
         type="number"
         min="0.01"
         max="1000000000"
@@ -77,6 +86,14 @@
       />
     </label>
   </div>
+  {#if totalErrors?.length}
+    <p id={totalErrorId} role="alert" class="text-caption text-destructive">
+      {totalErrors.join(", ")}
+    </p>
+  {/if}
+  {#if allocationError}
+    <p id={errorId} role="alert" class="text-caption text-destructive">{allocationError}</p>
+  {/if}
   {#each problems as problem, index (problem.problemId)}
     <div class="grid grid-cols-[minmax(0,1fr)_7.5rem_7.5rem] items-center gap-2">
       <label class="contents text-body-sm">
@@ -88,7 +105,9 @@
             aria-label={m.activityWeights_weight({
               title: titles[problem.problemId] ?? problem.problemId,
             })}
-            class="h-9 w-24 shrink-0 rounded-md border border-border bg-background px-2 py-1 text-right tabular-nums"
+            class="h-9 w-24 shrink-0 rounded-md border border-border aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20 bg-background px-2 py-1 text-right tabular-nums"
+            aria-invalid={allocationError ? "true" : undefined}
+            aria-describedby={allocationError ? errorId : undefined}
             type="number"
             min="0"
             max="100"

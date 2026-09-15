@@ -139,9 +139,17 @@
               (id) =>
                 $form.problems.find((p) => p.problemId === id) ?? { problemId: id, points: 0 },
             ))}
-          error={$errors.problems}
+          error={$form.problems.length
+            ? undefined
+            : $errors.problems
+              ? m.examCreate_problemsEmptyHint()
+              : undefined}
         />
         <ActivityWeights
+          allocationError={$form.problems.length && $errors.problems?._errors
+            ? m.activityWeights_incomplete()
+            : undefined}
+          totalErrors={$errors.totalPoints}
           bind:totalPoints={$form.totalPoints}
           problems={$form.problems}
           titles={Object.fromEntries(
