@@ -148,6 +148,16 @@ describe("admin publication review", () => {
     expect(forkProblem).not.toHaveBeenCalled();
   });
 
+  it("keeps a request pending when the latest source fails publication validation", async () => {
+    assertPublishable.mockRejectedValue(new Error("reference solution required"));
+
+    await expect(approvePublicProblemPublication(admin, "request-1")).rejects.toThrow(
+      "reference solution required",
+    );
+    expect(forkProblem).not.toHaveBeenCalled();
+    expect(requestApprove).not.toHaveBeenCalled();
+  });
+
   it("only exposes the request queue to admins", async () => {
     const { listPublicProblemPublicationRequests } =
       await import("../../../packages/application/src/problem/publication-requests");
