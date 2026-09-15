@@ -364,7 +364,6 @@
   "admin_contentOwner": "Owner: {owner}",
   "admin_contentActive": "Active",
   "admin_contentArchived": "Archived",
-  "admin_contentProblemCount": "{count} problems",
   "admin_contentParticipantCount": "{count} participants",
   "admin_overviewTime": "Time",
   "admin_overviewTitle": "Admin Overview",
