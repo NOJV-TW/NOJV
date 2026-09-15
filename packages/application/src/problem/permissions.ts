@@ -31,11 +31,6 @@ export async function canPublishPublicProblems(actor: {
   return await Promise.resolve(actor.platformRole === "admin" || actor.platformRole === "teacher");
 }
 
-/**
- * Course staff who are platform students may request publication of a private
- * problem they own. The request is reviewed by an administrator before a
- * public fork is created.
- */
 export async function canRequestPublicProblemPublication(actor: {
   userId: string;
   platformRole: PlatformRole;

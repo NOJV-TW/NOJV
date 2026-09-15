@@ -114,8 +114,6 @@ export async function approvePublicProblemPublication(
       throw new ConflictError("The request no longer matches the problem owner.");
     }
 
-    // The source can change while a request is pending. Re-run all publication
-    // checks against the latest locked source before creating its public fork.
     await assertProblemPublishable(tx, source);
     const publishedFork = await forkProblemInTransaction(tx, source.id, {
       authorId: actor.userId,
