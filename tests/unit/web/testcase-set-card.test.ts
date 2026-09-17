@@ -28,6 +28,7 @@ describe("TestcaseSetCard", () => {
       target,
       props: {
         problemId: "problem-1",
+        index: 1,
         set: {
           id: "set-1",
           name: "Subtask 01: $R, C \\le 2$",
@@ -40,6 +41,7 @@ describe("TestcaseSetCard", () => {
 
     const header = target.querySelector("button");
     expect(header?.querySelector(".katex-html")).not.toBeNull();
+    expect(header?.textContent).toContain("#subtask1");
     expect(header?.textContent).toContain("Subtask 01:");
     expect(header?.querySelector("p")).toBeNull();
 

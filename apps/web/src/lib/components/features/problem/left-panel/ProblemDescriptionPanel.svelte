@@ -178,12 +178,12 @@
     <div class="mt-6 border-t border-border-subtle pt-6">
       <p class="text-body font-semibold">{m.problemDetail_testcaseSets()}</p>
       <ul class="mt-3 space-y-3">
-        {#each subtaskSets as set (set.id)}
+        {#each subtaskSets as set, idx (set.id)}
           <li class="rounded-md border border-border-subtle px-4 py-3">
             <div class="flex items-baseline justify-between gap-3">
-              <div class="min-w-0 text-body-sm font-semibold text-foreground">
-                <MarkdownRenderer content={set.name} />
-              </div>
+              <span class="text-caption font-medium text-muted-foreground tabular-nums">
+                #subtask{idx + 1}
+              </span>
               <span
                 class="shrink-0 text-caption font-medium text-muted-foreground tabular-nums"
               >
@@ -191,7 +191,7 @@
               </span>
             </div>
             {#if set.description}
-              <div class="mt-2 text-body-sm leading-6 text-muted-foreground">
+              <div class="mt-2 text-body-sm leading-6 text-foreground">
                 <MarkdownRenderer content={set.description} />
               </div>
             {/if}
