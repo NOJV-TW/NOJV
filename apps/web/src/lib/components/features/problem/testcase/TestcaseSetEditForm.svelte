@@ -1,23 +1,24 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
+  import ImageDropZone from "$lib/components/primitives/ui/ImageDropZone.svelte";
 
   interface Props {
     editDescription: string;
     editWeight: number;
+    problemId: string;
     saving: boolean;
     onSave: () => void;
     onCancel: () => void;
-    onDescriptionChange: (v: string) => void;
     onWeightChange: (v: number) => void;
   }
 
   let {
-    editDescription,
+    editDescription = $bindable(),
     editWeight,
+    problemId,
     saving,
     onSave,
     onCancel,
-    onDescriptionChange,
     onWeightChange,
   }: Props = $props();
 </script>
@@ -41,10 +42,12 @@
     <span class="text-caption font-medium text-muted-foreground"
       >{m.testcases_editSetDescription()}</span
     >
-    <textarea
-      class="min-h-20 rounded-md border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm"
-      value={editDescription}
-      oninput={(e) => onDescriptionChange((e.target as HTMLTextAreaElement).value)}></textarea>
+    <ImageDropZone
+      class="min-h-20 w-full rounded-md border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm"
+      name="description"
+      bind:value={editDescription}
+      {problemId}
+    />
   </label>
   <div class="flex gap-2">
     <button

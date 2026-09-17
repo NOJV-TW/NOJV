@@ -4,6 +4,7 @@
   import JSZip from "jszip";
   import { invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
+  import ImageDropZone from "$lib/components/primitives/ui/ImageDropZone.svelte";
   import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
   import {
     detectSubtasksFromFiles,
@@ -310,11 +311,12 @@
               <span class="text-caption font-medium text-muted-foreground"
                 >{m.testcases_editSetDescription()}</span
               >
-              <textarea
-                class="min-h-16 rounded-lg border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm"
-                oninput={(e) =>
-                  updateSubtask(si, { description: (e.target as HTMLTextAreaElement).value })}
-                value={subtask.description}></textarea>
+              <ImageDropZone
+                class="min-h-16 w-full rounded-lg border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm"
+                name={`subtask-description-${String(si)}`}
+                bind:value={subtask.description}
+                {problemId}
+              />
             </label>
           </div>
         {/each}
