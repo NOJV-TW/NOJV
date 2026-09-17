@@ -4,7 +4,6 @@
   import { ChevronDown, ChevronRight, Pencil, Trash2 } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { postProblemAction } from "$lib/utils/actions";
-  import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
   import TestcaseRow from "./TestcaseRow.svelte";
   import TestcaseSetEditForm from "./TestcaseSetEditForm.svelte";
 
@@ -18,7 +17,6 @@
   interface Props {
     set: {
       id: string;
-      name: string;
       description: string;
       weight: number;
       testcases: TestcaseData[];
@@ -36,7 +34,6 @@
   let confirmDeleteTestcaseId = $state<string | null>(null);
   let saving = $state(false);
 
-  let editName = $state(untrack(() => set.name));
   let editDescription = $state(untrack(() => set.description));
   let editWeight = $state(untrack(() => set.weight));
 
@@ -44,7 +41,6 @@
   let editOutput = $state("");
 
   function startEditSet() {
-    editName = set.name;
     editDescription = set.description;
     editWeight = set.weight;
     editing = true;
@@ -56,7 +52,6 @@
       await postProblemAction(problemId, "updateTestcaseSet", {
         setId: set.id,
         data: JSON.stringify({
-          name: editName,
           description: editDescription,
           weight: editWeight,
         }),
@@ -125,10 +120,7 @@
       {:else}
         <ChevronRight aria-hidden="true" class="size-4" />
       {/if}
-      <span class="text-caption font-normal text-muted-foreground tabular-nums">
-        #subtask{index}
-      </span>
-      <MarkdownRenderer content={set.name} inline />
+      #subtask{index}
     </button>
 
     <span
@@ -164,13 +156,11 @@
 
   {#if editing}
     <TestcaseSetEditForm
-      {editName}
       {editDescription}
       {editWeight}
       {saving}
       onSave={() => void saveSet()}
       onCancel={() => (editing = false)}
-      onNameChange={(v) => (editName = v)}
       onDescriptionChange={(v) => (editDescription = v)}
       onWeightChange={(v) => (editWeight = v)}
     />
@@ -181,7 +171,7 @@
       class="mt-3 flex items-center gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-3"
     >
       <span class="text-body-sm text-destructive">
-        {m.testcases_confirmDeleteSet({ name: set.name })}
+        {m.testcases_confirmDeleteSet({ name: `#subtask${String(index)}` })}
       </span>
       <button
         class="rounded-full bg-destructive px-4 py-1.5 text-caption font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 disabled:opacity-70"
