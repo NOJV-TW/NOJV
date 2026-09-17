@@ -3,16 +3,27 @@
 
   interface Props {
     editName: string;
+    editDescription: string;
     editWeight: number;
     saving: boolean;
     onSave: () => void;
     onCancel: () => void;
     onNameChange: (v: string) => void;
+    onDescriptionChange: (v: string) => void;
     onWeightChange: (v: number) => void;
   }
 
-  let { editName, editWeight, saving, onSave, onCancel, onNameChange, onWeightChange }: Props =
-    $props();
+  let {
+    editName,
+    editDescription,
+    editWeight,
+    saving,
+    onSave,
+    onCancel,
+    onNameChange,
+    onDescriptionChange,
+    onWeightChange,
+  }: Props = $props();
 </script>
 
 <div
@@ -39,6 +50,15 @@
       value={editWeight}
       oninput={(e) => onWeightChange(Number((e.target as HTMLInputElement).value) || 0)}
     />
+  </label>
+  <label class="grid basis-full gap-1">
+    <span class="text-caption font-medium text-muted-foreground"
+      >{m.testcases_editSetDescription()}</span
+    >
+    <textarea
+      class="min-h-20 rounded-md border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm"
+      value={editDescription}
+      oninput={(e) => onDescriptionChange((e.target as HTMLTextAreaElement).value)}></textarea>
   </label>
   <div class="flex gap-2">
     <button

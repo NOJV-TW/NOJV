@@ -18,6 +18,7 @@
     set: {
       id: string;
       name: string;
+      description: string;
       weight: number;
       testcases: TestcaseData[];
     };
@@ -34,6 +35,7 @@
   let saving = $state(false);
 
   let editName = $state(untrack(() => set.name));
+  let editDescription = $state(untrack(() => set.description));
   let editWeight = $state(untrack(() => set.weight));
 
   let editInput = $state("");
@@ -41,6 +43,7 @@
 
   function startEditSet() {
     editName = set.name;
+    editDescription = set.description;
     editWeight = set.weight;
     editing = true;
   }
@@ -50,7 +53,11 @@
     try {
       await postProblemAction(problemId, "updateTestcaseSet", {
         setId: set.id,
-        data: JSON.stringify({ name: editName, weight: editWeight }),
+        data: JSON.stringify({
+          name: editName,
+          description: editDescription,
+          weight: editWeight,
+        }),
       });
       editing = false;
       await invalidateAll();
@@ -153,11 +160,13 @@
   {#if editing}
     <TestcaseSetEditForm
       {editName}
+      {editDescription}
       {editWeight}
       {saving}
       onSave={() => void saveSet()}
       onCancel={() => (editing = false)}
       onNameChange={(v) => (editName = v)}
+      onDescriptionChange={(v) => (editDescription = v)}
       onWeightChange={(v) => (editWeight = v)}
     />
   {/if}

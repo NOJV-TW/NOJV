@@ -13,6 +13,7 @@
   interface TestcaseSetData {
     id: string;
     name: string;
+    description: string;
     weight: number;
     testcases: TestcaseData[];
   }
