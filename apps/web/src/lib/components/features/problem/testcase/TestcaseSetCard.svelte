@@ -156,12 +156,12 @@
 
   {#if editing}
     <TestcaseSetEditForm
-      {editDescription}
+      bind:editDescription
       {editWeight}
+      {problemId}
       {saving}
       onSave={() => void saveSet()}
       onCancel={() => (editing = false)}
-      onDescriptionChange={(v) => (editDescription = v)}
       onWeightChange={(v) => (editWeight = v)}
     />
   {/if}
