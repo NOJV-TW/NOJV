@@ -11,3 +11,12 @@ export async function postProblemAction(
   });
   if (!response.ok) throw new Error(`Action ${actionName} failed`);
 }
+
+export async function fetchTestcaseContent(
+  problemId: string,
+  testcaseId: string,
+): Promise<{ input: string; output: string | null }> {
+  const response = await fetch(`/api/problems/${problemId}/testcases/${testcaseId}`);
+  if (!response.ok) throw new Error("Failed to load testcase content");
+  return (await response.json()) as { input: string; output: string | null };
+}

@@ -8,19 +8,31 @@ import {
   testcaseSetRepo,
   type TransactionClient,
 } from "@nojv/db";
-import type { ProblemTestcaseSetCreate, TestcaseSetUpdate, TestcaseUpdate } from "@nojv/core";
+import {
+  MAX_INLINE_TESTCASE_EDIT_BYTES,
+  type ProblemTestcaseSetCreate,
+  type TestcaseSetUpdate,
+  type TestcaseUpdate,
+} from "@nojv/core";
 import { assertStorageObjectPointer, type StorageObjectPointer } from "@nojv/storage";
 
-import { ConflictError, NotFoundError } from "../shared/errors";
+import { ConflictError, HttpError, NotFoundError } from "../shared/errors";
 import { stripUndefined } from "../shared/strip-undefined";
 import { commitStoragePointerSwap } from "../shared/storage-object-lifecycle";
 
-import { writeTestcaseField, writeTestcaseBlobs, type TestcaseBlobPointers } from "./blobs";
 import {
+  readTestcaseBlobs,
+  writeTestcaseField,
+  writeTestcaseBlobs,
+  type TestcaseBlobPointers,
+} from "./blobs";
+import {
+  assertProblemContentReadAccess,
   assertProblemEditAccess,
   lockProblemForEdit,
   type ProblemActorContext,
 } from "./permissions";
+import { assertProblemStorageBudget } from "./storage-budget";
 
 const MAX_TESTCASE_SETS_PER_PROBLEM = 20;
 
@@ -52,12 +64,42 @@ async function requireTestcaseInProblem(
   return testcase;
 }
 
+export async function getTestcaseContent(
+  actor: ProblemActorContext,
+  problemId: string,
+  testcaseId: string,
+): Promise<{ input: string; output: string | null }> {
+  await assertProblemContentReadAccess(actor, problemId);
+  const testcase = await requireTestcaseInProblem(testcaseId, problemId);
+  const inputSize = assertStorageObjectPointer(testcase.inputStorage).size;
+  const outputSize =
+    testcase.outputStorage === null
+      ? 0
+      : assertStorageObjectPointer(testcase.outputStorage).size;
+  if (Math.max(inputSize, outputSize) > MAX_INLINE_TESTCASE_EDIT_BYTES) {
+    throw new HttpError(
+      `Testcase exceeds the ${String(MAX_INLINE_TESTCASE_EDIT_BYTES)} byte inline limit.`,
+      413,
+    );
+  }
+  const { input, output } = await readTestcaseBlobs(testcase);
+  return { input, output: output ?? null };
+}
+
 export async function createProblemTestcaseSetRecord(
   actor: ProblemActorContext,
   problemId: string,
   payload: ProblemTestcaseSetCreate,
 ) {
   await assertProblemEditAccess(actor, problemId);
+  await assertProblemStorageBudget(
+    problemId,
+    payload.cases.reduce(
+      (total, tc) =>
+        total + Buffer.byteLength(tc.input, "utf8") + Buffer.byteLength(tc.output, "utf8"),
+      0,
+    ),
+  );
 
   interface PreparedCase {
     id: string;
@@ -192,6 +234,11 @@ export async function updateTestcaseRecord(
   payload: TestcaseUpdate,
 ) {
   await assertProblemEditAccess(actor, problemId);
+  await assertProblemStorageBudget(
+    problemId,
+    (payload.input === undefined ? 0 : Buffer.byteLength(payload.input, "utf8")) +
+      (payload.output === undefined ? 0 : Buffer.byteLength(payload.output, "utf8")),
+  );
 
   const staged: Partial<Record<"input" | "output", StorageObjectPointer>> = {};
   if (payload.input !== undefined) {

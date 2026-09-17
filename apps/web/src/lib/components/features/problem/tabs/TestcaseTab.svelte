@@ -6,8 +6,8 @@
   interface TestcaseData {
     id: string;
     ordinal: number;
-    input: string;
-    output: string | null;
+    inputSize: number;
+    outputSize: number | null;
   }
 
   interface TestcaseSetData {

@@ -188,36 +188,33 @@ interface TestcaseSetRowLike {
   testcases: readonly TestcaseRowLike[];
 }
 
-type HydratedTestcase<T extends TestcaseRowLike> = Omit<T, "inputStorage" | "outputStorage"> & {
-  input: string;
-  output: string | null;
+type SummarizedTestcase<T extends TestcaseRowLike> = Omit<
+  T,
+  "inputStorage" | "outputStorage"
+> & {
+  inputSize: number;
+  outputSize: number | null;
 };
 
-type HydratedTestcaseSetOf<T extends TestcaseSetRowLike> = Omit<T, "testcases"> & {
-  testcases: HydratedTestcase<T["testcases"][number]>[];
+type SummarizedTestcaseSetOf<T extends TestcaseSetRowLike> = Omit<T, "testcases"> & {
+  testcases: SummarizedTestcase<T["testcases"][number]>[];
 };
 
-export async function hydrateTestcaseSets<T extends TestcaseSetRowLike>(
+export function summarizeTestcaseSets<T extends TestcaseSetRowLike>(
   sets: readonly T[],
-): Promise<HydratedTestcaseSetOf<T>[]> {
-  const client = storage();
-  return Promise.all(
-    sets.map(async (set) => {
-      const testcases = await Promise.all(
-        set.testcases.map(async (tc) => {
-          const inputPointer = assertStorageObjectPointer(tc.inputStorage);
-          const outputPointer =
-            tc.outputStorage === null ? null : assertStorageObjectPointer(tc.outputStorage);
-          const [input, output] = await Promise.all([
-            getVerifiedText(client, inputPointer),
-            outputPointer ? getVerifiedText(client, outputPointer) : Promise.resolve(null),
-          ]);
-          return { ...tc, input, output } as HydratedTestcase<T["testcases"][number]>;
-        }),
-      );
-      return { ...set, testcases };
+): SummarizedTestcaseSetOf<T>[] {
+  return sets.map((set) => ({
+    ...set,
+    testcases: set.testcases.map((tc) => {
+      const { inputStorage, outputStorage, ...rest } = tc;
+      return {
+        ...rest,
+        inputSize: assertStorageObjectPointer(inputStorage).size,
+        outputSize:
+          outputStorage === null ? null : assertStorageObjectPointer(outputStorage).size,
+      } as SummarizedTestcase<T["testcases"][number]>;
     }),
-  );
+  }));
 }
 
 interface WorkspaceFileRowLike {

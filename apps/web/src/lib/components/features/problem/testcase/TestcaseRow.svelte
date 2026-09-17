@@ -1,17 +1,20 @@
 <script lang="ts">
   import { Pencil, Trash2 } from "@lucide/svelte";
+  import { MAX_INLINE_TESTCASE_EDIT_BYTES } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
+  import { formatBytes } from "$lib/utils/storage-budget-format";
 
   interface TestcaseData {
     id: string;
     ordinal: number;
-    input: string;
-    output: string | null;
+    inputSize: number;
+    outputSize: number | null;
   }
 
   interface Props {
     tc: TestcaseData;
     editing: boolean;
+    loading: boolean;
     confirmingDelete: boolean;
     saving: boolean;
     editInput: string;
@@ -29,6 +32,7 @@
   let {
     tc,
     editing,
+    loading,
     confirmingDelete,
     saving,
     editInput,
@@ -43,10 +47,10 @@
     onOutputChange,
   }: Props = $props();
 
-  function truncate(text: string, maxLen: number = 80): string {
-    if (text.length <= maxLen) return text;
-    return text.slice(0, maxLen) + "...";
-  }
+  let tooLarge = $derived(
+    Math.max(tc.inputSize, tc.outputSize ?? 0) > MAX_INLINE_TESTCASE_EDIT_BYTES,
+  );
+  let inlineLimitMib = MAX_INLINE_TESTCASE_EDIT_BYTES / (1024 * 1024);
 </script>
 
 <div class="rounded-md border border-border-subtle p-3">
@@ -115,19 +119,22 @@
       <div class="min-w-0 flex-1 grid gap-1">
         <div class="text-caption text-muted-foreground">
           <span class="font-medium">{m.testcases_input()}:</span>
-          <code class="ml-1 break-all">{truncate(tc.input)}</code>
+          <span class="ml-1 tabular-nums">{formatBytes(tc.inputSize)}</span>
         </div>
         <div class="text-caption text-muted-foreground">
           <span class="font-medium">{m.testcases_output()}:</span>
-          <code class="ml-1 break-all">{truncate(tc.output ?? "")}</code>
+          <span class="ml-1 tabular-nums">{formatBytes(tc.outputSize ?? 0)}</span>
         </div>
       </div>
       <div class="flex shrink-0 gap-1">
         <button
-          class="rounded p-1 text-muted-foreground transition-[color] duration-fast ease-out-soft hover:bg-transparent hover:text-foreground"
+          class="rounded p-1 text-muted-foreground transition-[color] duration-fast ease-out-soft hover:bg-transparent hover:text-foreground disabled:opacity-50"
           onclick={onStartEdit}
+          disabled={loading || tooLarge}
           type="button"
-          title={m.testcases_editTestcase()}
+          title={tooLarge
+            ? m.testcases_tooLargeToEdit({ max: inlineLimitMib })
+            : m.testcases_editTestcase()}
         >
           <Pencil aria-hidden="true" class="size-3" />
         </button>

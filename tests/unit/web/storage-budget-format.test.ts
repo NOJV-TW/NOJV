@@ -9,6 +9,10 @@ describe("formatBudget", () => {
     expect(formatBudget(512 * 1024, LIMIT)).toBe("512 KB / 50 MB");
   });
 
+  it("shows raw bytes below one kilobyte", () => {
+    expect(formatBudget(12, LIMIT)).toBe("12 B / 50 MB");
+  });
+
   it("renders MB usage with one decimal under 10 MB", () => {
     expect(formatBudget(Math.round(2.345 * 1024 * 1024), LIMIT)).toBe("2.3 MB / 50 MB");
   });
