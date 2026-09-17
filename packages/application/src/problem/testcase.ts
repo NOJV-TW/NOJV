@@ -15,8 +15,14 @@ import { ConflictError, NotFoundError } from "../shared/errors";
 import { stripUndefined } from "../shared/strip-undefined";
 import { commitStoragePointerSwap } from "../shared/storage-object-lifecycle";
 
-import { writeTestcaseField, writeTestcaseBlobs, type TestcaseBlobPointers } from "./blobs";
 import {
+  readTestcaseBlobs,
+  writeTestcaseField,
+  writeTestcaseBlobs,
+  type TestcaseBlobPointers,
+} from "./blobs";
+import {
+  assertProblemContentReadAccess,
   assertProblemEditAccess,
   lockProblemForEdit,
   type ProblemActorContext,
@@ -50,6 +56,18 @@ async function requireTestcaseInProblem(
     throw new NotFoundError("Testcase not found for this problem.");
   }
   return testcase;
+}
+
+export async function getTestcaseContent(
+  actor: ProblemActorContext,
+  problemId: string,
+  testcaseId: string,
+): Promise<{ input: string; output: string | null }> {
+  await assertProblemContentReadAccess(actor, problemId);
+  const { input, output } = await readTestcaseBlobs(
+    await requireTestcaseInProblem(testcaseId, problemId),
+  );
+  return { input, output: output ?? null };
 }
 
 export async function createProblemTestcaseSetRecord(

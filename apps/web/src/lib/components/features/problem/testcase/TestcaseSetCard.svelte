@@ -3,15 +3,15 @@
   import { invalidateAll } from "$app/navigation";
   import { ChevronDown, ChevronRight, Pencil, Trash2 } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import { postProblemAction } from "$lib/utils/actions";
+  import { fetchTestcaseContent, postProblemAction } from "$lib/utils/actions";
   import TestcaseRow from "./TestcaseRow.svelte";
   import TestcaseSetEditForm from "./TestcaseSetEditForm.svelte";
 
   interface TestcaseData {
     id: string;
     ordinal: number;
-    input: string;
-    output: string | null;
+    inputSize: number;
+    outputSize: number | null;
   }
 
   interface Props {
@@ -31,6 +31,8 @@
   let editing = $state(false);
   let confirmDelete = $state(false);
   let editingTestcaseId = $state<string | null>(null);
+  let loadingTestcaseId = $state<string | null>(null);
+  let loadFailed = $state(false);
   let confirmDeleteTestcaseId = $state<string | null>(null);
   let saving = $state(false);
 
@@ -74,10 +76,19 @@
     }
   }
 
-  function startEditTestcase(tc: TestcaseData) {
-    editInput = tc.input;
-    editOutput = tc.output ?? "";
-    editingTestcaseId = tc.id;
+  async function startEditTestcase(tc: TestcaseData) {
+    loadingTestcaseId = tc.id;
+    loadFailed = false;
+    try {
+      const content = await fetchTestcaseContent(problemId, tc.id);
+      editInput = content.input;
+      editOutput = content.output ?? "";
+      editingTestcaseId = tc.id;
+    } catch {
+      loadFailed = true;
+    } finally {
+      loadingTestcaseId = null;
+    }
   }
 
   async function saveTestcase(tcId: string) {
@@ -201,7 +212,8 @@
           {saving}
           {editInput}
           {editOutput}
-          onStartEdit={() => startEditTestcase(tc)}
+          loading={loadingTestcaseId === tc.id}
+          onStartEdit={() => void startEditTestcase(tc)}
           onSaveEdit={() => void saveTestcase(tc.id)}
           onCancelEdit={() => (editingTestcaseId = null)}
           onStartDelete={() => (confirmDeleteTestcaseId = tc.id)}
@@ -214,6 +226,14 @@
 
       {#if set.testcases.length === 0}
         <p class="text-body-sm text-muted-foreground">{m.testcases_noTestcasesInSet()}</p>
+      {/if}
+
+      {#if loadingTestcaseId !== null}
+        <p class="text-caption text-muted-foreground">{m.testcases_loadingContent()}</p>
+      {/if}
+
+      {#if loadFailed}
+        <p class="text-caption text-destructive">{m.testcases_contentLoadFailed()}</p>
       {/if}
     </div>
   {/if}
