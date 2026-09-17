@@ -1960,6 +1960,7 @@
   "testcases_deleteTestcase": "Delete testcase",
   "testcases_deleting": "Deleting...",
   "testcases_editSet": "Edit set",
+  "testcases_editSetDescription": "Description (visible to students; Markdown and LaTeX supported)",
   "testcases_editSetName": "Name",
   "testcases_editSetWeight": "Weight",
   "testcases_editTestcase": "Edit testcase",

@@ -1944,6 +1944,7 @@
   "testcases_deleteTestcase": "刪除測資",
   "testcases_deleting": "刪除中...",
   "testcases_editSet": "編輯測資集",
+  "testcases_editSetDescription": "說明（學生可見，支援 Markdown 與 LaTeX）",
   "testcases_editSetName": "名稱",
   "testcases_editSetWeight": "權重",
   "testcases_editTestcase": "編輯測資",

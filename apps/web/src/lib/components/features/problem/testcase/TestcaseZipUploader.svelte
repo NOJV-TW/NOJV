@@ -133,6 +133,7 @@
               output: parsedCases[idx]?.output ?? "",
             })),
             name: subtask.name,
+            description: subtask.description,
             weight: subtask.points,
           }),
         });
@@ -315,6 +316,16 @@
                 </button>
               {/if}
             </div>
+            <label class="mt-3 grid gap-1">
+              <span class="text-caption font-medium text-muted-foreground"
+                >{m.testcases_editSetDescription()}</span
+              >
+              <textarea
+                class="min-h-16 rounded-lg border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm"
+                oninput={(e) =>
+                  updateSubtask(si, { description: (e.target as HTMLTextAreaElement).value })}
+                value={subtask.description}></textarea>
+            </label>
           </div>
         {/each}
       </div>
