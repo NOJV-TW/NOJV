@@ -4,6 +4,7 @@
   import { ChevronDown, ChevronRight, Pencil, Trash2 } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { postProblemAction } from "$lib/utils/actions";
+  import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
   import TestcaseRow from "./TestcaseRow.svelte";
   import TestcaseSetEditForm from "./TestcaseSetEditForm.svelte";
 
@@ -123,7 +124,7 @@
       {:else}
         <ChevronRight aria-hidden="true" class="size-4" />
       {/if}
-      {set.name}
+      <MarkdownRenderer content={set.name} inline />
     </button>
 
     <span
