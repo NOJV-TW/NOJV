@@ -89,6 +89,7 @@ vi.mock("@nojv/db", () => ({
   },
 }));
 
+import { PROBLEM_STORAGE_BUDGET_BYTES } from "../../../packages/application/src/problem/storage-budget";
 import {
   createProblemTestcaseSetRecord,
   deleteTestcaseRecord,
@@ -117,7 +118,11 @@ beforeEach(() => {
     checkerStorage: null,
     interactorStorage: null,
   });
-  problemFindById.mockResolvedValue({ id: "prob_1", authorId: actor.userId });
+  problemFindById.mockResolvedValue({
+    id: "prob_1",
+    authorId: actor.userId,
+    activeStorageBytes: 0,
+  });
   problemUpdate.mockResolvedValue({ id: "prob_1" });
   testcaseSetCount.mockResolvedValue(0);
   testcaseSetMaxOrdinal.mockResolvedValue({ _max: { ordinal: null } });
@@ -207,11 +212,45 @@ describe("testcase immutable object mutations", () => {
       expect.anything(),
       expect.objectContaining({ added: [rows[0]!.inputStorage, rows[0]!.outputStorage] }),
     );
-    expect(problemFindById).toHaveBeenCalledTimes(2);
+    expect(problemFindById).toHaveBeenCalledTimes(3);
     expect(problemLock).toHaveBeenCalledWith("prob_1");
     expect(problemLock.mock.invocationCallOrder[0]).toBeLessThan(
       testcaseCreateMany.mock.invocationCallOrder[0],
     );
+  });
+
+  it("rejects a testcase upload that would exceed the per-problem storage budget", async () => {
+    problemFindById.mockResolvedValue({
+      id: "prob_1",
+      authorId: actor.userId,
+      activeStorageBytes: PROBLEM_STORAGE_BUDGET_BYTES - 4,
+    });
+
+    await expect(
+      createProblemTestcaseSetRecord(actor, "prob_1", {
+        weight: 1,
+        description: "",
+        cases: [{ input: "12345", output: "" }],
+      }),
+    ).rejects.toThrow(/storage budget exceeded/);
+
+    expect(putImmutableText).not.toHaveBeenCalled();
+    expect(testcaseCreateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects an inline testcase edit that would exceed the per-problem storage budget", async () => {
+    problemFindById.mockResolvedValue({
+      id: "prob_1",
+      authorId: actor.userId,
+      activeStorageBytes: PROBLEM_STORAGE_BUDGET_BYTES - 1,
+    });
+
+    await expect(
+      updateTestcaseRecord(actor, "prob_1", "tc_1", { input: "12" }),
+    ).rejects.toThrow(/storage budget exceeded/);
+
+    expect(putImmutableText).not.toHaveBeenCalled();
+    expect(testcaseUpdate).not.toHaveBeenCalled();
   });
 
   it("rechecks ownership after locking even when the side-effect-free check passed", async () => {

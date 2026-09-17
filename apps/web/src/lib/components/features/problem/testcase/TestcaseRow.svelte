@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Pencil, Trash2 } from "@lucide/svelte";
+  import { MAX_INLINE_TESTCASE_EDIT_BYTES } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { formatBytes } from "$lib/utils/storage-budget-format";
 
@@ -45,6 +46,11 @@
     onInputChange,
     onOutputChange,
   }: Props = $props();
+
+  let tooLarge = $derived(
+    Math.max(tc.inputSize, tc.outputSize ?? 0) > MAX_INLINE_TESTCASE_EDIT_BYTES,
+  );
+  let inlineLimitMib = MAX_INLINE_TESTCASE_EDIT_BYTES / (1024 * 1024);
 </script>
 
 <div class="rounded-md border border-border-subtle p-3">
@@ -124,9 +130,11 @@
         <button
           class="rounded p-1 text-muted-foreground transition-[color] duration-fast ease-out-soft hover:bg-transparent hover:text-foreground disabled:opacity-50"
           onclick={onStartEdit}
-          disabled={loading}
+          disabled={loading || tooLarge}
           type="button"
-          title={m.testcases_editTestcase()}
+          title={tooLarge
+            ? m.testcases_tooLargeToEdit({ max: inlineLimitMib })
+            : m.testcases_editTestcase()}
         >
           <Pencil aria-hidden="true" class="size-3" />
         </button>

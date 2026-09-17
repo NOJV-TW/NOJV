@@ -1981,6 +1981,7 @@
   "testcases_saving": "Saving...",
   "testcases_subtaskWeight": "Weight (pts)",
   "testcases_subtasksDetected": "{count} subtask(s) detected",
+  "testcases_tooLargeToEdit": "This testcase exceeds {max} MiB and cannot be viewed or edited here — re-upload it with a ZIP.",
   "testcases_totalScoreLabel": "Total score formula",
   "testcases_totalWeight": "Total weight",
   "testcases_totalWeightHelp": "Each subtask's weight is its point value. The problem's total score is the sum of all subtask weights and can be any number.",

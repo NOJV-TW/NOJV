@@ -1964,6 +1964,7 @@
   "testcases_removeSubtask": "移除子任務",
   "testcases_saving": "儲存中...",
   "testcases_subtaskWeight": "權重 (分數)",
+  "testcases_tooLargeToEdit": "此測資超過 {max} MiB，無法在頁面上檢視或編輯，請用 ZIP 重新上傳。",
   "testcases_subtasksDetected": "偵測到 {count} 個子任務",
   "testcases_totalScoreLabel": "總分公式",
   "testcases_totalWeight": "總權重",

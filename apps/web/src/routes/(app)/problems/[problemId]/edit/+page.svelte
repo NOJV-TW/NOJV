@@ -2,7 +2,7 @@
   import { untrack } from "svelte";
   import { deserialize } from "$app/forms";
   import { goto, invalidateAll } from "$app/navigation";
-  import type { Language } from "@nojv/core";
+  import { MAX_INLINE_TESTCASE_EDIT_BYTES, type Language } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import { formatBytes } from "$lib/utils/storage-budget-format";
@@ -31,8 +31,16 @@
 
   let isAdvanced = $derived(data.problem.type === "special_env");
 
+  const inlineLimitMib = MAX_INLINE_TESTCASE_EDIT_BYTES / (1024 * 1024);
+
   type LoadedTestcase = { input: string; output: string | null };
   let testcaseContents = $state<Record<string, LoadedTestcase | "loading" | "failed">>({});
+
+  function isTooLargeToInline(testcase: { inputSize: number; outputSize: number | null }) {
+    return (
+      Math.max(testcase.inputSize, testcase.outputSize ?? 0) > MAX_INLINE_TESTCASE_EDIT_BYTES
+    );
+  }
 
   async function loadTestcaseContent(testcaseId: string) {
     const current = testcaseContents[testcaseId];
@@ -598,7 +606,8 @@
                     <details
                       class="mt-4 rounded-md border border-border-subtle p-3"
                       ontoggle={(event) => {
-                        if (event.currentTarget.open) void loadTestcaseContent(testcase.id);
+                        if (event.currentTarget.open && !isTooLargeToInline(testcase))
+                          void loadTestcaseContent(testcase.id);
                       }}
                     >
                       <summary class="cursor-pointer text-body-sm font-semibold">
@@ -606,7 +615,13 @@
                         {formatBytes(testcase.inputSize)} · {m.testcases_output()}
                         {formatBytes(testcase.outputSize ?? 0)}
                       </summary>
-                      {@render testcaseContent(testcase.id)}
+                      {#if isTooLargeToInline(testcase)}
+                        <p class="mt-2 text-caption text-muted-foreground">
+                          {m.testcases_tooLargeToEdit({ max: inlineLimitMib })}
+                        </p>
+                      {:else}
+                        {@render testcaseContent(testcase.id)}
+                      {/if}
                     </details>
                   {/each}
                 </details>
