@@ -1,14 +1,18 @@
 <script lang="ts">
-  import { renderMarkdown } from "$lib/utils/markdown";
+  import { renderMarkdown, renderMarkdownInline } from "$lib/utils/markdown";
   import "katex/dist/katex.min.css";
 
-  let { content = "" }: { content: string } = $props();
-  let html = $derived(renderMarkdown(content));
+  let { content = "", inline = false }: { content: string; inline?: boolean } = $props();
+  let html = $derived(inline ? renderMarkdownInline(content) : renderMarkdown(content));
 </script>
 
-<div class="markdown-content">
-  {@html html}
-</div>
+{#if inline}
+  <span class="markdown-content">{@html html}</span>
+{:else}
+  <div class="markdown-content">
+    {@html html}
+  </div>
+{/if}
 
 <style>
   .markdown-content :global(.katex-display) {

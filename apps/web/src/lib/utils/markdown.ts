@@ -133,7 +133,7 @@ function createMarkdownParser(nonce: string): Marked {
   return parser;
 }
 
-export function renderMarkdown(content: string): string {
+function renderWith(render: (parser: Marked) => string): string {
   const nonce = crypto.randomUUID();
   const parser = createMarkdownParser(nonce);
   const sanitizeAttribute: UponSanitizeAttributeHook = (node, data) => {
@@ -149,12 +149,17 @@ export function renderMarkdown(content: string): string {
   DOMPurify.addHook("uponSanitizeAttribute", sanitizeAttribute);
 
   try {
-    const sanitized = DOMPurify.sanitize(
-      parser.parse(content, { async: false }),
-      PURIFY_CONFIG,
-    );
+    const sanitized = DOMPurify.sanitize(render(parser), PURIFY_CONFIG);
     return sanitized.replaceAll(` ${NONCE_ATTR}="${nonce}"`, "");
   } finally {
     DOMPurify.removeHook("uponSanitizeAttribute", sanitizeAttribute);
   }
+}
+
+export function renderMarkdown(content: string): string {
+  return renderWith((parser) => parser.parse(content, { async: false }));
+}
+
+export function renderMarkdownInline(content: string): string {
+  return renderWith((parser) => parser.parseInline(content, { async: false }));
 }

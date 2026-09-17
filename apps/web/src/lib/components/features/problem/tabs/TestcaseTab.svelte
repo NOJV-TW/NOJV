@@ -2,6 +2,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import TestcaseSetCard from "$lib/components/features/problem/testcase/TestcaseSetCard.svelte";
   import TestcaseZipUploader from "$lib/components/features/problem/testcase/TestcaseZipUploader.svelte";
+  import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
 
   interface TestcaseData {
     id: string;
@@ -54,9 +55,13 @@
         <span class="text-caption text-muted-foreground"
           >{m.testcases_totalScoreLabel()}:
         </span>
-        <span class="text-caption font-mono"
-          >{subtaskSets.map((s) => `${s.name} (${String(s.weight)}pts)`).join(" + ")}</span
-        >
+        {#each subtaskSets as set, idx (set.id)}
+          {#if idx > 0}<span class="text-caption font-mono">&nbsp;+&nbsp;</span>{/if}
+          <span class="text-caption font-mono">
+            <MarkdownRenderer content={set.name} inline />
+            ({set.weight}pts)
+          </span>
+        {/each}
       </div>
     {/if}
   </section>
