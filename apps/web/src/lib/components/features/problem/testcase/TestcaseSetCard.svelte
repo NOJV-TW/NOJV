@@ -24,9 +24,10 @@
       testcases: TestcaseData[];
     };
     problemId: string;
+    index: number;
   }
 
-  let { set, problemId }: Props = $props();
+  let { set, problemId, index }: Props = $props();
 
   let expanded = $state(false);
   let editing = $state(false);
@@ -124,6 +125,9 @@
       {:else}
         <ChevronRight aria-hidden="true" class="size-4" />
       {/if}
+      <span class="text-caption font-normal text-muted-foreground tabular-nums">
+        #subtask{index}
+      </span>
       <MarkdownRenderer content={set.name} inline />
     </button>
 

@@ -46,8 +46,8 @@
       <p class="text-body-sm text-muted-foreground">{m.testcases_noSubtaskSets()}</p>
     {:else}
       <div class="space-y-3">
-        {#each subtaskSets as set (set.id)}
-          <TestcaseSetCard {set} {problemId} />
+        {#each subtaskSets as set, idx (set.id)}
+          <TestcaseSetCard {set} {problemId} index={idx + 1} />
         {/each}
       </div>
 
