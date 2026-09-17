@@ -24,6 +24,10 @@ import {
 
 const MAX_TESTCASE_SETS_PER_PROBLEM = 20;
 
+function subtaskName(ordinal: number): string {
+  return `subtask #${String(ordinal + 1)}`;
+}
+
 async function requireSetInProblem(setId: string, problemId: string, tx?: TransactionClient) {
   const set = tx
     ? await testcaseSetRepo.withTx(tx).findById(setId)
@@ -86,7 +90,7 @@ export async function createProblemTestcaseSetRecord(
     const nextOrdinal = (_max.ordinal ?? -1) + 1;
 
     const testcaseSet = await testcaseSetRepo.withTx(tx).create({
-      name: payload.name,
+      name: subtaskName(nextOrdinal),
       problemId: problem.id,
       weight: payload.weight,
       ordinal: nextOrdinal,

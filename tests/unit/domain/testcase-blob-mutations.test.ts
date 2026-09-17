@@ -149,12 +149,11 @@ beforeEach(() => {
 const mutationCalls = [
   () =>
     createProblemTestcaseSetRecord(actor, "prob_1", {
-      name: "sample",
       weight: 1,
       description: "",
       cases: [{ input: "1", output: "1" }],
     }),
-  () => updateTestcaseSetRecord(actor, "prob_1", "set_1", { name: "renamed" }),
+  () => updateTestcaseSetRecord(actor, "prob_1", "set_1", { description: "renamed" }),
   () => deleteTestcaseSetRecord(actor, "prob_1", "set_1"),
   () => updateTestcaseRecord(actor, "prob_1", "tc_1", { input: "new" }),
   () => deleteTestcaseRecord(actor, "prob_1", "tc_1"),
@@ -189,7 +188,6 @@ describe("testcase immutable object mutations", () => {
 
   it("stages versioned objects before inserting pointer rows and cancels their guards on commit", async () => {
     await createProblemTestcaseSetRecord(actor, "prob_1", {
-      name: "sample",
       weight: 1,
       description: "",
       cases: [{ input: "1 1", output: "2" }],
@@ -225,7 +223,6 @@ describe("testcase immutable object mutations", () => {
 
     await expect(
       createProblemTestcaseSetRecord(actor, "prob_1", {
-        name: "sample",
         weight: 1,
         description: "",
         cases: [{ input: "1", output: "1" }],
@@ -241,7 +238,6 @@ describe("testcase immutable object mutations", () => {
     putImmutableText.mockRejectedValueOnce(new Error("S3 unavailable"));
     await expect(
       createProblemTestcaseSetRecord(actor, "prob_1", {
-        name: "sample",
         weight: 1,
         description: "",
         cases: [{ input: "1", output: "1" }],
@@ -305,7 +301,6 @@ it.each([true, false])(
       { ...actor, platformRole: "student" },
       "prob_1",
       {
-        name: "sample",
         weight: 1,
         description: "",
         cases: [{ input: "1", output: "1" }],

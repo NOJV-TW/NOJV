@@ -172,7 +172,6 @@ describe("problem testcase action authentication", () => {
       JSON.stringify({
         cases: [{ input: "1", output: "1" }],
         description: "",
-        name: "sample",
         weight: 1,
       }),
     );
@@ -195,7 +194,7 @@ describe("problem testcase action authentication", () => {
     expect(createTestcaseSetRecord).toHaveBeenCalledWith(
       admin,
       "prob_1",
-      expect.objectContaining({ name: "sample" }),
+      expect.objectContaining({ weight: 1 }),
     );
   });
 });

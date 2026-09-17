@@ -117,7 +117,8 @@ describe("ReferenceSolutionSection", () => {
 
     await vi.waitFor(() => {
       expect(target.textContent).toContain(m.admin_referenceFailureDetails());
-      expect(target.textContent).toContain("Examples");
+      expect(target.textContent).toContain("#subtask1");
+      expect(target.textContent).not.toContain("Examples");
       expect(target.textContent).toContain("#2");
       expect(target.textContent).toContain("WA");
     });

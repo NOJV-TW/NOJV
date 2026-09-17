@@ -31,6 +31,8 @@ describe("SubtaskResultTree", () => {
     });
 
     expect(target.textContent).not.toContain(m.subtask_breakdownLabel());
+    expect(target.textContent).toContain("#subtask1");
+    expect(target.textContent).not.toContain("sample");
     const score = target.querySelector('[data-testid="subtask-score"]');
     expect(score?.textContent).toContain("0/101");
     expect(score?.parentElement?.classList.contains("justify-end")).toBe(true);

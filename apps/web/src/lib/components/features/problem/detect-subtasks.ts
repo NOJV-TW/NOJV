@@ -5,7 +5,6 @@ export interface ParsedCase {
 }
 
 export interface SubtaskConfig {
-  name: string;
   description: string;
   points: number;
   caseIndices: number[];
@@ -97,7 +96,6 @@ function buildSubtasks(
     }
 
     subtasks.push({
-      name: `Subtask ${subtaskId}`,
       description: "",
       points: Math.round(100 / sortedSubtaskIds.length),
       caseIndices: indices,
