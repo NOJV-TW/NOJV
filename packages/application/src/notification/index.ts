@@ -28,6 +28,15 @@ export {
   updateNotificationPreferences,
   getEffectiveNotificationPreferences,
 } from "./preferences";
+export {
+  clearNotificationEmail,
+  getNotificationEmail,
+  peekNotificationEmail,
+  requestNotificationEmail,
+  verifyNotificationEmail,
+  type NotificationEmailState,
+  type VerifyNotificationEmailResult,
+} from "./notification-email";
 
 export const NOTIFICATION_SSE_WORK_KIND = "notification.sse";
 export const NOTIFICATION_EMAIL_WORK_KIND = "notification.email";

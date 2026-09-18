@@ -13,6 +13,7 @@ export const keys = {
 
   userChannel: (userId: string) => `nojv:user:${userId}`,
   notificationChannel: (userId: string) => `nojv:notification:${userId}`,
+  notificationEmailVerify: (token: string) => `nojv:notification:email-verify:${token}`,
   contestChannel: (contestId: string) => `nojv:contest:${contestId}`,
   clarificationChannel: (contextType: string, contextId: string) =>
     `nojv:clarification:${contextType}:${contextId}`,

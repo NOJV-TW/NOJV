@@ -50,7 +50,11 @@ async function pendingMember(courseId: string, username: string) {
 }
 
 async function verificationToken(userId: string, username: string) {
-  const result = await userDomain.initiateSchoolVerification(userId, username);
+  const result = await userDomain.initiateSchoolVerification(
+    userId,
+    username,
+    `${username}@ntnu.edu.tw`,
+  );
   expect(result.status).toBe("success");
   if (result.status !== "success") throw new Error(result.detail);
   return result.token;

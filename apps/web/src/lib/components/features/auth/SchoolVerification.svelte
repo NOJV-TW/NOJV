@@ -182,7 +182,7 @@
                 error = "";
               }}
             >
-              {m.account_changeEmail()}
+              {m.account_schoolVerification_changeEmail()}
             </Button>
           </form>
           {#if error}

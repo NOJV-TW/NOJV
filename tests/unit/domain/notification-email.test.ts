@@ -252,3 +252,37 @@ describe("notification email durable delivery", () => {
     expect(work.html).not.toContain('<a href="evil">');
   });
 });
+
+describe("notification email delivery target", () => {
+  it("sends to the confirmed notification email", async () => {
+    findEmailDeliveryContext.mockResolvedValue(
+      currentContext({
+        notificationPreference: { email: "inbox@example.com", emailVerifiedAt: new Date() },
+      }),
+    );
+    const work = buildNotificationEmailWork(
+      "n-1",
+      input("course_enrolled", { courseName: "A" }),
+    );
+    await deliverNotificationEmail(work);
+    expect(sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "inbox@example.com" }),
+    );
+  });
+
+  it("falls back to the login email while the notification email is unconfirmed", async () => {
+    findEmailDeliveryContext.mockResolvedValue(
+      currentContext({
+        notificationPreference: { email: "inbox@example.com", emailVerifiedAt: null },
+      }),
+    );
+    const work = buildNotificationEmailWork(
+      "n-2",
+      input("course_enrolled", { courseName: "A" }),
+    );
+    await deliverNotificationEmail(work);
+    expect(sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "student@example.com" }),
+    );
+  });
+});

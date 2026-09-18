@@ -281,8 +281,10 @@ export async function deliverNotificationEmail(
     return { transport: "email", outcome: "suppressed", reason: "preference_disabled" };
   }
 
+  const pref = recipient.notificationPreference;
+  const to = pref?.email && pref.emailVerifiedAt ? pref.email : recipient.email;
   const delivery = await getMailer().sendEmail({
-    to: recipient.email,
+    to,
     subject: work.subject,
     html: work.html,
     messageId: work.messageId,
