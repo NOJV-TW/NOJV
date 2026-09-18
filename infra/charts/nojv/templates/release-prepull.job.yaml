@@ -1,0 +1,52 @@
+{{- if .Values.migrator.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "nojv.fullname" . }}-release-prepull
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: release-prepull
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 1
+  activeDeadlineSeconds: {{ .Values.maintenance.prepullDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nojv-release-prepull
+    spec:
+      restartPolicy: Never
+      {{- with .Values.web.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        {{- range $component := list "web" "worker" }}
+        - name: {{ $component }}
+          image: {{ include "nojv.image" (dict "root" $ "component" $component) }}
+          imagePullPolicy: Always
+          command: ["node", "-e", "0"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+        {{- end }}
+{{- end }}
