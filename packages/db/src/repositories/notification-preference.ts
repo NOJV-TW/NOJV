@@ -20,14 +20,6 @@ export const notificationPreferenceRepo = {
     });
   },
 
-  setEmail(userId: string, email: string | null, emailVerifiedAt: Date | null) {
-    return prisma.notificationPreference.upsert({
-      where: { userId },
-      create: { userId, email, emailVerifiedAt },
-      update: { email, emailVerifiedAt },
-    });
-  },
-
   findManyByUserIds(userIds: string[]) {
     if (userIds.length === 0) return Promise.resolve([]);
     return prisma.notificationPreference.findMany({

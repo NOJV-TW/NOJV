@@ -359,6 +359,4 @@
   bind:open={notificationsOpen}
   data={data.notificationForm}
   primaryEmail={data.email}
-  notificationEmail={data.notificationEmail.email}
-  verified={data.notificationEmail.verified}
 />

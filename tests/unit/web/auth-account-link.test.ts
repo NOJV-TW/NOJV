@@ -31,7 +31,6 @@ vi.mock("@nojv/application", () => ({
   userDomain: { linkUserCourseRoster: vi.fn() },
   notificationDomain: {
     getNotificationPreferences: vi.fn().mockResolvedValue({}),
-    getNotificationEmail: vi.fn().mockResolvedValue({ email: null, verified: false }),
   },
 }));
 vi.mock("@nojv/db", () => ({

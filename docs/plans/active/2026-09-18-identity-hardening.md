@@ -29,9 +29,9 @@ login method, a username, or a course binding, and nobody re-verifies.
   `errorCallbackURL` land every OAuth error on `/signin`, which explains
   `account_not_linked` and points to settings → sign-in methods.
 - Remove `user.changeEmail`, the settings action, form, schema, and messages.
-- `NotificationPreference.email` / `emailVerifiedAt`: link-verified inside the
-  notification preferences dialog, next to the toggles, no step-up. Notification delivery uses it when verified, else
-  `User.email`.
+- `NotificationPreference.email`: an optional address edited with the notification
+  preferences, saved directly (it carries no security codes). Delivery uses it when
+  set, else `User.email`.
 - `User.schoolEmail` / `schoolVerifiedAt` and `SchoolVerificationToken.email`:
   audit record written by explicit verification. Informational only —
   `isSchoolVerified` keeps deriving from the username so the 41 verified accounts
@@ -41,18 +41,19 @@ login method, a username, or a course binding, and nobody re-verifies.
 
 ## Production audit (read-only, 2026-09-18)
 
-| Check                                                       | Result | Consequence                                      |
-| ----------------------------------------------------------- | ------ | ------------------------------------------------ |
-| Active users with no `Account` row                          | 0      | Disabling implicit linking locks nobody out      |
-| Active users with only a `credential` account               | 1      | Super admin; unaffected                          |
-| Student-ID usernames                                        | 140    | School bindings to preserve                      |
-| …whose `User.email` local part equals the ID, school domain | 99     | `schoolEmail` backfilled from `User.email`       |
-| …whose school `User.email` names a different ID             | 0      | Backfill rule cannot mis-attribute               |
-| …whose `User.email` is not a school address                 | 41     | `schoolEmail` stays NULL; no behavior keys on it |
-| Memberships with both or neither of `userId`/`pending` set  | 0 / 0  | No roster data movement needed                   |
-| Pending rows colliding with an existing username            | 0      |                                                  |
-| In-flight `SchoolVerificationToken` rows                    | 0      | Nobody mid-verification                          |
-| Users holding several accounts of one provider              | 14     | Already-linked rows are untouched                |
+| Check                                                       | Result | Consequence                                                     |
+| ----------------------------------------------------------- | ------ | --------------------------------------------------------------- |
+| Active users with no `Account` row                          | 0      | Disabling implicit linking locks nobody out                     |
+| Active users with only a `credential` account               | 1      | Super admin; unaffected                                         |
+| Student-ID usernames                                        | 140    | School bindings to preserve                                     |
+| …whose `User.email` local part equals the ID, school domain | 99     | `schoolEmail` backfilled from `User.email`                      |
+| …whose school `User.email` names a different ID             | 0      | Backfill rule cannot mis-attribute                              |
+| …whose `User.email` is not a school address                 | 41     | 25 recovered from the Google id_token email claim; 16 stay NULL |
+| Google id_token claim naming a _different_ ID / colliding   | 0 / 0  | Claim-based recovery cannot mis-attribute                       |
+| Memberships with both or neither of `userId`/`pending` set  | 0 / 0  | No roster data movement needed                                  |
+| Pending rows colliding with an existing username            | 0      |                                                                 |
+| In-flight `SchoolVerificationToken` rows                    | 0      | Nobody mid-verification                                         |
+| Users holding several accounts of one provider              | 14     | Already-linked rows are untouched                               |
 
 ## Migration plan
 
@@ -60,11 +61,17 @@ Single additive migration, expand-only, safe under the running release:
 
 1. `ALTER TABLE "User" ADD COLUMN "schoolEmail" TEXT, ADD COLUMN "schoolVerifiedAt" TIMESTAMP(3)`
 2. `ALTER TABLE "SchoolVerificationToken" ADD COLUMN "email" TEXT`
-3. `ALTER TABLE "NotificationPreference" ADD COLUMN "email" TEXT, ADD COLUMN "emailVerifiedAt" TIMESTAMP(3)`
-4. Backfill `User.schoolEmail = lower(email)` only where the username is a canonical
-   student ID and `lower(email)` is `<id>@<matching school domain>` (the 99 rows);
-   `schoolVerifiedAt` stays NULL for every backfilled row, meaning "verified before
-   the column existed". Idempotent: guarded by `"schoolEmail" IS NULL`.
+3. `ALTER TABLE "NotificationPreference" ADD COLUMN "email" TEXT`
+4. Backfill `User.schoolEmail = lower(email)` where the username is a canonical
+   student ID and `lower(email)` is `<id>@<matching school domain>` (99 rows).
+5. For remaining verified accounts, read the email claim from the linked Google
+   account's `id_token` (all 174 are plaintext JWTs). Where it is `<id>@<matching
+school domain>` and no other account holds that address: set `schoolEmail`; and
+   when the login email had been changed to a personal address (25 rows), keep that
+   personal address as the notification email and restore the school address as
+   `User.email`. Decoding is guarded per row; `schoolVerifiedAt` stays NULL for every
+   backfilled row. 16 verified accounts (5 GitHub-only, 11 whose Google account is
+   personal) keep `schoolEmail` NULL; nothing keys on it.
 
 The previous release's Prisma client selects only the columns it knows, so old web
 and worker pods keep working during rollout. Rollback is redeploying the previous
@@ -76,6 +83,8 @@ consult `changeEmail.enabled`. None were in flight at audit time.
 
 ## What users see
 
+- The 25 accounts whose login email is restored to the school address will receive
+  security codes there; their OAuth login and notifications are unaffected.
 - Nobody re-verifies. Every login that worked yesterday works today.
 - Signing in with a provider identity that is new to NOJV but shares an email with an
   existing account now stops at `/signin` with instructions instead of merging.
@@ -96,7 +105,7 @@ consult `changeEmail.enabled`. None were in flight at audit time.
 ## Validation
 
 Integration runs in CI against its own database. Post-rollout, repeat the audit
-queries read-only and confirm `count(schoolEmail IS NOT NULL) = 99`.
+queries read-only and confirm `count(schoolEmail IS NOT NULL) = 124` and 25 restored login emails.
 
 ## References
 

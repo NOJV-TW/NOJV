@@ -254,10 +254,10 @@ describe("notification email durable delivery", () => {
 });
 
 describe("notification email delivery target", () => {
-  it("sends to the confirmed notification email", async () => {
+  it("sends to the notification email when one is set", async () => {
     findEmailDeliveryContext.mockResolvedValue(
       currentContext({
-        notificationPreference: { email: "inbox@example.com", emailVerifiedAt: new Date() },
+        notificationPreference: { email: "inbox@example.com" },
       }),
     );
     const work = buildNotificationEmailWork(
@@ -270,10 +270,10 @@ describe("notification email delivery target", () => {
     );
   });
 
-  it("falls back to the login email while the notification email is unconfirmed", async () => {
+  it("falls back to the login email while no notification email is set", async () => {
     findEmailDeliveryContext.mockResolvedValue(
       currentContext({
-        notificationPreference: { email: "inbox@example.com", emailVerifiedAt: null },
+        notificationPreference: { email: null },
       }),
     );
     const work = buildNotificationEmailWork(

@@ -2,7 +2,6 @@ const PROFILE_EXEMPT_PREFIXES = [
   "/api/",
   "/complete-profile",
   "/verify-school",
-  "/verify-notification-email",
   "/signin",
   "/admin-signin",
   "/signup",

@@ -14,10 +14,6 @@ import {
   wouldOrphanAccount,
 } from "$lib/server/account-connections";
 import { handleSendVerificationAction } from "$lib/server/shared/school-verification";
-import {
-  handleClearNotificationEmailAction,
-  handleSendNotificationEmailAction,
-} from "$lib/server/shared/notification-email";
 import { withRateLimit, withRateLimitActions } from "$lib/server/shared/action-handlers";
 import { forwardSetCookies } from "$lib/server/shared/auth-cookies";
 import type { FormMessage } from "$lib/types/form-message";
@@ -49,14 +45,12 @@ export const load: PageServerLoad = async (event) => {
   const notificationForm = await superValidate(prefs, zod4(notificationPreferencesSchema));
 
   const twoFactor = await loadTwoFactor(event);
-  const notificationEmail = await notificationDomain.getNotificationEmail(locals.user.id);
   const accounts = sessionUser?.isSuperAdmin ? [] : await listAccounts(event);
 
   return {
     platformRole,
     notificationForm,
     email: locals.user.email,
-    notificationEmail,
     isSchoolVerified,
     providers: sessionUser?.isSuperAdmin
       ? []
@@ -77,8 +71,6 @@ export const actions = {
   ...withRateLimitActions(twoFactorActions),
 
   sendVerification: handleSendVerificationAction,
-  sendNotificationEmail: handleSendNotificationEmailAction,
-  clearNotificationEmail: handleClearNotificationEmailAction,
 
   updateNotificationPreferences: withRateLimit(async (event) => {
     const actor = requireAuth(event);

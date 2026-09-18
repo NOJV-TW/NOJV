@@ -5,7 +5,6 @@
   import type { NotificationPreferences } from "@nojv/core";
   import * as Dialog from "$lib/components/primitives/ui/dialog";
   import ToggleSwitch from "$lib/components/primitives/ui/ToggleSwitch.svelte";
-  import NotificationEmailCard from "$lib/components/features/account/NotificationEmailCard.svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/stores/toast";
   import type { FormMessage } from "$lib/types/form-message";
@@ -14,17 +13,9 @@
     open: boolean;
     data: SuperValidated<NotificationPreferences, FormMessage>;
     primaryEmail: string;
-    notificationEmail: string | null;
-    verified: boolean;
   }
 
-  let {
-    open = $bindable(false),
-    data,
-    primaryEmail,
-    notificationEmail,
-    verified,
-  }: Props = $props();
+  let { open = $bindable(false), data, primaryEmail }: Props = $props();
 
   const { form, enhance, submitting } = superForm<NotificationPreferences, FormMessage>(
     untrack(() => data),
@@ -55,14 +46,32 @@
       <Dialog.Description>{m.account_notifications_dialogHint()}</Dialog.Description>
     </Dialog.Header>
 
-    <NotificationEmailCard {primaryEmail} {notificationEmail} {verified} />
-
     <form
       method="POST"
       action="?/updateNotificationPreferences"
       use:enhance
       class="flex flex-col gap-6"
     >
+      <section class="flex flex-col gap-2">
+        <label
+          for="notify-email"
+          class="text-caption uppercase tracking-wide text-muted-foreground"
+        >
+          {m.account_notificationEmail_label()}
+        </label>
+        <input
+          id="notify-email"
+          type="email"
+          autocomplete="email"
+          placeholder={primaryEmail}
+          bind:value={$form.email}
+          class="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+        />
+        <p class="text-caption text-muted-foreground">
+          {m.account_notificationEmail_hint({ email: primaryEmail })}
+        </p>
+      </section>
+
       <section class="flex flex-col gap-3">
         <h3 class="text-caption uppercase tracking-wide text-muted-foreground">
           {m.account_notifications_groupAssignments()}
