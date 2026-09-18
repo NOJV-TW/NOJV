@@ -57,6 +57,7 @@ export const load: PageServerLoad = async (event) => {
     platformRole,
     notificationForm,
     email: locals.user.email,
+    username,
     isSchoolVerified,
     canLinkProviders: !sessionUser?.isSuperAdmin,
     accounts: accounts.flatMap((account) =>
@@ -175,7 +176,9 @@ export const actions = {
       return fail(403, { error: "deleteForbidden" });
     }
     const confirmation = formString(await event.request.formData(), "confirmation").trim();
-    const expected = event.locals.user?.email.toLowerCase();
+    const expected = (
+      event.locals.sessionUser?.username ?? event.locals.user?.email
+    )?.toLowerCase();
     if (!expected || confirmation.toLowerCase() !== expected) {
       return fail(400, { error: "deleteConfirmation" });
     }

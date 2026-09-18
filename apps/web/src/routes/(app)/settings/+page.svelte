@@ -27,6 +27,8 @@
   import { Card } from "$lib/components/primitives/ui/card";
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { Input } from "$lib/components/primitives/ui/input";
+  import * as Dialog from "$lib/components/primitives/ui/dialog";
+  import { Button, buttonVariants } from "$lib/components/primitives/ui/button";
   import { toasts } from "$lib/stores/toast";
   import type { PageData } from "./$types";
 
@@ -162,12 +164,20 @@
     }
   }
 
+  let deleteOpen = $state(false);
   let deleteConfirmation = $state("");
   let deleteBusy = $state(false);
   let deleteError = $state("");
+  const deleteHandle = $derived(data.username ?? data.email);
   const deleteArmed = $derived(
-    deleteConfirmation.trim().toLowerCase() === data.email.toLowerCase(),
+    deleteConfirmation.trim().toLowerCase() === deleteHandle.toLowerCase(),
   );
+
+  function openDeleteDialog() {
+    deleteConfirmation = "";
+    deleteError = "";
+    deleteOpen = true;
+  }
 
   const deleteSubmit: SubmitFunction = () => {
     deleteError = "";
@@ -178,6 +188,7 @@
         deleteError = mapDeleteError((result.data?.error as string) ?? "");
         return;
       }
+      deleteOpen = false;
       await update();
     };
   };
@@ -216,8 +227,8 @@
         <SchoolVerificationSection isSchoolVerified={data.isSchoolVerified} />
       </section>
 
-      <section class="flex flex-col gap-4 border-t border-border-subtle pt-4">
-        <div class="flex flex-col gap-1">
+      <section class="flex flex-col gap-2 border-t border-border-subtle pt-4">
+        <div class="mb-2 flex flex-col gap-1">
           <h2 class="text-title-sm">{m.account_loginSecurity_title()}</h2>
           <p class="text-body-sm text-muted-foreground">{m.account_loginSecurity_hint()}</p>
         </div>
@@ -295,105 +306,97 @@
             </form>
           {/if}
         </div>
-        <div class="flex flex-col gap-2">
-          {#if data.hasPassword}
-            <a href="/account/change-password" class={settingLinkClass}>
-              <span class="flex items-center gap-2.5">
-                <KeyRound aria-hidden="true" class="h-4 w-4 text-muted-foreground" />
-                {m.account_changePassword_title()}
-              </span>
-              <ChevronRight aria-hidden="true" class={settingChevronClass} />
-            </a>
-          {/if}
+        {#if data.hasPassword}
+          <a href="/account/change-password" class={settingLinkClass}>
+            <span class="flex items-center gap-2.5">
+              <KeyRound aria-hidden="true" class="h-4 w-4 text-muted-foreground" />
+              {m.account_changePassword_title()}
+            </span>
+            <ChevronRight aria-hidden="true" class={settingChevronClass} />
+          </a>
+        {/if}
 
-          <section
-            aria-labelledby="security-factors-heading"
-            class="overflow-hidden rounded-md border border-border"
-          >
-            <div
-              class="flex flex-wrap items-center justify-between gap-3 bg-muted/40 px-4 py-3"
-            >
-              <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                <h3 id="security-factors-heading" class="text-body-sm font-semibold">
-                  {m.account_loginSecurity_factors()}
-                </h3>
-                <Badge variant={data.hasSecurityFactor ? "success" : "muted"} size="sm" dot>
-                  {data.hasSecurityFactor
-                    ? m.account_loginSecurity_configured({ count: factorKindCount })
-                    : m.account_loginSecurity_notConfigured()}
-                </Badge>
-              </div>
-              {#if data.securitySettingsUnlocked}
-                <Badge variant="success" size="sm">{m.account_loginSecurity_unlocked()}</Badge>
-              {:else}
-                <button
-                  type="button"
-                  class={methodBtnClass}
-                  onclick={() => (unlockOpen = true)}
-                >
-                  {m.account_loginSecurity_unlock()}
-                </button>
-              {/if}
+        <section
+          aria-labelledby="security-factors-heading"
+          class="overflow-hidden rounded-md border border-border"
+        >
+          <div class="flex flex-wrap items-center justify-between gap-3 bg-muted/40 px-4 py-3">
+            <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+              <h3 id="security-factors-heading" class="text-body-sm font-semibold">
+                {m.account_loginSecurity_factors()}
+              </h3>
+              <Badge variant={data.hasSecurityFactor ? "success" : "muted"} size="sm" dot>
+                {data.hasSecurityFactor
+                  ? m.account_loginSecurity_configured({ count: factorKindCount })
+                  : m.account_loginSecurity_notConfigured()}
+              </Badge>
             </div>
-
-            <div class="divide-y divide-border-subtle border-t border-border-subtle">
-              <div class={methodRowClass}>
-                <span class="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
-                  <ShieldCheck
-                    aria-hidden="true"
-                    class="h-4 w-4 shrink-0 text-muted-foreground"
-                  />
-                  <span>{m.account_verification_totp()}</span>
-                  <Badge variant={data.hasTotp ? "success" : "muted"} size="sm" dot>
-                    {data.hasTotp
-                      ? m.account_verification_statusEnabled()
-                      : m.account_verification_statusInactive()}
-                  </Badge>
-                </span>
-                <button
-                  type="button"
-                  class={methodBtnClass}
-                  onclick={() => openSecurityMethod("totp")}
-                >
-                  {data.hasTotp
-                    ? m.account_verification_manage()
-                    : m.account_verification_setup()}
-                </button>
-              </div>
-
-              <div class={methodRowClass}>
-                <span class="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
-                  <Fingerprint
-                    aria-hidden="true"
-                    class="h-4 w-4 shrink-0 text-muted-foreground"
-                  />
-                  <span>Passkey</span>
-                  <Badge variant={passkeyEnabled ? "success" : "muted"} size="sm" dot>
-                    {passkeyEnabled
-                      ? m.account_verification_statusEnabled()
-                      : m.account_verification_statusInactive()}
-                  </Badge>
-                </span>
-                <button
-                  type="button"
-                  class={methodBtnClass}
-                  onclick={() => openSecurityMethod("passkey")}
-                >
-                  {passkeyEnabled
-                    ? m.account_verification_manage()
-                    : m.account_verification_setup()}
-                </button>
-              </div>
-            </div>
-            {#if data.isSuperAdmin}
-              <p
-                class="border-t border-border-subtle px-4 py-3 text-caption text-muted-foreground"
-              >
-                {m.account_security_superAdminRequirement()}
-              </p>
+            {#if data.securitySettingsUnlocked}
+              <Badge variant="success" size="sm">{m.account_loginSecurity_unlocked()}</Badge>
+            {:else}
+              <button type="button" class={methodBtnClass} onclick={() => (unlockOpen = true)}>
+                {m.account_loginSecurity_unlock()}
+              </button>
             {/if}
-          </section>
-        </div>
+          </div>
+
+          <div class="divide-y divide-border-subtle border-t border-border-subtle">
+            <div class={methodRowClass}>
+              <span class="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
+                <ShieldCheck
+                  aria-hidden="true"
+                  class="h-4 w-4 shrink-0 text-muted-foreground"
+                />
+                <span>{m.account_verification_totp()}</span>
+                <Badge variant={data.hasTotp ? "success" : "muted"} size="sm" dot>
+                  {data.hasTotp
+                    ? m.account_verification_statusEnabled()
+                    : m.account_verification_statusInactive()}
+                </Badge>
+              </span>
+              <button
+                type="button"
+                class={methodBtnClass}
+                onclick={() => openSecurityMethod("totp")}
+              >
+                {data.hasTotp
+                  ? m.account_verification_manage()
+                  : m.account_verification_setup()}
+              </button>
+            </div>
+
+            <div class={methodRowClass}>
+              <span class="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
+                <Fingerprint
+                  aria-hidden="true"
+                  class="h-4 w-4 shrink-0 text-muted-foreground"
+                />
+                <span>Passkey</span>
+                <Badge variant={passkeyEnabled ? "success" : "muted"} size="sm" dot>
+                  {passkeyEnabled
+                    ? m.account_verification_statusEnabled()
+                    : m.account_verification_statusInactive()}
+                </Badge>
+              </span>
+              <button
+                type="button"
+                class={methodBtnClass}
+                onclick={() => openSecurityMethod("passkey")}
+              >
+                {passkeyEnabled
+                  ? m.account_verification_manage()
+                  : m.account_verification_setup()}
+              </button>
+            </div>
+          </div>
+          {#if data.isSuperAdmin}
+            <p
+              class="border-t border-border-subtle px-4 py-3 text-caption text-muted-foreground"
+            >
+              {m.account_security_superAdminRequirement()}
+            </p>
+          {/if}
+        </section>
       </section>
 
       {#if data.canLinkProviders}
@@ -512,38 +515,16 @@
         <section class="flex flex-col gap-4 border-t border-border-subtle pt-4">
           <div class="flex flex-col gap-1">
             <h2 class="text-title-sm text-destructive">{m.account_delete_title()}</h2>
-            <p class="text-body-sm text-muted-foreground">{m.account_delete_hint()}</p>
+            <p class="text-body-sm text-muted-foreground">{m.account_delete_sectionHint()}</p>
           </div>
-          <form
-            method="POST"
-            action="?/deleteAccount"
-            use:enhance={deleteSubmit}
-            class="flex flex-col gap-3"
+          <button
+            type="button"
+            onclick={openDeleteDialog}
+            class="inline-flex items-center gap-2 self-start rounded-md border border-destructive/40 px-3 py-1.5 text-caption font-medium text-destructive transition-colors duration-fast ease-out-soft hover:bg-destructive/10"
           >
-            <label class="flex flex-col gap-1.5">
-              <span class="text-caption text-muted-foreground">
-                {m.account_delete_confirmLabel({ email: data.email })}
-              </span>
-              <Input
-                name="confirmation"
-                bind:value={deleteConfirmation}
-                autocomplete="off"
-                autocapitalize="none"
-                spellcheck={false}
-              />
-            </label>
-            {#if deleteError}
-              <p class="text-body-sm text-destructive" role="alert">{deleteError}</p>
-            {/if}
-            <button
-              type="submit"
-              disabled={deleteBusy || !deleteArmed}
-              class="inline-flex items-center gap-2 self-start rounded-md border border-destructive/40 px-3 py-1.5 text-caption font-medium text-destructive transition-colors duration-fast ease-out-soft hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Trash2 aria-hidden="true" class="size-4" />
-              {m.account_delete_submit()}
-            </button>
-          </form>
+            <Trash2 aria-hidden="true" class="size-4" />
+            {m.account_delete_submit()}
+          </button>
         </section>
       {/if}
 
@@ -561,6 +542,45 @@
         returnTo={data.returnTo}
       />
       <PasskeyDialog bind:open={passkeyOpen} passkeys={data.passkeys} />
+      <Dialog.Root bind:open={deleteOpen}>
+        <Dialog.Content showCloseButton>
+          <Dialog.Header>
+            <Dialog.Title>{m.account_delete_title()}</Dialog.Title>
+          </Dialog.Header>
+          <p class="text-body-sm text-muted-foreground">{m.account_delete_hint()}</p>
+          <form
+            method="POST"
+            action="?/deleteAccount"
+            use:enhance={deleteSubmit}
+            class="flex flex-col gap-3"
+          >
+            <label class="flex flex-col gap-1.5">
+              <span class="text-caption text-muted-foreground">
+                {m.account_delete_confirmLabel({ handle: deleteHandle })}
+              </span>
+              <Input
+                name="confirmation"
+                bind:value={deleteConfirmation}
+                autocomplete="off"
+                autocapitalize="none"
+                spellcheck={false}
+                aria-invalid={deleteError ? "true" : undefined}
+              />
+            </label>
+            {#if deleteError}
+              <p class="text-body-sm text-destructive" role="alert">{deleteError}</p>
+            {/if}
+            <Dialog.Footer>
+              <Dialog.Close class={buttonVariants({ variant: "outline" })}>
+                {m.common_cancel()}
+              </Dialog.Close>
+              <Button type="submit" variant="destructive" disabled={deleteBusy || !deleteArmed}>
+                {m.account_delete_submit()}
+              </Button>
+            </Dialog.Footer>
+          </form>
+        </Dialog.Content>
+      </Dialog.Root>
     </Card>
   </Section>
 </PageContainer>
