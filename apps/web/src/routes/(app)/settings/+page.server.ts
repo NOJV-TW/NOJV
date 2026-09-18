@@ -1,4 +1,4 @@
-import { notificationDomain } from "@nojv/application";
+import { notificationDomain, userDomain } from "@nojv/application";
 import { notificationPreferencesSchema } from "@nojv/core";
 import { fail, redirect } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
@@ -8,11 +8,7 @@ import { zod4 } from "sveltekit-superforms/adapters";
 import { getAuth } from "$lib/auth.server";
 import { isReservedUsername } from "$lib/utils/school";
 import { requireAuth } from "$lib/server/auth";
-import {
-  isLinkProvider,
-  LINKABLE_PROVIDERS,
-  wouldOrphanAccount,
-} from "$lib/server/account-connections";
+import { isLinkProvider, wouldOrphanAccount } from "$lib/server/account-connections";
 import { handleSendVerificationAction } from "$lib/server/shared/school-verification";
 import { withRateLimit, withRateLimitActions } from "$lib/server/shared/action-handlers";
 import { forwardSetCookies } from "$lib/server/shared/auth-cookies";
@@ -46,23 +42,28 @@ export const load: PageServerLoad = async (event) => {
 
   const twoFactor = await loadTwoFactor(event);
   const accounts = sessionUser?.isSuperAdmin ? [] : await listAccounts(event);
+  const accountEmails = sessionUser?.isSuperAdmin
+    ? {}
+    : await userDomain.listLinkedAccountEmails(locals.user.id);
 
   return {
     platformRole,
     notificationForm,
     email: locals.user.email,
     isSchoolVerified,
-    providers: sessionUser?.isSuperAdmin
-      ? []
-      : LINKABLE_PROVIDERS.map((provider) => ({
-          provider,
-          accounts: accounts
-            .filter((account) => account.providerId === provider)
-            .map((account) => ({
+    canLinkProviders: !sessionUser?.isSuperAdmin,
+    accounts: accounts.flatMap((account) =>
+      isLinkProvider(account.providerId)
+        ? [
+            {
+              provider: account.providerId,
               accountId: account.accountId,
+              email: accountEmails[`${account.providerId}:${account.accountId}`] ?? null,
               createdAt: account.createdAt.toISOString(),
-            })),
-        })),
+            },
+          ]
+        : [],
+    ),
     ...twoFactor,
   };
 };

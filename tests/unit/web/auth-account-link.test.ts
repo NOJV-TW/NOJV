@@ -28,7 +28,10 @@ vi.mock("@nojv/application", () => ({
   markVerifiedSession: vi.fn(),
   passkeyRegistrationDenialReason: vi.fn(),
   securityGenerationProof: vi.fn(),
-  userDomain: { linkUserCourseRoster: vi.fn() },
+  userDomain: {
+    linkUserCourseRoster: vi.fn(),
+    listLinkedAccountEmails: vi.fn().mockResolvedValue({}),
+  },
   notificationDomain: {
     getNotificationPreferences: vi.fn().mockResolvedValue({}),
   },
@@ -155,10 +158,9 @@ describe("account linking from a server action", () => {
       expect(accounts).toContainEqual(
         expect.objectContaining({ providerId: provider, userId }),
       );
-      expect((await load(event))?.providers).toContainEqual({
-        provider,
-        accounts: [expect.objectContaining({ accountId: expect.any(String) })],
-      });
+      expect((await load(event))?.accounts).toContainEqual(
+        expect.objectContaining({ provider, accountId: expect.any(String) }),
+      );
       expect((await auth.api.getSession({ headers }))?.session.id).toBe(session!.session.id);
     },
   );
