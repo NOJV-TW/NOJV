@@ -17,6 +17,7 @@ describe("notificationPreferencesSchema", () => {
       emailCourseEnrolled: true,
       emailRoleChanged: true,
       emailEditorialRemoved: true,
+      email: null,
     });
   });
 

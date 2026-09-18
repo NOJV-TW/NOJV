@@ -10,7 +10,11 @@
 
     inFlightProvider = provider;
     try {
-      await authClient.signIn.social({ callbackURL: "/", provider });
+      await authClient.signIn.social({
+        callbackURL: "/",
+        errorCallbackURL: "/signin",
+        provider,
+      });
     } catch {
       inFlightProvider = null;
     }

@@ -8,6 +8,7 @@ export async function setVerifiedUsername(
   tx: TransactionClient,
   userId: string,
   username: string,
+  schoolEmail?: string,
 ): Promise<void> {
   if (!isCanonicalSchoolUsername(username))
     throw new ValidationError("Invalid school username.");
@@ -18,7 +19,11 @@ export async function setVerifiedUsername(
   await bindPendingMemberships(tx, userId, username, true);
   await tx.user.update({
     where: { id: userId },
-    data: { username, displayUsername: username },
+    data: {
+      username,
+      displayUsername: username,
+      ...(schoolEmail ? { schoolEmail, schoolVerifiedAt: new Date() } : {}),
+    },
   });
 }
 

@@ -14,7 +14,6 @@
   import { replayStudentTour } from "$lib/onboarding/student-tour";
   import { replayTeacherTour } from "$lib/onboarding/teacher-tour";
   import NotificationPreferencesDialog from "$lib/components/features/account/NotificationPreferencesDialog.svelte";
-  import EmailChangeForm from "$lib/components/features/account/EmailChangeForm.svelte";
   import TwoFactorDialog from "$lib/components/features/account/TwoFactorDialog.svelte";
   import SecuritySettingsUnlockDialog from "$lib/components/features/account/SecuritySettingsUnlockDialog.svelte";
   import PasskeyDialog from "$lib/components/features/account/PasskeyDialog.svelte";
@@ -123,12 +122,13 @@
           <h2 class="text-title-sm">{m.account_loginSecurity_title()}</h2>
           <p class="text-body-sm text-muted-foreground">{m.account_loginSecurity_hint()}</p>
         </div>
-        <EmailChangeForm
-          currentEmail={data.email}
-          data={data.emailForm}
-          emailVerified={data.emailVerified}
-          verificationError={data.emailVerificationError}
-        />
+        <div class="flex flex-col gap-1 rounded-md border border-border px-4 py-3">
+          <span class="text-caption uppercase tracking-wide text-muted-foreground">
+            {m.account_email()}
+          </span>
+          <span class="text-body font-medium break-all">{data.email}</span>
+          <p class="text-caption text-muted-foreground">{m.account_email_fixedHint()}</p>
+        </div>
         <div class="flex flex-col gap-2">
           {#if data.hasPassword}
             <a href="/account/change-password" class={settingLinkClass}>
@@ -355,4 +355,8 @@
   </Section>
 </PageContainer>
 
-<NotificationPreferencesDialog bind:open={notificationsOpen} data={data.notificationForm} />
+<NotificationPreferencesDialog
+  bind:open={notificationsOpen}
+  data={data.notificationForm}
+  primaryEmail={data.email}
+/>

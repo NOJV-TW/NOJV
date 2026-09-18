@@ -29,7 +29,9 @@ vi.mock("@nojv/application", () => ({
   passkeyRegistrationDenialReason: vi.fn(),
   securityGenerationProof: vi.fn(),
   userDomain: { linkUserCourseRoster: vi.fn() },
-  notificationDomain: { getNotificationPreferences: vi.fn().mockResolvedValue({}) },
+  notificationDomain: {
+    getNotificationPreferences: vi.fn().mockResolvedValue({}),
+  },
 }));
 vi.mock("@nojv/db", () => ({
   prismaAdapterClient: {
@@ -193,5 +195,46 @@ describe("unlinking one account of a provider", () => {
       .filter((account) => account.providerId === "google")
       .map((account) => account.accountId);
     expect(googleIds).toEqual(["linked-google"]);
+  });
+});
+
+describe("sign-in with an unknown provider identity that shares an email", () => {
+  it("does not implicitly link it to the existing account", async () => {
+    state.cookies.clear();
+    const auth = getAuth();
+    const context = await auth.$context;
+    for (const provider of context.socialProviders) {
+      provider.getUserInfo = async () => ({
+        user: {
+          id: `stranger-${provider.id}`,
+          email: "link@example.com",
+          emailVerified: true,
+          name: "Recycled mailbox",
+        },
+        data: {},
+      });
+    }
+    const before = (await context.internalAdapter.findAccounts(userId)).length;
+
+    const start = await auth.api.signInSocial({
+      body: { provider: "google", callbackURL: "/", errorCallbackURL: "/signin" },
+      headers: new Headers({ origin: "https://nojv.test" }),
+      returnHeaders: true,
+    });
+    const setCookies = start.headers
+      .getSetCookie()
+      .map((cookie) => cookie.split(";")[0])
+      .join("; ");
+    const callback = new URL("https://nojv.test/api/auth/callback/google");
+    callback.searchParams.set("code", "test-authorization-code");
+    callback.searchParams.set("state", new URL(start.response.url!).searchParams.get("state")!);
+    const response = await auth.handler(
+      new Request(callback, { headers: { cookie: setCookies } }),
+    );
+
+    const location = response.headers.get("location") ?? "";
+    expect(location).toContain("/signin");
+    expect(location).toContain("error=account_not_linked");
+    expect((await context.internalAdapter.findAccounts(userId)).length).toBe(before);
   });
 });

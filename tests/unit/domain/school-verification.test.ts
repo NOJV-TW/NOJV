@@ -49,7 +49,9 @@ describe("canonical school identities", () => {
   it.each(["b11902001", "ntnu_41047001a", "ntu_41047001a", "ntust_41047001a", "alice"])(
     "does not issue a school token for noncanonical username %s",
     async (username) => {
-      await expect(initiateSchoolVerification("user-1", username)).resolves.toMatchObject({
+      await expect(
+        initiateSchoolVerification("user-1", username, `${username}@ntnu.edu.tw`),
+      ).resolves.toMatchObject({
         status: "error",
         httpStatus: 400,
       });

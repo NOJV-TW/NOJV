@@ -12,9 +12,10 @@
   interface Props {
     open: boolean;
     data: SuperValidated<NotificationPreferences, FormMessage>;
+    primaryEmail: string;
   }
 
-  let { open = $bindable(false), data }: Props = $props();
+  let { open = $bindable(false), data, primaryEmail }: Props = $props();
 
   const { form, enhance, submitting } = superForm<NotificationPreferences, FormMessage>(
     untrack(() => data),
@@ -51,6 +52,26 @@
       use:enhance
       class="flex flex-col gap-6"
     >
+      <section class="flex flex-col gap-2">
+        <label
+          for="notify-email"
+          class="text-caption uppercase tracking-wide text-muted-foreground"
+        >
+          {m.account_notificationEmail_label()}
+        </label>
+        <input
+          id="notify-email"
+          type="email"
+          autocomplete="email"
+          placeholder={primaryEmail}
+          bind:value={$form.email}
+          class="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-body-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+        />
+        <p class="text-caption text-muted-foreground">
+          {m.account_notificationEmail_hint({ email: primaryEmail })}
+        </p>
+      </section>
+
       <section class="flex flex-col gap-3">
         <h3 class="text-caption uppercase tracking-wide text-muted-foreground">
           {m.account_notifications_groupAssignments()}

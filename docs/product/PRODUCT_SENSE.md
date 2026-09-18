@@ -131,9 +131,10 @@ This describes repository behavior; release and deployment verification are trac
 
 ### Authentication
 
-- Third-party sign-in only — GitHub OAuth + Google OAuth (no public email/password flow)
+- Third-party sign-in only — GitHub OAuth + Google OAuth (no public email/password flow). The login identity is the set of linked provider accounts; `User.email` never selects or merges an account. A provider identity new to NOJV whose email already belongs to an account is refused at `/signin` with instructions to sign in the existing way and link it under settings.
+- `User.email` is fixed to the signup address and receives security codes; it cannot be changed. An optional notification email, edited with the notification preferences, receives everything else and falls back to the login email when unset.
 - First OAuth sign-in requires a unique general username; school-ID formats are reserved and cannot be chosen during onboarding.
-- The username is set once at onboarding and is never editable afterwards; explicit three-school verification in settings is the only path that replaces it, with the verified student ID. Sign-in, primary-email changes, and linked login providers preserve the username; login only binds pending course memberships to the username already owned by the account.
+- The username is set once at onboarding and is never editable afterwards; explicit three-school verification in settings is the only path that replaces it, with the verified student ID. Verification records the proving school address and time on the account; the verified state itself still derives from the username. Sign-in, primary-email changes, and linked login providers preserve the username; login only binds pending course memberships to the username already owned by the account.
 - Admin-specific credential sign-in page. Regular admins explicitly enter admin mode after TOTP/passkey verification; super admins use password plus TOTP/passkey and receive admin access directly.
 - Each provider can hold several linked accounts, each unlinked individually, as long as one sign-in method remains. Google shows its account picker; GitHub has none, so switching GitHub accounts requires signing out of github.com first.
 - Super admins cannot use or link OAuth. First login changes the seeded password and sets up TOTP or passkey; password-first backup-code/email recovery grants factor setup only.
