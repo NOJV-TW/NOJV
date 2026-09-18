@@ -2106,6 +2106,7 @@
   "admin_tabRegistry": "映像倉庫",
   "admin_usersStatusActive": "使用中",
   "admin_usersAdvancedColumn": "特殊環境權限",
+  "admin_usersVerifiedColumn": "三校驗證",
   "admin_usersAdvancedAllowed": "已開通",
   "admin_usersAdvancedDenied": "未開通",
   "admin_usersAdvancedGrantSuccess": "已為 {username} 開通特殊環境出題。",

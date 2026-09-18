@@ -51,6 +51,8 @@ export const userRepo = {
         platformRole: true,
         disabled: true,
         canCreateAdvancedProblems: true,
+        schoolEmail: true,
+        schoolVerifiedAt: true,
         createdAt: true,
       },
       orderBy: opts.orderBy ?? { createdAt: "desc" },

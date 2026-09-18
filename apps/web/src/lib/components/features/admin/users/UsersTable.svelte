@@ -9,6 +9,8 @@
     platformRole: PlatformRole;
     disabled: boolean;
     canCreateAdvancedProblems: boolean;
+    schoolEmail: string | null;
+    schoolVerifiedAt: Date | string | null;
     createdAt: Date | string;
   }
 </script>
@@ -30,6 +32,7 @@
   import { Popover } from "bits-ui";
   import * as Select from "$lib/components/primitives/ui/select";
   import { Badge } from "$lib/components/primitives/ui/badge";
+  import { isReservedUsername } from "$lib/utils/school";
   import { Button } from "$lib/components/primitives/ui/button";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
@@ -417,6 +420,7 @@
             {onApply}
           />
         </th>
+        <th class="px-5 py-3 font-medium">{m.admin_usersVerifiedColumn()}</th>
         <th class="px-5 py-3 font-medium">
           <TableTextColumnFilter
             label={m.admin_usersEmail()}
@@ -588,7 +592,7 @@
     <tbody>
       {#if users.length === 0}
         <tr>
-          <td colspan="9" class="px-5 py-12 text-center">
+          <td colspan="10" class="px-5 py-12 text-center">
             <p class="font-medium">{m.admin_usersEmpty()}</p>
             <p class="mt-1 text-caption text-muted-foreground">{m.admin_usersEmptyHint()}</p>
           </td>
@@ -608,6 +612,20 @@
             {/if}
           </td>
           <td class="px-5 py-3 font-mono text-caption">{user.username ?? "—"}</td>
+          <td class="px-5 py-3">
+            {#if user.username && isReservedUsername(user.username)}
+              <div class="flex flex-col gap-0.5">
+                <Badge variant="success" size="sm" dot>{m.account_verifiedBadge()}</Badge>
+                {#if user.schoolEmail}
+                  <span class="font-mono text-caption text-muted-foreground"
+                    >{user.schoolEmail}</span
+                  >
+                {/if}
+              </div>
+            {:else}
+              <span class="text-muted-foreground">—</span>
+            {/if}
+          </td>
           <td class="px-5 py-3">{user.email}</td>
           <td class="px-5 py-3">{user.name}</td>
           <td class="px-5 py-3">

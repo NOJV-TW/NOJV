@@ -36,6 +36,8 @@ login method, a username, or a course binding, and nobody re-verifies.
   audit record written by explicit verification. Informational only —
   `isSchoolVerified` keeps deriving from the username so the 41 verified accounts
   whose primary email is not a school address stay verified.
+- `/admin/users` gains a verified column: the derived school-verified state plus the
+  recorded proving address, so recycled-ID cases are visible to admins.
 - Docs: SECURITY (retract "auto-linking by email is safe"), PRODUCT_SENSE,
   THREAT_MODEL (recycled-address story), DATABASE, FRONTEND.
 
