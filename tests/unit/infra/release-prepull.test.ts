@@ -37,6 +37,12 @@ describeHelm("release image prepull runs before the maintenance drain", () => {
     expect(prepull).toMatch(/command: \["node", "-e", "0"\]/);
   });
 
+  it("does not reference the sandbox namespace's pull secret from the sandbox prepull", () => {
+    const sandboxPrepull = docs.find((doc) => /name: nojv-sandbox-prepull\n/.test(doc)) ?? "";
+    expect(sandboxPrepull).not.toBe("");
+    expect(sandboxPrepull).not.toMatch(/imagePullSecrets/);
+  });
+
   it("is ordered ahead of the migrator, which drains the workloads", () => {
     expect(migrator).not.toBe("");
     expect(hookWeight(prepull)).toBeLessThan(hookWeight(migrator));
