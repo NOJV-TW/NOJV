@@ -137,6 +137,26 @@ Helm release v226 (chart `+c955c533`) rolled web, worker and worker-platform to
 v1.1.9 with zero restarts; `/api/release` reports `v1.1.9` / `e015f420` in-cluster
 and publicly.
 
+### Follow-up corrections (2026-09-18, admin SQL, guarded)
+
+- The 26 restored accounts got their chosen personal address back as `User.email`
+  (15 are the email claim of a linked Google account; 11 were verified by the old
+  change-email link), so security codes reach a mailbox they read. `schoolEmail`
+  stays as the audit record; the now-redundant notification email was cleared.
+- The 16 unrecoverable accounts are all NTNU student IDs; `schoolEmail` was set to
+  `<id>@gapps.ntnu.edu.tw` (the local part is the verified ID, NTNU student mail is
+  the Workspace domain). `User.email` untouched; `schoolVerifiedAt` stays NULL.
+- Result: `schoolEmail` 140/140, 98 login emails equal the school address, zero
+  duplicate emails, zero accounts without a login method, 168 active accounts.
+- Five of those 16 student mailboxes are `User.email` of a dormant second account
+  (0 memberships, 0 submissions, no sessions, Google-only, created minutes to days
+  after the real one): pre-#438 school-Google sign-ins whose student ID was already
+  held by the person's real account. Hard-deleted the same day under a guard
+  (exactly five rows, no memberships, submissions, participations, sessions,
+  owned courses, authored problems or non-Google accounts); this frees the school
+  Google identity so the owner can link it to their real account. Active accounts
+  163, zero school mailboxes owned by another account, zero orphan `Account` rows.
+
 ## References
 
 - [Product behavior](../../product/PRODUCT_SENSE.md)
