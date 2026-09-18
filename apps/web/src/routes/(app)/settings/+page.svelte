@@ -10,6 +10,7 @@
     Compass,
     Fingerprint,
     KeyRound,
+    Mail,
     ShieldCheck,
     Trash2,
   } from "@lucide/svelte";
@@ -25,6 +26,7 @@
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { Card } from "$lib/components/primitives/ui/card";
   import { Badge } from "$lib/components/primitives/ui/badge";
+  import { Input } from "$lib/components/primitives/ui/input";
   import { toasts } from "$lib/stores/toast";
   import type { PageData } from "./$types";
 
@@ -34,7 +36,59 @@
   let totpOpen = $state(false);
   let passkeyOpen = $state(false);
   let unlockOpen = $state(untrack(() => data.setupAutoOpen));
-  let pendingSecurityMethod = $state<"totp" | "passkey" | null>(null);
+  let pendingSecurityMethod = $state<"totp" | "passkey" | "email" | null>(null);
+
+  let securityEmailOpen = $state(false);
+  let securityEmailValue = $state("");
+  let securityEmailBusy = $state(false);
+  let securityEmailError = $state("");
+  let securityEmailSentTo = $state("");
+
+  const securityEmailSubmit: SubmitFunction = () => {
+    securityEmailError = "";
+    securityEmailBusy = true;
+    return async ({ result, update }) => {
+      securityEmailBusy = false;
+      if (result.type === "failure") {
+        securityEmailError = mapSecurityEmailError((result.data?.error as string) ?? "");
+        return;
+      }
+      if (result.type === "success") {
+        securityEmailSentTo = (result.data?.securityEmailSentTo as string) ?? data.email;
+        securityEmailOpen = false;
+        securityEmailValue = "";
+      }
+      await update({ reset: false });
+    };
+  };
+
+  function mapSecurityEmailError(code: string): string {
+    switch (code) {
+      case "securityEmailInvalid":
+        return m.account_securityEmail_error_invalid();
+      case "securityEmailUnchanged":
+        return m.account_securityEmail_error_unchanged();
+      case "securityEmailTaken":
+        return m.account_securityEmail_error_taken();
+      case "securityEmailLocked":
+        return m.account_securityEmail_error_locked();
+      case "securityEmailForbidden":
+        return m.account_securityEmail_error_forbidden();
+      default:
+        return m.account_securityEmail_error_failed();
+    }
+  }
+
+  function openSecurityEmailForm() {
+    securityEmailError = "";
+    securityEmailSentTo = "";
+    if (data.hasSecurityFactor && !data.securitySettingsUnlocked) {
+      pendingSecurityMethod = "email";
+      unlockOpen = true;
+      return;
+    }
+    securityEmailOpen = true;
+  }
 
   const passkeyEnabled = $derived(data.passkeys.length > 0);
   const factorKindCount = $derived((data.hasTotp ? 1 : 0) + (passkeyEnabled ? 1 : 0));
@@ -52,6 +106,7 @@
   function continueAfterUnlock() {
     if (pendingSecurityMethod === "totp") totpOpen = true;
     else if (pendingSecurityMethod === "passkey") passkeyOpen = true;
+    else if (pendingSecurityMethod === "email") securityEmailOpen = true;
     pendingSecurityMethod = null;
   }
 
@@ -166,12 +221,79 @@
           <h2 class="text-title-sm">{m.account_loginSecurity_title()}</h2>
           <p class="text-body-sm text-muted-foreground">{m.account_loginSecurity_hint()}</p>
         </div>
-        <div class="flex flex-col gap-1 rounded-md border border-border px-4 py-3">
-          <span class="text-caption uppercase tracking-wide text-muted-foreground">
-            {m.account_email()}
-          </span>
-          <span class="text-body font-medium break-all">{data.email}</span>
-          <p class="text-caption text-muted-foreground">{m.account_email_fixedHint()}</p>
+        <div class="overflow-hidden rounded-md border border-border">
+          <div class="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
+            <div class="flex min-w-0 flex-col gap-1">
+              <span
+                class="flex items-center gap-2 text-caption uppercase tracking-wide text-muted-foreground"
+              >
+                <Mail aria-hidden="true" class="h-3.5 w-3.5" />
+                {m.account_securityEmail_label()}
+              </span>
+              <span class="text-body font-medium break-all">{data.email}</span>
+            </div>
+            {#if data.canLinkProviders}
+              <button
+                type="button"
+                class={methodBtnClass}
+                aria-expanded={securityEmailOpen}
+                onclick={() => {
+                  if (securityEmailOpen) securityEmailOpen = false;
+                  else openSecurityEmailForm();
+                }}
+              >
+                {securityEmailOpen ? m.common_cancel() : m.account_securityEmail_change()}
+              </button>
+            {/if}
+          </div>
+
+          {#if securityEmailSentTo}
+            <p
+              class="flex items-start gap-2 border-t border-border-subtle bg-success/10 px-4 py-3 text-body-sm text-success"
+              role="status"
+            >
+              <ShieldCheck aria-hidden="true" class="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{m.account_securityEmail_sent({ email: securityEmailSentTo })}</span>
+            </p>
+          {/if}
+
+          {#if securityEmailOpen}
+            <form
+              method="POST"
+              action="?/changeSecurityEmail"
+              use:enhance={securityEmailSubmit}
+              class="flex flex-col gap-3 border-t border-border-subtle bg-muted/30 px-4 py-3"
+            >
+              <p class="text-caption text-muted-foreground">
+                {m.account_securityEmail_flowHint({ email: data.email })}
+              </p>
+              <label class="flex flex-col gap-1.5">
+                <span class="text-caption font-medium">
+                  {m.account_securityEmail_newLabel()}
+                </span>
+                <Input
+                  name="newEmail"
+                  type="email"
+                  required
+                  autocomplete="email"
+                  spellcheck={false}
+                  bind:value={securityEmailValue}
+                  aria-invalid={securityEmailError ? "true" : undefined}
+                  placeholder="you@example.com"
+                />
+              </label>
+              {#if securityEmailError}
+                <p class="text-body-sm text-destructive" role="alert">{securityEmailError}</p>
+              {/if}
+              <button
+                type="submit"
+                disabled={securityEmailBusy || securityEmailValue.trim().length === 0}
+                class="{methodBtnClass} self-start disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {m.account_securityEmail_submit()}
+              </button>
+            </form>
+          {/if}
         </div>
         <div class="flex flex-col gap-2">
           {#if data.hasPassword}
@@ -402,13 +524,12 @@
               <span class="text-caption text-muted-foreground">
                 {m.account_delete_confirmLabel({ email: data.email })}
               </span>
-              <input
+              <Input
                 name="confirmation"
                 bind:value={deleteConfirmation}
                 autocomplete="off"
                 autocapitalize="none"
-                spellcheck="false"
-                class="rounded-md border border-border bg-background px-3 py-2 text-body-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                spellcheck={false}
               />
             </label>
             {#if deleteError}
