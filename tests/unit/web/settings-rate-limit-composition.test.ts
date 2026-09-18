@@ -56,6 +56,7 @@ vi.mock("@nojv/application", () => ({
     getNotificationPreferences: vi.fn(),
     updateNotificationPreferences: vi.fn(),
   },
+  userDomain: { listLinkedAccountEmails: vi.fn() },
 }));
 vi.mock("sveltekit-superforms/server", () => ({
   message: vi.fn(),

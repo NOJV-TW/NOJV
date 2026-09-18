@@ -18,6 +18,7 @@
   import SecuritySettingsUnlockDialog from "$lib/components/features/account/SecuritySettingsUnlockDialog.svelte";
   import PasskeyDialog from "$lib/components/features/account/PasskeyDialog.svelte";
   import SchoolVerificationSection from "$lib/components/features/auth/SchoolVerification.svelte";
+  import ProviderIcon from "$lib/components/features/auth/ProviderIcon.svelte";
   import Section from "$lib/components/primitives/ui/Section.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { Card } from "$lib/components/primitives/ui/card";
@@ -56,9 +57,7 @@
   let oauthError = $state("");
   const providerLabel: Record<string, string> = { github: "GitHub", google: "Google" };
 
-  const linkedCount = $derived(
-    data.providers.reduce((total, p) => total + p.accounts.length, 0),
-  );
+  const linkedCount = $derived(data.accounts.length);
   const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 
   function oauthSubmit(provider: string): SubmitFunction {
@@ -230,7 +229,7 @@
         </div>
       </section>
 
-      {#if data.providers.length > 0}
+      {#if data.canLinkProviders}
         <section class="flex flex-col gap-4 border-t border-border-subtle pt-4">
           <div class="flex flex-col gap-1">
             <h2 class="text-title-sm">{m.account_connections_title()}</h2>
@@ -242,56 +241,61 @@
             <p class="text-body-sm text-destructive" role="alert">{oauthError}</p>
           {/if}
           <div class="flex flex-col gap-3">
-            {#each data.providers as { provider, accounts } (provider)}
-              <div class="flex flex-col gap-3 rounded-md border border-border px-4 py-3">
-                <div class="flex items-center justify-between gap-4">
-                  <span class="text-body-sm font-medium"
-                    >{providerLabel[provider] ?? provider}</span
-                  >
-                  <form method="POST" action="?/link" use:enhance={oauthSubmit(provider)}>
-                    <input type="hidden" name="provider" value={provider} />
-                    <button
-                      type="submit"
-                      disabled={oauthBusy}
-                      class="rounded-md border border-border px-3 py-1.5 text-caption font-medium disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {accounts.length === 0
-                        ? m.account_connections_link()
-                        : m.account_connections_linkAnother()}
-                    </button>
-                  </form>
-                </div>
-                {#each accounts as { accountId, createdAt } (accountId)}
-                  {@const lastMethod = linkedCount === 1 && !data.hasPassword}
-                  <div
-                    class="flex items-center justify-between gap-4 border-t border-border-subtle pt-3"
-                  >
+            {#each data.accounts as { provider, accountId, email, createdAt } (provider + accountId)}
+              {@const lastMethod = linkedCount === 1 && !data.hasPassword}
+              <div
+                class="flex items-center justify-between gap-4 rounded-md border border-border px-4 py-3"
+              >
+                <div class="flex min-w-0 items-center gap-3">
+                  <ProviderIcon {provider} class="size-5 shrink-0" />
+                  <div class="flex min-w-0 flex-col">
+                    <span class="truncate text-body-sm font-medium">
+                      {email ?? providerLabel[provider]}
+                    </span>
                     <span class="text-caption text-muted-foreground">
-                      {m.account_connections_linkedOn({
+                      {#if email}{providerLabel[provider]} ·
+                      {/if}{m.account_connections_linkedOn({
                         date: dateFormat.format(new Date(createdAt)),
                       })}
                     </span>
-                    <form method="POST" action="?/unlink" use:enhance={oauthSubmit(provider)}>
-                      <input type="hidden" name="provider" value={provider} />
-                      <input type="hidden" name="accountId" value={accountId} />
-                      <button
-                        type="submit"
-                        disabled={oauthBusy || lastMethod}
-                        title={lastMethod ? m.account_connections_lastMethodHint() : undefined}
-                        class="rounded-md border border-destructive/40 px-3 py-1.5 text-caption font-medium text-destructive disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {m.account_connections_unlink()}
-                      </button>
-                    </form>
                   </div>
-                {/each}
-                {#if provider === "github" && accounts.length > 0}
-                  <p class="text-caption text-muted-foreground">
-                    {m.account_connections_githubSwitchHint()}
-                  </p>
-                {/if}
+                </div>
+                <form method="POST" action="?/unlink" use:enhance={oauthSubmit(provider)}>
+                  <input type="hidden" name="provider" value={provider} />
+                  <input type="hidden" name="accountId" value={accountId} />
+                  <button
+                    type="submit"
+                    disabled={oauthBusy || lastMethod}
+                    title={lastMethod ? m.account_connections_lastMethodHint() : undefined}
+                    class="rounded-md border border-destructive/40 px-3 py-1.5 text-caption font-medium text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {m.account_connections_unlink()}
+                  </button>
+                </form>
               </div>
             {/each}
+            <div class="flex flex-wrap gap-2">
+              {#each ["google", "github"] as const as provider (provider)}
+                <form method="POST" action="?/link" use:enhance={oauthSubmit(provider)}>
+                  <input type="hidden" name="provider" value={provider} />
+                  <button
+                    type="submit"
+                    disabled={oauthBusy}
+                    class="inline-flex items-center gap-2 rounded-md border border-dashed border-border px-3 py-1.5 text-caption font-medium disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <ProviderIcon {provider} class="size-4" />
+                    {m.account_connections_add({
+                      provider: providerLabel[provider] ?? provider,
+                    })}
+                  </button>
+                </form>
+              {/each}
+            </div>
+            {#if data.accounts.some((account) => account.provider === "github")}
+              <p class="text-caption text-muted-foreground">
+                {m.account_connections_githubSwitchHint()}
+              </p>
+            {/if}
           </div>
         </section>
       {/if}

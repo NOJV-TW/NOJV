@@ -136,7 +136,7 @@ This describes repository behavior; release and deployment verification are trac
 - First OAuth sign-in requires a unique general username; school-ID formats are reserved and cannot be chosen during onboarding.
 - The username is set once at onboarding and is never editable afterwards; explicit three-school verification in settings is the only path that replaces it, with the verified student ID. Verification records the proving school address and time on the account; the verified state itself still derives from the username. Sign-in, primary-email changes, and linked login providers preserve the username; login only binds pending course memberships to the username already owned by the account.
 - Admin-specific credential sign-in page. Regular admins explicitly enter admin mode after TOTP/passkey verification; super admins use password plus TOTP/passkey and receive admin access directly.
-- Each provider can hold several linked accounts, each unlinked individually, as long as one sign-in method remains. Google shows its account picker; GitHub has none, so switching GitHub accounts requires signing out of github.com first.
+- Each linked provider account is listed as its own row — with the address the provider reports where it supplies one (Google's id_token; GitHub has none) — and unlinked individually, as long as one sign-in method remains. Google shows its account picker; GitHub has none, so switching GitHub accounts requires signing out of github.com first.
 - Super admins cannot use or link OAuth. First login changes the seeded password and sets up TOTP or passkey; password-first backup-code/email recovery grants factor setup only.
 
 ### Administration
