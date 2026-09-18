@@ -8,15 +8,11 @@ import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { isReservedUsername } from "$lib/utils/school";
 import type { FormMessage } from "$lib/types/form-message";
-import { nameSchema, usernameSchema } from "./schemas";
+import { nameSchema } from "./schemas";
 
 const { canViewProfile, getPublicProfile } = userDomain;
 
 const ERROR_STATUS: Record<string, number> = {
-  VERIFIED_LOCKED: 409,
-  TAKEN: 409,
-  RESERVED_FORMAT: 409,
-  INVALID_FORMAT: 400,
   INVALID_NAME: 400,
 };
 
@@ -54,9 +50,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     owner = {
       platformRole: sessionUser.platformRole,
       isSchoolVerified,
-      canEditUsername: !isSchoolVerified,
       nameForm: await superValidate({ name: profile.user.name }, zod4(nameSchema)),
-      usernameForm: await superValidate({ username: username ?? "" }, zod4(usernameSchema)),
     };
   }
 
@@ -107,34 +101,5 @@ export const actions = {
     }
 
     return message<FormMessage>(form, { kind: "success", text: "OK" });
-  }),
-
-  updateUsername: withRateLimit(async (event) => {
-    const actor = requireAuth(event);
-    if (actor.userId !== event.params.id) {
-      return fail(403);
-    }
-    const form = await superValidate(event, zod4(usernameSchema));
-    if (!form.valid) {
-      return fail(400, { form });
-    }
-
-    let merged: boolean;
-    try {
-      const result = await userDomain.renameUsername(actor.userId, form.data.username);
-      merged = result.merged;
-    } catch (err) {
-      const { code, status } = classifyDomainError(err);
-      return message<FormMessage>(
-        form,
-        { kind: "error", text: code },
-        { status: status as 400 | 403 | 409 | 500 },
-      );
-    }
-
-    return message<FormMessage>(form, {
-      kind: "success",
-      text: merged ? "MERGED" : "OK",
-    });
   }),
 } satisfies Actions;

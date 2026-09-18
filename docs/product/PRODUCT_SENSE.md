@@ -53,7 +53,7 @@ This describes repository behavior; release and deployment verification are trac
 
 - Course creation and management
 - Teacher-driven enrollment by full username, with durable roster rows before an account exists. Teachers use bare NTNU student IDs, `ntu_` / `ntust_` prefixes for NTU / NTUST, or general usernames; prefixes are never inferred.
-- Students and TAs bind automatically when the matching account obtains its username. School verification keeps the existing account and its credentials/submissions; a school roster collision keeps the school row and its conflicting role, scores, and feedback. A general rename keeps the already-linked row. If either enrollment was removed, the merged enrollment stays removed until a teacher restores it; existing owner/teacher membership protections still apply. Nonconflicting data and both audit histories survive.
+- Students and TAs bind automatically when the matching account obtains its username. School verification keeps the existing account and its credentials/submissions; a school roster collision keeps the school row and its conflicting role, scores, and feedback. If either enrollment was removed, the merged enrollment stays removed until a teacher restores it; existing owner/teacher membership protections still apply. Nonconflicting data and both audit histories survive.
 - Teachers can correct an unlinked roster username without changing its membership ID, grades, feedback, role, or enrollment dates. An existing account links immediately if it has no other membership in the course. Conflicting course memberships and already-linked roster identities cannot be overwritten by this action.
 - Course roles: teacher, TA, student
 - Assessment management with open/due/close lifecycle (Temporal-managed)
@@ -133,8 +133,9 @@ This describes repository behavior; release and deployment verification are trac
 
 - Third-party sign-in only — GitHub OAuth + Google OAuth (no public email/password flow)
 - First OAuth sign-in requires a unique general username; school-ID formats are reserved and cannot be chosen during onboarding.
-- Explicit three-school verification in settings replaces the existing username with the verified student ID. Sign-in, primary-email changes, and linked login providers preserve the username; login only binds pending course memberships to the username already owned by the account.
+- The username is set once at onboarding and is never editable afterwards; explicit three-school verification in settings is the only path that replaces it, with the verified student ID. Sign-in, primary-email changes, and linked login providers preserve the username; login only binds pending course memberships to the username already owned by the account.
 - Admin-specific credential sign-in page. Regular admins explicitly enter admin mode after TOTP/passkey verification; super admins use password plus TOTP/passkey and receive admin access directly.
+- Each provider can hold several linked accounts, each unlinked individually, as long as one sign-in method remains. Google shows its account picker; GitHub has none, so switching GitHub accounts requires signing out of github.com first.
 - Super admins cannot use or link OAuth. First login changes the seeded password and sets up TOTP or passkey; password-first backup-code/email recovery grants factor setup only.
 
 ### Administration

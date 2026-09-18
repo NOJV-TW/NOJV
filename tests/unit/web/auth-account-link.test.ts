@@ -153,8 +153,45 @@ describe("account linking from a server action", () => {
       expect(accounts).toContainEqual(
         expect.objectContaining({ providerId: provider, userId }),
       );
-      expect((await load(event))?.providers).toContainEqual({ provider, linked: true });
+      expect((await load(event))?.providers).toContainEqual({
+        provider,
+        accounts: [expect.objectContaining({ accountId: expect.any(String) })],
+      });
       expect((await auth.api.getSession({ headers }))?.session.id).toBe(session!.session.id);
     },
   );
+});
+
+describe("unlinking one account of a provider", () => {
+  it("removes only the named account and keeps the other binding", async () => {
+    const auth = getAuth();
+    const context = await auth.$context;
+    const headers = new Headers({ cookie: sessionCookie, origin: "https://nojv.test" });
+    await context.internalAdapter.createAccount({
+      userId,
+      providerId: "google",
+      accountId: "second-google",
+    });
+
+    const body = new FormData();
+    body.set("provider", "google");
+    body.set("accountId", "second-google");
+    const session = await auth.api.getSession({ headers });
+    const event = {
+      locals: { user: session!.user, sessionUser: session!.user },
+      url: new URL("https://nojv.test/settings"),
+      request: new Request("https://nojv.test/settings?/unlink", {
+        method: "POST",
+        headers,
+        body,
+      }),
+    } as unknown as Parameters<typeof load>[0];
+
+    await expect(actions.unlink(event)).resolves.toEqual({ unlinked: "google" });
+
+    const googleIds = (await auth.api.listUserAccounts({ headers }))
+      .filter((account) => account.providerId === "google")
+      .map((account) => account.accountId);
+    expect(googleIds).toEqual(["linked-google"]);
+  });
 });
