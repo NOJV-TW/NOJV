@@ -151,7 +151,11 @@ and publicly.
 - Five of those 16 student mailboxes are `User.email` of a dormant second account
   (0 memberships, 0 submissions, no sessions, Google-only, created minutes to days
   after the real one): pre-#438 school-Google sign-ins whose student ID was already
-  held by the person's real account. Left in place pending a decision.
+  held by the person's real account. Hard-deleted the same day under a guard
+  (exactly five rows, no memberships, submissions, participations, sessions,
+  owned courses, authored problems or non-Google accounts); this frees the school
+  Google identity so the owner can link it to their real account. Active accounts
+  163, zero school mailboxes owned by another account, zero orphan `Account` rows.
 
 ## References
 
