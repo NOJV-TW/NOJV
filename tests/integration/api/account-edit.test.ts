@@ -192,6 +192,32 @@ describe("account edits preserve user and roster identity", () => {
     },
   );
 
+  it("releases the provider identity when an account is soft-deleted", async () => {
+    const course = await createTestCourse();
+    const user = await createTestUser({ name: "Student" });
+    await testPrisma.courseMembership.create({
+      data: { courseId: course.id, userId: user.id, role: "student", status: "active" },
+    });
+    await testPrisma.account.create({
+      data: {
+        id: `acct-${user.id}`,
+        userId: user.id,
+        providerId: "google",
+        accountId: `google-sub-${user.id}`,
+      },
+    });
+
+    await expect(userDomain.deleteUser(true, user.id)).resolves.toMatchObject({ mode: "soft" });
+
+    await expect(
+      testPrisma.account.findUnique({
+        where: {
+          providerId_accountId: { providerId: "google", accountId: `google-sub-${user.id}` },
+        },
+      }),
+    ).resolves.toBeNull();
+  });
+
   it.each([false, true])(
     "blocks new User foreign keys after deletion counts, with existing submission=%s",
     async (hasSubmission) => {

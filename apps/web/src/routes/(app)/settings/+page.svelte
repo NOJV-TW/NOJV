@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { enhance } from "$app/forms";
+  import { page } from "$app/state";
   import type { SubmitFunction } from "@sveltejs/kit";
   import { m } from "$lib/paraglide/messages.js";
   import {
@@ -10,6 +11,7 @@
     Fingerprint,
     KeyRound,
     ShieldCheck,
+    Trash2,
   } from "@lucide/svelte";
   import { replayStudentTour } from "$lib/onboarding/student-tour";
   import { replayTeacherTour } from "$lib/onboarding/teacher-tour";
@@ -56,6 +58,11 @@
   let oauthBusy = $state(false);
   let oauthError = $state("");
   const providerLabel: Record<string, string> = { github: "GitHub", google: "Google" };
+  const redirectError = $derived.by(() => {
+    const code = page.url.searchParams.get("error");
+    return code ? mapOAuthError(code) : "";
+  });
+  const connectionError = $derived(oauthError || redirectError);
 
   const linkedCount = $derived(data.accounts.length);
   const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
@@ -90,8 +97,46 @@
         return m.account_connections_error_linkFailed();
       case "unlinkFailed":
         return m.account_connections_error_unlinkFailed();
+      case "account_already_linked_to_different_user":
+        return m.account_connections_error_claimedByOther();
+      case "unable_to_link_account":
+      case "email_doesn't_match":
+        return m.account_connections_error_linkFailed();
       default:
         return m.account_connections_error_unexpected();
+    }
+  }
+
+  let deleteConfirmation = $state("");
+  let deleteBusy = $state(false);
+  let deleteError = $state("");
+  const deleteArmed = $derived(
+    deleteConfirmation.trim().toLowerCase() === data.email.toLowerCase(),
+  );
+
+  const deleteSubmit: SubmitFunction = () => {
+    deleteError = "";
+    deleteBusy = true;
+    return async ({ result, update }) => {
+      deleteBusy = false;
+      if (result.type === "failure") {
+        deleteError = mapDeleteError((result.data?.error as string) ?? "");
+        return;
+      }
+      await update();
+    };
+  };
+
+  function mapDeleteError(code: string): string {
+    switch (code) {
+      case "deleteConfirmation":
+        return m.account_delete_error_confirmation();
+      case "deleteBlocked":
+        return m.account_delete_error_blocked();
+      case "deleteForbidden":
+        return m.account_delete_error_forbidden();
+      default:
+        return m.account_delete_error_unexpected();
     }
   }
 
@@ -237,8 +282,8 @@
               {m.account_connections_hint()}
             </p>
           </div>
-          {#if oauthError}
-            <p class="text-body-sm text-destructive" role="alert">{oauthError}</p>
+          {#if connectionError}
+            <p class="text-body-sm text-destructive" role="alert">{connectionError}</p>
           {/if}
           <div class="flex flex-col gap-3">
             {#each data.accounts as { provider, accountId, email, createdAt } (provider + accountId)}
@@ -338,6 +383,46 @@
             </span>
             <ChevronRight aria-hidden="true" class={settingChevronClass} />
           </button>
+        </section>
+      {/if}
+
+      {#if data.platformRole === "student" || data.platformRole === "teacher"}
+        <section class="flex flex-col gap-4 border-t border-border-subtle pt-4">
+          <div class="flex flex-col gap-1">
+            <h2 class="text-title-sm text-destructive">{m.account_delete_title()}</h2>
+            <p class="text-body-sm text-muted-foreground">{m.account_delete_hint()}</p>
+          </div>
+          <form
+            method="POST"
+            action="?/deleteAccount"
+            use:enhance={deleteSubmit}
+            class="flex flex-col gap-3"
+          >
+            <label class="flex flex-col gap-1.5">
+              <span class="text-caption text-muted-foreground">
+                {m.account_delete_confirmLabel({ email: data.email })}
+              </span>
+              <input
+                name="confirmation"
+                bind:value={deleteConfirmation}
+                autocomplete="off"
+                autocapitalize="none"
+                spellcheck="false"
+                class="rounded-md border border-border bg-background px-3 py-2 text-body-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+              />
+            </label>
+            {#if deleteError}
+              <p class="text-body-sm text-destructive" role="alert">{deleteError}</p>
+            {/if}
+            <button
+              type="submit"
+              disabled={deleteBusy || !deleteArmed}
+              class="inline-flex items-center gap-2 self-start rounded-md border border-destructive/40 px-3 py-1.5 text-caption font-medium text-destructive transition-colors duration-fast ease-out-soft hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Trash2 aria-hidden="true" class="size-4" />
+              {m.account_delete_submit()}
+            </button>
+          </form>
         </section>
       {/if}
 

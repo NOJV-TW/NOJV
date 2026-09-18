@@ -1,4 +1,9 @@
-import { notificationDomain, userDomain } from "@nojv/application";
+import {
+  ConflictError,
+  ForbiddenError,
+  notificationDomain,
+  userDomain,
+} from "@nojv/application";
 import { notificationPreferencesSchema } from "@nojv/core";
 import { fail, redirect } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
@@ -95,7 +100,7 @@ export const actions = {
       return fail(400, { error: "unknownProvider" });
     }
     const res = await getAuth().api.linkSocialAccount({
-      body: { provider, callbackURL: "/settings" },
+      body: { provider, callbackURL: "/settings", errorCallbackURL: "/settings" },
       headers: event.request.headers,
       returnHeaders: true,
     });
@@ -130,5 +135,31 @@ export const actions = {
       return fail(400, { error: "unlinkFailed" });
     }
     return { unlinked: provider };
+  }),
+
+  deleteAccount: withRateLimit(async (event) => {
+    const actor = requireAuth(event);
+    if (event.locals.sessionUser?.isSuperAdmin) {
+      return fail(403, { error: "deleteForbidden" });
+    }
+    const confirmation = formString(await event.request.formData(), "confirmation").trim();
+    const expected = event.locals.user?.email.toLowerCase();
+    if (!expected || confirmation.toLowerCase() !== expected) {
+      return fail(400, { error: "deleteConfirmation" });
+    }
+
+    try {
+      if (!(await userDomain.deleteUser(false, actor.userId))) {
+        return fail(404, { error: "deleteFailed" });
+      }
+    } catch (err) {
+      if (err instanceof ConflictError) return fail(409, { error: "deleteBlocked" });
+      if (err instanceof ForbiddenError) return fail(403, { error: "deleteForbidden" });
+      throw err;
+    }
+
+    const cookie = (await getAuth().$context).createAuthCookie("session_token");
+    event.cookies.delete(cookie.name, { path: cookie.attributes.path ?? "/" });
+    redirect(303, "/");
   }),
 } satisfies Actions;
