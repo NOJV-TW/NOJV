@@ -101,13 +101,41 @@ consult `changeEmail.enabled`. None were in flight at audit time.
 - [x] Tests: no implicit link on real OAuth callback; notification delivery target;
       verify-link mail; school proof persisted
 - [x] Docs aligned; format, lint, typecheck, unit, integration (CI)
-- [ ] Release: tag after CI, re-run the audit queries above post-rollout and
-      confirm the 99 backfilled rows plus zero login regressions
+- [x] Release: tag after CI, re-run the audit queries above post-rollout and
+      confirm the backfilled rows plus zero login regressions
 
 ## Validation
 
 Integration runs in CI against its own database. Post-rollout, repeat the audit
 queries read-only and confirm `count(schoolEmail IS NOT NULL) = 124` and 25 restored login emails.
+
+## Results
+
+Shipped as v1.1.9 (`e015f420`, PR #449, with #445 and #446). Migration
+`20260918000000_identity_hardening` applied on 2026-09-18 11:09 UTC with the old
+workloads held at zero; read-only audit immediately after:
+
+| Check                                               | Result  | Expected |
+| --------------------------------------------------- | ------- | -------- |
+| Active users with no `Account` row                  | 0       | 0        |
+| Student-ID usernames                                | 140     | 140      |
+| `schoolEmail` filled                                | 124     | 124      |
+| …on a non-student-ID username / local-part mismatch | 0 / 0   | 0 / 0    |
+| Login email equals `schoolEmail`                    | 124     | 124      |
+| Login email restored, personal kept for notices     | 26      | 25       |
+| `schoolVerifiedAt` set by backfill                  | 0       | 0        |
+| Duplicate emails / active users                     | 0 / 168 | 0 / 168  |
+
+The 26th restored account came from the 99-row group, not from an
+unrecoverable one: six minutes before the migration, while v1.1.8 was still
+serving, that user linked a personal Google account and used the old "change
+email" to move their login email onto it. The migration saw a personal login
+email with a school id_token claim and applied the designed rule. The 16
+accounts without a recoverable proving address are unchanged.
+
+Helm release v226 (chart `+c955c533`) rolled web, worker and worker-platform to
+v1.1.9 with zero restarts; `/api/release` reports `v1.1.9` / `e015f420` in-cluster
+and publicly.
 
 ## References
 
