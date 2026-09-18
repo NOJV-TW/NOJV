@@ -28,9 +28,12 @@ vi.mock("@nojv/application", () => ({
   markVerifiedSession: vi.fn(),
   passkeyRegistrationDenialReason: vi.fn(),
   securityGenerationProof: vi.fn(),
+  ConflictError: class ConflictError extends Error {},
+  ForbiddenError: class ForbiddenError extends Error {},
   userDomain: {
     linkUserCourseRoster: vi.fn(),
     listLinkedAccountEmails: vi.fn().mockResolvedValue({}),
+    deleteUser: vi.fn(),
   },
   notificationDomain: {
     getNotificationPreferences: vi.fn().mockResolvedValue({}),
@@ -69,7 +72,9 @@ vi.mock("sveltekit-superforms/server", () => ({
   superValidate: vi.fn().mockResolvedValue({}),
 }));
 
+import { userDomain } from "@nojv/application";
 import { getAuth } from "$lib/auth.server";
+import { requireAuth } from "$lib/server/auth";
 import { actions, load } from "$lib/../routes/(app)/settings/+page.server";
 
 let sessionCookie: string;
@@ -238,5 +243,51 @@ describe("sign-in with an unknown provider identity that shares an email", () =>
     expect(location).toContain("/signin");
     expect(location).toContain("error=account_not_linked");
     expect((await context.internalAdapter.findAccounts(userId)).length).toBe(before);
+  });
+});
+
+describe("deleting your own account", () => {
+  async function callDeleteAccount(confirmation: string) {
+    const auth = getAuth();
+    const headers = new Headers({ cookie: sessionCookie, origin: "https://nojv.test" });
+    const session = await auth.api.getSession({ headers });
+    const body = new FormData();
+    body.set("confirmation", confirmation);
+    const deletedCookies: string[] = [];
+    const event = {
+      cookies: { delete: (name: string) => deletedCookies.push(name) },
+      locals: { user: session!.user, sessionUser: session!.user },
+      url: new URL("https://nojv.test/settings"),
+      request: new Request("https://nojv.test/settings?/deleteAccount", {
+        method: "POST",
+        headers,
+        body,
+      }),
+    } as unknown as Parameters<typeof load>[0];
+    vi.mocked(requireAuth).mockReturnValue({
+      userId,
+    } as unknown as ReturnType<typeof requireAuth>);
+    const outcome = await actions.deleteAccount(event).catch((error: unknown) => error);
+    return { outcome, deletedCookies };
+  }
+
+  it("refuses a confirmation that is not the account email", async () => {
+    vi.mocked(userDomain.deleteUser).mockClear();
+    const { outcome } = await callDeleteAccount("link@example.co");
+    expect(outcome).toMatchObject({ status: 400, data: { error: "deleteConfirmation" } });
+    expect(userDomain.deleteUser).not.toHaveBeenCalled();
+  });
+
+  it("deletes the account and drops the session cookie on an exact confirmation", async () => {
+    vi.mocked(userDomain.deleteUser).mockResolvedValue({
+      mode: "hard",
+      name: "Account link test",
+    });
+    const { outcome, deletedCookies } = await callDeleteAccount("  LINK@example.com  ");
+    if (!isRedirect(outcome)) throw new Error("Account deletion did not redirect");
+    expect(outcome.status).toBe(303);
+    expect(outcome.location).toBe("/");
+    expect(userDomain.deleteUser).toHaveBeenCalledWith(false, userId);
+    expect(deletedCookies).toEqual([expect.stringContaining("session_token")]);
   });
 });

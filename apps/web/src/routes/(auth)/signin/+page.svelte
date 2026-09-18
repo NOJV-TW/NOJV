@@ -7,9 +7,10 @@
   const errorText = $derived.by(() => {
     const code = page.url.searchParams.get("error");
     if (!code) return null;
-    return code === "account_not_linked"
-      ? m.auth_error_accountNotLinked()
-      : m.auth_error_generic();
+    if (code === "account_not_linked") return m.auth_error_accountNotLinked();
+    if (code === "account_already_linked_to_different_user")
+      return m.auth_error_claimedByOther();
+    return m.auth_error_generic();
   });
 </script>
 
