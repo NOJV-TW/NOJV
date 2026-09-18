@@ -29,8 +29,8 @@ login method, a username, or a course binding, and nobody re-verifies.
   `errorCallbackURL` land every OAuth error on `/signin`, which explains
   `account_not_linked` and points to settings → sign-in methods.
 - Remove `user.changeEmail`, the settings action, form, schema, and messages.
-- `NotificationPreference.email` / `emailVerifiedAt`: link-verified from settings
-  → notifications, no step-up. Notification delivery uses it when verified, else
+- `NotificationPreference.email` / `emailVerifiedAt`: link-verified inside the
+  notification preferences dialog, next to the toggles, no step-up. Notification delivery uses it when verified, else
   `User.email`.
 - `User.schoolEmail` / `schoolVerifiedAt` and `SchoolVerificationToken.email`:
   audit record written by explicit verification. Informational only —

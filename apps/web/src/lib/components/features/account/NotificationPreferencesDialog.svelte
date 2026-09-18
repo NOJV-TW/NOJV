@@ -5,6 +5,7 @@
   import type { NotificationPreferences } from "@nojv/core";
   import * as Dialog from "$lib/components/primitives/ui/dialog";
   import ToggleSwitch from "$lib/components/primitives/ui/ToggleSwitch.svelte";
+  import NotificationEmailCard from "$lib/components/features/account/NotificationEmailCard.svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/stores/toast";
   import type { FormMessage } from "$lib/types/form-message";
@@ -12,9 +13,18 @@
   interface Props {
     open: boolean;
     data: SuperValidated<NotificationPreferences, FormMessage>;
+    primaryEmail: string;
+    notificationEmail: string | null;
+    verified: boolean;
   }
 
-  let { open = $bindable(false), data }: Props = $props();
+  let {
+    open = $bindable(false),
+    data,
+    primaryEmail,
+    notificationEmail,
+    verified,
+  }: Props = $props();
 
   const { form, enhance, submitting } = superForm<NotificationPreferences, FormMessage>(
     untrack(() => data),
@@ -44,6 +54,8 @@
       <Dialog.Title>{m.account_notifications_title()}</Dialog.Title>
       <Dialog.Description>{m.account_notifications_dialogHint()}</Dialog.Description>
     </Dialog.Header>
+
+    <NotificationEmailCard {primaryEmail} {notificationEmail} {verified} />
 
     <form
       method="POST"

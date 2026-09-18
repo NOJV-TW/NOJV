@@ -14,7 +14,6 @@
   import { replayStudentTour } from "$lib/onboarding/student-tour";
   import { replayTeacherTour } from "$lib/onboarding/teacher-tour";
   import NotificationPreferencesDialog from "$lib/components/features/account/NotificationPreferencesDialog.svelte";
-  import NotificationEmailCard from "$lib/components/features/account/NotificationEmailCard.svelte";
   import TwoFactorDialog from "$lib/components/features/account/TwoFactorDialog.svelte";
   import SecuritySettingsUnlockDialog from "$lib/components/features/account/SecuritySettingsUnlockDialog.svelte";
   import PasskeyDialog from "$lib/components/features/account/PasskeyDialog.svelte";
@@ -302,11 +301,6 @@
           <h2 class="text-title-sm">{m.account_notifications_title()}</h2>
           <p class="text-body-sm text-muted-foreground">{m.account_notifications_hint()}</p>
         </div>
-        <NotificationEmailCard
-          primaryEmail={data.email}
-          notificationEmail={data.notificationEmail.email}
-          verified={data.notificationEmail.verified}
-        />
         <button
           type="button"
           class={settingLinkClass}
@@ -361,4 +355,10 @@
   </Section>
 </PageContainer>
 
-<NotificationPreferencesDialog bind:open={notificationsOpen} data={data.notificationForm} />
+<NotificationPreferencesDialog
+  bind:open={notificationsOpen}
+  data={data.notificationForm}
+  primaryEmail={data.email}
+  notificationEmail={data.notificationEmail.email}
+  verified={data.notificationEmail.verified}
+/>
