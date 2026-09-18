@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { enhance } from "$app/forms";
+  import type { SubmitFunction } from "@sveltejs/kit";
   import { m } from "$lib/paraglide/messages.js";
   import {
     Bell,
@@ -56,7 +57,30 @@
   let oauthError = $state("");
   const providerLabel: Record<string, string> = { github: "GitHub", google: "Google" };
 
-  const linkedCount = $derived(data.providers.filter((p) => p.linked).length);
+  const linkedCount = $derived(
+    data.providers.reduce((total, p) => total + p.accounts.length, 0),
+  );
+  const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
+
+  function oauthSubmit(provider: string): SubmitFunction {
+    return () => {
+      oauthError = "";
+      oauthBusy = true;
+      return async ({ result, update }) => {
+        oauthBusy = false;
+        if (result.type === "failure") {
+          oauthError = mapOAuthError((result.data?.error as string) ?? "");
+          return;
+        }
+        if (result.type === "success" && result.data?.unlinked) {
+          toasts.success(
+            m.account_connections_unlinked({ provider: providerLabel[provider] ?? provider }),
+          );
+        }
+        await update();
+      };
+    };
+  }
 
   function mapOAuthError(code: string): string {
     switch (code) {
@@ -218,52 +242,52 @@
             <p class="text-body-sm text-destructive" role="alert">{oauthError}</p>
           {/if}
           <div class="flex flex-col gap-3">
-            {#each data.providers as { provider, linked } (provider)}
-              {@const lastMethod = linked && linkedCount === 1 && !data.hasPassword}
-              <div class="flex flex-col gap-1 rounded-md border border-border px-4 py-3">
+            {#each data.providers as { provider, accounts } (provider)}
+              <div class="flex flex-col gap-3 rounded-md border border-border px-4 py-3">
                 <div class="flex items-center justify-between gap-4">
                   <span class="text-body-sm font-medium"
                     >{providerLabel[provider] ?? provider}</span
                   >
-                  <form
-                    method="POST"
-                    action={linked ? "?/unlink" : "?/link"}
-                    use:enhance={() => {
-                      oauthError = "";
-                      oauthBusy = true;
-                      return async ({ result, update }) => {
-                        oauthBusy = false;
-                        if (result.type === "failure") {
-                          oauthError = mapOAuthError((result.data?.error as string) ?? "");
-                          return;
-                        }
-                        if (result.type === "success" && result.data?.unlinked) {
-                          toasts.success(
-                            m.account_connections_unlinked({
-                              provider: providerLabel[provider] ?? provider,
-                            }),
-                          );
-                        }
-                        await update();
-                      };
-                    }}
-                  >
+                  <form method="POST" action="?/link" use:enhance={oauthSubmit(provider)}>
                     <input type="hidden" name="provider" value={provider} />
                     <button
                       type="submit"
-                      disabled={oauthBusy || lastMethod}
-                      title={lastMethod ? m.account_connections_lastMethodHint() : undefined}
-                      class="rounded-md border px-3 py-1.5 text-caption font-medium disabled:cursor-not-allowed disabled:opacity-50 {linked
-                        ? 'border-destructive/40 text-destructive'
-                        : 'border-border'}"
+                      disabled={oauthBusy}
+                      class="rounded-md border border-border px-3 py-1.5 text-caption font-medium disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {linked ? m.account_connections_unlink() : m.account_connections_link()}
+                      {accounts.length === 0
+                        ? m.account_connections_link()
+                        : m.account_connections_linkAnother()}
                     </button>
                   </form>
                 </div>
-                {#if lastMethod}
+                {#each accounts as { accountId, createdAt } (accountId)}
+                  {@const lastMethod = linkedCount === 1 && !data.hasPassword}
+                  <div
+                    class="flex items-center justify-between gap-4 border-t border-border-subtle pt-3"
+                  >
+                    <span class="text-caption text-muted-foreground">
+                      {m.account_connections_linkedOn({
+                        date: dateFormat.format(new Date(createdAt)),
+                      })}
+                    </span>
+                    <form method="POST" action="?/unlink" use:enhance={oauthSubmit(provider)}>
+                      <input type="hidden" name="provider" value={provider} />
+                      <input type="hidden" name="accountId" value={accountId} />
+                      <button
+                        type="submit"
+                        disabled={oauthBusy || lastMethod}
+                        title={lastMethod ? m.account_connections_lastMethodHint() : undefined}
+                        class="rounded-md border border-destructive/40 px-3 py-1.5 text-caption font-medium text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {m.account_connections_unlink()}
+                      </button>
+                    </form>
+                  </div>
+                {/each}
+                {#if provider === "github" && accounts.length > 0}
                   <p class="text-caption text-muted-foreground">
-                    {m.account_connections_lastMethodHint()}
+                    {m.account_connections_githubSwitchHint()}
                   </p>
                 {/if}
               </div>

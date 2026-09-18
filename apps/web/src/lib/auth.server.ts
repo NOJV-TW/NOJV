@@ -100,6 +100,7 @@ function buildSocialProviders(env: ReturnType<typeof getWebEnv>) {
           google: {
             clientId: googleId,
             clientSecret: googleSecret,
+            prompt: "select_account" as const,
           },
         }
       : {}),

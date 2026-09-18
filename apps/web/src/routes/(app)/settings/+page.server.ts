@@ -42,9 +42,8 @@ function formString(formData: FormData, name: string): string {
   return typeof value === "string" ? value : "";
 }
 
-async function listProviderIds(event: RequestEvent): Promise<string[]> {
-  const accounts = await getAuth().api.listUserAccounts({ headers: event.request.headers });
-  return accounts.map((account) => account.providerId);
+async function listAccounts(event: RequestEvent) {
+  return getAuth().api.listUserAccounts({ headers: event.request.headers });
 }
 
 export const load: PageServerLoad = async (event) => {
@@ -65,7 +64,7 @@ export const load: PageServerLoad = async (event) => {
   });
 
   const twoFactor = await loadTwoFactor(event);
-  const linkedProviderIds = sessionUser?.isSuperAdmin ? [] : await listProviderIds(event);
+  const accounts = sessionUser?.isSuperAdmin ? [] : await listAccounts(event);
 
   return {
     platformRole,
@@ -79,7 +78,12 @@ export const load: PageServerLoad = async (event) => {
       ? []
       : LINKABLE_PROVIDERS.map((provider) => ({
           provider,
-          linked: linkedProviderIds.includes(provider),
+          accounts: accounts
+            .filter((account) => account.providerId === provider)
+            .map((account) => ({
+              accountId: account.accountId,
+              createdAt: account.createdAt.toISOString(),
+            })),
         })),
     ...twoFactor,
   };
@@ -159,16 +163,19 @@ export const actions = {
     if (event.locals.sessionUser?.isSuperAdmin) {
       return fail(403, { error: "unlinkFailed" });
     }
-    const provider = formString(await event.request.formData(), "provider");
-    if (!isLinkProvider(provider)) {
+    const formData = await event.request.formData();
+    const provider = formString(formData, "provider");
+    const accountId = formString(formData, "accountId");
+    if (!isLinkProvider(provider) || !accountId) {
       return fail(400, { error: "unknownProvider" });
     }
-    if (wouldOrphanAccount(await listProviderIds(event), provider)) {
+    const providerIds = (await listAccounts(event)).map((account) => account.providerId);
+    if (wouldOrphanAccount(providerIds, provider)) {
       return fail(400, { error: "orphan" });
     }
     try {
       await getAuth().api.unlinkAccount({
-        body: { providerId: provider },
+        body: { providerId: provider, accountId },
         headers: event.request.headers,
       });
     } catch {
