@@ -146,6 +146,53 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 
 ---
 
+## Scenario E: Release hook left the workloads at zero replicas
+
+### Symptoms
+
+- Site down right after a release; `/api/release` unreachable or served only by a
+  Terminating pod.
+- `kubectl -n nojv get helmrelease nojv` → `Ready=False … post-upgrade hooks
+failed … Job/nojv/nojv-workloads-ready status: 'Failed'`, `Stalled=True`.
+- `kubectl -n nojv get deploy nojv-web nojv-worker nojv-worker-platform` shows
+  `0` desired replicas; the web HPA's `scaleTargetRef.name` is
+  `nojv-web-maintenance`.
+
+### Detection
+
+status.nojv.tw opens a `web` + `api` incident within a minute. The
+`nojv-workloads-ready` job log ends with `Timed out waiting for the new web and
+worker deployments` and `CRITICAL: could not prove maintenance state`.
+
+### Immediate Mitigation
+
+```bash
+sudo kubectl -n nojv scale deploy nojv-web nojv-worker nojv-worker-platform --replicas=1
+sudo kubectl -n nojv patch hpa nojv-web --type merge -p '{"spec":{"scaleTargetRef":{"name":"nojv-web"}}}'
+```
+
+Do not trigger a Flux reconcile first: a retry re-drains the workloads and
+repeats the outage. The HelmRelease stays `failed` until the next release.
+
+### Root-Cause Investigation
+
+```bash
+sudo kubectl -n nojv get events --field-selector involvedObject.name=<new web pod>   -o custom-columns=T:.lastTimestamp,R:.reason,MSG:.message
+```
+
+A `Pulling` → `Pulled` gap longer than `maintenance.readyTimeoutSeconds` means
+the registry pull, not the application, exhausted the readiness window (v1.1.10:
+web image 11m12s from GHCR). The failure path then cannot terminate a pod that is
+still pulling, so the drain wait times out as well.
+
+### Prevention
+
+The `release-prepull` pre-upgrade hook pulls the web and worker images before
+the migrator drains anything, so a slow or failing pull fails the upgrade while
+the old release still serves. Automatic rollback stays off on purpose: after a
+one-way contract migration the previous revision may be unsafe to restore, so
+recovery is the manual scale-up above.
+
 ## Scenario D: Sandbox namespace / Docker runtime broken
 
 ### Symptoms

@@ -670,6 +670,16 @@ pointers. The chart keeps all three new Deployments in maintenance through
 Helm's apply/wait phase; the post-upgrade hook explicitly starts and verifies
 the new workloads before restoring the web HPA target.
 
+Before any of that, a `release-prepull` pre-upgrade hook (weight -10, ahead of
+the migrator's drain at -5) pulls the release's web and worker images onto the
+node by running each as a no-op container. A slow or failing registry therefore
+fails the upgrade while the previous release is still serving, instead of after
+the drain; the post-upgrade readiness window then only has to cover container
+start. The HelmRelease deliberately does not roll back a failed upgrade
+(`remediateLastFailure: false`): after a one-way contract migration the previous
+revision may be unsafe to restore, so a failed post-upgrade hook leaves the
+workloads in maintenance for an operator — see the incident runbook.
+
 ### Course problem library contract
 
 `20260908000002_course_problem_permissions` uses the same drained release gate.

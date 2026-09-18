@@ -374,6 +374,7 @@ maintenance:
   drainTimeoutSeconds: 300
   restoreTimeoutSeconds: 300
   readyTimeoutSeconds: 300
+  prepullDeadlineSeconds: 900
   pollIntervalSeconds: 2
   kubectlRequestTimeoutSeconds: 5
   resources:
