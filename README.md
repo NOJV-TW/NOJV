@@ -112,7 +112,7 @@ the CNPG backup posture, and the Temporal prerequisite options.
 
 | Document                                              | Description                                           |
 | ----------------------------------------------------- | ----------------------------------------------------- |
-| [CLAUDE.md](CLAUDE.md)                                | Agent entrypoint, reading order, repository layout    |
+| [AGENTS.md](AGENTS.md)                                | Agent entrypoint, reading order, repository layout    |
 | [ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md)  | System architecture overview                          |
 | [Frontend Surface](docs/architecture/FRONTEND.md)     | Routes, boundaries, UI contracts                      |
 | [Judge Pipeline](docs/architecture/JUDGE_PIPELINE.md) | Pipeline stages, sandbox execution                    |
@@ -127,7 +127,7 @@ the CNPG backup posture, and the Temporal prerequisite options.
 
 Contributions are welcome. Before opening a PR:
 
-1. Read [CLAUDE.md](CLAUDE.md) for the architecture entrypoint and reading order.
+1. Read [AGENTS.md](AGENTS.md) for the architecture entrypoint and reading order.
 2. Follow the [Getting Started Runbook](docs/runbooks/getting-started.md) to bring up a local stack.
 3. Run `pnpm ci:verify` (formatting, lint, tests, builds, schema validation) before pushing.
 
