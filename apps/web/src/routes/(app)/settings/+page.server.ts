@@ -5,6 +5,8 @@ import {
   userDomain,
 } from "@nojv/application";
 import { notificationPreferencesSchema } from "@nojv/core";
+import { isAPIError } from "better-auth/api";
+import { z } from "zod";
 import { fail, redirect } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms/server";
@@ -55,6 +57,7 @@ export const load: PageServerLoad = async (event) => {
     platformRole,
     notificationForm,
     email: locals.user.email,
+    username,
     isSchoolVerified,
     canLinkProviders: !sessionUser?.isSuperAdmin,
     accounts: accounts.flatMap((account) =>
@@ -137,13 +140,45 @@ export const actions = {
     return { unlinked: provider };
   }),
 
+  changeSecurityEmail: withRateLimit(async (event) => {
+    requireAuth(event);
+    if (event.locals.sessionUser?.isSuperAdmin) {
+      return fail(403, { error: "securityEmailForbidden" });
+    }
+    const raw = formString(await event.request.formData(), "newEmail")
+      .trim()
+      .toLowerCase();
+    if (!z.email().safeParse(raw).success) {
+      return fail(400, { error: "securityEmailInvalid" });
+    }
+    if (raw === event.locals.user?.email.toLowerCase()) {
+      return fail(400, { error: "securityEmailUnchanged" });
+    }
+
+    try {
+      await getAuth().api.changeEmail({
+        body: { newEmail: raw, callbackURL: "/settings" },
+        headers: event.request.headers,
+      });
+    } catch (err) {
+      if (isAPIError(err)) {
+        if (err.status === "CONFLICT") return fail(409, { error: "securityEmailTaken" });
+        if (err.status === "FORBIDDEN") return fail(403, { error: "securityEmailLocked" });
+      }
+      return fail(400, { error: "securityEmailFailed" });
+    }
+    return { securityEmailSentTo: event.locals.user?.email ?? "" };
+  }),
+
   deleteAccount: withRateLimit(async (event) => {
     const actor = requireAuth(event);
     if (event.locals.sessionUser?.isSuperAdmin) {
       return fail(403, { error: "deleteForbidden" });
     }
     const confirmation = formString(await event.request.formData(), "confirmation").trim();
-    const expected = event.locals.user?.email.toLowerCase();
+    const expected = (
+      event.locals.sessionUser?.username ?? event.locals.user?.email
+    )?.toLowerCase();
     if (!expected || confirmation.toLowerCase() !== expected) {
       return fail(400, { error: "deleteConfirmation" });
     }

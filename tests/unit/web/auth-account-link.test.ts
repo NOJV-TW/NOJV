@@ -8,6 +8,7 @@ const state = await vi.hoisted(async () => {
   );
   return {
     cookies: new Map<string, string>(),
+    sentEmails: [] as { to: string; subject: string }[],
     database: { user: [], session: [], account: [], verification: [] },
     prismaAdapterPath: requireFromWeb.resolve("better-auth/adapters/prisma"),
     memoryAdapterPath: requireFromWeb.resolve("better-auth/adapters/memory"),
@@ -28,6 +29,7 @@ vi.mock("@nojv/application", () => ({
   markVerifiedSession: vi.fn(),
   passkeyRegistrationDenialReason: vi.fn(),
   securityGenerationProof: vi.fn(),
+  getSecurityFactorState: vi.fn().mockResolvedValue({ hasSecurityFactor: false }),
   ConflictError: class ConflictError extends Error {},
   ForbiddenError: class ForbiddenError extends Error {},
   userDomain: {
@@ -41,10 +43,21 @@ vi.mock("@nojv/application", () => ({
 }));
 vi.mock("@nojv/db", () => ({
   prismaAdapterClient: {
-    user: { findUnique: vi.fn().mockResolvedValue({ isSuperAdmin: false }) },
+    user: {
+      findUnique: vi.fn().mockResolvedValue({ isSuperAdmin: false }),
+      findFirst: vi.fn().mockResolvedValue(null),
+    },
   },
 }));
-vi.mock("@nojv/mailer", () => ({ getMailer: vi.fn(), renderEmail: vi.fn() }));
+vi.mock("@nojv/mailer", () => ({
+  getMailer: () => ({
+    sendEmail: async (message: { to: string; subject: string }) => {
+      state.sentEmails.push(message);
+      return "sent";
+    },
+  }),
+  renderEmail: () => "<html></html>",
+}));
 vi.mock("$lib/server/env", () => ({
   getWebEnv: () => ({
     BETTER_AUTH_SECRET: "test-secret-at-least-32-characters",
@@ -72,7 +85,12 @@ vi.mock("sveltekit-superforms/server", () => ({
   superValidate: vi.fn().mockResolvedValue({}),
 }));
 
-import { userDomain } from "@nojv/application";
+import {
+  areSecuritySettingsUnlocked,
+  getSecurityFactorState,
+  userDomain,
+} from "@nojv/application";
+import { prismaAdapterClient } from "@nojv/db";
 import { getAuth } from "$lib/auth.server";
 import { requireAuth } from "$lib/server/auth";
 import { actions, load } from "$lib/../routes/(app)/settings/+page.server";
@@ -289,5 +307,60 @@ describe("deleting your own account", () => {
     expect(outcome.location).toBe("/");
     expect(userDomain.deleteUser).toHaveBeenCalledWith(false, userId);
     expect(deletedCookies).toEqual([expect.stringContaining("session_token")]);
+  });
+});
+
+describe("changing the security mailbox", () => {
+  function changeEmail(newEmail: string) {
+    return getAuth().api.changeEmail({
+      body: { newEmail, callbackURL: "/settings" },
+      headers: new Headers({ cookie: sessionCookie, origin: "https://nojv.test" }),
+    });
+  }
+
+  it("sends the confirmation to the current mailbox, never the new one", async () => {
+    vi.mocked(getSecurityFactorState).mockResolvedValue({
+      hasSecurityFactor: false,
+    } as unknown as Awaited<ReturnType<typeof getSecurityFactorState>>);
+    vi.mocked(prismaAdapterClient.user.findFirst).mockResolvedValue(null);
+    state.sentEmails.length = 0;
+
+    await changeEmail("moved@example.com");
+
+    expect(state.sentEmails).toHaveLength(1);
+    expect(state.sentEmails[0]!.to).toBe("link@example.com");
+    await expect(
+      (await getAuth().$context).internalAdapter.findUserById(userId),
+    ).resolves.toMatchObject({ email: "link@example.com" });
+  });
+
+  it("refuses an address another account already owns", async () => {
+    vi.mocked(prismaAdapterClient.user.findFirst).mockResolvedValue({
+      id: "someone-else",
+    } as Awaited<ReturnType<typeof prismaAdapterClient.user.findFirst>>);
+    state.sentEmails.length = 0;
+
+    await expect(changeEmail("taken@example.com")).rejects.toMatchObject({
+      status: "CONFLICT",
+    });
+    expect(state.sentEmails).toHaveLength(0);
+  });
+
+  it("refuses while a security factor exists and settings are locked", async () => {
+    vi.mocked(prismaAdapterClient.user.findFirst).mockResolvedValue(null);
+    vi.mocked(getSecurityFactorState).mockResolvedValue({
+      hasSecurityFactor: true,
+    } as unknown as Awaited<ReturnType<typeof getSecurityFactorState>>);
+    vi.mocked(areSecuritySettingsUnlocked).mockResolvedValue(false);
+    state.sentEmails.length = 0;
+
+    await expect(changeEmail("stepup@example.com")).rejects.toMatchObject({
+      status: "FORBIDDEN",
+    });
+    expect(state.sentEmails).toHaveLength(0);
+
+    vi.mocked(getSecurityFactorState).mockResolvedValue({
+      hasSecurityFactor: false,
+    } as unknown as Awaited<ReturnType<typeof getSecurityFactorState>>);
   });
 });
