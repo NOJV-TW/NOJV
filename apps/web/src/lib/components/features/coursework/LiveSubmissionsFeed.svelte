@@ -24,6 +24,7 @@
     refreshUrl: string;
     search?: string;
     visibleCount?: number;
+    totalCount?: number;
   }
 
   let {
@@ -31,6 +32,7 @@
     refreshUrl,
     search = $bindable(""),
     visibleCount = $bindable(rows.length),
+    totalCount = $bindable(rows.length),
   }: Props = $props();
   let refreshedRows = $state<SubmissionRow[] | null>(null);
   let verdictFilter = $state("");
@@ -59,7 +61,17 @@
   });
   $effect(() => {
     visibleCount = filteredRows.length;
+    totalCount = liveRows.length;
   });
+
+  let refreshSequence = 0;
+
+  function refreshUrlForSearch(query: string): string {
+    const url = new URL(refreshUrl, window.location.origin);
+    if (query) url.searchParams.set("search", query);
+    else url.searchParams.delete("search");
+    return `${url.pathname}${url.search}`;
+  }
 
   function openSubmission(id: string) {
     void goto(`/submissions/${id}`);
@@ -71,22 +83,22 @@
     openSubmission(id);
   }
 
-  onMount(() => {
-    let refreshing = false;
-    const refresh = async () => {
-      if (document.visibilityState !== "visible" || refreshing) return;
-      refreshing = true;
-      try {
-        const response = await fetch(refreshUrl, { headers: { accept: "application/json" } });
-        if (response.ok) {
-          refreshedRows = ((await response.json()) as { items: SubmissionRow[] }).items;
-        }
-      } catch {
-        return;
-      } finally {
-        refreshing = false;
+  async function refresh(query = search.trim()) {
+    if (document.visibilityState !== "visible") return;
+    const sequence = ++refreshSequence;
+    try {
+      const response = await fetch(refreshUrlForSearch(query), {
+        headers: { accept: "application/json" },
+      });
+      if (response.ok && sequence === refreshSequence && query === search.trim()) {
+        refreshedRows = ((await response.json()) as { items: SubmissionRow[] }).items;
       }
-    };
+    } catch {
+      return;
+    }
+  }
+
+  onMount(() => {
     const onVisibilityChange = () => void refresh();
     const timer = window.setInterval(() => void refresh(), 5000);
     document.addEventListener("visibilitychange", onVisibilityChange);
@@ -94,6 +106,18 @@
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
+  });
+
+  $effect(() => {
+    const query = search.trim();
+    if (!query) {
+      refreshSequence += 1;
+      refreshedRows = null;
+      return;
+    }
+
+    const timer = window.setTimeout(() => void refresh(query), 250);
+    return () => window.clearTimeout(timer);
   });
 </script>
 

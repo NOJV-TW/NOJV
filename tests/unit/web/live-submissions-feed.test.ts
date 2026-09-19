@@ -143,4 +143,41 @@ describe("LiveSubmissionsFeed", () => {
     await unmount(component);
     target.remove();
   });
+
+  it("loads older matching submissions from the server when searching a student", async () => {
+    const searchedRow = {
+      ...rows[0]!,
+      id: "sub_old",
+      createdAt: "2026-08-19T08:00:00.000Z",
+      user: { id: "u3", name: "Carol", username: "41147042s" },
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ items: [searchedRow] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "visible",
+    });
+
+    const target = document.createElement("div");
+    document.body.append(target);
+    const component = mount(LiveSubmissionsFeed, {
+      target,
+      props: {
+        rows,
+        refreshUrl: "/api/submissions?context=assignment&id=a1",
+        search: "41147042s",
+      },
+    });
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("search=41147042s");
+    expect(target.textContent).toContain("41147042s");
+    expect(target.textContent).not.toContain("student01");
+
+    await unmount(component);
+    target.remove();
+  });
 });

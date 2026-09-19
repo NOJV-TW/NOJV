@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { ChevronRight, Info } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { cn } from "$lib/utils/css.js";
@@ -45,6 +46,7 @@
   let activeSubTab = $state<AssignmentManageTabKey>("submissions");
   let submissionSearch = $state("");
   let visibleSubmissionCount = $state(0);
+  let totalSubmissionCount = $state(untrack(() => data.recentSubmissions?.length ?? 0));
 
   const clarificationProblems = $derived(
     detail.problems.map((p) => ({ id: p.problemId, title: p.title })),
@@ -449,7 +451,7 @@
           <SubmissionHistoryActions
             bind:search={submissionSearch}
             visibleCount={visibleSubmissionCount}
-            totalCount={data.recentSubmissions?.length ?? 0}
+            totalCount={totalSubmissionCount}
           />
         {/if}
       {/snippet}
@@ -471,6 +473,7 @@
           refreshUrl={`/api/submissions?context=assignment&id=${detail.id}`}
           bind:search={submissionSearch}
           bind:visibleCount={visibleSubmissionCount}
+          bind:totalCount={totalSubmissionCount}
         />
       {:else if activeSubTab === "results" && data.results}
         <AssignmentResultsTab
