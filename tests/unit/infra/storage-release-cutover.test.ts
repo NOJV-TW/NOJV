@@ -85,6 +85,9 @@ esac
 set -eu
 printf 'prisma %s stage=%s\n' "$*" "\${PRISMA_MIGRATIONS_PATH:-full}" >> "$EVENT_LOG"
 case "$*" in
+  *"migrate status"*)
+    [ "\${MIGRATIONS_PENDING:-true}" != true ] || exit 1
+    ;;
   *"migrate resolve --rolled-back"*)
     printf pending > "$HARNESS_DIR/contract-status"
     ;;
@@ -613,6 +616,20 @@ describe("storage release cutover", () => {
       events(harness).filter((line) => line === "roster exposed after drain"),
     ).toHaveLength(2);
     expect(events(harness)).not.toContain("roster hidden from expand");
+  });
+
+  it("releases without a maintenance window when no migrations are pending", () => {
+    const harness = makeHarness();
+    writeFileSync(harness.status, "applied");
+
+    const result = runCutover(harness, { MIGRATIONS_PENDING: "false" });
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stderr).toContain("without a maintenance window");
+
+    const log = events(harness);
+    expect(log).not.toContainEqual(expect.stringContaining("--replicas=0"));
+    expect(log).not.toContainEqual(expect.stringContaining("patch horizontalpodautoscaler"));
+    expect(log).not.toContainEqual(expect.stringContaining("prisma migrate deploy stage=full"));
   });
 
   it("repairs a rolled-back contract record before staging migrations", () => {
