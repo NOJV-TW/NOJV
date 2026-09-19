@@ -660,10 +660,16 @@ pnpm db:validate
 
 In production, migrations run as the chart's **pre-install/pre-upgrade Helm
 hook** (`infra/charts/nojv/templates/migrator.job.yaml`). Installs apply the full
-history. Upgrades stage expand migrations first; for the versioned-storage
-contract the hook then disables the web HPA target, drains web plus both Temporal
-workers, performs and verifies the S3 backfill, runs a database preflight, and
-only then exposes the atomic contract migration. A failure before backfill
+history. An upgrade whose schema is already up to date (`prisma migrate status`
+reports no pending migrations) and whose storage contract is already applied
+exits the hook immediately, so releases that carry no migration roll out through
+the web Deployment's `maxUnavailable: 0` / `maxSurge: 1` strategy with no
+downtime. Any other state takes the maintenance window: a status probe that
+cannot be read counts as pending. Upgrades with migrations stage expand
+migrations first; for the versioned-storage contract the hook then disables the
+web HPA target, drains web plus both Temporal workers, performs and verifies the
+S3 backfill, runs a database preflight, and only then exposes the atomic
+contract migration. A failure before backfill
 restores the prior workloads. Once backfill begins, any failure stays in
 maintenance because restoring legacy writers could invalidate the immutable
 pointers. The chart keeps all three new Deployments in maintenance through
@@ -700,11 +706,10 @@ obtain a fresh backup after all writers stop before allowing the migration hook.
 
 `20260907000000_course_roster_contract` converts placeholder accounts into durable
 course memberships in one transaction. It remains outside `deploy-expand.sh`'s
-staging boundary, which stops at the earlier storage contract. Even when that
-contract is already applied, `deploy-release.sh` drains web, judge worker, and
-platform worker, disables the web HPA target (and pauses KEDA if configured),
-then rechecks deployments, pods, and autoscalers immediately before the full
-migration run. Do not apply this contract with a standalone production
+staging boundary, which stops at the earlier storage contract. While it is
+pending, `deploy-release.sh` drains web, judge worker, and platform worker,
+disables the web HPA target (and pauses KEDA if configured), then rechecks
+deployments, pods, and autoscalers immediately before the full migration run. Do not apply this contract with a standalone production
 `prisma migrate deploy` command while writers are running.
 
 Before releasing, verify a recoverable backup and the exact primary/database

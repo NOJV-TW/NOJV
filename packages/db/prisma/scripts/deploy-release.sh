@@ -169,6 +169,10 @@ read_contract_status() {
     prisma/scripts/storage-pointer-cutover.ts status
 }
 
+migrations_up_to_date() {
+  timeout "${STATUS_TIMEOUT_SECONDS}s" prisma migrate status >/dev/null 2>&1
+}
+
 contract_status="$(read_contract_status)"
 case "$contract_status" in
   applied) ;;
@@ -185,6 +189,11 @@ case "$contract_status" in
   unsafe) ;;
   *) echo "Unexpected storage contract status: $contract_status" >&2; exit 1 ;;
 esac
+
+if [ "$contract_status" = applied ] && migrations_up_to_date; then
+  echo "Storage contract applied and no migrations pending; releasing without a maintenance window." >&2
+  exit 0
+fi
 
 snapshot_replicas "$WEB_DEPLOYMENT"
 snapshot_replicas "$JUDGE_DEPLOYMENT"
