@@ -233,7 +233,7 @@
           <p class="text-body-sm text-muted-foreground">{m.account_loginSecurity_hint()}</p>
         </div>
         <div class="overflow-hidden rounded-md border border-border">
-          <div class="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
+          <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
             <div class="flex min-w-0 flex-col gap-1">
               <span
                 class="flex items-center gap-2 text-caption uppercase tracking-wide text-muted-foreground"

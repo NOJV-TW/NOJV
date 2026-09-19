@@ -335,7 +335,9 @@ describe("changing the security mailbox", () => {
   });
 
   it("refuses an address another account already owns", async () => {
-    vi.mocked(prismaAdapterClient.user.findFirst).mockResolvedValue({ id: "someone-else" });
+    vi.mocked(prismaAdapterClient.user.findFirst).mockResolvedValue({
+      id: "someone-else",
+    } as Awaited<ReturnType<typeof prismaAdapterClient.user.findFirst>>);
     state.sentEmails.length = 0;
 
     await expect(changeEmail("taken@example.com")).rejects.toMatchObject({
