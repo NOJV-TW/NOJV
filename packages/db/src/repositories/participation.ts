@@ -224,10 +224,22 @@ export const participationRepo = {
         return tx.participation.update({ where: { id }, data: { ipPin: ip } });
       },
 
-      clearExamPinAndExempt(examId: string, userId: string, exemptUntil: Date) {
-        return tx.participation.update({
+      async clearExamPinAndExempt(examId: string, userId: string, exemptUntil: Date) {
+        const exam = await tx.exam.findUniqueOrThrow({
+          where: { id: examId },
+          select: { gradingRevision: true },
+        });
+        return tx.participation.upsert({
           where: { type_examId_userId: { type: "exam", examId, userId } },
-          data: { ipPin: null, ipGateExemptUntil: exemptUntil },
+          create: {
+            type: "exam",
+            examId,
+            userId,
+            status: "registered",
+            gradingRevision: exam.gradingRevision,
+            ipGateExemptUntil: exemptUntil,
+          },
+          update: { ipPin: null, ipGateExemptUntil: exemptUntil },
         });
       },
     };
