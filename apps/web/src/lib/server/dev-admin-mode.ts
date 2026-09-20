@@ -3,7 +3,7 @@ import type { PlatformRole } from "@nojv/core";
 export const DEV_ADMIN_MODE_COOKIE = "nojv-dev-admin-mode";
 
 export interface DevAdminModeConfig {
-  DEV_ADMIN_MODE_USERNAME: string;
+  DEV_ADMIN_MODE_USERNAME?: string;
   NODE_ENV: "development" | "test" | "production";
 }
 
@@ -19,13 +19,15 @@ export function isDevAdminModeBypassEnabled(
   config: DevAdminModeConfig,
   bypassDisabled = false,
 ): boolean {
+  const configuredUsername = config.DEV_ADMIN_MODE_USERNAME ?? "";
+
   return (
     (config.NODE_ENV === "development" || config.NODE_ENV === "test") &&
     !bypassDisabled &&
-    config.DEV_ADMIN_MODE_USERNAME.length > 0 &&
+    configuredUsername.length > 0 &&
     user.platformRole === "admin" &&
     !user.isSuperAdmin &&
     !user.disabled &&
-    user.username === config.DEV_ADMIN_MODE_USERNAME
+    user.username === configuredUsername
   );
 }

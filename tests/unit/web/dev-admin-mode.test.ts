@@ -28,6 +28,14 @@ describe("development admin-mode bypass", () => {
     ).toBe(false);
   });
 
+  it("keeps the bypass disabled when the username is not configured", () => {
+    expect(
+      isDevAdminModeBypassEnabled(admin, {
+        NODE_ENV: "test",
+      }),
+    ).toBe(false);
+  });
+
   it("requires the exact enabled username and a non-privileged admin", () => {
     const config = { NODE_ENV: "development" as const, DEV_ADMIN_MODE_USERNAME: "admin-test" };
 
