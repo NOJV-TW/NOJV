@@ -2,9 +2,11 @@
   import { untrack } from "svelte";
   import { deserialize } from "$app/forms";
   import { goto, invalidateAll } from "$app/navigation";
-  import type { Language } from "@nojv/core";
+  import { MAX_INLINE_TESTCASE_EDIT_BYTES, type Language } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
+  import { formatBytes } from "$lib/utils/storage-budget-format";
+  import { fetchTestcaseContent } from "$lib/utils/actions";
   import ProblemSections from "$lib/components/features/problem/views/ProblemSections.svelte";
   import EditRail from "$lib/components/features/problem/views/EditRail.svelte";
   import BasicInfoTab from "$lib/components/features/problem/tabs/BasicInfoTab.svelte";
@@ -28,6 +30,28 @@
   let { data } = $props();
 
   let isAdvanced = $derived(data.problem.type === "special_env");
+
+  const inlineLimitMib = MAX_INLINE_TESTCASE_EDIT_BYTES / (1024 * 1024);
+
+  type LoadedTestcase = { input: string; output: string | null };
+  let testcaseContents = $state<Record<string, LoadedTestcase | "loading" | "failed">>({});
+
+  function isTooLargeToInline(testcase: { inputSize: number; outputSize: number | null }) {
+    return (
+      Math.max(testcase.inputSize, testcase.outputSize ?? 0) > MAX_INLINE_TESTCASE_EDIT_BYTES
+    );
+  }
+
+  async function loadTestcaseContent(testcaseId: string) {
+    const current = testcaseContents[testcaseId];
+    if (current !== undefined && current !== "failed") return;
+    testcaseContents[testcaseId] = "loading";
+    try {
+      testcaseContents[testcaseId] = await fetchTestcaseContent(data.problem.id, testcaseId);
+    } catch {
+      testcaseContents[testcaseId] = "failed";
+    }
+  }
 
   let activeSection = $state("basic");
   let basicTab = $state<BasicInfoTab | null>(null);
@@ -266,6 +290,20 @@
     { label: m.admin_publishProblem(), done: data.problem.status !== "draft" },
   ]);
 </script>
+
+{#snippet testcaseContent(testcaseId: string)}
+  {@const loaded = testcaseContents[testcaseId]}
+  {#if loaded === undefined || loaded === "loading"}
+    <p class="mt-2 text-caption text-muted-foreground">{m.testcases_loadingContent()}</p>
+  {:else if loaded === "failed"}
+    <p class="mt-2 text-caption text-destructive">{m.testcases_contentLoadFailed()}</p>
+  {:else}
+    <div class="mt-3 space-y-3">
+      {@render readOnlyCode(m.testcases_input(), loaded.input)}
+      {@render readOnlyCode(m.testcases_output(), loaded.output ?? "")}
+    </div>
+  {/if}
+{/snippet}
 
 {#snippet readOnlyCode(label: string, code: string, language = "")}
   <section class="space-y-2" aria-label={label}>
@@ -651,11 +689,26 @@
                     })}</summary
                   >
                   {#each set.testcases as testcase (testcase.id)}
-                    <section class="mt-4 space-y-3" aria-label={`#${testcase.ordinal}`}>
-                      <h3 class="text-body-sm font-semibold">#{testcase.ordinal}</h3>
-                      {@render readOnlyCode(m.testcases_input(), testcase.input)}
-                      {@render readOnlyCode(m.testcases_output(), testcase.output ?? "")}
-                    </section>
+                    <details
+                      class="mt-4 rounded-md border border-border-subtle p-3"
+                      ontoggle={(event) => {
+                        if (event.currentTarget.open && !isTooLargeToInline(testcase))
+                          void loadTestcaseContent(testcase.id);
+                      }}
+                    >
+                      <summary class="cursor-pointer text-body-sm font-semibold">
+                        #{testcase.ordinal} · {m.testcases_input()}
+                        {formatBytes(testcase.inputSize)} · {m.testcases_output()}
+                        {formatBytes(testcase.outputSize ?? 0)}
+                      </summary>
+                      {#if isTooLargeToInline(testcase)}
+                        <p class="mt-2 text-caption text-muted-foreground">
+                          {m.testcases_tooLargeToEdit({ max: inlineLimitMib })}
+                        </p>
+                      {:else}
+                        {@render testcaseContent(testcase.id)}
+                      {/if}
+                    </details>
                   {/each}
                 </details>
               {/each}

@@ -28,7 +28,11 @@ export async function processSchoolVerification(
 
   const username = extractStudentId(parsed.school, parsed.studentId);
 
-  const result = await userDomain.initiateSchoolVerification(userId, username);
+  const result = await userDomain.initiateSchoolVerification(
+    userId,
+    username,
+    email.toLowerCase(),
+  );
 
   if (result.status === "error") {
     return { error: result.detail, status: result.httpStatus };

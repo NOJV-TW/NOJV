@@ -26,6 +26,7 @@ import { getWebEnv } from "$lib/server/env";
 import { createLogger } from "$lib/server/logger";
 import { getClientIp } from "$lib/server/shared/client-ip";
 import { withRateLimitActions } from "$lib/server/shared/action-handlers";
+import { forwardSetCookies } from "$lib/server/shared/auth-cookies";
 import { signInRateLimiter } from "$lib/server/shared/rate-limiter";
 import { otpSendRateLimiter } from "$lib/server/shared/rate-limiter";
 import {
@@ -104,38 +105,6 @@ async function bindRecoverySession(
     sessionId,
     userId: proof.userId,
   });
-}
-
-function forwardSetCookies(event: RequestEvent, headers: Headers): void {
-  for (const raw of headers.getSetCookie()) {
-    const [pair, ...attributes] = raw.split(";");
-    if (!pair) continue;
-    const separator = pair.indexOf("=");
-    if (separator < 0) continue;
-    const options: Parameters<typeof event.cookies.set>[2] = {
-      httpOnly: true,
-      path: "/",
-      sameSite: "lax",
-      encode: (value) => value,
-    };
-    for (const attribute of attributes) {
-      const [rawKey, ...rawValue] = attribute.trim().split("=");
-      const key = rawKey?.toLowerCase();
-      const value = rawValue.join("=");
-      if (key === "path") options.path = value;
-      else if (key === "domain") options.domain = value;
-      else if (key === "max-age") options.maxAge = Number(value);
-      else if (key === "expires") options.expires = new Date(value);
-      else if (key === "samesite")
-        options.sameSite = value.toLowerCase() as "lax" | "strict" | "none";
-      else if (key === "secure") options.secure = true;
-    }
-    event.cookies.set(
-      pair.slice(0, separator).trim(),
-      pair.slice(separator + 1).trim(),
-      options,
-    );
-  }
 }
 
 async function phaseForAdmin(event: RequestEvent): Promise<{

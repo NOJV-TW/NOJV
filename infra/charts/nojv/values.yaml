@@ -357,6 +357,9 @@ networkPolicy:
 
 migrator:
   enabled: true
+  # The release publisher rewrites this on the deploy branch: false when the
+  # release carries no new migration, so the upgrade rolls out without draining.
+  releaseWindow: true
   activeDeadlineSeconds: 6600
   statusTimeoutSeconds: 10
   resources:
@@ -374,6 +377,7 @@ maintenance:
   drainTimeoutSeconds: 300
   restoreTimeoutSeconds: 300
   readyTimeoutSeconds: 300
+  prepullDeadlineSeconds: 900
   pollIntervalSeconds: 2
   kubectlRequestTimeoutSeconds: 5
   resources:

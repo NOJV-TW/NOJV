@@ -10,4 +10,4 @@ export * from "./bundle";
 export * from "./total-score";
 export * from "./fork";
 export * from "./images";
-export { hydrateTestcaseSets, hydrateWorkspaceFiles, hydrateValidatorScripts } from "./blobs";
+export { summarizeTestcaseSets, hydrateWorkspaceFiles, hydrateValidatorScripts } from "./blobs";

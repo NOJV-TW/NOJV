@@ -16,7 +16,7 @@ import { isCourseStaffTx } from "../shared/permissions";
 export type ExamSessionReleaseReason = "submitted" | "time_up" | "released_by_instructor";
 
 export type ExamSessionEventType =
-  "enter" | "leave" | "visibility_lost" | "release" | "auto_close" | "heartbeat";
+  "enter" | "leave" | "visibility_lost" | "release" | "auto_close" | "heartbeat" | "ip_reset";
 
 export interface ActiveSessionContext {
   session: {
@@ -377,8 +377,26 @@ export async function resetStudentIpBinding(
       throw new ForbiddenError("Only course staff can reset a student's IP binding.");
     }
 
+    const participation = await participationRepo
+      .withTx(tx)
+      .findExamIpPin(examId, targetUserId);
+
     const exemptUntil = new Date(now.getTime() + IP_BINDING_RESET_GRACE_MINUTES * 60_000);
     await participationRepo.withTx(tx).clearExamPinAndExempt(examId, targetUserId, exemptUntil);
+
+    const session = await examSessionRepo.withTx(tx).findByUserAndExam(targetUserId, examId);
+    if (session) {
+      await examSessionRepo.withTx(tx).recordEvent({
+        sessionId: session.id,
+        eventType: "ip_reset",
+        metadata: {
+          resetByUserId: actor.userId,
+          clearedIpPin: participation?.ipPin ?? null,
+          exemptUntil: exemptUntil.toISOString(),
+        },
+      });
+    }
+
     return { exemptUntil };
   });
 }

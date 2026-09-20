@@ -6,13 +6,13 @@
   interface TestcaseData {
     id: string;
     ordinal: number;
-    input: string;
-    output: string | null;
+    inputSize: number;
+    outputSize: number | null;
   }
 
   interface TestcaseSetData {
     id: string;
-    name: string;
+    description: string;
     weight: number;
     testcases: TestcaseData[];
   }
@@ -44,8 +44,8 @@
       <p class="text-body-sm text-muted-foreground">{m.testcases_noSubtaskSets()}</p>
     {:else}
       <div class="space-y-3">
-        {#each subtaskSets as set (set.id)}
-          <TestcaseSetCard {set} {problemId} />
+        {#each subtaskSets as set, idx (set.id)}
+          <TestcaseSetCard {set} {problemId} index={idx + 1} />
         {/each}
       </div>
 
@@ -54,7 +54,9 @@
           >{m.testcases_totalScoreLabel()}:
         </span>
         <span class="text-caption font-mono"
-          >{subtaskSets.map((s) => `${s.name} (${String(s.weight)}pts)`).join(" + ")}</span
+          >{subtaskSets
+            .map((s, idx) => `#subtask${String(idx + 1)} (${String(s.weight)}pts)`)
+            .join(" + ")}</span
         >
       </div>
     {/if}

@@ -96,7 +96,7 @@ describe("setSecurityHeaders", () => {
     setSecurityHeaders(response);
 
     expect(response.headers.get("Cross-Origin-Opener-Policy")).toBe("same-origin");
-    expect(response.headers.get("Cross-Origin-Embedder-Policy")).toBe("credentialless");
+    expect(response.headers.get("Cross-Origin-Embedder-Policy")).toBe("require-corp");
     expect(response.headers.get("Cross-Origin-Resource-Policy")).toBe("same-origin");
   });
 });

@@ -3,7 +3,7 @@ Web Deployment — ported from infra/gcp/web.cloudrun.yaml. Web now runs IN GKE
 (not Cloud Run), fronted by Cloudflare. Secrets come from the runtime secret
 (never templated here).
 */}}
-{{- $releaseMaintenance := and .Release.IsUpgrade .Values.migrator.enabled -}}
+{{- $releaseMaintenance := and .Release.IsUpgrade .Values.migrator.enabled .Values.migrator.releaseWindow -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -244,6 +244,10 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "10"]
           resources:
             {{- toYaml .Values.web.resources | nindent 12 }}
         {{- if .Values.cloudsqlProxy.enabled }}

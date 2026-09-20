@@ -63,7 +63,26 @@ test("first general username setup links the same User to an already graded rost
     await expect(
       page.getByRole("button", { name: "Open account menu for New Student", exact: true }),
     ).toBeEnabled();
-    await page.getByRole("button", { name: /General Account/ }).click();
+    await expect(page.locator("#general-username")).toBeVisible();
+    await expect(page.locator("#school-email")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Use a different account" })).toBeVisible();
+    await page.locator("#general-username").fill("41247009s");
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await expect(page.getByRole("alert")).toHaveText(
+      "This username format is reserved for school accounts.",
+    );
+    const reserved = await student.request.post("/complete-profile?/setUsername", {
+      form: { username: "41247009s" },
+      headers: formActionHeaders,
+    });
+    expect((await reserved.json()).type).toBe("failure");
+    await page.locator("#general-username").fill("teacher");
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await expect(page.getByRole("alert")).toHaveText("Username is already taken");
+    expect(
+      (await testPrisma.user.findUniqueOrThrow({ where: { id: user.id } })).username,
+    ).toBeNull();
+    await page.locator("#general-username").click();
     await page.locator("#general-username").fill(handle);
     const actionResponse = page.waitForResponse(
       (response) =>

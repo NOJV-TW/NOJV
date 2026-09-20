@@ -1,7 +1,7 @@
 import { activityProblemsSchema, activityTotalPointsSchema } from "@nojv/core";
 import { z } from "zod";
 import { fail, redirect } from "@sveltejs/kit";
-import { message, superValidate } from "sveltekit-superforms";
+import { message, setError, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 
 import {
@@ -17,7 +17,7 @@ import {
   type ExamCreate,
   type ExamPublishStatus,
 } from "@nojv/core";
-import { canManageCourse, examDomain, courseDomain } from "@nojv/application";
+import { canManageCourse, examDomain, courseDomain, scoring } from "@nojv/application";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent, RequestEvent } from "./$types";
 import { getCoursePermissionRole, requireAuth } from "$lib/server/auth";
@@ -174,6 +174,14 @@ function runCreateAction(status: ExamPublishStatus) {
           { kind: "error", text: "Course mismatch." },
           { status: 400 },
         );
+      }
+
+      if (status === "published") {
+        try {
+          scoring.assertActivityAllocation(form.data.totalPoints, form.data.problems, true);
+        } catch {
+          return setError(form, "problems._errors", "allocation");
+        }
       }
 
       const payload = buildCreatePayload(form.data, status);

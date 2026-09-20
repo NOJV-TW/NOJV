@@ -106,6 +106,7 @@ Indexes & constraints: `@@index([userId])`, `@@index([credentialID])`
 | `token` | `String` | `@id` |
 | `userId` | `String` | — |
 | `username` | `String` | — |
+| `email` | `String?` | — |
 | `expiresAt` | `DateTime` | — |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
@@ -164,6 +165,8 @@ Indexes & constraints: `@@unique([userId])`, `@@index([secret])`
 | `canCreateAdvancedProblems` | `Boolean` | `@default(false)` |
 | `studentTourSeenAt` | `DateTime?` | — |
 | `teacherTourSeenAt` | `DateTime?` | — |
+| `schoolEmail` | `String?` | — |
+| `schoolVerifiedAt` | `DateTime?` | — |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |
 | `sessions` | `Session[]` | — |
@@ -280,7 +283,7 @@ Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])
 
 #### `ExamSessionEventType`
 
-`enter` · `leave` · `visibility_lost` · `release` · `auto_close` · `heartbeat`
+`enter` · `leave` · `visibility_lost` · `release` · `auto_close` · `heartbeat` · `ip_reset`
 
 #### `ExamSessionReleaseReason`
 
@@ -695,6 +698,7 @@ Indexes & constraints: `@@unique([dedupeKey])`, `@@index([userId, createdAt(sort
 | `emailCourseEnrolled` | `Boolean` | `@default(true)` |
 | `emailRoleChanged` | `Boolean` | `@default(true)` |
 | `emailEditorialRemoved` | `Boolean` | `@default(true)` |
+| `email` | `String?` | — |
 | `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
 
 ## `ops.prisma`

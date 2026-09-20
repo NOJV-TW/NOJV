@@ -5,3 +5,4 @@ export * from "./scoreboard-builder";
 export * from "./resolve-final-score";
 export * from "./persist-core";
 export * from "./run-score-update";
+export { assertActivityAllocation } from "./activity-points";

@@ -357,6 +357,26 @@ jobs:
           RELEASE_SHA: ${{ needs.prepare-release.outputs.release_sha }}
         run: node scripts/validate-release-run.mjs deploy-advance
 
+      - name: Decide whether the release needs a maintenance window
+        id: window
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ needs.prepare-release.outputs.release_sha }}
+        run: |
+          set -euo pipefail
+          VALUES_FILE=infra/charts/nojv/values-single-machine.yaml
+          DEPLOYED_SHA="$(git show "origin/deploy:$VALUES_FILE" \
+            | sed -n 's/^  sourceSha: \([0-9a-f]\{40\}\)$/\1/p' | head -1)"
+          WINDOW=true
+          if [ -n "$DEPLOYED_SHA" ] && git cat-file -e "$DEPLOYED_SHA^{commit}" 2>/dev/null \
+            && git diff --quiet "$DEPLOYED_SHA" "$RELEASE_SHA" \
+              -- packages/db/prisma/migrations; then
+            WINDOW=false
+          fi
+          echo "deployed_sha=$DEPLOYED_SHA" >> "$GITHUB_OUTPUT"
+          echo "release_window=$WINDOW" >> "$GITHUB_OUTPUT"
+          echo "Maintenance window required: $WINDOW (deployed $DEPLOYED_SHA)"
+
       - name: Publish immutable image references to the deploy branch
         shell: bash
         env:
@@ -366,6 +386,7 @@ jobs:
           IMAGE_DIGEST_WORKER: ${{ needs.build-worker.outputs.digest }}
           IMAGE_DIGEST_SANDBOX: ${{ needs.build-sandbox.outputs.digest }}
           IMAGE_DIGEST_MIGRATOR: ${{ needs.build-migrator.outputs.digest }}
+          RELEASE_WINDOW: ${{ steps.window.outputs.release_window }}
           DEPLOY_TIP: ${{ steps.advance.outputs.deploy_tip }}
         run: |
           set -euo pipefail

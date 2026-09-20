@@ -34,7 +34,7 @@ const {
   getProblemPageData,
   getProblemTestcaseSets,
   listProblemWorkspaceFiles,
-  hydrateTestcaseSets,
+  summarizeTestcaseSets,
   hydrateWorkspaceFiles,
   hydrateValidatorScripts,
   saveProblemJudgeConfig,
@@ -71,14 +71,14 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     listProblemWorkspaceFiles(params.problemId),
   ]);
 
-  const [testcaseSets, workspaceFiles, validatorScripts] = await Promise.all([
-    hydrateTestcaseSets(rawTestcaseSets),
+  const [workspaceFiles, validatorScripts] = await Promise.all([
     hydrateWorkspaceFiles(rawWorkspaceFiles),
     hydrateValidatorScripts({
       checkerStorage: problemRow?.checkerStorage,
       interactorStorage: problemRow?.interactorStorage,
     }),
   ]);
+  const testcaseSets = summarizeTestcaseSets(rawTestcaseSets);
 
   const isAdvanced = problem.type === "special_env";
   const advancedCreationAllowed = await problemDomain.canCreateAdvancedProblems(actor);

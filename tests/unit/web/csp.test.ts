@@ -15,11 +15,11 @@ describe("web content security policy", () => {
 
     expect(imageSources).toEqual(
       expect.arrayContaining([
-        "https://github.com",
         "https://avatars.githubusercontent.com",
         "https://*.googleusercontent.com",
       ]),
     );
     expect(imageSources).not.toContain("https:");
+    expect(imageSources).not.toContain("https://github.com");
   });
 });

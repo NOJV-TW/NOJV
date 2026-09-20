@@ -12,7 +12,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ ternary (printf "%s-maintenance" $webName) $webName (and .Release.IsUpgrade .Values.migrator.enabled) }}
+    name: {{ ternary (printf "%s-maintenance" $webName) $webName (and .Release.IsUpgrade .Values.migrator.enabled .Values.migrator.releaseWindow) }}
   minReplicas: {{ .Values.web.hpa.min }}
   maxReplicas: {{ .Values.web.hpa.max }}
   metrics:

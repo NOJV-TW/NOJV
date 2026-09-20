@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   contestSessionSchema,
+  MAX_INLINE_TESTCASE_EDIT_BYTES,
   MAX_TESTCASE_FILE_BYTES,
   parseIpWhitelistText,
   problemDraftSchema,
@@ -13,6 +14,7 @@ import {
   submissionDraftSchema,
   submissionJudgeDraftSchema,
   submissionResultSchema,
+  testcaseUpdateSchema,
 } from "../../../packages/core/src/index";
 
 describe("problemDraftSchema", () => {
@@ -319,6 +321,22 @@ describe("problemTestcaseSetCreateSchema", () => {
       problemTestcaseSetCreateSchema.safeParse(
         makeSet("界".repeat(Math.floor(MAX_TESTCASE_FILE_BYTES / 3) + 1)),
       ).success,
+    ).toBe(false);
+  });
+
+  it("caps inline testcase edits at 1 MiB, well below the 10 MiB upload limit", () => {
+    expect(MAX_INLINE_TESTCASE_EDIT_BYTES).toBeLessThan(MAX_TESTCASE_FILE_BYTES);
+    expect(
+      testcaseUpdateSchema.safeParse({ input: "x".repeat(MAX_INLINE_TESTCASE_EDIT_BYTES) })
+        .success,
+    ).toBe(true);
+    expect(
+      testcaseUpdateSchema.safeParse({ input: "x".repeat(MAX_INLINE_TESTCASE_EDIT_BYTES + 1) })
+        .success,
+    ).toBe(false);
+    expect(
+      testcaseUpdateSchema.safeParse({ output: "x".repeat(MAX_INLINE_TESTCASE_EDIT_BYTES + 1) })
+        .success,
     ).toBe(false);
   });
 });

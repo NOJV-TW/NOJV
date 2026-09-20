@@ -184,14 +184,16 @@
               <span class="text-caption font-medium text-muted-foreground tabular-nums">
                 #subtask{idx + 1}
               </span>
-              <span class="text-caption font-medium text-muted-foreground tabular-nums">
+              <span
+                class="shrink-0 text-caption font-medium text-muted-foreground tabular-nums"
+              >
                 {totalWeight > 0 ? Math.round((set.weight / totalWeight) * 100) : 0}%
               </span>
             </div>
             {#if set.description}
-              <p class="mt-2 text-body-sm leading-6 text-foreground">
-                {set.description}
-              </p>
+              <div class="mt-2 text-body-sm leading-6 text-foreground">
+                <MarkdownRenderer content={set.description} />
+              </div>
             {/if}
           </li>
         {/each}

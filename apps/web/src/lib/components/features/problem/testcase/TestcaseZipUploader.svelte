@@ -4,6 +4,7 @@
   import JSZip from "jszip";
   import { invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
+  import ImageDropZone from "$lib/components/primitives/ui/ImageDropZone.svelte";
   import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
   import {
     detectSubtasksFromFiles,
@@ -109,7 +110,6 @@
       if (start >= parsedCases.length) break;
       const indices = Array.from({ length: end - start }, (_, k) => start + k);
       newSubtasks.push({
-        name: `Subtask ${String(i + 1)}`,
         description: "",
         points: 100,
         caseIndices: indices,
@@ -132,7 +132,7 @@
               input: parsedCases[idx]?.input ?? "",
               output: parsedCases[idx]?.output ?? "",
             })),
-            name: subtask.name,
+            description: subtask.description,
             weight: subtask.points,
           }),
         });
@@ -269,17 +269,9 @@
             class="rounded-lg border border-border-subtle bg-[color:var(--color-panel)] px-5 py-4 shadow-rest"
           >
             <div class="flex flex-wrap items-center gap-3">
-              <label class="grid gap-1">
-                <span class="text-caption font-medium text-muted-foreground"
-                  >{m.testcases_subtaskLabel()}</span
-                >
-                <input
-                  class="rounded-lg border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm font-semibold"
-                  oninput={(e) =>
-                    updateSubtask(si, { name: (e.target as HTMLInputElement).value })}
-                  value={subtask.name}
-                />
-              </label>
+              <span class="text-body-sm font-semibold tabular-nums">
+                #subtask{si + 1}
+              </span>
               <label class="grid gap-1">
                 <span class="text-caption font-medium text-muted-foreground"
                   >{m.testcases_subtaskWeight()}</span
@@ -315,6 +307,17 @@
                 </button>
               {/if}
             </div>
+            <label class="mt-3 grid gap-1">
+              <span class="text-caption font-medium text-muted-foreground"
+                >{m.testcases_editSetDescription()}</span
+              >
+              <ImageDropZone
+                class="min-h-16 w-full rounded-lg border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm"
+                name={`subtask-description-${String(si)}`}
+                bind:value={subtask.description}
+                {problemId}
+              />
+            </label>
           </div>
         {/each}
       </div>

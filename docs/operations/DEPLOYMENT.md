@@ -660,15 +660,48 @@ pnpm db:validate
 
 In production, migrations run as the chart's **pre-install/pre-upgrade Helm
 hook** (`infra/charts/nojv/templates/migrator.job.yaml`). Installs apply the full
-history. Upgrades stage expand migrations first; for the versioned-storage
-contract the hook then disables the web HPA target, drains web plus both Temporal
-workers, performs and verifies the S3 backfill, runs a database preflight, and
-only then exposes the atomic contract migration. A failure before backfill
+history. An upgrade whose schema is already up to date (`prisma migrate status`
+reports no pending migrations) and whose storage contract is already applied
+exits the hook immediately. Any other state takes the maintenance window: a
+status probe that cannot be read counts as pending.
+
+Whether the chart itself parks the workloads is a separate, render-time
+decision, because Helm cannot see what the hook found: `migrator.releaseWindow`
+(default `true`) gates the `replicas: 0` that web, judge and platform otherwise
+carry on every upgrade, the HPA's maintenance `scaleTargetRef`, and the
+post-upgrade Job's scale/restore/re-enter-maintenance behavior. The release
+workflow computes it by diffing `packages/db/prisma/migrations` between the
+commit currently on the deploy branch (`release.sourceSha`) and the release
+commit, and writes it into the same deploy commit as the image digests; an
+unknown or unreachable deployed commit publishes `true`. With `false` the
+release rolls out through the web Deployment's `maxUnavailable: 0` /
+`maxSurge: 1` strategy with no downtime, and a failed readiness check leaves the
+previous pods serving instead of draining them. The web container's 10-second
+`preStop` sleep keeps the outgoing pod answering while its Endpoints removal
+reaches cloudflared, so the surge hand-off cannot strand a request on a listener
+that has already closed. Both mismatches stay safe: a
+`false` flag with pending migrations still makes the hook drain and migrate
+before Helm starts the new pods, and a `true` flag with nothing to migrate only
+costs the old drained window. Upgrades with migrations stage expand
+migrations first; for the versioned-storage contract the hook then disables the
+web HPA target, drains web plus both Temporal workers, performs and verifies the
+S3 backfill, runs a database preflight, and only then exposes the atomic
+contract migration. A failure before backfill
 restores the prior workloads. Once backfill begins, any failure stays in
 maintenance because restoring legacy writers could invalidate the immutable
 pointers. The chart keeps all three new Deployments in maintenance through
 Helm's apply/wait phase; the post-upgrade hook explicitly starts and verifies
 the new workloads before restoring the web HPA target.
+
+Before any of that, a `release-prepull` pre-upgrade hook (weight -10, ahead of
+the migrator's drain at -5) pulls the release's web and worker images onto the
+node by running each as a no-op container. A slow or failing registry therefore
+fails the upgrade while the previous release is still serving, instead of after
+the drain; the post-upgrade readiness window then only has to cover container
+start. The HelmRelease deliberately does not roll back a failed upgrade
+(`remediateLastFailure: false`): after a one-way contract migration the previous
+revision may be unsafe to restore, so a failed post-upgrade hook leaves the
+workloads in maintenance for an operator — see the incident runbook.
 
 ### Course problem library contract
 
@@ -690,11 +723,10 @@ obtain a fresh backup after all writers stop before allowing the migration hook.
 
 `20260907000000_course_roster_contract` converts placeholder accounts into durable
 course memberships in one transaction. It remains outside `deploy-expand.sh`'s
-staging boundary, which stops at the earlier storage contract. Even when that
-contract is already applied, `deploy-release.sh` drains web, judge worker, and
-platform worker, disables the web HPA target (and pauses KEDA if configured),
-then rechecks deployments, pods, and autoscalers immediately before the full
-migration run. Do not apply this contract with a standalone production
+staging boundary, which stops at the earlier storage contract. While it is
+pending, `deploy-release.sh` drains web, judge worker, and platform worker,
+disables the web HPA target (and pauses KEDA if configured), then rechecks
+deployments, pods, and autoscalers immediately before the full migration run. Do not apply this contract with a standalone production
 `prisma migrate deploy` command while writers are running.
 
 Before releasing, verify a recoverable backup and the exact primary/database

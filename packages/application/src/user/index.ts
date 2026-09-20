@@ -3,6 +3,7 @@ export * from "./mutations";
 export { getSubmissionActivity, type SubmissionActivityEvent } from "./activity";
 export * from "./profile";
 export { linkUserCourseRoster } from "./identity";
+export { emailFromIdToken, listLinkedAccountEmails } from "./linked-accounts";
 export {
   initiateSchoolVerification,
   peekSchoolVerification,

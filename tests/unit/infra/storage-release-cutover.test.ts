@@ -85,6 +85,9 @@ esac
 set -eu
 printf 'prisma %s stage=%s\n' "$*" "\${PRISMA_MIGRATIONS_PATH:-full}" >> "$EVENT_LOG"
 case "$*" in
+  *"migrate status"*)
+    [ "\${MIGRATIONS_PENDING:-true}" != true ] || exit 1
+    ;;
   *"migrate resolve --rolled-back"*)
     printf pending > "$HARNESS_DIR/contract-status"
     ;;
@@ -356,6 +359,81 @@ describe("storage release cutover", () => {
     );
   }, 15_000);
 
+  it("rolls a migration-free release out without parking the workloads at zero", () => {
+    const render = execSync(
+      [
+        "helm template nojv infra/charts/nojv --is-upgrade",
+        "-f infra/charts/nojv/values-gke.yaml",
+        "-f tests/fixtures/helm/immutable-image-digests.yaml",
+        "-f tests/fixtures/helm/gke-production-config.yaml",
+        "-f tests/fixtures/helm/production-external-backups.yaml",
+        "--set migrator.releaseWindow=false",
+      ].join(" "),
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+    const resource = (kind: string, name: string) =>
+      render
+        .split(/^---$/m)
+        .find(
+          (document) =>
+            new RegExp(`kind:\\s*${kind}`).test(document) &&
+            new RegExp(`name:\\s*${name}(?:\\s|$)`).test(document),
+        );
+
+    for (const name of ["nojv-web", "nojv-worker", "nojv-worker-platform"]) {
+      expect(resource("Deployment", name)).not.toMatch(/spec:\n\s+replicas: 0/);
+    }
+    expect(resource("HorizontalPodAutoscaler", "nojv-web")).not.toContain(
+      "name: nojv-web-maintenance",
+    );
+    expect(resource("Job", "nojv-workloads-ready")).toMatch(
+      /name: RELEASE_WINDOW\n\s+value: "false"/,
+    );
+  }, 15_000);
+
+  it("leaves a migration-free release serving when the readiness check fails", () => {
+    const harness = makeHarness();
+    writeFileSync(join(harness.directory, "hpa-target"), "nojv-web");
+
+    const result = spawnSync(
+      "sh",
+      [join(repoRoot, "infra/charts/nojv/files/release-workloads.sh")],
+      {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PATH: `${harness.bin}:${process.env.PATH ?? ""}`,
+          EVENT_LOG: harness.events,
+          HARNESS_DIR: harness.directory,
+          RELEASE_WINDOW: "false",
+          RELEASE_READY_FAILURE: "true",
+          NAMESPACE: "nojv",
+          WEB_DEPLOYMENT: "nojv-web",
+          WEB_HPA: "nojv-web",
+          WEB_HPA_ENABLED: "true",
+          WEB_READY_REPLICAS: "2",
+          WEB_POD_SELECTOR: "app.kubernetes.io/name=nojv-web",
+          JUDGE_DEPLOYMENT: "nojv-worker",
+          JUDGE_READY_REPLICAS: "2",
+          JUDGE_POD_SELECTOR: "app.kubernetes.io/name=nojv-worker",
+          PLATFORM_DEPLOYMENT: "nojv-worker-platform",
+          PLATFORM_READY_REPLICAS: "1",
+          PLATFORM_POD_SELECTOR: "app.kubernetes.io/name=nojv-worker-platform",
+          READY_TIMEOUT_SECONDS: "1",
+          POLL_INTERVAL_SECONDS: "0",
+        },
+      },
+    );
+
+    expect(result.status).not.toBe(0);
+    expect(events(harness)).not.toContainEqual(expect.stringContaining("scale deployment"));
+    expect(events(harness)).not.toContainEqual(
+      expect.stringContaining("patch horizontalpodautoscaler"),
+    );
+    expect(readFileSync(join(harness.directory, "hpa-target"), "utf8")).toBe("nojv-web");
+  });
+
   it("rejects Kubernetes versions without the GA admission fence API", () => {
     const result = spawnSync(
       "helm",
@@ -613,6 +691,20 @@ describe("storage release cutover", () => {
       events(harness).filter((line) => line === "roster exposed after drain"),
     ).toHaveLength(2);
     expect(events(harness)).not.toContain("roster hidden from expand");
+  });
+
+  it("releases without a maintenance window when no migrations are pending", () => {
+    const harness = makeHarness();
+    writeFileSync(harness.status, "applied");
+
+    const result = runCutover(harness, { MIGRATIONS_PENDING: "false" });
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stderr).toContain("without a maintenance window");
+
+    const log = events(harness);
+    expect(log).not.toContainEqual(expect.stringContaining("--replicas=0"));
+    expect(log).not.toContainEqual(expect.stringContaining("patch horizontalpodautoscaler"));
+    expect(log).not.toContainEqual(expect.stringContaining("prisma migrate deploy stage=full"));
   });
 
   it("repairs a rolled-back contract record before staging migrations", () => {

@@ -26,7 +26,6 @@ const config = {
           "self",
           "data:",
           "blob:",
-          "https://github.com",
           "https://avatars.githubusercontent.com",
           "https://*.googleusercontent.com",
           "https://*.google-analytics.com",

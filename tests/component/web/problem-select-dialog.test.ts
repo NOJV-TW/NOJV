@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { mount, tick, unmount } from "svelte";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ProblemSelectDialog from "$lib/components/features/problem/ProblemSelectDialog.svelte";
 
 const candidateProblems = {
@@ -25,10 +25,17 @@ describe("ProblemSelectDialog", () => {
   let target: HTMLDivElement;
   let component: ReturnType<typeof mount> | undefined;
 
+  beforeEach(() => vi.useFakeTimers());
+
   afterEach(async () => {
-    if (component) await unmount(component);
-    target?.remove();
-    document.body.innerHTML = "";
+    try {
+      if (component) await unmount(component);
+      await vi.runOnlyPendingTimersAsync();
+    } finally {
+      vi.useRealTimers();
+      target?.remove();
+      document.body.innerHTML = "";
+    }
   });
 
   it("selects a problem when the whole problem row is clicked", async () => {

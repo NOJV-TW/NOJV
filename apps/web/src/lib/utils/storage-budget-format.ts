@@ -4,7 +4,10 @@ export function formatBudget(used: number, limit: number): string {
   return `${formatBytes(used)} / ${formatBytes(limit)}`;
 }
 
-function formatBytes(bytes: number): string {
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) {
+    return `${String(bytes)} B`;
+  }
   if (bytes < MB) {
     const kb = bytes / 1024;
     return `${kb < 10 ? kb.toFixed(1) : kb.toFixed(0)} KB`;

@@ -30,6 +30,9 @@
     showSelected = true,
   }: Props = $props();
 
+  const id = $props.id();
+  const errorId = `${id}-error`;
+
   let pickerOpen = $state(false);
   let draggedId = $state<string | null>(null);
   let dragOverId = $state<string | null>(null);
@@ -131,7 +134,14 @@
 </script>
 
 <div class="flex justify-end">
-  <Button type="button" variant="outline" size="sm" onclick={() => (pickerOpen = true)}>
+  <Button
+    type="button"
+    variant="outline"
+    size="sm"
+    onclick={() => (pickerOpen = true)}
+    aria-invalid={errorText ? "true" : undefined}
+    aria-describedby={errorText ? errorId : undefined}
+  >
     <Plus aria-hidden="true" class="size-4" />
     {m.problemPicker_addButton()}
   </Button>
@@ -199,7 +209,7 @@
 {/if}
 
 {#if errorText}
-  <p class="mt-2 text-xs text-destructive">{errorText}</p>
+  <p id={errorId} role="alert" class="mt-2 text-xs text-destructive">{errorText}</p>
 {/if}
 
 <ProblemSelectDialog

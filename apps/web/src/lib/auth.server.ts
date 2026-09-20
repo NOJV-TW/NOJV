@@ -10,6 +10,7 @@ import {
   userDomain,
   adminMfaKind,
   createStepUpHandoffTicket,
+  getSecurityFactorState,
   hasAdminSessionMfa,
   isSuperAdminSessionExpired,
   markFactorChangeVerifiedSession,
@@ -100,10 +101,23 @@ function buildSocialProviders(env: ReturnType<typeof getWebEnv>) {
           google: {
             clientId: googleId,
             clientSecret: googleSecret,
+            prompt: "select_account" as const,
           },
         }
       : {}),
   };
+}
+
+const HTML_ESCAPES: Record<string, string> = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;",
+};
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (ch) => HTML_ESCAPES[ch] ?? ch);
 }
 
 async function sendEmailVerificationMessage({
@@ -136,18 +150,6 @@ async function sendEmailVerificationMessage({
   if (delivery === "suppressed") {
     throw new Error("Email delivery is unavailable.");
   }
-}
-
-const HTML_ESCAPES: Record<string, string> = {
-  "&": "&amp;",
-  "<": "&lt;",
-  ">": "&gt;",
-  '"': "&quot;",
-  "'": "&#39;",
-};
-
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (character) => HTML_ESCAPES[character] ?? character);
 }
 
 function createAuth() {
@@ -195,16 +197,16 @@ function createAuth() {
         enabled: true,
         updateEmailWithoutVerification: false,
         sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
-          const safeNewEmail = escapeHtml(newEmail);
+          const target = escapeHtml(newEmail);
           await sendEmailVerificationMessage({
             to: user.email,
             url,
-            subject: "NOJV 信箱變更確認 · Confirm email change",
-            heading: "確認信箱變更 · Confirm email change",
-            intro: `有人要求將你的 NOJV 信箱變更為 <strong>${safeNewEmail}</strong>。請先確認這項要求。<br>Someone requested to change your NOJV email address to <strong>${safeNewEmail}</strong>. Confirm this request first.`,
+            subject: "NOJV 安全信箱變更確認 · Confirm security mailbox change",
+            heading: "確認變更安全信箱 · Confirm security mailbox change",
+            intro: `<p>有人要求把你的 NOJV 安全信箱改成 <strong>${target}</strong>。登入與安全驗證碼會寄到這個信箱，所以要先在這裡確認。</p><p>Someone asked to move your NOJV security mailbox to <strong>${target}</strong>. That mailbox receives your login and security codes, so confirm it here first.</p>`,
             actionLabel: "確認變更 · Confirm change",
             outro:
-              "確認後，系統會再寄一封驗證信到新信箱。若你沒有提出變更，請忽略這封信。<br>After confirmation, we will send a verification email to the new address. If you did not request this change, ignore this email.",
+              "確認後我們會再寄一封驗證信到新信箱，你打開它之後變更才會生效。若這不是你本人操作，請不要點擊，並立即檢查帳號的登入方式與安全驗證。<br>After you confirm, we send a verification link to the new address and the change only takes effect once you open it. If this was not you, do not click it — check your sign-in methods and security factors right away.",
           });
         },
       },
@@ -221,7 +223,11 @@ function createAuth() {
         enabled: true,
         trustedProviders: ["github", "google"],
         allowDifferentEmails: true,
+        disableImplicitLinking: true,
       },
+    },
+    onAPIError: {
+      errorURL: "/signin",
     },
     databaseHooks: {
       account: {
@@ -293,6 +299,47 @@ function createAuth() {
           if (activeSession?.user.isSuperAdmin) {
             throw new APIError("FORBIDDEN", {
               message: "Super admin accounts cannot link OAuth providers.",
+            });
+          }
+        }
+        if (ctx.path === "/change-email") {
+          if (!activeSession) {
+            throw new APIError("UNAUTHORIZED", { message: "Sign in first." });
+          }
+          const requested = ctx.body as { newEmail?: unknown } | undefined;
+          const newEmail =
+            typeof requested?.newEmail === "string"
+              ? requested.newEmail.trim().toLowerCase()
+              : "";
+          if (!newEmail) {
+            throw new APIError("BAD_REQUEST", {
+              message: "Enter the address that should receive security codes.",
+            });
+          }
+          if (
+            await prisma.user.findFirst({
+              where: { email: newEmail, NOT: { id: activeSession.user.id } },
+              select: { id: true },
+            })
+          ) {
+            throw new APIError("CONFLICT", {
+              message: "Another NOJV account already uses that address.",
+            });
+          }
+          const factors = await getSecurityFactorState(activeSession.user.id);
+          if (
+            factors?.hasSecurityFactor &&
+            !(await areSecuritySettingsUnlocked(
+              activeSession.session.id,
+              securityGenerationProof(
+                activeSession.user as typeof activeSession.user & {
+                  securityGeneration: number;
+                },
+              ),
+            ))
+          ) {
+            throw new APIError("FORBIDDEN", {
+              message: "Unlock security settings with your authenticator or passkey first.",
             });
           }
         }

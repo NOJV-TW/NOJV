@@ -76,7 +76,9 @@
   );
   const selectedFile = $derived(visibleFiles[selectedIndex]);
   const failedSubtasks = $derived(
-    lastResult?.subtaskResults?.filter((subtask) => !subtask.passed) ?? [],
+    (lastResult?.subtaskResults ?? [])
+      .map((subtask, index) => ({ ...subtask, position: index + 1 }))
+      .filter((subtask) => !subtask.passed),
   );
 
   function sourceForPath(path: string): string | undefined {
@@ -221,7 +223,9 @@
         <div class="space-y-3">
           {#each failedSubtasks as subtask (subtask.testcaseSetId)}
             <div class="space-y-1.5">
-              <p class="text-body-sm font-semibold text-foreground">{subtask.label}</p>
+              <p class="text-body-sm font-semibold text-foreground">
+                #subtask{subtask.position}
+              </p>
               <CaseResultGrid cases={subtask.cases} />
             </div>
           {/each}

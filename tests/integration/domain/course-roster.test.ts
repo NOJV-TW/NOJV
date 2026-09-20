@@ -50,7 +50,11 @@ async function pendingMember(courseId: string, username: string) {
 }
 
 async function verificationToken(userId: string, username: string) {
-  const result = await userDomain.initiateSchoolVerification(userId, username);
+  const result = await userDomain.initiateSchoolVerification(
+    userId,
+    username,
+    `${username}@ntnu.edu.tw`,
+  );
   expect(result.status).toBe("success");
   if (result.status !== "success") throw new Error(result.detail);
   return result.token;
@@ -251,7 +255,7 @@ describe("roster enrollment and identity binding", () => {
   );
 
   it.each(schoolIdentities)(
-    "binds verified school OAuth email $email to $username",
+    "binds an already-verified school username $username on login",
     async ({ username, email }) => {
       const { course, actor } = await classroom();
       await courseDomain.bulkAddByHandle(actor, course.id, {
@@ -259,7 +263,7 @@ describe("roster enrollment and identity binding", () => {
         role: "student",
       });
       const pending = await pendingMember(course.id, username);
-      const user = await createTestUser({ username: null, email, emailVerified: true });
+      const user = await createTestUser({ username, email, emailVerified: true });
       const usersBefore = await testPrisma.user.count();
 
       await userDomain.linkUserCourseRoster(user.id);
@@ -287,6 +291,29 @@ describe("roster enrollment and identity binding", () => {
       await expect(testPrisma.submission.count({ where: { userId: user.id } })).resolves.toBe(
         0,
       );
+    },
+  );
+
+  it.each(schoolIdentities)(
+    "preserves onboarding and general usernames when verified email $email has another owner",
+    async ({ username, email }) => {
+      const owner = await createTestUser({ username });
+      for (const currentUsername of [null, "personal_alias"]) {
+        const user = await createTestUser({
+          username: currentUsername,
+          email,
+          emailVerified: true,
+        });
+
+        await expect(userDomain.linkUserCourseRoster(user.id)).resolves.toBeUndefined();
+        await expect(testPrisma.user.findUnique({ where: { id: user.id } })).resolves.toEqual(
+          user,
+        );
+        await expect(testPrisma.user.findUnique({ where: { id: owner.id } })).resolves.toEqual(
+          owner,
+        );
+        await testPrisma.user.delete({ where: { id: user.id } });
+      }
     },
   );
 
@@ -332,6 +359,7 @@ describe("roster enrollment and identity binding", () => {
   );
 
   it.each([
+    { email: "b11902001@ntu.edu.tw", emailVerified: true },
     { email: "b11902001@ntu.edu.tw", emailVerified: false },
     { email: "b11902001@ntu.edu.tw.attacker.example", emailVerified: true },
     { email: "alias@ntu.edu.tw", emailVerified: true },
