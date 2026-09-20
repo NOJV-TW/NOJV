@@ -22,6 +22,14 @@ data:
           - targets:
               - {{ printf "%s-node-exporter.%s.svc:9100" (include "nojv.fullname" .) (include "nojv.namespace" .) | quote }}
       {{- end }}
+      {{- if .Values.edge.cloudflared.enabled }}
+      - job_name: cloudflared
+        dns_sd_configs:
+          - names:
+              - {{ printf "%s-cloudflared-metrics.%s.svc" (include "nojv.fullname" .) (include "nojv.namespace" .) | quote }}
+            type: A
+            port: 2000
+      {{- end }}
       {{- if eq .Values.postgres.mode "cnpg" }}
       - job_name: cnpg-postgres
         static_configs:
