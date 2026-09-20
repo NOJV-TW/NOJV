@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_49 models and 38 enums across 9 schema files._
+_50 models and 39 enums across 9 schema files._
 
 ## `auth.prisma`
 
@@ -208,6 +208,8 @@ Indexes & constraints: `@@unique([userId])`, `@@index([secret])`
 | `submissionFeedbackAuditChanges` | `SubmissionFeedbackAuditLog[]` | `@relation("SubmissionFeedbackAuditChanger")` |
 | `triggeredPlagiarismLogs` | `PlagiarismTriggerLog[]` | `@relation("PlagiarismTriggerLogTriggerer")` |
 | `problemBookmarks` | `ProblemBookmark[]` | — |
+| `publicationRequests` | `ProblemPublicationRequest[]` | `@relation("ProblemPublicationRequestRequester")` |
+| `reviewedPublicationRequests` | `ProblemPublicationRequest[]` | `@relation("ProblemPublicationRequestReviewer")` |
 | `apiTokens` | `ApiToken[]` | — |
 | `registryCredential` | `RegistryCredential?` | — |
 | `revokedApiTokens` | `ApiToken[]` | `@relation("ApiTokenRevoker")` |
@@ -707,7 +709,7 @@ Indexes & constraints: `@@unique([dedupeKey])`, `@@index([userId, createdAt(sort
 
 #### `AdminAuditAction`
 
-`user_role_change` · `user_disable` · `user_enable` · `user_delete` · `user_advanced_toggle` · `editorial_report_resolve` · `editorial_report_dismiss` · `content_report_resolve` · `content_report_dismiss` · `announcement_create` · `announcement_delete` · `registry_tag_delete` · `registry_gc`
+`user_role_change` · `user_disable` · `user_enable` · `user_delete` · `user_advanced_toggle` · `editorial_report_resolve` · `editorial_report_dismiss` · `content_report_resolve` · `content_report_dismiss` · `announcement_create` · `announcement_delete` · `registry_tag_delete` · `registry_gc` · `problem_publication_approve` · `problem_publication_reject`
 
 #### `AnnouncementAudience`
 
@@ -852,6 +854,10 @@ Indexes & constraints: `@@index([contextType, contextId, triggeredAt(sort: Desc)
 
 `easy` · `medium` · `hard`
 
+#### `ProblemPublicationRequestStatus`
+
+`pending` · `approved` · `rejected`
+
 #### `ProblemStatus`
 
 `draft` · `published`
@@ -915,6 +921,8 @@ Indexes & constraints: `@@index([contextType, contextId, triggeredAt(sort: Desc)
 | `clarifications` | `Clarification[]` | `@relation("ProblemClarifications")` |
 | `submissionFeedback` | `SubmissionFeedback[]` | `@relation("SubmissionFeedbackProblem")` |
 | `bookmarks` | `ProblemBookmark[]` | — |
+| `publicationRequests` | `ProblemPublicationRequest[]` | `@relation("ProblemPublicationRequestSource")` |
+| `publishedPublicationRequest` | `ProblemPublicationRequest?` | `@relation("ProblemPublicationRequestPublishedProblem")` |
 
 Indexes & constraints: `@@index([status, visibility, createdAt])`, `@@index([authorId])`, `@@index([forkedFromProblemId])`, `@@index([difficulty])`, `@@index([tags], type: Gin)`
 
@@ -930,6 +938,27 @@ Indexes & constraints: `@@index([status, visibility, createdAt])`, `@@index([aut
 | `problem` | `Problem` | `@relation(fields: [problemId], references: [id], onDelete: Cascade)` |
 
 Indexes & constraints: `@@unique([userId, problemId])`, `@@index([userId, createdAt])`
+
+#### `ProblemPublicationRequest`
+
+| Field | Type | Attributes |
+| ----- | ---- | ---------- |
+| `id` | `String` | `@id @default(cuid())` |
+| `problemId` | `String` | — |
+| `requestedByUserId` | `String` | — |
+| `status` | `ProblemPublicationRequestStatus` | `@default(pending)` |
+| `reviewedByUserId` | `String?` | — |
+| `reviewNote` | `String?` | `@db.Text` |
+| `publishedProblemId` | `String?` | `@unique` |
+| `createdAt` | `DateTime` | `@default(now())` |
+| `updatedAt` | `DateTime` | `@updatedAt` |
+| `reviewedAt` | `DateTime?` | — |
+| `problem` | `Problem` | `@relation("ProblemPublicationRequestSource", fields: [problemId], references: [id], onDelete: Restrict)` |
+| `requestedBy` | `User` | `@relation("ProblemPublicationRequestRequester", fields: [requestedByUserId], references: [id], onDelete: Restrict)` |
+| `reviewedBy` | `User?` | `@relation("ProblemPublicationRequestReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)` |
+| `publishedProblem` | `Problem?` | `@relation("ProblemPublicationRequestPublishedProblem", fields: [publishedProblemId], references: [id], onDelete: SetNull)` |
+
+Indexes & constraints: `@@index([status, createdAt])`, `@@index([problemId, createdAt])`, `@@unique([problemId], map: "ProblemPublicationRequest_one_pending_per_problem_key", where: { status: "pending" })`
 
 #### `ProblemStatement`
 
