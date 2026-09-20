@@ -124,6 +124,8 @@ spec:
               value: /tmp
             - name: NAMESPACE
               value: {{ include "nojv.namespace" . | quote }}
+            - name: RELEASE_WINDOW
+              value: {{ .Values.migrator.releaseWindow | quote }}
             - name: WEB_DEPLOYMENT
               value: {{ $webName | quote }}
             - name: WEB_HPA

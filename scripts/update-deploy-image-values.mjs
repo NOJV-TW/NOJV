@@ -6,7 +6,7 @@ const SOURCE_SHA = /^[a-f0-9]{40}$/u;
 const VERSION = /^v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/u;
 const COMPONENTS = ["web", "worker", "sandbox", "migrator"];
 
-export function updateDeployImageValues(content, { sourceSha, tag, digests }) {
+export function updateDeployImageValues(content, { sourceSha, tag, digests, releaseWindow }) {
   if (!SOURCE_SHA.test(sourceSha)) {
     throw new Error("RELEASE_SHA must be the lowercase 40-character release commit SHA");
   }
@@ -18,12 +18,17 @@ export function updateDeployImageValues(content, { sourceSha, tag, digests }) {
       throw new Error(`${component} digest must be sha256:<64 lowercase hex characters>`);
     }
   }
+  if (releaseWindow !== true && releaseWindow !== false) {
+    throw new Error("releaseWindow must be a boolean");
+  }
 
   let inImage = false;
   let inDigests = false;
   let inRelease = false;
+  let inMigrator = false;
   let sourceShaCount = 0;
   let tagCount = 0;
+  let releaseWindowCount = 0;
   const digestCounts = Object.fromEntries(COMPONENTS.map((component) => [component, 0]));
 
   const updated = content
@@ -33,13 +38,27 @@ export function updateDeployImageValues(content, { sourceSha, tag, digests }) {
         inImage = true;
         inDigests = false;
         inRelease = false;
+        inMigrator = false;
         return line;
       }
       if (line === "release:") {
         inImage = false;
         inDigests = false;
         inRelease = true;
+        inMigrator = false;
         return line;
+      }
+      if (line === "migrator:") {
+        inImage = false;
+        inDigests = false;
+        inRelease = false;
+        inMigrator = true;
+        return line;
+      }
+      if (inMigrator && /^\S/u.test(line)) inMigrator = false;
+      if (inMigrator && /^  releaseWindow:/u.test(line)) {
+        releaseWindowCount += 1;
+        return `  releaseWindow: ${String(releaseWindow)}`;
       }
       if (inRelease && /^\S/u.test(line)) inRelease = false;
       if (inRelease && /^  sourceSha:/u.test(line)) {
@@ -76,6 +95,9 @@ export function updateDeployImageValues(content, { sourceSha, tag, digests }) {
   if (sourceShaCount !== 1) {
     throw new Error(`Expected exactly one release.sourceSha, found ${sourceShaCount}`);
   }
+  if (releaseWindowCount !== 1) {
+    throw new Error(`Expected exactly one migrator.releaseWindow, found ${releaseWindowCount}`);
+  }
   for (const component of COMPONENTS) {
     if (digestCounts[component] !== 1) {
       throw new Error(
@@ -101,10 +123,15 @@ function main() {
       requiredEnvironment(`IMAGE_DIGEST_${component.toUpperCase()}`),
     ]),
   );
+  const releaseWindow = requiredEnvironment("RELEASE_WINDOW");
+  if (releaseWindow !== "true" && releaseWindow !== "false") {
+    throw new Error("RELEASE_WINDOW must be true or false");
+  }
   const updated = updateDeployImageValues(readFileSync(valuesFile, "utf8"), {
     sourceSha: requiredEnvironment("RELEASE_SHA"),
     tag: requiredEnvironment("IMAGE_TAG"),
     digests,
+    releaseWindow: releaseWindow === "true",
   });
   writeFileSync(valuesFile, updated);
 }

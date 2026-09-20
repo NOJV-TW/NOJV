@@ -3,7 +3,7 @@ JUDGE Deployment — MUST render first in this file (and this file is the worker
 env source of truth the env-manifest-parity guard scans up to the first
 cloudsql-proxy sidecar). Keep the full K8s + storage env block here, in order.
 */}}
-{{- $releaseMaintenance := and .Release.IsUpgrade .Values.migrator.enabled -}}
+{{- $releaseMaintenance := and .Release.IsUpgrade .Values.migrator.enabled .Values.migrator.releaseWindow -}}
 {{- if ne .Values.worker.sandbox.runtimeClassName "gvisor" }}
 {{- fail "worker.sandbox.runtimeClassName must be gvisor" }}
 {{- end }}

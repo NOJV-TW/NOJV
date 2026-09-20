@@ -3,7 +3,7 @@ Web Deployment — ported from infra/gcp/web.cloudrun.yaml. Web now runs IN GKE
 (not Cloud Run), fronted by Cloudflare. Secrets come from the runtime secret
 (never templated here).
 */}}
-{{- $releaseMaintenance := and .Release.IsUpgrade .Values.migrator.enabled -}}
+{{- $releaseMaintenance := and .Release.IsUpgrade .Values.migrator.enabled .Values.migrator.releaseWindow -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:

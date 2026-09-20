@@ -662,10 +662,24 @@ In production, migrations run as the chart's **pre-install/pre-upgrade Helm
 hook** (`infra/charts/nojv/templates/migrator.job.yaml`). Installs apply the full
 history. An upgrade whose schema is already up to date (`prisma migrate status`
 reports no pending migrations) and whose storage contract is already applied
-exits the hook immediately, so releases that carry no migration roll out through
-the web Deployment's `maxUnavailable: 0` / `maxSurge: 1` strategy with no
-downtime. Any other state takes the maintenance window: a status probe that
-cannot be read counts as pending. Upgrades with migrations stage expand
+exits the hook immediately. Any other state takes the maintenance window: a
+status probe that cannot be read counts as pending.
+
+Whether the chart itself parks the workloads is a separate, render-time
+decision, because Helm cannot see what the hook found: `migrator.releaseWindow`
+(default `true`) gates the `replicas: 0` that web, judge and platform otherwise
+carry on every upgrade, the HPA's maintenance `scaleTargetRef`, and the
+post-upgrade Job's scale/restore/re-enter-maintenance behavior. The release
+workflow computes it by diffing `packages/db/prisma/migrations` between the
+commit currently on the deploy branch (`release.sourceSha`) and the release
+commit, and writes it into the same deploy commit as the image digests; an
+unknown or unreachable deployed commit publishes `true`. With `false` the
+release rolls out through the web Deployment's `maxUnavailable: 0` /
+`maxSurge: 1` strategy with no downtime, and a failed readiness check leaves the
+previous pods serving instead of draining them. Both mismatches stay safe: a
+`false` flag with pending migrations still makes the hook drain and migrate
+before Helm starts the new pods, and a `true` flag with nothing to migrate only
+costs the old drained window. Upgrades with migrations stage expand
 migrations first; for the versioned-storage contract the hook then disables the
 web HPA target, drains web plus both Temporal workers, performs and verifies the
 S3 backfill, runs a database preflight, and only then exposes the atomic
