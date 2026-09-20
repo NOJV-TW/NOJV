@@ -35,6 +35,17 @@
   let { violations, activeSessions, class: className }: Props = $props();
 
   let confirmingReleaseAll = $state(false);
+
+  const resettableRowIds = $derived.by(() => {
+    const seen = new Set<string>();
+    const rowIds = new Set<string>();
+    for (const v of violations) {
+      if (seen.has(v.userId)) continue;
+      seen.add(v.userId);
+      rowIds.add(v.id);
+    }
+    return rowIds;
+  });
 </script>
 
 <Card class={className}>
@@ -166,7 +177,8 @@
             <th class="py-2 pr-3 font-medium">{m.examProctoring_colStudent()}</th>
             <th class="py-2 pr-3 font-medium">{m.examProctoring_colType()}</th>
             <th class="py-2 pr-3 font-medium">{m.examProctoring_colExpected()}</th>
-            <th class="py-2 font-medium">{m.examProctoring_colActual()}</th>
+            <th class="py-2 pr-3 font-medium">{m.examProctoring_colActual()}</th>
+            <th class="py-2 font-medium"></th>
           </tr>
         </thead>
         <tbody>
@@ -194,7 +206,17 @@
               <td class="py-2 pr-3 font-mono text-caption">
                 {v.expectedIp ?? "—"}
               </td>
-              <td class="py-2 font-mono text-caption">{v.actualIp}</td>
+              <td class="py-2 pr-3 font-mono text-caption">{v.actualIp}</td>
+              <td class="py-2 text-right">
+                {#if resettableRowIds.has(v.id)}
+                  <form method="POST" action="?/resetStudentIpBinding" use:enhance>
+                    <input type="hidden" name="targetUserId" value={v.userId} />
+                    <Button type="submit" variant="outline" size="sm">
+                      {m.examProctoring_resetIpBinding()}
+                    </Button>
+                  </form>
+                {/if}
+              </td>
             </tr>
           {/each}
         </tbody>

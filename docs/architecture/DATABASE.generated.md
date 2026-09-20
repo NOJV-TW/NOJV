@@ -283,7 +283,7 @@ Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])
 
 #### `ExamSessionEventType`
 
-`enter` · `leave` · `visibility_lost` · `release` · `auto_close` · `heartbeat`
+`enter` · `leave` · `visibility_lost` · `release` · `auto_close` · `heartbeat` · `ip_reset`
 
 #### `ExamSessionReleaseReason`
 

@@ -48,6 +48,7 @@ enum ExamSessionEventType {
   release
   auto_close
   heartbeat
+  ip_reset
 }
 
 model Contest {

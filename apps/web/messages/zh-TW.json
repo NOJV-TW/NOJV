@@ -1515,7 +1515,7 @@
   "examRow_scoringPointSum": "累分制",
   "examRow_scoringProblemCount": "題數加總",
   "examShell_examUnavailable": "此考試目前已不開放給您作答。",
-  "examShell_ipBlocked": "您的網路不允許參加此考試。",
+  "examShell_ipBlocked": "您目前的網路不允許參加此考試。若您中途更換裝置或網路，請聯絡監考老師為您重設 IP 綁定。",
   "examShell_ipGateUnavailable": "考試存取檢查暫時無法使用，請稍後再試。",
   "examStartModal_agree": "我已閱讀並同意應考規則",
   "examStartModal_cancel": "取消",

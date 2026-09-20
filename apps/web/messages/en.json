@@ -1515,7 +1515,7 @@
   "examRow_scoringPointSum": "Point sum",
   "examRow_scoringProblemCount": "Problem count",
   "examShell_examUnavailable": "This exam is no longer available to you.",
-  "examShell_ipBlocked": "Your network is not permitted for this exam.",
+  "examShell_ipBlocked": "Your current network is not permitted for this exam. If you switched device or network, ask your proctor to reset your IP binding.",
   "examShell_ipGateUnavailable": "Exam access check is temporarily unavailable. Please try again shortly.",
   "examStartModal_agree": "I have read and accept the exam rules",
   "examStartModal_cancel": "Cancel",
