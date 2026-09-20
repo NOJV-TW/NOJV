@@ -5,6 +5,12 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1m
+  # The default 60s deadline is not enough: a shallow single-branch clone of
+  # this repo measured 62.65s from the production host (30MB over a ~0.5MB/s
+  # uplink), so source-controller started failing every reconcile with
+  # "context deadline exceeded" and the cluster silently stopped seeing new
+  # releases while the last artifact kept serving.
+  timeout: 5m
   ref:
     # Flux tracks the CI-written `deploy` branch, not main. build-images.yml
     # pins the built tag in the chart's production values before force-updating

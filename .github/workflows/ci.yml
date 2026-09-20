@@ -142,6 +142,11 @@ jobs:
           PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1
           -c "COMMENT ON DATABASE nojv_test IS 'NOJV_TEST_DATABASE:nojv_test'"
 
+      - name: Install Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
+        with:
+          version: v4.2.0
+
       - name: Prepare coverage runtime
         run: |
           pnpm --filter @nojv/storage... build
