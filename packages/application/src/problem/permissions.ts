@@ -28,7 +28,9 @@ export async function canPublishPublicProblems(actor: {
   userId: string;
   platformRole: PlatformRole;
 }): Promise<boolean> {
-  return await Promise.resolve(actor.platformRole === "admin" || actor.platformRole === "teacher");
+  return await Promise.resolve(
+    actor.platformRole === "admin" || actor.platformRole === "teacher",
+  );
 }
 
 export async function canRequestPublicProblemPublication(actor: {

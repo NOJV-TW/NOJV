@@ -25,6 +25,7 @@
 ### Task 1: Persist publication requests and repository operations
 
 **Files:**
+
 - Modify: `packages/db/prisma/schema/problem.prisma`
 - Modify: `packages/db/prisma/schema/auth.prisma`
 - Modify: `packages/db/prisma/schema/ops.prisma`
@@ -35,6 +36,7 @@
 - Test: `tests/unit/infra/problem-publication-request-repository.test.ts`
 
 **Interfaces:**
+
 - Produce `ProblemPublicationRequestStatus` values `pending | approved | rejected`.
 - Produce repository methods `createPending`, `findById`, `findPendingByProblemId`, `listPaged`, `lockById`, `approve`, and `reject`; transactional methods must accept `TransactionClient`.
 - `listPaged` returns requester, source problem/owner, reviewer, and public fork summaries needed by the admin page.
@@ -83,6 +85,7 @@
 ### Task 2: Enforce TA request permissions and transactional review
 
 **Files:**
+
 - Modify: `packages/application/src/problem/permissions.ts`
 - Create: `packages/application/src/problem/publication-requests.ts`
 - Modify: `packages/application/src/problem/index.ts`
@@ -93,6 +96,7 @@
 - Test: `tests/integration/db/problem-publication-request.test.ts`
 
 **Interfaces:**
+
 - Produce `canRequestPublicProblemPublication(actor, problem)` and keep `canPublishPublicProblems` limited to `admin | teacher`.
 - Produce `requestPublicProblemPublication(actor, problemId): Promise<{ id: string; status: "pending" }>`.
 - Produce `listPublicProblemPublicationRequests(actor, options)` for admins and `getPublicProblemPublicationRequest(actor, requestId)` for admins.
@@ -113,7 +117,9 @@
     await expect(requestPublicProblemPublication(taOwner, problem.id)).resolves.toMatchObject({
       status: "pending",
     });
-    await expect(requestPublicProblemPublication(taOwner, problem.id)).rejects.toThrow(/pending/);
+    await expect(requestPublicProblemPublication(taOwner, problem.id)).rejects.toThrow(
+      /pending/,
+    );
     await rejectPublicProblemPublication(admin, firstRequestId, "Please fix the statement.");
     await expect(requestPublicProblemPublication(taOwner, problem.id)).resolves.toMatchObject({
       status: "pending",
@@ -161,6 +167,7 @@
 ### Task 3: Add role-aware editor submission UI
 
 **Files:**
+
 - Modify: `apps/web/src/routes/(app)/problems/[problemId]/edit/+page.server.ts`
 - Modify: `apps/web/src/routes/(app)/problems/[problemId]/edit/+page.svelte`
 - Modify: `apps/web/src/messages/en.json`
@@ -169,6 +176,7 @@
 - Test: `tests/e2e/problems.test.ts`
 
 **Interfaces:**
+
 - Page data exposes `permissions.canRequestPublicPublication`, `publicationRequest` summary, and `publicationRequestError` when a prior request was rejected.
 - Add form action `requestPublicPublication` that invokes the application method and returns the request ID/status.
 
@@ -213,6 +221,7 @@
 ### Task 4: Build the administrator review page
 
 **Files:**
+
 - Create: `apps/web/src/routes/(app)/admin/problem-publications/+page.server.ts`
 - Create: `apps/web/src/routes/(app)/admin/problem-publications/+page.svelte`
 - Modify: `apps/web/src/routes/(app)/admin/+layout.svelte`
@@ -222,6 +231,7 @@
 - Test: `tests/e2e/admin-problem-publications.test.ts`
 
 **Interfaces:**
+
 - `load` returns paged requests with requester/source/reviewer summaries and active status filter.
 - Actions `approve` and `reject` accept `requestId`; `reject` also accepts an optional `reviewNote`.
 
@@ -264,6 +274,7 @@
 ### Task 5: Documentation and full verification
 
 **Files:**
+
 - Modify: `docs/product/PRODUCT_SENSE.md`
 - Modify: `docs/plans/active/2026-09-08-problem-permissions.md`
 - Modify: `docs/architecture/FRONTEND.md`

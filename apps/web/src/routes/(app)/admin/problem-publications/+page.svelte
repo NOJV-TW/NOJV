@@ -8,7 +8,7 @@
   import { formatDateTime } from "$lib/utils/datetime";
   import { FileCheck2 } from "@lucide/svelte";
 
-  let { data } = $props();
+  let { data, form } = $props();
 
   function statusLabel(status: (typeof data.requests)[number]["status"]): string {
     if (status === "pending") return m.problem_publicationRequestPending();
@@ -38,6 +38,15 @@
 />
 
 <Card variant="surface" size="lg">
+  {#if form?.error}
+    <div
+      class="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-body-sm text-destructive"
+      role="alert"
+    >
+      {form.error}
+    </div>
+  {/if}
+
   <div class="mb-4 flex items-center justify-between gap-3">
     <label class="text-body-sm text-muted-foreground" for="publication-status-filter">
       {m.admin_problemPublicationsStatus()}
