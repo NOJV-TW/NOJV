@@ -74,6 +74,11 @@ storage:
 seed:
   enabled: true
 
+migrator:
+  # build-images.yml sets this to false when the release adds no migration, so
+  # the upgrade rolls out without draining the workloads.
+  releaseWindow: true
+
 web:
   replicas: 1
   advancedImageAllowedRegistries: "registry.nojv.tw,ghcr.io,docker.io,quay.io,registry.gitlab.com,gcr.io,public.ecr.aws,mcr.microsoft.com,registry.k8s.io"
