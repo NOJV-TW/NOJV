@@ -11,22 +11,40 @@ function requireAdmin(event: RequestEvent) {
   return actor;
 }
 
-function parseStatus(value: string | null) {
-  return value === "pending" || value === "approved" || value === "rejected"
-    ? value
-    : undefined;
+function parseView(value: string | null): "pending" | "closed" {
+  return value === "closed" ? "closed" : "pending";
 }
 
 export const load: PageServerLoad = async (event) => {
   const actor = requireAdmin(event);
-  const status = parseStatus(event.url.searchParams.get("status"));
-  const result = await problemDomain.listPublicProblemPublicationRequests(actor, {
-    ...(status ? { status } : {}),
-    limit: 100,
-  });
+  const status = parseView(event.url.searchParams.get("status"));
+  const result =
+    status === "pending"
+      ? await problemDomain.listPublicProblemPublicationRequests(actor, {
+          status: "pending",
+          limit: 100,
+        })
+      : await Promise.all(
+          (["approved", "rejected"] as const).map((requestStatus) =>
+            problemDomain.listPublicProblemPublicationRequests(actor, {
+              status: requestStatus,
+              limit: 100,
+            }),
+          ),
+        ).then((results) => ({
+          items: results
+            .flatMap((page) => page.items)
+            .sort(
+              (left, right) =>
+                right.createdAt.getTime() - left.createdAt.getTime() ||
+                right.id.localeCompare(left.id),
+            )
+            .slice(0, 100),
+          nextCursor: null,
+        }));
 
   return {
-    status: status ?? "all",
+    status,
     nextCursor: result.nextCursor,
     requests: result.items.map((request) => ({
       id: request.id,

@@ -1,6 +1,5 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
-  import { goto } from "$app/navigation";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import { Card } from "$lib/components/primitives/ui/card";
@@ -21,14 +20,6 @@
     if (status === "approved") return "border-success/40 bg-success/10 text-success";
     return "border-destructive/40 bg-destructive/10 text-destructive";
   }
-
-  function setStatus(value: string) {
-    void goto(
-      value === "all"
-        ? "/admin/problem-publications"
-        : `/admin/problem-publications?status=${value}`,
-    );
-  }
 </script>
 
 <PageHeader
@@ -47,29 +38,36 @@
     </div>
   {/if}
 
-  <div class="mb-4 flex items-center justify-between gap-3">
-    <label class="text-body-sm text-muted-foreground" for="publication-status-filter">
-      {m.admin_problemPublicationsStatus()}
-      <select
-        id="publication-status-filter"
-        class="ml-2 rounded-md border border-border-subtle bg-background px-3 py-2 text-foreground"
-        value={data.status}
-        onchange={(event) => setStatus(event.currentTarget.value)}
-      >
-        <option value="all">All</option>
-        <option value="pending">{m.problem_publicationRequestPending()}</option>
-        <option value="approved">{m.admin_problemPublicationsApproved()}</option>
-        <option value="rejected">{m.admin_problemPublicationsRejected()}</option>
-      </select>
-    </label>
-  </div>
+  <nav
+    class="mb-4 flex gap-6 border-b border-border-subtle"
+    aria-label={m.admin_problemPublicationsQueueNavigation()}
+  >
+    <a
+      href="/admin/problem-publications"
+      aria-current={data.status === "pending" ? "page" : undefined}
+      class={`-mb-px border-b-2 px-1 pb-3 text-body-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${data.status === "pending" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+    >
+      {m.admin_problemPublicationsPending()}
+    </a>
+    <a
+      href="/admin/problem-publications?status=closed"
+      aria-current={data.status === "closed" ? "page" : undefined}
+      class={`-mb-px border-b-2 px-1 pb-3 text-body-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${data.status === "closed" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+    >
+      {m.admin_problemPublicationsClosed()}
+    </a>
+  </nav>
 
   {#if data.requests.length === 0}
     <EmptyState
       variant="onboarding"
       icon={FileCheck2}
-      title={m.admin_problemPublicationsEmpty()}
-      description={m.admin_problemPublicationsEmptyHint()}
+      title={data.status === "pending"
+        ? m.admin_problemPublicationsPendingEmpty()
+        : m.admin_problemPublicationsClosedEmpty()}
+      description={data.status === "pending"
+        ? m.admin_problemPublicationsEmptyHint()
+        : m.admin_problemPublicationsClosedEmptyHint()}
     />
   {:else}
     <div class="overflow-x-auto">
