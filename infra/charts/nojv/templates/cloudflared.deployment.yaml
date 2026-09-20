@@ -33,13 +33,6 @@ spec:
             - 0.0.0.0:2000
             - run
           env:
-            # http2, not the default quic: the origin sits behind NAT, where an
-            # idle UDP mapping expires and leaves the edge holding a registered
-            # connection cloudflared can no longer answer on. Requests routed to
-            # it stall until the client times out, and re-registration is then
-            # rejected as dup_edge_conn.
-            - name: TUNNEL_TRANSPORT_PROTOCOL
-              value: http2
             - name: TUNNEL_TOKEN
               valueFrom:
                 secretKeyRef:
