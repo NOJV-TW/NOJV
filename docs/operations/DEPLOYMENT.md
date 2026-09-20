@@ -676,7 +676,10 @@ commit, and writes it into the same deploy commit as the image digests; an
 unknown or unreachable deployed commit publishes `true`. With `false` the
 release rolls out through the web Deployment's `maxUnavailable: 0` /
 `maxSurge: 1` strategy with no downtime, and a failed readiness check leaves the
-previous pods serving instead of draining them. Both mismatches stay safe: a
+previous pods serving instead of draining them. The web container's 10-second
+`preStop` sleep keeps the outgoing pod answering while its Endpoints removal
+reaches cloudflared, so the surge hand-off cannot strand a request on a listener
+that has already closed. Both mismatches stay safe: a
 `false` flag with pending migrations still makes the hook drain and migrate
 before Helm starts the new pods, and a `true` flag with nothing to migrate only
 costs the old drained window. Upgrades with migrations stage expand
