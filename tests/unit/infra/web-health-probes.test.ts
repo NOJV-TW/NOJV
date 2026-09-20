@@ -61,6 +61,15 @@ describe.each([
     expect(deployment).toContain("minReadySeconds: 10");
   });
 
+  it("keeps serving while the endpoint removal propagates", () => {
+    const deployment = webDeployment(renderChart(valuesFile));
+
+    expect(deployment).toMatch(
+      /lifecycle:\n\s+preStop:\n\s+exec:\n\s+command: \["sleep", "10"\]/,
+    );
+    expect(deployment).toContain("terminationGracePeriodSeconds: 60");
+  });
+
   it("injects the release identity into the web process", () => {
     const deployment = webDeployment(renderChart(valuesFile));
 
