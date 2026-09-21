@@ -118,7 +118,14 @@ The nightly sandbox workflow contains the Calico, image-import and Helm policy
 setup. `NOJV_TEST_SANDBOX_IMAGE` selects the locally built candidate image without
 overwriting a shared image tag.
 
-To include prepared-artifact tests, install real gVisor in that disposable node
+Keep K3s `--cluster-cidr` identical to the Calico IP pool. The nightly recipe
+uses Calico's default `192.168.0.0/16`; choose another non-overlapping CIDR for
+local networks only by setting both. A mismatch can make kube-proxy SNAT
+cross-node Service traffic, breaking a service's source-pod ingress policy even
+when direct Pod IP traffic succeeds. Verify both paths without relaxing policy.
+
+To include prepared-artifact and capacity-control tests, use two disposable
+nodes and install real gVisor on both
 following the [installation guide](https://gvisor.dev/docs/user_guide/install/)
 and [containerd setup](https://gvisor.dev/docs/user_guide/containerd/quick_start/).
 Create RuntimeClass `gvisor` with handler `runsc`, and verify a probe container's
