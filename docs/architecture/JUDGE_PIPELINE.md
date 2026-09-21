@@ -123,7 +123,16 @@ The **effective** per-run time budget is `timeLimitMs × LANGUAGE_TIME_FACTOR[la
 against its warning Events. Deterministic `FailedCreate` admission errors,
 such as a LimitRange rejection, fail the submission immediately as a
 `system_error` and are excluded from Temporal retries; genuine scheduling or
-quota backpressure remains retryable.
+quota backpressure remains retryable. Kubernetes also uses `forbidden` for
+`exceeded quota`, so quota rejection takes precedence over permanent admission
+classification. Direct resource-creation quota rejections (including Advanced
+sidecars and PVCs) use the same capacity path. A Job may wait up to the scheduling grace for capacity; persistent
+contention returns `SandboxBackpressureError` after cleanup. The submission
+workflow waits on a cancellable 30-second Temporal timer before trying again,
+without consuming its ordinary three-attempt infrastructure failure budget or
+holding a worker activity slot. Failed cleanup remains an infrastructure failure,
+not a capacity retry. A Job deadline before any Pod exists follows the capacity
+path; a deadline after execution starts retains normal grading semantics.
 
 All Standard Mode containers run with `--network none`, `--cap-drop ALL`, `--security-opt no-new-privileges`, a read-only rootfs, and bounded `tmpfs` mounts on `/tmp` (64m) and `/workspace` (128m). Kubernetes Job completion is observed through resource-versioned Job/Pod watches with snapshot resync on disconnect; it does not rely on a fixed polling interval.
 

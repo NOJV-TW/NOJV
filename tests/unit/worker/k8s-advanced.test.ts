@@ -40,7 +40,10 @@ import {
   deriveRunStatusFromJob,
   parseAdvancedResultLog,
 } from "../../../apps/worker/src/services/k8s-advanced";
-import { K8sExecutor } from "../../../apps/worker/src/services/k8s-executor";
+import {
+  K8sExecutor,
+  SandboxBackpressureError,
+} from "../../../apps/worker/src/services/k8s-executor";
 
 function execute(executor: K8sExecutor, request: SandboxRequest) {
   return executor.execute(request, {
@@ -864,6 +867,34 @@ function buildSidecarLog(payload: Record<string, unknown>): string {
 }
 
 describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestration", () => {
+  it.each(["pvc", "sidecar"])(
+    "returns %s quota pressure to the workflow and cleans up",
+    async (resource) => {
+      const record = emptyRecord();
+      const clients = buildFakeClients(record);
+      const rejection = Object.assign(new Error("Kubernetes API 403"), {
+        code: 403,
+        body: { message: "forbidden: exceeded quota: sandbox-quota" },
+      });
+      if (resource === "pvc")
+        clients.coreApi.createNamespacedPersistentVolumeClaim.mockRejectedValue(rejection);
+      else clients.coreApi.createNamespacedPod.mockRejectedValue(rejection);
+      const executor = new K8sExecutor(EXEC_CONFIG, clients);
+      await expect(
+        execute(
+          executor,
+          makeAdvancedRequest({
+            network: {
+              mode: "service",
+              service: { imageRef: "registry.example.com/ta/svc:1.0", imageSource: "registry" },
+            },
+          }),
+        ),
+      ).rejects.toBeInstanceOf(SandboxBackpressureError);
+      expect(record.pvcsDeleted).toHaveLength(1);
+    },
+  );
+
   it("creates PVC → run Job → grade Job (same node) → reads grade sidecar → AC result", async () => {
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({

@@ -108,8 +108,12 @@ Validator diagnostics stay in staff feedback, never in student output.
 **Impact**: A normal program failure produces its normal verdict; eviction,
 node shutdown, node loss, and Spot reclaim delay the submission instead of
 being reported as a student-facing System Error.
-**Mitigation**: Temporal retries judge activities up to three times, each with
-a fresh ephemeral sandbox run ID. OOM, TLE, and program errors remain normal
+**Mitigation**: Temporal retries ordinary judge infrastructure failures up to three
+times, each with a fresh ephemeral sandbox run ID. Capacity pressure instead
+returns to a cancellable 30-second workflow timer after sandbox cleanup, releasing
+the activity slot and preserving the pending submission until capacity returns.
+Permanent admission failures do not retry. A cleanup failure retains the bounded
+infrastructure policy. OOM, TLE, and program errors remain normal
 verdicts. Kubernetes Job and Pod completion is observed with resource-versioned
 watches; a closed or stale watch is resynchronized, while a failed status
 snapshot remains a retryable infrastructure failure.
@@ -126,7 +130,7 @@ Kubernetes node health and the sandbox quota.
 4. `completeSubmission` activity writes the final verdict to DB. This is the commit point.
 5. User stats and contest scores are updated after the verdict is committed.
 6. SSE notification is best-effort — the client falls back to polling Temporal/DB.
-7. A singleton cron workflow (`submissionSweeperWorkflow`, every minute) runs `sweepStaleSubmissions`: any submission stuck in `pending_upload`/`queued`/`compiling`/`running` past the configurable pending timeout (default 30 min, set at `/admin/rejudges`) is terminated and marked `system_error`. The workflow is terminated **before** the status flip when a workflow may exist, so a still-alive workflow cannot overwrite the verdict afterward. Because all `system_error` verdicts are not counted against the daily attempt limit, a swept submission effectively returns the student's attempt.
+7. A singleton cron workflow (`submissionSweeperWorkflow`, every minute) runs `sweepStaleSubmissions`. Past the configurable pending timeout (default 30 min, set at `/admin/rejudges`), it checks Temporal ownership first and skips running workflows, including those waiting for sandbox capacity. Only stale submissions without a running workflow are terminated and conditionally marked `system_error`; an unavailable orchestration service leaves the record untouched for a later sweep. System errors do not count against the daily attempt limit.
 
 ### Contest Lifecycle
 

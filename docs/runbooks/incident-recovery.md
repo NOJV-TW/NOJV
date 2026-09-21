@@ -54,6 +54,43 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 
 ---
 
+## Scenario: Sandbox quota rejection or prolonged capacity wait
+
+### Detection
+
+- Inspect judge-worker errors and sandbox Job warning Events together. Kubernetes
+  reports exhausted ResourceQuota as `forbidden: exceeded quota`; that message
+  alone does not mean a permissions or LimitRange error.
+- Compare `kubectl -n nojv-sandbox describe resourcequota` with actual Pods,
+  including terminating Pods, and inspect node conditions and kubelet/container
+  runtime errors. Quota reservations and measured CPU usage are different.
+- The worker emits `Submission waiting for sandbox capacity` when a workflow
+  returns to a durable retry timer. Persistent waits need operator attention even
+  though they no longer become immediate SE. The `nojv-submissions-stuck` alert
+  remains a placeholder until its exporter is wired; do not rely on it as proof
+  that a queue is healthy.
+
+### Mitigation and verification
+
+1. Capture worker logs, Job Events, live quota, Pod state, and release identity.
+   Inventory affected submissions by their persisted error reason and time range.
+2. For an older worker that converts quota rejection to SE, reduce activity
+   concurrency to fit available capacity while preparing the forward fix. A
+   20-case wave requesting 2 CPU cannot run four ways under a 4-CPU quota.
+   Account separately for other sandbox modes and stuck reservations.
+3. For a current worker, restore the missing node/runtime capacity. Do not raise
+   quotas beyond the node budget or force-delete a terminating Pod as proof its
+   processes stopped. Confirm runtime cleanup separately.
+4. Verify the exact deployed worker revision, that waiting submissions resume
+   after capacity is released, that no new quota-related SE appears, and that
+   sandbox resources return to baseline. Watch for at least 15 minutes under
+   representative traffic; health endpoints alone do not validate judging.
+5. Once stable, rejudge only the inventoried records still matching the incident
+   through the existing audited rejudge workflow. Check final verdicts, rejudge
+   logs, and exam/contest score updates separately from deployment success.
+
+The retry and failure contract is defined in [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#execute).
+
 ## Scenario B: Redis unavailable
 
 ### Symptoms

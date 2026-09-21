@@ -1,4 +1,7 @@
 import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+import { TestWorkflowEnvironment } from "@temporalio/testing";
+import { Worker } from "@temporalio/worker";
 
 import type * as k8s from "@kubernetes/client-node";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
@@ -7,6 +10,7 @@ import type { SandboxRequest } from "@nojv/core";
 
 import {
   K8sExecutor,
+  SandboxBackpressureError,
   type K8sExecutorConfig,
 } from "../../../apps/worker/src/services/k8s-executor.js";
 import {
@@ -252,6 +256,209 @@ function sidecarLeaked(pods: k8s.V1Pod[], name: string): boolean {
 }
 
 describe("K8s judge — standard mode", () => {
+  it(
+    "recovers through Temporal after real quota pressure exceeds the scheduling grace",
+    { timeout: STANDARD_TIMEOUT_MS },
+    async () => {
+      if (!clients) throw new Error("clients not initialised");
+      const { coreApi } = clients;
+      const name = `durable-quota-${Date.now()}`;
+      const env = await TestWorkflowEnvironment.createTimeSkipping();
+      let attempts = 0;
+      let failed = false;
+      let completed = false;
+      try {
+        await coreApi.createNamespacedResourceQuota({
+          namespace,
+          body: { metadata: { name }, spec: { hard: { "requests.cpu": "0" } } },
+        });
+        const worker = await Worker.create({
+          connection: env.nativeConnection,
+          taskQueue: name,
+          workflowsPath: fileURLToPath(
+            new URL("../../../apps/worker/src/workflows/submission-judge.ts", import.meta.url),
+          ),
+          activities: {
+            startSubmissionJudgeRun: async () => undefined,
+            fetchJudgeContext: async () => ({ problemType: "full_source" }),
+            executeSandbox: async () => {
+              attempts += 1;
+              const submissionId = `${name}-${attempts}`;
+              trackSubmission(submissionId);
+              try {
+                const result = await execute({
+                  submissionId,
+                  sourceCode: "print(42)\n",
+                  language: "python",
+                  problemType: "full_source",
+                  testcases: [
+                    { index: 0, input: "", output: "42\n", weight: 1, isSample: false },
+                  ],
+                  judgeType: "standard",
+                  judgeConfig: {},
+                  limits: { timeoutMs: 1_000, memoryMb: 128 },
+                });
+                expect(result.testcaseResults[0]?.verdict).toBe("AC");
+                return { result, advancedJudgeVerificationSnapshot: null };
+              } catch (error) {
+                if (attempts === 1 && error instanceof SandboxBackpressureError) {
+                  const jobs = await clients!.batchApi.listNamespacedJob({ namespace });
+                  expect(
+                    jobs.items.some((job) => job.metadata?.name === `judge-${submissionId}`),
+                  ).toBe(false);
+                  await coreApi.replaceNamespacedResourceQuota({
+                    name,
+                    namespace,
+                    body: { metadata: { name }, spec: { hard: { "requests.cpu": "200m" } } },
+                  });
+                }
+                throw error;
+              }
+            },
+            completeSubmission: async () => {
+              completed = true;
+              return null;
+            },
+            failSubmissionJudgeRun: async () => {
+              failed = true;
+              return true;
+            },
+          },
+        });
+        await worker.runUntil(async () => {
+          const handle = await env.client.workflow.start("submissionJudgeWorkflow", {
+            taskQueue: name,
+            workflowId: name,
+            args: [
+              { submissionId: name, draft: { problemId: "quota-test", language: "python" } },
+            ],
+          });
+          await handle.result();
+          const history = await handle.fetchHistory();
+          expect(
+            history.events?.some(
+              (event) =>
+                Number(event.timerStartedEventAttributes?.startToFireTimeout?.seconds) === 30,
+            ),
+          ).toBe(true);
+        });
+        expect(attempts).toBe(2);
+        expect(completed).toBe(true);
+        expect(failed).toBe(false);
+      } finally {
+        await env.teardown();
+        await coreApi.deleteNamespacedResourceQuota({ name, namespace });
+      }
+    },
+  );
+
+  it(
+    "queues concurrent submissions behind a real CPU quota and recovers after release",
+    { timeout: STANDARD_TIMEOUT_MS },
+    async () => {
+      if (!clients) throw new Error("clients not initialised");
+      const { coreApi } = clients;
+      const quotaName = `capacity-${Date.now()}`;
+      const holderName = `${quotaName}-holder`;
+      const controller = new AbortController();
+      let results:
+        Promise<PromiseSettledResult<Awaited<ReturnType<typeof execute>>>[]> | undefined;
+      createdPods.add(holderName);
+      try {
+        await coreApi.createNamespacedResourceQuota({
+          namespace,
+          body: { metadata: { name: quotaName }, spec: { hard: { "requests.cpu": "200m" } } },
+        });
+        await coreApi.createNamespacedPod({
+          namespace,
+          body: {
+            metadata: { name: holderName },
+            spec: {
+              restartPolicy: "Never",
+              terminationGracePeriodSeconds: 0,
+              containers: [
+                {
+                  name: "holder",
+                  image: SANDBOX_IMAGE,
+                  imagePullPolicy: "Never",
+                  command: ["node", "-e", "setInterval(() => {}, 1000)"],
+                  resources: {
+                    requests: { cpu: "200m", memory: "64Mi" },
+                    limits: { cpu: "200m", memory: "128Mi" },
+                  },
+                },
+              ],
+            },
+          },
+        });
+        await expect
+          .poll(
+            async () =>
+              (await coreApi.readNamespacedResourceQuota({ name: quotaName, namespace })).status
+                ?.used?.["requests.cpu"],
+            { timeout: 20_000 },
+          )
+          .toBe("200m");
+        const ids = Array.from({ length: 4 }, (_, index) => `quota-${Date.now()}-${index}`);
+        results = Promise.allSettled(
+          ids.map((submissionId) => {
+            trackSubmission(submissionId);
+            return makeExecutor().execute(
+              {
+                submissionId,
+                sourceCode: "print(42)\n",
+                language: "python",
+                problemType: "full_source",
+                testcases: [
+                  { index: 0, input: "", output: "42\n", weight: 1, isSample: false },
+                ],
+                judgeType: "standard",
+                judgeConfig: {},
+                limits: { timeoutMs: 1_000, memoryMb: 128 },
+              },
+              { runId: submissionId, signal: controller.signal },
+            );
+          }),
+        );
+        await expect
+          .poll(
+            async () => {
+              const events = await coreApi.listNamespacedEvent({ namespace });
+              return events.items.filter(
+                (event) =>
+                  event.reason === "FailedCreate" && event.message?.includes(quotaName),
+              ).length;
+            },
+            { timeout: 20_000 },
+          )
+          .toBeGreaterThan(0);
+        await coreApi.deleteNamespacedPod({
+          name: holderName,
+          namespace,
+          gracePeriodSeconds: 0,
+        });
+        const completed = await results;
+        for (const result of completed) {
+          expect(result.status).toBe("fulfilled");
+          if (result.status === "fulfilled")
+            expect(result.value.testcaseResults[0]?.verdict).toBe("AC");
+        }
+        await expect
+          .poll(
+            async () =>
+              (await coreApi.readNamespacedResourceQuota({ name: quotaName, namespace })).status
+                ?.used?.["requests.cpu"],
+            { timeout: 20_000 },
+          )
+          .toBe("0");
+      } finally {
+        controller.abort();
+        await results;
+        await coreApi.deleteNamespacedResourceQuota({ name: quotaName, namespace });
+      }
+    },
+  );
+
   it("AC: correct python solution", { timeout: STANDARD_TIMEOUT_MS }, async () => {
     const submissionId = `k8s-std-correct-${Date.now()}`;
     trackSubmission(submissionId);
