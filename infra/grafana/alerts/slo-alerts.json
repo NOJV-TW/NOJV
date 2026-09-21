@@ -23,14 +23,58 @@
   },
   {
     "uid": "nojv-submissions-stuck",
-    "title": "Submissions stuck in a non-terminal state",
-    "slo": "No submission sits pending/judging past the sweeper timeout",
+    "title": "Judge execution has stopped progressing",
+    "slo": "No due judge execution remains without progress for ten minutes",
     "expr": "max(nojv_submissions_stuck)",
     "threshold": 0,
-    "for": "10m",
+    "for": "2m",
     "severity": "critical",
-    "noDataState": "NoData",
-    "summary": "One or more submissions have sat in a non-terminal (pending/judging) state past the pending-timeout for 10m — the positive signal for a dead judging tier that judge-latency NoData alone can mask. Placeholder expr: requires a SQL/exporter-backed gauge nojv_submissions_stuck (count of submissions in a non-terminal state older than the pending timeout). Sits in NoData until that exporter is wired; see docs/operations/RELIABILITY.md."
+    "noDataState": "Alerting",
+    "summary": "Platform-worker SQL snapshot found due queue/recovery/finalization work with no progress for ten minutes, or a running execution with both stale progress and an expired/missing lease. A live lease avoids alerting on legitimate long-running stages. Inspect the execution journal and runtime ownership; do not release leases by age alone."
+  },
+  {
+    "uid": "nojv-judge-queue-age",
+    "title": "Judge queue oldest wait exceeds ten minutes",
+    "slo": "Accepted submissions continue making progress",
+    "expr": "max(nojv_judge_queue_oldest_seconds)",
+    "threshold": 600,
+    "for": "2m",
+    "severity": "warning",
+    "noDataState": "Alerting",
+    "summary": "The oldest queued, capacity-waiting or recovering execution has waited over ten minutes. This gauge comes from the platform worker database snapshot and remains available when the judge worker is offline."
+  },
+  {
+    "uid": "nojv-judge-recovery-blocked",
+    "title": "Judge automatic recovery is blocked",
+    "slo": "System errors retain an actionable recovery owner",
+    "expr": "max(nojv_judge_executions_blocked)",
+    "threshold": 0,
+    "for": "2m",
+    "severity": "critical",
+    "noDataState": "Alerting",
+    "summary": "One or more executions need infrastructure or configuration repair before their original-version recovery can continue. Inspect reasonCode and cleanup ownership; do not ask teachers to rejudge infrastructure failures."
+  },
+  {
+    "uid": "nojv-judge-legacy-system-errors",
+    "title": "Legacy system errors lack an immutable execution journal",
+    "slo": "Every system error has a recoverable original-version record",
+    "expr": "max(nojv_judge_legacy_system_errors)",
+    "threshold": 0,
+    "for": "10m",
+    "severity": "warning",
+    "noDataState": "Alerting",
+    "summary": "Some SE submissions have no execution journal, so their original snapshot cannot be assumed. Inventory historical evidence; do not silently recover them using the current problem version."
+  },
+  {
+    "uid": "nojv-judge-recovery-observer-stale",
+    "title": "Judge recovery monitoring stopped reporting",
+    "slo": "Judge recovery database snapshot is refreshed at least every three minutes",
+    "expr": "(time() - max(nojv_judge_recovery_last_success_timestamp_seconds)) or vector(1000000000)",
+    "threshold": 180,
+    "for": "1m",
+    "severity": "critical",
+    "noDataState": "Alerting",
+    "summary": "The last successful platform-worker SQL snapshot is over three minutes old or absent. Check platform worker, PostgreSQL and OTEL exporter/collector connectivity. Missing monitoring is a fault even when no submission metrics are present."
   },
   {
     "uid": "nojv-slo-api-latency",
@@ -70,7 +114,7 @@
     "threshold": 0.01,
     "for": "5m",
     "severity": "critical",
-    "summary": "HTTP 5xx error rate has exceeded 1% for 5 minutes — service availability SLO is breached. Page on-call immediately."
+    "summary": "HTTP 5xx error rate has exceeded 1% for 5 minutes \u2014 service availability SLO is breached. Page on-call immediately."
   },
   {
     "uid": "nojv-node-disk-usage",
@@ -80,7 +124,7 @@
     "threshold": 0.8,
     "for": "10m",
     "severity": "critical",
-    "summary": "A node filesystem has exceeded 80% usage for 10m. This is the detection gap behind the 2026-07-04 disk-full incident (containerd wedged → CNPG evicted). Free disk (crictl rmi --prune) or expand the volume before it fills. Requires observability.prometheus.nodeExporter.enabled."
+    "summary": "A node filesystem has exceeded 80% usage for 10m. This is the detection gap behind the 2026-07-04 disk-full incident (containerd wedged \u2192 CNPG evicted). Free disk (crictl rmi --prune) or expand the volume before it fills. Requires observability.prometheus.nodeExporter.enabled."
   },
   {
     "uid": "nojv-pg-not-ready",
@@ -90,7 +134,7 @@
     "threshold": 0,
     "for": "2m",
     "severity": "critical",
-    "summary": "One or more CloudNativePG Postgres instances failed scrape (not ready) for 2m. Postgres is the single durable store — a down instance means degraded or total outage. Dormant until a CNPG metrics scrape target (job=cnpg-postgres) is wired; see docs/operations/RELIABILITY.md."
+    "summary": "One or more CloudNativePG Postgres instances failed scrape (not ready) for 2m. Postgres is the single durable store \u2014 a down instance means degraded or total outage. Dormant until a CNPG metrics scrape target (job=cnpg-postgres) is wired; see docs/operations/RELIABILITY.md."
   },
   {
     "uid": "nojv-pg-backup-stale",

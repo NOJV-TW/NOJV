@@ -177,14 +177,36 @@ export async function deleteProblemRecord(actor: ProblemActorContext, problemId:
     if (scoreAudit || feedbackAudit) {
       throw new ConflictError("Problems with historical grading records cannot be deleted.");
     }
+    const activeJudge = await tx.judgeExecution.findFirst({
+      where: {
+        submission: { problemId },
+        OR: [{ state: { notIn: ["completed", "cancelled"] } }, { leaseToken: { not: null } }],
+      },
+      select: { id: true },
+    });
+    if (activeJudge)
+      throw new ConflictError(
+        "This problem still has active judge executions or sandbox cleanup.",
+      );
     const references = await tx.submission.findMany({
       where: { problemId },
-      select: { sourceStorage: true, verdictDetailStorage: true },
+      select: {
+        sourceStorage: true,
+        verdictDetailStorage: true,
+        judgeExecutions: { select: { snapshot: true, stages: { select: { result: true } } } },
+      },
     });
     const removed = [
       ...problemStoragePointers(problem),
-      ...references.flatMap(({ sourceStorage, verdictDetailStorage }) =>
-        [sourceStorage, verdictDetailStorage]
+      ...references.flatMap(({ sourceStorage, verdictDetailStorage, judgeExecutions }) =>
+        [
+          sourceStorage,
+          verdictDetailStorage,
+          ...judgeExecutions.flatMap((run) => [
+            run.snapshot,
+            ...run.stages.map((stage) => stage.result),
+          ]),
+        ]
           .filter((pointer) => pointer !== null)
           .map(assertStorageObjectPointer),
       ),
@@ -703,6 +725,8 @@ export async function updateAdvancedJudgeConfiguration(
     await problemRepo.withTx(tx).update(problem.id, {
       advancedConfig: input.config,
       advancedRequiredPaths: input.requiredPaths,
+      storageGeneration: { increment: 1 },
+      referenceSolutionSubmissionId: null,
     });
   });
 }

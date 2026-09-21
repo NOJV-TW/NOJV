@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_49 models and 38 enums across 9 schema files._
+_52 models and 38 enums across 9 schema files._
 
 ## `auth.prisma`
 
@@ -1049,6 +1049,58 @@ Indexes & constraints: `@@unique([problemId, name])`, `@@unique([problemId, ordi
 
 Indexes & constraints: `@@unique([postId, reportedByUserId])`, `@@unique([commentId, reportedByUserId])`, `@@index([status, createdAt])`
 
+#### `JudgeAdmission`
+
+| Field | Type | Attributes |
+| ----- | ---- | ---------- |
+| `id` | `String` | `@id` |
+| `cursor` | `Int` | `@default(0)` |
+
+#### `JudgeExecution`
+
+| Field | Type | Attributes |
+| ----- | ---- | ---------- |
+| `id` | `String` | `@id` |
+| `submissionId` | `String` | — |
+| `generation` | `Int` | — |
+| `problemGeneration` | `Int` | — |
+| `snapshot` | `Json` | — |
+| `state` | `String` | `@default("queued")` |
+| `queueClass` | `String` | `@default("foreground")` |
+| `operationId` | `String?` | — |
+| `workflowId` | `String` | `@unique` |
+| `recoveryEpoch` | `Int` | `@default(0)` |
+| `attempt` | `Int` | `@default(0)` |
+| `reasonCode` | `String?` | — |
+| `lastError` | `String?` | — |
+| `nextAttemptAt` | `DateTime` | `@default(now())` |
+| `lastProgressAt` | `DateTime` | `@default(now())` |
+| `queuedAt` | `DateTime` | `@default(now())` |
+| `leaseUntil` | `DateTime?` | — |
+| `leaseToken` | `String?` | — |
+| `leaseOwner` | `String?` | — |
+| `oldStatus` | `String` | — |
+| `oldScore` | `Int` | — |
+| `rejudgeLogId` | `String?` | — |
+| `createdAt` | `DateTime` | `@default(now())` |
+| `updatedAt` | `DateTime` | `@updatedAt` |
+| `submission` | `Submission` | `@relation(fields: [submissionId], references: [id], onDelete: Cascade)` |
+| `stages` | `JudgeStage[]` | — |
+
+Indexes & constraints: `@@unique([submissionId, generation])`, `@@index([state, nextAttemptAt, queuedAt])`, `@@index([operationId, createdAt, id])`
+
+#### `JudgeStage`
+
+| Field | Type | Attributes |
+| ----- | ---- | ---------- |
+| `executionId` | `String` | — |
+| `index` | `Int` | — |
+| `result` | `Json` | — |
+| `createdAt` | `DateTime` | `@default(now())` |
+| `execution` | `JudgeExecution` | `@relation(fields: [executionId], references: [id], onDelete: Cascade)` |
+
+Indexes & constraints: `@@id([executionId, index])`
+
 #### `PostComment`
 
 | Field | Type | Attributes |
@@ -1190,6 +1242,7 @@ Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])
 | `participation` | `Participation?` | `@relation(fields: [participationId, userId], references: [id, userId], onDelete: Cascade)` |
 | `course` | `Course?` | `@relation(fields: [courseId], references: [id], onDelete: Restrict)` |
 | `assessment` | `Assessment?` | `@relation(fields: [assessmentId, courseId], references: [id, courseId], onDelete: Restrict)` |
+| `judgeExecutions` | `JudgeExecution[]` | — |
 | `rejudgeLogs` | `SubmissionRejudgeLog[]` | — |
 
 Indexes & constraints: `@@index([problemId, createdAt])`, `@@index([userId, createdAt])`, `@@index([userId, examId, sampleOnly, createdAt(sort: Desc), id(sort: Desc)])`, `@@index([courseId, assessmentId, createdAt])`, `@@index([contestId, problemId, createdAt])`, `@@index([examId, problemId, createdAt])`, `@@index([participationId, problemId, createdAt])`, `@@index([assessmentId, problemId, createdAt])`, `@@index([assessmentId, createdAt(sort: Desc), id(sort: Desc)])`, `@@index([examId, createdAt(sort: Desc), id(sort: Desc)])`, `@@index([status, updatedAt])`, `@@index([problemId, sampleOnly, userId, status])`, `@@index([createdAt])`, `@@index([problemId, isReferenceSolution, createdAt])`

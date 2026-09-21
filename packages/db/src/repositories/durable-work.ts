@@ -286,6 +286,7 @@ function createDurableWorkRepository(client: DurableWorkClient) {
               OR submission."createdAt" <= (work.payload #>> '{input,until}')::timestamptz))
         )
         WHERE work.kind = 'submission.rejudge.dispatch'
+          AND COALESCE(work.payload ->> 'prepared', 'false') <> 'true'
           AND work.status IN ('pending', 'leased', 'succeeded', 'cancelled', 'dead')
           AND submission.status NOT IN ('pending_upload', 'queued', 'compiling', 'running')
           AND (work.payload #>> '{input,mode}' = 'single'

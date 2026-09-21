@@ -3,7 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { INTERACTIVE_RUN_MARKER, INTERACTIVE_VALIDATE_MARKER } from "@nojv/core";
 
-import { K8sExecutor } from "../../../apps/worker/src/services/k8s-executor";
+import {
+  K8sExecutor,
+  SandboxCleanupError,
+} from "../../../apps/worker/src/services/k8s-executor";
 
 function execute(executor: K8sExecutor, request: SandboxRequest) {
   return executor.execute(request, {
@@ -56,6 +59,7 @@ interface FakeOptions {
 
 function buildFakeClients(record: CallRecord, opts: FakeOptions = {}) {
   const coreApi = {
+    listNamespacedResourceQuota: vi.fn(async () => ({ items: [] })),
     createNamespacedConfigMap: vi.fn(async ({ namespace, body }: any) => {
       record.configMapsCreated.push({ name: body.metadata.name, namespace });
     }),
@@ -106,6 +110,7 @@ function buildFakeClients(record: CallRecord, opts: FakeOptions = {}) {
     }),
     deleteNamespacedJob: vi.fn(async ({ name, namespace }: any) => {
       record.jobsDeleted.push({ name, namespace });
+      coreApi.listNamespacedPod.mockResolvedValueOnce({ items: [] });
     }),
     readNamespacedJob: vi.fn(async ({ name }: any) => {
       if (opts.imagePullMessage) return { status: { active: 1 } };
@@ -147,6 +152,18 @@ const EXEC_CONFIG = {
 };
 
 describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup", () => {
+  it("uses the original image for both sides of a recovered interactive evaluation", async () => {
+    const clients = buildFakeClients(emptyRecord());
+    const sandboxImage = "registry.example.com/sandbox@sha256:original";
+    await execute(new K8sExecutor(EXEC_CONFIG, clients), { ...makeRequest(1), sandboxImage });
+    const spec = clients.batchApi.createNamespacedJob.mock.calls[0][0].body.spec.template.spec;
+    expect(
+      [...spec.initContainers, ...spec.containers].every(
+        (container) => container.image === sandboxImage,
+      ),
+    ).toBe(true);
+  });
+
   it("rethrows interactor log API failure with its cause after cleanup", async () => {
     const record = emptyRecord();
     const clients = buildFakeClients(record);
@@ -168,9 +185,7 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
       const record = emptyRecord();
       const request = makeRequest(1);
       const clients = buildFakeClients(record);
-      clients.batchApi.deleteNamespacedJob
-        .mockRejectedValueOnce({ code: 500 })
-        .mockResolvedValue(undefined);
+      clients.batchApi.deleteNamespacedJob.mockRejectedValueOnce({ code: 500 });
       clients.coreApi.deleteNamespacedConfigMap
         .mockRejectedValueOnce({ code: 429 })
         .mockRejectedValueOnce({ code: 503 })
@@ -235,7 +250,7 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     }
   });
 
-  it("preserves a terminal image-pull outcome while exposing cleanup resource failures", async () => {
+  it("quarantines an image-pull failure when cleanup also fails", async () => {
     const record = emptyRecord();
     const request = makeRequest(1);
     const clients = buildFakeClients(record, {
@@ -246,14 +261,14 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
       message: "cleanup forbidden",
     });
 
-    const result = await execute(new K8sExecutor(EXEC_CONFIG, clients), request);
-    const serialized = JSON.stringify(result);
-
-    expect(result.testcaseResults[0]?.verdict).toBe("SE");
-    expect(result.scoringFeedback).toContain("registry denied immutable image");
-    expect(serialized).toContain("interactive sandbox cleanup failed");
-    expect(serialized).toContain("Job nojv-sandbox/judge-sub-int-orch-int-0");
-    expect(serialized).toContain("cleanup forbidden");
+    const failure = await execute(new K8sExecutor(EXEC_CONFIG, clients), request).catch(
+      (error: unknown) => error,
+    );
+    expect(failure).toBeInstanceOf(SandboxCleanupError);
+    expect((failure as Error).message).toContain("registry denied immutable image");
+    expect((failure as Error).message).toContain("interactive sandbox cleanup failed");
+    expect((failure as Error).message).toContain("Job nojv-sandbox/judge-sub-int-orch-int-0");
+    expect((failure as Error).message).toContain("cleanup forbidden");
   });
 
   it("rethrows eviction as retryable infrastructure failure", async () => {

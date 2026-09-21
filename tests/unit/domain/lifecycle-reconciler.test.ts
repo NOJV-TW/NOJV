@@ -42,6 +42,8 @@ beforeEach(() => {
     dispatchPlagiarismCheck: vi.fn(),
     dispatchRegistryGarbageCollect: vi.fn(),
     dispatchRejudge: vi.fn(),
+    dispatchJudgeExecution: vi.fn().mockResolvedValue(undefined),
+    dispatchJudgeCleanup: vi.fn().mockResolvedValue(undefined),
     dispatchSubmissionJudge: vi.fn(),
     ensureAssignmentDueSoon,
     ensureContestLifecycle,

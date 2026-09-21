@@ -14,6 +14,9 @@ const mocks = vi.hoisted(() => ({
   executorAbortActive: vi.fn(),
   executorShutdown: vi.fn(),
   healthCheckTemporal: null as null | (() => Promise<boolean>),
+  healthCheckLiveness: null as null | (() => boolean),
+  startJudgeRecoveryMetrics: vi.fn(),
+  stopJudgeRecoveryMetrics: vi.fn(),
   healthClose: vi.fn(),
   healthListen: vi.fn(),
   workerCreate: vi.fn(),
@@ -60,7 +63,11 @@ vi.mock("@temporalio/worker", () => ({
 }));
 
 vi.mock("../../../apps/worker/src/health-server", () => ({
-  createWorkerHealthServer: (deps: { checkTemporal: () => Promise<boolean> }) => {
+  createWorkerHealthServer: (deps: {
+    checkTemporal: () => Promise<boolean>;
+    checkLiveness: () => boolean;
+  }) => {
+    mocks.healthCheckLiveness = deps.checkLiveness;
     mocks.healthCheckTemporal = deps.checkTemporal;
     return {
       close: mocks.healthClose,
@@ -68,6 +75,10 @@ vi.mock("../../../apps/worker/src/health-server", () => ({
       listening: true,
     };
   },
+}));
+
+vi.mock("../../../apps/worker/src/judge-recovery-metrics", () => ({
+  startJudgeRecoveryMetrics: mocks.startJudgeRecoveryMetrics,
 }));
 
 vi.mock("../../../apps/worker/src/logger.js", () => ({
@@ -146,6 +157,8 @@ function makeWorker(events: string[] = []) {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.healthCheckTemporal = null;
+  mocks.healthCheckLiveness = null;
+  mocks.startJudgeRecoveryMetrics.mockReturnValue(mocks.stopJudgeRecoveryMetrics);
   mocks.connectionEnsureConnected.mockResolvedValue(undefined);
   mocks.connectionClose.mockResolvedValue(undefined);
   mocks.closeTemporalClient.mockResolvedValue(undefined);
@@ -260,6 +273,34 @@ describe("WorkerApp lifecycle", () => {
     await expect(Promise.all([first, second])).resolves.toHaveLength(2);
     await started;
     expect(worker.shutdown).toHaveBeenCalledOnce();
+  });
+
+  it("keeps liveness independent of dependency connectivity and disables restart during graceful drain", async () => {
+    const worker = makeWorker();
+    mocks.workerCreate.mockResolvedValue(worker);
+    const app = new WorkerApp(env, { shutdownTimeoutMs: 100, workflowsPath: "workflow.js" });
+    const started = app.start();
+    await vi.waitFor(() => expect(worker.run).toHaveBeenCalledOnce());
+    mocks.connectionEnsureConnected.mockRejectedValue(new Error("Temporal offline"));
+    expect(mocks.healthCheckLiveness?.()).toBe(true);
+    await expect(mocks.healthCheckTemporal?.()).resolves.toBe(false);
+    worker.getState.mockReturnValue("FAILED");
+    expect(mocks.healthCheckLiveness?.()).toBe(false);
+    const stopped = app.shutdown("SIGTERM");
+    expect(mocks.healthCheckLiveness?.()).toBe(true);
+    await stopped;
+    await started;
+    expect(mocks.stopJudgeRecoveryMetrics).toHaveBeenCalledOnce();
+  });
+
+  it("fails startup lifetime when a worker run loop ends without shutdown", async () => {
+    const worker = makeWorker();
+    worker.run.mockResolvedValue(undefined);
+    mocks.workerCreate.mockResolvedValue(worker);
+    const app = new WorkerApp(env, { shutdownTimeoutMs: 100, workflowsPath: "workflow.js" });
+    await expect(app.start()).rejects.toThrow("run loop stopped unexpectedly");
+    expect(mocks.healthCheckLiveness?.()).toBe(false);
+    await app.shutdown("fatal");
   });
 
   it("bounds a hung cleanup but still attempts every later resource", async () => {

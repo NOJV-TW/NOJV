@@ -18,6 +18,7 @@ const require = createRequire(import.meta.url);
 
 import type { WorkerEnv } from "./env";
 import { createWorkerHealthServer } from "./health-server";
+import { startJudgeRecoveryMetrics } from "./judge-recovery-metrics";
 import { createLogger } from "./logger.js";
 import {
   closeServerSafely,
@@ -50,6 +51,7 @@ export class WorkerApp {
   private connection: NativeConnection | null = null;
   private executorOwner: ExecutorOwner | null = null;
   private stopping = false;
+  private runLoopFailed = false;
 
   constructor(
     env: WorkerEnv,
@@ -60,6 +62,13 @@ export class WorkerApp {
     this.workflowsPath = options.workflowsPath ?? require.resolve("./workflows/index.js");
     this.healthServer = createWorkerHealthServer({
       redisUrl: env.REDIS_URL,
+      checkLiveness: () =>
+        this.stopping ||
+        (!this.runLoopFailed &&
+          this.workers.every(({ worker }) => {
+            const state = worker.getState();
+            return state === "INITIALIZED" || state === "RUNNING";
+          })),
       checkTemporal: async () => {
         if (this.stopping) return false;
         if (
@@ -85,7 +94,15 @@ export class WorkerApp {
     if (this.stopping) throw new Error("Worker startup interrupted by shutdown.");
 
     const runPromises = this.workers.map((managed) => {
-      const runPromise = managed.worker.run();
+      const runPromise = managed.worker
+        .run()
+        .then(() => {
+          if (!this.stopping) throw new Error("Temporal worker run loop stopped unexpectedly.");
+        })
+        .catch((error: unknown) => {
+          if (!this.stopping) this.runLoopFailed = true;
+          throw error;
+        });
       managed.runPromise = runPromise;
       return runPromise;
     });
@@ -97,6 +114,13 @@ export class WorkerApp {
     const address = this.env.TEMPORAL_ADDRESS;
     const namespace = this.env.TEMPORAL_NAMESPACE;
     const mode = this.env.WORKER_MODE;
+    if (mode === "all" || mode === "platform") {
+      const stopMetrics = startJudgeRecoveryMetrics();
+      this.cleanupSteps.push({
+        resource: "judge recovery metrics",
+        run: () => Promise.resolve(stopMetrics()),
+      });
+    }
     const { tls, apiKey } = temporalConnectionOptions();
     const connection = await NativeConnection.connect({
       address,

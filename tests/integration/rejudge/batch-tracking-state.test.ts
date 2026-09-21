@@ -1,3 +1,6 @@
+import { randomUUID } from "node:crypto";
+import type { RejudgeInput } from "@nojv/core";
+import { durableWorkRepo } from "@nojv/db";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { configureDomainOrchestration, submissionDomain } from "@nojv/application";
 import {
@@ -16,6 +19,16 @@ beforeEach(() => {
     typeof configureDomainOrchestration
   >[0]);
 });
+
+async function enqueueLegacyRejudge(input: RejudgeInput) {
+  const workflowId = `rejudge-${randomUUID()}`;
+  await durableWorkRepo.enqueue({
+    kind: "submission.rejudge.dispatch",
+    dedupeKey: workflowId,
+    payload: JSON.parse(JSON.stringify({ input, workflowId })),
+  });
+  return { workflowId };
+}
 
 async function fixture() {
   const user = await createTestUser();
@@ -41,7 +54,7 @@ async function fixture() {
   return { user, problem, exam, otherExam, actor, target, createdAt };
 }
 
-describe("batch rejudge status overlay against the real database", () => {
+describe("legacy batch rejudge status overlay against the real database", () => {
   it("hides only eligible targets across discovery, batch reads, and numbered history while dispatch waits", async () => {
     const f = await fixture();
     const otherUser = await createTestUser();
@@ -91,7 +104,7 @@ describe("batch rejudge status overlay against the real database", () => {
         isReferenceSolution: true,
       }),
     ]);
-    await submissionDomain.dispatchRejudge({
+    await enqueueLegacyRejudge({
       mode: "batch",
       problemId: f.problem.id,
       examId: f.exam.id,
@@ -122,7 +135,7 @@ describe("batch rejudge status overlay against the real database", () => {
 
   it("uses captured generations for targets that became terminal after enqueue and releases completed or non-selected rows", async () => {
     const f = await fixture();
-    const { workflowId } = await submissionDomain.dispatchRejudge({
+    const { workflowId } = await enqueueLegacyRejudge({
       mode: "batch",
       problemId: f.problem.id,
       examId: f.exam.id,
@@ -175,7 +188,7 @@ describe("batch rejudge status overlay against the real database", () => {
     "releases unstarted targets after %s without changing stored scoring",
     async (status) => {
       const f = await fixture();
-      const { workflowId } = await submissionDomain.dispatchRejudge({
+      const { workflowId } = await enqueueLegacyRejudge({
         mode: "batch",
         problemId: f.problem.id,
         examId: f.exam.id,

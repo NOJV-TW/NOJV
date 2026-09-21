@@ -20,3 +20,12 @@ export {
 } from "./lifecycle";
 
 export { getRedis } from "./utils";
+
+export {
+  judgeExecutionStatus,
+  executeJudgeStage,
+  reconcileJudgeStage,
+  completePinnedJudge,
+  setJudgeExecutionState,
+  finishJudgeExecution,
+} from "./judge-execution";

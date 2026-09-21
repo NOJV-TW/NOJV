@@ -20,8 +20,13 @@
   const verdict = $derived(submission.status);
   const verdictLabel = $derived(formatVerdictLabel(verdict));
   const verdictClass = $derived(verdictTone(verdict));
+  const execution = $derived(data.execution);
+  const executionActive = $derived(
+    execution && !["completed", "cancelled"].includes(execution.state),
+  );
   const isPending = $derived(
-    verdict === "pending_upload" ||
+    executionActive ||
+      verdict === "pending_upload" ||
       verdict === "queued" ||
       verdict === "compiling" ||
       verdict === "running",
@@ -127,6 +132,22 @@
         <p class="text-title-lg font-semibold leading-tight {verdictClass}">
           {verdictLabel}
         </p>
+        {#if executionActive}
+          <p class="text-body-sm text-muted-foreground" role="status">
+            {execution?.reasonCode === "original_version_unavailable"
+              ? m.judgeRecovery_missingVersion()
+              : execution?.state === "waiting_capacity" || execution?.state === "queued"
+                ? m.judgeRecovery_waiting()
+                : execution?.state === "running" || execution?.state === "finalizing"
+                  ? m.judgeRecovery_running()
+                  : m.judgeRecovery_recovering()}
+          </p>
+          {#if execution?.problemGeneration !== null}
+            <p class="text-caption text-muted-foreground">
+              {m.judgeRecovery_version({ version: String(execution?.problemGeneration) })}
+            </p>
+          {/if}
+        {/if}
         <p class="text-headline font-semibold tabular-nums">
           {submission.score}<span class="text-title-sm text-muted-foreground">
             / {submission.totalScore}</span
@@ -232,7 +253,7 @@
         </div>
       {/if}
 
-      {#if isPending}
+      {#if isPending && !executionActive}
         <p
           class="flex flex-col items-center gap-1 rounded-md border border-dashed border-border-strong bg-muted/20 px-3 py-3 text-center text-body-sm text-muted-foreground"
         >

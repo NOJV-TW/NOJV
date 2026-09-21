@@ -1,0 +1,538 @@
+{
+  "events": [
+    {
+      "eventId": "1",
+      "eventTime": "2026-09-21T03:30:03.490000000Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_EXECUTION_STARTED",
+      "workflowExecutionStartedEventAttributes": {
+        "workflowType": {
+          "name": "submissionJudgeWorkflow"
+        },
+        "taskQueue": {
+          "name": "quota-legacy",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJzdWJtaXNzaW9uSWQiOiJ0ZXN0LXN1Ym1pc3Npb24iLCJkcmFmdCI6eyJwcm9ibGVtSWQiOiJ0ZXN0LXByb2JsZW0iLCJsYW5ndWFnZSI6InB5dGhvbiIsInNvdXJjZUNvZGUiOiJwcmludCgxKSJ9fQ=="
+            }
+          ]
+        },
+        "workflowExecutionTimeout": "315360000.000000000s",
+        "workflowRunTimeout": "315360000.000000000s",
+        "workflowTaskTimeout": "10.000000000s",
+        "originalExecutionRunId": "0518e819-c1d7-4ea8-87a8-3202efb7cd16",
+        "identity": "quota-regression-worker",
+        "firstExecutionRunId": "0518e819-c1d7-4ea8-87a8-3202efb7cd16",
+        "attempt": 1,
+        "firstWorkflowTaskBackoff": "0.000000000s",
+        "header": {}
+      }
+    },
+    {
+      "eventId": "2",
+      "eventTime": "2026-09-21T03:30:03.490000000Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "quota-legacy",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "startToCloseTimeout": "10.000000000s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "3",
+      "eventTime": "2026-09-21T03:30:03.490000000Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "2",
+        "identity": "quota-regression-worker",
+        "historySizeBytes": "390"
+      }
+    },
+    {
+      "eventId": "4",
+      "eventTime": "2026-09-21T03:30:03.516000000Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "2",
+        "identity": "quota-regression-worker",
+        "binaryChecksum": "@temporalio/worker@1.20.3+c6324bbf87694540150658cf1fb3537f2bc34df6a27167d0418fccfd08ab6e0b",
+        "sdkMetadata": {
+          "coreUsedFlags": [1, 2, 3],
+          "sdkName": "temporal-typescript",
+          "sdkVersion": "1.20.3"
+        },
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "5",
+      "eventTime": "2026-09-21T03:30:03.516000000Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "1",
+        "activityType": {
+          "name": "startSubmissionJudgeRun"
+        },
+        "taskQueue": {
+          "name": "quota-legacy",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "InRlc3Qtc3VibWlzc2lvbiI="
+            },
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "InByZS1xdW90YS13YWl0LXJlZ3Jlc3Npb24i"
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000.000000000s",
+        "scheduleToStartTimeout": "315360000.000000000s",
+        "startToCloseTimeout": "300.000000000s",
+        "heartbeatTimeout": "0.000000000s",
+        "workflowTaskCompletedEventId": "3",
+        "retryPolicy": {
+          "initialInterval": "1.000000000s",
+          "backoffCoefficient": 2,
+          "maximumInterval": "100.000000000s",
+          "maximumAttempts": 3,
+          "nonRetryableErrorTypes": ["SandboxAdmissionError"]
+        }
+      }
+    },
+    {
+      "eventId": "6",
+      "eventTime": "2026-09-21T03:30:03.516000000Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "5",
+        "identity": "quota-regression-worker",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "7",
+      "eventTime": "2026-09-21T03:30:03.519000000Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "YmluYXJ5L251bGw="
+              }
+            }
+          ]
+        },
+        "scheduledEventId": "5",
+        "startedEventId": "6",
+        "identity": "quota-regression-worker"
+      }
+    },
+    {
+      "eventId": "8",
+      "eventTime": "2026-09-21T03:30:03.519000000Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "quota-legacy",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "startToCloseTimeout": "10.000000000s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "9",
+      "eventTime": "2026-09-21T03:30:03.519000000Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "8",
+        "identity": "quota-regression-worker",
+        "historySizeBytes": "1041"
+      }
+    },
+    {
+      "eventId": "10",
+      "eventTime": "2026-09-21T03:30:03.522000000Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "8",
+        "identity": "quota-regression-worker",
+        "binaryChecksum": "@temporalio/worker@1.20.3+c6324bbf87694540150658cf1fb3537f2bc34df6a27167d0418fccfd08ab6e0b",
+        "sdkMetadata": {},
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "11",
+      "eventTime": "2026-09-21T03:30:03.522000000Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "2",
+        "activityType": {
+          "name": "fetchJudgeContext"
+        },
+        "taskQueue": {
+          "name": "quota-legacy",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "InRlc3Qtc3VibWlzc2lvbiI="
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000.000000000s",
+        "scheduleToStartTimeout": "315360000.000000000s",
+        "startToCloseTimeout": "300.000000000s",
+        "heartbeatTimeout": "0.000000000s",
+        "workflowTaskCompletedEventId": "9",
+        "retryPolicy": {
+          "initialInterval": "1.000000000s",
+          "backoffCoefficient": 2,
+          "maximumInterval": "100.000000000s",
+          "maximumAttempts": 3,
+          "nonRetryableErrorTypes": ["SandboxAdmissionError"]
+        }
+      }
+    },
+    {
+      "eventId": "12",
+      "eventTime": "2026-09-21T03:30:03.522000000Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "11",
+        "identity": "quota-regression-worker",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "13",
+      "eventTime": "2026-09-21T03:30:03.522000000Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJwcm9ibGVtVHlwZSI6ImZ1bGxfc291cmNlIn0="
+            }
+          ]
+        },
+        "scheduledEventId": "11",
+        "startedEventId": "12",
+        "identity": "quota-regression-worker"
+      }
+    },
+    {
+      "eventId": "14",
+      "eventTime": "2026-09-21T03:30:03.522000000Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "quota-legacy",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "startToCloseTimeout": "10.000000000s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "15",
+      "eventTime": "2026-09-21T03:30:03.522000000Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "14",
+        "identity": "quota-regression-worker",
+        "historySizeBytes": "1626"
+      }
+    },
+    {
+      "eventId": "16",
+      "eventTime": "2026-09-21T03:30:03.523000000Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "14",
+        "identity": "quota-regression-worker",
+        "binaryChecksum": "@temporalio/worker@1.20.3+c6324bbf87694540150658cf1fb3537f2bc34df6a27167d0418fccfd08ab6e0b",
+        "sdkMetadata": {},
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "17",
+      "eventTime": "2026-09-21T03:30:03.523000000Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "3",
+        "activityType": {
+          "name": "executeSandbox"
+        },
+        "taskQueue": {
+          "name": "quota-legacy",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "InRlc3Qtc3VibWlzc2lvbiI="
+            },
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "eyJwcm9ibGVtSWQiOiJ0ZXN0LXByb2JsZW0iLCJsYW5ndWFnZSI6InB5dGhvbiIsInNvdXJjZUNvZGUiOiJwcmludCgxKSJ9"
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000.000000000s",
+        "scheduleToStartTimeout": "315360000.000000000s",
+        "startToCloseTimeout": "600.000000000s",
+        "heartbeatTimeout": "60.000000000s",
+        "workflowTaskCompletedEventId": "15",
+        "retryPolicy": {
+          "initialInterval": "1.000000000s",
+          "backoffCoefficient": 2,
+          "maximumInterval": "100.000000000s",
+          "maximumAttempts": 3
+        }
+      }
+    },
+    {
+      "eventId": "18",
+      "eventTime": "2026-09-21T03:30:06.527000000Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "17",
+        "identity": "quota-regression-worker",
+        "attempt": 3
+      }
+    },
+    {
+      "eventId": "19",
+      "eventTime": "2026-09-21T03:30:06.528000000Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_FAILED",
+      "activityTaskFailedEventAttributes": {
+        "failure": {
+          "message": "Test fixture: CPU quota exhausted",
+          "source": "TypeScriptSDK",
+          "stackTrace": "",
+          "applicationFailureInfo": {
+            "type": "SandboxBackpressureError"
+          }
+        },
+        "scheduledEventId": "17",
+        "startedEventId": "18",
+        "identity": "quota-regression-worker",
+        "retryState": "RETRY_STATE_MAXIMUM_ATTEMPTS_REACHED"
+      }
+    },
+    {
+      "eventId": "20",
+      "eventTime": "2026-09-21T03:30:06.528000000Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "quota-legacy",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "startToCloseTimeout": "10.000000000s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "21",
+      "eventTime": "2026-09-21T03:30:06.528000000Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "20",
+        "identity": "quota-regression-worker",
+        "historySizeBytes": "2463"
+      }
+    },
+    {
+      "eventId": "22",
+      "eventTime": "2026-09-21T03:30:06.530000000Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "20",
+        "identity": "quota-regression-worker",
+        "binaryChecksum": "@temporalio/worker@1.20.3+c6324bbf87694540150658cf1fb3537f2bc34df6a27167d0418fccfd08ab6e0b",
+        "sdkMetadata": {},
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "23",
+      "eventTime": "2026-09-21T03:30:06.530000000Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "4",
+        "activityType": {
+          "name": "failSubmissionJudgeRun"
+        },
+        "taskQueue": {
+          "name": "quota-legacy",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "InRlc3Qtc3VibWlzc2lvbiI="
+            },
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "InByZS1xdW90YS13YWl0LXJlZ3Jlc3Npb24i"
+            },
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "Ikp1ZGdlIHBpcGVsaW5lIGZhaWxlZDogVGVzdCBmaXh0dXJlOiBDUFUgcXVvdGEgZXhoYXVzdGVkIg=="
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000.000000000s",
+        "scheduleToStartTimeout": "315360000.000000000s",
+        "startToCloseTimeout": "300.000000000s",
+        "heartbeatTimeout": "0.000000000s",
+        "workflowTaskCompletedEventId": "21",
+        "retryPolicy": {
+          "initialInterval": "1.000000000s",
+          "backoffCoefficient": 2,
+          "maximumInterval": "100.000000000s",
+          "maximumAttempts": 3,
+          "nonRetryableErrorTypes": ["SandboxAdmissionError"]
+        }
+      }
+    },
+    {
+      "eventId": "24",
+      "eventTime": "2026-09-21T03:30:06.530000000Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "23",
+        "identity": "quota-regression-worker",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "25",
+      "eventTime": "2026-09-21T03:30:06.531000000Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg=="
+              },
+              "data": "dHJ1ZQ=="
+            }
+          ]
+        },
+        "scheduledEventId": "23",
+        "startedEventId": "24",
+        "identity": "quota-regression-worker"
+      }
+    },
+    {
+      "eventId": "26",
+      "eventTime": "2026-09-21T03:30:06.531000000Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "quota-legacy",
+          "kind": "TASK_QUEUE_KIND_NORMAL"
+        },
+        "startToCloseTimeout": "10.000000000s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "27",
+      "eventTime": "2026-09-21T03:30:06.531000000Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "26",
+        "identity": "quota-regression-worker",
+        "historySizeBytes": "3170"
+      }
+    },
+    {
+      "eventId": "28",
+      "eventTime": "2026-09-21T03:30:06.533000000Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "26",
+        "identity": "quota-regression-worker",
+        "binaryChecksum": "@temporalio/worker@1.20.3+c6324bbf87694540150658cf1fb3537f2bc34df6a27167d0418fccfd08ab6e0b",
+        "sdkMetadata": {},
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "29",
+      "eventTime": "2026-09-21T03:30:06.533000000Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_EXECUTION_FAILED",
+      "workflowExecutionFailedEventAttributes": {
+        "failure": {
+          "message": "Activity task failed",
+          "cause": {
+            "message": "Test fixture: CPU quota exhausted",
+            "source": "TypeScriptSDK",
+            "stackTrace": "",
+            "applicationFailureInfo": {
+              "type": "SandboxBackpressureError"
+            }
+          },
+          "activityFailureInfo": {
+            "scheduledEventId": "17",
+            "startedEventId": "18",
+            "identity": "quota-regression-worker",
+            "activityType": {
+              "name": "executeSandbox"
+            },
+            "activityId": "3",
+            "retryState": "RETRY_STATE_MAXIMUM_ATTEMPTS_REACHED"
+          }
+        },
+        "workflowTaskCompletedEventId": "27"
+      }
+    }
+  ]
+}

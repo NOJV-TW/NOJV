@@ -4,7 +4,6 @@ import {
   assessmentProblemRepo,
   contestProblemRepo,
   courseMembershipRepo,
-  durableWorkRepo,
   examProblemRepo,
   examRepo,
   examSessionRepo,
@@ -36,14 +35,12 @@ import {
 } from "@nojv/storage";
 
 import type { ActorContext } from "../shared/actor-context";
-import {
-  ConflictError,
-  ForbiddenError,
-  NotFoundError,
-  ServiceUnavailableError,
-} from "../shared/errors";
+import { ConflictError, ForbiddenError, NotFoundError } from "../shared/errors";
 import { storage } from "../shared/storage-singleton";
 import { toJsonValue } from "../shared/to-json-value";
+import { prepareJudgeSnapshot } from "./judge-snapshot";
+import { kickJudgeExecution } from "./judge-recovery";
+import { createJudgeExecution } from "./judge-execution";
 import {
   commitStoragePointerSwap,
   guardStorageObjectWrites,
@@ -57,11 +54,7 @@ import { assertCanSubmitToVirtualContest } from "../virtual-contest/queries";
 import { assertProblemViewAccess, lockProblemForEdit } from "../problem/permissions";
 import { checkProctoringGateInTx } from "../proctoring/gate";
 import { normalizeSubmissionSources } from "./source-paths";
-import {
-  SUBMISSION_JUDGE_DISPATCH_WORK_KIND,
-  enqueueSubmissionJudgeDispatch,
-  executeSubmissionJudgeDispatch,
-} from "./rejudge-control";
+
 import type { CompletedSubmission } from "./types";
 
 export type { ActorContext };
@@ -76,25 +69,6 @@ type ActiveExamSession = NonNullable<
 >;
 type SubmissionExam = NonNullable<Awaited<ReturnType<typeof examRepo.findById>>>;
 type ContestSubmissionResult = Awaited<ReturnType<typeof ensureContestParticipation>>;
-
-const SUBMISSION_DISPATCH_TIMEOUT_MS = 3_000;
-
-async function dispatchWithTimeout(payload: SubmissionJudgeJob): Promise<void> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    await Promise.race([
-      executeSubmissionJudgeDispatch(payload),
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(
-          () => reject(new Error("Judge worker dispatch timed out.")),
-          SUBMISSION_DISPATCH_TIMEOUT_MS,
-        );
-      }),
-    ]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-}
 
 function buildSubmissionJudgeJob(
   payload: SubmissionDraft,
@@ -474,8 +448,14 @@ export async function createQueuedSubmissionRecord(
   try {
     await guardStorageObjectWrites(sourcePlan.pointers);
     await putSubmissionSourcePlan(storage(), sourcePlan);
+    const pinned = await prepareJudgeSnapshot(
+      submissionId,
+      judgeJob.draft,
+      normalizeSubmissionSources(payload),
+    );
 
     return await runTransaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Problem" WHERE id = ${payload.problemId} FOR UPDATE`;
       if (payload.referenceSolution === true) {
         await lockProblemForEdit(tx, actor, payload.problemId);
       }
@@ -483,7 +463,7 @@ export async function createQueuedSubmissionRecord(
       const submission = await submissionRepo
         .withTx(tx)
         .publishPendingUpload(submissionId, sourcePlan.manifest);
-      await enqueueSubmissionJudgeDispatch(tx, judgeJob);
+      await createJudgeExecution(tx, { submissionId, ...pinned });
       return submission;
     });
   } catch (uploadError) {
@@ -513,30 +493,7 @@ export async function submitAndDispatch(
   clientIp: string,
 ) {
   const submission = await createQueuedSubmissionRecord(payload, actor, clientIp);
-  const judgeJob = buildSubmissionJudgeJob(payload, submission.id);
-
-  try {
-    await dispatchWithTimeout(judgeJob);
-  } catch (error) {
-    await Promise.allSettled([
-      durableWorkRepo.cancel({
-        kind: SUBMISSION_JUDGE_DISPATCH_WORK_KIND,
-        dedupeKey: submission.id,
-        now: new Date(),
-      }),
-      submissionRepo.completeIfInProgress(submission.id, {
-        status: "system_error",
-        verdictSummary: toJsonValue(
-          deriveSystemErrorVerdictSummary(
-            "Judge worker unavailable: " +
-              (error instanceof Error ? error.message : String(error)),
-          ),
-        ),
-      }),
-    ]);
-    throw new ServiceUnavailableError("Judge worker is unavailable. Please try again.");
-  }
-
+  void kickJudgeExecution(submission.id).catch(() => undefined);
   return submission;
 }
 
@@ -549,6 +506,9 @@ export async function startSubmissionJudgeRun(
     const submission = await tx.submission.findUnique({ where: { id: submissionId } });
     if (!submission) throw new NotFoundError(`Submission ${submissionId} not found`);
     if (submission.activeJudgeRunId === judgeRunId) return;
+    if (!["queued", "compiling", "running"].includes(submission.status)) {
+      throw new ConflictError("This submission cannot start a legacy judge run.");
+    }
     if (submission.activeJudgeRunId !== null) {
       throw new ConflictError(`Submission ${submissionId} already has an active judge run.`);
     }
@@ -676,7 +636,8 @@ export async function completeJudge(
     const current = await tx.submission.findUnique({ where: { id: submissionId } });
     if (
       current?.activeJudgeRunId !== judgeRunId ||
-      !["queued", "compiling", "running"].includes(current.status)
+      (!["queued", "compiling", "running"].includes(current.status) &&
+        !judgeRunId.startsWith("judge-execution-"))
     ) {
       return null;
     }

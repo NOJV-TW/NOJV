@@ -2,13 +2,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { WorkflowExecutionAlreadyStartedError } from "@temporalio/client";
 
-const { start } = vi.hoisted(() => ({ start: vi.fn() }));
+const { start, describeWorkflow, signal } = vi.hoisted(() => ({
+  start: vi.fn(),
+  describeWorkflow: vi.fn(),
+  signal: vi.fn(),
+}));
 
 vi.mock("../../../packages/temporal/src/client", () => ({
-  getTemporalClient: vi.fn(() => Promise.resolve({ workflow: { start } })),
+  getTemporalClient: vi.fn(() =>
+    Promise.resolve({
+      workflow: { start, getHandle: () => ({ describe: describeWorkflow, signal }) },
+    }),
+  ),
 }));
 
 import {
+  dispatchJudgeExecution,
+  describeSubmissionJudge,
   dispatchRejudge,
   dispatchSubmissionJudge,
 } from "../../../packages/temporal/src/dispatch";
@@ -88,5 +98,27 @@ describe("durable submission dispatch handlers", () => {
         workflowIdReusePolicy: "REJECT_DUPLICATE",
       }),
     );
+  });
+  it("wakes an existing durable execution without starting a replacement", async () => {
+    start.mockRejectedValueOnce(
+      new WorkflowExecutionAlreadyStartedError("exists", "execution-1", "durableJudgeWorkflow"),
+    );
+    await dispatchJudgeExecution({ executionId: "execution", workflowId: "execution-1" });
+    expect(signal).toHaveBeenCalledWith("capacityAvailable");
+  });
+  it("distinguishes queued workflow tasks from repeatedly failing tasks", async () => {
+    const task = { originalScheduledTime: { seconds: 1 }, attempt: 1 };
+    describeWorkflow.mockResolvedValue({
+      status: { name: "RUNNING" },
+      raw: { pendingWorkflowTask: task, pendingActivities: [] },
+    });
+    expect(await describeSubmissionJudge("submission", "execution-1")).toMatchObject({
+      running: true,
+      pendingWorkflowTaskAt: null,
+    });
+    task.attempt = 3;
+    expect(await describeSubmissionJudge("submission", "execution-1")).toMatchObject({
+      pendingWorkflowTaskAt: new Date(1000),
+    });
   });
 });

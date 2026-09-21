@@ -1,3 +1,4 @@
+import { judgeExecutionViewSchema } from "../judge-execution";
 import { z } from "zod";
 
 import {
@@ -137,6 +138,7 @@ export const submissionDispatchResponseSchema = z.object({
 });
 
 export const submissionOperationSchema = z.object({
+  execution: judgeExecutionViewSchema.nullable().optional(),
   problemId: z.string().min(1),
   problemTitle: z.string(),
   judgeGeneration: z.number().int().nonnegative(),

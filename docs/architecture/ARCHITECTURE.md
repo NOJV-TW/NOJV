@@ -287,33 +287,34 @@ Temporal client, dispatch API, task queue constants, and Temporal input/output t
 
 Dispatch helpers exposed at the root entry and wired into `DomainOrchestrationAdapter` by `apps/web/src/lib/server/domain-orchestration.ts` and `apps/worker/src/domain-orchestration.ts`:
 
-- `dispatchSubmissionJudge()` — submission judge workflow
+- `dispatchJudgeExecution()` — durable pinned execution start or capacity wakeup
+- `dispatchJudgeCleanup()` — abandoned sandbox reconciliation
+- `dispatchSubmissionJudge()` — legacy submission workflow
 - `dispatchContestLifecycle()` — contest lifecycle workflow
 - `dispatchPlagiarismCheck()` — Dolos plagiarism workflow
-- `dispatchRejudge()` — rejudge workflow
+- `dispatchRejudge()` — legacy rejudge workflow; new teacher operations persist execution generations in the application layer
 - `dispatchExamAutoClose()` — exam auto-close timer workflow
 - `querySubmissionStatus()` / `queryRejudgeProgress()` / `queryPlagiarismStatus()` — workflow queries
 
 Workflows, task queues, and ID patterns:
 
-| Workflow                    | Task Queue | Workflow ID pattern                                                               | Signal / Query                                    |
-| --------------------------- | ---------- | --------------------------------------------------------------------------------- | ------------------------------------------------- |
-| `submissionJudgeWorkflow`   | `judge`    | `judge-{submissionId}`                                                            | Query: `getStatus`                                |
-| `rejudgeWorkflow`           | `judge`    | `rejudge-{submissionId\|examId\|contestId\|assessmentId\|problemId}-{uuid}`       | Query: `getProgress`                              |
-| `contestLifecycleWorkflow`  | `platform` | `contest-lifecycle-{contestId}`                                                   | Reschedule via re-dispatch (`TERMINATE_EXISTING`) |
-| `plagiarismCheckWorkflow`   | `platform` | `plagiarism-{targetType}-{targetId}`                                              | Query: `getPlagiarismStatus`                      |
-| `examAutoCloseWorkflow`     | `platform` | `exam-auto-close-{examId}` (id-reuse policy: `TERMINATE_EXISTING` on re-dispatch) | —                                                 |
-| `submissionSweeperWorkflow` | `platform` | `submission-pending-sweeper` (singleton, `cronSchedule: "* * * * *"`)             | —                                                 |
+| Workflow                           | Task Queue | Workflow ID pattern                                                               | Signal / Query                                    |
+| ---------------------------------- | ---------- | --------------------------------------------------------------------------------- | ------------------------------------------------- |
+| `durableJudgeWorkflow`             | `judge`    | `judge-execution-{executionId}-{recoveryEpoch}`                                   | Signal: `capacityAvailable`; status in PostgreSQL |
+| `judgeCleanupWorkflow`             | `judge`    | `judge-cleanup-{leaseToken}`                                                      | —                                                 |
+| `submissionJudgeWorkflow` (legacy) | `judge`    | `judge-{submissionId}`                                                            | Query: `getStatus`                                |
+| `rejudgeWorkflow` (legacy)         | `judge`    | `rejudge-{submissionId\|examId\|contestId\|assessmentId\|problemId}-{uuid}`       | Query: `getProgress`                              |
+| `contestLifecycleWorkflow`         | `platform` | `contest-lifecycle-{contestId}`                                                   | Reschedule via re-dispatch (`TERMINATE_EXISTING`) |
+| `plagiarismCheckWorkflow`          | `platform` | `plagiarism-{targetType}-{targetId}`                                              | Query: `getPlagiarismStatus`                      |
+| `examAutoCloseWorkflow`            | `platform` | `exam-auto-close-{examId}` (id-reuse policy: `TERMINATE_EXISTING` on re-dispatch) | —                                                 |
+| `submissionSweeperWorkflow`        | `platform` | `submission-pending-sweeper` (singleton, `cronSchedule: "* * * * *"`)             | —                                                 |
 
-The parent `rejudgeWorkflow` ID carries a `randomUUID()` suffix (not a
-timestamp) so concurrent rejudges of the same scope never collide; each
-spawned child judge uses `rejudge-{submissionId}-{Date.now()}`.
-
-The `submissionSweeperWorkflow` is a singleton cron started once via
-`ensureSubmissionSweeper()`; every minute it runs the
-`sweepStaleSubmissions` activity, which terminates submissions stuck in
-`pending_upload`/`queued`/`compiling`/`running` past the configured timeout and returns the daily
-attempt (see [Reliability Invariants](../operations/RELIABILITY.md)).
+New teacher rejudge operations use a UUID operation ID and database-owned child
+executions. Legacy workflow registrations remain available for persisted history
+replay. The singleton minute sweeper reconciles execution owners and durable
+dispatch, preserves healthy waits, and repairs closed workflows without changing
+the pinned version. See [Judge pipeline](./JUDGE_PIPELINE.md#durable-execution-and-recovery)
+and [Reliability invariants](../operations/RELIABILITY.md#submission-processing).
 
 Two task queues isolate failure domains and scale independently: `judge` handles submission execution (CPU/sandbox-bound); `platform` handles lifecycle timers, plagiarism, the stale-submission sweeper, and notification fan-out. `WORKER_MODE` selects which to run (see [apps/worker](#appsworker--temporal-worker)); the Helm chart (`infra/charts/nojv`) ships the split as two Deployments (`nojv-worker` judge / `nojv-worker-platform` platform), so this isolation is realised in production rather than only available.
 
@@ -348,9 +349,9 @@ sequenceDiagram
 
     Browser->>Web: POST /api/submissions (SubmissionDraft)
     Web->>Postgres: createQueuedSubmissionRecord (status=pending_upload)
-    Web->>Storage: putSubmissionSources(submissions/{id}/sources/*)
-    Web->>Postgres: transaction: source pointer + status=queued + judge outbox
-    Web->>Temporal: immediate dispatch (workflowId judge-{id}, queue "judge")
+    Web->>Storage: upload immutable sources and judge snapshot
+    Web->>Postgres: transaction: sources + execution + dispatch outbox
+    Web->>Temporal: best-effort execution dispatch (queue "judge")
     Web-->>Browser: 202 { submissionId, pollUrl }
 
     opt Web or Temporal fails after commit
@@ -358,11 +359,11 @@ sequenceDiagram
     end
 
     Browser->>Web: GET /api/submissions/{id}/stream (SSE)
-    Web->>Temporal: querySubmissionStatus (getStatus query)
+    Web->>Postgres: read execution and result status
 
-    Temporal->>Worker: submissionJudgeWorkflow(input)
-    Worker->>Postgres: fetchJudgeContext (testcases + limits)
-    Worker->>Postgres: updateSubmissionStatus(running)
+    Temporal->>Worker: durableJudgeWorkflow(executionId)
+    Worker->>Storage: load verified original judge snapshot
+    Worker->>Postgres: claim stage lease and record progress
     Worker->>Sandbox: executor.execute(SandboxRequest)
     Sandbox-->>Worker: SandboxResult (per-testcase outcomes)
     Worker->>Postgres: completeSubmission (verdict + score)
@@ -428,7 +429,7 @@ sequenceDiagram
     participant Redis
     participant Postgres
 
-    Note over Worker: submissionJudgeWorkflow reaches completion<br/>(see Submission Judging Lifecycle)
+    Note over Worker: durableJudgeWorkflow reaches completion<br/>(see Submission Judging Lifecycle)
     Worker->>Postgres: updateContestScores (recompute participation row)
     Worker->>Redis: publishScoreboardUpdate (nojv:contest channel, 10s throttle)
     Redis-->>Browser: SSE scoreboard:update nudge (via /scoreboard/stream)

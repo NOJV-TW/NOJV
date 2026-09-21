@@ -14,6 +14,7 @@ import {
 
 import { AdvancedModeExecutor } from "./advanced-mode-executor.js";
 import { sanitizeId } from "./docker-process.js";
+import { reconcileDockerRun } from "./docker-reconcile.js";
 import { runStandardMode } from "./standard-mode-executor.js";
 
 export interface DockerExecutorConfig {
@@ -44,6 +45,10 @@ export class DockerExecutor implements SandboxExecutor {
     this.config = config;
   }
 
+  reconcile(runId: string, owner?: string): Promise<boolean> {
+    return reconcileDockerRun(runId, owner);
+  }
+
   async execute(
     request: SandboxRequest,
     execution: SandboxExecutionContext,
@@ -61,6 +66,7 @@ export class DockerExecutor implements SandboxExecutor {
       }
       return await runStandardMode(tempDir, request, execution, {
         ...this.config,
+        image: request.sandboxImage ?? this.config.image,
         memoryMb: resolveDockerMemoryMb(request, this.config),
       });
     } finally {
