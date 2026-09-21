@@ -231,6 +231,8 @@ export const submissionRepo = {
     return prisma.submission.findUnique({
       where: { id },
       select: {
+        userId: true,
+        createdAt: true,
         problem: {
           select: {
             id: true,

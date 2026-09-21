@@ -108,13 +108,56 @@ Validator diagnostics stay in staff feedback, never in student output.
 **Impact**: A normal program failure produces its normal verdict; eviction,
 node shutdown, node loss, and Spot reclaim delay the submission instead of
 being reported as a student-facing System Error.
-**Mitigation**: Temporal retries judge activities up to three times, each with
-a fresh ephemeral sandbox run ID. OOM, TLE, and program errors remain normal
+**Mitigation**: New judge histories retry the complete sandbox attempt up to
+three times with a fresh run ID, after durable cleanup of the previous attempt.
+Stage activities do not recompile or rerun independently inside the same attempt.
+Existing pre-patch histories retain their recorded activity retry contract while
+they drain. OOM, TLE, and program errors remain normal
 verdicts. Kubernetes Job and Pod completion is observed with resource-versioned
 watches; a closed or stale watch is resynchronized, while a failed status
 snapshot remains a retryable infrastructure failure.
 **Recovery**: Automatic retry. If infrastructure retries are exhausted, check
 Kubernetes node health and the sandbox quota.
+
+### Sandbox Cleanup Pending
+
+Normal Kubernetes cleanup has a 30-second budget. Deletion uses foreground
+propagation and UID preconditions, checks ownership, and waits for owned Pods to
+disappear before considering the stage released. A timeout, API failure or
+changed ownership raises `cleanup_pending`. New workflow histories perform
+cleanup in a non-cancellable scope with persistent activity retries; the
+admission permit stays held until cleanup succeeds. Cancellation, heartbeat
+expiration and worker restarts never establish that execution resources are free.
+
+The control worker quarantines a node after observing a `FailedKillPod` event
+count of at least three. Quarantine persists in coordinator history, and healthy
+nodes remain available for other runs. `judge_cleanup_pending_total` and
+`judge_quarantined_nodes` support recovery alerts. No automatic k3s, containerd
+or runsc restart is performed. These controls contain a failed termination;
+they do not diagnose or repair the runtime's underlying failure.
+
+An API object disappearing is insufficient evidence for a known stuck-runtime
+incident. Before directed host cleanup, match the run ID, Job owner UID, Pod
+UID, CRI sandbox/container IDs, shim/runsc processes and cgroup. Recovery requires
+the corresponding processes and cgroup to disappear. Keep the node quarantined
+until that evidence exists. Follow the [capacity runbook](../runbooks/judge-capacity.md).
+
+### Capacity Coordinator Unavailable or Stale
+
+Capacity admission is disabled by default. When enabled, its durable singleton
+runs on the independent `judge-control` queue. It refreshes allocatable resources
+and effective committed requests every 30 seconds. A snapshot older than 90
+seconds stops new admission; held permits and already executing work remain.
+Loss of a worker, delayed signals or a shrinking node budget must not free held
+permits or force-kill healthy work merely to meet the new budget.
+
+The coordinator starts paused and does not initially own quota writes. After a
+drained, protected Helm-to-controller handoff, successful quota reconciliation is
+required before admission can resume. Helm and the controller must never both
+maintain the dynamic quota spec. Control-plane restart preserves pause, permit,
+quarantine and quota-management state in Temporal. Recovery consists of restoring
+the control worker/API connectivity and verifying the state, not resetting the
+coordinator to discard reservations.
 
 ## Operational Invariants
 
@@ -126,7 +169,10 @@ Kubernetes node health and the sandbox quota.
 4. `completeSubmission` activity writes the final verdict to DB. This is the commit point.
 5. User stats and contest scores are updated after the verdict is committed.
 6. SSE notification is best-effort — the client falls back to polling Temporal/DB.
-7. A singleton cron workflow (`submissionSweeperWorkflow`, every minute) runs `sweepStaleSubmissions`: any submission stuck in `pending_upload`/`queued`/`compiling`/`running` past the configurable pending timeout (default 30 min, set at `/admin/rejudges`) is terminated and marked `system_error`. The workflow is terminated **before** the status flip when a workflow may exist, so a still-alive workflow cannot overwrite the verdict afterward. Because all `system_error` verdicts are not counted against the daily attempt limit, a swept submission effectively returns the student's attempt.
+7. A singleton cron workflow (`submissionSweeperWorkflow`, every minute) runs `sweepStaleSubmissions`. The configured pending timeout selects candidates, but a still-running Temporal judge workflow is exempt, including a long admission wait. Only a candidate without a running workflow can be marked `system_error`; termination and conditional generation-aware completion protect against stale writes. Normal capacity queueing must not consume a student's attempt or become a false platform failure.
+8. Capacity-enabled runs are ordered round-robin by student, with FIFO submissions per student and at most one active permit per student. A completed wave re-enters admission. Prepared unfinished attempts are bounded independently from total accepted submissions; accepting 100 submissions does not create 100 artifact PVCs at once.
+9. Attempt resources and temporary result objects are owned by run ID, with Kubernetes UID checks on deletion and artifact access. Rejudge generation fencing still governs the final verdict commit. Cleanup of an old attempt must not remove a newer attempt's resources or overwrite its result.
+10. Resource-strategy rollout requires fixed verdict fixtures, no new leaks/OOM/false queue failures/starvation, and the recorded performance gate. At least 20% median improvement for the 100-person burst and at most 10% single-submission/web API p95 regression are acceptance criteria, not measured claims. The new strategy remains disabled until the [benchmark evidence](../runbooks/testing.md#judge-capacity-benchmark) and real gVisor integration checks pass.
 
 ### Contest Lifecycle
 
@@ -175,3 +221,14 @@ Kubernetes node health and the sandbox quota.
 - [Security Requirements](./SECURITY.md)
 - [Deployment Guide](./DEPLOYMENT.md)
 - [Incident Recovery Runbook](../runbooks/incident-recovery.md)
+
+### Ambiguous Activity Timeouts
+
+New judge attempt histories retain their run/permit when an execution Activity
+may still produce resources after a heartbeat or execution timeout. They wait
+in Temporal for an exact run/permit stop acknowledgment before cleanup and retry;
+resource absence at a single instant does not fence a delayed producer. The
+[capacity recovery procedure](../runbooks/judge-capacity.md#activity-timeout-recovery)
+requires verification of the old Activity process identity and termination.
+Normal cancellation waits for Activity acknowledgment. Pre-patch histories keep
+their recorded behavior and must be drained before the resource-strategy cutover.

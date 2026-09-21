@@ -36,13 +36,30 @@ function clients(options: {
   ) => void;
 }) {
   const controllers: AbortController[] = [];
+  const liveJobs = new Set<string>();
   const coreApi = {
     createNamespacedConfigMap: vi.fn(async () => undefined),
     deleteNamespacedConfigMap: vi.fn(async () => undefined),
-    listNamespacedPod: vi.fn(async () => ({
-      metadata: { resourceVersion: "pod-rv-1" },
-      items: [{ metadata: { name: "watch-test-pod" }, status: {} }],
-    })),
+    listNamespacedPod: vi.fn(async ({ labelSelector }: any) => {
+      const name = String(labelSelector).split("=")[1]!;
+      return {
+        metadata: { resourceVersion: "pod-rv-1" },
+        items: liveJobs.has(name)
+          ? [
+              {
+                metadata: {
+                  name: "watch-test-pod",
+                  uid: `${name}-pod-uid`,
+                  ownerReferences: [
+                    { apiVersion: "batch/v1", kind: "Job", name, uid: `${name}-uid` },
+                  ],
+                },
+                status: {},
+              },
+            ]
+          : [],
+      };
+    }),
     readNamespacedPodLog: vi.fn(async ({ container }: { container: string }) =>
       container === "prepare"
         ? JSON.stringify({ runCommand: ["python3", "main.py"] })
@@ -53,9 +70,18 @@ function clients(options: {
     ),
   } as any;
   const batchApi = {
-    createNamespacedJob: vi.fn(async () => undefined),
-    deleteNamespacedJob: vi.fn(async () => undefined),
-    readNamespacedJob: vi.fn(async () => options.readJob()),
+    createNamespacedJob: vi.fn(async ({ body }: any) => {
+      liveJobs.add(body.metadata.name);
+    }),
+    deleteNamespacedJob: vi.fn(async ({ name }: any) => {
+      liveJobs.delete(name);
+    }),
+    readNamespacedJob: vi.fn(async ({ name }: any) => {
+      if (!liveJobs.has(name)) throw { code: 404 };
+      const job = options.readJob();
+      job.metadata = { ...job.metadata, name, uid: `${name}-uid` };
+      return job;
+    }),
   } as any;
   const watch = {
     watch: vi.fn(

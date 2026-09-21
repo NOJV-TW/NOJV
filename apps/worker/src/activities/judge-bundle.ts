@@ -1,6 +1,7 @@
 export {
   fetchJudgeContext,
   executeSandbox,
+  cleanupSandboxRun,
   completeSubmission,
   fetchSubmissionIdsForRejudge,
   fetchSingleSubmissionForRejudge,
@@ -20,3 +21,13 @@ export {
 } from "./lifecycle";
 
 export { getRedis } from "./utils";
+
+export {
+  initializeSandboxAttempt,
+  prepareSandboxAttempt,
+  executeSandboxWave,
+  finishSandboxAttempt,
+  cleanupSandboxStage,
+  cleanupSandboxAttempt,
+  recordAdmissionWait,
+} from "./judge-stages";

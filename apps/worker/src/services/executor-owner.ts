@@ -22,7 +22,11 @@ export class ExecutorOwner {
     private readonly createRunId: () => string = randomUUID,
   ) {}
 
-  execute(request: SandboxRequest, signal: AbortSignal): Promise<SandboxResult> {
+  execute(
+    request: SandboxRequest,
+    signal: AbortSignal,
+    runId?: string,
+  ): Promise<SandboxResult> {
     if (this.stopping) {
       throw new Error("Executor owner is shutting down.");
     }
@@ -36,7 +40,7 @@ export class ExecutorOwner {
     }
 
     const execution: SandboxExecutionContext = {
-      runId: this.createRunId(),
+      runId: runId ?? this.createRunId(),
       signal: controller.signal,
     };
     const active = {} as ActiveExecution;
@@ -50,6 +54,10 @@ export class ExecutorOwner {
     active.promise = promise;
     this.active.add(active);
     return promise;
+  }
+
+  async cleanupRun(runId: string): Promise<void> {
+    await this.executor.cleanupRun?.(runId);
   }
 
   abortActive(reason: unknown): void {

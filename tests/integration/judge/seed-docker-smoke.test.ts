@@ -19,7 +19,7 @@ import { enforceMemoryLimit } from "../../../apps/worker/src/services/check-stan
 import { DockerExecutor } from "../../../apps/worker/src/services/docker-executor.js";
 import { SEED_SOLUTIONS } from "./seed-solutions.js";
 
-const SANDBOX_IMAGE = "nojv-sandbox:local";
+const SANDBOX_IMAGE = process.env.NOJV_TEST_SANDBOX_IMAGE ?? "nojv-sandbox:local";
 const DEMO_RUN_IMAGE = "nojv-demo-advanced-run:local";
 const DEMO_GRADE_IMAGE = "nojv-demo-advanced-grade:local";
 

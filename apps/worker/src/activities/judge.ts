@@ -1,5 +1,6 @@
 import {
   effectiveTimeLimitMs,
+  languageSchema,
   entryFileNameFor,
   mergeWorkspaceSources,
   submissionResultSchema,
@@ -15,6 +16,7 @@ import { submissionDomain } from "@nojv/application";
 import type { SubmissionSource } from "@nojv/storage";
 import { cancellationSignal, heartbeat } from "@temporalio/activity";
 
+import { recordJudgePhase } from "../services/judge-phase-metrics";
 import { enforceMemoryLimit } from "../services/check-standard";
 import type { ExecutorOwner } from "../services/executor-owner";
 import { judgeLatencyHistogram, recordJudgeLatency } from "./utils";
@@ -40,8 +42,13 @@ export type TestcaseSetGroup = submissionDomain.TestcaseSetGroup;
 
 export async function fetchJudgeContext(
   submissionId: string,
-): Promise<submissionDomain.JudgeDispatchMeta> {
-  return submissionDomain.getJudgeDispatchMeta(submissionId);
+): Promise<submissionDomain.JudgeDispatchMeta & { staged: boolean }> {
+  return {
+    ...(await submissionDomain.getJudgeDispatchMeta(submissionId)),
+    staged:
+      process.env.EXECUTION_BACKEND === "kubernetes" &&
+      process.env.K8S_CAPACITY_ADMISSION === "true",
+  };
 }
 
 export function mergeSandboxSources(
@@ -158,22 +165,14 @@ function buildAdvancedPayload(
   };
 }
 
-export async function executeSandbox(
-  submissionId: string,
-  draft: SubmissionJudgeDraft,
-): Promise<{
-  result: SubmissionResult;
-  advancedJudgeVerificationSnapshot: AdvancedJudgeVerificationSnapshot | null;
-}> {
-  const executorOwner = getExecutorOwner();
-
+export async function loadSandboxExecution(submissionId: string, draft: SubmissionJudgeDraft) {
   const studentSources = await submissionDomain.getSubmissionSources(submissionId);
 
   if (studentSources.length === 0) {
     return {
       result: {
         accepted: false,
-        verdict: "system_error",
+        verdict: "system_error" as const,
         score: 0,
         runtimeMs: 0,
         caseResults: [],
@@ -201,7 +200,7 @@ export async function executeSandbox(
       return {
         result: {
           accepted: false,
-          verdict: "system_error",
+          verdict: "system_error" as const,
           score: 0,
           runtimeMs: 0,
           caseResults: [],
@@ -265,18 +264,36 @@ export async function executeSandbox(
     ...(advancedPayload ? { advanced: advancedPayload } : {}),
   };
 
-  heartbeat("sandbox-started");
-  const heartbeatTimer = setInterval(() => {
-    heartbeat("sandbox-running");
-  }, JUDGE_HEARTBEAT_INTERVAL_MS);
+  return {
+    request,
+    judgeContext,
+    advancedJudgeVerificationSnapshot,
+    useSamples,
+    useAdvanced,
+    activeSets,
+    testcasesForSandbox,
+  };
+}
 
-  let result: Awaited<ReturnType<ExecutorOwner["execute"]>>;
-  try {
-    result = await executorOwner.execute(request, cancellationSignal());
-  } finally {
-    clearInterval(heartbeatTimer);
-  }
+export type SandboxExecutionData = Awaited<ReturnType<typeof loadSandboxExecution>>;
 
+export function mapSandboxExecution(
+  data: SandboxExecutionData,
+  result: Awaited<ReturnType<ExecutorOwner["execute"]>>,
+) {
+  if (data.result !== undefined)
+    return {
+      result: data.result,
+      advancedJudgeVerificationSnapshot: data.advancedJudgeVerificationSnapshot,
+    };
+  const {
+    judgeContext,
+    advancedJudgeVerificationSnapshot,
+    useSamples,
+    useAdvanced,
+    activeSets,
+    testcasesForSandbox,
+  } = data;
   if (!useAdvanced && result.testcaseResults.length > 0) {
     result = {
       ...result,
@@ -314,6 +331,32 @@ export async function executeSandbox(
   };
 }
 
+export async function executeSandbox(
+  submissionId: string,
+  draft: SubmissionJudgeDraft,
+  runId?: string,
+) {
+  const data = await loadSandboxExecution(submissionId, draft);
+  if (data.result !== undefined)
+    return {
+      result: data.result,
+      advancedJudgeVerificationSnapshot: data.advancedJudgeVerificationSnapshot,
+    };
+  heartbeat("sandbox-started");
+  const heartbeatTimer = setInterval(
+    () => heartbeat("sandbox-running"),
+    JUDGE_HEARTBEAT_INTERVAL_MS,
+  );
+  try {
+    return mapSandboxExecution(
+      data,
+      await getExecutorOwner().execute(data.request, cancellationSignal(), runId),
+    );
+  } finally {
+    clearInterval(heartbeatTimer);
+  }
+}
+
 export async function completeSubmission(
   submissionId: string,
   judgeRunId: string,
@@ -334,6 +377,14 @@ export async function completeSubmission(
     mode,
     verdict: completed.status,
   });
+  const language = languageSchema.safeParse(completed.language);
+  if (language.success)
+    recordJudgePhase(
+      "end_to_end",
+      Date.now() - completed.createdAt.getTime(),
+      mode,
+      language.data,
+    );
   return completed;
 }
 
@@ -410,4 +461,8 @@ export async function failSubmissionJudgeRun(
   reason: string,
 ): Promise<boolean> {
   return submissionDomain.failSubmissionJudgeRun(submissionId, judgeRunId, reason);
+}
+
+export async function cleanupSandboxRun(runId: string): Promise<void> {
+  await getExecutorOwner().cleanupRun(runId);
 }

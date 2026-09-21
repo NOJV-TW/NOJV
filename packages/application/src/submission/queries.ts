@@ -729,7 +729,10 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
   };
 }
 
-export type JudgeDispatchMeta = Pick<SubmissionJudgeContext, "problemType" | "advanced">;
+export type JudgeDispatchMeta = Pick<SubmissionJudgeContext, "problemType" | "advanced"> & {
+  userId: string;
+  createdAt: Date;
+};
 
 export async function getJudgeDispatchMeta(submissionId: string): Promise<JudgeDispatchMeta> {
   const submission = await submissionRepo.findByIdForDispatchMeta(submissionId);
@@ -754,7 +757,12 @@ export async function getJudgeDispatchMeta(submissionId: string): Promise<JudgeD
         }
       : null;
 
-  return { problemType: problem.type, advanced };
+  return {
+    problemType: problem.type,
+    advanced,
+    userId: submission.userId,
+    createdAt: submission.createdAt,
+  };
 }
 
 const IN_FLIGHT_SUBMISSION_STATUSES = [

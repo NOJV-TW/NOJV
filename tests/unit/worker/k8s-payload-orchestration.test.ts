@@ -47,6 +47,7 @@ function clients(
   const configMapsDeleted: string[] = [];
   const jobsCreated: any[] = [];
   let configMapAttempt = 0;
+  const liveJobs = new Set<string>();
   const coreApi = {
     createNamespacedConfigMap: vi.fn(async ({ body }: any) => {
       configMapAttempt += 1;
@@ -58,9 +59,24 @@ function clients(
     deleteNamespacedConfigMap: vi.fn(async ({ name }: any) => {
       configMapsDeleted.push(name);
     }),
-    listNamespacedPod: vi.fn(async ({ labelSelector }: any) => ({
-      items: [{ metadata: { name: `${String(labelSelector).split("=")[1]}-pod` } }],
-    })),
+    listNamespacedPod: vi.fn(async ({ labelSelector }: any) => {
+      const name = String(labelSelector).split("=")[1]!;
+      return {
+        items: liveJobs.has(name)
+          ? [
+              {
+                metadata: {
+                  name: `${name}-pod`,
+                  uid: `${name}-pod-uid`,
+                  ownerReferences: [
+                    { apiVersion: "batch/v1", kind: "Job", name, uid: `${name}-uid` },
+                  ],
+                },
+              },
+            ]
+          : [],
+      };
+    }),
     listNamespacedEvent: vi.fn(async () => ({
       items: options.blockedEvent ? [options.blockedEvent] : [],
     })),
@@ -76,11 +92,18 @@ function clients(
   const batchApi = {
     createNamespacedJob: vi.fn(async ({ body }: any) => {
       jobsCreated.push(body);
+      liveJobs.add(body.metadata.name);
     }),
-    readNamespacedJob: vi.fn(async () => ({
-      status: options.blockedEvent ? {} : { succeeded: 1 },
-    })),
-    deleteNamespacedJob: vi.fn(async () => undefined),
+    readNamespacedJob: vi.fn(async ({ name }: any) => {
+      if (!liveJobs.has(name)) throw { code: 404 };
+      return {
+        metadata: { name, uid: `${name}-uid` },
+        status: options.blockedEvent ? {} : { succeeded: 1 },
+      };
+    }),
+    deleteNamespacedJob: vi.fn(async ({ name }: any) => {
+      liveJobs.delete(name);
+    }),
   } as any;
   const watch = {
     watch: vi.fn(
@@ -97,6 +120,39 @@ function clients(
 }
 
 describe("K8sExecutor sharded payload orchestration", () => {
+  it("retains payloads after delete acceptance until the owned Pod actually disappears", async () => {
+    vi.useFakeTimers();
+    try {
+      const fake = clients();
+      const deleteJob = fake.handles.batchApi.deleteNamespacedJob.getMockImplementation();
+      fake.handles.batchApi.deleteNamespacedJob.mockResolvedValue(undefined);
+      const execution = new K8sExecutor(EXEC_CONFIG, fake.handles).execute(request("ok"), {
+        runId: "termination-barrier",
+        signal: new AbortController().signal,
+      });
+      const result = expect(execution).resolves.toBeDefined();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(fake.handles.batchApi.deleteNamespacedJob).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: {
+            propagationPolicy: "Foreground",
+            preconditions: { uid: "judge-termination-barrier-uid" },
+          },
+        }),
+      );
+      expect(fake.record.configMapsCreated.length).toBeGreaterThan(0);
+      expect(fake.record.configMapsDeleted).toEqual([]);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(fake.record.configMapsDeleted).toEqual([]);
+      await deleteJob({ name: "judge-termination-barrier" });
+      await vi.advanceTimersByTimeAsync(500);
+      await result;
+      expect(fake.record.configMapsDeleted).toEqual(fake.record.configMapsCreated);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it.each([
     [
       "duplicate",
@@ -300,16 +356,16 @@ describe("K8sExecutor sharded payload orchestration", () => {
 
   it("uses a succeeded Pod without waiting for the Job controller", async () => {
     const fake = clients();
-    fake.handles.batchApi.readNamespacedJob
-      .mockResolvedValueOnce({ status: {} })
-      .mockResolvedValue({ status: { succeeded: 1 } });
-    fake.handles.coreApi.listNamespacedPod.mockResolvedValue({
-      items: [
-        {
-          metadata: { name: "judge-standard-pod" },
-          status: { phase: "Succeeded", startTime: new Date() },
-        },
-      ],
+    fake.handles.batchApi.readNamespacedJob.mockResolvedValueOnce({
+      metadata: { uid: "judge-standard-uid" },
+      status: {},
+    });
+    const listPods = fake.handles.coreApi.listNamespacedPod.getMockImplementation();
+    fake.handles.coreApi.listNamespacedPod.mockImplementation(async (args: any) => {
+      const response = await listPods(args);
+      for (const pod of response.items)
+        pod.status = { phase: "Succeeded", startTime: new Date() };
+      return response;
     });
     const executor = new K8sExecutor(EXEC_CONFIG, fake.handles);
 
@@ -318,7 +374,7 @@ describe("K8sExecutor sharded payload orchestration", () => {
       signal: new AbortController().signal,
     });
 
-    expect(fake.handles.batchApi.readNamespacedJob).toHaveBeenCalledTimes(1);
+    expect(fake.handles.batchApi.readNamespacedJob).toHaveBeenCalledTimes(2);
   });
 
   it("reads case logs concurrently after the Pod succeeds", async () => {

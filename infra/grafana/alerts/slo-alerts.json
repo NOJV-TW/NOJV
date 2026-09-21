@@ -30,7 +30,7 @@
     "for": "10m",
     "severity": "critical",
     "noDataState": "NoData",
-    "summary": "One or more submissions have sat in a non-terminal (pending/judging) state past the pending-timeout for 10m — the positive signal for a dead judging tier that judge-latency NoData alone can mask. Placeholder expr: requires a SQL/exporter-backed gauge nojv_submissions_stuck (count of submissions in a non-terminal state older than the pending timeout). Sits in NoData until that exporter is wired; see docs/operations/RELIABILITY.md."
+    "summary": "One or more submissions have sat in a non-terminal (pending/judging) state past the pending-timeout for 10m \u2014 the positive signal for a dead judging tier that judge-latency NoData alone can mask. Placeholder expr: requires a SQL/exporter-backed gauge nojv_submissions_stuck (count of submissions in a non-terminal state older than the pending timeout). Sits in NoData until that exporter is wired; see docs/operations/RELIABILITY.md."
   },
   {
     "uid": "nojv-slo-api-latency",
@@ -70,7 +70,7 @@
     "threshold": 0.01,
     "for": "5m",
     "severity": "critical",
-    "summary": "HTTP 5xx error rate has exceeded 1% for 5 minutes — service availability SLO is breached. Page on-call immediately."
+    "summary": "HTTP 5xx error rate has exceeded 1% for 5 minutes \u2014 service availability SLO is breached. Page on-call immediately."
   },
   {
     "uid": "nojv-node-disk-usage",
@@ -80,7 +80,7 @@
     "threshold": 0.8,
     "for": "10m",
     "severity": "critical",
-    "summary": "A node filesystem has exceeded 80% usage for 10m. This is the detection gap behind the 2026-07-04 disk-full incident (containerd wedged → CNPG evicted). Free disk (crictl rmi --prune) or expand the volume before it fills. Requires observability.prometheus.nodeExporter.enabled."
+    "summary": "A node filesystem has exceeded 80% usage for 10m. This is the detection gap behind the 2026-07-04 disk-full incident (containerd wedged \u2192 CNPG evicted). Free disk (crictl rmi --prune) or expand the volume before it fills. Requires observability.prometheus.nodeExporter.enabled."
   },
   {
     "uid": "nojv-pg-not-ready",
@@ -90,7 +90,7 @@
     "threshold": 0,
     "for": "2m",
     "severity": "critical",
-    "summary": "One or more CloudNativePG Postgres instances failed scrape (not ready) for 2m. Postgres is the single durable store — a down instance means degraded or total outage. Dormant until a CNPG metrics scrape target (job=cnpg-postgres) is wired; see docs/operations/RELIABILITY.md."
+    "summary": "One or more CloudNativePG Postgres instances failed scrape (not ready) for 2m. Postgres is the single durable store \u2014 a down instance means degraded or total outage. Dormant until a CNPG metrics scrape target (job=cnpg-postgres) is wired; see docs/operations/RELIABILITY.md."
   },
   {
     "uid": "nojv-pg-backup-stale",
@@ -112,5 +112,27 @@
     "severity": "critical",
     "noDataState": "OK",
     "summary": "An at-least-once notification email exhausted its database-owned retries. Inspect the DurableWork lastError/result and SMTP health. A stable Message-ID helps recipients deduplicate retries but does not provide exactly-once delivery."
+  },
+  {
+    "uid": "nojv-judge-cleanup-pending",
+    "title": "Judge cleanup requires retry",
+    "slo": "Judge permits remain held until sandbox termination",
+    "expr": "sum(increase(judge_cleanup_pending_total[5m]))",
+    "threshold": 0,
+    "for": "0m",
+    "severity": "critical",
+    "noDataState": "OK",
+    "summary": "Sandbox termination exceeded its cleanup deadline. Permits remain held; inspect run ID and Pod UID in worker logs. Verify CRI, shim and cgroup ownership before targeted recovery; do not restart the runtime automatically."
+  },
+  {
+    "uid": "nojv-judge-node-quarantined",
+    "title": "Judge node quarantined after FailedKillPod",
+    "slo": "Repeated runtime termination failures stop new judge admission",
+    "expr": "max(judge_quarantined_nodes)",
+    "threshold": 0,
+    "for": "0m",
+    "severity": "critical",
+    "noDataState": "OK",
+    "summary": "A judge node was quarantined after repeated FailedKillPod. Healthy nodes can continue; held permits and runtime remnants need verified cleanup before operational recovery."
   }
 ]

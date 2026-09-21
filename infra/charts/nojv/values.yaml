@@ -299,6 +299,9 @@ worker:
         cpu: 500m
         memory: 512Mi
   sandbox:
+    capacityAdmission:
+      enabled: false
+      artifactStorageClassName: local-path
     cpuRequest: "500m"
     caseCpuRequest: "100m"
     cpuLimit: "1"

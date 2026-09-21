@@ -134,6 +134,18 @@ describe("sweepStaleSubmissions (real DB)", () => {
     expect(row?.status).toBe("running");
   });
 
+  it("preserves a three-day admission backlog while its Workflow is RUNNING", async () => {
+    describeSubmissionJudge.mockResolvedValue({ status: "RUNNING", running: true });
+    const queued = await createTestSubmission({ status: "queued" });
+    await backdateUpdatedAt(queued.id, 72 * 60);
+
+    const result = await submissionDomain.sweepStaleSubmissions();
+
+    expect(terminateSubmissionJudge).not.toHaveBeenCalled();
+    expect(result.skipped).toBeGreaterThanOrEqual(1);
+    expect((await submissionRepo.findById(queued.id))?.status).toBe("queued");
+  });
+
   it("uses the timeout threshold from the environment", async () => {
     const previous = process.env.SUBMISSION_PENDING_TIMEOUT_MINUTES;
     process.env.SUBMISSION_PENDING_TIMEOUT_MINUTES = "10";

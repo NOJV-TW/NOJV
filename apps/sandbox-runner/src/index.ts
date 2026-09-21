@@ -1,4 +1,5 @@
 import * as fs from "node:fs/promises";
+import { publishArtifact } from "./artifact-publisher.js";
 import * as path from "node:path";
 import * as os from "node:os";
 import {
@@ -10,7 +11,13 @@ import {
 } from "./types.js";
 import { compile, compileInteractor, compileValidator, sourceFileName } from "./compiler.js";
 import { readTestcase } from "./testcase-files.js";
-import { cleanupTempDir, pathExists } from "./utils.js";
+import {
+  cleanupTempDir,
+  pathExists,
+  readCgroupCpuUsageUsec,
+  readCgroupThrottledUsec,
+  readCgroupMemoryPeakBytes,
+} from "./utils.js";
 import { runSolution } from "./judges/standard.js";
 import {
   resolveInteractiveCaseFiles,
@@ -262,6 +269,10 @@ function resolveCaseIndex(config: SandboxInput): number | null {
 }
 
 async function main(): Promise<void> {
+  if (process.env.SANDBOX_PHASE === "publish-artifact") {
+    process.stdout.write(JSON.stringify(await publishArtifact()));
+    return;
+  }
   if (process.env.SANDBOX_PHASE === "prepare") {
     await runPreparePhase();
     return;
@@ -319,6 +330,8 @@ async function main(): Promise<void> {
   }
 }
 
+const initialCpuUsec = readCgroupCpuUsageUsec();
+const initialThrottledUsec = readCgroupThrottledUsec();
 try {
   await main();
 } catch (err) {
@@ -338,5 +351,21 @@ try {
     ],
   };
   process.stdout.write(JSON.stringify(output));
-  process.exit(1);
+  process.exitCode = 1;
+} finally {
+  const cpu = readCgroupCpuUsageUsec();
+  const throttled = readCgroupThrottledUsec();
+  process.stderr.write(
+    `\n${JSON.stringify({
+      nojvResourceUsage: {
+        cpuUsec:
+          cpu !== null && initialCpuUsec !== null ? Math.max(0, cpu - initialCpuUsec) : null,
+        throttledUsec:
+          throttled !== null && initialThrottledUsec !== null
+            ? Math.max(0, throttled - initialThrottledUsec)
+            : null,
+        memoryPeakBytes: readCgroupMemoryPeakBytes(),
+      },
+    })}\n`,
+  );
 }

@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 
 import { TestWorkflowEnvironment } from "@temporalio/testing";
 import { Worker } from "@temporalio/worker";
+import type { SubmissionJudgeInput } from "@nojv/core";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { submissionJudgeWorkflow } from "../../../apps/worker/src/workflows/submission-judge";
@@ -31,6 +32,7 @@ function buildActivities(overrides: Partial<Activities> = {}): Activities {
       oldStatus: "accepted",
     })),
     fetchJudgeContext: vi.fn(async () => ({ problemType: "full_source", advanced: null })),
+    cleanupSandboxRun: vi.fn(async () => undefined),
     executeSandbox: vi.fn(async () => ({
       result: { testcaseResults: [] },
       advancedJudgeVerificationSnapshot: null,
@@ -53,10 +55,10 @@ function buildActivities(overrides: Partial<Activities> = {}): Activities {
   };
 }
 
-const baseInput = {
+const baseInput: SubmissionJudgeInput = {
   submissionId: "sub_1",
   draft: { problemId: "prob_1", language: "python", sourceCode: "print(1)" },
-} as never;
+};
 
 async function runWorker(activities: Activities, body: () => Promise<void>): Promise<void> {
   const judgeWorker = await Worker.create({
@@ -64,12 +66,16 @@ async function runWorker(activities: Activities, body: () => Promise<void>): Pro
     taskQueue: "judge-test",
     workflowsPath,
     activities,
+    defaultHeartbeatThrottleInterval: "100ms",
+    maxHeartbeatThrottleInterval: "100ms",
   });
   const platformWorker = await Worker.create({
     connection: env.nativeConnection,
     taskQueue: "platform",
     workflowsPath,
     activities,
+    defaultHeartbeatThrottleInterval: "100ms",
+    maxHeartbeatThrottleInterval: "100ms",
   });
   await judgeWorker.runUntil(platformWorker.runUntil(body()));
 }
@@ -192,8 +198,14 @@ describe("submissionJudgeWorkflow (TestWorkflowEnvironment)", () => {
     const activities = buildActivities({
       executeSandbox: vi.fn(async () => {
         const { Context } = await import("@temporalio/activity");
+        const context = Context.current();
+        const timer = setInterval(() => context.heartbeat("waiting-for-cancel"), 50);
         signalStarted();
-        await Context.current().cancelled;
+        try {
+          await context.cancelled;
+        } finally {
+          clearInterval(timer);
+        }
         return { testcaseResults: [] };
       }),
     });

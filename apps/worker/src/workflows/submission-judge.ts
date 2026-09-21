@@ -1,10 +1,23 @@
-import { CancellationScope, proxyActivities, workflowInfo } from "@temporalio/workflow";
+import {
+  ActivityCancellationType,
+  ApplicationFailure,
+  CancellationScope,
+  getExternalWorkflowHandle,
+  patched,
+  proxyActivities,
+  workflowInfo,
+  uuid4,
+  sleep,
+} from "@temporalio/workflow";
 import type { SubmissionJudgeInput } from "@nojv/core";
+import { executeCapacityAttempt, type JudgeSubmissionOrder } from "./judge-stages";
 
 import type * as judgeActivities from "../activities/judge";
 import type * as lifecycleActivities from "../activities/lifecycle";
 import { NOTIFICATION_ACTIVITY, PLATFORM_QUEUE, SHORT_ACTIVITY } from "./activity-options";
 import { resolveScoringDispatch } from "./submission-judge-helpers";
+import { createJudgeExecutorRecovery } from "./judge-executor-recovery";
+import { finishJudgeRun, JUDGE_ADMISSION_ID } from "./judge-admission";
 
 const judge = proxyActivities<typeof judgeActivities>({
   startToCloseTimeout: "5m",
@@ -14,8 +27,85 @@ const judge = proxyActivities<typeof judgeActivities>({
 const judgeSandbox = proxyActivities<typeof judgeActivities>({
   startToCloseTimeout: "10m",
   heartbeatTimeout: "60s",
+  cancellationType: ActivityCancellationType.WAIT_CANCELLATION_COMPLETED,
+  retry: { maximumAttempts: 1 },
+});
+
+const legacyJudgeSandbox = proxyActivities<typeof judgeActivities>({
+  startToCloseTimeout: "10m",
+  heartbeatTimeout: "60s",
   retry: { maximumAttempts: 3 },
 });
+
+const cleanup = proxyActivities<typeof judgeActivities>({
+  startToCloseTimeout: "2m",
+  retry: { initialInterval: "5s", maximumInterval: "1m" },
+});
+
+async function executeAttempt(
+  input: SubmissionJudgeInput,
+  staged: boolean,
+  order: JudgeSubmissionOrder,
+) {
+  if (!patched("judge-capacity-cleanup-v1"))
+    return legacyJudgeSandbox.executeSandbox(input.submissionId, input.draft);
+  const waitForExecutorRecovery = createJudgeExecutorRecovery();
+  const runIds: string[] = [];
+  try {
+    for (let attempt = 0; ; attempt++) {
+      const runId = uuid4();
+      const replacesRunId = runIds.at(-1);
+      runIds.push(runId);
+      try {
+        return staged
+          ? await executeCapacityAttempt(
+              input,
+              runId,
+              order,
+              waitForExecutorRecovery,
+              replacesRunId,
+            )
+          : await judgeSandbox.executeSandbox(input.submissionId, input.draft, runId);
+      } catch (error) {
+        if (!staged)
+          await waitForExecutorRecovery(error, { runId, permitId: `${runId}/sandbox` });
+        if (
+          CancellationScope.current().consideredCancelled ||
+          attempt >= 2 ||
+          isNonRetryableJudgeFailure(error)
+        )
+          throw error;
+        await sleep("1s");
+      } finally {
+        if (!staged)
+          await CancellationScope.nonCancellable(() => cleanup.cleanupSandboxRun(runId));
+      }
+    }
+  } finally {
+    if (staged)
+      await CancellationScope.nonCancellable(async () => {
+        const coordinator = getExternalWorkflowHandle(JUDGE_ADMISSION_ID);
+        for (const runId of runIds) await coordinator.signal(finishJudgeRun, runId);
+      });
+  }
+}
+
+export function isNonRetryableJudgeFailure(error: unknown): boolean {
+  const visited = new Set<Error>();
+  let current = error;
+  while (current instanceof Error && !visited.has(current)) {
+    visited.add(current);
+    if (
+      current.name === "SandboxAdmissionError" ||
+      current.message === "resource_request_unsatisfiable" ||
+      (current instanceof ApplicationFailure &&
+        (current.nonRetryable === true || current.type === "SandboxAdmissionError"))
+    )
+      return true;
+    current = current.cause;
+  }
+  return false;
+}
 
 const notification = proxyActivities<typeof lifecycleActivities>(NOTIFICATION_ACTIVITY);
 const platformNotification = proxyActivities<typeof lifecycleActivities>({
@@ -58,9 +148,10 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
   try {
     const meta = await judge.fetchJudgeContext(input.submissionId);
 
-    const { result, advancedJudgeVerificationSnapshot } = await judgeSandbox.executeSandbox(
-      input.submissionId,
-      input.draft,
+    const { result, advancedJudgeVerificationSnapshot } = await executeAttempt(
+      input,
+      meta.staged,
+      { studentId: meta.userId, submittedAt: new Date(meta.createdAt).getTime() },
     );
 
     const mode: "standard" | "advanced" =

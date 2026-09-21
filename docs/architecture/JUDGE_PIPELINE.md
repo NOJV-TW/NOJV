@@ -1,6 +1,14 @@
 # Judge Pipeline
 
-The judge pipeline is the evaluation framework that compiles, executes, and scores submissions. It runs as a Temporal activity inside `apps/worker`. Problems come in two modes: **Standard Mode** for classic competitive-programming problems and **Advanced Mode** as an escape hatch for anything Standard Mode cannot express. The pipeline has no user-configurable stage graph — both modes run a fixed flow.
+The judge pipeline compiles, executes, and scores submissions. Temporal workflows orchestrate activities in `apps/worker`; student programs execute only inside isolated Docker or Kubernetes sandbox containers. Problems come in two modes: **Standard Mode** for classic competitive-programming problems and **Advanced Mode** for custom run/grade images. Both follow fixed flows rather than a user-configurable stage graph.
+
+Kubernetes capacity admission is implemented behind
+`worker.sandbox.capacityAdmission.enabled`, which defaults to `false`. The
+compile-once stages and coordinator described below are the enabled path;
+the existing Job-wave executor remains the default. Their availability in code
+does not establish production performance or a completed rollout. The 100-person
+benchmark and gVisor integration release evidence are still pending; see the
+[capacity operations runbook](../runbooks/judge-capacity.md).
 
 ## Browser-local sample/custom tests
 
@@ -100,12 +108,27 @@ Language-specific build, run by the sandbox runner inside the isolated container
 
 JavaScript and Python skip the compile step entirely — a syntax error only surfaces when `execute` tries to run the file. TypeScript is compiled and type-checked with the pinned `tsc` toolchain; only the emitted JavaScript is executed.
 
-On Kubernetes, standard and checker run Jobs use one hardened `prepare` init
-container. It materializes the projected payload, reads the validated config,
-and compiles once into `/artifact`; the worker then starts one independent
-container per testcase. The testcase containers keep separate cgroup and
-scratch subPaths and mount the compiled artifact read-only. Docker and the
-other Kubernetes judge manifests retain their existing materialization stages.
+With Kubernetes capacity admission disabled, each standard/checker Job wave has
+its own hardened `prepare` init container and compiles into that Pod's
+`/artifact`. A submission spanning several waves therefore recompiles for each
+wave. The legacy chart defaults permit up to 20 testcase containers per wave;
+this is not a guaranteed concurrent-submission capacity.
+
+With capacity admission enabled, a standard/checker attempt first acquires a
+prepare permit and creates one run-owned `ReadWriteOnce` artifact PVC. Its
+StorageClass must use `WaitForFirstConsumer`. Preparation compiles once into
+bounded scratch, then a separate publisher validates and copies the artifact
+under the existing 256 MiB limit. Symlinks, special files and unsafe paths are
+rejected; executable permissions are validated. The artifact excludes testcase
+answers and checker private data. Later waves mount it read-only and use fresh
+testcase containers, cgroups and scratch. Required node affinity and the bound
+volume preserve placement through the Kubernetes scheduler; the admitted path
+does not set `nodeName` to bypass scheduling. Loss of the artifact ends the
+attempt; a retry uses a new run ID and compiles again after cleanup.
+
+Docker retains its existing per-submission prepare flow. Interactive containers
+retain their paired solution/interactor semantics; Advanced Mode retains its
+run/grade contract. Both participate in admission when the feature is enabled.
 
 ### execute
 
@@ -144,7 +167,17 @@ holds no student code) makes the AC/WA decision.
 - **`checker`** — a teacher-provided **DOMjudge output validator** (`python` / `cpp`) that renders an **AC/WA verdict only** (no partial scoring). The run container produces `rawRuns` (no answer present); the worker prepares the checker in a separate compile container, then launches an **isolated validator container** (`validator-executor.ts` → sandbox-runner `runValidate`) for the clean cases. The validator is invoked as `validator <input> <judge_answer> <feedback_dir>` with the team output on stdin and must **exit 42 (accept) or 43 (wrong)**; any other exit is treated as a validator/system error. Feedback travels through files in `feedback_dir`: `teammessage.txt` (shown to the student) and an optional `judgemessage.txt` (operator-only). Python TAs get a wrapper binding `judge_input` / `judge_answer` / `team_output` plus `accept()` / `wrong()` / `judge_log()` (`apps/sandbox-runner/assets/wrappers/python-validator.py`); C++ TAs implement the bare interface.
 - **`interactive`** — a teacher-provided **DOMjudge interactor**, run as **two isolated containers** wired by a worker byte proxy (`interactive-executor.ts` → sandbox-runner `runInteractive`): the solution container runs student code with its stdio bridged to the interactor container, and the secret input/answer is mounted only into the interactor side. The interactor uses the same exit-42/43 + `feedback_dir` protocol as the validator, but its Python wrapper exposes live `read()` / `write()` instead of a fixed `team_output` blob (`apps/sandbox-runner/assets/wrappers/python-interactor-domjudge.py`).
 
-On K8s, `checker` runs as a **two-Job pipeline**: the run Job's ConfigMap omits both the expected answer and the validator script; a second `judge-<sub>-validate` Job (separate ConfigMap, identical hardening, NO student source) compiles the validator and grades the captured team outputs against the answers, and the worker merges the outcomes via `mergeCheckerResults` (same merge as Docker). Per-case files reach the validate pod via flat keys (`case-{i}-{input,answer,team}.txt`) because ConfigMaps cannot hold nested directories. `interactive` **also runs on K8s** (`K8sExecutor.executeInteractive` → `runInteractiveCase`): one Job per testcase with two containers (solution + interactor) wired over a `socat` TCP bridge on port 7777, the secret input/answer mounted only into the interactor side. `advanced` **also runs on K8s** (`K8sExecutor.executeAdvanced` → two Jobs + PVC). See [backends](#sandbox-verdicts) and `k8s-executor.ts`.
+On K8s, `checker` separates the student execution Jobs from a validation Job.
+Student ConfigMaps omit expected answers and the validator script; the validator
+Job uses its own ConfigMap with no student source, compiles the validator and
+grades captured team outputs. The worker merges outcomes via `mergeCheckerResults`
+(the same merge as Docker). With capacity admission, preparation and testcase
+waves precede a separately admitted checker stage; “two Jobs per submission” is
+not the resource model. Per-case validator files use flat keys
+(`case-{i}-{input,answer,team}.txt`) because ConfigMaps cannot hold nested paths.
+`interactive` runs one Job per testcase with solution/interactor containers wired
+over a `socat` TCP bridge on port 7777; only the interactor mounts secret
+input/answer data. `advanced` uses its separate run/grade Jobs and PVC contract.
 
 ### score
 
@@ -254,7 +287,7 @@ Both the Docker backend (local/dev) and the Kubernetes backend (GKE prod) are su
 
 **Docker** (`advanced-mode-executor.ts` + `docker-network.ts` + `service-container.ts`). `none` → `--network none`. `service` creates a per-submission internal-only network shared only by run and service. Neither container has a route to the internet. The network is torn down on the `finally` path.
 
-**Kubernetes** (`k8s-executor.ts` + `k8s-advanced.ts` + `k8s-advanced-network.ts`). Run and grade are **two separate Jobs**; run output crosses between them over a per-submission **`ReadWriteOnce` PVC** (lossless binary, no ConfigMap 1 MB limit). A native `transfer` sidecar in the run Pod runs the **same `safeCopyTree` gate** on TERM, copying `/output` → PVC; the grade Pod mounts the PVC read-only and is pinned (`spec.nodeName`) to the run Pod's node because RWO is single-node. Because all containers in one Pod share a netns, the egress sidecar **must** live in a **separate Pod** (this is the one place Advanced differs from `interactive`, which can co-locate over `127.0.0.1`). Egress isolation is per-submission `NetworkPolicy`:
+**Kubernetes** (`k8s-executor.ts` + `k8s-advanced.ts` + `k8s-advanced-network.ts`). Run and grade are **two separate Jobs**; run output crosses between them over a per-submission **`ReadWriteOnce` PVC** (lossless binary, no ConfigMap 1 MB limit). A native `transfer` sidecar in the run Pod runs the **same `safeCopyTree` gate** on TERM, copying `/output` → PVC; the grade Pod mounts the PVC read-only on the run Pod's node. The legacy manifest uses `spec.nodeName`; capacity-admitted execution replaces this with required node affinity so the scheduler still checks resources and volume placement. Because all containers in one Pod share a netns, the egress sidecar **must** live in a **separate Pod** (this is the one place Advanced differs from `interactive`, which can co-locate over `127.0.0.1`). Egress isolation is per-submission `NetworkPolicy`:
 
 - The blanket deny-all (chart template `infra/charts/nojv/templates/sandbox-policy.yaml`) selects on `nojv.egress` **`DoesNotExist`**, so standard/checker/interactive Pods and `mode=none` advanced run Pods (none carry the label) stay denied. The service-mode run Pod is relabeled `nojv.egress=<id>` and gets `buildRunEgressPolicy` allowing egress **only** to the service Pod (no `0.0.0.0/0`, no `ipBlock`, no kube-dns) with `ingress: []` (the untrusted run Pod is never a server). The grade Pod is labeled `nojv.egress=<id>-grade` and gets an explicit per-submission **deny-all egress** policy (`buildGradeEgressPolicy`, `egress: []`) in **every** mode. The service Pod gets ingress only from the run Pod and **no egress**, is fronted by a per-submission ClusterIP Service, and `NOJV_SERVICE_HOST` uses that **ClusterIP literal**. The worker is granted `pods`/`services`/`networkpolicies`/`persistentvolumeclaims` in the chart's `infra/charts/nojv/templates/worker-rbac.yaml`.
 - **CNI enforcement is a hard dependency.** Every NetworkPolicy above is a **no-op** unless the cluster's CNI actually enforces NetworkPolicy (GKE Dataplane V2 / Cilium / Calico). A non-enforcing CNI installs the API objects but lets the run or service Pod reach the internet while every policy "exists". The production smoke test must affirmatively assert egress is blocked.
@@ -392,25 +425,67 @@ surfaced to the student as a non-graded fault so they can resubmit. See
 
 ## Activity / workflow boundary
 
-The judge pipeline is driven by `submissionJudgeWorkflow` (`apps/worker/src/workflows/submission-judge.ts`). It is a thin orchestrator: every effectful step is a Temporal activity, and the workflow itself contains only control flow + the `mode` derivation needed to pick the right finalize path.
+The judge pipeline is driven by `submissionJudgeWorkflow` (`apps/worker/src/workflows/submission-judge.ts`). Effectful work stays in activities; the workflow owns retry attempts, admission waits, cancellation and finalization. Each failed execution attempt is fully cleaned up before a retry receives a new run ID. The workflow allows at most three attempts; sandbox activities themselves are not independently retried within an attempt.
 
 Timeouts and retry policy applied to the judge activities proxy:
 
-| Activity proxy                              | `startToCloseTimeout` | `heartbeatTimeout` | `maximumAttempts` |
-| ------------------------------------------- | --------------------- | ------------------ | ----------------- |
-| `judge.*` (context / complete / rejudge)    | `5m`                  | —                  | 3                 |
-| `judgeSandbox.executeSandbox` (sandbox run) | `10m`                 | `60s`              | 3                 |
-| `lifecycle.*` short (stats, contest)        | `30s`                 | —                  | 3                 |
-| `lifecycle.publishVerdict` (SSE/Redis)      | `10s`                 | —                  | 2                 |
+| Activity proxy                                     | `startToCloseTimeout` | `heartbeatTimeout` | `maximumAttempts`                                  |
+| -------------------------------------------------- | --------------------- | ------------------ | -------------------------------------------------- |
+| `judge.*` (context / complete / rejudge)           | `5m`                  | —                  | 3                                                  |
+| `judgeSandbox.executeSandbox` (legacy sandbox run) | `10m`                 | `60s`              | 1                                                  |
+| capacity prepare / wave / checker stage            | `10m`                 | `60s`              | 1                                                  |
+| capacity metadata                                  | `2m`                  | —                  | 3                                                  |
+| sandbox cleanup                                    | `2m`                  | —                  | Persistent retry, 5s initial / 1m maximum interval |
+| `lifecycle.*` short (stats, contest)               | `30s`                 | —                  | 3                                                  |
+| `lifecycle.publishVerdict` (SSE/Redis)             | `10s`                 | —                  | 2                                                  |
 
 `executeSandbox` runs on its own `judgeSandbox` proxy with a longer
 `10m` ceiling and a `60s` heartbeat (the sandbox-runner heartbeats so a
 hung container is detected before the start-to-close timeout); the rest
-of the judge activities use the shorter `5m` `judge` proxy.
+of the legacy metadata activities use the shorter `5m` `judge` proxy. Cancellation
+waits for sandbox activity cancellation to complete. Cleanup runs in a
+non-cancellable workflow scope; exceeding a normal cleanup attempt does not
+release a permit or convert cleanup into success.
+
+### Capacity admission and fairness
+
+`judgeAdmissionWorkflow`, with workflow ID `judge-admission-v1`, runs on the
+separate `judge-control` task queue. The enabled chart creates a dedicated
+control-worker Deployment, so waiting for judge execution activity slots does
+not block capacity refresh or cleanup. A newly created coordinator is paused.
+Quota management initially remains disabled. Operators complete the retained
+quota handoff, signal `activateJudgeQuota`, verify successful reconciliation,
+then explicitly resume admission.
+
+Every 30 seconds the controller reads eligible `nojv-role=sandbox` nodes and
+effective non-judge Pod requests. Per-node CPU and memory budget is allocatable
+minus the larger of committed non-judge requests or 25% of allocatable. Effective
+requests include init containers, native sidecars and Pod overhead. Missing or
+more-than-90-second-old snapshots stop new admissions. Existing permits remain
+accounted for through worker restarts and node budget reductions.
+
+Standard testcases request and limit one CPU; the complete problem memory limit
+plus platform headroom is reserved. Preparation reserves one CPU and at least
+512 MiB. A wave has at most four cases and may shrink to fit the artifact node.
+Interactive and Advanced Mode reserve their combined containers and overhead.
+Admission waits use workflow conditions, not executing activity slots or stage
+execution timeouts. Student round-robin order, FIFO submissions per student and
+one active permit per student prevent overlapping waves from the same student.
+Prepared unfinished runs are bounded to twice the available CPU execution slots.
+
+Stage inputs and outputs use immutable verified object-storage pointers rather
+than putting full source/testcase/output payloads into Temporal history. Attempt
+cleanup removes the run's Jobs, Pods, ConfigMaps, PVC and temporary result
+objects. Public submission APIs, verdict definitions, language multipliers and
+scoring remain unchanged. There is no cross-submission compilation cache.
 
 The standard-vs-advanced mode is decided by a small **inline expression in the workflow** (`apps/worker/src/workflows/submission-judge.ts`): `problemType === "special_env" && advanced !== null ? "advanced" : "standard"`. It is inlined rather than imported from `@nojv/application` because pulling the domain package into the workflow bundle would drag Prisma into the workflow sandbox, which Temporal forbids (workflow code must be deterministic and self-contained). The domain layer's own `deriveJudgeMode` (`packages/application/src/submission/queries.ts`, used by the judge activity) encodes the same rule, and its unit test exercises the condition to keep the two copies in sync.
 
 ## Reliability notes
+
+- **Termination before release** — Kubernetes cleanup requests foreground deletion with UID preconditions and waits for owned Pods to disappear under the normal 30-second cleanup budget. A timeout or ownership change raises `cleanup_pending`; durable cleanup retries retain the permit. Known runtime incidents additionally require host-side process and cgroup verification: Kubernetes API disappearance alone is not proof of runtime termination.
+- **Quarantine** — the control worker records nodes with repeated `FailedKillPod` events (count at least three) in durable coordinator state and stops new admissions there. Healthy nodes remain eligible. It does not restart containerd, k3s or runsc, and this does not claim to fix the runtime's underlying fault.
+- **Phase evidence** — `judge_phase_duration_seconds` separates queue, admission, schedule, startup, prepare, execute, checker, collect, cleanup and end-to-end observations. Kubernetes lifecycle timestamps give scheduling/startup and container durations; startup includes image pull and runtime startup together. Worker timers measure activity-side phases. CPU/throttling/peak-memory observations come from runner cgroup telemetry. Labels are bounded to phase/mode/language/result; submission and run IDs belong in structured logs. Unavailable lifecycle or resource data is not zero.
 
 - **Bounded stdout/stderr buffers** — both the worker (`apps/worker/src/services/bounded-buffer.ts`) and the sandbox runner (`apps/sandbox-runner/src/utils.ts` → `createBoundedBuffer`) cap captured output at 16 MB per stream. A runaway submission that prints infinite output will hit the cap, get a `[output truncated — exceeded N bytes]` marker, and continue to the per-case timeout instead of OOM-killing the runner or worker. The two buffers are intentionally kept as separate copies — pnpm workspace deps don't allow cross-app imports.
 - **Sandbox temp-dir cleanup** — the runner wraps the main judging step in try/finally and calls `cleanupTempDir(workDir)` (from `apps/sandbox-runner/src/utils.ts`) on its `mkdtemp` work directory on exit, so a container restart between runs does not leak workspace state.
@@ -426,7 +501,7 @@ The standard-vs-advanced mode is decided by a small **inline expression in the w
 - Advanced Mode Docker networking + service sidecar — `apps/worker/src/services/docker-network.ts`, `service-container.ts`
 - Advanced Mode K8s manifests (two Jobs + PVC + transfer gate) — `apps/worker/src/services/k8s-advanced.ts`
 - Advanced Mode K8s networking (per-submission NetworkPolicies + sidecar Pod/Service) — `apps/worker/src/services/k8s-advanced-network.ts`
-- Kubernetes executor (Standard + checker via two-Job pipeline, interactive via per-case two-container Job, advanced via two Jobs + PVC) — `apps/worker/src/services/k8s-executor.ts`
+- Kubernetes executor (standard/checker prepare and testcase waves, separate validation, interactive paired containers, advanced run/grade) — `apps/worker/src/services/k8s-executor.ts`
 - Sandbox plan / config builder — `apps/worker/src/services/sandbox-plan.ts`
 - Worker bounded buffer — `apps/worker/src/services/bounded-buffer.ts`
 - Sandbox runner (inside the container) — `apps/sandbox-runner/src/index.ts`
@@ -440,6 +515,9 @@ The standard-vs-advanced mode is decided by a small **inline expression in the w
 - DOMjudge Python wrappers — `apps/sandbox-runner/assets/wrappers/python-validator.py`, `python-interactor-domjudge.py`
 - Temporal judge workflow — `apps/worker/src/workflows/submission-judge.ts`
 - Temporal judge activity — `apps/worker/src/activities/judge.ts`
+- Capacity stage workflow / activities — `apps/worker/src/workflows/judge-stages.ts`, `apps/worker/src/activities/judge-stages.ts`
+- Admission coordinator / capacity arithmetic — `apps/worker/src/workflows/judge-admission.ts`, `apps/worker/src/services/judge-capacity.ts`
+- Capacity refresh / quota ownership — `apps/worker/src/activities/judge-control.ts`, `apps/worker/src/services/judge-quota.ts`
 - Judge context builder (`getJudgeContext` / `parsePersistedAdvancedConfig`) — `packages/application/src/submission/queries.ts`
 - Score aggregation (`buildSubtaskResults`, `mapResult`) — `packages/application/src/submission/scoring.ts`
 - Score adjustments — `packages/application/src/submission/adjustments.ts`
