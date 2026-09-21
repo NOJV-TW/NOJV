@@ -15,7 +15,6 @@ export class RejudgeBatchError extends Error {
 export async function executeRejudgeBatches<T extends RejudgeTarget>(options: {
   targets: readonly T[];
   batchSize: number;
-  beforeBatch?: (batch: readonly T[]) => Promise<void>;
   execute: (target: T) => Promise<void>;
   isCancellation: (error: unknown) => boolean;
   onCompleted: () => void;
@@ -25,7 +24,6 @@ export async function executeRejudgeBatches<T extends RejudgeTarget>(options: {
 
   for (let index = 0; index < options.targets.length; index += options.batchSize) {
     const batch = options.targets.slice(index, index + options.batchSize);
-    await options.beforeBatch?.(batch);
     const results = await Promise.allSettled(
       batch.map(async (target) => {
         await options.execute(target);

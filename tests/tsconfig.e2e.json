@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "paths": {
+      "@nojv/core": ["../packages/core/dist/index.mjs"],
+      "@nojv/db": ["../packages/db/dist/index.mjs"],
+      "@nojv/application": ["../packages/application/dist/index.mjs"],
+      "@nojv/redis": ["../packages/redis/dist/index.mjs"],
+      "@nojv/storage": ["../packages/storage/dist/index.mjs"],
+      "@nojv/mailer": ["../packages/mailer/dist/index.mjs"],
+      "@nojv/temporal": ["../packages/temporal/dist/index.mjs"]
+    }
+  }
+}

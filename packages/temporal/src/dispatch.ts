@@ -35,23 +35,6 @@ export async function dispatchSubmissionJudge(payload: SubmissionJudgeJob): Prom
     draft: validated.draft,
   };
 
-  if (process.env.JUDGE_CAPACITY_ROUTING === "true") {
-    if (!validated.admissionOrder) throw new Error("Judge admission order is required");
-    await client.workflow
-      .getHandle("judge-admission-v1")
-      .executeUpdate("dispatchJudgeWorkflow", {
-        args: [
-          {
-            workflowId: `judge-${validated.submissionId}`,
-            workflowType: "submissionJudgeWorkflow",
-            input,
-            admissionOrder: validated.admissionOrder,
-          },
-        ],
-      });
-    return;
-  }
-
   try {
     await client.workflow.start("submissionJudgeWorkflow", {
       taskQueue: JUDGE_TASK_QUEUE,
@@ -68,9 +51,10 @@ export async function dispatchSubmissionJudge(payload: SubmissionJudgeJob): Prom
 export async function terminateSubmissionJudge(
   submissionId: string,
   reason: string,
+  workflowId = `judge-${submissionId}`,
 ): Promise<void> {
   const client = await getTemporalClient();
-  const handle = client.workflow.getHandle(`judge-${submissionId}`);
+  const handle = client.workflow.getHandle(workflowId);
   try {
     await handle.terminate(reason);
   } catch (err) {
@@ -82,17 +66,41 @@ export async function terminateSubmissionJudge(
 export interface SubmissionJudgeState {
   status: string;
   running: boolean;
+  lastActivityAt?: Date | null;
+  pendingWorkflowTaskAt?: Date | null;
+  hasPendingActivity?: boolean;
 }
 
 export async function describeSubmissionJudge(
   submissionId: string,
+  workflowId = `judge-${submissionId}`,
 ): Promise<SubmissionJudgeState | null> {
   const client = await getTemporalClient();
-  const handle = client.workflow.getHandle(`judge-${submissionId}`);
+  const handle = client.workflow.getHandle(workflowId);
   try {
     const description = await handle.describe();
     const status = description.status.name;
-    return { status, running: status === "RUNNING" };
+    const timestamp = (
+      value: { seconds?: unknown; nanos?: number | null } | null | undefined,
+    ) =>
+      value?.seconds !== undefined
+        ? new Date(Number(value.seconds) * 1000 + (value.nanos ?? 0) / 1e6)
+        : null;
+    const activities = description.raw.pendingActivities ?? [];
+    const times = activities.flatMap((activity) => {
+      const time = timestamp(activity.lastHeartbeatTime ?? activity.lastStartedTime);
+      return time ? [time.getTime()] : [];
+    });
+    return {
+      status,
+      running: status === "RUNNING",
+      hasPendingActivity: activities.length > 0,
+      lastActivityAt: times.length ? new Date(Math.max(...times)) : null,
+      pendingWorkflowTaskAt:
+        (description.raw.pendingWorkflowTask?.attempt ?? 0) > 1
+          ? timestamp(description.raw.pendingWorkflowTask?.originalScheduledTime)
+          : null,
+    };
   } catch (err) {
     if (err instanceof WorkflowNotFoundError) return null;
     throw err;
@@ -177,14 +185,7 @@ export async function dispatchRejudge(
   workflowId: string,
 ): Promise<{ workflowId: string }> {
   const client = await getTemporalClient();
-  if (process.env.JUDGE_CAPACITY_ROUTING === "true") {
-    await client.workflow
-      .getHandle("judge-admission-v1")
-      .executeUpdate("dispatchJudgeWorkflow", {
-        args: [{ workflowId, workflowType: "rejudgeWorkflow", input }],
-      });
-    return { workflowId };
-  }
+
   try {
     await client.workflow.start("rejudgeWorkflow", {
       taskQueue: JUDGE_TASK_QUEUE,
@@ -422,4 +423,74 @@ export async function cancelRejudge(workflowId: string): Promise<void> {
   const client = await getTemporalClient();
   const handle = client.workflow.getHandle(workflowId);
   await client.connection.withDeadline(Date.now() + 5_000, () => handle.cancel());
+}
+
+export async function dispatchJudgeExecution(input: {
+  executionId: string;
+  workflowId: string;
+  capacity?: true;
+  admissionOrder?: {
+    executionId: string;
+    submissionId: string;
+    studentId: string;
+    submittedAt: number;
+  };
+}): Promise<void> {
+  const client = await getTemporalClient();
+  if (process.env.JUDGE_CAPACITY_ROUTING === "true" || input.capacity) {
+    if (!input.admissionOrder) throw new Error("Judge admission order is required");
+    await client.workflow
+      .getHandle("judge-admission-v1")
+      .executeUpdate("dispatchJudgeWorkflow", {
+        args: [
+          {
+            workflowId: input.workflowId,
+            workflowType: "durableJudgeWorkflow",
+            input: {
+              executionId: input.executionId,
+              ...(input.capacity ? { capacity: true } : {}),
+            },
+            admissionOrder: input.admissionOrder,
+          },
+        ],
+      });
+    return;
+  }
+  try {
+    await client.workflow.start("durableJudgeWorkflow", {
+      workflowId: input.workflowId,
+      taskQueue: JUDGE_TASK_QUEUE,
+      workflowIdReusePolicy: "REJECT_DUPLICATE",
+      args: [{ executionId: input.executionId }],
+    });
+  } catch (error) {
+    if (!(error instanceof WorkflowExecutionAlreadyStartedError)) throw error;
+    try {
+      await client.workflow.getHandle(input.workflowId).signal("capacityAvailable");
+    } catch (signalError) {
+      if (!(signalError instanceof WorkflowNotFoundError)) throw signalError;
+    }
+  }
+}
+
+export async function dispatchJudgeCleanup(input: {
+  executionId: string;
+  workflowId: string;
+  leaseToken: string;
+  capacity?: true;
+}): Promise<void> {
+  const client = await getTemporalClient();
+  try {
+    await client.workflow.start("judgeCleanupWorkflow", {
+      workflowId: `judge-cleanup-${input.leaseToken}`,
+      workflowIdReusePolicy: "ALLOW_DUPLICATE_FAILED_ONLY",
+      taskQueue:
+        process.env.JUDGE_CAPACITY_ROUTING === "true" || input.capacity
+          ? "judge-control"
+          : JUDGE_TASK_QUEUE,
+      args: [input],
+    });
+  } catch (error) {
+    if (!(error instanceof WorkflowExecutionAlreadyStartedError)) throw error;
+  }
 }

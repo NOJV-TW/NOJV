@@ -64,6 +64,7 @@ function clients(
   });
   const missing = () => Object.assign(new Error("not found"), { code: 404 });
   const coreApi = {
+    listNamespacedResourceQuota: vi.fn(async () => ({ items: [] })),
     createNamespacedConfigMap: vi.fn(async ({ body }: { body: k8s.V1ConfigMap }) => {
       const cm = { ...structuredClone(body), metadata: metadata(body.metadata) };
       configMaps.push(cm);

@@ -8,6 +8,7 @@ import type {
 } from "@nojv/core";
 
 interface ActiveExecution {
+  runId: string;
   controller: AbortController;
   promise: Promise<SandboxResult>;
 }
@@ -25,7 +26,7 @@ export class ExecutorOwner {
   execute(
     request: SandboxRequest,
     signal: AbortSignal,
-    runId?: string,
+    runId = this.createRunId(),
   ): Promise<SandboxResult> {
     if (this.stopping) {
       throw new Error("Executor owner is shutting down.");
@@ -40,7 +41,7 @@ export class ExecutorOwner {
     }
 
     const execution: SandboxExecutionContext = {
-      runId: runId ?? this.createRunId(),
+      runId,
       signal: controller.signal,
     };
     const active = {} as ActiveExecution;
@@ -50,6 +51,7 @@ export class ExecutorOwner {
         signal.removeEventListener("abort", forwardAbort);
         this.active.delete(active);
       });
+    active.runId = runId;
     active.controller = controller;
     active.promise = promise;
     this.active.add(active);
@@ -74,6 +76,11 @@ export class ExecutorOwner {
       [...this.active].map(({ promise }) => promise),
     ).then(() => undefined);
     return this.shutdownPromise;
+  }
+
+  async reconcile(runId: string, owner?: string): Promise<boolean> {
+    if ([...this.active].some((run) => run.runId === runId)) return false;
+    return this.executor.reconcile ? this.executor.reconcile(runId, owner) : false;
   }
 
   get activeCount(): number {

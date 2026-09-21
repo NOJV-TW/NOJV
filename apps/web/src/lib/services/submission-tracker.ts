@@ -1,6 +1,6 @@
 import { invalidate } from "$app/navigation";
 import {
-  isSubmissionPending,
+  isSubmissionOperationActive,
   SSE_SUBMISSION_VERDICT,
   submissionOperationSchema,
   type SubmissionOperation,
@@ -97,19 +97,20 @@ function publish(operation: SubmissionOperation): boolean {
   if (
     previous?.judgeGeneration === operation.judgeGeneration &&
     previous.updatedAt === operation.updatedAt &&
-    previous.status === operation.status
+    previous.status === operation.status &&
+    JSON.stringify(previous.execution) === JSON.stringify(operation.execution)
   ) {
-    if (!isSubmissionPending(operation.status)) {
+    if (!isSubmissionOperationActive(operation)) {
       tracked.delete(operation.submissionId);
       notifyIds.delete(operation.submissionId);
     }
     return false;
   }
   operations.set(operation.submissionId, operation);
-  if (isSubmissionPending(operation.status)) tracked.add(operation.submissionId);
+  if (isSubmissionOperationActive(operation)) tracked.add(operation.submissionId);
   else tracked.delete(operation.submissionId);
   for (const listener of listeners.get(operation.submissionId) ?? []) listener(operation);
-  if (!isSubmissionPending(operation.status) && notifyIds.delete(operation.submissionId)) {
+  if (!isSubmissionOperationActive(operation) && notifyIds.delete(operation.submissionId)) {
     const score = operation.result ? ` · ${String(operation.result.score)}` : "";
     const message = `${operation.problemTitle}: ${formatVerdictLabel(operation.status)}${score}`;
     if (operation.status === "accepted") toasts.success(message);
@@ -339,7 +340,7 @@ export function waitForSubmission(
   trackSubmission(id);
   return new Promise((resolve, reject) => {
     const done = (operation: SubmissionOperation) => {
-      if (isSubmissionPending(operation.status)) return;
+      if (isSubmissionOperationActive(operation)) return;
       cleanup();
       resolve(operation);
     };

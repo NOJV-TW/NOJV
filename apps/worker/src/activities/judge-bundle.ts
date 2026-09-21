@@ -23,11 +23,27 @@ export {
 export { getRedis } from "./utils";
 
 export {
-  initializeSandboxAttempt,
+  initializePinnedSandboxAttempt,
+  judgeExecutionTurn,
+  claimPinnedCapacityAttempt,
+  heartbeatPinnedCapacityAttempt,
+  releasePinnedCapacityAttempt,
+  relinquishPinnedCapacityStrategy,
+  executePinnedSandboxWave,
+  finishPinnedSandboxAttempt,
   prepareSandboxAttempt,
   executeSandboxWave,
-  finishSandboxAttempt,
   cleanupSandboxStage,
   cleanupSandboxAttempt,
   recordAdmissionWait,
 } from "./judge-stages";
+export {
+  judgeExecutionStatus,
+  executeJudgeStage,
+  reconcileJudgeStage,
+  completePinnedJudge,
+  setJudgeExecutionState,
+  finishJudgeExecution,
+} from "./judge-execution";
+
+export { findPriorCapacityRuns } from "./judge-control";

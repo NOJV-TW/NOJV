@@ -124,6 +124,8 @@ beforeEach(() => {
       alreadyRunning: false,
     })),
     dispatchRejudge: vi.fn(async () => ({ workflowId: "rejudge-test" })),
+    dispatchJudgeExecution: vi.fn().mockResolvedValue(undefined),
+    dispatchJudgeCleanup: vi.fn().mockResolvedValue(undefined),
     dispatchSubmissionJudge: vi.fn(async () => {}),
     ensureAssignmentDueSoon,
     ensureContestLifecycle: vi.fn(async () => {}),

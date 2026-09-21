@@ -17,7 +17,8 @@ const QUEUE_BUNDLES = [
     workflows: [
       "workflows/submission-judge.ts",
       "workflows/rejudge.ts",
-      "workflows/judge-stages.ts",
+      "workflows/durable-judge.ts",
+      "workflows/durable-capacity.ts",
     ],
   },
   {

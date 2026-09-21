@@ -27,9 +27,8 @@ import {
   type JudgeAdmissionRequest,
   type JudgeAdmissionState,
   type JudgePermit,
-  type JudgeRunRegistration,
 } from "../services/judge-capacity";
-import type { SubmissionJudgeInput, RejudgeInput } from "@nojv/core";
+import type { JudgeExecutionInput } from "@nojv/core";
 import type * as activities from "../activities/judge-control";
 
 export const JUDGE_ADMISSION_ID = "judge-admission-v1";
@@ -42,12 +41,17 @@ export interface AdmissionReply {
 }
 export const requestJudgeAdmission =
   defineSignal<[{ request: JudgeAdmissionRequest; replyTo: string }]>("requestJudgeAdmission");
-export const registerJudgeRun =
-  defineSignal<[JudgeRunRegistration & { workflowId?: string }]>("registerJudgeRun");
-export const reserveJudgeSubmission =
-  defineSignal<
-    [{ workflowId: string; submissionId: string; studentId: string; submittedAt: number }]
-  >("reserveJudgeSubmission");
+export const registerJudgeRun = defineSignal<
+  [
+    {
+      runId: string;
+      workflowId: string;
+      submissionId: string;
+      createdAt: number;
+      replacesRunId?: string;
+    },
+  ]
+>("registerJudgeRun");
 export const finishJudgeReservation = defineSignal<[string]>("finishJudgeReservation");
 export const judgeAdmissionReply = defineSignal<[AdmissionReply]>("judgeAdmissionReply");
 export const releaseJudgePermit =
@@ -67,9 +71,14 @@ export const dispatchJudgeWorkflow = defineUpdate<
   [
     {
       workflowId: string;
-      workflowType: "submissionJudgeWorkflow" | "rejudgeWorkflow";
-      input: SubmissionJudgeInput | RejudgeInput;
-      admissionOrder?: { studentId: string; submittedAt: number };
+      workflowType: "durableJudgeWorkflow";
+      input: JudgeExecutionInput;
+      admissionOrder: {
+        studentId: string;
+        submittedAt: number;
+        submissionId?: string;
+        executionId: string;
+      };
     },
   ]
 >("dispatchJudgeWorkflow");
@@ -78,6 +87,8 @@ export const admissionStateQuery = defineQuery<CoordinatorState>("admissionState
 interface CoordinatorState {
   admission: JudgeAdmissionState;
   waiters: Record<string, string>;
+  runOwners: Record<string, string>;
+  fullCleanupConfirmed: string[];
   outbox: { replyTo: string; reply: AdmissionReply }[];
   quarantinedNodes: string[];
   paused: boolean;
@@ -86,7 +97,6 @@ interface CoordinatorState {
   draining: boolean;
   dispatchRoute: "legacy" | "capacity" | "hold";
   activeSubmissionIds: string[];
-  activeRejudgeIds: string[];
   stagedWorkflowIds: string[];
   routingInFlight: number;
 }
@@ -100,6 +110,8 @@ export async function judgeAdmissionWorkflow(input?: CoordinatorState): Promise<
   const state: CoordinatorState = input ?? {
     admission: createAdmissionState(),
     waiters: {},
+    runOwners: {},
+    fullCleanupConfirmed: [],
     outbox: [],
     quarantinedNodes: [],
     paused: true,
@@ -108,7 +120,6 @@ export async function judgeAdmissionWorkflow(input?: CoordinatorState): Promise<
     draining: false,
     dispatchRoute: "legacy",
     activeSubmissionIds: [],
-    activeRejudgeIds: [],
     stagedWorkflowIds: [],
     routingInFlight: 0,
   };
@@ -133,7 +144,6 @@ export async function judgeAdmissionWorkflow(input?: CoordinatorState): Promise<
           !state.draining ||
           state.routingInFlight !== 0 ||
           state.activeSubmissionIds.length > 0 ||
-          state.activeRejudgeIds.length > 0 ||
           state.admission.pending.length > 0 ||
           state.admission.permits.some((permit) => !permit.cleanupConfirmed)
         )
@@ -141,6 +151,11 @@ export async function judgeAdmissionWorkflow(input?: CoordinatorState): Promise<
       },
     },
   );
+  const retireInactive = () => {
+    state.activeSubmissionIds = state.activeSubmissionIds.filter((id) =>
+      state.admission.runs.some((run) => run.orderKey === id && !run.finished),
+    );
+  };
   const reserve = (registration: {
     workflowId: string;
     submissionId: string;
@@ -158,9 +173,9 @@ export async function judgeAdmissionWorkflow(input?: CoordinatorState): Promise<
     });
     changed = true;
   };
-  setHandler(reserveJudgeSubmission, reserve);
   setHandler(finishJudgeReservation, (workflowId) => {
     finishAdmissionRun(state.admission, `dispatch/${workflowId}`, true);
+    retireInactive();
     changed = true;
   });
 
@@ -187,8 +202,6 @@ export async function judgeAdmissionWorkflow(input?: CoordinatorState): Promise<
           throw new Error(
             "Holding accepted work requires paused admission with no active submissions",
           );
-        if (draining && state.activeRejudgeIds.length > 0)
-          throw new Error("Finish active rejudge batches before draining");
         if (
           route === "capacity" &&
           (!state.quotaReady ||
@@ -208,57 +221,34 @@ export async function judgeAdmissionWorkflow(input?: CoordinatorState): Promise<
   setHandler(
     dispatchJudgeWorkflow,
     async ({ workflowId, workflowType, input, admissionOrder }) => {
-      const taskQueue = state.dispatchRoute === "legacy" ? "judge" : "judge-capacity-v1";
-      if (
-        taskQueue === "judge-capacity-v1" &&
-        workflowType === "submissionJudgeWorkflow" &&
-        admissionOrder
-      )
-        reserve({
-          workflowId,
-          submissionId: (input as SubmissionJudgeInput).submissionId,
-          ...admissionOrder,
-        });
+      const execution = input;
+      const forceCapacity =
+        execution.capacity ?? state.activeSubmissionIds.includes(execution.executionId);
+      const taskQueue =
+        forceCapacity || state.dispatchRoute !== "legacy" ? "judge-capacity-v1" : "judge";
+      if (forceCapacity && !state.activeSubmissionIds.includes(execution.executionId))
+        state.activeSubmissionIds.push(execution.executionId);
+      if (taskQueue === "judge-capacity-v1")
+        reserve({ workflowId, ...admissionOrder, submissionId: execution.executionId });
       state.routingInFlight++;
       if (taskQueue === "judge-capacity-v1" && !state.stagedWorkflowIds.includes(workflowId))
         state.stagedWorkflowIds.push(workflowId);
-      const trackedRejudge =
-        workflowType === "rejudgeWorkflow" &&
-        taskQueue === "judge-capacity-v1" &&
-        !state.activeRejudgeIds.includes(workflowId);
-      if (trackedRejudge) state.activeRejudgeIds.push(workflowId);
       try {
-        const child = await startChild(workflowType, {
+        await startChild(workflowType, {
           workflowId,
           taskQueue,
-          args: [input],
+          args: [taskQueue === "judge-capacity-v1" ? { ...execution, capacity: true } : input],
           workflowIdReusePolicy: "REJECT_DUPLICATE",
           parentClosePolicy: ParentClosePolicy.ABANDON,
-          ...(workflowType === "rejudgeWorkflow"
-            ? { memo: { triggeredByUserId: (input as RejudgeInput).triggeredByUserId } }
-            : {}),
         });
-        if (workflowType === "rejudgeWorkflow" && taskQueue === "judge-capacity-v1") {
-          void child.result().then(
-            () => {
-              state.activeRejudgeIds = state.activeRejudgeIds.filter((id) => id !== workflowId);
-              changed = true;
-            },
-            () => {
-              state.activeRejudgeIds = state.activeRejudgeIds.filter((id) => id !== workflowId);
-              changed = true;
-            },
-          );
-        }
       } catch (error) {
-        if (trackedRejudge)
-          state.activeRejudgeIds = state.activeRejudgeIds.filter((id) => id !== workflowId);
         if (
           !(error instanceof Error) ||
           error.name !== "WorkflowExecutionAlreadyStartedError"
         ) {
           if (!isCancellation(error)) {
             finishAdmissionRun(state.admission, `dispatch/${workflowId}`, true);
+            retireInactive();
             state.stagedWorkflowIds = state.stagedWorkflowIds.filter((id) => id !== workflowId);
           }
           throw error;
@@ -278,28 +268,27 @@ export async function judgeAdmissionWorkflow(input?: CoordinatorState): Promise<
       }: {
         workflowId: string;
         workflowType: string;
-        input?: SubmissionJudgeInput | RejudgeInput;
-        admissionOrder?: { studentId: string; submittedAt: number };
+        input?: JudgeExecutionInput;
+        admissionOrder?: {
+          studentId: string;
+          submittedAt: number;
+          submissionId?: string;
+          executionId: string;
+        };
       }) => {
-        if (
-          !workflowId ||
-          !input ||
-          (workflowType !== "submissionJudgeWorkflow" && workflowType !== "rejudgeWorkflow")
-        )
+        if (!workflowId || !input || workflowType !== "durableJudgeWorkflow")
           throw new Error("Invalid judge workflow dispatch");
         if (
-          state.dispatchRoute !== "legacy" &&
-          workflowType === "submissionJudgeWorkflow" &&
-          (!admissionOrder?.studentId ||
-            !Number.isSafeInteger(admissionOrder.submittedAt) ||
-            admissionOrder.submittedAt < 0)
+          !admissionOrder?.studentId ||
+          !Number.isSafeInteger(admissionOrder.submittedAt) ||
+          admissionOrder.submittedAt < 0
         )
           throw new Error("Capacity routing requires persisted submission ordering metadata");
         if (
-          workflowType === "submissionJudgeWorkflow" &&
-          workflowId !== `judge-${(input as SubmissionJudgeInput).submissionId}`
+          admissionOrder.executionId !== input.executionId ||
+          !workflowId.startsWith(`judge-execution-${input.executionId}-`)
         )
-          throw new Error("Submission workflow identity mismatch");
+          throw new Error("Execution workflow identity mismatch");
       },
     },
   );
@@ -307,21 +296,49 @@ export async function judgeAdmissionWorkflow(input?: CoordinatorState): Promise<
   setHandler(registerJudgeRun, (registration) => {
     try {
       const workflowId = registration.workflowId;
-      const placeholder =
-        workflowId && !registration.replacesRunId
-          ? state.admission.runs.find(
-              (run) => run.runId === `dispatch/${workflowId}` && !run.finished,
-            )
-          : undefined;
+      const existing = state.admission.runs.find((run) => run.runId === registration.runId);
+      if (existing) {
+        if (
+          state.runOwners[registration.runId] !== workflowId ||
+          existing.orderKey !== registration.submissionId
+        )
+          throw new Error("Attempt registration identity mismatch");
+        state.outbox.push({
+          replyTo: workflowId,
+          reply: { requestId: `${registration.runId}/register` },
+        });
+        changed = true;
+        return;
+      }
+      const placeholder = !registration.replacesRunId
+        ? state.admission.runs.find(
+            (run) => run.runId === `dispatch/${workflowId}` && !run.finished,
+          )
+        : undefined;
       const previous = registration.replacesRunId
         ? state.admission.runs.find((run) => run.runId === registration.replacesRunId)
         : placeholder;
+      if (previous?.orderKey !== registration.submissionId)
+        throw new Error("Attempt requires its durable dispatch reservation");
       registerAdmissionRun(state.admission, {
         ...registration,
-        ...(previous ? { submittedAt: previous.submittedAt } : {}),
+        studentId: previous.studentId,
+        submittedAt: previous.submittedAt,
         ...(placeholder ? { replacesRunId: placeholder.runId } : {}),
       });
+      state.runOwners[registration.runId] = workflowId;
+      state.outbox.push({
+        replyTo: workflowId,
+        reply: { requestId: `${registration.runId}/register` },
+      });
     } catch (error) {
+      state.outbox.push({
+        replyTo: registration.workflowId,
+        reply: {
+          requestId: `${registration.runId}/register`,
+          error: error instanceof Error ? error.message : "Registration failed",
+        },
+      });
       log.warn("Rejected judge run registration", {
         runId: registration.runId,
         error: error instanceof Error ? error.message : String(error),
@@ -368,6 +385,7 @@ export async function judgeAdmissionWorkflow(input?: CoordinatorState): Promise<
     changed = true;
   });
   setHandler(cleanupJudgeRun, (runId) => {
+    if (!state.fullCleanupConfirmed.includes(runId)) state.fullCleanupConfirmed.push(runId);
     for (const permit of state.admission.permits.filter((p) => p.request.runId === runId))
       confirmPermitCleanup(state.admission, runId, permit.permitId, true);
     changed = true;
@@ -428,10 +446,23 @@ export async function judgeAdmissionWorkflow(input?: CoordinatorState): Promise<
           const closed: string[] = await control.closedJudgeWorkflows(
             state.stagedWorkflowIds.slice(0, 128),
           );
-          for (const workflowId of closed)
+          for (const workflowId of closed) {
             finishAdmissionRun(state.admission, `dispatch/${workflowId}`, true);
+            for (const run of state.admission.runs) {
+              if (
+                state.runOwners[run.runId] === workflowId &&
+                state.fullCleanupConfirmed.includes(run.runId)
+              )
+                finishAdmissionRun(state.admission, run.runId, true);
+            }
+          }
+          retireInactive();
           state.stagedWorkflowIds = state.stagedWorkflowIds.filter(
-            (id) => !closed.includes(id),
+            (id) =>
+              !closed.includes(id) ||
+              state.admission.runs.some(
+                (run) => state.runOwners[run.runId] === id && !run.finished,
+              ),
           );
         }
       } catch {
@@ -491,6 +522,11 @@ export async function judgeAdmissionWorkflow(input?: CoordinatorState): Promise<
       }
     }
     compactAdmissionState(state.admission, Date.now());
+    const knownRuns = new Set(state.admission.runs.map((run) => run.runId));
+    state.runOwners = Object.fromEntries(
+      Object.entries(state.runOwners).filter(([id]) => knownRuns.has(id)),
+    );
+    state.fullCleanupConfirmed = state.fullCleanupConfirmed.filter((id) => knownRuns.has(id));
     const liveRequests = new Set(
       state.admission.pending
         .map((r) => r.requestId)
@@ -499,7 +535,7 @@ export async function judgeAdmissionWorkflow(input?: CoordinatorState): Promise<
     state.waiters = Object.fromEntries(
       Object.entries(state.waiters).filter(([key]) => liveRequests.has(key)),
     );
-    if (workflowInfo().continueAsNewSuggested && state.activeRejudgeIds.length === 0) {
+    if (workflowInfo().continueAsNewSuggested) {
       await condition(allHandlersFinished);
       await continueAsNew<typeof judgeAdmissionWorkflow>(state);
     }

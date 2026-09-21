@@ -136,6 +136,7 @@ vi.mock("@nojv/db", () => {
           delete: problemDelete,
         },
         submission: { findUnique: submissionFindUnique, findMany: submissionFindMany },
+        judgeExecution: { findFirst: vi.fn().mockResolvedValue(null) },
         scoreOverrideAuditLog: { findFirst: scoreAuditFind },
         submissionFeedbackAuditLog: { findFirst: feedbackAuditFind },
       }),
@@ -410,6 +411,8 @@ describe("updateAdvancedJudgeConfiguration", () => {
     expect(problemUpdate).toHaveBeenCalledWith("prob_se", {
       advancedConfig: config,
       advancedRequiredPaths: ["src/main.c", "src/"],
+      storageGeneration: { increment: 1 },
+      referenceSolutionSubmissionId: null,
     });
   });
 

@@ -226,16 +226,23 @@ async function requireManagedMember(
   actor: ActorContext,
   courseId: string,
   membershipId: string,
+  operation: "manage" | "remove",
 ) {
   await lockCourseMembers(tx, courseId);
   const actorRole = await resolveActorCourseRoleTx(tx, actor, courseId);
-  if (actorRole !== "admin" && actorRole !== "teacher")
+  if (
+    actorRole !== "admin" &&
+    actorRole !== "teacher" &&
+    !(operation === "remove" && actorRole === "ta")
+  )
     throw new ForbiddenError("Only teachers or admins can manage members.");
   const member = await tx.courseMembership.findUnique({
     where: { id: membershipId, courseId },
     include: { course: { select: { ownerId: true } } },
   });
   if (!member) throw new NotFoundError("Course member not found.");
+  if (actorRole === "ta" && member.role !== "student")
+    throw new ForbiddenError("Teaching assistants can only remove students.");
   if (member.userId === member.course.ownerId)
     throw new ForbiddenError("The course owner must remain a teacher.");
   if (actorRole === "teacher" && (member.userId === actor.userId || member.role === "teacher"))
@@ -252,7 +259,13 @@ export async function changeMemberRole(
   role: CourseRole,
 ) {
   return runTransaction(async (tx) => {
-    const { actorRole } = await requireManagedMember(tx, actor, courseId, membershipId);
+    const { actorRole } = await requireManagedMember(
+      tx,
+      actor,
+      courseId,
+      membershipId,
+      "manage",
+    );
     if (role === "teacher" && actorRole !== "admin")
       throw new ForbiddenError("Only an admin can promote a member to teacher.");
     return courseMembershipAdminRepo.withTx(tx).updateRole(courseId, membershipId, role);
@@ -269,7 +282,7 @@ export async function correctPendingUsername(
   validateRosterUsername(normalized);
   return runTransaction(async (tx) => {
     await lockRosterIdentity(tx);
-    const { member } = await requireManagedMember(tx, actor, courseId, membershipId);
+    const { member } = await requireManagedMember(tx, actor, courseId, membershipId, "manage");
     if (member.userId !== null) throw new ConflictError("ROSTER_ALREADY_LINKED");
     const user = await tx.user.findUnique({ where: { username: normalized } });
     if (user?.disabled) throw new ConflictError("ROSTER_ACCOUNT_UNAVAILABLE");
@@ -303,7 +316,7 @@ export async function removeMember(
   membershipId: string,
 ) {
   return runTransaction(async (tx) => {
-    await requireManagedMember(tx, actor, courseId, membershipId);
+    await requireManagedMember(tx, actor, courseId, membershipId, "remove");
     return courseMembershipAdminRepo.withTx(tx).removeFromCourse(courseId, membershipId);
   });
 }

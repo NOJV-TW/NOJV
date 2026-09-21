@@ -118,3 +118,26 @@ export async function closedJudgeWorkflows(workflowIds: string[]): Promise<strin
   }
   return closed;
 }
+
+export async function findPriorCapacityRuns(executionId: string, workflowId: string) {
+  const { getTemporalClient } = await import("@nojv/temporal");
+  const client = await getTemporalClient();
+  const state = await client.workflow.getHandle("judge-admission-v1").query<{
+    admission: { runs: { runId: string; orderKey: string; finished: boolean }[] };
+    runOwners: Record<string, string>;
+    fullCleanupConfirmed: string[];
+  }>("admissionState");
+  return state.admission.runs
+    .filter(
+      (run) =>
+        !run.finished &&
+        run.orderKey === executionId &&
+        state.runOwners[run.runId] &&
+        state.runOwners[run.runId] !== workflowId,
+    )
+    .map((run) => ({
+      runId: run.runId,
+      ownerWorkflowId: state.runOwners[run.runId],
+      cleanupConfirmed: state.fullCleanupConfirmed.includes(run.runId),
+    }));
+}

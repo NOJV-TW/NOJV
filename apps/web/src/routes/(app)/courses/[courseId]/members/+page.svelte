@@ -1,6 +1,6 @@
 <script lang="ts">
   import { invalidateAll } from "$app/navigation";
-  import { enhance } from "$app/forms";
+  import { deserialize, enhance } from "$app/forms";
   import { Pencil, X } from "@lucide/svelte";
   import { Button } from "$lib/components/primitives/ui/button";
   import * as Select from "$lib/components/primitives/ui/select";
@@ -51,8 +51,12 @@
     try {
       const body = new FormData();
       body.set("membershipId", target.membershipId);
-      const res = await fetch("?/remove", { method: "POST", body });
-      if (!res.ok) {
+      const res = await fetch("?/remove", {
+        method: "POST",
+        headers: { accept: "application/json", "x-sveltekit-action": "true" },
+        body,
+      });
+      if (!res.ok || deserialize(await res.text()).type !== "success") {
         toasts.error(m.members_removeError());
         return;
       }
@@ -93,7 +97,7 @@
 
 <PageContainer class="space-y-8">
   {#if isManager}
-    <BulkHandleAddPanel form={bulkAddForm} />
+    <BulkHandleAddPanel form={bulkAddForm} canAddTa={data.canChangeRoles} />
   {/if}
 
   <div class="animate-in animate-in-3 overflow-x-auto">
@@ -272,7 +276,7 @@
               <td class="whitespace-nowrap px-4 py-3 text-caption">
                 {#if member.role === "teacher"}
                   <span class="font-medium text-primary">{m.members_roleTeacher()}</span>
-                {:else if isManager}
+                {:else if data.canChangeRoles}
                   <Select.Root
                     type="single"
                     value={roleDrafts[member.membershipId] ?? member.role}
@@ -302,7 +306,7 @@
               </td>
               {#if isManager}
                 <td class="px-4 py-3 text-right">
-                  {#if member.role !== "teacher"}
+                  {#if member.canRemove}
                     <button
                       type="button"
                       class="rounded-sm bg-transparent p-1.5 text-muted-foreground transition-colors duration-fast ease-out-soft hover:bg-transparent hover:text-destructive"

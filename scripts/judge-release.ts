@@ -1,7 +1,7 @@
 import { parseArgs } from "node:util";
 import { pathToFileURL } from "node:url";
 import { getTemporalClient, closeTemporalClient } from "../packages/temporal/src/client.js";
-import type { Client } from "@temporalio/client";
+import { defaultPayloadConverter, type Client } from "@temporalio/client";
 
 export interface JudgeReleaseState {
   paused: boolean;
@@ -10,7 +10,6 @@ export interface JudgeReleaseState {
   draining?: boolean;
   routingInFlight?: number;
   activeSubmissionIds?: string[];
-  activeRejudgeIds?: string[];
   stagedWorkflowIds?: string[];
   admission: { permits: { cleanupConfirmed: boolean }[]; pending: unknown[] };
 }
@@ -21,8 +20,6 @@ export function rollbackStateBlockers(state: JudgeReleaseState): string[] {
     blockers.push("Dispatch must route to legacy with draining enabled");
   if (state.routingInFlight !== 0)
     blockers.push("Dispatch updates remain in flight or state is unknown");
-  if (!state.activeRejudgeIds || state.activeRejudgeIds.length > 0)
-    blockers.push("Active rejudge batches remain or state is unknown");
   if (!state.activeSubmissionIds || state.activeSubmissionIds.length > 0)
     blockers.push("Active staged submissions remain or state is unknown");
   if (!state.stagedWorkflowIds) blockers.push("Staged workflow ledger is unavailable");
@@ -30,6 +27,25 @@ export function rollbackStateBlockers(state: JudgeReleaseState): string[] {
     blockers.push("Sandbox permits have not confirmed cleanup");
   if (state.admission.pending.length > 0) blockers.push("Admission requests remain queued");
   return blockers;
+}
+
+export function isBaselineJudgeInput(
+  payloads: Parameters<typeof defaultPayloadConverter.fromPayload>[0][] | null | undefined,
+  workflowId: string,
+): boolean {
+  if (payloads?.length !== 1 || !payloads[0]) return false;
+  try {
+    const input = defaultPayloadConverter.fromPayload<unknown>(payloads[0]);
+    if (!input || typeof input !== "object" || Object.keys(input).length !== 1) return false;
+    return (
+      "executionId" in input &&
+      typeof input.executionId === "string" &&
+      input.executionId.length > 0 &&
+      workflowId.startsWith(`judge-execution-${input.executionId}-`)
+    );
+  } catch {
+    return false;
+  }
 }
 
 export async function verifyJudgeRollbackReady(client: Client) {
@@ -54,7 +70,9 @@ export async function verifyJudgeRollbackReady(client: Client) {
       .fetchHistory();
     const started = history.events?.[0]?.workflowExecutionStartedEventAttributes;
     if (
-      !started?.continuedExecutionRunId ||
+      started?.workflowType?.name !== "durableJudgeWorkflow" ||
+      !started.continuedExecutionRunId ||
+      !isBaselineJudgeInput(started.input?.payloads, workflowId) ||
       history.events?.some(
         (event) =>
           event.workflowTaskStartedEventAttributes ||

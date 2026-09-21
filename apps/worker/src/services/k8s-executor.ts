@@ -1,4 +1,9 @@
-import { failureMessage } from "./k8s-cleanup-call";
+import {
+  failureMessage,
+  k8sErrorCode,
+  boundedK8sCall,
+  retryK8sCleanupCall,
+} from "./k8s-cleanup-call";
 import { createRequire } from "node:module";
 import {
   buildArtifactPvcManifest,
@@ -21,8 +26,10 @@ import {
   SandboxCleanupPendingError,
   isK8sNotFound,
 } from "./k8s-termination";
+import { hostname } from "node:os";
 
 import type * as k8s from "@kubernetes/client-node";
+import { findSuffix, quantityToScalar } from "@kubernetes/client-node/dist/util.js";
 
 const require = createRequire(import.meta.url);
 
@@ -171,9 +178,23 @@ export function findFailedCreateEventReason(events: readonly k8s.CoreV1Event[]):
 }
 
 function isDeterministicAdmissionFailure(reason: string): boolean {
+  if (/exceeded quota/i.test(reason)) return false;
   return /forbidden|limit range|maximum .*memory|must be less|invalid.*(?:memory|cpu)/i.test(
     reason,
   );
+}
+
+function rethrowSandboxQuotaError(error: unknown): never {
+  const message =
+    typeof error === "object" && error !== null && "body" in error
+      ? failureMessage(error.body)
+      : failureMessage(error);
+  if (k8sErrorCode(error) === 403 && /exceeded quota/i.test(message)) {
+    throw new SandboxBackpressureError(
+      `Sandbox resource creation is waiting for capacity: ${message}`,
+    );
+  }
+  throw error;
 }
 
 function throwCleanupFailures(label: string, results: PromiseSettledResult<unknown>[]): void {
@@ -190,9 +211,10 @@ function combineExecutionAndCleanupFailure(
   cleanupFailure: unknown,
 ): Error {
   const cleanup = failureMessage(cleanupFailure);
-  if (!(executionFailure instanceof Error)) {
-    return new Error(
-      `Sandbox execution failed: ${failureMessage(executionFailure)} Cleanup also failed: ${cleanup}`,
+  if (!(executionFailure instanceof Error) || executionFailure.name !== "AbortError") {
+    return new SandboxCleanupError(
+      `${failureMessage(executionFailure)} Cleanup also failed: ${cleanup}`,
+      { cause: cleanupFailure },
     );
   }
   Object.defineProperty(executionFailure, "message", {
@@ -214,7 +236,7 @@ async function runCleanupAfterExecution(
     if (executionFailure !== undefined) {
       throw combineExecutionAndCleanupFailure(executionFailure.reason, cleanupFailure);
     }
-    throw cleanupFailure;
+    throw new SandboxCleanupError(failureMessage(cleanupFailure), { cause: cleanupFailure });
   }
 }
 
@@ -257,6 +279,13 @@ export class SandboxAdmissionError extends Error {
   }
 }
 
+export class SandboxInfeasibleError extends SandboxAdmissionError {
+  constructor(message: string) {
+    super(message);
+    this.name = "SandboxInfeasibleError";
+  }
+}
+
 export class SandboxImagePullError extends Error {
   constructor(message: string) {
     super(message);
@@ -269,6 +298,103 @@ export class SandboxInfrastructureError extends Error {
     super(message, options);
     this.name = "SandboxInfrastructureError";
   }
+}
+
+export class SandboxTransientInfrastructureError extends SandboxInfrastructureError {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "SandboxTransientInfrastructureError";
+  }
+}
+
+export class SandboxCleanupError extends SandboxInfrastructureError {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "SandboxCleanupError";
+  }
+}
+
+function quotaQuantity(quantity: string): number {
+  const suffix = findSuffix(quantity);
+  const value = suffix
+    ? Number(quantity.slice(0, -suffix.length)) * Number(quantityToScalar(`1${suffix}`))
+    : Number(quantityToScalar(quantity));
+  if (!Number.isFinite(value) || value < 0)
+    throw new Error(`Invalid resource quantity: ${quantity}`);
+  return value;
+}
+
+function podResourceRequirement(
+  spec: k8s.V1PodSpec,
+  field: "requests" | "limits",
+  resource: "cpu" | "memory",
+): number | null {
+  const podLevel = spec.resources?.[field]?.[resource];
+  const containers = [...spec.containers, ...(spec.initContainers ?? [])];
+  if (
+    field === "limits" &&
+    podLevel === undefined &&
+    containers.some((container) => container.resources?.limits?.[resource] === undefined)
+  )
+    return null;
+  // Omitted requests are a lower bound: admission may supply LimitRange defaults.
+  const amount = (container: k8s.V1Container) =>
+    quotaQuantity(container.resources?.[field]?.[resource] ?? "0");
+  let regular = spec.containers.reduce((total, container) => total + amount(container), 0);
+  let restartable = 0;
+  let initPeak = 0;
+  for (const container of spec.initContainers ?? []) {
+    const own = amount(container);
+    if (container.restartPolicy === "Always") {
+      restartable += own;
+      initPeak = Math.max(initPeak, restartable);
+    } else initPeak = Math.max(initPeak, restartable + own);
+  }
+  regular += restartable;
+  const effective =
+    podLevel === undefined ? Math.max(regular, initPeak) : quotaQuantity(podLevel);
+  const overhead =
+    field === "requests" || effective > 0 ? quotaQuantity(spec.overhead?.[resource] ?? "0") : 0;
+  return effective + overhead;
+}
+
+export function findSandboxQuotaViolation(
+  pods: k8s.V1PodSpec[],
+  quotas: k8s.V1ResourceQuota[],
+): string | null {
+  const requirements: Record<string, number | null> = {
+    pods: pods.length,
+    "count/pods": pods.length,
+  };
+  for (const field of ["requests", "limits"] as const) {
+    for (const resource of ["cpu", "memory"] as const) {
+      const values = pods.map((pod) => podResourceRequirement(pod, field, resource));
+      requirements[`${field}.${resource}`] = values.some((value) => value === null)
+        ? null
+        : values.reduce<number>((total, value) => total + (value ?? 0), 0);
+      if (field === "requests")
+        requirements[resource] = requirements[`${field}.${resource}`] ?? null;
+    }
+  }
+  for (const quota of quotas) {
+    // Only prove violations without guessing admission scope/defaulting behavior.
+    if (
+      (quota.spec?.scopes?.length ?? 0) > 0 ||
+      (quota.spec?.scopeSelector?.matchExpressions?.length ?? 0) > 0
+    )
+      continue;
+    const hard = quota.status?.hard ?? quota.spec?.hard ?? {};
+    for (const [resource, requested] of Object.entries(requirements)) {
+      const configured = hard[resource];
+      if (configured === undefined || requested === null) continue;
+      const maximum = quotaQuantity(configured);
+      const tolerance = Math.max(1, requested, maximum) * Number.EPSILON * 128;
+      if (requested > maximum + tolerance) {
+        return `ResourceQuota ${quota.metadata?.name ?? "unnamed"}: ${resource} requires ${String(requested)}, exceeding hard ${configured}.`;
+      }
+    }
+  }
+  return null;
 }
 
 export interface K8sClientHandles {
@@ -319,8 +445,13 @@ function summarizeJobPods(pods: k8s.V1Pod[]): JobPodSummary {
     const status = pod.status;
     const phase = status?.phase;
     if (phase === "Succeeded") succeeded = true;
-    if (status?.startTime || phase === "Running" || phase === "Succeeded") everStarted = true;
-    if (phase === "Failed" && status?.startTime) everStarted = true;
+    if (
+      phase === "Succeeded" ||
+      (status?.containerStatuses ?? []).some(
+        (container) => container.state?.running ?? container.state?.terminated,
+      )
+    )
+      everStarted = true;
 
     for (const value of [status?.reason, status?.message]) {
       const reason = infrastructureFailureReason(value);
@@ -601,20 +732,23 @@ export class K8sExecutor implements SandboxExecutor {
         execution.signal,
       );
       execution.signal.throwIfAborted();
-      await this.submitJob({
-        namespace,
-        body: buildPrepareArtifactJobManifest({
-          jobName,
+      await this.createSandboxJob(
+        {
           namespace,
-          configMapNames: payloadNames,
-          image: this.config.image,
-          memoryLimit: resolveK8sMemoryLimit(request, this.config),
-          runtimeClassName: "gvisor",
-          nodeName,
-          pvcName: artifact.pvcName,
-          activeDeadlineSeconds: 180,
-        }),
-      });
+          body: buildPrepareArtifactJobManifest({
+            jobName,
+            namespace,
+            configMapNames: payloadNames,
+            image: request.sandboxImage ?? this.config.image,
+            memoryLimit: resolveK8sMemoryLimit(request, this.config),
+            runtimeClassName: "gvisor",
+            nodeName,
+            pvcName: artifact.pvcName,
+            activeDeadlineSeconds: 180,
+          }),
+        },
+        execution.signal,
+      );
       execution.signal.throwIfAborted();
       await this.waitForJobCompletion(jobName, namespace, 180, execution.signal);
       await this.observeJobLifecycle(jobName, namespace, request);
@@ -847,34 +981,162 @@ export class K8sExecutor implements SandboxExecutor {
       spec.imagePullSecrets = [...(spec.imagePullSecrets ?? []), { name }];
   }
 
-  private async submitJob(input: { namespace: string; body: k8s.V1Job }): Promise<void> {
-    input.body.metadata = this.runMetadata(input.body.metadata);
-    const template = input.body.spec?.template;
-    if (template) {
-      template.metadata ??= {};
-      template.metadata.labels = { ...template.metadata.labels, ...input.body.metadata.labels };
-    }
-    if (template?.spec) {
-      this.admittedPod(template.spec);
-      this.imagePullCredentials(template.spec);
-    }
-    await this.batchApi.createNamespacedJob(input);
-  }
-
-  private async submitPod(input: { namespace: string; body: k8s.V1Pod }): Promise<void> {
-    input.body.metadata = this.runMetadata(input.body.metadata);
-    if (input.body.spec) {
-      this.admittedPod(input.body.spec);
-      this.imagePullCredentials(input.body.spec);
-    }
-    await this.coreApi.createNamespacedPod(input);
-  }
-
   private networkingApi(): k8s.NetworkingV1Api {
     if (!this.networkingApiHandle) {
       throw new Error("NetworkingV1Api client is not available");
     }
     return this.networkingApiHandle;
+  }
+
+  async reconcile(runId: string, owner?: string): Promise<boolean> {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(runId))
+      return false;
+    if (!owner) return false;
+    if (owner !== (process.env.HOSTNAME ?? hostname())) {
+      try {
+        const worker = await boundedK8sCall(
+          this.coreApi.readNamespacedPod({
+            namespace: process.env.POD_NAMESPACE ?? "nojv",
+            name: owner,
+          }),
+          `Worker Pod ${owner}`,
+        );
+        if (worker.status?.phase !== "Succeeded" && worker.status?.phase !== "Failed")
+          return false;
+      } catch (error) {
+        if (k8sErrorCode(error) !== 404) return false;
+      }
+    }
+    const namespace = this.config.namespace;
+    const prefix = `judge-${runId}`;
+    const owned = (metadata: k8s.V1ObjectMeta | undefined) =>
+      metadata?.name === prefix || metadata?.name?.startsWith(`${prefix}-`) === true;
+    interface Resource {
+      metadata?: k8s.V1ObjectMeta;
+    }
+    interface ResourceKind {
+      kind: string;
+      workload: boolean;
+      list: () => Promise<{ items: Resource[] }>;
+      remove: (name: string, uid: string) => Promise<unknown>;
+    }
+    try {
+      const networking = this.networkingApi();
+      const kinds: ResourceKind[] = [
+        {
+          kind: "Job",
+          workload: true,
+          list: () => this.batchApi.listNamespacedJob({ namespace }),
+          remove: (name, uid) =>
+            this.batchApi.deleteNamespacedJob({
+              namespace,
+              name,
+              body: { propagationPolicy: "Foreground", preconditions: { uid } },
+            }),
+        },
+        {
+          kind: "Pod",
+          workload: true,
+          list: () => this.coreApi.listNamespacedPod({ namespace }),
+          remove: (name, uid) =>
+            this.coreApi.deleteNamespacedPod({
+              namespace,
+              name,
+              body: { propagationPolicy: "Foreground", preconditions: { uid } },
+            }),
+        },
+        {
+          kind: "ConfigMap",
+          workload: false,
+          list: () => this.coreApi.listNamespacedConfigMap({ namespace }),
+          remove: (name, uid) =>
+            this.coreApi.deleteNamespacedConfigMap({
+              namespace,
+              name,
+              body: { preconditions: { uid } },
+            }),
+        },
+        {
+          kind: "PersistentVolumeClaim",
+          workload: false,
+          list: () => this.coreApi.listNamespacedPersistentVolumeClaim({ namespace }),
+          remove: (name, uid) =>
+            this.coreApi.deleteNamespacedPersistentVolumeClaim({
+              namespace,
+              name,
+              body: { preconditions: { uid } },
+            }),
+        },
+        {
+          kind: "Service",
+          workload: false,
+          list: () => this.coreApi.listNamespacedService({ namespace }),
+          remove: (name, uid) =>
+            this.coreApi.deleteNamespacedService({
+              namespace,
+              name,
+              body: { preconditions: { uid } },
+            }),
+        },
+        {
+          kind: "NetworkPolicy",
+          workload: false,
+          list: () => networking.listNamespacedNetworkPolicy({ namespace }),
+          remove: (name, uid) =>
+            networking.deleteNamespacedNetworkPolicy({
+              namespace,
+              name,
+              body: { preconditions: { uid } },
+            }),
+        },
+      ];
+      const inventory = async (selected: ResourceKind[]) =>
+        Promise.all(
+          selected.map(async (kind) => {
+            const { items } = await boundedK8sCall(
+              kind.list(),
+              `${kind.kind} list in ${namespace}`,
+            );
+            return { kind, items: items.filter(({ metadata }) => owned(metadata)) };
+          }),
+        );
+      const initial = await inventory(kinds);
+      if (
+        initial.some(({ items }) =>
+          items.some(({ metadata }) => !metadata?.uid || metadata.namespace !== namespace),
+        )
+      )
+        return false;
+      const remove = async (workload: boolean) => {
+        const results = await Promise.allSettled(
+          initial
+            .filter(({ kind }) => kind.workload === workload)
+            .flatMap(({ kind, items }) =>
+              items.map(async ({ metadata }) => {
+                if (!metadata?.name || !metadata.uid || metadata.deletionTimestamp) return;
+                const { name, uid } = metadata;
+                await retryK8sCleanupCall(
+                  `${kind.kind} ${namespace}/${name}`,
+                  () => kind.remove(name, uid),
+                  { notFoundIsSuccess: true },
+                );
+              }),
+            ),
+        );
+        return results.every((result) => result.status === "fulfilled");
+      };
+      if (!(await remove(true))) return false;
+      const workloads = await inventory(kinds.filter((kind) => kind.workload));
+      if (workloads.some(({ items }) => items.length > 0)) return false;
+      if (!(await remove(false))) return false;
+      return (await inventory(kinds)).every(({ items }) => items.length === 0);
+    } catch (error) {
+      logger.warn("Sandbox recovery could not confirm resource cleanup", {
+        runId,
+        error: failureMessage(error),
+      });
+      return false;
+    }
   }
 
   async execute(
@@ -945,7 +1207,12 @@ export class K8sExecutor implements SandboxExecutor {
         );
       } catch (err) {
         execution.signal.throwIfAborted();
-        if (err instanceof SandboxInfrastructureError || err instanceof SandboxImagePullError)
+        if (
+          err instanceof SandboxInfrastructureError ||
+          err instanceof SandboxImagePullError ||
+          err instanceof SandboxBackpressureError ||
+          err instanceof SandboxAdmissionError
+        )
           throw err;
         return advancedFallbackResult(
           request,
@@ -959,30 +1226,34 @@ export class K8sExecutor implements SandboxExecutor {
         execution.signal,
       );
 
-      await this.submitJob({
-        namespace: ns,
-        body: buildAdvancedRunJobManifest({
-          jobName: runJobName,
+      await this.createSandboxJob(
+        {
           namespace: ns,
-          configMapName: runConfigMapName,
-          pvcName,
-          sandboxImage: this.config.image,
-          runImage: advanced.run.imageRef,
-          memoryMb: advanced.memoryMb,
-          totalTimeMs: advanced.totalTimeMs,
-          cpuLimit: this.config.cpuLimit,
-          submissionId: resourceId,
-          language: request.language,
-          ...(this.config.runtimeClassName
-            ? { runtimeClassName: this.config.runtimeClassName }
-            : {}),
-          ...(hasSidecar ? { egressLabel: runEgressLabel(resourceId) } : {}),
-          ...(runExtraEnv ? { extraEnv: runExtraEnv } : {}),
-          ...(this.config.imagePullSecretName
-            ? { imagePullSecretName: this.config.imagePullSecretName }
-            : {}),
-        }),
-      });
+          body: buildAdvancedRunJobManifest({
+            jobName: runJobName,
+            namespace: ns,
+            configMapName: runConfigMapName,
+            pvcName,
+            sandboxImage: request.sandboxImage ?? this.config.image,
+            runImage: advanced.run.imageRef,
+            memoryMb: advanced.memoryMb,
+            totalTimeMs: advanced.totalTimeMs,
+            cpuLimit: this.config.cpuLimit,
+            submissionId: resourceId,
+            language: request.language,
+            ...(this.config.runtimeClassName
+              ? { runtimeClassName: this.config.runtimeClassName }
+              : {}),
+            ...(hasSidecar ? { egressLabel: runEgressLabel(resourceId) } : {}),
+            ...(runExtraEnv ? { extraEnv: runExtraEnv } : {}),
+            ...(this.config.imagePullSecretName
+              ? { imagePullSecretName: this.config.imagePullSecretName }
+              : {}),
+          }),
+        },
+        execution.signal,
+        hasSidecar ? sidecarPodName(resourceId) : undefined,
+      ).catch(rethrowSandboxQuotaError);
       execution.signal.throwIfAborted();
 
       const runOutcome = await this.waitForJobOutcome(
@@ -1023,30 +1294,34 @@ export class K8sExecutor implements SandboxExecutor {
         ),
         execution.signal,
       );
-      await this.submitJob({
-        namespace: ns,
-        body: buildAdvancedGradeJobManifest({
-          jobName: gradeJobName,
+      await this.createSandboxJob(
+        {
           namespace: ns,
-          configMapName: gradeConfigMapName,
-          pvcName,
-          sandboxImage: this.config.image,
-          gradeImage: advanced.grade.imageRef,
-          memoryMb: advanced.memoryMb,
-          totalTimeMs: advanced.totalTimeMs,
-          cpuLimit: this.config.cpuLimit,
-          submissionId: resourceId,
-          language: request.language,
-          nodeName,
-          egressLabel: gradeEgressLabel(resourceId),
-          ...(this.config.runtimeClassName
-            ? { runtimeClassName: this.config.runtimeClassName }
-            : {}),
-          ...(this.config.imagePullSecretName
-            ? { imagePullSecretName: this.config.imagePullSecretName }
-            : {}),
-        }),
-      });
+          body: buildAdvancedGradeJobManifest({
+            jobName: gradeJobName,
+            namespace: ns,
+            configMapName: gradeConfigMapName,
+            pvcName,
+            sandboxImage: request.sandboxImage ?? this.config.image,
+            gradeImage: advanced.grade.imageRef,
+            memoryMb: advanced.memoryMb,
+            totalTimeMs: advanced.totalTimeMs,
+            cpuLimit: this.config.cpuLimit,
+            submissionId: resourceId,
+            language: request.language,
+            nodeName,
+            egressLabel: gradeEgressLabel(resourceId),
+            ...(this.config.runtimeClassName
+              ? { runtimeClassName: this.config.runtimeClassName }
+              : {}),
+            ...(this.config.imagePullSecretName
+              ? { imagePullSecretName: this.config.imagePullSecretName }
+              : {}),
+          }),
+        },
+        execution.signal,
+        hasSidecar ? sidecarPodName(resourceId) : undefined,
+      ).catch(rethrowSandboxQuotaError);
       execution.signal.throwIfAborted();
 
       await this.waitForJobCompletion(gradeJobName, ns, deadlineSeconds, execution.signal);
@@ -1151,23 +1426,26 @@ export class K8sExecutor implements SandboxExecutor {
     if (!service) {
       throw new Error("service network mode selected without a service image");
     }
-    await this.submitPod({
-      namespace: ns,
-      body: buildServiceSidecarPodManifest({
-        submissionId: resourceId,
+    await this.createSandboxPod(
+      {
         namespace: ns,
-        image: service.imageRef,
-        memoryMb: advanced.memoryMb,
-        cpuLimit: this.config.cpuLimit,
-        port: SIDECAR_PORT,
-        ...(this.config.runtimeClassName
-          ? { runtimeClassName: this.config.runtimeClassName }
-          : {}),
-        ...(this.config.imagePullSecretName
-          ? { imagePullSecretName: this.config.imagePullSecretName }
-          : {}),
-      }),
-    });
+        body: buildServiceSidecarPodManifest({
+          submissionId: resourceId,
+          namespace: ns,
+          image: service.imageRef,
+          memoryMb: advanced.memoryMb,
+          cpuLimit: this.config.cpuLimit,
+          port: SIDECAR_PORT,
+          ...(this.config.runtimeClassName
+            ? { runtimeClassName: this.config.runtimeClassName }
+            : {}),
+          ...(this.config.imagePullSecretName
+            ? { imagePullSecretName: this.config.imagePullSecretName }
+            : {}),
+        }),
+      },
+      signal,
+    ).catch(rethrowSandboxQuotaError);
     signal.throwIfAborted();
     const clusterIp = await this.createSidecarServiceAndPolicies(resourceId, ns, signal);
 
@@ -1183,10 +1461,12 @@ export class K8sExecutor implements SandboxExecutor {
     ns: string,
     signal: AbortSignal,
   ): Promise<string> {
-    const created = await this.coreApi.createNamespacedService({
-      namespace: ns,
-      body: buildSidecarServiceManifest({ submissionId, namespace: ns, port: SIDECAR_PORT }),
-    });
+    const created = await this.coreApi
+      .createNamespacedService({
+        namespace: ns,
+        body: buildSidecarServiceManifest({ submissionId, namespace: ns, port: SIDECAR_PORT }),
+      })
+      .catch(rethrowSandboxQuotaError);
     signal.throwIfAborted();
     const clusterIp = created.spec?.clusterIP;
     if (!clusterIp || clusterIp === "None") {
@@ -1215,6 +1495,8 @@ export class K8sExecutor implements SandboxExecutor {
     const timeoutMs = this.config.sidecarReadinessTimeoutMs ?? SIDECAR_READINESS_TIMEOUT_MS;
     const intervalMs = this.config.sidecarReadinessIntervalMs ?? SIDECAR_READINESS_INTERVAL_MS;
     const deadline = Date.now() + timeoutMs;
+    let everStarted = false;
+    let waitingReason: string | null = null;
     while (Date.now() < deadline) {
       let pods: k8s.V1PodList;
       try {
@@ -1231,18 +1513,32 @@ export class K8sExecutor implements SandboxExecutor {
       }
       signal.throwIfAborted();
       const pod = pods.items[0];
-      const waiting = pod?.status?.containerStatuses?.find(
-        (status) => status.name === "service",
-      )?.state?.waiting;
-      if (waiting?.reason === "ImagePullBackOff")
+      const summary = summarizeJobPods(pods.items);
+      everStarted ||= summary.everStarted;
+      waitingReason = summary.unschedulableReason;
+      if (summary.imagePull?.reason === "ImagePullBackOff") {
         throw new SandboxImagePullError(
-          `Service image pull failed for ${ns}/${podName}: ${waiting.message ?? waiting.reason}`,
+          `Service image pull failed for ${ns}/${podName}: ${summary.imagePull.message}`,
         );
-      if (pod && pod.status?.phase !== "Pending" && !waiting) {
+      }
+      if (summary.infrastructureFailure) {
+        throw new SandboxTransientInfrastructureError(
+          `Service pod ${ns}/${podName} was interrupted by infrastructure (${summary.infrastructureFailure}).`,
+        );
+      }
+      const service = pod?.status?.containerStatuses?.find(
+        (status) => status.name === "service",
+      );
+      if (service?.state?.running || service?.state?.terminated) {
         const log = await this.getPodContainerLogs(podName, ns, "service", signal);
         if (log.includes(marker)) return true;
       }
       await this.sleep(intervalMs, signal);
+    }
+    if (!everStarted) {
+      throw new SandboxBackpressureError(
+        `Service pod ${ns}/${podName} did not start before the readiness deadline: ${waitingReason ?? "waiting for container startup"}.`,
+      );
     }
     return false;
   }
@@ -1253,7 +1549,9 @@ export class K8sExecutor implements SandboxExecutor {
     signal: AbortSignal,
   ): Promise<void> {
     signal.throwIfAborted();
-    await this.networkingApi().createNamespacedNetworkPolicy({ namespace: ns, body });
+    await this.networkingApi()
+      .createNamespacedNetworkPolicy({ namespace: ns, body })
+      .catch(rethrowSandboxQuotaError);
     signal.throwIfAborted();
   }
 
@@ -1357,24 +1655,27 @@ export class K8sExecutor implements SandboxExecutor {
         Math.ceil(request.limits.timeoutMs / 1000) + 30,
         JOB_DEADLINE_FLOOR_SECONDS,
       );
-      await this.submitJob({
-        namespace,
-        body: buildInteractiveJobManifest({
-          jobName,
+      await this.createSandboxJob(
+        {
           namespace,
-          solutionConfigMapNames: solutionPayloadNames,
-          interactorConfigMapNames: interactorPayloadNames,
-          image: this.config.image,
-          cpuRequest: this.config.cpuRequest,
-          cpuLimit: this.config.cpuLimit,
-          memoryRequest: this.config.memoryRequest,
-          memoryLimit: resolveK8sMemoryLimit(request, this.config),
-          activeDeadlineSeconds: deadlineSeconds,
-          ...(this.config.runtimeClassName
-            ? { runtimeClassName: this.config.runtimeClassName }
-            : {}),
-        }),
-      });
+          body: buildInteractiveJobManifest({
+            jobName,
+            namespace,
+            solutionConfigMapNames: solutionPayloadNames,
+            interactorConfigMapNames: interactorPayloadNames,
+            image: request.sandboxImage ?? this.config.image,
+            cpuRequest: this.config.cpuRequest,
+            cpuLimit: this.config.cpuLimit,
+            memoryRequest: this.config.memoryRequest,
+            memoryLimit: resolveK8sMemoryLimit(request, this.config),
+            activeDeadlineSeconds: deadlineSeconds,
+            ...(this.config.runtimeClassName
+              ? { runtimeClassName: this.config.runtimeClassName }
+              : {}),
+          }),
+        },
+        signal,
+      ).catch(rethrowSandboxQuotaError);
       signal.throwIfAborted();
 
       const outcome = await this.waitForJobOutcome(jobName, namespace, deadlineSeconds, signal);
@@ -1532,10 +1833,12 @@ export class K8sExecutor implements SandboxExecutor {
 
   private async createPvc(name: string, namespace: string, signal: AbortSignal): Promise<void> {
     signal.throwIfAborted();
-    await this.coreApi.createNamespacedPersistentVolumeClaim({
-      namespace,
-      body: buildAdvancedPvcManifest({ pvcName: name, namespace }),
-    });
+    await this.coreApi
+      .createNamespacedPersistentVolumeClaim({
+        namespace,
+        body: buildAdvancedPvcManifest({ pvcName: name, namespace }),
+      })
+      .catch(rethrowSandboxQuotaError);
     signal.throwIfAborted();
   }
 
@@ -1611,21 +1914,24 @@ export class K8sExecutor implements SandboxExecutor {
         );
         payloadReadyAt = Date.now();
         if (artifact) {
-          await this.submitJob({
-            namespace: ns,
-            body: buildPreparedWaveJobManifest({
-              jobName,
+          await this.createSandboxJob(
+            {
               namespace: ns,
-              configMapNames: payloadNames,
-              image: this.config.image,
-              memoryLimit,
-              runtimeClassName: "gvisor",
-              nodeName: artifact.nodeName,
-              pvcName: artifact.pvcName,
-              activeDeadlineSeconds: deadlineSeconds,
-              caseIndices: waveCaseIndices,
-            }),
-          });
+              body: buildPreparedWaveJobManifest({
+                jobName,
+                namespace: ns,
+                configMapNames: payloadNames,
+                image: request.sandboxImage ?? this.config.image,
+                memoryLimit,
+                runtimeClassName: "gvisor",
+                nodeName: artifact.nodeName,
+                pvcName: artifact.pvcName,
+                activeDeadlineSeconds: deadlineSeconds,
+                caseIndices: waveCaseIndices,
+              }),
+            },
+            execution.signal,
+          );
         } else {
           await this.createPerCaseJob(
             jobName,
@@ -1634,6 +1940,7 @@ export class K8sExecutor implements SandboxExecutor {
             deadlineSeconds,
             waveCaseIndices,
             memoryLimit,
+            request.sandboxImage ?? this.config.image,
             execution.signal,
           );
         }
@@ -1799,6 +2106,7 @@ export class K8sExecutor implements SandboxExecutor {
         payloadNames,
         deadlineSeconds,
         resolveK8sMemoryLimit(request, this.config),
+        request.sandboxImage ?? this.config.image,
         signal,
       );
 
@@ -1882,7 +2190,9 @@ export class K8sExecutor implements SandboxExecutor {
       for (const configMap of configMaps) {
         signal.throwIfAborted();
         configMap.metadata = this.runMetadata(configMap.metadata);
-        await this.coreApi.createNamespacedConfigMap({ namespace, body: configMap });
+        await this.coreApi
+          .createNamespacedConfigMap({ namespace, body: configMap })
+          .catch(rethrowSandboxQuotaError);
         const name = configMap.metadata.name;
         if (!name) throw new Error("Created sandbox payload ConfigMap is missing a name.");
         created.push(name);
@@ -1918,14 +2228,105 @@ export class K8sExecutor implements SandboxExecutor {
         `ConfigMap ${name} payload is ${String(totalBytes)} bytes, exceeding the ${String(CONFIGMAP_MAX_BYTES)}-byte limit; testcase data is too large for ConfigMap delivery.`,
       );
     }
-    await this.coreApi.createNamespacedConfigMap({
-      namespace,
-      body: {
-        metadata: this.runMetadata({ name, namespace }),
-        data,
-      },
-    });
+    await this.coreApi
+      .createNamespacedConfigMap({
+        namespace,
+        body: {
+          metadata: this.runMetadata({ name, namespace }),
+          data,
+        },
+      })
+      .catch(rethrowSandboxQuotaError);
     signal.throwIfAborted();
+  }
+
+  private async assertSandboxQuota(
+    pods: k8s.V1PodSpec[],
+    namespace: string,
+    signal: AbortSignal,
+  ): Promise<void> {
+    signal.throwIfAborted();
+    let quotas: k8s.V1ResourceQuotaList;
+    try {
+      quotas = await boundedK8sCall(
+        this.coreApi.listNamespacedResourceQuota({ namespace }),
+        `ResourceQuota list in ${namespace}`,
+      );
+    } catch (error) {
+      signal.throwIfAborted();
+      throw new SandboxInfrastructureError(
+        `Could not inspect sandbox hard capacity in ${namespace}.`,
+        { cause: error },
+      );
+    }
+    signal.throwIfAborted();
+    let violation: string | null;
+    try {
+      violation = findSandboxQuotaViolation(pods, quotas.items);
+    } catch (error) {
+      throw new SandboxInfrastructureError("Could not interpret sandbox hard capacity.", {
+        cause: error,
+      });
+    }
+    if (violation) throw new SandboxInfeasibleError(violation);
+  }
+
+  private async createSandboxJob(
+    params: { namespace: string; body: k8s.V1Job },
+    signal: AbortSignal,
+    companionPodName?: string,
+  ): Promise<k8s.V1Job> {
+    params.body.metadata = this.runMetadata(params.body.metadata);
+    const template = params.body.spec?.template;
+    if (template) {
+      template.metadata ??= {};
+      template.metadata.labels = {
+        ...template.metadata.labels,
+        ...params.body.metadata.labels,
+      };
+    }
+    const spec = template?.spec;
+    if (!spec) throw new SandboxAdmissionError("Sandbox Job is missing its Pod specification.");
+    this.admittedPod(spec);
+    this.imagePullCredentials(spec);
+    const pods = [spec];
+    if (companionPodName) {
+      try {
+        const companion = await boundedK8sCall(
+          this.coreApi.listNamespacedPod({
+            namespace: params.namespace,
+            fieldSelector: `metadata.name=${companionPodName}`,
+          }),
+          `sandbox companion ${companionPodName}`,
+        );
+        const spec = companion.items.find(
+          (pod) => pod.metadata?.name === companionPodName,
+        )?.spec;
+        if (!spec) throw new Error("Companion Pod specification is unavailable.");
+        pods.push(spec);
+      } catch (error) {
+        signal.throwIfAborted();
+        throw new SandboxInfrastructureError(
+          `Could not inspect companion ${companionPodName}.`,
+          { cause: error },
+        );
+      }
+    }
+    await this.assertSandboxQuota(pods, params.namespace, signal);
+    return this.batchApi.createNamespacedJob(params);
+  }
+
+  private async createSandboxPod(
+    params: { namespace: string; body: k8s.V1Pod },
+    signal: AbortSignal,
+  ): Promise<k8s.V1Pod> {
+    if (!params.body.spec)
+      throw new SandboxAdmissionError("Sandbox service is missing its Pod specification.");
+    params.body.metadata = this.runMetadata(params.body.metadata);
+    this.admittedPod(params.body.spec);
+    this.imagePullCredentials(params.body.spec);
+    await this.assertSandboxQuota([params.body.spec], params.namespace, signal);
+    return this.coreApi.createNamespacedPod(params);
   }
 
   private async createJob(
@@ -1934,27 +2335,31 @@ export class K8sExecutor implements SandboxExecutor {
     configMapNames: string[],
     deadlineSeconds: number,
     memoryLimit: string,
+    image: string,
     signal: AbortSignal,
   ): Promise<void> {
     signal.throwIfAborted();
-    await this.submitJob({
-      namespace,
-      body: buildSandboxJobManifest({
-        jobName,
+    await this.createSandboxJob(
+      {
         namespace,
-        configMapNames,
-        image: this.config.image,
-        cpuRequest: this.config.cpuRequest,
-        cpuLimit: this.config.cpuLimit,
-        memoryRequest: this.config.memoryRequest,
-        memoryLimit,
-        compilerMemoryLimit: `${String(Math.max(parseMemoryLimitMb(memoryLimit), MIN_COMPILER_MEMORY_MB))}Mi`,
-        activeDeadlineSeconds: deadlineSeconds,
-        ...(this.config.runtimeClassName
-          ? { runtimeClassName: this.config.runtimeClassName }
-          : {}),
-      }),
-    });
+        body: buildSandboxJobManifest({
+          jobName,
+          namespace,
+          configMapNames,
+          image,
+          cpuRequest: this.config.cpuRequest,
+          cpuLimit: this.config.cpuLimit,
+          memoryRequest: this.config.memoryRequest,
+          memoryLimit,
+          compilerMemoryLimit: `${String(Math.max(parseMemoryLimitMb(memoryLimit), MIN_COMPILER_MEMORY_MB))}Mi`,
+          activeDeadlineSeconds: deadlineSeconds,
+          ...(this.config.runtimeClassName
+            ? { runtimeClassName: this.config.runtimeClassName }
+            : {}),
+        }),
+      },
+      signal,
+    ).catch(rethrowSandboxQuotaError);
     signal.throwIfAborted();
   }
 
@@ -1965,29 +2370,33 @@ export class K8sExecutor implements SandboxExecutor {
     deadlineSeconds: number,
     caseIndices: number[],
     memoryLimit: string,
+    image: string,
     signal: AbortSignal,
   ): Promise<void> {
     signal.throwIfAborted();
-    await this.submitJob({
-      namespace,
-      body: buildPerCaseSandboxJobManifest({
-        jobName,
+    await this.createSandboxJob(
+      {
         namespace,
-        configMapNames,
-        image: this.config.image,
-        cpuRequest: this.config.cpuRequest,
-        ...(this.config.caseCpuRequest ? { caseCpuRequest: this.config.caseCpuRequest } : {}),
-        cpuLimit: this.config.cpuLimit,
-        memoryRequest: this.config.memoryRequest,
-        memoryLimit,
-        compilerMemoryLimit: `${String(Math.max(parseMemoryLimitMb(memoryLimit), MIN_COMPILER_MEMORY_MB))}Mi`,
-        activeDeadlineSeconds: deadlineSeconds,
-        caseIndices,
-        ...(this.config.runtimeClassName
-          ? { runtimeClassName: this.config.runtimeClassName }
-          : {}),
-      }),
-    });
+        body: buildPerCaseSandboxJobManifest({
+          jobName,
+          namespace,
+          configMapNames,
+          image,
+          cpuRequest: this.config.cpuRequest,
+          ...(this.config.caseCpuRequest ? { caseCpuRequest: this.config.caseCpuRequest } : {}),
+          cpuLimit: this.config.cpuLimit,
+          memoryRequest: this.config.memoryRequest,
+          memoryLimit,
+          compilerMemoryLimit: `${String(Math.max(parseMemoryLimitMb(memoryLimit), MIN_COMPILER_MEMORY_MB))}Mi`,
+          activeDeadlineSeconds: deadlineSeconds,
+          caseIndices,
+          ...(this.config.runtimeClassName
+            ? { runtimeClassName: this.config.runtimeClassName }
+            : {}),
+        }),
+      },
+      signal,
+    ).catch(rethrowSandboxQuotaError);
     signal.throwIfAborted();
   }
 
@@ -2059,6 +2468,16 @@ export class K8sExecutor implements SandboxExecutor {
         if (eventBlockedReason && isDeterministicAdmissionFailure(eventBlockedReason)) {
           throw new SandboxAdmissionError(
             `Sandbox Job ${jobName} was rejected before pod creation: ${eventBlockedReason}`,
+          );
+        }
+        if (
+          snapshot.pods.length === 0 &&
+          eventBlockedReason &&
+          /exceeded quota/i.test(eventBlockedReason) &&
+          Date.now() - startedAt >= POD_SCHEDULE_GRACE_MS
+        ) {
+          throw new SandboxBackpressureError(
+            `Sandbox Job ${jobName} is waiting for capacity: ${eventBlockedReason}`,
           );
         }
       }
@@ -2136,6 +2555,11 @@ export class K8sExecutor implements SandboxExecutor {
     }
 
     const podState = summarizeJobPods(pods);
+    if (podState.imagePull?.reason === "ImagePullBackOff") {
+      throw new SandboxImagePullError(
+        `Cannot pull image for Job ${jobName}: ${podState.imagePull.message}`,
+      );
+    }
     if (job.status?.failed) {
       const blockedReason = this.jobBlockedReason(job);
       if (blockedReason) {
@@ -2153,13 +2577,24 @@ export class K8sExecutor implements SandboxExecutor {
         .map(infrastructureFailureReason)
         .find((reason): reason is string => reason !== null);
       if (jobFailure) {
-        throw new SandboxInfrastructureError(
+        throw new SandboxTransientInfrastructureError(
           `Sandbox Job ${jobName} was interrupted by infrastructure (${jobFailure}); retrying the sandbox run.`,
         );
       }
       if (podState.infrastructureFailure) {
-        throw new SandboxInfrastructureError(
+        throw new SandboxTransientInfrastructureError(
           `Sandbox Job ${jobName} was interrupted by infrastructure (${podState.infrastructureFailure}); retrying the sandbox run.`,
+        );
+      }
+      if (
+        !everStarted &&
+        !podState.everStarted &&
+        (job.status.conditions ?? []).some(
+          (condition) => condition.reason === "DeadlineExceeded",
+        )
+      ) {
+        throw new SandboxBackpressureError(
+          `Sandbox Job ${jobName} reached its deadline before starting; waiting for capacity.`,
         );
       }
       return {
@@ -2176,13 +2611,8 @@ export class K8sExecutor implements SandboxExecutor {
     if (podState.succeeded) {
       return { everStarted: true, outcome: { state: "succeeded", deadlineExceeded: false } };
     }
-    if (podState.imagePull?.reason === "ImagePullBackOff") {
-      throw new SandboxImagePullError(
-        `Cannot pull image for Job ${jobName}: ${podState.imagePull.message}`,
-      );
-    }
     if (podState.infrastructureFailure) {
-      throw new SandboxInfrastructureError(
+      throw new SandboxTransientInfrastructureError(
         `Sandbox Job ${jobName} was interrupted by infrastructure (${podState.infrastructureFailure}); retrying the sandbox run.`,
       );
     }

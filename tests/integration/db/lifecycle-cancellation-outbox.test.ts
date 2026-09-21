@@ -31,6 +31,8 @@ function unavailableOrchestration() {
       Promise.resolve({ workflowId: "registry-gc", alreadyRunning: false }),
     ),
     dispatchRejudge: vi.fn(() => Promise.resolve({ workflowId: "rejudge-test" })),
+    dispatchJudgeExecution: vi.fn().mockResolvedValue(undefined),
+    dispatchJudgeCleanup: vi.fn().mockResolvedValue(undefined),
     dispatchSubmissionJudge: unavailable,
     ensureAssignmentDueSoon: unavailable,
     ensureContestLifecycle: unavailable,

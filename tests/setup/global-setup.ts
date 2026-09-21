@@ -34,14 +34,10 @@ export default async function globalSetup() {
     await preflight.$disconnect();
   }
 
-  execFileSync(
-    "pnpm",
-    ["--filter", "@nojv/db", "exec", "prisma", "db", "push", "--accept-data-loss"],
-    {
-      stdio: "inherit",
-      env: { ...process.env, DATABASE_URL: databaseUrl },
-    },
-  );
+  execFileSync("pnpm", ["--filter", "@nojv/db", "exec", "prisma", "db", "push"], {
+    stdio: "inherit",
+    env: { ...process.env, DATABASE_URL: databaseUrl },
+  });
 
   const statements = collectReplayStatements();
   const prisma = new PrismaClient({

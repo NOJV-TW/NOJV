@@ -12,6 +12,9 @@ const h = vi.hoisted(() => ({
   sources: vi.fn(),
   activeExam: vi.fn(),
 }));
+vi.mock("../../../packages/application/src/submission/judge-execution", () => ({
+  getJudgeExecutionViews: vi.fn(async () => new Map()),
+}));
 vi.mock("@nojv/db", () => ({
   durableWorkRepo: { listQueuedRejudges: vi.fn(async () => []) },
   examSessionRepo: { findActiveForUser: h.activeExam },

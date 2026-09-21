@@ -105,6 +105,8 @@ spec:
             {{- end }}
             - name: DB_POOL_MAX
               value: {{ .Values.web.dbPoolMax | quote }}
+            - name: SANDBOX_IMAGE
+              value: {{ include "nojv.image" (dict "root" . "component" "sandbox") }}
             - name: S3_BUCKET
               value: {{ .Values.storage.bucket | quote }}
             - name: TEMPORAL_ADDRESS

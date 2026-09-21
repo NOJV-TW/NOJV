@@ -35,5 +35,9 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     feedback = rows.find((r) => r.problemId === submission.problem.id)?.comment ?? null;
   }
 
-  return { submission, feedback };
+  return {
+    submission,
+    feedback,
+    execution: await submissionDomain.getJudgeExecutionView(submissionId),
+  };
 });

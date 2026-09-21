@@ -219,48 +219,76 @@ describe("judge benchmark evidence", () => {
     expect(() => manifestSchema.parse(input)).toThrow();
   });
 
-  it("collects through the real HTTP contract without claiming missing telemetry", async () => {
-    const requests: string[] = [];
-    const server = createServer((req, res) => {
-      requests.push(`${req.method} ${req.url}`);
-      res.setHeader("content-type", "application/json");
-      res.end(
-        JSON.stringify(
-          req.method === "POST"
-            ? { submissionId: "test-id", status: "queued" }
-            : { submissionId: "test-id", status: "accepted" },
-        ),
-      );
-    });
-    await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
-    const address = server.address();
-    if (!address || typeof address === "string") throw new Error("Missing test server address");
-    const input = manifest();
-    input.target = `http://127.0.0.1:${address.port}`;
-    const oldToken = process.env.BENCH_TOKEN_0;
-    process.env.BENCH_TOKEN_0 = "test-token-not-for-output";
-    try {
-      const trial = await collectTrial(input, {
-        fixtureId: "short-20",
-        load: "single",
-        cache: "warm",
-        repetition: 1,
-        revision: "test",
-        cachePreparationEvidence: "test-record",
-        timeoutMs: 1000,
+  it.each([false, true])(
+    "collects through HTTP until durable completion (recovery: %s)",
+    async (recovering) => {
+      let polls = 0;
+      const requests: string[] = [];
+      const server = createServer((req, res) => {
+        requests.push(`${req.method} ${req.url}`);
+        res.setHeader("content-type", "application/json");
+        res.end(
+          JSON.stringify(
+            req.method === "POST"
+              ? { submissionId: "test-id", status: "queued" }
+              : {
+                  submissionId: "test-id",
+                  status: recovering && polls++ === 0 ? "system_error" : "accepted",
+                  ...(recovering
+                    ? {
+                        execution: {
+                          state:
+                            polls === 1
+                              ? "recovering"
+                              : polls === 2
+                                ? "finalizing"
+                                : "completed",
+                          generation: 1,
+                          problemGeneration: 1,
+                          reasonCode: null,
+                          lastProgressAt: new Date().toISOString(),
+                          nextRetryAt: null,
+                        },
+                      }
+                    : {}),
+                },
+          ),
+        );
       });
-      expect(requests).toEqual(["POST /api/submissions", "GET /api/submissions/test-id"]);
-      expect(trial.submissions[0]).toMatchObject({
-        verdict: "accepted",
-        queueMs: null,
-        cpuSeconds: null,
-      });
-      expect(trial.telemetry).toBeNull();
-      expect(JSON.stringify(trial)).not.toContain("test-token-not-for-output");
-    } finally {
-      if (oldToken === undefined) delete process.env.BENCH_TOKEN_0;
-      else process.env.BENCH_TOKEN_0 = oldToken;
-      await new Promise<void>((done) => server.close(() => done()));
-    }
-  });
+      await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+      const address = server.address();
+      if (!address || typeof address === "string")
+        throw new Error("Missing test server address");
+      const input = manifest();
+      input.target = `http://127.0.0.1:${address.port}`;
+      const oldToken = process.env.BENCH_TOKEN_0;
+      process.env.BENCH_TOKEN_0 = "test-token-not-for-output";
+      try {
+        const trial = await collectTrial(input, {
+          fixtureId: "short-20",
+          load: "single",
+          cache: "warm",
+          repetition: 1,
+          revision: "test",
+          cachePreparationEvidence: "test-record",
+          timeoutMs: 5000,
+        });
+        expect(requests).toEqual([
+          "POST /api/submissions",
+          ...Array.from({ length: recovering ? 3 : 1 }, () => "GET /api/submissions/test-id"),
+        ]);
+        expect(trial.submissions[0]).toMatchObject({
+          verdict: "accepted",
+          queueMs: null,
+          cpuSeconds: null,
+        });
+        expect(trial.telemetry).toBeNull();
+        expect(JSON.stringify(trial)).not.toContain("test-token-not-for-output");
+      } finally {
+        if (oldToken === undefined) delete process.env.BENCH_TOKEN_0;
+        else process.env.BENCH_TOKEN_0 = oldToken;
+        await new Promise<void>((done) => server.close(() => done()));
+      }
+    },
+  );
 });

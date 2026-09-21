@@ -170,3 +170,47 @@ new histories with the old worker. Preserve accepted submissions and grades.
 Related: [Judge pipeline](../../architecture/JUDGE_PIPELINE.md),
 [Reliability](../../operations/RELIABILITY.md),
 [Deployment](../../operations/DEPLOYMENT.md), [Tests](../../runbooks/testing.md).
+
+## Integration with pinned execution recovery
+
+- Upstream main `752cfb90` merged PR #471 during preparation. It replaces the
+  accepted-submission entrypoint with an immutable execution journal and durable
+  recovery Workflow. The previous local baseline `48b179e7` is no longer the
+  release comparison baseline.
+- Capacity dispatch now uses that canonical execution ID and pinned snapshot.
+  Actual completed case indices are checkpointed, the artifact lease is retained
+  between waves, and the persisted strategy survives recovery epochs. Untouched,
+  cleaned executions alone may redirect to baseline during rollback.
+- Earlier green suites apply to the pre-integration revision. Integrated journal
+  tests passed 21 cases; complete integrated CI and real gVisor validation are
+  being rerun. This section does not assert throughput acceptance or deployment.
+
+- Integration review identified an orphan-run window after cleanup/lease release
+  and before Workflow finalization. Coordinator ownership and full-attempt
+  cleanup confirmation are persisted separately from stage permit cleanup;
+  recovery discovers predecessor runs even when no database lease remains.
+- Accepted-order FIFO now additionally checks earlier unfinished executions in
+  the journal before starting an attempt, covering delayed outbox delivery.
+  The earlier registered-only limitation above describes the previous revision.
+- Full integrated unit pass: 381 files / 3,481 tests. The first integrated CI run
+  hit an unrelated UI component timeout under concurrent local suites; that
+  component passed independently. DB integration exposed a missing pinned sandbox
+  image in the shared test environment; it is now explicitly configured in test
+  setup. These failures require fresh final runs, not a waived CI gate.
+
+## Final merge assessment
+
+- User selected release tag `v1.2.0`. Tag push triggers image publication and
+  Flux deployment, so it is scheduled for the approved 2026-09-22 00:00–02:00
+  maintenance window after the exact merged main SHA passes release CI.
+- Integrated database suite passed 89 files / 641 tests. Canonical capacity
+  Temporal suite passed all 18 tests, including registration before initialization,
+  orphan cleanup without a database lease, accepted-order FIFO and rollback
+  escape. Final bounded review found no blocking issue in these recovery paths.
+- Final serial `pnpm ci:verify` passed: formatting and repository guards,
+  build/typecheck/lint, 381 unit files / 3,482 tests and 38 component files /
+  86 tests. The preceding concurrent-run component timeout did not recur.
+- Real gVisor prepared-artifact and capacity-control suites passed five tests,
+  including 1/20/100 cases, checker artifacts and chart RBAC. This evidence does
+  not constitute the 100-student HTTP performance matrix or full runtime fault
+  matrix. Those remain activation gates; both capacity flags stay off by default.

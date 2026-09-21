@@ -2,10 +2,12 @@ import {
   isSubmissionPending,
   submissionOperationStatusSchema,
   type SubmissionOperation,
+  type JudgeExecutionView,
 } from "@nojv/core";
 import { problemRepo, submissionRepo } from "@nojv/db";
 import type { ActorContext } from "../shared/actor-context";
 import { NotFoundError, ValidationError } from "../shared/errors";
+import { getJudgeExecutionViews } from "./judge-execution";
 import { canOperateOnSubmission } from "./permissions";
 import { getSubmissionForActor, readVerdictDetail } from "./queries";
 import { queuedRejudges } from "./rejudge-control";
@@ -46,11 +48,13 @@ async function authorizeOperation(actor: ActorContext, id: string) {
 
 async function operationSummary(
   row: Awaited<ReturnType<typeof authorizeOperation>> & { problem?: { title: string } },
+  execution: JudgeExecutionView | null = null,
 ): Promise<SubmissionOperation> {
   const problem = row.problem ?? (await problemRepo.findById(row.problemId));
   if (!problem) throw new NotFoundError("Submission not found.");
   return {
     submissionId: row.id,
+    execution,
     problemId: row.problemId,
     problemTitle: problem.title,
     status: submissionOperationStatusSchema.parse(row.status),
@@ -69,7 +73,8 @@ export async function getSubmissionOperation(
   const original = await authorizeOperation(actor, id);
   const [effective] = await applyQueuedRejudges([original]);
   if (!effective) throw new NotFoundError("Submission not found.");
-  const operation = await operationSummary(effective);
+  const executions = await getJudgeExecutionViews([effective]);
+  const operation = await operationSummary(effective, executions.get(id) ?? null);
   if (
     !includeDetail ||
     isSubmissionPending(operation.status) ||
@@ -86,7 +91,7 @@ export async function getSubmissionOperation(
     latest.updatedAt.getTime() !== effective.updatedAt.getTime() ||
     latest.status !== effective.status
   )
-    return operationSummary(latest);
+    return operationSummary(latest, (await getJudgeExecutionViews([latest])).get(id) ?? null);
   return {
     ...operation,
     result:
@@ -144,8 +149,11 @@ export async function listSubmissionOperations(actor: ActorContext, ids: string[
   }
 
   const effective = await applyQueuedRejudges(available);
+  const executions = await getJudgeExecutionViews(effective);
   return {
-    items: await Promise.all(effective.map(operationSummary)),
+    items: await Promise.all(
+      effective.map((row) => operationSummary(row, executions.get(row.id) ?? null)),
+    ),
     unavailableIds: uniqueIds.filter((id) => !availableIds.has(id)),
   };
 }
@@ -172,7 +180,10 @@ export async function listPendingSubmissionOperations(actor: ActorContext, curso
     visible.push(row);
   }
   const effective = await applyQueuedRejudges(visible, queued);
-  const authorized = await Promise.all(effective.map(operationSummary));
+  const executions = await getJudgeExecutionViews(effective);
+  const authorized = await Promise.all(
+    effective.map((row) => operationSummary(row, executions.get(row.id) ?? null)),
+  );
 
   return { items: authorized, nextCursor: rows.length > 50 ? (page.at(-1)?.id ?? null) : null };
 }

@@ -75,6 +75,11 @@ export {
   SUBMISSION_JUDGE_DISPATCH_WORK_KIND,
 } from "./rejudge-control";
 
+export * from "./judge-execution";
+export * from "./judge-recovery";
+export * from "./judge-snapshot";
+
+export * from "./judge-admission";
 export {
   getSubmissionOperation,
   listSubmissionOperations,

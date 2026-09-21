@@ -139,7 +139,11 @@ export async function executeSubmission(
   const timer = setTimeout(
     () =>
       deadline.abort(
-        new SubmissionRequestError("Submission timed out.", "SUBMISSION_TIMEOUT", null),
+        new SubmissionRequestError(
+          "Live updates paused. Your saved submission continues processing; open its submission page for the result.",
+          "SUBMISSION_TIMEOUT",
+          null,
+        ),
       ),
     options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
   );

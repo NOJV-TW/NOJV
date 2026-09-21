@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  executions: vi.fn(),
   read: vi.fn(),
   detail: vi.fn(),
   queued: vi.fn(),
@@ -10,6 +11,9 @@ const mocks = vi.hoisted(() => ({
   candidateIds: vi.fn(),
   permission: vi.fn(),
   problem: vi.fn(),
+}));
+vi.mock("../../../packages/application/src/submission/judge-execution", () => ({
+  getJudgeExecutionViews: mocks.executions,
 }));
 vi.mock("@nojv/db", () => ({
   submissionRepo: {
@@ -73,6 +77,7 @@ const accepted = {
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.queued.mockResolvedValue(new Map());
+  mocks.executions.mockResolvedValue(new Map());
   mocks.read.mockResolvedValue(row);
   mocks.problem.mockResolvedValue({ title: "Problem A" });
   mocks.detail.mockResolvedValue(accepted);
@@ -239,3 +244,23 @@ describe("authoritative submission operations", () => {
     });
   });
 });
+
+it.each(["system_error", "accepted"])(
+  "returns active execution alongside retained %s status",
+  async (status) => {
+    mocks.read.mockResolvedValue({ ...row, status });
+    const execution = {
+      state: "recovering",
+      generation: 1,
+      problemGeneration: 4,
+      reasonCode: "system_failure",
+      lastProgressAt: time.toISOString(),
+      nextRetryAt: time.toISOString(),
+    };
+    mocks.executions.mockResolvedValue(new Map([[row.id, execution]]));
+    expect(await getSubmissionOperation(actor, row.id, true)).toMatchObject({
+      status,
+      execution,
+    });
+  },
+);

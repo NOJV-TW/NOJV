@@ -182,6 +182,7 @@ export const submissionRepo = {
             OR: [
               { status: { in: ["pending_upload", "queued", "compiling", "running"] } },
               { id: { in: input.queuedIds } },
+              { judgeExecutions: { some: { state: { notIn: ["completed", "cancelled"] } } } },
             ],
           },
           ...(cursor

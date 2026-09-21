@@ -1,5 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("../../../packages/application/src/submission/judge-snapshot", () => ({
+  prepareJudgeSnapshot: vi.fn(async () => ({
+    problemGeneration: 0,
+    pointer: { key: "pinned-snapshot", sha256: "a".repeat(64), size: 1 },
+  })),
+}));
+vi.mock("../../../packages/application/src/submission/judge-execution", () => ({
+  createJudgeExecution: vi.fn(async () => undefined),
+}));
+vi.mock("../../../packages/application/src/submission/judge-recovery", () => ({
+  kickJudgeExecution: vi.fn(async () => undefined),
+}));
+
 import { createInMemoryStorage } from "../_fixtures/storage";
 
 const {
@@ -84,11 +97,13 @@ vi.mock("@nojv/db", () => {
     },
     runTransaction: async <T>(
       fn: (tx: {
+        $queryRaw: typeof vi.fn;
         assessmentProblem: { findFirst: typeof txAssessmentProblemFindFirst };
         contestProblem: { findFirst: typeof txContestProblemFindFirst };
       }) => Promise<T>,
     ): Promise<T> =>
       fn({
+        $queryRaw: vi.fn().mockResolvedValue([]),
         assessmentProblem: { findFirst: txAssessmentProblemFindFirst },
         contestProblem: { findFirst: txContestProblemFindFirst },
       }),

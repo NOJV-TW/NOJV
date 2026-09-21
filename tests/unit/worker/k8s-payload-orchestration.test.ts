@@ -49,6 +49,7 @@ function clients(
   let configMapAttempt = 0;
   const liveJobs = new Set<string>();
   const coreApi = {
+    listNamespacedResourceQuota: vi.fn(async () => ({ items: [] })),
     createNamespacedConfigMap: vi.fn(async ({ body }: any) => {
       configMapAttempt += 1;
       if (configMapAttempt === options.failConfigMapAttempt) {
@@ -151,6 +152,40 @@ describe("K8sExecutor sharded payload orchestration", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("pins standard and checker images per request without changing the executor default", async () => {
+    const fake = clients();
+    const executor = new K8sExecutor(EXEC_CONFIG, fake.handles);
+    const pinnedImage = "registry.example.com/sandbox@sha256:original";
+    await executor.execute(
+      {
+        ...request("ok"),
+        sandboxImage: pinnedImage,
+        judgeType: "checker",
+        judgeConfig: { checkerScript: "accept()", checkerLanguage: "python" },
+      },
+      { runId: "pinned", signal: new AbortController().signal },
+    );
+    expect(fake.record.jobsCreated).toHaveLength(2);
+    for (const job of fake.record.jobsCreated) {
+      const spec = job.spec.template.spec;
+      expect(
+        [...spec.initContainers, ...spec.containers].every(
+          (container) => container.image === pinnedImage,
+        ),
+      ).toBe(true);
+    }
+    await executor.execute(request("ok"), {
+      runId: "current",
+      signal: new AbortController().signal,
+    });
+    const current = fake.record.jobsCreated[2].spec.template.spec;
+    expect(
+      [...current.initContainers, ...current.containers].every(
+        (container) => container.image === EXEC_CONFIG.image,
+      ),
+    ).toBe(true);
   });
 
   it.each([

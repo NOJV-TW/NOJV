@@ -2,7 +2,7 @@ const K8S_CLEANUP_CALL_TIMEOUT_MS = 5_000;
 const K8S_CLEANUP_ATTEMPTS = 3;
 const K8S_CLEANUP_RETRY_DELAY_MS = 100;
 
-function k8sErrorCode(reason: unknown): number | null {
+export function k8sErrorCode(reason: unknown): number | null {
   if (reason instanceof Error && reason.cause !== undefined) {
     const causeCode = k8sErrorCode(reason.cause);
     if (causeCode !== null) return causeCode;
@@ -19,7 +19,7 @@ function isTransientK8sError(reason: unknown): boolean {
   );
 }
 
-function boundedK8sCall<T>(operation: Promise<T>, resource: string): Promise<T> {
+export function boundedK8sCall<T>(operation: Promise<T>, resource: string): Promise<T> {
   return new Promise((resolve, reject) => {
     let settled = false;
     const settle = (callback: () => void) => {

@@ -58,8 +58,14 @@ export function createJudgeExecutorRecovery() {
     if (pending?.runId === identity.runId && pending.permitId === identity.permitId)
       confirmed = true;
   });
-  return async (error: unknown, identity: JudgeExecutorRecoveryIdentity): Promise<void> => {
-    const timeout = executorTimeout(error);
+  return async (
+    error: unknown,
+    identity: JudgeExecutorRecoveryIdentity,
+    requireProducerStop = false,
+  ): Promise<void> => {
+    const timeout =
+      executorTimeout(error) ??
+      (requireProducerStop ? { timeoutType: "WORKFLOW_RECOVERY" } : null);
     if (!timeout) return;
     await CancellationScope.nonCancellable(async () => {
       pending = { ...identity, ...timeout };

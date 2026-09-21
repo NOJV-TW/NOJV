@@ -25,6 +25,14 @@ is attached to the release. Read current image digests, installed chart values,
 Temporal namespace and live quota before acting; do not infer deployment state
 from this repository's defaults.
 
+Capacity and baseline workers both execute `durableJudgeWorkflow` from the
+immutable `JudgeExecution` snapshot. Capacity attempts record actual completed
+case indices and retain the artifact lease between waves. The persisted strategy
+follows an execution across recovery epochs; disabling general routing does not
+send checkpointed capacity work to the baseline. Drain all such executions before
+stopping the capacity worker. A result already committed remains preserved while
+its score and notification effects finish.
+
 ## Inspect and Pause Admission
 
 The control worker starts workflow type `judgeAdmissionWorkflow` with workflow ID
@@ -63,12 +71,12 @@ in Temporal. Keep the control worker running so cleanup can complete.
 
 ## Activity Timeout Recovery
 
-For histories on the `judge-capacity-cleanup-v1` branch, a heartbeat,
-start-to-close or schedule-to-close timeout does not establish that the Activity
+For a capacity execution, a heartbeat, start-to-close or schedule-to-close
+timeout does not establish that the Activity
 producer stopped. The submission Workflow retains its current permit and waits
 before cleanup, release or retry. A schedule-to-start timeout has no executing
-producer and does not need this wait. Pre-patch histories retain their original
-Activity retry contract; drain them before enabling the new strategy.
+producer and does not need this wait. Drain existing executions before enabling
+the new strategy.
 
 Query `judgeExecutorRecovery` on the affected **submission Workflow**, not the
 admission coordinator. A non-null response identifies the pending `runId`,
@@ -87,6 +95,17 @@ assertion that sandbox processes have already stopped and does not directly
 release admission capacity. Confirm cleanup, CRI/runtime state where relevant,
 and subsequent queue progress. Keep the old producer stopped throughout
 recovery. Never use `releaseJudgePermit` or `finishJudgeRun` as an operator bypass.
+
+If a cancelled execution's Workflow was terminated before it obtained a database
+lease, inspect the coordinator's `runOwners` and unfinished run for that exact
+execution ID. A missing database lease does not establish resource absence. Start
+`judgeCleanupWorkflow` on `judge-control` with `{ executionId, workflowId,
+leaseToken, capacity: true }`, where `workflowId` is the recorded old owner and
+`leaseToken` is that run's UUID. The cleanup Workflow checks that pair against
+the persisted coordinator ledger. Query its `judgeExecutorRecovery`, establish
+the producer-stop proof above, and acknowledge its exact recovery identity there.
+Only normal scoped cleanup may then retire the run. Do not guess an owner or
+derive authorization from a lease deadline.
 
 ## Protected Quota Handoff
 
@@ -140,15 +159,14 @@ pnpm exec tsx scripts/judge-release.ts --command finish-rollback
 ```
 
 `hold` requires paused admission with no active staged submissions. Hard pause
-stops later waves too; use `begin-rollback` to drain active submissions. Finish
-active rejudge batches before starting rollback. Keep admission unpaused and the
+stops later waves too; use `begin-rollback` to drain active submissions. Keep admission unpaused and the
 control/staged workers running: active submissions finish later waves and
 replacement attempts; never-admitted submissions clean up and continue as new
 onto the unpolled `judge` queue. New submissions route directly to that queue.
 Do not start old workers until `verify-rollback` succeeds.
 
 Rollback verification fails closed on pending/held permits, active submissions
-or rejudge parents, in-flight dispatch, an unavailable workflow ledger, active
+(including teacher rejudge executions), in-flight dispatch, an unavailable workflow ledger, active
 staged histories, or a redirected legacy history already consumed by a worker.
 It checks persisted histories, not just eventually consistent visibility. It
 does not prove CRI/cgroup disappearance; independently verify runtime cleanup.
@@ -156,17 +174,19 @@ Run `finish-rollback` to recheck readiness and relinquish dynamic quota ownershi
 It waits for an in-flight quota write, then durably leaves admission paused and
 quota management disabled; a restart cannot resume quota writes. Independently
 verify no old worker is polling: a history check cannot prevent a future poller
-from starting. Stop candidate pollers, restore static
-quota and the previous image/configuration, and disable both flags before
-resuming old workers. Leave the database,
-submission source objects and completed grades intact. Continued legacy runs
-carry the original submission input in fresh histories that old workers can
-execute. Retain evidence of accepted IDs and grades before/after rehearsal.
+from starting. Stop candidate pollers, restore the static quota, and disable both
+flags before resuming baseline workers. The baseline must support the immutable
+`JudgeExecution` journal and `durableJudgeWorkflow` introduced by PR #471. The
+simplest strategy rollback keeps the verified new binary with capacity disabled.
+An older production image that predates that journal is not a valid rollback
+target, even if it was the previous deployment.
 
-The original pre-capacity history patch protects histories created before this
-change. It is not permission to mix binaries or a guarantee that an old binary
-can replay a new staged history. Maintenance deployment must still drain before
-changing queue consumers.
+Leave the database, submission source objects and completed grades intact.
+Untouched continuations carry only their execution ID in fresh histories; verify
+the selected baseline binary can consume them. Retain evidence of accepted IDs
+and grades before/after rehearsal. Maintenance deployment still drains active
+executions before changing queue consumers; it does not require mixed-version
+history compatibility.
 
 ## Cleanup Pending and FailedKillPod
 

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { rollbackStateBlockers, type JudgeReleaseState } from "../../../scripts/judge-release";
+import { defaultPayloadConverter } from "@temporalio/client";
+import {
+  rollbackStateBlockers,
+  isBaselineJudgeInput,
+  type JudgeReleaseState,
+} from "../../../scripts/judge-release";
 
 const ready = (): JudgeReleaseState => ({
   paused: false,
@@ -8,7 +13,6 @@ const ready = (): JudgeReleaseState => ({
   draining: true,
   routingInFlight: 0,
   activeSubmissionIds: [],
-  activeRejudgeIds: [],
   stagedWorkflowIds: [],
   admission: { permits: [], pending: [] },
 });
@@ -28,10 +32,32 @@ describe("rollback readiness", () => {
     { draining: false },
     { routingInFlight: 1 },
     { activeSubmissionIds: ["submission"] },
-    { activeRejudgeIds: ["batch"] },
     { admission: { permits: [{ cleanupConfirmed: false }], pending: [] } },
     { admission: { permits: [], pending: [{}] } },
   ])("fails closed for %j", (patch) => {
     expect(rollbackStateBlockers({ ...ready(), ...patch }).length).toBeGreaterThan(0);
+  });
+});
+
+describe("rollback durable input boundary", () => {
+  const payload = (value: unknown) => defaultPayloadConverter.toPayload(value)!;
+  it("accepts only a fresh canonical execution reference", () => {
+    expect(
+      isBaselineJudgeInput(
+        [payload({ executionId: "execution" })],
+        "judge-execution-execution-0",
+      ),
+    ).toBe(true);
+  });
+  it.each([
+    [{ executionId: "execution", capacity: true }],
+    [{ executionId: "execution" }, { runId: "retained-state" }],
+    [{ executionId: "other" }],
+    [{ submissionId: "execution" }],
+    [],
+  ])("rejects incompatible or unknown input %j", (...values) => {
+    expect(isBaselineJudgeInput(values.map(payload), "judge-execution-execution-0")).toBe(
+      false,
+    );
   });
 });

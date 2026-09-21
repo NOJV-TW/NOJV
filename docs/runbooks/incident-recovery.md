@@ -54,6 +54,40 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 
 ---
 
+## Scenario: Sandbox quota rejection or prolonged capacity wait
+
+### Detection
+
+- Inspect judge-worker errors and sandbox Job warning Events together. Kubernetes
+  reports exhausted ResourceQuota as `forbidden: exceeded quota`; that message
+  alone does not mean a permissions or LimitRange error.
+- Compare `kubectl -n nojv-sandbox describe resourcequota` with actual Pods,
+  including terminating Pods, and inspect node conditions and kubelet/container
+  runtime errors. Quota reservations and measured CPU usage are different.
+- Inspect `JudgeExecution.state`, `reasonCode`, and `lastProgressAt` for waiting or
+  recovering submissions. Check `nojv_submissions_stuck` and the recovery metrics'
+  successful-snapshot timestamp; stale monitoring does not establish queue health.
+  See [Observability Setup](observability-setup.md) for datasource and alert checks.
+
+### Mitigation and verification
+
+1. Capture worker logs, Job Events, live quota, Pod state, and release identity.
+   Keep affected-submission inventories and raw incident evidence outside the repo.
+2. Restore missing node/runtime capacity. Fit activity concurrency and sandbox
+   requests within the available budget, accounting for every sandbox mode and
+   terminating resources. Do not treat quota increases or force-deleted Pods as
+   evidence that their processes stopped; confirm runtime cleanup separately.
+3. Verify the exact deployed worker revision and automatic recovery on the original
+   snapshot. Confirm waiting submissions resume and sandbox resources return to
+   baseline. Observe at least 15 minutes under representative traffic with no new
+   capacity-related SE; health endpoints alone do not validate judging.
+4. Verify final verdicts, execution progress, and exam/contest score updates.
+   Historical submissions without an original snapshot remain explicitly blocked;
+   never silently substitute the latest version. An explicit teacher rejudge uses
+   the latest version and creates a new audited generation.
+
+The recovery contract is defined in [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#durable-execution-and-recovery).
+
 ## Scenario B: Redis unavailable
 
 ### Symptoms

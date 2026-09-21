@@ -9,6 +9,10 @@ import { z } from "zod";
 
 import { submissionDraftSchema } from "../packages/core/src/schemas/submission.js";
 import { submissionResultVerdictSchema } from "../packages/core/src/types.js";
+import {
+  isSubmissionOperationActive,
+  judgeExecutionViewSchema,
+} from "../packages/core/src/judge-execution.js";
 
 const nonnegative = z.number().finite().nonnegative();
 const sha256 = z.string().regex(/^[a-f0-9]{64}$/);
@@ -497,16 +501,24 @@ export async function collectTrial(
           );
           if (!result) return item;
           const verdict = submissionResultVerdictSchema.safeParse(result.status);
-          if (verdict.success) {
+          const execution = judgeExecutionViewSchema
+            .nullable()
+            .optional()
+            .safeParse(result.execution);
+          if (!execution.success) {
+            item.error = "invalid_response";
+            return item;
+          }
+          const active = isSubmissionOperationActive({
+            status: String(result.status),
+            execution: execution.data,
+          });
+          if (verdict.success && !active) {
             item.verdict = verdict.data;
             item.completedAt = Date.now();
             return item;
           }
-          if (
-            !["pending_upload", "queued", "compiling", "running"].includes(
-              String(result.status),
-            )
-          ) {
+          if (!active) {
             item.error = "invalid_response";
             return item;
           }

@@ -67,7 +67,7 @@ describe.runIf(process.env.NOJV_TEST_RUNTIME_CLASS === "gvisor")(
         const executor = new K8sExecutor(
           {
             namespace,
-            image: process.env.NOJV_TEST_SANDBOX_IMAGE ?? "nojv-sandbox:local",
+            image: "invalid.example.test/unpinned-sandbox:must-not-run",
             cpuRequest: "1",
             cpuLimit: "1",
             memoryRequest: "192Mi",
@@ -81,6 +81,7 @@ describe.runIf(process.env.NOJV_TEST_RUNTIME_CLASS === "gvisor")(
         );
         const request: SandboxRequest = {
           submissionId: runId,
+          sandboxImage: process.env.NOJV_TEST_SANDBOX_IMAGE ?? "nojv-sandbox:local",
           language: "cpp",
           problemType: "full_source",
           sourceCode: `#include <fstream>
@@ -146,6 +147,14 @@ int main() {
               .filter((container) => container.name === "prepare"),
           ).toHaveLength(1);
           expect(manifests.every((job) => !job.spec?.template.spec?.nodeName)).toBe(true);
+          expect(
+            manifests
+              .flatMap((job) => [
+                ...(job.spec?.template.spec?.initContainers ?? []),
+                ...(job.spec?.template.spec?.containers ?? []),
+              ])
+              .every((container) => container.image === request.sandboxImage),
+          ).toBe(true);
         } finally {
           submissions.mockRestore();
           await executor.cleanupRun(runId);

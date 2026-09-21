@@ -1,4 +1,5 @@
-import { cancellationSignal, heartbeat } from "@temporalio/activity";
+import { hostname } from "node:os";
+import { ApplicationFailure, cancellationSignal, heartbeat } from "@temporalio/activity";
 import { KubeConfig, NodeV1Api } from "@kubernetes/client-node";
 import {
   createStorageClient,
@@ -8,7 +9,7 @@ import {
   type StorageObjectPointer,
 } from "@nojv/storage";
 import { submissionDomain } from "@nojv/application";
-import type { RawCaseRun, SandboxResult, SubmissionJudgeDraft } from "@nojv/core";
+import type { Language, SandboxRequest, SandboxResult } from "@nojv/core";
 import {
   K8sExecutor,
   resolveK8sMemoryLimit,
@@ -16,7 +17,7 @@ import {
 } from "../services/k8s-executor";
 import { parseResourceQuantity } from "../services/judge-capacity";
 import { parseWorkerEnv } from "../env";
-import { loadSandboxExecution, mapSandboxExecution, type SandboxExecutionData } from "./judge";
+import { buildPinnedSandboxRequest } from "./judge-request";
 import { recordJudgePhase, type JudgePhase } from "../services/judge-phase-metrics";
 
 function executor(nodeName?: string): K8sExecutor {
@@ -60,37 +61,68 @@ async function read<T>(pointer: StorageObjectPointer): Promise<T> {
     client.destroy();
   }
 }
-async function dataFor(pointer: StorageObjectPointer): Promise<SandboxExecutionData> {
-  const data = await read<SandboxExecutionData>(pointer);
-  if (data.judgeContext) {
-    const adjustment = data.judgeContext.adjustment;
-    adjustment.submittedAt = new Date(adjustment.submittedAt);
-    if (adjustment.dueAt) adjustment.dueAt = new Date(adjustment.dueAt);
-  }
-  return data;
+async function dataFor(pointer: StorageObjectPointer) {
+  return read<{ request: SandboxRequest; useAdvanced: boolean }>(pointer);
 }
-async function running<T>(run: () => Promise<T>): Promise<T> {
+export interface CapacityLease {
+  executionId: string;
+  workflowId: string;
+  runId: string;
+}
+async function running<T>(
+  run: (signal: AbortSignal) => Promise<T>,
+  lease?: CapacityLease,
+): Promise<T> {
+  if (
+    lease &&
+    !(await submissionDomain.heartbeatJudgeStage(
+      lease.executionId,
+      lease.workflowId,
+      lease.runId,
+      hostname(),
+    ))
+  )
+    throw ApplicationFailure.nonRetryable(
+      "Execution ownership changed",
+      "JudgeExecutionObsolete",
+    );
   heartbeat("stage-started");
-  const timer = setInterval(() => heartbeat("stage-running"), 15_000);
+  const controller = new AbortController();
+  const signal = AbortSignal.any([cancellationSignal(), controller.signal]);
+  let heartbeatPending = false;
+  const timer = setInterval(() => {
+    heartbeat("stage-running");
+    if (lease && !heartbeatPending) {
+      heartbeatPending = true;
+      void submissionDomain
+        .heartbeatJudgeStage(lease.executionId, lease.workflowId, lease.runId)
+        .then((owned) => {
+          if (!owned) controller.abort();
+        })
+        .catch(() => controller.abort())
+        .finally(() => {
+          heartbeatPending = false;
+        });
+    }
+  }, 15_000);
   try {
-    return await run();
+    return await run(signal);
   } finally {
     clearInterval(timer);
   }
 }
 
-export async function initializeSandboxAttempt(
-  submissionId: string,
-  draft: SubmissionJudgeDraft,
-  runId: string,
+async function sandboxPlan(
+  request: SandboxRequest | undefined,
+  pointer: StorageObjectPointer,
+  studentId: string,
+  createdAt: Date,
+  language: Language,
 ) {
-  const data = await loadSandboxExecution(submissionId, draft);
-  const pointer = await write(runId, "input", data);
-  const meta = await submissionDomain.getJudgeDispatchMeta(submissionId);
-  const mode = data.request?.advanced ? "advanced" : (data.request?.judgeType ?? "standard");
-  const memoryBytes = data.request
+  const mode = request?.advanced ? "advanced" : (request?.judgeType ?? "standard");
+  const memoryBytes = request
     ? parseResourceQuantity(
-        resolveK8sMemoryLimit(data.request, {
+        resolveK8sMemoryLimit(request, {
           memoryLimit: "512Mi",
           headroomMb: Number(process.env.SANDBOX_MEMORY_HEADROOM_MB ?? 64),
           maxMemoryMb: Number(process.env.SANDBOX_MAX_MEMORY_MB ?? 1536),
@@ -105,7 +137,7 @@ export async function initializeSandboxAttempt(
     cpuMillis: parseResourceQuantity(runtime.overhead?.podFixed?.cpu, true),
     memoryBytes: parseResourceQuantity(runtime.overhead?.podFixed?.memory),
   };
-  const advanced = data.request?.advanced;
+  const advanced = request?.advanced;
   const hasSidecar = advanced?.network.mode === "service";
   const resources =
     mode === "interactive"
@@ -117,13 +149,13 @@ export async function initializeSandboxAttempt(
               (advanced?.memoryMb ?? 512) * 1024 ** 2 * (hasSidecar ? 2 : 1) + 512 * 1024 ** 2,
           }
         : { cpuMillis: 1000, memoryBytes };
-  recordJudgePhase("queue", Date.now() - meta.createdAt.getTime(), mode, draft.language);
+  recordJudgePhase("queue", Date.now() - createdAt.getTime(), mode, language);
   return {
     pointer,
-    studentId: meta.userId,
+    studentId: studentId,
     mode,
-    terminal: data.result !== undefined,
-    caseIndices: data.request?.testcases.map((tc) => tc.index) ?? [],
+    terminal: false,
+    caseIndices: request?.testcases.map((tc) => tc.index) ?? [],
     resources,
     compilerResources: { cpuMillis: 1000, memoryBytes: compilerMemoryBytes },
     overhead: {
@@ -137,11 +169,12 @@ export async function prepareSandboxAttempt(
   pointer: StorageObjectPointer,
   runId: string,
   nodeName: string,
+  lease?: CapacityLease,
 ) {
   const data = await dataFor(pointer);
-  if (!data.request) throw new Error("Missing sandbox request");
-  return running(() =>
-    executor(nodeName).prepareAttempt(data.request, { runId, signal: cancellationSignal() }),
+  return running(
+    (signal) => executor(nodeName).prepareAttempt(data.request, { runId, signal }),
+    lease,
   );
 }
 
@@ -151,67 +184,28 @@ export async function executeSandboxWave(
   nodeName: string,
   indices: number[],
   artifact?: PreparedArtifactReference,
+  lease?: CapacityLease,
 ) {
   const data = await dataFor(pointer);
-  if (!data.request) throw new Error("Missing sandbox request");
-  const result = await running(() =>
-    artifact
-      ? executor(nodeName).executePreparedWave(
-          data.request,
-          { runId, signal: cancellationSignal() },
-          artifact,
-          indices,
-        )
-      : executor(nodeName).execute(
-          {
-            ...data.request,
-            testcases: data.request.testcases.filter((tc) => indices.includes(tc.index)),
-          },
-          { runId, signal: cancellationSignal() },
-        ),
+  const result = await running(
+    (signal) =>
+      artifact
+        ? executor(nodeName).executePreparedWave(
+            data.request,
+            { runId, signal },
+            artifact,
+            indices,
+          )
+        : executor(nodeName).execute(
+            {
+              ...data.request,
+              testcases: data.request.testcases.filter((tc) => indices.includes(tc.index)),
+            },
+            { runId, signal },
+          ),
+    lease,
   );
   return write(runId, `wave-${String(indices[0] ?? "advanced")}`, result);
-}
-
-export async function finishSandboxAttempt(
-  pointer: StorageObjectPointer,
-  runId: string,
-  nodeName: string | undefined,
-  results: StorageObjectPointer[],
-  compilationError?: string,
-) {
-  const data = await dataFor(pointer);
-  if (data.result !== undefined)
-    return {
-      result: data.result,
-      advancedJudgeVerificationSnapshot: data.advancedJudgeVerificationSnapshot,
-    };
-  let result: SandboxResult;
-  if (compilationError !== undefined) result = { testcaseResults: [], compilationError };
-  else {
-    const waves = await Promise.all(results.map((ref) => read<SandboxResult>(ref)));
-    if (data.useAdvanced) result = waves[0] ?? { testcaseResults: [] };
-    else if (data.request.judgeType === "interactive")
-      result = { testcaseResults: waves.flatMap((wave) => wave.testcaseResults) };
-    else {
-      const rawRuns: RawCaseRun[] = waves.flatMap((wave) => wave.rawRuns ?? []);
-      const expected = data.request.testcases.map((tc) => tc.index);
-      if (
-        rawRuns.length !== expected.length ||
-        new Set(rawRuns.map((run) => run.index)).size !== expected.length ||
-        rawRuns.some((run) => !expected.includes(run.index))
-      )
-        throw new Error("Missing or duplicate testcase results");
-      result = await running(() =>
-        executor(nodeName).finishPreparedAttempt(
-          data.request,
-          { runId, signal: cancellationSignal() },
-          rawRuns,
-        ),
-      );
-    }
-  }
-  return mapSandboxExecution(data, result);
 }
 
 export async function cleanupSandboxStage(runId: string) {
@@ -232,11 +226,182 @@ export async function recordAdmissionWait(
   phase: JudgePhase = "admission",
 ) {
   const data = await dataFor(pointer);
-  if (data.request)
-    recordJudgePhase(
-      phase,
-      durationMs,
-      data.useAdvanced ? "advanced" : data.request.judgeType,
-      data.request.language,
+  recordJudgePhase(
+    phase,
+    durationMs,
+    data.useAdvanced ? "advanced" : data.request.judgeType,
+    data.request.language,
+  );
+}
+
+export async function initializePinnedSandboxAttempt(
+  executionId: string,
+  workflowId: string,
+  runId: string,
+) {
+  const { execution, snapshot } = await submissionDomain.loadJudgeExecution(executionId);
+  if (
+    execution.workflowId !== workflowId ||
+    ["completed", "cancelled"].includes(execution.state)
+  )
+    return { obsolete: true as const };
+  const request = buildPinnedSandboxRequest(snapshot);
+  const pointer = await write(runId, "input", {
+    request,
+    useAdvanced: Boolean(request.advanced),
+    executionId,
+    workflowId,
+  });
+  const meta = await submissionDomain.getJudgeDispatchMeta(snapshot.submissionId);
+  const plan = await sandboxPlan(
+    request,
+    pointer,
+    meta.userId,
+    execution.createdAt,
+    snapshot.draft.language,
+  );
+  const checkpoints = await submissionDomain.readJudgeStages(executionId);
+  const completed = checkpoints.flatMap(
+    (result) =>
+      result.rawRuns?.map((run) => run.index) ??
+      result.testcaseResults.map((result) => result.index),
+  );
+  if (new Set(completed).size !== completed.length)
+    throw new Error("Duplicate pinned testcase checkpoints");
+  return {
+    ...plan,
+    obsolete: false as const,
+    submittedAt: execution.createdAt.getTime(),
+    checkpointCount: checkpoints.length,
+    completedIndices: completed,
+    priorLease: execution.leaseToken,
+  };
+}
+
+export async function claimPinnedCapacityAttempt(
+  executionId: string,
+  workflowId: string,
+  runId: string,
+) {
+  return submissionDomain.claimCapacityAttempt(
+    executionId,
+    workflowId,
+    runId,
+    process.env.HOSTNAME ?? hostname(),
+  );
+}
+export async function judgeExecutionTurn(executionId: string, workflowId: string) {
+  const turn = await submissionDomain.judgeExecutionTurn(executionId, workflowId);
+  if (turn === "obsolete") return turn;
+  const { getTemporalClient } = await import("@nojv/temporal");
+  const client = await getTemporalClient();
+  const state = await client.workflow.getHandle("judge-admission-v1").query<{
+    dispatchRoute: string;
+    draining: boolean;
+    activeSubmissionIds: string[];
+  }>("admissionState");
+  if (
+    state.draining &&
+    state.dispatchRoute === "legacy" &&
+    !state.activeSubmissionIds.includes(executionId)
+  )
+    return "redirect" as const;
+  return turn;
+}
+export const heartbeatPinnedCapacityAttempt = submissionDomain.heartbeatJudgeStage;
+export const releasePinnedCapacityAttempt = submissionDomain.releaseJudgeStage;
+export const relinquishPinnedCapacityStrategy = submissionDomain.relinquishCapacityStrategy;
+
+function assertInfrastructureSuccess(result: SandboxResult) {
+  if (
+    result.pipelineError ||
+    result.overallVerdict === "SE" ||
+    result.testcaseResults.some((item) => item.verdict === "SE") ||
+    result.rawRuns?.some((item) => item.errorVerdict === "SE")
+  )
+    throw ApplicationFailure.nonRetryable(
+      result.pipelineError ?? "Pinned sandbox returned a platform error",
+      "JudgeResultSystemError",
     );
+}
+
+export async function executePinnedSandboxWave(
+  pointer: StorageObjectPointer,
+  runId: string,
+  nodeName: string,
+  indices: number[],
+  checkpoint: number,
+  lease: CapacityLease,
+  artifact?: PreparedArtifactReference,
+) {
+  const resultPointer = await executeSandboxWave(
+    pointer,
+    runId,
+    nodeName,
+    indices,
+    artifact,
+    lease,
+  );
+  const result = await read<SandboxResult>(resultPointer);
+  assertInfrastructureSuccess(result);
+  await submissionDomain.saveJudgeStage(
+    lease.executionId,
+    lease.workflowId,
+    checkpoint,
+    result,
+    runId,
+    false,
+    true,
+  );
+}
+
+export async function finishPinnedSandboxAttempt(
+  pointer: StorageObjectPointer,
+  runId: string,
+  nodeName: string | undefined,
+  lease: CapacityLease,
+  compilationError?: string,
+) {
+  const { request } = await read<{ request: SandboxRequest }>(pointer);
+  const checkpoints = await submissionDomain.readJudgeStages(lease.executionId);
+  let result: SandboxResult = { testcaseResults: [] };
+  if (compilationError !== undefined) result.compilationError = compilationError;
+  else if (!request.advanced && request.judgeType !== "interactive") {
+    const rawRuns = checkpoints.flatMap((entry) => entry.rawRuns ?? []);
+    const rawIndices = new Set(rawRuns.map((entry) => entry.index));
+    const alreadyGraded = checkpoints.flatMap((entry) =>
+      entry.testcaseResults.map((entry) => entry.index),
+    );
+    const allIndices = [...rawIndices, ...alreadyGraded];
+    if (
+      rawIndices.size !== rawRuns.length ||
+      allIndices.length !== request.testcases.length ||
+      new Set(allIndices).size !== allIndices.length ||
+      request.testcases.some((testcase) => !allIndices.includes(testcase.index))
+    )
+      throw new Error("Pinned testcase checkpoints are incomplete or duplicated");
+    result = await running(
+      (signal) =>
+        executor(nodeName).finishPreparedAttempt(
+          {
+            ...request,
+            testcases: request.testcases.filter((testcase) => rawIndices.has(testcase.index)),
+          },
+          { runId, signal },
+          rawRuns,
+        ),
+      lease,
+    );
+    delete result.rawRuns;
+  }
+  assertInfrastructureSuccess(result);
+  await submissionDomain.saveJudgeStage(
+    lease.executionId,
+    lease.workflowId,
+    checkpoints.length,
+    result,
+    runId,
+    true,
+    true,
+  );
 }

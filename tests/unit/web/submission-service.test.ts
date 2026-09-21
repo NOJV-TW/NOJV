@@ -127,6 +127,45 @@ describe("executeSubmission", () => {
     await pending;
     expect(done).toHaveBeenCalledWith(result);
   });
+  it.each(["system_error", "accepted"])(
+    "waits for recovering %s until its execution completes",
+    async (status) => {
+      let state = "recovering";
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string, init?: RequestInit) => {
+          if (init?.method === "POST")
+            return response({ submissionId: "s", pollUrl: "/detail", status: "queued" });
+          if (url === "/detail") return response(operation);
+          return response({
+            items: [
+              {
+                ...operation,
+                status,
+                execution: {
+                  state,
+                  generation: 1,
+                  problemGeneration: 1,
+                  reasonCode: null,
+                  lastProgressAt: operation.updatedAt,
+                  nextRetryAt: null,
+                },
+              },
+            ],
+            unavailableIds: [],
+          });
+        }),
+      );
+      const done = vi.fn();
+      const pending = executeSubmission(request).then(done);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(done).not.toHaveBeenCalled();
+      state = "completed";
+      await vi.advanceTimersByTimeAsync(5000);
+      await pending;
+      expect(done).toHaveBeenCalledWith(result);
+    },
+  );
   it("does not turn a transient read failure into a judge verdict", async () => {
     vi.stubGlobal(
       "fetch",
