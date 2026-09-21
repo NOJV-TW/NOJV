@@ -168,6 +168,7 @@
     context={data.course.title}
     title={detail.title}
     summary={detail.summary}
+    summaryId={`assignment-summary-${detail.id}`}
     actions={data.mode === "teacher" && canSetOverride && assignmentClosed
       ? gradingActions
       : undefined}

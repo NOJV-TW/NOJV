@@ -203,6 +203,7 @@ export default defineConfig({
             "tests/component/web/course-member-removal.test.ts",
             "tests/component/web/exam-proctoring-tab.test.ts",
             "tests/component/web/exam-access-safety.test.ts",
+            "tests/component/web/assessment-hero.test.ts",
           ],
           environment: "jsdom",
         },

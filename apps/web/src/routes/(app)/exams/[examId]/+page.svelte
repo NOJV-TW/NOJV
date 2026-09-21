@@ -176,6 +176,7 @@
     context={examCode}
     title={detail.title}
     summary={detail.summary}
+    summaryId={`exam-summary-${detail.id}`}
     actions={isManager && canSetOverride && past ? gradingActions : undefined}
   >
     {#snippet aside(accent)}
