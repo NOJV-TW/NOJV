@@ -154,6 +154,8 @@ export class WorkerApp {
         workflowsPath: this.workflowsPath,
         activities: await import("./activities/judge-control-bundle.js"),
         maxConcurrentActivityTaskExecutions: 4,
+        maxCachedWorkflows: 32,
+        maxConcurrentWorkflowTaskExecutions: 8,
         shutdownGraceTime: "30s",
       });
       this.addWorker(controlWorker, "judge-control");
@@ -238,6 +240,8 @@ export class WorkerApp {
         workflowsPath: this.workflowsPath,
         activities: await import("./activities/judge-bundle.js"),
         maxConcurrentActivityTaskExecutions: this.env.WORKER_CONCURRENCY,
+        maxCachedWorkflows: 64,
+        maxConcurrentWorkflowTaskExecutions: 16,
         shutdownGraceTime: "30s",
       });
       this.addWorker(judgeWorker, judgeTaskQueue);
@@ -252,6 +256,8 @@ export class WorkerApp {
         workflowsPath: this.workflowsPath,
         activities: await import("./activities/platform-bundle.js"),
         maxConcurrentActivityTaskExecutions: this.env.WORKER_CONCURRENCY,
+        maxCachedWorkflows: 32,
+        maxConcurrentWorkflowTaskExecutions: 8,
         shutdownGraceTime: "30s",
       });
       this.addWorker(platformWorker, PLATFORM_TASK_QUEUE);

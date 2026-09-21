@@ -52,6 +52,7 @@ vi.mock("@nojv/temporal", () => ({
   ensureLifecycleReconciler: mocks.ensureLifecycleReconciler,
   ensureSubmissionSweeper: mocks.ensureSubmissionSweeper,
   JUDGE_TASK_QUEUE: "judge",
+  CAPACITY_JUDGE_TASK_QUEUE: "judge-capacity",
   PLATFORM_TASK_QUEUE: "platform",
   temporalConnectionOptions: () => ({}),
 }));
@@ -210,6 +211,63 @@ describe("WorkerApp lifecycle", () => {
     K8S_MAX_PARALLEL_CASES: 4,
     K8S_RUNTIME_CLASS_NAME: "gvisor",
   };
+
+  it.each([
+    {
+      name: "legacy judge",
+      workerEnv: { ...env, WORKER_MODE: "judge" } as WorkerEnv,
+      queues: ["judge"],
+    },
+    {
+      name: "capacity judge",
+      workerEnv: { ...controlEnv, WORKER_MODE: "judge" } as WorkerEnv,
+      queues: ["judge-capacity"],
+    },
+    { name: "control", workerEnv: controlEnv, queues: ["judge-control"] },
+    { name: "platform", workerEnv: env, queues: ["platform"] },
+    {
+      name: "combined",
+      workerEnv: { ...controlEnv, WORKER_MODE: "all" } as WorkerEnv,
+      queues: ["judge-control", "judge-capacity", "platform"],
+    },
+  ])(
+    "bounds cached workflows and workflow task slots for $name workers",
+    async ({ workerEnv, queues }) => {
+      const workers: ReturnType<typeof makeWorker>[] = [];
+      mocks.workerCreate.mockImplementation(async () => {
+        const worker = makeWorker();
+        workers.push(worker);
+        return worker;
+      });
+      mocks.verifyNetworkPolicyEnforced.mockResolvedValue({ enforced: true, action: "ok" });
+      const app = new WorkerApp(
+        { ...workerEnv, WORKER_CONCURRENCY: 3 },
+        { shutdownTimeoutMs: 100, workflowsPath: "workflow.js" },
+      );
+      const started = app.start();
+      try {
+        await vi.waitFor(() => {
+          expect(workers).toHaveLength(queues.length);
+          for (const worker of workers) expect(worker.run).toHaveBeenCalledOnce();
+        });
+        expect(mocks.workerCreate).toHaveBeenCalledTimes(queues.length);
+        for (const taskQueue of queues) {
+          const judge = taskQueue === "judge" || taskQueue === "judge-capacity";
+          expect(mocks.workerCreate).toHaveBeenCalledWith(
+            expect.objectContaining({
+              taskQueue,
+              maxCachedWorkflows: judge ? 64 : 32,
+              maxConcurrentWorkflowTaskExecutions: judge ? 16 : 8,
+              maxConcurrentActivityTaskExecutions: taskQueue === "judge-control" ? 4 : 3,
+            }),
+          );
+        }
+      } finally {
+        await app.shutdown("SIGTERM");
+        await started;
+      }
+    },
+  );
 
   it("starts an independent control worker despite unavailable sandbox probes and mailer configuration", async () => {
     const worker = makeWorker();
