@@ -49,10 +49,15 @@ new histories with the old worker. Preserve accepted submissions and grades.
 
 ## Evidence and open gates
 
-- Baseline source: origin/main 820db362, isolated codex/judge-capacity worktree.
+- Initial baseline source: origin/main 820db362, isolated codex/judge-capacity worktree.
+  Updated comparison baseline: 48b179e7 after merging submission recovery PR #473.
 - Main checkout contains unrelated submission-history/UI changes, excluded here.
 - Node 24.18.0 required (default shell pnpm initially selected Node 26).
-- Production maintenance window / dedicated benchmark cluster requested.
+- Approved sequence: implementation/settings and default-off merge first.
+  Production maintenance is 2026-09-22 00:00–02:00 Asia/Taipei; student downtime
+  has been announced. Production load is confined to that window and dedicated
+  test accounts/data. Full benchmark repetitions exceed two hours; missing
+  evidence must remain an activation blocker, never be reported as passed.
 - Initial implementation `pnpm ci:verify` passed: build, typechecks, lint, formatting, 373 unit
   files / 3,337 tests and 33 component files / 61 tests.
 - `pnpm test:integration:temporal` passed: 4 files / 31 tests, including 20/100
@@ -124,16 +129,43 @@ new histories with the old worker. Preserve accepted submissions and grades.
 - Task-owned PostgreSQL/Redis containers and the k3d cluster were removed after
   verification; the default kubeconfig context remains `orbstack`. No production
   command or configuration change was performed during this follow-up.
-- Release blockers: the current pause halts later waves, so selective dispatch
-  drain / compatible history routing for rollback still needs implementation
-  and verification. The ordinary migrator release window scales web to zero;
-  a reviewed cutover that keeps accepting submissions is required. Refer to
-  [the capacity runbook](../../runbooks/judge-capacity.md).
-- The capacity flag remains disabled by default. No release, PR, version tag,
-  Flux configuration change or 100-student production load test was performed.
+- Release implementation now separates durable dispatch hold, whole-submission
+  drain and legacy queue routing. `scripts/judge-release.ts` inspects coordinator
+  state and persisted histories before rollback. The control worker remains
+  available while active waves/retries clean up; quota ownership must be
+  relinquished before restoring the static quota. Local rehearsal evidence is
+  recorded below; production cutover remains pending.
+- `capacityAdmission.routingEnabled` can start the control/router while keeping
+  old judge execution and quota. It and `capacityAdmission.enabled` default off.
+  An announced maintenance cutover may stop web; a web-up cutover separately
+  requires no pending migrations and `migrator.releaseWindow=false`.
+- The capacity flag remains disabled by default. Merging disabled code is distinct from a release, version tag, Flux change or
+  production performance acceptance.
 - Detailed phases distinguish all judge modes. End-to-end observations retain
   the existing standard/advanced mode grouping and are emitted after completion
   persistence, including the cleanup-before-completion time.
+
+## Merge preparation and maintenance scheduling
+
+- User approved merging the completed implementation/settings with strategy
+  flags disabled before production benchmarking, then authorized the announced
+  2026-09-22 00:00–02:00 maintenance window. No production mutation has occurred
+  in this preparation session.
+- Review found FIFO registration happened after context Activities. Durable
+  dispatch now reserves the student/submission order before starting the child;
+  rejudge children reserve before execution using current rejudge ordering.
+  Actual delivery before the coordinator remains an end-to-end acceptance gap.
+- Serial candidate build passed (12 tasks), typecheck passed (20 tasks), unit
+  tests passed (378 files / 3,403 tests), and default component invocation passed
+  (37 files / 84 tests). An earlier concurrent build/typecheck invocation raced
+  generated Paraglide files; sequential execution resolved it without UI edits.
+- Real Kubernetes controller test passed against two dedicated k3d nodes with
+  the chart's service-account RBAC and a short-lived token. It executed quota
+  creation/replacement, repeated FailedKillPod event quarantine, healthy-node
+  capacity retention and persisted quarantine after event deletion. Only
+  in-cluster credential discovery was substituted for the host test process;
+  Kubernetes requests and authorization were real. This is not a failed runsc
+  termination reproduction or a physical multi-node performance result.
 
 Related: [Judge pipeline](../../architecture/JUDGE_PIPELINE.md),
 [Reliability](../../operations/RELIABILITY.md),

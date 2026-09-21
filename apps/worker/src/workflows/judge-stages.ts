@@ -46,6 +46,8 @@ const cleanup = proxyActivities<typeof activities>({
   retry: { initialInterval: "5s", maximumInterval: "1m" },
 });
 
+export class JudgeRollbackRedirect extends Error {}
+
 export interface JudgeSubmissionOrder {
   studentId: string;
   submittedAt: number;
@@ -67,6 +69,7 @@ export async function executeCapacityAttempt(
   try {
     await coordinator.signal(registerJudgeRun, {
       runId,
+      workflowId: workflowInfo().workflowId,
       submissionId: input.submissionId,
       ...order,
       createdAt: Date.now(),
@@ -107,6 +110,8 @@ export async function executeCapacityAttempt(
       await condition(() => replies.has(requestId));
       const reply = replies.get(requestId);
       if (!reply) throw new Error("Admission reply disappeared");
+      if (reply.redirectToLegacy)
+        throw new JudgeRollbackRedirect("Continue on legacy queue after cleanup");
       if (!reply.permit) throw new Error(reply.error ?? "Admission failed without a permit");
       await metadata.recordAdmissionWait(plan.pointer, Date.now() - started);
       return reply.permit;

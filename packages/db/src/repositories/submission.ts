@@ -926,6 +926,7 @@ export const submissionRepo = {
     return prisma.submission.findMany({
       select: {
         id: true,
+        userId: true,
         judgeGeneration: true,
         language: true,
         problemId: true,

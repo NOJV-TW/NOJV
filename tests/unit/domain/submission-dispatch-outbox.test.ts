@@ -6,12 +6,14 @@ const {
   dispatchSubmissionJudge,
   dispatchRejudge,
   listSystemErrorsForRecovery,
+  findByIdForDispatchMeta,
 } = vi.hoisted(() => ({
   enqueue: vi.fn(),
   enqueueMany: vi.fn(),
   dispatchSubmissionJudge: vi.fn(),
   dispatchRejudge: vi.fn(),
   listSystemErrorsForRecovery: vi.fn(),
+  findByIdForDispatchMeta: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -20,7 +22,7 @@ vi.mock("@nojv/db", () => ({
     enqueueMany,
     withTx: () => ({ enqueue }),
   },
-  submissionRepo: { listSystemErrorsForRecovery },
+  submissionRepo: { listSystemErrorsForRecovery, findByIdForDispatchMeta },
 }));
 
 vi.mock("../../../packages/application/src/shared/orchestration", () => ({
@@ -47,6 +49,7 @@ const job = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllEnvs();
   enqueue.mockResolvedValue({});
   enqueueMany.mockResolvedValue([]);
   dispatchSubmissionJudge.mockResolvedValue(undefined);
@@ -71,6 +74,22 @@ describe("submission dispatch outbox", () => {
   it("validates and dispatches a persisted submission work payload", async () => {
     await executeSubmissionJudgeDispatch(job);
     expect(dispatchSubmissionJudge).toHaveBeenCalledWith(job);
+  });
+
+  it("uses persisted student and creation time before capacity dispatch", async () => {
+    vi.stubEnv("JUDGE_CAPACITY_ROUTING", "true");
+    findByIdForDispatchMeta.mockResolvedValue({ userId: "student", createdAt: new Date(100) });
+    await executeSubmissionJudgeDispatch({
+      ...job,
+      admissionOrder: { studentId: "untrusted", submittedAt: 0 },
+    });
+    expect(dispatchSubmissionJudge).toHaveBeenCalledWith({
+      ...job,
+      admissionOrder: { studentId: "student", submittedAt: 100 },
+    });
+    findByIdForDispatchMeta.mockResolvedValue(null);
+    await expect(executeSubmissionJudgeDispatch(job)).rejects.toThrow("Submission not found");
+    expect(dispatchSubmissionJudge).toHaveBeenCalledTimes(1);
   });
 
   it("persists rejudge work before returning its exact workflow id", async () => {

@@ -895,7 +895,14 @@ export async function listForRejudge(input: {
   userIds?: string[];
   since?: Date;
   until?: Date;
-}): Promise<{ submissionId: string; judgeGeneration: number; draft: SubmissionJudgeDraft }[]> {
+}): Promise<
+  {
+    submissionId: string;
+    studentId: string;
+    judgeGeneration: number;
+    draft: SubmissionJudgeDraft;
+  }[]
+> {
   const where: Prisma.SubmissionWhereInput = {
     problemId: input.problemId,
     sampleOnly: false,
@@ -926,6 +933,7 @@ export async function listForRejudge(input: {
 
   return submissions.map((s) => ({
     submissionId: s.id,
+    studentId: s.userId,
     judgeGeneration: s.judgeGeneration,
     draft: {
       language: s.language,
@@ -937,7 +945,7 @@ export async function listForRejudge(input: {
 
 export async function findOneForRejudge(
   submissionId: string,
-): Promise<{ submissionId: string; draft: SubmissionJudgeDraft } | null> {
+): Promise<{ submissionId: string; studentId: string; draft: SubmissionJudgeDraft } | null> {
   const submission = await submissionRepo.findById(submissionId);
   if (!submission) return null;
   if (submission.isReferenceSolution) return null;
@@ -946,6 +954,7 @@ export async function findOneForRejudge(
   }
   return {
     submissionId: submission.id,
+    studentId: submission.userId,
     draft: {
       language: submission.language,
       problemId: submission.problemId,

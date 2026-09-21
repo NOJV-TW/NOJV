@@ -455,7 +455,11 @@ control-worker Deployment, so waiting for judge execution activity slots does
 not block capacity refresh or cleanup. A newly created coordinator is paused.
 Quota management initially remains disabled. Operators complete the retained
 quota handoff, signal `activateJudgeQuota`, verify successful reconciliation,
-then explicitly resume admission.
+then explicitly resume admission. Web/platform dispatch uses an awaited
+coordinator update when `JUDGE_CAPACITY_ROUTING=true`; `hold` persists new
+submissions to the unpolled staged queue while legacy work drains. The staged
+worker polls `judge-capacity-v1`, keeping those histories separate from `judge`.
+Dispatch, drain and rollback verification are documented in the capacity runbook.
 
 Every 30 seconds the controller reads eligible `nojv-role=sandbox` nodes and
 effective non-judge Pod requests. Per-node CPU and memory budget is allocatable
@@ -471,6 +475,10 @@ Interactive and Advanced Mode reserve their combined containers and overhead.
 Admission waits use workflow conditions, not executing activity slots or stage
 execution timeouts. Student round-robin order, FIFO submissions per student and
 one active permit per student prevent overlapping waves from the same student.
+Durable dispatch reserves each submission before its context/initialization
+Activities, so a delayed Activity cannot let a later registered submission pass
+it. Submissions not yet delivered to the coordinator are outside this ordering
+boundary; end-to-end dispatch delay remains part of fairness acceptance.
 Prepared unfinished runs are bounded to twice the available CPU execution slots.
 
 Stage inputs and outputs use immutable verified object-storage pointers rather

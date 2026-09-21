@@ -35,6 +35,23 @@ export async function dispatchSubmissionJudge(payload: SubmissionJudgeJob): Prom
     draft: validated.draft,
   };
 
+  if (process.env.JUDGE_CAPACITY_ROUTING === "true") {
+    if (!validated.admissionOrder) throw new Error("Judge admission order is required");
+    await client.workflow
+      .getHandle("judge-admission-v1")
+      .executeUpdate("dispatchJudgeWorkflow", {
+        args: [
+          {
+            workflowId: `judge-${validated.submissionId}`,
+            workflowType: "submissionJudgeWorkflow",
+            input,
+            admissionOrder: validated.admissionOrder,
+          },
+        ],
+      });
+    return;
+  }
+
   try {
     await client.workflow.start("submissionJudgeWorkflow", {
       taskQueue: JUDGE_TASK_QUEUE,
@@ -160,6 +177,14 @@ export async function dispatchRejudge(
   workflowId: string,
 ): Promise<{ workflowId: string }> {
   const client = await getTemporalClient();
+  if (process.env.JUDGE_CAPACITY_ROUTING === "true") {
+    await client.workflow
+      .getHandle("judge-admission-v1")
+      .executeUpdate("dispatchJudgeWorkflow", {
+        args: [{ workflowId, workflowType: "rejudgeWorkflow", input }],
+      });
+    return { workflowId };
+  }
   try {
     await client.workflow.start("rejudgeWorkflow", {
       taskQueue: JUDGE_TASK_QUEUE,

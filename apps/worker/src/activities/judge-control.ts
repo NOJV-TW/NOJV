@@ -107,3 +107,14 @@ export async function refreshJudgeCapacity(
     },
   };
 }
+
+export async function closedJudgeWorkflows(workflowIds: string[]): Promise<string[]> {
+  const { getTemporalClient } = await import("@nojv/temporal");
+  const client = await getTemporalClient();
+  const closed: string[] = [];
+  for (const workflowId of workflowIds) {
+    const description = await client.workflow.getHandle(workflowId).describe();
+    if (description.status.name !== "RUNNING") closed.push(workflowId);
+  }
+  return closed;
+}

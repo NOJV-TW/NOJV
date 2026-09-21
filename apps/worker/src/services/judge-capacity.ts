@@ -400,6 +400,7 @@ export function enqueueAdmission(
 export function admitAvailable(
   state: JudgeAdmissionState,
   now: number,
+  allowedSubmissionIds?: ReadonlySet<string>,
 ): { granted: JudgePermit[]; rejected: JudgeAdmissionState["rejected"] } {
   const granted: JudgePermit[] = [];
   const rejected: JudgeAdmissionState["rejected"] = [];
@@ -415,7 +416,8 @@ export function admitAvailable(
       continue;
     const firstRun = state.runs.find((r) => r.studentId === studentId && !r.finished);
     const request = state.pending.find((r) => r.runId === firstRun?.runId);
-    if (!request) continue;
+    if (!request || !firstRun) continue;
+    if (allowedSubmissionIds && !allowedSubmissionIds.has(firstRun.orderKey)) continue;
     const candidates = snapshot.nodes.filter(
       (n) => !request.nodeName || n.name === request.nodeName,
     );
@@ -442,7 +444,7 @@ export function admitAvailable(
       state.runs.filter((r) => r.prepared && !r.finished).length >= preparedLimit
     )
       continue;
-    if (request.phase === "wave" && !firstRun?.prepared) continue;
+    if (request.phase === "wave" && !firstRun.prepared) continue;
     let waitingForNode: string | undefined;
     for (const node of candidates.filter((n) => n.eligible && !reservedNodes.has(n.name))) {
       const held = state.permits
@@ -475,7 +477,7 @@ export function admitAvailable(
       };
       state.permits.push(permit);
       state.pending = state.pending.filter((r) => r.requestId !== request.requestId);
-      if (request.phase === "prepare" && firstRun) firstRun.prepared = true;
+      if (request.phase === "prepare") firstRun.prepared = true;
       state.studentOrder = [...state.studentOrder.filter((id) => id !== studentId), studentId];
       granted.push(permit);
       waitingForNode = undefined;

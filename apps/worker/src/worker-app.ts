@@ -11,6 +11,7 @@ import {
   ensureLifecycleReconciler,
   ensureSubmissionSweeper,
   JUDGE_TASK_QUEUE,
+  CAPACITY_JUDGE_TASK_QUEUE,
   PLATFORM_TASK_QUEUE,
   temporalConnectionOptions,
 } from "@nojv/temporal";
@@ -202,16 +203,20 @@ export class WorkerApp {
         }
       }
 
+      const judgeTaskQueue =
+        this.env.EXECUTION_BACKEND === "kubernetes" && this.env.K8S_CAPACITY_ADMISSION
+          ? CAPACITY_JUDGE_TASK_QUEUE
+          : JUDGE_TASK_QUEUE;
       const judgeWorker = await Worker.create({
         connection,
         namespace,
-        taskQueue: JUDGE_TASK_QUEUE,
+        taskQueue: judgeTaskQueue,
         workflowsPath: this.workflowsPath,
         activities: await import("./activities/judge-bundle.js"),
         maxConcurrentActivityTaskExecutions: this.env.WORKER_CONCURRENCY,
         shutdownGraceTime: "30s",
       });
-      this.addWorker(judgeWorker, JUDGE_TASK_QUEUE);
+      this.addWorker(judgeWorker, judgeTaskQueue);
       this.assertStarting();
     }
 

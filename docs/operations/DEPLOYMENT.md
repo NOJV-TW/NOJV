@@ -128,6 +128,7 @@ is a fitness test that fails CI if the GKE manifest omits a required worker env.
 | `K8S_MAX_PARALLEL_CASES`             | **required** (Kubernetes backend)    | Maximum testcase containers per sandbox Job wave (1–20)                                                                |
 | `K8S_RUNTIME_CLASS_NAME`             | **required** (Kubernetes backend)    | RuntimeClass required for every sandbox Pod; production is `gvisor`                                                    |
 | `K8S_CAPACITY_ADMISSION`             | `false`                              | Enables staged attempts and the Temporal capacity coordinator; requires the controlled quota handoff below             |
+| `JUDGE_CAPACITY_ROUTING`             | `false`                              | Routes web/platform judge dispatch through the durable coordinator; enabled by either capacity chart flag              |
 | `K8S_ARTIFACT_STORAGE_CLASS`         | `local-path`                         | RWO artifact PVC StorageClass; preparation rejects classes without `WaitForFirstConsumer`                              |
 
 > The `SANDBOX_*` resource limits are read only by the Docker backend; the
@@ -298,6 +299,10 @@ worker alone maintains that quota after `activateJudgeQuota` and a successful
 refresh. Until activation it only observes capacity and leaves the retained
 static quota intact. The coordinator starts paused on first
 creation; restarting an existing coordinator preserves its current pause state.
+`capacityAdmission.routingEnabled` also defaults to `false`. Enabling routing
+only creates the control worker and routes web/platform dispatch through the
+coordinator while leaving legacy workers and the retained static quota in place.
+This supports holding newly accepted submissions before the strategy cutover.
 
 **Before enabling admission, deploy a separate release with the feature still
 disabled and verify `helm.sh/resource-policy: keep` on `sandbox-quota` in both
@@ -308,11 +313,12 @@ writes it. Do not skip directly from a pre-annotation chart to enabled capacity.
 The [judge capacity runbook](../runbooks/judge-capacity.md) defines drain,
 history compatibility, quota ownership, smoke checks and rollback. The new
 resource strategy is not approved for production merely because the flag exists:
-100-person performance evidence and gVisor integration acceptance remain pending.
+100-person performance evidence and the complete fault matrix remain pending;
+bounded local gVisor integration has passed.
 The judge Deployment uses `strategy: Recreate` to avoid old/new worker overlap
-within that Deployment. This does not supply a selective workflow drain, prove
-history replay compatibility, or change migrator hooks that may stop web service;
-those remain explicit cutover and rollback checks.
+within that Deployment. The durable dispatch/drain protocol and operator CLI
+are described in the runbook. It does not change migrator hooks that may stop
+web service; maintenance and web-up cutovers have distinct settings.
 
 ## GCP Production Architecture
 

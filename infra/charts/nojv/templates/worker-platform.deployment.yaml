@@ -110,6 +110,8 @@ spec:
               value: {{ .Values.temporal.address | quote }}
             - name: TEMPORAL_NAMESPACE
               value: {{ .Values.temporal.namespace | quote }}
+            - name: JUDGE_CAPACITY_ROUTING
+              value: {{ or .Values.worker.sandbox.capacityAdmission.enabled .Values.worker.sandbox.capacityAdmission.routingEnabled | quote }}
             - name: S3_ENDPOINT
               valueFrom:
                 secretKeyRef:

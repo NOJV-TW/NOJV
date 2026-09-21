@@ -30,7 +30,7 @@ rules:
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]
     verbs: ["get"]
-{{- if .Values.worker.sandbox.capacityAdmission.enabled }}
+{{- if or .Values.worker.sandbox.capacityAdmission.enabled .Values.worker.sandbox.capacityAdmission.routingEnabled }}
   - apiGroups: [""]
     resources: ["nodes", "pods"]
     verbs: ["get", "list"]
@@ -60,7 +60,7 @@ metadata:
   labels:
     {{- include "nojv.labels" . | nindent 4 }}
 rules:
-{{- if .Values.worker.sandbox.capacityAdmission.enabled }}
+{{- if or .Values.worker.sandbox.capacityAdmission.enabled .Values.worker.sandbox.capacityAdmission.routingEnabled }}
   - apiGroups: [""]
     resources: ["resourcequotas"]
     verbs: ["create"]

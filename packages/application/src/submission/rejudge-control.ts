@@ -336,6 +336,14 @@ export async function enqueueSubmissionJudgeDispatch(
 
 export async function executeSubmissionJudgeDispatch(rawPayload: unknown): Promise<void> {
   const payload = submissionJudgeJobSchema.parse(rawPayload);
+  if (process.env.JUDGE_CAPACITY_ROUTING === "true") {
+    const submission = await submissionRepo.findByIdForDispatchMeta(payload.submissionId);
+    if (!submission) throw new NotFoundError("Submission not found.");
+    payload.admissionOrder = {
+      studentId: submission.userId,
+      submittedAt: submission.createdAt.getTime(),
+    };
+  }
   await getDomainOrchestration().dispatchSubmissionJudge(payload);
 }
 

@@ -11,12 +11,16 @@ This procedure does not authorize a production load test or runtime restart.
 `worker.sandbox.capacityAdmission.enabled` defaults to `false`. With it disabled,
 the existing executor and Helm-managed fixed quota remain active. With it enabled,
 the chart adds a separate control-worker Deployment, staged standard/checker
-attempts, and controller-managed quota after explicit activation. Interactive and
+attempts on `judge-capacity-v1`, and controller-managed quota after explicit
+activation. `worker.sandbox.capacityAdmission.routingEnabled` independently
+starts the control worker and routes web/platform dispatch through its durable
+update while retaining the legacy judge queue and static quota. Both flags
+default to false; enabling admission also enables routing. Interactive and
 Advanced Mode keep their execution contracts under the same admission budget.
 
-The 100-person/60-second performance gate and real gVisor integration acceptance
-are **pending**. Unit tests, manifest rendering and source inspection do not
-replace them. Keep the feature disabled in production until the evidence below
+The 100-person/60-second performance gate and complete fault matrix are
+**pending**. Bounded local gVisor integration passed; it does not replace these
+gates. Unit tests, manifest rendering and source inspection do not replace them. Keep the feature disabled in production until the evidence below
 is attached to the release. Read current image digests, installed chart values,
 Temporal namespace and live quota before acting; do not infer deployment state
 from this repository's defaults.
@@ -86,54 +90,83 @@ recovery. Never use `releaseJudgePermit` or `finishJudgeRun` as an operator bypa
 
 ## Protected Quota Handoff
 
-1. Save the current immutable worker/sandbox image references, Helm values and
-   manifest, live `sandbox-quota`, RuntimeClass, StorageClass and relevant
-   Workflow histories. Inventory pending/executing submissions and any orphaned
-   sandbox resources. Resolve existing runtime leaks before using capacity data
-   as an admission baseline.
-2. First deploy a release with capacity admission **disabled** that adds
-   `helm.sh/resource-policy: keep` to `sandbox-quota`. Verify the annotation in
-   both Helm's stored installed manifest and the live quota object. Do not skip
-   this intermediate release: adding the annotation only to a local chart does
-   not protect a quota removed by the next Helm upgrade.
-3. Validate old-history replay against the candidate worker before replacing
-   judge workers. The `judge-capacity-cleanup-v1` workflow patch preserves the
-   old sandbox activity contract for recorded pre-patch execution histories;
-   it does not make an old worker understand a newly recorded staged history.
-   Prevent old and new binaries from simultaneously consuming the judge queue.
-   The candidate judge Deployment uses `strategy: Recreate`; verify this is the
-   rendered and applied strategy and that no separately managed old worker is
-   still polling. This avoids Deployment rolling overlap, but does not by itself
-   establish workflow drain or worker-version routing. Continue web, source
-   persistence, Temporal dispatch and platform service throughout replacement.
-4. Deploy the enabled candidate while its new coordinator remains paused and
-   `quotaManaged` is false. Confirm the control worker is healthy on its own
-   queue. New staged submissions should reach workflow admission waits without
-   consuming sandbox execution activity slots; previously recorded execution
-   histories continue on their compatible branch. A history that had not yet
-   recorded execution can follow the new branch. Track actual sandbox work,
-   not merely workflow creation dates, to determine what still needs draining.
-5. Keep the retained static quota in place while old executor work drains.
-   Confirm no legacy Job/Pod or runtime process remains and all corresponding
-   old execution activities have completed. Coordinator refresh may observe
-   capacity during this period but must not change quota before activation.
-6. Signal `activateJudgeQuota` with no arguments. Wait for `quotaManaged: true`,
-   `quotaReady: true`, a fresh snapshot, and a live quota matching the controller's
-   effective budget. The feature-enabled Helm manifest must no longer render
-   `sandbox-quota`. Do not delete and recreate the quota to change its owner;
-   keep a live quota throughout the handoff. A failed refresh leaves admission
-   blocked until reconciliation succeeds.
-7. Complete the acceptance gates below, then signal `pauseJudgeAdmission(false)`
-   and perform a small, dedicated-account smoke run before general release.
-   A global resume admits every pending eligible request, so do not describe
-   this as an isolated smoke if real student work is already queued. Establish
-   a reviewed traffic/window boundary or finish synthetic validation on the
-   isolated target first.
+Merge and activation are separate gates. The implementation can merge with both
+flags disabled while performance and fault acceptance remain open. An announced
+maintenance window allows web downtime; it does not authorize dropping accepted
+submissions, deleting grades or replaying staged histories with an older binary.
+Record the approved start/end time and use dedicated benchmark accounts/data.
 
-The standard migrator `releaseWindow` can scale web and workers down for schema
-cutovers. That is not this web-up capacity transition. Review the concrete
-release's hooks, rollout strategy and Flux reconciliation before applying it;
-do not invoke a generic release path that stops submission acceptance.
+1. Save current immutable images, Helm values/manifest, quota, RuntimeClass,
+   StorageClass and relevant Workflow histories. Inventory accepted/executing
+   submissions and runtime remnants. Resolve leaks before measuring capacity.
+2. Deploy the disabled implementation first. Confirm `helm.sh/resource-policy:
+keep` on `sandbox-quota` in both the installed Helm manifest and live object.
+   This protects quota when the enabled chart stops rendering it. No interval
+   may have no quota.
+3. Set `routingEnabled=true`, keeping `enabled=false`. The new coordinator starts
+   paused with legacy routing. Execute `hold` after the controller is ready:
+   subsequent accepted work is durably started on `judge-capacity-v1` and cannot
+   execute yet. Existing legacy workers continue
+   on `judge`. Confirm every dispatch caller has the new routing environment;
+   if operating during maintenance, keep public traffic closed until cutover
+   verification completes. For a web-up transition, separately verify there are
+   no pending schema migrations and set `migrator.releaseWindow=false`. The
+   default upgrade templates can render zero web replicas even if the migrator
+   script has no migration to apply.
+4. Inspect coordinator state and wait for all old judge/rejudge Workflows and
+   execution Activities to finish. Verify their Jobs, Pods, runtime processes
+   and cgroups are gone. Do not force old histories onto the new queue.
+5. Set `enabled=true`. The judge Deployment uses `Recreate` and now polls
+   `judge-capacity-v1`; old workers must have stopped polling. The retained
+   static quota stays active until explicit controller activation. Signal
+   `activateJudgeQuota`, wait for `quotaManaged=true`, `quotaReady=true`, a fresh
+   snapshot and the correct live quota, then signal `pauseJudgeAdmission(false)`.
+   Dispatch remains on `hold`, so these steps alone do not admit queued work.
+6. After acceptance gates are satisfied, execute `route-capacity`. This update
+   atomically enables dispatch and ends drain mode. Perform dedicated-account
+   smoke submissions, check completion and cleanup, then restore student traffic.
+   Resuming admission admits all eligible queued work: do not call this an
+   isolated canary if genuine submissions are already waiting.
+
+Operator CLI (uses the configured Temporal address/namespace and credentials):
+
+```bash
+pnpm exec tsx scripts/judge-release.ts --command status
+pnpm exec tsx scripts/judge-release.ts --command hold
+pnpm exec tsx scripts/judge-release.ts --command route-capacity
+pnpm exec tsx scripts/judge-release.ts --command begin-rollback
+pnpm exec tsx scripts/judge-release.ts --command verify-rollback
+pnpm exec tsx scripts/judge-release.ts --command finish-rollback
+```
+
+`hold` requires paused admission with no active staged submissions. Hard pause
+stops later waves too; use `begin-rollback` to drain active submissions. Finish
+active rejudge batches before starting rollback. Keep admission unpaused and the
+control/staged workers running: active submissions finish later waves and
+replacement attempts; never-admitted submissions clean up and continue as new
+onto the unpolled `judge` queue. New submissions route directly to that queue.
+Do not start old workers until `verify-rollback` succeeds.
+
+Rollback verification fails closed on pending/held permits, active submissions
+or rejudge parents, in-flight dispatch, an unavailable workflow ledger, active
+staged histories, or a redirected legacy history already consumed by a worker.
+It checks persisted histories, not just eventually consistent visibility. It
+does not prove CRI/cgroup disappearance; independently verify runtime cleanup.
+Run `finish-rollback` to recheck readiness and relinquish dynamic quota ownership.
+It waits for an in-flight quota write, then durably leaves admission paused and
+quota management disabled; a restart cannot resume quota writes. Independently
+verify no old worker is polling: a history check cannot prevent a future poller
+from starting. Stop candidate pollers, restore static
+quota and the previous image/configuration, and disable both flags before
+resuming old workers. Leave the database,
+submission source objects and completed grades intact. Continued legacy runs
+carry the original submission input in fresh histories that old workers can
+execute. Retain evidence of accepted IDs and grades before/after rehearsal.
+
+The original pre-capacity history patch protects histories created before this
+change. It is not permission to mix binaries or a guarantee that an old binary
+can replay a new staged history. Maintenance deployment must still drain before
+changing queue consumers.
 
 ## Cleanup Pending and FailedKillPod
 
@@ -191,23 +224,3 @@ Run production-host benchmarks only in an approved maintenance window with real
 judging drained and dedicated test accounts/data. Retain verified cleanup and
 measurement fixes if the resource strategy fails its gates. Do not loosen
 isolation, problem limits or verdict rules to achieve the performance target.
-
-## Rollback Boundary
-
-Pause admission and preserve the current worker/control images while recovering
-or draining their histories. A pause stops future waves as well as new runs;
-there is currently no dedicated “finish admitted runs, hold new runs” operator
-signal. Therefore a full rollback requires a verified drain/version-routing
-procedure that can complete all new-history work while keeping newly accepted
-submissions safely queued. If that prerequisite is unavailable, keep the
-candidate workers available and recover forward; do not force an old worker to
-consume incompatible new histories.
-
-Before restoring an earlier executable, prove no new-format history can reach
-its task queue, all held permits are cleaned up, and accepted submissions and
-completed grades are preserved. Stop the dynamic quota writer only after that
-drain, restore the saved Helm-owned static quota while maintaining a live quota,
-then restore the earlier judge deployment through the reviewed release/Flux
-procedure. Verify ownership, queue progress and synthetic verdicts before
-resuming ordinary dispatch. Never use deletion of submissions, reset grades,
-manual release signals, or a recreated coordinator as a rollback shortcut.

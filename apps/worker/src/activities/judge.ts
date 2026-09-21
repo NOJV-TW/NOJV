@@ -388,10 +388,16 @@ export async function completeSubmission(
   return completed;
 }
 
-export async function fetchSubmissionIdsForRejudge(
-  input: BatchRejudgeInput,
-): Promise<{ submissionId: string; judgeGeneration: number; draft: SubmissionJudgeDraft }[]> {
-  return submissionDomain.listForRejudge({
+export async function fetchSubmissionIdsForRejudge(input: BatchRejudgeInput): Promise<
+  {
+    submissionId: string;
+    studentId: string;
+    staged: boolean;
+    judgeGeneration: number;
+    draft: SubmissionJudgeDraft;
+  }[]
+> {
+  const targets = await submissionDomain.listForRejudge({
     problemId: input.problemId,
     ...(input.contestId ? { contestId: input.contestId } : {}),
     ...(input.assessmentId ? { assignmentId: input.assessmentId } : {}),
@@ -400,12 +406,29 @@ export async function fetchSubmissionIdsForRejudge(
     ...(input.since ? { since: new Date(input.since) } : {}),
     ...(input.until ? { until: new Date(input.until) } : {}),
   });
+  return targets.map((target) => ({
+    ...target,
+    staged:
+      process.env.EXECUTION_BACKEND === "kubernetes" &&
+      process.env.K8S_CAPACITY_ADMISSION === "true",
+  }));
 }
 
-export async function fetchSingleSubmissionForRejudge(
-  submissionId: string,
-): Promise<{ submissionId: string; draft: SubmissionJudgeDraft } | null> {
-  return submissionDomain.findOneForRejudge(submissionId);
+export async function fetchSingleSubmissionForRejudge(submissionId: string): Promise<{
+  submissionId: string;
+  studentId: string;
+  staged: boolean;
+  draft: SubmissionJudgeDraft;
+} | null> {
+  const target = await submissionDomain.findOneForRejudge(submissionId);
+  return target
+    ? {
+        ...target,
+        staged:
+          process.env.EXECUTION_BACKEND === "kubernetes" &&
+          process.env.K8S_CAPACITY_ADMISSION === "true",
+      }
+    : null;
 }
 
 export async function snapshotSubmissionForRejudge(

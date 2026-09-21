@@ -301,6 +301,7 @@ worker:
   sandbox:
     capacityAdmission:
       enabled: false
+      routingEnabled: false
       artifactStorageClassName: local-path
     cpuRequest: "500m"
     caseCpuRequest: "100m"

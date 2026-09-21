@@ -4,13 +4,18 @@ import {
   CancellationScope,
   getExternalWorkflowHandle,
   patched,
+  makeContinueAsNewFunc,
   proxyActivities,
   workflowInfo,
   uuid4,
   sleep,
 } from "@temporalio/workflow";
 import type { SubmissionJudgeInput } from "@nojv/core";
-import { executeCapacityAttempt, type JudgeSubmissionOrder } from "./judge-stages";
+import {
+  executeCapacityAttempt,
+  JudgeRollbackRedirect,
+  type JudgeSubmissionOrder,
+} from "./judge-stages";
 
 import type * as judgeActivities from "../activities/judge";
 import type * as lifecycleActivities from "../activities/lifecycle";
@@ -70,6 +75,7 @@ async function executeAttempt(
         if (!staged)
           await waitForExecutorRecovery(error, { runId, permitId: `${runId}/sandbox` });
         if (
+          error instanceof JudgeRollbackRedirect ||
           CancellationScope.current().consideredCancelled ||
           attempt >= 2 ||
           isNonRetryableJudgeFailure(error)
@@ -128,6 +134,15 @@ function rootErrorMessage(error: unknown): string {
 }
 
 export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Promise<void> {
+  try {
+    await runSubmissionJudge(input);
+  } catch (error) {
+    if (!(error instanceof JudgeRollbackRedirect)) throw error;
+    await makeContinueAsNewFunc<typeof submissionJudgeWorkflow>({ taskQueue: "judge" })(input);
+  }
+}
+
+async function runSubmissionJudge(input: SubmissionJudgeInput): Promise<void> {
   const judgeRunId = workflowInfo().workflowId;
   let rejudgeLogId: string | null = null;
   let rejudgeOldStatus: string | null = null;
@@ -200,6 +215,7 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
       );
     }
   } catch (err) {
+    if (err instanceof JudgeRollbackRedirect) throw err;
     const restoreTo = rejudgeOldStatus;
     if (restoreTo !== null) {
       await CancellationScope.nonCancellable(() =>

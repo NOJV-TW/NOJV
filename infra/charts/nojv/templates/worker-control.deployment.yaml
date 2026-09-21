@@ -1,4 +1,4 @@
-{{- if .Values.worker.sandbox.capacityAdmission.enabled }}
+{{- if or .Values.worker.sandbox.capacityAdmission.enabled .Values.worker.sandbox.capacityAdmission.routingEnabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:

@@ -55,7 +55,9 @@ describe.runIf(process.env.NOJV_TEST_RUNTIME_CLASS === "gvisor")(
     });
 
     it.each([
+      { mode: "standard" as const, count: 1 },
       { mode: "standard" as const, count: 20 },
+      { mode: "standard" as const, count: 100 },
       { mode: "checker" as const, count: 5 },
     ])(
       "$mode: one compilation across $count isolated cases, then no owned API resources",
