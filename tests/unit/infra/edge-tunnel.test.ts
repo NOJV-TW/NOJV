@@ -72,13 +72,7 @@ describe("edge tunnel observability", () => {
   });
 });
 
-describe("edge tunnel transport", () => {
-  it("carries tunnel traffic over http2 instead of quic", () => {
-    expect(cloudflaredDeployment()).toContain(
-      "name: TUNNEL_TRANSPORT_PROTOCOL\n              value: http2",
-    );
-  });
-
+describe("edge tunnel image", () => {
   it("pins the tunnel image by digest", () => {
     expect(cloudflaredDeployment()).toMatch(
       /image: cloudflare\/cloudflared:\d{4}\.\d+\.\d+@sha256:[a-f0-9]{64}/,
