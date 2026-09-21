@@ -28,7 +28,16 @@ export async function canPublishPublicProblems(actor: {
   userId: string;
   platformRole: PlatformRole;
 }): Promise<boolean> {
-  if (actor.platformRole === "admin" || actor.platformRole === "teacher") return true;
+  return await Promise.resolve(
+    actor.platformRole === "admin" || actor.platformRole === "teacher",
+  );
+}
+
+export async function canRequestPublicProblemPublication(actor: {
+  userId: string;
+  platformRole: PlatformRole;
+}): Promise<boolean> {
+  if (actor.platformRole !== "student") return false;
   return courseMembershipRepo.hasActiveStaffMembership(actor.userId);
 }
 

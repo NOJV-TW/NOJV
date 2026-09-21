@@ -20,6 +20,8 @@ const webEnvSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 
+    DEV_ADMIN_MODE_USERNAME: z.string().trim().default(""),
+
     DATABASE_URL: z.url().default("postgresql://postgres:postgres@localhost:5432/nojv"),
     REDIS_URL: z.url().default("redis://localhost:6379"),
 

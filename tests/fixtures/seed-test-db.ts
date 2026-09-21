@@ -39,6 +39,7 @@ export const TABLES = [
   "ProblemStatement",
   "ProblemWorkspaceFile",
   "ProblemBookmark",
+  "ProblemPublicationRequest",
   "Problem",
   "AnnouncementTranslation",
   "Announcement",

@@ -399,7 +399,7 @@ export async function updateProblemRecord(
     }
     if (effectiveVisibility === "public" && !(await canPublishPublicProblems(actor))) {
       throw new ForbiddenError(
-        "Public problems can only be published by teachers, admins, or active course TAs.",
+        "Public problems can only be published directly by teachers or admins. Active course TAs must submit a publication request.",
       );
     }
     if (publishesFork && problem.authorId !== actor.userId && !problem.adminMayPublish) {

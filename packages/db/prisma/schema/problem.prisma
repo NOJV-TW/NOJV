@@ -8,6 +8,12 @@ enum ProblemStatus {
   published
 }
 
+enum ProblemPublicationRequestStatus {
+  pending
+  approved
+  rejected
+}
+
 enum ProblemType {
   full_source
   multi_file
@@ -75,12 +81,36 @@ model Problem {
   clarifications     Clarification[]        @relation("ProblemClarifications")
   submissionFeedback SubmissionFeedback[]   @relation("SubmissionFeedbackProblem")
   bookmarks          ProblemBookmark[]
+  publicationRequests       ProblemPublicationRequest[] @relation("ProblemPublicationRequestSource")
+  publishedPublicationRequest ProblemPublicationRequest? @relation("ProblemPublicationRequestPublishedProblem")
 
   @@index([status, visibility, createdAt])
   @@index([authorId])
   @@index([forkedFromProblemId])
   @@index([difficulty])
   @@index([tags], type: Gin)
+}
+
+model ProblemPublicationRequest {
+  id                String                          @id @default(cuid())
+  problemId         String
+  requestedByUserId String
+  status            ProblemPublicationRequestStatus @default(pending)
+  reviewedByUserId  String?
+  reviewNote        String?                         @db.Text
+  publishedProblemId String?                        @unique
+  createdAt         DateTime                        @default(now())
+  updatedAt         DateTime                        @updatedAt
+  reviewedAt        DateTime?
+
+  problem          Problem  @relation("ProblemPublicationRequestSource", fields: [problemId], references: [id], onDelete: Restrict)
+  requestedBy      User     @relation("ProblemPublicationRequestRequester", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+  reviewedBy       User?    @relation("ProblemPublicationRequestReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  publishedProblem Problem? @relation("ProblemPublicationRequestPublishedProblem", fields: [publishedProblemId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([problemId, createdAt])
+  @@unique([problemId], map: "ProblemPublicationRequest_one_pending_per_problem_key", where: { status: "pending" })
 }
 
 model ProblemBookmark {

@@ -14,7 +14,10 @@ vi.mock("@nojv/db", () => ({
   userRepo: {},
 }));
 
-import { canPublishPublicProblems } from "../../../packages/application/src/problem/permissions";
+import {
+  canPublishPublicProblems,
+  canRequestPublicProblemPublication,
+} from "../../../packages/application/src/problem/permissions";
 
 describe("canPublishPublicProblems", () => {
   beforeEach(() => {
@@ -28,12 +31,13 @@ describe("canPublishPublicProblems", () => {
     expect(hasActiveStaffMembership).not.toHaveBeenCalled();
   });
 
-  it("allows a student with an active course TA membership", async () => {
+  it("denies a platform student even with an active course staff membership", async () => {
     hasActiveStaffMembership.mockResolvedValue(true);
 
     await expect(
       canPublishPublicProblems({ userId: "usr_ta", platformRole: "student" }),
-    ).resolves.toBe(true);
+    ).resolves.toBe(false);
+    expect(hasActiveStaffMembership).not.toHaveBeenCalled();
   });
 
   it("denies an ordinary student", async () => {
@@ -41,6 +45,24 @@ describe("canPublishPublicProblems", () => {
 
     await expect(
       canPublishPublicProblems({ userId: "usr_student", platformRole: "student" }),
+    ).resolves.toBe(false);
+  });
+
+  it("allows an active course staff student to submit a review request", async () => {
+    hasActiveStaffMembership.mockResolvedValue(true);
+    await expect(
+      canRequestPublicProblemPublication({ userId: "usr_ta", platformRole: "student" }),
+    ).resolves.toBe(true);
+  });
+
+  it("denies review requests from teachers and ordinary students", async () => {
+    hasActiveStaffMembership.mockResolvedValue(true);
+    await expect(
+      canRequestPublicProblemPublication({ userId: "usr_teacher", platformRole: "teacher" }),
+    ).resolves.toBe(false);
+    hasActiveStaffMembership.mockResolvedValue(false);
+    await expect(
+      canRequestPublicProblemPublication({ userId: "usr_student", platformRole: "student" }),
     ).resolves.toBe(false);
   });
 });

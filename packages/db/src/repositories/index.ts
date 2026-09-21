@@ -70,6 +70,13 @@ export { postRepo } from "./post";
 export { postCommentRepo } from "./post-comment";
 export { postVoteRepo } from "./post-vote";
 export { problemBookmarkRepo } from "./problem-bookmark";
+export {
+  problemPublicationRequestRepo,
+  type ApproveProblemPublicationRequestInput,
+  type CreatePendingProblemPublicationRequestInput,
+  type ProblemPublicationRequestRow,
+  type RejectProblemPublicationRequestInput,
+} from "./problem-publication-request";
 export { registryCredentialRepo } from "./registry-credential";
 export { schoolVerificationTokenRepo } from "./school-verification";
 export { securityFactorRepo, type SecurityFactorState } from "./security-factor";

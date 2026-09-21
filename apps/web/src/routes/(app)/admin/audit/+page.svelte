@@ -35,6 +35,10 @@
         return m.admin_audit_actionRegistryTagDelete();
       case "registry_gc":
         return m.admin_audit_actionRegistryGc();
+      case "problem_publication_approve":
+        return m.admin_audit_actionProblemPublicationApprove();
+      case "problem_publication_reject":
+        return m.admin_audit_actionProblemPublicationReject();
     }
   }
 

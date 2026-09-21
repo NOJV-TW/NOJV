@@ -255,6 +255,18 @@ export const courseMembershipRepo = {
         });
       },
 
+      hasActiveStaffMembership(userId: string) {
+        return tx.courseMembership.findFirst({
+          where: {
+            userId,
+            status: "active",
+            role: { in: ["teacher", "ta"] },
+            course: { archived: false },
+          },
+          select: { id: true },
+        });
+      },
+
       upsert(
         courseId: string,
         userId: string,

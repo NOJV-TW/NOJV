@@ -4,6 +4,7 @@ export * from "./bookmarks";
 export * from "./workspace";
 export * from "./testcase";
 export * from "./permissions";
+export * from "./publication-requests";
 export * from "./storage-budget";
 export * from "./bundle";
 export * from "./total-score";

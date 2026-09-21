@@ -42,6 +42,7 @@ import {
 } from "$lib/server/metrics";
 import { classifyError, classifyRequestError } from "$lib/server/shared/handle-action-error";
 import { getClientIp } from "$lib/server/shared/client-ip";
+import { DEV_ADMIN_MODE_COOKIE, isDevAdminModeBypassEnabled } from "$lib/server/dev-admin-mode";
 import {
   authRateLimiter,
   signInRateLimiter,
@@ -324,10 +325,12 @@ function enforceSuperAdminVerification(event: HandleEvent, cleanPath: string): R
 async function resolveRequestAdminAccess(event: HandleEvent): Promise<void> {
   const user = event.locals.sessionUser;
   const sessionId = event.locals.session?.id;
+  const bypassDisabled = event.cookies.get(DEV_ADMIN_MODE_COOKIE) === "off";
   event.locals.adminAccessActive =
-    user?.platformRole === "admin" &&
-    !!sessionId &&
-    (await resolveAdminAccess(sessionId, adminAccessPrincipal(user)));
+    (!!user && isDevAdminModeBypassEnabled(user, getWebEnv(), bypassDisabled)) ||
+    (user?.platformRole === "admin" &&
+      !!sessionId &&
+      (await resolveAdminAccess(sessionId, adminAccessPrincipal(user))));
 }
 
 async function enforceSuperAdminSessionAge(event: HandleEvent): Promise<Response | null> {
