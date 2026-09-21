@@ -36,6 +36,7 @@ vi.mock("$lib/services/submission-tracker", () => ({
 vi.mock("$app/navigation", () => ({ goto: mocks.goto }));
 
 import LiveSubmissionsFeed from "$lib/components/features/coursework/LiveSubmissionsFeed.svelte";
+import LiveSubmissionsSearchHarness from "./fixtures/live-submissions-search-harness.svelte";
 
 const rows = [
   {
@@ -189,6 +190,34 @@ describe("LiveSubmissionsFeed", () => {
     expect(target.textContent).not.toContain("Bob");
     await unmount(component);
     expect(mocks.callbacks.size).toBe(0);
+    target.remove();
+  });
+
+  it("only queries once for a student number typed one keystroke at a time", async () => {
+    vi.useFakeTimers();
+    const target = document.createElement("div");
+    document.body.append(target);
+    const component = mount(LiveSubmissionsSearchHarness, {
+      target,
+      props: { rows, refreshUrl: "/api/submissions?context=assignment&id=a1" },
+    });
+    await vi.waitFor(() => expect(mocks.read).toHaveBeenCalledTimes(1));
+    mocks.read.mockClear();
+
+    for (const partial of ["2", "20", "203", "203.0.113.10"]) {
+      component.type(partial);
+      await tick();
+      await vi.advanceTimersByTimeAsync(100);
+    }
+    expect(mocks.read).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(250);
+    expect(mocks.read).toHaveBeenCalledTimes(1);
+    expect(
+      new URL(mocks.read.mock.lastCall?.[0], "http://localhost").searchParams.get("search"),
+    ).toBe("203.0.113.10");
+
+    await unmount(component);
     target.remove();
   });
 });

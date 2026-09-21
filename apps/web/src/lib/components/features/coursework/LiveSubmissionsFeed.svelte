@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { createSubmissionHistory } from "$lib/services/submission-history.svelte";
   import { goto } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
@@ -8,12 +9,14 @@
   import VerdictBadge from "$lib/components/primitives/ui/VerdictBadge.svelte";
   import { isSubmissionPending, languageLabel, type Language } from "@nojv/core";
 
+  const SEARCH_DEBOUNCE_MS = 250;
+
   interface SubmissionRow {
     id: string;
     createdAt: string;
     ipAddress: string | null;
     language: Language;
-    score: number;
+    score: number | null;
     status: string;
     problem: { id: string; title: string };
     user: { id: string; name: string; username: string | null } | null;
@@ -37,6 +40,13 @@
   let verdictFilter = $state("");
   let languageFilter = $state("");
   let problemFilter = $state("");
+  let debouncedSearch = $state(untrack(() => search));
+
+  $effect(() => {
+    const next = search;
+    const timer = setTimeout(() => (debouncedSearch = next), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  });
 
   const history = createSubmissionHistory<SubmissionRow>(
     () => {
@@ -44,7 +54,7 @@
       if (verdictFilter) query.set("status", verdictFilter);
       if (languageFilter) query.set("language", languageFilter);
       if (problemFilter) query.set("filterProblemId", problemFilter);
-      if (search) query.set("search", search);
+      if (debouncedSearch) query.set("search", debouncedSearch);
       return query.toString();
     },
     () => rows,
