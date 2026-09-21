@@ -4,7 +4,12 @@ import { reconcileJudgeExecutions } from "./judge-recovery";
 import { findOneForRejudge, listForRejudge } from "./queries";
 import { randomUUID } from "node:crypto";
 
-import type { RejudgeInput, RejudgeProgress, SubmissionJudgeJob } from "@nojv/core";
+import type {
+  RejudgeInput,
+  RejudgeProgress,
+  RejudgeTrackingProgress,
+  SubmissionJudgeJob,
+} from "@nojv/core";
 import { submissionJudgeJobSchema, submissionOperationStatusSchema } from "@nojv/core";
 import { durableWorkRepo, prismaAdapterClient as db, type TransactionClient } from "@nojv/db";
 import { z } from "zod";
@@ -54,6 +59,20 @@ const rejudgeDispatchPayloadSchema = z
     workflowId: z.string().startsWith(REJUDGE_WORKFLOW_PREFIX),
   })
   .strict();
+
+const terminalProgressSchema = z.object({
+  status: z.enum(["completed", "failed", "cancelled"]),
+  completed: z.number().int().nonnegative(),
+  total: z.number().int().nonnegative(),
+});
+const terminalTrackingProgressSchema = terminalProgressSchema.extend({
+  targets: z
+    .array(
+      z.object({ submissionId: z.string(), judgeGeneration: z.number().int().nonnegative() }),
+    )
+    .nullable()
+    .optional(),
+});
 
 export function assertRejudgeWorkflowId(workflowId: string): void {
   if (
@@ -107,6 +126,8 @@ export async function queryRejudgeProgress(
   workflowId: string,
 ): Promise<RejudgeProgress> {
   const work = await requireRejudge(actor, workflowId);
+  const cached = terminalProgressSchema.safeParse(work.result);
+  if (cached.success) return cached.data;
   const payload = rejudgeDispatchPayloadSchema.parse(work.payload);
   if (payload.prepared) {
     const runs = await db.judgeExecution.findMany({
@@ -114,12 +135,12 @@ export async function queryRejudgeProgress(
       select: { state: true },
     });
     const completed = runs.filter((run) => run.state === "completed").length;
-    const cancelled = runs.some((run) => run.state === "cancelled");
-    return {
+    const terminal = runs.every((run) => ["completed", "cancelled"].includes(run.state));
+    const progress: RejudgeProgress = {
       status:
         completed === runs.length
           ? "completed"
-          : cancelled
+          : terminal
             ? "cancelled"
             : runs.every((run) => run.state === "queued")
               ? "queued"
@@ -127,6 +148,9 @@ export async function queryRejudgeProgress(
       completed,
       total: runs.length,
     };
+    if (terminal)
+      await durableWorkRepo.recordRejudgeProgress(workflowId, toJsonValue(progress));
+    return progress;
   }
   if (work.attempt === 0 && (work.status === "pending" || work.status === "cancelled")) {
     return {
@@ -136,12 +160,106 @@ export async function queryRejudgeProgress(
     };
   }
   const progress = await queryWorkflowProgress(workflowId);
-  if (progress) return progress;
+  if (progress) {
+    if (terminalProgressSchema.safeParse(progress).success)
+      await durableWorkRepo.recordRejudgeProgress(workflowId, toJsonValue(progress));
+    return { status: progress.status, completed: progress.completed, total: progress.total };
+  }
   if (work.status === "pending" || work.status === "leased") {
     return { status: "queued", completed: 0, total: 0 };
   }
   if (work.status === "dead") return { status: "failed", completed: 0, total: 0 };
   throw new NotFoundError("Rejudge workflow is no longer available.");
+}
+
+export async function listActiveRejudges(
+  actor: RejudgeActor,
+  input: {
+    problemId: string;
+    scope: { contestId?: string; assessmentId?: string; examId?: string };
+  },
+) {
+  const rows = await durableWorkRepo.listRejudgeCandidates({
+    problemId: input.problemId,
+    ...(actor.platformRole === "admin" ? {} : { requesterId: actor.userId }),
+  });
+  const items = [];
+  for (const row of rows) {
+    const parsed = rejudgeDispatchPayloadSchema.parse(row.payload);
+    if (parsed.input.mode !== "batch") continue;
+    if (
+      parsed.input.contestId !== input.scope.contestId ||
+      parsed.input.assessmentId !== input.scope.assessmentId ||
+      parsed.input.examId !== input.scope.examId
+    )
+      continue;
+    try {
+      const progress = await queryRejudgeProgress(actor, parsed.workflowId);
+      if (progress.status === "queued" || progress.status === "running")
+        items.push({ workflowId: parsed.workflowId, ...progress });
+    } catch (error) {
+      if (!(error instanceof NotFoundError)) throw error;
+    }
+  }
+  return { items };
+}
+
+export async function queuedRejudges(input: {
+  submissionIds?: string[];
+  userId?: string;
+  context?: { type: "assignment" | "exam"; id: string };
+}) {
+  const rows = await durableWorkRepo.listQueuedRejudges(input);
+  const queued = new Map<string, { pending: boolean; updatedAt: Date }>();
+  const progressByWorkflow = new Map<string, Promise<RejudgeTrackingProgress | null>>();
+  const targetsByWorkflow = new Map<string, Map<string, number>>();
+  for (const row of rows) {
+    const parsed = rejudgeDispatchPayloadSchema.parse(row.payload);
+    if (queued.has(row.submissionId)) continue;
+    let readProgress = progressByWorkflow.get(parsed.workflowId);
+    if (!readProgress) {
+      readProgress = (async () => {
+        if (row.status === "pending" && row.attempt === 0)
+          return { status: "queued", completed: 0, total: 0 } as const;
+        if (row.status === "cancelled" || row.status === "dead")
+          return {
+            status: row.status === "dead" ? "failed" : "cancelled",
+            completed: 0,
+            total: 0,
+          } as const;
+        const terminal = terminalTrackingProgressSchema.safeParse(row.result);
+        if (terminal.success) {
+          const { targets, ...counts } = terminal.data;
+          return { ...counts, ...(targets === undefined ? {} : { targets }) };
+        }
+        const current = await queryWorkflowProgress(parsed.workflowId);
+        if (current && terminalProgressSchema.safeParse(current).success)
+          await durableWorkRepo.recordRejudgeProgress(parsed.workflowId, toJsonValue(current));
+        return current;
+      })();
+      progressByWorkflow.set(parsed.workflowId, readProgress);
+    }
+    const progress = await readProgress;
+    let pending =
+      progress?.status === "queued" ||
+      progress?.status === "running" ||
+      (!progress && (row.status === "pending" || row.status === "leased"));
+    if (parsed.input.mode === "batch" && pending && progress?.targets) {
+      let targets = targetsByWorkflow.get(parsed.workflowId);
+      if (!targets) {
+        targets = new Map(
+          progress.targets.map((target) => [target.submissionId, target.judgeGeneration]),
+        );
+        targetsByWorkflow.set(parsed.workflowId, targets);
+      }
+      pending = targets.get(row.submissionId) === row.submissionGeneration;
+    }
+    queued.set(row.submissionId, {
+      pending,
+      updatedAt: new Date(Math.max(row.updatedAt.getTime(), row.submissionUpdatedAt.getTime())),
+    });
+  }
+  return queued;
 }
 
 export async function cancelRejudge(

@@ -15,8 +15,10 @@ export {
   getVerdictDetail,
   listForRejudge,
   listProblemSubmissions,
+  listWorkspaceSubmissions,
   listRecentContextSubmissions,
   listUserSubmissions,
+  listContextSubmissionsPaged,
 } from "./queries";
 export type { SubmissionSource } from "@nojv/storage";
 export {
@@ -67,6 +69,7 @@ export {
   executeRejudgeDispatch,
   executeSubmissionJudgeDispatch,
   queryRejudgeProgress,
+  listActiveRejudges,
   recoverSystemErrorSubmissions,
   REJUDGE_DISPATCH_WORK_KIND,
   SUBMISSION_JUDGE_DISPATCH_WORK_KIND,
@@ -77,3 +80,8 @@ export * from "./judge-recovery";
 export * from "./judge-snapshot";
 
 export * from "./judge-admission";
+export {
+  getSubmissionOperation,
+  listSubmissionOperations,
+  listPendingSubmissionOperations,
+} from "./operations";

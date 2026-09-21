@@ -1,3 +1,4 @@
+import { isSubmissionPending } from "./types";
 import { z } from "zod";
 
 export const judgeExecutionStateSchema = z.enum([
@@ -31,3 +32,15 @@ export const judgeExecutionViewSchema = z.object({
   nextRetryAt: z.iso.datetime().nullable(),
 });
 export type JudgeExecutionView = z.infer<typeof judgeExecutionViewSchema>;
+
+export function isSubmissionOperationActive(operation: {
+  status: string;
+  execution?: JudgeExecutionView | null | undefined;
+}): boolean {
+  return (
+    isSubmissionPending(operation.status) ||
+    Boolean(
+      operation.execution && !["completed", "cancelled"].includes(operation.execution.state),
+    )
+  );
+}

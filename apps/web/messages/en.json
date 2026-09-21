@@ -1,4 +1,8 @@
 {
+  "submissions_newRecordsAvailable": "New submissions — view latest",
+  "submissions_loadingMore": "Loading older submissions…",
+  "submissions_newRecords": "{count} new submissions — view latest",
+  "submissions_loadFailed": "Failed to load submission history. Please try again.",
   "lateSubmission_workspaceDueCountdown": "On-time deadline in",
   "lateSubmission_workspaceLateCountdown": "Late · final submissions close in",
   "lateSubmission_workspaceClosed": "Submissions closed",

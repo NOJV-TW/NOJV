@@ -149,7 +149,8 @@
 
   const AUTO_REFRESH_MS = 30_000;
   const SSE_DEBOUNCE_MS = 1500;
-  onMount(() => {
+  $effect(() => {
+    const currentContestId = contestId;
     async function refresh() {
       refreshing = true;
       try {
@@ -178,7 +179,7 @@
       }, SSE_DEBOUNCE_MS);
     }
 
-    const source = new EventSource(`/contests/${contestId}/scoreboard/stream`);
+    const source = new EventSource(`/contests/${currentContestId}/scoreboard/stream`);
     source.onmessage = () => debouncedRefresh();
 
     const interval = setInterval(() => {

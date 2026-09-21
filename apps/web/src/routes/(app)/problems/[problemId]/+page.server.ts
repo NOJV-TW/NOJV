@@ -15,6 +15,7 @@ import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
+  event.depends("submission:data");
   const { locals, params } = event;
   const { problemId } = params;
   const actor = locals.sessionUser;

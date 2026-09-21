@@ -64,33 +64,29 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 - Compare `kubectl -n nojv-sandbox describe resourcequota` with actual Pods,
   including terminating Pods, and inspect node conditions and kubelet/container
   runtime errors. Quota reservations and measured CPU usage are different.
-- The worker emits `Submission waiting for sandbox capacity` when a workflow
-  returns to a durable retry timer. Persistent waits need operator attention even
-  though they no longer become immediate SE. The platform worker exports the SQL-backed `nojv-submissions-stuck` gauge.
-  Check its successful-snapshot timestamp as well: missing or stale monitoring
-  does not prove that the queue is healthy. Verify the deployed release and
-  datasource contain these metrics before relying on the alert.
+- Inspect `JudgeExecution.state`, `reasonCode`, and `lastProgressAt` for waiting or
+  recovering submissions. Check `nojv_submissions_stuck` and the recovery metrics'
+  successful-snapshot timestamp; stale monitoring does not establish queue health.
+  See [Observability Setup](observability-setup.md) for datasource and alert checks.
 
 ### Mitigation and verification
 
 1. Capture worker logs, Job Events, live quota, Pod state, and release identity.
-   Inventory affected submissions by their persisted error reason and time range.
-2. For an older worker that converts quota rejection to SE, reduce activity
-   concurrency to fit available capacity while preparing the forward fix. A
-   20-case wave requesting 2 CPU cannot run four ways under a 4-CPU quota.
-   Account separately for other sandbox modes and stuck reservations.
-3. For a current worker, restore the missing node/runtime capacity. Do not raise
-   quotas beyond the node budget or force-delete a terminating Pod as proof its
-   processes stopped. Confirm runtime cleanup separately.
-4. Verify the exact deployed worker revision, that waiting submissions resume
-   after capacity is released, that no new quota-related SE appears, and that
-   sandbox resources return to baseline. Watch for at least 15 minutes under
-   representative traffic; health endpoints alone do not validate judging.
-5. Once stable, rejudge only the inventoried records still matching the incident
-   through the existing audited rejudge workflow. Check final verdicts, rejudge
-   logs, and exam/contest score updates separately from deployment success.
+   Keep affected-submission inventories and raw incident evidence outside the repo.
+2. Restore missing node/runtime capacity. Fit activity concurrency and sandbox
+   requests within the available budget, accounting for every sandbox mode and
+   terminating resources. Do not treat quota increases or force-deleted Pods as
+   evidence that their processes stopped; confirm runtime cleanup separately.
+3. Verify the exact deployed worker revision and automatic recovery on the original
+   snapshot. Confirm waiting submissions resume and sandbox resources return to
+   baseline. Observe at least 15 minutes under representative traffic with no new
+   capacity-related SE; health endpoints alone do not validate judging.
+4. Verify final verdicts, execution progress, and exam/contest score updates.
+   Historical submissions without an original snapshot remain explicitly blocked;
+   never silently substitute the latest version. An explicit teacher rejudge uses
+   the latest version and creates a new audited generation.
 
-The retry and failure contract is defined in [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#execute).
+The recovery contract is defined in [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#durable-execution-and-recovery).
 
 ## Scenario B: Redis unavailable
 

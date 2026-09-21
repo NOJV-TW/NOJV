@@ -310,25 +310,14 @@ export async function finishJudgeExecution(executionId: string, workflowId: stri
   });
 }
 
-export async function getJudgeExecutionView(
-  submissionId: string,
-): Promise<JudgeExecutionView | null> {
-  const run = await db.judgeExecution.findFirst({
-    where: { submissionId },
-    orderBy: { generation: "desc" },
-  });
-  if (!run) {
-    const submission = await db.submission.findUnique({ where: { id: submissionId } });
-    if (submission?.status !== "system_error") return null;
-    return {
-      state: "blocked",
-      generation: submission.judgeGeneration,
-      problemGeneration: null,
-      reasonCode: "original_version_unavailable",
-      lastProgressAt: submission.updatedAt.toISOString(),
-      nextRetryAt: null,
-    };
-  }
+function executionView(run: {
+  state: string;
+  generation: number;
+  problemGeneration: number;
+  reasonCode: string | null;
+  lastProgressAt: Date;
+  nextAttemptAt: Date;
+}): JudgeExecutionView {
   return {
     state: judgeExecutionStateSchema.parse(run.state),
     generation: run.generation,
@@ -346,4 +335,50 @@ export async function getJudgeExecutionView(
       ? null
       : run.nextAttemptAt.toISOString(),
   };
+}
+
+export async function getJudgeExecutionViews(
+  submissions: { id: string; judgeGeneration: number; status: string; updatedAt: Date }[],
+): Promise<Map<string, JudgeExecutionView>> {
+  if (!submissions.length) return new Map();
+  const runs = await db.judgeExecution.findMany({
+    where: {
+      OR: submissions.map((row) => ({ submissionId: row.id, generation: row.judgeGeneration })),
+    },
+    select: {
+      submissionId: true,
+      state: true,
+      generation: true,
+      problemGeneration: true,
+      reasonCode: true,
+      lastProgressAt: true,
+      nextAttemptAt: true,
+    },
+  });
+  const byId = new Map(runs.map((run) => [run.submissionId, run]));
+  const views = new Map<string, JudgeExecutionView>();
+  for (const submission of submissions) {
+    const run = byId.get(submission.id);
+    if (run && run.generation >= submission.judgeGeneration) {
+      views.set(submission.id, executionView(run));
+    } else if (submission.status === "system_error") {
+      views.set(submission.id, {
+        state: "blocked",
+        generation: submission.judgeGeneration,
+        problemGeneration: null,
+        reasonCode: "original_version_unavailable",
+        lastProgressAt: submission.updatedAt.toISOString(),
+        nextRetryAt: null,
+      });
+    }
+  }
+  return views;
+}
+
+export async function getJudgeExecutionView(
+  submissionId: string,
+): Promise<JudgeExecutionView | null> {
+  const submission = await db.submission.findUnique({ where: { id: submissionId } });
+  if (!submission) return null;
+  return (await getJudgeExecutionViews([submission])).get(submissionId) ?? null;
 }

@@ -70,6 +70,7 @@
     {
       dataType: "json",
       resetForm: false,
+      applyAction: "never",
       invalidateAll: true,
       onSubmit: ({ jsonData }) => {
         jsonData(serializeDateTimeFields($form, ["startsAt", "endsAt", "frozenAt"]));

@@ -195,6 +195,112 @@ function createDurableWorkRepository(client: DurableWorkClient) {
       });
     },
 
+    listRejudgeCandidates(input: {
+      problemId: string;
+      requesterId?: string;
+    }): Promise<DurableWorkRow[]> {
+      return client.durableWork.findMany({
+        where: {
+          kind: "submission.rejudge.dispatch",
+          status: { in: ["pending", "leased", "succeeded"] },
+          OR: [
+            { result: { equals: Prisma.DbNull } },
+            { result: { equals: Prisma.JsonNull } },
+            {
+              NOT: {
+                OR: ["completed", "failed", "cancelled"].map((status) => ({
+                  result: { path: ["status"], equals: status },
+                })),
+              },
+            },
+          ],
+          AND: [
+            { payload: { path: ["input", "mode"], equals: "batch" } },
+            { payload: { path: ["input", "problemId"], equals: input.problemId } },
+            ...(input.requesterId
+              ? [
+                  {
+                    payload: {
+                      path: ["input", "triggeredByUserId"],
+                      equals: input.requesterId,
+                    },
+                  },
+                ]
+              : []),
+          ],
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      });
+    },
+
+    async recordRejudgeProgress(
+      workflowId: string,
+      progress: Prisma.InputJsonValue,
+    ): Promise<void> {
+      await client.durableWork.updateMany({
+        where: {
+          kind: "submission.rejudge.dispatch",
+          status: "succeeded",
+          payload: { path: ["workflowId"], equals: workflowId },
+        },
+        data: { result: progress },
+      });
+    },
+
+    listQueuedRejudges(input: {
+      submissionIds?: string[];
+      userId?: string;
+      context?: { type: "assignment" | "exam"; id: string };
+    }): Promise<
+      (DurableWorkRow & {
+        submissionId: string;
+        submissionGeneration: number;
+        submissionUpdatedAt: Date;
+      })[]
+    > {
+      if (input.submissionIds?.length === 0) return Promise.resolve([]);
+      return client.$queryRaw(Prisma.sql`
+        SELECT work.*, submission.id AS "submissionId",
+          submission."judgeGeneration" AS "submissionGeneration",
+          submission."updatedAt" AS "submissionUpdatedAt"
+        FROM "DurableWork" AS work
+        JOIN "Submission" AS submission ON (
+          (work.payload #>> '{input,mode}' = 'single'
+            AND submission.id = work.payload #>> '{input,submissionId}'
+            AND work."createdAt" >= submission."updatedAt")
+          OR (work.payload #>> '{input,mode}' = 'batch'
+            AND submission."problemId" = work.payload #>> '{input,problemId}'
+            AND submission."sampleOnly" = false AND submission."isReferenceSolution" = false
+            AND (work.payload #>> '{input,contestId}' IS NULL
+              OR submission."contestId" = work.payload #>> '{input,contestId}')
+            AND (work.payload #>> '{input,assessmentId}' IS NULL
+              OR submission."assessmentId" = work.payload #>> '{input,assessmentId}')
+            AND (work.payload #>> '{input,examId}' IS NULL
+              OR submission."examId" = work.payload #>> '{input,examId}')
+            AND (work.payload #> '{input,userIds}' IS NULL
+              OR work.payload #> '{input,userIds}' = '[]'::jsonb
+              OR work.payload #> '{input,userIds}' @> jsonb_build_array(submission."userId"))
+            AND (work.payload #>> '{input,since}' IS NULL
+              OR submission."createdAt" >= (work.payload #>> '{input,since}')::timestamptz)
+            AND (work.payload #>> '{input,until}' IS NULL
+              OR submission."createdAt" <= (work.payload #>> '{input,until}')::timestamptz))
+        )
+        WHERE work.kind = 'submission.rejudge.dispatch'
+          AND COALESCE(work.payload ->> 'prepared', 'false') <> 'true'
+          AND work.status IN ('pending', 'leased', 'succeeded', 'cancelled', 'dead')
+          AND submission.status NOT IN ('pending_upload', 'queued', 'compiling', 'running')
+          AND (work.payload #>> '{input,mode}' = 'single'
+            OR (work.status IN ('pending', 'leased', 'succeeded')
+              AND COALESCE(work.result ->> 'status', '') NOT IN ('completed', 'failed', 'cancelled'))
+            OR submission."updatedAt" <= work."updatedAt")
+          ${input.submissionIds ? Prisma.sql`AND submission.id IN (${Prisma.join(input.submissionIds)})` : Prisma.empty}
+          ${input.userId ? Prisma.sql`AND submission."userId" = ${input.userId}` : Prisma.empty}
+          ${input.context?.type === "assignment" ? Prisma.sql`AND submission."assessmentId" = ${input.context.id}` : Prisma.empty}
+          ${input.context?.type === "exam" ? Prisma.sql`AND submission."examId" = ${input.context.id}` : Prisma.empty}
+        ORDER BY work."createdAt" DESC, work.id DESC
+      `);
+    },
+
     async cancelUnattempted(input: DurableWorkCancelInput): Promise<boolean> {
       assertKey(input);
       assertValidDate("now", input.now);

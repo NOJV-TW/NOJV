@@ -103,9 +103,8 @@ metrics increase while the platform observer remains fresh; then interrupt the
 observer or its database access and confirm the observer-stale alert fires.
 The shipped rule treats absent data as a fault and detects a snapshot older than
 three minutes. Restore service and confirm both queue drainage and alert
-resolution. Provisioning the JSON rules and receiving a test notification through
-the existing on-call route are separate checks; this code change does not perform
-external provisioning or send notifications.
+resolution. Verify both provisioning of the JSON rules and receipt of a test
+notification through the existing on-call route.
 
 ## First-time setup
 

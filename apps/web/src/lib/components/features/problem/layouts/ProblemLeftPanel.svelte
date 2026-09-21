@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { LatePenaltyRule } from "@nojv/core";
+  import type { LatePenaltyRule, SubmissionContext } from "@nojv/core";
   import { ArrowLeft } from "@lucide/svelte";
   import { untrack } from "svelte";
   import type {
@@ -32,12 +32,16 @@
     | { type: "contest"; endsAt: string };
 
   export interface ProblemLeftPanelProps {
+    context?: SubmissionContext | undefined;
     backLink?: { href: string; type: ProblemBackLinkType } | undefined;
     canRejudge?: boolean;
     canViewEditorials?: boolean;
     postsEnabled?: boolean;
     dailyAttempts?: { used: number; max: number | null; resetMinuteOfDay: number } | undefined;
     submissions?: ProblemSubmissionEntry[];
+    newSubmissionCount?: number;
+    historyRevision?: number;
+    onShowLatest?: (() => void) | undefined;
     leftTab?: "description" | "editorials" | "discussions" | "submissions";
     viewingId?: string | null;
     problem: ProblemDetail;
@@ -47,12 +51,16 @@
   }
 
   let {
+    context,
     backLink,
     canRejudge = false,
     canViewEditorials = false,
     postsEnabled = false,
     dailyAttempts,
     submissions = $bindable([]),
+    newSubmissionCount = 0,
+    historyRevision = 0,
+    onShowLatest,
     leftTab: initialLeftTab = "description",
     viewingId: initialViewingId = null,
     problem,
@@ -166,17 +174,24 @@
   role="tabpanel"
   aria-labelledby={`${uid}-tab-${leftTab}`}
   tabindex="0"
+  data-history-scroll
   class="flex-1 overflow-y-auto focus-visible:outline-none"
 >
   {#if leftTab === "description"}
     <ProblemDescriptionPanel {problem} {testcaseSets} {allowedLanguages} {dailyAttempts} />
   {:else if leftTab === "submissions"}
-    <SubmissionHistoryPanel
-      bind:submissions
-      bind:viewingId
-      {canRejudge}
-      total={problem.totalScore}
-    />
+    {#key historyRevision}
+      <SubmissionHistoryPanel
+        {newSubmissionCount}
+        {onShowLatest}
+        {context}
+        problemId={problem.id}
+        bind:submissions
+        bind:viewingId
+        {canRejudge}
+        total={problem.totalScore}
+      />
+    {/key}
   {:else if postsEnabled && leftTab === "editorials"}
     <PostPanel problemId={problem.id} type="editorial" canView={hasAc} />
   {:else if postsEnabled && leftTab === "discussions"}

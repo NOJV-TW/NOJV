@@ -139,6 +139,10 @@ export const submissionDispatchResponseSchema = z.object({
 
 export const submissionOperationSchema = z.object({
   execution: judgeExecutionViewSchema.nullable().optional(),
+  problemId: z.string().min(1),
+  problemTitle: z.string(),
+  judgeGeneration: z.number().int().nonnegative(),
+  updatedAt: z.iso.datetime(),
   result: submissionResultSchema.nullable(),
   status: submissionOperationStatusSchema,
   submissionId: z.string().min(1),
@@ -165,3 +169,5 @@ export type SubmissionDraft = z.infer<typeof submissionDraftSchema>;
 export type SubmissionJudgeDraft = z.infer<typeof submissionJudgeDraftSchema>;
 export type SubmissionResult = z.infer<typeof submissionResultSchema>;
 export type VerdictSummary = z.infer<typeof verdictSummarySchema>;
+
+export type SubmissionOperation = z.infer<typeof submissionOperationSchema>;

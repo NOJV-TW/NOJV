@@ -102,6 +102,17 @@ export const submissionOperationStatuses = [
   "system_error",
 ] as const;
 
+export const pendingSubmissionStatuses = [
+  "pending_upload",
+  "queued",
+  "compiling",
+  "running",
+] as const;
+
+export function isSubmissionPending(status: string): boolean {
+  return (pendingSubmissionStatuses as readonly string[]).includes(status);
+}
+
 export const localeCodes = ["en", "zh-TW"] as const;
 
 export const DEFAULT_LOCALE = "zh-TW";

@@ -5,7 +5,7 @@ import type {
   PlagiarismCheckInput,
   RegistryGarbageCollectInput,
   RejudgeInput,
-  RejudgeProgress,
+  RejudgeTrackingProgress,
   SubmissionJudgeJob,
 } from "@nojv/core";
 
@@ -44,7 +44,7 @@ export interface DomainOrchestrationAdapter {
   ensureContestLifecycle(input: ContestLifecycleInput): Promise<void>;
   ensureExamAutoClose(input: ExamAutoCloseInput): Promise<void>;
   probeTemporal(): Promise<void>;
-  queryRejudgeProgress(workflowId: string): Promise<RejudgeProgress | null>;
+  queryRejudgeProgress(workflowId: string): Promise<RejudgeTrackingProgress | null>;
   replaceAssignmentDueSoon(input: AssignmentDueSoonInput): Promise<void>;
   replaceContestLifecycle(input: ContestLifecycleInput): Promise<void>;
   replaceExamAutoClose(input: ExamAutoCloseInput): Promise<void>;

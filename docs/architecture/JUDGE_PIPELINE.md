@@ -102,6 +102,12 @@ finalizing score updates; another rejudge waits for that finalization to finish.
 Historical SE records without snapshots are explicitly blocked because the
 original version cannot be reconstructed safely from current problem contents.
 
+Submission operation reads include the current execution state. The shared browser
+tracker uses that state as well as the verdict, so recovering SE and retained
+results do not end polling. Pending discovery includes nonterminal executions;
+prepared batch progress comes from its captured children, and a cancelled child
+cannot terminate tracking while other children remain active.
+
 ## Standard Mode pipeline
 
 ```
@@ -198,7 +204,11 @@ The raw score is `Σ rawScore`, where each subtask's `rawScore` is `weight` (all
 
 ### Judge-type parity note
 
-A Phase 5 parity audit confirmed that `standard`, `checker`, and `interactive` already implement run/check separation: the answers and any judge code live **only** in the worker process or a no-student container/ConfigMap (the second validator container / interactor side, or the K8s `validate` Job's ConfigMap), never alongside untrusted student code. They therefore do **not** share Advanced Mode's new run/grade attack surface, and were intentionally left unchanged by the run/grade redesign. Across **all** judge types — standard, checker, interactive, and advanced — rejudge reads **live** problem state by design; no judge type pins a config snapshot.
+Standard, checker, and interactive execution keep answers and judge code in the
+worker or isolated validator/interactor containers, outside the student sandbox.
+Advanced Mode enforces the same separation through its run/grade topology. All
+judge types use the immutable version and recovery contract described in
+[Durable execution and recovery](#durable-execution-and-recovery).
 
 ## Advanced Mode pipeline
 

@@ -4,6 +4,7 @@ import { mount, unmount } from "svelte";
 import { describe, expect, it, vi } from "vitest";
 
 import EmptyComponent from "./fixtures/empty-component.svelte";
+import ProblemDescriptionPanel from "$lib/components/features/problem/left-panel/ProblemDescriptionPanel.svelte";
 
 vi.mock("@lucide/svelte", () => ({ MemoryStick: EmptyComponent, Timer: EmptyComponent }));
 vi.mock("$lib/components/features/problem/left-panel/SpecialLabels.svelte", () => ({
@@ -18,8 +19,6 @@ vi.mock("$lib/components/primitives/ui/CopyButton.svelte", () => ({
 
 describe("ProblemDescriptionPanel", () => {
   it("labels subtasks by number and renders the description as markdown with math", async () => {
-    const { default: ProblemDescriptionPanel } =
-      await import("$lib/components/features/problem/left-panel/ProblemDescriptionPanel.svelte");
     const target = document.createElement("div");
     document.body.append(target);
     const component = mount(ProblemDescriptionPanel, {

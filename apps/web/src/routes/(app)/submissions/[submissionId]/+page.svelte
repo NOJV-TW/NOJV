@@ -1,9 +1,8 @@
 <script lang="ts">
   import SubmissionId from "$lib/components/features/submission/SubmissionId.svelte";
   import { ArrowLeft, Check, Copy, Download } from "@lucide/svelte";
-  import { invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
-  import { watchSubmissionVerdict } from "$lib/stores/sse";
+  import { watchSubmissionStates } from "$lib/services/submission-tracker";
   import { formatDateTime } from "$lib/utils/datetime";
   import { formatJudgeOutput } from "$lib/utils/judge-output";
   import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
@@ -18,7 +17,7 @@
 
   const submission = $derived(data.submission);
   const result = $derived(submission.result);
-  const verdict = $derived(result?.verdict ?? submission.status);
+  const verdict = $derived(submission.status);
   const verdictLabel = $derived(formatVerdictLabel(verdict));
   const verdictClass = $derived(verdictTone(verdict));
   const execution = $derived(data.execution);
@@ -33,19 +32,7 @@
       verdict === "running",
   );
 
-  $effect(() => {
-    if (!isPending) return;
-    const unwatch = watchSubmissionVerdict(submission.id, () => {
-      void invalidateAll();
-    });
-    const interval = setInterval(() => {
-      if (document.visibilityState === "visible") void invalidateAll();
-    }, 5000);
-    return () => {
-      unwatch();
-      clearInterval(interval);
-    };
-  });
+  $effect(() => watchSubmissionStates([submission.id], () => undefined));
 
   const submittedAt = $derived(formatDateTime(submission.createdAt));
   const runtimeMs = $derived(submission.runtimeMs ?? result?.runtimeMs ?? null);

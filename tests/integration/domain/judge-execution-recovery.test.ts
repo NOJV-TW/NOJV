@@ -4,7 +4,12 @@ import {
   problemDomain,
   configureDomainOrchestration,
 } from "@nojv/application";
-import { prismaAdapterClient as db, runTransaction, submissionRejudgeLogRepo } from "@nojv/db";
+import {
+  prismaAdapterClient as db,
+  runTransaction,
+  submissionRejudgeLogRepo,
+  durableWorkRepo,
+} from "@nojv/db";
 import {
   createTestProblem,
   createTestSubmission,
@@ -508,5 +513,127 @@ describe("immutable judge execution recovery", () => {
       where: { kind: "storage.object.cleanup", status: "pending" },
     });
     expect(cleanup.map((work) => work.payload)).toContainEqual({ pointer: execution.snapshot });
+  });
+});
+
+describe("journal-backed submission tracking", () => {
+  function actor(user: Awaited<ReturnType<typeof createTestUser>>) {
+    return {
+      userId: user.id,
+      username: user.username ?? "user",
+      email: user.email,
+      displayName: user.name,
+      platformRole: "student" as const,
+    };
+  }
+  it.each(["accepted", "system_error"] as const)(
+    "discovers active %s after navigation without a legacy parent workflow",
+    async (status) => {
+      const f = await fixture();
+      await db.submission.update({
+        where: { id: f.submission.id },
+        data: { status, score: 100 },
+      });
+      await db.judgeExecution.update({
+        where: { id: f.execution.id },
+        data: { state: "recovering" },
+      });
+      const progress = vi.fn();
+      configureDomainOrchestration({ queryRejudgeProgress: progress } as never);
+      const own = actor(f.user);
+      const pending = await judge.listPendingSubmissionOperations(own);
+      expect(pending.items).toEqual([
+        expect.objectContaining({
+          submissionId: f.submission.id,
+          status,
+          execution: expect.objectContaining({
+            state: "recovering",
+            generation: f.execution.generation,
+          }),
+        }),
+      ]);
+      const batch = await judge.listSubmissionOperations(own, [f.submission.id]);
+      expect(batch.items[0]).toMatchObject({ status, execution: { state: "recovering" } });
+      if (status === "accepted") expect(batch.items[0]?.result?.score).toBe(100);
+      expect(progress).not.toHaveBeenCalled();
+      await db.judgeExecution.update({
+        where: { id: f.execution.id },
+        data: { state: "completed" },
+      });
+      await db.submission.update({
+        where: { id: f.submission.id },
+        data: { activeJudgeRunId: null },
+      });
+      expect((await judge.listPendingSubmissionOperations(own)).items).toEqual([]);
+    },
+  );
+
+  it("tracks only prepared batch children and keeps the batch active when one child is superseded", async () => {
+    const f = await fixture();
+    await db.submission.update({
+      where: { id: f.submission.id },
+      data: { status: "accepted", score: 100 },
+    });
+    const other = await createTestSubmission({
+      userId: f.user.id,
+      problemId: f.problem.id,
+      status: "accepted",
+      score: 80,
+    });
+    const { workflowId } = await judge.dispatchRejudge({
+      mode: "batch",
+      problemId: f.problem.id,
+      triggeredByUserId: f.teacher.id,
+    });
+    await db.durableWork.update({
+      where: { kind_dedupeKey: { kind: "submission.rejudge.dispatch", dedupeKey: workflowId } },
+      data: { status: "succeeded", attempt: 1, completedAt: new Date() },
+    });
+    const nonTarget = await createTestSubmission({
+      userId: f.user.id,
+      problemId: f.problem.id,
+    });
+    const progress = vi.fn();
+    configureDomainOrchestration({ queryRejudgeProgress: progress } as never);
+    const pending = await judge.listPendingSubmissionOperations(actor(f.user));
+    expect(pending.items.map((row) => row.submissionId).sort()).toEqual(
+      [f.submission.id, other.id].sort(),
+    );
+    expect(pending.items.every((row) => row.status === "accepted" && row.result !== null)).toBe(
+      true,
+    );
+    expect(
+      (await judge.getSubmissionOperation(actor(f.user), nonTarget.id)).execution,
+    ).toBeNull();
+    await judge.dispatchRejudge({
+      mode: "single",
+      submissionId: f.submission.id,
+      triggeredByUserId: f.teacher.id,
+    });
+    const requester = { userId: f.teacher.id, platformRole: "teacher" as const };
+    expect(await judge.queryRejudgeProgress(requester, workflowId)).toMatchObject({
+      status: "running",
+      total: 2,
+      completed: 0,
+    });
+    expect(
+      (await judge.listActiveRejudges(requester, { problemId: f.problem.id, scope: {} })).items,
+    ).toHaveLength(1);
+    await db.judgeExecution.updateMany({
+      where: { operationId: workflowId, state: { not: "cancelled" } },
+      data: { state: "completed" },
+    });
+    expect(await judge.queryRejudgeProgress(requester, workflowId)).toMatchObject({
+      status: "cancelled",
+      total: 2,
+      completed: 1,
+    });
+    expect(progress).not.toHaveBeenCalled();
+    expect(
+      await durableWorkRepo.listRejudgeCandidates({
+        problemId: f.problem.id,
+        requesterId: f.teacher.id,
+      }),
+    ).toEqual([]);
   });
 });

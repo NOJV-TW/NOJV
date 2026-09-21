@@ -1,12 +1,23 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  buildSubmissionBody,
-  executeSubmission,
-  SubmissionRequestError,
-} from "$lib/services/submission-service";
+import { buildSubmissionBody, executeSubmission } from "$lib/services/submission-service";
 
-afterEach(() => vi.unstubAllGlobals());
+import { stopSubmissionTracking } from "$lib/services/submission-tracker";
+vi.mock("$app/navigation", () => ({
+  invalidateAll: vi.fn().mockResolvedValue(undefined),
+  invalidate: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock("$lib/stores/toast", () => ({ toasts: { success: vi.fn(), info: vi.fn() } }));
+beforeEach(() => {
+  vi.useFakeTimers();
+  Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+});
+afterEach(() => {
+  stopSubmissionTracking();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 describe("buildSubmissionBody", () => {
   it("serializes virtual submissions with participationId", () => {
@@ -58,116 +69,115 @@ describe("buildSubmissionBody", () => {
 });
 
 describe("executeSubmission", () => {
-  it("retries transient poll network failures after dispatch", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            submissionId: "submission_1",
-            pollUrl: "/poll",
-            status: "queued",
-          }),
-          { status: 202 },
-        ),
-      )
-      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            submissionId: "submission_1",
-            status: "accepted",
-            result: {
-              accepted: true,
-              feedback: "Accepted",
-              runtimeMs: 1,
-              score: 100,
-              verdict: "accepted",
-            },
-          }),
-          { status: 200 },
-        ),
-      );
+  const request = {
+    context: { type: "practice" as const },
+    language: "python" as const,
+    problemId: "a",
+    sourceCode: "print(1)",
+  };
+  const result = {
+    accepted: true,
+    verdict: "accepted",
+    score: 100,
+    runtimeMs: 0,
+    feedback: "Accepted",
+  };
+  const operation = {
+    submissionId: "s",
+    problemId: "a",
+    problemTitle: "A",
+    judgeGeneration: 1,
+    updatedAt: "2026-09-21T00:00:00Z",
+    status: "accepted",
+    result,
+  };
+  const response = (value: unknown) => new Response(JSON.stringify(value));
+  it("retries transport errors through the shared observer and retrieves terminal detail", async () => {
+    let reads = 0;
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === "POST")
+        return response({ submissionId: "s", pollUrl: "/detail", status: "queued" });
+      if (url === "/detail") return response(operation);
+      if (reads++ === 0) throw new TypeError("network");
+      return response({ items: [operation], unavailableIds: [] });
+    });
     vi.stubGlobal("fetch", fetchMock);
-
-    await expect(
-      executeSubmission({
-        context: { type: "practice" },
-        language: "python",
-        problemId: "problem_1",
-        sourceCode: "print(1)",
-      }),
-    ).resolves.toMatchObject({ accepted: true, verdict: "accepted" });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const pending = executeSubmission(request);
+    await vi.advanceTimersByTimeAsync(10001);
+    await expect(pending).resolves.toEqual(result);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
-
-  it("reports polling API failures as SubmissionRequestError", async () => {
+  it("does not accept a previous result while the operation is running", async () => {
+    let status = "running";
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValueOnce(
-          new Response(
-            JSON.stringify({
-              submissionId: "submission_1",
-              pollUrl: "/poll",
-              status: "queued",
-            }),
-            { status: 202 },
-          ),
-        )
-        .mockResolvedValueOnce(
-          new Response(JSON.stringify({ message: "Judge operation unavailable" }), {
-            status: 503,
-          }),
-        ),
-    );
-
-    await expect(
-      executeSubmission({
-        context: { type: "practice" },
-        language: "python",
-        problemId: "problem_1",
-        sourceCode: "print(1)",
-      }),
-    ).rejects.toEqual(
-      expect.objectContaining<Partial<SubmissionRequestError>>({
-        name: "SubmissionRequestError",
-        message: "Judge operation unavailable",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === "POST")
+          return response({ submissionId: "s", pollUrl: "/detail", status: "queued" });
+        if (url === "/detail") return response(operation);
+        return response({ items: [{ ...operation, status }], unavailableIds: [] });
       }),
     );
+    const done = vi.fn();
+    const pending = executeSubmission(request).then(done);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(done).not.toHaveBeenCalled();
+    status = "accepted";
+    await vi.advanceTimersByTimeAsync(5000);
+    await pending;
+    expect(done).toHaveBeenCalledWith(result);
   });
-
-  it("uses a stable SubmissionRequestError for non-JSON polling failures", async () => {
+  it.each(["system_error", "accepted"])(
+    "waits for recovering %s until its execution completes",
+    async (status) => {
+      let state = "recovering";
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string, init?: RequestInit) => {
+          if (init?.method === "POST")
+            return response({ submissionId: "s", pollUrl: "/detail", status: "queued" });
+          if (url === "/detail") return response(operation);
+          return response({
+            items: [
+              {
+                ...operation,
+                status,
+                execution: {
+                  state,
+                  generation: 1,
+                  problemGeneration: 1,
+                  reasonCode: null,
+                  lastProgressAt: operation.updatedAt,
+                  nextRetryAt: null,
+                },
+              },
+            ],
+            unavailableIds: [],
+          });
+        }),
+      );
+      const done = vi.fn();
+      const pending = executeSubmission(request).then(done);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(done).not.toHaveBeenCalled();
+      state = "completed";
+      await vi.advanceTimersByTimeAsync(5000);
+      await pending;
+      expect(done).toHaveBeenCalledWith(result);
+    },
+  );
+  it("does not turn a transient read failure into a judge verdict", async () => {
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValueOnce(
-          new Response(
-            JSON.stringify({
-              submissionId: "submission_1",
-              pollUrl: "/poll",
-              status: "queued",
-            }),
-            { status: 202 },
-          ),
-        )
-        .mockResolvedValueOnce(new Response("Service unavailable", { status: 503 })),
+      vi.fn(async (_url: string, init?: RequestInit) =>
+        init?.method === "POST"
+          ? response({ submissionId: "s", pollUrl: "/detail", status: "queued" })
+          : new Response("unavailable", { status: 503 }),
+      ),
     );
-
-    await expect(
-      executeSubmission({
-        context: { type: "practice" },
-        language: "python",
-        problemId: "problem_1",
-        sourceCode: "print(1)",
-      }),
-    ).rejects.toEqual(
-      expect.objectContaining<Partial<SubmissionRequestError>>({
-        name: "SubmissionRequestError",
-        message: "Polling failed.",
-      }),
-    );
+    const pending = executeSubmission(request, { timeoutMs: 1000 });
+    const assertion = expect(pending).rejects.toMatchObject({ code: "SUBMISSION_TIMEOUT" });
+    await vi.advanceTimersByTimeAsync(1000);
+    await assertion;
   });
 });

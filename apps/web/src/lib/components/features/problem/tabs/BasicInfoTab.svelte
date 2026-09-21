@@ -52,6 +52,7 @@
     {
       dataType: "json",
       resetForm: false,
+      applyAction: "never",
       onSubmit: () => {
         attempted = true;
       },

@@ -339,7 +339,7 @@ export async function completeSubmission(
 
 export async function fetchSubmissionIdsForRejudge(
   input: BatchRejudgeInput,
-): Promise<{ submissionId: string; draft: SubmissionJudgeDraft }[]> {
+): Promise<{ submissionId: string; judgeGeneration: number; draft: SubmissionJudgeDraft }[]> {
   return submissionDomain.listForRejudge({
     problemId: input.problemId,
     ...(input.contestId ? { contestId: input.contestId } : {}),
