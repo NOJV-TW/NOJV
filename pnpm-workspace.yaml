@@ -73,33 +73,33 @@ patchedDependencies:
 catalog:
   # Cross-package shared core deps — must stay version-consistent.
   "@opentelemetry/api": ^1.9.1
-  "@playwright/test": ^1.62.1
+  "@playwright/test": ^1.63.0
   "@prisma/adapter-pg": ^7.10.0
 
   # Prisma client + CLI + adapter must match.
   "@prisma/client": ^7.10.0
-  "@temporalio/activity": ^1.23.0
+  "@temporalio/activity": ^1.24.0
 
   # Temporal client + worker SDKs must match versions.
-  "@temporalio/client": ^1.23.0
-  "@temporalio/worker": ^1.23.0
-  "@temporalio/testing": ^1.23.0
-  "@temporalio/workflow": ^1.23.0
-  "@types/node": ^24.13.3
+  "@temporalio/client": ^1.24.0
+  "@temporalio/worker": ^1.24.0
+  "@temporalio/testing": ^1.24.0
+  "@temporalio/workflow": ^1.24.0
+  "@types/node": ^24.13.5
   bcryptjs: ^3.0.3
   esbuild: ^0.28.2
   ioredis: ^5.11.1
-  jose: ^6.2.10
-  jszip: ^3.10.1
+  jose: ^6.2.12
+  jszip: ^3.10.2
   pino: ^10.3.1
   prisma: ^7.10.0
-  rate-limiter-flexible: ^11.2.0
+  rate-limiter-flexible: ^11.2.1
 
   # Build / test tooling shared across packages.
   tsdown: ^0.23.0
   typescript: ^6.0.3
   vitest: 4.1.11
-  zod: ^4.5.4
+  zod: ^4.6.5
 
 minimumReleaseAgeExclude:
   - dompurify@3.4.12 || 3.4.13
