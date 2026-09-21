@@ -15,6 +15,7 @@
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectColumnFilter.svelte";
+  import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
   import { Button } from "$lib/components/primitives/ui/button";
   import { formatDateTime } from "$lib/utils/datetime";
   import { formatVerdictLabel } from "$lib/utils/verdict-style";
@@ -28,6 +29,7 @@
   let languageFilter = $state("");
   let problemFilter = $state("");
   let contextFilter = $state("");
+  let userFilter = $state("");
   const history = createSubmissionHistory<SubmissionRow>(
     () => {
       const query = new URLSearchParams();
@@ -35,6 +37,7 @@
       if (languageFilter) query.set("language", languageFilter);
       if (problemFilter) query.set("filterProblemId", problemFilter);
       if (contextFilter) query.set("contextType", contextFilter);
+      if (data.adminAccessActive && userFilter) query.set("userSearch", userFilter);
       return query.toString();
     },
     () => data.submissions,
@@ -121,7 +124,7 @@
         >{m.submissions_loadFailed()} {m.common_retry()}</button
       >
     {/if}
-    {#if allRows.length === 0 && !verdictFilter && !languageFilter && !problemFilter && !contextFilter}
+    {#if allRows.length === 0 && !verdictFilter && !languageFilter && !problemFilter && !contextFilter && !userFilter}
       <EmptyState
         variant="onboarding"
         icon={Code2}
@@ -145,7 +148,13 @@
               </th>
               {#if data.adminAccessActive}
                 <th class="px-4 py-3 text-left align-middle font-medium">
-                  {m.admin_submissions_colUser()}
+                  <TableTextColumnFilter
+                    label={m.admin_submissions_colUser()}
+                    filterLabel={m.submissions_filterUser()}
+                    inputId="submissions-user-search"
+                    applyLabel={m.common_applyFilter()}
+                    bind:value={userFilter}
+                  />
                 </th>
               {/if}
               <th class="px-2 py-3 text-left align-middle font-medium">

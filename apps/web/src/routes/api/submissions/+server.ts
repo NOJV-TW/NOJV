@@ -28,6 +28,8 @@ const historyQuerySchema = z.object({
   language: languageSchema.optional(),
   contextType: z.enum(["practice", "assignment", "contest", "exam", "virtual"]).optional(),
   search: z.string().trim().max(200).optional(),
+  userSearch: z.string().trim().max(200).optional(),
+  ipSearch: z.string().trim().max(200).optional(),
 });
 
 export const GET: RequestHandler = apiHandler(async (event) => {
@@ -63,6 +65,8 @@ export const GET: RequestHandler = apiHandler(async (event) => {
       ...(query.language ? { language: query.language } : {}),
       ...(query.contextType ? { contextType: query.contextType } : {}),
       ...(query.search ? { search: query.search } : {}),
+      ...(query.userSearch ? { userSearch: query.userSearch } : {}),
+      ...(query.ipSearch ? { ipSearch: query.ipSearch } : {}),
     },
   };
   const contextType = event.url.searchParams.get("context");

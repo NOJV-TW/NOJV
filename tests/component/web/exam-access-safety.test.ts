@@ -102,7 +102,7 @@ it("keeps failed login in the dialog and clears the password when dismissed", as
     false,
   );
   const close = [...dialog.querySelectorAll<HTMLButtonElement>("button")].find(
-    (button) => button.textContent?.trim() === m.auth_backToRegularSignIn(),
+    (button) => button.textContent?.trim() === m.auth_backToOAuthSignIn(),
   )!;
   close.click();
   await vi.waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull());

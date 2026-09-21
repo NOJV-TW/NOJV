@@ -122,7 +122,7 @@
     <Dialog.Close
       disabled={loading}
       class="text-center text-body-sm text-muted-foreground underline-offset-4 hover:underline"
-      >{m.auth_backToRegularSignIn()}</Dialog.Close
+      >{m.auth_backToOAuthSignIn()}</Dialog.Close
     >
   </Dialog.Content>
 </Dialog.Root>

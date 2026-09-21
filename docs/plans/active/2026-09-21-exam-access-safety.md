@@ -60,3 +60,11 @@ No production credential issuance, email, migration or deployment is part of loc
 - Full `pnpm ci:verify` passed for this revision: 3,616 unit tests and 95 component tests, with build/typecheck/lint/format/guards passing. The actual dialog also passed username autofocus, password clearing on reopen and successful temporary sign-in to the expected exam with a marked session.
 - Use “帳號（學號）” consistently in the password dialog and student-access panel, including help, search and error copy. Assignment grade headers now include each problem's maximum points, matching the exam grade table.
 - The screenshot gallery covers all nine exam leaf tabs, all seven assignment leaf tabs, the password dialog and representative mobile/full-page views. Fixtures are synthetic; the pre-existing plagiarism source-preview loading placeholder is visible and source loading is not verified.
+
+## Final review revision: submission search controls
+
+- Put independent `TableTextColumnFilter` controls in the User and IP column headers of assignment/exam submission history. Remove the toolbar search entry and retain its result count. Clicking a header opens its draft input; Apply or Enter commits the corresponding filter, and clearing one preserves the other.
+- Add the same popover to the administrator's User column on `/submissions`. Match account/name and IP with distinct server-side filters, retain authorization boundaries and bind both filters to the history snapshot scope. Keep filter headers available for clearing when no rows match.
+- Label the password dialog's return action “改用 OAuth 登入” / “Switch to OAuth sign-in”.
+- Verify search application, no-match recovery, desktop/mobile popovers and the revised dialog using the existing synthetic local fixtures. Refresh affected screenshots and mark PR #477 ready for review after validation, as requested.
+- Full `pnpm ci:verify` passed: 3,616 unit tests, 96 component tests, build, typecheck, lint, formatting and repository guards. The focused submission HTTP suite passed all 13 tests in the separately marked `nojv_test` database, including older matches beyond the first 50 rows, combined account/IP matching, independent clearing, assignment/exam permissions and changed-filter snapshot rejection. Independent source review found no actionable issue.

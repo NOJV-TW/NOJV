@@ -2,6 +2,7 @@
 
 import { mount, tick, unmount } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { m } from "$lib/paraglide/messages.js";
 
 vi.mock("$lib/components/primitives/ui/select/select-content.svelte", async () => ({
   default: (await import("./fixtures/select-content.svelte")).default,
@@ -9,6 +10,7 @@ vi.mock("$lib/components/primitives/ui/select/select-content.svelte", async () =
 
 vi.mock("@lucide/svelte", async () => ({
   ListFilter: (await import("./fixtures/empty-component.svelte")).default,
+  Loader2: (await import("./fixtures/empty-component.svelte")).default,
 }));
 
 const mocks = vi.hoisted(() => ({
@@ -74,8 +76,14 @@ function page(items: typeof rows) {
 beforeEach(() => {
   mocks.watch.mockClear();
   mocks.read.mockImplementation(async (url: string) => {
-    const search = new URL(url, "http://localhost").searchParams.get("search");
-    return page(search ? rows.filter((row) => row.ipAddress.includes(search)) : rows);
+    const query = new URL(url, "http://localhost").searchParams;
+    const userSearch = query.get("userSearch") ?? "";
+    const ipSearch = query.get("ipSearch") ?? "";
+    return page(
+      rows.filter(
+        (row) => row.user.username.includes(userSearch) && row.ipAddress.includes(ipSearch),
+      ),
+    );
   });
 });
 
@@ -119,7 +127,6 @@ describe("LiveSubmissionsFeed", () => {
       target,
       props: {
         rows,
-        search: "203.0.113.10",
         refreshUrl: "/api/submissions?context=assignment&id=a1",
       },
     });
@@ -146,6 +153,46 @@ describe("LiveSubmissionsFeed", () => {
     await setValue('[aria-label="Verdict"]', "accepted");
     await setValue('[aria-label="Language"]', "cpp");
     await setValue('[aria-label="Problem"]', "p1");
+
+    const setTextFilter = async (
+      label: string,
+      inputId: string,
+      value: string,
+      enter = false,
+    ) => {
+      const trigger = target.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!;
+      expect(trigger.closest("th")).not.toBeNull();
+      expect(document.querySelector(`#${inputId}`)).toBeNull();
+      trigger.click();
+      const input = await vi.waitFor(() => {
+        const field = document.querySelector<HTMLInputElement>(`#${inputId}`);
+        expect(field).not.toBeNull();
+        return field!;
+      });
+      const before = mocks.read.mock.lastCall?.[0];
+      input.value = value;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      await tick();
+      expect(mocks.read.mock.lastCall?.[0]).toBe(before);
+      if (enter)
+        input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      else
+        [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')]
+          .find((button) => button.textContent?.trim() === m.common_applyFilter())!
+          .click();
+      await vi.waitFor(() => expect(document.querySelector(`#${inputId}`)).toBeNull());
+    };
+    await setTextFilter(
+      m.submissions_filterUser(),
+      "live-submissions-user-search",
+      " student01 ",
+    );
+    await setTextFilter(
+      m.submissions_filterIp(),
+      "live-submissions-ip-search",
+      "203.0.113.10",
+      true,
+    );
     await vi.waitFor(() => expect(target.textContent).not.toContain("student02"));
     expect(target.textContent).toContain("student01");
     const query = new URL(mocks.read.mock.lastCall?.[0], "http://localhost").searchParams;
@@ -155,8 +202,19 @@ describe("LiveSubmissionsFeed", () => {
       status: "accepted",
       language: "cpp",
       filterProblemId: "p1",
-      search: "203.0.113.10",
+      userSearch: "student01",
+      ipSearch: "203.0.113.10",
     });
+    expect(query.has("search")).toBe(false);
+
+    await setTextFilter(m.submissions_filterIp(), "live-submissions-ip-search", "192.0.2.1");
+    await vi.waitFor(() => expect(target.textContent).toContain(m.submissions_noMatches()));
+    await setTextFilter(m.submissions_filterIp(), "live-submissions-ip-search", "");
+    await vi.waitFor(() => expect(target.textContent).toContain("Alice"));
+    expect(target.textContent).not.toContain("Bob");
+    const cleared = new URL(mocks.read.mock.lastCall?.[0], "http://localhost").searchParams;
+    expect(cleared.get("userSearch")).toBe("student01");
+    expect(cleared.has("ipSearch")).toBe(false);
 
     await unmount(component);
     target.remove();

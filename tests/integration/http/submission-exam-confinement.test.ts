@@ -233,6 +233,220 @@ describe("submission detail at the real SSR loader boundary", () => {
 });
 
 describe("unified tracking at the real hooks/API boundary", () => {
+  it("filters admin history by user across pages without matching problem titles or IPs", async () => {
+    const admin = await createTestUser({ platformRole: "admin" });
+    const student = await createTestUser({
+      username: "userfilter_alice",
+      name: "Alice Example",
+    });
+    const unrelated = await createTestUser({ username: "userfilter_bob", name: "Bob Example" });
+    const problem = await createTestProblem({ title: "userfilter_alice practice" });
+    const read = async (query: URLSearchParams) => {
+      const url = new URL(`http://localhost:5173/api/submissions?${query}`);
+      return submissionHistoryRoute.GET({
+        url,
+        request: new Request(url),
+        locals: { sessionUser: admin, adminAccessActive: true, requestId: "user-filter-test" },
+      } as never);
+    };
+    const createdAt = new Date(Date.now() - 60_000);
+    await testPrisma.submission.createMany({
+      data: [
+        ...Array.from({ length: 51 }, () => ({
+          userId: student.id,
+          problemId: problem.id,
+          language: "python" as const,
+          status: "pending_upload" as const,
+          createdAt,
+        })),
+        ...Array.from({ length: 61 }, () => ({
+          userId: unrelated.id,
+          problemId: problem.id,
+          language: "python" as const,
+          status: "pending_upload" as const,
+          ipAddress: "userfilter_alice",
+        })),
+      ],
+    });
+    const firstResponse = await read(
+      new URLSearchParams({ userSearch: "  USERFILTER_ALICE  " }),
+    );
+    expect(firstResponse.status).toBe(200);
+    const first = (await firstResponse.json()) as {
+      items: { id: string; user: { username: string } }[];
+      snapshot: string;
+      totalCount: number;
+      totalPages: number;
+    };
+    expect(first).toMatchObject({ totalCount: 51, totalPages: 2 });
+    expect(first.items).toHaveLength(50);
+    expect(first.items.every((row) => row.user.username === student.username)).toBe(true);
+    const secondResponse = await read(
+      new URLSearchParams({
+        userSearch: "USERFILTER_ALICE",
+        page: "2",
+        snapshot: first.snapshot,
+      }),
+    );
+    expect(secondResponse.status).toBe(200);
+    const second = (await secondResponse.json()) as {
+      items: { id: string }[];
+      totalCount: number;
+    };
+    expect(second.items).toHaveLength(1);
+    expect(second.totalCount).toBe(51);
+    expect(new Set([...first.items, ...second.items].map((row) => row.id)).size).toBe(51);
+
+    const byName = await read(new URLSearchParams({ userSearch: "aLiCe ExAmPlE" }));
+    expect(byName.status).toBe(200);
+    await expect(byName.json()).resolves.toMatchObject({ totalCount: 51 });
+    const changedScope = await read(
+      new URLSearchParams({ userSearch: "userfilter_bob", snapshot: first.snapshot }),
+    );
+    expect(changedScope.status).toBe(400);
+    await expect(changedScope.json()).resolves.toMatchObject({
+      message: "Invalid submission snapshot.",
+    });
+
+    const missing = await read(new URLSearchParams({ userSearch: "not-a-user" }));
+    await expect(missing.json()).resolves.toMatchObject({ items: [], totalCount: 0 });
+    const cleared = await read(new URLSearchParams({ userSearch: "   " }));
+    await expect(cleared.json()).resolves.toMatchObject({ totalCount: 112 });
+  }, 30_000);
+
+  it("keeps user-search requests within non-admin history scope and rejects oversized input", async () => {
+    const student = await createTestUser({
+      username: "userfilter_owner",
+      name: "Owner Example",
+    });
+    const other = await createTestUser({ username: "userfilter_other", name: "Other Example" });
+    const inactiveAdmin = await createTestUser({ platformRole: "admin" });
+    const problem = await createTestProblem();
+    const own = await createTestSubmission({ userId: student.id, problemId: problem.id });
+    await createTestSubmission({ userId: other.id, problemId: problem.id });
+    for (const user of [student, inactiveAdmin]) {
+      const response = await callRoute({
+        path: "/api/submissions?userSearch=userfilter_other",
+        module: submissionHistoryRoute,
+        user,
+      });
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({ items: [], totalCount: 0 });
+    }
+    const ownResponse = await callRoute({
+      path: "/api/submissions?userSearch=OWNER",
+      module: submissionHistoryRoute,
+      user: student,
+    });
+    expect(ownResponse.status).toBe(200);
+    await expect(ownResponse.json()).resolves.toMatchObject({
+      items: [{ id: own.id, user: null }],
+      totalCount: 1,
+    });
+    for (const field of ["userSearch", "ipSearch"]) {
+      const oversized = await callRoute({
+        path: `/api/submissions?${field}=${"x".repeat(201)}`,
+        module: submissionHistoryRoute,
+        user: student,
+      });
+      expect(oversized.status).toBe(400);
+    }
+  }, 30_000);
+
+  it.each(["assignment", "exam"] as const)(
+    "combines user and IP filters within %s history and clears each independently",
+    async (kind) => {
+      const teacher = await createTestUser({ platformRole: "teacher" });
+      const student = await createTestUser({
+        username: "ipfilter_alice",
+        name: "Alice 203.0.113",
+      });
+      const other = await createTestUser({ username: "ipfilter_bob", name: "Bob Example" });
+      const course = await createTestCourse({ ownerId: teacher.id });
+      await testPrisma.courseMembership.create({
+        data: { courseId: course.id, userId: teacher.id, role: "teacher", status: "active" },
+      });
+      const context =
+        kind === "exam"
+          ? await createTestExam({ courseId: course.id })
+          : await testPrisma.assessment.create({
+              data: {
+                courseId: course.id,
+                createdByUserId: teacher.id,
+                title: "Scoped user and IP filters",
+                summary: "Fixture",
+                status: "published",
+                opensAt: new Date(Date.now() - 3_600_000),
+                closesAt: new Date(Date.now() + 3_600_000),
+              },
+            });
+      const problem = await createTestProblem({ title: "203.0.113 practice" });
+      const contextFields =
+        kind === "exam"
+          ? { examId: context.id }
+          : { assessmentId: context.id, courseId: course.id };
+      const rows = [
+        { id: `${kind}_alice_v6`, userId: student.id, ipAddress: "2001:DB8::1" },
+        { id: `${kind}_alice_v4`, userId: student.id, ipAddress: "198.51.100.2" },
+        { id: `${kind}_alice_unknown`, userId: student.id, ipAddress: null },
+        { id: `${kind}_bob_v6`, userId: other.id, ipAddress: "2001:DB8::2" },
+      ];
+      await testPrisma.submission.createMany({
+        data: rows.map((row) => ({
+          ...row,
+          ...contextFields,
+          problemId: problem.id,
+          language: "python" as const,
+          status: "pending_upload" as const,
+        })),
+      });
+      await testPrisma.submission.create({
+        data: {
+          userId: student.id,
+          problemId: problem.id,
+          language: "python",
+          status: "pending_upload",
+          ipAddress: "2001:DB8::1",
+        },
+      });
+      const read = async (filters: Record<string, string>, user = teacher) =>
+        callRoute({
+          path: `/api/submissions?${new URLSearchParams({ context: kind, id: context.id, ...filters })}`,
+          module: submissionHistoryRoute,
+          user,
+        });
+      const combinedResponse = await read({ userSearch: "ALICE", ipSearch: " db8 " });
+      expect(combinedResponse.status).toBe(200);
+      const combined = (await combinedResponse.json()) as {
+        items: { id: string }[];
+        totalCount: number;
+        snapshot: string;
+      };
+      expect(combined).toMatchObject({ items: [{ id: `${kind}_alice_v6` }], totalCount: 1 });
+
+      const userOnly = await read({ userSearch: "ALICE", ipSearch: "  " });
+      expect(userOnly.status).toBe(200);
+      await expect(userOnly.json()).resolves.toMatchObject({ totalCount: 3 });
+      const ipOnly = await read({ userSearch: "  ", ipSearch: "db8" });
+      expect(ipOnly.status).toBe(200);
+      await expect(ipOnly.json()).resolves.toMatchObject({ totalCount: 2 });
+      const falseMatch = await read({ ipSearch: "203.0.113" });
+      await expect(falseMatch.json()).resolves.toMatchObject({ items: [], totalCount: 0 });
+      const changedIp = await read({
+        userSearch: "ALICE",
+        ipSearch: "198.51",
+        snapshot: combined.snapshot,
+      });
+      expect(changedIp.status).toBe(400);
+      await expect(changedIp.json()).resolves.toMatchObject({
+        message: "Invalid submission snapshot.",
+      });
+      const denied = await read({ userSearch: "ALICE", ipSearch: "db8" }, student);
+      expect(denied.status).toBe(403);
+    },
+    30_000,
+  );
+
   it("returns current-exam states while making private, cross-user and absent IDs indistinguishable", async () => {
     const { current, hidden, student, currentExam, problem } = await createActiveExamFixture();
     const other = await createTestUser();

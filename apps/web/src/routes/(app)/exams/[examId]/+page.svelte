@@ -112,7 +112,6 @@
   );
 
   let totalSubmissionCount = $state(0);
-  let submissionSearch = $state("");
   let visibleSubmissionCount = $state(0);
 
   const studentPrepRules = $derived([
@@ -597,7 +596,6 @@
       {#snippet actions()}
         {#if activeSubTabKey === "submissions"}
           <SubmissionHistoryActions
-            bind:search={submissionSearch}
             visibleCount={visibleSubmissionCount}
             totalCount={totalSubmissionCount}
           />
@@ -614,7 +612,6 @@
         <LiveSubmissionsFeed
           rows={data.recentSubmissions}
           refreshUrl={`/api/submissions?context=exam&id=${detail.id}`}
-          bind:search={submissionSearch}
           bind:visibleCount={visibleSubmissionCount}
           bind:totalCount={totalSubmissionCount}
         />

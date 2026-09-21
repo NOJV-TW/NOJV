@@ -43,7 +43,6 @@
     ),
   );
   let totalSubmissionCount = $state(0);
-  let submissionSearch = $state("");
   let visibleSubmissionCount = $state(0);
 
   const clarificationProblems = $derived(
@@ -437,7 +436,6 @@
       {#snippet actions()}
         {#if activeSubTab === "submissions"}
           <SubmissionHistoryActions
-            bind:search={submissionSearch}
             visibleCount={visibleSubmissionCount}
             totalCount={totalSubmissionCount}
           />
@@ -459,7 +457,6 @@
         <LiveSubmissionsFeed
           rows={data.recentSubmissions ?? []}
           refreshUrl={`/api/submissions?context=assignment&id=${detail.id}`}
-          bind:search={submissionSearch}
           bind:visibleCount={visibleSubmissionCount}
           bind:totalCount={totalSubmissionCount}
         />

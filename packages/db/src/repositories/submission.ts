@@ -150,6 +150,8 @@ export interface SubmissionHistoryFilters {
   language?: SupportedLanguage;
   contextType?: "practice" | "assignment" | "contest" | "exam" | "virtual";
   search?: string;
+  userSearch?: string;
+  ipSearch?: string;
 }
 
 export interface SubmissionHistoryBoundary {
@@ -258,6 +260,19 @@ export const submissionRepo = {
                   { ipAddress: { contains: filters.search, mode: "insensitive" } },
                 ],
               }
+            : {}),
+          ...(filters.userSearch
+            ? {
+                user: {
+                  OR: [
+                    { username: { contains: filters.userSearch, mode: "insensitive" } },
+                    { name: { contains: filters.userSearch, mode: "insensitive" } },
+                  ],
+                },
+              }
+            : {}),
+          ...(filters.ipSearch
+            ? { ipAddress: { contains: filters.ipSearch, mode: "insensitive" } }
             : {}),
         },
       ],

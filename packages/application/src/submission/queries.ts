@@ -406,6 +406,8 @@ async function historyPage(
         language: filters.language ?? null,
         contextType: filters.contextType ?? null,
         search: filters.search ?? null,
+        userSearch: filters.userSearch ?? null,
+        ipSearch: filters.ipSearch ?? null,
       }),
     )
     .digest("hex");
