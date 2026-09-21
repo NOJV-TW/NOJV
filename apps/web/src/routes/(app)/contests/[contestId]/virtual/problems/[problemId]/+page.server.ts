@@ -10,6 +10,7 @@ const { getProblemPageData, getProblemTestcaseSets } = problemDomain;
 const { getVirtualContestForUser, listVirtualContestProblemSubmissions } = virtualContestDomain;
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
+  event.depends("submission:data");
   const actor = requireAuth(event);
   const { contestId, problemId } = event.params;
   const now = new Date();

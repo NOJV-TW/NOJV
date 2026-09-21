@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { createSubmissionHistory } from "$lib/services/submission-history.svelte";
   import { goto } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { formatDateTime } from "$lib/utils/datetime";
   import { formatVerdictLabel } from "$lib/utils/verdict-style";
   import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectColumnFilter.svelte";
   import VerdictBadge from "$lib/components/primitives/ui/VerdictBadge.svelte";
-  import { languageLabel, type Language } from "@nojv/core";
+  import { isSubmissionPending, languageLabel, type Language } from "@nojv/core";
 
   interface SubmissionRow {
     id: string;
@@ -24,6 +24,7 @@
     refreshUrl: string;
     search?: string;
     visibleCount?: number;
+    totalCount?: number;
   }
 
   let {
@@ -31,13 +32,24 @@
     refreshUrl,
     search = $bindable(""),
     visibleCount = $bindable(rows.length),
+    totalCount = $bindable(rows.length),
   }: Props = $props();
-  let refreshedRows = $state<SubmissionRow[] | null>(null);
   let verdictFilter = $state("");
   let languageFilter = $state("");
   let problemFilter = $state("");
 
-  const liveRows = $derived(refreshedRows ?? rows);
+  const history = createSubmissionHistory<SubmissionRow>(
+    () => {
+      const query = new URL(refreshUrl, "http://localhost").searchParams;
+      if (verdictFilter) query.set("status", verdictFilter);
+      if (languageFilter) query.set("language", languageFilter);
+      if (problemFilter) query.set("filterProblemId", problemFilter);
+      if (search) query.set("search", search);
+      return query.toString();
+    },
+    () => rows,
+  );
+  const liveRows = $derived(history.items);
 
   const verdicts = $derived([...new Set(liveRows.map((row) => row.status))].sort());
   const languages = $derived([...new Set(liveRows.map((row) => row.language))].sort());
@@ -45,20 +57,10 @@
     const unique = new Map(liveRows.map((row) => [row.problem.id, row.problem]));
     return [...unique.values()].sort((a, b) => a.title.localeCompare(b.title));
   });
-  const filteredRows = $derived.by(() => {
-    const query = search.trim().toLocaleLowerCase();
-    return liveRows.filter((row) => {
-      if (verdictFilter && row.status !== verdictFilter) return false;
-      if (languageFilter && row.language !== languageFilter) return false;
-      if (problemFilter && row.problem.id !== problemFilter) return false;
-      if (!query) return true;
-      return [row.user?.username, row.ipAddress].some((value) =>
-        value?.toLocaleLowerCase().includes(query),
-      );
-    });
-  });
+  const filteredRows = $derived(liveRows);
   $effect(() => {
     visibleCount = filteredRows.length;
+    totalCount = history.totalCount;
   });
 
   function openSubmission(id: string) {
@@ -70,34 +72,21 @@
     event.preventDefault();
     openSubmission(id);
   }
-
-  onMount(() => {
-    let refreshing = false;
-    const refresh = async () => {
-      if (document.visibilityState !== "visible" || refreshing) return;
-      refreshing = true;
-      try {
-        const response = await fetch(refreshUrl, { headers: { accept: "application/json" } });
-        if (response.ok) {
-          refreshedRows = ((await response.json()) as { items: SubmissionRow[] }).items;
-        }
-      } catch {
-        return;
-      } finally {
-        refreshing = false;
-      }
-    };
-    const onVisibilityChange = () => void refresh();
-    const timer = window.setInterval(() => void refresh(), 5000);
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    return () => {
-      window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-    };
-  });
 </script>
 
-{#if liveRows.length === 0}
+{#if history.newCount > 0}
+  <button
+    type="button"
+    class="m-4 rounded-md border border-primary px-4 py-2 text-body-sm"
+    onclick={history.showLatest}>{m.submissions_newRecords({ count: history.newCount })}</button
+  >
+{/if}
+{#if history.failed}
+  <button type="button" class="m-4 text-destructive" onclick={history.retry}
+    >{m.submissions_loadFailed()} {m.common_retry()}</button
+  >
+{/if}
+{#if liveRows.length === 0 && !verdictFilter && !languageFilter && !problemFilter && !search}
   <div class="px-6 py-14 text-center text-body-sm text-muted-foreground">
     {m.liveSubmissions_empty()}
   </div>
@@ -194,7 +183,7 @@
               </td>
               <td class="px-3 py-3"><VerdictBadge verdict={row.status} /></td>
               <td class="px-4 py-3 text-right font-mono font-semibold tabular-nums"
-                >{row.score}</td
+                >{isSubmissionPending(row.status) ? "—" : row.score}</td
               >
             </tr>
           {/each}
@@ -202,4 +191,28 @@
       </tbody>
     </table>
   </div>
+{/if}
+
+{#if history.totalPages > 1}
+  <nav class="flex items-center justify-center gap-2 p-4" aria-label={m.problems_pagination()}>
+    <button
+      type="button"
+      disabled={history.page === 1 || history.loading}
+      onclick={() => history.goToPage(history.page - 1)}>{m.submissions_previous()}</button
+    >
+    {#each Array.from({ length: Math.min(5, history.totalPages) }, (_, i) => Math.min(Math.max(1, history.page - 2), Math.max(1, history.totalPages - 4)) + i) as number}
+      <button
+        type="button"
+        class="rounded-md px-3 py-2"
+        aria-current={number === history.page ? "page" : undefined}
+        disabled={history.loading}
+        onclick={() => history.goToPage(number)}>{number}</button
+      >
+    {/each}
+    <button
+      type="button"
+      disabled={history.page === history.totalPages || history.loading}
+      onclick={() => history.goToPage(history.page + 1)}>{m.submissions_next()}</button
+    >
+  </nav>
 {/if}

@@ -286,17 +286,19 @@
 
 {#snippet basicContent()}
   {#if data.permissions.canEdit}
-    <BasicInfoTab
-      bind:this={basicTab}
-      formData={data.form}
-      problemId={data.problem.id}
-      showRuntimeLimits={data.problem.type !== "multi_file"}
-      privateVisibilityOnly={data.problem.visibility === "private"}
-      canManageVisibility={data.permissions.isOwner ||
-        (data.permissions.isAdmin && data.problem.visibility === "public")}
-      isOwner={data.permissions?.isOwner === true}
-      ondirtychange={(d) => (isDirty = d)}
-    />
+    {#key data.problem.id}
+      <BasicInfoTab
+        bind:this={basicTab}
+        formData={data.form}
+        problemId={data.problem.id}
+        showRuntimeLimits={data.problem.type !== "multi_file"}
+        privateVisibilityOnly={data.problem.visibility === "private"}
+        canManageVisibility={data.permissions.isOwner ||
+          (data.permissions.isAdmin && data.problem.visibility === "public")}
+        isOwner={data.permissions?.isOwner === true}
+        ondirtychange={(d) => (isDirty = d)}
+      />
+    {/key}
   {:else}
     <div class="space-y-4">
       <dl class="grid gap-3 sm:grid-cols-2">
@@ -664,14 +666,16 @@
         {/snippet}
         {#snippet reference()}
           {#if data.referenceSolution}
-            <ReferenceSolutionSection
-              problemId={data.problem.id}
-              problemType={data.problem.type === "multi_file" ? "multi_file" : "full_source"}
-              readOnly={!data.permissions.canEdit}
-              initial={data.referenceSolution}
-              starterByLanguage={data.problem.starterByLanguage}
-              workspaceFiles={data.workspaceFiles}
-            />
+            {#key data.problem.id}
+              <ReferenceSolutionSection
+                problemId={data.problem.id}
+                problemType={data.problem.type === "multi_file" ? "multi_file" : "full_source"}
+                readOnly={!data.permissions.canEdit}
+                initial={data.referenceSolution}
+                starterByLanguage={data.problem.starterByLanguage}
+                workspaceFiles={data.workspaceFiles}
+              />
+            {/key}
           {/if}
         {/snippet}
       </ProblemSections>

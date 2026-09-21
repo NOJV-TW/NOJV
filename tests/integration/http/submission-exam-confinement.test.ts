@@ -3,6 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 import type { ActorContext } from "@nojv/application";
 import { feedbackDomain } from "@nojv/application";
 
+import * as submissionStatusRoute from "../../../apps/web/src/routes/api/submissions/status/+server";
+import * as submissionPendingRoute from "../../../apps/web/src/routes/api/submissions/pending/+server";
+import * as submissionHistoryRoute from "../../../apps/web/src/routes/api/submissions/+server";
 import * as submissionPointRoute from "../../../apps/web/src/routes/api/submissions/[id]/+server";
 import * as submissionRejudgeRoute from "../../../apps/web/src/routes/api/submissions/[id]/rejudge/+server";
 import * as submissionSourceRoute from "../../../apps/web/src/routes/api/submissions/[id]/source/+server";
@@ -74,7 +77,7 @@ async function createActiveExamFixture() {
     data: { userId: student.id, examId: currentExam.id },
   });
   invalidateExamContextCaches(student.id);
-  return { current, hidden, student };
+  return { current, hidden, student, currentExam, course, problem };
 }
 
 async function callSubmissionPoint(user: { id: string }, submissionId: string, method = "GET") {
@@ -195,6 +198,7 @@ describe("submission detail at the real SSR loader boundary", () => {
 
     for (const staff of [teacher, ta]) {
       const page = (await load({
+        depends: vi.fn(),
         locals: { sessionUser: staff, adminAccessActive: false },
         params: { submissionId: submission.id },
       } as never)) as {
@@ -220,9 +224,208 @@ describe("submission detail at the real SSR loader boundary", () => {
 
     await expect(
       load({
+        depends: vi.fn(),
         locals: { sessionUser: outsider, adminAccessActive: false },
         params: { submissionId: submission.id },
       } as never),
     ).rejects.toMatchObject({ status: 404, body: { message: "Submission not found." } });
+  }, 30_000);
+});
+
+describe("unified tracking at the real hooks/API boundary", () => {
+  it("returns current-exam states while making private, cross-user and absent IDs indistinguishable", async () => {
+    const { current, hidden, student, currentExam, problem } = await createActiveExamFixture();
+    const other = await createTestUser();
+    const privateRow = await createTestSubmission({
+      userId: other.id,
+      problemId: problem.id,
+      examId: currentExam.id,
+      status: "running",
+    });
+    await testPrisma.submission.update({
+      where: { id: current.id },
+      data: { status: "running" },
+    });
+    const requested = [current.id, hidden.id, privateRow.id, "missing"];
+    const response = await callRoute({
+      path: `/api/submissions/status?ids=${requested.join(",")}`,
+      module: submissionStatusRoute,
+      user: student,
+    });
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      items: {
+        submissionId: string;
+        result: unknown;
+        status: string;
+        judgeGeneration: number;
+        updatedAt: string;
+      }[];
+      unavailableIds: string[];
+    };
+    expect(payload.items).toHaveLength(1);
+    expect(payload.items[0]).toMatchObject({
+      submissionId: current.id,
+      status: "running",
+      result: null,
+    });
+    expect(payload.items[0]?.judgeGeneration).toBeTypeOf("number");
+    expect(Number.isFinite(Date.parse(payload.items[0]!.updatedAt))).toBe(true);
+    expect(payload.unavailableIds).toEqual([hidden.id, privateRow.id, "missing"]);
+    const pending = await callRoute({
+      path: "/api/submissions/pending",
+      module: submissionPendingRoute,
+      user: student,
+    });
+    expect(pending.status).toBe(200);
+    await expect(pending.json()).resolves.toMatchObject({
+      items: [{ submissionId: current.id, status: "running", result: null }],
+      nextCursor: null,
+    });
+  }, 30_000);
+
+  it("serves every snapshot page beyond 150 tied rows and reports arrivals without shifting older pages", async () => {
+    const student = await createTestUser();
+    const problem = await createTestProblem();
+    const createdAt = new Date(Date.now() - 60_000);
+    const expected = Array.from(
+      { length: 151 },
+      (_, index) => `http_history_${String(index).padStart(3, "0")}`,
+    ).reverse();
+    for (const id of expected)
+      await createTestSubmission({ id, userId: student.id, problemId: problem.id, createdAt });
+    type Page = {
+      items: { id: string }[];
+      snapshot: string;
+      page: number;
+      totalCount: number;
+      totalPages: number;
+      newCount: number;
+    };
+    const read = async (page: number, snapshot?: string): Promise<Page> => {
+      const query = new URLSearchParams({ page: String(page) });
+      if (snapshot) query.set("snapshot", snapshot);
+      const response = await callRoute({
+        path: `/api/submissions?${query}`,
+        module: submissionHistoryRoute,
+        user: student,
+      });
+      expect(response.status).toBe(200);
+      return (await response.json()) as Page;
+    };
+    const first = await read(1);
+    expect(first).toMatchObject({ totalCount: 151, totalPages: 4, newCount: 0 });
+    await createTestSubmission({
+      id: "zz_http_arrival",
+      userId: student.id,
+      problemId: problem.id,
+      createdAt,
+    });
+    const ids = first.items.map((row) => row.id);
+    for (let page = 2; page <= 4; page += 1) {
+      const result = await read(page, first.snapshot);
+      expect(result).toMatchObject({
+        page,
+        snapshot: first.snapshot,
+        totalCount: 151,
+        newCount: 1,
+      });
+      ids.push(...result.items.map((row) => row.id));
+    }
+    expect(ids).toEqual(expected);
+    const latest = await read(1);
+    expect(latest).toMatchObject({ totalCount: 152, newCount: 0 });
+    expect(latest.items[0]?.id).toBe("zz_http_arrival");
+  }, 30_000);
+
+  it("rejects a workspace cursor from another problem through the route", async () => {
+    const { current, student, currentExam } = await createActiveExamFixture();
+    const problemB = await createTestProblem();
+    const outside = await createTestSubmission({
+      userId: student.id,
+      problemId: problemB.id,
+      examId: currentExam.id,
+    });
+    const query = new URLSearchParams({
+      problemId: current.problemId,
+      workspaceContext: JSON.stringify({ type: "exam", examId: currentExam.id }),
+      cursor: outside.id,
+    });
+    const response = await callRoute({
+      path: `/api/submissions?${query}`,
+      module: submissionHistoryRoute,
+      user: student,
+    });
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      message: "Invalid submission cursor.",
+    });
+  }, 30_000);
+
+  it("enforces batch size and authentication before exposing any submission data", async () => {
+    const { student } = await createActiveExamFixture();
+    const excessive = Array.from({ length: 101 }, (_, index) => `submission_${index}`);
+    const response = await callRoute({
+      path: `/api/submissions/status?ids=${excessive.join(",")}`,
+      module: submissionStatusRoute,
+      user: student,
+    });
+    expect(response.status).toBe(400);
+    const anonymous = await callRoute({
+      path: "/api/submissions/pending",
+      module: submissionPendingRoute,
+    });
+    expect(anonymous.status).toBe(401);
+  }, 30_000);
+
+  it("rechecks private reference access after staff membership is revoked", async () => {
+    const owner = await createTestUser({ platformRole: "teacher" });
+    const reader = await createTestUser({ platformRole: "student" });
+    const course = await createTestCourse({ ownerId: owner.id });
+    const membership = await testPrisma.courseMembership.create({
+      data: { courseId: course.id, userId: reader.id, role: "ta", status: "active" },
+    });
+    const problem = await createTestProblem({ authorId: owner.id, visibility: "private" });
+    await testPrisma.courseProblem.create({
+      data: { courseId: course.id, problemId: problem.id },
+    });
+    const reference = await createTestSubmission({
+      userId: reader.id,
+      problemId: problem.id,
+      isReferenceSolution: true,
+      status: "queued",
+    });
+    const query = `/api/submissions/status?ids=${reference.id}`;
+    const permitted = await callRoute({
+      path: query,
+      module: submissionStatusRoute,
+      user: reader,
+    });
+    expect(permitted.status).toBe(200);
+    await expect(permitted.json()).resolves.toMatchObject({
+      items: [{ submissionId: reference.id, status: "queued", result: null }],
+      unavailableIds: [],
+    });
+    await testPrisma.courseMembership.update({
+      where: { id: membership.id },
+      data: { status: "removed" },
+    });
+    const revoked = await callRoute({
+      path: query,
+      module: submissionStatusRoute,
+      user: reader,
+    });
+    expect(revoked.status).toBe(200);
+    await expect(revoked.json()).resolves.toEqual({
+      items: [],
+      unavailableIds: [reference.id],
+    });
+    const pending = await callRoute({
+      path: "/api/submissions/pending",
+      module: submissionPendingRoute,
+      user: reader,
+    });
+    expect(pending.status).toBe(200);
+    await expect(pending.json()).resolves.toEqual({ items: [], nextCursor: null });
   }, 30_000);
 });

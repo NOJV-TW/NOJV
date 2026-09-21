@@ -12,6 +12,7 @@ import type {
   RegistryGarbageCollectInput,
   RejudgeInput,
   RejudgeProgress,
+  RejudgeTrackingProgress,
   SubmissionJudgeInput,
   SubmissionJudgeJob,
 } from "@nojv/core";
@@ -352,11 +353,11 @@ function plagiarismWorkflowId(
   return `plagiarism-${targetType}-${targetId}`;
 }
 
-type RejudgeCounts = Pick<RejudgeProgress, "completed" | "total">;
+type RejudgeCounts = Pick<RejudgeTrackingProgress, "completed" | "total" | "targets">;
 
 export async function queryRejudgeProgress(
   workflowId: string,
-): Promise<RejudgeProgress | null> {
+): Promise<RejudgeTrackingProgress | null> {
   const client = await getTemporalClient();
   return client.connection.withDeadline(Date.now() + 5_000, async () => {
     const handle = client.workflow.getHandle(workflowId);

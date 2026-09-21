@@ -115,6 +115,7 @@
     void goto(nextUrl, { keepFocus: true, noScroll: true, replaceState: true });
   }
 
+  let totalSubmissionCount = $state(0);
   let submissionSearch = $state("");
   let visibleSubmissionCount = $state(0);
 
@@ -623,7 +624,7 @@
           <SubmissionHistoryActions
             bind:search={submissionSearch}
             visibleCount={visibleSubmissionCount}
-            totalCount={data.recentSubmissions.length}
+            totalCount={totalSubmissionCount}
           />
         {/if}
       {/snippet}
@@ -633,6 +634,7 @@
           refreshUrl={`/api/submissions?context=exam&id=${detail.id}`}
           bind:search={submissionSearch}
           bind:visibleCount={visibleSubmissionCount}
+          bind:totalCount={totalSubmissionCount}
         />
       {:else if activeSubTabKey === "results" && data.results && data.matrix}
         <ExamResultsTab
@@ -665,7 +667,9 @@
           activeSessions={data.activeSessions ?? []}
         />
       {:else if activeSubTabKey === "settings" && data.settingsForm}
-        <ExamSettingsTab form={data.settingsForm} {detail} {liveStatus} />
+        {#key detail.id}
+          <ExamSettingsTab form={data.settingsForm} {detail} {liveStatus} />
+        {/key}
       {:else if activeSubTabKey === "clarifications"}
         <ClarificationTab
           contextType="exam"

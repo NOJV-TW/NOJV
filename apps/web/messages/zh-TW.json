@@ -1,4 +1,8 @@
 {
+  "submissions_newRecordsAvailable": "有新提交，查看最新紀錄",
+  "submissions_loadingMore": "正在載入較早的提交紀錄…",
+  "submissions_newRecords": "有 {count} 筆新提交，查看最新紀錄",
+  "submissions_loadFailed": "無法載入提交紀錄，請重試。",
   "lateSubmission_workspaceDueCountdown": "準時截止倒數",
   "lateSubmission_workspaceLateCountdown": "遲交中 · 最終收件倒數",
   "lateSubmission_workspaceClosed": "已停止收件",

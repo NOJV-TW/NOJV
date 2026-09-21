@@ -41,6 +41,10 @@ const sharedAliases = {
 
 const componentAliases = [
   {
+    find: "$app/stores",
+    replacement: path.resolve(__dirname, "tests/component/web/fixtures/app-stores.ts"),
+  },
+  {
     find: "$app/forms",
     replacement: path.join(
       path.dirname(requireFromWeb.resolve("@sveltejs/kit/package.json")),
@@ -116,6 +120,8 @@ export default defineConfig({
             "tests/unit/web/rejudge-dialog.test.ts",
             "tests/unit/web/user-menu.test.ts",
             "tests/unit/web/editor-shortcuts.test.ts",
+            "tests/unit/web/editor-submission-navigation.test.ts",
+            "tests/unit/web/submission-navigation-view.test.ts",
             "tests/unit/web/editor-output-comparison.test.ts",
             "tests/unit/web/comment-section-error.test.ts",
             "tests/unit/web/contest-join-error.test.ts",
@@ -161,6 +167,10 @@ export default defineConfig({
             "tests/unit/web/rejudge-dialog.test.ts",
             "tests/unit/web/user-menu.test.ts",
             "tests/unit/web/editor-shortcuts.test.ts",
+            "tests/unit/web/editor-submission-navigation.test.ts",
+            "tests/unit/web/submission-navigation-view.test.ts",
+            "tests/component/web/submission-history-tracking.test.ts",
+            "tests/component/web/teacher-submission-refresh.test.ts",
             "tests/unit/web/editor-output-comparison.test.ts",
             "tests/unit/web/comment-section-error.test.ts",
             "tests/unit/web/contest-join-error.test.ts",

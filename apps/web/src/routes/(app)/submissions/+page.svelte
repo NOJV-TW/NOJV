@@ -8,9 +8,9 @@
     History,
   } from "@lucide/svelte";
   import { languageLabel, languageSchema, submissionResultVerdicts } from "@nojv/core";
-  import { goto, invalidateAll } from "$app/navigation";
+  import { goto } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
-  import { watchSubmissionVerdict } from "$lib/stores/sse";
+  import { createSubmissionHistory } from "$lib/services/submission-history.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
@@ -24,69 +24,31 @@
 
   type SubmissionRow = (typeof data.submissions)[number];
 
-  let pages = $state<SubmissionRow[][]>([]);
-  let pageCursors = $state<(string | null)[]>([]);
-  let currentPage = $state(1);
-  let loadingPage = $state(false);
-
-  const currentRows = $derived(
-    currentPage === 1 ? data.submissions : (pages[currentPage - 2] ?? []),
+  let verdictFilter = $state("");
+  let languageFilter = $state("");
+  let problemFilter = $state("");
+  let contextFilter = $state("");
+  const history = createSubmissionHistory<SubmissionRow>(
+    () => {
+      const query = new URLSearchParams();
+      if (verdictFilter) query.set("status", verdictFilter);
+      if (languageFilter) query.set("language", languageFilter);
+      if (problemFilter) query.set("filterProblemId", problemFilter);
+      if (contextFilter) query.set("contextType", contextFilter);
+      return query.toString();
+    },
+    () => data.submissions,
   );
-  const totalPages = $derived(data.totalPages);
+  const currentPage = $derived(history.page);
+  const totalPages = $derived(history.totalPages);
+  const loadingPage = $derived(history.loading);
+  const allRows = $derived(history.items);
+  const filtered = $derived(history.items);
   const pageNumbers = $derived.by(() => {
-    const visibleCount = 5;
-    if (totalPages <= visibleCount) {
-      return Array.from({ length: totalPages }, (_, index) => index + 1);
-    }
-    const start = Math.min(Math.max(1, currentPage - 2), totalPages - visibleCount + 1);
-    return Array.from({ length: visibleCount }, (_, index) => start + index);
+    const start = Math.min(Math.max(1, currentPage - 2), Math.max(1, totalPages - 4));
+    return Array.from({ length: Math.min(5, totalPages) }, (_, index) => start + index);
   });
-
-  const allRows = $derived.by(() => {
-    const seen = new Set<string>();
-    const rows: SubmissionRow[] = [];
-    for (const pageRows of [data.submissions, ...pages]) {
-      for (const row of pageRows) {
-        if (seen.has(row.id)) continue;
-        seen.add(row.id);
-        rows.push(row);
-      }
-    }
-    return rows;
-  });
-
-  async function fetchPage(cursor: string) {
-    const res = await fetch(`/api/submissions?cursor=${encodeURIComponent(cursor)}`);
-    if (!res.ok) return null;
-    return (await res.json()) as {
-      items: SubmissionRow[];
-      nextCursor: string | null;
-    };
-  }
-
-  async function goToPage(target: number) {
-    if (loadingPage || target < 1 || target > totalPages || target === currentPage) return;
-    if (target === 1) {
-      currentPage = 1;
-      return;
-    }
-
-    loadingPage = true;
-    try {
-      while (pages.length < target - 1) {
-        const cursor =
-          pages.length === 0 ? data.nextCursor : pageCursors[pageCursors.length - 1];
-        if (!cursor) return;
-        const page = await fetchPage(cursor);
-        if (!page) return;
-        pages = [...pages, page.items];
-        pageCursors = [...pageCursors, page.nextCursor];
-      }
-      if (pages[target - 2]) currentPage = target;
-    } finally {
-      loadingPage = false;
-    }
-  }
+  const goToPage = history.goToPage;
 
   function contextLabel(kind: SubmissionRow["context"]): string {
     switch (kind) {
@@ -106,11 +68,6 @@
     return parsed.success ? languageLabel(parsed.data) : value;
   }
 
-  let verdictFilter = $state("");
-  let languageFilter = $state("");
-  let problemFilter = $state("");
-  let contextFilter = $state("");
-
   const RESULT_VERDICTS: readonly string[] = submissionResultVerdicts;
   let verdictOptions = $derived([
     ...RESULT_VERDICTS,
@@ -127,21 +84,7 @@
     return [...unique.entries()].sort((a, b) => a[1].localeCompare(b[1]));
   });
 
-  let filtered = $derived(
-    currentRows.filter((sub) => {
-      if (verdictFilter && sub.status !== verdictFilter) return false;
-      if (languageFilter && sub.language !== languageFilter) return false;
-      if (problemFilter && sub.problemId !== problemFilter) return false;
-      if (contextFilter && sub.context !== contextFilter) return false;
-      return true;
-    }),
-  );
-
   const PENDING_STATUSES = new Set(["pending_upload", "queued", "compiling", "running"]);
-  const pendingIds = $derived(
-    allRows.filter((sub) => PENDING_STATUSES.has(sub.status)).map((sub) => sub.id),
-  );
-
   function openSubmission(id: string) {
     void goto(`/submissions/${id}`);
   }
@@ -151,22 +94,6 @@
     event.preventDefault();
     openSubmission(id);
   }
-
-  $effect(() => {
-    if (pendingIds.length === 0) return;
-    const unwatchers = pendingIds.map((id) =>
-      watchSubmissionVerdict(id, () => {
-        void invalidateAll();
-      }),
-    );
-    const interval = setInterval(() => {
-      if (document.visibilityState === "visible") void invalidateAll();
-    }, 5000);
-    return () => {
-      for (const unwatch of unwatchers) unwatch();
-      clearInterval(interval);
-    };
-  });
 </script>
 
 <PageContainer>
@@ -181,7 +108,20 @@
       {/snippet}
     </PageHeader>
 
-    {#if allRows.length === 0}
+    {#if history.newCount > 0}
+      <button
+        type="button"
+        class="rounded-md border border-primary px-4 py-2 text-body-sm"
+        onclick={history.showLatest}
+        >{m.submissions_newRecords({ count: history.newCount })}</button
+      >
+    {/if}
+    {#if history.failed}
+      <button type="button" class="text-destructive" onclick={history.retry}
+        >{m.submissions_loadFailed()} {m.common_retry()}</button
+      >
+    {/if}
+    {#if allRows.length === 0 && !verdictFilter && !languageFilter && !problemFilter && !contextFilter}
       <EmptyState
         variant="onboarding"
         icon={Code2}
@@ -214,7 +154,7 @@
                   filterLabel={m.submissions_filterProblem()}
                   options={problemOptions.map(([value, label]) => ({ value, label }))}
                   bind:value={problemFilter}
-                  onChange={() => (currentPage = 1)}
+                  onChange={() => undefined}
                 />
               </th>
               <th class="px-2 py-3 text-left align-middle font-medium">
@@ -226,7 +166,7 @@
                     label: contextLabel(value),
                   }))}
                   bind:value={contextFilter}
-                  onChange={() => (currentPage = 1)}
+                  onChange={() => undefined}
                 />
               </th>
               <th class="px-2 py-3 text-left align-middle font-medium">
@@ -238,7 +178,7 @@
                     label: displayLanguage(value),
                   }))}
                   bind:value={languageFilter}
-                  onChange={() => (currentPage = 1)}
+                  onChange={() => undefined}
                 />
               </th>
               <th class="px-2 py-3 text-left align-middle font-medium">
@@ -250,7 +190,7 @@
                     label: formatVerdictLabel(value),
                   }))}
                   bind:value={verdictFilter}
-                  onChange={() => (currentPage = 1)}
+                  onChange={() => undefined}
                 />
               </th>
               <th class="px-3 py-3 text-right align-middle font-medium"
@@ -321,7 +261,9 @@
                     {/if}
                   </td>
                   <td class="px-3 py-3 text-right font-mono tabular-nums">
-                    <span class="text-body-sm font-semibold text-foreground">{sub.score}</span>
+                    <span class="text-body-sm font-semibold text-foreground"
+                      >{PENDING_STATUSES.has(sub.status) ? "—" : sub.score}</span
+                    >
                     <span class="text-caption text-muted-foreground">/{sub.totalScore}</span>
                   </td>
                 </tr>

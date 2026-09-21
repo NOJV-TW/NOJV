@@ -19,6 +19,7 @@
   },
   "include": [
     "e2e/course-problem-library.test.ts",
+    "e2e/submission-tracking.test.ts",
     "e2e/admin.test.ts",
     "e2e/admin-mfa-elevation.test.ts",
     "e2e/api-token-step-up.test.ts",
