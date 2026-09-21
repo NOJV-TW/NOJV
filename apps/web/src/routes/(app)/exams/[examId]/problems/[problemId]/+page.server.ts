@@ -10,6 +10,7 @@ import { loadProblemSolveData } from "$lib/server/problem-solve";
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
+  event.depends("submission:data");
   const actor = requireAuth(event);
   const { examId, problemId } = event.params;
   const parent = await event.parent();

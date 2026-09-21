@@ -43,6 +43,7 @@
   const detail = $derived(data.detail);
 
   let activeSubTab = $state<AssignmentManageTabKey>("submissions");
+  let totalSubmissionCount = $state(0);
   let submissionSearch = $state("");
   let visibleSubmissionCount = $state(0);
 
@@ -449,7 +450,7 @@
           <SubmissionHistoryActions
             bind:search={submissionSearch}
             visibleCount={visibleSubmissionCount}
-            totalCount={data.recentSubmissions?.length ?? 0}
+            totalCount={totalSubmissionCount}
           />
         {/if}
       {/snippet}
@@ -471,6 +472,7 @@
           refreshUrl={`/api/submissions?context=assignment&id=${detail.id}`}
           bind:search={submissionSearch}
           bind:visibleCount={visibleSubmissionCount}
+          bind:totalCount={totalSubmissionCount}
         />
       {:else if activeSubTab === "results" && data.results}
         <AssignmentResultsTab
@@ -496,19 +498,21 @@
           )}
         />
       {:else if activeSubTab === "settings" && data.mode === "teacher"}
-        <AssignmentSettingsTab
-          form={data.settingsForm}
-          initialSchedule={{
-            opensAt: detail.opensAt,
-            dueAt: detail.dueAt,
-            closesAt: detail.closesAt,
-          }}
-          liveStatus={deriveAssignmentLiveStatus(
-            data.assignment.status,
-            detail.opensAt,
-            detail.closesAt,
-          )}
-        />
+        {#key detail.id}
+          <AssignmentSettingsTab
+            form={data.settingsForm}
+            initialSchedule={{
+              opensAt: detail.opensAt,
+              dueAt: detail.dueAt,
+              closesAt: detail.closesAt,
+            }}
+            liveStatus={deriveAssignmentLiveStatus(
+              data.assignment.status,
+              detail.opensAt,
+              detail.closesAt,
+            )}
+          />
+        {/key}
       {:else if activeSubTab === "clarifications"}
         <ClarificationTab
           contextType="assignment"

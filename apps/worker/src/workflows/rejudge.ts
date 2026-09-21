@@ -7,7 +7,7 @@ import {
   isCancellation,
   log,
 } from "@temporalio/workflow";
-import type { RejudgeInput, RejudgeProgress, SubmissionJudgeDraft } from "@nojv/core";
+import type { RejudgeInput, RejudgeTrackingProgress, SubmissionJudgeDraft } from "@nojv/core";
 import type * as judgeActivities from "../activities/judge";
 import { submissionJudgeWorkflow } from "./submission-judge";
 import { SHORT_ACTIVITY } from "./activity-options";
@@ -15,21 +15,31 @@ import { executeRejudgeBatches, RejudgeBatchError } from "./rejudge-batches";
 
 const judge = proxyActivities<typeof judgeActivities>(SHORT_ACTIVITY);
 
-type RejudgeCounts = Pick<RejudgeProgress, "completed" | "total">;
+type RejudgeCounts = Pick<RejudgeTrackingProgress, "completed" | "total" | "targets">;
 
 export const getProgressQuery = defineQuery<RejudgeCounts>("getProgress");
 
 export async function rejudgeWorkflow(input: RejudgeInput): Promise<void> {
   let completed = 0;
   let total = 0;
-  setHandler(getProgressQuery, () => ({ completed, total }));
+  let targetSnapshot: Exclude<RejudgeTrackingProgress["targets"], undefined> = null;
+  setHandler(getProgressQuery, () => ({
+    completed,
+    total,
+    ...(input.mode === "batch" ? { targets: targetSnapshot } : {}),
+  }));
 
   let targets: { submissionId: string; draft: SubmissionJudgeDraft }[];
   if (input.mode === "single") {
     const one = await judge.fetchSingleSubmissionForRejudge(input.submissionId);
     targets = one ? [one] : [];
   } else {
-    targets = await judge.fetchSubmissionIdsForRejudge(input);
+    const selected = await judge.fetchSubmissionIdsForRejudge(input);
+    targetSnapshot = selected.map(({ submissionId, judgeGeneration }) => ({
+      submissionId,
+      judgeGeneration,
+    }));
+    targets = selected;
   }
 
   total = targets.length;

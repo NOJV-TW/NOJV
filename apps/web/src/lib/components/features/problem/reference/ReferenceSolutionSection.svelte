@@ -1,6 +1,13 @@
 <script lang="ts">
+  import { onDestroy, untrack } from "svelte";
   import { invalidateAll } from "$app/navigation";
-  import { languageSchema, type Language, type SubmissionResult } from "@nojv/core";
+  import {
+    isSubmissionPending,
+    languageSchema,
+    type Language,
+    type SubmissionResult,
+    type SubmissionOperation,
+  } from "@nojv/core";
   import { m } from "$lib/paraglide/messages.js";
   import MonacoScriptEditor from "$lib/components/primitives/ui/MonacoScriptEditor.svelte";
   import CodeBlock from "$lib/components/primitives/ui/CodeBlock.svelte";
@@ -10,6 +17,11 @@
     workspaceDraftKey,
     type WorkspaceFile,
   } from "$lib/components/features/problem/editors/editor-bindings";
+  import {
+    watchSubmissionStates,
+    getSubmissionState,
+    submissionRead,
+  } from "$lib/services/submission-tracker";
   import { executeSubmission } from "$lib/services/submission-service";
   import { formatJudgeOutput } from "$lib/utils/judge-output";
   import { toasts } from "$lib/stores/toast";
@@ -21,6 +33,8 @@
 
   interface ReferenceState {
     status: "not_configured" | "validating" | "verified" | "failed";
+    submissionId: string | null;
+    lastSubmission?: { id: string } | null;
     language: string | null;
     sourceFiles: SourceFile[];
   }
@@ -66,7 +80,74 @@
   let status = $state<ReferenceState["status"]>("not_configured");
   let lastResult = $state<SubmissionResult | null>(null);
   let isSubmitting = $state(false);
-  let initialized = $state(false);
+  let disposed = false;
+  onDestroy(() => {
+    disposed = true;
+  });
+  let detailFailed = $state(false);
+  let retryDetail: (() => void) | undefined;
+  let activeSubmissionId = $state<string | null>(null);
+  const observedId = $derived(
+    activeSubmissionId ?? initial.lastSubmission?.id ?? initial.submissionId,
+  );
+  $effect(() => {
+    const serverStatus = initial.status;
+    const latestId = initial.lastSubmission?.id ?? initial.submissionId;
+    if (!untrack(() => isSubmitting)) {
+      status = serverStatus;
+      activeSubmissionId = null;
+    } else if (latestId === untrack(() => activeSubmissionId)) {
+      activeSubmissionId = null;
+    }
+  });
+  $effect(() => {
+    const id = observedId;
+    if (!id) return;
+    let detailRequest: AbortController | undefined;
+    const stop = watchSubmissionStates([id], (operation) => {
+      detailRequest?.abort();
+      detailFailed = false;
+      retryDetail = undefined;
+      status = isSubmissionPending(operation.status)
+        ? "validating"
+        : operation.status === "accepted"
+          ? initial.status
+          : "failed";
+      lastResult = isSubmissionPending(operation.status) ? null : operation.result;
+      if (isSubmissionPending(operation.status) || operation.status === "accepted") return;
+      const loadDetails = async () => {
+        detailRequest?.abort();
+        const request = new AbortController();
+        detailRequest = request;
+        detailFailed = false;
+        try {
+          const detail = await submissionRead<SubmissionOperation>(
+            `/api/submissions/${encodeURIComponent(id)}`,
+            request.signal,
+          );
+          if (
+            request.signal.aborted ||
+            detail.judgeGeneration !== operation.judgeGeneration ||
+            detail.updatedAt !== operation.updatedAt ||
+            isSubmissionPending(detail.status)
+          )
+            return;
+          lastResult = detail.result;
+        } catch {
+          if (!request.signal.aborted) detailFailed = true;
+        }
+      };
+      retryDetail = () => {
+        void loadDetails();
+      };
+      void loadDetails();
+    });
+    return () => {
+      stop();
+      detailRequest?.abort();
+      retryDetail = undefined;
+    };
+  });
 
   const workspaceLanguages = $derived([
     ...new Set(workspaceFiles.map((file) => file.language)),
@@ -102,10 +183,6 @@
   }
 
   $effect(() => {
-    if (!initialized) {
-      status = initial.status;
-      initialized = true;
-    }
     const fileCount = visibleFiles.length;
     const currentLanguage = language;
     ensureDrafts();
@@ -124,6 +201,7 @@
     status = "validating";
     lastResult = null;
     let accepted = false;
+    let completedGeneration: number | undefined;
     try {
       const request = buildSubmissionRequest({
         context: { type: "practice" },
@@ -136,22 +214,37 @@
         workspaceDrafts,
         workspaceFiles: visibleFiles,
       });
-      const result = await executeSubmission(request);
+      const result = await executeSubmission(request, {
+        onDispatched: (dispatch) => {
+          if (disposed) return;
+          activeSubmissionId = dispatch.submissionId;
+        },
+        onOperationUpdate: (operation) => {
+          completedGeneration = operation.judgeGeneration;
+        },
+      });
+      if (disposed) return;
       if (!result) {
         status = "failed";
         return;
       }
+      const current = observedId ? getSubmissionState(observedId) : undefined;
+      if (
+        current &&
+        (isSubmissionPending(current.status) || current.judgeGeneration !== completedGeneration)
+      )
+        return;
       lastResult = result;
       accepted = result.accepted;
-      status = accepted ? "verified" : "failed";
+      status = accepted ? initial.status : "failed";
       if (!accepted) toasts.error(formatJudgeOutput(result.feedback));
     } catch (error) {
+      if (disposed) return;
       status = "failed";
       toasts.error(error instanceof Error ? error.message : m.error_unexpected());
     } finally {
       isSubmitting = false;
     }
-    if (!accepted) return;
     try {
       await invalidateAll();
     } catch {
@@ -202,7 +295,16 @@
     {statusText()}
   </div>
 
-  {#if status === "failed" && lastResult}
+  {#if detailFailed}
+    <div role="alert" class="text-body-sm text-destructive">
+      {m.submissions_loadFailed()}
+      <button type="button" class="ml-2 underline" onclick={() => retryDetail?.()}
+        >{m.common_retry()}</button
+      >
+    </div>
+  {/if}
+
+  {#if status === "failed" && lastResult && !lastResult.accepted}
     <div
       class="space-y-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4"
       role="region"

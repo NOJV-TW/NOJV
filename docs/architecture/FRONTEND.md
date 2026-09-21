@@ -166,6 +166,10 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 
 - Table headers use `TableTextColumnFilter` for text search and `TableSelectColumnFilter` for selection filters. Selection filters use Bits UI menus with the shared Select content and item styling. Course members follow the submissions table layout, retain filter headers for empty results, and scroll horizontally on narrow screens.
 - `ProblemWorkspace.svelte` owns the problem-solving surface: split-pane layout with problem statement (left) and Monaco code editor (right), resizable divider, submission panel, and testcase results.
+- Submission tracking lives in the authenticated app session (`submission-tracker.ts`), independent of editor instances. Authorized pending discovery resumes work after reload/navigation/reconnect; visible pages share a five-second scheduler and batches of at most 100 status IDs. SSE wakes the same scheduler. Reads time out after ten seconds and back off on network failures; logout aborts and clears session state.
+- Submission state uses `status`, `judgeGeneration`, and `updatedAt`. Older responses cannot overwrite newer runs, and queued/running rejudges expose no old result. Batch tracking uses the actual Temporal target IDs and generations internally, including targets waiting behind other children. Terminal summaries work without a result blob; detailed-result failures are separate retryable reads. Reference validity remains authoritative on the server because an old accepted run can belong to an obsolete problem configuration.
+- Workspace history uses scoped cursor batches of 50 and intersection-triggered loading. Teacher/standalone histories use numbered 50-row pages anchored to an authorized time/ID snapshot. Neither has a total row cap. All loaded rows remain observed; new records are shown through an explicit view-latest prompt that preserves the current reading position.
+- Routes carrying submission data declare `submission:data` for background refresh. Teacher edit drafts and grading revisions survive refresh; configuration forms ignore page-data rebinding and remount on context changes. Batch rejudge dialogs recover active DurableWork/Temporal progress from their authorized problem/context entry point. Current verification boundaries are recorded in the [active plan](../plans/active/2026-09-21-submission-history.md).
 - `MarkdownRenderer` renders problem statements, problem posts, and input/output format descriptions using `marked` + KaTeX + DOMPurify. Remote HTTPS image sources are rewritten at render time to `/api/images/proxy`; existing stored Markdown does not change.
 - `ImageDropZone` wraps textareas with drag-and-drop and paste image upload support. Used in problem editor for statement, inputFormat, and outputFormat fields.
 - `TagInput` provides tag management with add/remove for problem categorization.
@@ -196,7 +200,7 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 - **Broker**: Redis pub/sub via `@nojv/redis`
 - **Channels**: `user:{userId}`, `notification:{userId}`, `contest:{contestId}`, `assessment:{assessmentId}`, `clarification:{contextType}:{contextId}` — see [Redis Architecture](REDIS.md)
 - **Events**: submission verdict, contest starting/ending, assignment deadline, notifications, clarification updates
-- **Submission polling**: Temporal `workflow.query("getStatus")` with DB fallback
+- **Submission polling**: authorized DB operation summaries with queued DurableWork overlays; batch rejudge progress uses Temporal with durable state recovery.
 
 ## Accessibility
 

@@ -54,6 +54,7 @@ export function connectSSE() {
 
   eventSource.onopen = () => {
     reconnectAttempts = 0;
+    for (const listener of openListeners) listener();
   };
 
   eventSource.onmessage = (event) => {
@@ -203,4 +204,12 @@ function handleDefaultEvent(data: SSEEvent) {
       toasts.info(m.sse_verdictToastResult({ verdict: formatVerdictLabel(data.verdict) }));
     }
   }
+}
+
+const openListeners = new Set<() => void>();
+export function onSSEOpen(callback: () => void): () => void {
+  openListeners.add(callback);
+  return () => {
+    openListeners.delete(callback);
+  };
 }

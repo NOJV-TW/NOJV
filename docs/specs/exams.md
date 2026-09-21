@@ -283,6 +283,30 @@ examId })` is called, THEN every currently-active session for the exam
   use-case for instructor-controlled freeze does not apply to in-class
   exams where the assessment ends at `endsAt`.
 
+### Submission history during problem navigation
+
+- GIVEN a student submits problem A, WHEN they switch to problem B before the
+  dispatch response or verdict arrives, THEN the submission request and result
+  tracking continue, and completion refreshes the problem switcher's scores.
+- GIVEN problem A is still judging, WHEN the student reloads problem B, opens B
+  in another tab, reconnects, or returns the tab to the foreground, THEN authorized
+  pending discovery resumes A's tracking and refreshes the existing problem switcher.
+- GIVEN a newer rejudge is queued or running, THEN old verdicts, scores, and result
+  details remain hidden until the current operation terminates. A terminal system
+  error without a result file must not remain displayed as pending.
+- GIVEN more than 50 submissions for the current problem and exam, WHEN the
+  student scrolls to the bottom, THEN the next 50 records load automatically with
+  no total cap. A failed load retains existing rows and offers retry. Loaded older
+  records continue receiving status updates.
+- GIVEN new records arrive while reading history, THEN an explicit view-latest
+  prompt appears without moving the reading position.
+- GIVEN a teacher opens submission history, THEN numbered 50-row pages and their
+  count cover the complete authorized history. New submissions do not shift the
+  current snapshot. Background result updates preserve filters, page, unsaved
+  settings/allocation drafts, and their original grading revision.
+- A history cursor must belong to the same user, problem, context, and active-exam
+  visibility scope. An out-of-scope cursor is rejected with a generic 400 response.
+
 ### Submissions matrix
 
 - WHEN `getExamSubmissionsMatrix(examId)` is called, THEN `rows` lists

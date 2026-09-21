@@ -50,6 +50,7 @@ const {
 const logger = createLogger("exam-page-action");
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
+  event.depends("submission:data");
   const parent = await event.parent();
   const { exam: examHeader, isManager } = parent;
   const actor = requireAuth(event);

@@ -1,6 +1,10 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
-  import { z } from "zod";
+  import {
+    submissionRead,
+    watchRejudge,
+    requestSubmissionRefresh,
+  } from "$lib/services/submission-tracker";
   import type { RejudgeProgress } from "@nojv/core";
 
   import * as Dialog from "$lib/components/primitives/ui/dialog";
@@ -26,12 +30,6 @@
   let submitting = $state(false);
   let error = $state<string | null>(null);
 
-  const progressSchema = z.object({
-    status: z.enum(["queued", "running", "completed", "failed", "cancelled"]),
-    completed: z.number().int().nonnegative(),
-    total: z.number().int().nonnegative(),
-  });
-
   let workflowId = $state<string | null>(null);
   let progress = $state<RejudgeProgress>({ status: "queued", completed: 0, total: 0 });
   let done = $derived(
@@ -42,41 +40,68 @@
   let cancelling = $state(false);
   let cancellationRequested = $state(false);
   let queryError = $state<string | null>(null);
-  let pollTimer: ReturnType<typeof setTimeout> | null = null;
+  let stopWatching: (() => void) | undefined;
   let disposed = false;
+  let contextEpoch = 0;
 
   function stopPolling() {
-    if (pollTimer) {
-      clearTimeout(pollTimer);
-      pollTimer = null;
-    }
+    stopWatching?.();
+    stopWatching = undefined;
   }
-
-  async function pollOnce() {
-    const id = workflowId;
-    if (!id || disposed) return;
-    try {
-      const res = await fetch(`/api/rejudges/${id}`, {
-        headers: { "X-Requested-With": "fetch" },
-      });
-      if (!res.ok) throw new Error(m.rejudge_progress_unavailable());
-      const next = progressSchema.parse(await res.json());
-      if (workflowId !== id || disposed) return;
-      progress = next;
-      queryError = null;
-    } catch {
-      if (workflowId === id && !disposed) queryError = m.rejudge_progress_unavailable();
-    } finally {
-      if (workflowId === id && !disposed && !done) {
-        pollTimer = setTimeout(() => void pollOnce(), 1500);
-      }
-    }
-  }
-
   function startPolling() {
     stopPolling();
-    void pollOnce();
+    if (!workflowId) return;
+    stopWatching = watchRejudge(
+      workflowId,
+      [],
+      (next) => {
+        if (disposed) return;
+        progress = next;
+        queryError = null;
+      },
+      () => {
+        if (!disposed) queryError = m.rejudge_progress_unavailable();
+      },
+    );
   }
+
+  const contextKey = $derived(JSON.stringify([problemId, scope]));
+  $effect(() => {
+    const [currentProblem, currentScope] = JSON.parse(contextKey) as [string, RejudgeScope];
+    contextEpoch++;
+    reset();
+    submitting = false;
+    if (!open) return;
+    const controller = new AbortController();
+    const filter =
+      currentScope.type === "assignment"
+        ? { assessmentId: currentScope.id }
+        : currentScope.type === "exam"
+          ? { examId: currentScope.id }
+          : currentScope.type === "contest"
+            ? { contestId: currentScope.id }
+            : {};
+    const query = new URLSearchParams({
+      problemId: currentProblem,
+      scope: JSON.stringify(filter),
+    });
+    void submissionRead<{ items: ({ workflowId: string } & RejudgeProgress)[] }>(
+      `/api/rejudges?${query}`,
+      controller.signal,
+    )
+      .then(({ items }) => {
+        if (controller.signal.aborted || disposed || workflowId) return;
+        const latest = items[0];
+        if (!latest) return;
+        workflowId = latest.workflowId;
+        progress = latest;
+        startPolling();
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) queryError = m.rejudge_progress_unavailable();
+      });
+    return () => controller.abort();
+  });
 
   async function handleCancel() {
     const id = workflowId;
@@ -143,6 +168,7 @@
     applyScope(payload);
 
     submitting = true;
+    const requestEpoch = contextEpoch;
     try {
       const res = await fetch("/api/rejudges", {
         method: "POST",
@@ -151,10 +177,17 @@
       });
       if (res.ok) {
         const body = (await res.json()) as { workflowId: string };
+        if (disposed || requestEpoch !== contextEpoch) {
+          watchRejudge(body.workflowId, [], () => {})();
+          requestSubmissionRefresh();
+          return;
+        }
         workflowId = body.workflowId;
         progress = { status: "queued", completed: 0, total: 0 };
+        requestSubmissionRefresh();
         startPolling();
       } else {
+        if (disposed || requestEpoch !== contextEpoch) return;
         let msg: string = m.rejudge_toast_error();
         const body = (await res.json().catch(() => null)) as { message?: string } | null;
         if (body?.message) msg = body.message;
@@ -162,10 +195,11 @@
         toasts.error(msg);
       }
     } catch {
+      if (disposed || requestEpoch !== contextEpoch) return;
       error = m.rejudge_toast_error();
       toasts.error(m.rejudge_toast_error());
     } finally {
-      submitting = false;
+      if (requestEpoch === contextEpoch) submitting = false;
     }
   }
 

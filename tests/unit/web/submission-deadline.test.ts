@@ -1,13 +1,17 @@
+// @vitest-environment jsdom
+
 import { afterEach, expect, it, vi } from "vitest";
 import { executeSubmission } from "$lib/services/submission-service";
 
-let notifyVerdict: (() => void) | undefined;
-vi.mock("$lib/stores/sse", () => ({
-  watchSubmissionVerdict: (_id: string, callback: () => void) => {
-    notifyVerdict = callback;
-    return () => {};
-  },
+import {
+  requestSubmissionRefresh,
+  stopSubmissionTracking,
+} from "$lib/services/submission-tracker";
+vi.mock("$app/navigation", () => ({
+  invalidateAll: vi.fn().mockResolvedValue(undefined),
+  invalidate: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock("$lib/stores/toast", () => ({ toasts: { success: vi.fn(), info: vi.fn() } }));
 const request = {
   context: { type: "practice" as const },
   language: "python" as const,
@@ -17,7 +21,22 @@ const request = {
 const dispatch = () =>
   new Response(JSON.stringify({ submissionId: "s1", pollUrl: "/poll", status: "queued" }));
 const pending = () =>
-  new Response(JSON.stringify({ submissionId: "s1", status: "queued", result: null }));
+  new Response(
+    JSON.stringify({
+      items: [
+        {
+          submissionId: "s1",
+          problemId: "deadline",
+          problemTitle: "Deadline",
+          judgeGeneration: 1,
+          updatedAt: "2026-09-21T00:00:00.000Z",
+          status: "queued",
+          result: null,
+        },
+      ],
+      unavailableIds: [],
+    }),
+  );
 const hang = (_url: unknown, init: RequestInit) =>
   new Promise<Response>((_resolve, reject) => {
     init.signal!.addEventListener(
@@ -27,6 +46,7 @@ const hang = (_url: unknown, init: RequestInit) =>
     );
   });
 afterEach(() => {
+  stopSubmissionTracking();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -56,12 +76,14 @@ it("consumes an early verdict notification instead of busy-polling forever", asy
   vi.stubGlobal("fetch", fetch);
   const result = executeSubmission(request, { signal: controller.signal });
   await vi.advanceTimersByTimeAsync(0);
-  notifyVerdict!();
+  requestSubmissionRefresh();
+  requestSubmissionRefresh();
   await vi.advanceTimersByTimeAsync(0);
   expect(fetch).toHaveBeenCalledTimes(3);
   await vi.advanceTimersByTimeAsync(499);
   expect(fetch).toHaveBeenCalledTimes(3);
   controller.abort();
   await expect(result).resolves.toBeNull();
+  stopSubmissionTracking();
   expect(vi.getTimerCount()).toBe(0);
 });

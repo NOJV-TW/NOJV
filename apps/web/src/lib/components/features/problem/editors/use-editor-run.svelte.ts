@@ -8,10 +8,10 @@ import type {
 } from "@nojv/core";
 import { m } from "$lib/paraglide/messages.js";
 import {
-  executeSubmission,
   submissionRequestValidationError,
   SubmissionRequestError,
 } from "$lib/services/submission-service";
+import { submitProblem } from "$lib/services/problem-submission";
 import { toasts } from "$lib/stores/toast";
 import { runBrowserLocally, shouldUseBrowserLocalRun } from "$lib/services/browser-local-run";
 import type { ProblemDetail } from "$lib/types";
@@ -79,7 +79,6 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
 
   let destroyed = false;
   let abortController: AbortController | null = null;
-  const inflightSubmits = new Set<AbortController>();
 
   async function runSubmission(): Promise<SubmissionResult | null> {
     if (args.isSpecialEnv())
@@ -197,8 +196,6 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
   }
 
   async function submit() {
-    const controller = new AbortController();
-    inflightSubmits.add(controller);
     isSubmitting = true;
 
     const language = args.language();
@@ -226,15 +223,15 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       const validationError = submissionRequestValidationError(request);
       if (validationError)
         throw new SubmissionRequestError("Invalid submission input.", validationError, null);
-      const result = await executeSubmission(request, {
-        signal: controller.signal,
+      const result = await submitProblem(request, {
         onDispatched: (dispatch) => {
           dispatched.submissionId = dispatch.submissionId;
+          if (destroyed) return;
           isSubmitting = false;
           args.onSubmissionDispatched?.(dispatch.submissionId, language);
         },
       });
-      if (result && dispatched.submissionId) {
+      if (!destroyed && result && dispatched.submissionId) {
         args.onSubmissionComplete?.(dispatched.submissionId, result, language, source);
       }
     } catch (err) {
@@ -254,7 +251,6 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       }
     } finally {
       isSubmitting = false;
-      inflightSubmits.delete(controller);
     }
   }
 
@@ -297,7 +293,6 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
     markDestroyed() {
       destroyed = true;
       abortController?.abort();
-      for (const controller of inflightSubmits) controller.abort();
     },
   };
 }

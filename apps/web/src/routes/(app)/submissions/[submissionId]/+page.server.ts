@@ -9,6 +9,7 @@ import { feedbackDomain, submissionDomain } from "@nojv/application";
 const { getSubmissionDetail } = submissionDomain;
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
+  event.depends("submission:data");
   const actor = requireAuth(event);
   const { submissionId } = event.params;
   if (!submissionId) error(400, "Missing submissionId.");
