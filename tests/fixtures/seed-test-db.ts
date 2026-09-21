@@ -5,6 +5,8 @@ import {
 } from "../setup/destructive-test-database";
 
 export const TABLES = [
+  "ExamCredentialSession",
+  "ExamCredential",
   "JudgeStage",
   "JudgeExecution",
   "JudgeAdmission",

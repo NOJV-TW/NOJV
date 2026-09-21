@@ -48,7 +48,11 @@ test.describe("Exams — list, detail, problem visibility", () => {
         document.body.append(link);
       }, `/exams/${MIDTERM_ID}?tab=audit`);
       await page.locator("#exam-navigation-link").click();
-      await expect(selectedTab).toHaveAttribute("id", "exam-manage-tab-audit");
+      await expect(selectedTab).toHaveAttribute("id", "exam-manage-tab-results");
+      await expect(page.locator('a[aria-current="page"][href$="tab=audit"]')).toBeVisible();
+      await expect(
+        page.locator('[role="tablist"]').first().getByRole("tab").last(),
+      ).toHaveAttribute("id", "exam-manage-tab-settings");
       await page.goBack();
       await expect(selectedTab).toHaveAttribute("id", "exam-manage-tab-submissions");
       await page.reload();
@@ -116,7 +120,7 @@ test.describe("Exams — list, detail, problem visibility", () => {
     await context.close();
   });
 
-  test("active exam workspace keeps its countdown and end-session action", async ({
+  test("active exam workspace keeps its countdown and moves hand-in to the overview", async ({
     browser,
   }) => {
     const examId = "exam_demo_gradebook_active";
@@ -133,9 +137,21 @@ test.describe("Exams — list, detail, problem visibility", () => {
       await expect(countdown).toBeVisible();
       const initial = await countdown.textContent();
       await expect.poll(() => countdown.textContent()).not.toBe(initial);
-      page.once("dialog", (dialog) => void dialog.accept());
-      await page.getByRole("button", { name: /end exam/i }).click();
+      await expect(
+        page.locator('[data-slot="workspace-timer"]').getByRole("button"),
+      ).toHaveCount(0);
+      await page.getByRole("link", { name: "Exam overview", exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`/exams/${examId}$`));
+      await page.getByRole("button", { name: "Submit and end exam", exact: true }).click();
+      const dialog = page.getByRole("dialog");
+      await expect(dialog).toBeVisible();
+      await expect(
+        dialog.getByRole("button", { name: "Cancel, keep working", exact: true }),
+      ).toBeFocused();
+      await dialog.getByRole("button", { name: "Cancel, keep working", exact: true }).click();
+      await expect(dialog).not.toBeVisible();
+      await page.getByRole("button", { name: "Submit and end exam", exact: true }).click();
+      await dialog.getByRole("button", { name: "Confirm and end exam", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Submitted", exact: true })).toBeVisible();
       await expect(page.getByRole("button", { name: /start exam/i })).toHaveCount(0);
       await page.reload();

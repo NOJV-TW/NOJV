@@ -21,6 +21,9 @@ describe("collectReplayStatements", () => {
         "Exam_effective_time_window_chk",
         "Contest_effective_time_window_chk",
         "Assessment_effective_time_window_chk",
+        "ExamCredential_revision_check",
+        "ExamCredential_material_check",
+        "ExamCredential_emailStatus_check",
       ]),
     );
   });

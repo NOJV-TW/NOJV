@@ -152,6 +152,7 @@ model Exam {
   activeSessions        ActiveExamSession[]
   submissionFeedback    SubmissionFeedback[]
   participations        Participation[]      @relation("ExamUnifiedParticipation")
+  credentials           ExamCredential[]
 
   @@index([courseId, status])
 }

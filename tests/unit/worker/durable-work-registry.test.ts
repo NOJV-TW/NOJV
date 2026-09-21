@@ -4,6 +4,7 @@ import type * as Application from "@nojv/application";
 const mocks = vi.hoisted(() => ({
   cleanupUnreferencedStorageObject: vi.fn(),
   deliverNotificationEmail: vi.fn(),
+  deliverExamCredentialEmail: vi.fn(),
   executeRejudgeDispatch: vi.fn(),
   executeSubmissionJudgeDispatch: vi.fn(),
   executeLifecycleCancellation: vi.fn(),
@@ -20,7 +21,13 @@ vi.mock("@nojv/application", async (importOriginal) => {
     cleanupUnreferencedStorageObject: mocks.cleanupUnreferencedStorageObject,
     executeLifecycleCancellation: mocks.executeLifecycleCancellation,
     contestDomain: { updateContestScores: mocks.updateContestScores },
-    examDomain: { updateExamScores: mocks.updateExamScores },
+    examDomain: {
+      updateExamScores: mocks.updateExamScores,
+      credentials: {
+        EMAIL_WORK_KIND: "exam.credential.email",
+        deliverEmail: mocks.deliverExamCredentialEmail,
+      },
+    },
     notificationDomain: {
       NOTIFICATION_EMAIL_WORK_KIND: "notification.email",
       NOTIFICATION_SSE_WORK_KIND: "notification.sse",
@@ -51,6 +58,11 @@ beforeEach(() => {
 });
 
 describe("durable work handlers", () => {
+  it("delivers an exam credential by opaque identity without storing its password", async () => {
+    const payload = { credentialId: "credential-1", revision: 1 };
+    await durableWorkHandlers["exam.credential.email"](payload);
+    expect(mocks.deliverExamCredentialEmail).toHaveBeenCalledWith(payload);
+  });
   it("publishes an immutable SSE snapshot without loading the notification row", async () => {
     const payload = {
       notificationId: "notification-1",

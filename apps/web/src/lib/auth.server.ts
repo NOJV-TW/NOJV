@@ -3,10 +3,12 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from "better-auth/api";
 import { twoFactor, username } from "better-auth/plugins";
+import { deleteSessionCookie } from "better-auth/cookies";
 import bcrypt from "bcryptjs";
 
 import {
   areSecuritySettingsUnlocked,
+  examDomain,
   userDomain,
   adminMfaKind,
   createStepUpHandoffTicket,
@@ -21,6 +23,7 @@ import {
 import { prismaAdapterClient as prisma } from "@nojv/db";
 import { getMailer, renderEmail } from "@nojv/mailer";
 import { getWebEnv } from "$lib/server/env";
+import { examPasswordAuth } from "$lib/server/exam-password-auth";
 import {
   consumeInternalFactorMutationAuthority,
   factorMutationPath,
@@ -218,6 +221,11 @@ function createAuth() {
         securityGeneration: { type: "number", defaultValue: 0, input: false },
       },
     },
+    session: {
+      additionalFields: {
+        examPassword: { type: "boolean", defaultValue: false, input: false },
+      },
+    },
     account: {
       accountLinking: {
         enabled: true,
@@ -279,6 +287,34 @@ function createAuth() {
           });
         }
         const activeSession = await getSessionFromCtx(ctx);
+        if (activeSession?.session.examPassword) {
+          const access = await examDomain.credentials.validateSession(activeSession.session.id);
+          if (access.kind !== "exam" || !access.valid) {
+            await ctx.context.internalAdapter.deleteSession(activeSession.session.token);
+            deleteSessionCookie(ctx);
+            if (ctx.path === "/get-session") return ctx.json(null);
+            throw new APIError("UNAUTHORIZED", {
+              code: "EXAM_SESSION_EXPIRED",
+              message: "The exam sign-in has expired. Use your usual sign-in method.",
+            });
+          }
+          if (
+            ctx.path !== "/get-session" &&
+            ctx.path !== "/sign-out" &&
+            ctx.path !== "/list-accounts" &&
+            ctx.path !== "/passkey/list-user-passkeys" &&
+            !(
+              ctx.path === "/callback/:id" &&
+              (ctx.params.id === "google" || ctx.params.id === "github")
+            ) &&
+            !ctx.path.startsWith("/sign-in/")
+          ) {
+            throw new APIError("FORBIDDEN", {
+              code: "EXAM_SESSION_RESTRICTED",
+              message: "Use your usual sign-in method to manage account security.",
+            });
+          }
+        }
         if (
           activeSession?.user.isSuperAdmin &&
           !unfinishedSuperAdminAuthPaths.has(ctx.path) &&
@@ -514,6 +550,7 @@ function createAuth() {
       }),
     },
     plugins: [
+      examPasswordAuth(),
       username({
         maxUsernameLength: 64,
         usernameValidator: (candidate) => {

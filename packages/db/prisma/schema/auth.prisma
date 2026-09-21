@@ -78,6 +78,7 @@ model User {
   revokedApiTokens               ApiToken[]                   @relation("ApiTokenRevoker")
   twoFactors                     TwoFactor[]
   passkeys                       Passkey[]
+  examCredentials                ExamCredential[]
 }
 
 model TwoFactor {
@@ -114,6 +115,7 @@ model Passkey {
 
 model Session {
   id        String   @id
+  examPassword Boolean @default(false)
   expiresAt DateTime
   token     String   @unique
   createdAt DateTime @default(now())
@@ -122,6 +124,7 @@ model Session {
   userAgent String?
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  examCredential ExamCredentialSession?
 
   @@index([userId])
 }

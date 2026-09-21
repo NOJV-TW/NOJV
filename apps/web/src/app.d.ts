@@ -6,7 +6,7 @@ import type { VerifiedApiTokenContext, proctoringDomain } from "@nojv/applicatio
 declare global {
   namespace App {
     interface Locals {
-      session: Session | null;
+      session: (Session & { examPassword?: boolean }) | null;
       sessionUser: SessionUser | null;
       user: User | null;
       apiToken: VerifiedApiTokenContext | null;

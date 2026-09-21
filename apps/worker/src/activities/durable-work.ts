@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { durableWorkRepo } from "@nojv/db";
+import { examDomain } from "@nojv/application";
 
 import { durableWorkHandlers } from "./durable-work-registry";
 import { recordDurableWorkOutcome } from "./durable-work-metrics";
@@ -9,6 +10,10 @@ import {
   type DurableWorkBatchInput,
   type DurableWorkBatchResult,
 } from "./durable-work-runner";
+
+export async function reconcileExamCredentials(): Promise<{ issued: number; revoked: number }> {
+  return examDomain.credentials.reconcile();
+}
 
 export function runDurableWorkBatch(
   input: DurableWorkBatchInput = {},

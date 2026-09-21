@@ -180,6 +180,16 @@ export async function updateExamRecord(
         ? await examRepo.withTx(tx).update(exam.id, updateData)
         : exam;
 
+    if (effectiveEndsAt > exam.endsAt) {
+      await tx.session.updateMany({
+        where: {
+          examPassword: true,
+          examCredential: { credential: { examId: exam.id, revokedAt: null } },
+        },
+        data: { expiresAt: effectiveEndsAt },
+      });
+    }
+
     if (payload.problems !== undefined || payload.totalPoints !== undefined) {
       const links = await tx.examProblem.findMany({
         where: { examId: exam.id },

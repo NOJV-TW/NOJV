@@ -1,22 +1,36 @@
 import type { RequestHandler } from "@sveltejs/kit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { RateLimiterMemory, RateLimiterRes } from "rate-limiter-flexible";
+import { examSignInRateLimiter } from "$lib/server/shared/rate-limiter";
 
 import { createTestUser } from "../../fixtures/factories";
 import { callRoute } from "./_harness";
 
-const { resolveAdminAccessSpy, authConsumeSpy, signInConsumeSpy, signOutSpy } = vi.hoisted(
-  () => ({
-    resolveAdminAccessSpy: vi.fn(),
-    authConsumeSpy: vi.fn(),
-    signInConsumeSpy: vi.fn(),
-    signOutSpy: vi.fn(),
-  }),
-);
-
-vi.mock("$lib/server/shared/rate-limiter", () => ({
-  authRateLimiter: { consume: authConsumeSpy },
-  signInRateLimiter: { consume: signInConsumeSpy },
+const {
+  resolveAdminAccessSpy,
+  authConsumeSpy,
+  signInConsumeSpy,
+  examSignInConsumeSpy,
+  signOutSpy,
+} = vi.hoisted(() => ({
+  resolveAdminAccessSpy: vi.fn(),
+  authConsumeSpy: vi.fn(),
+  signInConsumeSpy: vi.fn(),
+  examSignInConsumeSpy: vi.fn(),
+  signOutSpy: vi.fn(),
 }));
+
+vi.mock("$lib/server/shared/rate-limiter", async () => {
+  const actual = await vi.importActual<typeof import("$lib/server/shared/rate-limiter")>(
+    "$lib/server/shared/rate-limiter",
+  );
+  return {
+    ...actual,
+    authRateLimiter: { ...actual.authRateLimiter, consume: authConsumeSpy },
+    signInRateLimiter: { ...actual.signInRateLimiter, consume: signInConsumeSpy },
+    examSignInRateLimiter: { ...actual.examSignInRateLimiter, consume: examSignInConsumeSpy },
+  };
+});
 
 vi.mock("$lib/server/step-up", async () => {
   const actual =
@@ -62,6 +76,7 @@ beforeEach(() => {
   resolveAdminAccessSpy.mockClear();
   authConsumeSpy.mockReset().mockResolvedValue("allowed");
   signInConsumeSpy.mockReset().mockResolvedValue("allowed");
+  examSignInConsumeSpy.mockReset().mockResolvedValue("allowed");
   signOutSpy.mockReset().mockResolvedValue({
     headers: new Headers({
       "set-cookie": "__Secure-better-auth.session_token=; Max-Age=0; Path=/; HttpOnly; Secure",
@@ -139,6 +154,98 @@ describe("hooks.server guard chain (request-layer redirects)", () => {
       module: { POST: handler },
     });
     expect(res.status).toBe(503);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("isolates exam login quotas by normalized username within a classroom IP", async () => {
+    const limiter = new RateLimiterMemory({
+      points: examSignInRateLimiter.points,
+      duration: examSignInRateLimiter.duration,
+    });
+    examSignInConsumeSpy.mockImplementation(async (key: string) => {
+      try {
+        await limiter.consume(key);
+        return "allowed";
+      } catch (error) {
+        if (error instanceof RateLimiterRes) return "limited";
+        throw error;
+      }
+    });
+    const handler: RequestHandler = async (event) =>
+      new Response(JSON.stringify(await event.request.json()));
+    const signIn = (username: string, ip = "203.0.113.42") =>
+      callRoute({
+        path: "/api/auth/sign-in/exam-password",
+        method: "POST",
+        ip,
+        body: { username, password: "synthetic-test-password" },
+        module: { POST: handler },
+      });
+
+    for (let student = 0; student < 6; student++) {
+      const response = await signIn(`student_${student}`);
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({
+        username: `student_${student}`,
+        password: "synthetic-test-password",
+      });
+    }
+    for (let attempt = 0; attempt < 4; attempt++) {
+      expect((await signIn(" STUDENT_0 ")).status).toBe(200);
+    }
+    expect((await signIn("student_0")).status).toBe(429);
+    expect((await signIn("student_1")).status).toBe(200);
+    expect((await signIn("student_0", "203.0.113.43")).status).toBe(200);
+    expect(signInConsumeSpy).not.toHaveBeenCalled();
+    expect(authConsumeSpy).toHaveBeenCalledWith("203.0.113.42");
+  });
+
+  it.each([
+    undefined,
+    null,
+    [],
+    { username: {} },
+    { username: "a".repeat(65) },
+    { username: "invalid/name" },
+  ])(
+    "uses one bounded invalid-username bucket for malformed exam sign-in input %#",
+    async (body) => {
+      const response = await callRoute({
+        path: "/api/auth/sign-in/exam-password",
+        method: "POST",
+        ip: "203.0.113.42",
+        body,
+        module: { POST: () => new Response(null, { status: 204 }) },
+      });
+      expect(response.status).toBe(204);
+      expect(examSignInConsumeSpy).toHaveBeenCalledWith('["203.0.113.42",""]');
+    },
+  );
+
+  it("keeps the broader per-IP authentication limit on exam sign-in", async () => {
+    authConsumeSpy.mockResolvedValue("limited");
+    const handler = vi.fn();
+    const response = await callRoute({
+      path: "/api/auth/sign-in/exam-password",
+      method: "POST",
+      body: { username: "student_1" },
+      module: { POST: handler },
+    });
+    expect(response.status).toBe(429);
+    expect(examSignInConsumeSpy).not.toHaveBeenCalled();
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("fails exam sign-in closed when its username/IP limiter is unavailable", async () => {
+    examSignInConsumeSpy.mockResolvedValue("unavailable");
+    const handler = vi.fn();
+    const response = await callRoute({
+      path: "/api/auth/sign-in/exam-password",
+      method: "POST",
+      body: { username: "student_1" },
+      module: { POST: handler },
+    });
+    expect(response.status).toBe(503);
     expect(handler).not.toHaveBeenCalled();
   });
 

@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_52 models and 38 enums across 9 schema files._
+_54 models and 38 enums across 10 schema files._
 
 ## `auth.prisma`
 
@@ -118,6 +118,7 @@ Indexes & constraints: `@@index([userId])`, `@@index([expiresAt])`
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
 | `id` | `String` | `@id` |
+| `examPassword` | `Boolean` | `@default(false)` |
 | `expiresAt` | `DateTime` | — |
 | `token` | `String` | `@unique` |
 | `createdAt` | `DateTime` | `@default(now())` |
@@ -126,6 +127,7 @@ Indexes & constraints: `@@index([userId])`, `@@index([expiresAt])`
 | `userAgent` | `String?` | — |
 | `userId` | `String` | — |
 | `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
+| `examCredential` | `ExamCredentialSession?` | — |
 
 Indexes & constraints: `@@index([userId])`
 
@@ -213,6 +215,7 @@ Indexes & constraints: `@@unique([userId])`, `@@index([secret])`
 | `revokedApiTokens` | `ApiToken[]` | `@relation("ApiTokenRevoker")` |
 | `twoFactors` | `TwoFactor[]` | — |
 | `passkeys` | `Passkey[]` | — |
+| `examCredentials` | `ExamCredential[]` | — |
 
 #### `Verification`
 
@@ -429,6 +432,7 @@ Indexes & constraints: `@@unique([contestId, problemId])`, `@@unique([contestId,
 | `activeSessions` | `ActiveExamSession[]` | — |
 | `submissionFeedback` | `SubmissionFeedback[]` | — |
 | `participations` | `Participation[]` | `@relation("ExamUnifiedParticipation")` |
+| `credentials` | `ExamCredential[]` | — |
 
 Indexes & constraints: `@@index([courseId, status])`
 
@@ -654,6 +658,45 @@ Indexes & constraints: `@@unique([courseId, userId])`, `@@unique([courseId, pend
 | `addedBy` | `User?` | `@relation("CourseProblemCreator", fields: [addedByUserId], references: [id], onDelete: SetNull)` |
 
 Indexes & constraints: `@@id([courseId, problemId])`, `@@index([problemId])`
+
+## `exam-credential.prisma`
+
+### Models
+
+#### `ExamCredential`
+
+| Field | Type | Attributes |
+| ----- | ---- | ---------- |
+| `id` | `String` | `@id @default(cuid())` |
+| `examId` | `String` | — |
+| `userId` | `String` | — |
+| `passwordHash` | `String?` | — |
+| `passwordCiphertext` | `String?` | — |
+| `revision` | `Int` | `@default(1)` |
+| `emailSentAt` | `DateTime?` | — |
+| `emailScheduledFor` | `DateTime` | — |
+| `emailStatus` | `String` | `@default("pending")` |
+| `revokedAt` | `DateTime?` | — |
+| `createdAt` | `DateTime` | `@default(now())` |
+| `updatedAt` | `DateTime` | `@updatedAt` |
+| `exam` | `Exam` | `@relation(fields: [examId], references: [id], onDelete: Cascade)` |
+| `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
+| `sessions` | `ExamCredentialSession[]` | — |
+
+Indexes & constraints: `@@unique([examId, userId])`, `@@index([userId, revokedAt])`
+
+#### `ExamCredentialSession`
+
+| Field | Type | Attributes |
+| ----- | ---- | ---------- |
+| `sessionId` | `String` | `@id` |
+| `credentialId` | `String` | — |
+| `revision` | `Int` | — |
+| `securityGeneration` | `Int` | — |
+| `session` | `Session` | `@relation(fields: [sessionId], references: [id], onDelete: Cascade)` |
+| `credential` | `ExamCredential` | `@relation(fields: [credentialId], references: [id], onDelete: Cascade)` |
+
+Indexes & constraints: `@@index([credentialId])`
 
 ## `notification.prisma`
 

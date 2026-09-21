@@ -21,6 +21,7 @@ export { courseMembershipAdminRepo } from "./course-membership";
 export { contentReportRepo } from "./content-report";
 export { examRepo, examProblemRepo } from "./exam";
 export { examSessionRepo } from "./exam-session";
+export { examCredentialRepo, type ExamCredentialRecord } from "./exam-credential";
 export {
   DurableWorkInvariantError,
   DurableWorkLeaseLostError,

@@ -20,6 +20,8 @@
   import ExamProblemsTab from "$lib/components/features/course/exam/ExamProblemsTab.svelte";
   import ExamProctoringTab from "$lib/components/features/course/exam/ExamProctoringTab.svelte";
   import ExamResultsTab from "$lib/components/features/course/exam/ExamResultsTab.svelte";
+  import ExamCredentialsPanel from "$lib/components/features/course/exam/ExamCredentialsPanel.svelte";
+  import ExamHandInPanel from "$lib/components/features/course/exam/ExamHandInPanel.svelte";
   import ExamStartModal from "$lib/components/features/course/exam/ExamStartModal.svelte";
   import AssignmentPlagiarismReport from "$lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
   import AuditTimeline from "$lib/components/features/audit/AuditTimeline.svelte";
@@ -29,6 +31,8 @@
   import { Tabs } from "$lib/components/primitives/ui/tabs";
   import {
     examSubTabHref,
+    examPrimaryTab,
+    type ExamPrimaryTab,
     parseExamSubTab,
     type ExamSubTab,
   } from "$lib/components/features/course/exam/exam-tab-state";
@@ -119,17 +123,36 @@
   let submissionSearch = $state("");
   let visibleSubmissionCount = $state(0);
 
-  const subTabs = $derived<{ key: ExamSubTab; label: string }[]>([
+  const primaryTab = $derived(examPrimaryTab(activeSubTabKey));
+
+  function setPrimaryTab(next: ExamPrimaryTab) {
+    setActiveSubTab(next === "proctoring" ? "credentials" : next);
+  }
+
+  const childTabs = $derived<{ key: ExamSubTab; label: string }[]>(
+    primaryTab === "results"
+      ? [
+          { key: "results", label: m.examDetail_subTabResults() },
+          { key: "plagiarism", label: m.examDetail_subTabPlagiarism() },
+          { key: "audit", label: m.examDetail_subTabAudit() },
+        ]
+      : primaryTab === "proctoring"
+        ? [
+            { key: "credentials", label: m.examCredentials_tab() },
+            { key: "proctoring", label: m.examCredentials_ipRecords() },
+          ]
+        : [],
+  );
+
+  const subTabs = $derived<{ key: ExamPrimaryTab; label: string }[]>([
     { key: "problems", label: m.examDetail_subTabProblems() },
     { key: "submissions", label: m.examDetail_subTabSubmissions() },
     { key: "results", label: m.examDetail_subTabResults() },
-    { key: "plagiarism", label: m.examDetail_subTabPlagiarism() },
     { key: "proctoring", label: m.examDetail_subTabProctoring() },
-    { key: "settings", label: m.examDetail_subTabSettings() },
     ...(data.clarification.canView
       ? [{ key: "clarifications" as const, label: m.clarification_tab_title() }]
       : []),
-    { key: "audit", label: m.examDetail_subTabAudit() },
+    { key: "settings", label: m.examDetail_subTabSettings() },
   ]);
 
   const studentPrepRules = $derived([
@@ -449,6 +472,7 @@
             {/each}
           </div>
         </GlassPanel>
+        <ExamHandInPanel examTitle={detail.title} />
       {:else}
         <div class="grid gap-6 lg:grid-cols-[1fr_360px]">
           <GlassPanel class="p-7">
@@ -614,8 +638,8 @@
 
     <Tabs
       tabs={subTabs}
-      value={activeSubTabKey}
-      onValueChange={setActiveSubTab}
+      value={primaryTab}
+      onValueChange={setPrimaryTab}
       label={m.examDetail_subTabsLabel()}
       id="exam-manage"
     >
@@ -628,7 +652,39 @@
           />
         {/if}
       {/snippet}
-      {#if activeSubTabKey === "submissions" && data.matrix}
+      {#if childTabs.length > 0}
+        <nav
+          class="mb-6 flex flex-wrap gap-2 border-b border-border-subtle pb-4"
+          aria-label={primaryTab === "results"
+            ? m.examDetail_subTabResults()
+            : m.examDetail_subTabProctoring()}
+        >
+          {#each childTabs as tab (tab.key)}
+            <a
+              href={examSubTabHref(page.url, tab.key)}
+              aria-current={activeSubTabKey === tab.key ? "page" : undefined}
+              onclick={(event) => {
+                event.preventDefault();
+                setActiveSubTab(tab.key);
+              }}
+              class={cn(
+                "focus-ring inline-flex min-h-10 items-center rounded-md px-3 text-body-sm font-medium transition-colors",
+                activeSubTabKey === tab.key
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}>{tab.label}</a
+            >
+          {/each}
+        </nav>
+      {/if}
+      {#if activeSubTabKey === "credentials"}
+        <ExamCredentialsPanel
+          rows={data.examCredentials}
+          startsAt={detail.startsAt}
+          canEdit={liveStatus !== "draft" && !past}
+          canResetIp={liveStatus === "running"}
+        />
+      {:else if activeSubTabKey === "submissions" && data.matrix}
         <LiveSubmissionsFeed
           rows={data.recentSubmissions}
           refreshUrl={`/api/submissions?context=exam&id=${detail.id}`}

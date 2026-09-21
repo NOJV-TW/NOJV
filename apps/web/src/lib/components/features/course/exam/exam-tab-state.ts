@@ -4,12 +4,20 @@ export const examSubTabKeys = [
   "results",
   "plagiarism",
   "proctoring",
+  "credentials",
   "settings",
   "clarifications",
   "audit",
 ] as const;
 
 export type ExamSubTab = (typeof examSubTabKeys)[number];
+export type ExamPrimaryTab = Exclude<ExamSubTab, "plagiarism" | "audit" | "credentials">;
+
+export function examPrimaryTab(tab: ExamSubTab): ExamPrimaryTab {
+  if (tab === "plagiarism" || tab === "audit") return "results";
+  if (tab === "credentials") return "proctoring";
+  return tab;
+}
 
 export function parseExamSubTab(value: string | null): ExamSubTab {
   return value && examSubTabKeys.includes(value as ExamSubTab)

@@ -7,3 +7,4 @@ export * from "./detail";
 export * from "./problem-view";
 export * from "./submissions-matrix";
 export * as session from "./session";
+export * as credentials from "./credentials";

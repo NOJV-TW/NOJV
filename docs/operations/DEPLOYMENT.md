@@ -80,6 +80,10 @@ chart sets `MAILER_MODE=smtp`, takes `SMTP_PORT` from `mailer.smtpPort`, and
 requires the remaining values from the runtime Secret. Judge-only workers do
 not receive or validate mailer configuration.
 
+Platform workers also receive the same `BETTER_AUTH_SECRET` as the web service from
+the runtime Secret. Exam credential delivery uses it to decrypt the temporary
+password immediately before sending mail. Judge-only workers do not need it.
+
 | Variable       | Production requirement                                                  |
 | -------------- | ----------------------------------------------------------------------- |
 | `MAILER_MODE`  | `smtp`                                                                  |

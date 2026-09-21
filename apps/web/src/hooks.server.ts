@@ -13,6 +13,7 @@ import {
 } from "@nojv/application";
 
 import { getAuth } from "$lib/auth.server";
+import { isExamPasswordSecurityRequest } from "$lib/server/exam-password-policy";
 import { examContextCache, pageLockCache } from "$lib/server/exam-context-cache";
 import { createLogger } from "$lib/server/logger";
 import { m } from "$lib/paraglide/messages.js";
@@ -44,6 +45,8 @@ import { classifyError, classifyRequestError } from "$lib/server/shared/handle-a
 import { getClientIp } from "$lib/server/shared/client-ip";
 import {
   authRateLimiter,
+  examSignInRateLimiter,
+  examSignInRateLimitKey,
   signInRateLimiter,
   type RateLimitResult,
 } from "$lib/server/shared/rate-limiter";
@@ -217,11 +220,26 @@ async function handleApiAuthRoute(
   );
   if (authRateLimitResponse) return authRateLimitResponse;
 
+  const isExamPasswordSignIn =
+    event.request.method === "POST" && cleanPath === "/api/auth/sign-in/exam-password";
   const isPasswordSignIn =
     event.request.method === "POST" &&
     (cleanPath === "/api/auth/sign-in/email" || cleanPath === "/api/auth/sign-in/username");
-  if (isPasswordSignIn) {
-    const rateLimit = await signInRateLimiter.consume(ip);
+  if (isPasswordSignIn || isExamPasswordSignIn) {
+    let rateLimit: RateLimitResult;
+    if (isExamPasswordSignIn) {
+      const body: unknown = await event.request
+        .clone()
+        .json()
+        .catch(() => null);
+      const username =
+        typeof body === "object" && body !== null && "username" in body
+          ? body.username
+          : undefined;
+      rateLimit = await examSignInRateLimiter.consume(examSignInRateLimitKey(ip, username));
+    } else {
+      rateLimit = await signInRateLimiter.consume(ip);
+    }
     const signInRateLimitResponse = blockedAuthRateLimitResponse(
       rateLimit,
       event.locals.requestId,
@@ -508,6 +526,17 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
   }
 
   await loadSession(event);
+  if (
+    event.locals.session?.examPassword &&
+    isExamPasswordSecurityRequest(cleanPath, event.request.method)
+  ) {
+    return jsonErrorResponse({
+      code: "exam_session_restricted",
+      message: "Use your usual sign-in method to manage account security.",
+      requestId: event.locals.requestId,
+      status: 403,
+    });
+  }
   await consumeStepUpHandoff(event);
   await enforceAccountState(event, cleanPath);
   const expiredSessionResponse = await enforceSuperAdminSessionAge(event);

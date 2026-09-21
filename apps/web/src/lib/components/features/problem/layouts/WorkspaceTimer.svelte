@@ -1,15 +1,11 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
-  import { deserialize } from "$app/forms";
-  import { X } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import { toasts } from "$lib/stores/toast";
   import type { ProblemWorkspaceTimer } from "./ProblemLeftPanel.svelte";
 
   let { timer }: { timer: ProblemWorkspaceTimer } = $props();
 
   let now = $state(Date.now());
-  let ending = $state(false);
   let expired = $state(false);
 
   $effect(() => {
@@ -46,33 +42,10 @@
   );
 
   $effect(() => {
-    if (timer.type !== "exam" || !closed || expired || ending) return;
+    if (timer.type !== "exam" || !closed || expired) return;
     expired = true;
     void goto(`/exams/${timer.examId}`);
   });
-
-  async function endExam() {
-    if (timer.type !== "exam" || ending || !window.confirm(m.examMode_submitEndConfirm()))
-      return;
-    ending = true;
-    try {
-      const response = await fetch(`/exams/${timer.examId}?/releaseSession`, {
-        method: "POST",
-        headers: { accept: "application/json", "x-sveltekit-action": "true" },
-        body: new FormData(),
-      });
-      const result = deserialize(await response.text());
-      if (!response.ok || result.type !== "success") {
-        toasts.error(m.examMode_submitEndFailed());
-        ending = false;
-        return;
-      }
-      await goto(`/exams/${timer.examId}`, { invalidateAll: true });
-    } catch {
-      toasts.error(m.examMode_submitEndFailed());
-      ending = false;
-    }
-  }
 </script>
 
 <div
@@ -87,15 +60,12 @@
   </span>
   <span class="font-mono font-semibold tabular-nums {urgencyClass}">{countdown}</span>
   {#if timer.type === "exam"}
-    <button
-      type="button"
-      class="ml-auto inline-flex items-center gap-1 rounded-sm border border-destructive/35 px-2 py-1 font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-60"
-      disabled={ending}
-      onclick={() => void endExam()}
+    <a
+      href={`/exams/${timer.examId}`}
+      class="focus-ring ml-2 inline-flex min-h-9 items-center rounded-md px-2 font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
     >
-      <X class="size-3.5" aria-hidden="true" />
-      {m.examMode_submitEndButton()}
-    </button>
+      {m.examMode_overview()}
+    </a>
   {/if}
   {#if allowsLate && !closed}
     <p class="basis-full leading-relaxed text-muted-foreground" role="status">

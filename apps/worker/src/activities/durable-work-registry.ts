@@ -43,6 +43,9 @@ const scoreConvergencePayload = z
   .strict();
 
 export const durableWorkHandlers = Object.freeze({
+  [examDomain.credentials.EMAIL_WORK_KIND]: async (payload: unknown) => {
+    return examDomain.credentials.deliverEmail(payload);
+  },
   [JUDGE_EXECUTION_DISPATCH_KIND]: async (payload: unknown) => {
     await submissionDomain.executeJudgeExecutionDispatch(payload);
     return { outcome: "dispatched" };

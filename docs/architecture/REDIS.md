@@ -57,13 +57,16 @@ Cooldown enforcement lives in the database — see `checkExamSubmitCooldown` in 
 
 `rate-limiter-flexible` with a Redis backend (`apps/web/src/lib/server/shared/rate-limiter.ts`):
 
-- Keyed on the Cloudflare-aware client IP via `getClientIp(event)`, not on userId.
+- Keyed on the Cloudflare-aware client IP via `getClientIp(event)`; the exam password-attempt limiter combines that IP with a normalized username.
 - Key prefix is `rl` — no `nojv:` prefix.
-- Four shared limiters, not per-endpoint:
+- Shared request and password sign-in limiters:
   - `apiRateLimiter` — 60 req / 60 s
   - `writeApiRateLimiter` — 10 req / 60 s
   - `formActionRateLimiter` — 20 req / 60 s (consumed via `withRateLimit` → `consumeFormRateLimitInternal`)
-  - `signInRateLimiter` — 5 attempts / 15 min (password sign-in)
+  - `authRateLimiter` — 60 req / 60 s across all Auth API routes, including exam sign-in and OAuth
+  - `signInRateLimiter` — 5 attempts / 15 min per IP (admin password sign-in)
+  - `examSignInRateLimiter` — 5 attempts / 15 min per normalized username and IP; malformed usernames share one bounded invalid-input bucket per IP
+- Shared classroom IPs still share the general authentication and form-action quotas. Exam password attempts are isolated between usernames; this does not remove the broader traffic limits.
 - Dev / test multiply points by 1000× to avoid E2E flakiness.
 - In production, each limiter owns a lazy ioredis connection with `enableOfflineQueue: false` and `maxRetriesPerRequest: 1`. The first consumer explicitly waits for that connection to become ready; later outages still fail closed with HTTP 503, while only bounded read throttles use a local fallback. Dev mode uses `RateLimiterMemory` instead.
 
