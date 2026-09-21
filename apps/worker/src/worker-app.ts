@@ -220,9 +220,8 @@ export class WorkerApp {
         });
         if (decision.action === "refuse") {
           throw new Error(
-            "Refusing to start K8s judge worker: the cluster CNI does not enforce NetworkPolicy, " +
-              "so sandbox egress isolation is inert. Enable a NetworkPolicy-enforcing CNI (GKE " +
-              "Dataplane V2, Calico, or Cilium).",
+            "Refusing to start K8s judge worker: sandbox NetworkPolicy enforcement was not " +
+              "verified. Inspect the probe outcome and target readiness before changing the CNI.",
           );
         }
       }
