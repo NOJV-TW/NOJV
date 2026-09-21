@@ -200,9 +200,10 @@ Related: [Judge pipeline](../../architecture/JUDGE_PIPELINE.md),
 
 ## Final merge assessment
 
-- User selected release tag `v1.2.0`. Tag push triggers image publication and
-  Flux deployment, so it is scheduled for the approved 2026-09-22 00:00–02:00
-  maintenance window after the exact merged main SHA passes release CI.
+- User identified `v1.2.0` as the intended version, then narrowed the current
+  instruction to merge only, without publishing a tag. The previously scheduled
+  maintenance release automation is paused; no tag or deployment is authorized
+  by this merge step.
 - Integrated database suite passed 89 files / 641 tests. Canonical capacity
   Temporal suite passed all 18 tests, including registration before initialization,
   orphan cleanup without a database lease, accepted-order FIFO and rollback

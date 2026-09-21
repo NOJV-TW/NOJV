@@ -17,10 +17,11 @@ function isMissing(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
-async function directory(root: string): Promise<void> {
+async function directory(root: string) {
   const info = await lstat(root);
   if (!info.isDirectory() || info.isSymbolicLink())
     throw new Error("Artifact root must be a real directory");
+  return info;
 }
 
 async function readCommand(sourceDir: string): Promise<string[] | null> {
@@ -28,7 +29,7 @@ async function readCommand(sourceDir: string): Promise<string[] | null> {
   try {
     file = await open(
       path.join(sourceDir, "run-command.json"),
-      constants.O_RDONLY | constants.O_NOFOLLOW,
+      constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
     );
   } catch (error) {
     if (isMissing(error)) return null;
@@ -124,8 +125,11 @@ export async function publishArtifact(
   const buffer = Buffer.alloc(64 * 1024);
   async function copyDirectory(relative: string): Promise<void> {
     const source = path.join(sourceDir, relative);
-    await directory(source);
-    for (const name of await readdir(source)) {
+    const info = await directory(source);
+    if (relative && (info.mode & 0o7000) !== 0)
+      throw new Error("Artifact special permission bits are forbidden");
+    for (const entry of await readdir(source, { withFileTypes: true })) {
+      const name = entry.name;
       if (
         name === ARTIFACT_READY_FILE ||
         name === ".publishing" ||
@@ -138,30 +142,26 @@ export async function publishArtifact(
       const child = path.join(relative, name);
       const inputPath = path.join(sourceDir, child);
       const outputPath = path.join(staging, child);
-      const info = await lstat(inputPath);
-      if ((info.mode & 0o7000) !== 0)
-        throw new Error("Artifact special permission bits are forbidden");
-      if (info.isDirectory()) {
+      if (entry.isDirectory()) {
         await mkdir(outputPath, { mode: 0o700 });
         await copyDirectory(child);
         continue;
       }
-      if (!info.isFile() || info.nlink !== 1)
+      if (!entry.isFile())
         throw new Error(
           "Artifact must contain only regular files and directories without hard links",
         );
-      if (info.size > maxBytes - bytes) throw new Error("Artifact byte limit exceeded");
-      const input = await open(inputPath, constants.O_RDONLY | constants.O_NOFOLLOW);
+      const input = await open(
+        inputPath,
+        constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+      );
       try {
         const before = await input.stat();
-        if (
-          !before.isFile() ||
-          before.ino !== info.ino ||
-          before.dev !== info.dev ||
-          before.nlink !== 1 ||
-          (before.mode & 0o7000) !== 0
-        )
-          throw new Error("Artifact changed during publication");
+        if (!before.isFile() || before.nlink !== 1)
+          throw new Error("Artifact must contain regular files without hard links");
+        if ((before.mode & 0o7000) !== 0)
+          throw new Error("Artifact special permission bits are forbidden");
+        if (before.size > maxBytes - bytes) throw new Error("Artifact byte limit exceeded");
         const output = await open(
           outputPath,
           constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,

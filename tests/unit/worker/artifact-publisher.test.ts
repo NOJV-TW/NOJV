@@ -11,6 +11,8 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { createServer } from "node:net";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -39,6 +41,28 @@ afterEach(async () => {
 const publish = () => publishArtifact({ sourceDir, targetDir });
 
 describe("bounded artifact publication", () => {
+  it("rejects a FIFO run command without waiting for a writer", async () => {
+    await rm(path.join(sourceDir, "run-command.json"));
+    const run = promisify(execFile);
+    await run("mkfifo", [path.join(sourceDir, "run-command.json")]);
+    const script = `
+      import { publishArtifact } from "./apps/sandbox-runner/src/artifact-publisher.ts";
+      try {
+        await publishArtifact(${JSON.stringify({ sourceDir, targetDir })});
+        process.exitCode = 1;
+      } catch (error) {
+        process.stdout.write(error.message);
+      }
+    `;
+    const result = await run(
+      process.execPath,
+      ["--import", "tsx", "--input-type=module", "-e", script],
+      { timeout: 2_000 },
+    );
+    expect(result.stdout).toContain("Invalid artifact run command file");
+    expect(await readdir(targetDir)).toEqual([]);
+  });
+
   it("publishes an atomic directory and readiness marker with normalized executable permissions", async () => {
     const result = await publish();
     expect(result).toEqual({ published: true, bytes: 24, files: 2 });
