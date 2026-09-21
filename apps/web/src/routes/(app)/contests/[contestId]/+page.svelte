@@ -301,16 +301,18 @@
           </div>
         {/if}
         {#if data.settingsForm}
-          <ContestSettingsTab
-            form={data.settingsForm}
-            initialSchedule={{
-              startsAt: contest.startsAt,
-              endsAt: contest.endsAt,
-              frozenAt: contest.frozenAt,
-            }}
-            liveStatus={settingsLiveStatus}
-            candidateProblems={data.candidateProblems}
-          />
+          {#key contest.id}
+            <ContestSettingsTab
+              form={data.settingsForm}
+              initialSchedule={{
+                startsAt: contest.startsAt,
+                endsAt: contest.endsAt,
+                frozenAt: contest.frozenAt,
+              }}
+              liveStatus={settingsLiveStatus}
+              candidateProblems={data.candidateProblems}
+            />
+          {/key}
         {:else}
           <div class="py-12 text-center text-body text-muted-foreground">
             {m.contestDetail_settingsTabPlaceholder()}

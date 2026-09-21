@@ -8,6 +8,7 @@
 </script>
 
 <script lang="ts">
+  import { untrack } from "svelte";
   import ActivityWeights from "../ActivityWeights.svelte";
   import { beforeNavigate } from "$app/navigation";
   import { enhance } from "$app/forms";
@@ -59,7 +60,18 @@
   let draggedId = $state<string | null>(null);
   let dragOverId = $state<string | null>(null);
 
+  let editRevision = $state(0);
+  let appliedContext: string | undefined;
+  let appliedSnapshot: string | undefined;
+  const snapshot = (total: number, rows: { id: string; points: number }[]) =>
+    JSON.stringify([total, rows.map(({ id, points }) => ({ id, points }))]);
   $effect(() => {
+    const incoming = snapshot(detail.totalPoints, detail.problems);
+    const draft = untrack(() => snapshot(editTotal, editProblems));
+    if (appliedContext === detail.id && draft !== appliedSnapshot && draft !== incoming) return;
+    appliedContext = detail.id;
+    appliedSnapshot = incoming;
+    editRevision = detail.gradingRevision;
     editTotal = detail.totalPoints;
     editProblems = detail.problems.map((problem) => ({
       id: problem.id,
@@ -332,7 +344,7 @@
       name="payload"
       value={JSON.stringify({
         totalPoints: editTotal,
-        gradingRevision: detail.gradingRevision,
+        gradingRevision: editRevision,
         problems: editProblems.map((p) => ({ problemId: p.id, points: p.points })),
       })}
     />

@@ -41,6 +41,7 @@ const {
 } = contestDomain;
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
+  event.depends("submission:data");
   const { params, locals } = event;
   const now = new Date();
   const user = locals.user;

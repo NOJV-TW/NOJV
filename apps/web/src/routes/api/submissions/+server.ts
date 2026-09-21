@@ -1,4 +1,9 @@
-import { MAX_SUBMISSION_BODY_BYTES, submissionDraftSchema } from "@nojv/core";
+import {
+  MAX_SUBMISSION_BODY_BYTES,
+  submissionDraftSchema,
+  submissionOperationStatusSchema,
+  languageSchema,
+} from "@nojv/core";
 import { submissionDomain, HttpError } from "@nojv/application";
 import { error, json } from "@sveltejs/kit";
 import { z } from "zod";
@@ -15,26 +20,63 @@ const contextQuerySchema = z.object({
   id: z.string().min(1),
 });
 
+const historyQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  snapshot: z.string().min(1).max(1024).optional(),
+  filterProblemId: z.string().min(1).max(128).optional(),
+  status: submissionOperationStatusSchema.optional(),
+  language: languageSchema.optional(),
+  contextType: z.enum(["practice", "assignment", "contest", "exam", "virtual"]).optional(),
+  search: z.string().trim().max(200).optional(),
+});
+
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
+  if (event.url.searchParams.has("problemId")) {
+    const problemId = z.string().min(1).parse(event.url.searchParams.get("problemId"));
+    let contextInput: unknown;
+    try {
+      contextInput = JSON.parse(event.url.searchParams.get("workspaceContext") ?? "null");
+    } catch {
+      error(400, "Invalid workspace context.");
+    }
+    const context = submissionDraftSchema.shape.context.parse(contextInput);
+    const cursor = event.url.searchParams.get("cursor")?.trim();
+    return json(
+      await submissionDomain.listWorkspaceSubmissions({
+        actor,
+        problemId,
+        context,
+        ...(cursor ? { cursor } : {}),
+      }),
+    );
+  }
+  const query = historyQuerySchema.parse(Object.fromEntries(event.url.searchParams));
+  const options = {
+    actor,
+    limit: SUBMISSIONS_PAGE_SIZE,
+    page: query.page,
+    ...(query.snapshot ? { snapshot: query.snapshot } : {}),
+    filters: {
+      ...(query.filterProblemId ? { problemId: query.filterProblemId } : {}),
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.language ? { language: query.language } : {}),
+      ...(query.contextType ? { contextType: query.contextType } : {}),
+      ...(query.search ? { search: query.search } : {}),
+    },
+  };
   const contextType = event.url.searchParams.get("context");
   const contextId = event.url.searchParams.get("id");
   if (contextType !== null || contextId !== null) {
     const context = contextQuerySchema.parse({ context: contextType, id: contextId });
-    const items = await submissionDomain.listRecentContextSubmissions({
-      actor,
-      context: { type: context.context, id: context.id },
-    });
-    return json({ items });
+    return json(
+      await submissionDomain.listContextSubmissionsPaged({
+        ...options,
+        context: { type: context.context, id: context.id },
+      }),
+    );
   }
-
-  const cursor = event.url.searchParams.get("cursor")?.trim();
-  const page = await submissionDomain.listUserSubmissions({
-    actor,
-    limit: SUBMISSIONS_PAGE_SIZE,
-    ...(cursor ? { cursor } : {}),
-  });
-  return json(page);
+  return json(await submissionDomain.listUserSubmissions(options));
 });
 
 function submitRejectionBody(err: HttpError): { code: string; retryAfterSec?: number } {

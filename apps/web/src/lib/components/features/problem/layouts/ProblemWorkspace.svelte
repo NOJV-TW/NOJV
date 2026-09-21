@@ -1,4 +1,9 @@
 <script lang="ts">
+  import {
+    watchProblemSubmissions,
+    applySubmissionState,
+    mergeSubmissionEntries,
+  } from "$lib/services/problem-submission";
   import { onDestroy, onMount, untrack } from "svelte";
   import { page } from "$app/state";
   import {
@@ -56,19 +61,31 @@
 
   let submissions = $state<ProblemSubmissionEntry[]>(untrack(() => initialSubmissions) ?? []);
 
+  const watchedIds = $derived(
+    submissions.flatMap((entry) => (entry.id ? [entry.id] : [])).join(","),
+  );
+  $effect(() =>
+    watchProblemSubmissions(watchedIds ? watchedIds.split(",") : [], (operation) => {
+      const index = submissions.findIndex((entry) => entry.id === operation.submissionId);
+      if (index >= 0) submissions[index] = applySubmissionState(submissions[index]!, operation);
+    }),
+  );
+  const newSubmissionCount = $derived(
+    (initialSubmissions ?? []).filter(
+      (entry) => !submissions.some((current) => current.id === entry.id),
+    ).length,
+  );
+  let historyRevision = $state(0);
+  function showLatestSubmissions() {
+    submissions = [...(initialSubmissions ?? [])];
+    historyRevision++;
+  }
   $effect(() => {
-    const incoming = initialSubmissions;
-    if (!incoming) return;
-    const current = untrack(() => submissions);
-    const currentById = new Map(
-      current.filter((entry) => entry.id).map((entry) => [entry.id, entry]),
-    );
-    const merged = incoming.map((entry) => ({ ...currentById.get(entry.id), ...entry }));
-    const incomingIds = new Set(incoming.map((entry) => entry.id).filter(Boolean));
-    submissions = [
-      ...merged,
-      ...current.filter((entry) => entry.id && !incomingIds.has(entry.id)),
-    ].slice(0, 50);
+    if (initialSubmissions)
+      submissions = mergeSubmissionEntries(
+        untrack(() => submissions),
+        initialSubmissions,
+      );
   });
 
   let draftContext = $derived(draftContextFromSubmissionContext(context));
@@ -87,11 +104,14 @@
       {
         id: submissionId,
         language,
+        status: "queued",
+        judgeGeneration: 0,
+        updatedAt: "1970-01-01T00:00:00.000Z",
         submittedAt: new Date().toISOString(),
         context: context.type,
       },
       ...submissions,
-    ].slice(0, 50);
+    ];
   }
 
   function handleSubmissionComplete(
@@ -102,20 +122,23 @@
   ) {
     const index = submissions.findIndex((s) => s.id === submissionId);
     if (index >= 0) {
-      submissions[index] = { ...submissions[index]!, result, sourceCode };
+      submissions[index] = { ...submissions[index]!, sourceCode };
       return;
     }
     submissions = [
       {
         id: submissionId,
         language,
+        status: result.verdict,
+        judgeGeneration: 0,
+        updatedAt: "1970-01-01T00:00:00.000Z",
         result,
         sourceCode,
         submittedAt: new Date().toISOString(),
         context: context.type,
       },
       ...submissions,
-    ].slice(0, 50);
+    ];
   }
 
   let leftPanelWidth = $state(DEFAULT_PANEL_WIDTH);
@@ -163,6 +186,10 @@
   style="width: {leftPanelWidth}%"
 >
   <ProblemLeftPanel
+    {newSubmissionCount}
+    {historyRevision}
+    onShowLatest={showLatestSubmissions}
+    {context}
     {backLink}
     {canRejudge}
     {canViewEditorials}

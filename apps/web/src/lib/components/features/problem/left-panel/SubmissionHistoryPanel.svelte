@@ -2,7 +2,19 @@
   import SubmissionId from "$lib/components/features/submission/SubmissionId.svelte";
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import type { ProblemSubmissionEntry } from "$lib/types";
-  import type { SubmissionResult } from "@nojv/core";
+  import {
+    isSubmissionPending,
+    type SubmissionResult,
+    type SubmissionContext,
+    type SubmissionOperation,
+  } from "@nojv/core";
+  import { applySubmissionState } from "$lib/services/problem-submission";
+  import {
+    submissionRead,
+    watchRejudge,
+    requestSubmissionRefresh,
+  } from "$lib/services/submission-tracker";
+  import { onDestroy, untrack } from "svelte";
   import { formatSmartTimestamp } from "$lib/utils/datetime";
   import { formatJudgeOutput } from "$lib/utils/judge-output";
   import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
@@ -36,18 +48,71 @@
   }
 
   interface Props {
+    problemId?: string | undefined;
+    context?: SubmissionContext | undefined;
     submissions?: ProblemSubmissionEntry[];
+    newSubmissionCount?: number;
+    onShowLatest?: (() => void) | undefined;
     viewingId?: string | null;
     canRejudge?: boolean;
     total?: number;
   }
 
   let {
+    problemId,
+    context,
     submissions = $bindable([]),
+    newSubmissionCount = 0,
+    onShowLatest,
     viewingId = $bindable(null),
     canRejudge = false,
     total = 100,
   }: Props = $props();
+
+  let hasMore = $state(untrack(() => submissions.length >= 50));
+  let loadingMore = $state(false);
+  let loadMoreError = $state(false);
+  const historyAbort = new AbortController();
+  onDestroy(() => historyAbort.abort());
+
+  async function loadMore() {
+    const cursor = submissions.at(-1)?.id;
+    if (!problemId || !context || !cursor || loadingMore) return;
+    loadingMore = true;
+    loadMoreError = false;
+    try {
+      const query = new URLSearchParams({
+        problemId,
+        workspaceContext: JSON.stringify(context),
+        cursor,
+      });
+      const page = await submissionRead<{
+        items: ProblemSubmissionEntry[];
+        nextCursor: string | null;
+      }>(`/api/submissions?${query}`, historyAbort.signal);
+      if (historyAbort.signal.aborted) return;
+      const known = new Set(submissions.map((entry) => entry.id));
+      submissions = [...submissions, ...page.items.filter((entry) => !known.has(entry.id))];
+      hasMore = page.nextCursor !== null;
+    } catch {
+      if (!historyAbort.signal.aborted) loadMoreError = true;
+    } finally {
+      loadingMore = false;
+    }
+  }
+
+  let sentinel: HTMLDivElement | undefined = $state();
+  $effect(() => {
+    if (!sentinel || !hasMore || loadingMore || loadMoreError) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) void loadMore();
+      },
+      { root: sentinel.closest("[data-history-scroll]"), rootMargin: "150px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  });
 
   const viewingEntry = $derived(
     viewingId === null ? null : (submissions.find((s) => s.id === viewingId) ?? null),
@@ -55,8 +120,11 @@
 
   let loadingSourceId = $state<string | null>(null);
   let sourceErrorIds = $state(new Set<string>());
+  let detailErrorIds = $state(new Set<string>());
+  const detailKey = (entry: ProblemSubmissionEntry) =>
+    `${entry.id ?? ""}:${String(entry.judgeGeneration)}:${entry.updatedAt}`;
   let loadingDetailId = $state<string | null>(null);
-  let detailLoadedIds = $state(new Set<string>());
+  const detailLoadedResults = new WeakSet<SubmissionResult>();
   let rejudgingId = $state<string | null>(null);
 
   async function handleRejudge(submissionId: string) {
@@ -67,6 +135,14 @@
         method: "POST",
       });
       if (res.ok) {
+        const { workflowId } = (await res.json()) as { workflowId: string };
+        const index = submissions.findIndex((entry) => entry.id === submissionId);
+        if (index >= 0) {
+          const { result: _result, ...entry } = submissions[index]!;
+          submissions[index] = { ...entry, status: "queued" };
+        }
+        watchRejudge(workflowId, [submissionId], () => undefined);
+        requestSubmissionRefresh();
         toasts.success(m.rejudge_toast_queuedSingle());
       } else {
         toasts.error(m.rejudge_toast_error());
@@ -84,13 +160,13 @@
 
     const entryId = entry.id;
     let cancelled = false;
+    const controller = new AbortController();
     loadingSourceId = entryId;
 
-    fetch(`/api/submissions/${entryId}/source`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to load source code.");
-        return res.json() as Promise<{ files: { path: string; content: string }[] }>;
-      })
+    submissionRead<{ files: { path: string; content: string }[] }>(
+      `/api/submissions/${entryId}/source`,
+      controller.signal,
+    )
       .then((data) => {
         if (cancelled) return;
         const currentIdx = submissions.findIndex((s) => s.id === entryId);
@@ -111,6 +187,7 @@
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   });
 
@@ -119,32 +196,26 @@
     if (!entry || !entry.result || !entry.id) return;
 
     const entryId = entry.id;
-    if (detailLoadedIds.has(entryId)) return;
+    if (detailLoadedResults.has(entry.result) || detailErrorIds.has(detailKey(entry))) return;
     if (entry.result.caseResults !== undefined || entry.result.subtaskResults !== undefined) {
-      detailLoadedIds = new Set([...detailLoadedIds, entryId]);
       return;
     }
 
     let cancelled = false;
+    const controller = new AbortController();
     loadingDetailId = entryId;
 
-    fetch(`/api/submissions/${entryId}`)
-      .then((res) => {
-        if (!res.ok) return;
-        return res.json() as Promise<{
-          result: SubmissionResult | null;
-          status: string;
-        }>;
-      })
+    submissionRead<SubmissionOperation>(`/api/submissions/${entryId}`, controller.signal)
       .then((data) => {
-        if (cancelled || !data?.result) return;
+        if (cancelled) return;
         const currentIdx = submissions.findIndex((s) => s.id === entryId);
         if (currentIdx === -1) return;
-        submissions[currentIdx] = { ...submissions[currentIdx]!, result: data.result };
-        detailLoadedIds = new Set([...detailLoadedIds, entryId]);
+        submissions[currentIdx] = applySubmissionState(submissions[currentIdx]!, data);
+        if (submissions[currentIdx]!.result)
+          detailLoadedResults.add(submissions[currentIdx]!.result!);
       })
       .catch(() => {
-        detailLoadedIds = new Set([...detailLoadedIds, entryId]);
+        if (!cancelled) detailErrorIds = new Set([...detailErrorIds, detailKey(entry)]);
       })
       .finally(() => {
         if (!cancelled && loadingDetailId === entryId) loadingDetailId = null;
@@ -152,9 +223,22 @@
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   });
 </script>
+
+{#if viewingEntry && detailErrorIds.has(detailKey(viewingEntry))}
+  <button
+    type="button"
+    class="p-3 text-body-sm text-destructive"
+    onclick={() => {
+      const errors = new Set(detailErrorIds);
+      if (viewingEntry) errors.delete(detailKey(viewingEntry));
+      detailErrorIds = errors;
+    }}>{m.submissions_loadFailed()} {m.common_retry()}</button
+  >
+{/if}
 
 <div class="p-5">
   {#if submissions.length === 0}
@@ -172,7 +256,7 @@
         &larr; {m.problemDetail_allSubmissions()}
       </button>
 
-      {#if !entry.result}
+      {#if isSubmissionPending(entry.status)}
         <div class="flex items-center gap-3 py-6">
           <div
             class="size-5 animate-spin rounded-full border-2 border-border border-t-foreground"
@@ -194,6 +278,11 @@
             <SubmissionId id={entry.id} />
           </div>
         {/if}
+      {:else if !entry.result}
+        <p class="text-body font-semibold {verdictTone(entry.status)}">
+          {formatVerdictLabel(entry.status)}
+        </p>
+        <p class="mt-2 text-body-sm text-muted-foreground">{m.submissions_loadFailed()}</p>
       {:else}
         {@const label = formatVerdictLabel(entry.result.verdict)}
         <div class="flex items-baseline gap-3">
@@ -298,6 +387,13 @@
     </div>
   {:else}
     <div class="grid gap-3">
+      {#if newSubmissionCount > 0}
+        <button
+          type="button"
+          class="rounded-md border border-primary px-4 py-3 text-body-sm"
+          onclick={onShowLatest}>{m.submissions_newRecordsAvailable()}</button
+        >
+      {/if}
       {#each submissions as entry (entry.id)}
         <button
           class="rounded-md border border-border-subtle px-4 py-3 text-left transition-[transform,box-shadow,background-color,border-color] duration-fast ease-out-soft hover:border-primary/30 hover:bg-accent hover:shadow-rest"
@@ -305,9 +401,9 @@
           type="button"
         >
           <div class="flex items-baseline justify-between gap-3">
-            {#if entry.result}
-              <span class="text-body-sm font-semibold {verdictTone(entry.result.verdict)}">
-                {formatVerdictLabel(entry.result.verdict)}
+            {#if !isSubmissionPending(entry.status)}
+              <span class="text-body-sm font-semibold {verdictTone(entry.status)}">
+                {formatVerdictLabel(entry.status)}
               </span>
             {:else}
               <span
@@ -329,7 +425,7 @@
               <Badge variant="outline" size="xs">{contextLabel(entry.context)}</Badge>
             {/if}
             <span>{entry.language}</span>
-            {#if entry.result}
+            {#if !isSubmissionPending(entry.status) && entry.result}
               {#if entry.result.runtimeMs > 0}
                 <span class="tabular-nums">{String(entry.result.runtimeMs)} ms</span>
               {/if}
@@ -338,6 +434,25 @@
           </div>
         </button>
       {/each}
+      {#if hasMore && problemId && context}
+        <div bind:this={sentinel} aria-hidden="true"></div>
+        <button
+          class="rounded-md border border-border px-4 py-3 text-body-sm disabled:opacity-50"
+          disabled={loadingMore}
+          onclick={() => void loadMore()}
+          type="button"
+          aria-busy={loadingMore}
+        >
+          {loadingMore
+            ? m.submissions_loadingMore()
+            : loadMoreError
+              ? m.common_retry()
+              : m.admin_submissions_next()}
+        </button>
+      {/if}
+      {#if loadMoreError}
+        <p class="text-body-sm text-destructive" role="alert">{m.submissions_loadFailed()}</p>
+      {/if}
     </div>
   {/if}
 </div>

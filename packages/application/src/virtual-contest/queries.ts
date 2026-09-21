@@ -1,16 +1,14 @@
 import { contestRepo, participationRepo, submissionRepo } from "@nojv/db";
-import type { languageSchema } from "@nojv/core";
 import {
   problemLetter,
   submissionVerdicts,
-  verdictSummarySchema,
+  submissionOperationStatuses,
   type ContestScoringMode,
-  type submissionResultSchema,
-  type SubmissionResult,
 } from "@nojv/core";
 
 import { ForbiddenError, NotFoundError } from "../shared/errors";
-import { narrowSubmissionRow } from "../submission/queries";
+import { toProblemSubmissionEntry } from "../submission/queries";
+import { applyQueuedRejudges } from "../submission/operations";
 import {
   buildScoreboard,
   type ParticipantRow,
@@ -249,12 +247,7 @@ export async function assertCanSubmitToVirtualContest(
   return { participationId: virtual.id, contestId: virtual.contestId };
 }
 
-export interface VirtualSubmissionEntry {
-  id: string;
-  language: ReturnType<typeof languageSchema.parse>;
-  result: ReturnType<typeof submissionResultSchema.parse>;
-  submittedAt: string;
-}
+export type VirtualSubmissionEntry = ReturnType<typeof toProblemSubmissionEntry>;
 
 export async function listVirtualContestProblemSubmissions(
   participationId: string,
@@ -264,29 +257,9 @@ export async function listVirtualContestProblemSubmissions(
   const submissions = await submissionRepo.listByUserAndProblem({
     problemId,
     userId,
-    statusIn: [...submissionVerdicts],
+    statusIn: [...submissionOperationStatuses],
     participationId,
   });
 
-  return submissions.map((s) => {
-    const { verdict, language } = narrowSubmissionRow(s);
-    const parsedSummary =
-      s.verdictSummary == null ? null : verdictSummarySchema.safeParse(s.verdictSummary);
-    const summary = parsedSummary?.success ? parsedSummary.data : null;
-    const result: SubmissionResult = {
-      accepted: verdict === "accepted",
-      verdict,
-      score: s.score,
-      runtimeMs: s.runtimeMs ?? 0,
-      feedback:
-        summary?.compilerErrorTruncated ??
-        (verdict === "accepted" ? "Accepted." : "Verdict details unavailable."),
-    };
-    return {
-      id: s.id,
-      language,
-      result,
-      submittedAt: s.createdAt.toISOString(),
-    };
-  });
+  return (await applyQueuedRejudges(submissions)).map(toProblemSubmissionEntry);
 }

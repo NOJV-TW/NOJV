@@ -113,3 +113,74 @@ describe("rejudge progress against Temporal", () => {
     );
   }, 30_000);
 });
+
+it("exposes the captured batch target generations only after selection finishes", async () => {
+  let markSelecting!: () => void;
+  let releaseSelection!: () => void;
+  let markChild!: () => void;
+  let releaseChild!: () => void;
+  const selecting = new Promise<void>((resolve) => {
+    markSelecting = resolve;
+  });
+  const selection = new Promise<void>((resolve) => {
+    releaseSelection = resolve;
+  });
+  const childStarted = new Promise<void>((resolve) => {
+    markChild = resolve;
+  });
+  const child = new Promise<null>((resolve) => {
+    releaseChild = () => resolve(null);
+  });
+  const worker = await Worker.create({
+    connection: env.nativeConnection,
+    taskQueue: "rejudge-batch-targets",
+    workflowsPath,
+    activities: {
+      fetchSubmissionIdsForRejudge: async () => {
+        markSelecting();
+        await selection;
+        return [
+          {
+            submissionId: "selected",
+            judgeGeneration: 3,
+            draft: { problemId: "problem", language: "python" },
+          },
+        ];
+      },
+      snapshotSubmissionForRejudge: () => {
+        markChild();
+        return child;
+      },
+    },
+  });
+  await worker.runUntil(async () => {
+    const workflowId = `rejudge-targets-${randomUUID()}`;
+    const handle = await env.client.workflow.start("rejudgeWorkflow", {
+      taskQueue: "rejudge-batch-targets",
+      workflowId,
+      args: [{ mode: "batch", problemId: "problem", triggeredByUserId: "staff" }],
+    });
+    try {
+      await selecting;
+      expect(await queryRejudgeProgress(workflowId)).toMatchObject({
+        status: "running",
+        targets: null,
+      });
+      releaseSelection();
+      await childStarted;
+      expect(await queryRejudgeProgress(workflowId)).toMatchObject({
+        status: "running",
+        targets: [{ submissionId: "selected", judgeGeneration: 3 }],
+      });
+      releaseChild();
+      await handle.result();
+      expect(await queryRejudgeProgress(workflowId)).toMatchObject({
+        status: "completed",
+        targets: [{ submissionId: "selected", judgeGeneration: 3 }],
+      });
+    } finally {
+      releaseSelection();
+      releaseChild();
+    }
+  });
+}, 30_000);

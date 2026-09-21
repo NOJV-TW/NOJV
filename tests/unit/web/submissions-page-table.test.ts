@@ -1,9 +1,13 @@
 // @vitest-environment jsdom
 
 import { mount, tick, unmount } from "svelte";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.setConfig({ testTimeout: 15_000 });
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 const mocks = vi.hoisted(() => ({ goto: vi.fn(), invalidateAll: vi.fn() }));
 
@@ -13,9 +17,30 @@ vi.mock("$lib/components/primitives/ui/select/select-content.svelte", async () =
 
 vi.mock("@lucide/svelte", async () => {
   const Empty = (await import("./fixtures/empty-component.svelte")).default;
-  return { Code2: Empty, History: Empty, ListFilter: Empty, Loader2: Empty };
+  return {
+    Code2: Empty,
+    History: Empty,
+    ListFilter: Empty,
+    Loader2: Empty,
+    ChevronFirst: Empty,
+    ChevronLast: Empty,
+    ChevronLeft: Empty,
+    ChevronRight: Empty,
+  };
 });
 
+vi.mock("$lib/services/submission-tracker", () => ({
+  watchSubmissionStates: () => () => undefined,
+  isNewerSubmission: () => true,
+  submissionRead: async (url: string) => (await fetch(url)).json(),
+  onSubmissionRefresh(callback: (signal: AbortSignal) => Promise<void>) {
+    const controller = new AbortController();
+    queueMicrotask(() => {
+      if (!controller.signal.aborted) void callback(controller.signal);
+    });
+    return () => controller.abort();
+  },
+}));
 vi.mock("$lib/stores/sse", () => ({ watchSubmissionVerdict: () => () => undefined }));
 vi.mock("$lib/components/primitives/ui/EmptyState.svelte", async () => ({
   default: (await import("./fixtures/empty-component.svelte")).default,
@@ -26,12 +51,50 @@ vi.mock("$lib/components/primitives/ui/button", async () => ({
 vi.mock("$app/navigation", () => ({
   goto: mocks.goto,
   invalidateAll: mocks.invalidateAll,
+  invalidate: mocks.invalidateAll,
 }));
 
 describe("submissions page", () => {
   it.each([false, true])(
     "shows submitter only with admin mode %s",
     async (adminAccessActive) => {
+      Object.defineProperty(document, "visibilityState", {
+        configurable: true,
+        value: "visible",
+      });
+      const initial = {
+        id: "sub_1",
+        user: { name: "Alice", username: "alice" },
+        createdAt: "2026-08-20T08:00:00.000Z",
+        updatedAt: "2026-08-20T08:00:00.000Z",
+        judgeGeneration: 1,
+        language: "cpp",
+        problemId: "p1",
+        problemTitle: "A + B",
+        runtimeMs: 12,
+        memoryKb: 1024,
+        score: 100,
+        totalScore: 100,
+        status: "accepted",
+        context: "assignment",
+      };
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string) => {
+          const filtered = new URL(url, "http://localhost").searchParams.get("status");
+          return new Response(
+            JSON.stringify({
+              items: filtered === "wrong_answer" ? [] : [initial],
+              page: 1,
+              pageSize: 50,
+              totalCount: filtered === "wrong_answer" ? 0 : 1,
+              totalPages: 1,
+              snapshot: "s",
+              newCount: 0,
+            }),
+          );
+        }),
+      );
       const { default: SubmissionsPage } =
         await import("../../../apps/web/src/routes/(app)/submissions/+page.svelte");
       const target = document.createElement("div");
@@ -42,22 +105,7 @@ describe("submissions page", () => {
           data: {
             adminAccessActive,
             nextCursor: null,
-            submissions: [
-              {
-                id: "sub_1",
-                user: { name: "Alice", username: "alice" },
-                createdAt: "2026-08-20T08:00:00.000Z",
-                language: "cpp",
-                problemId: "p1",
-                problemTitle: "A + B",
-                runtimeMs: 12,
-                memoryKb: 1024,
-                score: 100,
-                totalScore: 100,
-                status: "accepted",
-                context: "assignment",
-              },
-            ],
+            submissions: [initial],
           },
         },
       });
@@ -108,7 +156,11 @@ describe("submissions page", () => {
       option.dispatchEvent(new MouseEvent("pointerup", { bubbles: true }));
       await tick();
       expect(verdictFilter.textContent?.trim()).toBe("WA");
-      expect(target.textContent).toContain("No submissions match these filters.");
+      await vi.waitFor(() =>
+        expect(target.textContent).toContain("No submissions match these filters."),
+      );
+      expect(target.querySelector("table")).not.toBeNull();
+      expect(target.querySelector('[aria-label="Verdict"]')).not.toBeNull();
       expect(target.querySelector("tbody td")?.getAttribute("colspan")).toBe(
         adminAccessActive ? "7" : "6",
       );

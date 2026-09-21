@@ -1,10 +1,8 @@
 import {
-  apiErrorSchema,
   MAX_SUBMISSION_BODY_BYTES,
   submissionDraftSchema,
   submissionDispatchResponseSchema,
   submissionOperationSchema,
-  submissionResultSchema,
   type Language,
   type SubmissionContext,
   type SubmissionResult,
@@ -12,7 +10,11 @@ import {
 } from "@nojv/core";
 
 import { fetchWithCsrf } from "$lib/services/http";
-import { watchSubmissionVerdict } from "$lib/stores/sse";
+import {
+  submissionRead,
+  waitForSubmission,
+  submissionSessionSignal,
+} from "$lib/services/submission-tracker";
 
 export interface SubmissionWorkspaceFile {
   path: string;
@@ -49,11 +51,6 @@ export interface ExecuteSubmissionOptions {
 }
 
 const DEFAULT_TIMEOUT_MS = 600_000;
-const INITIAL_POLL_DELAY_MS = 500;
-const MAX_POLL_DELAY_MS = 5_000;
-const POLL_BACKOFF_FACTOR = 1.5;
-const INITIAL_NETWORK_RETRY_DELAY_MS = 250;
-const MAX_NETWORK_RETRY_DELAY_MS = 5_000;
 
 export function buildSubmissionBody(request: SubmissionRequest): Record<string, unknown> {
   const commonFields: Record<string, unknown> = {
@@ -100,8 +97,6 @@ export function submissionRequestValidationError(
     : null;
 }
 
-type SubmissionOperation = ReturnType<typeof submissionOperationSchema.parse>;
-
 async function postSubmission(
   body: Record<string, unknown>,
   signal?: AbortSignal,
@@ -131,145 +126,49 @@ async function postSubmission(
   return submissionDispatchResponseSchema.parse(await response.json());
 }
 
-async function pollOnce(
-  pollUrl: string,
-  signal?: AbortSignal,
-): Promise<SubmissionOperation | null> {
-  const pollInit: RequestInit = { cache: "no-store" };
-  if (signal) pollInit.signal = signal;
-
-  let poll: Response | undefined;
-  let retryDelay = INITIAL_NETWORK_RETRY_DELAY_MS;
-  while (!poll) {
-    try {
-      poll = await fetch(pollUrl, pollInit);
-    } catch {
-      if (signal?.aborted) return null;
-      if (!(await waitForDelay(retryDelay, signal))) return null;
-      retryDelay = Math.min(retryDelay * 2, MAX_NETWORK_RETRY_DELAY_MS);
-    }
-  }
-
-  if (!poll.ok) {
-    const parsed = apiErrorSchema.safeParse(await poll.json().catch(() => null));
-    throw new SubmissionRequestError(
-      parsed.success ? parsed.data.message : "Polling failed.",
-      null,
-      null,
-    );
-  }
-
-  return submissionOperationSchema.parse(await poll.json());
-}
-
 export async function executeSubmission(
   request: SubmissionRequest,
   options: ExecuteSubmissionOptions = {},
 ): Promise<SubmissionResult | null> {
-  const { timeoutMs = DEFAULT_TIMEOUT_MS, onDispatched, onOperationUpdate } = options;
   const deadline = new AbortController();
-  const signal = options.signal
-    ? AbortSignal.any([options.signal, deadline.signal])
-    : deadline.signal;
+  const signal = AbortSignal.any([
+    deadline.signal,
+    submissionSessionSignal(),
+    ...(options.signal ? [options.signal] : []),
+  ]);
   const timer = setTimeout(
     () =>
       deadline.abort(
         new SubmissionRequestError("Submission timed out.", "SUBMISSION_TIMEOUT", null),
       ),
-    timeoutMs,
+    options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
   );
-  let verdictSignal: VerdictSignal | undefined;
-
   try {
     if (signal.aborted) return null;
     const dispatch = await postSubmission(buildSubmissionBody(request), signal);
     signal.throwIfAborted();
     if (!dispatch) return null;
-    onDispatched?.(dispatch);
-    verdictSignal = createVerdictSignal(dispatch.submissionId);
-    let pollDelay = INITIAL_POLL_DELAY_MS;
-
-    for (;;) {
+    options.onDispatched?.(dispatch);
+    const operation = await waitForSubmission(dispatch.submissionId, signal);
+    options.onOperationUpdate?.(operation);
+    try {
+      const detail = submissionOperationSchema.parse(
+        await submissionRead(dispatch.pollUrl, signal),
+      );
+      if (
+        detail.judgeGeneration === operation.judgeGeneration &&
+        detail.status === operation.status
+      ) {
+        return detail.result ?? operation.result;
+      }
+    } catch {
       signal.throwIfAborted();
-      const operation = await pollOnce(dispatch.pollUrl, signal);
-      signal.throwIfAborted();
-      if (!operation) return null;
-      onOperationUpdate?.(operation);
-      if (operation.result) return submissionResultSchema.parse(operation.result);
-
-      const wokeEarly = await waitForPollTick(pollDelay, verdictSignal.promise, signal);
-      if (wokeEarly) verdictSignal.reset();
-      pollDelay = wokeEarly
-        ? INITIAL_POLL_DELAY_MS
-        : Math.min(pollDelay * POLL_BACKOFF_FACTOR, MAX_POLL_DELAY_MS);
     }
+    return operation.result;
   } catch (error) {
     if (options.signal?.aborted) return null;
-    if (deadline.signal.aborted) throw deadline.signal.reason;
     throw error;
   } finally {
     clearTimeout(timer);
-    verdictSignal?.dispose();
-  }
-}
-
-function waitForDelay(ms: number, signal?: AbortSignal): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (signal?.aborted) {
-      resolve(false);
-      return;
-    }
-
-    const onAbort = () => {
-      clearTimeout(timer);
-      signal?.removeEventListener("abort", onAbort);
-      resolve(false);
-    };
-    const timer = setTimeout(() => {
-      signal?.removeEventListener("abort", onAbort);
-      resolve(true);
-    }, ms);
-    signal?.addEventListener("abort", onAbort, { once: true });
-  });
-}
-
-interface VerdictSignal {
-  promise: Promise<void>;
-  dispose: () => void;
-  reset: () => void;
-}
-
-function createVerdictSignal(submissionId: string): VerdictSignal {
-  let resolve!: () => void;
-  const nextPromise = () =>
-    new Promise<void>((res) => {
-      resolve = res;
-    });
-  const state: VerdictSignal = {
-    promise: nextPromise(),
-    dispose: watchSubmissionVerdict(submissionId, () => resolve()),
-    reset: () => {
-      state.promise = nextPromise();
-    },
-  };
-  return state;
-}
-
-async function waitForPollTick(
-  ms: number,
-  verdictPromise: Promise<void>,
-  signal?: AbortSignal,
-): Promise<boolean> {
-  const cancelDelay = new AbortController();
-  const delaySignal = signal
-    ? AbortSignal.any([signal, cancelDelay.signal])
-    : cancelDelay.signal;
-  try {
-    return await Promise.race([
-      waitForDelay(ms, delaySignal).then(() => false),
-      verdictPromise.then(() => true),
-    ]);
-  } finally {
-    cancelDelay.abort();
   }
 }

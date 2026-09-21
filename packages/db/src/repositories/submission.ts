@@ -1,6 +1,6 @@
 import { prisma } from "../client";
 import type { Prisma } from "../../generated/prisma/client";
-import type { SubmissionStatus } from "../../generated/prisma/enums";
+import type { SupportedLanguage, SubmissionStatus } from "../../generated/prisma/enums";
 import type { TransactionClient } from "../transaction";
 import {
   courseMiniSelect,
@@ -112,9 +112,10 @@ const submissionDetailSelect = {
   memoryKb: true,
   verdictSummary: true,
   verdictDetailStorage: true,
-  judgeGeneration: true,
   activeJudgeRunId: true,
   createdAt: true,
+  updatedAt: true,
+  judgeGeneration: true,
   user: { select: userMiniSelect },
   problem: {
     select: {
@@ -143,9 +144,203 @@ const submissionDetailSelect = {
   },
 } satisfies Prisma.SubmissionSelect;
 
+export interface SubmissionHistoryFilters {
+  problemId?: string;
+  status?: SubmissionStatus;
+  language?: SupportedLanguage;
+  contextType?: "practice" | "assignment" | "contest" | "exam" | "virtual";
+  search?: string;
+}
+
+export interface SubmissionHistoryBoundary {
+  id: string;
+  createdAt: Date;
+}
+
 export const submissionRepo = {
   findById(id: string) {
     return prisma.submission.findUnique({ where: { id } });
+  },
+
+  async listPendingForUser(input: { userId: string; cursor?: string; queuedIds: string[] }) {
+    const scope = {
+      ...userFacingSubmissionWhere(input.userId, true),
+      sampleOnly: false,
+    } satisfies Prisma.SubmissionWhereInput;
+    const cursor = input.cursor
+      ? await prisma.submission.findFirst({
+          where: { ...scope, id: input.cursor },
+          select: { id: true, createdAt: true },
+        })
+      : null;
+    if (input.cursor && !cursor) return null;
+    return prisma.submission.findMany({
+      where: {
+        ...scope,
+        AND: [
+          {
+            OR: [
+              { status: { in: ["pending_upload", "queued", "compiling", "running"] } },
+              { id: { in: input.queuedIds } },
+            ],
+          },
+          ...(cursor
+            ? [
+                {
+                  OR: [
+                    { createdAt: { lt: cursor.createdAt } },
+                    { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+                  ],
+                },
+              ]
+            : []),
+        ],
+      },
+      include: { problem: { select: problemMiniSelect } },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 51,
+    });
+  },
+
+  async listHistoryPage(input: {
+    userId?: string;
+    context?: { type: "assignment" | "exam"; id: string };
+    filters: SubmissionHistoryFilters;
+    queuedRejudgeIds?: string[];
+    page: number;
+    limit: number;
+    snapshot?: SubmissionHistoryBoundary;
+  }) {
+    const scope: Prisma.SubmissionWhereInput = {
+      ...(input.userId ? userFacingSubmissionWhere(input.userId, true) : {}),
+      sampleOnly: false,
+      isReferenceSolution: false,
+      ...(input.context?.type === "assignment" ? { assessmentId: input.context.id } : {}),
+      ...(input.context?.type === "exam" ? { examId: input.context.id } : {}),
+    };
+    const filters = input.filters;
+    const where: Prisma.SubmissionWhereInput = {
+      AND: [
+        scope,
+        {
+          ...(filters.problemId ? { problemId: filters.problemId } : {}),
+          ...(filters.status === "queued"
+            ? {
+                AND: [
+                  {
+                    OR: [
+                      { status: "queued" as const },
+                      { id: { in: input.queuedRejudgeIds ?? [] } },
+                    ],
+                  },
+                ],
+              }
+            : filters.status
+              ? { status: filters.status, id: { notIn: input.queuedRejudgeIds ?? [] } }
+              : {}),
+          ...(filters.language ? { language: filters.language } : {}),
+          ...(filters.contextType === "practice"
+            ? { assessmentId: null, examId: null, contestId: null, participationId: null }
+            : {}),
+          ...(filters.contextType === "assignment" ? { assessmentId: { not: null } } : {}),
+          ...(filters.contextType === "exam" ? { examId: { not: null } } : {}),
+          ...(filters.contextType === "contest"
+            ? { contestId: { not: null }, participationId: null }
+            : {}),
+          ...(filters.contextType === "virtual" ? { participationId: { not: null } } : {}),
+          ...(filters.search
+            ? {
+                OR: [
+                  { problem: { title: { contains: filters.search, mode: "insensitive" } } },
+                  { user: { username: { contains: filters.search, mode: "insensitive" } } },
+                  { user: { name: { contains: filters.search, mode: "insensitive" } } },
+                  { ipAddress: { contains: filters.search, mode: "insensitive" } },
+                ],
+              }
+            : {}),
+        },
+      ],
+    };
+    return prisma.$transaction(
+      async (tx) => {
+        if (input.snapshot?.id) {
+          const anchor = await tx.submission.findFirst({
+            where: {
+              AND: [scope, { id: input.snapshot.id, createdAt: input.snapshot.createdAt }],
+            },
+            select: { id: true },
+          });
+          if (!anchor) return null;
+        }
+        const snapshot = input.snapshot ??
+          (await tx.submission.findFirst({
+            where,
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            select: { id: true, createdAt: true },
+          })) ?? { id: "", createdAt: new Date() };
+        const bounded = {
+          AND: [
+            where,
+            {
+              OR: [
+                { createdAt: { lt: snapshot.createdAt } },
+                { createdAt: snapshot.createdAt, id: { lte: snapshot.id } },
+              ],
+            },
+          ],
+        } satisfies Prisma.SubmissionWhereInput;
+        const [rows, totalCount, newCount] = await Promise.all([
+          tx.submission.findMany({
+            where: bounded,
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            skip: (input.page - 1) * input.limit,
+            take: input.limit,
+            select: {
+              id: true,
+              createdAt: true,
+              updatedAt: true,
+              judgeGeneration: true,
+              language: true,
+              score: true,
+              status: true,
+              runtimeMs: true,
+              memoryKb: true,
+              verdictSummary: true,
+              contestId: true,
+              assessmentId: true,
+              examId: true,
+              participationId: true,
+              ipAddress: true,
+              problem: {
+                select: {
+                  ...problemMiniSelect,
+                  type: true,
+                  advancedConfig: true,
+                  testcaseSets: { select: { weight: true } },
+                },
+              },
+              user: { select: userMiniSelect },
+            },
+          }),
+          tx.submission.count({ where: bounded }),
+          tx.submission.count({
+            where: {
+              AND: [
+                where,
+                {
+                  OR: [
+                    { createdAt: { gt: snapshot.createdAt } },
+                    { createdAt: snapshot.createdAt, id: { gt: snapshot.id } },
+                  ],
+                },
+              ],
+            },
+          }),
+        ]);
+        return { rows, totalCount, newCount, snapshot };
+      },
+      { isolationLevel: "RepeatableRead" },
+    );
   },
 
   findLatestReferenceForProblem(problemId: string) {
@@ -155,6 +350,8 @@ export const submissionRepo = {
       select: {
         id: true,
         createdAt: true,
+        updatedAt: true,
+        judgeGeneration: true,
         language: true,
         problemId: true,
         isReferenceSolution: true,
@@ -182,6 +379,23 @@ export const submissionRepo = {
         id: input.id,
         ...userFacingSubmissionWhere(input.userId, true),
       },
+    });
+  },
+
+  listByIdsForUserRead(input: { ids: string[]; userId: string; adminRecovery: boolean }) {
+    return prisma.submission.findMany({
+      where: {
+        id: { in: input.ids },
+        ...(input.adminRecovery ? {} : userFacingSubmissionWhere(input.userId, true)),
+      },
+      include: { problem: { select: problemMiniSelect } },
+    });
+  },
+
+  listByIdsForStaffRead(ids: string[]) {
+    return prisma.submission.findMany({
+      where: { id: { in: ids } },
+      include: { problem: { select: problemMiniSelect } },
     });
   },
 
@@ -301,10 +515,12 @@ export const submissionRepo = {
         ...(opts.assessmentId ? { assessmentId: opts.assessmentId } : {}),
         ...(opts.participationId ? { participationId: opts.participationId } : {}),
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       select: {
         id: true,
         createdAt: true,
+        updatedAt: true,
+        judgeGeneration: true,
         language: true,
         score: true,
         status: true,
@@ -340,11 +556,21 @@ export const submissionRepo = {
     enforceExamConfinement: boolean;
     limit: number;
     cursor?: string;
+    problemId?: string;
+    examId?: string;
+    assessmentId?: string;
+    contestId?: string;
+    participationId?: string;
   }) {
     const scope = {
       ...userFacingSubmissionWhere(opts.userId, opts.enforceExamConfinement),
       sampleOnly: false,
       isReferenceSolution: false,
+      ...(opts.problemId ? { problemId: opts.problemId } : {}),
+      ...(opts.examId ? { examId: opts.examId } : {}),
+      ...(opts.assessmentId ? { assessmentId: opts.assessmentId } : {}),
+      ...(opts.contestId ? { contestId: opts.contestId } : {}),
+      ...(opts.participationId ? { participationId: opts.participationId } : {}),
     } satisfies Prisma.SubmissionWhereInput;
 
     const readPage = (
@@ -370,11 +596,14 @@ export const submissionRepo = {
         select: {
           id: true,
           createdAt: true,
+          updatedAt: true,
+          judgeGeneration: true,
           language: true,
           score: true,
           status: true,
           runtimeMs: true,
           memoryKb: true,
+          verdictSummary: true,
           contestId: true,
           assessmentId: true,
           examId: true,
@@ -428,6 +657,8 @@ export const submissionRepo = {
       select: {
         id: true,
         createdAt: true,
+        updatedAt: true,
+        judgeGeneration: true,
         language: true,
         score: true,
         status: true,
@@ -695,6 +926,7 @@ export const submissionRepo = {
     return prisma.submission.findMany({
       select: {
         id: true,
+        judgeGeneration: true,
         language: true,
         problemId: true,
         sampleOnly: true,

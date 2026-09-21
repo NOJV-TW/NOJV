@@ -7,6 +7,7 @@
 </script>
 
 <script lang="ts">
+  import { untrack } from "svelte";
   import ActivityWeights from "../ActivityWeights.svelte";
   import { deserialize } from "$app/forms";
   import { beforeNavigate, invalidateAll } from "$app/navigation";
@@ -75,9 +76,21 @@
     }));
   }
 
+  let appliedContext: string | undefined;
+  let appliedSnapshot: string | undefined;
+  let editRevision = $state(0);
+  const snapshot = (total: number, rows: { problemId: string; points: number }[]) =>
+    JSON.stringify([total, rows.map(({ problemId, points }) => ({ problemId, points }))]);
   $effect(() => {
+    const incoming = snapshot(totalPoints, problems);
+    const draft = untrack(() => snapshot(editTotal, editRows));
+    if (appliedContext === assignmentId && draft !== appliedSnapshot && draft !== incoming)
+      return;
     seedRows(problems);
     editTotal = totalPoints;
+    editRevision = gradingRevision;
+    appliedContext = assignmentId;
+    appliedSnapshot = incoming;
   });
 
   const hasChanges = $derived(
@@ -157,7 +170,7 @@
     const payload = {
       problems: editRows.map(({ problemId, points }) => ({ problemId, points })),
       totalPoints: editTotal,
-      gradingRevision,
+      gradingRevision: editRevision,
     };
     const fd = new FormData();
     fd.set("payload", JSON.stringify(payload));

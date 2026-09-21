@@ -9,8 +9,15 @@ const mocks = vi.hoisted(() => ({
   executeSubmission: vi.fn(),
   invalidateAll: vi.fn(),
   toastError: vi.fn(),
+  watch: vi.fn(),
+  read: vi.fn(),
 }));
 
+vi.mock("$lib/services/submission-tracker", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("$lib/services/submission-tracker")>()),
+  watchSubmissionStates: mocks.watch,
+  submissionRead: mocks.read,
+}));
 vi.mock("$app/navigation", () => ({ invalidateAll: mocks.invalidateAll }));
 vi.mock("$lib/services/submission-service", async (importOriginal) => ({
   ...(await importOriginal<typeof import("$lib/services/submission-service")>()),
@@ -38,13 +45,20 @@ afterEach(async () => {
   target.remove();
 });
 
-function render() {
+function render(
+  initial: {
+    status: "not_configured" | "validating" | "verified" | "failed";
+    submissionId: string | null;
+    language: string | null;
+    sourceFiles: { path: string; content: string }[];
+  } = { status: "not_configured", submissionId: null, language: null, sourceFiles: [] },
+) {
   component = mount(ReferenceSolutionSection, {
     target,
     props: {
       problemId: "problem_1",
       problemType: "full_source",
-      initial: { status: "not_configured", language: null, sourceFiles: [] },
+      initial,
       starterByLanguage: { python: "print(1)" },
       workspaceFiles: [],
     },
@@ -53,7 +67,7 @@ function render() {
 }
 
 describe("ReferenceSolutionSection", () => {
-  it("submits once and remains verified when page refresh fails", async () => {
+  it("submits once without claiming reference validity when page refresh fails", async () => {
     let resolveSubmission!: (value: { accepted: boolean; feedback: string }) => void;
     mocks.executeSubmission.mockReturnValue(
       new Promise((resolve) => {
@@ -71,7 +85,7 @@ describe("ReferenceSolutionSection", () => {
 
     await vi.waitFor(() => {
       expect(target.querySelector('[role="status"]')?.textContent).toContain(
-        m.admin_referenceVerified(),
+        m.admin_referenceNotConfigured(),
       );
       expect(mocks.toastError).toHaveBeenCalledWith(m.admin_referenceRefreshFailed());
     });
@@ -122,5 +136,91 @@ describe("ReferenceSolutionSection", () => {
       expect(target.textContent).toContain("#2");
       expect(target.textContent).toContain("WA");
     });
+  });
+  it("restores failed validation details and retries a failed detail read", async () => {
+    let update!: (operation: import("@nojv/core").SubmissionOperation) => void;
+    mocks.watch.mockImplementation((_ids, listener) => {
+      update = listener;
+      return () => {};
+    });
+    mocks.read.mockRejectedValueOnce(new Error("Offline"));
+    render({
+      status: "validating",
+      submissionId: "reference_1",
+      language: "python",
+      sourceFiles: [],
+    });
+    await vi.waitFor(() => expect(update).toBeDefined());
+    const operation = {
+      submissionId: "reference_1",
+      problemId: "problem_1",
+      problemTitle: "Reference",
+      judgeGeneration: 1,
+      updatedAt: "2026-09-21T00:00:00.000Z",
+      status: "wrong_answer" as const,
+      result: {
+        accepted: false,
+        verdict: "wrong_answer" as const,
+        score: 0,
+        runtimeMs: 1,
+        feedback: "Wrong answer",
+      },
+    };
+    update(operation);
+    await vi.waitFor(() => expect(target.querySelector('[role="alert"]')).not.toBeNull());
+    mocks.read.mockResolvedValueOnce({
+      ...operation,
+      result: {
+        ...operation.result,
+        feedback: "Failed on testcase 2",
+        caseResults: [{ index: 1, verdict: "WA", timeMs: 1 }],
+      },
+    });
+    [...target.querySelectorAll<HTMLButtonElement>("button")]
+      .find((button) => button.textContent?.trim() === m.common_retry())!
+      .click();
+    await vi.waitFor(() => expect(target.textContent).toContain("Failed on testcase 2"));
+    expect(target.textContent).toContain("#2");
+    update({ ...operation, judgeGeneration: 2, status: "queued", result: null });
+    await vi.waitFor(() => expect(target.textContent).not.toContain("Failed on testcase 2"));
+    expect(target.querySelector('[role="status"]')?.textContent).toContain(
+      m.admin_referenceValidating(),
+    );
+  });
+
+  it("does not treat an old accepted result as a valid reference after configuration changes", async () => {
+    let update!: (operation: import("@nojv/core").SubmissionOperation) => void;
+    mocks.watch.mockImplementation((_ids, listener) => {
+      update = listener;
+      return () => {};
+    });
+    render({
+      status: "failed",
+      submissionId: "reference_old",
+      language: "python",
+      sourceFiles: [],
+    });
+    await vi.waitFor(() => expect(update).toBeDefined());
+    update({
+      submissionId: "reference_old",
+      problemId: "problem_1",
+      problemTitle: "Reference",
+      judgeGeneration: 1,
+      updatedAt: "2026-09-21T00:00:00.000Z",
+      status: "accepted",
+      result: {
+        accepted: true,
+        verdict: "accepted",
+        score: 100,
+        runtimeMs: 1,
+        feedback: "Accepted",
+      },
+    });
+    await vi.waitFor(() =>
+      expect(target.querySelector('[role="status"]')?.textContent).toContain(
+        m.admin_referenceFailed(),
+      ),
+    );
+    expect(target.textContent).not.toContain(m.admin_referenceFailureDetails());
   });
 });
