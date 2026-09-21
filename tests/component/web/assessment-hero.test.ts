@@ -34,35 +34,39 @@ function stubResizeObserver(isOverflowing: boolean) {
   );
 }
 
-async function render() {
+async function render(kind: "assignment" | "exam" | "contest", summaryId: string) {
   target = document.createElement("div");
   document.body.append(target);
   component = mount(AssessmentHero, {
     target,
     props: {
-      kind: "assignment",
+      kind,
       typeLabel: "Assignment",
       title: "Process Trace",
       summary: "A long assignment description that needs to be fully readable.",
-      summaryId: "assignment-summary-test",
+      summaryId,
     },
   });
   await tick();
 }
 
 describe("AssessmentHero expandable summary", () => {
-  it("lets any viewer expand an overflowing summary without role-specific opt-in", async () => {
+  it.each([
+    ["assignment", "assignment-summary-test"],
+    ["exam", "exam-summary-test"],
+    ["contest", "contest-summary-test"],
+  ] as const)("lets any viewer expand an overflowing %s summary", async (kind, summaryId) => {
     stubResizeObserver(true);
-    await render();
+    await render(kind, summaryId);
 
-    const summary = target!.querySelector("p");
+    const summary = target!.querySelector(`#${summaryId}`);
     expect(summary?.classList.contains("line-clamp-2")).toBe(true);
 
     const moreButton = target!.querySelector("button");
     expect(moreButton).not.toBeNull();
     expect(moreButton?.textContent?.trim()).toMatch(/^(Show more|顯示更多)$/);
     expect(moreButton?.getAttribute("aria-expanded")).toBe("false");
-    expect(moreButton?.getAttribute("aria-controls")).toBe("assignment-summary-test");
+    expect(moreButton?.getAttribute("aria-controls")).toBe(summaryId);
 
     moreButton?.click();
     await tick();
@@ -79,7 +83,7 @@ describe("AssessmentHero expandable summary", () => {
 
   it("does not add a disclosure for a summary that fits", async () => {
     stubResizeObserver(false);
-    await render();
+    await render("assignment", "assignment-summary-test");
     expect(target!.querySelector("button")).toBeNull();
   });
 });

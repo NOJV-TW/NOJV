@@ -14,7 +14,7 @@
     context?: string;
     title: string;
     summary?: string;
-    summaryId?: string;
+    summaryId: string;
     badges?: Snippet;
     meta?: Snippet;
     actions?: Snippet | undefined;

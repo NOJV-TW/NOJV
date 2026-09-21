@@ -185,6 +185,7 @@
     context={m.contestPoster_durationMinutes({ count: durationMin })}
     title={contest.title}
     summary={contest.summary}
+    summaryId={`contest-summary-${contest.id}`}
   >
     {#snippet aside(accent)}
       <HeroSchedule
