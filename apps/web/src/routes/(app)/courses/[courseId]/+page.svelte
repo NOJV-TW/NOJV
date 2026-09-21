@@ -20,6 +20,7 @@
   import AnnouncementViewDialog from "$lib/components/features/announcement/AnnouncementViewDialog.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { formatDate, formatTimeRangeCompact } from "$lib/utils/datetime";
+  import { markdownToPlainText } from "@nojv/core";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -155,7 +156,7 @@
                 </h3>
                 {#if announcement.content}
                   <p class="mt-1 line-clamp-2 text-body-sm text-muted-foreground">
-                    {announcement.content}
+                    {markdownToPlainText(announcement.content)}
                   </p>
                 {/if}
               </div>

@@ -15,7 +15,8 @@
 
 - `getMailer(): Mailer` — lazy singleton，依已驗證的 `process.env` 建立 SMTP transport 或 sink
 - `validateMailerConfig(): MailerConfig` — 啟動時驗證完整寄信組態
-- `renderEmail(content): string` — 雙語站內信 HTML 模板
+- `renderEmail(content): string` — 雙語站內信 HTML 模板（preheader / eyebrow / heading / meta / intro / body / action / outro）
+- `renderMarkdownForEmail(markdown, { baseUrl }): string` — 將 Markdown 轉成 inline-style、可安全嵌入信件的 HTML；相對路徑會補成 `baseUrl` 絕對網址，原始 HTML 會被跳脫，非 http(s)/mailto 連結會被移除
 - `getAppBaseUrl(): string` — email 連結用的站台基底 URL
 
 ## 環境變數
@@ -39,7 +40,7 @@ judge-only worker 不依賴 mailer。
 
 ## 依賴
 
-- 上游:`nodemailer`、`zod`
+- 上游:`nodemailer`、`marked`、`zod`
 - 下游:`apps/web`、`apps/worker`(platform)
 
 ## 本地開發

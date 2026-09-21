@@ -2,14 +2,17 @@ import {
   announcementRepo,
   announcementTranslationRepo,
   courseMembershipRepo,
+  courseRepo,
   runTransaction,
   userRepo,
   type TransactionClient,
 } from "@nojv/db";
 import { DEFAULT_LOCALE, announcementAudienceSchema } from "@nojv/core";
+import type { AnnouncementAudience } from "@nojv/core";
 import { z } from "zod";
 
 import * as notificationDomain from "../notification";
+import { platformRolesForAudience } from "./queries";
 
 export const announcementCreateSchema = z.object({
   title: z.string().trim().min(1),
@@ -27,17 +30,26 @@ export const announcementUpdateSchema = announcementCreateSchema;
 export type AnnouncementCreateInput = z.input<typeof announcementCreateSchema>;
 export type AnnouncementUpdateInput = z.input<typeof announcementUpdateSchema>;
 
+interface AnnouncementPublication {
+  announcementId: string;
+  title: string;
+  content: string;
+  audience: AnnouncementAudience;
+  courseId: string | null;
+  publishedAt: Date;
+}
+
 async function fanoutAnnouncementPublished(
   tx: TransactionClient,
-  announcementId: string,
-  title: string,
-  courseId: string | null,
-  publishedAt: Date,
+  { announcementId, title, content, audience, courseId, publishedAt }: AnnouncementPublication,
 ) {
+  const roles = platformRolesForAudience(audience);
   const recipientIds = courseId
-    ? await courseMembershipRepo.withTx(tx).listActiveMemberUserIds(courseId)
-    : (await userRepo.withTx(tx).listActiveIds()).map((u) => u.id);
+    ? await courseMembershipRepo.withTx(tx).listActiveMemberUserIds(courseId, roles)
+    : (await userRepo.withTx(tx).listActiveIds(roles)).map((u) => u.id);
   if (recipientIds.length === 0) return;
+  const course = courseId ? await courseRepo.withTx(tx).findById(courseId) : null;
+  const courseName = course?.title ?? null;
   await notificationDomain.createNotificationBatchInTransaction(
     tx,
     recipientIds.map((userId) => ({
@@ -48,12 +60,14 @@ async function fanoutAnnouncementPublished(
         titleEn: title,
         titleZhTw: title,
         ...(courseId ? { courseId } : {}),
+        ...(courseName ? { courseName } : {}),
       },
       linkUrl: courseId
         ? `/courses/${encodeURIComponent(courseId)}`
         : `/?announcement=${encodeURIComponent(announcementId)}`,
       dedupeKey: `announcement_published:${announcementId}:${publishedAt.toISOString()}:${userId}`,
     })),
+    { emailParams: { content, courseName, publishedAt: publishedAt.toISOString() } },
   );
 }
 
@@ -77,13 +91,14 @@ export async function createAnnouncement(data: AnnouncementCreateInput) {
       content: parsed.content,
     });
     if (publishedAt) {
-      await fanoutAnnouncementPublished(
-        tx,
-        announcement.id,
-        parsed.title,
-        parsed.courseId ?? null,
+      await fanoutAnnouncementPublished(tx, {
+        announcementId: announcement.id,
+        title: parsed.title,
+        content: parsed.content,
+        audience: parsed.audience,
+        courseId: parsed.courseId ?? null,
         publishedAt,
-      );
+      });
     }
     return announcement;
   });
@@ -106,13 +121,14 @@ export async function updateAnnouncement(id: string, data: AnnouncementUpdateInp
       content: parsed.content,
     });
     if (publishedAt && prior?.status !== "published") {
-      await fanoutAnnouncementPublished(
-        tx,
-        id,
-        parsed.title,
-        prior?.courseId ?? null,
+      await fanoutAnnouncementPublished(tx, {
+        announcementId: id,
+        title: parsed.title,
+        content: parsed.content,
+        audience: parsed.audience,
+        courseId: prior?.courseId ?? null,
         publishedAt,
-      );
+      });
     }
     return updated;
   });
@@ -142,13 +158,14 @@ export async function toggleAnnouncementPublish(id: string) {
     });
     if (publishedAt) {
       const translation = announcement.translations.find((t) => t.locale === DEFAULT_LOCALE);
-      await fanoutAnnouncementPublished(
-        tx,
-        id,
-        translation?.title ?? id,
-        announcement.courseId,
+      await fanoutAnnouncementPublished(tx, {
+        announcementId: id,
+        title: translation?.title ?? id,
+        content: translation?.content ?? "",
+        audience: announcement.audience,
+        courseId: announcement.courseId,
         publishedAt,
-      );
+      });
     }
     return updated;
   });

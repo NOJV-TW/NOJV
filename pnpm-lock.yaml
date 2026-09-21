@@ -572,6 +572,9 @@ importers:
 
   packages/mailer:
     dependencies:
+      marked:
+        specifier: ^18.0.11
+        version: 18.0.11
       nodemailer:
         specifier: ^9.1.1
         version: 9.1.1

@@ -33,5 +33,6 @@ export * from "./language-labels";
 export * from "./problem-letter";
 
 export * from "./school";
+export * from "./markdown-text";
 
 export * from "./judge-execution";
