@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -69,21 +70,83 @@ for _ in range(20):
         break
 `;
 
-function makeExecutor(): DockerExecutor {
+function makeExecutor(image = SANDBOX_IMAGE): DockerExecutor {
   return new DockerExecutor({
     cpuLimit: "1.0",
-    image: SANDBOX_IMAGE,
+    image,
     memoryMb: 256,
     pidsLimit: 64,
   });
 }
 
-function execute(request: SandboxRequest) {
-  return makeExecutor().execute(request, {
+function execute(request: SandboxRequest, image = SANDBOX_IMAGE) {
+  return makeExecutor(image).execute(request, {
     runId: request.submissionId,
     signal: new AbortController().signal,
   });
 }
+
+async function withDelayedCompiler(
+  compiler: "gcc" | "g++",
+  delaySeconds: number,
+  run: (image: string) => Promise<void>,
+): Promise<void> {
+  const directory = await mkdtemp(join(tmpdir(), "nojv-interactive-compiler-delay-"));
+  const image = `nojv-interactive-delay:${randomUUID()}`;
+  let built = false;
+  try {
+    await writeFile(
+      join(directory, "delayed-compiler"),
+      `#!/bin/sh\nsleep ${String(delaySeconds)}\nexec /usr/bin/${compiler} "$@"\n`,
+    );
+    await writeFile(
+      join(directory, "Dockerfile"),
+      [
+        "ARG SANDBOX_IMAGE",
+        "FROM ${SANDBOX_IMAGE}",
+        "USER root",
+        `COPY delayed-compiler /test-bin/${compiler}`,
+        `RUN test -x /usr/bin/${compiler} && chmod 755 /test-bin/${compiler}`,
+        "ENV PATH=/test-bin:$PATH",
+        "USER sandbox",
+        "",
+      ].join("\n"),
+    );
+    await promisify(execFile)(
+      "docker",
+      [
+        "build",
+        "--network=none",
+        "--pull=false",
+        "--build-arg",
+        `SANDBOX_IMAGE=${SANDBOX_IMAGE}`,
+        "--tag",
+        image,
+        directory,
+      ],
+      { timeout: 90_000 },
+    );
+    built = true;
+    await run(image);
+  } finally {
+    try {
+      if (built)
+        await promisify(execFile)("docker", ["image", "rm", image], { timeout: 30_000 });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }
+}
+
+const C_CHALLENGE_SOLUTION = `#include <stdio.h>
+int main(void) {
+  long long input;
+  if (scanf("%lld", &input) != 1) return 1;
+  printf("%lld\\n", input * 2);
+  fflush(stdout);
+  return 0;
+}
+`;
 
 function interactiveRequest(overrides: Partial<SandboxRequest>): SandboxRequest {
   return {
@@ -103,6 +166,90 @@ function interactiveRequest(overrides: Partial<SandboxRequest>): SandboxRequest 
 }
 
 describe("interactive-mode two-container isolation (Phase 2C)", () => {
+  it(
+    "excludes delayed C++ interactor compilation from the one-second student limit",
+    { timeout: 180_000 },
+    async (ctx) => {
+      if (!(await requireSandboxImage(ctx))) return;
+      await withDelayedCompiler("g++", 3, async (image) => {
+        const started = performance.now();
+        const result = await execute(
+          interactiveRequest({
+            submissionId: "interactive-delayed-interactor-compile",
+            language: "c",
+            sourceCode: C_CHALLENGE_SOLUTION,
+            testcases: [{ index: 0, input: "7\n", output: "14\n", weight: 1, isSample: false }],
+            limits: { timeoutMs: 1_000, memoryMb: 256 },
+            judgeConfig: {
+              interactorLanguage: "cpp",
+              interactorScript: `#include <fstream>
+#include <iostream>
+int main(int argc, char** argv) {
+  if (argc != 4) return 1;
+  std::ifstream input(argv[1]), answer(argv[2]);
+  long long challenge, expected, response;
+  if (!(input >> challenge) || !(answer >> expected)) return 1;
+  std::cout << challenge << std::endl;
+  if (!(std::cin >> response)) return 43;
+  return response == expected ? 42 : 43;
+}
+`,
+            },
+          }),
+          image,
+        );
+        expect(performance.now() - started).toBeGreaterThanOrEqual(3_000);
+        expect(result.compilationError).toBeUndefined();
+        expect(result.testcaseResults).toHaveLength(1);
+        expect(result.testcaseResults[0]).toMatchObject({
+          index: 0,
+          verdict: "AC",
+          exitCode: 0,
+        });
+        expect(result.testcaseResults[0]!.timeMs).toBeLessThan(1_000);
+      });
+    },
+  );
+
+  it(
+    "excludes student compilation beyond the interactor budget from judge execution time",
+    { timeout: 180_000 },
+    async (ctx) => {
+      if (!(await requireSandboxImage(ctx))) return;
+      await withDelayedCompiler("gcc", 32, async (image) => {
+        const started = performance.now();
+        const result = await execute(
+          interactiveRequest({
+            submissionId: "interactive-delayed-student-compile",
+            language: "c",
+            sourceCode: C_CHALLENGE_SOLUTION,
+            testcases: [{ index: 0, input: "7\n", output: "14\n", weight: 1, isSample: false }],
+            limits: { timeoutMs: 5_000, memoryMb: 256 },
+            judgeConfig: {
+              interactorLanguage: "python",
+              interactorScript: `write(judge_input.strip())
+if read().strip() == str(int(judge_input.strip()) * 2):
+    accept("Accepted.")
+else:
+    wrong("Wrong response.")
+`,
+            },
+          }),
+          image,
+        );
+        expect(performance.now() - started).toBeGreaterThanOrEqual(32_000);
+        expect(result.compilationError).toBeUndefined();
+        expect(result.testcaseResults).toHaveLength(1);
+        expect(result.testcaseResults[0]).toMatchObject({
+          index: 0,
+          verdict: "AC",
+          exitCode: 0,
+        });
+        expect(result.testcaseResults[0]!.timeMs).toBeLessThan(5_000);
+      });
+    },
+  );
+
   it(
     "keeps a student compiler diagnostic off the interactive stdout channel",
     { timeout: 60_000 },

@@ -26,6 +26,7 @@ import {
   runInteractiveSolution,
   runInteractiveValidator,
 } from "./judges/interactive-isolated.js";
+import { waitForInteractivePeer } from "./judges/interactive-start.js";
 import { resolveValidateCaseFiles, validateCase } from "./judges/validate.js";
 import { compileOutputSchema, normalizeRelativePath, validatorTimeoutMs } from "@nojv/core";
 import { materializePayload } from "./payload-materializer.js";
@@ -157,6 +158,17 @@ async function runInteractive(workDir: string, config: SandboxInput): Promise<vo
       emitRunReport({ exitCode: -1, timeMs: 0, compilationError: compileResult.error });
       return;
     }
+    try {
+      await waitForInteractivePeer(process.stdin, process.stdout);
+    } catch (error) {
+      emitRunReport({
+        exitCode: -1,
+        timeMs: 0,
+        errorVerdict: "SE",
+        stderr: `Interactive startup failed: ${error instanceof Error ? error.message : "unknown error"}`,
+      });
+      return;
+    }
     await runInteractiveSolution(
       compileResult.runCommand,
       config.limits.timeoutMs,
@@ -188,6 +200,16 @@ async function runInteractive(workDir: string, config: SandboxInput): Promise<vo
   const index = interactive.index;
   const { inputFile, answerFile } = resolveInteractiveCaseFiles(SUBMISSION_DIR, index);
   const feedbackDir = await fs.mkdtemp(path.join(workDir, "fb-"));
+
+  try {
+    await waitForInteractivePeer(process.stdin, process.stdout);
+  } catch (error) {
+    emitValidateReport({
+      verdict: "SE",
+      judgeMessage: `Interactive startup failed: ${error instanceof Error ? error.message : "unknown error"}`,
+    });
+    return;
+  }
 
   log(`Running interactor for case ${String(index)}...`);
   await runInteractiveValidator(
@@ -324,7 +346,11 @@ async function main(): Promise<void> {
   const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "sandbox-"));
   try {
     if (config.interactive) {
-      await runInteractive(workDir, config);
+      try {
+        await runInteractive(workDir, config);
+      } finally {
+        process.stdin.destroy();
+      }
     } else if (config.validate) {
       await runValidate(workDir, config);
     } else {

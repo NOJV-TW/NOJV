@@ -15,6 +15,7 @@ import {
   readOptionalFile,
   withCpuTimeLimit,
 } from "../utils.js";
+import { pipeInteractiveInput } from "./interactive-start.js";
 
 const REPORT_STDERR_CAP = 4_096;
 
@@ -40,8 +41,13 @@ export function runInteractiveSolution(
 
     const [wrappedCmd, ...wrappedArgs] = withCpuTimeLimit([cmd, ...args]);
     const child = spawn(wrappedCmd, wrappedArgs, {
-      stdio: ["inherit", "inherit", "pipe"],
+      stdio: ["pipe", "inherit", "pipe"],
       ...(env ? { env: { ...process.env, ...env } } : {}),
+    });
+    let inputError: Error | undefined;
+    const disconnectInput = pipeInteractiveInput(process.stdin, child.stdin, (error) => {
+      inputError = error;
+      child.kill("SIGKILL");
     });
 
     const memoryPoller = typeof child.pid === "number" ? createMemoryPoller(child.pid) : null;
@@ -55,6 +61,7 @@ export function runInteractiveSolution(
     }, timeoutMs + 500);
 
     child.on("error", (err) => {
+      disconnectInput();
       clearTimeout(timer);
       const memoryKb = memoryPoller?.stop() ?? 0;
       emitRunReport({
@@ -68,13 +75,16 @@ export function runInteractiveSolution(
     });
 
     child.on("close", (code, signal) => {
+      disconnectInput();
       clearTimeout(timer);
       const elapsedMs = performance.now() - startTime;
       const memoryKb = memoryPoller?.stop() ?? 0;
       const exitCode = code ?? -1;
 
       let errorVerdict: InteractiveRunReport["errorVerdict"] = null;
-      if (forceKilled || signal === "SIGTERM" || elapsedMs > timeoutMs) errorVerdict = "TLE";
+      if (inputError) errorVerdict = "SE";
+      else if (forceKilled || signal === "SIGTERM" || elapsedMs > timeoutMs)
+        errorVerdict = "TLE";
       else if (signal === "SIGKILL") errorVerdict = "MLE";
       else if (exitCode !== 0) errorVerdict = "RE";
 
@@ -83,7 +93,9 @@ export function runInteractiveSolution(
         timeMs: Math.round(elapsedMs),
         ...(memoryKb > 0 ? { memoryKb } : {}),
         errorVerdict,
-        stderr: stderrBuf.toString().slice(0, REPORT_STDERR_CAP),
+        stderr: inputError
+          ? `Interactive input failed: ${inputError.message}`
+          : stderrBuf.toString().slice(0, REPORT_STDERR_CAP),
       });
       resolve();
     });
@@ -122,7 +134,12 @@ export function runInteractiveValidator(
     const fullArgs = [...args, files.inputFile, files.answerFile, files.feedbackDir];
     const [wrappedCmd, ...wrappedArgs] = withCpuTimeLimit([cmd, ...fullArgs]);
     const child = spawn(wrappedCmd, wrappedArgs, {
-      stdio: ["inherit", "inherit", "pipe"],
+      stdio: ["pipe", "inherit", "pipe"],
+    });
+    let inputError: Error | undefined;
+    const disconnectInput = pipeInteractiveInput(process.stdin, child.stdin, (error) => {
+      inputError = error;
+      child.kill("SIGKILL");
     });
 
     const stderrBuf = createBoundedBuffer();
@@ -135,6 +152,7 @@ export function runInteractiveValidator(
     }, timeoutMs + 500);
 
     child.on("error", (err) => {
+      disconnectInput();
       clearTimeout(timer);
       emitValidateReport({
         verdict: "SE",
@@ -144,14 +162,16 @@ export function runInteractiveValidator(
     });
 
     child.on("close", (code, signal) => {
+      disconnectInput();
       void (async () => {
         clearTimeout(timer);
 
-        if (forceKilled || signal) {
+        if (inputError || forceKilled || signal) {
           const detail = stderrBuf.toString().trim();
           emitValidateReport({
             verdict: "SE",
             judgeMessage: [
+              ...(inputError ? [`Interactive input failed: ${inputError.message}`] : []),
               `Interactor terminated (${signal ?? "timeout"}).`,
               ...(detail ? [detail] : []),
             ].join(" "),

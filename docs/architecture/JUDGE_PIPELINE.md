@@ -229,8 +229,15 @@ not the resource model. Per-case validator files use flat keys
 over a `socat` TCP bridge on port 7777; only the interactor mounts secret
 input/answer data. `advanced` uses its separate run/grade Jobs and PVC contract.
 
-Interactive runner reports use typed stderr markers; stdout carries only the
-solution/interactor conversation. Student compilation failures produce the same
+After compiling, both trusted interactive runners exchange a bounded peer-ready
+frame before starting either program or its execution timer. The runners consume
+this frame and preserve any prefetched conversation bytes when piping input to
+the programs; compilation and peer startup do not consume the student time limit.
+Startup EOF, malformed readiness, or timeout is a platform error. Each runner
+closes its input after reporting completion so its peer receives EOF promptly.
+
+Interactive runner reports use typed stderr markers; after readiness, stdout carries
+only the solution/interactor conversation. Student compilation failures produce the same
 submission-level CE result as standard judging. Interactor compilation failures
 remain platform errors, with compiler diagnostics available only to staff.
 

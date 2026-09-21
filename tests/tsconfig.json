@@ -18,6 +18,7 @@
     }
   },
   "include": [
+    "unit/sandbox-runner/interactive-start.test.ts",
     "e2e/course-problem-library.test.ts",
     "e2e/submission-tracking.test.ts",
     "e2e/admin.test.ts",
