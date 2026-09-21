@@ -198,6 +198,7 @@ export default defineConfig({
             "tests/unit/web/testcase-set-description-preview.test.ts",
             "tests/component/web/problem-select-dialog.test.ts",
             "tests/component/web/exam-validation.test.ts",
+            "tests/component/web/course-member-removal.test.ts",
             "tests/component/web/exam-proctoring-tab.test.ts",
           ],
           environment: "jsdom",

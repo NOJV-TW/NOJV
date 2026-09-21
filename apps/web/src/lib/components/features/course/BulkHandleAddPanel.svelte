@@ -16,9 +16,10 @@
 
   interface Props {
     form: SuperValidated<BulkAddForm, FormMessage>;
+    canAddTa: boolean;
   }
 
-  let { form: initialForm }: Props = $props();
+  let { form: initialForm, canAddTa }: Props = $props();
 
   const {
     form,
@@ -143,23 +144,25 @@
                 </div>
               </div>
             </label>
-            <label
-              class="flex cursor-pointer items-center gap-3 rounded-md border border-border bg-[color:var(--color-panel)] px-3.5 py-2.5 transition-colors duration-fast ease-out-soft hover:border-border-strong"
-            >
-              <input
-                type="radio"
-                name="role"
-                value="ta"
-                bind:group={$form.role}
-                class="size-4 accent-primary"
-              />
-              <div>
-                <div class="text-body-sm font-medium">{m.members_roleTa()}</div>
-                <div class="text-caption text-muted-foreground">
-                  {m.members_roleTaDesc()}
+            {#if canAddTa}
+              <label
+                class="flex cursor-pointer items-center gap-3 rounded-md border border-border bg-[color:var(--color-panel)] px-3.5 py-2.5 transition-colors duration-fast ease-out-soft hover:border-border-strong"
+              >
+                <input
+                  type="radio"
+                  name="role"
+                  value="ta"
+                  bind:group={$form.role}
+                  class="size-4 accent-primary"
+                />
+                <div>
+                  <div class="text-body-sm font-medium">{m.members_roleTa()}</div>
+                  <div class="text-caption text-muted-foreground">
+                    {m.members_roleTaDesc()}
+                  </div>
                 </div>
-              </div>
-            </label>
+              </label>
+            {/if}
           </div>
         </fieldset>
 
