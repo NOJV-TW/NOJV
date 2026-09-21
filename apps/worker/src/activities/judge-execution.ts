@@ -10,7 +10,11 @@ import { submissionDomain } from "@nojv/application";
 import { prismaAdapterClient as db } from "@nojv/db";
 import { buildPinnedSandboxRequest } from "./judge-request";
 import { getExecutorOwner } from "./judge";
+import { createExecutorOwner } from "../services/executor-factory";
+import { parseWorkerEnv } from "../env";
 import { enforceMemoryLimit } from "../services/check-standard";
+import { recordJudgePhase } from "../services/judge-phase-metrics";
+import { judgeLatencyHistogram, recordJudgeLatency } from "./utils";
 
 export async function judgeExecutionStatus(executionId: string, workflowId: string) {
   const run = await db.judgeExecution.findUniqueOrThrow({
@@ -21,7 +25,7 @@ export async function judgeExecutionStatus(executionId: string, workflowId: stri
     state: run.workflowId === workflowId ? run.state : "cancelled",
     stage: run._count.stages,
     reasonCode: run.reasonCode,
-    leaseToken: run.leaseToken,
+    leaseToken: run.workflowId === workflowId ? run.leaseToken : null,
     attempt: run.attempt,
   };
 }
@@ -144,7 +148,11 @@ export async function reconcileJudgeStage(
     15_000,
   );
   try {
-    const safe = await getExecutorOwner().reconcile(leaseToken, run.leaseOwner ?? undefined);
+    const owner =
+      process.env.WORKER_MODE === "control"
+        ? createExecutorOwner(parseWorkerEnv(process.env))
+        : getExecutorOwner();
+    const safe = await owner.reconcile(leaseToken, run.leaseOwner ?? undefined);
     if (safe) {
       await submissionDomain.releaseJudgeStage(executionId, workflowId, leaseToken);
       await submissionDomain.wakeJudgeAdmission();
@@ -156,7 +164,7 @@ export async function reconcileJudgeStage(
 }
 
 export async function completePinnedJudge(executionId: string, workflowId: string) {
-  const { snapshot } = await submissionDomain.loadJudgeExecution(executionId);
+  const { execution, snapshot } = await submissionDomain.loadJudgeExecution(executionId);
   const request = buildPinnedSandboxRequest(snapshot);
   const stages = await submissionDomain.readJudgeStages(executionId);
   let combined: SandboxResult = { testcaseResults: [] };
@@ -185,11 +193,26 @@ export async function completePinnedJudge(executionId: string, workflowId: strin
     advanced ? undefined : request.testcases.length,
   );
   if (snapshot.draft.sampleOnly) result.score = 0;
-  return submissionDomain.completeJudgeExecution(
+  const completed = await submissionDomain.completeJudgeExecution(
     executionId,
     workflowId,
     submissionResultSchema.parse(result),
   );
+  if (completed) {
+    recordJudgeLatency(judgeLatencyHistogram, {
+      startedAtMs: execution.createdAt.getTime(),
+      completedAtMs: Date.now(),
+      mode: advanced ? "advanced" : "standard",
+      verdict: completed.status,
+    });
+    recordJudgePhase(
+      "end_to_end",
+      Date.now() - execution.createdAt.getTime(),
+      advanced ? "advanced" : request.judgeType,
+      snapshot.draft.language,
+    );
+  }
+  return completed;
 }
 
 export const setJudgeExecutionState = submissionDomain.setJudgeExecutionState;

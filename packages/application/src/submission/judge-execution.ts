@@ -178,6 +178,7 @@ export async function saveJudgeStage(
   result: SandboxResult,
   leaseToken: string,
   terminal = false,
+  retainLease = false,
 ) {
   const body = Buffer.from(JSON.stringify(result));
   const key = `judge-executions/${executionId}/stages/${String(index)}/${leaseToken}.json`;
@@ -204,8 +205,7 @@ export async function saveJudgeStage(
         queuedAt: new Date(),
         state: terminal ? "finalizing" : "queued",
         attempt: 0,
-        leaseToken: null,
-        leaseUntil: null,
+        ...(retainLease ? {} : { leaseToken: null, leaseUntil: null }),
         reasonCode: null,
         lastError: null,
       },

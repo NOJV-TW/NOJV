@@ -205,12 +205,34 @@ export default defineConfig({
         },
       },
       {
+        resolve: { alias: sharedAliases },
+        test: {
+          name: "sandbox-integration",
+          include: ["tests/integration/judge/**/*.test.ts"],
+          environment: "node",
+          fileParallelism: false,
+        },
+      },
+      {
+        resolve: { alias: sharedAliases },
+        test: {
+          name: "temporal-integration",
+          include: ["tests/integration/temporal/**/*.test.ts"],
+          environment: "node",
+          fileParallelism: false,
+        },
+      },
+      {
         plugins: [svelteTestPlugin()],
         resolve: { alias: sharedAliases, dedupe: ["@sveltejs/kit"] },
         test: {
           name: "integration",
           include: ["tests/integration/**/*.test.ts"],
-          exclude: ["tests/integration/k8s/**/*.test.ts"],
+          exclude: [
+            "tests/integration/k8s/**/*.test.ts",
+            "tests/integration/temporal/**/*.test.ts",
+            "tests/integration/judge/**/*.test.ts",
+          ],
           environment: "node",
           // Integration tests share a single Postgres + Redis. Running files
           // in parallel races on `truncateAllTables` (deadlock detected) and

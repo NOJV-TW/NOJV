@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 
-const SANDBOX_IMAGE = "nojv-sandbox:local";
+const SANDBOX_IMAGE = process.env.NOJV_TEST_SANDBOX_IMAGE ?? "nojv-sandbox:local";
 
 function run(cmd: string, args: string[]): Promise<{ ok: boolean; stdout: string }> {
   return new Promise((resolve) => {

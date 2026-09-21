@@ -48,14 +48,31 @@ function clients(options: {
   ) => void;
 }) {
   const controllers: AbortController[] = [];
+  const liveJobs = new Set<string>();
   const coreApi = {
     listNamespacedResourceQuota: vi.fn(async () => ({ items: [] })),
     createNamespacedConfigMap: vi.fn(async () => undefined),
     deleteNamespacedConfigMap: vi.fn(async () => undefined),
-    listNamespacedPod: vi.fn(async () => ({
-      metadata: { resourceVersion: "pod-rv-1" },
-      items: [{ metadata: { name: "watch-test-pod" }, status: {} }],
-    })),
+    listNamespacedPod: vi.fn(async ({ labelSelector }: any) => {
+      const name = String(labelSelector).split("=")[1]!;
+      return {
+        metadata: { resourceVersion: "pod-rv-1" },
+        items: liveJobs.has(name)
+          ? [
+              {
+                metadata: {
+                  name: "watch-test-pod",
+                  uid: `${name}-pod-uid`,
+                  ownerReferences: [
+                    { apiVersion: "batch/v1", kind: "Job", name, uid: `${name}-uid` },
+                  ],
+                },
+                status: {},
+              },
+            ]
+          : [],
+      };
+    }),
     readNamespacedPodLog: vi.fn(async ({ container }: { container: string }) =>
       container === "prepare"
         ? JSON.stringify({ runCommand: ["python3", "main.py"] })
@@ -66,11 +83,18 @@ function clients(options: {
     ),
   } as any;
   const batchApi = {
-    createNamespacedJob: vi.fn(async () => undefined),
-    deleteNamespacedJob: vi.fn(async () => {
-      coreApi.listNamespacedPod.mockResolvedValueOnce({ items: [] });
+    createNamespacedJob: vi.fn(async ({ body }: any) => {
+      liveJobs.add(body.metadata.name);
     }),
-    readNamespacedJob: vi.fn(async () => options.readJob()),
+    deleteNamespacedJob: vi.fn(async ({ name }: any) => {
+      liveJobs.delete(name);
+    }),
+    readNamespacedJob: vi.fn(async ({ name }: any) => {
+      if (!liveJobs.has(name)) throw { code: 404 };
+      const job = options.readJob();
+      job.metadata = { ...job.metadata, name, uid: `${name}-uid` };
+      return job;
+    }),
   } as any;
   const watch = {
     watch: vi.fn(
@@ -88,6 +112,21 @@ function clients(options: {
     ),
   } as any;
   return { handles: { coreApi, batchApi, watch }, controllers };
+}
+
+function setPodView(fake: ReturnType<typeof clients>, view: any) {
+  const list = fake.handles.coreApi.listNamespacedPod.getMockImplementation();
+  fake.handles.coreApi.listNamespacedPod.mockImplementation(async (input: any) => {
+    const original = await list(input);
+    return {
+      ...original,
+      items: original.items.map((pod: any, index: number) => ({
+        ...pod,
+        ...view.items[index],
+        metadata: { ...pod.metadata, ...view.items[index].metadata },
+      })),
+    };
+  });
 }
 
 describe("K8sExecutor Job/Pod watch completion", () => {
@@ -204,7 +243,9 @@ describe("K8sExecutor Job/Pod watch completion", () => {
       );
       expect(fake.handles.coreApi.readNamespacedPodLog).not.toHaveBeenCalled();
       expect(fake.handles.batchApi.deleteNamespacedJob).toHaveBeenCalledOnce();
-      expect(fake.handles.coreApi.deleteNamespacedConfigMap).toHaveBeenCalled();
+      if (cleanupFails)
+        expect(fake.handles.coreApi.deleteNamespacedConfigMap).not.toHaveBeenCalled();
+      else expect(fake.handles.coreApi.deleteNamespacedConfigMap).toHaveBeenCalled();
     },
   );
 
@@ -277,7 +318,7 @@ describe("K8sExecutor Job/Pod watch completion", () => {
       }),
       watch: () => undefined,
     });
-    fake.handles.coreApi.listNamespacedPod.mockResolvedValue({
+    setPodView(fake, {
       items: [{ metadata: { name: "waiting-pod" }, status }],
     });
     await expect(
@@ -297,7 +338,7 @@ describe("K8sExecutor Job/Pod watch completion", () => {
         readJob: () => ({ status: { failed: 1 } }),
         watch: () => undefined,
       });
-      fake.handles.coreApi.listNamespacedPod.mockResolvedValue({
+      setPodView(fake, {
         items: [
           {
             metadata: { name: "interrupted-pod" },
@@ -334,7 +375,7 @@ describe("K8sExecutor Job/Pod watch completion", () => {
       watch: () => undefined,
     });
     fake.handles.batchApi.deleteNamespacedJob.mockResolvedValue(undefined);
-    fake.handles.coreApi.listNamespacedPod.mockResolvedValue({
+    setPodView(fake, {
       items: [
         {
           metadata: { name: "stuck-terminating-pod", deletionTimestamp: new Date() },
@@ -352,7 +393,12 @@ describe("K8sExecutor Job/Pod watch completion", () => {
     expect(await failure).toBeInstanceOf(SandboxCleanupError);
     expect(fake.handles.batchApi.createNamespacedJob).toHaveBeenCalledOnce();
     expect(fake.handles.batchApi.deleteNamespacedJob).toHaveBeenCalledWith(
-      expect.objectContaining({ propagationPolicy: "Foreground" }),
+      expect.objectContaining({
+        body: expect.objectContaining({
+          propagationPolicy: "Foreground",
+          preconditions: { uid: "judge-stuck-cleanup-uid" },
+        }),
+      }),
     );
     expect(fake.handles.coreApi.readNamespacedPodLog).not.toHaveBeenCalled();
   });
@@ -364,7 +410,7 @@ describe("K8sExecutor Job/Pod watch completion", () => {
       }),
       watch: () => undefined,
     });
-    fake.handles.coreApi.listNamespacedPod.mockResolvedValue({
+    setPodView(fake, {
       items: [
         {
           metadata: { name: "image-pod" },

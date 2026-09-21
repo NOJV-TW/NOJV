@@ -17,6 +17,7 @@ import {
 } from "../../fixtures/factories";
 
 beforeEach(() => {
+  vi.unstubAllEnvs();
   process.env.SANDBOX_IMAGE = "sandbox@sha256:" + "a".repeat(64);
 });
 async function fixture() {
@@ -45,6 +46,156 @@ const ac = {
 };
 
 describe("immutable judge execution recovery", () => {
+  it("keeps accepted student FIFO when an older execution has not reached dispatch", async () => {
+    const { execution, user, problem, draft } = await fixture();
+    const second = await createTestSubmission({
+      userId: user.id,
+      problemId: problem.id,
+      status: "queued",
+    });
+    const pinned = await judge.prepareJudgeSnapshot(second.id, draft);
+    const later = await runTransaction((tx) =>
+      judge.createJudgeExecution(tx, { submissionId: second.id, ...pinned }),
+    );
+    await db.judgeExecution.update({
+      where: { id: execution.id },
+      data: { createdAt: new Date(later.createdAt.getTime() - 1000) },
+    });
+    expect(await judge.judgeExecutionTurn(later.id, later.workflowId)).toBe("wait");
+    expect(await judge.judgeExecutionTurn(execution.id, execution.workflowId)).toBe("ready");
+    expect(await judge.judgeExecutionTurn(later.id, "stale-workflow")).toBe("obsolete");
+    await db.judgeExecution.update({
+      where: { id: execution.id },
+      data: { state: "finalizing" },
+    });
+    expect(await judge.judgeExecutionTurn(later.id, later.workflowId)).toBe("wait");
+    await db.judgeExecution.update({
+      where: { id: execution.id },
+      data: { state: "completed" },
+    });
+    expect(await judge.judgeExecutionTurn(later.id, later.workflowId)).toBe("ready");
+  });
+
+  it("retains capacity ownership through a checkpoint and prevents legacy recovery", async () => {
+    const { execution } = await fixture();
+    const runId = "a6f6a450-251d-482e-bbf7-6f3c8a857375";
+    expect(
+      await judge.claimCapacityAttempt(execution.id, execution.workflowId, runId, "worker"),
+    ).toEqual({ status: "claimed", leaseToken: runId });
+    expect(
+      await judge.heartbeatJudgeStage(
+        execution.id,
+        execution.workflowId,
+        runId,
+        "producer-worker",
+      ),
+    ).toBe(true);
+    expect(
+      await judge.heartbeatJudgeStage(
+        execution.id,
+        execution.workflowId,
+        "stale-run",
+        "wrong-worker",
+      ),
+    ).toBe(false);
+    expect(
+      await db.judgeExecution.findUniqueOrThrow({ where: { id: execution.id } }),
+    ).toMatchObject({ leaseOwner: "producer-worker" });
+    await judge.saveJudgeStage(
+      execution.id,
+      execution.workflowId,
+      0,
+      {
+        testcaseResults: [],
+        rawRuns: [{ index: 0, stdout: "1", stderr: "", exitCode: 0, timeMs: 1 }],
+      },
+      runId,
+      false,
+      true,
+    );
+    expect(
+      await db.judgeExecution.findUniqueOrThrow({ where: { id: execution.id } }),
+    ).toMatchObject({ capacityStrategy: true, leaseToken: runId });
+    expect(
+      await judge.claimCapacityAttempt(
+        execution.id,
+        execution.workflowId,
+        "other-run",
+        "worker",
+      ),
+    ).toEqual({ status: "cleanup", leaseToken: runId });
+    await expect(
+      judge.relinquishCapacityStrategy(execution.id, execution.workflowId),
+    ).rejects.toThrow("cleaned");
+    await judge.releaseJudgeStage(execution.id, execution.workflowId, runId);
+    await expect(
+      judge.relinquishCapacityStrategy(execution.id, execution.workflowId),
+    ).rejects.toThrow("Checkpointed");
+    const dispatchJudgeExecution = vi.fn().mockResolvedValue(undefined);
+    configureDomainOrchestration({
+      dispatchJudgeExecution,
+      describeSubmissionJudge: vi.fn().mockResolvedValue({ running: false, status: "FAILED" }),
+    } as never);
+    await judge.reconcileJudgeExecutions(new Date(Date.now() + 1000));
+    const next = await db.judgeExecution.findUniqueOrThrow({ where: { id: execution.id } });
+    await judge.executeJudgeExecutionDispatch({
+      executionId: next.id,
+      workflowId: next.workflowId,
+    });
+    expect(dispatchJudgeExecution).toHaveBeenCalledWith(
+      expect.objectContaining({
+        capacity: true,
+        workflowId: next.workflowId,
+        admissionOrder: expect.objectContaining({
+          executionId: execution.id,
+          submittedAt: execution.createdAt.getTime(),
+        }),
+      }),
+    );
+    expect(next.capacityStrategy).toBe(true);
+    expect(
+      (await judge.readJudgeStages(execution.id))[0]?.rawRuns?.map((run) => run.index),
+    ).toEqual([0]);
+  });
+
+  it("allows only cleaned, uncheckpointed attempts to relinquish capacity ownership", async () => {
+    const { execution } = await fixture();
+    await judge.claimCapacityAttempt(execution.id, execution.workflowId, "run", "worker");
+    await judge.releaseJudgeStage(execution.id, execution.workflowId, "stale-run");
+    await expect(
+      judge.relinquishCapacityStrategy(execution.id, execution.workflowId),
+    ).rejects.toThrow("cleaned");
+    await judge.releaseJudgeStage(execution.id, execution.workflowId, "run");
+    await judge.relinquishCapacityStrategy(execution.id, execution.workflowId);
+    expect(
+      await db.judgeExecution.findUniqueOrThrow({ where: { id: execution.id } }),
+    ).toMatchObject({ capacityStrategy: false, leaseToken: null });
+    expect(
+      await judge.claimCapacityAttempt(execution.id, "stale-workflow", "run", "worker"),
+    ).toEqual({ status: "obsolete" });
+  });
+
+  it("routes newly accepted executions with persisted student order before admission", async () => {
+    const { execution, submission, user } = await fixture();
+    vi.stubEnv("JUDGE_CAPACITY_ROUTING", "true");
+    const dispatchJudgeExecution = vi.fn().mockResolvedValue(undefined);
+    configureDomainOrchestration({ dispatchJudgeExecution } as never);
+    await judge.executeJudgeExecutionDispatch({
+      executionId: execution.id,
+      workflowId: execution.workflowId,
+    });
+    expect(dispatchJudgeExecution).toHaveBeenCalledWith({
+      executionId: execution.id,
+      workflowId: execution.workflowId,
+      admissionOrder: {
+        executionId: execution.id,
+        submissionId: submission.id,
+        studentId: user.id,
+        submittedAt: execution.createdAt.getTime(),
+      },
+    });
+  });
+
   it("acknowledges durable acceptance even while Temporal dispatch remains unavailable", async () => {
     const teacher = await createTestUser({ platformRole: "teacher" });
     const user = await createTestUser();

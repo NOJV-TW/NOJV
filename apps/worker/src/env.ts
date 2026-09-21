@@ -8,7 +8,7 @@ const baseEnvSchema = z.object({
   TEMPORAL_NAMESPACE: z.string().default("default"),
   SANDBOX_IMAGE: z.string().trim().min(1),
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(64),
-  WORKER_MODE: z.enum(["all", "judge", "platform"]).default("all"),
+  WORKER_MODE: z.enum(["all", "judge", "platform", "control"]).default("all"),
   SANDBOX_MEMORY_HEADROOM_MB: z.coerce.number().int().min(0).max(1024).default(64),
   SANDBOX_MAX_MEMORY_MB: z.coerce.number().int().min(128).max(8192).default(1536),
   REGISTRY_GC_IMAGE: z
@@ -42,6 +42,11 @@ const dockerEnvSchema = baseEnvSchema.extend({
 const kubernetesEnvSchema = baseEnvSchema.extend({
   EXECUTION_BACKEND: z.literal("kubernetes"),
   K8S_NAMESPACE: z.string().trim().min(1),
+  K8S_CAPACITY_ADMISSION: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  K8S_ARTIFACT_STORAGE_CLASS: z.string().trim().min(1).default("local-path"),
   K8S_CPU_REQUEST: z.string().trim().min(1),
   K8S_CASE_CPU_REQUEST: z.string().trim().min(1),
   K8S_CPU_LIMIT: z.string().trim().min(1),

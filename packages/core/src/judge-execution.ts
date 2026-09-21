@@ -14,6 +14,7 @@ export const judgeExecutionStateSchema = z.enum([
 export type JudgeExecutionState = z.infer<typeof judgeExecutionStateSchema>;
 export interface JudgeExecutionInput {
   executionId: string;
+  capacity?: true;
 }
 export const JUDGE_EXECUTION_DISPATCH_KIND = "submission.execution.dispatch";
 export const JUDGE_STAGE_CASES = 20;

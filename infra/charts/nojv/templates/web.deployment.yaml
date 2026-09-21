@@ -113,6 +113,8 @@ spec:
               value: {{ .Values.temporal.address | quote }}
             - name: TEMPORAL_NAMESPACE
               value: {{ .Values.temporal.namespace | quote }}
+            - name: JUDGE_CAPACITY_ROUTING
+              value: {{ or .Values.worker.sandbox.capacityAdmission.enabled .Values.worker.sandbox.capacityAdmission.routingEnabled | quote }}
             {{- include "nojv.databaseUrlEnv" . | nindent 12 }}
             - name: REDIS_URL
               valueFrom:

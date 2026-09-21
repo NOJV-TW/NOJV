@@ -161,15 +161,13 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
     createNamespacedPod: vi.fn(async ({ namespace, body }: any) => {
       record.podsCreated.push({ name: body.metadata.name, namespace, body });
     }),
-    deleteNamespacedPod: vi.fn(
-      async ({ name, namespace, propagationPolicy, gracePeriodSeconds }: any) => {
-        record.podsDeleted.push({ name, namespace, gracePeriodSeconds });
-        record.cleanupEvents.push(`delete-pod:${name}:${String(propagationPolicy)}`);
-        podDeleteAttempts.add(name);
-        if (opts.podDeleteError) throw opts.podDeleteError;
-        deletedPods.add(name);
-      },
-    ),
+    deleteNamespacedPod: vi.fn(async ({ name, namespace, body, gracePeriodSeconds }: any) => {
+      record.podsDeleted.push({ name, namespace, gracePeriodSeconds });
+      record.cleanupEvents.push(`delete-pod:${name}:${String(body?.propagationPolicy)}`);
+      podDeleteAttempts.add(name);
+      if (opts.podDeleteError) throw opts.podDeleteError;
+      deletedPods.add(name);
+    }),
     createNamespacedService: vi.fn(async ({ namespace, body }: any) => {
       record.servicesCreated.push({ name: body.metadata.name, namespace, body });
       const clusterIP =
@@ -185,7 +183,7 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
         if (deletedPods.has(podName) || podDeleteAttempts.has(podName)) {
           if (opts.residualPods?.includes(podName)) {
             record.cleanupEvents.push(`observe-pod-present:${podName}`);
-            return { items: [{ metadata: { name: podName } }] };
+            return { items: [{ metadata: { name: podName, uid: `${podName}-uid` } }] };
           }
           record.cleanupEvents.push(`confirm-pod-gone:${podName}`);
           return { items: [] };
@@ -193,7 +191,7 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
         return {
           items: [
             {
-              metadata: { name: podName },
+              metadata: { name: podName, uid: `${podName}-uid` },
               spec: record.podsCreated.find((pod) => pod.name === podName)?.body.spec,
               status: opts.servicePodStatus ?? {
                 phase: "Running",
@@ -204,10 +202,31 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
         };
       }
       const jobName = String(labelSelector).split("=")[1];
+      if (!record.jobsCreated.some((job) => job.name === jobName)) {
+        record.cleanupEvents.push(`confirm-job-pods-gone:${jobName}`);
+        return { items: [] };
+      }
       if (deletedJobs.has(jobName) || jobDeleteAttempts.has(jobName)) {
         if (opts.residualJobPods?.includes(jobName)) {
           record.cleanupEvents.push(`observe-job-pods-present:${jobName}`);
-          return { items: [{ metadata: { name: `${jobName}-pod` } }] };
+          return {
+            items: [
+              {
+                metadata: {
+                  name: `${jobName}-pod`,
+                  uid: `${jobName}-pod-uid`,
+                  ownerReferences: [
+                    {
+                      apiVersion: "batch/v1",
+                      kind: "Job",
+                      name: jobName,
+                      uid: `${jobName}-uid`,
+                    },
+                  ],
+                },
+              },
+            ],
+          };
         }
         record.cleanupEvents.push(`confirm-job-pods-gone:${jobName}`);
         return { items: [] };
@@ -237,7 +256,13 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
       return {
         items: [
           {
-            metadata: { name: `${jobName}-pod` },
+            metadata: {
+              name: `${jobName}-pod`,
+              uid: `${jobName}-pod-uid`,
+              ownerReferences: [
+                { apiVersion: "batch/v1", kind: "Job", name: jobName, uid: `${jobName}-uid` },
+              ],
+            },
             spec: { nodeName },
             status: { initContainerStatuses, containerStatuses },
           },
@@ -260,17 +285,20 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
       if (opts.throwOnJobCreate) throw new Error("simulated job create failure");
       record.jobsCreated.push({ name: body.metadata.name, namespace, body });
     }),
-    deleteNamespacedJob: vi.fn(async ({ name, namespace, propagationPolicy }: any) => {
+    deleteNamespacedJob: vi.fn(async ({ name, namespace, body }: any) => {
       record.jobsDeleted.push({ name, namespace });
-      record.cleanupEvents.push(`delete-job:${name}:${String(propagationPolicy)}`);
+      record.cleanupEvents.push(`delete-job:${name}:${String(body?.propagationPolicy)}`);
       jobDeleteAttempts.add(name);
       if (opts.jobDeleteError) throw opts.jobDeleteError;
       deletedJobs.add(name);
     }),
     readNamespacedJob: vi.fn(async ({ name }: any) => {
       jobReadCount += 1;
+      if (!record.jobsCreated.some((job) => job.name === name) || deletedJobs.has(name))
+        throw { code: 404 };
+      const metadata = { name, uid: `${name}-uid` };
       if (opts.jobPendingPolls && jobReadCount <= opts.jobPendingPolls) {
-        return { status: {} };
+        return { metadata, status: {} };
       }
       const failed =
         (opts.failJob && name === opts.failJob) ||
@@ -280,7 +308,7 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
         opts.deadlineExceededJob && name === opts.deadlineExceededJob
           ? [{ type: "Failed", reason: "DeadlineExceeded" }]
           : undefined;
-      return { status: { [outcome]: 1, conditions } };
+      return { metadata, status: { [outcome]: 1, conditions } };
     }),
   } as any;
 
@@ -1349,7 +1377,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     expect(record.podsDeleted).toContainEqual({
       name: "judge-sub-adv-1-sidecar",
       namespace: EXEC_CONFIG.namespace,
-      gracePeriodSeconds: 0,
+      gracePeriodSeconds: undefined,
     });
     before(
       "confirm-pod-gone:judge-sub-adv-1-sidecar",
@@ -1395,19 +1423,19 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
 
       const execution = execute(executor, makeAdvancedRequest());
       const rejection = expect(execution).rejects.toThrow(/cleanup failed/i);
-      await vi.runAllTimersAsync();
-      await rejection;
+      await Promise.all([rejection, vi.runAllTimersAsync()]);
 
       expect(record.cleanupEvents).toContain("confirm-job-pods-gone:judge-sub-adv-1-run");
       expect(record.jobsDeleted).toHaveLength(6);
-      expect(record.configMapsDeleted).toHaveLength(2);
-      expect(record.pvcsDeleted).toHaveLength(1);
+      expect(record.jobsCreated.map((job) => job.name)).toEqual(["judge-sub-adv-1-run"]);
+      expect(record.configMapsDeleted).toHaveLength(0);
+      expect(record.pvcsDeleted).toHaveLength(0);
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("DELETE errors still poll selectors and retain policies while Job or sidecar Pods remain", async () => {
+  it("retains data and policies when run termination fails before grade admission", async () => {
     vi.useFakeTimers();
     try {
       const record = emptyRecord();
@@ -1417,7 +1445,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
           sidecarLog: buildSidecarLog({ score: 100, verdict: "accepted" }),
           jobDeleteError: new Error("job delete transport failure"),
           podDeleteError: new Error("pod delete transport failure"),
-          residualJobPods: ["judge-sub-adv-1-grade"],
+          residualJobPods: ["judge-sub-adv-1-run"],
           residualPods: ["judge-sub-adv-1-sidecar"],
         }),
       );
@@ -1432,13 +1460,13 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
         }),
       );
       const rejection = expect(execution).rejects.toThrow(/cleanup failed/i);
-      await vi.runAllTimersAsync();
-      await rejection;
+      await Promise.all([rejection, vi.runAllTimersAsync()]);
 
-      expect(record.cleanupEvents).toContain("observe-job-pods-present:judge-sub-adv-1-grade");
-      expect(record.cleanupEvents).toContain("observe-pod-present:judge-sub-adv-1-sidecar");
+      expect(record.jobsCreated.map((job) => job.name)).toEqual(["judge-sub-adv-1-run"]);
+      expect(record.configMapsDeleted).toHaveLength(0);
+      expect(record.pvcsDeleted).toHaveLength(0);
       expect(record.networkPoliciesDeleted.map((policy) => policy.name)).not.toContain(
-        "judge-sub-adv-1-grade-egress",
+        "judge-sub-adv-1-run-egress",
       );
       expect(record.networkPoliciesDeleted.map((policy) => policy.name)).not.toContain(
         "judge-sub-adv-1-sidecar-egress",

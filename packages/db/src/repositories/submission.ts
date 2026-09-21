@@ -446,6 +446,8 @@ export const submissionRepo = {
     return prisma.submission.findUnique({
       where: { id },
       select: {
+        userId: true,
+        createdAt: true,
         problem: {
           select: {
             id: true,
@@ -925,6 +927,7 @@ export const submissionRepo = {
     return prisma.submission.findMany({
       select: {
         id: true,
+        userId: true,
         judgeGeneration: true,
         language: true,
         problemId: true,

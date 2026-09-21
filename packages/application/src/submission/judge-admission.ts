@@ -1,6 +1,71 @@
 import { randomUUID } from "node:crypto";
 import { prismaAdapterClient as db, runTransaction } from "@nojv/db";
-import { getDomainOrchestration } from "../shared/orchestration";
+import { executeJudgeExecutionDispatch } from "./judge-recovery";
+
+export async function judgeExecutionTurn(executionId: string, workflowId: string) {
+  const current = await db.judgeExecution.findUniqueOrThrow({
+    where: { id: executionId },
+    include: { submission: { select: { userId: true } } },
+  });
+  if (current.workflowId !== workflowId || ["cancelled", "completed"].includes(current.state))
+    return "obsolete" as const;
+  const earlier = await db.judgeExecution.findFirst({
+    where: {
+      submission: { userId: current.submission.userId },
+      state: { notIn: ["cancelled", "completed"] },
+      OR: [
+        { createdAt: { lt: current.createdAt } },
+        { createdAt: current.createdAt, id: { lt: current.id } },
+      ],
+    },
+    select: { id: true },
+  });
+  return earlier ? ("wait" as const) : ("ready" as const);
+}
+
+export async function claimCapacityAttempt(
+  executionId: string,
+  workflowId: string,
+  runId: string,
+  owner: string,
+) {
+  return runTransaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "JudgeExecution" WHERE id = ${executionId} FOR UPDATE`;
+    const current = await tx.judgeExecution.findUniqueOrThrow({ where: { id: executionId } });
+    if (current.workflowId !== workflowId || ["cancelled", "completed"].includes(current.state))
+      return { status: "obsolete" as const };
+    if (current.leaseToken && current.leaseToken !== runId)
+      return { status: "cleanup" as const, leaseToken: current.leaseToken };
+    if (current.leaseToken === runId) return { status: "claimed" as const, leaseToken: runId };
+    await tx.judgeExecution.update({
+      where: { id: executionId },
+      data: {
+        capacityStrategy: true,
+        leaseToken: runId,
+        leaseOwner: owner,
+        leaseUntil: new Date(Date.now() + 120_000),
+        attempt: { increment: 1 },
+        lastProgressAt: new Date(),
+      },
+    });
+    return { status: "claimed" as const, leaseToken: runId };
+  });
+}
+
+export async function relinquishCapacityStrategy(executionId: string, workflowId: string) {
+  return runTransaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "JudgeExecution" WHERE id = ${executionId} FOR UPDATE`;
+    const run = await tx.judgeExecution.findUniqueOrThrow({ where: { id: executionId } });
+    if (run.workflowId !== workflowId || run.leaseToken)
+      throw new Error("Capacity attempt must be owned and cleaned before redirecting");
+    if (await tx.judgeStage.count({ where: { executionId } }))
+      throw new Error("Checkpointed capacity execution cannot return to legacy judging");
+    await tx.judgeExecution.update({
+      where: { id: executionId },
+      data: { capacityStrategy: false },
+    });
+  });
+}
 
 export async function claimJudgeStage(
   executionId: string,
@@ -57,10 +122,14 @@ export async function heartbeatJudgeStage(
   executionId: string,
   workflowId: string,
   leaseToken: string,
+  owner?: string,
 ) {
   const changed = await db.judgeExecution.updateMany({
     where: { id: executionId, workflowId, leaseToken, state: { not: "cancelled" } },
-    data: { leaseUntil: new Date(Date.now() + 120_000) },
+    data: {
+      leaseUntil: new Date(Date.now() + 120_000),
+      ...(owner ? { leaseOwner: owner } : {}),
+    },
   });
   return changed.count === 1;
 }
@@ -95,7 +164,7 @@ export async function wakeJudgeAdmission(): Promise<void> {
     heads
       .filter((run) => run !== null)
       .map(async (run) =>
-        getDomainOrchestration().dispatchJudgeExecution({
+        executeJudgeExecutionDispatch({
           executionId: run.id,
           workflowId: run.workflowId,
         }),

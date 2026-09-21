@@ -8,5 +8,6 @@ export { lifecycleReconcilerWorkflow } from "./lifecycle-reconciler";
 export { plagiarismCheckWorkflow } from "./plagiarism-check";
 export { registryGarbageCollectWorkflow } from "./registry-gc";
 export { durableWorkWorkflow } from "./durable-work";
+export { judgeAdmissionWorkflow } from "./judge-admission";
 
 export { durableJudgeWorkflow, judgeCleanupWorkflow } from "./durable-judge";

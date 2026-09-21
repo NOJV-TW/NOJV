@@ -99,6 +99,7 @@ export interface SandboxExecutionContext {
 }
 
 export interface SandboxExecutor {
+  cleanupRun?(runId: string): Promise<void>;
   reconcile?(runId: string, owner?: string): Promise<boolean>;
   execute(request: SandboxRequest, execution: SandboxExecutionContext): Promise<SandboxResult>;
 }

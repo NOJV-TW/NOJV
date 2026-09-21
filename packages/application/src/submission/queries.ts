@@ -844,7 +844,10 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
   };
 }
 
-export type JudgeDispatchMeta = Pick<SubmissionJudgeContext, "problemType" | "advanced">;
+export type JudgeDispatchMeta = Pick<SubmissionJudgeContext, "problemType" | "advanced"> & {
+  userId: string;
+  createdAt: Date;
+};
 
 export async function getJudgeDispatchMeta(submissionId: string): Promise<JudgeDispatchMeta> {
   const submission = await submissionRepo.findByIdForDispatchMeta(submissionId);
@@ -869,7 +872,12 @@ export async function getJudgeDispatchMeta(submissionId: string): Promise<JudgeD
         }
       : null;
 
-  return { problemType: problem.type, advanced };
+  return {
+    problemType: problem.type,
+    advanced,
+    userId: submission.userId,
+    createdAt: submission.createdAt,
+  };
 }
 
 const IN_FLIGHT_SUBMISSION_STATUSES = [
@@ -887,7 +895,14 @@ export async function listForRejudge(input: {
   userIds?: string[];
   since?: Date;
   until?: Date;
-}): Promise<{ submissionId: string; judgeGeneration: number; draft: SubmissionJudgeDraft }[]> {
+}): Promise<
+  {
+    submissionId: string;
+    studentId: string;
+    judgeGeneration: number;
+    draft: SubmissionJudgeDraft;
+  }[]
+> {
   const where: Prisma.SubmissionWhereInput = {
     problemId: input.problemId,
     sampleOnly: false,
@@ -918,6 +933,7 @@ export async function listForRejudge(input: {
 
   return submissions.map((s) => ({
     submissionId: s.id,
+    studentId: s.userId,
     judgeGeneration: s.judgeGeneration,
     draft: {
       language: s.language,
@@ -929,7 +945,7 @@ export async function listForRejudge(input: {
 
 export async function findOneForRejudge(
   submissionId: string,
-): Promise<{ submissionId: string; draft: SubmissionJudgeDraft } | null> {
+): Promise<{ submissionId: string; studentId: string; draft: SubmissionJudgeDraft } | null> {
   const submission = await submissionRepo.findById(submissionId);
   if (!submission) return null;
   if (submission.isReferenceSolution) return null;
@@ -938,6 +954,7 @@ export async function findOneForRejudge(
   }
   return {
     submissionId: submission.id,
+    studentId: submission.userId,
     draft: {
       language: submission.language,
       problemId: submission.problemId,

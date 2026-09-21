@@ -20,7 +20,7 @@ import {
 
 const require = createRequire(import.meta.url);
 
-const SANDBOX_IMAGE = "nojv-sandbox:local";
+const SANDBOX_IMAGE = process.env.NOJV_TEST_SANDBOX_IMAGE ?? "nojv-sandbox:local";
 const DEMO_RUN_IMAGE = "nojv-demo-advanced-run:local";
 const DEMO_GRADE_IMAGE = "nojv-demo-advanced-grade:local";
 const DEMO_SERVICE_IMAGE = "nojv-demo-advanced-service:local";
@@ -46,6 +46,9 @@ const EXECUTOR_CONFIG: Omit<K8sExecutorConfig, "namespace"> = {
   cpuLimit: "500m",
   memoryRequest: "128Mi",
   memoryLimit: "256Mi",
+  ...(process.env.NOJV_TEST_RUNTIME_CLASS
+    ? { runtimeClassName: process.env.NOJV_TEST_RUNTIME_CLASS }
+    : {}),
 };
 
 const STANDARD_TIMEOUT_MS = 180_000;
@@ -854,7 +857,10 @@ describe("K8s judge — advanced mode", () => {
       expect(result.compilationError).toBeUndefined();
       expect(result.pipelineError).toBeUndefined();
       expect(result.testcaseResults.length).toBeGreaterThanOrEqual(1);
-      expect(result.testcaseResults.every((tc) => tc.verdict === "AC")).toBe(true);
+      expect(
+        result.testcaseResults.every((tc) => tc.verdict === "AC"),
+        JSON.stringify(result),
+      ).toBe(true);
       expect(result.customScore).toBe(100);
     },
   );
@@ -899,7 +905,10 @@ describe("K8s judge — advanced mode", () => {
       expect(result.compilationError).toBeUndefined();
       expect(result.pipelineError).toBeUndefined();
       expect(result.testcaseResults.length).toBeGreaterThanOrEqual(1);
-      expect(result.testcaseResults.every((tc) => tc.verdict === "AC")).toBe(true);
+      expect(
+        result.testcaseResults.every((tc) => tc.verdict === "AC"),
+        JSON.stringify(result),
+      ).toBe(true);
       expect(result.customScore).toBe(100);
 
       const svcAfter = await activeClients.coreApi

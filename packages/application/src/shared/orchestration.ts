@@ -37,8 +37,19 @@ export interface DomainOrchestrationAdapter {
     executionId: string;
     workflowId: string;
     leaseToken: string;
+    capacity?: true;
   }): Promise<void>;
-  dispatchJudgeExecution(input: { executionId: string; workflowId: string }): Promise<void>;
+  dispatchJudgeExecution(input: {
+    executionId: string;
+    workflowId: string;
+    capacity?: true;
+    admissionOrder?: {
+      executionId: string;
+      submissionId: string;
+      studentId: string;
+      submittedAt: number;
+    };
+  }): Promise<void>;
   dispatchSubmissionJudge(payload: SubmissionJudgeJob): Promise<void>;
   ensureAssignmentDueSoon(input: AssignmentDueSoonInput): Promise<void>;
   ensureContestLifecycle(input: ContestLifecycleInput): Promise<void>;

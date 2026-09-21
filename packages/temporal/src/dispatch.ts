@@ -185,6 +185,7 @@ export async function dispatchRejudge(
   workflowId: string,
 ): Promise<{ workflowId: string }> {
   const client = await getTemporalClient();
+
   try {
     await client.workflow.start("rejudgeWorkflow", {
       taskQueue: JUDGE_TASK_QUEUE,
@@ -427,8 +428,34 @@ export async function cancelRejudge(workflowId: string): Promise<void> {
 export async function dispatchJudgeExecution(input: {
   executionId: string;
   workflowId: string;
+  capacity?: true;
+  admissionOrder?: {
+    executionId: string;
+    submissionId: string;
+    studentId: string;
+    submittedAt: number;
+  };
 }): Promise<void> {
   const client = await getTemporalClient();
+  if (process.env.JUDGE_CAPACITY_ROUTING === "true" || input.capacity) {
+    if (!input.admissionOrder) throw new Error("Judge admission order is required");
+    await client.workflow
+      .getHandle("judge-admission-v1")
+      .executeUpdate("dispatchJudgeWorkflow", {
+        args: [
+          {
+            workflowId: input.workflowId,
+            workflowType: "durableJudgeWorkflow",
+            input: {
+              executionId: input.executionId,
+              ...(input.capacity ? { capacity: true } : {}),
+            },
+            admissionOrder: input.admissionOrder,
+          },
+        ],
+      });
+    return;
+  }
   try {
     await client.workflow.start("durableJudgeWorkflow", {
       workflowId: input.workflowId,
@@ -450,13 +477,17 @@ export async function dispatchJudgeCleanup(input: {
   executionId: string;
   workflowId: string;
   leaseToken: string;
+  capacity?: true;
 }): Promise<void> {
   const client = await getTemporalClient();
   try {
     await client.workflow.start("judgeCleanupWorkflow", {
       workflowId: `judge-cleanup-${input.leaseToken}`,
       workflowIdReusePolicy: "ALLOW_DUPLICATE_FAILED_ONLY",
-      taskQueue: JUDGE_TASK_QUEUE,
+      taskQueue:
+        process.env.JUDGE_CAPACITY_ROUTING === "true" || input.capacity
+          ? "judge-control"
+          : JUDGE_TASK_QUEUE,
       args: [input],
     });
   } catch (error) {

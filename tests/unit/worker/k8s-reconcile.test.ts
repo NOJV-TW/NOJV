@@ -52,6 +52,7 @@ function clients() {
         expect(gracePeriodSeconds).toBeUndefined();
         const resource = resources[kind].find((entry) => entry.metadata.name === name);
         expect(body.preconditions.uid).toBe(resource?.metadata.uid);
+        if (kind === "Job" || kind === "Pod") expect(body.propagationPolicy).toBe("Foreground");
         events.push(`${kind}:${name}`);
         if (!sticky.has(kind))
           resources[kind] = resources[kind].filter((entry) => entry !== resource);
@@ -102,7 +103,9 @@ describe("Kubernetes crashed execution reconciliation", () => {
     );
     expect(fake.resources.NetworkPolicy).toHaveLength(2);
     expect(fake.handles.batchApi.deleteNamespacedJob).toHaveBeenCalledWith(
-      expect.objectContaining({ propagationPolicy: "Foreground" }),
+      expect.objectContaining({
+        body: expect.objectContaining({ propagationPolicy: "Foreground" }),
+      }),
     );
   });
 

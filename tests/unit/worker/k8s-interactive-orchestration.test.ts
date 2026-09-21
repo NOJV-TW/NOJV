@@ -58,6 +58,7 @@ interface FakeOptions {
 }
 
 function buildFakeClients(record: CallRecord, opts: FakeOptions = {}) {
+  const liveJobs = new Set<string>();
   const coreApi = {
     listNamespacedResourceQuota: vi.fn(async () => ({ items: [] })),
     createNamespacedConfigMap: vi.fn(async ({ namespace, body }: any) => {
@@ -67,11 +68,18 @@ function buildFakeClients(record: CallRecord, opts: FakeOptions = {}) {
       record.configMapsDeleted.push({ name, namespace });
     }),
     listNamespacedPod: vi.fn(async ({ labelSelector }: any) => {
-      const jobName = String(labelSelector).split("=")[1];
+      const jobName = String(labelSelector).split("=")[1]!;
+      if (!liveJobs.has(jobName)) return { items: [] };
       return {
         items: [
           {
-            metadata: { name: `${jobName}-pod` },
+            metadata: {
+              name: `${jobName}-pod`,
+              uid: `${jobName}-pod-uid`,
+              ownerReferences: [
+                { apiVersion: "batch/v1", kind: "Job", name: jobName, uid: `${jobName}-uid` },
+              ],
+            },
             ...(opts.imagePullMessage
               ? {
                   status: {
@@ -107,16 +115,19 @@ function buildFakeClients(record: CallRecord, opts: FakeOptions = {}) {
   const batchApi = {
     createNamespacedJob: vi.fn(async ({ namespace, body }: any) => {
       record.jobsCreated.push({ name: body.metadata.name, namespace });
+      liveJobs.add(body.metadata.name);
     }),
     deleteNamespacedJob: vi.fn(async ({ name, namespace }: any) => {
       record.jobsDeleted.push({ name, namespace });
-      coreApi.listNamespacedPod.mockResolvedValueOnce({ items: [] });
+      liveJobs.delete(name);
     }),
     readNamespacedJob: vi.fn(async ({ name }: any) => {
-      if (opts.imagePullMessage) return { status: { active: 1 } };
-      if (opts.infrastructureReason) return { status: { failed: 1 } };
+      if (!liveJobs.has(name)) throw { code: 404 };
+      const metadata = { name, uid: `${name}-uid` };
+      if (opts.imagePullMessage) return { metadata, status: { active: 1 } };
+      if (opts.infrastructureReason) return { metadata, status: { failed: 1 } };
       const status = opts.outcomes?.get(name) ?? "succeeded";
-      return { status: { [status]: 1 } };
+      return { metadata, status: { [status]: 1 } };
     }),
   } as any;
 
@@ -192,8 +203,8 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
         .mockResolvedValue(undefined);
 
       const execution = execute(new K8sExecutor(EXEC_CONFIG, clients), request);
-      await vi.runAllTimersAsync();
-      await expect(execution).resolves.toBeDefined();
+      const result = expect(execution).resolves.toBeDefined();
+      await Promise.all([result, vi.runAllTimersAsync()]);
 
       expect(clients.batchApi.deleteNamespacedJob).toHaveBeenCalledTimes(2);
       expect(clients.coreApi.deleteNamespacedConfigMap).toHaveBeenCalledTimes(6);
@@ -218,8 +229,8 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
       });
 
       const execution = execute(new K8sExecutor(EXEC_CONFIG, clients), request);
-      await vi.runAllTimersAsync();
-      await expect(execution).resolves.toBeDefined();
+      const result = expect(execution).resolves.toBeDefined();
+      await Promise.all([result, vi.runAllTimersAsync()]);
       expect(attempts.get("judge-sub-int-orch-int-0-sol-pm")).toBe(2);
       expect(attempts.get("judge-sub-int-orch-int-0-sol-p0")).toBe(1);
       expect(attempts.get("judge-sub-int-orch-int-0-int-pm")).toBe(1);
@@ -229,7 +240,7 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     }
   });
 
-  it("propagates exhausted cleanup failures after attempting every resource", async () => {
+  it("retains all ConfigMaps when Job termination cannot be confirmed", async () => {
     vi.useFakeTimers();
     try {
       const record = emptyRecord();
@@ -239,12 +250,11 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
       clients.coreApi.deleteNamespacedConfigMap.mockRejectedValue({ code: 429 });
 
       const execution = execute(new K8sExecutor(EXEC_CONFIG, clients), request);
-      const rejection = expect(execution).rejects.toThrow(/cleanup failed/i);
-      await vi.runAllTimersAsync();
-      await rejection;
+      const rejection = expect(execution).rejects.toThrow(/cleanup_pending/i);
+      await Promise.all([rejection, vi.runAllTimersAsync()]);
 
       expect(clients.batchApi.deleteNamespacedJob).toHaveBeenCalledTimes(3);
-      expect(clients.coreApi.deleteNamespacedConfigMap).toHaveBeenCalledTimes(12);
+      expect(clients.coreApi.deleteNamespacedConfigMap).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }
@@ -266,7 +276,7 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     );
     expect(failure).toBeInstanceOf(SandboxCleanupError);
     expect((failure as Error).message).toContain("registry denied immutable image");
-    expect((failure as Error).message).toContain("interactive sandbox cleanup failed");
+    expect((failure as Error).message).toContain("cleanup_pending");
     expect((failure as Error).message).toContain("Job nojv-sandbox/judge-sub-int-orch-int-0");
     expect((failure as Error).message).toContain("cleanup forbidden");
   });
@@ -285,10 +295,11 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     const request = makeRequest(1);
     const clients = buildFakeClients(record);
     let finishRead!: () => void;
-    clients.batchApi.readNamespacedJob.mockImplementation(
-      () =>
+    clients.batchApi.readNamespacedJob.mockImplementationOnce(
+      ({ name }: any) =>
         new Promise((resolve) => {
-          finishRead = () => resolve({ status: { succeeded: 1 } });
+          finishRead = () =>
+            resolve({ metadata: { name, uid: `${name}-uid` }, status: { succeeded: 1 } });
         }),
     );
     const executor = new K8sExecutor(EXEC_CONFIG, clients);
@@ -318,10 +329,11 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     const request = makeRequest(1);
     const clients = buildFakeClients(record);
     let finishRead!: () => void;
-    clients.batchApi.readNamespacedJob.mockImplementation(
-      () =>
+    clients.batchApi.readNamespacedJob.mockImplementationOnce(
+      ({ name }: any) =>
         new Promise((resolve) => {
-          finishRead = () => resolve({ status: { succeeded: 1 } });
+          finishRead = () =>
+            resolve({ metadata: { name, uid: `${name}-uid` }, status: { succeeded: 1 } });
         }),
     );
     clients.batchApi.deleteNamespacedJob.mockRejectedValue({
@@ -343,7 +355,7 @@ describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup"
     expect(JSON.stringify({ name: reason.name, message: reason.message })).toContain(
       "cancelled by Temporal",
     );
-    expect(reason.message).toContain("interactive sandbox cleanup failed");
+    expect(reason.message).toContain("cleanup_pending");
     expect(reason.message).toContain("Job nojv-sandbox/judge-cancel-cleanup-run-int-0");
     expect(reason.message).toContain("cleanup denied after cancellation");
   });

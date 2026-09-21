@@ -14,12 +14,14 @@ spec:
   ingress: []
   egress: []
 {{- end }}
-{{- if .Values.sandbox.resourceQuota.enabled }}
+{{- if and .Values.sandbox.resourceQuota.enabled (not .Values.worker.sandbox.capacityAdmission.enabled) }}
 ---
 apiVersion: v1
 kind: ResourceQuota
 metadata:
   name: sandbox-quota
+  annotations:
+    helm.sh/resource-policy: keep
   namespace: {{ include "nojv.sandboxNamespace" . }}
   labels:
     {{- include "nojv.labels" . | nindent 4 }}

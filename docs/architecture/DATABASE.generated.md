@@ -1067,6 +1067,7 @@ Indexes & constraints: `@@unique([postId, reportedByUserId])`, `@@unique([commen
 | `snapshot` | `Json` | — |
 | `state` | `String` | `@default("queued")` |
 | `queueClass` | `String` | `@default("foreground")` |
+| `capacityStrategy` | `Boolean` | `@default(false)` |
 | `operationId` | `String?` | — |
 | `workflowId` | `String` | `@unique` |
 | `recoveryEpoch` | `Int` | `@default(0)` |

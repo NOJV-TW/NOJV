@@ -1,4 +1,31 @@
+import {
+  failureMessage,
+  k8sErrorCode,
+  boundedK8sCall,
+  retryK8sCleanupCall,
+} from "./k8s-cleanup-call";
 import { createRequire } from "node:module";
+import {
+  buildArtifactPvcManifest,
+  buildPrepareArtifactJobManifest,
+  buildPreparedWaveJobManifest,
+} from "./k8s-prepared-artifact";
+import {
+  podPhaseTimings,
+  recordJudgePhase,
+  recordCleanupPending,
+  recordRunnerResources,
+  type JudgePhase,
+  type JudgeMode,
+} from "./judge-phase-metrics";
+import {
+  terminateSandboxJob,
+  terminateSandboxPod,
+  terminateSandboxPvc,
+  SandboxCleanupBudget,
+  SandboxCleanupPendingError,
+  isK8sNotFound,
+} from "./k8s-termination";
 import { hostname } from "node:os";
 
 import type * as k8s from "@kubernetes/client-node";
@@ -95,6 +122,8 @@ export interface K8sExecutorConfig {
   sidecarReadinessIntervalMs?: number;
   maxParallelCases?: number;
   runtimeClassName?: string;
+  admissionNode?: string;
+  artifactStorageClassName?: string;
 }
 
 function parseMemoryLimitMb(value: string): number {
@@ -121,30 +150,7 @@ const POD_SCHEDULE_GRACE_MS = 30_000;
 const JOB_WATCH_TIMEOUT_SECONDS = 30;
 const JOB_WATCH_RECONNECT_BASE_DELAY_MS = 100;
 const JOB_WATCH_RECONNECT_MAX_DELAY_MS = 2_000;
-const POD_CLEANUP_TIMEOUT_MS = 30_000;
-const POD_CLEANUP_POLL_INTERVAL_MS = 250;
-const K8S_CLEANUP_CALL_TIMEOUT_MS = 5_000;
-const K8S_CLEANUP_ATTEMPTS = 3;
-const K8S_CLEANUP_RETRY_DELAY_MS = 100;
-
 const DEFAULT_MAX_PARALLEL_CASES = 4;
-
-function k8sErrorCode(reason: unknown): number | null {
-  if (reason instanceof Error && reason.cause !== undefined) {
-    const causeCode = k8sErrorCode(reason.cause);
-    if (causeCode !== null) return causeCode;
-  }
-  if (typeof reason !== "object" || reason === null || !("code" in reason)) return null;
-  const code = (reason as { code?: unknown }).code;
-  return typeof code === "number" ? code : null;
-}
-
-function isTransientK8sError(reason: unknown): boolean {
-  const code = k8sErrorCode(reason);
-  return (
-    code === null || code === 408 || code === 409 || code === 425 || code === 429 || code >= 500
-  );
-}
 
 function jobWatchReconnectDelay(attempt: number): number {
   return Math.min(
@@ -161,85 +167,6 @@ function infrastructureFailureReason(value: unknown): string | null {
     )
     ? value
     : null;
-}
-
-function boundedK8sCall<T>(operation: Promise<T>, resource: string): Promise<T> {
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const settle = (callback: () => void) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      callback();
-    };
-    const timer = setTimeout(
-      () =>
-        settle(() =>
-          reject(
-            new Error(
-              `Kubernetes cleanup call timed out for ${resource} after ${String(K8S_CLEANUP_CALL_TIMEOUT_MS)}ms.`,
-            ),
-          ),
-        ),
-      K8S_CLEANUP_CALL_TIMEOUT_MS,
-    );
-    void operation.then(
-      (value) => settle(() => resolve(value)),
-      (error: unknown) =>
-        settle(() =>
-          reject(
-            error instanceof Error
-              ? error
-              : new Error(`Kubernetes cleanup call failed for ${resource}.`, { cause: error }),
-          ),
-        ),
-    );
-  });
-}
-
-async function retryK8sCleanupCall<T>(
-  resource: string,
-  operation: () => Promise<T>,
-  options: { notFoundIsSuccess?: boolean } = {},
-): Promise<T | null> {
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= K8S_CLEANUP_ATTEMPTS; attempt += 1) {
-    try {
-      return await boundedK8sCall(operation(), resource);
-    } catch (error) {
-      if (options.notFoundIsSuccess === true && k8sErrorCode(error) === 404) return null;
-      lastError = error;
-      if (!isTransientK8sError(error) || attempt === K8S_CLEANUP_ATTEMPTS) break;
-      await new Promise((resolve) => setTimeout(resolve, K8S_CLEANUP_RETRY_DELAY_MS * attempt));
-    }
-  }
-  throw new Error(
-    `Kubernetes cleanup failed for ${resource} after ${String(K8S_CLEANUP_ATTEMPTS)} attempts: ${failureMessage(lastError)}`,
-  );
-}
-
-function failureMessage(reason: unknown): string {
-  if (reason instanceof Error) {
-    const cause = reason.cause;
-    return cause === undefined
-      ? reason.message
-      : `${reason.message} Caused by: ${failureMessage(cause)}`;
-  }
-  if (typeof reason === "object" && reason !== null && "message" in reason) {
-    const message = (reason as { message?: unknown }).message;
-    if (typeof message === "string") return message;
-  }
-  if (typeof reason === "string") return reason;
-  if (reason === undefined) return "undefined";
-  if (typeof reason === "number" || typeof reason === "boolean") return String(reason);
-  if (typeof reason === "bigint") return reason.toString();
-  if (typeof reason === "function") return `function ${reason.name || "anonymous"}`;
-  if (typeof reason === "symbol") return reason.description ?? "symbol";
-  try {
-    return JSON.stringify(reason);
-  } catch {
-    return "unserializable failure";
-  }
 }
 
 export function findFailedCreateEventReason(events: readonly k8s.CoreV1Event[]): string | null {
@@ -475,6 +402,7 @@ export interface K8sClientHandles {
   batchApi: k8s.BatchV1Api;
   networkingApi?: k8s.NetworkingV1Api;
   watch: K8sWatchClient;
+  storageApi?: k8s.StorageV1Api;
 }
 
 export interface K8sWatchClient {
@@ -634,13 +562,32 @@ function parseValidatorOutcomesFromLogs(
 function parseCompilationError(logs: string): string | null {
   return (
     scanJsonLinesFromEnd(logs, (json) => {
-      const { compilationError } = json as { compilationError?: unknown };
-      return { value: typeof compilationError === "string" ? compilationError : null };
+      if (typeof json !== "object" || json === null) return null;
+      const { compilationError, runCommand } = json as {
+        compilationError?: unknown;
+        runCommand?: unknown;
+      };
+      if (typeof compilationError === "string") return { value: compilationError };
+      return Array.isArray(runCommand) && runCommand.every((arg) => typeof arg === "string")
+        ? { value: null }
+        : null;
     })?.value ?? null
   );
 }
 
+export interface PreparedArtifactReference {
+  runId: string;
+  pvcName: string;
+  pvcUid: string;
+  nodeName: string;
+}
+
+function requestMode(request: SandboxRequest): JudgeMode {
+  return request.advanced ? "advanced" : request.judgeType;
+}
+
 export class K8sExecutor implements SandboxExecutor {
+  private storageApi: k8s.StorageV1Api | undefined;
   private readonly coreApi: k8s.CoreV1Api;
   private readonly batchApi: k8s.BatchV1Api;
   private networkingApiHandle: k8s.NetworkingV1Api | undefined;
@@ -651,6 +598,7 @@ export class K8sExecutor implements SandboxExecutor {
     clients?: K8sClientHandles,
   ) {
     if (clients) {
+      this.storageApi = clients.storageApi;
       this.coreApi = clients.coreApi;
       this.batchApi = clients.batchApi;
       this.networkingApiHandle = clients.networkingApi;
@@ -660,10 +608,377 @@ export class K8sExecutor implements SandboxExecutor {
     const k8sLib = require("@kubernetes/client-node") as typeof k8s;
     const kc = new k8sLib.KubeConfig();
     kc.loadFromCluster();
+    this.storageApi = kc.makeApiClient(k8sLib.StorageV1Api);
     this.coreApi = kc.makeApiClient(k8sLib.CoreV1Api);
     this.batchApi = kc.makeApiClient(k8sLib.BatchV1Api);
     this.networkingApiHandle = kc.makeApiClient(k8sLib.NetworkingV1Api);
     this.watchClient = new k8sLib.Watch(kc);
+  }
+
+  async cleanupRun(runId: string, retainArtifact = false): Promise<void> {
+    if (!/^[a-f0-9-]{36}$/.test(runId)) throw new Error("Invalid cleanup run ID");
+    const namespace = this.config.namespace;
+    const prefix = `judge-${runId}`;
+    const owned = (metadata: k8s.V1ObjectMeta | undefined) =>
+      metadata?.name === prefix || metadata?.name?.startsWith(`${prefix}-`) === true;
+    const budget = new SandboxCleanupBudget();
+    const call = <T>(operation: () => Promise<T>) => budget.call(`Run ${runId}`, operation);
+    const jobs = await call(() => this.batchApi.listNamespacedJob({ namespace }));
+    for (const job of jobs.items.filter((item) => owned(item.metadata))) {
+      if (!job.metadata?.name) throw new SandboxCleanupPendingError([prefix]);
+      await this.cleanupJob(job.metadata.name, namespace, budget);
+    }
+    const pods = await call(() => this.coreApi.listNamespacedPod({ namespace }));
+    for (const pod of pods.items.filter((item) => owned(item.metadata))) {
+      if (!pod.metadata?.uid || !pod.metadata.name)
+        throw new SandboxCleanupPendingError([prefix]);
+      await terminateSandboxPod(this.coreApi, namespace, pod.metadata.name, {
+        expectedUid: pod.metadata.uid,
+        budget,
+      });
+    }
+    const remove = async (
+      items: { metadata?: k8s.V1ObjectMeta }[],
+      deleteResource: (name: string, uid: string) => Promise<unknown>,
+    ) => {
+      for (const resource of items.filter((item) => owned(item.metadata))) {
+        if (!resource.metadata?.uid || !resource.metadata.name)
+          throw new SandboxCleanupPendingError([prefix]);
+        const { name, uid } = resource.metadata;
+        try {
+          await call(() => deleteResource(name, uid));
+        } catch (error) {
+          if (!isK8sNotFound(error)) throw error;
+        }
+      }
+    };
+    await remove(
+      (await call(() => this.coreApi.listNamespacedConfigMap({ namespace }))).items,
+      (name, uid) =>
+        this.coreApi.deleteNamespacedConfigMap({
+          namespace,
+          name,
+          body: { preconditions: { uid } },
+        }),
+    );
+    const pvcs = await call(() =>
+      this.coreApi.listNamespacedPersistentVolumeClaim({ namespace }),
+    );
+    for (const pvc of pvcs.items.filter(
+      (item) =>
+        owned(item.metadata) &&
+        (!retainArtifact || item.metadata?.name !== `${prefix}-artifact`),
+    )) {
+      if (!pvc.metadata?.uid || !pvc.metadata.name)
+        throw new SandboxCleanupPendingError([prefix]);
+      await terminateSandboxPvc(this.coreApi, namespace, pvc.metadata.name, pvc.metadata.uid, {
+        budget,
+      });
+    }
+    await remove(
+      (await call(() => this.coreApi.listNamespacedService({ namespace }))).items,
+      (name, uid) =>
+        this.coreApi.deleteNamespacedService({
+          namespace,
+          name,
+          body: { preconditions: { uid } },
+        }),
+    );
+    await remove(
+      (await call(() => this.networkingApi().listNamespacedNetworkPolicy({ namespace }))).items,
+      (name, uid) =>
+        this.networkingApi().deleteNamespacedNetworkPolicy({
+          namespace,
+          name,
+          body: { preconditions: { uid } },
+        }),
+    );
+  }
+
+  async prepareAttempt(
+    request: SandboxRequest,
+    execution: SandboxExecutionContext,
+  ): Promise<{ artifact?: PreparedArtifactReference; compilationError?: string }> {
+    const namespace = this.config.namespace;
+    const nodeName = this.config.admissionNode;
+    const storageClassName = this.config.artifactStorageClassName;
+    if (!nodeName || !storageClassName || !this.storageApi)
+      throw new Error("Prepared attempts require admitted node and artifact StorageClass");
+    execution.signal.throwIfAborted();
+    const storageClass = await this.storageApi.readStorageClass({ name: storageClassName });
+    execution.signal.throwIfAborted();
+    if (storageClass.volumeBindingMode !== "WaitForFirstConsumer")
+      throw new SandboxAdmissionError("Artifact StorageClass must use WaitForFirstConsumer");
+    const pvc = await this.coreApi.createNamespacedPersistentVolumeClaim({
+      namespace,
+      body: buildArtifactPvcManifest({ namespace, runId: execution.runId, storageClassName }),
+    });
+    execution.signal.throwIfAborted();
+    if (!pvc.metadata?.name || !pvc.metadata.uid)
+      throw new Error("Artifact PVC missing identity");
+    const artifact = {
+      runId: execution.runId,
+      pvcName: pvc.metadata.name,
+      pvcUid: pvc.metadata.uid,
+      nodeName,
+    };
+    const jobName = `judge-${execution.runId}-prepare`;
+    let payloadNames: string[] = [];
+    try {
+      payloadNames = await this.createPayloadConfigMaps(
+        jobName,
+        namespace,
+        buildRunConfigMapData({ ...request, testcases: [] }),
+        execution.signal,
+      );
+      execution.signal.throwIfAborted();
+      await this.createSandboxJob(
+        {
+          namespace,
+          body: buildPrepareArtifactJobManifest({
+            jobName,
+            namespace,
+            configMapNames: payloadNames,
+            image: request.sandboxImage ?? this.config.image,
+            memoryLimit: resolveK8sMemoryLimit(request, this.config),
+            runtimeClassName: "gvisor",
+            nodeName,
+            pvcName: artifact.pvcName,
+            activeDeadlineSeconds: 180,
+          }),
+        },
+        execution.signal,
+      );
+      execution.signal.throwIfAborted();
+      await this.waitForJobCompletion(jobName, namespace, 180, execution.signal);
+      await this.observeJobLifecycle(jobName, namespace, request);
+      return await this.measurePhase(request, "collect", async () => {
+        const compileLog = await this.getContainerLogs(
+          jobName,
+          namespace,
+          "prepare",
+          execution.signal,
+        );
+        recordRunnerResources(compileLog, requestMode(request), request.language, "prepare", {
+          jobName,
+          container: "prepare",
+        });
+        const compilationError = parseCompilationError(compileLog);
+        if (compilationError) return { compilationError };
+        const published = await this.getContainerLogs(
+          jobName,
+          namespace,
+          "publish-artifact",
+          execution.signal,
+        );
+        if (
+          !scanJsonLinesFromEnd(published, (value) =>
+            typeof value === "object" &&
+            value !== null &&
+            "published" in value &&
+            value.published === true
+              ? true
+              : null,
+          )
+        )
+          throw new SandboxInfrastructureError("Artifact publication failed");
+        const pods = await this.coreApi.listNamespacedPod({
+          namespace,
+          labelSelector: `job-name=${jobName}`,
+        });
+        if (pods.items[0]?.spec?.nodeName !== nodeName)
+          throw new SandboxInfrastructureError("Artifact placement differs from reservation");
+        return { artifact };
+      });
+    } finally {
+      await this.measurePhase(request, "cleanup", () =>
+        this.cleanup(jobName, namespace, payloadNames),
+      );
+    }
+  }
+
+  async executePreparedWave(
+    request: SandboxRequest,
+    execution: SandboxExecutionContext,
+    artifact: PreparedArtifactReference,
+    indices: number[],
+  ): Promise<SandboxResult> {
+    if (
+      artifact.runId !== execution.runId ||
+      artifact.nodeName !== this.config.admissionNode ||
+      artifact.pvcName !== `judge-${execution.runId}-artifact`
+    )
+      throw new SandboxAdmissionError("Artifact ownership mismatch");
+    const pvc = await this.coreApi.readNamespacedPersistentVolumeClaim({
+      namespace: this.config.namespace,
+      name: artifact.pvcName,
+    });
+    if (pvc.metadata?.uid !== artifact.pvcUid || pvc.metadata.deletionTimestamp)
+      throw new SandboxInfrastructureError(
+        "Artifact PVC is unavailable; a new attempt is required",
+      );
+    const wave = {
+      ...request,
+      testcases: request.testcases.filter((tc) => indices.includes(tc.index)),
+    };
+    if (wave.testcases.length !== indices.length || indices.length < 1)
+      throw new SandboxAdmissionError("Invalid testcase wave");
+    return this.runPerCasePod(wave, execution, artifact);
+  }
+
+  async finishPreparedAttempt(
+    request: SandboxRequest,
+    execution: SandboxExecutionContext,
+    rawRuns: RawCaseRun[],
+  ): Promise<SandboxResult> {
+    if (request.judgeType !== "checker")
+      return resolveSandboxResult(
+        { testcaseResults: [], rawRuns },
+        request.testcases,
+        request.judgeConfig.compare,
+      );
+    const answered = new Set(
+      request.testcases.filter((tc) => tc.output !== undefined).map((tc) => tc.index),
+    );
+    const gradable = rawRuns.filter((run) => !run.errorVerdict && answered.has(run.index));
+    const outcomes = gradable.length
+      ? await this.runValidateJob(
+          `judge-${execution.runId}-validate`,
+          this.config.namespace,
+          request,
+          gradable,
+          execution.signal,
+        )
+      : new Map<number, ValidatorOutcome>();
+    return { testcaseResults: mergeCheckerResults(rawRuns, outcomes, request.testcases) };
+  }
+
+  private admittedPod(spec: k8s.V1PodSpec): k8s.V1PodSpec {
+    if (!this.config.admissionNode) return spec;
+    delete spec.nodeName;
+    spec.affinity ??= {};
+    spec.affinity.nodeAffinity = {
+      requiredDuringSchedulingIgnoredDuringExecution: {
+        nodeSelectorTerms: [
+          {
+            matchFields: [
+              { key: "metadata.name", operator: "In", values: [this.config.admissionNode] },
+            ],
+          },
+        ],
+      },
+    };
+    for (const container of [...(spec.initContainers ?? []), ...spec.containers]) {
+      const limits = {
+        ...container.resources?.limits,
+        cpu: container.resources?.limits?.cpu ?? "1",
+        memory: container.resources?.limits?.memory ?? "512Mi",
+      };
+      container.resources ??= {};
+      container.resources.limits = limits;
+      container.resources.requests = {
+        ...container.resources.requests,
+        cpu: limits.cpu,
+        memory: limits.memory,
+      };
+    }
+    return spec;
+  }
+
+  private async observeJobLifecycle(
+    jobName: string,
+    namespace: string,
+    request: SandboxRequest,
+  ): Promise<void> {
+    try {
+      const pods = await this.coreApi.listNamespacedPod({
+        namespace,
+        labelSelector: `job-name=${jobName}`,
+      });
+      for (const pod of pods.items) {
+        const timings = podPhaseTimings(pod, requestMode(request));
+        for (const [phase, milliseconds] of Object.entries(timings))
+          recordJudgePhase(
+            phase as JudgePhase,
+            milliseconds,
+            requestMode(request),
+            request.language,
+          );
+        logger.info("Kubernetes sandbox lifecycle timings", {
+          jobName,
+          podUid: pod.metadata?.uid,
+          timings,
+        });
+      }
+    } catch (error) {
+      logger.warn("Kubernetes sandbox lifecycle timings unavailable", {
+        jobName,
+        error: failureMessage(error),
+      });
+    }
+  }
+
+  private async observeContainerResources(
+    jobName: string,
+    namespace: string,
+    container: string,
+    request: SandboxRequest,
+    phase: JudgePhase,
+    signal: AbortSignal,
+  ): Promise<void> {
+    try {
+      const logs = await this.getContainerLogs(jobName, namespace, container, signal);
+      recordRunnerResources(logs, requestMode(request), request.language, phase, {
+        jobName,
+        container,
+      });
+    } catch (error) {
+      logger.warn("Kubernetes sandbox resource metrics unavailable", {
+        jobName,
+        container,
+        error: failureMessage(error),
+      });
+    }
+  }
+
+  private async measurePhase<T>(
+    request: SandboxRequest,
+    phase: "collect" | "cleanup",
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    const started = Date.now();
+    let success = false;
+    try {
+      const result = await operation();
+      success = true;
+      return result;
+    } finally {
+      recordJudgePhase(
+        phase,
+        Date.now() - started,
+        requestMode(request),
+        request.language,
+        success ? "success" : "failure",
+      );
+      if (!success && phase === "cleanup")
+        recordCleanupPending(requestMode(request), request.language);
+    }
+  }
+
+  private runMetadata(metadata: k8s.V1ObjectMeta | undefined): k8s.V1ObjectMeta {
+    const runId =
+      /^judge-([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})(?:-|$)/.exec(
+        metadata?.name ?? "",
+      )?.[1];
+    const result = metadata ?? {};
+    if (runId) result.labels = { ...result.labels, "nojv-run-id": runId };
+    return result;
+  }
+
+  private imagePullCredentials(spec: k8s.V1PodSpec): void {
+    const name = this.config.imagePullSecretName;
+    if (name && !spec.imagePullSecrets?.some((secret) => secret.name === name))
+      spec.imagePullSecrets = [...(spec.imagePullSecrets ?? []), { name }];
   }
 
   private networkingApi(): k8s.NetworkingV1Api {
@@ -716,8 +1031,7 @@ export class K8sExecutor implements SandboxExecutor {
             this.batchApi.deleteNamespacedJob({
               namespace,
               name,
-              propagationPolicy: "Foreground",
-              body: { preconditions: { uid } },
+              body: { propagationPolicy: "Foreground", preconditions: { uid } },
             }),
         },
         {
@@ -728,8 +1042,7 @@ export class K8sExecutor implements SandboxExecutor {
             this.coreApi.deleteNamespacedPod({
               namespace,
               name,
-              propagationPolicy: "Foreground",
-              body: { preconditions: { uid } },
+              body: { propagationPolicy: "Foreground", preconditions: { uid } },
             }),
         },
         {
@@ -949,6 +1262,7 @@ export class K8sExecutor implements SandboxExecutor {
         deadlineSeconds,
         execution.signal,
       );
+      await this.observeJobLifecycle(runJobName, ns, request);
       const { nodeName, transferCaptureOk } = await this.inspectRunPod(
         runJobName,
         ns,
@@ -965,6 +1279,9 @@ export class K8sExecutor implements SandboxExecutor {
       }
 
       const runStatus = deriveRunStatusFromJob(runOutcome.state, runOutcome.deadlineExceeded);
+      await this.measurePhase(request, "cleanup", () =>
+        this.cleanupAdvancedJob(runJobName, ns),
+      );
 
       await this.createConfigMap(
         gradeConfigMapName,
@@ -1008,17 +1325,19 @@ export class K8sExecutor implements SandboxExecutor {
       execution.signal.throwIfAborted();
 
       await this.waitForJobCompletion(gradeJobName, ns, deadlineSeconds, execution.signal);
+      await this.observeJobLifecycle(gradeJobName, ns, request);
       const gradePodName = await this.findPodName(gradeJobName, ns, execution.signal);
       if (!gradePodName) {
         return advancedFallbackResult(request, "Advanced grade phase produced no pod.");
       }
 
-      const sidecarLog = await this.getPodContainerLogs(
-        gradePodName,
-        ns,
-        ADVANCED_SIDECAR_NAME,
-        execution.signal,
+      const sidecarLog = await this.measurePhase(request, "collect", () =>
+        this.getPodContainerLogs(gradePodName, ns, ADVANCED_SIDECAR_NAME, execution.signal),
       );
+      recordRunnerResources(sidecarLog, "advanced", request.language, "checker", {
+        jobName: gradeJobName,
+        container: ADVANCED_SIDECAR_NAME,
+      });
       execution.signal.throwIfAborted();
 
       const raw = parseAdvancedResultLog(sidecarLog);
@@ -1066,24 +1385,31 @@ export class K8sExecutor implements SandboxExecutor {
       });
       throw err;
     } finally {
-      await runCleanupAfterExecution(executionFailure, async () => {
-        const jobCleanup = await Promise.allSettled([
-          this.cleanupAdvancedJob(runJobName, ns),
-          this.cleanupAdvancedJob(gradeJobName, ns),
-        ]);
-        const runPodsGone = jobCleanup[0].status === "fulfilled";
-        const gradePodsGone = jobCleanup[1].status === "fulfilled";
-        const privateDataCleanup = await Promise.allSettled([
-          this.cleanupConfigMap(runConfigMapName, ns),
-          this.cleanupConfigMap(gradeConfigMapName, ns),
-          this.cleanupPvc(pvcName, ns),
-          this.teardownAdvancedNetwork(resourceId, ns, hasSidecar, {
-            runPodsGone,
-            gradePodsGone,
-          }),
-        ]);
-        throwCleanupFailures("advanced sandbox", [...jobCleanup, ...privateDataCleanup]);
-      });
+      await this.measurePhase(request, "cleanup", () =>
+        runCleanupAfterExecution(executionFailure, async () => {
+          const budget = new SandboxCleanupBudget();
+          const jobCleanup = await Promise.allSettled([
+            this.cleanupAdvancedJob(runJobName, ns, budget),
+            this.cleanupAdvancedJob(gradeJobName, ns, budget),
+          ]);
+          const runPodsGone = jobCleanup[0].status === "fulfilled";
+          const gradePodsGone = jobCleanup[1].status === "fulfilled";
+          throwCleanupFailures("advanced sandbox termination", jobCleanup);
+          await this.teardownAdvancedNetwork(
+            resourceId,
+            ns,
+            hasSidecar,
+            { runPodsGone, gradePodsGone },
+            budget,
+          );
+          const privateDataCleanup = await Promise.allSettled([
+            this.cleanupConfigMap(runConfigMapName, ns, budget),
+            this.cleanupConfigMap(gradeConfigMapName, ns, budget),
+            this.cleanupPvc(pvcName, ns, budget),
+          ]);
+          throwCleanupFailures("advanced sandbox", [...jobCleanup, ...privateDataCleanup]);
+        }),
+      );
     }
   }
 
@@ -1234,44 +1560,36 @@ export class K8sExecutor implements SandboxExecutor {
     ns: string,
     hasSidecar: boolean,
     podsGone: { runPodsGone: boolean; gradePodsGone: boolean },
+    budget = new SandboxCleanupBudget(),
   ): Promise<void> {
+    if (hasSidecar) await this.cleanupAdvancedPod(sidecarPodName(submissionId), ns, budget);
+    const remove = async (resource: string, operation: () => Promise<unknown>) => {
+      try {
+        await budget.call(resource, operation);
+      } catch (error) {
+        if (!isK8sNotFound(error)) throw error;
+      }
+    };
     const networkingApi = this.networkingApi();
     const deletePolicy = (name: string) =>
-      retryK8sCleanupCall(
-        `NetworkPolicy ${ns}/${name}`,
-        () => networkingApi.deleteNamespacedNetworkPolicy({ name, namespace: ns }),
-        { notFoundIsSuccess: true },
+      remove(`NetworkPolicy ${ns}/${name}`, () =>
+        networkingApi.deleteNamespacedNetworkPolicy({ name, namespace: ns }),
       );
-
-    const cleanupResults: PromiseSettledResult<unknown>[] = [];
-    let sidecarGone = false;
+    const cleanup: Promise<unknown>[] = [];
+    if (podsGone.gradePodsGone) cleanup.push(deletePolicy(gradePolicyName(submissionId)));
     if (hasSidecar) {
-      const sidecarCleanup = await Promise.allSettled([
-        retryK8sCleanupCall(
-          `Service ${ns}/${sidecarServiceName(submissionId)}`,
-          () =>
-            this.coreApi.deleteNamespacedService({
-              name: sidecarServiceName(submissionId),
-              namespace: ns,
-            }),
-          { notFoundIsSuccess: true },
+      cleanup.push(
+        remove(`Service ${ns}/${sidecarServiceName(submissionId)}`, () =>
+          this.coreApi.deleteNamespacedService({
+            name: sidecarServiceName(submissionId),
+            namespace: ns,
+          }),
         ),
-        this.cleanupAdvancedPod(sidecarPodName(submissionId), ns),
-      ]);
-      sidecarGone = sidecarCleanup[1].status === "fulfilled";
-      cleanupResults.push(...sidecarCleanup);
+      );
+      if (podsGone.runPodsGone) cleanup.push(deletePolicy(runPolicyName(submissionId)));
+      cleanup.push(deletePolicy(sidecarPolicyName(submissionId)));
     }
-
-    const policyCleanup: Promise<unknown>[] = [];
-    if (podsGone.gradePodsGone) {
-      policyCleanup.push(deletePolicy(gradePolicyName(submissionId)));
-    }
-    if (hasSidecar && podsGone.runPodsGone) {
-      policyCleanup.push(deletePolicy(runPolicyName(submissionId)));
-    }
-    if (sidecarGone) policyCleanup.push(deletePolicy(sidecarPolicyName(submissionId)));
-    cleanupResults.push(...(await Promise.allSettled(policyCleanup)));
-    throwCleanupFailures("advanced network", cleanupResults);
+    throwCleanupFailures("advanced network", await Promise.allSettled(cleanup));
   }
 
   private async executeInteractive(
@@ -1361,6 +1679,7 @@ export class K8sExecutor implements SandboxExecutor {
       signal.throwIfAborted();
 
       const outcome = await this.waitForJobOutcome(jobName, namespace, deadlineSeconds, signal);
+      await this.observeJobLifecycle(jobName, namespace, request);
       const podName = await this.findPodName(jobName, namespace, signal);
       if (!podName) {
         if (outcome.state === "failed") {
@@ -1369,10 +1688,20 @@ export class K8sExecutor implements SandboxExecutor {
         return seCase("Interactive sandbox produced no pod.");
       }
 
-      const [solLogs, intLogs] = await Promise.all([
-        this.getPodContainerLogs(podName, namespace, "solution", signal),
-        this.getPodContainerLogs(podName, namespace, "interactor", signal),
-      ]);
+      const [solLogs, intLogs] = await this.measurePhase(request, "collect", () =>
+        Promise.all([
+          this.getPodContainerLogs(podName, namespace, "solution", signal),
+          this.getPodContainerLogs(podName, namespace, "interactor", signal),
+        ]),
+      );
+      recordRunnerResources(solLogs, "interactive", request.language, "execute", {
+        jobName,
+        container: "solution",
+      });
+      recordRunnerResources(intLogs, "interactive", request.language, "checker", {
+        jobName,
+        container: "interactor",
+      });
       signal.throwIfAborted();
 
       const sol: InteractiveSideResult = {
@@ -1409,88 +1738,47 @@ export class K8sExecutor implements SandboxExecutor {
       });
       return seCase("Interactive sandbox failed to start.");
     } finally {
-      await runCleanupAfterExecution(executionFailure, () =>
-        runCleanupOperations("interactive sandbox", [
-          this.cleanupJob(jobName, namespace),
-          ...solutionPayloadNames.map((name) => this.cleanupConfigMap(name, namespace)),
-          ...interactorPayloadNames.map((name) => this.cleanupConfigMap(name, namespace)),
-        ]),
+      await this.measurePhase(request, "cleanup", () =>
+        runCleanupAfterExecution(executionFailure, () =>
+          this.cleanup(jobName, namespace, [
+            ...solutionPayloadNames,
+            ...interactorPayloadNames,
+          ]),
+        ),
       );
     }
   }
 
-  private async cleanupJob(name: string, namespace: string): Promise<void> {
-    await retryK8sCleanupCall(
-      `Job ${namespace}/${name}`,
-      () =>
-        this.batchApi.deleteNamespacedJob({
-          name,
-          namespace,
-          propagationPolicy: "Foreground",
-        }),
-      { notFoundIsSuccess: true },
-    );
-    await this.waitForPodsGone(namespace, { labelSelector: `job-name=${name}` });
-  }
-
-  private async cleanupAdvancedJob(name: string, namespace: string): Promise<boolean> {
-    const deletion = await Promise.allSettled([
-      retryK8sCleanupCall(
-        `Job ${namespace}/${name}`,
-        () =>
-          this.batchApi.deleteNamespacedJob({
-            name,
-            namespace,
-            propagationPolicy: "Foreground",
-          }),
-        { notFoundIsSuccess: true },
-      ),
-    ]);
-    const podsGone = await Promise.allSettled([
-      this.waitForPodsGone(namespace, { labelSelector: `job-name=${name}` }),
-    ]);
-    if (deletion[0].status === "fulfilled" && podsGone[0].status === "fulfilled") return true;
-    throwCleanupFailures(`Job ${namespace}/${name}`, [...deletion, ...podsGone]);
-    return false;
-  }
-
-  private async cleanupAdvancedPod(name: string, namespace: string): Promise<boolean> {
-    const deletion = await Promise.allSettled([
-      retryK8sCleanupCall(
-        `Pod ${namespace}/${name}`,
-        () =>
-          this.coreApi.deleteNamespacedPod({
-            name,
-            namespace,
-            propagationPolicy: "Foreground",
-            gracePeriodSeconds: 0,
-          }),
-        { notFoundIsSuccess: true },
-      ),
-    ]);
-    const podGone = await Promise.allSettled([
-      this.waitForPodsGone(namespace, { fieldSelector: `metadata.name=${name}` }),
-    ]);
-    if (deletion[0].status === "fulfilled" && podGone[0].status === "fulfilled") return true;
-    throwCleanupFailures(`Pod ${namespace}/${name}`, [...deletion, ...podGone]);
-    return false;
-  }
-
-  private async waitForPodsGone(
+  private async cleanupJob(
+    name: string,
     namespace: string,
-    selector: { labelSelector?: string; fieldSelector?: string },
-  ): Promise<boolean> {
-    const deadline = Date.now() + POD_CLEANUP_TIMEOUT_MS;
-    while (Date.now() < deadline) {
-      const pods = await retryK8sCleanupCall(`Pod list in ${namespace}`, () =>
-        this.coreApi.listNamespacedPod({ namespace, ...selector }),
-      );
-      if (pods?.items.length === 0) return true;
-      await new Promise((resolve) => setTimeout(resolve, POD_CLEANUP_POLL_INTERVAL_MS));
-    }
-    throw new Error(
-      `Kubernetes cleanup timed out waiting for Pods in ${namespace} to terminate.`,
+    budget?: SandboxCleanupBudget,
+  ): Promise<void> {
+    await terminateSandboxJob(
+      this.coreApi,
+      this.batchApi,
+      namespace,
+      name,
+      budget ? { budget } : {},
     );
+  }
+
+  private async cleanupAdvancedJob(
+    name: string,
+    namespace: string,
+    budget?: SandboxCleanupBudget,
+  ): Promise<boolean> {
+    await this.cleanupJob(name, namespace, budget);
+    return true;
+  }
+
+  private async cleanupAdvancedPod(
+    name: string,
+    namespace: string,
+    budget?: SandboxCleanupBudget,
+  ): Promise<boolean> {
+    await terminateSandboxPod(this.coreApi, namespace, name, budget ? { budget } : {});
+    return true;
   }
 
   private async findPodName(
@@ -1554,39 +1842,55 @@ export class K8sExecutor implements SandboxExecutor {
     signal.throwIfAborted();
   }
 
-  private async cleanupPvc(name: string, namespace: string): Promise<void> {
-    await retryK8sCleanupCall(
-      `PersistentVolumeClaim ${namespace}/${name}`,
-      () => this.coreApi.deleteNamespacedPersistentVolumeClaim({ name, namespace }),
-      { notFoundIsSuccess: true },
-    );
+  private async cleanupPvc(
+    name: string,
+    namespace: string,
+    budget = new SandboxCleanupBudget(),
+  ): Promise<void> {
+    try {
+      await budget.call(`PersistentVolumeClaim ${namespace}/${name}`, () =>
+        this.coreApi.deleteNamespacedPersistentVolumeClaim({ name, namespace }),
+      );
+    } catch (error) {
+      if (!isK8sNotFound(error)) throw error;
+    }
   }
 
-  private async cleanupConfigMap(name: string, namespace: string): Promise<void> {
-    await retryK8sCleanupCall(
-      `ConfigMap ${namespace}/${name}`,
-      () => this.coreApi.deleteNamespacedConfigMap({ name, namespace }),
-      { notFoundIsSuccess: true },
-    );
+  private async cleanupConfigMap(
+    name: string,
+    namespace: string,
+    budget = new SandboxCleanupBudget(),
+  ): Promise<void> {
+    try {
+      await budget.call(`ConfigMap ${namespace}/${name}`, () =>
+        this.coreApi.deleteNamespacedConfigMap({ name, namespace }),
+      );
+    } catch (error) {
+      if (!isK8sNotFound(error)) throw error;
+    }
   }
 
   private async runPerCasePod(
     request: SandboxRequest,
     execution: SandboxExecutionContext,
+    artifact?: PreparedArtifactReference,
   ): Promise<SandboxResult> {
     const ns = this.config.namespace;
     const allCaseIndices = request.testcases.map((tc) => tc.index);
 
     if (allCaseIndices.length === 0) return { testcaseResults: [] };
 
-    const waves = chunkCaseIndices(allCaseIndices, resolveMaxParallelCases(this.config));
+    const waves = artifact
+      ? [allCaseIndices]
+      : chunkCaseIndices(allCaseIndices, resolveMaxParallelCases(this.config));
     const memoryLimit = resolveK8sMemoryLimit(request, this.config);
     const rawRuns: RawCaseRun[] = [];
 
     for (let waveIndex = 0; waveIndex < waves.length; waveIndex++) {
       const waveCaseIndices = waves[waveIndex] ?? [];
-      const jobName =
-        waves.length === 1
+      const jobName = artifact
+        ? `judge-${execution.runId}-wave-${String(waveCaseIndices[0])}`
+        : waves.length === 1
           ? `judge-${execution.runId}`
           : `judge-${execution.runId}-w${String(waveIndex)}`;
       const waveRequest: SandboxRequest = {
@@ -1611,29 +1915,57 @@ export class K8sExecutor implements SandboxExecutor {
           execution.signal,
         );
         payloadReadyAt = Date.now();
-        await this.createPerCaseJob(
-          jobName,
-          ns,
-          payloadNames,
-          deadlineSeconds,
-          waveCaseIndices,
-          memoryLimit,
-          request.sandboxImage ?? this.config.image,
-          execution.signal,
-        );
+        if (artifact) {
+          await this.createSandboxJob(
+            {
+              namespace: ns,
+              body: buildPreparedWaveJobManifest({
+                jobName,
+                namespace: ns,
+                configMapNames: payloadNames,
+                image: request.sandboxImage ?? this.config.image,
+                memoryLimit,
+                runtimeClassName: "gvisor",
+                nodeName: artifact.nodeName,
+                pvcName: artifact.pvcName,
+                activeDeadlineSeconds: deadlineSeconds,
+                caseIndices: waveCaseIndices,
+              }),
+            },
+            execution.signal,
+          );
+        } else {
+          await this.createPerCaseJob(
+            jobName,
+            ns,
+            payloadNames,
+            deadlineSeconds,
+            waveCaseIndices,
+            memoryLimit,
+            request.sandboxImage ?? this.config.image,
+            execution.signal,
+          );
+        }
         jobSubmittedAt = Date.now();
 
         await this.waitForJobCompletion(jobName, ns, deadlineSeconds, execution.signal);
         jobFinishedAt = Date.now();
+        await this.observeJobLifecycle(jobName, ns, request);
 
         const podName = await this.findPodName(jobName, ns, execution.signal);
         if (!podName) throw new Error(`No pod found for job ${jobName}`);
-        const compileLog = await this.getPodContainerLogs(
-          podName,
-          ns,
-          PREPARE_CONTAINER_NAME,
-          execution.signal,
-        );
+        const compileLog = artifact
+          ? ""
+          : await this.getPodContainerLogs(
+              podName,
+              ns,
+              PREPARE_CONTAINER_NAME,
+              execution.signal,
+            );
+        recordRunnerResources(compileLog, requestMode(request), request.language, "prepare", {
+          jobName,
+          container: "prepare",
+        });
         compileLogsReadAt = Date.now();
         const compileError = parseCompilationError(compileLog);
         if (compileError) return { testcaseResults: [], compilationError: compileError };
@@ -1647,6 +1979,10 @@ export class K8sExecutor implements SandboxExecutor {
                 perCaseContainerName(index),
                 execution.signal,
               );
+              recordRunnerResources(logs, requestMode(request), request.language, "execute", {
+                jobName,
+                container: perCaseContainerName(index),
+              });
               const parsed = logs ? this.parseRunnerOutput(logs) : null;
               return (
                 parsed?.rawRuns?.[0] ?? {
@@ -1668,10 +2004,19 @@ export class K8sExecutor implements SandboxExecutor {
       } finally {
         const cleanupStartedAt = Date.now();
         try {
-          await runCleanupAfterExecution(executionFailure, () =>
-            this.cleanup(jobName, ns, payloadNames),
+          await this.measurePhase(request, "cleanup", () =>
+            runCleanupAfterExecution(executionFailure, () =>
+              this.cleanup(jobName, ns, payloadNames),
+            ),
           );
         } finally {
+          if (jobFinishedAt !== undefined && caseLogsReadAt !== undefined)
+            recordJudgePhase(
+              "collect",
+              caseLogsReadAt - jobFinishedAt,
+              request.judgeType,
+              request.language,
+            );
           logger.info("Kubernetes sandbox phase timings", {
             submissionId: request.submissionId,
             jobName,
@@ -1773,7 +2118,25 @@ export class K8sExecutor implements SandboxExecutor {
         deadlineSeconds,
         signal,
       );
-      const logs = await this.getPodLogs(jobName, namespace, signal);
+      await this.observeJobLifecycle(jobName, namespace, request);
+      const logs = await this.measurePhase(request, "collect", async () => {
+        const [output] = await Promise.all([
+          this.getPodLogs(jobName, namespace, signal),
+          this.observeContainerResources(
+            jobName,
+            namespace,
+            "prepare-validator",
+            request,
+            "prepare",
+            signal,
+          ),
+        ]);
+        return output;
+      });
+      recordRunnerResources(logs, "checker", request.language, "checker", {
+        jobName,
+        container: "runner",
+      });
       return (
         parseValidatorOutcomesFromLogs(logs, rawRuns) ??
         validatorOutcomesSeForAll(
@@ -1808,11 +2171,10 @@ export class K8sExecutor implements SandboxExecutor {
         `Validator job failed: ${err instanceof Error ? err.message : String(err)}`,
       );
     } finally {
-      await runCleanupAfterExecution(executionFailure, () =>
-        runCleanupOperations("checker validation sandbox", [
-          this.cleanupJob(jobName, namespace),
-          ...payloadNames.map((name) => this.cleanupConfigMap(name, namespace)),
-        ]),
+      await this.measurePhase(request, "cleanup", () =>
+        runCleanupAfterExecution(executionFailure, () =>
+          this.cleanup(jobName, namespace, payloadNames),
+        ),
       );
     }
   }
@@ -1829,10 +2191,11 @@ export class K8sExecutor implements SandboxExecutor {
     try {
       for (const configMap of configMaps) {
         signal.throwIfAborted();
+        configMap.metadata = this.runMetadata(configMap.metadata);
         await this.coreApi
           .createNamespacedConfigMap({ namespace, body: configMap })
           .catch(rethrowSandboxQuotaError);
-        const name = configMap.metadata?.name;
+        const name = configMap.metadata.name;
         if (!name) throw new Error("Created sandbox payload ConfigMap is missing a name.");
         created.push(name);
       }
@@ -1871,7 +2234,7 @@ export class K8sExecutor implements SandboxExecutor {
       .createNamespacedConfigMap({
         namespace,
         body: {
-          metadata: { name, namespace },
+          metadata: this.runMetadata({ name, namespace }),
           data,
         },
       })
@@ -1915,8 +2278,19 @@ export class K8sExecutor implements SandboxExecutor {
     signal: AbortSignal,
     companionPodName?: string,
   ): Promise<k8s.V1Job> {
-    const spec = params.body.spec?.template.spec;
+    params.body.metadata = this.runMetadata(params.body.metadata);
+    const template = params.body.spec?.template;
+    if (template) {
+      template.metadata ??= {};
+      template.metadata.labels = {
+        ...template.metadata.labels,
+        ...params.body.metadata.labels,
+      };
+    }
+    const spec = template?.spec;
     if (!spec) throw new SandboxAdmissionError("Sandbox Job is missing its Pod specification.");
+    this.admittedPod(spec);
+    this.imagePullCredentials(spec);
     const pods = [spec];
     if (companionPodName) {
       try {
@@ -1950,6 +2324,9 @@ export class K8sExecutor implements SandboxExecutor {
   ): Promise<k8s.V1Pod> {
     if (!params.body.spec)
       throw new SandboxAdmissionError("Sandbox service is missing its Pod specification.");
+    params.body.metadata = this.runMetadata(params.body.metadata);
+    this.admittedPod(params.body.spec);
+    this.imagePullCredentials(params.body.spec);
     await this.assertSandboxQuota([params.body.spec], params.namespace, signal);
     return this.coreApi.createNamespacedPod(params);
   }
@@ -2519,9 +2896,19 @@ export class K8sExecutor implements SandboxExecutor {
     namespace: string,
     payloadNames: string[],
   ): Promise<void> {
-    await runCleanupOperations("sandbox", [
-      this.cleanupJob(jobName, namespace),
-      ...payloadNames.map((name) => this.cleanupConfigMap(name, namespace)),
-    ]);
+    const budget = new SandboxCleanupBudget();
+    await this.cleanupJob(jobName, namespace, budget);
+    await runCleanupOperations(
+      "sandbox",
+      payloadNames.map(async (name) => {
+        try {
+          await budget.call(`ConfigMap ${namespace}/${name}`, () =>
+            this.coreApi.deleteNamespacedConfigMap({ name, namespace }),
+          );
+        } catch (error) {
+          if (!isK8sNotFound(error)) throw error;
+        }
+      }),
+    );
   }
 }

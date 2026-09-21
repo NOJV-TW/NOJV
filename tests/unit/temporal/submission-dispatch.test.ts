@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { WorkflowExecutionAlreadyStartedError } from "@temporalio/client";
 
-const { start, describeWorkflow, signal } = vi.hoisted(() => ({
+const { start, describeWorkflow, signal, executeUpdate } = vi.hoisted(() => ({
   start: vi.fn(),
+  executeUpdate: vi.fn(),
   describeWorkflow: vi.fn(),
   signal: vi.fn(),
 }));
@@ -11,7 +12,10 @@ const { start, describeWorkflow, signal } = vi.hoisted(() => ({
 vi.mock("../../../packages/temporal/src/client", () => ({
   getTemporalClient: vi.fn(() =>
     Promise.resolve({
-      workflow: { start, getHandle: () => ({ describe: describeWorkflow, signal }) },
+      workflow: {
+        start,
+        getHandle: () => ({ describe: describeWorkflow, signal, executeUpdate }),
+      },
     }),
   ),
 }));
@@ -25,9 +29,72 @@ import {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllEnvs();
 });
 
 describe("durable submission dispatch handlers", () => {
+  it("awaits durable coordinator routing when enabled without direct queue starts", async () => {
+    vi.stubEnv("JUDGE_CAPACITY_ROUTING", "true");
+    await dispatchJudgeExecution({
+      executionId: "execution",
+      workflowId: "judge-execution-execution-0",
+      admissionOrder: {
+        executionId: "execution",
+        submissionId: "routed",
+        studentId: "student",
+        submittedAt: 100,
+      },
+    });
+    expect(start).not.toHaveBeenCalled();
+    expect(executeUpdate).toHaveBeenCalledWith(
+      "dispatchJudgeWorkflow",
+      expect.objectContaining({
+        args: [
+          expect.objectContaining({
+            workflowId: "judge-execution-execution-0",
+            workflowType: "durableJudgeWorkflow",
+          }),
+        ],
+      }),
+    );
+    executeUpdate.mockRejectedValueOnce(new Error("Coordinator unavailable"));
+    await expect(
+      dispatchJudgeExecution({
+        executionId: "execution",
+        workflowId: "judge-execution-execution-0",
+        admissionOrder: {
+          executionId: "execution",
+          submissionId: "routed",
+          studentId: "student",
+          submittedAt: 100,
+        },
+      }),
+    ).rejects.toThrow("Coordinator unavailable");
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it("keeps checkpointed capacity recovery on its coordinator when general routing is disabled", async () => {
+    await dispatchJudgeExecution({
+      executionId: "execution",
+      workflowId: "judge-execution-execution-1",
+      capacity: true,
+      admissionOrder: {
+        executionId: "execution",
+        submissionId: "submission",
+        studentId: "student",
+        submittedAt: 100,
+      },
+    });
+    expect(start).not.toHaveBeenCalled();
+    expect(executeUpdate).toHaveBeenCalledWith("dispatchJudgeWorkflow", {
+      args: [
+        expect.objectContaining({
+          input: { executionId: "execution", capacity: true },
+        }),
+      ],
+    });
+  });
+
   it("uses a deterministic submission workflow id and rejects closed-run reuse", async () => {
     start.mockRejectedValueOnce(
       new WorkflowExecutionAlreadyStartedError(

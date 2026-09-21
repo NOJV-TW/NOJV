@@ -12,7 +12,22 @@ export async function executeJudgeExecutionDispatch(payload: unknown): Promise<v
   const run = await db.judgeExecution.findUnique({ where: { id: input.executionId } });
   if (run?.workflowId !== input.workflowId || ["cancelled", "completed"].includes(run.state))
     return;
-  await getDomainOrchestration().dispatchJudgeExecution(input);
+  if (process.env.JUDGE_CAPACITY_ROUTING === "true" || run.capacityStrategy) {
+    const submission = await db.submission.findUniqueOrThrow({
+      where: { id: run.submissionId },
+      select: { userId: true },
+    });
+    await getDomainOrchestration().dispatchJudgeExecution({
+      ...input,
+      ...(run.capacityStrategy ? { capacity: true } : {}),
+      admissionOrder: {
+        executionId: run.id,
+        submissionId: run.submissionId,
+        studentId: submission.userId,
+        submittedAt: run.createdAt.getTime(),
+      },
+    });
+  } else await getDomainOrchestration().dispatchJudgeExecution(input);
 }
 
 export async function reconcileJudgeExecutions(now = new Date()): Promise<number> {
@@ -31,6 +46,7 @@ export async function reconcileJudgeExecutions(now = new Date()): Promise<number
         executionId: run.id,
         workflowId: run.workflowId,
         leaseToken: run.leaseToken,
+        ...(run.capacityStrategy ? { capacity: true } : {}),
       });
     } catch (error) {
       console.error("Judge cleanup dispatch failed", { executionId: run.id, error });

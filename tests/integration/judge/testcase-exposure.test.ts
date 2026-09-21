@@ -5,7 +5,7 @@ import type { SandboxRequest } from "@nojv/core";
 import { DockerExecutor } from "../../../apps/worker/src/services/docker-executor.js";
 import { requireSandboxImage } from "./_sandbox-image";
 
-const SANDBOX_IMAGE = "nojv-sandbox:local";
+const SANDBOX_IMAGE = process.env.NOJV_TEST_SANDBOX_IMAGE ?? "nojv-sandbox:local";
 
 const EXPLOIT_SOURCE = `import sys, glob
 mine = sys.stdin.read()

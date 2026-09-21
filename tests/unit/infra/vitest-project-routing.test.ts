@@ -35,7 +35,11 @@ describe("Vitest project routing", () => {
   it("keeps K8s tests out of ordinary integration", () => {
     expect(project("integration").test).toMatchObject({
       include: ["tests/integration/**/*.test.ts"],
-      exclude: [K8S_TEST_GLOB],
+      exclude: expect.arrayContaining([
+        K8S_TEST_GLOB,
+        "tests/integration/temporal/**/*.test.ts",
+        "tests/integration/judge/**/*.test.ts",
+      ]),
     });
     expect(project("k8s-integration").test).toMatchObject({
       include: [K8S_TEST_GLOB],
@@ -56,8 +60,13 @@ describe("Vitest project routing", () => {
       "vitest run --project k8s-integration",
     );
     expect(packageJson.scripts["test:coverage"]).toBe(
-      "vitest run --coverage --project unit --project integration",
+      "vitest run --coverage --project unit --project integration --project temporal-integration --project sandbox-integration",
     );
+    expect(packageJson.scripts["test:integration"]).toBe(
+      "vitest run --project integration --project temporal-integration --project sandbox-integration",
+    );
+    expect(project("temporal-integration").test?.globalSetup).toBeUndefined();
+    expect(project("sandbox-integration").test?.globalSetup).toBeUndefined();
     expect(nightly).toContain("run: pnpm test:integration:k8s");
     expect(nightly).not.toContain("run: pnpm vitest run tests/integration/k8s");
   });
