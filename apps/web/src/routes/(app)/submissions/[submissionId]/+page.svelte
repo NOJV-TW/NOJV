@@ -5,7 +5,7 @@
   import { watchSubmissionStates } from "$lib/services/submission-tracker";
   import { formatDateTime } from "$lib/utils/datetime";
   import { formatJudgeOutput } from "$lib/utils/judge-output";
-  import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
+  import { verdictTone } from "$lib/utils/verdict-style";
   import { languageLabel } from "@nojv/core";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import { flattenSourcesForDisplay } from "$lib/utils/submission-source-display";
@@ -18,7 +18,6 @@
   const submission = $derived(data.submission);
   const result = $derived(submission.result);
   const verdict = $derived(submission.status);
-  const verdictLabel = $derived(formatVerdictLabel(verdict));
   const verdictClass = $derived(verdictTone(verdict));
   const execution = $derived(data.execution);
   const executionActive = $derived(
@@ -30,6 +29,12 @@
       verdict === "queued" ||
       verdict === "compiling" ||
       verdict === "running",
+  );
+
+  const verdictLabel = $derived(
+    verdict === "pending_upload"
+      ? "Pending"
+      : verdict.replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase()),
   );
 
   $effect(() => watchSubmissionStates([submission.id], () => undefined));
@@ -124,12 +129,12 @@
   </a>
 
   <div class="grid grid-cols-1 gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-    <aside class="flex flex-col gap-5">
+    <aside class="flex min-w-0 flex-col gap-5">
       <div class="flex flex-col gap-2">
         <p class="text-caption uppercase tracking-wide text-muted-foreground">
           {formatProblemDisplayName(submission.problem)}
         </p>
-        <p class="text-title-lg font-semibold leading-tight {verdictClass}">
+        <p class="break-words text-title-lg font-semibold leading-tight {verdictClass}">
           {verdictLabel}
         </p>
         {#if executionActive}
@@ -153,9 +158,6 @@
             / {submission.totalScore}</span
           >
         </p>
-        {#if submission.activityContribution}<p class="text-body-sm text-muted-foreground">
-            {m.activityWeights_contribution(submission.activityContribution)}
-          </p>{/if}
       </div>
 
       <dl class="grid grid-cols-2 gap-3 rounded-lg border border-border-subtle bg-muted/20 p-4">
@@ -210,24 +212,29 @@
         >
           {m.submissionDetail_contextContest({ contestTitle: submission.context.contestTitle })}
         </p>
-      {:else if submission.context.kind === "assignment"}
-        <p
-          class="rounded-md border border-border-subtle bg-muted/30 px-3 py-2 text-body-sm text-muted-foreground"
+      {:else if submission.context.kind === "assignment" || submission.context.kind === "exam"}
+        <dl
+          class="flex flex-col gap-3 rounded-md border border-border-subtle bg-muted/30 px-3 py-3"
         >
-          {m.submissionDetail_contextAssessment({
-            assessmentTitle: submission.context.assignmentTitle,
-            courseTitle: submission.context.courseTitle,
-          })}
-        </p>
-      {:else if submission.context.kind === "exam"}
-        <p
-          class="rounded-md border border-border-subtle bg-muted/30 px-3 py-2 text-body-sm text-muted-foreground"
-        >
-          {m.submissionDetail_contextExam({
-            examTitle: submission.context.examTitle,
-            courseTitle: submission.context.courseTitle,
-          })}
-        </p>
+          <div class="min-w-0">
+            <dt class="text-caption text-muted-foreground">{m.submissionDetail_course()}</dt>
+            <dd class="mt-0.5 break-words text-body-sm font-medium">
+              {submission.context.courseTitle}
+            </dd>
+          </div>
+          <div class="min-w-0 border-t border-border-subtle pt-3">
+            <dt class="text-caption text-muted-foreground">
+              {submission.context.kind === "assignment"
+                ? m.submissions_kind_assignment()
+                : m.submissions_kind_exam()}
+            </dt>
+            <dd class="mt-0.5 break-words text-body-sm font-medium">
+              {submission.context.kind === "assignment"
+                ? submission.context.assignmentTitle
+                : submission.context.examTitle}
+            </dd>
+          </div>
+        </dl>
       {/if}
 
       {#if submission.sampleOnly}
@@ -246,9 +253,6 @@
           <p class="mt-0.5 font-medium text-foreground">
             {submission.submitter.name}
             <span class="text-muted-foreground">(@{submission.submitter.username})</span>
-          </p>
-          <p class="mt-1 text-caption text-muted-foreground">
-            {m.submissionDetail_viewingAsStaff()}
           </p>
         </div>
       {/if}
