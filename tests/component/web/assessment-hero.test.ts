@@ -34,7 +34,7 @@ function stubResizeObserver(isOverflowing: boolean) {
   );
 }
 
-async function render(expandableSummary = true) {
+async function render() {
   target = document.createElement("div");
   document.body.append(target);
   component = mount(AssessmentHero, {
@@ -45,14 +45,13 @@ async function render(expandableSummary = true) {
       title: "Process Trace",
       summary: "A long assignment description that needs to be fully readable.",
       summaryId: "assignment-summary-test",
-      expandableSummary,
     },
   });
   await tick();
 }
 
 describe("AssessmentHero expandable summary", () => {
-  it("shows a disclosure only when the student summary is clipped and can restore the clamp", async () => {
+  it("lets any viewer expand an overflowing summary without role-specific opt-in", async () => {
     stubResizeObserver(true);
     await render();
 
@@ -78,19 +77,9 @@ describe("AssessmentHero expandable summary", () => {
     expect(summary?.classList.contains("line-clamp-2")).toBe(true);
   });
 
-  it("does not add a disclosure for a summary that fits or for a non-student view", async () => {
+  it("does not add a disclosure for a summary that fits", async () => {
     stubResizeObserver(false);
     await render();
     expect(target!.querySelector("button")).toBeNull();
-
-    if (component) await unmount(component);
-    component = undefined;
-    target?.remove();
-    target = undefined;
-
-    stubResizeObserver(true);
-    await render(false);
-    expect(target!.querySelector("button")).toBeNull();
-    expect(target!.querySelector("p")?.classList.contains("line-clamp-2")).toBe(true);
   });
 });

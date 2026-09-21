@@ -15,7 +15,6 @@
     title: string;
     summary?: string;
     summaryId?: string;
-    expandableSummary?: boolean;
     badges?: Snippet;
     meta?: Snippet;
     actions?: Snippet | undefined;
@@ -28,7 +27,6 @@
     title,
     summary,
     summaryId,
-    expandableSummary = false,
     badges,
     meta,
     actions,
@@ -52,7 +50,7 @@
 
   $effect(() => {
     const element = summaryElement;
-    if (!expandableSummary || !summary || !element || summaryExpanded) return;
+    if (!summary || !element || summaryExpanded) return;
 
     const measureOverflow = () => {
       summaryOverflows = element.scrollHeight > element.clientHeight + 1;
@@ -105,7 +103,7 @@
           >
             {summary}
           </p>
-          {#if expandableSummary && summaryOverflows}
+          {#if summaryOverflows}
             <button
               type="button"
               aria-controls={summaryId}
