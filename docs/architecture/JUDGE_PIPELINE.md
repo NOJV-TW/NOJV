@@ -524,6 +524,13 @@ earlier unfinished work, even if that earlier dispatch has not arrived.
 Retries and recovery epochs retain the original execution ordering key.
 Prepared unfinished runs are bounded to twice the available CPU execution slots.
 
+Temporal's in-memory Workflow cache is bounded independently of sandbox admission
+and Activity concurrency. Judge, control and platform workers each retain at most
+32 cached Workflows and execute at most 8 Workflow tasks concurrently. These caps protect the
+worker's own heap when many submissions wait for admission. Evicted Workflows
+remain durable in Temporal and replay when needed; eviction neither cancels a
+submission nor releases its sandbox permit.
+
 The capacity route uses the same immutable execution snapshot and journal as
 baseline judging. Each completed wave commits its actual testcase indices while
 retaining the attempt lease until artifact cleanup. Recovery starts a new run,
