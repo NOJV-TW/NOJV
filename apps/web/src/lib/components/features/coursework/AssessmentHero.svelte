@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import type { Snippet } from "svelte";
+  import { m } from "$lib/paraglide/messages.js";
   import { cn } from "$lib/utils/css.js";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
   import DotGrid from "$lib/components/primitives/visual/DotGrid.svelte";
@@ -12,6 +14,8 @@
     context?: string;
     title: string;
     summary?: string;
+    summaryId?: string;
+    expandableSummary?: boolean;
     badges?: Snippet;
     meta?: Snippet;
     actions?: Snippet | undefined;
@@ -23,6 +27,8 @@
     kind,
     title,
     summary,
+    summaryId,
+    expandableSummary = false,
     badges,
     meta,
     actions,
@@ -31,6 +37,37 @@
   }: Props = $props();
 
   const accent = $derived(typeAccentVar(kind));
+  let summaryElement: HTMLParagraphElement | undefined = $state();
+  let summaryExpanded = $state(false);
+  let summaryOverflows = $state(false);
+  let previousSummary = $state(untrack(() => summary));
+
+  $effect(() => {
+    if (summary !== previousSummary) {
+      previousSummary = summary;
+      summaryExpanded = false;
+      summaryOverflows = false;
+    }
+  });
+
+  $effect(() => {
+    const element = summaryElement;
+    if (!expandableSummary || !summary || !element || summaryExpanded) return;
+
+    const measureOverflow = () => {
+      summaryOverflows = element.scrollHeight > element.clientHeight + 1;
+    };
+
+    measureOverflow();
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", measureOverflow);
+      return () => window.removeEventListener("resize", measureOverflow);
+    }
+
+    const observer = new ResizeObserver(measureOverflow);
+    observer.observe(element);
+    return () => observer.disconnect();
+  });
 </script>
 
 <GlassPanel class={cn("relative overflow-hidden p-7 lg:p-9", className)}>
@@ -60,7 +97,28 @@
       </h1>
 
       {#if summary}
-        <p class="mt-4 max-w-2xl text-body text-muted-foreground line-clamp-2">{summary}</p>
+        <div class="mt-4 max-w-2xl">
+          <p
+            bind:this={summaryElement}
+            id={summaryId}
+            class={cn("text-body text-muted-foreground", !summaryExpanded && "line-clamp-2")}
+          >
+            {summary}
+          </p>
+          {#if expandableSummary && summaryOverflows}
+            <button
+              type="button"
+              aria-controls={summaryId}
+              aria-expanded={summaryExpanded}
+              onclick={() => (summaryExpanded = !summaryExpanded)}
+              class="focus-ring mt-2 inline-flex rounded-sm text-body-sm font-medium text-primary transition-colors hover:underline"
+            >
+              {summaryExpanded
+                ? m.coursework_summaryShowLess()
+                : m.coursework_summaryShowMore()}
+            </button>
+          {/if}
+        </div>
       {/if}
 
       {#if actions}

@@ -830,6 +830,8 @@
   "common_saveDraft": "儲存草稿",
   "common_saved": "已儲存",
   "common_saving": "儲存中...",
+  "coursework_summaryShowLess": "收合",
+  "coursework_summaryShowMore": "顯示更多",
   "common_timeline": "時程",
   "common_uploading": "上傳中...",
   "contestCreate_allowedLanguages": "允許的語言",

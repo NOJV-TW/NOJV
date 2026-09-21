@@ -189,6 +189,7 @@ export default defineConfig({
             "tests/component/web/problem-select-dialog.test.ts",
             "tests/component/web/exam-validation.test.ts",
             "tests/component/web/exam-proctoring-tab.test.ts",
+            "tests/component/web/assessment-hero.test.ts",
           ],
           environment: "jsdom",
         },

@@ -187,6 +187,8 @@
     context={examCode}
     title={detail.title}
     summary={detail.summary}
+    summaryId={`exam-summary-${detail.id}`}
+    expandableSummary={!isManager}
   >
     {#snippet aside(accent)}
       <HeroSchedule

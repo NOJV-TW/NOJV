@@ -181,6 +181,8 @@
     context={data.course.title}
     title={detail.title}
     summary={detail.summary}
+    summaryId={`assignment-summary-${detail.id}`}
+    expandableSummary={data.mode === "student"}
     actions={data.mode === "teacher" && canSetOverride ? gradingActions : undefined}
   >
     {#snippet aside(accent)}
