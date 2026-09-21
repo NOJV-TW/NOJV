@@ -34,7 +34,6 @@ function executor(nodeName?: string): K8sExecutor {
     memoryLimit: env.K8S_MEMORY_LIMIT,
     headroomMb: env.SANDBOX_MEMORY_HEADROOM_MB,
     maxMemoryMb: env.SANDBOX_MAX_MEMORY_MB,
-    maxParallelCases: 4,
     runtimeClassName: "gvisor",
     artifactStorageClassName: env.K8S_ARTIFACT_STORAGE_CLASS,
     ...(nodeName ? { admissionNode: nodeName } : {}),

@@ -190,6 +190,20 @@ history compatibility.
 
 ## Cleanup Pending and FailedKillPod
 
+When capacity is exhausted, verify that accepted executions remain queued and
+resume after capacity returns, including after more than three quota rejections.
+The coordinator distributes one unit per ready student before expanding waves
+within CPU/memory budgets. Six available one-CPU slots may therefore produce
+one six-case wave or two three-case waves, subject to memory and Pod overhead.
+Existing waves finish before their allocations can change.
+
+Check Node conditions alongside the capacity snapshot. MemoryPressure,
+DiskPressure and PIDPressure (True or Unknown) stop new admissions on that node;
+clearing the condition restores eligibility at the next successful refresh.
+Do not increase concurrency from free RAM alone, and do not treat DiskPressure
+as an IOPS measurement. Quota waiting, node-pressure waiting, runtime quarantine
+and malformed-result SE are different failure paths and require separate evidence.
+
 1. Query coordinator state and correlate the affected run with structured worker
    logs, the Job owner UID, Pod UID, node, and `cleanup_pending` resources.
    Preserve the original error. Do not send a permit-release signal or mark

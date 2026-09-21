@@ -9,13 +9,30 @@ per-case isolation and resource-limit semantics remain unchanged.
 - [x] Implement UID-fenced termination-before-release cleanup, durable retry, node quarantine.
 - [x] Implement phase measurements and repeatable baseline / comparison tools.
 - [x] Implement one compilation per attempt, bounded read-only artifact PVC, fresh case containers.
-- [x] Implement durable Temporal admission, registered-student round robin / FIFO, four-case maximum waves.
+- [x] Implement durable Temporal admission, registered-student round robin / FIFO.
+- [x] Replace the initial four-case ceiling with capacity-bounded fair waves; block admission on node pressure.
 - [x] Implement 30-second capacity snapshots, 90-second freshness guard and explicit quota handoff.
 - [ ] Fault / isolation / integration tests; update living docs and operational runbook.
 - [ ] Three cold and three warm repetitions of single, steady and 100 / 60 s workloads.
 - [ ] Release gates, controlled drain, canary and rollback verification.
 
 ## Invariants
+
+Follow-up requested after the September 21 quota incident: dynamically distribute
+each node's available CPU/memory across ready students, giving each one case
+before distributing additional cases in round-robin order. An uncontended wave
+may use the remaining node budget. Existing permits are never resized or revoked.
+Reserve capacity for a waiting large request so small requests cannot starve it.
+Node MemoryPressure, DiskPressure or PIDPressure stops new admissions; clearing
+pressure restores eligibility on the next fresh snapshot. Preserve the quota
+backpressure classification and durable waits already fixed by the incident work.
+
+Validation: reproduce the fixed-four limitation and pressure-admission gap in
+unit tests; cover uneven demand, heterogeneous nodes, memory limits, held cleanup
+permits and fairness; exercise waves larger than four through the Temporal
+workflow, executor and manifest; rerun incident quota/recovery regressions and
+local CI. Production IOPS feedback, the 100-person benchmark and incident recovery
+remain separate acceptance work; node DiskPressure is not an IOPS measurement.
 
 CPU and memory budget per eligible node is allocatable minus the larger of
 non-judge effective requests and 25% allocatable. Account for init containers,
@@ -230,3 +247,31 @@ Related: [Judge pipeline](../../architecture/JUDGE_PIPELINE.md),
   It now lives in the serial database integration suite; its 100-submission
   restart/checkpoint test passed locally. This is mocked-executor correctness
   evidence, not the 100-student HTTP throughput acceptance benchmark.
+
+## Dynamic wave follow-up
+
+The fixed four-case ceiling is removed from the coordinator, workflow, executor
+and manifest. Each admission pass grants one unit per ready student, then
+round-robins remaining CPU/memory within the artifact node. Waiting large jobs
+retain their reservation against smaller work; existing permits never expand.
+MemoryPressure, DiskPressure and PIDPressure stop new admissions, while stale
+snapshots and unconfirmed cleanup retain the existing fail-closed behavior.
+
+Fresh local validation: `pnpm ci:verify` passed 3,494 unit tests and 86 component
+tests plus build, typecheck, lint and guards. The real gVisor prepared suite
+passed all four cases (1/20/100 standard testcases and checker), now exercising
+six-case waves despite a legacy four-case executor configuration. The real
+Kubernetes quota regression also passed: four concurrent submissions waited for
+CPU quota release, all finished AC and quota usage returned to zero. All 32
+observed Pod UIDs had no remaining owned API objects, CRI sandboxes, executing
+runtime processes or cgroups across both local test nodes.
+
+The capacity and recovery Temporal suites passed all 24 tests, including five
+quota rejections after a saved wave, a two-minute capacity wait across a control
+worker restart, cancellation, exact producer-stop fencing and cleanup retention.
+The time-skipping test server can advance in real time after restart; the wait
+case allows 180 seconds for a 120-second capacity outage. Test typechecks passed
+again after this harness adjustment.
+
+This validates bounded dynamic admission, not production IOPS tuning or the
+100-student HTTP performance gate. No tag, deployment or activation is included.

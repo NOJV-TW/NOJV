@@ -206,7 +206,7 @@ export async function executePinnedCapacity(
             `wave-${String(offset)}`,
             artifact ? "wave" : "other",
             plan.resources,
-            artifact ? Math.min(4, remaining.length - offset) : 1,
+            artifact ? remaining.length - offset : 1,
             artifact?.nodeName,
           );
           const indices = remaining.slice(offset, offset + permit.units);

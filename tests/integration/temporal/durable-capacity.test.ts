@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { TestWorkflowEnvironment } from "@temporalio/testing";
+import { ApplicationFailure } from "@temporalio/activity";
 import { Worker, bundleWorkflowCode, type WorkflowBundle } from "@temporalio/worker";
 import type { WorkflowHandle } from "@temporalio/client";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -51,7 +52,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await env?.teardown();
 });
-function fixtures(cases = 9) {
+function fixtures(cases = 9, cpuBudget = 4000) {
   const activities = {
     judgeExecutionTurn: vi.fn(async (executionId: string): Promise<string> => {
       const state = await env.client.workflow
@@ -185,7 +186,7 @@ function fixtures(cases = 9) {
               name: "node-a",
               eligible: true,
               allocatable: { cpuMillis: 8000, memoryBytes: 100_000 },
-              budget: { cpuMillis: 4000, memoryBytes: 75_000 },
+              budget: { cpuMillis: cpuBudget, memoryBytes: 75_000 },
             },
           ],
         },
@@ -289,15 +290,90 @@ async function withWorkers(
   }
 }
 describe("durable pinned capacity pipeline", () => {
+  it("recovers from five quota rejections without exhausting retries or losing saved cases", async () => {
+    const activities = fixtures(20, 6000);
+    const execute = activities.executePinnedSandboxWave.getMockImplementation()!;
+    let failures = 0;
+    activities.executePinnedSandboxWave.mockImplementation(async (...args) => {
+      if (args[3][0] === 6 && failures++ < 5)
+        throw ApplicationFailure.create({
+          type: "SandboxBackpressureError",
+          message: "forbidden: exceeded quota: sandbox-quota",
+        });
+      return execute(...args);
+    });
+    await withWorkers(activities, async (_coordinator, start) => {
+      await (await start("quota-recovery")).result();
+      expect(
+        activities.setJudgeExecutionState.mock.calls.filter(
+          (call) => call[2] === "waiting_capacity",
+        ),
+      ).toHaveLength(5);
+      expect(
+        activities.setJudgeExecutionState.mock.calls.some((call) =>
+          ["blocked", "recovering"].includes(call[2]),
+        ),
+      ).toBe(false);
+      expect(
+        activities.executePinnedSandboxWave.mock.calls.filter((call) => call[3].includes(0)),
+      ).toHaveLength(1);
+      expect(executions.get("quota-recovery")).toMatchObject({
+        state: "completed",
+        leaseToken: null,
+        indices: Array.from({ length: 20 }, (_, index) => index),
+      });
+    });
+  }, 60_000);
+  it("waits through prolonged capacity exhaustion and a controller restart, then resumes without SE", async () => {
+    const activities = fixtures(20, 6000);
+    const refresh = activities.refreshJudgeCapacity.getMockImplementation()!;
+    let recoveryAt = Number.POSITIVE_INFINITY;
+    let queuedRefreshes = 0;
+    activities.refreshJudgeCapacity.mockImplementation(async (...args) => {
+      const snapshot = await refresh(...args);
+      if (snapshot.capacity.observedAt < recoveryAt) {
+        snapshot.capacity.nodes[0]!.budget.cpuMillis = 0;
+        queuedRefreshes++;
+        expect(activities.prepareSandboxAttempt).not.toHaveBeenCalled();
+        expect(activities.executePinnedSandboxWave).not.toHaveBeenCalled();
+      }
+      return snapshot;
+    });
+    await withWorkers(activities, async (coordinator, start, restart) => {
+      const handle = await start("capacity-exhausted");
+      await until(
+        async () =>
+          (await coordinator.query<Coordinator>("admissionState")).admission.pending.length > 0,
+      );
+      await restart();
+      expect((await handle.describe()).status.name).toBe("RUNNING");
+      recoveryAt = (await env.currentTimeMs()) + 120_000;
+      await handle.result();
+      expect(queuedRefreshes).toBeGreaterThanOrEqual(4);
+      expect(
+        activities.setJudgeExecutionState.mock.calls.some((call) =>
+          ["blocked", "recovering"].includes(call[2]),
+        ),
+      ).toBe(false);
+      expect(activities.prepareSandboxAttempt).toHaveBeenCalledOnce();
+      expect(executions.get("capacity-exhausted")).toMatchObject({
+        state: "completed",
+        indices: Array.from({ length: 20 }, (_, index) => index),
+      });
+    });
+  }, 180_000);
   it.each([1, 20, 100])(
     "compiles once and checkpoints %i cases in bounded waves",
     async (cases) => {
-      const activities = fixtures(cases);
+      const activities = fixtures(cases, 6000);
       await withWorkers(activities, async (_coordinator, start) => {
         const handle = await start(`cases-${cases}`);
         await handle.result();
         expect(activities.prepareSandboxAttempt).toHaveBeenCalledOnce();
-        expect(activities.executePinnedSandboxWave).toHaveBeenCalledTimes(Math.ceil(cases / 4));
+        expect(activities.executePinnedSandboxWave).toHaveBeenCalledTimes(Math.ceil(cases / 6));
+        expect(activities.executePinnedSandboxWave.mock.calls[0]![3]).toHaveLength(
+          Math.min(cases, 6),
+        );
         expect(executions.get(`cases-${cases}`)).toMatchObject({
           state: "completed",
           leaseToken: null,

@@ -197,6 +197,11 @@ export function buildCapacitySnapshot(
             !node.spec?.unschedulable &&
             !node.metadata?.deletionTimestamp &&
             !quarantinedNodeNames.includes(name) &&
+            !node.status?.conditions?.some(
+              (c) =>
+                ["MemoryPressure", "DiskPressure", "PIDPressure"].includes(c.type) &&
+                c.status !== "False",
+            ) &&
             node.status?.conditions?.some((c) => c.type === "Ready" && c.status === "True") ===
               true,
           allocatable,
@@ -456,7 +461,7 @@ export function admitAvailable(
       };
       const overhead = request.overhead ?? zero();
       const units = Math.min(
-        request.phase === "wave" ? 4 : 1,
+        1,
         request.maximumUnits,
         Math.floor((available.cpuMillis - overhead.cpuMillis) / request.resources.cpuMillis),
         Math.floor(
@@ -484,6 +489,30 @@ export function admitAvailable(
       break;
     }
     if (waitingForNode) reservedNodes.add(waitingForNode);
+  }
+  for (const node of eligible) {
+    if (reservedNodes.has(node.name)) continue;
+    const held = state.permits
+      .filter((p) => p.nodeName === node.name && !p.cleanupConfirmed)
+      .reduce((sum, p) => add(sum, p.resources), zero());
+    const available = {
+      cpuMillis: node.budget.cpuMillis - held.cpuMillis,
+      memoryBytes: node.budget.memoryBytes - held.memoryBytes,
+    };
+    const waves = granted.filter((p) => p.nodeName === node.name && p.request.phase === "wave");
+    let expanded: boolean;
+    do {
+      expanded = false;
+      for (const permit of waves) {
+        const { resources, maximumUnits } = permit.request;
+        if (permit.units >= maximumUnits || !fits(resources, available)) continue;
+        permit.units++;
+        permit.resources = add(permit.resources, resources);
+        available.cpuMillis -= resources.cpuMillis;
+        available.memoryBytes -= resources.memoryBytes;
+        expanded = true;
+      }
+    } while (expanded);
   }
   return { granted, rejected };
 }

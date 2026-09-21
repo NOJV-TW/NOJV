@@ -285,8 +285,10 @@ throughput.
 With `worker.sandbox.capacityAdmission.enabled: true`, the coordinator instead
 budgets each eligible node from allocatable resources minus the larger of
 non-judge effective requests or a 25% reserve. Cases request/limit one CPU and
-reserve their complete hard memory limit; waves contain at most four cases and
-shrink to fit. Different submissions can use different nodes. Existing permit
+reserve their complete hard memory limit. Wave sizes follow available CPU/memory
+and round-robin demand, with no fixed four-case ceiling. Different submissions
+can use different nodes. Nodes under memory/disk/PID pressure receive no new
+permits until a fresh snapshot confirms recovery. Existing permit
 reservations survive capacity reductions; instantaneous CPU/RAM utilization does
 not increase the budget. See [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#capacity-admission-and-fairness).
 

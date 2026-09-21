@@ -110,11 +110,10 @@ export function buildPreparedWaveJobManifest(
 ): V1Job {
   if (
     params.caseIndices.length < 1 ||
-    params.caseIndices.length > 4 ||
     new Set(params.caseIndices).size !== params.caseIndices.length ||
     params.caseIndices.some((index) => !Number.isSafeInteger(index) || index < 0)
   )
-    throw new Error("Prepared wave requires one to four distinct testcase indices");
+    throw new Error("Prepared wave requires distinct testcase indices in a nonempty list");
   const job = baseManifest(params, params.caseIndices);
   const spec = job.spec?.template.spec;
   if (!spec) throw new Error("Prepared wave Job has no Pod spec");

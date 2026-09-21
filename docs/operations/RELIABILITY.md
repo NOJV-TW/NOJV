@@ -126,6 +126,14 @@ nodes remain available for other runs. `judge_cleanup_pending_total` and
 or runsc restart is performed. These controls contain a failed termination;
 they do not diagnose or repair the runtime's underlying failure.
 
+Admission also excludes nodes reporting MemoryPressure, DiskPressure or
+PIDPressure as True or Unknown. Such waits do not reject the submission or
+release existing commitments. Capacity and fair wave sizes are recomputed at
+admission boundaries; per-case limits remain unchanged. Quota rejection remains
+backpressure even if its message includes `forbidden`, and cannot exhaust a
+fixed attempt budget into SE. DiskPressure describes storage exhaustion, not
+IOPS saturation; this control is not a measured IO latency feedback loop.
+
 An API object disappearing is insufficient evidence for a known stuck-runtime
 incident. Before directed host cleanup, match the run ID, Job owner UID, Pod
 UID, CRI sandbox/container IDs, shim/runsc processes and cgroup. Recovery requires

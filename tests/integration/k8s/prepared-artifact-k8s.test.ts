@@ -119,8 +119,8 @@ int main() {
           expect(prepared.artifact).toBeDefined();
           if (!prepared.artifact) throw new Error("No published artifact");
           const rawRuns: RawCaseRun[] = [];
-          for (let offset = 0; offset < count; offset += 4) {
-            const indices = request.testcases.slice(offset, offset + 4).map((tc) => tc.index);
+          for (let offset = 0; offset < count; offset += 6) {
+            const indices = request.testcases.slice(offset, offset + 6).map((tc) => tc.index);
             const wave = await executor.executePreparedWave(
               request,
               execution,
@@ -141,6 +141,9 @@ int main() {
           expect(
             manifests.filter((job) => job.metadata?.name?.endsWith("-prepare")),
           ).toHaveLength(1);
+          const waves = manifests.filter((job) => job.metadata?.name?.includes("-wave-"));
+          expect(waves).toHaveLength(Math.ceil(count / 6));
+          expect(waves[0]!.spec!.template.spec!.containers).toHaveLength(Math.min(count, 6));
           expect(
             manifests
               .flatMap((job) => job.spec?.template.spec?.initContainers ?? [])

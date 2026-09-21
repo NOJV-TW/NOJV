@@ -230,6 +230,23 @@ async function prepared(
 }
 
 describe("Kubernetes prepared attempt orchestration", () => {
+  it("executes all six admitted cases in one Job even when the legacy wave limit is four", async () => {
+    const fake = clients();
+    const executor = new K8sExecutor(CONFIG, fake.handles);
+    const req = request(6);
+    const artifact = await prepared(executor, req);
+    const result = await executor.executePreparedWave(
+      req,
+      execution(),
+      artifact,
+      [0, 1, 2, 3, 4, 5],
+    );
+    expect(fake.record.jobs).toHaveLength(2);
+    expect(fake.record.jobs[1]!.spec!.template.spec!.containers).toHaveLength(6);
+    expect(result.rawRuns?.map((run) => run.index)).toEqual([0, 1, 2, 3, 4, 5]);
+    await executor.cleanupRun(RUN_ID);
+    expect(fake.record.livePvcs.size).toBe(0);
+  });
   it.each(["before-storage-read", "during-storage-read", "during-pvc-create"])(
     "stops normal cancelled prepare at %s before launching a Job",
     async (phase) => {

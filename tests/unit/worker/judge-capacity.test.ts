@@ -168,6 +168,35 @@ describe("Kubernetes resource accounting", () => {
     expect(snapshot.nodes.filter((n) => n.eligible).map((n) => n.name)).toEqual(["ok"]);
     expect(snapshot.nodes).toHaveLength(4);
   });
+
+  it.each(["MemoryPressure", "DiskPressure", "PIDPressure"])(
+    "keeps %s nodes queued until pressure clears without releasing running permits",
+    (type) => {
+      const pressured = node("a");
+      const s = state([pressured, node("b")]);
+      enqueueAdmission(s, { ...request("running"), nodeName: "a" });
+      const [held] = admitAvailable(s, 0).granted;
+      pressured.status!.conditions!.push({ type, status: "True" });
+      updateCapacitySnapshot(
+        s,
+        buildCapacitySnapshot([pressured, node("b")], [], [], 30_000, "judge"),
+      );
+      enqueueAdmission(s, { ...request("waiting"), nodeName: "a" });
+      enqueueAdmission(s, { ...request("healthy"), nodeName: "b" });
+      const result = admitAvailable(s, 30_000);
+      expect(result.rejected).toEqual([]);
+      expect(result.granted.map((p) => p.request.studentId)).toEqual(["healthy"]);
+      expect(held!.cleanupConfirmed).toBe(false);
+      pressured.status!.conditions![1]!.status = "False";
+      updateCapacitySnapshot(
+        s,
+        buildCapacitySnapshot([pressured, node("b")], [], [], 60_000, "judge"),
+      );
+      expect(admitAvailable(s, 60_000).granted.map((p) => p.request.studentId)).toEqual([
+        "waiting",
+      ]);
+    },
+  );
 });
 
 describe("durable admission state", () => {
@@ -184,7 +213,7 @@ describe("durable admission state", () => {
     expect(s.snapshot!.nodes).toHaveLength(1);
   });
 
-  it("caps waves at four and shrinks them to the artifact node's remaining CPU and memory", () => {
+  it("sizes waves to each artifact node's remaining CPU and memory", () => {
     const s = state([node("a"), node("b", "4", "2Gi")]);
     prepare(s, "s1");
     prepare(s, "s2");
@@ -196,14 +225,61 @@ describe("durable admission state", () => {
     });
     const grants = admitAvailable(s, 0).granted;
     expect(grants.map((p) => [p.nodeName, p.units])).toEqual([
-      ["a", 4],
+      ["a", 6],
       ["b", 2],
     ]);
     expect(grants[1]!.resources).toEqual({ cpuMillis: 2100, memoryBytes: 1088 * Mi });
   });
 
+  it.each([
+    [1, [6]],
+    [2, [3, 3]],
+    [3, [2, 2, 2]],
+    [4, [2, 2, 1, 1]],
+  ] as const)("shares six CPU slots between %i ready students", (count, expected) => {
+    const s = state();
+    for (let i = 0; i < count; i++) prepare(s, String(i));
+    for (let i = 0; i < count; i++) enqueueAdmission(s, request(String(i), String(i), "wave"));
+    const grants = admitAvailable(s, 0).granted;
+    expect(grants.map((p) => p.units)).toEqual(expected);
+    expect(grants.reduce((sum, p) => sum + p.resources.cpuMillis, 0)).toBe(6000);
+  });
+
+  it("redistributes unused shares and respects unequal memory requirements and overhead", () => {
+    const s = state([node("a", "16", "8Gi")]);
+    for (const id of ["short", "memory", "cpu"]) prepare(s, id);
+    enqueueAdmission(s, { ...request("short", "short", "wave"), maximumUnits: 1 });
+    enqueueAdmission(s, {
+      ...request("memory", "memory", "wave"),
+      resources: { cpuMillis: 1000, memoryBytes: 2 * Gi },
+    });
+    enqueueAdmission(s, {
+      ...request("cpu", "cpu", "wave"),
+      overhead: { cpuMillis: 100, memoryBytes: 64 * Mi },
+    });
+    const grants = admitAvailable(s, 0).granted;
+    expect(grants.map((p) => p.units)).toEqual([1, 2, 2]);
+    expect(grants.reduce((sum, p) => sum + p.resources.memoryBytes, 0)).toBeLessThanOrEqual(
+      6 * Gi,
+    );
+  });
+
+  it("lets the next wave grow when contention ends without resizing a held permit", () => {
+    const s = state();
+    prepare(s, "alice");
+    prepare(s, "bob");
+    enqueueAdmission(s, request("alice", "alice", "wave"));
+    enqueueAdmission(s, { ...request("bob", "bob", "wave"), maximumUnits: 1 });
+    const grants = admitAvailable(s, 0).granted;
+    expect(grants.map((p) => p.units)).toEqual([5, 1]);
+    for (const p of grants) confirmPermitCleanup(s, p.request.runId, p.permitId, true);
+    enqueueAdmission(s, request("alice", "alice", "wave", "alice-wave-2"));
+    expect(admitAvailable(s, 0).granted[0]!.units).toBe(6);
+    expect(grants[0]!.units).toBe(5);
+  });
+
   it("round-robins students, preserves submission FIFO and requeues a completed wave at the back", () => {
-    const s = state([node("a", "4")]);
+    const s = state([node("a", "2")]);
     prepare(s, "alice");
     prepare(s, "bob");
     enqueueAdmission(s, request("alice", "alice", "wave"));
@@ -211,7 +287,7 @@ describe("durable admission state", () => {
     enqueueAdmission(s, request("bob", "bob", "wave"));
     const [a] = admitAvailable(s, 0).granted;
     expect(a!.request.studentId).toBe("alice");
-    expect(a!.units).toBe(3);
+    expect(a!.units).toBe(1);
     enqueueAdmission(s, request("alice", "alice", "wave", "alice-wave-2"));
     expect(admitAvailable(s, 0).granted).toEqual([]);
     confirmPermitCleanup(s, "alice", a!.permitId, true);

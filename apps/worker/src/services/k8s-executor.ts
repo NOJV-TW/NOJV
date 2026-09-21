@@ -821,7 +821,7 @@ export class K8sExecutor implements SandboxExecutor {
       ...request,
       testcases: request.testcases.filter((tc) => indices.includes(tc.index)),
     };
-    if (wave.testcases.length !== indices.length || indices.length < 1 || indices.length > 4)
+    if (wave.testcases.length !== indices.length || indices.length < 1)
       throw new SandboxAdmissionError("Invalid testcase wave");
     return this.runPerCasePod(wave, execution, artifact);
   }
@@ -1880,7 +1880,9 @@ export class K8sExecutor implements SandboxExecutor {
 
     if (allCaseIndices.length === 0) return { testcaseResults: [] };
 
-    const waves = chunkCaseIndices(allCaseIndices, resolveMaxParallelCases(this.config));
+    const waves = artifact
+      ? [allCaseIndices]
+      : chunkCaseIndices(allCaseIndices, resolveMaxParallelCases(this.config));
     const memoryLimit = resolveK8sMemoryLimit(request, this.config);
     const rawRuns: RawCaseRun[] = [];
 

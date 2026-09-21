@@ -120,10 +120,27 @@ describe("prepared artifact Kubernetes manifests", () => {
     });
   });
 
-  it("rejects empty, oversized and duplicate waves", () => {
-    for (const caseIndices of [[], [0, 1, 2, 3, 4], [1, 1], [-1]])
+  it("supports a capacity-granted wave larger than four without weakening per-case resources", () => {
+    const pod = buildPreparedWaveJobManifest({ ...params, caseIndices: [0, 1, 2, 3, 4, 5] })
+      .spec!.template;
+    expect(pod.spec!.containers).toHaveLength(6);
+    expect(effectivePodRequests(pod)).toEqual({
+      cpuMillis: 6000,
+      memoryBytes: 1920 * 1024 ** 2,
+    });
+    for (const container of pod.spec!.containers)
+      expect(container.volumeMounts).toContainEqual({
+        name: "artifact",
+        mountPath: "/artifact",
+        readOnly: true,
+        subPath: "published",
+      });
+  });
+
+  it("rejects empty, invalid and duplicate waves", () => {
+    for (const caseIndices of [[], [1, 1], [-1], [0.5], [Number.NaN]])
       expect(() => buildPreparedWaveJobManifest({ ...params, caseIndices })).toThrow(
-        "one to four",
+        "distinct testcase indices",
       );
   });
 });

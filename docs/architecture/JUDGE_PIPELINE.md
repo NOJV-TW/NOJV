@@ -487,10 +487,20 @@ minus the larger of committed non-judge requests or 25% of allocatable. Effectiv
 requests include init containers, native sidecars and Pod overhead. Missing or
 more-than-90-second-old snapshots stop new admissions. Existing permits remain
 accounted for through worker restarts and node budget reductions.
+Nodes reporting MemoryPressure, DiskPressure or PIDPressure as True or Unknown
+receive no new permits. Fresh snapshots restore eligibility when those conditions
+clear; FailedKillPod quarantine remains persistent until operator recovery.
 
 Standard testcases request and limit one CPU; the complete problem memory limit
 plus platform headroom is reserved. Preparation reserves one CPU and at least
-512 MiB. A wave has at most four cases and may shrink to fit the artifact node.
+512 MiB. Each admission pass first assigns one case to each ready student in
+round-robin order, then distributes additional cases in the same order until
+the artifact node's CPU/memory budget or each request's remaining cases run out.
+There is no fixed four-case ceiling: an uncontended submission can use the free
+node budget, while concurrent submissions share it. Held permits and Pod overhead
+are counted before expansion. A waiting large request reserves its node from
+later small requests and wave expansion so its capacity can accumulate.
+Only newly granted waves expand; running work is neither resized nor preempted.
 Interactive and Advanced Mode reserve their combined containers and overhead.
 Admission waits use workflow conditions, not executing activity slots or stage
 execution timeouts. Student round-robin order, FIFO submissions per student and
@@ -506,7 +516,7 @@ The capacity route uses the same immutable execution snapshot and journal as
 baseline judging. Each completed wave commits its actual testcase indices while
 retaining the attempt lease until artifact cleanup. Recovery starts a new run,
 compiles the pinned source again and skips committed indices; it never assumes
-that a four-case checkpoint represents the baseline's twenty-case stage.
+that a capacity-sized checkpoint represents the baseline's twenty-case stage.
 The execution's capacity strategy survives recovery epochs. A checkpointed
 execution cannot be redirected to the baseline during rollback. Only untouched,
 cleaned executions can relinquish that strategy.
