@@ -20,6 +20,8 @@ import {
 } from "./utils.js";
 import { runSolution } from "./judges/standard.js";
 import {
+  emitRunReport,
+  emitValidateReport,
   resolveInteractiveCaseFiles,
   runInteractiveSolution,
   runInteractiveValidator,
@@ -152,7 +154,7 @@ async function runInteractive(workDir: string, config: SandboxInput): Promise<vo
   if (interactive.role === "solution") {
     const compileResult = await compileSubmission(workDir, config);
     if (!compileResult.success) {
-      emit({ compilationError: compileResult.error });
+      emitRunReport({ exitCode: -1, timeMs: 0, compilationError: compileResult.error });
       return;
     }
     await runInteractiveSolution(
@@ -165,7 +167,10 @@ async function runInteractive(workDir: string, config: SandboxInput): Promise<vo
 
   const interactorPath = await findScript("interactor");
   if (!interactorPath) {
-    emit({ compilationError: "Interactive validator requires an interactor script." });
+    emitValidateReport({
+      verdict: "SE",
+      judgeMessage: "Interactive validator requires an interactor script.",
+    });
     return;
   }
 
@@ -173,7 +178,10 @@ async function runInteractive(workDir: string, config: SandboxInput): Promise<vo
   log("Compiling interactor...");
   const compiled = await compileInteractor(interactorPath, interactorLang, workDir);
   if (!compiled.success) {
-    emit({ compilationError: `Interactor compilation failed: ${compiled.error}` });
+    emitValidateReport({
+      verdict: "SE",
+      judgeMessage: `Interactor compilation failed: ${compiled.error}`,
+    });
     return;
   }
 

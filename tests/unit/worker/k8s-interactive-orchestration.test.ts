@@ -163,6 +163,55 @@ const EXEC_CONFIG = {
 };
 
 describe("K8sExecutor.executeInteractive — per-case sequential loop + cleanup", () => {
+  it("returns student CE once and confirms cleanup before skipping remaining cases", async () => {
+    const record = emptyRecord();
+    const clients = buildFakeClients(record, {
+      perJob: new Map([
+        [
+          "judge-sub-int-orch-int-0",
+          {
+            solution: runMarker({
+              exitCode: -1,
+              timeMs: 0,
+              compilationError: "main.c: syntax error",
+            }),
+            interactor: intMarker({ verdict: "WA", teamMessage: "solution closed" }),
+          },
+        ],
+      ]),
+    });
+    const result = await execute(new K8sExecutor(EXEC_CONFIG, clients), makeRequest(3));
+    expect(result).toEqual({ testcaseResults: [], compilationError: "main.c: syntax error" });
+    expect(record.jobsCreated).toHaveLength(1);
+    expect(record.jobsDeleted).toHaveLength(1);
+    expect(record.configMapsDeleted).toHaveLength(record.configMapsCreated.length);
+  });
+
+  it("keeps interactor compiler failures as SE with staff-only diagnostics", async () => {
+    const record = emptyRecord();
+    const clients = buildFakeClients(record, {
+      perJob: new Map([
+        [
+          "judge-sub-int-orch-int-0",
+          {
+            solution: runMarker({ exitCode: 0, timeMs: 1 }),
+            interactor: intMarker({
+              verdict: "SE",
+              judgeMessage: "interactor.cpp: secret compile diagnostic",
+            }),
+          },
+        ],
+      ]),
+    });
+    const result = await execute(new K8sExecutor(EXEC_CONFIG, clients), makeRequest(1));
+    expect(result.compilationError).toBeUndefined();
+    expect(result.testcaseResults[0]).toMatchObject({
+      verdict: "SE",
+      staffFeedback: "interactor.cpp: secret compile diagnostic",
+    });
+    expect(result.testcaseResults[0]?.feedback).not.toContain("secret");
+  });
+
   it("uses the original image for both sides of a recovered interactive evaluation", async () => {
     const clients = buildFakeClients(emptyRecord());
     const sandboxImage = "registry.example.com/sandbox@sha256:original";

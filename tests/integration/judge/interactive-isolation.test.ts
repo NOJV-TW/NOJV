@@ -1,6 +1,13 @@
+import { execFile } from "node:child_process";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 
-import type { SandboxRequest } from "@nojv/core";
+import { parseInteractiveRunReport, type SandboxRequest } from "@nojv/core";
+import { buildSandboxDockerArgs } from "../../../apps/worker/src/services/docker-args";
+import { writeSolutionFiles } from "../../../apps/worker/src/services/interactive-executor";
 
 import { DockerExecutor } from "../../../apps/worker/src/services/docker-executor.js";
 import { requireSandboxImage } from "./_sandbox-image";
@@ -96,6 +103,76 @@ function interactiveRequest(overrides: Partial<SandboxRequest>): SandboxRequest 
 }
 
 describe("interactive-mode two-container isolation (Phase 2C)", () => {
+  it(
+    "keeps a student compiler diagnostic off the interactive stdout channel",
+    { timeout: 60_000 },
+    async (ctx) => {
+      if (!(await requireSandboxImage(ctx))) return;
+      const request = interactiveRequest({ language: "c", sourceCode: "int main( {\n" });
+      const directory = await mkdtemp(join(tmpdir(), "nojv-interactive-ce-"));
+      try {
+        await writeSolutionFiles(directory, request);
+        const { stdout, stderr } = await promisify(execFile)(
+          "docker",
+          buildSandboxDockerArgs({
+            containerName: "nojv-interactive-ce-channel",
+            networkArgs: ["--network", "none"],
+            tempDir: directory,
+            cpuLimit: "1",
+            memoryMb: 256,
+            pidsLimit: 64,
+            image: SANDBOX_IMAGE,
+          }),
+          { timeout: 50_000 },
+        );
+        expect(stdout).toBe("");
+        expect(parseInteractiveRunReport(stderr)?.compilationError).toContain("error:");
+      } finally {
+        await rm(directory, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it(
+    "returns student compilation failure as top-level CE, not platform failure",
+    { timeout: 120_000 },
+    async (ctx) => {
+      if (!(await requireSandboxImage(ctx))) return;
+      const result = await execute(
+        interactiveRequest({
+          submissionId: "interactive-student-ce",
+          language: "c",
+          sourceCode: "int main( {\n",
+        }),
+      );
+      expect(result.compilationError).toContain("error:");
+      expect(result.testcaseResults).toEqual([]);
+    },
+  );
+
+  it(
+    "keeps interactor compilation failure as SE with a staff diagnostic",
+    { timeout: 120_000 },
+    async (ctx) => {
+      if (!(await requireSandboxImage(ctx))) return;
+      const result = await execute(
+        interactiveRequest({
+          submissionId: "interactive-interactor-ce",
+          sourceCode: "print(42, flush=True)",
+          testcases: [{ index: 0, input: "42", weight: 1, isSample: false }],
+          judgeConfig: { interactorLanguage: "cpp", interactorScript: "int main( {\n" },
+        }),
+      );
+      expect(result.compilationError).toBeUndefined();
+      expect(result.testcaseResults[0]?.verdict).toBe("SE");
+      expect(result.testcaseResults[0]?.staffFeedback).toContain(
+        "Interactor compilation failed:",
+      );
+      expect(result.testcaseResults[0]?.staffFeedback).toContain("error:");
+      expect(result.testcaseResults[0]?.feedback).not.toContain("error:");
+    },
+  );
+
   it(
     "executes a C++ interactor in its declared language",
     { timeout: 180_000 },

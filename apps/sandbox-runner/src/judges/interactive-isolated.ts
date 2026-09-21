@@ -185,11 +185,11 @@ export function runInteractiveValidator(
   });
 }
 
-function emitRunReport(report: InteractiveRunReport): void {
+export function emitRunReport(report: InteractiveRunReport): void {
   writeSync(2, `\n${INTERACTIVE_RUN_MARKER}${JSON.stringify(report)}\n`);
 }
 
-function emitValidateReport(outcome: ValidatorOutcome): void {
+export function emitValidateReport(outcome: ValidatorOutcome): void {
   writeSync(2, `\n${INTERACTIVE_VALIDATE_MARKER}${JSON.stringify(outcome)}\n`);
 }
 

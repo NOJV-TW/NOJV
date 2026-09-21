@@ -13,7 +13,7 @@ import {
 } from "@nojv/core";
 
 import { createBoundedStringBuffer } from "./bounded-buffer";
-import { mergeInteractiveCase, type InteractiveSideResult } from "./check-interactive";
+import { resolveInteractiveCase, type InteractiveSideResult } from "./check-interactive";
 import { buildSandboxDockerArgs } from "./docker-args";
 import {
   attachDockerCleanupFailure,
@@ -115,7 +115,7 @@ async function runCase(
   interactorScript: string,
   interactorLanguage: "python" | "cpp",
   config: InteractiveExecutorConfig,
-): Promise<SandboxTestcaseResult> {
+): Promise<SandboxResult> {
   const slug = sanitizeId(execution.runId).slice(0, 32);
   const solName = `nojv-isol-${slug}-${String(testcase.index)}`;
   const intName = `nojv-iint-${slug}-${String(testcase.index)}`;
@@ -291,7 +291,7 @@ async function runCase(
       });
     });
 
-    return mergeInteractiveCase(testcase, sol, int);
+    return resolveInteractiveCase(testcase, sol, int);
   } finally {
     await Promise.all([
       rm(solDir, { force: true, recursive: true }),
@@ -314,9 +314,16 @@ export async function runInteractiveMode(
 
   const results: SandboxTestcaseResult[] = [];
   for (const testcase of request.testcases) {
-    results.push(
-      await runCase(request, execution, testcase, interactorScript, interactorLanguage, config),
+    const result = await runCase(
+      request,
+      execution,
+      testcase,
+      interactorScript,
+      interactorLanguage,
+      config,
     );
+    if (result.compilationError !== undefined) return result;
+    results.push(...result.testcaseResults);
   }
 
   return { testcaseResults: results };
