@@ -41,7 +41,7 @@ async function fill(input: HTMLInputElement, value: string) {
   await tick();
 }
 
-it("expands the password form and signs in with username to the returned exam", async () => {
+it("opens a password dialog and signs in with username to the returned exam", async () => {
   const fetchMock = vi
     .fn()
     .mockResolvedValue(new Response(JSON.stringify({ examId: "exam_example" })));
@@ -49,14 +49,21 @@ it("expands the password form and signs in with username to the returned exam", 
   component = mount(ExamPasswordLogin, { target });
   await tick();
   expect(target.querySelector("form")).toBeNull();
-  const trigger = target.querySelector<HTMLButtonElement>('button[aria-expanded="false"]')!;
+  const trigger = target.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')!;
   expect(trigger.className).toContain("h-11");
   expect(trigger.className).toContain("border");
+  trigger.focus();
   trigger.click();
-  await tick();
-  await fill(target.querySelector('input[name="username"]')!, "example_student");
-  await fill(target.querySelector('input[name="password"]')!, "ExampleOnlyPass123");
-  target
+  await vi.waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull());
+  const dialog = document.querySelector('[role="dialog"]')!;
+  expect(target.querySelector("form")).toBeNull();
+  expect(dialog.textContent).toContain(m.auth_examPasswordHint());
+  await vi.waitFor(() =>
+    expect(document.activeElement).toBe(dialog.querySelector('input[name="username"]')),
+  );
+  await fill(dialog.querySelector('input[name="username"]')!, "example_student");
+  await fill(dialog.querySelector('input[name="password"]')!, "ExampleOnlyPass123");
+  dialog
     .querySelector("form")!
     .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
   await vi.waitFor(() =>
@@ -71,26 +78,40 @@ it("expands the password form and signs in with username to the returned exam", 
   );
 });
 
-it("keeps the login form usable after an expired password response", async () => {
+it("keeps failed login in the dialog and clears the password when dismissed", async () => {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 401 })));
   component = mount(ExamPasswordLogin, { target });
   await tick();
-  target.querySelector<HTMLButtonElement>("button")!.click();
-  await tick();
-  await fill(target.querySelector('input[name="username"]')!, "example_student");
-  await fill(target.querySelector('input[name="password"]')!, "ExampleOnlyPass123");
-  target
+  const trigger = target.querySelector<HTMLButtonElement>("button")!;
+  trigger.focus();
+  trigger.click();
+  await vi.waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull());
+  const dialog = document.querySelector('[role="dialog"]')!;
+  await fill(dialog.querySelector('input[name="username"]')!, "example_student");
+  await fill(dialog.querySelector('input[name="password"]')!, "ExampleOnlyPass123");
+  dialog
     .querySelector("form")!
     .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
   await vi.waitFor(() =>
-    expect(target.querySelector('[role="alert"]')?.textContent).toBe(
+    expect(dialog.querySelector('[role="alert"]')?.textContent?.trim()).toBe(
       m.auth_examPasswordInvalid(),
     ),
   );
   expect(mocks.goto).not.toHaveBeenCalled();
-  expect(target.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(
+  expect(dialog.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(
     false,
   );
+  const close = [...dialog.querySelectorAll<HTMLButtonElement>("button")].find(
+    (button) => button.textContent?.trim() === m.auth_backToRegularSignIn(),
+  )!;
+  close.click();
+  await vi.waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull());
+  await vi.waitFor(() => expect(document.activeElement).toBe(trigger));
+  trigger.click();
+  await vi.waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull());
+  const reopened = document.querySelector('[role="dialog"]')!;
+  expect(reopened.querySelector<HTMLInputElement>('input[name="password"]')?.value).toBe("");
+  expect(reopened.querySelector('[role="alert"]')).toBeNull();
 });
 
 const roster = [

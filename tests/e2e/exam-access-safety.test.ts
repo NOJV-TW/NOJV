@@ -110,17 +110,14 @@ test("teacher changes exam password and student signs in through the new login f
     await loginPage
       .getByRole("button", { name: "Continue with password", exact: true })
       .click();
-    await expect(loginPage.getByLabel("Username", { exact: true })).toBeVisible();
+    const loginDialog = loginPage.getByRole("dialog");
+    await expect(loginDialog.locator('input[name="username"]')).toBeVisible();
     await capture(loginPage, "password-login");
-    await loginPage.getByLabel("Username", { exact: true }).fill(user.username!);
-    await loginPage
-      .getByLabel("Temporary password", { exact: true })
-      .fill("ExampleOnlyPass123");
+    await loginDialog.locator('input[name="username"]').fill(user.username!);
+    await loginDialog.locator('input[name="password"]').fill("ExampleOnlyPass123");
     await loginPage.getByRole("button", { name: "Sign in to exam", exact: true }).click();
     await expect(loginPage.getByRole("alert")).toContainText("incorrect or has expired");
-    await loginPage
-      .getByLabel("Temporary password", { exact: true })
-      .fill("ExampleOnlyPass456");
+    await loginDialog.locator('input[name="password"]').fill("ExampleOnlyPass456");
     await loginPage.getByRole("button", { name: "Sign in to exam", exact: true }).click();
     await expect(loginPage).toHaveURL(new RegExp(`/exams/${id}$`));
     await expect(

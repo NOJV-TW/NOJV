@@ -51,7 +51,16 @@
         bind:value={$form.summary}
         disabled={!editableBasics}></textarea>
     </div>
+  </div>
+</section>
 
+<section
+  class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
+>
+  <h3 class="mb-4 text-title-sm font-medium">
+    {m.assignmentCreate_scheduleTitle()}
+  </h3>
+  <div class="space-y-4">
     <LateSubmissionFields
       bind:dueAt={$form.dueAt}
       bind:finalAt={$form.closesAt}

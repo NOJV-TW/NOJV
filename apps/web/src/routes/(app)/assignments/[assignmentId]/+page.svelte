@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { page } from "$app/state";
   import { ChevronRight, Info } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { cn } from "$lib/utils/css.js";
@@ -11,7 +12,8 @@
   import AssignmentSettingsTab from "$lib/components/features/course/assignment/AssignmentSettingsTab.svelte";
   import AuditTimeline from "$lib/components/features/audit/AuditTimeline.svelte";
   import { Button } from "$lib/components/primitives/ui/button";
-  import { Tabs } from "$lib/components/primitives/ui/tabs";
+  import AssessmentManageTabs from "$lib/components/features/coursework/AssessmentManageTabs.svelte";
+  import { parseAssessmentSubTab } from "$lib/components/features/coursework/assessment-tab-state";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import ScoreOverrideDrawer from "$lib/components/features/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/features/clarification/ClarificationTab.svelte";
@@ -29,20 +31,17 @@
   import { languageLabel } from "@nojv/core";
   import type { PageData } from "./$types";
 
-  type AssignmentManageTabKey =
-    | "problems"
-    | "submissions"
-    | "results"
-    | "plagiarism"
-    | "settings"
-    | "clarifications"
-    | "audit";
-
   let { data }: { data: PageData } = $props();
 
   const detail = $derived(data.detail);
 
-  let activeSubTab = $state<AssignmentManageTabKey>("submissions");
+  const activeSubTab = $derived(
+    parseAssessmentSubTab(
+      page.url.searchParams.get("tab"),
+      "assignment",
+      data.clarification.canView,
+    ),
+  );
   let totalSubmissionCount = $state(0);
   let submissionSearch = $state("");
   let visibleSubmissionCount = $state(0);
@@ -85,18 +84,6 @@
       ? detail.problems.map((p) => ({ id: p.problemId, title: p.title }))
       : [],
   );
-
-  const subTabs = $derived([
-    { key: "problems" as const, label: m.assignmentDetail_tabProblems() },
-    { key: "submissions" as const, label: m.assignmentDetail_tabSubmissions() },
-    { key: "results" as const, label: m.assignmentDetail_tabResults() },
-    { key: "plagiarism" as const, label: m.assignmentDetail_tabPlagiarism() },
-    { key: "settings" as const, label: m.assignmentDetail_tabSettings() },
-    ...(clarificationEnabled
-      ? [{ key: "clarifications" as const, label: m.clarification_tab_title() }]
-      : []),
-    { key: "audit" as const, label: m.assignmentDetail_tabAudit() },
-  ]);
 
   function verdictLabel(status: string): string {
     if (status === "accepted") return "AC";
@@ -182,7 +169,9 @@
     context={data.course.title}
     title={detail.title}
     summary={detail.summary}
-    actions={data.mode === "teacher" && canSetOverride ? gradingActions : undefined}
+    actions={data.mode === "teacher" && canSetOverride && assignmentClosed
+      ? gradingActions
+      : undefined}
   >
     {#snippet aside(accent)}
       {#if detail.opensAt && targetIso}
@@ -439,11 +428,11 @@
       </GlassPanel>
     {/if}
   {:else}
-    <Tabs
-      tabs={subTabs}
-      bind:value={activeSubTab}
-      label={m.assignmentDetail_sectionsNavLabel()}
-      id="assignment-manage"
+    <AssessmentManageTabs
+      kind="assignment"
+      value={activeSubTab}
+      url={page.url}
+      canViewClarifications={clarificationEnabled}
     >
       {#snippet actions()}
         {#if activeSubTab === "submissions"}
@@ -524,7 +513,7 @@
       {:else if activeSubTab === "audit" && data.mode === "teacher"}
         <AuditTimeline events={data.auditEvents} actorNames={data.auditActorNames} />
       {/if}
-    </Tabs>
+    </AssessmentManageTabs>
   {/if}
 </PageContainer>
 

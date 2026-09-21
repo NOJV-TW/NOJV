@@ -50,3 +50,11 @@
 ## Delivery boundary
 
 No production credential issuance, email, migration or deployment is part of local verification. Keep this plan active until shipped. Investigation findings do not establish the cause of an unidentified historical incident without its timestamp and submission/exam identifiers.
+
+## Review revision: login dialog and consistent assessment navigation
+
+- The password button opens a dedicated dialog. Reuse the administrator sign-in form's centered heading, FormField/Input controls, spacing and large submit button. Remove the exam-end expiry sentence from the sign-in hint. Opening focuses username; dismissing clears the entered password and error and returns focus to the trigger.
+- Assignment and exam management share the navigation shell and labels for Problems, Submissions, Results (Grades, Plagiarism, Audit), Clarifications and Settings. Settings stays last; exam-only Proctoring contains student credentials and IP records. Preserve permissions, existing data/actions and exam tab URLs; make assignment tabs URL-addressable too.
+- Capture every exam leaf tab with synthetic local data, including nested Results and Proctoring tabs. Also capture matching assignment panels and the password dialog to verify consistency, plus representative mobile views. Keep screenshots under `output/exam-access-safety/revision-2/`.
+- Verification milestones: focused dialog and navigation tests, frontend typecheck/lint, a batched real-app desktop/mobile pass, then update the existing review-only PR #477.
+- Full `pnpm ci:verify` passed for this revision: 3,616 unit tests and 95 component tests, with build/typecheck/lint/format/guards passing. The actual dialog also passed username autofocus, password clearing on reopen and successful temporary sign-in to the expected exam with a marked session.

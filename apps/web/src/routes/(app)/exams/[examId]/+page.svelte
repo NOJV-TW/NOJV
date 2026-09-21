@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
   import { cn } from "$lib/utils/css.js";
@@ -28,14 +27,12 @@
   import ScoreOverrideDrawer from "$lib/components/features/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/features/clarification/ClarificationTab.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import { Tabs } from "$lib/components/primitives/ui/tabs";
+  import { Button } from "$lib/components/primitives/ui/button";
+  import AssessmentManageTabs from "$lib/components/features/coursework/AssessmentManageTabs.svelte";
   import {
-    examSubTabHref,
-    examPrimaryTab,
-    type ExamPrimaryTab,
-    parseExamSubTab,
-    type ExamSubTab,
-  } from "$lib/components/features/course/exam/exam-tab-state";
+    assessmentSubTabHref,
+    parseAssessmentSubTab,
+  } from "$lib/components/features/coursework/assessment-tab-state";
   import { fmtDate } from "$lib/utils/datetime.js";
   import type { ActionData, PageData } from "./$types";
 
@@ -110,50 +107,13 @@
 
   let showStartModal = $state(false);
 
-  let activeSubTabKey = $derived<ExamSubTab>(parseExamSubTab(page.url.searchParams.get("tab")));
-
-  function setActiveSubTab(next: ExamSubTab): void {
-    const nextUrl = examSubTabHref(page.url, next);
-    const currentUrl = `${page.url.pathname}${page.url.search}${page.url.hash}`;
-    if (nextUrl === currentUrl) return;
-    void goto(nextUrl, { keepFocus: true, noScroll: true, replaceState: true });
-  }
+  const activeSubTabKey = $derived(
+    parseAssessmentSubTab(page.url.searchParams.get("tab"), "exam", data.clarification.canView),
+  );
 
   let totalSubmissionCount = $state(0);
   let submissionSearch = $state("");
   let visibleSubmissionCount = $state(0);
-
-  const primaryTab = $derived(examPrimaryTab(activeSubTabKey));
-
-  function setPrimaryTab(next: ExamPrimaryTab) {
-    setActiveSubTab(next === "proctoring" ? "credentials" : next);
-  }
-
-  const childTabs = $derived<{ key: ExamSubTab; label: string }[]>(
-    primaryTab === "results"
-      ? [
-          { key: "results", label: m.examDetail_subTabResults() },
-          { key: "plagiarism", label: m.examDetail_subTabPlagiarism() },
-          { key: "audit", label: m.examDetail_subTabAudit() },
-        ]
-      : primaryTab === "proctoring"
-        ? [
-            { key: "credentials", label: m.examCredentials_tab() },
-            { key: "proctoring", label: m.examCredentials_ipRecords() },
-          ]
-        : [],
-  );
-
-  const subTabs = $derived<{ key: ExamPrimaryTab; label: string }[]>([
-    { key: "problems", label: m.examDetail_subTabProblems() },
-    { key: "submissions", label: m.examDetail_subTabSubmissions() },
-    { key: "results", label: m.examDetail_subTabResults() },
-    { key: "proctoring", label: m.examDetail_subTabProctoring() },
-    ...(data.clarification.canView
-      ? [{ key: "clarifications" as const, label: m.clarification_tab_title() }]
-      : []),
-    { key: "settings", label: m.examDetail_subTabSettings() },
-  ]);
 
   const studentPrepRules = $derived([
     m.examDetail_studentPrepRule1(),
@@ -198,6 +158,12 @@
   }
 </script>
 
+{#snippet gradingActions()}
+  <Button variant="outline" size="sm" type="button" onclick={() => (showOverrideDrawer = true)}>
+    {m.grading_openButton()}
+  </Button>
+{/snippet}
+
 {#if data.detail?.gradingPending}<p role="status" class="text-body-sm text-muted-foreground">
     {m.activityWeights_pending()}
   </p>{/if}
@@ -211,6 +177,7 @@
     context={examCode}
     title={detail.title}
     summary={detail.summary}
+    actions={isManager && canSetOverride && past ? gradingActions : undefined}
   >
     {#snippet aside(accent)}
       <HeroSchedule
@@ -591,15 +558,14 @@
           <span class="size-1.5 rounded-full bg-primary"></span>
           <span>{m.examDetail_rulesNoteLabel()}</span>
         </div>
-        <button
-          type="button"
-          onclick={() => setActiveSubTab("settings")}
+        <a
+          href={assessmentSubTabHref(page.url, "settings")}
           class="inline-flex size-7 items-center justify-center rounded-md bg-transparent text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground"
           aria-label={m.examDetail_managerEditButton()}
           title={m.examDetail_managerEditButton()}
         >
           <Pencil aria-hidden="true" class="size-3" />
-        </button>
+        </a>
       </div>
       <p class="text-body-sm text-muted-foreground">
         {m.examDetail_rulesNoteSummary({
@@ -622,26 +588,11 @@
       </p>
     </GlassPanel>
 
-    {#if canSetOverride}
-      <div class="flex flex-wrap gap-2">
-        {#if past}
-          <button
-            type="button"
-            onclick={() => (showOverrideDrawer = true)}
-            class="inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-[color:var(--color-panel)]/60 px-3 py-2 text-caption font-medium transition-colors hover:border-border"
-          >
-            {m.grading_openButton()}
-          </button>
-        {/if}
-      </div>
-    {/if}
-
-    <Tabs
-      tabs={subTabs}
-      value={primaryTab}
-      onValueChange={setPrimaryTab}
-      label={m.examDetail_subTabsLabel()}
-      id="exam-manage"
+    <AssessmentManageTabs
+      kind="exam"
+      value={activeSubTabKey}
+      url={page.url}
+      canViewClarifications={data.clarification.canView}
     >
       {#snippet actions()}
         {#if activeSubTabKey === "submissions"}
@@ -652,31 +603,6 @@
           />
         {/if}
       {/snippet}
-      {#if childTabs.length > 0}
-        <nav
-          class="mb-6 flex flex-wrap gap-2 border-b border-border-subtle pb-4"
-          aria-label={primaryTab === "results"
-            ? m.examDetail_subTabResults()
-            : m.examDetail_subTabProctoring()}
-        >
-          {#each childTabs as tab (tab.key)}
-            <a
-              href={examSubTabHref(page.url, tab.key)}
-              aria-current={activeSubTabKey === tab.key ? "page" : undefined}
-              onclick={(event) => {
-                event.preventDefault();
-                setActiveSubTab(tab.key);
-              }}
-              class={cn(
-                "focus-ring inline-flex min-h-10 items-center rounded-md px-3 text-body-sm font-medium transition-colors",
-                activeSubTabKey === tab.key
-                  ? "bg-muted text-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}>{tab.label}</a
-            >
-          {/each}
-        </nav>
-      {/if}
       {#if activeSubTabKey === "credentials"}
         <ExamCredentialsPanel
           rows={data.examCredentials}
@@ -746,7 +672,7 @@
           {form}
         />
       {/if}
-    </Tabs>
+    </AssessmentManageTabs>
   {/if}
 </PageContainer>
 

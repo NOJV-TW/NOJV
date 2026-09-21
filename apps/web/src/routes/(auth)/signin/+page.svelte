@@ -30,8 +30,10 @@
       </p>
     {/if}
 
-    <OAuthButtons />
-    <ExamPasswordLogin />
+    <div class="flex flex-col gap-3">
+      <OAuthButtons />
+      <ExamPasswordLogin />
+    </div>
 
     <div class="border-t border-border-subtle pt-3 text-center">
       <a

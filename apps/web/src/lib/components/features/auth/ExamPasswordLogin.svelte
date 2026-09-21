@@ -1,14 +1,17 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import KeyRound from "@lucide/svelte/icons/key-round";
-  import { Button } from "$lib/components/primitives/ui/button";
+  import { Button, buttonVariants } from "$lib/components/primitives/ui/button";
+  import * as Dialog from "$lib/components/primitives/ui/dialog";
+  import FormField from "$lib/components/primitives/ui/FormField.svelte";
   import { Input } from "$lib/components/primitives/ui/input";
   import { fetchWithCsrf } from "$lib/services/http";
   import { m } from "$lib/paraglide/messages.js";
 
-  let expanded = $state(false);
+  let open = $state(false);
   let username = $state("");
   let password = $state("");
+  let usernameInput = $state<HTMLInputElement | null>(null);
   let loading = $state(false);
   let error = $state("");
 
@@ -35,6 +38,7 @@
       }
       password = "";
       await goto(`/exams/${encodeURIComponent(result.examId)}`, { invalidateAll: true });
+      open = false;
     } catch {
       error = m.auth_examPasswordUnavailable();
     } finally {
@@ -43,26 +47,50 @@
   }
 </script>
 
-<div class="flex flex-col gap-3">
-  <Button
-    variant="outline"
-    size="lg"
-    aria-expanded={expanded}
-    aria-controls="exam-password-form"
+<Dialog.Root
+  {open}
+  onOpenChange={(next) => {
+    if (loading) return;
+    open = next;
+    if (!next) {
+      password = "";
+      error = "";
+    }
+  }}
+>
+  <Dialog.Trigger
+    class={buttonVariants({ variant: "outline", size: "lg", class: "w-full" })}
     disabled={loading}
-    onclick={() => (expanded = !expanded)}
   >
     <KeyRound aria-hidden="true" />
     {m.auth_continueWithPassword()}
-  </Button>
-  {#if expanded}
-    <form id="exam-password-form" class="space-y-4 pt-1" onsubmit={signIn}>
-      <p class="text-body-sm text-muted-foreground">{m.auth_examPasswordHint()}</p>
-      <div class="space-y-1.5">
-        <label for="exam-login-username" class="text-body-sm font-medium"
-          >{m.examCredentials_username()}</label
-        >
+  </Dialog.Trigger>
+  <Dialog.Content
+    class="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md sm:p-8"
+    showCloseButton={!loading}
+    onOpenAutoFocus={(event) => {
+      event.preventDefault();
+      usernameInput?.focus();
+    }}
+  >
+    <Dialog.Header class="text-center sm:text-center">
+      <Dialog.Title class="text-title-lg leading-tight"
+        >{m.auth_continueWithPassword()}</Dialog.Title
+      >
+      <Dialog.Description>{m.auth_examPasswordHint()}</Dialog.Description>
+    </Dialog.Header>
+    {#if error}
+      <div
+        role="alert"
+        class="rounded-sm border border-destructive/30 bg-destructive/10 p-3 text-body-sm text-destructive"
+      >
+        {error}
+      </div>
+    {/if}
+    <form id="exam-password-form" class="flex flex-col gap-4" onsubmit={signIn}>
+      <FormField label={m.examCredentials_username()} for="exam-login-username" required>
         <Input
+          bind:ref={usernameInput}
           id="exam-login-username"
           name="username"
           autocomplete="username"
@@ -70,11 +98,8 @@
           required
           disabled={loading}
         />
-      </div>
-      <div class="space-y-1.5">
-        <label for="exam-login-password" class="text-body-sm font-medium"
-          >{m.examCredentials_password()}</label
-        >
+      </FormField>
+      <FormField label={m.examCredentials_password()} for="exam-login-password" required>
         <Input
           id="exam-login-password"
           name="password"
@@ -84,11 +109,20 @@
           required
           disabled={loading}
         />
-      </div>
-      {#if error}<p role="alert" class="text-body-sm text-destructive">{error}</p>{/if}
-      <Button type="submit" class="w-full" {loading} disabled={!username.trim() || !password}
-        >{m.auth_examPasswordSignIn()}</Button
+      </FormField>
+      <Button
+        type="submit"
+        size="lg"
+        class="w-full"
+        {loading}
+        disabled={!username.trim() || !password}
+        >{loading ? m.auth_signingIn() : m.auth_examPasswordSignIn()}</Button
       >
     </form>
-  {/if}
-</div>
+    <Dialog.Close
+      disabled={loading}
+      class="text-center text-body-sm text-muted-foreground underline-offset-4 hover:underline"
+      >{m.auth_backToRegularSignIn()}</Dialog.Close
+    >
+  </Dialog.Content>
+</Dialog.Root>

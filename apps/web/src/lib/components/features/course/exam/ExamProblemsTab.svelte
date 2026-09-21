@@ -171,7 +171,7 @@
 <section data-slot="exam-problems-tab" class={cn(className)}>
   <header class="mb-4 flex flex-wrap items-center justify-between gap-3">
     <div>
-      <h2 class="text-title font-medium">
+      <h2 class="text-title font-medium leading-tight">
         {m.examDetail_problemsEditHeading()}
       </h2>
       {#if !canEdit}
@@ -247,7 +247,7 @@
               {String.fromCharCode(65 + index)}
             </span>
             <div class="min-w-0 flex-1">
-              <div class="font-semibold">{problem.title}</div>
+              <div class="break-words font-semibold">{problem.title}</div>
               <div class="mt-1 flex items-center gap-2 text-caption text-muted-foreground">
                 <span class={difficultyClass(problem.difficulty)}>
                   {problem.difficulty}
@@ -285,15 +285,17 @@
                 >
                   <Eye class="size-4" aria-hidden="true" />
                 </Button>
-                <button
+                <Button
                   type="button"
-                  class="flex h-7 w-7 items-center justify-center rounded-sm bg-transparent text-muted-foreground transition-colors hover:bg-transparent hover:text-destructive"
+                  variant="ghost"
+                  size="icon"
+                  class="hover:bg-transparent"
                   onclick={() => detach(problem.id)}
                   aria-label={m.examDetail_problemsEditDetachButton()}
                   title={m.examDetail_problemsEditDetachButton()}
                 >
                   <Trash2 aria-hidden="true" class="size-4" />
-                </button>
+                </Button>
               </div>
             {:else}
               <div class="flex items-center gap-2">
