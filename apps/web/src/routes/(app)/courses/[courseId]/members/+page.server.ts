@@ -41,7 +41,9 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const actor = requireAuth(event);
   const parent = await event.parent();
   const { course, isManager } = parent;
-  const canCorrectUsername = canManageMembers(await getCoursePermissionRole(course.id, actor));
+  const actorRole = await getCoursePermissionRole(course.id, actor);
+  const canChangeRoles = canManageMembers(actorRole);
+  const canCorrectUsername = canChangeRoles;
 
   const [members, bulkAddForm] = await Promise.all([
     listMembersForCourse(course.id),
@@ -63,6 +65,9 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       email: isManager ? member.email : null,
       role: member.role,
       isPending: member.isPending,
+      canRemove:
+        member.role !== "teacher" &&
+        (canChangeRoles || (actorRole === "ta" && member.role === "student")),
       canCorrectUsername:
         canCorrectUsername &&
         member.isPending &&
@@ -72,6 +77,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 
   return {
     members: visibleMembers,
+    canChangeRoles,
     bulkAddForm,
   };
 });
@@ -183,7 +189,7 @@ export const actions = {
   remove: withAction(async (event) => {
     const actor = requireAuth(event);
     const role = await getCoursePermissionRole(event.params.courseId, actor);
-    if (!canManageMembers(role)) {
+    if (!canManageCourse(role)) {
       return fail(403, { error: "Forbidden" });
     }
 

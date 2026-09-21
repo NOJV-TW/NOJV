@@ -79,10 +79,24 @@ beforeEach(() => {
 });
 
 describe("member authorization", () => {
-  it("restricts role/removal management to teachers and admins", () => {
+  it("restricts role management to teachers and admins", () => {
     for (const role of ["admin", "teacher"] as const) expect(canManageMembers(role)).toBe(true);
     for (const role of ["ta", "student", null] as const)
       expect(canManageMembers(role)).toBe(false);
+  });
+
+  it.each(["student-1", null])("allows an active TA to remove student %j", async (userId) => {
+    mocks.findActorMembership.mockResolvedValue({ role: "ta", status: "active" });
+    mocks.findMember.mockResolvedValue({ ...member, userId });
+    await removeMember({ ...actor, platformRole: "student" }, COURSE, MEMBER);
+    expect(mocks.removeFromCourse).toHaveBeenCalledWith(COURSE, MEMBER);
+  });
+
+  it.each(["ta", "teacher"])("prevents a TA from removing %s", async (role) => {
+    mocks.findActorMembership.mockResolvedValue({ role: "ta", status: "active" });
+    mocks.findMember.mockResolvedValue({ ...member, role });
+    await expect(removeMember(actor, COURSE, MEMBER)).rejects.toBeInstanceOf(ForbiddenError);
+    expect(mocks.removeFromCourse).not.toHaveBeenCalled();
   });
 
   for (const operation of ["change role", "remove"] as const) {
@@ -95,7 +109,8 @@ describe("member authorization", () => {
       it.each([
         null,
         { role: "student", status: "active" },
-        { role: "ta", status: "active" },
+        ...(operation === "change role" ? [{ role: "ta", status: "active" }] : []),
+        { role: "ta", status: "removed" },
         { role: "teacher", status: "removed" },
       ])("denies a non-managing membership %j", async (membership) => {
         mocks.findActorMembership.mockResolvedValue(membership);
