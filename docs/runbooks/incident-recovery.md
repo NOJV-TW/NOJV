@@ -54,6 +54,40 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 
 ---
 
+## Scenario: Sandbox quota rejection or prolonged capacity wait
+
+### Detection
+
+- Inspect judge-worker errors and sandbox Job warning Events together. Kubernetes
+  reports exhausted ResourceQuota as `forbidden: exceeded quota`; that message
+  alone does not mean a permissions or LimitRange error.
+- Compare `kubectl -n nojv-sandbox describe resourcequota` with actual Pods,
+  including terminating Pods, and inspect node conditions and kubelet/container
+  runtime errors. Quota reservations and measured CPU usage are different.
+- Inspect `JudgeExecution.state`, `reasonCode`, and `lastProgressAt` for waiting or
+  recovering submissions. Check `nojv_submissions_stuck` and the recovery metrics'
+  successful-snapshot timestamp; stale monitoring does not establish queue health.
+  See [Observability Setup](observability-setup.md) for datasource and alert checks.
+
+### Mitigation and verification
+
+1. Capture worker logs, Job Events, live quota, Pod state, and release identity.
+   Keep affected-submission inventories and raw incident evidence outside the repo.
+2. Restore missing node/runtime capacity. Fit activity concurrency and sandbox
+   requests within the available budget, accounting for every sandbox mode and
+   terminating resources. Do not treat quota increases or force-deleted Pods as
+   evidence that their processes stopped; confirm runtime cleanup separately.
+3. Verify the exact deployed worker revision and automatic recovery on the original
+   snapshot. Confirm waiting submissions resume and sandbox resources return to
+   baseline. Observe at least 15 minutes under representative traffic with no new
+   capacity-related SE; health endpoints alone do not validate judging.
+4. Verify final verdicts, execution progress, and exam/contest score updates.
+   Historical submissions without an original snapshot remain explicitly blocked;
+   never silently substitute the latest version. An explicit teacher rejudge uses
+   the latest version and creates a new audited generation.
+
+The recovery contract is defined in [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#durable-execution-and-recovery).
+
 ## Scenario B: Redis unavailable
 
 ### Symptoms
@@ -145,6 +179,53 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 - Cloud SQL alerts on CPU > 80%, connection count > 80%, IOPS saturation.
 
 ---
+
+## Scenario E: Release hook left the workloads at zero replicas
+
+### Symptoms
+
+- Site down right after a release; `/api/release` unreachable or served only by a
+  Terminating pod.
+- `kubectl -n nojv get helmrelease nojv` → `Ready=False … post-upgrade hooks
+failed … Job/nojv/nojv-workloads-ready status: 'Failed'`, `Stalled=True`.
+- `kubectl -n nojv get deploy nojv-web nojv-worker nojv-worker-platform` shows
+  `0` desired replicas; the web HPA's `scaleTargetRef.name` is
+  `nojv-web-maintenance`.
+
+### Detection
+
+status.nojv.tw opens a `web` + `api` incident within a minute. The
+`nojv-workloads-ready` job log ends with `Timed out waiting for the new web and
+worker deployments` and `CRITICAL: could not prove maintenance state`.
+
+### Immediate Mitigation
+
+```bash
+sudo kubectl -n nojv scale deploy nojv-web nojv-worker nojv-worker-platform --replicas=1
+sudo kubectl -n nojv patch hpa nojv-web --type merge -p '{"spec":{"scaleTargetRef":{"name":"nojv-web"}}}'
+```
+
+Do not trigger a Flux reconcile first: a retry re-drains the workloads and
+repeats the outage. The HelmRelease stays `failed` until the next release.
+
+### Root-Cause Investigation
+
+```bash
+sudo kubectl -n nojv get events --field-selector involvedObject.name=<new web pod>   -o custom-columns=T:.lastTimestamp,R:.reason,MSG:.message
+```
+
+A `Pulling` → `Pulled` gap longer than `maintenance.readyTimeoutSeconds` means
+the registry pull, not the application, exhausted the readiness window (v1.1.10:
+web image 11m12s from GHCR). The failure path then cannot terminate a pod that is
+still pulling, so the drain wait times out as well.
+
+### Prevention
+
+The `release-prepull` pre-upgrade hook pulls the web and worker images before
+the migrator drains anything, so a slow or failing pull fails the upgrade while
+the old release still serves. Automatic rollback stays off on purpose: after a
+one-way contract migration the previous revision may be unsafe to restore, so
+recovery is the manual scale-up above.
 
 ## Scenario D: Sandbox namespace / Docker runtime broken
 

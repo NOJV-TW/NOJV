@@ -12,7 +12,11 @@ const h = vi.hoisted(() => ({
   sources: vi.fn(),
   activeExam: vi.fn(),
 }));
+vi.mock("../../../packages/application/src/submission/judge-execution", () => ({
+  getJudgeExecutionViews: vi.fn(async () => new Map()),
+}));
 vi.mock("@nojv/db", () => ({
+  durableWorkRepo: { listQueuedRejudges: vi.fn(async () => []) },
   examSessionRepo: { findActiveForUser: h.activeExam },
   gradingRepo: { findAllocation: vi.fn(async () => null) },
   problemRepo: { findById: h.findProblem },
@@ -49,6 +53,7 @@ const actor = {
 };
 const problem = {
   id: "p",
+  title: "Problem",
   authorId: "owner",
   visibility: "private",
   storageGeneration: 2,
@@ -74,6 +79,9 @@ const reference = {
   runtimeMs: 1,
   memoryKb: 1,
   createdAt: new Date(),
+  updatedAt: new Date(),
+  judgeGeneration: 1,
+  verdictSummary: null,
   language: "python",
 };
 beforeEach(() => {
@@ -118,6 +126,21 @@ describe("problem reference read boundaries", () => {
       sourceFiles: [{ path: "main.py", content: "print(1)" }],
     });
     expect(h.staffRead).toHaveBeenCalledWith("p", "ta");
+  });
+  it("reports a newer validating reference instead of a previous verified result", async () => {
+    h.latest.mockResolvedValue({
+      ...reference,
+      id: "new-reference",
+      status: "queued",
+      score: 0,
+    });
+    await expect(getProblemReferenceSolution(actor, "p")).resolves.toMatchObject({
+      status: "validating",
+      submissionId: "new-reference",
+      sourceFiles: [],
+      lastSubmission: { id: "new-reference", status: "queued" },
+    });
+    expect(h.sources).not.toHaveBeenCalled();
   });
   it("rechecks resource access before reading the reference or its sources", async () => {
     h.staffRead.mockResolvedValue(false);

@@ -12,6 +12,7 @@ set -eu
 : "${JUDGE_POD_SELECTOR:?JUDGE_POD_SELECTOR is required}"
 : "${PLATFORM_POD_SELECTOR:?PLATFORM_POD_SELECTOR is required}"
 : "${WEB_HPA_ENABLED:=false}"
+: "${RELEASE_WINDOW:=true}"
 : "${READY_TIMEOUT_SECONDS:=300}"
 : "${POLL_INTERVAL_SECONDS:=2}"
 : "${KUBECTL_REQUEST_TIMEOUT_SECONDS:=5}"
@@ -60,7 +61,7 @@ enter_maintenance() {
 cleanup() {
   status=$?
   trap - EXIT
-  if [ "$status" -ne 0 ] && [ "$released" = false ]; then
+  if [ "$status" -ne 0 ] && [ "$released" = false ] && [ "$RELEASE_WINDOW" = true ]; then
     enter_maintenance || echo "CRITICAL: could not prove maintenance state" >&2
   fi
   exit "$status"
@@ -69,9 +70,11 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-kubectl_ns scale deployment "$WEB_DEPLOYMENT" --replicas="$WEB_READY_REPLICAS"
-kubectl_ns scale deployment "$JUDGE_DEPLOYMENT" --replicas="$JUDGE_READY_REPLICAS"
-kubectl_ns scale deployment "$PLATFORM_DEPLOYMENT" --replicas="$PLATFORM_READY_REPLICAS"
+if [ "$RELEASE_WINDOW" = true ]; then
+  kubectl_ns scale deployment "$WEB_DEPLOYMENT" --replicas="$WEB_READY_REPLICAS"
+  kubectl_ns scale deployment "$JUDGE_DEPLOYMENT" --replicas="$JUDGE_READY_REPLICAS"
+  kubectl_ns scale deployment "$PLATFORM_DEPLOYMENT" --replicas="$PLATFORM_READY_REPLICAS"
+fi
 
 deployment_ready() {
   deployment="$1"
@@ -102,7 +105,7 @@ while ! deployment_ready "$WEB_DEPLOYMENT" "$WEB_READY_REPLICAS" || \
   sleep "$POLL_INTERVAL_SECONDS"
 done
 
-if [ "$WEB_HPA_ENABLED" = true ]; then
+if [ "$RELEASE_WINDOW" = true ] && [ "$WEB_HPA_ENABLED" = true ]; then
   : "${WEB_HPA:?WEB_HPA is required when WEB_HPA_ENABLED=true}"
   kubectl_ns patch horizontalpodautoscaler "$WEB_HPA" --type merge \
     -p "{\"spec\":{\"scaleTargetRef\":{\"name\":\"$WEB_DEPLOYMENT\"}}}"

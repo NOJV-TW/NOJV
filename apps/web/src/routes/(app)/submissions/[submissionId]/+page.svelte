@@ -1,12 +1,11 @@
 <script lang="ts">
   import SubmissionId from "$lib/components/features/submission/SubmissionId.svelte";
   import { ArrowLeft, Check, Copy, Download } from "@lucide/svelte";
-  import { invalidateAll } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
-  import { watchSubmissionVerdict } from "$lib/stores/sse";
+  import { watchSubmissionStates } from "$lib/services/submission-tracker";
   import { formatDateTime } from "$lib/utils/datetime";
   import { formatJudgeOutput } from "$lib/utils/judge-output";
-  import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
+  import { verdictTone } from "$lib/utils/verdict-style";
   import { languageLabel } from "@nojv/core";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import { flattenSourcesForDisplay } from "$lib/utils/submission-source-display";
@@ -18,29 +17,27 @@
 
   const submission = $derived(data.submission);
   const result = $derived(submission.result);
-  const verdict = $derived(result?.verdict ?? submission.status);
-  const verdictLabel = $derived(formatVerdictLabel(verdict));
+  const verdict = $derived(submission.status);
   const verdictClass = $derived(verdictTone(verdict));
+  const execution = $derived(data.execution);
+  const executionActive = $derived(
+    execution && !["completed", "cancelled"].includes(execution.state),
+  );
   const isPending = $derived(
-    verdict === "pending_upload" ||
+    executionActive ||
+      verdict === "pending_upload" ||
       verdict === "queued" ||
       verdict === "compiling" ||
       verdict === "running",
   );
 
-  $effect(() => {
-    if (!isPending) return;
-    const unwatch = watchSubmissionVerdict(submission.id, () => {
-      void invalidateAll();
-    });
-    const interval = setInterval(() => {
-      if (document.visibilityState === "visible") void invalidateAll();
-    }, 5000);
-    return () => {
-      unwatch();
-      clearInterval(interval);
-    };
-  });
+  const verdictLabel = $derived(
+    verdict === "pending_upload"
+      ? "Pending"
+      : verdict.replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase()),
+  );
+
+  $effect(() => watchSubmissionStates([submission.id], () => undefined));
 
   const submittedAt = $derived(formatDateTime(submission.createdAt));
   const runtimeMs = $derived(submission.runtimeMs ?? result?.runtimeMs ?? null);
@@ -132,22 +129,35 @@
   </a>
 
   <div class="grid grid-cols-1 gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-    <aside class="flex flex-col gap-5">
+    <aside class="flex min-w-0 flex-col gap-5">
       <div class="flex flex-col gap-2">
         <p class="text-caption uppercase tracking-wide text-muted-foreground">
           {formatProblemDisplayName(submission.problem)}
         </p>
-        <p class="text-title-lg font-semibold leading-tight {verdictClass}">
+        <p class="break-words text-title-lg font-semibold leading-tight {verdictClass}">
           {verdictLabel}
         </p>
+        {#if executionActive}
+          <p class="text-body-sm text-muted-foreground" role="status">
+            {execution?.reasonCode === "original_version_unavailable"
+              ? m.judgeRecovery_missingVersion()
+              : execution?.state === "waiting_capacity" || execution?.state === "queued"
+                ? m.judgeRecovery_waiting()
+                : execution?.state === "running" || execution?.state === "finalizing"
+                  ? m.judgeRecovery_running()
+                  : m.judgeRecovery_recovering()}
+          </p>
+          {#if execution?.problemGeneration !== null}
+            <p class="text-caption text-muted-foreground">
+              {m.judgeRecovery_version({ version: String(execution?.problemGeneration) })}
+            </p>
+          {/if}
+        {/if}
         <p class="text-headline font-semibold tabular-nums">
           {submission.score}<span class="text-title-sm text-muted-foreground">
             / {submission.totalScore}</span
           >
         </p>
-        {#if submission.activityContribution}<p class="text-body-sm text-muted-foreground">
-            {m.activityWeights_contribution(submission.activityContribution)}
-          </p>{/if}
       </div>
 
       <dl class="grid grid-cols-2 gap-3 rounded-lg border border-border-subtle bg-muted/20 p-4">
@@ -202,24 +212,29 @@
         >
           {m.submissionDetail_contextContest({ contestTitle: submission.context.contestTitle })}
         </p>
-      {:else if submission.context.kind === "assignment"}
-        <p
-          class="rounded-md border border-border-subtle bg-muted/30 px-3 py-2 text-body-sm text-muted-foreground"
+      {:else if submission.context.kind === "assignment" || submission.context.kind === "exam"}
+        <dl
+          class="flex flex-col gap-3 rounded-md border border-border-subtle bg-muted/30 px-3 py-3"
         >
-          {m.submissionDetail_contextAssessment({
-            assessmentTitle: submission.context.assignmentTitle,
-            courseTitle: submission.context.courseTitle,
-          })}
-        </p>
-      {:else if submission.context.kind === "exam"}
-        <p
-          class="rounded-md border border-border-subtle bg-muted/30 px-3 py-2 text-body-sm text-muted-foreground"
-        >
-          {m.submissionDetail_contextExam({
-            examTitle: submission.context.examTitle,
-            courseTitle: submission.context.courseTitle,
-          })}
-        </p>
+          <div class="min-w-0">
+            <dt class="text-caption text-muted-foreground">{m.submissionDetail_course()}</dt>
+            <dd class="mt-0.5 break-words text-body-sm font-medium">
+              {submission.context.courseTitle}
+            </dd>
+          </div>
+          <div class="min-w-0 border-t border-border-subtle pt-3">
+            <dt class="text-caption text-muted-foreground">
+              {submission.context.kind === "assignment"
+                ? m.submissions_kind_assignment()
+                : m.submissions_kind_exam()}
+            </dt>
+            <dd class="mt-0.5 break-words text-body-sm font-medium">
+              {submission.context.kind === "assignment"
+                ? submission.context.assignmentTitle
+                : submission.context.examTitle}
+            </dd>
+          </div>
+        </dl>
       {/if}
 
       {#if submission.sampleOnly}
@@ -239,13 +254,10 @@
             {submission.submitter.name}
             <span class="text-muted-foreground">(@{submission.submitter.username})</span>
           </p>
-          <p class="mt-1 text-caption text-muted-foreground">
-            {m.submissionDetail_viewingAsStaff()}
-          </p>
         </div>
       {/if}
 
-      {#if isPending}
+      {#if isPending && !executionActive}
         <p
           class="flex flex-col items-center gap-1 rounded-md border border-dashed border-border-strong bg-muted/20 px-3 py-3 text-center text-body-sm text-muted-foreground"
         >

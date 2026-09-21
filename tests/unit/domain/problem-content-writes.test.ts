@@ -119,7 +119,6 @@ describe("content writes reauthorize at commit", () => {
       "create set",
       () =>
         createProblemTestcaseSetRecord(actor, "p", {
-          name: "Set",
           description: "",
           weight: 1,
           cases: [{ input: "1", output: "2" }],
@@ -169,7 +168,6 @@ describe("content writes reauthorize at commit", () => {
   it("lets authorized student TAs write testcases", async () => {
     await expect(
       createProblemTestcaseSetRecord(actor, "p", {
-        name: "Set",
         description: "",
         weight: 1,
         cases: [{ input: "1", output: "2" }],

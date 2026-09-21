@@ -204,3 +204,9 @@ export function createBoundedBuffer(capBytes = DEFAULT_OUTPUT_CAP_BYTES): Bounde
     },
   };
 }
+
+export function readCgroupThrottledUsec(): number | null {
+  const stat = safeReadFile("/sys/fs/cgroup/cpu.stat");
+  const match = stat && /^throttled_usec\s+(\d+)/m.exec(stat);
+  return match ? Number(match[1]) : null;
+}

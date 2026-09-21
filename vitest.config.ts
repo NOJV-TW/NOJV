@@ -41,6 +41,10 @@ const sharedAliases = {
 
 const componentAliases = [
   {
+    find: "$app/stores",
+    replacement: path.resolve(__dirname, "tests/component/web/fixtures/app-stores.ts"),
+  },
+  {
     find: "$app/forms",
     replacement: path.join(
       path.dirname(requireFromWeb.resolve("@sveltejs/kit/package.json")),
@@ -116,6 +120,8 @@ export default defineConfig({
             "tests/unit/web/rejudge-dialog.test.ts",
             "tests/unit/web/user-menu.test.ts",
             "tests/unit/web/editor-shortcuts.test.ts",
+            "tests/unit/web/editor-submission-navigation.test.ts",
+            "tests/unit/web/submission-navigation-view.test.ts",
             "tests/unit/web/editor-output-comparison.test.ts",
             "tests/unit/web/comment-section-error.test.ts",
             "tests/unit/web/contest-join-error.test.ts",
@@ -139,7 +145,8 @@ export default defineConfig({
             "tests/unit/web/home-page-layout.test.ts",
             "tests/unit/web/footer.test.ts",
             "tests/unit/web/assessment-row.test.ts",
-            "tests/unit/web/email-change-form.test.ts",
+            "tests/unit/web/problem-description-panel.test.ts",
+            "tests/unit/web/testcase-set-description-preview.test.ts",
           ],
           environment: "node",
         },
@@ -160,6 +167,10 @@ export default defineConfig({
             "tests/unit/web/rejudge-dialog.test.ts",
             "tests/unit/web/user-menu.test.ts",
             "tests/unit/web/editor-shortcuts.test.ts",
+            "tests/unit/web/editor-submission-navigation.test.ts",
+            "tests/unit/web/submission-navigation-view.test.ts",
+            "tests/component/web/submission-history-tracking.test.ts",
+            "tests/component/web/teacher-submission-refresh.test.ts",
             "tests/unit/web/editor-output-comparison.test.ts",
             "tests/unit/web/comment-section-error.test.ts",
             "tests/unit/web/contest-join-error.test.ts",
@@ -183,9 +194,32 @@ export default defineConfig({
             "tests/unit/web/home-page-layout.test.ts",
             "tests/unit/web/footer.test.ts",
             "tests/unit/web/assessment-row.test.ts",
-            "tests/unit/web/email-change-form.test.ts",
+            "tests/unit/web/problem-description-panel.test.ts",
+            "tests/unit/web/testcase-set-description-preview.test.ts",
+            "tests/component/web/problem-select-dialog.test.ts",
+            "tests/component/web/exam-validation.test.ts",
+            "tests/component/web/course-member-removal.test.ts",
+            "tests/component/web/exam-proctoring-tab.test.ts",
           ],
           environment: "jsdom",
+        },
+      },
+      {
+        resolve: { alias: sharedAliases },
+        test: {
+          name: "sandbox-integration",
+          include: ["tests/integration/judge/**/*.test.ts"],
+          environment: "node",
+          fileParallelism: false,
+        },
+      },
+      {
+        resolve: { alias: sharedAliases },
+        test: {
+          name: "temporal-integration",
+          include: ["tests/integration/temporal/**/*.test.ts"],
+          environment: "node",
+          fileParallelism: false,
         },
       },
       {
@@ -194,7 +228,11 @@ export default defineConfig({
         test: {
           name: "integration",
           include: ["tests/integration/**/*.test.ts"],
-          exclude: ["tests/integration/k8s/**/*.test.ts"],
+          exclude: [
+            "tests/integration/k8s/**/*.test.ts",
+            "tests/integration/temporal/**/*.test.ts",
+            "tests/integration/judge/**/*.test.ts",
+          ],
           environment: "node",
           // Integration tests share a single Postgres + Redis. Running files
           // in parallel races on `truncateAllTables` (deadlock detected) and

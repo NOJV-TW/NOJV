@@ -1,4 +1,13 @@
-import { CancellationScope, proxyActivities, workflowInfo } from "@temporalio/workflow";
+import {
+  ActivityFailure,
+  ApplicationFailure,
+  CancellationScope,
+  log,
+  patched,
+  proxyActivities,
+  sleep,
+  workflowInfo,
+} from "@temporalio/workflow";
 import type { SubmissionJudgeInput } from "@nojv/core";
 
 import type * as judgeActivities from "../activities/judge";
@@ -8,13 +17,16 @@ import { resolveScoringDispatch } from "./submission-judge-helpers";
 
 const judge = proxyActivities<typeof judgeActivities>({
   startToCloseTimeout: "5m",
-  retry: { maximumAttempts: 3, nonRetryableErrorTypes: ["SandboxAdmissionError"] },
+  retry: { maximumAttempts: 3 },
 });
 
 const judgeSandbox = proxyActivities<typeof judgeActivities>({
   startToCloseTimeout: "10m",
   heartbeatTimeout: "60s",
-  retry: { maximumAttempts: 3 },
+  retry: {
+    maximumAttempts: 3,
+    nonRetryableErrorTypes: ["SandboxAdmissionError", "SandboxBackpressureError"],
+  },
 });
 
 const notification = proxyActivities<typeof lifecycleActivities>(NOTIFICATION_ACTIVITY);
@@ -35,6 +47,27 @@ function rootErrorMessage(error: unknown): string {
     current = current.cause;
   }
   return message;
+}
+
+async function executeSandboxWhenCapacityAvailable(input: SubmissionJudgeInput) {
+  for (;;) {
+    try {
+      return await judgeSandbox.executeSandbox(input.submissionId, input.draft);
+    } catch (error) {
+      if (
+        !(error instanceof ActivityFailure) ||
+        !(error.cause instanceof ApplicationFailure) ||
+        error.cause.type !== "SandboxBackpressureError" ||
+        !patched("sandbox-capacity-wait-v1")
+      )
+        throw error;
+      log.warn("Submission waiting for sandbox capacity", {
+        submissionId: input.submissionId,
+        reason: error.cause.message,
+      });
+      await sleep("30s");
+    }
+  }
 }
 
 export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Promise<void> {
@@ -58,10 +91,8 @@ export async function submissionJudgeWorkflow(input: SubmissionJudgeInput): Prom
   try {
     const meta = await judge.fetchJudgeContext(input.submissionId);
 
-    const { result, advancedJudgeVerificationSnapshot } = await judgeSandbox.executeSandbox(
-      input.submissionId,
-      input.draft,
-    );
+    const { result, advancedJudgeVerificationSnapshot } =
+      await executeSandboxWhenCapacityAvailable(input);
 
     const mode: "standard" | "advanced" =
       meta.problemType === "special_env" ? "advanced" : "standard";

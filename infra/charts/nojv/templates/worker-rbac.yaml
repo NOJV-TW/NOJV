@@ -27,6 +27,14 @@ rules:
   - apiGroups: ["node.k8s.io"]
     resources: ["runtimeclasses"]
     verbs: ["get"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get"]
+{{- if or .Values.worker.sandbox.capacityAdmission.enabled .Values.worker.sandbox.capacityAdmission.routingEnabled }}
+  - apiGroups: [""]
+    resources: ["nodes", "pods"]
+    verbs: ["get", "list"]
+{{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -52,15 +60,24 @@ metadata:
   labels:
     {{- include "nojv.labels" . | nindent 4 }}
 rules:
+{{- if or .Values.worker.sandbox.capacityAdmission.enabled .Values.worker.sandbox.capacityAdmission.routingEnabled }}
+  - apiGroups: [""]
+    resources: ["resourcequotas"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["resourcequotas"]
+    resourceNames: ["sandbox-quota"]
+    verbs: ["get", "update"]
+{{- end }}
   - apiGroups: ["batch"]
     resources: ["jobs"]
     verbs: ["create", "get", "list", "watch", "delete"]
   - apiGroups: [""]
     resources: ["configmaps"]
-    verbs: ["create", "delete"]
+    verbs: ["create", "get", "list", "delete"]
   - apiGroups: [""]
     resources: ["persistentvolumeclaims"]
-    verbs: ["create", "delete"]
+    verbs: ["create", "get", "list", "delete"]
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "list", "watch", "create", "delete"]
@@ -68,14 +85,17 @@ rules:
     resources: ["pods/log"]
     verbs: ["get"]
   - apiGroups: [""]
+    resources: ["resourcequotas"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
     resources: ["events"]
     verbs: ["get", "list"]
   - apiGroups: [""]
     resources: ["services"]
-    verbs: ["create", "delete"]
+    verbs: ["create", "get", "list", "delete"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["networkpolicies"]
-    verbs: ["create", "delete"]
+    verbs: ["create", "get", "list", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -128,3 +148,28 @@ subjects:
     name: {{ include "nojv.fullname" . }}-worker-platform
     namespace: {{ include "nojv.namespace" . }}
 {{- end }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "nojv.fullname" . }}-judge-worker-observer
+  namespace: {{ include "nojv.namespace" . }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "nojv.fullname" . }}-judge-worker-observer
+  namespace: {{ include "nojv.namespace" . }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "nojv.fullname" . }}-judge-worker-observer
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "nojv.fullname" . }}-worker-judge
+    namespace: {{ include "nojv.namespace" . }}

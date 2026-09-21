@@ -33,6 +33,10 @@ export interface RejudgeProgress {
   total: number;
 }
 
+export interface RejudgeTrackingProgress extends RejudgeProgress {
+  targets?: { submissionId: string; judgeGeneration: number }[] | null;
+}
+
 export interface LifecycleScheduleIdentity {
   scheduleRevision: number;
   timerFingerprint: string;

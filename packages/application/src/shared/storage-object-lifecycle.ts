@@ -186,6 +186,10 @@ async function storageObjectIsReferenced(key: string): Promise<boolean> {
       SELECT 1 FROM "Submission"
       WHERE "sourceStorage" ->> 'key' = ${key}
          OR "verdictDetailStorage" ->> 'key' = ${key}
+      UNION ALL
+      SELECT 1 FROM "JudgeExecution" WHERE "snapshot" ->> 'key' = ${key}
+      UNION ALL
+      SELECT 1 FROM "JudgeStage" WHERE "result" ->> 'key' = ${key}
     ) AS referenced
   `;
   return row?.referenced === true;

@@ -1,5 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("../../../packages/application/src/submission/judge-snapshot", () => ({
+  prepareJudgeSnapshot: vi.fn(async () => ({
+    problemGeneration: 0,
+    pointer: { key: "pinned-snapshot", sha256: "a".repeat(64), size: 1 },
+  })),
+}));
+vi.mock("../../../packages/application/src/submission/judge-execution", () => ({
+  createJudgeExecution: vi.fn(async () => undefined),
+}));
+vi.mock("../../../packages/application/src/submission/judge-recovery", () => ({
+  kickJudgeExecution: vi.fn(async () => undefined),
+}));
+
 import { createInMemoryStorage } from "../_fixtures/storage";
 
 const {
@@ -109,8 +122,9 @@ vi.mock("@nojv/db", () => ({
     completeIfInProgress: submissionCompleteIfInProgress,
   },
   runTransaction: async <T>(
-    fn: (tx: { $executeRaw: typeof vi.fn }) => Promise<T>,
-  ): Promise<T> => fn({ $executeRaw: vi.fn().mockResolvedValue(0) }),
+    fn: (tx: { $executeRaw: typeof vi.fn; $queryRaw: typeof vi.fn }) => Promise<T>,
+  ): Promise<T> =>
+    fn({ $executeRaw: vi.fn().mockResolvedValue(0), $queryRaw: vi.fn().mockResolvedValue([]) }),
   Prisma: { DbNull: null },
 }));
 

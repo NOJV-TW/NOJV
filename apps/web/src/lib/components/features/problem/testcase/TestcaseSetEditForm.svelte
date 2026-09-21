@@ -1,33 +1,31 @@
 <script lang="ts">
   import { m } from "$lib/paraglide/messages.js";
+  import ImageDropZone from "$lib/components/primitives/ui/ImageDropZone.svelte";
 
   interface Props {
-    editName: string;
+    editDescription: string;
     editWeight: number;
+    problemId: string;
     saving: boolean;
     onSave: () => void;
     onCancel: () => void;
-    onNameChange: (v: string) => void;
     onWeightChange: (v: number) => void;
   }
 
-  let { editName, editWeight, saving, onSave, onCancel, onNameChange, onWeightChange }: Props =
-    $props();
+  let {
+    editDescription = $bindable(),
+    editWeight,
+    problemId,
+    saving,
+    onSave,
+    onCancel,
+    onWeightChange,
+  }: Props = $props();
 </script>
 
 <div
   class="mt-3 flex flex-wrap items-end gap-3 rounded-md border border-border-subtle bg-[color:var(--color-panel)] p-3"
 >
-  <label class="grid gap-1">
-    <span class="text-caption font-medium text-muted-foreground"
-      >{m.testcases_editSetName()}</span
-    >
-    <input
-      class="rounded-md border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm"
-      value={editName}
-      oninput={(e) => onNameChange((e.target as HTMLInputElement).value)}
-    />
-  </label>
   <label class="grid gap-1">
     <span class="text-caption font-medium text-muted-foreground"
       >{m.testcases_editSetWeight()}</span
@@ -38,6 +36,17 @@
       min="0"
       value={editWeight}
       oninput={(e) => onWeightChange(Number((e.target as HTMLInputElement).value) || 0)}
+    />
+  </label>
+  <label class="grid basis-full gap-1">
+    <span class="text-caption font-medium text-muted-foreground"
+      >{m.testcases_editSetDescription()}</span
+    >
+    <ImageDropZone
+      class="min-h-20 w-full rounded-md border border-border bg-[color:var(--color-panel)] px-3 py-2 text-body-sm"
+      name="description"
+      bind:value={editDescription}
+      {problemId}
     />
   </label>
   <div class="flex gap-2">

@@ -126,6 +126,7 @@ vi.mock("@nojv/storage", async (importOriginal) => {
 });
 
 beforeEach(async () => {
+  process.env.SANDBOX_IMAGE ??= `sandbox@sha256:${"a".repeat(64)}`;
   testBlobs.clear();
   await truncateAllTables();
 }, 30_000);

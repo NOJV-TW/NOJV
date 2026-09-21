@@ -13,9 +13,7 @@
   interface Owner {
     platformRole: string;
     isSchoolVerified: boolean;
-    canEditUsername: boolean;
     nameForm: SuperValidated<{ name: string }>;
-    usernameForm: SuperValidated<{ username: string }>;
   }
 
   interface Props {
@@ -32,23 +30,9 @@
     $props();
 
   let editingName = $state(false);
-  let editingUsername = $state(false);
 
   function mapCode(code: string): string {
-    switch (code) {
-      case "VERIFIED_LOCKED":
-        return m.account_usernameLockedByVerification();
-      case "TAKEN":
-        return m.account_usernameTaken();
-      case "RESERVED_FORMAT":
-        return m.account_usernameReserved();
-      case "INVALID_FORMAT":
-        return m.account_usernameInvalid();
-      case "INVALID_NAME":
-        return m.account_nameRequired();
-      default:
-        return code;
-    }
+    return code === "INVALID_NAME" ? m.account_nameRequired() : code;
   }
 
   function roleLabel(role: string): string {
@@ -91,43 +75,6 @@
 
   const nameErrorText = $derived(
     $nameMessage?.kind === "error" ? mapCode($nameMessage.text) : null,
-  );
-
-  const {
-    form: usernameForm,
-    errors: usernameErrors,
-    enhance: usernameEnhance,
-    message: usernameMessage,
-    submitting: usernameSubmitting,
-  } = superForm<{ username: string }, FormMessage>(
-    untrack(() => owner.usernameForm),
-    {
-      resetForm: false,
-      taintedMessage: null,
-      onUpdated({ form }) {
-        if (form.message?.kind === "success") {
-          if (form.message.text === "MERGED") {
-            toasts.success(m.account_mergedWithInvite());
-          } else {
-            toasts.success(m.account_usernameUpdated());
-          }
-          editingUsername = false;
-        }
-      },
-    },
-  );
-
-  function cancelUsernameEdit() {
-    $usernameForm.username = username ?? "";
-    editingUsername = false;
-  }
-
-  const usernameErrorText = $derived(
-    $usernameMessage?.kind === "error" ? mapCode($usernameMessage.text) : null,
-  );
-
-  const usernameLockReason = $derived(
-    owner.isSchoolVerified ? m.account_usernameLockedByVerification() : null,
   );
 
   const iconBtnClass =
@@ -207,78 +154,16 @@
         </div>
       {/if}
 
-      {#if editingUsername}
-        <form
-          method="POST"
-          action="?/updateUsername"
-          use:usernameEnhance
-          class="mt-1.5 flex max-w-sm flex-col gap-1.5"
-        >
-          <div class="flex items-center gap-1.5">
-            <!-- svelte-ignore a11y_autofocus -->
-            <input
-              id="edit-username"
-              name="username"
-              type="text"
-              autocomplete="username"
-              bind:value={$usernameForm.username}
-              class={inputClass}
-              autofocus
-            />
-            <button
-              type="submit"
-              class="{iconBtnClass} disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={$usernameSubmitting}
-              aria-label={m.account_save()}
-              title={m.account_save()}
-            >
-              <Check aria-hidden="true" class="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              class={iconBtnClass}
-              onclick={cancelUsernameEdit}
-              aria-label={m.account_cancel()}
-              title={m.account_cancel()}
-            >
-              <X aria-hidden="true" class="h-4 w-4" />
-            </button>
-          </div>
-          <p class="text-caption text-muted-foreground">
-            {m.account_usernameHelper()}
-          </p>
-          {#if $usernameErrors.username}
-            <p class="text-caption text-destructive">{m.account_usernameInvalid()}</p>
-          {:else if usernameErrorText}
-            <p class="text-caption text-destructive">{usernameErrorText}</p>
-          {/if}
-        </form>
-      {:else}
-        <div class="mt-0.5 flex flex-wrap items-center gap-2">
-          <span class="font-mono text-body-sm text-muted-foreground">
-            {username ? `@${username}` : "—"}
-          </span>
-          {#if owner.isSchoolVerified}
-            <Badge variant="success" size="sm" dot>
-              {m.account_verifiedBadge()}
-            </Badge>
-          {/if}
-          {#if owner.canEditUsername}
-            <button
-              type="button"
-              class={iconBtnClass}
-              onclick={() => (editingUsername = true)}
-              aria-label={m.account_edit()}
-              title={m.account_edit()}
-            >
-              <Pencil aria-hidden="true" class="h-3.5 w-3.5" />
-            </button>
-          {/if}
-        </div>
-        {#if usernameLockReason}
-          <p class="mt-0.5 text-caption text-muted-foreground">{usernameLockReason}</p>
+      <div class="mt-0.5 flex flex-wrap items-center gap-2">
+        <span class="font-mono text-body-sm text-muted-foreground">
+          {username ? `@${username}` : "—"}
+        </span>
+        {#if owner.isSchoolVerified}
+          <Badge variant="success" size="sm" dot>
+            {m.account_verifiedBadge()}
+          </Badge>
         {/if}
-      {/if}
+      </div>
 
       <p class="mt-1 text-caption text-muted-foreground">
         {m.userProfile_joined({ date: joinedDate })}

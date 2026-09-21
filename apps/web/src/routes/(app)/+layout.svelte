@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
+  import { startSubmissionTracking } from "$lib/services/submission-tracker";
   import { page } from "$app/state";
   import { afterNavigate } from "$app/navigation";
   import Header from "$lib/components/features/layout/Header.svelte";
@@ -23,6 +24,11 @@
 
   let { children } = $props();
   let user = $derived(page.data.user);
+
+  const trackingUserId = $derived(user?.id ?? null);
+  $effect(() => {
+    if (trackingUserId) return startSubmissionTracking(trackingUserId);
+  });
 
   let immersive = $derived(page.route.id?.endsWith("/problems/[problemId]") ?? false);
 
@@ -62,7 +68,9 @@
       tabindex="-1"
       class="outline-none {immersive ? 'min-h-0 flex-1 pt-4' : 'flex-1 pt-8'}"
     >
-      {@render children?.()}
+      {#key trackingUserId}
+        {@render children?.()}
+      {/key}
     </main>
     {#if !immersive}
       <Footer />

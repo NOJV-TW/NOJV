@@ -108,25 +108,28 @@ key — there are no implicit defaults for the required ones below, so the
 deployment manifest must set every one. `tests/unit/infra/env-manifest-parity.test.ts`
 is a fitness test that fails CI if the GKE manifest omits a required worker env.
 
-| Variable                             | Required / Default                   | Purpose                                                                                                                                                                           |
-| ------------------------------------ | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `EXECUTION_BACKEND`                  | **required** (`docker`/`kubernetes`) | Sandbox executor backend                                                                                                                                                          |
-| `SANDBOX_IMAGE`                      | **required**                         | Sandbox container image                                                                                                                                                           |
-| `PORT`                               | **required**                         | Worker health server port (`/healthz`, `/readyz`)                                                                                                                                 |
-| `WORKER_CONCURRENCY`                 | **required**                         | Activity concurrency per task queue                                                                                                                                               |
-| `WORKER_MODE`                        | `all`                                | Task queues: `all`, `judge`, `platform`                                                                                                                                           |
-| `SUBMISSION_PENDING_TIMEOUT_MINUTES` | `10` (range 10–1440)                 | Platform sweeper cutoff: pending/running submissions older than this are terminated and marked `system_error`. Read directly from env; only the `platform` worker runs the sweep. |
-| `SANDBOX_CPU_LIMIT`                  | **required** (Docker backend)        | CPU limit per sandbox                                                                                                                                                             |
-| `SANDBOX_MEMORY_MB`                  | **required** (Docker backend)        | Memory limit per sandbox (MB)                                                                                                                                                     |
-| `SANDBOX_PIDS_LIMIT`                 | **required** (Docker backend)        | PID limit per sandbox                                                                                                                                                             |
-| `K8S_NAMESPACE`                      | **required** (Kubernetes backend)    | Namespace for sandbox pods                                                                                                                                                        |
-| `K8S_CPU_REQUEST`                    | **required** (Kubernetes backend)    | Sandbox pod CPU request                                                                                                                                                           |
-| `K8S_CASE_CPU_REQUEST`               | **required** (Kubernetes backend)    | CPU request for each testcase container                                                                                                                                           |
-| `K8S_CPU_LIMIT`                      | **required** (Kubernetes backend)    | Sandbox pod CPU limit                                                                                                                                                             |
-| `K8S_MEMORY_REQUEST`                 | **required** (Kubernetes backend)    | Sandbox pod memory request                                                                                                                                                        |
-| `K8S_MEMORY_LIMIT`                   | **required** (Kubernetes backend)    | Sandbox pod memory limit                                                                                                                                                          |
-| `K8S_MAX_PARALLEL_CASES`             | **required** (Kubernetes backend)    | Maximum testcase containers per sandbox Job wave (1–20)                                                                                                                           |
-| `K8S_RUNTIME_CLASS_NAME`             | **required** (Kubernetes backend)    | RuntimeClass required for every sandbox Pod; production is `gvisor`                                                                                                               |
+| Variable                             | Required / Default                   | Purpose                                                                                                                |
+| ------------------------------------ | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `EXECUTION_BACKEND`                  | **required** (`docker`/`kubernetes`) | Sandbox executor backend                                                                                               |
+| `SANDBOX_IMAGE`                      | **required**                         | Sandbox container image                                                                                                |
+| `PORT`                               | **required**                         | Worker health server port (`/healthz`, `/readyz`)                                                                      |
+| `WORKER_CONCURRENCY`                 | **required**                         | Activity concurrency per task queue                                                                                    |
+| `WORKER_MODE`                        | `all`                                | Task queues: `all`, `judge`, `platform`, `control`; control requires Kubernetes capacity admission                     |
+| `SUBMISSION_PENDING_TIMEOUT_MINUTES` | `10` (range 10–1440)                 | Stale submission candidate cutoff; a still-running Temporal judge workflow is exempt, including normal admission waits |
+| `SANDBOX_CPU_LIMIT`                  | **required** (Docker backend)        | CPU limit per sandbox                                                                                                  |
+| `SANDBOX_MEMORY_MB`                  | **required** (Docker backend)        | Memory limit per sandbox (MB)                                                                                          |
+| `SANDBOX_PIDS_LIMIT`                 | **required** (Docker backend)        | PID limit per sandbox                                                                                                  |
+| `K8S_NAMESPACE`                      | **required** (Kubernetes backend)    | Namespace for sandbox pods                                                                                             |
+| `K8S_CPU_REQUEST`                    | **required** (Kubernetes backend)    | Sandbox pod CPU request                                                                                                |
+| `K8S_CASE_CPU_REQUEST`               | **required** (Kubernetes backend)    | CPU request for each testcase container                                                                                |
+| `K8S_CPU_LIMIT`                      | **required** (Kubernetes backend)    | Sandbox pod CPU limit                                                                                                  |
+| `K8S_MEMORY_REQUEST`                 | **required** (Kubernetes backend)    | Sandbox pod memory request                                                                                             |
+| `K8S_MEMORY_LIMIT`                   | **required** (Kubernetes backend)    | Sandbox pod memory limit                                                                                               |
+| `K8S_MAX_PARALLEL_CASES`             | **required** (Kubernetes backend)    | Maximum testcase containers per sandbox Job wave (1–20)                                                                |
+| `K8S_RUNTIME_CLASS_NAME`             | **required** (Kubernetes backend)    | RuntimeClass required for every sandbox Pod; production is `gvisor`                                                    |
+| `K8S_CAPACITY_ADMISSION`             | `false`                              | Enables staged attempts and the Temporal capacity coordinator; requires the controlled quota handoff below             |
+| `JUDGE_CAPACITY_ROUTING`             | `false`                              | Routes web/platform judge dispatch through the durable coordinator; enabled by either capacity chart flag              |
+| `K8S_ARTIFACT_STORAGE_CLASS`         | `local-path`                         | RWO artifact PVC StorageClass; preparation rejects classes without `WaitForFirstConsumer`                              |
 
 > The `SANDBOX_*` resource limits are read only by the Docker backend; the
 > `K8S_*` limits only by the Kubernetes backend. The schema enforces this split,
@@ -262,23 +265,62 @@ git push origin vX.Y.Z
 
 ### Single-machine capacity ceiling (bounded autoscaling)
 
-The single-machine deployment has web HPA but no node autoscaler. Sandbox
-capacity is deliberately bounded by quota, so bursts queue safely instead of
-overcommitting the host:
+The single-machine deployment has web HPA but no node autoscaler. The following
+values describe the **legacy default**, with capacity admission disabled:
 
-| Tier     | Single-machine (`values-single-machine.yaml`) | Autoscaling on one box                                             |
-| -------- | --------------------------------------------- | ------------------------------------------------------------------ |
-| web      | 1 replica, HPA min 1 / max 3                  | CPU target 70%; scales only within the single node.                |
-| judge    | 1 worker, `WORKER_CONCURRENCY=4`              | Fixed; two sandbox Jobs already consume the configured host quota. |
-| platform | 1 worker                                      | Fixed.                                                             |
-| sandbox  | quota `4` CPU / `12Gi` / `4` pods             | No node autoscaler; excess Jobs stay Pending until capacity frees. |
+| Tier     | Single-machine (`values-single-machine.yaml`) | Autoscaling on one box                                               |
+| -------- | --------------------------------------------- | -------------------------------------------------------------------- |
+| web      | 1 replica, HPA min 1 / max 3                  | CPU target 70%; scales only within the single node.                  |
+| judge    | 1 worker, `WORKER_CONCURRENCY=4`              | Fixed activity slots; not a guarantee of four executing submissions. |
+| platform | 1 worker                                      | Fixed.                                                               |
+| sandbox  | quota `4` CPU / `12Gi` / `4` pods             | No node autoscaler; excess Jobs stay Pending until capacity frees.   |
 
-**Real concurrent-submission ceiling.** On the Kubernetes backend a submission's
-judge Job batches up to 20 testcase containers and requests roughly `2` CPU /
-`5Gi` for a full wave. The single-machine quota therefore admits at most two
-20-case submissions concurrently; other workflows remain durable and wait for
-capacity. This is classroom capacity, not exam-hall capacity. Increase the
-quota only with measured host headroom, or move to GKE for bounded node scale-out.
+Legacy waves contain up to 20 testcase containers with 100m CPU and 64 MiB
+memory requests per container; hard memory limits are derived from each problem.
+Init-container effective requests and RuntimeClass overhead also affect admission.
+The old “two submissions / 5 GiB per wave” description is not a reliable host
+capacity calculation. Free memory and worker CPU limits do not establish judge
+throughput.
+
+With `worker.sandbox.capacityAdmission.enabled: true`, the coordinator instead
+budgets each eligible node from allocatable resources minus the larger of
+non-judge effective requests or a 25% reserve. Cases request/limit one CPU and
+reserve their complete hard memory limit. Wave sizes follow available CPU/memory
+and round-robin demand, with no fixed four-case ceiling. Different submissions
+can use different nodes. Nodes under memory/disk/PID pressure receive no new
+permits until a fresh snapshot confirms recovery. Existing permit
+reservations survive capacity reductions; instantaneous CPU/RAM utilization does
+not increase the budget. See [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#capacity-admission-and-fairness).
+
+### Capacity admission rollout boundary
+
+`capacityAdmission.enabled` defaults to `false` in the chart. Enabling it also
+creates `nojv-worker-control` (the release fullname plus `-worker-control`) on
+the `judge-control` queue and stops Helm rendering `sandbox-quota`. The control
+worker alone maintains that quota after `activateJudgeQuota` and a successful
+refresh. Until activation it only observes capacity and leaves the retained
+static quota intact. The coordinator starts paused on first
+creation; restarting an existing coordinator preserves its current pause state.
+`capacityAdmission.routingEnabled` also defaults to `false`. Enabling routing
+only creates the control worker and routes web/platform dispatch through the
+coordinator while leaving legacy workers and the retained static quota in place.
+This supports holding newly accepted submissions before the strategy cutover.
+
+**Before enabling admission, deploy a separate release with the feature still
+disabled and verify `helm.sh/resource-policy: keep` on `sandbox-quota` in both
+the installed Helm manifest and the live object.** This retained-object handoff
+prevents the next Helm upgrade from deleting the quota before the controller
+writes it. Do not skip directly from a pre-annotation chart to enabled capacity.
+
+The [judge capacity runbook](../runbooks/judge-capacity.md) defines drain,
+history compatibility, quota ownership, smoke checks and rollback. The new
+resource strategy is not approved for production merely because the flag exists:
+100-person performance evidence and the complete fault matrix remain pending;
+bounded local gVisor integration has passed.
+The judge Deployment uses `strategy: Recreate` to avoid old/new worker overlap
+within that Deployment. The durable dispatch/drain protocol and operator CLI
+are described in the runbook. It does not change migrator hooks that may stop
+web service; maintenance and web-up cutovers have distinct settings.
 
 ## GCP Production Architecture
 
@@ -315,21 +357,23 @@ Ingress/LB origin is restricted to Cloudflare's CIDR ranges (see
 
 ### Service Mapping
 
-| Component | Where it runs                                        | Scaling                                         |
-| --------- | ---------------------------------------------------- | ----------------------------------------------- |
-| web       | Chart Deployment (+ HPA on GKE)                      | HPA min 2 / max 15 (`web.hpa.*`)                |
-| worker    | Chart Deployments (judge + platform)                 | Static replicas sized to sandbox capacity       |
-| migrator  | Chart pre-install/pre-upgrade Helm hook              | One-shot per release                            |
-| seed      | Chart post-install Helm hook (opt-in `seed.enabled`) | One-shot per release                            |
-| sandbox   | K8s Jobs (`nojv-sandbox`)                            | Per-submission, quota + node cluster-autoscaler |
-| postgres  | In-cluster CloudNativePG _or_ Cloud SQL              | Vertical (manual) / CNPG instances              |
-| redis     | In-cluster _or_ Memorystore                          | Vertical (manual)                               |
-| temporal  | Official Temporal Helm chart (prereq)                | Per HA-PRODUCTION.md                            |
-| images    | Artifact Registry                                    | —                                               |
-| secrets   | Chart runtime secret / Secret Manager                | —                                               |
+| Component | Where it runs                                              | Scaling                                         |
+| --------- | ---------------------------------------------------------- | ----------------------------------------------- |
+| web       | Chart Deployment (+ HPA on GKE)                            | HPA min 2 / max 15 (`web.hpa.*`)                |
+| worker    | Chart Deployments (judge + platform; control when enabled) | Static replicas and separate control queue      |
+| migrator  | Chart pre-install/pre-upgrade Helm hook                    | One-shot per release                            |
+| seed      | Chart post-install Helm hook (opt-in `seed.enabled`)       | One-shot per release                            |
+| sandbox   | K8s Jobs (`nojv-sandbox`)                                  | Per-submission, quota + node cluster-autoscaler |
+| postgres  | In-cluster CloudNativePG _or_ Cloud SQL                    | Vertical (manual) / CNPG instances              |
+| redis     | In-cluster _or_ Memorystore                                | Vertical (manual)                               |
+| temporal  | Official Temporal Helm chart (prereq)                      | Per HA-PRODUCTION.md                            |
+| images    | Artifact Registry                                          | —                                               |
+| secrets   | Chart runtime secret / Secret Manager                      | —                                               |
 
 > **Autoscaling layers.** Concurrent-user spikes are absorbed by the **web** HPA.
-> Submission bursts are absorbed by sandbox Jobs, capped by the ResourceQuota;
+> With capacity admission disabled, submission bursts reach sandbox Jobs capped
+> by ResourceQuota. With it enabled, work waits durably in Temporal before
+> creating execution Jobs; the coordinator and dynamic quota bound admission.
 > on GKE, one on-demand gVisor node is always present and a gVisor Spot pool
 > scales from 0 to 4 nodes. The judge worker remains fixed because it dispatches
 > I/O-bound work and additional replicas do not create sandbox capacity.
@@ -338,7 +382,7 @@ Ingress/LB origin is restricted to Cloudflare's CIDR ranges (see
 
 NOJV deploys to single-machine k8s and GKE through the **same** umbrella chart
 at `infra/charts/nojv` — only the values overlay differs. The chart renders web,
-the two Temporal workers, worker RBAC + PDBs, the namespaces, the sandbox
+the judge/platform Temporal workers, an optional control worker, worker RBAC + PDBs, the namespaces, the sandbox
 namespace policy (deny-all NetworkPolicy + ResourceQuota + LimitRange), the
 worker-egress NetworkPolicy, the migrator Helm hook, and (optionally) in-cluster
 Postgres (CloudNativePG), Redis, and MinIO. The full knob reference is in
@@ -583,7 +627,7 @@ continue while they differ.
 
 ## Microservice Deployment
 
-The worker supports three deployment modes via `WORKER_MODE`. The chart
+The worker supports four deployment modes via `WORKER_MODE`. By default the chart
 (`infra/charts/nojv/templates/worker-judge.deployment.yaml` +
 `worker-platform.deployment.yaml`) ships the split as two separate Deployments
 off the same image — `nojv-worker` (`WORKER_MODE=judge`) and
@@ -591,7 +635,12 @@ off the same image — `nojv-worker` (`WORKER_MODE=judge`) and
 PodDisruptionBudget (`pdb.enabled`), so the judge and platform task queues scale
 and fail independently. Replica counts come from `worker.judge.replicas` /
 `worker.platform.replicas`. `WORKER_MODE=all` is the default for local dev
-(`pnpm dev`), where a single process runs both task queues.
+(`pnpm dev`), where a single process runs judge/platform queues and also the
+control queue if Kubernetes capacity admission is enabled. The enabled chart
+adds `worker-control.deployment.yaml`; its independent Deployment has one replica
+and four control activity slots. It shares the judge service account, including
+the feature-gated node/Pod read and quota-write permissions. Unlike the existing
+judge/platform Deployments, it does not currently have a dedicated PDB template.
 
 ### Mode: all (Development)
 
@@ -623,27 +672,31 @@ environment:
   WORKER_MODE: platform
 ```
 
+### Mode: control (Capacity and Cleanup)
+
+`WORKER_MODE=control` with `K8S_CAPACITY_ADMISSION=true` runs the singleton
+admission workflow, capacity/quota refresh and staged cleanup activities on
+`judge-control`. It needs Kubernetes access and the same object-storage access
+as the judge worker for run-owned temporary data. It never executes student
+programs in the worker process. An unavailable control worker stops fresh
+capacity updates and permit release; it must not cause permits to expire free.
+
 ### Scaling Strategy
 
-```
-Submission load ──► Capped by nojv-sandbox ResourceQuota (10 pods, 10 CPU on GKE).
-                    Two static workers × concurrency 5 can dispatch every
-                    sandbox slot; throughput is gated by the sandbox quota
-                    and autoscaling node pools, not by worker fan-out.
-Contest count   ──► Platform workers handle lifecycle (low overhead).
-                    Typically 1-2 platform workers suffice.
-```
+Legacy overlays retain fixed namespace quota values: GKE uses 10 Pods / 10 CPU
+with two judge workers at concurrency five; single-machine uses four Pods /
+four CPU / 12 GiB with one worker at concurrency four. These are configuration
+defaults, not measured submission capacity. Increasing worker replicas does not
+add sandbox CPU or storage throughput.
 
-To raise the sandbox throughput ceiling, bump `sandbox.resourceQuota.*` in your
-values overlay (then `helm upgrade`) and the GKE Spot pool total max, not the
-worker replica count. Keep the on-demand pool total max at 1 to preserve the
-cost ceiling.
-
-> The GKE overlay has quota `10` pods / `10` CPU, two judge workers at
-> concurrency `5`, one on-demand gVisor node, and up to four gVisor Spot nodes.
-> The single-machine
-> overlay has one judge worker, quota `4` pods / `4` CPU / `12Gi`, and no node
-> autoscaler; see [Single-machine capacity ceiling](#single-machine-capacity-ceiling-bounded-autoscaling).
+For enabled capacity admission, add eligible Ready, undrained sandbox nodes to
+increase the next snapshot's budget. The coordinator owns `sandbox-quota`; do
+not also change its spec through Helm or an operator loop. The existing GKE node
+pool scaling policy and the judge admission budget remain separate mechanisms.
+Pending-work behavior and node autoscaling need integration validation because
+workflow-side waiting itself does not create an unschedulable Pod to trigger a
+cluster autoscaler. Record actual multi-node performance independently of
+single-host simulated-node tests.
 
 ## Database Migrations
 
@@ -660,15 +713,48 @@ pnpm db:validate
 
 In production, migrations run as the chart's **pre-install/pre-upgrade Helm
 hook** (`infra/charts/nojv/templates/migrator.job.yaml`). Installs apply the full
-history. Upgrades stage expand migrations first; for the versioned-storage
-contract the hook then disables the web HPA target, drains web plus both Temporal
-workers, performs and verifies the S3 backfill, runs a database preflight, and
-only then exposes the atomic contract migration. A failure before backfill
+history. An upgrade whose schema is already up to date (`prisma migrate status`
+reports no pending migrations) and whose storage contract is already applied
+exits the hook immediately. Any other state takes the maintenance window: a
+status probe that cannot be read counts as pending.
+
+Whether the chart itself parks the workloads is a separate, render-time
+decision, because Helm cannot see what the hook found: `migrator.releaseWindow`
+(default `true`) gates the `replicas: 0` that web, judge and platform otherwise
+carry on every upgrade, the HPA's maintenance `scaleTargetRef`, and the
+post-upgrade Job's scale/restore/re-enter-maintenance behavior. The release
+workflow computes it by diffing `packages/db/prisma/migrations` between the
+commit currently on the deploy branch (`release.sourceSha`) and the release
+commit, and writes it into the same deploy commit as the image digests; an
+unknown or unreachable deployed commit publishes `true`. With `false` the
+release rolls out through the web Deployment's `maxUnavailable: 0` /
+`maxSurge: 1` strategy with no downtime, and a failed readiness check leaves the
+previous pods serving instead of draining them. The web container's 10-second
+`preStop` sleep keeps the outgoing pod answering while its Endpoints removal
+reaches cloudflared, so the surge hand-off cannot strand a request on a listener
+that has already closed. Both mismatches stay safe: a
+`false` flag with pending migrations still makes the hook drain and migrate
+before Helm starts the new pods, and a `true` flag with nothing to migrate only
+costs the old drained window. Upgrades with migrations stage expand
+migrations first; for the versioned-storage contract the hook then disables the
+web HPA target, drains web plus both Temporal workers, performs and verifies the
+S3 backfill, runs a database preflight, and only then exposes the atomic
+contract migration. A failure before backfill
 restores the prior workloads. Once backfill begins, any failure stays in
 maintenance because restoring legacy writers could invalidate the immutable
 pointers. The chart keeps all three new Deployments in maintenance through
 Helm's apply/wait phase; the post-upgrade hook explicitly starts and verifies
 the new workloads before restoring the web HPA target.
+
+Before any of that, a `release-prepull` pre-upgrade hook (weight -10, ahead of
+the migrator's drain at -5) pulls the release's web and worker images onto the
+node by running each as a no-op container. A slow or failing registry therefore
+fails the upgrade while the previous release is still serving, instead of after
+the drain; the post-upgrade readiness window then only has to cover container
+start. The HelmRelease deliberately does not roll back a failed upgrade
+(`remediateLastFailure: false`): after a one-way contract migration the previous
+revision may be unsafe to restore, so a failed post-upgrade hook leaves the
+workloads in maintenance for an operator — see the incident runbook.
 
 ### Course problem library contract
 
@@ -690,11 +776,10 @@ obtain a fresh backup after all writers stop before allowing the migration hook.
 
 `20260907000000_course_roster_contract` converts placeholder accounts into durable
 course memberships in one transaction. It remains outside `deploy-expand.sh`'s
-staging boundary, which stops at the earlier storage contract. Even when that
-contract is already applied, `deploy-release.sh` drains web, judge worker, and
-platform worker, disables the web HPA target (and pauses KEDA if configured),
-then rechecks deployments, pods, and autoscalers immediately before the full
-migration run. Do not apply this contract with a standalone production
+staging boundary, which stops at the earlier storage contract. While it is
+pending, `deploy-release.sh` drains web, judge worker, and platform worker,
+disables the web HPA target (and pauses KEDA if configured), then rechecks
+deployments, pods, and autoscalers immediately before the full migration run. Do not apply this contract with a standalone production
 `prisma migrate deploy` command while writers are running.
 
 Before releasing, verify a recoverable backup and the exact primary/database

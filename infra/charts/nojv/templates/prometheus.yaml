@@ -9,34 +9,7 @@ metadata:
     app.kubernetes.io/component: prometheus
 data:
   prometheus.yml: |
-    global:
-      scrape_interval: 30s
-    scrape_configs:
-      - job_name: otel-collector
-        static_configs:
-          - targets:
-              - {{ printf "%s-otel-collector.%s.svc:8889" (include "nojv.fullname" .) (include "nojv.namespace" .) | quote }}
-      {{- if .Values.observability.prometheus.nodeExporter.enabled }}
-      - job_name: node-exporter
-        static_configs:
-          - targets:
-              - {{ printf "%s-node-exporter.%s.svc:9100" (include "nojv.fullname" .) (include "nojv.namespace" .) | quote }}
-      {{- end }}
-      {{- if eq .Values.postgres.mode "cnpg" }}
-      - job_name: cnpg-postgres
-        static_configs:
-          - targets:
-              - {{ printf "%s-metrics.%s.svc:9187" (include "nojv.cnpgClusterName" .) (include "nojv.namespace" .) | quote }}
-      {{- end }}
-    {{- with .Values.observability.prometheus.remoteWrite.url }}
-    remote_write:
-      - url: {{ . | quote }}
-        {{- if $.Values.observability.prometheus.remoteWrite.username }}
-        basic_auth:
-          username: {{ $.Values.observability.prometheus.remoteWrite.username | quote }}
-          password_file: /etc/prometheus-secrets/remote-write-password
-        {{- end }}
-    {{- end }}
+{{- include "nojv.prometheusConfig" . | nindent 4 }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -76,7 +49,7 @@ spec:
       labels:
         app.kubernetes.io/name: nojv-prometheus
       annotations:
-        checksum/config: {{ printf "%s-%v-%s-%s-%s" (.Values.observability.prometheus.retention | toString) .Values.observability.prometheus.nodeExporter.enabled .Values.observability.prometheus.remoteWrite.url .Values.observability.prometheus.remoteWrite.username .Values.postgres.mode | sha256sum }}
+        checksum/config: {{ include "nojv.prometheusConfig" . | sha256sum }}
     spec:
       securityContext:
         runAsNonRoot: true

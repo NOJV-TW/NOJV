@@ -4,7 +4,7 @@ submission sweeper, plagiarism). It never creates sandbox Jobs, but the worker
 env schema still validates the full kubernetes config at boot, so the
 K8s/sandbox vars below are required to avoid a crashloop.
 */}}
-{{- $releaseMaintenance := and .Release.IsUpgrade .Values.migrator.enabled -}}
+{{- $releaseMaintenance := and .Release.IsUpgrade .Values.migrator.enabled .Values.migrator.releaseWindow -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -110,6 +110,8 @@ spec:
               value: {{ .Values.temporal.address | quote }}
             - name: TEMPORAL_NAMESPACE
               value: {{ .Values.temporal.namespace | quote }}
+            - name: JUDGE_CAPACITY_ROUTING
+              value: {{ or .Values.worker.sandbox.capacityAdmission.enabled .Values.worker.sandbox.capacityAdmission.routingEnabled | quote }}
             - name: S3_ENDPOINT
               valueFrom:
                 secretKeyRef:

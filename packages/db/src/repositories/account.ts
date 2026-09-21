@@ -8,4 +8,11 @@ export const accountRepo = {
     });
     return account !== null;
   },
+
+  listOAuthIdTokens(userId: string) {
+    return prisma.account.findMany({
+      where: { userId, providerId: { not: "credential" } },
+      select: { providerId: true, accountId: true, idToken: true },
+    });
+  },
 };

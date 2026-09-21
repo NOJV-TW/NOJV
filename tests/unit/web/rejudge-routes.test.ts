@@ -2,6 +2,8 @@ import type { RequestEvent } from "@sveltejs/kit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  listRejudgeCandidates: vi.fn(),
+  recordRejudgeProgress: vi.fn(),
   findByWorkflowId: vi.fn(),
   cancelUnattempted: vi.fn(),
   queryProgress: vi.fn(),
@@ -14,6 +16,8 @@ vi.mock("$lib/server/logger", () => ({ createLogger: () => ({ error: mocks.logEr
 
 vi.mock("@nojv/db", () => ({
   durableWorkRepo: {
+    listRejudgeCandidates: mocks.listRejudgeCandidates,
+    recordRejudgeProgress: mocks.recordRejudgeProgress,
     findByWorkflowId: mocks.findByWorkflowId,
     cancelUnattempted: mocks.cancelUnattempted,
   },
@@ -28,7 +32,7 @@ vi.mock("$lib/server/shared/rate-limiter", () => ({
   registryTokenRateLimiter: { consume: async () => "allowed" },
 }));
 
-import { configureDomainOrchestration } from "@nojv/application";
+import { configureDomainOrchestration, submissionDomain } from "@nojv/application";
 import { GET } from "../../../apps/web/src/routes/api/rejudges/[workflowId]/+server";
 import { POST } from "../../../apps/web/src/routes/api/rejudges/[workflowId]/cancel/+server";
 
@@ -67,6 +71,16 @@ beforeEach(() => {
 });
 
 describe("rejudge state routes", () => {
+  it("keeps target identity metadata inside the server", async () => {
+    mocks.queryProgress.mockResolvedValue({
+      status: "running",
+      completed: 0,
+      total: 1,
+      targets: [{ submissionId: "private-target", judgeGeneration: 4 }],
+    });
+    const response = await GET(event());
+    expect(await response.json()).toEqual({ status: "running", completed: 0, total: 1 });
+  });
   it("reads queued ownership before Temporal has accepted the dispatch", async () => {
     mocks.findByWorkflowId.mockResolvedValue(work("pending", 0));
     const response = await GET(event());
@@ -198,5 +212,63 @@ describe("rejudge state routes", () => {
     expect(response.status).toBe(202);
     expect(await response.json()).toEqual({ status: "requested" });
     expect(mocks.cancelWorkflow).toHaveBeenCalledWith(workflowId);
+  });
+});
+
+describe("rejudge discovery", () => {
+  it("finds queued requester batches with an exact context match", async () => {
+    const queued = work("pending", 0);
+    mocks.listRejudgeCandidates.mockResolvedValue([
+      queued,
+      {
+        ...queued,
+        payload: {
+          ...queued.payload,
+          workflowId: "rejudge-exam",
+          input: { ...queued.payload.input, examId: "exam" },
+        },
+      },
+    ]);
+    mocks.findByWorkflowId.mockResolvedValue(queued);
+    expect(
+      await submissionDomain.listActiveRejudges(
+        mocks.actor as Parameters<typeof submissionDomain.listActiveRejudges>[0],
+        { problemId: "p1", scope: {} },
+      ),
+    ).toEqual({ items: [{ workflowId, status: "queued", completed: 0, total: 0 }] });
+    expect(mocks.listRejudgeCandidates).toHaveBeenCalledWith({
+      problemId: "p1",
+      requesterId: "owner",
+    });
+    expect(mocks.queryProgress).not.toHaveBeenCalled();
+  });
+
+  it("omits terminal batches and allows administrators to discover all requesters", async () => {
+    mocks.listRejudgeCandidates.mockResolvedValue([work()]);
+    mocks.queryProgress.mockResolvedValue({ status: "completed", completed: 10, total: 10 });
+    expect(
+      await submissionDomain.listActiveRejudges(
+        { userId: "admin", platformRole: "admin" },
+        { problemId: "p1", scope: {} },
+      ),
+    ).toEqual({ items: [] });
+    expect(mocks.listRejudgeCandidates).toHaveBeenCalledWith({ problemId: "p1" });
+  });
+
+  it("enforces requester ownership even if discovery returns a forged candidate", async () => {
+    mocks.listRejudgeCandidates.mockResolvedValue([work()]);
+    mocks.findByWorkflowId.mockResolvedValue({
+      ...work(),
+      payload: {
+        ...work().payload,
+        input: { ...work().payload.input, triggeredByUserId: "other" },
+      },
+    });
+    await expect(
+      submissionDomain.listActiveRejudges(
+        mocks.actor as Parameters<typeof submissionDomain.listActiveRejudges>[0],
+        { problemId: "p1", scope: {} },
+      ),
+    ).rejects.toThrow("Only the rejudge requester");
   });
 });

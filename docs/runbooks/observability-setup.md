@@ -76,6 +76,36 @@ collector needs just the endpoint).
   (`infra/grafana/alerts/*.json`) are portable JSON; `infra/grafana/provision.ts`
   pushes them to any Grafana stack URL, self-hosted or cloud.
 
+## Judge recovery monitoring
+
+The platform worker (or combined `WORKER_MODE=all`) observes PostgreSQL during
+OpenTelemetry's 30-second collection cycle, independently of judge workers and
+Temporal activity execution. Queries have a three-second statement deadline.
+
+| Metric                                               | Meaning                                                                                                                                              |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `nojv_judge_queue_depth`                             | Queued, waiting-capacity and recovering executions                                                                                                   |
+| `nojv_judge_queue_oldest_seconds`                    | Age of the oldest queue entry among those states                                                                                                     |
+| `nojv_judge_executions_blocked`                      | Executions awaiting infrastructure/configuration repair                                                                                              |
+| `nojv_submissions_stuck`                             | Due queued/recovering/finalizing executions with ten-minute-old progress, plus running executions with stale progress and an expired or absent lease |
+| `nojv_judge_legacy_system_errors`                    | SE submissions with no immutable execution journal                                                                                                   |
+| `nojv_judge_recovery_last_success_timestamp_seconds` | Database time of the last successful complete snapshot                                                                                               |
+
+Use `max`, not `sum`, across platform replicas: each replica observes the same
+database totals. Labels do not contain submission IDs, user IDs or free-form
+error text. Worker `/livez` checks only its execution loops; `/readyz` also
+requires Temporal connectivity. A dependency outage does not itself make a
+running worker fail liveness.
+
+Before accepting a release, verify all six gauges in the actual alert datasource.
+In an isolated test environment, pause judge consumption and confirm the queue
+metrics increase while the platform observer remains fresh; then interrupt the
+observer or its database access and confirm the observer-stale alert fires.
+The shipped rule treats absent data as a fault and detects a snapshot older than
+three minutes. Restore service and confirm both queue drainage and alert
+resolution. Verify both provisioning of the JSON rules and receipt of a test
+notification through the existing on-call route.
+
 ## First-time setup
 
 ### Grafana Cloud account

@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..", "..", "..");
 
-const rootDocs = ["AGENT.md", "README.md"];
+const rootDocs = ["AGENTS.md", "README.md"];
 
 // Living-doc trees whose intra-repo links must all resolve. docs/plans/ is
 // deliberately excluded — archived plans carry historical links to code/docs

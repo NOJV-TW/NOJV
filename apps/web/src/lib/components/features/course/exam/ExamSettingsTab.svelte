@@ -49,6 +49,7 @@
     {
       dataType: "json",
       resetForm: false,
+      applyAction: "never",
       invalidateAll: true,
       onSubmit: ({ jsonData }) => {
         jsonData(

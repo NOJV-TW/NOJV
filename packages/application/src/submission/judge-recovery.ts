@@ -1,0 +1,173 @@
+import { JUDGE_EXECUTION_DISPATCH_KIND } from "@nojv/core";
+import { durableWorkRepo, prismaAdapterClient as db, runTransaction } from "@nojv/db";
+import { z } from "zod";
+import { getDomainOrchestration } from "../shared/orchestration";
+
+const dispatchSchema = z.object({
+  executionId: z.uuid(),
+  workflowId: z.string().min(1),
+});
+export async function executeJudgeExecutionDispatch(payload: unknown): Promise<void> {
+  const input = dispatchSchema.parse(payload);
+  const run = await db.judgeExecution.findUnique({ where: { id: input.executionId } });
+  if (run?.workflowId !== input.workflowId || ["cancelled", "completed"].includes(run.state))
+    return;
+  if (process.env.JUDGE_CAPACITY_ROUTING === "true" || run.capacityStrategy) {
+    const submission = await db.submission.findUniqueOrThrow({
+      where: { id: run.submissionId },
+      select: { userId: true },
+    });
+    await getDomainOrchestration().dispatchJudgeExecution({
+      ...input,
+      ...(run.capacityStrategy ? { capacity: true } : {}),
+      admissionOrder: {
+        executionId: run.id,
+        submissionId: run.submissionId,
+        studentId: submission.userId,
+        submittedAt: run.createdAt.getTime(),
+      },
+    });
+  } else await getDomainOrchestration().dispatchJudgeExecution(input);
+}
+
+export async function reconcileJudgeExecutions(now = new Date()): Promise<number> {
+  const cleanup = await db.judgeExecution.findMany({
+    where: {
+      state: { in: ["completed", "cancelled"] },
+      leaseToken: { not: null },
+      leaseUntil: { lt: now },
+    },
+    take: 100,
+  });
+  for (const run of cleanup) {
+    if (!run.leaseToken) continue;
+    try {
+      await getDomainOrchestration().dispatchJudgeCleanup({
+        executionId: run.id,
+        workflowId: run.workflowId,
+        leaseToken: run.leaseToken,
+        ...(run.capacityStrategy ? { capacity: true } : {}),
+      });
+    } catch (error) {
+      console.error("Judge cleanup dispatch failed", { executionId: run.id, error });
+    }
+  }
+  const candidates = await db.judgeExecution.findMany({
+    where: {
+      state: { notIn: ["completed", "cancelled"] },
+      nextAttemptAt: { lte: now },
+    },
+    orderBy: [{ nextAttemptAt: "asc" }, { id: "asc" }],
+    take: 100,
+  });
+  let recovered = 0;
+  for (const run of candidates) {
+    try {
+      const state = await getDomainOrchestration().describeSubmissionJudge(
+        run.submissionId,
+        run.workflowId,
+      );
+      if (state?.running) {
+        const stalledTask =
+          state.pendingWorkflowTaskAt &&
+          now.getTime() - state.pendingWorkflowTaskAt.getTime() > 600_000;
+        const stalledActivity =
+          state.lastActivityAt && now.getTime() - state.lastActivityAt.getTime() > 70 * 60_000;
+        if (stalledTask || stalledActivity) {
+          await db.judgeExecution.updateMany({
+            where: { id: run.id, workflowId: run.workflowId },
+            data: {
+              reasonCode: "workflow_stalled",
+              lastError: "Workflow exceeded its progress deadline.",
+              nextAttemptAt: new Date(now.getTime() + 60_000),
+            },
+          });
+          await getDomainOrchestration().terminateSubmissionJudge(
+            run.submissionId,
+            "Recovering a workflow with expired progress",
+            run.workflowId,
+          );
+          continue;
+        }
+        await db.judgeExecution.updateMany({
+          where: { id: run.id, workflowId: run.workflowId },
+          data: { nextAttemptAt: new Date(now.getTime() + 60_000) },
+        });
+        continue;
+      }
+      const work = {
+        kind: JUDGE_EXECUTION_DISPATCH_KIND,
+        dedupeKey: run.workflowId,
+        payload: { executionId: run.id, workflowId: run.workflowId },
+        maxAttempts: 20,
+      };
+      if (!state) {
+        const existing = await db.durableWork.findUnique({
+          where: {
+            kind_dedupeKey: { kind: work.kind, dedupeKey: work.dedupeKey },
+          },
+        });
+        if (!existing) await durableWorkRepo.enqueue(work);
+        else if (["dead", "succeeded", "cancelled"].includes(existing.status))
+          await durableWorkRepo.reactivate(work);
+      } else {
+        await runTransaction(async (tx) => {
+          await tx.$queryRaw`SELECT id FROM "Submission" WHERE id = ${run.submissionId} FOR UPDATE`;
+          await tx.$queryRaw`SELECT id FROM "JudgeExecution" WHERE id = ${run.id} FOR UPDATE`;
+          const current = await tx.judgeExecution.findUniqueOrThrow({ where: { id: run.id } });
+          if (
+            current.workflowId !== run.workflowId ||
+            ["completed", "cancelled"].includes(current.state)
+          )
+            return;
+          const epoch = current.recoveryEpoch + 1;
+          const workflowId = `judge-execution-${run.id}-${String(epoch)}`;
+          await tx.judgeExecution.update({
+            where: { id: run.id },
+            data: {
+              workflowId,
+              recoveryEpoch: epoch,
+              queueClass: "background",
+              state: current.state === "finalizing" ? "finalizing" : "recovering",
+              nextAttemptAt: new Date(now.getTime() + 60_000),
+            },
+          });
+          await tx.submission.updateMany({
+            where: {
+              id: run.submissionId,
+              judgeGeneration: run.generation,
+              activeJudgeRunId: run.workflowId,
+            },
+            data: { activeJudgeRunId: workflowId },
+          });
+          if (run.rejudgeLogId)
+            await tx.submissionRejudgeLog.update({
+              where: { id: run.rejudgeLogId },
+              data: { rejudgeRunId: workflowId },
+            });
+          await durableWorkRepo.withTx(tx).enqueue({
+            ...work,
+            dedupeKey: workflowId,
+            payload: { executionId: run.id, workflowId },
+          });
+        });
+      }
+      recovered++;
+    } catch (error) {
+      console.error("Judge execution reconciliation failed", { executionId: run.id, error });
+    }
+  }
+  return recovered;
+}
+
+export async function kickJudgeExecution(submissionId: string): Promise<void> {
+  const execution = await db.judgeExecution.findFirst({
+    where: { submissionId },
+    orderBy: { generation: "desc" },
+  });
+  if (execution)
+    await executeJudgeExecutionDispatch({
+      executionId: execution.id,
+      workflowId: execution.workflowId,
+    });
+}

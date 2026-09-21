@@ -65,4 +65,27 @@ spec:
             limits:
               cpu: 200m
               memory: 128Mi
+---
+{{/*
+Headless Service for the metrics endpoint cloudflared already serves on :2000.
+Headless, not ClusterIP: the DNS A records resolve to every replica, so
+Prometheus scrapes each cloudflared separately instead of round-robining and
+blending two tunnels' connection counts into one unreadable series.
+*/}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nojv.fullname" . }}-cloudflared-metrics
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cloudflared
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: nojv-cloudflared
+  ports:
+    - name: metrics
+      port: 2000
+      targetPort: metrics
 {{- end }}

@@ -51,6 +51,7 @@ function localToIso(local: string): string {
 }
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
+  event.depends("submission:data");
   const actor = requireAuth(event);
   const parent = await event.parent();
   const { assignment, isManager } = parent;

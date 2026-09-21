@@ -24,10 +24,11 @@ const {
 function actorOf(user: {
   id: string;
   email: string;
-  username: string;
+  username: string | null;
   name: string;
   platformRole: string;
 }): ActorContext {
+  if (!user.username) throw new Error("Test user must have a username");
   return {
     userId: user.id,
     email: user.email,
@@ -125,6 +126,9 @@ describe("submission reads during an active exam", () => {
     for (const reader of [owner, other]) {
       await expectGenericNotFound(getSubmissionForActor(actorOf(reader), reference.id));
       await expectGenericNotFound(getSubmissionDetail(actorOf(reader), reference.id));
+      await expect(
+        submissionDomain.listSubmissionOperations(actorOf(reader), [reference.id]),
+      ).resolves.toEqual({ items: [], unavailableIds: [reference.id] });
     }
     expect(storageGetSubmissionSources).not.toHaveBeenCalled();
     await expect(getSubmissionForActor(actorOf(admin), reference.id)).resolves.toMatchObject({
@@ -219,7 +223,7 @@ describe("submission reads during an active exam", () => {
   });
 
   it("SQL-scopes both pages to the active exam across a 52-row result set", async () => {
-    const { course, examA, owner, problem, rows } = await createFixture();
+    const { examA, owner, problem, rows } = await createFixture();
     await testPrisma.submission.delete({ where: { id: rows.currentExam.id } });
     const ids: string[] = [];
     for (let index = 0; index < 52; index += 1) {
@@ -239,33 +243,219 @@ describe("submission reads during an active exam", () => {
     });
     expect(first.items).toHaveLength(50);
     expect(first.items.map((item) => item.id)).toEqual(ids.slice(2).reverse());
-    expect(first.nextCursor).toBe(ids[2]);
+    expect(first.totalPages).toBe(2);
 
     const second = await listUserSubmissions({
       actor: actorOf(owner),
       limit: 50,
-      cursor: first.nextCursor!,
+      page: 2,
+      snapshot: first.snapshot,
     });
     expect(second.items.map((item) => item.id)).toEqual(ids.slice(0, 2).reverse());
     expect(second.nextCursor).toBeNull();
   });
 
-  it("rejects nonexistent and out-of-scope cursors with one generic 400", async () => {
+  it("rejects nonexistent and out-of-scope snapshot anchors with one generic 400", async () => {
     const { owner, rows } = await createFixture();
 
-    for (const cursor of [
+    const first = await listUserSubmissions({ actor: actorOf(owner), limit: 50 });
+    const validSnapshot = JSON.parse(Buffer.from(first.snapshot, "base64url").toString("utf8"));
+    for (const anchor of [
       "submission_does_not_exist",
       rows.practice.id,
       rows.otherExam.id,
       rows.otherUser.id,
     ]) {
       await expect(
-        listUserSubmissions({ actor: actorOf(owner), limit: 50, cursor }),
+        listUserSubmissions({
+          actor: actorOf(owner),
+          limit: 50,
+          snapshot: Buffer.from(JSON.stringify({ ...validSnapshot, id: anchor })).toString(
+            "base64url",
+          ),
+        }),
       ).rejects.toMatchObject({
         name: ValidationError.name,
-        message: "Invalid submission cursor.",
+        message: "Invalid submission snapshot.",
         status: 400,
       });
     }
+  });
+});
+
+describe("workspace submission history pagination", () => {
+  it("reads every page with tied timestamps and rejects cross-problem, cross-user and cross-exam cursors", async () => {
+    const { owner, problem, examA, examB, rows } = await createFixture();
+    const otherProblem = await createTestProblem();
+    const outside = await createTestSubmission({
+      userId: owner.id,
+      problemId: otherProblem.id,
+      examId: examA.id,
+    });
+    await testPrisma.submission.delete({ where: { id: rows.currentExam.id } });
+    const expected = Array.from(
+      { length: 151 },
+      (_, i) => `workspace_page_${String(i).padStart(3, "0")}`,
+    );
+    for (const id of expected) {
+      await createTestSubmission({
+        id,
+        userId: owner.id,
+        problemId: problem.id,
+        examId: examA.id,
+        createdAt: new Date("2026-09-21T00:00:00Z"),
+        status: "accepted",
+        score: 100,
+      });
+    }
+    const options = {
+      actor: actorOf(owner),
+      problemId: problem.id,
+      context: { type: "exam" as const, examId: examA.id },
+    };
+    let cursor: string | undefined;
+    const actual: string[] = [];
+    const pageSizes: number[] = [];
+    do {
+      const page = await submissionDomain.listWorkspaceSubmissions({
+        ...options,
+        ...(cursor ? { cursor } : {}),
+      });
+      actual.push(...page.items.map((row) => row.id));
+      pageSizes.push(page.items.length);
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor);
+    expect(pageSizes).toEqual([50, 50, 50, 1]);
+    expect(actual).toEqual(expected.reverse());
+    for (const cursor of [outside.id, rows.otherUser.id, rows.otherExam.id, "missing"]) {
+      await expect(
+        submissionDomain.listWorkspaceSubmissions({ ...options, cursor }),
+      ).rejects.toMatchObject({ status: 400 });
+    }
+    await expect(
+      submissionDomain.listWorkspaceSubmissions({
+        ...options,
+        context: { type: "exam", examId: examB.id },
+      }),
+    ).resolves.toEqual({ items: [], nextCursor: null });
+  });
+});
+
+describe("numbered history snapshots against the real database", () => {
+  it.each(["owner", "teacher"] as const)(
+    "keeps all 151 tied rows reachable for %s while newer submissions wait outside the snapshot",
+    async (reader) => {
+      const teacher = await createTestUser({ platformRole: "teacher" });
+      const student = await createTestUser();
+      const course = await createTestCourse({ ownerId: teacher.id });
+      const exam = await createTestExam({ courseId: course.id });
+      const otherExam = await createTestExam({ courseId: course.id });
+      const problem = await createTestProblem({ authorId: teacher.id });
+      const createdAt = new Date(Date.now() - 60_000);
+      const ids = Array.from(
+        { length: 151 },
+        (_, index) => `snapshot_${String(index).padStart(3, "0")}`,
+      );
+      for (const id of ids)
+        await createTestSubmission({
+          id,
+          userId: student.id,
+          problemId: problem.id,
+          examId: exam.id,
+          createdAt,
+          status: "accepted",
+        });
+      await createTestSubmission({
+        id: "outside_exam",
+        userId: student.id,
+        problemId: problem.id,
+        examId: otherExam.id,
+        createdAt,
+      });
+      await testPrisma.activeExamSession.create({
+        data: { userId: student.id, examId: exam.id },
+      });
+      const actor = actorOf(reader === "owner" ? student : teacher);
+      const read = (page = 1, snapshot?: string) => {
+        const options = {
+          actor,
+          limit: 50,
+          page,
+          filters: { problemId: problem.id },
+          ...(snapshot ? { snapshot } : {}),
+        };
+        return reader === "owner"
+          ? submissionDomain.listUserSubmissions(options)
+          : submissionDomain.listContextSubmissionsPaged({
+              ...options,
+              context: { type: "exam", id: exam.id },
+            });
+      };
+      const first = await read();
+      expect(first).toMatchObject({ page: 1, totalPages: 4, totalCount: 151, newCount: 0 });
+      const expected = [...ids].reverse();
+      expect(first.items.map((row) => row.id)).toEqual(expected.slice(0, 50));
+
+      await createTestSubmission({
+        id: "zz_same_timestamp",
+        userId: student.id,
+        problemId: problem.id,
+        examId: exam.id,
+        createdAt,
+      });
+      await createTestSubmission({
+        id: "newer_timestamp",
+        userId: student.id,
+        problemId: problem.id,
+        examId: exam.id,
+        createdAt: new Date(createdAt.getTime() + 1_000),
+      });
+      const actual = first.items.map((row) => row.id);
+      for (let page = 2; page <= 4; page += 1) {
+        const next = await read(page, first.snapshot);
+        expect(next).toMatchObject({
+          page,
+          snapshot: first.snapshot,
+          totalPages: 4,
+          totalCount: 151,
+          newCount: 2,
+        });
+        expect(next.items).toHaveLength(page === 4 ? 1 : 50);
+        actual.push(...next.items.map((row) => row.id));
+      }
+      expect(actual).toEqual(expected);
+      expect(new Set(actual).size).toBe(151);
+      const stillFirst = await read(1, first.snapshot);
+      expect(stillFirst.items.map((row) => row.id)).toEqual(first.items.map((row) => row.id));
+      expect(stillFirst.newCount).toBe(2);
+      const latest = await read();
+      expect(latest).toMatchObject({ totalCount: 153, newCount: 0 });
+      expect(latest.items.slice(0, 2).map((row) => row.id)).toEqual([
+        "newer_timestamp",
+        "zz_same_timestamp",
+      ]);
+    },
+    30_000,
+  );
+
+  it("rejects a teacher snapshot when moved to a different authorized exam", async () => {
+    const teacher = await createTestUser({ platformRole: "teacher" });
+    const course = await createTestCourse({ ownerId: teacher.id });
+    const examA = await createTestExam({ courseId: course.id });
+    const examB = await createTestExam({ courseId: course.id });
+    const problem = await createTestProblem({ authorId: teacher.id });
+    await createTestSubmission({ problemId: problem.id, examId: examA.id });
+    const options = { actor: actorOf(teacher), limit: 50 };
+    const first = await submissionDomain.listContextSubmissionsPaged({
+      ...options,
+      context: { type: "exam", id: examA.id },
+    });
+    await expect(
+      submissionDomain.listContextSubmissionsPaged({
+        ...options,
+        context: { type: "exam", id: examB.id },
+        snapshot: first.snapshot,
+      }),
+    ).rejects.toMatchObject({ status: 400, message: "Invalid submission snapshot." });
   });
 });

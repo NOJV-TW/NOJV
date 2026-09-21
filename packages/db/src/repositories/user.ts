@@ -51,6 +51,8 @@ export const userRepo = {
         platformRole: true,
         disabled: true,
         canCreateAdvancedProblems: true,
+        schoolEmail: true,
+        schoolVerifiedAt: true,
         createdAt: true,
       },
       orderBy: opts.orderBy ?? { createdAt: "desc" },
@@ -126,7 +128,9 @@ export const userRepo = {
         return tx.user.delete({ where: { id } });
       },
 
-      anonymizeAndDisable(id: string) {
+      async anonymizeAndDisable(id: string) {
+        await tx.account.deleteMany({ where: { userId: id } });
+        await tx.session.deleteMany({ where: { userId: id } });
         return tx.user.update({
           where: { id },
           data: {

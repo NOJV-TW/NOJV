@@ -13,6 +13,7 @@ export type InitiateVerificationResult =
 export async function initiateSchoolVerification(
   userId: string,
   username: string,
+  email: string,
 ): Promise<InitiateVerificationResult> {
   if (!isCanonicalSchoolUsername(username))
     return { status: "error", detail: "Invalid school username", httpStatus: 400 };
@@ -26,7 +27,9 @@ export async function initiateSchoolVerification(
       return { status: "error", detail: "Username already taken", httpStatus: 409 };
     const token = randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
-    await tx.schoolVerificationToken.create({ data: { token, userId, username, expiresAt } });
+    await tx.schoolVerificationToken.create({
+      data: { token, userId, username, email, expiresAt },
+    });
     return { status: "success", token, expiresAt };
   });
 }
@@ -58,7 +61,7 @@ export async function processSchoolVerification(token: string): Promise<VerifySc
     const existing = await tx.user.findUnique({ where: { username: record.username } });
     if (existing && existing.id !== record.userId)
       return { status: "error", detail: "此學號已被其他帳號使用" };
-    await setVerifiedUsername(tx, record.userId, record.username);
+    await setVerifiedUsername(tx, record.userId, record.username, record.email ?? undefined);
     await tx.schoolVerificationToken.delete({ where: { token } });
     return { status: "success", username: record.username };
   });

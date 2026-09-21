@@ -15,6 +15,8 @@ image:
     worker: ""
     sandbox: ""
     migrator: ""
+migrator:
+  releaseWindow: true
 other: true
 `;
 
@@ -30,6 +32,7 @@ describe("deploy image value publication", () => {
           sandbox: digest("3"),
           migrator: digest("4"),
         },
+        releaseWindow: false,
       }),
     ).toBe(`release:
   sourceSha: ${releaseSha}
@@ -41,6 +44,8 @@ image:
     worker: ${digest("2")}
     sandbox: ${digest("3")}
     migrator: ${digest("4")}
+migrator:
+  releaseWindow: false
 other: true
 `);
   });
@@ -56,6 +61,7 @@ other: true
           sandbox: digest("3"),
           migrator: digest("4"),
         },
+        releaseWindow: false,
       }),
     ).toThrow(/web digest/u);
 
@@ -69,6 +75,7 @@ other: true
           sandbox: digest("3"),
           migrator: digest("4"),
         },
+        releaseWindow: false,
       }),
     ).toThrow(/exactly one image\.digests\.sandbox/u);
   });
@@ -102,6 +109,7 @@ other: true
           sandbox: digest("3"),
           migrator: digest("4"),
         },
+        releaseWindow: false,
       }),
     ).toThrow(/40-character release commit SHA/u);
   });
@@ -117,7 +125,48 @@ other: true
           sandbox: digest("3"),
           migrator: digest("4"),
         },
+        releaseWindow: false,
       }),
     ).toThrow(/exactly one release\.sourceSha/u);
+  });
+
+  it("records the maintenance window decision the release workflow computed", () => {
+    const publish = (releaseWindow: boolean) =>
+      updateDeployImageValues(input, {
+        sourceSha: releaseSha,
+        tag: imageTag,
+        digests: {
+          web: digest("1"),
+          worker: digest("2"),
+          sandbox: digest("3"),
+          migrator: digest("4"),
+        },
+        releaseWindow,
+      });
+
+    expect(publish(true)).toContain("  releaseWindow: true");
+    expect(publish(false)).toContain("  releaseWindow: false");
+  });
+
+  it("refuses to publish when the window decision or its field is missing", () => {
+    const digests = {
+      web: digest("1"),
+      worker: digest("2"),
+      sandbox: digest("3"),
+      migrator: digest("4"),
+    };
+
+    expect(() =>
+      updateDeployImageValues(input, { sourceSha: releaseSha, tag: imageTag, digests }),
+    ).toThrow(/releaseWindow must be a boolean/u);
+
+    expect(() =>
+      updateDeployImageValues(input.replace("  releaseWindow: true\n", ""), {
+        sourceSha: releaseSha,
+        tag: imageTag,
+        digests,
+        releaseWindow: false,
+      }),
+    ).toThrow(/exactly one migrator\.releaseWindow/u);
   });
 });

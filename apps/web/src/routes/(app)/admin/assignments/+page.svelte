@@ -38,11 +38,7 @@
           startsAt={assignment.opensAt}
           endsAt={assignment.closesAt}
           delay={index * 30}
-        >
-          {#snippet foot()}{m.admin_contentProblemCount({
-              count: assignment.problemCount,
-            })}{/snippet}
-        </AssessmentRow>
+        />
       {/each}
     </div>
   {/if}

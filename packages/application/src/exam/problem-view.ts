@@ -1,3 +1,5 @@
+import { toProblemSubmissionEntry } from "../submission/queries";
+import { applyQueuedRejudges } from "../submission/operations";
 import { activityScore } from "../scoring/activity-points";
 import { scoreOverrideRepo } from "@nojv/db";
 import { examRepo, submissionRepo } from "@nojv/db";
@@ -5,12 +7,7 @@ import {
   problemLetter,
   extractLatePenalty,
   type LatePenaltyRule,
-  languageSchema,
   submissionOperationStatuses,
-  submissionResultVerdictSchema,
-  verdictSummarySchema,
-  type Language,
-  type SubmissionResult,
 } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
@@ -30,13 +27,9 @@ export interface ExamProblemViewSibling {
   href: string;
 }
 
-export interface ExamProblemViewSubmission {
-  id: string;
-  language: Language;
-  result?: SubmissionResult;
-  submittedAt: string;
+export type ExamProblemViewSubmission = ReturnType<typeof toProblemSubmissionEntry> & {
   context: "exam";
-}
+};
 
 export interface ExamProblemViewExam {
   id: string;
@@ -104,10 +97,15 @@ export async function getExamProblemViewByProblemId(options: {
         sampleOnly: false,
         status: { in: [...submissionOperationStatuses] },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       select: {
         id: true,
         createdAt: true,
+        updatedAt: true,
+        judgeGeneration: true,
+        contestId: true,
+        assessmentId: true,
+        examId: true,
         language: true,
         status: true,
         score: true,
@@ -125,31 +123,9 @@ export async function getExamProblemViewByProblemId(options: {
     }),
   ]);
 
-  const submissions: ExamProblemViewSubmission[] = submissionRows.map((s) => {
-    const language = languageSchema.parse(s.language);
-    const parsedVerdict = submissionResultVerdictSchema.safeParse(s.status);
-    const parsedSummary =
-      s.verdictSummary == null ? null : verdictSummarySchema.safeParse(s.verdictSummary);
-    const summary = parsedSummary?.success ? parsedSummary.data : null;
-    const result = parsedVerdict.success
-      ? {
-          accepted: parsedVerdict.data === "accepted",
-          verdict: parsedVerdict.data,
-          score: s.score,
-          runtimeMs: s.runtimeMs ?? 0,
-          feedback:
-            summary?.compilerErrorTruncated ??
-            (parsedVerdict.data === "accepted" ? "Accepted." : "Verdict details unavailable."),
-        }
-      : undefined;
-    return {
-      id: s.id,
-      language,
-      ...(result ? { result } : {}),
-      submittedAt: s.createdAt.toISOString(),
-      context: "exam" as const,
-    };
-  });
+  const submissions: ExamProblemViewSubmission[] = (
+    await applyQueuedRejudges(submissionRows)
+  ).map((row) => ({ ...toProblemSubmissionEntry(row), context: "exam" }));
 
   const bestByProblemId = new Map<string, number>();
   for (const row of bestRows) {

@@ -375,7 +375,7 @@ export async function deliverNotificationEmail(
   }
 
   const delivery = await getMailer().sendEmail({
-    to: recipient.email,
+    to: preferences.email ?? recipient.email,
     subject: work.subject,
     html: work.html,
     messageId: work.messageId,

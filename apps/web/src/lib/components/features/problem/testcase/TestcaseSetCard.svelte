@@ -3,44 +3,47 @@
   import { invalidateAll } from "$app/navigation";
   import { ChevronDown, ChevronRight, Pencil, Trash2 } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
-  import { postProblemAction } from "$lib/utils/actions";
+  import { fetchTestcaseContent, postProblemAction } from "$lib/utils/actions";
   import TestcaseRow from "./TestcaseRow.svelte";
   import TestcaseSetEditForm from "./TestcaseSetEditForm.svelte";
 
   interface TestcaseData {
     id: string;
     ordinal: number;
-    input: string;
-    output: string | null;
+    inputSize: number;
+    outputSize: number | null;
   }
 
   interface Props {
     set: {
       id: string;
-      name: string;
+      description: string;
       weight: number;
       testcases: TestcaseData[];
     };
     problemId: string;
+    index: number;
   }
 
-  let { set, problemId }: Props = $props();
+  let { set, problemId, index }: Props = $props();
 
   let expanded = $state(false);
   let editing = $state(false);
   let confirmDelete = $state(false);
   let editingTestcaseId = $state<string | null>(null);
+  let loadingTestcaseId = $state<string | null>(null);
+  let loadFailed = $state(false);
   let confirmDeleteTestcaseId = $state<string | null>(null);
   let saving = $state(false);
 
-  let editName = $state(untrack(() => set.name));
+  let editDescription = $state(untrack(() => set.description));
   let editWeight = $state(untrack(() => set.weight));
 
   let editInput = $state("");
   let editOutput = $state("");
 
   function startEditSet() {
-    editName = set.name;
+    editDescription = set.description;
     editWeight = set.weight;
     editing = true;
   }
@@ -50,7 +53,10 @@
     try {
       await postProblemAction(problemId, "updateTestcaseSet", {
         setId: set.id,
-        data: JSON.stringify({ name: editName, weight: editWeight }),
+        data: JSON.stringify({
+          description: editDescription,
+          weight: editWeight,
+        }),
       });
       editing = false;
       await invalidateAll();
@@ -70,10 +76,19 @@
     }
   }
 
-  function startEditTestcase(tc: TestcaseData) {
-    editInput = tc.input;
-    editOutput = tc.output ?? "";
-    editingTestcaseId = tc.id;
+  async function startEditTestcase(tc: TestcaseData) {
+    loadingTestcaseId = tc.id;
+    loadFailed = false;
+    try {
+      const content = await fetchTestcaseContent(problemId, tc.id);
+      editInput = content.input;
+      editOutput = content.output ?? "";
+      editingTestcaseId = tc.id;
+    } catch {
+      loadFailed = true;
+    } finally {
+      loadingTestcaseId = null;
+    }
   }
 
   async function saveTestcase(tcId: string) {
@@ -116,7 +131,7 @@
       {:else}
         <ChevronRight aria-hidden="true" class="size-4" />
       {/if}
-      {set.name}
+      #subtask{index}
     </button>
 
     <span
@@ -152,12 +167,12 @@
 
   {#if editing}
     <TestcaseSetEditForm
-      {editName}
+      bind:editDescription
       {editWeight}
+      {problemId}
       {saving}
       onSave={() => void saveSet()}
       onCancel={() => (editing = false)}
-      onNameChange={(v) => (editName = v)}
       onWeightChange={(v) => (editWeight = v)}
     />
   {/if}
@@ -167,7 +182,7 @@
       class="mt-3 flex items-center gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-3"
     >
       <span class="text-body-sm text-destructive">
-        {m.testcases_confirmDeleteSet({ name: set.name })}
+        {m.testcases_confirmDeleteSet({ name: `#subtask${String(index)}` })}
       </span>
       <button
         class="rounded-full bg-destructive px-4 py-1.5 text-caption font-semibold text-white transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:-translate-y-0.5 disabled:opacity-70"
@@ -197,7 +212,8 @@
           {saving}
           {editInput}
           {editOutput}
-          onStartEdit={() => startEditTestcase(tc)}
+          loading={loadingTestcaseId === tc.id}
+          onStartEdit={() => void startEditTestcase(tc)}
           onSaveEdit={() => void saveTestcase(tc.id)}
           onCancelEdit={() => (editingTestcaseId = null)}
           onStartDelete={() => (confirmDeleteTestcaseId = tc.id)}
@@ -210,6 +226,14 @@
 
       {#if set.testcases.length === 0}
         <p class="text-body-sm text-muted-foreground">{m.testcases_noTestcasesInSet()}</p>
+      {/if}
+
+      {#if loadingTestcaseId !== null}
+        <p class="text-caption text-muted-foreground">{m.testcases_loadingContent()}</p>
+      {/if}
+
+      {#if loadFailed}
+        <p class="text-caption text-destructive">{m.testcases_contentLoadFailed()}</p>
       {/if}
     </div>
   {/if}

@@ -6,6 +6,7 @@ import { ORIGIN } from "./_shared";
 const e2eDatabaseUrl = resolveDestructiveTestDatabase("nojv_e2e_test");
 
 export default defineConfig({
+  tsconfig: "../tsconfig.e2e.json",
   testDir: ".",
   fullyParallel: false,
   forbidOnly: !!process.env.CI,

@@ -46,7 +46,6 @@
           delay={index * 30}
         >
           {#snippet foot()}
-            {m.admin_contentProblemCount({ count: contest.problemCount })} ·
             {m.admin_contentParticipantCount({ count: contest.participantCount })}
           {/snippet}
         </AssessmentRow>

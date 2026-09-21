@@ -130,7 +130,7 @@ List previews (home, course overview, admin announcements) show `markdownToPlain
 
 `@nojv/mailer` owns the transactional email look. `renderEmail` renders one white card on the neutral background with these optional sections in order: hidden preheader (drives the inbox snippet), eyebrow (small teal caps such as `系統公告 · System announcement`), heading, meta line (course · date), intro paragraphs, article body, action button with a plain-text fallback link, and outro. Copy is bilingual with zh-TW first and English second; the eyebrow and button carry both languages on one line rather than repeating every sentence twice.
 
-Announcement emails embed the announcement itself. `renderMarkdownForEmail` converts the Markdown body to inline-styled HTML (no `<style>` block, so Gmail and Outlook render it), rewrites root-relative image and link paths to absolute `APP_BASE_URL` URLs, escapes raw HTML, and drops non-http(s)/mailto URLs. Long bodies are cut at a paragraph boundary and the button links to the full announcement. Colors mirror the light theme tokens as literal hex values because email clients cannot read CSS variables.
+Announcement emails embed the announcement itself. `renderMarkdownForEmail` converts the Markdown body to inline-styled HTML (no `<style>` block, so Gmail and Outlook render it), rewrites root-relative image and link paths to absolute `APP_BASE_URL` URLs, routes third-party HTTPS images through the NOJV image proxy after URL normalization, escapes raw HTML, and drops malformed or unsupported URLs. Long bodies are cut at a paragraph boundary and the button links to the full announcement. Colors mirror the light theme tokens as literal hex values because email clients cannot read CSS variables.
 
 ### Internationalization
 

@@ -9,11 +9,15 @@ import type {
   ProblemVisibility,
   SubmissionContext,
   SubmissionResult,
+  SubmissionOperationStatus,
 } from "@nojv/core";
 
 export interface ProblemSubmissionEntry {
   id?: string;
   language: string;
+  status: SubmissionOperationStatus;
+  judgeGeneration: number;
+  updatedAt: string;
   result?: SubmissionResult;
   sourceCode?: string;
   submittedAt: string;

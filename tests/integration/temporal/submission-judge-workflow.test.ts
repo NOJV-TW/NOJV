@@ -1,10 +1,16 @@
 import { fileURLToPath } from "node:url";
+import { readFile } from "node:fs/promises";
 
 import { TestWorkflowEnvironment } from "@temporalio/testing";
 import { Worker } from "@temporalio/worker";
+import type { SubmissionJudgeInput } from "@nojv/core";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { submissionJudgeWorkflow } from "../../../apps/worker/src/workflows/submission-judge";
+import {
+  SandboxAdmissionError,
+  SandboxBackpressureError,
+} from "../../../apps/worker/src/services/k8s-executor";
 
 const workflowsPath = fileURLToPath(
   new URL("../../../apps/worker/src/workflows/submission-judge.ts", import.meta.url),
@@ -31,6 +37,7 @@ function buildActivities(overrides: Partial<Activities> = {}): Activities {
       oldStatus: "accepted",
     })),
     fetchJudgeContext: vi.fn(async () => ({ problemType: "full_source", advanced: null })),
+    cleanupSandboxRun: vi.fn(async () => undefined),
     executeSandbox: vi.fn(async () => ({
       result: { testcaseResults: [] },
       advancedJudgeVerificationSnapshot: null,
@@ -53,10 +60,10 @@ function buildActivities(overrides: Partial<Activities> = {}): Activities {
   };
 }
 
-const baseInput = {
+const baseInput: SubmissionJudgeInput = {
   submissionId: "sub_1",
   draft: { problemId: "prob_1", language: "python", sourceCode: "print(1)" },
-} as never;
+};
 
 async function runWorker(activities: Activities, body: () => Promise<void>): Promise<void> {
   const judgeWorker = await Worker.create({
@@ -64,17 +71,94 @@ async function runWorker(activities: Activities, body: () => Promise<void>): Pro
     taskQueue: "judge-test",
     workflowsPath,
     activities,
+    defaultHeartbeatThrottleInterval: "100ms",
+    maxHeartbeatThrottleInterval: "100ms",
   });
   const platformWorker = await Worker.create({
     connection: env.nativeConnection,
     taskQueue: "platform",
     workflowsPath,
     activities,
+    defaultHeartbeatThrottleInterval: "100ms",
+    maxHeartbeatThrottleInterval: "100ms",
   });
   await judgeWorker.runUntil(platformWorker.runUntil(body()));
 }
 
 describe("submissionJudgeWorkflow (TestWorkflowEnvironment)", () => {
+  it("replays a pre-fix history that already recorded capacity exhaustion as SE", async () => {
+    const history = JSON.parse(
+      await readFile(
+        new URL(
+          "../../fixtures/temporal/submission-judge-pre-quota-wait.json",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    await Worker.runReplayHistory({ workflowsPath }, history);
+  }, 15_000);
+  it("waits durably through more than three capacity failures then completes", async () => {
+    let attempts = 0;
+    const activities = buildActivities({
+      executeSandbox: vi.fn(async () => {
+        attempts += 1;
+        if (attempts <= 4) throw new SandboxBackpressureError("sandbox quota exhausted");
+        return { result: { testcaseResults: [] }, advancedJudgeVerificationSnapshot: null };
+      }),
+    });
+    await runWorker(activities, async () => {
+      await env.client.workflow.execute(submissionJudgeWorkflow, {
+        args: [baseInput],
+        taskQueue: "judge-test",
+        workflowId: `wf-capacity-${Date.now()}`,
+      });
+    });
+    expect(activities.executeSandbox).toHaveBeenCalledTimes(5);
+    expect(activities.completeSubmission).toHaveBeenCalledOnce();
+    expect(activities.failSubmissionJudgeRun).not.toHaveBeenCalled();
+  }, 30_000);
+
+  it("does not retry deterministic sandbox admission failures", async () => {
+    const activities = buildActivities({
+      executeSandbox: vi.fn(async () => {
+        throw new SandboxAdmissionError("forbidden: maximum memory usage");
+      }),
+    });
+    await runWorker(activities, async () => {
+      await expect(
+        env.client.workflow.execute(submissionJudgeWorkflow, {
+          args: [baseInput],
+          taskQueue: "judge-test",
+          workflowId: `wf-admission-${Date.now()}`,
+        }),
+      ).rejects.toThrow();
+    });
+    expect(activities.executeSandbox).toHaveBeenCalledOnce();
+    expect(activities.failSubmissionJudgeRun).toHaveBeenCalledOnce();
+  }, 15_000);
+
+  it("cancels a rejudge waiting for capacity and restores its previous verdict", async () => {
+    const activities = buildActivities({
+      executeSandbox: vi.fn(async () => {
+        throw new SandboxBackpressureError("sandbox quota exhausted");
+      }),
+    });
+    await runWorker(activities, async () => {
+      const handle = await env.client.workflow.start(submissionJudgeWorkflow, {
+        args: [{ ...baseInput, forRejudge: { triggeredByUserId: "usr_admin" } }],
+        taskQueue: "judge-test",
+        workflowId: `wf-capacity-cancel-${Date.now()}`,
+      });
+      await vi.waitFor(() => expect(activities.executeSandbox).toHaveBeenCalledOnce());
+      await handle.cancel();
+      await expect(handle.result()).rejects.toThrow();
+    });
+    expect(activities.restoreSubmissionForCancelledRejudge).toHaveBeenCalledOnce();
+    expect(activities.completeSubmission).not.toHaveBeenCalled();
+    expect(activities.finalizeRejudgeLog).not.toHaveBeenCalled();
+  }, 15_000);
+
   it("runs the happy path: executes, completes, publishes the verdict", async () => {
     const activities = buildActivities();
     const workflowId = `wf-happy-${String(Date.now())}`;
@@ -192,8 +276,14 @@ describe("submissionJudgeWorkflow (TestWorkflowEnvironment)", () => {
     const activities = buildActivities({
       executeSandbox: vi.fn(async () => {
         const { Context } = await import("@temporalio/activity");
+        const context = Context.current();
+        const timer = setInterval(() => context.heartbeat("waiting-for-cancel"), 50);
         signalStarted();
-        await Context.current().cancelled;
+        try {
+          await context.cancelled;
+        } finally {
+          clearInterval(timer);
+        }
         return { testcaseResults: [] };
       }),
     });

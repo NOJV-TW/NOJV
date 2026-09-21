@@ -5,6 +5,27 @@ import { renderMarkdownForEmail } from "@nojv/mailer";
 const options = { baseUrl: "https://nojv.tw" };
 
 describe("renderMarkdownForEmail", () => {
+  it("drops malformed image URLs without interrupting rendering", () => {
+    const html = renderMarkdownForEmail("![broken](//[) remaining text", options);
+    expect(html).toContain("broken remaining text");
+    expect(html).not.toContain("<img ");
+  });
+
+  it("proxies root-relative paths that normalize to a third-party origin", () => {
+    const destination = "/" + String.fromCharCode(92).repeat(2) + "tracker.example/a.png";
+    const html = renderMarkdownForEmail(`![tracker](${destination})`, options);
+    expect(html).toContain(
+      'src="https://nojv.tw/api/images/proxy?url=https%3A%2F%2Ftracker.example%2Fa.png"',
+    );
+    expect(html).not.toContain('src="https://tracker.example');
+  });
+
+  it("preserves text entities while keeping code and raw HTML escaped", () => {
+    const html = renderMarkdownForEmail("&amp; &lt; &#20013; `&amp;`", options);
+    expect(html).toContain("&amp; &lt; &#20013;");
+    expect(html).toContain("&amp;amp;</code>");
+  });
+
   it("renders headings, lists, emphasis, and code with inline styles", () => {
     const html = renderMarkdownForEmail(
       "## 重點\n\n- **加粗** 與 `code`\n\n```\nraw < code\n```",

@@ -96,7 +96,7 @@
               ? 'text-warning'
               : 'text-destructive'}"
         >
-          {subtask.label}
+          #subtask{index + 1}
         </span>
         <span class="text-caption text-muted-foreground tabular-nums"
           >({earned}/{subtask.weight} pts)</span

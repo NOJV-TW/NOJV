@@ -47,7 +47,7 @@
       {#each data.developers as dev (dev.id)}
         <Card variant="surface" size="lg" class="text-center">
           <img
-            src={`https://github.com/${dev.github}.png`}
+            src={`https://avatars.githubusercontent.com/${dev.github}`}
             alt={dev.name}
             loading="lazy"
             class="mx-auto size-20 rounded-full border border-border bg-[color:var(--color-panel-strong)] object-cover"

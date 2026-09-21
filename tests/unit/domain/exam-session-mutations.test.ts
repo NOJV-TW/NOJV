@@ -6,14 +6,18 @@ const {
   sessionFindAllActive,
   sessionUpdate,
   sessionRecordEvent,
+  sessionFindByUserAndExam,
   clearExamPinAndExempt,
+  findExamIpPin,
 } = vi.hoisted(() => ({
   examFindById: vi.fn(),
   membershipFindByComposite: vi.fn(),
   sessionFindAllActive: vi.fn(),
   sessionUpdate: vi.fn(),
   sessionRecordEvent: vi.fn(),
+  sessionFindByUserAndExam: vi.fn(),
   clearExamPinAndExempt: vi.fn(),
+  findExamIpPin: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -25,9 +29,10 @@ vi.mock("@nojv/db", () => ({
       findAllActiveForExam: sessionFindAllActive,
       update: sessionUpdate,
       recordEvent: sessionRecordEvent,
+      findByUserAndExam: sessionFindByUserAndExam,
     }),
   },
-  participationRepo: { withTx: () => ({ clearExamPinAndExempt }) },
+  participationRepo: { withTx: () => ({ clearExamPinAndExempt, findExamIpPin }) },
   runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({}),
 }));
 
@@ -112,6 +117,9 @@ describe("resetStudentIpBinding", () => {
     vi.clearAllMocks();
     examFindById.mockResolvedValue({ id: "exm_1", courseId: "crs_1" });
     clearExamPinAndExempt.mockResolvedValue({});
+    findExamIpPin.mockResolvedValue({ id: "prt_1", ipPin: "203.0.113.7" });
+    sessionFindByUserAndExam.mockResolvedValue({ id: "sess_1" });
+    sessionRecordEvent.mockResolvedValue({});
   });
 
   it("clears the pin and opens a grace window for staff", async () => {
@@ -126,6 +134,41 @@ describe("resetStudentIpBinding", () => {
     const expected = new Date("2026-05-26T10:10:00Z");
     expect(clearExamPinAndExempt).toHaveBeenCalledWith("exm_1", "usr_student", expected);
     expect(result).toEqual({ exemptUntil: expected });
+  });
+
+  it("records an ip_reset audit event against the student's session", async () => {
+    membershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
+
+    await resetStudentIpBinding(
+      teacherActor,
+      { examId: "exm_1", targetUserId: "usr_student" },
+      now,
+    );
+
+    expect(sessionRecordEvent).toHaveBeenCalledWith({
+      sessionId: "sess_1",
+      eventType: "ip_reset",
+      metadata: {
+        resetByUserId: "usr_teacher",
+        clearedIpPin: "203.0.113.7",
+        exemptUntil: "2026-05-26T10:10:00.000Z",
+      },
+    });
+  });
+
+  it("still resets when the student has no exam session yet", async () => {
+    membershipFindByComposite.mockResolvedValue({ role: "teacher", status: "active" });
+    findExamIpPin.mockResolvedValue(null);
+    sessionFindByUserAndExam.mockResolvedValue(null);
+
+    await resetStudentIpBinding(
+      teacherActor,
+      { examId: "exm_1", targetUserId: "usr_student" },
+      now,
+    );
+
+    expect(clearExamPinAndExempt).toHaveBeenCalledTimes(1);
+    expect(sessionRecordEvent).not.toHaveBeenCalled();
   });
 
   it("allows a TA", async () => {

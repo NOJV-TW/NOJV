@@ -6,10 +6,12 @@ import "./domain-orchestration";
 
 import {
   closeTemporalClient,
+  getTemporalClient,
   ensureDurableWorkProcessor,
   ensureLifecycleReconciler,
   ensureSubmissionSweeper,
   JUDGE_TASK_QUEUE,
+  CAPACITY_JUDGE_TASK_QUEUE,
   PLATFORM_TASK_QUEUE,
   temporalConnectionOptions,
 } from "@nojv/temporal";
@@ -18,6 +20,7 @@ const require = createRequire(import.meta.url);
 
 import type { WorkerEnv } from "./env";
 import { createWorkerHealthServer } from "./health-server";
+import { startJudgeRecoveryMetrics } from "./judge-recovery-metrics";
 import { createLogger } from "./logger.js";
 import {
   closeServerSafely,
@@ -33,6 +36,7 @@ const DEFAULT_SHUTDOWN_TIMEOUT_MS = 35_000;
 
 interface ManagedWorker {
   worker: Worker;
+  taskQueue: string;
   runPromise: Promise<void> | null;
 }
 
@@ -50,6 +54,7 @@ export class WorkerApp {
   private connection: NativeConnection | null = null;
   private executorOwner: ExecutorOwner | null = null;
   private stopping = false;
+  private runLoopFailed = false;
 
   constructor(
     env: WorkerEnv,
@@ -60,6 +65,13 @@ export class WorkerApp {
     this.workflowsPath = options.workflowsPath ?? require.resolve("./workflows/index.js");
     this.healthServer = createWorkerHealthServer({
       redisUrl: env.REDIS_URL,
+      checkLiveness: () =>
+        this.stopping ||
+        (!this.runLoopFailed &&
+          this.workers.every(({ worker }) => {
+            const state = worker.getState();
+            return state === "INITIALIZED" || state === "RUNNING";
+          })),
       checkTemporal: async () => {
         if (this.stopping) return false;
         if (
@@ -85,7 +97,15 @@ export class WorkerApp {
     if (this.stopping) throw new Error("Worker startup interrupted by shutdown.");
 
     const runPromises = this.workers.map((managed) => {
-      const runPromise = managed.worker.run();
+      const runPromise = managed.worker
+        .run()
+        .then(() => {
+          if (!this.stopping) throw new Error("Temporal worker run loop stopped unexpectedly.");
+        })
+        .catch((error: unknown) => {
+          if (!this.stopping) this.runLoopFailed = true;
+          throw error;
+        });
       managed.runPromise = runPromise;
       return runPromise;
     });
@@ -97,6 +117,18 @@ export class WorkerApp {
     const address = this.env.TEMPORAL_ADDRESS;
     const namespace = this.env.TEMPORAL_NAMESPACE;
     const mode = this.env.WORKER_MODE;
+    if (
+      mode === "control" &&
+      (this.env.EXECUTION_BACKEND !== "kubernetes" || !this.env.K8S_CAPACITY_ADMISSION)
+    )
+      throw new Error("Control worker requires Kubernetes capacity admission to be enabled");
+    if (mode === "all" || mode === "platform") {
+      const stopMetrics = startJudgeRecoveryMetrics();
+      this.cleanupSteps.push({
+        resource: "judge recovery metrics",
+        run: () => Promise.resolve(stopMetrics()),
+      });
+    }
     const { tls, apiKey } = temporalConnectionOptions();
     const connection = await NativeConnection.connect({
       address,
@@ -109,6 +141,35 @@ export class WorkerApp {
       run: () => connection.close(),
     });
     this.assertStarting();
+
+    if (
+      (mode === "all" || mode === "control") &&
+      this.env.EXECUTION_BACKEND === "kubernetes" &&
+      this.env.K8S_CAPACITY_ADMISSION
+    ) {
+      const controlWorker = await Worker.create({
+        connection,
+        namespace,
+        taskQueue: "judge-control",
+        workflowsPath: this.workflowsPath,
+        activities: await import("./activities/judge-control-bundle.js"),
+        maxConcurrentActivityTaskExecutions: 4,
+        shutdownGraceTime: "30s",
+      });
+      this.addWorker(controlWorker, "judge-control");
+      const client = await getTemporalClient();
+      this.registerTemporalClientCleanup();
+      try {
+        await client.workflow.start("judgeAdmissionWorkflow", {
+          workflowId: "judge-admission-v1",
+          taskQueue: "judge-control",
+          args: [],
+        });
+      } catch (error) {
+        if (!(error instanceof Error) || error.name !== "WorkflowExecutionAlreadyStartedError")
+          throw error;
+      }
+    }
 
     if (mode === "all" || mode === "judge") {
       const { setExecutorOwner } = await import("./activities/judge.js");
@@ -166,16 +227,20 @@ export class WorkerApp {
         }
       }
 
+      const judgeTaskQueue =
+        this.env.EXECUTION_BACKEND === "kubernetes" && this.env.K8S_CAPACITY_ADMISSION
+          ? CAPACITY_JUDGE_TASK_QUEUE
+          : JUDGE_TASK_QUEUE;
       const judgeWorker = await Worker.create({
         connection,
         namespace,
-        taskQueue: JUDGE_TASK_QUEUE,
+        taskQueue: judgeTaskQueue,
         workflowsPath: this.workflowsPath,
         activities: await import("./activities/judge-bundle.js"),
         maxConcurrentActivityTaskExecutions: this.env.WORKER_CONCURRENCY,
         shutdownGraceTime: "30s",
       });
-      this.addWorker(judgeWorker, JUDGE_TASK_QUEUE);
+      this.addWorker(judgeWorker, judgeTaskQueue);
       this.assertStarting();
     }
 
@@ -215,10 +280,7 @@ export class WorkerApp {
     });
     this.assertStarting();
 
-    const singleModeQueue = mode === "judge" ? JUDGE_TASK_QUEUE : PLATFORM_TASK_QUEUE;
-    const taskQueues = this.workers.map((_, i) =>
-      mode === "all" ? [JUDGE_TASK_QUEUE, PLATFORM_TASK_QUEUE][i] : singleModeQueue,
-    );
+    const taskQueues = this.workers.map(({ taskQueue }) => taskQueue);
 
     logger.info("temporal worker started", {
       address,
@@ -279,7 +341,7 @@ export class WorkerApp {
   }
 
   private addWorker(worker: Worker, taskQueue: string): void {
-    const managed: ManagedWorker = { worker, runPromise: null };
+    const managed: ManagedWorker = { worker, taskQueue, runPromise: null };
     this.workers.push(managed);
     this.cleanupSteps.push({
       resource: `Temporal worker ${taskQueue}`,

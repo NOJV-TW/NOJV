@@ -15,6 +15,9 @@ export const notificationPreferencesSchema = z.object({
   emailCourseEnrolled: z.boolean().default(true),
   emailRoleChanged: z.boolean().default(true),
   emailEditorialRemoved: z.boolean().default(true),
+  email: z
+    .preprocess((value) => (value === "" ? null : value), z.email().nullable())
+    .default(null),
 });
 
 export type NotificationPreferences = z.infer<typeof notificationPreferencesSchema>;

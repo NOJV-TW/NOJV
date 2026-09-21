@@ -148,3 +148,48 @@ here) so credentials stay out of the rendered manifests.
       name: {{ include "nojv.runtimeSecretName" . }}
       key: DATABASE_URL
 {{- end }}
+
+{{/*
+The Prometheus scrape config, defined here so the Deployment can hash exactly
+what the ConfigMap carries. The checksum annotation used to hash a hand-listed
+subset of values, so editing the scrape jobs left it unchanged and the running
+Prometheus kept serving its old config until someone restarted it by hand.
+*/}}
+{{- define "nojv.prometheusConfig" -}}
+global:
+  scrape_interval: 30s
+scrape_configs:
+  - job_name: otel-collector
+    static_configs:
+      - targets:
+          - {{ printf "%s-otel-collector.%s.svc:8889" (include "nojv.fullname" .) (include "nojv.namespace" .) | quote }}
+  {{- if .Values.observability.prometheus.nodeExporter.enabled }}
+  - job_name: node-exporter
+    static_configs:
+      - targets:
+          - {{ printf "%s-node-exporter.%s.svc:9100" (include "nojv.fullname" .) (include "nojv.namespace" .) | quote }}
+  {{- end }}
+  {{- if .Values.edge.cloudflared.enabled }}
+  - job_name: cloudflared
+    dns_sd_configs:
+      - names:
+          - {{ printf "%s-cloudflared-metrics.%s.svc" (include "nojv.fullname" .) (include "nojv.namespace" .) | quote }}
+        type: A
+        port: 2000
+  {{- end }}
+  {{- if eq .Values.postgres.mode "cnpg" }}
+  - job_name: cnpg-postgres
+    static_configs:
+      - targets:
+          - {{ printf "%s-metrics.%s.svc:9187" (include "nojv.cnpgClusterName" .) (include "nojv.namespace" .) | quote }}
+  {{- end }}
+{{- with .Values.observability.prometheus.remoteWrite.url }}
+remote_write:
+  - url: {{ . | quote }}
+    {{- if $.Values.observability.prometheus.remoteWrite.username }}
+    basic_auth:
+      username: {{ $.Values.observability.prometheus.remoteWrite.username | quote }}
+      password_file: /etc/prometheus-secrets/remote-write-password
+    {{- end }}
+{{- end }}
+{{- end }}

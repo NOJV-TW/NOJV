@@ -1,3 +1,8 @@
+import { queuedRejudges } from "./rejudge-control";
+import { createHash } from "node:crypto";
+import { z } from "zod";
+import { applyQueuedRejudges, getSubmissionOperation } from "./operations";
+import { submissionSummaryResult, type SubmissionStateRow } from "./operation-state";
 import { gradingRepo } from "@nojv/db";
 import { activityScore, sumActivityScores } from "../scoring/activity-points";
 import {
@@ -14,9 +19,9 @@ import { attemptWindowStart } from "./attempt-window";
 import {
   adjustmentRulesSchema,
   languageSchema,
+  isSubmissionPending,
   submissionOperationStatuses,
   submissionOperationStatusSchema,
-  submissionResultVerdictSchema,
   submissionResultSchema,
   submissionVerdictSchema,
   verdictSummarySchema,
@@ -27,6 +32,7 @@ import {
   type SubmissionJudgeDraft,
   type SubmissionOperationStatus,
   type SubmissionResult,
+  type SubmissionContext,
 } from "@nojv/core";
 import {
   assertStorageObjectPointer,
@@ -57,7 +63,6 @@ import {
 import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissions";
 import { storage } from "../shared/storage-singleton";
 import { canOperateOnSubmission } from "./permissions";
-import { sanitizeStudentResult } from "./scoring";
 import type {
   AdjustmentContext,
   AdvancedModeContext,
@@ -143,28 +148,31 @@ export async function getProblemReferenceSolution(actor: ActorContext, problemId
       ? candidate
       : null;
 
+  const status =
+    latest && isSubmissionPending(latest.status)
+      ? ("validating" as const)
+      : verified
+        ? ("verified" as const)
+        : latest === null
+          ? ("not_configured" as const)
+          : ("failed" as const);
   const sourceFiles =
-    verified?.sourceStorage === null || verified?.sourceStorage === undefined
-      ? []
-      : await readSubmissionSources(verified.sourceStorage);
-
-  const status = verified
-    ? ("verified" as const)
-    : latest === null
-      ? ("not_configured" as const)
-      : ["pending_upload", "queued", "compiling", "running"].includes(latest.status)
-        ? ("validating" as const)
-        : ("failed" as const);
+    status === "verified" && verified?.sourceStorage
+      ? await readSubmissionSources(verified.sourceStorage)
+      : [];
 
   return {
     status,
-    submissionId: verified?.id ?? latest?.id ?? null,
+    submissionId:
+      status === "validating" ? (latest?.id ?? null) : (verified?.id ?? latest?.id ?? null),
     language: verified?.language ?? latest?.language ?? null,
     sourceFiles,
     lastSubmission: latest
       ? {
           id: latest.id,
           status: latest.status,
+          judgeGeneration: latest.judgeGeneration,
+          updatedAt: latest.updatedAt.toISOString(),
           score: latest.score,
           runtimeMs: latest.runtimeMs,
           memoryKb: latest.memoryKb,
@@ -190,7 +198,7 @@ async function readSubmissionSources(pointer: unknown): Promise<SubmissionSource
   return storageGetSubmissionSources(storage(), assertStorageObjectPointer(pointer));
 }
 
-async function readVerdictDetail(pointer: unknown): Promise<SubmissionResult> {
+export async function readVerdictDetail(pointer: unknown): Promise<SubmissionResult> {
   const raw = await storageGetVerdictDetail(storage(), assertStorageObjectPointer(pointer));
   const parsed = submissionResultSchema.safeParse(raw);
   if (!parsed.success) {
@@ -237,16 +245,14 @@ export async function getSubmissionDetail(actor: ActorContext, submissionId: str
 
   const language = languageSchema.parse(submission.language);
 
-  const [rawResult, sources] = await Promise.all([
-    submission.verdictDetailStorage
-      ? readVerdictDetail(submission.verdictDetailStorage)
-      : Promise.resolve(null),
-    readSubmissionSources(submission.sourceStorage),
+  const [operation, sources] = await Promise.all([
+    getSubmissionOperation(actor, submissionId, true, viewerIsStaff),
+    submission.sourceStorage
+      ? readSubmissionSources(submission.sourceStorage)
+      : Promise.resolve([]),
   ]);
-  const result =
-    rawResult === null || viewerIsStaff
-      ? rawResult
-      : sanitizeStudentResult(rawResult, { sampleOnly: submission.sampleOnly });
+  const result = operation.result;
+  const pending = isSubmissionPending(operation.status);
 
   const allocation = submission.sampleOnly
     ? null
@@ -261,22 +267,25 @@ export async function getSubmissionDetail(actor: ActorContext, submissionId: str
     advancedConfig: submission.problem.advancedConfig,
   });
   return {
-    activityContribution: allocation
-      ? {
-          score: sumActivityScores([
-            activityScore(submission.score, rawMax, allocation.points),
-          ]),
-          points: Number(allocation.points),
-        }
-      : null,
+    activityContribution:
+      !pending && allocation
+        ? {
+            score: sumActivityScores([
+              activityScore(operation.result?.score ?? 0, rawMax, allocation.points),
+            ]),
+            points: Number(allocation.points),
+          }
+        : null,
     id: submission.id,
     createdAt: submission.createdAt.toISOString(),
     language,
     sources,
-    status: submission.status,
-    score: submission.score,
-    runtimeMs: submission.runtimeMs,
-    memoryKb: submission.memoryKb,
+    status: operation.status,
+    judgeGeneration: operation.judgeGeneration,
+    updatedAt: operation.updatedAt,
+    score: pending ? null : (operation.result?.score ?? null),
+    runtimeMs: pending ? null : (operation.result?.runtimeMs ?? null),
+    memoryKb: pending ? null : (operation.result?.memoryKb ?? null),
     sampleOnly: submission.sampleOnly,
     result,
     problem: {
@@ -358,66 +367,149 @@ function buildSubmissionContext(submission: {
   return { kind: "practice" as const };
 }
 
-export async function listUserSubmissions(opts: {
+export type SubmissionHistoryFilters = Parameters<
+  typeof submissionRepo.listHistoryPage
+>[0]["filters"];
+
+interface HistoryOptions {
   actor: ActorContext;
   limit: number;
-  cursor?: string;
-}) {
-  const rows =
-    opts.actor.platformRole === "admin"
-      ? await submissionRepo.listAllPaged({
-          limit: opts.limit,
-          ...(opts.cursor ? { cursor: opts.cursor } : {}),
-        })
-      : await submissionRepo.listByUser({
-          userId: opts.actor.userId,
-          enforceExamConfinement: true,
-          limit: opts.limit,
-          ...(opts.cursor ? { cursor: opts.cursor } : {}),
-        });
-  if (rows === null) throw new ValidationError("Invalid submission cursor.");
-  const totalCount =
-    opts.actor.platformRole === "admin"
-      ? await submissionRepo.countAll()
-      : await submissionRepo.countByUser({
-          userId: opts.actor.userId,
-          enforceExamConfinement: true,
-        });
-  const hasMore = rows.length > opts.limit;
-  const items = hasMore ? rows.slice(0, opts.limit) : rows;
-  const nextCursor = hasMore ? (items[items.length - 1]?.id ?? null) : null;
+  page?: number;
+  snapshot?: string;
+  filters?: SubmissionHistoryFilters;
+}
 
+const historySnapshotSchema = z
+  .object({
+    id: z.string().max(128),
+    createdAt: z.iso.datetime(),
+    scope: z.string().length(64),
+  })
+  .strict();
+
+async function historyPage(
+  opts: HistoryOptions,
+  context?: { type: "assignment" | "exam"; id: string },
+) {
+  const page = opts.page ?? 1;
+  if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger((page - 1) * 50))
+    throw new ValidationError("Invalid submission page.");
+  const filters = opts.filters ?? {};
+  const scope = createHash("sha256")
+    .update(
+      JSON.stringify({
+        userId: opts.actor.userId,
+        role: opts.actor.platformRole,
+        context: context ?? null,
+        problemId: filters.problemId ?? null,
+        status: filters.status ?? null,
+        language: filters.language ?? null,
+        contextType: filters.contextType ?? null,
+        search: filters.search ?? null,
+      }),
+    )
+    .digest("hex");
+  let snapshot: { id: string; createdAt: Date } | undefined;
+  if (opts.snapshot) {
+    try {
+      const parsed = historySnapshotSchema.parse(
+        JSON.parse(Buffer.from(opts.snapshot, "base64url").toString("utf8")),
+      );
+      if (parsed.scope !== scope || new Date(parsed.createdAt).getTime() > Date.now())
+        throw new Error("scope");
+      snapshot = { id: parsed.id, createdAt: new Date(parsed.createdAt) };
+    } catch {
+      throw new ValidationError("Invalid submission snapshot.");
+    }
+  }
+  const queued = await queuedRejudges({
+    ...(!context && opts.actor.platformRole !== "admin" ? { userId: opts.actor.userId } : {}),
+    ...(context ? { context } : {}),
+  });
+  const result = await submissionRepo.listHistoryPage({
+    queuedRejudgeIds: [...queued].filter(([, work]) => work.pending).map(([id]) => id),
+    ...(!context && opts.actor.platformRole !== "admin" ? { userId: opts.actor.userId } : {}),
+    ...(context ? { context } : {}),
+    filters,
+    page,
+    limit: 50,
+    ...(snapshot ? { snapshot } : {}),
+  });
+  if (!result) throw new ValidationError("Invalid submission snapshot.");
+  const rows = await applyQueuedRejudges(result.rows, queued);
   return {
-    items: items.map((s) => {
-      const language = languageSchema.parse(s.language);
+    rows,
+    page,
+    pageSize: 50,
+    nextCursor: null,
+    totalCount: result.totalCount,
+    totalPages: Math.max(1, Math.ceil(result.totalCount / 50)),
+    newCount: result.newCount,
+    snapshot: Buffer.from(
+      JSON.stringify({
+        ...result.snapshot,
+        createdAt: result.snapshot.createdAt.toISOString(),
+        scope,
+      }),
+    ).toString("base64url"),
+  };
+}
 
-      return {
-        createdAt: s.createdAt.toISOString(),
-        id: s.id,
-        language,
-        problemId: s.problem.id,
-        problemTitle: s.problem.title,
-        user:
-          opts.actor.platformRole === "admin" && "user" in s
-            ? { name: s.user.name, username: s.user.username }
-            : null,
-        runtimeMs: "runtimeMs" in s ? s.runtimeMs : null,
-        memoryKb: "memoryKb" in s ? s.memoryKb : null,
-        score: s.score,
-        totalScore: computeProblemTotalScore({
-          id: s.problem.id,
-          type: s.problem.type,
-          testcaseSets: s.problem.testcaseSets,
-          advancedConfig: s.problem.advancedConfig,
-        }),
-        status: s.status,
-        context: deriveSubmissionContextKind(s),
-      };
-    }),
-    pageSize: opts.limit,
-    nextCursor,
-    totalCount,
-    totalPages: Math.max(1, Math.ceil(totalCount / opts.limit)),
+export async function listUserSubmissions(opts: HistoryOptions) {
+  const { rows, ...page } = await historyPage(opts);
+  return {
+    ...page,
+    items: rows.map((s) => ({
+      createdAt: s.createdAt.toISOString(),
+      id: s.id,
+      language: languageSchema.parse(s.language),
+      problemId: s.problem.id,
+      problemTitle: s.problem.title,
+      user:
+        opts.actor.platformRole === "admin"
+          ? { name: s.user.name, username: s.user.username }
+          : null,
+      runtimeMs: isSubmissionPending(s.status)
+        ? null
+        : s.status === "system_error"
+          ? 0
+          : s.runtimeMs,
+      memoryKb:
+        isSubmissionPending(s.status) || s.status === "system_error" ? null : s.memoryKb,
+      score: isSubmissionPending(s.status) ? null : s.status === "system_error" ? 0 : s.score,
+      totalScore: computeProblemTotalScore(s.problem),
+      status: s.status,
+      judgeGeneration: s.judgeGeneration,
+      updatedAt: s.updatedAt.toISOString(),
+      context: s.participationId ? ("virtual" as const) : deriveSubmissionContextKind(s),
+    })),
+  };
+}
+
+export async function listContextSubmissionsPaged(
+  opts: HistoryOptions & { context: { type: "assignment" | "exam"; id: string } },
+) {
+  await assertContextSubmissionsRead(opts.actor, opts.context);
+  const { rows, ...page } = await historyPage(opts, opts.context);
+  return {
+    ...page,
+    items: rows.map((row) => ({
+      ...row,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+      score: isSubmissionPending(row.status)
+        ? null
+        : row.status === "system_error"
+          ? 0
+          : row.score,
+      runtimeMs: isSubmissionPending(row.status)
+        ? null
+        : row.status === "system_error"
+          ? 0
+          : row.runtimeMs,
+      memoryKb:
+        isSubmissionPending(row.status) || row.status === "system_error" ? null : row.memoryKb,
+    })),
   };
 }
 
@@ -465,38 +557,42 @@ export async function listAllSubmissionsPaged(opts: {
   };
 }
 
-export async function listRecentContextSubmissions(opts: {
-  actor: ActorContext;
-  context: { type: "assignment"; id: string } | { type: "exam"; id: string };
-  limit?: number;
-}) {
+async function assertContextSubmissionsRead(
+  actor: ActorContext,
+  context: { type: "assignment" | "exam"; id: string },
+) {
   const entity =
-    opts.context.type === "assignment"
-      ? await assessmentRepo.findByIdWithCourseId(opts.context.id)
-      : await examRepo.findById(opts.context.id);
+    context.type === "assignment"
+      ? await assessmentRepo.findByIdWithCourseId(context.id)
+      : await examRepo.findById(context.id);
   if (!entity) {
     throw new NotFoundError(
-      opts.context.type === "assignment" ? "Assignment not found." : "Exam not found.",
+      context.type === "assignment" ? "Assignment not found." : "Exam not found.",
     );
   }
 
-  const course = await courseRepo.findByIdWithUserMembership(
-    entity.courseId,
-    opts.actor.userId,
-  );
+  const course = await courseRepo.findByIdWithUserMembership(entity.courseId, actor.userId);
   if (!course) throw new NotFoundError("Course not found.");
   const membership = course.memberships[0] ?? null;
   const canManage =
-    course.ownerId === opts.actor.userId ||
+    course.ownerId === actor.userId ||
     canManageCourse(
       resolveEffectiveCourseRole(
-        opts.actor.platformRole,
+        actor.platformRole,
         membership?.status === "active" ? membership.role : null,
       ),
     );
   if (!canManage) {
     throw new ForbiddenError("Not authorized to view context submissions.");
   }
+}
+
+export async function listRecentContextSubmissions(opts: {
+  actor: ActorContext;
+  context: { type: "assignment"; id: string } | { type: "exam"; id: string };
+  limit?: number;
+}) {
+  await assertContextSubmissionsRead(opts.actor, opts.context);
 
   const limit = Math.min(Math.max(opts.limit ?? 50, 1), 100);
   const rows = await submissionRepo.listRecentForContext({ context: opts.context, limit });
@@ -548,37 +644,56 @@ export async function listProblemSubmissions(
     ...(contestId ? { contestId } : {}),
   });
 
-  return submissions.map((s) => {
-    const language = languageSchema.parse(s.language);
-    const status = submissionOperationStatusSchema.parse(s.status);
-    const parsedVerdict = submissionResultVerdictSchema.safeParse(status);
-    const parsedSummary =
-      s.verdictSummary == null ? null : verdictSummarySchema.safeParse(s.verdictSummary);
-    const summary = parsedSummary?.success ? parsedSummary.data : null;
+  return (await applyQueuedRejudges(submissions)).map(toProblemSubmissionEntry);
+}
 
-    return {
-      id: s.id,
-      language,
-      ...(parsedVerdict.success
-        ? {
-            result: {
-              accepted: parsedVerdict.data === "accepted",
-              verdict: parsedVerdict.data,
-              score: s.score,
-              runtimeMs: s.runtimeMs ?? 0,
-              feedback:
-                summary?.compilerErrorTruncated ??
-                summary?.systemErrorTruncated ??
-                (parsedVerdict.data === "accepted"
-                  ? "Accepted."
-                  : "Verdict details unavailable."),
-            } satisfies SubmissionResult,
-          }
-        : {}),
-      submittedAt: s.createdAt.toISOString(),
-      context: deriveSubmissionContextKind(s),
-    };
+export async function listWorkspaceSubmissions(opts: {
+  actor: ActorContext;
+  problemId: string;
+  context: SubmissionContext;
+  cursor?: string;
+}) {
+  const limit = 50;
+  const context = opts.context;
+  const rows = await submissionRepo.listByUser({
+    userId: opts.actor.userId,
+    enforceExamConfinement: true,
+    problemId: opts.problemId,
+    limit,
+    ...(opts.cursor ? { cursor: opts.cursor } : {}),
+    ...(context.type === "exam" ? { examId: context.examId } : {}),
+    ...(context.type === "assignment" ? { assessmentId: context.assessmentId } : {}),
+    ...(context.type === "contest" ? { contestId: context.contestId } : {}),
+    ...(context.type === "virtual" ? { participationId: context.participationId } : {}),
   });
+  if (rows === null) throw new ValidationError("Invalid submission cursor.");
+  const items = rows.slice(0, limit);
+  return {
+    items: (await applyQueuedRejudges(items)).map(toProblemSubmissionEntry),
+    nextCursor: rows.length > limit ? (items.at(-1)?.id ?? null) : null,
+  };
+}
+
+export function toProblemSubmissionEntry(
+  s: SubmissionStateRow & {
+    createdAt: Date;
+    language: string;
+    contestId: string | null;
+    assessmentId: string | null;
+    examId: string | null;
+  },
+) {
+  const result = submissionSummaryResult(s);
+  return {
+    id: s.id,
+    language: languageSchema.parse(s.language),
+    status: submissionOperationStatusSchema.parse(s.status),
+    judgeGeneration: s.judgeGeneration,
+    updatedAt: s.updatedAt.toISOString(),
+    ...(result ? { result } : {}),
+    submittedAt: s.createdAt.toISOString(),
+    context: deriveSubmissionContextKind(s),
+  };
 }
 
 export function narrowSubmissionRow(row: { status: string; language: string }): {
@@ -729,7 +844,10 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
   };
 }
 
-export type JudgeDispatchMeta = Pick<SubmissionJudgeContext, "problemType" | "advanced">;
+export type JudgeDispatchMeta = Pick<SubmissionJudgeContext, "problemType" | "advanced"> & {
+  userId: string;
+  createdAt: Date;
+};
 
 export async function getJudgeDispatchMeta(submissionId: string): Promise<JudgeDispatchMeta> {
   const submission = await submissionRepo.findByIdForDispatchMeta(submissionId);
@@ -754,7 +872,12 @@ export async function getJudgeDispatchMeta(submissionId: string): Promise<JudgeD
         }
       : null;
 
-  return { problemType: problem.type, advanced };
+  return {
+    problemType: problem.type,
+    advanced,
+    userId: submission.userId,
+    createdAt: submission.createdAt,
+  };
 }
 
 const IN_FLIGHT_SUBMISSION_STATUSES = [
@@ -772,7 +895,14 @@ export async function listForRejudge(input: {
   userIds?: string[];
   since?: Date;
   until?: Date;
-}): Promise<{ submissionId: string; draft: SubmissionJudgeDraft }[]> {
+}): Promise<
+  {
+    submissionId: string;
+    studentId: string;
+    judgeGeneration: number;
+    draft: SubmissionJudgeDraft;
+  }[]
+> {
   const where: Prisma.SubmissionWhereInput = {
     problemId: input.problemId,
     sampleOnly: false,
@@ -803,6 +933,8 @@ export async function listForRejudge(input: {
 
   return submissions.map((s) => ({
     submissionId: s.id,
+    studentId: s.userId,
+    judgeGeneration: s.judgeGeneration,
     draft: {
       language: s.language,
       problemId: s.problemId,
@@ -813,7 +945,7 @@ export async function listForRejudge(input: {
 
 export async function findOneForRejudge(
   submissionId: string,
-): Promise<{ submissionId: string; draft: SubmissionJudgeDraft } | null> {
+): Promise<{ submissionId: string; studentId: string; draft: SubmissionJudgeDraft } | null> {
   const submission = await submissionRepo.findById(submissionId);
   if (!submission) return null;
   if (submission.isReferenceSolution) return null;
@@ -822,6 +954,7 @@ export async function findOneForRejudge(
   }
   return {
     submissionId: submission.id,
+    studentId: submission.userId,
     draft: {
       language: submission.language,
       problemId: submission.problemId,

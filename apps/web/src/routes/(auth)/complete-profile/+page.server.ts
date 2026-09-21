@@ -4,8 +4,6 @@ import { userDomain } from "@nojv/application";
 import { withAction } from "$lib/server/shared/action-handlers";
 import { classifyRequestError } from "$lib/server/shared/handle-action-error";
 
-import { handleSendVerificationAction } from "$lib/server/shared/school-verification";
-
 import type { Actions, PageServerLoad } from "./$types";
 
 export const load: PageServerLoad = ({ locals }) => {
@@ -33,5 +31,4 @@ export const actions = {
       return fail(classified.status, { error: classified.message });
     }
   }),
-  sendVerification: handleSendVerificationAction,
 } satisfies Actions;

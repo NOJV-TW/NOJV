@@ -40,7 +40,12 @@ import {
   deriveRunStatusFromJob,
   parseAdvancedResultLog,
 } from "../../../apps/worker/src/services/k8s-advanced";
-import { K8sExecutor } from "../../../apps/worker/src/services/k8s-executor";
+import {
+  K8sExecutor,
+  SandboxBackpressureError,
+  SandboxInfeasibleError,
+  SandboxTransientInfrastructureError,
+} from "../../../apps/worker/src/services/k8s-executor";
 
 function execute(executor: K8sExecutor, request: SandboxRequest) {
   return executor.execute(request, {
@@ -115,6 +120,7 @@ interface CallRecord {
 
 interface FakeOpts {
   sidecarLog?: string;
+  servicePodStatus?: object;
   jobOutcome?: "succeeded" | "failed";
   failJob?: string;
   deadlineExceededJob?: string;
@@ -139,6 +145,7 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
   const deletedPods = new Set<string>();
   const activeNetworkPolicies = new Set<string>();
   const coreApi = {
+    listNamespacedResourceQuota: vi.fn(async () => ({ items: [] })),
     createNamespacedConfigMap: vi.fn(async ({ namespace, body }: any) => {
       record.configMapsCreated.push({ name: body.metadata.name, namespace, data: body.data });
     }),
@@ -154,15 +161,13 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
     createNamespacedPod: vi.fn(async ({ namespace, body }: any) => {
       record.podsCreated.push({ name: body.metadata.name, namespace, body });
     }),
-    deleteNamespacedPod: vi.fn(
-      async ({ name, namespace, propagationPolicy, gracePeriodSeconds }: any) => {
-        record.podsDeleted.push({ name, namespace, gracePeriodSeconds });
-        record.cleanupEvents.push(`delete-pod:${name}:${String(propagationPolicy)}`);
-        podDeleteAttempts.add(name);
-        if (opts.podDeleteError) throw opts.podDeleteError;
-        deletedPods.add(name);
-      },
-    ),
+    deleteNamespacedPod: vi.fn(async ({ name, namespace, body, gracePeriodSeconds }: any) => {
+      record.podsDeleted.push({ name, namespace, gracePeriodSeconds });
+      record.cleanupEvents.push(`delete-pod:${name}:${String(body?.propagationPolicy)}`);
+      podDeleteAttempts.add(name);
+      if (opts.podDeleteError) throw opts.podDeleteError;
+      deletedPods.add(name);
+    }),
     createNamespacedService: vi.fn(async ({ namespace, body }: any) => {
       record.servicesCreated.push({ name: body.metadata.name, namespace, body });
       const clusterIP =
@@ -178,18 +183,50 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
         if (deletedPods.has(podName) || podDeleteAttempts.has(podName)) {
           if (opts.residualPods?.includes(podName)) {
             record.cleanupEvents.push(`observe-pod-present:${podName}`);
-            return { items: [{ metadata: { name: podName } }] };
+            return { items: [{ metadata: { name: podName, uid: `${podName}-uid` } }] };
           }
           record.cleanupEvents.push(`confirm-pod-gone:${podName}`);
           return { items: [] };
         }
-        return { items: [{ metadata: { name: podName } }] };
+        return {
+          items: [
+            {
+              metadata: { name: podName, uid: `${podName}-uid` },
+              spec: record.podsCreated.find((pod) => pod.name === podName)?.body.spec,
+              status: opts.servicePodStatus ?? {
+                phase: "Running",
+                containerStatuses: [{ name: "service", state: { running: {} } }],
+              },
+            },
+          ],
+        };
       }
       const jobName = String(labelSelector).split("=")[1];
+      if (!record.jobsCreated.some((job) => job.name === jobName)) {
+        record.cleanupEvents.push(`confirm-job-pods-gone:${jobName}`);
+        return { items: [] };
+      }
       if (deletedJobs.has(jobName) || jobDeleteAttempts.has(jobName)) {
         if (opts.residualJobPods?.includes(jobName)) {
           record.cleanupEvents.push(`observe-job-pods-present:${jobName}`);
-          return { items: [{ metadata: { name: `${jobName}-pod` } }] };
+          return {
+            items: [
+              {
+                metadata: {
+                  name: `${jobName}-pod`,
+                  uid: `${jobName}-pod-uid`,
+                  ownerReferences: [
+                    {
+                      apiVersion: "batch/v1",
+                      kind: "Job",
+                      name: jobName,
+                      uid: `${jobName}-uid`,
+                    },
+                  ],
+                },
+              },
+            ],
+          };
         }
         record.cleanupEvents.push(`confirm-job-pods-gone:${jobName}`);
         return { items: [] };
@@ -215,11 +252,17 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
               },
             },
           ]
-        : undefined;
+        : [{ name: isRunPod ? "run" : "grader", state: { terminated: { exitCode: 0 } } }];
       return {
         items: [
           {
-            metadata: { name: `${jobName}-pod` },
+            metadata: {
+              name: `${jobName}-pod`,
+              uid: `${jobName}-pod-uid`,
+              ownerReferences: [
+                { apiVersion: "batch/v1", kind: "Job", name: jobName, uid: `${jobName}-uid` },
+              ],
+            },
             spec: { nodeName },
             status: { initContainerStatuses, containerStatuses },
           },
@@ -242,17 +285,20 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
       if (opts.throwOnJobCreate) throw new Error("simulated job create failure");
       record.jobsCreated.push({ name: body.metadata.name, namespace, body });
     }),
-    deleteNamespacedJob: vi.fn(async ({ name, namespace, propagationPolicy }: any) => {
+    deleteNamespacedJob: vi.fn(async ({ name, namespace, body }: any) => {
       record.jobsDeleted.push({ name, namespace });
-      record.cleanupEvents.push(`delete-job:${name}:${String(propagationPolicy)}`);
+      record.cleanupEvents.push(`delete-job:${name}:${String(body?.propagationPolicy)}`);
       jobDeleteAttempts.add(name);
       if (opts.jobDeleteError) throw opts.jobDeleteError;
       deletedJobs.add(name);
     }),
     readNamespacedJob: vi.fn(async ({ name }: any) => {
       jobReadCount += 1;
+      if (!record.jobsCreated.some((job) => job.name === name) || deletedJobs.has(name))
+        throw { code: 404 };
+      const metadata = { name, uid: `${name}-uid` };
       if (opts.jobPendingPolls && jobReadCount <= opts.jobPendingPolls) {
-        return { status: {} };
+        return { metadata, status: {} };
       }
       const failed =
         (opts.failJob && name === opts.failJob) ||
@@ -262,7 +308,7 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
         opts.deadlineExceededJob && name === opts.deadlineExceededJob
           ? [{ type: "Failed", reason: "DeadlineExceeded" }]
           : undefined;
-      return { status: { [outcome]: 1, conditions } };
+      return { metadata, status: { [outcome]: 1, conditions } };
     }),
   } as any;
 
@@ -864,6 +910,57 @@ function buildSidecarLog(payload: Record<string, unknown>): string {
 }
 
 describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestration", () => {
+  it("blocks a service + runner pair that cannot coexist within the Pod hard limit", async () => {
+    const record = emptyRecord();
+    const clients = buildFakeClients(record);
+    clients.coreApi.listNamespacedResourceQuota.mockResolvedValue({
+      items: [{ metadata: { name: "sandbox" }, status: { hard: { pods: "1" }, used: {} } }],
+    });
+    await expect(
+      execute(
+        new K8sExecutor(EXEC_CONFIG, clients),
+        makeAdvancedRequest({
+          network: {
+            mode: "service",
+            service: { imageRef: "registry.example.com/ta/svc:1.0", imageSource: "registry" },
+          },
+        }),
+      ),
+    ).rejects.toBeInstanceOf(SandboxInfeasibleError);
+    expect(record.podsCreated).toHaveLength(1);
+    expect(record.jobsCreated).toHaveLength(0);
+    expect(record.podsDeleted).toHaveLength(1);
+    expect(record.pvcsDeleted).toHaveLength(1);
+  });
+
+  it.each(["pvc", "sidecar"])(
+    "returns %s quota pressure to the workflow and cleans up",
+    async (resource) => {
+      const record = emptyRecord();
+      const clients = buildFakeClients(record);
+      const rejection = Object.assign(new Error("Kubernetes API 403"), {
+        code: 403,
+        body: { message: "forbidden: exceeded quota: sandbox-quota" },
+      });
+      if (resource === "pvc")
+        clients.coreApi.createNamespacedPersistentVolumeClaim.mockRejectedValue(rejection);
+      else clients.coreApi.createNamespacedPod.mockRejectedValue(rejection);
+      const executor = new K8sExecutor(EXEC_CONFIG, clients);
+      await expect(
+        execute(
+          executor,
+          makeAdvancedRequest({
+            network: {
+              mode: "service",
+              service: { imageRef: "registry.example.com/ta/svc:1.0", imageSource: "registry" },
+            },
+          }),
+        ),
+      ).rejects.toBeInstanceOf(SandboxBackpressureError);
+      expect(record.pvcsDeleted).toHaveLength(1);
+    },
+  );
+
   it("creates PVC → run Job → grade Job (same node) → reads grade sidecar → AC result", async () => {
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({
@@ -962,6 +1059,26 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     expect(record.jobsCreated.some((j) => j.name === "judge-sub-adv-1-grade")).toBe(false);
   });
 
+  it("pins the helper image for both advanced phases while retaining their original judge images", async () => {
+    const record = emptyRecord();
+    const clients = buildFakeClients(record, {
+      sidecarLog: buildSidecarLog({ score: 100, verdict: "accepted" }),
+    });
+    const sandboxImage = "registry.example.com/sandbox@sha256:original";
+    const request = { ...makeAdvancedRequest(), sandboxImage };
+    await execute(new K8sExecutor(EXEC_CONFIG, clients), request);
+    const run = record.jobsCreated[0]!.body.spec.template.spec;
+    const grade = record.jobsCreated[1]!.body.spec.template.spec;
+    for (const container of [...run.initContainers, ...grade.initContainers])
+      expect(container.image).toBe(sandboxImage);
+    expect(run.containers.find((container) => container.name === ADVANCED_RUN_NAME).image).toBe(
+      request.advanced!.run.imageRef,
+    );
+    expect(
+      grade.containers.find((container) => container.name === ADVANCED_GRADER_NAME).image,
+    ).toBe(request.advanced!.grade.imageRef);
+  });
+
   it("deadline-exceeded run still proceeds to grade even though transfer didn't terminate cleanly", async () => {
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ score: 0, verdict: "time_limit_exceeded" });
@@ -1001,6 +1118,68 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     });
     expect(record.jobsDeleted).toHaveLength(2);
     expect(record.pvcsDeleted).toHaveLength(1);
+  });
+
+  it.each([
+    {
+      phase: "Pending",
+      conditions: [
+        {
+          type: "PodScheduled",
+          status: "False",
+          reason: "Unschedulable",
+          message: "Insufficient cpu",
+        },
+      ],
+    },
+    {
+      phase: "Pending",
+      startTime: new Date(),
+      containerStatuses: [
+        { name: "service", state: { waiting: { reason: "ContainerCreating" } } },
+      ],
+    },
+  ])(
+    "keeps unstarted service sidecars waiting instead of returning SE: %j",
+    async (servicePodStatus) => {
+      const record = emptyRecord();
+      const clients = buildFakeClients(record, { servicePodStatus });
+      await expect(
+        execute(
+          new K8sExecutor(EXEC_CONFIG, clients),
+          makeAdvancedRequest({
+            network: {
+              mode: "service",
+              service: { imageRef: "registry.example.com/ta/svc:1.0", imageSource: "registry" },
+            },
+          }),
+        ),
+      ).rejects.toBeInstanceOf(SandboxBackpressureError);
+      expect(record.jobsCreated).toHaveLength(0);
+      expect(record.podLogsRead).toHaveLength(0);
+      expect(record.podsDeleted).toHaveLength(1);
+      expect(record.pvcsDeleted).toHaveLength(1);
+    },
+  );
+
+  it("preserves service node loss as a transient infrastructure failure", async () => {
+    const record = emptyRecord();
+    const clients = buildFakeClients(record, {
+      servicePodStatus: { phase: "Failed", reason: "NodeLost" },
+    });
+    await expect(
+      execute(
+        new K8sExecutor(EXEC_CONFIG, clients),
+        makeAdvancedRequest({
+          network: {
+            mode: "service",
+            service: { imageRef: "registry.example.com/ta/svc:1.0", imageSource: "registry" },
+          },
+        }),
+      ),
+    ).rejects.toBeInstanceOf(SandboxTransientInfrastructureError);
+    expect(record.podsDeleted).toHaveLength(1);
+    expect(record.podLogsRead).toHaveLength(0);
   });
 
   it("preserves service readiness API failures instead of reporting a bad service image", async () => {
@@ -1198,7 +1377,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     expect(record.podsDeleted).toContainEqual({
       name: "judge-sub-adv-1-sidecar",
       namespace: EXEC_CONFIG.namespace,
-      gracePeriodSeconds: 0,
+      gracePeriodSeconds: undefined,
     });
     before(
       "confirm-pod-gone:judge-sub-adv-1-sidecar",
@@ -1244,19 +1423,19 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
 
       const execution = execute(executor, makeAdvancedRequest());
       const rejection = expect(execution).rejects.toThrow(/cleanup failed/i);
-      await vi.runAllTimersAsync();
-      await rejection;
+      await Promise.all([rejection, vi.runAllTimersAsync()]);
 
       expect(record.cleanupEvents).toContain("confirm-job-pods-gone:judge-sub-adv-1-run");
       expect(record.jobsDeleted).toHaveLength(6);
-      expect(record.configMapsDeleted).toHaveLength(2);
-      expect(record.pvcsDeleted).toHaveLength(1);
+      expect(record.jobsCreated.map((job) => job.name)).toEqual(["judge-sub-adv-1-run"]);
+      expect(record.configMapsDeleted).toHaveLength(0);
+      expect(record.pvcsDeleted).toHaveLength(0);
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("DELETE errors still poll selectors and retain policies while Job or sidecar Pods remain", async () => {
+  it("retains data and policies when run termination fails before grade admission", async () => {
     vi.useFakeTimers();
     try {
       const record = emptyRecord();
@@ -1266,7 +1445,7 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
           sidecarLog: buildSidecarLog({ score: 100, verdict: "accepted" }),
           jobDeleteError: new Error("job delete transport failure"),
           podDeleteError: new Error("pod delete transport failure"),
-          residualJobPods: ["judge-sub-adv-1-grade"],
+          residualJobPods: ["judge-sub-adv-1-run"],
           residualPods: ["judge-sub-adv-1-sidecar"],
         }),
       );
@@ -1281,13 +1460,13 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
         }),
       );
       const rejection = expect(execution).rejects.toThrow(/cleanup failed/i);
-      await vi.runAllTimersAsync();
-      await rejection;
+      await Promise.all([rejection, vi.runAllTimersAsync()]);
 
-      expect(record.cleanupEvents).toContain("observe-job-pods-present:judge-sub-adv-1-grade");
-      expect(record.cleanupEvents).toContain("observe-pod-present:judge-sub-adv-1-sidecar");
+      expect(record.jobsCreated.map((job) => job.name)).toEqual(["judge-sub-adv-1-run"]);
+      expect(record.configMapsDeleted).toHaveLength(0);
+      expect(record.pvcsDeleted).toHaveLength(0);
       expect(record.networkPoliciesDeleted.map((policy) => policy.name)).not.toContain(
-        "judge-sub-adv-1-grade-egress",
+        "judge-sub-adv-1-run-egress",
       );
       expect(record.networkPoliciesDeleted.map((policy) => policy.name)).not.toContain(
         "judge-sub-adv-1-sidecar-egress",

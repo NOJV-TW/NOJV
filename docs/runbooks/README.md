@@ -7,14 +7,15 @@ and links out to that reference material.
 
 ## Index
 
-| Runbook                                       | When to use                                                       |
-| --------------------------------------------- | ----------------------------------------------------------------- |
-| [Getting Started](getting-started.md)         | First local run, environment setup, troubleshooting the dev stack |
-| [Single-Machine k3s](k8s-single-machine.md)   | One-box K8s-backend deploy (k3s + Calico) + autoscaling guidance  |
-| [Incident Recovery](incident-recovery.md)     | Outage response, SLO breach, recovery steps                       |
-| [Backup & Restore](backup-restore.md)         | Backup posture, PITR, GCS / Redis snapshot restore                |
-| [Observability Setup](observability-setup.md) | Setting up / updating Grafana metrics dashboards + alert rules    |
-| [Testing Strategy](testing.md)                | Where new tests belong, how to run each layer                     |
+| Runbook                                       | When to use                                                                             |
+| --------------------------------------------- | --------------------------------------------------------------------------------------- |
+| [Getting Started](getting-started.md)         | First local run, environment setup, troubleshooting the dev stack                       |
+| [Single-Machine k3s](k8s-single-machine.md)   | One-box K8s-backend deploy (k3s + Calico) + autoscaling guidance                        |
+| [Incident Recovery](incident-recovery.md)     | Outage response, SLO breach, recovery steps                                             |
+| [Backup & Restore](backup-restore.md)         | Backup posture, PITR, GCS / Redis snapshot restore                                      |
+| [Observability Setup](observability-setup.md) | Setting up / updating Grafana metrics dashboards + alert rules                          |
+| [Testing Strategy](testing.md)                | Where new tests belong, how to run each layer                                           |
+| [Judge Capacity](judge-capacity.md)           | Admission/quota handoff, cleanup incidents, performance gates and history-safe rollback |
 
 ## Reference Catalog
 
@@ -25,6 +26,6 @@ For design, invariants, and acceptance criteria (not procedures):
 - **Product** — [Product sense](../product/PRODUCT_SENSE.md), [Planning system](../product/PLANS.md)
 - **Feature specs** — [`docs/specs/`](../specs/) (per-feature Given/When/Then acceptance criteria)
 
-The repository's `AGENT.md` (symlinked as `CLAUDE.md`) is the canonical agent
-entrypoint and carries the full reading order; `tests/unit/docs/doc-links.test.ts`
-fails CI if any link in `AGENT.md` or this index goes dangling.
+The repository's `AGENTS.md` is the canonical agent entrypoint and carries the
+full reading order; `tests/unit/docs/doc-links.test.ts` fails CI if any link in
+`AGENTS.md` or this index goes dangling.

@@ -5,7 +5,7 @@ import type { TransactionClient } from "../transaction";
 type TxClient = TransactionClient;
 
 type ExamSessionEventType =
-  "enter" | "leave" | "visibility_lost" | "release" | "auto_close" | "heartbeat";
+  "enter" | "leave" | "visibility_lost" | "release" | "auto_close" | "heartbeat" | "ip_reset";
 
 export const examSessionRepo = {
   findActiveForUser(userId: string) {

@@ -64,6 +64,7 @@ export interface SandboxAdvancedRequest {
 }
 
 export interface SandboxRequest {
+  sandboxImage?: string;
   submissionId: string;
   sourceCode: string;
   sourceFiles?: SandboxSourceFile[];
@@ -98,6 +99,8 @@ export interface SandboxExecutionContext {
 }
 
 export interface SandboxExecutor {
+  cleanupRun?(runId: string): Promise<void>;
+  reconcile?(runId: string, owner?: string): Promise<boolean>;
   execute(request: SandboxRequest, execution: SandboxExecutionContext): Promise<SandboxResult>;
 }
 

@@ -33,10 +33,6 @@ spec:
           effect: NoSchedule
       automountServiceAccountToken: false
       runtimeClassName: {{ required "worker.sandbox.runtimeClassName is required" .Values.worker.sandbox.runtimeClassName | quote }}
-      {{- with .Values.worker.sandbox.imagePullSecret }}
-      imagePullSecrets:
-        - name: {{ . }}
-      {{- end }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001

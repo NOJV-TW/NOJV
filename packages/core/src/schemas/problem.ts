@@ -17,12 +17,20 @@ import { requiredPathsSchema } from "./required-paths";
 
 const WORKSPACE_FILE_MAX_CHARS = 16 * 1024 * 1024;
 export const MAX_TESTCASE_FILE_BYTES = 10 * 1024 * 1024;
+export const MAX_INLINE_TESTCASE_EDIT_BYTES = 1024 * 1024;
 
 const utf8Encoder = new TextEncoder();
 const testcaseFileContentSchema = z
   .string()
   .refine(
     (value) => utf8Encoder.encode(value).byteLength <= MAX_TESTCASE_FILE_BYTES,
+    "validation_tooLong",
+  );
+
+const inlineTestcaseEditContentSchema = z
+  .string()
+  .refine(
+    (value) => utf8Encoder.encode(value).byteLength <= MAX_INLINE_TESTCASE_EDIT_BYTES,
     "validation_tooLong",
   );
 
@@ -188,17 +196,20 @@ export const problemJudgeTestcaseSchema = z.object({
 export const problemTestcaseSetCreateSchema = z.object({
   cases: z.array(problemTestcaseCaseSchema).min(1).max(256),
   description: z.string().max(5_000).default(""),
-  name: z.string().trim().min(1).max(120),
   weight: z.coerce.number().int().min(1).max(100_000).default(1),
 });
 
 export const testcaseSetUpdateSchema = z.object({
   description: z.string().max(5_000).optional(),
-  name: z.string().trim().min(1).max(120).optional(),
   weight: z.coerce.number().int().min(0).max(100_000).optional(),
 });
 
-export const testcaseUpdateSchema = problemTestcaseCaseSchema.partial();
+export const testcaseUpdateSchema = z
+  .object({
+    output: inlineTestcaseEditContentSchema,
+    input: inlineTestcaseEditContentSchema,
+  })
+  .partial();
 
 export const problemOverviewSchema = z.object({
   acceptanceRate: z.number().min(0).max(1),

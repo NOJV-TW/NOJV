@@ -31,13 +31,14 @@ function proxiedImageUrl(url: URL, baseUrl: string): string | null {
 function resolveEmailUrl(raw: string, baseUrl: string, kind: "link" | "image"): string | null {
   const value = raw.trim();
   if (value === "") return null;
-  if (value.startsWith("//")) {
-    return kind === "image" ? proxiedImageUrl(new URL(`https:${value}`), baseUrl) : null;
-  }
-  if (value.startsWith("/")) return new URL(value, baseUrl).href;
+  if (value.startsWith("//") && kind === "link") return null;
   let url: URL;
   try {
-    url = new URL(value);
+    url = value.startsWith("//")
+      ? new URL(`https:${value}`)
+      : value.startsWith("/")
+        ? new URL(value, baseUrl)
+        : new URL(value);
   } catch {
     return null;
   }
@@ -134,10 +135,6 @@ function createRenderer(baseUrl: string): RendererObject {
       if (url === null) return escapeHtml(text);
       const titleAttr = title ? ` title="${escapeHtml(title)}"` : "";
       return `<img src="${escapeHtml(url)}" alt="${escapeHtml(text)}"${titleAttr} style="display:block;max-width:100%;height:auto;margin:12px 0;border-radius:12px">`;
-    },
-    text(token) {
-      if (token.type === "text" && token.tokens) return this.parser.parseInline(token.tokens);
-      return escapeHtml(token.text);
     },
   };
 }
