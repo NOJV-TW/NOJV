@@ -229,6 +229,11 @@ not the resource model. Per-case validator files use flat keys
 over a `socat` TCP bridge on port 7777; only the interactor mounts secret
 input/answer data. `advanced` uses its separate run/grade Jobs and PVC contract.
 
+Interactive runner reports use typed stderr markers; stdout carries only the
+solution/interactor conversation. Student compilation failures produce the same
+submission-level CE result as standard judging. Interactor compilation failures
+remain platform errors, with compiler diagnostics available only to staff.
+
 ### score
 
 Subtask scoring is **all-or-nothing**: a `TestcaseSet` (subtask) earns its full `weight` only if **every** case in it is AC, otherwise 0. There is no per-subtask strategy column and no per-case partial credit — checkers/interactors render AC/WA only. This is uniform across practice, assignment, contest, and exam; contests adjust whole-**problem** aggregation (see [Architecture](./ARCHITECTURE.md)), not the subtask AC-all decision.

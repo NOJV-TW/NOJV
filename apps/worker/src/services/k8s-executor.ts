@@ -50,7 +50,7 @@ import {
   type ValidatorOutcome,
 } from "@nojv/core";
 import { createLogger } from "../logger.js";
-import { mergeInteractiveCase, type InteractiveSideResult } from "./check-interactive";
+import { resolveInteractiveCase, type InteractiveSideResult } from "./check-interactive";
 import { mergeCheckerResults, resolveSandboxResult } from "./check-standard";
 import { executionAbortReason } from "./execution-abort";
 import { advancedFallbackResult, mapAdvancedResult } from "./sandbox-result-mapper";
@@ -1605,9 +1605,15 @@ export class K8sExecutor implements SandboxExecutor {
     const results: SandboxTestcaseResult[] = [];
 
     for (const testcase of request.testcases) {
-      results.push(
-        await this.runInteractiveCase(baseName, ns, request, testcase, execution.signal),
+      const result = await this.runInteractiveCase(
+        baseName,
+        ns,
+        request,
+        testcase,
+        execution.signal,
       );
+      if (result.compilationError !== undefined) return result;
+      results.push(...result.testcaseResults);
     }
 
     return { testcaseResults: results };
@@ -1619,7 +1625,7 @@ export class K8sExecutor implements SandboxExecutor {
     request: SandboxRequest,
     testcase: SandboxTestcase,
     signal: AbortSignal,
-  ): Promise<SandboxTestcaseResult> {
+  ): Promise<SandboxResult> {
     const jobName = `${baseName}-int-${String(testcase.index)}`;
     const solConfigMap = `${jobName}-sol`;
     const intConfigMap = `${jobName}-int`;
@@ -1627,14 +1633,18 @@ export class K8sExecutor implements SandboxExecutor {
     let interactorPayloadNames: string[] = [];
     let executionFailure: { reason: unknown } | undefined;
 
-    const seCase = (message: string): SandboxTestcaseResult => ({
-      index: testcase.index,
-      verdict: "SE",
-      stdout: "",
-      stderr: message,
-      exitCode: -1,
-      timeMs: 0,
-      feedback: message,
+    const seCase = (message: string): SandboxResult => ({
+      testcaseResults: [
+        {
+          index: testcase.index,
+          verdict: "SE",
+          stdout: "",
+          stderr: message,
+          exitCode: -1,
+          timeMs: 0,
+          feedback: message,
+        },
+      ],
     });
 
     try {
@@ -1714,7 +1724,7 @@ export class K8sExecutor implements SandboxExecutor {
         timedOut: false,
         spawnError: false,
       };
-      return mergeInteractiveCase(testcase, sol, int);
+      return resolveInteractiveCase(testcase, sol, int);
     } catch (err) {
       if (signal.aborted) {
         const reason = executionAbortReason(signal);
