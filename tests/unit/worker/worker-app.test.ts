@@ -252,12 +252,11 @@ describe("WorkerApp lifecycle", () => {
         });
         expect(mocks.workerCreate).toHaveBeenCalledTimes(queues.length);
         for (const taskQueue of queues) {
-          const judge = taskQueue === "judge" || taskQueue === "judge-capacity";
           expect(mocks.workerCreate).toHaveBeenCalledWith(
             expect.objectContaining({
               taskQueue,
-              maxCachedWorkflows: judge ? 64 : 32,
-              maxConcurrentWorkflowTaskExecutions: judge ? 16 : 8,
+              maxCachedWorkflows: 32,
+              maxConcurrentWorkflowTaskExecutions: 8,
               maxConcurrentActivityTaskExecutions: taskQueue === "judge-control" ? 4 : 3,
             }),
           );

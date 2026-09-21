@@ -525,9 +525,8 @@ Retries and recovery epochs retain the original execution ordering key.
 Prepared unfinished runs are bounded to twice the available CPU execution slots.
 
 Temporal's in-memory Workflow cache is bounded independently of sandbox admission
-and Activity concurrency. Judge workers retain at most 64 cached Workflows and
-execute at most 16 Workflow tasks concurrently; control and platform workers use
-32 cached Workflows and 8 concurrent Workflow tasks each. These caps protect the
+and Activity concurrency. Judge, control and platform workers each retain at most
+32 cached Workflows and execute at most 8 Workflow tasks concurrently. These caps protect the
 worker's own heap when many submissions wait for admission. Evicted Workflows
 remain durable in Temporal and replay when needed; eviction neither cancels a
 submission nor releases its sandbox permit.
