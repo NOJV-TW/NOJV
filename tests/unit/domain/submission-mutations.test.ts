@@ -1,5 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("../../../packages/application/src/submission/judge-snapshot", () => ({
+  prepareJudgeSnapshot: vi.fn(async () => ({
+    problemGeneration: 0,
+    pointer: { key: "pinned-snapshot", sha256: "a".repeat(64), size: 1 },
+  })),
+}));
+vi.mock("../../../packages/application/src/submission/judge-execution", () => ({
+  createJudgeExecution: vi.fn(async () => undefined),
+}));
+vi.mock("../../../packages/application/src/submission/judge-recovery", () => ({
+  kickJudgeExecution: vi.fn(async () => undefined),
+}));
+
 import { createInMemoryStorage } from "../_fixtures/storage";
 
 const {
@@ -137,6 +150,7 @@ vi.mock("@nojv/db", () => {
       try {
         return await fn({
           $executeRaw: txExecuteRaw,
+          $queryRaw: vi.fn(async () => []),
           problem: { update: problemUpdateReference },
         } as never);
       } finally {
@@ -801,46 +815,36 @@ describe("submitAndDispatch", () => {
     dispatchSubmissionJudge.mockResolvedValue(undefined);
   });
 
-  it("dispatches the same judge job after the transaction commits", async () => {
-    await expect(submitAndDispatch(baseDraft, fakeActor, "127.0.0.1")).resolves.toEqual(
-      expect.objectContaining({ status: "queued" }),
-    );
-
-    const persistedJob = (durableWorkEnqueue.mock.calls[0]?.[0] as { payload: unknown })
-      .payload;
-    expect(dispatchSubmissionJudge).toHaveBeenCalledWith(persistedJob);
-    expect(durableWorkEnqueue.mock.invocationCallOrder[0]).toBeLessThan(
-      dispatchSubmissionJudge.mock.invocationCallOrder[0],
-    );
+  it("returns durable acceptance after committing source and execution", async () => {
+    await expect(submitAndDispatch(baseDraft, fakeActor, "127.0.0.1")).resolves.toMatchObject({
+      status: "queued",
+    });
+    expect(submissionPublishPendingUpload).toHaveBeenCalledOnce();
+    expect(submissionCompleteIfInProgress).not.toHaveBeenCalled();
     expect(transactionState.depth).toBe(0);
   });
 
-  it("fails fast and marks the submission as a system error when dispatch fails", async () => {
-    dispatchSubmissionJudge.mockRejectedValue(new Error("Temporal unavailable"));
-    await expect(submitAndDispatch(baseDraft, fakeActor, "127.0.0.1")).rejects.toMatchObject({
-      status: 503,
+  it("retains accepted work when the best-effort Temporal handoff fails", async () => {
+    const { kickJudgeExecution } =
+      await import("../../../packages/application/src/submission/judge-recovery");
+    vi.mocked(kickJudgeExecution).mockRejectedValueOnce(new Error("Temporal unavailable"));
+    await expect(submitAndDispatch(baseDraft, fakeActor, "127.0.0.1")).resolves.toMatchObject({
+      status: "queued",
     });
-    expect(durableWorkEnqueue).toHaveBeenCalledTimes(1);
-    expect(submissionCompleteIfInProgress).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({ status: "system_error" }),
-    );
-    expect(durableWorkCancel).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: "submission.judge.dispatch" }),
+    expect(submissionCompleteIfInProgress).not.toHaveBeenCalled();
+    expect(durableWorkCancel).not.toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "submission.execution.dispatch" }),
     );
   });
 
-  it("fails instead of waiting indefinitely for Temporal", async () => {
-    dispatchSubmissionJudge.mockReturnValue(new Promise(() => {}));
-
-    await expect(submitAndDispatch(baseDraft, fakeActor, "127.0.0.1")).rejects.toMatchObject({
-      status: 503,
+  it("does not wait for a slow Temporal handoff", async () => {
+    const { kickJudgeExecution } =
+      await import("../../../packages/application/src/submission/judge-recovery");
+    vi.mocked(kickJudgeExecution).mockReturnValueOnce(new Promise(() => {}));
+    await expect(submitAndDispatch(baseDraft, fakeActor, "127.0.0.1")).resolves.toMatchObject({
+      status: "queued",
     });
-    expect(durableWorkEnqueue).toHaveBeenCalledTimes(1);
-    expect(submissionCompleteIfInProgress).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({ status: "system_error" }),
-    );
+    expect(submissionCompleteIfInProgress).not.toHaveBeenCalled();
   });
 });
 

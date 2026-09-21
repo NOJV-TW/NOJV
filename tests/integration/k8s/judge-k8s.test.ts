@@ -263,6 +263,8 @@ describe("K8s judge — standard mode", () => {
       if (!clients) throw new Error("clients not initialised");
       const { coreApi } = clients;
       const name = `durable-quota-${Date.now()}`;
+      const holderName = `${name}-holder`;
+      createdPods.add(holderName);
       const env = await TestWorkflowEnvironment.createTimeSkipping();
       let attempts = 0;
       let failed = false;
@@ -270,8 +272,39 @@ describe("K8s judge — standard mode", () => {
       try {
         await coreApi.createNamespacedResourceQuota({
           namespace,
-          body: { metadata: { name }, spec: { hard: { "requests.cpu": "0" } } },
+          body: { metadata: { name }, spec: { hard: { "requests.cpu": "100m" } } },
         });
+        await coreApi.createNamespacedPod({
+          namespace,
+          body: {
+            metadata: { name: holderName },
+            spec: {
+              restartPolicy: "Never",
+              terminationGracePeriodSeconds: 0,
+              containers: [
+                {
+                  name: "holder",
+                  image: SANDBOX_IMAGE,
+                  imagePullPolicy: "Never",
+                  command: ["node", "-e", "setInterval(() => {}, 1000)"],
+                  resources: {
+                    requests: { cpu: "100m", memory: "64Mi" },
+                    limits: { cpu: "100m", memory: "128Mi" },
+                  },
+                },
+              ],
+            },
+          },
+        });
+        await expect
+          .poll(
+            async () =>
+              (await coreApi.readNamespacedResourceQuota({ name, namespace })).status?.used?.[
+                "requests.cpu"
+              ],
+            { timeout: 20_000 },
+          )
+          .toBe("100m");
         const worker = await Worker.create({
           connection: env.nativeConnection,
           taskQueue: name,
@@ -302,15 +335,18 @@ describe("K8s judge — standard mode", () => {
                 return { result, advancedJudgeVerificationSnapshot: null };
               } catch (error) {
                 if (attempts === 1 && error instanceof SandboxBackpressureError) {
-                  const jobs = await clients!.batchApi.listNamespacedJob({ namespace });
-                  expect(
-                    jobs.items.some((job) => job.metadata?.name === `judge-${submissionId}`),
-                  ).toBe(false);
-                  await coreApi.replaceNamespacedResourceQuota({
-                    name,
-                    namespace,
-                    body: { metadata: { name }, spec: { hard: { "requests.cpu": "200m" } } },
-                  });
+                  await expect
+                    .poll(
+                      async () => {
+                        const jobs = await clients!.batchApi.listNamespacedJob({ namespace });
+                        return jobs.items.some(
+                          (job) => job.metadata?.name === `judge-${submissionId}`,
+                        );
+                      },
+                      { timeout: 10_000 },
+                    )
+                    .toBe(false);
+                  await coreApi.deleteNamespacedPod({ name: holderName, namespace });
                 }
                 throw error;
               }

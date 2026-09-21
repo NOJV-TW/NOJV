@@ -10,6 +10,7 @@ import {
   STORAGE_OBJECT_CLEANUP_KIND,
   submissionDomain,
 } from "@nojv/application";
+import { JUDGE_EXECUTION_DISPATCH_KIND } from "@nojv/core";
 import { pubsub } from "@nojv/redis";
 import { z } from "zod";
 
@@ -42,6 +43,10 @@ const scoreConvergencePayload = z
   .strict();
 
 export const durableWorkHandlers = Object.freeze({
+  [JUDGE_EXECUTION_DISPATCH_KIND]: async (payload: unknown) => {
+    await submissionDomain.executeJudgeExecutionDispatch(payload);
+    return { outcome: "dispatched" };
+  },
   [notificationDomain.NOTIFICATION_SSE_WORK_KIND]: async (payload: unknown) => {
     const parsed = notificationSsePayload.parse(payload);
     return notificationDomain.publishNotificationSse(parsed);

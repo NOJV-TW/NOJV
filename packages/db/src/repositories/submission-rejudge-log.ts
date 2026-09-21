@@ -66,10 +66,17 @@ export const submissionRejudgeLogRepo = {
     });
   },
 
-  deleteOlderThan(cutoff: Date) {
-    return prisma.submissionRejudgeLog.deleteMany({
-      where: { createdAt: { lt: cutoff } },
-    });
+  async deleteOlderThan(cutoff: Date) {
+    const count = await prisma.$executeRaw`
+      DELETE FROM "SubmissionRejudgeLog" log
+      WHERE log."createdAt" < ${cutoff}
+        AND NOT EXISTS (
+          SELECT 1 FROM "JudgeExecution" execution
+          WHERE execution."rejudgeLogId" = log.id
+            AND execution.state NOT IN ('completed', 'cancelled')
+        )
+    `;
+    return { count };
   },
 
   listBySubmission(submissionId: string) {

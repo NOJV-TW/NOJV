@@ -1,12 +1,44 @@
 # Sandbox quota recovery
 
-**Status:** Draft repair; the expanded queue audit below found additional release blockers. Earlier passing checks validate the original quota scope only.
+**Status:** Implemented and locally checked in draft [PR #471](https://github.com/NOJV-TW/NOJV/pull/471). The PR records full-suite results and current-head CI; production rollout remains pending. The approved recovery contract below supersedes the original quota-only scope.
 
-**Goal:** Capacity contention must delay judging instead of producing SE, while invalid sandbox configuration still fails promptly.
+**Goal:** Capacity contention delays judging. Infrastructure failures recover automatically against the original version; infeasible configuration remains visible and retryable without fabricating a program verdict.
 
-**Architecture:** Keep Kubernetes admission as the shared capacity authority. Observe short contention through the existing Job/Pod watches; return persistent capacity pressure to a durable Temporal timer, releasing the worker activity slot. Preserve the ordinary bounded infrastructure retry policy and submission/rejudge ownership.
+**Architecture:** PostgreSQL stores immutable execution ownership, version pointers, dispatch intent and stage checkpoints. Temporal retries and reconciles that execution; shared 4:1 admission precedes Kubernetes or Docker execution. Sandbox cleanup must be confirmed before a lease can be reused.
 
-**Tech stack:** Kubernetes Jobs/ResourceQuota, Temporal TypeScript SDK, Vitest.
+**Tech stack:** PostgreSQL/Prisma, S3 immutable objects, Temporal TypeScript SDK, Kubernetes/Docker, Vitest and Playwright.
+
+## Approved recovery contract (2026-09-21)
+
+- Capacity shortage waits; a real infrastructure outage may show SE. Recovery is system-owned and resumes the original immutable judge version. Only a teacher-requested rejudge selects the latest effective version. Editing a problem alone never changes an existing execution.
+- Persist accepted input, version, ownership and dispatch before acknowledging acceptance. Never cancel accepted durable work because Temporal start is slow.
+- Persist stage checkpoints, fence stale attempts, reconcile dispatch and execution progress every minute, and retain failures with a reason and a next recovery time.
+- Use foreground/background 4:1 admission, FIFO within each class, and loan unused admission capacity. Never reclaim sandbox capacity until resource cleanup is confirmed.
+- Teacher rejudge preserves the last valid result until replacement commits. System recovery does not create teacher rejudge logs or silently change versions.
+- Unknown historical versions must be reported as blocked, never guessed from today's problem data.
+- Worker self-recovery only; runtime/node restart remains an operator action.
+
+## Execution checklist
+
+- [x] Durable acceptance, immutable judge snapshots, execution ownership, teacher rejudge/version separation.
+- [x] Pod-start/capacity/eviction/cleanup classifications and regression tests.
+- [x] Durable workflow recovery, bounded history, progress checkpoints and fair capacity admission.
+- [x] Reconciliation, worker health, execution API/UI and real alert metrics.
+- [x] Fault injection, burst/drain and history rollover tests; `ci:verify` and independent review.
+- [x] Reviewable draft PR with validation evidence.
+- [ ] Production deployment, runtime recovery, external alert delivery and historical recovery acceptance.
+
+## Expanded implementation evidence (2026-09-21)
+
+- Accepted submissions commit source, immutable judge snapshot, generation/owner and durable dispatch together. A never-resolving Temporal handoff cannot turn acceptance into SE.
+- Real PostgreSQL tests cover version pinning, teacher-only version replacement, 4:1 FIFO admission, stale-owner rejection, atomic terminal checkpoints, recoverable finalization, log retention, deletion safety, workflow loss and blocked legacy submissions. Legacy dispatch consumers retire snapshotless messages, and stale legacy abandonment atomically cancels outstanding initial dispatch. Missing/closed workflows are not terminated based on an outdated observation.
+- A real local Temporal server exercised 100 mixed submissions (80 foreground, 20 background), 41 cases each and 300 checkpoints through production activities and PostgreSQL admission. Both judge workers were stopped and recreated after checkpoints. All submissions completed once, every stage ran once, old images/limits stayed pinned after live configuration edits, and all leases drained. The measured test took 44.47 seconds. The sandbox and blob adapter were controlled fixtures; this is not a Kubernetes throughput benchmark or an abrupt process-kill experiment.
+- Temporal fault tests cover capacity pressure beyond the old retry budget, repeated machine failures, finalization retry without rerunning the sandbox, and Continue-As-New carrying only the execution reference.
+- Real local Kubernetes: 15/15 tests passed (166.70 seconds), including occupied quota release, permanent infeasibility classification, standard/checker/interactive/Advanced judging and cleanup. The local cluster is k3s; production gVisor/runtime failure injection remains a rollout check.
+- Actual Chromium: 4/4 tests passed (24.9 seconds), using real local web/auth/PostgreSQL/S3. Verified capacity waiting, SE polling back into waiting, missing-version messaging, and an existing AC/100 result retained during teacher rejudge. Screenshots were inspected. This targeted test does not run the judge or the full E2E suite.
+- Database-backed metrics and alert rules now cover queue age, blocked/stalled execution, legacy SE and observer failure. External Grafana provisioning and alert delivery have not been exercised.
+- Independent contract and code-quality reviews approved the final fixes. A real PostgreSQL row-lock race proves cancellation cannot be resurrected by a concurrent admission claim; the claim uses a conditional update and advances the fairness cursor only on success. The final affected-domain run passed 38/38 tests.
+- Final local `pnpm ci:verify` passed: formatting/guards, builds, application and test typechecking, lint, 3,298 unit tests and 61 component tests. Helm lint passed for the single-machine production fixture. Full integration outcomes and current-head CI are recorded in [PR #471](https://github.com/NOJV-TW/NOJV/pull/471); these remain distinct from the local checks above.
 
 ## Evidence and constraints
 
@@ -14,7 +46,7 @@
 - Each 20-case wave requests 2 CPU; namespace quota is 4 CPU; worker activity concurrency is 4.
 - `isDeterministicAdmissionFailure` matches `forbidden` in a normal `exceeded quota` rejection. Sandbox activity retries three times, then persists SE.
 - A later sandbox stuck terminating is a separate runtime incident; no force deletion or node restart is part of the code fix.
-- No schema changes, new scheduler, raised quotas, or unbounded generic infrastructure retries.
+- Original quota-only scope excluded schema and scheduling changes. The approved recovery contract above supersedes that restriction; quotas remain unchanged.
 - References: [Judge pipeline](../../architecture/JUDGE_PIPELINE.md), [Reliability](../../operations/RELIABILITY.md), [Testing](../../runbooks/testing.md), [Kubernetes quotas](https://kubernetes.io/docs/concepts/policy/resource-quotas/).
 
 ## Implementation and verification
@@ -24,9 +56,9 @@
 3. Handle capacity pressure with cancellable durable workflow backoff. Correct the sandbox admission non-retryable policy; retain three attempts for other failures. Test more than three pressure cycles, cancellation/rejudge restore, and permanent/generic failures with Temporal's test server.
 4. Add and run a real Kubernetes ResourceQuota contention/release regression in the isolated local k3d test namespace, including cleanup evidence.
 5. Run worker regression tests, relevant integration tests, typechecking, lint, formatting, and repository verification. Inspect the final diff and update living docs.
-6. Prepare a reviewable PR. Production rollout requires exact release identity, healthy workers, sustained quota-pressure recovery without new quota SE, and evidence that the stuck sandbox is resolved. Rejudge only the identified affected records after recovery, through the normal audited workflow; verify new verdicts and scores separately.
+6. Prepare a reviewable PR. Production rollout requires exact release identity, healthy workers, sustained quota-pressure recovery without new quota SE, and evidence that the stuck sandbox is resolved. Historical records without original snapshots remain blocked. Only an explicit teacher rejudge may evaluate them with the latest version; verify new verdicts and scores separately.
 
-## Verification results (2026-09-21)
+## Historical quota-only verification (before expanded implementation)
 
 - Reproduced the production quota rejection in failing regression tests before fixing it. Covered direct API quota rejection for sandbox resources, controller `FailedCreate` events, persistent contention, cancellation, and cleanup failure.
 - `pnpm ci:verify` passed: formatting, repository guards, builds, typechecking, lint, 3,234 unit tests, and 61 component tests.
@@ -45,7 +77,7 @@
 
 ## Follow-up audit: accepted work must survive resource scarcity
 
-Audited source: `74ed305226d3d22e5c5e2ef9194812daf43059e0` (PR #471). Production remains v1.1.21; none of these follow-up findings have been repaired or deployed. PR #471 was returned to draft.
+Audited source: `74ed305226d3d22e5c5e2ef9194812daf43059e0` (PR #471). At that audit checkpoint production was v1.1.21 and the findings were not repaired. The expanded implementation above addresses these paths locally; production has not been reverified or deployed by this implementation. PR #471 remains draft.
 
 ### Current production evidence
 

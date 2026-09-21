@@ -51,7 +51,7 @@ The same alert catalog includes **`nojv-notification-email-dead`** (critical), s
 | **Durability**         | PostgreSQL is the source of truth (app data **and** Temporal workflow state, in the same in-cluster cluster). Redis is derived/ephemeral. The production single-machine overlay enables CNPG base backups + WAL archiving and the MinIO mirror, then deliberately refuses to render until concrete off-host S3/R2 destinations and existing credential Secrets are supplied through the cluster-owned `nojv-production-values` Secret. Verify a completed base backup, current WAL archiving, a successful MinIO mirror job, and the recovery drill before launch. Also keep an off-host copy of `nojv-runtime-secrets` (`BETTER_AUTH_SECRET` etc.). On GKE the managed Cloud SQL alternative is configured by `infra/gcp/scripts/setup-backups.sh` (automated daily backups, 30-day retention, in-region) + PITR (14-day WAL), with daily cold exports to a versioned GCS bucket via `infra/gcp/scripts/export-postgres-to-gcs.sh`. See [Backup & Restore Runbook](../runbooks/backup-restore.md). |
 | **Delivery semantics** | Temporal activities and database-owned durable work execute at least once. Notification email resolves the current account, verified address, notification existence, and effective preference immediately before SMTP. SMTP delivery remains explicitly **at least once**: a crash after SMTP acceptance but before PostgreSQL completion can duplicate a message. The stable `Message-ID` is a downstream deduplication hint, not an exactly-once guarantee.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | **Inspectability**     | Temporal UI provides workflow history, pending activities, and query state.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| **Graceful shutdown**  | Worker handles SIGINT/SIGTERM and stops polling for new tasks. In-flight judge activities are **not** fully drained: the worker `shutdownGraceTime` is 30 s while a single judge can run up to ~10 min, so any judge still executing at SIGTERM is cancelled and re-dispatched by Temporal on the next available worker (at-least-once retry makes this safe). Raising `shutdownGraceTime` toward the max judge wall-time would let more in-flight judges finish instead of retrying.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **Graceful shutdown**  | Worker handles SIGINT/SIGTERM and stops polling for new tasks. In-flight judge activities are **not** fully drained: the worker `shutdownGraceTime` is 30 s while one durable sandbox stage has a 70-minute activity ceiling, so any judge still executing at SIGTERM is cancelled and re-dispatched by Temporal on the next available worker after orphan reconciliation and ownership checks. Raising `shutdownGraceTime` toward the max judge wall-time would let more in-flight judges finish instead of retrying.                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
 ## Source of Truth
 
@@ -83,7 +83,7 @@ Redis loss disables real-time events and security state access. Redis-backed rat
 **Impact**: No new workflows start. In-flight workflows pause.
 **Mitigation**: Temporal auto-setup with PostgreSQL backend provides persistence.
 **Recovery**: Temporal resumes all paused workflows when it comes back. No data loss.
-**Note**: The web process attempts the deterministic workflow start immediately. If dispatch cannot complete within three seconds, the API returns `503` and marks the submission `system_error` instead of leaving the client waiting. A process failure before the handoff can still leave the `submission.judge.dispatch` outbox for the durable-work processor to retry.
+**Note**: Acceptance commits source, immutable judge version and dispatch intent before returning. Temporal start is a best-effort wakeup; latency or failure leaves durable delivery queued and does not manufacture SE.
 
 > **SPOF caveat (current self-hosted topology).** The in-cluster Temporal control plane runs as a **single** `temporalio/auto-setup` replica backed by a **single-pod** `temporal-postgres` StatefulSet — there is no HA failover. Interim guards are in place: a PodDisruptionBudget (`minAvailable: 1`) on both pods and a `nodeSelector: nojv-role=worker` pin (so a sandbox-pool scale-down can't evict them), plus a daily `pg_dump` of the Temporal DB to GCS (installed by `infra/gcp/scripts/setup-backups.sh`). These limit voluntary disruption and data loss but do not provide live failover — a node failure still pauses all workflows until the pod reschedules.
 >
@@ -96,7 +96,7 @@ Redis loss disables real-time events and security state access. Redis-backed rat
 as a fixed GKE Deployment with a PodDisruptionBudget; sandbox capacity is
 bounded by one on-demand gVisor node plus a 0–4 Spot burst pool, and pending
 workflows remain durable until capacity returns.
-**Recovery**: Start a new worker. Workflows already accepted by Temporal resume; new submissions fail fast until the dispatch path is available.
+**Recovery**: Deployment restarts failed worker processes. Accepted workflows resume, and the database outbox dispatches accepted submissions after Temporal is reachable. Only worker processes restart automatically; node and container runtime recovery remains an operator action.
 
 ### Sandbox Failure
 
@@ -105,32 +105,21 @@ original I/O failure. Infrastructure failures remain retryable activity failures
 a successfully read but malformed result becomes an explicit system error.
 Validator diagnostics stay in staff feedback, never in student output.
 
-**Impact**: A normal program failure produces its normal verdict; eviction,
-node shutdown, node loss, and Spot reclaim delay the submission instead of
-being reported as a student-facing System Error.
-**Mitigation**: Temporal retries ordinary judge infrastructure failures up to three
-times, each with a fresh ephemeral sandbox run ID. Capacity pressure instead
-returns to a cancellable 30-second workflow timer after sandbox cleanup, releasing
-the activity slot and preserving the pending submission until capacity returns.
-Permanent admission failures do not retry. A cleanup failure retains the bounded
-infrastructure policy. OOM, TLE, and program errors remain normal
-verdicts. Kubernetes Job and Pod completion is observed with resource-versioned
-watches; a closed or stale watch is resynchronized, while a failed status
-snapshot remains a retryable infrastructure failure.
-**Recovery**: Automatic retry. If infrastructure retries are exhausted, check
-Kubernetes node health and the sandbox quota.
+**Impact**: Program failures retain their normal verdict. Capacity waits remain queued; machine failures may show SE while the original execution recovers.
+**Mitigation**: A durable workflow uses bounded activity attempts followed by workflow timers. Capacity waits retry after 30 seconds. Repeated infrastructure failures, invalid admission and unsafe cleanup remain visible as blocked, with a next retry time. Failed attempts never silently select new problem content.
+**Recovery**: Resume from committed stage checkpoints after verifying resource cleanup. An expired lease alone is not proof that a sandbox stopped. Dedicated cleanup workflows also recover leases held by cancelled executions. See [Judge pipeline](../architecture/JUDGE_PIPELINE.md#durable-execution-and-recovery) for the version and scheduling contract.
 
 ## Operational Invariants
 
 ### Submission Processing
 
-1. Every submission gets a `Submission` record, its source pointer, and a `submission.judge.dispatch` durable-work row in PostgreSQL before Temporal dispatch.
-2. The web layer starts `submissionJudgeWorkflow` immediately after the transaction commits. If the handoff cannot complete within the bounded dispatch timeout, it cancels the dispatch row and records `system_error`; failures before that handoff remain retryable through the durable-work processor.
-3. Temporal workflow ID is deterministic and unique per submission: `judge-{submissionId}`. A re-dispatch of the same submission collides on the workflow ID and is rejected by Temporal (`WorkflowExecutionAlreadyStarted`), which the dispatcher treats as success, so a submission is never judged twice concurrently.
-4. `completeSubmission` activity writes the final verdict to DB. This is the commit point.
-5. User stats and contest scores are updated after the verdict is committed.
-6. SSE notification is best-effort — the client falls back to polling Temporal/DB.
-7. A singleton cron workflow (`submissionSweeperWorkflow`, every minute) runs `sweepStaleSubmissions`. Past the configurable pending timeout (default 30 min, set at `/admin/rejudges`), it checks Temporal ownership first and skips running workflows, including those waiting for sandbox capacity. Only stale submissions without a running workflow are terminated and conditionally marked `system_error`; an unavailable orchestration service leaves the record untouched for a later sweep. System errors do not count against the daily attempt limit.
+1. Accepted source, immutable snapshot, execution ownership and dispatch intent commit before returning the submission identity.
+2. Workflow IDs are `judge-execution-{executionId}-{recoveryEpoch}`. Duplicate dispatch is idempotent; automatic recovery changes only the epoch, while explicit teacher rejudge creates a generation and selects the latest version.
+3. Every stage write and verdict commit is fenced by the current owner. Checkpoint commit clears the lease only after executor cleanup has succeeded.
+4. The final verdict commits before score/notification effects. The execution stays `finalizing` until those effects succeed; cancellation and another rejudge cannot discard committed-result finalization.
+5. The minute sweeper reconciles actual workflow ownership, redispatches missing work, and recovers closed workflows without changing snapshots. Healthy waits are preserved. A repeatedly failing workflow task pending over ten minutes or an activity without progress beyond its 70-minute execution budget is terminated by its actual owner ID and recovered on a later scan.
+6. Details/API expose queue/recovery reason, original problem generation, last progress and next retry. Polling continues through recoverable SE and teacher rejudge with an old valid result. Browser tracking timeout does not cancel accepted work.
+7. Legacy SE without immutable snapshots is blocked with `original_version_unavailable`; automatic recovery never guesses today's version. Only an explicit teacher rejudge selects the latest version.
 
 ### Contest Lifecycle
 
@@ -167,11 +156,31 @@ Kubernetes node health and the sandbox quota.
 | Web        | `/api/readyz`        | Readiness probe. `{ ready: boolean }`; concurrently probes only PostgreSQL + Redis with bounded timeouts. Results are cached 5 s.                 |
 | Web        | `/api/release`       | Immutable release identity. `{ version, sourceSha }`; the status bot distinguishes the new rollout from a healthy old one.                        |
 | Web        | `/api/admin/healthz` | Admin-only mirror. `requireApiAuth` + `platformRole === "admin"`. Returns `{ status, checks: { postgres, redis, temporal } }` for ops dashboards. |
-| Worker     | `/healthz`           | Liveness. Returns `{ status, checks: { postgres, redis, temporal } }` with 200/503. Internal — exposed only inside the cluster.                   |
+| Worker     | `/livez`             | Local worker-loop liveness. Returns 503 for an unexpected stopped/failed loop; never probes dependencies. Graceful drain stays live.              |
+| Worker     | `/healthz`           | Diagnostic dependency checks. Returns `{ status, checks: { postgres, redis, temporal } }` with 200/503; not a restart signal.                     |
 | Worker     | `/readyz`            | Readiness. Returns `{ ready: boolean }` keyed on the live Temporal connection. 503 when disconnected so K8s pulls the pod out of the ready pool.  |
 | PostgreSQL | Docker healthcheck   | `pg_isready -U postgres`                                                                                                                          |
 | Redis      | Docker healthcheck   | `redis-cli ping`                                                                                                                                  |
 | Temporal   | Docker healthcheck   | `temporal`/`tctl` health against localhost, service DNS, and container IP                                                                         |
+
+### Judge recovery monitoring
+
+The platform worker registers SQL-backed OpenTelemetry gauges independently of
+judge activities. Each 30-second metric collection reads queue depth and oldest
+wait, blocked executions, overdue progress, and legacy SE submissions with no
+execution journal. Running stages with a current lease are excluded from the
+stuck-progress count, so a legitimate long stage does not trigger a ten-minute
+alarm merely because it has not finished.
+
+`nojv_judge_recovery_last_success_timestamp_seconds` advances only after a
+successful, validated database snapshot. Query errors publish neither fresh
+heartbeats nor false zero counts. The observer-stale alert covers a missing or
+three-minute-old snapshot, including platform-worker loss, database failure and
+telemetry transport failure. All recovery alert rules treat missing data as a
+fault; metrics and alert definitions alone do not prove the configured external
+Grafana datasource receives them or notifications are delivered. See the
+[observability runbook](../runbooks/observability-setup.md#judge-recovery-monitoring)
+for metric names and verification.
 
 ## Related Docs
 

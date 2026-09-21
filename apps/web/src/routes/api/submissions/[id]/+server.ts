@@ -25,8 +25,12 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 
   const detail = submission.verdictDetailStorage ? await getVerdictDetail(id) : null;
 
+  const execution = await submissionDomain.getJudgeExecutionView(id);
+  const active = execution && !["completed", "cancelled"].includes(execution.state);
+
   return json({
-    result: sanitizeVerdictDetail(detail, submission.sampleOnly),
+    execution,
+    result: active ? null : sanitizeVerdictDetail(detail, submission.sampleOnly),
     status: submission.status,
     submissionId: submission.id,
   });

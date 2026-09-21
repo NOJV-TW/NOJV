@@ -2488,5 +2488,10 @@
   "course_problemLibrarySourceLink": "View source problem",
   "course_problemLibraryAdded": "Problems added to the course library.",
   "course_problemLibraryRemoved": "Problem removed from the course library.",
-  "course_problemLibrarySearch": "Search by title, ID, or owner…"
+  "course_problemLibrarySearch": "Search by title, ID, or owner…",
+  "judgeRecovery_missingVersion": "The original judge version is unavailable. An instructor must explicitly rejudge to use the latest version.",
+  "judgeRecovery_waiting": "Queued for judging. Your submission has been saved.",
+  "judgeRecovery_running": "Judging is in progress. Any previous result stays valid until completion.",
+  "judgeRecovery_recovering": "The system is recovering this evaluation using its original version. No resubmission is needed.",
+  "judgeRecovery_version": "Judge version: {version}"
 }

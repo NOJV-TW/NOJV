@@ -159,8 +159,15 @@ describe("course problem library lifecycle (real DB)", () => {
       ta,
       "127.0.0.1",
     );
-    await submissionDomain.startSubmissionJudgeRun(reference.id, "library-reference-run");
-    await submissionDomain.completeJudge(reference.id, "library-reference-run", {
+    const execution = await testPrisma.judgeExecution.findFirstOrThrow({
+      where: { submissionId: reference.id },
+    });
+    await submissionDomain.setJudgeExecutionState(
+      execution.id,
+      execution.workflowId,
+      "running",
+    );
+    await submissionDomain.completeJudgeExecution(execution.id, execution.workflowId, {
       accepted: true,
       verdict: "accepted",
       score: 100,
@@ -168,6 +175,7 @@ describe("course problem library lifecycle (real DB)", () => {
       runtimeMs: 1,
       memoryKb: 1,
     });
+    await submissionDomain.finishJudgeExecution(execution.id, execution.workflowId);
     expect(await submissionDomain.getProblemReferenceSolution(owner, problem.id)).toMatchObject(
       {
         status: "verified",

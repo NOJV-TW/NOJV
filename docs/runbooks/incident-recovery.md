@@ -66,9 +66,10 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
   runtime errors. Quota reservations and measured CPU usage are different.
 - The worker emits `Submission waiting for sandbox capacity` when a workflow
   returns to a durable retry timer. Persistent waits need operator attention even
-  though they no longer become immediate SE. The `nojv-submissions-stuck` alert
-  remains a placeholder until its exporter is wired; do not rely on it as proof
-  that a queue is healthy.
+  though they no longer become immediate SE. The platform worker exports the SQL-backed `nojv-submissions-stuck` gauge.
+  Check its successful-snapshot timestamp as well: missing or stale monitoring
+  does not prove that the queue is healthy. Verify the deployed release and
+  datasource contain these metrics before relying on the alert.
 
 ### Mitigation and verification
 

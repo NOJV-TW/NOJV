@@ -5,6 +5,7 @@ import { closeServerSafely } from "../../../apps/worker/src/server-lifecycle";
 
 const mockDeps = {
   redisUrl: "redis://localhost:6379",
+  checkLiveness: () => true,
   checkTemporal: () => Promise.resolve(true),
 };
 
@@ -41,6 +42,7 @@ describe("worker health server", () => {
   it("reports not-ready on /readyz when Temporal is unreachable", async () => {
     const server = createWorkerHealthServer({
       redisUrl: "redis://localhost:6379",
+      checkLiveness: () => true,
       checkTemporal: () => Promise.resolve(false),
     });
 
@@ -65,6 +67,7 @@ describe("worker health server", () => {
   it("reports not-ready on /readyz when the Temporal probe rejects", async () => {
     const server = createWorkerHealthServer({
       redisUrl: "redis://localhost:6379",
+      checkLiveness: () => true,
       checkTemporal: () => Promise.reject(new Error("connection refused")),
     });
 
@@ -85,6 +88,28 @@ describe("worker health server", () => {
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toMatchObject({ ready: false });
   });
+
+  it.each([true, false])(
+    "uses only local run-loop state for liveness (alive: %s)",
+    async (alive) => {
+      let temporalCalls = 0;
+      const server = createWorkerHealthServer({
+        ...mockDeps,
+        checkLiveness: () => alive,
+        checkTemporal: async () => {
+          temporalCalls += 1;
+          throw new Error("dependency offline");
+        },
+      });
+      await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+      servers.push(server);
+      const address = server.address();
+      if (!address || typeof address === "string") throw new Error("Expected TCP address.");
+      const response = await fetch(`http://127.0.0.1:${address.port}/livez`);
+      expect(response.status).toBe(alive ? 200 : 503);
+      expect(temporalCalls).toBe(0);
+    },
+  );
 
   it("allows repeated shutdown without server-not-running errors", async () => {
     const server = createWorkerHealthServer(mockDeps);

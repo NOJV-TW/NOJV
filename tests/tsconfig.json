@@ -86,6 +86,17 @@
     "unit/worker/service-container-readiness.test.ts",
     "unit/worker/worker-app.test.ts",
     "setup/k8s-global-setup.ts",
-    "setup/k8s-integration-target.ts"
+    "setup/k8s-integration-target.ts",
+    "integration/temporal/durable-judge-burst-restart.test.ts",
+    "integration/temporal/durable-judge.test.ts",
+    "integration/domain/judge-recovery-metrics.test.ts",
+    "integration/domain/judge-execution-recovery.test.ts",
+    "integration/domain/submission-sweep.test.ts",
+    "integration/domain/rejudge-state.test.ts",
+    "unit/worker/judge-recovery-metrics.test.ts",
+    "unit/worker/docker-reconcile.test.ts",
+    "unit/worker/k8s-quota-feasibility.test.ts",
+    "unit/worker/k8s-reconcile.test.ts",
+    "e2e/judge-recovery-detail.test.ts"
   ]
 }

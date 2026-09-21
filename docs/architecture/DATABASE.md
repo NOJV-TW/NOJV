@@ -242,7 +242,16 @@ Indexed on: `[problemId, createdAt]`, `[userId, createdAt]`, `[userId, examId, s
 
 User-facing submission point and list reads are scoped in PostgreSQL against the caller's active exam session. If no session is active, an owner can read their history; while a session is active, only that owner's submissions for the active exam match. Effective admin sessions have an explicit point-read recovery path, while their personal history list remains user-scoped. Cursor validation and the following page query share one repeatable-read snapshot.
 
-**Source code and verdict detail live in `@nojv/storage`, not the DB.** A submission first records a `pending_upload` intention. Sources are uploaded under immutable generation-specific keys with a manifest containing their size and SHA-256 pointers. A PostgreSQL transaction then commits object ownership, publishes `sourceStorage`, advances the submission to `queued`, and enqueues `submission.judge.dispatch`. Failed uploads mark the intention `system_error`; guarded orphan objects remain reclaimable by durable cleanup. Each judge run writes an immutable verdict detail object and persists its pointer in `verdictDetailStorage`, with the display summary in `verdictSummary`. Reads verify pointer shape, byte count, and SHA-256. See `packages/storage/src/keys.ts`, `packages/storage/src/submission.ts`, and `packages/application/src/shared/storage-object-lifecycle.ts`.
+**Source code and verdict detail live in `@nojv/storage`, not the DB.** A submission first records a `pending_upload` intention. Sources are uploaded under immutable generation-specific keys with a manifest containing their size and SHA-256 pointers. A PostgreSQL transaction then commits object ownership, publishes `sourceStorage`, advances the submission to `queued`, and creates `JudgeExecution` and enqueues `submission.execution.dispatch`. Failed uploads mark the intention `system_error`; guarded orphan objects remain reclaimable by durable cleanup. Each judge run writes an immutable verdict detail object and persists its pointer in `verdictDetailStorage`, with the display summary in `verdictSummary`. Reads verify pointer shape, byte count, and SHA-256. See `packages/storage/src/keys.ts`, `packages/storage/src/submission.ts`, and `packages/application/src/shared/storage-object-lifecycle.ts`.
+
+`JudgeExecution` owns the immutable input snapshot, problem generation, workflow
+recovery epoch, queue class and resource lease. `JudgeStage` stores verified
+checkpoint pointers; `JudgeAdmission` serializes the 4:1 stage dispatch cursor.
+These are durable execution state, not student verdicts. Active rejudge logs are
+retained until finalization/cancellation. Deleting an eligible draft problem
+queues snapshot/checkpoint cleanup and refuses active or unreconciled leases.
+The generated schema below is authoritative for fields; see the
+[recovery contract](./JUDGE_PIPELINE.md#durable-execution-and-recovery) for behavior.
 
 ### Contest
 

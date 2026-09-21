@@ -65,6 +65,14 @@ spec:
               value: kubernetes
             - name: K8S_NAMESPACE
               value: {{ include "nojv.sandboxNamespace" . }}
+            - name: HOSTNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: SANDBOX_IMAGE
               value: {{ include "nojv.image" (dict "root" . "component" "sandbox") }}
             {{- with .Values.worker.sandbox.imagePullSecret }}

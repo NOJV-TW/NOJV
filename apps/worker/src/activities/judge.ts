@@ -29,7 +29,7 @@ export function setExecutorOwner(executorOwner: ExecutorOwner): void {
   _executorOwner = executorOwner;
 }
 
-function getExecutorOwner(): ExecutorOwner {
+export function getExecutorOwner(): ExecutorOwner {
   if (!_executorOwner) throw new Error("Executor owner not initialized");
   return _executorOwner;
 }
@@ -141,7 +141,7 @@ export function buildSandboxTestcases(
     }));
 }
 
-function buildAdvancedPayload(
+export function buildAdvancedPayload(
   judgeContext: submissionDomain.SubmissionJudgeContext,
 ): SandboxRequest["advanced"] | undefined {
   if (submissionDomain.deriveJudgeMode(judgeContext) !== "advanced" || !judgeContext.advanced) {
@@ -411,3 +411,12 @@ export async function failSubmissionJudgeRun(
 ): Promise<boolean> {
   return submissionDomain.failSubmissionJudgeRun(submissionId, judgeRunId, reason);
 }
+
+export {
+  judgeExecutionStatus,
+  executeJudgeStage,
+  reconcileJudgeStage,
+  completePinnedJudge,
+  setJudgeExecutionState,
+  finishJudgeExecution,
+} from "./judge-execution";

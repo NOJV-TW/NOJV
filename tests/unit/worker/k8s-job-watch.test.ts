@@ -5,7 +5,10 @@ import type { SandboxRequest } from "@nojv/core";
 import {
   K8sExecutor,
   SandboxBackpressureError,
+  SandboxInfeasibleError,
   SandboxInfrastructureError,
+  SandboxCleanupError,
+  SandboxTransientInfrastructureError,
 } from "../../../apps/worker/src/services/k8s-executor";
 
 afterEach(() => vi.useRealTimers());
@@ -46,6 +49,7 @@ function clients(options: {
 }) {
   const controllers: AbortController[] = [];
   const coreApi = {
+    listNamespacedResourceQuota: vi.fn(async () => ({ items: [] })),
     createNamespacedConfigMap: vi.fn(async () => undefined),
     deleteNamespacedConfigMap: vi.fn(async () => undefined),
     listNamespacedPod: vi.fn(async () => ({
@@ -63,7 +67,9 @@ function clients(options: {
   } as any;
   const batchApi = {
     createNamespacedJob: vi.fn(async () => undefined),
-    deleteNamespacedJob: vi.fn(async () => undefined),
+    deleteNamespacedJob: vi.fn(async () => {
+      coreApi.listNamespacedPod.mockResolvedValueOnce({ items: [] });
+    }),
     readNamespacedJob: vi.fn(async () => options.readJob()),
   } as any;
   const watch = {
@@ -85,6 +91,46 @@ function clients(options: {
 }
 
 describe("K8sExecutor Job/Pod watch completion", () => {
+  it.each([
+    ["requests.cpu", "50m"],
+    ["requests.memory", "64Mi"],
+  ])(
+    "blocks %s exceeding the namespace hard limit before creating a Job",
+    async (resource, maximum) => {
+      const fake = clients({ readJob: () => ({ status: {} }), watch: () => undefined });
+      fake.handles.coreApi.listNamespacedResourceQuota.mockResolvedValue({
+        items: [
+          {
+            metadata: { name: "sandbox" },
+            status: { hard: { [resource]: maximum }, used: {} },
+          },
+        ],
+      });
+      await expect(
+        new K8sExecutor(EXEC_CONFIG, fake.handles).execute(request(), {
+          runId: "infeasible",
+          signal: new AbortController().signal,
+        }),
+      ).rejects.toBeInstanceOf(SandboxInfeasibleError);
+      expect(fake.handles.batchApi.createNamespacedJob).not.toHaveBeenCalled();
+      expect(fake.handles.coreApi.deleteNamespacedConfigMap).toHaveBeenCalled();
+    },
+  );
+
+  it("treats an unavailable quota API as infrastructure uncertainty", async () => {
+    const fake = clients({ readJob: () => ({ status: {} }), watch: () => undefined });
+    fake.handles.coreApi.listNamespacedResourceQuota.mockRejectedValue(
+      Object.assign(new Error("unavailable"), { code: 503 }),
+    );
+    await expect(
+      new K8sExecutor(EXEC_CONFIG, fake.handles).execute(request(), {
+        runId: "quota-unavailable",
+        signal: new AbortController().signal,
+      }),
+    ).rejects.toBeInstanceOf(SandboxInfrastructureError);
+    expect(fake.handles.batchApi.createNamespacedJob).not.toHaveBeenCalled();
+  });
+
   it.each(["configmap", "job"])(
     "preserves direct %s quota rejections as capacity pressure",
     async (resource) => {
@@ -95,7 +141,12 @@ describe("K8sExecutor Job/Pod watch completion", () => {
       });
       if (resource === "configmap")
         fake.handles.coreApi.createNamespacedConfigMap.mockRejectedValue(rejection);
-      else fake.handles.batchApi.createNamespacedJob.mockRejectedValue(rejection);
+      else {
+        fake.handles.coreApi.listNamespacedResourceQuota.mockResolvedValue({
+          items: [{ status: { hard: { "requests.cpu": "4" }, used: { "requests.cpu": "4" } } }],
+        });
+        fake.handles.batchApi.createNamespacedJob.mockRejectedValue(rejection);
+      }
       await expect(
         new K8sExecutor(EXEC_CONFIG, fake.handles).execute(request(), {
           runId: "quota-create",
@@ -149,7 +200,7 @@ describe("K8sExecutor Job/Pod watch completion", () => {
       const outcome = operation.catch((error: unknown) => error);
       await vi.advanceTimersByTimeAsync(31_000);
       expect(await outcome).toBeInstanceOf(
-        cleanupFails ? SandboxInfrastructureError : SandboxBackpressureError,
+        cleanupFails ? SandboxCleanupError : SandboxBackpressureError,
       );
       expect(fake.handles.coreApi.readNamespacedPodLog).not.toHaveBeenCalled();
       expect(fake.handles.batchApi.deleteNamespacedJob).toHaveBeenCalledOnce();
@@ -174,6 +225,168 @@ describe("K8sExecutor Job/Pod watch completion", () => {
         signal: new AbortController().signal,
       }),
     ).rejects.toBeInstanceOf(SandboxBackpressureError);
+    expect(fake.handles.coreApi.readNamespacedPodLog).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      name: "unscheduled Pod",
+      status: {
+        phase: "Pending",
+        conditions: [
+          {
+            type: "PodScheduled",
+            status: "False",
+            reason: "Unschedulable",
+            message: "Insufficient cpu",
+          },
+        ],
+      },
+    },
+    {
+      name: "kubelet acknowledged Pod with an unstarted init container",
+      status: {
+        phase: "Pending",
+        startTime: new Date(),
+        initContainerStatuses: [
+          { name: "prepare", state: { waiting: { reason: "ContainerCreating" } } },
+        ],
+        containerStatuses: [
+          { name: "case-0", state: { waiting: { reason: "PodInitializing" } } },
+        ],
+      },
+    },
+    {
+      name: "completed init container but unstarted case container",
+      status: {
+        phase: "Pending",
+        startTime: new Date(),
+        initContainerStatuses: [{ name: "prepare", state: { terminated: { exitCode: 0 } } }],
+        containerStatuses: [
+          { name: "case-0", state: { waiting: { reason: "ContainerCreating" } } },
+        ],
+      },
+    },
+  ])("preserves waiting on deadline with a $name", async ({ status }) => {
+    const fake = clients({
+      readJob: () => ({
+        status: {
+          failed: 1,
+          conditions: [{ type: "Failed", status: "True", reason: "DeadlineExceeded" }],
+        },
+      }),
+      watch: () => undefined,
+    });
+    fake.handles.coreApi.listNamespacedPod.mockResolvedValue({
+      items: [{ metadata: { name: "waiting-pod" }, status }],
+    });
+    await expect(
+      new K8sExecutor(EXEC_CONFIG, fake.handles).execute(request(), {
+        runId: "waiting-deadline",
+        signal: new AbortController().signal,
+      }),
+    ).rejects.toBeInstanceOf(SandboxBackpressureError);
+    expect(fake.handles.coreApi.readNamespacedPodLog).not.toHaveBeenCalled();
+    expect(fake.handles.batchApi.deleteNamespacedJob).toHaveBeenCalledOnce();
+  });
+
+  it.each(["Evicted", "Preempted", "NodeLost"])(
+    "distinguishes %s interruption from unsafe cleanup",
+    async (reason) => {
+      const fake = clients({
+        readJob: () => ({ status: { failed: 1 } }),
+        watch: () => undefined,
+      });
+      fake.handles.coreApi.listNamespacedPod.mockResolvedValue({
+        items: [
+          {
+            metadata: { name: "interrupted-pod" },
+            status: { phase: "Failed", reason, startTime: new Date() },
+          },
+        ],
+      });
+      await expect(
+        new K8sExecutor(EXEC_CONFIG, fake.handles).execute(request(), {
+          runId: "interruption",
+          signal: new AbortController().signal,
+        }),
+      ).rejects.toBeInstanceOf(SandboxTransientInfrastructureError);
+      fake.handles.batchApi.deleteNamespacedJob.mockRejectedValue(
+        Object.assign(new Error("delete denied"), { code: 403 }),
+      );
+      const failure = await new K8sExecutor(EXEC_CONFIG, fake.handles)
+        .execute(request(), {
+          runId: "interruption-cleanup",
+          signal: new AbortController().signal,
+        })
+        .catch((error: unknown) => error);
+      expect(failure).toBeInstanceOf(SandboxCleanupError);
+      expect(failure).not.toBeInstanceOf(SandboxTransientInfrastructureError);
+    },
+  );
+
+  it("quarantines a deleted Job whose Pod remains instead of starting another attempt", async () => {
+    vi.useFakeTimers();
+    const fake = clients({
+      readJob: () => ({
+        status: { failed: 1, conditions: [{ type: "Failed", reason: "DeadlineExceeded" }] },
+      }),
+      watch: () => undefined,
+    });
+    fake.handles.batchApi.deleteNamespacedJob.mockResolvedValue(undefined);
+    fake.handles.coreApi.listNamespacedPod.mockResolvedValue({
+      items: [
+        {
+          metadata: { name: "stuck-terminating-pod", deletionTimestamp: new Date() },
+          status: { phase: "Pending", startTime: new Date() },
+        },
+      ],
+    });
+    const failure = new K8sExecutor(EXEC_CONFIG, fake.handles)
+      .execute(request(), {
+        runId: "stuck-cleanup",
+        signal: new AbortController().signal,
+      })
+      .catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(31_000);
+    expect(await failure).toBeInstanceOf(SandboxCleanupError);
+    expect(fake.handles.batchApi.createNamespacedJob).toHaveBeenCalledOnce();
+    expect(fake.handles.batchApi.deleteNamespacedJob).toHaveBeenCalledWith(
+      expect.objectContaining({ propagationPolicy: "Foreground" }),
+    );
+    expect(fake.handles.coreApi.readNamespacedPodLog).not.toHaveBeenCalled();
+  });
+
+  it("does not classify image pull failure at a Job deadline as capacity", async () => {
+    const fake = clients({
+      readJob: () => ({
+        status: { failed: 1, conditions: [{ type: "Failed", reason: "DeadlineExceeded" }] },
+      }),
+      watch: () => undefined,
+    });
+    fake.handles.coreApi.listNamespacedPod.mockResolvedValue({
+      items: [
+        {
+          metadata: { name: "image-pod" },
+          status: {
+            phase: "Pending",
+            startTime: new Date(),
+            initContainerStatuses: [
+              {
+                name: "prepare",
+                state: { waiting: { reason: "ImagePullBackOff", message: "image missing" } },
+              },
+            ],
+          },
+        },
+      ],
+    });
+    const result = await new K8sExecutor(EXEC_CONFIG, fake.handles).execute(request(), {
+      runId: "image-deadline",
+      signal: new AbortController().signal,
+    });
+    expect(result.scoringFeedback).toContain("image missing");
+    expect(result.testcaseResults[0]?.verdict).toBe("SE");
     expect(fake.handles.coreApi.readNamespacedPodLog).not.toHaveBeenCalled();
   });
 

@@ -99,6 +99,8 @@ beforeEach(() => {
       }),
     ),
     dispatchRejudge: vi.fn(() => Promise.resolve({ workflowId: "rejudge-test" })),
+    dispatchJudgeExecution: vi.fn().mockResolvedValue(undefined),
+    dispatchJudgeCleanup: vi.fn().mockResolvedValue(undefined),
     dispatchSubmissionJudge: vi.fn(() => Promise.resolve()),
     ensureAssignmentDueSoon: vi.fn(() => Promise.resolve()),
     ensureContestLifecycle,

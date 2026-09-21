@@ -46,6 +46,15 @@ async function checkRedis(redisUrl: string): Promise<string> {
 export interface HealthDeps {
   redisUrl: string;
   checkTemporal: () => Promise<boolean>;
+  checkLiveness: () => boolean;
+}
+
+function probeLiveness(deps: HealthDeps): boolean {
+  try {
+    return deps.checkLiveness();
+  } catch {
+    return false;
+  }
 }
 
 async function probeTemporal(deps: HealthDeps): Promise<boolean> {
@@ -74,17 +83,21 @@ async function handleHealthz(deps: HealthDeps, response: ServerResponse): Promis
 }
 
 async function handleReadyz(deps: HealthDeps, response: ServerResponse): Promise<void> {
-  const ready = await probeTemporal(deps);
+  const alive = probeLiveness(deps);
+  const ready = alive && (await probeTemporal(deps));
   writeJson(response, ready ? 200 : 503, {
     ready,
-    ...(ready ? {} : { reason: "temporal not connected" }),
+    ...(ready ? {} : { reason: alive ? "temporal not connected" : "worker run loop stopped" }),
   });
 }
 
 export function createWorkerHealthServer(deps: HealthDeps): Server {
   return createServer((request, response) => {
     if (request.url === "/livez" && request.method === "GET") {
-      writeJson(response, 200, { status: "alive" });
+      const alive = probeLiveness(deps);
+      writeJson(response, alive ? 200 : 503, {
+        status: alive ? "alive" : "worker run loop stopped",
+      });
       return;
     }
 

@@ -22,6 +22,8 @@ beforeEach(() => {
     dispatchPlagiarismCheck: vi.fn(async () => {}),
     dispatchRegistryGarbageCollect,
     dispatchRejudge: vi.fn(async () => ({ workflowId: "rejudge-test" })),
+    dispatchJudgeExecution: vi.fn().mockResolvedValue(undefined),
+    dispatchJudgeCleanup: vi.fn().mockResolvedValue(undefined),
     dispatchSubmissionJudge: vi.fn(async () => {}),
     ensureAssignmentDueSoon: vi.fn(async () => {}),
     ensureContestLifecycle: vi.fn(async () => {}),

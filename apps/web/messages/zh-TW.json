@@ -2488,5 +2488,10 @@
   "course_problemLibrarySourceLink": "檢視來源題目",
   "course_problemLibraryAdded": "題目已加入課程題庫。",
   "course_problemLibraryRemoved": "題目已從課程題庫移除。",
-  "course_problemLibrarySearch": "依題名、編號或持有者搜尋…"
+  "course_problemLibrarySearch": "依題名、編號或持有者搜尋…",
+  "judgeRecovery_missingVersion": "原評測版本無法確認，需由老師明確 rejudge 才能使用最新版本。",
+  "judgeRecovery_waiting": "正在等待評測資源，提交已保存。",
+  "judgeRecovery_running": "正在評測；完成前保留既有有效結果。",
+  "judgeRecovery_recovering": "系統正在以原版本恢復評測，不需要重新提交。",
+  "judgeRecovery_version": "評測版本：{version}"
 }

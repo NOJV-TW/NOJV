@@ -43,6 +43,8 @@ import {
 import {
   K8sExecutor,
   SandboxBackpressureError,
+  SandboxInfeasibleError,
+  SandboxTransientInfrastructureError,
 } from "../../../apps/worker/src/services/k8s-executor";
 
 function execute(executor: K8sExecutor, request: SandboxRequest) {
@@ -118,6 +120,7 @@ interface CallRecord {
 
 interface FakeOpts {
   sidecarLog?: string;
+  servicePodStatus?: object;
   jobOutcome?: "succeeded" | "failed";
   failJob?: string;
   deadlineExceededJob?: string;
@@ -142,6 +145,7 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
   const deletedPods = new Set<string>();
   const activeNetworkPolicies = new Set<string>();
   const coreApi = {
+    listNamespacedResourceQuota: vi.fn(async () => ({ items: [] })),
     createNamespacedConfigMap: vi.fn(async ({ namespace, body }: any) => {
       record.configMapsCreated.push({ name: body.metadata.name, namespace, data: body.data });
     }),
@@ -186,7 +190,18 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
           record.cleanupEvents.push(`confirm-pod-gone:${podName}`);
           return { items: [] };
         }
-        return { items: [{ metadata: { name: podName } }] };
+        return {
+          items: [
+            {
+              metadata: { name: podName },
+              spec: record.podsCreated.find((pod) => pod.name === podName)?.body.spec,
+              status: opts.servicePodStatus ?? {
+                phase: "Running",
+                containerStatuses: [{ name: "service", state: { running: {} } }],
+              },
+            },
+          ],
+        };
       }
       const jobName = String(labelSelector).split("=")[1];
       if (deletedJobs.has(jobName) || jobDeleteAttempts.has(jobName)) {
@@ -218,7 +233,7 @@ function buildFakeClients(record: CallRecord, opts: FakeOpts = {}) {
               },
             },
           ]
-        : undefined;
+        : [{ name: isRunPod ? "run" : "grader", state: { terminated: { exitCode: 0 } } }];
       return {
         items: [
           {
@@ -867,6 +882,29 @@ function buildSidecarLog(payload: Record<string, unknown>): string {
 }
 
 describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestration", () => {
+  it("blocks a service + runner pair that cannot coexist within the Pod hard limit", async () => {
+    const record = emptyRecord();
+    const clients = buildFakeClients(record);
+    clients.coreApi.listNamespacedResourceQuota.mockResolvedValue({
+      items: [{ metadata: { name: "sandbox" }, status: { hard: { pods: "1" }, used: {} } }],
+    });
+    await expect(
+      execute(
+        new K8sExecutor(EXEC_CONFIG, clients),
+        makeAdvancedRequest({
+          network: {
+            mode: "service",
+            service: { imageRef: "registry.example.com/ta/svc:1.0", imageSource: "registry" },
+          },
+        }),
+      ),
+    ).rejects.toBeInstanceOf(SandboxInfeasibleError);
+    expect(record.podsCreated).toHaveLength(1);
+    expect(record.jobsCreated).toHaveLength(0);
+    expect(record.podsDeleted).toHaveLength(1);
+    expect(record.pvcsDeleted).toHaveLength(1);
+  });
+
   it.each(["pvc", "sidecar"])(
     "returns %s quota pressure to the workflow and cleans up",
     async (resource) => {
@@ -993,6 +1031,26 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     expect(record.jobsCreated.some((j) => j.name === "judge-sub-adv-1-grade")).toBe(false);
   });
 
+  it("pins the helper image for both advanced phases while retaining their original judge images", async () => {
+    const record = emptyRecord();
+    const clients = buildFakeClients(record, {
+      sidecarLog: buildSidecarLog({ score: 100, verdict: "accepted" }),
+    });
+    const sandboxImage = "registry.example.com/sandbox@sha256:original";
+    const request = { ...makeAdvancedRequest(), sandboxImage };
+    await execute(new K8sExecutor(EXEC_CONFIG, clients), request);
+    const run = record.jobsCreated[0]!.body.spec.template.spec;
+    const grade = record.jobsCreated[1]!.body.spec.template.spec;
+    for (const container of [...run.initContainers, ...grade.initContainers])
+      expect(container.image).toBe(sandboxImage);
+    expect(run.containers.find((container) => container.name === ADVANCED_RUN_NAME).image).toBe(
+      request.advanced!.run.imageRef,
+    );
+    expect(
+      grade.containers.find((container) => container.name === ADVANCED_GRADER_NAME).image,
+    ).toBe(request.advanced!.grade.imageRef);
+  });
+
   it("deadline-exceeded run still proceeds to grade even though transfer didn't terminate cleanly", async () => {
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ score: 0, verdict: "time_limit_exceeded" });
@@ -1032,6 +1090,68 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
     });
     expect(record.jobsDeleted).toHaveLength(2);
     expect(record.pvcsDeleted).toHaveLength(1);
+  });
+
+  it.each([
+    {
+      phase: "Pending",
+      conditions: [
+        {
+          type: "PodScheduled",
+          status: "False",
+          reason: "Unschedulable",
+          message: "Insufficient cpu",
+        },
+      ],
+    },
+    {
+      phase: "Pending",
+      startTime: new Date(),
+      containerStatuses: [
+        { name: "service", state: { waiting: { reason: "ContainerCreating" } } },
+      ],
+    },
+  ])(
+    "keeps unstarted service sidecars waiting instead of returning SE: %j",
+    async (servicePodStatus) => {
+      const record = emptyRecord();
+      const clients = buildFakeClients(record, { servicePodStatus });
+      await expect(
+        execute(
+          new K8sExecutor(EXEC_CONFIG, clients),
+          makeAdvancedRequest({
+            network: {
+              mode: "service",
+              service: { imageRef: "registry.example.com/ta/svc:1.0", imageSource: "registry" },
+            },
+          }),
+        ),
+      ).rejects.toBeInstanceOf(SandboxBackpressureError);
+      expect(record.jobsCreated).toHaveLength(0);
+      expect(record.podLogsRead).toHaveLength(0);
+      expect(record.podsDeleted).toHaveLength(1);
+      expect(record.pvcsDeleted).toHaveLength(1);
+    },
+  );
+
+  it("preserves service node loss as a transient infrastructure failure", async () => {
+    const record = emptyRecord();
+    const clients = buildFakeClients(record, {
+      servicePodStatus: { phase: "Failed", reason: "NodeLost" },
+    });
+    await expect(
+      execute(
+        new K8sExecutor(EXEC_CONFIG, clients),
+        makeAdvancedRequest({
+          network: {
+            mode: "service",
+            service: { imageRef: "registry.example.com/ta/svc:1.0", imageSource: "registry" },
+          },
+        }),
+      ),
+    ).rejects.toBeInstanceOf(SandboxTransientInfrastructureError);
+    expect(record.podsDeleted).toHaveLength(1);
+    expect(record.podLogsRead).toHaveLength(0);
   });
 
   it("preserves service readiness API failures instead of reporting a bad service image", async () => {

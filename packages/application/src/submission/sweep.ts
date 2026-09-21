@@ -2,8 +2,15 @@ import {
   DEFAULT_SUBMISSION_PENDING_TIMEOUT_MINUTES,
   submissionPendingTimeoutMinutesSchema,
 } from "@nojv/core";
-import { authCleanupRepo, submissionRejudgeLogRepo, submissionRepo } from "@nojv/db";
+import {
+  authCleanupRepo,
+  submissionRejudgeLogRepo,
+  submissionRepo,
+  prismaAdapterClient as db,
+  runTransaction,
+} from "@nojv/db";
 
+import { reconcileJudgeExecutions } from "./judge-recovery";
 import { getDomainOrchestration } from "../shared/orchestration";
 import { toJsonValue } from "../shared/to-json-value";
 import { deriveSystemErrorVerdictSummary } from "./mutations";
@@ -28,47 +35,79 @@ export interface SweepStaleSubmissionsResult {
 }
 
 export async function sweepStaleSubmissions(): Promise<SweepStaleSubmissionsResult> {
+  await reconcileJudgeExecutions();
   const timeoutMinutes = getSubmissionPendingTimeoutMinutes();
   const cutoff = new Date(Date.now() - timeoutMinutes * 60_000);
   const stale = await submissionRepo.findStalePendingIds(cutoff);
 
-  const openRejudgeSubmissionIds = new Set(
-    (await submissionRejudgeLogRepo.listForSubmissionIds(stale.map((s) => s.id)))
-      .filter((log) => log.newVerdict === null && log.createdAt >= cutoff)
-      .map((log) => log.submissionId),
+  const openRejudgeLogs = (
+    await submissionRejudgeLogRepo.listForSubmissionIds(stale.map((s) => s.id))
+  ).filter((log) => log.newVerdict === null);
+  const recentRejudgeSubmissionIds = new Set(
+    openRejudgeLogs.filter((log) => log.createdAt >= cutoff).map((log) => log.submissionId),
   );
 
   let killed = 0;
   let failed = 0;
   let skipped = 0;
   for (const { id } of stale) {
-    if (openRejudgeSubmissionIds.has(id)) {
+    if (recentRejudgeSubmissionIds.has(id)) {
       skipped += 1;
       continue;
     }
     try {
-      const state = await getDomainOrchestration().describeSubmissionJudge(id);
+      const execution = await db.judgeExecution.findFirst({
+        where: { submissionId: id },
+        orderBy: { generation: "desc" },
+      });
+      if (execution) {
+        skipped += 1;
+        continue;
+      }
+      const submission = await submissionRepo.findById(id);
+      const workflowId =
+        submission?.activeJudgeRunId ??
+        openRejudgeLogs.find((log) => log.submissionId === id)?.rejudgeRunId ??
+        undefined;
+      const state = await getDomainOrchestration().describeSubmissionJudge(id, workflowId);
       if (state?.running) {
         skipped += 1;
         continue;
       }
-      await getDomainOrchestration().terminateSubmissionJudge(
-        id,
-        "submission pending timeout exceeded",
-      );
-      const updated = await submissionRepo.completeIfInProgress(
-        id,
-        {
-          activeJudgeRunId: null,
-          status: "system_error",
-          verdictSummary: toJsonValue(
-            deriveSystemErrorVerdictSummary(
-              "Judge pipeline exceeded the pending timeout and no running workflow was found.",
+      const updated = await runTransaction(async (tx) => {
+        const updated = await tx.submission.updateMany({
+          where: {
+            id,
+            updatedAt: { lt: cutoff },
+            status: { in: ["pending_upload", "queued", "compiling", "running"] },
+          },
+          data: {
+            activeJudgeRunId: null,
+            status: "system_error",
+            verdictSummary: toJsonValue(
+              deriveSystemErrorVerdictSummary(
+                "Original judge version is unavailable for this legacy submission. A teacher rejudge is required to select a new version.",
+              ),
             ),
-          ),
-        },
-        cutoff,
-      );
+          },
+        });
+        if (updated.count)
+          await tx.durableWork.updateMany({
+            where: {
+              kind: "submission.judge.dispatch",
+              dedupeKey: id,
+              status: { in: ["pending", "leased"] },
+            },
+            data: {
+              status: "cancelled",
+              leaseOwner: null,
+              leaseExpiresAt: null,
+              completedAt: new Date(),
+              lastError: "Original judge version is unavailable.",
+            },
+          });
+        return updated;
+      });
       killed += updated.count;
     } catch (error) {
       console.error("Failed to reconcile stale submission", { submissionId: id }, error);
