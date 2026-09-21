@@ -188,6 +188,7 @@
     context={examCode}
     title={detail.title}
     summary={detail.summary}
+    summaryId={`exam-summary-${detail.id}`}
   >
     {#snippet aside(accent)}
       <HeroSchedule
