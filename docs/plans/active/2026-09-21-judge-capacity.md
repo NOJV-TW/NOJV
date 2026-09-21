@@ -215,3 +215,18 @@ Related: [Judge pipeline](../../architecture/JUDGE_PIPELINE.md),
   including 1/20/100 cases, checker artifacts and chart RBAC. This evidence does
   not constitute the 100-student HTTP performance matrix or full runtime fault
   matrix. Those remain activation gates; both capacity flags stay off by default.
+
+- Final candidate verification passed 3,483 unit tests, 86 component tests,
+  95 Docker isolation/verdict tests and all 20 K8s/gVisor tests. The latter
+  includes advanced service mode after aligning the disposable cluster's K3s
+  and Calico CIDRs. An audit of 67 observed Pod UIDs found no owned API, CRI,
+  runtime process or cgroup residue on either test node.
+- CodeQL identified a path-check/open race in artifact publication. Publication
+  now validates opened handles with nonblocking, no-follow opens; an actual FIFO
+  regression changed from timing out to immediate rejection. CodeQL rescanning
+  passed without suppressing the alert.
+- Remote coverage exposed the upstream database/Temporal burst fixture being
+  routed into the pure Temporal project without storage/database initialization.
+  It now lives in the serial database integration suite; its 100-submission
+  restart/checkpoint test passed locally. This is mocked-executor correctness
+  evidence, not the 100-student HTTP throughput acceptance benchmark.
