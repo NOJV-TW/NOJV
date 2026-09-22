@@ -269,10 +269,13 @@ a migration and a stale `true` drains web on releases that migrate nothing.
 sudo helm get values nojv -n nojv
 ```
 
-The output must begin with `USER-SUPPLIED VALUES:` and must not mention
-`releaseWindow`. An error such as `Kubernetes cluster unreachable` means nothing
-was read, not that no override exists, so never filter this command's stderr or
-test it with a `grep` whose miss counts as a pass. The
+A successful read exits 0 and prints the values on stdout under
+`USER-SUPPLIED VALUES:`, which must not mention `releaseWindow`. Two stderr
+warnings that the kubeconfig is group- and world-readable are expected, because
+k3s writes it with mode 644. An error such as `Kubernetes cluster unreachable`
+means nothing was read, not that no override exists, so check the exit status
+before reading the values, and never filter this command's output or test it
+with a `grep` whose miss counts as a pass. The
 [single-machine runbook](../runbooks/k8s-single-machine.md) links the kubeconfig
 that `sudo helm` needs.
 
