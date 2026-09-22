@@ -28,10 +28,10 @@ it("exposes missing problems and allocation errors to the form scroll selector",
   const weights = mount(ActivityWeights, {
     target,
     props: {
-      totalPoints: 100,
+      totalPoints: 0,
       problems: [{ problemId: "p1", points: 0 }],
       onchange: () => {},
-      allocationError: "Allocate 100%",
+      totalErrors: ["Allocate points"],
     },
   });
   await tick();
@@ -39,7 +39,7 @@ it("exposes missing problems and allocation errors to the form scroll selector",
     const input = target.querySelector('input[aria-invalid="true"]');
     expect(input).not.toBeNull();
     expect(document.getElementById(input!.getAttribute("aria-describedby")!)?.textContent).toBe(
-      "Allocate 100%",
+      "Allocate points",
     );
   } finally {
     await unmount(weights);

@@ -172,6 +172,7 @@ export default defineConfig({
             "tests/unit/web/submission-navigation-view.test.ts",
             "tests/component/web/submission-history-tracking.test.ts",
             "tests/component/web/teacher-submission-refresh.test.ts",
+            "tests/component/web/activity-weights.test.ts",
             "tests/unit/web/editor-output-comparison.test.ts",
             "tests/unit/web/comment-section-error.test.ts",
             "tests/unit/web/contest-join-error.test.ts",

@@ -91,11 +91,11 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 
 ### Activity allocation and official scores
 
-- GIVEN a new activity, THEN its total defaults to 100. The weight editor appears below the question list for both assignments and exams. Teachers enter percentages to two decimal places; the form sends `totalPoints` and `problems: [{ problemId, points }]`. Only allocated points are persisted.
+- GIVEN a new activity, THEN its total is the sum of its problem points (100 while no problem is attached). The point editor appears below the question list for both assignments and exams. Teachers enter points per problem to two decimal places; the form sends `totalPoints` (the sum) and `problems: [{ problemId, points }]`.
 - GIVEN a draft, THEN incomplete allocations can be saved. Publishing and saving published activities require positive total points, nonnegative allocations, unique problems, and allocations summing exactly to the total.
-- GIVEN scores 80/100 and 50/100, weights 40% and 60%, and total 100, THEN the official score is 62. Each effective raw score (including existing late adjustment or raw manual override) is divided by the original problem maximum and multiplied by its allocation. Decimal values are retained until the final total is rounded half up to two decimal places.
+- GIVEN scores 80/100 and 50/100 with allocations of 40 and 60 points, THEN the official score is 62. Each effective raw score (including existing late adjustment or raw manual override) is divided by the original problem maximum and multiplied by its allocation. Decimal values are retained until the final total is rounded half up to two decimal places.
 - GIVEN a zero-weight question, THEN its contribution is zero while its solved state still depends on the raw score. Missing submissions remain missing. Practice after the activity deadline contributes nothing to official grades.
-- WHEN total points change, THEN proportions remain unchanged. Add/remove/reorder preserves other allocations. Equal distribution uses basis-point remainders in question order (three questions: 33.34%, 33.33%, 33.33%). An unchanged legacy allocation never round-trips through its rounded display percentage.
+- WHEN problems are added, removed, or reordered, THEN other allocations are preserved and the total is recomputed as their sum. Legacy allocations display with their stored precision.
 - WHEN a published grading configuration changes, THEN it saves without a reason or allocation audit log. The activity revision commits with the configuration. Stale editor revisions fail without writes. Closed activities support these changes without reopening other settings.
 - WHEN a question is removed, THEN only its activity link is removed. Submissions, overrides, and feedback survive. Reattaching its historical ID retains its identity and uses only eligible original activity records. Editing allocations as another course manager does not fork an already-attached question.
 - WHEN grades are read in details, matrices, gradebooks/exports, lists, or analytics, THEN the same weighted official score is used. Submission records retain the raw scale and activity views supplement it with the allocated contribution.
@@ -210,7 +210,7 @@ for ownership and sharing details.
 
 ### Problem attachment
 
-- WHEN `updateAssignmentRecord` includes `problems: [{ problemId, points }]` and `totalPoints`, THEN retained links update in place, removed links detach, and new links follow the existing ownership/fork rules. The submitted order becomes `ordinal = index + 1`. New selections start at zero points.
+- WHEN `updateAssignmentRecord` includes `problems: [{ problemId, points }]` and `totalPoints`, THEN retained links update in place, removed links detach, and new links follow the existing ownership/fork rules. The submitted order becomes `ordinal = index + 1`. New selections start at 100 points in the editor.
 - GIVEN `allowedLanguages` is non-empty and a newly attached problem is
   missing an editable `main.<ext>` for one of those languages,
   THEN `ValidationError(...missing editable main.<ext>...)` before any row

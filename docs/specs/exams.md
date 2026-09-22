@@ -106,7 +106,7 @@ Exams use the same on-time deadline / allow-late / final collection controls as 
 
 ## Activity allocations
 
-Exams follow the [activity allocation and official score contract](assignments.md#activity-allocation-and-official-scores), including total points, percentage editing, raw overrides, exact-ID reattachment, closed edits without a reason or allocation audit log, and lossless legacy import.
+Exams follow the [activity allocation and official score contract](assignments.md#activity-allocation-and-official-scores), including total points, per-problem point editing, raw overrides, exact-ID reattachment, closed edits without a reason or allocation audit log, and lossless legacy import.
 
 Each grading change enqueues durable `score.converge` work for every participant in the same transaction. Convergence uses only non-sample submissions within the original exam deadline and never dispatches judging. It retries on conflict or durable-work failure. Writeback checks both the activity grading revision and participation version, preventing stale scores from replacing current grades. Entering an exam serializes against the grading transaction so a newly created participant starts at the current revision. While any participant revision lags, the detail page displays a recalculation notice; detail and matrix scores calculate from current allocations.
 

@@ -137,7 +137,10 @@
           onProblemIdsChange={(ids) =>
             ($form.problems = ids.map(
               (id) =>
-                $form.problems.find((p) => p.problemId === id) ?? { problemId: id, points: 0 },
+                $form.problems.find((p) => p.problemId === id) ?? {
+                  problemId: id,
+                  points: 100,
+                },
             ))}
           error={$form.problems.length
             ? undefined
@@ -146,9 +149,6 @@
               : undefined}
         />
         <ActivityWeights
-          allocationError={$form.problems.length && $errors.problems?._errors
-            ? m.activityWeights_incomplete()
-            : undefined}
           totalErrors={$errors.totalPoints}
           bind:totalPoints={$form.totalPoints}
           problems={$form.problems}
