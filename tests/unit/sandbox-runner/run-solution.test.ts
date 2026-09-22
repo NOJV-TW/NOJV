@@ -26,6 +26,23 @@ describe("toRawCaseRun", () => {
     expect(run.index).toBe(0);
   });
 
+  it("keeps only a prefix of the captured output when the output limit was exceeded", () => {
+    const run = toRawCaseRun(
+      makeResult({
+        stdout: "a".repeat(1024 * 1024),
+        stderr: `Output limit exceeded.\n${"b".repeat(1024 * 1024)}`,
+        exitCode: -1,
+        signal: "SIGKILL",
+        outputLimitExceeded: true,
+      }),
+      2,
+    );
+    expect(run.errorVerdict).toBe("RE");
+    expect(run.stdout).toHaveLength(64 * 1024);
+    expect(run.stderr).toHaveLength(64 * 1024);
+    expect(run.stderr.startsWith("Output limit exceeded.")).toBe(true);
+  });
+
   it("sets TLE when the run timed out", () => {
     expect(toRawCaseRun(makeResult({ timedOut: true }), 1).errorVerdict).toBe("TLE");
   });

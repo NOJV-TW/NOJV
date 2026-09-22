@@ -1755,6 +1755,14 @@ export class K8sExecutor implements SandboxExecutor {
                 container: perCaseContainerName(index),
               });
               const parsed = logs ? this.parseRunnerOutput(logs) : null;
+              if (!parsed?.rawRuns?.[0])
+                logger.warn("Case container produced no readable result", {
+                  jobName,
+                  container: perCaseContainerName(index),
+                  logBytes: logs.length,
+                  logTail: logs.slice(-200),
+                  pipelineError: parsed?.pipelineError ?? null,
+                });
               return (
                 parsed?.rawRuns?.[0] ?? {
                   index,
