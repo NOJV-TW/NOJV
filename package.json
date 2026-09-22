@@ -15,6 +15,7 @@
     "lint:retired-colors": "node scripts/check-retired-colors.mjs",
     "lint:doc-drift": "node scripts/check-doc-drift.mjs",
     "lint:migrations": "node scripts/check-migrations.mjs",
+    "lint:helm": "helm lint infra/charts/nojv -f tests/fixtures/helm/immutable-image-digests.yaml && helm template nojv infra/charts/nojv -f infra/charts/nojv/values-gke.yaml -f tests/fixtures/helm/immutable-image-digests.yaml -f tests/fixtures/helm/gke-production-config.yaml -f tests/fixtures/helm/production-external-backups.yaml >/dev/null && helm template nojv infra/charts/nojv -f infra/charts/nojv/values-single-machine.yaml -f tests/fixtures/helm/immutable-image-digests.yaml -f tests/fixtures/helm/production-external-backups.yaml >/dev/null",
     "lint:comments": "node scripts/check-comments.mjs",
     "lint:supply-chain": "node scripts/check-supply-chain-policy.mjs",
     "test": "pnpm test:unit",

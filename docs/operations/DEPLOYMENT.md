@@ -259,6 +259,22 @@ release notifications through the existing status Discord webhook. This keeps
 public verification outside GitHub-hosted runner network policy and avoids a
 second, conflicting source of deployment health.
 
+Before tagging, confirm on the host that the production values Secret does not
+pin `migrator.releaseWindow`. A user-supplied value overrides the one the
+release workflow computes, so a stale `false` skips the maintenance page during
+a migration and a stale `true` drains web on releases that migrate nothing.
+
+```bash
+sudo helm get values nojv -n nojv
+```
+
+The output must begin with `USER-SUPPLIED VALUES:` and must not mention
+`releaseWindow`. An error such as `Kubernetes cluster unreachable` means nothing
+was read, not that no override exists, so never filter this command's stderr or
+test it with a `grep` whose miss counts as a pass. The
+[single-machine runbook](../runbooks/k8s-single-machine.md) links the kubeconfig
+that `sudo helm` needs.
+
 ```bash
 git tag vX.Y.Z
 git push origin vX.Y.Z
