@@ -122,6 +122,7 @@ worker:
     submissionPendingTimeoutMinutes: 10
   sandbox:
     imagePullSecret: nojv-registry-pull
+    caseCpuRequest: "50m"
 
 pdb:
   enabled: false
