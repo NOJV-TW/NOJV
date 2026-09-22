@@ -1,7 +1,6 @@
 # Load-aware judge slots
 
-Status: implemented, rolling out. The incident rejudge drained on 2026-09-22
-16:22Z; the worker, chart and guard changes ship in the release after it.
+Status: rolled out in v1.3.9 (2026-09-22 21:54Z) and stress-tested on prod.
 
 ## Why
 
@@ -137,7 +136,7 @@ LimitRange min  ≤ caseCpuRequest
 4. [x] Chart and docs: values, `env-manifest-parity`, DEPLOYMENT capacity table,
        `docs/runbooks/judge-queue.md` capacity section ("slots are min…max,
        watch slots_available and the wall/CPU guard").
-5. [ ] Rollout: `min 2 / max 10`, on the owner's call to let the node-CPU
+5. [x] Rollout: `min 2 / max 10`, on the owner's call to let the node-CPU
        target rather than a low ceiling bound contention. Jobs request 0.3 CPU
        (compile 300m, case 15m, LimitRange minimum 15m) so ten schedule next to
        the platform pods; the sandbox quota is 16 pods / 16 GiB of requests.
@@ -155,6 +154,32 @@ LimitRange min  ≤ caseCpuRequest
 - Prod acceptance: during synthetic load, slots rise to `max` while node CPU
   stays under the target, fall back to `min` within a minute of the load
   ending, and the guard p95 stays below 1.5.
+
+## Stress test 2026-09-22
+
+Run on prod between 20:23Z and 22:05Z (04:23–06:05 Taipei, no exam in
+progress) with admin-owned practice submissions whose workflows were started
+directly, so one account could fill the queue. Light: C++ solutions of Prime
+Census and Island Count, 14 cases each. Heavy: a correct Prime Census solution
+that spins 600 ms of CPU per case (30% of its 2 s limit).
+
+| Run                                | Release / settings                        | Result                                                                                                                                                                                                                               |
+| ---------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A, 40 light                        | v1.3.8: 4 partitions, `rampThrottle` 10 s | 40 AC, p50 437 s; one Job at a time on an idle node until the worker was switched to fixed slots                                                                                                                                     |
+| A2, 40 light                       | 1 partition, still 10 s ramp              | same stall, starts spaced exactly 10 s apart                                                                                                                                                                                         |
+| A3, 40 light                       | v1.3.9                                    | 40 AC in 3 min 7 s, p50 107 s, p95 177 s; 10 Jobs after 19 s; peak node memory 7.1 GiB; 0 retries, 0 system errors                                                                                                                   |
+| B, 20 heavy                        | v1.3.9                                    | 20 AC in 2 min, case CPU 770–1060 ms, load peak 37.8 on 8 cores, 0 wall-clock TLEs                                                                                                                                                   |
+| P, 30 priority-5 then 5 priority-1 | v1.3.9                                    | the five priority-1 stages finished right after the ten already running (one priority-5 slipped between them); 19 of the 20 queued priority-5 finished after the last priority-1; priority-1 latency 56–61 s vs priority-5 p50 111 s |
+
+Findings that changed the design: Temporal's default four task-queue
+partitions leave tasks in unpolled partitions when pollers are few (fixed with
+one partition per NOJV queue); a long `rampThrottle` throttles polling because
+every poll reserves a slot (PR #509); bookkeeping activities queued behind
+other submissions' Jobs (PR #510, `judge-state`); stage activities carried no
+priority (PR #510); the runner's result line could be joined with its usage
+line (PR #508). CPU is the real ceiling: six to ten light C++ Jobs saturate the
+8-CPU node, and the tuner reaches the ceiling at the start of every burst
+because the node is idle when it decides.
 
 ## Out of scope
 
