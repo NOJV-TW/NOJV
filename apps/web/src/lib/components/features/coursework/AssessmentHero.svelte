@@ -17,7 +17,6 @@
     summaryId: string;
     badges?: Snippet;
     meta?: Snippet;
-    actions?: Snippet | undefined;
     aside?: Snippet<[string]>;
     class?: string;
   }
@@ -29,7 +28,6 @@
     summaryId,
     badges,
     meta,
-    actions,
     aside,
     class: className,
   }: Props = $props();
@@ -116,12 +114,6 @@
                 : m.coursework_summaryShowMore()}
             </button>
           {/if}
-        </div>
-      {/if}
-
-      {#if actions}
-        <div class="mt-6">
-          {@render actions()}
         </div>
       {/if}
     </div>
