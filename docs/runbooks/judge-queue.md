@@ -44,13 +44,17 @@ bounds how many Jobs schedule at once. Raise concurrency and quota together
 before an exam and lower them afterwards; all of these are Helm values.
 
 With `worker.judge.minConcurrency` set (single-machine: 2, ceiling
-`worker.judge.concurrency` 6) the judge worker uses Temporal's resource-based
+`worker.judge.concurrency` 10) the judge worker uses Temporal's resource-based
 slot tuner: above the minimum it hands out one more slot every 10 seconds while
 node CPU stays under 75% and the worker's own memory under 80%. The judge
 container therefore has no CPU limit, because with one the tuner would measure
 the worker's cgroup instead of the node. The ceiling is a timing-fidelity bound,
 not a resource number: each slot adds up to `maxParallelCases` sandbox
-containers. `judge_wall_clock_timeouts_total` counts TLEs whose CPU time stayed
+containers, and neither the tuner nor the quota watches the node's memory:
+the tuner's memory signal is the worker container's own usage, and the quota
+counts requests (64 MiB per case container), not usage. During the
+2026-09-22 drain three concurrent Jobs moved node memory by under 1 GiB; check
+node memory before raising the ceiling past ten. `judge_wall_clock_timeouts_total` counts TLEs whose CPU time stayed
 under the limit; the `nojv-judge-wall-clock-timeouts` alert fires when more
 than two land in ten minutes, which is the signal to lower the ceiling.
 

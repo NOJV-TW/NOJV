@@ -272,19 +272,19 @@ The single-machine deployment has web HPA but no node autoscaler:
 | Tier     | Single-machine (`values-single-machine.yaml`) | Autoscaling on one box                                          |
 | -------- | --------------------------------------------- | --------------------------------------------------------------- |
 | web      | 1 replica, HPA min 1 / max 3                  | CPU target 70%; scales only within the single node.             |
-| judge    | 1 worker, 2–6 slots by node CPU               | One slot = one submission stage Job in flight.                  |
+| judge    | 1 worker, 2–10 slots by node CPU              | One slot = one submission stage Job in flight.                  |
 | platform | 1 worker                                      | Fixed.                                                          |
-| sandbox  | quota `6` CPU / `12Gi` / `12` pods            | No node autoscaler; a rejected Job waits as `waiting_capacity`. |
+| sandbox  | quota `6` CPU / `16Gi` / `16` pods            | No node autoscaler; a rejected Job waits as `waiting_capacity`. |
 
 A stage Job holds up to `maxParallelCases` (20) testcase containers with
-`caseCpuRequest` (100m by default, 25m on single-machine) and 64 MiB requested
+`caseCpuRequest` (100m by default, 15m on single-machine) and 64 MiB requested
 each behind a compile init container at `cpuRequest`, so its effective request
 is `max(cpuRequest, maxParallelCases × caseCpuRequest)` CPU and the quota must
 hold `concurrency ×` that. The node's allocatable CPU minus the platform pods'
 requests bounds how many Jobs schedule at once: on the 8-CPU box the platform
 pods reserve about 2.6 CPU, so 2-CPU Jobs left slots Pending, while the
-0.5-CPU Jobs of the 25m case request let all six slots schedule and fit the
-6-CPU quota with room to spare. Requests are reservations, not a cap: case
+0.3-CPU Jobs of a 300m compile request and 15m case request let all ten slots
+schedule (3 CPU) with room left for web autoscaling, inside the 6-CPU quota. Requests are reservations, not a cap: case
 containers still burst to their 1-CPU limit, and the slot tuner's 75% node-CPU
 target is what actually bounds contention. Raise `worker.judge.concurrency` and the quota together,
 for example ahead of an exam. Ordering between queued submissions is the Temporal task-queue
@@ -644,8 +644,8 @@ environment:
 Judge throughput is `worker.judge.concurrency` stage Jobs in flight, bounded by
 the sandbox quota. Increasing judge replicas multiplies slots the same way as
 concurrency; both must stay within the quota. GKE uses 10 Pods / 10 CPU with two
-judge workers at concurrency two; single-machine uses 12 Pods / 6 CPU / 12 GiB
-with one worker whose slots float between two and six. Neither number is a measured burst
+judge workers at concurrency two; single-machine uses 16 Pods / 6 CPU / 16 GiB
+with one worker whose slots float between two and ten. Neither number is a measured burst
 capacity; size them from the arithmetic above and the node's allocatable CPU.
 
 ## Database Migrations

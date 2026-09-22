@@ -135,10 +135,13 @@ LimitRange min  ≤ caseCpuRequest
 4. [x] Chart and docs: values, `env-manifest-parity`, DEPLOYMENT capacity table,
        `docs/runbooks/judge-queue.md` capacity section ("slots are min…max,
        watch slots_available and the wall/CPU guard").
-5. [ ] Rollout: `min 2 / max 6` with `caseCpuRequest` and the LimitRange
-       minimum at 25m (0.5-CPU Jobs, so six schedule on the 8-CPU node), on the
-       owner's call to use the node-CPU target rather than a low ceiling as the
-       contention bound. Watch concurrent sandbox Jobs, node CPU, the
+5. [ ] Rollout: `min 2 / max 10`, on the owner's call to let the node-CPU
+       target rather than a low ceiling bound contention. Jobs request 0.3 CPU
+       (compile 300m, case 15m, LimitRange minimum 15m) so ten schedule next to
+       the platform pods; the sandbox quota is 16 pods / 16 GiB of requests.
+       The tuner does not see node memory (its memory signal is the worker's
+       own cgroup, verified in sysinfo 0.38.4 `cgroup_limits`), so node memory
+       is watched separately. Watch concurrent sandbox Jobs, node CPU, the
        wall-clock-timeout guard and exam-lane latency under real load; lower
        `max` if the guard fires.
 
