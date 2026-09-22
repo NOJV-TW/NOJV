@@ -961,7 +961,11 @@ describe("durable pinned capacity pipeline", () => {
       activities.judgeExecutionTurn.mockResolvedValue("ready");
       await env.sleep("31s");
       await until(async () => activities.prepareSandboxAttempt.mock.calls.length === 2);
-      await Promise.all([first.result(), second.result()]);
+      expect(
+        activities.prepareSandboxAttempt.mock.calls
+          .map(([, runId]) => runExecutions.get(runId as string))
+          .sort(),
+      ).toEqual(["fifo-sleep-first", "fifo-sleep-second"]);
       await until(
         async () =>
           Object.keys(
