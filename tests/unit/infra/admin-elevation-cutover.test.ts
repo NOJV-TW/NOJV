@@ -74,7 +74,7 @@ describe("admin-elevation mixed-version deployment cutover", () => {
     expect(roleBinding).toContain('helm.sh/hook-weight: "-28"');
     expect([serviceAccount, role, roleBinding].join("\n")).not.toContain("hook-succeeded");
     expect(role).toMatch(
-      /resourceNames:\n\s+- nojv-web\n\s+- nojv-worker\n\s+- nojv-worker-platform/,
+      /resourceNames:\n\s+- nojv-web\n\s+- nojv-web-maintenance\n\s+- nojv-worker\n\s+- nojv-worker-platform/,
     );
     expect(role).toContain('resources: ["deployments"]');
     expect(role).toContain('resources: ["deployments/scale"]');
@@ -127,9 +127,10 @@ printf '2 2 2 2'
         KUBECTL_LOG: log,
         NAMESPACE: "nojv",
         WEB_DEPLOYMENT: "nojv-web",
+        MAINTENANCE_DEPLOYMENT: "nojv-web-maintenance",
         WEB_HPA_ENABLED: "false",
         WEB_READY_REPLICAS: "2",
-        WEB_POD_SELECTOR: "app.kubernetes.io/name=nojv-web",
+        WEB_POD_SELECTOR: "app.kubernetes.io/name=nojv-web,!nojv.tw/role",
         JUDGE_DEPLOYMENT: "nojv-worker",
         JUDGE_READY_REPLICAS: "2",
         JUDGE_POD_SELECTOR: "app.kubernetes.io/name=nojv-worker",
@@ -142,11 +143,12 @@ printf '2 2 2 2'
     });
 
     const calls = readFileSync(log, "utf8").trim().split("\n");
-    expect(calls).toHaveLength(6);
+    expect(calls).toHaveLength(7);
     expect(calls.slice(0, 3)).toEqual([
       expect.stringContaining("scale deployment nojv-web --replicas=2"),
       expect.stringContaining("scale deployment nojv-worker --replicas=2"),
       expect.stringContaining("scale deployment nojv-worker-platform --replicas=1"),
     ]);
+    expect(calls.at(-1)).toContain("scale deployment nojv-web-maintenance --replicas=0");
   });
 });

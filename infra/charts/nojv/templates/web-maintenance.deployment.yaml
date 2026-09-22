@@ -1,0 +1,117 @@
+{{/*
+Release-window maintenance page. While the migrator runs, web.deployment.yaml
+renders `replicas: 0`, which previously left the Service with no endpoints and
+the edge returning 502. This Deployment shares the web pod label so the existing
+Service routes to it for the length of the window, and release-workloads.sh
+retires it once the real web deployment reports ready.
+
+It runs the already-pulled web image (release-prepull.job.yaml fetches it before
+the window opens) with a command override, so the window needs no extra image.
+*/}}
+{{- $releaseMaintenance := and .Release.IsUpgrade .Values.migrator.enabled .Values.migrator.releaseWindow -}}
+{{- if $releaseMaintenance }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nojv.fullname" . }}-web-maintenance
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web-maintenance
+spec:
+  replicas: {{ .Values.maintenance.pageReplicas }}
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nojv-web
+      nojv.tw/role: maintenance
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nojv-web
+        nojv.tw/role: maintenance
+    spec:
+      terminationGracePeriodSeconds: 5
+      {{- with .Values.web.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: maintenance
+          image: {{ include "nojv.image" (dict "root" . "component" "web") }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          command: ["node", "--input-type=commonjs", "-e"]
+          args:
+            - |
+              const http = require("node:http");
+              const page = `<!doctype html>
+              <html lang="zh-Hant">
+              <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <title>NOJV</title>
+              <style>
+              :root { color-scheme: dark; }
+              body {
+              margin: 0;
+              min-height: 100vh;
+              display: grid;
+              place-items: center;
+              background: #0d1117;
+              color: #e6edf3;
+              font-family: ui-sans-serif, system-ui, "Noto Sans TC", sans-serif;
+              }
+              main { padding: 2rem; max-width: 34rem; text-align: center; }
+              h1 { font-size: 1.5rem; font-weight: 600; margin: 0 0 0.75rem; }
+              p { margin: 0.5rem 0; line-height: 1.6; color: #9aa7b2; }
+              .en { font-size: 0.9rem; }
+              </style>
+              </head>
+              <body>
+              <main>
+              <h1>系統更新中</h1>
+              <p>我們正在套用一次版本更新，預計幾分鐘內恢復。這段期間的提交不會遺失，請稍後重新整理。</p>
+              <p class="en">NOJV is applying a release. Service returns in a few minutes.</p>
+              </main>
+              </body>
+              </html>`;
+              const server = http.createServer(function (req, res) {
+                if (req.url === "/healthz") {
+                  res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
+                  res.end("ok");
+                  return;
+                }
+                res.writeHead(503, {
+                  "content-type": "text/html; charset=utf-8",
+                  "cache-control": "no-store",
+                  "retry-after": "120",
+                });
+                res.end(page);
+              });
+              server.listen(Number(process.env.PORT), "0.0.0.0");
+          ports:
+            - containerPort: {{ .Values.web.containerPort }}
+              name: http
+          env:
+            - name: PORT
+              value: {{ .Values.web.containerPort | quote }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.maintenance.pageResources | nindent 12 }}
+{{- end }}

@@ -11,6 +11,8 @@ set -eu
 : "${WEB_POD_SELECTOR:?WEB_POD_SELECTOR is required}"
 : "${JUDGE_POD_SELECTOR:?JUDGE_POD_SELECTOR is required}"
 : "${PLATFORM_POD_SELECTOR:?PLATFORM_POD_SELECTOR is required}"
+: "${MAINTENANCE_DEPLOYMENT:?MAINTENANCE_DEPLOYMENT is required}"
+: "${MAINTENANCE_PAGE_REPLICAS:=1}"
 : "${WEB_HPA_ENABLED:=false}"
 : "${RELEASE_WINDOW:=true}"
 : "${READY_TIMEOUT_SECONDS:=300}"
@@ -54,6 +56,8 @@ enter_maintenance() {
       -p "{\"spec\":{\"scaleTargetRef\":{\"name\":\"$WEB_DEPLOYMENT-maintenance\"}}}" || \
       maintenance_failed=true
   fi
+  kubectl_ns scale deployment "$MAINTENANCE_DEPLOYMENT" \
+    --replicas="$MAINTENANCE_PAGE_REPLICAS" || maintenance_failed=true
   kubectl_ns scale deployment "$WEB_DEPLOYMENT" "$JUDGE_DEPLOYMENT" "$PLATFORM_DEPLOYMENT" \
     --replicas=0 || maintenance_failed=true
 
@@ -124,5 +128,11 @@ if [ "$RELEASE_WINDOW" = true ] && [ "$WEB_HPA_ENABLED" = true ]; then
     -p "{\"spec\":{\"scaleTargetRef\":{\"name\":\"$WEB_DEPLOYMENT\"}}}"
   [ "$(kubectl_ns get horizontalpodautoscaler "$WEB_HPA" \
     -o 'jsonpath={.spec.scaleTargetRef.name}')" = "$WEB_DEPLOYMENT" ]
+fi
+
+# The real web deployment is serving, so stop the maintenance page from sharing
+# the Service. This runs after the HPA is repointed so nothing scales it back up.
+if [ "$RELEASE_WINDOW" = true ]; then
+  kubectl_ns scale deployment "$MAINTENANCE_DEPLOYMENT" --replicas=0
 fi
 released=true

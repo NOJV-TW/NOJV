@@ -220,9 +220,10 @@ function runCutover(
       RELEASE_OPERATION: "upgrade",
       NAMESPACE: "nojv",
       WEB_DEPLOYMENT: "nojv-web",
+      MAINTENANCE_DEPLOYMENT: "nojv-web-maintenance",
       WEB_HPA: "nojv-web",
       WEB_HPA_ENABLED: "true",
-      WEB_POD_SELECTOR: "app.kubernetes.io/name=nojv-web",
+      WEB_POD_SELECTOR: "app.kubernetes.io/name=nojv-web,!nojv.tw/role",
       JUDGE_DEPLOYMENT: "nojv-worker",
       JUDGE_POD_SELECTOR: "app.kubernetes.io/name=nojv-worker",
       PLATFORM_DEPLOYMENT: "nojv-worker-platform",
@@ -298,7 +299,7 @@ describe("storage release cutover", () => {
         .find(
           (document) =>
             new RegExp(`kind:\\s*${kind}`).test(document) &&
-            new RegExp(`name:\\s*${name}(?:\\s|$)`).test(document),
+            new RegExp(`^  name:\\s*${name}\\s*$`, "m").test(document),
         );
 
     for (const job of [migrator, resource("Job", "nojv-workloads-ready")]) {
@@ -377,7 +378,7 @@ describe("storage release cutover", () => {
         .find(
           (document) =>
             new RegExp(`kind:\\s*${kind}`).test(document) &&
-            new RegExp(`name:\\s*${name}(?:\\s|$)`).test(document),
+            new RegExp(`^  name:\\s*${name}\\s*$`, "m").test(document),
         );
 
     for (const name of ["nojv-web", "nojv-worker", "nojv-worker-platform"]) {
@@ -412,10 +413,11 @@ describe("storage release cutover", () => {
           RELEASE_WINDOW: "false",
           NAMESPACE: "nojv",
           WEB_DEPLOYMENT: "nojv-web",
+          MAINTENANCE_DEPLOYMENT: "nojv-web-maintenance",
           WEB_HPA: "nojv-web",
           WEB_HPA_ENABLED: "true",
           WEB_READY_REPLICAS: "2",
-          WEB_POD_SELECTOR: "app.kubernetes.io/name=nojv-web",
+          WEB_POD_SELECTOR: "app.kubernetes.io/name=nojv-web,!nojv.tw/role",
           JUDGE_DEPLOYMENT: "nojv-worker",
           JUDGE_READY_REPLICAS: "2",
           JUDGE_POD_SELECTOR: "app.kubernetes.io/name=nojv-worker",
@@ -455,10 +457,11 @@ describe("storage release cutover", () => {
           RELEASE_READY_FAILURE: "true",
           NAMESPACE: "nojv",
           WEB_DEPLOYMENT: "nojv-web",
+          MAINTENANCE_DEPLOYMENT: "nojv-web-maintenance",
           WEB_HPA: "nojv-web",
           WEB_HPA_ENABLED: "true",
           WEB_READY_REPLICAS: "2",
-          WEB_POD_SELECTOR: "app.kubernetes.io/name=nojv-web",
+          WEB_POD_SELECTOR: "app.kubernetes.io/name=nojv-web,!nojv.tw/role",
           JUDGE_DEPLOYMENT: "nojv-worker",
           JUDGE_READY_REPLICAS: "2",
           JUDGE_POD_SELECTOR: "app.kubernetes.io/name=nojv-worker",
@@ -538,10 +541,11 @@ describe("storage release cutover", () => {
         HARNESS_DIR: harness.directory,
         NAMESPACE: "nojv",
         WEB_DEPLOYMENT: "nojv-web",
+        MAINTENANCE_DEPLOYMENT: "nojv-web-maintenance",
         WEB_HPA: "nojv-web",
         WEB_HPA_ENABLED: "true",
         WEB_READY_REPLICAS: "2",
-        WEB_POD_SELECTOR: "app.kubernetes.io/name=nojv-web",
+        WEB_POD_SELECTOR: "app.kubernetes.io/name=nojv-web,!nojv.tw/role",
         JUDGE_DEPLOYMENT: "nojv-worker",
         JUDGE_READY_REPLICAS: "2",
         JUDGE_POD_SELECTOR: "app.kubernetes.io/name=nojv-worker",
@@ -601,10 +605,11 @@ describe("storage release cutover", () => {
           RELEASE_READY_FAILURE: "true",
           NAMESPACE: "nojv",
           WEB_DEPLOYMENT: "nojv-web",
+          MAINTENANCE_DEPLOYMENT: "nojv-web-maintenance",
           WEB_HPA: "nojv-web",
           WEB_HPA_ENABLED: "true",
           WEB_READY_REPLICAS: "2",
-          WEB_POD_SELECTOR: "app.kubernetes.io/name=nojv-web",
+          WEB_POD_SELECTOR: "app.kubernetes.io/name=nojv-web,!nojv.tw/role",
           JUDGE_DEPLOYMENT: "nojv-worker",
           JUDGE_READY_REPLICAS: "2",
           JUDGE_POD_SELECTOR: "app.kubernetes.io/name=nojv-worker",

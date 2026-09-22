@@ -70,7 +70,7 @@ spec:
             - name: WEB_HPA_ENABLED
               value: {{ .Values.web.hpa.enabled | quote }}
             - name: WEB_POD_SELECTOR
-              value: app.kubernetes.io/name=nojv-web
+              value: "app.kubernetes.io/name=nojv-web,!nojv.tw/role"
             - name: JUDGE_DEPLOYMENT
               value: {{ printf "%s-worker" (include "nojv.fullname" .) | quote }}
             - name: JUDGE_POD_SELECTOR

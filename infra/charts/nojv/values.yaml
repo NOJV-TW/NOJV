@@ -372,6 +372,13 @@ migrator:
   backoffLimit: 0
 
 maintenance:
+  pageReplicas: 1
+  pageResources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
   image: docker.io/alpine/k8s:1.33.3@sha256:47e4ea4c263fb4e14e51d7c5ca841da756673f18e2340f38c0cf1f7219d05e85
   activeDeadlineSeconds: 660
   drainTimeoutSeconds: 300
