@@ -664,7 +664,12 @@ Whether the chart itself parks the workloads is a separate, render-time
 decision, because Helm cannot see what the hook found: `migrator.releaseWindow`
 (default `true`) gates the `replicas: 0` that web, judge and platform otherwise
 carry on every upgrade, the HPA's maintenance `scaleTargetRef`, and the
-post-upgrade Job's scale/restore/re-enter-maintenance behavior. The release
+post-upgrade Job's scale/restore/re-enter-maintenance behavior. The
+post-upgrade Job also detects a drain at runtime (HPA pointed at the
+maintenance target, or the web Deployment at zero replicas) and restores the
+workloads even when the flag says `false`, so a stale `migrator.releaseWindow`
+override in the private values Secret cannot strand the site; never pin the
+flag there. The release
 workflow computes it by diffing `packages/db/prisma/migrations` between the
 commit currently on the deploy branch (`release.sourceSha`) and the release
 commit, and writes it into the same deploy commit as the image digests; an
