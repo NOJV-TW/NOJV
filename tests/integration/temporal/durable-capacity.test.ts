@@ -3,7 +3,7 @@ import { TestWorkflowEnvironment } from "@temporalio/testing";
 import { ApplicationFailure } from "@temporalio/activity";
 import { Worker, bundleWorkflowCode, type WorkflowBundle } from "@temporalio/worker";
 import type { WorkflowHandle } from "@temporalio/client";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createAdmissionState,
   registerAdmissionRun,
@@ -57,14 +57,16 @@ async function until(check: () => Promise<boolean>) {
   throw new Error("Workflow state did not converge");
 }
 beforeAll(async () => {
-  env = await TestWorkflowEnvironment.createTimeSkipping();
   bundle = await bundleWorkflowCode({
     workflowsPath: fileURLToPath(
       new URL("../../../apps/worker/src/workflows/index.ts", import.meta.url),
     ),
   });
 }, 120_000);
-afterAll(async () => {
+beforeEach(async () => {
+  env = await TestWorkflowEnvironment.createTimeSkipping();
+});
+afterEach(async () => {
   await env?.teardown();
 });
 function fixtures(cases = 9, cpuBudget = 4000) {
