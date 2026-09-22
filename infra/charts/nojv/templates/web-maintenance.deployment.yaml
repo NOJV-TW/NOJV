@@ -80,7 +80,7 @@ spec:
               <body>
               <main>
               <h1>系統更新中</h1>
-              <p>我們正在套用一次版本更新，預計幾分鐘內恢復。這段期間的提交不會遺失，請稍後重新整理。</p>
+              <p>我們正在套用一次版本更新，預計幾分鐘內恢復。已送出的提交都會保留，但更新期間無法送出新的提交，請稍後重新整理。</p>
               <p class="en">NOJV is applying a release. Service returns in a few minutes.</p>
               </main>
               </body>

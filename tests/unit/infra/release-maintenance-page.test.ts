@@ -73,6 +73,8 @@ describeHelm("release window serves a maintenance page instead of no endpoints",
 
   it("answers 503 with a retry hint and passes its own readiness probe", () => {
     expect(maintenance).toMatch(/res\.writeHead\(503/);
+    expect(maintenance).toContain("更新期間無法送出新的提交");
+    expect(maintenance).not.toContain("這段期間的提交不會遺失");
     expect(maintenance).toMatch(/"retry-after"/);
     expect(maintenance).toMatch(/path: \/healthz/);
   });
