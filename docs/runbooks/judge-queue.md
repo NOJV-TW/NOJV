@@ -44,8 +44,12 @@ together before an exam and lower them afterwards; both are Helm values.
 Rejudges are `background` and dispatch at priority 5 behind every live
 submission. To park a bulk rejudge, set its executions' `nextAttemptAt` into the
 future and cancel their workflows; the lifecycle reconciler re-dispatches them
-as recovery epochs once `nextAttemptAt` passes. Never edit scores or verdicts to
-unblock a queue.
+as recovery epochs once `nextAttemptAt` passes. Park and release whole students
+at a time: the dispatch gate orders a student's executions by `createdAt` and
+ignores `nextAttemptAt`, so a released execution waits behind any earlier parked
+one of the same student. A hand-off to a row whose epoch-0 workflow was
+cancelled is a no-op (`REJECT_DUPLICATE`); the reconciler bumps its epoch within
+5 minutes, 100 rows per run. Never edit scores or verdicts to unblock a queue.
 
 ## Stuck leases and cleanup
 
