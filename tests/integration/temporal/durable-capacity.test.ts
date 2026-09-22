@@ -3,7 +3,7 @@ import { TestWorkflowEnvironment } from "@temporalio/testing";
 import { ApplicationFailure } from "@temporalio/activity";
 import { Worker, bundleWorkflowCode, type WorkflowBundle } from "@temporalio/worker";
 import type { WorkflowHandle } from "@temporalio/client";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createAdmissionState,
   registerAdmissionRun,
@@ -48,6 +48,13 @@ function deferred() {
   });
   return { promise, resolve };
 }
+async function finish(handle: WorkflowHandle) {
+  for (let i = 0; i < 600; i++) {
+    if ((await handle.describe()).status.name !== "RUNNING") return handle.result();
+    await env.sleep("5s");
+  }
+  throw new Error(`Workflow ${handle.workflowId} did not finish`);
+}
 async function until(check: () => Promise<boolean>) {
   for (let i = 0; i < 500; i++) {
     if (await check()) return;
@@ -56,14 +63,16 @@ async function until(check: () => Promise<boolean>) {
   throw new Error("Workflow state did not converge");
 }
 beforeAll(async () => {
-  env = await TestWorkflowEnvironment.createTimeSkipping();
   bundle = await bundleWorkflowCode({
     workflowsPath: fileURLToPath(
       new URL("../../../apps/worker/src/workflows/index.ts", import.meta.url),
     ),
   });
 }, 120_000);
-afterAll(async () => {
+beforeEach(async () => {
+  env = await TestWorkflowEnvironment.createTimeSkipping();
+});
+afterEach(async () => {
   await env?.teardown();
 });
 function fixtures(cases = 9, cpuBudget = 4000) {
@@ -636,7 +645,8 @@ describe("durable pinned capacity pipeline", () => {
         ],
       });
       resume.resolve();
-      await Promise.all([first.result(), second.result()]);
+      await finish(first);
+      await finish(second);
       expect(
         activities.prepareSandboxAttempt.mock.calls.map(
           ([ref]) => (ref as { key: string }).key,
