@@ -8,18 +8,15 @@ import type { TransactionClient } from "../transaction";
 
 type TxClient = TransactionClient;
 
-export type ScoreOverrideCompositeKey = (
-  | { userId: string; courseMembershipId?: never }
-  | { courseMembershipId: string; userId?: never }
-) & {
+export interface ScoreOverrideCompositeKey {
+  courseMembershipId: string;
   problemId: string;
   contextType: OverrideContextType;
   contextId: string;
-};
+}
 
 export interface ScoreOverrideCreateData {
-  userId: string | null;
-  courseMembershipId: string | null;
+  courseMembershipId: string;
   problemId: string;
   contextType: OverrideContextType;
   contextId: string;
@@ -72,24 +69,7 @@ export const scoreOverrideRepo = {
 
   findUnique(key: ScoreOverrideCompositeKey) {
     return prisma.scoreOverride.findUnique({
-      where:
-        key.courseMembershipId !== undefined
-          ? {
-              courseMembershipId_problemId_contextType_contextId: {
-                courseMembershipId: key.courseMembershipId,
-                problemId: key.problemId,
-                contextType: key.contextType,
-                contextId: key.contextId,
-              },
-            }
-          : {
-              userId_problemId_contextType_contextId: {
-                userId: key.userId,
-                problemId: key.problemId,
-                contextType: key.contextType,
-                contextId: key.contextId,
-              },
-            },
+      where: { courseMembershipId_problemId_contextType_contextId: key },
     });
   },
 
@@ -110,7 +90,6 @@ export const scoreOverrideRepo = {
             user: { select: { id: true, username: true, name: true } },
           },
         },
-        user: { select: { id: true, username: true, name: true } },
         problem: { select: { id: true, title: true } },
       },
     });
@@ -145,7 +124,6 @@ export const scoreOverrideRepo = {
     return prisma.scoreOverride.findMany({
       where: { contextType, contextId },
       select: {
-        userId: true,
         courseMembershipId: true,
         problemId: true,
         overrideScore: true,
@@ -155,7 +133,6 @@ export const scoreOverrideRepo = {
 
   create(tx: TxClient, data: ScoreOverrideCreateData) {
     const payload: Prisma.ScoreOverrideUncheckedCreateInput = {
-      userId: data.userId,
       courseMembershipId: data.courseMembershipId,
       problemId: data.problemId,
       contextType: data.contextType,

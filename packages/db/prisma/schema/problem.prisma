@@ -27,17 +27,17 @@ enum WorkspaceFileVisibility {
 }
 
 model Problem {
-  id         String            @id @default(cuid())
-  displayId  Int?              @unique
-  title      String
-  authorId   String
+  id                  String            @id @default(cuid())
+  displayId           Int?              @unique
+  title               String
+  authorId            String
   forkedFromProblemId String?
-  visibility ProblemVisibility @default(public)
-  adminMayPublish Boolean       @default(false)
-  status     ProblemStatus     @default(draft)
-  difficulty ProblemDifficulty @default(medium)
-  tags       String[]          @default([])
-  type       ProblemType       @default(full_source)
+  visibility          ProblemVisibility @default(public)
+  adminMayPublish     Boolean           @default(false)
+  status              ProblemStatus     @default(draft)
+  difficulty          ProblemDifficulty @default(medium)
+  tags                String[]          @default([])
+  type                ProblemType       @default(full_source)
 
   timeLimitMs   Int
   memoryLimitMb Int
@@ -57,24 +57,24 @@ model Problem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  author             User                   @relation("ProblemAuthor", fields: [authorId], references: [id], onDelete: Restrict)
-  forkedFromProblem  Problem?               @relation("ProblemForks", fields: [forkedFromProblemId], references: [id], onDelete: SetNull)
-  forks              Problem[]              @relation("ProblemForks")
-  statement          ProblemStatement?
-  testcaseSets       TestcaseSet[]
-  workspaceFiles     ProblemWorkspaceFile[]
-  submissions        Submission[]
-  referenceSolutionSubmissionId String? @unique
-  referenceSolutionSubmission   Submission? @relation("ProblemReferenceSolution", fields: [referenceSolutionSubmissionId], references: [id], onDelete: SetNull)
-  contestLinks       ContestProblem[]
-  examLinks          ExamProblem[]
-  assessmentLinks    AssessmentProblem[]
-  courseLinks        CourseProblem[]
-  posts              ProblemPost[]
-  scoreOverrides     ScoreOverride[]        @relation("ScoreOverrideProblem")
-  clarifications     Clarification[]        @relation("ProblemClarifications")
-  submissionFeedback SubmissionFeedback[]   @relation("SubmissionFeedbackProblem")
-  bookmarks          ProblemBookmark[]
+  author                        User                   @relation("ProblemAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  forkedFromProblem             Problem?               @relation("ProblemForks", fields: [forkedFromProblemId], references: [id], onDelete: SetNull)
+  forks                         Problem[]              @relation("ProblemForks")
+  statement                     ProblemStatement?
+  testcaseSets                  TestcaseSet[]
+  workspaceFiles                ProblemWorkspaceFile[]
+  submissions                   Submission[]
+  referenceSolutionSubmissionId String?                @unique
+  referenceSolutionSubmission   Submission?            @relation("ProblemReferenceSolution", fields: [referenceSolutionSubmissionId], references: [id], onDelete: SetNull)
+  contestLinks                  ContestProblem[]
+  examLinks                     ExamProblem[]
+  assessmentLinks               AssessmentProblem[]
+  courseLinks                   CourseProblem[]
+  posts                         ProblemPost[]
+  scoreOverrides                ScoreOverride[]        @relation("ScoreOverrideProblem")
+  clarifications                Clarification[]        @relation("ProblemClarifications")
+  submissionFeedback            SubmissionFeedback[]   @relation("SubmissionFeedbackProblem")
+  bookmarks                     ProblemBookmark[]
 
   @@index([status, visibility, createdAt])
   @@index([authorId])

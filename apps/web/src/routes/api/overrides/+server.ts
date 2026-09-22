@@ -24,9 +24,6 @@ function parseContextQuery(url: URL): z.infer<typeof contextSchema> {
   if (type === "exam") {
     return contextSchema.parse({ type, examId: url.searchParams.get("examId") });
   }
-  if (type === "contest") {
-    return contextSchema.parse({ type, contestId: url.searchParams.get("contestId") });
-  }
   return contextSchema.parse({ type });
 }
 

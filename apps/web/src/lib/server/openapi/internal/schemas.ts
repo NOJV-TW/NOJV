@@ -464,17 +464,15 @@ export const internalSchemas = {
   ScoreOverrideItem: {
     type: "object",
     additionalProperties: true,
-    description:
-      "Course overrides use courseMembershipId with null userId; contest overrides use userId with null courseMembershipId.",
+    description: "Assignment and exam overrides are keyed by the student's courseMembershipId.",
     properties: {
       id: { type: "string" },
       courseMembershipId: { type: ["string", "null"] },
-      userId: { type: ["string", "null"] },
       problemId: { type: "string" },
       overrideScore: { type: "integer" },
       reason: { type: "string" },
     },
-    required: ["id", "courseMembershipId", "userId", "problemId", "overrideScore", "reason"],
+    required: ["id", "courseMembershipId", "problemId", "overrideScore", "reason"],
   },
   ScoreOverrideListResponse: {
     type: "object",

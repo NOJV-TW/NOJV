@@ -71,15 +71,14 @@ freeze/unfreeze for the final reveal.
   participant clause.
 - Per-contest `allowedLanguages` with workspace-file invariant (every
   attached problem must ship editable `main.<ext>` for every language).
-- No score-override UI. The manager grade matrix (Results → Grades)
-  is read-only; contests are public CP events, not classroom
-  homework, so neither score adjustments nor per-cell feedback are
-  offered. The score-override domain and `/api/overrides` still
-  accept the `contest` context (post-close gate, admin bypass);
-  removing that backend surface is a tracked follow-up.
-- Audit sub-tab — staff-only merged feed of score override + rejudge
-  events (`listAuditTimelineForContext({ type: "contest", id })`).
-  Contests have no lifecycle audit log.
+- No score overrides. Contests are public CP events, not classroom
+  homework, so neither score adjustments nor per-cell feedback exist:
+  the override schema, `/api/overrides`, the override domain and the
+  `OverrideContextType` enum accept only assignment and exam contexts,
+  and the manager grade matrix (Results → Grades) is read-only.
+- Audit sub-tab — staff-only feed of rejudge events
+  (`listAuditTimelineForContext({ type: "contest", id })`). Contests
+  have no lifecycle audit log and no score-override entries.
 
 ### Out of scope
 
@@ -251,15 +250,13 @@ now`) and the viewer is not privileged, THEN `getScoreboard` returns
 - Platform admins are implicit managers (`canManageContest` checks
   `platformRole === 'admin'` OR `createdByUserId === userId`).
 
-### Grading — no override UI, domain gate retained
+### Grading — no overrides
 
 - GIVEN a contest manager, WHEN they open Results → Grades, THEN the
   matrix cells are not clickable and no grading drawer is offered.
-- GIVEN a non-admin manager actor with `now < endsAt`, WHEN
-  `createOverride` / `updateOverride` / `deleteOverride` is called
-  against the contest, THEN `ConflictError("This context is still open;
-grading is only available after it closes.")` (shared post-close gate
-  via `assertContextClosed`). `platformRole === "admin"` bypasses.
+- GIVEN any actor, including a platform admin, WHEN `createOverride`
+  or `POST /api/overrides` receives a `{ type: "contest" }` context,
+  THEN the request fails schema validation (`ValidationError` / HTTP 400) before any permission or scoring check runs.
 
 ### Audit timeline
 
@@ -339,12 +336,6 @@ grading is only available after it closes.")` (shared post-close gate
   `computeProblemCountPenalty`.
 - `packages/application/src/proctoring/gate.ts` — `checkContestGate`
   (existence + visibility + time window; no IP).
-- `packages/application/src/score-override/permissions.ts` —
-  `assertCanSetScoreOverride` (role + post-close gate),
-  `assertCanViewScoreOverrides` (role-only).
-- `packages/application/src/shared/context-window.ts` — `isContextClosed`,
-  `assertContextClosed` (shared post-close gate across assignment +
-  exam + contest).
 - `packages/application/src/audit/queries.ts` —
   `listAuditTimelineForContext`.
 

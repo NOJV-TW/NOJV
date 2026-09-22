@@ -153,15 +153,14 @@ describe("listAuditTimelineForContext", () => {
     expect(scoreOverrideAuditListForContext).toHaveBeenCalledWith("exam", "e_1");
   });
 
-  it("contest: omits lifecycle events — only score-override + rejudge", async () => {
-    scoreOverrideAuditListForContext.mockResolvedValue([]);
+  it("contest: omits lifecycle and score-override events — only rejudge", async () => {
     submissionListIdsForContext.mockResolvedValue([]);
     rejudgeListForSubmissionIds.mockResolvedValue([]);
 
     const timeline = await listAuditTimelineForContext({ type: "contest", contestId: "c_1" });
 
     expect(assessmentAuditListByAssessment).not.toHaveBeenCalled();
-    expect(scoreOverrideAuditListForContext).toHaveBeenCalledWith("contest", "c_1");
+    expect(scoreOverrideAuditListForContext).not.toHaveBeenCalled();
     expect(timeline).toEqual([]);
   });
 

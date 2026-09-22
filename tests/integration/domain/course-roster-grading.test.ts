@@ -93,7 +93,6 @@ describe("course roster grading contract (real DB)", () => {
       where: { courseMembershipId: membership.id },
     });
     expect(scores).toHaveLength(2);
-    expect(scores.every((row) => row.userId === null)).toBe(true);
     const audits = await testPrisma.scoreOverrideAuditLog.findMany({
       where: { courseMembershipId: membership.id },
     });

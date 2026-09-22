@@ -1,9 +1,9 @@
-import { assessmentRepo, contestRepo, examRepo } from "@nojv/db";
+import { assessmentRepo, examRepo } from "@nojv/db";
 
 import { ConflictError, NotFoundError } from "./errors";
 import type { GradedContext } from "./graded-context";
 
-export type GradableContext = GradedContext;
+export type GradableContext = Exclude<GradedContext, { type: "contest" }>;
 
 export async function isContextClosed(context: GradableContext): Promise<boolean> {
   const now = Date.now();
@@ -18,11 +18,6 @@ export async function isContextClosed(context: GradableContext): Promise<boolean
       const exam = await examRepo.findById(context.examId);
       if (!exam) throw new NotFoundError("Exam not found.");
       return now > exam.endsAt.getTime();
-    }
-    case "contest": {
-      const contest = await contestRepo.findById(context.contestId);
-      if (!contest) throw new NotFoundError("Contest not found.");
-      return now > contest.endsAt.getTime();
     }
   }
 }

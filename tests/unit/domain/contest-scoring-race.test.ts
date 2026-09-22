@@ -77,6 +77,28 @@ beforeEach(() => {
 });
 
 describe("updateContestScores — optimistic locking", () => {
+  it("never consults score overrides for a contest", async () => {
+    findContestForScoring.mockResolvedValue(participationFixture(0));
+    findForContestScoring.mockResolvedValue([
+      {
+        problemId: PROBLEM_ID,
+        score: 50,
+        status: "partial",
+        createdAt: new Date("2026-04-29T11:00:00Z"),
+      },
+    ]);
+    updateWithVersion.mockResolvedValue({ id: PARTICIPATION_ID, score: 50, version: 1 });
+
+    await updateContestScores(CONTEST_ID, USER_ID);
+
+    expect(findAllByContext).not.toHaveBeenCalled();
+    expect(updateWithVersion).toHaveBeenCalledWith(
+      PARTICIPATION_ID,
+      0,
+      expect.objectContaining({ score: 50 }),
+    );
+  });
+
   it("retries after a P2025/version conflict and persists the latest computed score", async () => {
     findContestForScoring
       .mockResolvedValueOnce(participationFixture(0))

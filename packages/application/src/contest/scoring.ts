@@ -2,7 +2,6 @@ import {
   contestRepo,
   participationRepo,
   UnifiedParticipationVersionConflict,
-  scoreOverrideRepo,
   submissionRepo,
 } from "@nojv/db";
 import {
@@ -124,7 +123,6 @@ export async function updateContestScores(
         const endsAt = p.contest.endsAt;
         return rows.filter((s) => s.createdAt <= endsAt);
       },
-      overrides: (p) => scoreOverrideRepo.findAllByContext("contest", p.contest.id),
       problemIds: (p) => new Set(p.contest.problems.map((cp) => cp.problemId)),
       problemPoints: (p) => new Map(p.contest.problems.map((cp) => [cp.problemId, cp.points])),
       scoringMode: (p) => p.contest.scoringMode,
@@ -279,11 +277,6 @@ async function computeScoreboard(contestId: string, canSeeLive: boolean): Promis
     penaltyPerWrongSec: contest.penaltyMinutesPerWrong * 60,
   };
 
-  const overrides =
-    scoringMode === "point_sum"
-      ? await scoreOverrideRepo.findAllByContext("contest", contestId)
-      : [];
-
   const entries = buildScoreboard(
     session,
     scoringMode,
@@ -291,7 +284,6 @@ async function computeScoreboard(contestId: string, canSeeLive: boolean): Promis
     submissions,
     problems,
     showFrozen,
-    overrides,
   );
 
   return {

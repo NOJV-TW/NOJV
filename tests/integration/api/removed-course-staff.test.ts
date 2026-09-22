@@ -95,7 +95,6 @@ async function fixture(role: "ta" | "teacher") {
   await testPrisma.scoreOverride.createMany({
     data: [studentMembership, pendingMembership].map((membership, index) => ({
       courseMembershipId: membership.id,
-      userId: null,
       problemId: problem.id,
       contextType: "assignment",
       contextId: assignment.id,

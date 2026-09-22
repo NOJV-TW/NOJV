@@ -58,7 +58,6 @@ erDiagram
     User |o--o{ CourseMembership : joins
     User ||--o{ Participation : enters
     User ||--o{ ProblemPost : writes
-    User |o--o{ ScoreOverride : "contest subject"
     CourseMembership ||--o{ ScoreOverride : "course subject"
     CourseMembership ||--o{ SubmissionFeedback : receives
 
@@ -129,7 +128,7 @@ erDiagram
 | `AnnouncementAudience`     | all, students, teachers                                                                                                                                                                                                           |
 | `PlagiarismReportStatus`   | pending, running, completed, failed                                                                                                                                                                                               |
 | `PlagiarismContext`        | assessment, exam, contest                                                                                                                                                                                                         |
-| `OverrideContextType`      | assignment, exam, contest                                                                                                                                                                                                         |
+| `OverrideContextType`      | assignment, exam                                                                                                                                                                                                                  |
 | `ScoreOverrideAction`      | create, update, delete, merge                                                                                                                                                                                                     |
 | `SubmissionFeedbackAction` | create, update, delete, merge                                                                                                                                                                                                     |
 | `ProblemPostType`          | editorial, discussion                                                                                                                                                                                                             |
@@ -177,11 +176,10 @@ grading relations; collisions with another course membership are rejected.
 Deleting a User with memberships is restricted; account removal must preserve
 that identity through anonymization and disabling.
 
-Course score overrides use `courseMembershipId` with `userId = NULL`; contest
-overrides use `userId` with `courseMembershipId = NULL`. The database checks this
-context-dependent XOR and enforces subject-specific uniqueness. Assignment and
-exam feedback require a membership ID. No participation or submission row is
-required for manual grading of a pending student.
+Score overrides and feedback exist only for assignments and exams and are keyed
+by `courseMembershipId`; contests carry neither. The database enforces one
+override per `(membership, problem, context)`. No participation or submission
+row is required for manual grading of a pending student.
 
 Both audit logs retain nullable historical user IDs and carry nullable
 `courseMembershipId` / `sourceMembershipId` snapshots without foreign keys.
@@ -347,7 +345,7 @@ The sections above detail the high-traffic / core models; this index provides na
 | `ProblemWorkspaceFile`       | Per-language workspace file (path, content S3 key, visibility, order)                                                                                                                                                          | `schema/problem.prisma`         |
 | `Submission`                 | Judge submission row (S3 prefix for sources + verdict summary + verdict S3 key, score, mode derived from FKs)                                                                                                                  | `schema/submission.prisma`      |
 | `SubmissionRejudgeLog`       | Two-pass audit log for rejudge runs (snapshot of old / new verdict + score)                                                                                                                                                    | `schema/submission.prisma`      |
-| `ScoreOverride`              | Staff-only score per `(subject, problem, context)`; membership for courses, User for contests                                                                                                                                  | `schema/submission.prisma`      |
+| `ScoreOverride`              | Staff-only score per `(course membership, problem, assignment-or-exam context)`; contests take none                                                                                                                            | `schema/submission.prisma`      |
 | `ScoreOverrideAuditLog`      | Append-only create / update / delete / merge trail with origin membership and user snapshots                                                                                                                                   | `schema/submission.prisma`      |
 | `ProblemPost`                | Per-problem community article; `type` = `editorial` (AC-gated) or `discussion` (any signed-in user); title + markdown content, soft-deleted via `deletedAt`                                                                    | `schema/submission.prisma`      |
 | `PostVote`                   | Per-`(post, user)` up/down vote (`value`)                                                                                                                                                                                      | `schema/submission.prisma`      |

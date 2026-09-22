@@ -1,6 +1,4 @@
 import {
-  contestProblemRepo,
-  contestRepo,
   durableWorkRepo,
   examRepo,
   participationRepo,
@@ -17,12 +15,7 @@ import {
   lockCourseGradingContext,
 } from "../scoring/course-grading";
 import type { ActorContext } from "../shared/actor-context";
-import {
-  ConflictError,
-  ForbiddenError,
-  NotFoundError,
-  ValidationError,
-} from "../shared/errors";
+import { NotFoundError, ValidationError } from "../shared/errors";
 import { assertCanSetScoreOverride } from "./permissions";
 import { fromContextDbFields, toContextDbFields, type ScoreOverrideContext } from "./types";
 
@@ -35,10 +28,7 @@ async function enqueueScoreConvergence(
   eventId: string,
 ): Promise<void> {
   if (context.type === "assignment" || userId === null) return;
-  if (
-    context.type === "exam" &&
-    !(await participationRepo.withTx(tx).findExamParticipation(context.examId, userId))
-  )
+  if (!(await participationRepo.withTx(tx).findExamParticipation(context.examId, userId)))
     return;
   await durableWorkRepo.withTx(tx).enqueue({
     kind: SCORE_CONVERGENCE_WORK_KIND,
@@ -47,36 +37,12 @@ async function enqueueScoreConvergence(
   });
 }
 
-async function lockOverrideContext(
-  tx: TransactionClient,
-  actor: ActorContext,
-  context: ScoreOverrideContext,
-): Promise<string | null> {
-  if (context.type !== "contest") return lockCourseGradingContext(tx, context, actor);
-  const repo = contestRepo.withTx(tx);
-  await repo.lockForUpdate(context.contestId);
-  const contest = await repo.findById(context.contestId);
-  if (!contest) throw new NotFoundError("Contest not found.");
-  if (actor.platformRole !== "admin") {
-    if (contest.createdByUserId !== actor.userId)
-      throw new ForbiddenError("Not permitted to grade this contest.");
-    if (Date.now() <= contest.endsAt.getTime())
-      throw new ConflictError(
-        "This context is still open; grading is only available after it closes.",
-      );
-  }
-  return null;
-}
-
 async function assertScoringModeSupportsOverride(
   tx: TransactionClient,
   context: ScoreOverrideContext,
 ): Promise<void> {
   if (context.type === "assignment") return;
-  const row =
-    context.type === "contest"
-      ? await contestRepo.withTx(tx).findById(context.contestId)
-      : await examRepo.withTx(tx).findById(context.examId);
+  const row = await examRepo.withTx(tx).findById(context.examId);
   if (!row) throw new NotFoundError("Grading context not found.");
   if (row.scoringMode !== "point_sum")
     throw new ValidationError(
@@ -88,21 +54,10 @@ async function resolveSubject(
   tx: TransactionClient,
   context: ScoreOverrideContext,
   problemId: string,
-  subject: { userId: string | null; courseMembershipId: string | null },
-  courseId: string | null,
+  courseMembershipId: string | null,
+  courseId: string,
 ): Promise<string | null> {
-  if (context.type === "contest") {
-    if (!subject.userId || subject.courseMembershipId !== null)
-      throw new ValidationError("Contest overrides require a user ID.");
-    const [problem, participation] = await Promise.all([
-      contestProblemRepo.withTx(tx).findLink(context.contestId, problemId),
-      participationRepo.withTx(tx).findContestParticipation(context.contestId, subject.userId),
-    ]);
-    if (!problem) throw new NotFoundError("Problem is not part of this contest.");
-    if (!participation) throw new NotFoundError("User is not a participant in this contest.");
-    return subject.userId;
-  }
-  if (!subject.courseMembershipId || subject.userId !== null || courseId === null) {
+  if (!courseMembershipId) {
     throw new ValidationError("Course overrides require a course membership ID.");
   }
   const membership = await assertCourseGradingSubject(
@@ -110,7 +65,7 @@ async function resolveSubject(
     courseId,
     context,
     problemId,
-    subject.courseMembershipId,
+    courseMembershipId,
   );
   return membership.userId;
 }
@@ -143,15 +98,17 @@ export async function createOverride(actor: ActorContext, input: OverrideInput) 
 
   const db = toContextDbFields(input.context);
   const row = await runTransaction(async (tx) => {
-    const courseId = await lockOverrideContext(tx, actor, input.context);
+    const courseId = await lockCourseGradingContext(tx, input.context, actor);
     await assertScoringModeSupportsOverride(tx, input.context);
-    const subject =
-      "courseMembershipId" in input
-        ? { courseMembershipId: input.courseMembershipId, userId: null }
-        : { courseMembershipId: null, userId: input.userId };
-    const userId = await resolveSubject(tx, input.context, input.problemId, subject, courseId);
+    const userId = await resolveSubject(
+      tx,
+      input.context,
+      input.problemId,
+      input.courseMembershipId,
+      courseId,
+    );
     const created = await scoreOverrideRepo.create(tx, {
-      ...subject,
+      courseMembershipId: input.courseMembershipId,
       problemId: input.problemId,
       contextType: db.contextType,
       contextId: db.contextId,
@@ -164,8 +121,8 @@ export async function createOverride(actor: ActorContext, input: OverrideInput) 
     const audit = await scoreOverrideAuditLogRepo.create(tx, {
       overrideId: created.id,
       userId,
-      courseMembershipId: subject.courseMembershipId,
-      sourceMembershipId: subject.courseMembershipId,
+      courseMembershipId: input.courseMembershipId,
+      sourceMembershipId: input.courseMembershipId,
       problemId: input.problemId,
       contextType: db.contextType,
       contextId: db.contextId,
@@ -195,7 +152,7 @@ export async function updateOverride(actor: ActorContext, id: string, patch: Ove
   if (patch.reason !== undefined) validateReason(patch.reason);
 
   const updated = await runTransaction(async (tx) => {
-    const courseId = await lockOverrideContext(tx, actor, existingContext);
+    const courseId = await lockCourseGradingContext(tx, existingContext, actor);
     await assertScoringModeSupportsOverride(tx, existingContext);
     const current = await scoreOverrideRepo.findById(id, tx);
     if (!current) throw new NotFoundError("Score override not found.");
@@ -203,7 +160,7 @@ export async function updateOverride(actor: ActorContext, id: string, patch: Ove
       tx,
       existingContext,
       current.problemId,
-      current,
+      current.courseMembershipId,
       courseId,
     );
     const row = await scoreOverrideRepo.update(tx, id, {
@@ -243,14 +200,14 @@ export async function deleteOverride(actor: ActorContext, id: string) {
   await assertCanSetScoreOverride(actor, existingContext);
 
   await runTransaction(async (tx) => {
-    const courseId = await lockOverrideContext(tx, actor, existingContext);
+    const courseId = await lockCourseGradingContext(tx, existingContext, actor);
     const current = await scoreOverrideRepo.findById(id, tx);
     if (!current) throw new NotFoundError("Score override not found.");
     const userId = await resolveSubject(
       tx,
       existingContext,
       current.problemId,
-      current,
+      current.courseMembershipId,
       courseId,
     );
     const audit = await scoreOverrideAuditLogRepo.create(tx, {

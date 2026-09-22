@@ -2,7 +2,6 @@
   export interface OverrideRow {
     id: string;
     courseMembershipId: string | null;
-    userId: string | null;
     problemId: string;
     overrideScore: number;
     reason: string;
@@ -31,7 +30,7 @@
 
   interface Props {
     mode: "create" | "edit";
-    contextType: "assignment" | "exam" | "contest";
+    contextType: "assignment" | "exam";
     contextId: string;
     students: StudentOption[];
     problems: ProblemOption[];
@@ -56,14 +55,7 @@
   }: Props = $props();
 
   let rowId = $state(
-    untrack(
-      () =>
-        existing?.courseMembershipId ??
-        existing?.userId ??
-        initialRowId ??
-        students[0]?.rowId ??
-        "",
-    ),
+    untrack(() => existing?.courseMembershipId ?? initialRowId ?? students[0]?.rowId ?? ""),
   );
   let problemId = $state(
     untrack(() => existing?.problemId ?? initialProblemId ?? problems[0]?.id ?? ""),
@@ -102,18 +94,9 @@
         const context =
           contextType === "assignment"
             ? { type: contextType, assignmentId: contextId }
-            : contextType === "exam"
-              ? { type: contextType, examId: contextId }
-              : { type: contextType, contestId: contextId };
+            : { type: contextType, examId: contextId };
         const student = students.find((s) => s.rowId === rowId);
-        const subject =
-          contextType === "contest"
-            ? { userId: student?.userId }
-            : { courseMembershipId: student?.courseMembershipId };
-        if (
-          !student ||
-          (contextType === "contest" ? !student.userId : !student.courseMembershipId)
-        ) {
+        if (!student?.courseMembershipId) {
           error = m.override_staff_toastError();
           return;
         }
@@ -121,7 +104,7 @@
           method: "POST",
           headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
           body: JSON.stringify({
-            ...subject,
+            courseMembershipId: student.courseMembershipId,
             problemId,
             context,
             overrideScore,

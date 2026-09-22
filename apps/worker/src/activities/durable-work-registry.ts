@@ -1,6 +1,5 @@
 import {
   cleanupUnreferencedStorageObject,
-  contestDomain,
   executeLifecycleCancellation,
   examDomain,
   LIFECYCLE_CANCELLATION_WORK_KIND,
@@ -11,7 +10,6 @@ import {
   submissionDomain,
 } from "@nojv/application";
 import { JUDGE_EXECUTION_DISPATCH_KIND } from "@nojv/core";
-import { pubsub } from "@nojv/redis";
 import { z } from "zod";
 
 import type { DurableWorkHandlerRegistry } from "./durable-work-runner";
@@ -34,10 +32,7 @@ const notificationSsePayload = z
   .strict();
 const scoreConvergencePayload = z
   .object({
-    context: z.discriminatedUnion("type", [
-      z.object({ type: z.literal("contest"), contestId: z.string().min(1) }).strict(),
-      z.object({ type: z.literal("exam"), examId: z.string().min(1) }).strict(),
-    ]),
+    context: z.object({ type: z.literal("exam"), examId: z.string().min(1) }).strict(),
     userId: z.string().min(1),
   })
   .strict();
@@ -60,14 +55,6 @@ export const durableWorkHandlers = Object.freeze({
   },
   [scoreOverrideDomain.SCORE_CONVERGENCE_WORK_KIND]: async (payload: unknown) => {
     const parsed = scoreConvergencePayload.parse(payload);
-    if (parsed.context.type === "contest") {
-      const contestId = await contestDomain.updateContestScores(
-        parsed.context.contestId,
-        parsed.userId,
-      );
-      if (contestId) await pubsub.publishScoreboardUpdate(contestId);
-      return { outcome: "converged", contextType: "contest" };
-    }
     await examDomain.updateExamScores(parsed.context.examId, parsed.userId);
     return { outcome: "converged", contextType: "exam" };
   },

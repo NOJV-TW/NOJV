@@ -178,8 +178,8 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 - `MatrixView` is shared between contests, assignments, and exams — one component, three contexts, identical cells (`{score, attempts, state}`).
 - `ExamProctoringTab` reads the IP violation log per exam — staff-only.
 - `PlagiarismPairDiff` renders the Monaco diff for a flagged submission pair; the page itself lives at `/plagiarism/pairs/[pairId]`.
-- `ScoreOverrideDrawer` is the manager grading surface on the submissions matrix; hosts `ScoreOverrideList` / `ScoreOverrideForm` plus `FeedbackList` / `FeedbackForm` (feedback section omitted in contest context). Entry button is hidden until the context closes.
-- `AuditTimeline` renders the merged audit log feed (lifecycle + score override + rejudge) on the Audit tab of the assignment / exam / contest manage pages — staff-only.
+- `ScoreOverrideDrawer` is the manager grading surface for assignments and exams, opened from a cell of the grade matrix; hosts `ScoreOverrideList` / `ScoreOverrideForm` plus `FeedbackList` / `FeedbackForm`. Contests have no grading drawer.
+- `AuditTimeline` renders the merged audit log feed (lifecycle + score override + rejudge; contests carry rejudge events only) on the Audit tab of the assignment / exam / contest manage pages — staff-only.
 - `WelcomeGuide` replaces the dashboard chart blocks for accounts with zero submissions.
 - `Skeleton` and `SkeletonTable` cover loading states; the grading drawer uses the table variant while editor and chart surfaces use the base primitive.
 - `formatDateTime` / `formatDate` / `formatTime` (`$lib/utils/datetime.ts`) bind `Intl.DateTimeFormat` to the active Paraglide `getLocale()` — use these instead of bare `toLocale*` calls so the rendered string matches the user's UI language.

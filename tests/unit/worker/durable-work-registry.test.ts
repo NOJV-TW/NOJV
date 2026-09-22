@@ -114,16 +114,16 @@ describe("durable work handlers", () => {
     expect(mocks.deliverNotificationEmail).not.toHaveBeenCalled();
   });
 
-  it("converges contest score before publishing the scoreboard signal", async () => {
-    mocks.updateContestScores.mockResolvedValue("contest-1");
+  it("rejects contest convergence payloads without touching contest scores", async () => {
+    await expect(
+      durableWorkHandlers["score.converge"]({
+        context: { type: "contest", contestId: "contest-1" },
+        userId: "user-1",
+      }),
+    ).rejects.toThrow();
 
-    await durableWorkHandlers["score.converge"]({
-      context: { type: "contest", contestId: "contest-1" },
-      userId: "user-1",
-    });
-
-    expect(mocks.updateContestScores).toHaveBeenCalledWith("contest-1", "user-1");
-    expect(mocks.publishScoreboardUpdate).toHaveBeenCalledWith("contest-1");
+    expect(mocks.updateContestScores).not.toHaveBeenCalled();
+    expect(mocks.publishScoreboardUpdate).not.toHaveBeenCalled();
   });
 
   it("converges exam score without a contest signal", async () => {
@@ -139,11 +139,10 @@ describe("durable work handlers", () => {
   it("rejects malformed payloads before any side effect", async () => {
     await expect(
       durableWorkHandlers["score.converge"]({
-        context: { type: "contest" },
+        context: { type: "exam" },
         userId: "user-1",
       }),
     ).rejects.toThrow();
-    expect(mocks.updateContestScores).not.toHaveBeenCalled();
     expect(mocks.updateExamScores).not.toHaveBeenCalled();
   });
 

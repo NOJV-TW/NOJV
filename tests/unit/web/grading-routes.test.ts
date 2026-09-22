@@ -82,23 +82,14 @@ describe("grading API subjects", () => {
     expect(mocks.createOverride).not.toHaveBeenCalled();
   });
 
-  it("accepts only an actual user identity for contest overrides", async () => {
-    const body = {
-      ...score,
-      context: { type: "contest", contestId: "contest" },
-      userId: "user",
-    };
-    expect((await POST(event("POST", body))).status).toBe(201);
-    expect(mocks.createOverride).toHaveBeenCalledWith(mocks.actor, body);
-    mocks.createOverride.mockClear();
+  it("rejects contest overrides with any subject", async () => {
+    const context = { type: "contest", contestId: "contest" };
     for (const subject of [
+      { userId: "user" },
       { courseMembershipId: "membership" },
       { userId: "user", courseMembershipId: "membership" },
-      { userId: "user", courseMembershipId: null },
     ]) {
-      expect(
-        (await POST(event("POST", { ...score, context: body.context, ...subject }))).status,
-      ).toBe(400);
+      expect((await POST(event("POST", { ...score, context, ...subject }))).status).toBe(400);
     }
     expect(mocks.createOverride).not.toHaveBeenCalled();
   });
@@ -121,17 +112,15 @@ describe("grading API subjects", () => {
     },
   );
 
-  it("documents membership subjects and nullable users in the public API contract", () => {
+  it("documents membership subjects only in the public API contract", () => {
     expect(internalSchemas.UpsertGradingFeedbackRequest).toMatchObject({
       required: expect.arrayContaining(["courseMembershipId", "context"]),
       additionalProperties: false,
     });
     const overrideRequest = JSON.stringify(internalSchemas.CreateScoreOverrideRequest);
     expect(overrideRequest).toContain('"courseMembershipId"');
-    expect(overrideRequest).toContain('"userId"');
-    expect(internalSchemas.ScoreOverrideItem.properties.userId.type).toEqual([
-      "string",
-      "null",
-    ]);
+    expect(overrideRequest).not.toContain('"userId"');
+    expect(overrideRequest).not.toContain('"contest"');
+    expect(internalSchemas.ScoreOverrideItem.properties).not.toHaveProperty("userId");
   });
 });

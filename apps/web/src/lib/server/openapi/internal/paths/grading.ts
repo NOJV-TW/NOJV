@@ -149,7 +149,7 @@ export const gradingPaths = {
       summary: "List score overrides",
       operationId: "listScoreOverrides",
       description:
-        "Lists score overrides for an assignment, exam, or contest context. Requires permission to view score overrides for the selected context.",
+        "Lists score overrides for an assignment or exam context. Requires permission to view score overrides for the selected context.",
       parameters: [
         {
           name: "type",
@@ -157,7 +157,7 @@ export const gradingPaths = {
           required: true,
           schema: {
             type: "string",
-            enum: ["assignment", "exam", "contest"],
+            enum: ["assignment", "exam"],
           },
         },
         {
@@ -168,12 +168,6 @@ export const gradingPaths = {
         },
         {
           name: "examId",
-          in: "query",
-          required: false,
-          schema: { type: "string" },
-        },
-        {
-          name: "contestId",
           in: "query",
           required: false,
           schema: { type: "string" },
@@ -211,7 +205,7 @@ export const gradingPaths = {
       summary: "Create score override",
       operationId: "createScoreOverride",
       description:
-        "After close, assignment/exam overrides require courseMembershipId and forbid userId; contest overrides require userId and forbid courseMembershipId. Staff permission and point-sum scoring rules apply.",
+        "After close, assignment and exam overrides require courseMembershipId. Staff permission and point-sum scoring rules apply; contests do not take overrides.",
       requestBody: {
         required: true,
         content: {

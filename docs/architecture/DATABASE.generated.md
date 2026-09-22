@@ -196,7 +196,6 @@ Indexes & constraints: `@@unique([userId])`, `@@index([secret])`
 | `notifications` | `Notification[]` | — |
 | `notificationPreference` | `NotificationPreference?` | — |
 | `triggeredRejudgeLogs` | `SubmissionRejudgeLog[]` | — |
-| `asOverrideStudent` | `ScoreOverride[]` | `@relation("ScoreOverrideUser")` |
 | `createdScoreOverrides` | `ScoreOverride[]` | `@relation("ScoreOverrideCreator")` |
 | `editedScoreOverrides` | `ScoreOverride[]` | `@relation("ScoreOverrideEditor")` |
 | `scoreOverrideAuditChanges` | `ScoreOverrideAuditLog[]` | `@relation("ScoreOverrideAuditChanger")` |
@@ -1048,7 +1047,7 @@ Indexes & constraints: `@@unique([problemId, name])`, `@@unique([problemId, ordi
 
 #### `OverrideContextType`
 
-`assignment` · `exam` · `contest`
+`assignment` · `exam`
 
 #### `ProblemPostType`
 
@@ -1205,7 +1204,6 @@ Indexes & constraints: `@@index([problemId, type, createdAt])`
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
 | `id` | `String` | `@id @default(cuid())` |
-| `userId` | `String?` | — |
 | `courseMembershipId` | `String?` | — |
 | `problemId` | `String` | — |
 | `contextType` | `OverrideContextType` | — |
@@ -1216,14 +1214,13 @@ Indexes & constraints: `@@index([problemId, type, createdAt])`
 | `updatedByUserId` | `String?` | — |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |
-| `user` | `User?` | `@relation("ScoreOverrideUser", fields: [userId], references: [id], onDelete: Cascade)` |
 | `problem` | `Problem` | `@relation("ScoreOverrideProblem", fields: [problemId], references: [id], onDelete: Cascade)` |
 | `createdBy` | `User?` | `@relation("ScoreOverrideCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)` |
 | `updatedBy` | `User?` | `@relation("ScoreOverrideEditor", fields: [updatedByUserId], references: [id], onDelete: SetNull)` |
 | `membership` | `CourseMembership?` | `@relation(fields: [courseMembershipId], references: [id], onDelete: Cascade)` |
 | `auditLogs` | `ScoreOverrideAuditLog[]` | — |
 
-Indexes & constraints: `@@unique([userId, problemId, contextType, contextId])`, `@@unique([courseMembershipId, problemId, contextType, contextId])`, `@@index([contextType, contextId])`
+Indexes & constraints: `@@unique([courseMembershipId, problemId, contextType, contextId])`, `@@index([contextType, contextId])`
 
 #### `ScoreOverrideAuditLog`
 

@@ -2,8 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { scoreOverrideCreateSchema } from "@nojv/core";
 
 const {
-  contestFindById,
-  contestFindInfoById,
   assessmentFindByIdWithCourseId,
   examFindById,
   examFindInfoById,
@@ -13,10 +11,8 @@ const {
   gradingLock,
   findCourseStudent,
   courseMembershipFindByComposite,
-  contestProblemExistsById,
   examProblemExists,
   assessmentProblemExists,
-  findContestParticipation,
   findExamParticipation,
   overrideCreate,
   overrideUpdate,
@@ -26,8 +22,6 @@ const {
   durableWorkEnqueue,
   UnifiedParticipationVersionConflict,
 } = vi.hoisted(() => ({
-  contestFindById: vi.fn(),
-  contestFindInfoById: vi.fn(() => Promise.resolve({ scoringMode: "point_sum" })),
   assessmentFindByIdWithCourseId: vi.fn(),
   examFindById: vi.fn(),
   examFindInfoById: vi.fn(() => Promise.resolve({ scoringMode: "point_sum" })),
@@ -37,12 +31,8 @@ const {
   gradingLock: vi.fn(),
   findCourseStudent: vi.fn(),
   courseMembershipFindByComposite: vi.fn(),
-  contestProblemExistsById: vi.fn(() => Promise.resolve(true)),
   examProblemExists: vi.fn(() => Promise.resolve(true)),
   assessmentProblemExists: vi.fn(() => Promise.resolve(true)),
-  findContestParticipation: vi.fn((): Promise<{ id: string } | null> =>
-    Promise.resolve({ id: "p_1" }),
-  ),
   findExamParticipation: vi.fn((): Promise<{ id: string } | null> =>
     Promise.resolve({ id: "p_2" }),
   ),
@@ -56,19 +46,6 @@ const {
 }));
 
 vi.mock("@nojv/db", () => ({
-  contestRepo: {
-    findById: contestFindById,
-    findInfoById: contestFindInfoById,
-    withTx: () => ({
-      findById: async () => ({
-        id: "c_1",
-        createdByUserId: "usr_org",
-        endsAt: CLOSED_AT,
-        ...(await contestFindInfoById()),
-      }),
-      lockForUpdate: vi.fn(),
-    }),
-  },
   assessmentRepo: {
     findByIdWithCourseId: assessmentFindByIdWithCourseId,
     withTx: () => ({ findById: assessmentFindInTx, lockForUpdate: vi.fn() }),
@@ -82,12 +59,10 @@ vi.mock("@nojv/db", () => ({
     findByComposite: courseMembershipFindByComposite,
     withTx: () => ({ findByComposite: membershipFindInTx }),
   },
-  contestProblemRepo: { withTx: () => ({ findLink: contestProblemExistsById }) },
   examProblemRepo: { withTx: () => ({ exists: examProblemExists }) },
   assessmentProblemRepo: { withTx: () => ({ findLink: assessmentProblemExists }) },
   participationRepo: {
-    withTx: () => ({ findExamParticipation, findContestParticipation }),
-    findContestParticipation,
+    withTx: () => ({ findExamParticipation }),
     findExamParticipation,
     findContestForScoring: vi.fn(() => Promise.resolve(null)),
     findExamForScoring: vi.fn(() => Promise.resolve(null)),
@@ -186,10 +161,7 @@ beforeEach(() => {
   });
   assessmentProblemExists.mockResolvedValue(true);
   examProblemExists.mockResolvedValue(true);
-  contestProblemExistsById.mockResolvedValue(true);
-  findContestParticipation.mockResolvedValue({ id: "p_1" });
   findExamParticipation.mockResolvedValue({ id: "p_2" });
-  contestFindInfoById.mockResolvedValue({ scoringMode: "point_sum" });
   examFindInfoById.mockResolvedValue({ scoringMode: "point_sum" });
   examFindById.mockResolvedValue({ id: "e_1", courseId: "crs_1", endsAt: CLOSED_AT });
 });
@@ -204,32 +176,10 @@ describe("canSetScoreOverride", () => {
     ).toBe(true);
     expect(
       await canSetScoreOverride(actor({ platformRole: "admin" }), {
-        type: "contest",
-        contestId: "c_1",
-      }),
-    ).toBe(true);
-    expect(
-      await canSetScoreOverride(actor({ platformRole: "admin" }), {
         type: "exam",
         examId: "e_1",
       }),
     ).toBe(true);
-  });
-
-  it("contest: only organizer allowed", async () => {
-    contestFindById.mockResolvedValue({ id: "c_1", createdByUserId: "usr_org" });
-    expect(
-      await canSetScoreOverride(actor({ userId: "usr_org" }), {
-        type: "contest",
-        contestId: "c_1",
-      }),
-    ).toBe(true);
-    expect(
-      await canSetScoreOverride(actor({ userId: "usr_other" }), {
-        type: "contest",
-        contestId: "c_1",
-      }),
-    ).toBe(false);
   });
 
   it("assignment: only course teacher/TA allowed", async () => {
@@ -373,15 +323,15 @@ describe("createOverride", () => {
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
-  it("rejects an override on an ICPC (problem_count) contest with ValidationError", async () => {
-    contestFindInfoById.mockResolvedValue({ scoringMode: "problem_count" });
+  it("rejects contest overrides entirely, even for admins", async () => {
     await expect(
-      createOverride(actor({ userId: "usr_admin", platformRole: "admin" }), {
-        ...contestInput,
-        context: { type: "contest", contestId: "c_1" },
-      }),
+      createOverride(
+        actor({ userId: "usr_admin", platformRole: "admin" }),
+        contestInput as unknown as Parameters<typeof createOverride>[1],
+      ),
     ).rejects.toBeInstanceOf(ValidationError);
     expect(overrideCreate).not.toHaveBeenCalled();
+    expect(durableWorkEnqueue).not.toHaveBeenCalled();
   });
 
   it("rejects an override on an ICPC (problem_count) exam with ValidationError", async () => {
@@ -393,23 +343,6 @@ describe("createOverride", () => {
       }),
     ).rejects.toBeInstanceOf(ValidationError);
     expect(overrideCreate).not.toHaveBeenCalled();
-  });
-
-  it("allows an override on a point-sum (IOI) contest", async () => {
-    contestFindInfoById.mockResolvedValue({ scoringMode: "point_sum" });
-    await createOverride(actor({ userId: "usr_admin", platformRole: "admin" }), {
-      ...contestInput,
-      context: { type: "contest", contestId: "c_1" },
-    });
-    expect(overrideCreate).toHaveBeenCalledTimes(1);
-    expect(durableWorkEnqueue).toHaveBeenCalledWith({
-      kind: "score.converge",
-      dedupeKey: "audit-1",
-      payload: {
-        context: { type: "contest", contestId: "c_1" },
-        userId: "usr_student",
-      },
-    });
   });
 
   it("denies non-staff non-admin callers", async () => {
@@ -455,30 +388,6 @@ describe("createOverride", () => {
     await expect(createOverride(actor({ userId: "usr_t" }), baseInput)).rejects.toBeInstanceOf(
       NotFoundError,
     );
-    expect(overrideCreate).not.toHaveBeenCalled();
-  });
-
-  it("Phase 5.10: rejects when problem is not part of the contest context", async () => {
-    contestFindInfoById.mockResolvedValue({ scoringMode: "point_sum" });
-    contestProblemExistsById.mockResolvedValue(false);
-    await expect(
-      createOverride(actor({ userId: "usr_admin", platformRole: "admin" }), {
-        ...contestInput,
-        context: { type: "contest", contestId: "c_1" },
-      }),
-    ).rejects.toBeInstanceOf(NotFoundError);
-    expect(overrideCreate).not.toHaveBeenCalled();
-  });
-
-  it("Phase 5.10: rejects when userId has no participation in the contest", async () => {
-    contestFindInfoById.mockResolvedValue({ scoringMode: "point_sum" });
-    findContestParticipation.mockResolvedValue(null);
-    await expect(
-      createOverride(actor({ userId: "usr_admin", platformRole: "admin" }), {
-        ...contestInput,
-        context: { type: "contest", contestId: "c_1" },
-      }),
-    ).rejects.toBeInstanceOf(NotFoundError);
     expect(overrideCreate).not.toHaveBeenCalled();
   });
 
@@ -641,7 +550,6 @@ describe("course roster grading", () => {
     expect(overrideCreate).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        userId: null,
         courseMembershipId: "mem_student",
         overrideScore: 80,
       }),

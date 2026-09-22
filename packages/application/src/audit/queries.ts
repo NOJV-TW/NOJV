@@ -5,7 +5,7 @@ import {
   submissionRepo,
 } from "@nojv/db";
 
-import type { GradableContext } from "../shared/context-window";
+import type { GradedContext } from "../shared/graded-context";
 
 export type AuditEventKind = "lifecycle" | "score_override" | "rejudge";
 
@@ -53,7 +53,7 @@ export interface RejudgeAuditEvent extends AuditEventBase {
 
 export type AuditEvent = LifecycleAuditEvent | ScoreOverrideAuditEvent | RejudgeAuditEvent;
 
-function resolveContextId(context: GradableContext): string {
+function resolveContextId(context: GradedContext): string {
   switch (context.type) {
     case "assignment":
       return context.assignmentId;
@@ -65,7 +65,7 @@ function resolveContextId(context: GradableContext): string {
 }
 
 export async function listAuditTimelineForContext(
-  context: GradableContext,
+  context: GradedContext,
 ): Promise<AuditEvent[]> {
   const lifecycleP: Promise<LifecycleAuditEvent[]> =
     context.type === "assignment"
@@ -81,24 +81,25 @@ export async function listAuditTimelineForContext(
 
   const contextId = resolveContextId(context);
 
-  const overrideP: Promise<ScoreOverrideAuditEvent[]> = scoreOverrideAuditLogRepo
-    .listForContext(context.type, contextId)
-    .then((rows) =>
-      rows.map((row) => ({
-        at: row.createdAt,
-        actorUserId: row.changedByUserId,
-        kind: "score_override" as const,
-        detail: {
-          action: row.action,
-          userId: row.userId,
-          problemId: row.problemId,
-          oldScore: row.oldScore,
-          newScore: row.newScore,
-          oldReason: row.oldReason,
-          newReason: row.newReason,
-        },
-      })),
-    );
+  const overrideP: Promise<ScoreOverrideAuditEvent[]> =
+    context.type === "contest"
+      ? Promise.resolve([])
+      : scoreOverrideAuditLogRepo.listForContext(context.type, contextId).then((rows) =>
+          rows.map((row) => ({
+            at: row.createdAt,
+            actorUserId: row.changedByUserId,
+            kind: "score_override" as const,
+            detail: {
+              action: row.action,
+              userId: row.userId,
+              problemId: row.problemId,
+              oldScore: row.oldScore,
+              newScore: row.newScore,
+              oldReason: row.oldReason,
+              newReason: row.newReason,
+            },
+          })),
+        );
 
   const rejudgeP: Promise<RejudgeAuditEvent[]> = submissionRepo
     .listIdsForContext(context)
