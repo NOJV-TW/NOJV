@@ -6,13 +6,17 @@ function solutionCpuSeconds(timeoutMs: number): number {
   return Math.ceil(timeoutMs / 1000) + 1;
 }
 
+const OVERFLOW_RESULT_BYTES = 64 * 1024;
+
 export function toRawCaseRun(result: RunProcessResult, index: number): RawCaseRun {
   const errorVerdict = classifySolutionVerdict(result, index)?.verdict as
     "TLE" | "MLE" | "RE" | "SE" | undefined;
+  const keep = (text: string) =>
+    result.outputLimitExceeded ? text.slice(0, OVERFLOW_RESULT_BYTES) : text;
   return {
     index,
-    stdout: result.stdout,
-    stderr: result.stderr,
+    stdout: keep(result.stdout),
+    stderr: keep(result.stderr),
     exitCode: result.exitCode,
     timeMs: result.timeMs,
     ...(result.memoryKb > 0 ? { memoryKb: result.memoryKb } : {}),
