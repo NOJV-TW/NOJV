@@ -1,6 +1,7 @@
 # Load-aware judge slots
 
-Status: planned. Start after the 2026-09-22 incident rejudge has drained.
+Status: implemented, rolling out. The incident rejudge drained on 2026-09-22
+16:22Z; the worker, chart and guard changes ship in the release after it.
 
 ## Why
 
@@ -81,8 +82,14 @@ on GKE with the Spot burst pool and belongs in the multi-node plan, not here.
 
 ### Decision
 
-A, with B as the fallback if the probe shows A measures the container instead
-of the node. Static `WORKER_CONCURRENCY` stays as the `fixed` mode.
+A. Reading the SDK core (`sdk-core/.../tuner/resource_based.rs`, 1.20.3)
+settled the probe question without a prod experiment: the tuner reads the
+worker's own cgroup whenever that cgroup has limits, and falls back to the
+host-wide `/proc/stat` CPU only when `cpu.max` is `max`. Memory keeps
+following the container limit. So the judge container runs without a CPU
+limit (memory limit unchanged), which makes the CPU signal the node's and the
+memory signal the worker's own, which is exactly the pair we want. B is not
+needed.
 
 ## Design
 
@@ -100,11 +107,11 @@ LimitRange min  ≤ caseCpuRequest
   each slot adds up to `maxParallelCases` gVisor containers. Start at 5 on the
   8-CPU box (100 containers worst case) and only raise it with the guard below
   green.
-- Guard: emit `judge_case_wall_over_cpu` (execute wall ÷ cgroup CPU time per
-  case, from the existing `judge-resources` and lifecycle logs) as a histogram
-  and alert when its p95 exceeds 1.5 for ten minutes. That is the signal that
-  contention is eating into the 2× wall-clock ceiling, and the reason to lower
-  `WORKER_SLOT_MAX` or the CPU target.
+- Guard: `judge_wall_clock_timeouts_total` counts TLEs whose CPU time stayed
+  under the limit (runs report CPU time, so a TLE below the limit was decided by
+  the wall-clock ceiling: CPU contention or a sleeping program). The
+  `nojv-judge-wall-clock-timeouts` alert fires on more than two in ten minutes,
+  the signal to lower the ceiling.
 - Workflow-task slots stay fixed (8) and the cache at 32; only Activity slots
   tune.
 - Chart: `worker.judge.slots: { tuner: resource, min: 2, max: 5, targetCpu:
@@ -115,22 +122,28 @@ LimitRange min  ≤ caseCpuRequest
 
 ## Steps
 
-1. Probe: run a throwaway worker in the judge Deployment's image with
-   `tuner.resource`, `min 1 / max 8`, target 0.5, and log
-   `temporal_worker_task_slots_available` while a stress Job runs in
-   `nojv-sandbox`. If slots shrink when the _node_ is busy, A is confirmed; if
-   only when the worker's own container is busy, implement B.
-2. Worker: read the new env, build `tuner` in `worker-app.ts`, keep
-   `WORKER_CONCURRENCY` for `fixed`. Unit tests on env parsing and the
-   `WorkerOptions` produced for both modes.
-3. Metric + alert: `judge_case_wall_over_cpu` in `judge-phase-metrics.ts`,
-   Grafana rule in `infra/grafana/alerts/slo-alerts.json`.
-4. Chart and docs: values, `env-manifest-parity`, DEPLOYMENT capacity table,
-   `docs/runbooks/judge-queue.md` capacity section ("slots are min…max,
-   watch slots_available and the wall/CPU guard").
-5. Rollout: v1.4.0 with `min 2 / max 4`, one hour of a synthetic load (30
-   practice submissions from a test account) while watching slot count, node
-   CPU, the guard, and exam-lane latency; then raise `max` to 5.
+1. [x] Probe (settled from source, see Decision): run a throwaway worker in the judge Deployment's image with
+       `tuner.resource`, `min 1 / max 8`, target 0.5, and log
+       `temporal_worker_task_slots_available` while a stress Job runs in
+       `nojv-sandbox`. If slots shrink when the _node_ is busy, A is confirmed; if
+       only when the worker's own container is busy, implement B.
+2. [x] Worker (`WORKER_MIN_CONCURRENCY` switches the judge worker to the tuner): read the new env, build `tuner` in `worker-app.ts`, keep
+       `WORKER_CONCURRENCY` for `fixed`. Unit tests on env parsing and the
+       `WorkerOptions` produced for both modes.
+3. [x] Metric + alert: `judge_wall_clock_timeouts_total` in `judge-phase-metrics.ts`,
+       Grafana rule in `infra/grafana/alerts/slo-alerts.json`.
+4. [x] Chart and docs: values, `env-manifest-parity`, DEPLOYMENT capacity table,
+       `docs/runbooks/judge-queue.md` capacity section ("slots are min…max,
+       watch slots_available and the wall/CPU guard").
+5. [ ] Rollout: `min 2 / max 10`, on the owner's call to let the node-CPU
+       target rather than a low ceiling bound contention. Jobs request 0.3 CPU
+       (compile 300m, case 15m, LimitRange minimum 15m) so ten schedule next to
+       the platform pods; the sandbox quota is 16 pods / 16 GiB of requests.
+       The tuner does not see node memory (its memory signal is the worker's
+       own cgroup, verified in sysinfo 0.38.4 `cgroup_limits`), so node memory
+       is watched separately. Watch concurrent sandbox Jobs, node CPU, the
+       wall-clock-timeout guard and exam-lane latency under real load; lower
+       `max` if the guard fires.
 
 ## Verification
 

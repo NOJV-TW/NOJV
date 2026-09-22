@@ -83,6 +83,10 @@ spec:
             {{- end }}
             - name: WORKER_CONCURRENCY
               value: {{ .Values.worker.judge.concurrency | quote }}
+            {{- with .Values.worker.judge.minConcurrency }}
+            - name: WORKER_MIN_CONCURRENCY
+              value: {{ . | quote }}
+            {{- end }}
             - name: K8S_CPU_REQUEST
               value: {{ .Values.worker.sandbox.cpuRequest | quote }}
             - name: K8S_CASE_CPU_REQUEST

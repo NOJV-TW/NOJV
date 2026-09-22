@@ -1,6 +1,6 @@
 import { metrics } from "@opentelemetry/api";
 import type { V1Pod } from "@kubernetes/client-node";
-import type { Language } from "@nojv/core";
+import type { Language, RawCaseRun } from "@nojv/core";
 import { createLogger } from "../logger";
 
 const logger = createLogger("judge-resources");
@@ -8,6 +8,7 @@ const logger = createLogger("judge-resources");
 const meter = metrics.getMeter("nojv-judge");
 const duration = meter.createHistogram("judge_phase_duration_seconds", { unit: "s" });
 const cleanupFailures = meter.createCounter("judge_cleanup_pending_total");
+const wallClockTimeouts = meter.createCounter("judge_wall_clock_timeouts_total");
 const cpu = meter.createHistogram("judge_cpu_seconds", { unit: "s" });
 const throttled = meter.createHistogram("judge_cpu_throttled_seconds", { unit: "s" });
 const peakMemory = meter.createHistogram("judge_memory_peak_bytes", { unit: "By" });
@@ -38,6 +39,17 @@ export function recordJudgePhase(
 
 export function recordCleanupPending(mode: JudgeMode, language: Language): void {
   cleanupFailures.add(1, { phase: "cleanup", mode, language, result: "failure" });
+}
+
+export function recordWallClockTimeouts(
+  runs: readonly RawCaseRun[],
+  timeoutMs: number,
+  language: Language,
+): void {
+  const count = runs.filter(
+    (run) => run.errorVerdict === "TLE" && run.timeMs < timeoutMs,
+  ).length;
+  if (count > 0) wallClockTimeouts.add(count, { language });
 }
 
 function timestamp(value: Date | string | undefined): number | undefined {

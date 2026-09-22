@@ -27,6 +27,7 @@ import {
   podPhaseTimings,
   recordJudgePhase,
   recordRunnerResources,
+  recordWallClockTimeouts,
 } from "../../../apps/worker/src/services/judge-phase-metrics";
 
 const date = (milliseconds: number) => new Date(milliseconds);
@@ -56,6 +57,33 @@ function lifecycle(names: string[]): V1Pod {
 beforeEach(() => {
   instruments.records.length = 0;
   instruments.info.mockReset();
+});
+
+describe("recordWallClockTimeouts", () => {
+  const run = (errorVerdict: "TLE" | "RE" | undefined, timeMs: number) => ({
+    index: 0,
+    stdout: "",
+    stderr: "",
+    exitCode: -1,
+    timeMs,
+    ...(errorVerdict ? { errorVerdict } : {}),
+  });
+
+  it("counts only TLEs whose CPU time stayed under the limit", () => {
+    recordWallClockTimeouts(
+      [run("TLE", 400), run("TLE", 1200), run("RE", 100), run(undefined, 50)],
+      1000,
+      "cpp",
+    );
+    expect(instruments.records).toEqual([
+      { name: "judge_wall_clock_timeouts_total", value: 1, labels: { language: "cpp" } },
+    ]);
+  });
+
+  it("records nothing when every TLE used up its CPU time", () => {
+    recordWallClockTimeouts([run("TLE", 1000)], 1000, "python");
+    expect(instruments.records).toEqual([]);
+  });
 });
 
 describe("bounded-cardinality judge phase metrics", () => {

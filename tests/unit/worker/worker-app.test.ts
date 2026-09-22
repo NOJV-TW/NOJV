@@ -250,6 +250,38 @@ describe("WorkerApp lifecycle", () => {
     },
   );
 
+  it("tunes judge activity slots to node load when a minimum concurrency is set", async () => {
+    mocks.workerCreate.mockImplementation(async () => makeWorker());
+    mocks.verifyNetworkPolicyEnforced.mockResolvedValue({ enforced: true, action: "ok" });
+    const app = new WorkerApp(
+      { ...kubernetesEnv, WORKER_CONCURRENCY: 5, WORKER_MIN_CONCURRENCY: 2 },
+      { shutdownTimeoutMs: 100, workflowsPath: "workflow.js" },
+    );
+    const started = app.start();
+    try {
+      await vi.waitFor(() => expect(mocks.workerCreate).toHaveBeenCalledOnce());
+      const options = mocks.workerCreate.mock.calls[0]![0] as Record<string, unknown>;
+      expect(options).not.toHaveProperty("maxConcurrentActivityTaskExecutions");
+      expect(options).not.toHaveProperty("maxConcurrentWorkflowTaskExecutions");
+      expect(options).toMatchObject({
+        taskQueue: "judge",
+        maxCachedWorkflows: 32,
+        tuner: {
+          workflowTaskSlotSupplier: { type: "fixed-size", numSlots: 8 },
+          activityTaskSlotSupplier: {
+            type: "resource-based",
+            minimumSlots: 2,
+            maximumSlots: 5,
+            tunerOptions: { targetCpuUsage: 0.75, targetMemoryUsage: 0.8 },
+          },
+        },
+      });
+    } finally {
+      await app.shutdown("SIGTERM");
+      await started;
+    }
+  });
+
   it("fails closed before creating a judge worker when Docker resource recovery fails", async () => {
     mocks.dockerSweeperStart.mockRejectedValue(new Error("Docker resource recovery failed"));
     const app = new WorkerApp(

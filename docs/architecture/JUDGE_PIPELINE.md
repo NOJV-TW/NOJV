@@ -487,7 +487,9 @@ fairness keys share dispatch and FIFO order applies within one key. Fairness
 needs `matching.enableFairness` in the server's dynamic config; priority is on
 by default.
 
-Capacity is the judge worker's Activity slot count (`WORKER_CONCURRENCY`). One
+Capacity is the judge worker's Activity slot count (`WORKER_CONCURRENCY`, or a
+node-CPU-driven range down to `WORKER_MIN_CONCURRENCY`; see the
+[judge queue runbook](../runbooks/judge-queue.md#capacity)). One
 slot runs one stage of `JUDGE_STAGE_CASES` cases as one Kubernetes Job with one
 container per case, so a saturated worker still interleaves submissions at stage
 granularity and a queued exam submission waits behind a bulk rejudge for at

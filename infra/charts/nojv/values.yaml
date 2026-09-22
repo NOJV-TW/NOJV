@@ -278,6 +278,7 @@ worker:
   judge:
     replicas: 2
     concurrency: "4"
+    minConcurrency: ""
     nodeSelector: {}
     resources:
       requests:

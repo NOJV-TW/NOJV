@@ -11,7 +11,7 @@ import { prismaAdapterClient as db } from "@nojv/db";
 import { buildPinnedSandboxRequest } from "./judge-request";
 import { getExecutorOwner } from "./judge";
 import { enforceMemoryLimit } from "../services/check-standard";
-import { recordJudgePhase } from "../services/judge-phase-metrics";
+import { recordJudgePhase, recordWallClockTimeouts } from "../services/judge-phase-metrics";
 import { judgeLatencyHistogram, recordJudgeLatency } from "./utils";
 
 export async function judgeExecutionStatus(executionId: string, workflowId: string) {
@@ -91,6 +91,7 @@ export async function executeJudgeStage(
           "Judge returned SE; retain the original version for recovery.",
         nonRetryable: true,
       });
+    recordWallClockTimeouts(result.rawRuns ?? [], request.limits.timeoutMs, request.language);
     const terminal = Boolean(result.compilationError) || index + 1 >= total;
     await submissionDomain.saveJudgeStage(
       executionId,

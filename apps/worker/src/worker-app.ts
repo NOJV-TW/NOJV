@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 
-import { NativeConnection, Worker } from "@temporalio/worker";
+import { NativeConnection, Worker, type WorkerOptions } from "@temporalio/worker";
 import { submissionDomain } from "@nojv/application";
 import "./domain-orchestration";
 
@@ -36,6 +36,29 @@ interface ManagedWorker {
   worker: Worker;
   taskQueue: string;
   runPromise: Promise<void> | null;
+}
+
+function judgeSlots(env: WorkerEnv) {
+  const min = env.WORKER_MIN_CONCURRENCY;
+  if (min === undefined)
+    return {
+      maxConcurrentActivityTaskExecutions: env.WORKER_CONCURRENCY,
+      maxConcurrentWorkflowTaskExecutions: 8,
+    };
+  return {
+    tuner: {
+      workflowTaskSlotSupplier: { type: "fixed-size", numSlots: 8 },
+      activityTaskSlotSupplier: {
+        type: "resource-based",
+        tunerOptions: { targetCpuUsage: 0.75, targetMemoryUsage: 0.8 },
+        minimumSlots: Math.min(min, env.WORKER_CONCURRENCY),
+        maximumSlots: env.WORKER_CONCURRENCY,
+        rampThrottle: "10s",
+      },
+      localActivityTaskSlotSupplier: { type: "fixed-size", numSlots: 100 },
+      nexusTaskSlotSupplier: { type: "fixed-size", numSlots: 100 },
+    },
+  } satisfies Pick<WorkerOptions, "tuner">;
 }
 
 export class WorkerApp {
@@ -196,9 +219,8 @@ export class WorkerApp {
         taskQueue: JUDGE_TASK_QUEUE,
         workflowsPath: this.workflowsPath,
         activities: await import("./activities/judge-bundle.js"),
-        maxConcurrentActivityTaskExecutions: this.env.WORKER_CONCURRENCY,
+        ...judgeSlots(this.env),
         maxCachedWorkflows: 32,
-        maxConcurrentWorkflowTaskExecutions: 8,
         shutdownGraceTime: "30s",
       });
       this.addWorker(judgeWorker, JUDGE_TASK_QUEUE);
