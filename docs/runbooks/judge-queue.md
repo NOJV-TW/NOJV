@@ -44,7 +44,7 @@ bounds how many Jobs schedule at once. Raise concurrency and quota together
 before an exam and lower them afterwards; all of these are Helm values.
 
 With `worker.judge.minConcurrency` set (single-machine: 2, ceiling
-`worker.judge.concurrency` 4) the judge worker uses Temporal's resource-based
+`worker.judge.concurrency` 6) the judge worker uses Temporal's resource-based
 slot tuner: above the minimum it hands out one more slot every 10 seconds while
 node CPU stays under 75% and the worker's own memory under 80%. The judge
 container therefore has no CPU limit, because with one the tuner would measure

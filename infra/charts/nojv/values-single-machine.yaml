@@ -116,7 +116,7 @@ observability:
 worker:
   judge:
     replicas: 1
-    concurrency: "4"
+    concurrency: "6"
     minConcurrency: "2"
     resources:
       limits:
@@ -126,7 +126,7 @@ worker:
     submissionPendingTimeoutMinutes: 10
   sandbox:
     imagePullSecret: nojv-registry-pull
-    caseCpuRequest: "50m"
+    caseCpuRequest: "25m"
 
 pdb:
   enabled: false
@@ -145,4 +145,4 @@ sandbox:
   limitRange:
     enabled: true
     min:
-      cpu: "50m"
+      cpu: "25m"

@@ -135,9 +135,12 @@ LimitRange min  ≤ caseCpuRequest
 4. [x] Chart and docs: values, `env-manifest-parity`, DEPLOYMENT capacity table,
        `docs/runbooks/judge-queue.md` capacity section ("slots are min…max,
        watch slots_available and the wall/CPU guard").
-5. [ ] Rollout: v1.4.0 with `min 2 / max 4`, one hour of a synthetic load (30
-       practice submissions from a test account) while watching slot count, node
-       CPU, the guard, and exam-lane latency; then raise `max` to 5.
+5. [ ] Rollout: `min 2 / max 6` with `caseCpuRequest` and the LimitRange
+       minimum at 25m (0.5-CPU Jobs, so six schedule on the 8-CPU node), on the
+       owner's call to use the node-CPU target rather than a low ceiling as the
+       contention bound. Watch concurrent sandbox Jobs, node CPU, the
+       wall-clock-timeout guard and exam-lane latency under real load; lower
+       `max` if the guard fires.
 
 ## Verification
 
