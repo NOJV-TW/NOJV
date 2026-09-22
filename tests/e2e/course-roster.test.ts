@@ -116,7 +116,7 @@ for (const assessment of [
       await expect(
         page.getByRole("button", { name: "Open account menu for Teacher", exact: true }),
       ).toBeEnabled();
-      await page.getByRole("tab", { name: "Results", exact: true }).click();
+      await page.getByRole("tab", { name: "Results & audit", exact: true }).click();
       const matrix = page.locator(`[data-slot="${assessment.slot}"]`);
       await matrix.getByRole("searchbox").fill(handle);
       const gradeRow = matrix.locator("tbody tr").filter({ hasText: handle });
