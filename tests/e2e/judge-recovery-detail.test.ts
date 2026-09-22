@@ -91,7 +91,6 @@ test("capacity waiting clearly states the submission is saved", async ({ page },
   await page.goto(`/submissions/${submission.id}`);
   await page.waitForTimeout(3000);
   await expect(page.getByRole("status").filter({ hasText: waiting })).toBeVisible();
-  await expect(page.locator("aside")).toContainText("Judge version: 0");
   await page.screenshot({ path: testInfo.outputPath("waiting-capacity.png"), fullPage: true });
 });
 

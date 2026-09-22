@@ -283,7 +283,7 @@ describe("rate limiter key prefixes", () => {
       mod.stepUpAttemptRateLimiter,
       mod.registryTokenRateLimiter,
     ]).toMatchObject([
-      { keyPrefix: "rl:api", points: 60, duration: 60 },
+      { keyPrefix: "rl:api", points: 300, duration: 60 },
       { keyPrefix: "rl:write", points: 10, duration: 60 },
       { keyPrefix: "rl:auth", points: 60, duration: 60 },
       { keyPrefix: "rl:signin", points: 5, duration: 900 },
