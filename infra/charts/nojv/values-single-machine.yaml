@@ -140,3 +140,5 @@ sandbox:
     requestsMemory: "12Gi"
   limitRange:
     enabled: true
+    min:
+      cpu: "50m"
