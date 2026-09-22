@@ -1,4 +1,4 @@
-import { continueAsNew, proxyActivities } from "@temporalio/workflow";
+import { continueAsNew, executeChild, proxyActivities } from "@temporalio/workflow";
 
 import type {
   DurableWorkBatchInput,
@@ -80,4 +80,10 @@ export function durableWorkWorkflow(
     (nextInput) => continueAsNew<typeof durableWorkWorkflow>(nextInput),
     input,
   );
+}
+
+export function durableWorkProcessorWorkflow(
+  input: DurableWorkWorkflowInput = {},
+): Promise<DurableWorkBatchResult> {
+  return executeChild(durableWorkWorkflow, { args: [input] });
 }
