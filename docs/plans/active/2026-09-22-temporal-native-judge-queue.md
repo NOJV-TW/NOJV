@@ -28,9 +28,12 @@ The structural causes are independent of the incident:
 ## Design
 
 Temporal already is the durable queue. Use its task-queue priority and fairness
-(verified on the production server version 1.31.1: a priority-1 activity started
-ahead of five queued priority-5 activities on a one-slot worker) and delete the
-custom coordinator.
+and delete the custom coordinator. (An earlier note here claimed priority was
+verified on the production server; that probe ran on the CLI dev server, which
+serves FIFO unless `matching.useNewMatcher` is set, and the stage activities
+did not carry priority at all. Both were fixed in PR #510 and priority was then
+verified on prod; see the stress test in
+[Load-aware judge slots](2026-09-22-judge-slot-tuner.md#stress-test-2026-09-22).)
 
 ```
 submission / rejudge ──► JudgeExecution row (durable fact, outbox)
