@@ -62,8 +62,7 @@ function assertFieldsAllowedForStatus(
   if (liveStatus === "closed") {
     if (
       Object.entries(payload).every(
-        ([key, value]) =>
-          value === undefined || ["problems", "totalPoints", "gradingRevision"].includes(key),
+        ([key, value]) => value === undefined || ["problems", "gradingRevision"].includes(key),
       )
     )
       return;
@@ -182,7 +181,7 @@ export async function updateAssignmentRecord(
         ? await assessmentRepo.withTx(tx).update(assignment.id, updateData)
         : assignment;
 
-    if (payload.problems !== undefined || payload.totalPoints !== undefined) {
+    if (payload.problems !== undefined) {
       const links = await tx.assessmentProblem.findMany({
         where: { assessmentId: assignment.id },
         orderBy: { ordinal: "asc" },
@@ -192,7 +191,6 @@ export async function updateAssignmentRecord(
       await saveActivityGrading(tx, actor, {
         type: "assignment",
         id: assignment.id,
-        totalPoints: payload.totalPoints ?? Number(assignment.totalPoints),
         problems:
           payload.problems ??
           links.map((p) => ({ problemId: p.problemId, points: Number(p.points) })),
@@ -239,7 +237,6 @@ export async function publishAssignment(
       throw new ValidationError("Attach at least one problem before publishing.");
     }
     assertActivityAllocation(
-      Number(assignment.totalPoints),
       attached.map((p) => ({ problemId: p.problemId, points: Number(p.points) })),
       true,
     );

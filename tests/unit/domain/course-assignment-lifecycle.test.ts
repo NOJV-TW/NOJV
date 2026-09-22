@@ -101,7 +101,6 @@ describe("createCourseAssignmentRecord lifecycle", () => {
       allowedLanguages: [],
       allowLateSubmissions: true,
       problems: [],
-      totalPoints: 100,
       latePenalty: null,
     });
 

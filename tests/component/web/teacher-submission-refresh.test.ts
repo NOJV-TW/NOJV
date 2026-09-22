@@ -167,7 +167,6 @@ describe.each(["assignment", "exam"] as const)("%s teacher draft protection", (k
     expect(field(target, m.activityWeights_weight({ title: "Problem One" })).value).toBe("200");
     expect(target.textContent).not.toContain("Problem Two");
     expect(await payload(target, kind)).toEqual({
-      totalPoints: 200,
       gradingRevision: 1,
       problems: [{ problemId: "p1", points: 200 }],
     });

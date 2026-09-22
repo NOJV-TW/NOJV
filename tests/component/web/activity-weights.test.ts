@@ -13,29 +13,28 @@ describe("ActivityWeights", () => {
     target?.remove();
   });
 
-  it("edits points per problem and keeps the bound total equal to their sum", async () => {
+  it("edits points per problem and shows their sum as the activity total", async () => {
     target = document.createElement("div");
     document.body.append(target);
-    const totals: number[] = [];
-    component = mount(ActivityWeightsHost, {
-      target,
-      props: { onTotal: (t: number) => totals.push(t) },
-    });
+    component = mount(ActivityWeightsHost, { target, props: {} });
     await tick();
-    expect(totals).toEqual([100]);
 
     const add = component.add as (problemId: string) => void;
+    const rows = component.rows as () => { problemId: string; points: number }[];
     add("p1");
     add("p2");
     await tick();
     const inputs = [...target.querySelectorAll<HTMLInputElement>('input[type="number"]')];
     expect(inputs.map((input) => input.value)).toEqual(["100", "100"]);
-    expect(totals.at(-1)).toBe(200);
+    expect(target.querySelector('[role="status"]')?.textContent).toContain("200");
 
     inputs[1]!.value = "30.5";
     inputs[1]!.dispatchEvent(new Event("input", { bubbles: true }));
     await tick();
-    expect(totals.at(-1)).toBe(130.5);
+    expect(rows()).toEqual([
+      { problemId: "p1", points: 100 },
+      { problemId: "p2", points: 30.5 },
+    ]);
     expect(target.querySelector('[role="status"]')?.textContent).toContain("130.5");
     expect(target.textContent).not.toContain("%");
     expect(target.querySelector("button")).toBeNull();

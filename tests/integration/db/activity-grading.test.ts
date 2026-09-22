@@ -102,7 +102,6 @@ describe("activity grading", () => {
     });
     const actor = { ...f.actor, userId: staff.id };
     const patch = {
-      totalPoints: 100,
       problems: [
         { problemId: f.b.id, points: 20 },
         { problemId: f.a.id, points: 80 },
@@ -297,7 +296,6 @@ describe("activity grading", () => {
       ),
     ).toBe(62);
     const input = {
-      totalPoints: 100,
       problems: [
         { problemId: f.a.id, points: 25 },
         { problemId: f.b.id, points: 75 },
@@ -305,12 +303,15 @@ describe("activity grading", () => {
       gradingRevision: 0,
     };
     await expect(
-      examDomain.updateExamRecord(f.actor, exam.id, { ...input, totalPoints: 200 }),
-    ).rejects.toThrow(/add up to/);
+      examDomain.updateExamRecord(f.actor, exam.id, { ...input, gradingRevision: 7 }),
+    ).rejects.toThrow(/changed/);
     expect(
       (await testPrisma.exam.findUniqueOrThrow({ where: { id: exam.id } })).gradingRevision,
     ).toBe(0);
     await examDomain.updateExamRecord(f.actor, exam.id, input);
+    expect(
+      Number((await testPrisma.exam.findUniqueOrThrow({ where: { id: exam.id } })).totalPoints),
+    ).toBe(100);
     expect(
       await testPrisma.durableWork.count({
         where: {

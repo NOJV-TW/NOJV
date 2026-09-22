@@ -389,7 +389,7 @@ Indexes & constraints: `@@unique([contestId, problemId])`, `@@unique([contestId,
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
 | `detachedProblemIds` | `String[]` | `@default([])` |
-| `totalPoints` | `Decimal` | `@default(100) @db.Decimal(18, 4)` |
+| `totalPoints` | `Decimal` | `@default(0) @db.Decimal(18, 4)` |
 | `gradingRevision` | `Int` | `@default(0)` |
 | `id` | `String` | `@id @default(cuid())` |
 | `courseId` | `String` | — |
@@ -532,7 +532,7 @@ Indexes & constraints: `@@unique([id, userId])`, `@@unique([type, contestId, use
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
 | `detachedProblemIds` | `String[]` | `@default([])` |
-| `totalPoints` | `Decimal` | `@default(100) @db.Decimal(18, 4)` |
+| `totalPoints` | `Decimal` | `@default(0) @db.Decimal(18, 4)` |
 | `gradingRevision` | `Int` | `@default(0)` |
 | `id` | `String` | `@id @default(cuid())` |
 | `courseId` | `String` | — |

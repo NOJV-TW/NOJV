@@ -2461,6 +2461,7 @@
   "activityWeights_heading": "配分",
   "activityWeights_weight": "{title} 分數",
   "activityWeights_points": "分",
+  "activityWeights_invalid": "發布前每題分數合計須大於 0。",
   "activityWeights_sum": "總分：{points}",
   "activityWeights_pending": "成績正在重新計算。",
   "activityWeights_contribution": "本次計入：{score}／{points} 分",

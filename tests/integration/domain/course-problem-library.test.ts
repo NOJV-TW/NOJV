@@ -54,7 +54,6 @@ describe("course problem library lifecycle (real DB)", () => {
       allowLateSubmissions: false,
       latePenalty: null,
       allowedLanguages: ["cpp"],
-      totalPoints: 100,
       problems: [{ problemId: source.id, points: 100 }],
       status: "draft",
     });
@@ -254,7 +253,6 @@ describe("course problem library lifecycle (real DB)", () => {
       allowLateSubmissions: false,
       latePenalty: null,
       allowedLanguages: [],
-      totalPoints: 100,
       problems: [{ problemId: problem.id, points: 100 }],
       status: "draft",
     });

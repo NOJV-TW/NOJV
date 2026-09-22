@@ -31,7 +31,6 @@
   interface Props {
     problems: ProblemsTabProblem[];
     assignmentId: string;
-    totalPoints: number;
     gradingRevision: number;
     canEdit?: boolean;
     canRejudge?: boolean;
@@ -42,7 +41,6 @@
   let {
     problems,
     assignmentId,
-    totalPoints,
     gradingRevision,
     canEdit = false,
     canRejudge = false,
@@ -57,7 +55,6 @@
   }
 
   type EditRow = { problemId: string; title: string; letter: string; points: number };
-  let editTotal = $state(100);
 
   let editRows = $state<EditRow[]>([]);
   let pickerOpen = $state(false);
@@ -79,24 +76,22 @@
   let appliedContext: string | undefined;
   let appliedSnapshot: string | undefined;
   let editRevision = $state(0);
-  const snapshot = (total: number, rows: { problemId: string; points: number }[]) =>
-    JSON.stringify([total, rows.map(({ problemId, points }) => ({ problemId, points }))]);
+  const snapshot = (rows: { problemId: string; points: number }[]) =>
+    JSON.stringify(rows.map(({ problemId, points }) => ({ problemId, points })));
   $effect(() => {
-    const incoming = snapshot(totalPoints, problems);
-    const draft = untrack(() => snapshot(editTotal, editRows));
+    const incoming = snapshot(problems);
+    const draft = untrack(() => snapshot(editRows));
     if (appliedContext === assignmentId && draft !== appliedSnapshot && draft !== incoming)
       return;
     seedRows(problems);
-    editTotal = totalPoints;
     editRevision = gradingRevision;
     appliedContext = assignmentId;
     appliedSnapshot = incoming;
   });
 
   const hasChanges = $derived(
-    editTotal !== totalPoints ||
-      JSON.stringify(editRows.map(({ problemId, points }) => ({ problemId, points }))) !==
-        JSON.stringify(problems.map(({ problemId, points }) => ({ problemId, points }))),
+    JSON.stringify(editRows.map(({ problemId, points }) => ({ problemId, points }))) !==
+      JSON.stringify(problems.map(({ problemId, points }) => ({ problemId, points }))),
   );
 
   beforeNavigate(({ cancel }) => {
@@ -169,7 +164,6 @@
     errorMsg = null;
     const payload = {
       problems: editRows.map(({ problemId, points }) => ({ problemId, points })),
-      totalPoints: editTotal,
       gradingRevision: editRevision,
     };
     const fd = new FormData();
@@ -382,7 +376,6 @@
   {/if}
   {#if canEdit}
     <ActivityWeights
-      bind:totalPoints={editTotal}
       problems={editRows}
       titles={Object.fromEntries(editRows.map((p) => [p.problemId, p.title]))}
       onchange={(rows) =>

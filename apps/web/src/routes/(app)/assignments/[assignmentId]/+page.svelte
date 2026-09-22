@@ -444,7 +444,6 @@
           problems={detail.problems}
           assignmentId={detail.id}
           canEdit={data.mode === "teacher"}
-          totalPoints={detail.totalPoints}
           gradingRevision={detail.gradingRevision}
           canRejudge={data.mode === "teacher"}
           candidateProblems={data.mode === "teacher"

@@ -134,7 +134,6 @@
             error={$errors.problems}
           />
           <ActivityWeights
-            bind:totalPoints={$form.totalPoints}
             problems={$form.problems}
             titles={Object.fromEntries(
               [

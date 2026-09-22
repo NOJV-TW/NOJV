@@ -2461,6 +2461,7 @@
   "activityWeights_heading": "Point allocation",
   "activityWeights_weight": "{title} points",
   "activityWeights_points": "pts",
+  "activityWeights_invalid": "Published activities need at least one problem worth points.",
   "activityWeights_sum": "Total: {points}",
   "activityWeights_pending": "Grades are being recalculated.",
   "activityWeights_contribution": "Counts toward this activity: {score} / {points}",
