@@ -507,6 +507,15 @@ background executions, and the lifecycle reconciler re-dispatches anything that
 missed that hand-off. Workflows exist only for dispatched executions; queued
 work is a database row, not a live history.
 
+Only `executeJudgeStage` and `reconcileJudgeStage` run on the `judge` queue, so
+a judge slot is one sandbox Job. The workflow's bookkeeping activities (status,
+state, verdict commit, finish and scoreboard notifications) run on
+`judge-state`, served by an activity-only worker in the same process with 16
+fixed slots; a submission whose tests have finished gets its verdict without
+queueing behind other submissions' Jobs. Both queues, like `platform`, use a
+single task-queue partition (Temporal dynamic config), because pollers are few
+and a task in an unpolled partition would wait out a long poll.
+
 Judge and platform workers each retain at most 32 cached Workflows and execute
 at most 8 Workflow tasks concurrently, which bounds the worker heap while
 evicted histories replay.

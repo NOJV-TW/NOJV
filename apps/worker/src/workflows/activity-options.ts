@@ -1,6 +1,7 @@
 import type { ActivityOptions } from "@temporalio/workflow";
 
 export const PLATFORM_QUEUE = "platform" as const;
+export const JUDGE_STATE_QUEUE = "judge-state" as const;
 
 export const SHORT_ACTIVITY: ActivityOptions = {
   startToCloseTimeout: "30s",

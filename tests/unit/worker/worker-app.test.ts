@@ -48,6 +48,7 @@ vi.mock("@nojv/temporal", () => ({
   ensureLifecycleReconciler: mocks.ensureLifecycleReconciler,
   ensureSubmissionSweeper: mocks.ensureSubmissionSweeper,
   JUDGE_TASK_QUEUE: "judge",
+  JUDGE_STATE_TASK_QUEUE: "judge-state",
   PLATFORM_TASK_QUEUE: "platform",
   temporalConnectionOptions: () => ({}),
 }));
@@ -203,14 +204,14 @@ describe("WorkerApp lifecycle", () => {
     {
       name: "legacy judge",
       workerEnv: { ...env, WORKER_MODE: "judge" } as WorkerEnv,
-      queues: ["judge"],
+      queues: ["judge", "judge-state"],
     },
-    { name: "kubernetes judge", workerEnv: kubernetesEnv, queues: ["judge"] },
+    { name: "kubernetes judge", workerEnv: kubernetesEnv, queues: ["judge", "judge-state"] },
     { name: "platform", workerEnv: env, queues: ["platform"] },
     {
       name: "combined",
       workerEnv: { ...kubernetesEnv, WORKER_MODE: "all" } as WorkerEnv,
-      queues: ["judge", "platform"],
+      queues: ["judge", "judge-state", "platform"],
     },
   ])(
     "bounds cached workflows and workflow task slots for $name workers",
@@ -235,14 +236,23 @@ describe("WorkerApp lifecycle", () => {
         expect(mocks.workerCreate).toHaveBeenCalledTimes(queues.length);
         for (const taskQueue of queues) {
           expect(mocks.workerCreate).toHaveBeenCalledWith(
-            expect.objectContaining({
-              taskQueue,
-              maxCachedWorkflows: 32,
-              maxConcurrentWorkflowTaskExecutions: 8,
-              maxConcurrentActivityTaskExecutions: 3,
-            }),
+            taskQueue === "judge-state"
+              ? expect.not.objectContaining({ workflowsPath: expect.anything() })
+              : expect.objectContaining({
+                  taskQueue,
+                  maxCachedWorkflows: 32,
+                  maxConcurrentWorkflowTaskExecutions: 8,
+                  maxConcurrentActivityTaskExecutions: 3,
+                }),
           );
         }
+        if (queues.includes("judge-state"))
+          expect(mocks.workerCreate).toHaveBeenCalledWith(
+            expect.objectContaining({
+              taskQueue: "judge-state",
+              maxConcurrentActivityTaskExecutions: 16,
+            }),
+          );
       } finally {
         await app.shutdown("SIGTERM");
         await started;
@@ -259,8 +269,10 @@ describe("WorkerApp lifecycle", () => {
     );
     const started = app.start();
     try {
-      await vi.waitFor(() => expect(mocks.workerCreate).toHaveBeenCalledOnce());
-      const options = mocks.workerCreate.mock.calls[0]![0] as Record<string, unknown>;
+      await vi.waitFor(() => expect(mocks.workerCreate).toHaveBeenCalledTimes(2));
+      const options = mocks.workerCreate.mock.calls
+        .map(([value]) => value as Record<string, unknown>)
+        .find((value) => value.taskQueue === "judge")!;
       expect(options).not.toHaveProperty("maxConcurrentActivityTaskExecutions");
       expect(options).not.toHaveProperty("maxConcurrentWorkflowTaskExecutions");
       expect(options).toMatchObject({
@@ -449,7 +461,7 @@ describe("WorkerApp lifecycle", () => {
       { shutdownTimeoutMs: 100, workflowsPath: "workflow.js" },
     );
     const started = app.start();
-    await vi.waitFor(() => expect(worker.run).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(worker.run).toHaveBeenCalledTimes(2));
     expect(mocks.recoverSystemErrorSubmissions).not.toHaveBeenCalled();
 
     let finished = false;

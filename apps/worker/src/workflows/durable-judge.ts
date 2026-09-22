@@ -10,9 +10,10 @@ import {
 import { judgeRecoveryDelayMs, type JudgeExecutionInput } from "@nojv/core";
 import type * as executionActivities from "../activities/judge-execution";
 import type * as lifecycleActivities from "../activities/lifecycle";
-import { PLATFORM_QUEUE } from "./activity-options";
+import { JUDGE_STATE_QUEUE, PLATFORM_QUEUE } from "./activity-options";
 
 const journal = proxyActivities<typeof executionActivities>({
+  taskQueue: JUDGE_STATE_QUEUE,
   startToCloseTimeout: "2m",
   retry: { maximumAttempts: 3 },
 });
@@ -22,6 +23,7 @@ const sandbox = proxyActivities<typeof executionActivities>({
   retry: { maximumAttempts: 1 },
 });
 const notifications = proxyActivities<typeof lifecycleActivities>({
+  taskQueue: JUDGE_STATE_QUEUE,
   startToCloseTimeout: "2m",
   retry: { maximumAttempts: 3 },
 });

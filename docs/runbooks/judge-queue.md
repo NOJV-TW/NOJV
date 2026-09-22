@@ -7,8 +7,14 @@ worker's Activity slots. There is no scheduler workflow to inspect or signal.
 
 ```bash
 temporal task-queue describe -t judge
+temporal task-queue describe -t judge-state
 temporal workflow list --query 'WorkflowType="durableJudgeWorkflow" AND ExecutionStatus="Running"'
 ```
+
+`judge` carries only sandbox Jobs; `judge-state` carries the quick bookkeeping
+activities and should never hold a backlog. The Temporal server must keep
+`judge`, `judge-state` and `platform` at one partition (below); with the default
+four, a few pollers leave tasks in unpolled partitions for up to a long poll.
 
 `JudgeExecution.state`, `reasonCode`, `nextAttemptAt` and `lastProgressAt` in
 the database describe queued and recovering work; `waiting_capacity` means the

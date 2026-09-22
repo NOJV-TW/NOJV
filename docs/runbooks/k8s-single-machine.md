@@ -338,8 +338,16 @@ a single box a **single-replica** Temporal is fine — use the official chart wi
 helm repo add temporal https://go.temporal.io/helm-charts
 kubectl create namespace nojv-temporal
 helm upgrade --install temporal temporal/temporal -n nojv-temporal \
-  --set server.replicaCount=1
+  --set server.replicaCount=1 \
+  --set-json 'server.dynamicConfig={"matching.enableFairness":[{"value":true}],"matching.numTaskqueueWritePartitions":[{"value":1,"constraints":{"taskQueueName":"judge"}},{"value":1,"constraints":{"taskQueueName":"judge-state"}},{"value":1,"constraints":{"taskQueueName":"platform"}}],"matching.numTaskqueueReadPartitions":[{"value":1,"constraints":{"taskQueueName":"judge"}},{"value":1,"constraints":{"taskQueueName":"judge-state"}},{"value":1,"constraints":{"taskQueueName":"platform"}}]}'
 ```
+
+Fairness orders students inside a priority. The single partition per NOJV
+queue matters because only a handful of pollers serve them; with the default
+four partitions a task can sit in an unpolled partition for a whole long poll.
+To reduce partitions on a running server, lower the write count first, wait
+for `temporal task-queue describe` to show no backlog, then lower the read
+count.
 
 For an HA Temporal (production multi-node), see
 [`infra/gcp/gke/temporal/HA-PRODUCTION.md`](../../infra/gcp/gke/temporal/HA-PRODUCTION.md).

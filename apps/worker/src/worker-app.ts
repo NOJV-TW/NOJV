@@ -9,6 +9,7 @@ import {
   ensureDurableWorkProcessor,
   ensureLifecycleReconciler,
   ensureSubmissionSweeper,
+  JUDGE_STATE_TASK_QUEUE,
   JUDGE_TASK_QUEUE,
   PLATFORM_TASK_QUEUE,
   temporalConnectionOptions,
@@ -213,17 +214,28 @@ export class WorkerApp {
         }
       }
 
+      const judgeActivities = await import("./activities/judge-bundle.js");
       const judgeWorker = await Worker.create({
         connection,
         namespace,
         taskQueue: JUDGE_TASK_QUEUE,
         workflowsPath: this.workflowsPath,
-        activities: await import("./activities/judge-bundle.js"),
+        activities: judgeActivities,
         ...judgeSlots(this.env),
         maxCachedWorkflows: 32,
         shutdownGraceTime: "30s",
       });
       this.addWorker(judgeWorker, JUDGE_TASK_QUEUE);
+      this.assertStarting();
+      const stateWorker = await Worker.create({
+        connection,
+        namespace,
+        taskQueue: JUDGE_STATE_TASK_QUEUE,
+        activities: judgeActivities,
+        maxConcurrentActivityTaskExecutions: 16,
+        shutdownGraceTime: "30s",
+      });
+      this.addWorker(stateWorker, JUDGE_STATE_TASK_QUEUE);
       this.assertStarting();
     }
 

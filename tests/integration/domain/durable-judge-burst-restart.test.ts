@@ -161,6 +161,12 @@ describe("durable judge database burst and worker restart", () => {
       workers = await Promise.all([
         createJudgeWorker(foregroundQueue),
         createJudgeWorker(backgroundQueue),
+        Worker.create({
+          connection: env.nativeConnection,
+          taskQueue: "judge-state",
+          activities,
+          shutdownGraceTime: "10s",
+        }),
       ]);
       runs = workers.map((worker) => worker.run());
       for (const run of runs) void run.catch(() => undefined);
