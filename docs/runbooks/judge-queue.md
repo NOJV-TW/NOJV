@@ -36,8 +36,12 @@ student from occupying more than one slot.
 Slots are `worker.judge.concurrency` times judge replicas. Each slot runs one
 stage Job whose effective request is `max(cpuRequest, maxParallelCases × caseCpuRequest)`
 CPU (the compile init container and the case containers never run at once), so
-the sandbox quota must hold `slots × that request`. Raise concurrency and quota
-together before an exam and lower them afterwards; both are Helm values.
+the sandbox quota must hold `slots × that request`. Two more limits gate a Job:
+the sandbox LimitRange `min.cpu` must not exceed `caseCpuRequest` (a Job whose
+containers request less is rejected at admission and the execution goes
+`blocked`), and the node's allocatable CPU minus the platform pods' requests
+bounds how many Jobs schedule at once. Raise concurrency and quota together
+before an exam and lower them afterwards; all of these are Helm values.
 
 ## Bulk rejudges
 
