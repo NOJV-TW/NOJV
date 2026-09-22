@@ -116,11 +116,13 @@ observability:
 worker:
   judge:
     replicas: 1
+    concurrency: "3"
   platform:
     replicas: 1
     submissionPendingTimeoutMinutes: 10
   sandbox:
     imagePullSecret: nojv-registry-pull
+    caseCpuRequest: "50m"
 
 pdb:
   enabled: false
@@ -133,8 +135,10 @@ sandbox:
     enabled: true
   resourceQuota:
     enabled: true
-    pods: "4"
-    requestsCpu: "4"
+    pods: "12"
+    requestsCpu: "6"
     requestsMemory: "12Gi"
   limitRange:
     enabled: true
+    min:
+      cpu: "50m"

@@ -28,6 +28,7 @@ import {
   commitStoragePointerSwap,
   guardStorageObjectWrites,
 } from "../shared/storage-object-lifecycle";
+import { dispatchNextJudgeExecutions } from "./judge-recovery";
 import { readJudgeSnapshot } from "./judge-snapshot";
 import { completeJudge, deriveVerdictSummary } from "./mutations";
 
@@ -308,6 +309,11 @@ export async function finishJudgeExecution(executionId: string, workflowId: stri
       leaseToken: null,
     },
   });
+  const run = await db.judgeExecution.findUnique({
+    where: { id: executionId },
+    select: { submission: { select: { userId: true } } },
+  });
+  if (run) await dispatchNextJudgeExecutions(run.submission.userId);
 }
 
 function executionView(run: {

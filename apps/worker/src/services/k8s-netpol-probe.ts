@@ -8,6 +8,7 @@ import {
   runtimeClassField,
   SANDBOX_NODE_SELECTOR,
   SANDBOX_POD_SECURITY_CONTEXT,
+  SANDBOX_POD_SECURITY_CONTEXT_WITH_FSGROUP,
   SANDBOX_TOLERATIONS,
 } from "./k8s-pod-spec";
 
@@ -33,6 +34,7 @@ const PROBE_ALLOW_INGRESS_POLICY_NAME = "nojv-netpol-probe-allow-ingress";
 const PROBE_ALLOW_EGRESS_POLICY_NAME = "nojv-netpol-probe-allow-egress";
 const PROBE_URL_PREFIX = "http" + "://";
 const PROBE_CONNECT_TIMEOUT_SECONDS = 4;
+const PROBE_ALLOWED_ATTEMPTS = 3;
 const PROBE_ACTIVE_DEADLINE_SECONDS = 30;
 const PROBE_POLL_INTERVAL_MS = 1_000;
 const PROBE_WAIT_TIMEOUT_MS = 60_000;
@@ -99,8 +101,10 @@ export function buildNetpolProbePodManifest(params: NetpolProbePodParams): k8s.V
   const command = [
     "sh",
     "-c",
-    `if wget -T ${String(PROBE_CONNECT_TIMEOUT_SECONDS)} -q -O- ${PROBE_URL_PREFIX}${params.allowedTargetIp}:${String(PROBE_TARGET_PORT)} >/dev/null 2>&1; ` +
-      `then echo ${PROBE_ALLOWED_REACHED_MARKER}; else echo ${PROBE_ALLOWED_BLOCKED_MARKER}; fi; ` +
+    `for attempt in 1 2 ${String(PROBE_ALLOWED_ATTEMPTS)}; do ` +
+      `if wget -T ${String(PROBE_CONNECT_TIMEOUT_SECONDS)} -q -O- ${PROBE_URL_PREFIX}${params.allowedTargetIp}:${String(PROBE_TARGET_PORT)} >/dev/null 2>&1; ` +
+      `then echo ${PROBE_ALLOWED_REACHED_MARKER}; break; fi; ` +
+      `if [ "$attempt" -eq ${String(PROBE_ALLOWED_ATTEMPTS)} ]; then echo ${PROBE_ALLOWED_BLOCKED_MARKER}; exit 0; fi; sleep 1; done; ` +
       `if wget -T ${String(PROBE_CONNECT_TIMEOUT_SECONDS)} -q -O- ${PROBE_URL_PREFIX}${params.deniedTargetIp}:${String(PROBE_TARGET_PORT)} >/dev/null 2>&1; ` +
       `then echo ${PROBE_DENIED_REACHED_MARKER}; else echo ${PROBE_DENIED_BLOCKED_MARKER}; fi`,
   ];
@@ -153,6 +157,9 @@ export function buildNetpolProbeTargetPodManifest(
     },
     spec: {
       ...buildProbePodBase(params),
+      activeDeadlineSeconds: PROBE_WAIT_TIMEOUT_MS / 1_000,
+      securityContext: SANDBOX_POD_SECURITY_CONTEXT_WITH_FSGROUP,
+      volumes: [{ name: "probe-content", emptyDir: { medium: "Memory", sizeLimit: "1Mi" } }],
       containers: [
         {
           name: "target",
@@ -160,8 +167,9 @@ export function buildNetpolProbeTargetPodManifest(
           command: [
             "sh",
             "-c",
-            `while true; do printf 'HTTP/1.1 200 OK\\r\\nContent-Length: 2\\r\\n\\r\\nOK' | nc -l -p ${String(PROBE_TARGET_PORT)}; done`,
+            `printf OK > /probe/index.html && exec httpd -f -p ${String(PROBE_TARGET_PORT)} -h /probe`,
           ],
+          volumeMounts: [{ name: "probe-content", mountPath: "/probe" }],
           readinessProbe: {
             exec: {
               command: [
@@ -230,12 +238,22 @@ export function buildNetpolProbeEgressPolicy(namespace: string): k8s.V1NetworkPo
   };
 }
 
-function parseProbeLog(log: string): ProbeOutcome | null {
-  if (log.includes(PROBE_DENIED_REACHED_MARKER)) return "reached";
-  if (log.includes(PROBE_ALLOWED_REACHED_MARKER) && log.includes(PROBE_DENIED_BLOCKED_MARKER)) {
+function probeMarkers(log: string) {
+  const lines = new Set(log.split(/\r?\n/).map((line) => line.trim()));
+  return {
+    allowedReached: lines.has(PROBE_ALLOWED_REACHED_MARKER),
+    allowedBlocked: lines.has(PROBE_ALLOWED_BLOCKED_MARKER),
+    deniedReached: lines.has(PROBE_DENIED_REACHED_MARKER),
+    deniedBlocked: lines.has(PROBE_DENIED_BLOCKED_MARKER),
+  };
+}
+
+function classifyProbeMarkers(markers: ReturnType<typeof probeMarkers>): ProbeOutcome {
+  if (markers.deniedReached) return "reached";
+  if (markers.allowedReached && !markers.allowedBlocked && markers.deniedBlocked) {
     return "blocked";
   }
-  return null;
+  return "unconfirmed";
 }
 
 const REACHED_REMEDIATION =
@@ -280,15 +298,16 @@ async function deleteProbeResources(
   }
 }
 
-async function readReadyTargetIp(
+async function readReadyTarget(
   name: string,
   namespace: string,
   deps: NetworkPolicyProbeDeps,
-): Promise<string | undefined> {
+): Promise<{ uid: string; ip: string } | undefined> {
   const pod = await deps.readPod(name, namespace);
-  if (pod.status?.phase !== "Running" || !pod.status.podIP) return undefined;
+  if (pod.status?.phase !== "Running" || !pod.status.podIP || !pod.metadata?.uid)
+    return undefined;
   if (!pod.status.containerStatuses?.some((status) => status.ready)) return undefined;
-  return pod.status.podIP;
+  return { uid: pod.metadata.uid, ip: pod.status.podIP };
 }
 
 async function runProbe(
@@ -328,15 +347,15 @@ async function runProbe(
     );
 
     const deadline = now() + PROBE_WAIT_TIMEOUT_MS;
-    let allowedTargetIp: string | undefined;
-    let deniedTargetIp: string | undefined;
+    let allowedTarget: Awaited<ReturnType<typeof readReadyTarget>>;
+    let deniedTarget: Awaited<ReturnType<typeof readReadyTarget>>;
     try {
       while (now() < deadline) {
-        [allowedTargetIp, deniedTargetIp] = await Promise.all([
-          readReadyTargetIp(PROBE_ALLOWED_TARGET_POD_NAME, namespace, deps),
-          readReadyTargetIp(PROBE_DENIED_TARGET_POD_NAME, namespace, deps),
+        [allowedTarget, deniedTarget] = await Promise.all([
+          readReadyTarget(PROBE_ALLOWED_TARGET_POD_NAME, namespace, deps),
+          readReadyTarget(PROBE_DENIED_TARGET_POD_NAME, namespace, deps),
         ]);
-        if (allowedTargetIp && deniedTargetIp) break;
+        if (allowedTarget && deniedTarget) break;
         await sleep(PROBE_POLL_INTERVAL_MS);
       }
     } catch (err) {
@@ -346,7 +365,7 @@ async function runProbe(
       });
       return "unconfirmed";
     }
-    if (!allowedTargetIp || !deniedTargetIp) return "unconfirmed";
+    if (!allowedTarget || !deniedTarget) return "unconfirmed";
 
     await deps.createNetworkPolicy(namespace, buildNetpolProbeIngressPolicy(namespace));
     await deps.createNetworkPolicy(namespace, buildNetpolProbeEgressPolicy(namespace));
@@ -356,8 +375,8 @@ async function runProbe(
         namespace,
         image,
         podName,
-        allowedTargetIp,
-        deniedTargetIp,
+        allowedTargetIp: allowedTarget.ip,
+        deniedTargetIp: deniedTarget.ip,
         ...(runtimeClassName ? { runtimeClassName } : {}),
         ...(imagePullSecretName ? { imagePullSecretName } : {}),
       }),
@@ -368,7 +387,27 @@ async function runProbe(
         const phase = await deps.readPodPhase(podName, namespace);
         if (phase === "Succeeded" || phase === "Failed") {
           const log = await deps.readPodLog(podName, namespace);
-          return parseProbeLog(log) ?? "unconfirmed";
+          const markers = probeMarkers(log);
+          const outcome = classifyProbeMarkers(markers);
+          logger.info("NetworkPolicy probe markers", { namespace, phase, ...markers, outcome });
+          if (outcome !== "blocked") return outcome;
+          const [allowedAfter, deniedAfter] = await Promise.all([
+            readReadyTarget(PROBE_ALLOWED_TARGET_POD_NAME, namespace, deps),
+            readReadyTarget(PROBE_DENIED_TARGET_POD_NAME, namespace, deps),
+          ]);
+          const targetsUnchanged =
+            allowedAfter?.uid === allowedTarget.uid &&
+            allowedAfter.ip === allowedTarget.ip &&
+            deniedAfter?.uid === deniedTarget.uid &&
+            deniedAfter.ip === deniedTarget.ip;
+          if (!targetsUnchanged) {
+            logger.warn(
+              "NetworkPolicy probe target changed or stopped — enforcement is UNCONFIRMED",
+              { namespace },
+            );
+            return "unconfirmed";
+          }
+          return "blocked";
         }
         await sleep(PROBE_POLL_INTERVAL_MS);
       }

@@ -1,5 +1,4 @@
 import * as fs from "node:fs/promises";
-import { publishArtifact } from "./artifact-publisher.js";
 import * as path from "node:path";
 import * as os from "node:os";
 import {
@@ -20,10 +19,13 @@ import {
 } from "./utils.js";
 import { runSolution } from "./judges/standard.js";
 import {
+  emitRunReport,
+  emitValidateReport,
   resolveInteractiveCaseFiles,
   runInteractiveSolution,
   runInteractiveValidator,
 } from "./judges/interactive-isolated.js";
+import { waitForInteractivePeer } from "./judges/interactive-start.js";
 import { resolveValidateCaseFiles, validateCase } from "./judges/validate.js";
 import { compileOutputSchema, normalizeRelativePath, validatorTimeoutMs } from "@nojv/core";
 import { materializePayload } from "./payload-materializer.js";
@@ -152,7 +154,18 @@ async function runInteractive(workDir: string, config: SandboxInput): Promise<vo
   if (interactive.role === "solution") {
     const compileResult = await compileSubmission(workDir, config);
     if (!compileResult.success) {
-      emit({ compilationError: compileResult.error });
+      emitRunReport({ exitCode: -1, timeMs: 0, compilationError: compileResult.error });
+      return;
+    }
+    try {
+      await waitForInteractivePeer(process.stdin, process.stdout);
+    } catch (error) {
+      emitRunReport({
+        exitCode: -1,
+        timeMs: 0,
+        errorVerdict: "SE",
+        stderr: `Interactive startup failed: ${error instanceof Error ? error.message : "unknown error"}`,
+      });
       return;
     }
     await runInteractiveSolution(
@@ -165,7 +178,10 @@ async function runInteractive(workDir: string, config: SandboxInput): Promise<vo
 
   const interactorPath = await findScript("interactor");
   if (!interactorPath) {
-    emit({ compilationError: "Interactive validator requires an interactor script." });
+    emitValidateReport({
+      verdict: "SE",
+      judgeMessage: "Interactive validator requires an interactor script.",
+    });
     return;
   }
 
@@ -173,13 +189,26 @@ async function runInteractive(workDir: string, config: SandboxInput): Promise<vo
   log("Compiling interactor...");
   const compiled = await compileInteractor(interactorPath, interactorLang, workDir);
   if (!compiled.success) {
-    emit({ compilationError: `Interactor compilation failed: ${compiled.error}` });
+    emitValidateReport({
+      verdict: "SE",
+      judgeMessage: `Interactor compilation failed: ${compiled.error}`,
+    });
     return;
   }
 
   const index = interactive.index;
   const { inputFile, answerFile } = resolveInteractiveCaseFiles(SUBMISSION_DIR, index);
   const feedbackDir = await fs.mkdtemp(path.join(workDir, "fb-"));
+
+  try {
+    await waitForInteractivePeer(process.stdin, process.stdout);
+  } catch (error) {
+    emitValidateReport({
+      verdict: "SE",
+      judgeMessage: `Interactive startup failed: ${error instanceof Error ? error.message : "unknown error"}`,
+    });
+    return;
+  }
 
   log(`Running interactor for case ${String(index)}...`);
   await runInteractiveValidator(
@@ -269,10 +298,6 @@ function resolveCaseIndex(config: SandboxInput): number | null {
 }
 
 async function main(): Promise<void> {
-  if (process.env.SANDBOX_PHASE === "publish-artifact") {
-    process.stdout.write(JSON.stringify(await publishArtifact()));
-    return;
-  }
   if (process.env.SANDBOX_PHASE === "prepare") {
     await runPreparePhase();
     return;
@@ -316,7 +341,11 @@ async function main(): Promise<void> {
   const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "sandbox-"));
   try {
     if (config.interactive) {
-      await runInteractive(workDir, config);
+      try {
+        await runInteractive(workDir, config);
+      } finally {
+        process.stdin.destroy();
+      }
     } else if (config.validate) {
       await runValidate(workDir, config);
     } else {

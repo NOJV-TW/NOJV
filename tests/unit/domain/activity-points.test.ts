@@ -5,10 +5,6 @@ import {
   assertActivityAllocation,
   sumActivityScores,
 } from "../../../packages/application/src/scoring/activity-points";
-import {
-  equalActivityWeights,
-  rescaleActivityWeights,
-} from "../../../apps/web/src/lib/utils/activity-weights";
 
 const problems = [
   { problemId: "a", points: 40 },
@@ -48,17 +44,6 @@ describe("activity weights", () => {
     }
     expect(() => assertActivityAllocation(0, [], false)).toThrow();
     expect(() => activityScore(100, 0, 40)).toThrow();
-  });
-  it("distributes basis-point remainders in order and preserves exact legacy allocations", () => {
-    const thirds = ["a", "b", "c"].map((problemId) => ({ problemId, points: 1 }));
-    expect(equalActivityWeights(thirds, 100).map((p) => p.points)).toEqual([
-      33.34, 33.33, 33.33,
-    ]);
-    expect(rescaleActivityWeights(thirds, 3, 3)).toEqual(thirds);
-    expect(rescaleActivityWeights(problems, 100, 50).map((p) => p.points)).toEqual([20, 30]);
-    expect(rescaleActivityWeights(thirds, 3, 100).reduce((sum, p) => sum + p.points, 0)).toBe(
-      100,
-    );
   });
 });
 

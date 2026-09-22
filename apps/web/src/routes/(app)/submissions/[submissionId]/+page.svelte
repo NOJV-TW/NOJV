@@ -1,6 +1,6 @@
 <script lang="ts">
   import SubmissionId from "$lib/components/features/submission/SubmissionId.svelte";
-  import { ArrowLeft, Check, Copy, Download } from "@lucide/svelte";
+  import { Check, Copy, Download } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { watchSubmissionStates } from "$lib/services/submission-tracker";
   import { formatDateTime } from "$lib/utils/datetime";
@@ -12,6 +12,7 @@
   import SubtaskResultTree from "$lib/components/features/submission/SubtaskResultTree.svelte";
   import HighlightedCode from "$lib/components/primitives/ui/HighlightedCode.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
+  import BackLink from "$lib/components/primitives/layout/BackLink.svelte";
 
   let { data } = $props();
 
@@ -30,6 +31,17 @@
       verdict === "compiling" ||
       verdict === "running",
   );
+
+  const recoveryMessage = $derived.by(() => {
+    if (!execution || !executionActive) return null;
+    if (execution.reasonCode === "original_version_unavailable")
+      return m.judgeRecovery_missingVersion();
+    if (execution.state === "waiting_capacity" || execution.state === "queued")
+      return verdict === "system_error" ? null : m.judgeRecovery_waiting();
+    if (execution.state === "running" || execution.state === "finalizing")
+      return m.judgeRecovery_running();
+    return m.judgeRecovery_recovering();
+  });
 
   const verdictLabel = $derived(
     verdict === "pending_upload"
@@ -120,38 +132,16 @@
 </script>
 
 <PageContainer class="flex flex-col gap-4">
-  <a
-    class="inline-flex w-fit items-center gap-1.5 text-body-sm text-muted-foreground transition-[color] duration-fast ease-out-soft hover:text-foreground"
-    href={backTarget.href}
-  >
-    <ArrowLeft aria-hidden="true" class="size-4" />
-    {backTarget.label}
-  </a>
+  <BackLink class="w-fit text-body-sm" href={backTarget.href} label={backTarget.label} />
 
   <div class="grid grid-cols-1 gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
     <aside class="flex min-w-0 flex-col gap-5">
       <div class="flex flex-col gap-2">
-        <p class="text-caption uppercase tracking-wide text-muted-foreground">
-          {formatProblemDisplayName(submission.problem)}
-        </p>
         <p class="break-words text-title-lg font-semibold leading-tight {verdictClass}">
           {verdictLabel}
         </p>
-        {#if executionActive}
-          <p class="text-body-sm text-muted-foreground" role="status">
-            {execution?.reasonCode === "original_version_unavailable"
-              ? m.judgeRecovery_missingVersion()
-              : execution?.state === "waiting_capacity" || execution?.state === "queued"
-                ? m.judgeRecovery_waiting()
-                : execution?.state === "running" || execution?.state === "finalizing"
-                  ? m.judgeRecovery_running()
-                  : m.judgeRecovery_recovering()}
-          </p>
-          {#if execution?.problemGeneration !== null}
-            <p class="text-caption text-muted-foreground">
-              {m.judgeRecovery_version({ version: String(execution?.problemGeneration) })}
-            </p>
-          {/if}
+        {#if recoveryMessage}
+          <p class="text-body-sm text-muted-foreground" role="status">{recoveryMessage}</p>
         {/if}
         <p class="text-headline font-semibold tabular-nums">
           {submission.score}<span class="text-title-sm text-muted-foreground">
@@ -200,6 +190,16 @@
         </div>
         <div class="col-span-2 min-w-0 border-t border-border-subtle pt-3">
           <dt class="text-caption uppercase tracking-wide text-muted-foreground">
+            {m.submissionDetail_problem()}
+          </dt>
+          <dd class="mt-1 break-words text-body-sm font-medium">
+            <a class="hover:underline" href={backTarget.href}>
+              {formatProblemDisplayName(submission.problem)}
+            </a>
+          </dd>
+        </div>
+        <div class="col-span-2 min-w-0 border-t border-border-subtle pt-3">
+          <dt class="text-caption uppercase tracking-wide text-muted-foreground">
             {m.submission_id()}
           </dt>
           <dd class="mt-1"><SubmissionId id={submission.id} /></dd>
@@ -219,7 +219,9 @@
           <div class="min-w-0">
             <dt class="text-caption text-muted-foreground">{m.submissionDetail_course()}</dt>
             <dd class="mt-0.5 break-words text-body-sm font-medium">
-              {submission.context.courseTitle}
+              <a class="hover:underline" href={`/courses/${submission.context.courseId}`}>
+                {submission.context.courseTitle}
+              </a>
             </dd>
           </div>
           <div class="min-w-0 border-t border-border-subtle pt-3">
@@ -229,9 +231,18 @@
                 : m.submissions_kind_exam()}
             </dt>
             <dd class="mt-0.5 break-words text-body-sm font-medium">
-              {submission.context.kind === "assignment"
-                ? submission.context.assignmentTitle
-                : submission.context.examTitle}
+              {#if submission.context.kind === "assignment"}
+                <a
+                  class="hover:underline"
+                  href={`/assignments/${submission.context.assignmentId}`}
+                >
+                  {submission.context.assignmentTitle}
+                </a>
+              {:else}
+                <a class="hover:underline" href={`/exams/${submission.context.examId}`}>
+                  {submission.context.examTitle}
+                </a>
+              {/if}
             </dd>
           </div>
         </dl>

@@ -42,13 +42,8 @@ export type TestcaseSetGroup = submissionDomain.TestcaseSetGroup;
 
 export async function fetchJudgeContext(
   submissionId: string,
-): Promise<submissionDomain.JudgeDispatchMeta & { staged: boolean }> {
-  return {
-    ...(await submissionDomain.getJudgeDispatchMeta(submissionId)),
-    staged:
-      process.env.EXECUTION_BACKEND === "kubernetes" &&
-      process.env.K8S_CAPACITY_ADMISSION === "true",
-  };
+): Promise<submissionDomain.JudgeDispatchMeta> {
+  return submissionDomain.getJudgeDispatchMeta(submissionId);
 }
 
 export function mergeSandboxSources(
@@ -392,7 +387,6 @@ export async function fetchSubmissionIdsForRejudge(input: BatchRejudgeInput): Pr
   {
     submissionId: string;
     studentId: string;
-    staged: boolean;
     judgeGeneration: number;
     draft: SubmissionJudgeDraft;
   }[]
@@ -406,29 +400,15 @@ export async function fetchSubmissionIdsForRejudge(input: BatchRejudgeInput): Pr
     ...(input.since ? { since: new Date(input.since) } : {}),
     ...(input.until ? { until: new Date(input.until) } : {}),
   });
-  return targets.map((target) => ({
-    ...target,
-    staged:
-      process.env.EXECUTION_BACKEND === "kubernetes" &&
-      process.env.K8S_CAPACITY_ADMISSION === "true",
-  }));
+  return targets;
 }
 
 export async function fetchSingleSubmissionForRejudge(submissionId: string): Promise<{
   submissionId: string;
   studentId: string;
-  staged: boolean;
   draft: SubmissionJudgeDraft;
 } | null> {
-  const target = await submissionDomain.findOneForRejudge(submissionId);
-  return target
-    ? {
-        ...target,
-        staged:
-          process.env.EXECUTION_BACKEND === "kubernetes" &&
-          process.env.K8S_CAPACITY_ADMISSION === "true",
-      }
-    : null;
+  return submissionDomain.findOneForRejudge(submissionId);
 }
 
 export async function snapshotSubmissionForRejudge(

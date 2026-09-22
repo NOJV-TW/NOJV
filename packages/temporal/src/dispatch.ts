@@ -7,6 +7,7 @@ import type {
   AssignmentDueSoonInput,
   ContestLifecycleInput,
   ExamAutoCloseInput,
+  JudgePriority,
   LifecycleScheduleIdentity,
   PlagiarismCheckInput,
   RegistryGarbageCollectInput,
@@ -129,7 +130,7 @@ export const LIFECYCLE_RECONCILER_WORKFLOW_ID = "lifecycle-timer-reconciler";
 export async function ensureLifecycleReconciler(): Promise<void> {
   const client = await getTemporalClient();
   try {
-    await client.workflow.start("lifecycleReconcilerWorkflow", {
+    await client.workflow.start("lifecycleReconcilerProcessorWorkflow", {
       taskQueue: PLATFORM_TASK_QUEUE,
       workflowId: LIFECYCLE_RECONCILER_WORKFLOW_ID,
       cronSchedule: "*/5 * * * *",
@@ -146,7 +147,7 @@ export const DURABLE_WORK_WORKFLOW_ID = "durable-work-processor";
 export async function ensureDurableWorkProcessor(): Promise<void> {
   const client = await getTemporalClient();
   try {
-    await client.workflow.start("durableWorkWorkflow", {
+    await client.workflow.start("durableWorkProcessorWorkflow", {
       taskQueue: PLATFORM_TASK_QUEUE,
       workflowId: DURABLE_WORK_WORKFLOW_ID,
       cronSchedule: "* * * * *",
@@ -428,48 +429,19 @@ export async function cancelRejudge(workflowId: string): Promise<void> {
 export async function dispatchJudgeExecution(input: {
   executionId: string;
   workflowId: string;
-  capacity?: true;
-  admissionOrder?: {
-    executionId: string;
-    submissionId: string;
-    studentId: string;
-    submittedAt: number;
-  };
+  priority: JudgePriority;
 }): Promise<void> {
   const client = await getTemporalClient();
-  if (process.env.JUDGE_CAPACITY_ROUTING === "true" || input.capacity) {
-    if (!input.admissionOrder) throw new Error("Judge admission order is required");
-    await client.workflow
-      .getHandle("judge-admission-v1")
-      .executeUpdate("dispatchJudgeWorkflow", {
-        args: [
-          {
-            workflowId: input.workflowId,
-            workflowType: "durableJudgeWorkflow",
-            input: {
-              executionId: input.executionId,
-              ...(input.capacity ? { capacity: true } : {}),
-            },
-            admissionOrder: input.admissionOrder,
-          },
-        ],
-      });
-    return;
-  }
   try {
     await client.workflow.start("durableJudgeWorkflow", {
       workflowId: input.workflowId,
       taskQueue: JUDGE_TASK_QUEUE,
       workflowIdReusePolicy: "REJECT_DUPLICATE",
+      priority: input.priority,
       args: [{ executionId: input.executionId }],
     });
   } catch (error) {
     if (!(error instanceof WorkflowExecutionAlreadyStartedError)) throw error;
-    try {
-      await client.workflow.getHandle(input.workflowId).signal("capacityAvailable");
-    } catch (signalError) {
-      if (!(signalError instanceof WorkflowNotFoundError)) throw signalError;
-    }
   }
 }
 
@@ -477,17 +449,13 @@ export async function dispatchJudgeCleanup(input: {
   executionId: string;
   workflowId: string;
   leaseToken: string;
-  capacity?: true;
 }): Promise<void> {
   const client = await getTemporalClient();
   try {
     await client.workflow.start("judgeCleanupWorkflow", {
       workflowId: `judge-cleanup-${input.leaseToken}`,
       workflowIdReusePolicy: "ALLOW_DUPLICATE_FAILED_ONLY",
-      taskQueue:
-        process.env.JUDGE_CAPACITY_ROUTING === "true" || input.capacity
-          ? "judge-control"
-          : JUDGE_TASK_QUEUE,
+      taskQueue: JUDGE_TASK_QUEUE,
       args: [input],
     });
   } catch (error) {

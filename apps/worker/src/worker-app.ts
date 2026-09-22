@@ -6,12 +6,10 @@ import "./domain-orchestration";
 
 import {
   closeTemporalClient,
-  getTemporalClient,
   ensureDurableWorkProcessor,
   ensureLifecycleReconciler,
   ensureSubmissionSweeper,
   JUDGE_TASK_QUEUE,
-  CAPACITY_JUDGE_TASK_QUEUE,
   PLATFORM_TASK_QUEUE,
   temporalConnectionOptions,
 } from "@nojv/temporal";
@@ -117,11 +115,6 @@ export class WorkerApp {
     const address = this.env.TEMPORAL_ADDRESS;
     const namespace = this.env.TEMPORAL_NAMESPACE;
     const mode = this.env.WORKER_MODE;
-    if (
-      mode === "control" &&
-      (this.env.EXECUTION_BACKEND !== "kubernetes" || !this.env.K8S_CAPACITY_ADMISSION)
-    )
-      throw new Error("Control worker requires Kubernetes capacity admission to be enabled");
     if (mode === "all" || mode === "platform") {
       const stopMetrics = startJudgeRecoveryMetrics();
       this.cleanupSteps.push({
@@ -141,35 +134,6 @@ export class WorkerApp {
       run: () => connection.close(),
     });
     this.assertStarting();
-
-    if (
-      (mode === "all" || mode === "control") &&
-      this.env.EXECUTION_BACKEND === "kubernetes" &&
-      this.env.K8S_CAPACITY_ADMISSION
-    ) {
-      const controlWorker = await Worker.create({
-        connection,
-        namespace,
-        taskQueue: "judge-control",
-        workflowsPath: this.workflowsPath,
-        activities: await import("./activities/judge-control-bundle.js"),
-        maxConcurrentActivityTaskExecutions: 4,
-        shutdownGraceTime: "30s",
-      });
-      this.addWorker(controlWorker, "judge-control");
-      const client = await getTemporalClient();
-      this.registerTemporalClientCleanup();
-      try {
-        await client.workflow.start("judgeAdmissionWorkflow", {
-          workflowId: "judge-admission-v1",
-          taskQueue: "judge-control",
-          args: [],
-        });
-      } catch (error) {
-        if (!(error instanceof Error) || error.name !== "WorkflowExecutionAlreadyStartedError")
-          throw error;
-      }
-    }
 
     if (mode === "all" || mode === "judge") {
       const { setExecutorOwner } = await import("./activities/judge.js");
@@ -220,27 +184,24 @@ export class WorkerApp {
         });
         if (decision.action === "refuse") {
           throw new Error(
-            "Refusing to start K8s judge worker: the cluster CNI does not enforce NetworkPolicy, " +
-              "so sandbox egress isolation is inert. Enable a NetworkPolicy-enforcing CNI (GKE " +
-              "Dataplane V2, Calico, or Cilium).",
+            "Refusing to start K8s judge worker: sandbox NetworkPolicy enforcement was not " +
+              "verified. Inspect the probe outcome and target readiness before changing the CNI.",
           );
         }
       }
 
-      const judgeTaskQueue =
-        this.env.EXECUTION_BACKEND === "kubernetes" && this.env.K8S_CAPACITY_ADMISSION
-          ? CAPACITY_JUDGE_TASK_QUEUE
-          : JUDGE_TASK_QUEUE;
       const judgeWorker = await Worker.create({
         connection,
         namespace,
-        taskQueue: judgeTaskQueue,
+        taskQueue: JUDGE_TASK_QUEUE,
         workflowsPath: this.workflowsPath,
         activities: await import("./activities/judge-bundle.js"),
         maxConcurrentActivityTaskExecutions: this.env.WORKER_CONCURRENCY,
+        maxCachedWorkflows: 32,
+        maxConcurrentWorkflowTaskExecutions: 8,
         shutdownGraceTime: "30s",
       });
-      this.addWorker(judgeWorker, judgeTaskQueue);
+      this.addWorker(judgeWorker, JUDGE_TASK_QUEUE);
       this.assertStarting();
     }
 
@@ -252,6 +213,8 @@ export class WorkerApp {
         workflowsPath: this.workflowsPath,
         activities: await import("./activities/platform-bundle.js"),
         maxConcurrentActivityTaskExecutions: this.env.WORKER_CONCURRENCY,
+        maxCachedWorkflows: 32,
+        maxConcurrentWorkflowTaskExecutions: 8,
         shutdownGraceTime: "30s",
       });
       this.addWorker(platformWorker, PLATFORM_TASK_QUEUE);

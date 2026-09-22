@@ -22,6 +22,7 @@ import {
 } from "../shared/errors";
 import type { ActorContext } from "../shared/actor-context";
 import { getDomainOrchestration } from "../shared/orchestration";
+import { dispatchNextJudgeExecutions } from "./judge-recovery";
 import { toJsonValue } from "../shared/to-json-value";
 
 const REJUDGE_WORKFLOW_PREFIX = "rejudge-";
@@ -273,6 +274,7 @@ export async function cancelRejudge(
       where: { operationId: workflowId },
       orderBy: { submissionId: "asc" },
     });
+    const affectedUsers = new Set<string>();
     const cancelled = await db.$transaction(async (tx) => {
       let count = 0;
       for (const selected of rows) {
@@ -289,6 +291,7 @@ export async function cancelRejudge(
         )
           continue;
         await tx.judgeExecution.update({ where: { id: run.id }, data: { state: "cancelled" } });
+        affectedUsers.add(submission.userId);
         count++;
         await tx.submission.updateMany({
           where: {
@@ -310,6 +313,7 @@ export async function cancelRejudge(
       });
       return count;
     });
+    for (const userId of affectedUsers) await dispatchNextJudgeExecutions(userId);
     return {
       status:
         cancelled || rows.some((run) => run.state === "cancelled")

@@ -113,7 +113,7 @@
       ...editRows,
       ...candidates.map((candidate, index) => ({
         problemId: candidate.id,
-        points: 0,
+        points: 100,
         title: candidate.title,
         displayId: candidate.displayId,
         difficulty: candidate.difficulty,

@@ -47,11 +47,14 @@ export interface InteractiveRunReport {
   timeMs: number;
   memoryKb?: number;
   errorVerdict?: Extract<SandboxVerdict, "TLE" | "MLE" | "RE" | "SE"> | null;
+  compilationError?: string;
   stderr?: string;
 }
 
 export function parseMarkedLine(stderr: string, marker: string): unknown {
-  const idx = stderr.lastIndexOf(marker);
+  let idx = stderr.lastIndexOf(`\n${marker}`);
+  if (idx !== -1) idx += 1;
+  else if (stderr.startsWith(marker)) idx = 0;
   if (idx === -1) return null;
   const rest = stderr.slice(idx + marker.length);
   const newline = rest.indexOf("\n");
@@ -69,6 +72,7 @@ const interactiveRunReportSchema = z.object({
   timeMs: z.number(),
   memoryKb: z.number().optional(),
   errorVerdict: z.enum(["TLE", "MLE", "RE", "SE"]).nullish(),
+  compilationError: z.string().min(1).optional(),
   stderr: z.string().optional(),
 });
 
@@ -90,6 +94,8 @@ export function parseInteractiveRunReport(stderr: string): InteractiveRunReport 
   if (parsed.data.memoryKb !== undefined) report.memoryKb = parsed.data.memoryKb;
   if (parsed.data.errorVerdict != null) report.errorVerdict = parsed.data.errorVerdict;
   if (parsed.data.stderr !== undefined) report.stderr = parsed.data.stderr;
+  if (parsed.data.compilationError !== undefined)
+    report.compilationError = parsed.data.compilationError;
   return report;
 }
 

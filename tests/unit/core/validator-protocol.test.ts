@@ -2,6 +2,7 @@ import {
   INTERACTIVE_RUN_MARKER,
   INTERACTIVE_VALIDATE_MARKER,
   parseMarkedLine,
+  parseInteractiveRunReport,
   parseValidatorFeedback,
   VALIDATOR_EXIT_ACCEPT,
   VALIDATOR_EXIT_WRONG,
@@ -87,6 +88,24 @@ describe("parseMarkedLine (interactive run/validate markers)", () => {
     expect(parseMarkedLine(stderr, INTERACTIVE_VALIDATE_MARKER)).toEqual({ verdict: "AC" });
   });
 
+  it("ignores markers inside encoded compiler diagnostics", () => {
+    const report = {
+      exitCode: -1,
+      timeMs: 0,
+      compilationError: "main.c:1:2: error: #error <<<NOJV_RUN>>>\n<<<NOJV_RUN>>>",
+    };
+    const stderr = `compiler logging\n${INTERACTIVE_RUN_MARKER}${JSON.stringify(report)}\n`;
+    expect(parseInteractiveRunReport(stderr)).toEqual(report);
+  });
+
+  it("ignores markers embedded in ordinary log lines", () => {
+    const stderr = `${INTERACTIVE_VALIDATE_MARKER}{"verdict":"AC"}\nlogging ${INTERACTIVE_VALIDATE_MARKER}{"verdict":"SE"}`;
+    expect(parseMarkedLine(stderr, INTERACTIVE_VALIDATE_MARKER)).toEqual({ verdict: "AC" });
+    expect(
+      parseMarkedLine(`logging ${INTERACTIVE_RUN_MARKER}{}`, INTERACTIVE_RUN_MARKER),
+    ).toBeNull();
+  });
+
   it("returns null when the marker is absent", () => {
     expect(parseMarkedLine("no markers here", INTERACTIVE_RUN_MARKER)).toBeNull();
   });
@@ -99,5 +118,25 @@ describe("parseMarkedLine (interactive run/validate markers)", () => {
 
   it("returns null on an empty payload", () => {
     expect(parseMarkedLine(`${INTERACTIVE_RUN_MARKER}\n`, INTERACTIVE_RUN_MARKER)).toBeNull();
+  });
+});
+
+describe("interactive compilation reports", () => {
+  it("preserves a student compiler diagnostic on the stderr report", () => {
+    const report = {
+      exitCode: -1,
+      timeMs: 0,
+      compilationError: "main.c: syntax error\nsecond line",
+    };
+    expect(
+      parseInteractiveRunReport(`${INTERACTIVE_RUN_MARKER}${JSON.stringify(report)}\n`),
+    ).toEqual(report);
+  });
+
+  it("rejects malformed compilation diagnostics", () => {
+    const report = { exitCode: -1, timeMs: 0, compilationError: 42 };
+    expect(
+      parseInteractiveRunReport(`${INTERACTIVE_RUN_MARKER}${JSON.stringify(report)}\n`),
+    ).toBeNull();
   });
 });

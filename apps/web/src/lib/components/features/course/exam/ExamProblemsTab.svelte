@@ -151,7 +151,7 @@
           title: problem.title,
           difficulty: problem.difficulty,
           displayId: problem.displayId,
-          points: 0,
+          points: 100,
         })),
     ];
   }
@@ -209,7 +209,9 @@
     id="exam-problems-form"
     method="POST"
     action="?/updateProblems"
-    use:enhance
+    use:enhance={() =>
+      ({ update }) =>
+        update({ reset: false })}
     class="space-y-3"
   >
     {#if ids.length === 0}

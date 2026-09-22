@@ -60,7 +60,7 @@ Cooldown enforcement lives in the database — see `checkExamSubmitCooldown` in 
 - Keyed on the Cloudflare-aware client IP via `getClientIp(event)`; the exam password-attempt limiter combines that IP with a normalized username.
 - Key prefix is `rl` — no `nojv:` prefix.
 - Shared request and password sign-in limiters:
-  - `apiRateLimiter` — 60 req / 60 s
+  - `apiRateLimiter` — 300 req / 60 s
   - `writeApiRateLimiter` — 10 req / 60 s
   - `formActionRateLimiter` — 20 req / 60 s (consumed via `withRateLimit` → `consumeFormRateLimitInternal`)
   - `authRateLimiter` — 60 req / 60 s across all Auth API routes, including exam sign-in and OAuth

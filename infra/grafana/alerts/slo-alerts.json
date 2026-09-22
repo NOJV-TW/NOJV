@@ -160,23 +160,12 @@
   {
     "uid": "nojv-judge-cleanup-pending",
     "title": "Judge cleanup requires retry",
-    "slo": "Judge permits remain held until sandbox termination",
+    "slo": "Judge leases remain held until sandbox termination",
     "expr": "sum(increase(judge_cleanup_pending_total[5m]))",
     "threshold": 0,
     "for": "0m",
     "severity": "critical",
     "noDataState": "OK",
-    "summary": "Sandbox termination exceeded its cleanup deadline. Permits remain held; inspect run ID and Pod UID in worker logs. Verify CRI, shim and cgroup ownership before targeted recovery; do not restart the runtime automatically."
-  },
-  {
-    "uid": "nojv-judge-node-quarantined",
-    "title": "Judge node quarantined after FailedKillPod",
-    "slo": "Repeated runtime termination failures stop new judge admission",
-    "expr": "max(judge_quarantined_nodes)",
-    "threshold": 0,
-    "for": "0m",
-    "severity": "critical",
-    "noDataState": "OK",
-    "summary": "A judge node was quarantined after repeated FailedKillPod. Healthy nodes can continue; held permits and runtime remnants need verified cleanup before operational recovery."
+    "summary": "Sandbox termination exceeded its cleanup deadline. The execution lease remains held; inspect run ID and Pod UID in worker logs. Verify CRI, shim and cgroup ownership before targeted recovery; do not restart the runtime automatically."
   }
 ]

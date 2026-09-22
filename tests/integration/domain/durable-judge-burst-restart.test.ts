@@ -47,7 +47,6 @@ async function until(assertion: () => Promise<boolean>, timeoutMs: number) {
 describe("durable judge database burst and worker restart", () => {
   it("drains 100 mixed-class multi-stage submissions without repeating checkpoints or converting capacity to SE", async () => {
     vi.stubEnv("SANDBOX_IMAGE", ORIGINAL_IMAGE);
-    vi.stubEnv("WORKER_CONCURRENCY", String(SLOTS));
     const teacher = await createTestUser({ platformRole: "teacher" });
     const user = await createTestUser();
     const problem = await createTestProblem({ authorId: teacher.id });
@@ -129,11 +128,7 @@ describe("durable judge database burst and worker restart", () => {
       },
     };
     setExecutorOwner(new ExecutorOwner(sandbox));
-    configureDomainOrchestration({
-      async dispatchJudgeExecution({ workflowId }: { workflowId: string }) {
-        await env.client.workflow.getHandle(workflowId).signal("capacityAvailable");
-      },
-    } as never);
+    configureDomainOrchestration({} as never);
     const activities = {
       ...judgeActivities,
       async setJudgeExecutionState(
@@ -156,7 +151,7 @@ describe("durable judge database burst and worker restart", () => {
         taskQueue,
         workflowsPath,
         activities,
-        maxConcurrentActivityTaskExecutions: 100,
+        maxConcurrentActivityTaskExecutions: SLOTS / 2,
         maxConcurrentWorkflowTaskExecutions: 100,
         shutdownGraceTime: "10s",
       });
@@ -242,7 +237,6 @@ describe("durable judge database burst and worker restart", () => {
       expect([...finalizations.values()].every((count) => count === 1)).toBe(true);
       expect(publications.size).toBe(SUBMISSIONS);
       expect([...publications.values()].every((count) => count === 1)).toBe(true);
-      expect(transitions).toContain("waiting_capacity");
       expect(transitions).not.toContain("recovering");
       expect(transitions).not.toContain("blocked");
       expect(maximumActive).toBeGreaterThan(1);

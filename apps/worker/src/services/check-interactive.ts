@@ -1,6 +1,7 @@
 import {
   parseInteractiveRunReport,
   parseInteractiveValidatorReport,
+  type SandboxResult,
   type SandboxTestcase,
   type SandboxTestcaseResult,
 } from "@nojv/core";
@@ -79,4 +80,16 @@ export function mergeInteractiveCase(
     ...(outcome.teamMessage !== undefined ? { feedback: outcome.teamMessage } : {}),
     ...(outcome.judgeMessage !== undefined ? { staffFeedback: outcome.judgeMessage } : {}),
   };
+}
+
+export function resolveInteractiveCase(
+  testcase: SandboxTestcase,
+  sol: InteractiveSideResult,
+  int: InteractiveSideResult,
+): SandboxResult {
+  if (!sol.timedOut && !sol.spawnError && !int.timedOut && !int.spawnError) {
+    const compilationError = parseInteractiveRunReport(sol.stderr)?.compilationError;
+    if (compilationError !== undefined) return { testcaseResults: [], compilationError };
+  }
+  return { testcaseResults: [mergeInteractiveCase(testcase, sol, int)] };
 }

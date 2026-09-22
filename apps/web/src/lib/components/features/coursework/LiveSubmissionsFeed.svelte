@@ -14,7 +14,7 @@
     createdAt: string;
     ipAddress: string | null;
     language: Language;
-    score: number;
+    score: number | null;
     status: string;
     problem: { id: string; title: string };
     user: { id: string; name: string; username: string | null } | null;

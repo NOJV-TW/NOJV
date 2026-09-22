@@ -78,6 +78,25 @@ Redis loss disables real-time events and security state access. Redis-backed rat
 **Recovery**: Restore Redis connectivity. Clients reconnect and read the current PostgreSQL state; invalidated security proofs require fresh verification.
 **Note**: Submissions still process (Temporal handles orchestration). SSE clients reconnect.
 
+### Cron processor recurrence
+
+The minute-cron `durableWorkProcessorWorkflow` awaits a `durableWorkWorkflow` child.
+Only the child continues as new after each bounded drain, preserving its fairness
+cursor without removing the parent's cron schedule. Child completion or failure
+therefore leaves the next scheduled parent run intact. Activity timeouts, leases,
+and database-owned retry/idempotency rules remain unchanged.
+
+When replacing the former `durableWorkWorkflow` cron singleton, wait for its current
+execution to become terminal before invoking `ensureDurableWorkProcessor`; an
+already-running singleton is preserved. Do not terminate an in-flight batch to
+change its Workflow type. The five-minute `lifecycleReconcilerProcessorWorkflow`
+similarly awaits the existing paginated `lifecycleReconcilerWorkflow` child.
+Existing cron singletons are not automatically replaced on worker startup. For a
+still-recurring former lifecycle singleton, first establish a boundary with no
+pending/running Activity or data mutation before a scoped operator handoff;
+cancellation alone does not stop the cron series. Verify the replacement parent's
+type and cron schedule, child completion, and the following scheduled run.
+
 ### Temporal Unavailable
 
 **Impact**: No new workflows start. In-flight workflows pause.
@@ -116,46 +135,20 @@ propagation and UID preconditions, checks ownership, and waits for owned Pods to
 disappear before considering the stage released. A timeout, API failure or
 changed ownership raises `cleanup_pending`. New workflow histories perform
 cleanup in a non-cancellable scope with persistent activity retries; the
-admission permit stays held until cleanup succeeds. Cancellation, heartbeat
+execution lease stays held until cleanup succeeds. Cancellation, heartbeat
 expiration and worker restarts never establish that execution resources are free.
+`judge_cleanup_pending_total` supports recovery alerts. No automatic k3s,
+containerd or runsc restart is performed.
 
-The control worker quarantines a node after observing a `FailedKillPod` event
-count of at least three. Quarantine persists in coordinator history, and healthy
-nodes remain available for other runs. `judge_cleanup_pending_total` and
-`judge_quarantined_nodes` support recovery alerts. No automatic k3s, containerd
-or runsc restart is performed. These controls contain a failed termination;
-they do not diagnose or repair the runtime's underlying failure.
-
-Admission also excludes nodes reporting MemoryPressure, DiskPressure or
-PIDPressure as True or Unknown. Such waits do not reject the submission or
-release existing commitments. Capacity and fair wave sizes are recomputed at
-admission boundaries; per-case limits remain unchanged. Quota rejection remains
-backpressure even if its message includes `forbidden`, and cannot exhaust a
-fixed attempt budget into SE. DiskPressure describes storage exhaustion, not
-IOPS saturation; this control is not a measured IO latency feedback loop.
+Quota rejection remains backpressure even if its message includes `forbidden`
+and cannot exhaust a fixed attempt budget into SE; the execution retries every
+30 seconds as `waiting_capacity`.
 
 An API object disappearing is insufficient evidence for a known stuck-runtime
 incident. Before directed host cleanup, match the run ID, Job owner UID, Pod
 UID, CRI sandbox/container IDs, shim/runsc processes and cgroup. Recovery requires
-the corresponding processes and cgroup to disappear. Keep the node quarantined
-until that evidence exists. Follow the [capacity runbook](../runbooks/judge-capacity.md).
-
-### Capacity Coordinator Unavailable or Stale
-
-Capacity admission is disabled by default. When enabled, its durable singleton
-runs on the independent `judge-control` queue. It refreshes allocatable resources
-and effective committed requests every 30 seconds. A snapshot older than 90
-seconds stops new admission; held permits and already executing work remain.
-Loss of a worker, delayed signals or a shrinking node budget must not free held
-permits or force-kill healthy work merely to meet the new budget.
-
-The coordinator starts paused and does not initially own quota writes. After a
-drained, protected Helm-to-controller handoff, successful quota reconciliation is
-required before admission can resume. Helm and the controller must never both
-maintain the dynamic quota spec. Control-plane restart preserves pause, permit,
-quarantine and quota-management state in Temporal. Recovery consists of restoring
-the control worker/API connectivity and verifying the state, not resetting the
-coordinator to discard reservations.
+the corresponding processes and cgroup to disappear. Follow the
+[judge queue runbook](../runbooks/judge-queue.md).
 
 ## Operational Invariants
 
@@ -163,15 +156,15 @@ coordinator to discard reservations.
 
 1. Accepted source, immutable snapshot, execution ownership and dispatch intent commit before returning the submission identity.
 2. Workflow IDs are `judge-execution-{executionId}-{recoveryEpoch}`. Duplicate dispatch is idempotent; automatic recovery changes only the epoch, while explicit teacher rejudge creates a generation and selects the latest version.
-3. Every stage write and verdict commit is fenced by the current owner. Baseline checkpoint commit clears the lease only after executor cleanup has succeeded. Capacity wave checkpoints retain the attempt lease across the shared artifact lifetime; verified final cleanup releases it.
+3. Every stage write and verdict commit is fenced by the current owner. Baseline checkpoint commit clears the lease only after executor cleanup has succeeded.
 4. The final verdict commits before score/notification effects. The execution stays `finalizing` until those effects succeed; cancellation and another rejudge cannot discard committed-result finalization.
 5. The minute sweeper reconciles actual workflow ownership, redispatches missing work, and recovers closed workflows without changing snapshots. Healthy waits are preserved. A repeatedly failing workflow task pending over ten minutes or an activity without progress beyond its 70-minute execution budget is terminated by its actual owner ID and recovered on a later scan.
 6. Details/API expose queue/recovery reason, original problem generation, last progress and next retry. Polling continues through recoverable SE and teacher rejudge with an old valid result. Browser tracking timeout does not cancel accepted work.
 7. Legacy SE without immutable snapshots is blocked with `original_version_unavailable`; automatic recovery never guesses today's version. Only an explicit teacher rejudge selects the latest version.
 
-8. Capacity-enabled runs are ordered round-robin by student, with FIFO submissions per student and at most one active permit per student. A completed wave re-enters admission. Prepared unfinished attempts are bounded independently from total accepted submissions; accepting 100 submissions does not create 100 artifact PVCs at once.
+8. Executions are dispatched with Temporal task-queue priority (exam, contest, practice, recovery, rejudge) and per-student fairness. A student's later submission waits at dispatch time for the earlier one, so queued work is a database row rather than a live workflow; finishing an execution hands off to the student's next.
 9. Attempt resources and temporary result objects are owned by run ID, with Kubernetes UID checks on deletion and artifact access. Rejudge generation fencing still governs the final verdict commit. Cleanup of an old attempt must not remove a newer attempt's resources or overwrite its result.
-10. Resource-strategy rollout requires fixed verdict fixtures, no new leaks/OOM/false queue failures/starvation, and the recorded performance gate. At least 20% median improvement for the 100-person burst and at most 10% single-submission/web API p95 regression are acceptance criteria, not measured claims. The new strategy remains disabled until the [benchmark evidence](../runbooks/testing.md#judge-capacity-benchmark) and real gVisor integration checks pass.
+10. Judge lag is observed per priority key from the `judge` task-queue backlog age; capacity changes are `WORKER_CONCURRENCY` and the sandbox quota, never a scheduler change.
 
 ### Contest Lifecycle
 
@@ -243,11 +236,8 @@ for metric names and verification.
 
 ### Ambiguous Activity Timeouts
 
-New judge attempt histories retain their run/permit when an execution Activity
-may still produce resources after a heartbeat or execution timeout. They wait
-in Temporal for an exact run/permit stop acknowledgment before cleanup and retry;
-resource absence at a single instant does not fence a delayed producer. The
-[capacity recovery procedure](../runbooks/judge-capacity.md#activity-timeout-recovery)
-requires verification of the old Activity process identity and termination.
-Normal cancellation waits for Activity acknowledgment. Pre-patch histories keep
-their recorded behavior and must be drained before the resource-strategy cutover.
+A judge stage Activity heartbeats its database lease every 15 seconds. An
+expired lease is reconciled by `reconcileJudgeStage` or the dedicated
+`judgeCleanupWorkflow`, which confirm executor cleanup before the execution
+retries; resource absence at a single instant does not fence a delayed producer.
+Normal cancellation waits for Activity acknowledgment.

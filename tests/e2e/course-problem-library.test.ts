@@ -250,9 +250,7 @@ test("course library authorizes bound staff, shares drafts, forks public imports
       await picker.locator('label:has(input[type="checkbox"])').click();
       await picker.getByRole("button", { name: "Add selected" }).click();
       const weights = problems.locator('[data-slot="activity-weights"]');
-      await weights.getByRole("spinbutton", { name: "Total points", exact: true }).fill("200");
-      await weights.getByRole("button", { name: "Split equally", exact: true }).click();
-      await expect(weights.getByRole("status")).toHaveText("Allocated: 100% / 100%");
+      await expect(weights.getByRole("status")).toHaveText("Total: 200");
       const saved = teacherPage.waitForResponse(
         (response) =>
           response.request().method() === "POST" && response.url().includes("/updateProblems"),
@@ -280,13 +278,11 @@ test("course library authorizes bound staff, shares drafts, forks public imports
       await teacherPage.getByRole("tab", { name: "Problems", exact: true }).click();
       await expect(problems).toContainText(`${id} public source`);
       await expect(problems).toContainText(`${id} historical draft`);
-      await expect(
-        weights.getByRole("spinbutton", { name: "Total points", exact: true }),
-      ).toHaveValue("200");
+      await expect(weights.getByRole("status")).toHaveText("Total: 200");
       for (const title of [`${id} historical draft`, `${id} public source`]) {
         await expect(
-          weights.getByRole("spinbutton", { name: `${title} weight`, exact: true }),
-        ).toHaveValue("50");
+          weights.getByRole("spinbutton", { name: `${title} points`, exact: true }),
+        ).toHaveValue("100");
       }
     }
     expect(

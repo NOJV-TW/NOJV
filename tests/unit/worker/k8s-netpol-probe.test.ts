@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type * as k8s from "@kubernetes/client-node";
 
@@ -10,11 +10,17 @@ import {
   decideNetworkPolicyGate,
   netpolProbePodName,
   PROBE_ALLOWED_REACHED_MARKER,
+  PROBE_ALLOWED_BLOCKED_MARKER,
   PROBE_DENIED_BLOCKED_MARKER,
   PROBE_DENIED_REACHED_MARKER,
   verifyNetworkPolicyEnforced,
   type NetworkPolicyProbeDeps,
 } from "../../../apps/worker/src/services/k8s-netpol-probe";
+
+const { info } = vi.hoisted(() => ({ info: vi.fn() }));
+vi.mock("../../../apps/worker/src/logger.js", () => ({
+  createLogger: () => ({ info, warn: vi.fn(), error: vi.fn() }),
+}));
 
 const NS = "nojv-sandbox";
 
@@ -59,6 +65,8 @@ describe("NetworkPolicy probe manifests", () => {
     expect(script).toContain(PROBE_DENIED_BLOCKED_MARKER);
     expect(script).not.toContain("1.1.1.1");
     expect(pod.metadata!.labels!["nojv-netpol-probe-source"]).toBe("true");
+    expect(pod.spec!.activeDeadlineSeconds).toBe(30);
+    expect(pod.spec!.volumes).toBeUndefined();
   });
 
   it("allows ingress from the probe only to the target pods", () => {
@@ -128,6 +136,17 @@ describe("NetworkPolicy probe manifests", () => {
       ],
     });
     const readiness = target.spec!.containers[0]!.readinessProbe!;
+    expect(target.spec!.activeDeadlineSeconds).toBe(60);
+    expect(target.spec!.securityContext!.fsGroup).toBe(10001);
+    expect(target.spec!.volumes).toEqual([
+      { name: "probe-content", emptyDir: { medium: "Memory", sizeLimit: "1Mi" } },
+    ]);
+    expect(target.spec!.containers[0]!.command!.at(-1)).toBe(
+      "printf OK > /probe/index.html && exec httpd -f -p 8080 -h /probe",
+    );
+    expect(target.spec!.containers[0]!.volumeMounts).toEqual([
+      { name: "probe-content", mountPath: "/probe" },
+    ]);
     expect(readiness.tcpSocket).toBeUndefined();
     expect(readiness.exec?.command?.join(" ")).toContain("127.0.0.1:8080");
   });
@@ -144,6 +163,7 @@ function fakeDeps(
       created++;
     },
     readPod: async (name: string) => ({
+      metadata: { uid: `uid-${name}` },
       status: {
         phase: "Running",
         podIP: name.includes("allowed") ? "10.0.0.10" : "10.0.0.11",
@@ -188,6 +208,55 @@ describe("verifyNetworkPolicyEnforced — live probe wiring", () => {
       deps: f.deps,
     });
     expect(decision).toEqual({ enforced: true, action: "ok" });
+    expect(info).toHaveBeenCalledWith("NetworkPolicy probe markers", {
+      namespace: NS,
+      phase: "Succeeded",
+      allowedReached: true,
+      allowedBlocked: false,
+      deniedReached: false,
+      deniedBlocked: true,
+      outcome: "blocked",
+    });
+  });
+
+  it.each(["stopped", "unready", "replaced", "changed-ip"])(
+    "refuses a negative result when a target is %s after probing",
+    async (change) => {
+      const f = fakeDeps(`${PROBE_ALLOWED_REACHED_MARKER}\n${PROBE_DENIED_BLOCKED_MARKER}\n`);
+      const original = f.deps.readPod;
+      let reads = 0;
+      f.deps.readPod = async (name, namespace) => {
+        const pod = await original(name, namespace);
+        if (++reads > 2 && name.includes("denied")) {
+          if (change === "stopped") pod.status!.phase = "Failed";
+          if (change === "unready") pod.status!.containerStatuses![0]!.ready = false;
+          if (change === "replaced") pod.metadata!.uid = "replacement-uid";
+          if (change === "changed-ip") pod.status!.podIP = "10.0.0.99";
+        }
+        return pod;
+      };
+      expect(await verifyNetworkPolicyEnforced({ namespace: NS, deps: f.deps })).toEqual({
+        enforced: false,
+        action: "refuse",
+      });
+    },
+  );
+
+  it("records all four failed-control markers before cleanup and refuses", async () => {
+    const f = fakeDeps(`${PROBE_ALLOWED_BLOCKED_MARKER}\n${PROBE_DENIED_BLOCKED_MARKER}\n`);
+    expect(await verifyNetworkPolicyEnforced({ namespace: NS, deps: f.deps })).toEqual({
+      enforced: false,
+      action: "refuse",
+    });
+    expect(info).toHaveBeenCalledWith("NetworkPolicy probe markers", {
+      namespace: NS,
+      phase: "Succeeded",
+      allowedReached: false,
+      allowedBlocked: true,
+      deniedReached: false,
+      deniedBlocked: true,
+      outcome: "unconfirmed",
+    });
   });
 
   it("terminal Pod with NO recognizable marker → unconfirmed → REFUSE (fail closed)", async () => {
@@ -206,7 +275,13 @@ describe("verifyNetworkPolicyEnforced — live probe wiring", () => {
     });
     expect(ok).toEqual({ enforced: true, action: "ok" });
 
-    for (const log of [`${PROBE_DENIED_REACHED_MARKER}\n`, "garbage\n", ""]) {
+    for (const log of [
+      `${PROBE_DENIED_REACHED_MARKER}\n`,
+      "garbage\n",
+      "",
+      `${PROBE_ALLOWED_REACHED_MARKER}\n${PROBE_ALLOWED_BLOCKED_MARKER}\n${PROBE_DENIED_BLOCKED_MARKER}\n`,
+      `prefix ${PROBE_ALLOWED_REACHED_MARKER}\n${PROBE_DENIED_BLOCKED_MARKER}\n`,
+    ]) {
       const decision = await verifyNetworkPolicyEnforced({
         namespace: NS,
         deps: fakeDeps(log).deps,

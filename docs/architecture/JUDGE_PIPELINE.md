@@ -2,13 +2,9 @@
 
 The judge pipeline compiles, executes, and scores submissions. Temporal workflows orchestrate activities in `apps/worker`; student programs execute only inside isolated Docker or Kubernetes sandbox containers. Problems come in two modes: **Standard Mode** for classic competitive-programming problems and **Advanced Mode** for custom run/grade images. Both follow fixed flows rather than a user-configurable stage graph.
 
-Kubernetes capacity admission is implemented behind
-`worker.sandbox.capacityAdmission.enabled`, which defaults to `false`. The
-compile-once stages and coordinator described below are the enabled path;
-the existing Job-wave executor remains the default. Their availability in code
-does not establish production performance or a completed rollout. The 100-person
-benchmark and gVisor integration release evidence are still pending; see the
-[capacity operations runbook](../runbooks/judge-capacity.md).
+Executions are ordered by Temporal task-queue priority and bounded by the judge
+worker's Activity slots; see [Queue priority and capacity](#queue-priority-and-capacity)
+and the [judge queue runbook](../runbooks/judge-queue.md).
 
 ## Browser-local sample/custom tests
 
@@ -228,6 +224,18 @@ not the resource model. Per-case validator files use flat keys
 `interactive` runs one Job per testcase with solution/interactor containers wired
 over a `socat` TCP bridge on port 7777; only the interactor mounts secret
 input/answer data. `advanced` uses its separate run/grade Jobs and PVC contract.
+
+After compiling, both trusted interactive runners exchange a bounded peer-ready
+frame before starting either program or its execution timer. The runners consume
+this frame and preserve any prefetched conversation bytes when piping input to
+the programs; compilation and peer startup do not consume the student time limit.
+Startup EOF, malformed readiness, or timeout is a platform error. Each runner
+closes its input after reporting completion so its peer receives EOF promptly.
+
+Interactive runner reports use typed stderr markers; after readiness, stdout carries
+only the solution/interactor conversation. Student compilation failures produce the same
+submission-level CE result as standard judging. Interactor compilation failures
+remain platform errors, with compiler diagnostics available only to staff.
 
 ### score
 
@@ -467,59 +475,39 @@ cleanup. Heartbeats begin before snapshot I/O and continue during cleanup.
 After bounded activity failure, a durable timer delays the next attempt; the
 iteration/history bound does not discard database checkpoints or pinned content.
 
-### Capacity admission and fairness
+### Queue priority and capacity
 
-`judgeAdmissionWorkflow`, with workflow ID `judge-admission-v1`, runs on the
-separate `judge-control` task queue. The enabled chart creates a dedicated
-control-worker Deployment, so waiting for judge execution activity slots does
-not block capacity refresh or cleanup. A newly created coordinator is paused.
-Quota management initially remains disabled. Operators complete the retained
-quota handoff, signal `activateJudgeQuota`, verify successful reconciliation,
-then explicitly resume admission. Web/platform dispatch uses an awaited
-coordinator update when `JUDGE_CAPACITY_ROUTING=true`; `hold` persists new
-submissions to the unpolled staged queue while legacy work drains. The staged
-worker polls `judge-capacity-v1`, keeping those histories separate from `judge`.
-Dispatch, drain and rollback verification are documented in the capacity runbook.
+Judge executions are ordered by Temporal task-queue priority rather than by a
+scheduler of our own. `dispatchJudgeExecution` starts `durableJudgeWorkflow` on
+the `judge` queue with `priority.priorityKey` (1 exam, 2 contest, 3 practice or
+assignment, 4 recovery epoch of a live submission, 5 rejudge or any `background`
+queue class) and `priority.fairnessKey = studentId`; every stage Activity
+inherits both. Lower keys start first across the whole queue; inside a key,
+fairness keys share dispatch and FIFO order applies within one key. Fairness
+needs `matching.enableFairness` in the server's dynamic config; priority is on
+by default.
 
-Every 30 seconds the controller reads eligible `nojv-role=sandbox` nodes and
-effective non-judge Pod requests. Per-node CPU and memory budget is allocatable
-minus the larger of committed non-judge requests or 25% of allocatable. Effective
-requests include init containers, native sidecars and Pod overhead. Missing or
-more-than-90-second-old snapshots stop new admissions. Existing permits remain
-accounted for through worker restarts and node budget reductions.
-Nodes reporting MemoryPressure, DiskPressure or PIDPressure as True or Unknown
-receive no new permits. Fresh snapshots restore eligibility when those conditions
-clear; FailedKillPod quarantine remains persistent until operator recovery.
+Capacity is the judge worker's Activity slot count (`WORKER_CONCURRENCY`). One
+slot runs one stage of `JUDGE_STAGE_CASES` cases as one Kubernetes Job with one
+container per case, so a saturated worker still interleaves submissions at stage
+granularity and a queued exam submission waits behind a bulk rejudge for at
+most one stage. The sandbox `ResourceQuota` is the hard limit and must hold
+`WORKER_CONCURRENCY × max(K8S_CPU_REQUEST, K8S_MAX_PARALLEL_CASES × K8S_CASE_CPU_REQUEST)`
+CPU, because the compile init container and the case containers never run at once;
+Jobs the quota rejects surface as `waiting_capacity` and retry every 30 seconds
+without consuming the failure budget.
 
-Standard testcases request and limit one CPU; the complete problem memory limit
-plus platform headroom is reserved. Preparation reserves one CPU and at least
-512 MiB. Each admission pass first assigns one case to each ready student in
-round-robin order, then distributes additional cases in the same order until
-the artifact node's CPU/memory budget or each request's remaining cases run out.
-There is no fixed four-case ceiling: an uncontended submission can use the free
-node budget, while concurrent submissions share it. Held permits and Pod overhead
-are counted before expansion. A waiting large request reserves its node from
-later small requests and wave expansion so its capacity can accumulate.
-Only newly granted waves expand; running work is neither resized nor preempted.
-Interactive and Advanced Mode reserve their combined containers and overhead.
-Admission waits use workflow conditions, not executing activity slots or stage
-execution timeouts. Student round-robin order, FIFO submissions per student and
-one active permit per student prevent overlapping waves from the same student.
-Durable dispatch reserves each execution before initialization. A control
-Activity also checks the persisted execution journal before the first attempt;
-a later accepted submission waits in its Workflow while the same student has
-earlier unfinished work, even if that earlier dispatch has not arrived.
-Retries and recovery epochs retain the original execution ordering key.
-Prepared unfinished runs are bounded to twice the available CPU execution slots.
+Dispatch preserves per-student order: `executeJudgeExecutionDispatch` starts an
+execution only when the student has no earlier unfinished execution of the same
+queue class and, for background work, no unfinished foreground execution.
+Finishing or cancelling an execution enqueues the student's next foreground and
+background executions, and the lifecycle reconciler re-dispatches anything that
+missed that hand-off. Workflows exist only for dispatched executions; queued
+work is a database row, not a live history.
 
-The capacity route uses the same immutable execution snapshot and journal as
-baseline judging. Each completed wave commits its actual testcase indices while
-retaining the attempt lease until artifact cleanup. Recovery starts a new run,
-compiles the pinned source again and skips committed indices; it never assumes
-that a capacity-sized checkpoint represents the baseline's twenty-case stage.
-The execution's capacity strategy survives recovery epochs. A checkpointed
-execution cannot be redirected to the baseline during rollback. Only untouched,
-cleaned executions can relinquish that strategy.
+Judge and platform workers each retain at most 32 cached Workflows and execute
+at most 8 Workflow tasks concurrently, which bounds the worker heap while
+evicted histories replay.
 
 Stage inputs and outputs use immutable verified object-storage pointers rather
 than putting full source/testcase/output payloads into Temporal history. Attempt
@@ -529,8 +517,7 @@ scoring remain unchanged. There is no cross-submission compilation cache.
 
 ## Reliability notes
 
-- **Termination before release** — Kubernetes cleanup requests foreground deletion with UID preconditions and waits for owned Pods to disappear under the normal 30-second cleanup budget. A timeout or ownership change raises `cleanup_pending`; durable cleanup retries retain the permit. Known runtime incidents additionally require host-side process and cgroup verification: Kubernetes API disappearance alone is not proof of runtime termination.
-- **Quarantine** — the control worker records nodes with repeated `FailedKillPod` events (count at least three) in durable coordinator state and stops new admissions there. Healthy nodes remain eligible. It does not restart containerd, k3s or runsc, and this does not claim to fix the runtime's underlying fault.
+- **Termination before release** — Kubernetes cleanup requests foreground deletion with UID preconditions and waits for owned Pods to disappear under the normal 30-second cleanup budget. A timeout or ownership change raises `cleanup_pending`; durable cleanup retries retain the lease. Known runtime incidents additionally require host-side process and cgroup verification: Kubernetes API disappearance alone is not proof of runtime termination.
 - **Phase evidence** — `judge_phase_duration_seconds` separates queue, admission, schedule, startup, prepare, execute, checker, collect, cleanup and end-to-end observations. Kubernetes lifecycle timestamps give scheduling/startup and container durations; startup includes image pull and runtime startup together. Worker timers measure activity-side phases. CPU/throttling/peak-memory observations come from runner cgroup telemetry. Labels are bounded to phase/mode/language/result; submission and run IDs belong in structured logs. Unavailable lifecycle or resource data is not zero.
 
 - **Bounded stdout/stderr buffers** — both the worker (`apps/worker/src/services/bounded-buffer.ts`) and the sandbox runner (`apps/sandbox-runner/src/utils.ts` → `createBoundedBuffer`) cap captured output at 16 MB per stream. A runaway submission that prints infinite output will hit the cap, get a `[output truncated — exceeded N bytes]` marker, and continue to the per-case timeout instead of OOM-killing the runner or worker. The two buffers are intentionally kept as separate copies — pnpm workspace deps don't allow cross-app imports.
@@ -563,9 +550,7 @@ scoring remain unchanged. There is no cross-submission compilation cache.
 - Legacy workflow replay — `apps/worker/src/workflows/submission-judge.ts`
 - Durable judge activities — `apps/worker/src/activities/judge-execution.ts`
 - Pinned request builder — `apps/worker/src/activities/judge-request.ts`
-- Capacity stage workflow / activities — `apps/worker/src/workflows/durable-capacity.ts`, `apps/worker/src/activities/judge-stages.ts`
-- Admission coordinator / capacity arithmetic — `apps/worker/src/workflows/judge-admission.ts`, `apps/worker/src/services/judge-capacity.ts`
-- Capacity refresh / quota ownership — `apps/worker/src/activities/judge-control.ts`, `apps/worker/src/services/judge-quota.ts`
+- Dispatch priority / per-student gate — `packages/core/src/judge-execution.ts`, `packages/application/src/submission/judge-recovery.ts`
 - Judge context builder (`getJudgeContext` / `parsePersistedAdvancedConfig`) — `packages/application/src/submission/queries.ts`
 - Score aggregation (`buildSubtaskResults`, `mapResult`) — `packages/application/src/submission/scoring.ts`
 - Score adjustments — `packages/application/src/submission/adjustments.ts`

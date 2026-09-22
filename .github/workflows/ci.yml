@@ -161,21 +161,49 @@ jobs:
           NODE_ENV: test
           NODE_OPTIONS: "--max-old-space-size=4096"
 
+  temporal:
+    name: Temporal workflow integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup monorepo
+        uses: ./.github/actions/setup
+
+      - name: Build workflow bundle dependencies
+        run: pnpm --filter @nojv/storage... build
+
+      - name: Run Temporal workflow integration tests
+        run: pnpm test:integration:temporal
+        env:
+          NODE_ENV: test
+          NODE_OPTIONS: "--max-old-space-size=4096"
+
   verify-gate:
     name: Verify Repository
     if: always()
     needs:
       - verify
       - coverage
+      - temporal
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
-      - name: Require repository checks and coverage
+      - name: Require repository checks, coverage, and Temporal integration
         env:
           VERIFY_RESULT: ${{ needs.verify.result }}
           COVERAGE_RESULT: ${{ needs.coverage.result }}
-        run: test "$VERIFY_RESULT" = success && test "$COVERAGE_RESULT" = success
+          TEMPORAL_RESULT: ${{ needs.temporal.result }}
+        run: >-
+          test "$VERIFY_RESULT" = success &&
+          test "$COVERAGE_RESULT" = success &&
+          test "$TEMPORAL_RESULT" = success
 
   security-audit:
     name: Dependency Audit

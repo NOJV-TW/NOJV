@@ -1,4 +1,5 @@
 import type {
+  JudgePriority,
   AssignmentDueSoonInput,
   ContestLifecycleInput,
   ExamAutoCloseInput,
@@ -37,18 +38,11 @@ export interface DomainOrchestrationAdapter {
     executionId: string;
     workflowId: string;
     leaseToken: string;
-    capacity?: true;
   }): Promise<void>;
   dispatchJudgeExecution(input: {
     executionId: string;
     workflowId: string;
-    capacity?: true;
-    admissionOrder?: {
-      executionId: string;
-      submissionId: string;
-      studentId: string;
-      submittedAt: number;
-    };
+    priority: JudgePriority;
   }): Promise<void>;
   dispatchSubmissionJudge(payload: SubmissionJudgeJob): Promise<void>;
   ensureAssignmentDueSoon(input: AssignmentDueSoonInput): Promise<void>;
