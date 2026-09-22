@@ -391,6 +391,51 @@ describe("storage release cutover", () => {
     );
   }, 15_000);
 
+  it("restores drained workloads even when the release window flag says false", () => {
+    const harness = makeHarness();
+    writeFileSync(join(harness.directory, "hpa-target"), "nojv-web-maintenance");
+    writeFileSync(join(harness.directory, "nojv-web.replicas"), "0");
+    writeFileSync(join(harness.directory, "nojv-worker.replicas"), "0");
+    writeFileSync(join(harness.directory, "nojv-worker-platform.replicas"), "0");
+
+    const result = spawnSync(
+      "sh",
+      [join(repoRoot, "infra/charts/nojv/files/release-workloads.sh")],
+      {
+        cwd: repoRoot,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PATH: `${harness.bin}:${process.env.PATH ?? ""}`,
+          EVENT_LOG: harness.events,
+          HARNESS_DIR: harness.directory,
+          RELEASE_WINDOW: "false",
+          NAMESPACE: "nojv",
+          WEB_DEPLOYMENT: "nojv-web",
+          WEB_HPA: "nojv-web",
+          WEB_HPA_ENABLED: "true",
+          WEB_READY_REPLICAS: "2",
+          WEB_POD_SELECTOR: "app.kubernetes.io/name=nojv-web",
+          JUDGE_DEPLOYMENT: "nojv-worker",
+          JUDGE_READY_REPLICAS: "2",
+          JUDGE_POD_SELECTOR: "app.kubernetes.io/name=nojv-worker",
+          PLATFORM_DEPLOYMENT: "nojv-worker-platform",
+          PLATFORM_READY_REPLICAS: "1",
+          PLATFORM_POD_SELECTOR: "app.kubernetes.io/name=nojv-worker-platform",
+          READY_TIMEOUT_SECONDS: "5",
+          POLL_INTERVAL_SECONDS: "0",
+        },
+      },
+    );
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stderr).toContain("drained by the migrator");
+    expect(events(harness)).toContainEqual(
+      expect.stringContaining("scale deployment nojv-web --replicas=2"),
+    );
+    expect(readFileSync(join(harness.directory, "hpa-target"), "utf8")).toBe("nojv-web");
+  }, 15_000);
+
   it("leaves a migration-free release serving when the readiness check fails", () => {
     const harness = makeHarness();
     writeFileSync(join(harness.directory, "hpa-target"), "nojv-web");

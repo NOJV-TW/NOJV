@@ -24,6 +24,19 @@ kubectl_ns() {
 
 released=false
 
+if [ "$RELEASE_WINDOW" != true ]; then
+  if [ "$WEB_HPA_ENABLED" = true ] && \
+     [ "$(kubectl_ns get horizontalpodautoscaler "$WEB_HPA" \
+       -o 'jsonpath={.spec.scaleTargetRef.name}' 2>/dev/null || true)" = "$WEB_DEPLOYMENT-maintenance" ]; then
+    RELEASE_WINDOW=true
+  elif [ "$(kubectl_ns get deployment "$WEB_DEPLOYMENT" \
+       -o 'jsonpath={.spec.replicas}' 2>/dev/null || true)" = "0" ]; then
+    RELEASE_WINDOW=true
+  fi
+  [ "$RELEASE_WINDOW" = true ] && \
+    echo "Workloads were drained by the migrator; restoring them although RELEASE_WINDOW=false." >&2
+fi
+
 drained() {
   deployment="$1"
   selector="$2"
