@@ -129,7 +129,7 @@ export const LIFECYCLE_RECONCILER_WORKFLOW_ID = "lifecycle-timer-reconciler";
 export async function ensureLifecycleReconciler(): Promise<void> {
   const client = await getTemporalClient();
   try {
-    await client.workflow.start("lifecycleReconcilerWorkflow", {
+    await client.workflow.start("lifecycleReconcilerProcessorWorkflow", {
       taskQueue: PLATFORM_TASK_QUEUE,
       workflowId: LIFECYCLE_RECONCILER_WORKFLOW_ID,
       cronSchedule: "*/5 * * * *",
@@ -146,7 +146,7 @@ export const DURABLE_WORK_WORKFLOW_ID = "durable-work-processor";
 export async function ensureDurableWorkProcessor(): Promise<void> {
   const client = await getTemporalClient();
   try {
-    await client.workflow.start("durableWorkWorkflow", {
+    await client.workflow.start("durableWorkProcessorWorkflow", {
       taskQueue: PLATFORM_TASK_QUEUE,
       workflowId: DURABLE_WORK_WORKFLOW_ID,
       cronSchedule: "* * * * *",

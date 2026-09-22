@@ -78,6 +78,25 @@ Redis loss disables real-time events and security state access. Redis-backed rat
 **Recovery**: Restore Redis connectivity. Clients reconnect and read the current PostgreSQL state; invalidated security proofs require fresh verification.
 **Note**: Submissions still process (Temporal handles orchestration). SSE clients reconnect.
 
+### Cron processor recurrence
+
+The minute-cron `durableWorkProcessorWorkflow` awaits a `durableWorkWorkflow` child.
+Only the child continues as new after each bounded drain, preserving its fairness
+cursor without removing the parent's cron schedule. Child completion or failure
+therefore leaves the next scheduled parent run intact. Activity timeouts, leases,
+and database-owned retry/idempotency rules remain unchanged.
+
+When replacing the former `durableWorkWorkflow` cron singleton, wait for its current
+execution to become terminal before invoking `ensureDurableWorkProcessor`; an
+already-running singleton is preserved. Do not terminate an in-flight batch to
+change its Workflow type. The five-minute `lifecycleReconcilerProcessorWorkflow`
+similarly awaits the existing paginated `lifecycleReconcilerWorkflow` child.
+Existing cron singletons are not automatically replaced on worker startup. For a
+still-recurring former lifecycle singleton, first establish a boundary with no
+pending/running Activity or data mutation before a scoped operator handoff;
+cancellation alone does not stop the cron series. Verify the replacement parent's
+type and cron schedule, child completion, and the following scheduled run.
+
 ### Temporal Unavailable
 
 **Impact**: No new workflows start. In-flight workflows pause.

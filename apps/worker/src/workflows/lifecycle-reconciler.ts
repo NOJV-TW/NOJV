@@ -1,4 +1,4 @@
-import { continueAsNew, proxyActivities } from "@temporalio/workflow";
+import { continueAsNew, executeChild, proxyActivities } from "@temporalio/workflow";
 
 import type { LifecycleReconcileCursor, LifecycleReconcileResult } from "@nojv/application";
 import type * as lifecycleActivities from "../activities/lifecycle";
@@ -26,4 +26,10 @@ export function lifecycleReconcilerWorkflow(
     (nextInput) => continueAsNew<typeof lifecycleReconcilerWorkflow>(nextInput),
     input,
   );
+}
+
+export function lifecycleReconcilerProcessorWorkflow(
+  input: LifecycleReconcileCursor = {},
+): Promise<void> {
+  return executeChild(lifecycleReconcilerWorkflow, { args: [input] });
 }
