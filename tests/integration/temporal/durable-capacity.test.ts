@@ -914,6 +914,8 @@ describe("durable pinned capacity pipeline", () => {
       }
       expect(activities.initializePinnedSandboxAttempt).not.toHaveBeenCalled();
       activities.judgeExecutionTurn.mockResolvedValue("ready");
+      await env.sleep("31s");
+      await until(async () => activities.prepareSandboxAttempt.mock.calls.length === 2);
       await Promise.all([first.result(), second.result()]);
       await until(
         async () =>
