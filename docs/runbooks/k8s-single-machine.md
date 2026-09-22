@@ -65,6 +65,17 @@ exporting the k3s kubeconfig once:
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 ```
 
+`sudo` resets the environment, so that export never reaches `sudo helm`, and
+Helm, unlike the bundled `kubectl`, does not know where k3s keeps its
+kubeconfig. It then falls back to `localhost:8080` and fails with
+`Kubernetes cluster unreachable`. Link the kubeconfig for root once, after k3s
+is installed, so `sudo helm` reaches the cluster:
+
+```bash
+sudo install -d -m 0700 /root/.kube
+sudo ln -sfn /etc/rancher/k3s/k3s.yaml /root/.kube/config
+```
+
 ## 1. Install k3s without flannel + install Calico
 
 Install the k3s **server** (control plane + node) with flannel and the built-in
