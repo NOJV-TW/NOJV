@@ -19,10 +19,26 @@ function reassemble(lines: string[], start: number): unknown {
     )
       continue;
     joined += line;
-    const parsed = tryParse(joined);
+    const [parsed] = parseDocuments(joined);
     if (parsed !== undefined) return parsed;
   }
   return undefined;
+}
+
+function parseDocuments(text: string): unknown[] {
+  const whole = tryParse(text);
+  if (whole !== undefined) return [whole];
+  const documents: unknown[] = [];
+  let start = 0;
+  for (let at = text.indexOf("}{"); at !== -1; at = text.indexOf("}{", at + 1)) {
+    const document = tryParse(text.slice(start, at + 1));
+    if (document === undefined) continue;
+    documents.push(document);
+    start = at + 1;
+  }
+  const rest = start > 0 ? tryParse(text.slice(start)) : undefined;
+  if (rest !== undefined) documents.push(rest);
+  return documents;
 }
 
 export function scanJsonLinesFromEnd<T>(
@@ -33,10 +49,15 @@ export function scanJsonLinesFromEnd<T>(
   for (let i = lines.length - 1; i >= 0; i--) {
     const trimmed = lines[i]?.trim();
     if (!trimmed?.startsWith("{")) continue;
-    const parsed = tryParse(trimmed) ?? reassemble(lines, i);
-    if (parsed === undefined) continue;
-    const result = match(parsed);
-    if (result !== null) return result;
+    const documents = parseDocuments(trimmed);
+    if (documents.length === 0) {
+      const reassembled = reassemble(lines, i);
+      if (reassembled !== undefined) documents.push(reassembled);
+    }
+    for (const document of documents.reverse()) {
+      const result = match(document);
+      if (result !== null) return result;
+    }
   }
   return null;
 }

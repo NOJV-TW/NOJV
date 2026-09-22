@@ -43,6 +43,19 @@ describe("scanJsonLinesFromEnd", () => {
     expect(scanJsonLinesFromEnd(logs, match)?.rawRuns[0]?.stdout).toBe(stdout);
   });
 
+  it("separates a result and a resource-usage document kubelet joined on one line", () => {
+    const usage = JSON.stringify({ nojvResourceUsage: { cpuUsec: 200000 } });
+    const logs = `[sandbox-runner] Reading config...\n${result}${usage}`;
+    expect(scanJsonLinesFromEnd(logs, match)?.rawRuns[0]?.stdout).toBe(stdout);
+  });
+
+  it("reassembles a split result whose last fragment was joined with the usage document", () => {
+    const usage = JSON.stringify({ nojvResourceUsage: { cpuUsec: 200000 } });
+    const cut = CHUNK * 2;
+    const logs = [result.slice(0, cut), "", `${result.slice(cut)}${usage}`].join("\n");
+    expect(scanJsonLinesFromEnd(logs, match)?.rawRuns[0]?.stdout).toBe(stdout);
+  });
+
   it("returns null when no line completes a JSON document", () => {
     expect(scanJsonLinesFromEnd('[sandbox-runner] only logs\n{"rawRuns":[', match)).toBeNull();
   });
