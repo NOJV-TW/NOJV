@@ -10,8 +10,6 @@ import { submissionDomain } from "@nojv/application";
 import { prismaAdapterClient as db } from "@nojv/db";
 import { buildPinnedSandboxRequest } from "./judge-request";
 import { getExecutorOwner } from "./judge";
-import { createExecutorOwner } from "../services/executor-factory";
-import { parseWorkerEnv } from "../env";
 import { enforceMemoryLimit } from "../services/check-standard";
 import { recordJudgePhase } from "../services/judge-phase-metrics";
 import { judgeLatencyHistogram, recordJudgeLatency } from "./utils";
@@ -35,11 +33,9 @@ export async function executeJudgeStage(
   workflowId: string,
   index: number,
 ) {
-  const slots = Math.max(1, Number(process.env.WORKER_CONCURRENCY ?? 4));
-  const admission = await submissionDomain.claimJudgeStage(
+  const admission = await submissionDomain.claimJudgeLease(
     executionId,
     workflowId,
-    slots,
     process.env.HOSTNAME ?? hostname(),
   );
   if (admission.status !== "claimed") return admission;
@@ -64,7 +60,6 @@ export async function executeJudgeStage(
   }, 15_000);
   let cleanupConfirmed = false;
   try {
-    await submissionDomain.wakeJudgeAdmission();
     const { snapshot } = await submissionDomain.loadJudgeExecution(executionId);
     const fullRequest = buildPinnedSandboxRequest(snapshot);
     const size = fullRequest.judgeType === "interactive" ? 1 : JUDGE_STAGE_CASES;
@@ -127,10 +122,8 @@ export async function executeJudgeStage(
     throw error;
   } finally {
     clearInterval(interval);
-    if (cleanupConfirmed) {
+    if (cleanupConfirmed)
       await submissionDomain.releaseJudgeStage(executionId, workflowId, leaseToken);
-      await submissionDomain.wakeJudgeAdmission();
-    }
   }
 }
 
@@ -148,15 +141,8 @@ export async function reconcileJudgeStage(
     15_000,
   );
   try {
-    const owner =
-      process.env.WORKER_MODE === "control"
-        ? createExecutorOwner(parseWorkerEnv(process.env))
-        : getExecutorOwner();
-    const safe = await owner.reconcile(leaseToken, run.leaseOwner ?? undefined);
-    if (safe) {
-      await submissionDomain.releaseJudgeStage(executionId, workflowId, leaseToken);
-      await submissionDomain.wakeJudgeAdmission();
-    }
+    const safe = await getExecutorOwner().reconcile(leaseToken, run.leaseOwner ?? undefined);
+    if (safe) await submissionDomain.releaseJudgeStage(executionId, workflowId, leaseToken);
     return safe;
   } finally {
     clearInterval(interval);

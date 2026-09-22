@@ -1,13 +1,7 @@
 import {
   ActivityFailure,
-  CancellationScope,
-  getExternalWorkflowHandle,
-  makeContinueAsNewFunc,
   ApplicationFailure,
   continueAsNew,
-  condition,
-  defineSignal,
-  setHandler,
   isCancellation,
   proxyActivities,
   sleep,
@@ -16,16 +10,6 @@ import {
 import { judgeRecoveryDelayMs, type JudgeExecutionInput } from "@nojv/core";
 import type * as executionActivities from "../activities/judge-execution";
 import type * as lifecycleActivities from "../activities/lifecycle";
-import {
-  executePinnedCapacity,
-  JudgeRollbackRedirect,
-  recoverPinnedCapacityLease,
-  recoverCapacityRuns,
-  recoverOrphanCapacityRun,
-  type CapacityWorkflowState,
-} from "./durable-capacity";
-import { JUDGE_ADMISSION_ID, finishJudgeRun, finishJudgeReservation } from "./judge-admission";
-import type * as capacityActivities from "../activities/judge-stages";
 import { PLATFORM_QUEUE } from "./activity-options";
 
 const journal = proxyActivities<typeof executionActivities>({
@@ -47,73 +31,17 @@ const effects = proxyActivities<typeof lifecycleActivities>({
   retry: { maximumAttempts: 3 },
 });
 
-const capacityCleanup = proxyActivities<typeof capacityActivities>({
-  taskQueue: "judge-control",
-  startToCloseTimeout: "2m",
-  retry: { initialInterval: "5s", maximumInterval: "1m" },
-});
-
-export async function durableJudgeWorkflow(
-  input: JudgeExecutionInput,
-  capacityState: CapacityWorkflowState = {},
-): Promise<void> {
-  let continuing = false;
-  try {
-    await runDurableJudge(input, capacityState, () => {
-      continuing = true;
-    });
-  } catch (error) {
-    if (!(error instanceof JudgeRollbackRedirect)) throw error;
-    await capacityCleanup.relinquishPinnedCapacityStrategy(
-      input.executionId,
-      workflowInfo().workflowId,
-    );
-    if (capacityState.runId)
-      await getExternalWorkflowHandle(JUDGE_ADMISSION_ID).signal(
-        finishJudgeRun,
-        capacityState.runId,
-      );
-    await getExternalWorkflowHandle(JUDGE_ADMISSION_ID).signal(
-      finishJudgeReservation,
-      workflowInfo().workflowId,
-    );
-    continuing = true;
-    await makeContinueAsNewFunc<typeof durableJudgeWorkflow>({ taskQueue: "judge" })({
-      executionId: input.executionId,
-    });
-  } finally {
-    if (input.capacity && !continuing)
-      await CancellationScope.nonCancellable(async () => {
-        const coordinator = getExternalWorkflowHandle(JUDGE_ADMISSION_ID);
-        if (capacityState.runId) await coordinator.signal(finishJudgeRun, capacityState.runId);
-        await coordinator.signal(finishJudgeReservation, workflowInfo().workflowId);
-      });
-  }
-}
-
-async function runDurableJudge(
-  input: JudgeExecutionInput,
-  capacityState: CapacityWorkflowState,
-  markContinuing: () => void,
-): Promise<void> {
+export async function durableJudgeWorkflow(input: JudgeExecutionInput): Promise<void> {
   const workflowId = workflowInfo().workflowId;
-  let capacityAvailable = false;
-  setHandler(defineSignal("capacityAvailable"), () => {
-    capacityAvailable = true;
-  });
   let failures = 0;
   for (let iteration = 0; ; iteration++) {
-    if (iteration >= 100 || workflowInfo().continueAsNewSuggested) {
-      markContinuing();
-      if (input.capacity)
-        await continueAsNew<typeof durableJudgeWorkflow>(input, capacityState);
-      else await continueAsNew<typeof durableJudgeWorkflow>(input);
-    }
+    if (iteration >= 100 || workflowInfo().continueAsNewSuggested)
+      await continueAsNew<typeof durableJudgeWorkflow>(input);
     let finalizing = false;
     try {
       const state = await journal.judgeExecutionStatus(input.executionId, workflowId);
       finalizing = state.state === "finalizing";
-      if (state.leaseToken && !input.capacity) {
+      if (state.leaseToken) {
         const safe = await sandbox.reconcileJudgeStage(
           input.executionId,
           workflowId,
@@ -132,23 +60,17 @@ async function runDurableJudge(
           continue;
         }
       }
-      if (input.capacity) await recoverCapacityRuns(input, capacityState, state.leaseToken);
       if (state.state === "cancelled" || state.state === "completed") return;
       if (!finalizing) {
-        capacityAvailable = false;
         await journal.setJudgeExecutionState(input.executionId, workflowId, "queued");
-        const stage = input.capacity
-          ? { status: await executePinnedCapacity(input, capacityState) }
-          : await sandbox.executeJudgeStage(input.executionId, workflowId, state.stage);
+        const stage = await sandbox.executeJudgeStage(
+          input.executionId,
+          workflowId,
+          state.stage,
+        );
         if (stage.status === "obsolete") return;
-        if (stage.status === "wait" || stage.status === "cleanup") {
-          await journal.setJudgeExecutionState(
-            input.executionId,
-            workflowId,
-            "waiting_capacity",
-            "capacity",
-          );
-          await condition(() => capacityAvailable, "5s");
+        if (stage.status === "cleanup") {
+          await sleep("5s");
           continue;
         }
         if (stage.status !== "finished") {
@@ -170,7 +92,7 @@ async function runDurableJudge(
       await journal.finishJudgeExecution(input.executionId, workflowId);
       return;
     } catch (error) {
-      if (isCancellation(error) || error instanceof JudgeRollbackRedirect) throw error;
+      if (isCancellation(error)) throw error;
       const cause = error instanceof ActivityFailure ? error.cause : error;
       const type = cause instanceof ApplicationFailure ? cause.type : "infrastructure";
       const capacity = type === "SandboxBackpressureError";
@@ -181,7 +103,7 @@ async function runDurableJudge(
           type === "SandboxAdmissionError" ||
           type === "SandboxInfeasibleError" ||
           failures >= 3);
-      const delay = blocked ? 900_000 : judgeRecoveryDelayMs(failures - 1, capacity);
+      const delay = capacity ? 30_000 : blocked ? 900_000 : judgeRecoveryDelayMs(failures - 1);
       try {
         await journal.setJudgeExecutionState(
           input.executionId,
@@ -209,15 +131,7 @@ export async function judgeCleanupWorkflow(input: {
   executionId: string;
   workflowId: string;
   leaseToken: string;
-  capacity?: true;
 }) {
-  if (input.capacity) {
-    const state = await journal.judgeExecutionStatus(input.executionId, input.workflowId);
-    if (state.leaseToken === input.leaseToken)
-      await recoverPinnedCapacityLease(input.executionId, input.workflowId, input.leaseToken);
-    else await recoverOrphanCapacityRun(input);
-    return;
-  }
   for (let attempt = 0; ; attempt++) {
     if (attempt >= 100 || workflowInfo().continueAsNewSuggested)
       await continueAsNew<typeof judgeCleanupWorkflow>(input);

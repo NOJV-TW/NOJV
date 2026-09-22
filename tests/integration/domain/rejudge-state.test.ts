@@ -102,7 +102,7 @@ describe("rejudge state from durable dispatch", () => {
       db.judgeExecution.findUniqueOrThrow({ where: { id: run.id } }),
     ).resolves.toMatchObject({ state: "cancelled" });
     await expect(
-      submissionDomain.claimJudgeStage(run.id, run.workflowId, 1, "late-worker"),
+      submissionDomain.claimJudgeLease(run.id, run.workflowId, "late-worker"),
     ).resolves.toEqual({ status: "obsolete" });
     await expect(
       db.submission.findUniqueOrThrow({ where: { id: submission!.id } }),

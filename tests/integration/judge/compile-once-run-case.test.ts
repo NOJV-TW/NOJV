@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
-import { createHash, randomUUID } from "node:crypto";
-import { chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -53,24 +53,6 @@ async function writeFiles(directory: string, files: Record<string, string>): Pro
     await writeFile(path.join(directory, name), content, { mode: 0o644 });
 }
 
-async function artifactHashes(directory: string): Promise<Record<string, string>> {
-  const hashes: Record<string, string> = {};
-  async function visit(relative: string) {
-    for (const entry of await readdir(path.join(directory, relative), {
-      withFileTypes: true,
-    })) {
-      const child = path.join(relative, entry.name);
-      if (entry.isDirectory()) await visit(child);
-      else
-        hashes[child] = createHash("sha256")
-          .update(await readFile(path.join(directory, child)))
-          .digest("hex");
-    }
-  }
-  await visit("");
-  return hashes;
-}
-
 interface ContainerRecord {
   name: string;
   phase: string;
@@ -83,7 +65,7 @@ async function container(
   record: ContainerRecord[],
   caseIndex?: number,
 ) {
-  const name = `nojv-prepared-test-${randomUUID()}`;
+  const name = `nojv-compile-once-test-${randomUUID()}`;
   const cidFile = path.join(root, `${name}.cid`);
   const args = [
     "run",
@@ -93,7 +75,7 @@ async function container(
     "--cidfile",
     cidFile,
     "--label",
-    "nojv.test=prepared-artifact",
+    "nojv.test=compile-once-run-case",
     "--network",
     "none",
     "--cap-drop",
@@ -141,24 +123,21 @@ const bind = (source: string, target: string, readOnly = false) => [
   `type=bind,source=${source},target=${target}${readOnly ? ",readonly" : ""}`,
 ];
 
-describe("prepared artifact reuse in fresh Docker containers", () => {
+describe("compile-once artifact reuse in fresh run-case containers", () => {
   it.for(Object.entries(sources))(
-    "publishes and reuses %s artifacts with fresh scratch and read-only outputs",
+    "prepares %s once and runs cases against the read-only artifact",
     { timeout: 240_000 },
     async ([language, source], ctx) => {
       if (!(await requireSandboxImage(ctx))) return;
-      const root = await mkdtemp(path.join(os.tmpdir(), "nojv-prepared-integration-"));
+      const root = await mkdtemp(path.join(os.tmpdir(), "nojv-compile-once-integration-"));
       try {
         const payload = path.join(root, "payload");
         const artifact = path.join(root, "compiled");
-        const target = path.join(root, "persistent-volume");
         await mkdir(payload);
-        for (const directory of [artifact, target]) {
-          await mkdir(directory);
-          await chmod(directory, 0o777);
-        }
+        await mkdir(artifact);
+        await chmod(artifact, 0o777);
         const request: SandboxRequest = {
-          submissionId: `prepared-${language}`,
+          submissionId: `compile-once-${language}`,
           sourceCode: source,
           language: language as Language,
           problemType: "full_source",
@@ -168,7 +147,7 @@ describe("prepared artifact reuse in fresh Docker containers", () => {
           testcases: [],
         };
         const maps = buildPayloadConfigMaps(
-          "judge-prepared",
+          "judge-prepare",
           "test",
           buildRunConfigMapData(request),
         );
@@ -198,15 +177,6 @@ describe("prepared artifact reuse in fresh Docker containers", () => {
         };
         expect(compileResult.compilationError, compile.stderr).toBeUndefined();
         expect(compileResult.runCommand).toBeDefined();
-        const publish = await container(
-          root,
-          "publish-artifact",
-          [...bind(artifact, "/artifact", true), ...bind(target, "/artifact-output")],
-          containers,
-        );
-        expect(JSON.parse(publish.stdout)).toMatchObject({ published: true });
-        const published = path.join(target, "published");
-        const originalHashes = await artifactHashes(published);
         for (const [index, value] of [2, 9].entries()) {
           const submission = path.join(root, `submission-${index}`);
           await writeFiles(
@@ -219,7 +189,7 @@ describe("prepared artifact reuse in fresh Docker containers", () => {
           const output = await container(
             root,
             "run-case",
-            [...bind(published, "/artifact", true), ...bind(submission, "/submission", true)],
+            [...bind(artifact, "/artifact", true), ...bind(submission, "/submission", true)],
             containers,
             index,
           );
@@ -240,10 +210,9 @@ describe("prepared artifact reuse in fresh Docker containers", () => {
           expect(result.rawRuns![0]!.errorVerdict).toBeUndefined();
           expect(output.stderr).not.toContain("Compiling...");
         }
-        expect(await artifactHashes(published)).toEqual(originalHashes);
         expect(containers.filter((entry) => entry.phase === "prepare")).toHaveLength(1);
         expect(containers.filter((entry) => entry.phase === "run-case")).toHaveLength(2);
-        expect(new Set(containers.map((entry) => entry.id)).size).toBe(4);
+        expect(new Set(containers.map((entry) => entry.id)).size).toBe(3);
       } finally {
         await rm(root, { recursive: true, force: true });
       }

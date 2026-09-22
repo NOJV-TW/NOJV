@@ -28,7 +28,7 @@ describe("GKE sandbox node-pool bootstrap", () => {
 
   it("aligns judge dispatch capacity with the sandbox quota", () => {
     expect(script).toContain('SANDBOX_SPOT_MAX_NODES="${SANDBOX_SPOT_MAX_NODES:-4}"');
-    expect(values).toMatch(/judge:\n    replicas: 2\n    concurrency: "5"/u);
+    expect(values).toMatch(/judge:\n    replicas: 2\n    concurrency: "2"/u);
     expect(values).toMatch(
       /resourceQuota:\n    enabled: true\n    pods: "10"\n    requestsCpu: "10"/u,
     );

@@ -1,4 +1,4 @@
-import { JUDGE_EXECUTION_DISPATCH_KIND } from "@nojv/core";
+import { JUDGE_EXECUTION_DISPATCH_KIND, judgePriorityKey } from "@nojv/core";
 import { durableWorkRepo, prismaAdapterClient as db, runTransaction } from "@nojv/db";
 import { z } from "zod";
 import { getDomainOrchestration } from "../shared/orchestration";
@@ -7,27 +7,68 @@ const dispatchSchema = z.object({
   executionId: z.uuid(),
   workflowId: z.string().min(1),
 });
+
 export async function executeJudgeExecutionDispatch(payload: unknown): Promise<void> {
   const input = dispatchSchema.parse(payload);
-  const run = await db.judgeExecution.findUnique({ where: { id: input.executionId } });
+  const run = await db.judgeExecution.findUnique({
+    where: { id: input.executionId },
+    include: { submission: { select: { userId: true, examId: true, contestId: true } } },
+  });
   if (run?.workflowId !== input.workflowId || ["cancelled", "completed"].includes(run.state))
     return;
-  if (process.env.JUDGE_CAPACITY_ROUTING === "true" || run.capacityStrategy) {
-    const submission = await db.submission.findUniqueOrThrow({
-      where: { id: run.submissionId },
-      select: { userId: true },
-    });
-    await getDomainOrchestration().dispatchJudgeExecution({
-      ...input,
-      ...(run.capacityStrategy ? { capacity: true } : {}),
-      admissionOrder: {
-        executionId: run.id,
-        submissionId: run.submissionId,
-        studentId: submission.userId,
-        submittedAt: run.createdAt.getTime(),
+  const blocker = await db.judgeExecution.findFirst({
+    where: {
+      submission: { userId: run.submission.userId },
+      state: { notIn: ["cancelled", "completed"] },
+      id: { not: run.id },
+      OR: [
+        ...(run.queueClass === "foreground" ? [] : [{ queueClass: "foreground" }]),
+        { queueClass: run.queueClass, createdAt: { lt: run.createdAt } },
+        { queueClass: run.queueClass, createdAt: run.createdAt, id: { lt: run.id } },
+      ],
+    },
+    select: { id: true },
+  });
+  if (blocker) return;
+  await getDomainOrchestration().dispatchJudgeExecution({
+    executionId: run.id,
+    workflowId: run.workflowId,
+    priority: {
+      priorityKey: judgePriorityKey({ ...run, ...run.submission }),
+      fairnessKey: run.submission.userId,
+    },
+  });
+}
+
+async function enqueueJudgeDispatch(run: { id: string; workflowId: string }) {
+  const work = {
+    kind: JUDGE_EXECUTION_DISPATCH_KIND,
+    dedupeKey: run.workflowId,
+    payload: { executionId: run.id, workflowId: run.workflowId },
+    maxAttempts: 20,
+  };
+  const existing = await db.durableWork.findUnique({
+    where: { kind_dedupeKey: { kind: work.kind, dedupeKey: work.dedupeKey } },
+  });
+  if (!existing) await durableWorkRepo.enqueue(work);
+  else if (["dead", "succeeded", "cancelled"].includes(existing.status))
+    await durableWorkRepo.reactivate(work);
+}
+
+export async function dispatchNextJudgeExecutions(userId: string): Promise<void> {
+  for (const queueClass of ["foreground", "background"]) {
+    const next = await db.judgeExecution.findFirst({
+      where: {
+        queueClass,
+        state: { notIn: ["cancelled", "completed"] },
+        leaseToken: null,
+        submission: { userId },
       },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      select: { id: true, workflowId: true },
     });
-  } else await getDomainOrchestration().dispatchJudgeExecution(input);
+    if (next) await enqueueJudgeDispatch(next);
+  }
 }
 
 export async function reconcileJudgeExecutions(now = new Date()): Promise<number> {
@@ -46,7 +87,6 @@ export async function reconcileJudgeExecutions(now = new Date()): Promise<number
         executionId: run.id,
         workflowId: run.workflowId,
         leaseToken: run.leaseToken,
-        ...(run.capacityStrategy ? { capacity: true } : {}),
       });
     } catch (error) {
       console.error("Judge cleanup dispatch failed", { executionId: run.id, error });
@@ -95,22 +135,8 @@ export async function reconcileJudgeExecutions(now = new Date()): Promise<number
         });
         continue;
       }
-      const work = {
-        kind: JUDGE_EXECUTION_DISPATCH_KIND,
-        dedupeKey: run.workflowId,
-        payload: { executionId: run.id, workflowId: run.workflowId },
-        maxAttempts: 20,
-      };
-      if (!state) {
-        const existing = await db.durableWork.findUnique({
-          where: {
-            kind_dedupeKey: { kind: work.kind, dedupeKey: work.dedupeKey },
-          },
-        });
-        if (!existing) await durableWorkRepo.enqueue(work);
-        else if (["dead", "succeeded", "cancelled"].includes(existing.status))
-          await durableWorkRepo.reactivate(work);
-      } else {
+      if (!state) await enqueueJudgeDispatch(run);
+      else {
         await runTransaction(async (tx) => {
           await tx.$queryRaw`SELECT id FROM "Submission" WHERE id = ${run.submissionId} FOR UPDATE`;
           await tx.$queryRaw`SELECT id FROM "JudgeExecution" WHERE id = ${run.id} FOR UPDATE`;
@@ -146,9 +172,10 @@ export async function reconcileJudgeExecutions(now = new Date()): Promise<number
               data: { rejudgeRunId: workflowId },
             });
           await durableWorkRepo.withTx(tx).enqueue({
-            ...work,
+            kind: JUDGE_EXECUTION_DISPATCH_KIND,
             dedupeKey: workflowId,
             payload: { executionId: run.id, workflowId },
+            maxAttempts: 20,
           });
         });
       }

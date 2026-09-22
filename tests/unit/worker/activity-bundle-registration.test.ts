@@ -7,18 +7,12 @@ const WORKER_SRC = new URL("../../../apps/worker/src/", import.meta.url);
 
 const QUEUE_BUNDLES = [
   {
-    bundle: "activities/judge-control-bundle.ts",
-    queue: "JUDGE_CONTROL_QUEUE",
-    workflows: ["workflows/judge-admission.ts"],
-  },
-  {
     bundle: "activities/judge-bundle.ts",
     queue: "JUDGE_TASK_QUEUE",
     workflows: [
       "workflows/submission-judge.ts",
       "workflows/rejudge.ts",
       "workflows/durable-judge.ts",
-      "workflows/durable-capacity.ts",
     ],
   },
   {

@@ -1,3 +1,5 @@
+> Superseded on 2026-09-22 by [Temporal-native judge queue](../active/2026-09-22-temporal-native-judge-queue.md); the coordinator described here was removed.
+
 # Judge throughput, admission and cleanup
 
 Approved scope: 100 students each submit once in 60 seconds, using the existing

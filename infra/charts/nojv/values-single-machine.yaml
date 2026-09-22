@@ -116,6 +116,7 @@ observability:
 worker:
   judge:
     replicas: 1
+    concurrency: "3"
   platform:
     replicas: 1
     submissionPendingTimeoutMinutes: 10
@@ -133,8 +134,8 @@ sandbox:
     enabled: true
   resourceQuota:
     enabled: true
-    pods: "4"
-    requestsCpu: "4"
+    pods: "12"
+    requestsCpu: "6"
     requestsMemory: "12Gi"
   limitRange:
     enabled: true
