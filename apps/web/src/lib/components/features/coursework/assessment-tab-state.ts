@@ -1,4 +1,4 @@
-export type AssessmentKind = "assignment" | "exam";
+export type AssessmentKind = "assignment" | "exam" | "contest";
 
 const commonSubTabs = [
   "problems",

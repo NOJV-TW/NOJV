@@ -4,11 +4,13 @@ const {
   listRecentForContext,
   assessmentFindById,
   examFindById,
+  contestFindById,
   courseFindByIdWithUserMembership,
 } = vi.hoisted(() => ({
   listRecentForContext: vi.fn(),
   assessmentFindById: vi.fn(),
   examFindById: vi.fn(),
+  contestFindById: vi.fn(),
   courseFindByIdWithUserMembership: vi.fn(),
 }));
 
@@ -16,6 +18,7 @@ vi.mock("@nojv/db", () => ({
   submissionRepo: { listRecentForContext },
   assessmentRepo: { findByIdWithCourseId: assessmentFindById },
   examRepo: { findById: examFindById },
+  contestRepo: { findById: contestFindById },
   courseRepo: { findByIdWithUserMembership: courseFindByIdWithUserMembership },
 }));
 
@@ -35,6 +38,7 @@ describe("listRecentContextSubmissions", () => {
     listRecentForContext.mockResolvedValue([]);
     assessmentFindById.mockResolvedValue({ courseId: "course_1" });
     examFindById.mockResolvedValue({ courseId: "course_1" });
+    contestFindById.mockResolvedValue({ createdByUserId: "teacher_1" });
     courseFindByIdWithUserMembership.mockResolvedValue({
       id: "course_1",
       ownerId: "owner_1",
@@ -91,6 +95,44 @@ describe("listRecentContextSubmissions", () => {
       problem: { id: "p1", title: "A + B" },
       user: { id: "u1", name: "Alice", username: "alice" },
     });
+  });
+
+  it("scopes recent rows to a contest for its organizer without touching courses", async () => {
+    await submissionDomain.listRecentContextSubmissions({
+      actor,
+      context: { type: "contest", id: "contest_1" },
+    });
+
+    expect(contestFindById).toHaveBeenCalledWith("contest_1");
+    expect(examFindById).not.toHaveBeenCalled();
+    expect(courseFindByIdWithUserMembership).not.toHaveBeenCalled();
+    expect(listRecentForContext).toHaveBeenCalledWith({
+      context: { type: "contest", id: "contest_1" },
+      limit: 50,
+    });
+  });
+
+  it("lets platform admins read any contest's submissions", async () => {
+    contestFindById.mockResolvedValue({ createdByUserId: "someone_else" });
+
+    await submissionDomain.listRecentContextSubmissions({
+      actor: { ...actor, userId: "admin_1", platformRole: "admin" },
+      context: { type: "contest", id: "contest_1" },
+    });
+
+    expect(listRecentForContext).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects contest viewers who are not the organizer", async () => {
+    contestFindById.mockResolvedValue({ createdByUserId: "someone_else" });
+
+    await expect(
+      submissionDomain.listRecentContextSubmissions({
+        actor,
+        context: { type: "contest", id: "contest_1" },
+      }),
+    ).rejects.toThrow(ForbiddenError);
+    expect(listRecentForContext).not.toHaveBeenCalled();
   });
 
   it("rejects non-staff viewers", async () => {

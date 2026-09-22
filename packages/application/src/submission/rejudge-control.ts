@@ -207,7 +207,7 @@ export async function listActiveRejudges(
 export async function queuedRejudges(input: {
   submissionIds?: string[];
   userId?: string;
-  context?: { type: "assignment" | "exam"; id: string };
+  context?: { type: "assignment" | "exam" | "contest"; id: string };
 }) {
   const rows = await durableWorkRepo.listQueuedRejudges(input);
   const queued = new Map<string, { pending: boolean; updatedAt: Date }>();

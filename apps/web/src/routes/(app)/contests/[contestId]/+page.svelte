@@ -1,12 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
+  import { page } from "$app/state";
   import { enhance } from "$app/forms";
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/stores/toast";
   import { Button } from "$lib/components/primitives/ui/button";
-  import { Tabs } from "$lib/components/primitives/ui/tabs";
-  import ScoreOverrideDrawer from "$lib/components/features/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/features/clarification/ClarificationTab.svelte";
   import Crumbs from "$lib/components/primitives/visual/Crumbs.svelte";
   import Countdown from "$lib/components/primitives/visual/Countdown.svelte";
@@ -15,8 +14,12 @@
   import StatTile from "$lib/components/primitives/visual/StatTile.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import AssessmentHero from "$lib/components/features/coursework/AssessmentHero.svelte";
+  import AssessmentManageTabs from "$lib/components/features/coursework/AssessmentManageTabs.svelte";
+  import { parseAssessmentSubTab } from "$lib/components/features/coursework/assessment-tab-state";
   import HeroSchedule from "$lib/components/features/coursework/HeroSchedule.svelte";
+  import LiveSubmissionsFeed from "$lib/components/features/coursework/LiveSubmissionsFeed.svelte";
   import StatusPill from "$lib/components/features/coursework/StatusPill.svelte";
+  import SubmissionHistoryActions from "$lib/components/features/coursework/SubmissionHistoryActions.svelte";
   import AssignmentPlagiarismReport from "$lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
   import AuditTimeline from "$lib/components/features/audit/AuditTimeline.svelte";
   import ContestProblemsTab from "$lib/components/features/contest/ContestProblemsTab.svelte";
@@ -24,7 +27,6 @@
   import ContestSettingsTab, {
     type ContestLiveStatus,
   } from "$lib/components/features/contest/ContestSettingsTab.svelte";
-  import ContestSubmissionsMatrix from "$lib/components/features/contest/ContestSubmissionsMatrix.svelte";
   import {
     contestStatusFor,
     durationMinutes,
@@ -37,38 +39,17 @@
   let contest = $derived(data.contest);
   const isManager = $derived(contest.isManager);
 
-  type SubTabKey =
-    | "problems"
-    | "submissions"
-    | "results"
-    | "plagiarism"
-    | "settings"
-    | "clarifications"
-    | "audit";
-  let activeSubTab = $state<SubTabKey>("problems");
-
-  const primaryTabs: { key: SubTabKey; label: string }[] = $derived([
-    { key: "problems", label: m.contestDetail_subTabProblems() },
-    { key: "submissions", label: m.contestDetail_subTabSubmissions() },
-    { key: "results", label: m.contestDetail_subTabResults() },
-    { key: "settings", label: m.contestDetail_subTabSettings() },
-  ]);
-  const inspectTabs: { key: SubTabKey; label: string }[] = $derived([
-    { key: "plagiarism", label: m.contestDetail_subTabPlagiarism() },
-    ...(data.clarification.canView
-      ? [{ key: "clarifications" as const, label: m.contestDetail_subTabClarifications() }]
-      : []),
-    { key: "audit", label: m.contestDetail_subTabAudit() },
-  ]);
-  const subTabs = $derived([...primaryTabs, ...inspectTabs]);
-
-  let showOverrideDrawer = $state(false);
-  let joining = $state(false);
-  const canSetOverride = $derived(data.canSetOverride);
-  const overrideStudents = $derived(data.overrideStudents);
-  const overrideProblems = $derived(
-    (contest.problems ?? []).map((p) => ({ id: p.id, title: p.title })),
+  const activeSubTab = $derived(
+    parseAssessmentSubTab(
+      page.url.searchParams.get("tab"),
+      "contest",
+      data.clarification.canView,
+    ),
   );
+  let totalSubmissionCount = $state(0);
+  let visibleSubmissionCount = $state(0);
+
+  let joining = $state(false);
 
   let now = $state(new Date());
   onMount(() => {
@@ -115,13 +96,6 @@
 </script>
 
 {#snippet actionButtons()}
-  {#if canSetOverride}
-    {#if isPast}
-      <Button variant="outline" type="button" onclick={() => (showOverrideDrawer = true)}>
-        {m.grading_openButton()}
-      </Button>
-    {/if}
-  {/if}
   <Button
     variant="outline"
     onclick={() => {
@@ -237,38 +211,29 @@
       {@render actionButtons()}
     </div>
 
-    <Tabs
-      tabs={subTabs}
-      bind:value={activeSubTab}
-      label={m.contestDetail_subTabsLabel()}
-      id="contest-manage"
+    <AssessmentManageTabs
+      kind="contest"
+      value={activeSubTab}
+      url={page.url}
+      canViewClarifications={data.clarification.canView}
     >
-      {#if activeSubTab === "problems"}
-        <ContestProblemsTab
-          problems={contest.problems}
-          problemsHidden={contest.problemsHidden}
-          contestId={contest.id}
-          scoringMode={contest.scoringMode}
-          {isLive}
-          {isPast}
-          {isManager}
+      {#snippet actions()}
+        {#if activeSubTab === "submissions"}
+          <SubmissionHistoryActions
+            visibleCount={visibleSubmissionCount}
+            totalCount={totalSubmissionCount}
+          />
+        {/if}
+      {/snippet}
+      {#if activeSubTab === "submissions"}
+        <LiveSubmissionsFeed
+          rows={data.recentSubmissions}
+          refreshUrl={`/api/submissions?context=contest&id=${contest.id}`}
+          bind:visibleCount={visibleSubmissionCount}
+          bind:totalCount={totalSubmissionCount}
         />
-      {:else if activeSubTab === "submissions"}
-        {#if data.matrix}
-          <ContestSubmissionsMatrix matrix={data.matrix} contestId={contest.id} />
-        {:else}
-          <div class="py-12 text-center text-body text-muted-foreground">
-            {m.contestDetail_submissionsTabPlaceholder()}
-          </div>
-        {/if}
-      {:else if activeSubTab === "results"}
-        {#if data.results}
-          <ContestResultsTab data={data.results} />
-        {:else}
-          <div class="py-12 text-center text-body text-muted-foreground">
-            {m.contestDetail_resultsTabUnavailable()}
-          </div>
-        {/if}
+      {:else if activeSubTab === "results" && data.results && data.matrix}
+        <ContestResultsTab data={data.results} matrix={data.matrix} contestId={contest.id} />
       {:else if activeSubTab === "plagiarism"}
         <AssignmentPlagiarismReport
           report={data.plagiarism}
@@ -329,8 +294,18 @@
         />
       {:else if activeSubTab === "audit"}
         <AuditTimeline events={data.auditEvents} actorNames={data.auditActorNames} />
+      {:else}
+        <ContestProblemsTab
+          problems={contest.problems}
+          problemsHidden={contest.problemsHidden}
+          contestId={contest.id}
+          scoringMode={contest.scoringMode}
+          {isLive}
+          {isPast}
+          {isManager}
+        />
       {/if}
-    </Tabs>
+    </AssessmentManageTabs>
   {:else}
     <div class="flex flex-wrap items-center justify-end gap-3">
       {@render actionButtons()}
@@ -409,14 +384,3 @@
     {/if}
   {/if}
 </PageContainer>
-
-{#if canSetOverride}
-  <ScoreOverrideDrawer
-    open={showOverrideDrawer}
-    onOpenChange={(v) => (showOverrideDrawer = v)}
-    contextType="contest"
-    contextId={contest.id}
-    students={overrideStudents}
-    problems={overrideProblems}
-  />
-{/if}

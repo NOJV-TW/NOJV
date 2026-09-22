@@ -7,6 +7,7 @@ import { gradingRepo } from "@nojv/db";
 import { activityScore, sumActivityScores } from "../scoring/activity-points";
 import {
   assessmentRepo,
+  contestRepo,
   courseRepo,
   examRepo,
   examSessionRepo,
@@ -52,6 +53,7 @@ import {
 import { computeProblemTotalScore } from "../problem/total-score";
 import { buildProblemSamples } from "../problem/queries";
 import { assertProblemContentReadAccess, canProblemContentRead } from "../problem/permissions";
+import { canManageContest } from "../contest/permissions";
 import type { ActorContext } from "../shared/actor-context";
 import {
   ConflictError,
@@ -387,10 +389,7 @@ const historySnapshotSchema = z
   })
   .strict();
 
-async function historyPage(
-  opts: HistoryOptions,
-  context?: { type: "assignment" | "exam"; id: string },
-) {
+async function historyPage(opts: HistoryOptions, context?: SubmissionContextRef) {
   const page = opts.page ?? 1;
   if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger((page - 1) * 50))
     throw new ValidationError("Invalid submission page.");
@@ -489,7 +488,7 @@ export async function listUserSubmissions(opts: HistoryOptions) {
 }
 
 export async function listContextSubmissionsPaged(
-  opts: HistoryOptions & { context: { type: "assignment" | "exam"; id: string } },
+  opts: HistoryOptions & { context: SubmissionContextRef },
 ) {
   await assertContextSubmissionsRead(opts.actor, opts.context);
   const { rows, ...page } = await historyPage(opts, opts.context);
@@ -559,10 +558,23 @@ export async function listAllSubmissionsPaged(opts: {
   };
 }
 
+interface SubmissionContextRef {
+  type: "assignment" | "exam" | "contest";
+  id: string;
+}
+
 async function assertContextSubmissionsRead(
   actor: ActorContext,
-  context: { type: "assignment" | "exam"; id: string },
+  context: SubmissionContextRef,
 ) {
+  if (context.type === "contest") {
+    const contest = await contestRepo.findById(context.id);
+    if (!contest) throw new NotFoundError("Contest not found.");
+    if (!canManageContest(actor.userId, contest, actor.platformRole)) {
+      throw new ForbiddenError("Not authorized to view context submissions.");
+    }
+    return;
+  }
   const entity =
     context.type === "assignment"
       ? await assessmentRepo.findByIdWithCourseId(context.id)
@@ -591,7 +603,7 @@ async function assertContextSubmissionsRead(
 
 export async function listRecentContextSubmissions(opts: {
   actor: ActorContext;
-  context: { type: "assignment"; id: string } | { type: "exam"; id: string };
+  context: SubmissionContextRef;
   limit?: number;
 }) {
   await assertContextSubmissionsRead(opts.actor, opts.context);

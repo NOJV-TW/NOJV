@@ -27,7 +27,6 @@
   import ScoreOverrideDrawer from "$lib/components/features/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/features/clarification/ClarificationTab.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import { Button } from "$lib/components/primitives/ui/button";
   import AssessmentManageTabs from "$lib/components/features/coursework/AssessmentManageTabs.svelte";
   import {
     assessmentSubTabHref,
@@ -157,12 +156,6 @@
   }
 </script>
 
-{#snippet gradingActions()}
-  <Button variant="outline" size="sm" type="button" onclick={() => (showOverrideDrawer = true)}>
-    {m.grading_openButton()}
-  </Button>
-{/snippet}
-
 {#if data.detail?.gradingPending}<p role="status" class="text-body-sm text-muted-foreground">
     {m.activityWeights_pending()}
   </p>{/if}
@@ -177,7 +170,6 @@
     title={detail.title}
     summary={detail.summary}
     summaryId={`exam-summary-${detail.id}`}
-    actions={isManager && canSetOverride && past ? gradingActions : undefined}
   >
     {#snippet aside(accent)}
       <HeroSchedule

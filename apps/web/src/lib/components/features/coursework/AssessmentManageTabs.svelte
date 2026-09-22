@@ -67,7 +67,11 @@
   {tabs}
   value={primaryTab}
   onValueChange={(next) => selectTab(next === "proctoring" ? "credentials" : next)}
-  label={kind === "exam" ? m.examDetail_subTabsLabel() : m.assignmentDetail_sectionsNavLabel()}
+  label={kind === "exam"
+    ? m.examDetail_subTabsLabel()
+    : kind === "contest"
+      ? m.contestDetail_subTabsLabel()
+      : m.assignmentDetail_sectionsNavLabel()}
   id={`${kind}-manage`}
   {...value === "submissions" && actions ? { actions } : {}}
   contentClass="p-4 sm:p-6"

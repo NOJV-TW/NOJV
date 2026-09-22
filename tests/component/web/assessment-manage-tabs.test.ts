@@ -17,7 +17,7 @@ afterEach(async () => {
   target.remove();
 });
 
-it.each(["assignment", "exam"] as const)(
+it.each(["assignment", "exam", "contest"] as const)(
   "groups shared %s views with settings last",
   async (kind) => {
     component = mount(AssessmentManageTabs, {
@@ -32,6 +32,13 @@ it.each(["assignment", "exam"] as const)(
     });
     await tick();
 
+    expect(target.querySelector('[role="tablist"]')?.getAttribute("aria-label")).toBe(
+      kind === "exam"
+        ? m.examDetail_subTabsLabel()
+        : kind === "contest"
+          ? m.contestDetail_subTabsLabel()
+          : m.assignmentDetail_sectionsNavLabel(),
+    );
     const tabs = [...target.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
     expect(tabs.map((tab) => tab.textContent?.trim())).toEqual([
       m.assessmentNav_problems(),

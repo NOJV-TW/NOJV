@@ -250,7 +250,7 @@ function createDurableWorkRepository(client: DurableWorkClient) {
     listQueuedRejudges(input: {
       submissionIds?: string[];
       userId?: string;
-      context?: { type: "assignment" | "exam"; id: string };
+      context?: { type: "assignment" | "exam" | "contest"; id: string };
     }): Promise<
       (DurableWorkRow & {
         submissionId: string;
@@ -297,6 +297,7 @@ function createDurableWorkRepository(client: DurableWorkClient) {
           ${input.userId ? Prisma.sql`AND submission."userId" = ${input.userId}` : Prisma.empty}
           ${input.context?.type === "assignment" ? Prisma.sql`AND submission."assessmentId" = ${input.context.id}` : Prisma.empty}
           ${input.context?.type === "exam" ? Prisma.sql`AND submission."examId" = ${input.context.id}` : Prisma.empty}
+          ${input.context?.type === "contest" ? Prisma.sql`AND submission."contestId" = ${input.context.id}` : Prisma.empty}
         ORDER BY work."createdAt" DESC, work.id DESC
       `);
     },

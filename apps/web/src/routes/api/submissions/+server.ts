@@ -16,7 +16,7 @@ import { getClientIp } from "$lib/server/shared/client-ip";
 
 const SUBMISSIONS_PAGE_SIZE = 50;
 const contextQuerySchema = z.object({
-  context: z.enum(["assignment", "exam"]),
+  context: z.enum(["assignment", "exam", "contest"]),
   id: z.string().min(1),
 });
 

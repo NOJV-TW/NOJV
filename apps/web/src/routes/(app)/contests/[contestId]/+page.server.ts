@@ -13,7 +13,7 @@ import {
   contestDomain,
   plagiarismDomain,
   problemDomain,
-  scoreOverrideDomain,
+  submissionDomain,
   userDomain,
 } from "@nojv/application";
 
@@ -71,15 +71,10 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       )
     : [];
 
-  let canSetOverride = false;
-  let overrideStudents: {
-    rowId: string;
-    courseMembershipId: null;
-    userId: string;
-    username: string;
-    name: string;
-  }[] = [];
   let results: ContestResults | null = null;
+  let recentSubmissions: Awaited<
+    ReturnType<typeof submissionDomain.listRecentContextSubmissions>
+  > = [];
   let matrix: contestDomain.ContestSubmissionsMatrix | null = null;
   let settingsForm: Awaited<
     ReturnType<typeof superValidate<ContestSettingsForm, FormMessage>>
@@ -98,19 +93,20 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   if (contest.isManager) {
     const actor = getActorContext(event);
     if (actor && hasActorUsername(actor)) {
-      const [allowed, participants, plagReport, plagFlags, audit, availableProblems] =
+      const [participants, plagReport, plagFlags, audit, availableProblems, recent] =
         await Promise.all([
-          scoreOverrideDomain.canSetScoreOverride(actor, {
-            type: "contest",
-            contestId: contest.id,
-          }),
           listContestParticipantsWithUser(contest.id),
           plagiarismDomain.findPlagiarismReport({ type: "contest", id: contest.id }),
           plagiarismDomain.listFlagsForContext("contest", contest.id),
           auditDomain.listAuditTimelineForContext({ type: "contest", contestId: contest.id }),
           problemDomain.listProblemPickerGroups(actor.userId),
+          submissionDomain.listRecentContextSubmissions({
+            actor,
+            context: { type: "contest", id: contest.id },
+          }),
         ]);
       candidateProblems = availableProblems;
+      recentSubmissions = recent;
       auditEvents = audit;
       auditActorNames = await userDomain.listUserDisplayNames([
         ...new Set(audit.flatMap((e) => (e.actorUserId ? [e.actorUserId] : []))),
@@ -122,18 +118,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       });
       plagiarism = plagReport;
       plagiarismFlags = plagFlags;
-      canSetOverride = allowed;
-      const scores: number[] = [];
-      overrideStudents = participants.map((p) => {
-        scores.push(Number(p.score));
-        return {
-          rowId: p.user.id,
-          courseMembershipId: null,
-          userId: p.user.id,
-          username: p.user.username ?? "",
-          name: p.user.name,
-        };
-      });
+      const scores = participants.map((p) => Number(p.score));
 
       const totalPoints = (contest.problems ?? []).reduce((sum, p) => sum + p.points, 0);
       const maxScore =
@@ -188,11 +173,10 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   return {
     contest: { ...contest, inviteCode: contest.isManager ? contest.inviteCode : null },
     hasJoined,
-    canSetOverride,
-    overrideStudents,
     topEntries,
     results,
     matrix,
+    recentSubmissions,
     settingsForm,
     candidateProblems,
     plagiarism: serializePlagiarismReport(plagiarism),
