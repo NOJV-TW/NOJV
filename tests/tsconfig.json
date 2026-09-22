@@ -82,6 +82,7 @@
     "unit/temporal/lifecycle-reconciliation.test.ts",
     "unit/temporal/submission-dispatch.test.ts",
     "unit/worker/durable-work-metrics.test.ts",
+    "unit/worker/k8s-log-parse.test.ts",
     "unit/worker/durable-work-registry.test.ts",
     "unit/worker/durable-work-workflow.test.ts",
     "unit/worker/durable-work.test.ts",
