@@ -312,6 +312,14 @@ export async function createQueuedSubmissionRecord(
         "Advanced-mode problems use their configured judge verification.",
       );
     }
+    if (
+      isReferenceSolution &&
+      (await tx.testcase.count({ where: { testcaseSet: { problemId: problem.id } } })) === 0
+    ) {
+      throw new ConflictError(
+        "Add at least one testcase before validating the reference solution.",
+      );
+    }
 
     if (
       activeExamSession &&

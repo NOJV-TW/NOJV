@@ -79,6 +79,8 @@ const {
   problemUpdateReference: vi.fn(),
 }));
 
+const txTestcaseCount = vi.fn(async () => 1);
+
 vi.mock("@nojv/db", () => {
   return {
     courseProblemRepo: {
@@ -152,6 +154,7 @@ vi.mock("@nojv/db", () => {
           $executeRaw: txExecuteRaw,
           $queryRaw: vi.fn(async () => []),
           problem: { update: problemUpdateReference },
+          testcase: { count: txTestcaseCount },
         } as never);
       } finally {
         transactionState.depth -= 1;
@@ -861,6 +864,14 @@ describe("reference submission authorization", () => {
     problemFindById.mockResolvedValue(privateProblem);
     referenceLockProblem.mockResolvedValue(privateProblem);
     referenceLockStaff.mockResolvedValue(true);
+  });
+
+  it("rejects a reference solution while the problem has no testcases", async () => {
+    txTestcaseCount.mockResolvedValueOnce(0);
+    await expect(submitAndDispatch(reference, fakeActor, "127.0.0.1")).rejects.toThrow(
+      /at least one testcase/,
+    );
+    expect(submissionPublishPendingUpload).not.toHaveBeenCalled();
   });
 
   it("allows a platform student TA to submit a full reference under their own identity", async () => {

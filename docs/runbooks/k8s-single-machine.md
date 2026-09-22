@@ -215,9 +215,20 @@ that. Install the drop-in from `infra/k3s/kubelet.conf.d/90-image-gc.conf`
 over its generated defaults):
 
 ```bash
-sudo cp infra/k3s/kubelet.conf.d/90-image-gc.conf \
-  /var/lib/rancher/k3s/agent/etc/kubelet.conf.d/90-image-gc.conf
+sudo mkdir -p /var/lib/rancher/k3s/agent/etc/kubelet.conf.d
+sudo cp infra/k3s/kubelet.conf.d/*.conf /var/lib/rancher/k3s/agent/etc/kubelet.conf.d/
 sudo systemctl restart k3s
+```
+
+The same directory carries `91-container-log.conf`
+(`containerLogMaxSize: 64Mi`, `containerLogMaxFiles: 2`). A sandbox case
+container reports its result as one JSON line that can carry up to the
+16 MiB execution output cap; under kubelet's default 10 MiB log budget that
+line is cut and the worker turns a plain verdict into a system error. Verify
+the effective values after the restart:
+
+```bash
+sudo kubectl get --raw /api/v1/nodes/$(hostname)/proxy/configz | grep -o '"containerLogMax[A-Za-z]*":[^,]*'
 ```
 
 This sets `imageGCHighThresholdPercent: 75` / `imageGCLowThresholdPercent: 65`
