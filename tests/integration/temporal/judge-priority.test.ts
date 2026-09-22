@@ -34,7 +34,7 @@ describe("judge task queue priority", () => {
       }),
       executeJudgeStage: vi.fn(async (id: string) => {
         started.push(id);
-        await new Promise((resolve) => setTimeout(resolve, 300));
+        await new Promise((resolve) => setTimeout(resolve, 1500));
         return { status: "finished" as const };
       }),
       completePinnedJudge: vi.fn(async () => null),
