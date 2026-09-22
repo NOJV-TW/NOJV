@@ -599,20 +599,6 @@
       </p>
     </GlassPanel>
 
-    {#if canSetOverride}
-      <div class="flex flex-wrap gap-2">
-        {#if past}
-          <button
-            type="button"
-            onclick={() => (showOverrideDrawer = true)}
-            class="inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-[color:var(--color-panel)]/60 px-3 py-2 text-caption font-medium transition-colors hover:border-border"
-          >
-            {m.grading_openButton()}
-          </button>
-        {/if}
-      </div>
-    {/if}
-
     <Tabs
       tabs={subTabs}
       value={activeSubTabKey}

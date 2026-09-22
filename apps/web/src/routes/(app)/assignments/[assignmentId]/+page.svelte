@@ -10,7 +10,6 @@
   import AssignmentPlagiarismReport from "$lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
   import AssignmentSettingsTab from "$lib/components/features/course/assignment/AssignmentSettingsTab.svelte";
   import AuditTimeline from "$lib/components/features/audit/AuditTimeline.svelte";
-  import { Button } from "$lib/components/primitives/ui/button";
   import { Tabs } from "$lib/components/primitives/ui/tabs";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import ScoreOverrideDrawer from "$lib/components/features/score-override/ScoreOverrideDrawer.svelte";
@@ -68,7 +67,6 @@
     overridePrefill = { rowId, problemId };
     showOverrideDrawer = true;
   }
-  const assignmentClosed = $derived(detail.status === "closed");
   const overrideStudents = $derived(
     data.mode === "teacher"
       ? data.matrix.rows.map((r) => ({
@@ -155,19 +153,6 @@
   const targetIso = $derived(detail.dueAt ?? detail.closesAt);
 </script>
 
-{#snippet gradingActions()}
-  {#if assignmentClosed}
-    <Button
-      variant="outline"
-      size="sm"
-      type="button"
-      onclick={() => (showOverrideDrawer = true)}
-    >
-      {m.grading_openButton()}
-    </Button>
-  {/if}
-{/snippet}
-
 <PageContainer class="space-y-6 fade-up">
   <Crumbs
     items={[
@@ -183,7 +168,6 @@
     title={detail.title}
     summary={detail.summary}
     summaryId={`assignment-summary-${detail.id}`}
-    actions={data.mode === "teacher" && canSetOverride ? gradingActions : undefined}
   >
     {#snippet aside(accent)}
       {#if detail.opensAt && targetIso}
