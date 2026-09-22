@@ -60,7 +60,10 @@ describe("Vitest project routing", () => {
       "vitest run --project k8s-integration",
     );
     expect(packageJson.scripts["test:coverage"]).toBe(
-      "vitest run --coverage --project unit --project integration --project temporal-integration --project sandbox-integration",
+      "vitest run --coverage --project unit --project integration --project sandbox-integration",
+    );
+    expect(packageJson.scripts["test:integration:temporal"]).toBe(
+      "vitest run --project temporal-integration",
     );
     expect(packageJson.scripts["test:integration"]).toBe(
       "vitest run --project integration --project temporal-integration --project sandbox-integration",
