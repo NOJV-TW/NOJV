@@ -568,6 +568,44 @@ describe("storage release cutover", () => {
     expect(enableHpa).toBeGreaterThan(releaseScale);
   }, 15_000);
 
+  it("waits for the maintenance page to be available before draining web", () => {
+    const harness = makeHarness();
+    writeFileSync(join(harness.directory, "nojv-web-maintenance.replicas"), "1");
+    const result = runCutover(harness);
+    expect(result.status, result.stderr).toBe(0);
+
+    const log = events(harness);
+    const gate = log.findIndex(
+      (line) =>
+        line.includes("get deployment nojv-web-maintenance") &&
+        line.includes("availableReplicas"),
+    );
+    const drained = log.findIndex((line) =>
+      line.includes("scale deployment nojv-web nojv-worker nojv-worker-platform --replicas=0"),
+    );
+    expect(gate).toBeGreaterThanOrEqual(0);
+    expect(drained).toBeGreaterThan(gate);
+  }, 15_000);
+
+  it("leaves the release serving when the maintenance page never becomes available", () => {
+    const harness = makeHarness();
+    writeFileSync(join(harness.directory, "nojv-web-maintenance.replicas"), "0");
+    const result = runCutover(harness, { MAINTENANCE_READY_TIMEOUT_SECONDS: "0" });
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("Timed out waiting for the maintenance page");
+    expect(events(harness)).not.toContainEqual(expect.stringContaining("--replicas=0"));
+    expect(readFileSync(join(harness.directory, "nojv-web.replicas"), "utf8")).toBe("2");
+    expect(readFileSync(join(harness.directory, "hpa-target"), "utf8")).toBe("nojv-web");
+  }, 15_000);
+
+  it("drains without a maintenance gate when the page was not rendered", () => {
+    const harness = makeHarness();
+    const result = runCutover(harness);
+    expect(result.status, result.stderr).toBe(0);
+    expect(events(harness)).not.toContainEqual(expect.stringContaining("availableReplicas"));
+  }, 15_000);
+
   it("keeps the first HPA-enabled upgrade safe when the old release has no HPA", () => {
     const harness = makeHarness();
     const result = runCutover(harness, { HPA_MISSING: "true" });

@@ -71,6 +71,10 @@ spec:
               value: {{ .Values.web.hpa.enabled | quote }}
             - name: WEB_POD_SELECTOR
               value: "app.kubernetes.io/name=nojv-web,!nojv.tw/role"
+            - name: MAINTENANCE_DEPLOYMENT
+              value: {{ printf "%s-web-maintenance" (include "nojv.fullname" .) | quote }}
+            - name: MAINTENANCE_READY_TIMEOUT_SECONDS
+              value: {{ .Values.maintenance.pageReadyTimeoutSeconds | quote }}
             - name: JUDGE_DEPLOYMENT
               value: {{ printf "%s-worker" (include "nojv.fullname" .) | quote }}
             - name: JUDGE_POD_SELECTOR

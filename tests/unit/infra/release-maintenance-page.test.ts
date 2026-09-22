@@ -87,6 +87,18 @@ describeHelm("release window serves a maintenance page instead of no endpoints",
     }
   });
 
+  it("exists before the migrator drains web", () => {
+    const weight = (doc: string) => Number(/helm\.sh\/hook-weight: "(-?\d+)"/.exec(doc)?.[1]);
+    const prepull = findByName(upgrade, "Job", "nojv-release-prepull");
+    const migrator = findByName(upgrade, "Job", "nojv-migrator");
+    expect(maintenance).toMatch(/helm\.sh\/hook: pre-upgrade\n/);
+    expect(maintenance).toMatch(/helm\.sh\/hook-delete-policy: before-hook-creation\n/);
+    expect(maintenance).not.toContain("hook-succeeded");
+    expect(weight(maintenance)).toBeGreaterThan(weight(prepull));
+    expect(weight(maintenance)).toBeLessThan(weight(migrator));
+    expect(migrator).toMatch(/name: MAINTENANCE_DEPLOYMENT\n\s+value: "nojv-web-maintenance"/);
+  });
+
   it("is absent outside a release window", () => {
     expect(findByName(install, "Deployment", "nojv-web-maintenance")).toBe("");
   });
