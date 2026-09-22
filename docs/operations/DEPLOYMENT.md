@@ -693,6 +693,19 @@ pointers. The chart keeps all three new Deployments in maintenance through
 Helm's apply/wait phase; the post-upgrade hook explicitly starts and verifies
 the new workloads before restoring the web HPA target.
 
+While the window is open the site answers from
+`infra/charts/nojv/templates/web-maintenance.deployment.yaml`, a single pod that
+is rendered only for an upgrade with `migrator.releaseWindow` and carries the
+`app.kubernetes.io/name: nojv-web` pod label, so the existing web Service reaches
+it without any selector change. It runs the release's own web image with a
+command override, so the window needs no extra image, and answers every path with
+HTTP 503, a `Retry-After` hint and a bilingual page instead of leaving the
+Service with no endpoints for the edge to turn into a 502. Its extra
+`nojv.tw/role: maintenance` label is what both drain checks exclude
+(`WEB_POD_SELECTOR`), and the post-upgrade Job scales it to zero once the real web
+deployment reports ready and the HPA is repointed; `enter_maintenance` scales it
+back up when a post-contract failure sends the workloads back.
+
 Before any of that, a `release-prepull` pre-upgrade hook (weight -10, ahead of
 the migrator's drain at -5) pulls the release's web and worker images onto the
 node by running each as a no-op container. A slow or failing registry therefore

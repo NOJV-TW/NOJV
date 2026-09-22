@@ -40,6 +40,7 @@ rules:
     resources: ["deployments"]
     resourceNames:
       - {{ $webName }}
+      - {{ $webName }}-maintenance
       - {{ $judgeName }}
       - {{ $platformName }}
     verbs: ["get"]
@@ -47,6 +48,7 @@ rules:
     resources: ["deployments/scale"]
     resourceNames:
       - {{ $webName }}
+      - {{ $webName }}-maintenance
       - {{ $judgeName }}
       - {{ $platformName }}
     verbs: ["get", "patch", "update"]
@@ -128,6 +130,10 @@ spec:
               value: {{ .Values.migrator.releaseWindow | quote }}
             - name: WEB_DEPLOYMENT
               value: {{ $webName | quote }}
+            - name: MAINTENANCE_DEPLOYMENT
+              value: {{ printf "%s-maintenance" $webName | quote }}
+            - name: MAINTENANCE_PAGE_REPLICAS
+              value: {{ .Values.maintenance.pageReplicas | quote }}
             - name: WEB_HPA
               value: {{ $webName | quote }}
             - name: WEB_HPA_ENABLED
@@ -135,7 +141,7 @@ spec:
             - name: WEB_READY_REPLICAS
               value: {{ $readyReplicas | quote }}
             - name: WEB_POD_SELECTOR
-              value: app.kubernetes.io/name=nojv-web
+              value: "app.kubernetes.io/name=nojv-web,!nojv.tw/role"
             - name: JUDGE_DEPLOYMENT
               value: {{ $judgeName | quote }}
             - name: JUDGE_READY_REPLICAS
