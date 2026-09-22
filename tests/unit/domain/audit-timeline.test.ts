@@ -41,7 +41,7 @@ describe("listAuditTimelineForContext", () => {
         createdAt: new Date("2026-01-03T10:00:00Z"),
         changedByUserId: "usr_ta",
         action: "update",
-        userId: "usr_student",
+        studentUserId: "usr_student",
         problemId: "prob_1",
         oldScore: 50,
         newScore: 80,
@@ -111,7 +111,7 @@ describe("listAuditTimelineForContext", () => {
     });
 
     expect(assessmentAuditListByAssessment).toHaveBeenCalledWith("ca_1");
-    expect(scoreOverrideAuditListForContext).toHaveBeenCalledWith("assignment", "ca_1");
+    expect(scoreOverrideAuditListForContext).toHaveBeenCalledWith({ assessmentId: "ca_1" });
     expect(submissionListIdsForContext).toHaveBeenCalledWith({
       type: "assignment",
       assignmentId: "ca_1",
@@ -125,7 +125,7 @@ describe("listAuditTimelineForContext", () => {
         createdAt: new Date("2026-02-02T10:00:00Z"),
         changedByUserId: "usr_ta",
         action: "create",
-        userId: "usr_student",
+        studentUserId: "usr_student",
         problemId: "prob_1",
         oldScore: null,
         newScore: 90,
@@ -150,7 +150,7 @@ describe("listAuditTimelineForContext", () => {
 
     expect(assessmentAuditListByAssessment).not.toHaveBeenCalled();
     expect(timeline.map((e) => e.kind)).toEqual(["score_override", "rejudge"]);
-    expect(scoreOverrideAuditListForContext).toHaveBeenCalledWith("exam", "e_1");
+    expect(scoreOverrideAuditListForContext).toHaveBeenCalledWith({ examId: "e_1" });
   });
 
   it("contest: omits lifecycle and score-override events — only rejudge", async () => {

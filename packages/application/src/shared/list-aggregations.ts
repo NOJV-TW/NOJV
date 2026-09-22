@@ -41,7 +41,7 @@ async function activityResults(type: "assignment" | "exam", ids: string[], userI
       );
       const submittedUsers = users.size;
       for (const override of overrides) {
-        const uid = override.membership?.userId ?? override.courseMembershipId;
+        const uid = override.membership.userId ?? override.courseMembershipId;
         const pid = override.problemId;
         if (
           !uid ||

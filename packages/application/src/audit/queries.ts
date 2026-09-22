@@ -5,7 +5,7 @@ import {
   submissionRepo,
 } from "@nojv/db";
 
-import type { GradedContext } from "../shared/graded-context";
+import { toCourseActivityDbFields, type GradedContext } from "../shared/graded-context";
 
 export type AuditEventKind = "lifecycle" | "score_override" | "rejudge";
 
@@ -31,7 +31,7 @@ export interface ScoreOverrideAuditEvent extends AuditEventBase {
   kind: "score_override";
   detail: {
     action: ScoreOverrideRow["action"];
-    userId: ScoreOverrideRow["userId"];
+    userId: ScoreOverrideRow["studentUserId"];
     problemId: ScoreOverrideRow["problemId"];
     oldScore: ScoreOverrideRow["oldScore"];
     newScore: ScoreOverrideRow["newScore"];
@@ -53,17 +53,6 @@ export interface RejudgeAuditEvent extends AuditEventBase {
 
 export type AuditEvent = LifecycleAuditEvent | ScoreOverrideAuditEvent | RejudgeAuditEvent;
 
-function resolveContextId(context: GradedContext): string {
-  switch (context.type) {
-    case "assignment":
-      return context.assignmentId;
-    case "exam":
-      return context.examId;
-    case "contest":
-      return context.contestId;
-  }
-}
-
 export async function listAuditTimelineForContext(
   context: GradedContext,
 ): Promise<AuditEvent[]> {
@@ -79,27 +68,27 @@ export async function listAuditTimelineForContext(
         )
       : Promise.resolve([]);
 
-  const contextId = resolveContextId(context);
-
   const overrideP: Promise<ScoreOverrideAuditEvent[]> =
     context.type === "contest"
       ? Promise.resolve([])
-      : scoreOverrideAuditLogRepo.listForContext(context.type, contextId).then((rows) =>
-          rows.map((row) => ({
-            at: row.createdAt,
-            actorUserId: row.changedByUserId,
-            kind: "score_override" as const,
-            detail: {
-              action: row.action,
-              userId: row.userId,
-              problemId: row.problemId,
-              oldScore: row.oldScore,
-              newScore: row.newScore,
-              oldReason: row.oldReason,
-              newReason: row.newReason,
-            },
-          })),
-        );
+      : scoreOverrideAuditLogRepo
+          .listForContext(toCourseActivityDbFields(context))
+          .then((rows) =>
+            rows.map((row) => ({
+              at: row.createdAt,
+              actorUserId: row.changedByUserId,
+              kind: "score_override" as const,
+              detail: {
+                action: row.action,
+                userId: row.studentUserId,
+                problemId: row.problemId,
+                oldScore: row.oldScore,
+                newScore: row.newScore,
+                oldReason: row.oldReason,
+                newReason: row.newReason,
+              },
+            })),
+          );
 
   const rejudgeP: Promise<RejudgeAuditEvent[]> = submissionRepo
     .listIdsForContext(context)

@@ -108,10 +108,9 @@ export async function createOverride(actor: ActorContext, input: OverrideInput) 
       courseId,
     );
     const created = await scoreOverrideRepo.create(tx, {
+      ...db,
       courseMembershipId: input.courseMembershipId,
       problemId: input.problemId,
-      contextType: db.contextType,
-      contextId: db.contextId,
       overrideScore: input.overrideScore,
       reason: input.reason,
       createdByUserId: actor.userId,
@@ -120,12 +119,12 @@ export async function createOverride(actor: ActorContext, input: OverrideInput) 
 
     const audit = await scoreOverrideAuditLogRepo.create(tx, {
       overrideId: created.id,
-      userId,
+      studentUserId: userId,
       courseMembershipId: input.courseMembershipId,
       sourceMembershipId: input.courseMembershipId,
       problemId: input.problemId,
-      contextType: db.contextType,
-      contextId: db.contextId,
+      assessmentId: db.assessmentId ?? null,
+      examId: db.examId ?? null,
       action: "create",
       oldScore: null,
       newScore: input.overrideScore,
@@ -171,12 +170,12 @@ export async function updateOverride(actor: ActorContext, id: string, patch: Ove
 
     const audit = await scoreOverrideAuditLogRepo.create(tx, {
       overrideId: id,
-      userId,
+      studentUserId: userId,
       courseMembershipId: current.courseMembershipId,
       sourceMembershipId: current.courseMembershipId,
       problemId: existing.problemId,
-      contextType: existing.contextType,
-      contextId: existing.contextId,
+      assessmentId: existing.assessmentId,
+      examId: existing.examId,
       action: "update",
       oldScore: current.overrideScore,
       newScore: row.overrideScore,
@@ -212,12 +211,12 @@ export async function deleteOverride(actor: ActorContext, id: string) {
     );
     const audit = await scoreOverrideAuditLogRepo.create(tx, {
       overrideId: null,
-      userId,
+      studentUserId: userId,
       courseMembershipId: current.courseMembershipId,
       sourceMembershipId: current.courseMembershipId,
       problemId: existing.problemId,
-      contextType: existing.contextType,
-      contextId: existing.contextId,
+      assessmentId: existing.assessmentId,
+      examId: existing.examId,
       action: "delete",
       oldScore: current.overrideScore,
       newScore: null,

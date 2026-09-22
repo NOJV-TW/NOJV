@@ -7,6 +7,30 @@ export type GradedContext =
 
 export type GradedContextType = GradedContext["type"];
 
+export type CourseActivityContext = Exclude<GradedContext, { type: "contest" }>;
+
+export type CourseActivityDbFields =
+  { assessmentId: string; examId?: undefined } | { examId: string; assessmentId?: undefined };
+
+export function toCourseActivityDbFields(ctx: CourseActivityContext): CourseActivityDbFields {
+  return ctx.type === "assignment"
+    ? { assessmentId: ctx.assignmentId }
+    : { examId: ctx.examId };
+}
+
+export function fromCourseActivityDbFields(row: {
+  assessmentId: string | null;
+  examId: string | null;
+}): CourseActivityContext {
+  if (row.assessmentId !== null) {
+    return { type: "assignment", assignmentId: row.assessmentId };
+  }
+  if (row.examId !== null) {
+    return { type: "exam", examId: row.examId };
+  }
+  throw new ValidationError("Row has no course activity id.");
+}
+
 export function toContextDbFields(ctx: GradedContext): {
   contextType: GradedContextType;
   contextId: string;

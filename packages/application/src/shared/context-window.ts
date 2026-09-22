@@ -1,9 +1,9 @@
 import { assessmentRepo, examRepo } from "@nojv/db";
 
 import { ConflictError, NotFoundError } from "./errors";
-import type { GradedContext } from "./graded-context";
+import type { CourseActivityContext } from "./graded-context";
 
-export type GradableContext = Exclude<GradedContext, { type: "contest" }>;
+export type GradableContext = CourseActivityContext;
 
 export async function isContextClosed(context: GradableContext): Promise<boolean> {
   const now = Date.now();

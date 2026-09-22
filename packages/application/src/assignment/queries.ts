@@ -111,7 +111,7 @@ export async function listStudentsBelowMaxScore(
   );
   const overrides = await scoreOverrideRepo.findCourseOverrides("assignment", [assignmentId]);
   for (const override of overrides) {
-    const userId = override.membership?.userId;
+    const userId = override.membership.userId;
     if (userId) scores.set(`${userId}::${override.problemId}`, override.overrideScore);
   }
   return userIds.filter(

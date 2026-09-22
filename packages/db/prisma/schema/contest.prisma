@@ -151,6 +151,7 @@ model Exam {
   ipViolationLogs       IpViolationLog[]
   activeSessions        ActiveExamSession[]
   submissionFeedback    SubmissionFeedback[]
+  scoreOverrides        ScoreOverride[]
   participations        Participation[]      @relation("ExamUnifiedParticipation")
   credentials           ExamCredential[]
 

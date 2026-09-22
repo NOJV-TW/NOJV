@@ -418,11 +418,10 @@ describe("updateOverride", () => {
   beforeEach(() => {
     overrideFindById.mockResolvedValue({
       id: "ov_1",
-      userId: null,
       courseMembershipId: "mem_student",
       problemId: "prob_1",
-      contextType: "assignment",
-      contextId: "ca_hw1",
+      assessmentId: "ca_hw1",
+      examId: null,
       overrideScore: 80,
       reason: "Old reason",
     });
@@ -477,11 +476,10 @@ describe("deleteOverride", () => {
   beforeEach(() => {
     overrideFindById.mockResolvedValue({
       id: "ov_1",
-      userId: null,
       courseMembershipId: "mem_student",
       problemId: "prob_1",
-      contextType: "assignment",
-      contextId: "ca_hw1",
+      assessmentId: "ca_hw1",
+      examId: null,
       overrideScore: 80,
       reason: "Old reason",
     });
@@ -557,7 +555,7 @@ describe("course roster grading", () => {
     expect(auditCreate).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        userId: null,
+        studentUserId: null,
         courseMembershipId: "mem_student",
         sourceMembershipId: "mem_student",
       }),
@@ -582,11 +580,10 @@ describe("course roster grading", () => {
   it("rechecks a merged override's effective membership after locking", async () => {
     const existing = {
       id: "ov_1",
-      userId: null,
       courseMembershipId: "mem_old",
       problemId: "prob_1",
-      contextType: "exam",
-      contextId: "e_1",
+      examId: "e_1",
+      assessmentId: null,
       overrideScore: 80,
       reason: "old",
     };
@@ -610,11 +607,10 @@ describe("course roster grading", () => {
   it.each(["update", "delete"])("rejects %s after enrollment is removed", async (operation) => {
     overrideFindById.mockResolvedValue({
       id: "ov_1",
-      userId: null,
       courseMembershipId: "mem_student",
       problemId: "prob_1",
-      contextType: "assignment",
-      contextId: "ca_hw1",
+      assessmentId: "ca_hw1",
+      examId: null,
       overrideScore: 80,
       reason: "old",
     });

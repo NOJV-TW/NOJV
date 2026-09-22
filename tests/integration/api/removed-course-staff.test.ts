@@ -96,8 +96,7 @@ async function fixture(role: "ta" | "teacher") {
     data: [studentMembership, pendingMembership].map((membership, index) => ({
       courseMembershipId: membership.id,
       problemId: problem.id,
-      contextType: "assignment",
-      contextId: assignment.id,
+      assessmentId: assignment.id,
       overrideScore: index === 0 ? 80 : 60,
       reason: "Manual grade",
       createdByUserId: owner.id,

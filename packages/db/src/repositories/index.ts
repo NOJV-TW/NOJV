@@ -77,7 +77,7 @@ export { securityFactorRepo, type SecurityFactorState } from "./security-factor"
 export {
   scoreOverrideRepo,
   scoreOverrideAuditLogRepo,
-  type ScoreOverrideCompositeKey,
+  type ScoreOverrideContext,
   type ScoreOverrideCreateData,
   type ScoreOverrideUpdateData,
   type ScoreOverrideAuditCreateData,

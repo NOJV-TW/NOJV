@@ -142,10 +142,10 @@ describe("buildCourseGradebook", () => {
           : [{ userId: "u1", problemId: "p3", _max: { score: 70 }, _count: { id: 1 } }],
       ),
     );
-    findAllOverrides.mockImplementation((contextType: string) =>
+    findAllOverrides.mockImplementation((context: { examId?: string }) =>
       Promise.resolve(
-        contextType === "exam"
-          ? [{ userId: null, courseMembershipId: "m_u2", problemId: "p3", overrideScore: 55 }]
+        context.examId !== undefined
+          ? [{ courseMembershipId: "m_u2", problemId: "p3", overrideScore: 55 }]
           : [],
       ),
     );

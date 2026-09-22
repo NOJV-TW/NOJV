@@ -101,11 +101,6 @@ model SubmissionRejudgeLog {
   @@index([createdAt(sort: Desc)])
 }
 
-enum OverrideContextType {
-  assignment
-  exam
-}
-
 enum ScoreOverrideAction {
   create
   update
@@ -114,38 +109,40 @@ enum ScoreOverrideAction {
 }
 
 model ScoreOverride {
-  id                 String              @id @default(cuid())
-  courseMembershipId String?
+  id                 String   @id @default(cuid())
+  courseMembershipId String
   problemId          String
-  contextType        OverrideContextType
-  contextId          String
+  assessmentId       String?
+  examId             String?
   overrideScore      Int
-  reason             String              @db.Text
+  reason             String   @db.Text
   createdByUserId    String?
   updatedByUserId    String?
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  problem   Problem @relation("ScoreOverrideProblem", fields: [problemId], references: [id], onDelete: Cascade)
-  createdBy User?   @relation("ScoreOverrideCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  updatedBy User?   @relation("ScoreOverrideEditor", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  membership CourseMembership @relation(fields: [courseMembershipId], references: [id], onDelete: Cascade)
+  problem    Problem          @relation("ScoreOverrideProblem", fields: [problemId], references: [id], onDelete: Cascade)
+  assessment Assessment?      @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  exam       Exam?            @relation(fields: [examId], references: [id], onDelete: Cascade)
+  createdBy  User?            @relation("ScoreOverrideCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedBy  User?            @relation("ScoreOverrideEditor", fields: [updatedByUserId], references: [id], onDelete: SetNull)
 
-  membership CourseMembership?       @relation(fields: [courseMembershipId], references: [id], onDelete: Cascade)
-  auditLogs  ScoreOverrideAuditLog[]
+  auditLogs ScoreOverrideAuditLog[]
 
-  @@unique([courseMembershipId, problemId, contextType, contextId])
-  @@index([contextType, contextId])
+  @@unique([assessmentId, problemId, courseMembershipId])
+  @@unique([examId, problemId, courseMembershipId])
 }
 
 model ScoreOverrideAuditLog {
   id                 String              @id @default(cuid())
   overrideId         String?
-  userId             String?
+  studentUserId      String?
   courseMembershipId String?
   sourceMembershipId String?
   problemId          String
-  contextType        OverrideContextType
-  contextId          String
+  assessmentId       String?
+  examId             String?
   action             ScoreOverrideAction
   oldScore           Int?
   newScore           Int?
@@ -157,8 +154,9 @@ model ScoreOverrideAuditLog {
   override  ScoreOverride? @relation(fields: [overrideId], references: [id], onDelete: SetNull)
   changedBy User?          @relation("ScoreOverrideAuditChanger", fields: [changedByUserId], references: [id], onDelete: SetNull)
 
-  @@index([contextType, contextId, createdAt(sort: Desc)])
-  @@index([userId, problemId, createdAt(sort: Desc)])
+  @@index([assessmentId, problemId, createdAt(sort: Desc)])
+  @@index([examId, problemId, createdAt(sort: Desc)])
+  @@index([studentUserId, problemId, createdAt(sort: Desc)])
   @@index([courseMembershipId, problemId, createdAt(sort: Desc)])
 }
 

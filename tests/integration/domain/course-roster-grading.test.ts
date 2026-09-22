@@ -98,7 +98,9 @@ describe("course roster grading contract (real DB)", () => {
     });
     expect(audits).toHaveLength(2);
     expect(
-      audits.every((row) => row.userId === null && row.sourceMembershipId === membership.id),
+      audits.every(
+        (row) => row.studentUserId === null && row.sourceMembershipId === membership.id,
+      ),
     ).toBe(true);
     expect((await courseDomain.buildCourseGradebook(course.id)).rows[0]).toMatchObject({
       membershipId: membership.id,

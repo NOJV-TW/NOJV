@@ -1,30 +1,20 @@
 import { prisma } from "../client";
-import type {
-  OverrideContextType,
-  Prisma,
-  ScoreOverrideAction,
-} from "../../generated/prisma/client";
+import type { Prisma, ScoreOverrideAction } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
+import type { SubmissionFeedbackContext } from "./submission-feedback";
 
 type TxClient = TransactionClient;
 
-export interface ScoreOverrideCompositeKey {
-  courseMembershipId: string;
-  problemId: string;
-  contextType: OverrideContextType;
-  contextId: string;
-}
+export type ScoreOverrideContext = SubmissionFeedbackContext;
 
-export interface ScoreOverrideCreateData {
+export type ScoreOverrideCreateData = ScoreOverrideContext & {
   courseMembershipId: string;
   problemId: string;
-  contextType: OverrideContextType;
-  contextId: string;
   overrideScore: number;
   reason: string;
   createdByUserId: string | null;
   updatedByUserId: string | null;
-}
+};
 
 export interface ScoreOverrideUpdateData {
   overrideScore?: number;
@@ -34,18 +24,26 @@ export interface ScoreOverrideUpdateData {
 
 export interface ScoreOverrideAuditCreateData {
   overrideId: string | null;
-  userId: string | null;
+  studentUserId: string | null;
   courseMembershipId?: string | null;
   sourceMembershipId?: string | null;
   problemId: string;
-  contextType: OverrideContextType;
-  contextId: string;
+  assessmentId: string | null;
+  examId: string | null;
   action: ScoreOverrideAction;
   oldScore: number | null;
   newScore: number | null;
   oldReason: string | null;
   newReason: string | null;
   changedByUserId: string | null;
+}
+
+function contextWhere(
+  context: ScoreOverrideContext,
+): { assessmentId: string } | { examId: string } {
+  return context.assessmentId !== undefined
+    ? { assessmentId: context.assessmentId }
+    : { examId: context.examId };
 }
 
 export const scoreOverrideRepo = {
@@ -57,29 +55,19 @@ export const scoreOverrideRepo = {
 
   async findForExamUser(examId: string, userId: string) {
     const rows = await prisma.scoreOverride.findMany({
-      where: {
-        contextType: "exam",
-        contextId: examId,
-        membership: { userId, course: { exams: { some: { id: examId } } } },
-      },
+      where: { examId, membership: { userId } },
       select: { problemId: true, overrideScore: true },
     });
     return rows.map((row) => ({ ...row, userId }));
-  },
-
-  findUnique(key: ScoreOverrideCompositeKey) {
-    return prisma.scoreOverride.findUnique({
-      where: { courseMembershipId_problemId_contextType_contextId: key },
-    });
   },
 
   findById(id: string, tx?: TxClient) {
     return (tx ?? prisma).scoreOverride.findUnique({ where: { id } });
   },
 
-  listByContext(contextType: OverrideContextType, contextId: string) {
+  listByContext(context: ScoreOverrideContext) {
     return prisma.scoreOverride.findMany({
-      where: { contextType, contextId },
+      where: contextWhere(context),
       orderBy: { createdAt: "desc" },
       include: {
         membership: {
@@ -102,8 +90,9 @@ export const scoreOverrideRepo = {
   ) {
     return prisma.scoreOverride.findMany({
       where: {
-        contextType,
-        contextId: { in: contextIds },
+        ...(contextType === "assignment"
+          ? { assessmentId: { in: contextIds } }
+          : { examId: { in: contextIds } }),
         membership: {
           role: "student",
           status: "active",
@@ -111,7 +100,6 @@ export const scoreOverrideRepo = {
         },
       },
       select: {
-        contextId: true,
         courseMembershipId: true,
         problemId: true,
         overrideScore: true,
@@ -120,9 +108,9 @@ export const scoreOverrideRepo = {
     });
   },
 
-  findAllByContext(contextType: OverrideContextType, contextId: string) {
+  findAllByContext(context: ScoreOverrideContext) {
     return prisma.scoreOverride.findMany({
-      where: { contextType, contextId },
+      where: contextWhere(context),
       select: {
         courseMembershipId: true,
         problemId: true,
@@ -135,8 +123,8 @@ export const scoreOverrideRepo = {
     const payload: Prisma.ScoreOverrideUncheckedCreateInput = {
       courseMembershipId: data.courseMembershipId,
       problemId: data.problemId,
-      contextType: data.contextType,
-      contextId: data.contextId,
+      assessmentId: data.assessmentId ?? null,
+      examId: data.examId ?? null,
       overrideScore: data.overrideScore,
       reason: data.reason,
       createdByUserId: data.createdByUserId,
@@ -164,12 +152,12 @@ export const scoreOverrideAuditLogRepo = {
     return tx.scoreOverrideAuditLog.create({
       data: {
         overrideId: data.overrideId,
-        userId: data.userId,
+        studentUserId: data.studentUserId,
         courseMembershipId: data.courseMembershipId ?? null,
         sourceMembershipId: data.sourceMembershipId ?? null,
         problemId: data.problemId,
-        contextType: data.contextType,
-        contextId: data.contextId,
+        assessmentId: data.assessmentId,
+        examId: data.examId,
         action: data.action,
         oldScore: data.oldScore,
         newScore: data.newScore,
@@ -180,9 +168,9 @@ export const scoreOverrideAuditLogRepo = {
     });
   },
 
-  listForContext(contextType: OverrideContextType, contextId: string, limit = 100) {
+  listForContext(context: ScoreOverrideContext, limit = 100) {
     return prisma.scoreOverrideAuditLog.findMany({
-      where: { contextType, contextId },
+      where: contextWhere(context),
       orderBy: { createdAt: "desc" },
       take: limit,
       include: {

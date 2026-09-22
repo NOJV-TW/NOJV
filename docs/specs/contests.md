@@ -73,9 +73,10 @@ freeze/unfreeze for the final reveal.
   attached problem must ship editable `main.<ext>` for every language).
 - No score overrides. Contests are public CP events, not classroom
   homework, so neither score adjustments nor per-cell feedback exist:
-  the override schema, `/api/overrides`, the override domain and the
-  `OverrideContextType` enum accept only assignment and exam contexts,
-  and the manager grade matrix (Results → Grades) is read-only.
+  the override schema, `/api/overrides` and the override domain accept
+  only assignment and exam contexts (`ScoreOverride` rows reference
+  `assessmentId` / `examId`), and the manager grade matrix
+  (Results → Grades) is read-only.
 - Audit sub-tab — staff-only feed of rejudge events
   (`listAuditTimelineForContext({ type: "contest", id })`). Contests
   have no lifecycle audit log and no score-override entries.

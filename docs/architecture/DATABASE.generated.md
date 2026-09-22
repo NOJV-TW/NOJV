@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_54 models and 38 enums across 10 schema files._
+_54 models and 37 enums across 10 schema files._
 
 ## `auth.prisma`
 
@@ -430,6 +430,7 @@ Indexes & constraints: `@@unique([contestId, problemId])`, `@@unique([contestId,
 | `ipViolationLogs` | `IpViolationLog[]` | — |
 | `activeSessions` | `ActiveExamSession[]` | — |
 | `submissionFeedback` | `SubmissionFeedback[]` | — |
+| `scoreOverrides` | `ScoreOverride[]` | — |
 | `participations` | `Participation[]` | `@relation("ExamUnifiedParticipation")` |
 | `credentials` | `ExamCredential[]` | — |
 
@@ -566,6 +567,7 @@ Indexes & constraints: `@@unique([id, userId])`, `@@unique([type, contestId, use
 | `problems` | `AssessmentProblem[]` | — |
 | `submissions` | `Submission[]` | — |
 | `submissionFeedback` | `SubmissionFeedback[]` | — |
+| `scoreOverrides` | `ScoreOverride[]` | — |
 
 Indexes & constraints: `@@unique([id, courseId])`, `@@index([courseId, status])`
 
@@ -1045,10 +1047,6 @@ Indexes & constraints: `@@unique([problemId, name])`, `@@unique([problemId, ordi
 
 `open` · `resolved` · `dismissed`
 
-#### `OverrideContextType`
-
-`assignment` · `exam`
-
 #### `ProblemPostType`
 
 `editorial` · `discussion`
@@ -1204,23 +1202,25 @@ Indexes & constraints: `@@index([problemId, type, createdAt])`
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
 | `id` | `String` | `@id @default(cuid())` |
-| `courseMembershipId` | `String?` | — |
+| `courseMembershipId` | `String` | — |
 | `problemId` | `String` | — |
-| `contextType` | `OverrideContextType` | — |
-| `contextId` | `String` | — |
+| `assessmentId` | `String?` | — |
+| `examId` | `String?` | — |
 | `overrideScore` | `Int` | — |
 | `reason` | `String` | `@db.Text` |
 | `createdByUserId` | `String?` | — |
 | `updatedByUserId` | `String?` | — |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |
+| `membership` | `CourseMembership` | `@relation(fields: [courseMembershipId], references: [id], onDelete: Cascade)` |
 | `problem` | `Problem` | `@relation("ScoreOverrideProblem", fields: [problemId], references: [id], onDelete: Cascade)` |
+| `assessment` | `Assessment?` | `@relation(fields: [assessmentId], references: [id], onDelete: Cascade)` |
+| `exam` | `Exam?` | `@relation(fields: [examId], references: [id], onDelete: Cascade)` |
 | `createdBy` | `User?` | `@relation("ScoreOverrideCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)` |
 | `updatedBy` | `User?` | `@relation("ScoreOverrideEditor", fields: [updatedByUserId], references: [id], onDelete: SetNull)` |
-| `membership` | `CourseMembership?` | `@relation(fields: [courseMembershipId], references: [id], onDelete: Cascade)` |
 | `auditLogs` | `ScoreOverrideAuditLog[]` | — |
 
-Indexes & constraints: `@@unique([courseMembershipId, problemId, contextType, contextId])`, `@@index([contextType, contextId])`
+Indexes & constraints: `@@unique([assessmentId, problemId, courseMembershipId])`, `@@unique([examId, problemId, courseMembershipId])`
 
 #### `ScoreOverrideAuditLog`
 
@@ -1228,12 +1228,12 @@ Indexes & constraints: `@@unique([courseMembershipId, problemId, contextType, co
 | ----- | ---- | ---------- |
 | `id` | `String` | `@id @default(cuid())` |
 | `overrideId` | `String?` | — |
-| `userId` | `String?` | — |
+| `studentUserId` | `String?` | — |
 | `courseMembershipId` | `String?` | — |
 | `sourceMembershipId` | `String?` | — |
 | `problemId` | `String` | — |
-| `contextType` | `OverrideContextType` | — |
-| `contextId` | `String` | — |
+| `assessmentId` | `String?` | — |
+| `examId` | `String?` | — |
 | `action` | `ScoreOverrideAction` | — |
 | `oldScore` | `Int?` | — |
 | `newScore` | `Int?` | — |
@@ -1244,7 +1244,7 @@ Indexes & constraints: `@@unique([courseMembershipId, problemId, contextType, co
 | `override` | `ScoreOverride?` | `@relation(fields: [overrideId], references: [id], onDelete: SetNull)` |
 | `changedBy` | `User?` | `@relation("ScoreOverrideAuditChanger", fields: [changedByUserId], references: [id], onDelete: SetNull)` |
 
-Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])`, `@@index([userId, problemId, createdAt(sort: Desc)])`, `@@index([courseMembershipId, problemId, createdAt(sort: Desc)])`
+Indexes & constraints: `@@index([assessmentId, problemId, createdAt(sort: Desc)])`, `@@index([examId, problemId, createdAt(sort: Desc)])`, `@@index([studentUserId, problemId, createdAt(sort: Desc)])`, `@@index([courseMembershipId, problemId, createdAt(sort: Desc)])`
 
 #### `Submission`
 

@@ -103,6 +103,7 @@ model Assessment {
   problems              AssessmentProblem[]
   submissions           Submission[]
   submissionFeedback    SubmissionFeedback[]
+  scoreOverrides        ScoreOverride[]
 
   @@unique([id, courseId])
   @@index([courseId, status])
