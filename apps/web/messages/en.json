@@ -1932,6 +1932,7 @@
   "submissionDetail_language": "Language",
   "submissionDetail_lineCount": "{count} lines",
   "submissionDetail_memory": "Memory",
+  "submissionDetail_problem": "Problem",
   "submissionDetail_runtime": "Runtime",
   "submissionDetail_sampleOnlyNotice": "This was a test (sample-only) submission, not a scored submission.",
   "submissionDetail_staffFeedback": "Staff-only feedback",
@@ -2496,6 +2497,5 @@
   "judgeRecovery_missingVersion": "The original judge version is unavailable. An instructor must explicitly rejudge to use the latest version.",
   "judgeRecovery_waiting": "Queued for judging. Your submission has been saved.",
   "judgeRecovery_running": "Judging is in progress. Any previous result stays valid until completion.",
-  "judgeRecovery_recovering": "The system is recovering this evaluation using its original version. No resubmission is needed.",
-  "judgeRecovery_version": "Judge version: {version}"
+  "judgeRecovery_recovering": "The system is recovering this evaluation using its original version. No resubmission is needed."
 }

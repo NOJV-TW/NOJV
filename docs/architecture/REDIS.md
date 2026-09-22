@@ -60,7 +60,7 @@ Cooldown enforcement lives in the database — see `checkExamSubmitCooldown` in 
 - Keyed on the Cloudflare-aware client IP via `getClientIp(event)`, not on userId.
 - Key prefix is `rl` — no `nojv:` prefix.
 - Four shared limiters, not per-endpoint:
-  - `apiRateLimiter` — 60 req / 60 s
+  - `apiRateLimiter` — 300 req / 60 s
   - `writeApiRateLimiter` — 10 req / 60 s
   - `formActionRateLimiter` — 20 req / 60 s (consumed via `withRateLimit` → `consumeFormRateLimitInternal`)
   - `signInRateLimiter` — 5 attempts / 15 min (password sign-in)

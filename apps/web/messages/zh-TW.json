@@ -1916,6 +1916,7 @@
   "submissionDetail_language": "語言",
   "submissionDetail_lineCount": "{count} 行",
   "submissionDetail_memory": "記憶體",
+  "submissionDetail_problem": "題目",
   "submissionDetail_runtime": "執行時間",
   "submissionDetail_sampleOnlyNotice": "這是一次測試（僅範例測資），不是正式計分的提交。",
   "submissionDetail_staffFeedback": "教師專屬判題訊息",
@@ -2496,6 +2497,5 @@
   "judgeRecovery_missingVersion": "原評測版本無法確認，需由老師明確 rejudge 才能使用最新版本。",
   "judgeRecovery_waiting": "正在等待評測資源，提交已保存。",
   "judgeRecovery_running": "正在評測；完成前保留既有有效結果。",
-  "judgeRecovery_recovering": "系統正在以原版本恢復評測，不需要重新提交。",
-  "judgeRecovery_version": "評測版本：{version}"
+  "judgeRecovery_recovering": "系統正在以原版本恢復評測，不需要重新提交。"
 }

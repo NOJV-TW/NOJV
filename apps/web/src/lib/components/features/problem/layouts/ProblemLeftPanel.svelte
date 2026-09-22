@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { LatePenaltyRule, SubmissionContext } from "@nojv/core";
-  import { ArrowLeft } from "@lucide/svelte";
   import { untrack } from "svelte";
   import type {
     ProblemDetail,
@@ -12,6 +11,7 @@
   import SubmissionHistoryPanel from "../left-panel/SubmissionHistoryPanel.svelte";
   import PostPanel from "../left-panel/PostPanel.svelte";
   import WorkspaceTimer from "./WorkspaceTimer.svelte";
+  import BackLink from "$lib/components/primitives/layout/BackLink.svelte";
 
   type ProblemBackLinkType = "assignment" | "contest" | "exam" | "virtual" | "problems";
 
@@ -129,14 +129,11 @@
 
 <div class="flex h-9 items-center border-b border-border-subtle px-2">
   {#if backLink}
-    <a
-      class="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-caption text-muted-foreground transition-[color,background-color] duration-fast ease-out-soft hover:bg-muted hover:text-foreground"
+    <BackLink
+      class="shrink-0 rounded-md px-2.5 py-1.5 text-caption transition-[color,background-color] hover:bg-muted"
       href={backLink.href}
-      data-testid="problem-back-link"
-    >
-      <ArrowLeft class="size-3.5" strokeWidth={2} aria-hidden="true" />
-      {m.common_back()}
-    </a>
+      label={m.common_back()}
+    />
   {/if}
   <div role="tablist" aria-label={m.problemDetail_panelTabsLabel()} class="flex items-center">
     {#each tabDefs as t (t.key)}
