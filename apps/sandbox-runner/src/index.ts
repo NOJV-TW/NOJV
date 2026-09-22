@@ -82,11 +82,11 @@ function emit(overrides: Partial<SandboxOutput>): void {
     testcaseResults: [],
     ...overrides,
   };
-  process.stdout.write(JSON.stringify(output));
+  process.stdout.write(`${JSON.stringify(output)}\n`);
 }
 
 function emitValidate(output: ValidateOutput): void {
-  process.stdout.write(JSON.stringify(output));
+  process.stdout.write(`${JSON.stringify(output)}\n`);
 }
 
 async function runValidate(workDir: string, config: SandboxInput): Promise<void> {
@@ -221,11 +221,11 @@ async function runInteractive(workDir: string, config: SandboxInput): Promise<vo
 async function runCompilePhase(config: SandboxInput): Promise<void> {
   const compileResult = await compileSubmission(ARTIFACT_DIR, config);
   if (!compileResult.success) {
-    process.stdout.write(JSON.stringify({ compilationError: compileResult.error }));
+    process.stdout.write(`${JSON.stringify({ compilationError: compileResult.error })}\n`);
     return;
   }
   await fs.writeFile(RUN_COMMAND_FILE, JSON.stringify(compileResult.runCommand), "utf-8");
-  process.stdout.write(JSON.stringify({ runCommand: compileResult.runCommand }));
+  process.stdout.write(`${JSON.stringify({ runCommand: compileResult.runCommand })}\n`);
 }
 
 async function runValidatorCompilePhase(config: SandboxInput): Promise<void> {
@@ -241,7 +241,7 @@ async function runValidatorCompilePhase(config: SandboxInput): Promise<void> {
     ? { runCommand: compiled.runCommand }
     : { compilationError: `Validator compilation failed: ${compiled.error}` };
   await fs.writeFile(VALIDATOR_BUILD_FILE, JSON.stringify(output), "utf-8");
-  process.stdout.write(JSON.stringify(output));
+  process.stdout.write(`${JSON.stringify(output)}\n`);
 }
 
 async function runPreparePhase(): Promise<void> {
@@ -379,7 +379,7 @@ try {
       },
     ],
   };
-  process.stdout.write(JSON.stringify(output));
+  process.stdout.write(`${JSON.stringify(output)}\n`);
   process.exitCode = 1;
 } finally {
   const cpu = readCgroupCpuUsageUsec();

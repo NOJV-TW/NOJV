@@ -1,5 +1,10 @@
 import { JUDGE_EXECUTION_DISPATCH_KIND, judgePriorityKey } from "@nojv/core";
-import { durableWorkRepo, prismaAdapterClient as db, runTransaction } from "@nojv/db";
+import {
+  DurableWorkInvariantError,
+  durableWorkRepo,
+  prismaAdapterClient as db,
+  runTransaction,
+} from "@nojv/db";
 import { z } from "zod";
 import { getDomainOrchestration } from "../shared/orchestration";
 
@@ -52,7 +57,9 @@ async function enqueueJudgeDispatch(run: { id: string; workflowId: string }) {
   });
   if (!existing) await durableWorkRepo.enqueue(work);
   else if (["dead", "succeeded", "cancelled"].includes(existing.status))
-    await durableWorkRepo.reactivate(work);
+    await durableWorkRepo.reactivate(work).catch((error: unknown) => {
+      if (!(error instanceof DurableWorkInvariantError)) throw error;
+    });
 }
 
 export async function dispatchNextJudgeExecutions(userId: string): Promise<void> {
