@@ -155,7 +155,7 @@ for (const assessment of [
       });
       expect(override.request().postDataJSON()).not.toHaveProperty("userId");
       const overrideBody = await override.json();
-      expect(overrideBody.userId).toBeNull();
+      expect(overrideBody).not.toHaveProperty("userId");
       overrideId = overrideBody.id;
 
       await drawer.locator("#fb-comment").fill("Roster feedback");
