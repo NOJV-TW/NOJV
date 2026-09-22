@@ -24,6 +24,8 @@ fi
 : "${JUDGE_POD_SELECTOR:?JUDGE_POD_SELECTOR is required}"
 : "${PLATFORM_DEPLOYMENT:?PLATFORM_DEPLOYMENT is required}"
 : "${PLATFORM_POD_SELECTOR:?PLATFORM_POD_SELECTOR is required}"
+: "${MAINTENANCE_DEPLOYMENT:=}"
+: "${MAINTENANCE_READY_TIMEOUT_SECONDS:=120}"
 : "${WEB_HPA_ENABLED:=false}"
 : "${JUDGE_KEDA_ENABLED:=false}"
 : "${DRAIN_TIMEOUT_SECONDS:=300}"
@@ -228,6 +230,19 @@ if [ "$JUDGE_KEDA_ENABLED" = true ]; then
   kubectl_ns get scaledobject "$JUDGE_KEDA_SCALED_OBJECT" \
     -o 'jsonpath={.metadata.annotations.autoscaling\.keda\.sh/paused-replicas}' \
     > "$state_dir/judge-keda-paused"
+fi
+
+if [ -n "$MAINTENANCE_DEPLOYMENT" ] && \
+   kubectl_ns get deployment "$MAINTENANCE_DEPLOYMENT" --output name >/dev/null 2>&1; then
+  maintenance_deadline=$(( $(date +%s) + MAINTENANCE_READY_TIMEOUT_SECONDS ))
+  until [ "$(kubectl_ns get deployment "$MAINTENANCE_DEPLOYMENT" \
+      -o 'jsonpath={.status.availableReplicas}')" -ge 1 ] 2>/dev/null; do
+    if [ "$(date +%s)" -ge "$maintenance_deadline" ]; then
+      echo "Timed out waiting for the maintenance page; leaving the release serving" >&2
+      exit 1
+    fi
+    sleep "$POLL_INTERVAL_SECONDS"
+  done
 fi
 
 maintenance_started=true

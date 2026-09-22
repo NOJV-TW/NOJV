@@ -699,16 +699,25 @@ the new workloads before restoring the web HPA target.
 
 While the window is open the site answers from
 `infra/charts/nojv/templates/web-maintenance.deployment.yaml`, a single pod that
-is rendered only for an upgrade with `migrator.releaseWindow` and carries the
-`app.kubernetes.io/name: nojv-web` pod label, so the existing web Service reaches
-it without any selector change. It runs the release's own web image with a
-command override, so the window needs no extra image, and answers every path with
-HTTP 503, a `Retry-After` hint and a bilingual page instead of leaving the
-Service with no endpoints for the edge to turn into a 502. Its extra
-`nojv.tw/role: maintenance` label is what both drain checks exclude
-(`WEB_POD_SELECTOR`), and the post-upgrade Job scales it to zero once the real web
-deployment reports ready and the HPA is repointed; `enter_maintenance` scales it
-back up when a post-contract failure sends the workloads back.
+carries the `app.kubernetes.io/name: nojv-web` pod label, so the existing web
+Service reaches it without any selector change. It runs the release's own web
+image with a command override, so the window needs no extra image, and answers
+every path with HTTP 503, a `Retry-After` hint and a bilingual page instead of
+leaving the Service with no endpoints for the edge to turn into a 502.
+
+The drain happens inside the migrator hook, before Helm applies the release, so
+the page is itself a `pre-upgrade` hook at weight -7: after `release-prepull`
+(-10) has put the image on the node and before the migrator (-5). It is rendered
+only for an upgrade with `migrator.releaseWindow`, and `before-hook-creation`
+replaces it on each such release. The migrator waits for it to report an
+available replica before it repoints the HPA and scales web to zero; if it never
+does within `maintenance.pageReadyTimeoutSeconds`, the migrator exits before
+draining and the previous release keeps serving. When the page was not rendered,
+for example under a stale `false` flag, the migrator drains without the gate.
+Its extra `nojv.tw/role: maintenance` label is what both drain checks exclude
+(`WEB_POD_SELECTOR`), and the post-upgrade Job scales it to zero once the real
+web deployment reports ready and the HPA is repointed; `enter_maintenance`
+scales it back up when a post-contract failure sends the workloads back.
 
 Before any of that, a `release-prepull` pre-upgrade hook (weight -10, ahead of
 the migrator's drain at -5) pulls the release's web and worker images onto the

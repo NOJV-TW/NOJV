@@ -373,6 +373,7 @@ migrator:
 
 maintenance:
   pageReplicas: 1
+  pageReadyTimeoutSeconds: 120
   pageResources:
     requests:
       cpu: 10m
