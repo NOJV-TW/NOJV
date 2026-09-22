@@ -28,10 +28,9 @@ it("exposes missing problems and allocation errors to the form scroll selector",
   const weights = mount(ActivityWeights, {
     target,
     props: {
-      totalPoints: 0,
       problems: [{ problemId: "p1", points: 0 }],
       onchange: () => {},
-      totalErrors: ["Allocate points"],
+      allocationError: "Allocate points",
     },
   });
   await tick();

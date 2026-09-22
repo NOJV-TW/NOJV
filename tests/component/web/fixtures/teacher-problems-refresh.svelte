@@ -55,7 +55,6 @@
   <AssignmentProblemsTab
     assignmentId={snapshot.id}
     problems={rows}
-    totalPoints={snapshot.totalPoints}
     gradingRevision={snapshot.gradingRevision}
     canEdit
   />

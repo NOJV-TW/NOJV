@@ -207,7 +207,6 @@ describe.each([
       { problemId: "historical-draft", points: 80 },
       { problemId: "shared-private", points: 120 },
     ],
-    totalPoints: 200,
     gradingRevision: 3,
   };
 
@@ -233,7 +232,7 @@ describe.each([
     await expect(
       updateProblems(
         event({
-          payload: JSON.stringify({ problems: payload.problems, totalPoints: 200 }),
+          payload: JSON.stringify({ problems: payload.problems }),
         }),
       ),
     ).resolves.toMatchObject({ status: 400 });

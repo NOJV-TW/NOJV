@@ -3,14 +3,12 @@
   import { m } from "$lib/paraglide/messages.js";
 
   let {
-    totalPoints = $bindable(),
     problems,
     titles = {},
     onchange,
-    totalErrors,
+    allocationError,
   }: {
-    totalErrors?: string[] | undefined;
-    totalPoints: number;
+    allocationError?: string | undefined;
     problems: ActivityProblem[];
     titles?: Record<string, string>;
     onchange: (rows: ActivityProblem[]) => void;
@@ -18,10 +16,6 @@
   const id = $props.id();
   const errorId = `${id}-error`;
   const total = $derived(Number(problems.reduce((sum, p) => sum + p.points, 0).toFixed(4)));
-
-  $effect(() => {
-    if (problems.length) totalPoints = total;
-  });
 
   function changePoints(problemId: string, event: Event) {
     const points = (event.currentTarget as HTMLInputElement).valueAsNumber;
@@ -41,8 +35,8 @@
         aria-label={m.activityWeights_weight({
           title: titles[problem.problemId] ?? problem.problemId,
         })}
-        aria-invalid={totalErrors?.length ? "true" : undefined}
-        aria-describedby={totalErrors?.length ? errorId : undefined}
+        aria-invalid={allocationError ? "true" : undefined}
+        aria-describedby={allocationError ? errorId : undefined}
         class="h-9 w-24 shrink-0 rounded-md border border-border aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20 bg-background px-2 py-1 text-right tabular-nums"
         type="number"
         min="0"
@@ -54,10 +48,8 @@
       <span class="w-6 shrink-0 text-muted-foreground">{m.activityWeights_points()}</span>
     </label>
   {/each}
-  {#if totalErrors?.length}
-    <p id={errorId} role="alert" class="text-caption text-destructive">
-      {totalErrors.join(", ")}
-    </p>
+  {#if allocationError}
+    <p id={errorId} role="alert" class="text-caption text-destructive">{allocationError}</p>
   {/if}
   <p class="text-right text-body-sm tabular-nums" role="status">
     {m.activityWeights_sum({ points: total })}

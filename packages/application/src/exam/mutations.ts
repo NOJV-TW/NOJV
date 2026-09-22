@@ -74,7 +74,6 @@ export async function createExamRecord(actor: ActorContext, payload: ExamCreate)
     const grading = await saveActivityGrading(tx, actor, {
       type: "exam",
       id: created.id,
-      totalPoints: payload.totalPoints,
       problems: payload.problems,
       published: payload.status === "published",
       allowedLanguages: payload.allowedLanguages,
@@ -180,7 +179,7 @@ export async function updateExamRecord(
         ? await examRepo.withTx(tx).update(exam.id, updateData)
         : exam;
 
-    if (payload.problems !== undefined || payload.totalPoints !== undefined) {
+    if (payload.problems !== undefined) {
       const links = await tx.examProblem.findMany({
         where: { examId: exam.id },
         orderBy: { ordinal: "asc" },
@@ -190,7 +189,6 @@ export async function updateExamRecord(
       await saveActivityGrading(tx, actor, {
         type: "exam",
         id: exam.id,
-        totalPoints: payload.totalPoints ?? Number(exam.totalPoints),
         problems:
           payload.problems ??
           links.map((p) => ({ problemId: p.problemId, points: Number(p.points) })),
@@ -232,7 +230,6 @@ export async function publishExam(actor: ActorContext, examId: string): Promise<
     const attached = await tx.examProblem.findMany({ where: { examId: exam.id } });
     const problemCount = attached.length;
     assertActivityAllocation(
-      Number(exam.totalPoints),
       attached.map((p) => ({ problemId: p.problemId, points: Number(p.points) })),
       true,
     );

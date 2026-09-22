@@ -28,21 +28,21 @@ describe("activity weights", () => {
     expect(sumActivityScores([1.005])).toBe(1.01);
     expect(sumActivityScores([activityScore(1, 24, 53), activityScore(8, 24, 47)])).toBe(17.88);
   });
-  it("requires complete valid allocations for published activities", () => {
-    expect(() => assertActivityAllocation(100, problems, true)).not.toThrow();
-    expect(() => assertActivityAllocation(100, [], false)).not.toThrow();
+  it("derives the total from the problem points and guards publishing", () => {
+    expect(assertActivityAllocation(problems, true).toNumber()).toBe(100);
+    expect(assertActivityAllocation([], false).toNumber()).toBe(0);
+    expect(assertActivityAllocation([{ problemId: "a", points: 0 }], false).toNumber()).toBe(0);
     for (const rows of [
       [],
-      [{ problemId: "a", points: 99 }],
+      [{ problemId: "a", points: 0 }],
       [
         { problemId: "a", points: 50 },
         { problemId: "a", points: 50 },
       ],
       [{ problemId: "a", points: -1 }],
     ]) {
-      expect(() => assertActivityAllocation(100, rows, true)).toThrow();
+      expect(() => assertActivityAllocation(rows, true)).toThrow();
     }
-    expect(() => assertActivityAllocation(0, [], false)).toThrow();
     expect(() => activityScore(100, 0, 40)).toThrow();
   });
 });

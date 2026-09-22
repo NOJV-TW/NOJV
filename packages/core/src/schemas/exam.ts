@@ -1,4 +1,4 @@
-import { activityProblemsSchema, activityTotalPointsSchema } from "./activity-grading";
+import { activityProblemsSchema } from "./activity-grading";
 import { z } from "zod";
 
 import {
@@ -26,7 +26,6 @@ const examCreateBaseSchema = z.object({
   ...ipLockFields,
   pageLockEnabled: z.boolean().default(false),
   problems: activityProblemsSchema.default([]),
-  totalPoints: activityTotalPointsSchema.default(100),
   scoreboardMode: scoreboardModeSchema.default("hidden"),
   scoringMode: examScoringModeSchema.default("point_sum"),
   startsAt: isoDateTimeSchema,
@@ -92,7 +91,6 @@ export const examUpdateSchema = examCreateBaseSchema
     ipWhitelist: examCreateBaseSchema.shape.ipWhitelist.unwrap().optional(),
     ipWhitelistEnabled: examCreateBaseSchema.shape.ipWhitelistEnabled.unwrap().optional(),
     problems: activityProblemsSchema.optional(),
-    totalPoints: activityTotalPointsSchema.optional(),
   })
   .superRefine(refineExamPolicy)
   .refine(
