@@ -118,6 +118,7 @@ is a fitness test that fails CI if the GKE manifest omits a required worker env.
 | `SANDBOX_IMAGE`                      | **required**                         | Sandbox container image                                                                                                |
 | `PORT`                               | **required**                         | Worker health server port (`/healthz`, `/readyz`)                                                                      |
 | `WORKER_CONCURRENCY`                 | **required**                         | Activity concurrency per task queue                                                                                    |
+| `WORKER_MIN_CONCURRENCY`             | unset                                | Judge only: when set, activity slots float between this and `WORKER_CONCURRENCY` by node CPU (Temporal resource tuner) |
 | `WORKER_MODE`                        | `all`                                | Task queues: `all`, `judge`, `platform`                                                                                |
 | `SUBMISSION_PENDING_TIMEOUT_MINUTES` | `10` (range 10–1440)                 | Stale submission candidate cutoff; a still-running Temporal judge workflow is exempt, including normal admission waits |
 | `SANDBOX_CPU_LIMIT`                  | **required** (Docker backend)        | CPU limit per sandbox                                                                                                  |
@@ -271,7 +272,7 @@ The single-machine deployment has web HPA but no node autoscaler:
 | Tier     | Single-machine (`values-single-machine.yaml`) | Autoscaling on one box                                          |
 | -------- | --------------------------------------------- | --------------------------------------------------------------- |
 | web      | 1 replica, HPA min 1 / max 3                  | CPU target 70%; scales only within the single node.             |
-| judge    | 1 worker, `WORKER_CONCURRENCY=3`              | One slot = one submission stage Job in flight.                  |
+| judge    | 1 worker, 2–4 slots by node CPU               | One slot = one submission stage Job in flight.                  |
 | platform | 1 worker                                      | Fixed.                                                          |
 | sandbox  | quota `6` CPU / `12Gi` / `12` pods            | No node autoscaler; a rejected Job waits as `waiting_capacity`. |
 
@@ -641,7 +642,7 @@ Judge throughput is `worker.judge.concurrency` stage Jobs in flight, bounded by
 the sandbox quota. Increasing judge replicas multiplies slots the same way as
 concurrency; both must stay within the quota. GKE uses 10 Pods / 10 CPU with two
 judge workers at concurrency two; single-machine uses 12 Pods / 6 CPU / 12 GiB
-with one worker at concurrency three. Neither number is a measured burst
+with one worker whose slots float between two and four. Neither number is a measured burst
 capacity; size them from the arithmetic above and the node's allocatable CPU.
 
 ## Database Migrations

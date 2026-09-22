@@ -8,6 +8,7 @@ const baseEnvSchema = z.object({
   TEMPORAL_NAMESPACE: z.string().default("default"),
   SANDBOX_IMAGE: z.string().trim().min(1),
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(64),
+  WORKER_MIN_CONCURRENCY: z.coerce.number().int().min(1).max(64).optional(),
   WORKER_MODE: z.enum(["all", "judge", "platform"]).default("all"),
   SANDBOX_MEMORY_HEADROOM_MB: z.coerce.number().int().min(0).max(1024).default(64),
   SANDBOX_MAX_MEMORY_MB: z.coerce.number().int().min(128).max(8192).default(1536),

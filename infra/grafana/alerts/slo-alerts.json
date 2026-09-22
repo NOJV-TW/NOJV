@@ -167,5 +167,16 @@
     "severity": "critical",
     "noDataState": "OK",
     "summary": "Sandbox termination exceeded its cleanup deadline. The execution lease remains held; inspect run ID and Pod UID in worker logs. Verify CRI, shim and cgroup ownership before targeted recovery; do not restart the runtime automatically."
+  },
+  {
+    "uid": "nojv-judge-wall-clock-timeouts",
+    "title": "Judge TLEs decided by wall clock",
+    "slo": "Concurrent judging must not turn CPU-bounded runs into time limit exceeded",
+    "expr": "sum(increase(judge_wall_clock_timeouts_total[10m]))",
+    "threshold": 2,
+    "for": "0m",
+    "severity": "warning",
+    "noDataState": "OK",
+    "summary": "Several runs hit the wall-clock ceiling while their CPU time stayed under the limit. That is sleeping programs or CPU contention; if it coincides with judge load, lower worker.judge.concurrency (the slot tuner ceiling) and rejudge the affected submissions."
   }
 ]

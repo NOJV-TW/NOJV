@@ -116,7 +116,11 @@ observability:
 worker:
   judge:
     replicas: 1
-    concurrency: "3"
+    concurrency: "4"
+    minConcurrency: "2"
+    resources:
+      limits:
+        cpu: null
   platform:
     replicas: 1
     submissionPendingTimeoutMinutes: 10

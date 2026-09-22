@@ -43,6 +43,17 @@ containers request less is rejected at admission and the execution goes
 bounds how many Jobs schedule at once. Raise concurrency and quota together
 before an exam and lower them afterwards; all of these are Helm values.
 
+With `worker.judge.minConcurrency` set (single-machine: 2, ceiling
+`worker.judge.concurrency` 4) the judge worker uses Temporal's resource-based
+slot tuner: above the minimum it hands out one more slot every 10 seconds while
+node CPU stays under 75% and the worker's own memory under 80%. The judge
+container therefore has no CPU limit, because with one the tuner would measure
+the worker's cgroup instead of the node. The ceiling is a timing-fidelity bound,
+not a resource number: each slot adds up to `maxParallelCases` sandbox
+containers. `judge_wall_clock_timeouts_total` counts TLEs whose CPU time stayed
+under the limit; the `nojv-judge-wall-clock-timeouts` alert fires when more
+than two land in ten minutes, which is the signal to lower the ceiling.
+
 ## Bulk rejudges
 
 Rejudges are `background` and dispatch at priority 5 behind every live
