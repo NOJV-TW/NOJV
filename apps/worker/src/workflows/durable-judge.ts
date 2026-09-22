@@ -10,18 +10,22 @@ import {
 import { judgeRecoveryDelayMs, type JudgeExecutionInput } from "@nojv/core";
 import type * as executionActivities from "../activities/judge-execution";
 import type * as lifecycleActivities from "../activities/lifecycle";
-import { PLATFORM_QUEUE } from "./activity-options";
+import { JUDGE_STATE_QUEUE, PLATFORM_QUEUE } from "./activity-options";
 
 const journal = proxyActivities<typeof executionActivities>({
+  taskQueue: JUDGE_STATE_QUEUE,
   startToCloseTimeout: "2m",
   retry: { maximumAttempts: 3 },
 });
-const sandbox = proxyActivities<typeof executionActivities>({
+const SANDBOX_ACTIVITY = {
+  allowEagerDispatch: false,
   startToCloseTimeout: "70m",
   heartbeatTimeout: "60s",
   retry: { maximumAttempts: 1 },
-});
+} as const;
+const sandbox = proxyActivities<typeof executionActivities>(SANDBOX_ACTIVITY);
 const notifications = proxyActivities<typeof lifecycleActivities>({
+  taskQueue: JUDGE_STATE_QUEUE,
   startToCloseTimeout: "2m",
   retry: { maximumAttempts: 3 },
 });
@@ -32,7 +36,11 @@ const effects = proxyActivities<typeof lifecycleActivities>({
 });
 
 export async function durableJudgeWorkflow(input: JudgeExecutionInput): Promise<void> {
-  const workflowId = workflowInfo().workflowId;
+  const { workflowId, priority } = workflowInfo();
+  const stages = proxyActivities<typeof executionActivities>({
+    ...SANDBOX_ACTIVITY,
+    ...(priority ? { priority } : {}),
+  });
   let failures = 0;
   for (let iteration = 0; ; iteration++) {
     if (iteration >= 100 || workflowInfo().continueAsNewSuggested)
@@ -42,7 +50,7 @@ export async function durableJudgeWorkflow(input: JudgeExecutionInput): Promise<
       const state = await journal.judgeExecutionStatus(input.executionId, workflowId);
       finalizing = state.state === "finalizing";
       if (state.leaseToken) {
-        const safe = await sandbox.reconcileJudgeStage(
+        const safe = await stages.reconcileJudgeStage(
           input.executionId,
           workflowId,
           state.leaseToken,
@@ -63,7 +71,7 @@ export async function durableJudgeWorkflow(input: JudgeExecutionInput): Promise<
       if (state.state === "cancelled" || state.state === "completed") return;
       if (!finalizing) {
         await journal.setJudgeExecutionState(input.executionId, workflowId, "queued");
-        const stage = await sandbox.executeJudgeStage(
+        const stage = await stages.executeJudgeStage(
           input.executionId,
           workflowId,
           state.stage,
