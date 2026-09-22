@@ -272,11 +272,14 @@ The single-machine deployment has web HPA but no node autoscaler:
 | sandbox  | quota `6` CPU / `12Gi` / `12` pods            | No node autoscaler; a rejected Job waits as `waiting_capacity`. |
 
 A stage Job holds up to `maxParallelCases` (20) testcase containers with
-`caseCpuRequest` (100m) and 64 MiB requested each behind a compile init
-container at `cpuRequest`, so its effective request is
-`max(cpuRequest, maxParallelCases × caseCpuRequest)` CPU and the quota must hold
-`concurrency ×` that; raise `worker.judge.concurrency` and the quota together, for example ahead
-of an exam. Ordering between queued submissions is the Temporal task-queue
+`caseCpuRequest` (100m by default, 50m on single-machine) and 64 MiB requested
+each behind a compile init container at `cpuRequest`, so its effective request
+is `max(cpuRequest, maxParallelCases × caseCpuRequest)` CPU and the quota must
+hold `concurrency ×` that. The node's allocatable CPU minus the platform pods'
+requests bounds how many Jobs schedule at once: on the 8-CPU box the platform
+pods reserve about 2.6 CPU, so 1-CPU Jobs fill all three slots while 2-CPU Jobs
+left one slot Pending. Raise `worker.judge.concurrency` and the quota together,
+for example ahead of an exam. Ordering between queued submissions is the Temporal task-queue
 priority described in [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#queue-priority-and-capacity).
 
 The judge Deployment uses `strategy: Recreate` to avoid old/new worker overlap
