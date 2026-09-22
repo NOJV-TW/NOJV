@@ -4,6 +4,7 @@ import type * as Application from "@nojv/application";
 const mocks = vi.hoisted(() => ({
   cleanupUnreferencedStorageObject: vi.fn(),
   deliverNotificationEmail: vi.fn(),
+  deliverExamCredentialEmail: vi.fn(),
   executeRejudgeDispatch: vi.fn(),
   executeSubmissionJudgeDispatch: vi.fn(),
   executeLifecycleCancellation: vi.fn(),
@@ -20,7 +21,13 @@ vi.mock("@nojv/application", async (importOriginal) => {
     cleanupUnreferencedStorageObject: mocks.cleanupUnreferencedStorageObject,
     executeLifecycleCancellation: mocks.executeLifecycleCancellation,
     contestDomain: { updateContestScores: mocks.updateContestScores },
-    examDomain: { updateExamScores: mocks.updateExamScores },
+    examDomain: {
+      updateExamScores: mocks.updateExamScores,
+      credentials: {
+        EMAIL_WORK_KIND: "exam.credential.email",
+        deliverEmail: mocks.deliverExamCredentialEmail,
+      },
+    },
     notificationDomain: {
       NOTIFICATION_EMAIL_WORK_KIND: "notification.email",
       NOTIFICATION_SSE_WORK_KIND: "notification.sse",
@@ -51,6 +58,11 @@ beforeEach(() => {
 });
 
 describe("durable work handlers", () => {
+  it("delivers an exam credential by opaque identity without storing its password", async () => {
+    const payload = { credentialId: "credential-1", revision: 1 };
+    await durableWorkHandlers["exam.credential.email"](payload);
+    expect(mocks.deliverExamCredentialEmail).toHaveBeenCalledWith(payload);
+  });
   it("publishes an immutable SSE snapshot without loading the notification row", async () => {
     const payload = {
       notificationId: "notification-1",
@@ -102,16 +114,16 @@ describe("durable work handlers", () => {
     expect(mocks.deliverNotificationEmail).not.toHaveBeenCalled();
   });
 
-  it("converges contest score before publishing the scoreboard signal", async () => {
-    mocks.updateContestScores.mockResolvedValue("contest-1");
+  it("rejects contest convergence payloads without touching contest scores", async () => {
+    await expect(
+      durableWorkHandlers["score.converge"]({
+        context: { type: "contest", contestId: "contest-1" },
+        userId: "user-1",
+      }),
+    ).rejects.toThrow();
 
-    await durableWorkHandlers["score.converge"]({
-      context: { type: "contest", contestId: "contest-1" },
-      userId: "user-1",
-    });
-
-    expect(mocks.updateContestScores).toHaveBeenCalledWith("contest-1", "user-1");
-    expect(mocks.publishScoreboardUpdate).toHaveBeenCalledWith("contest-1");
+    expect(mocks.updateContestScores).not.toHaveBeenCalled();
+    expect(mocks.publishScoreboardUpdate).not.toHaveBeenCalled();
   });
 
   it("converges exam score without a contest signal", async () => {
@@ -127,11 +139,10 @@ describe("durable work handlers", () => {
   it("rejects malformed payloads before any side effect", async () => {
     await expect(
       durableWorkHandlers["score.converge"]({
-        context: { type: "contest" },
+        context: { type: "exam" },
         userId: "user-1",
       }),
     ).rejects.toThrow();
-    expect(mocks.updateContestScores).not.toHaveBeenCalled();
     expect(mocks.updateExamScores).not.toHaveBeenCalled();
   });
 

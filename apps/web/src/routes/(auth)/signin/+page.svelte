@@ -2,6 +2,7 @@
   import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
   import OAuthButtons from "$lib/components/features/auth/OAuthButtons.svelte";
+  import ExamPasswordLogin from "$lib/components/features/auth/ExamPasswordLogin.svelte";
   import { Card } from "$lib/components/primitives/ui/card";
 
   const errorText = $derived.by(() => {
@@ -29,7 +30,10 @@
       </p>
     {/if}
 
-    <OAuthButtons />
+    <div class="flex flex-col gap-3">
+      <OAuthButtons />
+      <ExamPasswordLogin />
+    </div>
 
     <div class="border-t border-border-subtle pt-3 text-center">
       <a

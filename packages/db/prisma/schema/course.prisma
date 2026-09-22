@@ -66,14 +66,14 @@ model CourseMembership {
 }
 
 model Assessment {
-  detachedProblemIds String[] @default([])
-  totalPoints     Decimal          @default(0)   @db.Decimal(18, 4)
-  gradingRevision Int              @default(0)
-  id              String           @id @default(cuid())
-  courseId        String
-  title           String
-  summary         String           @db.Text
-  status          AssessmentStatus @default(draft)
+  detachedProblemIds String[]         @default([])
+  totalPoints        Decimal          @default(0) @db.Decimal(18, 4)
+  gradingRevision    Int              @default(0)
+  id                 String           @id @default(cuid())
+  courseId           String
+  title              String
+  summary            String           @db.Text
+  status             AssessmentStatus @default(draft)
 
   opensAt          DateTime
   dueAt            DateTime?
@@ -103,6 +103,7 @@ model Assessment {
   problems              AssessmentProblem[]
   submissions           Submission[]
   submissionFeedback    SubmissionFeedback[]
+  scoreOverrides        ScoreOverride[]
 
   @@unique([id, courseId])
   @@index([courseId, status])
@@ -143,9 +144,9 @@ model CourseProblem {
   addedByUserId String?
   createdAt     DateTime @default(now())
 
-  course  Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course  Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
   problem Problem @relation(fields: [problemId], references: [id], onDelete: Restrict)
-  addedBy User? @relation("CourseProblemCreator", fields: [addedByUserId], references: [id], onDelete: SetNull)
+  addedBy User?   @relation("CourseProblemCreator", fields: [addedByUserId], references: [id], onDelete: SetNull)
 
   @@id([courseId, problemId])
   @@index([problemId])

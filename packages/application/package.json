@@ -24,6 +24,7 @@
     "@nojv/redis": "workspace:*",
     "@nojv/storage": "workspace:*",
     "archiver": "^8.0.0",
+    "better-auth": "1.6.23",
     "unzipper": "^0.12.5",
     "zod": "catalog:"
   },

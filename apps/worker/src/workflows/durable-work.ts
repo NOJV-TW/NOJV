@@ -1,4 +1,10 @@
-import { continueAsNew, executeChild, proxyActivities } from "@temporalio/workflow";
+import {
+  continueAsNew,
+  executeChild,
+  log,
+  patched,
+  proxyActivities,
+} from "@temporalio/workflow";
 
 import type {
   DurableWorkBatchInput,
@@ -12,6 +18,7 @@ import {
 } from "../durable-work-config";
 
 interface DurableWorkActivities {
+  reconcileExamCredentials(): Promise<{ issued: number; revoked: number }>;
   runDurableWorkBatch(input: DurableWorkBatchInput): Promise<DurableWorkBatchResult>;
 }
 
@@ -19,10 +26,11 @@ export type DurableWorkWorkflowInput = DurableWorkBatchInput;
 type RunDurableWorkBatch = DurableWorkActivities["runDurableWorkBatch"];
 type ContinueDurableWork = (input: DurableWorkWorkflowInput) => Promise<never>;
 
-const { runDurableWorkBatch } = proxyActivities<DurableWorkActivities>({
-  startToCloseTimeout: DURABLE_WORK_ACTIVITY_TIMEOUT_MS,
-  retry: { maximumAttempts: DURABLE_WORK_ACTIVITY_MAX_ATTEMPTS },
-});
+const { runDurableWorkBatch, reconcileExamCredentials } =
+  proxyActivities<DurableWorkActivities>({
+    startToCloseTimeout: DURABLE_WORK_ACTIVITY_TIMEOUT_MS,
+    retry: { maximumAttempts: DURABLE_WORK_ACTIVITY_MAX_ATTEMPTS },
+  });
 
 export async function drainDurableWork(
   runBatch: RunDurableWorkBatch,
@@ -72,9 +80,19 @@ export async function drainDurableWork(
   return continueRun({ fairnessOffset: initialOffset + launched });
 }
 
-export function durableWorkWorkflow(
+export async function durableWorkWorkflow(
   input: DurableWorkWorkflowInput = {},
 ): Promise<DurableWorkBatchResult> {
+  if (patched("exam-credential-reconciliation-v1")) {
+    try {
+      let reconciled;
+      do {
+        reconciled = await reconcileExamCredentials();
+      } while (reconciled.issued === 100 || reconciled.revoked === 100);
+    } catch {
+      log.error("Exam credential reconciliation failed; the next scheduled run will retry.");
+    }
+  }
   return drainDurableWork(
     runDurableWorkBatch,
     (nextInput) => continueAsNew<typeof durableWorkWorkflow>(nextInput),

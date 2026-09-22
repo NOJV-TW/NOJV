@@ -38,14 +38,14 @@ function readWorkerFile(relativePath: string): string {
 function proxiedActivityNames(workflowSource: string): Set<string> {
   const names = new Set<string>();
 
-  for (const block of workflowSource.matchAll(/const \{([^}]*)\} = proxyActivities/g)) {
+  for (const block of workflowSource.matchAll(/const\s+\{([^}]*)\}\s*=\s*proxyActivities/g)) {
     for (const raw of block[1].split(",")) {
       const name = raw.split(":")[0].trim();
       if (name) names.add(name);
     }
   }
 
-  const proxyConsts = [...workflowSource.matchAll(/const (\w+) = proxyActivities/g)].map(
+  const proxyConsts = [...workflowSource.matchAll(/const\s+(\w+)\s*=\s*proxyActivities/g)].map(
     (m) => m[1],
   );
   for (const proxy of proxyConsts) {

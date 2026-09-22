@@ -150,6 +150,8 @@ export interface SubmissionHistoryFilters {
   language?: SupportedLanguage;
   contextType?: "practice" | "assignment" | "contest" | "exam" | "virtual";
   search?: string;
+  userSearch?: string;
+  ipSearch?: string;
 }
 
 export interface SubmissionHistoryBoundary {
@@ -205,7 +207,7 @@ export const submissionRepo = {
 
   async listHistoryPage(input: {
     userId?: string;
-    context?: { type: "assignment" | "exam"; id: string };
+    context?: { type: "assignment" | "exam" | "contest"; id: string };
     filters: SubmissionHistoryFilters;
     queuedRejudgeIds?: string[];
     page: number;
@@ -218,6 +220,7 @@ export const submissionRepo = {
       isReferenceSolution: false,
       ...(input.context?.type === "assignment" ? { assessmentId: input.context.id } : {}),
       ...(input.context?.type === "exam" ? { examId: input.context.id } : {}),
+      ...(input.context?.type === "contest" ? { contestId: input.context.id } : {}),
     };
     const filters = input.filters;
     const where: Prisma.SubmissionWhereInput = {
@@ -258,6 +261,19 @@ export const submissionRepo = {
                   { ipAddress: { contains: filters.search, mode: "insensitive" } },
                 ],
               }
+            : {}),
+          ...(filters.userSearch
+            ? {
+                user: {
+                  OR: [
+                    { username: { contains: filters.userSearch, mode: "insensitive" } },
+                    { name: { contains: filters.userSearch, mode: "insensitive" } },
+                  ],
+                },
+              }
+            : {}),
+          ...(filters.ipSearch
+            ? { ipAddress: { contains: filters.ipSearch, mode: "insensitive" } }
             : {}),
         },
       ],
@@ -681,7 +697,7 @@ export const submissionRepo = {
   },
 
   listRecentForContext(opts: {
-    context: { type: "assignment"; id: string } | { type: "exam"; id: string };
+    context: { type: "assignment" | "exam" | "contest"; id: string };
     limit: number;
   }) {
     return prisma.submission.findMany({
@@ -690,7 +706,9 @@ export const submissionRepo = {
         isReferenceSolution: false,
         ...(opts.context.type === "assignment"
           ? { assessmentId: opts.context.id }
-          : { examId: opts.context.id }),
+          : opts.context.type === "exam"
+            ? { examId: opts.context.id }
+            : { contestId: opts.context.id }),
       },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: opts.limit,

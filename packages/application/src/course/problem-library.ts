@@ -58,10 +58,6 @@ async function referencedProblemIds(
   ]);
   const assessmentId = { in: assignments.map(({ id }) => id) };
   const examId = { in: exams.map(({ id }) => id) };
-  const contexts = [
-    { contextType: "assignment" as const, contextId: assessmentId },
-    { contextType: "exam" as const, contextId: examId },
-  ];
   const [problems, scoreHistory, feedbackHistory] = await Promise.all([
     tx.problem.findMany({
       where: {
@@ -75,13 +71,20 @@ async function referencedProblemIds(
               some: { OR: [{ membership: { courseId } }, { assessmentId }, { examId }] },
             },
           },
-          { scoreOverrides: { some: { OR: [{ membership: { courseId } }, ...contexts] } } },
+          {
+            scoreOverrides: {
+              some: { OR: [{ membership: { courseId } }, { assessmentId }, { examId }] },
+            },
+          },
         ],
       },
       select: { id: true },
     }),
     tx.scoreOverrideAuditLog.findMany({
-      where: { ...(problemId === undefined ? {} : { problemId }), OR: contexts },
+      where: {
+        ...(problemId === undefined ? {} : { problemId }),
+        OR: [{ assessmentId }, { examId }],
+      },
       select: { problemId: true },
     }),
     tx.submissionFeedbackAuditLog.findMany({

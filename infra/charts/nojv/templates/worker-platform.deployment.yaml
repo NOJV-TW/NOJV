@@ -127,6 +127,11 @@ spec:
                   key: S3_SECRET_KEY
             - name: S3_BUCKET
               value: {{ .Values.storage.bucket | quote }}
+            - name: BETTER_AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: BETTER_AUTH_SECRET
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               valueFrom:
                 secretKeyRef:

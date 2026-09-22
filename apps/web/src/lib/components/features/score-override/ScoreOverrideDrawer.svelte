@@ -16,7 +16,7 @@
   interface Props {
     open: boolean;
     onOpenChange: (v: boolean) => void;
-    contextType: "assignment" | "exam" | "contest";
+    contextType: "assignment" | "exam";
     contextId: string;
     students: StudentOption[];
     problems: ProblemOption[];
@@ -33,7 +33,6 @@
     prefill = null,
   }: Props = $props();
 
-  const showFeedback = $derived(contextType !== "contest");
   const prefillKey = $derived(prefill ? `${prefill.rowId}:${prefill.problemId}` : "__new__");
 
   let rows = $state<OverrideListRow[]>([]);
@@ -69,7 +68,6 @@
   }
 
   async function reloadFeedback() {
-    if (!showFeedback) return;
     feedbackLoading = true;
     feedbackError = false;
     try {
@@ -186,75 +184,72 @@
         {/key}
       </section>
 
-      {#if showFeedback}
-        {@const feedbackContextType = contextType as "assignment" | "exam"}
-        <section class="space-y-3 border-t border-border-subtle pt-5">
-          <h3 class="text-title-sm font-medium">
-            {m.feedback_staff_sectionTitle()}
-          </h3>
-          {#if feedbackLoading}
-            <div
-              aria-busy="true"
-              aria-live="polite"
-              class="overflow-hidden rounded-md border border-border"
-            >
-              <SkeletonTable rows={3} columns={5} class="px-3" />
-            </div>
-          {:else if feedbackError}
-            {@render loadErrorBlock(() => void reloadFeedback())}
-          {:else}
-            <FeedbackList
-              rows={feedbackRows}
-              {students}
-              {problems}
-              onedit={(r) => (feedbackEditTarget = r)}
-              ondelete={() => {
-                void reloadFeedback();
-                void invalidateAll();
-              }}
-            />
-          {/if}
-
-          <div class="flex items-center justify-between pt-2">
-            <h4 class="text-body-sm font-medium">
-              {feedbackEditTarget ? m.feedback_staff_editBtn() : m.feedback_staff_newBtn()}
-            </h4>
-            {#if feedbackEditTarget}
-              <Button
-                variant="ghost"
-                size="sm"
-                type="button"
-                onclick={() => (feedbackEditTarget = null)}
-              >
-                {m.rejudge_dialog_cancelBtn()}
-              </Button>
-            {/if}
+      <section class="space-y-3 border-t border-border-subtle pt-5">
+        <h3 class="text-title-sm font-medium">
+          {m.feedback_staff_sectionTitle()}
+        </h3>
+        {#if feedbackLoading}
+          <div
+            aria-busy="true"
+            aria-live="polite"
+            class="overflow-hidden rounded-md border border-border"
+          >
+            <SkeletonTable rows={3} columns={5} class="px-3" />
           </div>
-          {#key feedbackEditTarget?.id ?? prefillKey}
-            <FeedbackForm
-              mode={feedbackEditTarget ? "edit" : "create"}
-              contextType={feedbackContextType}
-              {contextId}
-              {students}
-              {problems}
-              existing={feedbackEditTarget}
-              initialCourseMembershipId={feedbackEditTarget
-                ? undefined
-                : (students.find((s) => s.rowId === prefill?.rowId)?.courseMembershipId ??
-                  undefined)}
-              initialProblemId={feedbackEditTarget
-                ? undefined
-                : (prefill?.problemId ?? undefined)}
-              onsuccess={() => {
-                feedbackEditTarget = null;
-                void reloadFeedback();
-                void invalidateAll();
-              }}
-              oncancel={feedbackEditTarget ? () => (feedbackEditTarget = null) : undefined}
-            />
-          {/key}
-        </section>
-      {/if}
+        {:else if feedbackError}
+          {@render loadErrorBlock(() => void reloadFeedback())}
+        {:else}
+          <FeedbackList
+            rows={feedbackRows}
+            {students}
+            {problems}
+            onedit={(r) => (feedbackEditTarget = r)}
+            ondelete={() => {
+              void reloadFeedback();
+              void invalidateAll();
+            }}
+          />
+        {/if}
+
+        <div class="flex items-center justify-between pt-2">
+          <h4 class="text-body-sm font-medium">
+            {feedbackEditTarget ? m.feedback_staff_editBtn() : m.feedback_staff_newBtn()}
+          </h4>
+          {#if feedbackEditTarget}
+            <Button
+              variant="ghost"
+              size="sm"
+              type="button"
+              onclick={() => (feedbackEditTarget = null)}
+            >
+              {m.rejudge_dialog_cancelBtn()}
+            </Button>
+          {/if}
+        </div>
+        {#key feedbackEditTarget?.id ?? prefillKey}
+          <FeedbackForm
+            mode={feedbackEditTarget ? "edit" : "create"}
+            {contextType}
+            {contextId}
+            {students}
+            {problems}
+            existing={feedbackEditTarget}
+            initialCourseMembershipId={feedbackEditTarget
+              ? undefined
+              : (students.find((s) => s.rowId === prefill?.rowId)?.courseMembershipId ??
+                undefined)}
+            initialProblemId={feedbackEditTarget
+              ? undefined
+              : (prefill?.problemId ?? undefined)}
+            onsuccess={() => {
+              feedbackEditTarget = null;
+              void reloadFeedback();
+              void invalidateAll();
+            }}
+            oncancel={feedbackEditTarget ? () => (feedbackEditTarget = null) : undefined}
+          />
+        {/key}
+      </section>
     </div>
   </Dialog.Content>
 </Dialog.Root>

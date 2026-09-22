@@ -125,32 +125,6 @@ describe("roster grading controls", () => {
     },
   );
 
-  it("submits an actual user for contest grading", async () => {
-    component = mount(ScoreOverrideForm, {
-      target,
-      props: {
-        mode: "create",
-        contextType: "contest",
-        contextId: "contest",
-        students: [
-          {
-            rowId: "contest-user",
-            courseMembershipId: null,
-            userId: "contest-user",
-            name: "Contest User",
-            username: "contest_user",
-          },
-        ],
-        problems,
-        onsuccess: vi.fn(),
-      },
-    });
-    fill("#ov-reason", "Manual grading");
-    const body = await submit();
-    expect(body.userId).toBe("contest-user");
-    expect(body).not.toHaveProperty("courseMembershipId");
-  });
-
   it("prefills feedback using the clicked membership and problem", async () => {
     component = mount(FeedbackForm, {
       target,

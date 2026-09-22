@@ -28,6 +28,19 @@ afterEach(async () => {
 });
 
 describe("WorkspaceTimer", () => {
+  it("offers only safe navigation to the exam overview beside the timer", async () => {
+    component = mount(WorkspaceTimer, {
+      target,
+      props: { timer: { type: "exam", examId: "exam_1", endsAt: new Date(due).toISOString() } },
+    });
+    await tick();
+    expect(target.querySelector('a[href="/exams/exam_1"]')?.textContent).toContain(
+      m.examMode_overview(),
+    );
+    expect(target.querySelector("button, form")).toBeNull();
+    expect(target.textContent).not.toContain(m.examMode_submitEndButton());
+  });
+
   it.each(["exam", "assignment"] as const)(
     "switches %s from on-time to final countdown without expiring at due",
     async (type) => {

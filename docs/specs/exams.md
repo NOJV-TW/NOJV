@@ -93,6 +93,20 @@ practice-after-close route at `/problems/[id]`.
 - Remote proctoring features (webcam, screen recording, browser
   lockdown) — out of scope by current product decision.
 
+## Temporary exam sign-in
+
+- Published exams issue an independent username/password credential for each active, linked student course membership at `startsAt - 24 hours`. The existing minute-based durable processor catches late publication, late enrollment and schedule changes. Unlinked roster entries remain visible with an account-linking status; they cannot receive mail until a User exists.
+- Credentials never replace the account's OAuth bindings or permanent password. Teachers/TAs with current management permission can reveal and set the temporary password in the exam's Proctoring → Students and sign-in view. Password edits require 12–64 characters, rotate the credential revision, invalidate its existing sessions and enqueue an updated email. Settings is the last primary tab; Results contains grades, plagiarism and audit, while Proctoring contains the roster and IP records.
+- The validity interval is `startsAt - 24 hours <= now < endsAt`, using the hard end rather than the on-time deadline. A password login can use ordinary coursework before entering; after starting an exam, existing exam confinement applies. Changing the end time updates the attached session expiry. Changing a password, withdrawing a student, archiving the course, disabling/promoting the account or changing its security generation invalidates the corresponding temporary session on its next request.
+- Only ordinary student accounts qualify: platform admins/teachers, super admins, and users with an active teacher/TA membership in any course use their usual sign-in methods. This prevents a staff-visible password from granting staff access elsewhere.
+- Email goes only to the verified `User.email` security mailbox. Delivery work contains credential ID and revision, never plaintext or rendered password HTML. Delivery decrypts just before sending. A suppressed or unverified recipient is visible to staff; suppressed mail is not reported as sent. Mail transport acceptance is not inbox-delivery proof.
+- Every password-derived Better Auth session has an immutable marker and a credential-revision association. The server checks current validity even for direct Auth API calls, so refresh or missing association cannot turn it into an ordinary session. Temporary sessions cannot change account security, link providers, create permanent tokens or obtain registry credentials. Ordinary OAuth sessions stay independent.
+- At the exam hard end, authentication rejects the password immediately even if cleanup has not run; reconciliation removes the password material and related sessions. The student can subsequently use their usual sign-in method for post-exam review.
+
+### Hand-in interaction
+
+The workspace timer links back to the exam overview. Hand-in lives in a separate area on that overview and opens an explicit irreversible-action dialog, with initial focus on Cancel. Confirming uses the existing atomic `releaseSession` action; cancelling performs no mutation. A successful hand-in still prevents later submissions and re-entry.
+
 ## Late collection and scoring
 
 Exams use the same on-time deadline / allow-late / final collection controls as assignments. `dueAt` is the on-time deadline and `endsAt` remains the hard end for official submissions, sessions, proctoring, grading access and practice-after-close. Without late collection, the form saves equal due/end timestamps; older null due dates also mean no late window.

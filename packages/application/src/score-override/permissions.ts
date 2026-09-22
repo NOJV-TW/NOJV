@@ -1,4 +1,4 @@
-import { assessmentRepo, contestRepo, examRepo } from "@nojv/db";
+import { assessmentRepo, examRepo } from "@nojv/db";
 
 import type { ActorContext } from "../shared/actor-context";
 import { assertContextClosed } from "../shared/context-window";
@@ -13,10 +13,6 @@ export async function canSetScoreOverride(
   if (actor.platformRole === "admin") return true;
 
   switch (context.type) {
-    case "contest": {
-      const contest = await contestRepo.findById(context.contestId);
-      return contest?.createdByUserId === actor.userId;
-    }
     case "assignment": {
       const assignment = await assessmentRepo.findByIdWithCourseId(context.assignmentId);
       if (!assignment) return false;

@@ -337,8 +337,7 @@ describe("activity grading", () => {
       data: {
         courseMembershipId: f.membership.id,
         problemId: f.a.id,
-        contextType: "exam",
-        contextId: exam.id,
+        examId: exam.id,
         overrideScore: 100,
         reason: "Raw correction",
       },

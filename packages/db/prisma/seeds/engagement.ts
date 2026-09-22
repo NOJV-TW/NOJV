@@ -395,8 +395,7 @@ export async function seedEngagement(
     data: {
       courseMembershipId: (await membershipFor(overrideStudent)).id,
       problemId: "problem_warmup-sum",
-      contextType: "assignment",
-      contextId: HW1_ID,
+      assessmentId: HW1_ID,
       overrideScore: 100,
       reason: "評測機暫時故障導致誤判 TLE，人工確認後給予滿分。",
       createdByUserId: teacher.id,

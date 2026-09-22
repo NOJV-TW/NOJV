@@ -99,7 +99,7 @@
       <tbody>
         {#each rows as row (row.id)}
           <tr class="border-t border-border-subtle">
-            <td class="px-3 py-2">{studentLabel(row.courseMembershipId ?? row.userId)}</td>
+            <td class="px-3 py-2">{studentLabel(row.courseMembershipId)}</td>
             <td class="px-3 py-2">{problemTitle(row.problemId)}</td>
             <td class="px-3 py-2 text-right tabular-nums">{row.overrideScore}</td>
             <td class="px-3 py-2 text-muted-foreground" title={row.reason}>

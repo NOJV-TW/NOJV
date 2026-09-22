@@ -53,6 +53,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   event.depends("submission:data");
   const parent = await event.parent();
   const { exam: examHeader, isManager } = parent;
+  if (isManager) event.setHeaders({ "cache-control": "private, no-store" });
   const actor = requireAuth(event);
   const examId = event.params.examId;
 
@@ -70,6 +71,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     auditEvents,
     viewerSession,
     recentSubmissions,
+    examCredentials,
   ] = await Promise.all([
     getExamDetailPage(examId, { viewerUserId: actor.userId, isManager }),
     isManager
@@ -99,6 +101,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
           context: { type: "exam", id: examId },
         })
       : Promise.resolve([]),
+    isManager ? examDomain.credentials.list(actor, examId) : Promise.resolve([]),
   ]);
 
   const candidateProblems =
@@ -200,10 +203,22 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     auditActorNames,
     candidateProblems,
     recentSubmissions,
+    examCredentials,
   };
 });
 
 export const actions = {
+  updateCredentialPassword: withAction(async (event) => {
+    const actor = requireAuth(event);
+    const form = await event.request.formData();
+    const userId = form.get("userId");
+    const password = form.get("password");
+    if (typeof userId !== "string" || typeof password !== "string") {
+      return fail(400, { error: "Enter the student and a temporary password." });
+    }
+    await examDomain.credentials.setPassword(actor, event.params.examId, userId, password);
+    return { success: true };
+  }),
   startExam: withAction(async (event) => {
     const actor = requireAuth(event);
     const examId = event.params.examId;

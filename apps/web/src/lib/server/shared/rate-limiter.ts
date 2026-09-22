@@ -3,6 +3,7 @@ import { fail } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
 import { RateLimiterRedis, RateLimiterMemory, RateLimiterRes } from "rate-limiter-flexible";
 import { createRateLimiterConnection } from "@nojv/redis";
+import { isValidUsername } from "$lib/utils";
 
 import { getClientIp } from "./client-ip";
 
@@ -148,6 +149,12 @@ const formActionRateLimiter = createRateLimiter("rl:form", 20, 60);
 export const authRateLimiter = createRateLimiter("rl:auth", 60, 60);
 
 export const signInRateLimiter = createRateLimiter("rl:signin", 5, 900);
+export const examSignInRateLimiter = createRateLimiter("rl:exam-signin", 5, 900);
+
+export function examSignInRateLimitKey(ip: string, username: unknown): string {
+  const normalized = typeof username === "string" ? username.trim().toLowerCase() : "";
+  return JSON.stringify([ip, isValidUsername(normalized) ? normalized : ""]);
+}
 
 export const otpSendRateLimiter = createRateLimiter("rl:2fa-otp", 3, 600);
 export const stepUpAttemptRateLimiter = createRateLimiter("rl:stepup", 5, 600);

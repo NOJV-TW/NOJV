@@ -65,6 +65,7 @@ describe("rate limiter fail modes in production", () => {
     await expect(mod.writeApiRateLimiter.consume("ip-prod")).resolves.toBe("unavailable");
     await expect(mod.authRateLimiter.consume("ip-prod")).resolves.toBe("unavailable");
     await expect(mod.signInRateLimiter.consume("ip-prod")).resolves.toBe("unavailable");
+    await expect(mod.examSignInRateLimiter.consume("ip-prod")).resolves.toBe("unavailable");
     await expect(mod.otpSendRateLimiter.consume("ip-prod")).resolves.toBe("unavailable");
     await expect(mod.stepUpAttemptRateLimiter.consume("ip-prod")).resolves.toBe("unavailable");
     await expect(mod.registryTokenRateLimiter.consume("ip-prod")).resolves.toBe("unavailable");
@@ -257,6 +258,7 @@ describe("rate limiter key prefixes", () => {
       mod.writeApiRateLimiter,
       mod.authRateLimiter,
       mod.signInRateLimiter,
+      mod.examSignInRateLimiter,
       mod.registryTokenRateLimiter,
     ].map((limiter) => (limiter as { keyPrefix?: string }).keyPrefix);
     expect(prefixes).toEqual([
@@ -264,6 +266,7 @@ describe("rate limiter key prefixes", () => {
       "rl:write",
       "rl:auth",
       "rl:signin",
+      "rl:exam-signin",
       "rl:registry-token",
     ]);
   });
@@ -279,6 +282,7 @@ describe("rate limiter key prefixes", () => {
       mod.writeApiRateLimiter,
       mod.authRateLimiter,
       mod.signInRateLimiter,
+      mod.examSignInRateLimiter,
       mod.otpSendRateLimiter,
       mod.stepUpAttemptRateLimiter,
       mod.registryTokenRateLimiter,
@@ -287,6 +291,7 @@ describe("rate limiter key prefixes", () => {
       { keyPrefix: "rl:write", points: 10, duration: 60 },
       { keyPrefix: "rl:auth", points: 60, duration: 60 },
       { keyPrefix: "rl:signin", points: 5, duration: 900 },
+      { keyPrefix: "rl:exam-signin", points: 5, duration: 900 },
       { keyPrefix: "rl:2fa-otp", points: 3, duration: 600 },
       { keyPrefix: "rl:stepup", points: 5, duration: 600 },
       { keyPrefix: "rl:registry-token", points: 60, duration: 60 },

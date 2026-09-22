@@ -41,14 +41,12 @@ async function mergeGrades(
     where: { courseMembershipId: sourceId },
   });
   for (const source of scores) {
-    const target = await tx.scoreOverride.findUnique({
+    const target = await tx.scoreOverride.findFirst({
       where: {
-        courseMembershipId_problemId_contextType_contextId: {
-          courseMembershipId: targetId,
-          problemId: source.problemId,
-          contextType: source.contextType,
-          contextId: source.contextId,
-        },
+        courseMembershipId: targetId,
+        problemId: source.problemId,
+        assessmentId: source.assessmentId,
+        examId: source.examId,
       },
     });
     if (!target) {
@@ -63,10 +61,10 @@ async function mergeGrades(
         overrideId: target.id,
         courseMembershipId: targetId,
         sourceMembershipId: sourceId,
-        userId,
+        studentUserId: userId,
         problemId: source.problemId,
-        contextType: source.contextType,
-        contextId: source.contextId,
+        assessmentId: source.assessmentId,
+        examId: source.examId,
         action: "merge",
         oldScore: source.overrideScore,
         newScore: target.overrideScore,

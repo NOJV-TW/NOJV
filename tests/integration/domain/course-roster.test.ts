@@ -958,8 +958,7 @@ async function mergeFixture(type: "assignment" | "exam", username = "ntu_b119020
       data: {
         courseMembershipId: memberId,
         problemId,
-        contextType: type,
-        contextId: context.id,
+        ...feedbackContext,
         overrideScore: score,
         reason: comment,
         createdByUserId: room.teacher.id,
@@ -983,10 +982,9 @@ async function mergeFixture(type: "assignment" | "exam", username = "ntu_b119020
       data: {
         overrideId: override.id,
         courseMembershipId: memberId,
-        userId: historicalUserId,
+        studentUserId: historicalUserId,
         problemId,
-        contextType: type,
-        contextId: context.id,
+        ...feedbackContext,
         action: "create",
         newScore: score,
         newReason: comment,
@@ -1071,9 +1069,9 @@ async function mergeSnapshot(fixture: Awaited<ReturnType<typeof mergeFixture>>) 
     testPrisma.user.findUniqueOrThrow({ where: { id: user.id } }),
     testPrisma.account.findMany({ where: { userId: user.id }, orderBy }),
     testPrisma.courseMembership.findMany({ where: { courseId: course.id }, orderBy }),
-    testPrisma.scoreOverride.findMany({ where: { contextId: context.id }, orderBy }),
+    testPrisma.scoreOverride.findMany({ where: feedbackContext, orderBy }),
     testPrisma.submissionFeedback.findMany({ where: feedbackContext, orderBy }),
-    testPrisma.scoreOverrideAuditLog.findMany({ where: { contextId: context.id }, orderBy }),
+    testPrisma.scoreOverrideAuditLog.findMany({ where: feedbackContext, orderBy }),
     testPrisma.submissionFeedbackAuditLog.findMany({ where: feedbackContext, orderBy }),
     testPrisma.schoolVerificationToken.findMany({
       where: { userId: user.id },
@@ -1204,7 +1202,10 @@ describe("identity merge preserves grading evidence", () => {
       });
       await expect(
         testPrisma.scoreOverrideAuditLog.findMany({
-          where: { contextId: context.id, action: "merge" },
+          where: {
+            ...(type === "assignment" ? { assessmentId: context.id } : { examId: context.id }),
+            action: "merge",
+          },
         }),
       ).resolves.toMatchObject([
         {

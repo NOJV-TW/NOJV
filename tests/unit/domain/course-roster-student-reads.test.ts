@@ -131,10 +131,7 @@ describe("student grade ownership after roster linking", () => {
     expect(detail?.viewerScore).toBe(0);
   });
 
-  it("keeps contest rows and overrides keyed by real user id", async () => {
-    findOverrides.mockResolvedValue([
-      { userId: "real_user", courseMembershipId: null, problemId: "p1", overrideScore: 75 },
-    ]);
+  it("keeps contest rows keyed by real user id and never reads score overrides", async () => {
     const matrix = await contestDomain.buildContestSubmissionsMatrix({
       contestId: "contest_1",
       problems: [{ id: "p1", ordinal: 1, points: 100, title: "Problem" }],
@@ -145,11 +142,11 @@ describe("student grade ownership after roster linking", () => {
         },
       ],
     });
+    expect(findOverrides).not.toHaveBeenCalled();
     expect(matrix.rows[0]).toMatchObject({
       rowId: "real_user",
       courseMembershipId: null,
       userId: "real_user",
-      total: 75,
     });
   });
 });

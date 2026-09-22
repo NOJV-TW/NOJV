@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { m } from "$lib/paraglide/messages.js";
   import { cn } from "$lib/utils/css.js";
@@ -20,18 +19,19 @@
   import ExamProblemsTab from "$lib/components/features/course/exam/ExamProblemsTab.svelte";
   import ExamProctoringTab from "$lib/components/features/course/exam/ExamProctoringTab.svelte";
   import ExamResultsTab from "$lib/components/features/course/exam/ExamResultsTab.svelte";
+  import ExamCredentialsPanel from "$lib/components/features/course/exam/ExamCredentialsPanel.svelte";
+  import ExamHandInPanel from "$lib/components/features/course/exam/ExamHandInPanel.svelte";
   import ExamStartModal from "$lib/components/features/course/exam/ExamStartModal.svelte";
   import AssignmentPlagiarismReport from "$lib/components/features/plagiarism/AssignmentPlagiarismReport.svelte";
   import AuditTimeline from "$lib/components/features/audit/AuditTimeline.svelte";
   import ScoreOverrideDrawer from "$lib/components/features/score-override/ScoreOverrideDrawer.svelte";
   import ClarificationTab from "$lib/components/features/clarification/ClarificationTab.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
-  import { Tabs } from "$lib/components/primitives/ui/tabs";
+  import AssessmentManageTabs from "$lib/components/features/coursework/AssessmentManageTabs.svelte";
   import {
-    examSubTabHref,
-    parseExamSubTab,
-    type ExamSubTab,
-  } from "$lib/components/features/course/exam/exam-tab-state";
+    assessmentSubTabHref,
+    parseAssessmentSubTab,
+  } from "$lib/components/features/coursework/assessment-tab-state";
   import { fmtDate } from "$lib/utils/datetime.js";
   import type { ActionData, PageData } from "./$types";
 
@@ -106,31 +106,12 @@
 
   let showStartModal = $state(false);
 
-  let activeSubTabKey = $derived<ExamSubTab>(parseExamSubTab(page.url.searchParams.get("tab")));
-
-  function setActiveSubTab(next: ExamSubTab): void {
-    const nextUrl = examSubTabHref(page.url, next);
-    const currentUrl = `${page.url.pathname}${page.url.search}${page.url.hash}`;
-    if (nextUrl === currentUrl) return;
-    void goto(nextUrl, { keepFocus: true, noScroll: true, replaceState: true });
-  }
+  const activeSubTabKey = $derived(
+    parseAssessmentSubTab(page.url.searchParams.get("tab"), "exam", data.clarification.canView),
+  );
 
   let totalSubmissionCount = $state(0);
-  let submissionSearch = $state("");
   let visibleSubmissionCount = $state(0);
-
-  const subTabs = $derived<{ key: ExamSubTab; label: string }[]>([
-    { key: "problems", label: m.examDetail_subTabProblems() },
-    { key: "submissions", label: m.examDetail_subTabSubmissions() },
-    { key: "results", label: m.examDetail_subTabResults() },
-    { key: "plagiarism", label: m.examDetail_subTabPlagiarism() },
-    { key: "proctoring", label: m.examDetail_subTabProctoring() },
-    { key: "settings", label: m.examDetail_subTabSettings() },
-    ...(data.clarification.canView
-      ? [{ key: "clarifications" as const, label: m.clarification_tab_title() }]
-      : []),
-    { key: "audit", label: m.examDetail_subTabAudit() },
-  ]);
 
   const studentPrepRules = $derived([
     m.examDetail_studentPrepRule1(),
@@ -450,6 +431,7 @@
             {/each}
           </div>
         </GlassPanel>
+        <ExamHandInPanel examTitle={detail.title} />
       {:else}
         <div class="grid gap-6 lg:grid-cols-[1fr_360px]">
           <GlassPanel class="p-7">
@@ -568,15 +550,14 @@
           <span class="size-1.5 rounded-full bg-primary"></span>
           <span>{m.examDetail_rulesNoteLabel()}</span>
         </div>
-        <button
-          type="button"
-          onclick={() => setActiveSubTab("settings")}
+        <a
+          href={assessmentSubTabHref(page.url, "settings")}
           class="inline-flex size-7 items-center justify-center rounded-md bg-transparent text-muted-foreground transition-colors hover:bg-transparent hover:text-foreground"
           aria-label={m.examDetail_managerEditButton()}
           title={m.examDetail_managerEditButton()}
         >
           <Pencil aria-hidden="true" class="size-3" />
-        </button>
+        </a>
       </div>
       <p class="text-body-sm text-muted-foreground">
         {m.examDetail_rulesNoteSummary({
@@ -599,27 +580,31 @@
       </p>
     </GlassPanel>
 
-    <Tabs
-      tabs={subTabs}
+    <AssessmentManageTabs
+      kind="exam"
       value={activeSubTabKey}
-      onValueChange={setActiveSubTab}
-      label={m.examDetail_subTabsLabel()}
-      id="exam-manage"
+      url={page.url}
+      canViewClarifications={data.clarification.canView}
     >
       {#snippet actions()}
         {#if activeSubTabKey === "submissions"}
           <SubmissionHistoryActions
-            bind:search={submissionSearch}
             visibleCount={visibleSubmissionCount}
             totalCount={totalSubmissionCount}
           />
         {/if}
       {/snippet}
-      {#if activeSubTabKey === "submissions" && data.matrix}
+      {#if activeSubTabKey === "credentials"}
+        <ExamCredentialsPanel
+          rows={data.examCredentials}
+          startsAt={detail.startsAt}
+          canEdit={liveStatus !== "draft" && !past}
+          canResetIp={liveStatus === "running"}
+        />
+      {:else if activeSubTabKey === "submissions" && data.matrix}
         <LiveSubmissionsFeed
           rows={data.recentSubmissions}
           refreshUrl={`/api/submissions?context=exam&id=${detail.id}`}
-          bind:search={submissionSearch}
           bind:visibleCount={visibleSubmissionCount}
           bind:totalCount={totalSubmissionCount}
         />
@@ -677,7 +662,7 @@
           {form}
         />
       {/if}
-    </Tabs>
+    </AssessmentManageTabs>
   {/if}
 </PageContainer>
 

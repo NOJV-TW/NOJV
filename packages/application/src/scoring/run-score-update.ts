@@ -27,7 +27,7 @@ interface PersistFields {
 export interface ScoringUpdate<P> {
   load(): Promise<P | null>;
   submissions(participation: P): Promise<readonly ScoredSubmission[]>;
-  overrides(participation: P): Promise<readonly OverrideRow[]>;
+  overrides?(participation: P): Promise<readonly OverrideRow[]>;
   problemIds(participation: P): ReadonlySet<string>;
   problemPoints(participation: P): ReadonlyMap<string, number>;
   scoringMode(participation: P): ContestScoringMode;
@@ -64,7 +64,7 @@ export async function runScoreUpdate<P>(
         });
         await adapter.persist(participation, { score, penaltySeconds });
       } else {
-        const overrides = await adapter.overrides(participation);
+        const overrides = adapter.overrides ? await adapter.overrides(participation) : [];
         const { totalScore, subtaskScores } = computeBestScoreState({
           submissions,
           problemIds,

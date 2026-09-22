@@ -1,6 +1,9 @@
-import type { GradedContext, GradedContextType } from "../shared/graded-context";
+import type { CourseActivityContext } from "../shared/graded-context";
 
-export type ScoreOverrideContext = GradedContext;
-export type ScoreOverrideContextType = GradedContextType;
+export type ScoreOverrideContext = CourseActivityContext;
+export type ScoreOverrideContextType = ScoreOverrideContext["type"];
 
-export { toContextDbFields, fromContextDbFields } from "../shared/graded-context";
+export {
+  toCourseActivityDbFields as toContextDbFields,
+  fromCourseActivityDbFields as fromContextDbFields,
+} from "../shared/graded-context";

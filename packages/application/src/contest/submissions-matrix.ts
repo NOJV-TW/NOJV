@@ -6,7 +6,6 @@ import {
   type MatrixCell,
   type MatrixProblemColumn,
 } from "../shared/submissions-matrix";
-import { getOverridesForContext } from "../scoring/resolve-final-score";
 import type { ContestProblemSummary } from "./queries";
 
 export interface ContestMatrixRow {
@@ -76,11 +75,6 @@ export async function buildContestSubmissionsMatrix(
     });
   }
 
-  const overrides = await getOverridesForContext({
-    type: "contest",
-    contestId: input.contestId,
-  });
-
   return assembleMatrix({
     problems,
     participants: input.participants.map((p) => ({
@@ -91,7 +85,7 @@ export async function buildContestSubmissionsMatrix(
       handle: p.user.username ?? "",
     })),
     scoreIndex,
-    overrides,
+    overrides: new Map(),
     studentCount: input.participants.length,
   });
 }

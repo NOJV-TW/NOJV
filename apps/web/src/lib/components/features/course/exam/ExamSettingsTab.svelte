@@ -135,7 +135,7 @@
       class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
     >
       <h3 class="mb-4 text-title-sm font-medium">
-        {m.examDetail_settingsSectionBasic()}
+        {m.examCreate_scheduleCardTitle()}
       </h3>
       <ExamTimelineConfig
         {form}

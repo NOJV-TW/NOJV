@@ -105,19 +105,19 @@ model ContestProblem {
 }
 
 model Exam {
-  detachedProblemIds String[] @default([])
-  totalPoints      Decimal  @default(0)   @db.Decimal(18, 4)
-  gradingRevision  Int      @default(0)
-  id               String   @id @default(cuid())
-  courseId         String
-  title            String
-  summary          String   @db.Text
-  startsAt         DateTime
-  endsAt           DateTime
-  dueAt            DateTime?
-  adjustmentRules  Json?
-  scheduleRevision Int      @default(0)
-  timerFingerprint String   @default(dbgenerated())
+  detachedProblemIds String[]  @default([])
+  totalPoints        Decimal   @default(0) @db.Decimal(18, 4)
+  gradingRevision    Int       @default(0)
+  id                 String    @id @default(cuid())
+  courseId           String
+  title              String
+  summary            String    @db.Text
+  startsAt           DateTime
+  endsAt             DateTime
+  dueAt              DateTime?
+  adjustmentRules    Json?
+  scheduleRevision   Int       @default(0)
+  timerFingerprint   String    @default(dbgenerated())
 
   status            ExamStatus      @default(draft)
   scoringMode       ExamScoringMode @default(point_sum)
@@ -151,7 +151,9 @@ model Exam {
   ipViolationLogs       IpViolationLog[]
   activeSessions        ActiveExamSession[]
   submissionFeedback    SubmissionFeedback[]
+  scoreOverrides        ScoreOverride[]
   participations        Participation[]      @relation("ExamUnifiedParticipation")
+  credentials           ExamCredential[]
 
   @@index([courseId, status])
 }

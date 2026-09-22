@@ -11,6 +11,7 @@ const {
   replaceExamAutoClose,
   cancelExamAutoClose,
   durableWorkEnqueue,
+  sessionUpdateMany,
 } = vi.hoisted(() => ({
   examFindById: vi.fn(),
   examLockForUpdate: vi.fn(),
@@ -22,6 +23,7 @@ const {
   replaceExamAutoClose: vi.fn(),
   cancelExamAutoClose: vi.fn(),
   durableWorkEnqueue: vi.fn(),
+  sessionUpdateMany: vi.fn(),
 }));
 
 vi.mock("@nojv/db", async (importOriginal) => {
@@ -66,6 +68,7 @@ vi.mock("@nojv/db", async (importOriginal) => {
     },
     runTransaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> =>
       fn({
+        session: { updateMany: sessionUpdateMany },
         exam: { findUnique: vi.fn(async () => ({ courseId: "course_1" })) },
         examProblem: {
           findMany: async () => {
@@ -358,6 +361,13 @@ describe("updateExamRecord — auto-close re-arming", () => {
     ];
     expect(payload.examId).toBe("exam_1");
     expect(payload.endsAt).toBe(newEndsAt.toISOString());
+    expect(sessionUpdateMany).toHaveBeenCalledWith({
+      where: {
+        examPassword: true,
+        examCredential: { credential: { examId: "exam_1", revokedAt: null } },
+      },
+      data: { expiresAt: newEndsAt },
+    });
   });
 
   it("does not dispatch when the exam is still a draft", async () => {

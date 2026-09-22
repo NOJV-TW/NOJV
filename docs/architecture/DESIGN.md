@@ -157,6 +157,8 @@ Five-tab interface (`ProblemTabs.svelte`): Basic Info, Submission, Testcase, Jud
 
 Assignment, exam, and contest pages share one visual grammar (components above):
 
+- **Assignment, exam, and contest management** use `AssessmentManageTabs`: Problems (default) / Submissions / Results (Grades, Plagiarism, Audit) / Clarifications when allowed / Settings last. Exams add Proctoring (Students and sign-in, IP records). All three use the same responsive content spacing and submission toolbar; leaf URLs persist through `?tab=`. Assignments and exams open the score-override drawer from a grade cell; contests do not offer score overrides, so their grade matrix is read-only. Settings group basic information and schedule separately, while assessment-specific controls keep their existing permissions.
+
 - **Detail pages** open with an `AssessmentHero` followed by a `StatRail` of `StatTile`s — each type surfaces its most-important 4 facts (assignment: due countdown / progress / score / languages; exam: time / duration / total points / score-or-security; contest: time / participants / scoring / scoreboard).
 - **List pages** render items as spaced `AssessmentRow` glass strips inside a `grid gap-2` wrapper (same treatment as the submissions list), replacing the old bespoke `AssignmentCard` / `ExamRow` / `ContestPoster` / `ContestRowPast` looks.
 - Every surface carries a **6px (`w-1.5`) left accent stripe** in the type-identity colour (see [Type-identity accents](#color-system)); the `AssessmentHero` eyebrow additionally shows a tinted `TypeIcon` badge (list rows use the stripe + a mono type-eyebrow instead).

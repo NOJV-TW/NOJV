@@ -1,15 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { assessmentFindByIdWithCourseId, examFindById, contestFindById } = vi.hoisted(() => ({
+const { assessmentFindByIdWithCourseId, examFindById } = vi.hoisted(() => ({
   assessmentFindByIdWithCourseId: vi.fn(),
   examFindById: vi.fn(),
-  contestFindById: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
   assessmentRepo: { findByIdWithCourseId: assessmentFindByIdWithCourseId },
   examRepo: { findById: examFindById },
-  contestRepo: { findById: contestFindById },
 }));
 
 import {
@@ -47,16 +45,6 @@ describe("isContextClosed", () => {
     expect(await isContextClosed({ type: "exam", examId: "e_1" })).toBe(false);
   });
 
-  it("contest: true when now is past endsAt", async () => {
-    contestFindById.mockResolvedValue({ id: "c_1", endsAt: PAST });
-    expect(await isContextClosed({ type: "contest", contestId: "c_1" })).toBe(true);
-  });
-
-  it("contest: false when endsAt is in the future", async () => {
-    contestFindById.mockResolvedValue({ id: "c_1", endsAt: FUTURE });
-    expect(await isContextClosed({ type: "contest", contestId: "c_1" })).toBe(false);
-  });
-
   it("throws NotFoundError when the context row is missing", async () => {
     assessmentFindByIdWithCourseId.mockResolvedValue(null);
     await expect(
@@ -67,11 +55,6 @@ describe("isContextClosed", () => {
     await expect(isContextClosed({ type: "exam", examId: "e_missing" })).rejects.toBeInstanceOf(
       NotFoundError,
     );
-
-    contestFindById.mockResolvedValue(null);
-    await expect(
-      isContextClosed({ type: "contest", contestId: "c_missing" }),
-    ).rejects.toBeInstanceOf(NotFoundError);
   });
 });
 
@@ -97,17 +80,10 @@ describe("assertContextClosed", () => {
     );
   });
 
-  it("throws ConflictError for an open contest", async () => {
-    contestFindById.mockResolvedValue({ id: "c_1", endsAt: FUTURE });
-    await expect(
-      assertContextClosed({ type: "contest", contestId: "c_1" }),
-    ).rejects.toBeInstanceOf(ConflictError);
-  });
-
   it("propagates NotFoundError when the context is missing", async () => {
-    contestFindById.mockResolvedValue(null);
+    examFindById.mockResolvedValue(null);
     await expect(
-      assertContextClosed({ type: "contest", contestId: "c_missing" }),
+      assertContextClosed({ type: "exam", examId: "e_missing" }),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 });

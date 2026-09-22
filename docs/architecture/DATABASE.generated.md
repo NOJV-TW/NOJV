@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_52 models and 38 enums across 9 schema files._
+_54 models and 37 enums across 10 schema files._
 
 ## `auth.prisma`
 
@@ -118,6 +118,7 @@ Indexes & constraints: `@@index([userId])`, `@@index([expiresAt])`
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
 | `id` | `String` | `@id` |
+| `examPassword` | `Boolean` | `@default(false)` |
 | `expiresAt` | `DateTime` | — |
 | `token` | `String` | `@unique` |
 | `createdAt` | `DateTime` | `@default(now())` |
@@ -126,6 +127,7 @@ Indexes & constraints: `@@index([userId])`, `@@index([expiresAt])`
 | `userAgent` | `String?` | — |
 | `userId` | `String` | — |
 | `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
+| `examCredential` | `ExamCredentialSession?` | — |
 
 Indexes & constraints: `@@index([userId])`
 
@@ -194,7 +196,6 @@ Indexes & constraints: `@@unique([userId])`, `@@index([secret])`
 | `notifications` | `Notification[]` | — |
 | `notificationPreference` | `NotificationPreference?` | — |
 | `triggeredRejudgeLogs` | `SubmissionRejudgeLog[]` | — |
-| `asOverrideStudent` | `ScoreOverride[]` | `@relation("ScoreOverrideUser")` |
 | `createdScoreOverrides` | `ScoreOverride[]` | `@relation("ScoreOverrideCreator")` |
 | `editedScoreOverrides` | `ScoreOverride[]` | `@relation("ScoreOverrideEditor")` |
 | `scoreOverrideAuditChanges` | `ScoreOverrideAuditLog[]` | `@relation("ScoreOverrideAuditChanger")` |
@@ -213,6 +214,7 @@ Indexes & constraints: `@@unique([userId])`, `@@index([secret])`
 | `revokedApiTokens` | `ApiToken[]` | `@relation("ApiTokenRevoker")` |
 | `twoFactors` | `TwoFactor[]` | — |
 | `passkeys` | `Passkey[]` | — |
+| `examCredentials` | `ExamCredential[]` | — |
 
 #### `Verification`
 
@@ -428,7 +430,9 @@ Indexes & constraints: `@@unique([contestId, problemId])`, `@@unique([contestId,
 | `ipViolationLogs` | `IpViolationLog[]` | — |
 | `activeSessions` | `ActiveExamSession[]` | — |
 | `submissionFeedback` | `SubmissionFeedback[]` | — |
+| `scoreOverrides` | `ScoreOverride[]` | — |
 | `participations` | `Participation[]` | `@relation("ExamUnifiedParticipation")` |
+| `credentials` | `ExamCredential[]` | — |
 
 Indexes & constraints: `@@index([courseId, status])`
 
@@ -563,6 +567,7 @@ Indexes & constraints: `@@unique([id, userId])`, `@@unique([type, contestId, use
 | `problems` | `AssessmentProblem[]` | — |
 | `submissions` | `Submission[]` | — |
 | `submissionFeedback` | `SubmissionFeedback[]` | — |
+| `scoreOverrides` | `ScoreOverride[]` | — |
 
 Indexes & constraints: `@@unique([id, courseId])`, `@@index([courseId, status])`
 
@@ -654,6 +659,45 @@ Indexes & constraints: `@@unique([courseId, userId])`, `@@unique([courseId, pend
 | `addedBy` | `User?` | `@relation("CourseProblemCreator", fields: [addedByUserId], references: [id], onDelete: SetNull)` |
 
 Indexes & constraints: `@@id([courseId, problemId])`, `@@index([problemId])`
+
+## `exam-credential.prisma`
+
+### Models
+
+#### `ExamCredential`
+
+| Field | Type | Attributes |
+| ----- | ---- | ---------- |
+| `id` | `String` | `@id @default(cuid())` |
+| `examId` | `String` | — |
+| `userId` | `String` | — |
+| `passwordHash` | `String?` | — |
+| `passwordCiphertext` | `String?` | — |
+| `revision` | `Int` | `@default(1)` |
+| `emailSentAt` | `DateTime?` | — |
+| `emailScheduledFor` | `DateTime` | — |
+| `emailStatus` | `String` | `@default("pending")` |
+| `revokedAt` | `DateTime?` | — |
+| `createdAt` | `DateTime` | `@default(now())` |
+| `updatedAt` | `DateTime` | `@updatedAt` |
+| `exam` | `Exam` | `@relation(fields: [examId], references: [id], onDelete: Cascade)` |
+| `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
+| `sessions` | `ExamCredentialSession[]` | — |
+
+Indexes & constraints: `@@unique([examId, userId])`, `@@index([userId, revokedAt])`
+
+#### `ExamCredentialSession`
+
+| Field | Type | Attributes |
+| ----- | ---- | ---------- |
+| `sessionId` | `String` | `@id` |
+| `credentialId` | `String` | — |
+| `revision` | `Int` | — |
+| `securityGeneration` | `Int` | — |
+| `session` | `Session` | `@relation(fields: [sessionId], references: [id], onDelete: Cascade)` |
+| `credential` | `ExamCredential` | `@relation(fields: [credentialId], references: [id], onDelete: Cascade)` |
+
+Indexes & constraints: `@@index([credentialId])`
 
 ## `notification.prisma`
 
@@ -1003,10 +1047,6 @@ Indexes & constraints: `@@unique([problemId, name])`, `@@unique([problemId, ordi
 
 `open` · `resolved` · `dismissed`
 
-#### `OverrideContextType`
-
-`assignment` · `exam` · `contest`
-
 #### `ProblemPostType`
 
 `editorial` · `discussion`
@@ -1162,25 +1202,25 @@ Indexes & constraints: `@@index([problemId, type, createdAt])`
 | Field | Type | Attributes |
 | ----- | ---- | ---------- |
 | `id` | `String` | `@id @default(cuid())` |
-| `userId` | `String?` | — |
-| `courseMembershipId` | `String?` | — |
+| `courseMembershipId` | `String` | — |
 | `problemId` | `String` | — |
-| `contextType` | `OverrideContextType` | — |
-| `contextId` | `String` | — |
+| `assessmentId` | `String?` | — |
+| `examId` | `String?` | — |
 | `overrideScore` | `Int` | — |
 | `reason` | `String` | `@db.Text` |
 | `createdByUserId` | `String?` | — |
 | `updatedByUserId` | `String?` | — |
 | `createdAt` | `DateTime` | `@default(now())` |
 | `updatedAt` | `DateTime` | `@updatedAt` |
-| `user` | `User?` | `@relation("ScoreOverrideUser", fields: [userId], references: [id], onDelete: Cascade)` |
+| `membership` | `CourseMembership` | `@relation(fields: [courseMembershipId], references: [id], onDelete: Cascade)` |
 | `problem` | `Problem` | `@relation("ScoreOverrideProblem", fields: [problemId], references: [id], onDelete: Cascade)` |
+| `assessment` | `Assessment?` | `@relation(fields: [assessmentId], references: [id], onDelete: Cascade)` |
+| `exam` | `Exam?` | `@relation(fields: [examId], references: [id], onDelete: Cascade)` |
 | `createdBy` | `User?` | `@relation("ScoreOverrideCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)` |
 | `updatedBy` | `User?` | `@relation("ScoreOverrideEditor", fields: [updatedByUserId], references: [id], onDelete: SetNull)` |
-| `membership` | `CourseMembership?` | `@relation(fields: [courseMembershipId], references: [id], onDelete: Cascade)` |
 | `auditLogs` | `ScoreOverrideAuditLog[]` | — |
 
-Indexes & constraints: `@@unique([userId, problemId, contextType, contextId])`, `@@unique([courseMembershipId, problemId, contextType, contextId])`, `@@index([contextType, contextId])`
+Indexes & constraints: `@@unique([assessmentId, problemId, courseMembershipId])`, `@@unique([examId, problemId, courseMembershipId])`
 
 #### `ScoreOverrideAuditLog`
 
@@ -1188,12 +1228,12 @@ Indexes & constraints: `@@unique([userId, problemId, contextType, contextId])`, 
 | ----- | ---- | ---------- |
 | `id` | `String` | `@id @default(cuid())` |
 | `overrideId` | `String?` | — |
-| `userId` | `String?` | — |
+| `studentUserId` | `String?` | — |
 | `courseMembershipId` | `String?` | — |
 | `sourceMembershipId` | `String?` | — |
 | `problemId` | `String` | — |
-| `contextType` | `OverrideContextType` | — |
-| `contextId` | `String` | — |
+| `assessmentId` | `String?` | — |
+| `examId` | `String?` | — |
 | `action` | `ScoreOverrideAction` | — |
 | `oldScore` | `Int?` | — |
 | `newScore` | `Int?` | — |
@@ -1204,7 +1244,7 @@ Indexes & constraints: `@@unique([userId, problemId, contextType, contextId])`, 
 | `override` | `ScoreOverride?` | `@relation(fields: [overrideId], references: [id], onDelete: SetNull)` |
 | `changedBy` | `User?` | `@relation("ScoreOverrideAuditChanger", fields: [changedByUserId], references: [id], onDelete: SetNull)` |
 
-Indexes & constraints: `@@index([contextType, contextId, createdAt(sort: Desc)])`, `@@index([userId, problemId, createdAt(sort: Desc)])`, `@@index([courseMembershipId, problemId, createdAt(sort: Desc)])`
+Indexes & constraints: `@@index([assessmentId, problemId, createdAt(sort: Desc)])`, `@@index([examId, problemId, createdAt(sort: Desc)])`, `@@index([studentUserId, problemId, createdAt(sort: Desc)])`, `@@index([courseMembershipId, problemId, createdAt(sort: Desc)])`
 
 #### `Submission`
 

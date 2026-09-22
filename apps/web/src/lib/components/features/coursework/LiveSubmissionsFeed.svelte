@@ -1,15 +1,13 @@
 <script lang="ts">
-  import { untrack } from "svelte";
   import { createSubmissionHistory } from "$lib/services/submission-history.svelte";
   import { goto } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
   import { formatDateTime } from "$lib/utils/datetime";
   import { formatVerdictLabel } from "$lib/utils/verdict-style";
   import TableSelectColumnFilter from "$lib/components/primitives/ui/TableSelectColumnFilter.svelte";
+  import TableTextColumnFilter from "$lib/components/primitives/ui/TableTextColumnFilter.svelte";
   import VerdictBadge from "$lib/components/primitives/ui/VerdictBadge.svelte";
   import { isSubmissionPending, languageLabel, type Language } from "@nojv/core";
-
-  const SEARCH_DEBOUNCE_MS = 250;
 
   interface SubmissionRow {
     id: string;
@@ -25,7 +23,6 @@
   interface Props {
     rows: SubmissionRow[];
     refreshUrl: string;
-    search?: string;
     visibleCount?: number;
     totalCount?: number;
   }
@@ -33,20 +30,14 @@
   let {
     rows,
     refreshUrl,
-    search = $bindable(""),
     visibleCount = $bindable(rows.length),
     totalCount = $bindable(rows.length),
   }: Props = $props();
   let verdictFilter = $state("");
   let languageFilter = $state("");
   let problemFilter = $state("");
-  let debouncedSearch = $state(untrack(() => search));
-
-  $effect(() => {
-    const next = search;
-    const timer = setTimeout(() => (debouncedSearch = next), SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  });
+  let userFilter = $state("");
+  let ipFilter = $state("");
 
   const history = createSubmissionHistory<SubmissionRow>(
     () => {
@@ -54,7 +45,8 @@
       if (verdictFilter) query.set("status", verdictFilter);
       if (languageFilter) query.set("language", languageFilter);
       if (problemFilter) query.set("filterProblemId", problemFilter);
-      if (debouncedSearch) query.set("search", debouncedSearch);
+      if (userFilter) query.set("userSearch", userFilter);
+      if (ipFilter) query.set("ipSearch", ipFilter);
       return query.toString();
     },
     () => rows,
@@ -96,7 +88,7 @@
     >{m.submissions_loadFailed()} {m.common_retry()}</button
   >
 {/if}
-{#if liveRows.length === 0 && !verdictFilter && !languageFilter && !problemFilter && !search}
+{#if liveRows.length === 0 && !verdictFilter && !languageFilter && !problemFilter && !userFilter && !ipFilter}
   <div class="px-6 py-14 text-center text-body-sm text-muted-foreground">
     {m.liveSubmissions_empty()}
   </div>
@@ -111,7 +103,13 @@
             {m.admin_submissions_colTime()}
           </th>
           <th class="px-3 py-3 text-left align-middle font-medium">
-            {m.admin_submissions_colUser()}
+            <TableTextColumnFilter
+              label={m.admin_submissions_colUser()}
+              filterLabel={m.submissions_filterUser()}
+              inputId="live-submissions-user-search"
+              applyLabel={m.common_applyFilter()}
+              bind:value={userFilter}
+            />
           </th>
           <th class="px-2 py-3 text-left align-middle font-medium">
             <TableSelectColumnFilter
@@ -133,7 +131,13 @@
             />
           </th>
           <th class="px-3 py-3 text-left align-middle font-medium">
-            {m.liveSubmissions_ipAddress()}
+            <TableTextColumnFilter
+              label={m.liveSubmissions_ipAddress()}
+              filterLabel={m.submissions_filterIp()}
+              inputId="live-submissions-ip-search"
+              applyLabel={m.common_applyFilter()}
+              bind:value={ipFilter}
+            />
           </th>
           <th class="px-2 py-3 text-left align-middle font-medium">
             <TableSelectColumnFilter

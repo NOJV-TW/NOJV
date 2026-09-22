@@ -54,7 +54,10 @@
     return "text-destructive";
   }
 
-  type EditRow = { problemId: string; title: string; letter: string; points: number };
+  type EditRow = Pick<
+    ProblemsTabProblem,
+    "problemId" | "title" | "letter" | "points" | "displayId" | "difficulty"
+  >;
 
   let editRows = $state<EditRow[]>([]);
   let pickerOpen = $state(false);
@@ -70,6 +73,8 @@
       title: p.title,
       letter: p.letter,
       points: p.points,
+      displayId: p.displayId,
+      difficulty: p.difficulty,
     }));
   }
 
@@ -105,6 +110,8 @@
         problemId: candidate.id,
         points: 100,
         title: candidate.title,
+        displayId: candidate.displayId,
+        difficulty: candidate.difficulty,
         letter: problemLetter(editRows.length + index + 1),
       })),
     ];
@@ -187,7 +194,7 @@
 </script>
 
 <section data-slot="assignment-problems-tab" class={cn("space-y-3", className)}>
-  <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+  <header class="mb-4 flex flex-wrap items-center justify-between gap-3">
     <div>
       <h2 class="text-title font-medium leading-tight">
         {#if canEdit}
@@ -222,7 +229,7 @@
         {/if}
       </div>
     {/if}
-  </div>
+  </header>
 
   {#if !canEdit}
     <div class="grid gap-3">
@@ -294,44 +301,46 @@
 
     {#if editRows.length === 0}
       <p
-        class="rounded-md border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-6 py-10 text-center text-body-sm text-muted-foreground"
+        class="rounded-lg border border-dashed border-border px-4 py-8 text-center text-body-sm text-muted-foreground"
       >
         {m.assignmentDetail_problemsEditEmptyHint()}
       </p>
     {:else}
-      <div class="grid gap-2">
+      <ul class="space-y-2.5">
         {#each editRows as row (row.problemId)}
-          <div
-            role="listitem"
-            class="grid grid-cols-[auto_1fr_auto_auto] items-center gap-4 rounded-md border bg-[color:var(--color-panel)] px-4 py-3 {dragOverProblemId ===
+          <li
+            class="flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3 {dragOverProblemId ===
             row.problemId
               ? 'border-primary bg-primary/5'
-              : 'border-border'}"
+              : 'border-border-subtle'}"
             ondragover={(event) => handleDragOver(event, row.problemId)}
             ondrop={(event) => handleDrop(event, row.problemId)}
           >
-            <div class="flex items-center gap-2">
-              <span
-                class="cursor-grab text-muted-foreground active:cursor-grabbing"
-                draggable="true"
-                role="button"
-                tabindex="0"
-                aria-label={m.common_dragToReorder()}
-                ondragstart={(event) => handleDragStart(event, row.problemId)}
-                ondragend={handleDragEnd}
-                onkeydown={(event) => handleHandleKeydown(event, row.problemId)}
-              >
-                <GripVertical class="size-4" aria-hidden="true" />
-              </span>
-              <div
-                class="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-muted text-body-lg font-medium text-muted-foreground"
-              >
-                {row.letter}
+            <span
+              class="cursor-grab text-muted-foreground active:cursor-grabbing"
+              draggable="true"
+              role="button"
+              tabindex="0"
+              aria-label={m.common_dragToReorder()}
+              ondragstart={(event) => handleDragStart(event, row.problemId)}
+              ondragend={handleDragEnd}
+              onkeydown={(event) => handleHandleKeydown(event, row.problemId)}
+            >
+              <GripVertical class="size-4" aria-hidden="true" />
+            </span>
+            <span
+              class="min-w-[28px] text-center text-title-sm font-medium text-muted-foreground"
+            >
+              {row.letter}
+            </span>
+            <div class="min-w-0 flex-1">
+              <div class="break-words font-semibold">{row.title}</div>
+              <div class="mt-1 flex items-center gap-2 text-caption text-muted-foreground">
+                <span class={difficultyClass(row.difficulty)}>{row.difficulty}</span>
+                <span class="font-mono opacity-75"
+                  >{row.displayId == null ? m.common_problemDraft() : `#${row.displayId}`}</span
+                >
               </div>
-            </div>
-            <div class="min-w-0">
-              <div class="truncate text-body-sm font-semibold">{row.title}</div>
-              <div class="font-mono text-caption text-muted-foreground">{row.problemId}</div>
             </div>
             <div class="flex items-center gap-1">
               {#if canRejudge}
@@ -357,21 +366,21 @@
               >
                 <Eye class="size-4" aria-hidden="true" />
               </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                class="hover:bg-transparent"
+                type="button"
+                aria-label={m.assignmentDetail_problemsEditDetachButton()}
+                title={m.assignmentDetail_problemsEditDetachButton()}
+                onclick={() => detach(row.problemId)}
+              >
+                <Trash2 class="size-4" aria-hidden="true" />
+              </Button>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              class="hover:bg-transparent"
-              type="button"
-              aria-label={m.assignmentDetail_problemsEditDetachButton()}
-              title={m.assignmentDetail_problemsEditDetachButton()}
-              onclick={() => detach(row.problemId)}
-            >
-              <Trash2 class="size-4" aria-hidden="true" />
-            </Button>
-          </div>
+          </li>
         {/each}
-      </div>
+      </ul>
     {/if}
   {/if}
   {#if canEdit}

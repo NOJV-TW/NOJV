@@ -34,10 +34,10 @@ describe("course roster migration safety", () => {
     for (const constraint of [
       "CourseMembership_identity_chk",
       "CourseMembership_pending_username_chk",
-      "ScoreOverride_subject_chk",
     ]) {
       expect(replay).toContainEqual(expect.stringContaining(`ADD CONSTRAINT "${constraint}"`));
     }
+    expect(replay).not.toContainEqual(expect.stringContaining("ScoreOverride_subject_chk"));
     const trigger = replay.find((statement) =>
       statement.startsWith("CREATE TRIGGER user_security_generation_state_change"),
     );
