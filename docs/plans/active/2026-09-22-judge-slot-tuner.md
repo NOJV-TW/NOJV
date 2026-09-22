@@ -98,7 +98,9 @@ judge worker
   tuner = resource (default on single-machine) | fixed
   activity slots: min WORKER_SLOT_MIN … max WORKER_SLOT_MAX
   targets: WORKER_TARGET_CPU (0.75), WORKER_TARGET_MEMORY (0.80)
-  rampThrottle 2 s   (one Job's startup, so a burst is measured before the next slot)
+  rampThrottle: SDK default (50 ms). Every poll reserves a slot, so a long ramp
+  throttles polling itself; measured on prod, a 10 s ramp started one task per
+  10 s on an idle node. Burst overshoot is bounded by the ceiling instead.
 sandbox quota   ≥ WORKER_SLOT_MAX × max(cpuRequest, maxParallelCases × caseCpuRequest)
 LimitRange min  ≤ caseCpuRequest
 ```

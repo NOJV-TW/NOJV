@@ -45,8 +45,10 @@ before an exam and lower them afterwards; all of these are Helm values.
 
 With `worker.judge.minConcurrency` set (single-machine: 2, ceiling
 `worker.judge.concurrency` 10) the judge worker uses Temporal's resource-based
-slot tuner: above the minimum it hands out one more slot every 10 seconds while
-node CPU stays under 75% and the worker's own memory under 80%. The judge
+slot tuner: above the minimum it hands out another slot whenever node CPU is
+under 75% and the worker's own memory under 80%. Every poll reserves a slot
+first, so the SDK's default 50 ms ramp is kept: a long ramp throttles polling
+itself (a 10-second ramp judged one task every 10 seconds on an idle node). The judge
 container therefore has no CPU limit, because with one the tuner would measure
 the worker's cgroup instead of the node. The ceiling is a timing-fidelity bound,
 not a resource number: each slot adds up to `maxParallelCases` sandbox

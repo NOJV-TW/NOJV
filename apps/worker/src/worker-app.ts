@@ -53,7 +53,6 @@ function judgeSlots(env: WorkerEnv) {
         tunerOptions: { targetCpuUsage: 0.75, targetMemoryUsage: 0.8 },
         minimumSlots: Math.min(min, env.WORKER_CONCURRENCY),
         maximumSlots: env.WORKER_CONCURRENCY,
-        rampThrottle: "10s",
       },
       localActivityTaskSlotSupplier: { type: "fixed-size", numSlots: 100 },
       nexusTaskSlotSupplier: { type: "fixed-size", numSlots: 100 },
