@@ -149,8 +149,7 @@
               : undefined}
         />
         <ActivityWeights
-          totalErrors={$errors.totalPoints}
-          bind:totalPoints={$form.totalPoints}
+          allocationError={$errors.problems?._errors ? m.activityWeights_invalid() : undefined}
           problems={$form.problems}
           titles={Object.fromEntries(
             [

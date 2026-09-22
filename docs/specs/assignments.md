@@ -91,8 +91,8 @@ now)` — `closed` is purely `closesAt < now` and persists forever; there
 
 ### Activity allocation and official scores
 
-- GIVEN a new activity, THEN its total is the sum of its problem points (100 while no problem is attached). The point editor appears below the question list for both assignments and exams. Teachers enter points per problem to two decimal places; the form sends `totalPoints` (the sum) and `problems: [{ problemId, points }]`.
-- GIVEN a draft, THEN incomplete allocations can be saved. Publishing and saving published activities require positive total points, nonnegative allocations, unique problems, and allocations summing exactly to the total.
+- GIVEN a new activity, THEN its total is the sum of its problem points, derived on the server and 0 while no problem is attached. The point editor appears below the question list for both assignments and exams. Teachers enter points per problem to two decimal places; the form sends only `problems: [{ problemId, points }]`, and clients cannot set the total.
+- GIVEN a draft, THEN any allocation can be saved, including one worth 0 points. Publishing and saving published activities require nonnegative allocations, unique problems, and a derived total greater than 0.
 - GIVEN scores 80/100 and 50/100 with allocations of 40 and 60 points, THEN the official score is 62. Each effective raw score (including existing late adjustment or raw manual override) is divided by the original problem maximum and multiplied by its allocation. Decimal values are retained until the final total is rounded half up to two decimal places.
 - GIVEN a zero-weight question, THEN its contribution is zero while its solved state still depends on the raw score. Missing submissions remain missing. Practice after the activity deadline contributes nothing to official grades.
 - WHEN problems are added, removed, or reordered, THEN other allocations are preserved and the total is recomputed as their sum. Legacy allocations display with their stored precision.
@@ -210,7 +210,7 @@ for ownership and sharing details.
 
 ### Problem attachment
 
-- WHEN `updateAssignmentRecord` includes `problems: [{ problemId, points }]` and `totalPoints`, THEN retained links update in place, removed links detach, and new links follow the existing ownership/fork rules. The submitted order becomes `ordinal = index + 1`. New selections start at 100 points in the editor.
+- WHEN `updateAssignmentRecord` includes `problems: [{ problemId, points }]`, THEN the stored total is recomputed from those points, retained links update in place, removed links detach, and new links follow the existing ownership/fork rules. The submitted order becomes `ordinal = index + 1`. New selections start at 100 points in the editor.
 - GIVEN `allowedLanguages` is non-empty and a newly attached problem is
   missing an editable `main.<ext>` for one of those languages,
   THEN `ValidationError(...missing editable main.<ext>...)` before any row

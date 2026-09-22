@@ -428,6 +428,6 @@ Seed contents (users / problems / contests / course) are described in [Getting S
 
 ## Activity grading
 
-`Assessment.totalPoints` and `Exam.totalPoints` store the activity maximum (`Decimal(18,4)`, default 100). Their problem links store allocated `points` (`Decimal(18,8)`); the editor keeps the total equal to their sum, and percentages are never persisted. Raw problem maxima, submission scores, and score overrides retain the problem scale. `Participation.score` uses `Decimal(18,2)` for rounded exam totals; contest algorithms remain unchanged.
+`Assessment.totalPoints` and `Exam.totalPoints` cache the activity maximum (`Decimal(18,4)`, default 0). Their problem links store allocated `points` (`Decimal(18,8)`), and the cached total is always recomputed server-side as the sum of those points, so clients never supply it and it cannot drift. Raw problem maxima, submission scores, and score overrides retain the problem scale. `Participation.score` uses `Decimal(18,2)` for rounded exam totals; contest algorithms remain unchanged.
 
 `Assessment.detachedProblemIds` and `Exam.detachedProblemIds` retain only currently detached question IDs for exact-ID reattachment. Reattached IDs leave this set. Allocation changes do not store a reason or audit history. Activity revisions and exam participant grading revisions govern durable convergence. See the [assignment contract](../specs/assignments.md#activity-allocation-and-official-scores) and [exam convergence](../specs/exams.md#activity-allocations).

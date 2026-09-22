@@ -107,7 +107,6 @@ test("course library authorizes bound staff, shares drafts, forks public imports
         createdByUserId: teacherId,
         opensAt: starts,
         closesAt: ends,
-        totalPoints: 100,
         gradingRevision: 0,
         problems: { create: { problemId: historicalId, ordinal: 1, points: 100 } },
       },
@@ -121,7 +120,6 @@ test("course library authorizes bound staff, shares drafts, forks public imports
         createdByUserId: teacherId,
         startsAt: starts,
         endsAt: ends,
-        totalPoints: 100,
         gradingRevision: 0,
         problems: { create: { problemId: historicalId, ordinal: 1, points: 100 } },
       },
@@ -263,7 +261,6 @@ test("course library authorizes bound staff, shares drafts, forks public imports
         headers: { "content-type": request.headers()["content-type"]! },
       }).formData();
       expect(JSON.parse(String(submitted.get("payload")))).toEqual({
-        totalPoints: 200,
         gradingRevision: 0,
         problems: [
           { problemId: historicalId, points: 100 },

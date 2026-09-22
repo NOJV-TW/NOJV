@@ -282,13 +282,12 @@ describe("updateAssignmentRecord", () => {
     ];
     await updateAssignmentRecord(teacherActor, "asg_1", {
       problems,
-      totalPoints: 100,
       gradingRevision: 0,
     });
     expect(saveGrading).toHaveBeenCalledWith(
       expect.anything(),
       teacherActor,
-      expect.objectContaining({ problems, totalPoints: 100, expectedRevision: 0 }),
+      expect.objectContaining({ problems, expectedRevision: 0 }),
     );
     expect(testcaseSetFindByProblemId).not.toHaveBeenCalled();
   });

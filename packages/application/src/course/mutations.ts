@@ -134,7 +134,6 @@ export async function createCourseAssignmentRecord(
     const grading = await saveActivityGrading(tx, actor, {
       type: "assignment",
       id: assignment.id,
-      totalPoints: payload.totalPoints,
       problems: payload.problems,
       published: payload.status === "published",
       allowedLanguages: payload.allowedLanguages,

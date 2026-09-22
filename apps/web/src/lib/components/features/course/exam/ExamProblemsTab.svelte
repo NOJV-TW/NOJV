@@ -53,7 +53,6 @@
     "id" | "title" | "difficulty" | "displayId" | "points"
   >;
 
-  let editTotal = $state(100);
   let editProblems = $state<EditableProblem[]>([]);
   let pickerOpen = $state(false);
   let rejudgeProblemId = $state<string | null>(null);
@@ -63,16 +62,15 @@
   let editRevision = $state(0);
   let appliedContext: string | undefined;
   let appliedSnapshot: string | undefined;
-  const snapshot = (total: number, rows: { id: string; points: number }[]) =>
-    JSON.stringify([total, rows.map(({ id, points }) => ({ id, points }))]);
+  const snapshot = (rows: { id: string; points: number }[]) =>
+    JSON.stringify(rows.map(({ id, points }) => ({ id, points })));
   $effect(() => {
-    const incoming = snapshot(detail.totalPoints, detail.problems);
-    const draft = untrack(() => snapshot(editTotal, editProblems));
+    const incoming = snapshot(detail.problems);
+    const draft = untrack(() => snapshot(editProblems));
     if (appliedContext === detail.id && draft !== appliedSnapshot && draft !== incoming) return;
     appliedContext = detail.id;
     appliedSnapshot = incoming;
     editRevision = detail.gradingRevision;
-    editTotal = detail.totalPoints;
     editProblems = detail.problems.map((problem) => ({
       id: problem.id,
       title: problem.title,
@@ -84,9 +82,8 @@
 
   const ids = $derived(editProblems.map((problem) => problem.id));
   const hasChanges = $derived(
-    editTotal !== detail.totalPoints ||
-      JSON.stringify(editProblems.map(({ id, points }) => ({ id, points }))) !==
-        JSON.stringify(detail.problems.map(({ id, points }) => ({ id, points }))),
+    JSON.stringify(editProblems.map(({ id, points }) => ({ id, points }))) !==
+      JSON.stringify(detail.problems.map(({ id, points }) => ({ id, points }))),
   );
 
   beforeNavigate(({ cancel }) => {
@@ -333,7 +330,6 @@
 
     {#if canEdit}
       <ActivityWeights
-        bind:totalPoints={editTotal}
         problems={editProblems.map((p) => ({ problemId: p.id, points: p.points }))}
         titles={Object.fromEntries(editProblems.map((p) => [p.id, p.title]))}
         onchange={(rows) =>
@@ -347,7 +343,6 @@
       type="hidden"
       name="payload"
       value={JSON.stringify({
-        totalPoints: editTotal,
         gradingRevision: editRevision,
         problems: editProblems.map((p) => ({ problemId: p.id, points: p.points })),
       })}

@@ -13,7 +13,6 @@ export async function saveActivityGrading(
   input: {
     type: "assignment" | "exam";
     id: string;
-    totalPoints: number;
     problems: ActivityProblem[];
     published: boolean;
     allowedLanguages: Language[];
@@ -36,7 +35,7 @@ export async function saveActivityGrading(
   ) {
     throw new ConflictError("The grading configuration changed. Reload before saving.");
   }
-  assertActivityAllocation(input.totalPoints, input.problems, input.published);
+  const totalPoints = assertActivityAllocation(input.problems, input.published);
   const before = {
     totalPoints: Number(current.totalPoints),
     problems: current.problems.map((p) => ({
@@ -46,7 +45,7 @@ export async function saveActivityGrading(
   };
   if (
     JSON.stringify(before) ===
-    JSON.stringify({ totalPoints: input.totalPoints, problems: input.problems })
+    JSON.stringify({ totalPoints: totalPoints.toNumber(), problems: input.problems })
   )
     return { totalPoints: current.totalPoints, gradingRevision: current.gradingRevision };
   const knownIds = new Set([
@@ -103,7 +102,7 @@ export async function saveActivityGrading(
   }
   const revision = current.gradingRevision + 1;
   const data = {
-    totalPoints: input.totalPoints,
+    totalPoints,
     gradingRevision: revision,
     detachedProblemIds: [...knownIds].filter((id) => !ids.includes(id)),
   };
@@ -121,5 +120,5 @@ export async function saveActivityGrading(
         payload: { context: { type: "exam", examId: input.id }, userId: p.userId },
       });
   }
-  return { totalPoints: new Prisma.Decimal(input.totalPoints), gradingRevision: revision };
+  return { totalPoints, gradingRevision: revision };
 }

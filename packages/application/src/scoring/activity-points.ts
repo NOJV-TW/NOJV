@@ -1,5 +1,5 @@
 import { Prisma } from "@nojv/db";
-import { activityProblemsSchema, activityTotalPointsSchema } from "@nojv/core";
+import { activityProblemsSchema } from "@nojv/core";
 import { ValidationError } from "../shared/errors";
 
 type DecimalValue = number | Prisma.Decimal;
@@ -29,19 +29,21 @@ export function averageActivityScores(scores: number[]): number {
     .toNumber();
 }
 
+export function activityTotalPoints(problems: readonly { points: number }[]): Prisma.Decimal {
+  return problems.reduce((sum, p) => sum.add(p.points), new Prisma.Decimal(0));
+}
+
 export function assertActivityAllocation(
-  totalPoints: number,
   problems: readonly { problemId: string; points: number }[],
   published: boolean,
-): void {
-  const total = activityTotalPointsSchema.safeParse(totalPoints);
+): Prisma.Decimal {
   const rows = activityProblemsSchema.safeParse(problems);
-  if (!total.success || !rows.success)
-    throw new ValidationError("Invalid activity total or problem allocation.");
-  const allocated = problems.reduce((sum, p) => sum.add(p.points), new Prisma.Decimal(0));
-  if (published && (problems.length === 0 || !allocated.eq(totalPoints))) {
+  if (!rows.success) throw new ValidationError("Invalid problem allocation.");
+  const total = activityTotalPoints(problems);
+  if (published && total.lte(0)) {
     throw new ValidationError(
-      "Problem points must add up to the activity total before publishing or saving a published activity.",
+      "Add at least one problem worth points before publishing or saving a published activity.",
     );
   }
+  return total;
 }

@@ -1,4 +1,4 @@
-import { activityProblemsSchema, activityTotalPointsSchema } from "@nojv/core";
+import { activityProblemsSchema } from "@nojv/core";
 import { z } from "zod";
 import { fail, redirect } from "@sveltejs/kit";
 import { message, setError, superValidate } from "sveltekit-superforms";
@@ -35,7 +35,6 @@ const examFormSchema = z
     title: z.string().trim().min(1).max(120),
     summary: z.string().trim().max(4_000).default(""),
     problems: activityProblemsSchema.default([]),
-    totalPoints: activityTotalPointsSchema.default(100),
     startsAt: z.string().trim().min(1),
     endsAt: z.string().trim().default(""),
     dueAt: z.string().trim().min(1),
@@ -94,7 +93,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         title: "",
         summary: "",
         problems: [],
-        totalPoints: 100,
         startsAt: "",
         endsAt: "",
         dueAt: "",
@@ -139,7 +137,6 @@ function buildCreatePayload(form: ExamFormData, status: ExamPublishStatus): Exam
     ipWhitelistEnabled: form.ipWhitelistEnabled,
     pageLockEnabled: form.pageLockEnabled,
     problems: form.problems,
-    totalPoints: form.totalPoints,
     scoreboardMode: form.scoreboardMode,
     scoringMode: form.scoringMode,
     startsAt: toIsoOrEmpty(form.startsAt),
@@ -178,7 +175,7 @@ function runCreateAction(status: ExamPublishStatus) {
 
       if (status === "published") {
         try {
-          scoring.assertActivityAllocation(form.data.totalPoints, form.data.problems, true);
+          scoring.assertActivityAllocation(form.data.problems, true);
         } catch {
           return setError(form, "problems._errors", "allocation");
         }
