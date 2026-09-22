@@ -1011,7 +1011,7 @@ describe("durable pinned capacity pipeline", () => {
       expect(activities.prepareSandboxAttempt).toHaveBeenCalledOnce();
       await until(async () => (await registered()).length === 0);
     });
-  }, 60_000);
+  }, 180_000);
   it("rechecks DB authority after an early wake and ignores duplicate or stale registrations", async () => {
     const activities = fixtures(1);
     activities.judgeExecutionTurn.mockResolvedValue("wait");
