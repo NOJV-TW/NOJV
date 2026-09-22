@@ -41,7 +41,7 @@ export function assertActivityAllocation(
   const allocated = problems.reduce((sum, p) => sum.add(p.points), new Prisma.Decimal(0));
   if (published && (problems.length === 0 || !allocated.eq(totalPoints))) {
     throw new ValidationError(
-      "Problem weights must add up to 100% before publishing or saving a published activity.",
+      "Problem points must add up to the activity total before publishing or saving a published activity.",
     );
   }
 }

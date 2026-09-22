@@ -128,7 +128,7 @@
                 (id) =>
                   $form.problems.find((p) => p.problemId === id) ?? {
                     problemId: id,
-                    points: 0,
+                    points: 100,
                   },
               ))}
             error={$errors.problems}

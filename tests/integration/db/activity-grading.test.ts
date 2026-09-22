@@ -306,7 +306,7 @@ describe("activity grading", () => {
     };
     await expect(
       examDomain.updateExamRecord(f.actor, exam.id, { ...input, totalPoints: 200 }),
-    ).rejects.toThrow(/100%/);
+    ).rejects.toThrow(/add up to/);
     expect(
       (await testPrisma.exam.findUniqueOrThrow({ where: { id: exam.id } })).gradingRevision,
     ).toBe(0);

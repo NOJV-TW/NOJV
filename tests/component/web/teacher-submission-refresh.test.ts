@@ -147,14 +147,13 @@ async function payload(target: HTMLElement, kind: "assignment" | "exam") {
 describe.each(["assignment", "exam"] as const)("%s teacher draft protection", (kind) => {
   it("keeps unsaved allocation and removed problems across background props updates, including the original revision", async () => {
     const { target, component } = await setup(kind);
-    await edit(target, m.activityWeights_total(), 200);
     const detach = [...target.querySelectorAll<HTMLButtonElement>("button")].filter(
       (button) => button.getAttribute("aria-label") === detachLabel(kind),
     );
     expect(detach).toHaveLength(2);
     detach[1]!.click();
     await tick();
-    await edit(target, m.activityWeights_weight({ title: "Problem One" }), 100);
+    await edit(target, m.activityWeights_weight({ title: "Problem One" }), 200);
     component.refresh({
       ...structuredClone(initial),
       totalPoints: 120,
@@ -165,8 +164,7 @@ describe.each(["assignment", "exam"] as const)("%s teacher draft protection", (k
       ],
     });
     await tick();
-    expect(field(target, m.activityWeights_total()).value).toBe("200");
-    expect(field(target, m.activityWeights_weight({ title: "Problem One" })).value).toBe("100");
+    expect(field(target, m.activityWeights_weight({ title: "Problem One" })).value).toBe("200");
     expect(target.textContent).not.toContain("Problem Two");
     expect(await payload(target, kind)).toEqual({
       totalPoints: 200,
@@ -177,7 +175,7 @@ describe.each(["assignment", "exam"] as const)("%s teacher draft protection", (k
 
   it("resets drafts when the same mounted component receives a different context", async () => {
     const { target, component } = await setup(kind);
-    await edit(target, m.activityWeights_total(), 200);
+    await edit(target, m.activityWeights_weight({ title: "Problem One" }), 200);
     component.refresh({
       id: "context-B",
       totalPoints: 75,
@@ -185,7 +183,9 @@ describe.each(["assignment", "exam"] as const)("%s teacher draft protection", (k
       problems: [{ id: "p3", title: "Problem Three", points: 75 }],
     });
     await tick();
-    expect(field(target, m.activityWeights_total()).value).toBe("75");
+    expect(field(target, m.activityWeights_weight({ title: "Problem Three" })).value).toBe(
+      "75",
+    );
     expect(target.textContent).toContain("Problem Three");
     expect(target.textContent).not.toContain("Problem One");
     expect(findButton(target, saveLabel(kind))).toBeUndefined();
@@ -195,7 +195,8 @@ describe.each(["assignment", "exam"] as const)("%s teacher draft protection", (k
 
   it("accepts clean server refreshes again after the server acknowledges the saved draft", async () => {
     const { target, component } = await setup(kind);
-    await edit(target, m.activityWeights_total(), 200);
+    await edit(target, m.activityWeights_weight({ title: "Problem One" }), 120);
+    await edit(target, m.activityWeights_weight({ title: "Problem Two" }), 80);
     component.refresh({
       ...structuredClone(initial),
       totalPoints: 200,
@@ -217,8 +218,7 @@ describe.each(["assignment", "exam"] as const)("%s teacher draft protection", (k
       ],
     });
     await tick();
-    expect(field(target, m.activityWeights_total()).value).toBe("150");
-    expect(field(target, m.activityWeights_weight({ title: "Problem One" })).value).toBe("20");
+    expect(field(target, m.activityWeights_weight({ title: "Problem One" })).value).toBe("30");
     expect(findButton(target, saveLabel(kind))).toBeUndefined();
   });
 });

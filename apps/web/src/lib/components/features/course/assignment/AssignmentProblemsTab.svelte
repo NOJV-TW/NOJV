@@ -108,7 +108,7 @@
       ...editRows,
       ...candidates.map((candidate, index) => ({
         problemId: candidate.id,
-        points: 0,
+        points: 100,
         title: candidate.title,
         letter: problemLetter(editRows.length + index + 1),
       })),

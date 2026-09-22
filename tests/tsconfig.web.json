@@ -30,6 +30,8 @@
     "integration/http/auth-username-identity.test.ts",
     "integration/http/submission-exam-confinement.test.ts",
     "component/web/teacher-submission-refresh.test.ts",
+    "component/web/activity-weights.test.ts",
+    "component/web/fixtures/activity-weights-host.svelte",
     "component/web/fixtures/teacher-problems-refresh.svelte",
     "component/web/fixtures/teacher-settings-refresh.svelte",
     "component/web/fixtures/app-stores.ts",
