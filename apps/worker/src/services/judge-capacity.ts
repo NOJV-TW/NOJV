@@ -46,6 +46,7 @@ export interface JudgeRunRegistration {
   studentId: string;
   submittedAt: number;
   createdAt: number;
+  priority?: number;
 }
 
 export interface JudgeAdmissionState {
@@ -60,6 +61,7 @@ export interface JudgeAdmissionState {
     orderKey: string;
     submittedAt: number;
     registeredAt: number;
+    priority?: number;
   }[];
   pending: JudgeAdmissionRequest[];
   permits: JudgePermit[];
@@ -270,6 +272,7 @@ export function registerAdmissionRun(
   if (now - registration.createdAt > ADMISSION_TOMBSTONE_RETENTION_MS)
     throw new Error("Stale registration for unknown admission run");
   let orderKey = registration.submissionId ?? registration.runId;
+  let priority = registration.priority;
   if (registration.replacesRunId !== undefined) {
     const previous = state.runs.find((run) => run.runId === registration.replacesRunId);
     if (
@@ -285,6 +288,7 @@ export function registerAdmissionRun(
     )
       throw new Error("Retry cannot replace an active or unrelated admission run");
     orderKey = previous.orderKey;
+    priority ??= previous.priority;
     finishAdmissionRun(state, previous.runId, true, now);
   }
   state.runs.push({
@@ -296,14 +300,39 @@ export function registerAdmissionRun(
     finished: false,
     lastCompletedSequence: -1,
     orderKey,
+    ...(priority !== undefined ? { priority } : {}),
   });
+  sortAdmissionRuns(state);
+  if (!state.studentOrder.includes(registration.studentId))
+    state.studentOrder.push(registration.studentId);
+}
+
+const runPriority = (run: { priority?: number }): number => run.priority ?? 0;
+
+function sortAdmissionRuns(state: JudgeAdmissionState): void {
   state.runs.sort(
     (a, b) =>
+      runPriority(a) - runPriority(b) ||
       a.submittedAt - b.submittedAt ||
       (a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : 0),
   );
-  if (!state.studentOrder.includes(registration.studentId))
-    state.studentOrder.push(registration.studentId);
+}
+
+export function assignAdmissionRunPriorities(
+  state: JudgeAdmissionState,
+  priorities: Record<string, number>,
+): number {
+  let assigned = 0;
+  for (const run of state.runs) {
+    const priority = priorities[run.orderKey];
+    if (run.finished || run.priority !== undefined || priority === undefined) continue;
+    if (!Number.isSafeInteger(priority) || priority < 0)
+      throw new Error("Admission run priority must be a non-negative integer");
+    run.priority = priority;
+    assigned++;
+  }
+  if (assigned > 0) sortAdmissionRuns(state);
+  return assigned;
 }
 
 export function enqueueAdmission(
@@ -416,10 +445,19 @@ export function admitAvailable(
   const preparedLimit =
     2 * eligible.reduce((sum, node) => sum + Math.floor(node.budget.cpuMillis / 1000), 0);
   const reservedNodes = new Set<string>();
-  for (const studentId of [...state.studentOrder]) {
+  const firstRunOf = (studentId: string) =>
+    state.runs.find((r) => r.studentId === studentId && !r.finished);
+  const students = state.studentOrder
+    .map((studentId, index) => {
+      const firstRun = firstRunOf(studentId);
+      return { studentId, index, priority: firstRun ? runPriority(firstRun) : 0 };
+    })
+    .sort((a, b) => a.priority - b.priority || a.index - b.index)
+    .map(({ studentId }) => studentId);
+  for (const studentId of students) {
     if (state.permits.some((p) => p.request.studentId === studentId && !p.cleanupConfirmed))
       continue;
-    const firstRun = state.runs.find((r) => r.studentId === studentId && !r.finished);
+    const firstRun = firstRunOf(studentId);
     const request = state.pending.find((r) => r.runId === firstRun?.runId);
     if (!request || !firstRun) continue;
     if (allowedSubmissionIds && !allowedSubmissionIds.has(firstRun.orderKey)) continue;
@@ -446,7 +484,9 @@ export function admitAvailable(
     }
     if (
       request.phase === "prepare" &&
-      state.runs.filter((r) => r.prepared && !r.finished).length >= preparedLimit
+      state.runs.filter(
+        (r) => r.prepared && !r.finished && runPriority(r) <= runPriority(firstRun),
+      ).length >= preparedLimit
     )
       continue;
     if (request.phase === "wave" && !firstRun.prepared) continue;

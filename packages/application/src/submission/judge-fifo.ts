@@ -1,5 +1,20 @@
 import { Prisma, prismaAdapterClient as db } from "@nojv/db";
 
+export function judgeQueuePriority(queueClass: string): number {
+  return queueClass === "foreground" ? 0 : 1;
+}
+
+export async function resolveJudgeRunPriorities(
+  executionIds: readonly string[],
+): Promise<Record<string, number>> {
+  if (executionIds.length === 0) return {};
+  const rows = await db.judgeExecution.findMany({
+    where: { id: { in: [...executionIds] } },
+    select: { id: true, queueClass: true },
+  });
+  return Object.fromEntries(rows.map((row) => [row.id, judgeQueuePriority(row.queueClass)]));
+}
+
 export async function resolveJudgeFifoWaiters(
   waiters: readonly { executionId: string; workflowId: string }[],
 ) {
@@ -19,7 +34,7 @@ export async function resolveJudgeFifoWaiters(
       JOIN "Submission" s ON s.id = e."submissionId"
       WHERE e.state NOT IN ('completed', 'cancelled')
         AND s."userId" IN (SELECT "userId" FROM requested)
-      ORDER BY s."userId", e."createdAt", e.id
+      ORDER BY s."userId", (e."queueClass" <> 'foreground'), e."createdAt", e.id
     )
     SELECT r.id, r."workflowId", r.state, COALESCE(r.id = h.id, false) AS ready
     FROM requested r LEFT JOIN heads h ON h."userId" = r."userId"

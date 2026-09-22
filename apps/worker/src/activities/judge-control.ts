@@ -126,6 +126,11 @@ export async function resolveJudgeFifoWaiters(
   return submissionDomain.resolveJudgeFifoWaiters(waiters);
 }
 
+export async function resolveJudgeRunPriorities(executionIds: string[]) {
+  const { submissionDomain } = await import("@nojv/application");
+  return submissionDomain.resolveJudgeRunPriorities(executionIds);
+}
+
 export async function findPriorCapacityRuns(executionId: string, workflowId: string) {
   const { getTemporalClient } = await import("@nojv/temporal");
   const client = await getTemporalClient();

@@ -3,6 +3,7 @@ export {
   findPriorCapacityRuns,
   closedJudgeWorkflows,
   resolveJudgeFifoWaiters,
+  resolveJudgeRunPriorities,
 } from "./judge-control";
 export { cleanupSandboxStage, cleanupSandboxAttempt } from "./judge-stages";
 

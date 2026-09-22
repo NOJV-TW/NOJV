@@ -131,6 +131,49 @@ describe("immutable judge execution recovery", () => {
     ]);
   });
 
+  it("lets a student's foreground submission pass that student's background rejudges", async () => {
+    const { execution, user, problem, draft } = await fixture();
+    const second = await createTestSubmission({
+      userId: user.id,
+      problemId: problem.id,
+      status: "queued",
+    });
+    const pinned = await judge.prepareJudgeSnapshot(second.id, draft);
+    const background = await runTransaction((tx) =>
+      judge.createJudgeExecution(tx, {
+        submissionId: second.id,
+        ...pinned,
+        operationId: "rejudge-operation",
+      }),
+    );
+    expect(background.queueClass).toBe("background");
+    await db.judgeExecution.update({
+      where: { id: background.id },
+      data: { createdAt: new Date(execution.createdAt.getTime() - 60_000) },
+    });
+    const waiter = (row: { id: string; workflowId: string }) => ({
+      executionId: row.id,
+      workflowId: row.workflowId,
+    });
+    expect(await judge.judgeExecutionTurn(background.id, background.workflowId)).toBe("wait");
+    expect(await judge.judgeExecutionTurn(execution.id, execution.workflowId)).toBe("ready");
+    expect(
+      await judge.resolveJudgeFifoWaiters([waiter(background), waiter(execution)]),
+    ).toEqual([{ ...waiter(execution), outcome: "ready" }]);
+    expect(
+      await judge.resolveJudgeRunPriorities([execution.id, background.id, "missing"]),
+    ).toEqual({ [execution.id]: 0, [background.id]: 1 });
+    expect(await judge.resolveJudgeRunPriorities([])).toEqual({});
+    await db.judgeExecution.update({
+      where: { id: execution.id },
+      data: { state: "completed" },
+    });
+    expect(await judge.judgeExecutionTurn(background.id, background.workflowId)).toBe("ready");
+    expect(await judge.resolveJudgeFifoWaiters([waiter(background)])).toEqual([
+      { ...waiter(background), outcome: "ready" },
+    ]);
+  });
+
   it("retains capacity ownership through a checkpoint and prevents legacy recovery", async () => {
     const { execution } = await fixture();
     const runId = "a6f6a450-251d-482e-bbf7-6f3c8a857375";

@@ -14,8 +14,13 @@ export async function judgeExecutionTurn(executionId: string, workflowId: string
       submission: { userId: current.submission.userId },
       state: { notIn: ["cancelled", "completed"] },
       OR: [
-        { createdAt: { lt: current.createdAt } },
-        { createdAt: current.createdAt, id: { lt: current.id } },
+        ...(current.queueClass === "foreground" ? [] : [{ queueClass: "foreground" }]),
+        { queueClass: current.queueClass, createdAt: { lt: current.createdAt } },
+        {
+          queueClass: current.queueClass,
+          createdAt: current.createdAt,
+          id: { lt: current.id },
+        },
       ],
     },
     select: { id: true },

@@ -532,7 +532,18 @@ Each FIFO check reads an execution-specific coordinator query containing only
 the dispatch route, drain flag and active status. It does not transfer the full
 admission backlog; waiting executions still check whether rollback requires a redirect.
 Retries and recovery epochs retain the original execution ordering key.
-Prepared unfinished runs are bounded to twice the available CPU execution slots.
+Executions carry the journal's queue class: `foreground` for student submissions
+and `background` for rejudges and recovery epochs. A student's foreground
+execution is the FIFO head ahead of that student's background work regardless
+of age, the coordinator admits foreground students before background students
+while keeping round-robin within each class, and a background rejudge keeps its
+prepared artifact and resumes as soon as no foreground request is grantable.
+The coordinator resolves unknown run priorities from the journal in one batched
+read before each admission pass, so legacy reservations converge without a
+history rewrite.
+Prepared unfinished runs are bounded to twice the available CPU execution slots
+per priority class, so a bulk rejudge cannot hold every prepared slot against
+new submissions.
 
 Temporal's in-memory Workflow cache is bounded independently of sandbox admission
 and Activity concurrency. Judge, control and platform workers each retain at most

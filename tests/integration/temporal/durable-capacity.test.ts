@@ -37,6 +37,7 @@ interface Execution {
   capacity: boolean;
   studentId?: string;
   workflowId?: string;
+  background?: boolean;
 }
 const executions = new Map<string, Execution>();
 const runExecutions = new Map<string, string>();
@@ -90,6 +91,11 @@ function fixtures(cases = 9, cpuBudget = 4000) {
         );
         return decisions.filter(({ outcome }) => outcome !== "wait");
       },
+    ),
+    resolveJudgeRunPriorities: vi.fn(async (executionIds: string[]) =>
+      Object.fromEntries(
+        executionIds.map((id) => [id, executions.get(id)?.background ? 1 : 0]),
+      ),
     ),
     findPriorCapacityRuns: vi.fn(async (executionId: string, workflowId: string) => {
       const state = await env.client.workflow
@@ -884,6 +890,45 @@ describe("durable pinned capacity pipeline", () => {
       expect(activities.prepareSandboxAttempt).toHaveBeenCalledOnce();
     });
   }, 60_000);
+  it("admits a foreground submission ahead of queued background rejudges", async () => {
+    const activities = fixtures(1, 1000);
+    await withWorkers(activities, async (coordinator, start) => {
+      await coordinator.signal("pauseJudgeAdmission", true);
+      const admission = async () =>
+        (await coordinator.query<Coordinator>("admissionState")).admission;
+      for (const [index, id] of ["prio-bg-1", "prio-bg-2"].entries()) {
+        await start(id, { background: true });
+        await until(async () => (await admission()).pending.length === index + 1);
+      }
+      await start("prio-fg");
+      await until(async () => (await admission()).pending.length === 3);
+      const before = await admission();
+      expect(
+        before.runs
+          .filter((run) => !run.finished && !run.runId.startsWith("dispatch/"))
+          .map((run) => [run.orderKey, run.priority]),
+      ).toEqual([
+        ["prio-fg", 0],
+        ["prio-bg-1", 1],
+        ["prio-bg-2", 1],
+      ]);
+      expect(before.studentOrder).toEqual(["prio-bg-1", "prio-bg-2", "prio-fg"]);
+      await coordinator.signal("pauseJudgeAdmission", false);
+      await until(async () => activities.prepareSandboxAttempt.mock.calls.length === 1);
+      expect(runExecutions.get(activities.prepareSandboxAttempt.mock.calls[0]![1])).toBe(
+        "prio-fg",
+      );
+      const after = await admission();
+      expect(
+        after.permits
+          .map((permit) => permit.request.studentId)
+          .filter((id) => id !== "prio-fg"),
+      ).toEqual([]);
+      expect(
+        after.pending.map((request) => request.studentId).filter((id) => id !== "prio-fg"),
+      ).toEqual(["prio-bg-1", "prio-bg-2"]);
+    });
+  }, 60_000);
   it("keeps FIFO waiters asleep across central reconciliations and a coordinator restart", async () => {
     const activities = fixtures(1);
     activities.judgeExecutionTurn.mockResolvedValue("wait");
@@ -914,6 +959,8 @@ describe("durable pinned capacity pipeline", () => {
       }
       expect(activities.initializePinnedSandboxAttempt).not.toHaveBeenCalled();
       activities.judgeExecutionTurn.mockResolvedValue("ready");
+      await env.sleep("31s");
+      await until(async () => activities.prepareSandboxAttempt.mock.calls.length === 2);
       await Promise.all([first.result(), second.result()]);
       await until(
         async () =>

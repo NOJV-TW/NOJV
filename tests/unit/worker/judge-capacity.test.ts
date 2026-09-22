@@ -3,6 +3,7 @@ import type { V1Node, V1Pod } from "@kubernetes/client-node";
 
 import {
   admitAvailable,
+  assignAdmissionRunPriorities,
   buildCapacitySnapshot,
   cancelQueuedRun,
   compactAdmissionState,
@@ -536,6 +537,144 @@ describe("durable admission state", () => {
     expect(s.studentOrder).toEqual([]);
     expect(s.closedRuns).toHaveLength(100);
     expect(JSON.stringify(s).length).toBeLessThan(20_000);
+  });
+
+  it("admits foreground students before background rejudges and keeps round-robin within a class", () => {
+    const s = state([node("a", "2")]);
+    for (const studentId of ["bg-1", "bg-2"]) {
+      registerAdmissionRun(s, {
+        runId: studentId,
+        studentId,
+        submittedAt: 100,
+        createdAt,
+        priority: 1,
+      });
+      enqueueAdmission(s, request(studentId));
+    }
+    registerAdmissionRun(s, {
+      runId: "fg",
+      studentId: "fg",
+      submittedAt: 900,
+      createdAt,
+      priority: 0,
+    });
+    enqueueAdmission(s, request("fg"));
+    const [first] = admitAvailable(s, 0).granted;
+    expect(first!.request.studentId).toBe("fg");
+    confirmPermitCleanup(s, "fg", first!.permitId, true);
+    const [second] = admitAvailable(s, 0).granted;
+    expect(second!.request.studentId).toBe("bg-1");
+    confirmPermitCleanup(s, "bg-1", second!.permitId, true);
+    enqueueAdmission(s, request("fg", "fg", "wave"));
+    const [third] = admitAvailable(s, 0).granted;
+    expect(third!.request.runId).toBe("fg");
+    confirmPermitCleanup(s, "fg", third!.permitId, true);
+    finishAdmissionRun(s, "fg", true);
+    expect(admitAvailable(s, 0).granted[0]!.request.studentId).toBe("bg-2");
+  });
+
+  it("lets a foreground prepare bypass background prepared slots but not foreground ones", () => {
+    const s = state([node("a", "2")]);
+    for (const studentId of ["bg-1", "bg-2"]) {
+      registerAdmissionRun(s, {
+        runId: studentId,
+        studentId,
+        submittedAt: 100,
+        createdAt,
+        priority: 1,
+      });
+      prepare(s, studentId);
+    }
+    registerAdmissionRun(s, {
+      runId: "bg-3",
+      studentId: "bg-3",
+      submittedAt: 100,
+      createdAt,
+      priority: 1,
+    });
+    enqueueAdmission(s, request("bg-3"));
+    expect(admitAvailable(s, 0).granted).toEqual([]);
+    for (const studentId of ["fg-1", "fg-2"]) {
+      registerAdmissionRun(s, {
+        runId: studentId,
+        studentId,
+        submittedAt: 900,
+        createdAt,
+        priority: 0,
+      });
+      prepare(s, studentId);
+    }
+    registerAdmissionRun(s, {
+      runId: "fg-3",
+      studentId: "fg-3",
+      submittedAt: 900,
+      createdAt,
+      priority: 0,
+    });
+    enqueueAdmission(s, request("fg-3"));
+    expect(admitAvailable(s, 0).granted).toEqual([]);
+    expect(finishAdmissionRun(s, "fg-1", true)).toBe(true);
+    expect(admitAvailable(s, 0).granted[0]!.request.runId).toBe("fg-3");
+  });
+
+  it("orders a student's foreground submission ahead of that student's older background rejudges", () => {
+    const s = state();
+    registerAdmissionRun(s, {
+      runId: "bg",
+      studentId: "alice",
+      submittedAt: 100,
+      createdAt,
+      priority: 1,
+    });
+    registerAdmissionRun(s, {
+      runId: "fg",
+      studentId: "alice",
+      submittedAt: 200,
+      createdAt,
+      priority: 0,
+    });
+    enqueueAdmission(s, request("alice", "bg"));
+    enqueueAdmission(s, request("alice", "fg"));
+    expect(admitAvailable(s, 0).granted.map((permit) => permit.request.runId)).toEqual(["fg"]);
+  });
+
+  it("backfills unknown priorities from the journal, re-sorts and passes them to replacement runs", () => {
+    const s = state();
+    for (const [runId, submissionId, submittedAt] of [
+      ["dispatch/w1", "exec-1", 100],
+      ["dispatch/w2", "exec-2", 200],
+    ] as const) {
+      registerAdmissionRun(s, {
+        runId,
+        submissionId,
+        studentId: "alice",
+        submittedAt,
+        createdAt,
+      });
+    }
+    expect(admitAvailable(s, 0).granted).toEqual([]);
+    expect(assignAdmissionRunPriorities(s, { "exec-1": 1, "exec-2": 0 })).toBe(2);
+    expect(s.runs.map((run) => run.runId)).toEqual(["dispatch/w2", "dispatch/w1"]);
+    expect(assignAdmissionRunPriorities(s, { "exec-1": 0, "exec-3": 0 })).toBe(0);
+    registerAdmissionRun(s, {
+      runId: "real-1",
+      replacesRunId: "dispatch/w1",
+      studentId: "alice",
+      submittedAt: 100,
+      createdAt,
+    });
+    expect(s.runs.find((run) => run.runId === "real-1")?.priority).toBe(1);
+    enqueueAdmission(s, request("alice", "real-1"));
+    expect(admitAvailable(s, 0).granted).toEqual([]);
+    registerAdmissionRun(s, {
+      runId: "real-2",
+      replacesRunId: "dispatch/w2",
+      studentId: "alice",
+      submittedAt: 200,
+      createdAt,
+    });
+    enqueueAdmission(s, request("alice", "real-2"));
+    expect(admitAvailable(s, 0).granted[0]!.request.runId).toBe("real-2");
   });
 
   it("holds a later ready submission behind an earlier registered submission still loading data", () => {

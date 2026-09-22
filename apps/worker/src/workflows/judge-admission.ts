@@ -16,6 +16,7 @@ import {
   workflowInfo,
 } from "@temporalio/workflow";
 import {
+  assignAdmissionRunPriorities,
   compactAdmissionState,
   admitAvailable,
   cancelQueuedRun,
@@ -574,6 +575,21 @@ export async function judgeAdmissionWorkflow(input?: CoordinatorState): Promise<
         } catch {
           // The durable registrations remain pending for the next reconciliation.
         }
+      }
+    }
+    if (patched("judge-run-priority-v1")) {
+      const unresolved = [
+        ...new Set(
+          state.admission.runs
+            .filter((run) => !run.finished && run.priority === undefined)
+            .map((run) => run.orderKey),
+        ),
+      ].slice(0, 256);
+      if (unresolved.length > 0) {
+        const priorities = await control
+          .resolveJudgeRunPriorities(unresolved)
+          .catch(() => null);
+        if (priorities) assignAdmissionRunPriorities(state.admission, priorities);
       }
     }
     if (!state.paused && state.quotaReady) {
