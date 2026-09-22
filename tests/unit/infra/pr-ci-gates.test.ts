@@ -40,6 +40,10 @@ describe("pull-request runtime gates", () => {
     );
     const coverage = workflow.slice(
       workflow.indexOf("  coverage:"),
+      workflow.indexOf("  temporal:"),
+    );
+    const temporal = workflow.slice(
+      workflow.indexOf("  temporal:"),
       workflow.indexOf("  verify-gate:"),
     );
     const gate = workflow.slice(
@@ -61,11 +65,19 @@ describe("pull-request runtime gates", () => {
         coverage.indexOf("pnpm test:coverage"),
       );
     }
+    expect(temporal).toContain("pnpm test:integration:temporal");
+    expect(temporal).not.toContain("pnpm test:coverage");
+    expect(temporal).not.toMatch(/^\s+needs:/mu);
+    expect(temporal).not.toMatch(/^\s+services:/mu);
+    expect(temporal.indexOf("pnpm --filter @nojv/storage... build")).toBeLessThan(
+      temporal.indexOf("pnpm test:integration:temporal"),
+    );
     expect(gate).toContain("name: Verify Repository");
     expect(gate).toContain("if: always()");
-    expect(gate).toMatch(/needs:\s*\n\s+- verify\s*\n\s+- coverage/u);
+    expect(gate).toMatch(/needs:\s*\n\s+- verify\s*\n\s+- coverage\s*\n\s+- temporal/u);
     expect(gate).toContain('test "$VERIFY_RESULT" = success');
     expect(gate).toContain('test "$COVERAGE_RESULT" = success');
+    expect(gate).toContain('test "$TEMPORAL_RESULT" = success');
   });
 
   it("runs an unconditional real Docker sandbox boundary smoke on every PR", () => {
