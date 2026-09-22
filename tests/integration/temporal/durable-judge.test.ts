@@ -46,7 +46,7 @@ async function scenario(options: {
           type: "SandboxTransientInfrastructureError",
           message: "node lost",
         });
-      if (attempts <= (options.wait ?? 0)) return { status: "wait" };
+      if (attempts <= (options.wait ?? 0)) return { status: "cleanup" };
       return { status: "finished" };
     }),
     completePinnedJudge: vi.fn(async () => {
@@ -122,7 +122,7 @@ describe("durable judge recovery workflow", () => {
     expect(activities.completePinnedJudge).toHaveBeenCalledTimes(5);
     expect(activities.publishVerdict).toHaveBeenCalledOnce();
   }, 30_000);
-  it("continues as new during long queues with only an execution reference", async () => {
+  it("continues as new during long cleanup waits with only an execution reference", async () => {
     const { activities, id } = await scenario({ wait: 105 });
     expect(activities.executeJudgeStage).toHaveBeenCalledTimes(106);
     const history = await env.client.workflow.getHandle(id).fetchHistory();

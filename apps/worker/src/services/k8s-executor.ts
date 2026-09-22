@@ -6,11 +6,6 @@ import {
 } from "./k8s-cleanup-call";
 import { createRequire } from "node:module";
 import {
-  buildArtifactPvcManifest,
-  buildPrepareArtifactJobManifest,
-  buildPreparedWaveJobManifest,
-} from "./k8s-prepared-artifact";
-import {
   podPhaseTimings,
   recordJudgePhase,
   recordCleanupPending,
@@ -122,8 +117,6 @@ export interface K8sExecutorConfig {
   sidecarReadinessIntervalMs?: number;
   maxParallelCases?: number;
   runtimeClassName?: string;
-  admissionNode?: string;
-  artifactStorageClassName?: string;
 }
 
 function parseMemoryLimitMb(value: string): number {
@@ -402,7 +395,6 @@ export interface K8sClientHandles {
   batchApi: k8s.BatchV1Api;
   networkingApi?: k8s.NetworkingV1Api;
   watch: K8sWatchClient;
-  storageApi?: k8s.StorageV1Api;
 }
 
 export interface K8sWatchClient {
@@ -575,19 +567,11 @@ function parseCompilationError(logs: string): string | null {
   );
 }
 
-export interface PreparedArtifactReference {
-  runId: string;
-  pvcName: string;
-  pvcUid: string;
-  nodeName: string;
-}
-
 function requestMode(request: SandboxRequest): JudgeMode {
   return request.advanced ? "advanced" : request.judgeType;
 }
 
 export class K8sExecutor implements SandboxExecutor {
-  private storageApi: k8s.StorageV1Api | undefined;
   private readonly coreApi: k8s.CoreV1Api;
   private readonly batchApi: k8s.BatchV1Api;
   private networkingApiHandle: k8s.NetworkingV1Api | undefined;
@@ -598,7 +582,6 @@ export class K8sExecutor implements SandboxExecutor {
     clients?: K8sClientHandles,
   ) {
     if (clients) {
-      this.storageApi = clients.storageApi;
       this.coreApi = clients.coreApi;
       this.batchApi = clients.batchApi;
       this.networkingApiHandle = clients.networkingApi;
@@ -608,14 +591,13 @@ export class K8sExecutor implements SandboxExecutor {
     const k8sLib = require("@kubernetes/client-node") as typeof k8s;
     const kc = new k8sLib.KubeConfig();
     kc.loadFromCluster();
-    this.storageApi = kc.makeApiClient(k8sLib.StorageV1Api);
     this.coreApi = kc.makeApiClient(k8sLib.CoreV1Api);
     this.batchApi = kc.makeApiClient(k8sLib.BatchV1Api);
     this.networkingApiHandle = kc.makeApiClient(k8sLib.NetworkingV1Api);
     this.watchClient = new k8sLib.Watch(kc);
   }
 
-  async cleanupRun(runId: string, retainArtifact = false): Promise<void> {
+  async cleanupRun(runId: string): Promise<void> {
     if (!/^[a-f0-9-]{36}$/.test(runId)) throw new Error("Invalid cleanup run ID");
     const namespace = this.config.namespace;
     const prefix = `judge-${runId}`;
@@ -664,11 +646,7 @@ export class K8sExecutor implements SandboxExecutor {
     const pvcs = await call(() =>
       this.coreApi.listNamespacedPersistentVolumeClaim({ namespace }),
     );
-    for (const pvc of pvcs.items.filter(
-      (item) =>
-        owned(item.metadata) &&
-        (!retainArtifact || item.metadata?.name !== `${prefix}-artifact`),
-    )) {
+    for (const pvc of pvcs.items.filter((item) => owned(item.metadata))) {
       if (!pvc.metadata?.uid || !pvc.metadata.name)
         throw new SandboxCleanupPendingError([prefix]);
       await terminateSandboxPvc(this.coreApi, namespace, pvc.metadata.name, pvc.metadata.uid, {
@@ -693,196 +671,6 @@ export class K8sExecutor implements SandboxExecutor {
           body: { preconditions: { uid } },
         }),
     );
-  }
-
-  async prepareAttempt(
-    request: SandboxRequest,
-    execution: SandboxExecutionContext,
-  ): Promise<{ artifact?: PreparedArtifactReference; compilationError?: string }> {
-    const namespace = this.config.namespace;
-    const nodeName = this.config.admissionNode;
-    const storageClassName = this.config.artifactStorageClassName;
-    if (!nodeName || !storageClassName || !this.storageApi)
-      throw new Error("Prepared attempts require admitted node and artifact StorageClass");
-    execution.signal.throwIfAborted();
-    const storageClass = await this.storageApi.readStorageClass({ name: storageClassName });
-    execution.signal.throwIfAborted();
-    if (storageClass.volumeBindingMode !== "WaitForFirstConsumer")
-      throw new SandboxAdmissionError("Artifact StorageClass must use WaitForFirstConsumer");
-    const pvc = await this.coreApi.createNamespacedPersistentVolumeClaim({
-      namespace,
-      body: buildArtifactPvcManifest({ namespace, runId: execution.runId, storageClassName }),
-    });
-    execution.signal.throwIfAborted();
-    if (!pvc.metadata?.name || !pvc.metadata.uid)
-      throw new Error("Artifact PVC missing identity");
-    const artifact = {
-      runId: execution.runId,
-      pvcName: pvc.metadata.name,
-      pvcUid: pvc.metadata.uid,
-      nodeName,
-    };
-    const jobName = `judge-${execution.runId}-prepare`;
-    let payloadNames: string[] = [];
-    try {
-      payloadNames = await this.createPayloadConfigMaps(
-        jobName,
-        namespace,
-        buildRunConfigMapData({ ...request, testcases: [] }),
-        execution.signal,
-      );
-      execution.signal.throwIfAborted();
-      await this.createSandboxJob(
-        {
-          namespace,
-          body: buildPrepareArtifactJobManifest({
-            jobName,
-            namespace,
-            configMapNames: payloadNames,
-            image: request.sandboxImage ?? this.config.image,
-            memoryLimit: resolveK8sMemoryLimit(request, this.config),
-            runtimeClassName: "gvisor",
-            nodeName,
-            pvcName: artifact.pvcName,
-            activeDeadlineSeconds: 180,
-          }),
-        },
-        execution.signal,
-      );
-      execution.signal.throwIfAborted();
-      await this.waitForJobCompletion(jobName, namespace, 180, execution.signal);
-      await this.observeJobLifecycle(jobName, namespace, request);
-      return await this.measurePhase(request, "collect", async () => {
-        const compileLog = await this.getContainerLogs(
-          jobName,
-          namespace,
-          "prepare",
-          execution.signal,
-        );
-        recordRunnerResources(compileLog, requestMode(request), request.language, "prepare", {
-          jobName,
-          container: "prepare",
-        });
-        const compilationError = parseCompilationError(compileLog);
-        if (compilationError) return { compilationError };
-        const published = await this.getContainerLogs(
-          jobName,
-          namespace,
-          "publish-artifact",
-          execution.signal,
-        );
-        if (
-          !scanJsonLinesFromEnd(published, (value) =>
-            typeof value === "object" &&
-            value !== null &&
-            "published" in value &&
-            value.published === true
-              ? true
-              : null,
-          )
-        )
-          throw new SandboxInfrastructureError("Artifact publication failed");
-        const pods = await this.coreApi.listNamespacedPod({
-          namespace,
-          labelSelector: `job-name=${jobName}`,
-        });
-        if (pods.items[0]?.spec?.nodeName !== nodeName)
-          throw new SandboxInfrastructureError("Artifact placement differs from reservation");
-        return { artifact };
-      });
-    } finally {
-      await this.measurePhase(request, "cleanup", () =>
-        this.cleanup(jobName, namespace, payloadNames),
-      );
-    }
-  }
-
-  async executePreparedWave(
-    request: SandboxRequest,
-    execution: SandboxExecutionContext,
-    artifact: PreparedArtifactReference,
-    indices: number[],
-  ): Promise<SandboxResult> {
-    if (
-      artifact.runId !== execution.runId ||
-      artifact.nodeName !== this.config.admissionNode ||
-      artifact.pvcName !== `judge-${execution.runId}-artifact`
-    )
-      throw new SandboxAdmissionError("Artifact ownership mismatch");
-    const pvc = await this.coreApi.readNamespacedPersistentVolumeClaim({
-      namespace: this.config.namespace,
-      name: artifact.pvcName,
-    });
-    if (pvc.metadata?.uid !== artifact.pvcUid || pvc.metadata.deletionTimestamp)
-      throw new SandboxInfrastructureError(
-        "Artifact PVC is unavailable; a new attempt is required",
-      );
-    const wave = {
-      ...request,
-      testcases: request.testcases.filter((tc) => indices.includes(tc.index)),
-    };
-    if (wave.testcases.length !== indices.length || indices.length < 1)
-      throw new SandboxAdmissionError("Invalid testcase wave");
-    return this.runPerCasePod(wave, execution, artifact);
-  }
-
-  async finishPreparedAttempt(
-    request: SandboxRequest,
-    execution: SandboxExecutionContext,
-    rawRuns: RawCaseRun[],
-  ): Promise<SandboxResult> {
-    if (request.judgeType !== "checker")
-      return resolveSandboxResult(
-        { testcaseResults: [], rawRuns },
-        request.testcases,
-        request.judgeConfig.compare,
-      );
-    const answered = new Set(
-      request.testcases.filter((tc) => tc.output !== undefined).map((tc) => tc.index),
-    );
-    const gradable = rawRuns.filter((run) => !run.errorVerdict && answered.has(run.index));
-    const outcomes = gradable.length
-      ? await this.runValidateJob(
-          `judge-${execution.runId}-validate`,
-          this.config.namespace,
-          request,
-          gradable,
-          execution.signal,
-        )
-      : new Map<number, ValidatorOutcome>();
-    return { testcaseResults: mergeCheckerResults(rawRuns, outcomes, request.testcases) };
-  }
-
-  private admittedPod(spec: k8s.V1PodSpec): k8s.V1PodSpec {
-    if (!this.config.admissionNode) return spec;
-    delete spec.nodeName;
-    spec.affinity ??= {};
-    spec.affinity.nodeAffinity = {
-      requiredDuringSchedulingIgnoredDuringExecution: {
-        nodeSelectorTerms: [
-          {
-            matchFields: [
-              { key: "metadata.name", operator: "In", values: [this.config.admissionNode] },
-            ],
-          },
-        ],
-      },
-    };
-    for (const container of [...(spec.initContainers ?? []), ...spec.containers]) {
-      const limits = {
-        ...container.resources?.limits,
-        cpu: container.resources?.limits?.cpu ?? "1",
-        memory: container.resources?.limits?.memory ?? "512Mi",
-      };
-      container.resources ??= {};
-      container.resources.limits = limits;
-      container.resources.requests = {
-        ...container.resources.requests,
-        cpu: limits.cpu,
-        memory: limits.memory,
-      };
-    }
-    return spec;
   }
 
   private async observeJobLifecycle(
@@ -1883,24 +1671,20 @@ export class K8sExecutor implements SandboxExecutor {
   private async runPerCasePod(
     request: SandboxRequest,
     execution: SandboxExecutionContext,
-    artifact?: PreparedArtifactReference,
   ): Promise<SandboxResult> {
     const ns = this.config.namespace;
     const allCaseIndices = request.testcases.map((tc) => tc.index);
 
     if (allCaseIndices.length === 0) return { testcaseResults: [] };
 
-    const waves = artifact
-      ? [allCaseIndices]
-      : chunkCaseIndices(allCaseIndices, resolveMaxParallelCases(this.config));
+    const waves = chunkCaseIndices(allCaseIndices, resolveMaxParallelCases(this.config));
     const memoryLimit = resolveK8sMemoryLimit(request, this.config);
     const rawRuns: RawCaseRun[] = [];
 
     for (let waveIndex = 0; waveIndex < waves.length; waveIndex++) {
       const waveCaseIndices = waves[waveIndex] ?? [];
-      const jobName = artifact
-        ? `judge-${execution.runId}-wave-${String(waveCaseIndices[0])}`
-        : waves.length === 1
+      const jobName =
+        waves.length === 1
           ? `judge-${execution.runId}`
           : `judge-${execution.runId}-w${String(waveIndex)}`;
       const waveRequest: SandboxRequest = {
@@ -1925,37 +1709,16 @@ export class K8sExecutor implements SandboxExecutor {
           execution.signal,
         );
         payloadReadyAt = Date.now();
-        if (artifact) {
-          await this.createSandboxJob(
-            {
-              namespace: ns,
-              body: buildPreparedWaveJobManifest({
-                jobName,
-                namespace: ns,
-                configMapNames: payloadNames,
-                image: request.sandboxImage ?? this.config.image,
-                memoryLimit,
-                runtimeClassName: "gvisor",
-                nodeName: artifact.nodeName,
-                pvcName: artifact.pvcName,
-                activeDeadlineSeconds: deadlineSeconds,
-                caseIndices: waveCaseIndices,
-              }),
-            },
-            execution.signal,
-          );
-        } else {
-          await this.createPerCaseJob(
-            jobName,
-            ns,
-            payloadNames,
-            deadlineSeconds,
-            waveCaseIndices,
-            memoryLimit,
-            request.sandboxImage ?? this.config.image,
-            execution.signal,
-          );
-        }
+        await this.createPerCaseJob(
+          jobName,
+          ns,
+          payloadNames,
+          deadlineSeconds,
+          waveCaseIndices,
+          memoryLimit,
+          request.sandboxImage ?? this.config.image,
+          execution.signal,
+        );
         jobSubmittedAt = Date.now();
 
         await this.waitForJobCompletion(jobName, ns, deadlineSeconds, execution.signal);
@@ -1964,14 +1727,12 @@ export class K8sExecutor implements SandboxExecutor {
 
         const podName = await this.findPodName(jobName, ns, execution.signal);
         if (!podName) throw new Error(`No pod found for job ${jobName}`);
-        const compileLog = artifact
-          ? ""
-          : await this.getPodContainerLogs(
-              podName,
-              ns,
-              PREPARE_CONTAINER_NAME,
-              execution.signal,
-            );
+        const compileLog = await this.getPodContainerLogs(
+          podName,
+          ns,
+          PREPARE_CONTAINER_NAME,
+          execution.signal,
+        );
         recordRunnerResources(compileLog, requestMode(request), request.language, "prepare", {
           jobName,
           container: "prepare",
@@ -2299,7 +2060,6 @@ export class K8sExecutor implements SandboxExecutor {
     }
     const spec = template?.spec;
     if (!spec) throw new SandboxAdmissionError("Sandbox Job is missing its Pod specification.");
-    this.admittedPod(spec);
     this.imagePullCredentials(spec);
     const pods = [spec];
     if (companionPodName) {
@@ -2335,7 +2095,6 @@ export class K8sExecutor implements SandboxExecutor {
     if (!params.body.spec)
       throw new SandboxAdmissionError("Sandbox service is missing its Pod specification.");
     params.body.metadata = this.runMetadata(params.body.metadata);
-    this.admittedPod(params.body.spec);
     this.imagePullCredentials(params.body.spec);
     await this.assertSandboxQuota([params.body.spec], params.namespace, signal);
     return this.coreApi.createNamespacedPod(params);

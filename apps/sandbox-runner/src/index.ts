@@ -1,5 +1,4 @@
 import * as fs from "node:fs/promises";
-import { publishArtifact } from "./artifact-publisher.js";
 import * as path from "node:path";
 import * as os from "node:os";
 import {
@@ -299,10 +298,6 @@ function resolveCaseIndex(config: SandboxInput): number | null {
 }
 
 async function main(): Promise<void> {
-  if (process.env.SANDBOX_PHASE === "publish-artifact") {
-    process.stdout.write(JSON.stringify(await publishArtifact()));
-    return;
-  }
   if (process.env.SANDBOX_PHASE === "prepare") {
     await runPreparePhase();
     return;

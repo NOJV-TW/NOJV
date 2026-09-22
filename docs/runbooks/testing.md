@@ -124,27 +124,15 @@ local networks only by setting both. A mismatch can make kube-proxy SNAT
 cross-node Service traffic, breaking a service's source-pod ingress policy even
 when direct Pod IP traffic succeeds. Verify both paths without relaxing policy.
 
-To include prepared-artifact and capacity-control tests, use two disposable
-nodes and install real gVisor on both
+For gVisor-backed Kubernetes runs, install real gVisor on the disposable node
 following the [installation guide](https://gvisor.dev/docs/user_guide/install/)
-and [containerd setup](https://gvisor.dev/docs/user_guide/containerd/quick_start/).
-Create RuntimeClass `gvisor` with handler `runsc`, and verify a probe container's
-`dmesg` reports gVisor before running:
-
-```bash
-KUBECONFIG=/private/test-kubeconfig REQUIRE_K8S=1 \
-K8S_TEST_RUN_ID=capacity-local \
-K8S_TEST_NAMESPACE=nojv-sandbox-test-capacity-local \
-NOJV_TEST_SANDBOX_IMAGE=nojv-sandbox:judge-capacity \
-NOJV_TEST_RUNTIME_CLASS=gvisor pnpm test:integration:k8s
-```
-
-Without the runtime selector, the existing backend suite uses the default
-runtime and the prepared-artifact tests are skipped; this is not gVisor evidence.
-The prepared tests run C++ standard/checker submissions across waves, attempt
-artifact writes, check scratch isolation, count compile Jobs and verify owned API
-resources disappear. Also inspect the dedicated node's CRI tasks, processes and
-cgroups before deleting the test cluster: API-object cleanup alone is insufficient.
+and [containerd setup](https://gvisor.dev/docs/user_guide/containerd/quick_start/),
+create RuntimeClass `gvisor` with handler `runsc`, verify a probe container's
+`dmesg` reports gVisor, and pass `NOJV_TEST_RUNTIME_CLASS=gvisor` to
+`pnpm test:integration:k8s`. Without the runtime selector the suite uses the
+default runtime and is not gVisor evidence. Inspect the node's CRI tasks,
+processes and cgroups before deleting the test cluster: API-object cleanup alone
+is insufficient.
 
 ## Judge Capacity Benchmark
 

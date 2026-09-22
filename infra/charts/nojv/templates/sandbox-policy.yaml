@@ -14,7 +14,7 @@ spec:
   ingress: []
   egress: []
 {{- end }}
-{{- if and .Values.sandbox.resourceQuota.enabled (not .Values.worker.sandbox.capacityAdmission.enabled) }}
+{{- if .Values.sandbox.resourceQuota.enabled }}
 ---
 apiVersion: v1
 kind: ResourceQuota

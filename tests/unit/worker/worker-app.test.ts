@@ -26,10 +26,7 @@ const mocks = vi.hoisted(() => ({
   dockerSweeperStart: vi.fn(),
   verifySandboxRuntime: vi.fn(),
   verifyNetworkPolicyEnforced: vi.fn(),
-  getTemporalClient: vi.fn(),
-  coordinatorStart: vi.fn(),
   validateMailerConfig: vi.fn(),
-  refreshJudgeCapacity: vi.fn(),
 }));
 
 vi.mock("@nojv/application", async (importOriginal) => {
@@ -47,12 +44,10 @@ vi.mock("@nojv/application", async (importOriginal) => {
 vi.mock("@nojv/temporal", () => ({
   buildDomainOrchestrationAdapter: () => ({}),
   closeTemporalClient: mocks.closeTemporalClient,
-  getTemporalClient: mocks.getTemporalClient,
   ensureDurableWorkProcessor: mocks.ensureDurableWorkProcessor,
   ensureLifecycleReconciler: mocks.ensureLifecycleReconciler,
   ensureSubmissionSweeper: mocks.ensureSubmissionSweeper,
   JUDGE_TASK_QUEUE: "judge",
-  CAPACITY_JUDGE_TASK_QUEUE: "judge-capacity",
   PLATFORM_TASK_QUEUE: "platform",
   temporalConnectionOptions: () => ({}),
 }));
@@ -109,10 +104,6 @@ vi.mock("../../../apps/worker/src/services/executor-factory", () => ({
 
 vi.mock("../../../apps/worker/src/activities/judge.js", () => ({
   setExecutorOwner: mocks.setExecutorOwner,
-}));
-
-vi.mock("../../../apps/worker/src/activities/judge-control-bundle.js", () => ({
-  refreshJudgeCapacity: mocks.refreshJudgeCapacity,
 }));
 
 vi.mock("../../../apps/worker/src/services/docker-resource-sweeper.js", () => ({
@@ -187,8 +178,6 @@ beforeEach(() => {
   mocks.dockerSweeperShutdown.mockResolvedValue(undefined);
   mocks.dockerSweeperStart.mockResolvedValue(undefined);
   mocks.verifySandboxRuntime.mockResolvedValue({ ok: true });
-  mocks.getTemporalClient.mockResolvedValue({ workflow: { start: mocks.coordinatorStart } });
-  mocks.coordinatorStart.mockResolvedValue(undefined);
   mocks.validateMailerConfig.mockReset();
   mocks.verifyNetworkPolicyEnforced.mockResolvedValue({ enforced: false, action: "refuse" });
   mocks.healthListen.mockImplementation((_port: number, callback: () => void) => callback());
@@ -196,13 +185,11 @@ beforeEach(() => {
 });
 
 describe("WorkerApp lifecycle", () => {
-  const controlEnv: WorkerEnv = {
+  const kubernetesEnv: WorkerEnv = {
     ...env,
     EXECUTION_BACKEND: "kubernetes",
-    WORKER_MODE: "control",
+    WORKER_MODE: "judge",
     K8S_NAMESPACE: "nojv-sandbox",
-    K8S_CAPACITY_ADMISSION: true,
-    K8S_ARTIFACT_STORAGE_CLASS: "local-path",
     K8S_CPU_REQUEST: "1",
     K8S_CASE_CPU_REQUEST: "1",
     K8S_CPU_LIMIT: "1",
@@ -218,17 +205,12 @@ describe("WorkerApp lifecycle", () => {
       workerEnv: { ...env, WORKER_MODE: "judge" } as WorkerEnv,
       queues: ["judge"],
     },
-    {
-      name: "capacity judge",
-      workerEnv: { ...controlEnv, WORKER_MODE: "judge" } as WorkerEnv,
-      queues: ["judge-capacity"],
-    },
-    { name: "control", workerEnv: controlEnv, queues: ["judge-control"] },
+    { name: "kubernetes judge", workerEnv: kubernetesEnv, queues: ["judge"] },
     { name: "platform", workerEnv: env, queues: ["platform"] },
     {
       name: "combined",
-      workerEnv: { ...controlEnv, WORKER_MODE: "all" } as WorkerEnv,
-      queues: ["judge-control", "judge-capacity", "platform"],
+      workerEnv: { ...kubernetesEnv, WORKER_MODE: "all" } as WorkerEnv,
+      queues: ["judge", "platform"],
     },
   ])(
     "bounds cached workflows and workflow task slots for $name workers",
@@ -257,7 +239,7 @@ describe("WorkerApp lifecycle", () => {
               taskQueue,
               maxCachedWorkflows: 32,
               maxConcurrentWorkflowTaskExecutions: 8,
-              maxConcurrentActivityTaskExecutions: taskQueue === "judge-control" ? 4 : 3,
+              maxConcurrentActivityTaskExecutions: 3,
             }),
           );
         }
@@ -267,68 +249,6 @@ describe("WorkerApp lifecycle", () => {
       }
     },
   );
-
-  it("starts an independent control worker despite unavailable sandbox probes and mailer configuration", async () => {
-    const worker = makeWorker();
-    mocks.workerCreate.mockResolvedValue(worker);
-    mocks.verifySandboxRuntime.mockRejectedValue(new Error("Sandbox quota exhausted"));
-    mocks.verifyNetworkPolicyEnforced.mockRejectedValue(new Error("Sandbox nodes unavailable"));
-    mocks.validateMailerConfig.mockImplementation(() => {
-      throw new Error("Mailer is unconfigured");
-    });
-    const app = new WorkerApp(controlEnv, {
-      shutdownTimeoutMs: 100,
-      workflowsPath: "workflow.js",
-    });
-    validateWorkerMailerStartup(controlEnv.WORKER_MODE);
-    const started = app.start();
-    await vi.waitFor(() => expect(worker.run).toHaveBeenCalledOnce());
-    expect(mocks.workerCreate).toHaveBeenCalledOnce();
-    expect(mocks.workerCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        taskQueue: "judge-control",
-        activities: expect.objectContaining({
-          refreshJudgeCapacity: mocks.refreshJudgeCapacity,
-        }),
-      }),
-    );
-    expect(mocks.coordinatorStart).toHaveBeenCalledWith(
-      "judgeAdmissionWorkflow",
-      expect.objectContaining({ workflowId: "judge-admission-v1", taskQueue: "judge-control" }),
-    );
-    expect(mocks.verifySandboxRuntime).not.toHaveBeenCalled();
-    expect(mocks.verifyNetworkPolicyEnforced).not.toHaveBeenCalled();
-    expect(mocks.validateMailerConfig).not.toHaveBeenCalled();
-    expect(mocks.setExecutorOwner).not.toHaveBeenCalled();
-    expect(mocks.ensureSubmissionSweeper).not.toHaveBeenCalled();
-    await expect(mocks.healthCheckTemporal?.()).resolves.toBe(true);
-    await app.shutdown("SIGTERM");
-    await started;
-    expect(mocks.closeTemporalClient).toHaveBeenCalledOnce();
-  });
-
-  it("closes the acquired Temporal client when coordinator startup fails", async () => {
-    mocks.workerCreate.mockResolvedValue(makeWorker());
-    mocks.coordinatorStart.mockRejectedValue(new Error("Temporal coordinator unavailable"));
-    const app = new WorkerApp(controlEnv, {
-      shutdownTimeoutMs: 100,
-      workflowsPath: "workflow.js",
-    });
-    await expect(app.start()).rejects.toThrow("Temporal coordinator unavailable");
-    await app.shutdown("startup failure");
-    expect(mocks.closeTemporalClient).toHaveBeenCalledOnce();
-    expect(mocks.connectionClose).toHaveBeenCalledOnce();
-  });
-
-  it("rejects control mode when capacity admission is disabled instead of polling no queues", async () => {
-    const app = new WorkerApp(
-      { ...controlEnv, K8S_CAPACITY_ADMISSION: false },
-      { shutdownTimeoutMs: 100, workflowsPath: "workflow.js" },
-    );
-    await expect(app.start()).rejects.toThrow("requires Kubernetes capacity admission");
-    expect(mocks.workerCreate).not.toHaveBeenCalled();
-    await app.shutdown("startup failure");
-  });
 
   it("fails closed before creating a judge worker when Docker resource recovery fails", async () => {
     mocks.dockerSweeperStart.mockRejectedValue(new Error("Docker resource recovery failed"));
@@ -363,8 +283,6 @@ describe("WorkerApp lifecycle", () => {
       K8S_MEMORY_REQUEST: "256Mi",
       K8S_MEMORY_LIMIT: "256Mi",
       K8S_MAX_PARALLEL_CASES: 20,
-      K8S_CAPACITY_ADMISSION: false,
-      K8S_ARTIFACT_STORAGE_CLASS: "local-path",
       K8S_RUNTIME_CLASS_NAME: "gvisor",
       SANDBOX_MEMORY_HEADROOM_MB: 64,
       SANDBOX_MAX_MEMORY_MB: 2048,

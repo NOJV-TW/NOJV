@@ -33,65 +33,19 @@ beforeEach(() => {
 });
 
 describe("durable submission dispatch handlers", () => {
-  it("awaits durable coordinator routing when enabled without direct queue starts", async () => {
-    vi.stubEnv("JUDGE_CAPACITY_ROUTING", "true");
+  it("starts the durable judge workflow on the judge queue with its priority", async () => {
     await dispatchJudgeExecution({
       executionId: "execution",
       workflowId: "judge-execution-execution-0",
-      admissionOrder: {
-        executionId: "execution",
-        submissionId: "routed",
-        studentId: "student",
-        submittedAt: 100,
-      },
+      priority: { priorityKey: 1, fairnessKey: "student" },
     });
-    expect(start).not.toHaveBeenCalled();
-    expect(executeUpdate).toHaveBeenCalledWith(
-      "dispatchJudgeWorkflow",
-      expect.objectContaining({
-        args: [
-          expect.objectContaining({
-            workflowId: "judge-execution-execution-0",
-            workflowType: "durableJudgeWorkflow",
-          }),
-        ],
-      }),
-    );
-    executeUpdate.mockRejectedValueOnce(new Error("Coordinator unavailable"));
-    await expect(
-      dispatchJudgeExecution({
-        executionId: "execution",
-        workflowId: "judge-execution-execution-0",
-        admissionOrder: {
-          executionId: "execution",
-          submissionId: "routed",
-          studentId: "student",
-          submittedAt: 100,
-        },
-      }),
-    ).rejects.toThrow("Coordinator unavailable");
-    expect(start).not.toHaveBeenCalled();
-  });
-
-  it("keeps checkpointed capacity recovery on its coordinator when general routing is disabled", async () => {
-    await dispatchJudgeExecution({
-      executionId: "execution",
-      workflowId: "judge-execution-execution-1",
-      capacity: true,
-      admissionOrder: {
-        executionId: "execution",
-        submissionId: "submission",
-        studentId: "student",
-        submittedAt: 100,
-      },
-    });
-    expect(start).not.toHaveBeenCalled();
-    expect(executeUpdate).toHaveBeenCalledWith("dispatchJudgeWorkflow", {
-      args: [
-        expect.objectContaining({
-          input: { executionId: "execution", capacity: true },
-        }),
-      ],
+    expect(executeUpdate).not.toHaveBeenCalled();
+    expect(start).toHaveBeenCalledWith("durableJudgeWorkflow", {
+      workflowId: "judge-execution-execution-0",
+      taskQueue: "judge",
+      workflowIdReusePolicy: "REJECT_DUPLICATE",
+      priority: { priorityKey: 1, fairnessKey: "student" },
+      args: [{ executionId: "execution" }],
     });
   });
 
@@ -166,12 +120,18 @@ describe("durable submission dispatch handlers", () => {
       }),
     );
   });
-  it("wakes an existing durable execution without starting a replacement", async () => {
+  it("treats an already running durable execution as dispatched", async () => {
     start.mockRejectedValueOnce(
       new WorkflowExecutionAlreadyStartedError("exists", "execution-1", "durableJudgeWorkflow"),
     );
-    await dispatchJudgeExecution({ executionId: "execution", workflowId: "execution-1" });
-    expect(signal).toHaveBeenCalledWith("capacityAvailable");
+    await expect(
+      dispatchJudgeExecution({
+        executionId: "execution",
+        workflowId: "execution-1",
+        priority: { priorityKey: 3, fairnessKey: "student" },
+      }),
+    ).resolves.toBeUndefined();
+    expect(signal).not.toHaveBeenCalled();
   });
   it("distinguishes queued workflow tasks from repeatedly failing tasks", async () => {
     const task = { originalScheduledTime: { seconds: 1 }, attempt: 1 };
