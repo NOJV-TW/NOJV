@@ -30,8 +30,10 @@ sandbox quota rejected a Job and the execution retries every 30 seconds.
 | Recovery epoch of a live submission     | 4           |
 | Rejudge or any `background` queue class | 5           |
 
-`fairnessKey` is the student ID. Priority is on by default in the server; fairness
-requires `matching.enableFairness` in the Temporal dynamic config (compose mounts
+`fairnessKey` is the student ID. The workflow passes its own priority to its
+stage activities explicitly. Priority needs the priority-aware matcher: set
+`matching.useNewMatcher` explicitly (the CLI dev server v1.7.2 serves FIFO
+without it); fairness requires `matching.enableFairness` in the Temporal dynamic config (compose mounts
 `infra/docker/temporal-dynamic-config.yaml`; on the official Helm chart set
 `server.dynamicConfig` and let the config reload). Without fairness, dispatch
 inside one priority is FIFO, and the per-student dispatch gate still prevents one

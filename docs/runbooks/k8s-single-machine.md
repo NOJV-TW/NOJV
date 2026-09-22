@@ -339,10 +339,12 @@ helm repo add temporal https://go.temporal.io/helm-charts
 kubectl create namespace nojv-temporal
 helm upgrade --install temporal temporal/temporal -n nojv-temporal \
   --set server.replicaCount=1 \
-  --set-json 'server.dynamicConfig={"matching.enableFairness":[{"value":true}],"matching.numTaskqueueWritePartitions":[{"value":1,"constraints":{"taskQueueName":"judge"}},{"value":1,"constraints":{"taskQueueName":"judge-state"}},{"value":1,"constraints":{"taskQueueName":"platform"}}],"matching.numTaskqueueReadPartitions":[{"value":1,"constraints":{"taskQueueName":"judge"}},{"value":1,"constraints":{"taskQueueName":"judge-state"}},{"value":1,"constraints":{"taskQueueName":"platform"}}]}'
+  --set-json 'server.dynamicConfig={"matching.enableFairness":[{"value":true}],"matching.useNewMatcher":[{"value":true}],"matching.numTaskqueueWritePartitions":[{"value":1,"constraints":{"taskQueueName":"judge"}},{"value":1,"constraints":{"taskQueueName":"judge-state"}},{"value":1,"constraints":{"taskQueueName":"platform"}}],"matching.numTaskqueueReadPartitions":[{"value":1,"constraints":{"taskQueueName":"judge"}},{"value":1,"constraints":{"taskQueueName":"judge-state"}},{"value":1,"constraints":{"taskQueueName":"platform"}}]}'
 ```
 
-Fairness orders students inside a priority. The single partition per NOJV
+`matching.useNewMatcher` is the priority-aware matcher; without it tasks are
+served first in, first out whatever their `priorityKey` (observed on the
+Temporal CLI dev server v1.7.2). Fairness orders students inside a priority. The single partition per NOJV
 queue matters because only a handful of pollers serve them; with the default
 four partitions a task can sit in an unpolled partition for a whole long poll.
 To reduce partitions on a running server, lower the write count first, wait

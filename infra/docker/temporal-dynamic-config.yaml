@@ -1,5 +1,7 @@
 matching.enableFairness:
   - value: true
+matching.useNewMatcher:
+  - value: true
 matching.numTaskqueueWritePartitions:
   - value: 1
     constraints: { taskQueueName: judge }
