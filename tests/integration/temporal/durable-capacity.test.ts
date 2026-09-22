@@ -49,6 +49,13 @@ function deferred() {
   });
   return { promise, resolve };
 }
+async function finish(handle: WorkflowHandle) {
+  for (let i = 0; i < 600; i++) {
+    if ((await handle.describe()).status.name !== "RUNNING") return handle.result();
+    await env.sleep("5s");
+  }
+  throw new Error(`Workflow ${handle.workflowId} did not finish`);
+}
 async function until(check: () => Promise<boolean>) {
   for (let i = 0; i < 500; i++) {
     if (await check()) return;
@@ -644,7 +651,8 @@ describe("durable pinned capacity pipeline", () => {
         ],
       });
       resume.resolve();
-      await Promise.all([first.result(), second.result()]);
+      await finish(first);
+      await finish(second);
       expect(
         activities.prepareSandboxAttempt.mock.calls.map(
           ([ref]) => (ref as { key: string }).key,
