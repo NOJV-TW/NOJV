@@ -19,6 +19,7 @@ import { parseResourceQuantity } from "../services/judge-capacity";
 import { parseWorkerEnv } from "../env";
 import { buildPinnedSandboxRequest } from "./judge-request";
 import { recordJudgePhase, type JudgePhase } from "../services/judge-phase-metrics";
+import type { JudgeDispatchState } from "../workflows/judge-admission";
 
 function executor(nodeName?: string): K8sExecutor {
   const env = parseWorkerEnv(process.env);
@@ -294,16 +295,10 @@ export async function judgeExecutionTurn(executionId: string, workflowId: string
   if (turn === "obsolete") return turn;
   const { getTemporalClient } = await import("@nojv/temporal");
   const client = await getTemporalClient();
-  const state = await client.workflow.getHandle("judge-admission-v1").query<{
-    dispatchRoute: string;
-    draining: boolean;
-    activeSubmissionIds: string[];
-  }>("admissionState");
-  if (
-    state.draining &&
-    state.dispatchRoute === "legacy" &&
-    !state.activeSubmissionIds.includes(executionId)
-  )
+  const state = await client.workflow
+    .getHandle("judge-admission-v1")
+    .query<JudgeDispatchState, [string]>("judgeDispatchState", executionId);
+  if (state.draining && state.dispatchRoute === "legacy" && !state.active)
     return "redirect" as const;
   return turn;
 }

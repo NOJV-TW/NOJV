@@ -10,6 +10,7 @@ import {
   defineSignal,
   getExternalWorkflowHandle,
   log,
+  patched,
   proxyActivities,
   setHandler,
   workflowInfo,
@@ -61,6 +62,17 @@ export const finishJudgeRun = defineSignal<[string]>("finishJudgeRun");
 export const cancelJudgeAdmission = defineSignal<[string]>("cancelJudgeAdmission");
 export const pauseJudgeAdmission = defineSignal<[boolean]>("pauseJudgeAdmission");
 export const activateJudgeQuota = defineSignal("activateJudgeQuota");
+export interface JudgeFifoWait {
+  requestId: string;
+  executionId: string;
+  workflowId: string;
+  check: number;
+}
+export const waitForJudgeFifo = defineSignal<[JudgeFifoWait]>("waitForJudgeFifo");
+export const leaveJudgeFifo =
+  defineSignal<[{ requestId: string; workflowId: string }]>("leaveJudgeFifo");
+export const judgeFifoWake =
+  defineSignal<[{ requestId: string; check: number }]>("judgeFifoWake");
 export const relinquishJudgeQuota = defineUpdate("relinquishJudgeQuota");
 export const configureJudgeDispatch = defineUpdate<
   undefined,
@@ -83,6 +95,14 @@ export const dispatchJudgeWorkflow = defineUpdate<
   ]
 >("dispatchJudgeWorkflow");
 export const admissionStateQuery = defineQuery<CoordinatorState>("admissionState");
+export interface JudgeDispatchState {
+  dispatchRoute: "legacy" | "capacity" | "hold";
+  draining: boolean;
+  active: boolean;
+}
+export const judgeDispatchStateQuery = defineQuery<JudgeDispatchState, [string]>(
+  "judgeDispatchState",
+);
 
 interface CoordinatorState {
   admission: JudgeAdmissionState;
@@ -99,6 +119,8 @@ interface CoordinatorState {
   activeSubmissionIds: string[];
   stagedWorkflowIds: string[];
   routingInFlight: number;
+  fifoWaiters?: Record<string, JudgeFifoWait & { notified: boolean }>;
+  fifoOutbox?: JudgeFifoWait[];
 }
 const control = proxyActivities<typeof activities>({
   taskQueue: JUDGE_CONTROL_QUEUE,
@@ -126,6 +148,52 @@ export async function judgeAdmissionWorkflow(input?: CoordinatorState): Promise<
   let changed = true;
   let refreshInFlight = false;
   let relinquishingQuota = false;
+  const fifoWaiters = (state.fifoWaiters ??= {});
+  const fifoOutbox = (state.fifoOutbox ??= []);
+  let fifoEnabled = false;
+  let fifoDirty = true;
+  let fifoRefreshAt = 0;
+  const removeFifoWaiter = (requestId: string) => {
+    Reflect.deleteProperty(fifoWaiters, requestId);
+    for (let i = fifoOutbox.length - 1; i >= 0; i--)
+      if (fifoOutbox[i]?.requestId === requestId) fifoOutbox.splice(i, 1);
+  };
+  const retireFifoWaiters = (workflowId: string) => {
+    for (const waiter of Object.values(fifoWaiters))
+      if (waiter.workflowId === workflowId) removeFifoWaiter(waiter.requestId);
+    fifoDirty = true;
+  };
+  setHandler(waitForJudgeFifo, (waiter) => {
+    if (
+      !waiter.requestId ||
+      !waiter.executionId ||
+      !waiter.workflowId.startsWith(`judge-execution-${waiter.executionId}-`) ||
+      !Number.isSafeInteger(waiter.check) ||
+      waiter.check < 0 ||
+      !state.stagedWorkflowIds.includes(waiter.workflowId)
+    ) {
+      log.warn("Rejected invalid FIFO wait registration");
+      return;
+    }
+    const previous = fifoWaiters[waiter.requestId];
+    if (
+      previous &&
+      (previous.executionId !== waiter.executionId || previous.workflowId !== waiter.workflowId)
+    ) {
+      log.warn("Rejected changed FIFO wait identity");
+      return;
+    }
+    if (previous && previous.check >= waiter.check) return;
+    removeFifoWaiter(waiter.requestId);
+    fifoWaiters[waiter.requestId] = { ...waiter, notified: false };
+    fifoDirty = true;
+    if (fifoEnabled) changed = true;
+  });
+  setHandler(leaveJudgeFifo, ({ requestId, workflowId }) => {
+    if (fifoWaiters[requestId]?.workflowId !== workflowId) return;
+    removeFifoWaiter(requestId);
+    if (fifoEnabled) changed = true;
+  });
   setHandler(
     relinquishJudgeQuota,
     async () => {
@@ -174,6 +242,7 @@ export async function judgeAdmissionWorkflow(input?: CoordinatorState): Promise<
     changed = true;
   };
   setHandler(finishJudgeReservation, (workflowId) => {
+    retireFifoWaiters(workflowId);
     finishAdmissionRun(state.admission, `dispatch/${workflowId}`, true);
     retireInactive();
     changed = true;
@@ -184,6 +253,7 @@ export async function judgeAdmissionWorkflow(input?: CoordinatorState): Promise<
     ({ route, draining }) => {
       state.dispatchRoute = route;
       state.draining = draining;
+      fifoDirty = true;
       changed = true;
       return undefined;
     },
@@ -427,8 +497,14 @@ export async function judgeAdmissionWorkflow(input?: CoordinatorState): Promise<
     changed = true;
   });
   setHandler(admissionStateQuery, () => state);
+  setHandler(judgeDispatchStateQuery, (executionId) => ({
+    dispatchRoute: state.dispatchRoute,
+    draining: state.draining,
+    active: state.activeSubmissionIds.includes(executionId),
+  }));
   for (;;) {
     changed = false;
+    fifoEnabled = patched("judge-fifo-wakeup-coordinator-v1");
     if (Date.now() >= refreshAt) {
       refreshAt = Date.now() + 30_000;
       refreshInFlight = true;
@@ -447,6 +523,7 @@ export async function judgeAdmissionWorkflow(input?: CoordinatorState): Promise<
             state.stagedWorkflowIds.slice(0, 128),
           );
           for (const workflowId of closed) {
+            retireFifoWaiters(workflowId);
             finishAdmissionRun(state.admission, `dispatch/${workflowId}`, true);
             for (const run of state.admission.runs) {
               if (
@@ -469,6 +546,34 @@ export async function judgeAdmissionWorkflow(input?: CoordinatorState): Promise<
         /* A failed refresh never extends the last successful snapshot's lifetime. */
       } finally {
         refreshInFlight = false;
+      }
+    }
+    if (fifoEnabled && (fifoDirty || Date.now() >= fifoRefreshAt)) {
+      fifoDirty = false;
+      fifoRefreshAt = Date.now() + 30_000;
+      const waiting = Object.values(fifoWaiters).filter((waiter) => !waiter.notified);
+      if (waiting.length > 0) {
+        try {
+          const decisions = await control.resolveJudgeFifoWaiters(
+            waiting.map(({ executionId, workflowId }) => ({ executionId, workflowId })),
+          );
+          const ready = new Set(
+            decisions.map(({ executionId, workflowId }) => `${executionId}/${workflowId}`),
+          );
+          for (const waiter of waiting) {
+            const current = fifoWaiters[waiter.requestId];
+            if (current?.check !== waiter.check || current.notified) continue;
+            const redirect =
+              state.draining &&
+              state.dispatchRoute === "legacy" &&
+              !state.activeSubmissionIds.includes(waiter.executionId);
+            if (!redirect && !ready.has(`${waiter.executionId}/${waiter.workflowId}`)) continue;
+            current.notified = true;
+            fifoOutbox.push(waiter);
+          }
+        } catch {
+          // The durable registrations remain pending for the next reconciliation.
+        }
       }
     }
     if (!state.paused && state.quotaReady) {
@@ -521,6 +626,20 @@ export async function judgeAdmissionWorkflow(input?: CoordinatorState): Promise<
         // A missing receiver is not evidence that its sandbox has terminated.
       }
     }
+    if (fifoEnabled)
+      for (const waiter of [...fifoOutbox]) {
+        if (!fifoOutbox.includes(waiter)) continue;
+        try {
+          await getExternalWorkflowHandle(waiter.workflowId).signal(judgeFifoWake, {
+            requestId: waiter.requestId,
+            check: waiter.check,
+          });
+          const index = fifoOutbox.indexOf(waiter);
+          if (index !== -1) fifoOutbox.splice(index, 1);
+        } catch {
+          // Delivery failure does not establish execution or sandbox termination.
+        }
+      }
     compactAdmissionState(state.admission, Date.now());
     const knownRuns = new Set(state.admission.runs.map((run) => run.runId));
     state.runOwners = Object.fromEntries(
@@ -539,6 +658,7 @@ export async function judgeAdmissionWorkflow(input?: CoordinatorState): Promise<
       await condition(allHandlersFinished);
       await continueAsNew<typeof judgeAdmissionWorkflow>(state);
     }
-    await condition(() => changed, Math.max(1, refreshAt - Date.now()));
+    const nextRefresh = fifoEnabled ? Math.min(refreshAt, fifoRefreshAt) : refreshAt;
+    await condition(() => changed, Math.max(1, nextRefresh - Date.now()));
   }
 }

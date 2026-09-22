@@ -119,6 +119,13 @@ export async function closedJudgeWorkflows(workflowIds: string[]): Promise<strin
   return closed;
 }
 
+export async function resolveJudgeFifoWaiters(
+  waiters: { executionId: string; workflowId: string }[],
+) {
+  const { submissionDomain } = await import("@nojv/application");
+  return submissionDomain.resolveJudgeFifoWaiters(waiters);
+}
+
 export async function findPriorCapacityRuns(executionId: string, workflowId: string) {
   const { getTemporalClient } = await import("@nojv/temporal");
   const client = await getTemporalClient();

@@ -521,6 +521,16 @@ Durable dispatch reserves each execution before initialization. A control
 Activity also checks the persisted execution journal before the first attempt;
 a later accepted submission waits in its Workflow while the same student has
 earlier unfinished work, even if that earlier dispatch has not arrived.
+FIFO waiters register with the durable coordinator and sleep until a targeted
+wake signal. One batched journal read reconciles them on registration, completion
+and routing changes, with a central 30-second fallback for database-only
+cancellation or missed notifications. A wake never grants admission: the execution
+rechecks database order and ownership before initialization. Pending first permits
+also wait for a durable reply without a per-submission timer; once an attempt is
+claimed, its existing 30-second ownership heartbeat remains active between stages.
+Each FIFO check reads an execution-specific coordinator query containing only
+the dispatch route, drain flag and active status. It does not transfer the full
+admission backlog; waiting executions still check whether rollback requires a redirect.
 Retries and recovery epochs retain the original execution ordering key.
 Prepared unfinished runs are bounded to twice the available CPU execution slots.
 

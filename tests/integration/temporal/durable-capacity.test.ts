@@ -4,7 +4,11 @@ import { ApplicationFailure } from "@temporalio/activity";
 import { Worker, bundleWorkflowCode, type WorkflowBundle } from "@temporalio/worker";
 import type { WorkflowHandle } from "@temporalio/client";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import type { JudgeAdmissionState } from "../../../apps/worker/src/services/judge-capacity";
+import {
+  createAdmissionState,
+  registerAdmissionRun,
+  type JudgeAdmissionState,
+} from "../../../apps/worker/src/services/judge-capacity";
 
 let env: TestWorkflowEnvironment;
 let bundle: WorkflowBundle;
@@ -14,6 +18,16 @@ interface Coordinator {
   quotaReady: boolean;
   runOwners: Record<string, string>;
   fullCleanupConfirmed: string[];
+  fifoWaiters?: Record<
+    string,
+    {
+      requestId: string;
+      executionId: string;
+      workflowId: string;
+      check: number;
+      notified: boolean;
+    }
+  >;
 }
 interface Execution {
   state: string;
@@ -53,17 +67,30 @@ afterAll(async () => {
   await env?.teardown();
 });
 function fixtures(cases = 9, cpuBudget = 4000) {
+  const judgeExecutionTurn = vi.fn(async (executionId: string): Promise<string> => {
+    const state = await env.client.workflow
+      .getHandle("judge-admission-v1")
+      .query<{ dispatchRoute: string; draining: boolean; active: boolean }, [string]>(
+        "judgeDispatchState",
+        executionId,
+      );
+    return state.draining && state.dispatchRoute === "legacy" && !state.active
+      ? "redirect"
+      : "ready";
+  });
   const activities = {
-    judgeExecutionTurn: vi.fn(async (executionId: string): Promise<string> => {
-      const state = await env.client.workflow
-        .getHandle("judge-admission-v1")
-        .query<Coordinator & { dispatchRoute: string; draining: boolean }>("admissionState");
-      return state.draining &&
-        state.dispatchRoute === "legacy" &&
-        !state.activeSubmissionIds.includes(executionId)
-        ? "redirect"
-        : "ready";
-    }),
+    judgeExecutionTurn,
+    resolveJudgeFifoWaiters: vi.fn(
+      async (waiters: { executionId: string; workflowId: string }[]) => {
+        const decisions = await Promise.all(
+          waiters.map(async (waiter) => ({
+            ...waiter,
+            outcome: await judgeExecutionTurn.getMockImplementation()!(waiter.executionId),
+          })),
+        );
+        return decisions.filter(({ outcome }) => outcome !== "wait");
+      },
+    ),
     findPriorCapacityRuns: vi.fn(async (executionId: string, workflowId: string) => {
       const state = await env.client.workflow
         .getHandle("judge-admission-v1")
@@ -283,13 +310,89 @@ async function withWorkers(
     );
   } finally {
     await Promise.allSettled(handles.map((handle) => handle.terminate("Test cleanup")));
-    await coordinator.terminate("Test cleanup");
+    await coordinator.terminate("Test cleanup").catch(() => undefined);
     control.shutdown();
     judge.shutdown();
     await Promise.all([controlRun, judgeRun]);
   }
 }
 describe("durable pinned capacity pipeline", () => {
+  it("returns only execution-specific routing state when the coordinator has a large backlog", async () => {
+    const admission = createAdmissionState();
+    for (let index = 0; index < 800; index++) {
+      registerAdmissionRun(
+        admission,
+        {
+          runId: `queued-run-${String(index)}`,
+          submissionId: `execution-${String(index)}`,
+          studentId: `student-${String(index)}`,
+          submittedAt: 1000,
+          createdAt: 1000,
+        },
+        1000,
+      );
+    }
+    const worker = await Worker.create({
+      connection: env.nativeConnection,
+      taskQueue: "judge-control",
+      workflowBundle: bundle,
+      activities: fixtures(),
+    });
+    await worker.runUntil(async () => {
+      const coordinator = await env.client.workflow.start("judgeAdmissionWorkflow", {
+        workflowId: "judge-routing-projection",
+        taskQueue: "judge-control",
+        args: [
+          {
+            admission,
+            waiters: {},
+            runOwners: {},
+            fullCleanupConfirmed: [],
+            outbox: [],
+            quarantinedNodes: [],
+            paused: true,
+            quotaManaged: false,
+            quotaReady: false,
+            draining: false,
+            dispatchRoute: "capacity",
+            activeSubmissionIds: ["execution-799"],
+            stagedWorkflowIds: [],
+            routingInFlight: 0,
+          },
+        ],
+      });
+      try {
+        expect(await coordinator.query("judgeDispatchState", "execution-799")).toEqual({
+          dispatchRoute: "capacity",
+          draining: false,
+          active: true,
+        });
+        expect(await coordinator.query("judgeDispatchState", "execution-0")).toEqual({
+          dispatchRoute: "capacity",
+          draining: false,
+          active: false,
+        });
+        await coordinator.executeUpdate("configureJudgeDispatch", {
+          args: [{ route: "legacy", draining: true }],
+        });
+        expect(await coordinator.query("judgeDispatchState", "execution-799")).toEqual({
+          dispatchRoute: "legacy",
+          draining: true,
+          active: true,
+        });
+        expect(await coordinator.query("judgeDispatchState", "execution-0")).toEqual({
+          dispatchRoute: "legacy",
+          draining: true,
+          active: false,
+        });
+        expect(
+          (await coordinator.query<Coordinator>("admissionState")).admission.runs,
+        ).toHaveLength(800);
+      } finally {
+        await coordinator.terminate("Test cleanup");
+      }
+    });
+  }, 30_000);
   it("recovers from five quota rejections without exhausting retries or losing saved cases", async () => {
     const activities = fixtures(20, 6000);
     const execute = activities.executePinnedSandboxWave.getMockImplementation()!;
@@ -348,6 +451,7 @@ describe("durable pinned capacity pipeline", () => {
       await restart();
       expect((await handle.describe()).status.name).toBe("RUNNING");
       recoveryAt = (await env.currentTimeMs()) + 120_000;
+      await env.sleep("150s");
       await handle.result();
       expect(queuedRefreshes).toBeGreaterThanOrEqual(4);
       expect(
@@ -775,8 +879,225 @@ describe("durable pinned capacity pipeline", () => {
         (await coordinator.query<Coordinator>("admissionState")).admission.permits,
       ).toEqual([]);
       activities.judgeExecutionTurn.mockResolvedValue("ready");
+      await env.sleep("31s");
       await handle.result();
       expect(activities.prepareSandboxAttempt).toHaveBeenCalledOnce();
+    });
+  }, 60_000);
+  it("keeps FIFO waiters asleep across central reconciliations and a coordinator restart", async () => {
+    const activities = fixtures(1);
+    activities.judgeExecutionTurn.mockResolvedValue("wait");
+    await withWorkers(activities, async (coordinator, start, restart) => {
+      const first = await start("fifo-sleep-first");
+      const second = await start("fifo-sleep-second");
+      await until(
+        async () =>
+          Object.keys(
+            (await coordinator.query<Coordinator>("admissionState")).fifoWaiters ?? {},
+          ).length === 2,
+      );
+      await restart();
+      await env.sleep("95s");
+      expect(activities.judgeExecutionTurn).toHaveBeenCalledTimes(2);
+      expect(
+        activities.resolveJudgeFifoWaiters.mock.calls.filter(([rows]) => rows.length === 2)
+          .length,
+      ).toBeGreaterThanOrEqual(2);
+      for (const handle of [first, second]) {
+        expect(
+          (await handle.fetchHistory()).events
+            ?.filter((event) => event.timerStartedEventAttributes)
+            .map((event) =>
+              Number(event.timerStartedEventAttributes?.startToFireTimeout?.seconds),
+            ),
+        ).toEqual([1800]);
+      }
+      expect(activities.initializePinnedSandboxAttempt).not.toHaveBeenCalled();
+      activities.judgeExecutionTurn.mockResolvedValue("ready");
+      await Promise.all([first.result(), second.result()]);
+      await until(
+        async () =>
+          Object.keys(
+            (await coordinator.query<Coordinator>("admissionState")).fifoWaiters ?? {},
+          ).length === 0,
+      );
+    });
+  }, 60_000);
+  it("rechecks its turn after the fallback interval when no wake ever arrives", async () => {
+    const activities = fixtures(1);
+    activities.judgeExecutionTurn.mockResolvedValue("wait");
+    activities.resolveJudgeFifoWaiters.mockResolvedValue([]);
+    await withWorkers(activities, async (coordinator, start) => {
+      const handle = await start("fifo-fallback");
+      await until(async () => activities.judgeExecutionTurn.mock.calls.length >= 1);
+      const registered = async () =>
+        Object.values(
+          (await coordinator.query<Coordinator>("admissionState")).fifoWaiters ?? {},
+        ).map((row) => row.check);
+      await until(async () => (await registered()).length === 1);
+      await env.sleep("29m");
+      expect(activities.judgeExecutionTurn).toHaveBeenCalledTimes(1);
+      await env.sleep("2m");
+      await until(async () => activities.judgeExecutionTurn.mock.calls.length === 2);
+      await until(async () => JSON.stringify(await registered()) === "[1]");
+      expect(activities.initializePinnedSandboxAttempt).not.toHaveBeenCalled();
+      activities.judgeExecutionTurn.mockResolvedValue("ready");
+      activities.resolveJudgeFifoWaiters.mockImplementation(async (waiters) =>
+        waiters.map((row) => ({ ...row, outcome: "ready" })),
+      );
+      await env.sleep("31s");
+      await handle.result();
+      expect(activities.prepareSandboxAttempt).toHaveBeenCalledOnce();
+      await until(async () => (await registered()).length === 0);
+    });
+  }, 60_000);
+  it("rechecks DB authority after an early wake and ignores duplicate or stale registrations", async () => {
+    const activities = fixtures(1);
+    activities.judgeExecutionTurn.mockResolvedValue("wait");
+    activities.resolveJudgeFifoWaiters.mockResolvedValue([]);
+    activities.resolveJudgeFifoWaiters.mockImplementationOnce(async (waiters) =>
+      waiters.map((waiter) => ({ ...waiter, outcome: "ready" })),
+    );
+    await withWorkers(activities, async (coordinator, start) => {
+      const handle = await start("fifo-spurious");
+      await until(async () => activities.judgeExecutionTurn.mock.calls.length >= 2);
+      await until(async () =>
+        Object.values(
+          (await coordinator.query<Coordinator>("admissionState")).fifoWaiters ?? {},
+        ).some((row) => !row.notified),
+      );
+      const waiter = Object.values(
+        (await coordinator.query<Coordinator>("admissionState")).fifoWaiters!,
+      )[0]!;
+      const checks = activities.judgeExecutionTurn.mock.calls.length;
+      await coordinator.signal("waitForJudgeFifo", waiter);
+      await coordinator.signal("waitForJudgeFifo", { ...waiter, check: waiter.check - 1 });
+      await handle.signal("judgeFifoWake", {
+        requestId: waiter.requestId,
+        check: waiter.check - 1,
+      });
+      await handle.signal("judgeFifoWake", {
+        requestId: "old-attempt/fifo",
+        check: waiter.check + 1,
+      });
+      await env.sleep("65s");
+      expect(activities.judgeExecutionTurn).toHaveBeenCalledTimes(checks);
+      expect(activities.initializePinnedSandboxAttempt).not.toHaveBeenCalled();
+      activities.judgeExecutionTurn.mockResolvedValue("ready");
+      activities.resolveJudgeFifoWaiters.mockImplementation(async (waiters) =>
+        waiters.map((row) => ({ ...row, outcome: "ready" })),
+      );
+      await env.sleep("31s");
+      await handle.result();
+      expect(activities.prepareSandboxAttempt).toHaveBeenCalledOnce();
+    });
+  }, 60_000);
+  it("retains FIFO registrations through a failed batch read", async () => {
+    const activities = fixtures(1);
+    activities.judgeExecutionTurn.mockResolvedValue("wait");
+    activities.resolveJudgeFifoWaiters.mockRejectedValue(new Error("Database unavailable"));
+    await withWorkers(activities, async (coordinator, start, restart) => {
+      const handle = await start("fifo-read-failure");
+      await until(async () => activities.resolveJudgeFifoWaiters.mock.calls.length > 0);
+      await restart();
+      await env.sleep("65s");
+      expect(
+        Object.values(
+          (await coordinator.query<Coordinator>("admissionState")).fifoWaiters ?? {},
+        ),
+      ).toHaveLength(1);
+      expect(activities.initializePinnedSandboxAttempt).not.toHaveBeenCalled();
+      activities.judgeExecutionTurn.mockResolvedValue("ready");
+      activities.resolveJudgeFifoWaiters.mockImplementation(async (waiters) =>
+        waiters.map((row) => ({ ...row, outcome: "ready" })),
+      );
+      await env.sleep("31s");
+      await handle.result();
+    });
+  }, 60_000);
+  it("retires a DB-cancelled FIFO waiter without sandbox initialization", async () => {
+    const activities = fixtures(1);
+    activities.judgeExecutionTurn.mockResolvedValue("wait");
+    await withWorkers(activities, async (coordinator, start) => {
+      const handle = await start("fifo-db-cancelled");
+      await until(
+        async () =>
+          Object.keys(
+            (await coordinator.query<Coordinator>("admissionState")).fifoWaiters ?? {},
+          ).length === 1,
+      );
+      activities.judgeExecutionTurn.mockResolvedValue("obsolete");
+      await env.sleep("31s");
+      await handle.result();
+      expect(activities.initializePinnedSandboxAttempt).not.toHaveBeenCalled();
+      expect(activities.claimPinnedCapacityAttempt).not.toHaveBeenCalled();
+      await until(
+        async () =>
+          Object.keys(
+            (await coordinator.query<Coordinator>("admissionState")).fifoWaiters ?? {},
+          ).length === 0,
+      );
+    });
+  }, 60_000);
+  it("unregisters a cancelled FIFO waiter promptly without waiting for reconciliation", async () => {
+    const activities = fixtures(1);
+    activities.judgeExecutionTurn.mockResolvedValue("wait");
+    await withWorkers(activities, async (coordinator, start) => {
+      const handle = await start("fifo-temporal-cancelled");
+      await until(
+        async () =>
+          Object.keys(
+            (await coordinator.query<Coordinator>("admissionState")).fifoWaiters ?? {},
+          ).length === 1,
+      );
+      await handle.cancel();
+      await expect(handle.result()).rejects.toThrow();
+      await until(
+        async () =>
+          Object.keys(
+            (await coordinator.query<Coordinator>("admissionState")).fifoWaiters ?? {},
+          ).length === 0,
+      );
+      expect(activities.claimPinnedCapacityAttempt).not.toHaveBeenCalled();
+    });
+  }, 60_000);
+  it("waits without a timer before claim but retains heartbeats after claim", async () => {
+    const activities = fixtures(1);
+    const prepare = activities.prepareSandboxAttempt.getMockImplementation()!;
+    await withWorkers(activities, async (coordinator, start) => {
+      await coordinator.signal("pauseJudgeAdmission", true);
+      activities.prepareSandboxAttempt.mockImplementation(async (...args) => {
+        await coordinator.signal("pauseJudgeAdmission", true);
+        return prepare(...args);
+      });
+      const handle = await start("permit-signal-wait");
+      await until(
+        async () =>
+          (await coordinator.query<Coordinator>("admissionState")).admission.pending.length ===
+          1,
+      );
+      await env.sleep("95s");
+      expect(activities.heartbeatPinnedCapacityAttempt).not.toHaveBeenCalled();
+      expect(
+        (await handle.fetchHistory()).events?.filter(
+          (event) => event.timerStartedEventAttributes,
+        ),
+      ).toEqual([]);
+      await coordinator.signal("pauseJudgeAdmission", false);
+      await until(
+        async () =>
+          activities.prepareSandboxAttempt.mock.calls.length === 1 &&
+          (await coordinator.query<Coordinator>("admissionState")).admission.pending.some(
+            (row) => row.phase === "wave",
+          ),
+      );
+      await env.sleep("65s");
+      expect(
+        activities.heartbeatPinnedCapacityAttempt.mock.calls.length,
+      ).toBeGreaterThanOrEqual(2);
+      expect(executions.get("permit-signal-wait")?.leaseToken).not.toBeNull();
+      await coordinator.signal("pauseJudgeAdmission", false);
+      await handle.result();
     });
   }, 60_000);
   it("redirects later untouched FIFO waiters while their predecessors await baseline workers", async () => {

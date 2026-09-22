@@ -76,6 +76,61 @@ describe("immutable judge execution recovery", () => {
     expect(await judge.judgeExecutionTurn(later.id, later.workflowId)).toBe("ready");
   });
 
+  it("resolves FIFO heads in one batch without skipping unregistered predecessors", async () => {
+    const { execution, user, problem, draft } = await fixture();
+    const independent = await fixture();
+    const second = await createTestSubmission({
+      userId: user.id,
+      problemId: problem.id,
+      status: "queued",
+    });
+    const pinned = await judge.prepareJudgeSnapshot(second.id, draft);
+    const later = await runTransaction((tx) =>
+      judge.createJudgeExecution(tx, { submissionId: second.id, ...pinned }),
+    );
+    const both = [execution, later].sort((a, b) => a.id.localeCompare(b.id));
+    const earlier = both[0]!;
+    const following = both[1]!;
+    await db.judgeExecution.updateMany({
+      where: { id: { in: both.map((row) => row.id) } },
+      data: { createdAt: new Date(1000) },
+    });
+    const waiter = (row: { id: string; workflowId: string }) => ({
+      executionId: row.id,
+      workflowId: row.workflowId,
+    });
+    expect(await judge.resolveJudgeFifoWaiters([])).toEqual([]);
+    expect(
+      await judge.resolveJudgeFifoWaiters([waiter(following), waiter(independent.execution)]),
+    ).toEqual([{ ...waiter(independent.execution), outcome: "ready" }]);
+    for (const state of ["finalizing", "blocked"]) {
+      await db.judgeExecution.update({ where: { id: earlier.id }, data: { state } });
+      expect(await judge.resolveJudgeFifoWaiters([waiter(following)])).toEqual([]);
+    }
+    await db.judgeExecution.update({ where: { id: earlier.id }, data: { state: "cancelled" } });
+    expect(
+      await judge.resolveJudgeFifoWaiters([
+        waiter(earlier),
+        waiter(following),
+        { ...waiter(following), workflowId: "old-generation" },
+        { executionId: "missing-execution", workflowId: "missing-workflow" },
+      ]),
+    ).toEqual([
+      { ...waiter(earlier), outcome: "obsolete" },
+      { ...waiter(following), outcome: "ready" },
+      { ...waiter(following), workflowId: "old-generation", outcome: "obsolete" },
+      { executionId: "missing-execution", workflowId: "missing-workflow", outcome: "obsolete" },
+    ]);
+    expect(await judge.judgeExecutionTurn(following.id, following.workflowId)).toBe("ready");
+    await db.judgeExecution.update({
+      where: { id: following.id },
+      data: { state: "completed" },
+    });
+    expect(await judge.resolveJudgeFifoWaiters([waiter(following)])).toEqual([
+      { ...waiter(following), outcome: "obsolete" },
+    ]);
+  });
+
   it("retains capacity ownership through a checkpoint and prevents legacy recovery", async () => {
     const { execution } = await fixture();
     const runId = "a6f6a450-251d-482e-bbf7-6f3c8a857375";

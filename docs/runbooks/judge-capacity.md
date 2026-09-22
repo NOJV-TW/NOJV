@@ -20,8 +20,14 @@ Advanced Mode keep their execution contracts under the same admission budget.
 
 The 100-person/60-second performance gate and complete fault matrix are
 **pending**. Bounded local gVisor integration passed; it does not replace these
-gates. Unit tests, manifest rendering and source inspection do not replace them. Keep the feature disabled in production until the evidence below
-is attached to the release. Read current image digests, installed chart values,
+gates. Unit tests, manifest rendering and source inspection do not replace them.
+Production activation requires either the acceptance evidence below or an
+explicitly approved scoped rollout exception. Record the exception's approver,
+scope, passed correctness/isolation/cleanup checks, outstanding acceptance work,
+and stop/rollback criteria with the release evidence; it does not mark the
+performance gate or complete fault matrix as passed. The 2026-09-22 maintenance
+authorization prioritizes verified feature rollout and incident rejudging, with
+pressure tests deferred. Read current image digests, installed chart values,
 Temporal namespace and live quota before acting; do not infer deployment state
 from this repository's defaults.
 

@@ -4,6 +4,7 @@ import {
   CancellationScope,
   condition,
   getExternalWorkflowHandle,
+  patched,
   proxyActivities,
   setHandler,
   workflowInfo,
@@ -26,6 +27,9 @@ import {
   cancelJudgeAdmission,
   cleanupJudgeRun,
   finishJudgeRun,
+  waitForJudgeFifo,
+  leaveJudgeFifo,
+  judgeFifoWake,
   type AdmissionReply,
 } from "./judge-admission";
 
@@ -53,6 +57,7 @@ const control = proxyActivities<typeof controlActivities>({
 export interface CapacityWorkflowState {
   runId?: string;
 }
+export const FIFO_WAKE_FALLBACK = "30m";
 
 export async function executePinnedCapacity(
   input: JudgeExecutionInput,
@@ -69,14 +74,39 @@ export async function executePinnedCapacity(
   });
   let claimed = false;
   let sequence = 0;
+  const fifoRequestId = `${runId}/fifo`;
+  let fifoCheck = 0;
+  let fifoWakeCheck = -1;
+  let fifoRegistered = false;
+  setHandler(judgeFifoWake, (wake) => {
+    if (wake.requestId === fifoRequestId && Number.isSafeInteger(wake.check) && wake.check >= 0)
+      fifoWakeCheck = Math.max(fifoWakeCheck, wake.check);
+  });
   try {
-    for (;;) {
-      const turn = await cleanup.judgeExecutionTurn(input.executionId, workflowId);
-      if (turn === "obsolete") return "obsolete" as const;
-      if (turn === "redirect")
-        throw new JudgeRollbackRedirect("Redirect untouched FIFO waiter");
-      if (turn === "ready") break;
-      await condition(() => false, "30s");
+    try {
+      for (;;) {
+        const turn = await cleanup.judgeExecutionTurn(input.executionId, workflowId);
+        if (turn === "obsolete") return "obsolete" as const;
+        if (turn === "redirect")
+          throw new JudgeRollbackRedirect("Redirect untouched FIFO waiter");
+        if (turn === "ready") break;
+        if (patched("judge-fifo-wakeup-v1")) {
+          fifoRegistered = true;
+          await coordinator.signal(waitForJudgeFifo, {
+            requestId: fifoRequestId,
+            executionId: input.executionId,
+            workflowId,
+            check: fifoCheck,
+          });
+          await condition(() => fifoWakeCheck >= fifoCheck, FIFO_WAKE_FALLBACK);
+          fifoCheck++;
+        } else await condition(() => false, "30s");
+      }
+    } finally {
+      if (fifoRegistered)
+        await CancellationScope.nonCancellable(() =>
+          coordinator.signal(leaveJudgeFifo, { requestId: fifoRequestId, workflowId }),
+        );
     }
     await coordinator.signal(registerJudgeRun, {
       runId,
@@ -122,7 +152,9 @@ export async function executePinnedCapacity(
         },
       });
       while (!replies.has(requestId)) {
-        await condition(() => replies.has(requestId), "30s");
+        if (patched("judge-unclaimed-permit-wakeup-v1") && !claimed)
+          await condition(() => replies.has(requestId));
+        else await condition(() => replies.has(requestId), "30s");
         if (
           claimed &&
           !(await journal.heartbeatPinnedCapacityAttempt(input.executionId, workflowId, runId))

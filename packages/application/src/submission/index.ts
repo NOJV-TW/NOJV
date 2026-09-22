@@ -80,6 +80,7 @@ export * from "./judge-recovery";
 export * from "./judge-snapshot";
 
 export * from "./judge-admission";
+export * from "./judge-fifo";
 export {
   getSubmissionOperation,
   listSubmissionOperations,
