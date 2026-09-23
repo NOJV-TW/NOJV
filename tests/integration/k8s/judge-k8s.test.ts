@@ -281,7 +281,7 @@ describe("K8s judge — standard mode", () => {
       try {
         await coreApi.createNamespacedResourceQuota({
           namespace,
-          body: { metadata: { name }, spec: { hard: { "requests.cpu": "100m" } } },
+          body: { metadata: { name }, spec: { hard: { "requests.cpu": "1" } } },
         });
         await coreApi.createNamespacedPod({
           namespace,
@@ -299,8 +299,8 @@ describe("K8s judge — standard mode", () => {
                   imagePullPolicy: "Never",
                   command: ["node", "-e", "setInterval(() => {}, 1000)"],
                   resources: {
-                    requests: { cpu: "100m", memory: "64Mi" },
-                    limits: { cpu: "100m", memory: "128Mi" },
+                    requests: { cpu: "1", memory: "64Mi" },
+                    limits: { cpu: "1", memory: "128Mi" },
                   },
                 },
               ],
@@ -315,7 +315,7 @@ describe("K8s judge — standard mode", () => {
               ],
             { timeout: 20_000 },
           )
-          .toBe("100m");
+          .toBe("1");
         const worker = await Worker.create({
           connection: env.nativeConnection,
           taskQueue: name,
@@ -414,7 +414,7 @@ describe("K8s judge — standard mode", () => {
       try {
         await coreApi.createNamespacedResourceQuota({
           namespace,
-          body: { metadata: { name: quotaName }, spec: { hard: { "requests.cpu": "200m" } } },
+          body: { metadata: { name: quotaName }, spec: { hard: { "requests.cpu": "2" } } },
         });
         await coreApi.createNamespacedPod({
           namespace,
@@ -432,8 +432,8 @@ describe("K8s judge — standard mode", () => {
                   imagePullPolicy: "Never",
                   command: ["node", "-e", "setInterval(() => {}, 1000)"],
                   resources: {
-                    requests: { cpu: "200m", memory: "64Mi" },
-                    limits: { cpu: "200m", memory: "128Mi" },
+                    requests: { cpu: "2", memory: "64Mi" },
+                    limits: { cpu: "2", memory: "128Mi" },
                   },
                 },
               ],
@@ -447,7 +447,7 @@ describe("K8s judge — standard mode", () => {
                 ?.used?.["requests.cpu"],
             { timeout: 20_000 },
           )
-          .toBe("200m");
+          .toBe("2");
         const ids = Array.from({ length: 4 }, (_, index) => `quota-${Date.now()}-${index}`);
         results = Promise.allSettled(
           ids.map((submissionId) => {
