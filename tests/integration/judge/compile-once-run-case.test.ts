@@ -48,12 +48,6 @@ console.log(Number(fs.readFileSync(0, "utf8")) + 1);
 `,
 };
 
-async function writeFiles(directory: string, files: Record<string, string>): Promise<void> {
-  await mkdir(directory, { recursive: true, mode: 0o755 });
-  for (const [name, content] of Object.entries(files))
-    await writeFile(path.join(directory, name), content, { mode: 0o644 });
-}
-
 interface ContainerRecord {
   name: string;
   phase: string;
@@ -88,13 +82,13 @@ async function container(
     "--cpus",
     "1",
     "--memory",
-    phase === "prepare" ? "512m" : "320m",
+    phase === "run-stage" ? "512m" : "320m",
     "--memory-swap",
-    phase === "prepare" ? "512m" : "320m",
+    phase === "run-stage" ? "512m" : "320m",
     "--pids-limit",
     "256",
     "--tmpfs",
-    `/tmp:rw,nosuid,nodev,size=${phase === "prepare" ? "256m" : "64m"},uid=10001,gid=10001`,
+    `/tmp:rw,nosuid,nodev,size=${phase === "run-stage" ? "256m" : "64m"},uid=10001,gid=10001`,
     "--tmpfs",
     "/workspace:rw,nosuid,nodev,size=128m,uid=10001,gid=10001",
     "--env",
@@ -131,9 +125,9 @@ async function writePayload(directory: string, files: Record<string, string>): P
   }
 }
 
-describe("compile once, run every case in one container, judge in another", () => {
+describe("compile and run every case in one container, judge in another", () => {
   it.for(Object.entries(sources))(
-    "prepares %s once, runs the stage against the read-only artifact and judges it",
+    "compiles %s once, runs the stage and judges it",
     { timeout: 240_000 },
     async ([language, source], ctx) => {
       if (!(await requireSandboxImage(ctx))) return;
@@ -158,25 +152,6 @@ describe("compile once, run every case in one container, judge in another", () =
           limits: { timeoutMs: 10_000, memoryMb: 256 },
           testcases: [],
         };
-        await writePayload(payload, buildRunConfigMapData(request, 1));
-        const containers: ContainerRecord[] = [];
-        const compile = await container(
-          root,
-          "prepare",
-          [
-            ...bind(payload, "/payload", true),
-            ...bind(artifact, "/artifact"),
-            "--tmpfs",
-            "/submission:rw,nosuid,nodev,size=128m,uid=10001,gid=10001",
-          ],
-          containers,
-        );
-        const compileResult = JSON.parse(compile.stdout) as {
-          runCommand?: string[];
-          compilationError?: string;
-        };
-        expect(compileResult.compilationError, compile.stderr).toBeUndefined();
-        expect(compileResult.runCommand).toBeDefined();
         const stageRequest: SandboxRequest = {
           ...request,
           testcases: [2, 9].map((value, index) => ({
@@ -187,15 +162,17 @@ describe("compile once, run every case in one container, judge in another", () =
             isSample: false,
           })),
         };
-        const submission = path.join(root, "submission");
-        await writeFiles(submission, buildRunConfigMapData(stageRequest, 2));
+        await writePayload(payload, buildRunConfigMapData(stageRequest, 2));
+        const containers: ContainerRecord[] = [];
         const runOutput = await container(
           root,
           "run-stage",
           [
-            ...bind(artifact, "/artifact", true),
-            ...bind(submission, "/submission", true),
+            ...bind(payload, "/payload", true),
+            ...bind(artifact, "/artifact"),
             ...bind(outputs, "/outputs"),
+            "--tmpfs",
+            "/submission:rw,nosuid,nodev,size=128m,uid=10001,gid=10001",
           ],
           containers,
         );
@@ -216,7 +193,6 @@ describe("compile once, run every case in one container, judge in another", () =
           });
           expect(result.rawRuns![index]!.errorVerdict).toBeUndefined();
         }
-        expect(runOutput.stderr).not.toContain("Compiling...");
 
         await writePayload(judgePayload, buildJudgePayload(stageRequest));
         const judgeOutput = await container(
@@ -237,12 +213,8 @@ describe("compile once, run every case in one container, judge in another", () =
             { index: 1, verdict: "AC" },
           ],
         });
-        expect(containers.map((entry) => entry.phase)).toEqual([
-          "prepare",
-          "run-stage",
-          "judge-stage",
-        ]);
-        expect(new Set(containers.map((entry) => entry.id)).size).toBe(3);
+        expect(containers.map((entry) => entry.phase)).toEqual(["run-stage", "judge-stage"]);
+        expect(new Set(containers.map((entry) => entry.id)).size).toBe(2);
       } finally {
         await rm(root, { recursive: true, force: true });
       }

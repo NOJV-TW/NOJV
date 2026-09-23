@@ -44,7 +44,6 @@ import { createLogger } from "../logger.js";
 import { resolveInteractiveStage, type InteractiveSideResult } from "./check-interactive";
 import { executionAbortReason } from "./execution-abort";
 import { advancedFallbackResult, mapAdvancedResult } from "./sandbox-result-mapper";
-import { parseSandboxResult } from "./sandbox-schema";
 import { sandboxSystemError } from "./sandbox-plan";
 import {
   buildRunConfigMapData,
@@ -58,17 +57,17 @@ import {
   buildInteractiveJobManifest,
   buildStageJobManifest,
   JUDGE_CONTAINER_NAME,
-  PREPARE_CONTAINER_NAME,
   RUN_CONTAINER_NAME,
 } from "./k8s-job-manifests";
 import { buildPayloadConfigMaps, payloadConfigMapNames } from "./k8s-payload";
-import { scanJsonLinesFromEnd } from "./k8s-log-parse";
 import {
   buildJudgePayload,
   completeRuns,
   gradableRuns,
   mergeStageResults,
+  parseCompilationError,
   parseJudgeOutcomes,
+  parseRunResult,
 } from "./stage-result";
 import {
   ADVANCED_SIDECAR_NAME,
@@ -483,22 +482,6 @@ function watchErrorCode(error: unknown): number | null {
     return error.status.code;
   }
   return null;
-}
-
-function parseCompilationError(logs: string): string | null {
-  return (
-    scanJsonLinesFromEnd(logs, (json) => {
-      if (typeof json !== "object" || json === null) return null;
-      const { compilationError, runCommand } = json as {
-        compilationError?: unknown;
-        runCommand?: unknown;
-      };
-      if (typeof compilationError === "string") return { value: compilationError };
-      return Array.isArray(runCommand) && runCommand.every((arg) => typeof arg === "string")
-        ? { value: null }
-        : null;
-    })?.value ?? null
-  );
 }
 
 function requestMode(request: SandboxRequest): JudgeMode {
@@ -1592,10 +1575,8 @@ export class K8sExecutor implements SandboxExecutor {
         Math.floor((maxMb - RUNNER_MEMORY_MB) / caseMb),
       ),
     );
-    return {
-      parallelism,
-      runMemoryLimit: `${String(Math.min(parallelism * caseMb + RUNNER_MEMORY_MB, maxMb))}Mi`,
-    };
+    const runMb = Math.max(parallelism * caseMb + RUNNER_MEMORY_MB, MIN_COMPILER_MEMORY_MB);
+    return { parallelism, runMemoryLimit: `${String(Math.min(runMb, maxMb))}Mi` };
   }
 
   private async createStagePayloads(
@@ -1673,8 +1654,7 @@ export class K8sExecutor implements SandboxExecutor {
 
       const pod = await this.findStagePod(jobName, ns, execution.signal);
       if (!pod) throw new Error(`No pod found for job ${jobName}`);
-      const [prepareLog, runLog, judgeLog] = await Promise.all([
-        this.getPodContainerLogs(pod.name, ns, PREPARE_CONTAINER_NAME, execution.signal),
+      const [runLog, judgeLog] = await Promise.all([
         pod.runStarted
           ? this.getPodContainerLogs(pod.name, ns, RUN_CONTAINER_NAME, execution.signal)
           : "",
@@ -1684,10 +1664,6 @@ export class K8sExecutor implements SandboxExecutor {
       ]);
       logsReadAt = Date.now();
       const mode = requestMode(request);
-      recordRunnerResources(prepareLog, mode, request.language, "prepare", {
-        jobName,
-        container: PREPARE_CONTAINER_NAME,
-      });
       recordRunnerResources(runLog, mode, request.language, "execute", {
         jobName,
         container: RUN_CONTAINER_NAME,
@@ -1697,10 +1673,10 @@ export class K8sExecutor implements SandboxExecutor {
         container: JUDGE_CONTAINER_NAME,
       });
 
-      const compileError = parseCompilationError(prepareLog);
+      const compileError = parseCompilationError(runLog);
       if (compileError) return { testcaseResults: [], compilationError: compileError };
 
-      const parsed = runLog ? this.parseRunnerOutput(runLog) : null;
+      const parsed = runLog ? parseRunResult(runLog) : null;
       if (!parsed?.rawRuns)
         logger.warn("Run container produced no readable result", {
           jobName,
@@ -2454,29 +2430,6 @@ export class K8sExecutor implements SandboxExecutor {
         reject(executionAbortReason(signal));
       };
       signal.addEventListener("abort", abort, { once: true });
-    });
-  }
-
-  private parseRunnerOutput(logs: string): SandboxResult | null {
-    return scanJsonLinesFromEnd(logs, (json) => {
-      if (
-        typeof json !== "object" ||
-        json === null ||
-        !(
-          "rawRuns" in json ||
-          "testcaseResults" in json ||
-          "pipelineError" in json ||
-          "compilationError" in json
-        )
-      )
-        return null;
-      const parsed = parseSandboxResult(json);
-      return parsed.success
-        ? parsed.data
-        : {
-            testcaseResults: [],
-            pipelineError: `Invalid sandbox output: ${parsed.error.message}`,
-          };
     });
   }
 

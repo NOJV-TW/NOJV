@@ -123,3 +123,37 @@ export function completeRuns(
       },
   );
 }
+
+export function parseCompilationError(logs: string): string | null {
+  return (
+    scanJsonLinesFromEnd(logs, (json) => {
+      if (typeof json !== "object" || json === null) return null;
+      const { compilationError, runCommand } = json as {
+        compilationError?: unknown;
+        runCommand?: unknown;
+      };
+      if (typeof compilationError === "string") return { value: compilationError };
+      return Array.isArray(runCommand) && runCommand.every((arg) => typeof arg === "string")
+        ? { value: null }
+        : null;
+    })?.value ?? null
+  );
+}
+
+export function parseRunResult(logs: string): SandboxResult | null {
+  return scanJsonLinesFromEnd(logs, (json) => {
+    if (
+      typeof json !== "object" ||
+      json === null ||
+      !("rawRuns" in json || "testcaseResults" in json || "pipelineError" in json)
+    )
+      return null;
+    const parsed = parseSandboxResult(json);
+    return parsed.success
+      ? parsed.data
+      : {
+          testcaseResults: [],
+          pipelineError: `Invalid sandbox output: ${parsed.error.message}`,
+        };
+  });
+}

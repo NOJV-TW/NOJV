@@ -293,9 +293,9 @@ The single-machine deployment has web HPA but no node autoscaler:
 | platform | 1 worker                                      | Fixed.                                                          |
 | sandbox  | quota `6` CPU / `16Gi` / `16` pods            | No node autoscaler; a rejected Job waits as `waiting_capacity`. |
 
-A stage Job is one Pod: a compile init container at `cpuRequest`, a run init
-container that reserves `runParallelism` CPUs (request = limit) and runs the
-stage's cases, and a judge container. Its effective request is `runParallelism`
+A stage Job is one Pod: a run init container that reserves `runParallelism` CPUs
+(request = limit), compiles and runs the stage's cases, and a judge container at
+`cpuRequest`. Its effective request is `runParallelism`
 CPU, so `replicas × concurrency × runParallelism` is the number of cases that can
 run at once and the chart refuses values where it exceeds the quota's CPU. On the
 8-CPU box the platform pods reserve about 2.6 CPU; five 1-CPU slots fit the

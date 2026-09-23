@@ -31,7 +31,6 @@ const SUBMISSION_DIR = "/submission";
 const ARTIFACT_DIR = "/artifact";
 const OUTPUT_DIR = "/outputs";
 const WORKSPACE_DIR = "/workspace";
-const RUN_COMMAND_FILE = path.join(ARTIFACT_DIR, "run-command.json");
 
 function log(message: string): void {
   process.stderr.write(`[sandbox-runner] ${message}\n`);
@@ -178,51 +177,23 @@ async function runInteractive(workDir: string, config: SandboxInput): Promise<vo
   });
 }
 
-async function runCompilePhase(config: SandboxInput): Promise<void> {
-  const compileResult = await compileSubmission(ARTIFACT_DIR, config);
-  if (!compileResult.success) {
-    process.stdout.write(`${JSON.stringify({ compilationError: compileResult.error })}\n`);
-    return;
-  }
-  await fs.writeFile(RUN_COMMAND_FILE, JSON.stringify(compileResult.runCommand), "utf-8");
-  process.stdout.write(`${JSON.stringify({ runCommand: compileResult.runCommand })}\n`);
-}
-
-async function runPreparePhase(): Promise<void> {
-  await materializePayload({ payloadDir: "/payload", submissionDir: SUBMISSION_DIR });
-  await runCompilePhase(await readConfig());
-}
-
-async function resolveRunCommand(config: SandboxInput): Promise<string[] | null> {
-  if (config.mode?.kind === "run-stage" && config.mode.runCommand)
-    return config.mode.runCommand;
-  try {
-    const parsed: unknown = JSON.parse(await fs.readFile(RUN_COMMAND_FILE, "utf-8"));
-    if (
-      Array.isArray(parsed) &&
-      parsed.length > 0 &&
-      parsed.every((s): s is string => typeof s === "string")
-    ) {
-      return parsed;
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
 async function runStagePhase(config: SandboxInput): Promise<void> {
   if (config.mode?.kind !== "run-stage") {
     emit({ pipelineError: "run-stage phase requires a run-stage mode." });
     return;
   }
-  const runCommand = await resolveRunCommand(config);
-  if (!runCommand) {
-    emit({ pipelineError: "run-stage phase could not resolve a run command." });
+  const compileResult = await compileSubmission(ARTIFACT_DIR, config);
+  if (!compileResult.success) {
+    process.stdout.write(`${JSON.stringify({ compilationError: compileResult.error })}\n`);
+    return;
+  }
+  const [cmd, ...args] = compileResult.runCommand;
+  if (!cmd) {
+    emit({ pipelineError: "Compilation produced an empty run command." });
     return;
   }
   const rawRuns = await runStage({
-    runCommand,
+    runCommand: [cmd, ...args],
     caseIndices: config.mode.caseIndices,
     parallelism: config.mode.parallelism,
     timeoutMs: config.limits.timeoutMs,
@@ -253,11 +224,10 @@ async function judgeStagePhase(config: SandboxInput): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  if (process.env.SANDBOX_PHASE === "prepare") {
-    await runPreparePhase();
-    return;
-  }
-  if (process.env.SANDBOX_PHASE === "judge-stage") {
+  if (
+    process.env.SANDBOX_PHASE === "run-stage" ||
+    process.env.SANDBOX_PHASE === "judge-stage"
+  ) {
     await materializePayload({ payloadDir: "/payload", submissionDir: SUBMISSION_DIR });
   }
   if (process.env.SANDBOX_PHASE === "materialize") {
@@ -273,10 +243,6 @@ async function main(): Promise<void> {
 
   const phase = process.env.SANDBOX_PHASE ?? config.mode?.kind;
 
-  if (phase === "compile") {
-    await runCompilePhase(config);
-    return;
-  }
   if (phase === "run-stage") {
     await runStagePhase(config);
     return;
@@ -296,8 +262,7 @@ async function main(): Promise<void> {
       }
     } else {
       emit({
-        pipelineError:
-          "no phase specified (expected compile, run-stage, judge-stage or interactive).",
+        pipelineError: "no phase specified (expected run-stage, judge-stage or interactive).",
       });
     }
   } finally {

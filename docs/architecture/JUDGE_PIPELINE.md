@@ -154,25 +154,26 @@ JavaScript and Python skip the compile step entirely — a syntax error only sur
 
 A standard or checker stage is one Kubernetes Job with one Pod:
 
-| Container        | Phase         | Mounts                                                            |
-| ---------------- | ------------- | ----------------------------------------------------------------- |
-| `prepare` (init) | `prepare`     | run payload, `/submission`, `/artifact`, compiler scratch         |
-| `run` (init)     | `run-stage`   | `/submission` and `/artifact` read-only, `/outputs`, scratch      |
-| `judge`          | `judge-stage` | judge payload, `/outputs` read-only, its own artifact and scratch |
+| Container    | Phase         | Mounts                                                            |
+| ------------ | ------------- | ----------------------------------------------------------------- |
+| `run` (init) | `run-stage`   | run payload, `/submission`, `/artifact`, `/outputs`, scratch      |
+| `judge`      | `judge-stage` | judge payload, `/outputs` read-only, its own artifact and scratch |
 
-`prepare` compiles once into `/artifact`. `run` executes every case of the stage,
-up to `K8S_RUN_PARALLELISM` at a time, each in a fresh scratch directory, and
-writes each case's captured stdout to `/outputs` together with its SHA-256.
-`judge` starts only after both init containers have exited, so no student process
-is alive while answers exist in the Pod; it verifies each output against its
-recorded hash (a mismatch is WA), then compares it with the answer or runs the
-validator. The run container requests and is limited to `K8S_RUN_PARALLELISM`
-CPUs, lowered for large memory limits until it fits the sandbox memory ceiling.
-The container log carries each case's run report with at most 64 KiB of
-displayed output and the judge verdicts, never full outputs.
+`run` materializes the payload, compiles once into `/artifact`, then executes
+every case of the stage, up to `K8S_RUN_PARALLELISM` at a time, each in a fresh
+scratch directory, and writes each case's captured stdout to `/outputs` together
+with its SHA-256. Compiling in the same container saves one container start,
+which costs about two seconds under gVisor. `judge` starts only after the run
+container has exited, so no student process is alive while answers exist in the
+Pod; it verifies each output against its recorded hash (a mismatch is WA), then
+compares it with the answer or runs the validator. The run container requests and
+is limited to `K8S_RUN_PARALLELISM` CPUs, lowered for large memory limits until it
+fits the sandbox memory ceiling, and gets at least the compiler's 512 MiB. The
+container log carries the compile result, each case's run report with at most
+64 KiB of displayed output, and the judge verdicts, never full outputs.
 
-Docker runs the same three phases as three containers with host directories in
-place of the emptyDirs. Advanced Mode retains its run/grade contract.
+Docker runs the same two phases as two containers with host directories in place
+of the emptyDirs. Advanced Mode retains its run/grade contract.
 
 ### execute
 

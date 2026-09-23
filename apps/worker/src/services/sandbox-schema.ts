@@ -1,7 +1,6 @@
-import { compileOutputSchema, sandboxOutputSchema, validateOutputSchema } from "@nojv/core";
+import { sandboxOutputSchema, validateOutputSchema } from "@nojv/core";
 
 export const parseSandboxResult = (data: unknown) => sandboxOutputSchema.safeParse(data);
-export const parseCompileOutput = (data: unknown) => compileOutputSchema.safeParse(data);
 export function parseValidateOutput(data: unknown, expectedIndices: readonly number[]) {
   const expected = new Set(expectedIndices);
   return validateOutputSchema

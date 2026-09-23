@@ -91,7 +91,7 @@ export function podPhaseTimings(
         ? "prepare"
         : status.name.startsWith("case-") || ["solution", "run"].includes(status.name)
           ? "execute"
-          : ["interactor", "grader"].includes(status.name) ||
+          : ["interactor", "grader", "judge"].includes(status.name) ||
               (status.name === "runner" && mode === "checker")
             ? "checker"
             : status.name === "publish-artifact"
