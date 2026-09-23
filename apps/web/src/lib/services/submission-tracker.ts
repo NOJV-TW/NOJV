@@ -1,4 +1,5 @@
 import { invalidate } from "$app/navigation";
+import { navigating } from "$app/state";
 import {
   isSubmissionOperationActive,
   SSE_SUBMISSION_VERDICT,
@@ -39,6 +40,10 @@ let pageRetryAt = 0;
 let pageRetryDelay = 5000;
 
 function refreshPage() {
+  if (navigating.to) {
+    syncPage = true;
+    return;
+  }
   if (pageRefreshActive || Date.now() < pageRetryAt) return;
   pageRefreshActive = true;
   const currentEpoch = epoch;
