@@ -6,7 +6,7 @@ import { createDraftAutosaveQueue, type DraftSnapshot } from "$lib/stores/draft-
 
 function snapshot(language: string, code: string): DraftSnapshot {
   return {
-    context: { kind: "practice" },
+    context: { userId: "user_1", cipherKey: "", kind: "practice" },
     problemId: "problem_1",
     language,
     code,

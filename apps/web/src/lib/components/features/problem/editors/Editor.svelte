@@ -159,7 +159,7 @@
 
   $effect(() => {
     void language;
-    draftController.hydrate();
+    void draftController.hydrate();
   });
 
   $effect(() => {

@@ -72,7 +72,7 @@ async function render(type: ProblemDetail["type"] = "full_source", code = "int m
         memoryLimitMb: 256,
       } as unknown as ProblemDetail,
       context: { type: "practice" },
-      draftContext: { kind: "practice" },
+      draftContext: { userId: "user_1", cipherKey: "", kind: "practice" },
     },
   });
   await tick();

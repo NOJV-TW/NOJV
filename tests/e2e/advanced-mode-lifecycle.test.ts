@@ -181,9 +181,7 @@ test.describe("Advanced Mode Lifecycle", () => {
       await expect(examBackLink).toHaveAttribute("href", `/exams/${ADVANCED_EXAM_ID}`);
       await expect(page.getByText("Time left", { exact: true })).toBeVisible();
       await expect(page.getByText(/^\d+:\d{2}:\d{2}$/)).toBeVisible();
-      await expect(
-        page.getByRole("button", { name: "Submit and end exam", exact: true }),
-      ).toBeVisible();
+      await expect(page.getByRole("button", { name: "End exam", exact: true })).toBeVisible();
       await expect(page.getByText(/advanced mode/i).first()).toBeVisible();
       await expect(page.locator(".monaco-editor")).toHaveCount(0);
 

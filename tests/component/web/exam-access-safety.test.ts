@@ -187,6 +187,20 @@ it("moves hand-in into a protected dialog with cancel initially focused", async 
   await vi.waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull());
 });
 
+it("names the problems that still have no submission before ending the exam", async () => {
+  component = mount(ExamHandInPanel, {
+    target,
+    props: { examTitle: "Example exam", unsubmitted: ["A. Discriminant", "C. Simple Compute"] },
+  });
+  await tick();
+  expect(target.textContent).toContain(m.examMode_submitEndButton());
+  target.querySelector<HTMLButtonElement>("button")!.click();
+  await vi.waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull());
+  const warning = document.querySelector('[role="dialog"] [role="alert"]')!;
+  expect(warning.textContent).toContain("A. Discriminant");
+  expect(warning.textContent).toContain("C. Simple Compute");
+});
+
 it("explains the pending hand-in on hover while earlier submissions are still sending", async () => {
   mocks.waitForPendingSubmissions.mockReturnValue(new Promise(() => {}));
   vi.stubGlobal(

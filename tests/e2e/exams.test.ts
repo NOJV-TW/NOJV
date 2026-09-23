@@ -142,7 +142,7 @@ test.describe("Exams — list, detail, problem visibility", () => {
       ).toHaveCount(0);
       await page.getByRole("link", { name: "Exam overview", exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`/exams/${examId}$`));
-      await page.getByRole("button", { name: "Submit and end exam", exact: true }).click();
+      await page.getByRole("button", { name: "End exam", exact: true }).click();
       const dialog = page.getByRole("dialog");
       await expect(dialog).toBeVisible();
       await expect(
@@ -150,7 +150,7 @@ test.describe("Exams — list, detail, problem visibility", () => {
       ).toBeFocused();
       await dialog.getByRole("button", { name: "Cancel, keep working", exact: true }).click();
       await expect(dialog).not.toBeVisible();
-      await page.getByRole("button", { name: "Submit and end exam", exact: true }).click();
+      await page.getByRole("button", { name: "End exam", exact: true }).click();
       await dialog.getByRole("button", { name: "Confirm and end exam", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Submitted", exact: true })).toBeVisible();
       await expect(page.getByRole("button", { name: /start exam/i })).toHaveCount(0);

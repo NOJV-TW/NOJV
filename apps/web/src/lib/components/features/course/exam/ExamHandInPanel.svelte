@@ -5,9 +5,10 @@
   import * as Dialog from "$lib/components/primitives/ui/dialog";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
   import { m } from "$lib/paraglide/messages.js";
+  import { getLocale } from "$lib/paraglide/runtime.js";
   import { waitForPendingSubmissions } from "$lib/services/submission-service";
 
-  let { examTitle }: { examTitle: string } = $props();
+  let { examTitle, unsubmitted = [] }: { examTitle: string; unsubmitted?: string[] } = $props();
   let open = $state(false);
   let submitting = $state(false);
   let error = $state("");
@@ -49,6 +50,13 @@
       <Dialog.Title>{m.examMode_submitEndConfirmTitle()}</Dialog.Title>
       <Dialog.Description>{m.examHandIn_confirm({ title: examTitle })}</Dialog.Description>
     </Dialog.Header>
+    {#if unsubmitted.length > 0}
+      <p role="alert" class="text-body-sm font-medium text-warning">
+        {m.examHandIn_unsubmitted({
+          problems: new Intl.ListFormat(getLocale()).format(unsubmitted),
+        })}
+      </p>
+    {/if}
     <p class="text-body-sm text-muted-foreground">{m.examHandIn_unsentWarning()}</p>
     {#if error}<p role="alert" class="text-body-sm text-destructive">{error}</p>{/if}
     <Dialog.Footer>

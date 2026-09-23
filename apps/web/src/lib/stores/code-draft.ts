@@ -1,12 +1,19 @@
 import { z } from "zod";
 import type { SubmissionContext } from "@nojv/core";
 
-export type DraftContext =
-  | { kind: "practice" }
-  | { kind: "exam"; examId: string }
-  | { kind: "assignment"; assignmentId: string }
-  | { kind: "contest"; contestId: string }
-  | { kind: "virtual"; participationId: string };
+export interface DraftOwner {
+  userId: string;
+  cipherKey: string;
+}
+
+export type DraftContext = DraftOwner &
+  (
+    | { kind: "practice" }
+    | { kind: "exam"; examId: string }
+    | { kind: "assignment"; assignmentId: string }
+    | { kind: "contest"; contestId: string }
+    | { kind: "virtual"; participationId: string }
+  );
 
 export interface DraftKey {
   context: DraftContext;
@@ -19,11 +26,12 @@ export interface DraftRecord {
   savedAt: number;
 }
 
-const KEY_PREFIX = "nojv:draft:v1:";
+const KEY_PREFIX = "nojv:draft:v2:";
 
-const draftRecordSchema = z.object({
-  code: z.string(),
+const sealedDraftSchema = z.object({
   savedAt: z.number(),
+  iv: z.string(),
+  data: z.string(),
 });
 
 function contextSegment(context: DraftContext): string {
@@ -42,23 +50,115 @@ function contextSegment(context: DraftContext): string {
 }
 
 export function buildDraftKey(key: DraftKey): string {
-  return `${KEY_PREFIX}${contextSegment(key.context)}:${key.problemId}:${key.language}`;
+  return `${KEY_PREFIX}${key.context.userId}:${contextSegment(key.context)}:${key.problemId}:${key.language}`;
 }
 
-function parseDraftRecord(raw: string | null): DraftRecord | null {
+const importedKeys = new Map<string, Promise<CryptoKey>>();
+
+function cryptoKeyFor(cipherKey: string): Promise<CryptoKey> {
+  let key = importedKeys.get(cipherKey);
+  if (!key) {
+    key = crypto.subtle.importKey("raw", fromBase64(cipherKey), "AES-GCM", false, [
+      "encrypt",
+      "decrypt",
+    ]);
+    importedKeys.set(cipherKey, key);
+  }
+  return key;
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+function fromBase64(value: string): Uint8Array<ArrayBuffer> {
+  return Uint8Array.from(atob(value), (c) => c.charCodeAt(0));
+}
+
+export async function sealDraft(
+  owner: DraftOwner,
+  storageKey: string,
+  code: string,
+): Promise<{ record: DraftRecord; serialized: string }> {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const data = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv, additionalData: new TextEncoder().encode(storageKey) },
+    await cryptoKeyFor(owner.cipherKey),
+    new TextEncoder().encode(code),
+  );
+  const record: DraftRecord = { code, savedAt: Date.now() };
+  return {
+    record,
+    serialized: JSON.stringify({
+      savedAt: record.savedAt,
+      iv: toBase64(iv),
+      data: toBase64(new Uint8Array(data)),
+    }),
+  };
+}
+
+function parseSealed(raw: string | null): z.infer<typeof sealedDraftSchema> | null {
   if (raw === null) return null;
-  let json: unknown;
   try {
-    json = JSON.parse(raw);
+    return sealedDraftSchema.parse(JSON.parse(raw));
   } catch {
     return null;
   }
-  const parsed = draftRecordSchema.safeParse(json);
-  return parsed.success ? parsed.data : null;
 }
 
-export function loadDraft(key: DraftKey): DraftRecord | null {
-  return parseDraftRecord(localStorage.getItem(buildDraftKey(key)));
+export async function openDraft(
+  owner: DraftOwner,
+  storageKey: string,
+  raw: string | null,
+): Promise<DraftRecord | null> {
+  const sealed = parseSealed(raw);
+  if (!sealed) return null;
+  try {
+    const plain = await crypto.subtle.decrypt(
+      {
+        name: "AES-GCM",
+        iv: fromBase64(sealed.iv),
+        additionalData: new TextEncoder().encode(storageKey),
+      },
+      await cryptoKeyFor(owner.cipherKey),
+      fromBase64(sealed.data),
+    );
+    return { code: new TextDecoder().decode(plain), savedAt: sealed.savedAt };
+  } catch {
+    return null;
+  }
+}
+
+const legacyDraftSchema = z.object({ code: z.string(), savedAt: z.number() });
+
+export function legacyDraftKey(key: DraftKey): string {
+  return `nojv:draft:v1:${contextSegment(key.context)}:${key.problemId}:${key.language}`;
+}
+
+async function adoptLegacyDraft(key: DraftKey): Promise<DraftRecord | null> {
+  const legacyKey = legacyDraftKey(key);
+  let legacy: DraftRecord;
+  try {
+    legacy = legacyDraftSchema.parse(JSON.parse(localStorage.getItem(legacyKey) ?? ""));
+  } catch {
+    return null;
+  }
+  try {
+    const record = await saveDraft(key, legacy.code);
+    localStorage.removeItem(legacyKey);
+    return record;
+  } catch {
+    return legacy;
+  }
+}
+
+export async function loadDraft(key: DraftKey): Promise<DraftRecord | null> {
+  const storageKey = buildDraftKey(key);
+  const record = await openDraft(key.context, storageKey, localStorage.getItem(storageKey));
+  if (record || key.context.kind === "exam") return record;
+  return adoptLegacyDraft(key);
 }
 
 function isQuotaExceeded(err: unknown): boolean {
@@ -78,17 +178,18 @@ function listDraftsByAge(): IndexedDraft[] {
   for (let i = 0; i < localStorage.length; i++) {
     const storageKey = localStorage.key(i);
     if (!storageKey?.startsWith(KEY_PREFIX)) continue;
-    const record = parseDraftRecord(localStorage.getItem(storageKey));
-    entries.push({ storageKey, savedAt: record?.savedAt ?? 0 });
+    entries.push({
+      storageKey,
+      savedAt: parseSealed(localStorage.getItem(storageKey))?.savedAt ?? 0,
+    });
   }
   entries.sort((a, b) => a.savedAt - b.savedAt);
   return entries;
 }
 
-export function saveDraft(key: DraftKey, code: string): DraftRecord {
+export async function saveDraft(key: DraftKey, code: string): Promise<DraftRecord> {
   const storageKey = buildDraftKey(key);
-  const record: DraftRecord = { code, savedAt: Date.now() };
-  const serialized = JSON.stringify(record);
+  const { record, serialized } = await sealDraft(key.context, storageKey, code);
 
   try {
     localStorage.setItem(storageKey, serialized);
@@ -115,17 +216,20 @@ export function clearDraft(key: DraftKey): void {
   localStorage.removeItem(buildDraftKey(key));
 }
 
-export function draftContextFromSubmissionContext(context: SubmissionContext): DraftContext {
+export function draftContextFromSubmissionContext(
+  context: SubmissionContext,
+  owner: DraftOwner,
+): DraftContext {
   switch (context.type) {
     case "practice":
-      return { kind: "practice" };
+      return { ...owner, kind: "practice" };
     case "exam":
-      return { kind: "exam", examId: context.examId };
+      return { ...owner, kind: "exam", examId: context.examId };
     case "assignment":
-      return { kind: "assignment", assignmentId: context.assessmentId };
+      return { ...owner, kind: "assignment", assignmentId: context.assessmentId };
     case "contest":
-      return { kind: "contest", contestId: context.contestId };
+      return { ...owner, kind: "contest", contestId: context.contestId };
     case "virtual":
-      return { kind: "virtual", participationId: context.participationId };
+      return { ...owner, kind: "virtual", participationId: context.participationId };
   }
 }

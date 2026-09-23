@@ -105,7 +105,7 @@ practice-after-close route at `/problems/[id]`.
 
 ### Hand-in interaction
 
-The workspace timer links back to the exam overview. Hand-in lives in a separate area on that overview and opens an explicit irreversible-action dialog, with initial focus on Cancel. Confirming uses the existing atomic `releaseSession` action; cancelling performs no mutation. A successful hand-in still prevents later submissions and re-entry.
+The workspace timer links back to the exam overview. Hand-in lives in a separate area on that overview, labelled "End exam", and opens an explicit irreversible-action dialog, with initial focus on Cancel. Ending the exam never submits editor code: the panel, the rules list and the start modal all remind students that only answers they pressed Submit on are graded, and the dialog names every problem with no non-sample submission yet (from `listSubmittedProblemIds`). Confirming uses the existing atomic `releaseSession` action; cancelling performs no mutation. A successful hand-in still prevents later submissions and re-entry.
 
 ## Late collection and scoring
 

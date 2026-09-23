@@ -5,6 +5,7 @@ import {
   examSessionRepo,
   participationRepo,
   runTransaction,
+  submissionRepo,
   type Prisma,
 } from "@nojv/db";
 import type { ExamAutoCloseInput } from "@nojv/core";
@@ -250,6 +251,15 @@ export async function getSessionState(userId: string, examId: string) {
       session?.releaseReason === "submitted" || participation?.status === "submitted";
     return { hasActiveSession: !hasSubmitted && session?.endedAt === null, hasSubmitted };
   });
+}
+
+export async function listSubmittedProblemIds(userId: string, examId: string) {
+  const grouped = await submissionRepo.groupByUserAndProblem({
+    examId,
+    userId,
+    sampleOnly: false,
+  });
+  return grouped.map((group) => group.problemId);
 }
 
 export async function requireActiveSessionForUserExam(userId: string, examId: string) {

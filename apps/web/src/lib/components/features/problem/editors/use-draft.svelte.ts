@@ -18,7 +18,7 @@ export interface DraftController {
   readonly enabled: boolean;
   readonly isDirty: boolean;
   readonly currentLastSavedAt: number | null;
-  hydrate: () => void;
+  hydrate: () => Promise<void>;
   save: () => void;
   scheduleAutosave: () => void;
   dispose: () => void;
@@ -40,17 +40,23 @@ export function createDraftController(args: DraftControllerArgs): DraftControlle
   );
   const enabled = $derived(!args.isWorkspaceMode());
   const isDirty = $derived(
-    enabled && args.currentCode() !== (lastSavedCode[currentDraftKey] ?? ""),
+    enabled &&
+      hydratedLanguages[currentDraftKey] === true &&
+      args.currentCode() !== lastSavedCode[currentDraftKey],
   );
   const currentLastSavedAt = $derived(enabled ? (lastSavedAt[currentDraftKey] ?? null) : null);
 
-  function hydrate() {
+  const hydrating = new Set<string>();
+
+  async function hydrate() {
     const ctx = args.draftContext();
     if (args.isWorkspaceMode()) return;
     const lang = args.language();
     const draftKey = buildDraftKey({ context: ctx, problemId: args.problemId, language: lang });
-    if (hydratedLanguages[draftKey]) return;
-    const record = loadDraft({ context: ctx, problemId: args.problemId, language: lang });
+    if (hydratedLanguages[draftKey] || hydrating.has(draftKey)) return;
+    hydrating.add(draftKey);
+    const record = await loadDraft({ context: ctx, problemId: args.problemId, language: lang });
+    hydrating.delete(draftKey);
     if (record) {
       args.applyCode(lang, record.code);
       lastSavedCode[draftKey] = record.code;
@@ -75,9 +81,9 @@ export function createDraftController(args: DraftControllerArgs): DraftControlle
     };
   }
 
-  function persist(snapshot: DraftSnapshot, notify: boolean) {
+  async function persist(snapshot: DraftSnapshot, notify: boolean) {
     try {
-      const record = saveDraft(snapshot, snapshot.code);
+      const record = await saveDraft(snapshot, snapshot.code);
       const draftKey = buildDraftKey(snapshot);
       lastSavedCode[draftKey] = snapshot.code;
       lastSavedAt[draftKey] = record.savedAt;
@@ -87,15 +93,15 @@ export function createDraftController(args: DraftControllerArgs): DraftControlle
     }
   }
 
-  const autosave = createDraftAutosaveQueue(AUTOSAVE_DELAY_MS, (snapshot) =>
-    persist(snapshot, false),
-  );
+  const autosave = createDraftAutosaveQueue(AUTOSAVE_DELAY_MS, (snapshot) => {
+    void persist(snapshot, false);
+  });
 
   function save() {
     const snapshot = currentSnapshot();
-    if (!snapshot) return;
+    if (!snapshot || !hydratedLanguages[currentDraftKey]) return;
     autosave.cancel(snapshot);
-    persist(snapshot, true);
+    void persist(snapshot, true);
   }
 
   function scheduleAutosave() {
@@ -108,7 +114,7 @@ export function createDraftController(args: DraftControllerArgs): DraftControlle
     const snapshot = currentSnapshot();
     const currentWasPending = snapshot ? autosave.has(snapshot) : false;
     autosave.flushAll();
-    if (snapshot && enabled && isDirty && !currentWasPending) persist(snapshot, false);
+    if (snapshot && enabled && isDirty && !currentWasPending) void persist(snapshot, false);
   }
 
   return {

@@ -39,26 +39,30 @@ test.describe("Problem workspace UI", () => {
     await expect(editor).toBeVisible({ timeout: 15_000 });
 
     const stamp = `// e2e draft ${Date.now()}\n`;
+    const typedAt = await page.evaluate(() => Date.now());
     await page.getByRole("textbox", { name: "Editor content" }).focus();
     await page.keyboard.press("ControlOrMeta+Home");
     await page.keyboard.insertText(stamp);
 
+    const readDrafts = () =>
+      page.evaluate(
+        (problemId) =>
+          Object.entries(localStorage)
+            .filter(
+              ([key]) =>
+                key.startsWith("nojv:draft:v2:") && key.includes(`:practice:${problemId}:`),
+            )
+            .map(([, value]) => value),
+        PROBLEM_ID,
+      );
     await expect
-      .poll(() =>
-        page.evaluate(
-          ({ problemId, expected }) => {
-            for (let index = 0; index < localStorage.length; index += 1) {
-              const key = localStorage.key(index);
-              if (!key?.startsWith(`nojv:draft:v1:practice:${problemId}:`)) continue;
-              const value = localStorage.getItem(key);
-              if (value?.includes(expected)) return true;
-            }
-            return false;
-          },
-          { problemId: PROBLEM_ID, expected: stamp.trim() },
+      .poll(async () =>
+        (await readDrafts()).some(
+          (value) => (JSON.parse(value) as { savedAt: number }).savedAt >= typedAt,
         ),
       )
       .toBe(true);
+    expect((await readDrafts()).some((value) => value.includes(stamp.trim()))).toBe(false);
     await page.reload();
     await expect(page.getByRole("main")).toBeVisible();
     await expect(page.locator(".monaco-editor .view-lines").first()).toContainText(
@@ -90,11 +94,15 @@ test.describe("Problem workspace UI", () => {
         const stored = await page.evaluate(
           (problemId) =>
             Object.entries(localStorage)
-              .filter(([key]) => key.startsWith(`nojv:draft:v1:practice:${problemId}:`))
-              .map(([, value]) => JSON.parse(value).code),
+              .filter(
+                ([key]) =>
+                  key.startsWith("nojv:draft:v2:") && key.includes(`:practice:${problemId}:`),
+              )
+              .map(([, value]) => value),
           PROBLEM_ID,
         );
-        expect(stored.some((code: string) => code.includes(stamp))).toBe(true);
+        expect(stored.length).toBeGreaterThan(0);
+        expect(stored.some((value: string) => value.includes(stamp))).toBe(false);
         await page.keyboard.press(`${modifier}+Enter`);
         await expect.poll(() => submissions.length).toBe(index + 1);
         expect(submissions[index]).toMatchObject({
