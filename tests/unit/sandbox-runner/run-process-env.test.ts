@@ -19,7 +19,7 @@ describe("runProcess env forwarding", () => {
     expect(result.stdout).toBe("unset");
   });
 
-  it("reports a launch failure (spawnError) when a bash-wrapped command cannot exec", async () => {
+  it("reports a launch failure (spawnError) when the command cannot exec", async () => {
     const result = await runProcess(["/nonexistent/binary"], {
       timeoutMs: 5_000,
       cpuSeconds: 3,

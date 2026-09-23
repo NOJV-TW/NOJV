@@ -115,6 +115,7 @@ export default defineConfig({
         test: {
           name: "unit",
           include: ["tests/unit/**/*.test.ts"],
+          globalSetup: ["tests/setup/nojv-exec.ts"],
           exclude: [
             "tests/unit/web/echart-lifecycle.test.ts",
             "tests/unit/web/clarification-tab-error.test.ts",
@@ -248,7 +249,7 @@ export default defineConfig({
           // keep the suite deterministic. Per-worker schemas would be required
           // before this suite can safely run files in parallel.
           fileParallelism: false,
-          globalSetup: ["tests/setup/global-setup.ts"],
+          globalSetup: ["tests/setup/global-setup.ts", "tests/setup/nojv-exec.ts"],
           setupFiles: ["tests/setup/integration-setup.ts"],
         },
       },

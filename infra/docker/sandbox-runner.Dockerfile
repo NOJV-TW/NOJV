@@ -35,6 +35,9 @@ RUN test "$(cat /etc/alpine-release)" = "$(node -p "require('/runner/judge-envir
   && mkdir -p /runner /workspace /tmp \
   && chown -R sandbox:sandbox /runner /workspace /tmp /home/sandbox
 
+COPY apps/sandbox-runner/native/nojv-exec.c /usr/local/src/nojv-exec.c
+RUN gcc -O2 -Wall -Wextra -Werror -o /usr/local/bin/nojv-exec /usr/local/src/nojv-exec.c
+
 COPY --from=builder /build/apps/sandbox-runner/dist/ /runner/
 COPY --from=builder /judge-toolchain/node_modules/ /node_modules/
 RUN ln -s /node_modules/typescript/bin/tsc /usr/local/bin/tsc
