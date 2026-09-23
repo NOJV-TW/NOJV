@@ -51,7 +51,7 @@ Turbo task wiring lives in `turbo.json`. `test:unit` does not depend on `build` 
 ## Setup Prerequisites
 
 - **Unit**: none. `pnpm install` is enough.
-- **Integration**: a running PostgreSQL, Redis, and Temporal, plus the explicitly provisioned `nojv_test` database.
+- **Integration**: a running PostgreSQL, Redis, and Temporal, plus the explicitly provisioned `nojv_test` database. Workflow tests start the SDK's own Temporal dev and time-skipping servers, whose binaries are downloaded on first use and cached in `$TMPDIR` for a day; CI downloads them in a separate step with retries (`scripts/download-temporal-test-servers.sh`) so a slow download never times out a test hook.
 - **E2E**: run `pnpm build` first (`tests/tsconfig.e2e.json` resolves built workspace packages at runtime; test typechecking uses source aliases), then start the same services, plus the explicitly provisioned `nojv_e2e_test` database. Playwright starts its own strict-port web server on `127.0.0.1:5174`; do not start one manually.
 
 E2E tests intentionally run with one Playwright worker because they share the single destructive database and some lifecycle cases mutate seeded rows. Do not override this with `--workers`.

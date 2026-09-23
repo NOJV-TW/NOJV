@@ -150,6 +150,9 @@ jobs:
           pnpm --filter @nojv/web paraglide:compile
           pnpm --filter @nojv/web exec svelte-kit sync
 
+      - name: Download Temporal test servers
+        run: scripts/download-temporal-test-servers.sh
+
       - name: Run integration tests with coverage gate
         run: pnpm test:coverage
         env:
@@ -174,6 +177,9 @@ jobs:
 
       - name: Build workflow bundle dependencies
         run: pnpm --filter @nojv/storage... build
+
+      - name: Download Temporal test servers
+        run: scripts/download-temporal-test-servers.sh
 
       - name: Run Temporal workflow integration tests
         run: pnpm test:integration:temporal
