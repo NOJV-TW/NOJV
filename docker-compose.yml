@@ -65,7 +65,7 @@ services:
       "
 
   temporal:
-    image: temporalio/auto-setup:1.31.1@sha256:a066bdf5c4de689cabaf80cc357871f1db5e6d750a6bcfc42e877b913e31ef24
+    image: temporalio/auto-setup:1.29.1@sha256:5b3502a3b685f9eff1b925af90c57c9e3dbeccbef367cc28a2a9712c63379312
     restart: unless-stopped
     depends_on:
       postgres:

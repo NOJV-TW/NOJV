@@ -19,7 +19,10 @@ const rootDocs = [
   "packages/README.md",
   "packages/application/README.md",
   "packages/core/README.md",
+  "packages/db/README.md",
+  "packages/mailer/README.md",
   "packages/redis/README.md",
+  "packages/storage/README.md",
   "packages/temporal/README.md",
   "packages/sandbox-docker/README.md",
   "tests/README.md",
@@ -27,15 +30,15 @@ const rootDocs = [
   "tooling/README.md",
 ];
 
-// Living-doc trees whose intra-repo links must all resolve. docs/plans/ is
-// deliberately excluded — archived plans carry historical links to code/docs
-// that has since moved or been deleted.
+// Living docs and active plans must link to current paths. Completed plans keep
+// their original links as historical evidence.
 const docTrees = [
   "docs/architecture",
   "docs/operations",
   "docs/product",
   "docs/runbooks",
   "docs/specs",
+  "docs/plans/active",
 ];
 
 function markdownFilesUnder(dir: string): string[] {
@@ -56,8 +59,35 @@ const checkedDocs = [...rootDocs, ...docTrees.flatMap(markdownFilesUnder)];
 
 function relativeLinks(text: string): string[] {
   const links: string[] = [];
-  for (const m of text.matchAll(/\]\(([^)]+)\)/g)) {
-    const target = m[1].split("#")[0].trim();
+  let cursor = 0;
+  while (true) {
+    const open = text.indexOf("](", cursor);
+    if (open < 0) break;
+
+    let start = open + 2;
+    while (/\s/.test(text[start] ?? "")) start++;
+    const angleBracketed = text[start] === "<";
+    if (angleBracketed) start++;
+
+    let end = start;
+    if (angleBracketed) {
+      while (end < text.length && text[end] !== ">") end++;
+    } else {
+      let depth = 1;
+      while (end < text.length && depth > 0) {
+        if (text[end] === "\\") {
+          end += 2;
+          continue;
+        }
+        if (text[end] === "(") depth++;
+        if (text[end] === ")") depth--;
+        if (depth > 0) end++;
+      }
+    }
+
+    const rawTarget = text.slice(start, end).trim();
+    const target = rawTarget.split(/[\s#]/, 1)[0];
+    cursor = end + 1;
     if (!target || /^(https?:|mailto:)/.test(target)) continue;
     links.push(target);
   }
