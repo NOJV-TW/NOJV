@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_54 models and 37 enums across 10 schema files._
+_53 models and 37 enums across 10 schema files._
 
 ## `auth.prisma`
 
@@ -1089,13 +1089,6 @@ Indexes & constraints: `@@unique([problemId, name])`, `@@unique([problemId, ordi
 
 Indexes & constraints: `@@unique([postId, reportedByUserId])`, `@@unique([commentId, reportedByUserId])`, `@@index([status, createdAt])`
 
-#### `JudgeAdmission`
-
-| Field | Type | Attributes |
-| ----- | ---- | ---------- |
-| `id` | `String` | `@id` |
-| `cursor` | `Int` | `@default(0)` |
-
 #### `JudgeExecution`
 
 | Field | Type | Attributes |
@@ -1107,7 +1100,6 @@ Indexes & constraints: `@@unique([postId, reportedByUserId])`, `@@unique([commen
 | `snapshot` | `Json` | — |
 | `state` | `String` | `@default("queued")` |
 | `queueClass` | `String` | `@default("foreground")` |
-| `capacityStrategy` | `Boolean` | `@default(false)` |
 | `operationId` | `String?` | — |
 | `workflowId` | `String` | `@unique` |
 | `recoveryEpoch` | `Int` | `@default(0)` |

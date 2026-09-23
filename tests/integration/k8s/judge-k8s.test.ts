@@ -117,16 +117,19 @@ const createdPods = new Set<string>();
 const createdServices = new Set<string>();
 const createdNetworkPolicies = new Set<string>();
 
+function trackPayload(name: string): void {
+  createdConfigMaps.add(`${name}-pm`);
+  createdConfigMaps.add(`${name}-p0`);
+}
+
 function trackSubmission(
   submissionId: string,
-  opts: { interactiveCases?: number[]; advanced?: boolean } = {},
+  opts: { interactive?: boolean; advanced?: boolean } = {},
 ): void {
   const base = `judge-${submissionId}`;
   createdJobs.add(base);
-  createdConfigMaps.add(base);
-  createdJobs.add(`${base}-validate`);
-  createdConfigMaps.add(`${base}-validate`);
-  createdConfigMaps.add(`${base}-input`);
+  trackPayload(`${base}-run`);
+  trackPayload(`${base}-judge`);
   if (opts.advanced) {
     createdJobs.add(`${base}-run`);
     createdJobs.add(`${base}-grade`);
@@ -139,11 +142,10 @@ function trackSubmission(
     createdNetworkPolicies.add(`${base}-grade-egress`);
     createdNetworkPolicies.add(`${base}-sidecar-egress`);
   }
-  for (const idx of opts.interactiveCases ?? []) {
-    const jobName = `${base}-int-${idx}`;
-    createdJobs.add(jobName);
-    createdConfigMaps.add(`${jobName}-sol`);
-    createdConfigMaps.add(`${jobName}-int`);
+  if (opts.interactive) {
+    createdJobs.add(`${base}-int`);
+    trackPayload(`${base}-int-sol`);
+    trackPayload(`${base}-int-int`);
   }
 }
 
@@ -742,7 +744,7 @@ describe("K8s judge — interactive mode", () => {
     { timeout: INTERACTIVE_TIMEOUT_MS },
     async () => {
       const submissionId = `k8s-int-correct-${Date.now()}`;
-      trackSubmission(submissionId, { interactiveCases: [0, 1] });
+      trackSubmission(submissionId, { interactive: true });
 
       const result = await execute(
         interactiveRequest({ submissionId, sourceCode: BINARY_SEARCH_SOLUTION }),
@@ -761,7 +763,7 @@ describe("K8s judge — interactive mode", () => {
     { timeout: INTERACTIVE_TIMEOUT_MS },
     async () => {
       const submissionId = `k8s-int-stubborn-${Date.now()}`;
-      trackSubmission(submissionId, { interactiveCases: [0, 1] });
+      trackSubmission(submissionId, { interactive: true });
 
       const result = await execute(
         interactiveRequest({ submissionId, sourceCode: STUBBORN_SOLUTION }),
@@ -780,7 +782,7 @@ describe("K8s judge — interactive mode", () => {
     { timeout: INTERACTIVE_TIMEOUT_MS },
     async () => {
       const submissionId = `k8s-int-exploit-${Date.now()}`;
-      trackSubmission(submissionId, { interactiveCases: [0, 1] });
+      trackSubmission(submissionId, { interactive: true });
 
       const exploit = `import sys, glob, os
 secret = None

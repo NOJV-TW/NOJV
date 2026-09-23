@@ -1,6 +1,10 @@
 # Load-aware judge slots
 
 Status: rolled out in v1.3.9 (2026-09-22 21:54Z) and stress-tested on prod.
+v1.3.10 replaced the 10-slot ceiling with a core budget: each stage Pod reserves
+`runParallelism` CPUs, so single-machine runs 5 slots × 1 CPU under a 6-CPU
+quota, and the tuner stays as the signal below that cap. See the
+[single-sandbox plan](2026-09-23-judge-single-sandbox-per-stage.md).
 
 ## Why
 

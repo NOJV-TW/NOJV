@@ -74,7 +74,6 @@ function clients(
                 },
                 status: {
                   initContainerStatuses: [
-                    { name: "prepare", state: { terminated: { exitCode: 0 } } },
                     { name: "run", state: { terminated: { exitCode: 0 } } },
                   ],
                   containerStatuses: [
@@ -90,8 +89,6 @@ function clients(
       items: options.blockedEvent ? [options.blockedEvent] : [],
     })),
     readNamespacedPodLog: vi.fn(async ({ container }: any) => {
-      if (container === "prepare")
-        return JSON.stringify({ runCommand: ["python3", "main.py"] });
       if (container === "judge")
         return JSON.stringify({ validatorOutcomes: [{ index: 0, verdict: "AC" }] });
       return JSON.stringify({
@@ -213,8 +210,6 @@ describe("K8sExecutor sharded payload orchestration", () => {
     fake.handles.coreApi.readNamespacedPodLog.mockImplementation(
       async ({ container }: { container: string }) => {
         if (container === "judge") return JSON.stringify({ validatorOutcomes });
-        if (container === "prepare")
-          return JSON.stringify({ runCommand: ["python3", "main.py"] });
         return JSON.stringify({
           rawRuns: [{ index: 0, stdout: "ok\n", stderr: "", exitCode: 0, timeMs: 1 }],
         });
@@ -245,8 +240,6 @@ describe("K8sExecutor sharded payload orchestration", () => {
               { index: 0, verdict: "AC" },
             ],
           });
-        if (container === "prepare")
-          return JSON.stringify({ runCommand: ["python3", "main.py"] });
         return JSON.stringify({
           rawRuns: [2, 1, 0].map((index) => ({
             index,
@@ -293,8 +286,6 @@ describe("K8sExecutor sharded payload orchestration", () => {
     const fake = clients();
     fake.handles.coreApi.readNamespacedPodLog.mockImplementation(
       async ({ container }: { container: string }) => {
-        if (container === "prepare")
-          return JSON.stringify({ runCommand: ["python3", "main.py"] });
         if (container === "judge")
           return (
             JSON.stringify({ validatorOutcomes: [{ index: 0, verdict: "AC" }] }) +
@@ -447,8 +438,6 @@ describe("K8sExecutor sharded payload orchestration", () => {
     });
     fake.handles.coreApi.readNamespacedPodLog.mockImplementation(
       async ({ container }: { container: string }) => {
-        if (container === "prepare")
-          return JSON.stringify({ runCommand: ["python3", "main.py"] });
         started.push(container);
         await gate;
         if (container === "judge")
