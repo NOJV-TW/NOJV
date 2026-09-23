@@ -125,7 +125,7 @@ The tracked baseline directory totals are reproducible with `git ls-files`; 2,11
 - [x] Walk the five navigation journeys: add an API, change exam permissions, change judge behavior, change schema, and diagnose deployment. The docs task map provides the code entry, owning guidance/spec, and verification command; the plan index provides decision/history lookup.
 - [x] Review the diff for behavior changes, history loss, unreferenced compatibility shims, generated artifacts, dangling references and evidence that overstates verification. Preserve the production recovery gates and applied migrations; no transition re-exports or generated outputs were added.
 - [x] Record the final code revision, phase commits and verification output below.
-- [ ] Create one review PR from `codex/codebase-clarity`; verify its latest head CI and stop at review.
+- [x] Create one review PR from `codex/codebase-clarity`; PR #524 is open for review, and all required checks passed on code head `928a9d86`. Stop at review; do not merge or deploy.
 
 ### Phase commits
 
@@ -158,6 +158,7 @@ The tracked baseline directory totals are reproducible with `git ls-files`; 2,11
 | `00a0570f` final code tree                         | Documentation link test and query guard                                                  | Passed; 91 link checks; TypeScript AST guard scanned all 173 application source files.                                                                       |
 | `00a0570f` final code tree                         | `pnpm test:e2e`                                                                          | Not run: Prisma's explicit destructive-action guard blocked the isolated DB reset until fresh user approval. No reset occurred.                              |
 | `00a0570f` final code tree                         | Five documentation navigation journeys                                                   | Passed; source, rules/specs, tests and decision index are reachable through the task map from the root entry.                                                |
+| `928a9d86` review PR code head                     | Required GitHub PR checks                                                                | Passed; repository checks, unit/integration coverage, core browser smoke, Temporal, image builds, CodeQL and dependency audit.                               |
 
 ## Related current guidance
 
