@@ -59,41 +59,6 @@ function materializerContainer(params: {
   };
 }
 
-function prepareContainer(params: {
-  name: string;
-  image: string;
-  payloadVolumeName: string;
-  submissionVolumeName: string;
-  artifactVolumeName: string;
-  scratchTmpVolumeName: string;
-  scratchWorkspaceVolumeName: string;
-  resources: k8s.V1ResourceRequirements;
-}): k8s.V1Container {
-  return {
-    name: params.name,
-    image: params.image,
-    command: ["node", "/runner/index.js"],
-    env: [
-      { name: "SANDBOX_PHASE", value: "prepare" },
-      { name: "HOME", value: "/tmp" },
-    ],
-    resources: params.resources,
-    securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
-    volumeMounts: [
-      { name: params.payloadVolumeName, mountPath: "/payload", readOnly: true },
-      { name: params.submissionVolumeName, mountPath: "/submission" },
-      { name: params.artifactVolumeName, mountPath: "/artifact" },
-      { name: params.scratchTmpVolumeName, mountPath: "/tmp", subPath: "prepare" },
-      {
-        name: params.scratchWorkspaceVolumeName,
-        mountPath: "/workspace",
-        subPath: "prepare",
-      },
-    ],
-  };
-}
-
-export const PREPARE_CONTAINER_NAME = "prepare";
 export const RUN_CONTAINER_NAME = "run";
 export const JUDGE_CONTAINER_NAME = "judge";
 
@@ -157,16 +122,6 @@ export function buildStageJobManifest(params: StageJobManifestParams): k8s.V1Job
           tolerations: SANDBOX_TOLERATIONS,
           securityContext: SANDBOX_POD_SECURITY_CONTEXT,
           initContainers: [
-            prepareContainer({
-              name: PREPARE_CONTAINER_NAME,
-              image: params.image,
-              payloadVolumeName: "run-payload",
-              submissionVolumeName: "submission-data",
-              artifactVolumeName: "artifact",
-              scratchTmpVolumeName: "compiler-tmp",
-              scratchWorkspaceVolumeName: "prepare-workspace",
-              resources: compilerResources,
-            }),
             {
               name: RUN_CONTAINER_NAME,
               image: params.image,
@@ -175,8 +130,9 @@ export function buildStageJobManifest(params: StageJobManifestParams): k8s.V1Job
               resources: runResources,
               securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
               volumeMounts: [
-                { name: "submission-data", mountPath: "/submission", readOnly: true },
-                { name: "artifact", mountPath: "/artifact", readOnly: true },
+                { name: "run-payload", mountPath: "/payload", readOnly: true },
+                { name: "submission-data", mountPath: "/submission" },
+                { name: "artifact", mountPath: "/artifact" },
                 { name: "run-workspace", mountPath: "/workspace" },
                 { name: "run-tmp", mountPath: "/tmp" },
                 { name: "outputs", mountPath: "/outputs" },
@@ -206,13 +162,11 @@ export function buildStageJobManifest(params: StageJobManifestParams): k8s.V1Job
             payloadVolume("judge-payload", params.judgeConfigMapNames),
             { name: "submission-data", emptyDir: { sizeLimit: SUBMISSION_DATA_SIZE_LIMIT } },
             { name: "artifact", emptyDir: { sizeLimit: "256Mi" } },
+            { name: "run-workspace", emptyDir: { sizeLimit: "256Mi" } },
             {
-              name: "compiler-tmp",
+              name: "run-tmp",
               emptyDir: { sizeLimit: `${String(COMPILER_SCRATCH_MB)}Mi` },
             },
-            { name: "prepare-workspace", emptyDir: { sizeLimit: "128Mi" } },
-            { name: "run-workspace", emptyDir: { sizeLimit: "256Mi" } },
-            { name: "run-tmp", emptyDir: { sizeLimit: "64Mi" } },
             { name: "outputs", emptyDir: { sizeLimit: "512Mi" } },
             { name: "judge-data", emptyDir: { sizeLimit: SUBMISSION_DATA_SIZE_LIMIT } },
             { name: "judge-artifact", emptyDir: { sizeLimit: "256Mi" } },

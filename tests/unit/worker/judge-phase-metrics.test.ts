@@ -88,8 +88,8 @@ describe("recordWallClockTimeouts", () => {
 
 describe("bounded-cardinality judge phase metrics", () => {
   it.each([
-    ["standard", ["prepare", "case-0"], ["prepare", "execute"]],
-    ["checker", ["prepare-validator", "runner"], ["prepare", "checker"]],
+    ["standard", ["run", "judge"], ["execute", "checker"]],
+    ["checker", ["run", "judge"], ["execute", "checker"]],
     ["interactive", ["solution", "interactor"], ["execute", "checker"]],
     ["advanced", ["prep", "run", "grader"], ["prepare", "execute", "checker"]],
   ] as const)("uses real lifecycle times for %s", (mode, names, phases) => {

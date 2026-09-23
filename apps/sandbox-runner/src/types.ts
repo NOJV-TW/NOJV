@@ -62,12 +62,10 @@ export const SandboxInputSchema = z.object({
     .optional(),
   mode: z
     .discriminatedUnion("kind", [
-      z.object({ kind: z.literal("compile") }),
       z.object({
         kind: z.literal("run-stage"),
         caseIndices: z.array(z.number().int().nonnegative()).max(2000),
         parallelism: z.number().int().min(1).max(16).default(1),
-        runCommand: z.array(z.string().min(1)).min(1).optional(),
       }),
       z.object({ kind: z.literal("judge-stage") }),
     ])

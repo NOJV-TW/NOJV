@@ -162,7 +162,7 @@ describe("buildJudgePayload — only the judge container receives answers", () =
   });
 });
 
-describe("buildStageJobManifest — prepare, run and judge in one hardened Pod", () => {
+describe("buildStageJobManifest — run and judge in one hardened Pod", () => {
   const params = {
     jobName: "judge-sub-1",
     namespace: "nojv-sandbox",
@@ -179,14 +179,13 @@ describe("buildStageJobManifest — prepare, run and judge in one hardened Pod",
     runtimeClassName: "gvisor",
   };
   const pod = buildStageJobManifest(params).spec!.template.spec!;
-  const [prepare, run] = pod.initContainers!;
+  const [run] = pod.initContainers!;
   const judge = pod.containers[0]!;
 
-  it("orders prepare and run before the judge, each with its phase", () => {
+  it("runs the compiling run container before the judge, each with its phase", () => {
     expect(pod.runtimeClassName).toBe("gvisor");
-    expect(pod.initContainers!.map(({ name }) => name)).toEqual(["prepare", "run"]);
+    expect(pod.initContainers!.map(({ name }) => name)).toEqual(["run"]);
     expect(pod.containers.map(({ name }) => name)).toEqual(["judge"]);
-    expect(prepare!.env).toContainEqual({ name: "SANDBOX_PHASE", value: "prepare" });
     expect(run!.env).toContainEqual({ name: "SANDBOX_PHASE", value: "run-stage" });
     expect(judge.env).toContainEqual({ name: "SANDBOX_PHASE", value: "judge-stage" });
   });
@@ -196,20 +195,16 @@ describe("buildStageJobManifest — prepare, run and judge in one hardened Pod",
       requests: { cpu: "2", memory: "64Mi" },
       limits: { cpu: "2", memory: "704Mi" },
     });
-    expect(prepare!.resources?.limits).toEqual({ cpu: "1", memory: "512Mi" });
+    expect(judge.resources?.limits).toEqual({ cpu: "1", memory: "512Mi" });
   });
 
   it("never mounts answers or the validator where student code runs", () => {
     const judgeVolumes = ["judge-payload", "judge-data", "judge-artifact"];
-    for (const container of [prepare!, run!]) {
-      expect(container.volumeMounts!.some(({ name }) => judgeVolumes.includes(name))).toBe(
-        false,
-      );
-    }
+    expect(run!.volumeMounts!.some(({ name }) => judgeVolumes.includes(name))).toBe(false);
     expect(run!.volumeMounts).toContainEqual({ name: "outputs", mountPath: "/outputs" });
     expect(run!.volumeMounts).toContainEqual({
-      name: "submission-data",
-      mountPath: "/submission",
+      name: "run-payload",
+      mountPath: "/payload",
       readOnly: true,
     });
     expect(judge.volumeMounts).toContainEqual({
@@ -237,7 +232,7 @@ describe("buildStageJobManifest — prepare, run and judge in one hardened Pod",
       runAsNonRoot: true,
       seccompProfile: { type: "RuntimeDefault" },
     });
-    for (const container of [prepare!, run!, judge]) {
+    for (const container of [run!, judge]) {
       expect(container.securityContext).toMatchObject({
         allowPrivilegeEscalation: false,
         capabilities: { drop: ["ALL"] },
@@ -301,11 +296,11 @@ it("caps resource requests at the derived low problem limit while reserving comp
   });
   expect(memoryMb).toBe(80);
   const pod = stagePod({ cpuLimit: "0.05", memoryRequest: "128Mi", runMemoryLimit: "80Mi" });
-  expect(pod.initContainers![0]!.resources).toEqual({
+  expect(pod.containers[0]!.resources).toEqual({
     requests: { cpu: "0.05", memory: "128Mi" },
     limits: { cpu: "0.05", memory: "512Mi" },
   });
-  expect(pod.initContainers![1]!.resources?.requests?.memory).toBe("80Mi");
+  expect(pod.initContainers![0]!.resources?.requests?.memory).toBe("80Mi");
 });
 
 it.each([
@@ -318,7 +313,7 @@ it.each([
   "compares valid fractional and exponent quantities without changing under-limit text: $memoryRequest",
   ({ memoryRequest, memoryLimit, expected }) => {
     const pod = stagePod({ memoryRequest, runMemoryLimit: memoryLimit });
-    expect(pod.initContainers![1]!.resources?.requests?.memory).toBe(expected);
+    expect(pod.initContainers![0]!.resources?.requests?.memory).toBe(expected);
   },
 );
 

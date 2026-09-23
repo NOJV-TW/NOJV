@@ -1,8 +1,8 @@
 # One sandbox per stage, per-process accounting
 
-Status: milestones 1a–6 (payload step 1) implemented; awaiting release and the
-production stress run (2026-09-23). Supersedes the per-case container layout
-from PR #149.
+Status: milestones 1a–6 (payload step 1) released in v1.3.10 (2026-09-23);
+compile merged into the run container afterwards. Supersedes the per-case
+container layout from PR #149.
 
 ## Why
 
@@ -177,6 +177,13 @@ Each milestone is its own PR and release.
 - **Waves are gone.** One Job per stage; `K8S_MAX_PARALLEL_CASES` and
   `K8S_CASE_CPU_REQUEST` are replaced by `K8S_RUN_PARALLELISM`, lowered per
   stage when the memory limit would push the run container past 1536 MiB.
+- **Compile moved into the run container** (after v1.3.10). Prod timelines
+  showed each init-to-next container start costs about 2 s under gVisor
+  (sandbox start 3 s, compile 1 s, prepare→run gap 2 s, run→judge gap 2 s), so
+  `run-stage` now materializes, compiles and runs in one container. The run
+  container's `/submission` and `/artifact` become writable to student code,
+  which holds only inputs and its own program; answers stay in the judge
+  container and outputs stay hash-checked.
 - **Release note.** Interactive stage size changes from 1 to 20. An interactive
   execution in flight during the rollout would map its saved stage index onto
   the new size, so check for running interactive executions before rolling out.

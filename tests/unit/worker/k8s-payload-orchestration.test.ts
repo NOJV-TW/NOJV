@@ -283,7 +283,7 @@ describe("K8sExecutor sharded payload orchestration", () => {
       await expect(execution).rejects.toMatchObject({
         name: "SandboxInfrastructureError",
         cause: failure,
-        message: expect.stringContaining("nojv-sandbox/judge-log-failure-pod (prepare)"),
+        message: expect.stringContaining("nojv-sandbox/judge-log-failure-pod (run)"),
       });
       expect(fake.record.configMapsDeleted).toEqual(fake.record.configMapsCreated);
     },
@@ -332,13 +332,10 @@ describe("K8sExecutor sharded payload orchestration", () => {
       [...fake.record.configMapsCreated].sort(),
     );
     const podSpec = fake.record.jobsCreated[0].spec.template.spec;
-    expect(podSpec.initContainers.map((container: any) => container.name)).toEqual([
-      "prepare",
-      "run",
-    ]);
+    expect(podSpec.initContainers.map((container: any) => container.name)).toEqual(["run"]);
     expect(podSpec.initContainers[0].env).toContainEqual({
       name: "SANDBOX_PHASE",
-      value: "prepare",
+      value: "run-stage",
     });
     for (const name of ["run-payload", "judge-payload"])
       expect(
@@ -399,12 +396,9 @@ describe("K8sExecutor sharded payload orchestration", () => {
     expect(fake.record.jobsCreated).toHaveLength(1);
     const spec = fake.record.jobsCreated[0].spec.template.spec;
     expect(spec.runtimeClassName).toBe("gvisor");
-    expect(spec.initContainers.map((container: any) => container.name)).toEqual([
-      "prepare",
-      "run",
-    ]);
+    expect(spec.initContainers.map((container: any) => container.name)).toEqual(["run"]);
     expect(spec.containers.map((container: any) => container.name)).toEqual(["judge"]);
-    expect(spec.initContainers[1].resources.requests.cpu).toBe("1");
+    expect(spec.initContainers[0].resources.requests.cpu).toBe("1");
   });
 
   it("lowers run parallelism until the run container fits the memory ceiling", async () => {
@@ -417,7 +411,7 @@ describe("K8sExecutor sharded payload orchestration", () => {
       { ...request("x", 3), limits: { timeoutMs: 1_000, memoryMb: 1024 } },
       { runId: "big-memory", signal: new AbortController().signal },
     );
-    const run = fake.record.jobsCreated[0].spec.template.spec.initContainers[1];
+    const run = fake.record.jobsCreated[0].spec.template.spec.initContainers[0];
     expect(run.resources.limits).toEqual({ cpu: "1", memory: "1216Mi" });
   });
 

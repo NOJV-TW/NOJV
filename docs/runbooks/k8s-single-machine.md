@@ -531,8 +531,8 @@ Concurrency is bounded by two things:
 #### Sizing the ResourceQuota to the box
 
 Each stage Job reserves `runParallelism` CPU (1 on single-machine) for its run
-container; the compile init container (300m) and the judge container request
-less and never raise the Pod's effective request above that. The single-machine
+container, which also compiles; the judge container (300m) requests less and
+never raises the Pod's effective request above that. The single-machine
 overlay runs five 1-CPU slots under quota `6` CPU / `16Gi` / `16` pods. Keep the
 quota aligned with actual host headroom; excess Jobs stay Pending.
 

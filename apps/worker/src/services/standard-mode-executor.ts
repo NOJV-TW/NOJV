@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
-  type RawCaseRun,
+  COMPILATION_TIMEOUT_MS,
   type SandboxExecutionContext,
   type SandboxRequest,
   type SandboxResult,
@@ -14,15 +14,16 @@ import { buildSandboxDockerArgs } from "./docker-args";
 import { sanitizeId, spawnDockerContainer, type DockerRunResult } from "./docker-process";
 import { buildDockerResourceLabels } from "./docker-resource";
 import { runInteractiveMode } from "./interactive-executor";
-import { buildSandboxConfigJson, sandboxSystemError } from "./sandbox-plan";
-import { parseCompileOutput, parseSandboxResult } from "./sandbox-schema";
+import { buildSandboxConfigJson } from "./sandbox-plan";
 import {
   buildJudgePayload,
   completeRuns,
   gradableRuns,
   judgeFailedForAll,
   mergeStageResults,
+  parseCompilationError,
   parseJudgeOutcomes,
+  parseRunResult,
 } from "./stage-result";
 
 const MAX_OUTER_TIMEOUT_MS = 540_000;
@@ -86,22 +87,6 @@ function containerFailure(phase: DockerRunResult, name: string): string | null {
   return null;
 }
 
-function parseRunOutput(phase: DockerRunResult): { rawRuns: RawCaseRun[]; message: string } {
-  const failure = containerFailure(phase, "Run");
-  if (failure) return { rawRuns: [], message: failure };
-  try {
-    const parsed = parseSandboxResult(JSON.parse(phase.stdout));
-    if (!parsed.success)
-      return { rawRuns: [], message: `Invalid run output: ${parsed.error.message}` };
-    return {
-      rawRuns: parsed.data.rawRuns ?? [],
-      message: parsed.data.pipelineError ?? "Run container produced no result.",
-    };
-  } catch {
-    return { rawRuns: [], message: `Failed to parse run output.\nstdout: ${phase.stdout}` };
-  }
-}
-
 async function makeSharedDir(prefix: string): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), prefix));
   await chmod(dir, 0o777);
@@ -148,60 +133,35 @@ async function runStageContainers(
   const judgeArtifactDir = await makeSharedDir(`nojv-judge-artifact-${baseName}-`);
 
   try {
-    await writeModeConfig({ kind: "compile" });
-    const compileName = `nojv-judge-c-${baseName}`;
-    const compile = await spawnDockerContainer({
-      args: containerArgs(compileName, tempDir, {
-        artifactMount: { hostDir: artifactDir, readOnly: false },
-      }),
-      containerName: compileName,
-      outerTimeoutMs: MAX_OUTER_TIMEOUT_MS,
-      signal: execution.signal,
-    });
-    const compileFailure = containerFailure(compile, "Compile");
-    if (compileFailure) return sandboxSystemError(compileFailure);
-
-    let compileParsed;
-    try {
-      compileParsed = parseCompileOutput(JSON.parse(compile.stdout));
-    } catch {
-      return sandboxSystemError(`Failed to parse compile output.\nstdout: ${compile.stdout}`);
-    }
-    if (!compileParsed.success) {
-      return sandboxSystemError(`Invalid compile output: ${compileParsed.error.message}`);
-    }
-    const compileOut = compileParsed.data;
-    if (compileOut.compilationError) {
-      return { testcaseResults: [], compilationError: compileOut.compilationError };
-    }
-    const runCommand = compileOut.runCommand;
-    if (!Array.isArray(runCommand) || runCommand.length === 0) {
-      return sandboxSystemError("Compile phase returned no run command.");
-    }
-
     await writeModeConfig({
       kind: "run-stage",
       caseIndices: request.testcases.map((tc) => tc.index),
       parallelism: 1,
-      runCommand,
     });
     const runName = `nojv-judge-r-${baseName}`;
-    const run = parseRunOutput(
-      await spawnDockerContainer({
-        args: containerArgs(runName, tempDir, {
-          artifactMount: { hostDir: artifactDir, readOnly: true },
-          outputsMount: { hostDir: outputDir, readOnly: false },
-        }),
-        containerName: runName,
-        outerTimeoutMs: Math.min(
-          (request.limits.timeoutMs * 2 + 5_000) * Math.max(1, request.testcases.length) +
-            30_000,
-          MAX_OUTER_TIMEOUT_MS,
-        ),
-        signal: execution.signal,
+    const runPhase = await spawnDockerContainer({
+      args: containerArgs(runName, tempDir, {
+        artifactMount: { hostDir: artifactDir, readOnly: false },
+        outputsMount: { hostDir: outputDir, readOnly: false },
       }),
+      containerName: runName,
+      outerTimeoutMs: Math.min(
+        COMPILATION_TIMEOUT_MS +
+          (request.limits.timeoutMs * 2 + 5_000) * Math.max(1, request.testcases.length) +
+          30_000,
+        MAX_OUTER_TIMEOUT_MS,
+      ),
+      signal: execution.signal,
+    });
+    const runFailure = containerFailure(runPhase, "Run");
+    const compilationError = runFailure ? null : parseCompilationError(runPhase.stdout);
+    if (compilationError) return { testcaseResults: [], compilationError };
+    const run = runFailure ? null : parseRunResult(runPhase.stdout);
+    const rawRuns = completeRuns(
+      request,
+      run?.rawRuns ?? [],
+      runFailure ?? run?.pipelineError ?? "Run container produced no result.",
     );
-    const rawRuns = completeRuns(request, run.rawRuns, run.message);
     const gradable = gradableRuns(request, rawRuns);
     if (gradable.length === 0) return mergeStageResults(request, rawRuns, new Map());
 
