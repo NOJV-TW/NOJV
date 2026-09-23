@@ -5,24 +5,24 @@
 ## 職責
 
 - 渲染所有頁面（題目、提交、課程、比賽、考試、儀表板、後台）
-- 對外提供 SSR API routes（`/api/**`）給瀏覽器與第三方
+- 對外提供 SvelteKit server endpoints（`/api/**`）及 OpenAPI contract 文件
 - 處理使用者認證、表單驗證、檔案上傳的 framework 接面
 - 委派業務邏輯給 `@nojv/application`，本身只做 presentation 與 transport
-- **不負責**：直接呼叫 Prisma（除 better-auth adapter 外）、定義 workflow、跑 sandbox
+- **不負責**：業務規則、直接呼叫 Prisma（僅 `auth.server.ts` adapter 及限定 hook）、定義 workflow、跑 sandbox
 
 ## 主要入口
 
-- `src/hooks.server.ts` — 安全 headers、CSP、i18n、auth context
-- `src/lib/auth.ts` — better-auth 設定（唯一使用 `prismaAdapterClient` 的位置）
-- `src/lib/server/api/handlers.ts` — `apiHandler` / `writeApiHandler` / `requireApiAuth`
-- `src/lib/server/auth/actor-context.ts` — `getActorContext` / `requireAuth`
-- `src/lib/server/shared/form-utils.ts` — 表單 helpers（readString / readCheckbox / parseJsonField）
+- `src/hooks.server.ts` — server hook pipeline; auto-instrumentation must remain first
+- `src/lib/auth.server.ts` — Better Auth configuration and the raw Prisma adapter
+- `src/lib/server/` — server-only transport, auth, OpenAPI and storage adapters
+- `src/lib/components/features/<domain>/` — domain UI; `primitives/` stays domain-agnostic
+- `src/routes/` — SvelteKit page and API entry points
 - `src/routes/(app)/**` — 應用頁面群
 - `src/routes/api/**` — API endpoints
 
 ## 依賴
 
-- 上游：`@nojv/core`、`@nojv/application`、`@nojv/db`（僅限 better-auth adapter）、`@nojv/redis`、`@nojv/storage`
+- 上游：`@nojv/core`、`@nojv/application`、`@nojv/mailer`、`@nojv/redis`、`@nojv/storage`、`@nojv/temporal`; `@nojv/db` is limited to auth wiring
 - 透過 HTTP/Temporal client：dispatch 至 `@nojv/worker` 的 workflow
 - 下游：終端使用者瀏覽器
 

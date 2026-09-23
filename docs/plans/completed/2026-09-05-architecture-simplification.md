@@ -117,4 +117,4 @@ Verification after the review fixes:
   Ctrl/Cmd save and submit, exam countdown/end-session, regular-admin MFA elevation,
   super-admin TOTP/passkey sign-in, and session isolation.
 
-This plan remains active until the change is reviewed and merged.
+PR #401 merged on 2026-09-05. The validation above records its historical local environments and commits; it does not establish current CI or production behavior.

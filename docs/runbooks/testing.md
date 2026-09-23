@@ -2,30 +2,34 @@
 
 How tests are organized in NOJV, where new tests belong, and how to run them.
 
-## Three Layers
+## Test Layers
 
 | Layer           | Scope                                                          | Real dependencies?                         | Location                         |
 | --------------- | -------------------------------------------------------------- | ------------------------------------------ | -------------------------------- |
 | **Unit**        | One pure function, one Zod schema, one small module            | No — mock or skip                          | `tests/unit/` (repo root)        |
+| **Component**   | One or more Svelte components rendered with DOM interactions   | jsdom and focused stubs                    | `tests/component/`               |
 | **Integration** | Cross-package paths, repository + DB, Redis, Temporal test env | Yes — uses real test DB / Redis / Temporal | `tests/integration/` (repo root) |
 | **E2E**         | Full user journey through SvelteKit + worker + sandbox         | Yes — runs against a booted system         | `tests/e2e/` (Playwright)        |
 
 ## Decision Flow: Where Does My New Test Go?
 
 ```
-Does the code under test live in exactly one package and have no I/O?
-├── Yes → Unit test in tests/unit/
+Does a single pure module define the behavior?
+├── Yes → Unit test in tests/unit/<domain>/
 └── No
-    ├── Crosses packages OR needs real DB/Redis/Temporal?
-    │   └── Yes → tests/integration/
-    └── Drives the UI through the browser?
-        └── Yes → tests/e2e/
+    ├── Is this one Svelte component's rendered behavior?
+    │   └── Yes → Component test in tests/component/web/
+    ├── Does it cross package or service boundaries?
+    │   └── Yes → Integration test in tests/integration/<domain>/
+    └── Does it verify a complete journey through a running app?
+        └── Yes → Browser test in tests/e2e/
 ```
 
 Rules of thumb:
 
 - A repository function that hits Prisma → integration test (real DB).
-- A domain function that does only math / parsing / Zod work → unit test in `tests/unit/`.
+- An application function that does only math / parsing / Zod work → unit test in `tests/unit/application/`.
+- A Svelte component's keyboard, loading, empty, or error state → component test in `tests/component/web/`.
 - A SvelteKit action or `+page.server.ts` loader → integration test (it touches the auth + DB stack).
 - A new UI flow that the user sees → E2E.
 
@@ -40,11 +44,11 @@ Rules of thumb:
 pnpm test:unit          # Vitest unit tests across all packages and apps
 pnpm test:db:provision  # Create and safety-mark the two destructive test databases
 pnpm test:integration   # Vitest integration tests (needs explicit test DB guard variables)
-pnpm test:e2e           # Playwright E2E on port 5174 (local only; not part of CI)
+pnpm test:e2e           # Full local Playwright suite on port 5174; CI runs a core browser smoke
 pnpm ci:verify          # Fast local gate — no PG/Redis needed (see below for what it does NOT cover)
 ```
 
-`ci:verify` runs the dependency-free subset only: `format` + the `lint:*` guards + `db:generate` + `turbo run build typecheck lint` + `typecheck:tests` + `test:unit`. It deliberately does **not** stand up Postgres or Redis, so it does **not** run: integration tests, the coverage gate (`pnpm test:coverage`), the migration schema-drift check (`prisma migrate diff --exit-code`), or `helm lint`. Those run only in CI (`.github/workflows/ci.yml`), which provisions PG + Redis first. A green `ci:verify` locally is necessary but not sufficient — CI is the source of truth.
+`ci:verify` runs formatting, repository guards, package builds, package and test typechecks, lint (including migration-structure guards), unit tests, and component tests. It does not start PostgreSQL or Redis, run integration tests or Playwright, execute the database migration-to-schema comparison, regenerate the Prisma reference, or render Helm charts. CI runs database migration/schema and generated-doc checks, a covered integration suite, Temporal integration, Helm validation, and a core Playwright browser smoke. The Kubernetes integration suite and full `pnpm test:e2e` remain separate checks. A green local `ci:verify` proves only that command's scope; check the current PR CI for the full CI result.
 
 Turbo task wiring lives in `turbo.json`. `test:unit` does not depend on `build` — unit tests should run fast and in isolation.
 
@@ -107,7 +111,7 @@ The destructive-test contract is deliberately strict:
 
 ## Coverage Targets
 
-We don't enforce a coverage percentage. The bar is: every domain mutation has a unit test for its pure logic, and every API/form action that touches DB has an integration test for the golden path plus the one most likely failure case.
+Vitest enforces coverage thresholds for `packages/application`, `packages/core`, `apps/worker`, and `apps/sandbox-runner`; see `coverage.thresholds` in [`vitest.config.ts`](../../vitest.config.ts) for the exact values. Beyond the thresholds, every application mutation needs a unit test for its pure logic, and every API/form action that touches the database needs an integration test for its golden path plus a likely failure case.
 
 ## Local Kubernetes and gVisor
 

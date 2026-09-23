@@ -38,7 +38,7 @@ NOJV is a production-oriented Online Judge platform. It supports competitive pro
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-Dependency direction is strictly top-down: `UI → Presentation → Service → Persistence → Data`. Infrastructure is cross-cutting and may be used by any layer.
+Application behavior flows from UI/presentation to `@nojv/application`, then to repositories and infrastructure. Workspace packages can use only the lower-level dependencies listed in the dependency table; no package may import an app.
 
 ## System Domains
 
@@ -57,49 +57,79 @@ Dependency direction is strictly top-down: `UI → Presentation → Service → 
 ```
 packages/
   core/             Zod schemas, DTO types, enums, contracts (zero deps)
-  db/               Prisma schema, migrations, repositories (depends: core; +redis, storage in seed/ops scripts only)
+  db/               Prisma schema, migrations, repositories (depends: core, storage; storage is used by seed/ops and resource cleanup)
   redis/            Connection, key registry, pub/sub (depends: core)
-  storage/          S3-compatible object storage for images (depends: none)
+  storage/          S3-compatible object storage and shared storage contracts (depends: core)
+  mailer/           SMTP and development/test sink (no internal workspace dependencies)
   sandbox-docker/   Shared hardened docker sandbox args for advanced packages (depends: none)
   temporal/         Temporal client + dispatch API + workflow I/O types + task queue constants (depends: core)
-  application/      Business logic — @nojv/application (depends: core, db, redis, storage, sandbox-docker, mailer)
+  application/      Business logic — @nojv/application (depends: core, db, redis, storage, mailer)
 
 apps/
-  web/              SvelteKit BFF (depends: core, application, temporal, db, redis, storage)
-  worker/           Temporal worker boot + activity implementations (depends: core, temporal, application, db, redis, storage, sandbox-docker)
+  web/              SvelteKit BFF (depends: core, application, temporal, db, redis, storage, mailer)
+  worker/           Temporal worker boot, workflows and activities (depends: core, temporal, application, db, redis, storage, mailer, sandbox-docker)
   sandbox-runner/   Isolated sandbox (depends: core only)
 ```
 
 ### Dependency Graph
 
-```
-                    core
-                   ↗  ↑  ↖↘
-                 db  redis  temporal   storage
-                  ↖   ↑                ↑
-                application ──────────┤
-                  ↗  ↑   ↖             │
-              web ───┘    worker ─────┘
-               ↖           ↗
-                temporal
+The graph below summarizes the workspace dependencies declared by each current
+package manifest. The table that follows documents narrower import rules
+enforced inside those packages.
+
+```mermaid
+flowchart TB
+  web[apps/web] --> application[@nojv/application]
+  web --> core[@nojv/core]
+  web --> db[@nojv/db]
+  web --> mailer[@nojv/mailer]
+  web --> redis[@nojv/redis]
+  web --> storage[@nojv/storage]
+  web --> temporal[@nojv/temporal]
+
+  worker[apps/worker] --> application
+  worker --> core
+  worker --> db
+  worker --> mailer
+  worker --> redis
+  worker --> sandboxDocker[@nojv/sandbox-docker]
+  worker --> storage
+  worker --> temporal
+
+  sandboxRunner[apps/sandbox-runner] --> core
+
+  application --> core
+  application --> db
+  application --> mailer
+  application --> redis
+  application --> storage
+  db --> core
+  db --> storage
+  redis --> core
+  storage --> core
+  temporal --> core
 ```
 
-No cycles. `application` exposes orchestration-shaped functions, but reaches Temporal only through the configured `DomainOrchestrationAdapter`; `web` and `worker` wire that adapter to the `@nojv/temporal` root dispatch/query helpers at startup. `worker` → `application` remains the path for activity business logic. Activities live in `apps/worker/src/activities/` so `temporal` does NOT need to depend on `application` — that's what previously forced the `@nojv/job-dispatch` split.
+There are no workspace dependency cycles. `application` exposes an
+orchestration port but does not import Temporal. `web` and `worker` wire that
+port to `@nojv/temporal` at startup; workflows and activity implementations
+remain in `apps/worker/`.
 
 ### Dependency Rules
 
-| Package          | May import                                                                    | Must NOT import                                                                |
-| ---------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `core`           | (nothing)                                                                     | everything                                                                     |
-| `db`             | `core` ¶                                                                      | application, temporal; redis/storage from `src/`                               |
-| `redis`          | `core`                                                                        | application, db, temporal                                                      |
-| `application`    | `core`, `db`, `redis`, `storage`, `sandbox-docker`, `mailer` \*               | temporal, `@nojv/temporal/workflows`, web, worker                              |
-| `temporal`       | `core`                                                                        | db, redis, application, web, worker (must stay self-contained to avoid cycles) |
-| `storage`        | (none of `@nojv/*`)                                                           | everything `@nojv/*`                                                           |
-| `sandbox-docker` | (none of `@nojv/*`)                                                           | everything `@nojv/*`                                                           |
-| `web`            | `core`, `application`, `temporal` ‖, `storage` ※, `redis` †, `db` ‡           | temporal/workflows                                                             |
-| `worker`         | `core`, `temporal`, `application`, `db`, `redis`, `storage`, `sandbox-docker` | web                                                                            |
-| `sandbox-runner` | `core`                                                                        | everything else                                                                |
+| Package          | May import                                                                              | Must NOT import                                                                |
+| ---------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `core`           | (nothing)                                                                               | everything                                                                     |
+| `db`             | `core` in `src/`; `storage` only in Prisma seed/ops scripts ¶                           | application, temporal, redis                                                   |
+| `redis`          | `core`                                                                                  | application, db, temporal                                                      |
+| `application`    | `core`, `db`, `redis`, `storage`, `mailer` \*                                           | temporal, `@nojv/temporal/workflows`, web, worker                              |
+| `temporal`       | `core`                                                                                  | db, redis, application, web, worker (must stay self-contained to avoid cycles) |
+| `storage`        | `core`                                                                                  | application, db, redis, temporal, web, worker                                  |
+| `mailer`         | (none of `@nojv/*`)                                                                     | everything `@nojv/*`                                                           |
+| `sandbox-docker` | (none of `@nojv/*`)                                                                     | everything `@nojv/*`                                                           |
+| `web`            | `core`, `application`, `temporal` ‖, `storage` ※, `redis` †, `db` ‡, `mailer`           | temporal/workflows                                                             |
+| `worker`         | `core`, `temporal`, `application`, `db`, `redis`, `storage`, `sandbox-docker`, `mailer` | web                                                                            |
+| `sandbox-runner` | `core`                                                                                  | everything else                                                                |
 
 \* `application` coordinates immutable storage uploads with PostgreSQL pointer
 updates. S3 writes are not part of a database transaction: uploads are guarded
@@ -136,13 +166,11 @@ actions must call those adapters or go through `@nojv/application` (e.g.
 `problemDomain.hydrateTestcaseSets`) — they must not import
 `@nojv/storage` directly. The ESLint rule above enforces this too.
 
-¶ `@nojv/db` declares `@nojv/storage` as a runtime dependency, but only its
-seed and one-off ops scripts (`prisma/seed.ts`, `prisma/seeds/*`,
-`prisma/scripts/*`) import it to upload demo problem blobs. The shipped
-library (`src/` → `dist/`) does not, so the layer graph above holds for
-everything that runs in production request paths. Storage stays in
-`dependencies` (not `devDependencies`) because the seed runs inside the
-minimal `migrator` image, which installs `@nojv/db` only.
+¶ `@nojv/db` declares `@nojv/storage` as a runtime dependency for Prisma seed
+and one-off operations, including demo problem blob uploads. No module under
+`packages/db/src/` imports storage; the production application dependency
+graph is therefore `core` only. Keep the package dependency while those tools
+run inside the migrator image.
 
 ## Runtime Entry Points
 

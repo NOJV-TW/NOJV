@@ -6,7 +6,7 @@
 
 - 封裝所有 domain 操作（題目、課程、比賽、考試、提交、抄襲、通知、評分、計分板）
 - 處理權限判斷（`canManageContest`、`canManageExam`、`assertProblemEditAccess` 等）
-- 對 DB / Redis / Storage / Temporal 做組合與交易控制
+- 對 DB / Redis / Storage / mailer 做組合與交易控制；Temporal 操作經由 `DomainOrchestrationAdapter` port
 - 計分、scoreboard 更新、adjustment rule 套用
 - **不負責**：HTTP 解析、SvelteKit `RequestEvent`、Temporal SDK 直接呼叫
 - **嚴禁** import `@sveltejs/kit`、`@temporalio/*`（要 dispatch 走 `@nojv/temporal` 的 dispatch helpers；不能 import `@nojv/temporal/workflows`）
@@ -21,7 +21,7 @@
 
 ## 依賴
 
-- 上游：`@nojv/core`、`@nojv/db`、`@nojv/redis`、`@nojv/storage`、`@nojv/temporal`
+- 上游：`@nojv/core`、`@nojv/db`、`@nojv/mailer`、`@nojv/redis`、`@nojv/storage`
 - 下游：`apps/web` 的 server routes、`apps/worker` 的 activities
 
 ## 本地開發

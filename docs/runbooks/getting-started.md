@@ -7,8 +7,8 @@ Step-by-step bootstrap procedures for new developers.
 Verify before starting:
 
 ```bash
-node -v   # >= 24.0.0
-pnpm -v   # 10.x
+node -v   # >= 24.18.0 <25, see package.json
+pnpm -v   # 11.13.1, see package.json
 docker -v # Docker Desktop running
 ```
 

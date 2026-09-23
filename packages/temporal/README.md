@@ -5,11 +5,11 @@
 ## 職責
 
 - 提供 Temporal client 單例（`getTemporalClient` / `closeTemporalClient`）
-- 提供 dispatch API：`dispatchSubmissionJudge`、`dispatchRejudge`、`dispatchPlagiarismCheck`，以及 assignment、exam、contest lifecycle 的 `ensure` / `replace` / `cancel` reconciliation helpers
+- 提供 dispatch API：`dispatchSubmissionJudge`、`dispatchRejudge`、`dispatchPlagiarismCheck`，以及 assignment、exam、contest lifecycle、judge execution/cleanup 和 registry work 的 dispatch/query/reconciliation helpers
 - 定義 task queue 名稱（`JUDGE_TASK_QUEUE`、`PLATFORM_TASK_QUEUE`）
 - 定義 dispatch input/output 與 workflow signal types
 
-**這個 package 故意 _沒_ 依賴 `@nojv/application` 或任何 workflow / activity 程式碼** —— 那是為了避免 `domain → temporal → domain` 的循環依賴。workflow 定義與 activity 實作都放在 `apps/worker/`，由 worker 啟動時 register 給 Temporal SDK。
+**這個 package 故意 _沒_ 依賴 `@nojv/application` 或任何 workflow / activity 程式碼** —— 那是為了避免 `application → temporal → application` 的循環依賴。workflow 定義與 activity 實作都放在 `apps/worker/`，由 worker 啟動時 register 給 Temporal SDK。
 
 ## 主要入口
 

@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://github.com/TakalaWang/NOJV/actions/workflows/ci.yml"><img src="https://github.com/TakalaWang/NOJV/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
-  <img src="https://img.shields.io/badge/node-%3E%3D24-brightgreen" alt="Node >= 24">
+  <img src="https://img.shields.io/badge/node-24.18--24.x-brightgreen" alt="Node 24.18 through 24.x">
   <img src="https://img.shields.io/badge/SvelteKit-%2BTemporal-ff3e00" alt="SvelteKit + Temporal">
 </p>
 
@@ -46,11 +46,13 @@
 
 ## Quick Start
 
-**Prerequisites:** Node.js >= 24, pnpm 11.x, Docker Desktop (local Postgres, Redis, Temporal, sandbox).
+**Prerequisites:** Node.js >=24.18 <25, pnpm 11.13.1, Docker Desktop (local Postgres, Redis, Temporal, sandbox).
 
 Docker Compose is the **local development** path only — it starts the backing
 services so you can run the app from source with `pnpm dev`. To deploy NOJV, use
 the Helm chart (see [Deployment](#deployment)).
+
+For task-based code and documentation navigation, see [Agent and developer entrypoints](AGENTS.md) and the [documentation home](docs/README.md).
 
 ```bash
 # 1. Install dependencies

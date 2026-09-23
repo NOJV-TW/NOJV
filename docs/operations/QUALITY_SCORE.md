@@ -1,131 +1,35 @@
-# Quality Score
+# Quality and Verification Ledger
 
-Track documentation quality and implementation legibility as an honest
-ledger. **Not a changelog** — for batch-by-batch detail see git log and
-`docs/plans/completed/`.
+This ledger records what was checked and where current rules live. It is a snapshot, not a substitute for running the checks again. Implementation merged to `main` does not prove production deployment or live behavior.
 
-## Current Grades
+## Verified baseline
 
-| Area                       | Grade | Evidence                                                                                                                                                                                                                                                                                                                                                                                                            | Next Upgrade                                                                                                                    |
-| -------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Knowledge-store navigation | A-    | AGENTS.md maps all required docs with reading order; runbook index + reference catalog (`docs/runbooks/README.md`); a doc-link gate fails CI on dangling index links.                                                                                                                                                                                                                                               | Keep the task-driven doc index in step with new surfaces.                                                                       |
-| Product specification      | A-    | PRODUCT_SENSE.md + per-feature acceptance specs under `docs/specs/`.                                                                                                                                                                                                                                                                                                                                                | Request schemas centralized in `@nojv/core` (`contentReportSchema` promoted). Keep new endpoints importing shared schemas.      |
-| Architecture docs          | A     | Multi-tier diagram, dependency graph, package descriptions, sequence diagrams for submission / exam / scoreboard, storage data-flow diagram.                                                                                                                                                                                                                                                                        | Keep the diagrams in step with package boundary changes.                                                                        |
-| Frontend guidance          | A-    | Route map, API endpoints, component contracts, runtime boundaries, component-level accessibility evidence (ARIA patterns + Bits UI primitives).                                                                                                                                                                                                                                                                     | Visual snapshots intentionally not pursued — Playwright E2E is local-only (not CI-gated), so unreviewed baselines add little.   |
-| Design guidance            | B     | Design system tokens, fonts, interaction patterns documented from shipped code.                                                                                                                                                                                                                                                                                                                                     | Visual snapshots intentionally not pursued (Playwright E2E is local-only, not CI-gated).                                        |
-| Reliability guidance       | A     | SLO table (8 targets), failure modes, invariants, health checks, incident-recovery runbook. Grafana dashboards + 6 alert rules live.                                                                                                                                                                                                                                                                                | Provisional conservative thresholds accepted as operating values; revisit only if sustained prod traffic shows mis-calibration. |
-| Security guidance          | A-    | Handling rules, sensitive data, threat model cover all surfaces. CI runs CodeQL SAST + blocking `pnpm audit` gate (0 high/critical). DOMPurify / `@hono/node-server` / `cookie` transitives all cleared via `pnpm.overrides`, and the unused `joi` superforms adapter (plus its `@hapi/*` subtree) is dropped via `pnpm.ignoredOptionalDependencies`; `pnpm audit` reports zero known vulnerabilities (prod + dev). | Keep the override list pruned as upstreams fix their transitives natively.                                                      |
-| Schema documentation       | B+    | Domain model overview, enums, relationships, ERD (`DATABASE.md`); `pnpm db:docs` emits exhaustive field-level reference (`DATABASE.generated.md`), CI-gated for drift.                                                                                                                                                                                                                                              | Cross-link the generated field reference from the feature specs that consume it.                                                |
-| Test coverage              | B     | Vitest unit/component/integration and Playwright E2E, including HTTP, Docker and Kubernetes contracts. Current measured runs are linked below; v8 coverage thresholds ratchet domain + core.                                                                                                                                                                                                                        | Expand route-level integration coverage on the new HTTP harness.                                                                |
+The clean baseline at `fb9f34e5d4a56c927d04f4a4d0b7327e7a238ca0` was checked on 2026-09-24 with Node `24.19.0` and the locked pnpm version. `pnpm ci:verify` passed formatting, repository guards, build, typecheck, lint, 384 unit test files (3,555 passed, 2 skipped), and 43 component test files (105 passed). `pnpm install --frozen-lockfile` also passed for all 15 workspace projects.
 
-## Current architecture review
+That command does not run the full integration suite, the full Playwright suite, real Docker/Kubernetes judge checks, `pnpm db:seed:validate`, Helm rendering, a current GitHub Actions run, or production acceptance. Those results are not claimed by this baseline. See the current [verification matrix](../runbooks/testing.md) for commands and boundaries.
 
-The 2026-09-05 review found silent failure-to-success conversions, duplicated
-sandbox contracts, and unused UI infrastructure. Implementation and fresh validation
-are tracked in [Architecture simplification](../plans/active/2026-09-05-architecture-simplification.md).
-Historical grades below are not evidence that these new failure paths are covered.
+## Authoritative guidance
 
-## Outstanding Drift
+| Topic                                                      | Current source of truth                                                                                                 | Change it when                                                                           |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Overall dependency layers and runtime entry points         | [Architecture](../architecture/ARCHITECTURE.md)                                                                         | A workspace dependency, runtime boundary, or cross-app flow changes.                     |
+| Browser routes, components, and server-only boundaries     | [Frontend](../architecture/FRONTEND.md)                                                                                 | A route, browser/server boundary, or shared UI ownership changes.                        |
+| Judge and recovery contracts                               | [Judge pipeline](../architecture/JUDGE_PIPELINE.md) and [Reliability](../operations/RELIABILITY.md)                     | A verdict, retry, cancellation, timeout, or recovery contract changes.                   |
+| Database models and exact fields                           | [Database overview](../architecture/DATABASE.md); field reference is [generated](../architecture/DATABASE.generated.md) | Edit Prisma schema and regenerate with `pnpm db:docs`; never hand-edit generated output. |
+| Security requirements and attacker model                   | [Security](../operations/SECURITY.md) and [Threat model](../operations/THREAT_MODEL.md)                                 | A trust boundary, sensitive data flow, or sandbox capability changes.                    |
+| Deploy and operational procedures                          | [Deployment](../operations/DEPLOYMENT.md) and the relevant [runbook index](../runbooks/README.md)                       | A shipped deployment or recovery step changes.                                           |
+| Feature acceptance                                         | [Feature specs](../specs/)                                                                                              | User-visible behavior or API acceptance changes.                                         |
+| Decisions, trade-offs, and historical implementation plans | [Plan index](../plans/README.md)                                                                                        | A multi-step decision is made or a plan's completion evidence changes.                   |
 
-Add an entry here when code lands without its documentation, or vice
-versa. Clear the entry once the gap closes.
+## Known review work
 
-The 2026-06-12 full-codebase audit surfaced a documentation-drift cluster
-(this ledger's own `_None outstanding._` was itself drift). Remediation
-completed in `docs/plans/completed/2026-06-12-full-audit-remediation.md`.
+The current cleanup is tracked in [Codebase clarity](../plans/active/2026-09-24-codebase-clarity.md). It is rechecking package ownership and dependency rules, test taxonomy, worker sandbox organization, living-doc currentness, and status claims in plans. Until that review lands, the baseline above describes only the verified code revision and commands; it does not certify every document or runtime path.
 
-**Cleared (2026-06-12):**
+Historical quality grades and milestone narratives were removed because they lacked a current measurement boundary. Consult the linked source document for present rules and the plan archive for the original decision context.
 
-- Scoreboard live-update mechanism — unified across ARCHITECTURE / REDIS /
-  FRONTEND / RELIABILITY (SSE-nudge via `nojv:contest` + 10 s throttle, data
-  computed from Postgres). Was contradictory and wrong in all four.
-- THREAT_MODEL phantom models — removed `CourseJoinToken` /
-  `PlagiarismReport` / course-join-token threat scenarios; `ExamParticipation`
-  → `Participation`.
-- SECURITY Dependency Advisory Posture — now reflects the `pnpm.overrides`
-  that cleared the transitives (was "tracked but not gated"); advanced
-  tarball "signed URL" corrected to in-process GetObject.
+## Evidence rules
 
-- `DATABASE.md` curated prose realigned to the Participation supertype
-  (dropped triplet tables / `virtualContestId` / removed enums); Seed Data
-  now links to Getting Started instead of duplicating counts.
-- `incident-recovery.md` Scenario B rewritten to the current Redis posture
-  (Postgres scoreboards, fail-closed rate limiter, PG cooldown, no
-  `scoreboard.ts`).
-- `JUDGE_PIPELINE.md` line-number refs replaced with stable symbolic refs;
-  `gke/README.md` two-step apply clarified; `gcp/README.md` deploy.sh env
-  list completed.
-
-**Still outstanding (doc):** none — the audit doc-drift cluster is cleared.
-
-Code-level audit findings (security, performance, dead contracts) are tracked
-as phases in the remediation plan, not here.
-
-## Security Advisory Gate
-
-The workspace has no `pnpm audit` advisory suppressions. The blocking audit
-therefore sees the complete dependency graph and currently reports zero known
-vulnerabilities.
-
-## Recent Milestones
-
-One line each — full detail in `docs/plans/completed/` and git log.
-
-- **2026-06-12** — Full-codebase audit remediation (in progress on
-  `fix/full-audit-remediation-2026-06-12`): closed P0 rejudge-cancel
-  workflow-id confinement, P1 exam-confinement problem-membership check, P1
-  problem-delete onDelete asymmetry, P1 docker `--memory-swap` (MLE
-  correctness); judge-layer guardrails (isolation suite in nightly, docker-arg
-  golden tests, CPU-time TLE, coverage on worker/sandbox-runner); living-doc
-  honesty sweep (scoreboard / threat-model / security advisory).
-- **2026-06-11** — Participation supertype Stage 5 (PR #128): the
-  `ContestParticipation`/`ExamParticipation`/`VirtualContest` triplet
-  dropped into a single `Participation` model. Audit-backlog closeout:
-  GKE worker S3 storage env (prod judge crash fixed), full-text-search
-  GIN index, `@hono/node-server` override (moderate advisory cleared).
-  Confirmed already-resolved audit deferrals: 1.1 sign-up-disabled test,
-  3.1 rejudge error isolation, 7.2 repository boundary.
-- **2026-06-10** — Audit-remediation batch (in progress on
-  `fix/audit-remediation-2026-06-10`): `CourseAssessment` → `Assessment`
-  global rename (model / enum / `assessmentId` column + RENAME
-  migration); auth hardening (public sign-up disabled, prod admin
-  credentials out of source, first-login forced password change, TOTP
-  2FA); judge correctness (sandbox `SE` → `system_error` non-counting
-  verdict, large-output truncation before `submissionResultSchema`).
-  Wave 8 living-doc drift sweep landed this entry.
-- **2026-06-09** — Stale-submission reaper (PR #106): per-minute cron
-  sweeper terminates submissions stuck past the configurable pending
-  timeout and refunds the daily attempt (all `system_error` non-counting).
-- **2026-06-08** — Security/correctness audit batch (PR #105): exam
-  judging activity-bundle registration fix, `attemptResetMinuteOfDay`
-  migration, freeze-bypass scoreboard chart, rate-limiter key isolation.
-- **2026-05-28** — Storage unification + audit fixes (HIGH findings
-  resolved): editorial API-layer bypass closed by server-side context
-  resolution (commits `f1994619`, `fd2f7884`); multi-file MOSS
-  tokenization fix — sources concatenated by sorted path with `// ===`
-  boundary markers instead of JSON-stringified (commit `87ce1a30`).
-  `Submission.sourceCode` + `verdictDetail` columns replaced with
-  `sourceStoragePrefix` + `verdictSummary` + `verdictDetailStorageKey`;
-  new `SubmissionStatus.system_error` surfaces storage-side failures.
-- **2026-05-22** — Feedback edit history (`SubmissionFeedbackAuditLog`)
-  - Plagiarism trigger log + route-level permission tests (22 cases).
-    Closed the last two conditional-deferral entries from
-    `plagiarism.md` / `assignments.md`.
-
-## Notes
-
-- Update **Current Grades** when a column actually moves, not on every
-  PR — this file is the destination for grade movement, not commit
-  bookkeeping.
-- Add to **Outstanding Drift** only for known doc-vs-code gaps, and
-  clear the entry when the gap closes.
-- Add to **Recent Milestones** as a one-line entry; if the line wants
-  to grow into a paragraph, the detail belongs in the design doc under
-  `docs/plans/completed/` instead.
-- Prune **Recent Milestones** to roughly the last six entries — older
-  context lives in git log + `docs/plans/completed/`.
-
-## Related Docs
-
-- [Planning System](../product/PLANS.md)
-- [Architecture Overview](../architecture/ARCHITECTURE.md)
+- Record date, source revision, exact command, scope, and result for checks that support a current quality claim.
+- Keep local, CI, production, and live-behavior evidence distinct.
+- Treat configured CI jobs as policy, not proof that the latest revision passed. Read the run for the revision being reviewed.
+- Report integration, browser, container, cluster, and production checks only when they actually ran against an isolated target.

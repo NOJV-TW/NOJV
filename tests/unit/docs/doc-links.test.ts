@@ -7,7 +7,25 @@ import { describe, expect, it } from "vitest";
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..", "..", "..");
 
-const rootDocs = ["AGENTS.md", "README.md"];
+const rootDocs = [
+  "AGENTS.md",
+  "README.md",
+  "docs/README.md",
+  "docs/plans/README.md",
+  "apps/README.md",
+  "apps/web/README.md",
+  "apps/worker/README.md",
+  "apps/sandbox-runner/README.md",
+  "packages/README.md",
+  "packages/application/README.md",
+  "packages/core/README.md",
+  "packages/redis/README.md",
+  "packages/temporal/README.md",
+  "packages/sandbox-docker/README.md",
+  "tests/README.md",
+  "infra/README.md",
+  "tooling/README.md",
+];
 
 // Living-doc trees whose intra-repo links must all resolve. docs/plans/ is
 // deliberately excluded — archived plans carry historical links to code/docs
