@@ -1,8 +1,9 @@
 import {
   INTERACTIVE_RUN_MARKER,
   INTERACTIVE_VALIDATE_MARKER,
-  parseMarkedLine,
-  parseInteractiveRunReport,
+  parseMarkedLines,
+  parseInteractiveRunReports,
+  parseInteractiveValidatorReports,
   parseValidatorFeedback,
   VALIDATOR_EXIT_ACCEPT,
   VALIDATOR_EXIT_WRONG,
@@ -74,18 +75,20 @@ describe("validator feedback messages", () => {
   });
 });
 
-describe("parseMarkedLine (interactive run/validate markers)", () => {
+describe("parseMarkedLines (interactive run/validate markers)", () => {
   it("extracts the JSON payload following a marker", () => {
     const stderr = `some logging\n${INTERACTIVE_RUN_MARKER}{"exitCode":0,"timeMs":12}\n`;
-    expect(parseMarkedLine(stderr, INTERACTIVE_RUN_MARKER)).toEqual({
-      exitCode: 0,
-      timeMs: 12,
-    });
+    expect(parseMarkedLines(stderr, INTERACTIVE_RUN_MARKER)).toEqual([
+      { exitCode: 0, timeMs: 12 },
+    ]);
   });
 
-  it("uses the LAST occurrence of the marker", () => {
+  it("returns every marked line in order", () => {
     const stderr = `${INTERACTIVE_VALIDATE_MARKER}{"verdict":"WA"}\n${INTERACTIVE_VALIDATE_MARKER}{"verdict":"AC"}`;
-    expect(parseMarkedLine(stderr, INTERACTIVE_VALIDATE_MARKER)).toEqual({ verdict: "AC" });
+    expect(parseMarkedLines(stderr, INTERACTIVE_VALIDATE_MARKER)).toEqual([
+      { verdict: "WA" },
+      { verdict: "AC" },
+    ]);
   });
 
   it("ignores markers inside encoded compiler diagnostics", () => {
@@ -95,29 +98,32 @@ describe("parseMarkedLine (interactive run/validate markers)", () => {
       compilationError: "main.c:1:2: error: #error <<<NOJV_RUN>>>\n<<<NOJV_RUN>>>",
     };
     const stderr = `compiler logging\n${INTERACTIVE_RUN_MARKER}${JSON.stringify(report)}\n`;
-    expect(parseInteractiveRunReport(stderr)).toEqual(report);
+    expect(parseInteractiveRunReports(stderr)).toEqual([report]);
   });
 
   it("ignores markers embedded in ordinary log lines", () => {
     const stderr = `${INTERACTIVE_VALIDATE_MARKER}{"verdict":"AC"}\nlogging ${INTERACTIVE_VALIDATE_MARKER}{"verdict":"SE"}`;
-    expect(parseMarkedLine(stderr, INTERACTIVE_VALIDATE_MARKER)).toEqual({ verdict: "AC" });
+    expect(parseMarkedLines(stderr, INTERACTIVE_VALIDATE_MARKER)).toEqual([{ verdict: "AC" }]);
     expect(
-      parseMarkedLine(`logging ${INTERACTIVE_RUN_MARKER}{}`, INTERACTIVE_RUN_MARKER),
-    ).toBeNull();
+      parseMarkedLines(`logging ${INTERACTIVE_RUN_MARKER}{}`, INTERACTIVE_RUN_MARKER),
+    ).toEqual([]);
   });
 
-  it("returns null when the marker is absent", () => {
-    expect(parseMarkedLine("no markers here", INTERACTIVE_RUN_MARKER)).toBeNull();
-  });
-
-  it("returns null when the payload is not valid JSON", () => {
+  it("skips absent markers, invalid JSON and empty payloads", () => {
+    expect(parseMarkedLines("no markers here", INTERACTIVE_RUN_MARKER)).toEqual([]);
     expect(
-      parseMarkedLine(`${INTERACTIVE_RUN_MARKER}not json`, INTERACTIVE_RUN_MARKER),
-    ).toBeNull();
+      parseMarkedLines(`${INTERACTIVE_RUN_MARKER}not json`, INTERACTIVE_RUN_MARKER),
+    ).toEqual([]);
+    expect(parseMarkedLines(`${INTERACTIVE_RUN_MARKER}\n`, INTERACTIVE_RUN_MARKER)).toEqual([]);
   });
 
-  it("returns null on an empty payload", () => {
-    expect(parseMarkedLine(`${INTERACTIVE_RUN_MARKER}\n`, INTERACTIVE_RUN_MARKER)).toBeNull();
+  it("keeps the case index on run and validator reports", () => {
+    const stderr = [
+      `${INTERACTIVE_RUN_MARKER}{"index":3,"exitCode":0,"timeMs":10}`,
+      `${INTERACTIVE_VALIDATE_MARKER}{"index":3,"verdict":"AC"}`,
+    ].join("\n");
+    expect(parseInteractiveRunReports(stderr)).toEqual([{ index: 3, exitCode: 0, timeMs: 10 }]);
+    expect(parseInteractiveValidatorReports(stderr)).toEqual([{ index: 3, verdict: "AC" }]);
   });
 });
 
@@ -129,14 +135,14 @@ describe("interactive compilation reports", () => {
       compilationError: "main.c: syntax error\nsecond line",
     };
     expect(
-      parseInteractiveRunReport(`${INTERACTIVE_RUN_MARKER}${JSON.stringify(report)}\n`),
-    ).toEqual(report);
+      parseInteractiveRunReports(`${INTERACTIVE_RUN_MARKER}${JSON.stringify(report)}\n`),
+    ).toEqual([report]);
   });
 
   it("rejects malformed compilation diagnostics", () => {
     const report = { exitCode: -1, timeMs: 0, compilationError: 42 };
     expect(
-      parseInteractiveRunReport(`${INTERACTIVE_RUN_MARKER}${JSON.stringify(report)}\n`),
-    ).toBeNull();
+      parseInteractiveRunReports(`${INTERACTIVE_RUN_MARKER}${JSON.stringify(report)}\n`),
+    ).toEqual([]);
   });
 });

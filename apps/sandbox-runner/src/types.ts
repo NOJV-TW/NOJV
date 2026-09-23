@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  compareOptionsSchema,
   judgeScriptLanguageSchema,
   judgeTypeSchema,
   languageSchema,
@@ -42,21 +43,20 @@ export const SandboxInputSchema = z.object({
     memoryMb: z.number(),
     env: z.record(z.string(), z.string()).optional(),
   }),
+  compare: compareOptionsSchema.nullish(),
   checkerLanguage: judgeScriptLanguageSchema.optional(),
   interactorLanguage: judgeScriptLanguageSchema.optional(),
-  validate: z
-    .object({
-      language: judgeScriptLanguageSchema,
-      cases: z.array(z.object({ index: z.number().int().nonnegative() })).max(2000),
-    })
-    .optional(),
+  validate: z.object({ language: judgeScriptLanguageSchema }).optional(),
   interactive: z
     .discriminatedUnion("role", [
-      z.object({ role: z.literal("solution") }),
+      z.object({
+        role: z.literal("solution"),
+        cases: z.array(z.number().int().nonnegative()).min(1).max(2000),
+      }),
       z.object({
         role: z.literal("validator"),
         language: judgeScriptLanguageSchema,
-        index: z.number().int().nonnegative(),
+        cases: z.array(z.number().int().nonnegative()).min(1).max(2000),
       }),
     ])
     .optional(),
@@ -64,10 +64,12 @@ export const SandboxInputSchema = z.object({
     .discriminatedUnion("kind", [
       z.object({ kind: z.literal("compile") }),
       z.object({
-        kind: z.literal("run-case"),
-        caseIndex: z.number().int().nonnegative(),
-        runCommand: z.array(z.string().min(1)).min(1),
+        kind: z.literal("run-stage"),
+        caseIndices: z.array(z.number().int().nonnegative()).max(2000),
+        parallelism: z.number().int().min(1).max(16).default(1),
+        runCommand: z.array(z.string().min(1)).min(1).optional(),
       }),
+      z.object({ kind: z.literal("judge-stage") }),
     ])
     .optional(),
 });

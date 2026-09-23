@@ -126,11 +126,10 @@ is a fitness test that fails CI if the GKE manifest omits a required worker env.
 | `SANDBOX_PIDS_LIMIT`                 | **required** (Docker backend)        | PID limit per sandbox                                                                                                  |
 | `K8S_NAMESPACE`                      | **required** (Kubernetes backend)    | Namespace for sandbox pods                                                                                             |
 | `K8S_CPU_REQUEST`                    | **required** (Kubernetes backend)    | Sandbox pod CPU request                                                                                                |
-| `K8S_CASE_CPU_REQUEST`               | **required** (Kubernetes backend)    | CPU request for each testcase container                                                                                |
 | `K8S_CPU_LIMIT`                      | **required** (Kubernetes backend)    | Sandbox pod CPU limit                                                                                                  |
 | `K8S_MEMORY_REQUEST`                 | **required** (Kubernetes backend)    | Sandbox pod memory request                                                                                             |
 | `K8S_MEMORY_LIMIT`                   | **required** (Kubernetes backend)    | Sandbox pod memory limit                                                                                               |
-| `K8S_MAX_PARALLEL_CASES`             | **required** (Kubernetes backend)    | Maximum testcase containers per sandbox Job wave (1–20)                                                                |
+| `K8S_RUN_PARALLELISM`                | `1`                                  | Testcases one stage Pod runs at once; its run container requests and is limited to this many CPUs (1–8)                |
 | `K8S_RUNTIME_CLASS_NAME`             | **required** (Kubernetes backend)    | RuntimeClass required for every sandbox Pod; production is `gvisor`                                                    |
 
 > The `SANDBOX_*` resource limits are read only by the Docker backend; the
@@ -183,11 +182,10 @@ Local dev uses MinIO. Production can use GCS (S3-compatible mode), Cloudflare R2
 | ------------------------ | ------------------------------------------------------ |
 | `K8S_NAMESPACE`          | Kubernetes namespace for sandbox jobs                  |
 | `K8S_CPU_REQUEST`        | CPU request per sandbox pod                            |
-| `K8S_CASE_CPU_REQUEST`   | CPU request per testcase container                     |
 | `K8S_CPU_LIMIT`          | CPU limit per sandbox pod                              |
 | `K8S_MEMORY_REQUEST`     | Memory request per sandbox pod                         |
 | `K8S_MEMORY_LIMIT`       | Memory limit per sandbox pod                           |
-| `K8S_MAX_PARALLEL_CASES` | Maximum testcase containers per Job wave               |
+| `K8S_RUN_PARALLELISM`    | Testcases run at once per stage Pod                    |
 | `K8S_RUNTIME_CLASS_NAME` | Required sandbox RuntimeClass (`gvisor` in production) |
 
 ## Observability
@@ -291,21 +289,18 @@ The single-machine deployment has web HPA but no node autoscaler:
 | Tier     | Single-machine (`values-single-machine.yaml`) | Autoscaling on one box                                          |
 | -------- | --------------------------------------------- | --------------------------------------------------------------- |
 | web      | 1 replica, HPA min 1 / max 3                  | CPU target 70%; scales only within the single node.             |
-| judge    | 1 worker, 2–10 slots by node CPU              | One slot = one submission stage Job in flight.                  |
+| judge    | 1 worker, 2–5 slots by node CPU               | One slot = one submission stage Job in flight.                  |
 | platform | 1 worker                                      | Fixed.                                                          |
 | sandbox  | quota `6` CPU / `16Gi` / `16` pods            | No node autoscaler; a rejected Job waits as `waiting_capacity`. |
 
-A stage Job holds up to `maxParallelCases` (20) testcase containers with
-`caseCpuRequest` (100m by default, 15m on single-machine) and 64 MiB requested
-each behind a compile init container at `cpuRequest`, so its effective request
-is `max(cpuRequest, maxParallelCases × caseCpuRequest)` CPU and the quota must
-hold `concurrency ×` that. The node's allocatable CPU minus the platform pods'
-requests bounds how many Jobs schedule at once: on the 8-CPU box the platform
-pods reserve about 2.6 CPU, so 2-CPU Jobs left slots Pending, while the
-0.3-CPU Jobs of a 300m compile request and 15m case request let all ten slots
-schedule (3 CPU) with room left for web autoscaling, inside the 6-CPU quota. Requests are reservations, not a cap: case
-containers still burst to their 1-CPU limit, and the slot tuner's 75% node-CPU
-target is what actually bounds contention. Raise `worker.judge.concurrency` and the quota together,
+A stage Job is one Pod: a compile init container at `cpuRequest`, a run init
+container that reserves `runParallelism` CPUs (request = limit) and runs the
+stage's cases, and a judge container. Its effective request is `runParallelism`
+CPU, so `replicas × concurrency × runParallelism` is the number of cases that can
+run at once and the chart refuses values where it exceeds the quota's CPU. On the
+8-CPU box the platform pods reserve about 2.6 CPU; five 1-CPU slots fit the
+remaining allocatable CPU and the 6-CPU quota, and keep five cores for judging.
+Raise `worker.judge.concurrency` and the quota together,
 for example ahead of an exam. Ordering between queued submissions is the Temporal task-queue
 priority described in [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#queue-priority-and-capacity).
 

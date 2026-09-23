@@ -301,11 +301,10 @@ worker:
         memory: 512Mi
   sandbox:
     cpuRequest: "500m"
-    caseCpuRequest: "100m"
     cpuLimit: "1"
     memoryRequest: "64Mi"
     memoryLimit: "512Mi"
-    maxParallelCases: 20
+    runParallelism: 1
     runtimeClassName: gvisor
     # dockerconfigjson Secret (in the sandbox namespace, created out-of-band) added
     # to judge run/grade/service pods' imagePullSecrets so they can pull private

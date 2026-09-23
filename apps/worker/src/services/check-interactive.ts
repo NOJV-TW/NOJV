@@ -1,9 +1,11 @@
 import {
-  parseInteractiveRunReport,
-  parseInteractiveValidatorReport,
+  parseInteractiveRunReports,
+  parseInteractiveValidatorReports,
+  type InteractiveRunReport,
   type SandboxResult,
   type SandboxTestcase,
   type SandboxTestcaseResult,
+  type ValidatorOutcome,
 } from "@nojv/core";
 
 import { errorVerdictFeedback } from "./check-standard";
@@ -18,6 +20,8 @@ export function mergeInteractiveCase(
   testcase: SandboxTestcase,
   sol: InteractiveSideResult,
   int: InteractiveSideResult,
+  run: InteractiveRunReport | undefined,
+  outcome: ValidatorOutcome | undefined,
 ): SandboxTestcaseResult {
   const se = (stderr: string, feedback: string): SandboxTestcaseResult => ({
     index: testcase.index,
@@ -34,10 +38,22 @@ export function mergeInteractiveCase(
   if (sol.spawnError) return se(sol.stderr, "Sandbox failed to start.");
   if (int.spawnError) return se(int.stderr, "Interactor failed to start (system error).");
 
-  const run = parseInteractiveRunReport(sol.stderr);
-  const outcome = parseInteractiveValidatorReport(int.stderr);
-
-  if (!run) return se(sol.stderr, "Interactive run produced no result (system error).");
+  if (outcome?.verdict === "SE") {
+    return {
+      ...se(run?.stderr ?? "", "Interactive judge failed; this submission was not counted."),
+      ...(outcome.judgeMessage ? { staffFeedback: outcome.judgeMessage } : {}),
+    };
+  }
+  if (!run) {
+    if (outcome?.verdict === "WA")
+      return {
+        ...se("", ""),
+        verdict: "WA",
+        ...(outcome.judgeMessage ? { staffFeedback: outcome.judgeMessage } : {}),
+        feedback: outcome.teamMessage ?? "Wrong answer.",
+      };
+    return se(sol.stderr, "Interactive run produced no result (system error).");
+  }
 
   const base = {
     index: testcase.index,
@@ -47,15 +63,6 @@ export function mergeInteractiveCase(
     timeMs: run.timeMs,
     ...(run.memoryKb !== undefined && run.memoryKb > 0 ? { memoryKb: run.memoryKb } : {}),
   };
-
-  if (outcome?.verdict === "SE") {
-    return {
-      ...base,
-      verdict: "SE",
-      feedback: "Interactive judge failed; this submission was not counted.",
-      ...(outcome.judgeMessage ? { staffFeedback: outcome.judgeMessage } : {}),
-    };
-  }
 
   if (run.errorVerdict) {
     const feedback = errorVerdictFeedback(run.errorVerdict, run.stderr ?? "");
@@ -82,14 +89,35 @@ export function mergeInteractiveCase(
   };
 }
 
-export function resolveInteractiveCase(
-  testcase: SandboxTestcase,
+export function resolveInteractiveStage(
+  testcases: SandboxTestcase[],
   sol: InteractiveSideResult,
   int: InteractiveSideResult,
 ): SandboxResult {
+  const runs = parseInteractiveRunReports(sol.stderr);
   if (!sol.timedOut && !sol.spawnError && !int.timedOut && !int.spawnError) {
-    const compilationError = parseInteractiveRunReport(sol.stderr)?.compilationError;
+    const compilationError = runs.find(
+      (run) => run.compilationError !== undefined,
+    )?.compilationError;
     if (compilationError !== undefined) return { testcaseResults: [], compilationError };
   }
-  return { testcaseResults: [mergeInteractiveCase(testcase, sol, int)] };
+  const runByIndex = new Map(
+    runs.flatMap((run) => (run.index === undefined ? [] : [[run.index, run] as const])),
+  );
+  const outcomeByIndex = new Map(
+    parseInteractiveValidatorReports(int.stderr).flatMap(({ index, ...outcome }) =>
+      index === undefined ? [] : [[index, outcome] as const],
+    ),
+  );
+  return {
+    testcaseResults: testcases.map((testcase) =>
+      mergeInteractiveCase(
+        testcase,
+        sol,
+        int,
+        runByIndex.get(testcase.index),
+        outcomeByIndex.get(testcase.index),
+      ),
+    ),
+  };
 }

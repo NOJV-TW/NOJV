@@ -65,7 +65,6 @@ function prepareContainer(params: {
   payloadVolumeName: string;
   submissionVolumeName: string;
   artifactVolumeName: string;
-  phase: "prepare" | "prepare-validator";
   scratchTmpVolumeName: string;
   scratchWorkspaceVolumeName: string;
   resources: k8s.V1ResourceRequirements;
@@ -75,7 +74,7 @@ function prepareContainer(params: {
     image: params.image,
     command: ["node", "/runner/index.js"],
     env: [
-      { name: "SANDBOX_PHASE", value: params.phase },
+      { name: "SANDBOX_PHASE", value: "prepare" },
       { name: "HOME", value: "/tmp" },
     ],
     resources: params.resources,
@@ -94,28 +93,27 @@ function prepareContainer(params: {
   };
 }
 
-export interface SandboxJobManifestParams {
+export const PREPARE_CONTAINER_NAME = "prepare";
+export const RUN_CONTAINER_NAME = "run";
+export const JUDGE_CONTAINER_NAME = "judge";
+
+export interface StageJobManifestParams {
   jobName: string;
   namespace: string;
-  configMapNames: string[];
+  runConfigMapNames: string[];
+  judgeConfigMapNames: string[];
   image: string;
   cpuRequest: string;
   cpuLimit: string;
   memoryRequest: string;
-  memoryLimit: string;
   compilerMemoryLimit: string;
+  runParallelism: number;
+  runMemoryLimit: string;
   activeDeadlineSeconds: number;
   runtimeClassName?: string;
 }
 
-export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V1Job {
-  const resources = {
-    requests: {
-      cpu: boundedRequest(params.cpuRequest, params.cpuLimit),
-      memory: boundedRequest(params.memoryRequest, params.memoryLimit),
-    },
-    limits: { cpu: params.cpuLimit, memory: params.memoryLimit },
-  };
+export function buildStageJobManifest(params: StageJobManifestParams): k8s.V1Job {
   const compilerResources = {
     requests: {
       cpu: boundedRequest(params.cpuRequest, params.cpuLimit),
@@ -123,133 +121,18 @@ export function buildSandboxJobManifest(params: SandboxJobManifestParams): k8s.V
     },
     limits: { cpu: params.cpuLimit, memory: params.compilerMemoryLimit },
   };
-  return {
-    apiVersion: "batch/v1",
-    kind: "Job",
-    metadata: {
-      name: params.jobName,
-      namespace: params.namespace,
-      labels: { app: "nojv-sandbox" },
-    },
-    spec: {
-      ttlSecondsAfterFinished: TTL_AFTER_FINISHED_SECONDS,
-      activeDeadlineSeconds: params.activeDeadlineSeconds,
-      backoffLimit: 0,
-      template: {
-        metadata: {
-          labels: { app: "nojv-sandbox", "nojv-role": "sandbox" },
-        },
-        spec: {
-          restartPolicy: "Never",
-          automountServiceAccountToken: false,
-          ...runtimeClassField(params.runtimeClassName),
-          nodeSelector: SANDBOX_NODE_SELECTOR,
-          tolerations: SANDBOX_TOLERATIONS,
-          securityContext: SANDBOX_POD_SECURITY_CONTEXT,
-          initContainers: [
-            prepareContainer({
-              name: "prepare-validator",
-              phase: "prepare-validator",
-              image: params.image,
-              payloadVolumeName: "payload",
-              submissionVolumeName: "submission-data",
-              artifactVolumeName: "artifact",
-              scratchTmpVolumeName: "compiler-tmp",
-              scratchWorkspaceVolumeName: "workspace",
-              resources: compilerResources,
-            }),
-          ],
-          containers: [
-            {
-              name: "runner",
-              image: params.image,
-              command: ["node", "/runner/index.js"],
-              env: [
-                { name: "PYTHONDONTWRITEBYTECODE", value: "1" },
-                { name: "HOME", value: "/tmp" },
-              ],
-              resources,
-              securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
-              volumeMounts: [
-                {
-                  name: "submission-data",
-                  mountPath: "/submission",
-                  readOnly: true,
-                },
-                { name: "artifact", mountPath: "/artifact", readOnly: true },
-                { name: "workspace", mountPath: "/workspace", subPath: "validate" },
-                { name: "tmp", mountPath: "/tmp" },
-              ],
-            },
-          ],
-          volumes: [
-            payloadVolume("payload", params.configMapNames),
-            { name: "submission-data", emptyDir: { sizeLimit: SUBMISSION_DATA_SIZE_LIMIT } },
-            { name: "artifact", emptyDir: { sizeLimit: "256Mi" } },
-            {
-              name: "compiler-tmp",
-              emptyDir: { sizeLimit: `${String(COMPILER_SCRATCH_MB)}Mi` },
-            },
-            {
-              name: "workspace",
-              emptyDir: { sizeLimit: "128Mi" },
-            },
-            {
-              name: "tmp",
-              emptyDir: { sizeLimit: "64Mi" },
-            },
-          ],
-        },
-      },
-    },
-  };
-}
-
-export interface PerCaseSandboxJobManifestParams {
-  jobName: string;
-  namespace: string;
-  configMapNames: string[];
-  image: string;
-  cpuRequest: string;
-  caseCpuRequest?: string;
-  cpuLimit: string;
-  memoryRequest: string;
-  memoryLimit: string;
-  compilerMemoryLimit: string;
-  activeDeadlineSeconds: number;
-  caseIndices: number[];
-  runtimeClassName?: string;
-}
-
-export function perCaseContainerName(index: number): string {
-  return `case-${String(index)}`;
-}
-
-export const PREPARE_CONTAINER_NAME = "prepare";
-
-export function buildPerCaseSandboxJobManifest(
-  params: PerCaseSandboxJobManifestParams,
-): k8s.V1Job {
-  const containerSecurityContext = HARDENED_CONTAINER_SECURITY_CONTEXT;
-  const resources = {
+  const runCpu = String(params.runParallelism);
+  const runResources = {
     requests: {
-      cpu: boundedRequest(params.cpuRequest, params.cpuLimit),
-      memory: boundedRequest(params.memoryRequest, params.compilerMemoryLimit),
+      cpu: runCpu,
+      memory: boundedRequest(params.memoryRequest, params.runMemoryLimit),
     },
-    limits: { cpu: params.cpuLimit, memory: params.compilerMemoryLimit },
+    limits: { cpu: runCpu, memory: params.runMemoryLimit },
   };
-  const caseResources = {
-    requests: {
-      cpu: boundedRequest(params.caseCpuRequest ?? params.cpuRequest, params.cpuLimit),
-      memory: boundedRequest(params.memoryRequest, params.memoryLimit),
-    },
-    limits: { cpu: params.cpuLimit, memory: params.memoryLimit },
-  };
-  const baseMounts = (artifactReadOnly: boolean, scratchKey: string) => [
-    { name: "submission-data", mountPath: "/submission", readOnly: true },
-    { name: "artifact", mountPath: "/artifact", readOnly: artifactReadOnly },
-    { name: "scratch-tmp", mountPath: "/tmp", subPath: scratchKey },
-    { name: "scratch-workspace", mountPath: "/workspace", subPath: scratchKey },
+  const env = (phase: string) => [
+    { name: "SANDBOX_PHASE", value: phase },
+    { name: "PYTHONDONTWRITEBYTECODE", value: "1" },
+    { name: "HOME", value: "/tmp" },
   ];
 
   return {
@@ -276,40 +159,68 @@ export function buildPerCaseSandboxJobManifest(
           initContainers: [
             prepareContainer({
               name: PREPARE_CONTAINER_NAME,
-              phase: "prepare",
               image: params.image,
-              payloadVolumeName: "payload",
+              payloadVolumeName: "run-payload",
               submissionVolumeName: "submission-data",
               artifactVolumeName: "artifact",
               scratchTmpVolumeName: "compiler-tmp",
-              scratchWorkspaceVolumeName: "scratch-workspace",
-              resources,
+              scratchWorkspaceVolumeName: "prepare-workspace",
+              resources: compilerResources,
             }),
+            {
+              name: RUN_CONTAINER_NAME,
+              image: params.image,
+              command: ["node", "/runner/index.js"],
+              env: env("run-stage"),
+              resources: runResources,
+              securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
+              volumeMounts: [
+                { name: "submission-data", mountPath: "/submission", readOnly: true },
+                { name: "artifact", mountPath: "/artifact", readOnly: true },
+                { name: "run-workspace", mountPath: "/workspace" },
+                { name: "run-tmp", mountPath: "/tmp" },
+                { name: "outputs", mountPath: "/outputs" },
+              ],
+            },
           ],
-          containers: params.caseIndices.map((index) => ({
-            name: perCaseContainerName(index),
-            image: params.image,
-            command: ["node", "/runner/index.js"],
-            env: [
-              { name: "SANDBOX_PHASE", value: "run-case" },
-              { name: "SANDBOX_CASE_INDEX", value: String(index) },
-              { name: "PYTHONDONTWRITEBYTECODE", value: "1" },
-              { name: "HOME", value: "/tmp" },
-            ],
-            resources: caseResources,
-            securityContext: containerSecurityContext,
-            volumeMounts: baseMounts(true, perCaseContainerName(index)),
-          })),
+          containers: [
+            {
+              name: JUDGE_CONTAINER_NAME,
+              image: params.image,
+              command: ["node", "/runner/index.js"],
+              env: env("judge-stage"),
+              resources: compilerResources,
+              securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
+              volumeMounts: [
+                { name: "judge-payload", mountPath: "/payload", readOnly: true },
+                { name: "judge-data", mountPath: "/submission" },
+                { name: "judge-artifact", mountPath: "/artifact" },
+                { name: "outputs", mountPath: "/outputs", readOnly: true },
+                { name: "judge-tmp", mountPath: "/tmp" },
+                { name: "judge-workspace", mountPath: "/workspace" },
+              ],
+            },
+          ],
           volumes: [
-            payloadVolume("payload", params.configMapNames),
+            payloadVolume("run-payload", params.runConfigMapNames),
+            payloadVolume("judge-payload", params.judgeConfigMapNames),
             { name: "submission-data", emptyDir: { sizeLimit: SUBMISSION_DATA_SIZE_LIMIT } },
             { name: "artifact", emptyDir: { sizeLimit: "256Mi" } },
             {
               name: "compiler-tmp",
               emptyDir: { sizeLimit: `${String(COMPILER_SCRATCH_MB)}Mi` },
             },
-            { name: "scratch-tmp", emptyDir: { sizeLimit: "64Mi" } },
-            { name: "scratch-workspace", emptyDir: { sizeLimit: "128Mi" } },
+            { name: "prepare-workspace", emptyDir: { sizeLimit: "128Mi" } },
+            { name: "run-workspace", emptyDir: { sizeLimit: "256Mi" } },
+            { name: "run-tmp", emptyDir: { sizeLimit: "64Mi" } },
+            { name: "outputs", emptyDir: { sizeLimit: "512Mi" } },
+            { name: "judge-data", emptyDir: { sizeLimit: SUBMISSION_DATA_SIZE_LIMIT } },
+            { name: "judge-artifact", emptyDir: { sizeLimit: "256Mi" } },
+            {
+              name: "judge-tmp",
+              emptyDir: { sizeLimit: `${String(COMPILER_SCRATCH_MB)}Mi` },
+            },
+            { name: "judge-workspace", emptyDir: { sizeLimit: "128Mi" } },
           ],
         },
       },
@@ -358,6 +269,10 @@ export function buildInteractiveJobManifest(params: InteractiveJobManifestParams
     },
     limits: { cpu: params.cpuLimit, memory: params.memoryLimit },
   };
+  const solutionResources = {
+    ...resources,
+    requests: { ...resources.requests, cpu: params.cpuLimit },
+  };
 
   return {
     apiVersion: "batch/v1",
@@ -403,7 +318,7 @@ export function buildInteractiveJobManifest(params: InteractiveJobManifestParams
               name: "solution",
               image: params.image,
               command: buildSolutionContainerCommand(),
-              resources,
+              resources: solutionResources,
               securityContext: containerSecurityContext,
               volumeMounts: [
                 { name: "solution-data", mountPath: "/submission", readOnly: true },

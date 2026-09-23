@@ -13,8 +13,7 @@ const EXEC_CONFIG = {
   cpuLimit: "1",
   memoryRequest: "128Mi",
   memoryLimit: "256Mi",
-  caseCpuRequest: "100m",
-  maxParallelCases: 20,
+  runParallelism: 1,
   runtimeClassName: "gvisor",
 };
 
@@ -73,6 +72,15 @@ function clients(
                     { apiVersion: "batch/v1", kind: "Job", name, uid: `${name}-uid` },
                   ],
                 },
+                status: {
+                  initContainerStatuses: [
+                    { name: "prepare", state: { terminated: { exitCode: 0 } } },
+                    { name: "run", state: { terminated: { exitCode: 0 } } },
+                  ],
+                  containerStatuses: [
+                    { name: "judge", state: { terminated: { exitCode: 0 } } },
+                  ],
+                },
               },
             ]
           : [],
@@ -81,14 +89,16 @@ function clients(
     listNamespacedEvent: vi.fn(async () => ({
       items: options.blockedEvent ? [options.blockedEvent] : [],
     })),
-    readNamespacedPodLog: vi.fn(async ({ container }: any) =>
-      container === "prepare"
-        ? JSON.stringify({ runCommand: ["python3", "main.py"] })
-        : JSON.stringify({
-            rawRuns: [{ index: 0, stdout: "ok\n", stderr: "", exitCode: 0, timeMs: 1 }],
-            testcaseResults: [],
-          }),
-    ),
+    readNamespacedPodLog: vi.fn(async ({ container }: any) => {
+      if (container === "prepare")
+        return JSON.stringify({ runCommand: ["python3", "main.py"] });
+      if (container === "judge")
+        return JSON.stringify({ validatorOutcomes: [{ index: 0, verdict: "AC" }] });
+      return JSON.stringify({
+        rawRuns: [{ index: 0, stdout: "ok\n", stderr: "", exitCode: 0, timeMs: 1 }],
+        testcaseResults: [],
+      });
+    }),
   } as any;
   const batchApi = {
     createNamespacedJob: vi.fn(async ({ body }: any) => {
@@ -167,7 +177,7 @@ describe("K8sExecutor sharded payload orchestration", () => {
       },
       { runId: "pinned", signal: new AbortController().signal },
     );
-    expect(fake.record.jobsCreated).toHaveLength(2);
+    expect(fake.record.jobsCreated).toHaveLength(1);
     for (const job of fake.record.jobsCreated) {
       const spec = job.spec.template.spec;
       expect(
@@ -180,7 +190,7 @@ describe("K8sExecutor sharded payload orchestration", () => {
       runId: "current",
       signal: new AbortController().signal,
     });
-    const current = fake.record.jobsCreated[2].spec.template.spec;
+    const current = fake.record.jobsCreated[1].spec.template.spec;
     expect(
       [...current.initContainers, ...current.containers].every(
         (container) => container.image === EXEC_CONFIG.image,
@@ -202,7 +212,7 @@ describe("K8sExecutor sharded payload orchestration", () => {
     const fake = clients();
     fake.handles.coreApi.readNamespacedPodLog.mockImplementation(
       async ({ container }: { container: string }) => {
-        if (container === "runner") return JSON.stringify({ validatorOutcomes });
+        if (container === "judge") return JSON.stringify({ validatorOutcomes });
         if (container === "prepare")
           return JSON.stringify({ runCommand: ["python3", "main.py"] });
         return JSON.stringify({
@@ -228,7 +238,7 @@ describe("K8sExecutor sharded payload orchestration", () => {
     const fake = clients();
     fake.handles.coreApi.readNamespacedPodLog.mockImplementation(
       async ({ container }: { container: string }) => {
-        if (container === "runner")
+        if (container === "judge")
           return JSON.stringify({
             validatorOutcomes: [
               { index: 2, verdict: "AC" },
@@ -237,18 +247,15 @@ describe("K8sExecutor sharded payload orchestration", () => {
           });
         if (container === "prepare")
           return JSON.stringify({ runCommand: ["python3", "main.py"] });
-        const index = Number(container.replace("case-", ""));
         return JSON.stringify({
-          rawRuns: [
-            {
-              index,
-              stdout: "ok\n",
-              stderr: "",
-              exitCode: index === 1 ? 1 : 0,
-              timeMs: 1,
-              ...(index === 1 ? { errorVerdict: "RE" } : {}),
-            },
-          ],
+          rawRuns: [2, 1, 0].map((index) => ({
+            index,
+            stdout: "ok\n",
+            stderr: "",
+            exitCode: index === 1 ? 1 : 0,
+            timeMs: 1,
+            ...(index === 1 ? { errorVerdict: "RE" } : {}),
+          })),
         });
       },
     );
@@ -285,12 +292,20 @@ describe("K8sExecutor sharded payload orchestration", () => {
   it("ignores unrelated JSON logging after a valid runner report", async () => {
     const fake = clients();
     fake.handles.coreApi.readNamespacedPodLog.mockImplementation(
-      async ({ container }: { container: string }) =>
-        container === "prepare"
-          ? JSON.stringify({ runCommand: ["python3", "main.py"] })
-          : JSON.stringify({
-              rawRuns: [{ index: 0, stdout: "ok\n", stderr: "", exitCode: 0, timeMs: 1 }],
-            }) + '\n{"level":"info","message":"finished"}',
+      async ({ container }: { container: string }) => {
+        if (container === "prepare")
+          return JSON.stringify({ runCommand: ["python3", "main.py"] });
+        if (container === "judge")
+          return (
+            JSON.stringify({ validatorOutcomes: [{ index: 0, verdict: "AC" }] }) +
+            '\n{"level":"info","message":"finished"}'
+          );
+        return (
+          JSON.stringify({
+            rawRuns: [{ index: 0, stdout: "ok\n", stderr: "", exitCode: 0, timeMs: 1 }],
+          }) + '\n{"level":"info","message":"finished"}'
+        );
+      },
     );
     const result = await new K8sExecutor(EXEC_CONFIG, fake.handles).execute(request("ok"), {
       runId: "json-log",
@@ -308,24 +323,27 @@ describe("K8sExecutor sharded payload orchestration", () => {
       signal: new AbortController().signal,
     });
 
-    expect(fake.record.configMapsCreated).toEqual([
-      "judge-standard-pm",
-      "judge-standard-p0",
-      "judge-standard-p1",
-      "judge-standard-p2",
-    ]);
+    expect([...fake.record.configMapsCreated].sort()).toEqual(
+      ["judge", "run"].flatMap((part) =>
+        ["p0", "p1", "p2", "pm"].map((shard) => `judge-standard-${part}-${shard}`),
+      ),
+    );
     expect([...fake.record.configMapsDeleted].sort()).toEqual(
       [...fake.record.configMapsCreated].sort(),
     );
     const podSpec = fake.record.jobsCreated[0].spec.template.spec;
-    expect(podSpec.initContainers.map((container: any) => container.name)).toEqual(["prepare"]);
+    expect(podSpec.initContainers.map((container: any) => container.name)).toEqual([
+      "prepare",
+      "run",
+    ]);
     expect(podSpec.initContainers[0].env).toContainEqual({
       name: "SANDBOX_PHASE",
       value: "prepare",
     });
-    expect(
-      podSpec.volumes.find((volume: any) => volume.name === "payload").projected.sources,
-    ).toHaveLength(4);
+    for (const name of ["run-payload", "judge-payload"])
+      expect(
+        podSpec.volumes.find((volume: any) => volume.name === name).projected.sources,
+      ).toHaveLength(4);
   });
 
   it("removes already-created shards when a later ConfigMap create fails", async () => {
@@ -339,7 +357,8 @@ describe("K8sExecutor sharded payload orchestration", () => {
       }),
     ).rejects.toThrow("injected ConfigMap create failure");
 
-    expect(fake.record.configMapsCreated).toEqual(["judge-standard-pm", "judge-standard-p0"]);
+    expect(fake.record.configMapsCreated).not.toContain("judge-standard-run-p1");
+    expect(fake.record.configMapsCreated.length).toBeGreaterThan(0);
     expect([...fake.record.configMapsDeleted].sort()).toEqual(
       [...fake.record.configMapsCreated].sort(),
     );
@@ -368,7 +387,7 @@ describe("K8sExecutor sharded payload orchestration", () => {
     expect(fake.record.jobsCreated).toHaveLength(1);
   });
 
-  it("creates one 20-case Job per wave and compiles once per wave", async () => {
+  it("runs every case of a request in one Job with one run container", async () => {
     const fake = clients();
     const executor = new K8sExecutor(EXEC_CONFIG, fake.handles);
 
@@ -377,16 +396,29 @@ describe("K8sExecutor sharded payload orchestration", () => {
       signal: new AbortController().signal,
     });
 
-    expect(fake.record.jobsCreated).toHaveLength(2);
-    expect(fake.record.jobsCreated[0].spec.template.spec.runtimeClassName).toBe("gvisor");
-    expect(fake.record.jobsCreated[0].spec.template.spec.initContainers).toHaveLength(1);
-    expect(fake.record.jobsCreated[0].spec.template.spec.containers).toHaveLength(20);
-    expect(
-      fake.record.jobsCreated[0].spec.template.spec.containers.every(
-        (container: any) => container.resources.requests.cpu === "100m",
-      ),
-    ).toBe(true);
-    expect(fake.record.jobsCreated[1].spec.template.spec.containers).toHaveLength(1);
+    expect(fake.record.jobsCreated).toHaveLength(1);
+    const spec = fake.record.jobsCreated[0].spec.template.spec;
+    expect(spec.runtimeClassName).toBe("gvisor");
+    expect(spec.initContainers.map((container: any) => container.name)).toEqual([
+      "prepare",
+      "run",
+    ]);
+    expect(spec.containers.map((container: any) => container.name)).toEqual(["judge"]);
+    expect(spec.initContainers[1].resources.requests.cpu).toBe("1");
+  });
+
+  it("lowers run parallelism until the run container fits the memory ceiling", async () => {
+    const fake = clients();
+    const executor = new K8sExecutor(
+      { ...EXEC_CONFIG, runParallelism: 4, maxMemoryMb: 1536 },
+      fake.handles,
+    );
+    await executor.execute(
+      { ...request("x", 3), limits: { timeoutMs: 1_000, memoryMb: 1024 } },
+      { runId: "big-memory", signal: new AbortController().signal },
+    );
+    const run = fake.record.jobsCreated[0].spec.template.spec.initContainers[1];
+    expect(run.resources.limits).toEqual({ cpu: "1", memory: "1216Mi" });
   });
 
   it("uses a succeeded Pod without waiting for the Job controller", async () => {
@@ -412,7 +444,7 @@ describe("K8sExecutor sharded payload orchestration", () => {
     expect(fake.handles.batchApi.readNamespacedJob).toHaveBeenCalledTimes(2);
   });
 
-  it("reads case logs concurrently after the Pod succeeds", async () => {
+  it("reads the run and judge logs concurrently after the Pod succeeds", async () => {
     const fake = clients();
     const started: string[] = [];
     let release!: () => void;
@@ -425,9 +457,18 @@ describe("K8sExecutor sharded payload orchestration", () => {
           return JSON.stringify({ runCommand: ["python3", "main.py"] });
         started.push(container);
         await gate;
-        const index = Number.parseInt(container.replace("case-", ""), 10);
+        if (container === "judge")
+          return JSON.stringify({
+            validatorOutcomes: [0, 1, 2].map((index) => ({ index, verdict: "AC" })),
+          });
         return JSON.stringify({
-          rawRuns: [{ index, stdout: "ok\n", stderr: "", exitCode: 0, timeMs: 1 }],
+          rawRuns: [0, 1, 2].map((index) => ({
+            index,
+            stdout: "ok\n",
+            stderr: "",
+            exitCode: 0,
+            timeMs: 1,
+          })),
           testcaseResults: [],
         });
       },
@@ -443,6 +484,6 @@ describe("K8sExecutor sharded payload orchestration", () => {
     release();
     await execution;
 
-    expect(startedBeforeRelease.sort()).toEqual(["case-0", "case-1", "case-2"]);
+    expect(startedBeforeRelease.sort()).toEqual(["judge", "run"]);
   });
 });

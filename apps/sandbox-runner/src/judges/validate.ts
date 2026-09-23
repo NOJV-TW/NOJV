@@ -1,4 +1,3 @@
-import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { parseValidatorFeedback, type ValidatorFeedbackFiles } from "@nojv/core";
 import type { ValidatorCaseOutcome } from "../types.js";
@@ -9,19 +8,6 @@ export interface ValidateCaseFiles {
   inputFile: string;
   answerFile: string;
   teamOutput: string;
-}
-
-export async function resolveValidateCaseFiles(
-  submissionDir: string,
-  index: number,
-): Promise<ValidateCaseFiles> {
-  const inputFile = path.join(submissionDir, `case-${String(index)}-input.txt`);
-  const answerFile = path.join(submissionDir, `case-${String(index)}-answer.txt`);
-  const teamOutput = await fs.readFile(
-    path.join(submissionDir, `case-${String(index)}-team.txt`),
-    "utf-8",
-  );
-  return { inputFile, answerFile, teamOutput };
 }
 
 export async function validateCase(

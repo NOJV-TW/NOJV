@@ -5,15 +5,16 @@ import { join } from "node:path";
 import type { Readable, Writable } from "node:stream";
 
 import {
+  COMPILATION_TIMEOUT_MS,
+  executionWallTimeLimitMs,
+  validatorTimeoutMs,
   type SandboxRequest,
   type SandboxExecutionContext,
   type SandboxResult,
-  type SandboxTestcase,
-  type SandboxTestcaseResult,
 } from "@nojv/core";
 
 import { createBoundedStringBuffer } from "./bounded-buffer";
-import { resolveInteractiveCase, type InteractiveSideResult } from "./check-interactive";
+import { resolveInteractiveStage, type InteractiveSideResult } from "./check-interactive";
 import { buildSandboxDockerArgs } from "./docker-args";
 import {
   attachDockerCleanupFailure,
@@ -26,10 +27,9 @@ import { executionAbortReason } from "./execution-abort";
 import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
 import { resolveSourceFiles } from "./source-files.js";
 
-export { mergeInteractiveCase } from "./check-interactive";
-
 const MAX_OUTER_TIMEOUT_MS = 540_000;
-const PER_CASE_GRACE_MS = 35_000;
+const PER_CASE_GRACE_MS = 5_000;
+const STAGE_GRACE_MS = 35_000;
 
 function endStdin(stream: Writable): void {
   try {
@@ -63,7 +63,7 @@ export async function writeSolutionFiles(
 
   const config = {
     ...buildSandboxConfigJson(request, sourceFileMap),
-    interactive: { role: "solution" },
+    interactive: { role: "solution", cases: request.testcases.map((tc) => tc.index) },
   };
   fileWrites.push(writeFile(join(tempDir, "config.json"), JSON.stringify(config), "utf8"));
 
@@ -74,11 +74,11 @@ export async function writeSolutionFiles(
 export async function writeInteractorFiles(
   tempDir: string,
   request: SandboxRequest,
-  testcase: SandboxTestcase,
   interactorScript: string,
   interactorLanguage: "python" | "cpp",
 ): Promise<void> {
   const ext = sourceExtension(interactorLanguage);
+  const cases = request.testcases.map((tc) => tc.index);
 
   const config = {
     submissionId: request.submissionId,
@@ -87,38 +87,43 @@ export async function writeInteractorFiles(
     problemType: request.problemType,
     limits: request.limits,
     interactorLanguage,
-    interactive: { role: "validator", language: interactorLanguage, index: testcase.index },
+    interactive: { role: "validator", language: interactorLanguage, cases },
   };
 
   await Promise.all([
     writeFile(join(tempDir, `interactor.${ext}`), interactorScript, "utf8"),
     writeFile(join(tempDir, "config.json"), JSON.stringify(config), "utf8"),
-    writeFile(
-      join(tempDir, `case-${String(testcase.index)}-input.txt`),
-      testcase.input,
-      "utf8",
-    ),
-    writeFile(
-      join(tempDir, `case-${String(testcase.index)}-answer.txt`),
-      testcase.output ?? "",
-      "utf8",
-    ),
+    ...request.testcases.flatMap((tc) => [
+      writeFile(join(tempDir, `case-${String(tc.index)}-input.txt`), tc.input, "utf8"),
+      writeFile(join(tempDir, `case-${String(tc.index)}-answer.txt`), tc.output ?? "", "utf8"),
+    ]),
   ]);
 
   await chmod(tempDir, 0o755);
 }
 
-async function runCase(
+export function interactiveStageTimeoutMs(request: SandboxRequest): number {
+  const perCase =
+    Math.max(
+      executionWallTimeLimitMs(request.limits.timeoutMs),
+      validatorTimeoutMs(request.limits.timeoutMs),
+    ) + PER_CASE_GRACE_MS;
+  return Math.min(
+    COMPILATION_TIMEOUT_MS + perCase * Math.max(1, request.testcases.length) + STAGE_GRACE_MS,
+    MAX_OUTER_TIMEOUT_MS,
+  );
+}
+
+async function runStage(
   request: SandboxRequest,
   execution: SandboxExecutionContext,
-  testcase: SandboxTestcase,
   interactorScript: string,
   interactorLanguage: "python" | "cpp",
   config: InteractiveExecutorConfig,
 ): Promise<SandboxResult> {
   const slug = sanitizeId(execution.runId).slice(0, 32);
-  const solName = `nojv-isol-${slug}-${String(testcase.index)}`;
-  const intName = `nojv-iint-${slug}-${String(testcase.index)}`;
+  const solName = `nojv-isol-${slug}`;
+  const intName = `nojv-iint-${slug}`;
 
   const solDir = await mkdtemp(join(tmpdir(), `nojv-isol-${slug}-`));
   const intDir = await mkdtemp(join(tmpdir(), `nojv-iint-${slug}-`));
@@ -126,15 +131,12 @@ async function runCase(
   try {
     await Promise.all([
       writeSolutionFiles(solDir, request),
-      writeInteractorFiles(intDir, request, testcase, interactorScript, interactorLanguage),
+      writeInteractorFiles(intDir, request, interactorScript, interactorLanguage),
     ]);
 
     execution.signal.throwIfAborted();
 
-    const outerTimeoutMs = Math.min(
-      request.limits.timeoutMs + PER_CASE_GRACE_MS,
-      MAX_OUTER_TIMEOUT_MS,
-    );
+    const outerTimeoutMs = interactiveStageTimeoutMs(request);
 
     const { sol, int } = await new Promise<{
       sol: InteractiveSideResult;
@@ -291,7 +293,7 @@ async function runCase(
       });
     });
 
-    return resolveInteractiveCase(testcase, sol, int);
+    return resolveInteractiveStage(request.testcases, sol, int);
   } finally {
     await Promise.all([
       rm(solDir, { force: true, recursive: true }),
@@ -312,19 +314,5 @@ export async function runInteractiveMode(
   const interactorLanguage = request.judgeConfig.interactorLanguage;
   if (!interactorLanguage) throw new Error("Interactive judge is missing interactorLanguage.");
 
-  const results: SandboxTestcaseResult[] = [];
-  for (const testcase of request.testcases) {
-    const result = await runCase(
-      request,
-      execution,
-      testcase,
-      interactorScript,
-      interactorLanguage,
-      config,
-    );
-    if (result.compilationError !== undefined) return result;
-    results.push(...result.testcaseResults);
-  }
-
-  return { testcaseResults: results };
+  return await runStage(request, execution, interactorScript, interactorLanguage, config);
 }

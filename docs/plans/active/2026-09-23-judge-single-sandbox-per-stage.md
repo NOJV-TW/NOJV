@@ -1,7 +1,8 @@
 # One sandbox per stage, per-process accounting
 
-Status: milestone 1a in progress (2026-09-23). Supersedes the per-case
-container layout from PR #149.
+Status: milestones 1a–6 (payload step 1) implemented; awaiting release and the
+production stress run (2026-09-23). Supersedes the per-case container layout
+from PR #149.
 
 ## Why
 
@@ -144,6 +145,41 @@ Each milestone is its own PR and release.
 - 4. Interactive stages batched.
 - 5. Core budget in the chart and the worker.
 - 6. Payload step 1, measure, decide on step 2.
+
+## Changes found while implementing
+
+- **The judge moved into the Pod.** One run container's log would carry every
+  case's full output: up to 16 MiB per case, 20 cases, JSON-escaped, against
+  the kubelet's 64 MiB log file. The Pod now ends with a judge container that
+  alone mounts answers and the validator and starts after the run init
+  container has exited. The run container writes captured outputs to an
+  `outputs` emptyDir and records their SHA-256 in memory, writing the index
+  only after every case finished; a later case rewriting an earlier output is
+  judged WA. The log carries verdicts and 64 KiB of displayed output per case.
+  Docker runs the same compile, run and judge phases as three containers.
+- **gVisor OOM-kills the whole container.** A probe on the prod node showed a
+  child exceeding the container limit gets the container `OOMKilled`;
+  `oom_score_adj` is accepted but ignored. Before this change that surfaced as
+  SE. `nojv-exec` now polls the summed RSS of the program's processes every
+  10 ms and kills the group above the problem limit (MLE), so the 64 MiB
+  per-case headroom absorbs one allocation step. The Node memory poller is
+  gone.
+- **A program can kill its helper.** gVisor honours `PR_SET_DUMPABLE`: the
+  program cannot open the helper's descriptors, and the report travels on a
+  socket, which `/proc/<pid>/fd` cannot open. SIGKILL is still possible. A
+  helper killed by a signal without a report is RE (TLE when the runner's own
+  fallback timer fired), and the runner, which is PID 1, kills the orphans it
+  inherits so they cannot outlive the case.
+- **Interactive framing.** Several cases share one channel, so the trusted
+  runners frame the conversation (`READY`, `DATA`, `EOF` per case index). A
+  malformed frame or a channel closing mid-stage marks the remaining cases WA,
+  since only the solution side is untrusted.
+- **Waves are gone.** One Job per stage; `K8S_MAX_PARALLEL_CASES` and
+  `K8S_CASE_CPU_REQUEST` are replaced by `K8S_RUN_PARALLELISM`, lowered per
+  stage when the memory limit would push the run container past 1536 MiB.
+- **Release note.** Interactive stage size changes from 1 to 20. An interactive
+  execution in flight during the rollout would map its saved stage index onto
+  the new size, so check for running interactive executions before rolling out.
 
 ## Other designs considered
 

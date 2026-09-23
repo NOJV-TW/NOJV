@@ -28,13 +28,17 @@ export async function runSolution(
   runCommand: string[],
   testcase: TestcaseFiles,
   timeoutMs: number,
+  memoryLimitMb: number,
   env?: Record<string, string>,
+  cwd?: string,
 ): Promise<RawCaseRun> {
   const result = await runProcess(runCommand, {
     stdin: testcase.input,
     timeoutMs,
+    memoryLimitMb,
     cpuSeconds: solutionCpuSeconds(timeoutMs),
     ...(env ? { env } : {}),
+    ...(cwd ? { cwd } : {}),
   });
   return toRawCaseRun(result, testcase.index);
 }

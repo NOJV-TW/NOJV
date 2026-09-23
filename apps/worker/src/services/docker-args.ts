@@ -11,6 +11,7 @@ export interface SandboxDockerArgsParams {
   image: string;
   interactive?: boolean;
   artifactMount?: { hostDir: string; readOnly: boolean };
+  outputsMount?: { hostDir: string; readOnly: boolean };
   extraEnv?: string[];
   labels?: Readonly<Record<string, string>>;
 }
@@ -25,6 +26,12 @@ export function buildSandboxDockerArgs(params: SandboxDockerArgsParams): string[
     ? [
         "-v",
         `${params.artifactMount.hostDir}:/artifact:${params.artifactMount.readOnly ? "ro" : "rw"}`,
+      ]
+    : [];
+  const outputsArgs = params.outputsMount
+    ? [
+        "-v",
+        `${params.outputsMount.hostDir}:/outputs:${params.outputsMount.readOnly ? "ro" : "rw"}`,
       ]
     : [];
   const extraEnvArgs = (params.extraEnv ?? []).flatMap((kv) => ["--env", kv]);
@@ -47,10 +54,11 @@ export function buildSandboxDockerArgs(params: SandboxDockerArgsParams): string[
     "--tmpfs",
     `/tmp:rw,exec,nosuid,nodev,size=${compiling ? String(COMPILER_SCRATCH_MB) : "64"}m`,
     "--tmpfs",
-    "/workspace:rw,exec,nosuid,nodev,size=128m",
+    "/workspace:rw,exec,nosuid,nodev,size=128m,uid=10001,gid=10001",
     "-v",
     `${params.tempDir}:/submission:ro`,
     ...artifactArgs,
+    ...outputsArgs,
     "--cpus",
     params.cpuLimit,
     "--memory",

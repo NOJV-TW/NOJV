@@ -17,7 +17,7 @@ async function judge(
   expected: string,
   timeoutMs: number,
 ): Promise<{ verdict: string; stdout: string; stderr: string; index: number; timeMs: number }> {
-  const run = await runSolution(runCommand, testcase, timeoutMs);
+  const run = await runSolution(runCommand, testcase, timeoutMs, 256);
   const verdict = run.errorVerdict ?? (compareStandard(run.stdout, expected) ? "AC" : "WA");
   return {
     verdict,

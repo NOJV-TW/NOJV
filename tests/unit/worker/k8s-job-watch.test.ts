@@ -67,20 +67,30 @@ function clients(options: {
                     { apiVersion: "batch/v1", kind: "Job", name, uid: `${name}-uid` },
                   ],
                 },
-                status: {},
+                status: {
+                  initContainerStatuses: [
+                    { name: "prepare", state: { terminated: { exitCode: 0 } } },
+                    { name: "run", state: { terminated: { exitCode: 0 } } },
+                  ],
+                  containerStatuses: [
+                    { name: "judge", state: { terminated: { exitCode: 0 } } },
+                  ],
+                },
               },
             ]
           : [],
       };
     }),
-    readNamespacedPodLog: vi.fn(async ({ container }: { container: string }) =>
-      container === "prepare"
-        ? JSON.stringify({ runCommand: ["python3", "main.py"] })
-        : JSON.stringify({
-            rawRuns: [{ index: 0, stdout: "1\n", stderr: "", exitCode: 0, timeMs: 1 }],
-            testcaseResults: [],
-          }),
-    ),
+    readNamespacedPodLog: vi.fn(async ({ container }: { container: string }) => {
+      if (container === "prepare")
+        return JSON.stringify({ runCommand: ["python3", "main.py"] });
+      if (container === "judge")
+        return JSON.stringify({ validatorOutcomes: [{ index: 0, verdict: "AC" }] });
+      return JSON.stringify({
+        rawRuns: [{ index: 0, stdout: "1\n", stderr: "", exitCode: 0, timeMs: 1 }],
+        testcaseResults: [],
+      });
+    }),
   } as any;
   const batchApi = {
     createNamespacedJob: vi.fn(async ({ body }: any) => {
@@ -611,18 +621,16 @@ it.each([false, true])(
       async ({ container }: { container: string }) => {
         if (container === "prepare")
           return JSON.stringify({ runCommand: ["python3", "main.py"] });
-        if (container === "runner")
+        if (container === "judge")
           return JSON.stringify({ validatorOutcomes: [{ index: 1, verdict: "WA" }] });
         return JSON.stringify({
-          rawRuns: [
-            {
-              index: Number(container.slice(5)),
-              stdout: "wrong",
-              stderr: "",
-              exitCode: 0,
-              timeMs: 1,
-            },
-          ],
+          rawRuns: [0, 1].map((index) => ({
+            index,
+            stdout: "wrong",
+            stderr: "",
+            exitCode: 0,
+            timeMs: 1,
+          })),
         });
       },
     );
@@ -648,6 +656,6 @@ it.each([false, true])(
       "AC",
       hasAnswer ? "WA" : "AC",
     ]);
-    expect(fake.handles.batchApi.createNamespacedJob).toHaveBeenCalledTimes(hasAnswer ? 2 : 1);
+    expect(fake.handles.batchApi.createNamespacedJob).toHaveBeenCalledTimes(1);
   },
 );

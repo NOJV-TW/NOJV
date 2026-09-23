@@ -100,12 +100,14 @@ export function buildPayloadConfigMaps(
       apiVersion: "v1",
       kind: "ConfigMap",
       metadata: { name: resourceName(baseName, "pm"), namespace },
+      immutable: true,
       data: { [PAYLOAD_MANIFEST_FILE]: manifestBody },
     },
     ...shardData.map((binaryData, index): k8s.V1ConfigMap => ({
       apiVersion: "v1",
       kind: "ConfigMap",
       metadata: { name: resourceName(baseName, `p${String(index)}`), namespace },
+      immutable: true,
       binaryData,
     })),
   ];

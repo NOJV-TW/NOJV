@@ -35,41 +35,41 @@ import {
   DEFAULT_MEMORY_HEADROOM_MB,
   MIN_COMPILER_MEMORY_MB,
   resolveContainerMemoryMb,
-  type RawCaseRun,
   type SandboxExecutionContext,
   type SandboxExecutor,
   type SandboxRequest,
   type SandboxResult,
-  type SandboxTestcase,
-  type SandboxTestcaseResult,
-  type ValidatorOutcome,
 } from "@nojv/core";
 import { createLogger } from "../logger.js";
-import { resolveInteractiveCase, type InteractiveSideResult } from "./check-interactive";
-import { mergeCheckerResults, resolveSandboxResult } from "./check-standard";
+import { resolveInteractiveStage, type InteractiveSideResult } from "./check-interactive";
 import { executionAbortReason } from "./execution-abort";
 import { advancedFallbackResult, mapAdvancedResult } from "./sandbox-result-mapper";
-import { parseSandboxResult, parseValidateOutput } from "./sandbox-schema";
+import { parseSandboxResult } from "./sandbox-schema";
 import { sandboxSystemError } from "./sandbox-plan";
 import {
   buildRunConfigMapData,
   buildInteractiveInteractorConfigMapData,
   buildInteractiveSolutionConfigMapData,
-  buildValidateConfigMapData,
-  computeJobDeadlineSeconds,
-  computeValidatorJobDeadlineSeconds,
+  computeInteractiveJobDeadlineSeconds,
+  computeStageJobDeadlineSeconds,
   CONFIGMAP_MAX_BYTES,
-  JOB_DEADLINE_FLOOR_SECONDS,
 } from "./k8s-configmaps";
 import {
   buildInteractiveJobManifest,
-  buildPerCaseSandboxJobManifest,
-  buildSandboxJobManifest,
+  buildStageJobManifest,
+  JUDGE_CONTAINER_NAME,
   PREPARE_CONTAINER_NAME,
-  perCaseContainerName,
+  RUN_CONTAINER_NAME,
 } from "./k8s-job-manifests";
 import { buildPayloadConfigMaps, payloadConfigMapNames } from "./k8s-payload";
 import { scanJsonLinesFromEnd } from "./k8s-log-parse";
+import {
+  buildJudgePayload,
+  completeRuns,
+  gradableRuns,
+  mergeStageResults,
+  parseJudgeOutcomes,
+} from "./stage-result";
 import {
   ADVANCED_SIDECAR_NAME,
   ADVANCED_TRANSFER_NAME,
@@ -106,8 +106,8 @@ export interface K8sExecutorConfig {
   namespace: string;
   image: string;
   cpuRequest: string;
-  caseCpuRequest?: string;
   cpuLimit: string;
+  runParallelism?: number;
   memoryRequest: string;
   memoryLimit: string;
   headroomMb?: number;
@@ -115,7 +115,6 @@ export interface K8sExecutorConfig {
   imagePullSecretName?: string;
   sidecarReadinessTimeoutMs?: number;
   sidecarReadinessIntervalMs?: number;
-  maxParallelCases?: number;
   runtimeClassName?: string;
 }
 
@@ -143,7 +142,7 @@ const POD_SCHEDULE_GRACE_MS = 30_000;
 const JOB_WATCH_TIMEOUT_SECONDS = 30;
 const JOB_WATCH_RECONNECT_BASE_DELAY_MS = 100;
 const JOB_WATCH_RECONNECT_MAX_DELAY_MS = 2_000;
-const DEFAULT_MAX_PARALLEL_CASES = 4;
+const RUNNER_MEMORY_MB = 128;
 
 function jobWatchReconnectDelay(attempt: number): number {
   return Math.min(
@@ -239,23 +238,6 @@ async function runCleanupOperations(
 ): Promise<void> {
   const results = await Promise.allSettled(operations);
   throwCleanupFailures(label, results);
-}
-
-export function chunkCaseIndices(indices: number[], size: number): number[][] {
-  const chunkSize = Math.max(1, size);
-  const chunks: number[][] = [];
-  for (let i = 0; i < indices.length; i += chunkSize) {
-    chunks.push(indices.slice(i, i + chunkSize));
-  }
-  return chunks;
-}
-
-function resolveMaxParallelCases(config: Pick<K8sExecutorConfig, "maxParallelCases">): number {
-  if (config.maxParallelCases !== undefined && config.maxParallelCases > 0) {
-    return config.maxParallelCases;
-  }
-  const fromEnv = Number.parseInt(process.env.SANDBOX_MAX_PARALLEL_CASES ?? "", 10);
-  return Number.isInteger(fromEnv) && fromEnv > 0 ? fromEnv : DEFAULT_MAX_PARALLEL_CASES;
 }
 
 export class SandboxBackpressureError extends Error {
@@ -501,54 +483,6 @@ function watchErrorCode(error: unknown): number | null {
     return error.status.code;
   }
   return null;
-}
-
-function validatorOutcomesSeForAll(
-  rawRuns: RawCaseRun[],
-  judgeMessage: string,
-): Map<number, ValidatorOutcome> {
-  return new Map(
-    rawRuns
-      .filter((r) => !r.errorVerdict)
-      .map((r): [number, ValidatorOutcome] => [r.index, { verdict: "SE", judgeMessage }]),
-  );
-}
-
-function parseValidatorOutcomesFromLogs(
-  logs: string,
-  rawRuns: RawCaseRun[],
-): Map<number, ValidatorOutcome> | null {
-  return scanJsonLinesFromEnd(logs, (json) => {
-    if (
-      typeof json !== "object" ||
-      json === null ||
-      !("validatorOutcomes" in json || "compilationError" in json || "testcaseResults" in json)
-    )
-      return null;
-    const parsed = parseValidateOutput(
-      json,
-      rawRuns.filter((run) => !run.errorVerdict).map(({ index }) => index),
-    );
-    if (!parsed.success) {
-      const fatal = parseSandboxResult(json);
-      const diagnostic = fatal.success
-        ? (fatal.data.pipelineError ??
-          fatal.data.testcaseResults.find((result) => result.verdict === "SE")?.stderr)
-        : undefined;
-      return validatorOutcomesSeForAll(
-        rawRuns,
-        diagnostic ?? `Invalid validator output: ${parsed.error.message}`,
-      );
-    }
-    if (parsed.data.compilationError !== undefined)
-      return validatorOutcomesSeForAll(rawRuns, parsed.data.compilationError);
-    if (!parsed.data.validatorOutcomes)
-      return validatorOutcomesSeForAll(rawRuns, "Validator produced no case outcomes.");
-
-    return new Map(
-      parsed.data.validatorOutcomes.map(({ index, ...outcome }) => [index, outcome]),
-    );
-  });
 }
 
 function parseCompilationError(logs: string): string | null {
@@ -941,11 +875,7 @@ export class K8sExecutor implements SandboxExecutor {
         return await this.executeInteractive(request, execution);
       }
 
-      if (request.judgeType === "checker") {
-        return await this.executeChecker(request, execution);
-      }
-
-      return await this.executeRunOnly(request, execution);
+      return await this.runStagePod(request, execution);
     } catch (err) {
       execution.signal.throwIfAborted();
       if (err instanceof SandboxImagePullError) {
@@ -1387,34 +1317,21 @@ export class K8sExecutor implements SandboxExecutor {
     if (!request.judgeConfig.interactorScript) {
       return sandboxSystemError("Interactive judge is missing its interactor script.");
     }
-
-    const ns = this.config.namespace;
-    const baseName = `judge-${execution.runId}`;
-    const results: SandboxTestcaseResult[] = [];
-
-    for (const testcase of request.testcases) {
-      const result = await this.runInteractiveCase(
-        baseName,
-        ns,
-        request,
-        testcase,
-        execution.signal,
-      );
-      if (result.compilationError !== undefined) return result;
-      results.push(...result.testcaseResults);
-    }
-
-    return { testcaseResults: results };
+    if (request.testcases.length === 0) return { testcaseResults: [] };
+    return this.runInteractiveStage(
+      `judge-${execution.runId}-int`,
+      this.config.namespace,
+      request,
+      execution.signal,
+    );
   }
 
-  private async runInteractiveCase(
-    baseName: string,
+  private async runInteractiveStage(
+    jobName: string,
     namespace: string,
     request: SandboxRequest,
-    testcase: SandboxTestcase,
     signal: AbortSignal,
   ): Promise<SandboxResult> {
-    const jobName = `${baseName}-int-${String(testcase.index)}`;
     const solConfigMap = `${jobName}-sol`;
     const intConfigMap = `${jobName}-int`;
     let solutionPayloadNames: string[] = [];
@@ -1422,17 +1339,15 @@ export class K8sExecutor implements SandboxExecutor {
     let executionFailure: { reason: unknown } | undefined;
 
     const seCase = (message: string): SandboxResult => ({
-      testcaseResults: [
-        {
-          index: testcase.index,
-          verdict: "SE",
-          stdout: "",
-          stderr: message,
-          exitCode: -1,
-          timeMs: 0,
-          feedback: message,
-        },
-      ],
+      testcaseResults: request.testcases.map((testcase) => ({
+        index: testcase.index,
+        verdict: "SE",
+        stdout: "",
+        stderr: message,
+        exitCode: -1,
+        timeMs: 0,
+        feedback: message,
+      })),
     });
 
     try {
@@ -1445,14 +1360,11 @@ export class K8sExecutor implements SandboxExecutor {
       interactorPayloadNames = await this.createPayloadConfigMaps(
         intConfigMap,
         namespace,
-        buildInteractiveInteractorConfigMapData(request, testcase),
+        buildInteractiveInteractorConfigMapData(request),
         signal,
       );
 
-      const deadlineSeconds = Math.max(
-        Math.ceil(request.limits.timeoutMs / 1000) + 30,
-        JOB_DEADLINE_FLOOR_SECONDS,
-      );
+      const deadlineSeconds = computeInteractiveJobDeadlineSeconds(request);
       await this.createSandboxJob(
         {
           namespace,
@@ -1512,7 +1424,7 @@ export class K8sExecutor implements SandboxExecutor {
         timedOut: false,
         spawnError: false,
       };
-      return resolveInteractiveCase(testcase, sol, int);
+      return resolveInteractiveStage(request.testcases, sol, int);
     } catch (err) {
       if (signal.aborted) {
         const reason = executionAbortReason(signal);
@@ -1528,10 +1440,9 @@ export class K8sExecutor implements SandboxExecutor {
         executionFailure = { reason: err };
         throw err;
       }
-      logger.error("K8s interactive case failed", {
+      logger.error("K8s interactive stage failed", {
         submissionId: request.submissionId,
         jobName,
-        index: testcase.index,
         err: err instanceof Error ? err.message : String(err),
       });
       return seCase("Interactive sandbox failed to start.");
@@ -1668,292 +1579,220 @@ export class K8sExecutor implements SandboxExecutor {
     }
   }
 
-  private async runPerCasePod(
-    request: SandboxRequest,
-    execution: SandboxExecutionContext,
-  ): Promise<SandboxResult> {
-    const ns = this.config.namespace;
-    const allCaseIndices = request.testcases.map((tc) => tc.index);
-
-    if (allCaseIndices.length === 0) return { testcaseResults: [] };
-
-    const waves = chunkCaseIndices(allCaseIndices, resolveMaxParallelCases(this.config));
-    const memoryLimit = resolveK8sMemoryLimit(request, this.config);
-    const rawRuns: RawCaseRun[] = [];
-
-    for (let waveIndex = 0; waveIndex < waves.length; waveIndex++) {
-      const waveCaseIndices = waves[waveIndex] ?? [];
-      const jobName =
-        waves.length === 1
-          ? `judge-${execution.runId}`
-          : `judge-${execution.runId}-w${String(waveIndex)}`;
-      const waveRequest: SandboxRequest = {
-        ...request,
-        testcases: request.testcases.filter((tc) => waveCaseIndices.includes(tc.index)),
-      };
-      const deadlineSeconds = computeJobDeadlineSeconds(waveRequest);
-      const waveStartedAt = Date.now();
-      let payloadReadyAt: number | undefined;
-      let jobSubmittedAt: number | undefined;
-      let jobFinishedAt: number | undefined;
-      let compileLogsReadAt: number | undefined;
-      let caseLogsReadAt: number | undefined;
-      let executionFailure: { reason: unknown } | undefined;
-      let payloadNames: string[] = [];
-
-      try {
-        payloadNames = await this.createPayloadConfigMaps(
-          jobName,
-          ns,
-          buildRunConfigMapData(waveRequest),
-          execution.signal,
-        );
-        payloadReadyAt = Date.now();
-        await this.createPerCaseJob(
-          jobName,
-          ns,
-          payloadNames,
-          deadlineSeconds,
-          waveCaseIndices,
-          memoryLimit,
-          request.sandboxImage ?? this.config.image,
-          execution.signal,
-        );
-        jobSubmittedAt = Date.now();
-
-        await this.waitForJobCompletion(jobName, ns, deadlineSeconds, execution.signal);
-        jobFinishedAt = Date.now();
-        await this.observeJobLifecycle(jobName, ns, request);
-
-        const podName = await this.findPodName(jobName, ns, execution.signal);
-        if (!podName) throw new Error(`No pod found for job ${jobName}`);
-        const compileLog = await this.getPodContainerLogs(
-          podName,
-          ns,
-          PREPARE_CONTAINER_NAME,
-          execution.signal,
-        );
-        recordRunnerResources(compileLog, requestMode(request), request.language, "prepare", {
-          jobName,
-          container: "prepare",
-        });
-        compileLogsReadAt = Date.now();
-        const compileError = parseCompilationError(compileLog);
-        if (compileError) return { testcaseResults: [], compilationError: compileError };
-
-        rawRuns.push(
-          ...(await Promise.all(
-            waveCaseIndices.map(async (index): Promise<RawCaseRun> => {
-              const logs = await this.getPodContainerLogs(
-                podName,
-                ns,
-                perCaseContainerName(index),
-                execution.signal,
-              );
-              recordRunnerResources(logs, requestMode(request), request.language, "execute", {
-                jobName,
-                container: perCaseContainerName(index),
-              });
-              const parsed = logs ? this.parseRunnerOutput(logs) : null;
-              if (!parsed?.rawRuns?.[0])
-                logger.warn("Case container produced no readable result", {
-                  jobName,
-                  container: perCaseContainerName(index),
-                  logBytes: logs.length,
-                  logTail: logs.slice(-200),
-                  pipelineError: parsed?.pipelineError ?? null,
-                });
-              return (
-                parsed?.rawRuns?.[0] ?? {
-                  index,
-                  stdout: "",
-                  stderr: parsed?.pipelineError ?? "Case container produced no result.",
-                  exitCode: -1,
-                  timeMs: 0,
-                  errorVerdict: "SE",
-                }
-              );
-            }),
-          )),
-        );
-        caseLogsReadAt = Date.now();
-      } catch (error) {
-        executionFailure = { reason: error };
-        throw error;
-      } finally {
-        const cleanupStartedAt = Date.now();
-        try {
-          await this.measurePhase(request, "cleanup", () =>
-            runCleanupAfterExecution(executionFailure, () =>
-              this.cleanup(jobName, ns, payloadNames),
-            ),
-          );
-        } finally {
-          if (jobFinishedAt !== undefined && caseLogsReadAt !== undefined)
-            recordJudgePhase(
-              "collect",
-              caseLogsReadAt - jobFinishedAt,
-              request.judgeType,
-              request.language,
-            );
-          logger.info("Kubernetes sandbox phase timings", {
-            submissionId: request.submissionId,
-            jobName,
-            waveIndex,
-            caseCount: waveCaseIndices.length,
-            payloadConfigMapsMs:
-              payloadReadyAt === undefined ? null : payloadReadyAt - waveStartedAt,
-            jobCreateMs:
-              jobSubmittedAt === undefined || payloadReadyAt === undefined
-                ? null
-                : jobSubmittedAt - payloadReadyAt,
-            scheduleAndExecutionMs:
-              jobSubmittedAt === undefined || jobFinishedAt === undefined
-                ? null
-                : jobFinishedAt - jobSubmittedAt,
-            prepareLogsMs:
-              jobFinishedAt === undefined || compileLogsReadAt === undefined
-                ? null
-                : compileLogsReadAt - jobFinishedAt,
-            caseLogsMs:
-              compileLogsReadAt === undefined || caseLogsReadAt === undefined
-                ? null
-                : caseLogsReadAt - compileLogsReadAt,
-            cleanupMs: Date.now() - cleanupStartedAt,
-            totalMs: Date.now() - waveStartedAt,
-          });
-        }
-      }
-    }
-
-    return { testcaseResults: [], rawRuns };
-  }
-
-  private async executeRunOnly(
-    request: SandboxRequest,
-    execution: SandboxExecutionContext,
-  ): Promise<SandboxResult> {
-    const result = await this.runPerCasePod(request, execution);
-    return resolveSandboxResult(result, request.testcases, request.judgeConfig.compare);
-  }
-
-  private async executeChecker(
-    request: SandboxRequest,
-    execution: SandboxExecutionContext,
-  ): Promise<SandboxResult> {
-    const validateName = `judge-${execution.runId}-validate`;
-    const ns = this.config.namespace;
-
-    const runResult = await this.runPerCasePod(request, execution);
-    if (!runResult.rawRuns) return runResult;
-    const rawRuns = runResult.rawRuns;
-    const answeredCaseIndices = new Set(
-      request.testcases.filter((tc) => tc.output !== undefined).map((tc) => tc.index),
+  private stageParallelism(request: SandboxRequest): {
+    parallelism: number;
+    runMemoryLimit: string;
+  } {
+    const caseMb = parseMemoryLimitMb(resolveK8sMemoryLimit(request, this.config));
+    const maxMb = this.config.maxMemoryMb ?? DEFAULT_MAX_MEMORY_MB;
+    const parallelism = Math.max(
+      1,
+      Math.min(
+        this.config.runParallelism ?? 1,
+        Math.floor((maxMb - RUNNER_MEMORY_MB) / caseMb),
+      ),
     );
-    const gradableRuns = rawRuns.filter(
-      (r) => !r.errorVerdict && answeredCaseIndices.has(r.index),
-    );
-    const outcomes =
-      gradableRuns.length > 0
-        ? await this.runValidateJob(validateName, ns, request, gradableRuns, execution.signal)
-        : new Map<number, ValidatorOutcome>();
-
-    return { testcaseResults: mergeCheckerResults(rawRuns, outcomes, request.testcases) };
+    return {
+      parallelism,
+      runMemoryLimit: `${String(Math.min(parallelism * caseMb + RUNNER_MEMORY_MB, maxMb))}Mi`,
+    };
   }
 
-  private async runValidateJob(
+  private async createStagePayloads(
     jobName: string,
     namespace: string,
     request: SandboxRequest,
-    rawRuns: RawCaseRun[],
+    parallelism: number,
     signal: AbortSignal,
-  ): Promise<Map<number, ValidatorOutcome>> {
-    let payloadNames: string[] = [];
-    let executionFailure: { reason: unknown } | undefined;
-    try {
-      const deadlineSeconds = computeValidatorJobDeadlineSeconds(
-        request.limits.timeoutMs,
-        rawRuns.length,
-      );
-      payloadNames = await this.createPayloadConfigMaps(
-        jobName,
+  ): Promise<{ run: string[]; judge: string[] }> {
+    const [run, judge] = await Promise.allSettled([
+      this.createPayloadConfigMaps(
+        `${jobName}-run`,
         namespace,
-        buildValidateConfigMapData(request, rawRuns),
+        buildRunConfigMapData(request, parallelism),
         signal,
-      );
-      await this.createJob(
-        jobName,
+      ),
+      this.createPayloadConfigMaps(
+        `${jobName}-judge`,
         namespace,
-        payloadNames,
-        deadlineSeconds,
-        resolveK8sMemoryLimit(request, this.config),
-        request.sandboxImage ?? this.config.image,
+        buildJudgePayload(request),
         signal,
-      );
+      ),
+    ]);
+    if (run.status === "fulfilled" && judge.status === "fulfilled")
+      return { run: run.value, judge: judge.value };
+    const created = [run, judge].flatMap((result) =>
+      result.status === "fulfilled" ? result.value : [],
+    );
+    await Promise.allSettled(created.map((name) => this.cleanupConfigMap(name, namespace)));
+    throw run.status === "rejected" ? run.reason : (judge as PromiseRejectedResult).reason;
+  }
 
-      const outcome = await this.waitForJobCompletion(
+  private async runStagePod(
+    request: SandboxRequest,
+    execution: SandboxExecutionContext,
+  ): Promise<SandboxResult> {
+    if (request.testcases.length === 0) return { testcaseResults: [] };
+    const ns = this.config.namespace;
+    const jobName = `judge-${execution.runId}`;
+    const deadlineSeconds = computeStageJobDeadlineSeconds(request);
+    const { parallelism, runMemoryLimit } = this.stageParallelism(request);
+    const startedAt = Date.now();
+    let payloadReadyAt: number | undefined;
+    let jobSubmittedAt: number | undefined;
+    let jobFinishedAt: number | undefined;
+    let logsReadAt: number | undefined;
+    let executionFailure: { reason: unknown } | undefined;
+    let payloadNames: string[] = [];
+
+    try {
+      const payloads = await this.createStagePayloads(
         jobName,
-        namespace,
+        ns,
+        request,
+        parallelism,
+        execution.signal,
+      );
+      payloadNames = [...payloads.run, ...payloads.judge];
+      payloadReadyAt = Date.now();
+      await this.createStageJob(
+        jobName,
+        ns,
+        payloads,
         deadlineSeconds,
-        signal,
+        request,
+        parallelism,
+        runMemoryLimit,
+        execution.signal,
       );
-      await this.observeJobLifecycle(jobName, namespace, request);
-      const logs = await this.measurePhase(request, "collect", async () => {
-        const [output] = await Promise.all([
-          this.getPodLogs(jobName, namespace, signal),
-          this.observeContainerResources(
-            jobName,
-            namespace,
-            "prepare-validator",
-            request,
-            "prepare",
-            signal,
-          ),
-        ]);
-        return output;
-      });
-      recordRunnerResources(logs, "checker", request.language, "checker", {
+      jobSubmittedAt = Date.now();
+
+      await this.waitForJobCompletion(jobName, ns, deadlineSeconds, execution.signal);
+      jobFinishedAt = Date.now();
+      await this.observeJobLifecycle(jobName, ns, request);
+
+      const pod = await this.findStagePod(jobName, ns, execution.signal);
+      if (!pod) throw new Error(`No pod found for job ${jobName}`);
+      const [prepareLog, runLog, judgeLog] = await Promise.all([
+        this.getPodContainerLogs(pod.name, ns, PREPARE_CONTAINER_NAME, execution.signal),
+        pod.runStarted
+          ? this.getPodContainerLogs(pod.name, ns, RUN_CONTAINER_NAME, execution.signal)
+          : "",
+        pod.judgeStarted
+          ? this.getPodContainerLogs(pod.name, ns, JUDGE_CONTAINER_NAME, execution.signal)
+          : "",
+      ]);
+      logsReadAt = Date.now();
+      const mode = requestMode(request);
+      recordRunnerResources(prepareLog, mode, request.language, "prepare", {
         jobName,
-        container: "runner",
+        container: PREPARE_CONTAINER_NAME,
       });
-      return (
-        parseValidatorOutcomesFromLogs(logs, rawRuns) ??
-        validatorOutcomesSeForAll(
-          rawRuns,
-          outcome === "failed"
-            ? `Validator job failed or timed out. ${logs.slice(0, 4096)}`
-            : `Validator produced no result. ${logs.slice(0, 4096)}`,
-        )
+      recordRunnerResources(runLog, mode, request.language, "execute", {
+        jobName,
+        container: RUN_CONTAINER_NAME,
+      });
+      recordRunnerResources(judgeLog, mode, request.language, "checker", {
+        jobName,
+        container: JUDGE_CONTAINER_NAME,
+      });
+
+      const compileError = parseCompilationError(prepareLog);
+      if (compileError) return { testcaseResults: [], compilationError: compileError };
+
+      const parsed = runLog ? this.parseRunnerOutput(runLog) : null;
+      if (!parsed?.rawRuns)
+        logger.warn("Run container produced no readable result", {
+          jobName,
+          logBytes: runLog.length,
+          logTail: runLog.slice(-200),
+          pipelineError: parsed?.pipelineError ?? null,
+        });
+      const rawRuns = completeRuns(
+        request,
+        parsed?.rawRuns ?? [],
+        parsed?.pipelineError ?? "Run container produced no result.",
       );
-    } catch (err) {
-      if (signal.aborted) {
-        const reason = executionAbortReason(signal);
-        executionFailure = { reason };
-        throw reason;
-      }
-      if (
-        err instanceof SandboxAdmissionError ||
-        err instanceof SandboxBackpressureError ||
-        err instanceof SandboxImagePullError ||
-        err instanceof SandboxInfrastructureError
-      ) {
-        executionFailure = { reason: err };
-        throw err;
-      }
-      logger.error("K8s validate Job failed", {
-        submissionId: request.submissionId,
-        jobName,
-        err: err instanceof Error ? err.message : String(err),
-      });
-      return validatorOutcomesSeForAll(
+      return mergeStageResults(
+        request,
         rawRuns,
-        `Validator job failed: ${err instanceof Error ? err.message : String(err)}`,
+        parseJudgeOutcomes(judgeLog, gradableRuns(request, rawRuns)),
       );
+    } catch (error) {
+      executionFailure = { reason: error };
+      throw error;
     } finally {
-      await this.measurePhase(request, "cleanup", () =>
-        runCleanupAfterExecution(executionFailure, () =>
-          this.cleanup(jobName, namespace, payloadNames),
+      const cleanupStartedAt = Date.now();
+      try {
+        await this.measurePhase(request, "cleanup", () =>
+          runCleanupAfterExecution(executionFailure, () =>
+            this.cleanup(jobName, ns, payloadNames),
+          ),
+        );
+      } finally {
+        if (jobFinishedAt !== undefined && logsReadAt !== undefined)
+          recordJudgePhase(
+            "collect",
+            logsReadAt - jobFinishedAt,
+            request.judgeType,
+            request.language,
+          );
+        logger.info("Kubernetes sandbox phase timings", {
+          submissionId: request.submissionId,
+          jobName,
+          caseCount: request.testcases.length,
+          parallelism,
+          payloadConfigMapsMs: payloadReadyAt === undefined ? null : payloadReadyAt - startedAt,
+          jobCreateMs:
+            jobSubmittedAt === undefined || payloadReadyAt === undefined
+              ? null
+              : jobSubmittedAt - payloadReadyAt,
+          scheduleAndExecutionMs:
+            jobSubmittedAt === undefined || jobFinishedAt === undefined
+              ? null
+              : jobFinishedAt - jobSubmittedAt,
+          logsMs:
+            jobFinishedAt === undefined || logsReadAt === undefined
+              ? null
+              : logsReadAt - jobFinishedAt,
+          cleanupMs: Date.now() - cleanupStartedAt,
+          totalMs: Date.now() - startedAt,
+        });
+      }
+    }
+  }
+
+  private async findStagePod(
+    jobName: string,
+    namespace: string,
+    signal: AbortSignal,
+  ): Promise<{ name: string; runStarted: boolean; judgeStarted: boolean } | null> {
+    try {
+      signal.throwIfAborted();
+      const pods = await this.coreApi.listNamespacedPod({
+        namespace,
+        labelSelector: `job-name=${jobName}`,
+      });
+      signal.throwIfAborted();
+      const pod = pods.items[0];
+      const name = pod?.metadata?.name;
+      if (!name) return null;
+      const started = (status: k8s.V1ContainerStatus | undefined) =>
+        Boolean(status?.state?.terminated ?? status?.state?.running);
+      return {
+        name,
+        runStarted: started(
+          pod.status?.initContainerStatuses?.find((c) => c.name === RUN_CONTAINER_NAME),
         ),
+        judgeStarted: started(
+          pod.status?.containerStatuses?.find((c) => c.name === JUDGE_CONTAINER_NAME),
+        ),
+      };
+    } catch (error) {
+      signal.throwIfAborted();
+      throw new SandboxInfrastructureError(
+        `Could not find sandbox pod for ${namespace}/${jobName}: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
       );
     }
   }
@@ -1968,16 +1807,22 @@ export class K8sExecutor implements SandboxExecutor {
     const names = payloadConfigMapNames(configMaps);
     const created: string[] = [];
     try {
-      for (const configMap of configMaps) {
-        signal.throwIfAborted();
-        configMap.metadata = this.runMetadata(configMap.metadata);
-        await this.coreApi
-          .createNamespacedConfigMap({ namespace, body: configMap })
-          .catch(rethrowSandboxQuotaError);
-        const name = configMap.metadata.name;
-        if (!name) throw new Error("Created sandbox payload ConfigMap is missing a name.");
-        created.push(name);
-      }
+      signal.throwIfAborted();
+      const results = await Promise.allSettled(
+        configMaps.map(async (configMap) => {
+          configMap.metadata = this.runMetadata(configMap.metadata);
+          await this.coreApi
+            .createNamespacedConfigMap({ namespace, body: configMap })
+            .catch(rethrowSandboxQuotaError);
+          const name = configMap.metadata.name;
+          if (!name) throw new Error("Created sandbox payload ConfigMap is missing a name.");
+          created.push(name);
+        }),
+      );
+      const failed = results.find(
+        (result): result is PromiseRejectedResult => result.status === "rejected",
+      );
+      if (failed) throw failed.reason;
       signal.throwIfAborted();
       return names;
     } catch (error) {
@@ -2108,67 +1953,34 @@ export class K8sExecutor implements SandboxExecutor {
     return this.coreApi.createNamespacedPod(params);
   }
 
-  private async createJob(
+  private async createStageJob(
     jobName: string,
     namespace: string,
-    configMapNames: string[],
+    payloads: { run: string[]; judge: string[] },
     deadlineSeconds: number,
-    memoryLimit: string,
-    image: string,
+    request: SandboxRequest,
+    runParallelism: number,
+    runMemoryLimit: string,
     signal: AbortSignal,
   ): Promise<void> {
     signal.throwIfAborted();
+    const memoryLimit = resolveK8sMemoryLimit(request, this.config);
     await this.createSandboxJob(
       {
         namespace,
-        body: buildSandboxJobManifest({
+        body: buildStageJobManifest({
           jobName,
           namespace,
-          configMapNames,
-          image,
+          runConfigMapNames: payloads.run,
+          judgeConfigMapNames: payloads.judge,
+          image: request.sandboxImage ?? this.config.image,
           cpuRequest: this.config.cpuRequest,
           cpuLimit: this.config.cpuLimit,
           memoryRequest: this.config.memoryRequest,
-          memoryLimit,
           compilerMemoryLimit: `${String(Math.max(parseMemoryLimitMb(memoryLimit), MIN_COMPILER_MEMORY_MB))}Mi`,
+          runParallelism,
+          runMemoryLimit,
           activeDeadlineSeconds: deadlineSeconds,
-          ...(this.config.runtimeClassName
-            ? { runtimeClassName: this.config.runtimeClassName }
-            : {}),
-        }),
-      },
-      signal,
-    ).catch(rethrowSandboxQuotaError);
-    signal.throwIfAborted();
-  }
-
-  private async createPerCaseJob(
-    jobName: string,
-    namespace: string,
-    configMapNames: string[],
-    deadlineSeconds: number,
-    caseIndices: number[],
-    memoryLimit: string,
-    image: string,
-    signal: AbortSignal,
-  ): Promise<void> {
-    signal.throwIfAborted();
-    await this.createSandboxJob(
-      {
-        namespace,
-        body: buildPerCaseSandboxJobManifest({
-          jobName,
-          namespace,
-          configMapNames,
-          image,
-          cpuRequest: this.config.cpuRequest,
-          ...(this.config.caseCpuRequest ? { caseCpuRequest: this.config.caseCpuRequest } : {}),
-          cpuLimit: this.config.cpuLimit,
-          memoryRequest: this.config.memoryRequest,
-          memoryLimit,
-          compilerMemoryLimit: `${String(Math.max(parseMemoryLimitMb(memoryLimit), MIN_COMPILER_MEMORY_MB))}Mi`,
-          activeDeadlineSeconds: deadlineSeconds,
-          caseIndices,
           ...(this.config.runtimeClassName
             ? { runtimeClassName: this.config.runtimeClassName }
             : {}),

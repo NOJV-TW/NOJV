@@ -43,6 +43,7 @@ export const INTERACTIVE_RUN_MARKER = "<<<NOJV_RUN>>>";
 export const INTERACTIVE_VALIDATE_MARKER = "<<<NOJV_VALIDATE>>>";
 
 export interface InteractiveRunReport {
+  index?: number;
   exitCode: number;
   timeMs: number;
   memoryKb?: number;
@@ -51,23 +52,21 @@ export interface InteractiveRunReport {
   stderr?: string;
 }
 
-export function parseMarkedLine(stderr: string, marker: string): unknown {
-  let idx = stderr.lastIndexOf(`\n${marker}`);
-  if (idx !== -1) idx += 1;
-  else if (stderr.startsWith(marker)) idx = 0;
-  if (idx === -1) return null;
-  const rest = stderr.slice(idx + marker.length);
-  const newline = rest.indexOf("\n");
-  const payload = (newline === -1 ? rest : rest.slice(0, newline)).trim();
-  if (!payload) return null;
-  try {
-    return JSON.parse(payload);
-  } catch {
-    return null;
-  }
+export function parseMarkedLines(stderr: string, marker: string): unknown[] {
+  return stderr.split("\n").flatMap((line) => {
+    if (!line.startsWith(marker)) return [];
+    const payload = line.slice(marker.length).trim();
+    if (!payload) return [];
+    try {
+      return [JSON.parse(payload) as unknown];
+    } catch {
+      return [];
+    }
+  });
 }
 
 const interactiveRunReportSchema = z.object({
+  index: z.number().int().nonnegative().optional(),
   exitCode: z.number(),
   timeMs: z.number(),
   memoryKb: z.number().optional(),
@@ -77,35 +76,40 @@ const interactiveRunReportSchema = z.object({
 });
 
 const interactiveValidatorReportSchema = z.object({
+  index: z.number().int().nonnegative().optional(),
   verdict: z.enum(["AC", "WA", "SE"]),
   teamMessage: z.string().optional(),
   judgeMessage: z.string().optional(),
 });
 
-export function parseInteractiveRunReport(stderr: string): InteractiveRunReport | null {
-  const parsed = interactiveRunReportSchema.safeParse(
-    parseMarkedLine(stderr, INTERACTIVE_RUN_MARKER),
-  );
-  if (!parsed.success) return null;
-  const report: InteractiveRunReport = {
-    exitCode: parsed.data.exitCode,
-    timeMs: parsed.data.timeMs,
-  };
-  if (parsed.data.memoryKb !== undefined) report.memoryKb = parsed.data.memoryKb;
-  if (parsed.data.errorVerdict != null) report.errorVerdict = parsed.data.errorVerdict;
-  if (parsed.data.stderr !== undefined) report.stderr = parsed.data.stderr;
-  if (parsed.data.compilationError !== undefined)
-    report.compilationError = parsed.data.compilationError;
-  return report;
+export function parseInteractiveRunReports(stderr: string): InteractiveRunReport[] {
+  return parseMarkedLines(stderr, INTERACTIVE_RUN_MARKER).flatMap((line) => {
+    const parsed = interactiveRunReportSchema.safeParse(line);
+    if (!parsed.success) return [];
+    const report: InteractiveRunReport = {
+      exitCode: parsed.data.exitCode,
+      timeMs: parsed.data.timeMs,
+    };
+    if (parsed.data.index !== undefined) report.index = parsed.data.index;
+    if (parsed.data.memoryKb !== undefined) report.memoryKb = parsed.data.memoryKb;
+    if (parsed.data.errorVerdict != null) report.errorVerdict = parsed.data.errorVerdict;
+    if (parsed.data.stderr !== undefined) report.stderr = parsed.data.stderr;
+    if (parsed.data.compilationError !== undefined)
+      report.compilationError = parsed.data.compilationError;
+    return [report];
+  });
 }
 
-export function parseInteractiveValidatorReport(stderr: string): ValidatorOutcome | null {
-  const parsed = interactiveValidatorReportSchema.safeParse(
-    parseMarkedLine(stderr, INTERACTIVE_VALIDATE_MARKER),
-  );
-  if (!parsed.success) return null;
-  const outcome: ValidatorOutcome = { verdict: parsed.data.verdict };
-  if (parsed.data.teamMessage !== undefined) outcome.teamMessage = parsed.data.teamMessage;
-  if (parsed.data.judgeMessage !== undefined) outcome.judgeMessage = parsed.data.judgeMessage;
-  return outcome;
+export function parseInteractiveValidatorReports(
+  stderr: string,
+): (ValidatorOutcome & { index?: number })[] {
+  return parseMarkedLines(stderr, INTERACTIVE_VALIDATE_MARKER).flatMap((line) => {
+    const parsed = interactiveValidatorReportSchema.safeParse(line);
+    if (!parsed.success) return [];
+    const outcome: ValidatorOutcome & { index?: number } = { verdict: parsed.data.verdict };
+    if (parsed.data.index !== undefined) outcome.index = parsed.data.index;
+    if (parsed.data.teamMessage !== undefined) outcome.teamMessage = parsed.data.teamMessage;
+    if (parsed.data.judgeMessage !== undefined) outcome.judgeMessage = parsed.data.judgeMessage;
+    return [outcome];
+  });
 }

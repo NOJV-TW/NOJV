@@ -1,6 +1,6 @@
 import { MAX_EXECUTION_OUTPUT_BYTES } from "@nojv/core";
 import * as fs from "node:fs/promises";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 
 export async function pathExists(filePath: string): Promise<boolean> {
   try {
@@ -59,91 +59,6 @@ export function readCgroupMemoryPeakBytes(): number | null {
 
 export function cleanupTempDir(dir: string): Promise<void> {
   return fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
-}
-
-export interface MemoryPoller {
-  stop(): number;
-}
-
-export const MEMORY_POLL_INTERVAL_MS = 25;
-
-function readPpid(pid: number): number | null {
-  try {
-    const stat = readFileSync(`/proc/${String(pid)}/stat`, "utf-8");
-    const afterComm = stat.slice(stat.lastIndexOf(")") + 2).split(" ");
-    const ppid = Number.parseInt(afterComm[1] ?? "", 10);
-    return Number.isFinite(ppid) ? ppid : null;
-  } catch {
-    return null;
-  }
-}
-
-function readVmRssKb(pid: number): number {
-  try {
-    const status = readFileSync(`/proc/${String(pid)}/status`, "utf-8");
-    const match = /^VmRSS:\s+(\d+)\s+kB/m.exec(status);
-    return match ? Number.parseInt(match[1] ?? "", 10) : 0;
-  } catch {
-    return 0;
-  }
-}
-
-function processSubtree(root: number): number[] {
-  let entries: string[];
-  try {
-    entries = readdirSync("/proc");
-  } catch {
-    return [root];
-  }
-
-  const childrenOf = new Map<number, number[]>();
-  for (const entry of entries) {
-    const pid = Number(entry);
-    if (!Number.isInteger(pid)) continue;
-    const ppid = readPpid(pid);
-    if (ppid === null) continue;
-    const siblings = childrenOf.get(ppid) ?? [];
-    siblings.push(pid);
-    childrenOf.set(ppid, siblings);
-  }
-
-  const out: number[] = [];
-  const seen = new Set<number>();
-  const stack = [root];
-  while (stack.length > 0) {
-    const pid = stack.pop();
-    if (pid === undefined || seen.has(pid)) continue;
-    seen.add(pid);
-    out.push(pid);
-    for (const child of childrenOf.get(pid) ?? []) stack.push(child);
-  }
-  return out;
-}
-
-export function createMemoryPoller(pid: number, includeRoot = true): MemoryPoller {
-  let peakKb = 0;
-  let stopped = false;
-
-  function sample(): void {
-    if (stopped) return;
-    let sumKb = 0;
-    for (const member of processSubtree(pid)) {
-      if (member !== pid || includeRoot) sumKb += readVmRssKb(member);
-    }
-    if (Number.isFinite(sumKb) && sumKb > peakKb) peakKb = sumKb;
-  }
-
-  sample();
-  const interval = setInterval(sample, MEMORY_POLL_INTERVAL_MS);
-
-  return {
-    stop(): number {
-      stopped = true;
-      clearInterval(interval);
-      sample();
-      return peakKb;
-    },
-  };
 }
 
 const DEFAULT_OUTPUT_CAP_BYTES = MAX_EXECUTION_OUTPUT_BYTES;
