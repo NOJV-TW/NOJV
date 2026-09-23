@@ -13,7 +13,7 @@ vi.mock("@nojv/db", () => ({
   runTransaction: vi.fn(),
   submissionRepo: { findMany },
 }));
-vi.mock("../../../packages/application/src/submission/queries", () => ({
+vi.mock("../../../packages/application/src/submission/details", () => ({
   getSubmissionSources: getSources,
 }));
 

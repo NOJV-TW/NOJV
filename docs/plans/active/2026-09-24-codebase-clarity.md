@@ -81,7 +81,8 @@ The tracked baseline directory totals are reproducible with `git ls-files`; 2,11
 - [x] Move the 33 component-configured tests into the component tree, fix fixtures/imports, and select them by directory; retain genuinely non-rendering component-adjacent tests in unit only when classification supports it.
 - [x] Align the old `tests/unit/domain/` naming with `packages/application`; update Vitest, coverage, aliases, documentation, scripts, and references as one change.
 - [x] Move worker sandbox files into clear backend/shared folders and drop backend prefixes that become redundant; update imports, docs and Docker bundle behavior. Worker bundling uses the same entry points, and worker typecheck plus 83 affected unit files pass.
-- [ ] Split other oversized files only where each resulting module has one clear responsibility and a smaller interface. Start with submission queries/repositories and problem mutations, then review other files from the inventory.
+- [x] Split submission queries into detail reads, history, judge context and shared submission context; preserve the package exports and update internal imports to their owning modules.
+- [ ] Split problem mutations and the submission repository by responsibility; review remaining oversized modules from the inventory.
 
 ### 4. Simplification and drift prevention
 
@@ -106,6 +107,7 @@ The tracked baseline directory totals are reproducible with `git ls-files`; 2,11
 | `fb9f34e5d4a56c927d04f4a4d0b7327e7a238ca0` | `pnpm ci:verify`                                   | Passed; format, repository guards, build, typecheck, lint, 384 unit files / 3,555 passed / 2 skipped, and 43 component files / 105 passed. |
 | `codex/codebase-clarity` after test moves  | `pnpm test:component`                              | Passed; directory glob selected 43 component files / 105 tests.                                                                            |
 | `codex/codebase-clarity` after test moves  | `pnpm test:unit` and `pnpm typecheck:tests`        | Passed; 384 unit files / 3,570 passed / 2 skipped; both test TypeScript projects passed.                                                   |
+| `codex/codebase-clarity` submission split  | application typecheck, test typecheck, four affected suites | Passed; 45 tests and both application/test TypeScript checks.                                                                       |
 
 ## Related current guidance
 

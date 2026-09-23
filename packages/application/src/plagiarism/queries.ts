@@ -13,7 +13,7 @@ import type { SubmissionSource } from "@nojv/storage";
 
 import { IntegrityError, NotFoundError } from "../shared/errors";
 import { toJsonValue } from "../shared/to-json-value";
-import { getSubmissionSources } from "../submission/queries";
+import { getSubmissionSources } from "../submission/details";
 import { plagiarismTargetFilter, type PlagiarismResults, type PlagiarismTarget } from "./types";
 
 export function boundaryMarkerFor(language: string): string {

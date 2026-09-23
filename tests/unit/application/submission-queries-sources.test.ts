@@ -22,7 +22,7 @@ vi.mock("../../../packages/application/src/shared/storage-singleton", () => ({
   },
 }));
 
-import { getSubmissionSources } from "../../../packages/application/src/submission/queries";
+import { getSubmissionSources } from "../../../packages/application/src/submission/details";
 import { ConflictError } from "../../../packages/application/src/shared/errors";
 
 describe("getSubmissionSources — domain wrapper", () => {

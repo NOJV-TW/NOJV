@@ -24,7 +24,7 @@ vi.mock("@nojv/db", () => ({
   },
   problemRepo: { findById: mocks.problem },
 }));
-vi.mock("../../../packages/application/src/submission/queries", () => ({
+vi.mock("../../../packages/application/src/submission/details", () => ({
   getSubmissionForActor: mocks.read,
   readVerdictDetail: mocks.detail,
 }));

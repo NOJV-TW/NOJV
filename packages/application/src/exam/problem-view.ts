@@ -1,4 +1,4 @@
-import { toProblemSubmissionEntry } from "../submission/queries";
+import { toProblemSubmissionEntry } from "../submission/history";
 import { applyQueuedRejudges } from "../submission/operations";
 import { activityScore } from "../scoring/activity-points";
 import { scoreOverrideRepo } from "@nojv/db";

@@ -7,7 +7,7 @@ import {
 } from "@nojv/core";
 
 import { ForbiddenError, NotFoundError } from "../shared/errors";
-import { toProblemSubmissionEntry } from "../submission/queries";
+import { toProblemSubmissionEntry } from "../submission/history";
 import { applyQueuedRejudges } from "../submission/operations";
 import {
   buildScoreboard,

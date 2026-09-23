@@ -1,7 +1,7 @@
 import { createJudgeExecution } from "./judge-execution";
 import { prepareJudgeSnapshot } from "./judge-snapshot";
 import { reconcileJudgeExecutions } from "./judge-recovery";
-import { findOneForRejudge, listForRejudge } from "./queries";
+import { findOneForRejudge, listForRejudge } from "./judge-context";
 import { randomUUID } from "node:crypto";
 
 import type {

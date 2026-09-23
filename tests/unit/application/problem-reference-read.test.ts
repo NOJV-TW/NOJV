@@ -41,7 +41,7 @@ import {
   getProblemReferenceSolution,
   getSubmissionForActor,
   getSubmissionDetail,
-} from "../../../packages/application/src/submission/queries";
+} from "../../../packages/application/src/submission/details";
 import { canOperateOnSubmission } from "../../../packages/application/src/submission/permissions";
 
 const actor = {
