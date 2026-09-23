@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { PLAYWRIGHT_STORAGE_ENVIRONMENT } from "../../setup/playwright-environment";
 
 const { execFileSyncMock, executeRawMock, launchMock, queryRawMock } = vi.hoisted(() => ({
   execFileSyncMock: vi.fn(),
@@ -87,7 +88,7 @@ describe("Playwright global setup fail-closed ordering", () => {
     expect(seedOptions?.env).toMatchObject({
       S3_ACCESS_KEY: "minioadmin",
       S3_BUCKET: "nojv",
-      S3_ENDPOINT: "http://127.0.0.1:9000",
+      S3_ENDPOINT: PLAYWRIGHT_STORAGE_ENVIRONMENT.S3_ENDPOINT,
       S3_REGION: "us-east-1",
       S3_SECRET_KEY: "minioadmin",
     });
