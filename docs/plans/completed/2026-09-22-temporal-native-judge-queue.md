@@ -1,5 +1,8 @@
 # Temporal-native judge queue
 
+Status: shipped in v1.3.0–v1.3.9 (2026-09-22); the capacity tables were dropped
+on 2026-09-23.
+
 ## Why
 
 On 2026-09-22 a 789-execution incident rejudge collapsed judging: 785
@@ -147,9 +150,11 @@ are re-dispatched by the reconciler. No schema change ships in v1.3.0.
 - [x] Design reviewed; compose and chart Temporal config aligned.
 - [x] Dispatch with priority and per-student gate; coordinator removed.
 - [x] Unit, Temporal and database regressions green; docs and runbook replaced.
-- [ ] v1.3.0 released, deferred rejudges drained, exam-lane latency recorded.
-- [ ] Follow-up: subtask early exit; migration dropping `JudgeAdmission` and the
-      capacity columns.
+- [x] v1.3.0 released; the deferred rejudge drained 791 executions with no SE.
+- [x] Follow-up: migration `20260923020000_drop_judge_admission` drops
+      `JudgeAdmission` and `JudgeExecution.capacityStrategy`.
+- Subtask early exit was considered and declined (2026-09-23): students keep
+  seeing every case's result.
 
 ## References
 

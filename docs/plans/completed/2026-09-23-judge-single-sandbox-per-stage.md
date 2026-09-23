@@ -1,8 +1,8 @@
 # One sandbox per stage, per-process accounting
 
-Status: milestones 1a–6 (payload step 1) released in v1.3.10 (2026-09-23);
-compile merged into the run container afterwards. Supersedes the per-case
-container layout from PR #149.
+Status: shipped. Milestones 1a–6 in v1.3.10 and the compile merge in v1.3.11
+(2026-09-23); payload step 2 is not needed (see Results). Supersedes the
+per-case container layout from PR #149.
 
 ## Why
 
@@ -202,6 +202,26 @@ Each milestone is its own PR and release.
 
 The layout here is gVisor as the isolation boundary plus an unprivileged
 supervisor inside it, which is the same split cloud judges use with microVMs.
+
+## Results (prod, 2026-09-23)
+
+| Measure                            | v1.3.9            | v1.3.10         | v1.3.11        |
+| ---------------------------------- | ----------------- | --------------- | -------------- |
+| Stage p50 (14 light cases)         | ~18 s (20)        | 11.9 s          | 9.9 s          |
+| Payload ConfigMaps p50             | 689 ms            | 17 ms           | 17 ms          |
+| Light 40: p50 / p95 / span         | 107 / 177 / 187 s | 57 / 98 / 101 s | 45 / 84 / 88 s |
+| Empty program                      | 30–60 ms          | 0–10 ms         | 0–10 ms        |
+| 600 ms spin under load (280 cases) | 770–1060 ms       | 600–650 ms      | —              |
+| Node load, heavy 20                | 37.8              | 6.1             | —              |
+| Memory over the limit              | SE                | MLE             | MLE            |
+
+v1.3.10 ran 5 slots against v1.3.9's 10. Checker, interactive, standard, MLE and
+compile-error submissions all judged as expected on both releases. Payload step 2
+(image volumes) is not needed at 17 ms. The 20-case ≤ 9 s target is nearly met at
+9.9 s for 14 cases; what remains is the run-to-judge container start (~2 s under
+gVisor), Job-to-Pod (~1 s) and cleanup (~0.7 s). Starting the judge alongside the
+run container would remove the first, but only by letting answers exist in the
+Pod while student code runs, so it is not done.
 
 ## Acceptance
 

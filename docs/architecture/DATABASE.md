@@ -243,8 +243,8 @@ User-facing submission point and list reads are scoped in PostgreSQL against the
 
 `JudgeExecution` owns the immutable input snapshot, problem generation, workflow
 recovery epoch, queue class and resource lease. `JudgeStage` stores verified
-checkpoint pointers; `JudgeAdmission` serializes the 4:1 stage dispatch cursor.
-These are durable execution state, not student verdicts. Active rejudge logs are
+checkpoint pointers; dispatch order comes from Temporal task-queue priority, not a
+database cursor. These are durable execution state, not student verdicts. Active rejudge logs are
 retained until finalization/cancellation. Deleting an eligible draft problem
 queues snapshot/checkpoint cleanup and refuses active or unreconciled leases.
 The generated schema below is authoritative for fields; see the

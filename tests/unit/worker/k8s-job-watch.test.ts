@@ -69,7 +69,6 @@ function clients(options: {
                 },
                 status: {
                   initContainerStatuses: [
-                    { name: "prepare", state: { terminated: { exitCode: 0 } } },
                     { name: "run", state: { terminated: { exitCode: 0 } } },
                   ],
                   containerStatuses: [
@@ -82,8 +81,6 @@ function clients(options: {
       };
     }),
     readNamespacedPodLog: vi.fn(async ({ container }: { container: string }) => {
-      if (container === "prepare")
-        return JSON.stringify({ runCommand: ["python3", "main.py"] });
       if (container === "judge")
         return JSON.stringify({ validatorOutcomes: [{ index: 0, verdict: "AC" }] });
       return JSON.stringify({
@@ -300,21 +297,21 @@ describe("K8sExecutor Job/Pod watch completion", () => {
         phase: "Pending",
         startTime: new Date(),
         initContainerStatuses: [
-          { name: "prepare", state: { waiting: { reason: "ContainerCreating" } } },
+          { name: "run", state: { waiting: { reason: "ContainerCreating" } } },
         ],
         containerStatuses: [
-          { name: "case-0", state: { waiting: { reason: "PodInitializing" } } },
+          { name: "judge", state: { waiting: { reason: "PodInitializing" } } },
         ],
       },
     },
     {
-      name: "completed init container but unstarted case container",
+      name: "completed run container but unstarted judge container",
       status: {
         phase: "Pending",
         startTime: new Date(),
-        initContainerStatuses: [{ name: "prepare", state: { terminated: { exitCode: 0 } } }],
+        initContainerStatuses: [{ name: "run", state: { terminated: { exitCode: 0 } } }],
         containerStatuses: [
-          { name: "case-0", state: { waiting: { reason: "ContainerCreating" } } },
+          { name: "judge", state: { waiting: { reason: "ContainerCreating" } } },
         ],
       },
     },
@@ -429,7 +426,7 @@ describe("K8sExecutor Job/Pod watch completion", () => {
             startTime: new Date(),
             initContainerStatuses: [
               {
-                name: "prepare",
+                name: "run",
                 state: { waiting: { reason: "ImagePullBackOff", message: "image missing" } },
               },
             ],
@@ -619,8 +616,6 @@ it.each([false, true])(
     });
     fake.handles.coreApi.readNamespacedPodLog.mockImplementation(
       async ({ container }: { container: string }) => {
-        if (container === "prepare")
-          return JSON.stringify({ runCommand: ["python3", "main.py"] });
         if (container === "judge")
           return JSON.stringify({ validatorOutcomes: [{ index: 1, verdict: "WA" }] });
         return JSON.stringify({

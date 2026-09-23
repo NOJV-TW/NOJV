@@ -1,4 +1,4 @@
-> Superseded on 2026-09-22 by [Temporal-native judge queue](../active/2026-09-22-temporal-native-judge-queue.md); the coordinator described here was removed.
+> Superseded on 2026-09-22 by [Temporal-native judge queue](2026-09-22-temporal-native-judge-queue.md); the coordinator described here was removed.
 
 # Judge throughput, admission and cleanup
 
