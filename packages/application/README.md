@@ -8,16 +8,18 @@
 - 處理權限判斷（`canManageContest`、`canManageExam`、`assertProblemEditAccess` 等）
 - 對 DB / Redis / Storage / mailer 做組合與交易控制；Temporal 操作經由 `DomainOrchestrationAdapter` port
 - 計分、scoreboard 更新、adjustment rule 套用
-- **不負責**：HTTP 解析、SvelteKit `RequestEvent`、Temporal SDK 直接呼叫
-- **嚴禁** import `@sveltejs/kit`、`@temporalio/*`（要 dispatch 走 `@nojv/temporal` 的 dispatch helpers；不能 import `@nojv/temporal/workflows`）
+- **不負責**：HTTP 解析、SvelteKit `RequestEvent`、Temporal client/worker 設定
+- **嚴禁** import `@sveltejs/kit`、`@temporalio/*`、`@nojv/temporal`；app 透過 `DomainOrchestrationAdapter` port 提出需求，由 web/worker 接上 Temporal
 
 ## 主要 API
 
 - `src/index.ts` — 對外用 namespace export：`problemDomain`、`contestDomain`、`courseDomain`、`examDomain`、`submissionDomain`、`plagiarismDomain`、`scoring` 等
 - `src/contest/permissions.ts` — `canManageContest`
 - `src/exam/permissions.ts` — `canManageExam`
+- `src/problem/{details,list,picker}.ts` — 題目詳情、公開／管理列表與選題器資料
 - `src/problem/mutations/{records,publishing,judge-config}.ts` — 題目紀錄、發布及評測設定寫入
 - `src/submission/{details,history,judge-context}.ts` — 提交詳情、列表及評測上下文讀取
+- `src/submission/{creation,judge-lifecycle,verdict-summary}.ts` — 提交建立、評測完成／重判狀態及結果摘要
 - `src/scoring/` — adjustment rule、subtask scoring、scoreboard 計算
 - `src/shared/` — 共用 helper（`ip-utils`、actor 介面、error classes）
 

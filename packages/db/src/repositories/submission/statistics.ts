@@ -1,13 +1,7 @@
 import { prisma } from "../../client";
 import type { Prisma } from "../../../generated/prisma/client";
-import type { SubmissionStatus } from "../../../generated/prisma/enums";
-import {
-  courseMiniSelect,
-  problemMiniSelect,
-  userMiniSelect,
-  userPublicSelect,
-} from "../selects";
-import { contestExamListSelect, scoringBaseSelect, submissionResultStatuses } from "./shared";
+import { courseMiniSelect, problemMiniSelect, userPublicSelect } from "../selects";
+import { scoringBaseSelect, submissionResultStatuses } from "./shared";
 import {
   countProblemStatusSummaryForUser,
   countUserStatsByProblem,

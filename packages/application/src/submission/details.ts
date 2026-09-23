@@ -243,12 +243,7 @@ export async function getSubmissionDetail(actor: ActorContext, submissionId: str
       displayId: submission.problem.displayId,
       title: submission.problem.title,
     },
-    totalScore: computeProblemTotalScore({
-      id: submission.problem.id,
-      type: submission.problem.type,
-      testcaseSets: submission.problem.testcaseSets,
-      advancedConfig: submission.problem.advancedConfig,
-    }),
+    totalScore: rawMax,
     context: buildSubmissionContext(submission),
     submitter: viewerIsStaff
       ? { name: submission.user.name, username: submission.user.username }

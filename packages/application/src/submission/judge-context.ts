@@ -16,7 +16,7 @@ import {
   parsePersistedAdvancedConfig,
   parsePersistedJudgeConfig,
 } from "../problem/judge-config";
-import { buildProblemSamples } from "../problem/queries";
+import { buildProblemSamples } from "../problem/details";
 import { IntegrityError, NotFoundError } from "../shared/errors";
 import type {
   AdjustmentContext,

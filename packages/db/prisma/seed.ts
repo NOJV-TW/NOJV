@@ -5,6 +5,7 @@ import { seedContests } from "./seeds/contests";
 import { seedCourses } from "./seeds/courses";
 import { seedDemoStudents } from "./seeds/demo-students";
 import { seedEngagement } from "./seeds/engagement";
+import { seedAnnouncements } from "./seeds/announcements";
 import { seedProblems } from "./seeds/problems";
 import { seedSubmissions } from "./seeds/submissions";
 import { seedUsers } from "./seeds/users";
@@ -35,61 +36,7 @@ async function main() {
   const demoStudents = await seedDemoStudents(prisma, teacher);
   await seedSubmissions(prisma, { admin, teacher, student, demoStudents });
   await seedEngagement(prisma, { teacher, student, demoStudents });
-
-  await prisma.announcement.deleteMany();
-
-  const announcementSeeds: Array<{
-    pinned: boolean;
-    translations: Array<{ locale: string; title: string; content: string }>;
-  }> = [
-    {
-      pinned: true,
-      translations: [
-        {
-          locale: "zh-TW",
-          title: "系統上線公告",
-          content: "NOJV 線上評測系統已正式上線，歡迎使用！",
-        },
-      ],
-    },
-    {
-      pinned: false,
-      translations: [
-        {
-          locale: "zh-TW",
-          title: "新功能：課程管理",
-          content: "教師現在可以建立課程、新增作業與考試。學生可以透過加入碼加入課程。",
-        },
-      ],
-    },
-    {
-      pinned: false,
-      translations: [
-        {
-          locale: "zh-TW",
-          title: "系統維護通知",
-          content: "預計於本週六 22:00-24:00 進行系統維護，届時服務將暫停。",
-        },
-      ],
-    },
-  ];
-
-  const publishedAt = new Date();
-  for (const seed of announcementSeeds) {
-    await prisma.announcement.create({
-      data: {
-        pinned: seed.pinned,
-        status: "published",
-        audience: "all",
-        publishedAt,
-        createdByUserId: admin.id,
-        translations: {
-          create: seed.translations,
-        },
-      },
-    });
-  }
-  console.log(`Seeded announcements: ${announcementSeeds.length}`);
+  await seedAnnouncements(prisma, admin);
 
   console.log("Seed complete.");
 }

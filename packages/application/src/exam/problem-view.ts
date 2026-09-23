@@ -11,8 +11,8 @@ import {
 } from "@nojv/core";
 
 import { NotFoundError } from "../shared/errors";
-import { getProblemPageData } from "../problem/queries";
-import type { ProblemDetail } from "../problem/queries";
+import { getProblemPageData } from "../problem/details";
+import type { ProblemDetail } from "../problem/details";
 import { getProblemTotalScores, requireProblemTotalScore } from "../problem/total-score";
 
 export interface ExamProblemViewSibling {
@@ -50,6 +50,7 @@ export interface ExamProblemView {
   courseLabel: string;
 }
 
+// intentional-nullable: An invalid problem index is treated as an absent exam problem.
 export async function getExamProblemView(options: {
   examId: string;
   problemIdx: number;
@@ -68,6 +69,7 @@ export async function getExamProblemView(options: {
   });
 }
 
+// intentional-nullable: A problem outside the published exam is treated as not-found.
 export async function getExamProblemViewByProblemId(options: {
   examId: string;
   problemId: string;

@@ -10,7 +10,7 @@ vi.mock("@nojv/db", () => ({
     fn({ submission: { updateMany } }),
 }));
 
-import { restoreSubmissionAfterCancelledRejudge } from "../../../packages/application/src/submission/mutations";
+import { restoreSubmissionAfterCancelledRejudge } from "../../../packages/application/src/submission/judge-lifecycle";
 
 describe("restoreSubmissionAfterCancelledRejudge", () => {
   it("only restores rows still in an in-flight status so a written verdict is never clobbered", async () => {

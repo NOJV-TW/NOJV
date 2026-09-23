@@ -30,6 +30,7 @@ export interface RegistryCredentialStatus {
   lastUsedAt: Date | null;
 }
 
+// intentional-nullable: A missing credential means registry login is not configured for this user.
 export async function getRegistryCredentialStatus(
   userId: string,
 ): Promise<RegistryCredentialStatus | null> {

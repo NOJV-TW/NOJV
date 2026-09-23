@@ -7,7 +7,6 @@ import {
   type SubmissionClient,
   type SubmissionHistoryBoundary,
   type SubmissionHistoryFilters,
-  type TxClient,
   userFacingSubmissionWhere,
 } from "./shared";
 

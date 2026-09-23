@@ -1,4 +1,6 @@
-export * from "./queries";
+export * from "./details";
+export * from "./list";
+export * from "./picker";
 export * from "./mutations/records";
 export * from "./mutations/publishing";
 export * from "./mutations/judge-config";

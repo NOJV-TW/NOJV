@@ -211,6 +211,7 @@ export async function autoCloseForExam(
   });
 }
 
+// intentional-nullable: No active exam session is an ordinary state for callers.
 export async function getActiveSessionContext(
   userId: string,
 ): Promise<ActiveSessionContext | null> {

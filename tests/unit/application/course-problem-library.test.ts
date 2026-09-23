@@ -103,7 +103,7 @@ vi.mock("@nojv/db", async (importOriginal) => ({
   },
 }));
 
-vi.mock("../../../packages/application/src/problem/queries", () => ({
+vi.mock("../../../packages/application/src/problem/picker", () => ({
   listProblemPickerGroups: mocks.picker,
   mapProblemPickerCandidate: (problem: Record<string, unknown>) => ({
     id: problem.id,

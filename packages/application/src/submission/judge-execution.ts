@@ -30,7 +30,8 @@ import {
 } from "../shared/storage-object-lifecycle";
 import { dispatchNextJudgeExecutions } from "./judge-recovery";
 import { readJudgeSnapshot } from "./judge-snapshot";
-import { completeJudge, deriveVerdictSummary } from "./mutations";
+import { completeJudge } from "./judge-lifecycle";
+import { deriveVerdictSummary } from "./verdict-summary";
 
 export async function createJudgeExecution(
   tx: TransactionClient,
@@ -381,6 +382,7 @@ export async function getJudgeExecutionViews(
   return views;
 }
 
+// intentional-nullable: Missing submissions or an absent current run are normal for this optional progress view.
 export async function getJudgeExecutionView(
   submissionId: string,
 ): Promise<JudgeExecutionView | null> {
