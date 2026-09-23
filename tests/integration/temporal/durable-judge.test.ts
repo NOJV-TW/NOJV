@@ -1,7 +1,8 @@
+import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { TestWorkflowEnvironment } from "@temporalio/testing";
 import { Worker } from "@temporalio/worker";
-import { ApplicationFailure } from "@temporalio/activity";
+import { ApplicationFailure, Context } from "@temporalio/activity";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 const workflowsPath = fileURLToPath(
@@ -17,6 +18,7 @@ afterAll(async () => {
 
 async function scenario(options: {
   capacity?: number;
+  lost?: number;
   outage?: number;
   finalize?: number;
   wait?: number;
@@ -41,6 +43,10 @@ async function scenario(options: {
       attempts++;
       if (attempts <= (options.capacity ?? 0))
         throw ApplicationFailure.create({ type: "SandboxBackpressureError", message: "quota" });
+      if (attempts <= (options.lost ?? 0)) {
+        await env.sleep("61s");
+        await Context.current().sleep("2h");
+      }
       if (attempts <= (options.outage ?? 0))
         throw ApplicationFailure.create({
           type: "SandboxTransientInfrastructureError",
@@ -114,6 +120,25 @@ describe("durable judge recovery workflow", () => {
     expect(phases).not.toContain("blocked");
     expect(activities.publishVerdict).toHaveBeenCalledOnce();
   }, 30_000);
+  it("requeues a stage attempt that never started without marking it SE", async () => {
+    const { activities, phases } = await scenario({ lost: 1 });
+    expect(activities.executeJudgeStage).toHaveBeenCalledTimes(2);
+    expect(phases).not.toContain("recovering");
+    expect(phases).not.toContain("blocked");
+    expect(activities.publishVerdict).toHaveBeenCalledOnce();
+  }, 30_000);
+  it("replays a pre-fix history that recorded an unstarted stage as recovering", async () => {
+    const history = JSON.parse(
+      await readFile(
+        new URL(
+          "../../fixtures/temporal/durable-judge-pre-unstarted-requeue.json",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    await Worker.runReplayHistory({ workflowsPath }, history);
+  }, 15_000);
   it("recovers repeated machine failures without starting teacher rejudge", async () => {
     const { activities, phases } = await scenario({ outage: 4 });
     expect(phases).toContain("recovering");

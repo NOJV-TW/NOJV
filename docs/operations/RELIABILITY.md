@@ -240,4 +240,8 @@ A judge stage Activity heartbeats its database lease every 15 seconds. An
 expired lease is reconciled by `reconcileJudgeStage` or the dedicated
 `judgeCleanupWorkflow`, which confirm executor cleanup before the execution
 retries; resource absence at a single instant does not fence a delayed producer.
-Normal cancellation waits for Activity acknowledgment.
+Normal cancellation waits for Activity acknowledgment. A stage attempt that
+times out without ever heartbeating never ran (Temporal can lose a task it
+dispatches to a worker that is shutting down), so the workflow requeues it
+without recording `recovering` or SE; a claimed lease left behind still goes
+through reconciliation on the next iteration.
