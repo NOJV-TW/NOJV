@@ -42,29 +42,26 @@ student from occupying more than one slot.
 ## Capacity
 
 Slots are `worker.judge.concurrency` times judge replicas. Each slot runs one
-stage Job whose effective request is `max(cpuRequest, maxParallelCases × caseCpuRequest)`
-CPU (the compile init container and the case containers never run at once), so
-the sandbox quota must hold `slots × that request`. Two more limits gate a Job:
-the sandbox LimitRange `min.cpu` must not exceed `caseCpuRequest` (a Job whose
-containers request less is rejected at admission and the execution goes
-`blocked`), and the node's allocatable CPU minus the platform pods' requests
-bounds how many Jobs schedule at once. Raise concurrency and quota together
-before an exam and lower them afterwards; all of these are Helm values.
+stage Job whose run container requests and is limited to
+`worker.sandbox.runParallelism` CPUs, so slots × runParallelism is the number of
+cases judging can run at once, and the chart fails to render when it exceeds the
+sandbox quota's `requestsCpu`. The executor lowers a stage's parallelism when the
+problem's memory limit would push the run container past the sandbox memory
+ceiling. The node's allocatable CPU minus the platform pods' requests also bounds
+how many Jobs schedule at once. Raise concurrency and quota together before an
+exam and lower them afterwards; all of these are Helm values.
 
 With `worker.judge.minConcurrency` set (single-machine: 2, ceiling
-`worker.judge.concurrency` 10) the judge worker uses Temporal's resource-based
+`worker.judge.concurrency` 5) the judge worker uses Temporal's resource-based
 slot tuner: above the minimum it hands out another slot whenever node CPU is
 under 75% and the worker's own memory under 80%. Every poll reserves a slot
 first, so the SDK's default 50 ms ramp is kept: a long ramp throttles polling
 itself (a 10-second ramp judged one task every 10 seconds on an idle node). The judge
 container therefore has no CPU limit, because with one the tuner would measure
-the worker's cgroup instead of the node. The ceiling is a timing-fidelity bound,
-not a resource number: each slot adds up to `maxParallelCases` sandbox
-containers, and neither the tuner nor the quota watches the node's memory:
-the tuner's memory signal is the worker container's own usage, and the quota
-counts requests (64 MiB per case container), not usage. During the
-2026-09-22 drain three concurrent Jobs moved node memory by under 1 GiB; check
-node memory before raising the ceiling past ten. `judge_wall_clock_timeouts_total` counts TLEs whose CPU time stayed
+the worker's cgroup instead of the node. The ceiling is the core budget: each slot is one run
+container of `runParallelism` CPUs. Neither the tuner nor the quota watches the
+node's memory: the tuner's memory signal is the worker container's own usage, and
+the quota counts requests, not usage. `judge_wall_clock_timeouts_total` counts TLEs whose CPU time stayed
 under the limit; the `nojv-judge-wall-clock-timeouts` alert fires when more
 than two land in ten minutes, which is the signal to lower the ceiling.
 

@@ -16,9 +16,12 @@
 #include <sys/prctl.h>
 #endif
 
+#define MAX_PROCESSES 4096
+
 static int wake[2];
 static long long cpu_us;
 static long max_rss_kb;
+static long peak_group_kb;
 
 static void on_signal(int sig) {
   int saved = errno;
@@ -43,13 +46,13 @@ static void account(const struct rusage *usage) {
   if (rss > max_rss_kb) max_rss_kb = rss;
 }
 
-static void kill_adopted_children(void) {
+static int list_processes(pid_t *pids, pid_t *parents) {
+  int count = 0;
 #ifdef __linux__
   DIR *proc = opendir("/proc");
-  if (!proc) return;
-  pid_t self = getpid();
+  if (!proc) return 0;
   struct dirent *entry;
-  while ((entry = readdir(proc))) {
+  while (count < MAX_PROCESSES && (entry = readdir(proc))) {
     char *end;
     long pid = strtol(entry->d_name, &end, 10);
     if (*end || pid <= 0) continue;
@@ -64,20 +67,66 @@ static void kill_adopted_children(void) {
     char *tail = strrchr(stat, ')');
     char state;
     long ppid;
-    if (tail && sscanf(tail + 2, "%c %ld", &state, &ppid) == 2 && ppid == self)
-      kill((pid_t)pid, SIGKILL);
+    if (!tail || sscanf(tail + 2, "%c %ld", &state, &ppid) != 2) continue;
+    pids[count] = (pid_t)pid;
+    parents[count] = (pid_t)ppid;
+    count++;
   }
   closedir(proc);
+#else
+  (void)pids;
+  (void)parents;
 #endif
+  return count;
+}
+
+static void kill_adopted_children(void) {
+  static pid_t pids[MAX_PROCESSES], parents[MAX_PROCESSES];
+  int count = list_processes(pids, parents);
+  pid_t self = getpid();
+  for (int i = 0; i < count; i++)
+    if (parents[i] == self) kill(pids[i], SIGKILL);
+}
+
+static long resident_kb(pid_t pid) {
+  char path[64], statm[128];
+  snprintf(path, sizeof path, "/proc/%ld/statm", (long)pid);
+  int fd = open(path, O_RDONLY | O_CLOEXEC);
+  if (fd < 0) return 0;
+  ssize_t n = read(fd, statm, sizeof statm - 1);
+  close(fd);
+  if (n <= 0) return 0;
+  statm[n] = 0;
+  long size, resident;
+  if (sscanf(statm, "%ld %ld", &size, &resident) != 2) return 0;
+  return resident * (sysconf(_SC_PAGESIZE) / 1024);
+}
+
+static long descendants_rss_kb(void) {
+  static pid_t pids[MAX_PROCESSES], parents[MAX_PROCESSES], queue[MAX_PROCESSES];
+  int count = list_processes(pids, parents);
+  int head = 0, tail = 0;
+  long total = 0;
+  queue[tail++] = getpid();
+  while (head < tail) {
+    pid_t parent = queue[head++];
+    for (int i = 0; i < count && tail < MAX_PROCESSES; i++) {
+      if (parents[i] != parent) continue;
+      queue[tail++] = pids[i];
+      total += resident_kb(pids[i]);
+    }
+  }
+  return total;
 }
 
 int main(int argc, char **argv) {
-  if (argc < 5 || strcmp(argv[3], "--") != 0) {
-    fputs("usage: nojv-exec CPU_SECONDS WALL_MS -- COMMAND [ARG...]\n", stderr);
+  if (argc < 6 || strcmp(argv[4], "--") != 0) {
+    fputs("usage: nojv-exec CPU_SECONDS WALL_MS MEMORY_KB -- COMMAND [ARG...]\n", stderr);
     return 125;
   }
   long cpu_seconds = strtol(argv[1], NULL, 10);
   long long wall_ms = strtoll(argv[2], NULL, 10);
+  long memory_kb = strtol(argv[3], NULL, 10);
   int exec_error[2];
   FILE *report = fdopen(3, "w");
   if (!report || fcntl(3, F_SETFD, FD_CLOEXEC) < 0 || pipe(wake) < 0 || pipe(exec_error) < 0)
@@ -110,7 +159,7 @@ int main(int argc, char **argv) {
       struct rlimit cpu = {(rlim_t)cpu_seconds, (rlim_t)cpu_seconds + 1};
       setrlimit(RLIMIT_CPU, &cpu);
     }
-    execvp(argv[4], argv + 4);
+    execvp(argv[5], argv + 5);
     int error = errno;
     (void)!write(exec_error[1], &error, sizeof error);
     _exit(127);
@@ -127,8 +176,9 @@ int main(int argc, char **argv) {
       killed = "wall";
       break;
     }
+    long long timeout = memory_kb > 0 ? 10 : 60000;
     struct pollfd wake_fd = {wake[0], POLLIN, 0};
-    if (poll(&wake_fd, 1, left > 60000 ? 60000 : (int)left) > 0) {
+    if (poll(&wake_fd, 1, (int)(left < timeout ? left : timeout)) > 0) {
       unsigned char signals[64];
       ssize_t n = read(wake[0], signals, sizeof signals);
       for (ssize_t i = 0; i < n; i++)
@@ -142,6 +192,14 @@ int main(int argc, char **argv) {
       }
     }
     if (strcmp(killed, "term") == 0) break;
+    if (memory_kb > 0 && !main_done) {
+      long group_kb = descendants_rss_kb();
+      if (group_kb > peak_group_kb) peak_group_kb = group_kb;
+      if (group_kb > memory_kb) {
+        killed = "memory";
+        break;
+      }
+    }
   }
 
   kill(-child, SIGKILL);
@@ -161,8 +219,9 @@ int main(int argc, char **argv) {
 
   int exec_errno = 0;
   if (read(exec_error[0], &exec_errno, sizeof exec_errno) != sizeof exec_errno) exec_errno = 0;
-  fprintf(report, "{\"cpuUs\":%lld,\"maxRssKb\":%ld,\"wallMs\":%lld,\"killed\":\"%s\"", cpu_us,
-          max_rss_kb, now_ms() - started, killed);
+  fprintf(report,
+          "{\"cpuUs\":%lld,\"maxRssKb\":%ld,\"peakGroupKb\":%ld,\"wallMs\":%lld,\"killed\":\"%s\"",
+          cpu_us, max_rss_kb, peak_group_kb, now_ms() - started, killed);
   if (exec_errno)
     fprintf(report, ",\"execErrno\":%d", exec_errno);
   else if (WIFEXITED(status))

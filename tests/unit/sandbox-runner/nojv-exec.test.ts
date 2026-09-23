@@ -43,6 +43,18 @@ describe("runProcess through nojv-exec", () => {
     expect(Date.now() - started).toBeLessThan(3_000);
   });
 
+  it("judges a program that kills its supervisor as a runtime error without hanging", async () => {
+    const started = Date.now();
+    const result = await runProcess(["/bin/sh", "-c", "kill -9 $PPID; sleep 3"], {
+      timeoutMs: 5_000,
+    });
+    expect(result.spawnError).toBe(false);
+    expect(result.timedOut).toBe(false);
+    expect(result.exitCode).toBe(-1);
+    expect(result.stderr).toMatch(/terminated its execution supervisor/);
+    expect(Date.now() - started).toBeLessThan(2_900);
+  });
+
   it("reports peak resident memory", async () => {
     const result = await runProcess(
       [process.execPath, "-e", "Buffer.alloc(128 * 1024 * 1024, 1)"],
@@ -51,6 +63,23 @@ describe("runProcess through nojv-exec", () => {
     expect(result.exitCode).toBe(0);
     expect(result.memoryKb).toBeGreaterThanOrEqual(128 * 1024);
   });
+
+  it.runIf(process.platform === "linux")(
+    "kills a process group that grows past the memory limit",
+    async () => {
+      const result = await runProcess(
+        [
+          process.execPath,
+          "-e",
+          "const b = []; for (;;) b.push(Buffer.alloc(8 * 1024 * 1024, 1));",
+        ],
+        { timeoutMs: 10_000, memoryLimitMb: 96 },
+      );
+      expect(result.signal).toBe("SIGKILL");
+      expect(result.timedOut).toBe(false);
+      expect(result.memoryKb).toBeGreaterThan(96 * 1024);
+    },
+  );
 
   it.runIf(process.platform === "linux")(
     "leaves no descendant alive, even one that left the session",

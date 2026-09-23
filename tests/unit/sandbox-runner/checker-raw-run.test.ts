@@ -10,6 +10,7 @@ describe("checker run phase (raw, no in-container checker)", () => {
       ["node", "-e", "process.stdout.write(require('fs').readFileSync(0,'utf8'))"],
       tc,
       10_000,
+      256,
     );
 
     expect(run).not.toHaveProperty("verdict");

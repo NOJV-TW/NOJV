@@ -62,14 +62,18 @@ export async function executeJudgeStage(
   try {
     const { snapshot } = await submissionDomain.loadJudgeExecution(executionId);
     const fullRequest = buildPinnedSandboxRequest(snapshot);
-    const size = fullRequest.judgeType === "interactive" ? 1 : JUDGE_STAGE_CASES;
     const advanced = fullRequest.problemType === "special_env";
-    const total = advanced ? 1 : Math.max(1, Math.ceil(fullRequest.testcases.length / size));
+    const total = advanced
+      ? 1
+      : Math.max(1, Math.ceil(fullRequest.testcases.length / JUDGE_STAGE_CASES));
     const request = advanced
       ? fullRequest
       : {
           ...fullRequest,
-          testcases: fullRequest.testcases.slice(index * size, (index + 1) * size),
+          testcases: fullRequest.testcases.slice(
+            index * JUDGE_STAGE_CASES,
+            (index + 1) * JUDGE_STAGE_CASES,
+          ),
         };
     if (index >= total) {
       cleanupConfirmed = true;

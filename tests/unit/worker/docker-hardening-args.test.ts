@@ -67,7 +67,7 @@ describe("buildSandboxDockerArgs hardening profile", () => {
       "1088m",
     );
     for (const args of [compile, run]) {
-      expect(args).toContain("/workspace:rw,exec,nosuid,nodev,size=128m");
+      expect(args).toContain("/workspace:rw,exec,nosuid,nodev,size=128m,uid=10001,gid=10001");
       expect(args).toContain("--read-only");
       expect(args).toContain("10001:10001");
     }

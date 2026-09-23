@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 
-import { parseInteractiveRunReport, type SandboxRequest } from "@nojv/core";
+import { parseInteractiveRunReports, type SandboxRequest } from "@nojv/core";
 import { buildSandboxDockerArgs } from "../../../apps/worker/src/services/docker-args";
 import { writeSolutionFiles } from "../../../apps/worker/src/services/interactive-executor";
 
@@ -273,7 +273,7 @@ else:
           { timeout: 50_000 },
         );
         expect(stdout).toBe("");
-        expect(parseInteractiveRunReport(stderr)?.compilationError).toContain("error:");
+        expect(parseInteractiveRunReports(stderr).at(-1)?.compilationError).toContain("error:");
       } finally {
         await rm(directory, { recursive: true, force: true });
       }

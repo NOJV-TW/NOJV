@@ -62,11 +62,10 @@ const validK8sEnv: Record<string, string> = {
   EXECUTION_BACKEND: "kubernetes",
   K8S_NAMESPACE: "nojv-sandbox",
   K8S_CPU_REQUEST: "500m",
-  K8S_CASE_CPU_REQUEST: "100m",
   K8S_CPU_LIMIT: "1",
   K8S_MEMORY_REQUEST: "256Mi",
   K8S_MEMORY_LIMIT: "512Mi",
-  K8S_MAX_PARALLEL_CASES: "20",
+  K8S_RUN_PARALLELISM: "1",
   K8S_RUNTIME_CLASS_NAME: "gvisor",
 };
 

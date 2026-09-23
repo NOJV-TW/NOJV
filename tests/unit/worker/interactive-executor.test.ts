@@ -11,7 +11,10 @@ import {
 } from "@nojv/core";
 
 import {
-  mergeInteractiveCase,
+  resolveInteractiveStage,
+  type InteractiveSideResult,
+} from "../../../apps/worker/src/services/check-interactive";
+import {
   writeInteractorFiles,
   writeSolutionFiles,
 } from "../../../apps/worker/src/services/interactive-executor";
@@ -32,19 +35,24 @@ const TESTCASE: SandboxTestcase = {
 };
 
 function runStderr(report: Record<string, unknown>): string {
-  return `some log\n${INTERACTIVE_RUN_MARKER}${JSON.stringify(report)}\n`;
+  return `some log\n${INTERACTIVE_RUN_MARKER}${JSON.stringify({ index: 2, ...report })}\n`;
 }
 
 function intStderr(outcome: Record<string, unknown>): string {
-  return `${INTERACTIVE_VALIDATE_MARKER}${JSON.stringify(outcome)}\n`;
+  return `${INTERACTIVE_VALIDATE_MARKER}${JSON.stringify({ index: 2, ...outcome })}\n`;
 }
 
-describe("mergeInteractiveCase", () => {
+function merge(sol: InteractiveSideResult, int: InteractiveSideResult) {
+  const result = resolveInteractiveStage([TESTCASE], sol, int).testcaseResults[0];
+  if (!result) throw new Error("no merged result");
+  return result;
+}
+
+describe("resolveInteractiveStage", () => {
   const ok = { stderr: "", timedOut: false, spawnError: false };
 
   it("uses the interactor verdict (AC) and teamMessage when the run is clean", () => {
-    const result = mergeInteractiveCase(
-      TESTCASE,
+    const result = merge(
       { ...ok, stderr: runStderr({ exitCode: 0, timeMs: 12, errorVerdict: null }) },
       { ...ok, stderr: intStderr({ verdict: "AC", teamMessage: "solved in 4" }) },
     );
@@ -55,8 +63,7 @@ describe("mergeInteractiveCase", () => {
   });
 
   it("a run error verdict (TLE) wins over the interactor outcome", () => {
-    const result = mergeInteractiveCase(
-      TESTCASE,
+    const result = merge(
       { ...ok, stderr: runStderr({ exitCode: -1, timeMs: 6000, errorVerdict: "TLE" }) },
       { ...ok, stderr: intStderr({ verdict: "AC" }) },
     );
@@ -64,8 +71,7 @@ describe("mergeInteractiveCase", () => {
   });
 
   it("renders a WA verdict from the interactor", () => {
-    const result = mergeInteractiveCase(
-      TESTCASE,
+    const result = merge(
       { ...ok, stderr: runStderr({ exitCode: 0, timeMs: 5, errorVerdict: null }) },
       { ...ok, stderr: intStderr({ verdict: "WA" }) },
     );
@@ -73,8 +79,7 @@ describe("mergeInteractiveCase", () => {
   });
 
   it("surfaces the interactor judgeMessage as staffFeedback (not the student feedback)", () => {
-    const result = mergeInteractiveCase(
-      TESTCASE,
+    const result = merge(
       { ...ok, stderr: runStderr({ exitCode: 0, timeMs: 5, errorVerdict: null }) },
       {
         ...ok,
@@ -91,8 +96,7 @@ describe("mergeInteractiveCase", () => {
   });
 
   it("omits staffFeedback when the interactor did not emit judgeMessage", () => {
-    const result = mergeInteractiveCase(
-      TESTCASE,
+    const result = merge(
       { ...ok, stderr: runStderr({ exitCode: 0, timeMs: 5, errorVerdict: null }) },
       { ...ok, stderr: intStderr({ verdict: "AC", teamMessage: "good" }) },
     );
@@ -101,8 +105,7 @@ describe("mergeInteractiveCase", () => {
   });
 
   it("a missing run marker → SE", () => {
-    const result = mergeInteractiveCase(
-      TESTCASE,
+    const result = merge(
       { ...ok, stderr: "no marker" },
       { ...ok, stderr: intStderr({ verdict: "AC" }) },
     );
@@ -110,8 +113,7 @@ describe("mergeInteractiveCase", () => {
   });
 
   it("a clean run but missing interactor marker → SE", () => {
-    const result = mergeInteractiveCase(
-      TESTCASE,
+    const result = merge(
       { ...ok, stderr: runStderr({ exitCode: 0, timeMs: 5, errorVerdict: null }) },
       { ...ok, stderr: "interactor crashed silently" },
     );
@@ -119,8 +121,7 @@ describe("mergeInteractiveCase", () => {
   });
 
   it("an interactor SE outcome → SE for the case", () => {
-    const result = mergeInteractiveCase(
-      TESTCASE,
+    const result = merge(
       { ...ok, stderr: runStderr({ exitCode: 0, timeMs: 5, errorVerdict: null }) },
       {
         ...ok,
@@ -133,8 +134,7 @@ describe("mergeInteractiveCase", () => {
   });
 
   it("does not turn an interactor crash into a solution runtime error", () => {
-    const result = mergeInteractiveCase(
-      TESTCASE,
+    const result = merge(
       { ...ok, stderr: runStderr({ exitCode: 1, timeMs: 5, errorVerdict: "RE" }) },
       {
         ...ok,
@@ -147,8 +147,7 @@ describe("mergeInteractiveCase", () => {
   });
 
   it("a container timeout → SE", () => {
-    const result = mergeInteractiveCase(
-      TESTCASE,
+    const result = merge(
       { stderr: "", timedOut: true, spawnError: false },
       { stderr: "", timedOut: true, spawnError: false },
     );
@@ -156,12 +155,48 @@ describe("mergeInteractiveCase", () => {
   });
 
   it("a solution spawn error → SE", () => {
-    const result = mergeInteractiveCase(
-      TESTCASE,
+    const result = merge(
       { stderr: "spawn failed", timedOut: false, spawnError: true },
       { ...ok, stderr: intStderr({ verdict: "AC" }) },
     );
     expect(result.verdict).toBe("SE");
+  });
+
+  it("matches reports to cases by index and turns a protocol violation into WA", () => {
+    const second = { ...TESTCASE, index: 5 };
+    const results = resolveInteractiveStage(
+      [TESTCASE, second],
+      {
+        stderr: `${INTERACTIVE_RUN_MARKER}{"index":2,"exitCode":0,"timeMs":4}\n`,
+        timedOut: false,
+        spawnError: false,
+      },
+      {
+        stderr: [
+          `${INTERACTIVE_VALIDATE_MARKER}{"index":2,"verdict":"AC"}`,
+          `${INTERACTIVE_VALIDATE_MARKER}{"index":5,"verdict":"WA","judgeMessage":"Interactive protocol violation"}`,
+        ].join("\n"),
+        timedOut: false,
+        spawnError: false,
+      },
+    ).testcaseResults;
+    expect(results.map((result) => [result.index, result.verdict])).toEqual([
+      [2, "AC"],
+      [5, "WA"],
+    ]);
+  });
+
+  it("returns the solution compile error for the whole stage", () => {
+    const result = resolveInteractiveStage(
+      [TESTCASE],
+      {
+        stderr: runStderr({ exitCode: -1, timeMs: 0, compilationError: "main.c: error" }),
+        timedOut: false,
+        spawnError: false,
+      },
+      { stderr: "", timedOut: false, spawnError: false },
+    );
+    expect(result).toEqual({ testcaseResults: [], compilationError: "main.c: error" });
   });
 });
 
@@ -206,18 +241,18 @@ describe("interactive container file layout", () => {
       const key = sourceMap.find((entry) => entry.path === path)!.key;
       expect(await readFile(join(solDir, key), "utf8")).toBe(content);
     }
-    expect(config.interactive).toEqual({ role: "solution" });
+    expect(config.interactive).toEqual({ role: "solution", cases: [2] });
     expect(await exists(join(solDir, "cases"))).toBe(false);
     expect(await exists(join(solDir, "interactor.py"))).toBe(false);
   });
 
   it("interactor container holds interactor + the secret input/answer", async () => {
-    await writeInteractorFiles(intDir, request, TESTCASE, "accept()\n", "python");
+    await writeInteractorFiles(intDir, request, "accept()\n", "python");
     expect(await readFile(join(intDir, "interactor.py"), "utf8")).toBe("accept()\n");
     expect(await readFile(join(intDir, "case-2-input.txt"), "utf8")).toBe("secret 7\n");
     expect(await readFile(join(intDir, "case-2-answer.txt"), "utf8")).toBe("answer 7\n");
     const config = JSON.parse(await readFile(join(intDir, "config.json"), "utf8"));
-    expect(config.interactive).toEqual({ role: "validator", language: "python", index: 2 });
+    expect(config.interactive).toEqual({ role: "validator", language: "python", cases: [2] });
     expect(await exists(join(intDir, "main.py"))).toBe(false);
   });
 });

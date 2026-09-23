@@ -1,4 +1,4 @@
-import type { RawCaseRun, SandboxTestcase } from "@nojv/core";
+import type { RawCaseRun, SandboxTestcase, ValidatorOutcome } from "@nojv/core";
 import { describe, expect, it } from "vitest";
 
 import { resolveStandardResults } from "../../../apps/worker/src/services/check-standard";
@@ -17,22 +17,40 @@ function rawRun(overrides: Partial<RawCaseRun> & { index: number }): RawCaseRun 
   return { stdout: "", stderr: "", exitCode: 0, timeMs: 5, ...overrides };
 }
 
+function judged(verdicts: Record<number, ValidatorOutcome["verdict"]>) {
+  return new Map(
+    Object.entries(verdicts).map(([index, verdict]) => [Number(index), { verdict }] as const),
+  );
+}
+
 describe("resolveStandardResults", () => {
-  it("returns AC when output matches (after normalization)", () => {
+  it("takes AC from the judge outcome and keeps the run output", () => {
     const [result] = resolveStandardResults(
       [rawRun({ index: 0, stdout: "42\n\n" })],
       [testcase(0, "42")],
+      judged({ 0: "AC" }),
     );
     expect(result!.verdict).toBe("AC");
     expect(result!.stdout).toBe("42\n\n");
   });
 
-  it("returns WA when output differs", () => {
+  it("takes WA from the judge outcome", () => {
     const [result] = resolveStandardResults(
       [rawRun({ index: 0, stdout: "41" })],
       [testcase(0, "42")],
+      judged({ 0: "WA" }),
     );
     expect(result!.verdict).toBe("WA");
+  });
+
+  it("returns SE when the judge did not report an answered case", () => {
+    const [result] = resolveStandardResults(
+      [rawRun({ index: 0, stdout: "42" })],
+      [testcase(0, "42")],
+      new Map(),
+    );
+    expect(result!.verdict).toBe("SE");
+    expect(result!.staffFeedback).toBe("Judge did not report case 0.");
   });
 
   it.each(["TLE", "MLE", "RE", "SE"] as const)(
@@ -41,6 +59,7 @@ describe("resolveStandardResults", () => {
       const [result] = resolveStandardResults(
         [rawRun({ index: 0, errorVerdict, stderr: "boom", exitCode: 1 })],
         [testcase(0, "42")],
+        new Map(),
       );
       expect(result!.verdict).toBe(errorVerdict);
       expect(result!.stderr).toBe("boom");
@@ -55,6 +74,7 @@ describe("resolveStandardResults", () => {
     const [result] = resolveStandardResults(
       [rawRun({ index: 0, errorVerdict: "RE", stderr: "" })],
       [testcase(0, "42")],
+      new Map(),
     );
     expect(result!.feedback).toBe("Runtime error.");
   });
@@ -63,6 +83,7 @@ describe("resolveStandardResults", () => {
     const [result] = resolveStandardResults(
       [rawRun({ index: 0, stdout: "42" })],
       [testcase(0)],
+      new Map(),
     );
     expect(result!.verdict).toBe("SE");
     expect(result!.feedback).toMatch(/missing expected output/i);
@@ -71,16 +92,21 @@ describe("resolveStandardResults", () => {
   it("allows custom sample runs without an expected answer while preserving failures", () => {
     const cases = [{ ...testcase(0), isSample: true }];
     expect(
-      resolveStandardResults([rawRun({ index: 0, stdout: "42" })], cases)[0]?.verdict,
+      resolveStandardResults([rawRun({ index: 0, stdout: "42" })], cases, new Map())[0]
+        ?.verdict,
     ).toBe("AC");
     expect(
-      resolveStandardResults([rawRun({ index: 0, errorVerdict: "RE", exitCode: 1 })], cases)[0]
-        ?.verdict,
+      resolveStandardResults(
+        [rawRun({ index: 0, errorVerdict: "RE", exitCode: 1 })],
+        cases,
+        new Map(),
+      )[0]?.verdict,
     ).toBe("RE");
     expect(
       resolveStandardResults(
         [rawRun({ index: 0, stdout: "42" })],
         [{ ...testcase(0, ""), isSample: true }],
+        judged({ 0: "WA" }),
       )[0]?.verdict,
     ).toBe("WA");
   });
@@ -89,6 +115,7 @@ describe("resolveStandardResults", () => {
     const [result] = resolveStandardResults(
       [rawRun({ index: 7, stdout: "42" })],
       [testcase(0, "42")],
+      judged({ 0: "AC" }),
     );
     expect(result!.verdict).toBe("SE");
   });
@@ -97,6 +124,7 @@ describe("resolveStandardResults", () => {
     const [result] = resolveStandardResults(
       [rawRun({ index: 0, stdout: "42", timeMs: 123, memoryKb: 4096, exitCode: 0 })],
       [testcase(0, "42")],
+      judged({ 0: "AC" }),
     );
     expect(result!.timeMs).toBe(123);
     expect(result!.memoryKb).toBe(4096);
@@ -107,6 +135,7 @@ describe("resolveStandardResults", () => {
     const results = resolveStandardResults(
       [rawRun({ index: 1, stdout: "b" }), rawRun({ index: 0, stdout: "a" })],
       [testcase(0, "a"), testcase(1, "b")],
+      judged({ 0: "AC", 1: "AC" }),
     );
     expect(results.find((r) => r.index === 0)!.verdict).toBe("AC");
     expect(results.find((r) => r.index === 1)!.verdict).toBe("AC");

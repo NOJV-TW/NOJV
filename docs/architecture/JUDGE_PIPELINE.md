@@ -45,10 +45,12 @@ prepare containers use a separate 256 MiB compiler scratch directory and at leas
 scratch or memory budget. Checker execution mounts its prepared artifact read-only
 and retains the original runtime memory limit and 64 MiB temporary scratch.
 Kubernetes Job deadlines include the compiler timeout, full per-case wall budget
-and scheduling overhead. Validator outer deadlines also include the 30-second
-per-case timeout floor, while retaining the existing total Docker/K8s deadline caps.
-Interactive peers still compile and execute within their respective runtime
-containers; they do not receive the separate compiler resource allowance.
+and scheduling overhead. A checker stage also includes the validator compile and
+every case's 30-second validator floor; an interactive stage budgets each case by
+the slower of the solution wall budget and the interactor timeout. Both keep the
+existing total Docker/K8s deadline caps. Interactive peers still compile and
+execute within their respective runtime containers; they do not receive the
+separate compiler resource allowance.
 Runtime limits remain problem-specific. Submission source is
 preserved byte-for-byte; validation rejects all-whitespace source without trimming
 valid programs. Server request deadlines cover dispatch and polling, and an early
@@ -78,7 +80,7 @@ Problem generation is checked while accepting the execution; later edits cannot
 change its snapshot.
 
 `durableJudgeWorkflow` carries only the execution ID. Standard/checker executions
-checkpoint each 20-case wave; interactive executions checkpoint each case.
+and interactive executions checkpoint each 20-case stage.
 Advanced run, grade and service form one atomic stage because their shared PVC
 and service lifetime belong to one sandbox attempt. A failed Advanced stage
 repeats that stage. Stage results live in immutable object storage; PostgreSQL
@@ -150,39 +152,39 @@ Language-specific build, run by the sandbox runner inside the isolated container
 
 JavaScript and Python skip the compile step entirely — a syntax error only surfaces when `execute` tries to run the file. TypeScript is compiled and type-checked with the pinned `tsc` toolchain; only the emitted JavaScript is executed.
 
-With Kubernetes capacity admission disabled, each standard/checker Job wave has
-its own hardened `prepare` init container and compiles into that Pod's
-`/artifact`. A submission spanning several waves therefore recompiles for each
-wave. The legacy chart defaults permit up to 20 testcase containers per wave;
-this is not a guaranteed concurrent-submission capacity.
+A standard or checker stage is one Kubernetes Job with one Pod:
 
-With capacity admission enabled, a standard/checker attempt first acquires a
-prepare permit and creates one run-owned `ReadWriteOnce` artifact PVC. Its
-StorageClass must use `WaitForFirstConsumer`. Preparation compiles once into
-bounded scratch, then a separate publisher validates and copies the artifact
-under the existing 256 MiB limit. Symlinks, special files and unsafe paths are
-rejected; executable permissions are validated. The artifact excludes testcase
-answers and checker private data. Later waves mount it read-only and use fresh
-testcase containers, cgroups and scratch. Required node affinity and the bound
-volume preserve placement through the Kubernetes scheduler; the admitted path
-does not set `nodeName` to bypass scheduling. Loss of the artifact ends the
-attempt; a retry uses a new run ID and compiles again after cleanup.
+| Container        | Phase         | Mounts                                                            |
+| ---------------- | ------------- | ----------------------------------------------------------------- |
+| `prepare` (init) | `prepare`     | run payload, `/submission`, `/artifact`, compiler scratch         |
+| `run` (init)     | `run-stage`   | `/submission` and `/artifact` read-only, `/outputs`, scratch      |
+| `judge`          | `judge-stage` | judge payload, `/outputs` read-only, its own artifact and scratch |
 
-Docker retains its existing per-submission prepare flow. Interactive containers
-retain their paired solution/interactor semantics; Advanced Mode retains its
-run/grade contract. Both participate in admission when the feature is enabled.
+`prepare` compiles once into `/artifact`. `run` executes every case of the stage,
+up to `K8S_RUN_PARALLELISM` at a time, each in a fresh scratch directory, and
+writes each case's captured stdout to `/outputs` together with its SHA-256.
+`judge` starts only after both init containers have exited, so no student process
+is alive while answers exist in the Pod; it verifies each output against its
+recorded hash (a mismatch is WA), then compares it with the answer or runs the
+validator. The run container requests and is limited to `K8S_RUN_PARALLELISM`
+CPUs, lowered for large memory limits until it fits the sandbox memory ceiling.
+The container log carries each case's run report with at most 64 KiB of
+displayed output and the judge verdicts, never full outputs.
+
+Docker runs the same three phases as three containers with host directories in
+place of the emptyDirs. Advanced Mode retains its run/grade contract.
 
 ### execute
 
-One sandboxed process per testcase. Stdin comes from the testcase `input`, stdout/stderr/exit code/runtime/memory are captured. Per-case limits come from `Problem.judgeConfig.runtime`:
+One process per testcase inside the stage's run container. Stdin comes from the testcase `input`, stdout/stderr/exit code/runtime/memory are captured. Per-case limits come from `Problem.judgeConfig.runtime`:
 
 - `timeLimitMs` — 100 ms to 30 s, default 1000 ms
 - `memoryLimitMb` — 16 MB to 1024 MB, default 256 MB
 - `env` — extra environment variables injected into the process
 
-**Measurement.** The runner starts every solution and validator run through `nojv-exec` (`apps/sandbox-runner/native/nojv-exec.c`, built into the sandbox image at `/usr/local/bin/nojv-exec`), the unprivileged part of DOMjudge `runguard` / IOI `isolate`. The helper puts the program in its own session, sets `RLIMIT_CPU` (`ceil(timeLimit) + 1` s) and `RLIMIT_CORE = 0`, kills the process group at the wall budget (`2 × timeLimit`), becomes a child subreaper so that no descendant outlives the run, and reports the CPU time and peak RSS that `wait4` returns for every process it reaps. The time is therefore the program's own CPU, not the container's: the Node runner, its memory poller and stdout piping are no longer charged to the student. The helper is non-dumpable, so the program cannot ptrace it or read its descriptors through `/proc`. Under gVisor CPU time is counted in 10 ms ticks.
+**Measurement.** The runner starts every solution and validator run through `nojv-exec` (`apps/sandbox-runner/native/nojv-exec.c`, built into the sandbox image at `/usr/local/bin/nojv-exec`), the unprivileged part of DOMjudge `runguard` / IOI `isolate`. The helper puts the program in its own session, sets `RLIMIT_CPU` (`ceil(timeLimit) + 1` s) and `RLIMIT_CORE = 0`, kills the process group at the wall budget (`2 × timeLimit`) or when the summed RSS of the program's processes, polled every 10 ms, exceeds the memory limit, becomes a child subreaper so that no descendant outlives the run, and reports the CPU time and peak RSS that `wait4` returns for every process it reaps. The memory kill matters under gVisor, which OOM-kills the whole container rather than one process: the helper stops a program before the container ceiling is reached. A program that kills its helper is judged RE, and the runner, as PID 1, kills the orphans it inherits. The time is therefore the program's own CPU, not the container's: the Node runner, its memory poller and stdout piping are no longer charged to the student. The helper is non-dumpable, so the program cannot ptrace it or read its descriptors through `/proc`. Under gVisor CPU time is counted in 10 ms ticks.
 
-**Memory: measured verdict vs. container hard limit.** MLE is decided _post-hoc_ by comparing each case's measured peak RSS (the larger of `wait4`'s `ru_maxrss` and the runner's summed-RSS poll across the program's processes) against the per-problem `memoryLimitMb` — `enforceMemoryLimit` reclassifies an otherwise-AC/WA run as MLE when `memoryKb > memoryLimitMb` (DOMjudge-aligned: MLE is judged by the measured number, not by OOM-kill). For that measurement to be accurate, the container's hard cgroup limit (`--memory` on Docker, the pod `resources.limits.memory` on K8s) must be **higher** than the per-problem allowance, otherwise the kernel would SIGKILL a legitimate submission at the boundary before the peak can be observed (reported as RE/MLE). So the hard limit is derived per submission as `min(memoryLimitMb + SANDBOX_MEMORY_HEADROOM_MB, SANDBOX_MAX_MEMORY_MB)` (never below `memoryLimitMb`), via `resolveContainerMemoryMb` (`packages/core/src/sandbox.ts`); the cluster-wide `SANDBOX_MEMORY_MB` / `K8S_MEMORY_LIMIT` is now only the **fallback default** when a problem declares no limit. Defaults: headroom 64 MB, platform ceiling 1536 MB (1536 Mi in Kubernetes); the largest 1024 MB authoring limit therefore resolves to 1088 MB and does not consume the full safety ceiling.
+**Memory: measured verdict vs. container hard limit.** MLE is decided _post-hoc_ by comparing each case's measured peak RSS (the larger of `wait4`'s `ru_maxrss` and the helper's summed-RSS poll across the program's processes) against the per-problem `memoryLimitMb` — `enforceMemoryLimit` reclassifies an otherwise-AC/WA run as MLE when `memoryKb > memoryLimitMb` (DOMjudge-aligned: MLE is judged by the measured number, not by OOM-kill). For that measurement to be accurate, the container's hard cgroup limit (`--memory` on Docker, the pod `resources.limits.memory` on K8s) must be **higher** than the per-problem allowance, otherwise the kernel would SIGKILL a legitimate submission at the boundary before the peak can be observed (reported as RE/MLE). So the hard limit is derived per submission as `min(memoryLimitMb + SANDBOX_MEMORY_HEADROOM_MB, SANDBOX_MAX_MEMORY_MB)` (never below `memoryLimitMb`), via `resolveContainerMemoryMb` (`packages/core/src/sandbox.ts`); the cluster-wide `SANDBOX_MEMORY_MB` / `K8S_MEMORY_LIMIT` is now only the **fallback default** when a problem declares no limit. Defaults: headroom 64 MB, platform ceiling 1536 MB (1536 Mi in Kubernetes); the largest 1024 MB authoring limit therefore resolves to 1088 MB and does not consume the full safety ceiling.
 
 The **effective** per-run time budget is `timeLimitMs × LANGUAGE_TIME_FACTOR[language]` (`packages/core/src/judge/time-factor.ts`), applied once where the sandbox request is built (`apps/worker/src/activities/judge.ts`). Compiled-native languages (c/cpp/rust) use factor 1.0; slower runtimes get a multiplier (go 1.5, js/ts/java 2, python 3) so the same problem is fair across languages, mirroring DOMjudge's per-language `time_factor`. Because every downstream ceiling (CPU soft TLE, CPU rlimit, wall-clock grace, docker/k8s deadlines, validator timeout) derives from this `timeoutMs`, they all scale together. The factor does not apply to Advanced Mode. Memory has no per-language factor (neither does DOMjudge).
 
@@ -210,32 +212,32 @@ holds no student code) makes the AC/WA decision.
   - `caseSensitive` (default `true`) — when `false`, ASCII letters compare case-insensitively; Unicode letters are preserved. Note: NOJV defaults to **strict** case matching, the opposite of DOMjudge's default validator (case-insensitive); authors who want DOMjudge-equivalent leniency must set this `false` per problem.
   - `floatTolerance` (default unset = exact) — when set to ε, two numeric tokens match if they are within absolute **or** relative error ε (the DOMjudge `float_tolerance` shorthand). Decimal and hexadecimal float tokens use 40-digit decimal arithmetic to avoid losing 64-bit integer distinctions through JavaScript Number. NaN matches NaN; infinities must have the same sign. Text tokens follow the configured case rule. This does not promise bit-identical rounding at every platform-specific native long-double boundary.
 
-  The run container only emits each case's raw stdout/stderr/exit (`rawRuns`); the worker performs the comparison against the answer it holds, so `judgeConfig.compare` only needs to reach the worker. Anything token comparison cannot express (multiple valid answers, structural checks, etc.) must be implemented as a **checker**.
+  The run container only emits each case's raw stdout/stderr/exit (`rawRuns`); the stage's judge container compares the recorded output with the answer it alone holds, using `judgeConfig.compare`. Anything token comparison cannot express (multiple valid answers, structural checks, etc.) must be implemented as a **checker**.
 
-- **`checker`** — a teacher-provided **DOMjudge output validator** (`python` / `cpp`) that renders an **AC/WA verdict only** (no partial scoring). The run container produces `rawRuns` (no answer present); the worker prepares the checker in a separate compile container, then launches an **isolated validator container** (`validator-executor.ts` → sandbox-runner `runValidate`) for the clean cases. The validator is invoked as `validator <input> <judge_answer> <feedback_dir>` with the team output on stdin and must **exit 42 (accept) or 43 (wrong)**; any other exit is treated as a validator/system error. Feedback travels through files in `feedback_dir`: `teammessage.txt` (shown to the student) and an optional `judgemessage.txt` (operator-only). Python TAs get a wrapper binding `judge_input` / `judge_answer` / `team_output` plus `accept()` / `wrong()` / `judge_log()` (`apps/sandbox-runner/assets/wrappers/python-validator.py`); C++ TAs implement the bare interface.
-- **`interactive`** — a teacher-provided **DOMjudge interactor**, run as **two isolated containers** wired by a worker byte proxy (`interactive-executor.ts` → sandbox-runner `runInteractive`): the solution container runs student code with its stdio bridged to the interactor container, and the secret input/answer is mounted only into the interactor side. The interactor uses the same exit-42/43 + `feedback_dir` protocol as the validator, but its Python wrapper exposes live `read()` / `write()` instead of a fixed `team_output` blob (`apps/sandbox-runner/assets/wrappers/python-interactor-domjudge.py`).
+- **`checker`** — a teacher-provided **DOMjudge output validator** (`python` / `cpp`) that renders an **AC/WA verdict only** (no partial scoring). The run container produces `rawRuns` (no answer present); the stage's **judge container** (sandbox-runner `judge-stage`) compiles the validator and grades the clean cases. The validator is invoked as `validator <input> <judge_answer> <feedback_dir>` with the team output on stdin and must **exit 42 (accept) or 43 (wrong)**; any other exit is treated as a validator/system error. Feedback travels through files in `feedback_dir`: `teammessage.txt` (shown to the student) and an optional `judgemessage.txt` (operator-only). Python TAs get a wrapper binding `judge_input` / `judge_answer` / `team_output` plus `accept()` / `wrong()` / `judge_log()` (`apps/sandbox-runner/assets/wrappers/python-validator.py`); C++ TAs implement the bare interface.
+- **`interactive`** — a teacher-provided **DOMjudge interactor**, run as **two isolated containers** per stage wired by a worker byte proxy on Docker (`interactive-executor.ts`) or a `socat` TCP bridge inside one Pod on Kubernetes (sandbox-runner `runInteractive`): the solution container runs student code with its stdio bridged to the interactor container, and the secret inputs/answers are mounted only into the interactor side. The interactor uses the same exit-42/43 + `feedback_dir` protocol as the validator, but its Python wrapper exposes live `read()` / `write()` instead of a fixed `team_output` blob (`apps/sandbox-runner/assets/wrappers/python-interactor-domjudge.py`).
 
-On K8s, `checker` separates the student execution Jobs from a validation Job.
-Student ConfigMaps omit expected answers and the validator script; the validator
-Job uses its own ConfigMap with no student source, compiles the validator and
-grades captured team outputs. The worker merges outcomes via `mergeCheckerResults`
-(the same merge as Docker). With capacity admission, preparation and testcase
-waves precede a separately admitted checker stage; “two Jobs per submission” is
-not the resource model. Per-case validator files use flat keys
-(`case-{i}-{input,answer,team}.txt`) because ConfigMaps cannot hold nested paths.
-`interactive` runs one Job per testcase with solution/interactor containers wired
-over a `socat` TCP bridge on port 7777; only the interactor mounts secret
+On K8s, the student run and the checker share one Pod but never run at the same
+time: the judge container starts after the run init container has exited, and
+only the judge container mounts the answers and the validator. The worker merges
+outcomes via `mergeCheckerResults` (the same merge as Docker). Judge payload files
+use flat keys (`case-{i}-{input,answer}.txt`) because ConfigMaps cannot hold nested
+paths. `interactive` runs one Job per stage with solution/interactor containers
+wired over a `socat` TCP bridge on port 7777; only the interactor mounts secret
 input/answer data. `advanced` uses its separate run/grade Jobs and PVC contract.
 
-After compiling, both trusted interactive runners exchange a bounded peer-ready
-frame before starting either program or its execution timer. The runners consume
-this frame and preserve any prefetched conversation bytes when piping input to
-the programs; compilation and peer startup do not consume the student time limit.
-Startup EOF, malformed readiness, or timeout is a platform error. Each runner
-closes its input after reporting completion so its peer receives EOF promptly.
+Both interactive runners compile once, exchange a ready frame, then run the
+stage's cases in order over one channel. The trusted runners frame the
+conversation (`DATA` and `EOF` frames tagged with the case index), so each case
+gets its own end-of-input and a case starts only after both programs of the
+previous case have exited and both ends have been sent. Compilation and peer
+startup do not consume the student time limit. A malformed frame, or the channel
+closing mid-stage, marks the current and remaining cases WA: the interactor side
+is trusted, so the violation came from the solution side. The solution runs
+through `nojv-exec` and is timed by its own CPU like standard judging.
 
-Interactive runner reports use typed stderr markers; after readiness, stdout carries
-only the solution/interactor conversation. Student compilation failures produce the same
+Interactive runner reports use typed stderr markers carrying the case index; after
+readiness, stdout carries only the framed conversation. Student compilation failures produce the same
 submission-level CE result as standard judging. Interactor compilation failures
 remain platform errors, with compiler diagnostics available only to staff.
 
@@ -493,13 +495,14 @@ Capacity is the judge worker's Activity slot count (`WORKER_CONCURRENCY`, or a
 node-CPU-driven range down to `WORKER_MIN_CONCURRENCY`; see the
 [judge queue runbook](../runbooks/judge-queue.md#capacity)). One
 slot runs one stage of `JUDGE_STAGE_CASES` cases as one Kubernetes Job with one
-container per case, so a saturated worker still interleaves submissions at stage
+run container, so a saturated worker still interleaves submissions at stage
 granularity and a queued exam submission waits behind a bulk rejudge for at
-most one stage. The sandbox `ResourceQuota` is the hard limit and must hold
-`WORKER_CONCURRENCY × max(K8S_CPU_REQUEST, K8S_MAX_PARALLEL_CASES × K8S_CASE_CPU_REQUEST)`
-CPU, because the compile init container and the case containers never run at once;
-Jobs the quota rejects surface as `waiting_capacity` and retry every 30 seconds
-without consuming the failure budget.
+most one stage. A stage Pod reserves `K8S_RUN_PARALLELISM` CPUs (its run
+container's request and limit), so judge slots × `K8S_RUN_PARALLELISM` is the
+number of cases that can run at once; the chart refuses values where that
+exceeds the sandbox `ResourceQuota` CPU. Jobs the quota rejects surface as
+`waiting_capacity` and retry every 30 seconds without consuming the failure
+budget.
 
 Dispatch preserves per-student order: `executeJudgeExecutionDispatch` starts an
 execution only when the student has no earlier unfinished execution of the same
@@ -540,23 +543,25 @@ scoring remain unchanged. There is no cross-submission compilation cache.
 ## Where the code lives
 
 - Worker entrypoint — `apps/worker/src/index.ts`
-- Standard Mode executor (Docker) — `apps/worker/src/services/standard-mode-executor.ts`
-- Isolated checker validator executor (Docker) — `apps/worker/src/services/validator-executor.ts`
+- Standard Mode executor (Docker: compile, run and judge containers) — `apps/worker/src/services/standard-mode-executor.ts`
 - Isolated interactive two-container executor (Docker) — `apps/worker/src/services/interactive-executor.ts`
 - Advanced Mode run/grade executor (Docker) — `apps/worker/src/services/advanced-mode-executor.ts` (`safeCopyTree` answer-leak gate, `deriveRunStatus`, network-mode branch)
 - Advanced Mode Docker networking + service sidecar — `apps/worker/src/services/docker-network.ts`, `service-container.ts`
 - Advanced Mode K8s manifests (two Jobs + PVC + transfer gate) — `apps/worker/src/services/k8s-advanced.ts`
 - Advanced Mode K8s networking (per-submission NetworkPolicies + sidecar Pod/Service) — `apps/worker/src/services/k8s-advanced-network.ts`
-- Kubernetes executor (standard/checker prepare and testcase waves, separate validation, interactive paired containers, advanced run/grade) — `apps/worker/src/services/k8s-executor.ts`
+- Kubernetes executor (standard/checker stage Pod, interactive paired containers, advanced run/grade) — `apps/worker/src/services/k8s-executor.ts`
+- Stage payload, judge outcome parsing and result merge — `apps/worker/src/services/stage-result.ts`
 - Sandbox plan / config builder — `apps/worker/src/services/sandbox-plan.ts`
 - Worker bounded buffer — `apps/worker/src/services/bounded-buffer.ts`
 - Sandbox runner (inside the container) — `apps/sandbox-runner/src/index.ts`
-- Sandbox runner bounded buffer + memory poller — `apps/sandbox-runner/src/utils.ts`
+- Sandbox runner bounded buffer — `apps/sandbox-runner/src/utils.ts`
+- Execution helper (limits, accounting, descendant cleanup) — `apps/sandbox-runner/native/nojv-exec.c`
+- Stage run and judge (`run-stage`, `judge-stage`, output hashes) — `apps/sandbox-runner/src/judges/run-stage.ts`, `judge-stage.ts`, `stage-files.ts`
 - Compiler dispatch — `apps/sandbox-runner/src/compiler.ts`
 - Standard token comparator (`compareStandard`) — `packages/core/src/judge/compare.ts`
-- Per-case run helper (emits `rawRuns`, no in-container comparison) — `apps/sandbox-runner/src/judges/standard.ts`
+- Per-case run helper (emits `rawRuns`) — `apps/sandbox-runner/src/judges/standard.ts`
 - DOMjudge validator runner (in-container) — `apps/sandbox-runner/src/judges/validate.ts`
-- DOMjudge interactor runner (in-container) — `apps/sandbox-runner/src/judges/interactive-isolated.ts`
+- DOMjudge interactor runner and framed channel (in-container) — `apps/sandbox-runner/src/judges/interactive-stage.ts`, `interactive-channel.ts`
 - Per-case run-process helper / verdict classifier — `apps/sandbox-runner/src/judges/run-process.ts`
 - DOMjudge Python wrappers — `apps/sandbox-runner/assets/wrappers/python-validator.py`, `python-interactor-domjudge.py`
 - Durable judge workflow — `apps/worker/src/workflows/durable-judge.ts`
@@ -576,8 +581,8 @@ scoring remain unchanged. There is no cross-submission compilation cache.
 
 Worker and runner import the same Zod output schemas from `@nojv/core`; types are
 inferred from those schemas, and parsing failures preserve field paths and reasons.
-Docker and Kubernetes use flat testcase payload files. A `run-case` process reads
-only its requested testcase input; unused grading metadata is not sent to the runner.
+Docker and Kubernetes use flat testcase payload files. The run payload carries
+inputs only; answers and validators travel in the separate judge payload.
 Checker and interactor language each travel with their own script. Missing required
 language or malformed persisted configuration is an integrity failure, never a
 request to select another language or judge mode.

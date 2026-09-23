@@ -49,7 +49,7 @@ describe("buildInteractiveSolutionConfigMapData — solution container must NOT 
     const mainEntry = config.sourceFileMap?.find((e) => e.path === "main.py");
     expect(mainEntry).toBeDefined();
     expect(data[mainEntry!.key]).toBe(STUDENT_SOURCE);
-    expect(config.interactive).toEqual({ role: "solution" });
+    expect(config.interactive).toEqual({ role: "solution", cases: [0] });
     expect(config.judgeType).toBe("interactive");
   });
 
@@ -87,24 +87,28 @@ describe("buildInteractiveInteractorConfigMapData — interactor container holds
 
   it("ships interactor.<ext>, case-{i}-input.txt, case-{i}-answer.txt, config.json with role=validator", () => {
     const req = makeInteractiveRequest({ testcases: tcs });
-    const data = buildInteractiveInteractorConfigMapData(req, tcs[1]!);
+    const data = buildInteractiveInteractorConfigMapData(req);
 
     expect(data["interactor.py"]).toBe(INTERACTOR_SCRIPT);
     expect(data["case-2-input.txt"]).toBe(SECRET_INPUT);
     expect(data["case-2-answer.txt"]).toBe(SECRET_ANSWER);
 
     const config = JSON.parse(data["config.json"]!) as {
-      interactive: { role: string; language: string; index: number };
+      interactive: { role: string; language: string; cases: number[] };
       judgeType: string;
     };
-    expect(config.interactive).toEqual({ role: "validator", language: "python", index: 2 });
+    expect(config.interactive).toEqual({
+      role: "validator",
+      language: "python",
+      cases: [0, 2],
+    });
     expect(config.judgeType).toBe("interactive");
   });
 
   it("keeps an explicit Python interactor independent of checkerLanguage", () => {
     const req = makeInteractiveRequest();
     req.judgeConfig.checkerLanguage = "cpp";
-    const data = buildInteractiveInteractorConfigMapData(req, tcs[0]!);
+    const data = buildInteractiveInteractorConfigMapData(req);
     expect(data["interactor.py"]).toBe(INTERACTOR_SCRIPT);
     expect(JSON.parse(data["config.json"]!).interactive.language).toBe("python");
   });
@@ -112,32 +116,32 @@ describe("buildInteractiveInteractorConfigMapData — interactor container holds
   it("rejects missing interactorLanguage instead of guessing", () => {
     const req = makeInteractiveRequest();
     delete req.judgeConfig.interactorLanguage;
-    expect(() => buildInteractiveInteractorConfigMapData(req, tcs[0]!)).toThrow(
-      "interactorLanguage",
-    );
+    expect(() => buildInteractiveInteractorConfigMapData(req)).toThrow("interactorLanguage");
   });
 
   it("uses the cpp extension when interactorLanguage is cpp", () => {
     const req = makeInteractiveRequest({ interactorLanguage: "cpp", testcases: tcs });
-    const data = buildInteractiveInteractorConfigMapData(req, tcs[0]!);
+    const data = buildInteractiveInteractorConfigMapData(req);
     expect(data["interactor.cpp"]).toBeDefined();
     expect(data["interactor.py"]).toBeUndefined();
   });
 
   it("contains NO student source", () => {
     const req = makeInteractiveRequest({ testcases: tcs });
-    const data = buildInteractiveInteractorConfigMapData(req, tcs[1]!);
+    const data = buildInteractiveInteractorConfigMapData(req);
     expect(data["main.py"]).toBeUndefined();
     for (const value of Object.values(data)) {
       expect(value).not.toContain(STUDENT_SOURCE);
     }
   });
 
-  it("ships ONLY the requested testcase — sibling cases stay isolated", () => {
+  it("ships every case of the stage to the interactor side only", () => {
     const req = makeInteractiveRequest({ testcases: tcs });
-    const data = buildInteractiveInteractorConfigMapData(req, tcs[1]!);
-    expect(data["case-0-input.txt"]).toBeUndefined();
-    expect(data["case-0-answer.txt"]).toBeUndefined();
+    const data = buildInteractiveInteractorConfigMapData(req);
+    expect(data["case-0-input.txt"]).toBe("in-0\n");
+    expect(data["case-0-answer.txt"]).toBe("ans-0\n");
+    const solution = buildInteractiveSolutionConfigMapData(req);
+    expect(Object.values(solution).join("")).not.toContain("ans-0");
   });
 
   it("answer.txt defaults to empty string when the testcase has no expected output", () => {
@@ -145,7 +149,7 @@ describe("buildInteractiveInteractorConfigMapData — interactor container holds
       { index: 0, input: "in\n", weight: 1, isSample: false },
     ];
     const req = makeInteractiveRequest({ testcases: tcsNoAnswer });
-    const data = buildInteractiveInteractorConfigMapData(req, tcsNoAnswer[0]!);
+    const data = buildInteractiveInteractorConfigMapData(req);
     expect(data["case-0-answer.txt"]).toBe("");
   });
 });
@@ -319,14 +323,5 @@ describe("buildInteractiveJobManifest — per-container volumeMounts isolate the
 
     expect(sol.command).toEqual(buildSolutionContainerCommand());
     expect(int.command).toEqual(buildInteractorContainerCommand());
-  });
-});
-
-describe("K8s interactive uses the same mergeInteractiveCase as Docker (DRY invariant)", () => {
-  it("a clean run + interactor AC merges to AC at score 100 — same as Docker", async () => {
-    const interactiveK8s = await import("../../../apps/worker/src/services/check-interactive");
-    const interactiveDocker =
-      await import("../../../apps/worker/src/services/interactive-executor");
-    expect(interactiveDocker.mergeInteractiveCase).toBe(interactiveK8s.mergeInteractiveCase);
   });
 });

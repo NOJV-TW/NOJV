@@ -263,11 +263,12 @@ namespace, the deny-all NetworkPolicy, the LimitRange, and the ResourceQuota fro
 - **LimitRange** — default/`max`/`min` CPU & memory per sandbox container
   (default `1` CPU / `512Mi`, max `2` CPU / `1Gi`), tunable via
   `sandbox.limitRange.*`.
-- **ResourceQuota** — the single-machine overlay sets `pods: 4`,
-  `requests.cpu: 4`, `requests.memory: 12Gi`. **This is the concurrency
-  ceiling**: each 20-case Job uses about 2 CPU / 5Gi, so at most two full waves
-  run at once; excess Jobs queue as `Pending` until earlier ones finish. Tune it
-  for the box via `sandbox.resourceQuota.*` in your values overlay —
+- **ResourceQuota** — the single-machine overlay sets `pods: 16`,
+  `requests.cpu: 6`, `requests.memory: 16Gi`. **This is the concurrency
+  ceiling**: each stage Job reserves `worker.sandbox.runParallelism` CPUs, so
+  judge slots × runParallelism must fit `requests.cpu` (the chart refuses more);
+  excess Jobs queue as `Pending` until earlier ones finish. Tune it for the box
+  via `sandbox.resourceQuota.*` in your values overlay —
   [§8](#sizing-the-resourcequota-to-the-box).
 
 ## 4. Load images into k3s (containerd, not Docker)
@@ -514,8 +515,8 @@ Three independent layers scale separately. Tune them in this order.
 ### Layer 1 — Judge work (quota-bounded)
 
 Judging is **per-submission Kubernetes Jobs/Pods**. The worker creates one fresh
-Pod per Job wave (`k8s-advanced.ts`, `k8s-executor.ts`); standard/checker work
-uses at most 20 testcase containers per wave and **dies when finished**
+Pod per stage (`k8s-advanced.ts`, `k8s-executor.ts`); standard/checker work
+runs a stage's cases in one run container and **dies when finished**
 (`restartPolicy: Never`, `ttlSecondsAfterFinished`). So the judge layer is
 elastic at the Job level, while host capacity remains bounded and idle Jobs cost
 nothing.
@@ -529,11 +530,11 @@ Concurrency is bounded by two things:
 
 #### Sizing the ResourceQuota to the box
 
-Each 20-case sandbox Job requests approximately `2` CPU and `5Gi`: one 500m /
-256Mi materialize container, one 500m / 256Mi compile container, and up to twenty
-100m / 256Mi case containers. The single-machine overlay admits two such Jobs
-with quota `4` CPU / `12Gi` / `4` pods. Keep the quota aligned with actual host
-headroom; excess Jobs stay Pending.
+Each stage Job reserves `runParallelism` CPU (1 on single-machine) for its run
+container; the compile init container (300m) and the judge container request
+less and never raise the Pod's effective request above that. The single-machine
+overlay runs five 1-CPU slots under quota `6` CPU / `16Gi` / `16` pods. Keep the
+quota aligned with actual host headroom; excess Jobs stay Pending.
 
 ```yaml
 # values overlay — only raise after measuring the host

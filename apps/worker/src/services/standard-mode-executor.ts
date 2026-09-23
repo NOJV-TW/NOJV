@@ -7,10 +7,8 @@ import {
   type SandboxExecutionContext,
   type SandboxRequest,
   type SandboxResult,
-  type ValidatorOutcome,
 } from "@nojv/core";
 
-import { mergeCheckerResults, resolveSandboxResult } from "./check-standard";
 import { resolveSourceFiles } from "./source-files.js";
 import { buildSandboxDockerArgs } from "./docker-args";
 import { sanitizeId, spawnDockerContainer, type DockerRunResult } from "./docker-process";
@@ -18,9 +16,17 @@ import { buildDockerResourceLabels } from "./docker-resource";
 import { runInteractiveMode } from "./interactive-executor";
 import { buildSandboxConfigJson, sandboxSystemError } from "./sandbox-plan";
 import { parseCompileOutput, parseSandboxResult } from "./sandbox-schema";
-import { runValidator, type ValidatorCase } from "./validator-executor";
+import {
+  buildJudgePayload,
+  completeRuns,
+  gradableRuns,
+  judgeFailedForAll,
+  mergeStageResults,
+  parseJudgeOutcomes,
+} from "./stage-result";
 
 const MAX_OUTER_TIMEOUT_MS = 540_000;
+const JUDGE_TIMEOUT_MS = 300_000;
 
 export interface StandardModeConfig {
   cpuLimit: string;
@@ -41,78 +47,7 @@ export async function runStandardMode(
   }
 
   const sourceFileMap = await writeSubmissionFiles(tempDir, request);
-  const runResult = await runContainer(tempDir, request, execution, config, sourceFileMap);
-
-  if (request.judgeType === "checker" && runResult.rawRuns) {
-    return await resolveCheckerResult(request, execution, config, runResult.rawRuns);
-  }
-
-  return resolveSandboxResult(runResult, request.testcases, request.judgeConfig.compare);
-}
-
-async function resolveCheckerResult(
-  request: SandboxRequest,
-  execution: SandboxExecutionContext,
-  config: StandardModeConfig,
-  rawRuns: RawCaseRun[],
-): Promise<SandboxResult> {
-  const validatorScript = request.judgeConfig.checkerScript;
-  if (!validatorScript) {
-    return sandboxSystemError("Checker judge is missing its validator script.");
-  }
-
-  const validatorLanguage = request.judgeConfig.checkerLanguage;
-  if (!validatorLanguage) throw new Error("Checker judge is missing checkerLanguage.");
-
-  const testcaseByIndex = new Map(request.testcases.map((tc) => [tc.index, tc]));
-
-  const cases: ValidatorCase[] = [];
-  for (const run of rawRuns) {
-    if (run.errorVerdict) continue;
-    const tc = testcaseByIndex.get(run.index);
-    if (tc?.output === undefined) continue;
-    cases.push({
-      index: run.index,
-      input: tc.input,
-      answer: tc.output,
-      teamOutput: run.stdout,
-    });
-  }
-
-  const outcomes =
-    cases.length > 0
-      ? await runValidatorInTempDir(request, execution, config, {
-          runId: execution.runId,
-          submissionId: request.submissionId,
-          validatorScript,
-          validatorLanguage,
-          cases,
-          limits: { timeoutMs: request.limits.timeoutMs, memoryMb: request.limits.memoryMb },
-        })
-      : new Map<number, ValidatorOutcome>();
-
-  return { testcaseResults: mergeCheckerResults(rawRuns, outcomes, request.testcases) };
-}
-
-async function runValidatorInTempDir(
-  request: SandboxRequest,
-  execution: SandboxExecutionContext,
-  config: StandardModeConfig,
-  params: Parameters<typeof runValidator>[1],
-): ReturnType<typeof runValidator> {
-  const validateTempDir = await mkdtemp(
-    join(tmpdir(), `nojv-validate-${sanitizeId(request.submissionId)}-`),
-  );
-  try {
-    return await runValidator(validateTempDir, params, execution.signal, {
-      cpuLimit: config.cpuLimit,
-      image: config.image,
-      memoryMb: config.memoryMb,
-      pidsLimit: config.pidsLimit,
-    });
-  } finally {
-    await rm(validateTempDir, { force: true, recursive: true });
-  }
+  return await runStageContainers(tempDir, request, execution, config, sourceFileMap);
 }
 
 export async function writeSubmissionFiles(
@@ -143,41 +78,37 @@ export async function writeSubmissionFiles(
   return sourceFileMap;
 }
 
-function caseSystemError(index: number, message: string): RawCaseRun {
-  return { index, stdout: "", stderr: message, exitCode: -1, timeMs: 0, errorVerdict: "SE" };
+function containerFailure(phase: DockerRunResult, name: string): string | null {
+  if (phase.spawnError) return `Docker failed to start: ${phase.spawnError}`;
+  if (phase.timedOut) return `${name} container timed out.`;
+  if (phase.exitCode !== 0)
+    return `${name} container exited with code ${String(phase.exitCode)}.\n${phase.stderr}`.trim();
+  return null;
 }
 
-function extractCaseRun(phase: DockerRunResult, index: number): RawCaseRun {
-  if (phase.spawnError)
-    return caseSystemError(index, `Docker failed to start: ${phase.spawnError}`);
-  if (phase.timedOut) return caseSystemError(index, "Run container timed out.");
-  if (phase.exitCode !== 0) {
-    return caseSystemError(
-      index,
-      `Run container exited with code ${String(phase.exitCode)}.\n${phase.stderr}`.trim(),
-    );
-  }
-
-  let parsed;
+function parseRunOutput(phase: DockerRunResult): { rawRuns: RawCaseRun[]; message: string } {
+  const failure = containerFailure(phase, "Run");
+  if (failure) return { rawRuns: [], message: failure };
   try {
-    parsed = parseSandboxResult(JSON.parse(phase.stdout));
+    const parsed = parseSandboxResult(JSON.parse(phase.stdout));
+    if (!parsed.success)
+      return { rawRuns: [], message: `Invalid run output: ${parsed.error.message}` };
+    return {
+      rawRuns: parsed.data.rawRuns ?? [],
+      message: parsed.data.pipelineError ?? "Run container produced no result.",
+    };
   } catch {
-    return caseSystemError(index, `Failed to parse run output.\nstdout: ${phase.stdout}`);
+    return { rawRuns: [], message: `Failed to parse run output.\nstdout: ${phase.stdout}` };
   }
-  if (!parsed.success) {
-    return caseSystemError(index, `Invalid run output: ${parsed.error.message}`);
-  }
-  const run = parsed.data.rawRuns?.[0];
-  if (!run) {
-    return caseSystemError(
-      index,
-      parsed.data.pipelineError ?? "Run container produced no result.",
-    );
-  }
-  return run;
 }
 
-async function runContainer(
+async function makeSharedDir(prefix: string): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), prefix));
+  await chmod(dir, 0o777);
+  return dir;
+}
+
+async function runStageContainers(
   tempDir: string,
   request: SandboxRequest,
   execution: SandboxExecutionContext,
@@ -186,44 +117,49 @@ async function runContainer(
 ): Promise<SandboxResult> {
   const baseName = sanitizeId(execution.runId).slice(0, 36);
   const networkArgs = ["--network", "none"];
+  const labels = buildDockerResourceLabels(execution.runId);
   const baseConfig = buildSandboxConfigJson(request, sourceFileMap);
-  const configPath = join(tempDir, "config.json");
   const writeModeConfig = (mode: Record<string, unknown>) =>
-    writeFile(configPath, JSON.stringify({ ...baseConfig, mode }), "utf8");
-
-  const artifactDir = await mkdtemp(join(tmpdir(), `nojv-artifact-${baseName}-`));
-  await chmod(artifactDir, 0o777);
-
-  try {
-    await writeModeConfig({ kind: "compile" });
-    const compileName = `nojv-judge-c-${baseName}`;
-    const compileArgs = buildSandboxDockerArgs({
-      containerName: compileName,
+    writeFile(join(tempDir, "config.json"), JSON.stringify({ ...baseConfig, mode }), "utf8");
+  const containerArgs = (
+    containerName: string,
+    submissionDir: string,
+    mounts: Pick<
+      Parameters<typeof buildSandboxDockerArgs>[0],
+      "artifactMount" | "outputsMount"
+    >,
+  ) =>
+    buildSandboxDockerArgs({
+      containerName,
       networkArgs,
-      tempDir,
+      tempDir: submissionDir,
       cpuLimit: config.cpuLimit,
       memoryMb: config.memoryMb,
       pidsLimit: config.pidsLimit,
       image: config.image,
-      labels: buildDockerResourceLabels(execution.runId),
-      artifactMount: { hostDir: artifactDir, readOnly: false },
+      labels,
+      extraEnv: ["PYTHONDONTWRITEBYTECODE=1"],
+      ...mounts,
     });
+
+  const artifactDir = await makeSharedDir(`nojv-artifact-${baseName}-`);
+  const outputDir = await makeSharedDir(`nojv-outputs-${baseName}-`);
+  const judgeDir = await mkdtemp(join(tmpdir(), `nojv-judge-${baseName}-`));
+  const judgeArtifactDir = await makeSharedDir(`nojv-judge-artifact-${baseName}-`);
+
+  try {
+    await writeModeConfig({ kind: "compile" });
+    const compileName = `nojv-judge-c-${baseName}`;
     const compile = await spawnDockerContainer({
-      args: compileArgs,
+      args: containerArgs(compileName, tempDir, {
+        artifactMount: { hostDir: artifactDir, readOnly: false },
+      }),
       containerName: compileName,
       outerTimeoutMs: MAX_OUTER_TIMEOUT_MS,
       signal: execution.signal,
     });
-
-    if (compile.spawnError) {
-      return sandboxSystemError(`Docker failed to start: ${compile.spawnError}`);
-    }
-    if (compile.timedOut) return sandboxSystemError("Compile phase timed out.");
-    if (compile.exitCode !== 0) {
-      return sandboxSystemError(
-        `Compile container exited with code ${String(compile.exitCode)}.\n${compile.stderr}`.trim(),
-      );
-    }
+    const compileFailure = containerFailure(compile, "Compile");
+    if (compileFailure) return sandboxSystemError(compileFailure);
 
     let compileParsed;
     try {
@@ -243,37 +179,61 @@ async function runContainer(
       return sandboxSystemError("Compile phase returned no run command.");
     }
 
-    const perCaseTimeoutMs = Math.min(
-      request.limits.timeoutMs * 2 + 30_000,
-      MAX_OUTER_TIMEOUT_MS,
-    );
-    const rawRuns: RawCaseRun[] = [];
-    for (const tc of request.testcases) {
-      await writeModeConfig({ kind: "run-case", caseIndex: tc.index, runCommand });
-      const caseName = `nojv-judge-r${String(tc.index)}-${baseName}`.slice(0, 60);
-      const caseArgs = buildSandboxDockerArgs({
-        containerName: caseName,
-        networkArgs,
-        tempDir,
-        cpuLimit: config.cpuLimit,
-        memoryMb: config.memoryMb,
-        pidsLimit: config.pidsLimit,
-        image: config.image,
-        labels: buildDockerResourceLabels(execution.runId),
-        artifactMount: { hostDir: artifactDir, readOnly: true },
-        extraEnv: ["PYTHONDONTWRITEBYTECODE=1"],
-      });
-      const phase = await spawnDockerContainer({
-        args: caseArgs,
-        containerName: caseName,
-        outerTimeoutMs: perCaseTimeoutMs,
+    await writeModeConfig({
+      kind: "run-stage",
+      caseIndices: request.testcases.map((tc) => tc.index),
+      parallelism: 1,
+      runCommand,
+    });
+    const runName = `nojv-judge-r-${baseName}`;
+    const run = parseRunOutput(
+      await spawnDockerContainer({
+        args: containerArgs(runName, tempDir, {
+          artifactMount: { hostDir: artifactDir, readOnly: true },
+          outputsMount: { hostDir: outputDir, readOnly: false },
+        }),
+        containerName: runName,
+        outerTimeoutMs: Math.min(
+          (request.limits.timeoutMs * 2 + 5_000) * Math.max(1, request.testcases.length) +
+            30_000,
+          MAX_OUTER_TIMEOUT_MS,
+        ),
         signal: execution.signal,
-      });
-      rawRuns.push(extractCaseRun(phase, tc.index));
-    }
+      }),
+    );
+    const rawRuns = completeRuns(request, run.rawRuns, run.message);
+    const gradable = gradableRuns(request, rawRuns);
+    if (gradable.length === 0) return mergeStageResults(request, rawRuns, new Map());
 
-    return { testcaseResults: [], rawRuns };
+    await Promise.all(
+      Object.entries(buildJudgePayload(request)).map(([file, content]) =>
+        writeFile(join(judgeDir, file), content, "utf8"),
+      ),
+    );
+    await chmod(judgeDir, 0o755);
+    const judgeName = `nojv-judge-j-${baseName}`;
+    const judge = await spawnDockerContainer({
+      args: containerArgs(judgeName, judgeDir, {
+        artifactMount: { hostDir: judgeArtifactDir, readOnly: false },
+        outputsMount: { hostDir: outputDir, readOnly: true },
+      }),
+      containerName: judgeName,
+      outerTimeoutMs: JUDGE_TIMEOUT_MS,
+      signal: execution.signal,
+    });
+    const judgeFailure = containerFailure(judge, "Judge");
+    return mergeStageResults(
+      request,
+      rawRuns,
+      judgeFailure
+        ? judgeFailedForAll(gradable, judgeFailure)
+        : parseJudgeOutcomes(judge.stdout, gradable),
+    );
   } finally {
-    await rm(artifactDir, { recursive: true, force: true });
+    await Promise.all(
+      [artifactDir, outputDir, judgeDir, judgeArtifactDir].map((dir) =>
+        rm(dir, { recursive: true, force: true }),
+      ),
+    );
   }
 }

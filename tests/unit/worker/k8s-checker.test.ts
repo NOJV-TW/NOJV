@@ -7,14 +7,9 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { mergeCheckerResults } from "../../../apps/worker/src/services/check-standard";
-import {
-  buildRunConfigMapData,
-  buildValidateConfigMapData,
-} from "../../../apps/worker/src/services/k8s-configmaps";
-import {
-  buildPerCaseSandboxJobManifest,
-  buildSandboxJobManifest,
-} from "../../../apps/worker/src/services/k8s-job-manifests";
+import { buildRunConfigMapData } from "../../../apps/worker/src/services/k8s-configmaps";
+import { buildStageJobManifest } from "../../../apps/worker/src/services/k8s-job-manifests";
+import { buildJudgePayload } from "../../../apps/worker/src/services/stage-result";
 
 function makeCheckerRequest(overrides?: {
   testcases?: SandboxRequest["testcases"];
@@ -48,7 +43,7 @@ describe("buildRunConfigMapData — checker run pod must not see answer or valid
       weight: 1,
       isSample: false,
     }));
-    const data = buildRunConfigMapData(makeCheckerRequest({ testcases: tcs }));
+    const data = buildRunConfigMapData(makeCheckerRequest({ testcases: tcs }), 1);
 
     for (let i = 0; i < tcs.length; i++) {
       expect(data[`testcase-${String(i)}-input.txt`]).toBe(`in-${String(i)}\n`);
@@ -62,6 +57,7 @@ describe("buildRunConfigMapData — checker run pod must not see answer or valid
   it("excludes the checker.<ext> key for checker", () => {
     const data = buildRunConfigMapData(
       makeCheckerRequest({ checkerScript: "VERY_SECRET_CHECKER\n", checkerLanguage: "python" }),
+      1,
     );
     expect(data["checker.py"]).toBeUndefined();
     for (const value of Object.values(data)) {
@@ -72,15 +68,18 @@ describe("buildRunConfigMapData — checker run pod must not see answer or valid
   it("excludes the checker.cpp key for cpp checker", () => {
     const data = buildRunConfigMapData(
       makeCheckerRequest({ checkerScript: "int main(){}\n", checkerLanguage: "cpp" }),
+      1,
     );
     expect(data["checker.cpp"]).toBeUndefined();
   });
 
   it("still writes source + config.json + input keys for the run", () => {
-    const data = buildRunConfigMapData(makeCheckerRequest());
+    const data = buildRunConfigMapData(makeCheckerRequest(), 2);
     const config = JSON.parse(data["config.json"]!) as {
       sourceFileMap?: { path: string; key: string }[];
+      mode?: unknown;
     };
+    expect(config.mode).toEqual({ kind: "run-stage", caseIndices: [0, 1], parallelism: 2 });
     const mainEntry = config.sourceFileMap?.find((e) => e.path === "main.py");
     expect(mainEntry).toBeDefined();
     expect(data[mainEntry!.key]).toBe("print(1)");
@@ -88,292 +87,170 @@ describe("buildRunConfigMapData — checker run pod must not see answer or valid
   });
 
   it("standard mode still excludes expected (regression: existing gate intact)", () => {
-    const data = buildRunConfigMapData({
-      ...makeCheckerRequest(),
-      judgeType: "standard",
-      judgeConfig: {},
-    });
+    const data = buildRunConfigMapData(
+      {
+        ...makeCheckerRequest(),
+        judgeType: "standard",
+        judgeConfig: {},
+      },
+      1,
+    );
     expect(data["testcase-0-expected.txt"]).toBeUndefined();
     expect(data["testcase-0-input.txt"]).toBe("1\n");
   });
 
   it("checker request with no checker script does not write a checker key (defensive)", () => {
-    const data = buildRunConfigMapData({
-      ...makeCheckerRequest(),
-      judgeConfig: { checkerLanguage: "python" },
-    });
+    const data = buildRunConfigMapData(
+      {
+        ...makeCheckerRequest(),
+        judgeConfig: { checkerLanguage: "python" },
+      },
+      1,
+    );
     expect(data["checker.py"]).toBeUndefined();
   });
 });
 
-describe("buildValidateConfigMapData — validate pod ships validator + per-case files", () => {
-  const rawRuns: RawCaseRun[] = [
-    { index: 0, stdout: "team-0\n", stderr: "", exitCode: 0, timeMs: 10 },
-    { index: 1, stdout: "team-1\n", stderr: "", exitCode: 0, timeMs: 12 },
-  ];
-
-  it("writes validator.<ext> with the validator script", () => {
-    const data = buildValidateConfigMapData(makeCheckerRequest(), rawRuns);
+describe("buildJudgePayload — only the judge container receives answers", () => {
+  it("ships the validator, inputs and answers for a checker, but never the student source", () => {
+    const data = buildJudgePayload(makeCheckerRequest());
     expect(data["validator.py"]).toBe("accept()\n");
+    expect(data["case-0-input.txt"]).toBe("1\n");
+    expect(data["case-0-answer.txt"]).toBe("ans-0\n");
+    expect(data["case-1-answer.txt"]).toBe("ans-1\n");
+    expect(Object.keys(data).some((key) => key.endsWith("-team.txt"))).toBe(false);
+    for (const value of Object.values(data)) expect(value).not.toContain("print(1)");
+    const config = JSON.parse(data["config.json"]!) as Record<string, unknown>;
+    expect(config.validate).toEqual({ language: "python" });
+    expect(config.mode).toEqual({ kind: "judge-stage" });
   });
 
   it("uses the cpp extension when checkerLanguage is cpp", () => {
-    const data = buildValidateConfigMapData(
+    const data = buildJudgePayload(
       makeCheckerRequest({ checkerLanguage: "cpp", checkerScript: "int main(){}\n" }),
-      rawRuns,
     );
     expect(data["validator.cpp"]).toBe("int main(){}\n");
     expect(data["validator.py"]).toBeUndefined();
   });
 
-  it("writes config.json carrying the validate block with case indices", () => {
-    const data = buildValidateConfigMapData(makeCheckerRequest(), rawRuns);
-    const config = JSON.parse(data["config.json"]!) as {
-      validate?: { language: string; cases: { index: number }[] };
-      submissionId?: string;
-      judgeType?: string;
-    };
-    expect(config.submissionId).toBe("sub-1");
-    expect(config.judgeType).toBe("checker");
-    expect(config.validate).toEqual({
-      language: "python",
-      cases: [{ index: 0 }, { index: 1 }],
+  it("ships only answers and the compare options for standard judging", () => {
+    const data = buildJudgePayload({
+      ...makeCheckerRequest(),
+      judgeType: "standard",
+      judgeConfig: { compare: { caseSensitive: false, floatTolerance: 1e-6 } },
     });
-  });
-
-  it("writes per-case flat keys for input/answer/team", () => {
-    const data = buildValidateConfigMapData(makeCheckerRequest(), rawRuns);
-    expect(data["case-0-input.txt"]).toBe("1\n");
     expect(data["case-0-answer.txt"]).toBe("ans-0\n");
-    expect(data["case-0-team.txt"]).toBe("team-0\n");
-    expect(data["case-1-input.txt"]).toBe("2\n");
-    expect(data["case-1-answer.txt"]).toBe("ans-1\n");
-    expect(data["case-1-team.txt"]).toBe("team-1\n");
+    expect(data["case-0-input.txt"]).toBeUndefined();
+    expect(data["validator.py"]).toBeUndefined();
+    const config = JSON.parse(data["config.json"]!) as Record<string, unknown>;
+    expect(config.compare).toEqual({ caseSensitive: false, floatTolerance: 1e-6 });
+    expect(config.validate).toBeUndefined();
   });
 
-  it("skips cases whose run errored (TLE/MLE/RE/SE) — validator never grades them", () => {
-    const mixed: RawCaseRun[] = [
-      { index: 0, stdout: "ok\n", stderr: "", exitCode: 0, timeMs: 5 },
-      { index: 1, stdout: "", stderr: "boom", exitCode: -1, timeMs: 0, errorVerdict: "TLE" },
-    ];
-    const data = buildValidateConfigMapData(makeCheckerRequest(), mixed);
-    expect(data["case-0-team.txt"]).toBe("ok\n");
-    expect(data["case-1-team.txt"]).toBeUndefined();
+  it("skips testcases without an expected answer", () => {
+    const data = buildJudgePayload(
+      makeCheckerRequest({
+        testcases: [
+          { index: 0, input: "1\n", output: "ans-0\n", weight: 1, isSample: false },
+          { index: 1, input: "2\n", weight: 1, isSample: false },
+        ],
+      }),
+    );
+    expect(data["case-0-answer.txt"]).toBe("ans-0\n");
     expect(data["case-1-input.txt"]).toBeUndefined();
     expect(data["case-1-answer.txt"]).toBeUndefined();
-
-    const config = JSON.parse(data["config.json"]!) as {
-      validate: { cases: { index: number }[] };
-    };
-    expect(config.validate.cases).toEqual([{ index: 0 }]);
-  });
-
-  it("skips cases whose testcase has no expected answer (misconfiguration → merge SE)", () => {
-    const tcs = [
-      { index: 0, input: "1\n", output: "ans-0\n", weight: 1, isSample: false },
-      { index: 1, input: "2\n", weight: 1, isSample: false },
-    ];
-    const data = buildValidateConfigMapData(makeCheckerRequest({ testcases: tcs }), rawRuns);
-    expect(data["case-0-input.txt"]).toBe("1\n");
-    expect(data["case-1-input.txt"]).toBeUndefined();
-  });
-
-  it("never ships the student source code into the validate ConfigMap", () => {
-    const data = buildValidateConfigMapData(makeCheckerRequest(), rawRuns);
-    expect(data["main.py"]).toBeUndefined();
-    for (const value of Object.values(data)) {
-      expect(value).not.toContain("print(1)");
-    }
   });
 });
 
-describe("buildPerCaseSandboxJobManifest — one compile plus isolated cases", () => {
-  it("keeps compile/materialize at 500m and case containers at 100m", () => {
-    const manifest = buildPerCaseSandboxJobManifest({
-      jobName: "judge-sub-1",
-      namespace: "nojv-sandbox",
-      configMapNames: ["judge-sub-1-p0"],
-      image: "nojv-sandbox:test",
-      cpuRequest: "500m",
-      caseCpuRequest: "100m",
-      cpuLimit: "1",
-      memoryRequest: "128Mi",
-      memoryLimit: "192Mi",
-      compilerMemoryLimit: "512Mi",
-      activeDeadlineSeconds: 90,
-      caseIndices: Array.from({ length: 20 }, (_, i) => i),
-      runtimeClassName: "gvisor",
-    });
-    const pod = manifest.spec!.template.spec!;
+describe("buildStageJobManifest — prepare, run and judge in one hardened Pod", () => {
+  const params = {
+    jobName: "judge-sub-1",
+    namespace: "nojv-sandbox",
+    runConfigMapNames: ["judge-sub-1-run-pm", "judge-sub-1-run-p0"],
+    judgeConfigMapNames: ["judge-sub-1-judge-pm"],
+    image: "nojv-sandbox:test",
+    cpuRequest: "300m",
+    cpuLimit: "1",
+    memoryRequest: "64Mi",
+    compilerMemoryLimit: "512Mi",
+    runParallelism: 2,
+    runMemoryLimit: "704Mi",
+    activeDeadlineSeconds: 120,
+    runtimeClassName: "gvisor",
+  };
+  const pod = buildStageJobManifest(params).spec!.template.spec!;
+  const [prepare, run] = pod.initContainers!;
+  const judge = pod.containers[0]!;
 
+  it("orders prepare and run before the judge, each with its phase", () => {
     expect(pod.runtimeClassName).toBe("gvisor");
-    expect(pod.initContainers).toHaveLength(1);
-    expect(pod.initContainers?.map(({ name }) => name)).toEqual(["prepare"]);
-    expect(pod.initContainers?.[0]?.env).toContainEqual({
-      name: "SANDBOX_PHASE",
-      value: "prepare",
-    });
-    expect(
-      pod.initContainers?.every(({ resources }) => resources?.requests?.cpu === "500m"),
-    ).toBe(true);
-    expect(pod.containers).toHaveLength(20);
-    expect(pod.containers?.every(({ resources }) => resources?.requests?.cpu === "100m")).toBe(
-      true,
-    );
-    expect(
-      new Set(
-        pod.containers?.flatMap(
-          ({ volumeMounts }) =>
-            volumeMounts
-              ?.filter(({ name }) => name === "scratch-workspace")
-              .map(({ subPath }) => subPath) ?? [],
-        ),
-      ),
-    ).toHaveLength(20);
+    expect(pod.initContainers!.map(({ name }) => name)).toEqual(["prepare", "run"]);
+    expect(pod.containers.map(({ name }) => name)).toEqual(["judge"]);
+    expect(prepare!.env).toContainEqual({ name: "SANDBOX_PHASE", value: "prepare" });
+    expect(run!.env).toContainEqual({ name: "SANDBOX_PHASE", value: "run-stage" });
+    expect(judge.env).toContainEqual({ name: "SANDBOX_PHASE", value: "judge-stage" });
+  });
 
-    const prepare = pod.initContainers?.[0];
-    expect(prepare?.resources?.limits?.memory).toBe("512Mi");
-    expect(pod.containers.every(({ resources }) => resources?.limits?.memory === "192Mi")).toBe(
-      true,
-    );
-    expect(prepare?.volumeMounts).toContainEqual({
-      name: "payload",
+  it("reserves exactly runParallelism CPUs for the run container", () => {
+    expect(run!.resources).toEqual({
+      requests: { cpu: "2", memory: "64Mi" },
+      limits: { cpu: "2", memory: "704Mi" },
+    });
+    expect(prepare!.resources?.limits).toEqual({ cpu: "1", memory: "512Mi" });
+  });
+
+  it("never mounts answers or the validator where student code runs", () => {
+    const judgeVolumes = ["judge-payload", "judge-data", "judge-artifact"];
+    for (const container of [prepare!, run!]) {
+      expect(container.volumeMounts!.some(({ name }) => judgeVolumes.includes(name))).toBe(
+        false,
+      );
+    }
+    expect(run!.volumeMounts).toContainEqual({ name: "outputs", mountPath: "/outputs" });
+    expect(run!.volumeMounts).toContainEqual({
+      name: "submission-data",
+      mountPath: "/submission",
+      readOnly: true,
+    });
+    expect(judge.volumeMounts).toContainEqual({
+      name: "outputs",
+      mountPath: "/outputs",
+      readOnly: true,
+    });
+    expect(judge.volumeMounts).toContainEqual({
+      name: "judge-payload",
       mountPath: "/payload",
       readOnly: true,
     });
-    expect(prepare?.volumeMounts).toContainEqual({
-      name: "submission-data",
-      mountPath: "/submission",
-    });
-    expect(prepare?.volumeMounts).toContainEqual({
-      name: "artifact",
-      mountPath: "/artifact",
-    });
-    expect(prepare?.volumeMounts).toContainEqual({
-      name: "compiler-tmp",
-      mountPath: "/tmp",
-      subPath: "prepare",
-    });
-    expect(pod.volumes).toContainEqual({
-      name: "compiler-tmp",
-      emptyDir: { sizeLimit: "256Mi" },
-    });
-    expect(pod.volumes).toContainEqual({
-      name: "scratch-tmp",
-      emptyDir: { sizeLimit: "64Mi" },
-    });
     expect(
-      pod.containers.every((container) =>
-        container.volumeMounts?.every((mount) => mount.name !== "compiler-tmp"),
-      ),
-    ).toBe(true);
-    expect(
-      pod.containers?.every((container) =>
-        container.volumeMounts?.some(
-          (mount) =>
-            mount.name === "artifact" && mount.mountPath === "/artifact" && mount.readOnly,
-        ),
-      ),
-    ).toBe(true);
+      pod.volumes!.find(({ name }) => name === "judge-payload")?.projected?.sources,
+    ).toEqual([{ configMap: { name: "judge-sub-1-judge-pm" } }]);
   });
-});
 
-describe("buildSandboxJobManifest — hardening parity for both run and validate pods", () => {
-  const baseParams = {
-    jobName: "judge-sub-1",
-    namespace: "nojv-sandbox",
-    configMapNames: ["judge-sub-1-pm", "judge-sub-1-p0"],
-    image: "nojv-sandbox:test",
-    cpuRequest: "100m",
-    cpuLimit: "1",
-    memoryRequest: "128Mi",
-    memoryLimit: "256Mi",
-    compilerMemoryLimit: "512Mi",
-    activeDeadlineSeconds: 120,
-  };
-
-  it.each([
-    ["run", { ...baseParams }],
-    [
-      "validate",
-      {
-        ...baseParams,
-        jobName: "judge-sub-1-validate",
-        configMapNames: ["judge-sub-1-validate-pm", "judge-sub-1-validate-p0"],
-      },
-    ],
-  ])("(%s) applies the full sandbox hardening profile", (_label, params) => {
-    const manifest = buildSandboxJobManifest(params);
-    const podSpec = manifest.spec!.template.spec!;
-    const container = podSpec.containers[0]!;
-
-    expect(podSpec.restartPolicy).toBe("Never");
-    expect(podSpec.automountServiceAccountToken).toBe(false);
-    expect(podSpec.nodeSelector).toEqual({ "nojv-role": "sandbox" });
-    expect(podSpec.tolerations).toEqual([
-      { key: "nojv-role", operator: "Equal", value: "sandbox", effect: "NoSchedule" },
-      {
-        key: "cloud.google.com/gke-spot",
-        operator: "Equal",
-        value: "true",
-        effect: "NoSchedule",
-      },
-    ]);
-    expect(podSpec.securityContext).toMatchObject({
+  it("applies the full sandbox hardening profile to every container", () => {
+    expect(pod.restartPolicy).toBe("Never");
+    expect(pod.automountServiceAccountToken).toBe(false);
+    expect(pod.nodeSelector).toEqual({ "nojv-role": "sandbox" });
+    expect(pod.securityContext).toMatchObject({
       runAsUser: 10001,
       runAsGroup: 10001,
       runAsNonRoot: true,
       seccompProfile: { type: "RuntimeDefault" },
     });
-    expect(container.securityContext).toMatchObject({
-      allowPrivilegeEscalation: false,
-      capabilities: { drop: ["ALL"] },
-      readOnlyRootFilesystem: true,
-      runAsNonRoot: true,
-    });
-    expect(manifest.spec!.template.metadata!.labels).toMatchObject({ app: "nojv-sandbox" });
-  });
-
-  it("materializes projected ConfigMap shards into a read-only /submission mount", () => {
-    const manifest = buildSandboxJobManifest({
-      ...baseParams,
-      jobName: "judge-sub-1-validate",
-      configMapNames: ["judge-sub-1-validate-pm", "judge-sub-1-validate-p0"],
-    });
-    const podSpec = manifest.spec!.template.spec!;
-    const submissionVol = podSpec.volumes!.find((v) => v.name === "submission-data");
-    expect(submissionVol?.emptyDir).toBeDefined();
-    const payloadVol = podSpec.volumes!.find((v) => v.name === "payload");
-    expect(payloadVol?.projected?.sources).toEqual([
-      { configMap: { name: "judge-sub-1-validate-pm" } },
-      { configMap: { name: "judge-sub-1-validate-p0" } },
-    ]);
-
-    const materializer = podSpec.initContainers?.find((c) => c.name === "prepare-validator");
-    expect(materializer?.env).toContainEqual({
-      name: "SANDBOX_PHASE",
-      value: "prepare-validator",
-    });
-    expect(materializer?.securityContext).toMatchObject({
-      allowPrivilegeEscalation: false,
-      readOnlyRootFilesystem: true,
-    });
-    expect(materializer?.volumeMounts).toContainEqual({
-      name: "payload",
-      mountPath: "/payload",
-      readOnly: true,
-    });
-
-    const container = podSpec.containers[0]!;
-    const mount = container.volumeMounts!.find((m) => m.name === "submission-data");
-    expect(mount?.mountPath).toBe("/submission");
-    expect(mount?.readOnly).toBe(true);
+    for (const container of [prepare!, run!, judge]) {
+      expect(container.securityContext).toMatchObject({
+        allowPrivilegeEscalation: false,
+        capabilities: { drop: ["ALL"] },
+        readOnlyRootFilesystem: true,
+        runAsNonRoot: true,
+      });
+    }
   });
 
   it("limits TTL and active deadline", () => {
-    const manifest = buildSandboxJobManifest(baseParams);
+    const manifest = buildStageJobManifest(params);
     expect(manifest.spec!.ttlSecondsAfterFinished).toBeGreaterThan(0);
-    expect(manifest.spec!.activeDeadlineSeconds).toBeGreaterThan(0);
+    expect(manifest.spec!.activeDeadlineSeconds).toBe(120);
     expect(manifest.spec!.backoffLimit).toBe(0);
   });
 });
@@ -398,6 +275,24 @@ describe("K8s checker uses the same mergeCheckerResults as Docker", () => {
   });
 });
 
+function stagePod(overrides: Partial<Parameters<typeof buildStageJobManifest>[0]>) {
+  return buildStageJobManifest({
+    jobName: "quantities",
+    namespace: "nojv-sandbox",
+    runConfigMapNames: ["payload"],
+    judgeConfigMapNames: ["judge"],
+    image: "sandbox:test",
+    cpuRequest: "0.5",
+    cpuLimit: "750m",
+    memoryRequest: "64Mi",
+    compilerMemoryLimit: "512Mi",
+    runParallelism: 1,
+    runMemoryLimit: "208Mi",
+    activeDeadlineSeconds: 90,
+    ...overrides,
+  }).spec!.template.spec!;
+}
+
 it("caps resource requests at the derived low problem limit while reserving compiler memory separately", () => {
   const memoryMb = resolveContainerMemoryMb(16, {
     defaultMemoryMb: 512,
@@ -405,52 +300,12 @@ it("caps resource requests at the derived low problem limit while reserving comp
     maxMemoryMb: 1536,
   });
   expect(memoryMb).toBe(80);
-  const params = {
-    jobName: "small-memory",
-    namespace: "nojv-sandbox",
-    configMapNames: ["payload"],
-    image: "sandbox:test",
-    cpuRequest: "500m",
-    caseCpuRequest: "100m",
-    cpuLimit: "0.05",
-    memoryRequest: "128Mi",
-    memoryLimit: `${memoryMb}Mi`,
-    compilerMemoryLimit: "512Mi",
-    activeDeadlineSeconds: 90,
-    caseIndices: [0],
-  };
-  const pod = buildPerCaseSandboxJobManifest(params).spec!.template.spec!;
+  const pod = stagePod({ cpuLimit: "0.05", memoryRequest: "128Mi", runMemoryLimit: "80Mi" });
   expect(pod.initContainers![0]!.resources).toEqual({
     requests: { cpu: "0.05", memory: "128Mi" },
     limits: { cpu: "0.05", memory: "512Mi" },
   });
-  expect(pod.containers[0]!.resources).toEqual({
-    requests: { cpu: "0.05", memory: "80Mi" },
-    limits: { cpu: "0.05", memory: "80Mi" },
-  });
-  const validator = buildSandboxJobManifest(params).spec!.template.spec!;
-  expect(validator.initContainers![0]!.resources).toEqual({
-    requests: { cpu: "0.05", memory: "128Mi" },
-    limits: { cpu: "0.05", memory: "512Mi" },
-  });
-  expect(validator.initContainers![0]!.volumeMounts).toContainEqual({
-    name: "artifact",
-    mountPath: "/artifact",
-  });
-  expect(validator.containers[0]!.volumeMounts).toContainEqual({
-    name: "artifact",
-    mountPath: "/artifact",
-    readOnly: true,
-  });
-  expect(validator.volumes).toContainEqual({
-    name: "compiler-tmp",
-    emptyDir: { sizeLimit: "256Mi" },
-  });
-  expect(validator.volumes).toContainEqual({ name: "tmp", emptyDir: { sizeLimit: "64Mi" } });
-  expect(validator.containers[0]!.resources).toEqual({
-    requests: { cpu: "0.05", memory: "80Mi" },
-    limits: { cpu: "0.05", memory: "80Mi" },
-  });
+  expect(pod.initContainers![1]!.resources?.requests?.memory).toBe("80Mi");
 });
 
 it.each([
@@ -462,35 +317,13 @@ it.each([
 ])(
   "compares valid fractional and exponent quantities without changing under-limit text: $memoryRequest",
   ({ memoryRequest, memoryLimit, expected }) => {
-    const pod = buildSandboxJobManifest({
-      jobName: "quantities",
-      namespace: "nojv-sandbox",
-      configMapNames: ["payload"],
-      image: "sandbox:test",
-      cpuRequest: "0.5",
-      cpuLimit: "750m",
-      memoryRequest,
-      memoryLimit,
-      compilerMemoryLimit: "512Mi",
-      activeDeadlineSeconds: 90,
-    }).spec!.template.spec!;
-    expect(pod.containers[0]!.resources?.requests).toEqual({ cpu: "0.5", memory: expected });
+    const pod = stagePod({ memoryRequest, runMemoryLimit: memoryLimit });
+    expect(pod.initContainers![1]!.resources?.requests?.memory).toBe(expected);
   },
 );
 
 it("rejects non-finite resource quantities", () => {
-  expect(() =>
-    buildSandboxJobManifest({
-      jobName: "quantities",
-      namespace: "nojv-sandbox",
-      configMapNames: ["payload"],
-      image: "sandbox:test",
-      cpuRequest: "1",
-      cpuLimit: "1",
-      memoryRequest: "1e309",
-      memoryLimit: "512Mi",
-      compilerMemoryLimit: "512Mi",
-      activeDeadlineSeconds: 90,
-    }),
-  ).toThrow("Invalid Kubernetes resource quantity");
+  expect(() => stagePod({ memoryRequest: "1e309" })).toThrow(
+    "Invalid Kubernetes resource quantity",
+  );
 });

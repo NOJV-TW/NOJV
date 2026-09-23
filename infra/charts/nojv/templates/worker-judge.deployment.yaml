@@ -7,6 +7,13 @@ cloudsql-proxy sidecar). Keep the full K8s + storage env block here, in order.
 {{- if ne .Values.worker.sandbox.runtimeClassName "gvisor" }}
 {{- fail "worker.sandbox.runtimeClassName must be gvisor" }}
 {{- end }}
+{{- $quota := .Values.sandbox.resourceQuota -}}
+{{- if and $quota.enabled (regexMatch "^[0-9]+$" (toString $quota.requestsCpu)) }}
+{{- $cores := mul (int .Values.worker.judge.replicas) (int .Values.worker.judge.concurrency) (int .Values.worker.sandbox.runParallelism) }}
+{{- if gt (int $cores) (int $quota.requestsCpu) }}
+{{- fail (printf "worker.judge replicas x concurrency x worker.sandbox.runParallelism (%d) exceeds sandbox.resourceQuota.requestsCpu (%s)" (int $cores) (toString $quota.requestsCpu)) }}
+{{- end }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -89,16 +96,14 @@ spec:
             {{- end }}
             - name: K8S_CPU_REQUEST
               value: {{ .Values.worker.sandbox.cpuRequest | quote }}
-            - name: K8S_CASE_CPU_REQUEST
-              value: {{ .Values.worker.sandbox.caseCpuRequest | quote }}
             - name: K8S_CPU_LIMIT
               value: {{ .Values.worker.sandbox.cpuLimit | quote }}
             - name: K8S_MEMORY_REQUEST
               value: {{ .Values.worker.sandbox.memoryRequest | quote }}
             - name: K8S_MEMORY_LIMIT
               value: {{ .Values.worker.sandbox.memoryLimit | quote }}
-            - name: K8S_MAX_PARALLEL_CASES
-              value: {{ .Values.worker.sandbox.maxParallelCases | quote }}
+            - name: K8S_RUN_PARALLELISM
+              value: {{ .Values.worker.sandbox.runParallelism | quote }}
             - name: K8S_RUNTIME_CLASS_NAME
               value: {{ required "worker.sandbox.runtimeClassName is required" .Values.worker.sandbox.runtimeClassName | quote }}
             {{- if .Values.registry.enabled }}

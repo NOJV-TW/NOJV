@@ -2,9 +2,7 @@ import {
   COMPILATION_TIMEOUT_MS,
   executionWallTimeLimitMs,
   validatorTimeoutMs,
-  type RawCaseRun,
   type SandboxRequest,
-  type SandboxTestcase,
 } from "@nojv/core";
 
 import { resolveSourceFiles } from "./source-files.js";
@@ -23,19 +21,23 @@ function computePreparedJobDeadlineSeconds(executionBudgetMs: number): number {
   return Math.min(Math.max(compute, JOB_DEADLINE_FLOOR_SECONDS), JOB_DEADLINE_CAP_SECONDS);
 }
 
-export function computeJobDeadlineSeconds(request: SandboxRequest): number {
-  return computePreparedJobDeadlineSeconds(
-    executionWallTimeLimitMs(request.limits.timeoutMs) * Math.max(1, request.testcases.length),
-  );
+export function computeStageJobDeadlineSeconds(request: SandboxRequest): number {
+  const cases = Math.max(1, request.testcases.length);
+  const runMs = executionWallTimeLimitMs(request.limits.timeoutMs) * cases;
+  const judgeMs =
+    request.judgeType === "checker"
+      ? COMPILATION_TIMEOUT_MS +
+        executionWallTimeLimitMs(validatorTimeoutMs(request.limits.timeoutMs)) * cases
+      : 0;
+  return computePreparedJobDeadlineSeconds(runMs + judgeMs);
 }
 
-export function computeValidatorJobDeadlineSeconds(
-  solutionTimeoutMs: number,
-  caseCount: number,
-): number {
-  return computePreparedJobDeadlineSeconds(
-    executionWallTimeLimitMs(validatorTimeoutMs(solutionTimeoutMs)) * Math.max(1, caseCount),
+export function computeInteractiveJobDeadlineSeconds(request: SandboxRequest): number {
+  const perCase = Math.max(
+    executionWallTimeLimitMs(request.limits.timeoutMs),
+    validatorTimeoutMs(request.limits.timeoutMs),
   );
+  return computePreparedJobDeadlineSeconds(perCase * Math.max(1, request.testcases.length));
 }
 
 export function buildTestcaseConfigMapData(request: SandboxRequest): Record<string, string> {
@@ -48,7 +50,10 @@ export function buildTestcaseConfigMapData(request: SandboxRequest): Record<stri
   return data;
 }
 
-export function buildRunConfigMapData(request: SandboxRequest): Record<string, string> {
+export function buildRunConfigMapData(
+  request: SandboxRequest,
+  parallelism: number,
+): Record<string, string> {
   const data: Record<string, string> = {};
   const sourceFileMap: { path: string; key: string }[] = [];
 
@@ -58,45 +63,16 @@ export function buildRunConfigMapData(request: SandboxRequest): Record<string, s
     sourceFileMap.push({ path: sf.path, key });
   }
 
-  data["config.json"] = JSON.stringify(buildSandboxConfigJson(request, sourceFileMap));
+  data["config.json"] = JSON.stringify({
+    ...buildSandboxConfigJson(request, sourceFileMap),
+    mode: {
+      kind: "run-stage",
+      caseIndices: request.testcases.map((tc) => tc.index),
+      parallelism,
+    },
+  });
 
   Object.assign(data, buildTestcaseConfigMapData(request));
-
-  return data;
-}
-
-export function buildValidateConfigMapData(
-  request: SandboxRequest,
-  rawRuns: RawCaseRun[],
-): Record<string, string> {
-  const data: Record<string, string> = {};
-  const validatorScript = request.judgeConfig.checkerScript;
-  if (!validatorScript) throw new Error("Checker judge is missing its validator script.");
-  const validatorLanguage = request.judgeConfig.checkerLanguage;
-  if (!validatorLanguage) throw new Error("Checker judge is missing checkerLanguage.");
-  const ext = sourceExtension(validatorLanguage);
-  data[`validator.${ext}`] = validatorScript;
-
-  const tcByIndex = new Map(request.testcases.map((tc) => [tc.index, tc]));
-  const cases: { index: number }[] = [];
-  for (const run of rawRuns) {
-    if (run.errorVerdict) continue;
-    const tc = tcByIndex.get(run.index);
-    if (tc?.output === undefined) continue;
-    cases.push({ index: run.index });
-    data[`case-${String(run.index)}-input.txt`] = tc.input;
-    data[`case-${String(run.index)}-answer.txt`] = tc.output;
-    data[`case-${String(run.index)}-team.txt`] = run.stdout;
-  }
-
-  data["config.json"] = JSON.stringify({
-    submissionId: request.submissionId,
-    language: request.language,
-    judgeType: "checker",
-    problemType: request.problemType,
-    limits: request.limits,
-    validate: { language: validatorLanguage, cases },
-  });
 
   return data;
 }
@@ -115,7 +91,7 @@ export function buildInteractiveSolutionConfigMapData(
 
   data["config.json"] = JSON.stringify({
     ...buildSandboxConfigJson(request, sourceFileMap),
-    interactive: { role: "solution" },
+    interactive: { role: "solution", cases: request.testcases.map((tc) => tc.index) },
   });
 
   return data;
@@ -123,7 +99,6 @@ export function buildInteractiveSolutionConfigMapData(
 
 export function buildInteractiveInteractorConfigMapData(
   request: SandboxRequest,
-  testcase: SandboxTestcase,
 ): Record<string, string> {
   const interactorScript = request.judgeConfig.interactorScript;
   if (!interactorScript) throw new Error("Interactive judge is missing its interactor script.");
@@ -133,8 +108,10 @@ export function buildInteractiveInteractorConfigMapData(
 
   const data: Record<string, string> = {};
   data[`interactor.${ext}`] = interactorScript;
-  data[`case-${String(testcase.index)}-input.txt`] = testcase.input;
-  data[`case-${String(testcase.index)}-answer.txt`] = testcase.output ?? "";
+  for (const testcase of request.testcases) {
+    data[`case-${String(testcase.index)}-input.txt`] = testcase.input;
+    data[`case-${String(testcase.index)}-answer.txt`] = testcase.output ?? "";
+  }
 
   data["config.json"] = JSON.stringify({
     submissionId: request.submissionId,
@@ -143,7 +120,11 @@ export function buildInteractiveInteractorConfigMapData(
     problemType: request.problemType,
     limits: request.limits,
     interactorLanguage,
-    interactive: { role: "validator", language: interactorLanguage, index: testcase.index },
+    interactive: {
+      role: "validator",
+      language: interactorLanguage,
+      cases: request.testcases.map((tc) => tc.index),
+    },
   });
 
   return data;

@@ -6,10 +6,8 @@ import {
   type SandboxInput,
   type SandboxOutput,
   type ValidateOutput,
-  type ValidatorCaseOutcome,
 } from "./types.js";
-import { compile, compileInteractor, compileValidator, sourceFileName } from "./compiler.js";
-import { readTestcase } from "./testcase-files.js";
+import { compile, compileInteractor, sourceFileName } from "./compiler.js";
 import {
   cleanupTempDir,
   pathExists,
@@ -17,23 +15,23 @@ import {
   readCgroupThrottledUsec,
   readCgroupMemoryPeakBytes,
 } from "./utils.js";
-import { runSolution } from "./judges/standard.js";
+import { judgeStage } from "./judges/judge-stage.js";
+import { runStage } from "./judges/run-stage.js";
+import { FrameChannel } from "./judges/interactive-channel.js";
 import {
   emitRunReport,
   emitValidateReport,
-  resolveInteractiveCaseFiles,
-  runInteractiveSolution,
-  runInteractiveValidator,
-} from "./judges/interactive-isolated.js";
-import { waitForInteractivePeer } from "./judges/interactive-start.js";
-import { resolveValidateCaseFiles, validateCase } from "./judges/validate.js";
-import { compileOutputSchema, normalizeRelativePath, validatorTimeoutMs } from "@nojv/core";
+  runInteractorStage,
+  runSolutionStage,
+} from "./judges/interactive-stage.js";
+import { COMPILATION_TIMEOUT_MS, normalizeRelativePath, validatorTimeoutMs } from "@nojv/core";
 import { materializePayload } from "./payload-materializer.js";
 
 const SUBMISSION_DIR = "/submission";
 const ARTIFACT_DIR = "/artifact";
+const OUTPUT_DIR = "/outputs";
+const WORKSPACE_DIR = "/workspace";
 const RUN_COMMAND_FILE = path.join(ARTIFACT_DIR, "run-command.json");
-const VALIDATOR_BUILD_FILE = path.join(ARTIFACT_DIR, "validator-build.json");
 
 function log(message: string): void {
   process.stderr.write(`[sandbox-runner] ${message}\n`);
@@ -89,44 +87,6 @@ function emitValidate(output: ValidateOutput): void {
   process.stdout.write(`${JSON.stringify(output)}\n`);
 }
 
-async function runValidate(workDir: string, config: SandboxInput): Promise<void> {
-  const validate = config.validate;
-  if (!validate) {
-    emitValidate({ compilationError: "Validate phase invoked without a validate block." });
-    return;
-  }
-
-  const compiled = compileOutputSchema.parse(
-    JSON.parse(await fs.readFile(VALIDATOR_BUILD_FILE, "utf-8")),
-  );
-  if (compiled.compilationError !== undefined) {
-    emitValidate({ compilationError: compiled.compilationError });
-    return;
-  }
-  if (!compiled.runCommand) throw new Error("Validator build is missing a run command.");
-
-  const timeoutMs = validatorTimeoutMs(config.limits.timeoutMs);
-  const validatorOutcomes: ValidatorCaseOutcome[] = [];
-
-  for (const { index } of validate.cases) {
-    const files = await resolveValidateCaseFiles(SUBMISSION_DIR, index);
-
-    const feedbackDir = await fs.mkdtemp(path.join(workDir, `fb-${String(index)}-`));
-    log(`Validating case ${String(index)}...`);
-    const outcome = await validateCase(
-      compiled.runCommand,
-      files,
-      feedbackDir,
-      index,
-      timeoutMs,
-    );
-    validatorOutcomes.push(outcome);
-    log(`Case ${String(index)}: ${outcome.verdict}`);
-  }
-
-  emitValidate({ validatorOutcomes });
-}
-
 async function compileSubmission(
   workDir: string,
   config: SandboxInput,
@@ -150,6 +110,7 @@ async function compileSubmission(
 async function runInteractive(workDir: string, config: SandboxInput): Promise<void> {
   const { interactive } = config;
   if (!interactive) throw new Error("runInteractive called without an interactive config.");
+  const channel = new FrameChannel(process.stdin, process.stdout);
 
   if (interactive.role === "solution") {
     const compileResult = await compileSubmission(workDir, config);
@@ -157,8 +118,10 @@ async function runInteractive(workDir: string, config: SandboxInput): Promise<vo
       emitRunReport({ exitCode: -1, timeMs: 0, compilationError: compileResult.error });
       return;
     }
+    const [cmd, ...args] = compileResult.runCommand;
+    if (!cmd) throw new Error("Compilation produced an empty run command.");
     try {
-      await waitForInteractivePeer(process.stdin, process.stdout);
+      await channel.ready(COMPILATION_TIMEOUT_MS);
     } catch (error) {
       emitRunReport({
         exitCode: -1,
@@ -168,54 +131,51 @@ async function runInteractive(workDir: string, config: SandboxInput): Promise<vo
       });
       return;
     }
-    await runInteractiveSolution(
-      compileResult.runCommand,
-      config.limits.timeoutMs,
-      config.limits.env,
+    await runSolutionStage({
+      runCommand: [cmd, ...args],
+      cases: interactive.cases,
+      timeoutMs: config.limits.timeoutMs,
+      memoryLimitMb: config.limits.memoryMb,
+      ...(config.limits.env ? { env: config.limits.env } : {}),
+      workspaceDir: WORKSPACE_DIR,
+      channel,
+    });
+    return;
+  }
+
+  const seAll = (judgeMessage: string) => {
+    for (const index of interactive.cases)
+      emitValidateReport({ index, verdict: "SE", judgeMessage });
+  };
+  const interactorPath = await findScript("interactor");
+  if (!interactorPath) {
+    seAll("Interactive validator requires an interactor script.");
+    return;
+  }
+  log("Compiling interactor...");
+  const compiled = await compileInteractor(interactorPath, interactive.language, workDir);
+  if (!compiled.success) {
+    seAll(`Interactor compilation failed: ${compiled.error}`);
+    return;
+  }
+  const [cmd, ...args] = compiled.runCommand;
+  if (!cmd) throw new Error("Interactor compilation produced an empty run command.");
+  try {
+    await channel.ready(COMPILATION_TIMEOUT_MS);
+  } catch (error) {
+    seAll(
+      `Interactive startup failed: ${error instanceof Error ? error.message : "unknown error"}`,
     );
     return;
   }
-
-  const interactorPath = await findScript("interactor");
-  if (!interactorPath) {
-    emitValidateReport({
-      verdict: "SE",
-      judgeMessage: "Interactive validator requires an interactor script.",
-    });
-    return;
-  }
-
-  const interactorLang = interactive.language;
-  log("Compiling interactor...");
-  const compiled = await compileInteractor(interactorPath, interactorLang, workDir);
-  if (!compiled.success) {
-    emitValidateReport({
-      verdict: "SE",
-      judgeMessage: `Interactor compilation failed: ${compiled.error}`,
-    });
-    return;
-  }
-
-  const index = interactive.index;
-  const { inputFile, answerFile } = resolveInteractiveCaseFiles(SUBMISSION_DIR, index);
-  const feedbackDir = await fs.mkdtemp(path.join(workDir, "fb-"));
-
-  try {
-    await waitForInteractivePeer(process.stdin, process.stdout);
-  } catch (error) {
-    emitValidateReport({
-      verdict: "SE",
-      judgeMessage: `Interactive startup failed: ${error instanceof Error ? error.message : "unknown error"}`,
-    });
-    return;
-  }
-
-  log(`Running interactor for case ${String(index)}...`);
-  await runInteractiveValidator(
-    compiled.runCommand,
-    { inputFile, answerFile, feedbackDir },
-    validatorTimeoutMs(config.limits.timeoutMs),
-  );
+  await runInteractorStage({
+    interactorCommand: [cmd, ...args],
+    cases: interactive.cases,
+    timeoutMs: validatorTimeoutMs(config.limits.timeoutMs),
+    submissionDir: SUBMISSION_DIR,
+    workDir,
+    channel,
+  });
 }
 
 async function runCompilePhase(config: SandboxInput): Promise<void> {
@@ -228,29 +188,14 @@ async function runCompilePhase(config: SandboxInput): Promise<void> {
   process.stdout.write(`${JSON.stringify({ runCommand: compileResult.runCommand })}\n`);
 }
 
-async function runValidatorCompilePhase(config: SandboxInput): Promise<void> {
-  const validatorPath = await findScript("validator");
-  const compiled =
-    validatorPath && config.validate
-      ? await compileValidator(validatorPath, config.validate.language, ARTIFACT_DIR)
-      : {
-          success: false as const,
-          error: "Validate phase requires a validator script and config.",
-        };
-  const output = compiled.success
-    ? { runCommand: compiled.runCommand }
-    : { compilationError: `Validator compilation failed: ${compiled.error}` };
-  await fs.writeFile(VALIDATOR_BUILD_FILE, JSON.stringify(output), "utf-8");
-  process.stdout.write(`${JSON.stringify(output)}\n`);
-}
-
 async function runPreparePhase(): Promise<void> {
   await materializePayload({ payloadDir: "/payload", submissionDir: SUBMISSION_DIR });
   await runCompilePhase(await readConfig());
 }
 
 async function resolveRunCommand(config: SandboxInput): Promise<string[] | null> {
-  if (config.mode?.kind === "run-case") return config.mode.runCommand;
+  if (config.mode?.kind === "run-stage" && config.mode.runCommand)
+    return config.mode.runCommand;
   try {
     const parsed: unknown = JSON.parse(await fs.readFile(RUN_COMMAND_FILE, "utf-8"));
     if (
@@ -266,34 +211,45 @@ async function resolveRunCommand(config: SandboxInput): Promise<string[] | null>
   return null;
 }
 
-async function runSingleCase(config: SandboxInput, caseIndex: number): Promise<void> {
-  const runCommand = await resolveRunCommand(config);
-  if (!runCommand) {
-    emit({
-      pipelineError:
-        "run-case phase could not resolve a run command (missing run-command.json).",
-    });
+async function runStagePhase(config: SandboxInput): Promise<void> {
+  if (config.mode?.kind !== "run-stage") {
+    emit({ pipelineError: "run-stage phase requires a run-stage mode." });
     return;
   }
-
-  const testcase = await readTestcase(SUBMISSION_DIR, caseIndex);
-
-  const run = await runSolution(
+  const runCommand = await resolveRunCommand(config);
+  if (!runCommand) {
+    emit({ pipelineError: "run-stage phase could not resolve a run command." });
+    return;
+  }
+  const rawRuns = await runStage({
     runCommand,
-    testcase,
-    config.limits.timeoutMs,
-    config.limits.env,
-  );
-  emit({ rawRuns: [run] });
+    caseIndices: config.mode.caseIndices,
+    parallelism: config.mode.parallelism,
+    timeoutMs: config.limits.timeoutMs,
+    memoryLimitMb: config.limits.memoryMb,
+    ...(config.limits.env ? { env: config.limits.env } : {}),
+    submissionDir: SUBMISSION_DIR,
+    workspaceDir: WORKSPACE_DIR,
+    ...((await pathExists(OUTPUT_DIR)) ? { outputDir: OUTPUT_DIR } : {}),
+  });
+  emit({ rawRuns });
 }
 
-function resolveCaseIndex(config: SandboxInput): number | null {
-  const fromEnv = process.env.SANDBOX_CASE_INDEX;
-  if (fromEnv !== undefined) {
-    const parsed = Number(fromEnv);
-    return fromEnv.trim() && Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+async function judgeStagePhase(config: SandboxInput): Promise<void> {
+  const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "judge-"));
+  try {
+    emitValidate(
+      await judgeStage({
+        config,
+        submissionDir: SUBMISSION_DIR,
+        outputDir: OUTPUT_DIR,
+        artifactDir: ARTIFACT_DIR,
+        workDir,
+      }),
+    );
+  } finally {
+    await cleanupTempDir(workDir);
   }
-  return config.mode?.kind === "run-case" ? config.mode.caseIndex : null;
 }
 
 async function main(): Promise<void> {
@@ -301,10 +257,8 @@ async function main(): Promise<void> {
     await runPreparePhase();
     return;
   }
-  if (process.env.SANDBOX_PHASE === "prepare-validator") {
+  if (process.env.SANDBOX_PHASE === "judge-stage") {
     await materializePayload({ payloadDir: "/payload", submissionDir: SUBMISSION_DIR });
-    await runValidatorCompilePhase(await readConfig());
-    return;
   }
   if (process.env.SANDBOX_PHASE === "materialize") {
     await materializePayload({ payloadDir: "/payload", submissionDir: SUBMISSION_DIR });
@@ -319,21 +273,16 @@ async function main(): Promise<void> {
 
   const phase = process.env.SANDBOX_PHASE ?? config.mode?.kind;
 
-  if (phase === "compile-validator") {
-    await runValidatorCompilePhase(config);
-    return;
-  }
   if (phase === "compile") {
     await runCompilePhase(config);
     return;
   }
-  if (phase === "run-case") {
-    const caseIndex = resolveCaseIndex(config);
-    if (caseIndex === null) {
-      emit({ pipelineError: "run-case phase requires a valid case index." });
-      return;
-    }
-    await runSingleCase(config, caseIndex);
+  if (phase === "run-stage") {
+    await runStagePhase(config);
+    return;
+  }
+  if (phase === "judge-stage") {
+    await judgeStagePhase(config);
     return;
   }
 
@@ -345,12 +294,10 @@ async function main(): Promise<void> {
       } finally {
         process.stdin.destroy();
       }
-    } else if (config.validate) {
-      await runValidate(workDir, config);
     } else {
       emit({
         pipelineError:
-          "no phase specified (expected compile, run-case, interactive, or validate).",
+          "no phase specified (expected compile, run-stage, judge-stage or interactive).",
       });
     }
   } finally {

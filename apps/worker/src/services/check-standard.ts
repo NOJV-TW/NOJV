@@ -1,8 +1,5 @@
 import {
-  compareStandard,
-  type CompareConfig,
   type RawCaseRun,
-  type SandboxResult,
   type SandboxTestcase,
   type SandboxTestcaseResult,
   type SandboxVerdict,
@@ -42,7 +39,7 @@ export function enforceMemoryLimit(
 export function resolveStandardResults(
   rawRuns: RawCaseRun[],
   testcases: SandboxTestcase[],
-  compare?: CompareConfig,
+  outcomes: Map<number, ValidatorOutcome>,
 ): SandboxTestcaseResult[] {
   const testcaseByIndex = new Map(testcases.map((tc) => [tc.index, tc]));
 
@@ -76,8 +73,21 @@ export function resolveStandardResults(
       };
     }
 
-    const accepted = compareStandard(run.stdout, expected, compare);
-    return { ...base, verdict: accepted ? "AC" : "WA" };
+    const outcome = outcomes.get(run.index);
+    if (outcome === undefined || outcome.verdict === "SE") {
+      return {
+        ...base,
+        verdict: "SE",
+        feedback: "Judge failed; this submission was not counted.",
+        staffFeedback:
+          outcome?.judgeMessage ?? `Judge did not report case ${String(run.index)}.`,
+      };
+    }
+    return {
+      ...base,
+      verdict: outcome.verdict,
+      ...(outcome.judgeMessage !== undefined ? { staffFeedback: outcome.judgeMessage } : {}),
+    };
   });
 }
 
@@ -127,16 +137,4 @@ export function mergeCheckerResults(
       ...(outcome.judgeMessage !== undefined ? { staffFeedback: outcome.judgeMessage } : {}),
     };
   });
-}
-
-export function resolveSandboxResult(
-  parsed: SandboxResult,
-  testcases: SandboxTestcase[],
-  compare?: CompareConfig,
-): SandboxResult {
-  if (!parsed.rawRuns) {
-    return parsed;
-  }
-  const { rawRuns, ...rest } = parsed;
-  return { ...rest, testcaseResults: resolveStandardResults(rawRuns, testcases, compare) };
 }

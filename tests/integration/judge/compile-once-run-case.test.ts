@@ -10,6 +10,7 @@ import type { Language, SandboxRequest } from "@nojv/core";
 
 import { buildRunConfigMapData } from "../../../apps/worker/src/services/k8s-configmaps";
 import { buildPayloadConfigMaps } from "../../../apps/worker/src/services/k8s-payload";
+import { buildJudgePayload } from "../../../apps/worker/src/services/stage-result";
 import { requireSandboxImage } from "./_sandbox-image";
 
 const run = promisify(execFile);
@@ -63,7 +64,6 @@ async function container(
   phase: string,
   mounts: string[],
   record: ContainerRecord[],
-  caseIndex?: number,
 ) {
   const name = `nojv-compile-once-test-${randomUUID()}`;
   const cidFile = path.join(root, `${name}.cid`);
@@ -103,7 +103,6 @@ async function container(
     "HOME=/tmp",
     "--env",
     "PYTHONDONTWRITEBYTECODE=1",
-    ...(caseIndex === undefined ? [] : ["--env", `SANDBOX_CASE_INDEX=${caseIndex}`]),
     ...mounts,
     image,
     "node",
@@ -123,9 +122,18 @@ const bind = (source: string, target: string, readOnly = false) => [
   `type=bind,source=${source},target=${target}${readOnly ? ",readonly" : ""}`,
 ];
 
-describe("compile-once artifact reuse in fresh run-case containers", () => {
+async function writePayload(directory: string, files: Record<string, string>): Promise<void> {
+  for (const map of buildPayloadConfigMaps("judge-payload", "test", files)) {
+    for (const [key, value] of Object.entries(map.data ?? {}))
+      await writeFile(path.join(directory, key), value, { mode: 0o644 });
+    for (const [key, value] of Object.entries(map.binaryData ?? {}))
+      await writeFile(path.join(directory, key), Buffer.from(value, "base64"), { mode: 0o644 });
+  }
+}
+
+describe("compile once, run every case in one container, judge in another", () => {
   it.for(Object.entries(sources))(
-    "prepares %s once and runs cases against the read-only artifact",
+    "prepares %s once, runs the stage against the read-only artifact and judges it",
     { timeout: 240_000 },
     async ([language, source], ctx) => {
       if (!(await requireSandboxImage(ctx))) return;
@@ -133,9 +141,13 @@ describe("compile-once artifact reuse in fresh run-case containers", () => {
       try {
         const payload = path.join(root, "payload");
         const artifact = path.join(root, "compiled");
-        await mkdir(payload);
-        await mkdir(artifact);
-        await chmod(artifact, 0o777);
+        const outputs = path.join(root, "outputs");
+        const judgePayload = path.join(root, "judge-payload");
+        const judgeArtifact = path.join(root, "judge-artifact");
+        for (const directory of [payload, artifact, outputs, judgePayload, judgeArtifact]) {
+          await mkdir(directory);
+          await chmod(directory, 0o777);
+        }
         const request: SandboxRequest = {
           submissionId: `compile-once-${language}`,
           sourceCode: source,
@@ -146,19 +158,7 @@ describe("compile-once artifact reuse in fresh run-case containers", () => {
           limits: { timeoutMs: 10_000, memoryMb: 256 },
           testcases: [],
         };
-        const maps = buildPayloadConfigMaps(
-          "judge-prepare",
-          "test",
-          buildRunConfigMapData(request),
-        );
-        for (const map of maps) {
-          for (const [key, value] of Object.entries(map.data ?? {}))
-            await writeFile(path.join(payload, key), value, { mode: 0o644 });
-          for (const [key, value] of Object.entries(map.binaryData ?? {}))
-            await writeFile(path.join(payload, key), Buffer.from(value, "base64"), {
-              mode: 0o644,
-            });
-        }
+        await writePayload(payload, buildRunConfigMapData(request, 1));
         const containers: ContainerRecord[] = [];
         const compile = await container(
           root,
@@ -177,41 +177,71 @@ describe("compile-once artifact reuse in fresh run-case containers", () => {
         };
         expect(compileResult.compilationError, compile.stderr).toBeUndefined();
         expect(compileResult.runCommand).toBeDefined();
-        for (const [index, value] of [2, 9].entries()) {
-          const submission = path.join(root, `submission-${index}`);
-          await writeFiles(
-            submission,
-            buildRunConfigMapData({
-              ...request,
-              testcases: [{ index, input: `${value}\n`, weight: 1, isSample: false }],
-            }),
-          );
-          const output = await container(
-            root,
-            "run-case",
-            [...bind(artifact, "/artifact", true), ...bind(submission, "/submission", true)],
-            containers,
+        const stageRequest: SandboxRequest = {
+          ...request,
+          testcases: [2, 9].map((value, index) => ({
             index,
-          );
-          const result = JSON.parse(output.stdout) as {
-            rawRuns?: {
-              index: number;
-              stdout: string;
-              exitCode: number;
-              errorVerdict?: string;
-            }[];
-          };
-          expect(result.rawRuns, output.stderr).toHaveLength(1);
-          expect(result.rawRuns![0]).toMatchObject({
+            input: `${value}\n`,
+            output: `${value + 1}\n`,
+            weight: 1,
+            isSample: false,
+          })),
+        };
+        const submission = path.join(root, "submission");
+        await writeFiles(submission, buildRunConfigMapData(stageRequest, 2));
+        const runOutput = await container(
+          root,
+          "run-stage",
+          [
+            ...bind(artifact, "/artifact", true),
+            ...bind(submission, "/submission", true),
+            ...bind(outputs, "/outputs"),
+          ],
+          containers,
+        );
+        const result = JSON.parse(runOutput.stdout) as {
+          rawRuns?: {
+            index: number;
+            stdout: string;
+            exitCode: number;
+            errorVerdict?: string;
+          }[];
+        };
+        expect(result.rawRuns, runOutput.stderr).toHaveLength(2);
+        for (const [index, value] of [2, 9].entries()) {
+          expect(result.rawRuns![index]).toMatchObject({
             index,
             stdout: `${value + 1}\n`,
             exitCode: 0,
           });
-          expect(result.rawRuns![0]!.errorVerdict).toBeUndefined();
-          expect(output.stderr).not.toContain("Compiling...");
+          expect(result.rawRuns![index]!.errorVerdict).toBeUndefined();
         }
-        expect(containers.filter((entry) => entry.phase === "prepare")).toHaveLength(1);
-        expect(containers.filter((entry) => entry.phase === "run-case")).toHaveLength(2);
+        expect(runOutput.stderr).not.toContain("Compiling...");
+
+        await writePayload(judgePayload, buildJudgePayload(stageRequest));
+        const judgeOutput = await container(
+          root,
+          "judge-stage",
+          [
+            ...bind(judgePayload, "/payload", true),
+            ...bind(judgeArtifact, "/artifact"),
+            ...bind(outputs, "/outputs", true),
+            "--tmpfs",
+            "/submission:rw,nosuid,nodev,size=128m,uid=10001,gid=10001",
+          ],
+          containers,
+        );
+        expect(JSON.parse(judgeOutput.stdout), judgeOutput.stderr).toEqual({
+          validatorOutcomes: [
+            { index: 0, verdict: "AC" },
+            { index: 1, verdict: "AC" },
+          ],
+        });
+        expect(containers.map((entry) => entry.phase)).toEqual([
+          "prepare",
+          "run-stage",
+          "judge-stage",
+        ]);
         expect(new Set(containers.map((entry) => entry.id)).size).toBe(3);
       } finally {
         await rm(root, { recursive: true, force: true });
