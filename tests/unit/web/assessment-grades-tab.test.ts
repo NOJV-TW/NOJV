@@ -75,9 +75,6 @@ describe("AssessmentGradesTab", () => {
           legendPartial: () => "部分得分",
           legendZero: () => "零分",
           legendEmpty: () => "未提交",
-          paginationLabel: () => "1–1",
-          prev: () => "上一頁",
-          next: () => "下一頁",
         },
       },
     });

@@ -33,8 +33,5 @@
     legendPartial: m.examDetail_submissionsLegendPartial,
     legendZero: m.examDetail_submissionsLegendZero,
     legendEmpty: m.examDetail_submissionsLegendEmpty,
-    paginationLabel: m.examDetail_submissionsPaginationLabel,
-    prev: m.examDetail_submissionsPrev,
-    next: m.examDetail_submissionsNext,
   }}
 />
