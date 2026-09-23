@@ -3,10 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { INTERACTIVE_RUN_MARKER, INTERACTIVE_VALIDATE_MARKER } from "@nojv/core";
 
-import {
-  K8sExecutor,
-  SandboxCleanupError,
-} from "../../../apps/worker/src/sandbox/kubernetes/executor";
+import { K8sExecutor } from "../../../apps/worker/src/sandbox/kubernetes/executor";
+import { SandboxCleanupError } from "../../../apps/worker/src/sandbox/kubernetes/errors";
 
 function execute(executor: K8sExecutor, request: SandboxRequest) {
   return executor.execute(request, {

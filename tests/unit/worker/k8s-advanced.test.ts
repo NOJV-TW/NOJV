@@ -40,12 +40,12 @@ import {
   deriveRunStatusFromJob,
   parseAdvancedResultLog,
 } from "../../../apps/worker/src/sandbox/kubernetes/advanced";
+import { K8sExecutor } from "../../../apps/worker/src/sandbox/kubernetes/executor";
 import {
-  K8sExecutor,
   SandboxBackpressureError,
   SandboxInfeasibleError,
   SandboxTransientInfrastructureError,
-} from "../../../apps/worker/src/sandbox/kubernetes/executor";
+} from "../../../apps/worker/src/sandbox/kubernetes/errors";
 
 function execute(executor: K8sExecutor, request: SandboxRequest) {
   return executor.execute(request, {

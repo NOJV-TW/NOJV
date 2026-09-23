@@ -2,14 +2,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { SandboxRequest } from "@nojv/core";
 
+import { K8sExecutor } from "../../../apps/worker/src/sandbox/kubernetes/executor";
 import {
-  K8sExecutor,
   SandboxBackpressureError,
   SandboxInfeasibleError,
   SandboxInfrastructureError,
   SandboxCleanupError,
   SandboxTransientInfrastructureError,
-} from "../../../apps/worker/src/sandbox/kubernetes/executor";
+} from "../../../apps/worker/src/sandbox/kubernetes/errors";
 
 afterEach(() => vi.useRealTimers());
 

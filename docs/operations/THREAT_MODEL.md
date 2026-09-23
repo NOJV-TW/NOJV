@@ -181,7 +181,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 **Mitigations:**
 
 - Container hardening: `cap-drop ALL`, `no-new-privileges`, read-only rootfs, bounded `tmpfs` on `/tmp` (64m) and `/workspace` (128m) — no host-writable persistence path
-- Non-root execution: Kubernetes pod and container both set `runAsNonRoot: true` (`apps/worker/src/sandbox/kubernetes/executor.ts`); Docker images run as a non-root UID
+- Non-root execution: Kubernetes pod and container both set `runAsNonRoot: true` (`apps/worker/src/sandbox/kubernetes/pod-spec.ts`); Docker images run as a non-root UID
 - Network isolation: `--network none` (default, configurable per-problem)
 - Resource limits: CPU (default 1 core), memory (default 256 MB, max 1024 MB), PID limit (default 64)
 - Per-stream stdout/stderr capped at 16 MB by `createBoundedStringBuffer` (`apps/worker/src/sandbox/shared/bounded-buffer.ts`) — wraps every spawn in standard- and advanced-mode executors so a runaway submission can't OOM the worker before the outer timeout fires

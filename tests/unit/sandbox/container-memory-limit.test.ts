@@ -4,7 +4,7 @@ import type { SandboxRequest } from "@nojv/core";
 import { resolveContainerMemoryMb } from "@nojv/core";
 
 import { resolveDockerMemoryMb } from "../../../apps/worker/src/sandbox/docker/executor";
-import { resolveK8sMemoryLimit } from "../../../apps/worker/src/sandbox/kubernetes/executor";
+import { resolveK8sMemoryLimit } from "../../../apps/worker/src/sandbox/kubernetes/resource-capacity";
 
 const OPTS = { defaultMemoryMb: 256, headroomMb: 64, maxMemoryMb: 1536 };
 

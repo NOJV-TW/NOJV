@@ -15,7 +15,12 @@
 - `src/index.ts` — worker bootstrap，連 Temporal 並註冊 activities
 - `src/sandbox/shared/` — contracts, planning, parsing, and result mapping shared by both backends
 - `src/sandbox/docker/` — Docker execution, container/network lifecycle, and resource cleanup
-- `src/sandbox/kubernetes/` — Kubernetes jobs, pods, networking, runtime probes, and cleanup
+- `src/sandbox/kubernetes/executor.ts` — coordinates Kubernetes execution paths
+- `src/sandbox/kubernetes/resources.ts` — builds Jobs, Pods, PVCs and payload maps; checks requested capacity
+- `src/sandbox/kubernetes/job-watch.ts` and `job-state.ts` — observes execution and interprets pod/job state
+- `src/sandbox/kubernetes/errors.ts` and `admission.ts` — classifies execution and admission failures
+- `src/sandbox/kubernetes/resource-cleanup.ts` — owns Kubernetes resource teardown and reconciliation
+- `src/sandbox/kubernetes/advanced*.ts`, `job-manifests.ts`, `pod-spec.ts` — advanced topology, shared manifests and security defaults
 - Backend selection and ownership live in `src/sandbox/shared/executor-factory.ts` and `executor-owner.ts`
 - `src/activities/` — workflow activity handlers and application calls
 - `src/workflows/` — workflow definitions loaded by the worker

@@ -269,7 +269,7 @@ Per submission the worker orchestrates two **time-separated** phases plus, optio
 3. **teardown** — run container + sidecar + per-submission networks are removed.
 4. **grade phase** — a **grade container** (trusted TA, holds the baked-in answers in its image rootfs, runs non-root as uid `10001` with **no network egress**, **no student code**) mounts the captured run output read-only at `/workspace/run-output` plus a `meta.json` carrying `runStatus`, and writes `/workspace/output/result.json`. Because the grade container holds the answers, closing its egress removes an exfiltration channel; it never needs the network (its inputs arrive via the mount, its result via the log/output file).
 
-Docker orchestration lives in `apps/worker/src/sandbox/docker/advanced-mode-executor.ts` (`AdvancedModeExecutor.run`); the Kubernetes equivalent is `apps/worker/src/sandbox/kubernetes/executor.ts` (`executeAdvanced`) with `advanced.ts` and `advanced-network.ts`.
+Docker orchestration lives in `apps/worker/src/sandbox/docker/advanced-mode-executor.ts` (`AdvancedModeExecutor.run`); Kubernetes orchestration is `apps/worker/src/sandbox/kubernetes/executor.ts` (`executeAdvanced`), with resource construction in `resources.ts`, job observation in `job-watch.ts`, and teardown/reconciliation in `resource-cleanup.ts`, alongside `advanced.ts` and `advanced-network.ts`.
 
 ### Container contract
 
@@ -550,7 +550,7 @@ scoring remain unchanged. There is no cross-submission compilation cache.
 - Advanced Mode Docker networking + service sidecar — `apps/worker/src/sandbox/docker/network.ts`, `service-container.ts`
 - Advanced Mode K8s manifests (two Jobs + PVC + transfer gate) — `apps/worker/src/sandbox/kubernetes/advanced.ts`
 - Advanced Mode K8s networking (per-submission NetworkPolicies + sidecar Pod/Service) — `apps/worker/src/sandbox/kubernetes/advanced-network.ts`
-- Kubernetes executor (standard/checker stage Pod, interactive paired containers, advanced run/grade) — `apps/worker/src/sandbox/kubernetes/executor.ts`
+- Kubernetes execution orchestration — `apps/worker/src/sandbox/kubernetes/executor.ts`; resources, job observation, and teardown — `resources.ts`, `job-watch.ts`, `resource-cleanup.ts`
 - Stage payload, judge outcome parsing and result merge — `apps/worker/src/sandbox/shared/stage-result.ts`
 - Sandbox plan / config builder — `apps/worker/src/sandbox/shared/sandbox-plan.ts`
 - Worker bounded buffer — `apps/worker/src/sandbox/shared/bounded-buffer.ts`
