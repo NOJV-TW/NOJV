@@ -52,6 +52,12 @@ export interface ExecuteSubmissionOptions {
 
 const DEFAULT_TIMEOUT_MS = 600_000;
 
+const pendingPosts = new Set<Promise<unknown>>();
+
+export async function waitForPendingSubmissions() {
+  await Promise.allSettled(pendingPosts);
+}
+
 export function buildSubmissionBody(request: SubmissionRequest): Record<string, unknown> {
   const commonFields: Record<string, unknown> = {
     context: request.context,
@@ -149,7 +155,12 @@ export async function executeSubmission(
   );
   try {
     if (signal.aborted) return null;
-    const dispatch = await postSubmission(buildSubmissionBody(request), signal);
+    const posting = postSubmission(
+      buildSubmissionBody(request),
+      AbortSignal.any([deadline.signal, ...(options.signal ? [options.signal] : [])]),
+    );
+    pendingPosts.add(posting);
+    const dispatch = await posting.finally(() => pendingPosts.delete(posting));
     signal.throwIfAborted();
     if (!dispatch) return null;
     options.onDispatched?.(dispatch);

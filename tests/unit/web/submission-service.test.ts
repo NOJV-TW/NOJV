@@ -1,7 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { buildSubmissionBody, executeSubmission } from "$lib/services/submission-service";
+import {
+  buildSubmissionBody,
+  executeSubmission,
+  waitForPendingSubmissions,
+} from "$lib/services/submission-service";
 
 import { stopSubmissionTracking } from "$lib/services/submission-tracker";
 vi.mock("$app/navigation", () => ({
@@ -92,6 +96,29 @@ describe("executeSubmission", () => {
     result,
   };
   const response = (value: unknown) => new Response(JSON.stringify(value));
+  it("keeps the dispatch POST alive across navigation so hand-in can wait for it", async () => {
+    let respond!: (value: Response) => void;
+    let postSignal: AbortSignal | undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init?: RequestInit) => {
+        postSignal = init?.signal ?? undefined;
+        return new Promise<Response>((resolve) => (respond = resolve));
+      }),
+    );
+    const pending = executeSubmission(request).catch(() => null);
+    await vi.advanceTimersByTimeAsync(0);
+    stopSubmissionTracking();
+    let waited = false;
+    const wait = waitForPendingSubmissions().then(() => (waited = true));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(postSignal?.aborted).toBe(false);
+    expect(waited).toBe(false);
+    respond(response({ submissionId: "s", pollUrl: "/detail", status: "queued" }));
+    await wait;
+    await pending;
+    expect(waited).toBe(true);
+  });
   it("retries transport errors through the shared observer and retrieves terminal detail", async () => {
     let reads = 0;
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
