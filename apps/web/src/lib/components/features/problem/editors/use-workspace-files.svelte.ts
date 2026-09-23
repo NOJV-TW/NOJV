@@ -12,6 +12,7 @@ import {
   workspaceDraftKey,
   type WorkspaceFile,
 } from "./editor-bindings";
+import type { ServerDraftSync } from "$lib/services/draft-sync";
 
 interface WorkspaceFilesControllerArgs {
   problemId: string;
@@ -19,6 +20,7 @@ interface WorkspaceFilesControllerArgs {
   filesForLanguage: () => WorkspaceFile[];
   language: () => Language;
   draftContext: () => DraftContext;
+  serverSync: ServerDraftSync;
 }
 
 export interface WorkspaceFilesController {
@@ -46,42 +48,82 @@ export function createWorkspaceFilesController(
     return `${legacyDraftKey({ context: args.draftContext(), problemId: args.problemId, language: file.language })}:workspace:${encodeURIComponent(file.path)}`;
   }
 
-  async function adoptLegacy(file: WorkspaceFile, draftKey: string) {
-    if (args.draftContext().kind === "exam") return;
+  const locallySaved = new Map<string, string>();
+
+  function editableFiles(language: string) {
+    return args.initialFiles.filter(
+      (f) => f.language === language && f.visibility === "editable",
+    );
+  }
+
+  function syncLanguage(language: string) {
+    const files = editableFiles(language).map((f) => ({
+      path: f.path,
+      content: drafts[workspaceDraftKey(f.language, f.path)] ?? f.content,
+    }));
+    args.serverSync.schedule(language, { sourceFiles: files }, () => {
+      for (const [index, file] of editableFiles(language).entries()) {
+        const key = storageKey(file);
+        if (locallySaved.get(key) !== files[index]?.content) continue;
+        locallySaved.delete(key);
+        localStorage.removeItem(key);
+      }
+    });
+  }
+
+  async function adoptLegacy(file: WorkspaceFile, draftKey: string): Promise<boolean> {
+    if (args.draftContext().kind === "exam") return false;
     const legacyKey = legacyStorageKey(file);
     const legacy = localStorage.getItem(legacyKey);
-    if (legacy === null || drafts[draftKey] !== file.content) return;
+    if (legacy === null || drafts[draftKey] !== file.content) return false;
     drafts[draftKey] = legacy;
-    const key = storageKey(file);
-    await persist(key, draftKey, legacy);
-    if (localStorage.getItem(key) !== null) localStorage.removeItem(legacyKey);
+    await persist(file, legacy);
+    if (locallySaved.has(storageKey(file))) localStorage.removeItem(legacyKey);
+    return true;
   }
 
   async function hydrateDrafts() {
     if (typeof localStorage === "undefined") return;
+    const serverDrafts = await args.serverSync.load();
+    const unsynced = new Set<string>();
     for (const file of args.initialFiles) {
       if (file.visibility !== "editable") continue;
       const key = storageKey(file);
       const draftKey = workspaceDraftKey(file.language, file.path);
       try {
         const record = await openDraft(args.draftContext(), key, localStorage.getItem(key));
-        if (!record) await adoptLegacy(file, draftKey);
-        else if (drafts[draftKey] === file.content) drafts[draftKey] = record.code;
+        if (record) {
+          locallySaved.set(key, record.code);
+          unsynced.add(file.language);
+          if (drafts[draftKey] === file.content) drafts[draftKey] = record.code;
+        } else if (await adoptLegacy(file, draftKey)) {
+          unsynced.add(file.language);
+        } else {
+          const server = serverDrafts
+            ?.find((d) => d.language === file.language)
+            ?.sourceFiles?.find((f) => f.path === file.path);
+          if (server && drafts[draftKey] === file.content) drafts[draftKey] = server.content;
+        }
       } catch {
         return;
       }
     }
+    for (const language of unsynced) syncLanguage(language);
   }
 
   void hydrateDrafts();
 
-  async function persist(key: string, draftKey: string, value: string) {
+  async function persist(file: WorkspaceFile, value: string) {
+    const key = storageKey(file);
     try {
       const { serialized } = await sealDraft(args.draftContext(), key, value);
-      if (drafts[draftKey] === value) localStorage.setItem(key, serialized);
+      if (drafts[workspaceDraftKey(file.language, file.path)] !== value) return;
+      localStorage.setItem(key, serialized);
+      locallySaved.set(key, value);
     } catch {
       return;
     }
+    syncLanguage(file.language);
   }
 
   const selectedFile = $derived<WorkspaceFile | undefined>(
@@ -116,22 +158,22 @@ export function createWorkspaceFilesController(
     applyChange(value) {
       const file = selectedFile;
       if (file?.visibility !== "editable") return;
-      const draftKey = workspaceDraftKey(file.language, file.path);
-      const key = storageKey(file);
-      drafts[draftKey] = value;
-      void persist(key, draftKey, value);
+      drafts[workspaceDraftKey(file.language, file.path)] = value;
+      void persist(file, value);
     },
     resetCurrentLanguage() {
       const lang = args.language();
       for (const f of args.initialFiles) {
         if (f.language !== lang || f.visibility !== "editable") continue;
         drafts[workspaceDraftKey(f.language, f.path)] = f.content;
+        locallySaved.delete(storageKey(f));
         try {
           localStorage.removeItem(storageKey(f));
         } catch {
           return;
         }
       }
+      syncLanguage(lang);
     },
   };
 }

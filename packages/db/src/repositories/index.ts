@@ -8,6 +8,7 @@ export { apiTokenRepo } from "./api-token";
 export { assessmentRepo, assessmentProblemRepo } from "./assessment";
 export { assessmentAuditLogRepo } from "./assessment-audit";
 export { clarificationRepo } from "./clarification";
+export { codeDraftRepo, type CodeDraftRowKey } from "./code-draft";
 export type {
   ClarificationRow,
   ClarificationCreateInput,

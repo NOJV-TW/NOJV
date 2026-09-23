@@ -1,7 +1,14 @@
 import { m } from "$lib/paraglide/messages.js";
-import { buildDraftKey, loadDraft, saveDraft, type DraftContext } from "$lib/stores/code-draft";
+import {
+  buildDraftKey,
+  clearDraft,
+  loadDraft,
+  saveDraft,
+  type DraftContext,
+} from "$lib/stores/code-draft";
 import { createDraftAutosaveQueue, type DraftSnapshot } from "$lib/stores/draft-autosave";
 import { toasts } from "$lib/stores/toast";
+import type { ServerDraftSync } from "$lib/services/draft-sync";
 import type { Language } from "@nojv/core";
 
 interface DraftControllerArgs {
@@ -12,6 +19,7 @@ interface DraftControllerArgs {
   currentCode: () => string;
   starterFor: (lang: Language) => string;
   applyCode: (lang: Language, code: string) => void;
+  serverSync: ServerDraftSync;
 }
 
 export interface DraftController {
@@ -55,19 +63,30 @@ export function createDraftController(args: DraftControllerArgs): DraftControlle
     const draftKey = buildDraftKey({ context: ctx, problemId: args.problemId, language: lang });
     if (hydratedLanguages[draftKey] || hydrating.has(draftKey)) return;
     hydrating.add(draftKey);
-    const record = await loadDraft({ context: ctx, problemId: args.problemId, language: lang });
+    const key = { context: ctx, problemId: args.problemId, language: lang };
+    const [record, serverDrafts] = await Promise.all([loadDraft(key), args.serverSync.load()]);
     hydrating.delete(draftKey);
     if (record) {
       args.applyCode(lang, record.code);
       lastSavedCode[draftKey] = record.code;
       lastSavedAt[draftKey] = record.savedAt;
-    } else {
-      const starter = args.starterFor(lang);
-      args.applyCode(lang, starter);
-      lastSavedCode[draftKey] = starter;
-      lastSavedAt[draftKey] = null;
+      hydratedLanguages[draftKey] = true;
+      syncToServer({ ...key, code: record.code });
+      return;
     }
+    const serverDraft = serverDrafts?.find((d) => d.language === lang && d.sourceCode !== null);
+    const code = serverDraft?.sourceCode ?? args.starterFor(lang);
+    args.applyCode(lang, code);
+    lastSavedCode[draftKey] = code;
+    lastSavedAt[draftKey] = serverDraft ? Date.parse(serverDraft.updatedAt) : null;
     hydratedLanguages[draftKey] = true;
+  }
+
+  function syncToServer(snapshot: DraftSnapshot) {
+    const draftKey = buildDraftKey(snapshot);
+    args.serverSync.schedule(snapshot.language, { sourceCode: snapshot.code }, () => {
+      if (lastSavedCode[draftKey] === snapshot.code) clearDraft(snapshot);
+    });
   }
 
   function currentSnapshot(): DraftSnapshot | null {
@@ -87,6 +106,7 @@ export function createDraftController(args: DraftControllerArgs): DraftControlle
       const draftKey = buildDraftKey(snapshot);
       lastSavedCode[draftKey] = snapshot.code;
       lastSavedAt[draftKey] = record.savedAt;
+      syncToServer(snapshot);
       if (notify) toasts.success(m.draft_saved());
     } catch {
       if (notify) toasts.error(m.draft_saveFailed());
@@ -101,7 +121,7 @@ export function createDraftController(args: DraftControllerArgs): DraftControlle
     const snapshot = currentSnapshot();
     if (!snapshot || !hydratedLanguages[currentDraftKey]) return;
     autosave.cancel(snapshot);
-    void persist(snapshot, true);
+    void persist(snapshot, true).then(() => args.serverSync.flush());
   }
 
   function scheduleAutosave() {

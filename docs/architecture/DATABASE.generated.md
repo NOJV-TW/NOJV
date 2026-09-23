@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_53 models and 37 enums across 10 schema files._
+_54 models and 37 enums across 10 schema files._
 
 ## `auth.prisma`
 
@@ -175,6 +175,7 @@ Indexes & constraints: `@@unique([userId])`, `@@index([secret])`
 | `accounts` | `Account[]` | — |
 | `schoolVerifications` | `SchoolVerificationToken[]` | — |
 | `submissions` | `Submission[]` | — |
+| `codeDrafts` | `CodeDraft[]` | — |
 | `participations` | `Participation[]` | `@relation("UnifiedParticipationUser")` |
 | `authoredProblems` | `Problem[]` | `@relation("ProblemAuthor")` |
 | `ownedCourses` | `Course[]` | `@relation("CourseOwner")` |
@@ -948,6 +949,7 @@ Indexes & constraints: `@@index([contextType, contextId, triggeredAt(sort: Desc)
 | `testcaseSets` | `TestcaseSet[]` | — |
 | `workspaceFiles` | `ProblemWorkspaceFile[]` | — |
 | `submissions` | `Submission[]` | — |
+| `codeDrafts` | `CodeDraft[]` | — |
 | `referenceSolutionSubmissionId` | `String?` | `@unique` |
 | `referenceSolutionSubmission` | `Submission?` | `@relation("ProblemReferenceSolution", fields: [referenceSolutionSubmissionId], references: [id], onDelete: SetNull)` |
 | `contestLinks` | `ContestProblem[]` | — |
@@ -1068,6 +1070,22 @@ Indexes & constraints: `@@unique([problemId, name])`, `@@unique([problemId, ordi
 `c` · `cpp` · `go` · `java` · `javascript` · `python` · `rust` · `typescript`
 
 ### Models
+
+#### `CodeDraft`
+
+| Field | Type | Attributes |
+| ----- | ---- | ---------- |
+| `userId` | `String` | — |
+| `contextKey` | `String` | — |
+| `problemId` | `String` | — |
+| `language` | `SupportedLanguage` | — |
+| `sourceCode` | `String?` | — |
+| `sourceFiles` | `Json?` | — |
+| `updatedAt` | `DateTime` | `@updatedAt` |
+| `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
+| `problem` | `Problem` | `@relation(fields: [problemId], references: [id], onDelete: Cascade)` |
+
+Indexes & constraints: `@@id([userId, contextKey, problemId, language])`, `@@index([problemId])`
 
 #### `ContentReport`
 

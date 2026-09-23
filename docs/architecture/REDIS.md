@@ -62,6 +62,7 @@ Cooldown enforcement lives in the database — see `checkExamSubmitCooldown` in 
 - Shared request and password sign-in limiters:
   - `apiRateLimiter` — 300 req / 60 s
   - `writeApiRateLimiter` — 10 req / 60 s
+  - `draftApiRateLimiter` — 60 req / 60 s for `/api/drafts` editor autosave, kept separate so drafts never consume the write budget that submissions use
   - `formActionRateLimiter` — 20 req / 60 s (consumed via `withRateLimit` → `consumeFormRateLimitInternal`)
   - `authRateLimiter` — 60 req / 60 s across all Auth API routes, including exam sign-in and OAuth
   - `signInRateLimiter` — 5 attempts / 15 min per IP (admin password sign-in)

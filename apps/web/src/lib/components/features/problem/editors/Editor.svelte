@@ -11,6 +11,7 @@
   import EditorResizeHandle from "./EditorResizeHandle.svelte";
   import ConfirmDialog from "$lib/components/primitives/ui/ConfirmDialog.svelte";
   import { type DraftContext } from "$lib/stores/code-draft";
+  import { createServerDraftSync } from "$lib/services/draft-sync";
   import {
     bindEscapeToExitFullscreen,
     createDocumentMouseDrag,
@@ -111,12 +112,18 @@
     problem.workspaceFiles.filter((f) => f.language === language),
   );
 
+  const serverSync = createServerDraftSync(
+    untrack(() => context),
+    initialProblem.id,
+  );
+
   const workspaceFiles = createWorkspaceFilesController({
     problemId: initialProblem.id,
     initialFiles: initialProblem.workspaceFiles,
     filesForLanguage: () => workspaceFilesForLanguage,
     language: () => language,
     draftContext: () => draftContext,
+    serverSync,
   });
 
   let resetConfirmOpen = $state(false);
@@ -155,6 +162,7 @@
     currentCode: () => drafts[language] ?? "",
     starterFor: (lang) => initialProblem.starterByLanguage[lang] ?? "",
     applyCode: (lang, code) => (drafts[lang] = code),
+    serverSync,
   });
 
   $effect(() => {
@@ -167,7 +175,10 @@
     draftController.scheduleAutosave();
   });
 
-  $effect(() => () => draftController.dispose());
+  $effect(() => () => {
+    draftController.dispose();
+    serverSync.dispose();
+  });
 
   $effect(() => {
     void language;

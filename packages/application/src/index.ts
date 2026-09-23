@@ -29,6 +29,7 @@ export * as apiTokenDomain from "./api-token";
 export * as assignmentDomain from "./assignment";
 export * as auditDomain from "./audit";
 export * as clarificationDomain from "./clarification";
+export * as codeDraftDomain from "./code-draft";
 export * as contestDomain from "./contest";
 export * as courseDomain from "./course";
 export {

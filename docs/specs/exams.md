@@ -107,6 +107,13 @@ practice-after-close route at `/problems/[id]`.
 
 The workspace timer links back to the exam overview. Hand-in lives in a separate area on that overview, labelled "End exam", and opens an explicit irreversible-action dialog, with initial focus on Cancel. Ending the exam never submits editor code: the panel, the rules list and the start modal all remind students that only answers they pressed Submit on are graded, and the dialog names every problem with no non-sample submission yet (from `listSubmittedProblemIds`). Confirming uses the existing atomic `releaseSession` action; cancelling performs no mutation. A successful hand-in still prevents later submissions and re-entry.
 
+### Exam drafts
+
+- GIVEN a student with an active session on a running exam, WHEN the workspace autosaves, THEN `PUT /api/drafts` stores the draft under the `exam:<examId>` context key for that problem and language.
+- GIVEN no active session for the exam, an ended exam, or a problem outside the exam, WHEN a draft is saved for that exam, THEN `ForbiddenError` or `NotFoundError` is returned and nothing is stored.
+- GIVEN an active exam session, WHEN the student requests drafts for any other context, THEN `ForbiddenError` is returned. Exam drafts never start from homework or practice drafts of the same problem.
+- Drafts are never graded and are visible only to their owner.
+
 ## Late collection and scoring
 
 Exams use the same on-time deadline / allow-late / final collection controls as assignments. `dueAt` is the on-time deadline and `endsAt` remains the hard end for official submissions, sessions, proctoring, grading access and practice-after-close. Without late collection, the form saves equal due/end timestamps; older null due dates also mean no late window.
