@@ -75,6 +75,7 @@ export function buildServiceSidecarPodManifest(params: ServiceSidecarParams): k8
     },
     spec: {
       restartPolicy: "Never",
+      terminationGracePeriodSeconds: 1,
       automountServiceAccountToken: false,
       ...runtimeClassField(params.runtimeClassName),
       ...(params.imagePullSecretName

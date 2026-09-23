@@ -134,6 +134,7 @@ describe("buildServiceSidecarPodManifest — TA service image (registry only), i
     expect(container.env).toContainEqual({ name: "PORT", value: "8888" });
     expect(container.resources!.limits!.memory).toBe("512Mi");
     expect(pod.spec!.automountServiceAccountToken).toBe(false);
+    expect(pod.spec!.terminationGracePeriodSeconds).toBe(1);
     expect(pod.spec!.securityContext).toMatchObject({
       runAsNonRoot: true,
       runAsUser: 10001,
