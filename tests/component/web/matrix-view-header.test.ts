@@ -5,15 +5,15 @@ import { describe, expect, it, vi } from "vitest";
 import MatrixView from "$lib/components/features/course/submissions/MatrixView.svelte";
 
 vi.mock("@lucide/svelte", async () => {
-  const Empty = (await import("./fixtures/empty-component.svelte")).default;
+  const Empty = (await import("../../fixtures/web/empty-component.svelte")).default;
   return { Download: Empty, Loader2: Empty, Search: Empty };
 });
 
 vi.mock("$lib/components/features/course/submissions/MatrixLegend.svelte", async () => ({
-  default: (await import("./fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 vi.mock("$lib/components/primitives/ui/button", async () => ({
-  Button: (await import("./fixtures/empty-component.svelte")).default,
+  Button: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
 describe("MatrixView header", () => {

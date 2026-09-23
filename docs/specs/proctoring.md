@@ -176,7 +176,7 @@ true }`.
 
 - **Enabled + empty whitelist = deny all.** Previously this silently
   allowed everyone; now hard-denied. Regression-tested in
-  `tests/unit/domain/ip-utils.test.ts`.
+  `tests/unit/application/ip-utils.test.ts`.
 - **`ipPin` race on concurrent first submissions.** `updateIpPin`
   writes inside the same transaction as the check, so two near-
   simultaneous first requests serialize; whichever commits first wins
@@ -250,11 +250,11 @@ notify` while students are taking the exam, ongoing blocked requests
 
 ### Tests
 
-- `tests/unit/domain/ip-utils.test.ts` — CIDR matching, fail-closed
+- `tests/unit/application/ip-utils.test.ts` — CIDR matching, fail-closed
   whitelist, binding flow.
-- `tests/unit/domain/proctoring-gate.test.ts` — composite gate with
+- `tests/unit/application/proctoring-gate.test.ts` — composite gate with
   all denial reasons, including contest vs exam split.
-- `tests/unit/domain/exam-session.test.ts` — session start/end plumbing.
+- `tests/unit/application/exam-session.test.ts` — session start/end plumbing.
 - `tests/unit/core/schemas.test.ts` — whitelist text bulk parser,
   including line-separated, CSV, semicolon, spreadsheet whitespace, and
   duplicate entries.

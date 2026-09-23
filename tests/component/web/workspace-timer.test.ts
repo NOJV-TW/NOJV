@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({ goto: vi.fn() }));
 vi.mock("$app/navigation", () => ({ goto: mocks.goto }));
 vi.mock("$app/forms", () => ({ deserialize: vi.fn() }));
 vi.mock("@lucide/svelte", async () => ({
-  X: (await import("./fixtures/empty-component.svelte")).default,
+  X: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
 let target: HTMLDivElement;

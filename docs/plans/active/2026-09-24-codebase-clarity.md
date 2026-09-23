@@ -44,7 +44,7 @@ Counts are tracked files under each path at the base SHA, not file totals to pre
 | `apps/web/` — 609                                                                      | SvelteKit presentation/BFF; routes validate input and auth, then call application; server adapters own infrastructure integration. | `apps/web/README.md`, [Frontend](../../architecture/FRONTEND.md), `tests/unit/web`, `tests/component/web`, `tests/integration/web`, API/E2E suites. Preserve route and server-only boundaries.                                                         |
 | `apps/worker/` — 82                                                                    | Temporal bootstrap, registered workflows, activities and sandbox execution adapters.                                               | `apps/worker/README.md`, [Architecture](../../architecture/ARCHITECTURE.md), [Judge Pipeline](../../architecture/JUDGE_PIPELINE.md), worker/judge/Temporal integration suites. Reorganize only sandbox services; preserve workflow names and payloads. |
 | `apps/sandbox-runner/` — 20                                                            | Isolated native execution process and language judge adapters.                                                                     | `apps/sandbox-runner/README.md`, sandbox-runner unit/integration tests and Docker build. Keep the stdin/stdout contract and isolation.                                                                                                                 |
-| `packages/application/` — 167                                                          | User-facing business rules grouped by product domain; imports core contracts, repositories and narrow infrastructure ports.        | `packages/application/README.md`, architecture and feature specs; 120 unit and 22 integration files currently under legacy `domain/`. Align the test name with this package.                                                                           |
+| `packages/application/` — 167                                                          | User-facing business rules grouped by product domain; imports core contracts, repositories and narrow infrastructure ports.        | `packages/application/README.md`, architecture and feature specs; 120 unit and 22 integration files were under legacy `domain/` at the base revision; those directories have since been renamed to `application/`.                                     |
 | `packages/db/` — 138                                                                   | Prisma schema, immutable migrations, repositories, seeds and operational scripts. `src/` imports core; seed/ops also use storage.  | `packages/db/README.md`, [Database](../../architecture/DATABASE.md), DB unit/integration and migration guards. Keep applied migrations and storage/data recovery contracts.                                                                            |
 | `packages/core/` — 44                                                                  | Shared Zod schemas, enums, DTOs and pure judge/domain contracts; no workspace-package dependency.                                  | `packages/core/README.md`, core unit tests, generated schema and API contract checks. Remove exports only after exhaustive consumer search.                                                                                                            |
 | `packages/temporal/`, `redis/`, `storage/`, `mailer/`, `sandbox-docker/` — 46 combined | Narrow infrastructure packages with manifest and lint-enforced import boundaries.                                                  | Per-package READMEs, [Architecture](../../architecture/ARCHITECTURE.md), corresponding package unit tests. Keep browser/server and durable-work boundaries explicit.                                                                                   |
@@ -64,22 +64,22 @@ The tracked baseline directory totals are reproducible with `git ls-files`; 2,11
 - [x] Pull `main` fast-forward to `fb9f34e5` without changing the existing feature checkout.
 - [x] Create the isolated worktree and install the frozen lockfile using Node `24.19.0`.
 - [x] Record a clean `pnpm ci:verify` baseline: 384 unit files (3,555 passed, 2 skipped), 43 component files (105 passed), successful build/typecheck/lint/doc-drift/migration checks.
-- [ ] Trace tracked paths to their owning subsystem and leaf directory; record generated-source ownership, stale references, duplicate configuration, and deliberately historical material.
-- [ ] Add a concise docs landing page and reduce root `AGENTS.md` to durable global rules plus task-to-entrypoint navigation.
-- [ ] Add or correct only the top-level app, package, test, tooling, and infra guides needed to explain actual boundaries; do not create leaf-folder boilerplate.
+- [x] Trace tracked paths to their owning subsystem and leaf directory; record generated-source ownership, stale references, duplicate configuration, and deliberately historical material.
+- [x] Add a concise docs landing page and reduce root `AGENTS.md` to durable global rules plus task-to-entrypoint navigation.
+- [x] Add or correct only the top-level app, package, test, tooling, and infra guides needed to explain actual boundaries; do not create leaf-folder boilerplate.
 
 ### 2. Living documentation and plan status
 
 - [ ] Verify each architecture, product, feature, security, reliability, deployment, testing and onboarding statement against current code, schema, configuration, and CI.
-- [ ] Correct version and workflow drift, including `.nvmrc`/Node, package-manager version, the real CI E2E smoke, current package dependencies and generated schema ownership.
-- [ ] Review each active plan against the current tree, Git history and any cited merge/release evidence. Mark unresolved claims for manual verification instead of guessing.
-- [ ] Add one plan index that explains active versus historical status, preserves all plan bodies, and relates overlapping or same-name plans without overwriting either.
-- [ ] Link current architecture choices to the plan or code evidence that explains them; make the feature authoring rule require doc updates in the same change.
+- [x] Correct version and workflow drift, including `.nvmrc`/Node, package-manager version, the real CI E2E smoke, current package dependencies and generated schema ownership.
+- [x] Review each active plan against the current tree, Git history and any cited merge/release evidence. Mark unresolved claims for manual verification instead of guessing.
+- [x] Add one plan index that explains active versus historical status, preserves all plan bodies, and relates overlapping or same-name plans without overwriting either.
+- [x] Link current architecture choices to the plan or code evidence that explains them; make the feature authoring rule require doc updates in the same change.
 
 ### 3. Test taxonomy and source-tree organization
 
-- [ ] Move the 33 component-configured tests into the component tree, fix fixtures/imports, and select them by directory; retain genuinely non-rendering component-adjacent tests in unit only when classification supports it.
-- [ ] Align the old `tests/unit/domain/` naming with `packages/application`; update Vitest, coverage, aliases, documentation, scripts, and references as one change.
+- [x] Move the 33 component-configured tests into the component tree, fix fixtures/imports, and select them by directory; retain genuinely non-rendering component-adjacent tests in unit only when classification supports it.
+- [x] Align the old `tests/unit/domain/` naming with `packages/application`; update Vitest, coverage, aliases, documentation, scripts, and references as one change.
 - [ ] Move worker sandbox files into clear backend/shared folders and drop backend prefixes that become redundant; update imports, docs and Docker bundle behavior.
 - [ ] Split other oversized files only where each resulting module has one clear responsibility and a smaller interface. Start with submission queries/repositories and problem mutations, then review other files from the inventory.
 
@@ -104,6 +104,8 @@ The tracked baseline directory totals are reproducible with `git ls-files`; 2,11
 | ------------------------------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `fb9f34e5d4a56c927d04f4a4d0b7327e7a238ca0` | `pnpm install --frozen-lockfile` on Node `24.19.0` | Passed; 15 workspace projects, frozen lockfile.                                                                                            |
 | `fb9f34e5d4a56c927d04f4a4d0b7327e7a238ca0` | `pnpm ci:verify`                                   | Passed; format, repository guards, build, typecheck, lint, 384 unit files / 3,555 passed / 2 skipped, and 43 component files / 105 passed. |
+| `codex/codebase-clarity` after test moves  | `pnpm test:component`                              | Passed; directory glob selected 43 component files / 105 tests.                                                                            |
+| `codex/codebase-clarity` after test moves  | `pnpm test:unit` and `pnpm typecheck:tests`        | Passed; 384 unit files / 3,570 passed / 2 skipped; both test TypeScript projects passed.                                                   |
 
 ## Related current guidance
 

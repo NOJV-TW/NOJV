@@ -399,11 +399,11 @@ is only available after it closes.")` (shared post-close gate; see
 
 ### Tests
 
-- `tests/unit/domain/assignment-mutations.test.ts` — publish / delete /
+- `tests/unit/application/assignment-mutations.test.ts` — publish / delete /
   revert-to-draft / status-aware field locks + audit-row writes.
-- `tests/unit/domain/assignment-submissions-matrix.test.ts` —
+- `tests/unit/application/assignment-submissions-matrix.test.ts` —
   post-close context-less practice metadata visibility and official-score
   isolation.
-- `tests/unit/domain/list-aggregations.test.ts` — class stats + my status
+- `tests/unit/application/list-aggregations.test.ts` — class stats + my status
   aggregations.
-- `tests/unit/domain/problem-access.test.ts` — practice-after-close gate.
+- `tests/unit/application/problem-access.test.ts` — practice-after-close gate.

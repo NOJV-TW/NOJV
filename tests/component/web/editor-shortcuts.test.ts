@@ -22,25 +22,25 @@ vi.mock("$lib/components/features/problem/editors/use-editor-run.svelte", () => 
   createEditorRunController: () => ({ ...mocks.run, submit: mocks.submit }),
 }));
 vi.mock("$lib/components/features/problem/editors/EditorCore.svelte", async () => ({
-  default: (await import("./fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 vi.mock("$lib/components/features/problem/editors/EditorBottomPanel.svelte", async () => ({
-  default: (await import("./fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 vi.mock("$lib/components/features/problem/editors/StudentProblemView.svelte", async () => ({
-  default: (await import("./fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 vi.mock("$lib/components/features/problem/editors/EditorTopBar.svelte", async () => ({
-  default: (await import("./fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 vi.mock("$lib/components/features/problem/editors/EditorActionBar.svelte", async () => ({
-  default: (await import("./fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 vi.mock("$lib/components/features/problem/editors/EditorResizeHandle.svelte", async () => ({
-  default: (await import("./fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 vi.mock("$lib/components/primitives/ui/ConfirmDialog.svelte", async () => ({
-  default: (await import("./fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 import Editor from "$lib/components/features/problem/editors/Editor.svelte";
 

@@ -17,7 +17,7 @@ vi.mock("$app/forms", () => ({
 }));
 vi.mock("$lib/stores/toast", () => ({ toasts: { error: mocks.toastError } }));
 vi.mock("@lucide/svelte", async () => {
-  const Empty = (await import("./fixtures/empty-component.svelte")).default;
+  const Empty = (await import("../../fixtures/web/empty-component.svelte")).default;
   return {
     AlertCircle: Empty,
     ArrowRight: Empty,
@@ -32,10 +32,10 @@ vi.mock("@lucide/svelte", async () => {
   };
 });
 vi.mock("$lib/components/primitives/ui/ImageDropZone.svelte", async () => ({
-  default: (await import("./fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 vi.mock("$lib/components/features/announcement/AnnouncementViewDialog.svelte", async () => ({
-  default: (await import("./fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
 import CourseAnnouncementDialog from "$lib/components/features/course/CourseAnnouncementDialog.svelte";

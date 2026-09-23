@@ -25,7 +25,7 @@ vi.mock("$lib/services/submission-service", async (importOriginal) => ({
 }));
 vi.mock("$lib/stores/toast", () => ({ toasts: { error: mocks.toastError } }));
 vi.mock("$lib/components/primitives/ui/MonacoScriptEditor.svelte", async () => ({
-  default: (await import("./fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
 const { default: ReferenceSolutionSection } =

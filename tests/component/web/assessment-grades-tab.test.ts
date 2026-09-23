@@ -6,12 +6,12 @@ import { describe, expect, it, vi } from "vitest";
 vi.setConfig({ testTimeout: 15_000 });
 
 vi.mock("@lucide/svelte", async () => {
-  const Empty = (await import("./fixtures/empty-component.svelte")).default;
+  const Empty = (await import("../../fixtures/web/empty-component.svelte")).default;
   return { Download: Empty, Loader2: Empty, Search: Empty };
 });
 
 vi.mock("$lib/components/features/course/submissions/MatrixView.svelte", async () => ({
-  default: (await import("./fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
 describe("AssessmentGradesTab", () => {

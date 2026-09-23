@@ -6,7 +6,7 @@ import { m } from "$lib/paraglide/messages.js";
 
 vi.mock("$app/forms", () => ({ enhance: () => ({ destroy() {} }) }));
 vi.mock("@lucide/svelte", async () => {
-  const Empty = (await import("./fixtures/empty-component.svelte")).default;
+  const Empty = (await import("../../fixtures/web/empty-component.svelte")).default;
   return { Plus: Empty, Trophy: Empty };
 });
 

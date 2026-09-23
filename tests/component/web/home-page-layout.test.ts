@@ -5,7 +5,7 @@ import HomePage from "../../../apps/web/src/routes/(public)/+page.svelte";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@lucide/svelte", async () => {
-  const Empty = (await import("./fixtures/empty-component.svelte")).default;
+  const Empty = (await import("../../fixtures/web/empty-component.svelte")).default;
   return { Calendar: Empty, Megaphone: Empty, Pin: Empty };
 });
 
@@ -14,7 +14,7 @@ vi.mock("$app/state", () => ({
 }));
 
 vi.mock("$lib/components/features/announcement/AnnouncementViewDialog.svelte", async () => ({
-  default: (await import("./fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
 describe("home page layout", () => {

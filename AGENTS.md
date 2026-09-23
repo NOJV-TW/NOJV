@@ -48,7 +48,7 @@ source. Do not read every architecture document for a routine change.
 - **Cache**: Redis 8 (pub/sub, rate limiting, cooldown, hot cache)
 - **Object Storage**: S3-compatible (MinIO local, GCS/R2/S3 production) via `@nojv/storage`
 - **Validation**: Zod 4 everywhere (schemas in `@nojv/core`)
-- **Testing**: Vitest (unit/integration), Playwright (E2E)
+- **Testing**: Vitest (unit/component/integration), Playwright (E2E)
 - **Sandbox**: Docker (local) or Kubernetes (production) with seccomp + capability drop
 
 ## Common Commands

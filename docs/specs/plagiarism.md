@@ -326,7 +326,7 @@ for staff.
 
 ### Tests
 
-- `tests/unit/domain/plagiarism-queries.test.ts` — covers
+- `tests/unit/application/plagiarism-queries.test.ts` — covers
   `getPlagiarismTarget` (exam / assessment / legacy-contest
   remap / not-found paths) and `createPlagiarismReport` (pre-wipe
   contract + persistence-failure throw).
@@ -336,12 +336,12 @@ for staff.
   best-score dedup, per-language grouping, single-submission skip, and
   failure paths that call `markReportFailed` + rethrow, including
   unmapped language values.
-- `tests/unit/domain/plagiarism-flags.test.ts` — pair-key sorting +
+- `tests/unit/application/plagiarism-flags.test.ts` — pair-key sorting +
   validation; admin / teacher / TA / student / inactive permission for
   each context type; organizer / non-organizer for contest; missing
   exam → forbidden; repeated upsert dedup; unflag NotFound / admin /
   non-staff / teacher branches; list delegation.
-- `tests/unit/domain/plagiarism-trigger-log.test.ts` — `priorPairCount`
+- `tests/unit/application/plagiarism-trigger-log.test.ts` — `priorPairCount`
   computed from prior summary; contextType mapping
   (assessment / contest / exam); ordering (log written before
   overwrite); audit row persists even if `writePlagiarismFields` fails.

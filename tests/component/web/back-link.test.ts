@@ -9,7 +9,7 @@ vi.mock("$app/navigation", () => ({
     callback({ from: navigation.from }),
 }));
 vi.mock("@lucide/svelte", async () => ({
-  ArrowLeft: (await import("./fixtures/empty-component.svelte")).default,
+  ArrowLeft: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
 import BackLink from "$lib/components/primitives/layout/BackLink.svelte";

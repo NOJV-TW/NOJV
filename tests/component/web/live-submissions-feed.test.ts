@@ -5,12 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { m } from "$lib/paraglide/messages.js";
 
 vi.mock("$lib/components/primitives/ui/select/select-content.svelte", async () => ({
-  default: (await import("./fixtures/select-content.svelte")).default,
+  default: (await import("../../fixtures/web/select-content.svelte")).default,
 }));
 
 vi.mock("@lucide/svelte", async () => ({
-  ListFilter: (await import("./fixtures/empty-component.svelte")).default,
-  Loader2: (await import("./fixtures/empty-component.svelte")).default,
+  ListFilter: (await import("../../fixtures/web/empty-component.svelte")).default,
+  Loader2: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
 const mocks = vi.hoisted(() => ({

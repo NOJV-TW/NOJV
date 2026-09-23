@@ -115,6 +115,11 @@ orchestration port but does not import Temporal. `web` and `worker` wire that
 port to `@nojv/temporal` at startup; workflows and activity implementations
 remain in `apps/worker/`.
 
+These boundaries keep product rules in `@nojv/application` while each app owns
+its transport and runtime adapters. The judging contract and explicit failure
+decisions that shaped the current worker/application boundary are recorded in
+[Architecture simplification](../plans/completed/2026-09-05-architecture-simplification.md).
+
 ### Dependency Rules
 
 | Package          | May import                                                                              | Must NOT import                                                                |

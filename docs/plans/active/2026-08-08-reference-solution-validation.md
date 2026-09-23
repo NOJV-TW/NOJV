@@ -149,7 +149,7 @@
 
 - Modify: `tests/e2e/problem-lifecycle.test.ts`
 - Modify: `tests/e2e/workspace-multifile.test.ts`
-- Create: `tests/integration/domain/reference-solution.test.ts`
+- Create: `tests/integration/application/reference-solution.test.ts`
 - Modify: `docs/architecture/JUDGE_PIPELINE.md`
 - Modify: `docs/architecture/DATABASE.md`
 - Modify: `docs/product/PRODUCT_SENSE.md`

@@ -28,7 +28,7 @@ vi.mock("$lib/auth.client", () => ({
   authClient: { signOut: vi.fn(), passkey: { listUserPasskeys: vi.fn() } },
 }));
 vi.mock("$lib/components/features/account/StepUpDialog.svelte", async () => ({
-  default: (await import("./fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 import UserMenu from "$lib/components/features/auth/UserMenu.svelte";
 

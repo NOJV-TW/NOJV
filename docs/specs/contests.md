@@ -374,8 +374,8 @@ now`) and the viewer is not privileged, THEN `getScoreboard` returns
 
 ### Tests
 
-- `tests/unit/domain/contest-permissions.test.ts` — canManageContest +
+- `tests/unit/application/contest-permissions.test.ts` — canManageContest +
   visibility gating.
-- `tests/unit/domain/scoring/` — ICPC/IOI scoreboard builder + chart
+- `tests/unit/application/scoring/` — ICPC/IOI scoreboard builder + chart
   series.
-- `tests/unit/domain/proctoring-gate.test.ts` — contest gate (no IP).
+- `tests/unit/application/proctoring-gate.test.ts` — contest gate (no IP).

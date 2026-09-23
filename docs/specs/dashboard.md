@@ -285,13 +285,13 @@ conflict with the private-by-default profile model.
 - `tests/unit/web/activity-model.test.ts` — covers `buildActivityModel`
   local-day bucketing plus the model's streak grace-day rule and
   weekly-trend slice (util-level behavior).
-- `tests/unit/domain/dashboard-view.test.ts` — covers
+- `tests/unit/application/dashboard-view.test.ts` — covers
   `getDashboardView` zero-submission baseline, totalAc / totalAttempts
   derivation, fixed easy→medium→hard ordering, language / verdict
   group-row flattening, and byTag top-20 cut.
-- `tests/unit/domain/user-analytics-helpers.test.ts` — covers
+- `tests/unit/application/user-analytics-helpers.test.ts` — covers
   `aggregateByTag` including the alphabetical tie-break invariant.
-- `tests/unit/domain/platform-overview.test.ts` — covers
+- `tests/unit/application/platform-overview.test.ts` — covers
   `getPlatformOverview` aggregation, cache revive, and the single-flight
   lock paths.
 - `tests/e2e/dashboard.test.ts` — covers auth redirect, seeded dashboard

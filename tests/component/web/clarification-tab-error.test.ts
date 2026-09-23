@@ -26,11 +26,11 @@ vi.mock("$lib/stores/sse", () => ({
 }));
 
 vi.mock("$lib/components/features/clarification/ClarificationAskForm.svelte", async () => ({
-  default: (await import("./fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
 vi.mock("$lib/components/features/clarification/ClarificationList.svelte", async () => ({
-  default: (await import("./fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
 it("renders initial-load failures as an alert without an unhandled rejection", async () => {

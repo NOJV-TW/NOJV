@@ -3,7 +3,7 @@
 import { mount, unmount } from "svelte";
 import { describe, expect, it, vi } from "vitest";
 
-import EmptyComponent from "./fixtures/empty-component.svelte";
+import EmptyComponent from "../../fixtures/web/empty-component.svelte";
 
 vi.setConfig({ testTimeout: 15_000 });
 

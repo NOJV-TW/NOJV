@@ -518,14 +518,14 @@ contest spec links here rather than restating them.
 
 ### Tests
 
-- `tests/unit/domain/exam-session.test.ts` — start/end/release paths.
-- `tests/unit/domain/exam-publish-delete.test.ts` — lifecycle
+- `tests/unit/application/exam-session.test.ts` — start/end/release paths.
+- `tests/unit/application/exam-publish-delete.test.ts` — lifecycle
   transitions (publish + delete-draft).
-- `tests/unit/domain/exam-auto-close.test.ts` — auto-close workflow +
+- `tests/unit/application/exam-auto-close.test.ts` — auto-close workflow +
   activity.
-- `tests/unit/domain/exam-submissions-matrix.test.ts` — matrix cells.
-- `tests/unit/domain/proctoring-gate.test.ts` — exam gate + IP checks.
-- `tests/unit/domain/ip-utils.test.ts` — CIDR matching + fail-closed.
+- `tests/unit/application/exam-submissions-matrix.test.ts` — matrix cells.
+- `tests/unit/application/proctoring-gate.test.ts` — exam gate + IP checks.
+- `tests/unit/application/ip-utils.test.ts` — CIDR matching + fail-closed.
 - `tests/integration/api/exam-session.test.ts` — session start / end /
   heartbeat / single + bulk instructor release against a real DB.
 - `tests/e2e/advanced-mode-lifecycle.test.ts` — advanced-mode problem

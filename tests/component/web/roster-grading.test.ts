@@ -9,10 +9,10 @@ import MatrixView from "$lib/components/features/course/submissions/MatrixView.s
 
 vi.mock("$lib/stores/toast", () => ({ toasts: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("$lib/components/primitives/ui/button", async () => ({
-  Button: (await import("./fixtures/empty-component.svelte")).default,
+  Button: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 vi.mock("$lib/components/features/course/submissions/MatrixLegend.svelte", async () => ({
-  default: (await import("./fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
 let target: HTMLDivElement;

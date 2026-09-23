@@ -5,7 +5,7 @@ import Footer from "$lib/components/primitives/layout/Footer.svelte";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@lucide/svelte/icons/mail", async () => ({
-  default: (await import("./fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
 describe("Footer", () => {

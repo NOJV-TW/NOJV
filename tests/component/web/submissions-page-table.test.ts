@@ -13,11 +13,11 @@ afterEach(() => {
 const mocks = vi.hoisted(() => ({ goto: vi.fn(), invalidateAll: vi.fn() }));
 
 vi.mock("$lib/components/primitives/ui/select/select-content.svelte", async () => ({
-  default: (await import("./fixtures/select-content.svelte")).default,
+  default: (await import("../../fixtures/web/select-content.svelte")).default,
 }));
 
 vi.mock("@lucide/svelte", async () => {
-  const Empty = (await import("./fixtures/empty-component.svelte")).default;
+  const Empty = (await import("../../fixtures/web/empty-component.svelte")).default;
   return {
     Code2: Empty,
     History: Empty,
@@ -44,7 +44,7 @@ vi.mock("$lib/services/submission-tracker", () => ({
 }));
 vi.mock("$lib/stores/sse", () => ({ watchSubmissionVerdict: () => () => undefined }));
 vi.mock("$lib/components/primitives/ui/EmptyState.svelte", async () => ({
-  default: (await import("./fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 vi.mock("$app/navigation", () => ({
   goto: mocks.goto,

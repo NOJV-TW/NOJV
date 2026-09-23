@@ -412,14 +412,14 @@ no standalone post pages.
 
 ### Tests
 
-- `tests/unit/domain/post-queries.test.ts`,
+- `tests/unit/application/post-queries.test.ts`,
   `post-context-gate.test.ts`, `post-resolve-context.test.ts` — view
   gate, author exception, strictest-deadline context resolution.
-- `tests/unit/domain/post-mutations.test.ts`, `post-votes.test.ts`,
+- `tests/unit/application/post-mutations.test.ts`, `post-votes.test.ts`,
   `post-comments.test.ts` — lifecycle, author/admin checks, vote
   rules, two-level nesting limit, tombstones.
-- `tests/unit/domain/content-reports.test.ts` +
-  `tests/integration/domain/content-reports.test.ts` — report
+- `tests/unit/application/content-reports.test.ts` +
+  `tests/integration/application/content-reports.test.ts` — report
   validation, dedupe `ConflictError`, resolve/dismiss flow with
   notifications against a real DB.
 - `tests/unit/web/exam-confinement-api-allowlist.test.ts` +

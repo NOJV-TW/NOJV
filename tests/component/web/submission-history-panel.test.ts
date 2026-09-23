@@ -6,21 +6,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { m } from "$lib/paraglide/messages.js";
 
 vi.mock("@lucide/svelte", async () => ({
-  Copy: (await import("./fixtures/empty-component.svelte")).default,
-  Check: (await import("./fixtures/empty-component.svelte")).default,
-  RotateCcw: (await import("./fixtures/empty-component.svelte")).default,
+  Copy: (await import("../../fixtures/web/empty-component.svelte")).default,
+  Check: (await import("../../fixtures/web/empty-component.svelte")).default,
+  RotateCcw: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 vi.mock("@lucide/svelte/icons/rotate-ccw", async () => ({
-  default: (await import("./fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 vi.mock("$lib/components/primitives/ui/CodeBlock.svelte", async () => ({
-  default: (await import("./fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 vi.mock("$lib/components/features/submission/SubtaskResultTree.svelte", async () => ({
-  default: (await import("./fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 vi.mock("$lib/components/features/submission/CaseResultGrid.svelte", async () => ({
-  default: (await import("./fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 vi.mock("$lib/services/http", () => ({ fetchWithCsrf: vi.fn() }));
 vi.mock("$lib/stores/toast", () => ({ toasts: { error: vi.fn(), success: vi.fn() } }));
