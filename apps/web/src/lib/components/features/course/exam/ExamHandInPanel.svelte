@@ -1,5 +1,6 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
+  import { Tooltip } from "bits-ui";
   import { Button } from "$lib/components/primitives/ui/button";
   import * as Dialog from "$lib/components/primitives/ui/dialog";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
@@ -75,9 +76,30 @@
           };
         }}
       >
-        <Button type="submit" variant="destructive" loading={submitting}
-          >{m.examHandIn_confirmButton()}</Button
-        >
+        <Tooltip.Provider delayDuration={200}>
+          <Tooltip.Root>
+            <Tooltip.Trigger>
+              {#snippet child({ props })}
+                <span {...props} class="inline-flex">
+                  <Button type="submit" variant="destructive" loading={submitting}
+                    >{m.examHandIn_confirmButton()}</Button
+                  >
+                </span>
+              {/snippet}
+            </Tooltip.Trigger>
+            {#if submitting}
+              <Tooltip.Portal>
+                <Tooltip.Content
+                  class="z-50 max-w-xs rounded-md border border-border bg-popover px-3 py-2 text-caption text-popover-foreground shadow-hover"
+                  sideOffset={4}
+                >
+                  {m.examHandIn_pendingTooltip()}
+                  <Tooltip.Arrow class="fill-popover stroke-border" />
+                </Tooltip.Content>
+              </Tooltip.Portal>
+            {/if}
+          </Tooltip.Root>
+        </Tooltip.Provider>
       </form>
     </Dialog.Footer>
   </Dialog.Content>

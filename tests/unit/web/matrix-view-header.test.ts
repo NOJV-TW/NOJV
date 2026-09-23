@@ -47,9 +47,6 @@ describe("MatrixView header", () => {
           legendPartial: () => "部分得分",
           legendZero: () => "零分",
           legendEmpty: () => "未提交",
-          paginationLabel: () => "0 筆",
-          prev: () => "上一頁",
-          next: () => "下一頁",
         },
       },
     });
@@ -127,9 +124,6 @@ describe("MatrixView header", () => {
           legendPartial: () => "部分得分",
           legendZero: () => "零分",
           legendEmpty: () => "未提交",
-          paginationLabel: () => "2 筆",
-          prev: () => "上一頁",
-          next: () => "下一頁",
         },
       },
     });

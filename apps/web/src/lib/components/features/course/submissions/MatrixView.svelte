@@ -52,9 +52,6 @@
     legendEmpty: () => string;
     legendPractice?: () => string;
     practiceSummary?: (args: { score: number; count: number }) => string;
-    paginationLabel: (args: { from: number; to: number; total: number }) => string;
-    prev: () => string;
-    next: () => string;
     gradeCellTitle?: () => string;
   }
 </script>
@@ -92,8 +89,6 @@
   let sortKey = $state("total");
   let sortDirection = $state<SortDirection>("desc");
   let search = $state("");
-  let page = $state(0);
-  const PAGE_SIZE = 25;
 
   const filteredRows = $derived.by(() => {
     const q = search.trim().toLowerCase();
@@ -116,11 +111,6 @@
     });
     return base;
   });
-
-  const totalRows = $derived(filteredRows.length);
-  const pageRows = $derived(filteredRows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE));
-  const from = $derived(totalRows === 0 ? 0 : page * PAGE_SIZE + 1);
-  const to = $derived(Math.min(totalRows, (page + 1) * PAGE_SIZE));
 
   function csvEscape(value: string | number): string {
     const s = String(value);
@@ -151,20 +141,12 @@
     URL.revokeObjectURL(url);
   }
 
-  function prevPage() {
-    if (page > 0) page -= 1;
-  }
-  function nextPage() {
-    if ((page + 1) * PAGE_SIZE < totalRows) page += 1;
-  }
-
   function toggleSort(key: string) {
     if (sortKey === key) sortDirection = sortDirection === "desc" ? "asc" : "desc";
     else {
       sortKey = key;
       sortDirection = "desc";
     }
-    page = 0;
   }
 </script>
 
@@ -197,7 +179,7 @@
     </Button>
   </div>
 
-  {#if totalRows === 0}
+  {#if filteredRows.length === 0}
     <div
       class="rounded-md border border-dashed border-border-strong bg-[color:var(--color-panel)]/60 px-8 py-12 text-center text-body-sm text-muted-foreground"
     >
@@ -206,7 +188,7 @@
   {:else}
     <MatrixTable
       problems={matrix.problems}
-      rows={pageRows}
+      rows={filteredRows}
       totalPoints={matrix.totalPoints}
       {labels}
       bind:search
@@ -217,24 +199,5 @@
     />
 
     <MatrixLegend {labels} />
-
-    <div class="flex items-center justify-between text-caption text-muted-foreground">
-      <span>
-        {labels.paginationLabel({ from, to, total: totalRows })}
-      </span>
-      <div class="flex gap-2">
-        <Button variant="ghost" size="sm" onclick={prevPage} disabled={page === 0}>
-          {labels.prev()}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onclick={nextPage}
-          disabled={(page + 1) * PAGE_SIZE >= totalRows}
-        >
-          {labels.next()}
-        </Button>
-      </div>
-    </div>
   {/if}
 </section>

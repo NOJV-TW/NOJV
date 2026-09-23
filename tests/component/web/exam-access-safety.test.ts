@@ -9,6 +9,10 @@ import ExamHandInPanel from "$lib/components/features/course/exam/ExamHandInPane
 const mocks = vi.hoisted(() => ({
   goto: vi.fn().mockResolvedValue(undefined),
   enhanced: new Map<HTMLFormElement, SubmitFunction>(),
+  waitForPendingSubmissions: vi.fn(),
+}));
+vi.mock("$lib/services/submission-service", () => ({
+  waitForPendingSubmissions: mocks.waitForPendingSubmissions,
 }));
 vi.mock("$app/navigation", () => ({ goto: mocks.goto }));
 vi.mock("$app/forms", () => ({
@@ -181,6 +185,36 @@ it("moves hand-in into a protected dialog with cancel initially focused", async 
   expect(dialog.querySelector('form[action="?/releaseSession"]')).not.toBeNull();
   cancel.click();
   await vi.waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull());
+});
+
+it("explains the pending hand-in on hover while earlier submissions are still sending", async () => {
+  mocks.waitForPendingSubmissions.mockReturnValue(new Promise(() => {}));
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  component = mount(ExamHandInPanel, { target, props: { examTitle: "Example exam" } });
+  await tick();
+  target.querySelector<HTMLButtonElement>("button")!.click();
+  await vi.waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull());
+  const form = document.querySelector<HTMLFormElement>('form[action="?/releaseSession"]')!;
+  void mocks.enhanced.get(form)!({} as Parameters<SubmitFunction>[0]);
+  await tick();
+  expect(form.querySelector("button")!.disabled).toBe(true);
+  const trigger = form.querySelector("button")!.parentElement!;
+  trigger.dispatchEvent(
+    new PointerEvent("pointerenter", { bubbles: true, pointerType: "mouse" }),
+  );
+  trigger.dispatchEvent(
+    new PointerEvent("pointermove", { bubbles: true, pointerType: "mouse" }),
+  );
+  await vi.waitFor(() =>
+    expect(document.body.textContent).toContain(m.examHandIn_pendingTooltip()),
+  );
 });
 
 it("keeps password management available when only email delivery is unavailable", async () => {
