@@ -570,7 +570,8 @@ scoring remain unchanged. There is no cross-submission compilation cache.
 - Durable judge activities — `apps/worker/src/activities/judge-execution.ts`
 - Pinned request builder — `apps/worker/src/activities/judge-request.ts`
 - Dispatch priority / per-student gate — `packages/core/src/judge-execution.ts`, `packages/application/src/submission/judge-recovery.ts`
-- Judge context builder (`getJudgeContext` / `parsePersistedAdvancedConfig`) — `packages/application/src/submission/queries.ts`
+- Judge context builder (`getJudgeContext`) — `packages/application/src/submission/judge-context.ts`
+- Persisted judge-config parser (`parsePersistedAdvancedConfig`) — `packages/application/src/problem/judge-config.ts`
 - Score aggregation (`buildSubtaskResults`, `mapResult`) — `packages/application/src/submission/scoring.ts`
 - Score adjustments — `packages/application/src/submission/adjustments.ts`
 - `judgeConfigSchema` — `packages/core/src/schemas/judge-config.ts`

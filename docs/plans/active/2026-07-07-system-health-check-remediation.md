@@ -193,5 +193,5 @@ UI 只渲染 `subtaskResults`（`buildSubtaskResults` 已**不含** stdout），
 - **P0-1 演練不可省**：只設 `enabled=true` 不算完成，必須實跑一次 recovery drill 證明可還原（含 Temporal DB）。
 - **P0-3 三選一建議①**（對齊 Docker backend 的序列單容器）改動面最小、與現有程式一致；②③ 要多管 quota 數學。
 - 本 repo 歷史稽核假陽性率 ~50%，故每條都經對抗式驗證；仍建議動手前重讀對應程式（點位可能隨後續 PR 漂移）。
-- 三個 ship-blocker 都**不在**已知 [non-goals](../../../.claude/projects/-Users-takala-code-NOJV/memory/project_explicit_non_goals.md) 內，且與活文件宣稱矛盾（backup、hidden-test 機密、SLO 測資 class），屬「文件 vs 實作漂移」而非刻意設計。
+- 三個 ship-blocker 都**不在**產品[明確排除範圍](../../product/PRODUCT_SENSE.md)內，且與活文件宣稱矛盾（backup、hidden-test 機密、SLO 測資 class），屬「文件 vs 實作漂移」而非刻意設計。
 - 修完後同步更新 [QUALITY_SCORE](../../operations/QUALITY_SCORE.md) 的 Reliability/Security 列與 Outstanding Drift。

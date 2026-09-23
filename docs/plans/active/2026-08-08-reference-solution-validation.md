@@ -79,8 +79,9 @@
 - Modify: `packages/db/prisma/schema/problem.prisma`
 - Modify: `packages/db/prisma/schema/submission.prisma`
 - Modify: `packages/core/src/schemas/submission.ts`
-- Modify: `packages/application/src/submission/mutations.ts`
-- Modify: `packages/application/src/submission/queries.ts`
+- Modify: `packages/application/src/submission/creation.ts`
+- Modify: `packages/application/src/submission/judge-lifecycle.ts`
+- Modify: `packages/application/src/submission/judge-context.ts` (current owner of `getJudgeContext`)
 - Modify: `packages/application/src/problem/mutations/records.ts` and `packages/application/src/problem/mutations/publishing.ts`
 - Create: `packages/db/prisma/migrations/<timestamp>_reference_solution_validation/migration.sql`
 - Test: `tests/integration/web/reference-solution-validation.test.ts`

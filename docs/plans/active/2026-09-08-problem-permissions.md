@@ -158,7 +158,7 @@ admin 只採用已有提升權限的有效角色，不能用帳號的原始平�
 | P2     | 整包匯出／匯入可繞過介面的禁止 fork 說法                              | 分開 bundle-export 權限，明確界定這是平台操作限制，不能承諾防止可信讀者手動重製            |
 | P2     | Advanced 共編者即使有專用授權，也不能保留原作者 namespace 的映像      | 僅放行本題已核准的相同 digest；新映像仍依操作人的 namespace 驗證                           |
 
-對應程式入口：[reference 驗證](../../../packages/application/src/submission/mutations.ts)、[作業權限](../../../packages/application/src/assignment/mutations.ts)、[考試權限](../../../packages/application/src/exam/mutations.ts)、[workspace 寫入](../../../packages/application/src/problem/workspace.ts)、[帳號刪除](../../../packages/application/src/user/mutations.ts)、[刪除 blockers](../../../packages/db/src/repositories/user.ts)、[public 更新](../../../packages/application/src/problem/mutations/records.ts)、[Advanced image 驗證](../../../apps/web/src/lib/server/advanced-image-config.ts)。
+對應程式入口：[reference 驗證](../../../packages/application/src/submission/creation.ts)、[作業權限](../../../packages/application/src/assignment/mutations.ts)、[考試權限](../../../packages/application/src/exam/mutations.ts)、[workspace 寫入](../../../packages/application/src/problem/workspace.ts)、[帳號刪除](../../../packages/application/src/user/mutations.ts)、[刪除 blockers](../../../packages/db/src/repositories/user.ts)、[public 更新](../../../packages/application/src/problem/mutations/records.ts)、[Advanced image 驗證](../../../apps/web/src/lib/server/advanced-image-config.ts)。
 
 ## Production 現況與遷移契約
 

@@ -18,7 +18,7 @@
 - [x] 項 3 — **DONE(commit `91a113b7`)**:passkey 從 connections 移到 two-factor(load `listPasskeys` + `deletePasskey` action + `addPasskey` UI,獨立 Card 放在 TOTP 卡片下方)。
 - [x] 項 4 — **DONE(commit `91a113b7`)**:OAuth 上移 account 主頁(load `providers` + `link`/`unlink` action + OAuth Card 放在安全性卡片下方);**`account/connections/` 資料夾已刪除**。
 - [ ] 項 6c — timeout 走 .env:`packages/application/src/submission/sweep.ts` `getSubmissionPendingTimeoutMinutes` 改讀 `process.env`(預設 10);移除 `setSubmissionPendingTimeoutMinutes` + platform_setting 讀寫;`packages/core/.../platform-settings.ts` 的 KEY/DEFAULT 清掉;worker+web env manifest 要加(注意 env-manifest-parity 測試 + `.default()`);`.env.example`/DEPLOYMENT.md 加 `SUBMISSION_PENDING_TIMEOUT_MINUTES`。**worker 也讀 timeout,兩邊 env 都要。**
-- [ ] 項 6d — 新增 admin 全站提交視圖(目前不存在,只有 rejudge log)。需 `packages/application/src/submission/queries.ts` 加 `listAllSubmissionsPaged`(參考 `listRejudgeLogsPaged`);新 route `admin/submissions`。
+- [ ] 項 6d — 新增 admin 全站提交視圖(目前不存在,只有 rejudge log)。需 `packages/application/src/submission/history.ts` 加 `listAllSubmissionsPaged`(參考 `listRejudgeLogsPaged`);新 route `admin/submissions`。
 - [ ] 項 5 + 7 — admin 身分組 UI 重造 + tab 重造。**待設計對齊(見下),先不動手。**
 
 ## admin 身分組/tab 設計(已定案 2026-07-07,待實作)
@@ -34,7 +34,7 @@
    - 記錄點:admin 改角色/停用/啟用/刪除、editorial-reports resolve/dismiss、announcements create/delete。
    - `/admin/audit` 頁分頁列出(時間/操作者/動作/對象/摘要)。
 7. **項 5 順帶修的 bug**:role diff/confirm/toast 套 `roleLabel()`(別印英文 slug,修 `zh-TW.json:363/364`);狀態(使用中/已停用)vs 動作(停用帳號/啟用帳號)文案分清;filter `goto` 帶 `{keepFocus:true,noScroll:true}` 不跳動、search 與 role 行為一致;危險操作一致 confirm。
-8. **項 6d**:新增 `/admin/submissions` 全站提交(目前不存在)。`packages/application/.../submission/queries.ts` 加 `listAllSubmissionsPaged`(參考 `listRejudgeLogsPaged`)。
+8. **項 6d**:新增 `/admin/submissions` 全站提交(目前不存在)。在目前的 `packages/application/src/submission/history.ts` 加 `listAllSubmissionsPaged`(參考 `listRejudgeLogsPaged`)。
 9. **項 6c**(未做):timeout 走 .env(預設 10 分)。做法(以下是試做過的正確方向):
    - `packages/application/src/submission/sweep.ts` 的 `getSubmissionPendingTimeoutMinutes` 改讀 `process.env.SUBMISSION_PENDING_TIMEOUT_MINUTES`(用 `submissionPendingTimeoutMinutesSchema` 驗證、fallback `DEFAULT_SUBMISSION_PENDING_TIMEOUT_MINUTES`),改成**同步**函式(呼叫處 `sweepStaleSubmissions` 內移掉 `await`);移除 `setSubmissionPendingTimeoutMinutes` 函式 + `platformSettingRepo` / `SUBMISSION_PENDING_TIMEOUT_SETTING_KEY` / `ValidationError` 這幾個 import。
    - `packages/core/src/schemas/platform-settings.ts`:`DEFAULT_SUBMISSION_PENDING_TIMEOUT_MINUTES` 改 **10**;`SUBMISSION_PENDING_TIMEOUT_SETTING_KEY` 等 rejudges UI 移除後一起清掉(否則 orphan);`submissionPendingTimeoutMinutesSchema` 保留(sweep 仍用它驗證)。

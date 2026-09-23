@@ -2,6 +2,8 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
+> **Status checked against main at `fb9f34e5` (2026-09-24):** implementation PR #284 is in main. The remaining Task 5 recovery proof names a production submission; the current repository-wide test policy requires isolated, marked test data, so this plan does not authorize rejudging production data. Keep the operational acceptance open until a release owner records it through a separately approved recovery procedure. The current implementation lives in `apps/worker/src/sandbox/kubernetes/{payload,job-manifests,executor}.ts` and `apps/sandbox-runner/src/payload-materializer.ts`.
+
 **Goal:** Accept testcase input and output files up to 10 MiB and execute them reliably in the network-isolated Kubernetes sandbox.
 
 **Architecture:** Enforce the public limit by UTF-8 byte length in `@nojv/core`. Replace the single-ConfigMap sandbox payload with bounded binary ConfigMap shards, then reconstruct the files into an `emptyDir` in a hardened init container that verifies each file's size and SHA-256 before student code starts. Enforce process isolation at the kubelet's per-Pod cgroup instead of the host-UID-wide `RLIMIT_NPROC` used by the old image.

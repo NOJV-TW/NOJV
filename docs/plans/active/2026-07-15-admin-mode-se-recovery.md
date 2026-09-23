@@ -4,6 +4,8 @@
 
 **Architecture:** Keep the existing Redis-backed admin elevation and add only cross-page coverage. Reuse the submission sweeper, durable-work outbox, and rejudge workflow: startup marks abandoned pipelines as SE, then enqueues one deterministic recovery per submission judge generation. Store bounded SE diagnostics in the existing verdict summary for the admin submissions view.
 
+> **Status checked against main at `fb9f34e5` (2026-09-24):** recovery and SE diagnostics landed in commit `96acfd31`; later E2E coverage exercises admin-mode navigation in `tests/e2e/admin-mfa-elevation.test.ts`. Keep this plan active until its CI/deployment and production-health acceptance has current evidence. Current recovery code is in `apps/worker/src/worker-app.ts`, `packages/application/src/submission/rejudge-control.ts`, and `packages/application/src/submission/judge-lifecycle.ts` / `verdict-summary.ts`.
+
 ### Task 1: Release workflow maintenance
 
 - Upgrade `docker/login-action` to Node 24-based v4.

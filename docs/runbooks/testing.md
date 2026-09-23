@@ -67,7 +67,7 @@ Global Vitest setup (test users, seeded DB state) is in `tests/setup/`.
 Start the local dependencies and explicitly create both allowlisted databases with their safety markers:
 
 ```bash
-docker compose up -d postgres redis temporal
+docker compose up -d postgres redis minio minio-init temporal
 pnpm test:db:provision
 ```
 
@@ -76,20 +76,30 @@ pnpm test:db:provision
 Run integration tests with the integration database named in both required variables:
 
 ```bash
+BETTER_AUTH_SECRET="$(openssl rand -hex 32)" \
 TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/nojv_test \
 NOJV_DESTRUCTIVE_TEST_DATABASE=nojv_test \
+REDIS_URL=redis://127.0.0.1:6379 \
+TEMPORAL_ADDRESS=127.0.0.1:7233 \
+S3_ENDPOINT=http://127.0.0.1:9000 S3_ACCESS_KEY=minioadmin S3_SECRET_KEY=minioadmin \
+S3_BUCKET=nojv S3_REGION=us-east-1 \
 MAILER_MODE=sink APP_BASE_URL=http://localhost:5173 \
 pnpm test:integration
 ```
 
-Sink mode requires all `SMTP_*` keys to be absent, including empty values. The
-integration suite loads `.env`; keep its service configuration aligned with
-`.env.example`. Notification transactions validate mailer configuration when
-creating delivery work, even when the test does not send email.
+Exam credential tests encrypt secrets with `BETTER_AUTH_SECRET`; use a
+test-only value of at least 32 characters and never reuse a production secret.
+The command generates one with `openssl`. Sink mode requires every `SMTP_*`
+key to be absent, including empty values. The integration suite loads `.env`;
+keep its service configuration aligned with `.env.example` and remove any
+`SMTP_*` keys when using sink mode. Notification transactions validate mailer
+configuration when creating delivery work, even when the test does not send
+email.
 
 Run Playwright against the separate E2E database:
 
 ```bash
+BETTER_AUTH_SECRET="$(openssl rand -hex 32)" \
 TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/nojv_e2e_test \
 NOJV_DESTRUCTIVE_TEST_DATABASE=nojv_e2e_test \
 pnpm test:e2e

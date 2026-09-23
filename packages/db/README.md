@@ -18,11 +18,12 @@
 - `src/transaction.ts` — `runTransaction(fn)` + `TransactionClient` 型別
 - `prisma/schema/*.prisma` — schema 主檔（user、problem、contest、course、submission 等）
 - `prisma/migrations/` — migration 歷史
-- `prisma/seed.ts` — 本地開發 seed
+- `prisma/seed.ts` — 本地開發 seed 的順序與安全閘；主題資料在 `prisma/seeds/`
+- `prisma/seeds/announcements.ts` — demo 公告資料
 
 ## 依賴
 
-- 上游：`@nojv/storage`（特定 repository 需要清資源時呼叫）
+- 上游：`@nojv/core`；`@nojv/storage` 僅供 Prisma seed／維運腳本使用，不得由 `src/` 匯入
 - 下游：`@nojv/application`、`apps/web` 的 better-auth adapter、`apps/worker`
 
 ## 本地開發

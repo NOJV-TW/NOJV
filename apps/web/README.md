@@ -17,6 +17,7 @@
 - `src/lib/server/` — server-only transport, auth, OpenAPI and storage adapters
 - `src/lib/components/features/<domain>/` — domain UI; `primitives/` stays domain-agnostic
 - `src/routes/` — SvelteKit page and API entry points
+- Keep route-only components with their route, and server-only adapters under `src/lib/server/`, following [SvelteKit's project structure](https://svelte.dev/docs/kit/project-structure).
 - `src/routes/(app)/**` — 應用頁面群
 - `src/routes/api/**` — API endpoints
 

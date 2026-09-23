@@ -1,7 +1,7 @@
 # NOJV Codebase Clarity and Simplification
 
-**Status:** In progress  
-**Base:** `fb9f34e5d4a56c927d04f4a4d0b7327e7a238ca0` (`origin/main`, 2026-09-24)  
+**Status:** In progress
+**Base:** `fb9f34e5d4a56c927d04f4a4d0b7327e7a238ca0` (`origin/main`, 2026-09-24)
 **Worktree:** `.worktrees/codebase-clarity` on `codex/codebase-clarity`
 
 ## Goal
@@ -57,9 +57,28 @@ Counts are tracked files under each path at the base SHA, not file totals to pre
 
 The tracked baseline directory totals are reproducible with `git ls-files`; 2,119 tracked files occupy 462 directories. Counts above intentionally overlap parent directories. The final review records changed paths and ownership at the new revision, while consumers are checked with repository-wide searches before each move or deletion.
 
+### Large-module review and dispositions
+
+| Path at the base revision / current owner                                                                                          | Disposition and reason                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `packages/application/src/submission/mutations.ts` → `submission/{creation,judge-lifecycle,verdict-summary}.ts`                    | Split submit-time validation/storage from judge completion/recovery, then moved pure summary mapping to its own module. The existing execution↔mutation import cycle is gone; domain exports remain stable.                                                                                                                                                                                                                                                                          |
+| `packages/application/src/problem/queries.ts` → `problem/{details,list,picker}.ts`                                                 | Separate detail shaping, public/admin listing, and picker queries. Direct internal imports now name their responsibility; `problemDomain` remains the package surface.                                                                                                                                                                                                                                                                                                               |
+| `packages/db/src/repositories/submission.ts` → `submission/{identity,history,statistics,lifecycle}.ts`                             | Preserve `submissionRepo` as the repository facade while keeping transaction-scoped behavior in its domain modules.                                                                                                                                                                                                                                                                                                                                                                  |
+| `apps/worker/src/sandbox/kubernetes/executor.ts` and backend files                                                                 | Resource construction/cleanup, admission, pod/job observation, result parsing, resource sizing and error mapping now have focused modules. The executor still owns advanced, interactive and staged execution because those flows share cancellation, resource ownership, metrics and final cleanup; keep their ordering together until a smaller stable interface can preserve those invariants.                                                                                    |
+| `packages/db/prisma/seed.ts` → `prisma/seeds/announcements.ts`                                                                     | Announcement fixture ownership joins the existing user/course/problem/submission/engagement seed topics without changing seed order or production guard.                                                                                                                                                                                                                                                                                                                             |
+| `docker-compose.yml` Temporal image                                                                                                | The configured `1.31.1` tag is absent from the official registry. Pin the verified `1.29.1` image index digest used by the current local NOJV stack so an isolated test stack can start.                                                                                                                                                                                                                                                                                             |
+| `packages/db/prisma/seeds/problems.ts`                                                                                             | Retain as the declarative problem/testcase fixture set. Its 4,942 lines are mostly authored seed data, not duplicated control flow; dry-run validation covers the set.                                                                                                                                                                                                                                                                                                               |
+| `packages/application/src/problem/bundle.ts`, `packages/db/src/repositories/durable-work.ts`, `packages/core/src/markdown-text.ts` | Retain as cohesive archive import/export, durable state-machine/repository invariants, and one Markdown scanner respectively. Splitting their shared contracts would make the invariant harder to follow without reducing duplication.                                                                                                                                                                                                                                               |
+| `packages/db/prisma/scripts/storage-pointer-cutover.ts`                                                                            | Retain the ordered, resumable copy-and-verify procedure for persisted S3 pointers. Each phase is an auditable operational step, not a reusable storage abstraction; verify its recovery contract before any future split.                                                                                                                                                                                                                                                            |
+| `apps/web/src/lib/server/openapi/internal/schemas.ts`                                                                              | Retain one canonical OpenAPI component-schema registry with stable `$ref` names; operation/path definitions already live by domain under `internal/paths/`.                                                                                                                                                                                                                                                                                                                          |
+| `apps/web/src/hooks.server.ts`, auth setup, and feature routes/components                                                          | Keep the request hook as the ordered SvelteKit request lifecycle: API-token auth, CSRF, session/account state, step-up, page lock, exam gate, locale and metrics have deliberate sequencing; request-security and route-path helpers already own reusable policy. Keep auth plugin setup together, and keep route forms and user-table selection/actions beside their interaction state. Do not split only to reduce line count; follow SvelteKit route and server-only conventions. |
+| `apps/worker/src/sandbox/docker/advanced-mode-executor.ts`                                                                         | Keep the advanced Docker run/service/grade path together because one execution owns its abort signal, container labels, staged outputs and cleanup lifecycle. Share parsing, ownership and metrics through `sandbox/shared/`; do not introduce another executor abstraction.                                                                                                                                                                                                         |
+
+`apps/web/src/lib/paraglide/runtime.js` is generated by the `paraglide:compile` package script from `apps/web/project.inlang` and its message catalogs; the generated runtime is not a maintained source file. `docs/architecture/DATABASE.generated.md` is generated from Prisma by `pnpm db:docs`. Build outputs and the generated Prisma client are not tracked source.
+
 ## Work phases
 
-### 1. Baseline and navigation
+### 1. Baseline, inventory and target tree
 
 - [x] Pull `main` fast-forward to `fb9f34e5` without changing the existing feature checkout.
 - [x] Create the isolated worktree and install the frozen lockfile using Node `24.19.0`.
@@ -68,38 +87,44 @@ The tracked baseline directory totals are reproducible with `git ls-files`; 2,11
 - [x] Add a concise docs landing page and reduce root `AGENTS.md` to durable global rules plus task-to-entrypoint navigation.
 - [x] Add or correct only the top-level app, package, test, tooling, and infra guides needed to explain actual boundaries; do not create leaf-folder boilerplate.
 
-### 2. Living documentation and plan status
+### 2. Agent navigation, living docs and plan history
 
 - [ ] Verify each architecture, product, feature, security, reliability, deployment, testing and onboarding statement against current code, schema, configuration, and CI.
 - [x] Correct version and workflow drift, including `.nvmrc`/Node, package-manager version, the real CI E2E smoke, current package dependencies and generated schema ownership.
-- [x] Review each active plan against the current tree, Git history and any cited merge/release evidence. Mark unresolved claims for manual verification instead of guessing.
-- [x] Add one plan index that explains active versus historical status, preserves all plan bodies, and relates overlapping or same-name plans without overwriting either.
+- [x] Review active plans and classify the six previously flat plans using current paths and mainline commit evidence. Keep unresolved production/release gates active; move only completed or superseded records to `completed/`.
+- [x] Maintain one plan index that explains status, preserves every plan body and relates overlapping or same-name plans without overwriting either.
 - [x] Link current architecture choices to the plan or code evidence that explains them; make the feature authoring rule require doc updates in the same change.
 
-### 3. Test taxonomy and source-tree organization
+### 3. Test taxonomy, tooling and path moves
 
 - [x] Move the 33 component-configured tests into the component tree, fix fixtures/imports, and select them by directory; retain genuinely non-rendering component-adjacent tests in unit only when classification supports it.
 - [x] Align the old `tests/unit/domain/` naming with `packages/application`; update Vitest, coverage, aliases, documentation, scripts, and references as one change.
 - [x] Move worker sandbox files into clear backend/shared folders and drop backend prefixes that become redundant; update imports, docs and Docker bundle behavior. Worker bundling uses the same entry points, and worker typecheck plus 83 affected unit files pass.
-- [x] Split submission queries into detail reads, history, judge context and shared submission context; preserve the package exports and update internal imports to their owning modules.
-- [x] Split problem mutations by record lifecycle, publication, judge configuration and storage pointers; split the submission repository into identity, history, statistics and lifecycle responsibilities while preserving its public facade.
-- [x] Split Kubernetes sandbox resource creation, job observation/state, error classification and resource cleanup out of the orchestration executor; keep the existing execution flow and helpers.
-- [ ] Review remaining oversized modules from the inventory and simplify verified repetition or dead code without changing behavior.
+- [x] Replace the repeated component include/exclude lists with directory selection and update source/import path references in the same change.
+- [x] Extend documentation link checks to package guides and active plans; parse parenthesized SvelteKit route links correctly.
 
-### 4. Simplification and drift prevention
+### 4. Core, application, database and seed organization
 
-- [ ] Audit each package and app for dead code, duplicate contracts, no-value forwarding layers, redundant exports, repeated configuration and unclear ownership; substantiate deletion with tracked import/caller searches.
-- [ ] Keep auth/authorization, database transactions, immutable storage ownership, workflow IDs/payloads, retries, cancellation, idempotency and sandbox controls explicit.
-- [ ] Extend existing guards and link checks to validate the new live-doc index, source-tree guides and architectural dependency boundaries; allow historical content to retain historically accurate links and behavior descriptions.
-- [ ] Avoid introducing a second schema manifest or an auto-generated prose hierarchy. Reuse Prisma docs generation, OpenAPI contract tests, workspace metadata and existing lint/test globs where they provide the evidence.
+- [x] Split submission detail/history/judge-context queries, problem writes and reads, submission repository responsibilities, and announcement seed data without changing public package exports or seed order.
+- [x] Split submission creation, judge lifecycle and pure verdict summaries; remove the old circular module dependency and duplicate source normalization.
+- [x] Add package ESLint boundaries for core, application and database source; verify package and test typechecks plus affected unit suites.
+- [x] Remove repeated total-score computation and reuse the canonical problem picker mapper; keep authorization, transactions, storage pointer ownership, Temporal IDs/payloads and retry behavior explicit.
+- [x] Keep Prisma schema documentation and workspace dependency metadata as the schema/manifest sources; add no dependency or duplicate schema registry.
 
-### 5. Verification, review and PR
+### 5. Web, worker and sandbox responsibility cleanup
 
-- [ ] Re-run `pnpm ci:verify`, `pnpm lint:helm`, Helm GKE/single-machine rendering and `pnpm db:seed:validate`.
+- [x] Move worker sandbox code by Docker, Kubernetes and shared runtime responsibility; preserve workflow names and bundle entry points.
+- [x] Split Kubernetes admission, resource creation, job watching/state, error classification and cleanup around the existing helpers; affected worker typecheck/lint and unit suites pass.
+- [x] Keep SvelteKit page/action boundaries and server-only adapters in their official locations; update current frontend and threat-model references to the new application detail modules.
+- [x] Review remaining large Web/worker modules and package consumers; retain only the cohesive request, route/form and sandbox execution lifecycles described above, not speculative abstractions or compatibility exports.
+
+### 6. Full verification, navigation review and PR
+
+- [ ] Run `pnpm ci:verify`, `pnpm lint:helm`, GKE/single-machine Helm rendering and `pnpm db:seed:validate` on the final revision.
 - [ ] Run full unit/component/integration and Playwright suites using only safety-marked local test databases/services. Re-run affected Docker/Kubernetes contracts using an isolated local target when available; do not repoint or modify a shared/production cluster.
 - [ ] Walk the five navigation journeys: add an API, change exam permissions, change judge behavior, change schema, and diagnose deployment. From root entry, reach source, owning rule, tests and decision evidence in at most two documentation hops.
 - [ ] Review every diff for behavior changes, history loss, unreferenced compatibility shims, generated artifacts, dangling references and evidence that overstates verification.
-- [ ] Update this plan with exact final inventory, phase commits and verification output. Create one review PR from `codex/codebase-clarity`; do not merge or deploy.
+- [ ] Update this plan with exact final inventory, phase commits and verification output. Create one review PR from `codex/codebase-clarity`; verify that PR head's CI and stop at review.
 
 ## Evidence log
 

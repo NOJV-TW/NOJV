@@ -124,10 +124,10 @@ decisions that shaped the current worker/application boundary are recorded in
 
 | Package          | May import                                                                              | Must NOT import                                                                |
 | ---------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `core`           | (nothing)                                                                               | everything                                                                     |
-| `db`             | `core` in `src/`; `storage` only in Prisma seed/ops scripts ¶                           | application, temporal, redis                                                   |
+| `core`           | external libraries such as `zod`                                                        | any `@nojv/*` package                                                          |
+| `db`             | `core` in `src/`; `storage` only in Prisma seed/ops scripts ¶                           | application, mailer, temporal, redis; storage from `src/`                      |
 | `redis`          | `core`                                                                                  | application, db, temporal                                                      |
-| `application`    | `core`, `db`, `redis`, `storage`, `mailer` \*                                           | temporal, `@nojv/temporal/workflows`, web, worker                              |
+| `application`    | `core`, `db`, `redis`, `storage`, `mailer` \*                                           | `@sveltejs/kit`, `@temporalio/*`, `@nojv/temporal`, web, worker                |
 | `temporal`       | `core`                                                                                  | db, redis, application, web, worker (must stay self-contained to avoid cycles) |
 | `storage`        | `core`                                                                                  | application, db, redis, temporal, web, worker                                  |
 | `mailer`         | (none of `@nojv/*`)                                                                     | everything `@nojv/*`                                                           |
@@ -173,9 +173,14 @@ actions must call those adapters or go through `@nojv/application` (e.g.
 
 ¶ `@nojv/db` declares `@nojv/storage` as a runtime dependency for Prisma seed
 and one-off operations, including demo problem blob uploads. No module under
-`packages/db/src/` imports storage; the production application dependency
-graph is therefore `core` only. Keep the package dependency while those tools
-run inside the migrator image.
+`packages/db/src/` imports storage; the persistence source dependency is
+therefore `core` only. Keep the package dependency while those tools run inside
+the migrator image.
+
+The `core`, `application`, and `db` package ESLint configs enforce their
+source-level restrictions with `no-restricted-imports`. Package manifests
+describe build dependencies; this table and those rules define allowed import
+direction.
 
 ## Runtime Entry Points
 
@@ -286,7 +291,7 @@ flowchart LR
   subgraph worker["apps/worker (judge)"]
     judge["fetchJudgeContext →<br/>executeSandbox → completeSubmission"]
   end
-  domain["@nojv/application<br/>(problem/blobs, submission/mutations,<br/>problem/bundle, plagiarism)"]
+  domain["@nojv/application<br/>(problem/blobs, submission creation/judge lifecycle,<br/>problem/bundle, plagiarism)"]
   storage["@nojv/storage<br/>(createStorageClient + key registry)"]
   s3[("S3 / MinIO<br/>GCS / R2")]
 

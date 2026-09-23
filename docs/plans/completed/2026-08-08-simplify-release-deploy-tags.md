@@ -30,8 +30,8 @@
 - Modify: `tests/unit/infra/env-manifest-parity.test.ts`
 - Modify: `tests/unit/infra/forward-only-recovery.test.ts`
 - Modify: `infra/flux/README.md`
-- Modify: `docs/plans/2026-07-13-atomic-helm-artifact.md`
-- Modify: `docs/plans/2026-08-07-release-deploy-notification.md`
+- Modify: `docs/plans/completed/2026-07-13-atomic-helm-artifact.md`
+- Modify: `docs/plans/completed/2026-08-07-release-deploy-notification.md`
 
 1. Remove tests that require deploy-tag uniqueness or publication.
 2. Assert the workflow publishes only the deploy branch and does not create `nojv-deploy-*` tags.

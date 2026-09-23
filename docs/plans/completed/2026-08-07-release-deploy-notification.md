@@ -2,7 +2,7 @@
 
 > Superseded: public production verification and release notification are now
 > owned by `NOJV-TW/status`; the GitHub release workflow ends after publishing
-> the verified deploy branch revision.
+> the verified deploy branch revision. See [Status Version Notification](2026-08-07-status-version-notification.md).
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
