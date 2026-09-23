@@ -1,16 +1,26 @@
 import { spawn } from "node:child_process";
+import { constants } from "node:os";
+import { Readable } from "node:stream";
 import { MAX_EXECUTION_OUTPUT_BYTES, executionWallTimeLimitMs } from "@nojv/core";
+import { z } from "zod";
 import type { TestcaseResult } from "../types.js";
-import {
-  createBoundedBuffer,
-  createMemoryPoller,
-  readCgroupCpuUsageUsec,
-  readCgroupMemoryCurrentBytes,
-  readCgroupMemoryPeakBytes,
-  withCpuTimeLimit,
-} from "../utils.js";
+import { createBoundedBuffer, createMemoryPoller } from "../utils.js";
 
 const ignoreStreamError = () => undefined;
+
+const HELPER_GRACE_MS = 2_000;
+
+const execReportSchema = z.object({
+  cpuUs: z.number().int().nonnegative(),
+  maxRssKb: z.number().int().nonnegative(),
+  killed: z.enum(["none", "wall", "term"]),
+  exitCode: z.number().int().optional(),
+  signal: z.number().int().optional(),
+  execErrno: z.number().int().optional(),
+});
+
+const signalNames = new Map(Object.entries(constants.signals).map(([name, n]) => [n, name]));
+const errnoNames = new Map(Object.entries(constants.errno).map(([name, n]) => [n, name]));
 
 export interface RunProcessResult {
   stdout: string;
@@ -24,6 +34,29 @@ export interface RunProcessResult {
   outputLimitExceeded: boolean;
 }
 
+function spawnFailure(stderr: string, memoryKb = 0): RunProcessResult {
+  return {
+    stdout: "",
+    stderr,
+    exitCode: -1,
+    timeMs: 0,
+    memoryKb,
+    timedOut: false,
+    signal: null,
+    spawnError: true,
+    outputLimitExceeded: false,
+  };
+}
+
+function parseExecReport(text: string) {
+  try {
+    const parsed = execReportSchema.safeParse(JSON.parse(text));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
 export function runProcess(
   command: string[],
   options: {
@@ -31,49 +64,30 @@ export function runProcess(
     timeoutMs: number;
     env?: Record<string, string>;
     cpuSeconds?: number;
-    measureCgroupMemoryPeak?: boolean;
   },
 ): Promise<RunProcessResult> {
   return new Promise((resolve) => {
-    const startCpuUsec = readCgroupCpuUsageUsec();
-    const memBaselineBytes = options.measureCgroupMemoryPeak
-      ? readCgroupMemoryCurrentBytes()
-      : null;
-    const startTime = performance.now();
     const wallBudgetMs = executionWallTimeLimitMs(options.timeoutMs);
     const [cmd, ...args] = command;
 
     if (!cmd) {
-      resolve({
-        stdout: "",
-        stderr: "Empty run command.",
-        exitCode: -1,
-        timeMs: 0,
-        memoryKb: 0,
-        timedOut: false,
-        signal: null,
-        spawnError: true,
-        outputLimitExceeded: false,
-      });
+      resolve(spawnFailure("Empty run command."));
       return;
     }
 
     const useStdin = options.stdin !== undefined;
-
-    const wrapped = withCpuTimeLimit(
-      [cmd, ...args],
-      options.cpuSeconds === undefined ? undefined : { cpuSeconds: options.cpuSeconds },
+    const proc = spawn(
+      process.env.NOJV_EXEC_PATH ?? "/usr/local/bin/nojv-exec",
+      [String(Math.ceil(options.cpuSeconds ?? 0)), String(wallBudgetMs), "--", cmd, ...args],
+      {
+        stdio: [useStdin ? "pipe" : "ignore", "pipe", "pipe", "pipe"],
+        ...(options.env ? { env: { ...process.env, ...options.env } } : {}),
+      },
     );
-    const isWrapped = wrapped[0] === "bash";
-    const [wrappedCmd, ...wrappedArgs] = wrapped;
-    const proc = spawn(wrappedCmd, wrappedArgs, {
-      stdio: [useStdin ? "pipe" : "ignore", "pipe", "pipe"],
-      timeout: wallBudgetMs,
-      ...(options.env ? { env: { ...process.env, ...options.env } } : {}),
-    });
 
     const stdoutBuf = createBoundedBuffer(MAX_EXECUTION_OUTPUT_BYTES);
     const stderrBuf = createBoundedBuffer(MAX_EXECUTION_OUTPUT_BYTES);
+    const reportChunks: Buffer[] = [];
     let outputBytes = 0;
     let outputLimitExceeded = false;
     function captureOutput(buffer: ReturnType<typeof createBoundedBuffer>, chunk: Buffer) {
@@ -83,11 +97,11 @@ export function runProcess(
       outputBytes += chunk.byteLength;
       if (outputBytes > MAX_EXECUTION_OUTPUT_BYTES) {
         outputLimitExceeded = true;
-        proc.kill("SIGKILL");
+        proc.kill("SIGTERM");
       }
     }
-    const memoryPoller = typeof proc.pid === "number" ? createMemoryPoller(proc.pid) : null;
-    let forceKilledViaFallbackTimer = false;
+    const memoryPoller =
+      typeof proc.pid === "number" ? createMemoryPoller(proc.pid, false) : null;
 
     proc.stdout?.on("data", (chunk: Buffer) => {
       captureOutput(stdoutBuf, chunk);
@@ -95,6 +109,10 @@ export function runProcess(
     proc.stderr?.on("data", (chunk: Buffer) => {
       captureOutput(stderrBuf, chunk);
     });
+    const reportStream = proc.stdio[3];
+    if (reportStream instanceof Readable) {
+      reportStream.on("data", (chunk: Buffer) => reportChunks.push(chunk));
+    }
 
     if (useStdin) {
       proc.stdin?.on("error", ignoreStreamError);
@@ -103,72 +121,50 @@ export function runProcess(
     }
 
     const timer = setTimeout(() => {
-      forceKilledViaFallbackTimer = true;
       proc.kill("SIGKILL");
-    }, wallBudgetMs + 500);
+    }, wallBudgetMs + HELPER_GRACE_MS);
 
-    proc.on("close", (code, signal) => {
+    proc.on("close", () => {
       clearTimeout(timer);
-      const elapsedMs = performance.now() - startTime;
-      const endCpuUsec = readCgroupCpuUsageUsec();
-      const cpuMs =
-        startCpuUsec !== null && endCpuUsec !== null
-          ? Math.max(0, Math.round((endCpuUsec - startCpuUsec) / 1000))
-          : null;
-      const judgedMs = cpuMs ?? elapsedMs;
       const pollerKb = memoryPoller?.stop() ?? 0;
-      let memoryKb = pollerKb;
-      if (options.measureCgroupMemoryPeak && memBaselineBytes !== null) {
-        const peakAfter = readCgroupMemoryPeakBytes();
-        if (peakAfter !== null) {
-          const cgroupKb = Math.max(0, Math.round((peakAfter - memBaselineBytes) / 1024));
-          memoryKb = Math.max(pollerKb, cgroupKb);
-        }
+      const report = parseExecReport(Buffer.concat(reportChunks).toString());
+      if (!report) {
+        resolve(spawnFailure("Execution helper produced no report.", pollerKb));
+        return;
       }
+      if (report.execErrno !== undefined) {
+        resolve(
+          spawnFailure(
+            `Failed to spawn process: ${errnoNames.get(report.execErrno) ?? String(report.execErrno)}`,
+          ),
+        );
+        return;
+      }
+      const timeMs = Math.round(report.cpuUs / 1000);
+      const signal =
+        report.signal === undefined
+          ? null
+          : (signalNames.get(report.signal) ?? `SIG${String(report.signal)}`);
       const rawStderr = stderrBuf.toString();
-      const execFailed =
-        isWrapped &&
-        (code === 126 || code === 127) &&
-        (/exec: .*: (cannot execute|not found)/.test(rawStderr) ||
-          /: line \d+: \S+: (No such file or directory|Permission denied|cannot execute|not found)/.test(
-            rawStderr,
-          ));
-      const stderr = outputLimitExceeded
-        ? `Output limit exceeded.\n${rawStderr}`
-        : execFailed
-          ? `Failed to spawn process: ${rawStderr}`
-          : rawStderr;
       resolve({
         stdout: stdoutBuf.toString(),
-        stderr,
-        exitCode: code ?? -1,
-        timeMs: Math.round(judgedMs),
-        memoryKb,
+        stderr: outputLimitExceeded ? `Output limit exceeded.\n${rawStderr}` : rawStderr,
+        exitCode: report.exitCode ?? -1,
+        timeMs,
+        memoryKb: Math.max(pollerKb, report.maxRssKb),
         timedOut:
-          forceKilledViaFallbackTimer ||
-          signal === "SIGTERM" ||
-          signal === "SIGXCPU" ||
-          judgedMs > options.timeoutMs,
+          report.killed === "wall" || signal === "SIGXCPU" || timeMs > options.timeoutMs,
         signal,
-        spawnError: execFailed,
+        spawnError: false,
         outputLimitExceeded,
       });
     });
 
     proc.on("error", (err) => {
       clearTimeout(timer);
-      const memoryKb = memoryPoller?.stop() ?? 0;
-      resolve({
-        stdout: "",
-        stderr: `Failed to spawn process: ${err.message}`,
-        exitCode: -1,
-        timeMs: Math.round(performance.now() - startTime),
-        memoryKb,
-        timedOut: false,
-        signal: null,
-        spawnError: true,
-        outputLimitExceeded: false,
-      });
+      resolve(
+        spawnFailure(`Failed to spawn process: ${err.message}`, memoryPoller?.stop() ?? 0),
+      );
     });
   });
 }

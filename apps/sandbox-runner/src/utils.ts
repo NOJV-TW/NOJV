@@ -57,10 +57,6 @@ export function readCgroupMemoryPeakBytes(): number | null {
   return parseCgroupMemoryBytes(safeReadFile("/sys/fs/cgroup/memory.peak"));
 }
 
-export function readCgroupMemoryCurrentBytes(): number | null {
-  return parseCgroupMemoryBytes(safeReadFile("/sys/fs/cgroup/memory.current"));
-}
-
 export function cleanupTempDir(dir: string): Promise<void> {
   return fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
 }
@@ -124,7 +120,7 @@ function processSubtree(root: number): number[] {
   return out;
 }
 
-export function createMemoryPoller(pid: number): MemoryPoller {
+export function createMemoryPoller(pid: number, includeRoot = true): MemoryPoller {
   let peakKb = 0;
   let stopped = false;
 
@@ -132,7 +128,7 @@ export function createMemoryPoller(pid: number): MemoryPoller {
     if (stopped) return;
     let sumKb = 0;
     for (const member of processSubtree(pid)) {
-      sumKb += readVmRssKb(member);
+      if (member !== pid || includeRoot) sumKb += readVmRssKb(member);
     }
     if (Number.isFinite(sumKb) && sumKb > peakKb) peakKb = sumKb;
   }
@@ -156,23 +152,6 @@ export interface BoundedBuffer {
   push(chunk: Buffer): void;
   toString(): string;
   get truncated(): boolean;
-}
-
-export function withCpuTimeLimit(
-  command: [string, ...string[]],
-  opts?: { cpuSeconds?: number },
-): [string, ...string[]] {
-  const cpuSeconds = opts?.cpuSeconds;
-  if (cpuSeconds === undefined || !Number.isFinite(cpuSeconds) || cpuSeconds <= 0) {
-    return command;
-  }
-  return [
-    "bash",
-    "-c",
-    `ulimit -t ${String(Math.ceil(cpuSeconds))}; exec "$@"`,
-    "--",
-    ...command,
-  ];
 }
 
 export function createBoundedBuffer(capBytes = DEFAULT_OUTPUT_CAP_BYTES): BoundedBuffer {

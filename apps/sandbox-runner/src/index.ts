@@ -283,7 +283,6 @@ async function runSingleCase(config: SandboxInput, caseIndex: number): Promise<v
     testcase,
     config.limits.timeoutMs,
     config.limits.env,
-    true,
   );
   emit({ rawRuns: [run] });
 }

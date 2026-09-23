@@ -9,12 +9,7 @@ import {
 } from "@nojv/core";
 import { writeSync as fsWriteSync } from "node:fs";
 import * as path from "node:path";
-import {
-  createBoundedBuffer,
-  createMemoryPoller,
-  readOptionalFile,
-  withCpuTimeLimit,
-} from "../utils.js";
+import { createBoundedBuffer, createMemoryPoller, readOptionalFile } from "../utils.js";
 import { pipeInteractiveInput } from "./interactive-start.js";
 
 const REPORT_STDERR_CAP = 4_096;
@@ -39,8 +34,7 @@ export function runInteractiveSolution(
       return;
     }
 
-    const [wrappedCmd, ...wrappedArgs] = withCpuTimeLimit([cmd, ...args]);
-    const child = spawn(wrappedCmd, wrappedArgs, {
+    const child = spawn(cmd, args, {
       stdio: ["pipe", "inherit", "pipe"],
       ...(env ? { env: { ...process.env, ...env } } : {}),
     });
@@ -132,8 +126,7 @@ export function runInteractiveValidator(
     }
 
     const fullArgs = [...args, files.inputFile, files.answerFile, files.feedbackDir];
-    const [wrappedCmd, ...wrappedArgs] = withCpuTimeLimit([cmd, ...fullArgs]);
-    const child = spawn(wrappedCmd, wrappedArgs, {
+    const child = spawn(cmd, fullArgs, {
       stdio: ["pipe", "inherit", "pipe"],
     });
     let inputError: Error | undefined;

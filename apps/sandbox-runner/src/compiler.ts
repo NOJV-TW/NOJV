@@ -13,7 +13,7 @@ import {
   type Language,
 } from "@nojv/core";
 import type { SandboxInput } from "./types.js";
-import { createBoundedBuffer, pathExists, withCpuTimeLimit } from "./utils.js";
+import { createBoundedBuffer, pathExists } from "./utils.js";
 
 const COMPILER_DIR = path.dirname(fileURLToPath(import.meta.url));
 const WRAPPERS_DIR = path.resolve(COMPILER_DIR, "../assets/wrappers");
@@ -209,8 +209,7 @@ function compileWithCommand(
       return;
     }
 
-    const [wrappedCmd, ...wrappedArgs] = withCpuTimeLimit([cmd, ...args]);
-    const proc = spawn(wrappedCmd, wrappedArgs, {
+    const proc = spawn(cmd, args, {
       cwd: workDir,
       stdio: ["ignore", "pipe", "pipe"],
       timeout: COMPILATION_TIMEOUT_MS,

@@ -1,7 +1,7 @@
 # One sandbox per stage, per-process accounting
 
-Status: planned (2026-09-23). Supersedes the per-case container layout from
-PR #149.
+Status: milestone 1a in progress (2026-09-23). Supersedes the per-case
+container layout from PR #149.
 
 ## Why
 
@@ -136,12 +136,29 @@ acceptance signal.
 
 Each milestone is its own PR and release.
 
-1. Helper and runner `run-stage` phase; Docker executor switched.
-2. Kubernetes standard layout; per-case container code removed.
-3. Checker in one Pod.
-4. Interactive stages batched.
-5. Core budget in the chart and the worker.
-6. Payload step 1, measure, decide on step 2.
+- 1a. `nojv-exec` in the current layout. Fixes timing and memory on its own,
+  because each case container already runs one program.
+- 1b. Runner `run-stage` phase; Docker executor switched.
+- 2. Kubernetes standard layout; per-case container code removed.
+- 3. Checker in one Pod.
+- 4. Interactive stages batched.
+- 5. Core budget in the chart and the worker.
+- 6. Payload step 1, measure, decide on step 2.
+
+## Other designs considered
+
+| Design                                          | Isolation                                 | Why not here                                                                                                 |
+| ----------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| DOMjudge `runguard`                             | root supervisor: cgroup, chroot, run user | needs root and a writable cgroup tree; gVisor already isolates the host better than a user switch and chroot |
+| IOI `isolate`                                   | namespaces + cgroups via a setuid binary  | same privilege; its unprivileged half (`setrlimit`, `wait4`) is what `nojv-exec` takes                       |
+| nsjail                                          | user namespaces + seccomp-bpf             | user namespaces were rejected on 2026-05-28 (hardening, GKE); gVisor already filters syscalls                |
+| DMOJ `cptbox`                                   | ptrace syscall filter, rusage accounting  | a second syscall filter under gVisor costs every syscall twice                                               |
+| Judge0                                          | `isolate` in a privileged container       | privileged containers on a node shared with web and PostgreSQL                                               |
+| Firecracker / Kata per submission               | microVM                                   | stronger than needed, heavier boot than gVisor, no gain in accounting                                        |
+| Warm pool of single-use gVisor Pods, stdin feed | as today                                  | saves the ~3 s Pod start and the ConfigMaps; revisit after milestone 6 measures what is left                 |
+
+The layout here is gVisor as the isolation boundary plus an unprivileged
+supervisor inside it, which is the same split cloud judges use with microVMs.
 
 ## Acceptance
 

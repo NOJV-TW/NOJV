@@ -17,6 +17,7 @@
 - `src/compiler.ts` — 多語言編譯包裝
 - `src/judges/standard.ts` — 標準 stdin/stdout judge
 - `src/judges/run-process.ts` — 共用程序執行包裝
+- `native/nojv-exec.c` — 執行 helper：`RLIMIT_CPU`、牆鐘逾時、清掉所有後代，用 `wait4` 回報程式本身的 CPU 與記憶體峰值（image 內為 `/usr/local/bin/nojv-exec`；測試由 `tests/setup/nojv-exec.ts` 編譯並設 `NOJV_EXEC_PATH`）
 - `src/judges/interactive.ts` — interactive judge（雙向 IO）
 - `src/judges/checker.ts` — special judge / 自訂比對程式（custom comparator）
 - `src/utils.ts` — `createBoundedBuffer` 等共用 helper
