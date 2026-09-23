@@ -96,7 +96,7 @@ vi.mock("../../../apps/worker/src/logger.js", () => ({
   }),
 }));
 
-vi.mock("../../../apps/worker/src/services/executor-factory", () => ({
+vi.mock("../../../apps/worker/src/sandbox/shared/executor-factory", () => ({
   createExecutorOwner: () => ({
     abortActive: mocks.executorAbortActive,
     shutdown: mocks.executorShutdown,
@@ -107,7 +107,7 @@ vi.mock("../../../apps/worker/src/activities/judge.js", () => ({
   setExecutorOwner: mocks.setExecutorOwner,
 }));
 
-vi.mock("../../../apps/worker/src/services/docker-resource-sweeper.js", () => ({
+vi.mock("../../../apps/worker/src/sandbox/docker/resource-sweeper.js", () => ({
   createDockerResourceSweeper: () => ({
     done: mocks.dockerSweeperDone,
     shutdown: mocks.dockerSweeperShutdown,
@@ -115,11 +115,11 @@ vi.mock("../../../apps/worker/src/services/docker-resource-sweeper.js", () => ({
   }),
 }));
 
-vi.mock("../../../apps/worker/src/services/k8s-runtime-probe.js", () => ({
+vi.mock("../../../apps/worker/src/sandbox/kubernetes/runtime-probe.js", () => ({
   verifySandboxRuntime: mocks.verifySandboxRuntime,
 }));
 
-vi.mock("../../../apps/worker/src/services/k8s-netpol-probe.js", () => ({
+vi.mock("../../../apps/worker/src/sandbox/kubernetes/netpol-probe.js", () => ({
   verifyNetworkPolicyEnforced: mocks.verifyNetworkPolicyEnforced,
 }));
 

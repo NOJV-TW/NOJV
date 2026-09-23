@@ -19,32 +19,39 @@ import {
   type SandboxResult,
 } from "@nojv/core";
 
-import { createLogger } from "../logger.js";
+import { createLogger } from "../../logger.js";
 import {
   createSubmissionNetwork,
   planSubmissionNetwork,
   removeSubmissionNetwork,
-} from "./docker-network";
+} from "./network";
 import {
   attachDockerCleanupFailure,
   cleanupDockerResources,
   sanitizeId,
   spawnDockerContainer,
-} from "./docker-process";
-import { buildDockerResourceLabels, dockerLabelArgs } from "./docker-resource";
-import { executionAbortReason } from "./execution-abort";
+} from "./process";
+import { buildDockerResourceLabels, dockerLabelArgs } from "./resource";
+import { executionAbortReason } from "../shared/execution-abort";
+import {
+  ADVANCED_OUTPUT_MAX_FILES,
+  ADVANCED_WORKSPACE_MAX_BYTES,
+  type RunStatus,
+} from "../shared/advanced-execution";
 import {
   ADVANCED_SERVICE_PORT,
-  collectServiceLogs,
   SERVICE_HOST_ENV,
   SERVICE_NETWORK_ALIAS,
+} from "../shared/advanced-service-contract";
+import {
+  collectServiceLogs,
   serviceContainerName,
   startServiceContainer,
   stopServiceContainer,
 } from "./service-container";
-import { sandboxSystemError } from "./sandbox-plan";
-import { resolveSourceFiles } from "./source-files.js";
-import { advancedFallbackResult, mapAdvancedResult } from "./sandbox-result-mapper";
+import { sandboxSystemError } from "../shared/sandbox-plan";
+import { resolveSourceFiles } from "../shared/source-files.js";
+import { advancedFallbackResult, mapAdvancedResult } from "../shared/sandbox-result-mapper";
 
 export interface AdvancedModeConfig {
   cpuLimit: string;
@@ -53,16 +60,8 @@ export interface AdvancedModeConfig {
 
 const logger = createLogger("advanced-mode-executor");
 
-export const ADVANCED_WORKSPACE_MAX_BYTES = 1024 * 1024 * 1024;
 const WORKSPACE_POLL_INTERVAL_MS = 2_000;
 const RUN_USER = "10001:10001";
-
-export type RunState = "exited" | "timed_out" | "oom_killed";
-
-export interface RunStatus {
-  state: RunState;
-  exitCode: number | null;
-}
 
 export interface ContainerOutcome {
   exitCode: number | null;
@@ -292,8 +291,6 @@ export async function prepareRunWorkspace(
   await Promise.all(fileWrites);
   await chmod(runDir, 0o777);
 }
-
-export const ADVANCED_OUTPUT_MAX_FILES = 100_000;
 
 async function chmodTreeReadable(dir: string): Promise<void> {
   const info = await stat(dir);

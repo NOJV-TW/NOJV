@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 
-import { buildNetpolProbePodManifest } from "../../../apps/worker/src/services/k8s-netpol-probe";
+import { buildNetpolProbePodManifest } from "../../../apps/worker/src/sandbox/kubernetes/netpol-probe";
 
 const execute = promisify(execFile);
 

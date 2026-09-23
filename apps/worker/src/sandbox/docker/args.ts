@@ -1,5 +1,5 @@
 import { COMPILER_SCRATCH_MB, MIN_COMPILER_MEMORY_MB } from "@nojv/core";
-import { dockerLabelArgs } from "./docker-resource";
+import { dockerLabelArgs } from "./resource";
 
 export interface SandboxDockerArgsParams {
   containerName: string;

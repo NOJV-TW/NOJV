@@ -17,7 +17,7 @@ import {
   ADVANCED_OUTPUT_MAX_FILES,
   ADVANCED_WORKSPACE_MAX_BYTES,
   safeCopyTree,
-} from "../../../apps/worker/src/services/advanced-mode-executor";
+} from "../../../apps/worker/src/sandbox/docker/advanced-mode-executor";
 
 import {
   ADVANCED_RESULT_MARKER_BEGIN,
@@ -39,13 +39,13 @@ import {
   buildAdvancedTransferWaitScript,
   deriveRunStatusFromJob,
   parseAdvancedResultLog,
-} from "../../../apps/worker/src/services/k8s-advanced";
+} from "../../../apps/worker/src/sandbox/kubernetes/advanced";
 import {
   K8sExecutor,
   SandboxBackpressureError,
   SandboxInfeasibleError,
   SandboxTransientInfrastructureError,
-} from "../../../apps/worker/src/services/k8s-executor";
+} from "../../../apps/worker/src/sandbox/kubernetes/executor";
 
 function execute(executor: K8sExecutor, request: SandboxRequest) {
   return executor.execute(request, {
@@ -1603,7 +1603,8 @@ describe("K8sExecutor.execute(advanced) — image pull failures", () => {
 
 describe("DRY: K8s advanced reuses Docker advanced's helpers", () => {
   it("uses the same mapAdvancedResult / advancedFallbackResult symbols as the Docker backend", async () => {
-    const mapperMod = await import("../../../apps/worker/src/services/sandbox-result-mapper");
+    const mapperMod =
+      await import("../../../apps/worker/src/sandbox/shared/sandbox-result-mapper");
     expect(typeof mapperMod.mapAdvancedResult).toBe("function");
     expect(typeof mapperMod.advancedFallbackResult).toBe("function");
   });

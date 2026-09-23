@@ -27,8 +27,8 @@ import {
   type CleanupReport,
   type CleanupStep,
 } from "./server-lifecycle";
-import { createExecutorOwner } from "./services/executor-factory";
-import type { ExecutorOwner } from "./services/executor-owner";
+import { createExecutorOwner } from "./sandbox/shared/executor-factory";
+import type { ExecutorOwner } from "./sandbox/shared/executor-owner";
 
 const logger = createLogger("worker");
 const DEFAULT_SHUTDOWN_TIMEOUT_MS = 35_000;
@@ -171,7 +171,7 @@ export class WorkerApp {
 
       if (this.env.EXECUTION_BACKEND === "docker") {
         const { createDockerResourceSweeper } =
-          await import("./services/docker-resource-sweeper.js");
+          await import("./sandbox/docker/resource-sweeper.js");
         const resourceSweeper = createDockerResourceSweeper();
         this.cleanupSteps.push({
           resource: "Docker resource sweeper",
@@ -182,7 +182,7 @@ export class WorkerApp {
       }
 
       if (this.env.EXECUTION_BACKEND === "kubernetes") {
-        const { verifySandboxRuntime } = await import("./services/k8s-runtime-probe.js");
+        const { verifySandboxRuntime } = await import("./sandbox/kubernetes/runtime-probe.js");
         const runtime = await verifySandboxRuntime({
           namespace: this.env.K8S_NAMESPACE,
           image: this.env.SANDBOX_IMAGE,
@@ -197,7 +197,8 @@ export class WorkerApp {
           );
         }
 
-        const { verifyNetworkPolicyEnforced } = await import("./services/k8s-netpol-probe.js");
+        const { verifyNetworkPolicyEnforced } =
+          await import("./sandbox/kubernetes/netpol-probe.js");
         const decision = await verifyNetworkPolicyEnforced({
           namespace: this.env.K8S_NAMESPACE,
           runtimeClassName: this.env.K8S_RUNTIME_CLASS_NAME,

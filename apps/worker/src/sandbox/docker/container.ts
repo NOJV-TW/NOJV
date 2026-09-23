@@ -1,5 +1,5 @@
-import { runDockerCommand } from "./docker-process";
-import { DOCKER_MANAGED_LABEL, hasExpiredDockerResourceLabels } from "./docker-resource";
+import { runDockerCommand } from "./process";
+import { DOCKER_MANAGED_LABEL, hasExpiredDockerResourceLabels } from "./resource";
 
 interface DockerContainerInspection {
   Config?: unknown;

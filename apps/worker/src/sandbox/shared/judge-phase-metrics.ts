@@ -1,7 +1,7 @@
 import { metrics } from "@opentelemetry/api";
 import type { V1Pod } from "@kubernetes/client-node";
 import type { Language, RawCaseRun } from "@nojv/core";
-import { createLogger } from "../logger";
+import { createLogger } from "../../logger";
 
 const logger = createLogger("judge-resources");
 

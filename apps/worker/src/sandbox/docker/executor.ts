@@ -13,8 +13,8 @@ import {
 } from "@nojv/core";
 
 import { AdvancedModeExecutor } from "./advanced-mode-executor.js";
-import { sanitizeId } from "./docker-process.js";
-import { reconcileDockerRun } from "./docker-reconcile.js";
+import { sanitizeId } from "./process.js";
+import { reconcileDockerRun } from "./reconcile.js";
 import { runStandardMode } from "./standard-mode-executor.js";
 
 export interface DockerExecutorConfig {

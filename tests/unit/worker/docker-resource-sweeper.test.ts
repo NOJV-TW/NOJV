@@ -4,19 +4,19 @@ const mocks = vi.hoisted(() => ({
   runDockerCommand: vi.fn(),
 }));
 
-vi.mock("../../../apps/worker/src/services/docker-process", () => ({
+vi.mock("../../../apps/worker/src/sandbox/docker/process", () => ({
   runDockerCommand: mocks.runDockerCommand,
 }));
 
-import { sweepOrphanContainers } from "../../../apps/worker/src/services/docker-container";
+import { sweepOrphanContainers } from "../../../apps/worker/src/sandbox/docker/container";
 import {
   DOCKER_CREATED_AT_LABEL,
   DOCKER_EXPIRES_AT_LABEL,
   DOCKER_MANAGED_LABEL,
   DOCKER_RUN_LABEL,
   DOCKER_WORKER_LABEL,
-} from "../../../apps/worker/src/services/docker-resource";
-import { DockerResourceSweeper } from "../../../apps/worker/src/services/docker-resource-sweeper";
+} from "../../../apps/worker/src/sandbox/docker/resource";
+import { DockerResourceSweeper } from "../../../apps/worker/src/sandbox/docker/resource-sweeper";
 
 function containerInspection(expiresAt: number): string {
   return JSON.stringify([

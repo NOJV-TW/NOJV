@@ -1,5 +1,5 @@
-import { sweepOrphanContainers } from "./docker-container";
-import { sweepOrphanNetworks } from "./docker-network";
+import { sweepOrphanContainers } from "./container";
+import { sweepOrphanNetworks } from "./network";
 
 export const DOCKER_RESOURCE_SWEEP_INTERVAL_MS = 60_000;
 

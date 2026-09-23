@@ -1,6 +1,6 @@
 import type * as k8s from "@kubernetes/client-node";
 
-import { failureMessage, retryK8sCleanupCall } from "./k8s-cleanup-call";
+import { failureMessage, retryK8sCleanupCall } from "./cleanup-call";
 
 export class SandboxCleanupPendingError extends Error {
   constructor(

@@ -13,7 +13,10 @@
 ## 主要入口
 
 - `src/index.ts` — worker bootstrap，連 Temporal 並註冊 activities
-- `src/sandbox/` — sandbox execution; backend-specific implementation lives under `docker/` and `kubernetes/`
+- `src/sandbox/shared/` — contracts, planning, parsing, and result mapping shared by both backends
+- `src/sandbox/docker/` — Docker execution, container/network lifecycle, and resource cleanup
+- `src/sandbox/kubernetes/` — Kubernetes jobs, pods, networking, runtime probes, and cleanup
+- Backend selection and ownership live in `src/sandbox/shared/executor-factory.ts` and `executor-owner.ts`
 - `src/activities/` — workflow activity handlers and application calls
 - `src/workflows/` — workflow definitions loaded by the worker
 - `src/health-server.ts` — health check endpoint

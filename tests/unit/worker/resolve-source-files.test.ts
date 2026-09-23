@@ -1,7 +1,7 @@
 import type { SandboxRequest } from "@nojv/core";
 import { describe, expect, it } from "vitest";
 
-import { resolveSourceFiles } from "../../../apps/worker/src/services/source-files";
+import { resolveSourceFiles } from "../../../apps/worker/src/sandbox/shared/source-files";
 
 function base(): SandboxRequest {
   return {

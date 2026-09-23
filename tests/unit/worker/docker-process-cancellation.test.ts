@@ -17,7 +17,7 @@ import {
   collectContainerLogs,
   forceRemoveContainer,
   spawnDockerContainer,
-} from "../../../apps/worker/src/services/docker-process";
+} from "../../../apps/worker/src/sandbox/docker/process";
 
 function child(autoClose: boolean) {
   const process = Object.assign(new EventEmitter(), {

@@ -3,7 +3,7 @@ import {
   k8sErrorCode,
   boundedK8sCall,
   retryK8sCleanupCall,
-} from "./k8s-cleanup-call";
+} from "./cleanup-call";
 import { createRequire } from "node:module";
 import {
   podPhaseTimings,
@@ -12,7 +12,7 @@ import {
   recordRunnerResources,
   type JudgePhase,
   type JudgeMode,
-} from "./judge-phase-metrics";
+} from "../shared/judge-phase-metrics";
 import {
   terminateSandboxJob,
   terminateSandboxPod,
@@ -20,7 +20,7 @@ import {
   SandboxCleanupBudget,
   SandboxCleanupPendingError,
   isK8sNotFound,
-} from "./k8s-termination";
+} from "./termination";
 import { hostname } from "node:os";
 
 import type * as k8s from "@kubernetes/client-node";
@@ -40,11 +40,14 @@ import {
   type SandboxRequest,
   type SandboxResult,
 } from "@nojv/core";
-import { createLogger } from "../logger.js";
-import { resolveInteractiveStage, type InteractiveSideResult } from "./check-interactive";
-import { executionAbortReason } from "./execution-abort";
-import { advancedFallbackResult, mapAdvancedResult } from "./sandbox-result-mapper";
-import { sandboxSystemError } from "./sandbox-plan";
+import { createLogger } from "../../logger.js";
+import {
+  resolveInteractiveStage,
+  type InteractiveSideResult,
+} from "../shared/check-interactive";
+import { executionAbortReason } from "../shared/execution-abort";
+import { advancedFallbackResult, mapAdvancedResult } from "../shared/sandbox-result-mapper";
+import { sandboxSystemError } from "../shared/sandbox-plan";
 import {
   buildRunConfigMapData,
   buildInteractiveInteractorConfigMapData,
@@ -52,14 +55,14 @@ import {
   computeInteractiveJobDeadlineSeconds,
   computeStageJobDeadlineSeconds,
   CONFIGMAP_MAX_BYTES,
-} from "./k8s-configmaps";
+} from "./configmaps";
 import {
   buildInteractiveJobManifest,
   buildStageJobManifest,
   JUDGE_CONTAINER_NAME,
   RUN_CONTAINER_NAME,
-} from "./k8s-job-manifests";
-import { buildPayloadConfigMaps, payloadConfigMapNames } from "./k8s-payload";
+} from "./job-manifests";
+import { buildPayloadConfigMaps, payloadConfigMapNames } from "./payload";
 import {
   buildJudgePayload,
   completeRuns,
@@ -68,7 +71,7 @@ import {
   parseCompilationError,
   parseJudgeOutcomes,
   parseRunResult,
-} from "./stage-result";
+} from "../shared/stage-result";
 import {
   ADVANCED_SIDECAR_NAME,
   ADVANCED_TRANSFER_NAME,
@@ -80,7 +83,7 @@ import {
   buildAdvancedRunJobManifest,
   deriveRunStatusFromJob,
   parseAdvancedResultLog,
-} from "./k8s-advanced";
+} from "./advanced";
 import {
   buildGradeEgressPolicy,
   buildRunEgressPolicy,
@@ -97,7 +100,7 @@ import {
   sidecarPolicyName,
   sidecarServiceName,
   SIDECAR_PORT,
-} from "./k8s-advanced-network";
+} from "./advanced-network";
 
 const logger = createLogger("k8s-executor");
 

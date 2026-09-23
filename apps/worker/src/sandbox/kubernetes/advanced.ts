@@ -5,15 +5,15 @@ import {
   ADVANCED_OUTPUT_MAX_FILES,
   ADVANCED_WORKSPACE_MAX_BYTES,
   type RunStatus,
-} from "./advanced-mode-executor";
+} from "../shared/advanced-execution";
 import {
   HARDENED_CONTAINER_SECURITY_CONTEXT_PINNED,
   SANDBOX_NODE_SELECTOR,
   SANDBOX_POD_SECURITY_CONTEXT_WITH_FSGROUP,
   SANDBOX_TOLERATIONS,
   runtimeClassField,
-} from "./k8s-pod-spec";
-import { resolveSourceFiles } from "./source-files.js";
+} from "./pod-spec";
+import { resolveSourceFiles } from "../shared/source-files.js";
 
 const TTL_AFTER_FINISHED_SECONDS = 60;
 const RUN_POD_TERMINATION_GRACE_SECONDS = 120;

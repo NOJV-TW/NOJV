@@ -1,10 +1,10 @@
-import { DockerCommandError, runDocker, runDockerCommand, sanitizeId } from "./docker-process";
+import { DockerCommandError, runDocker, runDockerCommand, sanitizeId } from "./process";
 import {
   DOCKER_MANAGED_LABEL,
   buildDockerResourceLabels,
   dockerLabelArgs,
   hasExpiredDockerResourceLabels,
-} from "./docker-resource";
+} from "./resource";
 
 const INTERNAL_NETWORK_PREFIX = "nojv-net-internal-";
 

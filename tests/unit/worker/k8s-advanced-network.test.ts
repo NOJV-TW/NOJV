@@ -13,7 +13,7 @@ import {
   SERVICE_READY_MARKER,
   SIDECAR_PORT,
   SIDECAR_ROLE_LABEL_KEY,
-} from "../../../apps/worker/src/services/k8s-advanced-network";
+} from "../../../apps/worker/src/sandbox/kubernetes/advanced-network";
 
 const SUB = "sub-net-1";
 const NS = "nojv-sandbox";

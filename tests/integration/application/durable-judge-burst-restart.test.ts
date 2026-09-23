@@ -11,7 +11,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import * as judgeActivities from "../../../apps/worker/src/activities/judge-execution";
 import { setExecutorOwner } from "../../../apps/worker/src/activities/judge";
-import { ExecutorOwner } from "../../../apps/worker/src/services/executor-owner";
+import { ExecutorOwner } from "../../../apps/worker/src/sandbox/shared/executor-owner";
 import {
   createTestProblem,
   createTestSubmission,

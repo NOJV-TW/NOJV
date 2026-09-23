@@ -6,10 +6,10 @@ import {
 } from "@nojv/core";
 import { describe, expect, it } from "vitest";
 
-import { mergeCheckerResults } from "../../../apps/worker/src/services/check-standard";
-import { buildRunConfigMapData } from "../../../apps/worker/src/services/k8s-configmaps";
-import { buildStageJobManifest } from "../../../apps/worker/src/services/k8s-job-manifests";
-import { buildJudgePayload } from "../../../apps/worker/src/services/stage-result";
+import { mergeCheckerResults } from "../../../apps/worker/src/sandbox/shared/check-standard";
+import { buildRunConfigMapData } from "../../../apps/worker/src/sandbox/kubernetes/configmaps";
+import { buildStageJobManifest } from "../../../apps/worker/src/sandbox/kubernetes/job-manifests";
+import { buildJudgePayload } from "../../../apps/worker/src/sandbox/shared/stage-result";
 
 function makeCheckerRequest(overrides?: {
   testcases?: SandboxRequest["testcases"];

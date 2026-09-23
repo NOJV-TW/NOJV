@@ -1,7 +1,7 @@
 import type { SandboxExecutor, SandboxRequest } from "@nojv/core";
 import { describe, expect, it, vi } from "vitest";
 
-import { ExecutorOwner } from "../../../apps/worker/src/services/executor-owner";
+import { ExecutorOwner } from "../../../apps/worker/src/sandbox/shared/executor-owner";
 
 const request = { submissionId: "submission" } as SandboxRequest;
 

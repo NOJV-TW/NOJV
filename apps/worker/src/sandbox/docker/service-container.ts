@@ -1,4 +1,5 @@
-import { SERVICE_READY_MARKER, buildAdvancedServiceArgs } from "@nojv/sandbox-docker";
+import { buildAdvancedServiceArgs } from "@nojv/sandbox-docker";
+import { SERVICE_READY_MARKER } from "../shared/advanced-service-contract";
 
 import {
   attachDockerCleanupFailure,
@@ -6,17 +7,8 @@ import {
   forceRemoveContainer,
   runDocker,
   sanitizeId,
-} from "./docker-process";
-import { executionAbortReason } from "./execution-abort";
-
-export {
-  ADVANCED_SERVICE_PORT,
-  SERVICE_NETWORK_ALIAS,
-  SERVICE_PORT_ENV,
-  SERVICE_READY_MARKER,
-} from "@nojv/sandbox-docker";
-
-export const SERVICE_HOST_ENV = "NOJV_SERVICE_HOST";
+} from "./process";
+import { executionAbortReason } from "../shared/execution-abort";
 
 const READINESS_TIMEOUT_MS = 5_000;
 const READINESS_INTERVAL_MS = 100;

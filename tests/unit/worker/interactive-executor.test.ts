@@ -13,11 +13,11 @@ import {
 import {
   resolveInteractiveStage,
   type InteractiveSideResult,
-} from "../../../apps/worker/src/services/check-interactive";
+} from "../../../apps/worker/src/sandbox/shared/check-interactive";
 import {
   writeInteractorFiles,
   writeSolutionFiles,
-} from "../../../apps/worker/src/services/interactive-executor";
+} from "../../../apps/worker/src/sandbox/docker/interactive-executor";
 
 function exists(path: string): Promise<boolean> {
   return access(path).then(

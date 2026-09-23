@@ -3,14 +3,16 @@ import { describe, expect, it } from "vitest";
 import {
   buildAdvancedDockerArgs,
   buildServiceEnv,
-} from "../../../apps/worker/src/services/advanced-mode-executor";
+} from "../../../apps/worker/src/sandbox/docker/advanced-mode-executor";
+import {
+  buildStartServiceArgs,
+  serviceContainerName,
+} from "../../../apps/worker/src/sandbox/docker/service-container";
 import {
   ADVANCED_SERVICE_PORT,
-  buildStartServiceArgs,
   SERVICE_HOST_ENV,
   SERVICE_NETWORK_ALIAS,
-  serviceContainerName,
-} from "../../../apps/worker/src/services/service-container";
+} from "../../../apps/worker/src/sandbox/shared/advanced-service-contract";
 
 describe("buildStartServiceArgs", () => {
   const args = buildStartServiceArgs({

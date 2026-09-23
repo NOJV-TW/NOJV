@@ -6,13 +6,13 @@ import {
   SANDBOX_POD_SECURITY_CONTEXT_WITH_FSGROUP,
   SANDBOX_TOLERATIONS,
   runtimeClassField,
-} from "./k8s-pod-spec";
+} from "./pod-spec";
 import {
   ADVANCED_SERVICE_PORT,
   SERVICE_HOST_ENV,
   SERVICE_PORT_ENV,
   SERVICE_READY_MARKER,
-} from "./service-container";
+} from "../shared/advanced-service-contract";
 
 export const EGRESS_LABEL_KEY = "nojv.egress";
 export const SIDECAR_ROLE_LABEL_KEY = "nojv.sidecar";

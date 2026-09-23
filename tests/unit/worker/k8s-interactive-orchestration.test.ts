@@ -6,7 +6,7 @@ import { INTERACTIVE_RUN_MARKER, INTERACTIVE_VALIDATE_MARKER } from "@nojv/core"
 import {
   K8sExecutor,
   SandboxCleanupError,
-} from "../../../apps/worker/src/services/k8s-executor";
+} from "../../../apps/worker/src/sandbox/kubernetes/executor";
 
 function execute(executor: K8sExecutor, request: SandboxRequest) {
   return executor.execute(request, {

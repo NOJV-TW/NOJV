@@ -15,8 +15,8 @@ import {
   buildSeedProblemDefs,
   type SeedProblemDef,
 } from "../../../packages/db/prisma/seeds/problems.js";
-import { enforceMemoryLimit } from "../../../apps/worker/src/services/check-standard.js";
-import { DockerExecutor } from "../../../apps/worker/src/services/docker-executor.js";
+import { enforceMemoryLimit } from "../../../apps/worker/src/sandbox/shared/check-standard.js";
+import { DockerExecutor } from "../../../apps/worker/src/sandbox/docker/executor.js";
 import { SEED_SOLUTIONS } from "./seed-solutions.js";
 
 const SANDBOX_IMAGE = process.env.NOJV_TEST_SANDBOX_IMAGE ?? "nojv-sandbox:local";

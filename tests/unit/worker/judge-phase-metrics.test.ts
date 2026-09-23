@@ -28,7 +28,7 @@ import {
   recordJudgePhase,
   recordRunnerResources,
   recordWallClockTimeouts,
-} from "../../../apps/worker/src/services/judge-phase-metrics";
+} from "../../../apps/worker/src/sandbox/shared/judge-phase-metrics";
 
 const date = (milliseconds: number) => new Date(milliseconds);
 function lifecycle(names: string[]): V1Pod {

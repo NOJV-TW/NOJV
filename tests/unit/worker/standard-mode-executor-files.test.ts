@@ -6,8 +6,8 @@ import { problemWorkspaceFileSchema, type SandboxRequest } from "@nojv/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { readTestcase } from "../../../apps/sandbox-runner/src/testcase-files";
-import { buildTestcaseConfigMapData } from "../../../apps/worker/src/services/k8s-configmaps";
-import { writeSubmissionFiles } from "../../../apps/worker/src/services/standard-mode-executor";
+import { buildTestcaseConfigMapData } from "../../../apps/worker/src/sandbox/kubernetes/configmaps";
+import { writeSubmissionFiles } from "../../../apps/worker/src/sandbox/docker/standard-mode-executor";
 
 function exists(path: string): Promise<boolean> {
   return access(path).then(

@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { SandboxRequest } from "@nojv/core";
 import { resolveContainerMemoryMb } from "@nojv/core";
 
-import { resolveDockerMemoryMb } from "../../../apps/worker/src/services/docker-executor";
-import { resolveK8sMemoryLimit } from "../../../apps/worker/src/services/k8s-executor";
+import { resolveDockerMemoryMb } from "../../../apps/worker/src/sandbox/docker/executor";
+import { resolveK8sMemoryLimit } from "../../../apps/worker/src/sandbox/kubernetes/executor";
 
 const OPTS = { defaultMemoryMb: 256, headroomMb: 64, maxMemoryMb: 1536 };
 

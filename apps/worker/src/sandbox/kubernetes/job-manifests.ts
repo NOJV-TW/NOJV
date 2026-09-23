@@ -8,7 +8,7 @@ import {
   SANDBOX_POD_SECURITY_CONTEXT,
   SANDBOX_TOLERATIONS,
   runtimeClassField,
-} from "./k8s-pod-spec";
+} from "./pod-spec";
 
 const TTL_AFTER_FINISHED_SECONDS = 60;
 const SUBMISSION_DATA_SIZE_LIMIT = "128Mi";

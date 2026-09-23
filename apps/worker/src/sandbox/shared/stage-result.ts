@@ -1,7 +1,7 @@
 import type { RawCaseRun, SandboxRequest, SandboxResult, ValidatorOutcome } from "@nojv/core";
 
 import { mergeCheckerResults, resolveStandardResults } from "./check-standard";
-import { scanJsonLinesFromEnd } from "./k8s-log-parse";
+import { scanJsonLinesFromEnd } from "./log-parse";
 import { sourceExtension } from "./sandbox-plan";
 import { parseSandboxResult, parseValidateOutput } from "./sandbox-schema";
 

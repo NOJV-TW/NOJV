@@ -4,13 +4,13 @@ import { describe, expect, it } from "vitest";
 import {
   buildInteractiveInteractorConfigMapData,
   buildInteractiveSolutionConfigMapData,
-} from "../../../apps/worker/src/services/k8s-configmaps";
+} from "../../../apps/worker/src/sandbox/kubernetes/configmaps";
 import {
   INTERACTIVE_SOCKET_PORT,
   buildInteractiveJobManifest,
   buildInteractorContainerCommand,
   buildSolutionContainerCommand,
-} from "../../../apps/worker/src/services/k8s-job-manifests";
+} from "../../../apps/worker/src/sandbox/kubernetes/job-manifests";
 
 const STUDENT_SOURCE = "print(input())";
 const SECRET_INPUT = "SECRET_INPUT_42\n";

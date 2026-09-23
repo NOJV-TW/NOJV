@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { K8sExecutor } from "../../../apps/worker/src/services/k8s-executor";
+import { K8sExecutor } from "../../../apps/worker/src/sandbox/kubernetes/executor";
 
 const RUN = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa";
 const OTHER = "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb";

@@ -1,7 +1,7 @@
 import type { RawCaseRun, ValidatorOutcome } from "@nojv/core";
 import { describe, expect, it } from "vitest";
 
-import { mergeCheckerResults } from "../../../apps/worker/src/services/check-standard";
+import { mergeCheckerResults } from "../../../apps/worker/src/sandbox/shared/check-standard";
 
 function rawRun(overrides: Partial<RawCaseRun> & { index: number }): RawCaseRun {
   return { stdout: "", stderr: "", exitCode: 0, timeMs: 5, ...overrides };

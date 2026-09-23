@@ -32,7 +32,7 @@ describe("supply-chain policy scanner", () => {
   it("accepts digest-pinned runtime constants", () => {
     expect(
       checkSupplyChainFile(
-        "apps/worker/src/services/k8s-netpol-probe.ts",
+        "apps/worker/src/sandbox/kubernetes/netpol-probe.ts",
         fixture("valid-runtime-image.ts"),
       ),
     ).toEqual([]);
@@ -70,7 +70,7 @@ describe("supply-chain policy scanner", () => {
   it("rejects mutable runtime constants", () => {
     expect(
       checkSupplyChainFile(
-        "apps/worker/src/services/k8s-netpol-probe.ts",
+        "apps/worker/src/sandbox/kubernetes/netpol-probe.ts",
         fixture("invalid-runtime-image.ts"),
       ).map(({ message }) => message),
     ).toEqual(expect.arrayContaining([expect.stringMatching(/manifest digest/u)]));

@@ -1,8 +1,8 @@
 import { spawn } from "node:child_process";
 import { MAX_EXECUTION_OUTPUT_BYTES } from "@nojv/core";
 
-import { createBoundedStringBuffer } from "./bounded-buffer";
-import { executionAbortReason } from "./execution-abort";
+import { createBoundedStringBuffer } from "../shared/bounded-buffer";
+import { executionAbortReason } from "../shared/execution-abort";
 
 const DOCKER_CLEANUP_TIMEOUT_MS = 5_000;
 const DOCKER_INSPECT_TIMEOUT_MS = 5_000;

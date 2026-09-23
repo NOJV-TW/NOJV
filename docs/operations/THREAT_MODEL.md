@@ -181,10 +181,10 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 **Mitigations:**
 
 - Container hardening: `cap-drop ALL`, `no-new-privileges`, read-only rootfs, bounded `tmpfs` on `/tmp` (64m) and `/workspace` (128m) — no host-writable persistence path
-- Non-root execution: Kubernetes pod and container both set `runAsNonRoot: true` (`apps/worker/src/services/k8s-executor.ts`); Docker images run as a non-root UID
+- Non-root execution: Kubernetes pod and container both set `runAsNonRoot: true` (`apps/worker/src/sandbox/kubernetes/executor.ts`); Docker images run as a non-root UID
 - Network isolation: `--network none` (default, configurable per-problem)
 - Resource limits: CPU (default 1 core), memory (default 256 MB, max 1024 MB), PID limit (default 64)
-- Per-stream stdout/stderr capped at 16 MB by `createBoundedStringBuffer` (`apps/worker/src/services/bounded-buffer.ts`) — wraps every spawn in standard- and advanced-mode executors so a runaway submission can't OOM the worker before the outer timeout fires
+- Per-stream stdout/stderr capped at 16 MB by `createBoundedStringBuffer` (`apps/worker/src/sandbox/shared/bounded-buffer.ts`) — wraps every spawn in standard- and advanced-mode executors so a runaway submission can't OOM the worker before the outer timeout fires
 - seccomp: Docker default profile only — explicitly NOT a custom allowlist. Rationale: the default already blocks ~44 high-risk syscalls (`kexec_load`, `bpf`, `userfaultfd`, ...) and the marginal gain from a custom profile is dwarfed by the false-negative cost across language runtimes. See [SECURITY.md — Sandbox Hardening](SECURITY.md#sandbox-hardening-seccomp-posture).
 - Advanced Mode images are registry-only (digest-pinned) and run as hardened Jobs. A pod stuck in `ImagePullBackOff` resolves to an immediate `system_error` (terminal, no retry loop)
 - Sandbox-runner depends only on `@nojv/core` — minimal attack surface

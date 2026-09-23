@@ -16,9 +16,9 @@ import { submissionDomain } from "@nojv/application";
 import type { SubmissionSource } from "@nojv/storage";
 import { cancellationSignal, heartbeat } from "@temporalio/activity";
 
-import { recordJudgePhase } from "../services/judge-phase-metrics";
-import { enforceMemoryLimit } from "../services/check-standard";
-import type { ExecutorOwner } from "../services/executor-owner";
+import { recordJudgePhase } from "../sandbox/shared/judge-phase-metrics";
+import { enforceMemoryLimit } from "../sandbox/shared/check-standard";
+import type { ExecutorOwner } from "../sandbox/shared/executor-owner";
 import { judgeLatencyHistogram, recordJudgeLatency } from "./utils";
 
 const JUDGE_HEARTBEAT_INTERVAL_MS = 15_000;

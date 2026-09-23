@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { SandboxTestcaseResult } from "@nojv/core";
 
-import { enforceMemoryLimit } from "../../../apps/worker/src/services/check-standard";
+import { enforceMemoryLimit } from "../../../apps/worker/src/sandbox/shared/check-standard";
 
 function caseResult(over: Partial<SandboxTestcaseResult>): SandboxTestcaseResult {
   return {

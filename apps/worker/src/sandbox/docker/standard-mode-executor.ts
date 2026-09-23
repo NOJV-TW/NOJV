@@ -9,12 +9,12 @@ import {
   type SandboxResult,
 } from "@nojv/core";
 
-import { resolveSourceFiles } from "./source-files.js";
-import { buildSandboxDockerArgs } from "./docker-args";
-import { sanitizeId, spawnDockerContainer, type DockerRunResult } from "./docker-process";
-import { buildDockerResourceLabels } from "./docker-resource";
+import { resolveSourceFiles } from "../shared/source-files.js";
+import { buildSandboxDockerArgs } from "./args";
+import { sanitizeId, spawnDockerContainer, type DockerRunResult } from "./process";
+import { buildDockerResourceLabels } from "./resource";
 import { runInteractiveMode } from "./interactive-executor";
-import { buildSandboxConfigJson } from "./sandbox-plan";
+import { buildSandboxConfigJson } from "../shared/sandbox-plan";
 import {
   buildJudgePayload,
   completeRuns,
@@ -24,7 +24,7 @@ import {
   parseCompilationError,
   parseJudgeOutcomes,
   parseRunResult,
-} from "./stage-result";
+} from "../shared/stage-result";
 
 const MAX_OUTER_TIMEOUT_MS = 540_000;
 const JUDGE_TIMEOUT_MS = 300_000;

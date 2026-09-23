@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   K8sExecutor,
   SandboxAdmissionError,
-} from "../../../apps/worker/src/services/k8s-executor";
+} from "../../../apps/worker/src/sandbox/kubernetes/executor";
 
 const EXEC_CONFIG = {
   namespace: "nojv-sandbox",

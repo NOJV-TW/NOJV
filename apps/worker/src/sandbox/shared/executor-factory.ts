@@ -1,7 +1,7 @@
-import type { WorkerEnv } from "../env";
-import { DockerExecutor } from "./docker-executor.js";
+import type { WorkerEnv } from "../../env";
+import { DockerExecutor } from "../docker/executor.js";
 import { ExecutorOwner } from "./executor-owner.js";
-import { K8sExecutor } from "./k8s-executor.js";
+import { K8sExecutor } from "../kubernetes/executor.js";
 
 export function createExecutorOwner(env: WorkerEnv): ExecutorOwner {
   if (env.EXECUTION_BACKEND === "kubernetes") {

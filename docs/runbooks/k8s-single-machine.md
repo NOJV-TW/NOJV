@@ -38,7 +38,7 @@ production-safe.
 The worker now **fails closed**: at startup, when
 `EXECUTION_BACKEND=kubernetes`, it launches a deny-all-covered probe Pod and
 **refuses to start the judge worker** if that Pod can reach the internet
-(`apps/worker/src/services/k8s-netpol-probe.ts`, wired in
+(`apps/worker/src/sandbox/kubernetes/netpol-probe.ts`, wired in
 `apps/worker/src/worker-app.ts`). So if you skip the CNI step below, the worker
 will not judge — by design.
 
@@ -191,7 +191,7 @@ per-submission policies.
 ## 2. Node setup
 
 Label the single node so it matches the sandbox `nodeSelector`
-(`{ "nojv-role": "sandbox" }`) that `k8s-advanced.ts` / the netpol probe set:
+(`{ "nojv-role": "sandbox" }`) that `apps/worker/src/sandbox/kubernetes/advanced.ts` / the netpol probe set:
 
 ```bash
 NODE=$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')
@@ -213,7 +213,7 @@ kubectl label node "$NODE" nojv-role=worker --overwrite
 the sandbox pool is tainted `nojv-role=sandbox:NoSchedule` so a runaway
 submission can't starve the orchestrator — but on one box there is nowhere else
 for the worker to run, so tainting would only block it. Sandbox Pods already
-carry the matching toleration (`k8s-advanced.ts` `SANDBOX_TOLERATIONS`), so they
+carry the matching toleration (`apps/worker/src/sandbox/kubernetes/advanced.ts` `SANDBOX_TOLERATIONS`), so they
 schedule fine whether or not the taint exists. Re-introduce the taint only once
 you join a dedicated sandbox node ([§9](#9-scaling-from-one-node-to-many)).
 
@@ -515,7 +515,7 @@ Three independent layers scale separately. Tune them in this order.
 ### Layer 1 — Judge work (quota-bounded)
 
 Judging is **per-submission Kubernetes Jobs/Pods**. The worker creates one fresh
-Pod per stage (`k8s-advanced.ts`, `k8s-executor.ts`); standard/checker work
+Pod per stage (`apps/worker/src/sandbox/kubernetes/advanced.ts`, `executor.ts`); standard/checker work
 runs a stage's cases in one run container and **dies when finished**
 (`restartPolicy: Never`, `ttlSecondsAfterFinished`). So the judge layer is
 elastic at the Job level, while host capacity remains bounded and idle Jobs cost
@@ -601,7 +601,7 @@ kubectl taint node <new-node> nojv-role=sandbox:NoSchedule --overwrite
 ```
 
 Sandbox Pods already carry the matching `nojv-role=sandbox` toleration
-(`k8s-advanced.ts`), so they schedule onto the new node; the worker stays on the
+(`apps/worker/src/sandbox/kubernetes/advanced.ts`), so they schedule onto the new node; the worker stays on the
 `nojv-role=worker` server node. Raise the `nojv-sandbox` ResourceQuota to match
 the new aggregate capacity ([§8](#sizing-the-resourcequota-to-the-box)).
 

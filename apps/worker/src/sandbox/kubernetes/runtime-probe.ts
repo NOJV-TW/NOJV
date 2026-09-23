@@ -2,14 +2,14 @@ import { createRequire } from "node:module";
 
 import type * as k8s from "@kubernetes/client-node";
 
-import { createLogger } from "../logger.js";
+import { createLogger } from "../../logger.js";
 import {
   HARDENED_CONTAINER_SECURITY_CONTEXT,
   SANDBOX_NODE_SELECTOR,
   SANDBOX_POD_SECURITY_CONTEXT,
   SANDBOX_TOLERATIONS,
   runtimeClassField,
-} from "./k8s-pod-spec";
+} from "./pod-spec";
 
 const require = createRequire(import.meta.url);
 const logger = createLogger("k8s-runtime-probe");

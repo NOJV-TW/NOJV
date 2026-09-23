@@ -36,7 +36,7 @@
 
 **Files:**
 
-- Modify: `apps/worker/src/services/k8s-executor.ts`
+- Modify: `apps/worker/src/sandbox/kubernetes/executor.ts`
 - Modify: `infra/charts/nojv/templates/worker-rbac.yaml`
 - Test: `tests/unit/worker/k8s-job-watch.test.ts`
 
@@ -61,8 +61,8 @@
 **Files:**
 
 - Modify: `apps/sandbox-runner/src/index.ts`
-- Modify: `apps/worker/src/services/k8s-job-manifests.ts`
-- Modify: `apps/worker/src/services/k8s-executor.ts`
+- Modify: `apps/worker/src/sandbox/kubernetes/job-manifests.ts`
+- Modify: `apps/worker/src/sandbox/kubernetes/executor.ts`
 - Test: `tests/unit/worker/k8s-payload-orchestration.test.ts`
 - Test: `tests/unit/worker/k8s-checker.test.ts`
 

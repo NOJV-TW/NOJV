@@ -9,7 +9,7 @@ import {
   SandboxInfrastructureError,
   SandboxCleanupError,
   SandboxTransientInfrastructureError,
-} from "../../../apps/worker/src/services/k8s-executor";
+} from "../../../apps/worker/src/sandbox/kubernetes/executor";
 
 afterEach(() => vi.useRealTimers());
 

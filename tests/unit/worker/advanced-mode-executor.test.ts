@@ -26,7 +26,7 @@ import {
   safeCopyTree,
   SafeCopyLimitError,
   type ContainerOutcome,
-} from "../../../apps/worker/src/services/advanced-mode-executor";
+} from "../../../apps/worker/src/sandbox/docker/advanced-mode-executor";
 
 const runArgs = (
   overrides: Partial<Parameters<typeof buildAdvancedDockerArgs>[0]> = {},

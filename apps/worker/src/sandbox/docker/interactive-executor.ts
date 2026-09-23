@@ -13,19 +13,26 @@ import {
   type SandboxResult,
 } from "@nojv/core";
 
-import { createBoundedStringBuffer } from "./bounded-buffer";
-import { resolveInteractiveStage, type InteractiveSideResult } from "./check-interactive";
-import { buildSandboxDockerArgs } from "./docker-args";
+import { createBoundedStringBuffer } from "../shared/bounded-buffer";
+import {
+  resolveInteractiveStage,
+  type InteractiveSideResult,
+} from "../shared/check-interactive";
+import { buildSandboxDockerArgs } from "./args";
 import {
   attachDockerCleanupFailure,
   cleanupDockerResources,
   forceRemoveContainer,
   sanitizeId,
-} from "./docker-process";
-import { buildDockerResourceLabels } from "./docker-resource";
-import { executionAbortReason } from "./execution-abort";
-import { buildSandboxConfigJson, sandboxSystemError, sourceExtension } from "./sandbox-plan";
-import { resolveSourceFiles } from "./source-files.js";
+} from "./process";
+import { buildDockerResourceLabels } from "./resource";
+import { executionAbortReason } from "../shared/execution-abort";
+import {
+  buildSandboxConfigJson,
+  sandboxSystemError,
+  sourceExtension,
+} from "../shared/sandbox-plan";
+import { resolveSourceFiles } from "../shared/source-files.js";
 
 const MAX_OUTER_TIMEOUT_MS = 540_000;
 const PER_CASE_GRACE_MS = 5_000;

@@ -15,7 +15,7 @@ import {
   PROBE_DENIED_REACHED_MARKER,
   verifyNetworkPolicyEnforced,
   type NetworkPolicyProbeDeps,
-} from "../../../apps/worker/src/services/k8s-netpol-probe";
+} from "../../../apps/worker/src/sandbox/kubernetes/netpol-probe";
 
 const { info } = vi.hoisted(() => ({ info: vi.fn() }));
 vi.mock("../../../apps/worker/src/logger.js", () => ({

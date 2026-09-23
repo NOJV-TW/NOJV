@@ -14,20 +14,18 @@ const mocks = vi.hoisted(() => ({
   stopServiceContainer: vi.fn(),
 }));
 
-vi.mock("../../../apps/worker/src/services/docker-network", () => ({
+vi.mock("../../../apps/worker/src/sandbox/docker/network", () => ({
   createSubmissionNetwork: mocks.createSubmissionNetwork,
   planSubmissionNetwork: (runId: string) => ({ internalName: `nojv-net-internal-${runId}` }),
   removeSubmissionNetwork: mocks.removeSubmissionNetwork,
 }));
 
-vi.mock("../../../apps/worker/src/services/docker-process", async (importOriginal) => ({
-  ...(await importOriginal<
-    typeof import("../../../apps/worker/src/services/docker-process")
-  >()),
+vi.mock("../../../apps/worker/src/sandbox/docker/process", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../apps/worker/src/sandbox/docker/process")>()),
   spawnDockerContainer: mocks.spawnDockerContainer,
 }));
 
-vi.mock("../../../apps/worker/src/services/service-container", () => ({
+vi.mock("../../../apps/worker/src/sandbox/docker/service-container", () => ({
   ADVANCED_SERVICE_PORT: 8888,
   SERVICE_HOST_ENV: "NOJV_SERVICE_HOST",
   SERVICE_NETWORK_ALIAS: "service",
@@ -38,7 +36,7 @@ vi.mock("../../../apps/worker/src/services/service-container", () => ({
   stopServiceContainer: mocks.stopServiceContainer,
 }));
 
-import { AdvancedModeExecutor } from "../../../apps/worker/src/services/advanced-mode-executor";
+import { AdvancedModeExecutor } from "../../../apps/worker/src/sandbox/docker/advanced-mode-executor";
 
 const request: SandboxRequest = {
   submissionId: "cleanup-submission",

@@ -5,8 +5,8 @@ import {
   type SandboxRequest,
 } from "@nojv/core";
 
-import { resolveSourceFiles } from "./source-files.js";
-import { buildSandboxConfigJson, sourceExtension } from "./sandbox-plan";
+import { resolveSourceFiles } from "../shared/source-files.js";
+import { buildSandboxConfigJson, sourceExtension } from "../shared/sandbox-plan";
 
 export const JOB_DEADLINE_FLOOR_SECONDS = 120;
 const JOB_DEADLINE_CAP_SECONDS = 1_800;

@@ -1,8 +1,8 @@
 import { hostname } from "node:os";
 
-import { createLogger } from "../logger.js";
-import { runDockerCommand } from "./docker-process.js";
-import { DOCKER_MANAGED_LABEL, DOCKER_RUN_LABEL } from "./docker-resource.js";
+import { createLogger } from "../../logger.js";
+import { runDockerCommand } from "./process.js";
+import { DOCKER_MANAGED_LABEL, DOCKER_RUN_LABEL } from "./resource.js";
 
 const logger = createLogger("docker-reconcile");
 type DockerResourceKind = "container" | "network";

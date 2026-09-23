@@ -1,7 +1,7 @@
 import type { V1Container, V1PodSpec, V1ResourceQuota } from "@kubernetes/client-node";
 import { describe, expect, it } from "vitest";
 
-import { findSandboxQuotaViolation } from "../../../apps/worker/src/services/k8s-executor";
+import { findSandboxQuotaViolation } from "../../../apps/worker/src/sandbox/kubernetes/executor";
 
 const container = (name: string, cpu: string, memory = "128Mi"): V1Container => ({
   name,

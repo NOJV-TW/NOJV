@@ -1,7 +1,7 @@
 import type { SandboxRequest } from "@nojv/core";
 import { describe, expect, it } from "vitest";
 
-import { buildTestcaseConfigMapData } from "../../../apps/worker/src/services/k8s-configmaps";
+import { buildTestcaseConfigMapData } from "../../../apps/worker/src/sandbox/kubernetes/configmaps";
 
 function makeRequest(judgeType: SandboxRequest["judgeType"]): SandboxRequest {
   return {

@@ -12,7 +12,7 @@ vi.mock("node:child_process", () => ({
   spawn: mocks.spawn,
 }));
 
-import { runInteractiveMode } from "../../../apps/worker/src/services/interactive-executor";
+import { runInteractiveMode } from "../../../apps/worker/src/sandbox/docker/interactive-executor";
 
 function child() {
   return Object.assign(new EventEmitter(), {

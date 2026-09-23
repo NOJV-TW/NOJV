@@ -8,9 +8,9 @@ import { describe, expect, it } from "vitest";
 
 import type { Language, SandboxRequest } from "@nojv/core";
 
-import { buildRunConfigMapData } from "../../../apps/worker/src/services/k8s-configmaps";
-import { buildPayloadConfigMaps } from "../../../apps/worker/src/services/k8s-payload";
-import { buildJudgePayload } from "../../../apps/worker/src/services/stage-result";
+import { buildRunConfigMapData } from "../../../apps/worker/src/sandbox/kubernetes/configmaps";
+import { buildPayloadConfigMaps } from "../../../apps/worker/src/sandbox/kubernetes/payload";
+import { buildJudgePayload } from "../../../apps/worker/src/sandbox/shared/stage-result";
 import { requireSandboxImage } from "./_sandbox-image";
 
 const run = promisify(execFile);
