@@ -4,6 +4,7 @@
   import * as Dialog from "$lib/components/primitives/ui/dialog";
   import GlassPanel from "$lib/components/primitives/visual/GlassPanel.svelte";
   import { m } from "$lib/paraglide/messages.js";
+  import { waitForPendingSubmissions } from "$lib/services/submission-service";
 
   let { examTitle }: { examTitle: string } = $props();
   let open = $state(false);
@@ -59,9 +60,10 @@
       <form
         method="POST"
         action="?/releaseSession"
-        use:enhance={() => {
+        use:enhance={async () => {
           submitting = true;
           error = "";
+          await waitForPendingSubmissions();
           return async ({ result, update }) => {
             submitting = false;
             if (result.type === "success" || result.type === "redirect") {
