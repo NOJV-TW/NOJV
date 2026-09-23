@@ -3,8 +3,10 @@ import {
   ApplicationFailure,
   continueAsNew,
   isCancellation,
+  patched,
   proxyActivities,
   sleep,
+  TimeoutFailure,
   workflowInfo,
 } from "@temporalio/workflow";
 import { judgeRecoveryDelayMs, type JudgeExecutionInput } from "@nojv/core";
@@ -102,6 +104,13 @@ export async function durableJudgeWorkflow(input: JudgeExecutionInput): Promise<
     } catch (error) {
       if (isCancellation(error)) throw error;
       const cause = error instanceof ActivityFailure ? error.cause : error;
+      if (
+        cause instanceof TimeoutFailure &&
+        cause.timeoutType === "HEARTBEAT" &&
+        cause.lastHeartbeatDetails === undefined &&
+        patched("unstarted-stage-requeue-v1")
+      )
+        continue;
       const type = cause instanceof ApplicationFailure ? cause.type : "infrastructure";
       const capacity = type === "SandboxBackpressureError";
       failures++;
