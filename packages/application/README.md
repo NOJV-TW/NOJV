@@ -16,8 +16,12 @@
 - `src/index.ts` — 對外用 namespace export：`problemDomain`、`contestDomain`、`courseDomain`、`examDomain`、`submissionDomain`、`plagiarismDomain`、`scoring` 等
 - `src/contest/permissions.ts` — `canManageContest`
 - `src/exam/permissions.ts` — `canManageExam`
+- `src/problem/mutations/{records,publishing,judge-config}.ts` — 題目紀錄、發布及評測設定寫入
+- `src/submission/{details,history,judge-context}.ts` — 提交詳情、列表及評測上下文讀取
 - `src/scoring/` — adjustment rule、subtask scoring、scoreboard 計算
 - `src/shared/` — 共用 helper（`ip-utils`、actor 介面、error classes）
+
+修改以上流程時，同步更新對應 feature spec 或架構文件；從 repo 根目錄執行 `tests/unit/application/` 的相關測試，並在跨服務或持久化邊界變更時執行對應 integration suite。
 
 ## 依賴
 

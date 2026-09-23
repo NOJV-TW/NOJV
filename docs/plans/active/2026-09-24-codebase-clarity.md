@@ -82,7 +82,8 @@ The tracked baseline directory totals are reproducible with `git ls-files`; 2,11
 - [x] Align the old `tests/unit/domain/` naming with `packages/application`; update Vitest, coverage, aliases, documentation, scripts, and references as one change.
 - [x] Move worker sandbox files into clear backend/shared folders and drop backend prefixes that become redundant; update imports, docs and Docker bundle behavior. Worker bundling uses the same entry points, and worker typecheck plus 83 affected unit files pass.
 - [x] Split submission queries into detail reads, history, judge context and shared submission context; preserve the package exports and update internal imports to their owning modules.
-- [ ] Split problem mutations and the submission repository by responsibility; review remaining oversized modules from the inventory.
+- [x] Split problem mutations by record lifecycle, publication, judge configuration and storage pointers; split the submission repository into identity, history, statistics and lifecycle responsibilities while preserving its public facade.
+- [ ] Review remaining oversized modules from the inventory and simplify verified repetition or dead code without changing behavior.
 
 ### 4. Simplification and drift prevention
 
@@ -101,13 +102,14 @@ The tracked baseline directory totals are reproducible with `git ls-files`; 2,11
 
 ## Evidence log
 
-| Revision                                   | Check                                              | Result                                                                                                                                     |
-| ------------------------------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `fb9f34e5d4a56c927d04f4a4d0b7327e7a238ca0` | `pnpm install --frozen-lockfile` on Node `24.19.0` | Passed; 15 workspace projects, frozen lockfile.                                                                                            |
-| `fb9f34e5d4a56c927d04f4a4d0b7327e7a238ca0` | `pnpm ci:verify`                                   | Passed; format, repository guards, build, typecheck, lint, 384 unit files / 3,555 passed / 2 skipped, and 43 component files / 105 passed. |
-| `codex/codebase-clarity` after test moves  | `pnpm test:component`                              | Passed; directory glob selected 43 component files / 105 tests.                                                                            |
-| `codex/codebase-clarity` after test moves  | `pnpm test:unit` and `pnpm typecheck:tests`        | Passed; 384 unit files / 3,570 passed / 2 skipped; both test TypeScript projects passed.                                                   |
-| `codex/codebase-clarity` submission split  | application typecheck, test typecheck, four affected suites | Passed; 45 tests and both application/test TypeScript checks.                                                                       |
+| Revision                                           | Check                                                                                    | Result                                                                                                                                     |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `fb9f34e5d4a56c927d04f4a4d0b7327e7a238ca0`         | `pnpm install --frozen-lockfile` on Node `24.19.0`                                       | Passed; 15 workspace projects, frozen lockfile.                                                                                            |
+| `fb9f34e5d4a56c927d04f4a4d0b7327e7a238ca0`         | `pnpm ci:verify`                                                                         | Passed; format, repository guards, build, typecheck, lint, 384 unit files / 3,555 passed / 2 skipped, and 43 component files / 105 passed. |
+| `codex/codebase-clarity` after test moves          | `pnpm test:component`                                                                    | Passed; directory glob selected 43 component files / 105 tests.                                                                            |
+| `codex/codebase-clarity` after test moves          | `pnpm test:unit` and `pnpm typecheck:tests`                                              | Passed; 384 unit files / 3,570 passed / 2 skipped; both test TypeScript projects passed.                                                   |
+| `codex/codebase-clarity` submission split          | application typecheck, test typecheck, four affected suites                              | Passed; 45 tests and both application/test TypeScript checks.                                                                              |
+| `codex/codebase-clarity` mutation/repository split | application and database typechecks, test typecheck, lint, affected write/history suites | Passed; 27 problem-write tests and 6 submission-history tests.                                                                             |
 
 ## Related current guidance
 

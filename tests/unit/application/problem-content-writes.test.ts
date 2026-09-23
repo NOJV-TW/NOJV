@@ -84,8 +84,8 @@ import {
   setProblemInteractor,
   updateAdvancedJudgeConfiguration,
   convertProblemToAdvancedMode,
-  updateProblemRecord,
-} from "../../../packages/application/src/problem/mutations";
+} from "../../../packages/application/src/problem/mutations/judge-config";
+import { updateProblemRecord } from "../../../packages/application/src/problem/mutations/records";
 import { importBundle, exportBundle } from "../../../packages/application/src/problem/bundle";
 import { uploadProblemImage } from "../../../packages/application/src/problem/images";
 

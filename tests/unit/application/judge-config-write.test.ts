@@ -53,7 +53,7 @@ import {
   saveProblemJudgeConfig,
   setProblemChecker,
   setProblemInteractor,
-} from "../../../packages/application/src/problem/mutations";
+} from "../../../packages/application/src/problem/mutations/judge-config";
 
 const actor = {
   userId: "usr_author",
