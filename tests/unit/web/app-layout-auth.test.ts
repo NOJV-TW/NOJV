@@ -29,8 +29,25 @@ describe("(app) layout auth gate", () => {
 
   it("returns the session user (and editor language) when authenticated", () => {
     const result = load(
-      fakeEvent({ session: { id: "s" }, sessionUser: { id: "u1" } }, "python") as never,
+      fakeEvent(
+        { session: { id: "s", userId: "u1" }, sessionUser: { id: "u1" } },
+        "python",
+      ) as never,
     );
     expect(result).toMatchObject({ user: { id: "u1" }, editorLanguage: "python" });
+  });
+
+  it("gives each user a stable 256-bit draft key that differs from other users", () => {
+    const keyFor = (userId: string) =>
+      (
+        load(
+          fakeEvent({ session: { id: "s", userId }, sessionUser: { id: userId } }) as never,
+        ) as {
+          draftCipherKey: string;
+        }
+      ).draftCipherKey;
+    expect(keyFor("u1")).toBe(keyFor("u1"));
+    expect(keyFor("u1")).not.toBe(keyFor("u2"));
+    expect(Buffer.from(keyFor("u1"), "base64")).toHaveLength(32);
   });
 });

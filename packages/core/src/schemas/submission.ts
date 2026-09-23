@@ -52,6 +52,24 @@ const submissionContextSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("virtual"), participationId: participationIdSchema }).strict(),
 ]);
 
+export const codeDraftScopeSchema = z
+  .object({ context: submissionContextSchema, problemId: problemIdentifierSchema })
+  .strict();
+
+export const codeDraftSaveSchema = codeDraftScopeSchema
+  .extend({
+    language: languageSchema,
+    sourceCode: z.string().max(MAX_SUBMISSION_SOURCE_FILE_CHARS).optional(),
+    sourceFiles: z.array(sourceFileSchema).max(MAX_SUBMISSION_SOURCE_FILES).optional(),
+  })
+  .strict()
+  .refine((draft) => (draft.sourceCode === undefined) !== (draft.sourceFiles === undefined), {
+    message: "Provide exactly one of sourceCode or sourceFiles",
+  });
+
+export type CodeDraftScope = z.infer<typeof codeDraftScopeSchema>;
+export type CodeDraftSave = z.infer<typeof codeDraftSaveSchema>;
+
 const submissionDraftFields = {
   language: languageSchema,
   problemId: problemIdentifierSchema,

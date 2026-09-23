@@ -145,6 +145,7 @@ function createRateLimiter(
 
 export const apiRateLimiter = createRateLimiter("rl:api", 300, 60, "local");
 export const writeApiRateLimiter = createRateLimiter("rl:write", 10, 60);
+export const draftApiRateLimiter = createRateLimiter("rl:draft", 60, 60);
 const formActionRateLimiter = createRateLimiter("rl:form", 20, 60);
 export const authRateLimiter = createRateLimiter("rl:auth", 60, 60);
 

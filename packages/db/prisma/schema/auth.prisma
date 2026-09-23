@@ -38,6 +38,7 @@ model User {
   accounts                       Account[]
   schoolVerifications            SchoolVerificationToken[]
   submissions                    Submission[]
+  codeDrafts                     CodeDraft[]
   participations                 Participation[]              @relation("UnifiedParticipationUser")
   authoredProblems               Problem[]                    @relation("ProblemAuthor")
   ownedCourses                   Course[]                     @relation("CourseOwner")

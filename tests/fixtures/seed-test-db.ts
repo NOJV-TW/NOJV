@@ -15,6 +15,7 @@ export const TABLES = [
   "SubmissionFeedbackAuditLog",
   "SubmissionFeedback",
   "SubmissionRejudgeLog",
+  "CodeDraft",
   "Submission",
   "Participation",
   "ScoreOverrideAuditLog",

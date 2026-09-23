@@ -5,6 +5,7 @@ import { ZodError } from "zod";
 import { classifyRequestError } from "./handle-action-error";
 import {
   apiRateLimiter,
+  draftApiRateLimiter,
   registryTokenRateLimiter,
   writeApiRateLimiter,
   type RateLimiterLike,
@@ -105,6 +106,10 @@ export function apiHandler(handler: ApiHandler): ApiHandler {
 
 export function writeApiHandler(handler: ApiHandler): ApiHandler {
   return wrapHandler(handler, writeApiRateLimiter);
+}
+
+export function draftApiHandler(handler: ApiHandler): ApiHandler {
+  return wrapHandler(handler, draftApiRateLimiter);
 }
 
 export function registryTokenApiHandler(handler: ApiHandler): ApiHandler {

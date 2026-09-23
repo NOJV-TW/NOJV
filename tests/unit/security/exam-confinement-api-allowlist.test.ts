@@ -16,6 +16,7 @@ const REVIEWED_GET_ROUTES: Record<string, ExamClassification> = {
   "/api/api-token-access": "exam-safe",
   "/api/auth/[...path]": "exam-safe",
   "/api/clarifications": "exam-safe",
+  "/api/drafts": "exam-scoped",
   "/api/contests/[id]/scoreboard": "exam-confined",
   "/api/contests/[id]/scoreboard/chart": "exam-confined",
   "/api/events/stream": "exam-safe",

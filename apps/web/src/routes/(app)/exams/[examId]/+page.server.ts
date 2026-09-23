@@ -70,6 +70,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     feedback,
     auditEvents,
     viewerSession,
+    submittedProblemIds,
     recentSubmissions,
     examCredentials,
   ] = await Promise.all([
@@ -95,6 +96,9 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     isManager
       ? Promise.resolve(null)
       : examDomain.session.getSessionState(actor.userId, examId),
+    isManager
+      ? Promise.resolve([])
+      : examDomain.session.listSubmittedProblemIds(actor.userId, examId),
     isManager
       ? submissionDomain.listRecentContextSubmissions({
           actor,
@@ -173,6 +177,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     detail,
     hasActiveSession,
     hasSubmitted: viewerSession?.hasSubmitted ?? false,
+    submittedProblemIds,
     matrix,
     isManager,
     activeSessions,

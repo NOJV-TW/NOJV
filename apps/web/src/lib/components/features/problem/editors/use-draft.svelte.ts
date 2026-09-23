@@ -1,7 +1,14 @@
 import { m } from "$lib/paraglide/messages.js";
-import { buildDraftKey, loadDraft, saveDraft, type DraftContext } from "$lib/stores/code-draft";
+import {
+  buildDraftKey,
+  clearDraft,
+  loadDraft,
+  saveDraft,
+  type DraftContext,
+} from "$lib/stores/code-draft";
 import { createDraftAutosaveQueue, type DraftSnapshot } from "$lib/stores/draft-autosave";
 import { toasts } from "$lib/stores/toast";
+import type { ServerDraftSync } from "$lib/services/draft-sync";
 import type { Language } from "@nojv/core";
 
 interface DraftControllerArgs {
@@ -12,13 +19,14 @@ interface DraftControllerArgs {
   currentCode: () => string;
   starterFor: (lang: Language) => string;
   applyCode: (lang: Language, code: string) => void;
+  serverSync: ServerDraftSync;
 }
 
 export interface DraftController {
   readonly enabled: boolean;
   readonly isDirty: boolean;
   readonly currentLastSavedAt: number | null;
-  hydrate: () => void;
+  hydrate: () => Promise<void>;
   save: () => void;
   scheduleAutosave: () => void;
   dispose: () => void;
@@ -40,28 +48,45 @@ export function createDraftController(args: DraftControllerArgs): DraftControlle
   );
   const enabled = $derived(!args.isWorkspaceMode());
   const isDirty = $derived(
-    enabled && args.currentCode() !== (lastSavedCode[currentDraftKey] ?? ""),
+    enabled &&
+      hydratedLanguages[currentDraftKey] === true &&
+      args.currentCode() !== lastSavedCode[currentDraftKey],
   );
   const currentLastSavedAt = $derived(enabled ? (lastSavedAt[currentDraftKey] ?? null) : null);
 
-  function hydrate() {
+  const hydrating = new Set<string>();
+
+  async function hydrate() {
     const ctx = args.draftContext();
     if (args.isWorkspaceMode()) return;
     const lang = args.language();
     const draftKey = buildDraftKey({ context: ctx, problemId: args.problemId, language: lang });
-    if (hydratedLanguages[draftKey]) return;
-    const record = loadDraft({ context: ctx, problemId: args.problemId, language: lang });
+    if (hydratedLanguages[draftKey] || hydrating.has(draftKey)) return;
+    hydrating.add(draftKey);
+    const key = { context: ctx, problemId: args.problemId, language: lang };
+    const [record, serverDrafts] = await Promise.all([loadDraft(key), args.serverSync.load()]);
+    hydrating.delete(draftKey);
     if (record) {
       args.applyCode(lang, record.code);
       lastSavedCode[draftKey] = record.code;
       lastSavedAt[draftKey] = record.savedAt;
-    } else {
-      const starter = args.starterFor(lang);
-      args.applyCode(lang, starter);
-      lastSavedCode[draftKey] = starter;
-      lastSavedAt[draftKey] = null;
+      hydratedLanguages[draftKey] = true;
+      syncToServer({ ...key, code: record.code });
+      return;
     }
+    const serverDraft = serverDrafts?.find((d) => d.language === lang && d.sourceCode !== null);
+    const code = serverDraft?.sourceCode ?? args.starterFor(lang);
+    args.applyCode(lang, code);
+    lastSavedCode[draftKey] = code;
+    lastSavedAt[draftKey] = serverDraft ? Date.parse(serverDraft.updatedAt) : null;
     hydratedLanguages[draftKey] = true;
+  }
+
+  function syncToServer(snapshot: DraftSnapshot) {
+    const draftKey = buildDraftKey(snapshot);
+    args.serverSync.schedule(snapshot.language, { sourceCode: snapshot.code }, () => {
+      if (lastSavedCode[draftKey] === snapshot.code) clearDraft(snapshot);
+    });
   }
 
   function currentSnapshot(): DraftSnapshot | null {
@@ -75,27 +100,28 @@ export function createDraftController(args: DraftControllerArgs): DraftControlle
     };
   }
 
-  function persist(snapshot: DraftSnapshot, notify: boolean) {
+  async function persist(snapshot: DraftSnapshot, notify: boolean) {
     try {
-      const record = saveDraft(snapshot, snapshot.code);
+      const record = await saveDraft(snapshot, snapshot.code);
       const draftKey = buildDraftKey(snapshot);
       lastSavedCode[draftKey] = snapshot.code;
       lastSavedAt[draftKey] = record.savedAt;
+      syncToServer(snapshot);
       if (notify) toasts.success(m.draft_saved());
     } catch {
       if (notify) toasts.error(m.draft_saveFailed());
     }
   }
 
-  const autosave = createDraftAutosaveQueue(AUTOSAVE_DELAY_MS, (snapshot) =>
-    persist(snapshot, false),
-  );
+  const autosave = createDraftAutosaveQueue(AUTOSAVE_DELAY_MS, (snapshot) => {
+    void persist(snapshot, false);
+  });
 
   function save() {
     const snapshot = currentSnapshot();
-    if (!snapshot) return;
+    if (!snapshot || !hydratedLanguages[currentDraftKey]) return;
     autosave.cancel(snapshot);
-    persist(snapshot, true);
+    void persist(snapshot, true).then(() => args.serverSync.flush());
   }
 
   function scheduleAutosave() {
@@ -108,7 +134,7 @@ export function createDraftController(args: DraftControllerArgs): DraftControlle
     const snapshot = currentSnapshot();
     const currentWasPending = snapshot ? autosave.has(snapshot) : false;
     autosave.flushAll();
-    if (snapshot && enabled && isDirty && !currentWasPending) persist(snapshot, false);
+    if (snapshot && enabled && isDirty && !currentWasPending) void persist(snapshot, false);
   }
 
   return {

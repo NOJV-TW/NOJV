@@ -88,7 +88,12 @@
       );
   });
 
-  let draftContext = $derived(draftContextFromSubmissionContext(context));
+  let draftContext = $derived(
+    draftContextFromSubmissionContext(context, {
+      userId: page.data.user?.id ?? "",
+      cipherKey: page.data.draftCipherKey ?? "",
+    }),
+  );
 
   const initialLanguage = (() => {
     const fromSubmission = languageSchema.safeParse(

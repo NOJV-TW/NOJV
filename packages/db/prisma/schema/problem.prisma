@@ -64,6 +64,7 @@ model Problem {
   testcaseSets                  TestcaseSet[]
   workspaceFiles                ProblemWorkspaceFile[]
   submissions                   Submission[]
+  codeDrafts                    CodeDraft[]
   referenceSolutionSubmissionId String?                @unique
   referenceSolutionSubmission   Submission?            @relation("ProblemReferenceSolution", fields: [referenceSolutionSubmissionId], references: [id], onDelete: SetNull)
   contestLinks                  ContestProblem[]

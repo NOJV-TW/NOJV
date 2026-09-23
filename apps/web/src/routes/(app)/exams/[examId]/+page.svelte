@@ -431,7 +431,12 @@
             {/each}
           </div>
         </GlassPanel>
-        <ExamHandInPanel examTitle={detail.title} />
+        <ExamHandInPanel
+          examTitle={detail.title}
+          unsubmitted={detail.problems
+            .filter((p) => !data.submittedProblemIds.includes(p.id))
+            .map((p) => `${p.letter}. ${p.title}`)}
+        />
       {:else}
         <div class="grid gap-6 lg:grid-cols-[1fr_360px]">
           <GlassPanel class="p-7">
