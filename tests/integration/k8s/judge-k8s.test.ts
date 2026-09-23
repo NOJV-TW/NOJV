@@ -14,6 +14,10 @@ import {
   type K8sExecutorConfig,
 } from "../../../apps/worker/src/services/k8s-executor.js";
 import {
+  HARDENED_CONTAINER_SECURITY_CONTEXT,
+  SANDBOX_POD_SECURITY_CONTEXT,
+} from "../../../apps/worker/src/services/k8s-pod-spec.js";
+import {
   assertK8sIntegrationOptIn,
   assertSafeK8sIntegrationTarget,
 } from "../../setup/k8s-integration-target.js";
@@ -286,9 +290,11 @@ describe("K8s judge — standard mode", () => {
             spec: {
               restartPolicy: "Never",
               terminationGracePeriodSeconds: 0,
+              securityContext: SANDBOX_POD_SECURITY_CONTEXT,
               containers: [
                 {
                   name: "holder",
+                  securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
                   image: SANDBOX_IMAGE,
                   imagePullPolicy: "Never",
                   command: ["node", "-e", "setInterval(() => {}, 1000)"],
@@ -417,9 +423,11 @@ describe("K8s judge — standard mode", () => {
             spec: {
               restartPolicy: "Never",
               terminationGracePeriodSeconds: 0,
+              securityContext: SANDBOX_POD_SECURITY_CONTEXT,
               containers: [
                 {
                   name: "holder",
+                  securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
                   image: SANDBOX_IMAGE,
                   imagePullPolicy: "Never",
                   command: ["node", "-e", "setInterval(() => {}, 1000)"],

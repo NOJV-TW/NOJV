@@ -270,6 +270,7 @@ async function main(): Promise<void> {
   }
 }
 
+process.umask(0);
 const initialCpuUsec = readCgroupCpuUsageUsec();
 const initialThrottledUsec = readCgroupThrottledUsec();
 try {
