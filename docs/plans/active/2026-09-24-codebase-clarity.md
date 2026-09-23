@@ -89,7 +89,7 @@ The tracked baseline directory totals are reproducible with `git ls-files`; 2,11
 
 ### 2. Agent navigation, living docs and plan history
 
-- [ ] Verify each architecture, product, feature, security, reliability, deployment, testing and onboarding statement against current code, schema, configuration, and CI.
+- [x] Cross-check the current architecture, product, feature, security, reliability, deployment, testing and onboarding guidance against source, schema, configuration and CI; keep generated route/schema details tied to their source checks.
 - [x] Correct version and workflow drift, including `.nvmrc`/Node, package-manager version, the real CI E2E smoke, current package dependencies and generated schema ownership.
 - [x] Review active plans and classify the six previously flat plans using current paths and mainline commit evidence. Keep unresolved production/release gates active; move only completed or superseded records to `completed/`.
 - [x] Maintain one plan index that explains status, preserves every plan body and relates overlapping or same-name plans without overwriting either.
@@ -120,23 +120,44 @@ The tracked baseline directory totals are reproducible with `git ls-files`; 2,11
 
 ### 6. Full verification, navigation review and PR
 
-- [ ] Run `pnpm ci:verify`, `pnpm lint:helm`, GKE/single-machine Helm rendering and `pnpm db:seed:validate` on the final revision.
-- [ ] Run full unit/component/integration and Playwright suites using only safety-marked local test databases/services. Re-run affected Docker/Kubernetes contracts using an isolated local target when available; do not repoint or modify a shared/production cluster.
-- [ ] Walk the five navigation journeys: add an API, change exam permissions, change judge behavior, change schema, and diagnose deployment. From root entry, reach source, owning rule, tests and decision evidence in at most two documentation hops.
-- [ ] Review every diff for behavior changes, history loss, unreferenced compatibility shims, generated artifacts, dangling references and evidence that overstates verification.
-- [ ] Update this plan with exact final inventory, phase commits and verification output. Create one review PR from `codex/codebase-clarity`; verify that PR head's CI and stop at review.
+- [x] Run `pnpm ci:verify`, `pnpm lint:helm`, GKE/single-machine Helm rendering and `pnpm db:seed:validate` on the final code revision.
+- [ ] Run full unit/component/integration and Playwright suites using only safety-marked local test databases/services. Unit, component and integration suites plus isolated Docker/Kubernetes contracts passed. Playwright stopped before test execution because its setup requested `prisma db push --force-reset`; the safety guard required fresh explicit approval to reset the marked local `nojv_e2e_test` database. No reset or E2E test ran.
+- [x] Walk the five navigation journeys: add an API, change exam permissions, change judge behavior, change schema, and diagnose deployment. The docs task map provides the code entry, owning guidance/spec, and verification command; the plan index provides decision/history lookup.
+- [x] Review the diff for behavior changes, history loss, unreferenced compatibility shims, generated artifacts, dangling references and evidence that overstates verification. Preserve the production recovery gates and applied migrations; no transition re-exports or generated outputs were added.
+- [x] Record the final code revision, phase commits and verification output below.
+- [ ] Create one review PR from `codex/codebase-clarity`; verify its latest head CI and stop at review.
+
+### Phase commits
+
+| Phase                               | Commits                                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------------- |
+| 1. Baseline and inventory           | `9a40698d`                                                                      |
+| 2. Agent navigation and living docs | `5e0b8f11`, `058e0f16`                                                          |
+| 3. Test taxonomy and path moves     | `d2f72718`, `00a0570f`                                                          |
+| 4. Core, application and database   | `dd155083`, `761ba6ba`, `2f5fd281`                                              |
+| 5. Worker and sandbox               | `7446e435`, `6dc2905c`                                                          |
+| 6. Final evidence and review PR     | This final evidence log; pull request verification is tracked on the review PR. |
 
 ## Evidence log
 
-| Revision                                           | Check                                                                                    | Result                                                                                                                                     |
-| -------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `fb9f34e5d4a56c927d04f4a4d0b7327e7a238ca0`         | `pnpm install --frozen-lockfile` on Node `24.19.0`                                       | Passed; 15 workspace projects, frozen lockfile.                                                                                            |
-| `fb9f34e5d4a56c927d04f4a4d0b7327e7a238ca0`         | `pnpm ci:verify`                                                                         | Passed; format, repository guards, build, typecheck, lint, 384 unit files / 3,555 passed / 2 skipped, and 43 component files / 105 passed. |
-| `codex/codebase-clarity` after test moves          | `pnpm test:component`                                                                    | Passed; directory glob selected 43 component files / 105 tests.                                                                            |
-| `codex/codebase-clarity` after test moves          | `pnpm test:unit` and `pnpm typecheck:tests`                                              | Passed; 384 unit files / 3,570 passed / 2 skipped; both test TypeScript projects passed.                                                   |
-| `codex/codebase-clarity` submission split          | application typecheck, test typecheck, four affected suites                              | Passed; 45 tests and both application/test TypeScript checks.                                                                              |
-| `codex/codebase-clarity` mutation/repository split | application and database typechecks, test typecheck, lint, affected write/history suites | Passed; 27 problem-write tests and 6 submission-history tests.                                                                             |
-| `codex/codebase-clarity` Kubernetes split          | worker typecheck/lint, test typecheck, doc drift, 83 affected suites                     | Passed; 696 tests, 2 skipped. No live Docker or Kubernetes cluster was targeted.                                                           |
+| Revision                                           | Check                                                                                    | Result                                                                                                                                                       |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `fb9f34e5d4a56c927d04f4a4d0b7327e7a238ca0`         | `pnpm install --frozen-lockfile` on Node `24.19.0`                                       | Passed; 15 workspace projects, frozen lockfile.                                                                                                              |
+| `fb9f34e5d4a56c927d04f4a4d0b7327e7a238ca0`         | `pnpm ci:verify`                                                                         | Passed; format, repository guards, build, typecheck, lint, 384 unit files / 3,555 passed / 2 skipped, and 43 component files / 105 passed.                   |
+| `codex/codebase-clarity` after test moves          | `pnpm test:component`                                                                    | Passed; directory glob selected 43 component files / 105 tests.                                                                                              |
+| `codex/codebase-clarity` after test moves          | `pnpm test:unit` and `pnpm typecheck:tests`                                              | Passed; 384 unit files / 3,570 passed / 2 skipped; both test TypeScript projects passed.                                                                     |
+| `codex/codebase-clarity` submission split          | application typecheck, test typecheck, four affected suites                              | Passed; 45 tests and both application/test TypeScript checks.                                                                                                |
+| `codex/codebase-clarity` mutation/repository split | application and database typechecks, test typecheck, lint, affected write/history suites | Passed; 27 problem-write tests and 6 submission-history tests.                                                                                               |
+| `codex/codebase-clarity` Kubernetes split          | worker typecheck/lint, test typecheck, doc drift, 83 affected suites                     | Passed; 696 tests, 2 skipped. No live Docker or Kubernetes cluster was targeted.                                                                             |
+| `00a0570f` final code tree                         | `pnpm ci:verify`                                                                         | Passed; format and repository guards, build, package/test typechecks and lint; 384 unit files (3,613 passed, 2 skipped) and 43 component files (105 passed). |
+| `00a0570f` final code tree                         | `pnpm lint:helm`, GKE/single-machine templates, `pnpm db:seed:validate`                  | Passed; Helm lint/render and every seed fixture dry-run.                                                                                                     |
+| `00a0570f` final code tree                         | `pnpm db:validate` and `pnpm db:docs`                                                    | Passed; Prisma validates and generated documentation reports 54 models / 37 enums without an unexpected diff.                                                |
+| `00a0570f` final code tree                         | `pnpm test:integration`                                                                  | Passed; 108 files / 816 tests against isolated local services and marked test data.                                                                          |
+| `00a0570f` final code tree                         | Required Docker sandbox integration                                                      | Passed; 6 files / 100 tests with a worktree-built image under a unique local tag.                                                                            |
+| `00a0570f` final code tree                         | Required local Kubernetes sandbox integration                                            | Passed; 1 file / 15 tests on the dedicated local cluster and temporary namespace, removed and verified absent afterward.                                     |
+| `00a0570f` final code tree                         | Documentation link test and query guard                                                  | Passed; 91 link checks; TypeScript AST guard scanned all 173 application source files.                                                                       |
+| `00a0570f` final code tree                         | `pnpm test:e2e`                                                                          | Not run: Prisma's explicit destructive-action guard blocked the isolated DB reset until fresh user approval. No reset occurred.                              |
+| `00a0570f` final code tree                         | Five documentation navigation journeys                                                   | Passed; source, rules/specs, tests and decision index are reachable through the task map from the root entry.                                                |
 
 ## Related current guidance
 
