@@ -2504,6 +2504,7 @@
   "examHandIn_unsentWarning": "Only code you have already submitted is included. Unsaved or unsubmitted editor changes are not submitted by this action.",
   "examHandIn_keepWorking": "Cancel, keep working",
   "examHandIn_confirmButton": "Confirm and end exam",
+  "examHandIn_pendingTooltip": "Making sure your recent submissions reach the server. The exam ends once they are received.",
   "examCredentials_tab": "Students & login",
   "examCredentials_ipRecords": "Sessions & IP records",
   "examCredentials_title": "Student exam access",

@@ -2504,6 +2504,7 @@
   "examHandIn_unsentWarning": "只會保留已提交的答案。此操作不會替你提交編輯器中尚未提交的程式碼。",
   "examHandIn_keepWorking": "取消，繼續作答",
   "examHandIn_confirmButton": "確認交卷並結束考試",
+  "examHandIn_pendingTooltip": "正在確認剛送出的提交都已送達，完成後才會交卷。",
   "examCredentials_tab": "學生與登入",
   "examCredentials_ipRecords": "作答連線與 IP 紀錄",
   "examCredentials_title": "學生考試登入",
