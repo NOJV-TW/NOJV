@@ -27,13 +27,20 @@ vi.mock("$app/forms", () => ({
 }));
 
 let target: HTMLDivElement;
-let component: ReturnType<typeof mount>;
+let component: ReturnType<typeof mount> | undefined;
 beforeEach(() => {
   target = document.body.appendChild(document.createElement("div"));
   vi.clearAllMocks();
 });
 afterEach(async () => {
-  if (component) await unmount(component);
+  if (component) {
+    await unmount(component);
+    await vi.waitFor(() => {
+      expect(document.body.style.overflow).not.toBe("hidden");
+      expect(document.body.style.pointerEvents).not.toBe("none");
+    });
+    component = undefined;
+  }
   target.remove();
   vi.unstubAllGlobals();
   mocks.enhanced.clear();
