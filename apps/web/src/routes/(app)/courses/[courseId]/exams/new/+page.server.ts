@@ -33,6 +33,7 @@ const examFormSchema = z
   .object({
     courseId: z.string().min(1),
     title: z.string().trim().min(1).max(120),
+    examPasswordEnabled: z.boolean().default(false),
     summary: z.string().trim().max(4_000).default(""),
     problems: activityProblemsSchema.default([]),
     startsAt: z.string().trim().min(1),
@@ -91,6 +92,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       {
         courseId: course.id,
         title: "",
+        examPasswordEnabled: false,
         summary: "",
         problems: [],
         startsAt: "",
@@ -129,6 +131,7 @@ function buildCreatePayload(form: ExamFormData, status: ExamPublishStatus): Exam
     allowedLanguages: form.allowedLanguages,
     courseId: form.courseId,
     endsAt: toIsoOrEmpty(form.allowLateSubmissions ? form.endsAt : form.dueAt),
+    examPasswordEnabled: form.examPasswordEnabled,
     dueAt: toIsoOrEmpty(form.dueAt),
     adjustmentRules: form.allowLateSubmissions && form.latePenalty ? [form.latePenalty] : [],
     ipBindingEnabled: form.ipBindingEnabled,

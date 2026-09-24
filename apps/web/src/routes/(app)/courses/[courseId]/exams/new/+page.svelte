@@ -123,6 +123,26 @@
       </section>
 
       <section class="border-t border-border-subtle pt-8">
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex-1">
+            <div class="flex items-center gap-2">
+              <h2 class="text-title-sm font-medium">{m.examPassword_label()}</h2>
+              <HelpTooltip text={m.examPassword_help()} />
+            </div>
+            <p id="exam-password-description" class="mt-1 text-caption text-muted-foreground">
+              {m.examPassword_createHint()}
+            </p>
+          </div>
+          <ToggleSwitch
+            id="exam-password-enabled"
+            label={m.examPassword_label()}
+            descriptionId="exam-password-description"
+            bind:checked={$form.examPasswordEnabled}
+          />
+        </div>
+      </section>
+
+      <section class="border-t border-border-subtle pt-8">
         <header class="mb-6 flex items-center gap-3">
           <div>
             <h2 class="text-title-sm font-medium">

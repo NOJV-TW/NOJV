@@ -19,7 +19,7 @@ import {
   type ExamCredentialRecord,
   type TransactionClient,
 } from "@nojv/db";
-import { getAppBaseUrl, getMailer, renderEmail } from "@nojv/mailer";
+import { getAppBaseUrl, getMailer, renderEmail, validateMailerConfig } from "@nojv/mailer";
 
 import { lockCourseForStaffMutation } from "../course/problem-library";
 import type { ActorContext } from "../shared/actor-context";
@@ -43,6 +43,7 @@ function encryptionKey(): string {
 
 function eligible(record: ExamCredentialRecord, now: Date): boolean {
   return (
+    record.exam.examPasswordEnabled &&
     record.exam.status === "published" &&
     record.exam.endsAt > now &&
     !record.exam.course.archived &&
@@ -69,7 +70,10 @@ export function isUsable(record: ExamCredentialRecord, now = new Date()): boolea
     eligible(record, now) &&
     record.revokedAt === null &&
     record.passwordHash !== null &&
-    record.exam.startsAt.getTime() - VALID_BEFORE_START_MS <= now.getTime()
+    Math.min(
+      record.exam.startsAt.getTime() - VALID_BEFORE_START_MS,
+      record.exam.examPasswordLockedAt?.getTime() ?? Number.POSITIVE_INFINITY,
+    ) <= now.getTime()
   );
 }
 
@@ -126,6 +130,10 @@ async function issue(
         );
       return;
     }
+    if (!exam.examPasswordEnabled) {
+      if (actor) throw new ValidationError("Temporary exam password sign-in is disabled.");
+      return;
+    }
     if (!actor && exam.startsAt.getTime() - VALID_BEFORE_START_MS > now.getTime()) return;
     const member = await tx.courseMembership.findFirst({
       where: {
@@ -153,7 +161,10 @@ async function issue(
     });
     const emailScheduledFor = new Date(exam.startsAt.getTime() - VALID_BEFORE_START_MS);
     if (!actor && previous?.revokedAt === null) {
-      if (previous.emailScheduledFor.getTime() !== emailScheduledFor.getTime()) {
+      if (
+        !exam.examPasswordLockedAt &&
+        previous.emailScheduledFor.getTime() !== emailScheduledFor.getTime()
+      ) {
         await tx.examCredential.update({
           where: { id: previous.id },
           data: { emailScheduledFor, emailStatus: "pending", emailSentAt: null },
@@ -250,6 +261,7 @@ export async function list(
           user.platformRole !== "student" ||
           user.courseMemberships.length > 0);
       const expired =
+        !exam.examPasswordEnabled ||
         exam.endsAt <= now ||
         exam.status !== "published" ||
         exam.course.archived ||
@@ -258,6 +270,7 @@ export async function list(
       let status: ExamCredentialEntry["status"];
       if (!user?.username) status = "pending_account";
       else if (unavailable) status = "unavailable";
+      else if (!exam.examPasswordEnabled) status = "not_issued";
       else if (exam.endsAt <= now || credential?.revokedAt != null) status = "expired";
       else if (!credential) status = "not_issued";
       else if (credential.emailStatus === "sent") status = "email_sent";
@@ -394,40 +407,97 @@ function escapeHtml(value: string): string {
 
 export async function deliverEmail(payload: unknown) {
   const { credentialId, revision } = examCredentialEmailPayloadSchema.parse(payload);
-  const credential = await examCredentialRepo.findById(credentialId);
+  const initial = await examCredentialRepo.findById(credentialId);
   if (
-    credential?.revision !== revision ||
-    !isUsable(credential) ||
-    !credential.passwordCiphertext
+    initial?.revision !== revision ||
+    !isUsable(initial) ||
+    !initial.passwordCiphertext ||
+    (initial.emailStatus === "sent" && initial.emailSentAt !== null)
   ) {
     return { outcome: "obsolete" };
   }
-  const recipient = credential.user;
-  if (!recipient.emailVerified || recipient.email.endsWith("@deleted.nojv.local")) {
-    await runTransaction((tx) =>
-      tx.examCredential.updateMany({
+  const prepared = await runTransaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Exam" WHERE id = ${initial.examId} FOR UPDATE`;
+    const [exam, credential] = await Promise.all([
+      tx.exam.findUnique({ where: { id: initial.examId } }),
+      examCredentialRepo.withTx(tx).findById(credentialId),
+    ]);
+    if (
+      !exam?.examPasswordEnabled ||
+      credential?.revision !== revision ||
+      credential.passwordCiphertext !== initial.passwordCiphertext ||
+      !isUsable(credential) ||
+      (credential.emailStatus === "sent" && credential.emailSentAt !== null)
+    ) {
+      return { outcome: "obsolete" as const };
+    }
+    if (
+      !credential.user.emailVerified ||
+      credential.user.email.endsWith("@deleted.nojv.local")
+    ) {
+      const outcome = credential.user.emailVerified ? "unavailable" : "unverified";
+      await tx.examCredential.updateMany({
         where: { id: credentialId, revision },
-        data: { emailStatus: recipient.emailVerified ? "unavailable" : "unverified" },
-      }),
-    );
-    return { outcome: "unavailable" };
-  }
+        data: { emailStatus: outcome },
+      });
+      return { outcome: "unavailable" as const };
+    }
+    return { outcome: "ready" as const, credential };
+  });
+  if (prepared.outcome !== "ready") return { outcome: prepared.outcome };
+  const { credential } = prepared;
+  if (!credential.passwordCiphertext) return { outcome: "obsolete" };
+  const mailerConfig = validateMailerConfig();
+  const mailer = getMailer();
+  const recipient = credential.user;
   try {
     const password = await symmetricDecrypt({
       key: encryptionKey(),
       data: credential.passwordCiphertext,
     });
-    const delivery = await getMailer().sendEmail({
+    const html = renderEmail({
+      heading: "考試臨時登入 · Temporary exam sign-in",
+      intro: `<p>考試：${escapeHtml(credential.exam.title)}</p><p>帳號 Username: <strong>${escapeHtml(recipient.username ?? "")}</strong><br>臨時密碼 Temporary password: <strong>${escapeHtml(password)}</strong></p><p>有效期限 Valid until: ${escapeHtml(credential.exam.endsAt.toISOString())}</p>`,
+      action: { url: `${getAppBaseUrl()}/signin`, label: "前往登入 · Sign in" },
+      outro:
+        "此密碼於考試結束後失效。請勿轉寄或分享。<br>This password expires when the exam ends. Do not share it.",
+    });
+    const sendable = await runTransaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Exam" WHERE id = ${credential.examId} FOR UPDATE`;
+      const [exam, latest] = await Promise.all([
+        tx.exam.findUnique({ where: { id: credential.examId } }),
+        examCredentialRepo.withTx(tx).findById(credentialId),
+      ]);
+      if (
+        !exam?.examPasswordEnabled ||
+        latest?.revision !== revision ||
+        latest.passwordCiphertext !== credential.passwordCiphertext ||
+        !isUsable(latest) ||
+        (latest.emailStatus === "sent" && latest.emailSentAt !== null)
+      ) {
+        return "obsolete" as const;
+      }
+      if (!latest.user.emailVerified || latest.user.email.endsWith("@deleted.nojv.local")) {
+        await tx.examCredential.updateMany({
+          where: { id: credentialId, revision },
+          data: { emailStatus: latest.user.emailVerified ? "unavailable" : "unverified" },
+        });
+        return "unavailable" as const;
+      }
+      if (mailerConfig.MAILER_MODE === "smtp") {
+        await tx.exam.update({
+          where: { id: credential.examId },
+          data: { examPasswordLockedAt: exam.examPasswordLockedAt ?? new Date() },
+        });
+      }
+      return "ready" as const;
+    });
+    if (sendable !== "ready") return { outcome: sendable };
+    const delivery = await mailer.sendEmail({
       to: recipient.email,
       messageId: `<exam-credential.${credentialId}.${String(revision)}@nojv.local>`,
       subject: `【NOJV】考試「${credential.exam.title}」臨時登入密碼`,
-      html: renderEmail({
-        heading: "考試臨時登入 · Temporary exam sign-in",
-        intro: `<p>考試：${escapeHtml(credential.exam.title)}</p><p>帳號 Username: <strong>${escapeHtml(recipient.username ?? "")}</strong><br>臨時密碼 Temporary password: <strong>${escapeHtml(password)}</strong></p><p>有效期限 Valid until: ${escapeHtml(credential.exam.endsAt.toISOString())}</p>`,
-        action: { url: `${getAppBaseUrl()}/signin`, label: "前往登入 · Sign in" },
-        outro:
-          "此密碼於考試結束後失效。請勿轉寄或分享。<br>This password expires when the exam ends. Do not share it.",
-      }),
+      html,
     });
     await runTransaction((tx) =>
       tx.examCredential.updateMany({

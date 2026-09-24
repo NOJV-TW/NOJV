@@ -37,6 +37,8 @@ export interface ExamRosterEntry {
 
 export interface ExamDetailManagerFields {
   rawStatus: "draft" | "published";
+  examPasswordEnabled: boolean;
+  examPasswordLockedAt: string | null;
   ipWhitelist: string[];
   allowedLanguages: Language[];
   submitCooldownSec: number;
@@ -236,6 +238,8 @@ export async function getExamDetailPage(
   const manager: ExamDetailManagerFields | null = options.isManager
     ? {
         rawStatus: exam.status,
+        examPasswordEnabled: exam.examPasswordEnabled,
+        examPasswordLockedAt: exam.examPasswordLockedAt?.toISOString() ?? null,
         ipWhitelist: exam.ipWhitelist,
         allowedLanguages: exam.allowedLanguages,
         submitCooldownSec: exam.submitCooldownSec,

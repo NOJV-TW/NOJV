@@ -14,17 +14,23 @@
   let {
     rows,
     startsAt,
+    enabled,
     canEdit,
     canResetIp,
-  }: { rows: ExamCredentialRow[]; startsAt: string; canEdit: boolean; canResetIp: boolean } =
-    $props();
+  }: {
+    rows: ExamCredentialRow[];
+    startsAt: string;
+    enabled: boolean;
+    canEdit: boolean;
+    canResetIp: boolean;
+  } = $props();
   let search = $state("");
   let editing = $state<string | null>(null);
   let password = $state("");
   let busy = $state<string | null>(null);
   let feedback = $state<{ userId: string; text: string; error: boolean } | null>(null);
   $effect(() => {
-    if (!canEdit) {
+    if (!canEdit || !enabled) {
       editing = null;
       password = "";
     }
@@ -70,10 +76,16 @@
       <h2 id="exam-credentials-title" class="text-title font-semibold">
         {m.examCredentials_title()}
       </h2>
-      <p class="mt-1 text-body-sm text-muted-foreground">
-        {m.examCredentials_schedule({ at: issueAt })}
-      </p>
-      <p class="mt-1 text-body-sm text-muted-foreground">{m.examCredentials_editHint()}</p>
+      {#if enabled}
+        <p class="mt-1 text-body-sm text-muted-foreground">
+          {m.examCredentials_schedule({ at: issueAt })}
+        </p>
+        <p class="mt-1 text-body-sm text-muted-foreground">{m.examCredentials_editHint()}</p>
+      {:else}
+        <p role="status" class="mt-1 text-body-sm text-muted-foreground">
+          {m.examPassword_disabled()}
+        </p>
+      {/if}
     </div>
     <div class="w-full sm:w-60">
       <label for="exam-credential-search" class="sr-only">{m.examCredentials_search()}</label>
@@ -176,10 +188,10 @@
                   </form>
                 {:else}
                   <div class="flex flex-wrap items-center gap-2">
-                    {#if row.password}<code class="select-all break-all font-mono"
+                    {#if enabled && row.password}<code class="select-all break-all font-mono"
                         >{row.password}</code
                       >{:else}<span class="text-muted-foreground">—</span>{/if}
-                    {#if canEdit && row.userId && row.status !== "expired" && row.status !== "unavailable"}
+                    {#if enabled && canEdit && row.userId && row.status !== "expired" && row.status !== "unavailable"}
                       <Button
                         size="sm"
                         variant="ghost"

@@ -131,7 +131,7 @@ This describes repository behavior; release and deployment verification are trac
 
 ### Authentication
 
-- General sign-in uses GitHub OAuth or Google OAuth; eligible students also have an expiring exam password ([contract](../specs/exams.md#temporary-exam-sign-in)). The login identity is the set of linked provider accounts; `User.email` never selects or merges an account. A provider identity new to NOJV whose email already belongs to an account is refused at `/signin` with instructions to sign in the existing way and link it under settings.
+- General sign-in uses GitHub OAuth or Google OAuth; students also have an expiring exam password when an exam enables it ([contract](../specs/exams.md#temporary-exam-sign-in)). The login identity is the set of linked provider accounts; `User.email` never selects or merges an account. A provider identity new to NOJV whose email already belongs to an account is refused at `/signin` with instructions to sign in the existing way and link it under settings.
 - `User.email` is fixed to the signup address and receives security codes; it cannot be changed. An optional notification email, edited with the notification preferences, receives everything else and falls back to the login email when unset.
 - First OAuth sign-in requires a unique general username; school-ID formats are reserved and cannot be chosen during onboarding.
 - The username is set once at onboarding and is never editable afterwards; explicit three-school verification in settings is the only path that replaces it, with the verified student ID. Verification records the proving school address and time on the account; the verified state itself still derives from the username. Sign-in, primary-email changes, and linked login providers preserve the username; login only binds pending course memberships to the username already owned by the account.
@@ -167,7 +167,7 @@ This describes repository behavior; release and deployment verification are trac
 - No multi-tenant deployment (single institution per instance)
 - No mobile-native application
 - No mobile workspace — phones can browse the site (statements, scoreboards, lists, editorials, dashboard) but the Monaco editor + submission form are hidden below `md` and replaced by `<MobileWorkspaceBlocker>` directing users to the desktop
-- No public email/password registration or self-serve password reset; admins use seeded credentials. Students use GitHub, Google, or a teacher-managed temporary exam password during its validity window (see [Exams](../specs/exams.md#temporary-exam-sign-in)).
+- No public email/password registration or self-serve password reset; admins use seeded credentials. Students use GitHub, Google, or a temporary exam password when an exam has enabled it (see [Exams](../specs/exams.md#temporary-exam-sign-in)).
 - No CSV user import, no submission zip export
 
 ## Related Docs

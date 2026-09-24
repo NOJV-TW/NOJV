@@ -603,6 +603,7 @@
         <ExamCredentialsPanel
           rows={data.examCredentials}
           startsAt={detail.startsAt}
+          enabled={detail.manager?.examPasswordEnabled ?? false}
           canEdit={liveStatus !== "draft" && !past}
           canResetIp={liveStatus === "running"}
         />

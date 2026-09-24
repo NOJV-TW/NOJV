@@ -29,8 +29,12 @@ export const examCredentialRepo = {
         revokedAt: null,
         user: { username, disabled: false, isSuperAdmin: false, platformRole: "student" },
         exam: {
+          examPasswordEnabled: true,
           status: "published",
-          startsAt: { lte: new Date(now.getTime() + 86_400_000) },
+          OR: [
+            { startsAt: { lte: new Date(now.getTime() + 86_400_000) } },
+            { examPasswordLockedAt: { lte: now } },
+          ],
           endsAt: { gt: now },
           course: { archived: false },
         },
@@ -56,12 +60,14 @@ export const examCredentialRepo = {
       JOIN "User" u ON u.id = m."userId" AND u.disabled = false AND u."isSuperAdmin" = false
         AND u."platformRole" = 'student' AND u.username IS NOT NULL
       LEFT JOIN "ExamCredential" ec ON ec."examId" = e.id AND ec."userId" = u.id
-      WHERE e.status = 'published' AND e."startsAt" <= ${new Date(now.getTime() + 86_400_000)}
+      WHERE e."examPasswordEnabled" = true AND e.status = 'published'
+        AND e."startsAt" <= ${new Date(now.getTime() + 86_400_000)}
         AND e."endsAt" > ${now}
         AND NOT EXISTS (SELECT 1 FROM "CourseMembership" staff WHERE staff."userId" = u.id
           AND staff.status = 'active' AND staff.role IN ('teacher', 'ta'))
         AND (ec.id IS NULL OR ec."revokedAt" IS NOT NULL
-          OR ec."emailScheduledFor" != e."startsAt" - interval '24 hours'
+          OR (e."examPasswordLockedAt" IS NULL
+            AND ec."emailScheduledFor" != e."startsAt" - interval '24 hours')
           OR (ec."emailStatus" = 'unverified' AND u."emailVerified" = true))
       ORDER BY e."startsAt", e.id, u.id LIMIT ${take}
     `;
@@ -74,7 +80,8 @@ export const examCredentialRepo = {
       JOIN "Course" c ON c.id = e."courseId"
       JOIN "User" u ON u.id = ec."userId"
       WHERE ec."revokedAt" IS NULL AND (
-        e.status != 'published' OR e."endsAt" <= ${now} OR c.archived = true
+        e."examPasswordEnabled" = false OR e.status != 'published'
+        OR e."endsAt" <= ${now} OR c.archived = true
         OR u.disabled = true OR u."isSuperAdmin" = true OR u."platformRole" != 'student'
         OR EXISTS (SELECT 1 FROM "CourseMembership" staff WHERE staff."userId" = u.id
           AND staff.status = 'active' AND staff.role IN ('teacher', 'ta'))

@@ -56,6 +56,7 @@ export async function createExamRecord(actor: ActorContext, payload: ExamCreate)
       createdByUserId: actor.userId,
       endsAt,
       dueAt,
+      examPasswordEnabled: payload.examPasswordEnabled,
       ...(payload.adjustmentRules ? { adjustmentRules: payload.adjustmentRules } : {}),
       ipBindingEnabled: payload.ipBindingEnabled,
       ipViolationMode: payload.ipViolationMode,
@@ -108,6 +109,7 @@ export async function updateExamRecord(
       ipWhitelist: payload.ipWhitelist,
       ipViolationMode: payload.ipViolationMode,
       pageLockEnabled: payload.pageLockEnabled,
+      examPasswordEnabled: payload.examPasswordEnabled,
       scoreboardMode: payload.scoreboardMode,
     });
 
@@ -117,6 +119,11 @@ export async function updateExamRecord(
       payload.endsAt === undefined ? exam.endsAt : new Date(payload.endsAt);
     const effectiveDueAt =
       payload.dueAt === undefined ? exam.dueAt : payload.dueAt ? new Date(payload.dueAt) : null;
+    if (exam.examPasswordLockedAt && payload.examPasswordEnabled === false) {
+      throw new ValidationError(
+        "Temporary exam password sign-in cannot be disabled after emails start.",
+      );
+    }
     const currentRules = adjustmentRulesSchema.parse(exam.adjustmentRules ?? []);
     const effectiveRules = adjustmentRulesSchema.parse(payload.adjustmentRules ?? currentRules);
     assertLateSubmissionPolicy(
@@ -166,6 +173,22 @@ export async function updateExamRecord(
     }
     if (effectiveEndsAt.getTime() !== exam.endsAt.getTime()) {
       updateData.endsAt = effectiveEndsAt;
+    }
+    if (exam.examPasswordEnabled && payload.examPasswordEnabled === false) {
+      await tx.session.deleteMany({
+        where: {
+          examPassword: true,
+          examCredential: { credential: { examId: exam.id } },
+        },
+      });
+      await tx.examCredential.updateMany({
+        where: { examId: exam.id, revokedAt: null },
+        data: {
+          revokedAt: now,
+          passwordHash: null,
+          passwordCiphertext: null,
+        },
+      });
     }
     assertEffectiveTimeWindow({
       start: effectiveStartsAt,
