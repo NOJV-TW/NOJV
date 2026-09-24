@@ -11,7 +11,7 @@ const { findMembership, findStudents, findOverrides, grouped, assignmentDetail, 
   }));
 
 vi.mock("@nojv/db", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@nojv/db")>()),
+  ...(await importOriginal()),
   gradingRepo: { countPendingExam: vi.fn().mockResolvedValue(0) },
   courseMembershipRepo: { findByComposite: findMembership, findStudents },
   scoreOverrideRepo: { findAllByContext: findOverrides },
@@ -102,6 +102,25 @@ describe("student grade ownership after roster linking", () => {
       attempts: 0,
     });
     expect(grouped).toHaveBeenCalledWith(expect.objectContaining({ userId: "real_user" }));
+  });
+
+  it("keeps a zero override marked attempted when the student has submissions", async () => {
+    findOverrides.mockResolvedValue([
+      { courseMembershipId: "mem_linked", userId: null, problemId: "p1", overrideScore: 0 },
+    ]);
+    grouped.mockResolvedValue([{ problemId: "p1", _max: { score: 40 }, _count: { id: 1 } }]);
+
+    const detail = await courseDomain.getAssignmentDetail("c1", "a1", {
+      viewerUserId: "real_user",
+      isManager: false,
+    });
+
+    expect(detail.problems[0].myStatus).toMatchObject({
+      bestScore: 0,
+      attempts: 1,
+      state: "attempted",
+      overridden: true,
+    });
   });
 
   it("does not treat an account id as a membership id when no enrollment exists", async () => {
