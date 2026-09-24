@@ -52,7 +52,7 @@ async function createFixture() {
   const admin = await createTestUser({ platformRole: "admin" });
   const course = await createTestCourse();
   const problem = await createTestProblem({ authorId: owner.id });
-  const examA = await createTestExam({ courseId: course.id });
+  const examA = await createTestExam({ courseId: course.id, pageLockEnabled: true });
   const examB = await createTestExam({ courseId: course.id });
   const contest = await createTestContest();
   const assignment = await testPrisma.assessment.create({
@@ -348,7 +348,7 @@ describe("numbered history snapshots against the real database", () => {
       const teacher = await createTestUser({ platformRole: "teacher" });
       const student = await createTestUser();
       const course = await createTestCourse({ ownerId: teacher.id });
-      const exam = await createTestExam({ courseId: course.id });
+      const exam = await createTestExam({ courseId: course.id, pageLockEnabled: true });
       const otherExam = await createTestExam({ courseId: course.id });
       const problem = await createTestProblem({ authorId: teacher.id });
       const createdAt = new Date(Date.now() - 60_000);
