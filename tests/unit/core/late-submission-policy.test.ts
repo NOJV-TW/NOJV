@@ -71,6 +71,7 @@ describe("late submission settings", () => {
       dueAt,
     };
     expect(examCreateSchema.safeParse(exam).success).toBe(true);
+    expect(examCreateSchema.parse(exam).examPasswordEnabled).toBe(false);
     expect(examCreateSchema.safeParse({ ...exam, dueAt: assignment.opensAt }).success).toBe(
       false,
     );

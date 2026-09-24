@@ -27,13 +27,20 @@ vi.mock("$app/forms", () => ({
 }));
 
 let target: HTMLDivElement;
-let component: ReturnType<typeof mount>;
+let component: ReturnType<typeof mount> | undefined;
 beforeEach(() => {
   target = document.body.appendChild(document.createElement("div"));
   vi.clearAllMocks();
 });
 afterEach(async () => {
-  if (component) await unmount(component);
+  if (component) {
+    await unmount(component);
+    await vi.waitFor(() => {
+      expect(document.body.style.overflow).not.toBe("hidden");
+      expect(document.body.style.pointerEvents).not.toBe("none");
+    });
+    component = undefined;
+  }
   target.remove();
   vi.unstubAllGlobals();
   mocks.enhanced.clear();
@@ -146,7 +153,13 @@ const roster = [
 it("shows roster credentials and IP reset even without an active session or violation", async () => {
   component = mount(ExamCredentialsPanel, {
     target,
-    props: { rows: roster, startsAt: "2030-01-02T00:00:00Z", canEdit: true, canResetIp: true },
+    props: {
+      rows: roster,
+      startsAt: "2030-01-02T00:00:00Z",
+      enabled: true,
+      canEdit: true,
+      canResetIp: true,
+    },
   });
   await tick();
   expect(target.textContent).toContain("ExampleOnlyPass123");
@@ -237,6 +250,7 @@ it("keeps password management available when only email delivery is unavailable"
     props: {
       rows: [{ ...roster[0]!, status: "email_unavailable" }],
       startsAt: "2030-01-02T00:00:00Z",
+      enabled: true,
       canEdit: true,
       canResetIp: false,
     },
@@ -249,4 +263,22 @@ it("keeps password management available when only email delivery is unavailable"
       (button) => button.textContent?.trim() === m.examCredentials_edit(),
     ),
   ).toBe(true);
+});
+
+it("hides passwords and editing while exam password sign-in is disabled", async () => {
+  component = mount(ExamCredentialsPanel, {
+    target,
+    props: {
+      rows: roster,
+      startsAt: "2030-01-02T00:00:00Z",
+      enabled: false,
+      canEdit: true,
+      canResetIp: true,
+    },
+  });
+  await tick();
+  expect(target.textContent).toContain(m.examPassword_disabled());
+  expect(target.textContent).not.toContain("ExampleOnlyPass123");
+  expect(target.textContent).not.toContain(m.examCredentials_edit());
+  expect(target.querySelectorAll('form[action="?/resetStudentIpBinding"]')).toHaveLength(1);
 });

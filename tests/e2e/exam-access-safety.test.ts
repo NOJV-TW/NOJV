@@ -79,11 +79,74 @@ test("teacher changes exam password and student signs in through the new login f
         status: "published",
         startsAt: new Date(Date.now() + 3_600_000),
         endsAt: new Date(Date.now() + 7_200_000),
+        examPasswordEnabled: true,
         pageLockEnabled: false,
         ipBindingEnabled: false,
         ipWhitelistEnabled: false,
       },
     });
+
+    await teacherPage.goto(`/courses/${id}/exams/new`);
+    await expect(
+      teacherPage.getByRole("heading", { name: "Enable temporary password sign-in" }),
+    ).toBeVisible();
+    await teacherPage.waitForTimeout(3000);
+    const createSwitch = teacherPage.getByRole("switch", {
+      name: "Enable temporary password sign-in",
+    });
+    await expect(createSwitch).not.toBeChecked();
+    const createHelp = teacherPage.getByRole("button", { name: /When enabled/ });
+    await createSwitch.focus();
+    await createSwitch.press("Shift+Tab");
+    await expect(createHelp).toBeFocused();
+    await expect(createHelp).toHaveAttribute("aria-label", /24 hours before the exam/);
+    await teacherPage.setViewportSize({ width: 390, height: 1000 });
+    await expect
+      .poll(() =>
+        teacherPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      )
+      .toBe(true);
+    await capture(teacherPage, "exam-create");
+
+    await teacherPage.goto(`/exams/${id}?tab=settings`);
+    await expect(teacherPage.getByRole("heading", { name: "Exam settings" })).toBeVisible();
+    await teacherPage.waitForTimeout(3000);
+    const settingsSwitch = teacherPage.locator("#settings-exam-password-enabled");
+    await expect(settingsSwitch).toBeChecked();
+    await expect(teacherPage.locator("#settings-exam-password-description")).toContainText(
+      "Sent 24 hours before the exam",
+    );
+    await teacherPage.locator('label[for="settings-exam-password-enabled"]').click();
+    await expect(settingsSwitch).not.toBeChecked();
+    await teacherPage.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(teacherPage.getByText("Saved.", { exact: true })).toBeVisible();
+
+    await teacherPage.goto(`/exams/${id}?tab=credentials`);
+    await expect(teacherPage.getByRole("status")).toContainText(
+      "Temporary password sign-in is disabled for this exam.",
+    );
+    await teacherPage.goto(`/exams/${id}?tab=settings`);
+    await expect(settingsSwitch).not.toBeChecked();
+    await settingsSwitch.focus();
+    await settingsSwitch.press("Space");
+    await expect(settingsSwitch).toBeChecked();
+    await teacherPage.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(teacherPage.getByText("Saved.", { exact: true })).toBeVisible();
+    await db.exam.update({ where: { id }, data: { examPasswordLockedAt: new Date() } });
+    await teacherPage.goto(`/exams/${id}?tab=settings`);
+    await expect(teacherPage.locator("#settings-exam-password-description")).toContainText(
+      "Temporary password delivery has started. This cannot be turned off.",
+    );
+    await expect(settingsSwitch).toBeChecked();
+    await expect(settingsSwitch).toBeDisabled();
+    await teacherPage.setViewportSize({ width: 390, height: 1000 });
+    await expect
+      .poll(() =>
+        teacherPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      )
+      .toBe(true);
+    await capture(teacherPage, "exam-settings");
+
     const ready = teacherPage.waitForResponse(
       (response) =>
         new URL(response.url()).pathname === "/api/submissions/pending" && response.ok(),
@@ -107,6 +170,7 @@ test("teacher changes exam password and student signs in through the new login f
     }
     await capture(teacherPage, "credentials");
     await loginPage.goto("/signin");
+    await loginPage.waitForLoadState("networkidle");
     await loginPage
       .getByRole("button", { name: "Continue with password", exact: true })
       .click();

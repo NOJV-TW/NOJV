@@ -17,6 +17,7 @@ export const examPublishStatusSchema = z.enum(examPublishStatuses);
 export type ExamPublishStatus = z.infer<typeof examPublishStatusSchema>;
 
 const examCreateBaseSchema = z.object({
+  examPasswordEnabled: z.boolean().default(false),
   gradingRevision: z.number().int().nonnegative().optional(),
   allowedLanguages: z.array(languageSchema).max(8).default([]),
   courseId: z.string().trim().min(1),
@@ -81,6 +82,7 @@ export const examUpdateSchema = examCreateBaseSchema
   .partial()
   .extend({
     allowedLanguages: examCreateBaseSchema.shape.allowedLanguages.unwrap().optional(),
+    examPasswordEnabled: examCreateBaseSchema.shape.examPasswordEnabled.unwrap().optional(),
     pageLockEnabled: examCreateBaseSchema.shape.pageLockEnabled.unwrap().optional(),
     scoreboardMode: examCreateBaseSchema.shape.scoreboardMode.unwrap().optional(),
     scoringMode: examCreateBaseSchema.shape.scoringMode.unwrap().optional(),
@@ -112,6 +114,7 @@ export const examSettingsFormSchema = z
     title: z.string().trim().max(120).default(""),
     summary: z.string().trim().max(4_000).default(""),
     startsAt: z.string().default(""),
+    examPasswordEnabled: z.boolean().default(false),
     endsAt: z.string().default(""),
     dueAt: z.string().default(""),
     allowLateSubmissions: z.boolean().default(false),

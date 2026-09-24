@@ -150,6 +150,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       ? await superValidate<ExamSettingsForm, FormMessage>(
           {
             title: detail.title,
+            examPasswordEnabled: detail.manager.examPasswordEnabled,
             summary: detail.summary,
             startsAt: toDateTimeLocal(detail.startsAt),
             endsAt: toDateTimeLocal(detail.endsAt),
@@ -315,6 +316,7 @@ export const actions = {
 
     const parsed = examUpdateSchema.safeParse({
       title: form.data.title,
+      examPasswordEnabled: form.data.examPasswordEnabled,
       summary: form.data.summary ? form.data.summary : undefined,
       startsAt: toIsoOrUndefined(form.data.startsAt),
       endsAt: toIsoOrUndefined(

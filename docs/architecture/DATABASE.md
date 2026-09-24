@@ -268,6 +268,7 @@ Course-embedded proctored assessment (`courseId` NOT NULL). This is where the pr
 - IP whitelist (`ipWhitelistEnabled` + `ipWhitelist`) — empty whitelist while enabled = deny all (fail-closed)
 - IP binding (`ipBindingEnabled`) — locks the student to `Participation.ipPin` (the `type = exam` row)
 - `IpViolationMode` (block / notify) controls enforcement strength
+- Temporary password sign-in (`examPasswordEnabled`) defaults off; the first actual SMTP attempt records `examPasswordLockedAt` permanently. Disabling it before then revokes the exam's credentials and temporary sessions; the migration preserves existing exams as enabled and locks exams with existing credentials.
 - `ActiveExamSession` + `ExamSessionEvent` drive the Phase 4 exam lock in `hooks.server.ts`
 - `ScoreboardMode`, `submitCooldownSec`, `allowedLanguages` — same shape as Contest
 

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { examDomain, ForbiddenError } from "@nojv/application";
 import { durableWorkRepo } from "@nojv/db";
 import {
@@ -20,9 +20,22 @@ const password = "SyntheticExamPassword24";
 beforeEach(() => {
   vi.clearAllMocks();
   sendEmail.mockResolvedValue("accepted");
+  vi.stubEnv("MAILER_MODE", "smtp");
+  vi.stubEnv("SMTP_HOST", "localhost");
+  vi.stubEnv("SMTP_PORT", "2525");
+  vi.stubEnv("SMTP_USER", "test");
+  vi.stubEnv("SMTP_PASS", "test-only-password");
+  vi.stubEnv("SMTP_FROM", "noreply@example.test");
+  vi.stubEnv("APP_BASE_URL", "https://example.test");
 });
 
-async function classroom(startsInMs = 60_000, emailVerified = true) {
+afterEach(() => vi.unstubAllEnvs());
+
+async function classroom(
+  startsInMs = 60_000,
+  emailVerified = true,
+  examPasswordEnabled = true,
+) {
   const teacher = await createTestUser({ platformRole: "teacher" });
   const student = await createTestUser({ emailVerified });
   const course = await createTestCourse({ ownerId: teacher.id });
@@ -36,6 +49,7 @@ async function classroom(startsInMs = 60_000, emailVerified = true) {
     courseId: course.id,
     startsAt: new Date(Date.now() + startsInMs),
     endsAt: new Date(Date.now() + startsInMs + 3_600_000),
+    examPasswordEnabled,
   });
   const actor = {
     userId: teacher.id,
@@ -76,6 +90,108 @@ async function signInSession(studentId: string, examId: string) {
 }
 
 describe("exam credential lifecycle", () => {
+  it("defaults disabled, then catches up when enabled during the delivery window", async () => {
+    const { actor, student, exam } = await classroom(60_000, true, false);
+    await expect(examDomain.credentials.reconcile()).resolves.toMatchObject({ issued: 0 });
+    expect(await testPrisma.examCredential.count({ where: { examId: exam.id } })).toBe(0);
+    await expect(
+      examDomain.credentials.setPassword(actor, exam.id, student.id, password),
+    ).rejects.toThrow("disabled");
+
+    await examDomain.updateExamRecord(actor, exam.id, { examPasswordEnabled: true });
+    await expect(examDomain.credentials.reconcile()).resolves.toMatchObject({ issued: 1 });
+    expect(await credential(exam.id, student.id)).toMatchObject({
+      emailStatus: "pending",
+      passwordHash: expect.any(String),
+    });
+    const [work] = await testPrisma.durableWork.findMany({
+      where: { kind: examDomain.credentials.EMAIL_WORK_KIND },
+    });
+    expect(work?.availableAt.getTime()).toBe(exam.startsAt.getTime() - 86_400_000);
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("does not issue passwords for draft exams", async () => {
+    const { exam } = await classroom(60_000, true, true);
+    await testPrisma.exam.update({ where: { id: exam.id }, data: { status: "draft" } });
+
+    await expect(examDomain.credentials.reconcile()).resolves.toMatchObject({ issued: 0 });
+    expect(await testPrisma.examCredential.count({ where: { examId: exam.id } })).toBe(0);
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("closes first without sending when disabling before the delivery starts", async () => {
+    const { actor, student, exam } = await classroom();
+    await examDomain.credentials.setPassword(actor, exam.id, student.id, password);
+    const row = await credential(exam.id, student.id);
+    const session = await signInSession(student.id, exam.id);
+
+    await examDomain.updateExamRecord(actor, exam.id, { examPasswordEnabled: false });
+    await expect(
+      examDomain.credentials.deliverEmail({ credentialId: row.id, revision: row.revision }),
+    ).resolves.toEqual({ outcome: "obsolete" });
+    expect(await testPrisma.session.findUnique({ where: { id: session.id } })).toBeNull();
+    expect(await credential(exam.id, student.id)).toMatchObject({
+      passwordHash: null,
+      passwordCiphertext: null,
+      revokedAt: expect.any(Date),
+    });
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("locks before calling SMTP and keeps the lock after transport failure or password rotation", async () => {
+    const { actor, student, exam } = await classroom();
+    await examDomain.credentials.setPassword(actor, exam.id, student.id, password);
+    const row = await credential(exam.id, student.id);
+    sendEmail.mockRejectedValueOnce(new Error("ambiguous SMTP timeout"));
+
+    await expect(
+      examDomain.credentials.deliverEmail({ credentialId: row.id, revision: row.revision }),
+    ).rejects.toThrow("Exam credential email delivery failed.");
+    expect(
+      (await testPrisma.exam.findUniqueOrThrow({ where: { id: exam.id } }))
+        .examPasswordLockedAt,
+    ).toBeInstanceOf(Date);
+    expect(await credential(exam.id, student.id)).toMatchObject({ emailStatus: "failed" });
+    await expect(
+      examDomain.updateExamRecord(actor, exam.id, { examPasswordEnabled: false }),
+    ).rejects.toThrow("cannot be disabled");
+
+    await expect(
+      examDomain.credentials.setPassword(
+        actor,
+        exam.id,
+        student.id,
+        "SyntheticRotatedPassword24",
+      ),
+    ).resolves.toBeUndefined();
+    expect(
+      (await testPrisma.exam.findUniqueOrThrow({ where: { id: exam.id } }))
+        .examPasswordLockedAt,
+    ).toBeInstanceOf(Date);
+  });
+
+  it("serializes concurrent delivery and disable requests on the exam row", async () => {
+    const { actor, student, exam } = await classroom();
+    await examDomain.credentials.setPassword(actor, exam.id, student.id, password);
+    const row = await credential(exam.id, student.id);
+
+    const [delivery, disabling] = await Promise.allSettled([
+      examDomain.credentials.deliverEmail({ credentialId: row.id, revision: row.revision }),
+      examDomain.updateExamRecord(actor, exam.id, { examPasswordEnabled: false }),
+    ]);
+    const locked = (await testPrisma.exam.findUniqueOrThrow({ where: { id: exam.id } }))
+      .examPasswordLockedAt;
+    if (locked) {
+      expect(delivery).toMatchObject({ status: "fulfilled", value: { outcome: "accepted" } });
+      expect(disabling.status).toBe("rejected");
+    } else {
+      expect(delivery).toMatchObject({ status: "fulfilled", value: { outcome: "obsolete" } });
+      expect(disabling.status).toBe("fulfilled");
+      expect(sendEmail).not.toHaveBeenCalled();
+    }
+  });
+
   it("enforces secret cleanup and positive revisions in PostgreSQL", async () => {
     const { actor, student, exam } = await classroom();
     await examDomain.credentials.setPassword(actor, exam.id, student.id, password);
@@ -158,6 +274,23 @@ describe("exam credential lifecycle", () => {
     ).toBe(2);
   });
 
+  it("keeps a sent password usable when the exam is delayed beyond the 24-hour window", async () => {
+    const { student, exam, actor } = await classroom();
+    await examDomain.credentials.setPassword(actor, exam.id, student.id, password);
+    const row = await credential(exam.id, student.id);
+    await examDomain.credentials.deliverEmail({ credentialId: row.id, revision: row.revision });
+
+    const startsAt = new Date(Date.now() + 5 * 86_400_000);
+    await testPrisma.exam.update({
+      where: { id: exam.id },
+      data: { startsAt, endsAt: new Date(startsAt.getTime() + 3_600_000) },
+    });
+
+    expect(
+      await examDomain.credentials.authenticate(student.username!, password),
+    ).toMatchObject({ examId: exam.id });
+  });
+
   it("uses the security mailbox, suppresses stale revisions, and never logs raw transport errors", async () => {
     const { actor, student, exam } = await classroom();
     await examDomain.credentials.setPassword(actor, exam.id, student.id, password);
@@ -186,17 +319,24 @@ describe("exam credential lifecycle", () => {
         html: expect.stringContaining("SyntheticReplacedPassword24"),
       }),
     );
-    sendEmail.mockRejectedValue(new Error(`unsafe transport diagnostic ${password}`));
+    sendEmail.mockRejectedValueOnce(new Error(`unsafe transport diagnostic ${password}`));
+    await examDomain.credentials.setPassword(
+      actor,
+      exam.id,
+      student.id,
+      "SyntheticRetryPassword24",
+    );
+    const retry = await credential(exam.id, student.id);
     await expect(
       examDomain.credentials.deliverEmail({
-        credentialId: current.id,
-        revision: current.revision,
+        credentialId: retry.id,
+        revision: retry.revision,
       }),
     ).rejects.toThrow("Exam credential email delivery failed.");
     expect((await credential(exam.id, student.id)).emailStatus).toBe("failed");
   });
 
-  it("reenqueues a processed schedule after the start time changes A to B to A", async () => {
+  it("does not resend a processed email when the start time changes A to B to A", async () => {
     const { actor, student, exam } = await classroom(3_600_000);
     await examDomain.credentials.setPassword(actor, exam.id, student.id, password);
     const initial = await credential(exam.id, student.id);
@@ -222,19 +362,16 @@ describe("exam credential lifecycle", () => {
       where: { id: exam.id },
       data: { startsAt: new Date(exam.startsAt.getTime() + 60_000) },
     });
-    await examDomain.credentials.reconcile();
+    await expect(examDomain.credentials.reconcile()).resolves.toMatchObject({ issued: 0 });
     await testPrisma.exam.update({ where: { id: exam.id }, data: { startsAt: exam.startsAt } });
-    await expect(examDomain.credentials.reconcile()).resolves.toMatchObject({ issued: 1 });
+    await expect(examDomain.credentials.reconcile()).resolves.toMatchObject({ issued: 0 });
     await expect(examDomain.credentials.reconcile()).resolves.toMatchObject({ issued: 0 });
     const work = await testPrisma.durableWork.findMany({
       where: { kind: examDomain.credentials.EMAIL_WORK_KIND },
     });
-    expect(work).toHaveLength(3);
-    expect(new Set(work.map((row) => row.dedupeKey)).size).toBe(3);
-    expect(
-      work.filter((row) => row.availableAt.getTime() === exam.startsAt.getTime() - 86_400_000),
-    ).toHaveLength(2);
+    expect(work).toHaveLength(1);
     expect((await credential(exam.id, student.id)).revision).toBe(initial.revision);
+    expect(sendEmail).toHaveBeenCalledTimes(1);
   });
 
   it("compares the complete Unicode password beyond bcrypt's 72-byte boundary", async () => {
@@ -264,6 +401,10 @@ describe("exam credential lifecycle", () => {
     await testPrisma.user.update({ where: { id: student.id }, data: { emailVerified: true } });
     await examDomain.credentials.reconcile();
     expect((await credential(exam.id, student.id)).revision).toBe(before.revision);
+    expect(
+      (await testPrisma.exam.findUniqueOrThrow({ where: { id: exam.id } }))
+        .examPasswordLockedAt,
+    ).toBeNull();
     expect(await testPrisma.session.findUnique({ where: { id: session.id } })).not.toBeNull();
     expect(
       await testPrisma.durableWork.count({
@@ -333,6 +474,7 @@ describe("exam credential lifecycle", () => {
       courseId: course.id,
       startsAt: exam.startsAt,
       endsAt: exam.endsAt,
+      examPasswordEnabled: true,
     });
     await examDomain.credentials.setPassword(actor, exam.id, student.id, password);
     await examDomain.credentials.setPassword(

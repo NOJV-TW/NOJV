@@ -39,6 +39,7 @@ async function classroom() {
     courseId: course.id,
     startsAt: new Date(Date.now() + 60_000),
     endsAt: new Date(Date.now() + 3_600_000),
+    examPasswordEnabled: true,
   });
   const actor = {
     userId: teacher.id,

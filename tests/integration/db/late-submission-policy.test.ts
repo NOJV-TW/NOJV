@@ -241,8 +241,10 @@ describe("shared late submission policy", () => {
         dueAt: due.toISOString(),
         endsAt: end.toISOString(),
         adjustmentRules: [rule],
+        examPasswordEnabled: true,
       }),
     );
+    expect(exam.examPasswordEnabled).toBe(true);
     expect(exam.dueAt).toEqual(due);
     expect(exam.adjustmentRules).toEqual([rule]);
     const copied = await courseDomain.copyCourse(
@@ -257,6 +259,9 @@ describe("shared late submission policy", () => {
     expect(copiedExam.dueAt).toEqual(due);
     expect(copiedExam.endsAt).toEqual(end);
     expect(copiedExam.adjustmentRules).toEqual([rule]);
+    expect(copiedExam.examPasswordEnabled).toBe(false);
+    expect(copiedExam.examPasswordLockedAt).toBeNull();
+    expect(await testPrisma.examCredential.count({ where: { examId: copiedExam.id } })).toBe(0);
     await expect(
       examDomain.updateExamRecord(actor(teacher), exam.id, {
         dueAt: new Date(end.getTime() + 1).toISOString(),

@@ -23,6 +23,8 @@
     serializeDateTimeFields,
   } from "$lib/utils/datetime-form";
   import { m } from "$lib/paraglide/messages.js";
+  import HelpTooltip from "$lib/components/primitives/ui/HelpTooltip.svelte";
+  import ToggleSwitch from "$lib/components/primitives/ui/ToggleSwitch.svelte";
   import type { FormMessage } from "$lib/types/form-message";
   import ExamBasicSettings from "./settings/ExamBasicSettings.svelte";
   import ExamTimelineConfig from "./settings/ExamTimelineConfig.svelte";
@@ -89,6 +91,7 @@
   const editableBasics = $derived(isDraft || isUpcoming);
   const editableProctoring = $derived(isDraft || isUpcoming || isRunning);
   const editableScoring = $derived(isDraft || isUpcoming);
+  const editableExamPassword = $derived(!isEnded && !detail.manager?.examPasswordLockedAt);
 
   function lockHint(): string | null {
     if (isRunning) return m.examDetail_settingsLockHintRunning();
@@ -147,6 +150,36 @@
     </section>
 
     <ExamProblemConfig {form} {errors} editable={editableScoring} />
+
+    <section
+      class="rounded-xl border border-border-subtle bg-[color:var(--color-panel)] p-4 shadow-rest"
+    >
+      <div class="flex items-start justify-between gap-4">
+        <div class="flex-1">
+          <div class="flex items-center gap-2">
+            <h3 class="text-title-sm font-medium">{m.examPassword_label()}</h3>
+            <HelpTooltip text={m.examPassword_help()} />
+          </div>
+          <p
+            id="settings-exam-password-description"
+            class="mt-1 text-caption text-muted-foreground"
+          >
+            {#if detail.manager?.examPasswordLockedAt}
+              {m.examPassword_locked()}
+            {:else}
+              {m.examPassword_settingsHint()}
+            {/if}
+          </p>
+        </div>
+        <ToggleSwitch
+          id="settings-exam-password-enabled"
+          label={m.examPassword_label()}
+          descriptionId="settings-exam-password-description"
+          disabled={!editableExamPassword}
+          bind:checked={$form.examPasswordEnabled}
+        />
+      </div>
+    </section>
 
     <ExamProctoringConfig {form} editable={editableProctoring} />
 

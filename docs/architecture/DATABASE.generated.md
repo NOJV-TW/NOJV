@@ -405,6 +405,8 @@ Indexes & constraints: `@@unique([contestId, problemId])`, `@@unique([contestId,
 | `scheduleRevision` | `Int` | `@default(0)` |
 | `timerFingerprint` | `String` | `@default(dbgenerated())` |
 | `status` | `ExamStatus` | `@default(draft)` |
+| `examPasswordEnabled` | `Boolean` | `@default(false)` |
+| `examPasswordLockedAt` | `DateTime?` | — |
 | `scoringMode` | `ExamScoringMode` | `@default(point_sum)` |
 | `scoreboardMode` | `ScoreboardMode` | `@default(hidden)` |
 | `submitCooldownSec` | `Int` | `@default(0)` |
