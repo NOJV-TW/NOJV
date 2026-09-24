@@ -44,7 +44,11 @@ describe("submission history database scopes", () => {
       sampleOnly: false,
       isReferenceSolution: false,
       OR: [
-        { user: { activeExamSessions: { none: { endedAt: null } } } },
+        {
+          user: {
+            activeExamSessions: { none: { endedAt: null, exam: { pageLockEnabled: true } } },
+          },
+        },
         { exam: { activeSessions: { some: { userId: "owner", endedAt: null } } } },
       ],
     });

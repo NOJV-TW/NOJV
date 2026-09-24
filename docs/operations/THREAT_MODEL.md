@@ -10,7 +10,7 @@ NOJV is an Online Judge platform supporting competitive programming contests (IC
 2. Enforce local RBAC (admin/teacher/student) on every privileged action
 3. Isolate untrusted student code execution from the host system
 4. Protect submission source code, hidden testcases, and session material
-5. Preserve contest integrity (anti-cheat: IP binding, page lock, cooldown)
+5. Preserve contest and exam integrity (IP binding, optional exam page lock, cooldown)
 6. Keep image upload and object storage surfaces narrowly scoped
 
 ## 2. Assets, Trust Boundaries, and Assumptions
@@ -242,7 +242,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 
 - **IP binding (exam only)**: When `Exam.ipBindingEnabled`, first request records `Participation.ipPin` (the unified participation row, `type = exam`). Subsequent requests from different IPs are blocked or logged based on violation mode (`block`/`notify`). Violations stored in `IpViolationLog` table. Contests have no IP binding — they're public CP events.
 - **IP whitelist**: When `ipWhitelistEnabled`, only whitelisted IPs can participate.
-- **Page lock**: When `pageLockEnabled`, JavaScript visibility API prevents opening new tabs. Violations detected client-side.
+- **Page lock (exam only)**: When `pageLockEnabled`, server requests outside the active exam routes are redirected and logged. It does not detect browser tab/window switching or leaving NOJV.
 - **Submit cooldown**: A recent-submission check in PostgreSQL, serialized by a `pg_advisory_xact_lock` within the submission transaction, prevents both rapid-fire and concurrent-race submissions. Configurable per-contest (`submitCooldownSec`). Cross-instance consistent (shared DB).
 - **Scoreboard freeze**: `freezeScoreboard` snapshots the live sorted set into a separate `:frozen` key with `ZRANGE`+`ZADD` (not `RENAME`) so the live key keeps updating during the freeze window. `getScoreboard` returns the frozen key when it exists, so public viewers see the snapshot; `unfreezeScoreboard` deletes the frozen key. Admin/teacher views can read the live key directly. Final scores always computed from PostgreSQL.
 - **Allowed languages**: Contest can restrict which languages are accepted.
@@ -254,8 +254,8 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 - **IP spoofing**: Attacker forges IP to bypass IP binding. _Mitigation_: In production the only trusted source is Cloudflare's `CF-Connecting-IP` header (CF edge overwrites any client-supplied value before the request leaves CF). The web origin (GKE Ingress / LB) is restricted to Cloudflare via the Cloud Armor CIDR allowlist, so direct-to-origin requests carrying a forged `CF-Connecting-IP` cannot reach the app. `X-Forwarded-For` is **never** trusted — `getClientIp(event)` refuses to fall back to it. See [SECURITY.md — Client IP Trust Model](SECURITY.md#client-ip-trust-model-cloudflare-only).
 - **Submission flooding during contest**: Attacker floods submissions to degrade service for other participants. _Mitigation_: `writeApiRateLimiter` (10/min per IP). Contest `submitCooldownSec` via Redis. Rate limit is per-IP, cross-instance.
 - **Scoreboard manipulation**: Attacker modifies Redis sorted set directly. _Mitigation_: Redis is on internal network only, not publicly accessible. Scores are always verified against PostgreSQL on final computation.
-- **Page lock bypass**: Student disables JavaScript or uses a non-browser client. _Mitigation_: Page lock is client-side enforcement (JavaScript visibility API). It is a deterrent, not a hard guarantee. _Gap_: Determined attacker can bypass with custom HTTP client.
 - **Reading a previous student's code on a shared lab computer**: Unsubmitted editor code must survive a change of machine without being left readable for the next person at the same machine. _Mitigation_: the draft of record is the server-side `CodeDraft` row, readable and writable only by its owner through `/api/drafts`. Exam rows can only be written while the student holds an active session for that exam, the exam is running and the problem belongs to it, so drafts cannot be prepared in advance. While a session is active only that exam's drafts are reachable, so practice or homework code cannot be pulled into the exam. The browser keeps only edits the server has not yet acknowledged, under `nojv:draft:v2:<userId>:…`, sealed with AES-GCM using a per-user key (`HMAC-SHA256(BETTER_AUTH_SECRET, "code-draft:<userId>")`) that the `(app)` layout hands only to that user's session. The storage key is bound as additional authenticated data, so a draft copied to another key does not open. Legacy plaintext `nojv:draft:v1:` practice, assignment and contest drafts are re-sealed for the first user who opens them and then removed. _Gap_: legacy exam drafts are deliberately left in place until cleared, because adopting them would hand one student's answers to the next. Server rows are not encrypted at rest, the same as submitted source. Key metadata (user id, context, problem) of unsynced local edits is visible.
+- **Page-lock limitation**: The server enforces route confinement when enabled, but does not detect tab/window switching or leaving NOJV. Exam submissions still enforce the exam's server-side time, membership, and IP rules.
 - **Contest timing attack**: Student submits after contest ends. _Mitigation_: `closesAt` timestamp checked server-side before accepting submissions. Temporal `contestLifecycleWorkflow` manages state transitions with durable timers.
 
 ### 3.6 Real-Time Events (SSE)
@@ -378,12 +378,12 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 
 ### Low
 
-| Threat                                 | Justification                                                                      |
-| -------------------------------------- | ---------------------------------------------------------------------------------- |
-| Page lock bypass                       | Client-side deterrent only. No server-side enforcement possible for tab switching. |
-| Verbose Zod error messages             | Field paths exposed, but no secrets or internal state.                             |
-| Development-only insecure defaults     | Local MinIO credentials in `.env`, Redis no-auth — development environment only.   |
-| Health endpoint information disclosure | Public probes return one boolean only; per-subsystem detail is admin-only.         |
+| Threat                                 | Justification                                                                    |
+| -------------------------------------- | -------------------------------------------------------------------------------- |
+| Detecting tab or window switching      | Not implemented; page lock controls NOJV server routes only.                     |
+| Verbose Zod error messages             | Field paths exposed, but no secrets or internal state.                           |
+| Development-only insecure defaults     | Local MinIO credentials in `.env`, Redis no-auth — development environment only. |
+| Health endpoint information disclosure | Public probes return one boolean only; per-subsystem detail is admin-only.       |
 
 ## 5. Open Gaps and Recommendations
 
@@ -393,7 +393,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 | 2   | No per-problem/per-user storage quota                            | Authenticated authors can upload unlimited 5 MB images; remote-image cache misses are bounded and rate-limited but have no aggregate quota                                                                              | Track upload/cache size and enforce a reasonable ceiling if production growth warrants it                                                 | Medium   |
 | 3   | ~~Rate limiter is in-memory~~ — **CLOSED**                       | `RateLimiterRedis` keyed on `getClientIp(event)`; production falls back to `failClosedLimiter` (deny all) if Redis is unreachable. Memory fallback only in dev.                                                         | —                                                                                                                                         | —        |
 | 4   | Redis unauthenticated in development                             | Any local process can access Redis                                                                                                                                                                                      | Acceptable for development. Ensure production uses VPC-restricted Memorystore                                                             | Low      |
-| 5   | Page lock is client-side only                                    | Determined attacker can bypass with custom HTTP client                                                                                                                                                                  | Document limitation. Consider logging tab-visibility violations server-side as evidence                                                   | Low      |
+| 5   | Browser tab/window changes are not detected                      | Page lock covers NOJV server routes only                                                                                                                                                                                | Add browser visibility monitoring only if remote proctoring becomes a product requirement                                                 | Low      |
 | 6   | No CSRF token on API routes                                      | SvelteKit form actions have built-in CSRF. API routes rely on same-origin and auth headers                                                                                                                              | Verify `Origin` header checking is active on all mutation endpoints                                                                       | Medium   |
 | 7   | ~~File type validation uses `file.type`~~ — **CLOSED**           | Magic-number validation via `detectImageMime(buffer)` in `apps/web/src/routes/api/problems/[id]/images/+server.ts` rejects payloads whose bytes don't match png/jpeg/gif/webp signatures, even if the MIME header lies. | —                                                                                                                                         | —        |
 | 8   | Temporal UI exposed in development                               | Port 8080 accessible on localhost                                                                                                                                                                                       | Ensure Temporal UI is not publicly accessible in production (firewall or VPN)                                                             | High     |

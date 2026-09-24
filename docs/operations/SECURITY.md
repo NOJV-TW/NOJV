@@ -47,7 +47,7 @@ Security requirements are first-class because this system handles authentication
 - Advanced Mode images run on K8s as Jobs with `cap-drop ALL`, `allowPrivilegeEscalation: false`, read-only rootfs, pod-level `seccompProfile: RuntimeDefault`, and `runAsNonRoot: true` (uid 10001) on **both** the run and grade pods; the Docker backend pins grade to the same uid. The sandbox namespace enforces Kubernetes' `restricted` Pod Security profile, and separate service accounts give the judge worker sandbox-resource access while the platform worker receives only the optional registry-GC role. The answer-bearing grade container has **no network egress** on either backend (per-submission deny-all NetworkPolicy on K8s, `--network none` on Docker). Teacher image refs are digest-pinned and restricted to `ADVANCED_IMAGE_ALLOWED_REGISTRIES` at input, special_env authoring requires the per-user `canCreateAdvancedProblems` grant (admin-managed), and publishing requires an accepted test run with the exact configured images. The self-hosted registry uses Docker token auth: every human credential, including an admin's, can only push/pull its own `t/<username>/…` namespace; judge pods hold a pull-only account; `demo/…` is anonymous-pull; server-internal short-lived tokens perform catalog and deletion operations. See [THREAT_MODEL](THREAT_MODEL.md).
 - User-authored Markdown supports third-party HTTPS images only through `/api/images/proxy`; the sanitizer rewrites remote image sources and CSP rejects any direct remote-image bypass. The proxy DNS-pins each hop after rejecting non-public IPv4/IPv6 answers, revalidates redirects, downloads at most 5 MB with a fixed timeout, accepts only magic-byte-verified png/jpeg/gif/webp, and caches the first successful response in object storage. A cache miss is separately rate-limited and fails closed: errors never redirect the viewer to the third-party host. Existing Markdown is rewritten at render time and needs no database migration or production backfill.
 - `/docs?api=full` and `/api/openapi.internal.json` are intentionally public because the source repository and route contracts are public. They contain no credentials and do not replace server-side authentication or authorization.
-- Exam IP binding, page lock, and submit cooldown are server-side enforced (contests have no proctoring). Never trust client-side checks alone.
+- Exam IP binding, optional page confinement, and submit cooldown are server-side enforced (contests have no proctoring). Never trust client-side checks alone.
 - Temporary exam sign-in uses an immutable `Session.examPassword` marker plus a credential-revision association, checked on every authenticated request and direct Auth API call. Missing provenance fails closed. It never grants permanent account-security mutations, API tokens or registry credentials; accounts with any active staff membership are ineligible. Password mail is sent only to verified `User.email`, and durable jobs contain identifiers rather than secrets. See [Exams](../specs/exams.md#temporary-exam-sign-in) for lifecycle and revocation.
 - Client IP in production is **only** sourced from the `CF-Connecting-IP` header. See [Client IP Trust Model](#client-ip-trust-model-cloudflare-only).
 
@@ -116,9 +116,9 @@ event matches. This closes the bypass where a student who AC'd a
 problem in past practice could read posts via
 `GET /api/problems/<id>/posts` while a live contest re-using the
 same problem was still running. As defense in depth, the exam
-confinement hook (`apps/web/src/lib/server/exam-lock.ts`) rejects
-`/api/posts/*`, `/api/comments/*`, and `/api/problems/[id]/posts`
-outright while the actor holds an active exam session.
+page-lock hook rejects `/api/posts/*`, `/api/comments/*`, and
+`/api/problems/[id]/posts` while the actor holds an active session on
+an exam with page lock enabled.
 
 ## Plagiarism Tokenization (Multi-file)
 
@@ -169,7 +169,7 @@ Flag for security review when:
 - Adding or modifying authentication or authorization logic
 - Changing sandbox isolation configuration
 - Adding new API routes that handle user input
-- Modifying contest integrity features (IP binding, cooldown, page lock)
+- Modifying contest or exam integrity features (IP binding, cooldown, page lock)
 - Changing file upload or storage logic
 - Adding new environment variables that contain secrets
 

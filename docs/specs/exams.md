@@ -2,8 +2,8 @@
 
 Acceptance spec for course-embedded exams (`Exam` /
 `/exams/[examId]/...`). Exams are proctored in-class assessments: students
-must start a session, are locked to the exam routes until release, and may
-be IP-bound or IP-whitelisted. When the window ends, a Temporal workflow
+must start a session; when page lock is enabled, they are confined to the
+exam routes until release. Sessions may also be IP-bound or IP-whitelisted. When the window ends, a Temporal workflow
 auto-closes every active session; after the exam ends students can view a
 post-exam review page (per-problem state + total score) on
 `/exams/[examId]`, and can also keep practicing through the
@@ -24,9 +24,9 @@ practice-after-close route at `/problems/[id]`.
   problem list on the exam page (rather than jumping straight into the
   first problem), so that the proctoring contract is explicit and
   reversible only by the instructor or the auto-close workflow.
-- As a **student**, I want mid-exam navigation to any non-exam page to
-  auto-redirect me back and log a `visibility_lost` event, so that the
-  page lock is enforced without silently failing.
+- As a **student**, I want mid-exam navigation to follow the exam's
+  page-lock setting: redirect and log when enabled, or allow normal site
+  use while the exam session remains active when disabled.
 - As a **teacher**, I want a submissions matrix (students × problems,
   best score + attempts + AC/partial/zero cells) that recomputes on every
   load, so that I can spot-check performance without running SQL.
@@ -51,9 +51,10 @@ practice-after-close route at `/problems/[id]`.
   globally at any time (started on exam A blocks start on exam B).
 - Auto-close Temporal workflow (`examAutoCloseWorkflow`) scheduled on
   publish + on create-as-published; calls `closeActiveSessionsForExam`.
-- Page lock via `hooks.server.ts` — every non-exam route for a user with
-  an active session redirects to `/exams/[examId]` and logs
-  `visibility_lost` with the attempted path.
+- Page lock via `hooks.server.ts` — when `pageLockEnabled` is true, an
+  active session redirects off-exam requests to `/exams/[examId]` and
+  logs `visibility_lost`; when false, normal site permissions apply and
+  the active exam session remains available for returning to the exam.
 - IP gating via `checkIpLock` (whitelist + binding); empty whitelist with
   `ipWhitelistEnabled=true` means **deny all** (fail-closed).
 - Violation modes: `block` rejects the submission / gate; `notify` logs
@@ -97,7 +98,7 @@ practice-after-close route at `/problems/[id]`.
 
 - Exams opt into temporary password sign-in at creation (off by default). Enabled, published exams issue an independent username/password credential for each active, linked student course membership at `startsAt - 24 hours`. The existing minute-based durable processor catches late enablement, publication and enrollment. Unlinked roster entries remain visible with an account-linking status; they cannot receive mail until a User exists.
 - Credentials never replace the account's OAuth bindings or permanent password. Teachers/TAs with current management permission can reveal and set the temporary password in the exam's Proctoring → Students and sign-in view. Password edits require 12–64 characters, rotate the credential revision, invalidate its existing sessions and enqueue an updated email. Settings is the last primary tab; Results contains grades, plagiarism and audit, while Proctoring contains the roster and IP records.
-- The validity interval begins at the earlier of `startsAt - 24 hours` and the first SMTP delivery attempt, and ends at `endsAt`, using the hard end rather than the on-time deadline. The first actual SMTP attempt locks the exam's sign-in setting permanently, including ambiguous and failed attempts; test sink delivery does not. Disabling before that point revokes credentials and their sessions in the same transaction. A password login can use ordinary coursework before entering; after starting an exam, existing exam confinement applies. Changing the end time updates the attached session expiry. Changing a password, withdrawing a student, archiving the course, disabling/promoting the account or changing its security generation invalidates the corresponding temporary session on its next request.
+- The validity interval begins at the earlier of `startsAt - 24 hours` and the first SMTP delivery attempt, and ends at `endsAt`, using the hard end rather than the on-time deadline. The first actual SMTP attempt locks the exam's sign-in setting permanently, including ambiguous and failed attempts; test sink delivery does not. Disabling before that point revokes credentials and their sessions in the same transaction. A password login can use ordinary coursework before entering; after starting an exam, page confinement applies only when the exam enables page lock. Changing the end time updates the attached session expiry. Changing a password, withdrawing a student, archiving the course, disabling/promoting the account or changing its security generation invalidates the corresponding temporary session on its next request.
 - Only ordinary student accounts qualify: platform admins/teachers, super admins, and users with an active teacher/TA membership in any course use their usual sign-in methods. This prevents a staff-visible password from granting staff access elsewhere.
 - Email goes only to the verified `User.email` security mailbox. Delivery work contains credential ID and revision, never plaintext or rendered password HTML. Delivery decrypts just before sending. A suppressed or unverified recipient is visible to staff; suppressed mail is not reported as sent. Mail transport acceptance is not inbox-delivery proof.
 - Every password-derived Better Auth session has an immutable marker and a credential-revision association. The server checks current validity even for direct Auth API calls, so refresh or missing association cannot turn it into an ordinary session. Temporary sessions cannot change account security, link providers, create permanent tokens or obtain registry credentials. Ordinary OAuth sessions stay independent.
@@ -240,14 +241,22 @@ START_GRACE_MS` (5 min) and `now < endsAt`, and the actor is an active
 
 ### Session — page lock (hooks.server.ts)
 
-- GIVEN a user with an active session on exam E, WHEN they request any
-  path not matching `/api/`, `/signin`, `/signout`, or `/exams/E/...`,
+- GIVEN a user with an active session on exam E and
+  `pageLockEnabled: true`, WHEN they request a page outside `/exams/E`,
   THEN `hooks.server.ts` records a `visibility_lost` event with
   `metadata.attemptedPath` and responds with `307` to `/exams/E`.
+- GIVEN an active session and `pageLockEnabled: false`, WHEN the student
+  requests another authorized page, submits to another context, or reads
+  authorized submission history, THEN normal site access is available
+  and the exam session remains active.
+- GIVEN the page-lock setting changes during an active session, WHEN the
+  student makes the next request, THEN that request follows the updated
+  setting without waiting for a cache expiry.
+- The setting does not observe tab/window switching, copy/paste, or
+  leaving NOJV. Exam page and exam submission access continue to enforce
+  membership, time, and IP policies.
 - WHEN `recordEvent` throws (DB failure), THEN hooks.server.ts logs a
   warning and still redirects — page-lock redirection is fail-safe.
-- WHEN `getActiveExamContext` throws (DB failure), THEN hooks.server.ts
-  fails OPEN (logs a warning, does not lock the user out of the site).
 
 ### Session — auto-close
 
@@ -453,7 +462,6 @@ contest spec links here rather than restating them.
   `checkExamIpAccess`.
 - `packages/application/src/shared/ip-utils.ts` — `checkIpLock`, `isIpInCidr`,
   `isIpInWhitelist`.
-- `packages/application/src/shared/page-lock.ts` — `getPageLockedContext`.
 - `packages/application/src/proctoring/gate.ts` — `checkProctoringGate` /
   `checkExamGate`.
 - `packages/application/src/proctoring/violation-logger.ts` — `logViolationInTx`.
@@ -502,7 +510,6 @@ contest spec links here rather than restating them.
   logging + security headers.
 - `apps/web/src/lib/server/exam-lock.ts` — `getActiveExamContext`,
   `isAllowedPathForExam`.
-- `apps/web/src/lib/server/page-lock.ts` — re-export of domain helper.
 - `apps/web/src/routes/(app)/exams/[examId]/+page.server.ts` —
   `startExam`, `updateSettings`, `publishExam`, `deleteExam`,
   `updateProblems`, `releaseStudentSession`, `releaseAllSessions`

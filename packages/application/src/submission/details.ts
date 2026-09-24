@@ -46,7 +46,10 @@ async function canReadReferenceSubmission(
   submission: NonNullable<Awaited<ReturnType<typeof submissionRepo.findById>>>,
 ): Promise<boolean> {
   if (!isFullPracticeReference(submission)) return false;
-  if (actor.platformRole !== "admin" && (await examSessionRepo.findActiveForUser(actor.userId)))
+  if (
+    actor.platformRole !== "admin" &&
+    (await examSessionRepo.findActiveForUser(actor.userId))?.exam.pageLockEnabled
+  )
     return false;
   const problem = await problemRepo.findById(submission.problemId);
   return problem !== null && (await canProblemContentRead(problem, actor));

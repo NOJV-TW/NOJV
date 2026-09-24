@@ -1,9 +1,17 @@
 import { test, expect } from "@playwright/test";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "../../packages/db/generated/prisma/client";
+import { resolveDestructiveTestDatabase } from "../setup/destructive-test-database";
 
-import { apiWriteHeaders, studentAuth, teacherAuth } from "./_shared";
+import { apiWriteHeaders, ORIGIN, readLiveSession, studentAuth, teacherAuth } from "./_shared";
 
 const MIDTERM_ID = "exam_midterm-systems-lab";
 const UPCOMING_ID = "exam_upcoming-demo";
+const db = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: resolveDestructiveTestDatabase("nojv_e2e_test") }),
+});
+
+test.afterAll(async () => db.$disconnect());
 
 test.describe("Exams — list, detail, problem visibility", () => {
   test("student sees the exams listing page", async ({ browser }) => {
@@ -71,6 +79,176 @@ test.describe("Exams — list, detail, problem visibility", () => {
     await expect(page.getByRole("main")).toBeVisible();
     await expect(page.getByText("Warmup: Sum")).not.toBeVisible();
     await context.close();
+  });
+
+  test("teacher can toggle page lock while a student keeps an exam session open", async ({
+    browser,
+  }) => {
+    test.setTimeout(120_000);
+    const examId = "exam_demo_gradebook_active";
+    const teacherContext = await browser.newContext({ storageState: teacherAuth });
+    const studentContext = await browser.newContext({ storageState: studentAuth });
+    const teacherPage = await teacherContext.newPage();
+    const studentPage = await studentContext.newPage();
+    const originalExam = await db.exam.findUniqueOrThrow({
+      where: { id: examId },
+      select: { pageLockEnabled: true },
+    });
+    let studentUserId: string | undefined;
+    const englishLabel = "Restrict other site features during the exam";
+    const englishHelp =
+      "When enabled, students are confined to this exam after entering. Navigating to another NOJV page redirects them back and is logged. When disabled, they can use other site features while the exam session continues. This setting does not detect window switching or leaving NOJV.";
+
+    await teacherContext.addCookies([
+      {
+        name: "PARAGLIDE_LOCALE",
+        value: "en",
+        domain: new URL(ORIGIN).hostname,
+        path: "/",
+        httpOnly: false,
+        secure: false,
+        sameSite: "Lax",
+      },
+    ]);
+    try {
+      await db.exam.update({ where: { id: examId }, data: { pageLockEnabled: false } });
+      const started = await studentPage.request.post(`/exams/${examId}?/startExam`, {
+        form: {},
+        headers: apiWriteHeaders,
+      });
+      expect((await started.json()).type).toBe("success");
+      const { user } = await readLiveSession(studentPage);
+      studentUserId = user.id;
+
+      await teacherPage.goto(`/exams/${examId}?tab=settings`);
+      await teacherPage.bringToFront();
+      const pageLock = teacherPage.getByLabel(englishLabel);
+      await expect(pageLock).not.toBeChecked();
+      const helpButton = teacherPage.getByRole("button", { name: englishHelp });
+      await helpButton.scrollIntoViewIfNeeded();
+      await helpButton.hover();
+      await expect(teacherPage.getByText(englishHelp)).toBeVisible();
+
+      await pageLock.check();
+      const enableResponse = teacherPage.waitForResponse(
+        (response) =>
+          response.request().method() === "POST" && response.url().includes("updateSettings"),
+      );
+      await teacherPage
+        .locator('form[action="?/updateSettings"] button[type="submit"]')
+        .click();
+      expect((await (await enableResponse).json()).type).toBe("success");
+      await expect
+        .poll(
+          async () =>
+            (await db.exam.findUniqueOrThrow({ where: { id: examId } })).pageLockEnabled,
+        )
+        .toBe(true);
+
+      await studentPage.goto(`/exams/${examId}/problems/problem_warmup-sum`);
+      await studentPage.goto("/dashboard");
+      await expect(studentPage).toHaveURL(new RegExp(`/exams/${examId}$`));
+      await studentPage.getByRole("link", { name: "Overview", exact: true }).click();
+      await expect(studentPage).toHaveURL(new RegExp(`/exams/${examId}$`));
+
+      const otherTab = await studentContext.newPage();
+      await otherTab.goto("/dashboard");
+      await expect(otherTab).toHaveURL(new RegExp(`/exams/${examId}$`));
+      await otherTab.close();
+
+      await teacherPage.reload();
+      await teacherPage.getByLabel(englishLabel).uncheck();
+      const disableResponse = teacherPage.waitForResponse(
+        (response) =>
+          response.request().method() === "POST" && response.url().includes("updateSettings"),
+      );
+      await teacherPage
+        .locator('form[action="?/updateSettings"] button[type="submit"]')
+        .click();
+      expect((await (await disableResponse).json()).type).toBe("success");
+      await expect
+        .poll(
+          async () =>
+            (await db.exam.findUniqueOrThrow({ where: { id: examId } })).pageLockEnabled,
+        )
+        .toBe(false);
+
+      await teacherContext.addCookies([
+        {
+          name: "PARAGLIDE_LOCALE",
+          value: "zh-TW",
+          domain: new URL(ORIGIN).hostname,
+          path: "/",
+          httpOnly: false,
+          secure: false,
+          sameSite: "Lax",
+        },
+      ]);
+      await teacherPage.goto(`/exams/${examId}?tab=settings`);
+      const chineseHelp =
+        "開啟後，學生進入考試即限於本次考試，前往其他 NOJV 頁面會被導回並記錄。關閉後可正常使用其他站內功能，考試仍持續進行。此設定不會偵測切換視窗或離開 NOJV。";
+      await expect(teacherPage.getByLabel("限制使用考試以外的站內功能")).toBeVisible();
+      const chineseHelpButton = teacherPage.getByRole("button", { name: chineseHelp });
+      for (let index = 0; index < 40; index += 1) {
+        await teacherPage.keyboard.press("Tab");
+        if (await chineseHelpButton.evaluate((button) => button === document.activeElement))
+          break;
+      }
+      await expect(chineseHelpButton).toBeFocused();
+      await expect(teacherPage.getByText(chineseHelp)).toBeVisible();
+
+      await studentPage.goto("/dashboard");
+      await expect(studentPage).toHaveURL(/\/dashboard$/);
+      await expect(studentPage.getByRole("main")).toBeVisible();
+      await studentPage.goto(`/exams/${examId}/problems/problem_warmup-sum`);
+      await expect(
+        studentPage.getByRole("button", { name: "Submit", exact: true }),
+      ).toBeVisible();
+      await studentPage.goBack();
+      await expect(studentPage).toHaveURL(/\/dashboard$/);
+      await studentPage.goForward();
+      await expect(studentPage).toHaveURL(
+        new RegExp(`/exams/${examId}/problems/problem_warmup-sum$`),
+      );
+      await expect(
+        studentPage.getByRole("button", { name: "Submit", exact: true }),
+      ).toBeVisible();
+      const liveSession = await db.activeExamSession.findFirstOrThrow({
+        where: { userId: user.id, examId, endedAt: null },
+      });
+      expect(liveSession.endedAt).toBeNull();
+    } finally {
+      await db.exam.update({ where: { id: examId }, data: { pageLockEnabled: false } });
+      try {
+        if (studentUserId) {
+          const activeSession = await db.activeExamSession.findFirst({
+            where: { userId: studentUserId, examId, endedAt: null },
+            select: { id: true },
+          });
+          if (activeSession) {
+            const response = await teacherPage.request.post(
+              `/exams/${examId}?/releaseStudentSession`,
+              {
+                form: { targetUserId: studentUserId },
+                headers: apiWriteHeaders,
+              },
+            );
+            if (!response.ok()) {
+              throw new Error(
+                `Failed to release the E2E exam session: HTTP ${response.status()}`,
+              );
+            }
+          }
+        }
+      } finally {
+        await db.exam.update({
+          where: { id: examId },
+          data: { pageLockEnabled: originalExam.pageLockEnabled },
+        });
+        await teacherContext.close();
+        await studentContext.close();
+      }
+    }
   });
 
   test("starting an exam session requires authentication", async ({ page }) => {

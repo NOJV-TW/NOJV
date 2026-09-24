@@ -253,7 +253,7 @@ export async function verifyApiTokenForRoute(input: {
   });
 
   const activeExamSession = await examSessionRepo.findActiveForUser(row.user.id);
-  if (activeExamSession) {
+  if (activeExamSession?.exam.pageLockEnabled) {
     throw new HttpError("API tokens are disabled while an exam session is active.", 403);
   }
 

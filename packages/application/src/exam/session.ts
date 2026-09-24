@@ -29,6 +29,7 @@ export interface ActiveSessionContext {
   exam: {
     id: string;
     courseId: string;
+    pageLockEnabled: boolean;
     title: string;
   };
   course: {
@@ -218,12 +219,6 @@ export async function getActiveSessionContext(
   const session = await examSessionRepo.findActiveForUser(userId);
   if (!session) return null;
 
-  const exam = await examRepo.findByIdOrThrow(session.examId, {
-    id: true,
-    courseId: true,
-    title: true,
-  });
-
   return {
     session: {
       id: session.id,
@@ -232,12 +227,13 @@ export async function getActiveSessionContext(
       startedAt: session.startedAt,
     },
     exam: {
-      id: exam.id,
-      courseId: exam.courseId,
-      title: exam.title,
+      id: session.examId,
+      courseId: session.exam.courseId,
+      pageLockEnabled: session.exam.pageLockEnabled,
+      title: session.exam.title,
     },
     course: {
-      id: exam.courseId,
+      id: session.exam.courseId,
     },
   };
 }

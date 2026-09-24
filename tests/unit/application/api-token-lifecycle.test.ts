@@ -15,7 +15,7 @@ interface MockUser {
 const { state } = vi.hoisted(() => {
   const rows = new Map<string, Record<string, unknown>>();
   const users = new Map<string, MockUser>();
-  const activeExamUsers = new Set<string>();
+  const activeExamUsers = new Map<string, boolean>();
   let seq = 0;
   return {
     state: {
@@ -104,7 +104,14 @@ vi.mock("@nojv/db", () => ({
   examSessionRepo: {
     findActiveForUser(userId: string) {
       return Promise.resolve(
-        state.activeExamUsers.has(userId) ? { examId: "exam_1", id: "sess_1", userId } : null,
+        state.activeExamUsers.has(userId)
+          ? {
+              exam: { pageLockEnabled: state.activeExamUsers.get(userId) },
+              examId: "exam_1",
+              id: "sess_1",
+              userId,
+            }
+          : null,
       );
     },
   },
@@ -282,12 +289,21 @@ describe("API token lifecycle and verification", () => {
     setUser("usr_1");
     const created = await create({ scopes: ["submissions:write"] });
 
-    state.activeExamUsers.add("usr_1");
+    state.activeExamUsers.set("usr_1", true);
     const err = await catchError(verify(created.token));
     expect(err.status).toBe(403);
     expect(err.message).toMatch(/exam/i);
 
     state.activeExamUsers.delete("usr_1");
+    const verified = await verify(created.token);
+    expect(verified.actor.userId).toBe("usr_1");
+  });
+
+  it("allows token auth during an unlocked exam session", async () => {
+    setUser("usr_1");
+    const created = await create({ scopes: ["submissions:write"] });
+
+    state.activeExamUsers.set("usr_1", false);
     const verified = await verify(created.token);
     expect(verified.actor.userId).toBe("usr_1");
   });

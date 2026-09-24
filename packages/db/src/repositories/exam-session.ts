@@ -11,6 +11,9 @@ export const examSessionRepo = {
   findActiveForUser(userId: string) {
     return prisma.activeExamSession.findFirst({
       where: { userId, endedAt: null },
+      include: {
+        exam: { select: { courseId: true, id: true, pageLockEnabled: true, title: true } },
+      },
     });
   },
 
@@ -124,6 +127,9 @@ export const examSessionRepo = {
       findActiveForUser(userId: string) {
         return tx.activeExamSession.findFirst({
           where: { userId, endedAt: null },
+          include: {
+            exam: { select: { courseId: true, id: true, pageLockEnabled: true, title: true } },
+          },
         });
       },
 

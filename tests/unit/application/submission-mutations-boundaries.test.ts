@@ -348,6 +348,7 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
   it("forbids attaching a contestId while a non-admin has an active exam session", async () => {
     examSessionFindActiveForUser.mockResolvedValue({
       examId: "exam_1",
+      exam: { pageLockEnabled: true },
       userId: fakeActor.userId,
     });
     vi.setSystemTime(new Date("2026-04-14T10:00:00.000Z"));
@@ -361,6 +362,7 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
   it("admin can submit through a contest context even with an active exam (operational recovery)", async () => {
     examSessionFindActiveForUser.mockResolvedValue({
       examId: "exam_1",
+      exam: { pageLockEnabled: true },
       userId: adminActor.userId,
     });
     vi.setSystemTime(new Date("2026-04-14T10:00:00.000Z"));
@@ -375,6 +377,7 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
   it("exam-problem submission writes the active exam's id onto the new submission", async () => {
     examSessionFindActiveForUser.mockResolvedValue({
       examId: "exam_42",
+      exam: { pageLockEnabled: false },
       userId: fakeActor.userId,
     });
     examProblemExists.mockResolvedValue(true);
@@ -390,6 +393,7 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
   it("forbids submitting a problem that is NOT part of the active exam (confinement, P1)", async () => {
     examSessionFindActiveForUser.mockResolvedValue({
       examId: "exam_42",
+      exam: { pageLockEnabled: false },
       userId: fakeActor.userId,
     });
     examProblemExists.mockResolvedValue(false);
@@ -404,6 +408,7 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
   it("does not let admin requests bypass exam problem membership", async () => {
     examSessionFindActiveForUser.mockResolvedValue({
       examId: "exam_42",
+      exam: { pageLockEnabled: false },
       userId: adminActor.userId,
     });
     examProblemExists.mockResolvedValue(false);
@@ -425,6 +430,33 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
     expect(arg.context).toEqual({ type: "practice" });
   });
 
+  it("allows practice submissions during an unlocked exam session", async () => {
+    examSessionFindActiveForUser.mockResolvedValue({
+      examId: "exam_1",
+      exam: { pageLockEnabled: false },
+      userId: fakeActor.userId,
+    });
+    submissionFindMostRecent.mockResolvedValue(null);
+
+    await expect(
+      createQueuedSubmissionRecord(baseFreePracticeDraft, fakeActor, "127.0.0.1"),
+    ).resolves.toBeDefined();
+    expect(submissionCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("still confines submissions during a locked exam session", async () => {
+    examSessionFindActiveForUser.mockResolvedValue({
+      examId: "exam_1",
+      exam: { pageLockEnabled: true },
+      userId: fakeActor.userId,
+    });
+
+    await expect(
+      createQueuedSubmissionRecord(baseFreePracticeDraft, fakeActor, "127.0.0.1"),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(submissionCreate).not.toHaveBeenCalled();
+  });
+
   it("does NOT reject based on clientIp when there is no active exam session", async () => {
     examSessionFindActiveForUser.mockResolvedValue(null);
     vi.setSystemTime(new Date("2026-04-14T10:00:00.000Z"));
@@ -442,6 +474,7 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
   it("enforces the exam IP gate on submission — blocks a wrong-IP token submission (P2)", async () => {
     examSessionFindActiveForUser.mockResolvedValue({
       examId: "exam_42",
+      exam: { pageLockEnabled: false },
       userId: fakeActor.userId,
     });
     examProblemExists.mockResolvedValue(true);
@@ -461,6 +494,7 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
   it("allows a matching-IP submission during an IP-bound exam (gate ok)", async () => {
     examSessionFindActiveForUser.mockResolvedValue({
       examId: "exam_42",
+      exam: { pageLockEnabled: false },
       userId: fakeActor.userId,
     });
     examProblemExists.mockResolvedValue(true);

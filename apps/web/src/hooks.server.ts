@@ -4,17 +4,10 @@ import "$lib/server/mailer-startup";
 
 import { error, redirect, type Handle, type HandleServerError } from "@sveltejs/kit";
 import type { SessionUser } from "@nojv/core";
-import {
-  apiTokenDomain,
-  examDomain,
-  getPageLockedContext,
-  proctoringDomain,
-  type PageLockedContext,
-} from "@nojv/application";
+import { apiTokenDomain, examDomain, proctoringDomain } from "@nojv/application";
 
 import { getAuth } from "$lib/auth.server";
 import { isExamPasswordSecurityRequest } from "$lib/server/exam-password-policy";
-import { examContextCache, pageLockCache } from "$lib/server/exam-context-cache";
 import { createLogger } from "$lib/server/logger";
 import { m } from "$lib/paraglide/messages.js";
 import { paraglideMiddleware } from "$lib/paraglide/server.js";
@@ -55,11 +48,7 @@ import {
   enforceCsrf,
   setSecurityHeaders,
 } from "$lib/server/hooks/request-security";
-import {
-  isPageLockExempt,
-  isProfileExempt,
-  stripLocalePrefix,
-} from "$lib/server/hooks/route-paths";
+import { isProfileExempt, stripLocalePrefix } from "$lib/server/hooks/route-paths";
 
 getWebEnv();
 
@@ -82,11 +71,6 @@ process.on("uncaughtException", (err) => {
   process.exit(1);
 });
 
-function isProctoredEntityAllowed(pathname: string, ctx: PageLockedContext): boolean {
-  const prefix = `/exams/${ctx.examId}`;
-  return pathname === prefix || pathname.startsWith(prefix + "/");
-}
-
 function denyExamGate(opts: {
   cleanPath: string;
   requestId: string;
@@ -101,10 +85,6 @@ function denyExamGate(opts: {
     });
   }
   error(opts.status, opts.message);
-}
-
-function pageLockRedirectTarget(ctx: PageLockedContext): string {
-  return `/exams/${ctx.examId}`;
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
@@ -368,17 +348,6 @@ async function enforceSuperAdminSessionAge(event: HandleEvent): Promise<Response
   return new Response(null, { status: 302, headers });
 }
 
-async function enforcePageLock(event: HandleEvent, cleanPath: string): Promise<void> {
-  if (!event.locals.sessionUser || isPageLockExempt(cleanPath)) {
-    return;
-  }
-  const userId = event.locals.sessionUser.id;
-  const lockCtx = await pageLockCache.getOrLoad(userId, () => getPageLockedContext(userId));
-  if (lockCtx && !isProctoredEntityAllowed(cleanPath, lockCtx)) {
-    redirect(302, pageLockRedirectTarget(lockCtx));
-  }
-}
-
 async function recordExamVisibilityLost(
   sessionUser: NonNullable<HandleEvent["locals"]["sessionUser"]>,
   examCtx: ActiveExamContext,
@@ -419,9 +388,7 @@ async function enforceExamGate(
 
   let examCtx: ActiveExamContext | null;
   try {
-    examCtx = await examContextCache.getOrLoad(sessionUser.id, () =>
-      getActiveExamContext(sessionUser.id),
-    );
+    examCtx = await getActiveExamContext(sessionUser.id);
   } catch (err) {
     examLockLogger.error("getActiveExamContext failed — failing closed", {
       userId: sessionUser.id,
@@ -439,6 +406,11 @@ async function enforceExamGate(
   if (!examCtx) {
     return null;
   }
+
+  const examPrefix = `/exams/${examCtx.exam.id}`;
+  const isExamPath = cleanPath === examPrefix || cleanPath.startsWith(`${examPrefix}/`);
+  const pageLockEnabled = examCtx.exam.pageLockEnabled;
+  if (!pageLockEnabled && !isExamPath) return null;
 
   const ip = getClientIp(event);
   let verdict;
@@ -477,7 +449,7 @@ async function enforceExamGate(
     });
   }
 
-  if (isExamForbiddenApiRequest(cleanPath, event.request.method)) {
+  if (pageLockEnabled && isExamForbiddenApiRequest(cleanPath, event.request.method)) {
     return denyExamGate({
       cleanPath,
       requestId: event.locals.requestId,
@@ -487,7 +459,7 @@ async function enforceExamGate(
     });
   }
 
-  if (!isAllowedPathForExam(cleanPath, examCtx)) {
+  if (pageLockEnabled && !isAllowedPathForExam(cleanPath, examCtx)) {
     await recordExamVisibilityLost(sessionUser, examCtx, cleanPath);
     redirect(307, `/exams/${examCtx.exam.id}`);
   }
@@ -547,8 +519,6 @@ const runHandle = async ({ event, resolve }: Parameters<Handle>[0]): Promise<Res
   await resolveRequestAdminAccess(event);
   const superAdminVerificationResponse = enforceSuperAdminVerification(event, cleanPath);
   if (superAdminVerificationResponse) return superAdminVerificationResponse;
-  await enforcePageLock(event, cleanPath);
-
   const examResponse = await enforceExamGate(event, cleanPath);
   if (examResponse) {
     return examResponse;

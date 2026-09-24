@@ -9,7 +9,6 @@ import * as submissionHistoryRoute from "../../../apps/web/src/routes/api/submis
 import * as submissionPointRoute from "../../../apps/web/src/routes/api/submissions/[id]/+server";
 import * as submissionRejudgeRoute from "../../../apps/web/src/routes/api/submissions/[id]/rejudge/+server";
 import * as submissionSourceRoute from "../../../apps/web/src/routes/api/submissions/[id]/source/+server";
-import { invalidateExamContextCaches } from "$lib/server/exam-context-cache";
 import {
   createTestCourse,
   createTestExam,
@@ -59,14 +58,14 @@ function actorOf(user: {
   };
 }
 
-async function createActiveExamFixture() {
+async function createActiveExamFixture(pageLockEnabled = true) {
   const student = await createTestUser({ platformRole: "student" });
   const course = await createTestCourse();
   await testPrisma.courseMembership.create({
     data: { courseId: course.id, userId: student.id, role: "student", status: "active" },
   });
   const problem = await createTestProblem();
-  const currentExam = await createTestExam({ courseId: course.id });
+  const currentExam = await createTestExam({ courseId: course.id, pageLockEnabled });
   const current = await createTestSubmission({
     userId: student.id,
     problemId: problem.id,
@@ -76,9 +75,83 @@ async function createActiveExamFixture() {
   await testPrisma.activeExamSession.create({
     data: { userId: student.id, examId: currentExam.id },
   });
-  invalidateExamContextCaches(student.id);
   return { current, hidden, student, currentExam, course, problem };
 }
+
+describe("page-lock setting at the real hooks boundary", () => {
+  it("changes navigation and API access immediately without ending the exam session", async () => {
+    const { student, currentExam } = await createActiveExamFixture(true);
+    const session = await testPrisma.activeExamSession.findUniqueOrThrow({
+      where: { userId_examId: { userId: student.id, examId: currentExam.id } },
+    });
+    const dashboard = () =>
+      callRoute({
+        path: "/dashboard",
+        module: { GET: () => new Response("ok") },
+        user: student,
+      });
+    const postsApi = () => callRoute({ path: "/api/posts/post-1", module: {}, user: student });
+
+    expect((await dashboard()).status).toBe(307);
+    expect((await postsApi()).status).toBe(403);
+    expect(await testPrisma.examSessionEvent.count({ where: { sessionId: session.id } })).toBe(
+      1,
+    );
+
+    await testPrisma.exam.update({
+      where: { id: currentExam.id },
+      data: { pageLockEnabled: false },
+    });
+    expect((await dashboard()).status).toBe(200);
+    expect((await postsApi()).status).toBe(405);
+    expect(await testPrisma.examSessionEvent.count({ where: { sessionId: session.id } })).toBe(
+      1,
+    );
+    await expect(
+      testPrisma.activeExamSession.findUniqueOrThrow({ where: { id: session.id } }),
+    ).resolves.toMatchObject({ endedAt: null });
+
+    await testPrisma.exam.update({
+      where: { id: currentExam.id },
+      data: { pageLockEnabled: true },
+    });
+    expect((await dashboard()).status).toBe(307);
+    expect(await testPrisma.examSessionEvent.count({ where: { sessionId: session.id } })).toBe(
+      2,
+    );
+  }, 30_000);
+
+  it("keeps exam IP checks while allowing unrelated pages when page lock is off", async () => {
+    const student = await createTestUser({ platformRole: "student" });
+    const course = await createTestCourse();
+    await testPrisma.courseMembership.create({
+      data: { courseId: course.id, userId: student.id, role: "student", status: "active" },
+    });
+    const exam = await createTestExam({
+      courseId: course.id,
+      ipWhitelistEnabled: true,
+      ipWhitelist: ["192.0.2.0/24"],
+      pageLockEnabled: false,
+    });
+    await testPrisma.activeExamSession.create({
+      data: { userId: student.id, examId: exam.id },
+    });
+
+    const unrelatedPage = await callRoute({
+      path: "/dashboard",
+      module: { GET: () => new Response("ok") },
+      user: student,
+    });
+    expect(unrelatedPage.status).toBe(200);
+
+    const examPage = await callRoute({
+      path: `/exams/${exam.id}`,
+      module: { GET: () => new Response("ok") },
+      user: student,
+    });
+    expect(examPage.status).toBe(403);
+  }, 30_000);
+});
 
 async function callSubmissionPoint(user: { id: string }, submissionId: string, method = "GET") {
   return callRoute({

@@ -79,9 +79,9 @@ no standalone post pages.
 - Server-side context gate: every post/comment/vote/report endpoint is
   403 while a live contest / assignment / exam containing the problem
   is running for the actor (`resolveActiveContextForUser`); the exam
-  confinement hook additionally blocks `/api/posts/*`,
-  `/api/comments/*`, and `/api/problems/[id]/posts` during an active
-  exam session.
+  page-lock hook additionally blocks `/api/posts/*`, `/api/comments/*`,
+  and `/api/problems/[id]/posts` during an active session only when that
+  exam has `pageLockEnabled: true`.
 - Content validation: markdown, `content` 10–50000 chars, `title`
   1–200 chars (trimmed).
 - Render path: `marked.parse(content, { async: false })` →
@@ -169,10 +169,10 @@ no standalone post pages.
   WHEN they GET editorial posts during the contest,
   THEN 403 — the context gate is checked before the author exception;
   authorship does not open a live event.
-- GIVEN a student inside an active exam session,
+- GIVEN a student inside an active exam session with page lock enabled,
   WHEN they request `/api/posts/*`, `/api/comments/*`, or
   `/api/problems/[id]/posts` for ANY problem,
-  THEN the exam confinement hook (`hooks.server.ts` exam lock) rejects
+  THEN the page-lock hook (`hooks.server.ts`) rejects
   the request before it reaches the route — defense in depth over the
   per-problem context gate.
 
@@ -392,7 +392,7 @@ no standalone post pages.
 - `apps/web/src/lib/server/post-access.ts` —
   `requireProblemPostAccess` / `requireViewablePost` route-layer gate
   helpers (admin bypass lives here).
-- `apps/web/src/lib/server/exam-lock.ts` — exam confinement forbids
+- `apps/web/src/lib/server/exam-lock.ts` — page-lock API restrictions forbid
   `/api/posts/`, `/api/comments/`, and `/api/problems/[id]/posts`
   during an active exam session.
 - `apps/web/src/routes/(app)/admin/reports/` — unified admin moderation

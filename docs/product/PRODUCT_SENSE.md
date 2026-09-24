@@ -5,7 +5,7 @@
 - **Student**: submit solutions, track progress via dashboard, participate in timed contests, take course assessments and exams, join per-problem discussions and view editorials after AC; once their email is verified they may also create and own problems; course enrollment is teacher-driven (no self-serve join token)
 - **Teacher**: create and edit problems (i18n, markdown + KaTeX, image upload), create contests and courses, manage assessments and exams (publish / archive / delete-draft lifecycle), duplicate existing courses, monitor student progress matrix, trigger plagiarism detection
 - **Admin**: full platform management, user role assignment (promote/disable), system announcements, all teacher capabilities
-- **Contest organizer**: timed ICPC/IOI competitions with real-time scoreboard, scoreboard freeze/unfreeze, IP binding and whitelisting, page lock, submit cooldown
+- **Contest organizer**: timed ICPC/IOI competitions with real-time scoreboard, scoreboard freeze/unfreeze, IP binding and whitelisting, and submit cooldown
 - **Exam proctor**: session-based course exams with start/end lifecycle, IP pinning, page-lock visibility enforcement, submissions matrix for grading review
 
 ## Implemented Scope
@@ -40,7 +40,7 @@ This describes repository behavior; release and deployment verification are trac
 - Real-time scoreboard with chart visualization
 - Scoreboard freeze and admin-controlled unfreeze
 - IP binding (block or notify mode) and IP whitelisting
-- Page lock (browser visibility API enforcement)
+- Exam page lock (server-side confinement to the active exam routes)
 - Per-contest submit cooldown (PostgreSQL advisory locks)
 - Invite code join flow
 
@@ -92,7 +92,7 @@ This describes repository behavior; release and deployment verification are trac
 - Editable Problems tab: attach / detach / reorder / per-problem points (locked once exam starts)
 - Submissions sub-tab: students × problems matrix with best score + attempt count, CSV export, search, sort, pagination
 - Session-based proctoring: `?/startExam` form action binds the student IP pin; the page-lock handle hook records `visibility_lost` events on off-path navigation; `?/releaseSession` form action closes the session; `?/releaseAllSessions` lets an instructor release every active session at once
-- Page lock confines the student to `/exams/[examId]/*` while the session is active
+- When enabled, page lock confines a student to `/exams/[examId]/*`; when disabled, the active exam session does not block normal site use
 - Student post-close review block on the detail page — links fall back to ordinary practice URLs
 
 ### Plagiarism Detection

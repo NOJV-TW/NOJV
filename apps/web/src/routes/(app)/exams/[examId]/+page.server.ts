@@ -25,7 +25,6 @@ import {
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";
-import { invalidateExamContextCaches } from "$lib/server/exam-context-cache";
 import { getClientIp } from "$lib/server/shared/client-ip";
 import { createLogger } from "$lib/server/logger";
 import { withAction } from "$lib/server/shared/action-handlers";
@@ -229,49 +228,38 @@ export const actions = {
     const actor = requireAuth(event);
     const examId = event.params.examId;
     const clientIp = getClientIp(event);
+    await examDomain.session.startSessionWithGate(actor, { examId });
     try {
-      await examDomain.session.startSessionWithGate(actor, { examId });
-      try {
-        await proctoringDomain.checkProctoringGate({
-          entityKind: "exam",
-          entityId: examId,
-          userId: actor.userId,
-          ip: clientIp,
-        });
-      } catch (err) {
-        logger.warn("start-time IP pin failed — hooks gate still enforces", {
-          userId: actor.userId,
-          examId,
-          err: err instanceof Error ? err.message : String(err),
-        });
-      }
-    } finally {
-      invalidateExamContextCaches(actor.userId);
+      await proctoringDomain.checkProctoringGate({
+        entityKind: "exam",
+        entityId: examId,
+        userId: actor.userId,
+        ip: clientIp,
+      });
+    } catch (err) {
+      logger.warn("start-time IP pin failed — hooks gate still enforces", {
+        userId: actor.userId,
+        examId,
+        err: err instanceof Error ? err.message : String(err),
+      });
     }
     return { success: true };
   }),
 
   releaseSession: withAction(async (event) => {
     const actor = requireAuth(event);
-    try {
-      await examDomain.session.endSession(actor, {
-        examId: event.params.examId,
-        reason: "submitted",
-      });
-    } finally {
-      invalidateExamContextCaches(actor.userId);
-    }
+    await examDomain.session.endSession(actor, {
+      examId: event.params.examId,
+      reason: "submitted",
+    });
     return { success: true };
   }),
 
   releaseAllSessions: withAction(async (event) => {
     const actor = requireAuth(event);
-    const { releasedUserIds } = await examDomain.session.releaseAllSessionsAsInstructor(actor, {
+    await examDomain.session.releaseAllSessionsAsInstructor(actor, {
       examId: event.params.examId,
     });
-    for (const releasedUserId of releasedUserIds) {
-      invalidateExamContextCaches(releasedUserId);
-    }
     return { success: true };
   }),
 
@@ -286,7 +274,6 @@ export const actions = {
       examId: event.params.examId,
       targetUserId,
     });
-    invalidateExamContextCaches(targetUserId);
     return { success: true };
   }),
 
