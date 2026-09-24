@@ -21,6 +21,7 @@
 - `src/submission/{details,history,judge-context}.ts` — 提交詳情、列表及評測上下文讀取
 - `src/submission/{creation,judge-lifecycle,verdict-summary}.ts` — 提交建立、評測完成／重判狀態及結果摘要
 - `src/scoring/` — adjustment rule、subtask scoring、scoreboard 計算
+- `src/shared/list-aggregations.ts` — 作業／考試列表以批次查詢取得活動分數與人工覆寫；按活動分組，考試各自保留嚴格截止時間，作業不套用考試截止規則
 - `src/shared/` — 共用 helper（`ip-utils`、actor 介面、error classes）
 
 修改以上流程時，同步更新對應 feature spec 或架構文件；從 repo 根目錄執行 `tests/unit/application/` 的相關測試，並在跨服務或持久化邊界變更時執行對應 integration suite。

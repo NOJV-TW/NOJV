@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
+  redis,
   findForScoreboardById,
   findInfoById,
   findForContestScoreboardByContestId,
   findForContestChartByContestId,
   findContestScoreboardParticipants,
 } = vi.hoisted(() => ({
+  redis: { get: vi.fn(), set: vi.fn(), del: vi.fn(), eval: vi.fn() },
   findForScoreboardById: vi.fn(),
   findInfoById: vi.fn(),
   findForContestScoreboardByContestId: vi.fn(),
@@ -31,16 +33,7 @@ vi.mock("@nojv/db", () => ({
 }));
 
 vi.mock("@nojv/redis", () => ({
-  getRedis: () => ({
-    get: async () => null,
-    set: async () => "OK",
-    del: async () => 0,
-  }),
-  createRateLimiterConnection: () => ({
-    get: async () => null,
-    set: async () => "OK",
-    del: async () => 0,
-  }),
+  createRateLimiterConnection: () => redis,
   keys: {
     scoreboardCache: (contestId: string, variant: string) => `sb:${contestId}:${variant}`,
     scoreboardChartCache: (contestId: string, variant: string, topN: number) =>
@@ -72,7 +65,11 @@ function mkSub(userId: string, problemId: string, score: number, minutesAfterSta
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
+  redis.get.mockResolvedValue(null);
+  redis.set.mockResolvedValue("OK");
+  redis.del.mockResolvedValue(0);
+  redis.eval.mockResolvedValue(1);
 
   findForScoreboardById.mockResolvedValue({
     endsAt: END,
@@ -131,5 +128,57 @@ describe("getScoreboardChart freeze cutoff", () => {
       { score: 100, time: 30 * 60 },
       { score: 200, time: 130 * 60 },
     ]);
+  });
+});
+
+describe("scoreboard cache lock ownership", () => {
+  it("does not release a successor lock after the original lease expires", async () => {
+    let owner: string | undefined;
+    redis.set.mockImplementation(async (key: string, value: string) => {
+      if (key.startsWith("sb-lock:")) owner = value;
+      return "OK";
+    });
+    redis.del.mockImplementation(async () => {
+      owner = undefined;
+      return 1;
+    });
+    redis.eval.mockImplementation(
+      async (_script: string, _count: number, _key: string, token: string) => {
+        if (owner !== token) return 0;
+        owner = undefined;
+        return 1;
+      },
+    );
+    let finishFirst!: (value: []) => void;
+    let finishSecond!: (value: []) => void;
+    findContestScoreboardParticipants
+      .mockImplementationOnce(
+        () =>
+          new Promise<[]>((resolve) => {
+            finishFirst = resolve;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<[]>((resolve) => {
+            finishSecond = resolve;
+          }),
+      );
+    const a = contestDomain.getScoreboard("contest-1");
+    await vi.waitFor(() => expect(finishFirst).toBeDefined());
+    const original = owner;
+    owner = undefined;
+    const b = contestDomain.getScoreboard("contest-1");
+    await vi.waitFor(() => expect(finishSecond).toBeDefined());
+    const successor = owner;
+    finishFirst([]);
+    await a;
+    const ownerAfterFirst = owner;
+    finishSecond([]);
+    await b;
+    expect(successor).not.toBe(original);
+    expect(ownerAfterFirst).toBe(successor);
+    expect(owner).toBeUndefined();
+    expect(redis.del).not.toHaveBeenCalled();
   });
 });

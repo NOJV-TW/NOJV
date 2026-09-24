@@ -182,7 +182,7 @@ describe("buildScoreboardChartSeries", () => {
     ]);
   });
 
-  it("IOI: only adds chart points when an accepted submission improves the score", () => {
+  it("IOI: includes partial improvements and agrees with the scoreboard", () => {
     const subsByUser = new Map([
       [
         "u1",
@@ -197,7 +197,7 @@ describe("buildScoreboardChartSeries", () => {
     ]);
     const series = buildScoreboardChartSeries(
       SESSION_START,
-      "ioi",
+      "point_sum",
       ["u1"],
       subsByUser,
       new Map(),
@@ -205,9 +205,19 @@ describe("buildScoreboardChartSeries", () => {
     );
     expect(series[0]!.points).toEqual([
       { time: 0, score: 0 },
-      { time: 30 * 60, score: 70 },
+      { time: 5 * 60, score: 40 },
+      { time: 15 * 60, score: 70 },
       { time: 40 * 60, score: 170 },
     ]);
+    const board = buildScoreboard(
+      session,
+      "point_sum",
+      [mkParticipant("u1")],
+      subsByUser.get("u1")!,
+      [mkProblem("P1", 1), mkProblem("P2", 2)],
+      false,
+    );
+    expect(series[0]!.points.at(-1)!.score).toBe(board[0]!.totalScore);
   });
 
   it("IOI: cumulative score only counts the delta on each accepted improvement", () => {
@@ -216,7 +226,7 @@ describe("buildScoreboardChartSeries", () => {
     ]);
     const series = buildScoreboardChartSeries(
       SESSION_START,
-      "ioi",
+      "point_sum",
       ["u1"],
       subsByUser,
       new Map(),

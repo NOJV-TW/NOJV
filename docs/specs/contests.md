@@ -243,6 +243,9 @@ now`) and the viewer is not privileged, THEN `getScoreboard` returns
   top-N participants from the (current-view) scoreboard; series are
   monotonic-increasing points `{ time, score }` starting from
   `contest.startsAt`.
+- In `point_sum` mode, every improvement in a problem's best score contributes,
+  including partial scores from non-accepted submissions. The final chart score
+  agrees with the scoreboard for the same submissions and visibility cutoff.
 - GIVEN no participations, THEN `series: []`.
 
 ### Permissions

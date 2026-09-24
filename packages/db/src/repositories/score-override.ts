@@ -100,6 +100,8 @@ export const scoreOverrideRepo = {
         },
       },
       select: {
+        assessmentId: true,
+        examId: true,
         courseMembershipId: true,
         problemId: true,
         overrideScore: true,

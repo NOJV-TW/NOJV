@@ -54,7 +54,7 @@ vi.mock("@nojv/redis", () => ({
   createRateLimiterConnection: () => ({
     get: async () => null,
     set: async () => "OK",
-    del: async () => 0,
+    eval: async () => 0,
   }),
   keys: {
     scoreboardCache: (contestId: string, variant: string) => `sb:${contestId}:${variant}`,

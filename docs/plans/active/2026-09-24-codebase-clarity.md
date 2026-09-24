@@ -172,3 +172,23 @@ The tracked baseline directory totals are reproducible with `git ls-files`; 2,11
 - [Architecture overview](../../architecture/ARCHITECTURE.md)
 - [Testing strategy](../../runbooks/testing.md)
 - [Plan lifecycle](../../product/PLANS.md)
+
+## Follow-up: scoring and aggregate read review (2026-09-24)
+
+User approved all three findings from the follow-up review:
+
+- Include partial-score improvements in point-sum chart history, aligning its
+  result with the scoreboard rather than requiring an accepted verdict.
+- Replace per-activity submission/override reads with two batch reads. Preserve
+  activity IDs, per-exam exclusive deadlines, problem membership, user scope,
+  and the existing assignment policy. No schema or public API change.
+- Use unique scoreboard lease tokens and atomic compare-and-delete release.
+  Keep existing cache TTL, polling and Redis failure behavior.
+
+The three regression tests failed against the previous implementation before
+fixes. The follow-up code tree passed `pnpm ci:verify` on 2026-09-24:
+build, repository guards, package/test typechecks, lint, 385 unit files
+(3,621 passed, 2 skipped), and 43 component files (105 passed). The separate
+91-check documentation link suite passed. The new database integration
+regression is delegated to the PR CI's isolated services; local integration,
+E2E, Docker and Kubernetes runs were not repeated for this follow-up.

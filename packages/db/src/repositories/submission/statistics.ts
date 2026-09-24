@@ -9,6 +9,29 @@ import {
 } from "../submission-stats";
 
 export const submissionStatistics = {
+  groupByActivity(
+    type: "assignment" | "exam",
+    activities: { id: string; deadline: Date; problems: { problemId: string }[] }[],
+    userId?: string,
+  ) {
+    if (activities.length === 0) return Promise.resolve([]);
+    return prisma.submission.groupBy({
+      by: ["assessmentId", "examId", "userId", "problemId"],
+      where: {
+        ...(userId === undefined ? {} : { userId }),
+        sampleOnly: false,
+        isReferenceSolution: false,
+        OR: activities.map((activity) => ({
+          ...(type === "exam"
+            ? { examId: activity.id, createdAt: { lt: activity.deadline } }
+            : { assessmentId: activity.id }),
+          problemId: { in: activity.problems.map((p) => p.problemId) },
+        })),
+      },
+      _max: { score: true },
+    });
+  },
+
   groupByUserAndProblem(where: Prisma.SubmissionWhereInput) {
     return prisma.submission.groupBy({
       by: ["userId", "problemId"],
