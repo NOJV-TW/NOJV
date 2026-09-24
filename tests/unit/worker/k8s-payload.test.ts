@@ -7,7 +7,7 @@ import {
   CONFIGMAP_SHARD_MAX_BYTES,
   PAYLOAD_MANIFEST_FILE,
   type SandboxPayloadManifest,
-} from "../../../apps/worker/src/services/k8s-payload";
+} from "../../../apps/worker/src/sandbox/kubernetes/payload";
 
 function decodePayload(configMaps: ReturnType<typeof buildPayloadConfigMaps>) {
   const projected = new Map<string, Buffer>();

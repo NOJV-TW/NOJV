@@ -35,7 +35,7 @@
 - Modify: `apps/web/src/routes/(public)/+page.svelte`
 - Modify: `apps/web/messages/en.json`
 - Modify: `apps/web/messages/zh-TW.json`
-- Test: `tests/unit/web/home-page-layout.test.ts`
+- Test: `tests/component/web/home-page-layout.test.ts`
 
 **Steps:**
 

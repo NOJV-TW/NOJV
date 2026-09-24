@@ -8,10 +8,24 @@ export default [
       "@typescript-eslint/no-restricted-imports": [
         "error",
         {
-          paths: ["@nojv/redis", "@nojv/storage"].map((name) => ({
-            name,
-            message: `@nojv/db (persistence layer) must not import ${name}. Cache/storage sit above the DB and reach it through repositories. Seed/maintenance scripts under prisma/ are the only exception.`,
-          })),
+          patterns: [
+            {
+              group: [
+                "@nojv/application",
+                "@nojv/application/*",
+                "@nojv/mailer",
+                "@nojv/mailer/*",
+                "@nojv/temporal",
+                "@nojv/temporal/*",
+                "@nojv/redis",
+                "@nojv/redis/*",
+                "@nojv/storage",
+                "@nojv/storage/*",
+              ],
+              message:
+                "@nojv/db source is the persistence layer: it may use core contracts but must not depend on application or infrastructure above it. Prisma seed/maintenance scripts are outside src/.",
+            },
+          ],
         },
       ],
     },

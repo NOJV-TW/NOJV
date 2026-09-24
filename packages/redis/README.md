@@ -17,7 +17,7 @@
 ## 依賴
 
 - 上游：`@nojv/core`（共享 schema）、`ioredis`、`@opentelemetry/api`
-- 下游：`@nojv/application`、`apps/web`、`apps/worker`、`@nojv/temporal`
+- 下游：`@nojv/application`、`apps/web`、`apps/worker`
 
 ## 本地開發
 

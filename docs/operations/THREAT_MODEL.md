@@ -181,10 +181,10 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 **Mitigations:**
 
 - Container hardening: `cap-drop ALL`, `no-new-privileges`, read-only rootfs, bounded `tmpfs` on `/tmp` (64m) and `/workspace` (128m) — no host-writable persistence path
-- Non-root execution: Kubernetes pod and container both set `runAsNonRoot: true` (`apps/worker/src/services/k8s-executor.ts`); Docker images run as a non-root UID
+- Non-root execution: Kubernetes pod and container both set `runAsNonRoot: true` (`apps/worker/src/sandbox/kubernetes/pod-spec.ts`); Docker images run as a non-root UID
 - Network isolation: `--network none` (default, configurable per-problem)
 - Resource limits: CPU (default 1 core), memory (default 256 MB, max 1024 MB), PID limit (default 64)
-- Per-stream stdout/stderr capped at 16 MB by `createBoundedStringBuffer` (`apps/worker/src/services/bounded-buffer.ts`) — wraps every spawn in standard- and advanced-mode executors so a runaway submission can't OOM the worker before the outer timeout fires
+- Per-stream stdout/stderr capped at 16 MB by `createBoundedStringBuffer` (`apps/worker/src/sandbox/shared/bounded-buffer.ts`) — wraps every spawn in standard- and advanced-mode executors so a runaway submission can't OOM the worker before the outer timeout fires
 - seccomp: Docker default profile only — explicitly NOT a custom allowlist. Rationale: the default already blocks ~44 high-risk syscalls (`kexec_load`, `bpf`, `userfaultfd`, ...) and the marginal gain from a custom profile is dwarfed by the false-negative cost across language runtimes. See [SECURITY.md — Sandbox Hardening](SECURITY.md#sandbox-hardening-seccomp-posture).
 - Advanced Mode images are registry-only (digest-pinned) and run as hardened Jobs. A pod stuck in `ImagePullBackOff` resolves to an immediate `system_error` (terminal, no retry loop)
 - Sandbox-runner depends only on `@nojv/core` — minimal attack surface
@@ -294,7 +294,7 @@ All routes under `(app)/` require authentication via `requireAuth(event)` in `+l
 
 - **Unauthorized problem modification**: Student modifies a problem's testcases to make their submission pass. _Mitigation_: `canEditProblem()` requires admin or teacher. Problem edit page checks role in `+page.server.ts`.
 - **Graded testcase leak**: Student accesses graded testcase content. _Mitigation_: `TestcaseSet` / `Testcase` rows are never included in student-facing responses — only `Problem.samples` (a separate JSON column scoped to presentation) is rendered on the problem page. `ProblemDetail` in the domain layer deliberately excludes testcase set content before returning to the web layer.
-- **Hidden workspace file leak**: Student reads a `ProblemWorkspaceFile` whose `visibility = hidden` (e.g., internal test harness). _Mitigation_: `mapPersistedProblemDetail` in `packages/application/src/problem/queries.ts` filters out `visibility === "hidden"` before the row leaves the domain layer. Hidden files are only merged into the sandbox workspace by the worker at judge time.
+- **Hidden workspace file leak**: Student reads a `ProblemWorkspaceFile` whose `visibility = hidden` (e.g., internal test harness). _Mitigation_: `mapPersistedProblemDetail` in `packages/application/src/problem/details.ts` filters out `visibility === "hidden"` before the row leaves the domain layer. Hidden files are only merged into the sandbox workspace by the worker at judge time.
 - **Assessment manipulation**: Student modifies assessment deadlines or configuration. _Mitigation_: Assessment mutations require `canManageCourse(role)`. Deadline enforcement is server-side (`closesAt` checked before accepting submissions).
 - **Unauthorized enrollment**: Student adds themselves (or escalates their role) in a course. _Mitigation_: Membership changes require `canManageMembers`; TAs cannot change memberships and teachers cannot act on other teachers (see `changeMemberRole` / `removeMember`). There is no join-token path to brute-force.
 - **Grade export data exposure**: Student accesses another course's grade export. _Mitigation_: `resolveCoursePermission(courseSlug, actor)` checks course membership and role before allowing export.

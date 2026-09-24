@@ -56,10 +56,10 @@ vi.mock("$app/forms", () => ({
   },
 }));
 vi.mock("$lib/components/features/problem/ProblemSelectDialog.svelte", async () => ({
-  default: (await import("../../unit/web/fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 vi.mock("$lib/components/features/problem/admin/RejudgeDialog.svelte", async () => ({
-  default: (await import("../../unit/web/fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
 import TeacherProblems from "./fixtures/teacher-problems-refresh.svelte";

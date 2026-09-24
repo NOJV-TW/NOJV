@@ -2,28 +2,10 @@
 
 This file is the agent entrypoint for this repository. Read it first, then follow the linked living documents instead of treating `README.md` as the full source of truth.
 
-## Reading Order
+## Start by task
 
-1. [Architecture Overview](docs/architecture/ARCHITECTURE.md)
-2. [Product Sense](docs/product/PRODUCT_SENSE.md)
-3. [Frontend Surface](docs/architecture/FRONTEND.md)
-4. [Design Rules](docs/architecture/DESIGN.md)
-5. [Judge Pipeline](docs/architecture/JUDGE_PIPELINE.md)
-6. [Database Schema](docs/architecture/DATABASE.md)
-7. [Redis Architecture](docs/architecture/REDIS.md)
-8. [Security Requirements](docs/operations/SECURITY.md)
-9. [Threat Model](docs/operations/THREAT_MODEL.md)
-10. [Reliability Invariants](docs/operations/RELIABILITY.md)
-11. [Deployment Guide](docs/operations/DEPLOYMENT.md)
-12. [Quality Ledger](docs/operations/QUALITY_SCORE.md)
-13. [Planning System](docs/product/PLANS.md)
-14. [Getting Started Runbook](docs/runbooks/getting-started.md)
-15. [Feature Specs](docs/specs/) — acceptance criteria for core features
-
-## Doc Index by Task
-
-Reading Order above is for onboarding. This table is for task-driven lookup —
-when working on a specific area, open the listed doc first.
+Read the first matching row, then inspect the owning app or package guide and
+source. Do not read every architecture document for a routine change.
 
 | Working on...                                        | Read                                                                          |
 | ---------------------------------------------------- | ----------------------------------------------------------------------------- |
@@ -48,6 +30,7 @@ when working on a specific area, open the listed doc first.
 | Cross-cutting quality / tech debt                    | [Quality Ledger](docs/operations/QUALITY_SCORE.md)                            |
 | Overall system map, layer boundaries                 | [Architecture Overview](docs/architecture/ARCHITECTURE.md)                    |
 | Feature acceptance specs (assignments, exams, etc.)  | [Feature Specs](docs/specs/) — per-feature Given/When/Then                    |
+| Any other task or full documentation index           | [Documentation home](docs/README.md)                                          |
 
 ## Doc Authoring Rules
 
@@ -57,7 +40,7 @@ when working on a specific area, open the listed doc first.
 
 ## Quick Reference
 
-- **Monorepo**: pnpm workspaces + Turborepo, Node.js >= 24, ESM throughout
+- **Monorepo**: pnpm 11.13.1 workspaces + Turborepo, Node.js >=24.18 <25, ESM
 - **Frontend**: SvelteKit + Vite + Tailwind CSS 4 + Bits UI + Monaco Editor
 - **Auth**: better-auth (GitHub + Google OAuth; admin credentials + expiring exam passwords; passkeys for step-up)
 - **Orchestration**: Temporal (TypeScript SDK)
@@ -65,7 +48,7 @@ when working on a specific area, open the listed doc first.
 - **Cache**: Redis 8 (pub/sub, rate limiting, cooldown, hot cache)
 - **Object Storage**: S3-compatible (MinIO local, GCS/R2/S3 production) via `@nojv/storage`
 - **Validation**: Zod 4 everywhere (schemas in `@nojv/core`)
-- **Testing**: Vitest (unit/integration), Playwright (E2E)
+- **Testing**: Vitest (unit/component/integration), Playwright (E2E)
 - **Sandbox**: Docker (local) or Kubernetes (production) with seccomp + capability drop
 
 ## Common Commands
@@ -79,8 +62,8 @@ pnpm format               # Prettier check
 pnpm format:write         # Prettier fix
 pnpm test:unit            # Vitest unit tests
 pnpm test:integration     # Vitest integration tests
-pnpm test:e2e             # Playwright E2E tests (local only, not in CI)
-pnpm ci:verify            # Full CI pipeline locally
+pnpm test:e2e             # Full local Playwright suite; CI runs a core browser smoke
+pnpm ci:verify            # Build, static checks, typechecks, unit + component tests
 pnpm db:generate          # Regenerate Prisma client
 pnpm db:push              # Push schema to DB (dev)
 pnpm db:migrate           # Run migrations (production)
@@ -102,7 +85,9 @@ packages/
   application/      Business logic — queries, mutations, scoring, stats (@nojv/application)
   redis/            Redis connection, key registry, pub/sub
   storage/          S3-compatible object storage (problem images)
-  temporal/         Temporal client + dispatch API + task queues + workflow I/O types (workflows/activities live in apps/worker)
+  mailer/           SMTP and local sink
+  sandbox-docker/   Hardened Docker execution options shared by sandbox modes
+  temporal/         Temporal client, dispatch API, queues and workflow I/O types
 
 tooling/
   eslint/           Shared ESLint 9 flat config
@@ -130,7 +115,9 @@ docs/
 
 ## Rules
 
-- Keep this file short and navigational.
+- Keep this file navigational; use [docs/README.md](docs/README.md) for the task-to-source/test map.
+- Apps and packages own local README files; architecture and operations docs are the shared sources of truth.
+- Update the owning living doc in the same change as behavior or architecture changes; plan documents preserve history, not current behavior.
 - Keep durable product, architecture, reliability, and security detail in the linked docs.
 - Keep the linked docs aligned with landed code instead of preserving speculative or stale future-tense guidance.
 - Do not add any unnecessary comments.

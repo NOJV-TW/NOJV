@@ -10,13 +10,13 @@ import type { SandboxRequest } from "@nojv/core";
 
 import {
   K8sExecutor,
-  SandboxBackpressureError,
   type K8sExecutorConfig,
-} from "../../../apps/worker/src/services/k8s-executor.js";
+} from "../../../apps/worker/src/sandbox/kubernetes/executor.js";
+import { SandboxBackpressureError } from "../../../apps/worker/src/sandbox/kubernetes/errors.js";
 import {
   HARDENED_CONTAINER_SECURITY_CONTEXT,
   SANDBOX_POD_SECURITY_CONTEXT,
-} from "../../../apps/worker/src/services/k8s-pod-spec.js";
+} from "../../../apps/worker/src/sandbox/kubernetes/pod-spec.js";
 import {
   assertK8sIntegrationOptIn,
   assertSafeK8sIntegrationTarget,

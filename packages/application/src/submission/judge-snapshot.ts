@@ -25,7 +25,8 @@ import { z } from "zod";
 import { storage } from "../shared/storage-singleton";
 import { guardStorageObjectWrites } from "../shared/storage-object-lifecycle";
 import { ConflictError, IntegrityError } from "../shared/errors";
-import { getJudgeContext, getSubmissionSources } from "./queries";
+import { getSubmissionSources } from "./details";
+import { getJudgeContext } from "./judge-context";
 
 const judgeContextSchema = z.object({
   adjustment: z.object({

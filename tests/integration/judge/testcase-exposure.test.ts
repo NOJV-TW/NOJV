@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { SandboxRequest } from "@nojv/core";
 
-import { DockerExecutor } from "../../../apps/worker/src/services/docker-executor.js";
+import { DockerExecutor } from "../../../apps/worker/src/sandbox/docker/executor.js";
 import { requireSandboxImage } from "./_sandbox-image";
 
 const SANDBOX_IMAGE = process.env.NOJV_TEST_SANDBOX_IMAGE ?? "nojv-sandbox:local";

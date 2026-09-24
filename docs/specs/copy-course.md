@@ -215,6 +215,6 @@ addedByUserId: actor.userId)`.
 
 ### Tests
 
-- `tests/unit/domain/course-copy.test.ts` — 10+ scenarios covering
+- `tests/unit/application/course-copy.test.ts` — 10+ scenarios covering
   permission gating, field carry, status reset, membership shape,
   problem-attachment order / points preservation, empty-source case.

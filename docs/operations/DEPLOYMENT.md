@@ -497,7 +497,7 @@ verifies the TLS Secret, and requires Cloud Armor to allow exactly
    The worker now **fails closed**: at startup, when `EXECUTION_BACKEND=kubernetes`,
    it runs a positive/negative internal egress probe and **refuses to start the
    judge worker** unless the CNI enforces NetworkPolicy (see
-   `apps/worker/src/services/k8s-netpol-probe.ts`). The probe reaches an
+   `apps/worker/src/sandbox/kubernetes/netpol-probe.ts`). The probe reaches an
    explicitly allowed target and must fail to reach a target without an egress
    allow rule, so an external firewall cannot produce a false positive. There
    is no bypass: a Kubernetes judge worker requires an enforcing CNI. Use the

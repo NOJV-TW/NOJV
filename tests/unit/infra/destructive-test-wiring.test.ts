@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
+import { PLAYWRIGHT_STORAGE_ENVIRONMENT } from "../../setup/playwright-environment";
 
 const repoRoot = process.cwd();
 const integrationUrl = "postgresql://postgres:postgres@127.0.0.1:5432/nojv_test";
@@ -61,7 +62,7 @@ describe("Playwright destructive database isolation", () => {
       NODE_ENV: "test",
       S3_ACCESS_KEY: "minioadmin",
       S3_BUCKET: "nojv",
-      S3_ENDPOINT: "http://127.0.0.1:9000",
+      S3_ENDPOINT: PLAYWRIGHT_STORAGE_ENVIRONMENT.S3_ENDPOINT,
       S3_REGION: "us-east-1",
       S3_SECRET_KEY: "minioadmin",
     });

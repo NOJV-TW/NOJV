@@ -9,7 +9,7 @@ import type { ActorContext } from "../shared/actor-context";
 import { NotFoundError, ValidationError } from "../shared/errors";
 import { getJudgeExecutionViews } from "./judge-execution";
 import { canOperateOnSubmission } from "./permissions";
-import { getSubmissionForActor, readVerdictDetail } from "./queries";
+import { getSubmissionForActor, readVerdictDetail } from "./details";
 import { queuedRejudges } from "./rejudge-control";
 import { submissionSummaryResult, type SubmissionStateRow } from "./operation-state";
 import { sanitizeStudentResult } from "./scoring";

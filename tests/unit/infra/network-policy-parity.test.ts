@@ -42,8 +42,8 @@ function isolateDoc(render: string, kind: string, name: string): string {
 
 function executorLabelSets(): Record<string, string>[] {
   const src = [
-    "apps/worker/src/services/k8s-executor.ts",
-    "apps/worker/src/services/k8s-job-manifests.ts",
+    "apps/worker/src/sandbox/kubernetes/executor.ts",
+    "apps/worker/src/sandbox/kubernetes/job-manifests.ts",
   ]
     .map((p) => readFileSync(join(repoRoot, p), "utf8"))
     .join("\n");
@@ -90,7 +90,7 @@ describeHelm(
 
     it("advanced run/grade builders emit the nojv.egress label so per-submission policies apply", () => {
       const src = readFileSync(
-        join(repoRoot, "apps/worker/src/services/k8s-advanced.ts"),
+        join(repoRoot, "apps/worker/src/sandbox/kubernetes/advanced.ts"),
         "utf8",
       );
       expect(src).toContain('"nojv.egress": params.egressLabel');

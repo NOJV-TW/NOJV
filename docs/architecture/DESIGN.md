@@ -247,19 +247,21 @@ Supporting infrastructure:
 Example -- a load function composed from a throwing query:
 
 ```ts
-// apps/web/src/routes/(app)/problems/[id]/+page.server.ts
+// apps/web/src/routes/(app)/problems/[problemId]/+page.server.ts
 import { handleLoad } from "$lib/server/shared/load-wrapper";
-import { getProblemPageData } from "@nojv/application/problem/queries";
+import { problemDomain } from "@nojv/application";
 
-export const load = handleLoad(async ({ params, locals }) => {
+const { getProblemPageData } = problemDomain;
+
+export const load = handleLoad(async ({ params }) => {
   // getProblemPageData throws NotFoundError when the problem is missing;
   // handleLoad converts that into a SvelteKit 404 for us.
-  const data = await getProblemPageData(params.id, locals.locale);
+  const data = await getProblemPageData(params.problemId);
   return { problem: data };
 });
 ```
 
-The convention is enforced by [`scripts/check-query-returns.mjs`](../../scripts/check-query-returns.mjs), wired into `pnpm lint` and `pnpm ci:verify`. The guard scans `packages/application/src/**/queries.ts` for exported `get*` / `load*` / `fetch*` / `require*` functions that fall back to `return null`. Escape hatch: annotate the declaration with a leading `// intentional-nullable: <why>` comment. Only use it for cases that match the legitimate patterns listed above.
+The convention is enforced by [`scripts/check-query-returns.mjs`](../../scripts/check-query-returns.mjs), wired into `pnpm lint` and `pnpm ci:verify`. The guard scans all TypeScript source under `packages/application/src/` for exported `get*` / `load*` / `fetch*` / `require*` functions that fall back to `return null`, including focused modules such as `details.ts`, `history.ts` and `picker.ts`. Escape hatch: annotate the declaration with a leading `// intentional-nullable: <why>` comment. Only use it for cases that match the legitimate patterns listed above.
 
 ## Related Docs
 

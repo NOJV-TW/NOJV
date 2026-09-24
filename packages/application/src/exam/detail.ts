@@ -161,6 +161,7 @@ async function computeViewerScores(
   return { viewerStateByProblem, viewerTotalScore: sumActivityScores(scores) };
 }
 
+// intentional-nullable: Missing exams and unpublished drafts are hidden from non-managers as not-found.
 export async function getExamDetailPage(
   examId: string,
   options: GetExamDetailPageOptions,

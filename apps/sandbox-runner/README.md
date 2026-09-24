@@ -5,7 +5,7 @@
 ## 職責
 
 - 在最小權限容器內編譯與執行使用者提交的程式碼
-- 對 worker 傳入的 testcase 跑 stdin/stdout 比對或 interactive judge
+- 對 worker 傳入的 testcase 跑 standard comparator 或 interactive judge
 - 量測 CPU 時間、wall time、memory、exit signal，回報結構化 JSON
 - 對輸出做大小上限保護（bounded buffer，16 MB cap）
 - 完成後清理 `mkdtemp` 工作目錄
@@ -18,8 +18,9 @@
 - `src/judges/standard.ts` — 標準 stdin/stdout judge
 - `src/judges/run-process.ts` — 共用程序執行包裝
 - `native/nojv-exec.c` — 執行 helper：`RLIMIT_CPU`、牆鐘逾時、清掉所有後代，用 `wait4` 回報程式本身的 CPU 與記憶體峰值（image 內為 `/usr/local/bin/nojv-exec`；測試由 `tests/setup/nojv-exec.ts` 編譯並設 `NOJV_EXEC_PATH`）
-- `src/judges/interactive.ts` — interactive judge（雙向 IO）
-- `src/judges/checker.ts` — special judge / 自訂比對程式（custom comparator）
+- `src/judges/interactive-channel.ts`、`interactive-stage.ts` — interactive judging protocol and stage
+- `src/judges/standard.ts`、`validate.ts` — standard and validator judging
+- `src/judges/stage-files.ts`、`run-stage.ts` — stage inputs and execution
 - `src/utils.ts` — `createBoundedBuffer` 等共用 helper
 
 ## 依賴

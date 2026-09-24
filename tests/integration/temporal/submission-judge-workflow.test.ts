@@ -10,7 +10,7 @@ import { submissionJudgeWorkflow } from "../../../apps/worker/src/workflows/subm
 import {
   SandboxAdmissionError,
   SandboxBackpressureError,
-} from "../../../apps/worker/src/services/k8s-executor";
+} from "../../../apps/worker/src/sandbox/kubernetes/errors";
 
 const workflowsPath = fileURLToPath(
   new URL("../../../apps/worker/src/workflows/submission-judge.ts", import.meta.url),

@@ -11,7 +11,7 @@ import {
   listProblemPickerGroups,
   mapProblemPickerCandidate,
   type ProblemPickerGroups,
-} from "../problem/queries";
+} from "../problem/picker";
 import {
   ConflictError,
   ForbiddenError,

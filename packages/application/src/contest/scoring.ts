@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   contestRepo,
   participationRepo,
@@ -178,10 +179,11 @@ export async function getScoreboard(
   const cached = await readCachedScoreboard(redis, cacheKey);
   if (cached) return cached;
 
+  const lockToken = randomUUID();
   let acquired: boolean;
   try {
     acquired =
-      (await redis.set(lockKey, "1", "EX", SCOREBOARD_LOCK_TTL_SECONDS, "NX")) === "OK";
+      (await redis.set(lockKey, lockToken, "EX", SCOREBOARD_LOCK_TTL_SECONDS, "NX")) === "OK";
   } catch {
     return computeScoreboard(contestId, canSeeLive);
   }
@@ -202,7 +204,17 @@ export async function getScoreboard(
       .catch(() => undefined);
     return result;
   } finally {
-    await redis.del(lockKey).catch(() => undefined);
+    await redis
+      .eval(
+        `if redis.call("GET", KEYS[1]) == ARGV[1] then
+         return redis.call("DEL", KEYS[1])
+       end
+       return 0`,
+        1,
+        lockKey,
+        lockToken,
+      )
+      .catch(() => undefined);
   }
 }
 

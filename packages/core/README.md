@@ -5,7 +5,7 @@
 ## 職責
 
 - 定義 problem、course、contest、exam、submission、user 等 domain 物件的 Zod schema
-- 集中管理 enum 與常數（task queue 名稱、sandbox 限制、reserved username、語言模板）
+- 集中管理 enum 與常數（sandbox 限制、reserved username、語言模板、judge environment）
 - 提供 `required-paths` 等共用 validation helper
 - **不負責**：DB I/O、Redis、業務規則、UI、framework 整合
 - 嚴禁依賴任何 `@nojv/*` 內部 package
@@ -16,8 +16,9 @@
 - `src/schemas/submission.ts` — submission verdict、subtask、score schema
 - `src/schemas/judge-config.ts` — judge pipeline 設定
 - `src/schemas/advanced-mode.ts` — advanced mode（自訂 docker image）schema
-- `src/queue.ts` — Temporal task queue 名稱常數
-- `src/sandbox.ts` — sandbox 預設限制與型別
+- `src/sandbox.ts` — sandbox request/result contract and limits
+- `src/judge-environment.ts` / `judge-environment.json` — pinned compiler/runtime environment
+- `src/workflow-types.ts` — workflow input/output contracts; queue names live in `packages/temporal`
 - `src/reserved-username.ts` — 保留 username 黑名單
 
 ## 依賴

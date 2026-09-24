@@ -104,21 +104,8 @@ function resolveProblemStatus(
   override: number | undefined,
   lastSubmissionAt: string | null,
 ): AssignmentDetailProblem["myStatus"] {
-  if (override !== undefined) {
-    let state: ProblemSolveState = "none";
-    if (override >= problem.rawMaxScore) state = "ac";
-    else if (override > 0) state = "partial";
-    else if ((stats?.attempts ?? 0) > 0) state = "attempted";
-    return {
-      bestScore: activityScore(override, problem.rawMaxScore, problem.points).toNumber(),
-      attempts: stats?.attempts ?? 0,
-      lastSubmissionAt,
-      state,
-      overridden: true,
-    };
-  }
-
-  if (!stats) {
+  const overridden = override !== undefined;
+  if (!overridden && !stats) {
     return {
       bestScore: null,
       attempts: 0,
@@ -128,16 +115,23 @@ function resolveProblemStatus(
     };
   }
 
-  let state: ProblemSolveState = "none";
-  if (stats.bestScore >= problem.rawMaxScore) state = "ac";
-  else if (stats.bestScore > 0) state = "partial";
-  else if (stats.attempts > 0) state = "attempted";
+  const bestScore = override ?? stats?.bestScore ?? 0;
+  const attempts = stats?.attempts ?? 0;
+  const state: ProblemSolveState =
+    bestScore >= problem.rawMaxScore
+      ? "ac"
+      : bestScore > 0
+        ? "partial"
+        : attempts > 0
+          ? "attempted"
+          : "none";
+
   return {
-    bestScore: activityScore(stats.bestScore, problem.rawMaxScore, problem.points).toNumber(),
-    attempts: stats.attempts,
+    bestScore: activityScore(bestScore, problem.rawMaxScore, problem.points).toNumber(),
+    attempts,
     lastSubmissionAt,
     state,
-    overridden: false,
+    overridden,
   };
 }
 

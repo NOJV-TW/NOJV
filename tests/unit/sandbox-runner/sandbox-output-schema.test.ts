@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { sandboxOutputSchema, compileOutputSchema, validateOutputSchema } from "@nojv/core";
-import { parseSandboxResult } from "../../../apps/worker/src/services/sandbox-schema";
+import { parseSandboxResult } from "../../../apps/worker/src/sandbox/shared/sandbox-schema";
 import { SandboxOutputSchema } from "../../../apps/sandbox-runner/src/types.js";
 
 describe("SandboxOutputSchema", () => {

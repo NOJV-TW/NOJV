@@ -266,30 +266,21 @@ export function mapResult(
 
   const allAc = result.testcaseResults.every((t) => t.verdict === "AC");
 
-  if (allAc && score >= totalWeight) {
-    return {
-      accepted: true,
-      caseResults,
-      feedback: truncate(result.scoringFeedback ?? "All testcases passed", MAX_FEEDBACK_LEN),
-      runtimeMs,
-      ...memoryField,
-      score: result.customScore ?? score,
-      subtaskResults,
-      verdict: "accepted",
-    };
-  }
-
   if (allAc) {
+    const reachedTotalScore = score >= totalWeight;
     return {
       accepted: true,
       caseResults,
       feedback: truncate(
-        result.scoringFeedback ?? `All testcases passed (score adjusted to ${String(score)})`,
+        result.scoringFeedback ??
+          (reachedTotalScore
+            ? "All testcases passed"
+            : `All testcases passed (score adjusted to ${String(score)})`),
         MAX_FEEDBACK_LEN,
       ),
       runtimeMs,
       ...memoryField,
-      score,
+      score: reachedTotalScore ? (result.customScore ?? score) : score,
       subtaskResults,
       verdict: "accepted",
     };

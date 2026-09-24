@@ -14,10 +14,10 @@
 
 **Files:**
 
-- Modify: `packages/application/src/submission/mutations.ts`
+- Modify: `packages/application/src/submission/creation.ts`
 - Modify: `packages/application/src/submission/rejudge-control.ts`
-- Test: `tests/unit/domain/submission-mutations.test.ts`
-- Test: `tests/unit/domain/submission-dispatch-outbox.test.ts`
+- Test: `tests/unit/application/submission-mutations.test.ts`
+- Test: `tests/unit/application/submission-dispatch-outbox.test.ts`
 
 **Steps:**
 
@@ -34,7 +34,7 @@
 - Modify: `tests/unit/temporal/submission-dispatch.test.ts`
 - Modify: `tests/unit/worker/worker-app.test.ts`
 - Modify: `tests/integration/temporal/submission-judge-workflow.test.ts`
-- Modify: `tests/integration/domain/submission-sweep.test.ts` only if a missing recovery assertion is exposed
+- Modify: `tests/integration/application/submission-sweep.test.ts` only if a missing recovery assertion is exposed
 
 **Steps:**
 

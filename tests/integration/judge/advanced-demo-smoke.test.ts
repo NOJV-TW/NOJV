@@ -6,7 +6,7 @@ import { join } from "node:path";
 import type { SandboxRequest } from "@nojv/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { AdvancedModeExecutor } from "../../../apps/worker/src/services/advanced-mode-executor.js";
+import { AdvancedModeExecutor } from "../../../apps/worker/src/sandbox/docker/advanced-mode-executor.js";
 
 const RUN_IMAGE = "nojv-demo-advanced-run:local";
 const GRADE_IMAGE = "nojv-demo-advanced-grade:local";

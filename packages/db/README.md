@@ -13,15 +13,17 @@
 ## 主要 API
 
 - `src/index.ts` — 對外 surface：`repositories.*`、`runTransaction`、`Prisma` namespace、enum re-exports
-- `src/repositories/*.ts` — 每個 aggregate 一份 repository
+- `src/repositories/*.ts` — 每個 aggregate 一個 repository facade；submission 查詢按 identity、history、statistics、lifecycle 拆在 `src/repositories/submission/`
+- `src/repositories/submission/shared.ts` — 共用查詢範圍、select 與建立 context；不要在 application 重複維護 Prisma 查詢條件
 - `src/transaction.ts` — `runTransaction(fn)` + `TransactionClient` 型別
 - `prisma/schema/*.prisma` — schema 主檔（user、problem、contest、course、submission 等）
 - `prisma/migrations/` — migration 歷史
-- `prisma/seed.ts` — 本地開發 seed
+- `prisma/seed.ts` — 本地開發 seed 的順序與安全閘；主題資料在 `prisma/seeds/`
+- `prisma/seeds/announcements.ts` — demo 公告資料
 
 ## 依賴
 
-- 上游：`@nojv/storage`（特定 repository 需要清資源時呼叫）
+- 上游：`@nojv/core`；`@nojv/storage` 僅供 Prisma seed／維運腳本使用，不得由 `src/` 匯入
 - 下游：`@nojv/application`、`apps/web` 的 better-auth adapter、`apps/worker`
 
 ## 本地開發
@@ -40,3 +42,5 @@ pnpm -F @nojv/db typecheck
 - [Database Schema](../../docs/architecture/DATABASE.md)
 - [Architecture Overview](../../docs/architecture/ARCHITECTURE.md)
 - [Backup & Restore](../../docs/runbooks/backup-restore.md)
+
+修改 submission 查詢時，從 `src/repositories/submission.ts` 的 `submissionRepo` facade 找到對應責任模組；history 查詢的 unit 覆蓋位於 `tests/unit/db/submission-history.test.ts`。Schema 與資料變更規則仍以 Database Schema 文件和 migration guard 為準。

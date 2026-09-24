@@ -5,7 +5,7 @@ import {
   ADVANCED_VERDICT_TO_SANDBOX,
   advancedFallbackResult,
   mapAdvancedResult,
-} from "../../../apps/worker/src/services/sandbox-result-mapper";
+} from "../../../apps/worker/src/sandbox/shared/sandbox-result-mapper";
 
 const request: SandboxRequest = {
   submissionId: "sub_1",

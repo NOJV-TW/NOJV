@@ -7,7 +7,7 @@ import {
   RUNTIME_PROBE_IMAGE_COMMAND,
   verifySandboxRuntime,
   type RuntimeProbeDeps,
-} from "../../../apps/worker/src/services/k8s-runtime-probe";
+} from "../../../apps/worker/src/sandbox/kubernetes/runtime-probe";
 
 const NS = "nojv-sandbox";
 

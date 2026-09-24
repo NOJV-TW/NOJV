@@ -5,6 +5,7 @@ import {
   examDomain,
   auditDomain,
   problemDomain,
+  aggregateExamMyStatus,
 } from "@nojv/application";
 import { gradingRepo, participationRepo, runTransaction } from "@nojv/db";
 import { updateExamScores } from "../../../packages/application/src/exam/scoring";
@@ -397,4 +398,68 @@ describe("activity grading", () => {
     expect((await entrant).gradingRevision).toBe(1);
     expect(await gradingRepo.countPendingExam(exam.id, 1)).toBe(0);
   });
+});
+
+it("batches exam results without mixing deadlines, samples, or activity overrides", async () => {
+  const f = await fixture();
+  const exams = await Promise.all(
+    ["2020-01-02", "2020-01-03"].map((end) =>
+      createTestExam({
+        courseId: f.course.id,
+        startsAt: new Date("2020-01-01"),
+        endsAt: new Date(end),
+      }),
+    ),
+  );
+  for (const exam of exams) {
+    await testPrisma.examProblem.create({
+      data: { examId: exam.id, problemId: f.a.id, ordinal: 1, points: 100 },
+    });
+  }
+  const [early, late] = exams;
+  await createTestSubmission({
+    problemId: f.a.id,
+    userId: f.student.id,
+    examId: early!.id,
+    score: 100,
+    createdAt: new Date("2020-01-01T12:00:00Z"),
+  });
+  await createTestSubmission({
+    problemId: f.a.id,
+    userId: f.student.id,
+    examId: early!.id,
+    score: 200,
+    createdAt: early!.endsAt,
+  });
+  await createTestSubmission({
+    problemId: f.a.id,
+    userId: f.student.id,
+    examId: late!.id,
+    score: 150,
+    createdAt: new Date("2020-01-02T12:00:00Z"),
+  });
+  await createTestSubmission({
+    problemId: f.a.id,
+    userId: f.student.id,
+    examId: late!.id,
+    score: 200,
+    sampleOnly: true,
+    createdAt: new Date("2020-01-02T13:00:00Z"),
+  });
+  const rows = exams.map((exam) => ({ id: exam.id, problemCount: 1 }));
+  const scores = await aggregateExamMyStatus(f.student.id, rows);
+  expect(exams.map((exam) => scores.get(exam.id)!.score)).toEqual([50, 75]);
+  await testPrisma.scoreOverride.create({
+    data: {
+      examId: early!.id,
+      courseMembershipId: f.membership.id,
+      problemId: f.a.id,
+      overrideScore: 80,
+      reason: "Review",
+      createdByUserId: f.teacher.id,
+      updatedByUserId: f.teacher.id,
+    },
+  });
+  const overridden = await aggregateExamMyStatus(f.student.id, rows);
+  expect(exams.map((exam) => overridden.get(exam.id)!.score)).toEqual([40, 75]);
 });

@@ -1,0 +1,8 @@
+export {
+  ADVANCED_SERVICE_PORT,
+  SERVICE_NETWORK_ALIAS,
+  SERVICE_PORT_ENV,
+  SERVICE_READY_MARKER,
+} from "@nojv/sandbox-docker";
+
+export const SERVICE_HOST_ENV = "NOJV_SERVICE_HOST";

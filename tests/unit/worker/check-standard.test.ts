@@ -1,7 +1,7 @@
 import type { RawCaseRun, SandboxTestcase, ValidatorOutcome } from "@nojv/core";
 import { describe, expect, it } from "vitest";
 
-import { resolveStandardResults } from "../../../apps/worker/src/services/check-standard";
+import { resolveStandardResults } from "../../../apps/worker/src/sandbox/shared/check-standard";
 
 function testcase(index: number, output?: string): SandboxTestcase {
   return {

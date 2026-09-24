@@ -1,22 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ runDockerCommand: vi.fn(), runStandardMode: vi.fn() }));
-vi.mock("../../../apps/worker/src/services/docker-process", async (importOriginal) => ({
-  ...(await importOriginal<
-    typeof import("../../../apps/worker/src/services/docker-process")
-  >()),
+vi.mock("../../../apps/worker/src/sandbox/docker/process", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../apps/worker/src/sandbox/docker/process")>()),
   runDockerCommand: mocks.runDockerCommand,
 }));
-vi.mock("../../../apps/worker/src/services/standard-mode-executor", () => ({
+vi.mock("../../../apps/worker/src/sandbox/docker/standard-mode-executor", () => ({
   runStandardMode: mocks.runStandardMode,
 }));
 
-import { DockerExecutor } from "../../../apps/worker/src/services/docker-executor";
-import { reconcileDockerRun } from "../../../apps/worker/src/services/docker-reconcile";
+import { DockerExecutor } from "../../../apps/worker/src/sandbox/docker/executor";
+import { reconcileDockerRun } from "../../../apps/worker/src/sandbox/docker/reconcile";
 import {
   DOCKER_MANAGED_LABEL,
   DOCKER_RUN_LABEL,
-} from "../../../apps/worker/src/services/docker-resource";
+} from "../../../apps/worker/src/sandbox/docker/resource";
 
 const RUN = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa";
 const CONTAINER = "a".repeat(64);

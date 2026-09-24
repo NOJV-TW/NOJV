@@ -7,10 +7,10 @@ import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 
 import { parseInteractiveRunReports, type SandboxRequest } from "@nojv/core";
-import { buildSandboxDockerArgs } from "../../../apps/worker/src/services/docker-args";
-import { writeSolutionFiles } from "../../../apps/worker/src/services/interactive-executor";
+import { buildSandboxDockerArgs } from "../../../apps/worker/src/sandbox/docker/args";
+import { writeSolutionFiles } from "../../../apps/worker/src/sandbox/docker/interactive-executor";
 
-import { DockerExecutor } from "../../../apps/worker/src/services/docker-executor.js";
+import { DockerExecutor } from "../../../apps/worker/src/sandbox/docker/executor.js";
 import { requireSandboxImage } from "./_sandbox-image";
 
 const SANDBOX_IMAGE = process.env.NOJV_TEST_SANDBOX_IMAGE ?? "nojv-sandbox:local";

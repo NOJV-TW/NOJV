@@ -2,128 +2,72 @@
 import { globSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..");
+const pattern = "packages/application/src/**/*.ts";
+const queryName = /^(get|load|fetch|require)[A-Z]/;
+const escapeHatch = "intentional-nullable";
 
-const PATTERN = "packages/application/src/**/queries.ts";
-const PREFIX_RE = /^(get|load|fetch|require)[A-Z]/;
-const TAG = "intentional-nullable";
-
-function* iterExportedFunctions(source) {
-  const declRe = /^export\s+(?:async\s+)?function\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*[<(]/gm;
-  let match;
-  while ((match = declRe.exec(source)) !== null) {
-    const name = match[1];
-    if (!PREFIX_RE.test(name)) continue;
-
-    let i = match.index;
-    let braceStart = -1;
-    let parenDepth = 0;
-    let angleDepth = 0;
-    for (; i < source.length; i++) {
-      const ch = source[i];
-      if (ch === "<") angleDepth++;
-      else if (ch === ">") angleDepth = Math.max(0, angleDepth - 1);
-      else if (ch === "(") parenDepth++;
-      else if (ch === ")") parenDepth--;
-      else if (ch === "{" && parenDepth === 0 && angleDepth === 0) {
-        braceStart = i;
-        break;
-      }
-    }
-    if (braceStart === -1) continue;
-
-    let depth = 0;
-    let j = braceStart;
-    let inLine = false;
-    let inBlock = false;
-    let inString = null;
-    let escaped = false;
-    for (; j < source.length; j++) {
-      const ch = source[j];
-      const next = source[j + 1];
-      if (inLine) {
-        if (ch === "\n") inLine = false;
-        continue;
-      }
-      if (inBlock) {
-        if (ch === "*" && next === "/") {
-          inBlock = false;
-          j++;
-        }
-        continue;
-      }
-      if (inString) {
-        if (escaped) {
-          escaped = false;
-          continue;
-        }
-        if (ch === "\\") {
-          escaped = true;
-          continue;
-        }
-        if (ch === inString) inString = null;
-        continue;
-      }
-      if (ch === "/" && next === "/") {
-        inLine = true;
-        j++;
-        continue;
-      }
-      if (ch === "/" && next === "*") {
-        inBlock = true;
-        j++;
-        continue;
-      }
-      if (ch === '"' || ch === "'" || ch === "`") {
-        inString = ch;
-        continue;
-      }
-      if (ch === "{") depth++;
-      else if (ch === "}") {
-        depth--;
-        if (depth === 0) {
-          j++;
-          break;
-        }
-      }
-    }
-
-    const body = source.slice(braceStart, j);
-    yield { name, declIndex: match.index, body };
+function isNullExpression(expression) {
+  while (expression && ts.isParenthesizedExpression(expression)) {
+    expression = expression.expression;
   }
+  return expression?.kind === ts.SyntaxKind.NullKeyword;
 }
 
-function precedingLine(source, declIndex) {
-  const before = source.slice(0, declIndex);
-  const lines = before.split("\n");
-  return lines.length >= 2 ? lines[lines.length - 2] : "";
+function hasNullReturn(body) {
+  let found = false;
+  const visit = (node) => {
+    if (node !== body && ts.isFunctionLike(node)) return;
+    if (ts.isReturnStatement(node) && isNullExpression(node.expression)) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(body);
+  return found;
+}
+
+function hasEscapeHatch(source, sourceFile, node) {
+  const line = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line;
+  return line > 0 && source.split(/\r?\n/)[line - 1]?.includes(escapeHatch);
 }
 
 function check(file) {
   const source = readFileSync(file, "utf8");
+  const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
   const violations = [];
-  for (const fn of iterExportedFunctions(source)) {
-    if (!/\breturn\s+null\b/.test(fn.body)) continue;
-    const prev = precedingLine(source, fn.declIndex);
-    if (prev.includes(TAG)) continue;
-    violations.push(fn.name);
+
+  for (const node of sourceFile.statements) {
+    if (
+      !ts.isFunctionDeclaration(node) ||
+      !node.body ||
+      !node.name ||
+      !queryName.test(node.name.text) ||
+      !node.modifiers?.some(({ kind }) => kind === ts.SyntaxKind.ExportKeyword) ||
+      !hasNullReturn(node.body) ||
+      hasEscapeHatch(source, sourceFile, node)
+    ) {
+      continue;
+    }
+    violations.push(node.name.text);
   }
+
   return violations;
 }
 
-const files = globSync(PATTERN, { cwd: repoRoot }).map((p) => resolve(repoRoot, p));
+const files = globSync(pattern, { cwd: repoRoot }).map((path) => resolve(repoRoot, path));
 let failed = false;
 for (const file of files) {
-  const violations = check(file);
-  if (violations.length === 0) continue;
-  failed = true;
-  const rel = file.slice(repoRoot.length + 1);
-  for (const name of violations) {
+  for (const name of check(file)) {
+    failed = true;
+    const relativePath = file.slice(repoRoot.length + 1);
     console.error(
-      `${rel}: ${name} returns null. Throw NotFoundError instead, ` +
-        `or add a leading \`// ${TAG}: <why>\` comment.`,
+      `${relativePath}: ${name} returns null. Throw NotFoundError instead, ` +
+        `or add a leading \`// ${escapeHatch}: <why>\` comment.`,
     );
   }
 }
@@ -137,5 +81,5 @@ if (failed) {
 }
 
 console.log(
-  `check-query-returns: scanned ${String(files.length)} queries.ts file(s); no violations.`,
+  `check-query-returns: scanned ${String(files.length)} application source file(s); no violations.`,
 );

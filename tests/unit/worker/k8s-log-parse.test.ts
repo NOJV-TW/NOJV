@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { scanJsonLinesFromEnd } from "../../../apps/worker/src/services/k8s-log-parse";
+import { scanJsonLinesFromEnd } from "../../../apps/worker/src/sandbox/shared/log-parse";
 
 const CHUNK = 16384;
 const stdout = Array.from({ length: 12_000 }, (_, i) => String(i)).join(" ");

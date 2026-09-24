@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildSandboxDockerArgs } from "../../../apps/worker/src/services/docker-args";
+import { buildSandboxDockerArgs } from "../../../apps/worker/src/sandbox/docker/args";
 
 function swapMatchesMemory(args: string[], expected: string): void {
   const memVal = args[args.indexOf("--memory") + 1];

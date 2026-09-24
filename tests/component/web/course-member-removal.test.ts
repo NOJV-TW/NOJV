@@ -11,10 +11,10 @@ vi.mock("$app/forms", () => ({
 }));
 vi.mock("$lib/stores/toast", () => ({ toasts: { error: mocks.error } }));
 vi.mock("$lib/components/features/course/BulkHandleAddPanel.svelte", async () => ({
-  default: (await import("../../unit/web/fixtures/empty-component.svelte")).default,
+  default: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 vi.mock("@lucide/svelte", async () => {
-  const Empty = (await import("../../unit/web/fixtures/empty-component.svelte")).default;
+  const Empty = (await import("../../fixtures/web/empty-component.svelte")).default;
   return {
     Pencil: Empty,
     X: Empty,

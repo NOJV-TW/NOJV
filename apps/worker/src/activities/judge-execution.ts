@@ -10,8 +10,11 @@ import { submissionDomain } from "@nojv/application";
 import { prismaAdapterClient as db } from "@nojv/db";
 import { buildPinnedSandboxRequest } from "./judge-request";
 import { getExecutorOwner } from "./judge";
-import { enforceMemoryLimit } from "../services/check-standard";
-import { recordJudgePhase, recordWallClockTimeouts } from "../services/judge-phase-metrics";
+import { enforceMemoryLimit } from "../sandbox/shared/check-standard";
+import {
+  recordJudgePhase,
+  recordWallClockTimeouts,
+} from "../sandbox/shared/judge-phase-metrics";
 import { judgeLatencyHistogram, recordJudgeLatency } from "./utils";
 
 export async function judgeExecutionStatus(executionId: string, workflowId: string) {

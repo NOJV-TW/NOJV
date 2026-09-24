@@ -8,10 +8,8 @@ const { collectContainerLogsMock, forceRemoveContainerMock, runDockerMock } = vi
   }),
 );
 
-vi.mock("../../../apps/worker/src/services/docker-process", async (importOriginal) => ({
-  ...(await importOriginal<
-    typeof import("../../../apps/worker/src/services/docker-process")
-  >()),
+vi.mock("../../../apps/worker/src/sandbox/docker/process", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../apps/worker/src/sandbox/docker/process")>()),
   collectContainerLogs: collectContainerLogsMock,
   forceRemoveContainer: forceRemoveContainerMock,
   runDocker: runDockerMock,
@@ -21,7 +19,7 @@ vi.mock("../../../apps/worker/src/services/docker-process", async (importOrigina
 import {
   startServiceContainer,
   waitForServiceReady,
-} from "../../../apps/worker/src/services/service-container";
+} from "../../../apps/worker/src/sandbox/docker/service-container";
 
 afterEach(() => {
   vi.useRealTimers();

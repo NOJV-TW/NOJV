@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { terminateSandboxJob } from "../../../apps/worker/src/services/k8s-termination";
+import { terminateSandboxJob } from "../../../apps/worker/src/sandbox/kubernetes/termination";
 
 const pod = {
   metadata: { name: "old-pod", uid: "pod-uid", ownerReferences: [{ uid: "job-uid" }] },
@@ -61,7 +61,7 @@ describe("sandbox termination barrier", () => {
 describe("shared cleanup deadline and UID barriers", () => {
   it("uses normal Pod grace and refuses a replacement UID after deletion", async () => {
     const { terminateSandboxPod } =
-      await import("../../../apps/worker/src/services/k8s-termination");
+      await import("../../../apps/worker/src/sandbox/kubernetes/termination");
     const core = {
       listNamespacedPod: vi
         .fn()
@@ -81,7 +81,7 @@ describe("shared cleanup deadline and UID barriers", () => {
 
   it("never deletes a Pod that replaced the cleanup inventory's UID", async () => {
     const { terminateSandboxPod } =
-      await import("../../../apps/worker/src/services/k8s-termination");
+      await import("../../../apps/worker/src/sandbox/kubernetes/termination");
     const core = {
       listNamespacedPod: vi.fn().mockResolvedValue({ items: [pod] }),
       deleteNamespacedPod: vi.fn(),
@@ -96,7 +96,7 @@ describe("shared cleanup deadline and UID barriers", () => {
 
   it("does not delete a replacement PVC or mistake its presence for old-UID cleanup", async () => {
     const { terminateSandboxPvc } =
-      await import("../../../apps/worker/src/services/k8s-termination");
+      await import("../../../apps/worker/src/sandbox/kubernetes/termination");
     const core = {
       readNamespacedPersistentVolumeClaim: vi
         .fn()

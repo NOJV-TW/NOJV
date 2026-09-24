@@ -13,7 +13,7 @@ import {
 import { reconcileJudgeExecutions } from "./judge-recovery";
 import { getDomainOrchestration } from "../shared/orchestration";
 import { toJsonValue } from "../shared/to-json-value";
-import { deriveSystemErrorVerdictSummary } from "./mutations";
+import { deriveSystemErrorVerdictSummary } from "./verdict-summary";
 
 const REJUDGE_LOG_RETENTION_DAYS = 90;
 

@@ -26,10 +26,10 @@ vi.mock("$lib/services/submission-tracker", () => ({
 }));
 vi.mock("$app/navigation", () => ({ goto: vi.fn() }));
 vi.mock("$lib/components/primitives/ui/select/select-content.svelte", async () => ({
-  default: (await import("../../unit/web/fixtures/select-content.svelte")).default,
+  default: (await import("../../fixtures/web/select-content.svelte")).default,
 }));
 vi.mock("@lucide/svelte", async () => ({
-  ListFilter: (await import("../../unit/web/fixtures/empty-component.svelte")).default,
+  ListFilter: (await import("../../fixtures/web/empty-component.svelte")).default,
 }));
 
 import History from "./fixtures/submission-history-controller.svelte";

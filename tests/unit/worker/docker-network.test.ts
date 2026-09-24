@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildCreateInternalNetworkArgs,
   planSubmissionNetwork,
-} from "../../../apps/worker/src/services/docker-network";
+} from "../../../apps/worker/src/sandbox/docker/network";
 
 describe("planSubmissionNetwork", () => {
   it("derives a per-submission internal name without any static subnet/IP", () => {

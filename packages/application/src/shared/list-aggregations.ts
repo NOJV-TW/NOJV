@@ -20,67 +20,78 @@ export interface MyStatus {
 
 async function activityResults(type: "assignment" | "exam", ids: string[], userId?: string) {
   const activities = await gradingRepo.listActivities(type, ids);
-  const maxima = await getProblemTotalScores(
-    activities.flatMap((a) => a.problems.map((p) => p.problemId)),
+  if (activities.length === 0) return [];
+  const [maxima, grouped, allOverrides] = await Promise.all([
+    getProblemTotalScores(activities.flatMap((a) => a.problems.map((p) => p.problemId))),
+    submissionRepo.groupByActivity(type, activities, userId),
+    scoreOverrideRepo.findCourseOverrides(
+      type,
+      activities.map((a) => a.id),
+      userId,
+    ),
+  ]);
+  const byActivity = new Map(
+    activities.map((a) => [
+      a.id,
+      {
+        activity: a,
+        groups: [] as (typeof grouped)[number][],
+        overrides: [] as typeof allOverrides,
+      },
+    ]),
   );
-  return Promise.all(
-    activities.map(async (activity) => {
-      const [groups, overrides] = await Promise.all([
-        submissionRepo.groupByUserAndProblem({
-          ...(type === "exam" ? { examId: activity.id } : { assessmentId: activity.id }),
-          ...(userId ? { userId } : {}),
-          problemId: { in: activity.problems.map((p) => p.problemId) },
-          sampleOnly: false,
-          ...(type === "exam" ? { createdAt: { lt: activity.deadline } } : {}),
-        }),
-        scoreOverrideRepo.findCourseOverrides(type, [activity.id], userId),
-      ]);
-      const users = new Set(groups.map((g) => g.userId));
-      const best = new Map(
-        groups.map((g) => [`${g.userId}::${g.problemId}`, g._max.score ?? 0]),
-      );
-      const submittedUsers = users.size;
-      for (const override of overrides) {
-        const uid = override.membership.userId ?? override.courseMembershipId;
-        const pid = override.problemId;
-        if (
-          !uid ||
-          (userId && uid !== userId) ||
-          !activity.problems.some((p) => p.problemId === pid)
-        )
-          continue;
-        users.add(uid);
-        best.set(`${uid}::${pid}`, override.overrideScore);
-      }
-      const results = new Map(
-        [...users].map((uid) => {
-          let solved = 0;
-          const scores = activity.problems.map((p) => {
-            const raw = best.get(`${uid}::${p.problemId}`);
-            const max = requireProblemTotalScore(maxima, p.problemId);
-            if (raw !== undefined && raw >= max) solved++;
-            return activityScore(raw ?? 0, max, p.points);
-          });
-          return [
-            uid,
-            {
-              solved,
-              total: activity.problems.length,
-              score: sumActivityScores(scores),
-              totalPoints: Number(activity.totalPoints),
-            },
-          ];
-        }),
-      );
-      return {
-        id: activity.id,
-        totalPoints: Number(activity.totalPoints),
-        problemCount: activity.problems.length,
-        results,
-        submittedUsers,
-      };
-    }),
-  );
+  for (const group of grouped) {
+    const id = type === "exam" ? group.examId : group.assessmentId;
+    if (id !== null) byActivity.get(id)?.groups.push(group);
+  }
+  for (const override of allOverrides) {
+    const id = type === "exam" ? override.examId : override.assessmentId;
+    if (id !== null) byActivity.get(id)?.overrides.push(override);
+  }
+  return [...byActivity.values()].map(({ activity, groups, overrides }) => {
+    const users = new Set(groups.map((g) => g.userId));
+    const best = new Map(groups.map((g) => [`${g.userId}::${g.problemId}`, g._max.score ?? 0]));
+    const submittedUsers = users.size;
+    for (const override of overrides) {
+      const uid = override.membership.userId ?? override.courseMembershipId;
+      const pid = override.problemId;
+      if (
+        !uid ||
+        (userId && uid !== userId) ||
+        !activity.problems.some((p) => p.problemId === pid)
+      )
+        continue;
+      users.add(uid);
+      best.set(`${uid}::${pid}`, override.overrideScore);
+    }
+    const results = new Map(
+      [...users].map((uid) => {
+        let solved = 0;
+        const scores = activity.problems.map((p) => {
+          const raw = best.get(`${uid}::${p.problemId}`);
+          const max = requireProblemTotalScore(maxima, p.problemId);
+          if (raw !== undefined && raw >= max) solved++;
+          return activityScore(raw ?? 0, max, p.points);
+        });
+        return [
+          uid,
+          {
+            solved,
+            total: activity.problems.length,
+            score: sumActivityScores(scores),
+            totalPoints: Number(activity.totalPoints),
+          },
+        ];
+      }),
+    );
+    return {
+      id: activity.id,
+      totalPoints: Number(activity.totalPoints),
+      problemCount: activity.problems.length,
+      results,
+      submittedUsers,
+    };
+  });
 }
 
 async function classStats(

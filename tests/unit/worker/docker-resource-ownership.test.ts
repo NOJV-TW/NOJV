@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { shouldSweepNetworkInspection } from "../../../apps/worker/src/services/docker-network";
+import { shouldSweepNetworkInspection } from "../../../apps/worker/src/sandbox/docker/network";
 import {
   DOCKER_CREATED_AT_LABEL,
   DOCKER_EXPIRES_AT_LABEL,
@@ -9,7 +9,7 @@ import {
   DOCKER_WORKER_LABEL,
   buildDockerResourceLabels,
   dockerLabelArgs,
-} from "../../../apps/worker/src/services/docker-resource";
+} from "../../../apps/worker/src/sandbox/docker/resource";
 
 describe("Docker resource ownership", () => {
   const labels = buildDockerResourceLabels("run-a", {

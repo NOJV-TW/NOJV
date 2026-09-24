@@ -1,7 +1,7 @@
 import type { SandboxRequest } from "@nojv/core";
 import { describe, expect, it } from "vitest";
 
-import { buildSandboxConfigJson } from "../../../apps/worker/src/services/sandbox-plan";
+import { buildSandboxConfigJson } from "../../../apps/worker/src/sandbox/shared/sandbox-plan";
 
 function makeRequest(env?: Record<string, string>): SandboxRequest {
   return {

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { SandboxRequest } from "@nojv/core";
 
-import { buildSandboxConfigJson } from "../../../apps/worker/src/services/sandbox-plan";
+import { buildSandboxConfigJson } from "../../../apps/worker/src/sandbox/shared/sandbox-plan";
 import { SandboxInputSchema } from "../../../apps/sandbox-runner/src/types";
 
 function baseRequest(overrides: Partial<SandboxRequest> = {}): SandboxRequest {

@@ -44,7 +44,7 @@
 **Files:**
 
 - Modify: `apps/web/src/lib/components/features/problem/reference/ReferenceSolutionSection.svelte`
-- Test: `tests/unit/web/reference-solution-section.test.ts`
+- Test: `tests/component/web/reference-solution-section.test.ts`
 
 1. Replace the inline label and sibling margin interaction with a block/grid layout and explicit gap.
 2. Verify the language selector and Monaco border remain separated when the selector is focused.
@@ -64,7 +64,7 @@
 - Modify: `apps/web/src/lib/components/features/submission/CaseResultGrid.svelte`
 - Modify: `apps/web/messages/en.json`
 - Modify: `apps/web/messages/zh-TW.json`
-- Test: `tests/unit/web/reference-solution-section.test.ts`
+- Test: `tests/component/web/reference-solution-section.test.ts`
 
 1. Preserve the completed submission result after a failed reference validation.
 2. Reuse the existing testcase result component to show failed groups, case location, verdict, runtime, and memory inline.

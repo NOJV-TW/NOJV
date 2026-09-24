@@ -24,7 +24,7 @@ vi.mock("@nojv/application", async () => ({
 }));
 
 import { executeSandbox, setExecutorOwner } from "../../../apps/worker/src/activities/judge";
-import { ExecutorOwner } from "../../../apps/worker/src/services/executor-owner";
+import { ExecutorOwner } from "../../../apps/worker/src/sandbox/shared/executor-owner";
 
 function installExecutor(executor: SandboxExecutor): void {
   setExecutorOwner(new ExecutorOwner(executor, () => "test-run"));
