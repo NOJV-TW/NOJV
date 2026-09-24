@@ -22,11 +22,3 @@ export function isProfileExempt(pathname: string): boolean {
   const clean = stripLocalePrefix(pathname);
   return PROFILE_EXEMPT_PREFIXES.some((p) => clean.startsWith(p));
 }
-
-export function isPageLockExempt(pathname: string): boolean {
-  return (
-    pathname.startsWith("/api/") ||
-    pathname.startsWith("/signin") ||
-    pathname.startsWith("/signup")
-  );
-}

@@ -9,6 +9,7 @@
     open: boolean;
     onOpenChange: (v: boolean) => void;
     examTitle: string;
+    pageLockEnabled: boolean;
     problemCount: number;
     durationMinutes: number;
     action?: string;
@@ -18,6 +19,7 @@
     open,
     onOpenChange,
     examTitle,
+    pageLockEnabled,
     problemCount,
     durationMinutes,
     action = "?/startExam",
@@ -73,12 +75,11 @@
         {m.examStartModal_checklistHeading()}
       </div>
       <ul class="space-y-1.5 text-body-sm">
-        <li class="flex gap-2">
-          <span class="text-muted-foreground">·</span>{m.examStartModal_rule1()}
-        </li>
-        <li class="flex gap-2">
-          <span class="text-muted-foreground">·</span>{m.examStartModal_rule2()}
-        </li>
+        {#if pageLockEnabled}
+          <li class="flex gap-2">
+            <span class="text-muted-foreground">·</span>{m.examStartModal_rule1()}
+          </li>
+        {/if}
         <li class="flex gap-2">
           <span class="text-muted-foreground">·</span>{m.examStartModal_rule3()}
         </li>

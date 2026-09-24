@@ -70,6 +70,7 @@ const { session } = examDomain;
 const fakeExam = {
   id: "exam_midterm",
   courseId: "course_os_lab",
+  pageLockEnabled: true,
   title: "Midterm",
 };
 
@@ -366,8 +367,8 @@ describe("examDomain.session.getActiveSessionContext", () => {
       examId: fakeExam.id,
       startedAt: new Date("2026-04-14T09:00:00.000Z"),
       endedAt: null,
+      exam: fakeExam,
     });
-    examFindByIdOrThrow.mockResolvedValue(fakeExam);
 
     const result = await session.getActiveSessionContext(fakeActor.userId);
 
@@ -377,6 +378,7 @@ describe("examDomain.session.getActiveSessionContext", () => {
     expect(result!.exam).toEqual({
       id: fakeExam.id,
       courseId: fakeExam.courseId,
+      pageLockEnabled: fakeExam.pageLockEnabled,
       title: fakeExam.title,
     });
     expect(result!.course).toEqual({ id: fakeExam.courseId });

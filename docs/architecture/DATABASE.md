@@ -264,7 +264,7 @@ Standalone public / invite-only CP event — no course binding, no proctoring. T
 
 Course-embedded proctored assessment (`courseId` NOT NULL). This is where the proctoring controls live:
 
-- Page lock (`pageLockEnabled`) to prevent multi-tab cheating
+- Page lock (`pageLockEnabled`) to confine active exam sessions to exam routes
 - IP whitelist (`ipWhitelistEnabled` + `ipWhitelist`) — empty whitelist while enabled = deny all (fail-closed)
 - IP binding (`ipBindingEnabled`) — locks the student to `Participation.ipPin` (the `type = exam` row)
 - `IpViolationMode` (block / notify) controls enforcement strength

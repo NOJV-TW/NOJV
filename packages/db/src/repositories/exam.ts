@@ -228,24 +228,6 @@ export const examRepo = {
     });
   },
 
-  findPageLockedForUser(userId: string, now: Date) {
-    return prisma.exam.findFirst({
-      where: {
-        pageLockEnabled: true,
-        status: "published",
-        startsAt: { lte: now },
-        endsAt: { gte: now },
-        participations: {
-          some: { type: "exam", userId, status: "active" },
-        },
-      },
-      select: {
-        id: true,
-        course: { select: { id: true } },
-      },
-    });
-  },
-
   count() {
     return prisma.exam.count();
   },

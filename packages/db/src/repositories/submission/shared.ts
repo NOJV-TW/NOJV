@@ -54,7 +54,7 @@ export function userFacingSubmissionWhere(
     OR: [
       {
         user: {
-          activeExamSessions: { none: { endedAt: null } },
+          activeExamSessions: { none: { endedAt: null, exam: { pageLockEnabled: true } } },
         },
       },
       {

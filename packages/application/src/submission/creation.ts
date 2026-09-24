@@ -306,7 +306,7 @@ export async function createQueuedSubmissionRecord(
     }
 
     if (
-      activeExamSession &&
+      activeExamSession?.exam.pageLockEnabled &&
       actor.platformRole !== "admin" &&
       (payload.context.type !== "exam" || payload.context.examId !== activeExamSession.examId)
     ) {

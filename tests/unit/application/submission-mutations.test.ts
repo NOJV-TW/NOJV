@@ -523,6 +523,7 @@ describe("createQueuedSubmissionRecord — exam time window", () => {
     examSessionFindActiveForUser.mockResolvedValue({
       id: "es_1",
       examId: "exam_window",
+      exam: { pageLockEnabled: false },
       userId: fakeActor.userId,
       endedAt: null,
     });

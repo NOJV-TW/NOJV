@@ -114,10 +114,15 @@ beforeEach(() => {
 
 describe("problem reference read boundaries", () => {
   it("denies otherwise authorized reference reads during an active exam", async () => {
-    h.activeExam.mockResolvedValue({ id: "exam-session" });
+    h.activeExam.mockResolvedValue({ exam: { pageLockEnabled: true }, id: "exam-session" });
     await expect(getSubmissionForActor(actor, "ref")).rejects.toThrow("Submission not found.");
     await expect(getSubmissionDetail(actor, "ref")).rejects.toThrow("Submission not found.");
     expect(h.sources).not.toHaveBeenCalled();
+  });
+  it("allows otherwise authorized reference reads during an unlocked exam", async () => {
+    h.activeExam.mockResolvedValue({ exam: { pageLockEnabled: false }, id: "exam-session" });
+    await expect(getSubmissionForActor(actor, "ref")).resolves.toMatchObject({ id: "ref" });
+    expect(h.findProblem).toHaveBeenCalledOnce();
   });
   it("reads verified sources for authorized content staff, including archived-course readers", async () => {
     await expect(getProblemReferenceSolution(actor, "p")).resolves.toMatchObject({

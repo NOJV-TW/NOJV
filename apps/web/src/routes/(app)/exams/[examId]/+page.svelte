@@ -83,12 +83,11 @@
 
   const rules = $derived.by(() => {
     const list: string[] = [
-      m.examDetail_ruleProctorTabSwitch(),
       m.examDetail_ruleAllowedLanguagesOnly(),
       m.examDetail_ruleAutosaveAndAutosubmit(),
     ];
     if (detail.pageLockEnabled) {
-      list.push(m.examDetail_ruleFullscreenLock());
+      list.push(m.examDetail_ruleProctorTabSwitch());
     }
     if (detail.ipBindingEnabled) {
       list.push(
@@ -677,6 +676,7 @@
     open={showStartModal}
     onOpenChange={(v) => (showStartModal = v)}
     examTitle={detail.title}
+    pageLockEnabled={detail.pageLockEnabled}
     problemCount={detail.problems.length}
     {durationMinutes}
   />

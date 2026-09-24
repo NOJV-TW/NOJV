@@ -3,7 +3,7 @@
 Acceptance spec for the proctoring controls that gate exam access and
 logging. Proctoring is a composite of four mechanisms:
 
-1. **Page lock** — active exam session traps the user on `/exams/[examId]`.
+1. **Page lock** — when enabled, an active exam session confines the user to `/exams/[examId]` and redirects off-path requests back to that exam.
 2. **IP whitelist** — configured CIDR ranges must contain the client IP.
 3. **IP binding** — pin to the first-seen client IP for the duration.
 4. **Violation mode** — `block` rejects requests, `notify` logs and allows.
@@ -21,9 +21,9 @@ proctoring (see `docs/specs/contests.md` and
 - As a **teacher**, I want `ipViolationMode: notify` for exams where I
   want a rough audit trail without interrupting students, and
   `ipViolationMode: block` for high-stakes exams that must be hard-gated.
-- As a **student** in a proctored exam, I want page lock to redirect me
-  back to the exam if I accidentally navigate away, so that the contract
-  is clear but not destructive.
+- As a **student**, I want the exam's page-lock setting to determine
+  whether other NOJV pages and features remain available during my
+  active session.
 - As a **teacher reviewing violations**, I want every whitelist / binding
   mismatch to land in `IpViolationLog` with `{ userId, examId,
 expectedIp, actualIp, violationType, createdAt }`, so that post-hoc
@@ -38,7 +38,10 @@ expectedIp, actualIp, violationType, createdAt }`, so that post-hoc
 ### In scope
 
 - Page lock: `hooks.server.ts` redirects active-session users to
-  `/exams/[examId]` for any path outside the exam tree.
+  `/exams/[examId]` for any path outside the exam tree only when
+  `pageLockEnabled` is true. When false, ordinary page and API access is
+  governed by its normal authorization rules; the exam session remains
+  active.
 - IP whitelist evaluation: CIDR matching via `isIpInCidr`
   (IPv4, native IPv6, v4-mapped IPv6 via Node `net.BlockList`);
   `isIpInWhitelist` returns true iff any CIDR matches.
@@ -58,8 +61,10 @@ expectedIp, actualIp, violationType, createdAt }`, so that post-hoc
   membership, course-archived, time window, and IP checks into one
   verdict. Internally it dispatches to the non-exported `checkExamGate`
   / `checkContestGate` helpers by entity kind.
-- `getPageLockedContext` — hook-layer helper that asks "is this user
-  currently inside an active published exam with page lock on?"
+- Exam-specific routes and exam submissions continue to check exam
+  membership, time window, and IP policy independently of page lock.
+- The page-lock setting does not detect browser tab or window switching,
+  fullscreen changes, or navigation outside NOJV.
 - Client-IP trust model: Cloudflare-only (`CF-Connecting-IP`); missing
   header in production returns 403 (documented in `docs/operations/SECURITY.md`).
 
@@ -75,23 +80,21 @@ expectedIp, actualIp, violationType, createdAt }`, so that post-hoc
 
 ### Page lock (hooks.server.ts)
 
-- GIVEN a user with an `ActiveExamSession` where `endedAt IS NULL` AND
-  the parent exam has `pageLockEnabled: true` AND `status:
-'published'` AND `now < endsAt`, WHEN they request any path OTHER
-  than `/api/`, `/signin`, `/signout`, or `/exams/[examId]/...`,
-  THEN `hooks.server.ts` returns `307 /exams/[examId]`.
-- BEFORE the redirect, WHEN path is disallowed, THEN a
-  `visibility_lost` event is written to `ExamSessionEvent` with
-  `metadata: { attemptedPath }`.
+- GIVEN an active session and `pageLockEnabled: true`, WHEN the user
+  requests a page outside that exam, THEN `hooks.server.ts` returns
+  `307 /exams/[examId]` and records the attempted path as
+  `visibility_lost`.
+- GIVEN the same session and `pageLockEnabled: false`, WHEN the user
+  requests another authorized NOJV page or ordinary API, THEN the
+  request proceeds and the session remains active.
+- GIVEN a student whose IP violates the exam policy, WHEN they access an
+  exam page or submit to that exam, THEN the request is denied even when
+  page lock is disabled; unrelated site access remains available.
 - WHEN `recordEvent` fails, THEN the redirect still fires and a warning
   is logged — page-lock is fail-safe.
-- WHEN `getActiveExamContext` fails (DB error), THEN hooks fail OPEN:
-  log `warn` and allow the request through; users must never be
-  locked out of the whole site by a degraded lock subsystem.
-- The redirect context is cached 30s per user
-  (`examContextCache`, FIFO bounded to 10k entries) so every request
-  does not hit the DB; a freshly-released user may see one stale
-  redirect before the cache expires.
+- The active session and current page-lock setting are read from the
+  database on each authenticated request so a setting change applies to
+  the student's next request.
 
 ### IP whitelist
 
@@ -191,10 +194,9 @@ true }`.
 notify` while students are taking the exam, ongoing blocked requests
   don't retroactively become notifies — but the very next request
   the student makes hits the new config.
-- **Page-lock cache + instructor release.** When an instructor
-  releases a session, the 30s cache on `examContextCache` can still
-  redirect the student for up to 30 seconds. A forced cache-bust is
-  not currently implemented — the delay is acceptable.
+- **Page-lock changes during an exam.** Active session and page-lock
+  state are read on each authenticated request, so instructor changes
+  apply on the student's next request.
 
 ## Implementation References
 
@@ -203,7 +205,6 @@ notify` while students are taking the exam, ongoing blocked requests
 - `packages/application/src/shared/ip-utils.ts` — `checkIpLock`,
   `isIpInCidr`, `isIpInWhitelist`, `IpLockConfig`, `IpCheckResult`,
   `ipToNumber`.
-- `packages/application/src/shared/page-lock.ts` — `getPageLockedContext`.
 - `packages/application/src/proctoring/gate.ts` — `checkProctoringGate`,
   `checkProctoringGateInTx` (the exported entry points);
   `checkExamGate` / `checkContestGate` are internal (non-exported)
@@ -213,17 +214,10 @@ notify` while students are taking the exam, ongoing blocked requests
 
 ### Web layer
 
-- `apps/web/src/hooks.server.ts` —
-  - `setSecurityHeaders` (nosniff, DENY, referrer-policy,
-    permissions-policy, HSTS in prod).
-  - `pageLockCache` / `examContextCache` — inline `createTtlCache`
-    instances (30s TTL, bounded to 10k entries) read via
-    `.getOrLoad(key, loader)`.
-  - Page-lock redirect + `visibility_lost` event.
+- `apps/web/src/hooks.server.ts` — page-lock redirect, exam-route IP
+  checks, and `visibility_lost` event recording.
 - `apps/web/src/lib/server/exam-lock.ts` — `getActiveExamContext`,
   `isAllowedPathForExam`.
-- `apps/web/src/lib/server/page-lock.ts` — re-export of
-  `getPageLockedContext`.
 - `apps/web/src/lib/server/shared/client-ip.ts` — `getClientIp`
   (Cloudflare-only trust model, production vs dev branching).
 - `apps/web/src/lib/components/course/exam/ExamProctoringTab.svelte` —

@@ -24,11 +24,13 @@
     {m.examDetail_settingsSectionProctoring()}
   </h3>
   <div class="space-y-4">
-    <label class="flex items-center gap-3 text-body-sm {editable ? '' : 'opacity-60'}">
-      <input type="checkbox" bind:checked={$form.pageLockEnabled} disabled={!editable} />
-      {m.examDetail_settingsPageLockLabel()}
+    <div class="flex items-center gap-3">
+      <label class="flex items-center gap-3 text-body-sm {editable ? '' : 'opacity-60'}">
+        <input type="checkbox" bind:checked={$form.pageLockEnabled} disabled={!editable} />
+        {m.examDetail_settingsPageLockLabel()}
+      </label>
       <HelpTooltip text={m.examProctoring_pageLockHelp()} />
-    </label>
+    </div>
 
     <label class="flex items-center gap-3 text-body-sm {editable ? '' : 'opacity-60'}">
       <input type="checkbox" bind:checked={$form.ipBindingEnabled} disabled={!editable} />
