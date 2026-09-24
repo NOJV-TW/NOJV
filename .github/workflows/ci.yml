@@ -288,7 +288,7 @@ jobs:
             --publish 9000:9000 \
             --env MINIO_ROOT_USER=minioadmin \
             --env MINIO_ROOT_PASSWORD=minioadmin \
-            quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e \
+            docker.io/dextercai/minio:RELEASE.2025-04-22T22-12-26Z@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e \
             server /data
           for attempt in {1..30}; do
             if node -e 'fetch("http://127.0.0.1:9000/minio/health/ready").then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))'; then
@@ -300,9 +300,23 @@ jobs:
             fi
             sleep 1
           done
-          docker run --rm --network host --entrypoint /bin/sh \
-            quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z@sha256:aead63c77f9db9107f1696fb08ecb0faeda23729cde94b0f663edf4fe09728e3 \
-            -c 'mc alias set local http://127.0.0.1:9000 minioadmin minioadmin && mc mb --ignore-existing local/nojv'
+
+      - name: Create browser-test object-storage bucket
+        working-directory: packages/storage
+        run: |
+          node --input-type=module <<'NODE'
+          import { CreateBucketCommand, HeadBucketCommand, S3Client } from '@aws-sdk/client-s3';
+
+          const client = new S3Client({
+            endpoint: 'http://127.0.0.1:9000',
+            region: 'us-east-1',
+            forcePathStyle: true,
+            credentials: { accessKeyId: 'minioadmin', secretAccessKey: 'minioadmin' },
+          });
+          await client.send(new CreateBucketCommand({ Bucket: 'nojv' }));
+          await client.send(new HeadBucketCommand({ Bucket: 'nojv' }));
+          await client.destroy();
+          NODE
 
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
