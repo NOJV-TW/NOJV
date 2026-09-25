@@ -36,6 +36,7 @@ Work that is known, not done, and not covered by an in-flight plan. Remove an it
 
 ### Code and product
 
+- Judge priority key 4 (recovered live submissions ahead of bulk rejudges, JDG-12) is unreachable: `markJudgeExecution` and `reconcileJudgeExecutions` set `queueClass: "background"` on recovery, and `judgePriorityKey` in `packages/core/src/judge-execution.ts` returns 5 for any non-foreground class before checking `recoveryEpoch`. Recovered student submissions therefore queue behind bulk rejudges. Decide the intended order and either fix the classification or drop key 4.
 - Push the demo Advanced Mode images to the self-hosted registry from CI and repoint the seeds, which still use `nojv-demo-advanced-*:local` in `packages/db/prisma/seeds/problems.ts` (OPS-10).
 - Exam access leads: the first IP binding is a read-then-write without compare-and-set, exam entry creates the session before applying the gate, a reset without an active session writes no session audit row, and a violation recorded inside a rejected submission transaction rolls back.
 - Browser Test (WASM-OJ) deferred scope: official Submit from the browser, checker/interactive/Advanced problems, and limit calibration stay server-only until decided otherwise (JDG-15).

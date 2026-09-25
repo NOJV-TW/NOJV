@@ -78,14 +78,14 @@ Effective time limit is `timeLimitMs x LANGUAGE_TIME_FACTOR[language]` (c/cpp/ru
 - Rule: keep the factor as a global const map in core; never multiply elsewhere.
 - Code: `packages/core/src/judge/time-factor.ts`, `apps/worker/src/activities/judge-request.ts`
 
-### JDG-08 Memory ceiling above the problem limit; admission rejections are terminal
+### JDG-08 Memory ceiling above the problem limit; admission rejections fail fast
 
 **Decided:** 2026-08 · **Source:** [2026-08-14-judge-admission-and-memory](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-14-judge-admission-and-memory.md)
 
-Authoring max stays 1024 MB; the container hard limit is the problem limit plus 64 MB headroom, capped by a 1536Mi platform/LimitRange ceiling, so the measured peak decides MLE before the kernel kills. A Job `FailedCreate` admission rejection is a terminal `SandboxAdmissionError` (SE, no Temporal retry); capacity/scheduling backpressure stays retryable. A 1024 MB problem once exceeded a 1Gi LimitRange and the worker waited out deadlines, blocking every judge slot.
+Authoring max stays 1024 MB; the container hard limit is the problem limit plus 64 MB headroom, capped by a 1536Mi platform/LimitRange ceiling, so the measured peak decides MLE before the kernel kills. A Job `FailedCreate` admission rejection raises `SandboxAdmissionError`, which moves the execution straight to `blocked` (shown as SE, retried every 15 min by reconciliation) instead of waiting out Job deadlines; capacity/scheduling backpressure stays a normal retry. A 1024 MB problem once exceeded a 1Gi LimitRange and the worker waited out deadlines, blocking every judge slot.
 
 - Rejected: raising authoring limits or node capacity; changing worker concurrency or quota to fix it.
-- Rule: deterministic admission failures are terminal; backpressure is retryable.
+- Rule: deterministic admission failures never hold a judge slot; they block the execution and surface as SE. Backpressure is retryable.
 - Code: `packages/core/src/sandbox.ts`, `apps/worker/src/sandbox/kubernetes/admission.ts`, `infra/charts/nojv/values.yaml`
 
 ### JDG-09 Platform failures are system_error, explicit and bounded
@@ -124,7 +124,7 @@ Sandbox pipeline failures store bounded SE diagnostics for the admin submissions
 
 **Decided:** 2026-09 · **Source:** [2026-09-21-judge-capacity](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-21-judge-capacity.md), [2026-09-22-temporal-native-judge-queue](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-22-temporal-native-judge-queue.md)
 
-Each `JudgeExecution` runs `durableJudgeWorkflow` on the `judge` queue with `priorityKey` (exam 1, contest 2, practice/assignment 3, recovery 4, rejudge/background 5) and `fairnessKey = studentId`; a student has at most one dispatched non-terminal execution and completion dispatches the next. Capacity is judge worker activity slots, with the sandbox ResourceQuota as hard safety net. A 789-execution rejudge collapsed the workflow-based coordinator.
+Each `JudgeExecution` runs `durableJudgeWorkflow` on the `judge` queue with `priorityKey` (exam 1, contest 2, practice/assignment 3, recovery 4, rejudge/background 5; key 4 is currently unreachable because recovery also sets `queueClass: "background"` — see the Quality Ledger) and `fairnessKey = studentId`; a student has at most one dispatched non-terminal execution and completion dispatches the next. Capacity is judge worker activity slots, with the sandbox ResourceQuota as hard safety net. A 789-execution rejudge collapsed the workflow-based coordinator.
 
 - Rejected: `judgeAdmissionWorkflow` coordinator with FIFO/permit loops and waves (removed with `JudgeAdmission`, `capacityStrategy`); Kueue (quota-based; revisit only for shared multi-node clusters); HPA/KEDA on one node.
 - Rule: self-hosted Temporal needs `matching.enableFairness` and one partition per NOJV queue.
