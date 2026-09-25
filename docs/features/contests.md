@@ -1,384 +1,107 @@
 # Feature: Contests
 
-Acceptance spec for standalone contests (`Contest` /
-`/contests/[contestId]/...`). Contests are public or invite-only CP events
-with NO course binding and NO proctoring — no page lock, no IP whitelist,
-no IP binding, no session gate. The scoreboard is the central feature,
-offered in ICPC (`problem_count`) or IOI (`point_sum`) flavors with
-freeze/unfreeze for the final reveal.
+Acceptance spec for standalone contests (`Contest`, routes `/contests/[contestId]/...`). Contests have no course binding and no proctoring (no session, page lock or IP rules; those are exam-only, ASM-01). The scoreboard is the core feature, in ICPC (`problem_count`), weighted ICPC (`weighted_count`) or IOI (`point_sum`) scoring, with a freeze window.
 
-## User Stories
+## Key code
 
-- As a **platform admin** or **teacher**, I want to create a standalone
-  contest with a title, summary, time window, scoring mode, scoreboard
-  mode, and optional invite code, so that CP training / public events can
-  live outside any specific course.
-- As a **contest creator**, I want per-contest `scoringMode: problem_count`
-  (ICPC) or `point_sum` (IOI) to drive how submissions roll up to the
-  scoreboard, so that one platform covers both styles.
-- As a **contest creator**, I want `scoreboardMode: hidden | live | frozen`
-  so that I control whether participants see live ranks, no ranks, or a
-  frozen snapshot.
-- As a **contest creator**, I want a per-problem `submitCooldownSec` so that
-  participants can't spam the judge.
-- As a **participant**, I want to explicitly join a contest before I can
-  submit — the invite-code flow for private contests, a "Join contest"
-  button for public ones — so that entering a contest is a deliberate act
-  and the roster reflects who actually opted in.
-- As a **participant**, I want the contest detail page to hide the problem
-  list until `startsAt`, so that early joiners can't read problems.
-- As a **participant**, I want the scoreboard to stay frozen at the
-  configured `frozenAt` moment (for the ICPC reveal drama), and unfreeze
-  only when the creator signals it (or when `finalizeContest` runs at
-  `endsAt`).
-- As a **participant**, I want ended contests to leak their problems into
-  practice mode, so that I can keep learning after the bell.
+- `packages/application/src/contest/mutations.ts` — `createContestRecord`, `updateContestRecord`, `publishContest`, `deleteContestDraft`, `joinContest`, `joinContestByCode`, `ensureContestParticipation`, `checkSubmitCooldown`, lifecycle steps `activateContest`, `freezeContestBoard`, `finalizeContest`
+- `packages/application/src/contest/queries.ts` — `getContestDetail`, `getContestWorkspaceData`, `canAccessContest`, `findViewerContestParticipation`, `unfreezeContest`
+- `packages/application/src/contest/scoring.ts` — `updateContestScores`, `getScoreboard`, `getScoreboardChart`
+- `packages/application/src/scoring/` — pure builders `buildScoreboard`, `buildScoreboardChartSeries`, `computeProblemCountPenalty`
+- `packages/application/src/contest/permissions.ts` — `canManageContest`, `canViewLiveContestScoreboard`
+- `packages/application/src/contest/upsolve.ts`, `packages/application/src/virtual-contest/` — post-contest views
+- `packages/core/src/schemas/contest.ts`; `packages/db/prisma/schema/contest.prisma` (`Contest`, `ContestProblem`, `Participation`)
+- Worker: `apps/worker/src/workflows/contest-lifecycle.ts`
+- Routes: `apps/web/src/routes/(app)/contests/` (list, `joinByCode`), `contests/new/`, `contests/[contestId]/` (detail, `joinContest`, manager tabs), `[contestId]/scoreboard/`, `[contestId]/problems/[problemId]/`, `[contestId]/upsolve/`, `[contestId]/virtual/`
+- Tests: `tests/unit/application/contest-permissions.test.ts`, `tests/unit/application/scoring/`, `tests/unit/application/proctoring-gate.test.ts`
 
-## Scope
+## Model
 
-### In scope
+- `visibility` is `draft | published`; there is no archive state. "Ended" is `endsAt < now`. `createContestRecord` inserts contests as `published`; `publishContest`/`deleteContestDraft` handle `draft` rows.
+- A contest is public when `inviteCode` is null and private (invite-only) otherwise. The create form requires an invite code for private contests; none is generated.
+- Settings: time window, `scoringMode`, `scoreboardMode` (`hidden | live | frozen`), `frozenAt`, `submitCooldownSec` (0–3600), `penaltyMinutesPerWrong` (0–1440, default 20), `allowedLanguages`, 1–32 problems.
+- Participants are `Participation` rows with `type = contest` and status `registered` (joined) or `active` (submitted) (DAT-04).
+- Management (edit, publish, delete, unfreeze, live board, plagiarism) is creator-or-admin via `canManageContest` (ASM-06). Only platform teachers and admins can create contests.
+- Publishing or creating a published contest ensures the contest lifecycle workflow (activate at start, freeze at `frozenAt` in `frozen` mode, finalize at end). Changing start, end, `frozenAt` or `scoreboardMode` on a published contest replaces it.
 
-- `Contest` creation — standalone (no `courseId`), always `published` on
-  create, `inviteCode` auto-generated when not supplied. Visibility is
-  `draft | published` only — there is no `archived` enum value.
-- `Contest` partial update (title/summary/timing/scoring/scoreboard mode/
-  languages/cooldown/problem list).
-- ICPC scoring (`scoring.computeProblemCountPenalty`): solved count +
-  penalty seconds = `(firstAC - startsAt) + 20*min * wrongBefore`.
-- IOI scoring: sum of best scores across attached problems.
-- Explicit join required before submitting: `joinContest` (public) /
-  `joinContestByCode` (private) register a `ContestParticipation`
-  (`status: 'registered'`); on first submit `ensureContestParticipation`
-  rejects a non-joined non-manager and upgrades the existing row to
-  `active`. Managers / admins are auto-joined (exempt from the gate).
-- Submit cooldown enforcement (`checkSubmitCooldown`).
-- Scoreboard build/read (computed live from PostgreSQL — `contest.participations`
-  - submissions — on every fetch; no Redis zset backing).
-- Scoreboard freeze/unfreeze: `Contest.frozenBoard` / `frozenAt` columns;
-  `getScoreboard` builds with `frozenAt` as the cutoff (filtering out
-  submissions after the freeze point) when `frozenAt < now` or mode ===
-  `frozen`; unfreeze clears `frozenBoard`.
-- Scoreboard chart series (top-N + time-series by user).
-- Join flow: invite-code `joinByCode` action (private) and public
-  `?/joinContest` action; both redirect back to `/contests/[id]` and
-  create a `registered` `ContestParticipation` at join time.
-- Visibility gating: `getContestDetail` throws `NotFoundError` for any
-  non-`published` contest — including for the creator/admin (there is no
-  manager-only draft preview). In practice the draft state is
-  unreachable via creation anyway: `createContestRecord` hardcodes
-  `visibility: "published"`.
-- Practice-after-close via `assertProblemViewAccess` historical-
-  participant clause.
-- Per-contest `allowedLanguages` with workspace-file invariant (every
-  attached problem must ship editable `main.<ext>` for every language).
-- No score overrides. Contests are public CP events, not classroom
-  homework, so neither score adjustments nor per-cell feedback exist:
-  the override schema, `/api/overrides` and the override domain accept
-  only assignment and exam contexts (`ScoreOverride` rows reference
-  `assessmentId` / `examId`), and the manager grade matrix
-  (Results → Grades) is read-only.
-- Audit sub-tab — staff-only feed of rejudge events
-  (`listAuditTimelineForContext({ type: "contest", id })`). Contests
-  have no lifecycle audit log and no score-override entries.
+Out of scope: proctoring, course membership gating, score overrides and feedback (ASM-17), a contest lifecycle audit log.
 
-### Out of scope
+## Acceptance criteria
 
-- **Proctoring.** The `Contest` model has no proctoring fields
-  (`ipWhitelistEnabled`, `ipBindingEnabled`, page lock, etc.). Phase 3 of
-  the CUID unification briefly added them, but commit `fa742c7` removed
-  them again — contests are public CP events, so proctoring controls
-  live only on `Exam`. See `docs/features/proctoring.md`.
-- Course membership gating — anyone with the invite code (or on a public
-  contest) can participate.
-- Session management (`ActiveExamSession` lives on `Exam` only).
-- Archive workflow — contests have no `archived` visibility state.
-  "Ended" is purely time-derived from `endsAt < now`; the row stays
-  `published` forever after that.
+### Create and problems
 
-## Acceptance Criteria
+- Non-teacher, non-admin actors get `ForbiddenError("Only teachers and admins can create contests.")`. An existing `id` fails with `ConflictError(\`Contest id already exists: ${id}\`)`.
+- An actor-owned problem is attached directly. Another author's published public problem becomes an independent actor-owned private fork (PRB-10). Another author's private problem, the actor's unpublished private problem, or any later failure rolls back the contest and forks together.
+- Every attached `multi_file` problem must have an editable `main.<ext>` for each allowed language, else `ValidationError`.
+- `ContestProblem.points` is the submitted per-problem weight in `weighted_count` mode and the problem's raw total score otherwise.
+- The problem list is replaced only while the contest is a draft or has not started; later `problems` payloads are ignored.
 
-### Create
+### Publish and delete
 
-- GIVEN an actor-owned problem, WHEN a contest is created or its problem list
-  is updated, THEN the original problem is attached directly.
-- GIVEN another author's published public problem, WHEN it is selected, THEN
-  an independent actor-owned private fork is created and attached.
-- GIVEN another author's private problem or any later failure, THEN the
-  transaction leaves neither a partial contest nor a partial fork.
-
-- GIVEN a logged-in actor, WHEN `createContestRecord` is called with a
-  fresh `id`, THEN the row is inserted with `visibility: 'published'`
-  and `inviteCode` defaulted to `crypto.randomBytes(4).toString('hex')`
-  when not supplied.
-- GIVEN an `id` collision, WHEN create runs, THEN
-  `ConflictError(\`Contest id already exists: ${id}\`)`.
-- WHEN `problemIds` is empty AT CREATE, THEN `resolveAndAttachContestProblems`
-  short-circuits (contests must pass ≥1 problemId at create per zod
-  `.min(1)`; this is the schema-level guard, not domain-level).
-- WHEN any attached problem lacks an editable `main.<ext>` for any
-  `allowedLanguage`, THEN `ValidationError(...missing editable main.<ext>...)`.
+- `publishContest` requires a draft (`"Only draft contests can be published."`), ≥1 problem (`"Add at least one problem before publishing."`), ≥1 language (`"Select at least one allowed language before publishing."`), `startsAt < endsAt` and `endsAt > now` (`"End time must be in the future."`).
+- `deleteContestDraft` deletes only drafts (`"Only draft contests can be deleted."`) and cancels lifecycle work.
 
 ### Update
 
-- GIVEN a non-owner non-admin actor, WHEN `updateContestRecord` runs,
-  THEN `ForbiddenError("You do not have permission to edit this contest.")`.
-- WHEN `problemIds` is included in the payload, THEN existing
-  `ContestProblem` rows are wiped and re-created in order with
-  `points = 100` (no per-problem point override at update time).
+- Non-owner, non-admin: `ForbiddenError("You do not have permission to edit this contest.")`.
+- The effective window must keep `endsAt > startsAt`.
 
-### Visibility & detail
+### Visibility and detail
 
-- GIVEN a non-`published` (e.g. `draft`) contest, WHEN ANY viewer hits
-  `getContestDetail` (manager or not), THEN `NotFoundError` — there is
-  no manager draft-preview path.
-- GIVEN a `published` contest with `now < startsAt`, WHEN a non-manager
-  viewer calls `getContestDetail`, THEN `problemsHidden: true` and
-  `problems: null` in the response.
-- GIVEN a manager viewer (creator or platform admin), THEN `problemsHidden:
-false` regardless of time window, and the problem list is returned.
-- GIVEN `scoreboardMode: 'hidden'` and a non-privileged viewer on
-  `getScoreboard`, THEN `entries: []` (no leaderboard leak).
+- A draft contest is `NotFoundError` for non-managers; managers can open it.
+- A private contest is `NotFoundError` for non-managers without a participation row (ASM-07).
+- Before `startsAt`, non-managers get `problemsHidden: true` and `problems: null`; managers always see problems. The scoreboard page redirects non-managers to the detail page before start.
+- `scoreboardMode: hidden` returns `entries: []` to non-managers.
 
-### Participation
+### Joining
 
-- GIVEN a `published` running contest and a non-manager who has NOT
-  joined, WHEN they submit to a contest problem, THEN
-  `ensureContestParticipation` throws
-  `ForbiddenError("You must join the contest before submitting.")`.
-  Managers / admins bypass this via `canManageContest` and are auto-joined.
-- GIVEN a joined participant (a `registered`/`active` row exists) on a
-  `published` contest with `now >= startsAt && now <= endsAt`, WHEN they
-  submit, THEN `ensureContestParticipation` upserts the row to
-  `status: 'active'`.
-- GIVEN `now < startsAt`, WHEN participation is attempted, THEN
-  `ForbiddenError("Contest has not started yet.")`.
-- GIVEN `now > endsAt`, WHEN participation is attempted, THEN
-  `ForbiddenError("Contest has ended.")` — practice mode must be
-  entered via `/problems/[id]` (no contest context).
+- Public contest: `?/joinContest` → `joinContest` upserts a `registered` participation before or during the contest. A contest with an invite code rejects it (`"This contest requires an invite code to join."`); at or after `endsAt`, `"Contest has ended."`.
+- Private contest: `joinByCode` with a matching published contest's code registers the user and redirects to `/contests/[contestId]`. An empty code fails 400 (`contestsList_codeErrorEmpty`); an unknown code fails 404 (`contestsList_codeErrorInvalid`).
+- The detail CTA is "Join contest" for non-managers who have not joined an upcoming or running contest, and "Enter contest" otherwise; `hasJoined` is any participation row.
 
-### Invite code join
+### Participation and submitting
 
-- GIVEN a valid invite code for a `published` contest, WHEN the user POSTs
-  `joinByCode`, THEN `joinContestByCode` registers a `ContestParticipation`
-  (`status: 'registered'`) and the action redirects to
-  `/contests/[contestId]`.
-- GIVEN an invite code that doesn't match any `published` contest,
-  THEN `fail(404, { codeError: m.contestsList_codeErrorInvalid() })`.
-- GIVEN an empty code, THEN
-  `fail(400, { codeError: m.contestsList_codeErrorEmpty() })`.
+- `ensureContestParticipation` rejects before `startsAt` (`"Contest has not started yet."`) and at or after `endsAt` (`"Contest has ended."`). A non-manager without a participation row gets `"You must join the contest before submitting."`; managers and admins are exempt and auto-joined.
+- On submit the participation is upserted to `active` with a composite-key upsert, so concurrent first submits converge on one row.
+- The contest problem route redirects non-managers without participation, and non-managers before start, to `/contests/[id]`; after `endsAt` it redirects to `/problems/[problemId]`.
+- `checkSubmitCooldown` enforces `submitCooldownSec` per user and problem under an advisory lock.
 
-### Join gating (public contests)
+### Scoring
 
-- GIVEN a `published` public (no `inviteCode`) contest that has not ended,
-  WHEN a non-manager POSTs `?/joinContest`, THEN `joinContest` registers a
-  `ContestParticipation` (`status: 'registered'`) — joining is allowed
-  both before and during the contest window.
-- GIVEN a contest that has an `inviteCode`, WHEN `joinContest` runs, THEN
-  `ForbiddenError("This contest requires an invite code to join.")` —
-  private contests must be joined via `joinContestByCode`.
-- GIVEN `now >= endsAt`, WHEN `joinContest` runs, THEN
-  `ForbiddenError("Contest has ended.")`.
-- GIVEN a non-manager who has NOT joined, WHEN they open
-  `/contests/[id]/problems/[problemId]` on a running contest, THEN the
-  loader redirects (`303`) back to `/contests/[id]` — the problem route
-  requires a `ContestParticipation` row (managers are exempt).
-- GIVEN the contest detail page and a non-manager viewer who hasn't joined
-  a running/upcoming contest (`needsJoin`), THEN the primary CTA is
-  "Join contest" (posts `?/joinContest`); once joined it becomes
-  "Enter contest". Managers always see "Enter contest". `hasJoined` is
-  derived from `findViewerContestParticipation` (any status).
+- Scores are recomputed after judging (`updateContestScores`) and are eventually consistent. Only submissions with `createdAt <= endsAt` count.
+- `problem_count`: a problem is solved on its first `accepted` submission. Penalty for a solved problem = seconds from `startsAt` to first AC + wrong attempts before it × `penaltyMinutesPerWrong` × 60. Pending, `compile_error` and `system_error` submissions are never penalized (ASM-08). Score = solved count.
+- `weighted_count`: as `problem_count`, but each solve is worth its `ContestProblem.points`.
+- `point_sum`: per-problem best score across non-sample submissions; total = sum. `subtaskScores` stores `{ problemId: bestScore }`.
+- Ranking sorts by total score descending, then total penalty ascending; equal pairs share a rank. First solves are flagged per problem.
+- Contests never read score overrides. Results → Grades is read-only; any override request with a contest context fails schema validation (400) before permission checks.
 
-### Clarifications (Q&A) visibility
+### Scoreboard freeze
 
-Shared across assignments, exams, and contests: staff choose public/private
-per answer, non-staff see only their own questions plus staff-published
-ones, and pending questions are never pushed live to peers. See
-`docs/features/exams.md` → **Clarifications (Q&A) visibility** for the full
-Given/When/Then criteria.
-
-### Scoring — ICPC (problem_count)
-
-- WHEN `updateContestScores` runs for a participation with `scoringMode:
-'problem_count'`, THEN each attached problem is graded via
-  `computeProblemCountPenalty`:
-  - Solved iff any submission has `status === 'accepted'`.
-  - Penalty seconds for a solved problem =
-    `(firstAC.createdAt - contest.startsAt) / 1000 + 20 * 60 *
-countOfWrongsBefore`.
-- Final `score = solvedCount`; `penaltySeconds = sum over solved
-problems`; `buildScoreboard` ranks by a packed score = `solvedCount * 1e9 - totalPenalty` so
-  lower penalty ranks higher within the same solve count.
-
-### Scoring — IOI (point_sum)
-
-- WHEN `updateContestScores` runs for `scoringMode: 'point_sum'`, THEN
-  per-problem best score is taken across all non-sample submissions;
-  total = sum of bests.
-- `subtaskScores` is stored as `{ problemId → bestScore }`.
-
-### Scoreboard freeze / unfreeze
-
-- WHEN `freezeContestBoard(contestId)` runs, THEN `Contest.frozenBoard`
-  is set to `true` and `frozenAt` is stamped. There is no snapshot key —
-  the public board is derived at read time by filtering submissions to
-  `createdAt <= frozenAt`.
-- WHEN a submission is judged DURING a freeze, THEN it is persisted as
-  normal, but `getScoreboard` excludes it from the public view (its
-  `createdAt > frozenAt`) — the board stays frozen at the cutoff until
-  unfreeze.
-- WHEN `finalizeContest(contestId)` runs (via the contest lifecycle
-  workflow at `endsAt`), THEN `frozenBoard = false`. Visibility stays
-  `published` — there is no auto-archive flip anymore; "ended" is
-  derived from `endsAt < now`.
-- GIVEN `scoreboardMode === 'frozen'` OR (`frozenBoard && frozenAt <
-now`) and the viewer is not privileged, THEN `getScoreboard` returns
-  the frozen view (`isFrozen: true`).
-- GIVEN `options.canSeeLive: true` (set server-side for privileged
-  viewers — admin or contest organizer), THEN the live view is returned
-  regardless of freeze or `hidden` mode.
+- The board is built from PostgreSQL on read and cached in Redis for 10 s per contest and variant (`live` or `public`), with a short build lock (DAT-11).
+- Non-managers get the frozen view when `scoreboardMode === "frozen"`, or when `frozenBoard` is true and `now > frozenAt`. Submissions after `frozenAt` are hidden and marked pending. In `frozen` mode with no `frozenAt`, the cutoff is the read time.
+- `freezeContestBoard` (lifecycle, `frozen` mode) sets `frozenBoard = true`; `finalizeContest` at `endsAt` sets it false. Visibility stays `published`.
+- Managers always get the live view (`canSeeLive`), regardless of freeze or `hidden`.
+- Unfreeze (organizer or admin) clears `frozenAt`.
 
 ### Scoreboard chart
 
-- `getScoreboardChart(contestId, topN)` returns a time-series for the
-  top-N participants from the (current-view) scoreboard; series are
-  monotonic-increasing points `{ time, score }` starting from
-  `contest.startsAt`.
-- In `point_sum` mode, every improvement in a problem's best score contributes,
-  including partial scores from non-accepted submissions. The final chart score
-  agrees with the scoreboard for the same submissions and visibility cutoff.
-- GIVEN no participations, THEN `series: []`.
+- `getScoreboardChart(contestId, topN)` returns monotonic `{ time, score }` series from `startsAt` for the top-N entries of the same view, applying the same freeze cutoff. No entries → `series: []`.
+- In `point_sum` mode every improvement in a problem's best score counts, including partial scores; the final point matches the scoreboard.
 
-### Permissions
+### Clarifications
 
-- Non-owner / non-admin actors cannot update or finalize.
-- Platform admins are implicit managers (`canManageContest` checks
-  `platformRole === 'admin'` OR `createdByUserId === userId`).
-
-### Grading — no overrides
-
-- GIVEN a contest manager, WHEN they open Results → Grades, THEN the
-  matrix cells are not clickable and no grading drawer is offered.
-- GIVEN any actor, including a platform admin, WHEN `createOverride`
-  or `POST /api/overrides` receives a `{ type: "contest" }` context,
-  THEN the request fails schema validation (`ValidationError` / HTTP 400) before any permission or scoring check runs.
+Shared with assignments and exams; see [Exams — Clarifications](exams.md#clarifications).
 
 ### Audit timeline
 
-- GIVEN a staff viewer (contest creator or platform admin), WHEN
-  they open the Audit sub-tab on the contest manage page, THEN
-  `listAuditTimelineForContext({ type: "contest", id })` returns a
-  reverse-chronological merge of `ScoreOverrideAuditLog` (override
-  changes) + `SubmissionRejudgeLog` (rejudges scoped to the
-  contest's submissions). No lifecycle audit-log source exists for
-  contests.
-- The view is read-only.
+- Managers see a read-only, newest-first list of `SubmissionRejudgeLog` rows for the contest's submissions. Contests have no lifecycle or override audit source.
 
-### Practice-after-close
+### Plagiarism
 
-- GIVEN an ended contest (`endsAt < now`, `visibility = 'published'`)
-  that the user has a `ContestParticipation` row on,
-  WHEN they visit `/problems/[id]` for an attached problem,
-  THEN `assertProblemViewAccess` allows the view (historical-participant
-  gate).
-- WHEN they POST to `/api/submissions` without contest context, THEN
-  the submission is accepted as practice (no scoreboard write, no
-  participation update).
-- GIVEN an ended contest the user NEVER joined (no `ContestParticipation`
-  row — e.g. a public contest they only browsed without joining), WHEN
-  they visit `/problems/[id]`, THEN the historical-participant clause does
-  NOT fire; access falls back to the ordinary problem-visibility rules.
-  Practice-after-close is a participant perk, not a public post-contest
-  unlock. (The gate keys on the participation row's existence, so a user
-  who joined but never submitted still qualifies.)
+- Managers get a plagiarism sub-tab reusing `AssignmentPlagiarismReport` with `diffContext = { type: "contest", id }`. See [Plagiarism](plagiarism.md).
 
-## Edge Cases & Failure Modes
+### After the contest
 
-- **Concurrent first-submit.** `ensureContestParticipation` uses a
-  composite-key upsert, so two near-simultaneous first submissions
-  converge to one `ContestParticipation` row.
-- **`inviteCode` unique collision on create.** The 4-byte random
-  fallback has ~4 billion keyspace; a clash raises a Prisma P2002 which
-  propagates as an internal error. Mitigation: callers should supply a
-  deterministic code for high-volume events.
-- **Packed score with negative values.** ICPC packs the ranking score as
-  `solvedCount \* 1e9 - penalty`. For `solvedCount = 0`, the packed score
-  is `0 - penalty`, which is never negative in practice because
-  `penalty > 0`only after AC — but a contest could have`solvedCount = 0, penalty = 0`entries
-  by design. Verified safe in`contest-permissions.test.ts`.
-- **Freeze then finalize.** `finalizeContest` clears `frozenBoard`. The
-  contest stays `visibility = 'published'` — the "ended" presentation is
-  derived client-side from `endsAt < now`. An already-rendered client
-  view stays stale until next load.
-- **Deleted problem referenced by a contest.** `ContestProblem.problemId`
-  has `onDelete: Cascade` on the problem side — a rare admin wipe will
-  cascade; live contests shouldn't hit this in practice because
-  `Problem` deletion is admin-gated.
-- **Participation stat shows `score = 0` but has AC submissions.** Means
-  `updateContestScores` hasn't run yet for that participation; scoring
-  is post-judge and is eventually consistent.
-
-## Implementation References
-
-### Domain
-
-- `packages/application/src/contest/mutations.ts` —
-  `createContestRecord`, `updateContestRecord`,
-  `ensureContestParticipation` (join-gate + upgrade-to-active),
-  `joinContest` (public), `joinContestByCode` (invite),
-  `checkSubmitCooldown`, `activateContest`, `freezeContestBoard`,
-  `finalizeContest`, `resolveAndAttachContestProblems`.
-- `packages/application/src/contest/queries.ts` —
-  `listPublicContests`, `listContestsForUser`,
-  `getContestDetail`, `getContestWorkspaceData`,
-  `findContestByInviteCode`, `findViewerContestParticipation`,
-  `getContestContext`, `unfreezeContest`.
-- `packages/application/src/contest/scoring.ts` —
-  `updateContestScores`, `getScoreboard`, `getScoreboardChart`.
-- `packages/application/src/contest/permissions.ts` — `canManageContest`.
-- `packages/application/src/scoring/` — pure builders:
-  `buildScoreboard`, `buildScoreboardChartSeries`,
-  `computeProblemCountPenalty`.
-- `packages/application/src/proctoring/gate.ts` — `checkContestGate`
-  (existence + visibility + time window; no IP).
-- `packages/application/src/audit/queries.ts` —
-  `listAuditTimelineForContext`.
-
-### Schema
-
-- `packages/core/src/schemas/contest.ts` — `contestCreateSchema`,
-  `contestUpdateSchema`, `contestSessionSchema`.
-- `packages/db/prisma/schema/contest.prisma` — `Contest`,
-  `ContestProblem`, `ContestParticipation`, enum `ContestVisibility`,
-  `ContestScoringMode`, `ContestParticipationStatus`, `ScoreboardMode`.
-
-### Scoreboard computation
-
-- The scoreboard is computed live from PostgreSQL on every fetch —
-  `packages/application/src/contest/scoring.ts` `getScoreboard` reads
-  `contest.participations` + submissions and calls
-  `packages/application/src/scoring/` `buildScoreboard`. There is no Redis
-  zset, no `ZADD`/`ZRANGE`, and no live/frozen snapshot keys. Freeze is a
-  `Contest.frozenBoard` / `frozenAt` column pair; `buildScoreboard`
-  applies `frozenAt` as a submission cutoff to produce the frozen view.
-
-### Routes / API
-
-- `apps/web/src/routes/(app)/contests/+page.server.ts` — list +
-  `joinByCode` action.
-- `apps/web/src/routes/(app)/contests/new/+page.server.ts` — create form.
-- `apps/web/src/routes/(app)/contests/[contestId]/+page.server.ts`
-  (detail). The detail page exposes a `plagiarism` sub-tab for managers
-  that reuses `AssignmentPlagiarismReport` with
-  `diffContext = { type: "contest", id }`.
-- `apps/web/src/routes/(app)/contests/[contestId]/scoreboard/+page.server.ts`
-  — scoreboard view + chart (`canUnfreeze` for admins/teachers).
-- `apps/web/src/routes/(app)/contests/[contestId]/problems/[problemId]/+page.server.ts`
-  — in-contest workspace.
-
-### Tests
-
-- `tests/unit/application/contest-permissions.test.ts` — canManageContest +
-  visibility gating.
-- `tests/unit/application/scoring/` — ICPC/IOI scoreboard builder + chart
-  series.
-- `tests/unit/application/proctoring-gate.test.ts` — contest gate (no IP).
+- Upsolve (`/contests/[id]/upsolve`) appears only after `endsAt`: a read-only list of contest problems with the viewer's status (solved / attempted / untouched) linking to `/problems/[id]` (ASM-09).
+- Virtual contests start only for ended contests, run for the original duration as `Participation` rows with `type = virtual`, and show a private board with the original final standings as ghost rows.
+- Practice after close: a user with a participation row (even without submissions) can open attached problems at `/problems/[id]` via `assertProblemViewAccess`, and context-less submissions count as practice only. Users who never joined fall back to ordinary problem visibility (PRB-20).

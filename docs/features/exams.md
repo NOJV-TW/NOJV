@@ -1,540 +1,153 @@
 # Feature: Course Exams
 
-Acceptance spec for course-embedded exams (`Exam` /
-`/exams/[examId]/...`). Exams are proctored in-class assessments: students
-must start a session; when page lock is enabled, they are confined to the
-exam routes until release. Sessions may also be IP-bound or IP-whitelisted. When the window ends, a Temporal workflow
-auto-closes every active session; after the exam ends students can view a
-post-exam review page (per-problem state + total score) on
-`/exams/[examId]`, and can also keep practicing through the
-practice-after-close route at `/problems/[id]`.
+Acceptance spec for course exams (`Exam`, routes `/exams/[examId]/...`). Students start a session to see and submit problems; exams can add page lock and IP rules ([Proctoring](proctoring.md)). A Temporal workflow closes sessions at `endsAt`. Afterwards students get a review page and practice access at `/problems/[id]`.
 
-## User Stories
+## Key code
 
-- As a **teacher** or **TA**, I want to configure an exam with start/end
-  times, allowed languages, weighted point-sum scoring,
-  scoreboard mode (hidden/live/frozen), and per-problem points, so that a
-  single exam row captures the whole assessment contract.
-- As a **teacher** or **TA**, I want to toggle `pageLockEnabled`,
-  `ipWhitelistEnabled` (+ CIDR list), `ipBindingEnabled`, and
-  `ipViolationMode: block | notify`, so that the lab's network / seat
-  assignment is the only place the exam can be taken.
-- As a **student**, I want a clear "start exam" action that creates my
-  session, pins my IP (when binding is on), and then reveals the exam's
-  problem list on the exam page (rather than jumping straight into the
-  first problem), so that the proctoring contract is explicit and
-  reversible only by the instructor or the auto-close workflow.
-- As a **student**, I want mid-exam navigation to follow the exam's
-  page-lock setting: redirect and log when enabled, or allow normal site
-  use while the exam session remains active when disabled.
-- As a **teacher**, I want a submissions matrix (students × problems,
-  best score + attempts + AC/partial/zero cells) that recomputes on every
-  load, so that I can spot-check performance without running SQL.
-- As a **proctor / teacher on duty**, I want to release a stuck student's
-  session manually (`releaseSessionAsInstructor`), so that an edge case
-  like a crashed browser doesn't block them from a retry.
+- `packages/application/src/exam/mutations.ts` — `createExamRecord`, `updateExamRecord`, `publishExam`, `deleteExamDraft`
+- `packages/application/src/exam/session.ts` — `startSession`, `startSessionWithGate`, `endSession`, `recordEvent`, `autoCloseForExam`, `releaseSessionAsInstructor`, `releaseAllSessionsAsInstructor`, `resetStudentIpBinding`, `listActiveSessions`, `getActiveSessionContext`, `getSessionState`, `listSubmittedProblemIds`, `requireActiveSessionForUserExam`, `START_GRACE_MS`
+- `packages/application/src/exam/credentials.ts` — temporary exam passwords
+- `packages/application/src/exam/detail.ts` (`getExamDetailPage`), `exam/submissions-matrix.ts` (`buildExamSubmissionsMatrix`), `exam/scoring.ts` (`updateExamScores`), `exam/queries.ts` (`listExamIpViolations`)
+- `packages/application/src/clarification/` — `ask`, `answer`, `dismiss`, `listForViewer`, `canSeeAuthor`
+- `packages/application/src/feedback/`, `score-override/permissions.ts`, `shared/context-window.ts`, `audit/queries.ts` — post-close grading and audit
+- `packages/core/src/schemas/exam.ts`, `schemas/exam-credential.ts`; `packages/db/prisma/schema/contest.prisma` (`Exam`, `ExamProblem`, `Participation`, `ActiveExamSession`, `ExamSessionEvent`, `IpViolationLog`), `exam-credential.prisma`
+- Worker: `apps/worker/src/workflows/exam-auto-close.ts`, `apps/worker/src/activities/lifecycle.ts` (`closeActiveSessionsForExam`)
+- Web: `apps/web/src/hooks.server.ts`, `apps/web/src/lib/server/exam-lock.ts`, `apps/web/src/routes/(app)/exams/[examId]/+page.server.ts` (actions `startExam`, `releaseSession`, `releaseStudentSession`, `releaseAllSessions`, `resetStudentIpBinding`, `updateCredentialPassword`, `updateSettings`, `updateProblems`, `publishExam`, `deleteExam`), `exams/[examId]/problems/[problemId]/`
+- Tests: `tests/unit/application/exam-session.test.ts`, `exam-publish-delete.test.ts`, `exam-auto-close.test.ts`, `exam-submissions-matrix.test.ts`, `proctoring-gate.test.ts`; `tests/integration/api/exam-session.test.ts`; `tests/e2e/advanced-mode-lifecycle.test.ts`
 
-## Scope
+## Model
 
-### In scope
+- `status` is `draft | published`; no archive state. "Ended" is `endsAt < now`. Exams have no revert-to-draft and no lifecycle audit log.
+- `scoringMode` accepts only `point_sum`; official scores use [activity allocations](#activity-allocations). `scoreboardMode` (`hidden | live | frozen`, default `hidden`) is a stored setting; exams have no scoreboard page and no freeze control.
+- Proctoring fields: `pageLockEnabled`, `ipWhitelistEnabled`, `ipWhitelist`, `ipBindingEnabled`, `ipViolationMode`. Participants are `Participation` rows with `type = exam`, which hold the IP pin.
+- Publishing, or creating as published, ensures the auto-close workflow; a window change on a published exam replaces it; deleting a draft cancels it.
+- Manager tabs: Results (grades, plagiarism, audit), Proctoring (sessions, students and sign-in, IP records), Settings last.
 
-- `Exam` CRUD — create, partial update, publish, delete-draft. Parallel
-  shape to `Assessment`. Persistent `status` is `draft | published`
-  only — there is no `archived` enum value. "Ended" is purely time-
-  derived from `endsAt < now`.
-- Publish validation: ≥1 problem, ≥1 allowed language, `startsAt < endsAt`,
-  `endsAt > now`.
-- Session lifecycle (`ActiveExamSession`): `startSessionWithGate`,
-  `recordEvent` (`enter | leave | visibility_lost | release | auto_close
-| heartbeat`), `endSession`, `releaseSessionAsInstructor`.
-- Global mutual exclusion: a user can have at most one active session
-  globally at any time (started on exam A blocks start on exam B).
-- Auto-close Temporal workflow (`examAutoCloseWorkflow`) scheduled on
-  publish + on create-as-published; calls `closeActiveSessionsForExam`.
-- Page lock via `hooks.server.ts` — when `pageLockEnabled` is true, an
-  active session redirects off-exam requests to `/exams/[examId]` and
-  logs `visibility_lost`; when false, normal site permissions apply and
-  the active exam session remains available for returning to the exam.
-- IP gating via `checkIpLock` (whitelist + binding); empty whitelist with
-  `ipWhitelistEnabled=true` means **deny all** (fail-closed).
-- Violation modes: `block` rejects the submission / gate; `notify` logs
-  an `IpViolationLog` row but allows the request.
-- Scoreboard live/frozen via `@nojv/redis` `scoreboard` module
-  (zset-backed; TTL = `scoreboardTtlForEndsAt(exam.endsAt)` = `endsAt` +
-  7-day grace, floored at 1h, refreshed on writes; the 90-day constant is
-  only the no-end-time fallback).
-- Submissions matrix (`getExamSubmissionsMatrix`) — manager-only view.
-- Proctoring sub-tab — manager-only `IpViolationLog` viewer wired into
-  the exam detail page via `ExamProctoringTab.svelte`.
-- Post-close grading drawer on the submissions matrix — score
-  overrides + per-cell student-visible feedback comments
-  (`SubmissionFeedback`). Writes gated post-close (`endsAt < now`),
-  admin bypass.
-- Audit sub-tab — staff-only merged feed of score override + rejudge
-  events (`listAuditTimelineForContext({ type: "exam", id })`).
-  Exams have no lifecycle audit log.
-- Post-close student review page: for ended exams (`endsAt < now`),
-  `getExamDetailPage` builds a student-facing review page enriched with
-  per-problem state (`ac | partial | zero | empty`) + total score
-  (`viewerState`/`viewerScore`). `getExamDetailPage` returns null for
-  non-managers only on DRAFT exams. Practice-after-close additionally
-  allows accessing the problems via `/problems/[id]` (no context).
-- `scoringMode: point_sum` with activity allocations.
-- `scoreboardMode: hidden | live | frozen`.
-- Problem resolution and course-library sharing run in the exam transaction.
-  Actor-owned private problems and private problems already shared with this course
-  are reused; newly selected published public problems always become actor-owned
-  private forks. Retained references loaded from the existing exam keep their IDs.
-
-### Out of scope
-
-- Contest-style invite codes (exams rely on course membership).
-- Late-submission UI flag in the matrix (explicit non-goal per
-  practice-after-close design doc).
-- Remote proctoring features (webcam, screen recording, browser
-  lockdown) — out of scope by current product decision.
+Out of scope: invite codes (membership gates access), remote proctoring (webcam, screen recording, lockdown browser), a late flag in the matrix.
 
 ## Temporary exam sign-in
 
-- Exams opt into temporary password sign-in at creation (off by default). Enabled, published exams issue an independent username/password credential for each active, linked student course membership at `startsAt - 24 hours`. The existing minute-based durable processor catches late enablement, publication and enrollment. Unlinked roster entries remain visible with an account-linking status; they cannot receive mail until a User exists.
-- Credentials never replace the account's OAuth bindings or permanent password. Teachers/TAs with current management permission can reveal and set the temporary password in the exam's Proctoring → Students and sign-in view. Password edits require 12–64 characters, rotate the credential revision, invalidate its existing sessions and enqueue an updated email. Settings is the last primary tab; Results contains grades, plagiarism and audit, while Proctoring contains the roster and IP records.
-- The validity interval begins at the earlier of `startsAt - 24 hours` and the first SMTP delivery attempt, and ends at `endsAt`, using the hard end rather than the on-time deadline. The first actual SMTP attempt locks the exam's sign-in setting permanently, including ambiguous and failed attempts; test sink delivery does not. Disabling before that point revokes credentials and their sessions in the same transaction. A password login can use ordinary coursework before entering; after starting an exam, page confinement applies only when the exam enables page lock. Changing the end time updates the attached session expiry. Changing a password, withdrawing a student, archiving the course, disabling/promoting the account or changing its security generation invalidates the corresponding temporary session on its next request.
-- Only ordinary student accounts qualify: platform admins/teachers, super admins, and users with an active teacher/TA membership in any course use their usual sign-in methods. This prevents a staff-visible password from granting staff access elsewhere.
-- Email goes only to the verified `User.email` security mailbox. Delivery work contains credential ID and revision, never plaintext or rendered password HTML. Delivery decrypts just before sending. A suppressed or unverified recipient is visible to staff; suppressed mail is not reported as sent. Mail transport acceptance is not inbox-delivery proof.
-- Every password-derived Better Auth session has an immutable marker and a credential-revision association. The server checks current validity even for direct Auth API calls, so refresh or missing association cannot turn it into an ordinary session. Temporary sessions cannot change account security, link providers, create permanent tokens or obtain registry credentials. Ordinary OAuth sessions stay independent.
-- At the exam hard end, authentication rejects the password immediately even if cleanup has not run; reconciliation removes the password material and related sessions. The student can subsequently use their usual sign-in method for post-exam review.
+Decision: ASM-22. Security model: [Security](../operations/SECURITY.md).
 
-### Hand-in interaction
+- Exams opt in at creation (`examPasswordEnabled`, default off). Enabled, published exams issue an independent username/password credential for each active, linked student membership at `startsAt - 24 hours`. The minute-based durable processor catches late enablement, publication and enrollment. Unlinked roster rows show an account-linking status and get no mail until a User exists.
+- Credentials never replace OAuth bindings or a permanent password. Current course managers can reveal and set the password under Proctoring → Students and sign-in. Edits require 12–64 characters, rotate the credential revision, invalidate its sessions and enqueue an updated email.
+- Validity starts at the earlier of `startsAt - 24 hours` and the first SMTP attempt, and ends at `endsAt` (hard end, not `dueAt`). The first real SMTP attempt, including ambiguous or failed ones, permanently locks the setting (`examPasswordLockedAt`); test-sink delivery does not. Disabling before the lock revokes credentials and their sessions in the same transaction; after it, disabling fails. Extending `endsAt` extends attached session expiry. A password change, withdrawal, course archive, account disable or promotion, or security-generation change invalidates the temporary session on its next request.
+- A password login can use ordinary coursework before entering the exam; after starting, confinement applies only if page lock is on.
+- Only ordinary students qualify: platform admins and teachers, super admins, and users with an active teacher/TA membership anywhere keep their usual sign-in, so a staff-visible password never grants staff access.
+- Email goes only to the verified `User.email`. Delivery work carries credential ID and revision, never plaintext; it decrypts just before sending. Suppressed or unverified recipients are shown to staff; suppressed mail is never reported as sent. Transport acceptance is not inbox proof.
+- Password-derived sessions carry an immutable marker and credential-revision link, checked on every request including direct Auth API calls. They cannot change account security, link providers, create permanent tokens or get registry credentials.
+- At the hard end the password is rejected immediately; reconciliation later removes password material and sessions. Students then use their usual sign-in for review.
 
-The workspace timer links back to the exam overview. Hand-in lives in a separate area on that overview, labelled "End exam", and opens an explicit irreversible-action dialog, with initial focus on Cancel. Ending the exam never submits editor code: the panel, the rules list and the start modal all remind students that only answers they pressed Submit on are graded, and the dialog names every problem with no non-sample submission yet (from `listSubmittedProblemIds`). Confirming uses the existing atomic `releaseSession` action; cancelling performs no mutation. A successful hand-in still prevents later submissions and re-entry.
+## Acceptance criteria
 
-### Exam drafts
+### Create, publish, delete
 
-- GIVEN a student with an active session on a running exam, WHEN the workspace autosaves, THEN `PUT /api/drafts` stores the draft under the `exam:<examId>` context key for that problem and language.
-- GIVEN no active session for the exam, an ended exam, or a problem outside the exam, WHEN a draft is saved for that exam, THEN `ForbiddenError` or `NotFoundError` is returned and nothing is stored.
-- GIVEN an active exam session, WHEN the student requests drafts for any other context, THEN `ForbiddenError` is returned. Exam drafts never start from homework or practice drafts of the same problem.
-- Drafts are never graded and are visible only to their owner.
+- Problem selection follows [Assignments — problem ownership and forks](assignments.md#problem-ownership-and-forks) (PRB-10); detaching keeps the library relation.
+- Management requires a bound, active course teacher/TA membership or effective admin access; the creator alone, pending usernames and removed memberships grant nothing; an active TA who is a platform student is allowed. Archived courses reject mutations.
+- Auto-close is ensured only after the create or publish transaction commits.
+- `publishExam` requires a draft (`"Only draft exams can be published."`), a positive allocation total (`"Add at least one problem worth points before publishing or saving a published activity."`, which also covers an exam with no problems), ≥1 language (`"Select at least one allowed language before publishing."`), a valid window (`"endsAt must be later than startsAt."`), a valid late policy, and `endsAt > now` (`"End time must be in the future."`).
+- `deleteExamDraft` on a non-draft fails with `"Only draft exams can be deleted."`.
 
-## Late collection and scoring
+### Late collection
 
-Exams use the same on-time deadline / allow-late / final collection controls as assignments. `dueAt` is the on-time deadline and `endsAt` remains the hard end for official submissions, sessions, proctoring, grading access and practice-after-close. Without late collection, the form saves equal due/end timestamps; older null due dates also mean no late window.
+`dueAt` is the on-time deadline; `endsAt` is the hard end for submissions, sessions, proctoring, grading access and practice after close. Formulas: [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#adjustment-rules); policy: ASM-12.
 
-- Enabled late collection requires `startsAt < dueAt < endsAt`; a late window may have no penalty, a fixed percentage, or a daily percentage. The existing point-sum exam mode uses the shared [adjustment formulas](../architecture/JUDGE_PIPELINE.md#adjustment-rules).
-- Any fraction of a late day counts as a whole day. Exactly due is on time, 1 ms late is day one, exactly 24 hours is day one, and 24 hours plus 1 ms is day two.
-- Submission acceptance and score aggregation stop at `endsAt`. The due date never releases sessions or unlocks the exam. The workspace changes from an on-time countdown to a clearly labelled late/final countdown.
-- The overview shows both deadlines and the penalty before the student starts. Settings round-trip the policy; disabling late collection clears its penalty and makes the hard end equal to due.
-- Once running, deadlines can only be extended, penalties and scoring mode cannot change. Validate effective windows on partial edits and before publishing. Extending the hard end reschedules the existing auto-close workflow.
-- Copying a course preserves exam due/final dates and penalty rules in the new draft.
+- Without late collection the form saves `dueAt = endsAt`; a null `dueAt` also means no late window. Enabled late collection requires `startsAt < dueAt < endsAt` and one penalty: none, fixed percentage or daily percentage.
+- Any fraction of a late day counts as a whole day: exactly due is on time, 1 ms late and exactly 24 h late are day one, 24 h + 1 ms is day two.
+- Submission acceptance and scoring stop at `endsAt`; `dueAt` never releases sessions. The workspace switches from an on-time countdown to a labelled final countdown. The overview shows both deadlines and the penalty before start.
+- After start, `startsAt` is fixed, `endsAt` and `dueAt` extend only (`"Running exams may only extend their final collection time."`, `"dueAt can only be extended, not moved earlier."`), and penalties cannot change. After end, deadlines and penalties are read-only. Extending `endsAt` replaces the auto-close workflow.
+- Course copy keeps due/final dates and penalty rules.
 
-## Activity allocations
+### Activity allocations
 
-Exams follow the [activity allocation and official score contract](assignments.md#activity-allocation-and-official-scores), including the server-derived total, per-problem point editing, raw overrides, exact-ID reattachment, closed edits without a reason or allocation audit log, and lossless legacy import.
+Exams follow the [activity allocation and official score contract](assignments.md#activity-allocation-and-official-scores).
 
-Each grading change enqueues durable `score.converge` work for every participant in the same transaction. Convergence uses only non-sample submissions within the original exam deadline and never dispatches judging. It retries on conflict or durable-work failure. Writeback checks both the activity grading revision and participation version, preventing stale scores from replacing current grades. Entering an exam serializes against the grading transaction so a newly created participant starts at the current revision. While any participant revision lags, the detail page displays a recalculation notice; detail and matrix scores calculate from current allocations.
+- Each grading change enqueues durable `score.converge` work for every participant in the same transaction. Convergence uses non-sample submissions before `endsAt`, never dispatches judging, and retries on conflict. Writeback checks both the activity `gradingRevision` and the participation version, so stale scores never replace current ones.
+- Entering an exam serializes against the grading transaction, so a new participant starts at the current revision. While any participant lags, the detail page shows a recalculation notice; detail and matrix scores compute from current allocations.
 
-## Acceptance Criteria
+### Session start
 
-### Create / publish
+- `startSessionWithGate` requires a published exam (else `NotFoundError`), `now >= startsAt - START_GRACE_MS` (5 min) and `now < endsAt` (else `HttpError` 410 `"Exam has not started yet."` / `"Exam has ended."`), and an active course membership (`"You must be enrolled in the course to access this exam."`).
+- It creates or reopens the `ActiveExamSession`, records an `enter` event, activates the participation and returns `created: true`. A second call for the same exam returns the existing session with `created: false`.
+- A user has at most one active session globally: an active session on another exam gives `ConflictError("You already have an active session on a different exam.")`.
+- Archived course: `ForbiddenError("This course is archived; new exam sessions are not allowed.")`. Sessions already running when the course is archived continue.
+- A submitted session or submitted participation gives `ForbiddenError("You have already submitted this exam.")` before any write.
+- The `startExam` action then runs the proctoring gate once to set the IP pin; the request hook keeps enforcing it.
 
-- GIVEN an actor-owned private problem or a private problem already shared with
-  this course, WHEN selected, THEN reuse it without changing ownership and retain
-  or create its `CourseProblem` relation.
-- GIVEN a newly selected published public problem, including the actor's own,
-  THEN create an independent actor-owned private fork in the same transaction.
-- GIVEN existing exam references loaded from DB, including historical public
-  problems or private drafts, WHEN retained, THEN preserve the original IDs.
-  Activity pickers offer published candidates; historical drafts remain existing
-  selections only. Client input cannot supply trusted existing IDs.
-- GIVEN an unrelated private problem or any later failure, THEN reject and roll
-  back the exam, new library relations, and forks together.
-- Removing an exam attachment does not remove its course-library relation.
-- Management requires bound, active course teacher/TA membership or effective
-  admin access. The creator alone, a pending username or a removed membership
-  grants no management rights; a platform student with active TA membership does.
-  Archived courses reject mutations and keep the library readable.
+### Hand-in
 
-See [Assignments — course library](assignments.md#problem-ownership-and-forks),
-[Database](../architecture/DATABASE.md), and the
-[problem permissions plan](../plans/active/2026-09-08-problem-permissions.md).
+- The workspace timer links to the overview, where an "End exam" area opens an irreversible-action dialog with focus on Cancel. The dialog, rules list and start modal state that only answers submitted with Submit are graded, and the dialog names problems with no non-sample submission (`listSubmittedProblemIds`). Cancel does nothing.
+- Confirming (`releaseSession` → `endSession`) closes the session with `releaseReason: submitted` and marks the participation `submitted` with the same time. Repeating keeps the original time and adds no event.
+- Start, end and exam submission admission share a per-user advisory lock: after hand-in, stale tabs cannot submit; already admitted submissions finish judging.
+- A submitted student sees a submitted notice without start controls or problem links while the exam runs; the review page appears after `endsAt`.
+- After an instructor release a student may re-enter while the window is open and they have not submitted; a hand-in from a stale tab still finalizes.
 
-- GIVEN a course-teacher actor, WHEN `createExamRecord` is called with
-  `status: 'published'`, THEN the exam is inserted, problems attached, and
-  `dispatchExamAutoClose` fires after transaction commit.
-- GIVEN a rolled-back transaction, WHEN create fails,
-  THEN `dispatchExamAutoClose` is NOT called (post-commit dispatch).
-- GIVEN a draft exam with 0 problems, WHEN `publishExam` is attempted,
-  THEN `ValidationError("Add at least one problem before publishing.")`.
-- GIVEN a draft exam with empty `allowedLanguages`, WHEN publish is
-  attempted, THEN `ValidationError("Select at least one allowed language before publishing.")`.
-- GIVEN `startsAt >= endsAt`, WHEN publish runs, THEN
-  `ValidationError("Start time must be before end time.")`.
-- GIVEN `endsAt <= now`, WHEN publish runs, THEN
-  `ValidationError("End time must be in the future.")`.
-- WHEN `publishExam` succeeds, THEN `dispatchExamAutoClose` is called
-  post-commit with `endsAt.toISOString()`.
+### Problem access during the exam
 
-### Delete-draft
+- With an active session on exam E, `/exams/E` shows the problem list (links to `/exams/E/problems/[id]`); without one it shows the rules card and start CTA. `startExam` reloads the exam page rather than opening the first problem.
+- `/exams/E/problems/[problemId]` without an active session on E throws `ForbiddenError("No active exam session for this exam.")`; after `endsAt` it redirects to `/problems/[problemId]?ended=exam`.
 
-- GIVEN a non-draft exam, WHEN `deleteExamDraft` runs,
-  THEN `ValidationError("Only draft exams can be deleted.")`.
+### Page lock
 
-### Session — startSessionWithGate
+- `pageLockEnabled: true`: a request outside `/exams/E` (API paths excepted) records `visibility_lost` with `metadata.attemptedPath` and redirects 307 to `/exams/E`. Some APIs stay blocked; see [Proctoring](proctoring.md#page-lock).
+- `pageLockEnabled: false`: other authorized pages, other submission contexts and submission history stay usable; the session stays active.
+- The active session and setting are read on every request, so changes apply to the next request.
+- The setting does not observe tab switching, copy/paste or leaving NOJV. Exam pages and exam submissions always enforce membership, time and IP rules.
+- A failing `recordEvent` logs a warning and still redirects.
 
-- GIVEN an exam in `published` status with `now >= startsAt -
-START_GRACE_MS` (5 min) and `now < endsAt`, and the actor is an active
-  course member, WHEN `startSessionWithGate` is called,
-  THEN a new `ActiveExamSession` is created (carrying only
-  `userId`, `examId`, `startedAt`, `lastHeartbeatAt` — IP binding lives
-  on `ExamParticipation.ipPin`, not the session row), an `enter` event
-  is recorded, and the result includes `created: true`.
-- GIVEN `now < startsAt - START_GRACE_MS`, WHEN start runs,
-  THEN `HttpError("Exam has not started yet.", 410)`.
-- GIVEN `now >= endsAt`, WHEN start runs,
-  THEN `HttpError("Exam has ended.", 410)`.
-- GIVEN the actor already has an active session on a DIFFERENT exam,
-  WHEN start runs, THEN
-  `ConflictError("You already have an active session on a different exam.")`.
-- GIVEN the actor already has an active session on THIS exam,
-  WHEN start runs, THEN the existing session is returned with
-  `created: false` (idempotent).
-- GIVEN the parent course is `archived: true`,
-  WHEN start runs,
-  THEN `ForbiddenError("This course is archived; new exam sessions are not allowed.")`.
+### Auto-close and instructor release
 
-### Session — student hand-in
+- At `endsAt` the auto-close workflow calls `autoCloseForExam`, which checks the exam's schedule revision and fingerprint and then sets `endedAt`, `releaseReason = time_up` and an `auto_close` event on every active session. Re-runs are no-ops.
+- `releaseSessionAsInstructor({ examId, targetUserId })` by active course staff ends the session with `released_by_instructor` and a `release` event carrying `{ reason, endedByUserId }`. Non-staff get `"Only course staff can release exam sessions."`; no active session gives `NotFoundError`.
+- `releaseAllSessionsAsInstructor({ examId })` ends every active session in one transaction and returns `{ released, releasedUserIds }`; zero sessions returns `released: 0`. Unknown exams give `NotFoundError`.
+- `resetStudentIpBinding` clears the student's IP pin, grants a 10-minute IP-gate exemption and records an `ip_reset` event.
 
-- WHEN a student confirms end exam, THEN `endSession` atomically closes their
-  session with `releaseReason: submitted` and changes their active Participation
-  to `submitted` with the same `submittedAt`. Repeating the request preserves the
-  original end time and does not append another release event.
-- GIVEN either a submitted session or submitted Participation, WHEN either
-  `startSession` or `startSessionWithGate` is called, THEN
-  `ForbiddenError("You have already submitted this exam.")` is thrown before any
-  session or participation mutation.
-- Student start, end, and exam submission admission share the per-user transaction
-  advisory lock. After hand-in succeeds, stale tabs cannot submit new answers;
-  previously admitted submissions can still finish judging.
-- GIVEN a submitted student while the exam is running, WHEN the exam detail page
-  loads or reloads, THEN it shows a submitted notice without start controls or
-  problem links. Normal post-exam review remains available once `endsAt` passes.
-- Instructor release remains re-enterable while the exam window is open and the
-  student has not submitted. If the student then confirms hand-in from a stale
-  workspace tab, that request still finalizes their participation.
+### IP rules
 
-### Session — post-start problem list
+- Whitelist, binding, violation modes and logging are specified in [Proctoring](proctoring.md) (ASM-20).
 
-- GIVEN a student with an active session on a running exam E
-  (`getActiveSessionContext` resolves to E), WHEN they load
-  `/exams/[examId]`, THEN the loader returns `hasActiveSession: true` and
-  the page renders the assignment-style problem list (one row per problem
-  linking to `/exams/E/problems/[id]`) in place of the pre-start rules
-  card. The `startExam` action and `ExamStartModal` reload the exam page —
-  they do NOT redirect straight into the first problem.
-- GIVEN a student with no active session on E, WHEN they load
-  `/exams/[examId]` while it is running, THEN the pre-start rules / "start
-  exam" CTA card is shown and no problem list is rendered.
-- GIVEN a user without an active session on E, WHEN they request
-  `/exams/E/problems/[problemId]`, THEN `requireActiveSessionForUserExam`
-  throws `ForbiddenError("No active exam session for this exam.")` —
-  problem access requires a started, still-open session. Once `endsAt`
-  passes the loader instead 302s to `/problems/[problemId]?ended=exam`.
+### Drafts
 
-### Session — page lock (hooks.server.ts)
+- With an active session on a running exam, `PUT /api/drafts` stores drafts under the `exam:<examId>` context key per problem and language (WEB-05).
+- Without an active session, after the exam ended, or for a problem outside the exam, saving fails with `ForbiddenError` or `NotFoundError` and stores nothing.
+- During an active session, reading drafts for any other context is `ForbiddenError`; exam drafts never start from homework or practice drafts. Drafts are never graded and are visible only to their owner.
 
-- GIVEN a user with an active session on exam E and
-  `pageLockEnabled: true`, WHEN they request a page outside `/exams/E`,
-  THEN `hooks.server.ts` records a `visibility_lost` event with
-  `metadata.attemptedPath` and responds with `307` to `/exams/E`.
-- GIVEN an active session and `pageLockEnabled: false`, WHEN the student
-  requests another authorized page, submits to another context, or reads
-  authorized submission history, THEN normal site access is available
-  and the exam session remains active.
-- GIVEN the page-lock setting changes during an active session, WHEN the
-  student makes the next request, THEN that request follows the updated
-  setting without waiting for a cache expiry.
-- The setting does not observe tab/window switching, copy/paste, or
-  leaving NOJV. Exam page and exam submission access continue to enforce
-  membership, time, and IP policies.
-- WHEN `recordEvent` throws (DB failure), THEN hooks.server.ts logs a
-  warning and still redirects — page-lock redirection is fail-safe.
+### Submission history
 
-### Session — auto-close
+Tracking rules: PRB-21.
 
-- WHEN the exam's `endsAt` is reached, THEN the `examAutoCloseWorkflow`
-  wakes, calls `autoCloseForExam`, and for every active session inserts
-  an `auto_close` event + sets `endedAt = now`, `releaseReason = 'time_up'`.
-- GIVEN re-running `autoCloseForExam` on the same exam, THEN it is
-  idempotent (no-op when no active sessions remain).
-
-### Session — instructor release
-
-- GIVEN a course staff actor (active `teacher` or `ta` membership on the
-  course),
-  WHEN `releaseSessionAsInstructor({ examId, targetUserId })` is called,
-  THEN the target student's session `endedAt` is set, `releaseReason =
-'released_by_instructor'`, and an event is recorded with
-  `metadata = { reason, endedByUserId: actor.userId }`.
-- GIVEN a non-staff actor, THEN
-  `ForbiddenError("Only course staff can release exam sessions.")`.
-- GIVEN a course staff actor, WHEN `releaseAllSessionsAsInstructor({
-examId })` is called, THEN every currently-active session for the exam
-  is ended in one transaction — each gets `endedAt`, `releaseReason =
-'released_by_instructor'`, and a `release` event carrying
-  `metadata.endedByUserId` — and the call returns `{ released: <count> }`.
-- GIVEN an exam with zero active sessions, WHEN bulk release runs,
-  THEN `{ released: 0 }` — a no-op, not an error.
-- GIVEN an unknown `examId`, WHEN single or bulk release runs,
-  THEN `NotFoundError`.
-- `countActiveSessions(examId)` returns the active-session count behind
-  the proctoring-tab badge and the "release all" affordance.
-
-### IP gating
-
-- GIVEN `ipWhitelistEnabled = true` and `ipWhitelist` contains a CIDR
-  matching the client IP, WHEN `checkIpLock` runs,
-  THEN `{ allowed: true }`.
-- GIVEN `ipWhitelistEnabled = true` and the list is EMPTY,
-  WHEN `checkIpLock` runs with any client IP,
-  THEN `{ allowed: false, violationType: 'whitelist' }` (fail-closed).
-- GIVEN `ipBindingEnabled = true` and the participation has no `ipPin`,
-  WHEN the first call lands, THEN `ipPin` is stamped to the current IP
-  and allowed; subsequent calls compare against that pin.
-- GIVEN `ipBindingEnabled = true` and the pinned IP differs from the
-  client IP with `ipViolationMode: 'block'`,
-  THEN `{ allowed: false, violationType: 'binding' }`.
-- GIVEN `ipViolationMode: 'notify'`, THEN violations insert a row in
-  `IpViolationLog` (via `logViolationInTx`) and return `{ allowed: true }`.
-- See `docs/features/proctoring.md` for the full proctoring spec.
-
-### Scoreboard
-
-- Exams do not support manual scoreboard freezing — `scoreboardMode`
-  alone drives visibility (`hidden` / `live` / `frozen`). The contest
-  use-case for instructor-controlled freeze does not apply to in-class
-  exams where the assessment ends at `endsAt`.
-
-### Submission history during problem navigation
-
-- GIVEN a student submits problem A, WHEN they switch to problem B before the
-  dispatch response or verdict arrives, THEN the submission request and result
-  tracking continue, and completion refreshes the problem switcher's scores.
-- GIVEN problem A is still judging, WHEN the student reloads problem B, opens B
-  in another tab, reconnects, or returns the tab to the foreground, THEN authorized
-  pending discovery resumes A's tracking and refreshes the existing problem switcher.
-- GIVEN a newer rejudge is queued or running, THEN old verdicts, scores, and result
-  details remain hidden until the current operation terminates. A terminal system
-  error without a result file must not remain displayed as pending.
-- GIVEN more than 50 submissions for the current problem and exam, WHEN the
-  student scrolls to the bottom, THEN the next 50 records load automatically with
-  no total cap. A failed load retains existing rows and offers retry. Loaded older
-  records continue receiving status updates.
-- GIVEN new records arrive while reading history, THEN an explicit view-latest
-  prompt appears without moving the reading position.
-- GIVEN a teacher opens submission history, THEN numbered 50-row pages and their
-  count cover the complete authorized history. New submissions do not shift the
-  current snapshot. Background result updates preserve filters, page, unsaved
-  settings/allocation drafts, and their original grading revision.
-- A history cursor must belong to the same user, problem, context, and active-exam
-  visibility scope. An out-of-scope cursor is rejected with a generic 400 response.
+- Switching problems while one is judging keeps its request and tracking; completion refreshes the problem switcher scores. Reload, a new tab, reconnect or returning to the foreground resumes tracking for authorized pending submissions.
+- While a newer rejudge is queued or running, old verdicts, scores and details stay hidden. A terminal system error without a result file is not shown as pending.
+- Student history loads 50 more rows at the bottom with no cap; a failed load keeps rows and offers retry; loaded rows keep updating; new rows show a view-latest prompt without moving the reading position.
+- Staff history uses numbered 50-row pages over a stable snapshot; background updates keep filters, page, unsaved settings/allocation drafts and their grading revision.
+- A history cursor must match user, problem, context and active-exam scope; otherwise a generic 400.
 
 ### Submissions matrix
 
-- WHEN `getExamSubmissionsMatrix(examId)` is called, THEN `rows` lists
-  each active-student member of the parent course once with cells per
-  problem. Each cell carries `{ problemId, score, attempts, state }`.
-- `state === 'ac'` iff raw best reaches the original problem maximum; `'partial'` iff
-  raw best is positive but below that maximum; `'zero'` iff raw best is zero; `'empty'` iff
-  no submissions (`attempts === 0`).
-- Only non-sample submissions (`sampleOnly: false`) count toward the
-  matrix.
+- `buildExamSubmissionsMatrix` has one row per course student membership (including pending usernames) and per-problem cells `{ score, attempts, state }` from non-sample submissions before `endsAt`, with overrides applied.
+- `state`: `ac` when the raw best reaches the problem's raw maximum, `partial` when positive but lower, `zero` when zero, `empty` with no submissions.
 
-### Grading — post-close drawer
+### Grading after close
 
-- GIVEN an exam with `endsAt > now`, WHEN a manager opens the
-  submissions matrix, THEN the grading drawer entry button is hidden
-  and a "grading available after close" note is shown. The drawer
-  cannot be opened.
-- GIVEN an exam with `endsAt < now`, WHEN a manager opens a matrix
-  cell, THEN the grading drawer shows two sections (score override
-  and student-visible feedback comment) keyed on
-  `(studentUserId, problemId, examId)`.
-- GIVEN a non-admin manager actor with `now < endsAt`, WHEN
-  `createOverride` / `updateOverride` / `deleteOverride` or
-  `upsertFeedback` / `deleteFeedback` is called against the exam,
-  THEN `ConflictError("This context is still open; grading is only
-available after it closes.")` (shared post-close gate via
-  `assertContextClosed`). `platformRole === "admin"` bypasses the gate.
-- WHEN `getFeedbackForStudent` is called by a student while the exam
-  is still running, THEN it returns nothing; once `endsAt < now`, the
-  per-problem comment is surfaced on the submission detail page. The
-  post-exam review page on `/exams/[examId]` surfaces per-problem state
-  - total score, but not the feedback comment.
+- While `endsAt > now` the grading entry is hidden with a "grading available after close" note. After close, a cell opens the drawer with override and feedback keyed by `(course membership, problemId, examId)`.
+- Non-admin writes before close fail with `ConflictError("This context is still open; grading is only available after it closes.")`; admins bypass (ASM-18).
+- Students see feedback only after close, on the submission detail page. The review page shows per-problem state and total but not feedback.
 
 ### Audit timeline
 
-- GIVEN a staff viewer (course teacher/TA or platform admin), WHEN
-  they open the Audit sub-tab on the exam manage page, THEN
-  `listAuditTimelineForContext({ type: "exam", id })` returns a
-  reverse-chronological merge of `ScoreOverrideAuditLog` (override
-  changes) + `SubmissionRejudgeLog` (rejudges scoped to the exam's
-  submissions). No lifecycle audit-log source exists for exams.
-- The view is read-only — no new audit rows are written when the tab
-  is loaded.
+- Staff see a read-only, newest-first merge of `ScoreOverrideAuditLog` and `SubmissionRejudgeLog` for the exam's submissions.
 
-### Practice-after-close
+### Review and practice after close
 
-- GIVEN an ended exam (`endsAt < now`, `status = 'published'`) that the
-  student has a participation row on, WHEN they visit `/problems/[id]`
-  for an attached problem (no context), THEN the page loads via the
-  `assertProblemViewAccess` historical-participant gate.
-- WHEN the same student POSTs to `/api/submissions` WITHOUT exam context
-  on the same problem, THEN the submission is accepted as practice (no
-  scoreboard write, no matrix contribution, no participation update).
+- `getExamDetailPage` returns `null` (404) to non-managers only for drafts. For ended exams it adds per-problem `viewerState` (`ac | partial | zero | empty`) and the viewer's total score.
+- Students with a participation row can open attached problems at `/problems/[id]` (PRB-20); context-less submissions there are practice only.
 
-### Post-close review page
+### Clarifications
 
-- GIVEN a student on `/exams/[examId]` for an exam with `endsAt < now`,
-  WHEN `getExamDetailPage` is called with `isManager: false`, THEN it
-  returns a review page enriched with per-problem `viewerState`
-  (`ac | partial | zero | empty`) and a `viewerTotalScore`.
-- GIVEN a student on `/exams/[examId]` for a DRAFT exam,
-  WHEN `getExamDetailPage` is called with `isManager: false`, THEN it
-  returns `null` and the loader 404s — null/404 only applies to drafts
-  for non-managers.
-- Students may additionally use the practice-after-close route through
-  `/problems/[id]` (no context) to re-attempt the problems.
+One board for assignments, exams and contests (`ClarificationContext`); decisions ASM-10 and ASM-11.
 
-### Clarifications (Q&A) visibility
-
-These rules are context-agnostic (`ClarificationContext` = assignment |
-exam | contest) and apply identically to all three assessment types; the
-contest spec links here rather than restating them.
-
-- GIVEN a staff answerer (course teacher/TA or platform admin), WHEN
-  `answer(id, { isPublic })` is called, THEN the reply is stored with
-  `Clarification.isPublic` set to the chosen flag. `isPublic: true`
-  broadcasts an `updated` clarification SSE event to every participant on
-  the public channel; `isPublic: false` goes to the staff-only channel
-  (answerers see it live) and reaches the asker via a
-  `clarification_answered` notification.
-- GIVEN a non-staff viewer, WHEN `listForViewer` runs, THEN they receive
-  ONLY their own questions plus staff-published (`isPublic`) ones, each
-  flagged `isMine`; author identity is masked on rows that aren't theirs.
-- WHEN a participant `ask`s a question, THEN NO SSE event is pushed to
-  peers — pending / unpublished questions are never shown live to other
-  participants (this closes the live-exam/contest leak vector). The asker
-  sees their own from the mutation response; the question is pushed live to
-  staff on the staff-only channel (and staff also see all on load).
-- `Clarification.isPublic` defaults `false`; the introducing migration
-  backfills pre-existing answered rows to `true`.
-
-## Edge Cases & Failure Modes
-
-- **IP whitelist: `ipWhitelistEnabled=true` + empty list.** Fail-closed —
-  deny every request. Regression-tested in `ip-utils.test.ts`.
-- **Course archived mid-exam.** Existing active sessions are NOT torn
-  down; the student can finish. New `startSession` calls are denied by
-  `assertEnrolledInExamCourse`.
-- **Concurrent start of the same exam.** Idempotent — the second call
-  returns the existing session with `created: false`.
-- **Auto-close workflow idempotence.** The workflow only runs once per
-  publish dispatch; replays after the exam is past `endsAt` are no-ops
-  because `autoCloseForExam` finds zero active sessions.
-- **`recordEvent('visibility_lost')` fails.** Hooks still redirect —
-  logging path is fire-and-forget with a `warn` line.
-
-## Implementation References
-
-### Domain
-
-- `packages/application/src/exam/mutations.ts` — `createExamRecord`,
-  `updateExamRecord`, `publishExam`, `deleteExamDraft`,
-  `assertExamManagePermission`.
-- `packages/application/src/exam/session.ts` — `startSession`,
-  `startSessionWithGate`, `endSession`, `recordEvent`, `autoCloseForExam`,
-  `releaseSessionAsInstructor`, `releaseAllSessionsAsInstructor`,
-  `countActiveSessions`, `getActiveSessionContext`,
-  `requireActiveSessionForUserExam`, `START_GRACE_MS`.
-- `packages/application/src/exam/submissions-matrix.ts` —
-  `getExamSubmissionsMatrix`.
-- `packages/application/src/exam/detail.ts` — `getExamDetailPage`.
-- `packages/application/src/exam/queries.ts` — `listForCourse`, `getExamDetail`,
-  `checkExamIpAccess`.
-- `packages/application/src/shared/ip-utils.ts` — `checkIpLock`, `isIpInCidr`,
-  `isIpInWhitelist`.
-- `packages/application/src/proctoring/gate.ts` — `checkProctoringGate` /
-  `checkExamGate`.
-- `packages/application/src/proctoring/violation-logger.ts` — `logViolationInTx`.
-- `packages/application/src/feedback/` — `upsertFeedback`,
-  `deleteFeedback`, `listFeedbackForContext`,
-  `getFeedbackForStudent`, `assertCanWriteFeedback` (role + post-close
-  gate), `assertCanViewFeedback` (role-only).
-- `packages/application/src/score-override/permissions.ts` —
-  `assertCanSetScoreOverride` (role + post-close gate),
-  `assertCanViewScoreOverrides` (role-only).
-- `packages/application/src/shared/context-window.ts` — `isContextClosed`,
-  `assertContextClosed` (shared post-close gate across assignment +
-  exam + contest).
-- `packages/application/src/audit/queries.ts` —
-  `listAuditTimelineForContext`.
-- `packages/application/src/clarification/` — `ask`, `answer`
-  (`isPublic` per reply), `listForViewer` (own + public for non-staff),
-  `canViewClarifications` / `canSeeAuthor`; SSE broadcasts fire only for
-  public content.
-
-### Schema
-
-- `packages/core/src/schemas/exam.ts` — `examCreateSchema`,
-  `examUpdateSchema`, `examSettingsFormSchema`.
-- `packages/core/src/types.ts` — `ipLockFields`, `ipLockFormFields`,
-  `ipViolationModeSchema`, `scoreboardModeSchema`.
-- `packages/db/prisma/schema/contest.prisma` — `Exam`, `ExamProblem`,
-  `ExamParticipation`, `ActiveExamSession`, `ExamSessionEvent`,
-  `IpViolationLog`, enums `ExamStatus`, `ExamSessionReleaseReason`,
-  `ExamSessionEventType`, `IpViolationMode`, `IpViolationType`.
-- `packages/db/prisma/schema/submission.prisma` —
-  `SubmissionFeedback` (assignment + exam contexts).
-- `packages/core/src/schemas/feedback.ts` — `feedbackUpsertSchema`.
-
-### Temporal
-
-- `apps/worker/src/workflows/exam-auto-close.ts` —
-  `examAutoCloseWorkflow`.
-- `apps/worker/src/activities/lifecycle.ts` —
-  `closeActiveSessionsForExam`.
-- `packages/temporal/src/dispatch.ts` — `dispatchExamAutoClose`.
-
-### Routes / API
-
-- `apps/web/src/hooks.server.ts` — page lock redirect + visibility-lost
-  logging + security headers.
-- `apps/web/src/lib/server/exam-lock.ts` — `getActiveExamContext`,
-  `isAllowedPathForExam`.
-- `apps/web/src/routes/(app)/exams/[examId]/+page.server.ts` —
-  `startExam`, `updateSettings`, `publishExam`, `deleteExam`,
-  `updateProblems`, `releaseStudentSession`, `releaseAllSessions`
-  actions. Also loads `listExamIpViolations` for the
-  Proctoring sub-tab when the viewer is a manager. Exams have no
-  scoreboard freeze/unfreeze surface: by product design, students do not
-  see other students' submissions during the exam, so freezing is moot —
-  `scoreboardMode` alone drives visibility.
-- `apps/web/src/routes/(app)/exams/[examId]/problems/[problemId]/+page.server.ts`
-  — in-session workspace loader.
-- `apps/web/src/lib/server/shared/client-ip.ts` — `getClientIp`
-  (Cloudflare-only trust model).
-
-### Tests
-
-- `tests/unit/application/exam-session.test.ts` — start/end/release paths.
-- `tests/unit/application/exam-publish-delete.test.ts` — lifecycle
-  transitions (publish + delete-draft).
-- `tests/unit/application/exam-auto-close.test.ts` — auto-close workflow +
-  activity.
-- `tests/unit/application/exam-submissions-matrix.test.ts` — matrix cells.
-- `tests/unit/application/proctoring-gate.test.ts` — exam gate + IP checks.
-- `tests/unit/application/ip-utils.test.ts` — CIDR matching + fail-closed.
-- `tests/integration/api/exam-session.test.ts` — session start / end /
-  heartbeat / single + bulk instructor release against a real DB.
-- `tests/e2e/advanced-mode-lifecycle.test.ts` — advanced-mode problem
-  creation/editor lifecycle plus active exam session, workspace upload,
-  submission dispatch, and session release for an advanced-mode problem.
+- Only participants ask (contest/exam participants, active course students); staff and admins never ask. Asking and answering are limited to the context's active window; reading stays open. Asking is limited to 5 per user and context per 10 minutes.
+- States: `pending → answered | dismissed`, `answered → answered` (edit); nothing leaves `dismissed`.
+- `answer(id, { isPublic })` stores `Clarification.isPublic` (default false). Public answers broadcast an `updated` SSE event on the public channel; private ones go to the staff channel. The asker gets one `clarification_answered` notification on the first answer; edits and dismissals notify nobody. Canned replies are always public.
+- Non-staff `listForViewer` returns their own questions plus public ones, flagged `isMine`; the author is removed for non-staff.
+- Asking pushes nothing to peers; the question goes live only to staff.

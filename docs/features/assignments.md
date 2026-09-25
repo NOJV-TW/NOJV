@@ -1,409 +1,126 @@
 # Feature: Course Assignments
 
-Acceptance spec for course-embedded homework assessments (`Assessment` /
-`/courses/[courseId]/assignments/...`). Assignments are un-proctored
-take-home work — no session gate, no IP lock, no page lock. Deadlines and
-per-problem per-day attempt caps are the only controls; practice-after-close grants
-viewing + un-scored submission to past participants.
+Acceptance spec for course homework (`Assessment`, routes `/assignments/[assignmentId]` and `/courses/[courseId]/assignments`). Assignments are unproctored: no session, IP or page lock. Controls are the time window, late policy and per-problem daily attempt caps. After close, past participants keep practice access without affecting grades.
 
-## User Stories
+## Key code
 
-- As a **teacher** or **TA**, I want to stand up an assignment in `draft`
-  status and iterate on problems + timing without it appearing on student
-  lists, so that I can prep next week's homework in public view only once
-  it's ready.
-- As a **teacher** or **TA**, I want to `publish` an assignment once it has
-  problems, allowed languages, and a sane time window, so that students get
-  a consistent, vetted drop instead of half-built drafts.
-- As a **student**, I want to see my enrolled course's open assignments with
-  a per-assignment "solved / total" badge and the close deadline, so that I
-  know what's due and what I've already cleared.
-- As a **teacher**, I want `classStats` on the assignment list (submitted
-  students / total students / average score) so that I can eyeball class
-  progress without opening each assignment.
-- As a **student**, I want to keep viewing and submitting to an ended
-  assignment's problems for practice, so that I can still learn the material
-  after the deadline without it affecting scores.
-- As a **teacher**, I want old semesters' assignments to fall out of student
-  lists once the parent course is archived, without losing submission
-  history. (Assignments themselves have no archive flag — the parent
-  `Course.archived` cascades.)
-- As a **teacher**, I want `delete-draft` that only works while the
-  assignment has never been shipped, so that destructive operations never
-  wipe real grades.
+- `packages/application/src/assignment/mutations.ts` — `updateAssignmentRecord`, `publishAssignment`, `revertAssignmentToDraft`, `deleteAssignmentDraft`, status-aware field locks
+- `packages/application/src/scoring/activity-grading.ts`, `scoring/activity-points.ts` — allocation save/validation and weighted official score
+- `packages/application/src/problem/fork.ts` — `resolveActivityProblems` (reuse, fork, library sharing)
+- `packages/application/src/course/overview.ts`, `course/across-courses.ts`, `shared/list-aggregations.ts` — list views, `classStats`, `myStatus`
+- `packages/application/src/feedback/`, `score-override/permissions.ts`, `shared/context-window.ts` — post-close grading gate
+- `packages/application/src/audit/queries.ts` — `listAuditTimelineForContext`
+- `packages/application/src/problem/permissions.ts` — `assertProblemViewAccess` (practice after close)
+- `packages/application/src/submission/attempt-window.ts` — daily attempt window
+- `packages/core/src/schemas/course.ts`, `schemas/activity-grading.ts`; `packages/db/prisma/schema/course.prisma` (`Assessment`, `AssessmentProblem`, `AssessmentAuditLog`)
+- Routes: `apps/web/src/routes/(app)/assignments/[assignmentId]/+page.server.ts` (lifecycle and settings actions), `apps/web/src/routes/(app)/courses/[courseId]/assignments/`, `apps/web/src/routes/(app)/assignments/` (cross-course list)
+- Tests: `tests/unit/application/assignment-mutations.test.ts`, `assignment-submissions-matrix.test.ts`, `list-aggregations.test.ts`, `problem-access.test.ts`
 
-## Scope
+## Model
 
-### In scope
+- Persistent `status` is `draft | published`. Live status derives from `(status, opensAt, closesAt, now)`: `draft`, `upcoming` (`opensAt > now`), `open`, `closed` (`closesAt < now`). There is no assignment archive state; an archived parent course hides its assignments from students and rejects submissions and mutations.
+- Settings: `allowedLanguages`, `maxAttemptsPerDay`, `attemptResetMinuteOfDay` (minutes after Taipei midnight, default 300 = 05:00), `dueAt`, `closesAt`, `adjustmentRules` (late penalty; see [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#adjustment-rules)).
+- Publishing ensures the due-soon reminder workflow; changing `opensAt`/`closesAt` on a published assignment replaces it; revert and delete cancel it.
 
-- `Assessment` CRUD — create, partial update (status-aware), publish,
-  delete-draft, revert-to-draft (only while `upcoming`).
-- Persistent `status` is `draft | published` only. Lifecycle derivation
-  `draft | upcoming | open | closed` from `(status, opensAt, closesAt,
-now)` — `closed` is purely `closesAt < now` and persists forever; there
-  is no separate archived state at this level. When the parent course is
-  archived (`Course.archived = true`), the assignment hides from student
-  list views even if `closesAt` is in the future.
-- Publish validation (≥1 problem, ≥1 allowed language, valid time window,
-  `closesAt > now`, `opensAt < dueAt <= closesAt` when `dueAt` is set).
-- Status-aware field locks:
-  - `draft`/`upcoming` → all fields editable.
-  - `open` → `opensAt` frozen; `closesAt`/`dueAt` extend-only.
-  - `closed` → only total points, problem membership/order, and allocations remain editable. Other settings stay locked.
-- Per-assignment `maxAttemptsPerDay` counted **per problem**, with a configurable daily reset time `attemptResetMinuteOfDay` (minutes since Taipei midnight, default 300 = 05:00 Asia/Taipei). Each `(student, assignment, problem)` gets its own daily allowance; sample-only runs never count, and any `system_error` verdict is refunded (see stale reaper).
-- Per-assignment `allowedLanguages` subset of platform-supported list.
-- `adjustmentRules` (e.g. late penalty decay) applied at submission score
-  computation.
-- Aggregated list views: `classStats` for managers, `myStatus` for students,
-  including cross-course dashboard (`listAssignmentsAcrossCoursesForUser`).
-- Practice-after-close read/write access via `assertProblemViewAccess`
-  historical-participant gate.
-- Problem attachment updates preserve retained link identities. Link `points` stores this assignment's allocation; the original problem remains unchanged.
-- Problem resolution and `CourseProblem` sharing run in the assignment transaction.
-  Actor-owned private problems and private problems already shared with this course
-  are reused. Every newly selected published public problem becomes an actor-owned
-  private fork, including public problems owned by the actor. Other private
-  problems are rejected; existing activity references loaded from DB keep their IDs.
-- Post-close grading drawer on the submissions matrix — score
-  overrides + per-cell student-visible feedback comments
-  (`SubmissionFeedback`). Writes gated post-close (`closesAt < now`),
-  admin bypass.
-- Post-close, context-less practice submissions are visible on the
-  manager submissions matrix as practice metadata. They do not contribute
-  to official cell score, row total, class stats, score overrides, or
-  feedback context.
-- Audit sub-tab — staff-only merged feed of lifecycle, score
-  override and rejudge events
-  (`listAuditTimelineForContext({ type: "assignment", id })`).
+Out of scope: proctoring and sessions (exam only), scoreboards, a late flag in the matrix (PRB-20). Plagiarism and posts have their own specs.
 
-### Out of scope
-
-- Proctoring (page lock, IP lock) — those live on `Exam` only.
-- Session gate / heartbeat — assignments have no "start" ceremony.
-- Scoreboard — assignments don't publish a leaderboard; teachers see the
-  class-stats aggregate and the submission matrix instead.
-- Plagiarism (Dolos) and problem posts are covered by their own surfaces, not
-  this spec.
-- Late-submission flag in submission matrix — explicitly deferred per the
-  practice-after-close design doc.
-
-## Acceptance Criteria
+## Acceptance criteria
 
 ### Activity allocation and official scores
 
-- GIVEN a new activity, THEN its total is the sum of its problem points, derived on the server and 0 while no problem is attached. The point editor appears below the question list for both assignments and exams. Teachers enter points per problem to two decimal places; the form sends only `problems: [{ problemId, points }]`, and clients cannot set the total.
-- GIVEN a draft, THEN any allocation can be saved, including one worth 0 points. Publishing and saving published activities require nonnegative allocations, unique problems, and a derived total greater than 0.
-- GIVEN scores 80/100 and 50/100 with allocations of 40 and 60 points, THEN the official score is 62. Each effective raw score (including existing late adjustment or raw manual override) is divided by the original problem maximum and multiplied by its allocation. Decimal values are retained until the final total is rounded half up to two decimal places.
-- GIVEN a zero-weight question, THEN its contribution is zero while its solved state still depends on the raw score. Missing submissions remain missing. Practice after the activity deadline contributes nothing to official grades.
-- WHEN problems are added, removed, or reordered, THEN other allocations are preserved and the total is recomputed as their sum. Legacy allocations display with their stored precision.
-- WHEN a published grading configuration changes, THEN it saves without a reason or allocation audit log. The activity revision commits with the configuration. Stale editor revisions fail without writes. Closed activities support these changes without reopening other settings.
-- WHEN a question is removed, THEN only its activity link is removed. Submissions, overrides, and feedback survive. Reattaching its historical ID retains its identity and uses only eligible original activity records. Editing allocations as another course manager does not fork an already-attached question.
-- WHEN grades are read in details, matrices, gradebooks/exports, lists, or analytics, THEN the same weighted official score is used. Submission records retain the raw scale and activity views supplement it with the allocated contribution.
-- GIVEN existing nonempty activities at migration, THEN allocations are backfilled from the original maxima used by the old official readers and total points becomes their sum. Raw submissions and overrides are preserved; each conversion factor remains one. Empty drafts receive total 100.
+Shared by assignments and exams (ASM-16).
+
+- The activity total is the server-derived sum of per-problem `points` (0 with no problems). Clients send only `problems: [{ problemId, points }]` plus `gradingRevision`; they cannot set the total. The editor shows points below the problem list, to two decimal places; new selections start at 100.
+- Allocation rows: at most 64, unique problems, points 0–1e9. Drafts may save any allocation, including a zero total. Publishing, and saving a published activity, require a total greater than 0.
+- Official score per problem = effective raw score (best non-sample submission, after late adjustment, or raw override) / problem raw maximum × allocation. Decimals are kept until the activity total, which is rounded half up to two places. Example: 80/100 and 50/100 with allocations 40 and 60 give 62.
+- A zero-point problem contributes 0; its solved state still follows the raw score. Missing submissions stay missing. Practice after close contributes nothing.
+- Adding, removing or reordering problems keeps other allocations and recomputes the total. Stored precision is displayed as is.
+- Grading changes need no reason and write no allocation audit log. A stale `gradingRevision` fails with `ConflictError` and writes nothing. Closed activities accept grading changes without reopening other settings.
+- Removing a problem removes only the link; submissions, overrides and feedback survive. Reattaching the same problem ID (tracked in `detachedProblemIds`) restores its identity. Editing allocations as another course manager never forks an attached problem.
+- Details, matrices, gradebook and CSV, lists and analytics all use the same weighted official score; submission records keep the raw scale.
 
 ### Problem ownership and forks
 
-- GIVEN an actor-owned private problem or a private problem already shared with
-  this course, WHEN selected, THEN the same problem is attached and the course
-  library relation is retained or created without changing its owner.
-- GIVEN a newly selected published public problem, including the actor's own,
-  THEN create an independent actor-owned private fork and share it with the course.
-- GIVEN existing activity references loaded from DB, including historical public
-  problems or private drafts, WHEN retained in an update, THEN preserve their IDs.
-  Activity pickers offer published candidates; historical drafts remain available
-  only as existing selections. Client-supplied existing IDs grant no exception.
-- GIVEN an unrelated private problem or any later failure, THEN reject and roll
-  back the activity, forks, and new library relations together.
-- Removing an activity attachment or deleting a draft assignment keeps the course
-  library relation. Library removal is separate and rejects activity/history references,
-  including retained history for detached activity problems.
-- The staff-only course library accepts the owner's private drafts, exposes owner,
-  source and activity links, and has no problem-creation button. Archived libraries
-  stay readable and expose no editing, add or remove controls.
+Rules come from PRB-10 and PRB-11; data model in [Database](../architecture/DATABASE.md).
 
-See [Database](../architecture/DATABASE.md) and the
-[problem permissions plan](../plans/active/2026-09-08-problem-permissions.md)
-for ownership and sharing details.
+- An actor-owned private problem, or a private problem already shared with the course, is attached as is and its `CourseProblem` relation is kept or created. Newly selected private problems must be published.
+- A newly selected published public problem, including the actor's own, becomes an actor-owned private draft fork shared with the course.
+- References already on the activity in the DB (including historical public problems and private drafts) keep their IDs. Pickers offer published candidates only; client-supplied IDs never count as existing.
+- Any other private problem, or any later failure, rolls back the activity, forks and new library relations together.
+- Detaching a problem or deleting a draft assignment keeps the library relation. Library removal is separate and is rejected while activities or their history reference the problem.
+- The staff-only course library at `/courses/[courseId]/problems` accepts the owner's private drafts, shows owner, source and activity links, and has no create-problem button. Archived courses keep it readable without edit, add or remove controls.
 
-### Late collection and scoring
+### Late collection
 
-- Create and settings forms show an on-time deadline and an allow-late toggle. When disabled, the final deadline equals the on-time deadline and no late penalty is saved. When enabled, the final collection time is required and must be strictly later than the on-time deadline.
-- Penalty choices are none, a fixed percentage, or a daily percentage. Penalties always begin strictly after `dueAt`; a partial 24-hour day counts as a whole day. Exactly at `dueAt` is on time while collection remains open.
-- GIVEN a student submits at or after `closesAt`, THEN reject the official submission. Closing never resets a previously earned grade. Subsequent practice submissions remain separate.
-- GIVEN an open assignment, THEN existing due/final deadlines may be extended but penalties cannot change. Validate the combined persisted and requested settings for partial updates.
-- Both the overview and the workspace show the on-time/final deadlines and penalty terms, including the transition to late collection.
-- Detailed formulas and adjustment invariants live in [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#adjustment-rules).
+- Forms show the on-time deadline and an allow-late toggle. Disabled: final deadline equals on-time deadline and no penalty is saved. Enabled: a final collection time strictly after `dueAt` is required.
+- Penalty is none, a fixed percentage or a daily percentage (at most one late rule). Penalties start strictly after `dueAt`; a partial 24-hour day counts as a whole day; exactly `dueAt` is on time.
+- Submissions at or after `closesAt` are rejected as official submissions. Closing never resets an earned grade.
+- While open, `dueAt`/`closesAt` may only be extended and penalties cannot change (`"Late penalties cannot be changed once the assignment is open."`). Partial updates validate the merged persisted and requested settings.
+- Overview and workspace show both deadlines, the penalty terms and the switch to late collection.
 
-### Lifecycle — publish
+### Publish
 
-- GIVEN an assignment in `draft` with ≥1 attached problem, ≥1 allowed
-  language, `closesAt > now`, and `opensAt < dueAt <= closesAt`,
-  WHEN a teacher calls `publishAssignment`,
-  THEN the row's `status` flips to `published` and no dispatch or job
-  fires (assignments have no auto-close workflow).
-- GIVEN an assignment in `draft` with 0 attached problems,
-  WHEN publish is attempted,
-  THEN `ValidationError("Attach at least one problem before publishing.")`.
-- GIVEN an assignment in `draft` with an empty `allowedLanguages`,
-  WHEN publish is attempted,
-  THEN `ValidationError("Select at least one allowed language before publishing.")`.
-- GIVEN an assignment whose `closesAt < now`,
-  WHEN publish is attempted,
-  THEN `ValidationError("closesAt must be in the future.")`.
-- GIVEN an assignment already in `published`,
-  WHEN publish is attempted,
-  THEN `ValidationError("Only draft assignments can be published.")`.
+- GIVEN a draft with ≥1 problem, ≥1 allowed language, a positive total, `closesAt > now` and `opensAt < dueAt <= closesAt` (when `dueAt` is set), WHEN `publishAssignment` runs, THEN `status` becomes `published` and a `publish` audit row is written.
+- Failures, all `ValidationError`: not draft → `"Only draft assignments can be published."`; no languages → `"Select at least one allowed language before publishing."`; no problems → `"Attach at least one problem before publishing."`; `closesAt <= now` → `"closesAt must be in the future."`.
+- Check and write run in one locked transaction, so a concurrent second publish fails with the not-draft error.
+- A draft with no `dueAt` publishes; the window check applies only when `dueAt` is set.
 
-### Lifecycle — revert-to-draft
+### Revert to draft and delete draft
 
-- GIVEN a `published` assignment whose `opensAt > now`,
-  WHEN `revertAssignmentToDraft` is called,
-  THEN status returns to `draft`.
-- GIVEN a `published` assignment whose `opensAt <= now` (already open),
-  WHEN revert is attempted,
-  THEN `ValidationError("Cannot revert an assignment that has already opened.")`.
-
-### Lifecycle — delete-draft
-
-- GIVEN a `draft` assignment, WHEN `deleteAssignmentDraft` is called,
-  THEN the row is hard-deleted (cascade drops
-  `AssessmentProblem` rows).
-- GIVEN a non-`draft` assignment, WHEN delete is attempted,
-  THEN `ValidationError("Only draft assignments can be deleted.")`.
+- `revertAssignmentToDraft` works only on a published assignment with `opensAt > now`; otherwise `"Only published assignments can be reverted to draft."` or `"Cannot revert an assignment that has already opened."`.
+- `deleteAssignmentDraft` hard-deletes a draft (cascading `AssessmentProblem`); otherwise `"Only draft assignments can be deleted."`.
 
 ### Lifecycle audit log
 
-- GIVEN any user-driven lifecycle transition (`publish`,
-  `revert_to_draft`, `delete_draft`), WHEN the mutation transaction
-  commits, THEN an append-only `AssessmentAuditLog` row is written in the
-  same transaction: `{ assessmentId, courseId, actorUserId, action }`.
-- GIVEN a `delete_draft`, THEN the audit row is written BEFORE the
-  `Assessment` row is removed; `assessmentId` is stored as a plain
-  string (not an FK) so the entry survives the deletion.
-- WHEN the assignment settings tab loads, THEN
-  `assessmentAuditLogRepo.listByAssessment(assessmentId, take)` returns
-  the most recent entries (newest first) with the actor's display name
-  for the lifecycle history list.
+- `publish`, `revert_to_draft` and `delete_draft` each append an `AssessmentAuditLog` row `{ assessmentId, courseId, actorUserId, action }` in the mutation transaction (ASM-14).
+- For `delete_draft` the row is written before the delete; `assessmentId` is a plain string, so the row outlives the assignment.
 
-### Update — status-aware field locks
+### Field locks by live status
 
-- GIVEN an `open` assignment, WHEN `updateAssignmentRecord` receives a
-  `closesAt` earlier than the current `closesAt`,
-  THEN `ValidationError("closesAt can only be extended, not moved earlier.")`.
-- GIVEN an `open` assignment, WHEN the payload changes `opensAt`,
-  THEN `ValidationError("opensAt cannot be changed once the assignment is open.")`.
-- GIVEN an `open` assignment, WHEN the payload sets `dueAt` earlier than
-  the current `dueAt`,
-  THEN `ValidationError("dueAt can only be extended, not moved earlier.")`.
-- GIVEN a `closed` assignment (`closesAt < now`), WHEN
-  a non-grading setting is changed, THEN the mutation is rejected. Grading-only changes remain available without a reason.
+- `draft`, `upcoming`: all fields editable.
+- `open`: `opensAt` frozen (`"opensAt cannot be changed once the assignment is open."`); `closesAt` and `dueAt` extend only (`"closesAt can only be extended, not moved earlier."`, `"dueAt can only be extended, not moved earlier."`).
+- `closed`: only `problems` and `gradingRevision` may change; anything else fails with `"Closed assignments are read-only."`.
 
 ### Permissions
 
-- GIVEN an actor without a bound, active teacher/TA membership on the hosting
-  course or effective admin access, WHEN any assignment mutation is called, THEN
-  reject. Course ownership or activity creation alone is not a permission grant;
-  pending usernames and removed memberships grant no access. A platform student
-  serving as an active course TA is allowed.
-- GIVEN an archived course, THEN activity mutations are rejected even for staff;
-  content reads remain subject to the existing course and problem read gates.
+- Mutations require a bound, active teacher/TA membership in the course or effective admin access. Course ownership or being the creator grants nothing; pending usernames and removed memberships grant nothing; a platform student who is an active TA is allowed.
+- Archived courses reject activity mutations even for staff.
 
 ### Problem attachment
 
-- WHEN `updateAssignmentRecord` includes `problems: [{ problemId, points }]`, THEN the stored total is recomputed from those points, retained links update in place, removed links detach, and new links follow the existing ownership/fork rules. The submitted order becomes `ordinal = index + 1`. New selections start at 100 points in the editor.
-- GIVEN `allowedLanguages` is non-empty and a newly attached problem is
-  missing an editable `main.<ext>` for one of those languages,
-  THEN `ValidationError(...missing editable main.<ext>...)` before any row
-  write.
+- `problems` in `updateAssignmentRecord` updates retained links in place, detaches removed ones, attaches new ones under the ownership rules, and sets `ordinal = index + 1`.
+- With non-empty `allowedLanguages`, a newly attached `multi_file` problem missing an editable `main.<ext>` for an allowed language fails before any write.
 
-### Visibility & list aggregation
+### Attempt limits
 
-- GIVEN a student on the assignments list, WHEN `listAssignmentsForCourse`
-  runs with `includeDrafts=false`, THEN no `draft` rows appear and
-  `counts.draft === null`.
-- GIVEN a teacher, WHEN `includeDrafts=true`, THEN drafts are included and
-  `counts.draft` is populated.
-- GIVEN a manager viewer, WHEN rows are returned, THEN `classStats` is
-  set and `myStatus === null`.
-- GIVEN a student viewer, WHEN rows are returned, THEN `myStatus` is set
-  and `classStats === null`.
-- GIVEN the viewer has no active course memberships, WHEN
-  `listAssignmentsAcrossCoursesForUser` runs,
-  THEN `hasNoCourses === true` and `rows` / `counts` are zeroed.
+- `maxAttemptsPerDay` counts per `(student, assignment, problem)` from the window start at `attemptResetMinuteOfDay` Taipei time (fixed UTC+8). The count runs under a per-window advisory lock, so concurrent submits cannot exceed the cap.
+- Sample-only runs never count. `system_error` never counts, including submissions swept to `system_error` by the stale-submission sweeper (PRB-16).
 
-### Grading — post-close drawer
+### Lists and aggregation
 
-- GIVEN an `open` assignment (`closesAt > now`), WHEN a manager opens
-  the submissions matrix, THEN the "Open grading" entry button is
-  hidden and a "grading available after close" note is shown in its
-  place. The drawer cannot be opened.
-- GIVEN a `closed` assignment, WHEN a manager opens a matrix cell,
-  THEN the grading drawer shows two sections — score override
-  (staff-only `reason`) + student-visible feedback comment — keyed
-  on `(studentUserId, problemId, assessmentId)`.
-- GIVEN a non-admin manager actor with `now < closesAt`, WHEN
-  `createOverride` / `updateOverride` / `deleteOverride` or
-  `upsertFeedback` / `deleteFeedback` is called against the
-  assignment, THEN `ConflictError("This context is still open; grading
-is only available after it closes.")` (shared post-close gate; see
-  `assertContextClosed`). `platformRole === "admin"` bypasses the
-  gate.
-- WHEN `getFeedbackForStudent` is called by a student while the
-  assignment is still open, THEN it returns nothing; once
-  `closesAt < now`, the per-problem comment is surfaced on the
-  assignment detail page and on the submission detail page.
+- Students (`includeDrafts=false`) never see drafts and get `counts.draft === null`; staff (`includeDrafts=true`) see drafts and counts.
+- Staff rows carry `classStats` (submitted students, total students, average score) and `myStatus === null`; student rows carry `myStatus` (solved/total) and `classStats === null`.
+- `listAssignmentsAcrossCoursesForUser` for a user without active memberships returns `hasNoCourses === true` with zeroed rows and counts.
+
+### Grading after close
+
+- While `closesAt > now` the matrix hides the grading entry and shows a "grading available after close" note.
+- After close, a matrix cell opens the drawer with a score override (staff-only reason) and a student-visible feedback comment, keyed by `(course membership, problemId, assessmentId)`.
+- Non-admin override or feedback writes before close fail with `ConflictError("This context is still open; grading is only available after it closes.")` via `assertContextClosed`; platform admins bypass (ASM-18).
+- Pending (unlinked) roster students can receive manual scores and feedback after close.
+- Students get feedback only after close, on the assignment detail page and the submission detail page.
 
 ### Audit timeline
 
-- GIVEN a staff viewer (course teacher/TA or platform admin), WHEN
-  they open the Audit sub-tab on the assignment manage page, THEN
-  `listAuditTimelineForContext({ type: "assignment", id })` returns a
-  reverse-chronological merge of `AssessmentAuditLog` (lifecycle) +
-  `ScoreOverrideAuditLog` (override changes) + `SubmissionRejudgeLog`
-  (rejudges scoped to the assignment's submissions).
-- The view is read-only — no new audit rows are written when the tab
-  is loaded.
+- Staff (course teacher/TA or admin) see a read-only, newest-first merge of `AssessmentAuditLog`, `ScoreOverrideAuditLog` and `SubmissionRejudgeLog` for the assignment's submissions. Loading it writes nothing.
 
-### Rejudge progress & cancel
+### Rejudge
 
-- GIVEN a staff actor triggers a batch rejudge of an assignment's
-  submissions, WHEN the rejudge workflow runs, THEN it exposes a
-  `getProgress` query returning `{ completed, total }` that the manage
-  page polls to render a progress bar; children are spawned in batches
-  of 10.
-- GIVEN a running batch rejudge, WHEN a staff actor cancels it
-  (`cancelRejudge(workflowId)`), THEN the parent workflow is cancelled
-  and in-flight child judges propagate the cancellation; affected
-  submissions are restored to their prior verdict
-  (`restoreSubmissionForCancelledRejudge`).
-- GIVEN any rejudge (single or batch), WHEN it runs, THEN a
-  `SubmissionRejudgeLog` row records who triggered it and the
-  before/after verdict, surfaced in the audit timeline and in the
-  admin-wide list at `/admin/rejudges` (paged, filterable by problem).
+- Batch rejudge runs children in batches of 10 and exposes `{ completed, total }` progress that the manage page polls. Cancelling cancels in-flight children and restores affected submissions to their prior verdict. Every rejudge writes a `SubmissionRejudgeLog` row (PRB-18). Pipeline details: [Judge Pipeline](../architecture/JUDGE_PIPELINE.md).
 
-### Stale-submission reaper (attempt refund)
+### Practice after close
 
-- GIVEN a submission stuck in `pending_upload` / `queued` / `compiling`
-  / `running` past the configured pending timeout (default 30 min, set
-  by an admin at `/admin/rejudges` via `updatePendingTimeout`, bounded
-  10–1440 min), WHEN the `submissionSweeperWorkflow` cron fires (every
-  minute), THEN `sweepStaleSubmissions` terminates the stuck judge
-  workflow when one may exist and only then flips the row to
-  `system_error` (terminate-before-mark so a still-alive workflow cannot
-  overwrite the verdict).
-- GIVEN a submission swept to `system_error`, THEN it does **not** count
-  against `maxAttemptsPerDay` — the daily attempt is effectively
-  refunded (all `system_error` verdicts are non-counting platform
-  faults, not student errors).
-
-### Practice-after-close (submission gate)
-
-- GIVEN an ended assignment (`closesAt < now`, `status = 'published'`) that
-  the user has an `active` `CourseMembership` on,
-  WHEN the user opens `/problems/[id]` for a problem that was attached,
-  THEN `assertProblemViewAccess` allows the view via the historical-
-  participant clause (no context query params needed).
-- WHEN the user POSTs to `/api/submissions` with NO assignment context on
-  the same problem after close, THEN the submission is accepted as a
-  practice submission (no `assessmentId`, no `maxAttemptsPerDay`
-  decrement, no class-stats contribution).
-- GIVEN a manager opens the closed assignment submissions matrix, THEN
-  context-less practice submissions from enrolled students after
-  `closesAt` are shown under the matching student/problem cell without
-  changing the official score or total.
-- GIVEN the same user POSTs with an EXPIRED `assessment` context,
-  THEN the createSubmission mutation still throws `ForbiddenError` — the
-  UI must not emit such URLs but the backend is belt-and-braces.
-
-## Edge Cases & Failure Modes
-
-- **Draft with `null` dueAt.** Zod schema allows `dueAt` optional; the
-  publish path enforces `opensAt < dueAt <= closesAt` only when `dueAt` is
-  set. A draft saved with no `dueAt` publishes cleanly.
-- **Update to allowedLanguages removes a language for which submissions
-  already exist.** Allowed — the historical submission rows keep their
-  language. Future submissions must use the reduced set.
-- **Two teachers publish the same draft concurrently.** The second call
-  reads `status === 'published'` and throws
-  `ValidationError("Only draft assignments can be published.")` — no race
-  hazard because the check and write are in the same transaction.
-- **`maxAttemptsPerDay` boundary.** The window starts at the configured
-  `attemptResetMinuteOfDay` Taipei wall-clock time (default 05:00 Asia/Taipei,
-  computed by `attemptWindowStart` as a real UTC instant — Taipei is fixed
-  UTC+8, no DST). Counting is `createdAt >= windowStart` and is scoped to the
-  specific `(student, assignment, problem)`, so the reset rolls over at the
-  configured time rather than midnight, and each problem has an independent
-  counter. The count is taken under a per-window advisory lock
-  (`pg_advisory_xact_lock`) so concurrent submits cannot exceed the cap.
-- **Archived course, published assignment.** When the parent
-  `Course.archived` flips true, the assignment hides from student list
-  views and submissions to it are rejected by the submissions path. The
-  assignment row itself stays `published`; it just stops being addressable
-  by students until the course is unarchived.
-
-## Implementation References
-
-### Domain
-
-- `packages/application/src/assignment/mutations.ts` —
-  `updateAssignmentRecord`, `publishAssignment`, `deleteAssignmentDraft`,
-  `revertAssignmentToDraft`, `assertFieldsAllowedForStatus`
-  (status-aware lock), `deriveLiveStatus`.
-- `packages/db/src/repositories/assessment-audit.ts` —
-  `assessmentAuditLogRepo` (`withTx().create`, `listByAssessment`).
-- `packages/application/src/course/mutations.ts` —
-  `createAssessmentRecord` (initial insert; generates slug-style id).
-- `packages/application/src/course/overview.ts` —
-  `listAssignmentOverviewForCourse`, `listAssignmentsForCourse`,
-  `mapAssignmentToOverviewRow` (internal helper), rank function.
-- `packages/application/src/course/across-courses.ts` —
-  `listAssignmentsAcrossCoursesForUser` (dashboard surface).
-- `packages/application/src/shared/list-aggregations.ts` —
-  `aggregateAssignmentClassStats`, `aggregateAssignmentMyStatus`.
-- `packages/application/src/problem/permissions.ts` — `assertProblemViewAccess`
-  (practice-after-close historical-participant gate).
-- `packages/application/src/feedback/` — `upsertFeedback`,
-  `deleteFeedback`, `listFeedbackForContext`,
-  `getFeedbackForStudent`, `assertCanWriteFeedback` (role + post-close
-  gate), `assertCanViewFeedback` (role-only).
-- `packages/application/src/score-override/permissions.ts` —
-  `assertCanSetScoreOverride` (role + post-close gate),
-  `assertCanViewScoreOverrides` (role-only).
-- `packages/application/src/shared/context-window.ts` — `isContextClosed`,
-  `assertContextClosed` (shared post-close gate across assignment +
-  exam + contest).
-- `packages/application/src/audit/queries.ts` —
-  `listAuditTimelineForContext`.
-
-### Schema
-
-- `packages/core/src/schemas/course.ts` — `assessmentCreateSchema`,
-  `assessmentUpdateSchema`, `courseAssignmentFormSchema`,
-  `assessmentSettingsFormSchema`.
-- `packages/db/prisma/schema/course.prisma` — `Assessment`,
-  `AssessmentProblem`, `AssessmentAuditLog`, enum
-  `AssessmentAuditAction`.
-- `packages/db/prisma/schema/submission.prisma` —
-  `SubmissionFeedback` (assignment + exam contexts; CHECK enforces
-  exactly one context column is non-null).
-- `packages/core/src/schemas/feedback.ts` — `feedbackUpsertSchema`.
-
-### Routes / API
-
-- `apps/web/src/routes/(app)/assignments/[assignmentId]/+page.server.ts`
-  — all lifecycle + settings form actions.
-- `apps/web/src/routes/(app)/courses/[courseId]/assignments/` — per-course
-  list and create flows.
-- `apps/web/src/routes/(app)/assignments/+page.svelte` — cross-course
-  dashboard.
-
-### Tests
-
-- `tests/unit/application/assignment-mutations.test.ts` — publish / delete /
-  revert-to-draft / status-aware field locks + audit-row writes.
-- `tests/unit/application/assignment-submissions-matrix.test.ts` —
-  post-close context-less practice metadata visibility and official-score
-  isolation.
-- `tests/unit/application/list-aggregations.test.ts` — class stats + my status
-  aggregations.
-- `tests/unit/application/problem-access.test.ts` — practice-after-close gate.
+- For a published, closed assignment and a user with an active course membership, `/problems/[id]` for an attached problem is viewable through the historical-participant clause of `assertProblemViewAccess` (PRB-20).
+- A context-less `POST /api/submissions` on that problem is accepted as practice: no `assessmentId`, no attempt count, no stats or grade contribution.
+- The closed-assignment matrix shows these practice submissions as metadata in the student/problem cell without changing the official score, total, class stats, overrides or feedback.
+- A submission that still names the expired assignment context fails with `ForbiddenError`.
