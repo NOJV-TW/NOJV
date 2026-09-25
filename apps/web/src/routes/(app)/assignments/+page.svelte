@@ -6,6 +6,7 @@
   import { buttonVariants } from "$lib/components/primitives/ui/button";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
+  import FilterTabs from "$lib/components/primitives/visual/FilterTabs.svelte";
   import AssignmentCard from "$lib/components/features/course/assignment/AssignmentCard.svelte";
   import AssessmentGroupHeading from "$lib/components/features/coursework/AssessmentGroupHeading.svelte";
   import type { PageData } from "./$types";
@@ -61,31 +62,16 @@
   <div class="space-y-6 fade-up">
     <PageHeader title={m.assignmentsList_heroTitle()} />
 
-    <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border-subtle">
-      <div
-        role="tablist"
-        aria-label={m.assignmentsList_heroTitle()}
-        class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
-      >
-        {#each tabs as tab (tab.key)}
-          {@const isActive = tab.key === currentFilter}
-          <button
-            type="button"
-            role="tab"
-            aria-selected={isActive}
-            onclick={() => setTab(tab.key)}
-            class="-mb-px inline-flex items-center gap-2 whitespace-nowrap border-b-2 px-5 py-3.5 text-body-sm font-medium transition-colors duration-fast ease-out-soft {isActive
-              ? 'border-primary text-foreground'
-              : 'border-transparent text-muted-foreground hover:text-foreground'}"
-          >
-            <span>{tab.label}</span>
-          </button>
-        {/each}
-      </div>
+    <FilterTabs
+      {tabs}
+      value={currentFilter}
+      label={m.assignmentsList_heroTitle()}
+      onSelect={setTab}
+    >
       <div class="text-caption text-muted-foreground font-mono">
         {m.assignmentsList_sortByDue()}
       </div>
-    </div>
+    </FilterTabs>
 
     {#if assignments.length === 0}
       <div class="glass rounded-xl px-8 py-16 text-center">

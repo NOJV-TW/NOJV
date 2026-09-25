@@ -28,7 +28,7 @@ shadcn-svelte-style components in `$lib/components/primitives/ui/`:
 | Skeleton  | Loading placeholder primitives                                                                                                |
 | Toast     | Toast stack (`ToastProvider` + `toast/ToastItem`)                                                                             |
 
-There is no shadcn `Tabs` / `Table` / `DropdownMenu` wrapper dir: tabs are the custom `primitives/visual/TabStrip.svelte`, tables are feature-specific (e.g. `features/admin/users/UsersTable.svelte`, `features/course/submissions/MatrixTable.svelte`), and the dropdown menu is `features/notification/NotificationDropdown.svelte`.
+Tabs are custom: `primitives/ui/tabs` (glass panel with a tab panel, used by assessment manage views), `primitives/visual/TabStrip.svelte` (pill toggle), and `primitives/visual/FilterTabs.svelte` (underline filter bar on the list pages). There is no shadcn `Table` / `DropdownMenu` wrapper dir: tables are feature-specific (e.g. `features/admin/users/UsersTable.svelte`, `features/course/submissions/MatrixTable.svelte`), and the dropdown menu is `features/notification/NotificationDropdown.svelte`.
 
 Custom components in `$lib/components/primitives/ui/`:
 
