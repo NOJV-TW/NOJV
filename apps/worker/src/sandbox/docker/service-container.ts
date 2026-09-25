@@ -8,7 +8,7 @@ import {
   runDocker,
   sanitizeId,
 } from "./process";
-import { executionAbortReason } from "../shared/execution-abort";
+import { abortableSleep } from "../shared/execution-abort";
 
 const READINESS_TIMEOUT_MS = 5_000;
 const READINESS_INTERVAL_MS = 100;
@@ -33,21 +33,6 @@ export interface ServiceContainerHandle {
   containerName: string;
 }
 
-function sleep(ms: number, signal: AbortSignal): Promise<void> {
-  signal.throwIfAborted();
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      signal.removeEventListener("abort", abort);
-      resolve();
-    }, ms);
-    const abort = () => {
-      clearTimeout(timer);
-      reject(executionAbortReason(signal));
-    };
-    signal.addEventListener("abort", abort, { once: true });
-  });
-}
-
 export async function waitForServiceReady(
   containerName: string,
   signal: AbortSignal,
@@ -57,7 +42,7 @@ export async function waitForServiceReady(
     if ((await collectServiceLogs(containerName, signal)).includes(SERVICE_READY_MARKER)) {
       return;
     }
-    await sleep(READINESS_INTERVAL_MS, signal);
+    await abortableSleep(READINESS_INTERVAL_MS, signal);
   }
   throw new Error(`service ${containerName} did not become ready within timeout`);
 }

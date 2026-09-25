@@ -3,7 +3,6 @@ import type * as k8s from "@kubernetes/client-node";
 import type { SandboxRequest } from "@nojv/core";
 
 import { createLogger } from "../../logger.js";
-import { executionAbortReason } from "../shared/execution-abort";
 import {
   podPhaseTimings,
   recordCleanupPending,
@@ -193,20 +192,5 @@ export class KubernetesExecutionObserver {
         { cause: error },
       );
     }
-  }
-
-  sleep(ms: number, signal: AbortSignal): Promise<void> {
-    signal.throwIfAborted();
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        signal.removeEventListener("abort", abort);
-        resolve();
-      }, ms);
-      const abort = () => {
-        clearTimeout(timer);
-        reject(executionAbortReason(signal));
-      };
-      signal.addEventListener("abort", abort, { once: true });
-    });
   }
 }

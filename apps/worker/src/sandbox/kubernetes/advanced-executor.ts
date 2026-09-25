@@ -8,7 +8,7 @@ import {
   type SandboxResult,
 } from "@nojv/core";
 import { createLogger } from "../../logger.js";
-import { executionAbortReason } from "../shared/execution-abort";
+import { abortableSleep, executionAbortReason } from "../shared/execution-abort";
 import { advancedFallbackResult, mapAdvancedResult } from "../shared/sandbox-result-mapper";
 import { sandboxSystemError } from "../shared/sandbox-plan";
 import { recordRunnerResources } from "../shared/judge-phase-metrics";
@@ -532,7 +532,7 @@ export class KubernetesAdvancedExecutor {
         const log = await this.observer.getPodContainerLogs(podName, ns, "service", signal);
         if (log.includes(marker)) return true;
       }
-      await this.observer.sleep(intervalMs, signal);
+      await abortableSleep(intervalMs, signal);
     }
     if (!everStarted) {
       throw new SandboxBackpressureError(
