@@ -20,10 +20,11 @@
 - `prisma/migrations/` — migration 歷史
 - `prisma/seed.ts` — 本地開發 seed 的順序與安全閘；主題資料在 `prisma/seeds/`
 - `prisma/seeds/announcements.ts` — demo 公告資料
+- `prisma/scripts/deploy-release.sh` — Helm migrator hook：有 pending migration 時排空 web 與 workers 後才 `prisma migrate deploy`
 
 ## 依賴
 
-- 上游：`@nojv/core`；`@nojv/storage` 僅供 Prisma seed／維運腳本使用，不得由 `src/` 匯入
+- 上游：`@nojv/core`；`@nojv/storage` 僅供 Prisma seed 使用，不得由 `src/` 匯入
 - 下游：`@nojv/application`、`apps/web` 的 better-auth adapter、`apps/worker`
 
 ## 本地開發

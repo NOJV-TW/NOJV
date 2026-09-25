@@ -56,7 +56,6 @@ state_dir="$(mktemp -d "${TMPDIR:-/tmp}/nojv-release-cutover.XXXXXX")"
 maintenance_started=false
 restore_safe=true
 child_pid=""
-contract_migration=20260716000012_versioned_blob_pointers_contract
 
 kubectl_ns() {
   kubectl --request-timeout="${KUBECTL_REQUEST_TIMEOUT_SECONDS}s" \
@@ -85,7 +84,7 @@ snapshot_replicas() {
 }
 
 restore_workloads() {
-  echo "Pre-contract failure: restoring workloads and autoscalers." >&2
+  echo "Pre-migration failure: restoring workloads and autoscalers." >&2
   restore_failed=false
   kubectl_ns scale deployment "$WEB_DEPLOYMENT" \
     --replicas="$(cat "$state_dir/$WEB_DEPLOYMENT.replicas")" || restore_failed=true
@@ -147,7 +146,7 @@ cleanup() {
     if [ "$restore_safe" = true ]; then
       restore_workloads || echo "CRITICAL: workload restoration failed" >&2
     else
-      echo "Storage compatibility may have changed; keeping workloads in maintenance." >&2
+      echo "Schema compatibility may have changed; keeping workloads in maintenance." >&2
     fi
   fi
   rm -rf "$state_dir"
@@ -166,34 +165,8 @@ terminate() {
 trap 'terminate 130' INT
 trap 'terminate 143' TERM
 
-read_contract_status() {
-  timeout "${STATUS_TIMEOUT_SECONDS}s" node --import tsx \
-    prisma/scripts/storage-pointer-cutover.ts status
-}
-
-migrations_up_to_date() {
-  timeout "${STATUS_TIMEOUT_SECONDS}s" prisma migrate status >/dev/null 2>&1
-}
-
-contract_status="$(read_contract_status)"
-case "$contract_status" in
-  applied) ;;
-  pending) run_guarded sh prisma/scripts/deploy-expand.sh ;;
-  recoverable)
-    run_guarded prisma migrate resolve --rolled-back "$contract_migration"
-    contract_status="$(read_contract_status)"
-    [ "$contract_status" = pending ] || {
-      echo "Storage contract history recovery did not restore a pending state" >&2
-      exit 1
-    }
-    run_guarded sh prisma/scripts/deploy-expand.sh
-    ;;
-  unsafe) ;;
-  *) echo "Unexpected storage contract status: $contract_status" >&2; exit 1 ;;
-esac
-
-if [ "$contract_status" = applied ] && migrations_up_to_date; then
-  echo "Storage contract applied and no migrations pending; releasing without a maintenance window." >&2
+if timeout "${STATUS_TIMEOUT_SECONDS}s" prisma migrate status >/dev/null 2>&1; then
+  echo "No migrations pending; releasing without a maintenance window." >&2
   exit 0
 fi
 
@@ -278,22 +251,6 @@ while ! assert_drained "$WEB_DEPLOYMENT" "$WEB_POD_SELECTOR" || \
   fi
   sleep "$POLL_INTERVAL_SECONDS"
 done
-
-if [ "$contract_status" = unsafe ]; then
-  restore_safe=false
-  echo "Cannot prove the legacy storage schema is intact; keeping workloads in maintenance." >&2
-  exit 1
-fi
-
-if [ "$contract_status" = pending ]; then
-  # Backfill mutates database rows that old code can subsequently overwrite.
-  # From this point onward, restoring the old workloads could silently lose
-  # rollback-window writes when the immutable pointers are contracted later.
-  restore_safe=false
-  run_guarded node --import tsx prisma/scripts/storage-pointer-cutover.ts backfill
-  run_guarded node --import tsx prisma/scripts/storage-pointer-cutover.ts verify
-  run_guarded node --import tsx prisma/scripts/storage-pointer-cutover.ts preflight
-fi
 
 assert_drained "$WEB_DEPLOYMENT" "$WEB_POD_SELECTOR"
 assert_drained "$JUDGE_DEPLOYMENT" "$JUDGE_POD_SELECTOR"

@@ -15,12 +15,11 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 const repoRoot = process.cwd();
-const cutoverScript = join(repoRoot, "packages/db/prisma/scripts/deploy-release.sh");
-const rosterContract = "20260907000000_course_roster_contract";
+const releaseScript = join(repoRoot, "packages/db/prisma/scripts/deploy-release.sh");
 const tempDirectories: string[] = [];
 
-function makeHarness(): { bin: string; directory: string; events: string; status: string } {
-  const directory = mkdtempSync(join(tmpdir(), "nojv-storage-cutover-"));
+function makeHarness(): { bin: string; directory: string; events: string } {
+  const directory = mkdtempSync(join(tmpdir(), "nojv-release-migrator-"));
   const bin = join(directory, "bin");
   const packageRoot = join(directory, "db");
   const packageBin = join(packageRoot, "node_modules/.bin");
@@ -31,20 +30,11 @@ function makeHarness(): { bin: string; directory: string; events: string; status
     { recursive: true },
   );
   mkdirSync(join(packageRoot, "prisma/scripts"), { recursive: true });
-  for (const script of ["deploy-expand.sh", "deploy-release.sh"]) {
-    cpSync(
-      join(repoRoot, "packages/db/prisma/scripts", script),
-      join(packageRoot, "prisma/scripts", script),
-    );
-  }
+  cpSync(releaseScript, join(packageRoot, "prisma/scripts/deploy-release.sh"));
   const events = join(directory, "events.log");
-  const status = join(directory, "contract-status");
-  const statusCalls = join(directory, "status-calls");
   tempDirectories.push(directory);
   execFileSync("mkdir", ["-p", bin]);
   writeFileSync(join(bin, "prisma"), "#!/bin/sh\nexit 97\n", { mode: 0o755 });
-  writeFileSync(status, "pending");
-  writeFileSync(statusCalls, "0");
   for (const [deployment, replicas] of [
     ["nojv-web", "2"],
     ["nojv-worker", "2"],
@@ -55,68 +45,22 @@ function makeHarness(): { bin: string; directory: string; events: string; status
   writeFileSync(join(directory, "hpa-target"), "nojv-web");
 
   writeFileSync(
-    join(bin, "node"),
-    `#!/bin/sh
-set -eu
-printf 'node %s stage=%s\n' "$*" "\${PRISMA_MIGRATIONS_PATH:-full}" >> "$EVENT_LOG"
-case "$*" in
-  *"storage-pointer-cutover.ts status"*)
-    calls="$(( $(cat "$HARNESS_DIR/status-calls") + 1 ))"
-    printf '%s' "$calls" > "$HARNESS_DIR/status-calls"
-    if [ "\${STATUS_TIMEOUT_ON_CALL:-0}" -eq "$calls" ]; then exit 124; fi
-    cat "$HARNESS_DIR/contract-status"
-    ;;
-  *"storage-pointer-cutover.ts backfill"*)
-    [ "\${FAIL_STEP:-}" != backfill ]
-    ;;
-  *"storage-pointer-cutover.ts verify"*)
-    [ "\${FAIL_STEP:-}" != verify ]
-    ;;
-  *"storage-pointer-cutover.ts preflight"*)
-    [ "\${FAIL_STEP:-}" != preflight ]
-    ;;
-esac
-`,
-    { mode: 0o755 },
-  );
-  writeFileSync(
     join(packageBin, "prisma"),
     `#!/bin/sh
 set -eu
-printf 'prisma %s stage=%s\n' "$*" "\${PRISMA_MIGRATIONS_PATH:-full}" >> "$EVENT_LOG"
+printf 'prisma %s\n' "$*" >> "$EVENT_LOG"
 case "$*" in
   *"migrate status"*)
     [ "\${MIGRATIONS_PENDING:-true}" != true ] || exit 1
     ;;
-  *"migrate resolve --rolled-back"*)
-    printf pending > "$HARNESS_DIR/contract-status"
-    ;;
   *"migrate deploy"*)
-    if [ -n "\${PRISMA_MIGRATIONS_PATH:-}" ]; then
-      [ ! -e "$PRISMA_MIGRATIONS_PATH/${rosterContract}" ] || exit 98
-      printf 'roster hidden from expand\\n' >> "$EVENT_LOG"
-    else
-      [ -e "prisma/migrations/${rosterContract}/migration.sql" ] || exit 99
-      for deployment in nojv-web nojv-worker nojv-worker-platform; do
-        [ "$(cat "$HARNESS_DIR/$deployment.replicas")" = 0 ] || exit 96
-      done
-      [ "$(cat "$HARNESS_DIR/hpa-target")" = nojv-web-maintenance ] || \
-        [ "\${HPA_MISSING:-false}" = true ] || exit 95
-      printf 'roster exposed after drain\\n' >> "$EVENT_LOG"
-    fi
-    if [ -z "\${PRISMA_MIGRATIONS_PATH:-}" ]; then
-      case "\${FINAL_MIGRATE_RESULT:-success}" in
-        pending-fail) exit 9 ;;
-        applied-fail)
-          printf applied > "$HARNESS_DIR/contract-status"
-          exit 9
-          ;;
-        unsafe-fail)
-          printf unsafe > "$HARNESS_DIR/contract-status"
-          exit 9
-          ;;
-      esac
-    fi
+    for deployment in nojv-web nojv-worker nojv-worker-platform; do
+      [ "$(cat "$HARNESS_DIR/$deployment.replicas")" = 0 ] || exit 96
+    done
+    [ "$(cat "$HARNESS_DIR/hpa-target")" = nojv-web-maintenance ] || \\
+      [ "\${HPA_MISSING:-false}" = true ] || exit 95
+    printf 'migrations exposed after drain\\n' >> "$EVENT_LOG"
+    [ "\${MIGRATE_FAILS:-false}" != true ] || exit 9
     ;;
 esac
 `,
@@ -196,15 +140,14 @@ esac
 `,
     { mode: 0o755 },
   );
-  chmodSync(join(bin, "node"), 0o755);
   chmodSync(join(bin, "prisma"), 0o755);
   chmodSync(join(bin, "kubectl"), 0o755);
   chmodSync(join(bin, "setsid"), 0o755);
   chmodSync(join(bin, "timeout"), 0o755);
-  return { bin, directory, events, status };
+  return { bin, directory, events };
 }
 
-function runCutover(
+function runRelease(
   harness: ReturnType<typeof makeHarness>,
   extraEnv: Record<string, string> = {},
 ) {
@@ -246,23 +189,15 @@ afterEach(() => {
   }
 });
 
-describe("storage release cutover", () => {
+describe("release migrator", () => {
   it("does not ask pnpm to create command shims on the read-only migrator filesystem", () => {
-    const expand = readFileSync(
-      join(repoRoot, "packages/db/prisma/scripts/deploy-expand.sh"),
-      "utf8",
-    );
-    expect(readFileSync(cutoverScript, "utf8")).not.toContain("pnpm exec");
-    expect(expand).not.toContain("pnpm exec");
+    expect(readFileSync(releaseScript, "utf8")).not.toContain("pnpm exec");
   });
 
   it("sets CDPATH explicitly without the ambiguous SC1007 assignment form", () => {
-    const expand = readFileSync(
-      join(repoRoot, "packages/db/prisma/scripts/deploy-expand.sh"),
-      "utf8",
-    );
-    expect(expand).toContain("CDPATH='' cd --");
-    expect(expand).not.toContain("CDPATH= cd --");
+    const script = readFileSync(releaseScript, "utf8");
+    expect(script).toContain("CDPATH='' cd --");
+    expect(script).not.toContain("CDPATH= cd --");
   });
 
   it("renders the upgrade hook with S3, writable staging, and web HPA RBAC", () => {
@@ -500,34 +435,19 @@ describe("storage release cutover", () => {
     expect(result.stderr).toContain("requires kubeVersion: >=1.30.0-0");
   });
 
-  it("stages expand before draining and exposes contract only after every verification", () => {
+  it("applies migrations only after draining every writer", () => {
     const harness = makeHarness();
-    const result = runCutover(harness);
+    const result = runRelease(harness);
     expect(result.status, result.stderr).toBe(0);
 
     const log = events(harness);
-    const staged = log.findIndex((line) => line.includes("prisma migrate deploy stage=/"));
     const drained = log.findIndex((line) =>
       line.includes("scale deployment nojv-web nojv-worker nojv-worker-platform --replicas=0"),
     );
-    const backfill = log.findIndex((line) =>
-      line.includes("storage-pointer-cutover.ts backfill"),
-    );
-    const verify = log.findIndex((line) => line.includes("storage-pointer-cutover.ts verify"));
-    const preflight = log.findIndex((line) =>
-      line.includes("storage-pointer-cutover.ts preflight"),
-    );
-    const contract = log.findLastIndex((line) =>
-      line.includes("prisma migrate deploy stage=full"),
-    );
-    expect(staged).toBeGreaterThanOrEqual(0);
-    expect(drained).toBeGreaterThan(staged);
-    expect(backfill).toBeGreaterThan(drained);
-    expect(verify).toBeGreaterThan(backfill);
-    expect(preflight).toBeGreaterThan(verify);
-    expect(contract).toBeGreaterThan(preflight);
-    expect(log).toContain("roster hidden from expand");
-    expect(log).toContain("roster exposed after drain");
+    const migrated = log.findIndex((line) => line.includes("prisma migrate deploy"));
+    expect(drained).toBeGreaterThanOrEqual(0);
+    expect(migrated).toBeGreaterThan(drained);
+    expect(log).toContain("migrations exposed after drain");
 
     writeFileSync(join(harness.directory, "nojv-web.replicas"), "2");
     writeFileSync(join(harness.directory, "nojv-worker.replicas"), "2");
@@ -564,14 +484,14 @@ describe("storage release cutover", () => {
     const enableHpa = releaseLog.findIndex(
       (line, index) => index > releaseScale && line.includes("patch horizontalpodautoscaler"),
     );
-    expect(releaseScale).toBeGreaterThan(contract);
+    expect(releaseScale).toBeGreaterThan(migrated);
     expect(enableHpa).toBeGreaterThan(releaseScale);
   }, 15_000);
 
   it("waits for the maintenance page to be available before draining web", () => {
     const harness = makeHarness();
     writeFileSync(join(harness.directory, "nojv-web-maintenance.replicas"), "1");
-    const result = runCutover(harness);
+    const result = runRelease(harness);
     expect(result.status, result.stderr).toBe(0);
 
     const log = events(harness);
@@ -590,7 +510,7 @@ describe("storage release cutover", () => {
   it("leaves the release serving when the maintenance page never becomes available", () => {
     const harness = makeHarness();
     writeFileSync(join(harness.directory, "nojv-web-maintenance.replicas"), "0");
-    const result = runCutover(harness, { MAINTENANCE_READY_TIMEOUT_SECONDS: "0" });
+    const result = runRelease(harness, { MAINTENANCE_READY_TIMEOUT_SECONDS: "0" });
 
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("Timed out waiting for the maintenance page");
@@ -601,14 +521,14 @@ describe("storage release cutover", () => {
 
   it("drains without a maintenance gate when the page was not rendered", () => {
     const harness = makeHarness();
-    const result = runCutover(harness);
+    const result = runRelease(harness);
     expect(result.status, result.stderr).toBe(0);
     expect(events(harness)).not.toContainEqual(expect.stringContaining("availableReplicas"));
   }, 15_000);
 
   it("keeps the first HPA-enabled upgrade safe when the old release has no HPA", () => {
     const harness = makeHarness();
-    const result = runCutover(harness, { HPA_MISSING: "true" });
+    const result = runRelease(harness, { HPA_MISSING: "true" });
 
     expect(result.status, result.stderr).toBe(0);
     expect(events(harness)).not.toContainEqual(
@@ -619,7 +539,7 @@ describe("storage release cutover", () => {
 
   it("does not treat an HPA API error as a missing HPA", () => {
     const harness = makeHarness();
-    const result = runCutover(harness, { HPA_ERROR: "true" });
+    const result = runRelease(harness, { HPA_ERROR: "true" });
 
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("Unable to inspect HPA nojv-web");
@@ -671,42 +591,9 @@ describe("storage release cutover", () => {
     );
   });
 
-  it("keeps workloads drained after backfill starts", () => {
+  it("keeps workloads in maintenance when the migration run fails", () => {
     const harness = makeHarness();
-    const result = runCutover(harness, { FAIL_STEP: "verify" });
-    expect(result.status).not.toBe(0);
-
-    const log = events(harness);
-    expect(log).not.toContainEqual(expect.stringContaining("prisma migrate deploy stage=full"));
-    expect(log).not.toContainEqual(
-      expect.stringContaining("scale deployment nojv-web --replicas=2"),
-    );
-    expect(readFileSync(join(harness.directory, "nojv-web.replicas"), "utf8")).toBe("0");
-    expect(result.stderr).toContain("compatibility may have changed");
-  });
-
-  it("drains and fails closed before backfill when the initial schema state is unsafe", () => {
-    const harness = makeHarness();
-    writeFileSync(harness.status, "unsafe");
-    const result = runCutover(harness);
-    expect(result.status).not.toBe(0);
-
-    const log = events(harness);
-    expect(log).not.toContainEqual(expect.stringContaining("stage=/"));
-    expect(log).not.toContainEqual(
-      expect.stringContaining("storage-pointer-cutover.ts backfill"),
-    );
-    expect(log).not.toContainEqual(expect.stringContaining("prisma migrate deploy stage=full"));
-    expect(log).not.toContainEqual(
-      expect.stringContaining("scale deployment nojv-web --replicas=2"),
-    );
-    expect(readFileSync(join(harness.directory, "nojv-web.replicas"), "utf8")).toBe("0");
-    expect(result.stderr).toContain("legacy storage schema is intact");
-  });
-
-  it("fails closed when the contract transaction rolls back", () => {
-    const harness = makeHarness();
-    const result = runCutover(harness, { FINAL_MIGRATE_RESULT: "pending-fail" });
+    const result = runRelease(harness, { MIGRATE_FAILS: "true" });
     expect(result.status).toBe(9);
 
     const log = events(harness);
@@ -717,109 +604,51 @@ describe("storage release cutover", () => {
     expect(result.stderr).toContain("compatibility may have changed");
   });
 
-  it("fails closed when the contract applied before a later migration failed", () => {
+  it("retries a release that is already in maintenance", () => {
     const harness = makeHarness();
-    const result = runCutover(harness, { FINAL_MIGRATE_RESULT: "applied-fail" });
-    expect(result.status).toBe(9);
-    expect(events(harness)).not.toContainEqual(
-      expect.stringContaining("scale deployment nojv-web --replicas=2"),
-    );
-    expect(readFileSync(join(harness.directory, "nojv-web.replicas"), "utf8")).toBe("0");
-    expect(result.stderr).toContain("keeping workloads in maintenance");
-  });
-
-  it("fails closed when physical schema state and migration history disagree", () => {
-    const harness = makeHarness();
-    const result = runCutover(harness, { FINAL_MIGRATE_RESULT: "unsafe-fail" });
-    expect(result.status).toBe(9);
-    expect(events(harness)).not.toContainEqual(
-      expect.stringContaining("scale deployment nojv-web --replicas=2"),
-    );
-    expect(readFileSync(join(harness.directory, "nojv-web.replicas"), "utf8")).toBe("0");
-    expect(result.stderr).toContain("keeping workloads in maintenance");
-  });
-
-  it("retries a post-contract release that is already in maintenance", () => {
-    const harness = makeHarness();
-    writeFileSync(harness.status, "applied");
     writeFileSync(join(harness.directory, "hpa-target"), "nojv-web-maintenance");
     writeFileSync(join(harness.directory, "nojv-web.replicas"), "0");
     writeFileSync(join(harness.directory, "nojv-worker.replicas"), "0");
     writeFileSync(join(harness.directory, "nojv-worker-platform.replicas"), "0");
 
-    const result = runCutover(harness);
+    const result = runRelease(harness);
     expect(result.status, result.stderr).toBe(0);
-    expect(events(harness)).toContainEqual(
-      expect.stringContaining("prisma migrate deploy stage=full"),
-    );
+    expect(events(harness)).toContainEqual(expect.stringContaining("prisma migrate deploy"));
   });
 
-  it("keeps the roster contract out of Prisma while an old writer pod remains", () => {
+  it("keeps migrations out of Prisma while an old writer pod remains", () => {
     const harness = makeHarness();
-    writeFileSync(harness.status, "applied");
-    const result = runCutover(harness, {
+    const result = runRelease(harness, {
       WRITER_POD_REMAINS: "true",
       DRAIN_TIMEOUT_SECONDS: "1",
     });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("Timed out waiting for web and Temporal workers");
-    expect(events(harness)).not.toContain("roster exposed after drain");
     expect(events(harness)).not.toContainEqual(
-      expect.stringContaining("prisma migrate deploy stage=full"),
+      expect.stringContaining("prisma migrate deploy"),
     );
   });
 
-  it("drains writers on repeat deployment after the storage contract already shipped", () => {
+  it("drains writers on every release with pending migrations", () => {
     const harness = makeHarness();
-    writeFileSync(harness.status, "applied");
     for (let run = 0; run < 2; run++) {
-      expect(runCutover(harness).status).toBe(0);
+      expect(runRelease(harness).status).toBe(0);
     }
     expect(
-      events(harness).filter((line) => line === "roster exposed after drain"),
+      events(harness).filter((line) => line === "migrations exposed after drain"),
     ).toHaveLength(2);
-    expect(events(harness)).not.toContain("roster hidden from expand");
   });
 
   it("releases without a maintenance window when no migrations are pending", () => {
     const harness = makeHarness();
-    writeFileSync(harness.status, "applied");
 
-    const result = runCutover(harness, { MIGRATIONS_PENDING: "false" });
+    const result = runRelease(harness, { MIGRATIONS_PENDING: "false" });
     expect(result.status, result.stderr).toBe(0);
     expect(result.stderr).toContain("without a maintenance window");
 
     const log = events(harness);
     expect(log).not.toContainEqual(expect.stringContaining("--replicas=0"));
     expect(log).not.toContainEqual(expect.stringContaining("patch horizontalpodautoscaler"));
-    expect(log).not.toContainEqual(expect.stringContaining("prisma migrate deploy stage=full"));
-  });
-
-  it("repairs a rolled-back contract record before staging migrations", () => {
-    const harness = makeHarness();
-    writeFileSync(harness.status, "recoverable");
-    const result = runCutover(harness);
-    expect(result.status, result.stderr).toBe(0);
-
-    const log = events(harness);
-    const resolved = log.findIndex((line) =>
-      line.includes(
-        "prisma migrate resolve --rolled-back 20260716000012_versioned_blob_pointers_contract",
-      ),
-    );
-    const staged = log.findIndex((line) => line.includes("prisma migrate deploy stage=/"));
-    expect(resolved).toBeGreaterThanOrEqual(0);
-    expect(staged).toBeGreaterThan(resolved);
-  });
-
-  it("bounds the initial status probe before maintenance starts", () => {
-    const harness = makeHarness();
-    const result = runCutover(harness, { STATUS_TIMEOUT_ON_CALL: "1" });
-    expect(result.status).not.toBe(0);
-    expect(events(harness)).not.toContainEqual(
-      expect.stringContaining(
-        "scale deployment nojv-web nojv-worker nojv-worker-platform --replicas=0",
-      ),
-    );
+    expect(log).not.toContainEqual(expect.stringContaining("prisma migrate deploy"));
   });
 });

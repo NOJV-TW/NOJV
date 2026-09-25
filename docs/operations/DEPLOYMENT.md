@@ -678,9 +678,9 @@ pnpm db:validate
 In production, migrations run as the chart's **pre-install/pre-upgrade Helm
 hook** (`infra/charts/nojv/templates/migrator.job.yaml`). Installs apply the full
 history. An upgrade whose schema is already up to date (`prisma migrate status`
-reports no pending migrations) and whose storage contract is already applied
-exits the hook immediately. Any other state takes the maintenance window: a
-status probe that cannot be read counts as pending.
+reports no pending migrations) exits the hook immediately. Any other state
+takes the maintenance window: a status probe that cannot be read counts as
+pending.
 
 Whether the chart itself parks the workloads is a separate, render-time
 decision, because Helm cannot see what the hook found: `migrator.releaseWindow`
@@ -704,14 +704,14 @@ reaches cloudflared, so the surge hand-off cannot strand a request on a listener
 that has already closed. Both mismatches stay safe: a
 `false` flag with pending migrations still makes the hook drain and migrate
 before Helm starts the new pods, and a `true` flag with nothing to migrate only
-costs the old drained window. Upgrades with migrations stage expand
-migrations first; for the versioned-storage contract the hook then disables the
-web HPA target, drains web plus both Temporal workers, performs and verifies the
-S3 backfill, runs a database preflight, and only then exposes the atomic
-contract migration. A failure before backfill
-restores the prior workloads. Once backfill begins, any failure stays in
-maintenance because restoring legacy writers could invalidate the immutable
-pointers. The chart keeps all three new Deployments in maintenance through
+costs the old drained window. Upgrades with migrations disable the web HPA
+target, drain web plus both Temporal workers, recheck the drain, and only then
+run `prisma migrate deploy`. A failure before the migration run restores the
+prior workloads. Once it starts, any failure stays in maintenance because a
+one-way contract migration may have made the old writers unsafe. The hook no
+longer carries the versioned-storage backfill, so a database that has not yet
+applied `20260716000012_versioned_blob_pointers_contract` must first upgrade
+through an older release that still ships `storage-pointer-cutover.ts`. The chart keeps all three new Deployments in maintenance through
 Helm's apply/wait phase; the post-upgrade hook explicitly starts and verifies
 the new workloads before restoring the web HPA target.
 
@@ -766,8 +766,7 @@ obtain a fresh backup after all writers stop before allowing the migration hook.
 ### Course roster contract
 
 `20260907000000_course_roster_contract` converts placeholder accounts into durable
-course memberships in one transaction. It remains outside `deploy-expand.sh`'s
-staging boundary, which stops at the earlier storage contract. While it is
+course memberships in one transaction. While it is
 pending, `deploy-release.sh` drains web, judge worker, and platform worker,
 disables the web HPA target (and pauses KEDA if configured), then rechecks
 deployments, pods, and autoscalers immediately before the full migration run. Do not apply this contract with a standalone production
