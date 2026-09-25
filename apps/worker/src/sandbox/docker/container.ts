@@ -1,25 +1,13 @@
 import { runDockerCommand } from "./process";
-import { DOCKER_MANAGED_LABEL, hasExpiredDockerResourceLabels } from "./resource";
-
-interface DockerContainerInspection {
-  Config?: unknown;
-}
-
-function parseContainerInspection(stdout: string): DockerContainerInspection | null {
-  if (stdout.length === 0) return null;
-  const parsed = JSON.parse(stdout) as unknown;
-  if (!Array.isArray(parsed) || parsed.length !== 1) {
-    throw new Error("Docker container inspect returned an unexpected payload.");
-  }
-  const inspection = parsed[0] as unknown;
-  if (!inspection || typeof inspection !== "object" || Array.isArray(inspection)) {
-    throw new Error("Docker container inspect returned a malformed resource.");
-  }
-  return inspection;
-}
+import {
+  DOCKER_MANAGED_LABEL,
+  hasExpiredDockerResourceLabels,
+  parseDockerIds,
+  parseDockerInspection,
+} from "./resource";
 
 function shouldSweepContainerInspection(
-  inspection: DockerContainerInspection,
+  inspection: Record<string, unknown>,
   nowMs: number,
 ): boolean {
   if (
@@ -45,19 +33,11 @@ export async function sweepOrphanContainers(nowMs = Date.now()): Promise<void> {
     "--format",
     "{{.ID}}",
   ]);
-  const ids = [
-    ...new Set(
-      stdout
-        .split("\n")
-        .map((id) => id.trim())
-        .filter(Boolean),
-    ),
-  ];
-  for (const id of ids) {
+  for (const id of parseDockerIds(stdout)) {
     const inspected = await runDockerCommand(["container", "inspect", id], {
       ignoreMissingResource: true,
     });
-    const inspection = parseContainerInspection(inspected.stdout);
+    const inspection = parseDockerInspection(inspected.stdout, "container");
     if (!inspection || !shouldSweepContainerInspection(inspection, nowMs)) continue;
     await runDockerCommand(["container", "rm", "--force", id], {
       ignoreMissingResource: true,

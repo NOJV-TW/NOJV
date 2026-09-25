@@ -68,3 +68,30 @@ export function dockerLabelArgs(labels: Readonly<Record<string, string>>): strin
     .sort(([left], [right]) => left.localeCompare(right))
     .flatMap(([key, value]) => ["--label", `${key}=${value}`]);
 }
+
+export function parseDockerIds(stdout: string): string[] {
+  return [
+    ...new Set(
+      stdout
+        .split("\n")
+        .map((id) => id.trim())
+        .filter(Boolean),
+    ),
+  ];
+}
+
+export function parseDockerInspection(
+  stdout: string,
+  kind: "container" | "network",
+): Record<string, unknown> | null {
+  if (stdout.length === 0) return null;
+  const parsed = JSON.parse(stdout) as unknown;
+  if (!Array.isArray(parsed) || parsed.length !== 1) {
+    throw new Error(`Docker ${kind} inspect returned an unexpected payload.`);
+  }
+  const inspection = parsed[0] as unknown;
+  if (!inspection || typeof inspection !== "object" || Array.isArray(inspection)) {
+    throw new Error(`Docker ${kind} inspect returned a malformed resource.`);
+  }
+  return inspection as Record<string, unknown>;
+}

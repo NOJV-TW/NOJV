@@ -4,6 +4,8 @@ import {
   buildDockerResourceLabels,
   dockerLabelArgs,
   hasExpiredDockerResourceLabels,
+  parseDockerIds,
+  parseDockerInspection,
 } from "./resource";
 
 const INTERNAL_NETWORK_PREFIX = "nojv-net-internal-";
@@ -72,19 +74,6 @@ export function shouldSweepNetworkInspection(
   return hasExpiredDockerResourceLabels(inspection.Labels, nowMs);
 }
 
-function parseNetworkInspection(stdout: string): DockerNetworkInspection | null {
-  if (stdout.length === 0) return null;
-  const parsed = JSON.parse(stdout) as unknown;
-  if (!Array.isArray(parsed) || parsed.length !== 1) {
-    throw new Error("Docker network inspect returned an unexpected payload.");
-  }
-  const inspection = parsed[0] as unknown;
-  if (!inspection || typeof inspection !== "object" || Array.isArray(inspection)) {
-    throw new Error("Docker network inspect returned a malformed resource.");
-  }
-  return inspection;
-}
-
 export async function sweepOrphanNetworks(nowMs = Date.now()): Promise<void> {
   const { stdout } = await runDockerCommand([
     "network",
@@ -94,19 +83,11 @@ export async function sweepOrphanNetworks(nowMs = Date.now()): Promise<void> {
     "--format",
     "{{.ID}}",
   ]);
-  const ids = [
-    ...new Set(
-      stdout
-        .split("\n")
-        .map((id) => id.trim())
-        .filter(Boolean),
-    ),
-  ];
-  for (const id of ids) {
+  for (const id of parseDockerIds(stdout)) {
     const inspected = await runDockerCommand(["network", "inspect", id], {
       ignoreMissingResource: true,
     });
-    const inspection = parseNetworkInspection(inspected.stdout);
+    const inspection = parseDockerInspection(inspected.stdout, "network");
     if (!inspection || !shouldSweepNetworkInspection(inspection, nowMs)) continue;
     try {
       await runDockerCommand(["network", "rm", id], { ignoreMissingResource: true });
