@@ -12,18 +12,7 @@ NOJV adopts DOMjudge judging semantics but not its ICPC contest-control features
 - Rule: output overflow (16 MiB) is RE; there is no OLE verdict. OLE and lossless bundle export (TestcaseSet boundaries and weights) are later candidates; lazy_eval and scorecache wait for measurements showing they are needed.
 - Code: `docs/architecture/JUDGE_PIPELINE.md`
 
-### UI-02 Architecture is right-sized; no rewrite
-
-**Decided:** 2026-07 · **Source:** [2026-07-07-system-health-check-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-07-system-health-check-remediation.md)
-
-Keep the layering UI → presentation → `@nojv/application` → repositories, the `DomainOrchestrationAdapter` that keeps `@temporalio/*` out of application code, and the sandbox isolation design. The repository layer is a curated query catalog. The layering is enforced (no cycles, ESLint allow-list), and the adapter already contained a Temporal module-load crash.
-
-- Rejected: microservices, CQRS/event sourcing, hexagonal architecture everywhere, merging the worker into web, dropping repositories for raw Prisma.
-- Rule: ESLint layer-guard exceptions narrow a specific package pattern; never disable the whole rule.
-- Rule: zero-comment rule, enforced by `pnpm lint:comments`.
-- Code: `packages/application/src/shared/orchestration.ts`, `scripts/check-comments.mjs`
-
-### UI-03 Public problem publishing stays owner-driven
+### UI-02 Public problem publishing stays owner-driven
 
 **Decided:** 2026-09 · **Source:** [2026-09-08-problem-permissions](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-08-problem-permissions.md)
 
@@ -31,7 +20,7 @@ Existing owner publish eligibility and public-problem ownership are unchanged; w
 
 - Rule: adopting admin-only publishing needs its own plan covering owner permission takeover and notification/handover.
 
-### UI-04 Email is an opt-out channel on top of in-site notifications
+### UI-03 Email is an opt-out channel on top of in-site notifications
 
 **Decided:** 2026-07 · **Source:** [2026-07-10-email-notifications-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-07-10-email-notifications-design.md), [2026-07-10-email-notifications-plan](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-07-10-email-notifications-plan.md)
 
@@ -42,7 +31,7 @@ Every notification event is always created in-site; email is gated by per-user b
 - Rule: email only verified, non-placeholder addresses, and link to `/account` for preferences.
 - Code: `packages/db/prisma/schema/notification.prisma`, `packages/core/src/notification-preferences.ts`, `packages/application/src/notification/email.ts`
 
-### UI-05 Editorials and discussions are one problem-post model with moderated reports
+### UI-04 Editorials and discussions are one problem-post model with moderated reports
 
 **Decided:** 2026-07 · **Source:** [2026-07-10-problem-posts-discussions](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-07-10-problem-posts-discussions.md), [2026-07-10-problem-posts-discussions-plan](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-07-10-problem-posts-discussions-plan.md), [2026-05-18-feature-completion-batch](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-18-feature-completion-batch.md), [2026-04-30-functional-gaps](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-30-functional-gaps.md)
 
@@ -53,7 +42,7 @@ Every notification event is always created in-site; email is gated by per-user b
 - Rule: one report per user per target, never on one's own content, reason 1–1000 characters; the exactly-one-target CHECK is hand-written migration SQL.
 - Code: `packages/db/prisma/schema/submission.prisma`, `packages/application/src/post/`, `apps/web/src/routes/(app)/admin/reports`
 
-### UI-06 Problem posts are gated server-side by active context and AC
+### UI-05 Problem posts are gated server-side by active context and AC
 
 **Decided:** 2026-07 · **Source:** [2026-05-27-submission-unification-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-27-submission-unification-design.md), [2026-07-10-problem-posts-discussions](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-07-10-problem-posts-discussions.md), [2026-09-05-architecture-simplification](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-05-architecture-simplification.md)
 
@@ -64,7 +53,7 @@ Every post, comment, vote and report path resolves the user's strictest active c
 - Rule: exam confinement never allows the posts or comments API paths; post tabs render only in practice mode.
 - Code: `packages/application/src/post/queries.ts`, `packages/application/src/post/mutations.ts`, `tests/unit/security/exam-confinement-api-allowlist.test.ts`
 
-### UI-07 Posts live in the problem workspace panel
+### UI-06 Posts live in the problem workspace panel
 
 **Decided:** 2026-07 · **Source:** [2026-07-10-problem-posts-discussions-plan](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-07-10-problem-posts-discussions-plan.md), [2026-07-10-problem-posts-discussions](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-10-problem-posts-discussions.md)
 
@@ -73,7 +62,7 @@ Editorials and discussions live entirely in the problem workspace's left panel, 
 - Rejected: standalone `/problems/[id]/{editorials|discussions}/[postId]` pages and the old editorial edit pages, which were removed.
 - Code: `apps/web/src/lib/components/features/posts/`
 
-### UI-08 All UI text ships in en and zh-TW through Paraglide
+### UI-07 All UI text ships in en and zh-TW through Paraglide
 
 **Decided:** 2026-04 · **Source:** [2026-04-03-problem-config-implementation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-03-problem-config-implementation.md), [2026-04-11-admin-users-ux-refinement-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-11-admin-users-ux-refinement-design.md)
 
@@ -84,7 +73,7 @@ Every new UI string is a Paraglide message (`m.*`) with both `en` and `zh-TW` va
 - Rule: Paraglide runs on the client, so server loaders return stable ids and translated text lives in `.svelte` files.
 - Code: `apps/web/messages/`
 
-### UI-09 One site-level locale switcher; locale-bound date formatting
+### UI-08 One site-level locale switcher; locale-bound date formatting
 
 **Decided:** 2026-04 · **Source:** [2026-04-11-course-experience-redesign-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-11-course-experience-redesign-design.md), [2026-05-20-grading-feedback-audit-batch-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-20-grading-feedback-audit-batch-design.md)
 
@@ -95,7 +84,7 @@ The header en/zh-TW switcher is the only language control, and all date/time dis
 - Rule: skeletons only for deferred loads; list pages rely on SSR.
 - Code: `apps/web/src/lib/utils/datetime.ts`
 
-### UI-10 Pages use three layout archetypes: Index, Hub, Workspace
+### UI-09 Pages use three layout archetypes: Index, Hub, Workspace
 
 **Decided:** 2026-04 · **Source:** [2026-04-30-page-layout-system](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-30-page-layout-system.md)
 
@@ -107,7 +96,7 @@ Pages differ by header zone and share one body container: Index (lists) uses `<P
 - Rule: spacing `space-y-6` within a section, `space-y-10` between sections, `space-y-16` for major breaks.
 - Code: `apps/web/src/lib/components/primitives/layout/`
 
-### UI-11 Top-level list pages share a header and `?tab=` tab row
+### UI-10 Top-level list pages share a header and `?tab=` tab row
 
 **Decided:** 2026-04 · **Source:** [2026-04-16-list-page-unification-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-16-list-page-unification-design.md)
 
@@ -117,7 +106,7 @@ Pages differ by header zone and share one body container: Index (lists) uses `<P
 - Rule: list filters use `?tab=`; archived courses are dimmed inline and count toward tab totals.
 - Code: `apps/web/src/routes/(app)/assignments/+page.server.ts`
 
-### UI-12 Share a component only when content converges, not shape
+### UI-11 Share a component only when content converges, not shape
 
 **Decided:** 2026-04 · **Source:** [2026-04-12-codebase-cleanup-audit](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-12-codebase-cleanup-audit.md), [2026-04-16-list-page-unification-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-16-list-page-unification-design.md)
 
@@ -126,7 +115,7 @@ Do not extract a shared component because surfaces look alike; list-page header 
 - Rejected: `DataTableWithFilters` (matched pages by line count) and `ListPageShell`; changing `Section.svelte` globally for one page.
 - Code: `docs/architecture/DESIGN.md`
 
-### UI-13 Table filters and row editors use Bits UI, not native selects
+### UI-12 Table filters and row editors use Bits UI, not native selects
 
 **Decided:** 2026-09 · **Source:** [2026-09-07-member-table-filters](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-07-member-table-filters.md)
 
@@ -135,7 +124,7 @@ Do not extract a shared component because surfaces look alike; list-page header 
 - Rule: privileged-role changes keep confirmation and reset the row selection on cancel or rejection; the confirmation cancel uses Bits UI `Dialog.Close` so caller cleanup runs.
 - Code: `apps/web/src/routes/(app)/courses/[courseId]/members/+page.svelte`
 
-### UI-14 Mobile is read-only; no solving workspace below `md`
+### UI-13 Mobile is read-only; no solving workspace below `md`
 
 **Decided:** 2026-04 · **Source:** [2026-04-30-functional-gaps](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-30-functional-gaps.md)
 
@@ -145,17 +134,17 @@ Phones browse statements, lists, scoreboards, posts and dashboards, but the Mona
 - Rule: every `(app)` page must still render at `sm` width.
 - Code: `apps/web/src/lib/components/features/problem/layouts/MobileWorkspaceBlocker.svelte`
 
-### UI-15 Solve pages fill the viewport; motion stays restrained
+### UI-14 Solve pages fill the viewport; motion stays restrained
 
 **Decided:** 2026-06 · **Source:** [2026-06-02-ui-overhaul-animations](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-02-ui-overhaul-animations.md)
 
 Routes ending in `/problems/[problemId]` render immersive: `h-dvh`, no footer, no page scroll. Entrance animations take at most 700ms and hover transitions at most 160ms, and `prefers-reduced-motion` is respected globally. The earlier layout overflowed 100dvh, pushing the footer and clipping borders.
 
-- Rejected: an output diff view. Earlier: localStorage draft autosave, replaced by the server-side `CodeDraft` table.
+- Rejected: an output diff view (see SEC-12 in security.md). Draft storage is WEB-05 in web.md.
 - Rule: no magic-number `calc(100dvh-…)` heights.
 - Code: `apps/web/src/routes/(app)/+layout.svelte`, `apps/web/src/app.css`
 
-### UI-16 The problem editor follows the author's mental model
+### UI-15 The problem editor follows the author's mental model
 
 **Decided:** 2026-04 · **Source:** [2026-04-09-problem-ui-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-09-problem-ui-redesign.md), [2026-04-03-problem-config-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-03-problem-config-redesign.md)
 
@@ -165,7 +154,7 @@ Editor sections run basic statement → workspace (limits, env, languages, files
 - Rule: keep execution limits and env next to the workspace files they affect.
 - Code: `apps/web/src/routes/(app)/problems/[problemId]/edit/+page.svelte`
 
-### UI-17 Activity problems are chosen in one explicit multi-select dialog
+### UI-16 Activity problems are chosen in one explicit multi-select dialog
 
 **Decided:** 2026-08 · **Source:** [2026-08-16-problem-picker-search](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-08-16-problem-picker-search.md), [2026-08-20-problem-selector-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-20-problem-selector-redesign.md), [2026-08-18-drag-reorder-problems](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-08-18-drag-reorder-problems.md)
 
@@ -175,7 +164,7 @@ Assignment, exam and contest flows share `ProblemSelectDialog`: search by displa
 - Rule: the dialog only returns candidates; parents own ordered rows, points, permissions and saves.
 - Code: `apps/web/src/lib/components/features/problem/ProblemSelectDialog.svelte`, `apps/web/src/lib/utils/reorder.ts`
 
-### UI-18 Assessment management shares one tab set; hand-in lives on the exam overview
+### UI-17 Assessment management shares one tab set; hand-in lives on the exam overview
 
 **Decided:** 2026-09 · **Source:** [2026-09-21-exam-access-safety](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-21-exam-access-safety.md)
 
@@ -185,7 +174,7 @@ Assignment, exam and contest management use `AssessmentManageTabs`: Problems / S
 - Rule: hand-in confirmation focuses cancel first.
 - Code: `apps/web/src/lib/components/features/coursework/AssessmentManageTabs.svelte`, `apps/web/src/lib/components/features/course/exam/ExamHandInPanel.svelte`
 
-### UI-19 Submission IDs appear only in detail views
+### UI-18 Submission IDs appear only in detail views
 
 **Decided:** 2026-09 · **Source:** [2026-09-08-submission-id](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-08-submission-id.md)
 
@@ -193,17 +182,17 @@ Submission IDs, with a copy button, appear as a labeled metadata field only in s
 
 - Code: `apps/web/src/lib/components/features/submission/SubmissionId.svelte`
 
-### UI-20 The personal dashboard is an ability overview, not an aggregator
+### UI-19 The personal dashboard is an ability overview, not an aggregator
 
 **Decided:** 2026-04 · **Source:** [2026-04-11-dashboard-ability-redesign-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-11-dashboard-ability-redesign-design.md), [2026-04-11-dashboard-ability-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-11-dashboard-ability-redesign.md)
 
-The personal `/dashboard` view shows only the user's ability data (KPIs, 30-day activity heatmap, top tags by AC, difficulty and verdict charts, recent submissions), derived from existing data with no new tables. It had duplicated dedicated routes and lost its purpose. A separate `?view=server` tab shows the platform overview.
+The personal `/dashboard` view shows only the user's ability data (KPIs, activity heatmap bucketed as in WEB-06 in web.md, top tags by AC, difficulty and verdict charts, recent submissions), derived from existing data with no new tables. It had duplicated dedicated routes and lost its purpose. A separate `?view=server` tab shows the platform overview.
 
-- Rejected: repeating courses, assessments, announcements or recommendations; longer heatmap ranges, tag taxonomies and peer percentiles (deferred).
+- Rejected: repeating courses, assessments, announcements or recommendations; tag taxonomies and peer percentiles (deferred). Earlier: a 30-day heatmap (2026-04) — extended to a 365-day window.
 - Rule: no Fraunces, `uppercase` or `tracking-wide` on CJK-heavy headings or labels; numbers use `tabular-nums`.
 - Code: `apps/web/src/routes/(app)/dashboard/+page.svelte`, `packages/application/src/user/queries.ts`
 
-### UI-21 Home shows every visible item in equal-height scroll panels
+### UI-20 Home shows every visible item in equal-height scroll panels
 
 **Decided:** 2026-09 · **Source:** [2026-09-04-home-scroll-panels](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-04-home-scroll-panels.md)
 
@@ -212,7 +201,7 @@ Home announcement and assessment reads have no homepage-only limits but keep aud
 - Rejected: tabs or new components for this.
 - Code: `packages/application/src/home/upcoming-assessments.ts`, `apps/web/src/routes/(public)/+page.server.ts`
 
-### UI-22 About and legal pages are public and reached from the footer
+### UI-21 About and legal pages are public and reached from the footer
 
 **Decided:** 2026-05 · **Source:** [2026-05-12-about-page-and-footer-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-12-about-page-and-footer-design.md)
 
@@ -221,7 +210,7 @@ Home announcement and assessment reads have no homepage-only limits but keep aud
 - Rejected: a CMS or DB-backed developer list; newsletter or social links; a collapsible mobile footer; an About link in the header.
 - Code: `apps/web/src/routes/(public)/about`, `apps/web/src/lib/components/primitives/layout/Footer.svelte`
 
-### UI-23 Onboarding tours: one engine, role registries, server-side seen state
+### UI-22 Onboarding tours: one engine, role registries, server-side seen state
 
 **Decided:** 2026-07 · **Source:** [2026-07-11-teacher-onboarding-tour](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-07-11-teacher-onboarding-tour.md), [2026-07-15-durable-onboarding-tour-state](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-07-15-durable-onboarding-tour-state.md)
 

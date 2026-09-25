@@ -1,6 +1,6 @@
 # Courses, contests, exams and scoring decisions
 
-Durable decisions for courses and rosters, standalone contests, assignments, course exams, clarifications, activity scoring and grading, exam proctoring and plagiarism detection. Read the relevant entries before planning a change here; a change that contradicts an entry must say so and update or replace the entry in the same PR. Current mechanics live in [Product Sense](../product/PRODUCT_SENSE.md) and the [feature specs](../specs/) ([assignments](../specs/assignments.md), [contests](../specs/contests.md), [exams](../specs/exams.md), [proctoring](../specs/proctoring.md), [plagiarism](../specs/plagiarism.md)).
+Durable decisions for courses and rosters, standalone contests, assignments, course exams, clarifications, activity scoring and grading, exam proctoring and plagiarism detection. Read the relevant entries before planning a change here; a change that contradicts an entry must say so and update or replace the entry in the same PR. Current mechanics live in [Product Sense](../product/PRODUCT_SENSE.md) and the [feature specs](../features/) ([assignments](../features/assignments.md), [contests](../features/contests.md), [exams](../features/exams.md), [proctoring](../features/proctoring.md), [plagiarism](../features/plagiarism.md)).
 
 ### ASM-01 Course exams and standalone contests are separate entities
 
@@ -10,7 +10,7 @@ Durable decisions for courses and rosters, standalone contests, assignments, cou
 
 - Rejected: one `Contest` table with an optional `courseId` (replaced); giving contests exam-style proctoring parity (2026-04 plan, only the shared gate module shipped; for contests it checks publish state and time window only).
 - Rule: Do not add `courseId` or proctoring fields to `Contest`, and do not model course exams as contests.
-- Rule: A submission belongs to at most one context, enforced by the single-context DB CHECK.
+- Rule: A submission belongs to at most one context (see DAT-03 in data.md).
 - Code: `packages/db/prisma/schema/contest.prisma`, `packages/application/src/proctoring/gate.ts`
 
 ### ASM-02 One course UI for every role
@@ -109,15 +109,17 @@ A single `Clarification` model keyed by `contextType` + `contextId`, optionally 
 - Rule: Asking and answering are limited to the context's active window; reads stay open afterwards. Asking is rate-limited to 5 per (user, context) per 10 minutes.
 - Code: `packages/db/prisma/schema/clarification.prisma`, `packages/application/src/clarification/permissions.ts`, `packages/application/src/clarification/mutations.ts`
 
-### ASM-11 Clarifications are private until answered publicly; notify on first answer only
+### ASM-11 Clarifications are private until answered publicly, askers are anonymous to non-staff, and only the first answer notifies
 
-**Decided:** 2026-07 · **Source:** [2026-04-19-clarification-board-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-19-clarification-board-design.md)
+**Decided:** 2026-07 · **Source:** [2026-04-19-clarification-board-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-19-clarification-board-design.md), [2026-04-19-clarification-board-plan](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-19-clarification-board-plan.md)
 
-A non-staff viewer sees their own questions plus answers staff marked `isPublic` (default false). The asker gets one durable `clarification_answered` notification on `pending -> answered`, deduplicated by clarification ID; edits and dismissals send nothing. Staff can reply with fixed canned templates (noComment, readProblem, yes, no), which are always public, to speed replies and reduce hint leakage.
+A non-staff viewer sees their own questions plus answers staff marked `isPublic` (default false). The DB stores the real `askedByUserId`, but projections drop the author for anyone who is not staff/admin of the context; the viewer's own rows carry only an `isMine` flag. Anonymity lowers the barrier to asking while staff stay accountable. The asker gets one durable `clarification_answered` notification on `pending -> answered`, deduplicated by clarification ID; edits and dismissals send nothing. Staff can reply with fixed canned templates (noComment, readProblem, yes, no), which are always public, to speed replies and reduce hint leakage.
 
-- Rejected: Earlier: every question visible to all participants while pending (2026-04, ICPC-style transparency) — replaced by per-answer `isPublic` in migration `20260702140000_clarification_visibility`. Notifying on dismissal (judged passive-aggressive).
+- Rejected: Earlier: every question visible to all participants while pending (2026-04, ICPC-style transparency) — replaced by per-answer `isPublic` in migration `20260702140000_clarification_visibility`. Earlier: no "you asked this" marker, so askers were anonymous even to themselves (2026-04) — the `isMine` badge now marks the viewer's own rows. Notifying on dismissal (judged passive-aggressive).
+- Rule: Non-staff JSON never includes `askedByUserId`/`askedBy`; SSE/pub-sub carrying identity goes only to staff channels or is re-masked per subscriber.
+- Rule: Elimination in very small rooms is an accepted limit.
 - Rule: Answer edits must not create another notification.
-- Code: `packages/application/src/clarification/queries.ts`, `apps/web/src/routes/api/clarifications/[id]/replies/+server.ts`
+- Code: `packages/application/src/clarification/queries.ts`, `packages/application/src/clarification/permissions.ts`, `apps/web/src/routes/api/clarifications/[id]/replies/+server.ts`
 
 ### ASM-12 Late policy: activity-level due date, hard close, flat or daily penalty
 
@@ -135,7 +137,7 @@ Assignments and exams share `dueAt` (on-time) plus a hard deadline (`Assessment.
 
 **Decided:** 2026-06 · **Source:** [2026-06-04-rejudge-ops-attempt-limit](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-04-rejudge-ops-attempt-limit.md), [2026-04-14-course-experience-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-14-course-experience-redesign.md)
 
-`maxAttemptsPerDay` (renamed from `maxAttempts` so the old name did not change meaning) caps attempts per problem per window, which resets at `attemptResetMinuteOfDay` (0-1439, Asia/Taipei, default 300 = 05:00). Batch rejudges expose progress and cancel; the workflow ID (with millisecond timestamp) acts as a capability token returned to the starter, and cancel does not undo finished rejudges because rejudge is idempotent.
+`maxAttemptsPerDay` (renamed from `maxAttempts` so the old name did not change meaning) caps attempts per problem per window, which resets at `attemptResetMinuteOfDay` (0-1439, Asia/Taipei, default 300 = 05:00). Batch rejudges expose progress and cancel to the requester or an admin (see SEC-13 in security.md); cancel does not undo finished rejudges because rejudge is idempotent.
 
 - Rejected: a per-assignment total cap; whole-hour-only reset setting; notifying students when a rejudge changes their score.
 - Rule: Enforcement and display share `attemptWindowStart`; the server check is the final guard. A rejudge never consumes an attempt.
@@ -150,32 +152,22 @@ Assignments and exams share `dueAt` (on-time) plus a hard deadline (`Assessment.
 - Rule: Every lifecycle transition, including automatic ones, writes an audit row.
 - Code: `packages/db/prisma/schema/course.prisma` (`AssessmentAuditLog`), `packages/application/src/audit/queries.ts`
 
-### ASM-15 Subtasks score all-or-nothing
-
-**Decided:** 2026-04 · **Source:** [2026-04-13-judge-config-simplification-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-13-judge-config-simplification-design.md), [2026-05-16-analytics-virtual-contest-upsolve](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-16-analytics-virtual-contest-upsolve.md)
-
-A subtask earns its full weight only if every case is AC, otherwise 0; there is no per-subtask strategy and no per-case partial credit.
-
-- Rejected: Earlier: per-subtask `all_or_nothing` / `proportional` / `minimum` strategies in `judgeConfig.scoring.subtaskStrategies` (2026-04), then a `TestcaseSet.scoringStrategy` enum with real MINIMUM semantics (2026-05) — both removed.
-- Rule: Do not add partial or strategy scoring without revisiting [Judge Pipeline](../architecture/JUDGE_PIPELINE.md).
-- Code: `packages/application/src/submission/scoring.ts`
-
-### ASM-16 Timed-context scoring is shared pure code behind one orchestrator
+### ASM-15 Timed-context scoring is shared pure code behind one orchestrator
 
 **Decided:** 2026-06 · **Source:** [2026-06-11-triplet-model-convergence-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-11-triplet-model-convergence-design.md), [2026-06-11-post-audit-next-phase](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-11-post-audit-next-phase.md), [2026-06-10-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-10-audit-remediation.md)
 
-Scoreboard and scoring algorithms are entity-agnostic pure functions in `@nojv/application` (not in Temporal activities). Contest, exam and virtual participations are one `Participation` supertype with an exactly-one-context CHECK. Contest and exam persisted-score updates share `runScoreUpdate(adapter)`, which owns the retry loop, scoring-mode branch and the pure `computeBestScoreState` / `computeProblemCountState`; writes use an optimistic-lock `version`. Duplicated persistence caused a shipped P1 where exam judging never updated scores.
+Scoreboard and scoring algorithms are entity-agnostic pure functions in `@nojv/application` (not in Temporal activities). Contest, exam and virtual participations share one `Participation` table (see DAT-04 in data.md). Contest and exam persisted-score updates share `runScoreUpdate(adapter)`, which owns the retry loop, scoring-mode branch and the pure `computeBestScoreState` / `computeProblemCountState`; writes use an optimistic-lock `version`. Duplicated persistence caused a shipped P1 where exam judging never updated scores.
 
 - Rejected: forking scoring per entity; one four-way implementation including virtual contests (computed at read time) and assignments (aggregate on read), whose shapes differ.
 - Rule: New timed-scoring contexts add an adapter and never copy the retry loop; score writes go through versioned update with retry.
 - Rule: The judge workflow picks the branch with pure `resolveScoringDispatch`.
 - Code: `packages/application/src/scoring/run-score-update.ts`, `packages/application/src/scoring/persist-core.ts`
 
-### ASM-17 Raw problem scores and activity point allocation are separate
+### ASM-16 Raw problem scores and activity point allocation are separate
 
 **Decided:** 2026-09 · **Source:** [2026-06-29-problem-total-score](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-06-29-problem-total-score.md), [2026-09-08-assessment-problem-weights](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-08-assessment-problem-weights.md), [2026-07-10-gradebook-public-profile](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-07-10-gradebook-public-profile.md)
 
-A Standard problem's raw total is the sum of its testcase-set weights; an Advanced problem's is `advancedConfig.maxScore` (default 100). Submissions, overrides and adjustment rules stay on that raw scale. Assignments and exams have a `totalPoints` (default 100) and per-problem allocated `points` (Decimal) that the gradebook and activity totals use; teachers need weighted totals independent of raw maxima. Exam participation scores are recomputed through durable work with revision checks; assignments compute on read.
+A Standard problem's raw total is the sum of its testcase-set weights (each scored all-or-nothing, see JDG-04 in judge.md); an Advanced problem's is `advancedConfig.maxScore` (default 100). Submissions, overrides and adjustment rules stay on that raw scale. Assignments and exams have a `totalPoints` (default 100) and per-problem allocated `points` (Decimal) that the gradebook and activity totals use; teachers need weighted totals independent of raw maxima. Exam participation scores are recomputed through durable work with revision checks; assignments compute on read.
 
 - Rejected: using raw maxima directly as allocations; a raw-only gradebook with no weighting (2026-07, teachers computed ratios from CSV) — replaced by allocated points; allocation reasons and audit history (removed on request).
 - Rule: Published allocations must sum to the total; new problems start at zero with an explicit equal-distribution action.
@@ -183,7 +175,7 @@ A Standard problem's raw total is the sum of its testcase-set weights; an Advanc
 - Rule: Contest scoring and problem versioning are unaffected by activity weighting. Students see only their own gradebook row.
 - Code: `packages/application/src/scoring/activity-points.ts`, `packages/application/src/course/gradebook.ts`, `packages/application/src/problem/total-score.ts`
 
-### ASM-18 Score overrides are per membership, reasoned, audited, and never for contests
+### ASM-17 Score overrides are per membership, reasoned, audited, and never for contests
 
 **Decided:** 2026-04 · **Source:** [2026-04-19-rejudge-and-score-override-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-19-rejudge-and-score-override-design.md), [2026-09-21-exam-access-safety](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-21-exam-access-safety.md), [2026-09-07-course-roster](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-07-course-roster.md)
 
@@ -195,7 +187,7 @@ An override sets a student's final raw score for one problem in one assignment o
 - Rule: Contest scoring and scoreboards never read overrides.
 - Code: `packages/core/src/schemas/score-override.ts`, `packages/db/prisma/schema/submission.prisma` (`ScoreOverride`)
 
-### ASM-19 Grading happens after close; feedback is its own table
+### ASM-18 Grading happens after close; feedback is its own table
 
 **Decided:** 2026-05 · **Source:** [2026-05-20-grading-feedback-audit-batch-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-20-grading-feedback-audit-batch-design.md), [2026-05-22-feedback-audit-and-plagiarism-trigger-log-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-22-feedback-audit-and-plagiarism-trigger-log-design.md)
 
@@ -205,7 +197,7 @@ Override and feedback mutations by non-admins fail with 409 until the context cl
 - Rule: `assertContextClosed` guards every override and feedback mutation for non-admins.
 - Code: `packages/application/src/shared/context-window.ts`, `packages/application/src/score-override/permissions.ts`, `packages/application/src/feedback/permissions.ts`
 
-### ASM-20 Exam confinement is a server-side session lock enforced in the global hook
+### ASM-19 Exam confinement is a server-side session lock enforced in the global hook
 
 **Decided:** 2026-04 · **Source:** [2026-03-20-page-lock-ip-lock-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-03-20-page-lock-ip-lock-design.md), [2026-04-11-course-experience-redesign-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-11-course-experience-redesign-design.md), [2026-04-14-course-experience-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-14-course-experience-redesign.md)
 
@@ -216,18 +208,18 @@ With page lock on, starting an exam creates an `ActiveExamSession` and `hooks.se
 - Rule: At most one un-ended active session per user; session events are append-only.
 - Code: `apps/web/src/hooks.server.ts`, `apps/web/src/lib/server/exam-lock.ts`, `apps/worker/src/workflows/exam-auto-close.ts`
 
-### ASM-21 Exam IP rules: whitelist and first-binding, gated on every request, fail closed
+### ASM-20 Exam IP rules: whitelist and first-binding, gated on every request, fail closed
 
 **Decided:** 2026-05 · **Source:** [2026-03-20-page-lock-ip-lock-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-03-20-page-lock-ip-lock-design.md), [2026-05-26-exam-ip-gating-hardening-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-26-exam-ip-gating-hardening-design.md), [2026-05-18-feature-completion-batch](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-18-feature-completion-batch.md)
 
 A CIDR whitelist and first-visit IP binding are independent toggles sharing `ipViolationMode`: `block` denies, `notify` allows and logs. During an active exam session the hook runs `checkProctoringGate` on every page and `/api` request, and submission re-checks it. Violations are logged in both modes, throttled to one per 60s per (exam, user, type), and capped at the newest 2000 rows per exam, pruned in the insert transaction. Teachers can reset one student's binding (clears the pin, 10-minute grace, next machine re-pins).
 
 - Rejected: a single unenforced `ipLockEnabled` flag; Earlier: fail-open active-exam context lookup for availability (2026-05) — now fails closed with 503; a whole-exam IP kill switch; extra anti-spoofing beyond the `CF-Connecting-IP` trust model.
-- Rule: The IP decision is the pure `evaluateIpLock`; CIDR matching handles IPv4, IPv6 and IPv4-mapped IPv6; only trust `CF-Connecting-IP` in production.
+- Rule: The IP decision is the pure `evaluateIpLock`; CIDR matching handles IPv4, IPv6 and IPv4-mapped IPv6; only trust `CF-Connecting-IP` in production (see SEC-09 in security.md).
 - Rule: Notify mode never silently drops a violation; path matching uses strict prefixes.
 - Code: `packages/application/src/shared/ip.ts`, `packages/application/src/proctoring/violation-logger.ts`, `packages/db/src/repositories/ip-violation.ts`
 
-### ASM-22 Exam submissions are scoped to the exam and final after hand-in
+### ASM-21 Exam submissions are scoped to the exam and final after hand-in
 
 **Decided:** 2026-09 · **Source:** [2026-06-12-full-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-12-full-audit-remediation.md), [2026-09-08-exam-submission-finality](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-08-exam-submission-finality.md)
 
@@ -238,7 +230,7 @@ Exam submissions and code drafts must target a problem linked to the exam (a con
 - Rule: Student start, end and exam submission admission serialize on the per-user advisory lock; repeated end is idempotent; submissions already accepted may finish judging after hand-in.
 - Code: `packages/application/src/submission/creation.ts`, `packages/application/src/exam/session.ts`
 
-### ASM-23 Exam-scoped expiring passwords as an extra login path
+### ASM-22 Exam-scoped expiring passwords as an extra login path
 
 **Decided:** 2026-09 · **Source:** [2026-09-21-exam-access-safety](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-21-exam-access-safety.md)
 
@@ -250,7 +242,7 @@ Each published exam issues one credential per active bound student membership, 2
 - Rule: Rate-limit attempts per normalized username + IP (5 per 15 minutes); a Redis failure rejects authentication.
 - Code: `packages/db/prisma/schema/exam-credential.prisma`, `apps/web/src/lib/server/exam-password-auth.ts`
 
-### ASM-24 Plagiarism detection runs Dolos in-process in the worker
+### ASM-23 Plagiarism detection runs Dolos in-process in the worker
 
 **Decided:** 2026-04 · **Source:** [2026-04-20-dolos-migration-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-20-dolos-migration-design.md), [2026-04-20-dolos-migration-plan](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-20-dolos-migration-plan.md)
 
@@ -261,7 +253,7 @@ Each published exam issues one credential per active bound student membership, 2
 - Rule: Keep Dolos and other native addons out of the web image and `@nojv/application`.
 - Code: `apps/worker/src/activities/plagiarism.ts`, `packages/application/src/plagiarism/types.ts`
 
-### ASM-25 Plagiarism results are curatable and re-runs leave a receipt
+### ASM-24 Plagiarism results are curatable and re-runs leave a receipt
 
 **Decided:** 2026-05 · **Source:** [2026-04-30-functional-gaps](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-30-functional-gaps.md), [2026-05-22-feedback-audit-and-plagiarism-trigger-log-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-22-feedback-audit-and-plagiarism-trigger-log-design.md)
 

@@ -31,7 +31,7 @@ Work that is known, not done, and not covered by an in-flight plan. Remove an it
 - Wire the node-filesystem and Postgres alert rules to a Grafana datasource that actually receives in-cluster metrics (in-cluster Prometheus or `remote_write`); the rules and node-exporter exist, the datasource cannot be verified from the repository.
 - Confirm the edge cutover: the origin NodePort is unreachable from the LAN and the old host proxy and tunnel are decommissioned (OPS-08).
 - Measure judge latency and capacity on the deployed profiles: GKE judge concurrency against the sandbox quota ceiling, and memory safety of the single-machine quota (16 pods / 6 CPU / 16Gi). See OPS-11 and [Judge Queue](../runbooks/judge-queue.md).
-- Confirm after the next release that the former durable-work singleton workflow is terminal and only the cron parent runs (DAT-20).
+- Confirm after the next release that the former durable-work singleton workflow is terminal and only the cron parent runs (DAT-19).
 - Run the sandbox quota recovery acceptance in production: automatic recovery after capacity loss or worker restart, then 15 minutes of observation.
 
 ### Code and product

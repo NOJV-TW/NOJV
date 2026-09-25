@@ -1,6 +1,6 @@
 # Authentication and security decisions
 
-Durable decisions for identity, sign-in, MFA and step-up, admin privilege, API tokens, request-boundary hardening, data exposure and sandbox isolation. Read the relevant entries before planning a change here; a change that contradicts an entry must say so and update or replace the entry in the same PR. Current mechanics live in [Security](../operations/SECURITY.md) and [Threat Model](../operations/THREAT_MODEL.md).
+Durable decisions for identity, sign-in, MFA and step-up, admin privilege, API tokens, request-boundary hardening, data exposure and Advanced-mode output capture. Sandbox isolation lives in judge.md. Read the relevant entries before planning a change here; a change that contradicts an entry must say so and update or replace the entry in the same PR. Current mechanics live in [Security](../operations/SECURITY.md) and [Threat Model](../operations/THREAT_MODEL.md).
 
 ### SEC-01 Third-party login only; no public sign-up; admins bootstrapped from env
 
@@ -33,7 +33,7 @@ Onboarding sets a unique general username and rejects reserved student-ID format
 
 - Rejected: a separate `handle` column; inferring usernames from school email; keying verification on `schoolEmail`; email editing here and an "unverify" flow. Earlier: placeholder `pending_first_login` Users for invited handles (2026-04) — replaced by `CourseMembership.pendingUsername`.
 - Rule: `isReservedUsername` names are obtainable only through school verification; renaming a verified user throws `VERIFIED_LOCKED`.
-- Rule: a membership holds exactly one of `userId`/`pendingUsername`; binding happens only by a username the user already owns and preserves id, role and status; removed stays removed.
+- Rule: roster binding happens only by a username the user already owns; membership identity and merge rules are ASM-04 in assessments.md.
 - Code: `packages/application/src/user/mutations.ts`, `packages/core/src/reserved-username.ts`, `packages/db/prisma/schema/course.prisma`
 
 ### SEC-04 Step-up uses an enrolled factor; MFA state derives from factors
@@ -123,37 +123,26 @@ The DOMPurify hook rewrites remote `img src`/`srcset` to `/api/images/proxy` at 
 - Rule: never trust upstream Content-Type; read the cache before any fetch; rate-limit with the read limiter.
 - Code: `apps/web/src/routes/api/images/proxy/+server.ts`, `packages/storage/src/images.ts`, `apps/web/svelte.config.js`
 
-### SEC-12 Hidden-testcase output never reaches non-staff
+### SEC-12 Graded testcase data never reaches non-staff
 
-**Decided:** 2026-07 · **Source:** [2026-07-07-system-health-check-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-07-system-health-check-remediation.md)
+**Decided:** 2026-05 · **Source:** [2026-05-12-submission-detail-redesign-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-12-submission-detail-redesign-design.md), [2026-05-27-submission-unification-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-27-submission-unification-design.md), [2026-07-07-system-health-check-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-07-system-health-check-remediation.md)
 
-Every student-readable submission path strips `stdout`/`stderr` from non-sample `caseResults` via `sanitizeStudentResult`. An echo-stdin submission leaked hidden inputs through raw JSON even though the UI hid them.
+No view shows expected output or diffs. Students see per-case stdout/stderr only on sample runs (`sampleOnly`); graded cases show verdict, time and memory only. Every student-readable submission path runs `sanitizeStudentResult`, which drops `staffFeedback` from every case and `stdout`/`stderr` from non-sample `caseResults` and `subtaskResults`. An echo-stdin submission leaked hidden inputs through raw JSON even though the UI hid them.
 
-- Rule: every new student-facing result endpoint goes through the sanitizer; the verdict sanitizer fails closed.
-- Code: `packages/application/src/submission/scoring.ts`
+- Rule: never render expected output; every new student-facing result endpoint goes through the sanitizer; the verdict sanitizer fails closed.
+- Code: `packages/application/src/submission/scoring.ts`, `apps/web/src/lib/components/features/submission/CaseResultGrid.svelte`
 
-### SEC-13 Clarification askers are anonymous to all non-staff, including themselves
-
-**Decided:** 2026-04 · **Source:** [2026-04-19-clarification-board-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-19-clarification-board-design.md), [2026-04-19-clarification-board-plan](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-19-clarification-board-plan.md)
-
-The DB stores the real `askedByUserId`; projections drop the author for anyone who is not staff/admin of the context. Anonymity lowers the barrier to asking while staff stay accountable; marking the asker's own rows would let a shoulder-surfing peer de-anonymize them.
-
-- Rejected: a "you asked this" marker.
-- Rule: non-staff JSON never includes `askedByUserId`/`askedBy`; SSE/pub-sub carrying identity goes only to staff channels or is re-masked per subscriber.
-- Rule: elimination in very small rooms is an accepted limit.
-- Code: `packages/application/src/clarification/permissions.ts`
-
-### SEC-14 Rejudge control accepts only rejudge workflows owned by the caller or an admin
+### SEC-13 Rejudge control accepts only rejudge workflows owned by the caller or an admin
 
 **Decided:** 2026-06 · **Source:** [2026-06-12-full-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-12-full-audit-remediation.md), [2026-07-07-system-health-check-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-07-system-health-check-remediation.md)
 
-Cancel/progress accept only workflow IDs prefixed `rejudge-` whose memo `triggeredByUserId` is the caller, or an admin; anything else is 403. Other workflow IDs are predictable, and students could cancel their own judge to dodge the daily attempt limit.
+Cancel/progress accept only workflow IDs prefixed `rejudge-` that match a recorded rejudge dispatch whose `triggeredByUserId` is the caller, or an admin; unknown or non-rejudge IDs are 404 and other callers 403. Other workflow IDs are predictable, and students could cancel their own judge to dodge the daily attempt limit.
 
-- Rejected: treating a workflow ID as a capability token.
+- Rejected: treating a workflow ID as a capability token (the earlier rejudge-ops design returned the ID to the starter as one).
 - Rule: never pass a URL-supplied workflow ID to Temporal without prefix and ownership checks; the application layer reaches Temporal only through the orchestration adapter.
 - Code: `packages/application/src/submission/rejudge-control.ts`
 
-### SEC-15 Advanced-mode `/output` capture never dereferences student paths
+### SEC-14 Advanced-mode `/output` capture never dereferences student paths
 
 **Decided:** 2026-06 · **Source:** [2026-06-14-advanced-judge-run-grade-split-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-14-advanced-judge-run-grade-split-design.md)
 
@@ -162,12 +151,3 @@ Run output is copied host-side by `safeCopyTree` (lstat first, drop symlinks and
 - Rejected: in-container `tar --dereference` (puts the security step in a TA image); pod-log/ConfigMap transfer (1 MB limit).
 - Rule: Docker and Kubernetes gates stay behavior-identical (parity test); watchdogs count files as well as bytes.
 - Code: `apps/worker/src/sandbox/docker/advanced-mode-executor.ts`, `apps/worker/src/sandbox/kubernetes/advanced-executor.ts`
-
-### SEC-16 Restricted Pod Security for sandboxes and least-privilege worker identities
-
-**Decided:** 2026-07 · **Source:** [2026-07-20-security-hardening](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-07-20-security-hardening.md), [2026-08-07-safe-judge-latency-phase-1](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-07-safe-judge-latency-phase-1.md)
-
-The sandbox namespace enforces the `restricted` Pod Security profile. The judge worker's service account holds only sandbox permissions and the platform worker's only registry-GC permissions, with its token unmounted when the registry is disabled.
-
-- Rule: never add update, patch, Secret or cross-namespace access to the sandbox-manager role; Job `list`/`watch` is the only watch-related addition.
-- Code: `infra/charts/nojv/templates/namespaces.yaml`, `infra/charts/nojv/templates/worker-rbac.yaml`

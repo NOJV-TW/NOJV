@@ -36,12 +36,12 @@ Checkers and interactors are written in `python` or `cpp` only and follow the DO
 
 ### JDG-04 Subtasks score all-or-nothing in every context
 
-**Decided:** 2026-06 · **Source:** [2026-06-13-domjudge-alignment](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-13-domjudge-alignment.md)
+**Decided:** 2026-06 · **Source:** [2026-04-13-judge-config-simplification-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-13-judge-config-simplification-design.md), [2026-05-16-analytics-virtual-contest-upsolve](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-16-analytics-virtual-contest-upsolve.md), [2026-06-13-domjudge-alignment](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-13-domjudge-alignment.md)
 
-A TestcaseSet earns its full weight only if every case is AC, else 0, in practice, assignment, contest and exam alike. Product decision while aligning with DOMjudge; contest modes aggregate only at the problem level.
+A TestcaseSet earns its full weight only if every case is AC, else 0, in practice, assignment, contest and exam alike; there is no per-subtask strategy and no per-case partial credit. Product decision while aligning with DOMjudge; contest modes aggregate only at the problem level.
 
-- Rejected: `SubtaskScoringStrategy` (PROPORTIONAL/MINIMUM, dropped); per-case partial credit from validators.
-- Rule: no per-subtask strategy column; complex grading uses a checker (AC/WA) or Advanced Mode.
+- Rejected: per-case partial credit from validators. Earlier: per-subtask `all_or_nothing` / `proportional` / `minimum` strategies in `judgeConfig.scoring.subtaskStrategies` (2026-04), then a `TestcaseSet.scoringStrategy` enum (`SubtaskScoringStrategy`, PROPORTIONAL/MINIMUM) with real MINIMUM semantics (2026-05) — both removed.
+- Rule: no per-subtask strategy column; complex grading uses a checker (AC/WA) or Advanced Mode; adding partial or strategy scoring means revisiting [Judge Pipeline](../architecture/JUDGE_PIPELINE.md).
 - Rule: no subtask early exit; students see every case's result.
 - Code: `packages/application/src/submission/scoring.ts`
 
@@ -106,7 +106,7 @@ Any case SE makes the submission `system_error`: score 0, not scored, no attempt
 Each execution captures an immutable problem snapshot at dispatch; automatic recovery reuses it. A teacher rejudge (`single` or filtered `batch`) pins the latest effective problem version (including Advanced images) when accepted, keeps the old result visible until the new one commits, overwrites the Submission after a `SubmissionRejudgeLog` snapshot, and runs the normal post-judge path. Teachers expect rejudge to use their fix without resubmission losing timestamps; recovery must be reproducible.
 
 - Rejected: pinning rejudge to the original snapshot; forcing students to resubmit; `score_rejudged` student notification. Fire-and-forget rejudge without progress (2026-04) was reversed: `RejudgeProgress` and cancellation exist.
-- Rule: every rejudge writes an audit row, idempotent per `(submissionId, rejudgeRunId)`.
+- Rule: every rejudge writes a `SubmissionRejudgeLog` audit row (see PRB-18 in problems.md).
 - Rule: a frozen contest scoreboard snapshot is not changed by rejudges or overrides until unfreeze.
 - Rule: historical SE records without snapshots cannot be recovered from current problem contents.
 - Code: `packages/application/src/submission/judge-execution.ts`, `packages/application/src/submission/rejudge-control.ts`, `packages/db/prisma/schema/submission.prisma`
@@ -175,7 +175,7 @@ Standard-mode Test for sample and custom cases runs client-side in all eight lan
 - Rejected: more Standard settings; inline Dockerfile editing; TA docker-compose (moves hardening to TA config, breaks K8s); forcing `--user` on TA images without a concrete escape; the earlier "empty `/output` is SE" rule.
 - Rule: grade never coexists with student code; run never holds answers; Docker and K8s both stay supported.
 - Rule: the grade harness owns the verdict; the worker raises SE only on infrastructure failure (spawn, size cap, grade timeout, missing/invalid `result.json`, transfer-sidecar failure).
-- Rule: run workspace is capped (1 GiB / 100k files); per-submission resources are torn down in `finally` and swept as orphans.
+- Rule: run output crosses to grade only through the capped, symlink-safe capture gate (see SEC-14 in security.md); per-submission resources are torn down in `finally` and swept as orphans.
 - Code: `packages/core/src/schemas/advanced-mode.ts`, `apps/worker/src/sandbox/docker/advanced-mode-executor.ts`, `apps/worker/src/sandbox/kubernetes/advanced-executor.ts`
 
 ### JDG-17 Advanced network is none or service; answer-bearing containers have no egress
@@ -210,14 +210,15 @@ A single pure builder produces Docker run args, and golden tests assert the full
 
 ### JDG-20 Production K8s judging fails closed; infrastructure faults retry
 
-**Decided:** 2026-08 · **Source:** [2026-08-06-secure-low-latency-judge-autoscaling](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-06-secure-low-latency-judge-autoscaling.md), [2026-08-07-safe-judge-latency-phase-1](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-07-safe-judge-latency-phase-1.md), [2026-07-12-special-env-image-ref](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-12-special-env-image-ref.md)
+**Decided:** 2026-08 · **Source:** [2026-08-06-secure-low-latency-judge-autoscaling](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-06-secure-low-latency-judge-autoscaling.md), [2026-08-07-safe-judge-latency-phase-1](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-07-safe-judge-latency-phase-1.md), [2026-07-12-special-env-image-ref](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-12-special-env-image-ref.md), [2026-07-20-security-hardening](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-07-20-security-hardening.md)
 
-Every production sandbox Pod uses the `gvisor` RuntimeClass; at startup the worker verifies it, runs a hardened smoke Pod and a NetworkPolicy enforcement probe, and refuses to start on failure. Eviction, node loss, Spot reclamation and `ImagePullBackOff` are retryable infrastructure failures in a fresh sandbox; OOM, TLE and RE stay verdicts. Completion is observed via resource-versioned Job/Pod watches, not polling. Low latency must not weaken isolation.
+Every production sandbox Pod uses the `gvisor` RuntimeClass in a namespace that enforces the `restricted` Pod Security profile; at startup the worker verifies the RuntimeClass, runs a hardened smoke Pod and a NetworkPolicy enforcement probe, and refuses to start on failure. The judge worker's service account holds only sandbox permissions and the platform worker's only registry-GC permissions, with its token unmounted when the registry is disabled. Eviction, node loss, Spot reclamation and `ImagePullBackOff` are retryable infrastructure failures in a fresh sandbox; OOM, TLE and RE stay verdicts. Completion is observed via resource-versioned Job/Pod watches, not polling. Low latency must not weaken isolation.
 
 - Rejected: treating unpullable images as terminal SE (2026-07; replaced by durable retry of the pinned image); a reusable warm runner across submissions.
 - Rule: keep non-root, read-only rootfs, dropped capabilities, no privilege escalation, seccomp, no service-account token, limits and deadlines.
 - Rule: retries never substitute another image version.
-- Code: `apps/worker/src/sandbox/kubernetes/runtime-probe.ts`, `apps/worker/src/sandbox/kubernetes/netpol-probe.ts`, `apps/worker/src/sandbox/kubernetes/job-watch.ts`
+- Rule: never add update, patch, Secret or cross-namespace access to the `sandbox-job-manager` role; it keeps only create/get/list/watch/delete on sandbox resources.
+- Code: `apps/worker/src/sandbox/kubernetes/runtime-probe.ts`, `apps/worker/src/sandbox/kubernetes/netpol-probe.ts`, `apps/worker/src/sandbox/kubernetes/job-watch.ts`, `infra/charts/nojv/templates/namespaces.yaml`, `infra/charts/nojv/templates/worker-rbac.yaml`
 
 ### JDG-21 10 MiB testcases via sharded, hash-verified payloads
 

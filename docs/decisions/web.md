@@ -1,31 +1,19 @@
 # Web application decisions
 
-Durable decisions for the SvelteKit web app: layering, routes, forms, error handling, notifications, drafts and user-facing pages. Read the relevant entries before planning a change here; a change that contradicts an entry must say so and update or replace the entry in the same PR. Current mechanics live in [Frontend Surface](../architecture/FRONTEND.md).
+Durable decisions for the SvelteKit web app: routes, forms, error handling, notifications, drafts and user-facing pages. Read the relevant entries before planning a change here; a change that contradicts an entry must say so and update or replace the entry in the same PR. Current mechanics live in [Frontend Surface](../architecture/FRONTEND.md).
 
-### WEB-01 Strict top-down layers with business logic in `@nojv/application`
+### WEB-01 Top-level detail and solve routes, layout-enforced gates
 
-**Decided:** 2026-04 · **Source:** [2026-04-02-microservice-architecture-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-02-microservice-architecture-redesign.md), [2026-04-02-architecture-implementation-plan](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-02-architecture-implementation-plan.md), [2026-06-12-full-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-12-full-audit-remediation.md)
+**Decided:** 2026-04 · **Source:** [2026-04-16-cuid-url-unification-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-16-cuid-url-unification-design.md), [2026-04-14-course-experience-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-14-course-experience-redesign.md), [2026-05-27-submission-unification-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-27-submission-unification-design.md)
 
-SvelteKit is the BFF: load functions, actions and Temporal activities call `@nojv/application`, which calls `@nojv/db`; there is no separate API server. Client-safe shared types, schemas and constants live in `@nojv/core`. Business logic lives in one place, leaving room for a REST API, sandbox rewrite or domain split later.
+Detail pages live at `/assignments/[id]`, `/exams/[id]`, `/contests/[id]` with role-gated tabs; solve pages are `/<kind>/[id]/problems/[problemId]` (practice: `/problems/[problemId]`) and all render the shared `ProblemSolveView`. Practice, assignment, contest and exam keep separate route trees because the path tags the submission context and the exam lock depends on the `/exams/[examId]` boundary; `/submissions/[id]` is the staff review and student self-view. Per-course lists and `new` pages stay under `/courses/[courseId]/...`. Three unrelated URL shapes with separate gates were replaced so child routes cannot forget a check.
 
-- Rejected: a separate API server now (deferred); copying domain code into the client to dodge the import guard.
-- Rule: anything taking `RequestEvent` or calling `redirect()` stays in web; extract logic into domain functions with plain parameters.
-- Rule: no upward imports and no workspace cycles; the dependency table and ESLint `no-restricted-imports` in ARCHITECTURE.md are the source of truth. Do not weaken the guard.
-- Rule: every workspace package has a `lint` script; `@nojv/temporal` never imports `@nojv/db` or `@nojv/application`.
-- Code: `apps/web/eslint.config.mjs`, `packages/application/src`, `packages/core/src`
-
-### WEB-02 Top-level detail and solve routes, layout-enforced gates
-
-**Decided:** 2026-04 · **Source:** [2026-04-16-cuid-url-unification-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-16-cuid-url-unification-design.md), [2026-04-14-course-experience-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-14-course-experience-redesign.md)
-
-Detail pages live at `/assignments/[id]`, `/exams/[id]`, `/contests/[id]` with role-gated tabs; solve pages are `/<kind>/[id]/problems/[problemId]` (practice: `/problems/[problemId]`) and all render the shared `ProblemSolveView`. Per-course lists and `new` pages stay under `/courses/[courseId]/...`. Three unrelated URL shapes with separate gates were replaced so child routes cannot forget a check.
-
-- Rejected: course-nested detail routes; exam solve URLs ending in `[idx]`.
+- Rejected: course-nested detail routes; exam solve URLs ending in `[idx]`; collapsing every context into `/problems/[id]`.
 - Rule: each context root enforces its gate in its layout; a new context kind follows the same shape.
-- Rule: the solve loader scopes submissions to user + context + problem; the view never filters them itself.
+- Rule: the solve loader scopes submissions to user + context + problem; the view never filters them itself, and never mixes other contexts' submissions into a contest or exam workspace.
 - Code: `apps/web/src/lib/server/problem-solve.ts`, `apps/web/src/routes/(app)/`
 
-### WEB-03 Every form failure is visible through typed messages and one action wrapper
+### WEB-02 Every form failure is visible through typed messages and one action wrapper
 
 **Decided:** 2026-04 · **Source:** [2026-04-11-silent-failure-and-problemids-fix](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-11-silent-failure-and-problemids-fix.md), [2026-06-12-full-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-12-full-audit-remediation.md)
 
@@ -35,7 +23,7 @@ Actions return a superforms `message()` of type `FormMessage = { kind, text }` r
 - Rule: every action failure surfaces as a banner or field error; never fail silently.
 - Code: `apps/web/src/lib/types/form-message.ts`, `apps/web/src/lib/server/shared/action-handlers.ts`
 
-### WEB-04 Fail loudly on corrupt data; validate every persisted blob on read
+### WEB-03 Fail loudly on corrupt data; validate every persisted blob on read
 
 **Decided:** 2026-04 · **Source:** [2026-04-12-codebase-cleanup-audit](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-12-codebase-cleanup-audit.md), [2026-07-07-system-health-check-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-07-system-health-check-remediation.md)
 
@@ -46,7 +34,7 @@ Domain lookups (`get*`/`load*`/`fetch*`/`require*`) throw instead of returning n
 - Rule: student-controlled data (e.g. interactive stderr reports) passes a `@nojv/core` schema before use.
 - Code: `scripts/check-query-returns.mjs`, `packages/application/src/submission/details.ts`, `apps/web/src/hooks.server.ts`
 
-### WEB-05 Durable notifications are separate from toasts
+### WEB-04 Durable notifications are separate from toasts
 
 **Decided:** 2026-04 · **Source:** [2026-04-19-notification-center-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-19-notification-center-design.md), [2026-04-19-notification-center-plan](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-19-notification-center-plan.md), [2026-09-03-announcement-notification-links](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-03-announcement-notification-links.md)
 
@@ -58,19 +46,20 @@ A `Notification` row is a persistent review-later event behind the navbar bell; 
 - Rule: legacy `announcement_published` rows without `linkUrl` resolve through one shared resolver for list and SSE; malformed params keep a null link, and identifiers are URL-encoded.
 - Code: `packages/db/src/repositories/notification.ts`, `packages/application/src/notification/`
 
-### WEB-06 Code drafts are keyed by context, problem and language
+### WEB-05 The server holds the code draft of record, keyed by context, problem and language
 
-**Decided:** 2026-05 · **Source:** [2026-05-11-code-draft-autosave-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-11-code-draft-autosave-design.md)
+**Decided:** 2026-09 · **Source:** [2026-05-11-code-draft-autosave-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-11-code-draft-autosave-design.md), [2026-09-23-server-code-drafts](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-23-server-code-drafts.md)
 
-Drafts are stored per user + context (practice, exam, assignment, contest, virtual) + problem + language, server-side with autosave and an encrypted local v2 cache. Students lost code on reload.
+`CodeDraft` keyed by (user, contextKey, problem, language) holds unsubmitted code with autosave; the browser keeps only unacknowledged edits in a v2 local cache sealed with a per-user AES-GCM key and deletes them once acknowledged. Contexts (`practice`, `assignment:`, `exam:`, `contest:`, `virtual:`) never share drafts. Students lost code on reload, and plain localStorage lost exam code on shared lab PCs and could leak it to the next user.
 
-- Rejected: Earlier: localStorage-only drafts saved on Ctrl+S with no server sync or autosave (v1, 2026-05) — replaced by server drafts and autosave. TTL expiry.
+- Rejected: server-side encryption at rest (access control is the boundary); staff visibility of drafts; TTL expiry. Earlier: localStorage-only drafts saved on Ctrl+S with no server sync (v1, 2026-05), then local autosave (2026-06) — replaced by server `CodeDraft` rows.
 - Rule: draft keys always include the context so drafts never leak across contexts.
-- Rule: the server checks draft access against the scope, including active exam session limits.
+- Rule: owner-only access; exam drafts need an active exam session on a published, not-ended exam containing the problem, and an active exam session sees only that exam's drafts.
+- Rule: drafts use their own rate limiter, never the submission budget; no pushes after a failed initial load; last write wins.
 - Rule: when local storage is full, evict the oldest drafts; no scheduled expiry.
-- Code: `packages/application/src/code-draft.ts`, `apps/web/src/lib/stores/code-draft.ts`, `apps/web/src/lib/stores/draft-autosave.ts`
+- Code: `packages/application/src/code-draft.ts`, `packages/db/prisma/schema/submission.prisma`, `apps/web/src/routes/api/drafts/+server.ts`, `apps/web/src/lib/services/draft-sync.ts`, `apps/web/src/lib/stores/code-draft.ts`
 
-### WEB-07 Activity heatmap, streak and trend are bucketed client-side in local time
+### WEB-06 Activity heatmap, streak and trend are bucketed client-side in local time
 
 **Decided:** 2026-05 · **Source:** [2026-05-18-feature-completion-batch](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-18-feature-completion-batch.md)
 
@@ -80,7 +69,7 @@ The dashboard returns raw submission timestamps for a 365-day window and the bro
 - Rule: do not reintroduce server-side UTC day bucketing for per-user activity.
 - Code: `apps/web/src/lib/utils/activity.ts`, `apps/web/src/routes/(app)/dashboard/+page.server.ts`
 
-### WEB-08 Public profiles are opt-in and hidden ones 404
+### WEB-07 Public profiles are opt-in and hidden ones 404
 
 **Decided:** 2026-07 · **Source:** [2026-07-10-gradebook-public-profile](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-07-10-gradebook-public-profile.md)
 
@@ -90,7 +79,7 @@ The dashboard returns raw submission timestamps for a 365-day window and the bro
 - Rule: admin checks use the effective role, never the stored role alone.
 - Code: `packages/application/src/user/profile.ts`, `apps/web/src/routes/(public)/users/[id]`
 
-### WEB-09 Admin mode routes content navigation to the global admin lists
+### WEB-08 Admin mode routes content navigation to the global admin lists
 
 **Decided:** 2026-09 · **Source:** [2026-09-07-admin-content-entry](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-07-admin-content-entry.md)
 

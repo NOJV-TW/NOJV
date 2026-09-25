@@ -8,7 +8,7 @@ Durable decisions for the PostgreSQL schema and repositories, Redis usage, and T
 
 Domain code reads and writes through per-domain repository objects in `@nojv/db`; transactions use `runTransaction` / `TransactionClient`, and repositories accept a transaction client. This keeps Prisma details out of business logic.
 
-- Rule: web imports `@nojv/db` only from `auth.server.ts`; everything else goes through `@nojv/application`.
+- Rule: web reaches the database only through `@nojv/application`; the import direction and its named exceptions are ENG-02 in engineering.md.
 - Rule: the raw client (`prismaAdapterClient`) is an escape hatch for better-auth and narrow transactional code, not a general access path.
 - Code: `packages/db/src/index.ts`, `packages/db/src/transaction.ts`, `packages/db/src/repositories/`
 
@@ -23,17 +23,7 @@ Course, Assessment, Exam, Contest and Problem use their cuid `id` as the only id
 - Rule: seed rows may use readable literal ids (`problem_warmup-sum`); code must not depend on their shape.
 - Code: `packages/db/prisma/schema/course.prisma`, `packages/db/prisma/schema/contest.prisma`
 
-### DAT-03 Problem `displayId` is assigned on first publish
-
-**Decided:** 2026-07 · **Source:** [2026-05-10-problem-display-id-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-10-problem-display-id-design.md), [2026-05-10-problem-display-id](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-10-problem-display-id.md)
-
-`displayId Int?` stays null for drafts and is set to `max(displayId)+1` under a transaction advisory lock the first time a problem is published (forks allocate the same way), then never changes. Routes and FKs always use the cuid.
-
-- Rejected: earlier `@default(autoincrement())` at creation (2026-05), which burned numbers on drafts; replaced by migration `20260705000000_problem_displayid_on_publish`.
-- Rule: never renumber a published problem; `max+1` can reuse the number of a deleted highest-numbered problem, so do not treat `displayId` as a permanent external identifier.
-- Code: `packages/db/src/repositories/problem.ts`, `packages/application/src/problem/fork.ts`
-
-### DAT-04 Submission stays one flat table with per-context FKs and a CHECK
+### DAT-03 Submission stays one flat table with per-context FKs and a CHECK
 
 **Decided:** 2026-06 · **Source:** [2026-04-02-microservice-architecture-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-02-microservice-architecture-redesign.md), [2026-06-11-triplet-model-convergence-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-11-triplet-model-convergence-design.md), [2026-06-11-timed-assessment-supertype-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-11-timed-assessment-supertype-design.md), [2026-06-12-full-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-12-full-audit-remediation.md)
 
@@ -44,7 +34,7 @@ Course, Assessment, Exam, Contest and Problem use their cuid `id` as the only id
 - Rule: scoring loads submissions by `(contestId|examId, userId)`, not through a participation id.
 - Code: `packages/db/prisma/schema/submission.prisma`, `packages/db/prisma/migrations/20260716000016_submission_context_constraints/migration.sql`
 
-### DAT-05 One `Participation` table for contest, exam and virtual
+### DAT-04 One `Participation` table for contest, exam and virtual
 
 **Decided:** 2026-06 · **Source:** [2026-06-11-timed-assessment-supertype-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-11-timed-assessment-supertype-design.md), [2026-06-12-full-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-12-full-audit-remediation.md)
 
@@ -55,7 +45,7 @@ Course, Assessment, Exam, Contest and Problem use their cuid `id` as the only id
 - Rule: large schema reshapes go expand → dual-write/backfill → reconcile → switch reads → contract, each stage revertible until contract.
 - Code: `packages/db/prisma/schema/contest.prisma`, `tests/setup/replay-constraints.ts`
 
-### DAT-06 Activity config stays inline per activity table
+### DAT-05 Activity config stays inline per activity table
 
 **Decided:** 2026-04 · **Source:** [2026-04-02-microservice-architecture-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-02-microservice-architecture-redesign.md)
 
@@ -65,7 +55,7 @@ Activity settings (allowed languages, scoreboard mode, exam IP/page lock) are co
 - Rule: keep one shared IP-lock enforcement implementation.
 - Code: `packages/application/src/shared/ip.ts`, `packages/db/prisma/schema/contest.prisma`
 
-### DAT-07 File bodies live in object storage, never in Postgres
+### DAT-06 File bodies live in object storage, never in Postgres
 
 **Decided:** 2026-05 · **Source:** [2026-05-28-judge-isolation-domjudge-validator](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-28-judge-isolation-domjudge-validator.md), [2026-05-28-storage-unification-and-uploads](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-28-storage-unification-and-uploads.md)
 
@@ -76,7 +66,7 @@ Submission sources (one object per file), full verdict detail, checker/interacto
 - Rule: a storage read failure at judge time fails closed.
 - Code: `packages/storage/src/keys.ts`, `packages/db/prisma/schema/submission.prisma`, `packages/db/prisma/schema/problem.prisma`
 
-### DAT-08 Users with graded history are anonymized, not deleted
+### DAT-07 Users with graded history are anonymized, not deleted
 
 **Decided:** 2026-07 · **Source:** [2026-07-07-system-health-check-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-07-system-health-check-remediation.md)
 
@@ -85,7 +75,7 @@ Submission sources (one object per file), full verdict detail, checker/interacto
 - Rule: deletion blockers must include submission and participation history.
 - Code: `packages/application/src/user/mutations.ts`
 
-### DAT-09 Grading audit history survives membership merges
+### DAT-08 Grading audit history survives membership merges
 
 **Decided:** 2026-09 · **Source:** [2026-09-07-course-roster](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-07-course-roster.md)
 
@@ -94,7 +84,7 @@ Grading audit logs carry nullable `courseMembershipId`/`sourceMembershipId` with
 - Rule: never rewrite historical audit events; append instead.
 - Code: `packages/db/prisma/schema/submission.prisma`
 
-### DAT-10 Redis keys and channels live in one registry
+### DAT-09 Redis keys and channels live in one registry
 
 **Decided:** 2026-04 · **Source:** [2026-04-02-microservice-architecture-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-02-microservice-architecture-redesign.md), [2026-04-02-temporal-migration-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-02-temporal-migration-design.md), [2026-05-18-feature-completion-batch](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-18-feature-completion-batch.md), [2026-05-20-grading-feedback-audit-batch](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-20-grading-feedback-audit-batch.md)
 
@@ -105,17 +95,17 @@ Every Redis key and pub/sub channel is declared in `packages/redis/src/keys.ts` 
 - Rule: if a generic JSON cache is reintroduced, validate reads with a Zod schema.
 - Code: `packages/redis/src/keys.ts`, `packages/application/src/admin/index.ts`
 
-### DAT-11 Redis holds only state rebuildable from Postgres
+### DAT-10 Redis holds only state rebuildable from Postgres
 
 **Decided:** 2026-04 · **Source:** [2026-04-02-temporal-migration-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-02-temporal-migration-design.md)
 
 Redis is for pub/sub fan-out, cross-instance rate limits, locks and caches; PostgreSQL is the source of truth.
 
-- Rejected: a Redis `SET NX` submit-cooldown key (cooldown is enforced from the database); a Redis sorted-set scoreboard (see DAT-12).
+- Rejected: a Redis `SET NX` submit-cooldown key (cooldown is enforced from the database); a Redis sorted-set scoreboard (see DAT-11).
 - Rule: never store in Redis anything that cannot be rebuilt from PostgreSQL.
 - Code: `packages/application/src/shared/submit-cooldown.ts`, `packages/application/src/submission/creation.ts`
 
-### DAT-12 Scoreboards are built from Postgres; Redis only nudges
+### DAT-11 Scoreboards are built from Postgres; Redis only nudges
 
 **Decided:** 2026-06 · **Source:** [2026-06-10-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-10-audit-remediation.md), [2026-06-12-full-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-12-full-audit-remediation.md), [2026-09-24-codebase-clarity](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-24-codebase-clarity.md)
 
@@ -126,7 +116,7 @@ Redis is for pub/sub fan-out, cross-instance rate limits, locks and caches; Post
 - Rule: materialized score caches wait until measured latency needs them.
 - Code: `packages/application/src/contest/scoring.ts`, `packages/redis/src/keys.ts`, `apps/web/src/lib/server/shared/sse-slot.ts`
 
-### DAT-13 Redis-backed rate limits fail closed fast
+### DAT-12 Redis-backed rate limits fail closed fast
 
 **Decided:** 2026-06 · **Source:** [2026-06-12-full-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-12-full-audit-remediation.md), [2026-07-24-auth-rate-limit-admin-mode](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-07-24-auth-rate-limit-admin-mode.md)
 
@@ -135,7 +125,7 @@ Rate limiters use a dedicated ioredis connection with `enableOfflineQueue: false
 - Rule: Redis-backed limits and security proofs fail closed; never fail open on privileged paths.
 - Code: `packages/redis/src/connection.ts`, `apps/web/src/lib/server/shared/rate-limiter.ts`
 
-### DAT-14 Temporal runs all async orchestration
+### DAT-13 Temporal runs all async orchestration
 
 **Decided:** 2026-04 · **Source:** [2026-04-02-temporal-migration-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-02-temporal-migration-design.md)
 
@@ -146,7 +136,7 @@ Temporal (TypeScript SDK) runs judging, rejudge, lifecycle, reminders and plagia
 - Rule: sandbox-running activities go on the judge queue; lifecycle and plagiarism go on the platform queue.
 - Code: `packages/temporal/src/task-queues.ts`, `packages/temporal/src/dispatch.ts`, `apps/worker/src/workflows/`
 
-### DAT-15 Temporal stays behind an orchestration port
+### DAT-14 Temporal stays behind an orchestration port
 
 **Decided:** 2026-04 · **Source:** [2026-04-02-microservice-architecture-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-02-microservice-architecture-redesign.md), [2026-04-02-architecture-implementation-plan](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-02-architecture-implementation-plan.md)
 
@@ -157,7 +147,7 @@ Product code dispatches through the `DomainOrchestrationAdapter` port (`dispatch
 - Rule: web imports `@nojv/temporal` only in `src/lib/server/domain-orchestration.ts`.
 - Code: `packages/application/src/shared/orchestration.ts`, `apps/web/src/lib/server/domain-orchestration.ts`
 
-### DAT-16 Workflow code changes are versioned with `patched()`
+### DAT-15 Workflow code changes are versioned with `patched()`
 
 **Decided:** 2026-06 · **Source:** [2026-06-12-full-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-12-full-audit-remediation.md)
 
@@ -167,7 +157,7 @@ Any behavioral change to workflow code is guarded with `patched()`/`deprecatePat
 - Rule: workflow and query names are a cross-package contract covered by the workflow-registration test.
 - Code: `apps/worker/src/workflows/`, `packages/temporal/src/dispatch.ts`
 
-### DAT-17 Workflow inputs carry ids, not blobs
+### DAT-16 Workflow inputs carry ids, not blobs
 
 **Decided:** 2026-07 · **Source:** [2026-07-07-system-health-check-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-07-system-health-check-remediation.md)
 
@@ -176,7 +166,7 @@ Source and testcase bytes never travel through Temporal payloads; `durableJudgeW
 - Rule: never put source or testcase bytes into workflow inputs or activity results.
 - Code: `apps/worker/src/workflows/durable-judge.ts`
 
-### DAT-18 Batch rejudge isolates child failures and keeps cancellation
+### DAT-17 Batch rejudge isolates child failures and keeps cancellation
 
 **Decided:** 2026-06 · **Source:** [2026-06-10-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-10-audit-remediation.md), [2026-06-11-post-audit-next-phase](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-11-post-audit-next-phase.md)
 
@@ -186,7 +176,7 @@ Each child in a batch rejudge has its own error handling so one failure does not
 - Rule: do not set ABANDON on rejudge child workflows.
 - Code: `apps/worker/src/workflows/rejudge.ts`
 
-### DAT-19 Reminders are lead-day checkpoints with dedupe keys
+### DAT-18 Reminders are lead-day checkpoints with dedupe keys
 
 **Decided:** 2026-07 · **Source:** [2026-04-19-notification-center-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-19-notification-center-design.md), [2026-04-19-notification-center-plan](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-19-notification-center-plan.md), [2026-07-10-email-notifications-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-07-10-email-notifications-design.md), [2026-07-10-email-notifications-plan](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-07-10-email-notifications-plan.md)
 
@@ -198,7 +188,7 @@ Lifecycle workflows wake at `target − N days` for N = 7…1 and, at each check
 - Rule: a new notification type needs the enum, the email type list and i18n messages.
 - Code: `apps/worker/src/workflows/reminder-checkpoints.ts`, `apps/worker/src/workflows/assignment-due-soon.ts`, `packages/application/src/notification/index.ts`
 
-### DAT-20 Cron processors are a cron parent awaiting a continue-as-new child
+### DAT-19 Cron processors are a cron parent awaiting a continue-as-new child
 
 **Decided:** 2026-09 · **Source:** [2026-09-22-durable-work-cron](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-22-durable-work-cron.md)
 

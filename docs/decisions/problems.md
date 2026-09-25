@@ -65,13 +65,14 @@ Upload routes require API auth, problem-edit access and the write rate limiter; 
 
 ### PRB-07 `displayId` is for display only; URLs keep the cuid
 
-**Decided:** 2026-05 · **Source:** [2026-05-10-problem-display-id-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-10-problem-display-id-design.md), [2026-05-10-problem-display-id](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-10-problem-display-id.md)
+**Decided:** 2026-07 · **Source:** [2026-05-10-problem-display-id-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-10-problem-display-id-design.md), [2026-05-10-problem-display-id](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-10-problem-display-id.md)
 
-Problems show a global integer `#N` via `formatProblemDisplayName`; routes, params, foreign keys and keyed lists use the cuid. Truncated cuids mean nothing to users, while cuids resist enumeration. The number is allocated server-side under a lock on first publication.
+Problems show a global integer `#N` via `formatProblemDisplayName`; routes, params, foreign keys and keyed lists use the cuid (see DAT-02 in data.md). Truncated cuids mean nothing to users, while cuids resist enumeration. `displayId Int?` stays null for drafts and is set server-side to `max(displayId)+1` under a transaction advisory lock the first time a problem is published (published forks allocate the same way), then never changes.
 
-- Rejected: `/problems/42` URLs or any displayId-to-cuid lookup API; per-author or per-course numbering; client-chosen ids.
+- Rejected: `/problems/42` URLs or any displayId-to-cuid lookup API; per-author or per-course numbering; client-chosen ids. Earlier: `@default(autoincrement())` at creation (2026-05), which burned numbers on drafts — replaced by migration `20260705000000_problem_displayid_on_publish`.
 - Rule: never route by or expose a lookup by `displayId`; create/update schemas must not accept it.
-- Code: `apps/web/src/lib/utils/format-problem-display-name.ts`, `packages/application/src/problem/mutations/publishing.ts`
+- Rule: never renumber a published problem; `max+1` can reuse the number of a deleted highest-numbered problem, so do not treat `displayId` as a permanent external identifier.
+- Code: `apps/web/src/lib/utils/format-problem-display-name.ts`, `packages/application/src/problem/mutations/publishing.ts`, `packages/db/src/repositories/problem.ts`, `packages/application/src/problem/fork.ts`
 
 ### PRB-08 Draft lifecycle and server-enforced publish/delete guards
 
@@ -193,26 +194,17 @@ Rejudge and score operations share one matrix: practice by admins and the proble
 - Rule: Temporal activities that write rows must be idempotent under retry.
 - Code: `packages/db/prisma/schema/submission.prisma`, `packages/application/src/submission/sweep.ts`
 
-### PRB-19 Submission views never expose graded testcase data
-
-**Decided:** 2026-05 · **Source:** [2026-05-12-submission-detail-redesign-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-12-submission-detail-redesign-design.md), [2026-05-27-submission-unification-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-27-submission-unification-design.md)
-
-No view shows expected output or diffs. Students see per-case stdout/stderr only on sample runs (`sampleOnly`); graded cases show verdict, time and memory only. Hidden testdata must not leak through submissions.
-
-- Rule: never render expected output; strip stdout, stderr and staffFeedback from graded student results via `sanitizeStudentResult`.
-- Code: `packages/application/src/submission/scoring.ts`, `apps/web/src/lib/components/features/submission/CaseResultGrid.svelte`
-
-### PRB-20 Context-explicit solve routes and one case-result schema
+### PRB-19 One case-result schema and one verdict style source
 
 **Decided:** 2026-05 · **Source:** [2026-05-27-submission-unification-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-27-submission-unification-design.md)
 
-Practice, assignment, contest and exam keep separate route trees because the path tags the submission context and the exam lock depends on the `/exams/[examId]` boundary; `/submissions/[id]` is the staff review and student self-view. One `caseResultSchema` (verdict string, no `passed` flag) serves both `caseResults` and `subtaskResults`, and verdict styling comes only from `verdict-style.ts`.
+One `caseResultSchema` (verdict string, no `passed` flag) serves both `caseResults` and `subtaskResults`, and verdict styling comes only from `verdict-style.ts`. Context-explicit solve routes are WEB-01 in web.md; what students may see of each case is SEC-12 in security.md.
 
-- Rejected: collapsing everything into `/problems/[id]`; merging the two result containers; compatibility layers or data migrations for pre-production cutovers.
-- Rule: never mix other contexts' submissions into a contest or exam workspace; list rows carry a context tag.
+- Rejected: merging the two result containers; compatibility layers or data migrations for pre-production cutovers.
+- Rule: submission list rows carry a context tag.
 - Code: `packages/core/src/schemas/submission.ts`, `apps/web/src/lib/utils/verdict-style.ts`, `packages/application/src/submission/history.ts`
 
-### PRB-21 Closed activities become practice without touching grades
+### PRB-20 Closed activities become practice without touching grades
 
 **Decided:** 2026-04 · **Source:** [2026-04-16-practice-after-close-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-16-practice-after-close-design.md)
 
@@ -223,7 +215,7 @@ After an assignment, contest or exam ends, its participants can view and solve i
 - Rule: never open during an ongoing exam (even after finishing early), for draft/unpublished activities, or to non-participants.
 - Code: `packages/application/src/problem/permissions.ts`
 
-### PRB-22 Status and judge generation drive submission tracking
+### PRB-21 Status and judge generation drive submission tracking
 
 **Decided:** 2026-09 · **Source:** [2026-09-21-submission-history](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-21-submission-history.md)
 
@@ -233,14 +225,3 @@ Tracking belongs to the authenticated session (SSE wakeups, 5 s visible polling,
 - Rule: requests bind to the current context and late responses must not overwrite a newer one; background refresh preserves filters, pagination and unsaved grading edits.
 - Rule: browser rejudge-progress responses expose only status and counts.
 - Code: `packages/application/src/submission/history.ts`
-
-### PRB-23 The server holds the draft of record for editor code
-
-**Decided:** 2026-09 · **Source:** [2026-09-23-server-code-drafts](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-23-server-code-drafts.md)
-
-`CodeDraft` keyed by (user, contextKey, problem, language) holds unsubmitted code; the browser keeps only unacknowledged edits sealed with a per-user AES-GCM key and deletes them once acknowledged. Contexts (`practice`, `assignment:`, `exam:`, `contest:`, `virtual:`) never share drafts. Plain localStorage lost exam code on shared lab PCs and could leak it to the next user.
-
-- Rejected: server-side encryption at rest (access control is the boundary); staff visibility of drafts.
-- Rule: owner-only access; exam drafts need an active exam session on a published, not-ended exam containing the problem, and an active exam session sees only that exam's drafts.
-- Rule: drafts use their own rate limiter, never the submission budget; no pushes after a failed initial load; last write wins.
-- Code: `packages/db/prisma/schema/submission.prisma`, `apps/web/src/routes/api/drafts/+server.ts`, `apps/web/src/lib/services/draft-sync.ts`
