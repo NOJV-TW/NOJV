@@ -1,65 +1,37 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
 # dependencies
-/node_modules
 **/node_modules/
-/.pnp
-.pnp.js
+.pnpm-store
 
-# testing
-/coverage
-**/coverage
-/output/
-
-# sveltekit
-**/.svelte-kit/
-
-# production
-/build
-/dist
+# build and test output
 **/build
 **/dist
+**/coverage
+**/.svelte-kit/
 .turbo
-.pnpm-store
-.worktrees
+*.tsbuildinfo
+/output/
+test-results
+playwright-report/
+tests/fixtures/auth-states/
 apps/web/static/wasm-oj/
 apps/web/static/_app/
 /packages/db/generated
 
-# misc
-.DS_Store
-*.pem
-.tmp/
-.shared/
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# local env files
-.env*.local
-.env
-
-# local secrets (Grafana Cloud tokens, GCP SA keys, etc.) — NEVER commit
-.secrets/
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-.claude/
-
-# playwright
-.playwright-mcp/
-e2e/test-results/
-e2e/screenshots/*.png
-playwright-report/
-tests/fixtures/auth-states/
-
-.github/prompts/
-test-results
-
 # Stray tsc artifacts emitted next to TS sources (ESM build outputs to dist/)
 packages/*/src/**/*.js
+
+# local env files and secrets (Grafana Cloud tokens, GCP SA keys, etc.) — NEVER commit
+.env
+.env*.local
+.secrets/
+*.pem
+
+# local tooling
+.DS_Store
+.worktrees
+.tmp/
+.shared/
+.claude/
+.playwright-mcp/
+.github/prompts/
+npm-debug.log*

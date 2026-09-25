@@ -85,9 +85,7 @@ function isExcludedFromBuildContext(path) {
     basename.endsWith(".md") ||
     basename.startsWith(".env") ||
     segments.some((segment) =>
-      ["node_modules", ".git", ".turbo", "dist", "build", ".svelte-kit", ".next"].includes(
-        segment,
-      ),
+      ["node_modules", ".git", ".turbo", "dist", "build", ".svelte-kit"].includes(segment),
     )
   );
 }
