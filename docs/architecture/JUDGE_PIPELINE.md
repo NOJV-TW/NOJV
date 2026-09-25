@@ -569,7 +569,7 @@ scoring remain unchanged. There is no cross-submission compilation cache.
 - Durable judge workflow — `apps/worker/src/workflows/durable-judge.ts`
 - Legacy workflow replay — `apps/worker/src/workflows/submission-judge.ts`
 - Durable judge activities — `apps/worker/src/activities/judge-execution.ts`
-- Pinned request builder — `apps/worker/src/activities/judge-request.ts`
+- Sandbox request builder and result mapping (legacy and pinned paths) — `apps/worker/src/activities/judge-request.ts`
 - Dispatch priority / per-student gate — `packages/core/src/judge-execution.ts`, `packages/application/src/submission/judge-recovery.ts`
 - Judge context builder (`getJudgeContext`) — `packages/application/src/submission/judge-context.ts`
 - Persisted judge-config parser (`parsePersistedAdvancedConfig`) — `packages/application/src/problem/judge-config.ts`

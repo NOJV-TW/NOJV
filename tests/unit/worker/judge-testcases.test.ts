@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { SubmissionJudgeContext } from "@nojv/application";
 
-import { buildSandboxTestcases } from "../../../apps/worker/src/activities/judge";
+import { buildSandboxTestcases } from "../../../apps/worker/src/activities/judge-request";
 
 describe("buildSandboxTestcases", () => {
   it("uses public testcase inputs for interactive Run instead of transcript samples", () => {
