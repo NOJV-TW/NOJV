@@ -55,8 +55,8 @@ const imageDefinitions = [
     tag: "nojv-migrator",
     inputs: [
       "infra/docker/migrator.Dockerfile",
-      "packages/core/",
-      "packages/storage/",
+      "packages/core/package.json",
+      "packages/storage/package.json",
       "packages/db/package.json",
       "packages/db/prisma.config.ts",
       "packages/db/prisma/",

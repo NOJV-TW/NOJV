@@ -93,25 +93,6 @@ spec:
               value: {{ .Values.maintenance.restoreTimeoutSeconds | quote }}
             - name: POLL_INTERVAL_SECONDS
               value: {{ .Values.maintenance.pollIntervalSeconds | quote }}
-            - name: S3_ENDPOINT
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "nojv.runtimeSecretName" . }}
-                  key: S3_ENDPOINT
-            - name: S3_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "nojv.runtimeSecretName" . }}
-                  key: S3_ACCESS_KEY
-            - name: S3_SECRET_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "nojv.runtimeSecretName" . }}
-                  key: S3_SECRET_KEY
-            - name: S3_BUCKET
-              value: {{ .Values.storage.bucket | quote }}
-            - name: S3_REGION
-              value: {{ .Values.storage.region | quote }}
           resources:
             {{- toYaml .Values.migrator.resources | nindent 12 }}
           volumeMounts:

@@ -253,15 +253,7 @@ describe("release migrator", () => {
     expect(resource("ServiceAccount", "nojv-web-maintenance")).toContain("post-rollback");
     expect(migrator).toMatch(/name: STATUS_TIMEOUT_SECONDS\n\s+value: "10"/);
     expect(migrator).toMatch(/name: KUBECTL_REQUEST_TIMEOUT_SECONDS\n\s+value: "5"/);
-    for (const name of [
-      "S3_ENDPOINT",
-      "S3_ACCESS_KEY",
-      "S3_SECRET_KEY",
-      "S3_BUCKET",
-      "S3_REGION",
-    ]) {
-      expect(migrator).toContain(`name: ${name}`);
-    }
+    expect(migrator).not.toContain("S3_");
     expect(migrator).toMatch(/mountPath: \/tmp[\s\S]*emptyDir:/);
     expect(role).toContain('resources: ["deployments/scale"]');
     expect(role).toContain('resources: ["horizontalpodautoscalers"]');

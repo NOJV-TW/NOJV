@@ -27,12 +27,8 @@ RUN pnpm install --frozen-lockfile --filter @nojv/db...
 
 ENV pnpm_config_verify_deps_before_run=false
 
-COPY packages/core/ packages/core/
-COPY packages/storage/ packages/storage/
 COPY packages/db/prisma/ packages/db/prisma/
 
-RUN pnpm --filter @nojv/core build \
-  && pnpm --filter @nojv/storage build \
-  && pnpm --filter @nojv/db db:generate
+RUN pnpm --filter @nojv/db db:generate
 
 CMD ["sh", "packages/db/prisma/scripts/deploy-release.sh"]
