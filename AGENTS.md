@@ -75,7 +75,8 @@ pnpm test:e2e             # Full local Playwright suite; CI runs a core browser 
 pnpm ci:verify            # Build, static checks, typechecks, unit + component tests
 pnpm db:generate          # Regenerate Prisma client
 pnpm db:push              # Push schema to DB (dev)
-pnpm db:migrate           # Run migrations (production)
+pnpm db:migrate           # Create and apply a dev migration (prisma migrate dev)
+pnpm db:deploy            # Apply committed migrations (production uses the migrator hook)
 pnpm db:seed              # Seed database
 pnpm sandbox:build        # Build sandbox Docker image
 ```
