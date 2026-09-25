@@ -1,19 +1,16 @@
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
 import {
   assignmentDomain,
-  canManageCourse,
   contestDomain,
   courseDomain,
   examDomain,
   ForbiddenError,
   NotFoundError,
-  resolveEffectiveCourseRole,
   ValidationError,
   type plagiarismDomain,
 } from "@nojv/application";
 
-import type { CompletedActorContext } from "$lib/server/auth";
-import { requireAuth } from "$lib/server/auth";
+import { isCourseManager, requireAuth, type CompletedActorContext } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { loadPlagiarismPair } from "$lib/server/plagiarism-pair";
 
@@ -48,24 +45,26 @@ function parsePairIdParam(raw: string): {
   return { contextType: ctxType, contextId: ctxId, pairKey };
 }
 
+async function assertCourseStaff(
+  actor: CompletedActorContext,
+  courseId: string,
+  notFoundMessage: string,
+) {
+  const course = await getCourseHeaderById(courseId, actor.userId);
+  if (!course) {
+    throw new NotFoundError(notFoundMessage);
+  }
+  if (!isCourseManager(actor, course) && course.ownerId !== actor.userId) {
+    throw new ForbiddenError("Only course staff can view plagiarism diff.");
+  }
+}
+
 async function assertAssignmentManager(actor: CompletedActorContext, assignmentId: string) {
   const assignment = await assignmentDomain.getAssignmentWithCourseId(assignmentId);
   if (!assignment) {
     throw new NotFoundError("Assignment not found.");
   }
-  const course = await getCourseHeaderById(assignment.course.id, actor.userId);
-  if (!course) {
-    throw new NotFoundError("Course not found.");
-  }
-  const membership = course.memberships[0] ?? null;
-  const effectiveRole = resolveEffectiveCourseRole(
-    actor.platformRole,
-    membership?.role ?? null,
-  );
-  const isManager = canManageCourse(effectiveRole) || course.ownerId === actor.userId;
-  if (!isManager) {
-    throw new ForbiddenError("Only course staff can view plagiarism diff.");
-  }
+  await assertCourseStaff(actor, assignment.course.id, "Course not found.");
 }
 
 async function assertExamManager(actor: CompletedActorContext, examId: string) {
@@ -73,19 +72,7 @@ async function assertExamManager(actor: CompletedActorContext, examId: string) {
   if (!exam) {
     throw new NotFoundError("Exam not found.");
   }
-  const course = await getCourseHeaderById(exam.courseId, actor.userId);
-  if (!course) {
-    throw new NotFoundError("Exam not found.");
-  }
-  const membership = course.memberships[0] ?? null;
-  const effectiveRole = resolveEffectiveCourseRole(
-    actor.platformRole,
-    membership?.role ?? null,
-  );
-  const isManager = canManageCourse(effectiveRole) || course.ownerId === actor.userId;
-  if (!isManager) {
-    throw new ForbiddenError("Only course staff can view plagiarism diff.");
-  }
+  await assertCourseStaff(actor, exam.courseId, "Exam not found.");
 }
 
 async function assertContestManager(actor: CompletedActorContext, contestId: string) {

@@ -1,9 +1,10 @@
 import { redirect } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
-import type { PlatformRole } from "@nojv/core";
+import type { CourseMembershipStatus, CourseRole, PlatformRole } from "@nojv/core";
 
 import {
   canEditProblem,
+  canManageCourse,
   courseDomain,
   resolveEffectiveCourseRole,
   HttpError,
@@ -98,6 +99,37 @@ export async function getCoursePermissionRole(courseId: string, actor: ActorCont
   }
 
   return resolveEffectiveCourseRole(actor.platformRole, course.memberships[0]?.role ?? null);
+}
+
+interface CourseWithViewerMembership {
+  memberships: readonly {
+    role: CourseRole;
+    status: CourseMembershipStatus;
+    userId: string | null;
+  }[];
+}
+
+function activeCourseRole(actor: ActorContext, course: CourseWithViewerMembership) {
+  const membership = course.memberships[0];
+  return membership?.status === "active" && membership.userId === actor.userId
+    ? membership.role
+    : null;
+}
+
+export function isCourseMember(
+  actor: ActorContext,
+  course: CourseWithViewerMembership,
+): boolean {
+  return activeCourseRole(actor, course) !== null;
+}
+
+export function isCourseManager(
+  actor: ActorContext,
+  course: CourseWithViewerMembership,
+): boolean {
+  return canManageCourse(
+    resolveEffectiveCourseRole(actor.platformRole, activeCourseRole(actor, course)),
+  );
 }
 
 export function canCreateCourse(platformRole: PlatformRole) {

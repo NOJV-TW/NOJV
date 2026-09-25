@@ -1,15 +1,8 @@
 import { fail } from "@sveltejs/kit";
-import type { PlatformRole } from "@nojv/core";
-import {
-  ForbiddenError,
-  announcementDomain,
-  canManageCourse,
-  courseDomain,
-  resolveEffectiveCourseRole,
-} from "@nojv/application";
+import { ForbiddenError, announcementDomain, courseDomain } from "@nojv/application";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
-import { requireAuth } from "$lib/server/auth";
+import { isCourseManager, requireAuth, type ActorContext } from "$lib/server/auth";
 import { readCheckbox, readString } from "$lib/server/shared/form-utils";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { withAction } from "$lib/server/shared/action-handlers";
@@ -67,18 +60,12 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   };
 });
 
-async function assertCourseManager(
-  userId: string,
-  platformRole: PlatformRole,
-  courseId: string,
-) {
-  if (platformRole === "admin") return;
-  const course = await getCourseHeaderById(courseId, userId);
+async function assertCourseManager(actor: ActorContext, courseId: string) {
+  if (actor.platformRole === "admin") return;
+  const course = await getCourseHeaderById(courseId, actor.userId);
   if (!course) throw new ForbiddenError("Course not found.");
-  if (course.ownerId === userId) return;
-  const membership = course.memberships[0] ?? null;
-  const role = resolveEffectiveCourseRole(platformRole, membership?.role ?? null);
-  if (!canManageCourse(role) || membership?.status !== "active") {
+  if (course.ownerId === actor.userId) return;
+  if (!isCourseManager(actor, course)) {
     throw new ForbiddenError("You do not have permission to manage this course.");
   }
 }
@@ -95,7 +82,7 @@ export const actions = {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
 
-    await assertCourseManager(actor.userId, actor.platformRole, courseId);
+    await assertCourseManager(actor, courseId);
 
     const formData = await event.request.formData();
     const title = readString(formData, "title");
@@ -122,7 +109,7 @@ export const actions = {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
 
-    await assertCourseManager(actor.userId, actor.platformRole, courseId);
+    await assertCourseManager(actor, courseId);
 
     const formData = await event.request.formData();
     const id = readString(formData, "id");
@@ -153,7 +140,7 @@ export const actions = {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
 
-    await assertCourseManager(actor.userId, actor.platformRole, courseId);
+    await assertCourseManager(actor, courseId);
 
     const id = readString(await event.request.formData(), "id");
     if (!id) return fail(400, { error: "ID is required." });
@@ -172,7 +159,7 @@ export const actions = {
     const actor = requireAuth(event);
     const courseId = event.params.courseId;
 
-    await assertCourseManager(actor.userId, actor.platformRole, courseId);
+    await assertCourseManager(actor, courseId);
 
     const id = readString(await event.request.formData(), "id");
     if (!id) return fail(400, { error: "ID is required." });
