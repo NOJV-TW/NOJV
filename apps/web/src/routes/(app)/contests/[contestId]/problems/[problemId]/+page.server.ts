@@ -9,6 +9,7 @@ const { getProblemPageData, getProblemTestcaseSets } = problemDomain;
 const { canOperateOnSubmission, listProblemSubmissions } = submissionDomain;
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { summarizeTestcaseSets } from "$lib/server/problem-solve";
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   event.depends("submission:data");
@@ -71,13 +72,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     problem,
     siblingProblems,
     submissions,
-    testcaseSets: testcaseSets.map((set) => ({
-      id: set.id,
-      name: set.name,
-      description: set.description,
-      weight: set.weight,
-      ordinal: set.ordinal,
-      caseCount: set.testcases.length,
-    })),
+    testcaseSets: summarizeTestcaseSets(testcaseSets),
   };
 });

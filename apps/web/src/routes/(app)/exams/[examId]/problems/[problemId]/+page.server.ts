@@ -5,7 +5,7 @@ import { examDomain, problemDomain } from "@nojv/application";
 import { requireAuth } from "$lib/server/auth";
 import { getClientIp } from "$lib/server/shared/client-ip";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
-import { loadProblemSolveData } from "$lib/server/problem-solve";
+import { loadProblemSolveData, summarizeTestcaseSets } from "$lib/server/problem-solve";
 
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
 
@@ -28,7 +28,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       kind: "preview",
       allowedLanguages: [],
       backLink: { href: `/exams/${examId}`, type: "exam" },
-      problemInScope: true,
     });
     return { mode: "preview" as const, solveProps };
   }
@@ -60,14 +59,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     mode: "exam" as const,
     problem: view.problem,
     submissions: view.submissions,
-    testcaseSets: testcaseSets.map((set) => ({
-      id: set.id,
-      name: set.name,
-      description: set.description,
-      weight: set.weight,
-      ordinal: set.ordinal,
-      caseCount: set.testcases.length,
-    })),
+    testcaseSets: summarizeTestcaseSets(testcaseSets),
     siblingProblems: view.siblingProblems,
     canRejudge: false,
     examContext: {

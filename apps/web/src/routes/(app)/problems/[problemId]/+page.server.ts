@@ -13,6 +13,7 @@ const { canOperateOnSubmission, listProblemSubmissions } = submissionDomain;
 const { canViewPosts, resolveActiveContextForUser } = postDomain;
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { summarizeTestcaseSets } from "$lib/server/problem-solve";
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   event.depends("submission:data");
@@ -60,14 +61,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     { contextIncludesProblem: false },
   );
 
-  const testcaseSetSummaries = fullTestcaseSets.map((set) => ({
-    id: set.id,
-    name: set.name,
-    description: set.description,
-    weight: set.weight,
-    ordinal: set.ordinal,
-    caseCount: set.testcases.length,
-  }));
+  const testcaseSetSummaries = summarizeTestcaseSets(fullTestcaseSets);
 
   const editorialAccess =
     actorContext.platformRole === "admin" ||
