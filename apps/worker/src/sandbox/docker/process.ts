@@ -3,6 +3,7 @@ import { MAX_EXECUTION_OUTPUT_BYTES } from "@nojv/core";
 
 import { createBoundedStringBuffer } from "../shared/bounded-buffer";
 import { executionAbortReason } from "../shared/execution-abort";
+import { failureMessage } from "../shared/failure-message";
 
 const DOCKER_CLEANUP_TIMEOUT_MS = 5_000;
 const DOCKER_INSPECT_TIMEOUT_MS = 5_000;
@@ -42,21 +43,6 @@ export interface DockerCommandOptions {
 export interface DockerCommandResult {
   stdout: string;
   stderr: string;
-}
-
-function failureMessage(reason: unknown): string {
-  if (reason instanceof Error) {
-    return reason.cause === undefined
-      ? reason.message
-      : `${reason.message} Caused by: ${failureMessage(reason.cause)}`;
-  }
-  if (typeof reason === "string") return reason;
-  try {
-    const serialized: unknown = JSON.stringify(reason);
-    return typeof serialized === "string" ? serialized : String(reason);
-  } catch {
-    return String(reason);
-  }
 }
 
 export function attachDockerCleanupFailure(

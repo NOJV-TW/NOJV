@@ -1,4 +1,4 @@
-import { failureMessage } from "./cleanup-call";
+import { failureMessage } from "../shared/failure-message";
 import { SandboxCleanupError } from "./errors";
 
 export function throwCleanupFailures(

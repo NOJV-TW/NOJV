@@ -3,12 +3,8 @@ import { hostname } from "node:os";
 import type * as k8s from "@kubernetes/client-node";
 
 import { createLogger } from "../../logger.js";
-import {
-  boundedK8sCall,
-  failureMessage,
-  k8sErrorCode,
-  retryK8sCleanupCall,
-} from "./cleanup-call";
+import { failureMessage } from "../shared/failure-message";
+import { boundedK8sCall, k8sErrorCode, retryK8sCleanupCall } from "./cleanup-call";
 import { runCleanupOperations } from "./cleanup";
 import {
   isK8sNotFound,
