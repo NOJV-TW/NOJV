@@ -147,7 +147,6 @@
               class="overflow-x-auto whitespace-pre-wrap rounded-md bg-muted px-4 py-3 font-mono text-caption leading-6 text-foreground">{sample.input}</pre>
             <CopyButton
               text={sample.input}
-              iconOnly
               class="pointer-events-none absolute right-1.5 top-1.5 opacity-0 transition-opacity duration-fast ease-out-soft group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
             />
           </div>
@@ -161,7 +160,6 @@
               class="overflow-x-auto whitespace-pre-wrap rounded-md bg-muted px-4 py-3 font-mono text-caption leading-6 text-foreground">{sample.output}</pre>
             <CopyButton
               text={sample.output}
-              iconOnly
               class="pointer-events-none absolute right-1.5 top-1.5 opacity-0 transition-opacity duration-fast ease-out-soft group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
             />
           </div>

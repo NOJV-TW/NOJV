@@ -16,7 +16,7 @@
   } from "$lib/services/submission-tracker";
   import { onDestroy, untrack } from "svelte";
   import { formatSmartTimestamp } from "$lib/utils/datetime";
-  import { formatJudgeOutput } from "$lib/utils/judge-output";
+  import { formatJudgeOutput, formatMemoryKb } from "$lib/utils/judge-output";
   import { formatVerdictLabel, verdictTone } from "$lib/utils/verdict-style";
   import { m } from "$lib/paraglide/messages.js";
   import { fetchWithCsrf } from "$lib/services/http";
@@ -40,11 +40,6 @@
       default:
         return null;
     }
-  }
-
-  function formatMemory(kb: number): string {
-    if (kb >= 1024) return `${(kb / 1024).toFixed(1)} MB`;
-    return `${String(kb)} KB`;
   }
 
   interface Props {
@@ -300,7 +295,7 @@
           {/if}
           {#if entry.result.memoryKb != null && entry.result.memoryKb > 0}
             <span class="text-caption text-muted-foreground tabular-nums">
-              {m.submissionDetail_memory()}: {formatMemory(entry.result.memoryKb)}
+              {m.submissionDetail_memory()}: {formatMemoryKb(entry.result.memoryKb)}
             </span>
           {/if}
           <span

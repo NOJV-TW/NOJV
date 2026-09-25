@@ -6,12 +6,11 @@
 
   interface Props {
     text: string;
-    iconOnly?: boolean;
     label?: string;
     class?: string | undefined;
   }
 
-  let { text, iconOnly = true, label, class: className }: Props = $props();
+  let { text, label, class: className }: Props = $props();
 
   let copied = $state(false);
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -42,9 +41,7 @@
 >
   {#if copied}
     <Check aria-hidden="true" class="size-3.5 text-primary" />
-    {#if !iconOnly}<span class="text-primary">{m.common_copied()}</span>{/if}
   {:else}
     <Copy aria-hidden="true" class="size-3.5" />
-    {#if !iconOnly}<span>{m.common_copy()}</span>{/if}
   {/if}
 </button>

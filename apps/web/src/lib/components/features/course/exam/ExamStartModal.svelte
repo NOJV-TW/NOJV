@@ -12,18 +12,10 @@
     pageLockEnabled: boolean;
     problemCount: number;
     durationMinutes: number;
-    action?: string;
   }
 
-  let {
-    open,
-    onOpenChange,
-    examTitle,
-    pageLockEnabled,
-    problemCount,
-    durationMinutes,
-    action = "?/startExam",
-  }: Props = $props();
+  let { open, onOpenChange, examTitle, pageLockEnabled, problemCount, durationMinutes }: Props =
+    $props();
 
   let hasAgreed = $state(false);
   let submitting = $state(false);
@@ -125,7 +117,7 @@
       </button>
       <form
         method="POST"
-        {action}
+        action="?/startExam"
         use:enhance={() => {
           errorMessage = null;
           submitting = true;

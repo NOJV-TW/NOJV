@@ -7,15 +7,8 @@
   export type StatCardProps = WithElementRef<HTMLAttributes<HTMLDivElement>> & {
     label: string;
     value: string | number;
-    trend?: number;
     icon?: Component<{ class?: string }>;
   };
-
-  function formatTrend(trend: number): { text: string; tone: "up" | "down" | "flat" } {
-    if (trend > 0) return { text: `\u2191 ${String(trend)}`, tone: "up" };
-    if (trend < 0) return { text: `\u2193 ${String(Math.abs(trend))}`, tone: "down" };
-    return { text: `\u2013 0`, tone: "flat" };
-  }
 </script>
 
 <script lang="ts">
@@ -24,12 +17,9 @@
     class: className,
     label,
     value,
-    trend,
     icon: Icon,
     ...restProps
   }: StatCardProps = $props();
-
-  const trendInfo = $derived(trend !== undefined ? formatTrend(trend) : null);
 </script>
 
 <Card
@@ -52,19 +42,5 @@
     <span class="text-headline leading-tight font-semibold tabular-nums">
       {value}
     </span>
-    {#if trendInfo}
-      <span
-        class={cn(
-          "inline-flex items-center rounded-full px-2 py-0.5 text-caption font-semibold tabular-nums",
-          trendInfo.tone === "up" &&
-            "bg-[color:color-mix(in_oklch,var(--success)_18%,transparent)] text-[color:var(--success)]",
-          trendInfo.tone === "down" &&
-            "bg-[color:color-mix(in_oklch,var(--destructive)_18%,transparent)] text-[color:var(--destructive)]",
-          trendInfo.tone === "flat" && "bg-muted text-muted-foreground",
-        )}
-      >
-        {trendInfo.text}
-      </span>
-    {/if}
   </div>
 </Card>

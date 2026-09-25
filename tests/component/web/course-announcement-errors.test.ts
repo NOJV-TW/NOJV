@@ -77,10 +77,9 @@ it.each(["create", "edit"] as const)(
   "keeps the %s dialog open and shows failure without discarding input",
   async (mode) => {
     const target = document.body.appendChild(document.createElement("div"));
-    const onclose = vi.fn();
     const component = mount(CourseAnnouncementDialog, {
       target,
-      props: { open: true, mode, initial: announcement, onclose },
+      props: { open: true, mode, initial: announcement },
     });
     try {
       await tick();
@@ -93,7 +92,6 @@ it.each(["create", "edit"] as const)(
       expect(document.querySelector<HTMLInputElement>('[name="title"]')?.value).toBe(
         announcement.title,
       );
-      expect(onclose).not.toHaveBeenCalled();
       expect(update).not.toHaveBeenCalled();
       const boundary = await respond(
         mode === "create" ? "?/createAnnouncement" : "?/updateAnnouncement",

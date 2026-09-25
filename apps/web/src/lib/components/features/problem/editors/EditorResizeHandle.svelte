@@ -4,20 +4,14 @@
   interface Props {
     isResizing: boolean;
     height: number;
-    minHeight?: number;
-    maxHeight?: number;
     onMouseDown: (e: MouseEvent) => void;
     onHeightChange: (next: number) => void;
   }
 
-  let {
-    isResizing,
-    height,
-    minHeight = 120,
-    maxHeight = 800,
-    onMouseDown,
-    onHeightChange,
-  }: Props = $props();
+  let { isResizing, height, onMouseDown, onHeightChange }: Props = $props();
+
+  const minHeight = 120;
+  const maxHeight = 800;
 
   function onkeydown(e: KeyboardEvent) {
     if (e.key === "ArrowUp") onHeightChange(Math.min(maxHeight, height + 16));

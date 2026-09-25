@@ -41,11 +41,7 @@
 </script>
 
 <PageContainer>
-  <PageHeader
-    eyebrow={m.adminReports_eyebrow()}
-    title={m.adminReports_title()}
-    description={m.adminReports_subtitle()}
-  />
+  <PageHeader title={m.adminReports_title()} />
 
   <Card variant="surface" size="lg">
     {#if data.reports.length === 0}

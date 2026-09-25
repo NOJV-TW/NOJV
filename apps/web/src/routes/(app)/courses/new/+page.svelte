@@ -41,11 +41,7 @@
   <form method="POST" use:enhance class="animate-in animate-in-1 space-y-6">
     <FormError message={$formMessage?.kind === "error" ? $formMessage.text : null} />
 
-    <StepCard
-      number={1}
-      title={m.coursesNew_basicsTitle()}
-      subtitle={m.coursesNew_basicsSubtitle()}
-    >
+    <StepCard title={m.coursesNew_basicsTitle()} subtitle={m.coursesNew_basicsSubtitle()}>
       <div class="space-y-5">
         <div>
           <label class="text-body-sm font-medium" for="title">

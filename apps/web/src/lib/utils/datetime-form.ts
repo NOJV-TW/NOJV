@@ -47,7 +47,6 @@ function localDateTimeParts(value: string) {
   return { ...parts, timestamp };
 }
 
-/** Convert a datetime-local wall-clock value into an ISO timestamp. */
 export function localDateTimeToIso(
   value: DateTimeFormValue,
   timezoneOffsetMinutes?: number,
@@ -66,7 +65,6 @@ export function localDateTimeToIso(
   return new Date(parts.timestamp + offset * 60_000).toISOString();
 }
 
-/** Convert an ISO timestamp into the browser's datetime-local input format. */
 export function isoDateTimeToLocal(
   value: DateTimeFormValue,
   timezoneOffsetMinutes?: number,

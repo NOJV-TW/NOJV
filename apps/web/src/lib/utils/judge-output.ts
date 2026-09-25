@@ -22,3 +22,8 @@ export function formatJudgeOutput(value: string): string {
 
   return visibleLines.join("\n").trim();
 }
+
+export function formatMemoryKb(kb: number): string {
+  if (kb >= 1024) return `${(kb / 1024).toFixed(1)} MB`;
+  return `${String(kb)} KB`;
+}

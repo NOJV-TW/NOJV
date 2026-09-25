@@ -1,11 +1,12 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import { ClipboardList, FileCheck } from "@lucide/svelte";
+  import { ClipboardList } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { buttonVariants } from "$lib/components/primitives/ui/button";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
+  import FilterTabs from "$lib/components/primitives/visual/FilterTabs.svelte";
   import ExamRow from "$lib/components/features/course/exam/ExamRow.svelte";
   import AssessmentGroupHeading from "$lib/components/features/coursework/AssessmentGroupHeading.svelte";
   import type { PageData } from "./$types";
@@ -59,38 +60,9 @@
 
 <PageContainer>
   <div class="space-y-6 fade-up">
-    <PageHeader
-      eyebrow={m.examsTop_eyebrow()}
-      title={m.navigation_exams()}
-      description={m.examsTop_subtitle()}
-    >
-      {#snippet icon()}
-        <FileCheck class="h-9 w-9" strokeWidth={1.6} aria-hidden="true" />
-      {/snippet}
-    </PageHeader>
+    <PageHeader title={m.navigation_exams()} />
 
-    <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border-subtle">
-      <div
-        role="tablist"
-        aria-label={m.navigation_exams()}
-        class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
-      >
-        {#each tabs as tab (tab.key)}
-          {@const isActive = tab.key === currentFilter}
-          <button
-            type="button"
-            role="tab"
-            aria-selected={isActive}
-            onclick={() => setTab(tab.key)}
-            class="-mb-px inline-flex items-center gap-2 whitespace-nowrap border-b-2 px-5 py-3.5 text-body-sm font-medium transition-colors duration-fast ease-out-soft {isActive
-              ? 'border-primary text-foreground'
-              : 'border-transparent text-muted-foreground hover:text-foreground'}"
-          >
-            <span>{tab.label}</span>
-          </button>
-        {/each}
-      </div>
-    </div>
+    <FilterTabs {tabs} value={currentFilter} label={m.navigation_exams()} onSelect={setTab} />
 
     {#if sorted.length === 0}
       <div

@@ -13,12 +13,13 @@ const RETIRED = [
   /#b07d2c/i,
   /#b8a085/i,
   /196,\s*104,\s*45/,
+  /212,\s*131,\s*74/,
   /77,\s*141,\s*91/,
   /184,\s*55,\s*42/,
   /79,\s*52,\s*35/,
 ];
 
-const files = globSync("apps/web/src/**/*.{svelte,ts}", { cwd: repoRoot });
+const files = globSync("apps/web/src/**/*.{svelte,ts,css}", { cwd: repoRoot });
 const offenders = [];
 for (const rel of files) {
   const source = readFileSync(resolve(repoRoot, rel), "utf8");

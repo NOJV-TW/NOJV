@@ -6,7 +6,7 @@ Visual system and UI conventions for `apps/web`, plus the domain error-handling 
 
 - `apps/web/src/app.css` — all tokens (`:root`, `.dark`), `@theme inline` mapping, keyframes, base layer, utility classes
 - `apps/web/src/lib/components/primitives/ui/` — styled primitives (Bits UI wrappers and custom)
-- `apps/web/src/lib/components/primitives/visual/` — `GlassPanel`, `TabStrip`, `StatRail`, `StatTile`, `Countdown`, `Crumbs`, `DifficultyTick`, `DotGrid`, `RankBadge`
+- `apps/web/src/lib/components/primitives/visual/` — `GlassPanel`, `TabStrip`, `FilterTabs`, `StatRail`, `StatTile`, `Countdown`, `Crumbs`, `DifficultyTick`, `DotGrid`, `RankBadge`
 - `apps/web/src/lib/components/primitives/layout/` — `PageHeader`, `PageHero`, `PageContainer`, `MarkdownRenderer`, `ThemeToggle`, `Footer`
 - `apps/web/src/lib/components/features/coursework/` — assessment surfaces, `StatusPill`, `type-accent.ts`
 - `apps/web/src/lib/utils/verdict-style.ts`, `css.ts` (`cn()`), `monaco-themes.ts`
@@ -22,7 +22,7 @@ Visual system and UI conventions for `apps/web`, plus the domain error-handling 
 
 ## Tokens
 
-All colors are CSS custom properties in `app.css`, redefined under `.dark`. Components never hardcode hex; `scripts/check-retired-colors.mjs` (`pnpm lint:retired-colors`, part of `pnpm lint:repo` and `pnpm ci:verify`) fails if retired burnt-orange/brown palette values appear in `apps/web/src/**/*.{svelte,ts}`.
+All colors are CSS custom properties in `app.css`, redefined under `.dark`. Components never hardcode hex; `scripts/check-retired-colors.mjs` (`pnpm lint:retired-colors`, part of `pnpm lint:repo` and `pnpm ci:verify`) fails if retired burnt-orange/brown palette values appear in `apps/web/src/**/*.{svelte,ts,css}`.
 
 | Group        | Tokens                                                                                                                                                  |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -74,7 +74,7 @@ Verdict helpers: `formatVerdictLabel` (short codes AC/WA/TLE/MLE/RE/CE/SE), `ver
 
 ## Components
 
-Bits UI integrations: Dialog, Select, Tooltip, Popover, RadioGroup, DropdownMenu.
+Bits UI integrations: Dialog, Select, Tabs, Tooltip, Popover, RadioGroup, DropdownMenu.
 
 | Primitive (`primitives/ui/`) | Variants / notes                                                                                                                                                                                                                                                                                   |
 | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -82,7 +82,7 @@ Bits UI integrations: Dialog, Select, Tooltip, Popover, RadioGroup, DropdownMenu
 | `badge`                      | `default`, `secondary`, `destructive`, `outline`, `success`, `warning`, `info`, `muted`, `verdict-*`; sizes `xs`, `sm`, `md`; `<a>` or `<span>`                                                                                                                                                    |
 | `card`                       | `surface` (default), `strong`, `flat`, `elevated`, `outline`; sizes `sm`, `md`, `lg`, `hero`; `interactive` lift                                                                                                                                                                                   |
 | `dialog`, `select`           | Bits UI wrappers (full part sets, portal)                                                                                                                                                                                                                                                          |
-| `tabs`                       | Custom tab set on `GlassPanel` (not Bits UI); `visual/TabStrip` for bare tab rows                                                                                                                                                                                                                  |
+| `tabs`                       | Bits UI Tabs on `GlassPanel`; `visual/TabStrip` is the pill toggle and `visual/FilterTabs` the underline filter bar on list pages                                                                                                                                                                  |
 | `input`, `skeleton`, `toast` | `Skeleton` + `SkeletonTable`; `ToastProvider` + `toast/ToastItem`                                                                                                                                                                                                                                  |
 | Custom                       | `EmptyState`, `TagSelect`, `HelpTooltip`, `ImageDropZone`, `ConfirmDialog`, `CodeBlock`, `HighlightedCode`, `CopyButton`, `FilterChips`, `FormField`, `FormError`, `Section`, `StatCard`, `ToggleSwitch`, `VerdictBadge`, `MonacoScriptEditor`, `TableTextColumnFilter`, `TableSelectColumnFilter` |
 

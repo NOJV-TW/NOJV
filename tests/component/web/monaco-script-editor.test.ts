@@ -2,7 +2,7 @@
 
 import { mount, unmount } from "svelte";
 import { expect, it, vi } from "vitest";
-import HighlightedCode from "$lib/components/primitives/ui/HighlightedCode.svelte";
+import MonacoScriptEditor from "$lib/components/primitives/ui/MonacoScriptEditor.svelte";
 import { MONACO_CODE_EDITOR_OPTIONS } from "$lib/utils/monaco-themes";
 
 const monaco = vi.hoisted(() => {
@@ -28,9 +28,14 @@ vi.mock("$lib/utils/monaco-loader", () => ({ loadMonaco: () => monaco }));
 it("uses the workspace editor settings in read-only mode and follows the theme", async () => {
   const target = document.createElement("div");
   document.body.append(target);
-  const component = mount(HighlightedCode, {
+  const component = mount(MonacoScriptEditor, {
     target,
-    props: { code: "def main():\n    return 42", language: "python", maxHeight: "50vh" },
+    props: {
+      value: "def main():\n    return 42",
+      language: "python",
+      height: "50vh",
+      isReadOnly: true,
+    },
   });
   try {
     await vi.waitFor(() => expect(monaco.editor.create).toHaveBeenCalledOnce());
