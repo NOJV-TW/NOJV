@@ -1,37 +1,28 @@
 # demo-advanced-run
 
-The **run** image for the seeded advanced-mode demo problem
-(`problem_shell-scripting-lab`, "read two ints, print their sum"). It is the
-untrusted half of the run/grade split: the only container that executes student
-code. It runs the student's `main.py` against the baked `testcases/` inputs and
-writes per-case stdout into `/workspace/output/`. It holds **no answers** — those
-live only in the sibling `demo-advanced-grade` image.
+Run image for the seeded special_env demo problem `problem_shell-scripting-lab`
+("read two ints, print their sum"). It is the untrusted half of the run/grade
+split: it runs the student's `main.py` against the baked `testcases/` and writes
+per-case stdout to `/workspace/output/`. It holds no answers; those live only in
+[`demo-advanced-grade`](../demo-advanced-grade/README.md).
 
-Built under the explicit local-only tag `nojv-demo-advanced-run:local` by:
+- `runner.py`: per-problem run logic; the image also copies the canonical
+  `nojv_runner.py` from `apps/web/src/lib/server/advanced-scaffold/files/run/`.
+- Contract: [Judge Pipeline](../../../docs/architecture/JUDGE_PIPELINE.md#container-contract).
 
-```sh
-pnpm demo-advanced:build
-```
-
-For production, publish a literal release tag, inspect that exact tag in the
-authenticated registry, and set `SEED_ADVANCED_RUN_IMAGE` to the resulting
-`tag@sha256:<digest>` reference. The production seed has no mutable fallback.
+## Build and publish
 
 ```sh
-DEMO_IMAGE_REGISTRY=registry.nojv.tw/demo \
-  DEMO_IMAGE_TAG=release-2026-07-15 \
+pnpm demo-advanced:build   # nojv-demo-advanced-{run,grade,service}:local
+DEMO_IMAGE_REGISTRY=<registry>/<namespace> DEMO_IMAGE_TAG=<release-label> \
   pnpm demo-advanced:push
 ```
 
-The publisher prints the two exact `SEED_ADVANCED_*_IMAGE` values after the
-registry confirms their manifest digests.
-
-The demo problem's `advancedConfig.run` in `packages/db/prisma/seeds/problems.ts`
-receives this reference explicitly, paired with the grade image so the seeded
-problem judges correctly under the real run/grade executor.
-
-The image uses the canonical `nojv_runner.py` from the advanced-mode starter
-template; `runner.py` is the per-problem run logic. See the container contract in
-[JUDGE_PIPELINE.md](../../../docs/architecture/JUDGE_PIPELINE.md#container-contract),
-or download the full run/grade/service starter templates from the problem
-editor. This directory is a worked example of the same run contract.
+`scripts/publish-demo-images.sh` builds `linux/amd64` and `linux/arm64`, pushes
+the run, grade and service images, reads each manifest digest back, and prints
+`SEED_ADVANCED_RUN_IMAGE` and `SEED_ADVANCED_GRADE_IMAGE` as `tag@sha256:`
+references. `DEMO_IMAGE_TAG` must be a literal label (not `latest`, `main`,
+`master` or `local`). On the self-hosted registry a platform credential can push
+only to `t/<username>/`; `demo/` is pull-only. Put the printed values in the
+runtime Secret; `packages/db/prisma/prod-seed.ts` requires both and has no
+fallback.

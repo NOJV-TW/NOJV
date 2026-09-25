@@ -1,113 +1,89 @@
-# GCP Deployment Notes
+# GCP
 
-## Current Production Shape
+GKE deployment of the `nojv` chart with `values-gke.yaml`: Cloud Build images,
+Cloud SQL, Memorystore, GCS, and a Cloud Armor-restricted Ingress behind
+Cloudflare. Chart behavior, env vars and the edge setup are in the
+[Deployment Guide](../../docs/operations/DEPLOYMENT.md); node pools, Cloud SQL
+wiring and Temporal are in [GKE notes](gke/README.md).
 
-- **Cloudflare** in front of everything — DNS, TLS, WAF, DDoS, CDN. Sets `CF-Connecting-IP` which the app reads for proctoring.
-- GKE: `web` — an in-cluster Deployment (the `nojv` Helm chart) fronted by an Ingress that Cloudflare proxies to. The web tier runs in-cluster, not serverless.
-- GKE: `worker` — the two Temporal workers (judge + platform), in-cluster Deployments rendered by the chart.
-- GKE Jobs: per-submission sandbox runner pods created by the worker
-- Migrator: the chart's pre-install/pre-upgrade Helm-hook Job (runs Prisma migrations on each release).
-- Postgres: in-cluster CloudNativePG `Cluster` (chart default), or managed **Cloud SQL** as an optional alternative.
-- Redis: in-cluster (chart default), or managed **Memorystore** as an optional alternative.
-- Artifact Registry: image storage
-- Secret Manager / runtime secret: `DATABASE_URL`, `REDIS_URL`, `S3_*`, auth/OAuth, required SMTP credentials, and `APP_BASE_URL`
-- **Cloud Armor security policy** attached to the GCLB/Ingress backend — source IP allowlist restricted to Cloudflare's official CIDR ranges
+## Key code
 
-> Provisioning + verification steps for the Cloudflare / Ingress / Cloud Armor trust boundary live in [`docs/operations/DEPLOYMENT.md` — Cloudflare + Cloud Armor Setup](../../docs/operations/DEPLOYMENT.md#cloudflare--cloud-armor-setup). The rationale (why no XFF fallback) is in [`docs/operations/SECURITY.md` — Client IP Trust Model](../../docs/operations/SECURITY.md#client-ip-trust-model-cloudflare-only).
+- `cloud-build/deploy.sh`: verified build, provenance check, Helm deploy, edge probes
+- `cloud-build/cloudbuild.yaml`: builds one component per Cloud Build with VERIFIED provenance
+- `cloudflare-origin-cidrs.txt`: the exact Cloudflare ranges Cloud Armor must allow
+- `gke/`: node pool system config, Temporal values
+- `scripts/create-node-pools.sh`: worker and gVisor sandbox pools
+- `scripts/setup-backups.sh`, `scripts/export-postgres-to-gcs.sh`: Cloud SQL backups and daily export
 
-## Images
+## Topology
 
-`infra/gcp/cloud-build/cloudbuild.yaml` builds and publishes one requested
-component per verified build; `deploy.sh` invokes it for each missing image:
+| Component       | Runs as                                                                        |
+| --------------- | ------------------------------------------------------------------------------ |
+| web             | Chart Deployment behind a GCE Ingress; Cloudflare proxies to it                |
+| judge, platform | Chart Deployments on `pool-worker`                                             |
+| sandbox         | Per-stage Jobs in `nojv-sandbox` on the gVisor sandbox pools                   |
+| migrator, seed  | Chart Helm hooks                                                               |
+| Postgres        | Cloud SQL (private IP) through the Auth Proxy sidecar                          |
+| Redis           | Memorystore (private IP)                                                       |
+| Object storage  | GCS (S3-compatible)                                                            |
+| Registry        | In-cluster `registry:2` with GCS blobs, on its own Cloudflare-proxied hostname |
+| Temporal        | Official Temporal Helm chart in `nojv-temporal`                                |
+| Images          | Artifact Registry                                                              |
 
-- `web`
-- `worker`
-- `sandbox` from `infra/docker/sandbox-runner.Dockerfile`
-- `migrator`
+`production-preflight.yaml` makes the chart refuse a `cloudsql` render without
+this shape.
 
-The `sandbox` image is not a long-running service. It is the image the Kubernetes worker launches for each isolated judge job.
+## Required environment variables for `deploy.sh`
 
-## Layout
+| Variable                            | Value                                                                               |
+| ----------------------------------- | ----------------------------------------------------------------------------------- |
+| `PROJECT_ID`                        | GCP project                                                                         |
+| `REGION`                            | Artifact Registry region                                                            |
+| `REPOSITORY`                        | Artifact Registry repository                                                        |
+| `RELEASE_NAME`                      | Helm release                                                                        |
+| `RELEASE_SHA`                       | Lowercase 40-character SHA at `HEAD`                                                |
+| `RELEASE_REMOTE`                    | Authoritative remote (the `origin` for `NOJV-TW/NOJV`)                              |
+| `RELEASE_REF`                       | Fully qualified branch ref, e.g. `refs/heads/main`                                  |
+| `CLUSTER_NAME`, `CLUSTER_LOCATION`  | GKE cluster                                                                         |
+| `DEPLOY_PRINCIPAL`                  | Must equal the active `gcloud` account                                              |
+| `CLOUD_BUILD_SERVICE_ACCOUNT`       | Full service-account email                                                          |
+| `K8S_NAMESPACE`                     | App namespace                                                                       |
+| `PUBLIC_HOST`                       | Cloudflare-proxied site hostname                                                    |
+| `REGISTRY_HOST`                     | Distinct Cloudflare-proxied registry hostname                                       |
+| `TLS_SECRET_NAME`                   | Existing `kubernetes.io/tls` Secret in `K8S_NAMESPACE` covering both hosts          |
+| `EDGE_SECURITY_POLICY`              | Cloud Armor policy allowing exactly `cloudflare-origin-cidrs.txt` with default deny |
+| `CLOUDSQL_INSTANCE_CONNECTION_NAME` | `PROJECT_ID:REGION:INSTANCE`                                                        |
+| `REDIS_INSTANCE`                    | Memorystore instance in `REGION`                                                    |
 
-- `cloud-build/`: Cloud Build orchestration
-  - `cloudbuild.yaml`: builds one runtime image through Cloud Build's `images:` output with VERIFIED provenance
-  - `deploy.sh`: validates/reuses trusted images, builds missing components, deploys immutable digests, and verifies the edge path
-- `gke/`: GKE-specific deployment notes for the `nojv` Helm chart (node pools, Cloud SQL proxy, Temporal prerequisite)
-- `scripts/`: Cloud SQL backup / GCS export helpers (`setup-backups.sh`, `export-postgres-to-gcs.sh`)
+Required commands: `gcloud`, `curl`, `docker`, `helm`, `git`, `kubectl`, `node`,
+`tar`, and `slsa-verifier` v2.7.1 or newer from the official
+`slsa-framework/slsa-verifier` release. The script takes no runtime credentials;
+create the runtime Secret from `infra/charts/nojv/secret.example.yaml` first.
 
-The web Deployment, worker Deployments, migrator hook, namespaces, and sandbox
-namespace guardrails are all rendered by the `nojv` Helm chart at
-`infra/charts/nojv` (sandbox policy is chart template `templates/sandbox-policy.yaml`).
+## What `deploy.sh` does
 
-## Required Environment Variables For `deploy.sh`
+1. Requires a clean tree and `RELEASE_SHA = HEAD = RELEASE_REMOTE:RELEASE_REF`;
+   disables Git replacement objects.
+2. Verifies the principal, project, Cloud Build identity, cluster endpoint and CA,
+   private Cloud SQL and Memorystore addresses, Kubernetes API destinations, TLS
+   Secret and Cloud Armor rules; derives the worker egress CIDRs from live
+   resources. Uses an isolated temporary kubeconfig.
+3. Enables required APIs and ensures the Artifact Registry repository exists.
+4. For each of `web`, `worker`, `sandbox`, `migrator`, reuses an existing image or
+   submits one Cloud Build that fetches the exact SHA from GitHub; every digest
+   must pass SLSA verification (Google-hosted builder, canonical source and
+   commit, exact component and Dockerfile).
+5. Runs `helm upgrade --install` with the source SHA as `image.tag`, the four
+   digests, Cloud SQL name, registry host and token realm, Ingress host, TLS,
+   Cloud Armor policy and egress CIDRs, `--wait --timeout 125m`.
+6. Requires two healthy Ingress backends, HTTP 200 for the site and a registry
+   auth challenge through Cloudflare, and rejection of direct-origin requests to
+   both hosts.
 
-- `PROJECT_ID`
-- `REGION` (Artifact Registry region)
-- `REPOSITORY`
-- `RELEASE_NAME`
-- `RELEASE_SHA` (the lowercase 40-character commit SHA at `HEAD`)
-- `RELEASE_REMOTE` (the Git remote whose release ref is authoritative, usually `origin`)
-- `RELEASE_REF` (a fully qualified remote branch ref, for example `refs/heads/main`)
-- `CLUSTER_NAME`
-- `CLUSTER_LOCATION`
-- `DEPLOY_PRINCIPAL` (must exactly match the active `gcloud` account)
-- `CLOUD_BUILD_SERVICE_ACCOUNT` (full service-account email)
-- `K8S_NAMESPACE`
-- `PUBLIC_HOST` (Cloudflare-proxied application hostname)
-- `REGISTRY_HOST` (distinct Cloudflare-proxied registry hostname)
-- `TLS_SECRET_NAME` (an existing `kubernetes.io/tls` Secret in `K8S_NAMESPACE`)
-- `EDGE_SECURITY_POLICY` (Cloud Armor policy allowing exactly the committed Cloudflare CIDRs with default deny)
-- `CLOUDSQL_INSTANCE_CONNECTION_NAME` (concrete `PROJECT_ID:REGION:INSTANCE`)
-- `REDIS_INSTANCE` (Memorystore instance in `REGION`)
+## Cloud SQL backups
 
-Runtime credentials are not accepted by this script. Create the chart's runtime
-Secret separately from `infra/charts/nojv/secret.example.yaml` before deploy.
-
-## Deployment Flow
-
-1. Install and authenticate `gcloud`.
-2. Install `slsa-verifier` v2.7.1 or newer from the official
-   `slsa-framework/slsa-verifier` release and keep it on `PATH`; deployment
-   fails closed unless every Artifact Registry digest passes its cryptographic
-   provenance verification.
-3. Export the required environment variables.
-4. Run `bash infra/gcp/cloud-build/deploy.sh`.
-5. The script:
-   - requires a clean source tree and proves `RELEASE_SHA = HEAD = RELEASE_REMOTE:RELEASE_REF`
-   - archives that verified commit for the local Helm release, while Cloud Build fetches the exact SHA from the canonical GitHub repository so signed provenance contains the trusted Git source and commit
-   - verifies the active principal, project, Cloud Build identity, GKE resource,
-     endpoint, CA, private Cloud SQL/Redis addresses, Kubernetes API destinations,
-     TLS Secret, and Cloud Armor default-deny allowlist before any mutation
-   - obtains credentials into a temporary isolated kubeconfig and passes its
-     verified context explicitly to Helm
-   - enables required GCP APIs
-   - ensures the Artifact Registry repository exists
-   - submits one Cloud Build per missing component under the required service account from canonical GitHub at the exact commit SHA
-   - cryptographically verifies each digest's SLSA provenance, requiring the Google-hosted builder, canonical Git source + commit, and exact component/Dockerfile substitutions before either reuse or deploy
-   - deploys the four immutable `tag@sha256` references through Helm with the
-     source SHA, verified egress CIDRs, TLS, HTTPS redirect, and Cloud Armor
-     attachment rendered into the release
-6. Verify the Helm release, both healthy Ingress backends, Cloud Armor
-   attachment, valid public TLS paths, rejected direct-origin paths, and rollout
-   reported by the script.
-   The migrator runs automatically as the chart's pre-install/pre-upgrade Helm
-   hook; `web` is deployed by the chart as an in-cluster Deployment.
-
-## GKE Rollout
-
-Two one-time prerequisites before the first install:
-
-- **CloudNativePG operator** (when `postgres.mode=cnpg`) — install cluster-wide so the chart can render the Postgres `Cluster` / `ScheduledBackup`.
-- **Temporal Server** — installed once via the official Helm chart (see [`gke/temporal/HA-PRODUCTION.md`](gke/temporal/HA-PRODUCTION.md)); the chart's workers target `temporal-frontend.nojv-temporal.svc.cluster.local:7233`.
-
-Then run `infra/gcp/cloud-build/deploy.sh`; it refuses to deploy until Artifact
-Registry returns a valid sha256 digest for every application image.
-
-The chart renders web, both worker Deployments, the sandbox namespace + policy,
-and the migrator hook. The worker uses `EXECUTION_BACKEND=kubernetes` and
-launches one sandbox-runner Job per submission into the `nojv-sandbox` namespace.
-
-The canonical full procedure (node pools, secrets, Cloud SQL wiring) lives in
-[`docs/operations/DEPLOYMENT.md`](../../docs/operations/DEPLOYMENT.md) and
-[`infra/charts/nojv/README.md`](../charts/nojv/README.md); GKE-specific notes are
-in [`gke/README.md`](gke/README.md).
+`setup-backups.sh` (`PROJECT_ID`, `SQL_INSTANCE`, `REGION`, `BACKUP_BUCKET`) is
+idempotent: daily automated backups (30 retained, in-region), PITR with 14 days
+of logs, and a versioned nearline GCS bucket. `export-postgres-to-gcs.sh` is the
+daily `gcloud sql export` for Cloud Scheduler. Restore steps:
+[Backup & Restore](../../docs/runbooks/backup-restore.md).

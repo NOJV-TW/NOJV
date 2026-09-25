@@ -1,66 +1,53 @@
-# Flux GitOps for NOJV
+# Flux GitOps
 
-Pull-based deployment for the single-node production cluster. Flux runs **in**
-the cluster, watches this git repo + GHCR, and reconciles the existing
-`infra/charts/nojv` Helm chart. This removes the self-hosted GitHub Actions
-runner from the production attack surface (see OPS-02 and OPS-03 in
-[docs/decisions/platform.md](../../docs/decisions/platform.md)).
+Flux runs in the single-machine cluster, tracks the CI-written `deploy` branch,
+and reconciles the `nojv` chart from it as one Helm upgrade. CI holds no cluster
+credentials (OPS-02, OPS-03, OPS-07 in
+[platform decisions](../../docs/decisions/platform.md)). Release flow and
+migration behavior are in the [Deployment Guide](../../docs/operations/DEPLOYMENT.md#releasing).
 
-## How releases work (`vX.Y.Z` → `deploy` branch)
+## Files
 
-The org has **deploy keys disabled** and **main is branch-protected** (PR +
-approval), so neither a cluster-side Flux `ImageUpdateAutomation` nor a bot can
-push image bumps to main. Instead the version tag is published by CI to a
-dedicated **`deploy` branch** that Flux tracks — no cluster git-write, no
-change to main's protection:
+| File                  | Purpose                                                                                                                                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `git-repository.yaml` | `GitRepository` on branch `deploy` (1 min interval, 5 min timeout) and the `nojv` Kustomization (`prune: false`) that applies this directory                                                      |
+| `kustomization.yaml`  | Lists `helmrelease.yaml`                                                                                                                                                                          |
+| `helmrelease.yaml`    | `HelmRelease` `nojv`: chart `infra/charts/nojv` with `values.yaml` then `values-single-machine.yaml`, `reconcileStrategy: Revision`, values from Secret `nojv-production-values`, timeout 125 min |
+
+HelmRelease behavior:
+
+- No inline image values; the tag, `release.sourceSha`, four digests and
+  `migrator.releaseWindow` come from `values-single-machine.yaml` on `deploy`.
+- `nojv-production-values` (key `values.yaml`) is mandatory (`optional: false`)
+  and cluster-owned; it is never committed.
+- Install retries 3 times; upgrades are not remediated
+  (`remediateLastFailure: false`), so a failed upgrade stays in maintenance for
+  an operator.
+- Kustomization `prune: false`: do not enable while the Helm-managed CNPG
+  `Cluster` is in the pruned set.
+
+## Release
 
 ```
-push vX.Y.Z tag for a main commit whose Verify Repository check passed
-  → build-images.yml (GitHub-hosted): build + push vX.Y.Z images to GHCR,
-    then `git checkout -B deploy`, write the source commit, version tag, and all four Buildx
-    manifest digests into
-    infra/charts/nojv/values-single-machine.yaml, and force-push the deploy
-    branch (GITHUB_TOKEN, contents: write — allowed on the unprotected branch)
-  → GitRepository/nojv tracks `deploy`
-  → source-controller packages the chart templates + production values from
-    that one revision → HelmRelease performs one upgrade → pods roll. Hands-off.
+git tag vX.Y.Z && git push origin vX.Y.Z
+  → build-images.yml: checks the tag is stable SemVer on a main commit with a
+    passing Verify Repository check; builds and pushes four GHCR images
+  → one commit on `deploy` (tagged main commit + values), pushed with
+    --force-with-lease, refused if it would move deploy backwards
+  → GitRepository/nojv → HelmRelease upgrade
 ```
 
-`deploy` is always the tagged main commit plus its `vX.Y.Z` image tag and
-registry-verified digests in the packaged chart values
-(force-reset each build), so chart/config and image changes cannot reconcile as
-separate Helm upgrades. The HelmRelease itself has no inline image override.
-The deploy branch commit is the deployment record; no second deploy tag is
-created. For recovery, operators must use an exact known-good deploy commit
-from Flux or Git history and move the branch with the lease-protected command
-below.
-Pushing to `main` runs CI but does not publish images. Release with:
+The `deploy` commit is the deployment record; there are no separate deploy
+tags. Pushing to `deploy` does not trigger CI.
 
-```bash
-git tag vX.Y.Z
-git push origin vX.Y.Z
-```
+## Emergency rollback
 
-The release fails before package writes unless the tag is stable SemVer, points
-to a commit contained in `main`, and that commit has a successful
-`Verify Repository` check. Pushing to `deploy` does not re-trigger CI or the
-release workflow.
-
-## Live state (2026-07-08)
-
-- ✅ Flux v2.9.1 installed; `GitRepository` + `HelmRelease` manage the release
-  from the `deploy` branch (adopted the existing release, verified healthy).
-- ✅ Image build is GitHub-hosted (`build-images.yml`); self-hosted `deploy.yml`
-  deleted; runner deregistered. CI holds **no cluster credentials**.
-
-The storage schema is forward-only. An emergency app rollback is allowed only
-to a retained release whose web, judge, and platform Deployment templates all
-carry `nojv.tw/schema-contract: versioned-storage-v1`,
-`nojv.tw/course-roster-contract: membership-v1`, and
-`nojv.tw/problem-library-contract: problem-library-v1`. A pre-contract release
-is rejected by the admission fence and cannot be made safe by retrying it.
-Inspect the candidate and move `deploy` with an exact lease so the chart and
-images change atomically:
+Storage is forward-only. Roll back only to a deploy commit whose web, judge and
+platform templates all carry `nojv.tw/schema-contract: versioned-storage-v1`,
+`nojv.tw/course-roster-contract: membership-v1` and
+`nojv.tw/problem-library-contract: problem-library-v1`; the admission fence
+rejects anything else. Otherwise keep workloads in maintenance and ship a forward fix
+from current `main`.
 
 ```bash
 candidate=<exact-deploy-commit-sha>
@@ -74,29 +61,18 @@ git push "--force-with-lease=refs/heads/deploy:${current_deploy_tip}" origin \
   "$candidate":refs/heads/deploy
 ```
 
-The grep must return all three required labels in each of those three templates; also verify the selected
-release contains the intended tag and four digests. If the candidate lacks the
-active contract, keep workloads in maintenance and ship a forward fix from
-current `main`. A later version tag intentionally advances `deploy` again.
+The grep must print all three labels for each template, and the values must
+contain the intended tag and four digests. The next version tag advances
+`deploy` again.
 
-## Files
+## Bootstrap
 
-| File                  | Purpose                                                                                                |
-| --------------------- | ------------------------------------------------------------------------------------------------------ |
-| `git-repository.yaml` | `GitRepository` tracking `deploy` + root `Kustomization` that applies this directory                   |
-| `helmrelease.yaml`    | Stable `HelmRelease` wrapping `infra/charts/nojv`; chart values carry the automation-managed image tag |
-
-## One-time cutover (run from the prod box, in a maintenance window)
-
-The box already holds cluster-admin locally, so bootstrap is a local action —
-**never** from CI.
+Run on the production host, which already holds cluster-admin; never from CI.
 
 ```bash
-# 1. Install Flux (checks the cluster first)
 flux check --pre
 flux install
 
-# 2. Apply the source; Flux then reconciles the rest of this directory.
 cat >production-values.yaml <<'EOF'
 postgres:
   cnpg:
@@ -116,39 +92,24 @@ kubectl -n nojv create secret generic nojv-production-values \
 rm production-values.yaml
 kubectl apply -f infra/flux/git-repository.yaml
 
-# 3. Verify before handing the release over.
 flux get sources git
 flux get helmreleases -A
-flux diff kustomization nojv --path infra/flux    # dry-run, no drift expected
+flux diff kustomization nojv --path infra/flux
 ```
 
-`nojv-production-values` is mandatory (`optional: false`) and cluster-owned; it
-is deliberately excluded from Git. Replace every `REAL_*` value with an
-existing off-host destination or Secret before the first reconcile. The
-HelmRelease remains failed closed if this Secret is absent or incomplete.
+Replace every `REAL_*` value with an existing off-host destination or Secret.
+Do not put `migrator.releaseWindow` in this Secret.
 
-**Release ownership handoff:** the live release is named `nojv`. `helmrelease.yaml`
-uses the same `releaseName: nojv` so Flux's helm-controller adopts it. Pin
-`release.sourceSha`, its `vX.Y.Z` `image.tag`, and every `image.digests.*` value in `values-single-machine.yaml` to
-the **currently deployed** immutable references
-before the first reconcile so nothing rolls unexpectedly. **Preserve all PVCs
-— the CNPG Postgres data and MinIO buckets live on them.** If a clean reinstall
-is ever needed, `helm uninstall` must keep PVCs.
+To adopt an existing Helm release, keep `releaseName: nojv` and make sure the
+`deploy` values pin the currently running tag, source SHA and digests so the
+first reconcile changes nothing. Preserve all PVCs (CNPG and MinIO data); a
+reinstall must keep them.
 
-## Decommission (closes the P0)
+## Validate
 
-After Flux reconciles cleanly and an image bump round-trips through git:
-
-1. Remove the self-hosted `deploy` job from `.github/workflows/deploy.yml`
-   (leave only build-push to GHCR).
-2. Deregister the repo's self-hosted runner and revoke its token.
-3. Drop the `nn` passwordless sudo.
-
-## Validate before applying
-
-These manifests are not applied by CI. Validate them at apply time:
+CI does not apply these manifests. Before applying:
 
 ```bash
 flux check
-kubeconform -strict infra/flux/*.yaml   # or `flux diff` as above
+kubeconform -strict infra/flux/*.yaml
 ```

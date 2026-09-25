@@ -1,666 +1,355 @@
 # Deployment Guide
 
-NOJV deploys to **both** single-machine Kubernetes (k3s / kind on one node) and
-**GKE** through the **same Helm umbrella chart** at `infra/charts/nojv`. Docker
-Compose is **local development only** — it is not a deployment method. The deploy
-procedure (chart install + prerequisites) is in
-[Helm Deployment](#helm-deployment) below.
+How NOJV is configured, released and operated in production. Both targets,
+single-machine k3s and GKE, deploy the same Helm chart (`infra/charts/nojv`) with
+a different values overlay (OPS-01). Docker Compose runs local backing services
+only; see [Getting Started](../runbooks/getting-started.md).
 
-## Local Development (Docker Compose)
+## Key code
 
-> Docker Compose runs the backing services as containers so you can run the app
-> from source with `pnpm dev`. It is **not** a production or deployment path —
-> see [Helm Deployment](#helm-deployment) for that.
+- `infra/charts/nojv/`: the chart; knob reference in its [README](../../infra/charts/nojv/README.md)
+- `infra/charts/nojv/values-single-machine.yaml`, `values-gke.yaml`: target overlays
+- `infra/flux/`: single-machine GitOps release ([Flux guide](../../infra/flux/README.md))
+- `.github/workflows/build-images.yml`: `vX.Y.Z` tag to GHCR images and the `deploy` branch
+- `infra/gcp/cloud-build/deploy.sh`: GKE build, provenance check and Helm deploy ([GCP guide](../../infra/gcp/README.md))
+- `packages/db/prisma/scripts/deploy-release.sh`: migrator hook entrypoint
+- `infra/charts/nojv/files/release-workloads.sh`: post-upgrade restore Job
+- `apps/worker/src/env.ts`, `apps/web/src/lib/server/env.ts`, `packages/mailer/src/index.ts`: env schemas
 
-### Services
+## Targets
 
-| Service     | Image                        | Port       | Purpose                      |
-| ----------- | ---------------------------- | ---------- | ---------------------------- |
-| postgres    | postgres:18-alpine           | 5432       | Database (app + Temporal)    |
-| redis       | redis:8-alpine               | 6379       | Cache, pub/sub, scoreboard   |
-| minio       | quay.io/minio/minio          | 9000, 9001 | S3-compatible object storage |
-| temporal    | temporalio/auto-setup:1.29.1 | 7233       | Workflow engine              |
-| temporal-ui | temporalio/ui:2.38.2         | 8080       | Workflow monitoring          |
+| Aspect        | Single-machine k3s                                            | GKE                                                                 |
+| ------------- | ------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Runbook       | [Single-Machine k3s](../runbooks/k8s-single-machine.md)       | [GKE notes](../../infra/gcp/gke/README.md)                          |
+| Release path  | `vX.Y.Z` tag → GHCR → `deploy` branch → Flux (OPS-02, OPS-03) | `deploy.sh` → Cloud Build → Artifact Registry → `helm upgrade`      |
+| Image tag     | `vX.Y.Z` plus four digests                                    | 40-character source SHA plus four digests                           |
+| Postgres      | In-cluster CloudNativePG (`postgres.mode=cnpg`)               | Cloud SQL through the Auth Proxy sidecar (`postgres.mode=cloudsql`) |
+| Redis / S3    | In-cluster Redis and MinIO                                    | Memorystore and GCS (required by `production-preflight.yaml`)       |
+| Edge          | In-cluster `cloudflared` tunnel to the ClusterIP web Service  | GCE Ingress with Cloud Armor allowing only Cloudflare               |
+| Temporal      | Official Temporal Helm chart, one pod per role                | Official Temporal Helm chart, HA values                             |
+| Sandbox nodes | The single node, labelled `nojv-role=sandbox`, untainted      | Tainted gVisor pools `pool-sandbox` and `pool-sandbox-spot`         |
 
-Compose ships **only** these backing services — the app (web/worker) runs from
-source via `pnpm dev`, and the sandbox image is built with `pnpm sandbox:build`.
-Deployable images are built and shipped by the Helm chart path (see
-[Helm Deployment](#helm-deployment)).
+## Environment variables
 
-### Quick Start
-
-```bash
-# Start the local backing services, then run the app from source
-docker compose up -d
-pnpm dev
-```
-
-### Temporal Auto-Setup
-
-The `temporalio/auto-setup` image automatically:
-
-- Creates the Temporal database schema in PostgreSQL
-- Configures the `default` namespace
-- Starts the Temporal server
-
-It shares the same PostgreSQL instance as the application (separate schema).
-
-## Environment Variables
-
-### Required
-
-| Variable             | Default                                              | Purpose                                       |
-| -------------------- | ---------------------------------------------------- | --------------------------------------------- |
-| `DATABASE_URL`       | `postgresql://postgres:postgres@localhost:5432/nojv` | PostgreSQL connection                         |
-| `REDIS_URL`          | `redis://localhost:6379`                             | Redis connection                              |
-| `BETTER_AUTH_SECRET` | —                                                    | Session encryption key (change in production) |
-| `BETTER_AUTH_URL`    | `http://localhost:5173`                              | Frontend URL for OAuth redirects              |
+The chart reads secrets only from an existing runtime Secret (default
+`nojv-runtime-secrets`, keys in
+[`secret.example.yaml`](../../infra/charts/nojv/secret.example.yaml)); it never
+templates secret values. Any env var a deployed service reads must be wired
+through the chart (OPS-12).
 
 ### Web
 
-| Variable                            | Default                                                                                                 | Purpose                                                                                                                                                                                                                                                              |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BODY_SIZE_LIMIT`                   | `67108864`                                                                                              | SvelteKit adapter-node POST body cap, in bytes. Baked into `web.Dockerfile` at 64 MiB so the 60 MB cap on bundle/workspace/checker/interactor upload routes is the effective ceiling. The adapter's built-in default is 512 KiB and would reject every asset upload. |
-| `ADVANCED_IMAGE_ALLOWED_REGISTRIES` | `ghcr.io,docker.io,quay.io,registry.gitlab.com,gcr.io,public.ecr.aws,mcr.microsoft.com,registry.k8s.io` | Comma-separated registry hosts accepted for teacher-supplied special_env image refs (default trusts the major public registries). Refs must be digest-pinned; validated at the input layer only (chart value `web.advancedImageAllowedRegistries`).                  |
-
-### OAuth (Optional)
-
-| Variable               | Purpose                    |
-| ---------------------- | -------------------------- |
-| `GITHUB_CLIENT_ID`     | GitHub OAuth app client ID |
-| `GITHUB_CLIENT_SECRET` | GitHub OAuth app secret    |
-| `GOOGLE_CLIENT_ID`     | Google OAuth client ID     |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| Variable                                                                           | Default                                              | Notes                                                                                                   |
+| ---------------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                                                                     | `postgresql://postgres:postgres@localhost:5432/nojv` | Required in production                                                                                  |
+| `REDIS_URL`                                                                        | `redis://localhost:6379`                             | Required in production; `redis://` only (no TLS), DB 0 only                                             |
+| `BETTER_AUTH_SECRET`                                                               | random in dev                                        | Required in production, at least 32 characters; also given to platform workers for exam credential mail |
+| `BETTER_AUTH_URL`                                                                  | `http://localhost:5173`                              | Public origin; the chart also sets `ORIGIN` from it for the adapter-node CSRF check                     |
+| `GITHUB_CLIENT_*`, `GOOGLE_CLIENT_*`                                               | unset                                                | OAuth apps (`_ID`, `_SECRET`)                                                                           |
+| `BODY_SIZE_LIMIT`                                                                  | `67108864` (set in `web.Dockerfile`)                 | adapter-node body cap; 64 MiB so the 60 MB asset upload routes are the effective ceiling                |
+| `ADVANCED_IMAGE_ALLOWED_REGISTRIES`                                                | major public registries                              | Registry hosts accepted for digest-pinned special_env image refs (`web.advancedImageAllowedRegistries`) |
+| `DB_POOL_MAX`                                                                      | `10` (`web.dbPoolMax`)                               | Prisma pool size per web pod                                                                            |
+| `REGISTRY_PUBLIC_HOST`, `REGISTRY_INTERNAL_URL`, `REGISTRY_TOKEN_ISSUER`           | chart-derived when `registry.enabled`                | Self-hosted registry token service                                                                      |
+| `REGISTRY_TOKEN_PRIVATE_KEY`, `REGISTRY_TOKEN_CERT`, `REGISTRY_PULL_PASSWORD_HASH` | empty                                                | Runtime Secret; see [Self-hosted registry](#self-hosted-registry)                                       |
 
 ### Email
 
-`MAILER_MODE` has no default. Production web and platform workers must use
-`smtp`; they validate the complete configuration before serving work. The Helm
-chart sets `MAILER_MODE=smtp`, takes `SMTP_PORT` from `mailer.smtpPort`, and
-requires the remaining values from the runtime Secret. Judge-only workers do
-not receive or validate mailer configuration.
+`MAILER_MODE` has no default (OPS-17). Web and platform workers use `smtp` in
+production and validate the full configuration at startup; judge workers get no
+mailer configuration. `MAILER_MODE=sink` (dev and tests) suppresses delivery and
+rejects every `SMTP_*` variable, including empty ones. SMTP errors never fall
+back to sink.
 
-Platform workers also receive the same `BETTER_AUTH_SECRET` as the web service from
-the runtime Secret. Exam credential delivery uses it to decrypt the temporary
-password immediately before sending mail. Judge-only workers do not need it.
-
-| Variable       | Production requirement                                                  |
-| -------------- | ----------------------------------------------------------------------- |
-| `MAILER_MODE`  | `smtp`                                                                  |
-| `SMTP_HOST`    | Non-empty SMTP host                                                     |
-| `SMTP_PORT`    | Integer port; `465` uses implicit TLS, every other port forces STARTTLS |
-| `SMTP_USER`    | Non-empty SMTP username                                                 |
-| `SMTP_PASS`    | SMTP app password / credential, never a mailbox login password          |
-| `SMTP_FROM`    | Explicit sender header                                                  |
-| `APP_BASE_URL` | Absolute HTTPS base URL for email links                                 |
-
-Local development and tests may explicitly use `MAILER_MODE=sink`. Sink mode
-returns `suppressed`, emits a content-free structured event, and rejects every
-`SMTP_*` variable (including empty values). SMTP errors never fall back to sink.
+| Variable       | Production requirement                                                         |
+| -------------- | ------------------------------------------------------------------------------ |
+| `MAILER_MODE`  | `smtp` (set by the chart)                                                      |
+| `SMTP_HOST`    | Non-empty                                                                      |
+| `SMTP_PORT`    | From `mailer.smtpPort` (default `465`); `465` is implicit TLS, others STARTTLS |
+| `SMTP_USER`    | Non-empty                                                                      |
+| `SMTP_PASS`    | App password or credential, never a mailbox login password                     |
+| `SMTP_FROM`    | Explicit sender header                                                         |
+| `APP_BASE_URL` | Absolute HTTPS URL for email links                                             |
 
 ### Temporal
 
-| Variable             | Default          | Purpose                 |
-| -------------------- | ---------------- | ----------------------- |
-| `TEMPORAL_ADDRESS`   | `localhost:7233` | Temporal Server address |
-| `TEMPORAL_NAMESPACE` | `default`        | Temporal namespace      |
+| Variable                                                                        | Default          | Notes                            |
+| ------------------------------------------------------------------------------- | ---------------- | -------------------------------- |
+| `TEMPORAL_ADDRESS`                                                              | `localhost:7233` | Chart: `temporal.address`        |
+| `TEMPORAL_NAMESPACE`                                                            | `default`        | Chart: `temporal.namespace`      |
+| `TEMPORAL_TLS`, `TEMPORAL_API_KEY`                                              | unset            | `true` or an API key enables TLS |
+| `TEMPORAL_CLIENT_CERT_PATH`, `TEMPORAL_CLIENT_KEY_PATH`, `TEMPORAL_SERVER_NAME` | unset            | mTLS                             |
+
+The chart does not wire the TLS variables; in-cluster Temporal is plaintext on
+the cluster network. Redis has no TLS option, so Redis and Temporal must be
+reached over a private network.
 
 ### Worker
 
-`parseWorkerEnv` validates these at boot and throws on any missing **required**
-key — there are no implicit defaults for the required ones below, so the
-deployment manifest must set every one. `tests/unit/infra/env-manifest-parity.test.ts`
-is a fitness test that fails CI if the GKE manifest omits a required worker env.
+`parseWorkerEnv` validates at boot and throws on a missing required key. The
+schema is a union on `EXECUTION_BACKEND`, so each backend requires only the keys
+it uses. `tests/unit/infra/env-manifest-parity.test.ts` checks the rendered
+chart against it.
 
-| Variable                             | Required / Default                   | Purpose                                                                                                                |
-| ------------------------------------ | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| `EXECUTION_BACKEND`                  | **required** (`docker`/`kubernetes`) | Sandbox executor backend                                                                                               |
-| `SANDBOX_IMAGE`                      | **required**                         | Sandbox container image                                                                                                |
-| `PORT`                               | **required**                         | Worker health server port (`/healthz`, `/readyz`)                                                                      |
-| `WORKER_CONCURRENCY`                 | **required**                         | Activity concurrency per task queue                                                                                    |
-| `WORKER_MIN_CONCURRENCY`             | unset                                | Judge only: when set, activity slots float between this and `WORKER_CONCURRENCY` by node CPU (Temporal resource tuner) |
-| `WORKER_MODE`                        | `all`                                | Task queues: `all`, `judge`, `platform`                                                                                |
-| `SUBMISSION_PENDING_TIMEOUT_MINUTES` | `10` (range 10–1440)                 | Stale submission candidate cutoff; a still-running Temporal judge workflow is exempt, including normal admission waits |
-| `SANDBOX_CPU_LIMIT`                  | **required** (Docker backend)        | CPU limit per sandbox                                                                                                  |
-| `SANDBOX_MEMORY_MB`                  | **required** (Docker backend)        | Memory limit per sandbox (MB)                                                                                          |
-| `SANDBOX_PIDS_LIMIT`                 | **required** (Docker backend)        | PID limit per sandbox                                                                                                  |
-| `K8S_NAMESPACE`                      | **required** (Kubernetes backend)    | Namespace for sandbox pods                                                                                             |
-| `K8S_CPU_REQUEST`                    | **required** (Kubernetes backend)    | Sandbox pod CPU request                                                                                                |
-| `K8S_CPU_LIMIT`                      | **required** (Kubernetes backend)    | Sandbox pod CPU limit                                                                                                  |
-| `K8S_MEMORY_REQUEST`                 | **required** (Kubernetes backend)    | Sandbox pod memory request                                                                                             |
-| `K8S_MEMORY_LIMIT`                   | **required** (Kubernetes backend)    | Sandbox pod memory limit                                                                                               |
-| `K8S_RUN_PARALLELISM`                | `1`                                  | Testcases one stage Pod runs at once; its run container requests and is limited to this many CPUs (1–8)                |
-| `K8S_RUNTIME_CLASS_NAME`             | **required** (Kubernetes backend)    | RuntimeClass required for every sandbox Pod; production is `gvisor`                                                    |
+| Variable                                                                                              | Required / default               | Purpose                                                                                                                   |
+| ----------------------------------------------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `EXECUTION_BACKEND`                                                                                   | required: `docker`, `kubernetes` | Sandbox backend                                                                                                           |
+| `PORT`                                                                                                | required                         | Health server (`/healthz`, `/readyz`)                                                                                     |
+| `REDIS_URL`                                                                                           | required                         | Redis connection                                                                                                          |
+| `SANDBOX_IMAGE`                                                                                       | required                         | Standard sandbox image                                                                                                    |
+| `WORKER_CONCURRENCY`                                                                                  | required, 1–64                   | Activity slots per task queue                                                                                             |
+| `WORKER_MIN_CONCURRENCY`                                                                              | unset                            | Judge only: slots float between this and `WORKER_CONCURRENCY` by node CPU (see [Judge Queue](../runbooks/judge-queue.md)) |
+| `WORKER_MODE`                                                                                         | `all`                            | `all`, `judge` (queues `judge` + `judge-state`), `platform` (queue `platform`)                                            |
+| `SANDBOX_MEMORY_HEADROOM_MB`, `SANDBOX_MAX_MEMORY_MB`                                                 | `64`, `1536`                     | Sandbox memory ceiling above the problem limit                                                                            |
+| `SANDBOX_CPU_LIMIT`, `SANDBOX_MEMORY_MB`, `SANDBOX_PIDS_LIMIT`                                        | required (Docker)                | Per-sandbox limits                                                                                                        |
+| `K8S_NAMESPACE`, `K8S_CPU_REQUEST`, `K8S_CPU_LIMIT`, `K8S_MEMORY_REQUEST`, `K8S_MEMORY_LIMIT`         | required (Kubernetes)            | Sandbox namespace and container resources (`worker.sandbox.*`)                                                            |
+| `K8S_RUN_PARALLELISM`                                                                                 | `1`, range 1–8                   | Testcases one stage Pod runs at once; its run container requests and is limited to this many CPUs                         |
+| `K8S_RUNTIME_CLASS_NAME`                                                                              | required, must be `gvisor`       | RuntimeClass for every sandbox Pod                                                                                        |
+| `K8S_IMAGE_PULL_SECRET`                                                                               | unset                            | dockerconfigjson Secret in the sandbox namespace (`worker.sandbox.imagePullSecret`)                                       |
+| `REGISTRY_GC_IMAGE`, `REGISTRY_GC_NAMESPACE`, `REGISTRY_GC_CONFIG_CONFIGMAP`, `REGISTRY_GC_S3_SECRET` | defaults match the chart         | Registry garbage-collection Job                                                                                           |
+| `SUBMISSION_PENDING_TIMEOUT_MINUTES`                                                                  | `10`, range 10–1440              | Platform worker: stale-submission cutoff; a running judge workflow is exempt                                              |
 
-> The `SANDBOX_*` resource limits are read only by the Docker backend; the
-> `K8S_*` limits only by the Kubernetes backend. The schema enforces this split,
-> so each backend requires exactly the keys it actually uses.
+### Object storage
 
-> Advanced-mode (`special_env`) judging runs on **both** backends: run/grade
-> images execute as K8s Jobs (including the `none` / `service` network
-> modes — see [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#advanced-mode-pipeline)
-> and `tests/integration/k8s/judge-k8s.test.ts`). Registry image refs are the
-> only advanced authoring path: teachers download the starter templates from the
-> problem editor, build the run/grade/service images themselves, push to an
-> allowlisted registry, and paste digest-pinned refs back into the editor (gated
-> per-user by `User.canCreateAdvancedProblems`).
+| Variable        | Default                 | Notes                                      |
+| --------------- | ----------------------- | ------------------------------------------ |
+| `S3_ENDPOINT`   | `http://localhost:9000` | MinIO locally; GCS, R2 or S3 in production |
+| `S3_ACCESS_KEY` | `minioadmin`            |                                            |
+| `S3_SECRET_KEY` | `minioadmin`            |                                            |
+| `S3_BUCKET`     | `nojv`                  | Chart: `storage.bucket`                    |
+| `S3_REGION`     | `auto`                  | `auto` works for GCS and R2                |
 
-> **Self-hosted registry** (`registry.enabled`, on by default in the
-> single-machine overlay): a CNCF distribution `registry:2` Deployment stores
-> blobs in the in-cluster MinIO (bucket `nojv-registry`, auto-created by a Helm
-> hook) or any S3 endpoint (`registry.s3.regionendpoint` — GKE points it at
-> GCS). Auth is Docker token auth: the web app's `/api/registry/token` endpoint
-> validates platform-issued credentials (generated per-author from the problem
-> editor) and signs scoped JWTs — every human credential, including an admin's,
-> pushes only to its own `t/<username>/…` namespace; judge
-> pods pull everything via the `worker.sandbox.imagePullSecret` dockerconfigjson
-> Secret in the sandbox namespace, `demo/…` is anonymous-pull. Setup steps
-> (signing pair, service accounts, tunnel hostname) are in the
-> [single-machine runbook](../runbooks/k8s-single-machine.md#5-prerequisites-the-chart-does-not-install).
+### Observability
 
-### Object Storage (S3-Compatible)
+The chart passes `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS`
+to web and workers from optional runtime Secret keys; unset disables export
+(OPS-14). Meaning, endpoints and stack setup:
+[Observability Setup](../runbooks/observability-setup.md).
 
-| Variable        | Default                 | Purpose                                                               |
-| --------------- | ----------------------- | --------------------------------------------------------------------- |
-| `S3_ENDPOINT`   | `http://localhost:9000` | S3 API endpoint (MinIO local)                                         |
-| `S3_ACCESS_KEY` | `minioadmin`            | S3 access key (MinIO root user)                                       |
-| `S3_SECRET_KEY` | `minioadmin`            | S3 secret key (MinIO root password)                                   |
-| `S3_BUCKET`     | `nojv`                  | Bucket name                                                           |
-| `S3_PUBLIC_URL` | —                       | Reserved; not currently consumed by the storage client. Safe to omit. |
-| `S3_REGION`     | `auto`                  | S3 region (`auto` works for GCS/R2)                                   |
+## Helm chart
 
-Local dev uses MinIO. Production can use GCS (S3-compatible mode), Cloudflare R2, or AWS S3 — change env vars only.
+### Prerequisites
 
-> **No TLS to backends from the app.** `REDIS_URL` accepts only `redis://`
-> (`packages/redis`) and the Temporal client connects without TLS
-> (`packages/temporal`). Run Redis/Memorystore and Temporal on a private network
-> the app reaches over a trusted link (VPC), not over the public internet.
+Not installed by the chart:
 
-### Kubernetes (Production Only)
+1. **Runtime Secret** in the app namespace: database, Redis, `S3_*`, auth, OAuth,
+   SMTP plus `APP_BASE_URL`, optional OTLP keys, registry keys when
+   `registry.enabled`, and when `seed.enabled` the
+   `SEED_ADMIN_USERNAME`/`SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` (password at
+   least 12 characters) and digest-pinned `SEED_ADVANCED_RUN_IMAGE` /
+   `SEED_ADVANCED_GRADE_IMAGE` used by the post-install seed hook.
+2. **CloudNativePG operator** when `postgres.mode=cnpg`; the chart renders only
+   the `Cluster` and `ScheduledBackup` CRs.
+3. **Temporal Server** from the official `temporalio/temporal` chart, reachable at
+   `temporal.address` (default
+   `temporal-frontend.nojv-temporal.svc.cluster.local:7233`), with the
+   task-queue dynamic config. See
+   [Temporal HA](../../infra/gcp/gke/temporal/HA-PRODUCTION.md).
+4. **A NetworkPolicy-enforcing CNI and the `gvisor` RuntimeClass**; see
+   [Kubernetes sandbox requirements](#kubernetes-sandbox-requirements).
+5. Single-machine only: the `nojv-cloudflared-token` Secret (key `token`) and the
+   `nojv-registry-pull` Secret in the sandbox namespace.
 
-| Variable                 | Purpose                                                |
-| ------------------------ | ------------------------------------------------------ |
-| `K8S_NAMESPACE`          | Kubernetes namespace for sandbox jobs                  |
-| `K8S_CPU_REQUEST`        | CPU request per sandbox pod                            |
-| `K8S_CPU_LIMIT`          | CPU limit per sandbox pod                              |
-| `K8S_MEMORY_REQUEST`     | Memory request per sandbox pod                         |
-| `K8S_MEMORY_LIMIT`       | Memory limit per sandbox pod                           |
-| `K8S_RUN_PARALLELISM`    | Testcases run at once per stage Pod                    |
-| `K8S_RUNTIME_CLASS_NAME` | Required sandbox RuntimeClass (`gvisor` in production) |
+### Image pinning
 
-## Observability
+Every non-local render requires `release.sourceSha` (40 lowercase hex), an
+immutable `image.tag` (`vX.Y.Z`, or a source SHA; GHCR requires `vX.Y.Z`) and
+`image.digests.{web,worker,sandbox,migrator}` as `sha256:<64 hex>`. Tag-only
+renders fail. `image.allowUnpinnedLocalBuilds=true` is the only exception: it
+requires an empty registry and prefix and the tag `local`.
 
-Metrics flow Node app → OpenTelemetry SDK → OTLP HTTP → Grafana Cloud Hosted Prometheus (region `prod-ap-northeast-0`, free tier). Dashboards at <https://takalawang.grafana.net>.
+### Render-time guards
 
-### Required env vars (production)
+| Guard                                                                                                                                                                                                                                                        | Template                                          |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
+| `worker.sandbox.runtimeClassName` must be `gvisor`                                                                                                                                                                                                           | `worker-judge.deployment.yaml`                    |
+| judge `replicas × concurrency × worker.sandbox.runParallelism` ≤ quota `requestsCpu`                                                                                                                                                                         | `worker-judge.deployment.yaml`                    |
+| `postgres.cnpg.backup.*` and `storage.minio.backup.*` complete, HTTPS, valid names when enabled                                                                                                                                                              | `postgres-cnpg.yaml`, `minio-backup.cronjob.yaml` |
+| `cloudsql` mode: concrete Cloud SQL name, proxy on, external Redis and storage, registry host and HTTPS token realm, GCE Ingress with host, one TLS entry covering all hosts, Cloud Armor policy, HTTPS redirect, `networkPolicy.enabled` with private CIDRs | `production-preflight.yaml`                       |
+| `web.nodeEnv=production` requires `migrator.enabled`                                                                                                                                                                                                         | `web-maintenance.yaml`                            |
 
-Inject via the chart's runtime secret (or GCP Secret Manager → External Secrets):
+### Kubernetes sandbox requirements
 
-| Var                                      | Description                                                                                                                                                                   |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `OTEL_EXPORTER_OTLP_ENDPOINT`            | Base URL; apps append `/v1/metrics`. e.g. `https://otlp-gateway-prod-ap-northeast-0.grafana.net/otlp` or in-cluster collector `http://<release>-otel-collector.<ns>.svc:4318` |
-| `OTEL_EXPORTER_OTLP_HEADERS`             | Optional comma-separated `key=value` headers. Grafana Cloud: `Authorization=Basic <base64(instanceId:token)>`. Omit for an unauthenticated in-cluster collector.              |
-| `OTEL_SERVICE_NAME_WEB` (web only)       | Default `nojv-web`                                                                                                                                                            |
-| `OTEL_SERVICE_NAME_WORKER` (worker only) | Default `nojv-worker`                                                                                                                                                         |
+- **NetworkPolicy enforcement is mandatory.** Sandbox egress isolation (the
+  `deny-all-sandbox` policy plus per-submission egress policies) is inert on a
+  non-enforcing CNI such as k3s flannel or kindnet. Use GKE Dataplane V2 (or
+  `--enable-network-policy`) or Calico/Cilium. At startup the Kubernetes judge
+  worker runs a positive/negative probe (`apps/worker/src/sandbox/kubernetes/netpol-probe.ts`):
+  it must reach an explicitly allowed internal target and must not reach one
+  without an egress allow. It refuses to start otherwise; there is no bypass.
+- **gVisor.** Every sandbox Pod uses `runtimeClassName: gvisor`; there is no
+  `runc` fallback. A runtime probe also runs at startup.
+- **Per-Pod PID limit.** k3s: `--kubelet-arg=pod-max-pids=256`; GKE sandbox pools:
+  `podPidsLimit: 1024` (`infra/gcp/gke/sandbox-node-system-config.yaml`). Never
+  use `ulimit -u`, which is shared by host UID across Pods.
+- **Node roles.** Sandbox Pods select `nojv-role=sandbox` and tolerate the
+  `nojv-role=sandbox:NoSchedule` taint (`apps/worker/src/sandbox/kubernetes/pod-spec.ts`).
+  On GKE, workers and the migrator pin to `nojv-role=worker`.
+- **Sandbox namespace** (`templates/namespaces.yaml`, `sandbox-policy.yaml`):
+  `restricted` Pod Security admission, `deny-all-sandbox` NetworkPolicy
+  (`podSelector: {}`, no ingress or egress), ResourceQuota and LimitRange.
+- **Worker egress** (`networkPolicy.enabled`, GKE only): pods labelled
+  `nojv-role: worker` may reach DNS, Temporal, Redis, Cloud SQL, Google APIs and
+  the Kubernetes API; `platform-smtp-egress` adds the SMTP port for pods labelled
+  `nojv-mailer: enabled`. This is independent of the sandbox policy.
 
-If `OTEL_EXPORTER_OTLP_ENDPOINT` is unset/empty, the SDK no-ops. CI and tests run without these.
+## Releasing
 
-### First-time stack setup
+### Single-machine (Flux)
 
-See [Observability Setup Runbook](../runbooks/observability-setup.md).
-
-### Dashboard updates
-
-`pnpm grafana:provision` (idempotent, `overwrite:true`) reads dashboard JSONs from `infra/grafana/dashboards/` and uploads via the Grafana API. Requires `GRAFANA_STACK_URL` + `GRAFANA_SA_TOKEN` (Admin role) in env.
-
-### Worker shutdown hook
-
-`apps/worker/src/index.ts` `gracefulShutdown` awaits `shutdownOtel()` after `app.shutdown()` so the last 30s metric interval is flushed before `process.exit(0)`. Web relies on adapter-node lifecycle and may lose 0–30s on shutdown (accepted trade-off).
-
-### Temporal Workflow Versioning (REQUIRED before editing any workflow)
-
-Temporal replays a running workflow's full event history against the **current** workflow code on every worker poll. Long-lived workflows in this repo — `contestLifecycleWorkflow` (runs an entire contest), `examAutoCloseWorkflow` (spans a whole exam), the `submissionSweeperWorkflow` cron — can be mid-flight when a new worker version deploys. Any change to a workflow's command sequence (new/removed/reordered activity, signal, timer, or `condition`) makes replay of an in-flight execution diverge → non-determinism error → the workflow gets stuck or fails.
-
-Rules when changing code under `apps/worker/src/workflows/`:
-
-1. Guard every behavioral change with `patched(patchId)` / `deprecatePatch(patchId)` (TypeScript SDK) so old histories replay the old path and new executions take the new one. Never silently reorder or add activity calls.
-2. Pure refactors that do not change the command sequence (renaming locals, extracting non-activity helpers) are safe without a patch.
-3. Short-lived workflows (`submissionJudgeWorkflow`, `rejudgeWorkflow`, `plagiarismCheckWorkflow`) usually drain within minutes; for those, draining in-flight executions before rollout is an acceptable alternative to patching — confirm none are running (`temporal workflow list`) before deploying a breaking change.
-4. Workflow / query / signal **names** are a separate cross-package contract — see the registration fitness test under `tests/unit/worker/`.
-
-There is intentionally **no** `patched()` usage in the tree today because no workflow has yet needed a backward-incompatible change; the first such change must introduce it.
-
-## Single-Machine k3s (Kubernetes backend on one box)
-
-To run the Kubernetes sandbox backend on a **single machine** — getting
-quota-bounded per-submission sandbox Jobs without GKE — follow the
-[Single-Machine k3s Runbook](../runbooks/k8s-single-machine.md). It installs k3s
-with a NetworkPolicy-enforcing CNI (Calico, **required** — k3s's default flannel
-does not enforce policy and the worker fails closed without it), then installs
-the **same Helm chart** (`infra/charts/nojv`) used for GKE with the
-single-machine values overlay, and covers bounded web autoscaling plus
-per-submission sandbox capacity. It is the entry point
-on the spectrum **single-node k3s → multi-node k3s → GKE** ([GKE Rollout](#gke-rollout)).
-
-**CD pipeline (`.github/workflows/build-images.yml`).** Merging to `main` runs
-CI only. Pushing a stable `vX.Y.Z` tag for a main commit whose
-`Verify Repository` check passed builds and pushes the four runtime images to
-GHCR under that version. The workflow writes the source SHA, version tag, and
-four verified digests to the `deploy` branch; Flux reconciles that branch and
-k3s pulls the digest-pinned images from GHCR. One-time: set those four GHCR
-packages to **Public** so k3s can pull without an imagePullSecret.
-
-The release workflow finishes after publishing the verified `deploy` branch
-revision; Flux reconciliation and Kubernetes readiness own the rollout. The separate
-[`NOJV-TW/status`](https://github.com/NOJV-TW/status) Worker verifies
-`/api/release`, `/api/livez`, and `/api/readyz` on its minute schedule and owns
-release notifications through the existing status Discord webhook. This keeps
-public verification outside GitHub-hosted runner network policy and avoids a
-second, conflicting source of deployment health.
-
-Before tagging, confirm on the host that the production values Secret does not
-pin `migrator.releaseWindow`. A user-supplied value overrides the one the
-release workflow computes, so a stale `false` skips the maintenance page during
-a migration and a stale `true` drains web on releases that migrate nothing.
-
-```bash
-sudo helm get values nojv -n nojv
-```
-
-A successful read exits 0 and prints the values on stdout under
-`USER-SUPPLIED VALUES:`, which must not mention `releaseWindow`. Two stderr
-warnings that the kubeconfig is group- and world-readable are expected, because
-k3s writes it with mode 644. An error such as `Kubernetes cluster unreachable`
-means nothing was read, not that no override exists, so check the exit status
-before reading the values, and never filter this command's output or test it
-with a `grep` whose miss counts as a pass. The
-[single-machine runbook](../runbooks/k8s-single-machine.md) links the kubeconfig
-that `sudo helm` needs.
+Merging to `main` runs CI only. A release is a stable tag on a `main` commit
+whose `Verify Repository` check passed (OPS-04):
 
 ```bash
 git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 
-### Single-machine capacity ceiling (bounded autoscaling)
+`build-images.yml` builds and attests the four images on GHCR, then writes the
+source SHA, tag, four digests and `migrator.releaseWindow` into
+`values-single-machine.yaml` in one commit on `deploy` (lease-protected, and
+refused if it would move `deploy` backwards). Flux reconciles that revision as
+one Helm upgrade. The four GHCR packages must be public so k3s pulls without a
+pull secret. The workflow ends after publishing `deploy`; the external
+`NOJV-TW/status` Worker verifies `/api/release`, `/api/livez` and `/api/readyz`
+and sends the release notification (OPS-16). Flux details are in the
+[Flux guide](../../infra/flux/README.md).
 
-The single-machine deployment has web HPA but no node autoscaler:
-
-| Tier     | Single-machine (`values-single-machine.yaml`) | Autoscaling on one box                                          |
-| -------- | --------------------------------------------- | --------------------------------------------------------------- |
-| web      | 1 replica, HPA min 1 / max 3                  | CPU target 70%; scales only within the single node.             |
-| judge    | 1 worker, 2–5 slots by node CPU               | One slot = one submission stage Job in flight.                  |
-| platform | 1 worker                                      | Fixed.                                                          |
-| sandbox  | quota `6` CPU / `16Gi` / `16` pods            | No node autoscaler; a rejected Job waits as `waiting_capacity`. |
-
-A stage Job is one Pod: a run init container that reserves `runParallelism` CPUs
-(request = limit), compiles and runs the stage's cases, and a judge container at
-`cpuRequest`. Its effective request is `runParallelism`
-CPU, so `replicas × concurrency × runParallelism` is the number of cases that can
-run at once and the chart refuses values where it exceeds the quota's CPU. On the
-8-CPU box the platform pods reserve about 2.6 CPU; five 1-CPU slots fit the
-remaining allocatable CPU and the 6-CPU quota, and keep five cores for judging.
-Raise `worker.judge.concurrency` and the quota together,
-for example ahead of an exam. Ordering between queued submissions is the Temporal task-queue
-priority described in [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#queue-priority-and-capacity).
-
-The judge Deployment uses `strategy: Recreate` to avoid old/new worker overlap
-within that Deployment. The durable dispatch/drain protocol and operator CLI
-are described in the runbook. It does not change migrator hooks that may stop
-web service; maintenance and web-up cutovers have distinct settings.
-
-## GCP Production Architecture
-
-```
-    Internet
-       │
-       ▼
-  ┌─────────────┐
-  │ Cloudflare  │  ← DNS + TLS + CDN + WAF + DDoS + sets CF-Connecting-IP
-  └──────┬──────┘
-         │ (only path allowed to origin)
-         ▼
-  ┌──────────────────┐
-  │  GKE Ingress/LB  │  ← origin restricted to Cloudflare (Cloud Armor allowlist)
-  └──────┬───────────┘
-         │
-         ▼
-  ┌──────────────────────── GKE cluster (Helm chart: infra/charts/nojv) ────────────────────────┐
-  │   web (Deployment + Service)        worker-judge / worker-platform (Deployments)             │
-  │              │                                   │                                           │
-  │              ├───► Postgres: in-cluster CloudNativePG  *or*  managed Cloud SQL                │
-  │              ├───► Redis: in-cluster  *or*  managed Memorystore                               │
-  │              ├───► S3: in-cluster MinIO  *or*  GCS / R2                                        │
-  │              └───► Temporal Server (prerequisite, official Helm chart, ns nojv-temporal)      │
-  │                                                  │                                           │
-  │                                       worker ───► K8s Jobs (sandbox, ns nojv-sandbox)         │
-  └────────────────────────────────────────────────────────────────────────────────────────────┘
-```
-
-Both web and the workers run **inside the cluster** as chart Deployments — there
-is no serverless tier. Web is fronted by Cloudflare at the edge and the GKE
-Ingress/LB origin is restricted to Cloudflare's CIDR ranges (see
-[Cloudflare + Cloud Armor Setup](#cloudflare--cloud-armor-setup)).
-
-### Service Mapping
-
-| Component | Where it runs                                              | Scaling                                         |
-| --------- | ---------------------------------------------------------- | ----------------------------------------------- |
-| web       | Chart Deployment (+ HPA on GKE)                            | HPA min 2 / max 15 (`web.hpa.*`)                |
-| worker    | Chart Deployments (judge + platform; control when enabled) | Static replicas and separate control queue      |
-| migrator  | Chart pre-install/pre-upgrade Helm hook                    | One-shot per release                            |
-| seed      | Chart post-install Helm hook (opt-in `seed.enabled`)       | One-shot per release                            |
-| sandbox   | K8s Jobs (`nojv-sandbox`)                                  | Per-submission, quota + node cluster-autoscaler |
-| postgres  | In-cluster CloudNativePG _or_ Cloud SQL                    | Vertical (manual) / CNPG instances              |
-| redis     | In-cluster _or_ Memorystore                                | Vertical (manual)                               |
-| temporal  | Official Temporal Helm chart (prereq)                      | Per HA-PRODUCTION.md                            |
-| images    | Artifact Registry                                          | —                                               |
-| secrets   | Chart runtime secret / Secret Manager                      | —                                               |
-
-> **Autoscaling layers.** Concurrent-user spikes are absorbed by the **web** HPA.
-> Submission bursts wait as Temporal Activity tasks ordered by priority; the
-> judge worker's slot count and the sandbox ResourceQuota bound execution.
-> on GKE, one on-demand gVisor node is always present and a gVisor Spot pool
-> scales from 0 to 4 nodes. The judge worker remains fixed because it dispatches
-> I/O-bound work and additional replicas do not create sandbox capacity.
-
-## Helm Deployment
-
-NOJV deploys to single-machine k8s and GKE through the **same** umbrella chart
-at `infra/charts/nojv` — only the values overlay differs. The chart renders web,
-the judge/platform Temporal workers, worker RBAC + PDBs, the namespaces, the sandbox
-namespace policy (deny-all NetworkPolicy + ResourceQuota + LimitRange), the
-worker-egress NetworkPolicy, the migrator Helm hook, and (optionally) in-cluster
-Postgres (CloudNativePG), Redis, and MinIO. The full knob reference is in
-[`infra/charts/nojv/README.md`](../../infra/charts/nojv/README.md).
-
-The single-machine Flux release pipeline and the GKE deploy script both supply
-the image tag plus a registry-verified digest for each of web, worker, sandbox,
-and migrator. A direct Helm install must supply the same four
-`image.digests.*` values; tag-only renders fail closed.
-
-### Prerequisites (one-time, not installed by the chart)
-
-1. **Runtime secret** — an existing `Secret` (default `nojv-runtime-secrets`) in
-   the app namespace holding `DATABASE_URL`, `REDIS_URL`, the `S3_*` keys, the
-   web auth secrets (`BETTER_AUTH_SECRET`/`BETTER_AUTH_URL`), required SMTP
-   credentials plus `APP_BASE_URL`, OAuth, optional Grafana OTLP keys, and — when `seed.enabled` — the
-   `SEED_ADMIN_USERNAME`/`SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` the seed hook
-   provisions the super admin from (password ≥ 12 chars, single-use), plus
-   digest-pinned `SEED_ADVANCED_RUN_IMAGE`/`SEED_ADVANCED_GRADE_IMAGE` demo
-   refs. Copy and
-   fill
-   [`infra/charts/nojv/secret.example.yaml`](../../infra/charts/nojv/secret.example.yaml);
-   the chart never templates secret values.
-2. **CloudNativePG operator** (when `postgres.mode=cnpg`) — `kubectl apply` the
-   operator cluster-wide; the chart only renders the CNPG `Cluster` +
-   `ScheduledBackup` CRs. See [Backup & Restore](../runbooks/backup-restore.md)
-   for the CNPG backup/restore story.
-3. **Temporal Server** — installed via the official `temporalio/temporal` Helm
-   chart, reachable at `temporal.address`
-   (default `temporal-frontend.nojv-temporal.svc.cluster.local:7233`):
-
-   ```bash
-   helm repo add temporal https://go.temporal.io/helm-charts
-   # HA (GKE): replicas ≥ 2 + an HA database — see HA-PRODUCTION.md
-   helm install temporal temporal/temporal -n nojv-temporal --create-namespace \
-     -f infra/gcp/gke/temporal/helm-values.ha.yaml
-   # Single-machine: a single-replica install is acceptable.
-   ```
-
-   Temporal options + cost are in
-   [`infra/gcp/gke/temporal/HA-PRODUCTION.md`](../../infra/gcp/gke/temporal/HA-PRODUCTION.md).
-
-### Building images (Cloud Build)
-
-`infra/gcp/cloud-build/deploy.sh` builds and pushes the container images
-(`web`, `worker`, `sandbox`, `migrator`) to Artifact Registry, reads each pushed
-tag's digest back from the registry, and deploys the resulting immutable refs
-through Helm.
+Before tagging, confirm the cluster-owned values do not pin
+`migrator.releaseWindow` (a user-supplied value overrides the computed one):
 
 ```bash
-export PROJECT_ID=...
-export REGION=asia-east1
-export REPOSITORY=nojv
-export RELEASE_NAME=nojv
-export RELEASE_SHA="$(git rev-parse HEAD)"
-export RELEASE_REMOTE=origin
-export RELEASE_REF=refs/heads/main
-export CLUSTER_NAME=nojv-prod
-export CLUSTER_LOCATION=asia-east1
-export DEPLOY_PRINCIPAL=deployer@example.com
-export CLOUD_BUILD_SERVICE_ACCOUNT=cloud-build@PROJECT_ID.iam.gserviceaccount.com
-export K8S_NAMESPACE=nojv
-export PUBLIC_HOST=nojv.tw
-export REGISTRY_HOST=registry.nojv.tw
-export TLS_SECRET_NAME=nojv-origin-tls
-export EDGE_SECURITY_POLICY=nojv-cloudflare-only
-export CLOUDSQL_INSTANCE_CONNECTION_NAME=PROJECT_ID:asia-east1:nojv-db
-export REDIS_INSTANCE=nojv-redis
-bash infra/gcp/cloud-build/deploy.sh
+sudo helm get values nojv -n nojv
 ```
 
-The script has no ambient project, cluster, principal, kube-context, source-ref,
-or release-identity fallback. Before any cloud mutation it requires a clean
-working tree and proves `RELEASE_SHA = HEAD = RELEASE_REMOTE:RELEASE_REF`. It
-then makes Cloud Build fetch that exact SHA from the canonical GitHub repository;
-the signed provenance must bind that Git source and commit. The local archive is
-used only for the matching Helm release, never as an unverified build source. The
-commit SHA is both the readable image tag and OCI/Helm provenance metadata; the
-registry digest makes the deployed image immutable. Direct manual Cloud Build
-submission is intentionally unsupported because it bypasses these source checks.
-`RELEASE_REMOTE` must be the configured `origin` for the canonical
-`NOJV-TW/NOJV` repository, and Git replacement objects are rejected. Before
-building, the script also proves that Cloud SQL and Memorystore resolve to
-private addresses, derives the exact NetworkPolicy CIDRs from live resources,
-verifies the TLS Secret, and requires Cloud Armor to allow exactly
-`infra/gcp/cloudflare-origin-cidrs.txt` with an enforced default deny.
+It must exit 0 and its `USER-SUPPLIED VALUES:` must not mention
+`releaseWindow`. A `Kubernetes cluster unreachable` error means nothing was
+read; check the exit status and never pipe the output through a `grep` whose
+miss counts as a pass. Two warnings about a group/world-readable kubeconfig are
+expected on k3s. `sudo helm` needs the kubeconfig link from the
+[single-machine runbook](../runbooks/k8s-single-machine.md#prerequisites).
 
-### GKE Rollout
+### GKE (`deploy.sh`)
 
-1. Build, resolve, and deploy images with the script above.
-2. Create the runtime secret (prerequisite 1) and ensure the CloudNativePG
-   operator + Temporal Server prerequisites are installed (2 and 3).
-3. Verify the Helm release installed by the script. It renders the namespaces
-   (`nojv`, `nojv-sandbox`), the two worker
-   Deployments split by `WORKER_MODE` (`nojv-worker` judge / `nojv-worker-platform`
-   platform) with separate service accounts and least-privilege RBAC + PDBs, web (Deployment + Service + optional
-   Ingress), the worker-egress NetworkPolicy (`networkPolicy.enabled`), the
-   sandbox namespace policy (`restricted` Pod Security admission + deny-all NetworkPolicy + ResourceQuota + LimitRange),
-   and the migrator as a pre-install/pre-upgrade Helm hook that runs Prisma
-   migrations before the new Pods roll out. On GKE with `postgres.mode=cloudsql`,
-   each worker Pod runs the Cloud SQL Auth Proxy sidecar
-   (`cloudsqlProxy.enabled=true`) — see
-   [`infra/gcp/gke/README.md`](../../infra/gcp/gke/README.md).
+`bash infra/gcp/cloud-build/deploy.sh` with the variables listed in the
+[GCP guide](../../infra/gcp/README.md#required-environment-variables-for-deploysh).
+Before any mutation it requires a clean tree and
+`RELEASE_SHA = HEAD = RELEASE_REMOTE:RELEASE_REF` on the canonical
+`NOJV-TW/NOJV` origin, rejects Git replacement objects, verifies the GCP
+identities, private Cloud SQL and Memorystore addresses, TLS Secret and the
+Cloud Armor policy. Cloud Build fetches the exact SHA from GitHub; every digest
+must pass `slsa-verifier`. It then runs `helm upgrade --install --wait --timeout 125m`
+and probes the public and direct-origin paths. Direct Cloud Build submission is
+unsupported.
 
-   `sandbox.networkPolicy.enabled` and the top-level `networkPolicy.enabled`
-   protect different boundaries. The former denies sandbox ingress/egress;
-   the latter restricts worker egress to Temporal, Redis, storage APIs, and
-   the Kubernetes API needed to create Jobs. Neither is a production override
-   for the other, and the worker allowlist does not reopen arbitrary Internet
-   access.
+### Verify
 
-4. **A NetworkPolicy-enforcing CNI is a HARD security requirement on the
-   Kubernetes backend.** On the Kubernetes backend, ALL sandbox egress isolation
-   (the `deny-all-sandbox` policy plus the per-submission egress policies) is
-   inert unless the cluster CNI actually enforces NetworkPolicy — a non-enforcing
-   CNI (k3s default flannel, kindnet) silently ignores it and every sandbox Pod
-   can reach the internet, letting students get outside help. You **must** run a
-   NetworkPolicy-enforcing CNI: **GKE Dataplane V2** (or a Standard cluster with
-   `--enable-network-policy`), or **Calico/Cilium**. **GKE Autopilot has
-   Dataplane V2 always-on**, which is the simplest way to guarantee enforcement.
-   For k3s, start the server with `--flannel-backend=none
---disable-network-policy --kubelet-arg=pod-max-pids=256` and install Calico or
-   Cilium. The kubelet flag bounds processes per Pod cgroup; a sandbox-side
-   `ulimit -u` is invalid here because it is shared by host UID across Pods.
+1. `kubectl rollout status deploy/nojv-web deploy/nojv-worker deploy/nojv-worker-platform -n nojv`
+2. Web `/api/livez` and `/api/readyz`; worker `/readyz`.
+3. Watch logs for at least 15 minutes.
 
-   The worker now **fails closed**: at startup, when `EXECUTION_BACKEND=kubernetes`,
-   it runs a positive/negative internal egress probe and **refuses to start the
-   judge worker** unless the CNI enforces NetworkPolicy (see
-   `apps/worker/src/sandbox/kubernetes/netpol-probe.ts`). The probe reaches an
-   explicitly allowed target and must fail to reach a target without an egress
-   allow rule, so an external firewall cannot produce a false positive. There
-   is no bypass: a Kubernetes judge worker requires an enforcing CNI. Use the
-   Docker backend for local development when no enforcing CNI is available.
+Secrets are rotated out-of-band in the runtime Secret, then the affected
+Deployments are restarted.
 
-   The temporary probe Pods and policies are deleted after the check. The same
-   isolation is asserted in CI by `tests/integration/k8s/judge-k8s.test.ts` and
-   `tests/unit/infra/network-policy-parity.test.ts`, but those run against dev
-   infra — the startup self-check confirms the live cluster's CNI honors it.
+## Database migrations
 
-Pre-requisites: two GKE node pools `pool-worker` (untainted) and
-`pool-sandbox` (tainted `nojv-role=sandbox:NoSchedule`). The worker pins to
-the worker pool via `nodeSelector: nojv-role=worker`; sandbox Jobs are
-created with a matching toleration so a runaway submission can never starve
-the orchestrator. Full `gcloud container node-pools create` recipes live in
-[`infra/gcp/gke/README.md`](../../infra/gcp/gke/README.md).
+| Command            | Runs                    | Use                        |
+| ------------------ | ----------------------- | -------------------------- |
+| `pnpm db:push`     | `prisma db push`        | Local schema sync          |
+| `pnpm db:migrate`  | `prisma migrate dev`    | Create a migration locally |
+| `pnpm db:deploy`   | `prisma migrate deploy` | Apply pending migrations   |
+| `pnpm db:validate` | `prisma validate`       | Schema check               |
 
-### Dockerfiles
+Production never runs these by hand. The migrator Job
+(`templates/migrator.job.yaml`, pre-install/pre-upgrade hook, weight -5) runs
+`deploy-release.sh`:
 
-| Dockerfile                               | Purpose                    |
-| ---------------------------------------- | -------------------------- |
-| `infra/docker/web.Dockerfile`            | SvelteKit production build |
-| `infra/docker/worker.Dockerfile`         | Temporal worker            |
-| `infra/docker/sandbox-runner.Dockerfile` | Sandbox execution runtime  |
-| `infra/docker/migrator.Dockerfile`       | Database migration runner  |
+- **Install:** `prisma migrate deploy`.
+- **Upgrade, nothing pending:** when `prisma migrate status` reports no pending
+  migrations and the storage contract is applied, the hook exits and the release
+  rolls through the web Deployment's `maxUnavailable: 0` / `maxSurge: 1`
+  strategy. A status probe that cannot be read counts as pending.
+- **Upgrade with migrations:** the hook waits for the maintenance page, points
+  the web HPA at the maintenance target, scales web, judge and platform to zero,
+  waits until no pods remain, then runs `prisma migrate deploy`. A failure after
+  migration starts keeps writers at zero for a forward fix (OPS-05).
 
-#### Standard judge toolchain
+### Release window
 
-`packages/core/src/judge-environment.json` is the source of truth for the
-standard judge image, runner commands, and public `/environment` page. The
-sandbox Dockerfile installs the exact APK revisions and copies the exact npm
-judge-toolchain revisions, then fails its build when the pinned base image no
-longer matches the recorded Alpine or Node.js version.
+`migrator.releaseWindow` (default `true`) is a render-time flag because Helm
+cannot see what the hook will find. When true on an upgrade, web, judge and
+platform render with `replicas: 0`, the HPA targets the maintenance Deployment,
+and the post-upgrade Job (`templates/web-maintenance.yaml`, also post-rollback)
+starts and verifies the new workloads, then restores the HPA. The release
+workflow sets it to `false` only when `packages/db/prisma/migrations` is
+unchanged between the deployed `release.sourceSha` and the release commit;
+an unknown deployed commit yields `true`. Both mismatches are safe: `false`
+with pending migrations still drains inside the hook, and the post-upgrade Job
+detects a drain at runtime and restores workloads; `true` with nothing to
+migrate only costs a short drained window.
 
-| Component    | Pinned version                                                                                                                                                                                      |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Base OS      | `Alpine Linux 3.24.1`                                                                                                                                                                               |
-| Node runtime | `Node.js 24.18.0`                                                                                                                                                                                   |
-| APK packages | `bash=5.3.9-r1`, `build-base=0.5-r4`, `cargo=1.96.1-r0`, `g++=15.2.0-r5`, `gcc=15.2.0-r5`, `go=1.26.8-r0`, `openjdk21-jdk=21.0.12_p8-r0`, `python3=3.14.7-r1`, `rust=1.96.1-r0`, `socat=1.8.1.3-r0` |
-| npm packages | `@types/node@24.13.3`, `typescript@6.0.3`                                                                                                                                                           |
+Hook order on upgrade:
 
-To upgrade the toolchain, update the base image digest and
-`judge-environment.json`, refresh this table in the same change, then run
-`pnpm lint:doc-drift` and `pnpm sandbox:build`. The documentation gate requires
-the pinned-version table and manifest to contain the exact same platform,
-runtime, and APK pin set.
+| Weight | Hook                                                   | Purpose                                                                                     |
+| ------ | ------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| -40    | `schema-fence.yaml`                                    | Admission fence (below)                                                                     |
+| -10    | `release-prepull.job.yaml`, `sandbox-prepull.job.yaml` | Pull web/worker (`imagePullPolicy: Always`) and sandbox images while the old release serves |
+| -7     | `web-maintenance.deployment.yaml`                      | Maintenance page (release window only)                                                      |
+| -5     | `migrator.job.yaml`                                    | Migrate as above                                                                            |
+| 10     | `web-maintenance.yaml` Job                             | Start new workloads, scale the page to zero, restore the HPA                                |
 
-The standard judge toolchain is a release artifact, not a rolling dependency.
-Do not update it from scheduled CI: upgrade the full pin set only for a
-security fix, compatibility requirement, or planned toolchain review. Validate
-the rebuilt image and representative Docker/Kubernetes judge suites before
-publishing its new immutable image digest. Existing published images remain on
-their current toolchain until that digest is explicitly promoted.
+The maintenance page runs the release's web image with a command override and
+carries the `app.kubernetes.io/name: nojv-web` label, so the web Service reaches
+it; it answers every path with HTTP 503, `Retry-After` and a bilingual page. Its
+`nojv.tw/role: maintenance` label is excluded from the drain selector. If it is
+not available within `maintenance.pageReadyTimeoutSeconds` (120 s), the migrator
+exits before draining and the previous release keeps serving.
 
-### Cloudflare + Cloud Armor Setup
+Flux does not roll back a failed upgrade (`remediateLastFailure: false`); a
+failed post-upgrade hook leaves workloads in maintenance for an operator. See
+[Incident Recovery](../runbooks/incident-recovery.md).
 
-Production depends on Cloudflare being the **only** ingress path so `getClientIp(event)` can trust `CF-Connecting-IP`. See [SECURITY.md — Client IP Trust Model](SECURITY.md#client-ip-trust-model-cloudflare-only) for the rationale.
+### Schema contract fence
 
-**One-time setup:**
+A persistent `ValidatingAdmissionPolicy` (`templates/schema-fence.yaml`) rejects
+any create or update of `nojv-web`, `nojv-worker` or `nojv-worker-platform` whose
+pod template lacks all three labels:
 
-1. **Cloudflare DNS** — set `nojv.example.com` as a proxied (orange-cloud) A/AAAA record pointing at the web origin's public address (the GKE Ingress / external LB IP fronting the `nojv-web` Service). CF terminates TLS at the edge and sets `CF-Connecting-IP` on every inbound request.
+- `nojv.tw/schema-contract: versioned-storage-v1`
+- `nojv.tw/course-roster-contract: membership-v1`
+- `nojv.tw/problem-library-contract: problem-library-v1`
 
-2. **Restrict the origin to Cloudflare** — the web origin (GKE Ingress / LB) must reject any request that did not arrive through Cloudflare, so the default origin address is not directly reachable. On a GKE Ingress fronted by a GCLB, attach a Cloud Armor edge policy (step 3) to the backend service. Without a GCLB, restrict the origin at the load balancer / firewall to Cloudflare's CIDR ranges instead.
+This blocks rollback to a pre-contract release even though Helm still lists it.
+Never delete or bypass the fence.
 
-   After this is in place, hitting the origin IP directly (bypassing Cloudflare) must return 403. All valid traffic must come through Cloudflare.
+## Rollback
 
-3. **Cloud Armor edge policy** — allowlist Cloudflare's official CIDR ranges. Source lists live at <https://www.cloudflare.com/ips-v4> and <https://www.cloudflare.com/ips-v6>; they change rarely but watch for updates.
+Migrations are forward-only and the migrator does not run on `helm rollback`.
 
-   ```bash
-   # Create the policy
-   gcloud compute security-policies create cf-only-policy \
-     --description="Allow only Cloudflare edge IPs"
+1. Inspect the target revision's web, judge and platform pod-template labels.
+2. If any of the three contract labels is missing, build and deploy a forward fix.
+3. Otherwise roll back: single-machine moves `deploy` to an exact prior deploy
+   commit ([Flux guide](../../infra/flux/README.md#emergency-rollback)); GKE runs
+   `helm rollback nojv <revision> -n nojv --wait --timeout 125m`.
+4. Confirm the three Deployments are healthy and watch logs for 15 minutes.
 
-   # Default deny for anything not matched below
-   gcloud compute security-policies rules update 2147483647 \
-     --security-policy=cf-only-policy \
-     --action=deny-403
+If data must be recovered, restore a verified backup into an isolated
+environment, validate a compatible forward release there and promote it. Never
+apply ad-hoc down migrations.
 
-   # Allow Cloudflare IPv4 ranges (paste the full list as a comma-separated string)
-   gcloud compute security-policies rules create 1000 \
-     --security-policy=cf-only-policy \
-     --src-ip-ranges="173.245.48.0/20,103.21.244.0/22,103.22.200.0/22,..." \
-     --action=allow
+## Capacity
 
-   # Same for IPv6 at a separate priority
-   gcloud compute security-policies rules create 1100 \
-     --security-policy=cf-only-policy \
-     --src-ip-ranges="2400:cb00::/32,2606:4700::/32,..." \
-     --action=allow
+| Tier     | Single-machine                                     | GKE                                                                    |
+| -------- | -------------------------------------------------- | ---------------------------------------------------------------------- |
+| web      | HPA 1–3, CPU 70%                                   | HPA 2–15, CPU 70%                                                      |
+| judge    | 1 replica, slots 2–5 by node CPU                   | 2 replicas × 2 slots                                                   |
+| platform | 1 replica                                          | 1 replica                                                              |
+| sandbox  | quota 16 pods / 6 CPU / 16Gi; judge container 300m | quota 10 pods / 10 CPU / 30Gi; one on-demand gVisor node plus Spot 0–4 |
 
-   # deploy.sh verifies this policy and the chart's BackendConfig attaches it.
-   ```
-
-4. **Verify the trust boundary holds:**
-
-   ```bash
-   # (a) Direct to the web origin (GKE Ingress / LB IP) with a non-CF client IP — should 403 (Cloud Armor / firewall)
-   curl -I "https://<origin-ip>"
-
-   # (b) Through Cloudflare — should 200
-   curl -I "https://nojv.example.com"
-
-   # (c) Through Cloudflare but sending a spoofed CF-Connecting-IP — CF rewrites it, app sees real client
-   curl -I -H "CF-Connecting-IP: 1.2.3.4" "https://nojv.example.com"
-   ```
-
-   If (a) returns 200 the trust model is broken — stop and fix before relying on IP-based proctoring.
-
-**Ongoing maintenance:** Cloudflare's CIDR list updates occasionally. Update
-`infra/gcp/cloudflare-origin-cidrs.txt` from the two official endpoints and the
-Cloud Armor allow rules in the same reviewed change. `deploy.sh` refuses to
-continue while they differ.
-
-## Microservice Deployment
-
-The worker supports three deployment modes via `WORKER_MODE`. By default the chart
-(`infra/charts/nojv/templates/worker-judge.deployment.yaml` +
-`worker-platform.deployment.yaml`) ships the split as two separate Deployments
-off the same image — `nojv-worker` (`WORKER_MODE=judge`) and
-`nojv-worker-platform` (`WORKER_MODE=platform`) — each with its own
-PodDisruptionBudget (`pdb.enabled`, see [Disruption and Shutdown](#disruption-and-shutdown)), so the judge and platform task queues scale
-and fail independently. Replica counts come from `worker.judge.replicas` /
-`worker.platform.replicas`. `WORKER_MODE=all` is the default for local dev
-(`pnpm dev`), where a single process runs both queues.
-
-### Mode: all (Development)
-
-Single process runs both task queues. Suitable for local development and small deployments.
-
-```yaml
-environment:
-  WORKER_MODE: all
-```
-
-### Mode: judge (Sandbox Workers)
-
-Only runs judge-queue activities (sandbox execution). Scale based on submission volume.
-
-```yaml
-environment:
-  WORKER_MODE: judge
-  EXECUTION_BACKEND: kubernetes
-```
-
-Requires access to Docker daemon or Kubernetes API for sandbox execution.
-
-### Mode: platform (Lifecycle Workers)
-
-Only runs platform-queue activities (contest/assessment lifecycle, plagiarism, notifications). Lightweight — no sandbox access needed.
-
-```yaml
-environment:
-  WORKER_MODE: platform
-```
-
-### Scaling Strategy
-
-Judge throughput is `worker.judge.concurrency` stage Jobs in flight, bounded by
-the sandbox quota. Increasing judge replicas multiplies slots the same way as
-concurrency; both must stay within the quota. GKE uses 10 Pods / 10 CPU with two
-judge workers at concurrency two; single-machine uses 16 Pods / 6 CPU / 16 GiB
-with one worker whose slots float between two and ten. Neither number is a measured burst
-capacity; size them from the arithmetic above and the node's allocatable CPU.
+The sandbox ResourceQuota is the judge capacity ceiling (OPS-11); a Job the
+quota rejects waits as `waiting_capacity`. Sizing, priority and the slot tuner
+are in [Judge Queue](../runbooks/judge-queue.md). The judge Deployment uses
+`strategy: Recreate`. Extra judge replicas add dispatch slots, not sandbox
+capacity.
 
 ### Disruption and Shutdown
 
@@ -686,245 +375,127 @@ starts it before the app container and stops it only after the app container
 exits, so a draining process keeps its database path and a hook Job completes
 when its main container does.
 
-## Database Migrations
+## Edge
 
-```bash
-# Development: push schema directly
-pnpm db:push
+The origin must be reachable only through Cloudflare, because the app trusts
+`CF-Connecting-IP` (OPS-08, [Client IP trust](SECURITY.md#client-ip-trust-model-cloudflare-only)).
 
-# Production: create and apply migrations
-pnpm db:migrate
+- **Single-machine:** `edge.cloudflared.enabled` runs a tunnel (2 replicas) to the
+  ClusterIP web Service; there is no Ingress or NodePort. Tunnel public
+  hostnames: the site to `http://nojv-web.nojv.svc.cluster.local:80`, and
+  `registry.nojv.tw` to `http://nojv-registry.nojv.svc.cluster.local:5000`.
+- **GKE:** see below.
 
-# Validate schema
-pnpm db:validate
-```
+### Cloudflare + Cloud Armor Setup
 
-In production, migrations run as the chart's **pre-install/pre-upgrade Helm
-hook** (`infra/charts/nojv/templates/migrator.job.yaml`). Installs apply the full
-history. An upgrade whose schema is already up to date (`prisma migrate status`
-reports no pending migrations) and whose storage contract is already applied
-exits the hook immediately. Any other state takes the maintenance window: a
-status probe that cannot be read counts as pending.
+1. **DNS:** a proxied (orange-cloud) record for the public host and the registry
+   host pointing at the GKE Ingress IP.
+2. **Cloud Armor policy** (`EDGE_SECURITY_POLICY`): default rule `deny-403`, allow
+   rules for exactly the ranges in `infra/gcp/cloudflare-origin-cidrs.txt`
+   (from <https://www.cloudflare.com/ips-v4> and <https://www.cloudflare.com/ips-v6>).
 
-Whether the chart itself parks the workloads is a separate, render-time
-decision, because Helm cannot see what the hook found: `migrator.releaseWindow`
-(default `true`) gates the `replicas: 0` that web, judge and platform otherwise
-carry on every upgrade, the HPA's maintenance `scaleTargetRef`, and the
-post-upgrade Job's scale/restore/re-enter-maintenance behavior. The
-post-upgrade Job also detects a drain at runtime (HPA pointed at the
-maintenance target, or the web Deployment at zero replicas) and restores the
-workloads even when the flag says `false`, so a stale `migrator.releaseWindow`
-override in the private values Secret cannot strand the site; never pin the
-flag there. The release
-workflow computes it by diffing `packages/db/prisma/migrations` between the
-commit currently on the deploy branch (`release.sourceSha`) and the release
-commit, and writes it into the same deploy commit as the image digests; an
-unknown or unreachable deployed commit publishes `true`. With `false` the
-release rolls out through the web Deployment's `maxUnavailable: 0` /
-`maxSurge: 1` strategy with no downtime, and a failed readiness check leaves the
-previous pods serving instead of draining them. The web container's 10-second
-`preStop` sleep keeps the outgoing pod answering while its Endpoints removal
-reaches cloudflared, so the surge hand-off cannot strand a request on a listener
-that has already closed. Both mismatches stay safe: a
-`false` flag with pending migrations still makes the hook drain and migrate
-before Helm starts the new pods, and a `true` flag with nothing to migrate only
-costs the old drained window. Upgrades with migrations stage expand
-migrations first; for the versioned-storage contract the hook then disables the
-web HPA target, drains web plus both Temporal workers, performs and verifies the
-S3 backfill, runs a database preflight, and only then exposes the atomic
-contract migration. A failure before backfill
-restores the prior workloads. Once backfill begins, any failure stays in
-maintenance because restoring legacy writers could invalidate the immutable
-pointers. The chart keeps all three new Deployments in maintenance through
-Helm's apply/wait phase; the post-upgrade hook explicitly starts and verifies
-the new workloads before restoring the web HPA target.
+   ```bash
+   gcloud compute security-policies create cf-only-policy \
+     --description="Allow only Cloudflare edge IPs"
+   gcloud compute security-policies rules update 2147483647 \
+     --security-policy=cf-only-policy --action=deny-403
+   gcloud compute security-policies rules create 1000 \
+     --security-policy=cf-only-policy --action=allow \
+     --src-ip-ranges="<IPv4 ranges from cloudflare-origin-cidrs.txt>"
+   gcloud compute security-policies rules create 1100 \
+     --security-policy=cf-only-policy --action=allow \
+     --src-ip-ranges="<IPv6 ranges from cloudflare-origin-cidrs.txt>"
+   ```
 
-While the window is open the site answers from
-`infra/charts/nojv/templates/web-maintenance.deployment.yaml`, a single pod that
-carries the `app.kubernetes.io/name: nojv-web` pod label, so the existing web
-Service reaches it without any selector change. It runs the release's own web
-image with a command override, so the window needs no extra image, and answers
-every path with HTTP 503, a `Retry-After` hint and a bilingual page instead of
-leaving the Service with no endpoints for the edge to turn into a 502.
+3. The chart's `BackendConfig` attaches the policy and a `FrontendConfig`
+   enforces the HTTPS redirect. `deploy.sh` refuses to deploy unless the policy
+   matches the CIDR file with default deny, and afterwards requires direct-origin
+   requests for both hosts to be rejected and Cloudflare requests to succeed.
+4. **Maintenance:** when Cloudflare's ranges change, update
+   `cloudflare-origin-cidrs.txt` and the Cloud Armor rules in the same change.
 
-The drain happens inside the migrator hook, before Helm applies the release, so
-the page is itself a `pre-upgrade` hook at weight -7: after `release-prepull`
-(-10) has put the image on the node and before the migrator (-5). It is rendered
-only for an upgrade with `migrator.releaseWindow`, and `before-hook-creation`
-replaces it on each such release. The migrator waits for it to report an
-available replica before it repoints the HPA and scales web to zero; if it never
-does within `maintenance.pageReadyTimeoutSeconds`, the migrator exits before
-draining and the previous release keeps serving. When the page was not rendered,
-for example under a stale `false` flag, the migrator drains without the gate.
-Its extra `nojv.tw/role: maintenance` label is what both drain checks exclude
-(`WEB_POD_SELECTOR`), and the post-upgrade Job scales it to zero once the real
-web deployment reports ready and the HPA is repointed; `enter_maintenance`
-scales it back up when a post-contract failure sends the workloads back.
+If a direct-origin request ever succeeds, the trust model is broken; stop before
+relying on IP-based proctoring.
 
-Before any of that, a `release-prepull` pre-upgrade hook (weight -10, ahead of
-the migrator's drain at -5) pulls the release's web and worker images onto the
-node by running each as a no-op container. A slow or failing registry therefore
-fails the upgrade while the previous release is still serving, instead of after
-the drain; the post-upgrade readiness window then only has to cover container
-start. The HelmRelease deliberately does not roll back a failed upgrade
-(`remediateLastFailure: false`): after a one-way contract migration the previous
-revision may be unsafe to restore, so a failed post-upgrade hook leaves the
-workloads in maintenance for an operator — see the incident runbook.
+## Images
 
-### Course problem library contract
+### Dockerfiles
 
-`20260908000002_course_problem_permissions` uses the same drained release gate.
-It rejects problems without an existing owner, makes `Problem.authorId` required
-with a restrictive deletion relation, and backfills `CourseProblem` from current
-assignment/exam links and verified historical submission contexts. Existing
-problem IDs, owners, visibility, activity references and submissions remain intact;
-only future public selections create private copies. Backfilled links have no
-invented creator and use the migration transaction timestamp.
+| Dockerfile                                | Image                          |
+| ----------------------------------------- | ------------------------------ |
+| `infra/docker/web.Dockerfile`             | SvelteKit production server    |
+| `infra/docker/worker.Dockerfile`          | Temporal worker                |
+| `infra/docker/sandbox-runner.Dockerfile`  | Standard sandbox runtime       |
+| `infra/docker/migrator.Dockerfile`        | Migrator and seed hooks        |
+| `infra/docker/demo-advanced-{run,grade}/` | Seeded special_env demo images |
 
-Rehearse the complete roster, late-policy, activity-weight and library migration
-sequence on a privately restored backup. Compare expected subjects, decimal
-allocations, all retained records and the exact course/problem pairs; verify
-rollback, reruns, schema drift and a full upgraded dump/restore. During cutover,
-obtain a fresh backup after all writers stop before allowing the migration hook.
+#### Standard judge toolchain
 
-### Course roster contract
+`packages/core/src/judge-environment.json` is the source of truth for the
+standard judge image, runner commands and the public `/environment` page
+(JDG-14). The sandbox Dockerfile installs these exact revisions and fails its
+build when the pinned base image no longer matches the recorded Alpine or
+Node.js version.
 
-`20260907000000_course_roster_contract` converts placeholder accounts into durable
-course memberships in one transaction. It remains outside `deploy-expand.sh`'s
-staging boundary, which stops at the earlier storage contract. While it is
-pending, `deploy-release.sh` drains web, judge worker, and platform worker,
-disables the web HPA target (and pauses KEDA if configured), then rechecks
-deployments, pods, and autoscalers immediately before the full migration run. Do not apply this contract with a standalone production
-`prisma migrate deploy` command while writers are running.
+| Component    | Pinned version                                                                                                                                                                                      |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Base OS      | `Alpine Linux 3.24.1`                                                                                                                                                                               |
+| Node runtime | `Node.js 24.18.0`                                                                                                                                                                                   |
+| APK packages | `bash=5.3.9-r1`, `build-base=0.5-r4`, `cargo=1.96.1-r0`, `g++=15.2.0-r5`, `gcc=15.2.0-r5`, `go=1.26.8-r0`, `openjdk21-jdk=21.0.12_p8-r0`, `python3=3.14.7-r1`, `rust=1.96.1-r0`, `socat=1.8.1.3-r0` |
+| npm packages | `@types/node@24.13.3`, `typescript@6.0.3`                                                                                                                                                           |
 
-Before releasing, verify a recoverable backup and the exact primary/database
-identity, then refresh the placeholder IDs, memberships, and all references.
-The migration takes an exclusive lock, snapshots pending users and memberships,
-validates synthetic emails/status, and inventories every User foreign key from
-PostgreSQL's catalog. Only roster ownership and convertible course score/feedback
-subjects may reference placeholders; credentials, sessions, submissions, contest
-scores, audit actors, and any other references fail closed. Course subjects and
-mapped audit identities are backfilled before users are detached/deleted;
-historical snapshots from deleted contexts are retained. IDs, roles, status,
-creator, and timestamps must survive exactly. All data writes, subject/identity
-constraints, User-status removal, and security-generation trigger replacement
-commit together. Unique constraints build under the maintenance lock; the next
-migration builds only the two audit lookup indexes concurrently.
+To upgrade: update the base image digest and `judge-environment.json`, refresh
+this table in the same change, run `pnpm lint:doc-drift` (the table must match
+the manifest exactly) and `pnpm sandbox:build`, and validate representative
+Docker and Kubernetes judge suites before promoting the new digest. Upgrade the
+full pin set only for a security fix, compatibility need or planned review,
+never from scheduled CI.
 
-The existing admission fence requires `nojv.tw/schema-contract:
-versioned-storage-v1`, `nojv.tw/course-roster-contract: membership-v1`, and
-`nojv.tw/problem-library-contract: problem-library-v1` on all three workload pod
-templates. The library fence has its own name so an older chart cannot replace it. Once the final migration run starts, a failure
-keeps writers at zero; use a compatible forward fix and inspect Prisma migration
-history before retrying. Never remove the fence to start an older writer.
+### Self-hosted registry
 
-The rehearsal is `tests/integration/db/course-roster-migration.test.ts`, using
-full historical migrations in an isolated schema under the existing destructive
-test-database guard. Coordinate execution on the explicit, safety-marked local
-test database; it is not a production test. It covers eight placeholders (seven
-students, one TA, two courses), removed/scored/audited variants, unknown FK
-refusal, historical deleted contexts, and transaction rollback. The dependency-free
-maintenance tests exercise staging, drain refusal, repeat upgrades, and chart
-labels. After release, separately verify exact image/source revision, readiness
-of all three workloads, zero synthetic User rows, preserved roster IDs/roles,
-no orphan live grading subjects, and unaffected real accounts. Test results and
-rendered charts alone are not production rollout evidence.
+`registry.enabled` (on in both overlays) runs a `registry:2` Deployment for
+teacher-built special_env images (OPS-10). Blobs go to in-cluster MinIO (bucket
+`nojv-registry`, created by a hook) or `registry.s3.regionendpoint`. The web
+endpoint `/api/registry/token` signs scoped tokens:
 
-## Backup Automation
+| Principal                      | Access                                          |
+| ------------------------------ | ----------------------------------------------- |
+| Platform credential (any role) | push and pull `t/<username>/**`; pull `demo/**` |
+| `judge-pull` service account   | pull everything                                 |
+| Anonymous                      | pull `demo/**`                                  |
 
-**Default (in-cluster Postgres):** the chart provisions Postgres as a
-CloudNativePG `Cluster` and renders a `ScheduledBackup` (barman-cloud backup to
-object storage + continuous WAL archiving for PITR) when
-`postgres.cnpg.backup.enabled=true`. This is the production backup posture for
-both single-machine and GKE-with-CNPG.
+Credentials are issued from the problem editor to admins and users with
+`canCreateAdvancedProblems`. Judge Pods pull through the
+`worker.sandbox.imagePullSecret` Secret (`nojv-registry-pull`). Setup steps are
+in the [single-machine runbook](../runbooks/k8s-single-machine.md#registry).
+Garbage collection is manual from `/admin/registry`; run it when nobody is
+pushing, because mark-and-sweep can remove a blob whose manifest is not yet
+pushed.
 
-**Managed Cloud SQL alternative (GKE only):** two scripts under
-`infra/gcp/scripts/` cover the Cloud SQL path:
+## Workflow versioning
 
-| Script                      | Purpose                                                                                                                                                                                                                          |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `setup-backups.sh`          | One-shot, idempotent. Enables Cloud SQL automated daily backups (30-day retention, in-region) + PITR (14-day WAL) and creates a versioned GCS bucket for cold exports. Run once per environment after provisioning the instance. |
-| `export-postgres-to-gcs.sh` | Daily cold export via `gcloud sql export`. Designed to be triggered by Cloud Scheduler.                                                                                                                                          |
+Temporal replays in-flight histories against new worker code, and
+`contestLifecycleWorkflow`, `examAutoCloseWorkflow` and the sweeper cron are
+long-lived. Guard every command-sequence change under `apps/worker/src/workflows/`
+with `patched()` / `deprecatePatch()`, or deploy only after the affected
+short-lived workflows have drained (DAT-15). Pure refactors that keep the command
+sequence need no patch.
 
-See [Backup & Restore Runbook](../runbooks/backup-restore.md) for the CNPG
-restore drill, the Cloud SQL PITR procedure, and the local-dev dump path.
+## Backups
 
-## CI Pipeline
+- **Single-machine:** CNPG `ScheduledBackup` with WAL archiving and the MinIO
+  off-host mirror CronJob are enabled, and the chart refuses to render without
+  their destinations and credential Secrets (OPS-06).
+- **GKE:** `infra/gcp/scripts/setup-backups.sh` enables Cloud SQL daily backups
+  (30 retained, in-region) and PITR (14 days of logs) and creates a versioned
+  GCS bucket; `export-postgres-to-gcs.sh` is the daily cold export for Cloud
+  Scheduler.
 
-Workflow: `.github/workflows/ci.yml`
+Procedures and restore drills: [Backup & Restore](../runbooks/backup-restore.md).
 
-```bash
-pnpm ci:verify
-```
+## CI and release gates
 
-Steps (from `package.json`):
-
-1. `pnpm format` — Prettier formatting check
-2. `pnpm lint:application-queries` — Guards that no `prisma.*` call leaks outside `packages/db` / `packages/application`
-3. `pnpm db:generate` — Regenerate Prisma client
-4. `turbo run build typecheck lint` — Build, typecheck, and lint all packages
-5. `pnpm test:unit` — Run Vitest unit tests (separate step, not inside the turbo run)
-
-Additional checks (in `.github/workflows/ci.yml`):
-
-- `pnpm --filter @nojv/storage build` — build the storage package so the seed validator can import it
-- `pnpm db:seed:validate` — dry-run validation of problem seed definitions
-- `pnpm test:integration` — Vitest integration tests
-- `security-audit` job: `pnpm audit --audit-level high` — hard gate, any high/critical advisory fails the build
-
-CodeQL SAST runs in a separate workflow (`.github/workflows/codeql.yml`).
-
-## Deploying a New Release
-
-A release is one image tag promoted through the chart. The flow is the same for
-single-machine and GKE — only the values overlay differs:
-
-1. Build + push images for the target commit and note the tag
-   ([Building images](#building-images-cloud-build)).
-2. Apply it through the release workflow, which carries the tag and all four
-   registry-verified digests as one atomic chart revision.
-
-   The migrator Helm hook runs Prisma migrations to completion **before** the
-   new `web`/`worker` Pods roll out, so the database is migrated first and the
-   rollout is gated on it.
-
-3. Verify: `kubectl rollout status deploy/nojv-web -n nojv` and
-   `deploy/nojv-worker -n nojv`, then check web `/api/livez` and `/api/readyz`,
-   check worker `/readyz`, and monitor logs for at least 15 minutes.
-
-Secrets are **not** templated by the chart — rotate them in the runtime secret
-out-of-band and restart the affected Deployment to pick them up.
-
-## Rollback Procedure (Helm)
-
-Database migrations are forward-only. The chart installs a persistent admission
-fence before migration; it rejects any web or worker Deployment whose pod
-template does not declare both the `versioned-storage-v1` storage contract and
-`membership-v1` course-roster contract.
-This intentionally blocks rollback to a pre-contract image even though Helm
-still lists that revision. The migrator does not run during `helm rollback`.
-
-1. Inspect the target revision's rendered web and worker pod-template labels.
-2. If it lacks `nojv.tw/schema-contract: versioned-storage-v1` or
-   `nojv.tw/course-roster-contract: membership-v1`, do not delete or bypass the fence. Build and deploy a forward fix from a compatible revision.
-3. For a revision carrying the same contract, run
-   `helm rollback nojv <revision> -n nojv --wait --timeout 125m`.
-4. Confirm all three app Deployments are healthy, validate key flows, and monitor
-   logs for at least 15 minutes.
-
-If database recovery is required, restore a verified backup into an isolated
-environment, validate a compatible forward release there, and promote that
-release. Do not apply ad-hoc down migrations to production.
-
-### Pre-Rollback Checklist
-
-1. Confirm issue is deployment-related, not upstream infrastructure instability
-2. Check web and worker health endpoints
-3. Check Temporal workflows for stuck executions
-4. Verify the target web and worker manifests carry the active schema contract
-5. After rollback, monitor logs, queue drain behavior, and health checks
-
-## Related Docs
-
-- [Architecture Overview](../architecture/ARCHITECTURE.md)
-- [Getting Started Runbook](../runbooks/getting-started.md)
+`Verify Repository` (`.github/workflows/ci.yml`) aggregates repository checks,
+coverage and Temporal integration and gates every release tag. CodeQL and the
+`pnpm audit --audit-level high` job also run (OPS-13). What each job covers is in
+[Testing Strategy](../runbooks/testing.md).

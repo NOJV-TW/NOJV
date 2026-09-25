@@ -1,86 +1,42 @@
-# Single-Machine k3s Deployment + Autoscaling
+# Single-Machine k3s
 
-Run the **whole** NOJV judge on **one box** using the Kubernetes sandbox
-backend (`EXECUTION_BACKEND=kubernetes`) on [k3s](https://k3s.io). You get
-per-submission sandbox Jobs that queue safely at the host quota, and a clean
-upgrade path to multi-node later — without GKE.
+Procedure for running all of NOJV on one host with the Kubernetes sandbox
+backend on k3s: Calico for NetworkPolicy, gVisor for sandbox Pods, the
+`nojv` chart with `values-single-machine.yaml`, and Flux for releases.
+Configuration reference, release mechanics and capacity numbers live in the
+[Deployment Guide](../operations/DEPLOYMENT.md).
 
-This deploys the **same Helm chart** (`infra/charts/nojv`) used for GKE, with the
-single-machine values overlay (`infra/charts/nojv/values-single-machine.yaml`);
-the only deltas are the CNI, gVisor runtime, node labels, how images get into
-the cluster, and a single-node Temporal (the chart brings up in-cluster
-Postgres/Redis/MinIO).
+## Key code
 
-For the managed-cloud (GKE) path instead, see
-[Deployment Guide → GKE Worker Rollout](../operations/DEPLOYMENT.md#gke-worker-rollout).
-The spectrum is: **single-node k3s** (this runbook) → **multi-node k3s**
-(`k3s agent` join, [§9](#9-scaling-from-one-node-to-many)) → **GKE** (elastic
-node pools).
-
-The default in-cluster MinIO configuration creates the dedicated
-`nojv-minio-retain` StorageClass with `reclaimPolicy: Retain`. Both that class
-and the MinIO PVC carry Helm's `keep` policy, so disabling the value or
-uninstalling the release does not delete the claim or its bound volume. Before
-first production use, verify the live class with
-`kubectl get storageclass nojv-minio-retain -o jsonpath='{.reclaimPolicy}'`; it
-must print `Retain`. Retention is not an off-host backup: configure and
-restore-test the separate mirror before treating the installation as
-production-safe.
-
-## ⚠️ Hard security requirement: a NetworkPolicy-enforcing CNI
-
-> **k3s's default flannel CNI does NOT enforce NetworkPolicy.** On the
-> Kubernetes backend, ALL sandbox egress isolation — the `deny-all-sandbox`
-> policy and the per-submission egress policies — is **inert** unless the CNI
-> actually enforces NetworkPolicy. On a non-enforcing CNI every sandbox Pod can
-> reach the internet, letting students fetch outside help.
-
-The worker now **fails closed**: at startup, when
-`EXECUTION_BACKEND=kubernetes`, it launches a deny-all-covered probe Pod and
-**refuses to start the judge worker** if that Pod can reach the internet
-(`apps/worker/src/sandbox/kubernetes/netpol-probe.ts`, wired in
-`apps/worker/src/worker-app.ts`). So if you skip the CNI step below, the worker
-will not judge — by design.
-
-The fix (detailed in [§1](#1-install-k3s-without-flannel--install-calico)):
-install k3s with `--flannel-backend=none --disable-network-policy`, then
-install **Calico** (or Cilium) which does enforce NetworkPolicy.
+- `infra/charts/nojv/values-single-machine.yaml`: overlay (in-cluster Postgres, Redis, MinIO, registry, cloudflared, metrics stack)
+- `infra/k3s/`: containerd v3 template for `runsc`, `gvisor` RuntimeClass, kubelet drop-ins
+- `infra/flux/`: GitOps release ([Flux guide](../../infra/flux/README.md))
+- `apps/worker/src/sandbox/kubernetes/netpol-probe.ts`, `runtime-probe.ts`: startup fail-closed checks
+- `infra/gcp/gke/temporal/helm-values.single-machine.yaml`: Temporal values
 
 ## Prerequisites
 
-- One Linux host (Ubuntu 22.04+ / Debian 12 assumed below) with root.
-- Sizing — judge concurrency is bounded by the sandbox ResourceQuota
-  ([§3](#3-sandbox-namespace--guardrails) / [§8](#8-autoscaling)). A practical
-  floor is **4 vCPU / 8 GiB**; **8 vCPU / 16 GiB** runs a real class comfortably.
-- `docker` on the host **only** to `docker save` images into k3s
-  ([§4](#4-load-images-into-k3s-containerd-not-docker)). k3s itself runs on
-  containerd, not Docker.
-- gVisor's official release archive pinned to release `20260727` with the
-  SHA-512 recorded in the runtime installation step below.
+- One Linux host (Ubuntu 22.04+ or Debian 12) with root. The production overlay
+  is sized for 8 vCPU / 16 GiB; 4 vCPU / 8 GiB is the practical floor with a
+  smaller quota.
+- `docker` on the host only if you build images locally.
+- Off-host S3/R2 destinations and credentials for Postgres and MinIO backups
+  (the chart will not render without them).
 
-Throughout, run `kubectl` either via the bundled `k3s kubectl ...` or by
-exporting the k3s kubeconfig once:
+`sudo` drops `KUBECONFIG`, and Helm does not know the k3s kubeconfig path. After
+installing k3s, link it for root so `sudo helm` works:
 
 ```bash
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-```
-
-`sudo` resets the environment, so that export never reaches `sudo helm`, and
-Helm, unlike the bundled `kubectl`, does not know where k3s keeps its
-kubeconfig. It then falls back to `localhost:8080` and fails with
-`Kubernetes cluster unreachable`. Link the kubeconfig for root once, after k3s
-is installed, so `sudo helm` reaches the cluster:
-
-```bash
 sudo install -d -m 0700 /root/.kube
 sudo ln -sfn /etc/rancher/k3s/k3s.yaml /root/.kube/config
 ```
 
-## 1. Install k3s without flannel + install Calico
+## 1. Install k3s and Calico
 
-Install the k3s **server** (control plane + node) with flannel and the built-in
-non-enforcing network-policy controller **both disabled**, so Calico owns the
-dataplane:
+k3s's default flannel does not enforce NetworkPolicy, and the judge worker
+refuses to start without enforcement. Disable flannel and the built-in policy
+controller:
 
 ```bash
 curl -sfL https://get.k3s.io | sh -s - server \
@@ -89,22 +45,18 @@ curl -sfL https://get.k3s.io | sh -s - server \
   --disable=traefik \
   --kubelet-arg=pod-max-pids=256 \
   --write-kubeconfig-mode=644
-
-export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 ```
 
-`--disable=traefik` drops the bundled ingress (NOJV's web app is reached
-directly / behind your own reverse proxy; not needed for judging). Nodes stay
-`NotReady` until a CNI is installed — that is expected at this point.
-`pod-max-pids=256` applies the process limit to each Pod's cgroup. Do not replace
-it with `ulimit -u`: Linux accounts that limit across every container sharing a
-host UID, so unrelated judge Pods can exhaust one another's allowance.
+- `--disable=traefik`: the site is reached through the cloudflared tunnel.
+- `pod-max-pids=256`: per-Pod PID limit. Never replace it with `ulimit -u`, which
+  is shared by every container with the same host UID.
+- Nodes stay `NotReady` until the CNI is installed.
 
-Install **Calico** (the operator + default `Installation`):
+Install Calico through the operator. The pool must equal k3s's cluster CIDR
+(default `10.42.0.0/16`):
 
 ```bash
 kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.2/manifests/tigera-operator.yaml
-
 kubectl create -f - <<'EOF'
 apiVersion: operator.tigera.io/v1
 kind: Installation
@@ -117,25 +69,15 @@ spec:
         encapsulation: VXLANCrossSubnet
         natOutgoing: Enabled
 EOF
-```
-
-`10.42.0.0/16` is k3s's default cluster CIDR — keep it unless you changed
-`--cluster-cidr`. Wait for Calico and the node to go Ready:
-
-```bash
 kubectl wait --for=condition=Ready node --all --timeout=180s
-kubectl get tigerastatus   # all should report AVAILABLE=True
+kubectl get tigerastatus   # all AVAILABLE=True
 ```
 
-> **Cilium alternative.** Instead of Calico, install Cilium with the same k3s
-> flags: `cilium install --version 1.16.3` (after installing the `cilium` CLI).
-> Cilium also enforces NetworkPolicy. Pick one; do not install both.
+Cilium (`cilium install --version 1.16.3`) also works; install only one.
 
-### Install the pinned gVisor runtime before the chart
+## 2. Install gVisor
 
-The production chart requires `runtimeClassName: gvisor`; it does not fall back
-to `runc`. Install the official gVisor archive, including the shim sidecar
-binaries, and install the K3s containerd v3 extension from this repository:
+The chart requires `runtimeClassName: gvisor`; there is no `runc` fallback.
 
 ```bash
 GVISOR_RELEASE=20260727
@@ -152,175 +94,45 @@ sudo install -m 0644 "$REPO_ROOT/infra/k3s/containerd/config-v3.toml.tmpl" \
 sudo kubectl apply -f "$REPO_ROOT/infra/k3s/runtimeclass-gvisor.yaml"
 sudo systemctl restart k3s
 kubectl wait --for=condition=Ready node --all --timeout=180s
-kubectl get runtimeclass gvisor -o yaml
+sudo grep -A2 "runtimes.'runsc'" /var/lib/rancher/k3s/agent/etc/containerd/config.toml
 ```
 
-The template extends K3s's generated containerd v3 base and registers the
-`runsc` handler. Verify the handler before deploying the worker:
+The template extends k3s's generated containerd v3 config with the `runsc`
+handler. If the handler or RuntimeClass is missing, stop and repair the node.
 
-```bash
-sudo grep -A2 "runtimes.'runsc'" \
-  /var/lib/rancher/k3s/agent/etc/containerd/config.toml
-```
+## 3. Node labels and kubelet config
 
-If the RuntimeClass or handler is missing, stop. The worker startup probe will
-also refuse to start, but the node must be repaired before judging.
-
-### Verify enforcement (the same check the worker runs at startup)
-
-The deny-all policy and the `nojv-sandbox` namespace are rendered by the chart
-(`infra/charts/nojv/templates/sandbox-policy.yaml` + `templates/namespaces.yaml`).
-After [§6](#6-install-the-chart), restart the worker and inspect its startup
-self-check:
-
-```bash
-kubectl logs -n nojv deploy/nojv-worker | grep -i "NetworkPolicy"
-```
-
-**Expected:** `NetworkPolicy enforcement verified — sandbox egress is isolated`.
-The worker creates two internal target Pods plus temporary allow/deny policies;
-it must reach the explicitly allowed target and must not reach the target with
-no egress allow. This positive/negative check does not depend on an external
-firewall or Internet route, so a non-enforcing CNI cannot pass accidentally.
-If the worker logs `CRITICAL: refusing to start K8s judge worker`, **stop** and
-fix the CNI before judging anything. The temporary probe resources are removed
-automatically. The deny-all `podSelector` still matches every sandbox Pod
-except those labelled `nojv.egress=<value>`, which are governed by their own
-per-submission policies.
-
-## 2. Node setup
-
-Label the single node so it matches the sandbox `nodeSelector`
-(`{ "nojv-role": "sandbox" }`) that `apps/worker/src/sandbox/kubernetes/advanced.ts` / the netpol probe set:
+Sandbox Pods select `nojv-role=sandbox` and tolerate the sandbox taint. The
+overlay sets no worker `nodeSelector`, so the single node needs only the sandbox
+label and no taint:
 
 ```bash
 NODE=$(kubectl get nodes -o jsonpath='{.items[0].metadata.name}')
 kubectl label node "$NODE" nojv-role=sandbox --overwrite
 ```
 
-The worker Deployments carry the `nojv-role: worker` Pod label
-(`infra/charts/nojv/templates/worker-judge.deployment.yaml` /
-`worker-platform.deployment.yaml`); on GKE they are also pinned to a worker node
-pool via `worker.judge.nodeSelector` / `worker.platform.nodeSelector`. On a
-**single** node that node must satisfy both the worker and sandbox roles, so also
-add the worker label:
-
-```bash
-kubectl label node "$NODE" nojv-role=worker --overwrite
-```
-
-**Taints are optional on single-node** and intentionally skipped here. On GKE
-the sandbox pool is tainted `nojv-role=sandbox:NoSchedule` so a runaway
-submission can't starve the orchestrator — but on one box there is nowhere else
-for the worker to run, so tainting would only block it. Sandbox Pods already
-carry the matching toleration (`apps/worker/src/sandbox/kubernetes/advanced.ts` `SANDBOX_TOLERATIONS`), so they
-schedule fine whether or not the taint exists. Re-introduce the taint only once
-you join a dedicated sandbox node ([§9](#9-scaling-from-one-node-to-many)).
-
 ### Kubelet image GC
 
-Teacher-provided special_env images accumulate on the node and the kubelet
-defaults (GC only above 85% disk) never fire on a box that runs well below
-that. Install the drop-in from `infra/k3s/kubelet.conf.d/90-image-gc.conf`
-(k3s ≥ v1.29 merges `/var/lib/rancher/k3s/agent/etc/kubelet.conf.d/*.conf`
-over its generated defaults):
+Install the kubelet drop-ins (k3s merges `kubelet.conf.d/*.conf`):
 
 ```bash
 sudo mkdir -p /var/lib/rancher/k3s/agent/etc/kubelet.conf.d
 sudo cp infra/k3s/kubelet.conf.d/*.conf /var/lib/rancher/k3s/agent/etc/kubelet.conf.d/
 sudo systemctl restart k3s
+sudo kubectl get --raw "/api/v1/nodes/$(hostname)/proxy/configz" \
+  | jq '.kubeletconfig | {imageGCHighThresholdPercent, imageGCLowThresholdPercent, imageMaximumGCAge, containerLogMaxSize, containerLogMaxFiles}'
 ```
 
-The same directory carries `91-container-log.conf`
-(`containerLogMaxSize: 64Mi`, `containerLogMaxFiles: 2`). A sandbox case
-container reports its result as one JSON line that can carry up to the
-16 MiB execution output cap; under kubelet's default 10 MiB log budget that
-line is cut and the worker turns a plain verdict into a system error. Verify
-the effective values after the restart:
+| File                    | Settings                                               | Why                                                                                                     |
+| ----------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `90-image-gc.conf`      | GC at 75% / 65%, `imageMaximumGCAge: 168h`             | Teacher images accumulate; unused images are pruned after a week without disk pressure                  |
+| `91-container-log.conf` | `containerLogMaxSize: 64Mi`, `containerLogMaxFiles: 2` | A case result line can carry the 16 MiB output cap; the 10 MiB default truncates it into a system error |
 
-```bash
-sudo kubectl get --raw /api/v1/nodes/$(hostname)/proxy/configz | grep -o '"containerLogMax[A-Za-z]*":[^,]*'
-```
+Restarting k3s briefly restarts the control plane; running Pods keep running.
 
-This sets `imageGCHighThresholdPercent: 75` / `imageGCLowThresholdPercent: 65`
-and `imageMaximumGCAge: 168h`, so images unused for a week are pruned even
-without disk pressure. Restarting k3s bounces the control plane briefly;
-running Pods keep running. Verify with
-`sudo k3s kubectl get --raw "/api/v1/nodes/$(hostname)/proxy/configz" | jq .kubeletconfig.imageMaximumGCAge`.
+## 4. Cluster prerequisites
 
-## 3. Sandbox namespace + guardrails
-
-You do **not** apply these by hand — the chart renders them. The
-`helm upgrade --install` in [§6](#6-install-the-chart) creates the sandbox
-namespace, the deny-all NetworkPolicy, the LimitRange, and the ResourceQuota from
-`infra/charts/nojv/templates/sandbox-policy.yaml` +
-`templates/namespaces.yaml`:
-
-- **`namespaces.yaml`** — `nojv` (app) + `nojv-sandbox`.
-- **`deny-all-sandbox` NetworkPolicy** — no ingress, no egress, no DNS for every
-  sandbox Pod without an `nojv.egress` label (gated by
-  `sandbox.networkPolicy.enabled`, on by default).
-- **LimitRange** — default/`max`/`min` CPU & memory per sandbox container
-  (default `1` CPU / `512Mi`, max `2` CPU / `1Gi`), tunable via
-  `sandbox.limitRange.*`.
-- **ResourceQuota** — the single-machine overlay sets `pods: 16`,
-  `requests.cpu: 6`, `requests.memory: 16Gi`. **This is the concurrency
-  ceiling**: each stage Job reserves `worker.sandbox.runParallelism` CPUs, so
-  judge slots × runParallelism must fit `requests.cpu` (the chart refuses more);
-  excess Jobs queue as `Pending` until earlier ones finish. Tune it for the box
-  via `sandbox.resourceQuota.*` in your values overlay —
-  [§8](#sizing-the-resourcequota-to-the-box).
-
-## 4. Load images into k3s (containerd, not Docker)
-
-k3s uses **containerd**, so a `docker build` on the host is invisible to it.
-Build, then import via `k3s ctr images import` from a `docker save` tarball.
-
-For this explicit local-build path, use the chart's narrow
-`allowUnpinnedLocalBuilds` escape hatch. It accepts only an empty registry and
-prefix with the exact tag `local`, so build these exact names:
-
-```bash
-# Sandbox runtime (SANDBOX_IMAGE)
-docker build -t sandbox:local -f infra/docker/sandbox-runner.Dockerfile .
-# Worker, web, and migrator app images
-docker build -t worker:local   -f infra/docker/worker.Dockerfile .
-docker build -t web:local      -f infra/docker/web.Dockerfile .
-docker build -t migrator:local -f infra/docker/migrator.Dockerfile .
-```
-
-Import each into k3s's containerd:
-
-```bash
-for img in sandbox:local worker:local web:local migrator:local; do
-  docker save "$img" | sudo k3s ctr images import -
-done
-sudo k3s ctr images ls | grep nojv   # confirm all four are present
-```
-
-On **kind**, load the same tags with `kind load docker-image web:local …`
-instead of `ctr import`. The chart sets each Pod's `imagePullPolicy`, so the
-kubelet uses the imported image rather than trying to pull these
-not-in-a-registry tags.
-
-> **Alternative — a tiny in-cluster registry.** If you'd rather push than
-> `ctr import`, run one: `docker run -d -p 5000:5000 --name registry registry:2.8.3@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373`,
-> tag images `localhost:5000/nojv-*`, `docker push`, and reference them by that
-> ref (add `localhost:5000` to k3s's `/etc/rancher/k3s/registries.yaml`
-> `mirrors` so it pulls insecurely). This also matters for **advanced
-> (`special_env`) problems**: advanced run/grade images are registry-only —
-> point them at a registry the cluster can pull (a local one is fine).
-
-## 5. Prerequisites the chart does not install
-
-The chart brings up the **app** Postgres (CloudNativePG), Redis, and MinIO
-itself — all enabled by default in the single-machine overlay (`postgres.mode:
-cnpg`, `redis.inCluster: true`, `storage.inCluster: true`). Two dependencies are
-deliberately **not** vendored and must exist before you `helm install`:
-
-**a. The CloudNativePG operator** (one-time, cluster-wide). The chart renders a
-CNPG `Cluster` CR for the app Postgres but does not ship the operator or its
-CRDs, so install it first:
+### CloudNativePG operator
 
 ```bash
 kubectl apply --server-side -f \
@@ -328,105 +140,28 @@ kubectl apply --server-side -f \
 kubectl -n cnpg-system rollout status deploy/cnpg-controller-manager
 ```
 
-**b. Temporal Server**, installed via the **official Temporal Helm chart**. For
-a single box a **single-replica** Temporal is fine — use the official chart with
-`replicaCount 1` (or the all-in-one `temporalio/auto-setup` image), in namespace
-`nojv-temporal`, reachable at
-`temporal-frontend.nojv-temporal.svc.cluster.local:7233` (the chart's
-`temporal.address` default):
+### Temporal
+
+Temporal uses the app's CNPG cluster (`nojv-pg-rw`), so install it once the
+chart's Postgres is ready; workers stay unready until Temporal answers. Create the `temporal` role and databases and the
+`temporal-postgres-secret` Secret as in
+[Temporal HA](../../infra/gcp/gke/temporal/HA-PRODUCTION.md#database-bootstrap),
+then install with the task-queue dynamic config (priority matcher, fairness, one
+partition per NOJV queue; see [Judge Queue](judge-queue.md)):
 
 ```bash
 helm repo add temporal https://go.temporal.io/helm-charts
-kubectl create namespace nojv-temporal
-helm upgrade --install temporal temporal/temporal -n nojv-temporal \
-  --set server.replicaCount=1 \
+helm upgrade --install temporal temporal/temporal -n nojv-temporal --create-namespace \
+  -f infra/gcp/gke/temporal/helm-values.single-machine.yaml \
+  --set server.nodeSelector=null \
   --set-json 'server.dynamicConfig={"matching.enableFairness":[{"value":true}],"matching.useNewMatcher":[{"value":true}],"matching.numTaskqueueWritePartitions":[{"value":1,"constraints":{"taskQueueName":"judge"}},{"value":1,"constraints":{"taskQueueName":"judge-state"}},{"value":1,"constraints":{"taskQueueName":"platform"}}],"matching.numTaskqueueReadPartitions":[{"value":1,"constraints":{"taskQueueName":"judge"}},{"value":1,"constraints":{"taskQueueName":"judge-state"}},{"value":1,"constraints":{"taskQueueName":"platform"}}]}'
 ```
 
-`matching.useNewMatcher` is the priority-aware matcher; without it tasks are
-served first in, first out whatever their `priorityKey` (observed on the
-Temporal CLI dev server v1.7.2). Fairness orders students inside a priority. The single partition per NOJV
-queue matters because only a handful of pollers serve them; with the default
-four partitions a task can sit in an unpolled partition for a whole long poll.
-To reduce partitions on a running server, lower the write count first, wait
-for `temporal task-queue describe` to show no backlog, then lower the read
-count.
+`server.nodeSelector=null` drops the file's `nojv-role: worker` selector, which
+a node labelled `nojv-role=sandbox` cannot satisfy. To lower partitions on a running server, lower the write count first, wait for
+`temporal task-queue describe` to show no backlog, then lower the read count.
 
-For an HA Temporal (production multi-node), see
-[`infra/gcp/gke/temporal/HA-PRODUCTION.md`](../../infra/gcp/gke/temporal/HA-PRODUCTION.md).
-
-> **App Postgres is not in a sandbox namespace** — the CNPG `Cluster` lives in
-> `nojv`, so the `deny-all-sandbox` policy does not touch it; the worker reaches
-> it over normal cluster networking.
-
-**Backups.** The production single-machine overlay enables both the CNPG
-`ScheduledBackup` and MinIO mirror and intentionally fails to render while
-their off-host S3/R2 destinations or credential Secret names are empty. Create
-a private `production-values.yaml` with the concrete
-`postgres.cnpg.backup.*` and `storage.minio.backup.*` values described in the
-[Backup & Restore Runbook](backup-restore.md), pass it to every direct Helm
-operation, and complete a restore drill before going live. Flux receives the
-same private values from the cluster-owned `nojv-production-values` Secret.
-
-The **migrator** runs automatically as a pre-install/pre-upgrade Helm hook
-(`infra/charts/nojv/templates/migrator.job.yaml`), so there is no manual
-migration step — the schema is current before web/workers roll.
-
-**c. Registry secrets + pull secret** (only when `registry.enabled`, the
-single-machine default). The self-hosted registry (special_env judge images)
-needs three keys in the runtime secret and one dockerconfigjson Secret in the
-sandbox namespace:
-
-```bash
-# Token-auth signing pair (web signs, registry verifies):
-openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
-  -days 3650 -keyout token.key -out token.crt -subj "/CN=nojv-registry-token"
-# → runtime secret keys REGISTRY_TOKEN_PRIVATE_KEY (token.key),
-#   REGISTRY_TOKEN_CERT (token.crt), plus a random REGISTRY_HTTP_SECRET.
-
-# Judge pull account (password → hash in runtime secret, plaintext → pull secret):
-node -e 'const c=require("crypto");const s=c.randomBytes(24).toString("base64url");console.log("password:",s,"\nhash:",c.createHash("sha256").update(s).digest("base64url"))'
-# → runtime secret key REGISTRY_PULL_PASSWORD_HASH (the hash), and:
-kubectl -n nojv-sandbox create secret docker-registry nojv-registry-pull \
-  --docker-server=registry.nojv.tw --docker-username=judge-pull \
-  --docker-password=<the password>
-```
-
-There is no separate push service account: a platform admin's registry
-credential (generated from the advanced problem editor) authorizes every
-repository, including `demo/**`. To publish the seed's demo judge images,
-`docker login registry.nojv.tw` with an admin credential and run
-`pnpm demo-advanced:push` — the seed's special_env demo problem references
-these images, so publish them before (re)running a seed that includes it.
-This is deliberately manual, not CI: demo problems are optional seed content,
-and Cloudflare's bot protection blocks GitHub-hosted runners anyway.
-
-Expose the registry publicly by adding a `registry.nojv.tw` hostname to the
-Cloudflare tunnel (Zero Trust dashboard → the existing tunnel → Public
-Hostnames → service `http://nojv-registry.nojv.svc.cluster.local:5000`).
-Teachers `docker login registry.nojv.tw` with credentials issued from the
-problem editor; judge pods pull via the `nojv-registry-pull` secret. Note the
-Cloudflare free tier caps a single request body at 100 MB — image layers larger
-than that fail to push (split layers).
-
-**Garbage collection** is triggered manually from `/admin/registry` (never
-automatic). distribution's mark-and-sweep is not concurrency-safe with pushes:
-a blob uploaded but not yet referenced by a manifest can be swept. Run GC during
-a quiet window (no teacher actively pushing). `--delete-untagged=false` bounds
-the blast radius, and interrupting a GC is safe; a mis-timed run at worst
-requires the affected image to be re-pushed.
-
-## 6. Install the chart
-
-Create the runtime secret, then install the chart with the single-machine
-overlay.
-
-The chart never templates secret values: it reads `DATABASE_URL`, `REDIS_URL`,
-`S3_*`, and the web auth/OAuth keys from an existing `Secret` (default name
-`nojv-runtime-secrets`, set by `secrets.runtimeSecretName`). Copy
-[`infra/charts/nojv/secret.example.yaml`](../../infra/charts/nojv/secret.example.yaml),
-fill it in, and apply it into the `nojv` namespace (the chart creates that
-namespace, so create it here first for the secret):
+### Runtime Secret
 
 ```bash
 cp infra/charts/nojv/secret.example.yaml secret.local.yaml   # fill in; never commit
@@ -434,193 +169,171 @@ kubectl create namespace nojv
 kubectl -n nojv apply -f secret.local.yaml
 ```
 
-With `postgres.mode: cnpg` the operator generates a `nojv-pg-app` Secret holding
-the owner password; point `DATABASE_URL` in your secret at the CNPG `-rw`
-service: `postgresql://nojv:<pw>@nojv-pg-rw.nojv.svc.cluster.local:5432/nojv`.
-The in-cluster Redis/MinIO service hosts (`nojv-redis` / `nojv-minio`) are
-likewise the defaults in `secret.example.yaml`.
+`DATABASE_URL` points at the CNPG `-rw` Service
+(`postgresql://nojv:<pw>@nojv-pg-rw.nojv.svc.cluster.local:5432/nojv`, password
+from the operator's `nojv-pg-app` Secret); the in-cluster Redis and MinIO hosts
+are the defaults in `secret.example.yaml`.
 
-Then install:
+### Backups and production values
+
+The overlay enables the CNPG `ScheduledBackup` and the MinIO off-host mirror and
+fails to render until their destinations and credential Secrets are set. Put the
+`postgres.cnpg.backup.*` and `storage.minio.backup.*` values in a private
+`production-values.yaml` (shape in the [Flux guide](../../infra/flux/README.md#bootstrap))
+and complete a restore drill before going live
+([Backup & Restore](backup-restore.md)). Flux reads the same values from the
+`nojv-production-values` Secret.
+
+MinIO data sits on the chart-created `nojv-minio-retain` StorageClass
+(`reclaimPolicy: Retain`); the class and PVC carry Helm's `keep` policy. Verify:
+`kubectl get storageclass nojv-minio-retain -o jsonpath='{.reclaimPolicy}'`
+prints `Retain`. Retention is not a backup.
+
+### Edge tunnel
+
+Create the tunnel token Secret; the chart runs cloudflared against it:
 
 ```bash
-helm upgrade --install nojv infra/charts/nojv \
+kubectl -n nojv create secret generic nojv-cloudflared-token --from-literal=token=<tunnel-token>
+```
+
+In the Cloudflare Zero Trust dashboard, add public hostnames on that tunnel: the
+site to `http://nojv-web.nojv.svc.cluster.local:80` and `registry.nojv.tw` to
+`http://nojv-registry.nojv.svc.cluster.local:5000`. Do not expose web through a
+NodePort or other non-Cloudflare path (OPS-08).
+
+### Registry
+
+Token access rules are in the
+[Deployment Guide](../operations/DEPLOYMENT.md#self-hosted-registry). Generate
+the signing pair and judge pull account:
+
+```bash
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
+  -days 3650 -keyout token.key -out token.crt -subj "/CN=nojv-registry-token"
+# runtime Secret: REGISTRY_TOKEN_PRIVATE_KEY (token.key), REGISTRY_TOKEN_CERT (token.crt),
+# and a random REGISTRY_HTTP_SECRET of at least 32 characters
+
+node -e 'const c=require("crypto");const s=c.randomBytes(24).toString("base64url");console.log("password:",s,"\nhash:",c.createHash("sha256").update(s).digest("base64url"))'
+# runtime Secret: REGISTRY_PULL_PASSWORD_HASH (the hash)
+# after the chart has created the nojv-sandbox namespace:
+kubectl -n nojv-sandbox create secret docker-registry nojv-registry-pull \
+  --docker-server=registry.nojv.tw --docker-username=judge-pull \
+  --docker-password=<the password>
+```
+
+Teachers `docker login registry.nojv.tw` with credentials issued from the
+problem editor. Cloudflare's free tier caps a request body at 100 MB, so larger
+layers fail to push.
+
+The seed's special_env demo problem needs `SEED_ADVANCED_RUN_IMAGE` and
+`SEED_ADVANCED_GRADE_IMAGE`. Publish them with `pnpm demo-advanced:push` (see
+`infra/docker/demo-advanced-run/README.md`) to a namespace your credential can
+push, before the first install. This is manual: Cloudflare bot protection blocks
+GitHub-hosted runners.
+
+## 5. Install the chart
+
+Production installs through Flux: follow the
+[Flux guide](../../infra/flux/README.md#bootstrap). The HelmRelease supplies the
+digest-pinned images from the `deploy` branch.
+
+A direct install must pass the same pinned values:
+
+```bash
+helm upgrade --install nojv infra/charts/nojv -n nojv \
+  -f infra/charts/nojv/values-single-machine.yaml \
+  -f production-values.yaml \
+  --set image.tag=<vX.Y.Z> \
+  --set-string release.sourceSha=<40-character-source-sha> \
+  --set-string image.digests.web=<sha256:...> \
+  --set-string image.digests.worker=<sha256:...> \
+  --set-string image.digests.sandbox=<sha256:...> \
+  --set-string image.digests.migrator=<sha256:...>
+```
+
+The migrator hook runs before workloads start; there is no manual migration
+step. On first install the post-install seed hook creates the super admin from
+`SEED_ADMIN_*`.
+
+### Local-only images
+
+For a throwaway cluster, build and import unpinned images. With this overlay the
+chart expects the names `nojv-<component>:local`:
+
+```bash
+docker build -t nojv-sandbox:local  -f infra/docker/sandbox-runner.Dockerfile .
+docker build -t nojv-worker:local   -f infra/docker/worker.Dockerfile .
+docker build -t nojv-web:local      -f infra/docker/web.Dockerfile .
+docker build -t nojv-migrator:local -f infra/docker/migrator.Dockerfile .
+for img in nojv-sandbox nojv-worker nojv-web nojv-migrator; do
+  docker save "$img:local" | sudo k3s ctr images import -
+done
+sudo k3s ctr images ls | grep ':local'
+
+helm upgrade --install nojv infra/charts/nojv -n nojv \
   -f infra/charts/nojv/values-single-machine.yaml \
   -f production-values.yaml \
   --set image.allowUnpinnedLocalBuilds=true \
   --set-string image.registry= \
   --set-string image.repositoryPrefix= \
-  --set-string image.tag=local \
-  -n nojv --create-namespace
+  --set-string image.tag=local
 ```
 
-This renders everything from [§3](#3-sandbox-namespace--guardrails) (sandbox
-namespace + guardrails), the worker RBAC (SA + Role to manage Jobs in
-`nojv-sandbox`), the judge worker (`worker.judge.replicas: 1`) and platform
-worker (`worker.platform.replicas: 1`), the web Deployment + Service, and the
-in-cluster Postgres/Redis/MinIO. The migrator hook ([§5](#5-prerequisites-the-chart-does-not-install))
-runs first.
+On kind use `kind load docker-image` instead of `ctr images import`. The
+`release-prepull` hook pulls web and worker with `imagePullPolicy: Always`, so
+it cannot use images that exist only in containerd.
 
-The chart sets **all** required worker env: the Kubernetes variant of
-`parseWorkerEnv` (`apps/worker/src/env.ts`) mandates the Kubernetes namespace,
-resource limits, testcase fan-out, and RuntimeClass. The chart wires all of
-them from `worker.sandbox.*`; you don't hand-set any of it.
-
-> This deployment has no NetworkPolicy bypass. Calico must enforce
-> NetworkPolicy before the judge worker starts; otherwise startup fails closed.
-
-The single-machine overlay disables the web Ingress (`web.ingress.enabled:
-false`), so reach web through its `Service` (`nojv-web` in the `nojv` namespace)
-— `kubectl port-forward svc/nojv-web` or a NodePort, behind your own reverse
-proxy if exposing it.
-
-Watch the worker come up and confirm the CNI self-check passed:
+## 6. Verify
 
 ```bash
 kubectl rollout status deploy/nojv-worker -n nojv
 kubectl logs -n nojv deploy/nojv-worker | grep -i "NetworkPolicy"
-# Expect: "NetworkPolicy enforcement verified — sandbox egress is isolated"
+# Expect: NetworkPolicy enforcement verified — sandbox egress is isolated
 ```
 
-If instead you see `CRITICAL: refusing to start K8s judge worker`, inspect both
-the NetworkPolicy and gVisor runtime probe logs, then go back to
-[§1](#1-install-k3s-without-flannel--install-calico).
+`CRITICAL: refusing to start K8s judge worker` means NetworkPolicy or gVisor
+verification failed; fix [§1](#1-install-k3s-and-calico) or
+[§2](#2-install-gvisor) before judging. The probe creates two internal targets
+and temporary allow/deny policies, needs no Internet route, and removes its
+resources afterwards.
 
-Now run the [§1 egress verification](#verify-enforcement-the-same-check-the-worker-runs-at-startup),
-which needs the chart-created `nojv-sandbox` namespace + deny-all policy.
+Smoke test:
 
-## 7. Smoke check
+1. Submit a simple standard problem through the site.
+2. `kubectl get jobs,pods -n nojv-sandbox -w`: a `judge-<runId>` Job runs,
+   completes and is removed after its TTL; the verdict appears on the submission.
+3. If Jobs stay `Pending`, check `kubectl describe quota -n nojv-sandbox` and the
+   node's `nojv-role=sandbox` label.
 
-1. **Submit one problem** through web (a simple standard A+B problem is enough).
-2. **Watch a judge Job appear and finish** in the sandbox namespace:
+## 7. Capacity
 
-   ```bash
-   kubectl get jobs,pods -n nojv-sandbox -w
-   ```
+Judging is one Pod per stage, bounded by the `nojv-sandbox` ResourceQuota and the
+node's allocatable resources; a quota rejection waits as `waiting_capacity`.
+The overlay values are in the
+[Deployment Guide](../operations/DEPLOYMENT.md#capacity); slot and quota sizing
+is in [Judge Queue](judge-queue.md). Change `worker.judge.concurrency` and
+`sandbox.resourceQuota.*` together in the overlay and release; the chart refuses
+slot counts whose CPU exceeds the quota. Keep one judge and one platform
+replica: extra replicas add dispatch slots, not host capacity. One node cannot
+autoscale; for more capacity add nodes (§8) or use GKE.
 
-   You should see a `judge-<submissionId>-...` Job go `Running → Completed` and
-   its Pod disappear shortly after (`ttlSecondsAfterFinished`). The verdict shows
-   up on the submission page.
-
-3. **Re-confirm egress is blocked** (the same probe as
-   [§1](#verify-enforcement-the-same-check-the-worker-runs-at-startup)) — it must
-   still time out.
-
-If Jobs sit `Pending`, check the ResourceQuota (`kubectl describe quota -n
-nojv-sandbox`) and that the node has the `nojv-role=sandbox` label.
-
-## 8. Autoscaling
-
-Three independent layers scale separately. Tune them in this order.
-
-### Layer 1 — Judge work (quota-bounded)
-
-Judging is **per-submission Kubernetes Jobs/Pods**. The worker creates one fresh
-Pod per stage (`apps/worker/src/sandbox/kubernetes/advanced.ts`, `executor.ts`); standard/checker work
-runs a stage's cases in one run container and **dies when finished**
-(`restartPolicy: Never`, `ttlSecondsAfterFinished`). So the judge layer is
-elastic at the Job level, while host capacity remains bounded and idle Jobs cost
-nothing.
-
-Concurrency is bounded by two things:
-
-- the **`nojv-sandbox` ResourceQuota** (`pods` / `requests.cpu` /
-  `requests.memory`) — the hard ceiling; excess Jobs queue `Pending`;
-- the **node's** real CPU/memory — Pods only run if the node can fit their
-  requests.
-
-#### Sizing the ResourceQuota to the box
-
-Each stage Job reserves `runParallelism` CPU (1 on single-machine) for its run
-container, which also compiles; the judge container (300m) requests less and
-never raises the Pod's effective request above that. The single-machine
-overlay runs five 1-CPU slots under quota `6` CPU / `16Gi` / `16` pods. Keep the
-quota aligned with actual host headroom; excess Jobs stay Pending.
-
-```yaml
-# values overlay — only raise after measuring the host
-sandbox:
-  resourceQuota:
-    pods: "4"
-    requestsCpu: "4"
-    requestsMemory: "12Gi"
-```
-
-Pick the **smaller** of the CPU-bound and memory-bound limits as `pods`. Raise
-`worker.judge.concurrency` (max 64) to at least the Pod ceiling so the
-orchestrator can actually dispatch that many in parallel — but the quota, not
-the worker, is the real cap. Apply changes by editing the overlay and re-running
-the same digest-pinned release command (or the explicit local-only command from
-§5).
-
-### Layer 2 — Worker replicas
-
-The chart runs two worker Deployments — judge (`worker.judge.replicas`) and
-platform (`worker.platform.replicas`) — and Temporal distributes activity tasks
-across however many workers poll the queue. Orchestration work is I/O-bound and
-cheap, so **one judge replica saturates the single-box sandbox quota**. The
-single-machine overlay starts judge and platform at `1`; keep those values fixed
-unless measurements show CPU starvation while sandbox Pods are Pending for a
-non-quota reason. There is no queue-depth scaler: Temporal already provides the
-durable pending state and another worker replica would not add host capacity.
-
-### Layer 3 — Node / capacity scaling
-
-A single node is hard-capped at its own CPU/RAM — once the ResourceQuota is
-maxed for the box, the only way to judge _more in parallel_ is **more nodes**.
-See [§9](#9-scaling-from-one-node-to-many). True **elastic node autoscaling**
-(add/remove machines automatically under load) requires a cloud provider — GKE
-node pools or a GCE MIG with the cluster-autoscaler. For that, take the
-[GKE path in the Deployment Guide](../operations/DEPLOYMENT.md#gke-worker-rollout)
-instead; k3s gives you manual horizontal scaling, not cloud elasticity.
-
-## 9. Scaling from one node to many
-
-To add capacity, join more machines as k3s **agents** and let the scheduler
-spread sandbox Pods across them.
-
-On the server, get the node token:
+## 8. Adding nodes
 
 ```bash
-sudo cat /var/lib/rancher/k3s/server/node-token
-```
-
-On each new machine:
-
-```bash
+sudo cat /var/lib/rancher/k3s/server/node-token             # on the server
 curl -sfL https://get.k3s.io | K3S_URL=https://<server-ip>:6443 \
-  K3S_TOKEN=<node-token> sh -
+  K3S_TOKEN=<node-token> sh -s - --kubelet-arg=pod-max-pids=256   # on the new node
 ```
 
-Then, from the server, label the new node so sandbox Pods can land on it, and
-**now** add the sandbox taint (so a runaway submission can't starve the
-orchestrator that runs on the server node):
+Then install gVisor on the new node (§2), and from the server dedicate it to
+sandboxes:
 
 ```bash
 kubectl label node <new-node> nojv-role=sandbox --overwrite
 kubectl taint node <new-node> nojv-role=sandbox:NoSchedule --overwrite
 ```
 
-Sandbox Pods already carry the matching `nojv-role=sandbox` toleration
-(`apps/worker/src/sandbox/kubernetes/advanced.ts`), so they schedule onto the new node; the worker stays on the
-`nojv-role=worker` server node. Raise the `nojv-sandbox` ResourceQuota to match
-the new aggregate capacity ([§8](#sizing-the-resourcequota-to-the-box)).
-
-> **Calico runs cluster-wide**, so NetworkPolicy enforcement (and thus sandbox
-> egress isolation) extends to the new nodes automatically — the worker's
-> startup probe still passes. Verify once with the
-> [egress check](#verify-enforcement-the-same-check-the-worker-runs-at-startup)
-> after the first join.
-
-This is the smooth middle of the spectrum: **single-node k3s → multi-node k3s →
-[GKE](../operations/DEPLOYMENT.md#gke-worker-rollout)** for full cloud
-elasticity.
-
-## Related docs
-
-- [Deployment Guide](../operations/DEPLOYMENT.md) — GKE path, env-var reference,
-  Cloudflare/Cloud Armor trust model
-- [Judge Pipeline](../architecture/JUDGE_PIPELINE.md) — sandbox backends,
-  advanced-mode image refs
-- [Security Requirements](../operations/SECURITY.md) — sandbox isolation guarantees
-- [Backup & Restore](backup-restore.md) — restore drills for the self-hosted deps
-- [Getting Started](getting-started.md) — local (Docker-backend) dev stack
+The taint keeps web and workers off the new node. Calico covers new nodes
+automatically; restart the judge worker once to re-run the probe. Raise the
+quota to the new aggregate capacity.
