@@ -1,4 +1,4 @@
-export const SANDBOX_RUN_USER = "10001:10001";
+const SANDBOX_RUN_USER = "10001:10001";
 
 export const SERVICE_NETWORK_ALIAS = "service";
 export const SERVICE_PORT_ENV = "PORT";
