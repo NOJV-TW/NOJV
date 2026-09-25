@@ -170,9 +170,6 @@ vi.mock("../../../packages/application/src/proctoring/gate", () => ({
 
 vi.mock("../../../packages/application/src/shared/storage-singleton", () => ({
   storage: () => storageRef.client,
-  __setStorageClientForTests: (c: unknown) => {
-    storageRef.client = c as typeof storageRef.client;
-  },
 }));
 
 vi.mock("../../../packages/application/src/shared/orchestration", () => ({

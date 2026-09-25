@@ -14,7 +14,7 @@ import { z } from "zod";
 import * as notificationDomain from "../notification";
 import { platformRolesForAudience } from "./queries";
 
-export const announcementCreateSchema = z.object({
+const announcementInputSchema = z.object({
   title: z.string().trim().min(1),
   content: z.string().trim().min(1),
   pinned: z.boolean().default(false),
@@ -25,10 +25,7 @@ export const announcementCreateSchema = z.object({
   createdByUserId: z.string().min(1).nullable().optional(),
 });
 
-export const announcementUpdateSchema = announcementCreateSchema;
-
-export type AnnouncementCreateInput = z.input<typeof announcementCreateSchema>;
-export type AnnouncementUpdateInput = z.input<typeof announcementUpdateSchema>;
+type AnnouncementInput = z.input<typeof announcementInputSchema>;
 
 interface AnnouncementPublication {
   announcementId: string;
@@ -71,8 +68,8 @@ async function fanoutAnnouncementPublished(
   );
 }
 
-export async function createAnnouncement(data: AnnouncementCreateInput) {
-  const parsed = announcementCreateSchema.parse(data);
+export async function createAnnouncement(data: AnnouncementInput) {
+  const parsed = announcementInputSchema.parse(data);
   return runTransaction(async (tx) => {
     const publishedAt = parsed.published ? new Date() : null;
     const announcement = await announcementRepo.withTx(tx).create({
@@ -104,8 +101,8 @@ export async function createAnnouncement(data: AnnouncementCreateInput) {
   });
 }
 
-export async function updateAnnouncement(id: string, data: AnnouncementUpdateInput) {
-  const parsed = announcementUpdateSchema.parse(data);
+export async function updateAnnouncement(id: string, data: AnnouncementInput) {
+  const parsed = announcementInputSchema.parse(data);
   return runTransaction(async (tx) => {
     const prior = await announcementRepo.withTx(tx).findByIdForUpdate(id);
     const publishedAt = parsed.published ? (prior?.publishedAt ?? new Date()) : null;

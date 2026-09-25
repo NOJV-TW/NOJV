@@ -232,7 +232,7 @@ const PRE_DELIVERY_SUPPRESSION_REASONS = [
   "unsupported_notification_type",
 ] as const;
 
-export type NotificationEmailSuppressionReason =
+type NotificationEmailSuppressionReason =
   (typeof PRE_DELIVERY_SUPPRESSION_REASONS)[number] | "mailer_suppressed";
 
 const notificationEmailIdentitySchema = {

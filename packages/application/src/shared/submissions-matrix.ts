@@ -19,7 +19,7 @@ export interface MatrixCell {
   practiceAttempts: number;
 }
 
-export interface MatrixRowResult {
+interface MatrixRowResult {
   cells: MatrixCell[];
   total: number;
 }
@@ -32,7 +32,7 @@ export interface AssembledMatrixParticipant {
   handle: string;
 }
 
-export interface AssembledMatrixRow {
+interface AssembledMatrixRow {
   rowId: string;
   courseMembershipId: string | null;
   userId: string | null;
@@ -55,7 +55,7 @@ function cellState(score: number, pointsMax: number): MatrixCellState {
   return "zero";
 }
 
-export function buildMatrixRowCells(opts: {
+function buildMatrixRowCells(opts: {
   rowId: string;
   problems: MatrixProblemColumn[];
   scoreIndex: Map<string, { best: number; count: number }>;
