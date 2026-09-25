@@ -1602,10 +1602,9 @@ describe("K8sExecutor.execute(advanced) — image pull failures", () => {
 });
 
 describe("DRY: K8s advanced reuses Docker advanced's helpers", () => {
-  it("uses the same mapAdvancedResult / advancedFallbackResult symbols as the Docker backend", async () => {
+  it("uses the same resolveAdvancedResult symbol as the Docker backend", async () => {
     const mapperMod =
       await import("../../../apps/worker/src/sandbox/shared/sandbox-result-mapper");
-    expect(typeof mapperMod.mapAdvancedResult).toBe("function");
-    expect(typeof mapperMod.advancedFallbackResult).toBe("function");
+    expect(typeof mapperMod.resolveAdvancedResult).toBe("function");
   });
 });

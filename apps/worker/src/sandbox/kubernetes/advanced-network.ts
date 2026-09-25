@@ -7,19 +7,10 @@ import {
   SANDBOX_TOLERATIONS,
   runtimeClassField,
 } from "./pod-spec";
-import {
-  ADVANCED_SERVICE_PORT,
-  SERVICE_HOST_ENV,
-  SERVICE_PORT_ENV,
-  SERVICE_READY_MARKER,
-} from "../shared/advanced-service-contract";
+import { SERVICE_PORT_ENV } from "@nojv/sandbox-docker";
 
 export const EGRESS_LABEL_KEY = "nojv.egress";
 export const SIDECAR_ROLE_LABEL_KEY = "nojv.sidecar";
-export const SIDECAR_PORT = ADVANCED_SERVICE_PORT;
-
-const SERVICE_POD_SECURITY_CONTEXT = SANDBOX_POD_SECURITY_CONTEXT_WITH_FSGROUP;
-const SERVICE_CONTAINER_SECURITY_CONTEXT = HARDENED_CONTAINER_SECURITY_CONTEXT_PINNED;
 
 export function runEgressLabel(submissionId: string): string {
   return submissionId;
@@ -83,7 +74,7 @@ export function buildServiceSidecarPodManifest(params: ServiceSidecarParams): k8
         : {}),
       nodeSelector: SANDBOX_NODE_SELECTOR,
       tolerations: SANDBOX_TOLERATIONS,
-      securityContext: SERVICE_POD_SECURITY_CONTEXT,
+      securityContext: SANDBOX_POD_SECURITY_CONTEXT_WITH_FSGROUP,
       containers: [
         {
           name: "service",
@@ -97,7 +88,7 @@ export function buildServiceSidecarPodManifest(params: ServiceSidecarParams): k8
               "ephemeral-storage": "256Mi",
             },
           },
-          securityContext: SERVICE_CONTAINER_SECURITY_CONTEXT,
+          securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT_PINNED,
           volumeMounts: [{ name: "tmp", mountPath: "/tmp" }],
         },
       ],
@@ -215,9 +206,3 @@ export function buildSidecarNetworkPolicy(params: {
     },
   };
 }
-
-export function buildServiceRunEnv(serviceHost: string): Record<string, string> {
-  return { [SERVICE_HOST_ENV]: `${serviceHost}:${String(ADVANCED_SERVICE_PORT)}` };
-}
-
-export { SERVICE_READY_MARKER };

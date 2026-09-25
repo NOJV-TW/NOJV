@@ -1,5 +1,4 @@
-import { buildAdvancedServiceArgs } from "@nojv/sandbox-docker";
-import { SERVICE_READY_MARKER } from "../shared/advanced-service-contract";
+import { buildAdvancedServiceArgs, SERVICE_READY_MARKER } from "@nojv/sandbox-docker";
 
 import {
   attachDockerCleanupFailure,
@@ -17,18 +16,6 @@ export function serviceContainerName(runId: string): string {
   return `nojv-service-${sanitizeId(runId).slice(0, 36)}`;
 }
 
-export function buildStartServiceArgs(params: {
-  containerName: string;
-  internalName: string;
-  imageRef: string;
-  memoryMb: number;
-  cpuLimit: string;
-  pidsLimit: number;
-  labels?: Readonly<Record<string, string>>;
-}): string[] {
-  return buildAdvancedServiceArgs(params);
-}
-
 export interface ServiceContainerHandle {
   containerName: string;
 }
@@ -39,7 +26,7 @@ export async function waitForServiceReady(
 ): Promise<void> {
   const deadline = Date.now() + READINESS_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    if ((await collectServiceLogs(containerName, signal)).includes(SERVICE_READY_MARKER)) {
+    if ((await collectContainerLogs(containerName, signal)).includes(SERVICE_READY_MARKER)) {
       return;
     }
     await abortableSleep(READINESS_INTERVAL_MS, signal);
@@ -61,7 +48,7 @@ export async function startServiceContainer(params: {
   params.signal.throwIfAborted();
   try {
     await runDocker(
-      buildStartServiceArgs({
+      buildAdvancedServiceArgs({
         containerName,
         internalName: params.internalName,
         imageRef: params.imageRef,
@@ -85,15 +72,4 @@ export async function startServiceContainer(params: {
     }
     throw err;
   }
-}
-
-export function collectServiceLogs(
-  containerName: string,
-  signal: AbortSignal,
-): Promise<string> {
-  return collectContainerLogs(containerName, signal);
-}
-
-export function stopServiceContainer(containerName: string): Promise<void> {
-  return forceRemoveContainer(containerName);
 }
