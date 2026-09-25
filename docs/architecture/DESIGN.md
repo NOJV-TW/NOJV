@@ -12,7 +12,7 @@ The `@theme inline` block in `app.css` maps CSS custom properties to Tailwind co
 
 ### Component Library
 
-Bits UI (headless Svelte components, similar to Radix) provides accessible primitives. Shipped Bits UI integrations: Dialog, RadioGroup, Select, Separator, Tooltip. These are wrapped in styled components under `$lib/components/primitives/ui/`.
+Bits UI (headless Svelte components, similar to Radix) provides accessible primitives. Shipped Bits UI integrations: Dialog, RadioGroup, Select, Separator, Tabs, Tooltip. These are wrapped in styled components under `$lib/components/primitives/ui/`.
 
 shadcn-svelte-style components in `$lib/components/primitives/ui/`:
 
@@ -28,7 +28,7 @@ shadcn-svelte-style components in `$lib/components/primitives/ui/`:
 | Skeleton  | Loading placeholder primitives                                                                                                |
 | Toast     | Toast stack (`ToastProvider` + `toast/ToastItem`)                                                                             |
 
-Tabs are custom: `primitives/ui/tabs` (glass panel with a tab panel, used by assessment manage views), `primitives/visual/TabStrip.svelte` (pill toggle), and `primitives/visual/FilterTabs.svelte` (underline filter bar on the list pages). There is no shadcn `Table` / `DropdownMenu` wrapper dir: tables are feature-specific (e.g. `features/admin/users/UsersTable.svelte`, `features/course/submissions/MatrixTable.svelte`), and the dropdown menu is `features/notification/NotificationDropdown.svelte`.
+Tabs: `primitives/ui/tabs` (Bits UI Tabs in a glass panel, used by assessment manage views), `primitives/visual/TabStrip.svelte` (pill toggle), and `primitives/visual/FilterTabs.svelte` (underline filter bar on the list pages). There is no shadcn `Table` / `DropdownMenu` wrapper dir: tables are feature-specific (e.g. `features/admin/users/UsersTable.svelte`, `features/course/submissions/MatrixTable.svelte`), and the dropdown menu is `features/notification/NotificationDropdown.svelte`.
 
 Custom components in `$lib/components/primitives/ui/`:
 
