@@ -70,7 +70,7 @@ function parsePairs(raw: unknown): RawPair[] {
     .filter((p): p is RawPair => p !== null);
 }
 
-export interface LoadPlagiarismPairInput {
+interface LoadPlagiarismPairInput {
   pairId: string;
   target: plagiarismDomain.PlagiarismTarget;
   flagContext: plagiarismDomain.PlagiarismContext;

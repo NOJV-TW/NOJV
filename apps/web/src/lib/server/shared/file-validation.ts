@@ -1,10 +1,10 @@
 import { ValidationError } from "@nojv/application";
 
-export type ImageFormat = "webp" | "png" | "jpeg" | "gif";
+type ImageFormat = "webp" | "png" | "jpeg" | "gif";
 
 export const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 
-export const IMAGE_FORMAT_TO_MIME: Record<ImageFormat, string> = {
+const IMAGE_FORMAT_TO_MIME: Record<ImageFormat, string> = {
   webp: "image/webp",
   png: "image/png",
   jpeg: "image/jpeg",
@@ -20,7 +20,7 @@ export function detectImageMime(buffer: Buffer | Uint8Array): string | null {
   return format ? IMAGE_FORMAT_TO_MIME[format] : null;
 }
 
-export function detectImageFormat(buffer: Buffer | Uint8Array): ImageFormat | null {
+function detectImageFormat(buffer: Buffer | Uint8Array): ImageFormat | null {
   if (buffer.length < 12) return null;
 
   if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {

@@ -22,7 +22,7 @@ export async function verifyTotpStepUp(code: string, headers: Headers): Promise<
   }
 }
 
-export type StepUpVerifyResult =
+type StepUpVerifyResult =
   | { ok: true }
   | {
       ok: false;

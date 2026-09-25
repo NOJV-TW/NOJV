@@ -8,7 +8,7 @@ const MAX_URL_LENGTH = 2048;
 const MAX_REDIRECTS = 3;
 const REQUEST_TIMEOUT_MS = 5000;
 
-export type RemoteImageErrorCode =
+type RemoteImageErrorCode =
   "blocked" | "invalid_type" | "invalid_url" | "redirect" | "too_large" | "upstream";
 
 export class RemoteImageError extends Error {
@@ -21,12 +21,12 @@ export class RemoteImageError extends Error {
   }
 }
 
-export interface RemoteImageAddress {
+interface RemoteImageAddress {
   address: string;
   family: 4 | 6;
 }
 
-export interface RemoteImageHop {
+interface RemoteImageHop {
   status: number;
   body: Buffer;
   location?: string;
