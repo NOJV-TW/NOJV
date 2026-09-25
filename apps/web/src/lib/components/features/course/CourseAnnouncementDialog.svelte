@@ -21,10 +21,9 @@
     open: boolean;
     mode: "create" | "edit";
     initial?: AnnouncementInitial | null;
-    onclose?: () => void;
   }
 
-  let { open = $bindable(false), mode, initial = null, onclose }: Props = $props();
+  let { open = $bindable(false), mode, initial = null }: Props = $props();
 
   function toLocalInput(iso: string | null): string {
     if (!iso) return "";
@@ -76,7 +75,6 @@
           await update();
           if (result.type === "success") {
             open = false;
-            onclose?.();
           }
         };
       }}
@@ -135,7 +133,6 @@
           class="inline-flex items-center justify-center rounded-full border border-border px-5 py-2.5 text-sm font-medium transition hover:bg-muted"
           onclick={() => {
             open = false;
-            onclose?.();
           }}
           disabled={submitting}
         >

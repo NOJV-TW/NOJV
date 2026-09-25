@@ -6,7 +6,6 @@
   export type SectionProps = WithElementRef<HTMLAttributes<HTMLElement>> & {
     header?: Snippet;
     actions?: Snippet;
-    divider?: boolean;
   };
 </script>
 
@@ -16,7 +15,6 @@
     class: className,
     header,
     actions,
-    divider = false,
     children,
     ...restProps
   }: SectionProps = $props();
@@ -29,12 +27,7 @@
   {...restProps}
 >
   {#if header || actions}
-    <div
-      class={cn(
-        "section-header mb-6 flex items-start justify-between gap-4",
-        divider && "border-b border-border-subtle pb-4",
-      )}
-    >
+    <div class="section-header mb-6 flex items-start justify-between gap-4">
       <div class="min-w-0 flex flex-col gap-1.5">
         {@render header?.()}
       </div>

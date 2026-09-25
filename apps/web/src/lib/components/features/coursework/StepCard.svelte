@@ -2,14 +2,12 @@
   import type { Snippet } from "svelte";
 
   interface Props {
-    number?: number;
     title: string;
     subtitle: string;
-    required?: boolean;
     children: Snippet;
   }
 
-  let { title, subtitle, required = false, children }: Props = $props();
+  let { title, subtitle, children }: Props = $props();
 </script>
 
 <div
@@ -19,7 +17,6 @@
     <div>
       <h2 class="text-title-sm font-medium tracking-[-0.01em]">
         {title}
-        {#if required}<span class="text-destructive">*</span>{/if}
       </h2>
       <p class="mt-0.5 text-caption text-muted-foreground">
         {subtitle}

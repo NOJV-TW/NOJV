@@ -7,18 +7,17 @@
     label: string;
     hint?: string;
     accept?: string;
-    disabled?: boolean;
     onupload: (file: File) => Promise<void>;
   }
 
-  let { label, hint, accept, disabled = false, onupload }: Props = $props();
+  let { label, hint, accept, onupload }: Props = $props();
 
   let fileInput: HTMLInputElement | undefined = $state();
   let isDragOver = $state(false);
   let isUploading = $state(false);
 
   async function handleFile(file: File | null) {
-    if (!file || disabled) return;
+    if (!file) return;
     isUploading = true;
     try {
       await onupload(file);
@@ -46,11 +45,9 @@
 
 <div
   class="relative flex items-center justify-between gap-3 rounded-md border border-dashed px-3 py-2 text-caption transition-colors duration-fast ease-out-soft
-    {isDragOver ? 'border-primary bg-primary/5' : 'border-border-subtle bg-muted/30'}
-    {disabled ? 'opacity-60' : ''}"
+    {isDragOver ? 'border-primary bg-primary/5' : 'border-border-subtle bg-muted/30'}"
   ondrop={onDrop}
   ondragover={(e) => {
-    if (disabled) return;
     e.preventDefault();
     isDragOver = true;
   }}
@@ -72,7 +69,7 @@
   <button
     type="button"
     class="shrink-0 rounded-md border border-border bg-background px-2.5 py-1 text-caption font-medium text-foreground transition-[transform,box-shadow,background-color] duration-fast ease-out-soft hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
-    disabled={disabled || isUploading}
+    disabled={isUploading}
     onclick={() => fileInput?.click()}
   >
     {isUploading ? m.common_uploading() : m.bundle_chooseFile()}

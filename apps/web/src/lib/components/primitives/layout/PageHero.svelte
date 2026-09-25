@@ -11,8 +11,6 @@
     title: string;
     meta?: Snippet | undefined;
     actions?: Snippet | undefined;
-    ribbon?: Snippet | undefined;
-    class?: string | undefined;
   }
 
   let {
@@ -23,8 +21,6 @@
     title,
     meta,
     actions,
-    ribbon,
-    class: className,
   }: Props = $props();
 </script>
 
@@ -34,7 +30,6 @@
   class={cn(
     "animate-in border-b border-border-subtle",
     variant === "hub" ? "pb-7 pt-8" : "pb-9 pt-2",
-    className,
   )}
 >
   <BreadcrumbBackLink href={breadcrumbHref} label={breadcrumbLabel} />
@@ -68,10 +63,4 @@
       </div>
     {/if}
   </div>
-
-  {#if ribbon}
-    <div class="mt-8">
-      {@render ribbon()}
-    </div>
-  {/if}
 </section>
