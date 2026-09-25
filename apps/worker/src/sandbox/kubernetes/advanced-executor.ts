@@ -124,7 +124,7 @@ export class KubernetesAdvancedExecutor {
       await this.resources.createConfigMap(
         runConfigMapName,
         ns,
-        buildAdvancedConfigMapData(request),
+        buildAdvancedConfigMapData(request, advanced),
         execution.signal,
       );
 
@@ -319,12 +319,12 @@ export class KubernetesAdvancedExecutor {
     await this.resources.createConfigMap(
       configMapName,
       ns,
-      buildAdvancedGradeConfigMapData(
-        request.submissionId,
-        request.language,
+      buildAdvancedGradeConfigMapData({
+        submissionId: request.submissionId,
+        language: request.language,
         runStatus,
-        advanced.maxScore,
-      ),
+        maxScore: advanced.maxScore,
+      }),
       execution.signal,
     );
     await this.resources

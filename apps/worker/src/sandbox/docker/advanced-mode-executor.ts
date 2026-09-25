@@ -36,6 +36,9 @@ import { executionAbortReason } from "../shared/execution-abort";
 import {
   ADVANCED_OUTPUT_MAX_FILES,
   ADVANCED_WORKSPACE_MAX_BYTES,
+  advancedRunMeta,
+  type AdvancedGradeMeta,
+  type AdvancedResourceLimits,
   type RunStatus,
 } from "../shared/advanced-execution";
 import { SERVICE_NETWORK_ALIAS } from "@nojv/sandbox-docker";
@@ -230,17 +233,10 @@ export function buildAdvancedDockerArgs(params: AdvancedDockerArgsParams): strin
   ];
 }
 
-export interface RunWorkspaceInput {
-  submissionId: string;
-  language: string;
-  totalTimeMs: number;
-  memoryMb: number;
-}
-
 export async function prepareRunWorkspace(
   runDir: string,
   request: SandboxRequest,
-  input: RunWorkspaceInput,
+  limits: AdvancedResourceLimits,
 ): Promise<void> {
   const submissionDir = join(runDir, "submission");
   const outputDir = join(runDir, "output");
@@ -263,16 +259,13 @@ export async function prepareRunWorkspace(
     );
   }
 
-  const meta = {
-    submissionId: input.submissionId,
-    language: input.language,
-    submissionFiles: resolved.map((f) => f.path),
-    resourceLimits: {
-      totalTimeMs: input.totalTimeMs,
-      memoryMb: input.memoryMb,
-    },
-  };
-  fileWrites.push(writeFile(join(runDir, "meta.json"), JSON.stringify(meta, null, 2), "utf8"));
+  fileWrites.push(
+    writeFile(
+      join(runDir, "meta.json"),
+      JSON.stringify(advancedRunMeta(request, limits, resolved), null, 2),
+      "utf8",
+    ),
+  );
 
   await Promise.all(fileWrites);
   await chmod(runDir, 0o777);
@@ -296,7 +289,7 @@ async function chmodTreeReadable(dir: string): Promise<void> {
 export async function prepareGradeWorkspace(
   gradeDir: string,
   runOutputDir: string,
-  input: { submissionId: string; language: string; runStatus: RunStatus; maxScore: number },
+  meta: AdvancedGradeMeta,
 ): Promise<void> {
   const gradeRunOutputDir = join(gradeDir, "run-output");
   const outputDir = join(gradeDir, "output");
@@ -312,12 +305,6 @@ export async function prepareGradeWorkspace(
   });
   await chmodTreeReadable(gradeRunOutputDir);
 
-  const meta = {
-    submissionId: input.submissionId,
-    language: input.language,
-    runStatus: input.runStatus,
-    maxScore: input.maxScore,
-  };
   await writeFile(join(gradeDir, "meta.json"), JSON.stringify(meta, null, 2), "utf8");
   await chmod(gradeDir, 0o777);
 }
@@ -378,12 +365,7 @@ export class AdvancedModeExecutor {
     const gradeDir = join(tempDir, "grade");
     const runOutputDir = join(runDir, "output");
 
-    await prepareRunWorkspace(runDir, request, {
-      submissionId: request.submissionId,
-      language: request.language,
-      totalTimeMs: advanced.totalTimeMs,
-      memoryMb: advanced.memoryMb,
-    });
+    await prepareRunWorkspace(runDir, request, advanced);
 
     const runOutcome = await this.runPhase(
       request,

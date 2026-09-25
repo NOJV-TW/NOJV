@@ -4,6 +4,9 @@ import type { SandboxRequest } from "@nojv/core";
 import {
   ADVANCED_OUTPUT_MAX_FILES,
   ADVANCED_WORKSPACE_MAX_BYTES,
+  advancedRunMeta,
+  type AdvancedGradeMeta,
+  type AdvancedResourceLimits,
   type RunStatus,
 } from "../shared/advanced-execution";
 import {
@@ -37,35 +40,23 @@ export function advancedPvcName(submissionId: string): string {
   return `judge-${submissionId}-runout`;
 }
 
-export function buildAdvancedConfigMapData(request: SandboxRequest): Record<string, string> {
-  const advanced = request.advanced;
+export function buildAdvancedConfigMapData(
+  request: SandboxRequest,
+  limits: AdvancedResourceLimits,
+): Record<string, string> {
   const submissionFiles = resolveSourceFiles(request, { requireSourceCode: true });
-
-  const payload = {
-    meta: {
-      submissionId: request.submissionId,
-      language: request.language,
-      submissionFiles: submissionFiles.map((f) => f.path),
-      resourceLimits: {
-        totalTimeMs: advanced?.totalTimeMs ?? request.limits.timeoutMs,
-        memoryMb: advanced?.memoryMb ?? request.limits.memoryMb,
-      },
-    },
-    submissionFiles,
+  return {
+    "payload.json": JSON.stringify({
+      meta: advancedRunMeta(request, limits, submissionFiles),
+      submissionFiles,
+    }),
   };
-
-  return { "payload.json": JSON.stringify(payload) };
 }
 
 export function buildAdvancedGradeConfigMapData(
-  submissionId: string,
-  language: string,
-  runStatus: RunStatus,
-  maxScore: number,
+  meta: AdvancedGradeMeta,
 ): Record<string, string> {
-  return {
-    "meta.json": JSON.stringify({ submissionId, language, runStatus, maxScore }, null, 2),
-  };
+  return { "meta.json": JSON.stringify(meta, null, 2) };
 }
 
 export function buildAdvancedInitScript(): string {
