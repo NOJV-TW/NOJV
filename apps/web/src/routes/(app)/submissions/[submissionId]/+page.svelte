@@ -10,7 +10,7 @@
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import { flattenSourcesForDisplay } from "$lib/utils/submission-source-display";
   import SubtaskResultTree from "$lib/components/features/submission/SubtaskResultTree.svelte";
-  import HighlightedCode from "$lib/components/primitives/ui/HighlightedCode.svelte";
+  import MonacoScriptEditor from "$lib/components/primitives/ui/MonacoScriptEditor.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import BackLink from "$lib/components/primitives/layout/BackLink.svelte";
 
@@ -349,7 +349,12 @@
         </div>
       </header>
       <div class="min-h-0 flex-1 overflow-hidden">
-        <HighlightedCode code={sourceCode} language={submission.language} />
+        <MonacoScriptEditor
+          value={sourceCode}
+          language={submission.language}
+          height="100%"
+          isReadOnly
+        />
       </div>
     </section>
   </div>
