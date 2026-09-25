@@ -58,10 +58,6 @@ export class ExecutorOwner {
     return promise;
   }
 
-  async cleanupRun(runId: string): Promise<void> {
-    await this.executor.cleanupRun?.(runId);
-  }
-
   abortActive(reason: unknown): void {
     this.stopping = true;
     for (const execution of this.active) {

@@ -224,15 +224,3 @@ export async function failSubmissionJudgeRun(
 ): Promise<boolean> {
   return submissionDomain.failSubmissionJudgeRun(submissionId, judgeRunId, reason);
 }
-
-export async function cleanupSandboxRun(runId: string): Promise<void> {
-  await getExecutorOwner().cleanupRun(runId);
-}
-export {
-  judgeExecutionStatus,
-  executeJudgeStage,
-  reconcileJudgeStage,
-  completePinnedJudge,
-  setJudgeExecutionState,
-  finishJudgeExecution,
-} from "./judge-execution";

@@ -18,7 +18,7 @@ function parseContainerInspection(stdout: string): DockerContainerInspection | n
   return inspection;
 }
 
-export function shouldSweepContainerInspection(
+function shouldSweepContainerInspection(
   inspection: DockerContainerInspection,
   nowMs: number,
 ): boolean {

@@ -13,10 +13,8 @@ import { runCleanupOperations } from "./cleanup";
 import {
   isK8sNotFound,
   SandboxCleanupBudget,
-  SandboxCleanupPendingError,
   terminateSandboxJob,
   terminateSandboxPod,
-  terminateSandboxPvc,
 } from "./termination";
 
 const logger = createLogger("k8s-executor");
@@ -32,82 +30,6 @@ export class KubernetesSandboxCleanup {
   networkingApi(): k8s.NetworkingV1Api {
     if (!this.networkingApiHandle) throw new Error("NetworkingV1Api client is not available");
     return this.networkingApiHandle;
-  }
-
-  async cleanupRun(runId: string): Promise<void> {
-    if (!/^[a-f0-9-]{36}$/.test(runId)) throw new Error("Invalid cleanup run ID");
-    const namespace = this.namespace;
-    const prefix = `judge-${runId}`;
-    const owned = (metadata: k8s.V1ObjectMeta | undefined) =>
-      metadata?.name === prefix || metadata?.name?.startsWith(`${prefix}-`) === true;
-    const budget = new SandboxCleanupBudget();
-    const call = <T>(operation: () => Promise<T>) => budget.call(`Run ${runId}`, operation);
-    const jobs = await call(() => this.batchApi.listNamespacedJob({ namespace }));
-    for (const job of jobs.items.filter((item) => owned(item.metadata))) {
-      if (!job.metadata?.name) throw new SandboxCleanupPendingError([prefix]);
-      await this.cleanupJob(job.metadata.name, namespace, budget);
-    }
-    const pods = await call(() => this.coreApi.listNamespacedPod({ namespace }));
-    for (const pod of pods.items.filter((item) => owned(item.metadata))) {
-      if (!pod.metadata?.uid || !pod.metadata.name)
-        throw new SandboxCleanupPendingError([prefix]);
-      await terminateSandboxPod(this.coreApi, namespace, pod.metadata.name, {
-        expectedUid: pod.metadata.uid,
-        budget,
-      });
-    }
-    const remove = async (
-      items: { metadata?: k8s.V1ObjectMeta }[],
-      deleteResource: (name: string, uid: string) => Promise<unknown>,
-    ) => {
-      for (const resource of items.filter((item) => owned(item.metadata))) {
-        if (!resource.metadata?.uid || !resource.metadata.name)
-          throw new SandboxCleanupPendingError([prefix]);
-        const { name, uid } = resource.metadata;
-        try {
-          await call(() => deleteResource(name, uid));
-        } catch (error) {
-          if (!isK8sNotFound(error)) throw error;
-        }
-      }
-    };
-    await remove(
-      (await call(() => this.coreApi.listNamespacedConfigMap({ namespace }))).items,
-      (name, uid) =>
-        this.coreApi.deleteNamespacedConfigMap({
-          namespace,
-          name,
-          body: { preconditions: { uid } },
-        }),
-    );
-    const pvcs = await call(() =>
-      this.coreApi.listNamespacedPersistentVolumeClaim({ namespace }),
-    );
-    for (const pvc of pvcs.items.filter((item) => owned(item.metadata))) {
-      if (!pvc.metadata?.uid || !pvc.metadata.name)
-        throw new SandboxCleanupPendingError([prefix]);
-      await terminateSandboxPvc(this.coreApi, namespace, pvc.metadata.name, pvc.metadata.uid, {
-        budget,
-      });
-    }
-    await remove(
-      (await call(() => this.coreApi.listNamespacedService({ namespace }))).items,
-      (name, uid) =>
-        this.coreApi.deleteNamespacedService({
-          namespace,
-          name,
-          body: { preconditions: { uid } },
-        }),
-    );
-    await remove(
-      (await call(() => this.networkingApi().listNamespacedNetworkPolicy({ namespace }))).items,
-      (name, uid) =>
-        this.networkingApi().deleteNamespacedNetworkPolicy({
-          namespace,
-          name,
-          body: { preconditions: { uid } },
-        }),
-    );
   }
 
   async reconcile(runId: string, owner?: string): Promise<boolean> {
@@ -261,12 +183,8 @@ export class KubernetesSandboxCleanup {
     }
   }
 
-  private async cleanupJob(
-    name: string,
-    namespace: string,
-    budget?: SandboxCleanupBudget,
-  ): Promise<void> {
-    await terminateSandboxJob(
+  cleanupJob(name: string, namespace: string, budget?: SandboxCleanupBudget): Promise<void> {
+    return terminateSandboxJob(
       this.coreApi,
       this.batchApi,
       namespace,
@@ -275,22 +193,8 @@ export class KubernetesSandboxCleanup {
     );
   }
 
-  async cleanupAdvancedJob(
-    name: string,
-    namespace: string,
-    budget?: SandboxCleanupBudget,
-  ): Promise<boolean> {
-    await this.cleanupJob(name, namespace, budget);
-    return true;
-  }
-
-  async cleanupAdvancedPod(
-    name: string,
-    namespace: string,
-    budget?: SandboxCleanupBudget,
-  ): Promise<boolean> {
-    await terminateSandboxPod(this.coreApi, namespace, name, budget ? { budget } : {});
-    return true;
+  cleanupPod(name: string, namespace: string, budget?: SandboxCleanupBudget): Promise<void> {
+    return terminateSandboxPod(this.coreApi, namespace, name, budget ? { budget } : {});
   }
 
   async cleanupPvc(
@@ -326,15 +230,7 @@ export class KubernetesSandboxCleanup {
     await this.cleanupJob(jobName, namespace, budget);
     await runCleanupOperations(
       "sandbox",
-      payloadNames.map(async (name) => {
-        try {
-          await budget.call(`ConfigMap ${namespace}/${name}`, () =>
-            this.coreApi.deleteNamespacedConfigMap({ name, namespace }),
-          );
-        } catch (error) {
-          if (!isK8sNotFound(error)) throw error;
-        }
-      }),
+      payloadNames.map((name) => this.cleanupConfigMap(name, namespace, budget)),
     );
   }
 }

@@ -199,8 +199,8 @@ export class KubernetesAdvancedExecutor {
         runCleanupAfterExecution(executionFailure, async () => {
           const budget = new SandboxCleanupBudget();
           const jobCleanup = await Promise.allSettled([
-            this.cleanupResources.cleanupAdvancedJob(runJobName, ns, budget),
-            this.cleanupResources.cleanupAdvancedJob(gradeJobName, ns, budget),
+            this.cleanupResources.cleanupJob(runJobName, ns, budget),
+            this.cleanupResources.cleanupJob(gradeJobName, ns, budget),
           ]);
           const runPodsGone = jobCleanup[0].status === "fulfilled";
           const gradePodsGone = jobCleanup[1].status === "fulfilled";
@@ -296,9 +296,7 @@ export class KubernetesAdvancedExecutor {
     }
 
     const runStatus = deriveRunStatusFromJob(outcome.state, outcome.deadlineExceeded);
-    await measurePhase(request, "cleanup", () =>
-      this.cleanupResources.cleanupAdvancedJob(jobName, ns),
-    );
+    await measurePhase(request, "cleanup", () => this.cleanupResources.cleanupJob(jobName, ns));
     return { kind: "ready", nodeName, runStatus };
   }
 
@@ -543,7 +541,7 @@ export class KubernetesAdvancedExecutor {
     budget = new SandboxCleanupBudget(),
   ): Promise<void> {
     if (hasSidecar)
-      await this.cleanupResources.cleanupAdvancedPod(sidecarPodName(submissionId), ns, budget);
+      await this.cleanupResources.cleanupPod(sidecarPodName(submissionId), ns, budget);
     const remove = async (resource: string, operation: () => Promise<unknown>) => {
       try {
         await budget.call(resource, operation);

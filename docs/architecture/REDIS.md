@@ -93,7 +93,7 @@ The `@nojv/redis` package no longer registers any OpenTelemetry metrics of its o
 Both `apps/web` and Temporal activities use singleton Redis connections from `@nojv/redis`:
 
 - **Web**: imports `getRedis` (and `createSubscriber`, `keys`) directly from `@nojv/redis`. There is no `$lib/server/redis.ts` shim.
-- **Worker / Temporal activities**: live in `apps/worker/src/activities/` (`judge-bundle.ts` / `platform-bundle.ts`) and import `getRedis` / `pubsub` from `@nojv/redis` directly.
+- **Worker / Temporal activities**: live in `apps/worker/src/activities/` (`judge-bundle.ts` / `platform-bundle.ts`) and import `pubsub` from `@nojv/redis` directly.
 - **Subscriber**: a separate connection (`createSubscriber`) is created for pub/sub to avoid blocking the main connection.
 
 ## Related Docs
