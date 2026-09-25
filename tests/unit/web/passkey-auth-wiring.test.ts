@@ -51,6 +51,10 @@ vi.mock("@nojv/application", () => ({
   createStepUpHandoffTicket: createTicketMock,
   hasAdminSessionMfa: vi.fn(),
   hasFreshStepUp: vi.fn(),
+  isSuperAdminPasswordProofSessionValid: vi.fn(
+    (proof: { sessionId: string | null }, sessionId: string | null) =>
+      proof.sessionId === null || proof.sessionId === sessionId,
+  ),
   isSuperAdminSessionExpired: vi.fn(),
   markFactorChangeVerifiedSession: markFactorChangeMock,
   markVerifiedSession: vi.fn(),
@@ -63,10 +67,6 @@ vi.mock("@nojv/application", () => ({
 
 vi.mock("$lib/server/super-admin-password-proof", () => ({
   consumeSuperAdminPasswordProof: vi.fn(),
-  isSuperAdminPasswordProofSessionValid: vi.fn(
-    (proof: { sessionId: string | null }, sessionId: string | null) =>
-      proof.sessionId === null || proof.sessionId === sessionId,
-  ),
   passwordProofTicketFromCookieHeader: vi.fn(() => null),
   readSuperAdminPasswordProof: vi.fn(),
 }));

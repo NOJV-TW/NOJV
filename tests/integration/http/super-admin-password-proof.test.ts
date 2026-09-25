@@ -1,9 +1,9 @@
+import { isSuperAdminPasswordProofSessionValid } from "@nojv/application";
 import type { Cookies } from "@sveltejs/kit";
 import { describe, expect, it, vi } from "vitest";
 
 import {
   consumeSuperAdminPasswordProof,
-  isSuperAdminPasswordProofSessionValid,
   issueSuperAdminPasswordProof,
   readSuperAdminPasswordProof,
   SUPER_ADMIN_PASSWORD_PROOF_COOKIE,

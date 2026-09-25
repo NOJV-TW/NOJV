@@ -5,6 +5,7 @@ import { problemDomain, virtualContestDomain } from "@nojv/application";
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
+import { summarizeTestcaseSets } from "$lib/server/problem-solve";
 
 const { getProblemPageData, getProblemTestcaseSets } = problemDomain;
 const { getVirtualContestForUser, listVirtualContestProblemSubmissions } = virtualContestDomain;
@@ -50,13 +51,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     problem,
     submissions,
     siblingProblems,
-    testcaseSets: testcaseSets.map((set) => ({
-      id: set.id,
-      name: set.name,
-      description: set.description,
-      weight: set.weight,
-      ordinal: set.ordinal,
-      caseCount: set.testcases.length,
-    })),
+    testcaseSets: summarizeTestcaseSets(testcaseSets),
   };
 });

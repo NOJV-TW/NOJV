@@ -11,7 +11,7 @@ export function allowedImageRegistries(): string[] {
   return host && !configured.includes(host) ? [host, ...configured] : configured;
 }
 
-export interface AdvancedImageConfigValidationContext {
+interface AdvancedImageConfigValidationContext {
   allowAnyPlatformRegistryNamespace: boolean;
   platformRegistryHost: string;
   platformRegistryNamespace: string | null;
@@ -93,7 +93,7 @@ export function createAdvancedImageConfigInputSchema(
     });
 }
 
-export type AdvancedImageConfigInput = z.infer<
+type AdvancedImageConfigInput = z.infer<
   ReturnType<typeof createAdvancedImageConfigInputSchema>
 >;
 

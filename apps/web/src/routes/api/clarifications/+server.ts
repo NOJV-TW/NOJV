@@ -8,6 +8,7 @@ import {
   apiHandler,
   writeApiHandler,
   assertJsonBodyWithinLimit,
+  parseContextQuery,
   readJsonBody,
 } from "$lib/server/shared/api-handler";
 import { clarificationDomain } from "@nojv/application";
@@ -29,23 +30,9 @@ const askSchema = z.object({
   questionText: z.string().min(10).max(1000),
 });
 
-function parseContextQuery(url: URL): z.infer<typeof contextSchema> {
-  const type = url.searchParams.get("type");
-  if (type === "assignment") {
-    return contextSchema.parse({ type, assignmentId: url.searchParams.get("assignmentId") });
-  }
-  if (type === "exam") {
-    return contextSchema.parse({ type, examId: url.searchParams.get("examId") });
-  }
-  if (type === "contest") {
-    return contextSchema.parse({ type, contestId: url.searchParams.get("contestId") });
-  }
-  return contextSchema.parse({ type });
-}
-
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
-  const context = parseContextQuery(event.url);
+  const context = parseContextQuery(event.url, contextSchema);
   const sinceRaw = event.url.searchParams.get("since");
   const parsed = listQuerySchema.parse({
     context,

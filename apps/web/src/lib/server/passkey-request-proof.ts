@@ -2,13 +2,13 @@ import { defineRequestState } from "@better-auth/core/context";
 
 import type { SecurityGenerationProof } from "@nojv/application";
 
-export type PasskeyAuthenticationProof = SecurityGenerationProof & {
+type PasskeyAuthenticationProof = SecurityGenerationProof & {
   authenticatedAt?: string;
   credentialID: string;
   passwordProofTicket?: string;
 };
 
-export type PasskeyRegistrationProof = SecurityGenerationProof & {
+type PasskeyRegistrationProof = SecurityGenerationProof & {
   credentialID: string;
   sessionId: string;
 };

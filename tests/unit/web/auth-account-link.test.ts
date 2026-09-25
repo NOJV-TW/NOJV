@@ -50,6 +50,7 @@ vi.mock("@nojv/db", () => ({
   },
 }));
 vi.mock("@nojv/mailer", () => ({
+  escapeHtml: (value: string) => value,
   getMailer: () => ({
     sendEmail: async (message: { to: string; subject: string }) => {
       state.sentEmails.push(message);

@@ -64,7 +64,7 @@ export async function startPendingTotp(
   };
 }
 
-export type ConfirmPendingTotpResult =
+type ConfirmPendingTotpResult =
   | { ok: true; state: SecurityFactorState }
   | { ok: false; reason: "expired" | "invalid" | "replayed" | "stale" };
 

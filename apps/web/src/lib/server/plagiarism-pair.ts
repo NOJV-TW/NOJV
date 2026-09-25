@@ -5,10 +5,11 @@ import {
   contestDomain,
   plagiarismDomain,
   userDomain,
+  ForbiddenError,
 } from "@nojv/application";
 import type { RequestEvent } from "@sveltejs/kit";
 
-import { ForbiddenError, getCoursePermissionRole, requireApiAuth } from "$lib/server/auth";
+import { getCoursePermissionRole, requireApiAuth } from "$lib/server/auth";
 import type { PlagiarismPairDiffData } from "$lib/types/plagiarism-pair";
 
 const { buildPairKey, findPlagiarismReport, getPlagiarismSourceCode, listFlagsForContext } =
@@ -69,7 +70,7 @@ function parsePairs(raw: unknown): RawPair[] {
     .filter((p): p is RawPair => p !== null);
 }
 
-export interface LoadPlagiarismPairInput {
+interface LoadPlagiarismPairInput {
   pairId: string;
   target: plagiarismDomain.PlagiarismTarget;
   flagContext: plagiarismDomain.PlagiarismContext;

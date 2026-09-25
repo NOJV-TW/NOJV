@@ -33,7 +33,7 @@ const devOptions: LoggerOptions = {
 
 const base = pino(isGcpProduction ? gcpOptions : devOptions);
 
-export interface Logger {
+interface Logger {
   debug: (message: string, data?: Record<string, unknown>) => void;
   info: (message: string, data?: Record<string, unknown>) => void;
   warn: (message: string, data?: Record<string, unknown>) => void;

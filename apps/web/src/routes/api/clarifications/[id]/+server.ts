@@ -4,13 +4,13 @@ import { z } from "zod";
 
 import type { RequestHandler } from "./$types";
 
-import { HttpError, requireApiAuth } from "$lib/server/auth";
+import { requireApiAuth } from "$lib/server/auth";
 import {
   writeApiHandler,
   assertJsonBodyWithinLimit,
   readJsonBody,
 } from "$lib/server/shared/api-handler";
-import { clarificationDomain } from "@nojv/application";
+import { clarificationDomain, HttpError } from "@nojv/application";
 
 const patchSchema = z.discriminatedUnion("kind", [
   z.object({

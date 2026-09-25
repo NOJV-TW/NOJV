@@ -15,11 +15,6 @@ vi.mock("@nojv/db", () => ({
   examProblemRepo: { findActiveExamsForUser: async () => [] },
   assessmentRepo: { findInfoById: assignmentInfo },
 }));
-vi.mock("$lib/server/auth", async () => {
-  const { ForbiddenError, NotFoundError } =
-    await import("../../../packages/application/src/shared/errors");
-  return { ForbiddenError, NotFoundError };
-});
 
 import { postDomain } from "@nojv/application";
 import { requireProblemPostAccess } from "../../../apps/web/src/lib/server/post-access";

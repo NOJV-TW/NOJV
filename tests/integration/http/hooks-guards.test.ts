@@ -32,9 +32,8 @@ vi.mock("$lib/server/shared/rate-limiter", async () => {
   };
 });
 
-vi.mock("$lib/server/step-up", async () => {
-  const actual =
-    await vi.importActual<typeof import("$lib/server/step-up")>("$lib/server/step-up");
+vi.mock("@nojv/application", async () => {
+  const actual = await vi.importActual<typeof import("@nojv/application")>("@nojv/application");
   resolveAdminAccessSpy.mockImplementation(actual.resolveAdminAccess);
   return { ...actual, resolveAdminAccess: resolveAdminAccessSpy };
 });

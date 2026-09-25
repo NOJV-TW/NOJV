@@ -1,7 +1,7 @@
 import type { ProblemPostType } from "@nojv/core";
-import { postDomain, problemDomain } from "@nojv/application";
+import { postDomain, problemDomain, NotFoundError } from "@nojv/application";
 
-import { NotFoundError, type ActorContext } from "$lib/server/auth";
+import { type ActorContext } from "$lib/server/auth";
 
 const { assertCanInteractWithPosts, getPostById } = postDomain;
 const { getProblemRowById } = problemDomain;

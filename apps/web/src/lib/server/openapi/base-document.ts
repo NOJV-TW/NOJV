@@ -11,28 +11,14 @@ import {
 
 import { zodToOpenApiSchema } from "./zod-schema";
 
-export const openApiDocument = {
+export const baseOpenApiDocument = {
   openapi: "3.1.0",
   info: {
-    title: "NOJV API",
     version: "0.1.0",
-    summary: "Hand-written base API reference merged into the Full API document",
-    description:
-      "Base API documentation for system and submission routes. Served to readers through the API Token and Full API documents.",
     contact: {
       name: "NOJV Maintainers",
     },
   },
-  tags: [
-    {
-      name: "System",
-      description: "Health and API metadata.",
-    },
-    {
-      name: "Submissions",
-      description: "Submission creation, status, verdicts, and source access.",
-    },
-  ],
   paths: {
     "/api/livez": {
       get: {
@@ -435,12 +421,8 @@ export const openApiDocument = {
         },
         required: ["version", "sourceSha"],
       },
-      SupportedLanguage: {
-        ...zodToOpenApiSchema(languageSchema),
-      },
-      RunCase: {
-        ...zodToOpenApiSchema(runCaseSchema),
-      },
+      SupportedLanguage: zodToOpenApiSchema(languageSchema),
+      RunCase: zodToOpenApiSchema(runCaseSchema),
       SourceFile: {
         type: "object",
         properties: {
@@ -457,12 +439,8 @@ export const openApiDocument = {
         },
         required: ["path", "content"],
       },
-      SubmissionDraft: {
-        ...zodToOpenApiSchema(submissionDraftSchema),
-      },
-      CreateSubmissionResponse: {
-        ...zodToOpenApiSchema(submissionDispatchResponseSchema),
-      },
+      SubmissionDraft: zodToOpenApiSchema(submissionDraftSchema),
+      CreateSubmissionResponse: zodToOpenApiSchema(submissionDispatchResponseSchema),
       SubmissionStatus: {
         ...zodToOpenApiSchema(submissionOperationStatusSchema),
         description: "Submission operation status.",
@@ -471,12 +449,8 @@ export const openApiDocument = {
         type: "string",
         description: "Final judge verdict for a completed submission.",
       },
-      SubmissionResult: {
-        ...zodToOpenApiSchema(submissionResultSchema),
-      },
-      SubmissionOperationResponse: {
-        ...zodToOpenApiSchema(submissionOperationSchema),
-      },
+      SubmissionResult: zodToOpenApiSchema(submissionResultSchema),
+      SubmissionOperationResponse: zodToOpenApiSchema(submissionOperationSchema),
       SubmissionListItem: {
         type: "object",
         properties: {
@@ -551,9 +525,7 @@ export const openApiDocument = {
         },
         required: ["files", "language"],
       },
-      ErrorResponse: {
-        ...zodToOpenApiSchema(apiErrorSchema),
-      },
+      ErrorResponse: zodToOpenApiSchema(apiErrorSchema),
       ValidationErrorResponse: {
         type: "object",
         properties: {

@@ -45,5 +45,4 @@ export const sseConnectionDroppedTotal = meter.createCounter("sse_connection_dro
   description: "SSE connections closed due to server-side fault",
 });
 
-export type SseCloseReason =
-  "client_abort" | "timeout" | "subscribe_failed" | "controller_error";
+export type SseCloseReason = "client_abort" | "timeout" | "controller_error";

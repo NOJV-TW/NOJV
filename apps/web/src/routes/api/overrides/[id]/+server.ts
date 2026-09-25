@@ -4,13 +4,13 @@ import { z } from "zod";
 
 import type { RequestHandler } from "./$types";
 
-import { HttpError, requireApiAuth } from "$lib/server/auth";
+import { requireApiAuth } from "$lib/server/auth";
 import {
   writeApiHandler,
   assertJsonBodyWithinLimit,
   readJsonBody,
 } from "$lib/server/shared/api-handler";
-import { scoreOverrideDomain } from "@nojv/application";
+import { scoreOverrideDomain, HttpError } from "@nojv/application";
 
 const patchSchema = z.object({
   overrideScore: z.number().int().min(0).optional(),

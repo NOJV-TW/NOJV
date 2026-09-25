@@ -9,11 +9,10 @@ import {
 } from "../../fixtures/factories";
 
 import { participationRepo, runTransaction } from "@nojv/db";
-import { contestDomain } from "@nojv/application";
+import { contestDomain, NotFoundError } from "@nojv/application";
 
 const { listPublicContests, getContestDetail, getContestWorkspaceData, getScoreboard } =
   contestDomain;
-import { NotFoundError } from "$lib/server/auth";
 
 describe("contest queries (real DB)", () => {
   describe("listPublicContests", () => {

@@ -134,7 +134,7 @@ Security headers, CSP and exam rules are specified in [Security Requirements](..
 
 ### Server (`+page.server.ts`, `+layout.server.ts`, `+server.ts`)
 
-- Auth: `requireAuth(event)` for pages (redirects), `requireApiAuth(event)` for APIs (throws `HttpError`); `requirePlatformRole(actor, ...roles)`; `isCourseStaff`, `resolveCoursePermission`.
+- Auth: `requireAuth(event)` for pages (redirects), `requireApiAuth(event)` for APIs (throws `HttpError`); `requirePlatformRole(actor, ...roles)`; `getCoursePermissionRole`, `isCourseManager`, `isCourseMember`, `canCreateCourse`. Application errors and security helpers are imported from `@nojv/application` directly.
 - Business logic and data access go through `@nojv/application`; `@nojv/db` is imported only for auth wiring (ENG-02).
 - Workflow dispatch: routes call application orchestration functions; `lib/server/domain-orchestration.ts` binds them to `@nojv/temporal` at startup. Routes never import raw Temporal helpers.
 - Wrappers: `apiHandler` / `writeApiHandler` / `draftApiHandler` / `registryTokenApiHandler` rate-limit and map errors for API routes; form actions use `withAction` / `withRateLimit` / `withRateLimitActions` (WEB-02); loaders use `handleLoad` (see [Domain error handling](DESIGN.md#domain-error-handling)).

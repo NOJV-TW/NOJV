@@ -1,6 +1,6 @@
-export type LinkProvider = "github" | "google";
+type LinkProvider = "github" | "google";
 
-export const LINKABLE_PROVIDERS: readonly LinkProvider[] = ["github", "google"];
+const LINKABLE_PROVIDERS: readonly LinkProvider[] = ["github", "google"];
 
 export function isLinkProvider(value: string): value is LinkProvider {
   return (LINKABLE_PROVIDERS as readonly string[]).includes(value);

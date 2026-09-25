@@ -3,7 +3,7 @@ import { createSubscriber } from "@nojv/redis";
 
 import { createLogger } from "../logger";
 
-export type SseMessageHandler = (channel: string, message: string) => void;
+type SseMessageHandler = (channel: string, message: string) => void;
 
 const logger = createLogger("sse-hub");
 

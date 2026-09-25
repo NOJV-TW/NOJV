@@ -1,4 +1,4 @@
-import { openApiDocument as publicOpenApiDocument } from "./public-document";
+import { baseOpenApiDocument } from "./base-document";
 import { accountPaths } from "./internal/paths/account";
 import { clarificationsPaths } from "./internal/paths/clarifications";
 import { contestsPaths } from "./internal/paths/contests";
@@ -32,9 +32,9 @@ const internalPaths = withInternalAuthMetadata({
 });
 
 export const internalOpenApiDocument = {
-  ...publicOpenApiDocument,
+  ...baseOpenApiDocument,
   info: {
-    ...publicOpenApiDocument.info,
+    ...baseOpenApiDocument.info,
     title: "NOJV Full API",
     summary: "Complete reference for every NOJV API route",
     description:
@@ -72,13 +72,13 @@ export const internalOpenApiDocument = {
     { name: "Events", description: "Server-sent event APIs." },
   ],
   paths: {
-    ...publicOpenApiDocument.paths,
+    ...baseOpenApiDocument.paths,
     ...internalPaths,
   },
   components: {
-    ...publicOpenApiDocument.components,
+    ...baseOpenApiDocument.components,
     schemas: {
-      ...publicOpenApiDocument.components.schemas,
+      ...baseOpenApiDocument.components.schemas,
       ...internalSchemas,
     },
   },

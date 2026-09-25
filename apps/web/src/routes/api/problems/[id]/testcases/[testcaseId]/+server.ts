@@ -12,11 +12,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   const testcaseId = event.params.testcaseId;
   if (!problemId || !testcaseId) error(400, "Missing problem or testcase id");
 
-  const content = await problemDomain.getTestcaseContent(
-    { platformRole: actor.platformRole, userId: actor.userId, username: actor.username },
-    problemId,
-    testcaseId,
-  );
+  const content = await problemDomain.getTestcaseContent(actor, problemId, testcaseId);
 
   return json(content);
 });

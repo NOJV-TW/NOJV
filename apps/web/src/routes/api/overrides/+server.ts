@@ -1,5 +1,4 @@
 import { json } from "@sveltejs/kit";
-import type { z } from "zod";
 
 import type { RequestHandler } from "./$types";
 
@@ -8,6 +7,7 @@ import {
   apiHandler,
   writeApiHandler,
   assertJsonBodyWithinLimit,
+  parseContextQuery,
   readJsonBody,
 } from "$lib/server/shared/api-handler";
 import { scoreOverrideDomain } from "@nojv/application";
@@ -16,20 +16,9 @@ import {
   scoreOverrideCreateSchema,
 } from "@nojv/core";
 
-function parseContextQuery(url: URL): z.infer<typeof contextSchema> {
-  const type = url.searchParams.get("type");
-  if (type === "assignment") {
-    return contextSchema.parse({ type, assignmentId: url.searchParams.get("assignmentId") });
-  }
-  if (type === "exam") {
-    return contextSchema.parse({ type, examId: url.searchParams.get("examId") });
-  }
-  return contextSchema.parse({ type });
-}
-
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
-  const context = parseContextQuery(event.url);
+  const context = parseContextQuery(event.url, contextSchema);
 
   await scoreOverrideDomain.assertCanViewScoreOverrides(actor, context);
 

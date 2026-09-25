@@ -8,11 +8,11 @@ import { extractStudentId, parseSchoolEmail } from "$lib/utils/school";
 
 const logger = createLogger("school-verification");
 
-export interface SchoolVerificationResult {
+interface SchoolVerificationResult {
   success: true;
 }
 
-export interface SchoolVerificationError {
+interface SchoolVerificationError {
   error: string;
   status: 400 | 409 | 500 | 503;
 }

@@ -2,9 +2,9 @@ import { json } from "@sveltejs/kit";
 
 import type { RequestHandler } from "./$types";
 
-import { ForbiddenError, NotFoundError, requireApiAuth } from "$lib/server/auth";
+import { requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
-import { problemDomain } from "@nojv/application";
+import { problemDomain, ForbiddenError, NotFoundError } from "@nojv/application";
 
 export const DELETE: RequestHandler = writeApiHandler(async (event) => {
   const actor = requireApiAuth(event);

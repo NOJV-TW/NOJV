@@ -44,7 +44,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         href: `/assignments/${assignment.id}`,
         type: "assignment",
       },
-      problemInScope: true,
     }),
     assignmentDomain.listAssignmentProblemSiblings({
       assignmentId: assignment.id,
