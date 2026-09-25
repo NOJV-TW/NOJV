@@ -1,6 +1,7 @@
 import { MAX_EXECUTION_OUTPUT_BYTES } from "@nojv/core";
 import * as fs from "node:fs/promises";
 import { readFileSync } from "node:fs";
+import * as path from "node:path";
 
 export async function pathExists(filePath: string): Promise<boolean> {
   try {
@@ -9,6 +10,11 @@ export async function pathExists(filePath: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export async function findScript(dir: string, prefix: string): Promise<string | null> {
+  const match = (await fs.readdir(dir)).find((entry) => entry.startsWith(`${prefix}.`));
+  return match ? path.join(dir, match) : null;
 }
 
 export function readOptionalFile(filePath: string): Promise<string | undefined> {

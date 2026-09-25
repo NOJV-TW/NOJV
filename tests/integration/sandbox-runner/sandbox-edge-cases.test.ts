@@ -3,9 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
-import { compareStandard } from "@nojv/core";
+import { compareStandard, sourceFileNames } from "@nojv/core";
 
-import { compile, sourceFileName } from "../../../apps/sandbox-runner/src/compiler.js";
+import { compile } from "../../../apps/sandbox-runner/src/compiler.js";
 import { runSolution } from "../../../apps/sandbox-runner/src/judges/standard.js";
 import type { SandboxInput, TestcaseFiles } from "../../../apps/sandbox-runner/src/types.js";
 
@@ -55,15 +55,15 @@ describe("compiler edge cases", () => {
     expect(result.success).toBe(true);
   });
 
-  it("sourceFileName returns correct names for all languages", () => {
-    expect(sourceFileName("c")).toBe("main.c");
-    expect(sourceFileName("cpp")).toBe("main.cpp");
-    expect(sourceFileName("go")).toBe("main.go");
-    expect(sourceFileName("java")).toBe("Main.java");
-    expect(sourceFileName("javascript")).toBe("main.mjs");
-    expect(sourceFileName("python")).toBe("main.py");
-    expect(sourceFileName("rust")).toBe("main.rs");
-    expect(sourceFileName("typescript")).toBe("main.ts");
+  it("sourceFileNames maps every language to its entry file", () => {
+    expect(sourceFileNames.c).toBe("main.c");
+    expect(sourceFileNames.cpp).toBe("main.cpp");
+    expect(sourceFileNames.go).toBe("main.go");
+    expect(sourceFileNames.java).toBe("Main.java");
+    expect(sourceFileNames.javascript).toBe("main.mjs");
+    expect(sourceFileNames.python).toBe("main.py");
+    expect(sourceFileNames.rust).toBe("main.rs");
+    expect(sourceFileNames.typescript).toBe("main.ts");
   });
 
   it("compile and run TypeScript project with multiple source files", async () => {

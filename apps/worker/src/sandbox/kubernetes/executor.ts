@@ -98,10 +98,6 @@ export class K8sExecutor implements SandboxExecutor {
     );
   }
 
-  cleanupRun(runId: string): Promise<void> {
-    return this.cleanupResources.cleanupRun(runId);
-  }
-
   reconcile(runId: string, owner?: string): Promise<boolean> {
     return this.cleanupResources.reconcile(runId, owner);
   }

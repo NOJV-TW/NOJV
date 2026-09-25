@@ -395,7 +395,7 @@ describe("buildAdvancedConfigMapData", () => {
       { path: "main.py", content: "print('a')" },
       { path: "lib/util.py", content: "X=1" },
     ];
-    const data = buildAdvancedConfigMapData(req);
+    const data = buildAdvancedConfigMapData(req, req.advanced!);
     expect(Object.keys(data)).toEqual(["payload.json"]);
 
     const payload = JSON.parse(data["payload.json"]!) as {
@@ -416,21 +416,20 @@ describe("buildAdvancedConfigMapData", () => {
       { path: "../escape.py", content: "evil" },
       { path: "ok.py", content: "good" },
     ];
-    expect(() => buildAdvancedConfigMapData(req)).toThrow("Path contains unsafe segments");
+    expect(() => buildAdvancedConfigMapData(req, req.advanced!)).toThrow(
+      "Path contains unsafe segments",
+    );
   });
 });
 
 describe("buildAdvancedGradeConfigMapData", () => {
   it("writes a grade meta.json carrying submissionId, language, runStatus, maxScore (no answers)", () => {
-    const data = buildAdvancedGradeConfigMapData(
-      "sub-adv-1",
-      "python",
-      {
-        state: "exited",
-        exitCode: 0,
-      },
-      100,
-    );
+    const data = buildAdvancedGradeConfigMapData({
+      submissionId: "sub-adv-1",
+      language: "python",
+      runStatus: { state: "exited", exitCode: 0 },
+      maxScore: 100,
+    });
     expect(Object.keys(data)).toEqual(["meta.json"]);
     const meta = JSON.parse(data["meta.json"]!);
     expect(meta).toEqual({
@@ -1602,10 +1601,9 @@ describe("K8sExecutor.execute(advanced) — image pull failures", () => {
 });
 
 describe("DRY: K8s advanced reuses Docker advanced's helpers", () => {
-  it("uses the same mapAdvancedResult / advancedFallbackResult symbols as the Docker backend", async () => {
+  it("uses the same resolveAdvancedResult symbol as the Docker backend", async () => {
     const mapperMod =
       await import("../../../apps/worker/src/sandbox/shared/sandbox-result-mapper");
-    expect(typeof mapperMod.mapAdvancedResult).toBe("function");
-    expect(typeof mapperMod.advancedFallbackResult).toBe("function");
+    expect(typeof mapperMod.resolveAdvancedResult).toBe("function");
   });
 });

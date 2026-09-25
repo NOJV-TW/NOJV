@@ -2,7 +2,6 @@ import type { RawCaseRun, SandboxRequest, SandboxResult, ValidatorOutcome } from
 
 import { mergeCheckerResults, resolveStandardResults } from "./check-standard";
 import { scanJsonLinesFromEnd } from "./log-parse";
-import { sourceExtension } from "./sandbox-plan";
 import { parseSandboxResult, parseValidateOutput } from "./sandbox-schema";
 
 export function gradableRuns(request: SandboxRequest, rawRuns: RawCaseRun[]): RawCaseRun[] {
@@ -17,36 +16,6 @@ export function judgeFailedForAll(
   judgeMessage: string,
 ): Map<number, ValidatorOutcome> {
   return new Map(runs.map((run) => [run.index, { verdict: "SE", judgeMessage }]));
-}
-
-export function buildJudgePayload(request: SandboxRequest): Record<string, string> {
-  const data: Record<string, string> = {};
-  const checker = request.judgeType === "checker";
-  if (checker) {
-    const validatorScript = request.judgeConfig.checkerScript;
-    if (!validatorScript) throw new Error("Checker judge is missing its validator script.");
-    const validatorLanguage = request.judgeConfig.checkerLanguage;
-    if (!validatorLanguage) throw new Error("Checker judge is missing checkerLanguage.");
-    data[`validator.${sourceExtension(validatorLanguage)}`] = validatorScript;
-  }
-  for (const tc of request.testcases) {
-    if (tc.output === undefined) continue;
-    if (checker) data[`case-${String(tc.index)}-input.txt`] = tc.input;
-    data[`case-${String(tc.index)}-answer.txt`] = tc.output;
-  }
-  data["config.json"] = JSON.stringify({
-    submissionId: request.submissionId,
-    language: request.language,
-    judgeType: request.judgeType,
-    problemType: request.problemType,
-    limits: request.limits,
-    ...(request.judgeConfig.compare ? { compare: request.judgeConfig.compare } : {}),
-    ...(checker && request.judgeConfig.checkerLanguage
-      ? { validate: { language: request.judgeConfig.checkerLanguage } }
-      : {}),
-    mode: { kind: "judge-stage" },
-  });
-  return data;
 }
 
 export function parseJudgeOutcomes(

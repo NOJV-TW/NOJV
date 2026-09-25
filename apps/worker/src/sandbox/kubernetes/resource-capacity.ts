@@ -24,13 +24,13 @@ export function resolveK8sMemoryLimit(
   return `${String(memoryMb)}Mi`;
 }
 
-function quotaQuantity(quantity: string): number {
+export function quantityValue(quantity: string): number {
   const suffix = findSuffix(quantity);
   const value = suffix
     ? Number(quantity.slice(0, -suffix.length)) * Number(quantityToScalar(`1${suffix}`))
     : Number(quantityToScalar(quantity));
   if (!Number.isFinite(value) || value < 0)
-    throw new Error(`Invalid resource quantity: ${quantity}`);
+    throw new Error(`Invalid Kubernetes resource quantity: ${quantity}`);
   return value;
 }
 
@@ -49,7 +49,7 @@ function podResourceRequirement(
     return null;
   // Omitted requests are a lower bound: admission may supply LimitRange defaults.
   const amount = (container: k8s.V1Container) =>
-    quotaQuantity(container.resources?.[field]?.[resource] ?? "0");
+    quantityValue(container.resources?.[field]?.[resource] ?? "0");
   let regular = spec.containers.reduce((total, container) => total + amount(container), 0);
   let restartable = 0;
   let initPeak = 0;
@@ -62,9 +62,9 @@ function podResourceRequirement(
   }
   regular += restartable;
   const effective =
-    podLevel === undefined ? Math.max(regular, initPeak) : quotaQuantity(podLevel);
+    podLevel === undefined ? Math.max(regular, initPeak) : quantityValue(podLevel);
   const overhead =
-    field === "requests" || effective > 0 ? quotaQuantity(spec.overhead?.[resource] ?? "0") : 0;
+    field === "requests" || effective > 0 ? quantityValue(spec.overhead?.[resource] ?? "0") : 0;
   return effective + overhead;
 }
 
@@ -97,7 +97,7 @@ export function findSandboxQuotaViolation(
     for (const [resource, requested] of Object.entries(requirements)) {
       const configured = hard[resource];
       if (configured === undefined || requested === null) continue;
-      const maximum = quotaQuantity(configured);
+      const maximum = quantityValue(configured);
       const tolerance = Math.max(1, requested, maximum) * Number.EPSILON * 128;
       if (requested > maximum + tolerance) {
         return `ResourceQuota ${quota.metadata?.name ?? "unnamed"}: ${resource} requires ${String(requested)}, exceeding hard ${configured}.`;

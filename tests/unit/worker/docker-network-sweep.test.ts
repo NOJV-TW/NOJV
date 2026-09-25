@@ -1,13 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  runDocker: vi.fn(),
   runDockerCommand: vi.fn(),
 }));
 
 vi.mock("../../../apps/worker/src/sandbox/docker/process", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../apps/worker/src/sandbox/docker/process")>()),
-  runDocker: mocks.runDocker,
   runDockerCommand: mocks.runDockerCommand,
 }));
 

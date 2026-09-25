@@ -2,7 +2,12 @@ import { hostname } from "node:os";
 
 import { createLogger } from "../../logger.js";
 import { runDockerCommand } from "./process.js";
-import { DOCKER_MANAGED_LABEL, DOCKER_RUN_LABEL } from "./resource.js";
+import {
+  DOCKER_MANAGED_LABEL,
+  DOCKER_RUN_LABEL,
+  parseDockerIds,
+  parseDockerInspection,
+} from "./resource.js";
 
 const logger = createLogger("docker-reconcile");
 type DockerResourceKind = "container" | "network";
@@ -20,14 +25,7 @@ async function listRunResources(kind: DockerResourceKind, runId: string): Promis
     "--format",
     "{{.ID}}",
   ]);
-  const ids = [
-    ...new Set(
-      stdout
-        .split("\n")
-        .map((id) => id.trim())
-        .filter(Boolean),
-    ),
-  ];
+  const ids = parseDockerIds(stdout);
   if (ids.some((id) => !/^[0-9a-f]{64}$/.test(id))) {
     throw new Error("Docker resource listing returned an invalid immutable ID.");
   }
@@ -48,14 +46,13 @@ async function inspectOwnedResource(
   const { stdout } = await runDockerCommand([kind, "inspect", id], {
     ignoreMissingResource: true,
   });
-  if (stdout === "") return null;
-  const parsed: unknown = JSON.parse(stdout);
-  const resource = Array.isArray(parsed) && parsed.length === 1 ? object(parsed[0]) : null;
+  const resource = parseDockerInspection(stdout, kind);
+  if (!resource) return null;
   const labels = object(
-    kind === "container" ? object(resource?.Config)?.Labels : resource?.Labels,
+    kind === "container" ? object(resource.Config)?.Labels : resource.Labels,
   );
   if (
-    resource?.Id !== id ||
+    resource.Id !== id ||
     labels?.[DOCKER_MANAGED_LABEL] !== "true" ||
     labels[DOCKER_RUN_LABEL] !== runId
   ) {

@@ -19,5 +19,3 @@ export { runPlagiarismCheck } from "./plagiarism";
 
 export { runRegistryGarbageCollect } from "./registry";
 export { runDurableWorkBatch, reconcileExamCredentials } from "./durable-work";
-
-export { getRedis } from "./utils";

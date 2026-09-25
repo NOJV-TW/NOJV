@@ -9,7 +9,6 @@ import {
   SandboxInfeasibleError,
   SandboxInfrastructureError,
 } from "./errors";
-import { CONFIGMAP_MAX_BYTES } from "./configmaps";
 import { buildAdvancedPvcManifest } from "./advanced";
 import { buildStageJobManifest } from "./job-manifests";
 import { buildPayloadConfigMaps, payloadConfigMapNames } from "./payload";
@@ -18,6 +17,8 @@ import {
   parseMemoryLimitMb,
   resolveK8sMemoryLimit,
 } from "./resource-capacity";
+
+const CONFIGMAP_MAX_BYTES = 1_000_000;
 
 interface SandboxResourceConfig {
   image: string;

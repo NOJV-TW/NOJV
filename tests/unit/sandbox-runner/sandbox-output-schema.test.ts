@@ -2,11 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { sandboxOutputSchema, compileOutputSchema, validateOutputSchema } from "@nojv/core";
 import { parseSandboxResult } from "../../../apps/worker/src/sandbox/shared/sandbox-schema";
-import { SandboxOutputSchema } from "../../../apps/sandbox-runner/src/types.js";
 
-describe("SandboxOutputSchema", () => {
+describe("sandboxOutputSchema", () => {
   it("uses one producer and consumer contract, including operator diagnostics", () => {
-    expect(SandboxOutputSchema).toBe(sandboxOutputSchema);
     const payload = {
       testcaseResults: [
         {
@@ -20,8 +18,8 @@ describe("SandboxOutputSchema", () => {
         },
       ],
     };
-    expect(parseSandboxResult(payload)).toEqual(SandboxOutputSchema.safeParse(payload));
-    expect(SandboxOutputSchema.parse(payload).testcaseResults[0]!.staffFeedback).toBe(
+    expect(parseSandboxResult(payload)).toEqual(sandboxOutputSchema.safeParse(payload));
+    expect(sandboxOutputSchema.parse(payload).testcaseResults[0]!.staffFeedback).toBe(
       "internal failure",
     );
   });
@@ -34,7 +32,7 @@ describe("SandboxOutputSchema", () => {
 
   it("accepts explicit failure output and rejects empty output contracts", () => {
     expect(
-      SandboxOutputSchema.parse({ pipelineError: "missing case file" }).pipelineError,
+      sandboxOutputSchema.parse({ pipelineError: "missing case file" }).pipelineError,
     ).toBe("missing case file");
     for (const schema of [sandboxOutputSchema, compileOutputSchema, validateOutputSchema]) {
       expect(schema.safeParse({}).success).toBe(false);
@@ -42,7 +40,7 @@ describe("SandboxOutputSchema", () => {
   });
 
   it("parses a testcaseResults payload", () => {
-    const parsed = SandboxOutputSchema.safeParse({
+    const parsed = sandboxOutputSchema.safeParse({
       testcaseResults: [
         { index: 0, verdict: "AC", stdout: "ok", stderr: "", exitCode: 0, timeMs: 5 },
       ],
@@ -51,14 +49,14 @@ describe("SandboxOutputSchema", () => {
   });
 
   it("parses a rawRuns payload", () => {
-    const parsed = SandboxOutputSchema.safeParse({
+    const parsed = sandboxOutputSchema.safeParse({
       rawRuns: [{ index: 0, stdout: "42\n", stderr: "", exitCode: 0, timeMs: 3 }],
     });
     expect(parsed.success).toBe(true);
   });
 
   it("accepts a rawRun carrying an errorVerdict", () => {
-    const parsed = SandboxOutputSchema.safeParse({
+    const parsed = sandboxOutputSchema.safeParse({
       rawRuns: [
         { index: 1, stdout: "", stderr: "boom", exitCode: 1, timeMs: 2, errorVerdict: "RE" },
       ],
@@ -67,7 +65,7 @@ describe("SandboxOutputSchema", () => {
   });
 
   it("rejects an AC/WA errorVerdict on a rawRun", () => {
-    const parsed = SandboxOutputSchema.safeParse({
+    const parsed = sandboxOutputSchema.safeParse({
       rawRuns: [
         { index: 0, stdout: "", stderr: "", exitCode: 0, timeMs: 1, errorVerdict: "AC" },
       ],

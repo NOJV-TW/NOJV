@@ -1,7 +1,7 @@
 import { sweepOrphanContainers } from "./container";
 import { sweepOrphanNetworks } from "./network";
 
-export const DOCKER_RESOURCE_SWEEP_INTERVAL_MS = 60_000;
+const DOCKER_RESOURCE_SWEEP_INTERVAL_MS = 60_000;
 
 interface DockerResourceSweepDependencies {
   sweepContainers: () => Promise<void>;

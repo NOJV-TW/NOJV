@@ -4,6 +4,9 @@ import type { SandboxRequest } from "@nojv/core";
 import {
   ADVANCED_OUTPUT_MAX_FILES,
   ADVANCED_WORKSPACE_MAX_BYTES,
+  advancedRunMeta,
+  type AdvancedGradeMeta,
+  type AdvancedResourceLimits,
   type RunStatus,
 } from "../shared/advanced-execution";
 import {
@@ -26,8 +29,8 @@ export const ADVANCED_SIDECAR_NAME = "emit-result";
 export const ADVANCED_RESULT_MARKER_BEGIN = "<<<NOJV_ADVANCED_RESULT>>>";
 export const ADVANCED_RESULT_MARKER_END = "<<<END>>>";
 
-export const ADVANCED_PVC_MOUNT_PATH = "/run-output";
-export const ADVANCED_GRADE_RUN_OUTPUT_PATH = "/workspace/run-output";
+const ADVANCED_PVC_MOUNT_PATH = "/run-output";
+const ADVANCED_GRADE_RUN_OUTPUT_PATH = "/workspace/run-output";
 
 const ADVANCED_WORKSPACE_SIZE_LIMIT = "1Gi";
 const ADVANCED_TMP_SIZE_LIMIT = "64Mi";
@@ -37,35 +40,23 @@ export function advancedPvcName(submissionId: string): string {
   return `judge-${submissionId}-runout`;
 }
 
-export function buildAdvancedConfigMapData(request: SandboxRequest): Record<string, string> {
-  const advanced = request.advanced;
+export function buildAdvancedConfigMapData(
+  request: SandboxRequest,
+  limits: AdvancedResourceLimits,
+): Record<string, string> {
   const submissionFiles = resolveSourceFiles(request, { requireSourceCode: true });
-
-  const payload = {
-    meta: {
-      submissionId: request.submissionId,
-      language: request.language,
-      submissionFiles: submissionFiles.map((f) => f.path),
-      resourceLimits: {
-        totalTimeMs: advanced?.totalTimeMs ?? request.limits.timeoutMs,
-        memoryMb: advanced?.memoryMb ?? request.limits.memoryMb,
-      },
-    },
-    submissionFiles,
+  return {
+    "payload.json": JSON.stringify({
+      meta: advancedRunMeta(request, limits, submissionFiles),
+      submissionFiles,
+    }),
   };
-
-  return { "payload.json": JSON.stringify(payload) };
 }
 
 export function buildAdvancedGradeConfigMapData(
-  submissionId: string,
-  language: string,
-  runStatus: RunStatus,
-  maxScore: number,
+  meta: AdvancedGradeMeta,
 ): Record<string, string> {
-  return {
-    "meta.json": JSON.stringify({ submissionId, language, runStatus, maxScore }, null, 2),
-  };
+  return { "meta.json": JSON.stringify(meta, null, 2) };
 }
 
 export function buildAdvancedInitScript(): string {
@@ -179,9 +170,6 @@ export function deriveRunStatusFromJob(
   return { state: "exited", exitCode: 0 };
 }
 
-const RUN_POD_SECURITY_CONTEXT = SANDBOX_POD_SECURITY_CONTEXT_WITH_FSGROUP;
-const HARDENED_CONTAINER_SECURITY_CONTEXT = HARDENED_CONTAINER_SECURITY_CONTEXT_PINNED;
-
 export interface AdvancedPvcManifestParams {
   pvcName: string;
   namespace: string;
@@ -263,12 +251,12 @@ export function buildAdvancedRunJobManifest(params: AdvancedRunJobManifestParams
           terminationGracePeriodSeconds: RUN_POD_TERMINATION_GRACE_SECONDS,
           nodeSelector: SANDBOX_NODE_SELECTOR,
           tolerations: SANDBOX_TOLERATIONS,
-          securityContext: RUN_POD_SECURITY_CONTEXT,
+          securityContext: SANDBOX_POD_SECURITY_CONTEXT_WITH_FSGROUP,
           initContainers: [
             {
               name: ADVANCED_INIT_NAME,
               image: params.sandboxImage,
-              securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
+              securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT_PINNED,
               command: ["sh", "-c", buildAdvancedInitScript()],
               volumeMounts: [
                 sharedWorkspaceMount,
@@ -278,7 +266,7 @@ export function buildAdvancedRunJobManifest(params: AdvancedRunJobManifestParams
             {
               name: ADVANCED_TRANSFER_NAME,
               image: params.sandboxImage,
-              securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
+              securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT_PINNED,
               restartPolicy: "Always",
               command: ["sh", "-c", buildAdvancedTransferWaitScript()],
               volumeMounts: [
@@ -300,7 +288,7 @@ export function buildAdvancedRunJobManifest(params: AdvancedRunJobManifestParams
                   "ephemeral-storage": ADVANCED_WORKSPACE_SIZE_LIMIT,
                 },
               },
-              securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
+              securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT_PINNED,
               volumeMounts: [sharedWorkspaceMount, { name: "tmp", mountPath: "/tmp" }],
             },
           ],
@@ -371,12 +359,12 @@ export function buildAdvancedGradeJobManifest(
           nodeName: params.nodeName,
           nodeSelector: SANDBOX_NODE_SELECTOR,
           tolerations: SANDBOX_TOLERATIONS,
-          securityContext: RUN_POD_SECURITY_CONTEXT,
+          securityContext: SANDBOX_POD_SECURITY_CONTEXT_WITH_FSGROUP,
           initContainers: [
             {
               name: ADVANCED_INIT_NAME,
               image: params.sandboxImage,
-              securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
+              securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT_PINNED,
               command: [
                 "sh",
                 "-c",
@@ -394,7 +382,7 @@ chmod 0777 /workspace/output
             {
               name: ADVANCED_SIDECAR_NAME,
               image: params.sandboxImage,
-              securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
+              securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT_PINNED,
               restartPolicy: "Always",
               command: ["sh", "-c", buildAdvancedTailScript(params.totalTimeMs)],
               volumeMounts: [sharedWorkspaceMount],
@@ -416,7 +404,7 @@ chmod 0777 /workspace/output
                   "ephemeral-storage": ADVANCED_WORKSPACE_SIZE_LIMIT,
                 },
               },
-              securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
+              securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT_PINNED,
               volumeMounts: [
                 sharedWorkspaceMount,
                 {

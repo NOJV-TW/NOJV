@@ -1,21 +1,20 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  buildAdvancedDockerArgs,
-  buildServiceEnv,
-} from "../../../apps/worker/src/sandbox/docker/advanced-mode-executor";
-import {
-  buildStartServiceArgs,
-  serviceContainerName,
-} from "../../../apps/worker/src/sandbox/docker/service-container";
-import {
   ADVANCED_SERVICE_PORT,
-  SERVICE_HOST_ENV,
+  buildAdvancedServiceArgs,
   SERVICE_NETWORK_ALIAS,
+} from "@nojv/sandbox-docker";
+
+import { buildAdvancedDockerArgs } from "../../../apps/worker/src/sandbox/docker/advanced-mode-executor";
+import { serviceContainerName } from "../../../apps/worker/src/sandbox/docker/service-container";
+import {
+  SERVICE_HOST_ENV,
+  serviceHostEnv,
 } from "../../../apps/worker/src/sandbox/shared/advanced-service-contract";
 
-describe("buildStartServiceArgs", () => {
-  const args = buildStartServiceArgs({
+describe("buildAdvancedServiceArgs", () => {
+  const args = buildAdvancedServiceArgs({
     containerName: "nojv-service-sub-1",
     internalName: "nojv-net-internal-sub-1",
     imageRef: "ta-service:latest",
@@ -111,15 +110,17 @@ describe("service network mode run-phase args", () => {
       extraEnv,
     });
 
-  it("buildServiceEnv injects NOJV_SERVICE_HOST=service:8888 (host:port) and nothing else", () => {
-    expect(buildServiceEnv()).toEqual({
+  it("serviceHostEnv injects NOJV_SERVICE_HOST=service:8888 (host:port) and nothing else", () => {
+    expect(serviceHostEnv(SERVICE_NETWORK_ALIAS)).toEqual({
       [SERVICE_HOST_ENV]: `${SERVICE_NETWORK_ALIAS}:${String(ADVANCED_SERVICE_PORT)}`,
     });
-    expect(buildServiceEnv()).toEqual({ NOJV_SERVICE_HOST: "service:8888" });
+    expect(serviceHostEnv(SERVICE_NETWORK_ALIAS)).toEqual({
+      NOJV_SERVICE_HOST: "service:8888",
+    });
   });
 
   it("runs single-homed on the internal network (egress absent, exactly one --network)", () => {
-    const args = runArgs(buildServiceEnv());
+    const args = runArgs(serviceHostEnv(SERVICE_NETWORK_ALIAS));
     const netIdx = args.indexOf("--network");
     expect(args[netIdx + 1]).toBe("nojv-net-internal-sub-123");
     expect(args).not.toContain("nojv-net-egress-sub-123");
@@ -128,7 +129,7 @@ describe("service network mode run-phase args", () => {
   });
 
   it("carries NOJV_SERVICE_HOST=service:8888 and NO HTTP_PROXY in service mode", () => {
-    const args = runArgs(buildServiceEnv());
+    const args = runArgs(serviceHostEnv(SERVICE_NETWORK_ALIAS));
     const hostIdx = args.indexOf("NOJV_SERVICE_HOST=service:8888");
     expect(hostIdx).toBeGreaterThan(0);
     expect(args[hostIdx - 1]).toBe("--env");
@@ -140,7 +141,7 @@ describe("service network mode run-phase args", () => {
   });
 
   it("keeps the run container at the strict untrusted posture (--user 10001)", () => {
-    const args = runArgs(buildServiceEnv());
+    const args = runArgs(serviceHostEnv(SERVICE_NETWORK_ALIAS));
     const userIdx = args.indexOf("--user");
     expect(userIdx).toBeGreaterThan(0);
     expect(args[userIdx + 1]).toBe("10001:10001");

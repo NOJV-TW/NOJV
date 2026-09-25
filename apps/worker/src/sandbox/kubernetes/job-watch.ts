@@ -1,6 +1,6 @@
 import type * as k8s from "@kubernetes/client-node";
 
-import { executionAbortReason } from "../shared/execution-abort";
+import { abortableSleep, executionAbortReason } from "../shared/execution-abort";
 import { findFailedCreateEventReason, isDeterministicAdmissionFailure } from "./admission";
 import {
   SandboxAdmissionError,
@@ -172,7 +172,7 @@ export class KubernetesJobWatcher {
       everStarted = watched.everStarted;
       if (watched.outcome) return watched.outcome;
 
-      await this.sleep(jobWatchReconnectDelay(watchReconnectAttempt), signal);
+      await abortableSleep(jobWatchReconnectDelay(watchReconnectAttempt), signal);
       watchReconnectAttempt += 1;
     }
 
@@ -471,20 +471,5 @@ export class KubernetesJobWatcher {
     ]);
 
     return result;
-  }
-
-  private sleep(ms: number, signal: AbortSignal): Promise<void> {
-    signal.throwIfAborted();
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        signal.removeEventListener("abort", abort);
-        resolve();
-      }, ms);
-      const abort = () => {
-        clearTimeout(timer);
-        reject(executionAbortReason(signal));
-      };
-      signal.addEventListener("abort", abort, { once: true });
-    });
   }
 }

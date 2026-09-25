@@ -27,8 +27,6 @@ export const SANDBOX_POD_SECURITY_CONTEXT_WITH_FSGROUP = {
   ...NONROOT_SECCOMP,
 };
 
-export const UNPINNED_POD_SECURITY_CONTEXT = { ...NONROOT_SECCOMP };
-
 const HARDENED_CONTAINER_BASE = {
   allowPrivilegeEscalation: false,
   capabilities: { drop: ["ALL"] },

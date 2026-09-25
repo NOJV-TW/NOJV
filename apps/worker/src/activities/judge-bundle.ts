@@ -1,7 +1,6 @@
 export {
   fetchJudgeContext,
   executeSandbox,
-  cleanupSandboxRun,
   completeSubmission,
   fetchSubmissionIdsForRejudge,
   fetchSingleSubmissionForRejudge,
@@ -19,8 +18,6 @@ export {
   updateContestScores,
   updateExamScores,
 } from "./lifecycle";
-
-export { getRedis } from "./utils";
 
 export {
   judgeExecutionStatus,

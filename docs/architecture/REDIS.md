@@ -129,11 +129,11 @@ submission under a PostgreSQL advisory lock.
 
 ## Connections
 
-| Connection                        | Factory                         | Used by                                        |
-| --------------------------------- | ------------------------------- | ---------------------------------------------- |
-| Shared command client (singleton) | `getRedis()`                    | application, worker activities, web exceptions |
-| Subscriber (one per web process)  | `createSubscriber(REDIS_URL)`   | `sse-hub.ts`                                   |
-| Rate-limiter clients              | `createRateLimiterConnection()` | `rate-limiter.ts`                              |
+| Connection                        | Factory                         | Used by                     |
+| --------------------------------- | ------------------------------- | --------------------------- |
+| Shared command client (singleton) | `getRedis()`                    | application, web exceptions |
+| Subscriber (one per web process)  | `createSubscriber(REDIS_URL)`   | `sse-hub.ts`                |
+| Rate-limiter clients              | `createRateLimiterConnection()` | `rate-limiter.ts`           |
 
 All read `REDIS_URL` via `parseRedisConnection` (`@nojv/core`). Web access
 outside `@nojv/application` is limited to the files listed in

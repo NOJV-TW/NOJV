@@ -29,7 +29,7 @@
 - `src/health-server.ts` — `/livez`、`/readyz`、`/healthz`
 - `src/workflows/` — workflow 定義（`durable-judge.ts` 為判題主流程）
 - `src/activities/` — activity handlers；`judge-bundle.ts` / `platform-bundle.ts` 決定各 queue 註冊的 activities
-- `src/sandbox/shared/` — executor factory/owner、sandbox plan、payload、log parsing、result mapping、phase metrics
+- `src/sandbox/shared/` — executor factory/owner、sandbox plan、stage payload builders、advanced meta/result contract、log parsing、result mapping、phase metrics
 - `src/sandbox/docker/` — Docker executors、hardened args builder、network、resource sweeper
 - `src/sandbox/kubernetes/` — standard/interactive/advanced executors、Job manifests、payload shards、watch、admission、cleanup、startup probes
 

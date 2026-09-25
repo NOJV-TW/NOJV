@@ -1,16 +1,10 @@
 import { hostname } from "node:os";
 import { ApplicationFailure, cancellationSignal, heartbeat } from "@temporalio/activity";
-import {
-  JUDGE_STAGE_CASES,
-  sandboxOutputSchema,
-  submissionResultSchema,
-  type SandboxResult,
-} from "@nojv/core";
+import { JUDGE_STAGE_CASES, sandboxOutputSchema, type SandboxResult } from "@nojv/core";
 import { submissionDomain } from "@nojv/application";
 import { prismaAdapterClient as db } from "@nojv/db";
-import { buildPinnedSandboxRequest } from "./judge-request";
+import { buildSandboxRequest, mapSandboxResult } from "./judge-request";
 import { getExecutorOwner } from "./judge";
-import { enforceMemoryLimit } from "../sandbox/shared/check-standard";
 import {
   recordJudgePhase,
   recordWallClockTimeouts,
@@ -64,7 +58,7 @@ export async function executeJudgeStage(
   let cleanupConfirmed = false;
   try {
     const { snapshot } = await submissionDomain.loadJudgeExecution(executionId);
-    const fullRequest = buildPinnedSandboxRequest(snapshot);
+    const fullRequest = buildSandboxRequest(snapshot);
     const advanced = fullRequest.problemType === "special_env";
     const total = advanced
       ? 1
@@ -159,7 +153,7 @@ export async function reconcileJudgeStage(
 
 export async function completePinnedJudge(executionId: string, workflowId: string) {
   const { execution, snapshot } = await submissionDomain.loadJudgeExecution(executionId);
-  const request = buildPinnedSandboxRequest(snapshot);
+  const request = buildSandboxRequest(snapshot);
   const stages = await submissionDomain.readJudgeStages(executionId);
   let combined: SandboxResult = { testcaseResults: [] };
   for (const raw of stages) {
@@ -175,22 +169,15 @@ export async function completePinnedJudge(executionId: string, workflowId: strin
       ...(stage.rawRuns ? { rawRuns: [...(combined.rawRuns ?? []), ...stage.rawRuns] } : {}),
     };
   }
-  combined.testcaseResults = enforceMemoryLimit(
-    combined.testcaseResults,
-    snapshot.context.runtime.memoryLimitMb,
-  );
   const advanced = request.problemType === "special_env";
-  const result = submissionDomain.mapResult(
-    combined,
-    snapshot.draft.sampleOnly || advanced ? [] : snapshot.context.testcaseSets,
-    snapshot.context,
-    advanced ? undefined : request.testcases.length,
-  );
-  if (snapshot.draft.sampleOnly) result.score = 0;
   const completed = await submissionDomain.completeJudgeExecution(
     executionId,
     workflowId,
-    submissionResultSchema.parse(result),
+    mapSandboxResult(combined, {
+      draft: snapshot.draft,
+      context: snapshot.context,
+      testcaseCount: request.testcases.length,
+    }),
   );
   if (completed) {
     recordJudgeLatency(judgeLatencyHistogram, {

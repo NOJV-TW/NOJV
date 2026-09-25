@@ -7,7 +7,6 @@ import {
   COMPILATION_TIMEOUT_MS,
   judgeEnvironmentDefinition,
   materializeJudgeCommand,
-  sourceFileNames,
   type JudgeCommandReplacements,
   type JudgeScriptLanguage,
   type Language,
@@ -27,10 +26,6 @@ const PYTHON_INTERACTOR_DOMJUDGE_WRAPPER = loadWrapper("python-interactor-domjud
 
 export type CompileResult =
   { success: true; runCommand: string[] } | { success: false; error: string };
-
-export function sourceFileName(language: SandboxInput["language"]): string {
-  return sourceFileNames[language];
-}
 
 function judgeCommand(
   language: Language,
@@ -153,19 +148,21 @@ export async function compile(
   }
 }
 
-export async function compileValidator(
+async function compileJudgeScript(
+  name: "validator" | "interactor",
+  pythonWrapper: string,
   scriptPath: string,
   language: JudgeScriptLanguage,
   workDir: string,
 ): Promise<CompileResult> {
   if (language === "python") {
     const userSource = await fs.readFile(scriptPath, "utf-8");
-    const wrappedPath = path.join(workDir, "validator.py");
-    await fs.writeFile(wrappedPath, `${PYTHON_VALIDATOR_WRAPPER}${userSource}`, "utf-8");
+    const wrappedPath = path.join(workDir, `${name}.py`);
+    await fs.writeFile(wrappedPath, `${pythonWrapper}${userSource}`, "utf-8");
     return { success: true, runCommand: ["python3", wrappedPath] };
   }
 
-  const outPath = path.join(workDir, "validator");
+  const outPath = path.join(workDir, name);
   return compileWithCommand(
     ["g++", "-O2", "-std=c++20", "-o", outPath, scriptPath],
     [outPath],
@@ -173,26 +170,30 @@ export async function compileValidator(
   );
 }
 
-export async function compileInteractor(
+export function compileValidator(
   scriptPath: string,
   language: JudgeScriptLanguage,
   workDir: string,
 ): Promise<CompileResult> {
-  if (language === "python") {
-    const userSource = await fs.readFile(scriptPath, "utf-8");
-    const wrappedPath = path.join(workDir, "interactor.py");
-    await fs.writeFile(
-      wrappedPath,
-      `${PYTHON_INTERACTOR_DOMJUDGE_WRAPPER}${userSource}`,
-      "utf-8",
-    );
-    return { success: true, runCommand: ["python3", wrappedPath] };
-  }
+  return compileJudgeScript(
+    "validator",
+    PYTHON_VALIDATOR_WRAPPER,
+    scriptPath,
+    language,
+    workDir,
+  );
+}
 
-  const outPath = path.join(workDir, "interactor");
-  return compileWithCommand(
-    ["g++", "-O2", "-std=c++20", "-o", outPath, scriptPath],
-    [outPath],
+export function compileInteractor(
+  scriptPath: string,
+  language: JudgeScriptLanguage,
+  workDir: string,
+): Promise<CompileResult> {
+  return compileJudgeScript(
+    "interactor",
+    PYTHON_INTERACTOR_DOMJUDGE_WRAPPER,
+    scriptPath,
+    language,
     workDir,
   );
 }

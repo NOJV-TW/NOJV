@@ -11,8 +11,6 @@ import {
 import { dirname, join } from "node:path";
 
 import {
-  advancedResultSchema,
-  validateAdvancedResultForMaxScore,
   type SandboxAdvancedRequest,
   type SandboxExecutionContext,
   type SandboxRequest,
@@ -28,6 +26,8 @@ import {
 import {
   attachDockerCleanupFailure,
   cleanupDockerResources,
+  collectContainerLogs,
+  forceRemoveContainer,
   sanitizeId,
   spawnDockerContainer,
 } from "./process";
@@ -36,22 +36,17 @@ import { executionAbortReason } from "../shared/execution-abort";
 import {
   ADVANCED_OUTPUT_MAX_FILES,
   ADVANCED_WORKSPACE_MAX_BYTES,
+  advancedRunMeta,
+  type AdvancedGradeMeta,
+  type AdvancedResourceLimits,
   type RunStatus,
 } from "../shared/advanced-execution";
-import {
-  ADVANCED_SERVICE_PORT,
-  SERVICE_HOST_ENV,
-  SERVICE_NETWORK_ALIAS,
-} from "../shared/advanced-service-contract";
-import {
-  collectServiceLogs,
-  serviceContainerName,
-  startServiceContainer,
-  stopServiceContainer,
-} from "./service-container";
+import { SERVICE_NETWORK_ALIAS } from "@nojv/sandbox-docker";
+import { serviceHostEnv } from "../shared/advanced-service-contract";
+import { serviceContainerName, startServiceContainer } from "./service-container";
 import { sandboxSystemError } from "../shared/sandbox-plan";
 import { resolveSourceFiles } from "../shared/source-files.js";
-import { advancedFallbackResult, mapAdvancedResult } from "../shared/sandbox-result-mapper";
+import { resolveAdvancedResult } from "../shared/sandbox-result-mapper";
 
 export interface AdvancedModeConfig {
   cpuLimit: string;
@@ -238,23 +233,10 @@ export function buildAdvancedDockerArgs(params: AdvancedDockerArgsParams): strin
   ];
 }
 
-export function buildServiceEnv(): Record<string, string> {
-  return {
-    [SERVICE_HOST_ENV]: `${SERVICE_NETWORK_ALIAS}:${String(ADVANCED_SERVICE_PORT)}`,
-  };
-}
-
-export interface RunWorkspaceInput {
-  submissionId: string;
-  language: string;
-  totalTimeMs: number;
-  memoryMb: number;
-}
-
 export async function prepareRunWorkspace(
   runDir: string,
   request: SandboxRequest,
-  input: RunWorkspaceInput,
+  limits: AdvancedResourceLimits,
 ): Promise<void> {
   const submissionDir = join(runDir, "submission");
   const outputDir = join(runDir, "output");
@@ -277,16 +259,13 @@ export async function prepareRunWorkspace(
     );
   }
 
-  const meta = {
-    submissionId: input.submissionId,
-    language: input.language,
-    submissionFiles: resolved.map((f) => f.path),
-    resourceLimits: {
-      totalTimeMs: input.totalTimeMs,
-      memoryMb: input.memoryMb,
-    },
-  };
-  fileWrites.push(writeFile(join(runDir, "meta.json"), JSON.stringify(meta, null, 2), "utf8"));
+  fileWrites.push(
+    writeFile(
+      join(runDir, "meta.json"),
+      JSON.stringify(advancedRunMeta(request, limits, resolved), null, 2),
+      "utf8",
+    ),
+  );
 
   await Promise.all(fileWrites);
   await chmod(runDir, 0o777);
@@ -310,7 +289,7 @@ async function chmodTreeReadable(dir: string): Promise<void> {
 export async function prepareGradeWorkspace(
   gradeDir: string,
   runOutputDir: string,
-  input: { submissionId: string; language: string; runStatus: RunStatus; maxScore: number },
+  meta: AdvancedGradeMeta,
 ): Promise<void> {
   const gradeRunOutputDir = join(gradeDir, "run-output");
   const outputDir = join(gradeDir, "output");
@@ -326,12 +305,6 @@ export async function prepareGradeWorkspace(
   });
   await chmodTreeReadable(gradeRunOutputDir);
 
-  const meta = {
-    submissionId: input.submissionId,
-    language: input.language,
-    runStatus: input.runStatus,
-    maxScore: input.maxScore,
-  };
   await writeFile(join(gradeDir, "meta.json"), JSON.stringify(meta, null, 2), "utf8");
   await chmod(gradeDir, 0o777);
 }
@@ -392,12 +365,7 @@ export class AdvancedModeExecutor {
     const gradeDir = join(tempDir, "grade");
     const runOutputDir = join(runDir, "output");
 
-    await prepareRunWorkspace(runDir, request, {
-      submissionId: request.submissionId,
-      language: request.language,
-      totalTimeMs: advanced.totalTimeMs,
-      memoryMb: advanced.memoryMb,
-    });
+    await prepareRunWorkspace(runDir, request, advanced);
 
     const runOutcome = await this.runPhase(
       request,
@@ -409,16 +377,12 @@ export class AdvancedModeExecutor {
     );
 
     if (runOutcome.spawnError) {
-      return advancedFallbackResult(
-        request,
+      return sandboxSystemError(
         `Advanced run container failed to start: ${runOutcome.stderr}`.trim(),
       );
     }
     if (runOutcome.sizeExceeded) {
-      return advancedFallbackResult(
-        request,
-        "Advanced judge image exceeded the output size limit.",
-      );
+      return sandboxSystemError("Advanced judge image exceeded the output size limit.");
     }
 
     const runStatus = deriveRunStatus(runOutcome);
@@ -433,13 +397,9 @@ export class AdvancedModeExecutor {
     } catch (err) {
       execution.signal.throwIfAborted();
       if (err instanceof SafeCopyLimitError) {
-        return advancedFallbackResult(
-          request,
-          "Advanced run output exceeded the file/size limit.",
-        );
+        return sandboxSystemError("Advanced run output exceeded the file/size limit.");
       }
-      return advancedFallbackResult(
-        request,
+      return sandboxSystemError(
         `Failed to capture advanced run output: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
@@ -454,13 +414,12 @@ export class AdvancedModeExecutor {
     );
 
     if (gradeOutcome.spawnError) {
-      return advancedFallbackResult(
-        request,
+      return sandboxSystemError(
         `Advanced grade container failed to start: ${gradeOutcome.stderr}`.trim(),
       );
     }
     if (gradeOutcome.timedOut) {
-      return advancedFallbackResult(request, "Advanced grade image timed out.");
+      return sandboxSystemError("Advanced grade image timed out.");
     }
 
     let resultJson: unknown;
@@ -470,25 +429,12 @@ export class AdvancedModeExecutor {
       resultJson = JSON.parse(raw);
     } catch {
       execution.signal.throwIfAborted();
-      return advancedFallbackResult(
-        request,
+      return sandboxSystemError(
         `Advanced grade image did not write result.json. exit=${String(gradeOutcome.exitCode)}\n${gradeOutcome.stderr}`.trim(),
       );
     }
 
-    const parsed = advancedResultSchema.safeParse(resultJson);
-    if (!parsed.success) {
-      return advancedFallbackResult(
-        request,
-        `Invalid result.json: ${parsed.error.issues.map((i) => i.message).join(", ")}`,
-      );
-    }
-    const resultIssues = validateAdvancedResultForMaxScore(parsed.data, advanced.maxScore);
-    if (resultIssues.length > 0) {
-      return advancedFallbackResult(request, `Invalid result.json: ${resultIssues.join(", ")}`);
-    }
-
-    return mapAdvancedResult(request, parsed.data);
+    return resolveAdvancedResult(resultJson, advanced.maxScore);
   }
 
   private async runPhase(
@@ -585,7 +531,7 @@ export class AdvancedModeExecutor {
         runDir,
         {
           networkArgs: ["--network", network.internalName],
-          extraEnv: buildServiceEnv(),
+          extraEnv: serviceHostEnv(SERVICE_NETWORK_ALIAS),
         },
       );
     } catch (err) {
@@ -598,7 +544,7 @@ export class AdvancedModeExecutor {
 
     if (!primaryFailure) {
       try {
-        const serviceLogs = await collectServiceLogs(containerName, execution.signal);
+        const serviceLogs = await collectContainerLogs(containerName, execution.signal);
         if (serviceLogs) {
           logger.info("advanced service container log", {
             submissionId: request.submissionId,
@@ -622,7 +568,7 @@ export class AdvancedModeExecutor {
       await cleanupDockerResources("Docker advanced service", [
         {
           name: `container ${containerName}`,
-          remove: () => stopServiceContainer(containerName),
+          remove: () => forceRemoveContainer(containerName),
         },
         {
           name: `network ${network.internalName}`,

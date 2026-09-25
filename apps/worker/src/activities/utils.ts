@@ -1,7 +1,5 @@
 import { metrics, type Histogram } from "@opentelemetry/api";
 
-export { getRedis } from "@nojv/redis";
-
 const meter = metrics.getMeter("@nojv/worker", "0.1.0");
 
 export const judgeLatencyHistogram = meter.createHistogram("judge_latency_seconds", {

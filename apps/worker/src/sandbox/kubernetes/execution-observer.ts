@@ -3,7 +3,6 @@ import type * as k8s from "@kubernetes/client-node";
 import type { SandboxRequest } from "@nojv/core";
 
 import { createLogger } from "../../logger.js";
-import { executionAbortReason } from "../shared/execution-abort";
 import {
   podPhaseTimings,
   recordCleanupPending,
@@ -11,7 +10,7 @@ import {
   type JudgePhase,
   type JudgeMode,
 } from "../shared/judge-phase-metrics";
-import { failureMessage } from "./cleanup-call";
+import { failureMessage } from "../shared/failure-message";
 import { SandboxInfrastructureError } from "./errors";
 import { ADVANCED_TRANSFER_NAME } from "./advanced";
 import { JUDGE_CONTAINER_NAME, RUN_CONTAINER_NAME } from "./job-manifests";
@@ -82,11 +81,12 @@ export class KubernetesExecutionObserver {
     }
   }
 
-  async findPodName(
+  private async firstJobPod(
     jobName: string,
     namespace: string,
     signal: AbortSignal,
-  ): Promise<string | null> {
+    failure: string,
+  ): Promise<k8s.V1Pod | undefined> {
     try {
       signal.throwIfAborted();
       const pods = await this.coreApi.listNamespacedPod({
@@ -94,14 +94,28 @@ export class KubernetesExecutionObserver {
         labelSelector: `job-name=${jobName}`,
       });
       signal.throwIfAborted();
-      return pods.items[0]?.metadata?.name ?? null;
+      return pods.items[0];
     } catch (error) {
       signal.throwIfAborted();
       throw new SandboxInfrastructureError(
-        `Could not find sandbox pod for ${namespace}/${jobName}: ${error instanceof Error ? error.message : String(error)}`,
+        `${failure} for ${namespace}/${jobName}: ${error instanceof Error ? error.message : String(error)}`,
         { cause: error },
       );
     }
+  }
+
+  async findPodName(
+    jobName: string,
+    namespace: string,
+    signal: AbortSignal,
+  ): Promise<string | null> {
+    const pod = await this.firstJobPod(
+      jobName,
+      namespace,
+      signal,
+      "Could not find sandbox pod",
+    );
+    return pod?.metadata?.name ?? null;
   }
 
   async inspectRunPod(
@@ -109,27 +123,19 @@ export class KubernetesExecutionObserver {
     namespace: string,
     signal: AbortSignal,
   ): Promise<{ nodeName: string | null; transferCaptureOk: boolean }> {
-    try {
-      signal.throwIfAborted();
-      const pods = await this.coreApi.listNamespacedPod({
-        namespace,
-        labelSelector: `job-name=${jobName}`,
-      });
-      signal.throwIfAborted();
-      const pod = pods.items[0];
-      const nodeName = pod?.spec?.nodeName ?? null;
-      const transferStatus = (pod?.status?.initContainerStatuses ?? []).find(
-        (container) => container.name === ADVANCED_TRANSFER_NAME,
-      );
-      const transferCaptureOk = transferStatus?.state?.terminated?.exitCode === 0;
-      return { nodeName, transferCaptureOk };
-    } catch (error) {
-      signal.throwIfAborted();
-      throw new SandboxInfrastructureError(
-        `Could not inspect sandbox pod for ${namespace}/${jobName}: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+    const pod = await this.firstJobPod(
+      jobName,
+      namespace,
+      signal,
+      "Could not inspect sandbox pod",
+    );
+    const transferStatus = (pod?.status?.initContainerStatuses ?? []).find(
+      (container) => container.name === ADVANCED_TRANSFER_NAME,
+    );
+    return {
+      nodeName: pod?.spec?.nodeName ?? null,
+      transferCaptureOk: transferStatus?.state?.terminated?.exitCode === 0,
+    };
   }
 
   async findStagePod(
@@ -137,38 +143,29 @@ export class KubernetesExecutionObserver {
     namespace: string,
     signal: AbortSignal,
   ): Promise<{ name: string; runStarted: boolean; judgeStarted: boolean } | null> {
-    try {
-      signal.throwIfAborted();
-      const pods = await this.coreApi.listNamespacedPod({
-        namespace,
-        labelSelector: `job-name=${jobName}`,
-      });
-      signal.throwIfAborted();
-      const pod = pods.items[0];
-      const name = pod?.metadata?.name;
-      if (!name) return null;
-      const started = (status: k8s.V1ContainerStatus | undefined) =>
-        Boolean(status?.state?.terminated ?? status?.state?.running);
-      return {
-        name,
-        runStarted: started(
-          pod.status?.initContainerStatuses?.find(
-            (container) => container.name === RUN_CONTAINER_NAME,
-          ),
+    const pod = await this.firstJobPod(
+      jobName,
+      namespace,
+      signal,
+      "Could not find sandbox pod",
+    );
+    const name = pod?.metadata?.name;
+    if (!name) return null;
+    const started = (status: k8s.V1ContainerStatus | undefined) =>
+      Boolean(status?.state?.terminated ?? status?.state?.running);
+    return {
+      name,
+      runStarted: started(
+        pod.status?.initContainerStatuses?.find(
+          (container) => container.name === RUN_CONTAINER_NAME,
         ),
-        judgeStarted: started(
-          pod.status?.containerStatuses?.find(
-            (container) => container.name === JUDGE_CONTAINER_NAME,
-          ),
+      ),
+      judgeStarted: started(
+        pod.status?.containerStatuses?.find(
+          (container) => container.name === JUDGE_CONTAINER_NAME,
         ),
-      };
-    } catch (error) {
-      signal.throwIfAborted();
-      throw new SandboxInfrastructureError(
-        `Could not find sandbox pod for ${namespace}/${jobName}: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
-    }
+      ),
+    };
   }
 
   async getPodContainerLogs(
@@ -193,20 +190,5 @@ export class KubernetesExecutionObserver {
         { cause: error },
       );
     }
-  }
-
-  sleep(ms: number, signal: AbortSignal): Promise<void> {
-    signal.throwIfAborted();
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        signal.removeEventListener("abort", abort);
-        resolve();
-      }, ms);
-      const abort = () => {
-        clearTimeout(timer);
-        reject(executionAbortReason(signal));
-      };
-      signal.addEventListener("abort", abort, { once: true });
-    });
   }
 }

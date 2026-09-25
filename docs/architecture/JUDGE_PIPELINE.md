@@ -475,7 +475,7 @@ compile failure with score 0.
 
 - The worker always grades after a run that did not fail infrastructurally, including
   an empty `/output`.
-- SE (`advancedFallbackResult`) only for: run/grade spawn failure, capture size cap
+- SE (`sandboxSystemError`, a single SE case) only for: run/grade spawn failure, capture size cap
   or run watchdog exceeded, grade timeout, missing or invalid `result.json`, and on
   Kubernetes a non-zero `transfer` sidecar exit. Like any SE stage result, this
   enters durable recovery.

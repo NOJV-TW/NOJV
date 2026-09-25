@@ -233,12 +233,7 @@ describe("prepareRunWorkspace / prepareGradeWorkspace", () => {
 
   it("writes run meta with submissionFiles and resourceLimits", async () => {
     const runDir = join(dir, "run");
-    await prepareRunWorkspace(runDir, request, {
-      submissionId: "sub-xyz",
-      language: "python",
-      totalTimeMs: 5000,
-      memoryMb: 256,
-    });
+    await prepareRunWorkspace(runDir, request, { totalTimeMs: 5000, memoryMb: 256 });
 
     const meta = JSON.parse(await readFile(join(runDir, "meta.json"), "utf8")) as Record<
       string,
@@ -282,12 +277,7 @@ describe("prepareRunWorkspace / prepareGradeWorkspace", () => {
     const prev = process.umask(0o077);
     try {
       const runDir = join(dir, "run");
-      await prepareRunWorkspace(runDir, request, {
-        submissionId: "sub-xyz",
-        language: "python",
-        totalTimeMs: 5000,
-        memoryMb: 256,
-      });
+      await prepareRunWorkspace(runDir, request, { totalTimeMs: 5000, memoryMb: 256 });
       const mode = (await stat(join(runDir, "output"))).mode & 0o777;
       expect(mode).toBe(0o777);
     } finally {
