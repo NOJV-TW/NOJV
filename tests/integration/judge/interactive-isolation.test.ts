@@ -8,7 +8,8 @@ import { describe, expect, it } from "vitest";
 
 import { parseInteractiveRunReports, type SandboxRequest } from "@nojv/core";
 import { buildSandboxDockerArgs } from "../../../apps/worker/src/sandbox/docker/args";
-import { writeSolutionFiles } from "../../../apps/worker/src/sandbox/docker/interactive-executor";
+import { writePayloadDir } from "../../../apps/worker/src/sandbox/docker/payload-dir";
+import { buildInteractiveSolutionPayload } from "../../../apps/worker/src/sandbox/shared/stage-payload";
 
 import { DockerExecutor } from "../../../apps/worker/src/sandbox/docker/executor.js";
 import { requireSandboxImage } from "./_sandbox-image";
@@ -258,7 +259,7 @@ else:
       const request = interactiveRequest({ language: "c", sourceCode: "int main( {\n" });
       const directory = await mkdtemp(join(tmpdir(), "nojv-interactive-ce-"));
       try {
-        await writeSolutionFiles(directory, request);
+        await writePayloadDir(directory, buildInteractiveSolutionPayload(request));
         const { stdout, stderr } = await promisify(execFile)(
           "docker",
           buildSandboxDockerArgs({

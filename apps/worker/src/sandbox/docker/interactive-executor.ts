@@ -1,5 +1,5 @@
 import { spawn, type ChildProcessByStdio } from "node:child_process";
-import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Readable, Writable } from "node:stream";
@@ -27,12 +27,12 @@ import {
 } from "./process";
 import { buildDockerResourceLabels } from "./resource";
 import { executionAbortReason } from "../shared/execution-abort";
+import { sandboxSystemError } from "../shared/sandbox-plan";
 import {
-  buildSandboxConfigJson,
-  sandboxSystemError,
-  sourceExtension,
-} from "../shared/sandbox-plan";
-import { resolveSourceFiles } from "../shared/source-files.js";
+  buildInteractiveInteractorPayload,
+  buildInteractiveSolutionPayload,
+} from "../shared/stage-payload";
+import { writePayloadDir } from "./payload-dir";
 
 const MAX_OUTER_TIMEOUT_MS = 540_000;
 const PER_CASE_GRACE_MS = 5_000;
@@ -55,61 +55,7 @@ export interface InteractiveExecutorConfig {
 
 type PipedChild = ChildProcessByStdio<Writable, Readable, Readable>;
 
-export async function writeSolutionFiles(
-  tempDir: string,
-  request: SandboxRequest,
-): Promise<void> {
-  const fileWrites: Promise<void>[] = [];
-  const sourceFileMap: { path: string; key: string }[] = [];
-
-  for (const sf of resolveSourceFiles(request)) {
-    const key = `source-file-${String(sourceFileMap.length)}`;
-    sourceFileMap.push({ path: sf.path, key });
-    fileWrites.push(writeFile(join(tempDir, key), sf.content, "utf8"));
-  }
-
-  const config = {
-    ...buildSandboxConfigJson(request, sourceFileMap),
-    interactive: { role: "solution", cases: request.testcases.map((tc) => tc.index) },
-  };
-  fileWrites.push(writeFile(join(tempDir, "config.json"), JSON.stringify(config), "utf8"));
-
-  await Promise.all(fileWrites);
-  await chmod(tempDir, 0o755);
-}
-
-export async function writeInteractorFiles(
-  tempDir: string,
-  request: SandboxRequest,
-  interactorScript: string,
-  interactorLanguage: "python" | "cpp",
-): Promise<void> {
-  const ext = sourceExtension(interactorLanguage);
-  const cases = request.testcases.map((tc) => tc.index);
-
-  const config = {
-    submissionId: request.submissionId,
-    language: request.language,
-    judgeType: request.judgeType,
-    problemType: request.problemType,
-    limits: request.limits,
-    interactorLanguage,
-    interactive: { role: "validator", language: interactorLanguage, cases },
-  };
-
-  await Promise.all([
-    writeFile(join(tempDir, `interactor.${ext}`), interactorScript, "utf8"),
-    writeFile(join(tempDir, "config.json"), JSON.stringify(config), "utf8"),
-    ...request.testcases.flatMap((tc) => [
-      writeFile(join(tempDir, `case-${String(tc.index)}-input.txt`), tc.input, "utf8"),
-      writeFile(join(tempDir, `case-${String(tc.index)}-answer.txt`), tc.output ?? "", "utf8"),
-    ]),
-  ]);
-
-  await chmod(tempDir, 0o755);
-}
-
-export function interactiveStageTimeoutMs(request: SandboxRequest): number {
+function interactiveStageTimeoutMs(request: SandboxRequest): number {
   const perCase =
     Math.max(
       executionWallTimeLimitMs(request.limits.timeoutMs),
@@ -124,8 +70,6 @@ export function interactiveStageTimeoutMs(request: SandboxRequest): number {
 async function runStage(
   request: SandboxRequest,
   execution: SandboxExecutionContext,
-  interactorScript: string,
-  interactorLanguage: "python" | "cpp",
   config: InteractiveExecutorConfig,
 ): Promise<SandboxResult> {
   const slug = sanitizeId(execution.runId).slice(0, 32);
@@ -137,8 +81,8 @@ async function runStage(
 
   try {
     await Promise.all([
-      writeSolutionFiles(solDir, request),
-      writeInteractorFiles(intDir, request, interactorScript, interactorLanguage),
+      writePayloadDir(solDir, buildInteractiveSolutionPayload(request)),
+      writePayloadDir(intDir, buildInteractiveInteractorPayload(request)),
     ]);
 
     execution.signal.throwIfAborted();
@@ -314,12 +258,11 @@ export async function runInteractiveMode(
   execution: SandboxExecutionContext,
   config: InteractiveExecutorConfig,
 ): Promise<SandboxResult> {
-  const interactorScript = request.judgeConfig.interactorScript;
-  if (!interactorScript) {
+  if (!request.judgeConfig.interactorScript) {
     return sandboxSystemError("Interactive judge is missing its interactor script.");
   }
-  const interactorLanguage = request.judgeConfig.interactorLanguage;
-  if (!interactorLanguage) throw new Error("Interactive judge is missing interactorLanguage.");
+  if (!request.judgeConfig.interactorLanguage)
+    throw new Error("Interactive judge is missing interactorLanguage.");
 
-  return await runStage(request, execution, interactorScript, interactorLanguage, config);
+  return await runStage(request, execution, config);
 }

@@ -551,7 +551,8 @@ scoring remain unchanged. There is no cross-submission compilation cache.
 - Advanced Mode K8s manifests (two Jobs + PVC + transfer gate) — `apps/worker/src/sandbox/kubernetes/advanced.ts`
 - Advanced Mode K8s networking (per-submission NetworkPolicies + sidecar Pod/Service) — `apps/worker/src/sandbox/kubernetes/advanced-network.ts`
 - Kubernetes execution orchestration — `apps/worker/src/sandbox/kubernetes/executor.ts`; resources, job observation, and teardown — `resources.ts`, `job-watch.ts`, `resource-cleanup.ts`
-- Stage payload, judge outcome parsing and result merge — `apps/worker/src/sandbox/shared/stage-result.ts`
+- Stage payloads shared by the Docker and Kubernetes backends — `apps/worker/src/sandbox/shared/stage-payload.ts`
+- Judge outcome parsing and result merge — `apps/worker/src/sandbox/shared/stage-result.ts`
 - Sandbox plan / config builder — `apps/worker/src/sandbox/shared/sandbox-plan.ts`
 - Worker bounded buffer — `apps/worker/src/sandbox/shared/bounded-buffer.ts`
 - Sandbox runner (inside the container) — `apps/sandbox-runner/src/index.ts`

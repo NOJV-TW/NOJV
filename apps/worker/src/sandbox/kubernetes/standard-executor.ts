@@ -11,9 +11,9 @@ import { recordJudgePhase, recordRunnerResources } from "../shared/judge-phase-m
 import { measurePhase, requestMode } from "./execution-observer";
 import { runCleanupAfterExecution } from "./cleanup";
 import { parseMemoryLimitMb, resolveK8sMemoryLimit } from "./resource-capacity";
-import { buildRunConfigMapData, computeStageJobDeadlineSeconds } from "./configmaps";
+import { computeStageJobDeadlineSeconds } from "./job-deadlines";
+import { buildJudgePayload, buildRunPayload } from "../shared/stage-payload";
 import {
-  buildJudgePayload,
   completeRuns,
   gradableRuns,
   mergeStageResults,
@@ -68,7 +68,7 @@ export class KubernetesStandardExecutor {
       this.resources.createPayloadConfigMaps(
         `${jobName}-run`,
         namespace,
-        buildRunConfigMapData(request, parallelism),
+        buildRunPayload(request, parallelism),
         signal,
         (name, ns) => this.cleanupResources.cleanupConfigMap(name, ns),
       ),

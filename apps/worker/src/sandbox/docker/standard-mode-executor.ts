@@ -1,4 +1,4 @@
-import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -9,14 +9,13 @@ import {
   type SandboxResult,
 } from "@nojv/core";
 
-import { resolveSourceFiles } from "../shared/source-files.js";
 import { buildSandboxDockerArgs } from "./args";
 import { sanitizeId, spawnDockerContainer, type DockerRunResult } from "./process";
 import { buildDockerResourceLabels } from "./resource";
 import { runInteractiveMode } from "./interactive-executor";
-import { buildSandboxConfigJson } from "../shared/sandbox-plan";
+import { writePayloadDir } from "./payload-dir";
+import { buildJudgePayload, buildRunPayload } from "../shared/stage-payload";
 import {
-  buildJudgePayload,
   completeRuns,
   gradableRuns,
   judgeFailedForAll,
@@ -47,36 +46,8 @@ export async function runStandardMode(
     return await runInteractiveMode(request, execution, config);
   }
 
-  const sourceFileMap = await writeSubmissionFiles(tempDir, request);
-  return await runStageContainers(tempDir, request, execution, config, sourceFileMap);
-}
-
-export async function writeSubmissionFiles(
-  tempDir: string,
-  request: SandboxRequest,
-): Promise<{ path: string; key: string }[]> {
-  const fileWrites: Promise<void>[] = [];
-  const sourceFileMap: { path: string; key: string }[] = [];
-
-  for (const sf of resolveSourceFiles(request)) {
-    const key = `source-file-${String(sourceFileMap.length)}`;
-    sourceFileMap.push({ path: sf.path, key });
-    fileWrites.push(writeFile(join(tempDir, key), sf.content, "utf8"));
-  }
-
-  await Promise.all(fileWrites);
-
-  await Promise.all(
-    request.testcases.map((tc) =>
-      writeFile(join(tempDir, `testcase-${String(tc.index)}-input.txt`), tc.input, "utf8"),
-    ),
-  );
-
-  await mkdir(join(tempDir, "artifacts"), { recursive: true });
-
-  await chmod(tempDir, 0o755);
-
-  return sourceFileMap;
+  await writePayloadDir(tempDir, buildRunPayload(request, 1));
+  return await runStageContainers(tempDir, request, execution, config);
 }
 
 function containerFailure(phase: DockerRunResult, name: string): string | null {
@@ -98,14 +69,10 @@ async function runStageContainers(
   request: SandboxRequest,
   execution: SandboxExecutionContext,
   config: StandardModeConfig,
-  sourceFileMap: { path: string; key: string }[],
 ): Promise<SandboxResult> {
   const baseName = sanitizeId(execution.runId).slice(0, 36);
   const networkArgs = ["--network", "none"];
   const labels = buildDockerResourceLabels(execution.runId);
-  const baseConfig = buildSandboxConfigJson(request, sourceFileMap);
-  const writeModeConfig = (mode: Record<string, unknown>) =>
-    writeFile(join(tempDir, "config.json"), JSON.stringify({ ...baseConfig, mode }), "utf8");
   const containerArgs = (
     containerName: string,
     submissionDir: string,
@@ -133,11 +100,6 @@ async function runStageContainers(
   const judgeArtifactDir = await makeSharedDir(`nojv-judge-artifact-${baseName}-`);
 
   try {
-    await writeModeConfig({
-      kind: "run-stage",
-      caseIndices: request.testcases.map((tc) => tc.index),
-      parallelism: 1,
-    });
     const runName = `nojv-judge-r-${baseName}`;
     const runPhase = await spawnDockerContainer({
       args: containerArgs(runName, tempDir, {
@@ -165,12 +127,7 @@ async function runStageContainers(
     const gradable = gradableRuns(request, rawRuns);
     if (gradable.length === 0) return mergeStageResults(request, rawRuns, new Map());
 
-    await Promise.all(
-      Object.entries(buildJudgePayload(request)).map(([file, content]) =>
-        writeFile(join(judgeDir, file), content, "utf8"),
-      ),
-    );
-    await chmod(judgeDir, 0o755);
+    await writePayloadDir(judgeDir, buildJudgePayload(request));
     const judgeName = `nojv-judge-j-${baseName}`;
     const judge = await spawnDockerContainer({
       args: containerArgs(judgeName, judgeDir, {
