@@ -32,7 +32,7 @@ export interface SubmissionSourcePlan {
   pointers: readonly StorageObjectPointer[];
 }
 
-export interface SubmissionSourceManifest {
+interface SubmissionSourceManifest {
   version: 1;
   sources: { path: string; object: StorageObjectPointer }[];
 }

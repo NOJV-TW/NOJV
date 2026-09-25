@@ -3,11 +3,7 @@ import { submissionIdentity } from "./submission/identity";
 import { submissionLifecycle } from "./submission/lifecycle";
 import { submissionStatistics } from "./submission/statistics";
 
-export type {
-  SubmissionCreateContext,
-  SubmissionHistoryBoundary,
-  SubmissionHistoryFilters,
-} from "./submission/shared";
+export type { SubmissionCreateContext } from "./submission/shared";
 
 export const submissionRepo = {
   ...submissionIdentity,

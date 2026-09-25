@@ -15,7 +15,7 @@ function BUCKET(): string {
 
 const DELETE_BATCH_SIZE = 1000;
 
-export async function getObject(client: S3Client, key: string): Promise<Buffer> {
+async function getObject(client: S3Client, key: string): Promise<Buffer> {
   const response = await client.send(
     new GetObjectCommand({
       Bucket: BUCKET(),

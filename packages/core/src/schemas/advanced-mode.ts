@@ -58,7 +58,7 @@ export function validateAdvancedResultForMaxScore(
   return issues;
 }
 
-export const imageSourceSchema = z.literal("registry");
+const imageSourceSchema = z.literal("registry");
 
 const imageRefSchema = z.object({
   imageRef: z.string().min(1).max(500),

@@ -118,7 +118,6 @@ export const browserLocalLanguageSchema = z.enum(browserLocalLanguages);
 export const judgeTypeSchema = z.enum(judgeTypes);
 export const problemTypeSchema = z.enum(problemTypes);
 export const announcementAudienceSchema = z.enum(announcementAudiences);
-export const submissionVerdictSchema = z.enum(submissionVerdicts);
 export const submissionResultVerdictSchema = z.enum(submissionResultVerdicts);
 export const submissionOperationStatusSchema = z.enum(submissionOperationStatuses);
 export const slugSchema = z
