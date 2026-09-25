@@ -11,14 +11,15 @@ function storageClient(): ReturnType<typeof createStorageClient> {
   return (client ??= createStorageClient());
 }
 
-export function readRemoteImage(url: string) {
-  return storageDownload(storageClient(), url);
+export async function readCachedRemoteImage(url: string) {
+  try {
+    return await storageDownload(storageClient(), url);
+  } catch (reason) {
+    if (isStorageObjectNotFoundError(reason)) return null;
+    throw reason;
+  }
 }
 
 export function cacheRemoteImage(url: string, body: Buffer, contentType: string) {
   return storageCache(storageClient(), url, body, contentType);
-}
-
-export function isRemoteImageNotFoundError(reason: unknown): boolean {
-  return isStorageObjectNotFoundError(reason);
 }

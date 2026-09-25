@@ -10,24 +10,14 @@ import { apiHandler } from "$lib/server/shared/api-handler";
 import { getClientIp } from "$lib/server/shared/client-ip";
 import { detectImageMime } from "$lib/server/shared/file-validation";
 import { remoteAssetFetchRateLimiter } from "$lib/server/shared/rate-limiter";
-import { toArrayBufferBody } from "$lib/server/shared/response-body";
-import {
-  cacheRemoteImage,
-  isRemoteImageNotFoundError,
-  readRemoteImage,
-} from "$lib/server/storage/remote-image";
+import { immutableImageResponse } from "$lib/server/storage/image-response";
+import { cacheRemoteImage, readCachedRemoteImage } from "$lib/server/storage/remote-image";
 
 function imageResponse(image: { body: Buffer; contentType: string }): Response {
   const contentType = detectImageMime(image.body);
   if (!contentType) error(502, "Remote image cache is invalid");
-  return new Response(toArrayBufferBody(image.body), {
-    headers: {
-      "cache-control": "public, max-age=31536000, immutable",
-      "content-length": String(image.body.byteLength),
-      "content-type": contentType,
-      "cross-origin-resource-policy": "same-origin",
-      "x-content-type-options": "nosniff",
-    },
+  return immutableImageResponse(image.body, contentType, {
+    "cross-origin-resource-policy": "same-origin",
   });
 }
 
@@ -53,11 +43,8 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   }
 
   const canonicalUrl = remoteUrl.href;
-  try {
-    return imageResponse(await readRemoteImage(canonicalUrl));
-  } catch (reason) {
-    if (!isRemoteImageNotFoundError(reason)) throw reason;
-  }
+  const cached = await readCachedRemoteImage(canonicalUrl);
+  if (cached) return imageResponse(cached);
 
   const rateLimit = await remoteAssetFetchRateLimiter.consume(getClientIp(event));
   if (rateLimit === "limited") error(429, "Too many remote image requests");

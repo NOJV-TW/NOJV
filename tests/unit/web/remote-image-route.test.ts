@@ -1,11 +1,11 @@
 import type { RequestEvent } from "@sveltejs/kit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { apiConsume, fetchConsume, readRemoteImage, cacheRemoteImage, fetchRemoteImage } =
+const { apiConsume, fetchConsume, readCachedRemoteImage, cacheRemoteImage, fetchRemoteImage } =
   vi.hoisted(() => ({
     apiConsume: vi.fn(),
     fetchConsume: vi.fn(),
-    readRemoteImage: vi.fn(),
+    readCachedRemoteImage: vi.fn(),
     cacheRemoteImage: vi.fn(),
     fetchRemoteImage: vi.fn(),
   }));
@@ -18,10 +18,8 @@ vi.mock("$lib/server/shared/rate-limiter", () => ({
 }));
 
 vi.mock("$lib/server/storage/remote-image", () => ({
-  readRemoteImage,
+  readCachedRemoteImage,
   cacheRemoteImage,
-  isRemoteImageNotFoundError: (error: unknown) =>
-    error instanceof Error && error.name === "NoSuchKey",
 }));
 
 vi.mock("$lib/server/remote-image", () => ({
@@ -51,7 +49,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   apiConsume.mockResolvedValue("allowed");
   fetchConsume.mockResolvedValue("allowed");
-  readRemoteImage.mockResolvedValue(IMAGE);
+  readCachedRemoteImage.mockResolvedValue(IMAGE);
   cacheRemoteImage.mockResolvedValue(IMAGE);
   fetchRemoteImage.mockResolvedValue(IMAGE);
 });
@@ -70,9 +68,7 @@ describe("remote image proxy route", () => {
   });
 
   it("fetches and atomically caches a miss", async () => {
-    const missing = new Error("NoSuchKey");
-    missing.name = "NoSuchKey";
-    readRemoteImage.mockRejectedValue(missing);
+    readCachedRemoteImage.mockResolvedValue(null);
 
     const response = await GET(event());
 
@@ -92,9 +88,7 @@ describe("remote image proxy route", () => {
   it("fails closed for a missing URL or unavailable miss limiter", async () => {
     await expect(GET(event(""))).resolves.toMatchObject({ status: 400 });
 
-    const missing = new Error("NoSuchKey");
-    missing.name = "NoSuchKey";
-    readRemoteImage.mockRejectedValue(missing);
+    readCachedRemoteImage.mockResolvedValue(null);
     fetchConsume.mockResolvedValue("unavailable");
     await expect(GET(event())).resolves.toMatchObject({ status: 503 });
     expect(fetchRemoteImage).not.toHaveBeenCalled();
@@ -107,7 +101,7 @@ describe("remote image proxy route", () => {
       status: 307,
       location: "https://nojv.example/api/storage/image.png",
     });
-    expect(readRemoteImage).not.toHaveBeenCalled();
+    expect(readCachedRemoteImage).not.toHaveBeenCalled();
     expect(fetchRemoteImage).not.toHaveBeenCalled();
   });
 });
