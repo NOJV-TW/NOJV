@@ -1,12 +1,5 @@
 <script lang="ts">
-  import {
-    ChevronFirst,
-    ChevronLast,
-    ChevronLeft,
-    ChevronRight,
-    Code2,
-    History,
-  } from "@lucide/svelte";
+  import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Code2 } from "@lucide/svelte";
   import { languageLabel, languageSchema, submissionResultVerdicts } from "@nojv/core";
   import { goto } from "$app/navigation";
   import { m } from "$lib/paraglide/messages.js";
@@ -101,15 +94,7 @@
 
 <PageContainer>
   <div class="space-y-6 fade-up">
-    <PageHeader
-      eyebrow={m.submissionsTop_eyebrow()}
-      title={m.navigation_submissions()}
-      description={m.submissions_workspaceHint()}
-    >
-      {#snippet icon()}
-        <History class="h-9 w-9" strokeWidth={1.6} aria-hidden="true" />
-      {/snippet}
-    </PageHeader>
+    <PageHeader title={m.navigation_submissions()} />
 
     {#if history.newCount > 0}
       <button

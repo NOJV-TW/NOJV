@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import { ClipboardList, FileCheck } from "@lucide/svelte";
+  import { ClipboardList } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { buttonVariants } from "$lib/components/primitives/ui/button";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
@@ -59,15 +59,7 @@
 
 <PageContainer>
   <div class="space-y-6 fade-up">
-    <PageHeader
-      eyebrow={m.examsTop_eyebrow()}
-      title={m.navigation_exams()}
-      description={m.examsTop_subtitle()}
-    >
-      {#snippet icon()}
-        <FileCheck class="h-9 w-9" strokeWidth={1.6} aria-hidden="true" />
-      {/snippet}
-    </PageHeader>
+    <PageHeader title={m.navigation_exams()} />
 
     <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border-subtle">
       <div

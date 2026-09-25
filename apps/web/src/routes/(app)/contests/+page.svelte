@@ -2,7 +2,7 @@
   import { enhance } from "$app/forms";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import { Plus, Trophy } from "@lucide/svelte";
+  import { Plus } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import * as Dialog from "$lib/components/primitives/ui/dialog/index.js";
   import { Button } from "$lib/components/primitives/ui/button/index.js";
@@ -75,15 +75,7 @@
 
 <PageContainer>
   <div class="space-y-8 fade-up">
-    <PageHeader
-      eyebrow={m.contests_eyebrow()}
-      title={m.contestsList_heroTitle()}
-      description={m.contestsList_heroDescription()}
-    >
-      {#snippet icon()}
-        <Trophy class="h-9 w-9" strokeWidth={1.6} aria-hidden="true" />
-      {/snippet}
-    </PageHeader>
+    <PageHeader title={m.contestsList_heroTitle()} />
 
     {#snippet posterGrid(items: typeof all)}
       <div class="grid gap-2">

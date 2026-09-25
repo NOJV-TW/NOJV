@@ -371,11 +371,7 @@
 {/snippet}
 
 <PageContainer class="fade-up">
-  <PageHeader
-    eyebrow={m.dashboard_eyebrow()}
-    title={m.dashboard_welcome({ username: data.username })}
-    description={m.dashboard_subtitle()}
-  />
+  <PageHeader title={m.dashboard_welcome({ username: data.username })} />
 
   <div class="mb-6">
     <TabStrip tabs={viewTabs} activeTabValue={data.view} onChange={setView} />

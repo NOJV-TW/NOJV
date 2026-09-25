@@ -59,15 +59,7 @@
 
 <PageContainer>
   <div class="space-y-6 fade-up">
-    <PageHeader
-      eyebrow={m.assignmentsList_eyebrow()}
-      title={m.assignmentsList_heroTitle()}
-      description={m.assignmentsList_heroDescription()}
-    >
-      {#snippet icon()}
-        <ClipboardList class="h-9 w-9" strokeWidth={1.6} aria-hidden="true" />
-      {/snippet}
-    </PageHeader>
+    <PageHeader title={m.assignmentsList_heroTitle()} />
 
     <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border-subtle">
       <div

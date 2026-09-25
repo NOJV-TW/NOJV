@@ -47,15 +47,7 @@
 </script>
 
 <PageContainer class="fade-up">
-  <PageHeader
-    eyebrow={m.courses_eyebrow()}
-    title={m.navigation_courses()}
-    description={m.courses_subtitle()}
-  >
-    {#snippet icon()}
-      <GraduationCap class="h-9 w-9" strokeWidth={1.6} aria-hidden="true" />
-    {/snippet}
-  </PageHeader>
+  <PageHeader title={m.navigation_courses()} />
 
   <div
     class="animate-in animate-in-1 mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border-subtle"
