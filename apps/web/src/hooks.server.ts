@@ -80,12 +80,7 @@ function denyExamGate(opts: {
   message: string;
   code: string;
 }): Response {
-  if (opts.cleanPath.startsWith("/api/")) {
-    return new Response(JSON.stringify({ message: opts.message, code: opts.code }), {
-      status: opts.status,
-      headers: { "content-type": "application/json", "x-request-id": opts.requestId },
-    });
-  }
+  if (opts.cleanPath.startsWith("/api/")) return jsonErrorResponse(opts);
   error(opts.status, opts.message);
 }
 
@@ -149,9 +144,6 @@ async function authenticateApiToken(
   event: HandleEvent,
   cleanPath: string,
 ): Promise<Response | null> {
-  event.locals.apiToken = null;
-  event.locals.apiTokenActor = null;
-
   const token = readBearerToken(event);
   if (!token) return null;
 
@@ -241,18 +233,11 @@ function blockedAuthRateLimitResponse(
 ): Response | null {
   if (result === "allowed") return null;
   const unavailable = result === "unavailable";
-  return new Response(
-    JSON.stringify({
-      message: unavailable ? "Authentication rate limiter unavailable." : limitedMessage,
-    }),
-    {
-      status: unavailable ? 503 : 429,
-      headers: {
-        "content-type": "application/json",
-        "x-request-id": requestId,
-      },
-    },
-  );
+  return jsonErrorResponse({
+    message: unavailable ? "Authentication rate limiter unavailable." : limitedMessage,
+    requestId,
+    status: unavailable ? 503 : 429,
+  });
 }
 
 async function loadSession(event: HandleEvent): Promise<void> {
