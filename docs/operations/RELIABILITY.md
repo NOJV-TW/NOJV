@@ -112,7 +112,8 @@ type and cron schedule, child completion, and the following scheduled run.
 
 **Impact**: No new submission judging or lifecycle transitions.
 **Mitigation**: Temporal retries activities when workers reconnect. Workers run
-as a fixed GKE Deployment with a PodDisruptionBudget; sandbox capacity is
+as fixed GKE Deployments whose PodDisruptionBudgets allow one voluntary
+eviction at a time; sandbox capacity is
 bounded by one on-demand gVisor node plus a 0–4 Spot burst pool, and pending
 workflows remain durable until capacity returns.
 **Recovery**: Deployment restarts failed worker processes. Accepted workflows resume, and the database outbox dispatches accepted submissions after Temporal is reachable. Only worker processes restart automatically; node and container runtime recovery remains an operator action.

@@ -313,7 +313,7 @@ worker:
 
 pdb:
   enabled: false
-  minAvailable: 1
+  maxUnavailable: 1
 
 sandbox:
   prepull:

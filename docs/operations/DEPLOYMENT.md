@@ -618,7 +618,7 @@ The worker supports three deployment modes via `WORKER_MODE`. By default the cha
 `worker-platform.deployment.yaml`) ships the split as two separate Deployments
 off the same image — `nojv-worker` (`WORKER_MODE=judge`) and
 `nojv-worker-platform` (`WORKER_MODE=platform`) — each with its own
-PodDisruptionBudget (`pdb.enabled`), so the judge and platform task queues scale
+PodDisruptionBudget (`pdb.enabled`, see [Disruption and Shutdown](#disruption-and-shutdown)), so the judge and platform task queues scale
 and fail independently. Replica counts come from `worker.judge.replicas` /
 `worker.platform.replicas`. `WORKER_MODE=all` is the default for local dev
 (`pnpm dev`), where a single process runs both queues.
@@ -661,6 +661,30 @@ concurrency; both must stay within the quota. GKE uses 10 Pods / 10 CPU with two
 judge workers at concurrency two; single-machine uses 16 Pods / 6 CPU / 16 GiB
 with one worker whose slots float between two and ten. Neither number is a measured burst
 capacity; size them from the arithmetic above and the node's allocatable CPU.
+
+### Disruption and Shutdown
+
+| Setting                  | Web                                    | Judge / platform worker                       |
+| ------------------------ | -------------------------------------- | --------------------------------------------- |
+| PodDisruptionBudget      | `maxUnavailable: 1` when `pdb.enabled` | `maxUnavailable: 1` when `pdb.enabled`        |
+| Spread                   | zone + node, `ScheduleAnyway`          | judge: zone + node, `ScheduleAnyway`          |
+| `terminationGracePeriod` | 60 s                                   | 120 s                                         |
+| Shutdown after SIGTERM   | 10 s `preStop`, then adapter-node 30 s | Temporal `shutdownGraceTime` 30 s, 40 s total |
+| Probe timeout            | readiness 3 s, liveness 5 s            | 5 s (above the 3 s in-process check budget)   |
+
+`maxUnavailable` rather than `minAvailable` keeps a single-replica platform
+worker drainable: a `minAvailable: 1` budget on one replica blocks every node
+drain and GKE upgrade until the drain timeout. GKE enables the budgets;
+the single-machine overlay leaves them off because a one-node drain evicts
+everything anyway. Spread constraints never block scheduling, so they are a
+no-op on one node. cloudflared also spreads across nodes and gets a 45-second
+grace period so its 30-second connection drain finishes before SIGKILL.
+
+The Cloud SQL Auth Proxy runs as a native sidecar (an init container with
+`restartPolicy: Always`) in web, worker, migrator and seed pods. Kubernetes
+starts it before the app container and stops it only after the app container
+exits, so a draining process keeps its database path and a hook Job completes
+when its main container does.
 
 ## Database Migrations
 
