@@ -17,7 +17,7 @@ import {
   type FrameChannel,
 } from "./interactive-channel.js";
 import { measuredResult, spawnMeasured } from "./run-process.js";
-import { toRawCaseRun } from "./standard.js";
+import { solutionCpuSeconds, toRawCaseRun } from "./standard.js";
 
 const REPORT_STDERR_CAP = 4_096;
 
@@ -50,7 +50,7 @@ export async function runSolutionStage(params: {
     const scratch = await fs.mkdtemp(path.join(params.workspaceDir, `case-${String(index)}-`));
     const measured = spawnMeasured(params.runCommand, {
       timeoutMs: params.timeoutMs,
-      cpuSeconds: Math.ceil(params.timeoutMs / 1000) + 1,
+      cpuSeconds: solutionCpuSeconds(params.timeoutMs),
       memoryLimitMb: params.memoryLimitMb,
       env: { HOME: scratch, TMPDIR: scratch, ...params.env },
       cwd: scratch,

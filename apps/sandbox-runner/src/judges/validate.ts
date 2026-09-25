@@ -1,10 +1,13 @@
 import * as path from "node:path";
-import { parseValidatorFeedback, type ValidatorFeedbackFiles } from "@nojv/core";
-import type { ValidatorCaseOutcome } from "../types.js";
+import {
+  parseValidatorFeedback,
+  type ValidatorCaseOutcome,
+  type ValidatorFeedbackFiles,
+} from "@nojv/core";
 import { readOptionalFile } from "../utils.js";
 import { runProcess } from "./run-process.js";
 
-export interface ValidateCaseFiles {
+interface ValidateCaseFiles {
   inputFile: string;
   answerFile: string;
   teamOutput: string;
@@ -12,7 +15,7 @@ export interface ValidateCaseFiles {
 
 export async function validateCase(
   validatorCommand: string[],
-  files: { inputFile: string; answerFile: string; teamOutput: string },
+  files: ValidateCaseFiles,
   feedbackDir: string,
   index: number,
   timeoutMs: number,

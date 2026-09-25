@@ -4,7 +4,7 @@ import { constants } from "node:os";
 import { Readable } from "node:stream";
 import { MAX_EXECUTION_OUTPUT_BYTES, executionWallTimeLimitMs } from "@nojv/core";
 import { z } from "zod";
-import type { TestcaseResult } from "../types.js";
+import type { SandboxTestcaseResult } from "@nojv/core";
 import { createBoundedBuffer } from "../utils.js";
 
 const ignoreStreamError = () => undefined;
@@ -289,7 +289,7 @@ export async function runProcess(
 export function classifySolutionVerdict(
   result: RunProcessResult,
   testcaseIndex: number,
-): TestcaseResult | null {
+): SandboxTestcaseResult | null {
   const base = {
     index: testcaseIndex,
     stdout: result.stdout,

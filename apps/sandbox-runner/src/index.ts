@@ -1,15 +1,11 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as os from "node:os";
-import {
-  SandboxInputSchema,
-  type SandboxInput,
-  type SandboxOutput,
-  type ValidateOutput,
-} from "./types.js";
-import { compile, compileInteractor, sourceFileName } from "./compiler.js";
+import { SandboxInputSchema, type SandboxInput } from "./types.js";
+import { compile, compileInteractor } from "./compiler.js";
 import {
   cleanupTempDir,
+  findScript,
   pathExists,
   readCgroupCpuUsageUsec,
   readCgroupThrottledUsec,
@@ -24,7 +20,14 @@ import {
   runInteractorStage,
   runSolutionStage,
 } from "./judges/interactive-stage.js";
-import { COMPILATION_TIMEOUT_MS, normalizeRelativePath, validatorTimeoutMs } from "@nojv/core";
+import {
+  COMPILATION_TIMEOUT_MS,
+  normalizeRelativePath,
+  sourceFileNames,
+  validatorTimeoutMs,
+  type SandboxResult,
+  type ValidateOutput,
+} from "@nojv/core";
 import { materializePayload } from "./payload-materializer.js";
 
 const SUBMISSION_DIR = "/submission";
@@ -55,11 +58,6 @@ async function materializeConfiguredSources(
   config: SandboxInput,
   workDir: string,
 ): Promise<void> {
-  for (const sourceFile of config.sourceFiles ?? []) {
-    const normalizedPath = normalizeRelativePath(sourceFile.path);
-    await writeWorkFile(workDir, normalizedPath, sourceFile.content);
-  }
-
   for (const fileRef of config.sourceFileMap ?? []) {
     const normalizedPath = normalizeRelativePath(fileRef.path);
     const normalizedKey = normalizeRelativePath(fileRef.key);
@@ -68,14 +66,8 @@ async function materializeConfiguredSources(
   }
 }
 
-async function findScript(prefix: string): Promise<string | null> {
-  const entries = await fs.readdir(SUBMISSION_DIR);
-  const match = entries.find((e) => e.startsWith(`${prefix}.`));
-  return match ? path.join(SUBMISSION_DIR, match) : null;
-}
-
-function emit(overrides: Partial<SandboxOutput>): void {
-  const output: SandboxOutput = {
+function emit(overrides: Partial<SandboxResult>): void {
+  const output: SandboxResult = {
     testcaseResults: [],
     ...overrides,
   };
@@ -92,7 +84,7 @@ async function compileSubmission(
 ): Promise<ReturnType<typeof compile>> {
   await materializeConfiguredSources(config, workDir);
 
-  const defaultEntry = sourceFileName(config.language);
+  const defaultEntry = sourceFileNames[config.language];
   const entryFile = config.entryFile ? normalizeRelativePath(config.entryFile) : defaultEntry;
   const srcFile = path.join(workDir, entryFile);
 
@@ -146,7 +138,7 @@ async function runInteractive(workDir: string, config: SandboxInput): Promise<vo
     for (const index of interactive.cases)
       emitValidateReport({ index, verdict: "SE", judgeMessage });
   };
-  const interactorPath = await findScript("interactor");
+  const interactorPath = await findScript(SUBMISSION_DIR, "interactor");
   if (!interactorPath) {
     seAll("Interactive validator requires an interactor script.");
     return;
@@ -224,16 +216,11 @@ async function judgeStagePhase(config: SandboxInput): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  if (
-    process.env.SANDBOX_PHASE === "run-stage" ||
-    process.env.SANDBOX_PHASE === "judge-stage"
-  ) {
+  const envPhase = process.env.SANDBOX_PHASE;
+  if (envPhase === "run-stage" || envPhase === "judge-stage" || envPhase === "materialize") {
     await materializePayload({ payloadDir: "/payload", submissionDir: SUBMISSION_DIR });
   }
-  if (process.env.SANDBOX_PHASE === "materialize") {
-    await materializePayload({ payloadDir: "/payload", submissionDir: SUBMISSION_DIR });
-    return;
-  }
+  if (envPhase === "materialize") return;
 
   log("Reading config...");
   const config = await readConfig();
@@ -241,7 +228,7 @@ async function main(): Promise<void> {
     `Submission ${config.submissionId}: ${config.language} / ${config.judgeType} / ${config.problemType}`,
   );
 
-  const phase = process.env.SANDBOX_PHASE ?? config.mode?.kind;
+  const phase = envPhase ?? config.mode?.kind;
 
   if (phase === "run-stage") {
     await runStagePhase(config);
@@ -279,7 +266,7 @@ try {
   const message = err instanceof Error ? err.message : String(err);
   process.stderr.write(`[sandbox-runner] Fatal error: ${message}\n`);
 
-  const output: SandboxOutput = {
+  const output: SandboxResult = {
     testcaseResults: [
       {
         index: 0,
