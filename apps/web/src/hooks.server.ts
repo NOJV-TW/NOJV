@@ -4,7 +4,15 @@ import "$lib/server/mailer-startup";
 
 import { error, redirect, type Handle, type HandleServerError } from "@sveltejs/kit";
 import type { SessionUser } from "@nojv/core";
-import { apiTokenDomain, examDomain, proctoringDomain } from "@nojv/application";
+import {
+  apiTokenDomain,
+  examDomain,
+  proctoringDomain,
+  adminAccessPrincipal,
+  isSuperAdminSessionExpired,
+  resolveAdminAccess,
+  revokeAdminAccess,
+} from "@nojv/application";
 
 import { getAuth } from "$lib/auth.server";
 import { isExamPasswordSecurityRequest } from "$lib/server/exam-password-policy";
@@ -21,12 +29,6 @@ import {
 import { getWebEnv } from "$lib/server/env";
 import { healthProbeKind, isPublicSystemPath } from "$lib/server/health-probes";
 import { consumeStepUpHandoff } from "$lib/server/step-up-handoff";
-import {
-  adminAccessPrincipal,
-  isSuperAdminSessionExpired,
-  resolveAdminAccess,
-  revokeAdminAccess,
-} from "$lib/server/step-up";
 import {
   apiRequestDuration,
   healthProbeDuration,

@@ -1,11 +1,10 @@
-import { userDomain } from "@nojv/application";
+import { userDomain, userHasCredentialPassword } from "@nojv/application";
 import { fail, redirect } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 
 import { getAuth } from "$lib/auth.server";
 import { requireAuth } from "$lib/server/auth";
-import { userHasCredentialPassword } from "$lib/server/step-up";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 import type { FormMessage } from "$lib/types/form-message";
 

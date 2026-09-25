@@ -3,12 +3,13 @@ import {
   getSecurityFactorState,
   securityGenerationProof,
   ForbiddenError,
+  hasFreshStepUp,
+  hasTokenPageMfa,
 } from "@nojv/application";
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, RequestEvent } from "@sveltejs/kit";
 
 import { requireAuth } from "$lib/server/auth";
-import { hasFreshStepUp, hasTokenPageMfa } from "$lib/server/step-up";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 
 async function requireTokenMutationStepUp(event: RequestEvent): Promise<void> {

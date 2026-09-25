@@ -15,6 +15,8 @@ import {
   unlockSecuritySettings,
   userDomain,
   verifySuperAdminRecoveryOtp,
+  isSuperAdminPasswordProofSessionValid,
+  type SuperAdminPasswordProof,
 } from "@nojv/application";
 import { getMailer, renderEmail } from "@nojv/mailer";
 import { fail, redirect } from "@sveltejs/kit";
@@ -32,10 +34,8 @@ import { otpSendRateLimiter } from "$lib/server/shared/rate-limiter";
 import {
   clearSuperAdminPasswordProof,
   issueSuperAdminPasswordProof,
-  isSuperAdminPasswordProofSessionValid,
   readSuperAdminPasswordProof,
   SUPER_ADMIN_PASSWORD_PROOF_COOKIE,
-  type SuperAdminPasswordProof,
 } from "$lib/server/super-admin-password-proof";
 import { twoFactorActions } from "../../(app)/settings/two-factor-actions";
 

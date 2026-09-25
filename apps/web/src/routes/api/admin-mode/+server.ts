@@ -1,4 +1,9 @@
-import { HttpError } from "@nojv/application";
+import {
+  HttpError,
+  adminAccessPrincipal,
+  exitAdminMode,
+  grantAdminMode,
+} from "@nojv/application";
 import { json } from "@sveltejs/kit";
 import { z } from "zod";
 
@@ -6,7 +11,6 @@ import type { RequestHandler } from "./$types";
 
 import { requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler, readJsonBody } from "$lib/server/shared/api-handler";
-import { adminAccessPrincipal, exitAdminMode, grantAdminMode } from "$lib/server/step-up";
 
 const bodySchema = z.object({ active: z.boolean() });
 
