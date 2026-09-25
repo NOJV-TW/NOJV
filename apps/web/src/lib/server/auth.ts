@@ -1,6 +1,6 @@
 import { redirect } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
-import { type CourseRole, type EffectiveCourseRole, type PlatformRole } from "@nojv/core";
+import type { PlatformRole } from "@nojv/core";
 
 import {
   canEditProblem,
@@ -10,9 +10,6 @@ import {
   NotFoundError,
   ForbiddenError,
 } from "@nojv/application";
-
-export { HttpError, NotFoundError, ForbiddenError };
-export { ConflictError } from "@nojv/application";
 
 export interface ActorContext {
   displayName: string;
@@ -93,38 +90,16 @@ export function requirePlatformRole(actor: ActorContext, ...roles: PlatformRole[
   }
 }
 
-export function resolveCoursePermissionRole(input: {
-  courseRole?: CourseRole | null;
-  platformRole: PlatformRole;
-}): EffectiveCourseRole | null {
-  return resolveEffectiveCourseRole(input.platformRole, input.courseRole ?? null);
-}
-
-export async function resolveCoursePermission(courseId: string, actor: ActorContext) {
+export async function getCoursePermissionRole(courseId: string, actor: ActorContext) {
   const course = await courseDomain.findCourseWithMembership(courseId, actor.userId);
 
   if (!course) {
     throw new NotFoundError(`Course not found: ${courseId}`);
   }
 
-  const membership = course.memberships[0] ?? null;
-
-  return {
-    course,
-    role: resolveCoursePermissionRole({
-      courseRole: membership?.role ?? null,
-      platformRole: actor.platformRole,
-    }),
-  };
-}
-
-export async function getCoursePermissionRole(courseId: string, actor: ActorContext) {
-  const { role } = await resolveCoursePermission(courseId, actor);
-  return role;
+  return resolveEffectiveCourseRole(actor.platformRole, course.memberships[0]?.role ?? null);
 }
 
 export function canCreateCourse(platformRole: PlatformRole) {
   return canEditProblem(platformRole);
 }
-
-export { canManageCourse as isCourseStaff } from "@nojv/application";

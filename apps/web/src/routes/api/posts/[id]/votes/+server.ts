@@ -4,13 +4,13 @@ import { postVoteSchema } from "@nojv/core";
 
 import type { RequestHandler } from "./$types";
 
-import { HttpError, requireApiAuth } from "$lib/server/auth";
+import { requireApiAuth } from "$lib/server/auth";
 import {
   writeApiHandler,
   assertJsonBodyWithinLimit,
   readJsonBody,
 } from "$lib/server/shared/api-handler";
-import { postDomain } from "@nojv/application";
+import { postDomain, HttpError } from "@nojv/application";
 
 const { castPostVote } = postDomain;
 

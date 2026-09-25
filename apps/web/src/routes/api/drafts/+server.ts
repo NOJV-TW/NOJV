@@ -4,11 +4,11 @@ import {
   codeDraftScopeSchema,
   MAX_SUBMISSION_BODY_BYTES,
 } from "@nojv/core";
-import { codeDraftDomain } from "@nojv/application";
+import { codeDraftDomain, HttpError } from "@nojv/application";
 
 import type { RequestHandler } from "./$types";
 
-import { HttpError, requireApiAuth } from "$lib/server/auth";
+import { requireApiAuth } from "$lib/server/auth";
 import {
   assertJsonBodyWithinLimit,
   draftApiHandler,

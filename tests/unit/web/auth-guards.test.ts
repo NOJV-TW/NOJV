@@ -1,12 +1,7 @@
+import { ForbiddenError } from "@nojv/application";
 import { describe, expect, it } from "vitest";
 
-import {
-  canCreateCourse,
-  ForbiddenError,
-  isCourseStaff,
-  requirePlatformRole,
-  resolveCoursePermissionRole,
-} from "$lib/server/auth";
+import { canCreateCourse, requirePlatformRole } from "$lib/server/auth";
 
 import type { ActorContext } from "$lib/server/auth";
 
@@ -43,36 +38,6 @@ describe("requirePlatformRole", () => {
   });
 });
 
-describe("resolveCoursePermissionRole", () => {
-  it('returns "admin" when platformRole is admin regardless of courseRole', () => {
-    expect(resolveCoursePermissionRole({ platformRole: "admin", courseRole: "student" })).toBe(
-      "admin",
-    );
-    expect(resolveCoursePermissionRole({ platformRole: "admin", courseRole: null })).toBe(
-      "admin",
-    );
-  });
-
-  it("returns courseRole when platformRole is not admin and courseRole exists", () => {
-    expect(
-      resolveCoursePermissionRole({ platformRole: "teacher", courseRole: "teacher" }),
-    ).toBe("teacher");
-    expect(resolveCoursePermissionRole({ platformRole: "student", courseRole: "ta" })).toBe(
-      "ta",
-    );
-  });
-
-  it("returns null when platformRole is not admin and courseRole is null", () => {
-    expect(
-      resolveCoursePermissionRole({ platformRole: "student", courseRole: null }),
-    ).toBeNull();
-  });
-
-  it("returns null when platformRole is not admin and courseRole is undefined", () => {
-    expect(resolveCoursePermissionRole({ platformRole: "student" })).toBeNull();
-  });
-});
-
 describe("canCreateCourse", () => {
   it("returns true for admin", () => {
     expect(canCreateCourse("admin")).toBe(true);
@@ -84,23 +49,5 @@ describe("canCreateCourse", () => {
 
   it("returns false for student", () => {
     expect(canCreateCourse("student")).toBe(false);
-  });
-});
-
-describe("isCourseStaff", () => {
-  it("returns true for admin", () => {
-    expect(isCourseStaff("admin")).toBe(true);
-  });
-
-  it("returns true for teacher", () => {
-    expect(isCourseStaff("teacher")).toBe(true);
-  });
-
-  it("returns true for ta", () => {
-    expect(isCourseStaff("ta")).toBe(true);
-  });
-
-  it("returns false for student", () => {
-    expect(isCourseStaff("student")).toBe(false);
   });
 });

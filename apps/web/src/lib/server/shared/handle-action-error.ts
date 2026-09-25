@@ -1,9 +1,8 @@
 import { isHttpError, isRedirect, redirect, type RequestEvent } from "@sveltejs/kit";
 import type { ErrorStatus } from "sveltekit-superforms";
 import { ZodError } from "zod";
-import { ServiceUnavailableError } from "@nojv/application";
+import { ServiceUnavailableError, HttpError } from "@nojv/application";
 
-import { HttpError } from "../auth";
 import { createLogger } from "../logger";
 
 const logger = createLogger("request-error");

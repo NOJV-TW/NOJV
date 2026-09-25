@@ -4,7 +4,7 @@ import { postUpdateSchema } from "@nojv/core";
 
 import type { RequestHandler } from "./$types";
 
-import { HttpError, requireApiAuth } from "$lib/server/auth";
+import { requireApiAuth } from "$lib/server/auth";
 import {
   apiHandler,
   writeApiHandler,
@@ -12,7 +12,7 @@ import {
   readJsonBody,
 } from "$lib/server/shared/api-handler";
 import { requireViewablePost } from "$lib/server/post-access";
-import { postDomain } from "@nojv/application";
+import { postDomain, HttpError } from "@nojv/application";
 
 const { updatePost, softDeletePost } = postDomain;
 

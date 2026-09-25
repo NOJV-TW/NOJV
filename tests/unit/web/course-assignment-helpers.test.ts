@@ -1,45 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { deriveAssignmentWindowState, windowStateColorClass } from "$lib/utils/coursework-path";
-import { resolveCoursePermissionRole } from "$lib/server/auth";
-
-describe("resolveCoursePermissionRole", () => {
-  it("lets platform admins override course membership role", () => {
-    expect(
-      resolveCoursePermissionRole({
-        courseRole: "student",
-        platformRole: "admin",
-      }),
-    ).toBe("admin");
-  });
-
-  it("returns the course role for non-admin members", () => {
-    expect(
-      resolveCoursePermissionRole({
-        courseRole: "teacher",
-        platformRole: "student",
-      }),
-    ).toBe("teacher");
-  });
-
-  it("returns null when there is no course role and user is not admin", () => {
-    expect(
-      resolveCoursePermissionRole({
-        courseRole: null,
-        platformRole: "student",
-      }),
-    ).toBeNull();
-  });
-
-  it("returns admin even when courseRole is null for platform admins", () => {
-    expect(
-      resolveCoursePermissionRole({
-        courseRole: null,
-        platformRole: "admin",
-      }),
-    ).toBe("admin");
-  });
-});
 
 describe("deriveAssignmentWindowState", () => {
   const base = {

@@ -8,13 +8,12 @@ import {
   testPrisma,
 } from "../../fixtures/factories";
 
-import { submissionDomain, type ActorContext } from "@nojv/application";
+import { submissionDomain, type ActorContext, NotFoundError } from "@nojv/application";
 import { submissionRepo } from "@nojv/db";
 import { assertStorageObjectPointer } from "@nojv/storage";
 
 const { getSubmissionForActor, getSubmissionSources, listProblemSubmissions } =
   submissionDomain;
-import { NotFoundError } from "$lib/server/auth";
 
 function actorOf(user: {
   id: string;

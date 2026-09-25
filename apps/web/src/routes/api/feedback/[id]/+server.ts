@@ -2,9 +2,9 @@ import type { RequestEvent } from "@sveltejs/kit";
 
 import type { RequestHandler } from "./$types";
 
-import { HttpError, requireApiAuth } from "$lib/server/auth";
+import { requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
-import { feedbackDomain } from "@nojv/application";
+import { feedbackDomain, HttpError } from "@nojv/application";
 
 function requireId(event: RequestEvent): string {
   const id = event.params.id;

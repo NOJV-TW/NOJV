@@ -1,9 +1,9 @@
-import { getSecurityFactorState, securityGenerationProof } from "@nojv/application";
+import { getSecurityFactorState, securityGenerationProof, HttpError } from "@nojv/application";
 import { json } from "@sveltejs/kit";
 
 import type { RequestHandler } from "./$types";
 
-import { HttpError, requireApiAuth } from "$lib/server/auth";
+import { requireApiAuth } from "$lib/server/auth";
 import { hasTokenPageMfa } from "$lib/server/step-up";
 import { apiHandler } from "$lib/server/shared/api-handler";
 

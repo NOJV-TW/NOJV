@@ -145,7 +145,7 @@ Layout at `(app)/+layout.server.ts` requires authentication; redirects to `/sign
 
 - **Auth**: `requireAuth(event)` for pages, `requireApiAuth(event)` for APIs
 - **Roles**: `requirePlatformRole(actor, ...roles)` for admin/teacher gates
-- **Course access**: `isCourseStaff(role)`, `resolveEffectiveCourseRole(platformRole, courseRole)`
+- **Course access**: `getCoursePermissionRole(courseId, actor)`, then `canManageCourse(role)` / `canManageMembers(role)` from `@nojv/application`
 - **Database**: Repositories exported from `@nojv/db`. Domain layer is the default path; routes that read structural data (e.g. announcement listings, layout loaders) may import repositories directly
 - **Job dispatch**: routes call `@nojv/application` orchestration functions (`dispatchSubmissionJudge`, `dispatchPlagiarismCheck`, etc.). `apps/web/src/lib/server/domain-orchestration.ts` wires those functions to the `@nojv/temporal` root dispatch/query helpers at process startup; route handlers should not import raw Temporal helpers directly
 - **Redis**: Pub/sub and rate-limiter Redis access via `@nojv/redis` (`getRedis`, `createSubscriber`, key registry)
