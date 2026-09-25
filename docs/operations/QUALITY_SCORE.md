@@ -38,6 +38,8 @@ Work that is known, not done, and not covered by an in-flight plan. Remove an it
 
 - Judge priority key 4 (recovered live submissions ahead of bulk rejudges, JDG-12) is unreachable: `markJudgeExecution` and `reconcileJudgeExecutions` set `queueClass: "background"` on recovery, and `judgePriorityKey` in `packages/core/src/judge-execution.ts` returns 5 for any non-foreground class before checking `recoveryEpoch`. Recovered student submissions therefore queue behind bulk rejudges. Decide the intended order and either fix the classification or drop key 4.
 - Push the demo Advanced Mode images to the self-hosted registry from CI and repoint the seeds, which still use `nojv-demo-advanced-*:local` in `packages/db/prisma/seeds/problems.ts` (OPS-10).
+- No code emits `scoreboard_update_latency_seconds`, so the scoreboard SLO, its dashboard panel and alert have no data. Emit it from the scoreboard rebuild path or drop the SLO.
+- OAuth provider tokens are stored unencrypted (`account.encryptOAuthTokens` is not enabled in `apps/web/src/lib/auth.server.ts`); see the open gaps in the [Threat Model](THREAT_MODEL.md).
 - Exam access leads: the first IP binding is a read-then-write without compare-and-set, exam entry creates the session before applying the gate, a reset without an active session writes no session audit row, and a violation recorded inside a rejected submission transaction rolls back.
 - Browser Test (WASM-OJ) deferred scope: official Submit from the browser, checker/interactive/Advanced problems, and limit calibration stay server-only until decided otherwise (JDG-15).
 - The full Playwright suite and the Kubernetes integration suite have no recent recorded run; the E2E bootstrap needs explicit approval to reset the marked local test database.
