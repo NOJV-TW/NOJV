@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { listApiTokenRouteRules } from "@nojv/application";
 
 import { internalOpenApiDocument } from "$lib/server/openapi/internal-document";
-import { openApiDocument as publicOpenApiDocument } from "$lib/server/openapi/public-document";
+import { baseOpenApiDocument } from "$lib/server/openapi/base-document";
 import { tokenOpenApiDocument } from "$lib/server/openapi/token-document";
 import { GET as servePublicOpenApi } from "../../apps/web/src/routes/api/openapi.public.json/+server";
 
@@ -64,7 +64,7 @@ function documentedOperations(doc: {
 describe("OpenAPI contract stays in sync with API routes", () => {
   const actual = actualOperations();
   const documented = new Set<string>([
-    ...documentedOperations(publicOpenApiDocument),
+    ...documentedOperations(baseOpenApiDocument),
     ...documentedOperations(internalOpenApiDocument),
   ]);
 
@@ -82,12 +82,12 @@ describe("OpenAPI contract stays in sync with API routes", () => {
   });
 
   it("documents minimal public liveness and readiness contracts", () => {
-    expect(publicOpenApiDocument.paths).toMatchObject({
+    expect(baseOpenApiDocument.paths).toMatchObject({
       "/api/livez": { get: { operationId: "getLiveness" } },
       "/api/readyz": { get: { operationId: "getReadiness" } },
       "/api/release": { get: { operationId: "getReleaseIdentity" } },
     });
-    expect(publicOpenApiDocument.components.schemas).toMatchObject({
+    expect(baseOpenApiDocument.components.schemas).toMatchObject({
       LivenessResponse: {
         required: ["alive"],
         properties: { alive: { type: "boolean" } },
