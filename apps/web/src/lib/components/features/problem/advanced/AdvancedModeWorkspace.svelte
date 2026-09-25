@@ -239,8 +239,9 @@
       staged = null;
     } catch (err) {
       if ((err as { name?: string }).name === "AbortError") return;
-      submitError = err instanceof Error ? err.message : m.editor_submitFailed();
-      toasts.error(submitError);
+      const message = err instanceof Error ? err.message : m.editor_submitFailed();
+      submitError = message;
+      toasts.error(message);
     } finally {
       isSubmitting = false;
     }
