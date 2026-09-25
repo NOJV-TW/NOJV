@@ -11,15 +11,17 @@
 ## 主要 API
 
 - `src/client.ts` — `createStorageClient()`
-- `src/images.ts` — `uploadProblemImage` / `uploadUserContentImage` / `deleteProblemImage`
+- `src/images.ts` — problem / user-content image 上傳、下載與 `cacheRemoteImage`
 - `src/avatar.ts` — `uploadUserAvatar` / `deleteUserAvatar`
-- `src/keys.ts` — `testcaseInputKey` / `testcaseOutputKey` / `workspaceFileKey` / `problemPrefix`
+- `src/keys.ts` — `testcaseInputKey` / `testcaseOutputKey` / `workspaceFileKey` 等 versioned object key
+- `src/object.ts` — 以 SHA-256 驗證的 immutable object pointer（`putImmutableObject` / `getVerifiedObject`）
+- `src/submission.ts` — submission source manifest 與 verdict detail
 - `src/blobs.ts` — `getText` / `deleteBlob` / `deleteBlobsByPrefix`
 
 ## 依賴
 
 - 上游：`@aws-sdk/client-s3`
-- 下游：`@nojv/db`（清理資源時）、`@nojv/application`、`apps/web`、`apps/worker`
+- 下游：`@nojv/db`（僅 Prisma seed）、`@nojv/application`、`apps/web`、`apps/worker`
 
 ## 本地開發
 

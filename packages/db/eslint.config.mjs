@@ -23,7 +23,7 @@ export default [
                 "@nojv/storage/*",
               ],
               message:
-                "@nojv/db source is the persistence layer: it may use core contracts but must not depend on application or infrastructure above it. Prisma seed/maintenance scripts are outside src/.",
+                "@nojv/db source is the persistence layer: it may use core contracts but must not depend on application or infrastructure above it. Prisma seed scripts are outside src/.",
             },
           ],
         },

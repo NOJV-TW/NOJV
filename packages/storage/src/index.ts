@@ -4,13 +4,11 @@ export {
   assertStorageObjectPointer,
   getVerifiedObject,
   getVerifiedText,
-  isStorageObjectPointer,
   isStorageObjectNotFoundError,
   putImmutableObject,
   putImmutableText,
   putObjectIfAbsent,
   storagePointerFor,
-  type PutObjectIfAbsentResult,
   type StorageObjectPointer,
 } from "./object";
 export {
@@ -29,13 +27,9 @@ export {
   workspaceFileKey,
   checkerKey,
   interactorKey,
-  problemPrefix,
-  submissionPrefix,
-  submissionSourceKey,
-  submissionSourceManifestKey,
   submissionVerdictDetailKey,
 } from "./keys";
-export { getObject, getText, deleteBlob, deleteBlobsByPrefix, listByPrefix } from "./blobs";
+export { getText, deleteBlob, deleteBlobsByPrefix, listByPrefix } from "./blobs";
 export {
   putSubmissionSources,
   planSubmissionSources,
@@ -45,9 +39,5 @@ export {
   putVerdictDetail,
   getVerdictDetail,
 } from "./submission";
-export type {
-  SubmissionSource,
-  SubmissionSourceManifest,
-  SubmissionSourcePlan,
-} from "./submission";
+export type { SubmissionSource, SubmissionSourcePlan } from "./submission";
 export { getStorageEnv, storageEnvSchema, STORAGE_REQUIRED_IN_PRODUCTION } from "./env";
