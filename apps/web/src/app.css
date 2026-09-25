@@ -19,7 +19,7 @@
  * NOJV Design Tokens
  *
  * Seven-axis primitive system:
- *   1. color      — warm cream base + burnt orange accent (light / dark)
+ *   1. color      — teal accent on neutral surfaces (light / dark)
  *   2. radius     — concentric corner radius scale, multiples of 4px
  *   3. spacing    — 4pt grid (Tailwind defaults)
  *   4. shadow     — 3-step layered elevation ladder
@@ -116,7 +116,7 @@
   --type-contest: var(--chart-4); /* amber / gold */
 
   /* Leaderboard medal ranks */
-  --rank-gold: #d4a054;
+  --rank-gold: var(--chart-4);
   --rank-silver: #a0a0a0;
   --rank-bronze: #cd7f32;
   --rank-foreground: #241a06;
@@ -246,7 +246,7 @@
   --type-exam: #8593e8; /* indigo (dark) */
   --type-contest: var(--chart-4); /* amber / gold */
 
-  --rank-gold: #e0b56a;
+  --rank-gold: var(--chart-4);
   --rank-silver: #b4b4b4;
   --rank-bronze: #d98f48;
   --rank-foreground: #241a06;
@@ -278,7 +278,7 @@
     0 12px 24px rgba(0, 0, 0, 0.3), 0 24px 48px rgba(0, 0, 0, 0.24);
   --shadow-modal:
     0 4px 8px rgba(0, 0, 0, 0.4), 0 16px 32px rgba(0, 0, 0, 0.5), 0 32px 64px rgba(0, 0, 0, 0.6);
-  --shadow-focus: 0 0 0 3px rgba(212, 131, 74, 0.3);
+  --shadow-focus: 0 0 0 3px rgba(54, 163, 176, 0.3);
   --shadow-inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
@@ -505,7 +505,7 @@
   }
 
   ::selection {
-    background: rgba(196, 104, 45, 0.18);
+    background: color-mix(in oklch, var(--primary) 18%, transparent);
   }
 
   /* Typography refinements */
@@ -586,7 +586,7 @@
 }
 
 :is(.dark) ::selection {
-  background: rgba(212, 131, 74, 0.25);
+  background: color-mix(in oklch, var(--primary) 25%, transparent);
 }
 
 /* === Legal pages (privacy, terms) === */
