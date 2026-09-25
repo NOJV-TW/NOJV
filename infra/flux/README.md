@@ -3,8 +3,8 @@
 Pull-based deployment for the single-node production cluster. Flux runs **in**
 the cluster, watches this git repo + GHCR, and reconciles the existing
 `infra/charts/nojv` Helm chart. This removes the self-hosted GitHub Actions
-runner from the production attack surface (see
-`docs/plans/active/2026-07-08-flux-gitops-cutover.md`).
+runner from the production attack surface (see OPS-02 and OPS-03 in
+[docs/decisions/platform.md](../../docs/decisions/platform.md)).
 
 ## How releases work (`vX.Y.Z` → `deploy` branch)
 

@@ -23,8 +23,9 @@ For design, invariants, and acceptance criteria (not procedures):
 
 - **Architecture** — [System map](../architecture/ARCHITECTURE.md), [Frontend](../architecture/FRONTEND.md), [Judge pipeline](../architecture/JUDGE_PIPELINE.md), [Database](../architecture/DATABASE.md), [Redis](../architecture/REDIS.md), [Design rules](../architecture/DESIGN.md)
 - **Operations** — [Deployment](../operations/DEPLOYMENT.md), [Reliability](../operations/RELIABILITY.md), [Security](../operations/SECURITY.md), [Threat model](../operations/THREAT_MODEL.md), [Quality ledger](../operations/QUALITY_SCORE.md)
-- **Product** — [Product sense](../product/PRODUCT_SENSE.md), [Planning system](../product/PLANS.md)
-- **Feature specs** — [`docs/specs/`](../specs/) (per-feature Given/When/Then acceptance criteria)
+- **Product** — [Product sense](../product/PRODUCT_SENSE.md)
+- **Decisions** — [Decision log](../decisions/README.md)
+- **Feature specs** — [`docs/features/`](../features/) (per-feature Given/When/Then acceptance criteria)
 
 The repository's `AGENTS.md` is the canonical agent entrypoint and carries the
 full reading order; `tests/unit/docs/doc-links.test.ts` fails CI if any link in

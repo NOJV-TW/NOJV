@@ -11,7 +11,6 @@ const rootDocs = [
   "AGENTS.md",
   "README.md",
   "docs/README.md",
-  "docs/plans/README.md",
   "apps/README.md",
   "apps/web/README.md",
   "apps/worker/README.md",
@@ -30,15 +29,14 @@ const rootDocs = [
   "tooling/README.md",
 ];
 
-// Living docs and active plans must link to current paths. Completed plans keep
-// their original links as historical evidence.
 const docTrees = [
   "docs/architecture",
   "docs/operations",
   "docs/product",
   "docs/runbooks",
-  "docs/specs",
-  "docs/plans/active",
+  "docs/features",
+  "docs/decisions",
+  "docs/superpowers",
 ];
 
 function markdownFilesUnder(dir: string): string[] {
@@ -105,4 +103,26 @@ describe("docs link only to files that exist (doc-drift gate)", () => {
       expect(broken, `${file} has dangling links: ${broken.join(", ")}`).toEqual([]);
     });
   }
+});
+
+describe("decision index lists exactly the recorded decisions", () => {
+  const decisionsDir = join(repoRoot, "docs/decisions");
+  const recorded = readdirSync(decisionsDir)
+    .filter((entry) => entry.endsWith(".md") && entry !== "README.md")
+    .flatMap((entry) =>
+      [...readFileSync(join(decisionsDir, entry), "utf8").matchAll(/^### ([A-Z]+-\d{2}) /gm)].map(
+        (match) => match[1],
+      ),
+    );
+  const indexed = [
+    ...readFileSync(join(decisionsDir, "README.md"), "utf8").matchAll(/\b([A-Z]+-\d{2})\b/g),
+  ].map((match) => match[1]);
+
+  it("has unique decision IDs", () => {
+    expect(recorded.length).toBe(new Set(recorded).size);
+  });
+
+  it("indexes every decision and nothing else", () => {
+    expect([...new Set(indexed)].sort()).toEqual([...recorded].sort());
+  });
 });

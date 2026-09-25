@@ -602,4 +602,4 @@ overwrite an earlier failure.
 - [Architecture Overview](./ARCHITECTURE.md)
 - [Database Schema](./DATABASE.md)
 
-Assignment and exam allocations are applied after effective raw scoring, outside judging. Changing allocations does not rejudge submissions; see [activity grading](../specs/assignments.md#activity-allocation-and-official-scores).
+Assignment and exam allocations are applied after effective raw scoring, outside judging. Changing allocations does not rejudge submissions; see [activity grading](../features/assignments.md#activity-allocation-and-official-scores).
