@@ -90,7 +90,7 @@ infra/charts/nojv/
     ├── worker-judge.deployment.yaml     # WORKER_MODE=judge (rendered FIRST)
     ├── worker-platform.deployment.yaml  # WORKER_MODE=platform
     ├── worker-rbac.yaml             # split judge/platform SAs + least-privilege RoleBindings
-    ├── worker-pdb.yaml              # guarded by pdb.enabled
+    ├── pdb.yaml                     # web + worker PDBs, guarded by pdb.enabled
     ├── app-network-policy.yaml      # worker-egress (guarded by networkPolicy.enabled)
     ├── sandbox-policy.yaml          # deny-all NetworkPolicy + ResourceQuota + LimitRange
     ├── postgres-cnpg.yaml           # CNPG Cluster + ScheduledBackup (mode==cnpg)
@@ -136,7 +136,7 @@ infra/charts/nojv/
 | `worker.platform.{replicas,concurrency,resources,nodeSelector}`                     | `1` / `4`                                                                       | platform workers                                                                                                                                                                                        |
 | `worker.sandbox.{cpuRequest,cpuLimit,memoryRequest,memoryLimit}`                    | 500m / 1 · 64Mi / 512Mi                                                         | compile and judge container requests and limits; per-sandbox Job hints                                                                                                                                  |
 | `worker.sandbox.{runParallelism,runtimeClassName}`                                  | 1 / gvisor                                                                      | testcases a stage Pod runs at once (its run container's CPU request and limit) and required sandbox runtime                                                                                             |
-| `pdb.enabled` / `pdb.minAvailable`                                                  | `false` / `1`                                                                   | worker PodDisruptionBudgets                                                                                                                                                                             |
+| `pdb.enabled` / `pdb.maxUnavailable`                                                | `false` / `1`                                                                   | web, judge and platform PodDisruptionBudgets                                                                                                                                                            |
 | `sandbox.networkPolicy.enabled`                                                     | `true`                                                                          | sandbox deny-all NetworkPolicy                                                                                                                                                                          |
 | `sandbox.resourceQuota.*`                                                           | pods 50, cpu 25, mem 12Gi                                                       | sandbox ResourceQuota                                                                                                                                                                                   |
 | `sandbox.limitRange.*`                                                              | per-container defaults/max/min                                                  | sandbox LimitRange                                                                                                                                                                                      |
@@ -162,8 +162,8 @@ templated into manifests). `postgres.mode` only drives the surrounding wiring:
   operator's `-rw` service:
   `postgresql://nojv:<pw>@<release>-pg-rw.<ns>.svc.cluster.local:5432/nojv`
   (password from the operator-managed `<cluster>-app` secret).
-- **`cloudsql`** — set `cloudsqlProxy.enabled=true`. A `cloud-sql-proxy` sidecar
-  listens on `127.0.0.1:5432`; `DATABASE_URL` points at `127.0.0.1:5432`, and
+- **`cloudsql`** — set `cloudsqlProxy.enabled=true`. A `cloud-sql-proxy` native
+  sidecar (restartable init container) listens on `127.0.0.1:5432`; `DATABASE_URL` points at `127.0.0.1:5432`, and
   `CLOUDSQL_INSTANCE_CONNECTION_NAME` is non-secret and comes from the verified
   `postgres.cloudsql.instanceConnectionName` chart value.
 - **`external`** — `DATABASE_URL` is whatever you put in the secret (managed

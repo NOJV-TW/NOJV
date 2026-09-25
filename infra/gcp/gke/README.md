@@ -82,7 +82,7 @@ manifests here:
 
 - worker Deployments split by `WORKER_MODE` → `templates/worker-judge.deployment.yaml` (`nojv-worker` judge) + `templates/worker-platform.deployment.yaml` (`nojv-worker-platform` platform)
 - ServiceAccount + Role for creating sandbox Jobs → `templates/worker-rbac.yaml`
-- PodDisruptionBudgets for both workers (guarded by `pdb.enabled`) → `templates/worker-pdb.yaml`
+- PodDisruptionBudgets for web and both workers (guarded by `pdb.enabled`) → `templates/pdb.yaml`
 - namespaces (`nojv` + `nojv-sandbox`) → `templates/namespaces.yaml`
 - sandbox deny-all NetworkPolicy + ResourceQuota + LimitRange → `templates/sandbox-policy.yaml`
 - worker-egress allowlist NetworkPolicy (guarded by `networkPolicy.enabled`) → `templates/app-network-policy.yaml`
@@ -98,7 +98,8 @@ drift onto a second key list.
 
 ## Cloud SQL Auth Proxy
 
-The worker pod runs the official Cloud SQL Auth Proxy as a sidecar (image
+Web, worker, migrator and seed pods run the official Cloud SQL Auth Proxy as a
+native sidecar (image
 `gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0`). The proxy listens on
 `127.0.0.1:5432`, so `DATABASE_URL` always targets loopback; the proxy
 authenticates to Cloud SQL via Workload Identity.

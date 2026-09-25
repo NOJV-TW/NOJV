@@ -46,7 +46,7 @@ Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **r
 
 ### Prevention
 
-- PodDisruptionBudget for worker — chart-rendered (`infra/charts/nojv/templates/worker-pdb.yaml`, guarded by `pdb.enabled`).
+- PodDisruptionBudgets for web and both workers — chart-rendered (`infra/charts/nojv/templates/pdb.yaml`, guarded by `pdb.enabled`).
 - GKE worker Deployment uses fixed replicas sized for sandbox capacity; pending
   workflows queue in Temporal while the on-demand or Spot sandbox pool recovers.
 - OOM and CPU throttling alerts on the worker pool.

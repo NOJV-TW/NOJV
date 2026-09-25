@@ -18,6 +18,8 @@ spec:
       labels:
         app.kubernetes.io/name: nojv-cloudflared
     spec:
+      terminationGracePeriodSeconds: 45
+      {{- include "nojv.topologySpread" "nojv-cloudflared" | nindent 6 }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
