@@ -4,7 +4,7 @@ import { prisma } from "../client";
 import { Prisma, type NotificationType } from "../../generated/prisma/client";
 import type { TransactionClient } from "../transaction";
 
-export const NOTIFICATION_RETENTION_PER_USER = 50;
+const NOTIFICATION_RETENTION_PER_USER = 50;
 
 export interface NotificationCreateInput {
   userId: string;
