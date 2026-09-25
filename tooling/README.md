@@ -1,11 +1,13 @@
 # Shared tooling
 
-This directory contains reusable workspace configuration packages:
+Reusable workspace configuration packages:
 
-- `eslint/` owns the shared ESLint rules; app-specific boundary rules stay with
-  the app that owns those boundaries.
-- `prettier/` owns shared formatting configuration.
-- `typescript/` owns shared TypeScript compiler settings.
+| Package                   | Directory     | Owns                                                                                  |
+| ------------------------- | ------------- | ------------------------------------------------------------------------------------- |
+| `@nojv/eslint-config`     | `eslint/`     | Shared ESLint 9 flat config (`base.mjs`); app-specific boundary rules stay in the app |
+| `@nojv/prettier-config`   | `prettier/`   | Shared Prettier config (`base.mjs`)                                                   |
+| `@nojv/typescript-config` | `typescript/` | Shared compiler settings (`base.json`)                                                |
 
-Root-level repository guards belong in `scripts/` and are wired through the
-root `package.json`. Keep generated framework config in its owning app.
+Repository guards (`lint:repo`: query returns, retired colors, doc drift,
+migrations, comments, supply chain) live in `scripts/` and are wired through the
+root `package.json`. Generated framework config stays in its owning app.

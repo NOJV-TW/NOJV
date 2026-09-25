@@ -1,330 +1,116 @@
-# Incident Recovery Runbook
+# Incident Recovery
 
-## Overview
+Procedures for availability incidents: the platform is wholly or partly down,
+or an SLO is in the major tier ([SLOs](../operations/RELIABILITY.md#service-level-objectives)).
+Data loss goes to [Backup & Restore](backup-restore.md); judge queue, capacity
+and stuck-lease work goes to [Judge Queue](judge-queue.md). Expected failure
+behavior per dependency is in [Reliability](../operations/RELIABILITY.md#critical-failure-modes).
 
-Use this runbook when the platform is wholly or partially unavailable, or when [Reliability SLOs](../operations/RELIABILITY.md#service-level-objectives) are severely violated (major tier per that doc).
+Rules:
 
-**Rule of calm: mitigate first, diagnose second.** Restoring service for users outranks finding the root cause. Every scenario below is ordered so the top steps are the fastest path to green; capture logs and metrics before restarting anything, but do not block recovery on a perfect post-mortem trail.
+- Mitigate first, diagnose second. Capture logs, Events and metrics before restarting anything, but do not block recovery on them.
+- Notify the on-call channel before destructive actions (deleting pods, restoring a database, cluster-level changes).
+- Keep affected-submission inventories and raw incident evidence outside the repository.
+- Health endpoints alone do not validate judging: always finish with a real submission.
 
-When in doubt, notify the on-call channel before taking destructive actions (clearing Redis during a contest, manual Cloud SQL failover, etc.).
+Production single-machine commands run on the node as `sudo kubectl`; namespaces are `nojv` (apps, CNPG, Redis, MinIO), `nojv-sandbox` (judge Jobs) and `nojv-temporal`.
 
-Each scenario covers: **symptoms**, **detection**, **immediate mitigation**, **root-cause investigation**, **prevention**.
+## Triage
 
----
+1. Check `/api/readyz` (PostgreSQL + Redis) and, as an admin, `/api/admin/healthz` for which dependency fails.
+2. `kubectl -n nojv get pods -o wide` and `kubectl -n nojv get helmrelease nojv` for crash loops, evictions and a stalled release.
+3. `kubectl describe node` for `DiskPressure`/`MemoryPressure`; `df -h` on the node.
+4. Pick the scenario below that matches the first failing dependency.
 
-## Scenario A: Temporal worker outage
+## Worker outage
 
-### Symptoms
+Symptoms: submissions stay queued; scoreboards, contest/exam timers and plagiarism runs stop advancing; `POST /api/submissions` still returns 202.
 
-- Submissions stay in `queued` forever — verdict never arrives via SSE or polling.
-- Scoreboard stops updating despite new ACs.
-- Contest / assessment lifecycle timers silently miss (no auto-close, no transitions from `open` → `due`).
-- Plagiarism report requests never advance beyond `pending`.
+1. Confirm Temporal itself is up: `kubectl -n nojv-temporal get pods`. If not, restart its pods (state is in PostgreSQL).
+2. Inspect workers: `kubectl -n nojv get pods -l 'app.kubernetes.io/component in (worker-judge,worker-platform)'` and `kubectl -n nojv logs deploy/nojv-worker --previous`.
+3. Restart: `kubectl -n nojv rollout restart deploy/nojv-worker deploy/nojv-worker-platform`.
+4. If it keeps crash-looping, look for OOM, dependency connection errors or a failing activity in the Temporal UI history; check the most recent release.
+5. Verify: worker `/readyz` is 200, `nojv_judge_queue_depth` drains, and a new submission reaches a verdict. Accepted work resumes automatically; the outbox redispatches anything that never started.
 
-### Detection
+## Sandbox quota rejection or prolonged capacity wait
 
-- Temporal Web UI shows a rising backlog of open workflows and no recent activity on task queues.
-- Workers run in-cluster in the `nojv` namespace as chart Deployments (`nojv-worker` judge, `nojv-worker-platform`). `kubectl get pods -n nojv -l app.kubernetes.io/component=worker` shows `CrashLoopBackOff` / zero ready replicas.
-- API endpoint contract: `POST /api/submissions` still returns 202 (record lands in DB) but `GET /api/submissions/[id]` never advances past `queued`.
-- Worker `/healthz` endpoint returns non-2xx or times out.
+Symptoms: `waiting_capacity` executions, rising `nojv_judge_queue_oldest_seconds`, `forbidden: exceeded quota` on sandbox Jobs.
 
-### Immediate Mitigation
+1. Capture worker logs, sandbox Job Events, live quota, Pod state and `/api/release`.
+2. Compare `kubectl -n nojv-sandbox describe resourcequota` with actual Pods, including Terminating ones. Quota counts requests, not CPU usage; `exceeded quota` is not a permissions error.
+3. Inspect `JudgeExecution.state`, `reasonCode` and `lastProgressAt` for waiting or recovering executions, and confirm `nojv_judge_recovery_last_success_timestamp_seconds` is fresh; stale monitoring does not prove queue health.
+4. Restore missing node or runtime capacity, then fit concurrency and sandbox requests to the budget ([Judge Queue: capacity](judge-queue.md#capacity)). Force-deleting Pods or raising quota does not prove their processes stopped; follow [stuck leases and cleanup](judge-queue.md#stuck-leases-and-cleanup).
+5. Verify on the deployed worker revision: waiting executions resume on their original snapshot, sandbox resources return to baseline, and 15 minutes of representative traffic produce no capacity SE. Check final verdicts and exam/contest score updates. SE submissions without an original snapshot stay blocked; only an explicit teacher rejudge uses the latest version.
 
-1. **Confirm worker is the culprit, not Temporal itself.** Check Temporal server pod / service — if Temporal is down, jump to its own recovery (it is PostgreSQL-backed, so restart typically suffices).
-2. **Restart the worker deployment in-cluster:**
-   - `kubectl rollout restart deploy/nojv-worker -n nojv` (judge), and `kubectl rollout restart deploy/nojv-worker-platform -n nojv` if the platform worker is also affected.
-3. Temporal will auto-resume in-flight workflows as soon as a worker reconnects to the task queue — no data loss. Submissions queued during the outage pick up automatically.
-4. If restart fails to stabilise (crashloop continues), scale to zero, inspect logs from the last exit, then scale back.
+## Sandbox runtime broken
 
-### Root-Cause Investigation
+Symptoms: executions `blocked` or recovering with infrastructure reasons, `ImagePullBackOff`, `ContainerCreating` stuck, spawn errors in worker logs, `nojv-judge-cleanup-pending` firing.
 
-- Worker logs: look for OOM, unhandled exceptions in activities, failed connections to Redis / Postgres / Temporal.
-- Temporal Web UI workflow history: the last successfully-executed activity tells you what the worker was doing when it died.
-- Resource saturation: `kubectl top pods -n worker` for CPU/memory. Advanced-mode submissions with custom images can spike memory.
-- GCS / object storage: sandbox may be attempting to fetch problem assets; check storage availability.
-- Recent deploys: `git log apps/worker` — did a deploy just ship that introduced a bad activity?
+1. `kubectl -n nojv-sandbox get pods,jobs` and `kubectl -n nojv-sandbox get events --sort-by=.lastTimestamp`.
+2. Image pull failures: check the registry, the sandbox `imagePullSecret` (`worker.sandbox.imagePullSecret`) and that the release's sandbox digest exists.
+3. Node pressure: `kubectl top nodes`, `kubectl describe node`; free disk as in [node disk pressure](#node-disk-pressure-or-cnpg-unavailable).
+4. Runtime (containerd/runsc) unhealthy: do not restart it blindly. Match run ID, Pod UID and CRI/cgroup identity first ([Judge Queue](judge-queue.md#stuck-leases-and-cleanup)), then repair the node.
+5. Verify with one submission to a known-good problem, then confirm blocked executions resume.
 
-### Prevention
+## Redis unavailable
 
-- PodDisruptionBudgets for web and both workers — chart-rendered (`infra/charts/nojv/templates/pdb.yaml`, guarded by `pdb.enabled`).
-- GKE worker Deployment uses fixed replicas sized for sandbox capacity; pending
-  workflows queue in Temporal while the on-demand or Spot sandbox pool recovers.
-- OOM and CPU throttling alerts on the worker pool.
-- Canary deploys for `apps/worker`; never promote to production without passing `pnpm ci:verify`.
+Symptoms: no live SSE updates (scoreboards fall back to their 30s poll); writes, forms, sign-in, 2FA, step-up and registry tokens return 503; ordinary API reads continue under a per-process limit.
 
----
+1. Confirm: `/api/admin/healthz` reports Redis failing; web logs show `ECONNREFUSED`/`READONLY`.
+2. Single-machine: `kubectl -n nojv rollout restart deploy/nojv-redis` and check its PVC. GKE: check the external Redis instance's failover state.
+3. Flushing or replacing Redis loses no durable data (DAT-10): caches refill, rate-limit windows reset, and users re-verify step-up or admin MFA.
+4. Investigate memory growth with `INFO memory` and key counts per prefix against `packages/redis/src/keys.ts`; a new key family without a TTL is the usual cause.
+5. Verify `/api/readyz` is 200 and a verdict arrives over SSE.
 
-## Scenario: Sandbox quota rejection or prolonged capacity wait
+## PostgreSQL unavailable or slow
 
-### Detection
+Symptoms: most routes 500 (`P1001`, pool timeouts), sign-in fails, worker activities retry at commit.
 
-- Inspect judge-worker errors and sandbox Job warning Events together. Kubernetes
-  reports exhausted ResourceQuota as `forbidden: exceeded quota`; that message
-  alone does not mean a permissions or LimitRange error.
-- Compare `kubectl -n nojv-sandbox describe resourcequota` with actual Pods,
-  including terminating Pods, and inspect node conditions and kubelet/container
-  runtime errors. Quota reservations and measured CPU usage are different.
-- Inspect `JudgeExecution.state`, `reasonCode`, and `lastProgressAt` for waiting or
-  recovering submissions. Check `nojv_submissions_stuck` and the recovery metrics'
-  successful-snapshot timestamp; stale monitoring does not establish queue health.
-  See [Observability Setup](observability-setup.md) for datasource and alert checks.
+1. Confirm: `/api/readyz` 503 and `/api/admin/healthz` reports PostgreSQL.
+2. Single-machine: `kubectl cnpg status nojv-pg -n nojv`; check the `nojv-pg-1` pod and the CNPG operator (`kubectl -n cnpg-system get pods`). If evicted, see [node disk pressure](#node-disk-pressure-or-cnpg-unavailable). GKE: check the Cloud SQL instance and the `cloudsql-proxy` sidecar.
+3. Prisma reconnects on the next request once PostgreSQL is back. If pools stay wedged: `kubectl -n nojv rollout restart deploy/nojv-web deploy/nojv-worker deploy/nojv-worker-platform`.
+4. Slow rather than down: inspect `pg_stat_activity` for long queries and `idle in transaction` sessions holding locks; check the most recent migration.
+5. Verify `/api/readyz`, sign-in and a submission. Failed activities retry on their own.
 
-### Mitigation and verification
+## Release hook left the workloads at zero replicas
 
-1. Capture worker logs, Job Events, live quota, Pod state, and release identity.
-   Keep affected-submission inventories and raw incident evidence outside the repo.
-2. Restore missing node/runtime capacity. Fit activity concurrency and sandbox
-   requests within the available budget, accounting for every sandbox mode and
-   terminating resources. Do not treat quota increases or force-deleted Pods as
-   evidence that their processes stopped; confirm runtime cleanup separately.
-3. Verify the exact deployed worker revision and automatic recovery on the original
-   snapshot. Confirm waiting submissions resume and sandbox resources return to
-   baseline. Observe at least 15 minutes under representative traffic with no new
-   capacity-related SE; health endpoints alone do not validate judging.
-4. Verify final verdicts, execution progress, and exam/contest score updates.
-   Historical submissions without an original snapshot remain explicitly blocked;
-   never silently substitute the latest version. An explicit teacher rejudge uses
-   the latest version and creates a new audited generation.
+Symptoms: site down right after a release; `kubectl -n nojv get helmrelease nojv` shows `post-upgrade hooks failed … Job/nojv/nojv-workloads-ready`, `Stalled=True`; `nojv-web`, `nojv-worker`, `nojv-worker-platform` have 0 desired replicas and the web HPA targets `nojv-web-maintenance`. The job log ends with `Timed out waiting for the new web and worker deployments` and possibly `CRITICAL: could not prove maintenance state`.
 
-The recovery contract is defined in [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#durable-execution-and-recovery).
+1. Restore service without reconciling Flux first (a retry drains the workloads again):
 
-## Scenario B: Redis unavailable
+   ```bash
+   sudo kubectl -n nojv scale deploy nojv-web nojv-worker nojv-worker-platform --replicas=1
+   sudo kubectl -n nojv patch hpa nojv-web --type merge -p '{"spec":{"scaleTargetRef":{"name":"nojv-web"}}}'
+   ```
 
-### Symptoms
+2. The HelmRelease stays failed until the next release.
+3. Root cause: compare `Pulling` and `Pulled` Event times for the new web pod:
 
-- SSE clients receive keepalives but no real events (no verdict notifications, no lifecycle signals, no scoreboard-update nudges).
-- The contest scoreboard page still loads — it is computed from Postgres, not Redis — but live updates stop, so it relies on its 30 s polling fallback.
-- **Rate limiting is mixed-mode**: the general `api` tier uses its tested
-  per-process memory limiter during an operational Redis outage, so ordinary
-  reads can continue with a per-replica limit. The `write`, `form`, `auth`,
-  sign-in, 2FA, step-up, and registry-token tiers fail closed with 503. A real
-  limit exhaustion remains 429. Cooldown is unaffected because it uses
-  PostgreSQL advisory locks, not Redis.
-- The admin-dashboard read-through cache (`nojv:cache:admin-dashboard`) misses and recomputes from Postgres (fail-open).
+   ```bash
+   sudo kubectl -n nojv get events --field-selector involvedObject.name=<new-web-pod> \
+     -o custom-columns=T:.lastTimestamp,R:.reason,MSG:.message
+   ```
 
-### Detection
+   A gap longer than `maintenance.readyTimeoutSeconds` (default 300) means the image pull, not the app, exhausted the window. The `release-prepull` pre-upgrade hook normally pulls web and worker images before the drain so a slow pull fails while the old release still serves.
 
-- `/api/readyz` returns 503; `/api/admin/healthz` identifies
-  Redis as the failing dependency.
-- Web app logs: spike of `Redis ECONNREFUSED`, `MOVED`, or `READONLY` errors.
-- Sign-in, 2FA, form, and write routes return 503 while the limiter is
-  unavailable; ordinary API reads use the per-process limiter. SSE-dependent
-  pages show no live updates.
-- Memorystore / Redis monitoring: connection count → 0 or memory at eviction threshold.
+Automatic Helm rollback stays off: after a one-way migration the previous revision may be unsafe (OPS-05).
 
-### Immediate Mitigation
+## Node disk pressure or CNPG unavailable
 
-1. **Check Memorystore / Redis instance state** (GCP console or equivalent). If it is failing over automatically, wait 30–60s for the standby to promote.
-2. If the instance is stuck, restart / recreate it (managed Redis UI or `gcloud redis instances failover`).
-3. **Flushing Redis is essentially harmless to data, even during a contest.** Leaderboards are computed from Postgres on read, submit cooldown uses Postgres advisory locks, and scoreboard freeze is gated by the `Contest.frozenBoard` / `Contest.frozenAt` columns (no Redis snapshot). The only loss is in-flight pub/sub nudges, which clients recover via the 30 s poll / SSE reconnect. The admin-dashboard cache refills lazily.
-4. Platform stays **partially up** through the outage: submissions already in
-   Temporal continue processing and session reads remain PostgreSQL-backed.
-   Ordinary API reads use the per-process limiter, while writes, forms, new
-   sign-ins, 2FA, step-up, and registry-token requests fail closed with 503
-   until Redis returns. Users also lose real-time push.
+Symptoms: releases stall on the old version; the migrator hook fails with `BackoffLimitExceeded`; `no endpoints available for cnpg-webhook-service`; pods `Evicted`; `nojv-node-disk-usage` or `nojv-pg-not-ready` firing.
 
-### Root-Cause Investigation
+1. Confirm disk: `df -h` on the node and `DiskPressure` in `kubectl describe node`.
+2. Reclaim space: `sudo k3s crictl rmi --prune`, then oversized logs and orphaned volumes. Check the kubelet image GC drop-in is installed ([Single-Machine k3s](k8s-single-machine.md#kubelet-image-gc)).
+3. Restart the CNPG operator (`kubectl -n cnpg-system rollout restart deploy/cnpg-controller-manager`), then the `nojv-pg` instance pod. Wait for `kubectl cnpg status nojv-pg -n nojv` healthy and webhook endpoints present.
+4. If the release is wedged, inspect the target with `helm get manifest nojv --revision <revision> -n nojv`. Roll back only if all three app Deployments carry `nojv.tw/schema-contract: versioned-storage-v1` and `nojv.tw/course-roster-contract: membership-v1`, then `helm rollback nojv <revision> -n nojv --wait --timeout 125m`. The schema fence denies pre-contract images.
+5. If no contract-compatible revision exists, keep workloads in maintenance and ship a forward fix once the database and operator recover. Never delete or bypass the schema fence.
+6. Re-run the release and confirm `/api/release` reports the new version.
 
-- Memory pressure: Redis holds only rate-limiter keys (`rl:*`), the admin-dashboard cache, the 10 s `nojv:sb-throttle:*` keys, and transient pub/sub — there are no scoreboard sorted sets. A leak here usually means a new key pattern skipped its TTL. Check `INFO memory`.
-- Recent changes to Redis key registry (`packages/redis/src/keys.ts`) — did a new key pattern skip TTL?
-- Network policy / firewall: did a recent chart NetworkPolicy change (`infra/charts/nojv/templates/app-network-policy.yaml`) or Cloudflare/Ingress change block egress?
-- rate-limiter-flexible internal leak: unlikely (library manages TTLs) but verify key count against expectations.
+Full rollback rules: [Deployment Guide](../operations/DEPLOYMENT.md).
 
-### Prevention
+## Post-incident
 
-- Explicit `maxmemory-policy allkeys-lru` on the Redis instance.
-- Scoreboard TTL already in place (round 3 elegance pass).
-- Monitoring alerts on Redis memory > 80% and connection errors > threshold.
-- Periodic review of `packages/redis/src/keys.ts` to ensure every new key family has an explicit `EXPIRE`.
-
----
-
-## Scenario C: PostgreSQL failover or high latency
-
-### Symptoms
-
-- Most routes return 500; Prisma throws `PrismaClientInitializationError` or `P1001` connection errors.
-- Long transactions (e.g. `assertExamManagePermission`, join-token claim) time out.
-- Auth endpoints fail; users get signed out on next request.
-- Worker activities retry repeatedly at the DB commit step.
-
-### Detection
-
-- `/api/readyz` returns 503; `/api/admin/healthz` identifies
-  PostgreSQL as the failing dependency.
-- Prisma logs: `connection pool timeout` or `Cannot connect to database`.
-- Cloud SQL console: primary instance in `failover` state, or CPU / IOPS pegged.
-- Request error rate across the board (not isolated to one feature) is the clearest signal.
-
-### Immediate Mitigation
-
-1. **Wait 60–120s.** Cloud SQL HA typically completes failover automatically; apps auto-reconnect once the endpoint resolves to the new primary.
-2. If Cloud SQL is genuinely stuck, trigger a manual failover via GCP console.
-3. Once the DB is healthy again, Prisma reconnects on the next request — **no app restart required in normal cases**. If the connection pool is wedged, restart web + worker deployments to force fresh pools.
-4. Temporal activities that failed mid-flight retry automatically per the configured retry policy; no manual intervention for submissions in flight.
-
-### Root-Cause Investigation
-
-- Connection pool exhaustion: check Prisma metrics / logs for queued query counts. A single slow endpoint can starve the pool.
-- Long-running queries: check `pg_stat_activity` for queries > 30s. Common culprits: plagiarism report aggregations, scoreboard rebuilds, `listSubmissions` without index hits.
-- Lock contention: look for `idle in transaction` sessions — a hung web request holding a row lock can cascade.
-- Recent migrations: did a migration add an index that caused a lock-heavy rewrite?
-- IOPS ceiling: large contests generate bursts of `Submission` / `Participation` writes.
-
-### Prevention
-
-- Conservative Prisma connection pool limit (set per app tier, sized to Cloud SQL max_connections / replica count).
-- Slow query logging enabled in production.
-- Read replica for heavy analytics reads (plagiarism dashboards, user stats) — currently TBD, tracked in [Quality Ledger](../operations/QUALITY_SCORE.md).
-- Cloud SQL alerts on CPU > 80%, connection count > 80%, IOPS saturation.
-
----
-
-## Scenario E: Release hook left the workloads at zero replicas
-
-### Symptoms
-
-- Site down right after a release; `/api/release` unreachable or served only by a
-  Terminating pod.
-- `kubectl -n nojv get helmrelease nojv` → `Ready=False … post-upgrade hooks
-failed … Job/nojv/nojv-workloads-ready status: 'Failed'`, `Stalled=True`.
-- `kubectl -n nojv get deploy nojv-web nojv-worker nojv-worker-platform` shows
-  `0` desired replicas; the web HPA's `scaleTargetRef.name` is
-  `nojv-web-maintenance`.
-
-### Detection
-
-status.nojv.tw opens a `web` + `api` incident within a minute. The
-`nojv-workloads-ready` job log ends with `Timed out waiting for the new web and
-worker deployments` and `CRITICAL: could not prove maintenance state`.
-
-### Immediate Mitigation
-
-```bash
-sudo kubectl -n nojv scale deploy nojv-web nojv-worker nojv-worker-platform --replicas=1
-sudo kubectl -n nojv patch hpa nojv-web --type merge -p '{"spec":{"scaleTargetRef":{"name":"nojv-web"}}}'
-```
-
-Do not trigger a Flux reconcile first: a retry re-drains the workloads and
-repeats the outage. The HelmRelease stays `failed` until the next release.
-
-### Root-Cause Investigation
-
-```bash
-sudo kubectl -n nojv get events --field-selector involvedObject.name=<new web pod>   -o custom-columns=T:.lastTimestamp,R:.reason,MSG:.message
-```
-
-A `Pulling` → `Pulled` gap longer than `maintenance.readyTimeoutSeconds` means
-the registry pull, not the application, exhausted the readiness window (v1.1.10:
-web image 11m12s from GHCR). The failure path then cannot terminate a pod that is
-still pulling, so the drain wait times out as well.
-
-### Prevention
-
-The `release-prepull` pre-upgrade hook pulls the web and worker images before
-the migrator drains anything, so a slow or failing pull fails the upgrade while
-the old release still serves. Automatic rollback stays off on purpose: after a
-one-way contract migration the previous revision may be unsafe to restore, so
-recovery is the manual scale-up above.
-
-## Scenario D: Sandbox namespace / Docker runtime broken
-
-### Symptoms
-
-- Submissions transition to `running` but never produce a verdict — after the per-submission timeout, the workflow marks them `system_error`.
-- Advanced-mode submissions fail at the "spawn container" step.
-- Verdict distribution skews heavily toward `SE` (system error).
-
-### Detection
-
-- Worker logs: `Failed to create sandbox pod`, `ImagePullBackOff`, `containerd: Unknown runtime`, or `Error response from daemon`.
-- GKE: `kubectl get pods -n nojv-sandbox` shows `Pending`, `OOMKilled`, or `ContainerCreating` stuck for > 30s.
-- Docker daemon logs (local / single-VM deploys): spawn errors, overlayfs mount failures.
-- `kubectl describe resourcequota -n nojv-sandbox` near or at limit.
-
-### Immediate Mitigation
-
-1. **Check sandbox namespace quota first** — `kubectl describe resourcequota -n nojv-sandbox`. If pods are stuck at the quota ceiling from orphaned old pods, delete completed / failed pods: `kubectl delete pod -n nojv-sandbox --field-selector=status.phase=Failed`.
-2. **If the node pool is out of resources**, drain and replace the affected nodes, or scale the node pool up. Sandbox is pinned to a stable node pool (commit `c1ed096`) — verify that pool has capacity.
-3. **If the sandbox image fails to pull**, check the image registry and the `imagePullSecrets` on the sandbox namespace. Verify the last `pnpm sandbox:build` + push succeeded.
-4. **If the daemon itself is unhealthy** (local Docker or the containerd on a node), restart the daemon / cordon and replace the node.
-5. After mitigation, verify with a single manual submission to a known-good problem before declaring green.
-
-### Root-Cause Investigation
-
-- Node resource pressure: `kubectl top nodes`, check for memory / CPU / ephemeral-storage saturation.
-- Recent sandbox image push: did a new base image introduce a seccomp incompatibility? Run the sandbox image smoke test.
-- Kubernetes network policy: changes to the chart's sandbox policy (`infra/charts/nojv/templates/sandbox-policy.yaml`)? A new policy may have blocked required egress.
-- LimitRange / ResourceQuota: commit `486f608` added process count cap + LimitRange — verify limits match actual workload.
-- Advanced-mode custom images: a poisoned image uploaded by a problem author can stall the entire pool if resource limits are misconfigured. Check the problem most recently updated with a custom image.
-
-### Prevention
-
-- LimitRange and ResourceQuota on the sandbox namespace (already in place).
-- PDB and dedicated node pool for sandbox (pinned per commit `c1ed096`).
-- Sandbox image smoke test on every build (runs `hello world` in each supported language).
-- Alerting on sandbox namespace quota utilisation and `SE` verdict rate.
-- Review advanced-mode image uploads for obvious abuse patterns before enabling on public problems.
-
----
-
-## Scenario E: node disk pressure / CNPG unavailable (single-machine)
-
-Codifies the 2026-07-04 incident: the single-machine runner's disk filled with accumulated container images, containerd went into disk pressure, the CloudNativePG operator and Postgres pod were evicted, the migrator Helm hook failed, and deploys silently stalled on the old version.
-
-### Symptoms
-
-- Deploys "succeed" from the runner's view but production stays on the **old version** — a shipped fix (e.g. an SSE repair) never actually goes live.
-- The migrator Helm hook Job fails with `BackoffLimitExceeded`; the release upgrade hangs or rolls back.
-- `helm` / `kubectl` operations against the DB error with `no endpoints available for cnpg-webhook-service` — the decisive clue that the CNPG operator itself is down (disk full), not just a bad migration.
-
-### Detection
-
-- `df -h` on the node shows the root / containerd partition at or near 100 %.
-- `kubectl describe node` shows a `DiskPressure` condition / taint; pods show `Evicted`.
-- `kubectl get pods -n nojv` shows `nojv-pg-1` (and the CNPG operator pod) `Evicted`, `Pending`, or not `Ready`.
-- Deploy workflow logs show the migrator hook Job hitting `BackoffLimitExceeded`.
-
-### Immediate Mitigation
-
-1. **Confirm disk is the root cause:** `df -h` on the node. Disk pressure cascades into every other symptom here.
-2. **Reclaim space:** `crictl rmi --prune` to drop unused container images (in the incident, two passes took usage from ~73 % → ~31 %). Also clear stale logs if needed.
-3. **Bring CNPG back:** `kubectl rollout restart` the CloudNativePG operator deployment, then restart the Postgres cluster pod. Wait until `nojv-pg` is healthy (`kubectl get cluster -n nojv`, PG pod `Ready`, webhook endpoints present).
-4. **If the release is wedged**, first inspect the target revision with
-   `helm get manifest nojv --revision <revision> -n nojv`. Roll back only when
-   all three app Deployments carry
-   `nojv.tw/schema-contract: versioned-storage-v1`; then run
-   `helm rollback nojv <revision> -n nojv --wait --timeout 125m`. A
-   pre-contract image is incompatible with the forward-only storage schema and
-   the admission fence will deny it.
-5. If no contract-compatible revision exists, keep workloads in maintenance
-   and ship a forward fix after the DB and operator recover. Never delete or
-   bypass the schema fence to revive an older image.
-6. **Re-run the deploy** workflow once the DB and migrator hook are healthy; verify production is actually on the new version.
-
-### Root-Cause Investigation
-
-- Image accumulation: every deploy left additional image tags on the node until the disk filled. PR #193 now prunes images down to the current + rollback tags on each deploy — verify that pruning ran.
-- Check for other disk hogs: oversized logs, orphaned emptyDir / PVC data, leftover build artifacts.
-
-### Prevention
-
-- Per-deploy image pruning (PR #193) — keep only current + rollback tags.
-- Disk-usage alert on the runner / node well below the eviction threshold.
-- Monitor the `DiskPressure` node condition and CNPG instance health (see `nojv-pg-not-ready` in [Reliability Invariants](../operations/RELIABILITY.md)).
-
----
-
-## Post-Incident
-
-1. File an incident log entry with: start time, detection time, mitigation time, resolution time, user impact summary.
-2. If an SLO was breached, cross-reference in [Reliability SLOs](../operations/RELIABILITY.md#service-level-objectives).
-3. If a prevention item above was absent or insufficient, add / update it in the relevant doc (`operations/SECURITY.md`, `operations/DEPLOYMENT.md`, this runbook, or the [Quality Ledger](../operations/QUALITY_SCORE.md)).
-4. If the bug was code, prefer a regression test over a one-off fix — see [Reliability Invariants](../operations/RELIABILITY.md) for validation requirements.
-
-## Related Docs
-
-- [Reliability Invariants](../operations/RELIABILITY.md)
-- [Deployment Guide](../operations/DEPLOYMENT.md)
-- [Backup & Restore](backup-restore.md) — durability incidents (PITR, snapshot recovery, accidental deletes)
-- [Getting Started](getting-started.md)
+1. Record start, detection, mitigation and resolution times and user impact in the incident log.
+2. If an SLO was breached, note it against the [SLO table](../operations/RELIABILITY.md#service-level-objectives).
+3. Add missing detection or prevention to the owning doc ([Reliability](../operations/RELIABILITY.md), [Deployment](../operations/DEPLOYMENT.md), [Security](../operations/SECURITY.md), this runbook) or the [Quality Ledger](../operations/QUALITY_SCORE.md).
+4. For code defects, land a regression test ([Testing Strategy](testing.md)).

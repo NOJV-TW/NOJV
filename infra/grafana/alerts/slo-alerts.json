@@ -124,7 +124,7 @@
     "threshold": 0.8,
     "for": "10m",
     "severity": "critical",
-    "summary": "A node filesystem has exceeded 80% usage for 10m. This is the detection gap behind the 2026-07-04 disk-full incident (containerd wedged \u2192 CNPG evicted). Free disk (crictl rmi --prune) or expand the volume before it fills. Requires observability.prometheus.nodeExporter.enabled."
+    "summary": "A node filesystem has exceeded 80% usage for 10m. A full disk wedges containerd and gets CNPG evicted. Free disk (crictl rmi --prune) or expand the volume before it fills. Requires observability.prometheus.nodeExporter.enabled."
   },
   {
     "uid": "nojv-pg-not-ready",

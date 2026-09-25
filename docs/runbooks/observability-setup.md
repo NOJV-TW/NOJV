@@ -1,479 +1,146 @@
-# Observability Setup Runbook
-
-## Overview
-
-NOJV ships **metrics-only** observability against Grafana Cloud. Application
-processes (`apps/web`, `apps/worker`) bootstrap an OpenTelemetry SDK on
-startup and push to Grafana Cloud Hosted Prometheus via OTLP HTTP. Five
-dashboards live at <https://takalawang.grafana.net> covering judge latency,
-API latency, scoreboard updates, exam proctoring, and a request-time
-breakdown.
-
-What this stack measures:
-
-- Custom histogram + counter SLO metrics emitted from app code
-- Auto-instrumented HTTP / Postgres / Redis / undici client durations
-
-What it does **not** measure (deliberately, today):
-
-- **Logs** — still go to GCP Cloud Logging via the existing pino pipeline,
-  not to Grafana Loki.
-- **Traces** — span processors are an empty list in the SDK config; no
-  spans are exported. Future expansion only if a real debugging need shows
-  up.
-
-> Region: `prod-ap-northeast-0` (Grafana Cloud free tier). Free tier caps
-> total active series at 10k. Cardinality budget is roughly: ~3,750 series
-> for `api_request_duration_seconds` (≈150 routes × 5 methods × 5 status
-> classes), ~18 for `judge_latency_seconds`, at most six label combinations
-> for `health_probe_duration_seconds`, plus single-digit counts for the others
-> — comfortably under cap.
-
-## Self-hosted observability (no external cloud)
-
-The app pushes **standard OTLP HTTP metrics**, so the Grafana Cloud target is
-swappable for a self-hosted stack — the only required setting is
-`OTEL_EXPORTER_OTLP_ENDPOINT`; `OTEL_EXPORTER_OTLP_HEADERS` is optional and only
-adds auth (or any other) headers when set (so an unauthenticated in-cluster
-collector needs just the endpoint).
-
-- **Single-machine k8s (full in-cluster stack):** the umbrella chart now ships
-  the **whole** metrics stack — collector + Prometheus + Grafana — so there is
-  nothing external to operate. Enable all three:
-
-  ```bash
-  helm upgrade --install nojv infra/charts/nojv \
-    -f infra/charts/nojv/values-single-machine.yaml \
-    -f production-values.yaml \
-    --set observability.collector.enabled=true \
-    --set observability.prometheus.enabled=true \
-    --set observability.grafana.enabled=true
-  ```
-
-  - The **collector** (`observability.collector.enabled`) exposes an `otlp` HTTP
-    receiver and a `:8889 /metrics` endpoint. Point
-    `OTEL_EXPORTER_OTLP_ENDPOINT` in the runtime secret at its Service
-    (`http://<release>-otel-collector.<ns>.svc:4318`, no auth header needed).
-  - **Prometheus** (`observability.prometheus.enabled`) scrapes the collector at
-    `<release>-otel-collector.<ns>.svc:8889` every 30s and persists to a PVC.
-  - **Grafana** (`observability.grafana.enabled`) auto-provisions a `Prometheus`
-    datasource (`http://<release>-prometheus.<ns>.svc:9090`, default) and the
-    chart-local dashboards (`infra/charts/nojv/files/grafana-dashboards/`, the
-    chart copy of `infra/grafana/dashboards/`). Each dashboard's
-    `${DS_PROMETHEUS}` template variable resolves to that provisioned datasource
-    automatically — no manual import, no hardcoded UID. Reach Grafana via its
-    Service (`:3000`) or the optional `observability.grafana.ingress` (mirrors the
-    `web.ingress` shape for Cloudflare-fronted access). The admin password comes
-    from `observability.grafana.adminPassword` (default `admin` — **change it**)
-    or, when that value is empty, from `GRAFANA_ADMIN_PASSWORD` in the runtime
-    secret.
-
-- **GKE:** prefer the Google-managed path — **Google Cloud Managed Service for
-  Prometheus** (or Cloud Monitoring) ingests the same OTLP, with Grafana (Cloud
-  Monitoring datasource) or the Cloud console for viewing; nothing to operate.
-  The GKE overlay therefore leaves all three observability toggles off.
-- **Either way:** the dashboards (`infra/grafana/dashboards/*.json`) and alerts
-  (`infra/grafana/alerts/*.json`) are portable JSON; `infra/grafana/provision.ts`
-  pushes them to any Grafana stack URL, self-hosted or cloud.
-
-## Judge recovery monitoring
-
-The platform worker (or combined `WORKER_MODE=all`) observes PostgreSQL during
-OpenTelemetry's 30-second collection cycle, independently of judge workers and
-Temporal activity execution. Queries have a three-second statement deadline.
-
-| Metric                                               | Meaning                                                                                                                                              |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `nojv_judge_queue_depth`                             | Queued, waiting-capacity and recovering executions                                                                                                   |
-| `nojv_judge_queue_oldest_seconds`                    | Age of the oldest queue entry among those states                                                                                                     |
-| `nojv_judge_executions_blocked`                      | Executions awaiting infrastructure/configuration repair                                                                                              |
-| `nojv_submissions_stuck`                             | Due queued/recovering/finalizing executions with ten-minute-old progress, plus running executions with stale progress and an expired or absent lease |
-| `nojv_judge_legacy_system_errors`                    | SE submissions with no immutable execution journal                                                                                                   |
-| `nojv_judge_recovery_last_success_timestamp_seconds` | Database time of the last successful complete snapshot                                                                                               |
-
-Use `max`, not `sum`, across platform replicas: each replica observes the same
-database totals. Labels do not contain submission IDs, user IDs or free-form
-error text. Worker `/livez` checks only its execution loops; `/readyz` also
-requires Temporal connectivity. A dependency outage does not itself make a
-running worker fail liveness.
-
-Before accepting a release, verify all six gauges in the actual alert datasource.
-In an isolated test environment, pause judge consumption and confirm the queue
-metrics increase while the platform observer remains fresh; then interrupt the
-observer or its database access and confirm the observer-stale alert fires.
-The shipped rule treats absent data as a fault and detects a snapshot older than
-three minutes. Restore service and confirm both queue drainage and alert
-resolution. Verify both provisioning of the JSON rules and receipt of a test
-notification through the existing on-call route.
-
-## First-time setup
-
-### Grafana Cloud account
-
-Sign up at <https://grafana.com> using a work email. The free tier is
-sufficient for production at current load. Once provisioned, your stack URL
-follows the pattern `https://<orgname>.grafana.net` (we use
-`https://takalawang.grafana.net`).
-
-### Service account + token
-
-The service account is used by `pnpm grafana:provision` to upload dashboard
-JSON via the Grafana HTTP API.
-
-1. **Stack admin → Administration → Users and access → Service accounts → Add service account.**
-2. Set **Role = Admin**. Editor is _not_ enough — by default the Editor role
-   has Viewer-scoped folder/dashboard permissions on this stack, and
-   `pnpm grafana:provision` needs `dashboards:create`, `dashboards:write`,
-   and `folders:create`. Admin guarantees those.
-3. **Add service account token** → name it `nojv-provision`, no expiry (or
-   set a 1-year reminder; see "Token rotation" below). Copy the
-   `glsa_*` token once — Grafana never shows it again.
-
-### Cloud Access Policy (OTLP push token)
-
-The OTLP push token is _separate_ from the service-account token. It lives
-under **Cloud Portal → Access policies**.
-
-1. **Create access policy** → name `nojv-otlp-push`, scope `metrics:write`
-   on your stack.
-2. **Create token** under that policy → copy the `glc_*` token once.
-3. Find the **instance ID** (numeric) and the OTLP gateway URL on the
-   **Connections → OpenTelemetry → OTLP** page. Gateway URL for our region
-   is `https://otlp-gateway-prod-ap-northeast-0.grafana.net/otlp`.
-
-### Populate `.env`
-
-Append the Grafana keys to your existing root-level `.env` (see
-`.env.example` for the full set, including the optional alert-rule
-provisioning vars):
-
-```env
-# OTLP push (consumed by apps/web + apps/worker on boot)
-OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-prod-ap-northeast-0.grafana.net/otlp
-# Grafana Cloud auth: Basic <base64(instanceId:token)>
-OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic <base64(1234567:glc_...)>
-
-# Dashboard provisioning (consumed by `pnpm grafana:provision` only)
-GRAFANA_STACK_URL=https://takalawang.grafana.net
-GRAFANA_SA_TOKEN=glsa_...
-```
-
-`.env` is git-ignored. Never check these in.
-
-## Local development
-
-```bash
-pnpm dev
-```
-
-Both `apps/web` (Vite) and `apps/worker` (`node --env-file=.env`) load
-`.env` automatically, so no manual sourcing is needed.
-
-Both apps detect `OTEL_EXPORTER_OTLP_ENDPOINT` (+ optional
-`OTEL_EXPORTER_OTLP_HEADERS`) on boot and start the SDK. To verify the SDK is
-actually exporting:
-
-```bash
-OTEL_LOG_LEVEL=DEBUG pnpm dev
-```
-
-Look for `OTLPExportDelegate items to be sent` (success) or
-`OTLPExporter ... failed` (config issue) in the logs. Successful exports
-happen every 30s.
-
-If `OTEL_EXPORTER_OTLP_ENDPOINT` is unset or empty, the SDK
-**no-ops** — zero metrics, zero startup cost, zero noise. CI and unit
-tests run without these.
-
-## Production deployment
-
-### Web (in-cluster)
-
-Inject the OTLP secrets through the chart's runtime secret (the same
-`nojv-runtime-secrets` the web Deployment references):
-
-- `OTEL_EXPORTER_OTLP_ENDPOINT` (required to export)
-- `OTEL_EXPORTER_OTLP_HEADERS` (optional; auth header for Grafana Cloud, omit for
-  an unauthenticated in-cluster collector)
-
-Optional: `OTEL_SERVICE_NAME_WEB` defaults to `nojv-web`.
-
-The web SDK relies on the SvelteKit adapter-node lifecycle for shutdown.
-There is **no explicit flush** — the last 0–30s of metrics may be lost if
-the container is killed mid-interval. Accepted trade-off; rolling Pod
-replacements are short-lived, so the sample loss is negligible over time.
-
-### Worker (in-cluster)
-
-Same OTLP secrets from the runtime secret on the worker
-Deployment. Optional: `OTEL_SERVICE_NAME_WORKER` defaults to `nojv-worker`.
-
-Unlike the web, the worker **does** have an explicit shutdown hook.
-`apps/worker/src/index.ts:gracefulShutdown` awaits `shutdownOtel()` after
-`app.shutdown()` so the last metric interval is flushed before
-`process.exit(0)`. SIGTERM from the K8s pod lifecycle triggers this path.
-
-### Boot path
-
-The OTel SDK starts **before any application code runs** via top-of-file
-side-effect imports:
-
-- `apps/web/src/hooks.server.ts:1` → `import "$lib/server/otel"`
-- `apps/worker/src/index.ts:1` → `import "./otel.js"`
-
-The worker boots OTel via the side-effect `import "./otel.js"` at the very
-top of `apps/worker/src/index.ts` — before anything imports `pg` or
-`ioredis`, so the auto-instrumentation hooks can monkey-patch those modules
-first. In dev, `--import tsx` is the TypeScript loader (it transpiles the
-`.ts` entry on the fly); this is separate from the standard judge, which runs
-the pinned `tsc` compile/type-check phase and executes emitted JavaScript.
-The OTel ordering still comes from that top-of-file import, not from a separate bootstrap file. There is no
-`apps/worker/src/otel-bootstrap.ts`.
-
-### Auto-instrumentation
-
-`getNodeAutoInstrumentations()` from `@opentelemetry/auto-instrumentations-node`
-is enabled with **fs and dns disabled** to keep noise down. The
-instrumented modules currently producing metrics:
-
-- `http` — server + client
-- `pg` — Postgres queries (powers the `db_client_operation_duration_seconds`
-  histogram on the time-breakdown dashboard)
-- `ioredis` — Redis client commands
-- `undici` — outbound HTTP via the Node global fetch
-
-`spanProcessors: []` is set explicitly — auto-instrumentation would
-otherwise emit traces too. Metrics-only is the design.
-
-## Adding a new metric
-
-### Histogram vs counter checklist
-
-- **Histogram**: anything where you care about a distribution (latency,
-  payload size, queue depth at sample time). Bucket boundaries belong to
-  the metric, not the dashboard.
-- **Counter**: monotonic event tally. `xxx_total` naming convention.
-  Compute rates in PromQL via `rate()`.
-
-Add new metrics in the closest existing file:
-
-| Surface           | File                                  |
-| ----------------- | ------------------------------------- |
-| Web request flow  | `apps/web/src/lib/server/metrics.ts`  |
-| Judge / worker    | `apps/worker/src/activities/utils.ts` |
-| Redis-side timing | `packages/redis/src/metrics.ts`       |
-
-### Cardinality budget
-
-Free-tier ceiling is **10k active series** total across the stack. We sit
-at roughly 4k today. Rough budget for adding a new label dimension: total
-series for the metric = (cardinality of label A) × (cardinality of label
-B) × ... × (number of histogram buckets if histogram). Stay under 1k for
-any single metric to leave headroom.
-
-### Forbidden label patterns
-
-**Never use as labels**:
-
-- `userId`, `actorId`, `studentId`
-- `submissionId`, `examId`, `contestId`, `assessmentId`, `problemId`
-- IP addresses, request IDs, session IDs, raw paths with IDs in them
-- Anything user-controllable (free-text fields, query params)
-
-These are cardinality bombs. Each unique value spawns a new series; a
-busy day can produce tens of thousands of series in a single label and
-push you past the cap. If you need per-entity drill-down, use logs (Cloud
-Logging) or traces, not metrics.
-
-Bucketed labels are fine — `close_reason` on
-`sse_connection_duration_seconds_count` (a small, fixed set of reasons)
-keeps cardinality low while preserving signal.
-`health_probe_duration_seconds` is likewise limited to the Cartesian product
-of three hard-coded `probe` values and two `result` values. Never replace the
-probe label with a raw request path.
-
-## Updating dashboards
-
-Dashboard JSON lives at `infra/grafana/dashboards/`. To roll out edits:
-
-```bash
-pnpm grafana:provision
-```
-
-The script self-loads `.env` via `node --env-file=.env`, so it picks up
-`GRAFANA_STACK_URL` and `GRAFANA_SA_TOKEN` without any extra sourcing.
-
-The provisioning script POSTs each JSON to `/api/dashboards/db` with
-`overwrite: true`, so reruns are idempotent — same UID gets updated in
-place. UIDs are baked into each JSON (`nojv-judge-latency`,
-`nojv-api-latency`, etc.) and form the URL path:
-`https://takalawang.grafana.net/d/<uid>`.
-
-To verify a dashboard exists at the expected UID:
+# Observability Setup
+
+Procedures to wire metrics export, provision Grafana dashboards and alert rules,
+add a metric, verify judge recovery monitoring and rotate tokens. SLO targets and
+the alert catalog are in [Reliability](../operations/RELIABILITY.md#service-level-objectives);
+env var reference is in the [Deployment Guide](../operations/DEPLOYMENT.md).
+
+Metrics only (OPS-14): traces are not exported (`spanProcessors: []`) and logs
+stay in the container log pipeline.
+
+## Key code
+
+- `apps/web/src/lib/server/otel.ts`, `apps/worker/src/otel.ts` — SDK boot; imported first in `apps/web/src/hooks.server.ts` and `apps/worker/src/index.ts` so auto-instrumentation patches `pg`/`ioredis` before use
+- `apps/web/src/lib/server/metrics.ts` — web metrics
+- `apps/worker/src/activities/utils.ts`, `apps/worker/src/activities/durable-work-metrics.ts`, `apps/worker/src/sandbox/shared/judge-phase-metrics.ts`, `apps/worker/src/judge-recovery-metrics.ts` — worker metrics
+- `infra/grafana/dashboards/*.json`, `infra/grafana/alerts/slo-alerts.json`, `infra/grafana/provision.ts`
+- `infra/charts/nojv/templates/{otel-collector,prometheus,grafana,node-exporter}.yaml`, `infra/charts/nojv/files/grafana-dashboards/` (chart copy of the dashboards)
+
+## How export works
+
+- Both apps start an OpenTelemetry NodeSDK when `OTEL_EXPORTER_OTLP_ENDPOINT` is a valid URL, exporting to `<endpoint>/v1/metrics` every 30s. Unset, empty or invalid means no-op (production logs a warning).
+- `OTEL_EXPORTER_OTLP_HEADERS` is optional comma-separated `key=value`; Grafana Cloud needs `Authorization=Basic <base64(instanceId:token)>`.
+- Auto-instrumentation covers `http`, `pg`, `ioredis` and `undici`; `fs` and `dns` are disabled.
+- Service names: `OTEL_SERVICE_NAME_WEB` (default `nojv-web`), `OTEL_SERVICE_NAME_WORKER` (default `nojv-worker`).
+- The worker awaits `shutdownOtel()` during graceful shutdown; web has no explicit flush and can lose the last interval.
+
+## Metrics
+
+| Metric                                                                                                        | Type      | Labels                                  | Source                       |
+| ------------------------------------------------------------------------------------------------------------- | --------- | --------------------------------------- | ---------------------------- |
+| `api_request_duration_seconds`                                                                                | histogram | `route`, `method`, `status_class`       | web hook boundary            |
+| `health_probe_duration_seconds`                                                                               | histogram | `probe` (`live`, `ready`), `result`     | web probes only              |
+| `sse_connection_duration_seconds`                                                                             | histogram | `close_reason`                          | web SSE                      |
+| `sse_connection_dropped_total`                                                                                | counter   | —                                       | web SSE, server-fault close  |
+| `judge_latency_seconds`                                                                                       | histogram | `mode`, `verdict`                       | worker verdict commit        |
+| `judge_phase_duration_seconds`, `judge_cpu_seconds`, `judge_cpu_throttled_seconds`, `judge_memory_peak_bytes` | histogram | phase/mode/language/result              | worker sandbox               |
+| `judge_cleanup_pending_total`                                                                                 | counter   | phase/mode/language/result              | worker sandbox               |
+| `judge_wall_clock_timeouts_total`                                                                             | counter   | `language`                              | worker sandbox               |
+| `durable_work_outcomes_total`                                                                                 | counter   | `kind`, `outcome`, `delivery_semantics` | platform worker              |
+| `nojv_judge_*`, `nojv_submissions_stuck`                                                                      | gauge     | —                                       | platform worker SQL snapshot |
+
+`scoreboard_update_latency_seconds` is queried by the Scoreboard dashboard and alert but no code emits it.
+
+## Dashboards
+
+| UID                    | Title                           | Reads                                                                                                                 |
+| ---------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `nojv-judge-latency`   | NOJV — Judge Latency            | `judge_latency_seconds` (p95/p99 by mode, throughput by verdict)                                                      |
+| `nojv-api-latency`     | NOJV — API Latency              | `api_request_duration_seconds` (p50/p95/p99, top routes, 5xx share)                                                   |
+| `nojv-scoreboard`      | NOJV — Scoreboard Update        | `scoreboard_update_latency_seconds`                                                                                   |
+| `nojv-exam-proctoring` | NOJV — Exam Proctoring          | SSE close rate, close reasons, server-fault drops                                                                     |
+| `nojv-time-breakdown`  | NOJV — Where Is The Time Going? | API vs `http_server_duration_milliseconds`; `db_client_operation_duration_seconds` by `db_system` (postgresql, redis) |
+
+The JSON files are the source of truth for panel PromQL. Auto-instrumentation metric names can change across OTel SDK versions; if a time-breakdown panel goes blank after an upgrade, run one process with `OTEL_LOG_LEVEL=DEBUG`, find the emitted name and update the panel.
+
+## Grafana Cloud setup
+
+1. Stack: `https://takalawang.grafana.net` (region `prod-ap-northeast-0`, free tier, 10k active series).
+2. Provisioning token: Administration → Users and access → Service accounts → add `nojv-provision` with **Admin** role (Editor lacks `dashboards:create`, `dashboards:write`, `folders:create`) → add a token and copy the `glsa_*` value.
+3. Push token: Cloud Portal → Access policies → create `nojv-otlp-push` with `metrics:write` → create a token and copy the `glc_*` value. Note the numeric instance ID and the OTLP gateway `https://otlp-gateway-prod-ap-northeast-0.grafana.net/otlp` (Connections → OpenTelemetry).
+4. Add to the git-ignored root `.env` (see `.env.example`):
+
+   ```env
+   OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-prod-ap-northeast-0.grafana.net/otlp
+   OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic <base64(instanceId:glc_token)>
+   GRAFANA_STACK_URL=https://takalawang.grafana.net
+   GRAFANA_SA_TOKEN=glsa_...
+   ```
+
+5. For production, put the two `OTEL_*` values in `nojv-runtime-secrets` and restart web and both workers.
+6. Verify locally: `OTEL_LOG_LEVEL=DEBUG pnpm dev`; expect export log lines every 30s and no `OTLPExporter … failed`.
+
+## In-cluster stack (no external cloud)
+
+`values-single-machine.yaml` enables the collector, Prometheus, node-exporter and Grafana; the GKE overlay leaves them off (use Google Cloud Managed Service for Prometheus there).
+
+| Component     | Value                                           | Endpoint / behavior                                                                                                                    |
+| ------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Collector     | `observability.collector.enabled`               | OTLP HTTP `http://<release>-otel-collector.<ns>.svc:4318`; `:8889/metrics`, or remote-writes when `collector.remoteWriteUrl` is set    |
+| Prometheus    | `observability.prometheus.enabled`              | Scrapes every 30s: `otel-collector`, `node-exporter`, `cloudflared`, `cnpg-postgres` (`<release>-pg-metrics:9187`); PVC, 15d retention |
+| Remote write  | `observability.prometheus.remoteWrite.url`      | Optional push to Grafana Cloud; `username` = instance ID, password from runtime secret key `GRAFANA_CLOUD_PROM_PASSWORD`               |
+| Node exporter | `observability.prometheus.nodeExporter.enabled` | DaemonSet feeding `nojv-node-disk-usage`                                                                                               |
+| Grafana       | `observability.grafana.enabled`                 | Service `:3000` or `observability.grafana.ingress`; provisioned Prometheus datasource and chart dashboards                             |
+
+1. Set `OTEL_EXPORTER_OTLP_ENDPOINT=http://nojv-otel-collector.nojv.svc:4318` (no headers) in `nojv-runtime-secrets` and restart web and workers.
+2. Set the Grafana admin password: `observability.grafana.adminPassword`, or leave it empty and set `GRAFANA_ADMIN_PASSWORD` in the runtime secret.
+3. Point the alert datasource at the Prometheus that holds `node_*` and `cnpg_*` series (or enable remote write); otherwise infra alerts never fire.
+
+## Provision dashboards and alerts
+
+`pnpm grafana:provision` loads `.env` itself and:
+
+1. POSTs each `infra/grafana/dashboards/*.json` to `/api/dashboards/db` with `overwrite: true` (idempotent by UID; URL `https://takalawang.grafana.net/d/<uid>`).
+2. Upserts every rule in `slo-alerts.json` (PUT, then POST if missing) when both `GRAFANA_ALERT_FOLDER_UID` and `GRAFANA_PROM_DATASOURCE_UID` are set; otherwise prints `[skip] alert rules`.
+3. Provisions the `NOJV SLO Alerts` email contact point and a notification policy routing `team=nojv` when `GRAFANA_ALERT_EMAIL` is set; otherwise prints `[skip] contact point`. The policy replaces the stack's root policy, so on a shared stack leave it unset and add a child route in the UI.
+
+Verify:
 
 ```bash
 curl -s -H "Authorization: Bearer $GRAFANA_SA_TOKEN" \
   "$GRAFANA_STACK_URL/api/dashboards/uid/nojv-judge-latency" | jq .dashboard.title
 ```
 
-## Provisioning SLO alert rules
+Then send a test notification through the contact point.
 
-Alert-rule definitions live at `infra/grafana/alerts/slo-alerts.json` —
-one compact entry per SLO (PromQL expression, threshold, `for` duration,
-severity, summary). `pnpm grafana:provision` expands each into a Grafana
-provisioned-alert-rule payload and upserts it by UID (PUT, falling back to
-POST for a rule that does not exist yet).
+## Judge recovery monitoring
 
-Alert provisioning is **opt-in**: the script only touches alert rules when
-both of these are set in `.env`:
+The platform worker (or `WORKER_MODE=all`) reads these gauges from PostgreSQL on each 30s collection with a 3s statement timeout, independent of judge workers and Temporal:
 
-```env
-GRAFANA_ALERT_FOLDER_UID=<uid of the Grafana folder the rules live in>
-GRAFANA_PROM_DATASOURCE_UID=<uid of the Hosted Prometheus datasource>
-```
+| Metric                                               | Meaning                                                                                                                                                                          |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `nojv_judge_queue_depth`                             | Executions in `queued`, `waiting_capacity` or `recovering`                                                                                                                       |
+| `nojv_judge_queue_oldest_seconds`                    | Age of the oldest of those                                                                                                                                                       |
+| `nojv_judge_executions_blocked`                      | Executions in `blocked`                                                                                                                                                          |
+| `nojv_submissions_stuck`                             | Due `queued`/`waiting_capacity`/`recovering`/`finalizing` executions with progress older than 10 minutes, plus `running` ones with stale progress and an expired or absent lease |
+| `nojv_judge_legacy_system_errors`                    | SE submissions with no `JudgeExecution`                                                                                                                                          |
+| `nojv_judge_recovery_last_success_timestamp_seconds` | Database time of the last valid snapshot                                                                                                                                         |
 
-Find the datasource UID under **Connections → Data sources** in the
-Grafana UI (or `GET /api/datasources`); create a folder for the rules and
-read its UID from the folder URL. When either var is unset the script
-prints `[skip] alert rules` and provisions dashboards only.
+Aggregate with `max`, not `sum`: every platform replica reports the same totals. Labels never carry IDs or error text. A failed or invalid snapshot publishes nothing.
 
-Five rules are provisioned — judge latency (simple + advanced), API p99,
-scoreboard p95, and SSE drop rate. Thresholds mirror the SLO table in
-`RELIABILITY.md`.
+Verify before accepting a release:
 
-**Contact point + notification policy.** Set `GRAFANA_ALERT_EMAIL` in
-`.env` and `pnpm grafana:provision` also provisions an email contact
-point (`NOJV SLO Alerts`) plus a notification policy routing the
-`team=nojv` SLO alerts to it. When `GRAFANA_ALERT_EMAIL` is unset the
-script prints `[skip] contact point` and leaves alert delivery unwired.
+1. All six gauges are present in the alert datasource.
+2. In an isolated environment, pause judge consumption and confirm queue metrics rise while the last-success timestamp stays fresh.
+3. Break the observer (stop the platform worker or its database access) and confirm `nojv-judge-recovery-observer-stale` fires within about 3 minutes.
+4. Restore service; confirm the queue drains and alerts resolve.
+5. Confirm a test notification reaches the on-call route.
 
-⚠️ Grafana's notification-policy tree is a singleton — provisioning it
-**replaces the stack's root policy**. This is intended for a
-NOJV-dedicated Grafana stack. On a shared stack, leave
-`GRAFANA_ALERT_EMAIL` unset and add the contact point as a child route
-in the Grafana UI instead. Non-email channels (Slack, PagerDuty) are
-likewise configured in the UI under **Alerting → Contact points**.
+## Add a metric
 
-## Token rotation
+1. Put it next to the closest existing metric (see Key code). Histogram for distributions (bucket boundaries belong to the metric); counter named `*_total` for event counts.
+2. Keep each metric under about 1k series: labels multiply (× histogram buckets).
+3. Never label with user, actor, student, submission, exam, contest, assessment or problem IDs, IP addresses, request/session IDs, raw paths or any user-controlled text. Use fixed enums (as `close_reason` and `probe` do); per-entity detail belongs in logs.
+4. Add dashboard panels and alert rules to the JSON files, update the chart copy under `infra/charts/nojv/files/grafana-dashboards/`, and run `pnpm grafana:provision`.
+5. If it backs an SLO, update the table in [Reliability](../operations/RELIABILITY.md#service-level-objectives).
 
-### When
+## Rotate tokens
 
-- **Annually**, calendar-driven, regardless of incident.
-- **Immediately** on suspected leak (push to public repo, sent in clear,
-  appearance in CI logs).
+Annually, and immediately on suspected exposure.
 
-### How
+1. Service account: add a new token on `nojv-provision`, update `GRAFANA_SA_TOKEN` wherever provisioning runs, run `pnpm grafana:provision`, revoke the old token.
+2. OTLP push: Cloud Portal → Access policies → `nojv-otlp-push` → new token; update `OTEL_EXPORTER_OTLP_HEADERS` in `nojv-runtime-secrets`; `kubectl -n nojv rollout restart deploy/nojv-web deploy/nojv-worker deploy/nojv-worker-platform`; revoke the old token.
 
-1. Grafana UI → **Administration → Service accounts → nojv-provision →
-   Add service account token** → create the new token.
-2. Update `GRAFANA_SA_TOKEN` in `.env` (local) and in GCP Secret Manager
-   (production).
-3. Run `pnpm grafana:provision` once with the new token to confirm it
-   works.
-4. Revoke the old token from the same Service Account page.
+## Disable export
 
-OTLP push tokens (`glc_*`) rotate via **Cloud Portal → Access policies →
-nojv-otlp-push → Tokens**. Same flow: create new, swap into the runtime secret,
-restart the affected Deployment (`kubectl rollout restart`), revoke old.
-
-## Disabling telemetry
-
-- **Dev**: leave `OTEL_EXPORTER_OTLP_ENDPOINT` empty. SDK no-ops on boot.
-- **Prod**: same. Removing the secrets from the running revision and
-  triggering a redeploy disables export with no code change.
-
-The SDK detects unset/empty values in `apps/web/src/lib/server/otel.ts`
-and `apps/worker/src/otel.ts` and bails out before constructing the
-exporter. There is no kill switch beyond env config — by design, so an
-ops-time mistake can't accidentally enable telemetry against the wrong
-stack.
-
-## Known limitations
-
-- **No traces.** `spanProcessors: []` is intentional. Distributed tracing
-  would be useful one day but adds cost and noise; metrics-only is
-  sufficient for current SLOs.
-- **No log correlation in Grafana.** Logs go to GCP Cloud Logging. To
-  correlate a metric blip with logs you currently jump between Grafana
-  and the Cloud Logging console.
-- **SSE active-connection count is approximated.** We measure
-  `sse_connection_duration_seconds` (a histogram observed on close) and
-  `sse_connection_dropped_total` (counter incremented on server-fault
-  close). There is no live gauge of currently-open SSE connections —
-  inferring "open right now" from close-event rate is approximate.
-- **`where-is-the-time-going` auto-instrumentation metric names.** The
-  OpenTelemetry semantic conventions for HTTP / DB metric names
-  occasionally shift between SDK versions. If the panels labelled
-  "Postgres / Redis client operation duration (auto)" go blank after an
-  SDK bump, check the generated metric name (`OTEL_LOG_LEVEL=DEBUG` on
-  one process, look for `db.client.operation.duration` vs alternative
-  names) and update the dashboard's PromQL to match. The dashboard's
-  text panel notes this caveat for future readers.
-- **OAuth callback latency.** Captured by the outer
-  `api_request_duration_seconds` timer. The Task 7 fix moved the timer
-  out of `handle` exit hooks that better-auth shortcuts past, so the
-  metric now covers all `handle` exit paths. Drill into
-  `route="/api/auth/callback/[provider]"` if investigating an OAuth
-  regression.
-- **Health probes are outside the API SLO population.** The three exact web
-  probe paths record `health_probe_duration_seconds` and intentionally do not
-  record `api_request_duration_seconds`; API latency and 5xx panels therefore
-  represent user/API traffic rather than Kubernetes polling.
-
-## PromQL queries used by each dashboard panel
-
-Future agents shouldn't have to reverse-engineer the JSON. The panel ↔
-expression map below mirrors `infra/grafana/dashboards/*.json` exactly.
-
-### NOJV — Judge Latency (`nojv-judge-latency`)
-
-| Panel                                      | Expression                                                                                                                         |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| p95 judge latency by mode                  | `histogram_quantile(0.95, sum by (mode, le) (rate(judge_latency_seconds_bucket[5m])))`                                             |
-| p99 judge latency by mode                  | `histogram_quantile(0.99, sum by (mode, le) (rate(judge_latency_seconds_bucket[5m])))`                                             |
-| Throughput (submissions/min) by verdict    | `sum by (verdict) (rate(judge_latency_seconds_count[1m])) * 60`                                                                    |
-| System error rate (RE + CE share of total) | `sum(rate(judge_latency_seconds_count{verdict=~"runtime_error\|compile_error"}[5m])) / sum(rate(judge_latency_seconds_count[5m]))` |
-| Current p95 judge latency (15m)            | `histogram_quantile(0.95, sum by (le) (rate(judge_latency_seconds_bucket[15m])))`                                                  |
-
-### NOJV — API Latency (`nojv-api-latency`)
-
-| Panel                                  | Expression                                                                                                                  |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| p99 / p95 / p50 API latency (overall)  | `histogram_quantile(0.99, sum by (le) (rate(api_request_duration_seconds_bucket[5m])))` (and 0.95 / 0.50 variants)          |
-| p99 by route — top 10 slowest          | `topk(10, histogram_quantile(0.99, sum by (route, le) (rate(api_request_duration_seconds_bucket[5m]))))`                    |
-| Request rate (req/min) by status class | `sum by (status_class) (rate(api_request_duration_seconds_count[1m])) * 60`                                                 |
-| 5xx error rate (share of total)        | `sum(rate(api_request_duration_seconds_count{status_class="5xx"}[5m])) / sum(rate(api_request_duration_seconds_count[5m]))` |
-| Current p99 API latency (15m)          | `histogram_quantile(0.99, sum by (le) (rate(api_request_duration_seconds_bucket[15m])))`                                    |
-
-### NOJV — Scoreboard Update (`nojv-scoreboard`)
-
-| Panel                                 | Expression                                                                                         |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| p95 scoreboard update latency by mode | `histogram_quantile(0.95, sum by (mode, le) (rate(scoreboard_update_latency_seconds_bucket[5m])))` |
-| p99 scoreboard update latency by mode | `histogram_quantile(0.99, sum by (mode, le) (rate(scoreboard_update_latency_seconds_bucket[5m])))` |
-| Updates per minute by mode            | `sum by (mode) (rate(scoreboard_update_latency_seconds_count[1m])) * 60`                           |
-| Current p95 scoreboard update (15m)   | `histogram_quantile(0.95, sum by (le) (rate(scoreboard_update_latency_seconds_bucket[15m])))`      |
-
-### NOJV — Exam Proctoring (`nojv-exam-proctoring`)
-
-| Panel                                                    | Expression                                                                |
-| -------------------------------------------------------- | ------------------------------------------------------------------------- |
-| SSE close events per minute (proxy for connection churn) | `sum(rate(sse_connection_duration_seconds_count[1m])) * 60`               |
-| SSE close reasons (last 1h)                              | `sum by (close_reason) (rate(sse_connection_duration_seconds_count[1h]))` |
-| SSE drops (server fault) per hour                        | `sum(rate(sse_connection_dropped_total[1h])) * 3600`                      |
-
-### NOJV — Where Is The Time Going? (`nojv-time-breakdown`)
-
-| Panel                                          | Expression                                                                                                                                                |
-| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| p95: app-level vs HTTP server                  | `histogram_quantile(0.95, sum by (le) (rate(api_request_duration_seconds_bucket[5m])))` and `... (rate(http_server_request_duration_seconds_bucket[5m]))` |
-| p95: Postgres client operation duration (auto) | `histogram_quantile(0.95, sum by (le) (rate(db_client_operation_duration_seconds_bucket[5m])))`                                                           |
-| p95: Redis client operation duration (auto)    | `histogram_quantile(0.95, sum by (le) (rate(redis_client_duration_seconds_bucket[5m])))`                                                                  |
-
-## Related Docs
-
-- [Reliability Invariants](../operations/RELIABILITY.md) — SLO table with per-row
-  dashboard links
-- [Deployment Guide](../operations/DEPLOYMENT.md) — env-var injection for production
-- [Incident Recovery Runbook](./incident-recovery.md) — what to do when
-  an SLO burns
+Remove `OTEL_EXPORTER_OTLP_ENDPOINT` from the environment (or runtime secret) and restart. There is no other switch.

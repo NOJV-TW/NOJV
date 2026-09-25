@@ -1,32 +1,21 @@
 # Runbooks
 
-Operational runbooks — step-by-step procedures for running, recovering, and
-verifying NOJV. System design and invariants (not procedures) live under
-`docs/architecture/` and `docs/operations/`; this page indexes the procedures
-and links out to that reference material.
+Procedures for running, recovering and verifying NOJV: numbered steps, exact
+commands and how to verify. Invariants and failure behavior live in
+[Reliability](../operations/RELIABILITY.md); configuration reference lives in
+[Deployment](../operations/DEPLOYMENT.md).
 
-## Index
+| Runbook                                       | Use when                                                                           |
+| --------------------------------------------- | ---------------------------------------------------------------------------------- |
+| [Getting Started](getting-started.md)         | First local run, dev stack troubleshooting                                         |
+| [Testing Strategy](testing.md)                | Choosing a test layer, running suites, test databases, judge benchmark             |
+| [Single-Machine k3s](k8s-single-machine.md)   | Installing or scaling the one-node production cluster                              |
+| [Incident Recovery](incident-recovery.md)     | Outage, SLO breach, stalled release, disk pressure                                 |
+| [Judge Queue](judge-queue.md)                 | Priority/fairness, slot and quota sizing, parking bulk rejudges, lease cleanup     |
+| [Backup & Restore](backup-restore.md)         | Enabling backups, PITR, object storage restore, restore drills                     |
+| [Observability Setup](observability-setup.md) | Metrics export, dashboards, alert rules, judge recovery monitoring, token rotation |
 
-| Runbook                                       | When to use                                                                    |
-| --------------------------------------------- | ------------------------------------------------------------------------------ |
-| [Getting Started](getting-started.md)         | First local run, environment setup, troubleshooting the dev stack              |
-| [Single-Machine k3s](k8s-single-machine.md)   | One-box K8s-backend deploy (k3s + Calico) + autoscaling guidance               |
-| [Incident Recovery](incident-recovery.md)     | Outage response, SLO breach, recovery steps                                    |
-| [Backup & Restore](backup-restore.md)         | Backup posture, PITR, GCS / Redis snapshot restore                             |
-| [Observability Setup](observability-setup.md) | Setting up / updating Grafana metrics dashboards + alert rules                 |
-| [Testing Strategy](testing.md)                | Where new tests belong, how to run each layer                                  |
-| [Judge Queue](judge-queue.md)                 | Priority/fairness, slot and quota sizing, parking bulk rejudges, lease cleanup |
-
-## Reference Catalog
-
-For design, invariants, and acceptance criteria (not procedures):
-
-- **Architecture** — [System map](../architecture/ARCHITECTURE.md), [Frontend](../architecture/FRONTEND.md), [Judge pipeline](../architecture/JUDGE_PIPELINE.md), [Database](../architecture/DATABASE.md), [Redis](../architecture/REDIS.md), [Design rules](../architecture/DESIGN.md)
-- **Operations** — [Deployment](../operations/DEPLOYMENT.md), [Reliability](../operations/RELIABILITY.md), [Security](../operations/SECURITY.md), [Threat model](../operations/THREAT_MODEL.md), [Quality ledger](../operations/QUALITY_SCORE.md)
-- **Product** — [Product sense](../product/PRODUCT_SENSE.md)
-- **Decisions** — [Decision log](../decisions/README.md)
-- **Feature specs** — [`docs/features/`](../features/) (per-feature Given/When/Then acceptance criteria)
-
-The repository's `AGENTS.md` is the canonical agent entrypoint and carries the
-full reading order; `tests/unit/docs/doc-links.test.ts` fails CI if any link in
-`AGENTS.md` or this index goes dangling.
+Reference material: [architecture](../architecture/ARCHITECTURE.md),
+[judge pipeline](../architecture/JUDGE_PIPELINE.md),
+[security](../operations/SECURITY.md), [decision log](../decisions/README.md),
+[feature specs](../features/).
