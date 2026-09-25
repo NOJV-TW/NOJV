@@ -10,16 +10,16 @@ BASELINE_PLACEHOLDER
 
 ## Authoritative guidance
 
-| Topic                                                  | Source of truth                                                                                                          | Change it when                                                                           |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| Dependency layers and runtime entry points             | [Architecture](../architecture/ARCHITECTURE.md)                                                                          | A workspace dependency, runtime boundary, or cross-app flow changes.                     |
-| Browser routes, components, and server-only boundaries | [Frontend](../architecture/FRONTEND.md)                                                                                  | A route, browser/server boundary, or shared UI ownership changes.                        |
-| Judge and recovery contracts                           | [Judge pipeline](../architecture/JUDGE_PIPELINE.md) and [Reliability](RELIABILITY.md)                                    | A verdict, retry, cancellation, timeout, or recovery contract changes.                   |
+| Topic                                                  | Source of truth                                                                                                         | Change it when                                                                           |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Dependency layers and runtime entry points             | [Architecture](../architecture/ARCHITECTURE.md)                                                                         | A workspace dependency, runtime boundary, or cross-app flow changes.                     |
+| Browser routes, components, and server-only boundaries | [Frontend](../architecture/FRONTEND.md)                                                                                 | A route, browser/server boundary, or shared UI ownership changes.                        |
+| Judge and recovery contracts                           | [Judge pipeline](../architecture/JUDGE_PIPELINE.md) and [Reliability](RELIABILITY.md)                                   | A verdict, retry, cancellation, timeout, or recovery contract changes.                   |
 | Database models and exact fields                       | [Database overview](../architecture/DATABASE.md); field reference is [generated](../architecture/DATABASE.generated.md) | Edit Prisma schema and regenerate with `pnpm db:docs`; never hand-edit generated output. |
-| Security requirements and attacker model               | [Security](SECURITY.md) and [Threat model](THREAT_MODEL.md)                                                              | A trust boundary, sensitive data flow, or sandbox capability changes.                    |
-| Deploy and operational procedures                      | [Deployment](DEPLOYMENT.md) and the [runbook index](../runbooks/README.md)                                               | A shipped deployment or recovery step changes.                                           |
-| Feature acceptance                                     | [Feature specs](../features/)                                                                                            | User-visible behavior or API acceptance changes.                                         |
-| Decisions, rationale, and rejected alternatives        | [Decision log](../decisions/README.md)                                                                                   | A durable decision is made, reversed, or refined.                                        |
+| Security requirements and attacker model               | [Security](SECURITY.md) and [Threat model](THREAT_MODEL.md)                                                             | A trust boundary, sensitive data flow, or sandbox capability changes.                    |
+| Deploy and operational procedures                      | [Deployment](DEPLOYMENT.md) and the [runbook index](../runbooks/README.md)                                              | A shipped deployment or recovery step changes.                                           |
+| Feature acceptance                                     | [Feature specs](../features/)                                                                                           | User-visible behavior or API acceptance changes.                                         |
+| Decisions, rationale, and rejected alternatives        | [Decision log](../decisions/README.md)                                                                                  | A durable decision is made, reversed, or refined.                                        |
 
 ## Open follow-ups
 
@@ -34,12 +34,24 @@ Work that is known, not done, and not covered by an in-flight plan. Remove an it
 - Confirm after the next release that the former durable-work singleton workflow is terminal and only the cron parent runs (DAT-19).
 - Run the sandbox quota recovery acceptance in production: automatic recovery after capacity loss or worker restart, then 15 minutes of observation.
 
+### High availability
+
+- Temporal runs one replica on a single-instance Postgres on the single-machine target; GKE should run the official chart with at least two replicas per service (`infra/gcp/gke/temporal/HA-PRODUCTION.md`).
+- The single-machine CNPG Postgres pod has no resource requests or limits, so it is evicted first under node pressure; size it against the node budget in [Deployment](DEPLOYMENT.md).
+- `worker-platform` and the registry run one replica; on GKE run two after confirming the platform startup sweeps are safe to run concurrently.
+- Web behind the GKE ingress has a 10 s preStop and no load-balancer connection-draining setting; rollouts can drop requests still routed to terminating pods.
+- CNPG backups use the in-tree `barmanObjectStore`, which CNPG is deprecating in favor of the barman-cloud plugin.
+
 ### Code and product
 
 - Judge priority key 4 (recovered live submissions ahead of bulk rejudges, JDG-12) is unreachable: `markJudgeExecution` and `reconcileJudgeExecutions` set `queueClass: "background"` on recovery, and `judgePriorityKey` in `packages/core/src/judge-execution.ts` returns 5 for any non-foreground class before checking `recoveryEpoch`. Recovered student submissions therefore queue behind bulk rejudges. Decide the intended order and either fix the classification or drop key 4.
 - Push the demo Advanced Mode images to the self-hosted registry from CI and repoint the seeds, which still use `nojv-demo-advanced-*:local` in `packages/db/prisma/seeds/problems.ts` (OPS-10).
 - No code emits `scoreboard_update_latency_seconds`, so the scoreboard SLO, its dashboard panel and alert have no data. Emit it from the scoreboard rebuild path or drop the SLO.
 - OAuth provider tokens are stored unencrypted (`account.encryptOAuthTokens` is not enabled in `apps/web/src/lib/auth.server.ts`); see the open gaps in the [Threat Model](THREAT_MODEL.md).
+- The legacy `submissionJudgeWorkflow` path is still dispatched (`packages/temporal/src/dispatch.ts`, and as a child of `rejudgeWorkflow`) alongside `durableJudgeWorkflow`. Retiring it (workflow, `activities/judge.ts` legacy half) needs a rollout plan so in-flight histories drain first.
+- Course management authority is inconsistent: the plagiarism pair page and course announcement actions treat `course.ownerId` as a manager, while the course/assignment/exam layouts and `getCoursePermissionRole` do not; course creation is checked only in `routes/(app)/courses/new`, not in `createCourseRecord`. Consolidate into one application-level check.
+- Several page loads orchestrate many application calls themselves (`routes/(app)/exams/[examId]/+page.server.ts` and the contest, assignment, admin-users and problem-edit pages); move them into application view-model queries (ENG-02).
+- Route-local Zod schemas (clarifications, rejudge batch, plagiarism flags, notifications, admin mode) are re-described by hand in `apps/web/src/lib/server/openapi/internal/schemas.ts`; move them to `@nojv/core` so OpenAPI derives them (ENG-05).
 - Exam access leads: the first IP binding is a read-then-write without compare-and-set, exam entry creates the session before applying the gate, a reset without an active session writes no session audit row, and a violation recorded inside a rejected submission transaction rolls back.
 - Browser Test (WASM-OJ) deferred scope: official Submit from the browser, checker/interactive/Advanced problems, and limit calibration stay server-only until decided otherwise (JDG-15).
 - The full Playwright suite and the Kubernetes integration suite have no recent recorded run; the E2E bootstrap needs explicit approval to reset the marked local test database.
