@@ -7,30 +7,30 @@ This file is the agent entrypoint for this repository. Read it first, then follo
 Read the first matching row, then inspect the owning app or package guide and
 source. Do not read every architecture document for a routine change.
 
-| Working on...                                        | Read                                                                          |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Submission judging flow, subtask scoring, verdicts   | [Judge Pipeline](docs/architecture/JUDGE_PIPELINE.md)                         |
-| Async workflows, task queues, workflow IDs           | [Architecture Overview](docs/architecture/ARCHITECTURE.md) → `@nojv/temporal` |
-| Schema changes, new tables, Prisma migrations        | [Database Schema](docs/architecture/DATABASE.md)                              |
-| Cache keys, pub/sub channels, rate limiting          | [Redis Architecture](docs/architecture/REDIS.md)                              |
-| SvelteKit routes, page layout, component hierarchy   | [Frontend Surface](docs/architecture/FRONTEND.md)                             |
-| Tailwind tokens, Bits UI usage, visual consistency   | [Design Rules](docs/architecture/DESIGN.md)                                   |
-| Sandbox isolation, seccomp, capability drop          | [Security Requirements](docs/operations/SECURITY.md)                          |
-| Risk assessment, attacker scenarios                  | [Threat Model](docs/operations/THREAT_MODEL.md)                               |
-| Idempotency, health checks, failure modes            | [Reliability Invariants](docs/operations/RELIABILITY.md)                      |
-| GKE / Helm chart config, env vars, Cloud Build       | [Deployment Guide](docs/operations/DEPLOYMENT.md)                             |
-| Feature scope, product direction, shipped vs planned | [Product Sense](docs/product/PRODUCT_SENSE.md)                                |
+| Working on...                                        | Read                                                                               |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Submission judging flow, subtask scoring, verdicts   | [Judge Pipeline](docs/architecture/JUDGE_PIPELINE.md)                              |
+| Async workflows, task queues, workflow IDs           | [Architecture Overview](docs/architecture/ARCHITECTURE.md) → `@nojv/temporal`      |
+| Schema changes, new tables, Prisma migrations        | [Database Schema](docs/architecture/DATABASE.md)                                   |
+| Cache keys, pub/sub channels, rate limiting          | [Redis Architecture](docs/architecture/REDIS.md)                                   |
+| SvelteKit routes, page layout, component hierarchy   | [Frontend Surface](docs/architecture/FRONTEND.md)                                  |
+| Tailwind tokens, Bits UI usage, visual consistency   | [Design Rules](docs/architecture/DESIGN.md)                                        |
+| Sandbox isolation, seccomp, capability drop          | [Security Requirements](docs/operations/SECURITY.md)                               |
+| Risk assessment, attacker scenarios                  | [Threat Model](docs/operations/THREAT_MODEL.md)                                    |
+| Idempotency, health checks, failure modes            | [Reliability Invariants](docs/operations/RELIABILITY.md)                           |
+| GKE / Helm chart config, env vars, Cloud Build       | [Deployment Guide](docs/operations/DEPLOYMENT.md)                                  |
+| Feature scope, product direction, shipped vs planned | [Product Sense](docs/product/PRODUCT_SENSE.md)                                     |
 | Designing or planning any non-trivial change         | [Decision log](docs/decisions/README.md), then [Planning](#planning-and-decisions) |
-| Which runbook for an operational task                | [Runbooks Index](docs/runbooks/README.md)                                     |
-| Local dev setup, first run, troubleshooting          | [Getting Started](docs/runbooks/getting-started.md)                           |
-| Outage response, SLO breach, recovery steps          | [Incident Recovery](docs/runbooks/incident-recovery.md)                       |
-| Backup posture, PITR, GCS / Redis snapshot restore   | [Backup & Restore](docs/runbooks/backup-restore.md)                           |
-| Setting up or updating Grafana metrics dashboards    | [Observability Setup](docs/runbooks/observability-setup.md)                   |
-| Where new tests belong, how to run each layer        | [Testing Strategy](docs/runbooks/testing.md)                                  |
-| Cross-cutting quality / tech debt                    | [Quality Ledger](docs/operations/QUALITY_SCORE.md)                            |
-| Overall system map, layer boundaries                 | [Architecture Overview](docs/architecture/ARCHITECTURE.md)                    |
-| Feature acceptance specs (assignments, exams, etc.)  | [Feature Specs](docs/features/) — per-feature Given/When/Then                 |
-| Any other task or full documentation index           | [Documentation home](docs/README.md)                                          |
+| Which runbook for an operational task                | [Runbooks Index](docs/runbooks/README.md)                                          |
+| Local dev setup, first run, troubleshooting          | [Getting Started](docs/runbooks/getting-started.md)                                |
+| Outage response, SLO breach, recovery steps          | [Incident Recovery](docs/runbooks/incident-recovery.md)                            |
+| Backup posture, PITR, GCS / Redis snapshot restore   | [Backup & Restore](docs/runbooks/backup-restore.md)                                |
+| Setting up or updating Grafana metrics dashboards    | [Observability Setup](docs/runbooks/observability-setup.md)                        |
+| Where new tests belong, how to run each layer        | [Testing Strategy](docs/runbooks/testing.md)                                       |
+| Cross-cutting quality / tech debt                    | [Quality Ledger](docs/operations/QUALITY_SCORE.md)                                 |
+| Overall system map, layer boundaries                 | [Architecture Overview](docs/architecture/ARCHITECTURE.md)                         |
+| Feature acceptance specs (assignments, exams, etc.)  | [Feature Specs](docs/features/) — per-feature Given/When/Then                      |
+| Any other task or full documentation index           | [Documentation home](docs/README.md)                                               |
 
 ## Planning and decisions
 

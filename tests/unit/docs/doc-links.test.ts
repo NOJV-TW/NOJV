@@ -110,9 +110,9 @@ describe("decision index lists exactly the recorded decisions", () => {
   const recorded = readdirSync(decisionsDir)
     .filter((entry) => entry.endsWith(".md") && entry !== "README.md")
     .flatMap((entry) =>
-      [...readFileSync(join(decisionsDir, entry), "utf8").matchAll(/^### ([A-Z]+-\d{2}) /gm)].map(
-        (match) => match[1],
-      ),
+      [
+        ...readFileSync(join(decisionsDir, entry), "utf8").matchAll(/^### ([A-Z]+-\d{2}) /gm),
+      ].map((match) => match[1]),
     );
   const indexed = [
     ...readFileSync(join(decisionsDir, "README.md"), "utf8").matchAll(/\b([A-Z]+-\d{2})\b/g),
