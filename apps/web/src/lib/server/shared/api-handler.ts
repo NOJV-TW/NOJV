@@ -1,6 +1,6 @@
 import { json, error, isRedirect } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
-import { ZodError } from "zod";
+import { ZodError, type ZodType } from "zod";
 
 import { classifyRequestError } from "./handle-action-error";
 import {
@@ -61,6 +61,13 @@ export async function readJsonBody(
     if (!(reason instanceof SyntaxError)) throw reason;
     error(400, "Invalid request body: expected valid JSON.");
   }
+}
+
+export function parseContextQuery<T>(url: URL, schema: ZodType<T>): T {
+  const type = url.searchParams.get("type");
+  if (!type) return schema.parse({ type });
+  const idParam = `${type}Id`;
+  return schema.parse({ type, [idParam]: url.searchParams.get(idParam) });
 }
 
 function errorResponse(error: unknown, event: RequestEvent): Response {
