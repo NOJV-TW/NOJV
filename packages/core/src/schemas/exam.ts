@@ -12,8 +12,8 @@ import {
 
 import { latePenaltyRuleSchema, refineLateSubmissionWindow } from "./assessment-adjustments";
 
-export const examPublishStatuses = ["draft", "published"] as const;
-export const examPublishStatusSchema = z.enum(examPublishStatuses);
+const examPublishStatuses = ["draft", "published"] as const;
+const examPublishStatusSchema = z.enum(examPublishStatuses);
 export type ExamPublishStatus = z.infer<typeof examPublishStatusSchema>;
 
 const examCreateBaseSchema = z.object({

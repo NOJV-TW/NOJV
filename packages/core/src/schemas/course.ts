@@ -44,11 +44,6 @@ export const courseUpdateSchema = z
   })
   .superRefine(refineAcademicTerm);
 
-export const courseProblemAttachSchema = z.object({
-  courseId: z.string().trim().min(1),
-  problemId: slugSchema,
-});
-
 export const copyCourseSchema = z.object({
   newTitle: z.string().trim().min(3).max(120),
 });
@@ -229,12 +224,8 @@ export const assessmentSettingsFormSchema = z
     refineLateSubmissionWindow(value, value.closesAt, ctx, "closesAt"),
   );
 
-export type AssessmentContext = z.infer<typeof assessmentContextSchema>;
 export type AssessmentSettingsFormData = z.infer<typeof assessmentSettingsFormSchema>;
-export type AssessmentCreate = z.infer<typeof assessmentCreateSchema>;
 export type AssessmentUpdate = z.infer<typeof assessmentUpdateSchema>;
 export type CourseAssignmentFormData = z.infer<typeof courseAssignmentFormSchema>;
-export type CopyCourse = z.infer<typeof copyCourseSchema>;
 export type CourseCreate = z.infer<typeof courseCreateSchema>;
-export type CourseProblemAttach = z.infer<typeof courseProblemAttachSchema>;
 export type CourseUpdate = z.infer<typeof courseUpdateSchema>;

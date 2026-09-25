@@ -10,7 +10,7 @@ import {
   type Language,
 } from "../types";
 
-import { advancedConfigSchema, type imageSourceSchema } from "./advanced-mode";
+import { advancedConfigSchema } from "./advanced-mode";
 import { judgeConfigSchema } from "./judge-config";
 import { safeRelativePath } from "./path";
 import { requiredPathsSchema } from "./required-paths";
@@ -34,8 +34,6 @@ const inlineTestcaseEditContentSchema = z
     "validation_tooLong",
   );
 
-export type ProblemImageSource = z.infer<typeof imageSourceSchema>;
-
 export const problemSampleSchema = z.object({
   input: z.string().max(200_000),
   output: z.string().max(200_000),
@@ -43,9 +41,7 @@ export const problemSampleSchema = z.object({
 
 export type ProblemSample = z.infer<typeof problemSampleSchema>;
 
-export const problemSamplesSchema = z.array(problemSampleSchema).max(5);
-
-export type ProblemSamples = z.infer<typeof problemSamplesSchema>;
+const problemSamplesSchema = z.array(problemSampleSchema).max(5);
 
 export const workspaceFileVisibilitySchema = z.enum(["editable", "readonly", "hidden"]);
 
@@ -76,7 +72,7 @@ export function languageExtension(language: Language): string {
   return map[language];
 }
 
-export const ENTRY_FILE_BASENAME = "main";
+const ENTRY_FILE_BASENAME = "main";
 
 export function entryFileNameFor(language: Language): string {
   if (language === "java") return "Main.java";
@@ -180,7 +176,7 @@ export const problemDraftSchema = problemDraftObjectSchema.superRefine((data, ct
 
 export const problemUpdateSchema = problemCreateObjectSchema.partial();
 
-export const problemTestcaseCaseSchema = z.object({
+const problemTestcaseCaseSchema = z.object({
   output: testcaseFileContentSchema,
   input: testcaseFileContentSchema,
 });
