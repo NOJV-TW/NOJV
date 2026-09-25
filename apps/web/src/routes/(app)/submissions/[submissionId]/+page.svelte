@@ -1,15 +1,16 @@
 <script lang="ts">
   import SubmissionId from "$lib/components/features/submission/SubmissionId.svelte";
-  import { Check, Copy, Download } from "@lucide/svelte";
+  import { Download } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import { watchSubmissionStates } from "$lib/services/submission-tracker";
   import { formatDateTime } from "$lib/utils/datetime";
-  import { formatJudgeOutput } from "$lib/utils/judge-output";
+  import { formatJudgeOutput, formatMemoryKb } from "$lib/utils/judge-output";
   import { verdictTone } from "$lib/utils/verdict-style";
   import { languageLabel } from "@nojv/core";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import { flattenSourcesForDisplay } from "$lib/utils/submission-source-display";
   import SubtaskResultTree from "$lib/components/features/submission/SubtaskResultTree.svelte";
+  import CopyButton from "$lib/components/primitives/ui/CopyButton.svelte";
   import MonacoScriptEditor from "$lib/components/primitives/ui/MonacoScriptEditor.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import BackLink from "$lib/components/primitives/layout/BackLink.svelte";
@@ -103,15 +104,6 @@
     typescript: "ts",
   };
 
-  let copied = $state(false);
-  async function handleCopy() {
-    await navigator.clipboard.writeText(sourceCode);
-    copied = true;
-    setTimeout(() => {
-      copied = false;
-    }, 2000);
-  }
-
   function handleDownload() {
     const ext = downloadExtension[submission.language] ?? "txt";
     const blob = new Blob([sourceCode], { type: "text/plain" });
@@ -123,11 +115,6 @@
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  }
-
-  function formatMemory(kb: number): string {
-    if (kb >= 1024) return `${(kb / 1024).toFixed(1)} MB`;
-    return `${String(kb)} KB`;
   }
 </script>
 
@@ -170,7 +157,7 @@
           </dt>
           <dd class="text-body font-medium tabular-nums">
             {#if memoryKb !== null && memoryKb > 0}
-              {formatMemory(memoryKb)}
+              {formatMemoryKb(memoryKb)}
             {:else}
               <span class="text-muted-foreground">—</span>
             {/if}
@@ -324,19 +311,7 @@
           >
         </div>
         <div class="flex items-center gap-1">
-          <button
-            class="inline-flex size-7 items-center justify-center rounded-md bg-transparent text-muted-foreground transition hover:bg-transparent hover:text-foreground"
-            onclick={handleCopy}
-            type="button"
-            aria-label={copied ? m.common_copied() : m.common_copy()}
-            title={copied ? m.common_copied() : m.common_copy()}
-          >
-            {#if copied}
-              <Check aria-hidden="true" class="size-3.5 text-success" />
-            {:else}
-              <Copy aria-hidden="true" class="size-3.5" />
-            {/if}
-          </button>
+          <CopyButton text={sourceCode} />
           <button
             class="inline-flex size-7 items-center justify-center rounded-md bg-transparent text-muted-foreground transition hover:bg-transparent hover:text-foreground"
             onclick={handleDownload}

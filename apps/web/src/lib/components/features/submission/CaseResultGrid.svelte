@@ -5,17 +5,13 @@
     verdictBadgeVariant,
     type VerdictBadgeVariant,
   } from "$lib/utils/verdict-style";
+  import { formatMemoryKb } from "$lib/utils/judge-output";
 
   interface Props {
     cases: CaseResult[];
   }
 
   let { cases }: Props = $props();
-
-  function formatMemory(kb: number): string {
-    if (kb >= 1024) return `${(kb / 1024).toFixed(1)} MB`;
-    return `${String(kb)} KB`;
-  }
 
   const CASE_PILL_CLASS: Record<VerdictBadgeVariant, string> = {
     "verdict-ac": "border-success/40 bg-success/10 text-success",
@@ -48,7 +44,7 @@
       {cr.timeMs}ms
       {#if cr.memoryKb && cr.memoryKb > 0}
         <span class="text-muted-foreground">·</span>
-        {formatMemory(cr.memoryKb)}
+        {formatMemoryKb(cr.memoryKb)}
       {/if}
     </span>
   {/each}
