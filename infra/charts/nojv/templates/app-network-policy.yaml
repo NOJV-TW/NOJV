@@ -1,6 +1,6 @@
 {{- if .Values.networkPolicy.enabled }}
 {{/*
-worker-egress — ported from infra/gcp/gke/network-policy.yaml. Inert unless the
+worker-egress. Inert unless the
 cluster CNI enforces NetworkPolicy (GKE Dataplane V2). The CIDRs are
 cluster-specific; set them under .Values.networkPolicy.egress.
 */}}

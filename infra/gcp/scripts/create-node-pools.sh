@@ -11,7 +11,7 @@ set -euo pipefail
 # WHY THIS IS A SCRIPT (and not just docs): without an autoscaling
 # `nojv-role=sandbox` pool, every sandbox Job stays Pending forever and judging
 # *silently* fails to schedule — the manifests apply cleanly and nothing errors.
-# Run this BEFORE `kubectl apply -k infra/gcp/gke`. Idempotent-ish: re-running
+# Run this BEFORE installing the Helm chart. Idempotent-ish: re-running
 # errors on an already-existing pool, which is safe to ignore.
 #
 # See infra/gcp/gke/README.md for the topology rationale.
