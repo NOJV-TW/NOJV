@@ -1,24 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { setMock, publishMock, delMock, pubsubErrorHandler } = vi.hoisted(() => ({
+const { setMock, publishMock, delMock } = vi.hoisted(() => ({
   setMock: vi.fn(),
   publishMock: vi.fn(() => Promise.resolve(1)),
   delMock: vi.fn(() => Promise.resolve(0)),
-  pubsubErrorHandler: vi.fn(),
 }));
 
 vi.mock("../../../packages/redis/src/connection", () => ({
   getRedis: () => ({ set: setMock, publish: publishMock, del: delMock }),
 }));
 
-import {
-  publishScoreboardUpdate,
-  setPubsubErrorHandler,
-} from "../../../packages/redis/src/pubsub";
+import { publishScoreboardUpdate } from "../../../packages/redis/src/pubsub";
 
 beforeEach(() => {
   vi.clearAllMocks();
-  setPubsubErrorHandler(pubsubErrorHandler);
 });
 
 describe("publishScoreboardUpdate — throttled contest scoreboard signal", () => {
@@ -51,13 +46,15 @@ describe("publishScoreboardUpdate — throttled contest scoreboard signal", () =
 
   it("never throws when Redis is unavailable", async () => {
     setMock.mockRejectedValueOnce(new Error("redis down"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     await expect(publishScoreboardUpdate("ctst_1")).resolves.toBeUndefined();
     expect(publishMock).not.toHaveBeenCalled();
-    expect(pubsubErrorHandler).toHaveBeenCalledWith({
+    expect(errorSpy).toHaveBeenCalledWith("[redis.pubsub] publish failed", {
       operation: "scoreboard",
       channel: expect.stringContaining("ctst_1"),
-      err: expect.any(Error),
+      err: "redis down",
     });
+    errorSpy.mockRestore();
   });
 });
