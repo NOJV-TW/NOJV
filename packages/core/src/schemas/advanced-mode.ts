@@ -2,14 +2,12 @@ import { z } from "zod";
 
 import { requiredPathsSchema } from "./required-paths";
 
-export const advancedTestcaseResultSchema = z.object({
+const advancedTestcaseResultSchema = z.object({
   index: z.number().int().nonnegative(),
   verdict: z.enum(["AC", "WA", "TLE", "MLE", "RE", "SE"]),
   runtimeMs: z.number().int().nonnegative().optional(),
   feedback: z.string().max(4_000).optional(),
 });
-
-export type AdvancedTestcaseResult = z.infer<typeof advancedTestcaseResultSchema>;
 
 const TOP_VERDICT_ALIASES: Record<string, string> = {
   ac: "accepted",
@@ -20,7 +18,7 @@ const TOP_VERDICT_ALIASES: Record<string, string> = {
   ce: "compile_error",
 };
 
-export const advancedCanonicalVerdictSchema = z.enum([
+const advancedCanonicalVerdictSchema = z.enum([
   "accepted",
   "wrong_answer",
   "time_limit_exceeded",
@@ -29,7 +27,7 @@ export const advancedCanonicalVerdictSchema = z.enum([
   "compile_error",
 ]);
 
-export const advancedVerdictSchema = z.preprocess(
+const advancedVerdictSchema = z.preprocess(
   (v) => (typeof v === "string" ? (TOP_VERDICT_ALIASES[v.toLowerCase()] ?? v) : v),
   advancedCanonicalVerdictSchema,
 );
@@ -60,14 +58,12 @@ export function validateAdvancedResultForMaxScore(
   return issues;
 }
 
-export const imageSourceSchema = z.literal("registry");
+const imageSourceSchema = z.literal("registry");
 
-export const imageRefSchema = z.object({
+const imageRefSchema = z.object({
   imageRef: z.string().min(1).max(500),
   imageSource: imageSourceSchema,
 });
-
-export type ImageRef = z.infer<typeof imageRefSchema>;
 
 const networkSchema = z
   .object({
@@ -103,7 +99,7 @@ export const advancedConfigSchema = z.object({
 
 export type AdvancedConfig = z.infer<typeof advancedConfigSchema>;
 
-export const advancedJudgeConfigurationSchema = z.object({
+const advancedJudgeConfigurationSchema = z.object({
   config: advancedConfigSchema,
   requiredPaths: requiredPathsSchema,
 });

@@ -8,7 +8,3 @@ export function storage(): StorageClient {
   cachedClient ??= createStorageClient();
   return cachedClient;
 }
-
-export function __setStorageClientForTests(client: StorageClient | null): void {
-  cachedClient = client;
-}

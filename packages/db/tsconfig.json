@@ -4,5 +4,5 @@
   "compilerOptions": {
     "rootDir": "."
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts"]
+  "include": ["src/**/*.ts", "prisma/**/*.ts", "tests/**/*.ts"]
 }

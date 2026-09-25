@@ -1,7 +1,6 @@
 import {
   SSE_CONTEST_ENDING,
   SSE_CONTEST_STARTING,
-  SSE_NOTIFICATION,
   SSE_SCOREBOARD,
   SSE_SUBMISSION_VERDICT,
   type ClarificationSSEEvent,
@@ -14,33 +13,7 @@ import { keys } from "./keys";
 
 const SCOREBOARD_UPDATE_THROTTLE_SECONDS = 10;
 
-export type PubsubOperation =
-  | "scoreboard"
-  | "verdict"
-  | "contest"
-  | "notification"
-  | "clarification"
-  | "notification_batch";
-
-export interface PubsubError {
-  operation: PubsubOperation;
-  channel: string;
-  err: unknown;
-}
-
-export type PubsubErrorHandler = (error: PubsubError) => void;
-
-let pubsubErrorHandler: PubsubErrorHandler = ({ operation, channel, err }) => {
-  console.error("[redis.pubsub] publish failed", {
-    operation,
-    channel,
-    err: err instanceof Error ? err.message : String(err),
-  });
-};
-
-export function setPubsubErrorHandler(handler: PubsubErrorHandler): void {
-  pubsubErrorHandler = handler;
-}
+type PubsubOperation = "scoreboard" | "verdict" | "contest" | "notification" | "clarification";
 
 function publishEvent(channel: string, event: SSEEvent): Promise<number> {
   return getRedis().publish(channel, JSON.stringify(event));
@@ -54,7 +27,11 @@ function bestEffort(
   return task().then(
     () => undefined,
     (err: unknown) => {
-      pubsubErrorHandler({ operation, channel, err });
+      console.error("[redis.pubsub] publish failed", {
+        operation,
+        channel,
+        err: err instanceof Error ? err.message : String(err),
+      });
     },
   );
 }
@@ -128,20 +105,5 @@ export async function publishClarification(
       : keys.clarificationChannel(contextType, contextId);
   await bestEffort("clarification", channel, async () => {
     await publishEvent(channel, event);
-  });
-}
-
-export async function publishNotificationBatchSignal(
-  userId: string,
-  detail: { notificationType: string; params: unknown; linkUrl: string | null },
-): Promise<void> {
-  const channel = keys.notificationChannel(userId);
-  await bestEffort("notification_batch", channel, async () => {
-    await publishEvent(channel, {
-      type: SSE_NOTIFICATION,
-      notificationType: detail.notificationType,
-      params: detail.params,
-      linkUrl: detail.linkUrl,
-    });
   });
 }

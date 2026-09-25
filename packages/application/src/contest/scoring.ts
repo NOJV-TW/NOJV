@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { setTimeout as sleep } from "node:timers/promises";
+
 import {
   contestRepo,
   participationRepo,
@@ -15,6 +17,16 @@ import { createRateLimiterConnection, keys } from "@nojv/redis";
 import { z } from "zod";
 
 import { NotFoundError } from "../shared/errors";
+import {
+  buildScoreboard,
+  buildScoreboardChartSeries,
+  runScoreUpdate,
+  type ParticipantRow,
+  type ScoreboardEntry,
+  type ScoreboardProblem,
+  type SubmissionRow,
+  type TimedSession,
+} from "../scoring";
 
 const SCOREBOARD_CACHE_TTL_SECONDS = 10;
 const SCOREBOARD_LOCK_TTL_SECONDS = 5;
@@ -27,20 +39,6 @@ function scoreboardRedis(): ReturnType<typeof createRateLimiterConnection> {
   scoreboardRedisClient ??= createRateLimiterConnection();
   return scoreboardRedisClient;
 }
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-import {
-  buildScoreboard,
-  buildScoreboardChartSeries,
-  runScoreUpdate,
-  type ParticipantRow,
-  type ScoreboardEntry,
-  type ScoreboardProblem,
-  type SubmissionRow,
-  type TimedSession,
-} from "../scoring";
 
 export type { ProblemScore, ScoreboardEntry, ScoreboardProblem } from "../scoring";
 

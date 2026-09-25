@@ -45,7 +45,7 @@ export async function seedAnnouncements(prisma: PrismaClient, admin: User): Prom
         audience: "all",
         publishedAt,
         createdByUserId: admin.id,
-        translations: { create: seed.translations },
+        translations: { create: [...seed.translations] },
       },
     });
   }

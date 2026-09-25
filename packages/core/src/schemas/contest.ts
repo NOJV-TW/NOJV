@@ -20,7 +20,7 @@ export const contestSessionSchema = z
     path: ["endsAt"],
   });
 
-export const contestProblemInputSchema = z.object({
+const contestProblemInputSchema = z.object({
   problemId: z.string().trim().min(1),
   points: z.coerce.number().int().min(1).max(100_000).default(100),
 });

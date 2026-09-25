@@ -55,7 +55,7 @@ export const compileOutputSchema = z
     "Compile output must contain a run command or a compilation error.",
   );
 
-export const validatorCaseOutcomeSchema = z.object({
+const validatorCaseOutcomeSchema = z.object({
   index: z.number().int().nonnegative(),
   verdict: z.enum(["AC", "WA", "SE"]),
   teamMessage: z.string().optional(),

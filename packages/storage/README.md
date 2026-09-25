@@ -13,7 +13,7 @@
 - `src/client.ts` — `createStorageClient()`
 - `src/env.ts` — `storageEnvSchema`、`getStorageEnv()`；`S3_ENDPOINT`、`S3_ACCESS_KEY`、`S3_SECRET_KEY`（production 必填）、`S3_BUCKET`（預設 `nojv`）、`S3_REGION`（預設 `auto`）
 - `src/object.ts` — `StorageObjectPointer`、`putImmutableObject` / `putImmutableText` / `putObjectIfAbsent`、`getVerifiedObject` / `getVerifiedText`
-- `src/keys.ts` — `testcase*Key`、`workspaceFileKey`、`checkerKey`、`interactorKey`、`problemPrefix`、`submission*Key`
+- `src/keys.ts` — `testcase*Key`、`workspaceFileKey`、`checkerKey`、`interactorKey`、`submission*Key`
 - `src/submission.ts` — submission source plan / manifest、verdict detail
 - `src/images.ts`、`src/avatar.ts` — 題目、使用者內容與遠端圖片、avatar
 - `src/blobs.ts` — `getObject` / `getText` / `deleteBlob` / `deleteBlobsByPrefix` / `listByPrefix`

@@ -12,7 +12,7 @@ const MAX_LEASE_DURATION_MS = 60 * 60 * 1_000;
 const MAX_ATTEMPTS = 100;
 const IMMEDIATELY_AVAILABLE_AT = new Date(0);
 
-export interface DurableWorkRow {
+interface DurableWorkRow {
   id: string;
   kind: string;
   dedupeKey: string;
@@ -30,7 +30,7 @@ export interface DurableWorkRow {
   updatedAt: Date;
 }
 
-export interface DurableWorkEnqueueInput {
+interface DurableWorkEnqueueInput {
   kind: string;
   dedupeKey: string;
   payload: Prisma.InputJsonValue;
@@ -38,7 +38,7 @@ export interface DurableWorkEnqueueInput {
   maxAttempts?: number;
 }
 
-export interface DurableWorkClaimInput {
+interface DurableWorkClaimInput {
   kinds: readonly string[];
   owner: string;
   limit: number;
@@ -46,37 +46,37 @@ export interface DurableWorkClaimInput {
   leaseDurationMs: number;
 }
 
-export interface DurableWorkFence {
+interface DurableWorkFence {
   id: string;
   owner: string;
   attempt: number;
   now: Date;
 }
 
-export interface DurableWorkRetryInput extends DurableWorkFence {
+interface DurableWorkRetryInput extends DurableWorkFence {
   retryAt: Date;
   error: string;
 }
 
-export interface DurableWorkCompleteInput extends DurableWorkFence {
+interface DurableWorkCompleteInput extends DurableWorkFence {
   result?: Prisma.InputJsonValue;
 }
 
-export interface DurableWorkKey {
+interface DurableWorkKey {
   kind: string;
   dedupeKey: string;
 }
 
-export interface DurableWorkCancelInput extends DurableWorkKey {
+interface DurableWorkCancelInput extends DurableWorkKey {
   now: Date;
 }
 
-export interface DurableWorkRescheduleInput extends DurableWorkKey {
+interface DurableWorkRescheduleInput extends DurableWorkKey {
   availableAt: Date;
   now: Date;
 }
 
-export type DurableWorkRetryDisposition = "retry" | "dead";
+type DurableWorkRetryDisposition = "retry" | "dead";
 
 export class DurableWorkLeaseLostError extends Error {
   constructor(id: string, owner: string, attempt: number) {

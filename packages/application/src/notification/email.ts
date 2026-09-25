@@ -1,4 +1,10 @@
-import { getAppBaseUrl, getMailer, renderEmail, renderMarkdownForEmail } from "@nojv/mailer";
+import {
+  escapeHtml,
+  getAppBaseUrl,
+  getMailer,
+  renderEmail,
+  renderMarkdownForEmail,
+} from "@nojv/mailer";
 import { notificationRepo, type NotificationCreateInput } from "@nojv/db";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
@@ -71,16 +77,8 @@ function str(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
-const HTML_ESCAPES: Record<string, string> = {
-  "&": "&amp;",
-  "<": "&lt;",
-  ">": "&gt;",
-  '"': "&quot;",
-  "'": "&#39;",
-};
-
 function esc(value: unknown): string {
-  return str(value).replace(/[&<>"']/g, (ch) => HTML_ESCAPES[ch] ?? ch);
+  return escapeHtml(str(value));
 }
 
 function announcementTitle(params: Params): string {
@@ -232,7 +230,7 @@ const PRE_DELIVERY_SUPPRESSION_REASONS = [
   "unsupported_notification_type",
 ] as const;
 
-export type NotificationEmailSuppressionReason =
+type NotificationEmailSuppressionReason =
   (typeof PRE_DELIVERY_SUPPRESSION_REASONS)[number] | "mailer_suppressed";
 
 const notificationEmailIdentitySchema = {

@@ -23,10 +23,6 @@
     "db:bootstrap-admin": "node --env-file=../../.env --import tsx prisma/bootstrap-admin.ts",
     "db:seed:prod": "node --env-file=../../.env --import tsx prisma/prod-seed.ts",
     "db:seed:validate": "node --import tsx prisma/seeds/validate.ts",
-    "storage:backfill": "node --import tsx prisma/scripts/storage-pointer-cutover.ts backfill",
-    "storage:verify": "node --import tsx prisma/scripts/storage-pointer-cutover.ts verify",
-    "storage:preflight": "node --import tsx prisma/scripts/storage-pointer-cutover.ts preflight",
-    "storage:status": "node --import tsx prisma/scripts/storage-pointer-cutover.ts status",
     "lint": "eslint .",
     "prisma:validate": "prisma validate",
     "typecheck": "tsc -p tsconfig.json --noEmit"

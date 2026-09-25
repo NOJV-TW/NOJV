@@ -47,16 +47,16 @@ step-up semantics: [Security](../operations/SECURITY.md), SEC-04/05/08.
 
 ## Pub/Sub
 
-Publishing is best-effort: `pubsub.ts` routes failures to
-`setPubsubErrorHandler` and never throws into the caller.
+Publishing is best-effort: `pubsub.ts` logs failures and never throws into the
+caller.
 
-| Channel                                              | Producer                                                | Consumer                                       |
-| ---------------------------------------------------- | ------------------------------------------------------- | ---------------------------------------------- |
-| `nojv:user:{userId}`                                 | `publishVerdict`                                        | `/api/events/stream`                           |
-| `nojv:notification:{userId}`                         | `publishNotification`, `publishNotificationBatchSignal` | `/api/events/stream`                           |
-| `nojv:contest:{contestId}`                           | `publishContestEvent`, `publishScoreboardUpdate`        | `/contests/{contestId}/scoreboard/stream`      |
-| `nojv:clarification:{contextType}:{contextId}`       | `publishClarification(…, "public")`                     | `/api/events/stream` (`canAsk \|\| canAnswer`) |
-| `nojv:clarification-staff:{contextType}:{contextId}` | `publishClarification(…, "staff")`                      | `/api/events/stream` (`canAnswer` only)        |
+| Channel                                              | Producer                                         | Consumer                                       |
+| ---------------------------------------------------- | ------------------------------------------------ | ---------------------------------------------- |
+| `nojv:user:{userId}`                                 | `publishVerdict`                                 | `/api/events/stream`                           |
+| `nojv:notification:{userId}`                         | `publishNotification`                            | `/api/events/stream`                           |
+| `nojv:contest:{contestId}`                           | `publishContestEvent`, `publishScoreboardUpdate` | `/contests/{contestId}/scoreboard/stream`      |
+| `nojv:clarification:{contextType}:{contextId}`       | `publishClarification(…, "public")`              | `/api/events/stream` (`canAsk \|\| canAnswer`) |
+| `nojv:clarification-staff:{contextType}:{contextId}` | `publishClarification(…, "staff")`               | `/api/events/stream` (`canAnswer` only)        |
 
 Events (discriminator `type`, schema `sseEventSchema`):
 

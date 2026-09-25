@@ -27,6 +27,16 @@ import {
 } from "./lifecycle-reconciliation";
 import { JUDGE_TASK_QUEUE, PLATFORM_TASK_QUEUE } from "./task-queues";
 
+async function startUnlessRunning(start: Promise<unknown>): Promise<boolean> {
+  try {
+    await start;
+    return true;
+  } catch (err) {
+    if (err instanceof WorkflowExecutionAlreadyStartedError) return false;
+    throw err;
+  }
+}
+
 export async function dispatchSubmissionJudge(payload: SubmissionJudgeJob): Promise<void> {
   const validated = submissionJudgeJobSchema.parse(payload);
   const client = await getTemporalClient();
@@ -36,17 +46,14 @@ export async function dispatchSubmissionJudge(payload: SubmissionJudgeJob): Prom
     draft: validated.draft,
   };
 
-  try {
-    await client.workflow.start("submissionJudgeWorkflow", {
+  await startUnlessRunning(
+    client.workflow.start("submissionJudgeWorkflow", {
       taskQueue: JUDGE_TASK_QUEUE,
       workflowId: `judge-${validated.submissionId}`,
       workflowIdReusePolicy: "REJECT_DUPLICATE",
       args: [input],
-    });
-  } catch (reason) {
-    if (reason instanceof WorkflowExecutionAlreadyStartedError) return;
-    throw reason;
-  }
+    }),
+  );
 }
 
 export async function terminateSubmissionJudge(
@@ -108,77 +115,63 @@ export async function describeSubmissionJudge(
   }
 }
 
-export const SUBMISSION_SWEEPER_WORKFLOW_ID = "submission-pending-sweeper";
+const SUBMISSION_SWEEPER_WORKFLOW_ID = "submission-pending-sweeper";
 
 export async function ensureSubmissionSweeper(): Promise<void> {
   const client = await getTemporalClient();
-  try {
-    await client.workflow.start("submissionSweeperWorkflow", {
+  await startUnlessRunning(
+    client.workflow.start("submissionSweeperWorkflow", {
       taskQueue: PLATFORM_TASK_QUEUE,
       workflowId: SUBMISSION_SWEEPER_WORKFLOW_ID,
       cronSchedule: "* * * * *",
       args: [],
-    });
-  } catch (err) {
-    if (err instanceof WorkflowExecutionAlreadyStartedError) return;
-    throw err;
-  }
+    }),
+  );
 }
 
 export const LIFECYCLE_RECONCILER_WORKFLOW_ID = "lifecycle-timer-reconciler";
 
 export async function ensureLifecycleReconciler(): Promise<void> {
   const client = await getTemporalClient();
-  try {
-    await client.workflow.start("lifecycleReconcilerProcessorWorkflow", {
+  await startUnlessRunning(
+    client.workflow.start("lifecycleReconcilerProcessorWorkflow", {
       taskQueue: PLATFORM_TASK_QUEUE,
       workflowId: LIFECYCLE_RECONCILER_WORKFLOW_ID,
       cronSchedule: "*/5 * * * *",
       args: [],
-    });
-  } catch (err) {
-    if (err instanceof WorkflowExecutionAlreadyStartedError) return;
-    throw err;
-  }
+    }),
+  );
 }
 
 export const DURABLE_WORK_WORKFLOW_ID = "durable-work-processor";
 
 export async function ensureDurableWorkProcessor(): Promise<void> {
   const client = await getTemporalClient();
-  try {
-    await client.workflow.start("durableWorkProcessorWorkflow", {
+  await startUnlessRunning(
+    client.workflow.start("durableWorkProcessorWorkflow", {
       taskQueue: PLATFORM_TASK_QUEUE,
       workflowId: DURABLE_WORK_WORKFLOW_ID,
       cronSchedule: "* * * * *",
       args: [],
-    });
-  } catch (err) {
-    if (err instanceof WorkflowExecutionAlreadyStartedError) return;
-    throw err;
-  }
+    }),
+  );
 }
 
-export const REGISTRY_GC_WORKFLOW_ID = "registry-gc";
+const REGISTRY_GC_WORKFLOW_ID = "registry-gc";
 
 export async function dispatchRegistryGarbageCollect(
   input: RegistryGarbageCollectInput,
 ): Promise<{ workflowId: string; alreadyRunning: boolean }> {
   const client = await getTemporalClient();
-  try {
-    await client.workflow.start("registryGarbageCollectWorkflow", {
+  const started = await startUnlessRunning(
+    client.workflow.start("registryGarbageCollectWorkflow", {
       taskQueue: PLATFORM_TASK_QUEUE,
       workflowId: REGISTRY_GC_WORKFLOW_ID,
       memo: { triggeredByUserId: input.triggeredByUserId },
       args: [input],
-    });
-    return { workflowId: REGISTRY_GC_WORKFLOW_ID, alreadyRunning: false };
-  } catch (err) {
-    if (err instanceof WorkflowExecutionAlreadyStartedError) {
-      return { workflowId: REGISTRY_GC_WORKFLOW_ID, alreadyRunning: true };
-    }
-    throw err;
-  }
+    }),
+  );
+  return { workflowId: REGISTRY_GC_WORKFLOW_ID, alreadyRunning: !started };
 }
 
 export async function dispatchRejudge(
@@ -186,18 +179,15 @@ export async function dispatchRejudge(
   workflowId: string,
 ): Promise<{ workflowId: string }> {
   const client = await getTemporalClient();
-
-  try {
-    await client.workflow.start("rejudgeWorkflow", {
+  await startUnlessRunning(
+    client.workflow.start("rejudgeWorkflow", {
       taskQueue: JUDGE_TASK_QUEUE,
       workflowId,
       workflowIdReusePolicy: "REJECT_DUPLICATE",
       memo: { triggeredByUserId: input.triggeredByUserId },
       args: [input],
-    });
-  } catch (reason) {
-    if (!(reason instanceof WorkflowExecutionAlreadyStartedError)) throw reason;
-  }
+    }),
+  );
   return { workflowId };
 }
 
@@ -270,8 +260,8 @@ async function reconcileLifecycleWorkflow<T extends LifecycleScheduleIdentity>({
       continue;
     }
 
-    try {
-      await client.workflow.start(workflowType, {
+    await startUnlessRunning(
+      client.workflow.start(workflowType, {
         taskQueue: PLATFORM_TASK_QUEUE,
         workflowId,
         workflowIdConflictPolicy: "USE_EXISTING",
@@ -281,10 +271,8 @@ async function reconcileLifecycleWorkflow<T extends LifecycleScheduleIdentity>({
           timerFingerprint: input.timerFingerprint,
         },
         args: [input],
-      });
-    } catch (err) {
-      if (!(err instanceof WorkflowExecutionAlreadyStartedError)) throw err;
-    }
+      }),
+    );
   }
 
   throw new Error(`Lifecycle reconciliation did not converge for ${workflowId}.`);
@@ -432,17 +420,15 @@ export async function dispatchJudgeExecution(input: {
   priority: JudgePriority;
 }): Promise<void> {
   const client = await getTemporalClient();
-  try {
-    await client.workflow.start("durableJudgeWorkflow", {
+  await startUnlessRunning(
+    client.workflow.start("durableJudgeWorkflow", {
       workflowId: input.workflowId,
       taskQueue: JUDGE_TASK_QUEUE,
       workflowIdReusePolicy: "REJECT_DUPLICATE",
       priority: input.priority,
       args: [{ executionId: input.executionId }],
-    });
-  } catch (error) {
-    if (!(error instanceof WorkflowExecutionAlreadyStartedError)) throw error;
-  }
+    }),
+  );
 }
 
 export async function dispatchJudgeCleanup(input: {
@@ -451,14 +437,12 @@ export async function dispatchJudgeCleanup(input: {
   leaseToken: string;
 }): Promise<void> {
   const client = await getTemporalClient();
-  try {
-    await client.workflow.start("judgeCleanupWorkflow", {
+  await startUnlessRunning(
+    client.workflow.start("judgeCleanupWorkflow", {
       workflowId: `judge-cleanup-${input.leaseToken}`,
       workflowIdReusePolicy: "ALLOW_DUPLICATE_FAILED_ONLY",
       taskQueue: JUDGE_TASK_QUEUE,
       args: [input],
-    });
-  } catch (error) {
-    if (!(error instanceof WorkflowExecutionAlreadyStartedError)) throw error;
-  }
+    }),
+  );
 }

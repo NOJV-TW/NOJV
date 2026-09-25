@@ -13,7 +13,7 @@
 
 - `src/connection.ts` — `getRedis()`、`createSubscriber(redisUrl)`、`createRateLimiterConnection()`
 - `src/keys.ts` — `keys` registry
-- `src/pubsub.ts`（`pubsub` namespace）— `publishVerdict`、`publishScoreboardUpdate`、`publishContestEvent`、`publishNotification`、`publishNotificationBatchSignal`、`publishClarification`、`setPubsubErrorHandler`
+- `src/pubsub.ts`（`pubsub` namespace）— `publishVerdict`、`publishScoreboardUpdate`、`publishContestEvent`、`publishNotification`、`publishClarification`
 
 Key、TTL、channel 與事件一覽見 [Redis Architecture](../../docs/architecture/REDIS.md)。
 

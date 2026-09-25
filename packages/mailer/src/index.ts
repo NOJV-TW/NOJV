@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { Mailer } from "./types";
 
 export type { Mailer, SendEmailInput, SendEmailResult } from "./types";
+export { escapeHtml } from "./html";
 export { renderEmail } from "./template";
 export type { EmailContent } from "./template";
 export { renderMarkdownForEmail } from "./markdown";

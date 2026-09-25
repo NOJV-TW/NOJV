@@ -113,9 +113,6 @@ vi.mock("@nojv/db", () => {
 
 vi.mock("../../../packages/application/src/shared/storage-singleton", () => ({
   storage: () => storageRef.client,
-  __setStorageClientForTests: (c: unknown) => {
-    storageRef.client = c as typeof storageRef.client;
-  },
 }));
 
 import { ConflictError, submissionDomain } from "@nojv/application";

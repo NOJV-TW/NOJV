@@ -3,9 +3,7 @@ import { assessmentRepo, examRepo } from "@nojv/db";
 import { ConflictError, NotFoundError } from "./errors";
 import type { CourseActivityContext } from "./graded-context";
 
-export type GradableContext = CourseActivityContext;
-
-export async function isContextClosed(context: GradableContext): Promise<boolean> {
+export async function isContextClosed(context: CourseActivityContext): Promise<boolean> {
   const now = Date.now();
 
   switch (context.type) {
@@ -22,7 +20,7 @@ export async function isContextClosed(context: GradableContext): Promise<boolean
   }
 }
 
-export async function assertContextClosed(context: GradableContext): Promise<void> {
+export async function assertContextClosed(context: CourseActivityContext): Promise<void> {
   if (!(await isContextClosed(context))) {
     throw new ConflictError(
       "This context is still open; grading is only available after it closes.",

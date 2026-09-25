@@ -265,13 +265,15 @@ Production never runs these by hand. The migrator Job
 
 - **Install:** `prisma migrate deploy`.
 - **Upgrade, nothing pending:** when `prisma migrate status` reports no pending
-  migrations and the storage contract is applied, the hook exits and the release
+  migrations, the hook exits and the release
   rolls through the web Deployment's `maxUnavailable: 0` / `maxSurge: 1`
   strategy. A status probe that cannot be read counts as pending.
 - **Upgrade with migrations:** the hook waits for the maintenance page, points
   the web HPA at the maintenance target, scales web, judge and platform to zero,
   waits until no pods remain, then runs `prisma migrate deploy`. A failure after
-  migration starts keeps writers at zero for a forward fix (OPS-05).
+  migration starts keeps writers at zero for a forward fix (OPS-05). A database
+  older than `20260716000012_versioned_blob_pointers_contract` must first
+  upgrade through a release that still ships the storage backfill.
 
 ### Release window
 

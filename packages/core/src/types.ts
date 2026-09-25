@@ -11,7 +11,7 @@ export const supportedLanguages = [
   "typescript",
 ] as const;
 
-export const browserLocalLanguages = [
+const browserLocalLanguages = [
   "c",
   "cpp",
   "go",
@@ -32,15 +32,12 @@ export const apiTokenScopes = [
   "assignments:read",
   "admin:read",
 ] as const;
-export const courseRoles = ["teacher", "ta", "student"] as const;
-export const effectiveCourseRoles = ["admin", "teacher", "ta", "student"] as const;
-export const problemDifficulties = ["easy", "medium", "hard"] as const;
-export const problemVisibilities = ["public", "private"] as const;
-export const problemStatuses = ["draft", "published"] as const;
-export const scoreboardModes = ["hidden", "live", "frozen"] as const;
-export const contestScoringModes = ["problem_count", "weighted_count", "point_sum"] as const;
-export const examScoringModes = ["point_sum"] as const;
-export const courseMembershipStatuses = ["active", "removed"] as const;
+const problemDifficulties = ["easy", "medium", "hard"] as const;
+const problemVisibilities = ["public", "private"] as const;
+const problemStatuses = ["draft", "published"] as const;
+const scoreboardModes = ["hidden", "live", "frozen"] as const;
+const contestScoringModes = ["problem_count", "weighted_count", "point_sum"] as const;
+const examScoringModes = ["point_sum"] as const;
 export const judgeTypes = ["standard", "checker", "interactive"] as const;
 export const problemTypes = ["full_source", "multi_file", "special_env"] as const;
 export const problemTags = [
@@ -75,8 +72,6 @@ export const problemTags = [
   "Number Theory",
   "Design",
 ] as const;
-export type ProblemTag = (typeof problemTags)[number];
-export const announcementStatuses = ["draft", "published", "archived"] as const;
 export const announcementAudiences = ["all", "students", "teachers"] as const;
 export const submissionVerdicts = [
   "accepted",
@@ -102,40 +97,27 @@ export const submissionOperationStatuses = [
   "system_error",
 ] as const;
 
-export const pendingSubmissionStatuses = [
-  "pending_upload",
-  "queued",
-  "compiling",
-  "running",
-] as const;
+const pendingSubmissionStatuses = ["pending_upload", "queued", "compiling", "running"] as const;
 
 export function isSubmissionPending(status: string): boolean {
   return (pendingSubmissionStatuses as readonly string[]).includes(status);
 }
 
-export const localeCodes = ["en", "zh-TW"] as const;
-
 export const DEFAULT_LOCALE = "zh-TW";
 
-export const platformRoleSchema = z.enum(platformRoles);
+const platformRoleSchema = z.enum(platformRoles);
 export const apiTokenScopeSchema = z.enum(apiTokenScopes);
-export const courseRoleSchema = z.enum(courseRoles);
-export const effectiveCourseRoleSchema = z.enum(effectiveCourseRoles);
 export const problemDifficultySchema = z.enum(problemDifficulties);
 export const problemVisibilitySchema = z.enum(problemVisibilities);
 export const problemStatusSchema = z.enum(problemStatuses);
 export const scoreboardModeSchema = z.enum(scoreboardModes);
 export const contestScoringModeSchema = z.enum(contestScoringModes);
 export const examScoringModeSchema = z.enum(examScoringModes);
-export const courseMembershipStatusSchema = z.enum(courseMembershipStatuses);
 export const languageSchema = z.enum(supportedLanguages);
 export const browserLocalLanguageSchema = z.enum(browserLocalLanguages);
 export const judgeTypeSchema = z.enum(judgeTypes);
 export const problemTypeSchema = z.enum(problemTypes);
-export const announcementStatusSchema = z.enum(announcementStatuses);
 export const announcementAudienceSchema = z.enum(announcementAudiences);
-export const localeCodeSchema = z.enum(localeCodes);
-export const submissionVerdictSchema = z.enum(submissionVerdicts);
 export const submissionResultVerdictSchema = z.enum(submissionResultVerdicts);
 export const submissionOperationStatusSchema = z.enum(submissionOperationStatuses);
 export const slugSchema = z
@@ -150,23 +132,20 @@ export const sourceCodeSchema = z
   .max(50_000)
   .refine((source) => source.trim().length > 0, "validation_required");
 
-export type CourseMembershipStatus = z.infer<typeof courseMembershipStatusSchema>;
-export type CourseRole = z.infer<typeof courseRoleSchema>;
-export type EffectiveCourseRole = z.infer<typeof effectiveCourseRoleSchema>;
+export type CourseMembershipStatus = "active" | "removed";
+export type CourseRole = "teacher" | "ta" | "student";
+export type EffectiveCourseRole = "admin" | CourseRole;
 export type ProblemDifficulty = z.infer<typeof problemDifficultySchema>;
 export type JudgeType = z.infer<typeof judgeTypeSchema>;
 export type Language = z.infer<typeof languageSchema>;
 export type BrowserLocalLanguage = z.infer<typeof browserLocalLanguageSchema>;
-export type LocaleCode = z.infer<typeof localeCodeSchema>;
 export type ScoreboardMode = z.infer<typeof scoreboardModeSchema>;
 export type PlatformRole = z.infer<typeof platformRoleSchema>;
 export type ApiTokenScope = z.infer<typeof apiTokenScopeSchema>;
 export type ProblemVisibility = z.infer<typeof problemVisibilitySchema>;
 export type ProblemStatus = z.infer<typeof problemStatusSchema>;
 export type ContestScoringMode = z.infer<typeof contestScoringModeSchema>;
-export type ExamScoringMode = z.infer<typeof examScoringModeSchema>;
 export type ProblemType = z.infer<typeof problemTypeSchema>;
-export type AnnouncementStatus = z.infer<typeof announcementStatusSchema>;
 export type AnnouncementAudience = z.infer<typeof announcementAudienceSchema>;
 export type SubmissionOperationStatus = z.infer<typeof submissionOperationStatusSchema>;
 
@@ -174,16 +153,14 @@ export function isBrowserLocalLanguage(language: Language): language is BrowserL
   return browserLocalLanguages.includes(language);
 }
 
-export const ipViolationModes = ["block", "notify"] as const;
+const ipViolationModes = ["block", "notify"] as const;
 export const ipViolationModeSchema = z.enum(ipViolationModes);
-export type IpViolationMode = z.infer<typeof ipViolationModeSchema>;
 
-export const ipViolationTypes = ["whitelist", "binding"] as const;
+const ipViolationTypes = ["whitelist", "binding"] as const;
 export const ipViolationTypeSchema = z.enum(ipViolationTypes);
-export type IpViolationType = z.infer<typeof ipViolationTypeSchema>;
 
-export const IP_WHITELIST_MAX_CIDR_LENGTH = 50;
-export const IP_WHITELIST_MAX_ENTRIES = 1000;
+const IP_WHITELIST_MAX_CIDR_LENGTH = 50;
+const IP_WHITELIST_MAX_ENTRIES = 1000;
 export const IP_WHITELIST_MAX_TEXT_LENGTH = 50_000;
 
 export function parseIpWhitelistText(text: string): string[] {

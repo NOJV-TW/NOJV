@@ -40,7 +40,7 @@ export const postCommentSubmitSchema = z.object({
   parentId: z.string().nullish(),
 });
 
-export const postEntrySchema = z.looseObject({
+const postEntrySchema = z.looseObject({
   id: z.string(),
   type: problemPostTypeSchema,
   title: z.string(),
@@ -64,8 +64,3 @@ export const postListResponseSchema = z.object({
 
 export type ProblemPostType = z.infer<typeof problemPostTypeSchema>;
 export type PostListSort = z.infer<typeof postListSortSchema>;
-export type PostSubmitInput = z.infer<typeof postSubmitSchema>;
-export type PostUpdateInput = z.infer<typeof postUpdateSchema>;
-export type PostVoteInput = z.infer<typeof postVoteSchema>;
-export type ContentReportInput = z.infer<typeof contentReportSchema>;
-export type PostCommentSubmitInput = z.infer<typeof postCommentSubmitSchema>;

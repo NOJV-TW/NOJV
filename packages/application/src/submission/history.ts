@@ -14,9 +14,7 @@ import {
   languageSchema,
   submissionOperationStatuses,
   submissionOperationStatusSchema,
-  submissionVerdictSchema,
   verdictSummarySchema,
-  type Language,
   type SubmissionContext,
   type SubmissionOperationStatus,
 } from "@nojv/core";
@@ -369,15 +367,5 @@ export function toProblemSubmissionEntry(
     ...(result ? { result } : {}),
     submittedAt: s.createdAt.toISOString(),
     context: deriveSubmissionContextKind(s),
-  };
-}
-
-export function narrowSubmissionRow(row: { status: string; language: string }): {
-  verdict: ReturnType<typeof submissionVerdictSchema.parse>;
-  language: Language;
-} {
-  return {
-    verdict: submissionVerdictSchema.parse(row.status),
-    language: languageSchema.parse(row.language),
   };
 }

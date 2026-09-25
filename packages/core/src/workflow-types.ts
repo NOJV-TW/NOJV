@@ -6,8 +6,6 @@ export interface SubmissionJudgeInput {
   forRejudge?: { triggeredByUserId: string | null; expectedJudgeGeneration?: number };
 }
 
-export type SubmissionJudgeStatus = "queued" | "compiling" | "running" | "completed" | "failed";
-
 export type RejudgeInput =
   | {
       mode: "batch";
@@ -71,5 +69,3 @@ export interface PlagiarismCheckInput {
 export interface RegistryGarbageCollectInput {
   triggeredByUserId: string;
 }
-
-export type PlagiarismCheckStatus = "pending" | "running" | "completed" | "failed";

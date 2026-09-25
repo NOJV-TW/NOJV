@@ -8,7 +8,6 @@ import {
   putVerdictDetail,
   type SubmissionSource,
 } from "@nojv/storage";
-import type { S3Client } from "@aws-sdk/client-s3";
 
 import type { Prisma, PrismaClient, User } from "../../generated/prisma/client";
 import type { SubmissionStatus } from "../../generated/prisma/enums";
@@ -129,7 +128,7 @@ function makeSubmission(args: {
 
 async function persistSeedSubmissions(
   prisma: PrismaClient,
-  storage: S3Client,
+  storage: ReturnType<typeof createStorageClient>,
   subs: SeedSubmission[],
 ): Promise<void> {
   if (subs.length === 0) return;
@@ -512,7 +511,7 @@ function pickAssignmentFinal(rng: SeededRng): LongVerdict {
 
 async function seedContestSubmissions(
   prisma: PrismaClient,
-  storage: S3Client,
+  storage: ReturnType<typeof createStorageClient>,
   args: {
     contestId: string;
     problems: string[];

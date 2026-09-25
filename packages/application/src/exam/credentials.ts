@@ -19,7 +19,13 @@ import {
   type ExamCredentialRecord,
   type TransactionClient,
 } from "@nojv/db";
-import { getAppBaseUrl, getMailer, renderEmail, validateMailerConfig } from "@nojv/mailer";
+import {
+  escapeHtml,
+  getAppBaseUrl,
+  getMailer,
+  renderEmail,
+  validateMailerConfig,
+} from "@nojv/mailer";
 
 import { lockCourseForStaffMutation } from "../course/problem-library";
 import type { ActorContext } from "../shared/actor-context";
@@ -392,17 +398,6 @@ export async function validateSession(sessionId: string): Promise<ExamSessionVal
       session.userId === credential.userId &&
       isUsable(credential),
   };
-}
-
-function escapeHtml(value: string): string {
-  const replacements: Record<string, string> = {
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  };
-  return value.replace(/[&<>"']/g, (character) => replacements[character] ?? character);
 }
 
 export async function deliverEmail(payload: unknown) {

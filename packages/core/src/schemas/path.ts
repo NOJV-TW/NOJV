@@ -27,7 +27,7 @@ export function parseRelativePath(rawPath: string): SafeRelativePath {
   return path as SafeRelativePath;
 }
 
-export function tryParseRelativePath(rawPath: string): SafeRelativePath | null {
+function tryParseRelativePath(rawPath: string): SafeRelativePath | null {
   try {
     return parseRelativePath(rawPath);
   } catch {

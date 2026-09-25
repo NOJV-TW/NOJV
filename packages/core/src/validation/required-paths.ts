@@ -1,4 +1,4 @@
-export type RequiredPathError =
+type RequiredPathError =
   { kind: "missing_file"; path: string } | { kind: "missing_folder"; path: string };
 
 export interface RequiredPathsResult {
