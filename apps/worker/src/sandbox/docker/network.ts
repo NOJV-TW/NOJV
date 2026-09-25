@@ -1,4 +1,4 @@
-import { DockerCommandError, runDocker, runDockerCommand, sanitizeId } from "./process";
+import { DockerCommandError, runDockerCommand, sanitizeId } from "./process";
 import {
   DOCKER_MANAGED_LABEL,
   buildDockerResourceLabels,
@@ -39,9 +39,9 @@ export async function createSubmissionNetwork(
 ): Promise<SubmissionNetwork> {
   const plan = planSubmissionNetwork(runId);
   signal.throwIfAborted();
-  await runDocker(
+  await runDockerCommand(
     buildCreateInternalNetworkArgs(plan.internalName, buildDockerResourceLabels(runId)),
-    signal,
+    { signal },
   );
   return plan;
 }

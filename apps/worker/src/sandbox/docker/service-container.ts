@@ -4,7 +4,7 @@ import {
   attachDockerCleanupFailure,
   collectContainerLogs,
   forceRemoveContainer,
-  runDocker,
+  runDockerCommand,
   sanitizeId,
 } from "./process";
 import { abortableSleep } from "../shared/execution-abort";
@@ -47,7 +47,7 @@ export async function startServiceContainer(params: {
   const containerName = serviceContainerName(params.runId);
   params.signal.throwIfAborted();
   try {
-    await runDocker(
+    await runDockerCommand(
       buildAdvancedServiceArgs({
         containerName,
         internalName: params.internalName,
@@ -57,7 +57,7 @@ export async function startServiceContainer(params: {
         pidsLimit: params.pidsLimit,
         labels: params.labels,
       }),
-      params.signal,
+      { signal: params.signal },
     );
     await waitForServiceReady(containerName, params.signal);
     return { containerName };

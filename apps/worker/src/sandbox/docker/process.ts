@@ -156,18 +156,6 @@ export function sanitizeId(value: string): string {
   return value.replaceAll(/[^a-zA-Z0-9_.-]/g, "_");
 }
 
-export function runDocker(
-  args: string[],
-  signal: AbortSignal,
-  options: { timeoutMs?: number; ignoreMissingResource?: boolean } = {},
-): Promise<void> {
-  return runDockerCommand(args, {
-    signal,
-    timeoutMs: options.timeoutMs ?? DOCKER_INSPECT_TIMEOUT_MS,
-    ...(options.ignoreMissingResource ? { ignoreMissingResource: true } : {}),
-  }).then(() => undefined);
-}
-
 export interface DockerRunResult {
   exitCode: number | null;
   stdout: string;
