@@ -3,11 +3,6 @@ import { getActorContext, hasActorUsername } from "$lib/server/auth";
 import { keys } from "@nojv/redis";
 import { contestDomain } from "@nojv/application";
 import { createSseResponse } from "$lib/server/shared/sse-response";
-import { z } from "zod";
-
-const sseEnvSchema = z.object({
-  REDIS_URL: z.url(),
-});
 
 export const GET: RequestHandler = async (event) => {
   const actor = getActorContext(event);
@@ -15,14 +10,8 @@ export const GET: RequestHandler = async (event) => {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const envResult = sseEnvSchema.safeParse(process.env);
-  if (!envResult.success) {
-    return new Response("SSE not configured", { status: 503 });
-  }
-
   const userId = actor.userId;
   const { contestId } = event.params;
-  const redisUrl = envResult.data.REDIS_URL;
 
   let detail;
   try {
@@ -42,7 +31,6 @@ export const GET: RequestHandler = async (event) => {
     channels: [keys.contestChannel(contestId)],
     slotType: "scoreboard",
     userId,
-    redisUrl,
     request: event.request,
   });
 };
