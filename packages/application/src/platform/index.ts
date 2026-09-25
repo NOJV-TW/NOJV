@@ -1,7 +1,11 @@
+import { setTimeout as sleep } from "node:timers/promises";
+
 import { submissionResultVerdicts } from "@nojv/core";
 import { problemRepo, submissionRepo, userRepo } from "@nojv/db";
 import { getRedis, keys } from "@nojv/redis";
 import { z } from "zod";
+
+import { startOfUtcDay, subUtcDays, utcDayKey } from "../shared/utc-day";
 
 const PLATFORM_OVERVIEW_CACHE_TTL_SECONDS = 300;
 const PLATFORM_OVERVIEW_LOCK_TTL_SECONDS = 5;
@@ -9,10 +13,6 @@ const PLATFORM_OVERVIEW_LOCK_POLL_ATTEMPTS = 5;
 const PLATFORM_OVERVIEW_LOCK_POLL_INTERVAL_MS = 80;
 const TREND_DAYS = 30;
 const HOT_PROBLEMS_LIMIT = 8;
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 const platformOverviewSchema = z.object({
   totals: z.object({
@@ -44,20 +44,6 @@ const platformOverviewSchema = z.object({
 });
 
 export type PlatformOverview = z.infer<typeof platformOverviewSchema>;
-
-function dayKey(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-function startOfDay(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-}
-
-function subDays(date: Date, days: number): Date {
-  const next = new Date(date);
-  next.setUTCDate(next.getUTCDate() - days);
-  return next;
-}
 
 function reviveCachedPlatformOverview(raw: string | null): PlatformOverview | null {
   if (!raw) return null;
@@ -106,8 +92,8 @@ export async function getPlatformOverview(): Promise<PlatformOverview> {
 }
 
 async function computePlatformOverview(): Promise<PlatformOverview> {
-  const today = startOfDay(new Date());
-  const from = subDays(today, TREND_DAYS - 1);
+  const today = startOfUtcDay(new Date());
+  const from = subUtcDays(today, TREND_DAYS - 1);
 
   const [users, publicProblems, rows] = await Promise.all([
     userRepo.countAll(),
@@ -117,7 +103,7 @@ async function computePlatformOverview(): Promise<PlatformOverview> {
 
   const dailyMap = new Map<string, { total: number; accepted: number; users: Set<string> }>();
   for (let i = 0; i < TREND_DAYS; i++) {
-    const day = dayKey(subDays(today, TREND_DAYS - 1 - i));
+    const day = utcDayKey(subUtcDays(today, TREND_DAYS - 1 - i));
     dailyMap.set(day, { total: 0, accepted: 0, users: new Set() });
   }
 
@@ -128,7 +114,7 @@ async function computePlatformOverview(): Promise<PlatformOverview> {
   for (const row of rows) {
     if (!(submissionResultVerdicts as readonly string[]).includes(row.status)) continue;
     const isAc = row.status === "accepted";
-    const bucket = dailyMap.get(dayKey(row.createdAt));
+    const bucket = dailyMap.get(utcDayKey(row.createdAt));
     if (bucket) {
       bucket.total += 1;
       if (isAc) bucket.accepted += 1;

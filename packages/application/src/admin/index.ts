@@ -12,6 +12,7 @@ import { getRedis, keys } from "@nojv/redis";
 import { z } from "zod";
 
 import { getDomainOrchestration } from "../shared/orchestration";
+import { startOfUtcDay, subUtcDays, utcDayKey } from "../shared/utc-day";
 
 export { getSystemHealth } from "./system-health";
 export type { HealthStatus, SystemHealthReport } from "./system-health";
@@ -47,22 +48,8 @@ async function dependencyAvailable(
   }
 }
 
-function dayKey(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
 function dayLabel(day: string): string {
   return day.slice(5);
-}
-
-function startOfDay(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-}
-
-function subDays(date: Date, days: number): Date {
-  const next = new Date(date);
-  next.setUTCDate(next.getUTCDate() - days);
-  return next;
 }
 
 function reviveCachedAdminDashboard(raw: string | null): AdminDashboard | null {
@@ -94,9 +81,9 @@ export async function getAdminDashboard(): Promise<AdminDashboard> {
 
 async function computeAdminDashboard() {
   const now = new Date();
-  const today = startOfDay(now);
-  const from14d = subDays(today, 13);
-  const from7d = subDays(today, 6);
+  const today = startOfUtcDay(now);
+  const from14d = subUtcDays(today, 13);
+  const from7d = subUtcDays(today, 6);
 
   const [
     totalUsers,
@@ -141,12 +128,12 @@ async function computeAdminDashboard() {
 
   const dailyMap = new Map<string, { total: number; accepted: number }>();
   for (let i = 0; i < 14; i++) {
-    const day = dayKey(subDays(today, 13 - i));
+    const day = utcDayKey(subUtcDays(today, 13 - i));
     dailyMap.set(day, { total: 0, accepted: 0 });
   }
 
   for (const sub of submissions14d) {
-    const day = dayKey(sub.createdAt);
+    const day = utcDayKey(sub.createdAt);
     const bucket = dailyMap.get(day);
     if (!bucket) continue;
     bucket.total += 1;
