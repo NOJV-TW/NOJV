@@ -1,41 +1,33 @@
 # @nojv/temporal
 
-> Temporal client、dispatch API、task queue 常數與 workflow input/output types。
+> Temporal client、workflow start/query helpers、task queue 常數，以及 `@nojv/application` orchestration port 的 adapter。
 
 ## 職責
 
-- 提供 Temporal client 單例（`getTemporalClient` / `closeTemporalClient`）
-- 提供 dispatch API：`dispatchSubmissionJudge`、`dispatchRejudge`、`dispatchPlagiarismCheck`，以及 assignment、exam、contest lifecycle、judge execution/cleanup 和 registry work 的 dispatch/query/reconciliation helpers
-- 定義 task queue 名稱（`JUDGE_TASK_QUEUE`、`PLATFORM_TASK_QUEUE`）
-- 定義 dispatch input/output 與 workflow signal types
+- Temporal client 單例與連線設定（`getTemporalClient`、`closeTemporalClient`、`temporalConnectionOptions`）
+- workflow 啟動、查詢、取消與 lifecycle timer reconciliation（`dispatch.ts`）
+- `buildDomainOrchestrationAdapter()`：web 與 worker 啟動時交給 `configureDomainOrchestration()`
+- **不含** workflow 定義與 activity 實作（在 `apps/worker/src/{workflows,activities}/`），也不 import `@nojv/application`；workflow input/output 型別在 `@nojv/core`
 
-**這個 package 故意 _沒_ 依賴 `@nojv/application` 或任何 workflow / activity 程式碼** —— 那是為了避免 `application → temporal → application` 的循環依賴。workflow 定義與 activity 實作都放在 `apps/worker/`，由 worker 啟動時 register 給 Temporal SDK。
+Workflow、queue 與 workflow ID 一覽見 [Architecture](../../docs/architecture/ARCHITECTURE.md#temporal-orchestration)。
 
 ## 主要入口
 
-- `src/index.ts` — 對外型別、task queue 常數、client 與 dispatch API
-- `src/client.ts` — Temporal client 連線單例
-- `src/dispatch.ts` — workflow dispatch / query helpers
-- `src/types.ts` — workflow input / output / signal types
-- `src/task-queues.ts` — task queue 名稱常數
-
-workflow 與 activity 程式：見 `apps/worker/src/workflows/`、`apps/worker/src/activities/`。
+- `src/index.ts` — 對外 API
+- `src/task-queues.ts` — `JUDGE_TASK_QUEUE`、`JUDGE_STATE_TASK_QUEUE`、`PLATFORM_TASK_QUEUE`
+- `src/dispatch.ts` — `dispatchJudgeExecution`、`dispatchJudgeCleanup`、`ensure/replace/cancel{ContestLifecycle,ExamAutoClose,AssignmentDueSoon}`、`dispatchPlagiarismCheck`、`dispatchRegistryGarbageCollect`、cron singleton `ensure*`，以及 legacy `dispatchSubmissionJudge` / `dispatchRejudge` / `queryRejudgeProgress` / `cancelRejudge`
+- `src/lifecycle-reconciliation.ts` — 以 `scheduleRevision` / `timerFingerprint` 決定 keep / terminate / start
+- `src/orchestration-adapter.ts` — `DomainOrchestrationAdapter` 實作（含 `probeTemporal`）
+- `src/client.ts`、`src/connection-config.ts` — `TEMPORAL_ADDRESS`、`TEMPORAL_NAMESPACE`、`TEMPORAL_API_KEY`、`TEMPORAL_TLS`、`TEMPORAL_CLIENT_CERT_PATH`、`TEMPORAL_CLIENT_KEY_PATH`、`TEMPORAL_SERVER_NAME`
 
 ## 依賴
 
 - 上游：`@nojv/core`、`@temporalio/client`
-- 下游：`@nojv/application`（dispatch helpers + types）、`apps/worker`（workflows + activities 自行 register）
+- 下游：`apps/web`（僅 `src/lib/server/domain-orchestration.ts`）、`apps/worker`
 
 ## 本地開發
 
 ```bash
-# 從 repo 根目錄
 pnpm -F @nojv/temporal build
 pnpm -F @nojv/temporal typecheck
 ```
-
-## 相關文件
-
-- [Judge Pipeline](../../docs/architecture/JUDGE_PIPELINE.md)
-- [Architecture Overview](../../docs/architecture/ARCHITECTURE.md)
-- [Reliability Invariants](../../docs/operations/RELIABILITY.md)

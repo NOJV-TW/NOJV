@@ -109,7 +109,7 @@ Redis is for pub/sub fan-out, cross-instance rate limits, locks and caches; Post
 
 **Decided:** 2026-06 · **Source:** [2026-06-10-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-10-audit-remediation.md), [2026-06-12-full-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-12-full-audit-remediation.md), [2026-09-24-codebase-clarity](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-09-24-codebase-clarity.md)
 
-`buildScoreboard` always computes from Postgres; freeze uses `Contest.frozenBoard`/`frozenAt`. Redis holds a short cache, a rebuild lease and a `scoreboard:update` nudge throttled to one per 10 s per contest; clients use SSE through a process-wide shared subscriber with a polling fallback. Cache leases use unique tokens released by atomic compare-and-delete.
+`getScoreboard`/`computeScoreboard` (`contest/scoring.ts`) always compute from Postgres; freeze uses `Contest.frozenBoard`/`frozenAt`. Redis holds a short cache, a rebuild lease and a `scoreboard:update` nudge throttled to one per 10 s per contest; clients use SSE through a process-wide shared subscriber with a polling fallback. Cache leases use unique tokens released by atomic compare-and-delete.
 
 - Rejected: a Redis ZSET scoreboard with RENAME freeze (write-only dead code, removed 2026-06); a per-submission 1 Hz Temporal-query stream (competed with judging for worker slots); unthrottled per-judge publishes.
 - Rule: do not add per-client Redis connections or Temporal polling for live updates.
@@ -120,7 +120,7 @@ Redis is for pub/sub fan-out, cross-instance rate limits, locks and caches; Post
 
 **Decided:** 2026-06 · **Source:** [2026-06-12-full-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-12-full-audit-remediation.md), [2026-07-24-auth-rate-limit-admin-mode](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-07-24-auth-rate-limit-admin-mode.md)
 
-Rate limiters use a dedicated ioredis connection with `enableOfflineQueue: false` and `maxRetriesPerRequest: 1`, so an unreachable Redis yields a quick 429 instead of a ~10 s hang. The first protected request awaits one shared lazy connection before consuming quota. ioredis queues rather than throws, so the documented fail-closed behavior previously never happened.
+Rate limiters use a dedicated ioredis connection with `enableOfflineQueue: false` and `maxRetriesPerRequest: 1`, so an unreachable Redis fails closed fast with 503 (`apiRateLimiter` alone falls back to an in-process limiter) instead of a ~10 s hang. The first protected request awaits one shared lazy connection before consuming quota. ioredis queues rather than throws, so the documented fail-closed behavior previously never happened.
 
 - Rule: Redis-backed limits and security proofs fail closed; never fail open on privileged paths.
 - Code: `packages/redis/src/connection.ts`, `apps/web/src/lib/server/shared/rate-limiter.ts`
