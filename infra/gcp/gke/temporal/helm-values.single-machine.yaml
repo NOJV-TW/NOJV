@@ -54,6 +54,17 @@ server:
     limits:
       cpu: 500m
       memory: 512Mi
+  # History holds workflow state; 1Gi was OOMKilled when 100 judge workflows
+  # started together (2026-09-26). Setting a service's resources replaces the
+  # whole block, so cpu is repeated.
+  history:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 1Gi
+      limits:
+        cpu: 500m
+        memory: 2Gi
 
 # Built-in single-pod Postgres/Cassandra/Elasticsearch/Prometheus/Grafana subcharts
 # were removed upstream (v1.0.0-rc.2). SQL visibility (above) needs no Elasticsearch.
