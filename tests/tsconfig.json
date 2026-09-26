@@ -13,6 +13,7 @@
       "@nojv/application": ["../packages/application/src/index.ts"],
       "@nojv/redis": ["../packages/redis/src/index.ts"],
       "@nojv/storage": ["../packages/storage/src/index.ts"],
+      "@aws-sdk/client-s3": ["../packages/storage/node_modules/@aws-sdk/client-s3"],
       "@nojv/mailer": ["../packages/mailer/src/index.ts"],
       "@nojv/temporal": ["../packages/temporal/src/index.ts"]
     }
@@ -56,6 +57,7 @@
     "integration/temporal/lifecycle-workflows.test.ts",
     "integration/judge/compile-once-run-case.test.ts",
     "integration/judge/interactive-isolation.test.ts",
+    "integration/storage/s3-conformance.test.ts",
     "integration/k8s/**/*.ts",
     "unit/application/**/*.ts",
     "unit/core/**/*.ts",

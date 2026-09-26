@@ -7,6 +7,7 @@ import { defineConfig } from "vitest/config";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const requireFromMailer = createRequire(path.join(__dirname, "packages/mailer/package.json"));
+const requireFromStorage = createRequire(path.join(__dirname, "packages/storage/package.json"));
 const requireFromWeb = createRequire(path.join(__dirname, "apps/web/package.json"));
 const requireFromWorker = createRequire(path.join(__dirname, "apps/worker/package.json"));
 const requireFromTemporal = createRequire(
@@ -16,6 +17,7 @@ const requireFromTemporal = createRequire(
 const sharedAliases = {
   $lib: path.resolve(__dirname, "apps/web/src/lib"),
   nodemailer: requireFromMailer.resolve("nodemailer"),
+  "@aws-sdk/client-s3": requireFromStorage.resolve("@aws-sdk/client-s3"),
   jose: requireFromWeb.resolve("jose"),
   echarts: requireFromWeb.resolve("echarts"),
   "sveltekit-superforms/server": requireFromWeb.resolve("sveltekit-superforms/server"),
@@ -161,6 +163,7 @@ export default defineConfig({
             "tests/integration/k8s/**/*.test.ts",
             "tests/integration/temporal/**/*.test.ts",
             "tests/integration/judge/**/*.test.ts",
+            "tests/integration/storage/**/*.test.ts",
           ],
           environment: "node",
           // Integration tests share a single Postgres + Redis. Running files
@@ -172,6 +175,17 @@ export default defineConfig({
           fileParallelism: false,
           globalSetup: ["tests/setup/global-setup.ts", "tests/setup/nojv-exec.ts"],
           setupFiles: ["tests/setup/integration-setup.ts"],
+        },
+      },
+      {
+        resolve: { alias: sharedAliases },
+        test: {
+          name: "storage-conformance",
+          include: ["tests/integration/storage/**/*.test.ts"],
+          environment: "node",
+          fileParallelism: false,
+          testTimeout: 120_000,
+          hookTimeout: 300_000,
         },
       },
       {
