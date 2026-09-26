@@ -177,6 +177,24 @@ Name of the existing runtime secret holding DATABASE_URL, REDIS_URL, S3 and GRAF
 {{- end }}
 
 {{/*
+Service name of the in-cluster object store selected by storage.active. The
+registry, its bucket hook and the off-host mirror follow it; S3_ENDPOINT in the
+runtime secret must name the same Service.
+*/}}
+{{- define "nojv.activeStoreService" -}}
+{{- if eq .Values.storage.active "minio" -}}
+{{- printf "%s-minio" (include "nojv.fullname" .) -}}
+{{- else if eq .Values.storage.active "objstore" -}}
+{{- if not .Values.storage.objectStore.enabled -}}
+{{- fail "storage.active=objstore requires storage.objectStore.enabled=true" -}}
+{{- end -}}
+{{- printf "%s-objstore" (include "nojv.fullname" .) -}}
+{{- else -}}
+{{- fail "storage.active must be minio or objstore" -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Name of the CloudNativePG Cluster CR.
 */}}
 {{- define "nojv.cnpgClusterName" -}}

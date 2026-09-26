@@ -79,6 +79,17 @@ Consequences for NOJV:
 
 **Chart PR 2:** render `objstore` alongside the untouched MinIO. The app still points at MinIO.
 
+Landed in [#PR](https://github.com/NOJV-TW/NOJV/pull/PR), with these differences from the Design section:
+
+- The values are **not** renamed yet. New keys: `storage.objectStore.{enabled,image,storageSize,storageClass.*,resources}` (enabled in the single-machine overlay), `storage.rclone.image` and `storage.minio.backup.destinationProvider` (default `Cloudflare`). The rename and the `storage.minio` guard move to the cut-over PR.
+- The PVC uses a new chart-created class `nojv-objstore-retain` (`Retain`, `keep`), not `nojv-minio-retain`: production mounts MinIO through `storage.minio.existingClaim`, which skips rendering `nojv-minio-retain`, so that class may not exist on the node, and a `Pending` PVC would stall the Flux release.
+- `storage.active` (`minio` | `objstore`, default `minio`) selects the store for the registry endpoint, the registry bucket hook and the mirror source. The MinIO registry hook keeps `mc` and renders only while `storage.active=minio`; `objstore.yaml` has its own `rclone mkdir` hook for `nojv` and `nojv-registry`.
+- The mirror is already `rclone copy --metadata` of both buckets from the active store into `<destinationBucket>/<bucket>/`, with `no_check_bucket` so a bucket-scoped R2 token works. It stays disabled in production until R2 is enabled.
+- CI gains the `storage-conformance` job (Versity profile, no secrets), required by `Verify Repository`.
+- Verified on a disposable k3d cluster: the gateway runs under `RuntimeDefault` seccomp as UID 1000 with a read-only root, the bucket hook completes, and the conformance test passes 18/18 through the Service on local-path. The production node's xattr check is still open.
+
+The cut-over PR still has to: switch the registry hook to `rclone` and drop `mc`; rename `storage.minio.*` → `storage.objectStore.*` (with the private values Secret in the same release) and set `storage.active=objstore`; point `S3_ENDPOINT` at `nojv-objstore`; update compose, `.env.example`, browser-smoke and `tests/setup/playwright-environment.ts`; land OPS-19 and the OPS-10/PRB-05 wording; then remove the MinIO templates after the 14-day rollback window.
+
 **Cut-over (owner-run):**
 
 1. Inventory: `rclone size` of both buckets (object count and bytes) and `df` of the local-path volume. Free space must be at least the data size plus 5 GB.
