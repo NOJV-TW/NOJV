@@ -36,8 +36,8 @@ Work that is known, not done, and not covered by an in-flight plan. Remove an it
 
 ### High availability
 
-- Temporal runs one replica on a single-instance Postgres on the single-machine target; GKE should run the official chart with at least two replicas per service (`infra/gcp/gke/temporal/HA-PRODUCTION.md`).
-- CNPG backups use the in-tree `barmanObjectStore`, which CNPG is deprecating in favor of the barman-cloud plugin.
+- Temporal on the single-machine target runs one pod per role on the single CNPG instance, so node or database loss pauses workflows. The GKE values (`infra/gcp/gke/temporal/helm-values.ha.yaml`) run two pods per role with a PDB but are not cluster-validated, and they are HA only on a regional Cloud SQL instance, which the repository neither provisions nor checks ([Temporal HA](../../infra/gcp/gke/temporal/HA-PRODUCTION.md)).
+- CNPG backups (`postgres-cnpg.yaml`) and the [Backup & Restore](../runbooks/backup-restore.md) recovery cluster use the in-tree `barmanObjectStore`, which CNPG has deprecated in favor of the Barman Cloud plugin; migrating needs the plugin installed next to the operator and an `ObjectStore` resource.
 
 ### Code and product
 
