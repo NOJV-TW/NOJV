@@ -14,3 +14,4 @@ export * from "./total-score";
 export * from "./fork";
 export * from "./images";
 export { summarizeTestcaseSets, hydrateWorkspaceFiles, hydrateValidatorScripts } from "./blobs";
+export * from "./edit-view";

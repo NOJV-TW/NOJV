@@ -5,11 +5,13 @@ const {
   scoreOverrideAuditListForContext,
   rejudgeListForSubmissionIds,
   submissionListIdsForContext,
+  userFindManyByIds,
 } = vi.hoisted(() => ({
   assessmentAuditListByAssessment: vi.fn(),
   scoreOverrideAuditListForContext: vi.fn(),
   rejudgeListForSubmissionIds: vi.fn(),
   submissionListIdsForContext: vi.fn(),
+  userFindManyByIds: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -17,11 +19,12 @@ vi.mock("@nojv/db", () => ({
   scoreOverrideAuditLogRepo: { listForContext: scoreOverrideAuditListForContext },
   submissionRejudgeLogRepo: { listForSubmissionIds: rejudgeListForSubmissionIds },
   submissionRepo: { listIdsForContext: submissionListIdsForContext },
+  userRepo: { findManyByIds: userFindManyByIds },
 }));
 
 import { auditDomain } from "@nojv/application";
 
-const { listAuditTimelineForContext } = auditDomain;
+const { getAuditTimelineView, listAuditTimelineForContext } = auditDomain;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -172,5 +175,40 @@ describe("listAuditTimelineForContext", () => {
     await listAuditTimelineForContext({ type: "contest", contestId: "c_empty" });
 
     expect(rejudgeListForSubmissionIds).toHaveBeenCalledWith([]);
+  });
+});
+
+describe("getAuditTimelineView", () => {
+  it("resolves each distinct actor name once alongside the timeline", async () => {
+    assessmentAuditListByAssessment.mockResolvedValue([
+      {
+        createdAt: new Date("2026-01-01T10:00:00Z"),
+        actorUserId: "usr_a",
+        action: "published",
+      },
+      { createdAt: new Date("2026-01-02T10:00:00Z"), actorUserId: "usr_a", action: "closed" },
+      { createdAt: new Date("2026-01-03T10:00:00Z"), actorUserId: null, action: "closed" },
+    ]);
+    scoreOverrideAuditListForContext.mockResolvedValue([]);
+    submissionListIdsForContext.mockResolvedValue([]);
+    rejudgeListForSubmissionIds.mockResolvedValue([]);
+    userFindManyByIds.mockResolvedValue([{ id: "usr_a", name: "Alice" }]);
+
+    const view = await getAuditTimelineView({ type: "assignment", assignmentId: "a_1" });
+
+    expect(view.auditEvents).toHaveLength(3);
+    expect(view.auditActorNames).toEqual({ usr_a: "Alice" });
+    expect(userFindManyByIds).toHaveBeenCalledExactlyOnceWith(["usr_a"]);
+  });
+
+  it("skips the name lookup when no event has an actor", async () => {
+    scoreOverrideAuditListForContext.mockResolvedValue([]);
+    submissionListIdsForContext.mockResolvedValue([]);
+    rejudgeListForSubmissionIds.mockResolvedValue([]);
+
+    const view = await getAuditTimelineView({ type: "exam", examId: "e_1" });
+
+    expect(view).toEqual({ auditEvents: [], auditActorNames: {} });
+    expect(userFindManyByIds).not.toHaveBeenCalled();
   });
 });

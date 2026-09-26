@@ -21,15 +21,16 @@ the same table. Targets are deliberately lenient alerting thresholds, not
 functional caps. Dashboards are at <https://takalawang.grafana.net>; metric
 sources, dashboards and provisioning are in [Observability Setup](../runbooks/observability-setup.md).
 
-| SLO                                                         | Target      | Window              | Measurement                                                                                                                                              |
-| ----------------------------------------------------------- | ----------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Judge latency (simple problem, ≤ 20 testcases)              | p95 < 15s   | Rolling 7 days      | `judge_latency_seconds{mode="standard"}`, `submission.createdAt` to verdict commit. [Judge Latency](https://takalawang.grafana.net/d/nojv-judge-latency) |
-| Judge latency (complex problem, > 20 testcases or advanced) | p95 < 60s   | Rolling 7 days      | `judge_latency_seconds{mode="advanced"}`; an Advanced image may need a higher per-problem ceiling                                                        |
-| API latency (all `/api/*` GET)                              | p99 < 500ms | Rolling 1 day       | `api_request_duration_seconds`; excludes SSE streams and health probes. [API Latency](https://takalawang.grafana.net/d/nojv-api-latency)                 |
-| SSE connection stability                                    | 99.5%       | Rolling 1 day       | `sse_connection_dropped_total` / closed connections. [Exam Proctoring](https://takalawang.grafana.net/d/nojv-exam-proctoring)                            |
-| Platform availability                                       | 99.5%       | Monthly             | Down = web, worker or sandbox tier fully unavailable; request-rate and 5xx panels on API Latency                                                         |
-| Scoreboard update latency                                   | p95 < 3s    | Contest in progress | Final AC commit to updated `getScoreboard` entry. No app code emits `scoreboard_update_latency_seconds`; its dashboard and alert have no data            |
-| Temporal workflow success rate (non-user errors)            | 99.9%       | Rolling 7 days      | Excludes `ValidationError` and expected user-facing failures; throughput panel on Judge Latency                                                          |
+| SLO                                                         | Target      | Window         | Measurement                                                                                                                                              |
+| ----------------------------------------------------------- | ----------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Judge latency (simple problem, ≤ 20 testcases)              | p95 < 15s   | Rolling 7 days | `judge_latency_seconds{mode="standard"}`, `submission.createdAt` to verdict commit. [Judge Latency](https://takalawang.grafana.net/d/nojv-judge-latency) |
+| Judge latency (complex problem, > 20 testcases or advanced) | p95 < 60s   | Rolling 7 days | `judge_latency_seconds{mode="advanced"}`; an Advanced image may need a higher per-problem ceiling                                                        |
+| API latency (all `/api/*` GET)                              | p99 < 500ms | Rolling 1 day  | `api_request_duration_seconds`; excludes SSE streams and health probes. [API Latency](https://takalawang.grafana.net/d/nojv-api-latency)                 |
+| SSE connection stability                                    | 99.5%       | Rolling 1 day  | `sse_connection_dropped_total` / closed connections. [Exam Proctoring](https://takalawang.grafana.net/d/nojv-exam-proctoring)                            |
+| Platform availability                                       | 99.5%       | Monthly        | Down = web, worker or sandbox tier fully unavailable; request-rate and 5xx panels on API Latency                                                         |
+| Temporal workflow success rate (non-user errors)            | 99.9%       | Rolling 7 days | Excludes `ValidationError` and expected user-facing failures; throughput panel on Judge Latency                                                          |
+
+Scoreboard freshness has no SLO: scoreboards are computed from PostgreSQL at read time behind a 10s cache, and the SSE nudge is throttled to one per 10s per contest (DAT-11), so staleness is bounded by design rather than measured. Verdict-to-persisted-score time is inside judge latency.
 
 Violation handling:
 
@@ -44,7 +45,6 @@ All rules live in `infra/grafana/alerts/slo-alerts.json` (labels `severity`, `te
 | --------------------------------------------- | -------- | --------------------------------------------------------------------------------------- |
 | `nojv-slo-judge-latency-simple` / `-advanced` | warning  | Judge p95 over 15s / 60s for 10m                                                        |
 | `nojv-slo-api-latency`                        | warning  | API p99 over 500ms for 10m                                                              |
-| `nojv-slo-scoreboard-latency`                 | warning  | Scoreboard p95 over 3s for 10m (no emitter; see above)                                  |
 | `nojv-slo-sse-stability`                      | warning  | Server-fault SSE drop rate over 0.5% for 15m                                            |
 | `nojv-slo-http-error-rate-critical`           | critical | 5xx share over 1% for 5m                                                                |
 | `nojv-submissions-stuck`                      | critical | Any stuck execution ([definition](#judge-recovery-monitoring))                          |

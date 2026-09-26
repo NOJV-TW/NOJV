@@ -11,21 +11,12 @@ import {
   readJsonBody,
 } from "$lib/server/shared/api-handler";
 import { submissionDomain } from "@nojv/application";
-
-const batchSchema = z.object({
-  problemId: z.string().min(1),
-  contestId: z.string().optional(),
-  assessmentId: z.string().optional(),
-  examId: z.string().optional(),
-  userIds: z.array(z.string()).optional(),
-  since: z.iso.datetime().optional(),
-  until: z.iso.datetime().optional(),
-});
+import { rejudgeBatchSchema } from "@nojv/core";
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
-  const body = batchSchema.parse(await readJsonBody(event));
+  const body = rejudgeBatchSchema.parse(await readJsonBody(event));
 
   const batchInput: Parameters<typeof submissionDomain.dispatchRejudge>[0] = {
     mode: "batch",
@@ -54,7 +45,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   } catch {
     return json({ message: "Invalid rejudge scope." }, { status: 400 });
   }
-  const scope = batchSchema
+  const scope = rejudgeBatchSchema
     .pick({ contestId: true, assessmentId: true, examId: true })
     .strict()
     .parse(rawScope);

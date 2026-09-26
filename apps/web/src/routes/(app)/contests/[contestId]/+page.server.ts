@@ -7,15 +7,7 @@ import {
   contestUpdateSchema,
   type ContestSettingsForm,
 } from "@nojv/core";
-import {
-  auditDomain,
-  clarificationDomain,
-  contestDomain,
-  plagiarismDomain,
-  problemDomain,
-  submissionDomain,
-  userDomain,
-} from "@nojv/application";
+import { contestDomain } from "@nojv/application";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth, getActorContext, hasActorUsername } from "$lib/server/auth";
@@ -27,167 +19,53 @@ import {
   serializePlagiarismReport,
 } from "$lib/server/shared/plagiarism-view";
 import { toDateTimeLocal, toIsoOrUndefined } from "$lib/server/shared/form-utils";
-import { buildContestResults, type ContestResults } from "$lib/server/results/contest";
 import type { FormMessage } from "$lib/types/form-message";
 
-const {
-  getContestDetail,
-  getScoreboard,
-  listContestParticipantsWithUser,
-  buildContestSubmissionsMatrix,
-  updateContestRecord,
-  publishContest,
-  deleteContestDraft,
-} = contestDomain;
+const { getContestPageView, updateContestRecord, publishContest, deleteContestDraft } =
+  contestDomain;
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   event.depends("submission:data");
   const { params, locals } = event;
-  const now = new Date();
-  const user = locals.user;
   const actor = getActorContext(event);
+  const completedActor = actor && hasActorUsername(actor) ? actor : null;
 
-  const contest = await getContestDetail(params.contestId, {
-    userId: user?.id ?? null,
-    platformRole: actor?.platformRole ?? null,
-    now,
+  const view = await getContestPageView({
+    contestId: params.contestId,
+    viewer: { userId: locals.user?.id ?? null, platformRole: actor?.platformRole ?? null },
+    actor: completedActor,
+    now: new Date(),
   });
+  const { contest } = view;
 
-  const showLeaderboard =
-    contest.visibility === "published" && now >= new Date(contest.startsAt);
-  const canSeeLive = await contestDomain.canViewLiveContestScoreboard(
-    contest.id,
-    user ? { userId: user.id, platformRole: actor?.platformRole ?? null } : null,
-  );
-  const topEntries = showLeaderboard
-    ? await getScoreboard(contest.id, { canSeeLive }).then((sb) =>
-        sb.entries.slice(0, 5).map((e) => ({
-          rank: e.rank,
-          username: e.username,
-          displayName: e.displayName,
-          totalScore: e.totalScore,
-          isMe: user?.id === e.userId,
-        })),
-      )
-    : [];
-
-  let results: ContestResults | null = null;
-  let recentSubmissions: Awaited<
-    ReturnType<typeof submissionDomain.listRecentContextSubmissions>
-  > = [];
-  let matrix: contestDomain.ContestSubmissionsMatrix | null = null;
-  let settingsForm: Awaited<
-    ReturnType<typeof superValidate<ContestSettingsForm, FormMessage>>
-  > | null = null;
-  let candidateProblems: problemDomain.ProblemPickerGroups = {
-    personalProblems: [],
-    publicProblems: [],
-  };
-
-  let plagiarism: Awaited<ReturnType<typeof plagiarismDomain.findPlagiarismReport>> = null;
-  let plagiarismFlags: Awaited<ReturnType<typeof plagiarismDomain.listFlagsForContext>> = [];
-
-  let auditEvents: auditDomain.AuditEvent[] = [];
-  let auditActorNames: Record<string, string> = {};
-
-  if (contest.isManager) {
-    const actor = getActorContext(event);
-    if (actor && hasActorUsername(actor)) {
-      const [participants, plagReport, plagFlags, audit, availableProblems, recent] =
-        await Promise.all([
-          listContestParticipantsWithUser(contest.id),
-          plagiarismDomain.findPlagiarismReport({ type: "contest", id: contest.id }),
-          plagiarismDomain.listFlagsForContext("contest", contest.id),
-          auditDomain.listAuditTimelineForContext({ type: "contest", contestId: contest.id }),
-          problemDomain.listProblemPickerGroups(actor.userId),
-          submissionDomain.listRecentContextSubmissions({
-            actor,
-            context: { type: "contest", id: contest.id },
-          }),
-        ]);
-      candidateProblems = availableProblems;
-      recentSubmissions = recent;
-      auditEvents = audit;
-      auditActorNames = await userDomain.listUserDisplayNames([
-        ...new Set(audit.flatMap((e) => (e.actorUserId ? [e.actorUserId] : []))),
-      ]);
-      matrix = await buildContestSubmissionsMatrix({
-        contestId: contest.id,
-        problems: contest.problems ?? [],
-        participants,
-      });
-      plagiarism = plagReport;
-      plagiarismFlags = plagFlags;
-      const scores = participants.map((p) => Number(p.score));
-
-      const totalPoints = (contest.problems ?? []).reduce((sum, p) => sum + p.points, 0);
-      const maxScore =
-        contest.scoringMode === "problem_count" ? (contest.problems ?? []).length : totalPoints;
-      results = buildContestResults(scores, maxScore);
-
-      settingsForm = await superValidate<ContestSettingsForm, FormMessage>(
-        {
-          title: contest.title,
-          summary: contest.summary,
-          startsAt: toDateTimeLocal(contest.startsAt),
-          endsAt: toDateTimeLocal(contest.endsAt),
-          frozenAt: toDateTimeLocal(contest.frozenAt),
-          problems: (contest.problems ?? []).map((p) => ({
-            problemId: p.id,
-            points: p.points,
-          })),
-          scoringMode: contest.scoringMode,
-          scoreboardMode: contest.scoreboardMode,
-          allowedLanguages: contest.allowedLanguages,
-          submitCooldownSec: contest.submitCooldownSec,
-          penaltyMinutesPerWrong: contest.penaltyMinutesPerWrong,
-        },
-        zod4(contestSettingsFormSchema),
-      );
-    }
-  }
-
-  let canAskClar = false;
-  let canAnswerClar = false;
-  let canViewClar = false;
-  if (actor && hasActorUsername(actor)) {
-    [canAskClar, canAnswerClar, canViewClar] = await Promise.all([
-      clarificationDomain.canAskClarification(actor, {
-        type: "contest",
-        contestId: contest.id,
-      }),
-      clarificationDomain.canAnswerInContext(actor, { type: "contest", contestId: contest.id }),
-      clarificationDomain.canViewClarifications(actor, {
-        type: "contest",
-        contestId: contest.id,
-      }),
-    ]);
-  }
-
-  let hasJoined = false;
-  if (actor && hasActorUsername(actor) && !contest.isManager) {
-    hasJoined =
-      (await contestDomain.findViewerContestParticipation(actor.userId, contest.id)) !== null;
-  }
+  const settingsForm =
+    contest.isManager && completedActor
+      ? await superValidate<ContestSettingsForm, FormMessage>(
+          {
+            title: contest.title,
+            summary: contest.summary,
+            startsAt: toDateTimeLocal(contest.startsAt),
+            endsAt: toDateTimeLocal(contest.endsAt),
+            frozenAt: toDateTimeLocal(contest.frozenAt),
+            problems: (contest.problems ?? []).map((p) => ({
+              problemId: p.id,
+              points: p.points,
+            })),
+            scoringMode: contest.scoringMode,
+            scoreboardMode: contest.scoreboardMode,
+            allowedLanguages: contest.allowedLanguages,
+            submitCooldownSec: contest.submitCooldownSec,
+            penaltyMinutesPerWrong: contest.penaltyMinutesPerWrong,
+          },
+          zod4(contestSettingsFormSchema),
+        )
+      : null;
 
   return {
-    contest: { ...contest, inviteCode: contest.isManager ? contest.inviteCode : null },
-    hasJoined,
-    topEntries,
-    results,
-    matrix,
-    recentSubmissions,
+    ...view,
     settingsForm,
-    candidateProblems,
-    plagiarism: serializePlagiarismReport(plagiarism),
-    plagiarismFlags: serializePlagiarismFlags(plagiarismFlags),
-    clarification: {
-      canAsk: canAskClar,
-      canAnswer: canAnswerClar,
-      canView: canViewClar,
-    },
-    auditEvents,
-    auditActorNames,
+    plagiarism: serializePlagiarismReport(view.plagiarism),
+    plagiarismFlags: serializePlagiarismFlags(view.plagiarismFlags),
   };
 });
 

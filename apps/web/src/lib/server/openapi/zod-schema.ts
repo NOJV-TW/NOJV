@@ -15,6 +15,9 @@ function stripSchemaKeyword(value: unknown): unknown {
   return result;
 }
 
-export function zodToOpenApiSchema(schema: ZodType): JsonSchema {
-  return stripSchemaKeyword(z.toJSONSchema(schema)) as JsonSchema;
+export function zodToOpenApiSchema(
+  schema: ZodType,
+  io: "input" | "output" = "output",
+): JsonSchema {
+  return stripSchemaKeyword(z.toJSONSchema(schema, { io })) as JsonSchema;
 }

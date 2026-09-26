@@ -1,10 +1,10 @@
 import { json } from "@sveltejs/kit";
-import { z } from "zod";
 
 import type { RequestHandler } from "./$types";
 
 import { requireApiAuth } from "$lib/server/auth";
 import { plagiarismDomain } from "@nojv/application";
+import { plagiarismFlagCreateSchema } from "@nojv/core";
 import {
   writeApiHandler,
   assertJsonBodyWithinLimit,
@@ -13,20 +13,11 @@ import {
 
 const { flagPair, buildPairKey } = plagiarismDomain;
 
-const flagBodySchema = z.object({
-  contextType: z.enum(["assessment", "exam", "contest"]),
-  contextId: z.string().min(1),
-  problemId: z.string().min(1),
-  userAId: z.string().min(1),
-  userBId: z.string().min(1),
-  note: z.string().max(2000).optional().nullable(),
-});
-
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
   const body = await readJsonBody(event);
-  const parsed = flagBodySchema.parse(body);
+  const parsed = plagiarismFlagCreateSchema.parse(body);
 
   const pairKey = buildPairKey(parsed.userAId, parsed.userBId, parsed.problemId);
 

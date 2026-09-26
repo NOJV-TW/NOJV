@@ -1,5 +1,4 @@
 import { json } from "@sveltejs/kit";
-import { z } from "zod";
 
 import type { RequestHandler } from "./$types";
 
@@ -11,6 +10,7 @@ import {
   readJsonBody,
 } from "$lib/server/shared/api-handler";
 import { notificationDomain } from "@nojv/application";
+import { notificationMarkAllReadSchema } from "@nojv/core";
 
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
@@ -25,14 +25,10 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   return json({ items, unreadCount });
 });
 
-const patchSchema = z.object({
-  action: z.literal("markAllRead"),
-});
-
 export const PATCH: RequestHandler = writeApiHandler(async (event) => {
   assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
-  patchSchema.parse(await readJsonBody(event));
+  notificationMarkAllReadSchema.parse(await readJsonBody(event));
   const updated = await notificationDomain.markAllAsRead(actor.userId);
   return json({ updated });
 });

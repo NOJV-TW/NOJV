@@ -9,18 +9,7 @@ import {
   parseIpWhitelistText,
   type ExamSettingsForm,
 } from "@nojv/core";
-import {
-  auditDomain,
-  clarificationDomain,
-  examDomain,
-  feedbackDomain,
-  listExamIpViolations,
-  plagiarismDomain,
-  courseDomain,
-  scoreOverrideDomain,
-  submissionDomain,
-  userDomain,
-} from "@nojv/application";
+import { examDomain } from "@nojv/application";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";
@@ -36,13 +25,7 @@ import { toDateTimeLocal, toIsoOrUndefined } from "$lib/server/shared/form-utils
 import { buildExamResults, type ExamResults } from "$lib/server/results/exam";
 import type { FormMessage } from "$lib/types/form-message";
 
-const {
-  deleteExamDraft,
-  getExamDetailPage,
-  buildExamSubmissionsMatrix,
-  publishExam,
-  updateExamRecord,
-} = examDomain;
+const { deleteExamDraft, getExamPageView, publishExam, updateExamRecord } = examDomain;
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   event.depends("submission:data");
@@ -52,87 +35,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const actor = requireAuth(event);
   const examId = event.params.examId;
 
-  const [
-    detail,
-    canSetOverride,
-    canAskClar,
-    canAnswerClar,
-    canViewClar,
-    plagiarism,
-    plagiarismFlags,
-    ipViolations,
-    activeSessions,
-    feedback,
-    auditEvents,
-    viewerSession,
-    submittedProblemIds,
-    recentSubmissions,
-    examCredentials,
-  ] = await Promise.all([
-    getExamDetailPage(examId, { viewerUserId: actor.userId, isManager }),
-    isManager
-      ? scoreOverrideDomain.canSetScoreOverride(actor, { type: "exam", examId })
-      : Promise.resolve(false),
-    clarificationDomain.canAskClarification(actor, { type: "exam", examId }),
-    clarificationDomain.canAnswerInContext(actor, { type: "exam", examId }),
-    clarificationDomain.canViewClarifications(actor, { type: "exam", examId }),
-    isManager
-      ? plagiarismDomain.findPlagiarismReport({ type: "exam", id: examId })
-      : Promise.resolve(null),
-    isManager ? plagiarismDomain.listFlagsForContext("exam", examId) : Promise.resolve([]),
-    isManager ? listExamIpViolations({ examId }) : Promise.resolve([]),
-    isManager ? examDomain.session.listActiveSessions(examId) : Promise.resolve([]),
-    isManager
-      ? Promise.resolve([])
-      : feedbackDomain.getFeedbackForStudent(actor.userId, { type: "exam", examId }),
-    isManager
-      ? auditDomain.listAuditTimelineForContext({ type: "exam", examId })
-      : Promise.resolve([] as auditDomain.AuditEvent[]),
-    isManager
-      ? Promise.resolve(null)
-      : examDomain.session.getSessionState(actor.userId, examId),
-    isManager
-      ? Promise.resolve([])
-      : examDomain.session.listSubmittedProblemIds(actor.userId, examId),
-    isManager
-      ? submissionDomain.listRecentContextSubmissions({
-          actor,
-          context: { type: "exam", id: examId },
-        })
-      : Promise.resolve([]),
-    isManager ? examDomain.credentials.list(actor, examId) : Promise.resolve([]),
-  ]);
-
-  const candidateProblems =
-    isManager && detail
-      ? await courseDomain.listCourseProblemPickerGroups(
-          actor,
-          detail.courseId,
-          detail.problems.map((problem) => problem.id),
-        )
-      : { personalProblems: [], publicProblems: [] };
-
-  const auditActorNames = isManager
-    ? await userDomain.listUserDisplayNames([
-        ...new Set(auditEvents.flatMap((e) => (e.actorUserId ? [e.actorUserId] : []))),
-      ])
-    : {};
-
-  const matrix =
-    isManager && detail
-      ? await buildExamSubmissionsMatrix({
-          examId,
-          courseId: detail.courseId,
-          totalPoints: detail.totalPoints,
-          endsAt: new Date(detail.endsAt),
-          problems: detail.problems.map((p) => ({
-            problemId: p.id,
-            ordinal: p.ordinal,
-            title: p.title,
-            points: p.points,
-          })),
-        })
-      : null;
+  const view = await getExamPageView(actor, { examId, isManager });
+  const { detail, matrix } = view;
 
   const results: ExamResults | null = matrix ? buildExamResults(matrix, actor.userId) : null;
 
@@ -167,44 +71,16 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
         )
       : null;
 
-  const hasActiveSession = viewerSession?.hasActiveSession ?? false;
-
   return {
+    ...view,
     detail,
-    hasActiveSession,
-    hasSubmitted: viewerSession?.hasSubmitted ?? false,
-    submittedProblemIds,
-    matrix,
     isManager,
-    activeSessions,
-    activeSessionCount: activeSessions.length,
-    canSetOverride,
+    activeSessionCount: view.activeSessions.length,
     courseId: examHeader.courseId,
     settingsForm,
     results,
-    plagiarism: serializePlagiarismReport(plagiarism),
-    plagiarismFlags: serializePlagiarismFlags(plagiarismFlags),
-    clarification: {
-      canAsk: canAskClar,
-      canAnswer: canAnswerClar,
-      canView: canViewClar,
-    },
-    ipViolations: ipViolations.map((v) => ({
-      id: v.id,
-      userId: v.userId,
-      handle: v.user.displayUsername ?? v.user.email,
-      displayName: v.user.name,
-      violationType: v.violationType,
-      expectedIp: v.expectedIp,
-      actualIp: v.actualIp,
-      createdAt: v.createdAt.toISOString(),
-    })),
-    feedback: feedback.map((f) => ({ problemId: f.problemId, comment: f.comment })),
-    auditEvents,
-    auditActorNames,
-    candidateProblems,
-    recentSubmissions,
-    examCredentials,
+    plagiarism: serializePlagiarismReport(view.plagiarism),
+    plagiarismFlags: serializePlagiarismFlags(view.plagiarismFlags),
   };
 });
 

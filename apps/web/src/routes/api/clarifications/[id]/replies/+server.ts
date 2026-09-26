@@ -1,6 +1,5 @@
 import { json } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
-import { z } from "zod";
 
 import type { RequestHandler } from "./$types";
 
@@ -11,6 +10,7 @@ import {
   readJsonBody,
 } from "$lib/server/shared/api-handler";
 import { clarificationDomain, HttpError } from "@nojv/application";
+import { clarificationCannedReplySchema } from "@nojv/core";
 
 const CANNED_TEMPLATES = {
   noComment: "No comment.",
@@ -18,10 +18,6 @@ const CANNED_TEMPLATES = {
   yes: "Yes.",
   no: "No.",
 } as const;
-
-const cannedSchema = z.object({
-  templateKey: z.enum(["noComment", "readProblem", "yes", "no"]),
-});
 
 function requireId(event: RequestEvent): string {
   const id = event.params.id;
@@ -33,7 +29,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
   const id = requireId(event);
-  const body = cannedSchema.parse(await readJsonBody(event));
+  const body = clarificationCannedReplySchema.parse(await readJsonBody(event));
 
   const answerText = CANNED_TEMPLATES[body.templateKey];
   const updated = await clarificationDomain.answer(actor, id, { answerText, isPublic: true });

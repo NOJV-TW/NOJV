@@ -8,3 +8,4 @@ export * from "./problem-view";
 export * from "./submissions-matrix";
 export * as session from "./session";
 export * as credentials from "./credentials";
+export * from "./page-view";
