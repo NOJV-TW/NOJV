@@ -6,12 +6,26 @@ import { createLogger } from "../../logger";
 const logger = createLogger("judge-resources");
 
 const meter = metrics.getMeter("nojv-judge");
-const duration = meter.createHistogram("judge_phase_duration_seconds", { unit: "s" });
+const PHASE_SECONDS = [0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 20, 30, 60, 120, 300];
+const MEMORY_BYTES = [16, 32, 64, 128, 256, 512, 1024, 2048].map((mib) => mib * 1024 * 1024);
+const duration = meter.createHistogram("judge_phase_duration_seconds", {
+  unit: "s",
+  advice: { explicitBucketBoundaries: PHASE_SECONDS },
+});
 const cleanupFailures = meter.createCounter("judge_cleanup_pending_total");
 const wallClockTimeouts = meter.createCounter("judge_wall_clock_timeouts_total");
-const cpu = meter.createHistogram("judge_cpu_seconds", { unit: "s" });
-const throttled = meter.createHistogram("judge_cpu_throttled_seconds", { unit: "s" });
-const peakMemory = meter.createHistogram("judge_memory_peak_bytes", { unit: "By" });
+const cpu = meter.createHistogram("judge_cpu_seconds", {
+  unit: "s",
+  advice: { explicitBucketBoundaries: PHASE_SECONDS },
+});
+const throttled = meter.createHistogram("judge_cpu_throttled_seconds", {
+  unit: "s",
+  advice: { explicitBucketBoundaries: PHASE_SECONDS },
+});
+const peakMemory = meter.createHistogram("judge_memory_peak_bytes", {
+  unit: "By",
+  advice: { explicitBucketBoundaries: MEMORY_BYTES },
+});
 
 export type JudgePhase =
   | "queue"

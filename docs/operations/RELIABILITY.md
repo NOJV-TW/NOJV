@@ -44,13 +44,13 @@ All rules live in `infra/grafana/alerts/slo-alerts.json` (labels `severity`, `te
 | Rule                                          | Severity | Fires when                                                                              |
 | --------------------------------------------- | -------- | --------------------------------------------------------------------------------------- |
 | `nojv-slo-judge-latency-simple` / `-advanced` | warning  | Judge p95 over 15s / 60s for 10m                                                        |
-| `nojv-slo-api-latency`                        | warning  | API p99 over 500ms for 10m                                                              |
-| `nojv-slo-sse-stability`                      | warning  | Server-fault SSE drop rate over 0.5% for 15m                                            |
+| `nojv-slo-api-latency`                        | warning  | `/api/*` GET p99 over 500ms for 10m (page and stream routes excluded)                   |
+| `nojv-slo-sse-stability`                      | warning  | Server-fault SSE drop rate over 0.5% for 15m (a client disconnect is `client_abort`)    |
 | `nojv-slo-http-error-rate-critical`           | critical | 5xx share over 1% for 5m                                                                |
 | `nojv-submissions-stuck`                      | critical | Any stuck execution ([definition](#judge-recovery-monitoring))                          |
 | `nojv-judge-queue-age`                        | warning  | Oldest queued/waiting/recovering execution over 10 minutes                              |
 | `nojv-judge-recovery-blocked`                 | critical | Any execution in `blocked`                                                              |
-| `nojv-judge-legacy-system-errors`             | warning  | Any SE submission without an execution journal                                          |
+| `nojv-judge-legacy-system-errors`             | warning  | Any SE submission without an execution journal, except superseded reference solutions   |
 | `nojv-judge-recovery-observer-stale`          | critical | Last successful recovery snapshot older than 3 minutes, or absent                       |
 | `nojv-judge-cleanup-pending`                  | critical | Any `judge_cleanup_pending_total` increase                                              |
 | `nojv-judge-wall-clock-timeouts`              | warning  | More than two wall-clock TLEs with CPU under the limit in 10m                           |

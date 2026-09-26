@@ -21,7 +21,7 @@ describe("Judge recovery metrics (real SQL)", () => {
     expect(Math.abs(snapshot.observedAt - Date.now() / 1000)).toBeLessThan(10);
   });
 
-  it("detects queue backlog, expired execution progress and legacy SE without flagging a healthy long-running stage", async () => {
+  it("detects queue backlog, expired execution progress and legacy SE, ignoring superseded reference solutions, without flagging a healthy long-running stage", async () => {
     const teacher = await createTestUser({ platformRole: "teacher" });
     const user = await createTestUser();
     const problem = await createTestProblem({ authorId: teacher.id });
@@ -63,12 +63,35 @@ describe("Judge recovery metrics (real SQL)", () => {
       problemId: problem.id,
       status: "system_error",
     });
+    const supersededReference = await createTestSubmission({
+      userId: teacher.id,
+      problemId: problem.id,
+      status: "system_error",
+    });
+    await db.submission.update({
+      where: { id: supersededReference.id },
+      data: { isReferenceSolution: true },
+    });
+    const currentReferenceProblem = await createTestProblem({ authorId: teacher.id });
+    const currentReference = await createTestSubmission({
+      userId: teacher.id,
+      problemId: currentReferenceProblem.id,
+      status: "system_error",
+    });
+    await db.submission.update({
+      where: { id: currentReference.id },
+      data: { isReferenceSolution: true },
+    });
+    await db.problem.update({
+      where: { id: currentReferenceProblem.id },
+      data: { referenceSolutionSubmissionId: currentReference.id },
+    });
     const snapshot = await readJudgeRecoverySnapshot();
     expect(snapshot).toMatchObject({
       queueDepth: 1,
       blocked: 1,
       stalled: 2,
-      legacySystemErrors: 1,
+      legacySystemErrors: 2,
     });
     expect(snapshot.oldestQueueSeconds).toBeGreaterThanOrEqual(899);
     expect(snapshot.oldestQueueSeconds).toBeLessThan(920);
