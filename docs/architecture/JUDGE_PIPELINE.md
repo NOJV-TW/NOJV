@@ -119,8 +119,8 @@ Recovery is generation-guarded; at most one active judge workflow per submission
   cancellation cannot interrupt committed-result finalization.
 - Historical SE rows without a snapshot are blocked with
   `original_version_unavailable`; only a teacher rejudge selects a new version.
-- Legacy dispatch payloads without a pinned execution are retired by the sweeper
-  without starting a workflow.
+- The sweeper marks a stale in-flight submission that has no pinned execution as
+  SE; only a teacher rejudge selects a new version for it.
 
 ### Tracking
 
@@ -144,14 +144,11 @@ never full source, testcase or output bodies.
 Kubernetes Job deadlines are capped at 30 min; the 70-min budget also covers
 admission, transfer and cleanup.
 
-`submissionJudgeWorkflow` and `rejudgeWorkflow` stay registered only so existing
-histories replay and drain; no application or orchestration path starts them. An
-already running `rejudgeWorkflow` can still start `submissionJudgeWorkflow`
-children. Rejudge operations whose `submission.rejudge.dispatch` row lacks
-`prepared: true` still read progress from, and cancel through, their
-`rejudgeWorkflow`; the `submission.judge.dispatch` and pre-durable
-`submission.rejudge.dispatch` work handlers retire their rows without starting
-anything.
+A batch or single rejudge commits its pinned executions and a `prepared: true`
+`submission.rejudge.dispatch` row in one transaction; the row's handler only marks
+it succeeded, and progress and cancellation read the executions. Rows without
+`prepared: true` predate durable execution: they report their cached terminal
+progress and are otherwise not found.
 
 ## Queue priority and capacity
 

@@ -24,7 +24,6 @@ function unavailableOrchestration() {
     cancelAssignmentDueSoon: unavailable,
     cancelContestLifecycle: unavailable,
     cancelExamAutoClose: unavailable,
-    cancelRejudge: unavailable,
     describeSubmissionJudge: vi.fn(() => Promise.resolve(null)),
     dispatchPlagiarismCheck: unavailable,
     dispatchRegistryGarbageCollect: vi.fn(() =>
@@ -36,9 +35,6 @@ function unavailableOrchestration() {
     ensureContestLifecycle: unavailable,
     ensureExamAutoClose: unavailable,
     probeTemporal: unavailable,
-    queryRejudgeProgress: vi.fn(() =>
-      Promise.resolve({ status: "running" as const, completed: 0, total: 0 }),
-    ),
     replaceAssignmentDueSoon: unavailable,
     replaceContestLifecycle: unavailable,
     replaceExamAutoClose: unavailable,

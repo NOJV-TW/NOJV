@@ -7,11 +7,9 @@ import {
   submissionRejudgeLogRepo,
   submissionRepo,
   prismaAdapterClient as db,
-  runTransaction,
 } from "@nojv/db";
 
 import { reconcileJudgeExecutions } from "./judge-recovery";
-import { getDomainOrchestration } from "../shared/orchestration";
 import { toJsonValue } from "../shared/to-json-value";
 import { deriveSystemErrorVerdictSummary } from "./verdict-summary";
 
@@ -64,49 +62,21 @@ export async function sweepStaleSubmissions(): Promise<SweepStaleSubmissionsResu
         skipped += 1;
         continue;
       }
-      const submission = await submissionRepo.findById(id);
-      const workflowId =
-        submission?.activeJudgeRunId ??
-        openRejudgeLogs.find((log) => log.submissionId === id)?.rejudgeRunId ??
-        undefined;
-      const state = await getDomainOrchestration().describeSubmissionJudge(id, workflowId);
-      if (state?.running) {
-        skipped += 1;
-        continue;
-      }
-      const updated = await runTransaction(async (tx) => {
-        const updated = await tx.submission.updateMany({
-          where: {
-            id,
-            updatedAt: { lt: cutoff },
-            status: { in: ["pending_upload", "queued", "compiling", "running"] },
-          },
-          data: {
-            activeJudgeRunId: null,
-            status: "system_error",
-            verdictSummary: toJsonValue(
-              deriveSystemErrorVerdictSummary(
-                "Original judge version is unavailable for this legacy submission. A teacher rejudge is required to select a new version.",
-              ),
+      const updated = await db.submission.updateMany({
+        where: {
+          id,
+          updatedAt: { lt: cutoff },
+          status: { in: ["pending_upload", "queued", "compiling", "running"] },
+        },
+        data: {
+          activeJudgeRunId: null,
+          status: "system_error",
+          verdictSummary: toJsonValue(
+            deriveSystemErrorVerdictSummary(
+              "Original judge version is unavailable for this legacy submission. A teacher rejudge is required to select a new version.",
             ),
-          },
-        });
-        if (updated.count)
-          await tx.durableWork.updateMany({
-            where: {
-              kind: "submission.judge.dispatch",
-              dedupeKey: id,
-              status: { in: ["pending", "leased"] },
-            },
-            data: {
-              status: "cancelled",
-              leaseOwner: null,
-              leaseExpiresAt: null,
-              completedAt: new Date(),
-              lastError: "Original judge version is unavailable.",
-            },
-          });
-        return updated;
+          ),
+        },
       });
       killed += updated.count;
     } catch (error) {

@@ -15,7 +15,7 @@ Workflow、queue 與 workflow ID 一覽見 [Architecture](../../docs/architectur
 
 - `src/index.ts` — 對外 API
 - `src/task-queues.ts` — `JUDGE_TASK_QUEUE`、`JUDGE_STATE_TASK_QUEUE`、`PLATFORM_TASK_QUEUE`
-- `src/dispatch.ts` — `dispatchJudgeExecution`、`dispatchJudgeCleanup`、`ensure/replace/cancel{ContestLifecycle,ExamAutoClose,AssignmentDueSoon}`、`dispatchPlagiarismCheck`、`dispatchRegistryGarbageCollect`、cron singleton `ensure*`、judge workflow 的 `describeSubmissionJudge` / `terminateSubmissionJudge`，以及只服務既有 legacy `rejudgeWorkflow` 的 `queryRejudgeProgress` / `cancelRejudge`
+- `src/dispatch.ts` — `dispatchJudgeExecution`、`dispatchJudgeCleanup`、`ensure/replace/cancel{ContestLifecycle,ExamAutoClose,AssignmentDueSoon}`、`dispatchPlagiarismCheck`、`dispatchRegistryGarbageCollect`、cron singleton `ensure*`、judge workflow 的 `describeSubmissionJudge` / `terminateSubmissionJudge`
 - `src/lifecycle-reconciliation.ts` — 以 `scheduleRevision` / `timerFingerprint` 決定 keep / terminate / start
 - `src/orchestration-adapter.ts` — `DomainOrchestrationAdapter` 實作（含 `probeTemporal`）
 - `src/client.ts`、`src/connection-config.ts` — `TEMPORAL_ADDRESS`、`TEMPORAL_NAMESPACE`、`TEMPORAL_API_KEY`、`TEMPORAL_TLS`、`TEMPORAL_CLIENT_CERT_PATH`、`TEMPORAL_CLIENT_KEY_PATH`、`TEMPORAL_SERVER_NAME`

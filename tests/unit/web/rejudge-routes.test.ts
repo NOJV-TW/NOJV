@@ -5,9 +5,7 @@ const mocks = vi.hoisted(() => ({
   listRejudgeCandidates: vi.fn(),
   recordRejudgeProgress: vi.fn(),
   findByWorkflowId: vi.fn(),
-  cancelUnattempted: vi.fn(),
-  queryProgress: vi.fn(),
-  cancelWorkflow: vi.fn(),
+  findJudgeExecutions: vi.fn(),
   logError: vi.fn(),
   actor: { userId: "owner", platformRole: "teacher" },
 }));
@@ -19,8 +17,8 @@ vi.mock("@nojv/db", () => ({
     listRejudgeCandidates: mocks.listRejudgeCandidates,
     recordRejudgeProgress: mocks.recordRejudgeProgress,
     findByWorkflowId: mocks.findByWorkflowId,
-    cancelUnattempted: mocks.cancelUnattempted,
   },
+  prismaAdapterClient: { judgeExecution: { findMany: mocks.findJudgeExecutions } },
 }));
 vi.mock("$lib/server/auth", async () => ({
   HttpError: (await import("@nojv/application")).HttpError,
@@ -32,7 +30,7 @@ vi.mock("$lib/server/shared/rate-limiter", () => ({
   registryTokenRateLimiter: { consume: async () => "allowed" },
 }));
 
-import { configureDomainOrchestration, submissionDomain } from "@nojv/application";
+import { submissionDomain } from "@nojv/application";
 import { GET } from "../../../apps/web/src/routes/api/rejudges/[workflowId]/+server";
 import { POST } from "../../../apps/web/src/routes/api/rejudges/[workflowId]/cancel/+server";
 
@@ -46,16 +44,21 @@ function event(method = "GET", id = workflowId): RequestEvent {
     locals: { requestId: "test-rejudge", sessionUser: { id: "owner" } },
   } as unknown as RequestEvent;
 }
-function work(status = "succeeded", attempt = 1) {
+function work(options: { prepared?: boolean; result?: unknown } = {}) {
   return {
-    status,
-    attempt,
+    status: "succeeded",
+    attempt: 1,
     dedupeKey: workflowId,
+    result: options.result ?? null,
     payload: {
       workflowId,
+      ...(options.prepared === false ? {} : { prepared: true }),
       input: { mode: "batch", problemId: "p1", triggeredByUserId: "owner" },
     },
   };
+}
+function runs(...states: string[]) {
+  return states.map((state) => ({ state }));
 }
 
 beforeEach(() => {
@@ -63,69 +66,54 @@ beforeEach(() => {
   mocks.actor.userId = "owner";
   mocks.actor.platformRole = "teacher";
   mocks.findByWorkflowId.mockResolvedValue(work());
-  mocks.queryProgress.mockResolvedValue({ status: "running", completed: 0, total: 0 });
-  configureDomainOrchestration({
-    queryRejudgeProgress: mocks.queryProgress,
-    cancelRejudge: mocks.cancelWorkflow,
-  } as unknown as Parameters<typeof configureDomainOrchestration>[0]);
+  mocks.findJudgeExecutions.mockResolvedValue(runs("running"));
 });
 
 describe("rejudge state routes", () => {
   it("keeps target identity metadata inside the server", async () => {
-    mocks.queryProgress.mockResolvedValue({
-      status: "running",
-      completed: 0,
-      total: 1,
-      targets: [{ submissionId: "private-target", judgeGeneration: 4 }],
-    });
+    mocks.findByWorkflowId.mockResolvedValue(
+      work({
+        result: {
+          status: "completed",
+          completed: 1,
+          total: 1,
+          targets: [{ submissionId: "private-target", judgeGeneration: 4 }],
+        },
+      }),
+    );
     const response = await GET(event());
-    expect(await response.json()).toEqual({ status: "running", completed: 0, total: 1 });
+    expect(await response.json()).toEqual({ status: "completed", completed: 1, total: 1 });
   });
-  it("reads queued ownership before Temporal has accepted the dispatch", async () => {
-    mocks.findByWorkflowId.mockResolvedValue(work("pending", 0));
+
+  it.each([
+    [["queued", "queued"], { status: "queued", completed: 0, total: 2 }],
+    [["completed", "running"], { status: "running", completed: 1, total: 2 }],
+    [["completed", "completed"], { status: "completed", completed: 2, total: 2 }],
+    [["completed", "cancelled"], { status: "cancelled", completed: 1, total: 2 }],
+  ])("derives %j judge executions into the reported state", async (states, expected) => {
+    mocks.findJudgeExecutions.mockResolvedValue(runs(...states));
     const response = await GET(event());
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ status: "queued", completed: 0, total: 0 });
-    expect(mocks.queryProgress).not.toHaveBeenCalled();
+    expect(await response.json()).toEqual(expected);
   });
 
-  it("keeps leased dispatch queued when the workflow does not exist yet", async () => {
-    mocks.findByWorkflowId.mockResolvedValue(work("leased"));
-    mocks.queryProgress.mockResolvedValue(null);
-    expect(await (await GET(event())).json()).toEqual({
-      status: "queued",
-      completed: 0,
-      total: 0,
-    });
-  });
-
-  it.each(["running", "completed", "failed", "cancelled"])(
-    "reports the actual %s state",
-    async (status) => {
-      mocks.queryProgress.mockResolvedValue({ status, completed: 0, total: 0 });
-      const response = await GET(event());
-      expect(response.status).toBe(200);
-      expect(await response.json()).toEqual({ status, completed: 0, total: 0 });
-    },
-  );
-
-  it("reports exhausted dispatch as failed, never completed", async () => {
-    mocks.findByWorkflowId.mockResolvedValue(work("dead", 20));
-    mocks.queryProgress.mockResolvedValue(null);
-    expect(await (await GET(event())).json()).toEqual({
-      status: "failed",
-      completed: 0,
-      total: 0,
+  it("caches terminal progress once every judge execution has settled", async () => {
+    mocks.findJudgeExecutions.mockResolvedValue(runs("completed", "cancelled"));
+    await GET(event());
+    expect(mocks.recordRejudgeProgress).toHaveBeenCalledWith(workflowId, {
+      status: "cancelled",
+      completed: 1,
+      total: 2,
     });
   });
 
   it.each(["GET", "POST"])(
-    "rejects non-owners with 403 for %s before consulting Temporal",
+    "rejects non-owners with 403 for %s before reading judge executions",
     async (method) => {
       mocks.actor.userId = "other";
       const response = await (method === "GET" ? GET : POST)(event(method));
       expect(response.status).toBe(403);
-      expect(mocks.queryProgress).not.toHaveBeenCalled();
+      expect(mocks.findJudgeExecutions).not.toHaveBeenCalled();
     },
   );
 
@@ -142,19 +130,14 @@ describe("rejudge state routes", () => {
     expect((await GET(event("GET", `rejudge-${"x".repeat(256)}`))).status).toBe(404);
   });
 
-  it.each(["database", "temporal"])(
-    "returns 503 on %s failure without a success payload",
-    async (backend) => {
-      (backend === "database" ? mocks.findByWorkflowId : mocks.queryProgress).mockRejectedValue(
-        new Error("backend connection refused"),
-      );
-      const response = await GET(event());
-      expect(response.status).toBe(503);
-      expect(await response.json()).toMatchObject({
-        message: expect.stringContaining("retry"),
-      });
-    },
-  );
+  it("returns 503 on database failure without a success payload", async () => {
+    mocks.findByWorkflowId.mockRejectedValue(new Error("backend connection refused"));
+    const response = await GET(event());
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      message: expect.stringContaining("retry"),
+    });
+  });
 
   it("reports invalid persisted ownership data as a server error without leaking it", async () => {
     mocks.findByWorkflowId.mockResolvedValue({
@@ -172,52 +155,28 @@ describe("rejudge state routes", () => {
     );
   });
 
-  it("returns 404 for a dispatched workflow whose history is no longer available", async () => {
-    mocks.queryProgress.mockResolvedValue(null);
+  it("returns 404 for a legacy workflow without a cached terminal state", async () => {
+    mocks.findByWorkflowId.mockResolvedValue(work({ prepared: false }));
     expect((await GET(event())).status).toBe(404);
     expect((await POST(event("POST"))).status).toBe(404);
   });
 
   it.each(["completed", "failed", "cancelled"])(
-    "preserves an already %s state when cancellation is requested",
+    "preserves a legacy workflow's cached %s state when cancellation is requested",
     async (status) => {
-      mocks.queryProgress.mockResolvedValue({ status, completed: 2, total: 5 });
+      mocks.findByWorkflowId.mockResolvedValue(
+        work({ prepared: false, result: { status, completed: 2, total: 5 } }),
+      );
       const response = await POST(event("POST"));
       expect(response.status).toBe(200);
       expect(await response.json()).toEqual({ status });
-      expect(mocks.cancelWorkflow).not.toHaveBeenCalled();
     },
   );
-
-  it("atomically cancels only a dispatch that has never been attempted", async () => {
-    mocks.findByWorkflowId.mockResolvedValue(work("pending", 0));
-    mocks.cancelUnattempted.mockResolvedValue(true);
-    const response = await POST(event("POST"));
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ status: "cancelled" });
-    expect(mocks.cancelWorkflow).not.toHaveBeenCalled();
-  });
-
-  it("does not confirm cancellation when dispatch wins the queued cancellation race", async () => {
-    mocks.findByWorkflowId.mockResolvedValue(work("pending", 0));
-    mocks.cancelUnattempted.mockResolvedValue(false);
-    mocks.queryProgress.mockResolvedValue(null);
-    const response = await POST(event("POST"));
-    expect(response.status).toBe(503);
-    expect(mocks.cancelWorkflow).not.toHaveBeenCalled();
-  });
-
-  it("acknowledges a running cancellation request without confirming a terminal state", async () => {
-    const response = await POST(event("POST"));
-    expect(response.status).toBe(202);
-    expect(await response.json()).toEqual({ status: "requested" });
-    expect(mocks.cancelWorkflow).toHaveBeenCalledWith(workflowId);
-  });
 });
 
 describe("rejudge discovery", () => {
   it("finds queued requester batches with an exact context match", async () => {
-    const queued = work("pending", 0);
+    const queued = work();
     mocks.listRejudgeCandidates.mockResolvedValue([
       queued,
       {
@@ -230,22 +189,22 @@ describe("rejudge discovery", () => {
       },
     ]);
     mocks.findByWorkflowId.mockResolvedValue(queued);
+    mocks.findJudgeExecutions.mockResolvedValue(runs("queued"));
     expect(
       await submissionDomain.listActiveRejudges(
         mocks.actor as Parameters<typeof submissionDomain.listActiveRejudges>[0],
         { problemId: "p1", scope: {} },
       ),
-    ).toEqual({ items: [{ workflowId, status: "queued", completed: 0, total: 0 }] });
+    ).toEqual({ items: [{ workflowId, status: "queued", completed: 0, total: 1 }] });
     expect(mocks.listRejudgeCandidates).toHaveBeenCalledWith({
       problemId: "p1",
       requesterId: "owner",
     });
-    expect(mocks.queryProgress).not.toHaveBeenCalled();
   });
 
   it("omits terminal batches and allows administrators to discover all requesters", async () => {
     mocks.listRejudgeCandidates.mockResolvedValue([work()]);
-    mocks.queryProgress.mockResolvedValue({ status: "completed", completed: 10, total: 10 });
+    mocks.findJudgeExecutions.mockResolvedValue(runs("completed", "completed"));
     expect(
       await submissionDomain.listActiveRejudges(
         { userId: "admin", platformRole: "admin" },

@@ -1,11 +1,3 @@
-import type { SubmissionJudgeDraft } from "./schemas/submission";
-
-export interface SubmissionJudgeInput {
-  submissionId: string;
-  draft: SubmissionJudgeDraft;
-  forRejudge?: { triggeredByUserId: string | null; expectedJudgeGeneration?: number };
-}
-
 export type RejudgeInput =
   | {
       mode: "batch";

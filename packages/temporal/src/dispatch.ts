@@ -11,8 +11,6 @@ import type {
   LifecycleScheduleIdentity,
   PlagiarismCheckInput,
   RegistryGarbageCollectInput,
-  RejudgeProgress,
-  RejudgeTrackingProgress,
 } from "@nojv/core";
 
 import { getTemporalClient } from "./client";
@@ -326,52 +324,6 @@ function plagiarismWorkflowId(
   targetId: string,
 ): string {
   return `plagiarism-${targetType}-${targetId}`;
-}
-
-type RejudgeCounts = Pick<RejudgeTrackingProgress, "completed" | "total" | "targets">;
-
-export async function queryRejudgeProgress(
-  workflowId: string,
-): Promise<RejudgeTrackingProgress | null> {
-  const client = await getTemporalClient();
-  return client.connection.withDeadline(Date.now() + 5_000, async () => {
-    const handle = client.workflow.getHandle(workflowId);
-    let description;
-    try {
-      description = await handle.describe();
-    } catch (error) {
-      if (error instanceof WorkflowNotFoundError) return null;
-      throw error;
-    }
-
-    let status: RejudgeProgress["status"];
-    switch (description.status.name) {
-      case "RUNNING":
-        status = "running";
-        break;
-      case "COMPLETED":
-        status = "completed";
-        break;
-      case "CANCELLED":
-        status = "cancelled";
-        break;
-      case "FAILED":
-      case "TIMED_OUT":
-      case "TERMINATED":
-        status = "failed";
-        break;
-      default:
-        throw new Error(`Unexpected rejudge workflow status: ${description.status.name}`);
-    }
-    const progress = await handle.query<RejudgeCounts>("getProgress");
-    return { ...progress, status };
-  });
-}
-
-export async function cancelRejudge(workflowId: string): Promise<void> {
-  const client = await getTemporalClient();
-  const handle = client.workflow.getHandle(workflowId);
-  await client.connection.withDeadline(Date.now() + 5_000, () => handle.cancel());
 }
 
 export async function dispatchJudgeExecution(input: {

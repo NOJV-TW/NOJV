@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { submissionRejudgeLogRepo, submissionRepo } from "@nojv/db";
+import { runTransaction, submissionRejudgeLogRepo, submissionRepo } from "@nojv/db";
 import { ForbiddenError, submissionDomain } from "@nojv/application";
 
 import {
@@ -9,6 +9,10 @@ import {
   createTestSubmission,
   createTestUser,
 } from "../../fixtures/factories";
+
+beforeEach(() => {
+  vi.stubEnv("SANDBOX_IMAGE", "sandbox@sha256:" + "a".repeat(64));
+});
 
 describe("rejudge — single-submission domain round trip (real DB)", () => {
   it("writes a SubmissionRejudgeLog capturing old and new verdict/score", async () => {
@@ -23,15 +27,20 @@ describe("rejudge — single-submission domain round trip (real DB)", () => {
       score: 30,
     });
 
-    const judgeRunId = `run-${submission.id}`;
-    const snap = await submissionDomain.snapshotForRejudge(
-      submission.id,
-      teacher.id,
-      judgeRunId,
+    const pinned = await submissionDomain.prepareJudgeSnapshot(submission.id, {
+      problemId: problem.id,
+      language: submission.language,
+      sampleOnly: false,
+    });
+    const execution = await runTransaction((tx) =>
+      submissionDomain.createJudgeExecution(tx, {
+        submissionId: submission.id,
+        ...pinned,
+        triggeredByUserId: teacher.id,
+      }),
     );
-    expect(snap).not.toBeNull();
 
-    await submissionDomain.completeJudge(submission.id, judgeRunId, {
+    await submissionDomain.completeJudgeExecution(execution.id, execution.workflowId, {
       accepted: true,
       caseResults: [],
       feedback: "accepted",
@@ -39,13 +48,6 @@ describe("rejudge — single-submission domain round trip (real DB)", () => {
       score: 100,
       verdict: "accepted",
     });
-
-    await submissionDomain.finalizeRejudgeLog(
-      submission.id,
-      teacher.id,
-      snap!.logId,
-      judgeRunId,
-    );
 
     const logs = await submissionRejudgeLogRepo.listBySubmission(submission.id);
     expect(logs).toHaveLength(1);
@@ -55,57 +57,6 @@ describe("rejudge — single-submission domain round trip (real DB)", () => {
     expect(log.oldScore).toBe(30);
     expect(log.newVerdict).toBe("accepted");
     expect(log.newScore).toBe(100);
-  });
-
-  it("snapshotForRejudge is idempotent per run id — a retry reuses the first capture", async () => {
-    const teacher = await createTestUser({ platformRole: "teacher" });
-    const problem = await createTestProblem({ authorId: teacher.id });
-    const submission = await createTestSubmission({
-      problemId: problem.id,
-      status: "wrong_answer",
-      score: 30,
-    });
-
-    const first = await submissionDomain.snapshotForRejudge(
-      submission.id,
-      teacher.id,
-      "run-retry",
-    );
-    expect(first?.oldStatus).toBe("wrong_answer");
-
-    await submissionRepo.complete(submission.id, { status: "accepted", score: 100 });
-
-    const retry = await submissionDomain.snapshotForRejudge(
-      submission.id,
-      teacher.id,
-      "run-retry",
-    );
-
-    expect(retry!.logId).toBe(first!.logId);
-    expect(retry!.oldStatus).toBe("wrong_answer");
-
-    const logs = await submissionRejudgeLogRepo.listBySubmission(submission.id);
-    expect(logs).toHaveLength(1);
-    expect(logs[0]!.oldVerdict).toBe("wrong_answer");
-    expect(logs[0]!.oldScore).toBe(30);
-  });
-
-  it("starts automatic recovery only while the locked SE generation still matches", async () => {
-    const submission = await createTestSubmission({ status: "system_error" });
-
-    await expect(
-      submissionDomain.snapshotForRejudge(submission.id, null, "stale-recovery", 1),
-    ).resolves.toBeNull();
-    await expect(
-      submissionDomain.snapshotForRejudge(submission.id, null, "current-recovery", 0),
-    ).resolves.toMatchObject({ oldStatus: "system_error" });
-
-    const updated = await submissionRepo.findById(submission.id);
-    expect(updated).toMatchObject({
-      activeJudgeRunId: "current-recovery",
-      judgeGeneration: 1,
-      status: "running",
-    });
   });
 
   it("rejects rejudge when actor lacks operate permission", async () => {

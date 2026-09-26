@@ -89,7 +89,6 @@ beforeEach(() => {
     cancelAssignmentDueSoon: vi.fn(() => Promise.resolve()),
     cancelContestLifecycle,
     cancelExamAutoClose: vi.fn(() => Promise.resolve()),
-    cancelRejudge: vi.fn(() => Promise.resolve()),
     describeSubmissionJudge: vi.fn(() => Promise.resolve(null)),
     dispatchPlagiarismCheck: vi.fn(() => Promise.resolve()),
     dispatchRegistryGarbageCollect: vi.fn(() =>
@@ -104,9 +103,6 @@ beforeEach(() => {
     ensureContestLifecycle,
     ensureExamAutoClose: vi.fn(() => Promise.resolve()),
     probeTemporal: vi.fn(() => Promise.resolve()),
-    queryRejudgeProgress: vi.fn(() =>
-      Promise.resolve({ status: "running" as const, completed: 0, total: 0 }),
-    ),
     replaceAssignmentDueSoon: vi.fn(() => Promise.resolve()),
     replaceContestLifecycle,
     replaceExamAutoClose: vi.fn(() => Promise.resolve()),

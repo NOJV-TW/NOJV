@@ -56,7 +56,14 @@ async function completeJudge(
   result: SubmissionResult,
   judgeRunId = `judge-${submissionId}`,
 ) {
-  await submissionDomain.startSubmissionJudgeRun(submissionId, judgeRunId);
+  await testPrisma.submission.update({
+    where: { id: submissionId },
+    data: {
+      activeJudgeRunId: judgeRunId,
+      judgeGeneration: { increment: 1 },
+      status: "running",
+    },
+  });
   return submissionDomain.completeJudge(submissionId, judgeRunId, result);
 }
 
@@ -234,8 +241,6 @@ describe("submit → judge → score-persist end-to-end (real DB)", () => {
       ),
     ).toBe(0);
 
-    const rejudgeRunId = `rejudge-${submission.id}`;
-    await submissionDomain.snapshotForRejudge(submission.id, teacher.id, rejudgeRunId);
     await completeJudge(
       submission.id,
       {
@@ -246,7 +251,7 @@ describe("submit → judge → score-persist end-to-end (real DB)", () => {
         score: 100,
         verdict: "accepted",
       },
-      rejudgeRunId,
+      `rejudge-${submission.id}`,
     );
     await contestDomain.updateContestScores(contest.id, student.id);
 

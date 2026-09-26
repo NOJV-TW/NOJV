@@ -3,7 +3,6 @@ import {
   cancelAssignmentDueSoon,
   cancelContestLifecycle,
   cancelExamAutoClose,
-  cancelRejudge,
   describeSubmissionJudge,
   dispatchJudgeExecution,
   dispatchJudgeCleanup,
@@ -12,7 +11,6 @@ import {
   ensureAssignmentDueSoon,
   ensureContestLifecycle,
   ensureExamAutoClose,
-  queryRejudgeProgress,
   replaceAssignmentDueSoon,
   replaceContestLifecycle,
   replaceExamAutoClose,
@@ -24,7 +22,6 @@ export function buildDomainOrchestrationAdapter() {
     cancelAssignmentDueSoon,
     cancelContestLifecycle,
     cancelExamAutoClose,
-    cancelRejudge,
     describeSubmissionJudge,
     dispatchJudgeExecution,
     dispatchJudgeCleanup,
@@ -37,7 +34,6 @@ export function buildDomainOrchestrationAdapter() {
       const client = await getTemporalClient();
       await client.connection.workflowService.getSystemInfo({});
     },
-    queryRejudgeProgress,
     replaceAssignmentDueSoon,
     replaceContestLifecycle,
     replaceExamAutoClose,

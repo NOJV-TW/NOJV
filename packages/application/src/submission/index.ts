@@ -20,9 +20,7 @@ export {
   deriveJudgeMode,
   findOneForRejudge,
   getJudgeContext,
-  getJudgeDispatchMeta,
   listForRejudge,
-  type JudgeDispatchMeta,
 } from "./judge-context";
 export type { SubmissionSource } from "@nojv/storage";
 export {
@@ -30,14 +28,7 @@ export {
   submitAndDispatch,
   type ActorContext as SubmissionActorContext,
 } from "./creation";
-export {
-  completeJudge,
-  failSubmissionJudgeRun,
-  finalizeRejudgeLog,
-  restoreSubmissionAfterCancelledRejudge,
-  snapshotForRejudge,
-  startSubmissionJudgeRun,
-} from "./judge-lifecycle";
+export { completeJudge } from "./judge-lifecycle";
 export { deriveSystemErrorVerdictSummary, deriveVerdictSummary } from "./verdict-summary";
 export type {
   AdjustmentContext,
@@ -72,12 +63,10 @@ export {
   cancelRejudge,
   dispatchRejudge,
   executeRejudgeDispatch,
-  executeSubmissionJudgeDispatch,
   queryRejudgeProgress,
   listActiveRejudges,
   recoverSystemErrorSubmissions,
   REJUDGE_DISPATCH_WORK_KIND,
-  SUBMISSION_JUDGE_DISPATCH_WORK_KIND,
 } from "./rejudge-control";
 
 export * from "./judge-execution";

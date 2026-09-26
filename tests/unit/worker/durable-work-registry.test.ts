@@ -6,7 +6,6 @@ const mocks = vi.hoisted(() => ({
   deliverNotificationEmail: vi.fn(),
   deliverExamCredentialEmail: vi.fn(),
   executeRejudgeDispatch: vi.fn(),
-  executeSubmissionJudgeDispatch: vi.fn(),
   executeLifecycleCancellation: vi.fn(),
   publishNotificationSse: vi.fn(),
   publishScoreboardUpdate: vi.fn(),
@@ -40,9 +39,7 @@ vi.mock("@nojv/application", async (importOriginal) => {
     STORAGE_OBJECT_CLEANUP_KIND: "storage.object.cleanup",
     submissionDomain: {
       REJUDGE_DISPATCH_WORK_KIND: "submission.rejudge.dispatch",
-      SUBMISSION_JUDGE_DISPATCH_WORK_KIND: "submission.judge.dispatch",
       executeRejudgeDispatch: mocks.executeRejudgeDispatch,
-      executeSubmissionJudgeDispatch: mocks.executeSubmissionJudgeDispatch,
     },
   };
 });

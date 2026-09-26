@@ -66,10 +66,6 @@ export const durableWorkHandlers = Object.freeze({
     await cleanupUnreferencedStorageObject(payload);
     return { outcome: "deleted_or_still_referenced" };
   },
-  [submissionDomain.SUBMISSION_JUDGE_DISPATCH_WORK_KIND]: async (payload: unknown) => {
-    await submissionDomain.executeSubmissionJudgeDispatch(payload);
-    return { outcome: "dispatched" };
-  },
   [submissionDomain.REJUDGE_DISPATCH_WORK_KIND]: async (payload: unknown) => {
     await submissionDomain.executeRejudgeDispatch(payload);
     return { outcome: "dispatched" };

@@ -164,42 +164,6 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
   };
 }
 
-export type JudgeDispatchMeta = Pick<SubmissionJudgeContext, "problemType" | "advanced"> & {
-  userId: string;
-  createdAt: Date;
-};
-
-export async function getJudgeDispatchMeta(submissionId: string): Promise<JudgeDispatchMeta> {
-  const submission = await submissionRepo.findByIdForDispatchMeta(submissionId);
-  if (!submission) throw new NotFoundError(`Submission ${submissionId} not found`);
-
-  const { problem } = submission;
-  const advancedConfig = parsePersistedAdvancedConfig(problem.advancedConfig, problem.id);
-  if (problem.type === "special_env" && advancedConfig === null) {
-    throw new IntegrityError(
-      `Problem ${problem.id}: advancedConfig is required to judge a submission.`,
-    );
-  }
-  const advanced: AdvancedModeContext | null =
-    problem.type === "special_env" && advancedConfig !== null
-      ? {
-          config: advancedConfig,
-          requiredPaths: problem.advancedRequiredPaths,
-          resourceLimits: {
-            totalTimeMs: problem.timeLimitMs,
-            memoryMb: problem.memoryLimitMb,
-          },
-        }
-      : null;
-
-  return {
-    problemType: problem.type,
-    advanced,
-    userId: submission.userId,
-    createdAt: submission.createdAt,
-  };
-}
-
 const IN_FLIGHT_SUBMISSION_STATUSES = [
   "pending_upload",
   "queued",

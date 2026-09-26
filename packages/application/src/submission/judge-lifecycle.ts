@@ -1,16 +1,11 @@
-import type {
-  AdvancedJudgeVerificationSnapshot,
-  SubmissionOperationStatus,
-  SubmissionResult,
-} from "@nojv/core";
-import { Prisma, runTransaction, submissionRejudgeLogRepo, submissionRepo } from "@nojv/db";
+import type { AdvancedJudgeVerificationSnapshot, SubmissionResult } from "@nojv/core";
+import { Prisma, runTransaction, submissionRepo } from "@nojv/db";
 import {
   assertStorageObjectPointer,
   putImmutableObject,
   storagePointerFor,
   submissionVerdictDetailKey,
 } from "@nojv/storage";
-import { ConflictError, NotFoundError } from "../shared/errors";
 import { storage } from "../shared/storage-singleton";
 import { toJsonValue } from "../shared/to-json-value";
 import {
@@ -18,77 +13,7 @@ import {
   guardStorageObjectWrites,
 } from "../shared/storage-object-lifecycle";
 import type { CompletedSubmission } from "./types";
-import { deriveSystemErrorVerdictSummary, deriveVerdictSummary } from "./verdict-summary";
-
-type SubmissionStatus = SubmissionOperationStatus;
-
-export async function startSubmissionJudgeRun(
-  submissionId: string,
-  judgeRunId: string,
-): Promise<void> {
-  await runTransaction(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM "Submission" WHERE id = ${submissionId} FOR UPDATE`;
-    const submission = await tx.submission.findUnique({ where: { id: submissionId } });
-    if (!submission) throw new NotFoundError(`Submission ${submissionId} not found`);
-    if (submission.activeJudgeRunId === judgeRunId) return;
-    if (!["queued", "compiling", "running"].includes(submission.status)) {
-      throw new ConflictError("This submission cannot start a legacy judge run.");
-    }
-    if (submission.activeJudgeRunId !== null) {
-      throw new ConflictError(`Submission ${submissionId} already has an active judge run.`);
-    }
-    await tx.submission.update({
-      where: { id: submissionId },
-      data: {
-        activeJudgeRunId: judgeRunId,
-        judgeGeneration: { increment: 1 },
-        status: "running",
-      },
-    });
-  });
-}
-
-export async function failSubmissionJudgeRun(
-  submissionId: string,
-  judgeRunId: string,
-  reason: string,
-): Promise<boolean> {
-  return runTransaction(async (tx) => {
-    const { count } = await tx.submission.updateMany({
-      where: {
-        id: submissionId,
-        activeJudgeRunId: judgeRunId,
-        status: { in: ["queued", "compiling", "running"] },
-      },
-      data: {
-        activeJudgeRunId: null,
-        status: "system_error",
-        verdictSummary: toJsonValue(deriveSystemErrorVerdictSummary(reason)),
-      },
-    });
-    return count === 1;
-  });
-}
-
-export async function restoreSubmissionAfterCancelledRejudge(
-  submissionId: string,
-  judgeRunId: string,
-  oldStatus: string,
-): Promise<void> {
-  await runTransaction(async (tx) => {
-    await tx.submission.updateMany({
-      where: {
-        id: submissionId,
-        activeJudgeRunId: judgeRunId,
-        status: { in: ["queued", "running"] },
-      },
-      data: {
-        activeJudgeRunId: null,
-        status: oldStatus as SubmissionStatus,
-      },
-    });
-  });
-}
+import { deriveVerdictSummary } from "./verdict-summary";
 
 export async function completeJudge(
   submissionId: string,
@@ -181,76 +106,4 @@ export async function completeJudge(
     status: submission.status,
     userId: submission.userId,
   };
-}
-
-export async function snapshotForRejudge(
-  submissionId: string,
-  triggeredByUserId: string | null,
-  rejudgeRunId: string,
-  expectedJudgeGeneration: number | null = null,
-): Promise<{ logId: string; oldStatus: string } | null> {
-  return runTransaction(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM "Submission" WHERE id = ${submissionId} FOR UPDATE`;
-    const current = await tx.submission.findUnique({ where: { id: submissionId } });
-    if (!current) return null;
-    if (
-      expectedJudgeGeneration !== null &&
-      (current.status !== "system_error" || current.judgeGeneration !== expectedJudgeGeneration)
-    ) {
-      return null;
-    }
-    if (current.activeJudgeRunId !== null && current.activeJudgeRunId !== rejudgeRunId) {
-      throw new ConflictError(`Submission ${submissionId} already has an active judge run.`);
-    }
-    const row = await tx.submissionRejudgeLog.upsert({
-      where: {
-        submissionId_rejudgeRunId: { submissionId, rejudgeRunId },
-      },
-      create: {
-        submissionId,
-        rejudgedByUserId: triggeredByUserId,
-        rejudgeRunId,
-        oldVerdict: current.status,
-        oldScore: current.score,
-        oldResultJson:
-          current.verdictSummary === null
-            ? Prisma.JsonNull
-            : toJsonValue(current.verdictSummary),
-      },
-      update: {},
-    });
-    if (current.activeJudgeRunId === null) {
-      await tx.submission.update({
-        where: { id: submissionId },
-        data: {
-          activeJudgeRunId: rejudgeRunId,
-          judgeGeneration: { increment: 1 },
-          status: "running",
-        },
-      });
-    }
-    return { logId: row.id, oldStatus: row.oldVerdict };
-  });
-}
-
-export async function finalizeRejudgeLog(
-  submissionId: string,
-  _triggeredByUserId: string | null,
-  logId: string,
-  judgeRunId: string,
-): Promise<void> {
-  const updated = await submissionRepo.findById(submissionId);
-  if (!updated) return;
-  const log = await submissionRejudgeLogRepo.findById(logId);
-  if (log?.submissionId !== submissionId || log.rejudgeRunId !== judgeRunId) return;
-  const verdictPointer =
-    updated.verdictDetailStorage === null
-      ? null
-      : assertStorageObjectPointer(updated.verdictDetailStorage);
-  if (!verdictPointer?.key.includes(`/judge-runs/${judgeRunId}/`)) return;
-  await submissionRejudgeLogRepo.update(logId, {
-    newVerdict: updated.status,
-    newScore: updated.score,
-    newResultJson: updated.verdictSummary === null ? null : toJsonValue(updated.verdictSummary),
-  });
 }

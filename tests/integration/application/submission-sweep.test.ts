@@ -1,11 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { terminateSubmissionJudge, describeSubmissionJudge } = vi.hoisted(() => ({
+const { terminateSubmissionJudge } = vi.hoisted(() => ({
   terminateSubmissionJudge: vi.fn(),
-  describeSubmissionJudge: vi.fn(),
 }));
 
-import { durableWorkRepo, submissionRejudgeLogRepo, submissionRepo } from "@nojv/db";
+import { submissionRejudgeLogRepo, submissionRepo } from "@nojv/db";
 import { configureDomainOrchestration, submissionDomain } from "@nojv/application";
 
 import {
@@ -23,14 +22,11 @@ async function backdateUpdatedAt(submissionId: string, minutesAgo: number) {
 
 beforeEach(() => {
   terminateSubmissionJudge.mockReset();
-  describeSubmissionJudge.mockReset();
-  describeSubmissionJudge.mockResolvedValue(null);
   configureDomainOrchestration({
     cancelAssignmentDueSoon: vi.fn(async () => {}),
     cancelContestLifecycle: vi.fn(async () => {}),
     cancelExamAutoClose: vi.fn(async () => {}),
-    cancelRejudge: vi.fn(async () => {}),
-    describeSubmissionJudge,
+    describeSubmissionJudge: vi.fn(async () => null),
     dispatchPlagiarismCheck: vi.fn(async () => {}),
     dispatchRegistryGarbageCollect: vi.fn(async () => ({
       workflowId: "registry-gc",
@@ -42,11 +38,6 @@ beforeEach(() => {
     ensureContestLifecycle: vi.fn(async () => {}),
     ensureExamAutoClose: vi.fn(async () => {}),
     probeTemporal: vi.fn(async () => {}),
-    queryRejudgeProgress: vi.fn(async () => ({
-      status: "running" as const,
-      completed: 0,
-      total: 0,
-    })),
     replaceAssignmentDueSoon: vi.fn(async () => {}),
     replaceContestLifecycle: vi.fn(async () => {}),
     replaceExamAutoClose: vi.fn(async () => {}),
@@ -95,80 +86,6 @@ describe("attempt count excludes system_error (real DB)", () => {
 });
 
 describe("sweepStaleSubmissions (real DB)", () => {
-  it.each(["pending", "leased"] as const)(
-    "blocks late legacy dispatch after sweeping a %s initial outbox row",
-    async (dispatchState) => {
-      const stale = await createTestSubmission({ status: "queued" });
-      await backdateUpdatedAt(stale.id, 60);
-      const kind = submissionDomain.SUBMISSION_JUDGE_DISPATCH_WORK_KIND;
-      await durableWorkRepo.enqueue({
-        kind,
-        dedupeKey: stale.id,
-        maxAttempts: 20,
-        payload: {
-          submissionId: stale.id,
-          draft: { problemId: stale.problemId, language: stale.language, sampleOnly: false },
-        },
-      });
-      if (dispatchState === "leased") {
-        const claimed = await durableWorkRepo.claimBatch({
-          kinds: [kind],
-          owner: "delayed-dispatch-worker",
-          limit: 1,
-          now: new Date(),
-          leaseDurationMs: 60_000,
-        });
-        expect(claimed).toHaveLength(1);
-        expect(claimed[0]).toMatchObject({ status: "leased", dedupeKey: stale.id });
-      }
-      const delayed = await testPrisma.durableWork.findFirstOrThrow({
-        where: { kind, dedupeKey: stale.id },
-      });
-      expect(delayed.status).toBe(dispatchState);
-
-      const result = await submissionDomain.sweepStaleSubmissions();
-      expect(result.killed).toBe(1);
-      expect(result.failed).toBe(0);
-      expect(terminateSubmissionJudge).not.toHaveBeenCalled();
-      const blocked = await submissionRepo.findById(stale.id);
-      expect(blocked).toMatchObject({
-        status: "system_error",
-        activeJudgeRunId: null,
-        verdictSummary: {
-          systemErrorTruncated: expect.stringContaining(
-            "Original judge version is unavailable",
-          ),
-        },
-      });
-      await expect(
-        testPrisma.durableWork.findUniqueOrThrow({ where: { id: delayed.id } }),
-      ).resolves.toMatchObject({
-        status: "cancelled",
-        leaseOwner: null,
-        leaseExpiresAt: null,
-        attempt: dispatchState === "leased" ? 1 : 0,
-      });
-
-      await submissionDomain.executeSubmissionJudgeDispatch(delayed.payload);
-      await expect(
-        submissionDomain.startSubmissionJudgeRun(stale.id, "late-legacy-run"),
-      ).rejects.toThrow("cannot start a legacy judge run");
-      await expect(submissionRepo.findById(stale.id)).resolves.toEqual(blocked);
-      expect(await testPrisma.judgeExecution.count({ where: { submissionId: stale.id } })).toBe(
-        0,
-      );
-      await expect(
-        durableWorkRepo.claimBatch({
-          kinds: [kind],
-          owner: "another-dispatch-worker",
-          limit: 1,
-          now: new Date(),
-          leaseDurationMs: 60_000,
-        }),
-      ).resolves.toEqual([]);
-    },
-  );
-
   it("blocks stale legacy submissions and leaves fresh or terminal ones alone", async () => {
     const stale = await createTestSubmission({ status: "queued" });
     const fresh = await createTestSubmission({ status: "running" });
@@ -195,61 +112,6 @@ describe("sweepStaleSubmissions (real DB)", () => {
     expect(terminalRow?.status).toBe("accepted");
   });
 
-  it("skips a stale row whose judge workflow is still RUNNING (backlog, not a hang)", async () => {
-    describeSubmissionJudge.mockResolvedValue({ status: "RUNNING", running: true });
-    const stale = await createTestSubmission({ status: "running" });
-    await backdateUpdatedAt(stale.id, 60);
-
-    const result = await submissionDomain.sweepStaleSubmissions();
-
-    expect(terminateSubmissionJudge).not.toHaveBeenCalled();
-    expect(result.skipped).toBeGreaterThanOrEqual(1);
-    const row = await submissionRepo.findById(stale.id);
-    expect(row?.status).toBe("running");
-  });
-
-  it.each([
-    { activeOwner: null, logOwner: "old-log-child", expectedOwner: "old-log-child" },
-    {
-      activeOwner: "active-child",
-      logOwner: "superseded-log-child",
-      expectedOwner: "active-child",
-    },
-  ])(
-    "observes the actual healthy owner $expectedOwner before considering legacy recovery",
-    async ({ activeOwner, logOwner, expectedOwner }) => {
-      describeSubmissionJudge.mockResolvedValue({ status: "RUNNING", running: true });
-      const stale = await createTestSubmission({ status: "running" });
-      if (activeOwner)
-        await testPrisma.submission.update({
-          where: { id: stale.id },
-          data: { activeJudgeRunId: activeOwner },
-        });
-      const log = await submissionRejudgeLogRepo.create({
-        submissionId: stale.id,
-        rejudgedByUserId: null,
-        rejudgeRunId: logOwner,
-        oldVerdict: "accepted",
-        oldScore: 100,
-        oldResultJson: null,
-      });
-      await testPrisma.submissionRejudgeLog.update({
-        where: { id: log.id },
-        data: { createdAt: new Date(Date.now() - 60 * 60_000) },
-      });
-      await backdateUpdatedAt(stale.id, 60);
-
-      await submissionDomain.sweepStaleSubmissions();
-
-      expect(describeSubmissionJudge).toHaveBeenCalledExactlyOnceWith(stale.id, expectedOwner);
-      expect(terminateSubmissionJudge).not.toHaveBeenCalled();
-      expect(await submissionRepo.findById(stale.id)).toMatchObject({
-        status: "running",
-        activeJudgeRunId: activeOwner,
-      });
-    },
-  );
-
   it("uses the timeout threshold from the environment", async () => {
     const previous = process.env.SUBMISSION_PENDING_TIMEOUT_MINUTES;
     process.env.SUBMISSION_PENDING_TIMEOUT_MINUTES = "10";
@@ -265,46 +127,6 @@ describe("sweepStaleSubmissions (real DB)", () => {
       if (previous === undefined) delete process.env.SUBMISSION_PENDING_TIMEOUT_MINUTES;
       else process.env.SUBMISSION_PENDING_TIMEOUT_MINUTES = previous;
     }
-  });
-
-  it("skips marking when workflow observation fails", async () => {
-    const failure = new Error("temporal unreachable");
-    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
-    describeSubmissionJudge.mockRejectedValueOnce(failure);
-    const stale = await createTestSubmission({ status: "compiling" });
-    await backdateUpdatedAt(stale.id, 60);
-
-    const result = await submissionDomain.sweepStaleSubmissions();
-
-    expect(result.failed).toBeGreaterThanOrEqual(1);
-    const row = await submissionRepo.findById(stale.id);
-    expect(row?.status).toBe("compiling");
-    expect(errorLog).toHaveBeenCalledWith(
-      "Failed to reconcile stale submission",
-      { submissionId: stale.id },
-      failure,
-    );
-    errorLog.mockRestore();
-  });
-
-  it("does not overwrite a judge run that starts during stale recovery", async () => {
-    const stale = await createTestSubmission({ status: "queued" });
-    await backdateUpdatedAt(stale.id, 60);
-    describeSubmissionJudge.mockImplementationOnce(async () => {
-      await testPrisma.submission.update({
-        where: { id: stale.id },
-        data: { status: "running", activeJudgeRunId: "new-run" },
-      });
-      return null;
-    });
-
-    const result = await submissionDomain.sweepStaleSubmissions();
-
-    expect(result.killed).toBe(0);
-    await expect(submissionRepo.findById(stale.id)).resolves.toMatchObject({
-      activeJudgeRunId: "new-run",
-      status: "running",
-    });
   });
 
   it("prunes rejudge logs past the retention window and keeps recent ones", async () => {

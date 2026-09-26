@@ -106,26 +106,6 @@ export const submissionIdentity = {
     });
   },
 
-  findByIdForDispatchMeta(id: string) {
-    return prisma.submission.findUnique({
-      where: { id },
-      select: {
-        userId: true,
-        createdAt: true,
-        problem: {
-          select: {
-            id: true,
-            type: true,
-            advancedConfig: true,
-            advancedRequiredPaths: true,
-            timeLimitMs: true,
-            memoryLimitMb: true,
-          },
-        },
-      },
-    });
-  },
-
   findByIdWithJudgeContext(id: string) {
     return prisma.submission.findUnique({
       include: {

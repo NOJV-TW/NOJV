@@ -141,7 +141,7 @@ Assignments and exams share `dueAt` (on-time) plus a hard deadline (`Assessment.
 
 - Rejected: a per-assignment total cap; whole-hour-only reset setting; notifying students when a rejudge changes their score.
 - Rule: Enforcement and display share `attemptWindowStart`; the server check is the final guard. A rejudge never consumes an attempt.
-- Code: `packages/application/src/submission/attempt-window.ts`, `packages/temporal/src/dispatch.ts` (`queryRejudgeProgress`, `cancelRejudge`)
+- Code: `packages/application/src/submission/attempt-window.ts`, `packages/application/src/submission/rejudge-control.ts` (`queryRejudgeProgress`, `cancelRejudge`)
 
 ### ASM-14 Assessment lifecycle audit outlives the assessment; timeline reads existing logs
 
