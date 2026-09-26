@@ -31,12 +31,8 @@ import { getWebEnv } from "$lib/server/env";
 import { problemDomain, registryDomain } from "@nojv/application";
 
 const {
+  getProblemEditPageView,
   getProblemPageData,
-  getProblemTestcaseSets,
-  listProblemWorkspaceFiles,
-  summarizeTestcaseSets,
-  hydrateWorkspaceFiles,
-  hydrateValidatorScripts,
   saveProblemJudgeConfig,
   updateProblemRecord,
   updateProblemWorkspace,
@@ -63,26 +59,9 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   }
 
   const actor = requireAuth(event);
-  await problemDomain.assertProblemContentReadAccess(actor, params.problemId);
+  const { adminMayPublish, ...view } = await getProblemEditPageView(actor, params.problemId);
+  const { problem } = view;
 
-  const [problem, problemRow, rawTestcaseSets, rawWorkspaceFiles] = await Promise.all([
-    getProblemPageData(params.problemId, { includeAdvancedConfig: true }),
-    problemDomain.getProblemRowById(params.problemId),
-    getProblemTestcaseSets(params.problemId),
-    listProblemWorkspaceFiles(params.problemId),
-  ]);
-
-  const [workspaceFiles, validatorScripts] = await Promise.all([
-    hydrateWorkspaceFiles(rawWorkspaceFiles),
-    hydrateValidatorScripts({
-      checkerStorage: problemRow?.checkerStorage,
-      interactorStorage: problemRow?.interactorStorage,
-    }),
-  ]);
-  const testcaseSets = summarizeTestcaseSets(rawTestcaseSets);
-
-  const isAdvanced = problem.type === "special_env";
-  const advancedCreationAllowed = await problemDomain.canCreateAdvancedProblems(actor);
   const form = await superValidate(
     {
       difficulty: problem.difficulty,
@@ -97,75 +76,16 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       title: problem.title,
       type: problem.type satisfies ProblemType,
       visibility: problem.visibility,
-      adminMayPublish: problemRow?.adminMayPublish ?? false,
+      adminMayPublish,
     },
     zod4(problemDraftSchema),
   );
 
-  const advancedJudgeVerified = isAdvanced
-    ? await problemDomain.hasVerifiedAdvancedJudgeRun(
-        params.problemId,
-        problem.advancedConfig,
-        problem.advancedRequiredPaths,
-        { totalTimeMs: problem.timeLimitMs, memoryMb: problem.memoryLimitMb },
-      )
-    : false;
-
-  const referenceSolution = await (async () => {
-    if (isAdvanced) return null;
-    const application = await import("@nojv/application");
-    return "submissionDomain" in application
-      ? application.submissionDomain.getProblemReferenceSolution(actor, params.problemId)
-      : null;
-  })();
-
-  const registryEnv = getWebEnv();
-  const registryCredential = isAdvanced
-    ? await registryDomain.getRegistryCredentialStatus(actor.userId)
-    : null;
-  const publicVisibilityAllowed = await problemDomain.canPublishPublicProblems(actor);
-
   return {
-    problem,
+    ...view,
     form,
-    testcaseSets,
-    workspaceFiles,
-    validatorScripts,
-    advancedConfig: isAdvanced
-      ? {
-          config: problem.advancedConfig,
-        }
-      : null,
-    advancedJudgeVerified,
-    referenceSolution,
-    permissions: {
-      canEdit:
-        problemRow !== null &&
-        (!isAdvanced || advancedCreationAllowed) &&
-        (await problemDomain.canProblemContentEdit(problemRow, actor)),
-      isAdmin: actor.platformRole === "admin",
-      isOwner: problemRow?.authorId === actor.userId,
-      publicVisibilityAllowed,
-      canPublishPublicCopy:
-        problemRow?.visibility === "private" &&
-        publicVisibilityAllowed &&
-        (problemRow.authorId === actor.userId ||
-          (actor.platformRole === "admin" && problemRow.adminMayPublish)),
-      canPublishAsAdmin:
-        actor.platformRole === "admin" &&
-        problemRow?.authorId !== actor.userId &&
-        problemRow?.adminMayPublish === true,
-    },
-    advancedCreationAllowed,
     advancedAllowedRegistries: allowedImageRegistries(),
-    registryHost: registryEnv.REGISTRY_PUBLIC_HOST,
-    registryCredential: registryCredential
-      ? {
-          username: registryCredential.username,
-          updatedAt: registryCredential.updatedAt,
-          lastUsedAt: registryCredential.lastUsedAt,
-        }
-      : null,
+    registryHost: getWebEnv().REGISTRY_PUBLIC_HOST,
   };
 });
 
