@@ -79,7 +79,7 @@ storage:
   bucket: nojv
   region: auto
   minio:
-    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e
+    image: ghcr.io/nojv-tw/minio:RELEASE.2025-04-22T22-12-26Z@sha256:3f97c5651cb6662b880c787a232b6b34fec8d8922e08d6617b25d241a21164bb
     storageSize: 10Gi
     # Existing claim is explicit ownership transfer: when set, this chart does
     # not render either the MinIO PVC or its StorageClass.
@@ -105,7 +105,7 @@ storage:
     # See docs/runbooks/backup-restore.md.
     backup:
       enabled: false
-      image: quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z@sha256:aead63c77f9db9107f1696fb08ecb0faeda23729cde94b0f663edf4fe09728e3
+      image: ghcr.io/nojv-tw/mc:RELEASE.2025-04-16T18-13-26Z@sha256:2582c2f48b1e31545143ba5285c67d7b38c8b8f6912142d0630686dc7aaac28b
       # Cron (UTC). Default 04:00, an hour after the Postgres backup at 03:00.
       schedule: "0 4 * * *"
       # Off-host mirror target (an S3/R2 endpoint the MinIO PVC does not depend on).

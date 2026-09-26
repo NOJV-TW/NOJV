@@ -31,7 +31,7 @@ services:
       retries: 5
 
   minio:
-    image: quay.io/minio/minio:latest@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    image: ghcr.io/nojv-tw/minio:RELEASE.2025-04-22T22-12-26Z@sha256:3f97c5651cb6662b880c787a232b6b34fec8d8922e08d6617b25d241a21164bb
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -49,7 +49,7 @@ services:
       retries: 5
 
   minio-init:
-    image: quay.io/minio/mc:latest@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
+    image: ghcr.io/nojv-tw/mc:RELEASE.2025-04-16T18-13-26Z@sha256:2582c2f48b1e31545143ba5285c67d7b38c8b8f6912142d0630686dc7aaac28b
     depends_on:
       minio:
         condition: service_healthy
