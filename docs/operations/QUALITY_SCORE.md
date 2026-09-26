@@ -6,6 +6,8 @@ Current verification evidence and open follow-ups. It is a snapshot, not a subst
 
 Checked on 2026-09-25 at `b651c52` with Node `24.19.0` and pnpm `11.13.1`: `pnpm ci:verify` passed formatting, repository guards, build, typecheck, lint, test typecheck, 384 unit test files (3,585 tests, including the Helm-rendering infra tests with Helm 3.18 on `PATH`) and 43 component test files (106 tests, five consecutive clean runs). `pnpm lint:helm` passed for the GKE and single-machine overlays.
 
+Checked on 2026-09-26 on the local `k3d-nojv-judge` cluster (default runtime, not gVisor) with a sandbox image built from the PR #529 branch: `REQUIRE_K8S=1 pnpm test:integration:k8s` passed 15 of 15, including durable-judge recovery after real ResourceQuota pressure.
+
 `pnpm ci:verify` does not run the integration suite, the full Playwright suite, real Docker/Kubernetes judge checks, `pnpm db:seed:validate`, Helm rendering, or production acceptance. See the [verification matrix](../runbooks/testing.md) for those commands.
 
 ## Authoritative guidance
@@ -46,8 +48,7 @@ Work that is known, not done, and not covered by an in-flight plan. Remove an it
 - Several page loads orchestrate many application calls themselves (`routes/(app)/exams/[examId]/+page.server.ts` and the contest, assignment, admin-users and problem-edit pages); move them into application view-model queries (ENG-02).
 - Route-local Zod schemas (clarifications, rejudge batch, plagiarism flags, notifications, admin mode) are re-described by hand in `apps/web/src/lib/server/openapi/internal/schemas.ts`; move them to `@nojv/core` so OpenAPI derives them (ENG-05).
 - Browser Test (WASM-OJ) deferred scope: official Submit from the browser, checker/interactive/Advanced problems, and limit calibration stay server-only until decided otherwise (JDG-15).
-- The Kubernetes integration suite has no quota-pressure recovery case for `durableJudgeWorkflow`; the only one exercised the removed legacy workflow.
-- The full Playwright suite and the Kubernetes integration suite have no recent recorded run; the E2E bootstrap needs explicit approval to reset the marked local test database.
+- The full Playwright suite has no recent recorded run; the E2E bootstrap needs explicit approval to reset the marked local test database.
 
 ## Evidence rules
 

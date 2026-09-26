@@ -1,4 +1,7 @@
 import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+import { TestWorkflowEnvironment } from "@temporalio/testing";
+import { Worker } from "@temporalio/worker";
 
 import type * as k8s from "@kubernetes/client-node";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
@@ -9,6 +12,7 @@ import {
   K8sExecutor,
   type K8sExecutorConfig,
 } from "../../../apps/worker/src/sandbox/kubernetes/executor.js";
+import { SandboxBackpressureError } from "../../../apps/worker/src/sandbox/kubernetes/errors.js";
 import {
   HARDENED_CONTAINER_SECURITY_CONTEXT,
   SANDBOX_POD_SECURITY_CONTEXT,
@@ -261,6 +265,178 @@ function sidecarLeaked(pods: k8s.V1Pod[], name: string): boolean {
 }
 
 describe("K8s judge — standard mode", () => {
+  it(
+    "recovers the durable judge workflow after real quota pressure exceeds the scheduling grace",
+    { timeout: STANDARD_TIMEOUT_MS },
+    async () => {
+      if (!clients) throw new Error("clients not initialised");
+      const { coreApi, batchApi } = clients;
+      const name = `durable-quota-${String(Date.now())}`;
+      const holderName = `${name}-holder`;
+      createdPods.add(holderName);
+      const env = await TestWorkflowEnvironment.createTimeSkipping();
+      let state = "queued";
+      const phases: string[] = [];
+      let attempts = 0;
+      let published = 0;
+      try {
+        await coreApi.createNamespacedResourceQuota({
+          namespace,
+          body: { metadata: { name }, spec: { hard: { "requests.cpu": "1" } } },
+        });
+        await coreApi.createNamespacedPod({
+          namespace,
+          body: {
+            metadata: { name: holderName },
+            spec: {
+              restartPolicy: "Never",
+              terminationGracePeriodSeconds: 0,
+              securityContext: SANDBOX_POD_SECURITY_CONTEXT,
+              containers: [
+                {
+                  name: "holder",
+                  securityContext: HARDENED_CONTAINER_SECURITY_CONTEXT,
+                  image: SANDBOX_IMAGE,
+                  imagePullPolicy: "Never",
+                  command: ["node", "-e", "setInterval(() => {}, 1000)"],
+                  resources: {
+                    requests: { cpu: "1", memory: "64Mi" },
+                    limits: { cpu: "1", memory: "128Mi" },
+                  },
+                },
+              ],
+            },
+          },
+        });
+        await expect
+          .poll(
+            async () =>
+              (await coreApi.readNamespacedResourceQuota({ name, namespace })).status?.used?.[
+                "requests.cpu"
+              ],
+            { timeout: 20_000 },
+          )
+          .toBe("1");
+        const activities = {
+          judgeExecutionStatus: () =>
+            Promise.resolve({
+              state,
+              stage: 0,
+              reasonCode: null,
+              leaseToken: null,
+              attempt: attempts,
+            }),
+          setJudgeExecutionState: (_id: string, _owner: string, next: string) => {
+            state = next;
+            phases.push(next);
+            return Promise.resolve(true);
+          },
+          executeJudgeStage: async () => {
+            attempts += 1;
+            const submissionId = `${name}-${String(attempts)}`;
+            trackSubmission(submissionId);
+            try {
+              const result = await execute({
+                submissionId,
+                sourceCode: "print(42)\n",
+                language: "python",
+                problemType: "full_source",
+                testcases: [
+                  { index: 0, input: "", output: "42\n", weight: 1, isSample: false },
+                ],
+                judgeType: "standard",
+                judgeConfig: {},
+                limits: { timeoutMs: 1_000, memoryMb: 128 },
+              });
+              expect(result.testcaseResults[0]?.verdict).toBe("AC");
+              return { status: "finished" as const };
+            } catch (error) {
+              if (attempts === 1 && error instanceof SandboxBackpressureError) {
+                await expect
+                  .poll(
+                    async () => {
+                      const jobs = await batchApi.listNamespacedJob({ namespace });
+                      return jobs.items.some(
+                        (job) => job.metadata?.name === `judge-${submissionId}`,
+                      );
+                    },
+                    { timeout: 10_000 },
+                  )
+                  .toBe(false);
+                await coreApi.deleteNamespacedPod({ name: holderName, namespace });
+              }
+              throw error;
+            }
+          },
+          completePinnedJudge: () =>
+            Promise.resolve({
+              id: name,
+              userId: "user",
+              contestId: null,
+              examId: null,
+              status: "accepted",
+              score: 100,
+            }),
+          finishJudgeExecution: () => {
+            state = "completed";
+            return Promise.resolve();
+          },
+          publishVerdict: () => {
+            published += 1;
+            return Promise.resolve();
+          },
+        };
+        const workflowsPath = fileURLToPath(
+          new URL("../../../apps/worker/src/workflows/durable-judge.ts", import.meta.url),
+        );
+        const worker = await Worker.create({
+          connection: env.nativeConnection,
+          taskQueue: name,
+          workflowsPath,
+          activities,
+        });
+        const stateWorker = await Worker.create({
+          connection: env.nativeConnection,
+          taskQueue: "judge-state",
+          activities,
+        });
+        const platformWorker = await Worker.create({
+          connection: env.nativeConnection,
+          taskQueue: "platform",
+          activities,
+        });
+        await worker.runUntil(
+          stateWorker.runUntil(
+            platformWorker.runUntil(async () => {
+              const handle = await env.client.workflow.start("durableJudgeWorkflow", {
+                taskQueue: name,
+                workflowId: name,
+                args: [{ executionId: name }],
+              });
+              await handle.result();
+              const history = await handle.fetchHistory();
+              expect(
+                history.events?.some(
+                  (event) =>
+                    Number(event.timerStartedEventAttributes?.startToFireTimeout?.seconds) ===
+                    30,
+                ),
+              ).toBe(true);
+            }),
+          ),
+        );
+        expect(attempts).toBe(2);
+        expect(phases).toContain("waiting_capacity");
+        expect(phases).not.toContain("recovering");
+        expect(phases).not.toContain("blocked");
+        expect(published).toBe(1);
+      } finally {
+        await env.teardown();
+        await coreApi.deleteNamespacedResourceQuota({ name, namespace });
+      }
+    },
+  );
+
   it(
     "queues concurrent submissions behind a real CPU quota and recovers after release",
     { timeout: STANDARD_TIMEOUT_MS },
