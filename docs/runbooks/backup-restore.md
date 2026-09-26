@@ -8,7 +8,7 @@ data-loss incidents and restore drills. Availability incidents go to
 ## Key code
 
 - `infra/charts/nojv/templates/postgres-cnpg.yaml` (CNPG `Cluster`, `ScheduledBackup`, metrics Service)
-- `infra/charts/nojv/templates/minio-backup.cronjob.yaml`, `infra/charts/nojv/templates/minio.yaml`
+- `infra/charts/nojv/templates/minio-backup.cronjob.yaml` (rclone mirror), `infra/charts/nojv/templates/minio.yaml`, `infra/charts/nojv/templates/objstore.yaml`
 - `infra/charts/nojv/values-single-machine.yaml` (production backup values), `infra/charts/nojv/values-gke.yaml`
 - `infra/gcp/scripts/setup-backups.sh`, `infra/gcp/scripts/export-postgres-to-gcs.sh` (GKE Cloud SQL)
 - `infra/gcp/gke/temporal/helm-values.single-machine.yaml` (Temporal databases on the CNPG cluster)
@@ -23,13 +23,13 @@ data-loss incidents and restore drills. Availability incidents go to
 
 ## What to back up
 
-| Layer                        | Holds                                                                                                                                                  | Production backup                                                             |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
-| PostgreSQL (CNPG `nojv-pg`)  | All app data; on single-machine also Temporal's `temporal` and `temporal_visibility` databases                                                         | barman-cloud base backups + WAL archiving to off-host S3/R2 (PITR)            |
-| Object storage (MinIO / GCS) | Only copy of `submissions/<id>/source-generations/`, judge snapshots and stage results, verdict detail, testcases, workspace files, validators, images | Single-machine: `mc mirror` CronJob to off-host S3/R2. GKE: bucket versioning |
-| PostgreSQL (GKE Cloud SQL)   | All app data                                                                                                                                           | Automated backups (30 days) + PITR (14 days) + daily export to GCS            |
-| Redis                        | Derived state only (DAT-10)                                                                                                                            | None needed                                                                   |
-| `nojv-runtime-secrets`       | `BETTER_AUTH_SECRET` (also encrypts exam credentials), DB/S3/SMTP credentials                                                                          | Keep an off-host copy; not covered by any automated backup                    |
+| Layer                        | Holds                                                                                                                                                  | Production backup                                                            |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| PostgreSQL (CNPG `nojv-pg`)  | All app data; on single-machine also Temporal's `temporal` and `temporal_visibility` databases                                                         | barman-cloud base backups + WAL archiving to off-host S3/R2 (PITR)           |
+| Object storage (MinIO / GCS) | Only copy of `submissions/<id>/source-generations/`, judge snapshots and stage results, verdict detail, testcases, workspace files, validators, images | Single-machine: `rclone copy` CronJob to off-host R2. GKE: bucket versioning |
+| PostgreSQL (GKE Cloud SQL)   | All app data                                                                                                                                           | Automated backups (30 days) + PITR (14 days) + daily export to GCS           |
+| Redis                        | Derived state only (DAT-10)                                                                                                                            | None needed                                                                  |
+| `nojv-runtime-secrets`       | `BETTER_AUTH_SECRET` (also encrypts exam credentials), DB/S3/SMTP credentials                                                                          | Keep an off-host copy; not covered by any automated backup                   |
 
 ## Single-machine: PostgreSQL (CNPG)
 
@@ -106,7 +106,7 @@ data-loss incidents and restore drills. Availability incidents go to
    ```
 
 3. Validate through `nojv-pg-restore-rw`: `SELECT count(*)` on `User`, `Problem`, `Submission`, `Participation`, `JudgeExecution`, and confirm the row that triggered the restore is present (or absent, for a rewind past a bad delete).
-4. Restore object storage to the same or a later point ([Restore MinIO](#restore-minio)).
+4. Restore object storage to the same or a later point ([Restore object storage](#restore-object-storage)).
 5. Cut over: set `DATABASE_URL` in `nojv-runtime-secrets` to `nojv-pg-restore-rw.nojv.svc.cluster.local`, then:
 
    ```bash
@@ -117,13 +117,16 @@ data-loss incidents and restore drills. Availability incidents go to
 7. Cover the new primary with backups (a `ScheduledBackup` for `nojv-pg-restore`, or promote it through the chart values).
 8. Verify: sign-in, a submission reaches a verdict, `kubectl cnpg status` shows archiving. To roll back, point `DATABASE_URL` back to `nojv-pg-rw` and restart.
 
-## Single-machine: MinIO
+## Single-machine: object storage
 
-### Enable the MinIO mirror
+The `storage.active` store (`nojv-minio` in production; `nojv-objstore`, the Versity gateway, after the cut-over) holds `nojv` and `nojv-registry`. Versity keeps content types and checksums in `user.*` xattrs, so a file-level copy of its PVC must preserve xattrs (`rsync -X`); the S3 mirror below is unaffected.
 
-`values-single-machine.yaml` enables the `nojv-minio-backup` CronJob (`mc mirror --overwrite`, no `--remove`, so deletions are kept in the mirror; default schedule `0 4 * * *`) and fails to render without a destination.
+### Enable the off-host mirror
 
-1. Create the Secret (may reuse the `nojv-pg-barman` credentials for the same account):
+`values-single-machine.yaml` enables the `nojv-minio-backup` CronJob and fails to render without a destination. It runs `rclone copy --metadata` (never `sync`, so deletions are kept in the mirror; default schedule `0 4 * * *`) from the `storage.active` store for `nojv` and `nojv-registry`, into `<destinationBucket>/nojv/` and `<destinationBucket>/nojv-registry/`. The target is Cloudflare R2's free tier (10 GB-month; both buckets together are about 2 GB).
+
+1. In the Cloudflare dashboard, enable R2 for the account, create a bucket (for example `nojv-object-mirror`, location automatic), and create an R2 API token with **Object Read & Write** scoped to that bucket. Note the access key ID, the secret access key and the S3 endpoint `https://<account-id>.r2.cloudflarestorage.com`. The job never creates the bucket, so the bucket-scoped token is enough.
+2. Create the Secret (may reuse the `nojv-pg-barman` credentials for the same account):
 
    ```bash
    kubectl -n nojv create secret generic nojv-minio-mirror \
@@ -131,8 +134,8 @@ data-loss incidents and restore drills. Availability incidents go to
      --from-literal=ACCESS_SECRET_KEY=<secret-key>
    ```
 
-2. Set `storage.minio.backup.destinationEndpoint` (HTTPS), `destinationBucket`, `destinationRegion` and `credentialsSecret`, then release.
-3. Verify the first run:
+3. In the private `nojv-production-values` Secret set `storage.minio.backup.enabled: true`, `destinationEndpoint` (HTTPS), `destinationBucket` and `credentialsSecret`; `destinationRegion: auto` and `destinationProvider: Cloudflare` are the defaults. Release.
+4. Verify the first run:
 
    ```bash
    kubectl -n nojv get cronjob nojv-minio-backup
@@ -140,18 +143,26 @@ data-loss incidents and restore drills. Availability incidents go to
    kubectl -n nojv logs job/nojv-minio-backup-manual
    ```
 
-### Restore MinIO
+   Then compare sizes from any machine with rclone and the same credentials: `rclone size r2:<mirror-bucket>/nojv` against `rclone size <store>:nojv` through a port-forward to the store's Service.
 
-1. Bring up a clean `nojv-minio` (or recreate its PVC).
-2. Mirror back from the off-host copy:
+### Restore object storage
+
+1. Bring up a clean store: the `storage.active` Deployment on a new or emptied PVC. For Versity the bucket hook recreates `nojv` and `nojv-registry` on the next release; otherwise `rclone mkdir` them.
+2. Port-forward the store (`kubectl -n nojv port-forward svc/<store> 9000:9000`) and copy back from the off-host copy:
 
    ```bash
-   mc alias set src https://<account>.r2.cloudflarestorage.com <key> <secret>
-   mc alias set dst http://nojv-minio.nojv.svc:9000 <s3-access-key> <s3-secret-key>
-   mc mirror --overwrite src/<mirror-bucket> dst/nojv
+   export RCLONE_CONFIG_R2_TYPE=s3 RCLONE_CONFIG_R2_PROVIDER=Cloudflare \
+     RCLONE_CONFIG_R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com \
+     RCLONE_CONFIG_R2_ACCESS_KEY_ID=<key> RCLONE_CONFIG_R2_SECRET_ACCESS_KEY=<secret>
+   export RCLONE_CONFIG_DST_TYPE=s3 RCLONE_CONFIG_DST_PROVIDER=Other \
+     RCLONE_CONFIG_DST_ENDPOINT=http://127.0.0.1:9000 \
+     RCLONE_CONFIG_DST_ACCESS_KEY_ID=<s3-access-key> RCLONE_CONFIG_DST_SECRET_ACCESS_KEY=<s3-secret-key>
+   rclone copy --metadata r2:<mirror-bucket>/nojv dst:nojv
+   rclone copy --metadata r2:<mirror-bucket>/nojv-registry dst:nojv-registry
+   rclone check r2:<mirror-bucket>/nojv dst:nojv
    ```
 
-3. Validate that recent `submissions/<id>/source-generations/` manifests resolve and that one affected submission rejudges to a real verdict.
+3. Validate that recent `submissions/<id>/source-generations/` manifests resolve, that one affected submission rejudges to a real verdict, and that a teacher image still pulls from the registry.
 
 ## GKE: Cloud SQL
 
@@ -255,7 +266,7 @@ Those archives keep an unqualified `storage_pointer_valid` call and can fail dur
 Run at least quarterly in a low-traffic window, and before relying on a newly configured destination:
 
 1. PITR the CNPG cluster (or clone Cloud SQL) to one hour ago in a new Cluster/instance; validate counts against production minus the last hour; delete it.
-2. Mirror the MinIO backup into a scratch bucket and read back a recent submission manifest.
+2. Copy the off-host object mirror into a scratch bucket and read back a recent submission manifest.
 3. On GKE, restore one noncurrent object generation.
 
 Record the outcome in the incident log. A failed drill is a P1.

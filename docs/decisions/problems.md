@@ -43,7 +43,8 @@ Testcase input/output/aux files and workspace file contents live in `@nojv/stora
 - Rule: upload blobs before committing pointers; never hold a DB transaction across object-storage I/O.
 - Rule: the DB is the source of truth; blob cleanup follows DB deletion through durable cleanup, and forks share pointers.
 - Rule: build keys only in `packages/storage/src/keys.ts`.
-- Code: `packages/storage/src/keys.ts`, `packages/application/src/shared/storage-object-lifecycle.ts`
+- Rule: every object-storage backend must pass `tests/integration/storage/s3-conformance.test.ts` (atomic `If-None-Match: *`, SHA-256 checksum rejection) before it holds these objects; CI runs it against Versity ([#541](https://github.com/NOJV-TW/NOJV/pull/541)).
+- Code: `packages/storage/src/keys.ts`, `packages/application/src/shared/storage-object-lifecycle.ts`, `tests/integration/storage/s3-conformance.test.ts`
 
 ### PRB-05 Problem images are public objects referenced from Markdown
 

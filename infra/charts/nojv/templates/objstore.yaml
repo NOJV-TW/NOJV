@@ -1,0 +1,215 @@
+{{- if .Values.storage.inCluster }}
+{{- $_ := include "nojv.activeStoreService" . }}
+{{- if .Values.storage.objectStore.enabled }}
+{{- $storageClass := .Values.storage.objectStore.storageClass }}
+{{- $storageClassName := required "storage.objectStore.storageClass.name is required for the in-cluster object store" $storageClass.name }}
+{{/*
+Versity S3 Gateway (posix backend) on its own PVC: buckets are directories and
+object metadata lives in user.* xattrs. It serves S3 on :9000 with the same root
+keys as MinIO (S3_ACCESS_KEY/S3_SECRET_KEY), so a cut-over changes only the host
+in S3_ENDPOINT: http://<release>-objstore.<namespace>.svc.cluster.local:9000
+*/}}
+{{- if $storageClass.create }}
+{{- $provisioner := required "storage.objectStore.storageClass.provisioner is required when storage.objectStore.storageClass.create=true" $storageClass.provisioner }}
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ $storageClassName }}
+  annotations:
+    "helm.sh/resource-policy": keep
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: objstore-storage
+provisioner: {{ $provisioner }}
+reclaimPolicy: Retain
+volumeBindingMode: {{ $storageClass.volumeBindingMode }}
+{{- with $storageClass.parameters }}
+parameters:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+---
+{{- end }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "nojv.fullname" . }}-objstore
+  namespace: {{ include "nojv.namespace" . }}
+  annotations:
+    "helm.sh/resource-policy": keep
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: objstore
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.storage.objectStore.storageSize }}
+  storageClassName: {{ $storageClassName }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nojv.fullname" . }}-objstore
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: objstore
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nojv-objstore
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nojv-objstore
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: objstore
+          image: {{ .Values.storage.objectStore.image }}
+          imagePullPolicy: IfNotPresent
+          args: ["posix", "/data"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: VGW_PORT
+              value: ":9000"
+            - name: VGW_HEALTH
+              value: /health
+            - name: ROOT_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_ACCESS_KEY
+            - name: ROOT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_SECRET_KEY
+          ports:
+            - containerPort: 9000
+              name: s3
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: s3
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: s3
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.storage.objectStore.resources | nindent 12 }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "nojv.fullname" . }}-objstore
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nojv.fullname" . }}-objstore
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: objstore
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nojv-objstore
+  ports:
+    - name: s3
+      port: 9000
+      targetPort: s3
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "nojv.fullname" . }}-objstore-bucket-init
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: objstore-bucket-init
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nojv-objstore-bucket-init
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: rclone-home
+          emptyDir: {}
+      containers:
+        - name: rclone
+          image: {{ .Values.storage.rclone.image }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              for bucket in $BUCKETS; do
+                rclone mkdir "objstore:$bucket"
+              done
+          volumeMounts:
+            - name: rclone-home
+              mountPath: /tmp
+          env:
+            - name: HOME
+              value: /tmp
+            - name: BUCKETS
+              value: {{ printf "%s %s" .Values.storage.bucket .Values.registry.bucket | quote }}
+            - name: RCLONE_CONFIG_OBJSTORE_TYPE
+              value: s3
+            - name: RCLONE_CONFIG_OBJSTORE_PROVIDER
+              value: Other
+            - name: RCLONE_CONFIG_OBJSTORE_ENDPOINT
+              value: {{ printf "http://%s-objstore.%s.svc:9000" (include "nojv.fullname" .) (include "nojv.namespace" .) | quote }}
+            - name: RCLONE_CONFIG_OBJSTORE_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_ACCESS_KEY
+            - name: RCLONE_CONFIG_OBJSTORE_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: S3_SECRET_KEY
+{{- end }}
+{{- end }}

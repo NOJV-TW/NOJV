@@ -2,18 +2,19 @@
 
 The single deploy path for NOJV (OPS-01): web, the judge and platform Temporal
 workers, sandbox namespace policy, release hooks, and optional in-cluster
-Postgres (CloudNativePG), Redis, MinIO, registry, cloudflared and metrics stack.
+Postgres (CloudNativePG), Redis, MinIO, Versity S3 Gateway, registry, cloudflared
+and metrics stack.
 Requires Kubernetes 1.30+. Prerequisites, release flow, migrations and env vars
 are in the [Deployment Guide](../../../docs/operations/DEPLOYMENT.md).
 
 ## Values files
 
-| File                         | Use                                                                                                      |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `values.yaml`                | Shared defaults                                                                                          |
-| `values-single-machine.yaml` | k3s: GHCR images, CNPG with backups, in-cluster Redis/MinIO, registry, cloudflared, metrics, web HPA 1–3 |
-| `values-gke.yaml`            | GKE: Cloud SQL proxy, Memorystore, GCS, GCE Ingress, PDBs, worker egress policy, web HPA 2–15            |
-| `secret.example.yaml`        | Runtime Secret keys (documentation only; the chart never templates secret values)                        |
+| File                         | Use                                                                                                                        |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `values.yaml`                | Shared defaults                                                                                                            |
+| `values-single-machine.yaml` | k3s: GHCR images, CNPG with backups, in-cluster Redis/MinIO plus idle Versity, registry, cloudflared, metrics, web HPA 1–3 |
+| `values-gke.yaml`            | GKE: Cloud SQL proxy, Memorystore, GCS, GCE Ingress, PDBs, worker egress policy, web HPA 2–15                              |
+| `secret.example.yaml`        | Runtime Secret keys (documentation only; the chart never templates secret values)                                          |
 
 ## Render
 
@@ -32,30 +33,31 @@ tag: Buildx metadata in `build-images.yml`, or Artifact Registry in
 
 ## Templates
 
-| Template                                                                           | Renders                                                                                                                             |
-| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `namespaces.yaml`                                                                  | `nojv`, and `nojv-sandbox` with `restricted` Pod Security                                                                           |
-| `web.deployment.yaml`, `web.service.yaml`, `web.hpa.yaml`, `web.ingress.yaml`      | Web; Ingress adds GCE `BackendConfig` (Cloud Armor) and `FrontendConfig` (HTTPS redirect)                                           |
-| `worker-judge.deployment.yaml`                                                     | `nojv-worker` (`WORKER_MODE=judge`, `strategy: Recreate`); rendered first, full env block in the order `env-manifest-parity` checks |
-| `worker-platform.deployment.yaml`                                                  | `nojv-worker-platform` (`WORKER_MODE=platform`, mailer)                                                                             |
-| `worker-rbac.yaml`                                                                 | Separate judge and platform service accounts with least-privilege Roles                                                             |
-| `pdb.yaml`                                                                         | Web, judge and platform PDBs (`pdb.enabled`)                                                                                        |
-| `app-network-policy.yaml`                                                          | `worker-egress` and `platform-smtp-egress` (`networkPolicy.enabled`)                                                                |
-| `sandbox-policy.yaml`                                                              | `deny-all-sandbox`, ResourceQuota (kept on uninstall), LimitRange                                                                   |
-| `postgres-cnpg.yaml`                                                               | CNPG `Cluster` (kept) and `ScheduledBackup` (`postgres.mode=cnpg`)                                                                  |
-| `redis.yaml`, `minio.yaml`, `minio-storageclass.yaml`, `minio-backup.cronjob.yaml` | In-cluster Redis; MinIO with a kept `Retain` StorageClass and PVC; off-host mirror CronJob                                          |
-| `registry.yaml`                                                                    | `registry:2` plus bucket-init hook (`registry.enabled`)                                                                             |
-| `cloudflared.deployment.yaml`                                                      | Edge tunnel (`edge.cloudflared.enabled`)                                                                                            |
-| `otel-collector.yaml`, `prometheus.yaml`, `node-exporter.yaml`, `grafana.yaml`     | In-cluster metrics stack                                                                                                            |
-| `schema-fence.yaml`                                                                | Schema contract `ValidatingAdmissionPolicy` (hook -40)                                                                              |
-| `release-prepull.job.yaml`, `sandbox-prepull.job.yaml`                             | Pre-install/upgrade image pulls (hook -10)                                                                                          |
-| `web-maintenance.deployment.yaml`                                                  | Maintenance page (pre-upgrade hook -7, release window only)                                                                         |
-| `migrator.job.yaml`                                                                | Migrator (pre-install/upgrade hook -5)                                                                                              |
-| `web-maintenance.yaml`                                                             | Maintenance RBAC and the post-upgrade/post-rollback restore Job (hook 10)                                                           |
-| `seed.job.yaml`                                                                    | Production seed (post-install hook, `seed.enabled`)                                                                                 |
-| `production-preflight.yaml`                                                        | Render-time checks for `postgres.mode=cloudsql`                                                                                     |
-| `files/release-workloads.sh`, `files/in-cluster-kubeconfig.sh`                     | Scripts embedded in the hook Jobs                                                                                                   |
-| `files/grafana-dashboards/`                                                        | Copy of `infra/grafana/dashboards/` (Helm can read only inside the chart; keep in sync)                                             |
+| Template                                                                           | Renders                                                                                                                                      |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `namespaces.yaml`                                                                  | `nojv`, and `nojv-sandbox` with `restricted` Pod Security                                                                                    |
+| `web.deployment.yaml`, `web.service.yaml`, `web.hpa.yaml`, `web.ingress.yaml`      | Web; Ingress adds GCE `BackendConfig` (Cloud Armor) and `FrontendConfig` (HTTPS redirect)                                                    |
+| `worker-judge.deployment.yaml`                                                     | `nojv-worker` (`WORKER_MODE=judge`, `strategy: Recreate`); rendered first, full env block in the order `env-manifest-parity` checks          |
+| `worker-platform.deployment.yaml`                                                  | `nojv-worker-platform` (`WORKER_MODE=platform`, mailer)                                                                                      |
+| `worker-rbac.yaml`                                                                 | Separate judge and platform service accounts with least-privilege Roles                                                                      |
+| `pdb.yaml`                                                                         | Web, judge and platform PDBs (`pdb.enabled`)                                                                                                 |
+| `app-network-policy.yaml`                                                          | `worker-egress` and `platform-smtp-egress` (`networkPolicy.enabled`)                                                                         |
+| `sandbox-policy.yaml`                                                              | `deny-all-sandbox`, ResourceQuota (kept on uninstall), LimitRange                                                                            |
+| `postgres-cnpg.yaml`                                                               | CNPG `Cluster` (kept) and `ScheduledBackup` (`postgres.mode=cnpg`)                                                                           |
+| `redis.yaml`, `minio.yaml`, `minio-storageclass.yaml`, `minio-backup.cronjob.yaml` | In-cluster Redis; MinIO with a kept `Retain` StorageClass and PVC; rclone off-host mirror CronJob of the `storage.active` store              |
+| `objstore.yaml`                                                                    | Versity S3 Gateway with its own kept `Retain` StorageClass and PVC, ClusterIP Service and rclone bucket hook (`storage.objectStore.enabled`) |
+| `registry.yaml`                                                                    | `registry:2` plus MinIO bucket-init hook (`registry.enabled`)                                                                                |
+| `cloudflared.deployment.yaml`                                                      | Edge tunnel (`edge.cloudflared.enabled`)                                                                                                     |
+| `otel-collector.yaml`, `prometheus.yaml`, `node-exporter.yaml`, `grafana.yaml`     | In-cluster metrics stack                                                                                                                     |
+| `schema-fence.yaml`                                                                | Schema contract `ValidatingAdmissionPolicy` (hook -40)                                                                                       |
+| `release-prepull.job.yaml`, `sandbox-prepull.job.yaml`                             | Pre-install/upgrade image pulls (hook -10)                                                                                                   |
+| `web-maintenance.deployment.yaml`                                                  | Maintenance page (pre-upgrade hook -7, release window only)                                                                                  |
+| `migrator.job.yaml`                                                                | Migrator (pre-install/upgrade hook -5)                                                                                                       |
+| `web-maintenance.yaml`                                                             | Maintenance RBAC and the post-upgrade/post-rollback restore Job (hook 10)                                                                    |
+| `seed.job.yaml`                                                                    | Production seed (post-install hook, `seed.enabled`)                                                                                          |
+| `production-preflight.yaml`                                                        | Render-time checks for `postgres.mode=cloudsql`                                                                                              |
+| `files/release-workloads.sh`, `files/in-cluster-kubeconfig.sh`                     | Scripts embedded in the hook Jobs                                                                                                            |
+| `files/grafana-dashboards/`                                                        | Copy of `infra/grafana/dashboards/` (Helm can read only inside the chart; keep in sync)                                                      |
 
 ## Values
 
@@ -78,9 +80,13 @@ Guide.
 | `storage.inCluster` / `bucket` / `region`                                                            | `true` / `nojv` / `auto`                                                     | In-cluster MinIO, else `S3_*` from the Secret                                          |
 | `storage.minio.existingClaim`                                                                        | empty                                                                        | Use an existing PVC; skips the chart PVC and StorageClass                              |
 | `storage.minio.storageClass.*`                                                                       | create `nojv-minio-retain`, `rancher.io/local-path`                          | Dedicated `Retain` class; with `create=false`, supply a class that already retains     |
-| `storage.minio.backup.*`                                                                             | disabled, 04:00 UTC                                                          | `mc mirror` CronJob to an HTTPS off-host bucket                                        |
+| `storage.active`                                                                                     | `minio`                                                                      | Store (`minio` or `objstore`) for the registry, its hook and the mirror                |
+| `storage.objectStore.{enabled,image,storageSize,resources}`                                          | `false` (single-machine `true`) / pinned Versity v1.8.0 / `10Gi` / 128–256Mi | Versity S3 Gateway (posix) beside MinIO                                                |
+| `storage.objectStore.storageClass.*`                                                                 | create `nojv-objstore-retain`, `rancher.io/local-path`                       | Dedicated `Retain` class; with `create=false`, supply a class that already retains     |
+| `storage.rclone.image`                                                                               | pinned rclone 1.75.1                                                         | Objstore bucket hook and off-host mirror                                               |
+| `storage.minio.backup.*`                                                                             | disabled, 04:00 UTC, provider `Cloudflare`                                   | `rclone copy --metadata` CronJob of both buckets to an HTTPS off-host bucket           |
 | `registry.enabled`                                                                                   | `false`                                                                      | In-cluster registry for special_env images                                             |
-| `registry.{host,bucket,internalUrl}`                                                                 | `""` / `nojv-registry` / Service DNS                                         | Public push host, MinIO bucket, in-cluster URL                                         |
+| `registry.{host,bucket,internalUrl}`                                                                 | `""` / `nojv-registry` / Service DNS                                         | Public push host, bucket on the active store, in-cluster URL                           |
 | `registry.token.{realm,issuer}`                                                                      | `""` / `nojv`                                                                | Token endpoint URL (`https://<host>/api/registry/token`) and JWT issuer                |
 | `registry.s3.regionendpoint`                                                                         | `""`                                                                         | Blob endpoint when `storage.inCluster=false`                                           |
 | `temporal.address` / `namespace`                                                                     | `temporal-frontend.nojv-temporal.svc.cluster.local:7233` / `default`         | Temporal target                                                                        |

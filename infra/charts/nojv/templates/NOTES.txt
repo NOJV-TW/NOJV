@@ -9,7 +9,7 @@ Components:
   worker     : judge x{{ .Values.worker.judge.replicas }} + platform x{{ .Values.worker.platform.replicas }}
   postgres   : mode={{ .Values.postgres.mode }}{{ if eq .Values.postgres.mode "cnpg" }} (CNPG Cluster {{ include "nojv.cnpgClusterName" . }}, instances {{ .Values.postgres.cnpg.instances }}){{ end }}
   redis      : {{ if .Values.redis.inCluster }}in-cluster ({{ include "nojv.fullname" . }}-redis){{ else }}external (REDIS_URL from secret){{ end }}
-  storage    : {{ if .Values.storage.inCluster }}in-cluster MinIO ({{ include "nojv.fullname" . }}-minio){{ else }}external S3 (S3_* from secret){{ end }}
+  storage    : {{ if .Values.storage.inCluster }}in-cluster, active {{ include "nojv.activeStoreService" . }}{{ if .Values.storage.objectStore.enabled }} (objstore {{ include "nojv.fullname" . }}-objstore deployed){{ end }}{{ else }}external S3 (S3_* from secret){{ end }}
   registry   : {{ if .Values.registry.enabled }}in-cluster distribution ({{ include "nojv.fullname" . }}-registry, push host {{ .Values.registry.host }}){{ else }}disabled{{ end }}
   temporal   : {{ .Values.temporal.address }} (ns {{ .Values.temporal.namespace }})
 

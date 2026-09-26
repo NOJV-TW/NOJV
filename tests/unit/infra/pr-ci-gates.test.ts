@@ -74,10 +74,30 @@ describe("pull-request runtime gates", () => {
     );
     expect(gate).toContain("name: Verify Repository");
     expect(gate).toContain("if: always()");
-    expect(gate).toMatch(/needs:\s*\n\s+- verify\s*\n\s+- coverage\s*\n\s+- temporal/u);
+    expect(gate).toMatch(
+      /needs:\s*\n\s+- verify\s*\n\s+- coverage\s*\n\s+- temporal\s*\n\s+- storage-conformance/u,
+    );
     expect(gate).toContain('test "$VERIFY_RESULT" = success');
     expect(gate).toContain('test "$COVERAGE_RESULT" = success');
     expect(gate).toContain('test "$TEMPORAL_RESULT" = success');
+    expect(gate).toContain('test "$STORAGE_RESULT" = success');
+  });
+
+  it("gates every PR on S3 conformance against the Versity gateway without secrets", () => {
+    const workflow = readFileSync(join(repoRoot, ".github/workflows/ci.yml"), "utf8");
+    const storage = workflow.slice(workflow.indexOf("  storage-conformance:"));
+
+    expect(storage).toContain("name: Object storage conformance");
+    expect(storage).not.toMatch(/^ {4}(needs|if):/mu);
+    expect(storage).not.toContain("secrets.");
+    expect(storage).toContain(
+      "docker compose -f infra/docker/s3-conformance/compose.yml --profile versity run --rm versity-init",
+    );
+    expect(storage).toMatch(/S3_CONFORMANCE: "1"/u);
+    expect(storage).toContain("S3_ENDPOINT: http://127.0.0.1:9200");
+    expect(storage.indexOf("pnpm --filter @nojv/storage... build")).toBeLessThan(
+      storage.indexOf("pnpm test:integration:storage"),
+    );
   });
 
   it("runs an unconditional real Docker sandbox boundary smoke on every PR", () => {

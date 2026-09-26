@@ -78,6 +78,34 @@ storage:
   inCluster: true
   bucket: nojv
   region: auto
+  # In-cluster store the registry, its bucket hook and the off-host mirror use:
+  # minio or objstore. S3_ENDPOINT in the runtime Secret must name the same
+  # Service (http://<release>-<active>.<namespace>.svc.cluster.local:9000).
+  active: minio
+  # rclone for the objstore bucket hook and the off-host mirror.
+  rclone:
+    image: ghcr.io/rclone/rclone:1.75.1@sha256:45401ad7410db1d67ffdb58e19059ad20b0d8e0285a60e38bbec55cc1019c7a5
+  # Versity S3 Gateway (posix backend) on its own kept PVC and Retain class,
+  # rendered only with storage.inCluster. A post-install/post-upgrade hook creates
+  # storage.bucket and registry.bucket on it. Nothing uses it until
+  # storage.active=objstore and S3_ENDPOINT point at <release>-objstore.
+  objectStore:
+    enabled: false
+    image: ghcr.io/versity/versitygw:v1.8.0@sha256:30292fc2eeacc67a36993b01f7a7a5e3361a19cced0e80c1d71cfa2a4b0a2499
+    storageSize: 10Gi
+    storageClass:
+      create: true
+      name: nojv-objstore-retain
+      provisioner: rancher.io/local-path
+      volumeBindingMode: WaitForFirstConsumer
+      parameters: {}
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
   minio:
     image: ghcr.io/nojv-tw/minio:RELEASE.2025-04-22T22-12-26Z@sha256:3f97c5651cb6662b880c787a232b6b34fec8d8922e08d6617b25d241a21164bb
     storageSize: 10Gi
@@ -97,21 +125,27 @@ storage:
       limits:
         cpu: 500m
         memory: 512Mi
-    # Off-host mirror of the in-cluster MinIO bucket → S3/R2 (mc mirror CronJob).
-    # In-cluster MinIO holds the ONLY copy of student submission sources, so this
+    # Off-host mirror of the storage.active store → S3/R2 (rclone copy CronJob for
+    # storage.bucket and, with the registry enabled, registry.bucket). The
+    # in-cluster store holds the ONLY copy of student submission sources, so this
     # is a data-safety backup, not a convenience. DEFAULT OFF: turning it on
-    # requires the credentialsSecret below to exist (else the CronJob fails). The
-    # CronJob is only rendered when storage.inCluster AND backup.enabled are true.
+    # requires the destination bucket and the credentialsSecret below to exist
+    # (else the CronJob fails). The CronJob is only rendered when
+    # storage.inCluster AND backup.enabled are true.
     # See docs/runbooks/backup-restore.md.
     backup:
       enabled: false
+      # mc for the MinIO registry bucket hook only; the mirror uses storage.rclone.
       image: ghcr.io/nojv-tw/mc:RELEASE.2025-04-16T18-13-26Z@sha256:2582c2f48b1e31545143ba5285c67d7b38c8b8f6912142d0630686dc7aaac28b
       # Cron (UTC). Default 04:00, an hour after the Postgres backup at 03:00.
       schedule: "0 4 * * *"
-      # Off-host mirror target (an S3/R2 endpoint the MinIO PVC does not depend on).
+      # Off-host mirror target (an S3/R2 endpoint the local PVC does not depend on).
+      # Each source bucket is copied under <destinationBucket>/<bucket>/.
       destinationEndpoint: "" # e.g. https://<account>.r2.cloudflarestorage.com
       destinationBucket: "" # e.g. nojv-minio-mirror
       destinationRegion: "auto"
+      # rclone S3 provider of the destination (Cloudflare for R2, AWS, Other).
+      destinationProvider: Cloudflare
       # Secret in this namespace with keys ACCESS_KEY_ID / ACCESS_SECRET_KEY
       # (can be the SAME Secret as postgres.cnpg.backup.s3CredentialsSecret).
       credentialsSecret: ""
@@ -127,8 +161,9 @@ registry:
   # Self-hosted OCI registry (CNCF distribution) for teacher-built special_env
   # judge images. DEFAULT OFF: enabling it requires the REGISTRY_* runtime-secret
   # keys (see secret.example.yaml) and, for judge pulls, the dockerconfigjson
-  # Secret named in worker.sandbox.imagePullSecret. Blobs live in the in-cluster
-  # MinIO bucket below when storage.inCluster; otherwise set s3.regionendpoint.
+  # Secret named in worker.sandbox.imagePullSecret. Blobs live in the bucket below
+  # on the storage.active store when storage.inCluster; otherwise set
+  # s3.regionendpoint.
   enabled: false
   replicas: 1
   image: registry:2.8.3@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373
@@ -143,8 +178,8 @@ registry:
     # (e.g. https://nojv.tw/api/registry/token).
     realm: ""
     issuer: nojv
-  # S3 endpoint for the blob backend when storage.inCluster=false (the in-cluster
-  # MinIO Service is used automatically otherwise).
+  # S3 endpoint for the blob backend when storage.inCluster=false (the
+  # storage.active Service is used automatically otherwise).
   s3:
     regionendpoint: ""
   resources:
