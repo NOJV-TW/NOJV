@@ -52,20 +52,20 @@ The JSON files are the source of truth for panel PromQL. Auto-instrumentation me
 
 ## Grafana Cloud setup
 
-1. Stack: `https://takalawang.grafana.net` (region `prod-ap-northeast-0`, free tier, 10k active series).
-2. Provisioning token: Administration → Users and access → Service accounts → add `nojv-provision` with **Admin** role (Editor lacks `dashboards:create`, `dashboards:write`, `folders:create`) → add a token and copy the `glsa_*` value.
-3. Push token: Cloud Portal → Access policies → create `nojv-otlp-push` with `metrics:write` → create a token and copy the `glc_*` value. Note the numeric instance ID and the OTLP gateway `https://otlp-gateway-prod-ap-northeast-0.grafana.net/otlp` (Connections → OpenTelemetry).
-4. Add to the git-ignored root `.env` (see `.env.example`):
+Grafana Cloud holds dashboards only; alerts are evaluated in-cluster. Production pushes the in-cluster Prometheus to it with `remote_write` (about 3.2k active series against the free tier's 10k).
+
+1. Stack: `https://brightholly2440.grafana.net`, owned by the `nojv.tw@gmail.com` Grafana account (region `prod-ap-northeast-0`, stack ID `1845138`).
+2. Provisioning token: Administration → Users and access → Service accounts → `nojv-provision` with **Admin** role (Editor lacks `dashboards:create`, `dashboards:write`, `folders:create`) → add a token and copy the `glsa_*` value.
+3. Push token: Cloud Portal → Access policies → `nojv-prometheus-remote-write` with only `metrics:write`, realm limited to the stack → create a token and copy the `glc_*` value. The stack's Prometheus details give the push URL (`https://prometheus-prod-49-prod-ap-northeast-0.grafana.net/api/prom/push`) and username (instance ID `3614500`).
+4. Production: `observability.prometheus.remoteWrite.url` and `.username` live in the private `nojv-production-values` Secret, the `glc_*` token in `nojv-runtime-secrets` as `GRAFANA_CLOUD_PROM_PASSWORD`. Changing either values Secret makes Flux upgrade the release, which rolls web and workers.
+5. Add to the git-ignored root `.env` for provisioning:
 
    ```env
-   OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-prod-ap-northeast-0.grafana.net/otlp
-   OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic <base64(instanceId:glc_token)>
-   GRAFANA_STACK_URL=https://takalawang.grafana.net
+   GRAFANA_STACK_URL=https://brightholly2440.grafana.net
    GRAFANA_SA_TOKEN=glsa_...
    ```
 
-5. For production, put the two `OTEL_*` values in `nojv-runtime-secrets` and restart web and both workers.
-6. Verify locally: `OTEL_LOG_LEVEL=DEBUG pnpm dev`; expect export log lines every 30s and no `OTLPExporter … failed`.
+6. Verify: `prometheus_remote_storage_samples_total` rises and `prometheus_remote_storage_samples_failed_total` stays 0 on the Prometheus `/metrics`, and the stack's `grafanacloud-prom` datasource answers `count(node_filesystem_avail_bytes)`.
 
 ## In-cluster stack (no external cloud)
 
@@ -82,13 +82,13 @@ The JSON files are the source of truth for panel PromQL. Auto-instrumentation me
 
 1. Set `OTEL_EXPORTER_OTLP_ENDPOINT=http://nojv-otel-collector.nojv.svc:4318` (no headers) in `nojv-runtime-secrets` and restart web and workers.
 2. Set the Grafana admin password: `observability.grafana.adminPassword`, or leave it empty and set `GRAFANA_ADMIN_PASSWORD` in the runtime secret.
-3. Keep `observability.grafana.alerting.enabled` on (single-machine default). Grafana Cloud never sees these series unless `observability.prometheus.remoteWrite` is set, and a free Grafana Cloud stack hibernates when idle, so it is not an alerting home.
+3. Keep `observability.grafana.alerting.enabled` on (single-machine default). Grafana Cloud sees these series only through `observability.prometheus.remoteWrite`, and a free stack hibernates when idle, so it holds dashboards but is not an alerting home.
 
 ## Provision dashboards and alerts
 
 In-cluster alerting needs no provisioning step: the rules ship with the chart. `pnpm grafana:provision` is for an optional Grafana Cloud stack. It loads `.env` itself and:
 
-1. POSTs each `infra/grafana/dashboards/*.json` to `/api/dashboards/db` with `overwrite: true` (idempotent by UID; URL `https://takalawang.grafana.net/d/<uid>`).
+1. POSTs each `infra/grafana/dashboards/*.json` to `/api/dashboards/db` with `overwrite: true` (idempotent by UID; URL `https://brightholly2440.grafana.net/d/<uid>`).
 2. Upserts every rule in `slo-alerts.json` (PUT, then POST if missing) when both `GRAFANA_ALERT_FOLDER_UID` and `GRAFANA_PROM_DATASOURCE_UID` are set; otherwise prints `[skip] alert rules`.
 3. Provisions the `NOJV SLO Alerts` email contact point and a notification policy routing `team=nojv` when `GRAFANA_ALERT_EMAIL` is set; otherwise prints `[skip] contact point`. The policy replaces the stack's root policy, so on a shared stack leave it unset and add a child route in the UI.
 

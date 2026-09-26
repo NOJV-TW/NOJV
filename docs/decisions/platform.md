@@ -147,12 +147,13 @@ CI runs CodeQL and a blocking `pnpm audit --audit-level high`; coverage threshol
 
 **Decided:** 2026-05 · **Source:** [2026-05-06-grafana-observability](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-06-grafana-observability.md)
 
-Web and worker each start their own OTel NodeSDK and push metrics over OTLP HTTP to the in-cluster collector, which Prometheus scrapes together with node-exporter and CNPG; dashboards and SLO alert rules are JSON in `infra/grafana`, and the chart copies them so the in-cluster Grafana evaluates the rules and emails the mailer mailbox. Revised 2026-09-26 ([#532](https://github.com/NOJV-TW/NOJV/pull/532)): nothing reached Grafana Cloud, whose rules therefore never had data, and an idle free stack hibernates.
+Web and worker each start their own OTel NodeSDK and push metrics over OTLP HTTP to the in-cluster collector, which Prometheus scrapes together with node-exporter and CNPG; dashboards and SLO alert rules are JSON in `infra/grafana`, and the chart copies them so the in-cluster Grafana evaluates the rules and emails the mailer mailbox. Grafana Cloud receives the same series by Prometheus `remote_write` and holds dashboards only. Revised 2026-09-26 ([#532](https://github.com/NOJV-TW/NOJV/pull/532)): nothing had reached Grafana Cloud, whose rules therefore never had data, and an idle free stack hibernates.
 
 - Rejected: Grafana Cloud as the alerting home (no data path without `remote_write`, and a hibernating free stack stops evaluating).
 - Rejected: a shared OTel package (circular dependencies, per-app instrumentation choice); self-hosted Alloy; Loki, Tempo and GCP Managed Prometheus until a need appears.
 - Rule: metric labels never include `userId`, `submissionId` or raw paths; use route templates to stay within the active-series budget.
 - Rule: the SDK starts before any instrumented module is imported.
+- Rule: web instruments are created on first use, never at module load: the metrics API has no proxy provider, and the bundled server evaluates `metrics.ts` before `hooks.server.ts` starts the SDK, which left every custom web metric a no-op until 2026-09-26.
 - Rule: alert rules change in `infra/grafana/alerts/slo-alerts.json` and its chart copy together.
 - Code: `apps/web/src/lib/server/otel.ts`, `apps/worker/src/otel.ts`, `infra/grafana/`, `infra/charts/nojv/templates/grafana.yaml`
 
