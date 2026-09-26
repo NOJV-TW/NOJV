@@ -10,17 +10,7 @@ import {
 } from "@nojv/core";
 
 const updateProblemsPayloadSchema = activityGradingUpdateSchema;
-import {
-  assignmentDomain,
-  auditDomain,
-  clarificationDomain,
-  courseDomain,
-  feedbackDomain,
-  plagiarismDomain,
-  scoreOverrideDomain,
-  submissionDomain,
-  userDomain,
-} from "@nojv/application";
+import { assignmentDomain } from "@nojv/application";
 
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
@@ -37,10 +27,9 @@ import {
 } from "$lib/server/shared/form-utils";
 import { buildAssignmentResults } from "$lib/server/results/assignment";
 
-const { getAssignmentDetail, buildSubmissionsMatrix } = courseDomain;
-const { findPlagiarismReport, listFlagsForContext } = plagiarismDomain;
 const {
   deleteAssignmentDraft,
+  getAssignmentPageView,
   publishAssignment,
   revertAssignmentToDraft,
   updateAssignmentRecord,
@@ -55,115 +44,40 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const actor = requireAuth(event);
   const parent = await event.parent();
   const { assignment, isManager } = parent;
-  const assignmentId = assignment.id;
-  const courseId = assignment.courseId;
 
-  if (isManager) {
-    const [
-      detail,
-      matrix,
-      plagiarism,
-      plagiarismFlags,
-      canSetOverride,
-      canAskClar,
-      canAnswerClar,
-      canViewClar,
-      auditEvents,
-      recentSubmissions,
-    ] = await Promise.all([
-      getAssignmentDetail(courseId, assignmentId, {
-        viewerUserId: actor.userId,
-        isManager: true,
-      }),
-      buildSubmissionsMatrix(courseId, assignmentId),
-      findPlagiarismReport({ type: "assessment", id: assignmentId }),
-      listFlagsForContext("assessment", assignmentId),
-      scoreOverrideDomain.canSetScoreOverride(actor, {
-        type: "assignment",
-        assignmentId,
-      }),
-      clarificationDomain.canAskClarification(actor, { type: "assignment", assignmentId }),
-      clarificationDomain.canAnswerInContext(actor, { type: "assignment", assignmentId }),
-      clarificationDomain.canViewClarifications(actor, { type: "assignment", assignmentId }),
-      auditDomain.listAuditTimelineForContext({ type: "assignment", assignmentId }),
-      submissionDomain.listRecentContextSubmissions({
-        actor,
-        context: { type: "assignment", id: assignmentId },
-      }),
-    ]);
+  const view = await getAssignmentPageView(actor, {
+    courseId: assignment.courseId,
+    assignmentId: assignment.id,
+    isManager,
+  });
+  if (view.mode === "student") return view;
 
-    const candidateProblems = await courseDomain.listCourseProblemPickerGroups(
-      actor,
-      courseId,
-      detail.problems.map((problem) => problem.problemId),
-    );
-
-    const auditActorNames = await userDomain.listUserDisplayNames([
-      ...new Set(auditEvents.flatMap((e) => (e.actorUserId ? [e.actorUserId] : []))),
-    ]);
-
-    const settingsForm = await superValidate<AssessmentSettingsFormData>(
-      {
-        title: detail.title,
-        summary: detail.summary,
-        opensAt: toDateTimeLocal(detail.opensAt),
-        dueAt: toDateTimeLocal(detail.dueAt ?? detail.closesAt),
-        allowLateSubmissions:
-          !!detail.dueAt &&
-          !!detail.closesAt &&
-          new Date(detail.closesAt) > new Date(detail.dueAt),
-        closesAt: toDateTimeLocal(detail.closesAt),
-        allowedLanguages: detail.allowedLanguages,
-        maxAttemptsPerDay: detail.maxAttemptsPerDay ?? null,
-        attemptResetMinuteOfDay: detail.attemptResetMinuteOfDay ?? 300,
-        latePenalty: detail.latePenalty,
-      },
-      zod4(assessmentSettingsFormSchema),
-    );
-
-    return {
-      mode: "teacher" as const,
-      detail,
-      matrix,
-      results: buildAssignmentResults(matrix),
-      settingsForm,
-      candidateProblems,
-      canSetOverride,
-      clarification: {
-        canAsk: canAskClar,
-        canAnswer: canAnswerClar,
-        canView: canViewClar,
-      },
-      plagiarism: serializePlagiarismReport(plagiarism),
-      plagiarismFlags: serializePlagiarismFlags(plagiarismFlags),
-      auditEvents,
-      auditActorNames,
-      recentSubmissions,
-    };
-  }
-
-  const [detail, canAskClar, canAnswerClar, canViewClar, feedback] = await Promise.all([
-    getAssignmentDetail(courseId, assignmentId, {
-      viewerUserId: actor.userId,
-      isManager: false,
-    }),
-    clarificationDomain.canAskClarification(actor, { type: "assignment", assignmentId }),
-    clarificationDomain.canAnswerInContext(actor, { type: "assignment", assignmentId }),
-    clarificationDomain.canViewClarifications(actor, { type: "assignment", assignmentId }),
-    feedbackDomain.getFeedbackForStudent(actor.userId, {
-      type: "assignment",
-      assignmentId,
-    }),
-  ]);
-  return {
-    mode: "student" as const,
-    detail,
-    clarification: {
-      canAsk: canAskClar,
-      canAnswer: canAnswerClar,
-      canView: canViewClar,
+  const { detail, matrix } = view;
+  const settingsForm = await superValidate<AssessmentSettingsFormData>(
+    {
+      title: detail.title,
+      summary: detail.summary,
+      opensAt: toDateTimeLocal(detail.opensAt),
+      dueAt: toDateTimeLocal(detail.dueAt ?? detail.closesAt),
+      allowLateSubmissions:
+        !!detail.dueAt &&
+        !!detail.closesAt &&
+        new Date(detail.closesAt) > new Date(detail.dueAt),
+      closesAt: toDateTimeLocal(detail.closesAt),
+      allowedLanguages: detail.allowedLanguages,
+      maxAttemptsPerDay: detail.maxAttemptsPerDay ?? null,
+      attemptResetMinuteOfDay: detail.attemptResetMinuteOfDay ?? 300,
+      latePenalty: detail.latePenalty,
     },
-    feedback: feedback.map((f) => ({ problemId: f.problemId, comment: f.comment })),
+    zod4(assessmentSettingsFormSchema),
+  );
+
+  return {
+    ...view,
+    results: buildAssignmentResults(matrix),
+    settingsForm,
+    plagiarism: serializePlagiarismReport(view.plagiarism),
+    plagiarismFlags: serializePlagiarismFlags(view.plagiarismFlags),
   };
 });
 
