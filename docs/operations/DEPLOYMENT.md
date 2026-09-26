@@ -344,7 +344,8 @@ apply ad-hoc down migrations.
 | -------- | -------------------------------------------------- | ---------------------------------------------------------------------- |
 | web      | HPA 1–3, CPU 70%                                   | HPA 2–15, CPU 70%                                                      |
 | judge    | 1 replica, slots 2–5 by node CPU                   | 2 replicas × 2 slots                                                   |
-| platform | 1 replica                                          | 1 replica                                                              |
+| platform | 1 replica                                          | 2 replicas                                                             |
+| registry | 1 replica                                          | 2 replicas                                                             |
 | sandbox  | quota 16 pods / 6 CPU / 16Gi; judge container 300m | quota 10 pods / 10 CPU / 30Gi; one on-demand gVisor node plus Spot 0–4 |
 | postgres | CNPG, 500m CPU, 2Gi memory request = limit         | Cloud SQL, outside the chart                                           |
 
@@ -365,15 +366,18 @@ into what remains.
 | Setting                  | Web                                    | Judge / platform worker                       |
 | ------------------------ | -------------------------------------- | --------------------------------------------- |
 | PodDisruptionBudget      | `maxUnavailable: 1` when `pdb.enabled` | `maxUnavailable: 1` when `pdb.enabled`        |
-| Spread                   | zone + node, `ScheduleAnyway`          | judge: zone + node, `ScheduleAnyway`          |
+| Spread                   | zone + node, `ScheduleAnyway`          | zone + node, `ScheduleAnyway`                 |
 | `terminationGracePeriod` | 60 s                                   | 120 s                                         |
 | Shutdown after SIGTERM   | 10 s `preStop`, then adapter-node 30 s | Temporal `shutdownGraceTime` 30 s, 40 s total |
 | Load-balancer drain      | GKE `BackendConfig` 30 s               | —                                             |
 | Probe timeout            | readiness 3 s, liveness 5 s            | 5 s (above the 3 s in-process check budget)   |
 
-`maxUnavailable` rather than `minAvailable` keeps a single-replica platform
-worker drainable: a `minAvailable: 1` budget on one replica blocks every node
-drain and GKE upgrade until the drain timeout. GKE enables the budgets;
+The registry gets the same budget and spread as the workers; its replicas share
+the object-storage blob backend and `REGISTRY_HTTP_SECRET`, so a push can
+continue on any replica. `maxUnavailable`
+rather than `minAvailable` keeps a single-replica workload drainable: a
+`minAvailable: 1` budget on one replica blocks every node drain and GKE upgrade
+until the drain timeout. GKE enables the budgets;
 the single-machine overlay leaves them off because a one-node drain evicts
 everything anyway. Spread constraints never block scheduling, so they are a
 no-op on one node. cloudflared also spreads across nodes and gets a 45-second

@@ -39,17 +39,20 @@ function find(docs: string[], kind: string, name: string): string {
 describe("workload disruption on GKE", () => {
   const docs = render("infra/charts/nojv/values-gke.yaml");
 
-  it.each(["nojv-web", "nojv-worker", "nojv-worker-platform"])(
-    "lets a drain evict one %s pod at a time",
-    (name) => {
-      const pdb = find(docs, "PodDisruptionBudget", name);
-      expect(pdb).toContain("maxUnavailable: 1");
-      expect(pdb).not.toContain("minAvailable");
-      expect(pdb).toContain(`app.kubernetes.io/name: ${name}`);
-    },
-  );
+  const replicated = ["nojv-web", "nojv-worker", "nojv-worker-platform", "nojv-registry"];
 
-  it.each(["nojv-web", "nojv-worker"])("softly spreads %s across zones and nodes", (name) => {
+  it.each(replicated)("lets a drain evict one %s pod at a time", (name) => {
+    const pdb = find(docs, "PodDisruptionBudget", name);
+    expect(pdb).toContain("maxUnavailable: 1");
+    expect(pdb).not.toContain("minAvailable");
+    expect(pdb).toContain(`app.kubernetes.io/name: ${name}`);
+  });
+
+  it.each(["nojv-worker-platform", "nojv-registry"])("runs two %s replicas", (name) => {
+    expect(find(docs, "Deployment", name)).toMatch(/^ {2}replicas: 2$/m);
+  });
+
+  it.each(replicated)("softly spreads %s across zones and nodes", (name) => {
     const deployment = find(docs, "Deployment", name);
     for (const key of ["topology.kubernetes.io/zone", "kubernetes.io/hostname"]) {
       expect(deployment).toContain(`topologyKey: ${key}`);
@@ -77,6 +80,10 @@ describe("workload disruption on GKE", () => {
 
 describe("workload disruption on a single machine", () => {
   const docs = render("infra/charts/nojv/values-single-machine.yaml");
+
+  it.each(["nojv-worker-platform", "nojv-registry"])("runs one %s replica", (name) => {
+    expect(find(docs, "Deployment", name)).toMatch(/^ {2}replicas: 1$/m);
+  });
 
   it("renders no PodDisruptionBudget that could block a one-node drain", () => {
     expect(docs.some((d) => /^kind:\s*PodDisruptionBudget\s*$/m.test(d))).toBe(false);

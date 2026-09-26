@@ -37,7 +37,6 @@ Work that is known, not done, and not covered by an in-flight plan. Remove an it
 ### High availability
 
 - Temporal runs one replica on a single-instance Postgres on the single-machine target; GKE should run the official chart with at least two replicas per service (`infra/gcp/gke/temporal/HA-PRODUCTION.md`).
-- `worker-platform` and the registry run one replica; on GKE run two after confirming the platform startup sweeps are safe to run concurrently.
 - CNPG backups use the in-tree `barmanObjectStore`, which CNPG is deprecating in favor of the barman-cloud plugin.
 
 ### Code and product

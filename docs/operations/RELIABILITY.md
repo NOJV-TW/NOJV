@@ -107,6 +107,7 @@ Backups, retention and restore order are in [Backup & Restore](../runbooks/backu
 ### Worker unavailable
 
 - **Impact**: no judging or lifecycle transitions; accepted work stays durable in PostgreSQL and Temporal.
+- **Topology**: GKE runs two platform workers. Their startup work is safe to run concurrently: `ensure*` starts singletons by fixed workflow ID and keeps a running one, the stale-submission sweep kills only through a conditional status update, and execution recovery enqueues dispatch with `skipDuplicates` and bumps the recovery epoch under row locks after re-checking the owner. The SQL-backed gauges are reported by each replica and alerts read them with `max()`. Single-machine runs one of each worker.
 - **Recovery**: Deployments restart failed processes; accepted workflows resume and the outbox dispatches after Temporal is reachable. Node and container-runtime recovery is an operator action. With `pdb.enabled` (GKE), one voluntary eviction at a time.
 
 ### Sandbox failure

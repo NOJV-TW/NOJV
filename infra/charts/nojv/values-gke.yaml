@@ -28,6 +28,7 @@ storage:
 
 registry:
   enabled: true
+  replicas: 2
   host: ""
   token:
     realm: ""
@@ -66,7 +67,7 @@ worker:
     nodeSelector:
       nojv-role: worker
   platform:
-    replicas: 1
+    replicas: 2
     nodeSelector:
       nojv-role: worker
   sandbox:
