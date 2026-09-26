@@ -140,7 +140,7 @@ Temporal (TypeScript SDK) runs judging, rejudge, lifecycle, reminders and plagia
 
 **Decided:** 2026-04 · **Source:** [2026-04-02-microservice-architecture-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-02-microservice-architecture-redesign.md), [2026-04-02-architecture-implementation-plan](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-02-architecture-implementation-plan.md)
 
-Product code dispatches through the `DomainOrchestrationAdapter` port (`dispatchRejudge`, `cancelRejudge`, ...) and never sees Temporal internals. `@nojv/temporal` is a client/dispatch-only package depending on `@nojv/core`; web and worker wire that port to it; workflows and activities live in `apps/worker`.
+Product code dispatches through the `DomainOrchestrationAdapter` port (`dispatchJudgeExecution`, `ensureContestLifecycle`, ...) and never sees Temporal internals. `@nojv/temporal` is a client/dispatch-only package depending on `@nojv/core`; web and worker wire that port to it; workflows and activities live in `apps/worker`.
 
 - Rejected: the original `@nojv/job-dispatch` package (removed).
 - Rule: `@nojv/application` must not import `@temporalio/*` or `@nojv/temporal`.
@@ -166,15 +166,15 @@ Source and testcase bytes never travel through Temporal payloads; `durableJudgeW
 - Rule: never put source or testcase bytes into workflow inputs or activity results.
 - Code: `apps/worker/src/workflows/durable-judge.ts`
 
-### DAT-17 Batch rejudge isolates child failures and keeps cancellation
+### DAT-17 Batch rejudge isolates target failures and keeps cancellation
 
 **Decided:** 2026-06 · **Source:** [2026-06-10-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-10-audit-remediation.md), [2026-06-11-post-audit-next-phase](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-11-post-audit-next-phase.md)
 
-Each child in a batch rejudge has its own error handling so one failure does not kill the parent or siblings.
+Each target of a batch rejudge is its own pinned execution with its own `durableJudgeWorkflow`, so one failure does not affect the others; cancellation marks every non-terminal execution of the operation cancelled in one transaction.
 
-- Rejected: `parentClosePolicy=ABANDON` (breaks the cancellation propagation `cancelRejudge` relies on).
-- Rule: do not set ABANDON on rejudge child workflows.
-- Code: `apps/worker/src/workflows/rejudge.ts`
+- Rejected: a parent `rejudgeWorkflow` with child `submissionJudgeWorkflow`s and `parentClosePolicy=ABANDON` (removed once production had no running legacy executions, [#529](https://github.com/NOJV-TW/NOJV/pull/529)).
+- Rule: a rejudge never starts a workflow outside the durable execution path.
+- Code: `packages/application/src/submission/rejudge-control.ts` (`dispatchRejudge`, `cancelRejudge`)
 
 ### DAT-18 Reminders are lead-day checkpoints with dedupe keys
 

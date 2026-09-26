@@ -17,7 +17,6 @@ import {
   listExamIpViolations,
   plagiarismDomain,
   courseDomain,
-  proctoringDomain,
   scoreOverrideDomain,
   submissionDomain,
   userDomain,
@@ -26,7 +25,6 @@ import {
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";
 import { getClientIp } from "$lib/server/shared/client-ip";
-import { createLogger } from "$lib/server/logger";
 import { withAction } from "$lib/server/shared/action-handlers";
 import { classifyRequestError } from "$lib/server/shared/handle-action-error";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
@@ -45,8 +43,6 @@ const {
   publishExam,
   updateExamRecord,
 } = examDomain;
-
-const logger = createLogger("exam-page-action");
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   event.depends("submission:data");
@@ -228,21 +224,7 @@ export const actions = {
     const actor = requireAuth(event);
     const examId = event.params.examId;
     const clientIp = getClientIp(event);
-    await examDomain.session.startSessionWithGate(actor, { examId });
-    try {
-      await proctoringDomain.checkProctoringGate({
-        entityKind: "exam",
-        entityId: examId,
-        userId: actor.userId,
-        ip: clientIp,
-      });
-    } catch (err) {
-      logger.warn("start-time IP pin failed — hooks gate still enforces", {
-        userId: actor.userId,
-        examId,
-        err: err instanceof Error ? err.message : String(err),
-      });
-    }
+    await examDomain.session.startSessionWithGate(actor, { examId, ip: clientIp });
     return { success: true };
   }),
 

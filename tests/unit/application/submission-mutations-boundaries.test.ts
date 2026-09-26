@@ -38,6 +38,7 @@ const {
   durableWorkEnqueueMany,
   durableWorkCancel,
   storageRef,
+  transactionOutcomes,
 } = vi.hoisted(() => ({
   problemFindById: vi.fn(),
   userFindById: vi.fn(),
@@ -61,6 +62,7 @@ const {
   durableWorkEnqueueMany: vi.fn(),
   durableWorkCancel: vi.fn(),
   storageRef: { client: null as unknown as { send: (cmd: unknown) => Promise<unknown> } },
+  transactionOutcomes: [] as Array<"committed" | "rolled_back">,
 }));
 
 vi.mock("@nojv/db", () => ({
@@ -123,8 +125,19 @@ vi.mock("@nojv/db", () => ({
   },
   runTransaction: async <T>(
     fn: (tx: { $executeRaw: typeof vi.fn; $queryRaw: typeof vi.fn }) => Promise<T>,
-  ): Promise<T> =>
-    fn({ $executeRaw: vi.fn().mockResolvedValue(0), $queryRaw: vi.fn().mockResolvedValue([]) }),
+  ): Promise<T> => {
+    try {
+      const result = await fn({
+        $executeRaw: vi.fn().mockResolvedValue(0),
+        $queryRaw: vi.fn().mockResolvedValue([]),
+      });
+      transactionOutcomes.push("committed");
+      return result;
+    } catch (error) {
+      transactionOutcomes.push("rolled_back");
+      throw error;
+    }
+  },
   Prisma: { DbNull: null },
 }));
 
@@ -485,6 +498,24 @@ describe("createQueuedSubmissionRecord — active exam lockout", () => {
       expect.anything(),
       expect.objectContaining({ entityKind: "exam", entityId: "exam_42", ip: "203.0.113.99" }),
     );
+    expect(submissionCreate).not.toHaveBeenCalled();
+  });
+
+  it("commits the gate's violation writes before rejecting a wrong-IP submission", async () => {
+    examSessionFindActiveForUser.mockResolvedValue({
+      examId: "exam_42",
+      exam: { pageLockEnabled: false },
+      userId: fakeActor.userId,
+    });
+    examProblemExists.mockResolvedValue(true);
+    proctoringGateInTx.mockResolvedValue({ ok: false, reason: "ip_whitelist" });
+    vi.setSystemTime(new Date("2026-04-14T10:00:00.000Z"));
+    transactionOutcomes.length = 0;
+
+    await expect(
+      createQueuedSubmissionRecord(baseExamDraft, fakeActor, "203.0.113.99"),
+    ).rejects.toThrow(/IP restrictions/);
+    expect(transactionOutcomes).toEqual(["committed"]);
     expect(submissionCreate).not.toHaveBeenCalled();
   });
 

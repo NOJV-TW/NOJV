@@ -283,27 +283,29 @@
     </div>
 
     <div class="mt-4 grid gap-3">
-      <div
-        class="flex flex-col gap-4 rounded-lg border border-border-subtle bg-background/30 p-4 md:flex-row md:items-center md:justify-between"
-      >
-        <div class="min-w-0">
-          <h3 class="text-body-lg font-semibold tracking-[-0.005em]">
-            {m.courseSettings_copyTitle()}
-          </h3>
-          <p class="mt-1.5 text-caption leading-relaxed text-muted-foreground">
-            {m.courseSettings_copyDesc()}
-          </p>
-        </div>
-        <Button
-          class="shrink-0"
-          variant="outline"
-          onclick={() => (copyOpen = true)}
-          disabled={copying}
+      {#if data.canCopy}
+        <div
+          class="flex flex-col gap-4 rounded-lg border border-border-subtle bg-background/30 p-4 md:flex-row md:items-center md:justify-between"
         >
-          <Copy class="h-4 w-4" aria-hidden="true" />
-          {m.courseSettings_copyButton()}
-        </Button>
-      </div>
+          <div class="min-w-0">
+            <h3 class="text-body-lg font-semibold tracking-[-0.005em]">
+              {m.courseSettings_copyTitle()}
+            </h3>
+            <p class="mt-1.5 text-caption leading-relaxed text-muted-foreground">
+              {m.courseSettings_copyDesc()}
+            </p>
+          </div>
+          <Button
+            class="shrink-0"
+            variant="outline"
+            onclick={() => (copyOpen = true)}
+            disabled={copying}
+          >
+            <Copy class="h-4 w-4" aria-hidden="true" />
+            {m.courseSettings_copyButton()}
+          </Button>
+        </div>
+      {/if}
 
       <div
         class="flex flex-col gap-4 rounded-lg border border-border-subtle bg-background/30 p-4 md:flex-row md:items-center md:justify-between"

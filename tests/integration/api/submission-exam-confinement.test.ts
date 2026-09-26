@@ -348,6 +348,9 @@ describe("numbered history snapshots against the real database", () => {
       const teacher = await createTestUser({ platformRole: "teacher" });
       const student = await createTestUser();
       const course = await createTestCourse({ ownerId: teacher.id });
+      await testPrisma.courseMembership.create({
+        data: { courseId: course.id, userId: teacher.id, role: "teacher", status: "active" },
+      });
       const exam = await createTestExam({ courseId: course.id, pageLockEnabled: true });
       const otherExam = await createTestExam({ courseId: course.id });
       const problem = await createTestProblem({ authorId: teacher.id });
@@ -441,6 +444,9 @@ describe("numbered history snapshots against the real database", () => {
   it("rejects a teacher snapshot when moved to a different authorized exam", async () => {
     const teacher = await createTestUser({ platformRole: "teacher" });
     const course = await createTestCourse({ ownerId: teacher.id });
+    await testPrisma.courseMembership.create({
+      data: { courseId: course.id, userId: teacher.id, role: "teacher", status: "active" },
+    });
     const examA = await createTestExam({ courseId: course.id });
     const examB = await createTestExam({ courseId: course.id });
     const problem = await createTestProblem({ authorId: teacher.id });

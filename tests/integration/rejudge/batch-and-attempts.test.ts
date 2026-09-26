@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { submissionRepo } from "@nojv/db";
+import { runTransaction, submissionRepo } from "@nojv/db";
 import { submissionDomain } from "@nojv/application";
 
 import {
@@ -10,6 +10,36 @@ import {
   createTestUser,
   testPrisma,
 } from "../../fixtures/factories";
+
+beforeEach(() => {
+  vi.stubEnv("SANDBOX_IMAGE", "sandbox@sha256:" + "a".repeat(64));
+});
+
+async function rejudgeToAccepted(
+  submission: { id: string; problemId: string; language: string },
+  teacherId: string,
+) {
+  const pinned = await submissionDomain.prepareJudgeSnapshot(submission.id, {
+    problemId: submission.problemId,
+    language: submission.language,
+    sampleOnly: false,
+  });
+  const execution = await runTransaction((tx) =>
+    submissionDomain.createJudgeExecution(tx, {
+      submissionId: submission.id,
+      ...pinned,
+      triggeredByUserId: teacherId,
+    }),
+  );
+  await submissionDomain.completeJudgeExecution(execution.id, execution.workflowId, {
+    accepted: true,
+    caseResults: [],
+    feedback: "accepted",
+    runtimeMs: 1,
+    score: 100,
+    verdict: "accepted",
+  });
+}
 
 async function createTestAssignment(opts: {
   courseId: string;
@@ -65,27 +95,7 @@ describe("rejudge — attempt-quota invariant (real DB)", () => {
     );
     expect(before).toBe(1);
 
-    const judgeRunId = `run-${submission.id}`;
-    const snap = await submissionDomain.snapshotForRejudge(
-      submission.id,
-      teacher.id,
-      judgeRunId,
-    );
-    expect(snap).not.toBeNull();
-    await submissionDomain.completeJudge(submission.id, judgeRunId, {
-      accepted: true,
-      caseResults: [],
-      feedback: "accepted",
-      runtimeMs: 1,
-      score: 100,
-      verdict: "accepted",
-    });
-    await submissionDomain.finalizeRejudgeLog(
-      submission.id,
-      teacher.id,
-      snap!.logId,
-      judgeRunId,
-    );
+    await rejudgeToAccepted(submission, teacher.id);
 
     const after = await submissionRepo.countForUserAssessmentProblemSince(
       student.id,
@@ -109,17 +119,7 @@ describe("listRejudgeLogsPaged (real DB)", () => {
       status: "wrong_answer",
       score: 0,
     });
-    const judgeRunId = `run-${sub.id}`;
-    const snap = await submissionDomain.snapshotForRejudge(sub.id, opts.teacherId, judgeRunId);
-    await submissionDomain.completeJudge(sub.id, judgeRunId, {
-      accepted: true,
-      caseResults: [],
-      feedback: "accepted",
-      runtimeMs: 1,
-      score: 100,
-      verdict: "accepted",
-    });
-    await submissionDomain.finalizeRejudgeLog(sub.id, opts.teacherId, snap!.logId, judgeRunId);
+    await rejudgeToAccepted(sub, opts.teacherId);
     return sub;
   }
 

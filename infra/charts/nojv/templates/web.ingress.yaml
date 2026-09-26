@@ -13,6 +13,8 @@ metadata:
 spec:
   securityPolicy:
     name: {{ .Values.web.ingress.gce.securityPolicy }}
+  connectionDraining:
+    drainingTimeoutSec: {{ .Values.web.ingress.gce.connectionDrainingTimeoutSec }}
 ---
 apiVersion: networking.gke.io/v1beta1
 kind: FrontendConfig

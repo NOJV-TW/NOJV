@@ -1,5 +1,9 @@
 {{- if .Values.pdb.enabled }}
-{{- range $name := list "web" "worker" "worker-platform" }}
+{{- $names := list "web" "worker" "worker-platform" }}
+{{- if .Values.registry.enabled }}
+{{- $names = append $names "registry" }}
+{{- end }}
+{{- range $name := $names }}
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget

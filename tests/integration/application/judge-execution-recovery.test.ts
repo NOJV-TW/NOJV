@@ -605,8 +605,6 @@ describe("journal-backed submission tracking", () => {
         where: { id: f.execution.id },
         data: { state: "recovering" },
       });
-      const progress = vi.fn();
-      configureDomainOrchestration({ queryRejudgeProgress: progress } as never);
       const own = actor(f.user);
       const pending = await judge.listPendingSubmissionOperations(own);
       expect(pending.items).toEqual([
@@ -622,7 +620,6 @@ describe("journal-backed submission tracking", () => {
       const batch = await judge.listSubmissionOperations(own, [f.submission.id]);
       expect(batch.items[0]).toMatchObject({ status, execution: { state: "recovering" } });
       if (status === "accepted") expect(batch.items[0]?.result?.score).toBe(100);
-      expect(progress).not.toHaveBeenCalled();
       await db.judgeExecution.update({
         where: { id: f.execution.id },
         data: { state: "completed" },
@@ -660,8 +657,6 @@ describe("journal-backed submission tracking", () => {
       userId: f.user.id,
       problemId: f.problem.id,
     });
-    const progress = vi.fn();
-    configureDomainOrchestration({ queryRejudgeProgress: progress } as never);
     const pending = await judge.listPendingSubmissionOperations(actor(f.user));
     expect(pending.items.map((row) => row.submissionId).sort()).toEqual(
       [f.submission.id, other.id].sort(),
@@ -695,7 +690,6 @@ describe("journal-backed submission tracking", () => {
       total: 2,
       completed: 1,
     });
-    expect(progress).not.toHaveBeenCalled();
     expect(
       await durableWorkRepo.listRejudgeCandidates({
         problemId: f.problem.id,

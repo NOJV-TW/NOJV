@@ -141,7 +141,7 @@ Assignments and exams share `dueAt` (on-time) plus a hard deadline (`Assessment.
 
 - Rejected: a per-assignment total cap; whole-hour-only reset setting; notifying students when a rejudge changes their score.
 - Rule: Enforcement and display share `attemptWindowStart`; the server check is the final guard. A rejudge never consumes an attempt.
-- Code: `packages/application/src/submission/attempt-window.ts`, `packages/temporal/src/dispatch.ts` (`queryRejudgeProgress`, `cancelRejudge`)
+- Code: `packages/application/src/submission/attempt-window.ts`, `packages/application/src/submission/rejudge-control.ts` (`queryRejudgeProgress`, `cancelRejudge`)
 
 ### ASM-14 Assessment lifecycle audit outlives the assessment; timeline reads existing logs
 
@@ -217,7 +217,10 @@ A CIDR whitelist and first-visit IP binding are independent toggles sharing `ipV
 - Rejected: a single unenforced `ipLockEnabled` flag; Earlier: fail-open active-exam context lookup for availability (2026-05) — now fails closed with 503; a whole-exam IP kill switch; extra anti-spoofing beyond the `CF-Connecting-IP` trust model.
 - Rule: The IP decision is the pure `evaluateIpLock`; CIDR matching handles IPv4, IPv6 and IPv4-mapped IPv6; only trust `CF-Connecting-IP` in production (see SEC-09 in security.md).
 - Rule: Notify mode never silently drops a violation; path matching uses strict prefixes.
-- Code: `packages/application/src/shared/ip.ts`, `packages/application/src/proctoring/violation-logger.ts`, `packages/db/src/repositories/ip-violation.ts`
+- Rule: The first IP pin is a conditional write (`ipPin IS NULL` with a count check); a request that loses is evaluated against the winner's pin, never re-pins.
+- Rule: Exam entry runs the proctoring gate before any session or participation write; a denied entry creates no session.
+- Rule: Gate denials inside a transaction are returned and raised after commit, so violation rows survive a rejected entry or submission; every binding reset writes an `ip_reset` session event.
+- Code: `packages/application/src/shared/ip.ts`, `packages/application/src/proctoring/violation-logger.ts`, `packages/db/src/repositories/ip-violation.ts`, `packages/application/src/exam/session.ts`
 
 ### ASM-21 Exam submissions are scoped to the exam and final after hand-in
 
@@ -261,3 +264,14 @@ Staff (course staff, contest owner, admins) can flag a pair as a false positive 
 
 - Rejected: the original "no review UI" non-goal; a JSON snapshot of the wiped result (YAGNI); a trigger-log UI.
 - Code: `packages/db/prisma/schema/plagiarism.prisma`, `packages/application/src/plagiarism/flags.ts`, `packages/application/src/plagiarism/queries.ts`
+
+### ASM-25 Course management authority is one active-membership check; ownership is not a grant
+
+**Decided:** 2026-09 · **Source:** this PR
+
+Whether an actor manages a course is decided only by `resolveCourseRole` in `packages/application/src/shared/permissions.ts`: an effective admin, or an active teacher/TA membership. `Course.ownerId` records who created the course and anchors deletion and roster protections, but grants nothing on its own. Creating a course writes the owner's active teacher membership in the same transaction, and roster changes, merges and removals refuse to demote or remove the owner, so the owner always manages through that membership. Course creation and copying check `canCreateCourse` (platform teacher/admin) inside the application functions, so a course TA who is a platform student cannot create a course by copying one.
+
+- Rejected: treating `ownerId` as an extra manager grant in some pages (plagiarism pair view, announcement actions, context submission lists); it diverged from layouts and member management and would bypass a removed owner membership. Checking course creation only in the `/courses/new` route.
+- Rule: Web routes and application code call `isCourseManager`, `getCourseRole` or `assertCourseManager`; do not re-derive manager status from `ownerId` or raw membership fields.
+- Rule: Every path that creates a course (new, copy) enforces `canCreateCourse` in the application layer and creates the owner's active teacher membership.
+- Code: `packages/application/src/shared/permissions.ts`, `packages/application/src/course/mutations.ts`, `apps/web/src/lib/server/auth.ts`

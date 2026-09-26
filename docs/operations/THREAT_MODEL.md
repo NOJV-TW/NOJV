@@ -103,7 +103,7 @@ Each item names the mitigating control; _Residual_ is what remains.
 - **Stolen backup code or mailbox recovers a super admin** — Recovery requires the password first and grants setup-only access.
 - **Temporary exam password used beyond the exam or for staff access** — Session marker + revision checks; staff ineligible; hard expiry at exam end.
 - **`BETTER_AUTH_SECRET` leak** — Out-of-band runtime secret, never logged. _Residual:_ Leak enables session forgery and exam-password/draft-key decryption; rotation invalidates all sessions.
-- **Provider token theft from the database** — Database access controls only. _Residual:_ OAuth tokens are stored unencrypted (see [Open Gaps](#open-gaps)).
+- **Provider token theft from the database** — Access and refresh tokens are encrypted with `BETTER_AUTH_SECRET`. _Residual:_ A `BETTER_AUTH_SECRET` leak together with database access exposes them.
 
 ### Authorization and data exposure
 
@@ -176,15 +176,14 @@ Controls: [Infrastructure](SECURITY.md#infrastructure).
 
 ## Open Gaps
 
-| Gap                                         | Current state                                                                                                                               | Recommendation                                                                          | Priority |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | -------- |
-| OAuth provider tokens stored in plaintext   | `account.encryptOAuthTokens` is not enabled                                                                                                 | Enable it (with a migration for existing rows) or stop storing tokens that are not used | Medium   |
-| No aggregate image storage quota            | Images are capped per file (5 MB) and rate-limited, but not counted against any per-user or per-problem budget; remote-image cache likewise | Count image bytes in a budget if growth warrants                                        | Medium   |
-| SSE concurrency caps are per replica        | `acquireSseSlot` caps 5 streams per user per stream type and 2000 per replica, in memory; SSE routes are not rate-limited                   | Move counters to Redis if a global cap is needed                                        | Low      |
-| No per-account sign-in lockout              | Password sign-in is limited per IP (and per username for exam passwords)                                                                    | Add a per-account limiter if distributed brute force appears                            | Low      |
-| Redis unauthenticated                       | Compose and the in-cluster chart Redis have no password; GKE uses external Redis                                                            | Add Redis auth for single-machine deployments                                           | Low      |
-| Browser tab / device switching not detected | Page lock covers NOJV server routes only                                                                                                    | Only if remote proctoring becomes a requirement                                         | Low      |
-| No plagiarism concurrency cap               | Dolos runs in-process per activity, bounded by one target's submissions and the activity timeout                                            | Add an activity concurrency limit if parser contention appears                          | Low      |
+| Gap                                         | Current state                                                                                                                               | Recommendation                                                 | Priority |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | -------- |
+| No aggregate image storage quota            | Images are capped per file (5 MB) and rate-limited, but not counted against any per-user or per-problem budget; remote-image cache likewise | Count image bytes in a budget if growth warrants               | Medium   |
+| SSE concurrency caps are per replica        | `acquireSseSlot` caps 5 streams per user per stream type and 2000 per replica, in memory; SSE routes are not rate-limited                   | Move counters to Redis if a global cap is needed               | Low      |
+| No per-account sign-in lockout              | Password sign-in is limited per IP (and per username for exam passwords)                                                                    | Add a per-account limiter if distributed brute force appears   | Low      |
+| Redis unauthenticated                       | Compose and the in-cluster chart Redis have no password; GKE uses external Redis                                                            | Add Redis auth for single-machine deployments                  | Low      |
+| Browser tab / device switching not detected | Page lock covers NOJV server routes only                                                                                                    | Only if remote proctoring becomes a requirement                | Low      |
+| No plagiarism concurrency cap               | Dolos runs in-process per activity, bounded by one target's submissions and the activity timeout                                            | Add an activity concurrency limit if parser contention appears | Low      |
 
 ## Related Docs
 

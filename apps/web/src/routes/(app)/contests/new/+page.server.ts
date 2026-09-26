@@ -4,10 +4,10 @@ import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
 
 import type { Actions, PageServerLoad } from "./$types";
-import { canCreateCourse, requireAuth } from "$lib/server/auth";
+import { requireAuth } from "$lib/server/auth";
 import { classifyRequestError } from "$lib/server/shared/handle-action-error";
 import { withAction } from "$lib/server/shared/action-handlers";
-import { contestDomain, problemDomain } from "@nojv/application";
+import { canCreateCourse, contestDomain, problemDomain } from "@nojv/application";
 
 const { createContestRecord, contestFormSchema } = contestDomain;
 

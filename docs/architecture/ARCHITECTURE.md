@@ -108,19 +108,18 @@ Rules: all async work runs in Temporal (DAT-13); workflow inputs carry IDs, not
 blobs (DAT-16); workflow code changes use `patched()` (DAT-15); cron processors
 are a cron parent awaiting a continue-as-new child (DAT-19).
 
-| Workflow                                     | Queue      | Workflow ID                                     | Start / notes                                                                                                      |
-| -------------------------------------------- | ---------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `durableJudgeWorkflow`                       | `judge`    | `judge-execution-{executionId}-{recoveryEpoch}` | `dispatchJudgeExecution`; `REJECT_DUPLICATE`; carries priority/fairness keys; state lives in `JudgeExecution` rows |
-| `judgeCleanupWorkflow`                       | `judge`    | `judge-cleanup-{leaseToken}`                    | `dispatchJudgeCleanup`; `ALLOW_DUPLICATE_FAILED_ONLY`                                                              |
-| `contestLifecycleWorkflow`                   | `platform` | `contest-lifecycle-{contestId}`                 | `ensure/replace/cancelContestLifecycle`; publishes `contest:starting` / `contest:ending`                           |
-| `examAutoCloseWorkflow`                      | `platform` | `exam-auto-close-{examId}`                      | `ensure/replace/cancelExamAutoClose`; closes active sessions at `endsAt`                                           |
-| `assignmentDueSoonWorkflow`                  | `platform` | `assignment-due-soon-{assignmentId}`            | `ensure/replace/cancelAssignmentDueSoon`; lead-day reminders (DAT-18)                                              |
-| `plagiarismCheckWorkflow`                    | `platform` | `plagiarism-{targetType}-{targetId}`            | `dispatchPlagiarismCheck`; `TERMINATE_EXISTING` on conflict (ASM-23)                                               |
-| `registryGarbageCollectWorkflow`             | `platform` | `registry-gc`                                   | `dispatchRegistryGarbageCollect`; singleton, reports `alreadyRunning` (OPS-10)                                     |
-| `submissionSweeperWorkflow`                  | `platform` | `submission-pending-sweeper`                    | Cron `* * * * *`; ensured by the platform worker                                                                   |
-| `durableWorkProcessorWorkflow`               | `platform` | `durable-work-processor`                        | Cron `* * * * *`; runs `durableWorkWorkflow` child                                                                 |
-| `lifecycleReconcilerProcessorWorkflow`       | `platform` | `lifecycle-timer-reconciler`                    | Cron `*/5 * * * *`; runs `lifecycleReconcilerWorkflow` child; re-ensures timers and missed judge dispatch          |
-| `submissionJudgeWorkflow`, `rejudgeWorkflow` | `judge`    | `judge-{submissionId}`, `rejudge-{uuid}`        | Legacy; registered only so persisted histories replay. New work never starts them                                  |
+| Workflow                               | Queue      | Workflow ID                                     | Start / notes                                                                                                      |
+| -------------------------------------- | ---------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `durableJudgeWorkflow`                 | `judge`    | `judge-execution-{executionId}-{recoveryEpoch}` | `dispatchJudgeExecution`; `REJECT_DUPLICATE`; carries priority/fairness keys; state lives in `JudgeExecution` rows |
+| `judgeCleanupWorkflow`                 | `judge`    | `judge-cleanup-{leaseToken}`                    | `dispatchJudgeCleanup`; `ALLOW_DUPLICATE_FAILED_ONLY`                                                              |
+| `contestLifecycleWorkflow`             | `platform` | `contest-lifecycle-{contestId}`                 | `ensure/replace/cancelContestLifecycle`; publishes `contest:starting` / `contest:ending`                           |
+| `examAutoCloseWorkflow`                | `platform` | `exam-auto-close-{examId}`                      | `ensure/replace/cancelExamAutoClose`; closes active sessions at `endsAt`                                           |
+| `assignmentDueSoonWorkflow`            | `platform` | `assignment-due-soon-{assignmentId}`            | `ensure/replace/cancelAssignmentDueSoon`; lead-day reminders (DAT-18)                                              |
+| `plagiarismCheckWorkflow`              | `platform` | `plagiarism-{targetType}-{targetId}`            | `dispatchPlagiarismCheck`; `TERMINATE_EXISTING` on conflict (ASM-23)                                               |
+| `registryGarbageCollectWorkflow`       | `platform` | `registry-gc`                                   | `dispatchRegistryGarbageCollect`; singleton, reports `alreadyRunning` (OPS-10)                                     |
+| `submissionSweeperWorkflow`            | `platform` | `submission-pending-sweeper`                    | Cron `* * * * *`; ensured by the platform worker                                                                   |
+| `durableWorkProcessorWorkflow`         | `platform` | `durable-work-processor`                        | Cron `* * * * *`; runs `durableWorkWorkflow` child                                                                 |
+| `lifecycleReconcilerProcessorWorkflow` | `platform` | `lifecycle-timer-reconciler`                    | Cron `*/5 * * * *`; runs `lifecycleReconcilerWorkflow` child; re-ensures timers and missed judge dispatch          |
 
 Lifecycle timers (`contest`, `exam`, `assignment`) are reconciled, not blindly
 restarted: each start carries `scheduleRevision` and `timerFingerprint` in the

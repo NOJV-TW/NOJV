@@ -54,7 +54,7 @@ async function assertCourseStaff(
   if (!course) {
     throw new NotFoundError(notFoundMessage);
   }
-  if (!isCourseManager(actor, course) && course.ownerId !== actor.userId) {
+  if (!isCourseManager(actor, course)) {
     throw new ForbiddenError("Only course staff can view plagiarism diff.");
   }
 }

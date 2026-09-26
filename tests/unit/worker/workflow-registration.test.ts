@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -11,13 +11,6 @@ const workflowsDir = join(repoRoot, "apps/worker/src/workflows");
 
 function matchAll(text: string, re: RegExp): string[] {
   return [...text.matchAll(re)].map((m) => m[1]);
-}
-
-function workflowFilesText(): string {
-  return readdirSync(workflowsDir)
-    .filter((f) => f.endsWith(".ts"))
-    .map((f) => readFileSync(join(workflowsDir, f), "utf8"))
-    .join("\n");
 }
 
 function exportedWorkflowNames(): Set<string> {
@@ -35,7 +28,7 @@ function exportedWorkflowNames(): Set<string> {
   return names;
 }
 
-describe("Temporal workflow/query registration (string-name drift guard)", () => {
+describe("Temporal workflow registration (string-name drift guard)", () => {
   const dispatch = readFileSync(dispatchFile, "utf8");
 
   it('every workflow.start("name") in dispatch is exported from workflows/index.ts', () => {
@@ -47,18 +40,5 @@ describe("Temporal workflow/query registration (string-name drift guard)", () =>
       `dispatched workflows not registered in the worker bundle: ${unregistered.join(", ")}`,
     ).toEqual([]);
     expect(started.length).toBeGreaterThan(0);
-  });
-
-  it('every handle.query("name") in dispatch has a matching defineQuery in a workflow', () => {
-    const queried = matchAll(dispatch, /\.query(?:<[^>]*>)?\(\s*"([^"]+)"/g);
-    const defined = new Set(
-      matchAll(workflowFilesText(), /defineQuery(?:<[^>]*>)?\(\s*"([^"]+)"/g),
-    );
-    const unhandled = queried.filter((name) => !defined.has(name));
-    expect(
-      unhandled,
-      `queried names with no defineQuery handler: ${unhandled.join(", ")}`,
-    ).toEqual([]);
-    expect(queried.length).toBeGreaterThan(0);
   });
 });

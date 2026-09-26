@@ -3,10 +3,9 @@ import type { RequestEvent } from "@sveltejs/kit";
 import type { CourseMembershipStatus, CourseRole, PlatformRole } from "@nojv/core";
 
 import {
-  canEditProblem,
-  canManageCourse,
   courseDomain,
-  resolveEffectiveCourseRole,
+  isCourseManager as isCourseManagerFor,
+  resolveCourseRole,
   HttpError,
   NotFoundError,
   ForbiddenError,
@@ -98,7 +97,7 @@ export async function getCoursePermissionRole(courseId: string, actor: ActorCont
     throw new NotFoundError(`Course not found: ${courseId}`);
   }
 
-  return resolveEffectiveCourseRole(actor.platformRole, course.memberships[0]?.role ?? null);
+  return resolveCourseRole(actor.platformRole, course.memberships[0]);
 }
 
 interface CourseWithViewerMembership {
@@ -109,29 +108,21 @@ interface CourseWithViewerMembership {
   }[];
 }
 
-function activeCourseRole(actor: ActorContext, course: CourseWithViewerMembership) {
+function viewerMembership(actor: ActorContext, course: CourseWithViewerMembership) {
   const membership = course.memberships[0];
-  return membership?.status === "active" && membership.userId === actor.userId
-    ? membership.role
-    : null;
+  return membership?.userId === actor.userId ? membership : null;
 }
 
 export function isCourseMember(
   actor: ActorContext,
   course: CourseWithViewerMembership,
 ): boolean {
-  return activeCourseRole(actor, course) !== null;
+  return viewerMembership(actor, course)?.status === "active";
 }
 
 export function isCourseManager(
   actor: ActorContext,
   course: CourseWithViewerMembership,
 ): boolean {
-  return canManageCourse(
-    resolveEffectiveCourseRole(actor.platformRole, activeCourseRole(actor, course)),
-  );
-}
-
-export function canCreateCourse(platformRole: PlatformRole) {
-  return canEditProblem(platformRole);
+  return isCourseManagerFor(actor.platformRole, viewerMembership(actor, course));
 }

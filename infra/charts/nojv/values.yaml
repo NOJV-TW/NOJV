@@ -37,6 +37,7 @@ postgres:
     storageClass: ""
     database: nojv
     owner: nojv
+    resources: {}
     # CloudNativePG barman-cloud backup → S3/R2 object storage (base backups +
     # continuous WAL archiving = point-in-time recovery). DEFAULT OFF: turning it
     # on requires an existing credentials Secret (see s3CredentialsSecret), so the
@@ -129,6 +130,7 @@ registry:
   # Secret named in worker.sandbox.imagePullSecret. Blobs live in the in-cluster
   # MinIO bucket below when storage.inCluster; otherwise set s3.regionendpoint.
   enabled: false
+  replicas: 1
   image: registry:2.8.3@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373
   # Public hostname teachers docker-push to (behind the edge tunnel).
   host: ""
@@ -266,6 +268,7 @@ web:
     gce:
       securityPolicy: ""
       httpsRedirect: false
+      connectionDrainingTimeoutSec: 30
 
 edge:
   cloudflared:

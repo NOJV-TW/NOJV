@@ -119,8 +119,8 @@ Recovery is generation-guarded; at most one active judge workflow per submission
   cancellation cannot interrupt committed-result finalization.
 - Historical SE rows without a snapshot are blocked with
   `original_version_unavailable`; only a teacher rejudge selects a new version.
-- Legacy dispatch payloads without a pinned execution are retired by the sweeper
-  without starting a workflow.
+- The sweeper marks a stale in-flight submission that has no pinned execution as
+  SE; only a teacher rejudge selects a new version for it.
 
 ### Tracking
 
@@ -142,26 +142,32 @@ never full source, testcase or output bodies.
 | Contest/exam score updates, verdict publish | `platform`                       | 2 min          | —         | 3        |
 
 Kubernetes Job deadlines are capped at 30 min; the 70-min budget also covers
-admission, transfer and cleanup. `submissionJudgeWorkflow` stays registered only to
-replay legacy histories.
+admission, transfer and cleanup.
+
+A batch or single rejudge commits its pinned executions and a `prepared: true`
+`submission.rejudge.dispatch` row in one transaction; the row's handler only marks
+it succeeded, and progress and cancellation read the executions. Rows without
+`prepared: true` predate durable execution: they report their cached terminal
+progress and are otherwise not found.
 
 ## Queue priority and capacity
 
 Ordering is Temporal task-queue priority and fairness, not an in-house scheduler
 (JDG-12).
 
-| Execution                                 | `priorityKey` |
-| ----------------------------------------- | ------------- |
-| Foreground exam submission                | 1             |
-| Foreground contest submission             | 2             |
-| Foreground practice/assignment submission | 3             |
-| Foreground with `recoveryEpoch > 0`       | 4             |
-| Any `background` execution                | 5             |
+| Execution                                    | `priorityKey` |
+| -------------------------------------------- | ------------- |
+| Exam submission                              | 1             |
+| Contest submission                           | 2             |
+| Practice/assignment submission               | 3             |
+| Submission with `recoveryEpoch > 0`          | 4             |
+| Rejudge (execution carries an `operationId`) | 5             |
 
 - `fairnessKey` is the student ID. Stage activities pass the workflow priority
   explicitly.
-- Because `recovering`/`blocked` states and new recovery epochs set `queueClass =
-background`, recovered executions currently dispatch at key 5.
+- Priority follows the execution's origin, not `queueClass`. `recovering`/`blocked`
+  states and new recovery epochs set `queueClass = background` only to order the
+  student's own executions in the per-student gate below.
 - Per-student gate (`executeJudgeExecutionDispatch`): an execution starts only when
   the student has no earlier unfinished execution of the same class and, for
   background work, no unfinished foreground execution. Finishing or cancelling

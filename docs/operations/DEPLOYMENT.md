@@ -271,9 +271,10 @@ Production never runs these by hand. The migrator Job
 - **Upgrade with migrations:** the hook waits for the maintenance page, points
   the web HPA at the maintenance target, scales web, judge and platform to zero,
   waits until no pods remain, then runs `prisma migrate deploy`. A failure after
-  migration starts keeps writers at zero for a forward fix (OPS-05). A database
-  older than `20260716000012_versioned_blob_pointers_contract` must first
-  upgrade through a release that still ships the storage backfill.
+  migration starts keeps writers at zero for a forward fix (OPS-05). Production
+  already runs past `20260716000012_versioned_blob_pointers_contract`, and
+  releases no longer ship the storage backfill, so only a database restored from
+  before that migration must first upgrade through an older release.
 
 ### Release window
 
@@ -344,8 +345,10 @@ apply ad-hoc down migrations.
 | -------- | -------------------------------------------------- | ---------------------------------------------------------------------- |
 | web      | HPA 1–3, CPU 70%                                   | HPA 2–15, CPU 70%                                                      |
 | judge    | 1 replica, slots 2–5 by node CPU                   | 2 replicas × 2 slots                                                   |
-| platform | 1 replica                                          | 1 replica                                                              |
+| platform | 1 replica                                          | 2 replicas                                                             |
+| registry | 1 replica                                          | 2 replicas                                                             |
 | sandbox  | quota 16 pods / 6 CPU / 16Gi; judge container 300m | quota 10 pods / 10 CPU / 30Gi; one on-demand gVisor node plus Spot 0–4 |
+| postgres | CNPG, 500m CPU, 2Gi memory request = limit         | Cloud SQL, outside the chart                                           |
 
 The sandbox ResourceQuota is the judge capacity ceiling (OPS-11); a Job the
 quota rejects waits as `waiting_capacity`. Sizing, priority and the slot tuner
@@ -353,23 +356,38 @@ are in [Judge Queue](../runbooks/judge-queue.md). The judge Deployment uses
 `strategy: Recreate`. Extra judge replicas add dispatch slots, not sandbox
 capacity.
 
+Single-machine Postgres has a memory limit equal to its request and no CPU
+limit, so its usage never exceeds its request and kubelet node-pressure
+eviction takes every pod above its request first. Its requests count against
+the 8 vCPU / 16 GiB node with the other platform pods; sandbox Jobs schedule
+into what remains.
+
 ### Disruption and Shutdown
 
 | Setting                  | Web                                    | Judge / platform worker                       |
 | ------------------------ | -------------------------------------- | --------------------------------------------- |
 | PodDisruptionBudget      | `maxUnavailable: 1` when `pdb.enabled` | `maxUnavailable: 1` when `pdb.enabled`        |
-| Spread                   | zone + node, `ScheduleAnyway`          | judge: zone + node, `ScheduleAnyway`          |
+| Spread                   | zone + node, `ScheduleAnyway`          | zone + node, `ScheduleAnyway`                 |
 | `terminationGracePeriod` | 60 s                                   | 120 s                                         |
 | Shutdown after SIGTERM   | 10 s `preStop`, then adapter-node 30 s | Temporal `shutdownGraceTime` 30 s, 40 s total |
+| Load-balancer drain      | GKE `BackendConfig` 30 s               | —                                             |
 | Probe timeout            | readiness 3 s, liveness 5 s            | 5 s (above the 3 s in-process check budget)   |
 
-`maxUnavailable` rather than `minAvailable` keeps a single-replica platform
-worker drainable: a `minAvailable: 1` budget on one replica blocks every node
-drain and GKE upgrade until the drain timeout. GKE enables the budgets;
+The registry gets the same budget and spread as the workers; its replicas share
+the object-storage blob backend and `REGISTRY_HTTP_SECRET`, so a push can
+continue on any replica. `maxUnavailable`
+rather than `minAvailable` keeps a single-replica workload drainable: a
+`minAvailable: 1` budget on one replica blocks every node drain and GKE upgrade
+until the drain timeout. GKE enables the budgets;
 the single-machine overlay leaves them off because a one-node drain evicts
 everything anyway. Spread constraints never block scheduling, so they are a
 no-op on one node. cloudflared also spreads across nodes and gets a 45-second
 grace period so its 30-second connection drain finishes before SIGKILL.
+
+On GKE the web `BackendConfig` (shared with the registry backend) sets
+`connectionDraining.drainingTimeoutSec: 30`: the load balancer lets requests
+already sent to a terminating pod finish, which the pod serves during its 10 s
+`preStop` and up to 30 s of adapter-node shutdown, inside the 60 s grace period.
 
 The Cloud SQL Auth Proxy runs as a native sidecar (an init container with
 `restartPolicy: Always`) in web, worker, migrator and seed pods. Kubernetes
@@ -409,8 +427,8 @@ The origin must be reachable only through Cloudflare, because the app trusts
      --src-ip-ranges="<IPv6 ranges from cloudflare-origin-cidrs.txt>"
    ```
 
-3. The chart's `BackendConfig` attaches the policy and a `FrontendConfig`
-   enforces the HTTPS redirect. `deploy.sh` refuses to deploy unless the policy
+3. The chart's `BackendConfig` attaches the policy and connection draining, and
+   a `FrontendConfig` enforces the HTTPS redirect. `deploy.sh` refuses to deploy unless the policy
    matches the CIDR file with default deny, and afterwards requires direct-origin
    requests for both hosts to be rejected and Cloudflare requests to succeed.
 4. **Maintenance:** when Cloudflare's ranges change, update

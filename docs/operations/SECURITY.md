@@ -20,21 +20,21 @@ Security controls as implemented: what must hold and where it is enforced. Attac
 
 ## Sensitive Data
 
-| Data                     | Storage                                                 | Protection                                                                        |
-| ------------------------ | ------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Credential passwords     | `Account.password`                                      | bcrypt (cost 10) via `emailAndPassword.password.hash`                             |
-| Temporary exam passwords | `ExamCredential.passwordHash` / `passwordCiphertext`    | scrypt hash + ciphertext keyed by `BETTER_AUTH_SECRET`; staff reveal; hard expiry |
-| OAuth provider tokens    | `Account.accessToken` / `refreshToken`                  | Stored as returned; `account.encryptOAuthTokens` is not enabled                   |
-| Session tokens           | `Session.token`                                         | httpOnly cookie; checked every request (no cookie cache)                          |
-| API tokens               | `ApiToken` prefix + sha256 hash                         | Shown once, mandatory expiry (SEC-07)                                             |
-| TOTP enrollment material | Redis, pending until confirmed                          | Encrypted; committed atomically with backup codes on confirmation                 |
-| Submission source        | Object storage `submissions/<id>/sources/<path>`        | Read only via domain helpers and the worker                                       |
-| Graded testcases         | `TestcaseSet` / `Testcase` + object storage             | Never reach non-staff (SEC-12); only `Problem.samples` is rendered                |
-| Hidden workspace files   | `ProblemWorkspaceFile` (`visibility = hidden`)          | Filtered in the application layer; merged only by the worker                      |
-| Advanced grade images    | Registry `t/<username>/…`                               | Hold answers; namespace-scoped registry tokens ([Sandbox](#sandbox-isolation))    |
-| Code drafts              | `CodeDraft` rows; unsynced edits in `localStorage`      | Owner-only; local edits sealed ([Integrity](#exam-and-contest-integrity))         |
-| Problem / user images    | Object storage, served same-origin via `/api/storage/*` | Public read; never store secret material there (PRB-05)                           |
-| Runtime secrets          | `.env` locally; chart Secret `nojv-runtime-secrets`     | `.env` untracked; `.env.example` shape-only                                       |
+| Data                     | Storage                                                 | Protection                                                                             |
+| ------------------------ | ------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Credential passwords     | `Account.password`                                      | bcrypt (cost 10) via `emailAndPassword.password.hash`                                  |
+| Temporary exam passwords | `ExamCredential.passwordHash` / `passwordCiphertext`    | scrypt hash + ciphertext keyed by `BETTER_AUTH_SECRET`; staff reveal; hard expiry      |
+| OAuth provider tokens    | `Account.accessToken` / `refreshToken`                  | Encrypted with `BETTER_AUTH_SECRET` (`account.encryptOAuthTokens`); never read by NOJV |
+| Session tokens           | `Session.token`                                         | httpOnly cookie; checked every request (no cookie cache)                               |
+| API tokens               | `ApiToken` prefix + sha256 hash                         | Shown once, mandatory expiry (SEC-07)                                                  |
+| TOTP enrollment material | Redis, pending until confirmed                          | Encrypted; committed atomically with backup codes on confirmation                      |
+| Submission source        | Object storage `submissions/<id>/sources/<path>`        | Read only via domain helpers and the worker                                            |
+| Graded testcases         | `TestcaseSet` / `Testcase` + object storage             | Never reach non-staff (SEC-12); only `Problem.samples` is rendered                     |
+| Hidden workspace files   | `ProblemWorkspaceFile` (`visibility = hidden`)          | Filtered in the application layer; merged only by the worker                           |
+| Advanced grade images    | Registry `t/<username>/…`                               | Hold answers; namespace-scoped registry tokens ([Sandbox](#sandbox-isolation))         |
+| Code drafts              | `CodeDraft` rows; unsynced edits in `localStorage`      | Owner-only; local edits sealed ([Integrity](#exam-and-contest-integrity))              |
+| Problem / user images    | Object storage, served same-origin via `/api/storage/*` | Public read; never store secret material there (PRB-05)                                |
+| Runtime secrets          | `.env` locally; chart Secret `nojv-runtime-secrets`     | `.env` untracked; `.env.example` shape-only                                            |
 
 ## Request Boundary
 
@@ -115,7 +115,7 @@ Behavior specs: [Login and security verification](../features/login-security.md)
 ## Authorization
 
 - Validate every input with Zod schemas from `@nojv/core`; use Prisma parameterized queries only.
-- Course: `resolveEffectiveCourseRole(platformRole, courseRole)` (admin overrides). `canManageCourse` = admin/teacher/TA; `canManageMembers` = admin/teacher. Grants come from a bound active membership or effective admin; owner/creator fields and pending usernames are not grants. TAs may enroll and remove students (including pending roster identities) but cannot remove teachers/TAs, assign TA roles, change roles or correct pending usernames (ASM-05); owner and teacher protections are enforced inside the roster transaction.
+- Course: `resolveCourseRole(platformRole, membership)` counts only an active membership (effective admin overrides); `canManageCourse` = admin/teacher/TA; `canManageMembers` = admin/teacher. Every course-manager check goes through `isCourseManager`, `getCourseRole` or `assertCourseManager` in `@nojv/application` (ASM-25). Grants come from a bound active membership or effective admin; `Course.ownerId`, creator fields and pending usernames are not grants. Creating or copying a course requires `canCreateCourse` (platform teacher/admin), enforced inside `createCourseRecord` and `copyCourse`. TAs may enroll and remove students (including pending roster identities) but cannot remove teachers/TAs, assign TA roles, change roles or correct pending usernames (ASM-05); owner and teacher protections are enforced inside the roster transaction.
 - Roster rows (`CourseMembership` with `pendingUsername`) bind to a User only by a username that User already owns, under roster identity locks (ASM-04, SEC-03). Unbound rows grant no account access.
 - Problems: authorize against the actor and the problem resource, not platform role alone.
   - Create (`canAuthorProblems`): admin, teacher, email-verified user, or active course staff. `special_env` additionally needs the admin-managed `canCreateAdvancedProblems` grant.
@@ -139,7 +139,7 @@ Behavior specs: [Login and security verification](../features/login-security.md)
 
 Behavior specs: [Exams](../features/exams.md), [Proctoring](../features/proctoring.md), [Contests](../features/contests.md).
 
-- Exam IP whitelist, IP binding and page lock are server-side (ASM-19, ASM-20). During an active exam session `hooks.server.ts` runs the proctoring gate on every page and `/api` request, and submission rechecks it; a failed active-exam lookup fails closed with 503. Page lock also denies `/api/contests/*`, `/api/posts/*`, `/api/comments/*` and `/api/problems/[id]/posts`. Contests have no IP or page gating.
+- Exam IP whitelist, IP binding and page lock are server-side (ASM-19, ASM-20). During an active exam session `hooks.server.ts` runs the proctoring gate on every page and `/api` request, and submission rechecks it; a failed active-exam lookup fails closed with 503. Exam entry runs the gate before creating a session, the first IP pin is a conditional write so concurrent first requests cannot both bind, violations recorded by a denied entry or submission are committed before the denial, and every binding reset writes an `ip_reset` session event. Page lock also denies `/api/contests/*`, `/api/posts/*`, `/api/comments/*` and `/api/problems/[id]/posts`. Contests have no IP or page gating.
 - Context-bound submissions and drafts must target a problem in that context (ASM-21).
 - Exam and contest `submitCooldownSec` is checked in PostgreSQL under a `pg_advisory_xact_lock` keyed by context, user and problem (`packages/application/src/shared/submit-cooldown.ts`); sample runs are exempt.
 - Code drafts: `CodeDraft` rows are owner-only via `/api/drafts`. Exam drafts can be written only during an active session on a running exam for a problem in it; during a session only that exam's drafts are reachable. Unacknowledged local edits are stored under `nojv:draft:v2:<userId>:…`, AES-GCM sealed with `HMAC-SHA256(BETTER_AUTH_SECRET, "code-draft:<userId>")` delivered only to that user's `(app)` layout, with the storage key as additional authenticated data. Legacy plaintext `nojv:draft:v1:` drafts are re-sealed for the first opener, except exam drafts, which are never adopted.

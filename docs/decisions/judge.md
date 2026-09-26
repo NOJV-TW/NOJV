@@ -124,11 +124,12 @@ Sandbox pipeline failures store bounded SE diagnostics for the admin submissions
 
 **Decided:** 2026-09 · **Source:** [2026-09-21-judge-capacity](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-21-judge-capacity.md), [2026-09-22-temporal-native-judge-queue](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-22-temporal-native-judge-queue.md)
 
-Each `JudgeExecution` runs `durableJudgeWorkflow` on the `judge` queue with `priorityKey` (exam 1, contest 2, practice/assignment 3, recovery 4, rejudge/background 5; key 4 is currently unreachable because recovery also sets `queueClass: "background"` — see the Quality Ledger) and `fairnessKey = studentId`; a student has at most one dispatched non-terminal execution and completion dispatches the next. Capacity is judge worker activity slots, with the sandbox ResourceQuota as hard safety net. A 789-execution rejudge collapsed the workflow-based coordinator.
+Each `JudgeExecution` runs `durableJudgeWorkflow` on the `judge` queue with `priorityKey` (exam 1, contest 2, practice/assignment 3, recovered submission 4, rejudge 5) and `fairnessKey = studentId`; a student has at most one dispatched non-terminal execution and completion dispatches the next. Capacity is judge worker activity slots, with the sandbox ResourceQuota as hard safety net. A 789-execution rejudge collapsed the workflow-based coordinator.
 
 - Rejected: `judgeAdmissionWorkflow` coordinator with FIFO/permit loops and waves (removed with `JudgeAdmission`, `capacityStrategy`); Kueue (quota-based; revisit only for shared multi-node clusters); HPA/KEDA on one node.
 - Rule: self-hosted Temporal needs `matching.enableFairness` and one partition per NOJV queue.
 - Rule: stage and bookkeeping activities carry priority; bookkeeping runs on `judge-state` so it never queues behind Jobs; unmapped paths degrade to priority 3.
+- Rule: priority derives from origin (`operationId` marks a rejudge, `recoveryEpoch` a recovery), never from `queueClass`, which only orders a student's own executions; recovered live submissions dispatch ahead of bulk rejudges.
 - Rule: rollback re-dispatches execution rows via the reconciler; never replay new histories with old worker code.
 - Code: `packages/core/src/judge-execution.ts`, `packages/application/src/submission/judge-recovery.ts`, `infra/docker/temporal-dynamic-config.yaml`
 

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { configureDomainOrchestration, submissionDomain } from "@nojv/application";
+import { submissionDomain } from "@nojv/application";
 import { durableWorkRepo, prismaAdapterClient as db } from "@nojv/db";
 import {
   createTestProblem,
@@ -45,11 +45,7 @@ describe("rejudge state from durable dispatch", () => {
     });
   });
 
-  it("retrieves queued status and owner from the committed row while Temporal is unavailable", async () => {
-    const queryRejudgeProgress = vi.fn().mockRejectedValue(new Error("Temporal unavailable"));
-    configureDomainOrchestration({ queryRejudgeProgress } as unknown as Parameters<
-      typeof configureDomainOrchestration
-    >[0]);
+  it("retrieves queued status and owner from the committed row", async () => {
     const { workflowId } = await batchRejudge();
     await expect(submissionDomain.queryRejudgeProgress(actor, workflowId)).resolves.toEqual({
       status: "queued",
@@ -59,10 +55,9 @@ describe("rejudge state from durable dispatch", () => {
     await expect(
       submissionDomain.queryRejudgeProgress({ ...actor, userId: "other" }, workflowId),
     ).rejects.toMatchObject({ status: 403 });
-    expect(queryRejudgeProgress).not.toHaveBeenCalled();
   });
 
-  it("finds and cancels a legacy automatic dispatch by workflow identity, independent of dedupe key", async () => {
+  it("reports a legacy automatic dispatch without a cached result as no longer available", async () => {
     const workflowId = "rejudge-system-error-sub-1-0";
     await durableWorkRepo.enqueue({
       kind: submissionDomain.REJUDGE_DISPATCH_WORK_KIND,
@@ -81,13 +76,10 @@ describe("rejudge state from durable dispatch", () => {
     const admin = { userId: "admin", platformRole: "admin" as const };
     await expect(
       submissionDomain.queryRejudgeProgress(admin, workflowId),
-    ).resolves.toMatchObject({ status: "queued" });
-    await expect(submissionDomain.cancelRejudge(admin, workflowId)).resolves.toEqual({
-      status: "cancelled",
+    ).rejects.toMatchObject({ status: 404 });
+    await expect(submissionDomain.cancelRejudge(admin, workflowId)).rejects.toMatchObject({
+      status: 404,
     });
-    await expect(
-      submissionDomain.queryRejudgeProgress(admin, workflowId),
-    ).resolves.toMatchObject({ status: "cancelled" });
   });
 
   it("cancels an unattempted row without allowing it to be claimed", async () => {
@@ -123,26 +115,5 @@ describe("rejudge state from durable dispatch", () => {
     await expect(
       submissionDomain.queryRejudgeProgress(actor, workflowId),
     ).resolves.toMatchObject({ status: "cancelled" });
-  });
-
-  it("cannot cancel a dispatch once a worker has claimed it", async () => {
-    const { workflowId } = await batchRejudge();
-    const key = { kind: submissionDomain.REJUDGE_DISPATCH_WORK_KIND, dedupeKey: workflowId };
-    await durableWorkRepo.claimBatch({
-      kinds: [key.kind],
-      owner: "worker",
-      limit: 1,
-      now: new Date(),
-      leaseDurationMs: 30000,
-    });
-    await expect(durableWorkRepo.cancelUnattempted({ ...key, now: new Date() })).resolves.toBe(
-      false,
-    );
-    await expect(durableWorkRepo.findByWorkflowId(key.kind, workflowId)).resolves.toMatchObject(
-      {
-        status: "leased",
-        attempt: 1,
-      },
-    );
   });
 });

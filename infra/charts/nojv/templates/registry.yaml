@@ -52,7 +52,7 @@ metadata:
     {{- include "nojv.labels" . | nindent 4 }}
     app.kubernetes.io/component: registry
 spec:
-  replicas: 1
+  replicas: {{ .Values.registry.replicas }}
   revisionHistoryLimit: 2
   selector:
     matchLabels:
@@ -64,6 +64,7 @@ spec:
       annotations:
         checksum/config: {{ printf "%v-%s-%s-%s-%s-%s" .Values.storage.inCluster .Values.registry.s3.regionendpoint .Values.registry.bucket .Values.registry.token.realm .Values.registry.host .Values.registry.token.issuer | sha256sum }}
     spec:
+      {{- include "nojv.topologySpread" "nojv-registry" | nindent 6 }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000

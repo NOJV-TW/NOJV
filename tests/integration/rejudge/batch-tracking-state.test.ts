@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { RejudgeInput } from "@nojv/core";
 import { durableWorkRepo } from "@nojv/db";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { configureDomainOrchestration, submissionDomain } from "@nojv/application";
+import { describe, expect, it } from "vitest";
+import { submissionDomain } from "@nojv/application";
 import {
   createTestCourse,
   createTestExam,
@@ -11,14 +11,6 @@ import {
   createTestUser,
   testPrisma,
 } from "../../fixtures/factories";
-
-const progress = vi.fn();
-beforeEach(() => {
-  progress.mockReset();
-  configureDomainOrchestration({ queryRejudgeProgress: progress } as unknown as Parameters<
-    typeof configureDomainOrchestration
-  >[0]);
-});
 
 async function enqueueLegacyRejudge(input: RejudgeInput) {
   const workflowId = `rejudge-${randomUUID()}`;
@@ -130,58 +122,6 @@ describe("legacy batch rejudge status overlay against the real database", () => 
     });
     expect(history.items.map((item) => item.id)).toEqual([f.target.id]);
     expect(history.items[0]?.score).toBeNull();
-    expect(progress).not.toHaveBeenCalled();
-  });
-
-  it("uses captured generations for targets that became terminal after enqueue and releases completed or non-selected rows", async () => {
-    const f = await fixture();
-    const { workflowId } = await enqueueLegacyRejudge({
-      mode: "batch",
-      problemId: f.problem.id,
-      examId: f.exam.id,
-      triggeredByUserId: f.user.id,
-    });
-    await testPrisma.submission.update({
-      where: { id: f.target.id },
-      data: { updatedAt: new Date(), judgeGeneration: 1 },
-    });
-    const nonTarget = await createTestSubmission({
-      userId: f.user.id,
-      problemId: f.problem.id,
-      examId: f.exam.id,
-    });
-    await testPrisma.durableWork.update({
-      where: { kind_dedupeKey: { kind: "submission.rejudge.dispatch", dedupeKey: workflowId } },
-      data: { status: "succeeded", attempt: 1, completedAt: new Date() },
-    });
-    progress.mockResolvedValue({
-      status: "running",
-      completed: 0,
-      total: 1,
-      targets: [{ submissionId: f.target.id, judgeGeneration: 1 }],
-    });
-    const states = await submissionDomain.listSubmissionOperations(f.actor, [
-      f.target.id,
-      nonTarget.id,
-    ]);
-    expect(states.items.find((item) => item.submissionId === f.target.id)).toMatchObject({
-      status: "queued",
-      result: null,
-      judgeGeneration: 1,
-    });
-    expect(states.items.find((item) => item.submissionId === nonTarget.id)?.status).toBe(
-      "accepted",
-    );
-    expect(progress).toHaveBeenCalledOnce();
-    await testPrisma.submission.update({
-      where: { id: f.target.id },
-      data: { judgeGeneration: 2, score: 70, status: "wrong_answer" },
-    });
-    expect(await submissionDomain.getSubmissionOperation(f.actor, f.target.id)).toMatchObject({
-      status: "wrong_answer",
-      judgeGeneration: 2,
-      result: { score: 70 },
-    });
   });
 
   it.each(["failed", "cancelled"] as const)(
@@ -198,13 +138,17 @@ describe("legacy batch rejudge status overlay against the real database", () => 
         where: {
           kind_dedupeKey: { kind: "submission.rejudge.dispatch", dedupeKey: workflowId },
         },
-        data: { status: "succeeded", attempt: 1, completedAt: new Date() },
-      });
-      progress.mockResolvedValue({
-        status,
-        completed: 0,
-        total: 1,
-        targets: [{ submissionId: f.target.id, judgeGeneration: f.target.judgeGeneration }],
+        data: {
+          status: "succeeded",
+          attempt: 1,
+          completedAt: new Date(),
+          result: {
+            status,
+            completed: 0,
+            total: 1,
+            targets: [{ submissionId: f.target.id, judgeGeneration: f.target.judgeGeneration }],
+          },
+        },
       });
       expect(await submissionDomain.getSubmissionOperation(f.actor, f.target.id)).toMatchObject(
         { status: "accepted", result: { score: 100 } },

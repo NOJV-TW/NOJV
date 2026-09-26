@@ -9,11 +9,7 @@ const QUEUE_BUNDLES = [
   {
     bundle: "activities/judge-bundle.ts",
     queue: "JUDGE_TASK_QUEUE",
-    workflows: [
-      "workflows/submission-judge.ts",
-      "workflows/rejudge.ts",
-      "workflows/durable-judge.ts",
-    ],
+    workflows: ["workflows/durable-judge.ts"],
   },
   {
     bundle: "activities/platform-bundle.ts",

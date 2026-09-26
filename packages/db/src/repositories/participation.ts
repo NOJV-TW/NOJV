@@ -220,8 +220,16 @@ export const participationRepo = {
         });
       },
 
-      updateExamIpPin(id: string, ip: string) {
-        return tx.participation.update({ where: { id }, data: { ipPin: ip } });
+      async bindExamIpPinIfUnset(id: string, ip: string) {
+        const { count } = await tx.participation.updateMany({
+          where: { id, ipPin: null },
+          data: { ipPin: ip },
+        });
+        return count === 1;
+      },
+
+      findExamIpPinById(id: string) {
+        return tx.participation.findUnique({ select: { ipPin: true }, where: { id } });
       },
 
       async clearExamPinAndExempt(examId: string, userId: string, exemptUntil: Date) {

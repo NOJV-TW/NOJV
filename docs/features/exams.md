@@ -68,11 +68,13 @@ Exams follow the [activity allocation and official score contract](assignments.m
 ### Session start
 
 - `startSessionWithGate` requires a published exam (else `NotFoundError`), `now >= startsAt - START_GRACE_MS` (5 min) and `now < endsAt` (else `HttpError` 410 `"Exam has not started yet."` / `"Exam has ended."`), and an active course membership (`"You must be enrolled in the course to access this exam."`).
-- It creates or reopens the `ActiveExamSession`, records an `enter` event, activates the participation and returns `created: true`. A second call for the same exam returns the existing session with `created: false`.
+- Inside the per-user session lock it runs the exam proctoring gate (publish state, membership, archive, time window with the same grace, IP rules for the request IP) before any session or participation write. A denial commits only the gate's own writes (violation log, pin of an existing participation) and creates or reopens no session: `ip_whitelist` / `ip_binding` give `ForbiddenError("Exam entry blocked: your network does not match the exam's IP restrictions.")`; time denials give the 410 errors above.
+- It then creates or reopens the `ActiveExamSession`, records an `enter` event, activates the participation and returns `created: true`. A second call for the same exam returns the existing session with `created: false`.
+- With IP binding on, a first entry that creates the participation pins the request IP with a conditional write in the same transaction; if the pin is already taken the entry fails with `ConflictError` and creates no session.
 - A user has at most one active session globally: an active session on another exam gives `ConflictError("You already have an active session on a different exam.")`.
 - Archived course: `ForbiddenError("This course is archived; new exam sessions are not allowed.")`. Sessions already running when the course is archived continue.
 - A submitted session or submitted participation gives `ForbiddenError("You have already submitted this exam.")` before any write.
-- The `startExam` action then runs the proctoring gate once to set the IP pin; the request hook keeps enforcing it.
+- The `startExam` action passes the client IP to `startSessionWithGate`; the request hook keeps enforcing the gate afterwards.
 
 ### Hand-in
 
@@ -100,7 +102,7 @@ Exams follow the [activity allocation and official score contract](assignments.m
 - At `endsAt` the auto-close workflow calls `autoCloseForExam`, which checks the exam's schedule revision and fingerprint and then sets `endedAt`, `releaseReason = time_up` and an `auto_close` event on every active session. Re-runs are no-ops.
 - `releaseSessionAsInstructor({ examId, targetUserId })` by active course staff ends the session with `released_by_instructor` and a `release` event carrying `{ reason, endedByUserId }`. Non-staff get `"Only course staff can release exam sessions."`; no active session gives `NotFoundError`.
 - `releaseAllSessionsAsInstructor({ examId })` ends every active session in one transaction and returns `{ released, releasedUserIds }`; zero sessions returns `released: 0`. Unknown exams give `NotFoundError`.
-- `resetStudentIpBinding` clears the student's IP pin, grants a 10-minute IP-gate exemption and records an `ip_reset` event.
+- `resetStudentIpBinding` clears the student's IP pin, grants a 10-minute IP-gate exemption and always records an `ip_reset` event with `{ resetByUserId, clearedIpPin, exemptUntil }`, under the student's session lock. A student who never entered gets a closed session row (`endedAt` set, no `releaseReason`) to hold the event; `endSession` treats that row as no session, and the next start reopens it.
 
 ### IP rules
 

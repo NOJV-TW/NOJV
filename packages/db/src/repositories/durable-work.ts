@@ -302,21 +302,6 @@ function createDurableWorkRepository(client: DurableWorkClient) {
       `);
     },
 
-    async cancelUnattempted(input: DurableWorkCancelInput): Promise<boolean> {
-      assertKey(input);
-      assertValidDate("now", input.now);
-      const result = await client.durableWork.updateMany({
-        where: {
-          kind: input.kind,
-          dedupeKey: input.dedupeKey,
-          status: "pending",
-          attempt: 0,
-        },
-        data: { status: "cancelled", completedAt: input.now, updatedAt: input.now },
-      });
-      return result.count === 1;
-    },
-
     async enqueue(input: DurableWorkEnqueueInput): Promise<DurableWorkRow> {
       const { maxAttempts, availableAt } = validatedEnqueueInput(input);
       await client.durableWork.createMany({
