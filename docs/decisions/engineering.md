@@ -21,6 +21,7 @@ SvelteKit is the BFF: load functions, actions and Temporal activities call `@noj
 
 - Rejected: a separate API server now (deferred); copying domain code into the client to dodge the import guard; microservices, CQRS/event sourcing, hexagonal architecture everywhere, merging the worker into web, dropping repositories for raw Prisma; removing the Prisma namespace export from `@nojv/db` (the better-auth adapter needs it).
 - Rule: anything taking `RequestEvent` or calling `redirect()` stays in web; extract logic into domain functions with plain parameters.
+- Rule: a page load that composes several application reads calls one page view query in the owning domain (`get<Page>PageView`, e.g. `examDomain.getExamPageView`); the load keeps only auth, redirects/`error()`, superforms and web-only serialization.
 - Rule: no upward imports and no workspace cycles; `@nojv/core` has no workspace dependency and core → db → application direction is enforced per package. The dependency table in ARCHITECTURE.md and the ESLint configs are the source of truth; do not weaken the guard.
 - Rule: add a new exception only by name for a specific file or package pattern in the ESLint config, with the reason in its message; never disable the whole rule.
 - Rule: every workspace package has a `lint` script.
