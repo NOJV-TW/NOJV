@@ -1,5 +1,5 @@
 import { copyCourseSchema, courseUpdateSchema } from "@nojv/core";
-import { courseDomain } from "@nojv/application";
+import { canCreateCourse, courseDomain } from "@nojv/application";
 import { fail, redirect } from "@sveltejs/kit";
 import { message, superValidate } from "sveltekit-superforms";
 import { zod4 } from "sveltekit-superforms/adapters";
@@ -33,6 +33,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     redirect(302, `/courses/${course.id}`);
   }
 
+  const canCopy = canCreateCourse(actor.platformRole);
   const [form, copyPreview] = await Promise.all([
     superValidate(
       {
@@ -43,13 +44,14 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
       },
       zod4(courseUpdateSchema),
     ),
-    getCopyCoursePreview(course.id),
+    canCopy ? getCopyCoursePreview(course.id) : null,
   ]);
 
   return {
     form,
     courseDescription: fullCourse.description,
     archived: fullCourse.archived,
+    canCopy,
     copyPreview,
   };
 });

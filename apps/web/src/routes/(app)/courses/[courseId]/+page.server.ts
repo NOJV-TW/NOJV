@@ -1,8 +1,8 @@
 import { fail } from "@sveltejs/kit";
-import { ForbiddenError, announcementDomain, courseDomain } from "@nojv/application";
+import { announcementDomain, assertCourseManager, courseDomain } from "@nojv/application";
 
 import type { Actions, PageServerLoad, PageServerLoadEvent } from "./$types";
-import { isCourseManager, requireAuth, type ActorContext } from "$lib/server/auth";
+import { requireAuth } from "$lib/server/auth";
 import { readCheckbox, readString } from "$lib/server/shared/form-utils";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 import { withAction } from "$lib/server/shared/action-handlers";
@@ -11,7 +11,6 @@ const {
   listRecentAnnouncementsForCourse,
   listAssignmentOverviewForCourse,
   listExamOverviewForCourse,
-  getCourseHeaderById,
 } = courseDomain;
 const {
   createAnnouncement,
@@ -59,16 +58,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     totalStudents,
   };
 });
-
-async function assertCourseManager(actor: ActorContext, courseId: string) {
-  if (actor.platformRole === "admin") return;
-  const course = await getCourseHeaderById(courseId, actor.userId);
-  if (!course) throw new ForbiddenError("Course not found.");
-  if (course.ownerId === actor.userId) return;
-  if (!isCourseManager(actor, course)) {
-    throw new ForbiddenError("You do not have permission to manage this course.");
-  }
-}
 
 function readExpiresAt(formData: FormData): Date | null {
   const raw = formData.get("expiresAt");

@@ -84,6 +84,7 @@ Durable decisions for NOJV, grouped by area. Each entry records what was decided
 - ASM-22 Exam-scoped expiring passwords as an extra login path
 - ASM-23 Plagiarism detection runs Dolos in-process in the worker
 - ASM-24 Plagiarism results are curatable and re-runs leave a receipt
+- ASM-25 Course management authority is one active-membership check; ownership is not a grant
 
 ## [Authentication and security](security.md)
 

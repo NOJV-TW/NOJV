@@ -10,7 +10,6 @@ import {
   examRepo,
   Prisma,
   runTransaction,
-  type TransactionClient,
 } from "@nojv/db";
 import type { CourseAssignmentFormData, CourseCreate, CourseUpdate } from "@nojv/core";
 
@@ -21,7 +20,7 @@ import {
   NotFoundError,
   ValidationError,
 } from "../shared/errors";
-import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissions";
+import { assertCourseManager, canCreateCourse } from "../shared/permissions";
 import { requireCourse } from "../shared/require";
 import { requireUser } from "../shared/require";
 import { resolveActivityProblems } from "../problem/fork";
@@ -29,26 +28,14 @@ import { lockCourseForStaffMutation } from "./problem-library";
 import { assignmentDueSoonInput } from "../shared/lifecycle-input";
 import { getDomainOrchestration } from "../shared/orchestration";
 
-async function assertCourseManager(
-  tx: TransactionClient,
-  actor: ActorContext,
-  courseId: string,
-) {
-  if (actor.platformRole === "admin") return;
-
-  const membership = await courseMembershipRepo
-    .withTx(tx)
-    .findByComposite(courseId, actor.userId);
-  const effectiveRole = resolveEffectiveCourseRole(
-    actor.platformRole,
-    membership?.role ?? null,
-  );
-  if (!canManageCourse(effectiveRole) || membership?.status !== "active") {
-    throw new ForbiddenError("You do not have permission to manage this course.");
+function assertCanCreateCourse(actor: ActorContext) {
+  if (!canCreateCourse(actor.platformRole)) {
+    throw new ForbiddenError("Only teachers and admins can create courses.");
   }
 }
 
 export async function createCourseRecord(actor: ActorContext, payload: CourseCreate) {
+  assertCanCreateCourse(actor);
   return runTransaction(async (tx) => {
     const owner = await requireUser(tx, actor.userId);
     const course = await courseRepo.withTx(tx).create({
@@ -157,7 +144,7 @@ export async function updateCourse(
   return runTransaction(async (tx) => {
     await courseRepo.withTx(tx).lockForUpdate(courseId);
     await requireCourse(tx, courseId);
-    await assertCourseManager(tx, actor, courseId);
+    await assertCourseManager(actor, courseId, tx);
 
     return courseRepo.withTx(tx).update(courseId, {
       description: payload.description,
@@ -172,7 +159,7 @@ export async function deleteCourse(actor: ActorContext, courseId: string) {
   return runTransaction(async (tx) => {
     await courseRepo.withTx(tx).lockForUpdate(courseId);
     await requireCourse(tx, courseId);
-    await assertCourseManager(tx, actor, courseId);
+    await assertCourseManager(actor, courseId, tx);
 
     try {
       return await courseRepo.withTx(tx).delete(courseId);
@@ -195,7 +182,7 @@ export async function setCourseArchived(
   return runTransaction(async (tx) => {
     await courseRepo.withTx(tx).lockForUpdate(courseId);
     await requireCourse(tx, courseId);
-    await assertCourseManager(tx, actor, courseId);
+    await assertCourseManager(actor, courseId, tx);
 
     return courseRepo.withTx(tx).update(courseId, { archived });
   });
@@ -213,11 +200,12 @@ export async function copyCourse(
   if (trimmedTitle.length > 120) {
     throw new ValidationError("New course title must be 120 characters or fewer.");
   }
+  assertCanCreateCourse(actor);
 
   return runTransaction(async (tx) => {
     await courseRepo.withTx(tx).lockForUpdate(sourceCourseId);
     const source = await requireCourse(tx, sourceCourseId);
-    await assertCourseManager(tx, actor, source.id);
+    await assertCourseManager(actor, source.id, tx);
 
     const owner = await requireUser(tx, actor.userId);
 

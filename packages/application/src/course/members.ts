@@ -1,15 +1,9 @@
-import {
-  courseMembershipAdminRepo,
-  courseMembershipRepo,
-  runTransaction,
-  type TransactionClient,
-} from "@nojv/db";
+import { courseMembershipAdminRepo, runTransaction, type TransactionClient } from "@nojv/db";
 import {
   isCanonicalSchoolUsername,
   isReservedUsername,
   userHandleSchema,
   type CourseRole,
-  type EffectiveCourseRole,
 } from "@nojv/core";
 
 import type { ActorContext } from "../shared/actor-context";
@@ -19,24 +13,10 @@ import {
   NotFoundError,
   ValidationError,
 } from "../shared/errors";
-import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissions";
+import { canManageCourse, getCourseRole } from "../shared/permissions";
 import { requireCourse } from "../shared/require";
 import * as notificationDomain from "../notification";
 import { bindPendingMemberships, lockCourseMembers, lockRosterIdentity } from "./roster";
-
-async function resolveActorCourseRoleTx(
-  tx: TransactionClient,
-  actor: ActorContext,
-  courseId: string,
-): Promise<EffectiveCourseRole | null> {
-  const membership = await courseMembershipRepo
-    .withTx(tx)
-    .findByComposite(courseId, actor.userId);
-  return resolveEffectiveCourseRole(
-    actor.platformRole,
-    membership?.status === "active" ? membership.role : null,
-  );
-}
 
 export interface CourseMemberRow {
   membershipId: string;
@@ -133,7 +113,7 @@ export async function bulkAddByHandle(
         );
     }
     const course = await requireCourse(tx, courseId);
-    const actorRole = await resolveActorCourseRoleTx(tx, actor, courseId);
+    const actorRole = await getCourseRole(actor, courseId, tx);
     if (
       !canManageCourse(actorRole) ||
       (payload.role === "ta" && actorRole !== "teacher" && actorRole !== "admin") ||
@@ -229,7 +209,7 @@ async function requireManagedMember(
   operation: "manage" | "remove",
 ) {
   await lockCourseMembers(tx, courseId);
-  const actorRole = await resolveActorCourseRoleTx(tx, actor, courseId);
+  const actorRole = await getCourseRole(actor, courseId, tx);
   if (
     actorRole !== "admin" &&
     actorRole !== "teacher" &&

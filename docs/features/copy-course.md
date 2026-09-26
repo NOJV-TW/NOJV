@@ -4,7 +4,8 @@ Acceptance spec for `copyCourse`: a single-transaction clone of a course's struc
 
 ## Key code
 
-- `packages/application/src/course/mutations.ts` — `copyCourse`, `assertCourseManager`
+- `packages/application/src/course/mutations.ts` — `copyCourse`
+- `packages/application/src/shared/permissions.ts` — `canCreateCourse`, `assertCourseManager`
 - `packages/application/src/course/queries.ts` — `getCopyCoursePreview`
 - `packages/application/src/problem/fork.ts` — `resolveActivityProblems`
 - `packages/core/src/schemas/course.ts` — `copyCourseSchema`
@@ -38,6 +39,7 @@ Not copied: other memberships, library-only problems, submissions, participation
 
 ### Permission
 
+- The actor must be allowed to create courses (`canCreateCourse`: platform teacher or admin); otherwise `ForbiddenError("Only teachers and admins can create courses.")` before any read. The Settings tab hides the copy control for such actors.
 - The actor must be a platform admin, or hold a bound, active `teacher` or `ta` membership in the source course; otherwise `ForbiddenError("You do not have permission to manage this course.")`. Students, pending usernames and removed memberships are denied. Admins need no membership.
 
 ### Validation

@@ -1,7 +1,7 @@
 import { redirect } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
-import { canCreateCourse, requireAuth } from "$lib/server/auth";
-import { courseDomain } from "@nojv/application";
+import { requireAuth } from "$lib/server/auth";
+import { canCreateCourse, courseDomain } from "@nojv/application";
 
 const { listForUserWithCards } = courseDomain;
 

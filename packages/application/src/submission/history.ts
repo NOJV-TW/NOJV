@@ -26,7 +26,7 @@ import { computeProblemTotalScore } from "../problem/total-score";
 import { canManageContest } from "../contest/permissions";
 import type { ActorContext } from "../shared/actor-context";
 import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
-import { canManageCourse, resolveEffectiveCourseRole } from "../shared/permissions";
+import { isCourseManager } from "../shared/permissions";
 import { deriveSubmissionContextKind } from "./context";
 
 export type SubmissionHistoryFilters = Parameters<
@@ -247,16 +247,7 @@ async function assertContextSubmissionsRead(
 
   const course = await courseRepo.findByIdWithUserMembership(entity.courseId, actor.userId);
   if (!course) throw new NotFoundError("Course not found.");
-  const membership = course.memberships[0] ?? null;
-  const canManage =
-    course.ownerId === actor.userId ||
-    canManageCourse(
-      resolveEffectiveCourseRole(
-        actor.platformRole,
-        membership?.status === "active" ? membership.role : null,
-      ),
-    );
-  if (!canManage) {
+  if (!isCourseManager(actor.platformRole, course.memberships[0])) {
     throw new ForbiddenError("Not authorized to view context submissions.");
   }
 }

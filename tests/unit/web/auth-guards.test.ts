@@ -1,7 +1,7 @@
 import { ForbiddenError } from "@nojv/application";
 import { describe, expect, it } from "vitest";
 
-import { canCreateCourse, requirePlatformRole } from "$lib/server/auth";
+import { requirePlatformRole } from "$lib/server/auth";
 
 import type { ActorContext } from "$lib/server/auth";
 
@@ -35,19 +35,5 @@ describe("requirePlatformRole", () => {
   it("throws for student when only admin and teacher are allowed", () => {
     const actor = makeActor({ platformRole: "student" });
     expect(() => requirePlatformRole(actor, "admin", "teacher")).toThrow(ForbiddenError);
-  });
-});
-
-describe("canCreateCourse", () => {
-  it("returns true for admin", () => {
-    expect(canCreateCourse("admin")).toBe(true);
-  });
-
-  it("returns true for teacher", () => {
-    expect(canCreateCourse("teacher")).toBe(true);
-  });
-
-  it("returns false for student", () => {
-    expect(canCreateCourse("student")).toBe(false);
   });
 });
