@@ -267,6 +267,7 @@ web:
     gce:
       securityPolicy: ""
       httpsRedirect: false
+      connectionDrainingTimeoutSec: 30
 
 edge:
   cloudflared:

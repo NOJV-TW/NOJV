@@ -80,6 +80,31 @@ describe.each([
   });
 });
 
+describe("web load-balancer connection draining", () => {
+  it("drains GKE backends within the time a terminating web pod keeps serving", () => {
+    const render = renderChart("infra/charts/nojv/values-gke.yaml");
+    const backendConfig = render
+      .split(/^---$/m)
+      .find((document) => /^kind:\s*BackendConfig\s*$/m.test(document));
+    const drain = Number(/drainingTimeoutSec: (\d+)/.exec(backendConfig ?? "")?.[1]);
+    const deployment = webDeployment(render);
+    const preStop = Number(/command: \["sleep", "(\d+)"\]/.exec(deployment)?.[1]);
+    const grace = Number(/terminationGracePeriodSeconds: (\d+)/.exec(deployment)?.[1]);
+
+    expect(drain).toBe(30);
+    expect(preStop + drain).toBeLessThan(grace);
+    expect(render).toContain(
+      'cloud.google.com/backend-config: \'{"default":"nojv-web-edge"}\'',
+    );
+  });
+
+  it("renders no GKE backend policy on a single machine", () => {
+    expect(renderChart("infra/charts/nojv/values-single-machine.yaml")).not.toContain(
+      "kind: BackendConfig",
+    );
+  });
+});
+
 describe("web image health check", () => {
   it("checks dependency-free liveness rather than the page or readiness route", () => {
     const dockerfile = readFileSync(join(repoRoot, "infra/docker/web.Dockerfile"), "utf8");

@@ -368,6 +368,7 @@ into what remains.
 | Spread                   | zone + node, `ScheduleAnyway`          | judge: zone + node, `ScheduleAnyway`          |
 | `terminationGracePeriod` | 60 s                                   | 120 s                                         |
 | Shutdown after SIGTERM   | 10 s `preStop`, then adapter-node 30 s | Temporal `shutdownGraceTime` 30 s, 40 s total |
+| Load-balancer drain      | GKE `BackendConfig` 30 s               | —                                             |
 | Probe timeout            | readiness 3 s, liveness 5 s            | 5 s (above the 3 s in-process check budget)   |
 
 `maxUnavailable` rather than `minAvailable` keeps a single-replica platform
@@ -377,6 +378,11 @@ the single-machine overlay leaves them off because a one-node drain evicts
 everything anyway. Spread constraints never block scheduling, so they are a
 no-op on one node. cloudflared also spreads across nodes and gets a 45-second
 grace period so its 30-second connection drain finishes before SIGKILL.
+
+On GKE the web `BackendConfig` (shared with the registry backend) sets
+`connectionDraining.drainingTimeoutSec: 30`: the load balancer lets requests
+already sent to a terminating pod finish, which the pod serves during its 10 s
+`preStop` and up to 30 s of adapter-node shutdown, inside the 60 s grace period.
 
 The Cloud SQL Auth Proxy runs as a native sidecar (an init container with
 `restartPolicy: Always`) in web, worker, migrator and seed pods. Kubernetes
@@ -416,8 +422,8 @@ The origin must be reachable only through Cloudflare, because the app trusts
      --src-ip-ranges="<IPv6 ranges from cloudflare-origin-cidrs.txt>"
    ```
 
-3. The chart's `BackendConfig` attaches the policy and a `FrontendConfig`
-   enforces the HTTPS redirect. `deploy.sh` refuses to deploy unless the policy
+3. The chart's `BackendConfig` attaches the policy and connection draining, and
+   a `FrontendConfig` enforces the HTTPS redirect. `deploy.sh` refuses to deploy unless the policy
    matches the CIDR file with default deny, and afterwards requires direct-origin
    requests for both hosts to be rejected and Cloudflare requests to succeed.
 4. **Maintenance:** when Cloudflare's ranges change, update
