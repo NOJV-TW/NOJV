@@ -27,12 +27,12 @@ export interface JudgePriority {
   fairnessKey: string;
 }
 export function judgePriorityKey(execution: {
-  queueClass: string;
+  operationId: string | null;
   recoveryEpoch: number;
   examId: string | null;
   contestId: string | null;
 }): JudgePriorityKey {
-  if (execution.queueClass !== "foreground") return 5;
+  if (execution.operationId) return 5;
   if (execution.recoveryEpoch > 0) return 4;
   if (execution.examId) return 1;
   if (execution.contestId) return 2;

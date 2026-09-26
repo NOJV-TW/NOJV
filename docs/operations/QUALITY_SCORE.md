@@ -44,7 +44,6 @@ Work that is known, not done, and not covered by an in-flight plan. Remove an it
 
 ### Code and product
 
-- Judge priority key 4 (recovered live submissions ahead of bulk rejudges, JDG-12) is unreachable: `markJudgeExecution` and `reconcileJudgeExecutions` set `queueClass: "background"` on recovery, and `judgePriorityKey` in `packages/core/src/judge-execution.ts` returns 5 for any non-foreground class before checking `recoveryEpoch`. Recovered student submissions therefore queue behind bulk rejudges. Decide the intended order and either fix the classification or drop key 4.
 - Push the demo Advanced Mode images to the self-hosted registry from CI and repoint the seeds, which still use `nojv-demo-advanced-*:local` in `packages/db/prisma/seeds/problems.ts` (OPS-10).
 - No code emits `scoreboard_update_latency_seconds`, so the scoreboard SLO, its dashboard panel and alert have no data. Emit it from the scoreboard rebuild path or drop the SLO.
 - OAuth provider tokens are stored unencrypted (`account.encryptOAuthTokens` is not enabled in `apps/web/src/lib/auth.server.ts`); see the open gaps in the [Threat Model](THREAT_MODEL.md).

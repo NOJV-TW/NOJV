@@ -150,18 +150,19 @@ replay legacy histories.
 Ordering is Temporal task-queue priority and fairness, not an in-house scheduler
 (JDG-12).
 
-| Execution                                 | `priorityKey` |
-| ----------------------------------------- | ------------- |
-| Foreground exam submission                | 1             |
-| Foreground contest submission             | 2             |
-| Foreground practice/assignment submission | 3             |
-| Foreground with `recoveryEpoch > 0`       | 4             |
-| Any `background` execution                | 5             |
+| Execution                                    | `priorityKey` |
+| -------------------------------------------- | ------------- |
+| Exam submission                              | 1             |
+| Contest submission                           | 2             |
+| Practice/assignment submission               | 3             |
+| Submission with `recoveryEpoch > 0`          | 4             |
+| Rejudge (execution carries an `operationId`) | 5             |
 
 - `fairnessKey` is the student ID. Stage activities pass the workflow priority
   explicitly.
-- Because `recovering`/`blocked` states and new recovery epochs set `queueClass =
-background`, recovered executions currently dispatch at key 5.
+- Priority follows the execution's origin, not `queueClass`. `recovering`/`blocked`
+  states and new recovery epochs set `queueClass = background` only to order the
+  student's own executions in the per-student gate below.
 - Per-student gate (`executeJudgeExecutionDispatch`): an execution starts only when
   the student has no earlier unfinished execution of the same class and, for
   background work, no unfinished foreground execution. Finishing or cancelling
