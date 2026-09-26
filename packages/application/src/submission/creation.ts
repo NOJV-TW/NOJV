@@ -79,7 +79,7 @@ async function assertActiveExamSubmissionAllowed(
     receivedAt: Date;
     user: SubmissionUser;
   },
-): Promise<SubmissionExam> {
+): Promise<{ exam: SubmissionExam } | { rejection: ForbiddenError }> {
   const { activeExamSession, clientIp, payload, problem, receivedAt, user } = ctx;
 
   const exam = await examRepo.withTx(tx).findById(activeExamSession.examId);
@@ -102,9 +102,11 @@ async function assertActiveExamSubmissionAllowed(
     ip: clientIp,
   });
   if (!gate.ok && (gate.reason === "ip_binding" || gate.reason === "ip_whitelist")) {
-    throw new ForbiddenError(
-      "Submission blocked: your network does not match the exam's IP restrictions.",
-    );
+    return {
+      rejection: new ForbiddenError(
+        "Submission blocked: your network does not match the exam's IP restrictions.",
+      ),
+    };
   }
 
   if (!payload.sampleOnly && exam.submitCooldownSec > 0) {
@@ -118,7 +120,7 @@ async function assertActiveExamSubmissionAllowed(
     );
   }
 
-  return exam;
+  return { exam };
 }
 
 async function assertCourseSubmissionAllowed(
@@ -262,7 +264,7 @@ export async function createQueuedSubmissionRecord(
   const sourcePlan = planSubmissionSources(submissionId, sourceGeneration, sources);
   const judgeJob = buildSubmissionJudgeJob(payload, submissionId);
 
-  await runTransaction(async (tx) => {
+  const rejection = await runTransaction(async (tx) => {
     if (payload.context.type === "exam") {
       const lockKey = `exam-session:${actor.userId}`;
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
@@ -320,7 +322,7 @@ export async function createQueuedSubmissionRecord(
       if (activeExamSession?.examId !== payload.context.examId) {
         throw new ForbiddenError("An active session for this exam is required.");
       }
-      exam = await assertActiveExamSubmissionAllowed(tx, {
+      const admission = await assertActiveExamSubmissionAllowed(tx, {
         activeExamSession,
         clientIp,
         payload,
@@ -328,6 +330,8 @@ export async function createQueuedSubmissionRecord(
         receivedAt,
         user,
       });
+      if ("rejection" in admission) return admission.rejection;
+      exam = admission.exam;
     }
 
     if (payload.context.type === "virtual") {
@@ -435,7 +439,9 @@ export async function createQueuedSubmissionRecord(
         data: { referenceSolutionSubmissionId: null },
       });
     }
+    return null;
   });
+  if (rejection) throw rejection;
 
   try {
     await guardStorageObjectWrites(sourcePlan.pointers);

@@ -1,17 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { violationLogCreate, findLastViolationAt, updateExamIpPin } = vi.hoisted(() => ({
-  violationLogCreate: vi.fn(),
-  findLastViolationAt: vi.fn(),
-  updateExamIpPin: vi.fn(),
-}));
+const { violationLogCreate, findLastViolationAt, bindExamIpPinIfUnset, findExamIpPinById } =
+  vi.hoisted(() => ({
+    violationLogCreate: vi.fn(),
+    findLastViolationAt: vi.fn(),
+    bindExamIpPinIfUnset: vi.fn(),
+    findExamIpPinById: vi.fn(),
+  }));
 
 vi.mock("@nojv/db", () => ({
   ipViolationLogRepo: {
     withTx: () => ({ create: violationLogCreate, findLastViolationAt }),
   },
   participationRepo: {
-    withTx: () => ({ updateExamIpPin }),
+    withTx: () => ({ bindExamIpPinIfUnset, findExamIpPinById }),
   },
 }));
 
@@ -23,6 +25,7 @@ const fakeContext = { userId: "usr_test", examId: "exm_test" };
 beforeEach(() => {
   vi.clearAllMocks();
   findLastViolationAt.mockResolvedValue(null);
+  bindExamIpPinIfUnset.mockResolvedValue(true);
 });
 
 describe("isIpInCidr", () => {
@@ -140,7 +143,7 @@ describe("checkIpLock — binding", () => {
       fakeContext,
     );
     expect(result).toEqual({ allowed: true });
-    expect(updateExamIpPin).toHaveBeenCalledWith("part_1", "1.2.3.4");
+    expect(bindExamIpPinIfUnset).toHaveBeenCalledWith("part_1", "1.2.3.4");
     expect(violationLogCreate).not.toHaveBeenCalled();
   });
 
@@ -154,7 +157,47 @@ describe("checkIpLock — binding", () => {
     );
     expect(result).toEqual({ allowed: false, violationType: "binding" });
     expect(violationLogCreate).toHaveBeenCalledTimes(1);
-    expect(updateExamIpPin).not.toHaveBeenCalled();
+    expect(bindExamIpPinIfUnset).not.toHaveBeenCalled();
+  });
+
+  it("treats a concurrent first request that lost the pin race as a mismatch", async () => {
+    bindExamIpPinIfUnset.mockResolvedValue(false);
+    findExamIpPinById.mockResolvedValue({ ipPin: "1.2.3.4" });
+
+    const result = await checkIpLock(
+      fakeTx,
+      bindingBlock,
+      "9.9.9.9",
+      { id: "part_1", ipPin: null },
+      fakeContext,
+    );
+
+    expect(bindExamIpPinIfUnset).toHaveBeenCalledWith("part_1", "9.9.9.9");
+    expect(findExamIpPinById).toHaveBeenCalledWith("part_1");
+    expect(result).toEqual({ allowed: false, violationType: "binding" });
+    expect(violationLogCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        violationType: "binding",
+        expectedIp: "1.2.3.4",
+        actualIp: "9.9.9.9",
+      }),
+    );
+  });
+
+  it("allows a request that lost the pin race to the same IP", async () => {
+    bindExamIpPinIfUnset.mockResolvedValue(false);
+    findExamIpPinById.mockResolvedValue({ ipPin: "1.2.3.4" });
+
+    const result = await checkIpLock(
+      fakeTx,
+      bindingBlock,
+      "1.2.3.4",
+      { id: "part_1", ipPin: null },
+      fakeContext,
+    );
+
+    expect(result).toEqual({ allowed: true });
+    expect(violationLogCreate).not.toHaveBeenCalled();
   });
 
   it("skips the gate during a teacher grace window but still re-pins", async () => {
@@ -168,7 +211,7 @@ describe("checkIpLock — binding", () => {
       now,
     );
     expect(result).toEqual({ allowed: true });
-    expect(updateExamIpPin).toHaveBeenCalledWith("part_1", "9.9.9.9");
+    expect(bindExamIpPinIfUnset).toHaveBeenCalledWith("part_1", "9.9.9.9");
     expect(violationLogCreate).not.toHaveBeenCalled();
   });
 });

@@ -100,13 +100,19 @@ export async function checkIpLock(
   context: { userId: string; examId: string },
   now: Date = new Date(),
 ): Promise<IpCheckResult> {
-  const decision = evaluateIpLock(config, clientIp, participation?.ipPin ?? null, {
-    exemptUntil: participation?.ipGateExemptUntil ?? null,
-    now,
-  });
+  const opts = { exemptUntil: participation?.ipGateExemptUntil ?? null, now };
+  let ipPin = participation?.ipPin ?? null;
+  let decision = evaluateIpLock(config, clientIp, ipPin, opts);
 
   if (decision.shouldPin && participation) {
-    await participationRepo.withTx(tx).updateExamIpPin(participation.id, clientIp);
+    const repo = participationRepo.withTx(tx);
+    const bound = await repo.bindExamIpPinIfUnset(participation.id, clientIp);
+    if (bound) {
+      ipPin = clientIp;
+    } else {
+      ipPin = (await repo.findExamIpPinById(participation.id))?.ipPin ?? null;
+      decision = evaluateIpLock(config, clientIp, ipPin, opts);
+    }
   }
 
   if (decision.violationType) {
@@ -116,9 +122,7 @@ export async function checkIpLock(
         actualIp: clientIp,
         examId: context.examId,
         expectedIp:
-          decision.violationType === "whitelist"
-            ? config.ipWhitelist.join(", ")
-            : (participation?.ipPin ?? null),
+          decision.violationType === "whitelist" ? config.ipWhitelist.join(", ") : ipPin,
         userId: context.userId,
         violationType: decision.violationType,
       },

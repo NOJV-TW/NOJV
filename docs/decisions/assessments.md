@@ -217,7 +217,10 @@ A CIDR whitelist and first-visit IP binding are independent toggles sharing `ipV
 - Rejected: a single unenforced `ipLockEnabled` flag; Earlier: fail-open active-exam context lookup for availability (2026-05) — now fails closed with 503; a whole-exam IP kill switch; extra anti-spoofing beyond the `CF-Connecting-IP` trust model.
 - Rule: The IP decision is the pure `evaluateIpLock`; CIDR matching handles IPv4, IPv6 and IPv4-mapped IPv6; only trust `CF-Connecting-IP` in production (see SEC-09 in security.md).
 - Rule: Notify mode never silently drops a violation; path matching uses strict prefixes.
-- Code: `packages/application/src/shared/ip.ts`, `packages/application/src/proctoring/violation-logger.ts`, `packages/db/src/repositories/ip-violation.ts`
+- Rule: The first IP pin is a conditional write (`ipPin IS NULL` with a count check); a request that loses is evaluated against the winner's pin, never re-pins.
+- Rule: Exam entry runs the proctoring gate before any session or participation write; a denied entry creates no session.
+- Rule: Gate denials inside a transaction are returned and raised after commit, so violation rows survive a rejected entry or submission; every binding reset writes an `ip_reset` session event.
+- Code: `packages/application/src/shared/ip.ts`, `packages/application/src/proctoring/violation-logger.ts`, `packages/db/src/repositories/ip-violation.ts`, `packages/application/src/exam/session.ts`
 
 ### ASM-21 Exam submissions are scoped to the exam and final after hand-in
 

@@ -14,7 +14,7 @@ Acceptance spec for exam access controls: page lock, IP whitelist, IP binding an
 - `apps/web/src/lib/components/features/course/exam/ExamProctoringTab.svelte`, `IpWhitelistField.svelte`
 - `packages/core/src/types.ts` — `ipLockFields`, `ipLockFormFields`, `parseIpWhitelistText`, `ipViolationModeSchema`
 - `packages/db/prisma/schema/contest.prisma` — `Exam` proctoring fields, `Participation.ipPin` / `ipGateExemptUntil`, `IpViolationLog`, `ActiveExamSession`, `ExamSessionEvent`
-- Tests: `tests/unit/application/ip-utils.test.ts`, `proctoring-gate.test.ts`, `exam-session.test.ts`; `tests/unit/web/exam-lock.test.ts`; `tests/unit/security/exam-confinement-api-allowlist.test.ts`; `tests/unit/core/schemas.test.ts` (whitelist parser)
+- Tests: `tests/unit/application/ip-utils.test.ts`, `proctoring-gate.test.ts`, `exam-session.test.ts`, `exam-session-mutations.test.ts`, `submission-mutations-boundaries.test.ts`; `tests/unit/db/participation-ip-pin.test.ts`; `tests/unit/web/exam-lock.test.ts`; `tests/unit/security/exam-confinement-api-allowlist.test.ts`; `tests/unit/core/schemas.test.ts` (whitelist parser)
 
 Out of scope: contest or assignment IP rules, course-wide or per-problem locks, remote proctoring (webcam, screen recording, lockdown browser), detecting tab/window switches, fullscreen changes or navigation outside NOJV.
 
@@ -44,14 +44,16 @@ The global hook reads the user's active session and the exam's current `pageLock
 
 ### IP binding
 
-- `ipBindingEnabled: true` and no `ipPin` on the exam participation: the current IP is pinned and the request is allowed. Later requests from another IP are binding violations.
+- `ipBindingEnabled: true` and no `ipPin` on the exam participation: the current IP is pinned with a conditional write (`ipPin IS NULL`) and the request is allowed. Later requests from another IP are binding violations.
+- Concurrent first requests from different IPs: exactly one conditional write wins; the loser re-reads the pin and is evaluated as a binding violation against the winner's IP (allowed if it has the same IP).
+- Exam entry runs the gate before creating the session, so a blocked entry creates no session ([Exams — Session start](exams.md#session-start)).
 - No participation row: binding is skipped.
 - `resetStudentIpBinding` (course staff) clears the pin and sets `ipGateExemptUntil` to now + 10 minutes; during the exemption IP checks pass and the next request re-pins.
 
 ### Violation mode and logging
 
 - `block`: a violation denies the request (`ip_whitelist` or `ip_binding`). `notify`: it is allowed.
-- In both modes a violation writes an `IpViolationLog` row, throttled to one per (exam, user, violation type) per 60 seconds.
+- In both modes a violation writes an `IpViolationLog` row, throttled to one per (exam, user, violation type) per 60 seconds. Denied exam entries and denied exam submissions commit the transaction holding the gate's writes and raise the denial afterwards, so the row survives the rejection.
 - Row fields: `userId`, `examId` (both cascade on delete), `violationType` (`whitelist | binding`), `actualIp`, `expectedIp` (joined whitelist for whitelist violations, the pin for binding violations), `createdAt`.
 - Mode changes apply from the student's next request.
 - Managers see the log and active sessions in the exam's Proctoring tab.

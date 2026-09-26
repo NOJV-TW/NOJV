@@ -13,6 +13,7 @@ import type { ExamAutoCloseInput } from "@nojv/core";
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ForbiddenError, HttpError, NotFoundError } from "../shared/errors";
 import { isCourseStaffTx } from "../shared/permissions";
+import { checkProctoringGateInTx, type ProctoringDenialReason } from "../proctoring/gate";
 
 export type ExamSessionReleaseReason = "submitted" | "time_up" | "released_by_instructor";
 
@@ -63,58 +64,126 @@ async function assertEnrolledInExamCourse(
   return exam;
 }
 
+type ActiveExamSessionRow = NonNullable<
+  Awaited<ReturnType<ReturnType<typeof examSessionRepo.withTx>["findByUserAndExam"]>>
+>;
+
+interface EntryGate {
+  ip: string | null;
+  now: Date;
+  startGraceMs: number;
+}
+
+type OpenSessionResult =
+  { ok: true; session: ActiveExamSessionRow } | { ok: false; reason: ProctoringDenialReason };
+
+function lockUserExamSessions(tx: Prisma.TransactionClient, userId: string) {
+  const lockKey = `exam-session:${userId}`;
+  return tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
+}
+
+async function openSessionInTx(
+  tx: Prisma.TransactionClient,
+  actor: ActorContext,
+  examId: string,
+  gate: EntryGate | null,
+): Promise<OpenSessionResult> {
+  await lockUserExamSessions(tx, actor.userId);
+
+  const exam = await assertEnrolledInExamCourse(tx, actor.userId, examId);
+
+  const activeElsewhere = await examSessionRepo.withTx(tx).findActiveForUser(actor.userId);
+  if (activeElsewhere && activeElsewhere.examId !== examId) {
+    throw new ConflictError("You already have an active session on a different exam.");
+  }
+
+  const existingParticipation = await participationRepo
+    .withTx(tx)
+    .findExamParticipation(examId, actor.userId);
+  const existing = await examSessionRepo.withTx(tx).findByUserAndExam(actor.userId, examId);
+  if (
+    existing?.releaseReason === "submitted" ||
+    existingParticipation?.status === "submitted"
+  ) {
+    throw new ForbiddenError("You have already submitted this exam.");
+  }
+
+  if (gate) {
+    const verdict = await checkProctoringGateInTx(tx, {
+      entityKind: "exam",
+      entityId: examId,
+      userId: actor.userId,
+      ip: gate.ip,
+      now: gate.now,
+      startGraceMs: gate.startGraceMs,
+    });
+    if (!verdict.ok) return { ok: false, reason: verdict.reason };
+  }
+
+  const activateOnEntry =
+    !existingParticipation || existingParticipation.status === "registered";
+  const participation = await participationRepo
+    .withTx(tx)
+    .upsertExamActive(examId, actor.userId, activateOnEntry, new Date());
+
+  if (gate?.ip && exam.ipBindingEnabled && !existingParticipation) {
+    const bound = await participationRepo
+      .withTx(tx)
+      .bindExamIpPinIfUnset(participation.id, gate.ip);
+    if (!bound) {
+      throw new ConflictError("Exam entry conflicted with another request. Please try again.");
+    }
+  }
+
+  if (existing?.endedAt === null) {
+    return { ok: true, session: existing };
+  }
+
+  const now = new Date();
+  const session = existing
+    ? await examSessionRepo.withTx(tx).update(existing.id, {
+        startedAt: now,
+        endedAt: null,
+        releaseReason: null,
+        lastHeartbeatAt: now,
+      })
+    : await examSessionRepo.withTx(tx).create({
+        userId: actor.userId,
+        examId,
+        startedAt: now,
+        lastHeartbeatAt: now,
+      });
+
+  await examSessionRepo.withTx(tx).recordEvent({ sessionId: session.id, eventType: "enter" });
+
+  return { ok: true, session };
+}
+
+function entryDenialError(examId: string, reason: ProctoringDenialReason): HttpError {
+  switch (reason) {
+    case "not_found":
+    case "not_published":
+      return new NotFoundError(`Exam not found: ${examId}`);
+    case "not_enrolled":
+      return new ForbiddenError("You must be enrolled in the course to access this exam.");
+    case "course_archived":
+      return new ForbiddenError("This course is archived; new exam sessions are not allowed.");
+    case "not_started":
+      return new HttpError("Exam has not started yet.", 410);
+    case "ended":
+      return new HttpError("Exam has ended.", 410);
+    case "ip_whitelist":
+    case "ip_binding":
+      return new ForbiddenError(
+        "Exam entry blocked: your network does not match the exam's IP restrictions.",
+      );
+  }
+}
+
 export async function startSession(actor: ActorContext, { examId }: { examId: string }) {
-  return runTransaction(async (tx) => {
-    const lockKey = `exam-session:${actor.userId}`;
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
-
-    await assertEnrolledInExamCourse(tx, actor.userId, examId);
-
-    const activeElsewhere = await examSessionRepo.withTx(tx).findActiveForUser(actor.userId);
-    if (activeElsewhere && activeElsewhere.examId !== examId) {
-      throw new ConflictError("You already have an active session on a different exam.");
-    }
-
-    const existingParticipation = await participationRepo
-      .withTx(tx)
-      .findExamParticipation(examId, actor.userId);
-    const existing = await examSessionRepo.withTx(tx).findByUserAndExam(actor.userId, examId);
-    if (
-      existing?.releaseReason === "submitted" ||
-      existingParticipation?.status === "submitted"
-    ) {
-      throw new ForbiddenError("You have already submitted this exam.");
-    }
-
-    const activateOnEntry =
-      !existingParticipation || existingParticipation.status === "registered";
-    await participationRepo
-      .withTx(tx)
-      .upsertExamActive(examId, actor.userId, activateOnEntry, new Date());
-
-    if (existing?.endedAt === null) {
-      return existing;
-    }
-
-    const now = new Date();
-    const session = existing
-      ? await examSessionRepo.withTx(tx).update(existing.id, {
-          startedAt: now,
-          endedAt: null,
-          releaseReason: null,
-          lastHeartbeatAt: now,
-        })
-      : await examSessionRepo.withTx(tx).create({
-          userId: actor.userId,
-          examId,
-          startedAt: now,
-          lastHeartbeatAt: now,
-        });
-
-    await examSessionRepo.withTx(tx).recordEvent({ sessionId: session.id, eventType: "enter" });
-
-    return session;
-  });
+  const result = await runTransaction((tx) => openSessionInTx(tx, actor, examId, null));
+  if (!result.ok) throw entryDenialError(examId, result.reason);
+  return result.session;
 }
 
 export async function endSession(
@@ -122,14 +191,13 @@ export async function endSession(
   { examId, reason }: { examId: string; reason: ExamSessionReleaseReason },
 ) {
   return runTransaction(async (tx) => {
-    const lockKey = `exam-session:${actor.userId}`;
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
+    await lockUserExamSessions(tx, actor.userId);
 
     await assertEnrolledInExamCourse(tx, actor.userId, examId);
 
     const session = await examSessionRepo.withTx(tx).findByUserAndExam(actor.userId, examId);
 
-    if (!session) {
+    if (!session || (session.endedAt !== null && session.releaseReason === null)) {
       throw new NotFoundError("No active exam session to end.");
     }
 
@@ -288,6 +356,7 @@ export async function startSessionWithGate(
   actor: ActorContext,
   options: {
     examId: string;
+    ip?: string | null;
     now?: Date;
     gracePeriodMs?: number;
   },
@@ -313,7 +382,15 @@ export async function startSessionWithGate(
   }
 
   const sameExamIdempotent = existingActive?.examId === options.examId;
-  const session = await startSession(actor, { examId: options.examId });
+  const result = await runTransaction((tx) =>
+    openSessionInTx(tx, actor, options.examId, {
+      ip: options.ip ?? null,
+      now,
+      startGraceMs: grace,
+    }),
+  );
+  if (!result.ok) throw entryDenialError(options.examId, result.reason);
+  const { session } = result;
 
   return {
     session: {
@@ -384,6 +461,8 @@ export async function resetStudentIpBinding(
       throw new ForbiddenError("Only course staff can reset a student's IP binding.");
     }
 
+    await lockUserExamSessions(tx, targetUserId);
+
     const participation = await participationRepo
       .withTx(tx)
       .findExamIpPin(examId, targetUserId);
@@ -391,18 +470,24 @@ export async function resetStudentIpBinding(
     const exemptUntil = new Date(now.getTime() + IP_BINDING_RESET_GRACE_MINUTES * 60_000);
     await participationRepo.withTx(tx).clearExamPinAndExempt(examId, targetUserId, exemptUntil);
 
-    const session = await examSessionRepo.withTx(tx).findByUserAndExam(targetUserId, examId);
-    if (session) {
-      await examSessionRepo.withTx(tx).recordEvent({
-        sessionId: session.id,
-        eventType: "ip_reset",
-        metadata: {
-          resetByUserId: actor.userId,
-          clearedIpPin: participation?.ipPin ?? null,
-          exemptUntil: exemptUntil.toISOString(),
-        },
-      });
-    }
+    const session =
+      (await examSessionRepo.withTx(tx).findByUserAndExam(targetUserId, examId)) ??
+      (await examSessionRepo.withTx(tx).create({
+        userId: targetUserId,
+        examId,
+        startedAt: now,
+        endedAt: now,
+        lastHeartbeatAt: now,
+      }));
+    await examSessionRepo.withTx(tx).recordEvent({
+      sessionId: session.id,
+      eventType: "ip_reset",
+      metadata: {
+        resetByUserId: actor.userId,
+        clearedIpPin: participation?.ipPin ?? null,
+        exemptUntil: exemptUntil.toISOString(),
+      },
+    });
 
     return { exemptUntil };
   });

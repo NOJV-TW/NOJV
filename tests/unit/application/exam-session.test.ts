@@ -13,6 +13,8 @@ const {
   participationUpsertExamActive,
   participationFindExamParticipation,
   participationMarkExamSubmitted,
+  participationBindExamIpPinIfUnset,
+  gateInTx,
 } = vi.hoisted(() => ({
   examFindById: vi.fn(),
   examFindByIdOrThrow: vi.fn(),
@@ -26,12 +28,15 @@ const {
   participationUpsertExamActive: vi.fn(),
   participationFindExamParticipation: vi.fn(),
   participationMarkExamSubmitted: vi.fn(),
+  participationBindExamIpPinIfUnset: vi.fn(),
+  gateInTx: vi.fn(),
 }));
 
 vi.mock("@nojv/db", () => {
   return {
     examRepo: {
       withTx: () => ({ findById: examFindById }),
+      findById: examFindById,
       findByIdOrThrow: examFindByIdOrThrow,
     },
     examSessionRepo: {
@@ -55,6 +60,7 @@ vi.mock("@nojv/db", () => {
         upsertExamActive: participationUpsertExamActive,
         findExamParticipation: participationFindExamParticipation,
         markExamSubmitted: participationMarkExamSubmitted,
+        bindExamIpPinIfUnset: participationBindExamIpPinIfUnset,
       }),
     },
     runTransaction: async <T>(
@@ -63,7 +69,17 @@ vi.mock("@nojv/db", () => {
   };
 });
 
-import { examDomain, ForbiddenError, NotFoundError } from "@nojv/application";
+vi.mock("../../../packages/application/src/proctoring/gate", () => ({
+  checkProctoringGateInTx: gateInTx,
+}));
+
+import {
+  ConflictError,
+  examDomain,
+  ForbiddenError,
+  HttpError,
+  NotFoundError,
+} from "@nojv/application";
 
 const { session } = examDomain;
 
@@ -233,6 +249,112 @@ describe("examDomain.session.startSession", () => {
   });
 });
 
+describe("examDomain.session.startSessionWithGate", () => {
+  const now = new Date("2026-05-01T10:00:00.000Z");
+  const gatedExam = {
+    ...fakeExam,
+    status: "published" as const,
+    startsAt: new Date("2026-05-01T09:00:00.000Z"),
+    endsAt: new Date("2026-05-01T12:00:00.000Z"),
+    ipBindingEnabled: true,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupEnrolledStudent();
+    examFindById.mockResolvedValue(gatedExam);
+    sessionFindActiveForUser.mockResolvedValue(null);
+    sessionFindByUserAndExam.mockResolvedValue(null);
+    participationUpsertExamActive.mockResolvedValue({ id: "part_1" });
+    participationBindExamIpPinIfUnset.mockResolvedValue(true);
+    sessionCreate.mockResolvedValue({
+      id: "sess_1",
+      userId: fakeActor.userId,
+      examId: gatedExam.id,
+      startedAt: now,
+      endedAt: null,
+    });
+    gateInTx.mockResolvedValue({ ok: true });
+  });
+
+  it.each([
+    ["ip_binding", ForbiddenError, /IP restrictions/],
+    ["ip_whitelist", ForbiddenError, /IP restrictions/],
+    ["not_started", HttpError, /not started/],
+    ["course_archived", ForbiddenError, /archived/],
+  ] as const)(
+    "rejects a %s denial before creating the session",
+    async (reason, errorClass, message) => {
+      gateInTx.mockResolvedValue({ ok: false, reason });
+
+      const attempt = session.startSessionWithGate(fakeActor, {
+        examId: gatedExam.id,
+        ip: "198.51.100.20",
+        now,
+      });
+
+      await expect(attempt).rejects.toBeInstanceOf(errorClass);
+      await expect(attempt).rejects.toThrow(message);
+      expect(gateInTx).toHaveBeenCalledWith(expect.anything(), {
+        entityKind: "exam",
+        entityId: gatedExam.id,
+        userId: fakeActor.userId,
+        ip: "198.51.100.20",
+        now,
+        startGraceMs: session.START_GRACE_MS,
+      });
+      expect(participationUpsertExamActive).not.toHaveBeenCalled();
+      expect(sessionCreate).not.toHaveBeenCalled();
+      expect(sessionUpdate).not.toHaveBeenCalled();
+      expect(sessionRecordEvent).not.toHaveBeenCalled();
+    },
+  );
+
+  it("pins the first entry IP atomically before creating the session", async () => {
+    const result = await session.startSessionWithGate(fakeActor, {
+      examId: gatedExam.id,
+      ip: "203.0.113.7",
+      now,
+    });
+
+    expect(result.created).toBe(true);
+    expect(participationBindExamIpPinIfUnset).toHaveBeenCalledWith("part_1", "203.0.113.7");
+    const [gateOrder] = gateInTx.mock.invocationCallOrder;
+    const [upsertOrder] = participationUpsertExamActive.mock.invocationCallOrder;
+    const [bindOrder] = participationBindExamIpPinIfUnset.mock.invocationCallOrder;
+    const [createOrder] = sessionCreate.mock.invocationCallOrder;
+    expect(gateOrder).toBeLessThan(upsertOrder ?? 0);
+    expect(bindOrder).toBeLessThan(createOrder ?? 0);
+  });
+
+  it("leaves the pin to the gate when the participation already exists", async () => {
+    participationFindExamParticipation.mockResolvedValue({ status: "registered" });
+
+    await session.startSessionWithGate(fakeActor, {
+      examId: gatedExam.id,
+      ip: "203.0.113.7",
+      now,
+    });
+
+    expect(participationBindExamIpPinIfUnset).not.toHaveBeenCalled();
+    expect(sessionCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("aborts entry without a session when the first pin is lost", async () => {
+    participationBindExamIpPinIfUnset.mockResolvedValue(false);
+
+    await expect(
+      session.startSessionWithGate(fakeActor, {
+        examId: gatedExam.id,
+        ip: "203.0.113.7",
+        now,
+      }),
+    ).rejects.toBeInstanceOf(ConflictError);
+    expect(sessionCreate).not.toHaveBeenCalled();
+    expect(sessionRecordEvent).not.toHaveBeenCalled();
+  });
+});
+
 describe("examDomain.session.endSession", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -282,6 +404,21 @@ describe("examDomain.session.endSession", () => {
     expect(sessionUpdate).not.toHaveBeenCalled();
     expect(participationMarkExamSubmitted).not.toHaveBeenCalled();
     expect(sessionRecordEvent).not.toHaveBeenCalled();
+  });
+
+  it("treats a closed session that only holds reset audit rows as no session", async () => {
+    setupEnrolledStudent();
+    sessionFindByUserAndExam.mockResolvedValue({
+      id: "sess_reset",
+      endedAt: new Date(),
+      releaseReason: null,
+    });
+
+    await expect(
+      session.endSession(fakeActor, { examId: fakeExam.id, reason: "submitted" }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(participationMarkExamSubmitted).not.toHaveBeenCalled();
+    expect(sessionUpdate).not.toHaveBeenCalled();
   });
 
   it("throws NotFoundError when no session exists for the actor", async () => {
