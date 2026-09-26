@@ -5,9 +5,7 @@ import type {
   ExamAutoCloseInput,
   PlagiarismCheckInput,
   RegistryGarbageCollectInput,
-  RejudgeInput,
   RejudgeTrackingProgress,
-  SubmissionJudgeJob,
 } from "@nojv/core";
 
 import { ConfigurationError } from "./errors";
@@ -33,7 +31,6 @@ export interface DomainOrchestrationAdapter {
   dispatchRegistryGarbageCollect(
     input: RegistryGarbageCollectInput,
   ): Promise<{ workflowId: string; alreadyRunning: boolean }>;
-  dispatchRejudge(input: RejudgeInput, workflowId: string): Promise<{ workflowId: string }>;
   dispatchJudgeCleanup(input: {
     executionId: string;
     workflowId: string;
@@ -44,7 +41,6 @@ export interface DomainOrchestrationAdapter {
     workflowId: string;
     priority: JudgePriority;
   }): Promise<void>;
-  dispatchSubmissionJudge(payload: SubmissionJudgeJob): Promise<void>;
   ensureAssignmentDueSoon(input: AssignmentDueSoonInput): Promise<void>;
   ensureContestLifecycle(input: ContestLifecycleInput): Promise<void>;
   ensureExamAutoClose(input: ExamAutoCloseInput): Promise<void>;

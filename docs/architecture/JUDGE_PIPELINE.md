@@ -142,8 +142,16 @@ never full source, testcase or output bodies.
 | Contest/exam score updates, verdict publish | `platform`                       | 2 min          | —         | 3        |
 
 Kubernetes Job deadlines are capped at 30 min; the 70-min budget also covers
-admission, transfer and cleanup. `submissionJudgeWorkflow` stays registered only to
-replay legacy histories.
+admission, transfer and cleanup.
+
+`submissionJudgeWorkflow` and `rejudgeWorkflow` stay registered only so existing
+histories replay and drain; no application or orchestration path starts them. An
+already running `rejudgeWorkflow` can still start `submissionJudgeWorkflow`
+children. Rejudge operations whose `submission.rejudge.dispatch` row lacks
+`prepared: true` still read progress from, and cancel through, their
+`rejudgeWorkflow`; the `submission.judge.dispatch` and pre-durable
+`submission.rejudge.dispatch` work handlers retire their rows without starting
+anything.
 
 ## Queue priority and capacity
 

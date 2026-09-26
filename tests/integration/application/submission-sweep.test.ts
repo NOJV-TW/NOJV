@@ -1,11 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { terminateSubmissionJudge, describeSubmissionJudge, dispatchSubmissionJudge } =
-  vi.hoisted(() => ({
-    terminateSubmissionJudge: vi.fn(),
-    describeSubmissionJudge: vi.fn(),
-    dispatchSubmissionJudge: vi.fn(),
-  }));
+const { terminateSubmissionJudge, describeSubmissionJudge } = vi.hoisted(() => ({
+  terminateSubmissionJudge: vi.fn(),
+  describeSubmissionJudge: vi.fn(),
+}));
 
 import { durableWorkRepo, submissionRejudgeLogRepo, submissionRepo } from "@nojv/db";
 import { configureDomainOrchestration, submissionDomain } from "@nojv/application";
@@ -26,8 +24,6 @@ async function backdateUpdatedAt(submissionId: string, minutesAgo: number) {
 beforeEach(() => {
   terminateSubmissionJudge.mockReset();
   describeSubmissionJudge.mockReset();
-  dispatchSubmissionJudge.mockReset();
-  dispatchSubmissionJudge.mockResolvedValue(undefined);
   describeSubmissionJudge.mockResolvedValue(null);
   configureDomainOrchestration({
     cancelAssignmentDueSoon: vi.fn(async () => {}),
@@ -40,8 +36,6 @@ beforeEach(() => {
       workflowId: "registry-gc",
       alreadyRunning: false,
     })),
-    dispatchRejudge: vi.fn(async () => ({ workflowId: "rejudge-test" })),
-    dispatchSubmissionJudge,
     dispatchJudgeExecution: vi.fn(async () => {}),
     dispatchJudgeCleanup: vi.fn(async () => {}),
     ensureAssignmentDueSoon: vi.fn(async () => {}),
@@ -156,7 +150,6 @@ describe("sweepStaleSubmissions (real DB)", () => {
       });
 
       await submissionDomain.executeSubmissionJudgeDispatch(delayed.payload);
-      expect(dispatchSubmissionJudge).not.toHaveBeenCalled();
       await expect(
         submissionDomain.startSubmissionJudgeRun(stale.id, "late-legacy-run"),
       ).rejects.toThrow("cannot start a legacy judge run");

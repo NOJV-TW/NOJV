@@ -4,14 +4,9 @@ import { reconcileJudgeExecutions } from "./judge-recovery";
 import { findOneForRejudge, listForRejudge } from "./judge-context";
 import { randomUUID } from "node:crypto";
 
-import type {
-  RejudgeInput,
-  RejudgeProgress,
-  RejudgeTrackingProgress,
-  SubmissionJudgeJob,
-} from "@nojv/core";
+import type { RejudgeInput, RejudgeProgress, RejudgeTrackingProgress } from "@nojv/core";
 import { submissionJudgeJobSchema, submissionOperationStatusSchema } from "@nojv/core";
-import { durableWorkRepo, prismaAdapterClient as db, type TransactionClient } from "@nojv/db";
+import { durableWorkRepo, prismaAdapterClient as db } from "@nojv/db";
 import { z } from "zod";
 
 import {
@@ -436,20 +431,6 @@ export async function dispatchRejudge(input: RejudgeInput): Promise<{ workflowId
 
 export async function recoverSystemErrorSubmissions(): Promise<number> {
   return reconcileJudgeExecutions();
-}
-
-export async function enqueueSubmissionJudgeDispatch(
-  tx: TransactionClient | undefined,
-  rawPayload: SubmissionJudgeJob,
-): Promise<void> {
-  const payload = submissionJudgeJobSchema.parse(rawPayload);
-  const repo = tx ? durableWorkRepo.withTx(tx) : durableWorkRepo;
-  await repo.enqueue({
-    kind: SUBMISSION_JUDGE_DISPATCH_WORK_KIND,
-    dedupeKey: payload.submissionId,
-    payload: toJsonValue(payload),
-    maxAttempts: 20,
-  });
 }
 
 export function executeSubmissionJudgeDispatch(rawPayload: unknown): Promise<void> {

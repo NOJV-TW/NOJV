@@ -11,13 +11,9 @@ import type {
   LifecycleScheduleIdentity,
   PlagiarismCheckInput,
   RegistryGarbageCollectInput,
-  RejudgeInput,
   RejudgeProgress,
   RejudgeTrackingProgress,
-  SubmissionJudgeInput,
-  SubmissionJudgeJob,
 } from "@nojv/core";
-import { submissionJudgeJobSchema } from "@nojv/core";
 
 import { getTemporalClient } from "./client";
 import {
@@ -35,25 +31,6 @@ async function startUnlessRunning(start: Promise<unknown>): Promise<boolean> {
     if (err instanceof WorkflowExecutionAlreadyStartedError) return false;
     throw err;
   }
-}
-
-export async function dispatchSubmissionJudge(payload: SubmissionJudgeJob): Promise<void> {
-  const validated = submissionJudgeJobSchema.parse(payload);
-  const client = await getTemporalClient();
-
-  const input: SubmissionJudgeInput = {
-    submissionId: validated.submissionId,
-    draft: validated.draft,
-  };
-
-  await startUnlessRunning(
-    client.workflow.start("submissionJudgeWorkflow", {
-      taskQueue: JUDGE_TASK_QUEUE,
-      workflowId: `judge-${validated.submissionId}`,
-      workflowIdReusePolicy: "REJECT_DUPLICATE",
-      args: [input],
-    }),
-  );
 }
 
 export async function terminateSubmissionJudge(
@@ -172,23 +149,6 @@ export async function dispatchRegistryGarbageCollect(
     }),
   );
   return { workflowId: REGISTRY_GC_WORKFLOW_ID, alreadyRunning: !started };
-}
-
-export async function dispatchRejudge(
-  input: RejudgeInput,
-  workflowId: string,
-): Promise<{ workflowId: string }> {
-  const client = await getTemporalClient();
-  await startUnlessRunning(
-    client.workflow.start("rejudgeWorkflow", {
-      taskQueue: JUDGE_TASK_QUEUE,
-      workflowId,
-      workflowIdReusePolicy: "REJECT_DUPLICATE",
-      memo: { triggeredByUserId: input.triggeredByUserId },
-      args: [input],
-    }),
-  );
-  return { workflowId };
 }
 
 interface LifecycleWorkflowSpec<T extends LifecycleScheduleIdentity> {

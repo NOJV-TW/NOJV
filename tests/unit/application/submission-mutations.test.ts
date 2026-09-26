@@ -40,7 +40,6 @@ const {
   durableWorkEnqueueMany,
   durableWorkCancel,
   proctoringGateInTx,
-  dispatchSubmissionJudge,
   storageRef,
   transactionState,
   referenceLockStaff,
@@ -71,7 +70,6 @@ const {
   durableWorkEnqueueMany: vi.fn(),
   durableWorkCancel: vi.fn(),
   proctoringGateInTx: vi.fn(),
-  dispatchSubmissionJudge: vi.fn(),
   storageRef: { client: null as unknown as { send: (cmd: unknown) => Promise<unknown> } },
   transactionState: { calls: 0, depth: 0 },
   referenceLockStaff: vi.fn(),
@@ -170,10 +168,6 @@ vi.mock("../../../packages/application/src/proctoring/gate", () => ({
 
 vi.mock("../../../packages/application/src/shared/storage-singleton", () => ({
   storage: () => storageRef.client,
-}));
-
-vi.mock("../../../packages/application/src/shared/orchestration", () => ({
-  getDomainOrchestration: () => ({ dispatchSubmissionJudge }),
 }));
 
 import { ConflictError, ForbiddenError, submissionDomain } from "@nojv/application";
@@ -813,7 +807,6 @@ describe("submitAndDispatch", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setupSubmitPipelineDefaults(null);
-    dispatchSubmissionJudge.mockResolvedValue(undefined);
   });
 
   it("returns durable acceptance after committing source and execution", async () => {

@@ -140,7 +140,7 @@ Temporal (TypeScript SDK) runs judging, rejudge, lifecycle, reminders and plagia
 
 **Decided:** 2026-04 · **Source:** [2026-04-02-microservice-architecture-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-02-microservice-architecture-redesign.md), [2026-04-02-architecture-implementation-plan](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-02-architecture-implementation-plan.md)
 
-Product code dispatches through the `DomainOrchestrationAdapter` port (`dispatchRejudge`, `cancelRejudge`, ...) and never sees Temporal internals. `@nojv/temporal` is a client/dispatch-only package depending on `@nojv/core`; web and worker wire that port to it; workflows and activities live in `apps/worker`.
+Product code dispatches through the `DomainOrchestrationAdapter` port (`dispatchJudgeExecution`, `ensureContestLifecycle`, ...) and never sees Temporal internals. `@nojv/temporal` is a client/dispatch-only package depending on `@nojv/core`; web and worker wire that port to it; workflows and activities live in `apps/worker`.
 
 - Rejected: the original `@nojv/job-dispatch` package (removed).
 - Rule: `@nojv/application` must not import `@temporalio/*` or `@nojv/temporal`.
