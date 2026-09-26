@@ -59,10 +59,12 @@ All rules live in `infra/grafana/alerts/slo-alerts.json` (labels `severity`, `te
 | `nojv-pg-not-ready`                           | critical | A `job="cnpg-postgres"` target fails scrape for 2m                                      |
 | `nojv-pg-backup-stale`                        | warning  | Last CNPG base backup older than 26h                                                    |
 
-App metrics go to Grafana Cloud over OTLP; `node_*` and `cnpg_*` series are
-scraped by the in-cluster Prometheus (`node-exporter` and `cnpg-postgres` jobs).
-Infra alerts fire only if the alert datasource reads the Prometheus that holds
-those series (or the in-cluster Prometheus `remote_write`s to Grafana Cloud).
+On the single-machine target, app metrics reach the in-cluster Prometheus
+through the OTLP collector, `node_*` and `cnpg_*` series are scraped there, and
+the in-cluster Grafana evaluates every rule above and emails the mailer mailbox
+(`observability.grafana.alerting`). `nojv-pg-backup-stale` exists only while
+Postgres backups are enabled. Alerts share the node they watch, so a node or
+tunnel outage shows only on the external status page (`status.nojv.tw`).
 
 ## Source of truth
 

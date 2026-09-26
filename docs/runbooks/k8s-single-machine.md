@@ -130,6 +130,13 @@ sudo kubectl get --raw "/api/v1/nodes/$(hostname)/proxy/configz" \
 
 Restarting k3s briefly restarts the control plane; running Pods keep running.
 
+### Host listeners
+
+Nothing but SSH and the k3s/CNI ports may listen on the LAN address (OPS-08). Host
+agents bind to loopback; netdata, when installed, needs `bind to = localhost` in
+the `[web]` section of `/etc/netdata/netdata.conf` (Netdata Cloud uses its outbound
+connection). Check with `sudo ss -ltn | grep -v '127.0.0.1'`.
+
 ## 4. Cluster prerequisites
 
 ### CloudNativePG operator

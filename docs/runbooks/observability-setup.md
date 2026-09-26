@@ -71,21 +71,22 @@ The JSON files are the source of truth for panel PromQL. Auto-instrumentation me
 
 `values-single-machine.yaml` enables the collector, Prometheus, node-exporter and Grafana; the GKE overlay leaves them off (use Google Cloud Managed Service for Prometheus there).
 
-| Component     | Value                                           | Endpoint / behavior                                                                                                                    |
-| ------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Collector     | `observability.collector.enabled`               | OTLP HTTP `http://<release>-otel-collector.<ns>.svc:4318`; `:8889/metrics`, or remote-writes when `collector.remoteWriteUrl` is set    |
-| Prometheus    | `observability.prometheus.enabled`              | Scrapes every 30s: `otel-collector`, `node-exporter`, `cloudflared`, `cnpg-postgres` (`<release>-pg-metrics:9187`); PVC, 15d retention |
-| Remote write  | `observability.prometheus.remoteWrite.url`      | Optional push to Grafana Cloud; `username` = instance ID, password from runtime secret key `GRAFANA_CLOUD_PROM_PASSWORD`               |
-| Node exporter | `observability.prometheus.nodeExporter.enabled` | DaemonSet feeding `nojv-node-disk-usage`                                                                                               |
-| Grafana       | `observability.grafana.enabled`                 | Service `:3000` or `observability.grafana.ingress`; provisioned Prometheus datasource and chart dashboards                             |
+| Component     | Value                                           | Endpoint / behavior                                                                                                                                                                                                                                                   |
+| ------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Collector     | `observability.collector.enabled`               | OTLP HTTP `http://<release>-otel-collector.<ns>.svc:4318`; `:8889/metrics`, or remote-writes when `collector.remoteWriteUrl` is set                                                                                                                                   |
+| Prometheus    | `observability.prometheus.enabled`              | Scrapes every 30s: `otel-collector`, `node-exporter`, `cloudflared`, `cnpg-postgres` (`<release>-pg-metrics:9187`); PVC, 15d retention                                                                                                                                |
+| Remote write  | `observability.prometheus.remoteWrite.url`      | Optional push to Grafana Cloud; `username` = instance ID, password from runtime secret key `GRAFANA_CLOUD_PROM_PASSWORD`                                                                                                                                              |
+| Node exporter | `observability.prometheus.nodeExporter.enabled` | DaemonSet feeding `nojv-node-disk-usage`                                                                                                                                                                                                                              |
+| Grafana       | `observability.grafana.enabled`                 | ClusterIP Service `:3000` (reach it with `kubectl -n nojv port-forward svc/nojv-grafana 3000`) or `observability.grafana.ingress`; provisioned Prometheus datasource (`uid: prometheus`) and chart dashboards                                                         |
+| Alerting      | `observability.grafana.alerting.enabled`        | Evaluates the chart copy of `slo-alerts.json` in this Grafana every minute and emails the runtime secret's `SMTP_USER` through `SMTP_HOST`/`SMTP_USER`/`SMTP_PASS` and `mailer.smtpPort`; `nojv-pg-backup-stale` is rendered only when `postgres.cnpg.backup.enabled` |
 
 1. Set `OTEL_EXPORTER_OTLP_ENDPOINT=http://nojv-otel-collector.nojv.svc:4318` (no headers) in `nojv-runtime-secrets` and restart web and workers.
 2. Set the Grafana admin password: `observability.grafana.adminPassword`, or leave it empty and set `GRAFANA_ADMIN_PASSWORD` in the runtime secret.
-3. Point the alert datasource at the Prometheus that holds `node_*` and `cnpg_*` series (or enable remote write); otherwise infra alerts never fire.
+3. Keep `observability.grafana.alerting.enabled` on (single-machine default). Grafana Cloud never sees these series unless `observability.prometheus.remoteWrite` is set, and a free Grafana Cloud stack hibernates when idle, so it is not an alerting home.
 
 ## Provision dashboards and alerts
 
-`pnpm grafana:provision` loads `.env` itself and:
+In-cluster alerting needs no provisioning step: the rules ship with the chart. `pnpm grafana:provision` is for an optional Grafana Cloud stack. It loads `.env` itself and:
 
 1. POSTs each `infra/grafana/dashboards/*.json` to `/api/dashboards/db` with `overwrite: true` (idempotent by UID; URL `https://takalawang.grafana.net/d/<uid>`).
 2. Upserts every rule in `slo-alerts.json` (PUT, then POST if missing) when both `GRAFANA_ALERT_FOLDER_UID` and `GRAFANA_PROM_DATASOURCE_UID` are set; otherwise prints `[skip] alert rules`.
@@ -130,7 +131,7 @@ Verify before accepting a release:
 1. Put it next to the closest existing metric (see Key code). Histogram for distributions (bucket boundaries belong to the metric); counter named `*_total` for event counts.
 2. Keep each metric under about 1k series: labels multiply (× histogram buckets).
 3. Never label with user, actor, student, submission, exam, contest, assessment or problem IDs, IP addresses, request/session IDs, raw paths or any user-controlled text. Use fixed enums (as `close_reason` and `probe` do); per-entity detail belongs in logs.
-4. Add dashboard panels and alert rules to the JSON files, update the chart copy under `infra/charts/nojv/files/grafana-dashboards/`, and run `pnpm grafana:provision`.
+4. Add dashboard panels and alert rules to the JSON files and update the chart copies under `infra/charts/nojv/files/grafana-dashboards/` and `infra/charts/nojv/files/grafana-alerts/` (a unit test keeps the alert copy identical); run `pnpm grafana:provision` only for a Grafana Cloud stack.
 5. If it backs an SLO, update the table in [Reliability](../operations/RELIABILITY.md#service-level-objectives).
 
 ## Rotate tokens

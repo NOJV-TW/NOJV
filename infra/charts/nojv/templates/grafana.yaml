@@ -14,6 +14,7 @@ data:
       - name: Prometheus
         type: prometheus
         access: proxy
+        uid: prometheus
         url: {{ printf "http://%s-prometheus.%s.svc:9090" (include "nojv.fullname" .) (include "nojv.namespace" .) | quote }}
         isDefault: true
 ---
@@ -46,6 +47,33 @@ metadata:
     app.kubernetes.io/component: grafana
 data:
   {{- (.Files.Glob "files/grafana-dashboards/*.json").AsConfig | nindent 2 }}
+{{- if .Values.observability.grafana.alerting.enabled }}
+{{- $range := dict "from" 3600 "to" 0 }}
+{{- $rules := list }}
+{{- range (.Files.Get "files/grafana-alerts/slo-alerts.json" | fromJsonArray) }}
+{{- if or (ne .uid "nojv-pg-backup-stale") $.Values.postgres.cnpg.backup.enabled }}
+{{- $query := dict "refId" "A" "relativeTimeRange" $range "datasourceUid" "prometheus" "model" (dict "refId" "A" "expr" .expr "instant" true "intervalMs" 1000 "maxDataPoints" 43200) }}
+{{- $reduce := dict "refId" "B" "relativeTimeRange" $range "datasourceUid" "__expr__" "model" (dict "refId" "B" "type" "reduce" "reducer" "last" "expression" "A") }}
+{{- $threshold := dict "refId" "C" "relativeTimeRange" $range "datasourceUid" "__expr__" "model" (dict "refId" "C" "type" "threshold" "expression" "B" "conditions" (list (dict "evaluator" (dict "type" "gt" "params" (list .threshold))))) }}
+{{- $rules = append $rules (dict "uid" .uid "title" .title "condition" "C" "for" .for "noDataState" (default "OK" .noDataState) "execErrState" "Error" "labels" (dict "severity" .severity "team" "nojv") "annotations" (dict "summary" .summary "slo" .slo) "data" (list $query $reduce $threshold)) }}
+{{- end }}
+{{- end }}
+{{- $contact := dict "orgId" 1 "name" "NOJV SLO Alerts" "receivers" (list (dict "uid" "nojv-slo-contact" "type" "email" "settings" (dict "addresses" "$__env{GF_SMTP_USER}"))) }}
+{{- $policy := dict "orgId" 1 "receiver" "NOJV SLO Alerts" "group_by" (list "grafana_folder" "alertname") }}
+{{- $group := dict "orgId" 1 "name" "NOJV SLO" "folder" "NOJV" "interval" "1m" "rules" $rules }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nojv.fullname" . }}-grafana-alerting
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+data:
+  alerting.yaml: |
+    {{- dict "apiVersion" 1 "contactPoints" (list $contact) "policies" (list $policy) "groups" (list $group) | toYaml | nindent 4 }}
+{{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -95,6 +123,31 @@ spec:
               {{- end }}
             - name: GF_PATHS_PROVISIONING
               value: /etc/grafana/provisioning
+            {{- if .Values.observability.grafana.alerting.enabled }}
+            - name: SMTP_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: SMTP_HOST
+            - name: GF_SMTP_ENABLED
+              value: "true"
+            - name: GF_SMTP_HOST
+              value: {{ printf "$(SMTP_HOST):%v" .Values.mailer.smtpPort | quote }}
+            - name: GF_SMTP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: SMTP_USER
+            - name: GF_SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nojv.runtimeSecretName" . }}
+                  key: SMTP_PASS
+            - name: GF_SMTP_FROM_ADDRESS
+              value: "$(GF_SMTP_USER)"
+            - name: GF_SMTP_FROM_NAME
+              value: "NOJV Alerts"
+            {{- end }}
           ports:
             - containerPort: 3000
               name: http
@@ -108,6 +161,11 @@ spec:
             - name: dashboards
               mountPath: /var/lib/grafana/dashboards
               readOnly: true
+            {{- if .Values.observability.grafana.alerting.enabled }}
+            - name: alerting
+              mountPath: /etc/grafana/provisioning/alerting
+              readOnly: true
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /api/health
@@ -132,6 +190,11 @@ spec:
         - name: dashboards
           configMap:
             name: {{ include "nojv.fullname" . }}-grafana-dashboards
+        {{- if .Values.observability.grafana.alerting.enabled }}
+        - name: alerting
+          configMap:
+            name: {{ include "nojv.fullname" . }}-grafana-alerting
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service
@@ -142,6 +205,7 @@ metadata:
     {{- include "nojv.labels" . | nindent 4 }}
     app.kubernetes.io/component: grafana
 spec:
+  type: ClusterIP
   selector:
     app.kubernetes.io/name: nojv-grafana
   ports:

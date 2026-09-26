@@ -118,6 +118,8 @@ observability:
       enabled: true
   grafana:
     enabled: true
+    alerting:
+      enabled: true
 
 worker:
   judge:

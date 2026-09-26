@@ -143,16 +143,18 @@ CI runs CodeQL and a blocking `pnpm audit --audit-level high`; coverage threshol
 - Rule: run `pnpm db:docs` whenever the schema changes.
 - Code: `.github/workflows/ci.yml`, `.github/workflows/codeql.yml`, `vitest.config.ts`
 
-### OPS-14 Metrics go over OTLP to Grafana Cloud with bounded cardinality
+### OPS-14 Metrics stay in-cluster with bounded cardinality, and the in-cluster Grafana alerts
 
 **Decided:** 2026-05 · **Source:** [2026-05-06-grafana-observability](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-06-grafana-observability.md)
 
-Web and worker each start their own OTel NodeSDK and push metrics over OTLP HTTP to Grafana Cloud; dashboards and SLO alert rules are JSON in `infra/grafana` provisioned by script. Empty `OTEL_EXPORTER_OTLP_*` disables export. Logs go to stdout.
+Web and worker each start their own OTel NodeSDK and push metrics over OTLP HTTP to the in-cluster collector, which Prometheus scrapes together with node-exporter and CNPG; dashboards and SLO alert rules are JSON in `infra/grafana`, and the chart copies them so the in-cluster Grafana evaluates the rules and emails the mailer mailbox. Revised 2026-09-26 ([#532](https://github.com/NOJV-TW/NOJV/pull/532)): nothing reached Grafana Cloud, whose rules therefore never had data, and an idle free stack hibernates.
 
-- Rejected: a shared OTel package (circular dependencies, per-app instrumentation choice); self-hosted Alloy/Prometheus; Loki, Tempo and GCP Managed Prometheus until a need appears.
+- Rejected: Grafana Cloud as the alerting home (no data path without `remote_write`, and a hibernating free stack stops evaluating).
+- Rejected: a shared OTel package (circular dependencies, per-app instrumentation choice); self-hosted Alloy; Loki, Tempo and GCP Managed Prometheus until a need appears.
 - Rule: metric labels never include `userId`, `submissionId` or raw paths; use route templates to stay within the active-series budget.
 - Rule: the SDK starts before any instrumented module is imported.
-- Code: `apps/web/src/lib/server/otel.ts`, `apps/worker/src/otel.ts`, `infra/grafana/`
+- Rule: alert rules change in `infra/grafana/alerts/slo-alerts.json` and its chart copy together.
+- Code: `apps/web/src/lib/server/otel.ts`, `apps/worker/src/otel.ts`, `infra/grafana/`, `infra/charts/nojv/templates/grafana.yaml`
 
 ### OPS-15 Web readiness depends only on Postgres and Redis
 
