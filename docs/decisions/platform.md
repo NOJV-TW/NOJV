@@ -190,7 +190,7 @@ Web exposes a public exact-path `/api/release` returning only `{ version, source
 
 ### OPS-18 Renovate is the only dependency update bot
 
-**Decided:** 2026-09 · **Source:** PR_LINK
+**Decided:** 2026-09 · **Source:** [#533](https://github.com/NOJV-TW/NOJV/pull/533)
 
 Renovate (`.github/renovate.json`) updates npm packages and pnpm catalog/overrides, GitHub Actions, Dockerfile and Compose images, the digest-pinned images in the chart values, the CloudNativePG operator manifest and the Temporal Helm chart pinned in the runbooks. Dependabot covered only the first four, so the CNPG operator reached its end of support unnoticed.
 
