@@ -39,15 +39,12 @@ stay in the container log pipeline.
 | `durable_work_outcomes_total`                                                                                 | counter   | `kind`, `outcome`, `delivery_semantics` | platform worker              |
 | `nojv_judge_*`, `nojv_submissions_stuck`                                                                      | gauge     | —                                       | platform worker SQL snapshot |
 
-`scoreboard_update_latency_seconds` is queried by the Scoreboard dashboard and alert but no code emits it.
-
 ## Dashboards
 
 | UID                    | Title                           | Reads                                                                                                                 |
 | ---------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | `nojv-judge-latency`   | NOJV — Judge Latency            | `judge_latency_seconds` (p95/p99 by mode, throughput by verdict)                                                      |
 | `nojv-api-latency`     | NOJV — API Latency              | `api_request_duration_seconds` (p50/p95/p99, top routes, 5xx share)                                                   |
-| `nojv-scoreboard`      | NOJV — Scoreboard Update        | `scoreboard_update_latency_seconds`                                                                                   |
 | `nojv-exam-proctoring` | NOJV — Exam Proctoring          | SSE close rate, close reasons, server-fault drops                                                                     |
 | `nojv-time-breakdown`  | NOJV — Where Is The Time Going? | API vs `http_server_duration_milliseconds`; `db_client_operation_duration_seconds` by `db_system` (postgresql, redis) |
 
@@ -93,6 +90,8 @@ The JSON files are the source of truth for panel PromQL. Auto-instrumentation me
 1. POSTs each `infra/grafana/dashboards/*.json` to `/api/dashboards/db` with `overwrite: true` (idempotent by UID; URL `https://takalawang.grafana.net/d/<uid>`).
 2. Upserts every rule in `slo-alerts.json` (PUT, then POST if missing) when both `GRAFANA_ALERT_FOLDER_UID` and `GRAFANA_PROM_DATASOURCE_UID` are set; otherwise prints `[skip] alert rules`.
 3. Provisions the `NOJV SLO Alerts` email contact point and a notification policy routing `team=nojv` when `GRAFANA_ALERT_EMAIL` is set; otherwise prints `[skip] contact point`. The policy replaces the stack's root policy, so on a shared stack leave it unset and add a child route in the UI.
+
+Provisioning only upserts. After removing a dashboard or rule from the JSON files, delete it in Grafana Cloud by UID (`DELETE /api/dashboards/uid/<uid>`, `DELETE /api/v1/provisioning/alert-rules/<uid>`).
 
 Verify:
 
