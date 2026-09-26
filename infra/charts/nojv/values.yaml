@@ -212,6 +212,10 @@ observability:
     image: grafana/grafana:11.6.1@sha256:52c3e20686b860c6dc1f623811565773cf51eefa378817a4896dfc863c3c82c8
     adminUser: admin
     adminPassword: ""
+    # Evaluate files/grafana-alerts/slo-alerts.json in this Grafana and email
+    # the runtime Secret's SMTP_USER through the mailer's SMTP credentials.
+    alerting:
+      enabled: false
     service:
       port: 3000
     ingress:

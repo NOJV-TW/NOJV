@@ -176,7 +176,7 @@ Durable decisions for NOJV, grouped by area. Each entry records what was decided
 - OPS-11 Sandbox ResourceQuota is the judge capacity ceiling
 - OPS-12 Operational tunables are env vars wired through Helm
 - OPS-13 CI enforces security scans, a coverage ratchet and schema-doc drift
-- OPS-14 Metrics go over OTLP to Grafana Cloud with bounded cardinality
+- OPS-14 Metrics stay in-cluster with bounded cardinality, and the in-cluster Grafana alerts
 - OPS-15 Web readiness depends only on Postgres and Redis
 - OPS-16 Release notification belongs to the external status Worker
 - OPS-17 Email is durable work over a generic SMTP mailer

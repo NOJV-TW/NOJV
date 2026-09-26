@@ -18,17 +18,17 @@ Procedures live in the runbooks: [Incident Recovery](../runbooks/incident-recove
 
 SLOs are end-to-end, user-visible metrics, so a regression in any tier shows in
 the same table. Targets are deliberately lenient alerting thresholds, not
-functional caps. Dashboards are at <https://takalawang.grafana.net>; metric
+functional caps. Dashboards are at <https://brightholly2440.grafana.net>; metric
 sources, dashboards and provisioning are in [Observability Setup](../runbooks/observability-setup.md).
 
-| SLO                                                         | Target      | Window         | Measurement                                                                                                                                              |
-| ----------------------------------------------------------- | ----------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Judge latency (simple problem, ≤ 20 testcases)              | p95 < 15s   | Rolling 7 days | `judge_latency_seconds{mode="standard"}`, `submission.createdAt` to verdict commit. [Judge Latency](https://takalawang.grafana.net/d/nojv-judge-latency) |
-| Judge latency (complex problem, > 20 testcases or advanced) | p95 < 60s   | Rolling 7 days | `judge_latency_seconds{mode="advanced"}`; an Advanced image may need a higher per-problem ceiling                                                        |
-| API latency (all `/api/*` GET)                              | p99 < 500ms | Rolling 1 day  | `api_request_duration_seconds`; excludes SSE streams and health probes. [API Latency](https://takalawang.grafana.net/d/nojv-api-latency)                 |
-| SSE connection stability                                    | 99.5%       | Rolling 1 day  | `sse_connection_dropped_total` / closed connections. [Exam Proctoring](https://takalawang.grafana.net/d/nojv-exam-proctoring)                            |
-| Platform availability                                       | 99.5%       | Monthly        | Down = web, worker or sandbox tier fully unavailable; request-rate and 5xx panels on API Latency                                                         |
-| Temporal workflow success rate (non-user errors)            | 99.9%       | Rolling 7 days | Excludes `ValidationError` and expected user-facing failures; throughput panel on Judge Latency                                                          |
+| SLO                                                         | Target      | Window         | Measurement                                                                                                                                                   |
+| ----------------------------------------------------------- | ----------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Judge latency (simple problem, ≤ 20 testcases)              | p95 < 15s   | Rolling 7 days | `judge_latency_seconds{mode="standard"}`, `submission.createdAt` to verdict commit. [Judge Latency](https://brightholly2440.grafana.net/d/nojv-judge-latency) |
+| Judge latency (complex problem, > 20 testcases or advanced) | p95 < 60s   | Rolling 7 days | `judge_latency_seconds{mode="advanced"}`; an Advanced image may need a higher per-problem ceiling                                                             |
+| API latency (all `/api/*` GET)                              | p99 < 500ms | Rolling 1 day  | `api_request_duration_seconds`; excludes SSE streams and health probes. [API Latency](https://brightholly2440.grafana.net/d/nojv-api-latency)                 |
+| SSE connection stability                                    | 99.5%       | Rolling 1 day  | `sse_connection_dropped_total` / closed connections. [Exam Proctoring](https://brightholly2440.grafana.net/d/nojv-exam-proctoring)                            |
+| Platform availability                                       | 99.5%       | Monthly        | Down = web, worker or sandbox tier fully unavailable; request-rate and 5xx panels on API Latency                                                              |
+| Temporal workflow success rate (non-user errors)            | 99.9%       | Rolling 7 days | Excludes `ValidationError` and expected user-facing failures; throughput panel on Judge Latency                                                               |
 
 Scoreboard freshness has no SLO: scoreboards are computed from PostgreSQL at read time behind a 10s cache, and the SSE nudge is throttled to one per 10s per contest (DAT-11), so staleness is bounded by design rather than measured. Verdict-to-persisted-score time is inside judge latency.
 
@@ -59,10 +59,12 @@ All rules live in `infra/grafana/alerts/slo-alerts.json` (labels `severity`, `te
 | `nojv-pg-not-ready`                           | critical | A `job="cnpg-postgres"` target fails scrape for 2m                                      |
 | `nojv-pg-backup-stale`                        | warning  | Last CNPG base backup older than 26h                                                    |
 
-App metrics go to Grafana Cloud over OTLP; `node_*` and `cnpg_*` series are
-scraped by the in-cluster Prometheus (`node-exporter` and `cnpg-postgres` jobs).
-Infra alerts fire only if the alert datasource reads the Prometheus that holds
-those series (or the in-cluster Prometheus `remote_write`s to Grafana Cloud).
+On the single-machine target, app metrics reach the in-cluster Prometheus
+through the OTLP collector, `node_*` and `cnpg_*` series are scraped there, and
+the in-cluster Grafana evaluates every rule above and emails the mailer mailbox
+(`observability.grafana.alerting`). `nojv-pg-backup-stale` exists only while
+Postgres backups are enabled. Alerts share the node they watch, so a node or
+tunnel outage shows only on the external status page (`status.nojv.tw`).
 
 ## Source of truth
 

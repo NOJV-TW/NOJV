@@ -19,7 +19,7 @@ This is the Quality Ledger item under "High availability". It is linked to the o
 
 The runbook's operator version (1.24.0) predates PostgreSQL 18, which production runs, so the live operator version is probably different from the documented one. **Step 0 of any execution is to read the live version.** The plan does not rely on the runbook.
 
-Live state, read-only on 2026-09-26: the operator image is `ghcr.io/cloudnative-pg/cloudnative-pg:1.29.1` (EOL 2026-09-29), cert-manager is not installed (no namespace or CRDs), no `ObjectStore` CRD exists, and `Cluster/nojv-pg` has no `spec.backup` (`cnpg_collector_last_available_backup_timestamp` is 0). Production has never taken a base backup.
+Live state, read-only on 2026-09-26: the operator image was `ghcr.io/cloudnative-pg/cloudnative-pg:1.29.1` (EOL 2026-09-29) and was upgraded in place to 1.30.1 the same day, cert-manager is not installed (no namespace or CRDs), no `ObjectStore` CRD exists, and `Cluster/nojv-pg` has no `spec.backup` (`cnpg_collector_last_available_backup_timestamp` is 0). Production has never taken a base backup.
 
 ## Decision summary
 

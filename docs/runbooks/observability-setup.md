@@ -52,42 +52,43 @@ The JSON files are the source of truth for panel PromQL. Auto-instrumentation me
 
 ## Grafana Cloud setup
 
-1. Stack: `https://takalawang.grafana.net` (region `prod-ap-northeast-0`, free tier, 10k active series).
-2. Provisioning token: Administration → Users and access → Service accounts → add `nojv-provision` with **Admin** role (Editor lacks `dashboards:create`, `dashboards:write`, `folders:create`) → add a token and copy the `glsa_*` value.
-3. Push token: Cloud Portal → Access policies → create `nojv-otlp-push` with `metrics:write` → create a token and copy the `glc_*` value. Note the numeric instance ID and the OTLP gateway `https://otlp-gateway-prod-ap-northeast-0.grafana.net/otlp` (Connections → OpenTelemetry).
-4. Add to the git-ignored root `.env` (see `.env.example`):
+Grafana Cloud holds dashboards only; alerts are evaluated in-cluster. Production pushes the in-cluster Prometheus to it with `remote_write` (about 3.2k active series against the free tier's 10k).
+
+1. Stack: `https://brightholly2440.grafana.net`, owned by the `nojv.tw@gmail.com` Grafana account (region `prod-ap-northeast-0`, stack ID `1845138`).
+2. Provisioning token: Administration → Users and access → Service accounts → `nojv-provision` with **Admin** role (Editor lacks `dashboards:create`, `dashboards:write`, `folders:create`) → add a token and copy the `glsa_*` value.
+3. Push token: Cloud Portal → Access policies → `nojv-prometheus-remote-write` with only `metrics:write`, realm limited to the stack → create a token and copy the `glc_*` value. The stack's Prometheus details give the push URL (`https://prometheus-prod-49-prod-ap-northeast-0.grafana.net/api/prom/push`) and username (instance ID `3614500`).
+4. Production: `observability.prometheus.remoteWrite.url` and `.username` live in the private `nojv-production-values` Secret, the `glc_*` token in `nojv-runtime-secrets` as `GRAFANA_CLOUD_PROM_PASSWORD`. Changing either values Secret makes Flux upgrade the release, which rolls web and workers.
+5. Add to the git-ignored root `.env` for provisioning:
 
    ```env
-   OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-prod-ap-northeast-0.grafana.net/otlp
-   OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic <base64(instanceId:glc_token)>
-   GRAFANA_STACK_URL=https://takalawang.grafana.net
+   GRAFANA_STACK_URL=https://brightholly2440.grafana.net
    GRAFANA_SA_TOKEN=glsa_...
    ```
 
-5. For production, put the two `OTEL_*` values in `nojv-runtime-secrets` and restart web and both workers.
-6. Verify locally: `OTEL_LOG_LEVEL=DEBUG pnpm dev`; expect export log lines every 30s and no `OTLPExporter … failed`.
+6. Verify: `prometheus_remote_storage_samples_total` rises and `prometheus_remote_storage_samples_failed_total` stays 0 on the Prometheus `/metrics`, and the stack's `grafanacloud-prom` datasource answers `count(node_filesystem_avail_bytes)`.
 
 ## In-cluster stack (no external cloud)
 
 `values-single-machine.yaml` enables the collector, Prometheus, node-exporter and Grafana; the GKE overlay leaves them off (use Google Cloud Managed Service for Prometheus there).
 
-| Component     | Value                                           | Endpoint / behavior                                                                                                                    |
-| ------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Collector     | `observability.collector.enabled`               | OTLP HTTP `http://<release>-otel-collector.<ns>.svc:4318`; `:8889/metrics`, or remote-writes when `collector.remoteWriteUrl` is set    |
-| Prometheus    | `observability.prometheus.enabled`              | Scrapes every 30s: `otel-collector`, `node-exporter`, `cloudflared`, `cnpg-postgres` (`<release>-pg-metrics:9187`); PVC, 15d retention |
-| Remote write  | `observability.prometheus.remoteWrite.url`      | Optional push to Grafana Cloud; `username` = instance ID, password from runtime secret key `GRAFANA_CLOUD_PROM_PASSWORD`               |
-| Node exporter | `observability.prometheus.nodeExporter.enabled` | DaemonSet feeding `nojv-node-disk-usage`                                                                                               |
-| Grafana       | `observability.grafana.enabled`                 | Service `:3000` or `observability.grafana.ingress`; provisioned Prometheus datasource and chart dashboards                             |
+| Component     | Value                                           | Endpoint / behavior                                                                                                                                                                                                                                                   |
+| ------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Collector     | `observability.collector.enabled`               | OTLP HTTP `http://<release>-otel-collector.<ns>.svc:4318`; `:8889/metrics`, or remote-writes when `collector.remoteWriteUrl` is set                                                                                                                                   |
+| Prometheus    | `observability.prometheus.enabled`              | Scrapes every 30s: `otel-collector`, `node-exporter`, `cloudflared`, `cnpg-postgres` (`<release>-pg-metrics:9187`); PVC, 15d retention                                                                                                                                |
+| Remote write  | `observability.prometheus.remoteWrite.url`      | Optional push to Grafana Cloud; `username` = instance ID, password from runtime secret key `GRAFANA_CLOUD_PROM_PASSWORD`                                                                                                                                              |
+| Node exporter | `observability.prometheus.nodeExporter.enabled` | DaemonSet feeding `nojv-node-disk-usage`                                                                                                                                                                                                                              |
+| Grafana       | `observability.grafana.enabled`                 | ClusterIP Service `:3000` (reach it with `kubectl -n nojv port-forward svc/nojv-grafana 3000`) or `observability.grafana.ingress`; provisioned Prometheus datasource (`uid: prometheus`) and chart dashboards                                                         |
+| Alerting      | `observability.grafana.alerting.enabled`        | Evaluates the chart copy of `slo-alerts.json` in this Grafana every minute and emails the runtime secret's `SMTP_USER` through `SMTP_HOST`/`SMTP_USER`/`SMTP_PASS` and `mailer.smtpPort`; `nojv-pg-backup-stale` is rendered only when `postgres.cnpg.backup.enabled` |
 
 1. Set `OTEL_EXPORTER_OTLP_ENDPOINT=http://nojv-otel-collector.nojv.svc:4318` (no headers) in `nojv-runtime-secrets` and restart web and workers.
 2. Set the Grafana admin password: `observability.grafana.adminPassword`, or leave it empty and set `GRAFANA_ADMIN_PASSWORD` in the runtime secret.
-3. Point the alert datasource at the Prometheus that holds `node_*` and `cnpg_*` series (or enable remote write); otherwise infra alerts never fire.
+3. Keep `observability.grafana.alerting.enabled` on (single-machine default). Grafana Cloud sees these series only through `observability.prometheus.remoteWrite`, and a free stack hibernates when idle, so it holds dashboards but is not an alerting home.
 
 ## Provision dashboards and alerts
 
-`pnpm grafana:provision` loads `.env` itself and:
+In-cluster alerting needs no provisioning step: the rules ship with the chart. `pnpm grafana:provision` is for an optional Grafana Cloud stack. It loads `.env` itself and:
 
-1. POSTs each `infra/grafana/dashboards/*.json` to `/api/dashboards/db` with `overwrite: true` (idempotent by UID; URL `https://takalawang.grafana.net/d/<uid>`).
+1. POSTs each `infra/grafana/dashboards/*.json` to `/api/dashboards/db` with `overwrite: true` (idempotent by UID; URL `https://brightholly2440.grafana.net/d/<uid>`).
 2. Upserts every rule in `slo-alerts.json` (PUT, then POST if missing) when both `GRAFANA_ALERT_FOLDER_UID` and `GRAFANA_PROM_DATASOURCE_UID` are set; otherwise prints `[skip] alert rules`.
 3. Provisions the `NOJV SLO Alerts` email contact point and a notification policy routing `team=nojv` when `GRAFANA_ALERT_EMAIL` is set; otherwise prints `[skip] contact point`. The policy replaces the stack's root policy, so on a shared stack leave it unset and add a child route in the UI.
 
@@ -130,7 +131,7 @@ Verify before accepting a release:
 1. Put it next to the closest existing metric (see Key code). Histogram for distributions (bucket boundaries belong to the metric); counter named `*_total` for event counts.
 2. Keep each metric under about 1k series: labels multiply (× histogram buckets).
 3. Never label with user, actor, student, submission, exam, contest, assessment or problem IDs, IP addresses, request/session IDs, raw paths or any user-controlled text. Use fixed enums (as `close_reason` and `probe` do); per-entity detail belongs in logs.
-4. Add dashboard panels and alert rules to the JSON files, update the chart copy under `infra/charts/nojv/files/grafana-dashboards/`, and run `pnpm grafana:provision`.
+4. Add dashboard panels and alert rules to the JSON files and update the chart copies under `infra/charts/nojv/files/grafana-dashboards/` and `infra/charts/nojv/files/grafana-alerts/` (a unit test keeps the alert copy identical); run `pnpm grafana:provision` only for a Grafana Cloud stack.
 5. If it backs an SLO, update the table in [Reliability](../operations/RELIABILITY.md#service-level-objectives).
 
 ## Rotate tokens
