@@ -47,7 +47,8 @@
     "db:seed:validate": "pnpm --filter @nojv/db db:seed:validate",
     "db:validate": "pnpm --filter @nojv/db prisma:validate",
     "test:integration:temporal": "vitest run --project temporal-integration",
-    "test:integration:sandbox": "vitest run --project sandbox-integration"
+    "test:integration:sandbox": "vitest run --project sandbox-integration",
+    "test:integration:storage": "vitest run --project storage-conformance"
   },
   "devDependencies": {
     "@better-auth/core": "1.6.23",

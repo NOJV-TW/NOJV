@@ -39,8 +39,13 @@ describe("Vitest project routing", () => {
         K8S_TEST_GLOB,
         "tests/integration/temporal/**/*.test.ts",
         "tests/integration/judge/**/*.test.ts",
+        "tests/integration/storage/**/*.test.ts",
       ]),
     });
+    expect(project("storage-conformance").test).toMatchObject({
+      include: ["tests/integration/storage/**/*.test.ts"],
+    });
+    expect(project("storage-conformance").test?.globalSetup).toBeUndefined();
     expect(project("k8s-integration").test).toMatchObject({
       include: [K8S_TEST_GLOB],
       globalSetup: ["tests/setup/k8s-global-setup.ts"],

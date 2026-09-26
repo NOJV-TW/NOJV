@@ -14,15 +14,16 @@ contract, the Kubernetes suite and the judge capacity benchmark.
 
 Every test lives under the repo-root `tests/` tree and ends in `.test.ts` (never `.spec.ts`, never package `__tests__/`).
 
-| Vitest project / runner | Glob                                                                            | Scope                                               | Dependencies                       |
-| ----------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------- | ---------------------------------- |
-| `unit`                  | `tests/unit/**`                                                                 | Pure modules, schemas, isolated server/domain logic | None                               |
-| `component`             | `tests/component/**`                                                            | Svelte component behavior in jsdom                  | None                               |
-| `integration`           | `tests/integration/**` except `judge/`, `temporal/`, `k8s/`; files run serially | HTTP routes, repositories, application flows, Redis | PostgreSQL, Redis, MinIO, Temporal |
-| `temporal-integration`  | `tests/integration/temporal/**`                                                 | Workflows against the SDK test servers              | Downloaded Temporal test binaries  |
-| `sandbox-integration`   | `tests/integration/judge/**`                                                    | Real sandbox image isolation and judging            | Docker, `nojv-sandbox:local`       |
-| `k8s-integration`       | `tests/integration/k8s/**`                                                      | Kubernetes backend                                  | Disposable k3d cluster             |
-| Playwright              | `tests/e2e/`                                                                    | User journeys through a running app                 | Built packages and all services    |
+| Vitest project / runner | Glob                                                                                        | Scope                                               | Dependencies                         |
+| ----------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------ |
+| `unit`                  | `tests/unit/**`                                                                             | Pure modules, schemas, isolated server/domain logic | None                                 |
+| `component`             | `tests/component/**`                                                                        | Svelte component behavior in jsdom                  | None                                 |
+| `integration`           | `tests/integration/**` except `judge/`, `temporal/`, `k8s/`, `storage/`; files run serially | HTTP routes, repositories, application flows, Redis | PostgreSQL, Redis, MinIO, Temporal   |
+| `temporal-integration`  | `tests/integration/temporal/**`                                                             | Workflows against the SDK test servers              | Downloaded Temporal test binaries    |
+| `sandbox-integration`   | `tests/integration/judge/**`                                                                | Real sandbox image isolation and judging            | Docker, `nojv-sandbox:local`         |
+| `storage-conformance`   | `tests/integration/storage/**`                                                              | Unmocked `@nojv/storage` against a real S3 endpoint | `S3_CONFORMANCE=1` and an S3 backend |
+| `k8s-integration`       | `tests/integration/k8s/**`                                                                  | Kubernetes backend                                  | Disposable k3d cluster               |
+| Playwright              | `tests/e2e/`                                                                                | User journeys through a running app                 | Built packages and all services      |
 
 Choosing a layer:
 
@@ -44,6 +45,7 @@ pnpm test:integration         # integration + temporal-integration + sandbox-int
 pnpm test:integration:temporal
 pnpm test:integration:sandbox
 pnpm test:integration:k8s     # k8s-integration (guarded)
+pnpm test:integration:storage # storage-conformance (skipped unless S3_CONFORMANCE=1)
 pnpm test:e2e                 # full Playwright suite
 pnpm test:all                 # unit, component, integration, e2e
 pnpm ci:verify                # local gate without services
@@ -100,6 +102,20 @@ Contract:
 - Every `TRUNCATE` revalidates that identity in the same transaction.
 - `BETTER_AUTH_SECRET` must be a test-only value of at least 32 characters (exam credential encryption).
 - The integration suite loads `.env`; sink mode requires every `SMTP_*` key absent, and notification transactions validate mailer config even when no email is sent.
+
+## Object storage conformance
+
+The `integration` project mocks `@nojv/storage` in memory. `tests/integration/storage/s3-conformance.test.ts` is the unmocked gate for any S3 backend: atomic `If-None-Match: *` (sequential and racing), SHA-256 checksum rejection, SDK default checksums, `ContentType`, `ListObjectsV2`/`ListObjects` pagination and delimiters, `DeleteObjects`, `CopyObject`, multipart with `UploadPartCopy`, and NOJV key shapes including a key that is also another key's directory prefix. It writes under unique `conformance-<uuid>` prefixes in `S3_BUCKET` and deletes them afterwards.
+
+`infra/docker/s3-conformance/compose.yml` runs candidate backends side by side (profiles `minio`, `versity`, `seaweedfs`; S3 on `127.0.0.1:9100/9200/9300`, a chart-shaped `registry:2` on `5100/5200/5300`). It is separate from the dev stack.
+
+```bash
+docker compose -f infra/docker/s3-conformance/compose.yml --profile versity up -d
+S3_CONFORMANCE=1 S3_ENDPOINT=http://127.0.0.1:9200 S3_ACCESS_KEY=conformance \
+  S3_SECRET_KEY=conformance-secret S3_BUCKET=nojv S3_REGION=us-east-1 \
+  pnpm test:integration:storage
+docker compose -f infra/docker/s3-conformance/compose.yml --profile '*' down -v
+```
 
 ## Kubernetes and gVisor suite
 

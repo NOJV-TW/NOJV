@@ -1,0 +1,13 @@
+version: 0.1
+storage:
+  s3:
+    region: us-east-1
+    bucket: nojv-registry
+    forcepathstyle: true
+    secure: false
+  delete:
+    enabled: true
+  redirect:
+    disable: true
+http:
+  addr: :5000
