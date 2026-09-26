@@ -107,6 +107,14 @@ Consequences for NOJV:
 - **OPS-07 and OPS-10:** replace "MinIO resources" and "MinIO-backed" with the object store.
 - **PRB-05:** replace "MinIO locally" with the object store.
 
+## Owner decisions (2026-09-27)
+
+- **Primary store: Versity S3 Gateway**, confirmed by the spike PR before cut-over. **RustFS is the intended later target** once it matures (conditional writes verified, a longer security track record); the conformance test is the gate for that move too. SeaweedFS stays the fallback if the spike fails.
+- **Step 0 done:** the node cache still held both pinned images; their linux/amd64 manifests were pushed unchanged to `ghcr.io/nojv-tw/minio@sha256:3f97c565…` and `ghcr.io/nojv-tw/mc@sha256:2582c2f4…` (public, anonymous pull verified), and chart, CI and compose point at them ([#538](https://github.com/NOJV-TW/NOJV/pull/538)).
+- **Sizes (question 1):** `nojv` is about 2.0 GB and `nojv-registry` about 43 MB; the node has 34 GB free (72% used). Downtime should sit at the low end of the estimate, and both buckets fit R2's free 10 GB.
+- **Off-host backup: yes, R2's free tier** for the `rclone` mirror of both buckets (and later the CNPG backups).
+- **Downtime window:** decided after the spike PR.
+
 ## Open questions for the owner
 
 1. What are the bucket sizes and object counts in production (`nojv`, `nojv-registry`), and the free space on the local-path disk? They set the downtime estimate and whether R2's free 10 GB can hold the off-host copy.
