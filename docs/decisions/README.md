@@ -180,6 +180,7 @@ Durable decisions for NOJV, grouped by area. Each entry records what was decided
 - OPS-15 Web readiness depends only on Postgres and Redis
 - OPS-16 Release notification belongs to the external status Worker
 - OPS-17 Email is durable work over a generic SMTP mailer
+- OPS-18 Renovate is the only dependency update bot
 
 ## [Engineering practice](engineering.md)
 

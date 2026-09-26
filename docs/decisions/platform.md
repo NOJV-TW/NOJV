@@ -187,3 +187,14 @@ Web exposes a public exact-path `/api/release` returning only `{ version, source
 - Rule: delivery is at-least-once; a stable Message-ID is only a dedup hint.
 - Rule: resolve account, verified address and preference immediately before sending.
 - Code: `packages/mailer/src/index.ts`, `packages/application/src/notification/index.ts`
+
+### OPS-18 Renovate is the only dependency update bot
+
+**Decided:** 2026-09 · **Source:** PR_LINK
+
+Renovate (`.github/renovate.json`) updates npm packages and pnpm catalog/overrides, GitHub Actions, Dockerfile and Compose images, the digest-pinned images in the chart values, the CloudNativePG operator manifest and the Temporal Helm chart pinned in the runbooks. Dependabot covered only the first four, so the CNPG operator reached its end of support unnoticed.
+
+- Rejected: running Dependabot and Renovate side by side (two bots opening overlapping PRs); a custom version-watch workflow.
+- Rule: every version installed outside `package.json` or a Dockerfile is written where a Renovate custom manager reads it (`--version` on Helm installs, a versioned manifest URL, `image: repo:tag@sha256:…` in values); a unit test fails when a manager stops matching.
+- Rule: majors, and CNPG or Temporal minors, open only after approval on the dependency dashboard.
+- Code: `.github/renovate.json`, `tests/unit/infra/renovate-coverage.test.ts`

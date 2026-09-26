@@ -170,7 +170,7 @@ partition per NOJV queue; see [Judge Queue](judge-queue.md)):
 
 ```bash
 helm repo add temporal https://go.temporal.io/helm-charts
-helm upgrade --install temporal temporal/temporal -n nojv-temporal --create-namespace \
+helm upgrade --install temporal temporal/temporal --version 1.4.0 -n nojv-temporal --create-namespace \
   -f infra/gcp/gke/temporal/helm-values.single-machine.yaml \
   --set server.nodeSelector.nojv-role=sandbox \
   --set-json 'server.dynamicConfig={"matching.enableFairness":[{"value":true}],"matching.useNewMatcher":[{"value":true}],"matching.numTaskqueueWritePartitions":[{"value":1,"constraints":{"taskQueueName":"judge"}},{"value":1,"constraints":{"taskQueueName":"judge-state"}},{"value":1,"constraints":{"taskQueueName":"platform"}}],"matching.numTaskqueueReadPartitions":[{"value":1,"constraints":{"taskQueueName":"judge"}},{"value":1,"constraints":{"taskQueueName":"judge-state"}},{"value":1,"constraints":{"taskQueueName":"platform"}}]}'

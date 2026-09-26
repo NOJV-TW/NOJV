@@ -58,7 +58,7 @@ the highest priority:
 - Vulnerabilities in third-party services we depend on (Grafana, Temporal,
   better-auth, etc.) — please report those upstream
 - Self-XSS, missing security headers on local-dev or demo deployments
-- Outdated dependencies without a known exploitable CVE — Dependabot
+- Outdated dependencies without a known exploitable CVE — Renovate
   already tracks these
 - Findings that only apply to a fork or a non-`main` branch
 
