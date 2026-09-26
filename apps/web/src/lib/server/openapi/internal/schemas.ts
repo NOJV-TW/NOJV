@@ -1,13 +1,21 @@
 import {
+  clarificationCannedReplySchema,
+  clarificationContextSchema,
+  clarificationCreateSchema,
+  clarificationPatchSchema,
   contentReportSchema,
   contestScoringModeSchema,
   feedbackUpsertSchema,
   ipViolationTypeSchema,
+  notificationMarkAllReadSchema,
+  notificationMarkReadSchema,
+  plagiarismFlagCreateSchema,
   postCommentSubmitSchema,
   postSubmitSchema,
   postUpdateSchema,
   postVoteSchema,
   problemPostTypeSchema,
+  rejudgeBatchSchema,
   scoreboardModeSchema,
   scoreOverrideCreateSchema,
   scoreOverrideContextSchema,
@@ -91,26 +99,8 @@ export const internalSchemas = {
     },
     required: ["count"],
   },
-  MarkAllNotificationsReadRequest: {
-    type: "object",
-    properties: {
-      action: {
-        type: "string",
-        enum: ["markAllRead"],
-      },
-    },
-    required: ["action"],
-  },
-  MarkNotificationReadRequest: {
-    type: "object",
-    properties: {
-      read: {
-        type: "boolean",
-        enum: [true],
-      },
-    },
-    required: ["read"],
-  },
+  MarkAllNotificationsReadRequest: zodToOpenApiSchema(notificationMarkAllReadSchema, "input"),
+  MarkNotificationReadRequest: zodToOpenApiSchema(notificationMarkReadSchema, "input"),
   UpdatedCountResponse: {
     type: "object",
     properties: {
@@ -121,34 +111,7 @@ export const internalSchemas = {
     },
     required: ["updated"],
   },
-  ClarificationContext: {
-    oneOf: [
-      {
-        type: "object",
-        properties: {
-          type: { type: "string", enum: ["assignment"] },
-          assignmentId: { type: "string" },
-        },
-        required: ["type", "assignmentId"],
-      },
-      {
-        type: "object",
-        properties: {
-          type: { type: "string", enum: ["exam"] },
-          examId: { type: "string" },
-        },
-        required: ["type", "examId"],
-      },
-      {
-        type: "object",
-        properties: {
-          type: { type: "string", enum: ["contest"] },
-          contestId: { type: "string" },
-        },
-        required: ["type", "contestId"],
-      },
-    ],
-  },
+  ClarificationContext: zodToOpenApiSchema(clarificationContextSchema, "input"),
   ClarificationItem: {
     type: "object",
     additionalProperties: true,
@@ -166,56 +129,9 @@ export const internalSchemas = {
     },
     required: ["items"],
   },
-  CreateClarificationRequest: {
-    type: "object",
-    properties: {
-      context: {
-        $ref: "#/components/schemas/ClarificationContext",
-      },
-      problemId: {
-        oneOf: [{ type: "string" }, { type: "null" }],
-      },
-      questionText: {
-        type: "string",
-        minLength: 10,
-        maxLength: 1000,
-      },
-    },
-    required: ["context", "questionText"],
-  },
-  PatchClarificationRequest: {
-    oneOf: [
-      {
-        type: "object",
-        properties: {
-          kind: { type: "string", enum: ["answer"] },
-          answerText: {
-            type: "string",
-            minLength: 1,
-            maxLength: 1000,
-          },
-        },
-        required: ["kind", "answerText"],
-      },
-      {
-        type: "object",
-        properties: {
-          kind: { type: "string", enum: ["dismiss"] },
-        },
-        required: ["kind"],
-      },
-    ],
-  },
-  CannedClarificationReplyRequest: {
-    type: "object",
-    properties: {
-      templateKey: {
-        type: "string",
-        enum: ["noComment", "readProblem", "yes", "no"],
-      },
-    },
-    required: ["templateKey"],
-  },
+  CreateClarificationRequest: zodToOpenApiSchema(clarificationCreateSchema, "input"),
+  PatchClarificationRequest: zodToOpenApiSchema(clarificationPatchSchema, "input"),
+  CannedClarificationReplyRequest: zodToOpenApiSchema(clarificationCannedReplySchema, "input"),
   PostItem: {
     type: "object",
     additionalProperties: true,
@@ -327,35 +243,7 @@ export const internalSchemas = {
     },
     required: ["submissionId", "files"],
   },
-  CreatePlagiarismFlagRequest: {
-    type: "object",
-    properties: {
-      contextType: {
-        type: "string",
-        enum: ["assessment", "exam", "contest"],
-      },
-      contextId: {
-        type: "string",
-        minLength: 1,
-      },
-      problemId: {
-        type: "string",
-        minLength: 1,
-      },
-      userAId: {
-        type: "string",
-        minLength: 1,
-      },
-      userBId: {
-        type: "string",
-        minLength: 1,
-      },
-      note: {
-        oneOf: [{ type: "string", maxLength: 2000 }, { type: "null" }],
-      },
-    },
-    required: ["contextType", "contextId", "problemId", "userAId", "userBId"],
-  },
+  CreatePlagiarismFlagRequest: zodToOpenApiSchema(plagiarismFlagCreateSchema, "input"),
   PlagiarismFlagItem: {
     type: "object",
     additionalProperties: true,
@@ -636,22 +524,7 @@ export const internalSchemas = {
     },
     required: ["series"],
   },
-  CreateRejudgeRequest: {
-    type: "object",
-    properties: {
-      problemId: { type: "string", minLength: 1 },
-      contestId: { type: "string" },
-      assessmentId: { type: "string" },
-      examId: { type: "string" },
-      userIds: {
-        type: "array",
-        items: { type: "string" },
-      },
-      since: { type: "string", format: "date-time" },
-      until: { type: "string", format: "date-time" },
-    },
-    required: ["problemId"],
-  },
+  CreateRejudgeRequest: zodToOpenApiSchema(rejudgeBatchSchema, "input"),
   CreateRejudgeResponse: {
     type: "object",
     properties: {

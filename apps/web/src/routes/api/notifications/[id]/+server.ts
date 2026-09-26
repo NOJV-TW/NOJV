@@ -1,5 +1,4 @@
 import { json } from "@sveltejs/kit";
-import { z } from "zod";
 
 import type { RequestHandler } from "./$types";
 
@@ -10,10 +9,7 @@ import {
   readJsonBody,
 } from "$lib/server/shared/api-handler";
 import { notificationDomain } from "@nojv/application";
-
-const patchSchema = z.object({
-  read: z.literal(true),
-});
+import { notificationMarkReadSchema } from "@nojv/core";
 
 export const PATCH: RequestHandler = writeApiHandler(async (event) => {
   assertJsonBodyWithinLimit(event);
@@ -22,7 +18,7 @@ export const PATCH: RequestHandler = writeApiHandler(async (event) => {
   const { id } = event.params;
   if (!id) return json({ message: "Missing notification id." }, { status: 400 });
 
-  patchSchema.parse(await readJsonBody(event));
+  notificationMarkReadSchema.parse(await readJsonBody(event));
   const updated = await notificationDomain.markAsRead(actor.userId, id);
   return json({ updated });
 });

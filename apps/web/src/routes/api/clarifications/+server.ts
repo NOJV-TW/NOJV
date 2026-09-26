@@ -1,5 +1,4 @@
 import { json } from "@sveltejs/kit";
-import { z } from "zod";
 
 import type { RequestHandler } from "./$types";
 
@@ -12,29 +11,17 @@ import {
   readJsonBody,
 } from "$lib/server/shared/api-handler";
 import { clarificationDomain } from "@nojv/application";
-
-const contextSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("assignment"), assignmentId: z.string().min(1) }),
-  z.object({ type: z.literal("exam"), examId: z.string().min(1) }),
-  z.object({ type: z.literal("contest"), contestId: z.string().min(1) }),
-]);
-
-const listQuerySchema = z.object({
-  context: contextSchema,
-  since: z.iso.datetime().optional(),
-});
-
-const askSchema = z.object({
-  context: contextSchema,
-  problemId: z.string().min(1).optional().nullable(),
-  questionText: z.string().min(10).max(1000),
-});
+import {
+  clarificationContextSchema,
+  clarificationCreateSchema,
+  clarificationListQuerySchema,
+} from "@nojv/core";
 
 export const GET: RequestHandler = apiHandler(async (event) => {
   const actor = requireApiAuth(event);
-  const context = parseContextQuery(event.url, contextSchema);
+  const context = parseContextQuery(event.url, clarificationContextSchema);
   const sinceRaw = event.url.searchParams.get("since");
-  const parsed = listQuerySchema.parse({
+  const parsed = clarificationListQuerySchema.parse({
     context,
     since: sinceRaw ?? undefined,
   });
@@ -47,7 +34,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   assertJsonBodyWithinLimit(event);
   const actor = requireApiAuth(event);
-  const body = askSchema.parse(await readJsonBody(event));
+  const body = clarificationCreateSchema.parse(await readJsonBody(event));
   const row = await clarificationDomain.ask(actor, {
     context: body.context,
     problemId: body.problemId ?? null,

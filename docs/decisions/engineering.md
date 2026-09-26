@@ -53,7 +53,8 @@ OpenAPI 3.1 documents render with Scalar (public at `/docs`, internal at `/docs/
 
 - Rejected: a duplicate `/api/v1/**` endpoint set.
 - Rule: CI fails when a route is undocumented without an allowlist entry, or a documented path has no handler.
-- Code: `apps/web/src/routes/docs/`, `tests/unit/openapi-contract.test.ts`
+- Rule: a request body validated by a route lives in `@nojv/core`; the route parses it and the OpenAPI component derives from it with `zodToOpenApiSchema(schema, "input")` instead of a hand-written copy.
+- Code: `apps/web/src/routes/docs/`, `apps/web/src/lib/server/openapi/`, `tests/unit/openapi-contract.test.ts`
 
 ### ENG-06 Audit findings are re-verified against code before acting
 

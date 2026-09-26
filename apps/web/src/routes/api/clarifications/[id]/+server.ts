@@ -1,6 +1,5 @@
 import { json } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
-import { z } from "zod";
 
 import type { RequestHandler } from "./$types";
 
@@ -11,25 +10,16 @@ import {
   readJsonBody,
 } from "$lib/server/shared/api-handler";
 import { clarificationDomain, HttpError } from "@nojv/application";
+import { clarificationPatchSchema } from "@nojv/core";
+import type { ClarificationPatchInput } from "@nojv/core";
 
-const patchSchema = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("answer"),
-    answerText: z.string().min(1).max(1000),
-    isPublic: z.boolean().default(true),
-  }),
-  z.object({
-    kind: z.literal("dismiss"),
-  }),
-]);
-
-function parseBody(raw: unknown): z.infer<typeof patchSchema> {
+function parseBody(raw: unknown): ClarificationPatchInput {
   if (typeof raw === "object" && raw !== null) {
     const obj = raw as Record<string, unknown>;
     if (obj.kind === undefined) {
-      if (obj.state === "dismissed") return patchSchema.parse({ kind: "dismiss" });
+      if (obj.state === "dismissed") return clarificationPatchSchema.parse({ kind: "dismiss" });
       if (typeof obj.answerText === "string") {
-        return patchSchema.parse({
+        return clarificationPatchSchema.parse({
           kind: "answer",
           answerText: obj.answerText,
           isPublic: obj.isPublic,
@@ -37,7 +27,7 @@ function parseBody(raw: unknown): z.infer<typeof patchSchema> {
       }
     }
   }
-  return patchSchema.parse(raw);
+  return clarificationPatchSchema.parse(raw);
 }
 
 function requireId(event: RequestEvent): string {

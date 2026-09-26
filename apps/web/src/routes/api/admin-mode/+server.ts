@@ -4,15 +4,13 @@ import {
   exitAdminMode,
   grantAdminMode,
 } from "@nojv/application";
+import { adminModeRequestSchema } from "@nojv/core";
 import { json } from "@sveltejs/kit";
-import { z } from "zod";
 
 import type { RequestHandler } from "./$types";
 
 import { requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler, readJsonBody } from "$lib/server/shared/api-handler";
-
-const bodySchema = z.object({ active: z.boolean() });
 
 export const POST: RequestHandler = writeApiHandler(async (event) => {
   requireApiAuth(event);
@@ -22,7 +20,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     throw new HttpError("No active session.", 401);
   }
 
-  const { active } = bodySchema.parse(await readJsonBody(event));
+  const { active } = adminModeRequestSchema.parse(await readJsonBody(event));
   if (sessionUser.isSuperAdmin) {
     throw new HttpError("Super admins do not use Admin mode.", 403);
   }
