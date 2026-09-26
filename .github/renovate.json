@@ -1,0 +1,126 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "timezone": "Asia/Taipei",
+  "labels": ["dependencies"],
+  "dependencyDashboard": true,
+  "prConcurrentLimit": 10,
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["dependencies", "security"],
+    "schedule": ["at any time"],
+    "minimumReleaseAge": null
+  },
+  "enabledManagers": ["npm", "github-actions", "dockerfile", "docker-compose", "custom.regex"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "CloudNativePG operator manifest installed by the single-machine runbook",
+      "managerFilePatterns": ["/^docs/runbooks/k8s-single-machine\\.md$/"],
+      "matchStrings": [
+        "cloudnative-pg/cloudnative-pg/release-\\d+\\.\\d+/releases/cnpg-(?<currentValue>\\d+\\.\\d+\\.\\d+)\\.yaml"
+      ],
+      "depNameTemplate": "cloudnative-pg/cloudnative-pg",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.+)$",
+      "autoReplaceStringTemplate": "cloudnative-pg/cloudnative-pg/release-{{{newMajor}}}.{{{newMinor}}}/releases/cnpg-{{{newValue}}}.yaml"
+    },
+    {
+      "customType": "regex",
+      "description": "Temporal Helm chart installed by hand on the single machine and GKE",
+      "managerFilePatterns": [
+        "/^docs/runbooks/k8s-single-machine\\.md$/",
+        "/^infra/gcp/gke/temporal/HA-PRODUCTION\\.md$/"
+      ],
+      "matchStrings": ["temporal/temporal --version (?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+      "depNameTemplate": "temporal",
+      "datasourceTemplate": "helm",
+      "registryUrlTemplate": "https://go.temporal.io/helm-charts"
+    },
+    {
+      "customType": "regex",
+      "description": "Digest-pinned images in the nojv chart values",
+      "managerFilePatterns": ["/^infra/charts/nojv/values[^/]*\\.yaml$/"],
+      "matchStrings": [
+        "image: (?<depName>[a-z0-9./_-]+):(?<currentValue>[^\\s@]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "docker"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Majors need code changes and a human; approve them from the dependency dashboard",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "matchManagers": ["npm"],
+      "schedule": ["* 9-11 * * 1"],
+      "minimumReleaseAge": "1 day",
+      "semanticCommitType": "chore",
+      "semanticCommitScope": "deps"
+    },
+    {
+      "description": "Production npm minor and patch updates in one weekly PR",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["dependencies", "pnpm.catalog.default", "pnpm-workspace.overrides"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "production-minor-patch"
+    },
+    {
+      "description": "Development npm minor and patch updates, split so a broken dev tool cannot block a production patch",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "development-minor-patch",
+      "semanticCommitScope": "deps-dev"
+    },
+    {
+      "description": "pnpm and Node versions are pinned across CI, Docker and docs and move by hand",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["packageManager", "engines"],
+      "enabled": false
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "schedule": ["* 9-11 1-7 * 1"],
+      "groupName": "github-actions-all",
+      "semanticCommitType": "chore",
+      "semanticCommitScope": "ci"
+    },
+    {
+      "description": "Container images in Dockerfiles, Compose and chart values: monthly, one PR per image",
+      "matchManagers": ["dockerfile", "docker-compose", "custom.regex"],
+      "matchDatasources": ["docker"],
+      "schedule": ["* 9-11 1-7 * 1"],
+      "semanticCommitType": "chore",
+      "semanticCommitScope": "docker"
+    },
+    {
+      "description": "Node base images follow the engines range and move by hand",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["node"],
+      "enabled": false
+    },
+    {
+      "description": "alpine/k8s tracks the cluster's kubectl minor",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["alpine/k8s", "docker.io/alpine/k8s"],
+      "matchUpdateTypes": ["minor"],
+      "enabled": false
+    },
+    {
+      "description": "Cluster operators: patches open a PR weekly; a minor needs release notes read, so approve it from the dashboard (CNPG 1.31 removes in-tree barmanObjectStore)",
+      "matchDepNames": ["cloudnative-pg/cloudnative-pg", "temporal"],
+      "schedule": ["* 9-11 * * 1"],
+      "semanticCommitType": "chore",
+      "semanticCommitScope": "infra",
+      "labels": ["dependencies", "infra"]
+    },
+    {
+      "matchDepNames": ["cloudnative-pg/cloudnative-pg", "temporal"],
+      "matchUpdateTypes": ["minor"],
+      "dependencyDashboardApproval": true
+    }
+  ]
+}

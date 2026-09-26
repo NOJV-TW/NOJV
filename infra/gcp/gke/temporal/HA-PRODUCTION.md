@@ -54,13 +54,13 @@ TEMPORAL_DYNAMIC_CONFIG='{"matching.enableFairness":[{"value":true}],"matching.u
 ```bash
 helm repo add temporal https://go.temporal.io/helm-charts
 # GKE (HA)
-helm upgrade --install temporal temporal/temporal -n nojv-temporal --create-namespace \
+helm upgrade --install temporal temporal/temporal --version 1.4.0 -n nojv-temporal --create-namespace \
   -f infra/gcp/gke/temporal/helm-values.ha.yaml \
   --set-json "server.dynamicConfig=${TEMPORAL_DYNAMIC_CONFIG}"
-# Single node (see the single-machine runbook for why nodeSelector is cleared)
-helm upgrade --install temporal temporal/temporal -n nojv-temporal --create-namespace \
+# Single node (see the single-machine runbook for the nodeSelector override)
+helm upgrade --install temporal temporal/temporal --version 1.4.0 -n nojv-temporal --create-namespace \
   -f infra/gcp/gke/temporal/helm-values.single-machine.yaml \
-  --set server.nodeSelector=null \
+  --set server.nodeSelector.nojv-role=sandbox \
   --set-json "server.dynamicConfig=${TEMPORAL_DYNAMIC_CONFIG}"
 ```
 
