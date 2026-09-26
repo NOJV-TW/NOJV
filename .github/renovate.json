@@ -54,6 +54,13 @@
       "dependencyDashboardApproval": true
     },
     {
+      "description": "pnpm overrides are security floors inside a major; moving one to a new major is a deliberate code change, not an update",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["pnpm-workspace.overrides"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
       "matchManagers": ["npm"],
       "schedule": ["* 9-11 * * 1"],
       "minimumReleaseAge": "1 day",
