@@ -54,14 +54,14 @@ The JSON files are the source of truth for panel PromQL. Auto-instrumentation me
 
 Grafana Cloud holds dashboards only; alerts are evaluated in-cluster. Production pushes the in-cluster Prometheus to it with `remote_write` (about 3.2k active series against the free tier's 10k).
 
-1. Stack: `https://brightholly2440.grafana.net`, owned by the `nojv.tw@gmail.com` Grafana account (region `prod-ap-northeast-0`, stack ID `1845138`).
+1. Stack: `https://grafana.nojv.tw`, owned by the `nojv.tw@gmail.com` Grafana account (region `prod-ap-northeast-0`, stack ID `1845138`). The custom domain is a DNS-only (unproxied) Cloudflare CNAME `grafana` → `brightholly2440.grafana.net`, the stack's fixed Grafana Cloud name; Grafana Cloud issues its Let's Encrypt certificate, so the record must stay unproxied.
 2. Provisioning token: Administration → Users and access → Service accounts → `nojv-provision` with **Admin** role (Editor lacks `dashboards:create`, `dashboards:write`, `folders:create`) → add a token and copy the `glsa_*` value.
 3. Push token: Cloud Portal → Access policies → `nojv-prometheus-remote-write` with only `metrics:write`, realm limited to the stack → create a token and copy the `glc_*` value. The stack's Prometheus details give the push URL (`https://prometheus-prod-49-prod-ap-northeast-0.grafana.net/api/prom/push`) and username (instance ID `3614500`).
 4. Production: `observability.prometheus.remoteWrite.url` and `.username` live in the private `nojv-production-values` Secret, the `glc_*` token in `nojv-runtime-secrets` as `GRAFANA_CLOUD_PROM_PASSWORD`. Changing either values Secret makes Flux upgrade the release, which rolls web and workers.
 5. Add to the git-ignored root `.env` for provisioning:
 
    ```env
-   GRAFANA_STACK_URL=https://brightholly2440.grafana.net
+   GRAFANA_STACK_URL=https://grafana.nojv.tw
    GRAFANA_SA_TOKEN=glsa_...
    ```
 
@@ -88,7 +88,7 @@ Grafana Cloud holds dashboards only; alerts are evaluated in-cluster. Production
 
 In-cluster alerting needs no provisioning step: the rules ship with the chart. `pnpm grafana:provision` is for an optional Grafana Cloud stack. It loads `.env` itself and:
 
-1. POSTs each `infra/grafana/dashboards/*.json` to `/api/dashboards/db` with `overwrite: true` (idempotent by UID; URL `https://brightholly2440.grafana.net/d/<uid>`).
+1. POSTs each `infra/grafana/dashboards/*.json` to `/api/dashboards/db` with `overwrite: true` (idempotent by UID; URL `https://grafana.nojv.tw/d/<uid>`).
 2. Upserts every rule in `slo-alerts.json` (PUT, then POST if missing) when both `GRAFANA_ALERT_FOLDER_UID` and `GRAFANA_PROM_DATASOURCE_UID` are set; otherwise prints `[skip] alert rules`.
 3. Provisions the `NOJV SLO Alerts` email contact point and a notification policy routing `team=nojv` when `GRAFANA_ALERT_EMAIL` is set; otherwise prints `[skip] contact point`. The policy replaces the stack's root policy, so on a shared stack leave it unset and add a child route in the UI.
 
