@@ -142,10 +142,22 @@ connection). Check with `sudo ss -ltn | grep -v '127.0.0.1'`.
 ### CloudNativePG operator
 
 ```bash
-kubectl apply --server-side -f \
-  https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.24/releases/cnpg-1.24.0.yaml
+kubectl -n cnpg-system create configmap cnpg-controller-manager-config \
+  --from-literal=ENABLE_INSTANCE_MANAGER_INPLACE_UPDATES=true \
+  --dry-run=client -o yaml | kubectl apply -f -
+kubectl apply --server-side --force-conflicts -f \
+  https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.30/releases/cnpg-1.30.1.yaml
 kubectl -n cnpg-system rollout status deploy/cnpg-controller-manager
 ```
+
+Production runs 1.30.1. The same two commands upgrade the operator (the
+ConfigMap must exist before the new operator starts). With in-place updates the
+operator swaps the instance manager inside the running Postgres pod instead of
+restarting it: confirm the pod UID, `restartCount` and `pg_postmaster_start_time()`
+are unchanged and the operator log says `Instance manager has been upgraded`.
+Move one minor version at a time, read the release notes first (1.31 removes
+in-tree `barmanObjectStore`), and take a `pg_dump -Fc` of every database while
+production has no base backups.
 
 ### Temporal
 
