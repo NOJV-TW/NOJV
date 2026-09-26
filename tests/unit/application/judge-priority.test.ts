@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { judgePriorityKey } from "../../../packages/core/src/judge-execution";
 
-const base = { operationId: null as string | null, recoveryEpoch: 0, examId: null, contestId: null };
+const base = {
+  operationId: null as string | null,
+  recoveryEpoch: 0,
+  examId: null,
+  contestId: null,
+};
 
 describe("judgePriorityKey", () => {
   it.each([
