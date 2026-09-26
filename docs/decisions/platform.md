@@ -104,10 +104,11 @@ Temporal runs self-hosted in the cluster; this is closed unless operational burd
 
 **Decided:** 2026-07 · **Source:** [2026-07-12-self-hosted-registry](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-12-self-hosted-registry.md), [2026-07-20-security-hardening](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-07-20-security-hardening.md)
 
-An in-cluster `registry:2` (MinIO-backed) serves special-environment images; web `/api/registry/token` issues Docker tokens against hashed platform-issued `RegistryCredential`s. Teachers get `t/<username>/**`, the judge pull account pulls all, CI and anonymous get `demo/**`; judge pods pull via chart-managed imagePullSecrets. Images can contain answers, and GHCR free private storage is too small.
+An in-cluster `registry:2` (MinIO-backed) serves special-environment images; web `/api/registry/token` issues Docker tokens against hashed platform-issued `RegistryCredential`s. Teachers get `t/<username>/**`, the judge pull account pulls all, anonymous pulls `demo/**`; judge pods pull via chart-managed imagePullSecrets. Images can contain answers, and GHCR free private storage is too small.
 
 - Rejected: Harbor (over-engineered for a small trusted authoring population; upgrade path stays open); k3s `registries.yaml` for pulls; automatic image deletion (deletion is explicit; GC is a manual Job).
 - Rule: credential-authenticated principals, admins included, have no global catalog or cross-namespace access; catalog and deletion use server-internal short-lived tokens.
+- Rule: demo Advanced Mode images are an optional extra published by hand (`pnpm demo-advanced:push`, digests into the runtime Secret for the production seed), never by CI; no principal can push to `demo/**` ([#265](https://github.com/NOJV-TW/NOJV/pull/265)).
 - Rule: accepted limits are a 100 MB per-layer push cap through the tunnel and per-teacher (not per-course) isolation.
 - Code: `apps/web/src/routes/api/registry/token/`, `packages/db/prisma/schema/auth.prisma`, `apps/worker/src/activities/registry.ts`
 

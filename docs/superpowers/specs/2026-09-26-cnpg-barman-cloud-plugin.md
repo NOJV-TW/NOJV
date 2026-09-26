@@ -19,6 +19,8 @@ This is the Quality Ledger item under "High availability". It is linked to the o
 
 The runbook's operator version (1.24.0) predates PostgreSQL 18, which production runs, so the live operator version is probably different from the documented one. **Step 0 of any execution is to read the live version.** The plan does not rely on the runbook.
 
+Live state, read-only on 2026-09-26: the operator image is `ghcr.io/cloudnative-pg/cloudnative-pg:1.29.1` (EOL 2026-09-29), cert-manager is not installed (no namespace or CRDs), no `ObjectStore` CRD exists, and `Cluster/nojv-pg` has no `spec.backup` (`cnpg_collector_last_available_backup_timestamp` is 0). Production has never taken a base backup.
+
 ## Decision summary
 
 1. **Install the plugin and cert-manager as one-time cluster prerequisites, not in the chart.** This matches how the CNPG operator is handled today: it is a documented prerequisite whose CRDs are not vendored, as described in [Deployment Guide](../../operations/DEPLOYMENT.md). It also keeps OPS-01 intact, because the chart still renders only NOJV's namespaced resources. The install is documented in `k8s-single-machine.md` §4 with pinned versions.
@@ -130,7 +132,7 @@ Preconditions: operator ≥ 1.26, cert-manager and plugin Ready, backups already
 
 ## Open questions for the owner
 
-1. What operator version runs live (`kubectl -n cnpg-system get deploy cnpg-controller-manager -o jsonpath='{..image}'`)? Is cert-manager already installed?
+1. Answered 2026-09-26: 1.29.1, no cert-manager (see Current state). The operator is already ≥ 1.26, so question 3's recommendation is to activate directly on the plugin.
 2. Which operator target: 1.30.x now (recommended), or 1.29.x, which reaches EOL on 2026-09-29?
 3. Ordering against OPS-06: activate in-tree first and migrate later (fastest path to a drilled backup), or activate directly on the plugin after the operator upgrade (a single migration, but backups wait for the upgrade window)? Recommendation: if the live operator is already ≥ 1.26, activate on the plugin directly. Otherwise activate in-tree now.
 4. Can the operator upgrade (a Postgres restart, about 1–3 minutes of full downtime on one instance) and the cut-over (a second restart) share one maintenance window, or do they need separate windows?
