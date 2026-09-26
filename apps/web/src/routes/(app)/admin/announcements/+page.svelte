@@ -85,12 +85,7 @@
 {/snippet}
 
 <PageContainer class="space-y-6">
-  <PageHeader
-    eyebrow={m.admin_eyebrow()}
-    title={m.admin_announcementsTitle()}
-    description={m.admin_announcementsSubtitle()}
-    actions={announcementsActions}
-  />
+  <PageHeader title={m.admin_announcementsTitle()} actions={announcementsActions} />
 
   {#if showCreateForm}
     <Card variant="flat" size="md">

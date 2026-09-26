@@ -1,44 +1,61 @@
 # NOJV Worker
 
-> Temporal worker process — 跑 submission judging 與 lifecycle workflows。
+> Temporal worker process：定義並執行 judging、lifecycle、plagiarism、durable work 與 registry GC 的 workflows 和 activities。
+
+判題流程見 [Judge Pipeline](../../docs/architecture/JUDGE_PIPELINE.md)；佇列與容量操作見 [Judge Queue runbook](../../docs/runbooks/judge-queue.md)。
 
 ## 職責
 
-- 從 `src/workflows/` 載入 workflow、從 `src/activities/` 註冊 activity；這些程式依賴 `@nojv/temporal` 提供的 queues、型別與 dispatch/query client API
-- 監聽多個 task queue（judge、platform、plagiarism 等）
-- 在 Docker（本地）或 Kubernetes（production）中啟動 sandbox container 跑使用者程式碼
-- 收集 sandbox 結果、寫回 DB、發 pub/sub 事件
-- **不負責**：定義 workflow 邏輯本身（在 `@nojv/temporal`）、UI、HTTP API
+- 載入 `src/workflows/` 的 workflow 定義並註冊 `src/activities/` 的 activities；dispatch client、task queue 名稱與 workflow I/O types 來自 `@nojv/temporal`
+- 監聽 task queues：`judge`（sandbox stage）、`judge-state`（判題 bookkeeping）、`platform`（lifecycle、score effects、plagiarism、durable work、registry GC）
+- 透過 Docker（本地）或 Kubernetes（production）啟動 sandbox，收集結果、寫回 DB、經 Redis pub/sub 發布 verdict
+- **不負責**：業務規則（在 `@nojv/application`）、UI、HTTP API
+
+## 執行模式
+
+`WORKER_MODE`：
+
+| 值            | Workers                                                                                                                  |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `all`（預設） | 以下全部                                                                                                                 |
+| `judge`       | `judge`（workflows + stage activities）與 `judge-state`（16 slots）；K8s backend 啟動前先驗證 runtime 與 NetworkPolicy   |
+| `platform`    | `platform`；啟動 submission sweeper、lifecycle reconciler、durable work processor，並執行一次 stale sweep 與 SE recovery |
 
 ## 主要入口
 
-- `src/index.ts` — worker bootstrap，連 Temporal 並註冊 activities
-- `src/sandbox/shared/` — contracts, planning, parsing, and result mapping shared by both backends
-- `src/sandbox/docker/` — Docker execution, container/network lifecycle, and resource cleanup
-- `src/sandbox/kubernetes/executor.ts` — coordinates Kubernetes execution paths
-- `src/sandbox/kubernetes/resources.ts` — builds Jobs, Pods, PVCs and payload maps; checks requested capacity
-- `src/sandbox/kubernetes/job-watch.ts` and `job-state.ts` — observes execution and interprets pod/job state
-- `src/sandbox/kubernetes/errors.ts` and `admission.ts` — classifies execution and admission failures
-- `src/sandbox/kubernetes/resource-cleanup.ts` — owns Kubernetes resource teardown and reconciliation
-- `src/sandbox/kubernetes/advanced*.ts`, `job-manifests.ts`, `pod-spec.ts` — advanced topology, shared manifests and security defaults
-- Backend selection and ownership live in `src/sandbox/shared/executor-factory.ts` and `executor-owner.ts`
-- `src/activities/` — workflow activity handlers and application calls
-- `src/workflows/` — workflow definitions loaded by the worker
-- `src/health-server.ts` — health check endpoint
-- task queue 註冊：見 `@nojv/temporal` 的 `task-queues.ts`
+- `src/index.ts` — bootstrap（OTel 必須最先載入）
+- `src/worker-app.ts` — Temporal workers、slot tuner、startup probes、graceful shutdown
+- `src/env.ts` — env schema（`EXECUTION_BACKEND` = `docker` | `kubernetes`）
+- `src/health-server.ts` — `/livez`、`/readyz`、`/healthz`
+- `src/workflows/` — workflow 定義（`durable-judge.ts` 為判題主流程）
+- `src/activities/` — activity handlers；`judge-bundle.ts` / `platform-bundle.ts` 決定各 queue 註冊的 activities
+- `src/sandbox/shared/` — executor factory/owner、sandbox plan、stage payload builders、advanced meta/result contract、log parsing、result mapping、phase metrics
+- `src/sandbox/docker/` — Docker executors、hardened args builder、network、resource sweeper
+- `src/sandbox/kubernetes/` — standard/interactive/advanced executors、Job manifests、payload shards、watch、admission、cleanup、startup probes
+
+## 主要環境變數
+
+| 變數                                                                                                                              | 用途                                                       |
+| --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `WORKER_CONCURRENCY`, `WORKER_MIN_CONCURRENCY`                                                                                    | judge activity slots；設定 min 時改用 resource-based tuner |
+| `SANDBOX_IMAGE`                                                                                                                   | sandbox-runner image                                       |
+| `SANDBOX_MEMORY_HEADROOM_MB`, `SANDBOX_MAX_MEMORY_MB`                                                                             | container memory headroom 與上限（預設 64 / 1536）         |
+| `SANDBOX_CPU_LIMIT`, `SANDBOX_MEMORY_MB`, `SANDBOX_PIDS_LIMIT`                                                                    | Docker backend 限制                                        |
+| `K8S_NAMESPACE`, `K8S_CPU_*`, `K8S_MEMORY_*`, `K8S_RUN_PARALLELISM`, `K8S_RUNTIME_CLASS_NAME` (`gvisor`), `K8S_IMAGE_PULL_SECRET` | Kubernetes backend                                         |
+
+完整部署值見 [Deployment Guide](../../docs/operations/DEPLOYMENT.md)。
 
 ## 依賴
 
 - 上游：`@nojv/application`、`@nojv/core`、`@nojv/db`、`@nojv/mailer`、`@nojv/redis`、`@nojv/sandbox-docker`、`@nojv/storage`、`@nojv/temporal`
-- 下游：Temporal server、Docker daemon / Kubernetes API、sandbox container
-- 領取結果者：經由 Redis pub/sub 推送到 `@nojv/web` SSE
+- 下游：Temporal server、Docker daemon 或 Kubernetes API、sandbox-runner container
+- Verdict 經 Redis pub/sub 推送到 `apps/web` SSE
 
 ## 本地開發
 
 ```bash
-# 從 repo 根目錄
-pnpm -F @nojv/worker dev          # tsx watch
-pnpm -F @nojv/worker build        # esbuild bundle
+pnpm -F @nojv/worker dev          # node --watch（tsx），讀 repo 根目錄 .env
+pnpm -F @nojv/worker build        # esbuild bundle（dist/index.js + workflows）
 pnpm -F @nojv/worker typecheck
 ```
 

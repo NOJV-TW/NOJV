@@ -1,22 +1,6 @@
 import {
-  adminAccessPrincipal,
-  clearStepUp,
-  clearVerifiedSessionProofs,
   consumeTotpCode,
-  exitAdminMode,
-  grantAdminMode,
-  hasAdminSessionMfa,
-  hasFreshStepUp,
-  hasTokenPageMfa,
   isSecurityGenerationCurrent,
-  isSuperAdminSessionExpired,
-  markVerifiedSession,
-  rebindVerifiedSessionAfterSecurityChange,
-  resolveAdminAccess,
-  revokeAdminAccess,
-  securityGenerationMarker,
-  securityGenerationProof,
-  userHasCredentialPassword,
   validateStepUpCode,
   type SecurityGenerationProof,
 } from "@nojv/application";
@@ -26,28 +10,6 @@ import {
   factorMutationPath,
   runInternalFactorMutation,
 } from "$lib/server/auth-factor-mutation";
-
-export {
-  adminAccessPrincipal,
-  clearStepUp,
-  clearVerifiedSessionProofs,
-  consumeTotpCode,
-  exitAdminMode,
-  grantAdminMode,
-  hasAdminSessionMfa,
-  hasFreshStepUp,
-  hasTokenPageMfa,
-  isSecurityGenerationCurrent,
-  isSuperAdminSessionExpired,
-  markVerifiedSession,
-  rebindVerifiedSessionAfterSecurityChange,
-  resolveAdminAccess,
-  revokeAdminAccess,
-  securityGenerationMarker,
-  securityGenerationProof,
-  userHasCredentialPassword,
-  validateStepUpCode,
-};
 
 export async function verifyTotpStepUp(code: string, headers: Headers): Promise<boolean> {
   try {
@@ -60,7 +22,7 @@ export async function verifyTotpStepUp(code: string, headers: Headers): Promise<
   }
 }
 
-export type StepUpVerifyResult =
+type StepUpVerifyResult =
   | { ok: true }
   | {
       ok: false;

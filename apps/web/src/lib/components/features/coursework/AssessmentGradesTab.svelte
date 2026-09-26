@@ -80,8 +80,6 @@
     <ScoreDistributionPanel
       buckets={stats.buckets}
       submitted={stats.submitted}
-      heading={m.results_distributionHeading()}
-      showHeader={false}
       class="h-full"
     />
   </div>

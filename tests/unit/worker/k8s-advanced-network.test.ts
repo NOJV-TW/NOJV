@@ -1,17 +1,16 @@
+import { ADVANCED_SERVICE_PORT } from "@nojv/sandbox-docker";
 import { describe, expect, it } from "vitest";
 
+import { serviceHostEnv } from "../../../apps/worker/src/sandbox/shared/advanced-service-contract";
 import {
   buildGradeEgressPolicy,
   buildRunEgressPolicy,
-  buildServiceRunEnv,
   buildServiceSidecarPodManifest,
   buildSidecarNetworkPolicy,
   buildSidecarServiceManifest,
   EGRESS_LABEL_KEY,
   gradeEgressLabel,
   runEgressLabel,
-  SERVICE_READY_MARKER,
-  SIDECAR_PORT,
   SIDECAR_ROLE_LABEL_KEY,
 } from "../../../apps/worker/src/sandbox/kubernetes/advanced-network";
 
@@ -124,13 +123,16 @@ describe("buildServiceSidecarPodManifest — TA service image (registry only), i
       image: "registry/ta/service:1.0",
       memoryMb: 512,
       cpuLimit: "1",
-      port: SIDECAR_PORT,
+      port: ADVANCED_SERVICE_PORT,
     });
     const container = pod.spec!.containers[0]!;
     expect(container.image).toBe("registry/ta/service:1.0");
     expect(pod.metadata!.labels![SIDECAR_ROLE_LABEL_KEY]).toBe(SUB);
-    expect(container.ports![0]!.containerPort).toBe(SIDECAR_PORT);
-    expect(container.env).toContainEqual({ name: "PORT", value: String(SIDECAR_PORT) });
+    expect(container.ports![0]!.containerPort).toBe(ADVANCED_SERVICE_PORT);
+    expect(container.env).toContainEqual({
+      name: "PORT",
+      value: String(ADVANCED_SERVICE_PORT),
+    });
     expect(container.env).toContainEqual({ name: "PORT", value: "8888" });
     expect(container.resources!.limits!.memory).toBe("512Mi");
     expect(pod.spec!.automountServiceAccountToken).toBe(false);
@@ -159,7 +161,7 @@ describe("buildServiceSidecarPodManifest — TA service image (registry only), i
       image: "registry/ta/service:1.0",
       memoryMb: 512,
       cpuLimit: "1",
-      port: SIDECAR_PORT,
+      port: ADVANCED_SERVICE_PORT,
     });
     const podCtx = pod.spec!.securityContext as Record<string, unknown>;
     const containerCtx = pod.spec!.containers[0]!.securityContext as Record<string, unknown>;
@@ -176,7 +178,7 @@ describe("buildServiceSidecarPodManifest — TA service image (registry only), i
       image: "registry/ta/service:1.0",
       memoryMb: 512,
       cpuLimit: "1",
-      port: SIDECAR_PORT,
+      port: ADVANCED_SERVICE_PORT,
       imagePullSecretName: "nojv-registry-pull",
     });
     expect(pod.spec!.imagePullSecrets).toEqual([{ name: "nojv-registry-pull" }]);
@@ -189,7 +191,7 @@ describe("buildServiceSidecarPodManifest — TA service image (registry only), i
       image: "registry/ta/service:1.0",
       memoryMb: 512,
       cpuLimit: "1",
-      port: SIDECAR_PORT,
+      port: ADVANCED_SERVICE_PORT,
     });
     expect(pod.spec!.imagePullSecrets).toBeUndefined();
   });
@@ -200,24 +202,21 @@ describe("buildSidecarServiceManifest — ClusterIP Service pointing at the side
     const svc = buildSidecarServiceManifest({
       submissionId: SUB,
       namespace: NS,
-      port: SIDECAR_PORT,
+      port: ADVANCED_SERVICE_PORT,
     });
     expect(svc.spec!.type).toBe("ClusterIP");
     expect(svc.spec!.selector).toEqual({ [SIDECAR_ROLE_LABEL_KEY]: SUB });
-    expect(svc.spec!.ports![0]).toMatchObject({ port: SIDECAR_PORT, targetPort: SIDECAR_PORT });
+    expect(svc.spec!.ports![0]).toMatchObject({
+      port: ADVANCED_SERVICE_PORT,
+      targetPort: ADVANCED_SERVICE_PORT,
+    });
   });
 });
 
 describe("run env injection helpers — inject the sidecar ClusterIP, never a DNS name", () => {
-  it("buildServiceRunEnv injects NOJV_SERVICE_HOST as the sidecar ClusterIP:8888 (host:port)", () => {
-    const env = buildServiceRunEnv("10.96.0.42");
+  it("serviceHostEnv injects NOJV_SERVICE_HOST as the sidecar ClusterIP:8888 (host:port)", () => {
+    const env = serviceHostEnv("10.96.0.42");
     expect(env.NOJV_SERVICE_HOST).toBe("10.96.0.42:8888");
     expect(env.NOJV_SERVICE_HOST).not.toContain("sidecar");
-  });
-});
-
-describe("readiness markers", () => {
-  it("re-exports the service ready marker from the docker analogue", () => {
-    expect(SERVICE_READY_MARKER).toBe("NOJV_SERVICE_READY");
   });
 });

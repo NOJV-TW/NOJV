@@ -5,7 +5,6 @@ import { clarificationDomain } from "@nojv/application";
 type ClarificationContext = clarificationDomain.ClarificationContext;
 import { createLogger } from "$lib/server/logger";
 import { createSseResponse } from "$lib/server/shared/sse-response";
-import { z } from "zod";
 
 const CLARIFICATION_CONTEXT_TYPES = new Set(["contest", "exam", "assignment"] as const);
 
@@ -44,23 +43,13 @@ function parseClarificationSubs(url: URL): ClarificationContext[] {
 
 const logger = createLogger("sse-stream");
 
-const sseEnvSchema = z.object({
-  REDIS_URL: z.url(),
-});
-
 export const GET: RequestHandler = async (event) => {
   const actor = getActorContext(event);
   if (!actor || !hasActorUsername(actor)) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const envResult = sseEnvSchema.safeParse(process.env);
-  if (!envResult.success) {
-    return new Response("SSE not configured", { status: 503 });
-  }
-
   const userId = actor.userId;
-  const redisUrl = envResult.data.REDIS_URL;
 
   const authorizedClarChannels: string[] = [];
   try {
@@ -91,7 +80,6 @@ export const GET: RequestHandler = async (event) => {
     ],
     slotType: "events",
     userId,
-    redisUrl,
     request: event.request,
   });
 };

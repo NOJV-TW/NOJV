@@ -7,7 +7,6 @@ import {
 
 import type { ActorContext } from "../auth";
 import { createLogger } from "../logger";
-import { assertImageFormat, assertImageSize } from "../shared/file-validation";
 
 const logger = createLogger("storage-avatar");
 
@@ -15,13 +14,10 @@ export const MAX_AVATAR_BYTES = 1 * 1024 * 1024;
 
 export async function uploadAvatar(
   actor: ActorContext,
-  file: { buffer: Buffer },
+  buffer: Buffer,
 ): Promise<{ url: string }> {
-  assertImageSize(file.buffer, MAX_AVATAR_BYTES);
-  assertImageFormat(file.buffer, ["webp"]);
-
   const client = createStorageClient();
-  const key = await uploadUserAvatar(client, actor.userId, file.buffer);
+  const key = await uploadUserAvatar(client, actor.userId, buffer);
   const filename = key.slice(`avatars/${actor.userId}/`.length);
   const url = `/api/storage/avatars/${encodeURIComponent(actor.userId)}/${encodeURIComponent(filename)}`;
   return { url };

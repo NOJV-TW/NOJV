@@ -1,102 +1,140 @@
 # Redis Architecture
 
-Redis 8 serves as the real-time data layer. It does not store durable state — PostgreSQL is the source of truth. Redis handles pub/sub and rate limiting.
+Redis 8 carries pub/sub fan-out for SSE, cross-instance rate limits, short-lived
+security proofs, read-through caches and cache leases. PostgreSQL is the source
+of truth: never store anything in Redis that cannot be rebuilt from it (DAT-10).
+All keys and channels come from one registry (DAT-09).
 
-## Key Naming Convention
+## Key code
 
-Both keyed state and pub/sub channels use the prefix `nojv:{domain}:{identifier}` — see `packages/redis/src/keys.ts`. The only unprefixed keys are the `rl:*` rate-limiter keys.
+- `packages/redis/src/keys.ts` — every key and channel name
+- `packages/redis/src/connection.ts` — `getRedis()`, `createSubscriber()`, `createRateLimiterConnection()`
+- `packages/redis/src/pubsub.ts` — best-effort `publish*` helpers
+- `packages/core/src/sse-events.ts` — SSE event constants and `sseEventSchema`
+- `apps/web/src/lib/server/shared/rate-limiter.ts` — all rate limiters
+- `apps/web/src/lib/server/shared/{sse-hub,sse-response,sse-slot}.ts` — SSE plumbing
+- `packages/application/src/contest/scoring.ts` — scoreboard cache and lease
+- `packages/application/src/api-token/{step-up,security-settings}.ts` — security proof keys
 
-| Pattern                                    | Type                  | TTL          | Purpose                                                |
-| ------------------------------------------ | --------------------- | ------------ | ------------------------------------------------------ |
-| `nojv:cache:admin-dashboard`               | String (JSON)         | 300 s        | Admin dashboard read-through cache                     |
-| `nojv:cache:platform-overview`             | String (JSON)         | 300 s        | Dashboard site-wide overview read-through cache        |
-| `nojv:sb-throttle:{id}`                    | String                | 10 s         | Scoreboard SSE-nudge throttle (per contest)            |
-| `nojv:security:settings-grant:{sessionId}` | String                | 600 s        | Session + `securityGeneration` settings unlock         |
-| `nojv:security:pending-totp:{sessionId}`   | JSON                  | 600 s        | Encrypted TOTP and backup codes pending confirmation   |
-| `nojv:super-admin:password-proof:{ticket}` | JSON                  | 600 s        | Password-first proof for MFA or recovery               |
-| `nojv:admin:mfa:{sessionId}`               | String                | 600 s / 24 h | Regular re-entry proof or super-admin session MFA      |
-| `nojv:admin:mode:{sessionId}`              | String                | 7 d          | Regular-admin access grant; never used by super admins |
-| `rl:*` (no `nojv:` prefix)                 | rate-limiter-flexible | varies       | API / form / sign-in rate limiting                     |
+## Keys
+
+All keyed state uses the `nojv:` prefix except rate-limiter keys (`rl:*`).
+
+| Key                                                             | TTL                                  | Writer / purpose                                                 |
+| --------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------- |
+| `nojv:cache:admin-dashboard`                                    | 300 s                                | `adminDomain` dashboard read-through cache                       |
+| `nojv:cache:platform-overview`                                  | 300 s                                | `platformDomain` site overview cache                             |
+| `nojv:cache:platform-overview-lock`                             | 5 s (`SET NX`)                       | Rebuild lease for the platform overview                          |
+| `nojv:sb-cache:{contestId}:{live\|public}`                      | 10 s                                 | Scoreboard cache (live = staff view, public = frozen-aware view) |
+| `nojv:sb-chart-cache:{contestId}:{live\|public}:{topN}`         | 10 s                                 | Scoreboard chart cache                                           |
+| `nojv:sb-lock:{contestId}:{live\|public}`                       | 5 s (`SET NX`, token)                | Scoreboard rebuild lease                                         |
+| `nojv:sb-throttle:{contestId}`                                  | 10 s (`SET NX`)                      | Throttle for `scoreboard:update` publishes                       |
+| `nojv:apitoken:stepup:{sessionId}`                              | 600 s                                | API-token step-up proof, bound to `securityGeneration`           |
+| `nojv:apitoken:page-mfa:{sessionId}`                            | 3600 s                               | API-token page MFA proof                                         |
+| `nojv:stepup:handoff:{ticket}`                                  | 60 s, `GETDEL`                       | One-shot step-up handoff ticket                                  |
+| `nojv:security:settings-grant:{sessionId}`                      | 600 s                                | Security-settings unlock bound to session + `securityGeneration` |
+| `nojv:security:pending-totp:{sessionId}`                        | 600 s                                | Encrypted TOTP secret and backup codes awaiting confirmation     |
+| `nojv:security:setup-otp:{userId}` / `-attempts:{userId}`       | 600 s                                | Hashed email OTP for security setup; 5 attempts                  |
+| `nojv:super-admin:password-proof:{ticket}`                      | 600 s                                | Password-first proof before super-admin MFA or recovery          |
+| `nojv:super-admin:recovery-otp:{userId}` / `-attempts:{userId}` | 600 s                                | Super-admin recovery OTP; 5 attempts                             |
+| `nojv:admin:mfa:{sessionId}`                                    | 600 s (regular) / 24 h (super admin) | Admin MFA proof                                                  |
+| `nojv:admin:mode:{sessionId}`                                   | 7 d                                  | Regular-admin mode grant; never used by super admins             |
+| `nojv:2fa:totp-seen:{userId}:{code}`                            | 120 s                                | TOTP replay guard                                                |
+| `rl:*`                                                          | limiter window                       | `rate-limiter-flexible` counters                                 |
+
+Security proofs fail closed when Redis is unavailable (DAT-12). Admin and
+step-up semantics: [Security](../operations/SECURITY.md), SEC-04/05/08.
 
 ## Pub/Sub
 
-Channels are `nojv:`-prefixed like keyed state. The general SSE endpoint `/api/events/stream` subscribes to the per-user and (authorized) clarification channels and keeps the connection open for up to 10 minutes with 30-second keepalive pings; the contest channel is consumed separately by the scoreboard SSE stream at `/contests/{id}/scoreboard/stream`.
+Publishing is best-effort: `pubsub.ts` logs failures and never throws into the
+caller.
 
-| Channel                                              | Producer                                          | Consumer             | Purpose                                    |
-| ---------------------------------------------------- | ------------------------------------------------- | -------------------- | ------------------------------------------ |
-| `nojv:user:{userId}`                                 | `publishVerdict`                                  | `/api/events/stream` | Submission verdict toasts to the owner     |
-| `nojv:notification:{userId}`                         | `publishNotification` / batch                     | `/api/events/stream` | Durable notification fan-out               |
-| `nojv:contest:{contestId}`                           | `publishContestEvent` / `publishScoreboardUpdate` | `/scoreboard/stream` | Contest lifecycle + scoreboard nudges      |
-| `nojv:clarification:{contextType}:{contextId}`       | `publishClarification`                            | `/api/events/stream` | Public clarification updates (all viewers) |
-| `nojv:clarification-staff:{contextType}:{contextId}` | `publishClarification(..., "staff")`              | `/api/events/stream` | Peer-invisible updates, answerers only     |
+| Channel                                              | Producer                                         | Consumer                                       |
+| ---------------------------------------------------- | ------------------------------------------------ | ---------------------------------------------- |
+| `nojv:user:{userId}`                                 | `publishVerdict`                                 | `/api/events/stream`                           |
+| `nojv:notification:{userId}`                         | `publishNotification`                            | `/api/events/stream`                           |
+| `nojv:contest:{contestId}`                           | `publishContestEvent`, `publishScoreboardUpdate` | `/contests/{contestId}/scoreboard/stream`      |
+| `nojv:clarification:{contextType}:{contextId}`       | `publishClarification(…, "public")`              | `/api/events/stream` (`canAsk \|\| canAnswer`) |
+| `nojv:clarification-staff:{contextType}:{contextId}` | `publishClarification(…, "staff")`               | `/api/events/stream` (`canAnswer` only)        |
 
-**Event Types** (string constants in `packages/core/src/sse-events.ts`, discriminator field `type`):
+Events (discriminator `type`, schema `sseEventSchema`):
 
-| Event                | Payload                                                                       | When                                                                                                                                                                                          |
-| -------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `submission:verdict` | `{ type, submissionId, verdict, score, problemId }`                           | Submission judging completes                                                                                                                                                                  |
-| `scoreboard:update`  | `{ type }`                                                                    | Contest judge completes (10 s-throttled nudge for the scoreboard SSE)                                                                                                                         |
-| `contest:starting`   | `{ type }`                                                                    | Contest becomes active                                                                                                                                                                        |
-| `contest:ending`     | `{ type }`                                                                    | Contest ends                                                                                                                                                                                  |
-| `notification`       | `{ type, id?, notificationType, params, linkUrl, createdAt? }`                | New durable notification (id/createdAt omitted on batch-signal pings)                                                                                                                         |
-| `clarification`      | `{ type, action, payload }` (action: created / updated / dismissed / deleted) | Any clarification mutation — routed to the public channel (public answers, public deletions) or the staff channel (new questions, private answers, dismissals) — see clarification note below |
+| Event                | Payload                                                         | When                                                            |
+| -------------------- | --------------------------------------------------------------- | --------------------------------------------------------------- |
+| `submission:verdict` | `submissionId, verdict, score, problemId`                       | Judge commits a verdict                                         |
+| `scoreboard:update`  | —                                                               | Contest verdict; at most once per 10 s per contest              |
+| `contest:starting`   | —                                                               | `contestLifecycleWorkflow` at start                             |
+| `contest:ending`     | —                                                               | `contestLifecycleWorkflow` at end                               |
+| `notification`       | `id?, notificationType, params, linkUrl, createdAt?`            | Durable notification; `id`/`createdAt` omitted on batch signals |
+| `clarification`      | `action` (`created`/`updated`/`dismissed`/`deleted`), `payload` | Any clarification mutation                                      |
 
-Events are published by Temporal activities and by domain mutations that emit notifications/clarifications. The full Zod schema lives in `packages/core/src/sse-events.ts` (`sseEventSchema`).
+Clarification routing keeps unanswered and private content away from peers
+(ASM-11): the public channel carries only public answers (`updated`) and
+deletions of already-public rows; the staff channel carries new questions,
+private answers, dismissals and deletions of private or pending rows. Call sites:
+`packages/application/src/clarification/mutations.ts`.
 
-Clarifications use **two channels** so answerers get live moderation updates without leaking to peers. The **public** channel (`nojv:clarification:...`, subscribed by anyone who `canAsk || canAnswer`) carries only public content: staff-published (`isPublic`) answers (`updated`) and deletions of already-public rows (`deleted`). The **staff** channel (`nojv:clarification-staff:...`, subscribed only by answerers — `canAnswer`, which implies `canSeeAuthor`, so real identities are safe there) carries the peer-invisible events: new questions (`created`), private answers (`updated`), dismissals (`dismissed`), and deletions of private/pending rows (`deleted`). The asker still learns of a private answer via the mutation response and the durable `clarification_answered` notification. See the `publishClarificationEvent` call sites in `packages/application/src/clarification/mutations.ts`.
+### SSE endpoints
+
+- `/api/events/stream` subscribes to the user, notification and authorized
+  clarification channels (up to 25 `clarificationSub` query params).
+- `/contests/{contestId}/scoreboard/stream` subscribes to the contest channel.
+- Both share one process-wide subscriber (`sse-hub.ts`), send a keepalive every
+  30 s and close after 3,500,000 ms; clients reconnect.
+- Slots (`sse-slot.ts`): at most 5 streams per user per stream type and 2000 per
+  process.
 
 ## Scoreboard
 
-Contest leaderboard data is computed from PostgreSQL by `getScoreboard` in
-`packages/application/src/contest/scoring.ts`, including ranking and freeze
-rules. Redis caches the board and chart for 10 seconds, with separate public
-and live keys (chart keys also include top-N). A 5-second `SET NX` lease reduces
-concurrent board recomputation. Each lease has a unique token; an atomic Lua
-compare-and-delete releases only the caller's lease, so an expired owner cannot
-delete its successor's lock. This is a cache optimization, not a consistency
-lock: Redis failures or exhausted polling fall back to database computation.
+`getScoreboard` computes rankings and freeze from PostgreSQL
+(`contestRepo.findForScoreboardById`) and caches the result per variant for
+10 s. On a miss, one caller takes the `sb-lock` lease with a unique token and
+recomputes; others poll the cache up to 5 times at 80 ms and then compute
+themselves. The lease is released by an atomic Lua compare-and-delete. Any
+Redis error falls back to direct computation, so Redis is an optimization, not
+a consistency requirement (DAT-11). `getScoreboardChart` caches per `topN`
+for 10 s on top of the scoreboard result and takes no lease.
 
-Redis also carries the live-update signal: a successful contest judge calls
-`publishScoreboardUpdate`, throttled once per 10 seconds per contest via
-`nojv:sb-throttle:{id}`, publishing on `nojv:contest:{id}`. The scoreboard SSE
-stream nudges viewers to re-fetch, with a 30-second poll as fallback. See
-[Judge Pipeline](./JUDGE_PIPELINE.md) and [Architecture Overview](./ARCHITECTURE.md).
+## Rate limiting
 
-## Submit Cooldown
+`rate-limiter-flexible` in `apps/web/src/lib/server/shared/rate-limiter.ts`.
 
-Cooldown enforcement lives in the database — see `checkExamSubmitCooldown` in `packages/application/src/exam/mutations.ts`, which reads the user's most recent submission via `submissionRepo.findMostRecent`.
+| Limiter                       | Prefix              | Limit      | Key                                      | Used by                                 |
+| ----------------------------- | ------------------- | ---------- | ---------------------------------------- | --------------------------------------- |
+| `apiRateLimiter`              | `rl:api`            | 300 / 60 s | `u:{userId}` or client IP                | Read API handlers (local fallback)      |
+| `writeApiRateLimiter`         | `rl:write`          | 10 / 60 s  | `u:{userId}` or client IP                | Write API handlers                      |
+| `draftApiRateLimiter`         | `rl:draft`          | 60 / 60 s  | `u:{userId}` or client IP                | `/api/drafts` autosave                  |
+| `registryTokenRateLimiter`    | `rl:registry-token` | 60 / 60 s  | `u:{userId}` or client IP                | Registry token API handler              |
+| `formActionRateLimiter`       | `rl:form`           | 20 / 60 s  | client IP                                | `withRateLimit` form actions            |
+| `authRateLimiter`             | `rl:auth`           | 60 / 60 s  | client IP                                | All Auth API routes (`hooks.server.ts`) |
+| `signInRateLimiter`           | `rl:signin`         | 5 / 15 min | client IP (`registry:{ip}` for registry) | Admin password sign-in, registry token  |
+| `examSignInRateLimiter`       | `rl:exam-signin`    | 5 / 15 min | `[ip, normalized username]`              | Exam password sign-in                   |
+| `otpSendRateLimiter`          | `rl:2fa-otp`        | 3 / 10 min | user ID                                  | Email OTP sends                         |
+| `stepUpAttemptRateLimiter`    | `rl:stepup`         | 5 / 10 min | user ID                                  | Step-up verification attempts           |
+| `remoteAssetFetchRateLimiter` | `rl:remote-fetch`   | 10 / 60 s  | client IP                                | `/api/images/proxy` (SEC-11)            |
 
-## Rate Limiting
+- Client IP comes from `getClientIp(event)` (SEC-09). Malformed exam usernames
+  share one bounded bucket per IP.
+- Production: each limiter owns a lazy connection from
+  `createRateLimiterConnection()` (`enableOfflineQueue: false`,
+  `maxRetriesPerRequest: 1`); the first consumer awaits readiness. Operational
+  Redis errors return `unavailable` (HTTP 503) except `apiRateLimiter`, which
+  falls back to an in-process limiter (DAT-12).
+- Development (`$app/environment` `dev`): in-memory limiters with 1000× points.
 
-`rate-limiter-flexible` with a Redis backend (`apps/web/src/lib/server/shared/rate-limiter.ts`):
+Submit cooldowns are not in Redis: `enforceSubmitCooldown`
+(`packages/application/src/shared/submit-cooldown.ts`) checks the latest
+submission under a PostgreSQL advisory lock.
 
-- Keyed on the Cloudflare-aware client IP via `getClientIp(event)`; the exam password-attempt limiter combines that IP with a normalized username.
-- Key prefix is `rl` — no `nojv:` prefix.
-- Shared request and password sign-in limiters:
-  - `apiRateLimiter` — 300 req / 60 s
-  - `writeApiRateLimiter` — 10 req / 60 s
-  - `draftApiRateLimiter` — 60 req / 60 s for `/api/drafts` editor autosave, kept separate so drafts never consume the write budget that submissions use
-  - `formActionRateLimiter` — 20 req / 60 s (consumed via `withRateLimit` → `consumeFormRateLimitInternal`)
-  - `authRateLimiter` — 60 req / 60 s across all Auth API routes, including exam sign-in and OAuth
-  - `signInRateLimiter` — 5 attempts / 15 min per IP (admin password sign-in)
-  - `examSignInRateLimiter` — 5 attempts / 15 min per normalized username and IP; malformed usernames share one bounded invalid-input bucket per IP
-- Shared classroom IPs still share the general authentication and form-action quotas. Exam password attempts are isolated between usernames; this does not remove the broader traffic limits.
-- Dev / test multiply points by 1000× to avoid E2E flakiness.
-- In production, each limiter owns a lazy ioredis connection with `enableOfflineQueue: false` and `maxRetriesPerRequest: 1`. The first consumer explicitly waits for that connection to become ready; later outages still fail closed with HTTP 503, while only bounded read throttles use a local fallback. Dev mode uses `RateLimiterMemory` instead.
+## Connections
 
-## Observability
+| Connection                        | Factory                         | Used by                     |
+| --------------------------------- | ------------------------------- | --------------------------- |
+| Shared command client (singleton) | `getRedis()`                    | application, web exceptions |
+| Subscriber (one per web process)  | `createSubscriber(REDIS_URL)`   | `sse-hub.ts`                |
+| Rate-limiter clients              | `createRateLimiterConnection()` | `rate-limiter.ts`           |
 
-The `@nojv/redis` package no longer registers any OpenTelemetry metrics of its own.
-
-## Connection Management
-
-Both `apps/web` and Temporal activities use singleton Redis connections from `@nojv/redis`:
-
-- **Web**: imports `getRedis` (and `createSubscriber`, `keys`) directly from `@nojv/redis`. There is no `$lib/server/redis.ts` shim.
-- **Worker / Temporal activities**: live in `apps/worker/src/activities/` (`judge-bundle.ts` / `platform-bundle.ts`) and import `getRedis` / `pubsub` from `@nojv/redis` directly.
-- **Subscriber**: a separate connection (`createSubscriber`) is created for pub/sub to avoid blocking the main connection.
-
-## Related Docs
-
-- [Architecture Overview](./ARCHITECTURE.md)
-- [Deployment Guide](../operations/DEPLOYMENT.md)
+All read `REDIS_URL` via `parseRedisConnection` (`@nojv/core`). Web access
+outside `@nojv/application` is limited to the files listed in
+[Architecture](./ARCHITECTURE.md#dependency-rules).

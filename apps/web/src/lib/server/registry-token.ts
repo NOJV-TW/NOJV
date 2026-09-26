@@ -37,7 +37,7 @@ export function isRegistryTokenConfigured(): boolean {
   );
 }
 
-export interface RegistryTokenResponse {
+interface RegistryTokenResponse {
   token: string;
   access_token: string;
   expires_in: number;

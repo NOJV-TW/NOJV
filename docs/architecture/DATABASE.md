@@ -1,435 +1,238 @@
 # Database Schema
 
-PostgreSQL 18 with Prisma 7. Schema split across `packages/db/prisma/schema/*.prisma` (auth, clarification, config, contest, course, notification, ops, plagiarism, problem, submission).
+PostgreSQL 18 with Prisma 7. This page covers the domain model, invariants the
+database enforces, JSON column contracts and storage-pointer rules. Every field,
+type, enum value, relation and index is in the generated
+[DATABASE.generated.md](./DATABASE.generated.md) — regenerate it with
+`pnpm db:docs`; CI fails when it drifts from the schema.
 
-> **Field-level reference:** [`DATABASE.generated.md`](./DATABASE.generated.md)
-> is an auto-generated, exhaustive table of every model, field, and enum.
-> Regenerate it with `pnpm db:docs` after any schema change. This doc keeps
-> the curated prose and diagrams. CI fails if the generated file drifts from
-> the schema (see the `db:docs` diff gate), so it stays in sync mechanically.
+## Key code
 
-## Domain Model Overview
+- `packages/db/prisma/schema/*.prisma` — schema (`auth`, `clarification`, `contest`, `course`, `exam-credential`, `notification`, `ops`, `plagiarism`, `problem`, `submission`; `config.prisma` holds generator/datasource)
+- `packages/db/prisma/migrations/` — applied migrations; CHECK constraints and partial indexes live here
+- `packages/db/src/repositories/` — the only data-access surface (DAT-01); `src/index.ts` also exports `runTransaction`, `Prisma` and `prismaAdapterClient` (better-auth only)
+- `packages/db/prisma/seed.ts`, `prisma/seeds/` — development seed
+- `scripts/check-migrations.mjs` (`pnpm lint:migrations`) — migration naming and expand/contract guard
+- `scripts/generate-schema-docs.mjs` — generates `DATABASE.generated.md`
 
-```
-User ──┬── Session
-       ├── Account (OAuth: GitHub, Google)
-       ├── Submission ──→ Problem
-       ├── Participation ──→ Contest | Exam (type = contest | exam | virtual)
-       ├── CourseMembership ──→ Course
-       ├── ProblemPost ──→ PostComment / PostVote / ContentReport
-       └── IpViolationLog
+Commands: `pnpm db:generate`, `pnpm db:push` (dev), `pnpm db:migrate`,
+`pnpm db:deploy`, `pnpm db:validate`, `pnpm db:docs`, `pnpm db:seed`,
+`pnpm db:seed:validate`. Seed contents: [Getting Started](../runbooks/getting-started.md).
+Production migration and schema-contract fences:
+[Deployment](../operations/DEPLOYMENT.md) (OPS-05).
 
-Problem ──┬── ProblemStatement (single statement per problem)
-          ├── TestcaseSet ──→ Testcase (standard mode: graded only)
-          ├── ProblemWorkspaceFile (per-language files with visibility + editable regions)
-          ├── ContestProblem ──→ Contest
-          ├── ExamProblem ──→ Exam
-          ├── AssessmentProblem ──→ Assessment
-          ├── CourseProblem ──→ Course
-          └── ProblemPost (editorial | discussion)
+## Domain model
 
-Contest ──┬── ContestProblem
-          ├── Participation (type = contest, or virtual for replays)
-          └── Submission
+| Area               | Models (schema file)                                                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Identity and auth  | `User`, `Session`, `Account`, `Verification`, `TwoFactor`, `Passkey`, `ApiToken`, `RegistryCredential`, `SchoolVerificationToken` (`auth`) |
+| Exam credentials   | `ExamCredential`, `ExamCredentialSession` (`exam-credential`)                                                                              |
+| Problems           | `Problem`, `ProblemStatement`, `TestcaseSet`, `Testcase`, `ProblemWorkspaceFile`, `ProblemBookmark` (`problem`)                            |
+| Submissions        | `Submission`, `JudgeExecution`, `JudgeStage`, `SubmissionRejudgeLog`, `CodeDraft` (`submission`)                                           |
+| Grading            | `ScoreOverride`, `ScoreOverrideAuditLog`, `SubmissionFeedback`, `SubmissionFeedbackAuditLog` (`submission`)                                |
+| Community          | `ProblemPost`, `PostVote`, `PostComment`, `ContentReport` (`submission`)                                                                   |
+| Contests and exams | `Contest`, `ContestProblem`, `Exam`, `ExamProblem`, `Participation`, `ActiveExamSession`, `ExamSessionEvent`, `IpViolationLog` (`contest`) |
+| Courses            | `Course`, `CourseMembership`, `CourseProblem`, `Assessment`, `AssessmentProblem`, `AssessmentAuditLog` (`course`)                          |
+| Q&A, notifications | `Clarification` (`clarification`); `Notification`, `NotificationPreference` (`notification`)                                               |
+| Plagiarism         | `PlagiarismPairFlag`, `PlagiarismTriggerLog` (`plagiarism`); latest report is inline on `Assessment` / `Exam` / `Contest`                  |
+| Operations         | `DurableWork`, `Announcement`, `AnnouncementTranslation`, `PlatformSetting`, `AdminAuditLog` (`ops`)                                       |
 
-Exam ──┬── ExamProblem
-       ├── Participation (type = exam; carries ipPin / ipGateExemptUntil)
-       ├── Submission
-       ├── ActiveExamSession ──→ ExamSessionEvent
-       └── IpViolationLog
-
-Course ──┬── CourseMembership
-         ├── Assessment ──┬── AssessmentProblem
-         │                     └── Submission
-         ├── Exam (course-embedded)
-         └── Submission
-```
-
-## Entity-Relationship Diagram
-
-Core entities and their cardinalities (auth, i18n, audit-log, and notification
-tables omitted for legibility — see `DATABASE.generated.md` for the exhaustive
-field-level reference).
+`Assessment` is the course assignment (homework) model; UI and APIs call it
+"assignment". Contests are standalone; exams are course-embedded and carry all
+proctoring controls (ASM-01). IDs are cuids; `Problem.displayId` is display-only
+(DAT-02, PRB-07).
 
 ```mermaid
 erDiagram
     User ||--o{ Submission : submits
     User ||--o{ Problem : owns
-    User |o--o{ CourseMembership : joins
+    User |o--o{ CourseMembership : "binds to"
     User ||--o{ Participation : enters
-    User ||--o{ ProblemPost : writes
-    CourseMembership ||--o{ ScoreOverride : "course subject"
-    CourseMembership ||--o{ SubmissionFeedback : receives
-
     Course ||--o{ CourseMembership : has
     Course ||--o{ Assessment : owns
     Course ||--o{ Exam : embeds
     Course ||--o{ CourseProblem : lists
-
-    Assessment ||--o{ AssessmentProblem : links
-    Assessment ||--o{ Submission : scopes
-
-    Problem ||--o{ Submission : "judged in"
-    Problem ||--o{ AssessmentProblem : "attached to"
     Problem ||--o{ CourseProblem : "shared with"
-    Problem ||--o{ ContestProblem : "attached to"
-    Problem ||--o{ ExamProblem : "attached to"
-    Problem ||--o{ ProblemPost : "discussed in"
     Problem ||--o{ TestcaseSet : groups
     TestcaseSet ||--o{ Testcase : contains
-
-    ProblemPost ||--o{ PostComment : threads
-    ProblemPost ||--o{ PostVote : rated
-    ProblemPost ||--o{ ContentReport : reported
-    PostComment ||--o{ ContentReport : reported
-
-    Submission ||--o{ SubmissionRejudgeLog : "re-judged by"
-
-    Contest ||--o{ ContestProblem : links
+    Problem ||--o{ ProblemWorkspaceFile : has
+    Problem ||--o{ ContestProblem : "attached to"
+    Problem ||--o{ ExamProblem : "attached to"
+    Problem ||--o{ AssessmentProblem : "attached to"
     Contest ||--o{ Participation : tracks
-    Contest ||--o{ Submission : scopes
-
-    Exam ||--o{ ExamProblem : links
     Exam ||--o{ Participation : tracks
-    Exam ||--o{ Submission : scopes
     Exam ||--o{ ActiveExamSession : proctors
     ActiveExamSession ||--o{ ExamSessionEvent : records
+    Submission ||--o{ JudgeExecution : "judged by"
+    JudgeExecution ||--o{ JudgeStage : checkpoints
+    Submission ||--o{ SubmissionRejudgeLog : audits
+    CourseMembership ||--o{ ScoreOverride : "graded as"
+    CourseMembership ||--o{ SubmissionFeedback : receives
+    Problem ||--o{ ProblemPost : "discussed in"
+    ProblemPost ||--o{ PostComment : threads
 ```
 
-## Enums
+## Database-enforced invariants
 
-> These rows are curated by hand. Update them alongside any enum change in `packages/db/prisma/schema/` — the CI drift gate only diffs the generated `DATABASE.generated.md`, not this file.
+| Constraint                                                                                                      | Rule                                                                                                                                                                   |
+| --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Submission_canonical_context_chk`                                                                              | Exactly one shape: practice (no context FKs), assignment (`assessmentId` + `courseId`), exam (`examId`), contest (`contestId`) or virtual (`participationId`) (DAT-03) |
+| Composite FKs `(assessmentId, courseId)`, `(participationId, userId)`                                           | Assignment submissions match their course; virtual submissions belong to the participation owner                                                                       |
+| `Participation_single_context_chk`, `Participation_ip_exam_only_chk`, `Participation_virtual_window_chk`        | One contest/exam context per row; `ipPin`/`ipGateExemptUntil` only on exam rows; virtual rows carry a valid window (DAT-04)                                            |
+| `ActiveExamSession_one_active_per_user_key` (partial unique on `endedAt IS NULL`)                               | At most one active exam session per user; rows are unique per `(userId, examId)` and reused                                                                            |
+| `CourseMembership_identity_chk`, `CourseMembership_pending_username_chk`                                        | Exactly one of `userId` / `pendingUsername`; pending usernames match `^[a-z0-9._-]{3,64}$`                                                                             |
+| `ScoreOverride_single_context_chk`, `SubmissionFeedback_single_context_chk` (+ audit logs)                      | Exactly one of `assessmentId` / `examId`; contests take neither (ASM-17)                                                                                               |
+| `ContentReport_target_check`                                                                                    | A report targets exactly one post or comment                                                                                                                           |
+| `*_storage_pointer_chk`                                                                                         | Storage pointer JSON has the pointer shape on `Submission`, `Testcase`, `ProblemWorkspaceFile`, `Problem` checker/interactor                                           |
+| `Problem_storage_accounting_chk`, `Submission_judge_generation_chk`, `User_security_generation_nonnegative_chk` | Non-negative storage accounting and generation counters                                                                                                                |
+| `*_effective_time_window_chk`, `*_schedule_identity_chk` (`Assessment`, `Contest`, `Exam`)                      | Valid schedule windows and lifecycle schedule identity                                                                                                                 |
+| `AssessmentProblem_points_nonnegative`, `ExamProblem_points_nonnegative`                                        | Allocated points are ≥ 0                                                                                                                                               |
+| `ExamCredential_*_check`, `DurableWork_*_chk`                                                                   | Credential material/revision/email status and durable-work state/attempt consistency                                                                                   |
 
-| Enum                       | Values                                                                                                                                                                                                                            |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SupportedLanguage`        | c, cpp, go, java, javascript, python, rust, typescript                                                                                                                                                                            |
-| `SubmissionStatus`         | pending_upload, queued, compiling, running, accepted, wrong_answer, time_limit_exceeded, memory_limit_exceeded, runtime_error, compile_error, system_error                                                                        |
-| `ProblemType`              | full_source, multi_file, special_env                                                                                                                                                                                              |
-| `ProblemDifficulty`        | easy, medium, hard                                                                                                                                                                                                                |
-| `ProblemVisibility`        | public, private                                                                                                                                                                                                                   |
-| `ProblemStatus`            | draft, published                                                                                                                                                                                                                  |
-| `WorkspaceFileVisibility`  | editable, readonly, hidden                                                                                                                                                                                                        |
-| `PlatformRole`             | admin, teacher, student                                                                                                                                                                                                           |
-| `CourseRole`               | teacher, ta, student                                                                                                                                                                                                              |
-| `CourseMembershipStatus`   | active, removed                                                                                                                                                                                                                   |
-| `AssessmentStatus`         | draft, published                                                                                                                                                                                                                  |
-| `AssessmentAuditAction`    | publish, revert_to_draft, delete_draft                                                                                                                                                                                            |
-| `ContestVisibility`        | draft, published                                                                                                                                                                                                                  |
-| `ContestScoringMode`       | problem_count, weighted_count, point_sum                                                                                                                                                                                          |
-| `ParticipationType`        | contest, exam, virtual (discriminator on the unified `Participation` model; `status` is a `String`, not a Prisma enum)                                                                                                            |
-| `ExamStatus`               | draft, published                                                                                                                                                                                                                  |
-| `ExamScoringMode`          | problem_count, point_sum                                                                                                                                                                                                          |
-| `ExamSessionReleaseReason` | submitted, time_up, released_by_instructor                                                                                                                                                                                        |
-| `ExamSessionEventType`     | enter, leave, visibility_lost, release, auto_close, heartbeat                                                                                                                                                                     |
-| `IpViolationMode`          | block, notify                                                                                                                                                                                                                     |
-| `IpViolationType`          | whitelist, binding                                                                                                                                                                                                                |
-| `ScoreboardMode`           | hidden, live, frozen                                                                                                                                                                                                              |
-| `AnnouncementStatus`       | draft, published, archived                                                                                                                                                                                                        |
-| `AnnouncementAudience`     | all, students, teachers                                                                                                                                                                                                           |
-| `PlagiarismReportStatus`   | pending, running, completed, failed                                                                                                                                                                                               |
-| `PlagiarismContext`        | assessment, exam, contest                                                                                                                                                                                                         |
-| `ScoreOverrideAction`      | create, update, delete, merge                                                                                                                                                                                                     |
-| `SubmissionFeedbackAction` | create, update, delete, merge                                                                                                                                                                                                     |
-| `ProblemPostType`          | editorial, discussion                                                                                                                                                                                                             |
-| `ContentReportStatus`      | open, resolved, dismissed                                                                                                                                                                                                         |
-| `ClarificationContextType` | contest, exam, assignment                                                                                                                                                                                                         |
-| `ClarificationState`       | pending, answered, dismissed                                                                                                                                                                                                      |
-| `NotificationType`         | assignment_started, assignment_due_soon, exam_starting_soon, contest_starting_soon, course_enrolled, announcement_published, role_changed, clarification_answered, editorial_removed (legacy rows), post_removed, comment_removed |
+## Models by area
 
-`JudgeType` (`standard` / `checker` / `interactive`) is NOT a Prisma enum — it's a Zod discriminator on the `judgeConfig` JSON column. See `packages/core/src/schemas/judge-config.ts`.
+### Submissions and judging
 
-## Key Models
+- `status` is `SubmissionStatus`. `pending_upload` is the pre-upload intention;
+  `system_error` is the platform-fault verdict and never costs an attempt
+  (PRB-16). `score` uses the problem's scale (sum of testcase-set weights, or
+  100 when unweighted).
+- Sources and verdict detail are in object storage (DAT-06): `sourceStorage`
+  points to a manifest of per-file objects, `verdictDetailStorage` to the full
+  result; `verdictSummary` is the small list-view summary.
+- Creation: the intention row commits first; after the upload, one transaction
+  commits object ownership, publishes `sourceStorage`, sets `queued`, creates
+  the `JudgeExecution` and enqueues its `DurableWork` dispatch. A failed upload
+  marks the row `system_error`.
+- `judgeGeneration` / `activeJudgeRunId` identify the current judge run.
+  `JudgeExecution` (unique `(submissionId, generation)`, unique `workflowId`)
+  holds the immutable snapshot pointer, problem generation, queue class,
+  recovery epoch and lease; `state` is a string validated by
+  `judgeExecutionStateSchema` (`packages/core/src/judge-execution.ts`).
+  `JudgeStage` holds verified per-stage result pointers. Behavior:
+  [Judge Pipeline](./JUDGE_PIPELINE.md) (JDG-10, JDG-11).
+- `SubmissionRejudgeLog` is unique per `(submissionId, rejudgeRunId)` and keeps
+  old/new verdict and score (PRB-18).
+- `advancedConfigSnapshot` is an audit record written at judge completion, never
+  a judging input; see [Judge Pipeline](./JUDGE_PIPELINE.md).
+- `isReferenceSolution` rows are hidden from student history and stats;
+  `referenceProblemStorageGeneration` must match the problem's current
+  `storageGeneration` for publication (PRB-09).
+- User-facing submission reads are scoped in PostgreSQL to the caller's active
+  exam session when one exists (ASM-21).
+- `CodeDraft` is keyed by `(userId, contextKey, problemId, language)`; exam
+  drafts are writable only during that exam's active session (WEB-05).
 
-### User
+### Problems
 
-Central identity. Links to sessions, OAuth accounts, submissions, course memberships, contest participations, and stats.
+- `authorId` is required with `ON DELETE RESTRICT`; account removal requires an
+  ownership transfer or deleting an eligible unused draft (PRB-10).
+- `displayId` is null while draft and assigned `max + 1` under an advisory lock
+  on first publish, then never changes (PRB-07).
+- `visibility` and `adminMayPublish` (one-time owner consent for an admin public
+  fork, valid only while the source is private) are separate (PRB-11).
+- Forks copy the problem-owned graph in one transaction and reuse immutable
+  storage pointers without re-uploading; `forkedFromProblemId` is `SET NULL` on
+  delete and forks never synchronize. The source's accepted reference is copied
+  as a private reference owned by the fork author.
+- `storageGeneration` advances on judge-affecting content changes and pins
+  reference validation and judge snapshots.
+- Every `TestcaseSet` is a graded subtask (`weight`, `ordinal`); samples live in
+  `Problem.samples`, not testcases (PRB-03). `Testcase` and
+  `ProblemWorkspaceFile` bodies are storage pointers (PRB-04). Workspace
+  `visibility` is `editable` / `readonly` / `hidden`; readonly and hidden files
+  are protected server-side at merge time.
+- `special_env` problems use `advancedConfig` and `advancedRequiredPaths` and no
+  testcase rows (PRB-12, PRB-13).
+- `CourseProblem` (PK `(courseId, problemId)`) is the course library. Sharing
+  never changes ownership; deleting a course removes its links, and a link
+  blocks deleting the problem. `addedByUserId` is null for historical links.
 
-| Field                | Type         | Notes                                                                                                                          |
-| -------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `email`              | String       | Unique                                                                                                                         |
-| `username`           | String?      | Unique, optional until profile completion                                                                                      |
-| `displayUsername`    | String?      | better-auth display variant of `username` (original-case copy)                                                                 |
-| `name`               | String       | Required display name (better-auth core field)                                                                                 |
-| `platformRole`       | PlatformRole | Default: student. Regular admins exercise it through admin mode; verified super-admin sessions use it directly                 |
-| `isSuperAdmin`       | Boolean      | Default: false. `true` only when `platformRole = admin`; requires password plus TOTP/passkey on every new session              |
-| `disabled`           | Boolean      | Admin soft-lock used by better-auth sign-in checks                                                                             |
-| `mustChangePassword` | Boolean      | Forces the seeded super-admin first-login password-change phase                                                                |
-| `twoFactorEnabled`   | Boolean      | Better Auth sign-in projection maintained with the verified TOTP row; not the configured-state source of truth                 |
-| `securityGeneration` | Int          | Monotonic invalidation version bound into Redis security and admin-access proofs                                               |
-| `schoolEmail`        | String?      | School address that proved the student-ID username; backfilled from `email` for pre-tracking accounts                          |
-| `schoolVerifiedAt`   | DateTime?    | Explicit verification time; NULL for accounts verified before tracking. Informational — verified state derives from `username` |
+### Courses and grading subjects
 
-### Course roster and grading subjects
+- `CourseMembership.id` is the durable grading identity (ASM-04). Binding a
+  pending username to an account keeps the membership ID, role, status, creator
+  and timestamps. A removed membership stays removed on sign-in, school
+  verification or rename. On merge, either row's removal wins except for
+  protected owner/teacher memberships. Correcting an unlinked username keeps all
+  grading relations; collisions with another membership are rejected.
+- `User` with memberships cannot be deleted (`ON DELETE RESTRICT`); accounts
+  with graded history are anonymized and disabled (DAT-07).
+- `ScoreOverride` and `SubmissionFeedback` are unique per
+  `(assessmentId|examId, problemId, courseMembershipId)` and need no
+  participation or submission row, so pending students can be graded
+  (ASM-17, ASM-18).
+- Audit logs keep nullable historical user IDs and `courseMembershipId` /
+  `sourceMembershipId` snapshots without foreign keys; `merge` rows explain
+  conflict decisions. Deleting or merging a roster row never destroys its
+  history (DAT-08).
 
-`CourseMembership.id` is the durable course identity. Exactly one of `userId`
-and `pendingUsername` is set. Pending usernames are normalized lowercase handles
-(3–64 letters, digits, dots, underscores, or hyphens); separate unique constraints
-cover `(courseId, userId)` and `(courseId, pendingUsername)`. Binding clears the
-pending username while preserving the membership ID, role, enrollment status,
-creator, and timestamps. Removed enrollment remains removed when an account
-signs in, verifies a school identity, or renames its username. When two rows merge,
-either row's removal takes precedence, except for protected existing owner/teacher
-memberships. Correcting an unlinked username preserves its membership ID and all
-grading relations; collisions with another course membership are rejected.
-`User` represents actual accounts; `disabled` controls account access.
-Deleting a User with memberships is restricted; account removal must preserve
-that identity through anonymization and disabling.
+### Activities (assignments, exams, contests)
 
-Score overrides and feedback exist only for assignments and exams and are keyed
-by `courseMembershipId`; contests carry neither. The database enforces one
-override per `(membership, problem, context)`. No participation or submission
-row is required for manual grading of a pending student.
+- Activity settings are inline columns per table (DAT-05).
+- `Assessment`: `opensAt` → optional `dueAt` → `closesAt` (hard close);
+  `maxAttemptsPerDay` with `attemptResetMinuteOfDay` (null → 300, 05:00 Taipei);
+  `allowedLanguages`; `adjustmentRules` (ASM-12, ASM-13).
+- `Exam`: `courseId` required; `pageLockEnabled`, `ipWhitelistEnabled` +
+  `ipWhitelist` (empty while enabled denies all), `ipBindingEnabled` (pins
+  `Participation.ipPin`), `IpViolationMode`, optional `dueAt` + `adjustmentRules`
+  late policy, `examPasswordEnabled` (default off; `examPasswordLockedAt` is set
+  permanently by the first SMTP attempt; disabling before then revokes
+  credentials and temporary sessions) (ASM-19–22).
+- `Contest`: `scoringMode`, `scoreboardMode` (`hidden` / `live` / `frozen`),
+  `frozenBoard` + `frozenAt`, `submitCooldownSec`, `allowedLanguages`, unique
+  `inviteCode`, `penaltyMinutesPerWrong` (ASM-08). `Exam` shares
+  `scoreboardMode`, `submitCooldownSec`, `allowedLanguages`.
+- `Participation` is the unified contest/exam/virtual row (`type`, unique per
+  `(type, contestId|examId, userId)`), with optimistic `version` for score
+  updates; `score` is `Decimal(18,2)`.
+- Activity grading (ASM-16): `AssessmentProblem.points` and `ExamProblem.points`
+  are `Decimal(18,8)` allocations; `ContestProblem.points` is `Int`.
+  `Assessment.totalPoints` / `Exam.totalPoints` (`Decimal(18,4)`) are always
+  recomputed server-side as the sum of allocations. Raw problem scores and
+  overrides keep the problem scale. `detachedProblemIds` holds currently
+  detached problem IDs for exact reattachment. Specs:
+  [assignments](../features/assignments.md), [exams](../features/exams.md).
+- `AssessmentAuditLog` records publish / revert / delete-draft and outlives the
+  assessment (ASM-14).
 
-Both audit logs retain nullable historical user IDs and carry nullable
-`courseMembershipId` / `sourceMembershipId` snapshots without foreign keys.
-`merge` records explain conflict decisions; deleting or merging a roster row
-must not destroy its history. The forward migration enriches mapped histories
-and preserves unmappable snapshots from deleted contexts; unmappable **live**
-grading subjects abort the transaction. See the
-[maintenance contract](../operations/DEPLOYMENT.md#course-roster-contract) for the
-production conversion and rollback fence.
+### Plagiarism, clarifications, notifications
 
-### Problem
+- The latest plagiarism report is six inline `plagiarism*` columns on
+  `Assessment` / `Exam` / `Contest`; re-running overwrites them.
+  `PlagiarismPairFlag` is unique per `(contextType, contextId, pairKey)` with
+  `pairKey = "{userA}|{userB}|{problemId}"`, `userA < userB`, and survives
+  re-runs; `PlagiarismTriggerLog` records each trigger (ASM-24).
+- `Clarification` is keyed by `contextType` + `contextId` (optional
+  `problemId`); `askedByUserId` is always stored and masked from non-staff;
+  `state` is `pending` → `answered` | `dismissed`; `isPublic` is chosen per
+  answer (ASM-10, ASM-11).
+- `Notification` is one row per event per recipient; the UI renders text from
+  `(type, params)`; `readAt IS NULL` means unread. `NotificationPreference`
+  holds email opt-ins, lead days and an optional notification address (UI-03,
+  WEB-04).
 
-| Field                           | Type              | Notes                                                                                                                                                                                                                                     |
-| ------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                            | String            | CUID, primary key                                                                                                                                                                                                                         |
-| `displayId`                     | Int?              | Unique human-friendly number ("#N") shown in the UI. Null while a draft; assigned `max(displayId)+1` (under an advisory lock) the first time the problem is published, then never changes. Routes/foreign keys use `id` (cuid), not this. |
-| `title`                         | String            | Problem title                                                                                                                                                                                                                             |
-| `authorId`                      | String            | Required individual owner; User deletion is restricted until explicit transfer or eligible problem deletion                                                                                                                               |
-| `visibility`                    | ProblemVisibility | public or private; private problems may be personal or shared through course libraries                                                                                                                                                    |
-| `adminMayPublish`               | Boolean           | One-time owner consent for an admin to create a published public fork; valid only while the source is private, separate from `visibility`, and default `false`                                                                            |
-| `forkedFromProblemId`           | String?           | Self-FK to the direct source problem (`ON DELETE SET NULL`); forks are independent snapshots and do not synchronize                                                                                                                       |
-| `status`                        | ProblemStatus     | draft or published                                                                                                                                                                                                                        |
-| `type`                          | ProblemType       | full_source, multi_file, or special_env                                                                                                                                                                                                   |
-| `difficulty`                    | ProblemDifficulty | easy, medium, or hard (dedicated column; NOT a tag)                                                                                                                                                                                       |
-| `tags`                          | String[]          | Free-form topic/skill tags (difficulty lives on its own column)                                                                                                                                                                           |
-| `timeLimitMs`                   | Int               | Execution time limit (per-case for standard, total for special_env)                                                                                                                                                                       |
-| `memoryLimitMb`                 | Int               | Memory limit                                                                                                                                                                                                                              |
-| `judgeConfig`                   | Json?             | Unified judge configuration (ignored when `type === "special_env"`)                                                                                                                                                                       |
-| `samples`                       | Json?             | `{ input, output }[]` sample I/O pairs                                                                                                                                                                                                    |
-| `advancedConfig`                | Json?             | special_env only — `{ run, grade, network }`; run/grade are `{ imageRef, imageSource }` (digest-pinned registry ref)                                                                                                                      |
-| `advancedRequiredPaths`         | String[]          | special_env only — paths the TA image expects (trailing `/` = directory marker)                                                                                                                                                           |
-| `referenceSolutionSubmissionId` | String?           | Unique FK to the current accepted private reference submission; standard drafts cannot publish without it                                                                                                                                 |
+### Operations
 
-Forking copies the problem-owned relational graph in one transaction. Object-storage pointer JSON is immutable and reused by newly inserted workspace/testcase rows, so the fork adds database references without uploading duplicate bytes. The source's current accepted reference submission is copied as a private reference snapshot owned by the fork author; the existing content-generation rules invalidate it when judge-affecting content changes.
+- `DurableWork` is the transactional outbox (`@@unique([kind, dedupeKey])`,
+  lease and attempt columns); kinds and processing:
+  [Architecture](./ARCHITECTURE.md#durable-work-outbox).
+- `PlatformSetting` is a key/value store (for example the stale-submission
+  timeout). `AdminAuditLog` is append-only.
 
-### Submission
+## JSON columns
 
-| Field                               | Type             | Notes                                                                                                                                                                         |
-| ----------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `status`                            | SubmissionStatus | Upload / judge progress / verdict. `pending_upload` is the post-DB, pre-S3 staging state; `system_error` is the terminal platform-fault verdict                               |
-| `score`                             | Int              | Points awarded; scale is the problem's subtask-weight sum (sum of testcase-set weights, or 100 when unweighted), not a fixed 0-100                                            |
-| `examId`                            | String?          | FK to `Exam` when the submission was made inside an exam                                                                                                                      |
-| `contestId`                         | String?          | FK to `Contest` when the submission was made inside a contest                                                                                                                 |
-| `participationId`                   | String?          | FK to `Participation` — set for virtual-contest replays (carries the per-user `type = virtual` participation row)                                                             |
-| `courseId`                          | String?          | FK to `Course` (set alongside `assessmentId` for homework)                                                                                                                    |
-| `assessmentId`                      | String?          | FK to `Assessment` when the submission was made for a homework assignment                                                                                                     |
-| `sampleOnly`                        | Boolean          | `true` for in-editor sample runs — never graded                                                                                                                               |
-| `isReferenceSolution`               | Boolean          | `true` for an author/admin practice validation submission; hidden from ordinary student submission history and stats                                                          |
-| `referenceProblemStorageGeneration` | Int?             | Problem `storageGeneration` captured when a reference submission starts; publication requires the accepted reference to match the current judge/testcase/workspace generation |
-| `sourceStoragePrefix`               | String           | `@nojv/storage` prefix for the per-file source blobs (`submissions/<id>/sources/`). One S3 object per submitted file. There is no `sourceCode` column                         |
-| `verdictSummary`                    | Json?            | Small (< 4 KB) summary: `{ caseSummary: { ac, wa, tle, mle, re, other }, subtaskSummary?: { id, score }[], compilerErrorTruncated?: string }`. Safe to load in list views     |
-| `verdictDetailStorageKey`           | String?          | `@nojv/storage` key for the full `SubmissionResult` blob (`submissions/<id>/verdict-detail.json`). Null until the judge writes detail                                         |
-| `advancedConfigSnapshot`            | Json?            | special_env only — reserved for a later phase to snapshot the problem's `advancedConfig` at submission time. Currently always null                                            |
+Every persisted JSON blob is validated on read (WEB-03).
 
-"Mode" is not a stored column — it's derived from the FK shape: `examId` ? "exam" : `contestId` ? "contest" : `assessmentId` ? "assignment" : "practice". A DB-level CHECK constraint (`Submission_single_context_chk`, added in migration `20260416180001_submission_single_context_check`) enforces that at most one of `examId` / `contestId` / `assessmentId` is non-null per row. `participationId` sits OUTSIDE this xor — a virtual-contest submission has only `participationId` set (none of the three xor columns).
-
-Indexed on: `[problemId, createdAt]`, `[userId, createdAt]`, `[userId, examId, sampleOnly, createdAt DESC, id DESC]`, `[courseId, assessmentId, createdAt]`, `[contestId, problemId, createdAt]`, `[examId, problemId, createdAt]`, `[participationId, problemId, createdAt]`, `[assessmentId, problemId, createdAt]`, `[status, updatedAt]`, `[problemId, sampleOnly, userId, status]`, `[problemId, isReferenceSolution, createdAt]`. The five-column index serves active-exam submission history and its stable keyset cursor without scanning another exam's rows.
-
-User-facing submission point and list reads are scoped in PostgreSQL against the caller's active exam session. If no session is active, an owner can read their history; while a session is active, only that owner's submissions for the active exam match. Effective admin sessions have an explicit point-read recovery path, while their personal history list remains user-scoped. Cursor validation and the following page query share one repeatable-read snapshot.
-
-**Source code and verdict detail live in `@nojv/storage`, not the DB.** A submission first records a `pending_upload` intention. Sources are uploaded under immutable generation-specific keys with a manifest containing their size and SHA-256 pointers. A PostgreSQL transaction then commits object ownership, publishes `sourceStorage`, advances the submission to `queued`, and creates `JudgeExecution` and enqueues `submission.execution.dispatch`. Failed uploads mark the intention `system_error`; guarded orphan objects remain reclaimable by durable cleanup. Each judge run writes an immutable verdict detail object and persists its pointer in `verdictDetailStorage`, with the display summary in `verdictSummary`. Reads verify pointer shape, byte count, and SHA-256. See `packages/storage/src/keys.ts`, `packages/storage/src/submission.ts`, and `packages/application/src/shared/storage-object-lifecycle.ts`.
-
-`JudgeExecution` owns the immutable input snapshot, problem generation, workflow
-recovery epoch, queue class and resource lease. `JudgeStage` stores verified
-checkpoint pointers; dispatch order comes from Temporal task-queue priority, not a
-database cursor. These are durable execution state, not student verdicts. Active rejudge logs are
-retained until finalization/cancellation. Deleting an eligible draft problem
-queues snapshot/checkpoint cleanup and refuses active or unreconciled leases.
-The generated schema below is authoritative for fields; see the
-[recovery contract](./JUDGE_PIPELINE.md#durable-execution-and-recovery) for behavior.
-
-### Contest
-
-Standalone public / invite-only CP event — no course binding, no proctoring. The 2026-04-14 split moved course-embedded timed assessments out to `Exam`; page lock, IP binding, and IP whitelist live on `Exam` only. Contest features:
-
-- ICPC/IOI scoring modes (`ContestScoringMode`)
-- Scoreboard freeze (`frozenBoard` + `frozenAt`) and `ScoreboardMode` (hidden / live / frozen)
-- Submit cooldown (`submitCooldownSec`)
-- Allowed language restrictions (`allowedLanguages`)
-- Optional `inviteCode` (unique) for private invite flows
-
-### Exam
-
-Course-embedded proctored assessment (`courseId` NOT NULL). This is where the proctoring controls live:
-
-- Page lock (`pageLockEnabled`) to confine active exam sessions to exam routes
-- IP whitelist (`ipWhitelistEnabled` + `ipWhitelist`) — empty whitelist while enabled = deny all (fail-closed)
-- IP binding (`ipBindingEnabled`) — locks the student to `Participation.ipPin` (the `type = exam` row)
-- `IpViolationMode` (block / notify) controls enforcement strength
-- Temporary password sign-in (`examPasswordEnabled`) defaults off; the first actual SMTP attempt records `examPasswordLockedAt` permanently. Disabling it before then revokes the exam's credentials and temporary sessions; the migration preserves existing exams as enabled and locks exams with existing credentials.
-- `ActiveExamSession` + `ExamSessionEvent` drive the Phase 4 exam lock in `hooks.server.ts`
-- `ScoreboardMode`, `submitCooldownSec`, `allowedLanguages` — same shape as Contest
-
-### Assessment
-
-Course-scoped homework only (no proctoring, no scoreboard). Fields:
-
-- Timeline: `opensAt` → `dueAt` (soft, drives late-penalty adjustment rules) → `closesAt` (hard close)
-- `maxAttemptsPerDay` per-problem daily cap with a configurable Taipei reset time (`attemptResetMinuteOfDay`, default 300 = 05:00), `allowedLanguages` whitelist
-- `adjustmentRules` JSON for late penalty / time bonus / memory penalty
-
-### TestcaseSet / Testcase
-
-Testcases organized into named sets with weights for subtask scoring. Every `TestcaseSet` row is a graded subtask — sample I/O pairs live on `Problem.samples` instead. Each testcase has `input`, `output`, and an ordinal for ordering.
-
-### ProblemWorkspaceFile
-
-Per-language files that make up a Standard Mode problem's workspace. Columns: `language`, `path`, `content`, `visibility` (`editable` / `readonly` / `hidden`), `orderIndex`. Hidden files are never exposed to students but are merged into the sandbox at judge time. Edit access is whole-file: `editable` means the student can replace the file; `readonly` and `hidden` are protected server-side in `mergeSandboxSources()`.
-
-Advanced Mode (`Problem.type === "special_env"`) does not use `TestcaseSet` / `Testcase` rows — the TA-provided Docker image bundles its own testcases and writes a structured `result.json`. See [Judge Pipeline](JUDGE_PIPELINE.md#advanced-mode-pipeline).
-
-### Plagiarism state
-
-Two-part structure:
-
-- **Inline columns on the parent row** (`Assessment`, `Exam`, `Contest`): the six `plagiarism*` columns (`plagiarismStatus`, `plagiarismResults`, `plagiarismReportUrl`, `plagiarismTriggeredAt`, `plagiarismCompletedAt`, `plagiarismTriggeredById`) hold the latest report — one run per parent row, re-running upserts in place. Created by the web endpoint, processed by the Temporal plagiarism activity.
-- **`PlagiarismPairFlag` table** (`schema/plagiarism.prisma`): per-pair staff review state — flag a similarity pair as confirmed cheating or false positive, with reviewer + note. Unique key is `(contextType, contextId, pairKey)` where `pairKey` is a server-built deterministic `"${userA}|${userB}|${problemId}"` string with `userA < userB` (sorting prevents inverted-pair double-flagging).
-
-### Clarification
-
-Anonymous, staff-moderated Q&A attached to a `contextType` (contest / exam / assignment) + `contextId`, optionally scoped to a specific `problemId`. `askedByUserId` is always stored for accountability; the API projection masks the asker from non-staff viewers and only staff see the true identity. Lifecycle states: `pending` → `answered` | `dismissed`. `isPublic` (Boolean, default `false`) is the per-answer visibility staff pick when answering: `true` broadcasts to every participant, `false` keeps the answer to the asker only. Non-staff viewers see only their own questions plus public ones; peers are never notified of a question until it is answered publicly. Added by migration `20260702140000_clarification_visibility`, which backfills pre-existing answered rows to `isPublic = true` (they were visible to everyone before). See `packages/db/prisma/schema/clarification.prisma`.
-
-### Notification
-
-One row per event per recipient. `type` is a `NotificationType` enum (e.g. `assignment_due_soon`, `exam_starting_soon`, `clarification_answered`); `params` holds the per-type payload as JSON and the frontend renders user-facing text from `(type, params)` via paraglide. `readAt IS NULL` marks a notification as unread. Written by domain fan-out helpers (e.g. `fanoutExamStartingSoon`) that are typically invoked from Temporal activities. See `packages/db/prisma/schema/notification.prisma`.
-
-## Model Index
-
-The sections above detail the high-traffic / core models; this index provides navigation. See the [generated schema reference](DATABASE.generated.md) for the complete model list and exact column definitions.
-
-| Model                        | Purpose                                                                                                                                                                                                                        | Schema file                     |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
-| `User`                       | Central identity (better-auth core + platform role, status, disabled flag)                                                                                                                                                     | `schema/auth.prisma`            |
-| `Session`                    | better-auth session row (opaque token, expiry, IP, UA)                                                                                                                                                                         | `schema/auth.prisma`            |
-| `ExamCredential`             | Expiring exam password hash, encrypted display value, revision and delivery state                                                                                                                                              | `schema/exam-credential.prisma` |
-| `ExamCredentialSession`      | Associates temporary sign-in sessions with a credential revision and account security generation                                                                                                                               | `schema/exam-credential.prisma` |
-| `Account`                    | better-auth OAuth provider link (GitHub, Google) or password account                                                                                                                                                           | `schema/auth.prisma`            |
-| `Verification`               | better-auth email / OTP verification token store                                                                                                                                                                               | `schema/auth.prisma`            |
-| `SchoolVerificationToken`    | School-email verification flow (separate from better-auth's Verification); carries the proving `email`                                                                                                                         | `schema/auth.prisma`            |
-| `Clarification`              | Staff-moderated Q&A for contests / exams / assignments (asker masked to non-staff; per-answer `isPublic`)                                                                                                                      | `schema/clarification.prisma`   |
-| `Contest`                    | Standalone public / invite-only CP event — no proctoring fields                                                                                                                                                                | `schema/contest.prisma`         |
-| `ContestProblem`             | Join table: problems attached to a contest with ordinal + points                                                                                                                                                               | `schema/contest.prisma`         |
-| `Participation`              | Unified per-user state for contest / exam / virtual (`type` discriminator + real `contestId?` / `examId?` FKs; score, penalty, status, subtaskScores, version; exam-only `ipPin` / `ipGateExemptUntil`, virtual-only `endsAt`) | `schema/contest.prisma`         |
-| `Exam`                       | Course-embedded proctored exam (page lock, IP whitelist / binding)                                                                                                                                                             | `schema/contest.prisma`         |
-| `ExamProblem`                | Join table: problems attached to an exam with ordinal + points                                                                                                                                                                 | `schema/contest.prisma`         |
-| `IpViolationLog`             | Audit rows for IP whitelist / binding violations — exam-only                                                                                                                                                                   | `schema/contest.prisma`         |
-| `ActiveExamSession`          | Phase 4 exam lock — at most one active row per user across all exams; historical rows are reused per `(user, exam)`, and `endedAt` closes the active row                                                                       | `schema/contest.prisma`         |
-| `ExamSessionEvent`           | Append-only audit log per `ActiveExamSession` (enter / leave / release / …)                                                                                                                                                    | `schema/contest.prisma`         |
-| `Course`                     | Course container (title, owner, `academicYear` / `semester`, archived flag)                                                                                                                                                    | `schema/course.prisma`          |
-| `CourseMembership`           | Durable course roster identity: User or pending username, role, active/removed status                                                                                                                                          | `schema/course.prisma`          |
-| `Assessment`                 | Homework assignment (opens / due / close, adjustment rules, no proctoring)                                                                                                                                                     | `schema/course.prisma`          |
-| `AssessmentProblem`          | Join table: problems attached to an assessment with ordinal + points                                                                                                                                                           | `schema/course.prisma`          |
-| `CourseProblem`              | Persistent course library pair, addition actor and time; see Problem Ownership And Course Library below                                                                                                                        | `schema/course.prisma`          |
-| `AssessmentAuditLog`         | Append-only publish / revert / delete-draft trail for course assessments                                                                                                                                                       | `schema/course.prisma`          |
-| `Notification`               | Per-recipient event row (type + params JSON, `readAt` for unread state)                                                                                                                                                        | `schema/notification.prisma`    |
-| `Announcement`               | Platform / course announcement (pinned, audience, published window)                                                                                                                                                            | `schema/ops.prisma`             |
-| `AnnouncementTranslation`    | Per-locale title + body for an Announcement                                                                                                                                                                                    | `schema/ops.prisma`             |
-| `PlagiarismPairFlag`         | Per-pair staff review state (survives plagiarism re-runs)                                                                                                                                                                      | `schema/plagiarism.prisma`      |
-| `PlagiarismTriggerLog`       | Append-only log of plagiarism-check triggers (context, triggerer, priorPairCount)                                                                                                                                              | `schema/plagiarism.prisma`      |
-| `Problem`                    | Problem metadata (type, difficulty, limits, judge config, samples)                                                                                                                                                             | `schema/problem.prisma`         |
-| `ProblemStatement`           | Problem statement body + input / output format (title lives on `Problem.title`)                                                                                                                                                | `schema/problem.prisma`         |
-| `TestcaseSet`                | Named subtask on a problem (weight, scoring strategy)                                                                                                                                                                          | `schema/problem.prisma`         |
-| `Testcase`                   | Individual graded case (S3 keys for input / output / aux files)                                                                                                                                                                | `schema/problem.prisma`         |
-| `ProblemWorkspaceFile`       | Per-language workspace file (path, content S3 key, visibility, order)                                                                                                                                                          | `schema/problem.prisma`         |
-| `Submission`                 | Judge submission row (S3 prefix for sources + verdict summary + verdict S3 key, score, mode derived from FKs)                                                                                                                  | `schema/submission.prisma`      |
-| `SubmissionRejudgeLog`       | Two-pass audit log for rejudge runs (snapshot of old / new verdict + score)                                                                                                                                                    | `schema/submission.prisma`      |
-| `CodeDraft`                  | Owner-only unsubmitted editor code per user, context key, problem and language; exam rows are writable only during that exam's active session                                                                                  | `schema/submission.prisma`      |
-| `ScoreOverride`              | Staff-only score per `(course membership, problem, assignment-or-exam)`; `assessmentId` / `examId` cascade with the activity, contests take none                                                                               | `schema/submission.prisma`      |
-| `ScoreOverrideAuditLog`      | Append-only create / update / delete / merge trail with origin membership and student snapshots, keyed by `assessmentId` / `examId`                                                                                            | `schema/submission.prisma`      |
-| `ProblemPost`                | Per-problem community article; `type` = `editorial` (AC-gated) or `discussion` (any signed-in user); title + markdown content, soft-deleted via `deletedAt`                                                                    | `schema/submission.prisma`      |
-| `PostVote`                   | Per-`(post, user)` up/down vote (`value`)                                                                                                                                                                                      | `schema/submission.prisma`      |
-| `PostComment`                | Two-level comment thread on a post (`parentId` self-relation, max one reply level); soft-delete renders a tombstone                                                                                                            | `schema/submission.prisma`      |
-| `ContentReport`              | User-filed report against a post or comment (exactly one target via DB CHECK; open / resolved / dismissed; resolve soft-deletes the target)                                                                                    | `schema/submission.prisma`      |
-| `SubmissionFeedback`         | Per-`(context, problem, courseMembership)` grader comment, including pending students                                                                                                                                          | `schema/submission.prisma`      |
-| `SubmissionFeedbackAuditLog` | Append-only create / update / delete / merge trail with origin membership and user snapshots                                                                                                                                   | `schema/submission.prisma`      |
-| `ProblemBookmark`            | Per-`(user, problem)` bookmark on the practice problem list                                                                                                                                                                    | `schema/problem.prisma`         |
-| `TwoFactor`                  | At most one verified better-auth TOTP secret + encrypted backup-code set per user                                                                                                                                              | `schema/auth.prisma`            |
-| `Passkey`                    | better-auth WebAuthn credential used for settings verification and admin MFA                                                                                                                                                   | `schema/auth.prisma`            |
-| `ApiToken`                   | Personal API token (hashed secret, expiry; creation requires 2FA step-up)                                                                                                                                                      | `schema/auth.prisma`            |
-| `NotificationPreference`     | Per-user email notification channel opt-ins + lead-day settings + optional notification address (`email`; login email when NULL)                                                                                               | `schema/notification.prisma`    |
-| `AdminAuditLog`              | Append-only trail of admin actions (actor, action, target, summary)                                                                                                                                                            | `schema/ops.prisma`             |
-| `PlatformSetting`            | Key/value platform settings store (e.g. stale-submission pending timeout)                                                                                                                                                      | `schema/ops.prisma`             |
-
-Deep field-level detail intentionally stays in the Prisma schema files themselves — treat the `.prisma` file as the source of truth for column types, defaults, indexes, and FK cascade rules.
-
-## JSON Columns
-
-| Model.Field                                           | Schema                | Purpose                                                                                                                    |
-| ----------------------------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `Problem.judgeConfig`                                 | `JudgeConfig`         | type / compare / checker / interactor / runtime / subtaskStrategies                                                        |
-| `Problem.samples`                                     | `{ input, output }[]` | Sample I/O pairs rendered on the student problem page                                                                      |
-| `Assessment.adjustmentRules` / `Exam.adjustmentRules` | `AdjustmentRule[]`    | Fixed/daily late percentage rules (post-judge); assignments also support runtime bonuses                                   |
-| `Submission.verdictSummary`                           | `VerdictSummary`      | Small case-counter + per-subtask summary + truncated compiler error (full detail lives in S3 at `verdictDetailStorageKey`) |
-| `Participation.subtaskScores`                         | Score breakdown       | Per-subtask scores (contest / exam / virtual)                                                                              |
-| `*.plagiarismResults`                                 | Dolos result array    | Similarity pairs (similarity, longest, overlap) on Assessment / Exam / Contest                                             |
-
-## Problem Ownership And Course Library
-
-`Problem.authorId` is required and references an individual `User` with `ON DELETE RESTRICT`.
-Account removal requires an explicit ownership transfer or deletion of an eligible unused draft.
-Course sharing never changes ownership. `CourseProblem` has primary key `(courseId, problemId)`
-and a reverse `problemId` index; deleting a course removes its library links, while a library
-link prevents deletion of the problem. `addedByUserId` records the actor for new additions;
-historical additions use NULL and the migration time, without inventing consent or an original actor.
-
-The `20260908000002_course_problem_permissions` migration backfills the distinct union of
-assignment and exam problem links and verified historical submissions. Assignment submissions
-must match their assessment's course; exam submissions have NULL `Submission.courseId`, so their
-course comes from `Exam.courseId`. Practice and independent contest submissions grant no course
-sharing. The migration verifies both missing and extra pairs and preserves every existing row,
-problem ID, owner, visibility, activity reference, and grade. Missing or dangling owners stop the
-transaction with the affected problem ID and an explicit-transfer instruction.
-
-Both this migration and `20260908000000_exam_late_submission_policy` use explicit transactions,
-a 10-second lock timeout, and a 5-minute statement timeout. Late-policy preflight runs before
-persisted DDL or updates: unknown or malformed rules and multiple retained late penalties fail
-with the assessment ID. It does not infer combined penalties. Known retired `final_day_zero`
-and `startFrom: final_day` rules are removed; valid runtime bonuses and remaining rule order
-are preserved, including bonus fields tolerated by both validators. SQL and JSON NULL remain
-valid no-policy values. Strict-field checks apply only to retained late penalties; retired rules
-do not fail merely for extra fields accepted by the old validator. A failed Prisma migration must
-be reviewed and resolved as rolled back before
-retrying after the underlying data or operational issue is corrected.
-Prisma's failed-step log update can itself fail inside the aborted transaction, leaving
-`_prisma_migrations.logs` empty and surfacing only `current transaction is aborted` in the CLI.
-The PostgreSQL ERROR and HINT contain the original preflight failure and affected ID. Verify
-rollback and migration history before resolving; the CLI message alone is not the root cause.
-
-Web, judge worker, and platform worker require `nojv.tw/problem-library-contract: problem-library-v1`
-in addition to the storage and roster contracts. The persistent admission fence uses its own
-contract-specific name, so an older chart's schema-fence hook cannot replace it. Restoring an
-old runtime with only `membership-v1` is rejected. Follow the existing
-[deployment maintenance workflow](../operations/DEPLOYMENT.md); schema rollback requires a
-verified compatible recovery, not just a Helm rollback. Real migration rollback, history, rerun,
-and data-preservation checks live in
-[`problem-library-migration.test.ts`](../../tests/integration/db/problem-library-migration.test.ts).
-
-## Seed Data
-
-Run `pnpm db:seed` to populate development data. Validation with `pnpm db:seed:validate`.
-
-Seed contents (users / problems / contests / course) are described in [Getting Started](../runbooks/getting-started.md) to avoid duplicating the counts in two places. Course enrollment is teacher-managed — there are no join tokens.
-
-## Related Docs
-
-- [Architecture Overview](./ARCHITECTURE.md)
-- [Judge Pipeline](./JUDGE_PIPELINE.md)
-- [Security Requirements](../operations/SECURITY.md)
-
-## Activity grading
-
-`Assessment.totalPoints` and `Exam.totalPoints` cache the activity maximum (`Decimal(18,4)`, default 0). Their problem links store allocated `points` (`Decimal(18,8)`), and the cached total is always recomputed server-side as the sum of those points, so clients never supply it and it cannot drift. Raw problem maxima, submission scores, and score overrides retain the problem scale. `Participation.score` uses `Decimal(18,2)` for rounded exam totals; contest algorithms remain unchanged.
-
-`Assessment.detachedProblemIds` and `Exam.detachedProblemIds` retain only currently detached question IDs for exact-ID reattachment. Reattached IDs leave this set. Allocation changes do not store a reason or audit history. Activity revisions and exam participant grading revisions govern durable convergence. See the [assignment contract](../specs/assignments.md#activity-allocation-and-official-scores) and [exam convergence](../specs/exams.md#activity-allocations).
+| Column                                                                                                                                               | Schema                                                                                                 |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `Problem.judgeConfig`                                                                                                                                | `judgeConfigSchema` in `packages/core/src/schemas/judge-config.ts` (PRB-02); ignored for `special_env` |
+| `Problem.advancedConfig`                                                                                                                             | `packages/core/src/schemas/advanced-mode.ts`                                                           |
+| `Problem.samples`                                                                                                                                    | `{ input, output }[]` in `packages/core/src/schemas/problem.ts`                                        |
+| `Assessment.adjustmentRules`, `Exam.adjustmentRules`                                                                                                 | `packages/core/src/schemas/assessment-adjustments.ts`                                                  |
+| `Submission.verdictSummary`                                                                                                                          | `verdictSummarySchema` in `packages/core/src/schemas/submission.ts`                                    |
+| `*Storage` pointers (`Submission`, `Testcase`, `ProblemWorkspaceFile`, `Problem` checker/interactor, `JudgeExecution.snapshot`, `JudgeStage.result`) | `StorageObjectPointer` in `packages/storage/src/object.ts`                                             |
+| `Participation.subtaskScores`                                                                                                                        | Per-problem subtask scores written by the scoring code in `packages/application/src/scoring/`          |
+| `*.plagiarismResults`                                                                                                                                | Dolos pair results, `packages/application/src/plagiarism/types.ts`                                     |
+| `Notification.params`                                                                                                                                | Per-`NotificationType` payload                                                                         |
+| `DurableWork.payload`                                                                                                                                | Parsed by the handler for its `kind`                                                                   |

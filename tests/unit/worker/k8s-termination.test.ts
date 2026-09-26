@@ -94,27 +94,6 @@ describe("shared cleanup deadline and UID barriers", () => {
     expect(core.deleteNamespacedPod).not.toHaveBeenCalled();
   });
 
-  it("does not delete a replacement PVC or mistake its presence for old-UID cleanup", async () => {
-    const { terminateSandboxPvc } =
-      await import("../../../apps/worker/src/sandbox/kubernetes/termination");
-    const core = {
-      readNamespacedPersistentVolumeClaim: vi
-        .fn()
-        .mockResolvedValueOnce({ metadata: { uid: "old-pvc" } })
-        .mockResolvedValue({ metadata: { uid: "new-pvc" } }),
-      deleteNamespacedPersistentVolumeClaim: vi.fn().mockResolvedValue(undefined),
-    };
-    await expect(
-      terminateSandboxPvc(core as never, "sandbox", "artifact", "old-pvc"),
-    ).rejects.toThrow("ownership changed");
-    expect(core.deleteNamespacedPersistentVolumeClaim).toHaveBeenCalledTimes(1);
-    expect(core.deleteNamespacedPersistentVolumeClaim).toHaveBeenCalledWith({
-      namespace: "sandbox",
-      name: "artifact",
-      body: { preconditions: { uid: "old-pvc" } },
-    });
-  });
-
   it("includes every API call and retry in the single 30-second termination budget", async () => {
     vi.useFakeTimers();
     try {

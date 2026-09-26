@@ -141,10 +141,6 @@ const env: WorkerEnv = {
   SANDBOX_PIDS_LIMIT: 64,
   SANDBOX_MEMORY_HEADROOM_MB: 64,
   SANDBOX_MAX_MEMORY_MB: 1536,
-  REGISTRY_GC_IMAGE: "registry:2.8.3",
-  REGISTRY_GC_NAMESPACE: "nojv",
-  REGISTRY_GC_CONFIG_CONFIGMAP: "registry-config",
-  REGISTRY_GC_S3_SECRET: "registry-secret",
 };
 
 function makeWorker(events: string[] = []) {
@@ -328,10 +324,6 @@ describe("WorkerApp lifecycle", () => {
       K8S_RUNTIME_CLASS_NAME: "gvisor",
       SANDBOX_MEMORY_HEADROOM_MB: 64,
       SANDBOX_MAX_MEMORY_MB: 2048,
-      REGISTRY_GC_IMAGE: "registry:2.8.3",
-      REGISTRY_GC_NAMESPACE: "nojv",
-      REGISTRY_GC_CONFIG_CONFIGMAP: "registry-config",
-      REGISTRY_GC_S3_SECRET: "registry-secret",
     };
     const app = new WorkerApp(productionKubernetesEnv, {
       shutdownTimeoutMs: 100,

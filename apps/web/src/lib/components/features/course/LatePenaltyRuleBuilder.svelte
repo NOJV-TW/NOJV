@@ -9,17 +9,10 @@
     value: LatePenaltyRule | null;
     onChange: (value: LatePenaltyRule | null) => void;
     class?: string;
-    name?: string;
     disabled?: boolean;
   }
 
-  let {
-    value,
-    onChange,
-    class: className,
-    name = "late-penalty-rule",
-    disabled = false,
-  }: Props = $props();
+  let { value, onChange, class: className, disabled = false }: Props = $props();
 
   const selectedKey = $derived<LatePenaltyOptionKey>(value === null ? "none" : value.type);
 
@@ -79,8 +72,8 @@
 
 <div data-slot="late-penalty-rule-builder" class={cn("flex items-center gap-2", className)}>
   <select
-    id={name}
-    {name}
+    id="late-penalty-rule"
+    name="late-penalty-rule"
     {disabled}
     aria-label={m.assignmentCreate_latePenaltyLabel()}
     value={selectedKey}

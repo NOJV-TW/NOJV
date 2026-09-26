@@ -16,6 +16,9 @@ import {
   verifySecuritySetupOtp,
   type SecurityFactorState,
   type SecurityGenerationProof,
+  clearVerifiedSessionProofs,
+  userHasCredentialPassword,
+  validateStepUpCode,
 } from "@nojv/application";
 import { getMailer, renderEmail } from "@nojv/mailer";
 import { fail, redirect } from "@sveltejs/kit";
@@ -30,12 +33,7 @@ import {
   stepUpAttemptRateLimiter,
   type RateLimitResult,
 } from "$lib/server/shared/rate-limiter";
-import {
-  clearVerifiedSessionProofs,
-  userHasCredentialPassword,
-  validateStepUpCode,
-  verifyStepUpCode,
-} from "$lib/server/step-up";
+import { verifyStepUpCode } from "$lib/server/step-up";
 import {
   confirmPendingTotp,
   generateNewBackupCodes,

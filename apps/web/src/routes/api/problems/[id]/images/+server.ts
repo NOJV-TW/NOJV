@@ -2,11 +2,7 @@ import { json, error } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { requireApiAuth } from "$lib/server/auth";
 import { writeApiHandler } from "$lib/server/shared/api-handler";
-import {
-  ALLOWED_IMAGE_TYPES,
-  MAX_IMAGE_SIZE,
-  detectImageMime,
-} from "$lib/server/shared/file-validation";
+import { readUploadedImage } from "$lib/server/shared/file-validation";
 import { problemDomain } from "@nojv/application";
 import { uploadProblemImage } from "$lib/server/storage/problem-image";
 
@@ -18,29 +14,8 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
 
   await problemDomain.assertProblemEditAccess(actor, problemId);
 
-  const formData = await event.request.formData();
-  const file = formData.get("image");
-
-  if (!(file instanceof File)) {
-    error(400, "No image provided");
-  }
-
-  if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
-    error(400, "Invalid file type. Allowed: png, jpeg, gif, webp");
-  }
-
-  if (file.size > MAX_IMAGE_SIZE) {
-    error(400, "File too large (max 5MB)");
-  }
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-
-  const detectedType = detectImageMime(buffer);
-  if (!detectedType || !ALLOWED_IMAGE_TYPES.has(detectedType)) {
-    error(400, "Invalid file type. File content does not match an allowed image format.");
-  }
-
-  const url = await uploadProblemImage(actor, problemId, buffer, detectedType);
+  const { buffer, contentType } = await readUploadedImage(await event.request.formData());
+  const url = await uploadProblemImage(actor, problemId, buffer, contentType);
 
   return json({ url });
 });

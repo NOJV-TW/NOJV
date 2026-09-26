@@ -134,9 +134,6 @@ vi.mock("../../../packages/application/src/proctoring/gate", () => ({
 
 vi.mock("../../../packages/application/src/shared/storage-singleton", () => ({
   storage: () => storageRef.client,
-  __setStorageClientForTests: (c: unknown) => {
-    storageRef.client = c as typeof storageRef.client;
-  },
 }));
 
 import { ConflictError, ForbiddenError, submissionDomain } from "@nojv/application";

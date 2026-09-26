@@ -1,6 +1,7 @@
 import type * as k8s from "@kubernetes/client-node";
 
-import { failureMessage, k8sErrorCode } from "./cleanup-call";
+import { failureMessage } from "../shared/failure-message";
+import { k8sErrorCode } from "./cleanup-call";
 import { SandboxBackpressureError } from "./errors";
 
 export function findFailedCreateEventReason(events: readonly k8s.CoreV1Event[]): string | null {

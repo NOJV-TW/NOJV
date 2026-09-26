@@ -32,7 +32,13 @@ vi.mock("$lib/server/shared/rate-limiter", () => ({
 
 import { z } from "zod";
 import { error as httpError, redirect, type RequestEvent } from "@sveltejs/kit";
-import { IntegrityError, ServiceUnavailableError } from "@nojv/application";
+import {
+  IntegrityError,
+  ServiceUnavailableError,
+  HttpError,
+  NotFoundError,
+  ForbiddenError,
+} from "@nojv/application";
 import { apiHandler, readJsonBody } from "$lib/server/shared/api-handler";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 
@@ -47,7 +53,6 @@ function requestEvent(body?: string): RequestEvent {
   } as RequestEvent;
 }
 import { classifyError } from "$lib/server/shared/handle-action-error";
-import { HttpError, NotFoundError, ForbiddenError } from "$lib/server/auth";
 import { withAction } from "$lib/server/shared/action-handlers";
 
 describe("classifyError", () => {

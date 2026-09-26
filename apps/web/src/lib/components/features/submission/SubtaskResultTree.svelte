@@ -5,6 +5,7 @@
   import { Badge } from "$lib/components/primitives/ui/badge";
   import { verdictBadgeVariant, formatVerdictLabel } from "$lib/utils/verdict-style";
   import { m } from "$lib/paraglide/messages.js";
+  import { formatMemoryKb } from "$lib/utils/judge-output";
 
   interface Props {
     subtaskResults: SubtaskResultItem[];
@@ -40,13 +41,6 @@
 
   const totalWeight = $derived(subtaskResults.reduce((sum, s) => sum + s.weight, 0));
   const earnedWeight = $derived(subtaskResults.reduce((sum, s) => sum + earnedOf(s), 0));
-
-  function formatMemory(kb: number): string {
-    if (kb >= 1024) {
-      return `${(kb / 1024).toFixed(1)}MB`;
-    }
-    return `${String(kb)}KB`;
-  }
 </script>
 
 <div class="space-y-3">
@@ -144,7 +138,7 @@
                 </span>
                 {#if caseResult.memoryKb != null}
                   <span class="tabular-nums text-muted-foreground">
-                    {formatMemory(caseResult.memoryKb)}
+                    {formatMemoryKb(caseResult.memoryKb)}
                   </span>
                 {/if}
               </div>

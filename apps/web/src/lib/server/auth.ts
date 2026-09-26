@@ -1,18 +1,16 @@
 import { redirect } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit";
-import { type CourseRole, type EffectiveCourseRole, type PlatformRole } from "@nojv/core";
+import type { CourseMembershipStatus, CourseRole, PlatformRole } from "@nojv/core";
 
 import {
   canEditProblem,
+  canManageCourse,
   courseDomain,
   resolveEffectiveCourseRole,
   HttpError,
   NotFoundError,
   ForbiddenError,
 } from "@nojv/application";
-
-export { HttpError, NotFoundError, ForbiddenError };
-export { ConflictError } from "@nojv/application";
 
 export interface ActorContext {
   displayName: string;
@@ -93,38 +91,47 @@ export function requirePlatformRole(actor: ActorContext, ...roles: PlatformRole[
   }
 }
 
-export function resolveCoursePermissionRole(input: {
-  courseRole?: CourseRole | null;
-  platformRole: PlatformRole;
-}): EffectiveCourseRole | null {
-  return resolveEffectiveCourseRole(input.platformRole, input.courseRole ?? null);
-}
-
-export async function resolveCoursePermission(courseId: string, actor: ActorContext) {
+export async function getCoursePermissionRole(courseId: string, actor: ActorContext) {
   const course = await courseDomain.findCourseWithMembership(courseId, actor.userId);
 
   if (!course) {
     throw new NotFoundError(`Course not found: ${courseId}`);
   }
 
-  const membership = course.memberships[0] ?? null;
-
-  return {
-    course,
-    role: resolveCoursePermissionRole({
-      courseRole: membership?.role ?? null,
-      platformRole: actor.platformRole,
-    }),
-  };
+  return resolveEffectiveCourseRole(actor.platformRole, course.memberships[0]?.role ?? null);
 }
 
-export async function getCoursePermissionRole(courseId: string, actor: ActorContext) {
-  const { role } = await resolveCoursePermission(courseId, actor);
-  return role;
+interface CourseWithViewerMembership {
+  memberships: readonly {
+    role: CourseRole;
+    status: CourseMembershipStatus;
+    userId: string | null;
+  }[];
+}
+
+function activeCourseRole(actor: ActorContext, course: CourseWithViewerMembership) {
+  const membership = course.memberships[0];
+  return membership?.status === "active" && membership.userId === actor.userId
+    ? membership.role
+    : null;
+}
+
+export function isCourseMember(
+  actor: ActorContext,
+  course: CourseWithViewerMembership,
+): boolean {
+  return activeCourseRole(actor, course) !== null;
+}
+
+export function isCourseManager(
+  actor: ActorContext,
+  course: CourseWithViewerMembership,
+): boolean {
+  return canManageCourse(
+    resolveEffectiveCourseRole(actor.platformRole, activeCourseRole(actor, course)),
+  );
 }
 
 export function canCreateCourse(platformRole: PlatformRole) {
   return canEditProblem(platformRole);
 }
-
-export { canManageCourse as isCourseStaff } from "@nojv/application";

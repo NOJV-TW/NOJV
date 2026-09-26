@@ -1,177 +1,107 @@
 # Product Sense
 
-## Users And Outcomes
+NOJV is a single-institution online judge for university programming courses: practice problems, course assignments and exams, and standalone contests, judged in a hardened sandbox. This page states who it serves, what is shipped and what is deliberately not built. Acceptance behavior lives in the [feature specs](../features/); rationale lives in the [decision log](../decisions/README.md).
 
-- **Student**: submit solutions, track progress via dashboard, participate in timed contests, take course assessments and exams, join per-problem discussions and view editorials after AC; once their email is verified they may also create and own problems; course enrollment is teacher-driven (no self-serve join token)
-- **Teacher**: create and edit problems (i18n, markdown + KaTeX, image upload), create contests and courses, manage assessments and exams (publish / archive / delete-draft lifecycle), duplicate existing courses, monitor student progress matrix, trigger plagiarism detection
-- **Admin**: full platform management, user role assignment (promote/disable), system announcements, all teacher capabilities
-- **Contest organizer**: timed ICPC/IOI competitions with real-time scoreboard, scoreboard freeze/unfreeze, IP binding and whitelisting, and submit cooldown
-- **Exam proctor**: session-based course exams with start/end lifecycle, IP pinning, page-lock visibility enforcement, submissions matrix for grading review
+## Key code
 
-## Implemented Scope
+- `apps/web/src/routes/(app)/` — signed-in product surface (`problems`, `submissions`, `courses`, `assignments`, `exams`, `contests`, `dashboard`, `settings`, `admin`)
+- `apps/web/src/routes/(public)/` — home, public profiles, about/legal, guides, verdicts; `apps/web/src/routes/(auth)/` — sign-in, onboarding, admin sign-in, school verification
+- `packages/application/src/<domain>/` — business rules per domain
 
-This describes repository behavior; release and deployment verification are tracked separately.
+## Users
+
+| Role                    | Can do                                                                                                                                                                                                        |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Student                 | Solve and submit, track progress on the dashboard, join contests, take assignments and exams, use problem posts. Once email-verified, may create and own private problems. Enrollment is teacher-driven only. |
+| Course TA               | Manage the course's activities, library, grading and proctoring; may publish public problems and fork; may remove students only (ASM-05).                                                                     |
+| Teacher (platform role) | Everything a course manager does, plus creating contests and courses, publishing public problems and forking.                                                                                                 |
+| Admin                   | Platform management after explicit admin-mode elevation (SEC-05): users, announcements, moderation, platform-wide lists, emergency grading fixes.                                                             |
+
+## Shipped scope
 
 ### Problems
 
-- Problem listing with filters (difficulty, tags, solved status)
-- Problem creation: any email-verified user (including students) may create, own, and publish private problems. Teachers, admins, and users who are active TAs in any non-archived course may publish public problems. Any private-problem owner may separately grant one-time `adminMayPublish` consent; this is not a review request, queue, or publication guarantee.
-- Standard publication requires an accepted current private reference solution. Publishing a private problem publicly creates a publisher-owned public copy; the private source and its course sharing remain intact. An admin publishing for another owner requires and consumes that owner's one-time consent. Course co-editors can publish a private draft for use and maintain its reference solution, but cannot grant public consent or change ownership merely through co-edit access.
-- Published public problems can be forked manually by teachers, admins, and users currently serving as a course TA. A fork is an independent private draft with direct-source lineage, copied judge content, and a private snapshot of the current accepted reference solution; later edits do not synchronize between copies.
-- i18n problem statements (en, zh-TW) with markdown + KaTeX rendering
-- Image upload via drag-and-drop / paste into markdown textareas (S3-compatible storage)
-- Monaco Editor code workspace with multi-language support
-- Testcase management (hidden and sample testcases)
-- Problem templates and judge configuration
+- Three types: `full_source`, `multi_file` (workspace files with editable/readonly/hidden visibility) and `special_env` (Advanced Mode, teacher-built images; creation needs an admin-granted permission) (PRB-01, PRB-12, JDG-16).
+- Judge modes: standard token compare, checker, interactor; subtasks score all-or-nothing (JDG-01 to JDG-04). Samples are presentation data, not testcases (PRB-03).
+- One Markdown + KaTeX statement per problem; images uploaded by drag-and-drop or paste to object storage (PRB-05).
+- Library with URL filters (difficulty, tags, solved / attempted / untried / bookmarked) and full-text search (PRB-14).
+- Ownership: any email-verified user may create private problems. Publishing requires an accepted, current private reference solution (PRB-09). Platform teachers/admins and active course teachers/TAs may publish public problems, which creates a publisher-owned public copy; the owner can grant a one-time `adminMayPublish` consent, which is not a review request (PRB-11, UI-02).
+- Forks: teachers, admins and active course staff can fork published public problems into independent private drafts with lineage (PRB-10).
 
 ### Submissions
 
-- Code submission from problem workspace
-- Real-time submission status via SSE (Temporal workflow query with DB fallback)
-- Submission history page
-- Source code viewing (ownership-gated)
-- Sandbox execution in Docker (local) or Kubernetes (production)
-- Verdict computation with subtask scoring
-
-### Contests
-
-- Contest creation with ICPC or IOI scoring modes
-- Timed contest lifecycle managed by Temporal workflows
-- Real-time scoreboard with chart visualization
-- Scoreboard freeze and admin-controlled unfreeze
-- IP binding (block or notify mode) and IP whitelisting
-- Exam page lock (server-side confinement to the active exam routes)
-- Per-contest submit cooldown (PostgreSQL advisory locks)
-- Invite code join flow
-
-### Post-Contest
-
-- Upsolve — after a contest ends, a read-only index of every contest problem with the viewer's solve status (solved / attempted / untouched), linking to the ordinary problem page for practice submits
-- Virtual contests — replay an ended contest on a personal timer equal to the original duration; submissions are tagged with the virtual run and scored privately, with the original final standings shown as static "ghost" reference rows
+- Monaco workspace (desktop only), optional in-browser test runs (JDG-15), official judging in Docker or Kubernetes sandboxes ([Judge Pipeline](../architecture/JUDGE_PIPELINE.md)).
+- Live status over SSE with polling fallback (PRB-21); history and ownership-gated source view.
+- `system_error` never costs an attempt (PRB-16); rejudges are audited (PRB-18).
 
 ### Courses
 
-- Course creation and management
-- Teacher-driven enrollment by full username, with durable roster rows before an account exists. Teachers use bare NTNU student IDs, `ntu_` / `ntust_` prefixes for NTU / NTUST, or general usernames; prefixes are never inferred.
-- Students and TAs bind automatically when the matching account obtains its username. School verification keeps the existing account and its credentials/submissions; a school roster collision keeps the school row and its conflicting role, scores, and feedback. If either enrollment was removed, the merged enrollment stays removed until a teacher restores it; existing owner/teacher membership protections still apply. Nonconflicting data and both audit histories survive.
-- Teachers can correct an unlinked roster username without changing its membership ID, grades, feedback, role, or enrollment dates. An existing account links immediately if it has no other membership in the course. Conflicting course memberships and already-linked roster identities cannot be overwritten by this action.
-- Course roles: teacher, TA, student
-- Assessment management with open/due/close lifecycle (Temporal-managed)
-- Assessment Settings tab: publish / archive / revert-to-draft / delete-draft with status-aware field locks
-- Editable Problems tab: attach / detach / reorder / per-problem points (locked once assessment opens)
-- Course duplication: single-transaction copy of course + assessments + exams + problem attachments (new copy drops to draft)
-- Class stats aggregation (submittedUsers / totalStudents / avgScore) and per-student myStatus (solved/total) rendered on list pages
-- Practice-after-close: students retain problem access after assessment/contest/exam ends, submissions no longer attributed to the original context
-- Student progress matrix, gradebook, analytics roster, and CSV include pending students; activity counts still represent actual submissions/participations. Notifications target only linked users.
-- Course gradebook (`/courses/[courseId]/grades`) — per-problem raw best scores (overrides applied) across all published assignments and exams, chronological columns with per-problem max; staff see every student plus CSV export, students see only their own row; no weighting or normalization by design (teachers compute ratios from the CSV)
-- Staff-only course library at `/courses/[courseId]/problems`: share one's own private problems including drafts, import public problems, search by title/ID/owner, and inspect sources and activity usage. Problems retain individual owners; the library has no create-problem button.
-- Bound active teachers and TAs can co-edit private library problems, including content, testcases and reference solutions. Platform student status does not disqualify an active TA. Pending usernames and removed memberships grant no access. Archived libraries remain readable without editing/add/remove controls.
-- Assignment and exam selection reuses an actor-owned private problem or a private problem already shared with that course. Every newly selected published public problem, including the actor's own, becomes an actor-owned private fork. Existing references loaded from DB retain their IDs; activity pickers offer published candidates and preserve selected historical drafts. Activities, forks and library relations commit atomically.
-- Detaching activity problems keeps library sharing. Removing a library entry leaves the individual problem intact and rejects activity/history references. Copying a course cannot extend another owner's private sharing; it reuses owned private problems and forks public sources once per distinct problem. See [Database](../architecture/DATABASE.md) and the [problem permissions plan](../plans/active/2026-09-08-problem-permissions.md).
-
-### Grading (post-close)
-
-- Grading drawer on the manager submissions matrix — opens once the context has closed (`closesAt`/`endsAt < now`); before that the entry button is hidden and a "grading available after close" note is shown in its place
-- Score overrides (existing) are now gated to post-close on assignment + exam + contest; `platformRole === "admin"` bypasses the gate for emergency fixes
-- Pending students can receive assignment/exam manual scores and feedback after close without participation or submissions; staff permissions and point-sum scoring rules still apply.
-- Per-cell student-visible feedback comments on assignment + exam (no contest feedback); students see the comment on the assignment / exam detail page and on the submission detail page once the context has closed
-- Audit timeline tab on assignment / exam / contest manage pages — merged reverse-chronological view of lifecycle transitions, score-override changes, and rejudges (staff-only)
-
-### Class Analytics
-
-- Course-staff analytics dashboard, aggregating existing submission and assessment data (no schema of its own)
-- Per-assessment completion rate and average score
-- Hardest problems — lowest AC rate, top 5
-- At-risk students — no submissions or all-zero scores
-- Course-wide verdict distribution
+- Teacher-driven enrollment by pasted usernames; roster rows exist before accounts and bind when the matching username appears (ASM-03, ASM-04). Username formats: bare NTNU student IDs, `ntu_` / `ntust_` prefixes, or general usernames; prefixes are never inferred.
+- Roles: teacher, TA, student. One course UI for every role (ASM-02).
+- Staff-only problem library at `/courses/[courseId]/problems`: share own private problems (including drafts), import public ones as forks, and co-edit shared private problems as an active teacher/TA (PRB-10).
+- Assignments with due/close deadlines, late penalties and per-problem daily attempt caps ([spec](../features/assignments.md)).
+- Course copy into a fresh draft course ([spec](../features/copy-course.md)).
+- Gradebook at `/courses/[courseId]/grades`: allocated activity points per problem across published assignments and exams, overrides applied, chronological columns; staff see every student (including pending roster rows) and export CSV; students see only their own row (ASM-16).
+- Staff analytics: per-activity completion rate and average, top 5 hardest problems, at-risk students, verdict distribution; derived from existing data (ASM-09).
+- Practice after close: participants keep problem access at `/problems/[id]` without affecting grades (PRB-20).
 
 ### Exams
 
-- Course-scoped timed exams (separate from standalone Contests)
-- Exam Settings tab: basic info, scoring mode, scoreboard mode, allowed languages, submit cooldown, proctoring (page lock / IP binding / IP whitelist / violation mode), lifecycle (publish / archive / delete-draft) with status-aware field locks
-- Editable Problems tab: attach / detach / reorder / per-problem points (locked once exam starts)
-- Submissions sub-tab: students × problems matrix with best score + attempt count, CSV export, search, sort, pagination
-- Session-based proctoring: `?/startExam` form action binds the student IP pin; the page-lock handle hook records `visibility_lost` events on off-path navigation; `?/releaseSession` form action closes the session; `?/releaseAllSessions` lets an instructor release every active session at once
-- When enabled, page lock confines a student to `/exams/[examId]/*`; when disabled, the active exam session does not block normal site use
-- Student post-close review block on the detail page — links fall back to ordinary practice URLs
+- Course-scoped timed exams with sessions, hand-in, optional page lock and IP whitelist/binding, and optional temporary exam passwords ([Exams](../features/exams.md), [Proctoring](../features/proctoring.md)).
 
-### Plagiarism Detection
+### Grading
 
-- Dolos-based AST similarity detection (self-hosted, in-process)
-- Triggered per assessment or contest (admin/teacher)
-- Results stored as JSON in PostgreSQL
-- Dedicated plagiarism report view per assessment
-- Side-by-side Monaco diff viewer for any flagged pair (assessment context)
-- Staff can mark pairs as false positives (`PlagiarismPairFlag`); flagged pairs hidden from list by default with toggle to reveal
+- Activity point allocation separate from raw problem scores (ASM-16).
+- After close: score overrides with required reasons and per-cell student-visible feedback on assignments and exams; admins bypass the close gate. Contests have neither (ASM-17, ASM-18).
+- Staff audit timeline per activity (lifecycle, overrides, rejudges) (ASM-14).
+- Shared clarification board for assignments, exams and contests (ASM-10, ASM-11).
 
-### Problem Posts (Editorials & Discussions)
+### Contests
 
-- Community-contributed posts per problem, two types on one model (`ProblemPost`): editorials (solution writeups) and discussions (open Q&A)
-- Editorials AC-gated: only visible after solving the problem (author/admin exempt); discussions open to any signed-in user
-- Both types blocked server-side while a live contest / assignment / exam re-uses the problem; only the practice workspace renders the tabs
-- Entire experience lives in the problem workspace left panel (LeetCode-style: list → article → compose); no standalone pages
-- Create / read / edit / soft-delete via API; soft-deleted rows filtered from every read path
-- Up/down voting per post (`PostVote`, one vote per user) with top-voted sorting
-- Two-level comments (comment + reply) with tombstones for deleted comments
-- User-filed reports against posts and comments (`ContentReport`) feeding a unified admin moderation queue at `/admin/reports` (resolve soft-deletes the target and notifies its author; dismiss closes the report)
+- Standalone contests, public or invite-only, with `problem_count`, `weighted_count` or `point_sum` scoring, per-contest penalty minutes, submit cooldown, live/hidden/frozen scoreboards with chart, and Temporal-managed lifecycle ([spec](../features/contests.md)).
+- Upsolve and virtual contests after the end (ASM-09).
 
-### User Dashboard
+### Plagiarism
 
-- Activity heatmap (daily submission history, bucketed by the browser's local day)
-- At-a-glance stats — solved count, attempts, AC rate, practice days
-- Topic proficiency plus difficulty / verdict / language distribution charts
-- Recent submissions list
-- Site-wide overview toggle (`?view=server`) — anonymous platform aggregates: KPI cards, 30-day submission trend, verdict / language donuts, trending public problems
+- Staff-triggered Dolos checks per assignment, exam or contest with pair diff and false-positive flags ([spec](../features/plagiarism.md)).
 
-### Public User Profiles
+### Problem posts
 
-- Public profile page at `/users/[id]` — avatar, activity heatmap, difficulty/language distributions, solved public-problem list
-- Private by default (`User.profilePublic`); the owner opts in from Settings, after which the page is visible without signing in
-- Private profiles return 404 to everyone except the owner and admins (in admin mode)
+- Editorials (after AC) and discussions in the practice workspace panel, with votes, comments, reports and an admin moderation queue ([spec](../features/posts.md)).
 
-### Authentication
+### Dashboard and profiles
 
-- General sign-in uses GitHub OAuth or Google OAuth; students also have an expiring exam password when an exam enables it ([contract](../specs/exams.md#temporary-exam-sign-in)). The login identity is the set of linked provider accounts; `User.email` never selects or merges an account. A provider identity new to NOJV whose email already belongs to an account is refused at `/signin` with instructions to sign in the existing way and link it under settings.
-- `User.email` is fixed to the signup address and receives security codes; it cannot be changed. An optional notification email, edited with the notification preferences, receives everything else and falls back to the login email when unset.
-- First OAuth sign-in requires a unique general username; school-ID formats are reserved and cannot be chosen during onboarding.
-- The username is set once at onboarding and is never editable afterwards; explicit three-school verification in settings is the only path that replaces it, with the verified student ID. Verification records the proving school address and time on the account; the verified state itself still derives from the username. Sign-in, primary-email changes, and linked login providers preserve the username; login only binds pending course memberships to the username already owned by the account.
-- Admin-specific credential sign-in page. Regular admins explicitly enter admin mode after TOTP/passkey verification; super admins use password plus TOTP/passkey and receive admin access directly.
-- Each linked provider account is listed as its own row — with the address the provider reports where it supplies one (Google's id_token; GitHub has none) — and unlinked individually, as long as one sign-in method remains. Google shows its account picker; GitHub has none, so switching GitHub accounts requires signing out of github.com first.
-- Super admins cannot use or link OAuth. First login changes the seeded password and sets up TOTP or passkey; password-first backup-code/email recovery grants factor setup only.
+- Personal dashboard and an anonymous site-wide view ([spec](../features/dashboard.md)).
+- Public profiles at `/users/[id]`: opt-in via `User.profilePublic`; hidden profiles return 404 except to the owner and admins in admin mode (WEB-07).
 
-### Administration
+### Accounts and security
 
-- Admin dashboard
-- User management (role assignment, disable accounts)
-- System announcements (create, manage)
-- Platform-wide course, assignment, exam, and contest lists that do not depend on the admin's course enrollment
+- Sign-in with GitHub or Google OAuth; no public sign-up or password reset; admins are bootstrapped with credentials (SEC-01). Students may also use an expiring exam password when an exam enables it ([contract](../features/exams.md#temporary-exam-sign-in)).
+- Linked provider accounts are the login identity; `User.email` is the fixed security mailbox and never merges accounts; an optional notification email receives everything else (SEC-02).
+- Username is chosen once at onboarding (school-ID formats reserved); only school verification replaces it with the verified student ID (SEC-03).
+- Factors, admin mode and super-admin login: [Login and security](../features/login-security.md).
+- Personal API tokens with scopes and step-up (SEC-07, SEC-08).
 
-### Real-Time Events
+### Platform
 
-- SSE event stream for submission verdicts, contest events, and deadline notifications
-- Redis pub/sub as event broker
+- In-site notifications with opt-out email (WEB-04, UI-03); onboarding tours (UI-22); system announcements.
+- Admin: user role and disable management, platform-wide course, assignment, exam and contest lists independent of enrollment (WEB-08).
+- UI in English and Traditional Chinese via Paraglide (UI-07); mobile is read-only (UI-13).
 
-## Tradeoff Rules
+## Tradeoff rules
 
-- PostgreSQL is the business source of truth; Redis and Temporal are derived/ephemeral.
-- Prefer Temporal workflows over custom queue logic for long-running orchestration.
-- Keep authentication and authorization separate; OAuth proves identity, local RBAC decides permissions.
-- Keep business logic in `@nojv/application`; presentation layers (web, temporal activities) stay thin.
-- Prefer S3-compatible storage over custom blob solutions for portability.
-- Problem statements support i18n; UI strings use Paraglide JS.
+- PostgreSQL is the source of truth; Redis holds only rebuildable state (DAT-10) and Temporal runs async orchestration (DAT-13).
+- Authentication and authorization are separate: OAuth proves identity, local roles decide permissions.
+- Business logic lives in `@nojv/application`; web routes and worker activities stay thin (ENG-02).
+- File bodies live in S3-compatible object storage, never in Postgres (DAT-06).
 
-## Explicit Non-Goals For This Phase
+## Non-goals
 
-- No AI-assisted judging or auto-grading beyond exact/checker/interactive modes
-- No real-time collaborative editing of problems
-- No multi-tenant deployment (single institution per instance)
-- No mobile-native application
-- No mobile workspace — phones can browse the site (statements, scoreboards, lists, editorials, dashboard) but the Monaco editor + submission form are hidden below `md` and replaced by `<MobileWorkspaceBlocker>` directing users to the desktop
-- No public email/password registration or self-serve password reset; admins use seeded credentials. Students use GitHub, Google, or a temporary exam password when an exam has enabled it (see [Exams](../specs/exams.md#temporary-exam-sign-in)).
-- No CSV user import, no submission zip export
-
-## Related Docs
-
-- [Architecture Overview](../architecture/ARCHITECTURE.md)
-- [Frontend Surface](../architecture/FRONTEND.md)
-- [Security Requirements](../operations/SECURITY.md)
+- AI-assisted judging or grading beyond the standard, checker and interactor modes.
+- Real-time collaborative problem editing.
+- Multi-tenant deployment; one institution per instance.
+- Native mobile apps, and any solving workspace below the `md` breakpoint: phones can browse statements, scoreboards, lists, editorials and the dashboard, but the editor and submit form are replaced by `<MobileWorkspaceBlocker>` (UI-13).
+- Public email/password registration or self-serve password reset.
+- CSV user import or submission zip export.
+- Problem review queues or moderation of student-authored problems (PRB-11).
+- Remote proctoring (webcam, screen recording, lockdown browser).

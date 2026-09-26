@@ -1,181 +1,226 @@
 # Security
 
-Security requirements are first-class because this system handles authentication, student source code, hidden testcases, contest integrity, and grade-affecting assessment submissions.
+Security controls as implemented: what must hold and where it is enforced. Attackers, scenarios and residual risk live in the [Threat Model](THREAT_MODEL.md); why-decisions live in [security decisions](../decisions/security.md) (`SEC-*`) and the sandbox entries of [judge decisions](../decisions/judge.md) (`JDG-*`).
+
+## Key code
+
+- `apps/web/src/hooks.server.ts` — per-request pipeline: client IP, CSRF, auth rate limits, session load, exam gates, security headers
+- `apps/web/src/lib/server/hooks/request-security.ts` — `enforceCsrf`, `setSecurityHeaders`
+- `apps/web/src/lib/server/shared/client-ip.ts` — `getClientIp`
+- `apps/web/src/lib/server/shared/rate-limiter.ts`, `api-handler.ts` — limiters, `apiHandler`/`writeApiHandler`, `readJsonBody`
+- `apps/web/src/lib/auth.server.ts` — better-auth config and `hooks.before` gates
+- `apps/web/src/lib/server/auth.ts` — `requireAuth`, `requireApiAuth`, `requirePlatformRole`, `resolveCoursePermission`
+- `apps/web/src/lib/server/step-up.ts` — admin access, super-admin session proof, step-up unlocks
+- `packages/application/src/shared/permissions.ts`, `packages/application/src/problem/permissions.ts` — course and problem authorization
+- `packages/application/src/api-token/acl.ts` — API token route whitelist
+- `apps/web/src/lib/utils/markdown.ts` — DOMPurify sanitizer and remote-image rewrite
+- `apps/web/svelte.config.js` — CSP
+- `apps/worker/src/sandbox/docker/args.ts`, `apps/worker/src/sandbox/kubernetes/pod-spec.ts` — sandbox hardening
+- `infra/charts/nojv/templates/{namespaces,sandbox-policy,worker-rbac,web.ingress,cloudflared.deployment}.yaml` — cluster-level controls
 
 ## Sensitive Data
 
-| Data                     | Storage                                                   | Protection                                                                                        |
-| ------------------------ | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Passwords                | PostgreSQL `Account.password`                             | bcrypt hash                                                                                       |
-| Temporary exam passwords | PostgreSQL `ExamCredential`                               | Better Auth scrypt verification hash and authenticated ciphertext; staff-only reveal, hard expiry |
-| OAuth tokens             | PostgreSQL `Account.accessToken`                          | Encrypted by better-auth                                                                          |
-| Session tokens           | PostgreSQL `Session.token`                                | httpOnly cookie                                                                                   |
-| Source code              | S3-compatible storage (`submissions/<id>/sources/<path>`) | Per-user access control; never served raw, only read by domain helpers + worker                   |
-| Graded testcases         | PostgreSQL `TestcaseSet` / `Testcase`                     | Never exposed to students; only `Problem.samples` is rendered on the problem page                 |
-| Hidden workspace files   | PostgreSQL `ProblemWorkspaceFile` (`visibility = hidden`) | Filtered out server-side before `ProblemDetail` leaves the domain layer                           |
-| Problem images           | S3-compatible storage                                     | Public read for problem paths                                                                     |
-| S3 credentials           | Environment variables                                     | .env untracked, Secret Manager in prod                                                            |
-| Database credentials     | Environment variables                                     | .env untracked, Secret Manager in prod                                                            |
+| Data                     | Storage                                                 | Protection                                                                        |
+| ------------------------ | ------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Credential passwords     | `Account.password`                                      | bcrypt (cost 10) via `emailAndPassword.password.hash`                             |
+| Temporary exam passwords | `ExamCredential.passwordHash` / `passwordCiphertext`    | scrypt hash + ciphertext keyed by `BETTER_AUTH_SECRET`; staff reveal; hard expiry |
+| OAuth provider tokens    | `Account.accessToken` / `refreshToken`                  | Stored as returned; `account.encryptOAuthTokens` is not enabled                   |
+| Session tokens           | `Session.token`                                         | httpOnly cookie; checked every request (no cookie cache)                          |
+| API tokens               | `ApiToken` prefix + sha256 hash                         | Shown once, mandatory expiry (SEC-07)                                             |
+| TOTP enrollment material | Redis, pending until confirmed                          | Encrypted; committed atomically with backup codes on confirmation                 |
+| Submission source        | Object storage `submissions/<id>/sources/<path>`        | Read only via domain helpers and the worker                                       |
+| Graded testcases         | `TestcaseSet` / `Testcase` + object storage             | Never reach non-staff (SEC-12); only `Problem.samples` is rendered                |
+| Hidden workspace files   | `ProblemWorkspaceFile` (`visibility = hidden`)          | Filtered in the application layer; merged only by the worker                      |
+| Advanced grade images    | Registry `t/<username>/…`                               | Hold answers; namespace-scoped registry tokens ([Sandbox](#sandbox-isolation))    |
+| Code drafts              | `CodeDraft` rows; unsynced edits in `localStorage`      | Owner-only; local edits sealed ([Integrity](#exam-and-contest-integrity))         |
+| Problem / user images    | Object storage, served same-origin via `/api/storage/*` | Public read; never store secret material there (PRB-05)                           |
+| Runtime secrets          | `.env` locally; chart Secret `nojv-runtime-secrets`     | `.env` untracked; `.env.example` shape-only                                       |
 
-## Handling Rules
+## Request Boundary
 
-- Validate all user input with Zod schemas from `@nojv/core` before processing.
-- Use `requireAuth(event)` for page routes and `requireApiAuth(event)` for API routes. Never skip authentication checks.
-- Authorize problem content with the actor and problem resource (`canProblemContentRead`, `canProblemContentEdit`, and `lockProblemForEdit`), not a platform-role-only gate. Owners and effective admins have independent access; bound active course teachers/TAs gain private-content access through `CourseProblem`. Public originals grant no course-based co-edit rights. Course archive stops that course's edit grant while preserving reads.
-- Content writes recheck authorization inside their transaction. Course-derived access locks Course rows in stable order, then the actor's CourseMembership rows, CourseProblem rows and Problem, and rechecks the grant after waiting. Early upload authorization does not replace the write-time check; revoked uploads must not commit content.
-- Course management requires a bound active teacher/TA membership or effective admin access; owner/creator fields and pending usernames are not substitute grants. Resolve roles with `resolveEffectiveCourseRole()` and effective `actor.platformRole`.
-- Course TAs may enroll and remove students, including pending roster identities. They cannot remove teachers or other TAs, assign TA roles, change member roles, or correct pending usernames. Teachers/admins retain member-management permissions, with course-owner and teacher protections enforced inside the roster transaction.
-- Co-editing does not grant ownership operations, public-publication consent, bundle export, cross-course sharing or access to unrelated submissions. Current private reference solutions have a separate problem-resource read gate. See [Database](../architecture/DATABASE.md) and the [problem permissions plan](../plans/active/2026-09-08-problem-permissions.md).
-- **Regular admin mode.** A regular `admin` session starts with ordinary effective permissions. `getActorContext` downgrades the stored role to `student` until `POST /api/admin-mode` finds a generation-bound TOTP/passkey proof and creates a seven-day admin-access grant. The proof remains usable for ten minutes after leaving admin mode, so immediate re-entry does not repeat verification. Do not read `sessionUser.platformRole` for power decisions; use the effective `actor.platformRole`.
-- **Super admin login contract.** A super admin must use a credential password followed by TOTP or passkey on every new session. Successful second-factor verification grants admin access directly; super admins never use `/api/admin-mode`. OAuth sign-in/linking and passwordless passkey sign-in are rejected for these accounts. Their session and derived MFA proof share the original password-authentication time and cannot exceed 24 hours, including after passkey session rotation.
-- **Verification completion.** Failed Better Auth results never create MFA or settings grants. The TOTP sign-in hook marks only newly authenticated sessions; authenticated step-up callers grant access only after replay and security-generation checks.
-- **Sign-in recovery of progress.** Regular-admin reloads resume only a signed, unexpired Better Auth challenge. An incomplete super-admin session returns to password entry when its password proof expires; restarting sign-in clears the current session and pending browser proofs.
-- **Security-factor management.** Verified TOTP and passkey rows are the only configured-state source of truth. An email OTP may unlock the first setup only when no factor exists; otherwise only TOTP/passkey can unlock settings. The generation-bound unlock lasts ten minutes across factor changes. TOTP material is encrypted in Redis until the new authenticator code succeeds, then replaced atomically. A super admin's final factor cannot be removed in either UI or repository code.
-- **Super admin recovery.** Recovery always verifies the password first, then a backup code or email OTP. It revokes other sessions, deletes old factors, and grants setup-only access. Backup codes and recovery email OTP never grant admin access; a new TOTP/passkey must be confirmed first.
-- Use Prisma parameterized queries for all database access. Never construct SQL strings.
-- Use DOMPurify for all user-authored markdown rendering. The sanitizer is configured in `$lib/markdown.ts`.
-- Keep `.env` untracked and treat `.env.example` as a shape-only template without real values.
+### Client IP Trust Model (Cloudflare-only)
+
+`getClientIp(event)` is the single client-IP source for exam IP rules, rate-limit keys and audit logs (SEC-09, OPS-08).
+
+- Production reads only `CF-Connecting-IP`; a missing or non-IP value returns 403. No fallback to `X-Forwarded-For`, `X-Real-IP` or the socket address.
+- Development (`NODE_ENV !== "production"`) accepts a valid `x-dev-ip` header, else `event.getClientAddress()`.
+- The header is trustworthy only while Cloudflare is the sole path to the origin. Both chart edge modes enforce that:
+
+| Mode                 | Origin exposure                                                                                                                                                      |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Single-machine (k3s) | In-cluster `cloudflared` tunnel (`edge.cloudflared.enabled`) to a ClusterIP web Service; no NodePort or ingress                                                      |
+| GKE                  | `gce` Ingress whose BackendConfig attaches a Cloud Armor policy allowing only Cloudflare CIDRs; production preflight refuses a missing policy, TLS or HTTPS redirect |
+
+Rules: no non-Cloudflare path to the web origin may exist while the header is trusted. When changing edge trust, lock the origin first and remove the old mechanism in a later deploy; change `client-ip.ts` and the edge allowlist together. Setup: [Deployment — Cloudflare + Cloud Armor](DEPLOYMENT.md#cloudflare--cloud-armor-setup).
+
+### CSRF and headers
+
+SvelteKit `csrf.checkOrigin` is disabled so `/api/registry/token` can accept the Docker client's cross-origin form POST; `enforceCsrf` replaces it for every non-GET/HEAD/OPTIONS request:
+
+- Form content types (`x-www-form-urlencoded`, `multipart/form-data`, `text/plain`, `x-sveltekit-formdata`) require `Origin` equal to the site origin (missing `Origin` fails).
+- `/api/*` rejects a foreign `Origin`, and outside `/api/auth` requires `X-Requested-With: fetch`.
+- Exempt: `/api/registry/token` (Basic/body credentials, no cookies) and API-token requests on whitelisted routes.
+
+`setSecurityHeaders` sets `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, COOP/COEP/CORP same-origin/`require-corp`/same-origin, a restrictive `Permissions-Policy`, and HSTS in production. CSP (`svelte.config.js`, nonce mode `auto`): `default-src 'self'`, `frame-ancestors 'none'`, `object-src 'none'`, `form-action 'self'`; `img-src` allows only `self`, `data:`, `blob:`, GitHub/Google avatar hosts and Google Analytics.
+
+### Body size
+
+- Global adapter-node `BODY_SIZE_LIMIT` is 64 MiB (`infra/docker/web.Dockerfile`), sized for the largest upload (60 MB bundle). Do not lower it without re-checking that.
+- `POST /api/submissions`: 2 MiB (`MAX_SUBMISSION_BODY_BYTES`), `Content-Length` pre-check then streamed count.
+- Other JSON mutation routes: 1 MiB via `assertJsonBodyWithinLimit` + `readJsonBody` (`JSON_BODY_LIMIT_BYTES`); `readJsonBody` counts streamed bytes and returns 413 regardless of `Content-Length` (SEC-10).
+- Upload routes (images, checker/interactor, bundle, workspace files) enforce their own size limits.
+
+### Rate limits
+
+`rate-limiter-flexible` on Redis (`RateLimiterRedis`), shared across web replicas. `apiHandler`-family wrappers key on `u:<userId>` when signed in (session or API token), else client IP; all other limiters key on client IP.
+
+| Limiter                       | Quota      | Applies to                                                                  |
+| ----------------------------- | ---------- | --------------------------------------------------------------------------- |
+| `apiRateLimiter`              | 300 / min  | `apiHandler` routes; per-replica memory fallback when Redis is down         |
+| `writeApiRateLimiter`         | 10 / min   | `writeApiHandler` routes (submissions, uploads, plagiarism runs, …)         |
+| `draftApiRateLimiter`         | 60 / min   | `/api/drafts`                                                               |
+| form actions                  | 20 / min   | `withRateLimit` form actions                                                |
+| `authRateLimiter`             | 60 / min   | Every `/api/auth/*` request, including OAuth and exam sign-in               |
+| `signInRateLimiter`           | 5 / 15 min | `POST /api/auth/sign-in/email`, `/sign-in/username`                         |
+| `examSignInRateLimiter`       | 5 / 15 min | `POST /api/auth/sign-in/exam-password`, keyed by IP + normalized username ¹ |
+| `otpSendRateLimiter`          | 3 / 10 min | Email OTP sends                                                             |
+| `stepUpAttemptRateLimiter`    | 5 / 10 min | Step-up verification attempts                                               |
+| `registryTokenRateLimiter`    | 60 / min   | `/api/registry/token`                                                       |
+| `remoteAssetFetchRateLimiter` | 10 / min   | Image-proxy cache misses                                                    |
+
+¹ Students sharing a classroom IP do not consume each other's quota; invalid usernames share one bucket per IP.
+
+- Quotas count every attempt, including successful sign-ins.
+- In production, every limiter except `apiRateLimiter` fails closed (429 limited, 503 unavailable) on operational Redis errors; programming errors propagate (DAT-12).
+- Development uses in-memory limiters with a ×1000 multiplier.
+
+## Authentication and Sessions
+
+Behavior specs: [Login and security verification](../features/login-security.md). Decisions: SEC-01 to SEC-08.
+
+- Cookies are pinned in `advanced.defaultCookieAttributes` to `{ httpOnly: true, secure: NODE_ENV === "production", sameSite: "lax" }` so a library upgrade cannot relax them; `lax` is required for the top-level OAuth callback.
+- `emailAndPassword.disableSignUp: true`; credential accounts are admins created by `db:bootstrap-admin`. OAuth (GitHub, Google) can create a fresh account, which grants nothing beyond public surfaces: enrollment is teacher-driven and ownership is the authorization boundary.
+- `account.accountLinking.disableImplicitLinking: true`: an unseen provider identity is never attached by matching email. Providers are linked only from settings by a signed-in session (`trustedProviders: ["github", "google"]`, `allowDifferentEmails: true`). `onAPIError.errorURL` is `/signin`; the settings link uses `errorCallbackURL: "/settings"`, and both pages name `account_not_linked` and `account_already_linked_to_different_user` explicitly.
+- `User.email` is the security mailbox (security OTP, recovery mail, email verification), never a login key. It changes only through the settings `changeSecurityEmail` action → better-auth `changeEmail`, gated in `hooks.before` on `/change-email`: new address unused by another account, confirmation from the current mailbox before the new one is verified, and a security-settings unlock when the account has TOTP or a passkey. Super admins cannot change it. `NotificationPreference.email` never receives security mail.
+- Sessions are resolved on every request with `auth.api.getSession()`; `requireAuth` (pages) / `requireApiAuth` (API) also require a completed profile (`hasActorUsername`).
+- Effective role: `getActorContext` computes `actor.platformRole`. Power decisions use it, never `sessionUser.platformRole` (SEC-06).
+  - Regular `admin`: effective `student` until `POST /api/admin-mode` finds a generation-bound TOTP/passkey proof; it then grants seven-day admin access for that session. The proof stays reusable for ten minutes after leaving admin mode.
+  - Super admin: credential password then TOTP/passkey on every new session; admin access is granted directly and never via `/api/admin-mode`. OAuth sign-in/linking and passwordless passkey sign-in are rejected (`hooks.before` and the `account.create` database hook). Session and MFA proof expire 24 hours after the original password authentication, including across passkey session rotation.
+  - Only a super admin may change, disable or delete another admin; self role change, self-disable and self-delete are rejected; actions go to `AdminAuditLog`.
+- Step-up and factors (SEC-04): verified TOTP/passkey rows are the only configured-state source. Email OTP unlocks only the first setup when no factor exists. Unlocks last ten minutes and bind to session and `securityGeneration`. TOTP codes are single-use with a per-user attempt throttle. Failed better-auth results never create grants. Redis failure on privileged paths fails closed without destroying factors. A super admin's final factor cannot be removed.
+- Recovery (super admin): password first, then a backup code or email OTP; revokes other sessions, deletes old factors, grants setup-only access. Backup codes and recovery OTP never grant admin access.
+- Temporary exam sign-in: sessions carry an immutable `Session.examPassword` marker plus an `ExamCredentialSession` revision association checked on every request and direct Auth API call; missing provenance fails closed. Such sessions cannot change account security, link providers, manage API tokens or obtain registry credentials; accounts with any staff role are ineligible. Mail goes only to verified `User.email`; durable jobs carry IDs, never passwords. Lifecycle: [Exams — Temporary exam sign-in](../features/exams.md#temporary-exam-sign-in).
+- API tokens (SEC-07, SEC-08): a bearer token must pass the method/path whitelist in `acl.ts`, then the token scope, then the owner's role; domain checks still apply. Token management requires fresh step-up on page load and on every mutation.
+
+## Authorization
+
+- Validate every input with Zod schemas from `@nojv/core`; use Prisma parameterized queries only.
+- Course: `resolveEffectiveCourseRole(platformRole, courseRole)` (admin overrides). `canManageCourse` = admin/teacher/TA; `canManageMembers` = admin/teacher. Grants come from a bound active membership or effective admin; owner/creator fields and pending usernames are not grants. TAs may enroll and remove students (including pending roster identities) but cannot remove teachers/TAs, assign TA roles, change roles or correct pending usernames (ASM-05); owner and teacher protections are enforced inside the roster transaction.
+- Roster rows (`CourseMembership` with `pendingUsername`) bind to a User only by a username that User already owns, under roster identity locks (ASM-04, SEC-03). Unbound rows grant no account access.
+- Problems: authorize against the actor and the problem resource, not platform role alone.
+  - Create (`canAuthorProblems`): admin, teacher, email-verified user, or active course staff. `special_env` additionally needs the admin-managed `canCreateAdvancedProblems` grant.
+  - Read/edit content (`canProblemContentRead` / `canProblemContentEdit`): effective admin or owner; active teacher/TA of a course bound via `CourseProblem` for private problems only. Public originals grant no course co-edit; course archive removes edit but keeps read.
+  - Writes recheck in-transaction with `lockProblemForEdit`: Course rows in stable order, then the actor's memberships, `CourseProblem` rows, then Problem. Early upload checks do not replace this; a revoked upload must not commit.
+  - Co-editing grants no ownership operations, public-publication consent, bundle export, cross-course sharing or access to unrelated submissions. Private reference solutions have their own read gate. See [Database — Problem Ownership](../architecture/DATABASE.md#problems).
+- Submissions: `getSubmissionForActor` returns the actor's own submission (admins included for recovery) or a reference solution the actor may read; anything else is 404. Every student-readable result path goes through `sanitizeStudentResult` (SEC-12).
+- Rejudge control accepts only `rejudge-` workflow IDs recorded with the caller as `triggeredByUserId`, or an admin (SEC-13).
+- Plagiarism reports and sources: course staff for the target (`assertCanManagePlagiarism`).
+- Problem posts (UI-05; spec: [Posts](../features/posts.md)): every post/comment/vote/report path resolves the context server-side with `resolveActiveContextForUser` and checks `canViewPosts`. While a contest, assignment or exam containing the problem is running for the user, both post types are closed, before any author exception. Otherwise discussions need sign-in; editorials need AC or an authored post on the problem. Admins bypass for moderation (`requireProblemPostAccess`).
+
+## Content and Uploads
+
+- User Markdown is sanitized with DOMPurify in `$lib/utils/markdown.ts`. KaTeX output is trusted only inside a per-render random nonce wrapper; never use author-controllable markup as a trust signal (SEC-10).
+- Image uploads (`/api/problems/[id]/images` with problem-edit access and in-transaction recheck; `/api/uploads/image` for any signed-in user): png/jpeg/gif/webp, ≤ 5 MB, `detectImageMime(buffer)` magic bytes must match; the client `file.type` is never trusted alone. Keys are server-built (`problems/<problemId>/images/<uuid>.<ext>`). Avatars: webp only, ≤ 1 MB, magic-byte checked.
+- Testcase, checker, interactor and workspace-file uploads count against a 50 MB per-problem budget (`assertProblemStorageBudget`); bundles are ≤ 60 MB uploaded, ≤ 50 MB inflated, ≤ 200 entries and reject `..` and absolute paths (PRB-06). Images are not budgeted.
+- Remote Markdown images (SEC-11): the sanitizer rewrites remote `src`/`srcset` to `/api/images/proxy`; CSP blocks any missed rewrite. The proxy accepts canonical HTTPS on 443 only (URL ≤ 2048 chars, no credentials), requires every DNS answer to be public (mixed answers fail), pins the validated address into the TLS request, revalidates each redirect (max 3), times out at 5 s, stops at 5 MB, and accepts only magic-byte-verified png/jpeg/gif/webp (upstream MIME ignored). The first success is cached under `remote-images/<sha256(url)>`; hits never contact the remote host. Errors never redirect the viewer upstream.
+- `/docs?api=full` and `/api/openapi.internal.json` are public by design; they hold no credentials and grant nothing.
+
+## Exam and Contest Integrity
+
+Behavior specs: [Exams](../features/exams.md), [Proctoring](../features/proctoring.md), [Contests](../features/contests.md).
+
+- Exam IP whitelist, IP binding and page lock are server-side (ASM-19, ASM-20). During an active exam session `hooks.server.ts` runs the proctoring gate on every page and `/api` request, and submission rechecks it; a failed active-exam lookup fails closed with 503. Page lock also denies `/api/contests/*`, `/api/posts/*`, `/api/comments/*` and `/api/problems/[id]/posts`. Contests have no IP or page gating.
+- Context-bound submissions and drafts must target a problem in that context (ASM-21).
+- Exam and contest `submitCooldownSec` is checked in PostgreSQL under a `pg_advisory_xact_lock` keyed by context, user and problem (`packages/application/src/shared/submit-cooldown.ts`); sample runs are exempt.
+- Code drafts: `CodeDraft` rows are owner-only via `/api/drafts`. Exam drafts can be written only during an active session on a running exam for a problem in it; during a session only that exam's drafts are reachable. Unacknowledged local edits are stored under `nojv:draft:v2:<userId>:…`, AES-GCM sealed with `HMAC-SHA256(BETTER_AUTH_SECRET, "code-draft:<userId>")` delivered only to that user's `(app)` layout, with the storage key as additional authenticated data. Legacy plaintext `nojv:draft:v1:` drafts are re-sealed for the first opener, except exam drafts, which are never adopted.
+
+## Sandbox Isolation
+
+Pipeline and Advanced Mode mechanics: [Judge Pipeline](../architecture/JUDGE_PIPELINE.md). Decisions: JDG-05, JDG-06, JDG-17 to JDG-22.
+
+Baseline for every sandbox container (Docker args from the single builder in `args.ts`, golden-tested; K8s `securityContext` from `pod-spec.ts`):
+
+| Control         | Docker                                                                                               | Kubernetes                                                                               |
+| --------------- | ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Capabilities    | `--cap-drop ALL`                                                                                     | `capabilities.drop: [ALL]`                                                               |
+| Privilege       | `--security-opt no-new-privileges`                                                                   | `allowPrivilegeEscalation: false`                                                        |
+| User            | `--user 10001:10001`                                                                                 | `runAsNonRoot: true`, uid/gid 10001                                                      |
+| Root filesystem | `--read-only`; tmpfs `/tmp` 64m (compiler scratch when compiling), `/workspace` 128m, `nosuid,nodev` | `readOnlyRootFilesystem: true`                                                           |
+| Host mounts     | `/submission` read-only; `/artifact`, `/outputs` only where the stage needs them                     | Payload via hash-verified ConfigMap shards into emptyDir (JDG-21)                        |
+| Network         | `--network none` (Advanced `service` mode: per-submission `--internal` network)                      | Namespace deny-all NetworkPolicy; Advanced per-submission policies                       |
+| Resources       | `--cpus`, `--memory` = `--memory-swap`, `--pids-limit` (`SANDBOX_*` env)                             | Requests/limits, namespace ResourceQuota and LimitRange                                  |
+| seccomp         | Docker default profile                                                                               | `seccompProfile: RuntimeDefault` + `gvisor` RuntimeClass (required by worker env schema) |
+| Output capture  | 16 MB per stream (`createBoundedStringBuffer`)                                                       | same                                                                                     |
+
+Seccomp posture: no custom profile. The runtime default already blocks high-risk syscalls (`kexec_load`, `bpf`, `userfaultfd`, `add_key`, …), and a custom allowlist would break language runtimes across toolchain upgrades. If a specific syscall must be blocked, extend the default profile incrementally.
+
+Kubernetes requirements (JDG-20):
+
+- The sandbox namespace enforces Pod Security `restricted` (enforce/audit/warn). Pods mount no service-account token.
+- The worker refuses to start unless the `gvisor` RuntimeClass, a hardened smoke Pod and a NetworkPolicy enforcement probe succeed. A CNI that enforces NetworkPolicy is a hard dependency.
+- Split identities: the judge worker's `sandbox-job-manager` role has only create/get/list/watch/delete on sandbox resources; the platform worker has only the registry-GC role (token unmounted when the registry is disabled). Never add update, patch, Secret or cross-namespace access.
+
+Advanced Mode (JDG-16, JDG-17, SEC-14, PRB-12):
+
+- Answers live only in the grade container, which has no egress on either backend and runs as uid 10001. The run container reaches at most one service sidecar; the service has no egress.
+- `/output` crosses to grade only through `safeCopyTree` (symlinks and special files dropped, ≤ 100k files, ≤ 1 GiB).
+- Image refs must be digest-pinned and from `ADVANCED_IMAGE_ALLOWED_REGISTRIES`; authoring needs `canCreateAdvancedProblems`; publishing needs an accepted test run with the exact configured images.
+- Registry (OPS-10): Docker token auth via `/api/registry/token` against hashed `RegistryCredential`s. Every human credential, admins included, can push/pull only `t/<username>/…`; judge pods use a pull-only account; `demo/…` is anonymous-pull; catalog and deletion use server-internal short-lived tokens.
+
+## Infrastructure
+
+- `docker-compose.yml` runs only local backing services, each published on `127.0.0.1`; no app services (OPS-01).
+- GKE production preflight requires external Redis and object storage, Cloud SQL proxy, `networkPolicy.enabled` with private egress CIDRs, and the Cloud Armor ingress settings above.
+- Public exact-path endpoints: `/api/livez` (`{ alive }`), `/api/readyz` (`{ ready }`), `/api/release` (tag and source SHA). They skip token auth, session loading, CSRF and rate limiting; request IDs and security headers still apply. Subsystem status is admin-only at `/api/admin/healthz`. Worker `/healthz` is cluster-internal.
+- `apiHandler` returns only classified messages (Zod errors include issue paths); stack traces and internals are logged server-side only.
 - If any secret appears in a committed file, rotate it immediately.
-- Session cookies are pinned by `apps/web/src/lib/auth.server.ts` `advanced.defaultCookieAttributes` to `{ httpOnly: true, secure: NODE_ENV === "production", sameSite: "lax" }`. This is explicit rather than relying on better-auth defaults so a future library upgrade can't silently relax the posture; `sameSite: lax` is required for the top-level OAuth callback nav.
-- Rate-limit submission and plagiarism endpoints via Redis-backed `rate-limiter-flexible` (`RateLimiterRedis`). The limiter is keyed on `getClientIp(event)` so a single IP shares one counter across all SvelteKit replicas. If Redis is unreachable in production, the limiter falls back to a `failClosedLimiter` that rejects every request — never a per-instance in-memory counter (see `apps/web/src/lib/server/shared/rate-limiter.ts`).
-- A dedicated `signInRateLimiter` (5 attempts / 15 min per IP) gates `POST /api/auth/sign-in/email` and `/api/auth/sign-in/username` in `hooks.server.ts`. Temporary exam password sign-in has a separate `examSignInRateLimiter` with the same quota per normalized username and IP, so students sharing a classroom IP do not consume each other's password-attempt quota. Invalid usernames share one bounded bucket per IP. Every Auth API route, including exam sign-in and OAuth, also shares the broader 60 requests / minute per-IP authentication limit. Quotas count all attempts, including successful sign-ins, and production authentication limiting fails closed with HTTP 503 when Redis is unavailable.
-- Account linking (`account.accountLinking`) sets `disableImplicitLinking: true`: a provider identity that NOJV has never seen is never attached to an existing account because its email matches. `User.email` is the security mailbox — it carries the security-setup OTP, the super-admin recovery mail and email verification — not a login key. It is changeable (a graduate whose school mailbox is withdrawn would otherwise lose the only anchor for enrolling a first factor), but `/change-email` is gated in `hooks.before`: the new address must not belong to another account, better-auth confirms from the current mailbox before verifying the new one, and an account that already has TOTP or a passkey must unlock security settings first. `NotificationPreference.email` is freely editable by any session and must never carry any of that mail — school mailboxes are recycled to new students, so email-based auto-linking would hand the next student the previous owner's account. New providers are attached only from settings by an already-signed-in session; `trustedProviders: ["github", "google"]` and `allowDifferentEmails: true` govern that explicit path. Sign-in OAuth errors land on `/signin` via `onAPIError.errorURL`; the settings link action passes `errorCallbackURL: "/settings"` so a failed link reports itself where it was started. Both pages name `account_not_linked` and `account_already_linked_to_different_user` explicitly — a provider identity that another account already holds is a dead end until that account is deleted or unlinks it, so the generic "try again" copy must never stand in for those two.
-- **Signup-channel asymmetry (evaluated, accepted):** `emailAndPassword.disableSignUp: true` blocks self-service email/password registration, but social OAuth can still create a fresh account (better-auth's `disableSignUp` is email/password-scoped). This is acceptable because an account by itself grants no access to protected resources — course/contest/exam **enrollment** (teacher-driven, no self-join token) and resource ownership are the real authorization boundaries. A self-registered OAuth user with no enrollment sees only public surfaces. Teachers pre-provision `CourseMembership` rows by full username, with nullable `userId` and `pendingUsername`; they do not create placeholder User accounts by email. Verified school/general username flows and `linkUserCourseRoster` bind those rows to the existing User under roster identity locks. Credentials and submissions stay on that User; unlinked roster rows grant no account access. Stable membership IDs carry grades and feedback through linking and documented collision handling (see [Database](../architecture/DATABASE.md)).
-- Image uploads must validate file type (png/jpeg/gif/webp), enforce 5MB size limit, require actor/resource edit permission with a transaction-time recheck after staging, AND run `detectImageMime(buffer)` magic-number validation server-side after the body is read — the client-reported `file.type` is never trusted alone (`apps/web/src/routes/api/problems/[id]/images/+server.ts`).
-- **Request body size posture.** The global `BODY_SIZE_LIMIT` (64MB, adapter-node) exists for the legitimately-large upload routes (problem images, checker/interactor scripts, bundles) — each of which self-guards on `Content-Length` before reading and validates its payload. The one high-volume, student-facing JSON route, `POST /api/submissions`, pre-rejects bodies over `SUBMISSION_BODY_LIMIT` (2MB) on `Content-Length` (413) before parsing. The remaining JSON mutation routes call `assertJsonBodyWithinLimit(event)` (`$lib/server/shared/api-handler.ts`, default `JSON_BODY_LIMIT_BYTES` = 1MB) as their first statement, so a compromised staff token can't post a 64MB JSON bomb into them either. The upload routes (problem images, checker/interactor scripts, bundles) self-guard on their own larger `Content-Length` limits and are deliberately left off the 1MB helper. Do not lower the global cap without re-checking the largest legitimate upload (60MB bundle).
-- Sandbox containers must run with `cap-drop ALL`, `no-new-privileges`, read-only rootfs, `--network none`, and resource limits. Kubernetes pod and container security defaults are defined in `apps/worker/src/sandbox/kubernetes/pod-spec.ts`.
-- Advanced Mode images run on K8s as Jobs with `cap-drop ALL`, `allowPrivilegeEscalation: false`, read-only rootfs, pod-level `seccompProfile: RuntimeDefault`, and `runAsNonRoot: true` (uid 10001) on **both** the run and grade pods; the Docker backend pins grade to the same uid. The sandbox namespace enforces Kubernetes' `restricted` Pod Security profile, and separate service accounts give the judge worker sandbox-resource access while the platform worker receives only the optional registry-GC role. The answer-bearing grade container has **no network egress** on either backend (per-submission deny-all NetworkPolicy on K8s, `--network none` on Docker). Teacher image refs are digest-pinned and restricted to `ADVANCED_IMAGE_ALLOWED_REGISTRIES` at input, special_env authoring requires the per-user `canCreateAdvancedProblems` grant (admin-managed), and publishing requires an accepted test run with the exact configured images. The self-hosted registry uses Docker token auth: every human credential, including an admin's, can only push/pull its own `t/<username>/…` namespace; judge pods hold a pull-only account; `demo/…` is anonymous-pull; server-internal short-lived tokens perform catalog and deletion operations. See [THREAT_MODEL](THREAT_MODEL.md).
-- User-authored Markdown supports third-party HTTPS images only through `/api/images/proxy`; the sanitizer rewrites remote image sources and CSP rejects any direct remote-image bypass. The proxy DNS-pins each hop after rejecting non-public IPv4/IPv6 answers, revalidates redirects, downloads at most 5 MB with a fixed timeout, accepts only magic-byte-verified png/jpeg/gif/webp, and caches the first successful response in object storage. A cache miss is separately rate-limited and fails closed: errors never redirect the viewer to the third-party host. Existing Markdown is rewritten at render time and needs no database migration or production backfill.
-- `/docs?api=full` and `/api/openapi.internal.json` are intentionally public because the source repository and route contracts are public. They contain no credentials and do not replace server-side authentication or authorization.
-- Exam IP binding, optional page confinement, and submit cooldown are server-side enforced (contests have no proctoring). Never trust client-side checks alone.
-- Temporary exam sign-in uses an immutable `Session.examPassword` marker plus a credential-revision association, checked on every authenticated request and direct Auth API call. Missing provenance fails closed. It never grants permanent account-security mutations, API tokens or registry credentials; accounts with any active staff membership are ineligible. Password mail is sent only to verified `User.email`, and durable jobs contain identifiers rather than secrets. See [Exams](../specs/exams.md#temporary-exam-sign-in) for lifecycle and revocation.
-- Client IP in production is **only** sourced from the `CF-Connecting-IP` header. See [Client IP Trust Model](#client-ip-trust-model-cloudflare-only).
-
-## Client IP Trust Model (Cloudflare-only)
-
-Production trusts **Cloudflare as the sole ingress path**. The client IP used for all proctoring decisions (exam whitelist + binding, audit logs, session pinning) comes from the `CF-Connecting-IP` header, which the CF edge rewrites on every inbound request — any client-supplied value is discarded before the request leaves CF. Contests have no IP gating by product design.
-
-Three layers protect this trust boundary; **all three are required**, and losing any one collapses it:
-
-1. **Origin restricted to Cloudflare** — web runs in-cluster behind a GKE Ingress / load balancer, and the origin is configured to reject any request that did not arrive through Cloudflare, so direct-to-origin is impossible. Traffic must traverse the Cloudflare edge.
-2. **Cloud Armor / edge allowlist** — the Ingress backend (GCLB) carries a source-IP allowlist restricted to the official Cloudflare CIDR ranges (<https://www.cloudflare.com/ips-v4> + <https://www.cloudflare.com/ips-v6>). Anything else returns 403 at the load balancer before reaching web.
-3. **Application-level check** — `getClientIp(event)` in `apps/web/src/lib/server/shared/client-ip.ts` reads `CF-Connecting-IP`. If the header is missing in production, the request is rejected with 403. **No fallback** to `X-Forwarded-For` or the socket address — a weaker IP source is strictly worse than refusing.
-
-If Cloudflare is ever replaced or removed, update the Cloud Armor allowlist and the header name in `client-ip.ts` **together** — a drift here silently breaks either availability or the spoofing defence.
-
-Development mode (`NODE_ENV !== "production"`) uses the `x-dev-ip` header override for integration tests, falling back to `event.getClientAddress()` (socket address). This path is never taken in production.
-
-Setup steps live in [DEPLOYMENT.md — Cloudflare + Cloud Armor](DEPLOYMENT.md#cloudflare--cloud-armor-setup).
-
-## Sandbox Hardening (seccomp posture)
-
-Sandbox containers rely on **Docker's default seccomp profile**, which already blocks roughly 44 high-risk syscalls (`kexec_load`, `bpf`, `userfaultfd`, `add_key`, etc.). We deliberately **do not ship a custom seccomp profile** — language runtimes (Python, Node, JVM, Go, Rust) touch a very wide and version-dependent syscall surface, so a tight custom allowlist has high false-negative cost (legitimate programs crash on the next compiler release) for marginal incremental protection.
-
-Defence-in-depth is therefore layered on the cheap-but-strong primitives instead:
-
-- `--cap-drop ALL` — removes every Linux capability, including `CAP_SYS_ADMIN` and `CAP_NET_RAW`.
-- `--security-opt no-new-privileges` — prevents setuid/setgid binaries from regaining capabilities.
-- read-only rootfs + bounded `tmpfs` on `/tmp` (64m) and `/workspace` (128m) — no host-writable persistence path.
-- non-root UID inside the container; on Kubernetes both pod and container set `runAsNonRoot: true`.
-- `--network none` (default) — kernel-level network namespace isolation.
-- Strict CPU / memory / PID limits.
-
-If a future audit identifies a specific syscall that materially expands the attack surface, the right move is to extend the Docker default profile incrementally — not to invent a from-scratch allowlist.
-
-## Problem Post Visibility Gate
-
-Problem posts (editorials and discussions) must not be readable or
-writable inside an event that re-uses the problem, even when the
-viewer earned AC in past practice. The gate is enforced by
-`canViewPosts(userId, problemId, type, context)` in
-`packages/application/src/post/queries.ts`:
-
-- `PostViewContext` is one of `{ kind: "practice" }`,
-  `{ kind: "contest", contestId, now }`,
-  `{ kind: "assignment", assignmentId, now }`, or
-  `{ kind: "exam", examId, now }`.
-- For non-practice contexts the gate only opens once the event has
-  passed its deadline (`contest.endsAt`, `assessment.closesAt`,
-  `exam.endsAt`). The context gate applies to **both** post types and
-  is checked before any exception — discussions can leak answers just
-  as easily as editorials, and authorship does not open a live event.
-- With the context gate open, `discussion` requires only a signed-in
-  user; `editorial` additionally requires an accepted submission OR an
-  authored editorial on the problem (the "rejudge grandfather" rule —
-  see the posts spec). Admins bypass the view gate for moderation
-  (`requireProblemPostAccess` in
-  `apps/web/src/lib/server/post-access.ts`).
-
-**The client cannot supply or override the context.** Every post /
-comment / vote / report endpoint resolves it server-side via
-`resolveActiveContextForUser(userId, problemId, now)`, which scans
-every currently-running contest / assignment / exam that contains the
-problem and that the user is enrolled in, then picks the latest-ending
-one (the strictest gate). Only falls back to `practice` when no live
-event matches. This closes the bypass where a student who AC'd a
-problem in past practice could read posts via
-`GET /api/problems/<id>/posts` while a live contest re-using the
-same problem was still running. As defense in depth, the exam
-page-lock hook rejects `/api/posts/*`, `/api/comments/*`, and
-`/api/problems/[id]/posts` while the actor holds an active session on
-an exam with page lock enabled.
-
-## Plagiarism Tokenization (Multi-file)
-
-The plagiarism check feeds source code into Dolos. Multi-file
-submissions are loaded via
-`submissionDomain.getSubmissionSources(id)` (S3-backed) and
-concatenated in **sorted path order** with `// === <path> ===\n`
-boundary markers before tokenization
-(`packages/application/src/plagiarism/queries.ts`). The earlier path that
-JSON-stringified the whole file map masked semantic similarity behind
-JSON syntax tokens; the comment-marker concatenation restores
-tokenization fidelity because every Dolos-supported language treats
-`//` as a line comment and the markers are dropped by the tokenizer.
 
 ## Input Validation
 
-| Input             | Schema                    | Limits                                            |
-| ----------------- | ------------------------- | ------------------------------------------------- |
-| Source code       | `sourceCodeSchema`        | 1–50,000 chars, trimmed                           |
-| Slug              | `slugSchema`              | 3+ chars, `[a-z0-9-]+`                            |
-| Problem statement | Markdown text             | Per-field limits (statement 12k, input/output 4k) |
-| Problem images    | File upload               | png/jpeg/gif/webp, 5MB max                        |
-| Testcase input    | Text                      | Stored as `@db.Text`                              |
-| Problem post      | `postSubmitSchema`        | title 1–200 chars, content 10–50,000 chars        |
-| Post comment      | `postCommentSubmitSchema` | 1–5,000 chars, trimmed                            |
-| Content report    | `contentReportSchema`     | reason 1–1,000 chars                              |
+| Input                  | Schema                                                  | Limits                                                               |
+| ---------------------- | ------------------------------------------------------- | -------------------------------------------------------------------- |
+| Single-file submission | `submissionDraftSchema.sourceCode` (`sourceCodeSchema`) | 1–50,000 chars, not blank                                            |
+| Multi-file submission  | `submissionDraftSchema.sourceFiles`                     | ≤ 200 files, ≤ 500,000 chars each, safe relative paths; body ≤ 2 MiB |
+| Custom run cases       | `runCaseSchema`                                         | ≤ 10 cases, ≤ 200,000 chars per field, sample-only runs              |
+| Code draft             | `codeDraftSaveSchema`                                   | Same file limits as multi-file submission                            |
+| Contest id             | `slugSchema`                                            | ≥ 3 chars, `[a-z0-9]+(-[a-z0-9]+)*`                                  |
+| Problem statement      | problem schemas                                         | statement ≤ 12,000; input/output format ≤ 4,000                      |
+| Testcase file          | `MAX_TESTCASE_FILE_BYTES`                               | ≤ 10 MiB UTF-8                                                       |
+| Image upload           | multipart                                               | png/jpeg/gif/webp, ≤ 5 MB, magic bytes                               |
+| Problem post           | `postSubmitSchema`                                      | title 1–200 (trimmed), content 10–50,000                             |
+| Post comment           | `postCommentSubmitSchema`                               | 1–5,000, trimmed                                                     |
+| Content report         | `contentReportSchema`                                   | reason 1–1,000                                                       |
 
-## Dependency Advisory Posture
+## Dependency Advisories
 
-CI runs `pnpm audit --audit-level high` as a **blocking gate** — any
-high/critical advisory fails the build (currently 0).
-
-The dependency graph is pinned to patched versions through workspace overrides
-where upstream ranges lag. The workspace has no advisory suppression list, so
-`pnpm audit` reports the complete result and currently finds **zero** known
-vulnerabilities (prod + dev).
-
-**Gate decision:** keep the threshold at `high`.
-
-**Cadence:** review `pnpm audit` monthly and prune the override list as the
-upstreams (`monaco-editor`, `@sveltejs/kit`, `prisma`, `sveltekit-superforms`)
-ship the patched dependency natively.
+CI runs `pnpm audit --audit-level high` as a blocking gate alongside CodeQL (OPS-13). There is no suppression list; lagging upstream ranges are pinned to patched versions through `overrides` in `pnpm-workspace.yaml`. Review monthly and drop overrides once upstreams ship the fix.
 
 ## Review Expectations
 
-Flag for security review when:
+Flag for security review when a change:
 
-- Adding or modifying authentication or authorization logic
-- Changing sandbox isolation configuration
-- Adding new API routes that handle user input
-- Modifying contest or exam integrity features (IP binding, cooldown, page lock)
-- Changing file upload or storage logic
-- Adding new environment variables that contain secrets
+- Adds or modifies authentication, sessions, step-up or authorization logic
+- Changes sandbox isolation, sandbox RBAC, NetworkPolicy or the registry
+- Adds an API route that handles user input, or adds a route to the API token whitelist
+- Touches exam or contest integrity (IP rules, page lock, cooldown, drafts)
+- Changes upload, storage, Markdown sanitizing or the image proxy
+- Changes edge trust (Cloudflare, Cloud Armor, tunnel, ingress, service type)
+- Adds an environment variable that carries a secret
 
 ## Related Docs
 
-- [Threat Model](./THREAT_MODEL.md)
-- [Architecture Overview](../architecture/ARCHITECTURE.md)
-- [Frontend Surface](../architecture/FRONTEND.md)
-- [Reliability Invariants](./RELIABILITY.md)
+- [Threat Model](THREAT_MODEL.md)
+- [Judge Pipeline](../architecture/JUDGE_PIPELINE.md)
+- [Deployment Guide](DEPLOYMENT.md)
+- [Reliability Invariants](RELIABILITY.md)
+- [Security decisions](../decisions/security.md)

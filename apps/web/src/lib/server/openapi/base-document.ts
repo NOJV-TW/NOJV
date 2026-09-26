@@ -1,0 +1,547 @@
+import {
+  apiErrorSchema,
+  languageSchema,
+  runCaseSchema,
+  submissionDispatchResponseSchema,
+  submissionDraftSchema,
+  submissionOperationSchema,
+  submissionOperationStatusSchema,
+  submissionResultSchema,
+} from "@nojv/core";
+
+import { zodToOpenApiSchema } from "./zod-schema";
+
+export const baseOpenApiDocument = {
+  openapi: "3.1.0",
+  info: {
+    version: "0.1.0",
+    contact: {
+      name: "NOJV Maintainers",
+    },
+  },
+  paths: {
+    "/api/livez": {
+      get: {
+        tags: ["System"],
+        summary: "Check process liveness",
+        operationId: "getLiveness",
+        responses: {
+          "200": {
+            description: "The web process is alive",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/LivenessResponse",
+                },
+                example: { alive: true },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/readyz": {
+      get: {
+        tags: ["System"],
+        summary: "Check traffic readiness",
+        operationId: "getReadiness",
+        responses: {
+          "200": {
+            description: "The web process and its critical dependencies are ready",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ReadinessResponse",
+                },
+                example: { ready: true },
+              },
+            },
+          },
+          "503": {
+            description: "A web-critical dependency is unavailable",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ReadinessResponse",
+                },
+                example: { ready: false },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/release": {
+      get: {
+        tags: ["System"],
+        summary: "Get the deployed release identity",
+        operationId: "getReleaseIdentity",
+        responses: {
+          "200": {
+            description: "The version and source commit currently serving requests",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ReleaseIdentityResponse",
+                },
+                example: { version: "v1.2.3", sourceSha: "0123456789abcdef..." },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/openapi.public.json": {
+      get: {
+        tags: ["System"],
+        summary: "Get the API Token OpenAPI document",
+        operationId: "getOpenApiDocument",
+        responses: {
+          "200": {
+            description:
+              "OpenAPI document for the API routes callable with personal API tokens",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/submissions": {
+      get: {
+        tags: ["Submissions"],
+        summary: "List own submissions",
+        operationId: "listSubmissions",
+        description:
+          "Returns a cursor-paginated list of the caller's own submissions, newest first. Supports Bearer API token auth when the token has the submissions:read scope.",
+        security: [{ ApiToken: [] }],
+        parameters: [
+          {
+            name: "cursor",
+            in: "query",
+            required: false,
+            description:
+              "Submission ID to continue from, taken from nextCursor of the previous page.",
+            schema: {
+              type: "string",
+            },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Page of the caller's submissions",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/SubmissionListResponse",
+                },
+              },
+            },
+          },
+          "401": {
+            description: "Authentication required",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ErrorResponse",
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ["Submissions"],
+        summary: "Create a submission",
+        operationId: "createSubmission",
+        description:
+          "Creates a queued submission and dispatches it to the judge. Supports Bearer API token auth when the token has the submissions:write scope. Browser-session callers continue to use the existing X-Requested-With: fetch protection.",
+        security: [{ ApiToken: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/SubmissionDraft",
+              },
+              examples: {
+                practicePython: {
+                  summary: "Practice Python submission",
+                  value: {
+                    problemId: "problem_noisy-oracle-hunt",
+                    language: "python",
+                    sourceCode: "print('hello')",
+                  },
+                },
+                sampleRun: {
+                  summary: "Sample-only run with custom input",
+                  value: {
+                    problemId: "problem_noisy-oracle-hunt",
+                    language: "python",
+                    sampleOnly: true,
+                    runCases: [
+                      {
+                        input: "1 2\n",
+                        expectedOutput: "3\n",
+                      },
+                    ],
+                    sourceCode: "print(sum(map(int, input().split())))",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "202": {
+            description: "Submission queued",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/CreateSubmissionResponse",
+                },
+              },
+            },
+          },
+          "400": {
+            description: "Invalid request body",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ValidationErrorResponse",
+                },
+              },
+            },
+          },
+          "401": {
+            description: "Authentication required",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ErrorResponse",
+                },
+              },
+            },
+          },
+          "403": {
+            description: "Profile incomplete, CSRF header missing, or access denied",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ErrorResponse",
+                },
+              },
+            },
+          },
+          "429": {
+            description: "Rate limit exceeded",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ErrorResponse",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/submissions/{id}": {
+      get: {
+        tags: ["Submissions"],
+        summary: "Get submission status and result",
+        operationId: "getSubmission",
+        description:
+          "Returns the current status and judge result for a submission. Supports Bearer API token auth when the token has the submissions:read scope. Users can access their own submissions; elevated admin sessions can access all submissions, while API tokens always act with the owner's base role.",
+        security: [{ ApiToken: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Submission ID.",
+            schema: {
+              type: "string",
+            },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Submission status and judge result",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/SubmissionOperationResponse",
+                },
+              },
+            },
+          },
+          "401": {
+            description: "Authentication required",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ErrorResponse",
+                },
+              },
+            },
+          },
+          "403": {
+            description: "Access denied",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ErrorResponse",
+                },
+              },
+            },
+          },
+          "404": {
+            description: "Submission not found",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ErrorResponse",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/submissions/{id}/source": {
+      get: {
+        tags: ["Submissions"],
+        summary: "Get submission source files",
+        operationId: "getSubmissionSource",
+        description:
+          "Returns submitted source files. Supports Bearer API token auth when the token has the submissions:read scope. Users can access their own submissions; elevated admin sessions can access all submissions, while API tokens always act with the owner's base role.",
+        security: [{ ApiToken: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            description: "Submission ID.",
+            schema: {
+              type: "string",
+            },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Submission source files",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/SubmissionSourceResponse",
+                },
+              },
+            },
+          },
+          "401": {
+            description: "Authentication required",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ErrorResponse",
+                },
+              },
+            },
+          },
+          "403": {
+            description: "Access denied",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ErrorResponse",
+                },
+              },
+            },
+          },
+          "404": {
+            description: "Submission not found",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ErrorResponse",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  components: {
+    securitySchemes: {
+      ApiToken: {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "NOJV API token",
+      },
+    },
+    schemas: {
+      LivenessResponse: {
+        type: "object",
+        properties: {
+          alive: {
+            type: "boolean",
+            description: "Always true when the web process can serve HTTP requests.",
+          },
+        },
+        required: ["alive"],
+      },
+      ReadinessResponse: {
+        type: "object",
+        properties: {
+          ready: {
+            type: "boolean",
+            description:
+              "True when PostgreSQL and Redis are reachable. Temporal is observed separately by the admin health endpoint and is not on this probe's critical path.",
+          },
+        },
+        required: ["ready"],
+      },
+      ReleaseIdentityResponse: {
+        type: "object",
+        properties: {
+          version: {
+            type: "string",
+            description: "The immutable release tag serving the web process.",
+          },
+          sourceSha: {
+            type: "string",
+            description: "The lowercase source commit SHA used to build the release.",
+          },
+        },
+        required: ["version", "sourceSha"],
+      },
+      SupportedLanguage: zodToOpenApiSchema(languageSchema),
+      RunCase: zodToOpenApiSchema(runCaseSchema),
+      SourceFile: {
+        type: "object",
+        properties: {
+          path: {
+            type: "string",
+            minLength: 1,
+            maxLength: 300,
+            description: "Workspace-relative file path. NUL bytes are not allowed.",
+          },
+          content: {
+            type: "string",
+            maxLength: 500000,
+          },
+        },
+        required: ["path", "content"],
+      },
+      SubmissionDraft: zodToOpenApiSchema(submissionDraftSchema),
+      CreateSubmissionResponse: zodToOpenApiSchema(submissionDispatchResponseSchema),
+      SubmissionStatus: {
+        ...zodToOpenApiSchema(submissionOperationStatusSchema),
+        description: "Submission operation status.",
+      },
+      SubmissionVerdict: {
+        type: "string",
+        description: "Final judge verdict for a completed submission.",
+      },
+      SubmissionResult: zodToOpenApiSchema(submissionResultSchema),
+      SubmissionOperationResponse: zodToOpenApiSchema(submissionOperationSchema),
+      SubmissionListItem: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          createdAt: { type: "string", format: "date-time" },
+          language: { $ref: "#/components/schemas/SupportedLanguage" },
+          problemId: { type: "string" },
+          problemTitle: { type: "string" },
+          runtimeMs: { oneOf: [{ type: "integer" }, { type: "null" }] },
+          memoryKb: { oneOf: [{ type: "integer" }, { type: "null" }] },
+          score: { type: "integer" },
+          totalScore: { type: "integer" },
+          status: { $ref: "#/components/schemas/SubmissionStatus" },
+          context: {
+            type: "string",
+            description: "Submission context kind (e.g. practice, assignment, exam, contest).",
+          },
+        },
+        required: [
+          "id",
+          "createdAt",
+          "language",
+          "problemId",
+          "problemTitle",
+          "runtimeMs",
+          "memoryKb",
+          "score",
+          "totalScore",
+          "status",
+          "context",
+        ],
+      },
+      SubmissionListResponse: {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            items: {
+              $ref: "#/components/schemas/SubmissionListItem",
+            },
+          },
+          nextCursor: {
+            oneOf: [{ type: "string" }, { type: "null" }],
+          },
+        },
+        required: ["items", "nextCursor"],
+      },
+      SubmissionSourceFile: {
+        type: "object",
+        properties: {
+          path: {
+            type: "string",
+          },
+          content: {
+            type: "string",
+          },
+        },
+        required: ["path", "content"],
+      },
+      SubmissionSourceResponse: {
+        type: "object",
+        properties: {
+          files: {
+            type: "array",
+            items: {
+              $ref: "#/components/schemas/SubmissionSourceFile",
+            },
+          },
+          language: {
+            $ref: "#/components/schemas/SupportedLanguage",
+          },
+        },
+        required: ["files", "language"],
+      },
+      ErrorResponse: zodToOpenApiSchema(apiErrorSchema),
+      ValidationErrorResponse: {
+        type: "object",
+        properties: {
+          message: {
+            type: "string",
+          },
+          issues: {
+            type: "array",
+            items: {
+              type: "object",
+              additionalProperties: true,
+            },
+          },
+        },
+        required: ["message", "issues"],
+      },
+    },
+  },
+} as const;

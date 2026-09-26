@@ -2,7 +2,7 @@ import type { RawCaseRun } from "@nojv/core";
 import type { TestcaseFiles } from "../types.js";
 import { runProcess, classifySolutionVerdict, type RunProcessResult } from "./run-process.js";
 
-function solutionCpuSeconds(timeoutMs: number): number {
+export function solutionCpuSeconds(timeoutMs: number): number {
   return Math.ceil(timeoutMs / 1000) + 1;
 }
 

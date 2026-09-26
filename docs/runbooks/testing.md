@@ -1,192 +1,139 @@
 # Testing Strategy
 
-How tests are organized in NOJV, where new tests belong, and how to run them.
+Where a new test belongs, how to run each layer, the destructive test database
+contract, the Kubernetes suite and the judge capacity benchmark.
 
-## Test Layers
+## Key code
 
-| Layer           | Scope                                                          | Real dependencies?                         | Location                         |
-| --------------- | -------------------------------------------------------------- | ------------------------------------------ | -------------------------------- |
-| **Unit**        | One pure function, one Zod schema, one small module            | No — mock or skip                          | `tests/unit/` (repo root)        |
-| **Component**   | One or more Svelte components rendered with DOM interactions   | jsdom and focused stubs                    | `tests/component/`               |
-| **Integration** | Cross-package paths, repository + DB, Redis, Temporal test env | Yes — uses real test DB / Redis / Temporal | `tests/integration/` (repo root) |
-| **E2E**         | Full user journey through SvelteKit + worker + sandbox         | Yes — runs against a booted system         | `tests/e2e/` (Playwright)        |
+- `vitest.config.ts` (projects, coverage thresholds), `tests/e2e/playwright.config.ts`
+- `tests/setup/` (global setup, destructive-database guard, K8s target guard, test binaries)
+- `.github/workflows/ci.yml`, `.github/workflows/nightly-sandbox.yml`
+- `scripts/judge-benchmark.ts`
 
-## Decision Flow: Where Does My New Test Go?
+## Layers
 
-```
-Does a single pure module define the behavior?
-├── Yes → Unit test in tests/unit/<domain>/
-└── No
-    ├── Is this one Svelte component's rendered behavior?
-    │   └── Yes → Component test in tests/component/web/
-    ├── Does it cross package or service boundaries?
-    │   └── Yes → Integration test in tests/integration/<domain>/
-    └── Does it verify a complete journey through a running app?
-        └── Yes → Browser test in tests/e2e/
-```
+Every test lives under the repo-root `tests/` tree and ends in `.test.ts` (never `.spec.ts`, never package `__tests__/`).
 
-Rules of thumb:
+| Vitest project / runner | Glob                                                                            | Scope                                               | Dependencies                       |
+| ----------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------- | ---------------------------------- |
+| `unit`                  | `tests/unit/**`                                                                 | Pure modules, schemas, isolated server/domain logic | None                               |
+| `component`             | `tests/component/**`                                                            | Svelte component behavior in jsdom                  | None                               |
+| `integration`           | `tests/integration/**` except `judge/`, `temporal/`, `k8s/`; files run serially | HTTP routes, repositories, application flows, Redis | PostgreSQL, Redis, MinIO, Temporal |
+| `temporal-integration`  | `tests/integration/temporal/**`                                                 | Workflows against the SDK test servers              | Downloaded Temporal test binaries  |
+| `sandbox-integration`   | `tests/integration/judge/**`                                                    | Real sandbox image isolation and judging            | Docker, `nojv-sandbox:local`       |
+| `k8s-integration`       | `tests/integration/k8s/**`                                                      | Kubernetes backend                                  | Disposable k3d cluster             |
+| Playwright              | `tests/e2e/`                                                                    | User journeys through a running app                 | Built packages and all services    |
 
-- A repository function that hits Prisma → integration test (real DB).
-- An application function that does only math / parsing / Zod work → unit test in `tests/unit/application/`.
-- A Svelte component's keyboard, loading, empty, or error state → component test in `tests/component/web/`.
-- A SvelteKit action or `+page.server.ts` loader → integration test (it touches the auth + DB stack).
-- A new UI flow that the user sees → E2E.
+Choosing a layer:
 
-## File Naming
+- Pure math, parsing or Zod logic (including in `@nojv/application`) → `tests/unit/<domain>/`.
+- One component's keyboard, loading, empty or error state → `tests/component/web/`.
+- Anything touching Prisma, a SvelteKit action or loader, or an HTTP route → integration, against the real database (never mock it; ENG-04 for the HTTP harness).
+- A user-visible flow → E2E.
+- Unit tests never need PostgreSQL, Redis or Temporal.
 
-- Always `.test.ts`. Never `.spec.ts` — the repo has zero `.spec.ts` files and we keep it that way.
-- All tests live under the repo-root `tests/` tree: `tests/unit/`, `tests/integration/`, and `tests/e2e/`. The Vitest projects are wired to those exact globs in `vitest.config.ts`.
+Coverage thresholds for `packages/{application,core}` and `apps/{worker,sandbox-runner}` are in `vitest.config.ts`. Every application mutation needs a unit test of its pure logic; every API route or form action that touches the database needs an integration test for the golden path and a likely failure.
 
 ## Commands
 
 ```bash
-pnpm test:unit          # Vitest unit tests across all packages and apps
-pnpm test:db:provision  # Create and safety-mark the two destructive test databases
-pnpm test:integration   # Vitest integration tests (needs explicit test DB guard variables)
-pnpm test:e2e           # Full local Playwright suite on port 5174; CI runs a core browser smoke
-pnpm ci:verify          # Fast local gate — no PG/Redis needed (see below for what it does NOT cover)
+pnpm test:unit                # unit project
+pnpm test:component           # component project
+pnpm test:db:provision        # create and mark nojv_test and nojv_e2e_test
+pnpm test:integration         # integration + temporal-integration + sandbox-integration
+pnpm test:integration:temporal
+pnpm test:integration:sandbox
+pnpm test:integration:k8s     # k8s-integration (guarded)
+pnpm test:e2e                 # full Playwright suite
+pnpm test:all                 # unit, component, integration, e2e
+pnpm ci:verify                # local gate without services
 ```
 
-`ci:verify` runs formatting, repository guards, package builds, package and test typechecks, lint (including migration-structure guards), unit tests, and component tests. It does not start PostgreSQL or Redis, run integration tests or Playwright, execute the database migration-to-schema comparison, regenerate the Prisma reference, or render Helm charts. CI runs database migration/schema and generated-doc checks, a covered integration suite, Temporal integration, Helm validation, and a core Playwright browser smoke. The Kubernetes integration suite and full `pnpm test:e2e` remain separate checks. A green local `ci:verify` proves only that command's scope; check the current PR CI for the full CI result.
+`ci:verify` runs Prettier, the repository guards (`lint:repo`), package builds, typechecks, ESLint, test typechecks, unit and component tests. It starts no database and runs no integration, Playwright, migration-to-schema comparison, schema-doc generation or Helm rendering.
 
-Turbo task wiring lives in `turbo.json`. `test:unit` does not depend on `build` — unit tests should run fast and in isolation.
+CI (`ci.yml`) additionally runs `pnpm lint:helm`, integration tests with the coverage gate, Temporal integration and a core Playwright browser smoke. The scheduled sandbox workflow (`nightly-sandbox.yml`, weekly) runs the sandbox isolation suite and the K8s suite on a k3d cluster. A green `ci:verify` proves only its own scope.
 
-## Setup Prerequisites
+## Service prerequisites
 
-- **Unit**: none. `pnpm install` is enough.
-- **Integration**: a running PostgreSQL, Redis, and Temporal, plus the explicitly provisioned `nojv_test` database. Workflow tests start the SDK's own Temporal dev and time-skipping servers, whose binaries are downloaded on first use and cached in `$TMPDIR` for a day; CI downloads them in a separate step with retries (`scripts/download-temporal-test-servers.sh`) so a slow download never times out a test hook.
-- **E2E**: run `pnpm build` first (`tests/tsconfig.e2e.json` resolves built workspace packages at runtime; test typechecking uses source aliases), then start the same services, plus the explicitly provisioned `nojv_e2e_test` database. Playwright starts its own strict-port web server on `127.0.0.1:5174`; do not start one manually.
+- **Integration**: PostgreSQL, Redis, MinIO and Temporal from Compose, plus `nojv_test`. Temporal test servers download on first use and are cached in `$TMPDIR` for a day; CI pre-downloads them with `scripts/download-temporal-test-servers.sh`.
+- **E2E**: run `pnpm build` first (`tests/tsconfig.e2e.json` resolves built `dist/` packages), the same services, and `nojv_e2e_test`. Playwright starts its own strict-port dev server at `http://localhost:5174`; do not start one. It runs one worker because tests share one destructive database; do not pass `--workers`.
 
-E2E tests intentionally run with one Playwright worker because they share the single destructive database and some lifecycle cases mutate seeded rows. Do not override this with `--workers`.
+## Destructive test databases
 
-Global Vitest setup (test users, seeded DB state) is in `tests/setup/`.
+1. Start dependencies and provision:
 
-### Provision destructive test databases
+   ```bash
+   docker compose up -d postgres redis minio minio-init temporal
+   pnpm test:db:provision
+   ```
 
-Start the local dependencies and explicitly create both allowlisted databases with their safety markers:
+   This creates only `nojv_test` and `nojv_e2e_test` and sets the comments `NOJV_TEST_DATABASE:nojv_test` / `NOJV_TEST_DATABASE:nojv_e2e_test`. The validator never creates or repairs markers.
 
-```bash
-docker compose up -d postgres redis minio minio-init temporal
-pnpm test:db:provision
-```
+2. Integration:
 
-`test:db:provision` creates only `nojv_test` and `nojv_e2e_test`, then assigns the exact database comments `NOJV_TEST_DATABASE:nojv_test` and `NOJV_TEST_DATABASE:nojv_e2e_test`. The test safety validator never creates or repairs those markers. A missing or incorrect marker is a hard failure.
+   ```bash
+   BETTER_AUTH_SECRET="$(openssl rand -hex 32)" \
+   TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/nojv_test \
+   NOJV_DESTRUCTIVE_TEST_DATABASE=nojv_test \
+   REDIS_URL=redis://127.0.0.1:6379 \
+   TEMPORAL_ADDRESS=127.0.0.1:7233 \
+   S3_ENDPOINT=http://127.0.0.1:9000 S3_ACCESS_KEY=minioadmin S3_SECRET_KEY=minioadmin \
+   S3_BUCKET=nojv S3_REGION=us-east-1 \
+   MAILER_MODE=sink APP_BASE_URL=http://localhost:5173 \
+   pnpm test:integration
+   ```
 
-Run integration tests with the integration database named in both required variables:
+3. E2E:
 
-```bash
-BETTER_AUTH_SECRET="$(openssl rand -hex 32)" \
-TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/nojv_test \
-NOJV_DESTRUCTIVE_TEST_DATABASE=nojv_test \
-REDIS_URL=redis://127.0.0.1:6379 \
-TEMPORAL_ADDRESS=127.0.0.1:7233 \
-S3_ENDPOINT=http://127.0.0.1:9000 S3_ACCESS_KEY=minioadmin S3_SECRET_KEY=minioadmin \
-S3_BUCKET=nojv S3_REGION=us-east-1 \
-MAILER_MODE=sink APP_BASE_URL=http://localhost:5173 \
-pnpm test:integration
-```
+   ```bash
+   BETTER_AUTH_SECRET="$(openssl rand -hex 32)" \
+   TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/nojv_e2e_test \
+   NOJV_DESTRUCTIVE_TEST_DATABASE=nojv_e2e_test \
+   pnpm test:e2e
+   ```
 
-Exam credential tests encrypt secrets with `BETTER_AUTH_SECRET`; use a
-test-only value of at least 32 characters and never reuse a production secret.
-The command generates one with `openssl`. Sink mode requires every `SMTP_*`
-key to be absent, including empty values. The integration suite loads `.env`;
-keep its service configuration aligned with `.env.example` and remove any
-`SMTP_*` keys when using sink mode. Notification transactions validate mailer
-configuration when creating delivery work, even when the test does not send
-email.
+Contract:
 
-Run Playwright against the separate E2E database:
+- `TEST_DATABASE_URL` is the only destructive URL; `DATABASE_URL` is ignored.
+- The URL must use `postgresql:`, host `127.0.0.1` or `::1`, the exact allowlisted database, and no query or fragment.
+- The live connection must report the expected database name, a real server IP and port, and the exact comment marker; setup prints them as proof.
+- Every `TRUNCATE` revalidates that identity in the same transaction.
+- `BETTER_AUTH_SECRET` must be a test-only value of at least 32 characters (exam credential encryption).
+- The integration suite loads `.env`; sink mode requires every `SMTP_*` key absent, and notification transactions validate mailer config even when no email is sent.
 
-```bash
-BETTER_AUTH_SECRET="$(openssl rand -hex 32)" \
-TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/nojv_e2e_test \
-NOJV_DESTRUCTIVE_TEST_DATABASE=nojv_e2e_test \
-pnpm test:e2e
-```
+## Kubernetes and gVisor suite
 
-The destructive-test contract is deliberately strict:
+- Guards: `REQUIRE_K8S=1`, context `k3d-nojv-judge`, a loopback API endpoint, `K8S_TEST_RUN_ID` (DNS-safe) and namespace `nojv-sandbox-test-${K8S_TEST_RUN_ID}`. Use an isolated kubeconfig; never repoint the guards at another cluster.
+- `NOJV_TEST_SANDBOX_IMAGE` selects a locally built candidate image (default `nojv-sandbox:local`).
+- Calico, image import and Helm policy setup follow `nightly-sandbox.yml`. Keep the k3s `--cluster-cidr` identical to the Calico IP pool (default `192.168.0.0/16`); a mismatch makes kube-proxy SNAT cross-node Service traffic and breaks source-pod ingress policy even when Pod-IP traffic works.
+- gVisor evidence: install real gVisor on the disposable node ([install](https://gvisor.dev/docs/user_guide/install/), [containerd](https://gvisor.dev/docs/user_guide/containerd/quick_start/)), create RuntimeClass `gvisor` with handler `runsc`, confirm a probe container's `dmesg` reports gVisor, and run with `NOJV_TEST_RUNTIME_CLASS=gvisor`. Without it the suite uses the default runtime.
+- Before deleting the cluster, inspect CRI tasks, processes and cgroups; API-object cleanup alone is not proof.
 
-- `TEST_DATABASE_URL` is the sole source of the destructive database URL; `DATABASE_URL` is ignored.
-- The URL must use `postgresql:`, literal host `127.0.0.1` or `::1`, the exact allowlisted database path, and no query string or fragment.
-- The live connection must report the expected database name, a real server IP and port, and the exact database comment marker.
-- Every `TRUNCATE` revalidates that live identity inside the same transaction before deleting data.
-- Successful setup prints the validated database, server address, port, and marker as proof.
+## Judge capacity benchmark
 
-## What NOT to Do
+`scripts/judge-benchmark.ts` compares a baseline release with a candidate through the public submission POST and result GET APIs. It never creates accounts, edits problems, clears caches or changes cluster configuration; tokens come from env vars and are never written out, nor are response bodies or source.
 
-- Don't mock the database for integration tests. Use the real test DB. We've been burned before — see `MEMORY.md` history on mocked-migration drift.
-- Don't co-locate tests next to the code in a package `__tests__/` folder. Every test lives under the repo-root `tests/` tree; the Vitest globs won't pick up anything outside it.
-- Don't put DB/Redis/Temporal-dependent tests under `tests/unit/`. `test:unit` must stay fast — those belong in `tests/integration/`.
+### Manifest
 
-## Coverage Targets
+A private JSON file matching the exported `manifestSchema`:
 
-Vitest enforces coverage thresholds for `packages/application`, `packages/core`, `apps/worker`, and `apps/sandbox-runner`; see `coverage.thresholds` in [`vitest.config.ts`](../../vitest.config.ts) for the exact values. Beyond the thresholds, every application mutation needs a unit test for its pure logic, and every API/form action that touches the database needs an integration test for its golden path plus a likely failure case.
+| Field                                              | Requirement                                                                                                 |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `schemaVersion`                                    | `1`                                                                                                         |
+| `target`, `targetKind`                             | HTTP(S) origin; `isolated-test` or `shared-server`                                                          |
+| `sandboxImageDigest`                               | Immutable `sha256:…` digest used by both versions                                                           |
+| `backgroundServicesSha256`, `machineProfileSha256` | SHA-256 of the saved background-service configuration and node hardware/topology inventory                  |
+| `dedicatedTestAccounts`                            | `true`, after verifying the accounts are dedicated test users                                               |
+| `accounts`                                         | Exactly 100 distinct `{ userId, tokenEnv }`; each token must belong to that user                            |
+| `fixtures`                                         | Exactly six: `short`, `cpu-heavy`, `memory-heavy`, each with 20 and 100 testcases                           |
+| Each fixture                                       | Unique `id`, `workload`, `cases`, `datasetSha256`, `expectedVerdict`, and a normal submission API `payload` |
+| `maintenance`                                      | Remote or shared targets: `approvalReference`, ISO UTC `startsAt`/`endsAt`, `realJudgeDrained: true`        |
 
-## Local Kubernetes and gVisor
+Payloads use the submission schema (`problemId`, `language`, `context`, `sourceCode`/`sourceFiles`). Pin testcases and hash their canonical export, including limits and checker config; no sample-only or reference-solution submissions. Inventory hashes attest to saved operator evidence; the tool cannot verify cluster configuration.
 
-The K8s suite requires `REQUIRE_K8S=1`, context `k3d-nojv-judge`, a loopback
-API endpoint, and namespace `nojv-sandbox-test-${K8S_TEST_RUN_ID}`. Use an
-isolated kubeconfig and cluster; do not repoint these guards at another cluster.
-The nightly sandbox workflow contains the Calico, image-import and Helm policy
-setup. `NOJV_TEST_SANDBOX_IMAGE` selects the locally built candidate image without
-overwriting a shared image tag.
+Remote targets require HTTPS and a maintenance window covering the whole arrival schedule plus completion timeout; `shared-server` needs it even through a loopback tunnel. Stop real judge dispatch, drain real work, confirm no exam is running and use dedicated accounts before recording approval. Never label a production tunnel `isolated-test`. Verify account/token identity when provisioning test accounts.
 
-Keep K3s `--cluster-cidr` identical to the Calico IP pool. The nightly recipe
-uses Calico's default `192.168.0.0/16`; choose another non-overlapping CIDR for
-local networks only by setting both. A mismatch can make kube-proxy SNAT
-cross-node Service traffic, breaking a service's source-pod ingress policy even
-when direct Pod IP traffic succeeds. Verify both paths without relaxing policy.
-
-For gVisor-backed Kubernetes runs, install real gVisor on the disposable node
-following the [installation guide](https://gvisor.dev/docs/user_guide/install/)
-and [containerd setup](https://gvisor.dev/docs/user_guide/containerd/quick_start/),
-create RuntimeClass `gvisor` with handler `runsc`, verify a probe container's
-`dmesg` reports gVisor, and pass `NOJV_TEST_RUNTIME_CLASS=gvisor` to
-`pnpm test:integration:k8s`. Without the runtime selector the suite uses the
-default runtime and is not gVisor evidence. Inspect the node's CRI tasks,
-processes and cgroups before deleting the test cluster: API-object cleanup alone
-is insufficient.
-
-## Judge Capacity Benchmark
-
-Use [`scripts/judge-benchmark.ts`](../../scripts/judge-benchmark.ts) to record the
-existing release before changing its execution policy, then repeat against the
-candidate. The collector uses the existing submission POST and result GET APIs;
-it never creates accounts, modifies problems, clears caches, or changes cluster
-configuration. API tokens are read from environment variables and are excluded
-from output. Submission response bodies and student source are not logged.
-
-Prepare a private JSON manifest matching the exported `manifestSchema`:
-
-| Field                                              | Required value                                                                                                        |
-| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `schemaVersion`                                    | `1`                                                                                                                   |
-| `target`, `targetKind`                             | HTTP(S) origin; `isolated-test` or `shared-server`                                                                    |
-| `sandboxImageDigest`                               | Actual immutable `sha256:…` digest used by both versions                                                              |
-| `backgroundServicesSha256`, `machineProfileSha256` | SHA-256 of saved background-service configuration and node hardware/topology inventory                                |
-| `dedicatedTestAccounts`                            | `true`, after verifying the accounts are dedicated test users                                                         |
-| `accounts`                                         | Exactly 100 distinct `{ userId, tokenEnv }` entries; each token must belong to that user                              |
-| `fixtures`                                         | Exactly six fixtures: `short`, `cpu-heavy`, `memory-heavy`, each with 20 and 100 testcases                            |
-| Each fixture                                       | Unique `id`, `workload`, `cases`, `datasetSha256`, `expectedVerdict`, and a normal full-submission API `payload`      |
-| `maintenance`                                      | For remote or shared targets: approved `approvalReference`, ISO UTC `startsAt`/`endsAt`, and `realJudgeDrained: true` |
-
-Fixture payloads use the existing submission schema (`problemId`, `language`,
-`context`, `sourceCode`/`sourceFiles`). Pin the problem testcases and hash their
-canonical exported data, including limits and checker configuration. Do not use
-sample-only runs or reference-solution submissions. The collector additionally
-hashes the source payload, expected verdict, dataset digest, sandbox image,
-background services and machine profile to detect comparison drift. These
-inventory hashes attest to saved operator evidence; the tool does not discover
-or verify Kubernetes configuration through the public submission API.
-
-Remote targets require HTTPS and a recorded maintenance window long enough for
-the entire arrival schedule plus completion timeout. `shared-server` also
-requires this window through a loopback tunnel. Stop real judge dispatch, drain
-real workloads, confirm no exam is running, and use dedicated accounts/data
-before recording that authorization. Do not describe a production tunnel as an
-isolated test target. Account IDs and token identities must be verified during
-test-account provisioning; distinct tokens alone do not prove distinct users.
+### Collect
 
 ```bash
 node --import tsx scripts/judge-benchmark.ts --help
@@ -197,44 +144,22 @@ node --import tsx scripts/judge-benchmark.ts \
   --cache-evidence maintenance-record/warm-1 --output /private/burst-warm-1.json
 ```
 
-Run one trial at a time. Each fixture needs `single` (one submission), `steady`
-(100 distinct students over ten minutes), and `burst` (100 distinct students
-over 60 seconds), separately `cold` and `warm`, with repetitions 1–3: **108
-trials per version**. Prepare and record the cache state before each trial;
-`--cache` labels the evidence and does not reset images or operating-system
-caches. Keep the warmup procedure, polling cadence, background service workload,
-and web/DB probes identical. Wait for cleanup and a quiet judge queue between
-trials. The completion timeout defaults to 1,800 seconds per submission and can
-be set with `--timeout-seconds` (at most 7,200). Requests are never automatically
-resubmitted after an ambiguous transport failure. Reconcile any accepted
-submission and its resources before rerunning a failed trial.
+1. Run one trial at a time: each fixture × `single` (one submission), `steady` (100 students over 10 minutes), `burst` (100 students over 60s) × `cold`/`warm` × repetitions 1–3 = **108 trials per version**.
+2. Prepare and record cache state before each trial; `--cache` only labels it. Keep warmup, polling cadence, background workload and web/DB probes identical.
+3. Wait for cleanup and a quiet judge queue between trials. `--timeout-seconds` defaults to 1800 (max 7200). Ambiguous transport failures are never resubmitted; reconcile any accepted submission and its resources before rerunning.
 
-The result file uses `trialSchema`. HTTP completion is observed by polling once
-per second, so end-to-end measurements include that observation delay. The tool
-records request latency separately as `httpLatencyMs`; this is not a substitute
-for the fixed web API probe workload. It deliberately leaves the following
-fields incomplete until joined to saved worker/Prometheus/runtime evidence:
+Results use `trialSchema`. Completion is polled once per second (included in end-to-end time); `httpLatencyMs` is request latency, not a substitute for the web probe workload.
 
-- Per submission: `queueMs` (Temporal queue plus admission wait) and
-  `cpuSeconds` (sum of actual judge CPU usage, not maximum testcase wall time).
-- `telemetry`: `evidenceReference`, `cleanupCompletedAt` (Unix epoch milliseconds),
-  `webLatencyMs`, `dbLatencyMs`, `oomCount`,
-  `runtimeLeakCount`, `starvationCount`, `falseQueueFailureCount`, and
-  `verdictFixturesPassed`. Latencies are raw millisecond samples; counters cover
-  the entire trial through cleanup. The verdict assertion refers to the full
-  supported-language/mode correctness suite, not only these performance inputs.
+### Enrich
 
-Drain time ends at the later of the last observed verdict and verified runtime
-cleanup. It remains unavailable until cleanup evidence has been supplied.
+Join each trial copy by submission ID with saved worker, Prometheus and runtime evidence to fill:
 
-Join by submission ID using a copy of each immutable raw trial. Preserve the
-source metric exports, collector clocks, runtime process/cgroup inventory,
-queue fairness evidence, and correctness-suite results at `evidenceReference`.
-Do not infer zero leaks from deleted Kubernetes API objects, zero OOM from free
-host memory, queue duration from first polling status, or CPU seconds from the
-submission's maximum testcase runtime. Missing evidence must remain null.
+- Per submission: `queueMs` (Temporal queue plus admission wait) and `cpuSeconds` (sum of actual judge CPU).
+- `telemetry`: `evidenceReference`, `cleanupCompletedAt` (epoch ms), `webLatencyMs`, `dbLatencyMs`, `oomCount`, `runtimeLeakCount`, `starvationCount`, `falseQueueFailureCount`, `verdictFixturesPassed` (full language/mode correctness suite). Counters cover the trial through cleanup.
 
-Combine enriched trial objects into baseline and candidate JSON arrays, then:
+Drain time ends at the later of the last verdict and verified cleanup. Preserve metric exports, collector clocks, process/cgroup inventory, fairness evidence and correctness results at `evidenceReference`. Never infer zero leaks from deleted API objects, zero OOM from free memory, queue time from the first poll, or CPU seconds from maximum testcase runtime; missing evidence stays null.
+
+### Compare
 
 ```bash
 node --import tsx scripts/judge-benchmark.ts \
@@ -242,22 +167,6 @@ node --import tsx scripts/judge-benchmark.ts \
   --output /private/comparison.json
 ```
 
-Exit status 0 requires all 108 unique trials on each side, matching fixed inputs,
-complete measurements, expected verdicts, zero recorded safety failures, at
-least 20% median burst drain improvement for **each** fixture/cache combination,
-and no greater than 10% single-submission or web API p95 regression. Missing
-trials, rejected arrivals, incomplete telemetry or failed gates return status 1.
-Reports include drain time, throughput, queue/end-to-end p50/p95/p99, CPU seconds
-per submission, and web/DB latency distributions. Output files are created with
-mode 0600 and existing files are never overwritten.
+Exit 0 requires 108 unique trials per side, matching fixed inputs, complete measurements, expected verdicts, zero safety failures, at least 20% median burst drain improvement for every fixture/cache pair, and at most 10% regression in single-submission and web API p95. Anything else exits 1. Reports cover drain time, throughput, queue and end-to-end p50/p95/p99, CPU seconds per submission, and web/DB latency. Output files are mode 0600 and never overwrite.
 
-This comparison is a performance gate, not deployment authorization. Retain
-verified cleanup/measurement fixes if the resource-strategy gate fails. Validate
-multi-node admission and failure behavior separately; two virtual nodes on one
-physical host do not demonstrate additional physical throughput.
-
-## Related Docs
-
-- [Reliability Invariants](../operations/RELIABILITY.md) — what must never break
-- [Quality Ledger](../operations/QUALITY_SCORE.md) — known tech debt
-- [Getting Started](getting-started.md) — first-time local dev setup
+Passing is a performance gate, not deployment approval. Keep verified cleanup and measurement fixes even if the resource-strategy gate fails. Validate multi-node admission and failure behavior separately; two virtual nodes on one host do not show extra physical throughput.

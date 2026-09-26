@@ -22,18 +22,14 @@ vi.mock("../../../apps/worker/src/sandbox/docker/network", () => ({
 
 vi.mock("../../../apps/worker/src/sandbox/docker/process", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../apps/worker/src/sandbox/docker/process")>()),
+  collectContainerLogs: mocks.collectServiceLogs,
+  forceRemoveContainer: mocks.stopServiceContainer,
   spawnDockerContainer: mocks.spawnDockerContainer,
 }));
 
 vi.mock("../../../apps/worker/src/sandbox/docker/service-container", () => ({
-  ADVANCED_SERVICE_PORT: 8888,
-  SERVICE_HOST_ENV: "NOJV_SERVICE_HOST",
-  SERVICE_NETWORK_ALIAS: "service",
-  buildServiceEnv: () => ({ NOJV_SERVICE_HOST: "service:8888" }),
-  collectServiceLogs: mocks.collectServiceLogs,
   serviceContainerName: (runId: string) => `nojv-service-${runId}`,
   startServiceContainer: mocks.startServiceContainer,
-  stopServiceContainer: mocks.stopServiceContainer,
 }));
 
 import { AdvancedModeExecutor } from "../../../apps/worker/src/sandbox/docker/advanced-mode-executor";

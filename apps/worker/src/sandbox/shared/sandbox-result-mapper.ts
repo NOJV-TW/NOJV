@@ -1,10 +1,13 @@
-import type {
-  AdvancedResult,
-  SandboxRequest,
-  SandboxResult,
-  SandboxTestcaseResult,
-  SandboxVerdict,
+import {
+  advancedResultSchema,
+  validateAdvancedResultForMaxScore,
+  type AdvancedResult,
+  type SandboxResult,
+  type SandboxTestcaseResult,
+  type SandboxVerdict,
 } from "@nojv/core";
+
+import { sandboxSystemError } from "./sandbox-plan";
 
 export const ADVANCED_VERDICT_TO_SANDBOX: Record<AdvancedResult["verdict"], SandboxVerdict> = {
   accepted: "AC",
@@ -15,29 +18,7 @@ export const ADVANCED_VERDICT_TO_SANDBOX: Record<AdvancedResult["verdict"], Sand
   compile_error: "RE",
 };
 
-export function advancedFallbackResult(
-  _request: SandboxRequest,
-  message: string,
-): SandboxResult {
-  return {
-    testcaseResults: [
-      {
-        index: 0,
-        verdict: "SE",
-        stdout: "",
-        stderr: message,
-        exitCode: -1,
-        timeMs: 0,
-        feedback: message,
-      },
-    ],
-  };
-}
-
-export function mapAdvancedResult(
-  _request: SandboxRequest,
-  result: AdvancedResult,
-): SandboxResult {
+export function mapAdvancedResult(result: AdvancedResult): SandboxResult {
   if (result.verdict === "compile_error") {
     return {
       testcaseResults: [],
@@ -74,4 +55,18 @@ export function mapAdvancedResult(
     overallVerdict: ADVANCED_VERDICT_TO_SANDBOX[result.verdict],
     ...(result.feedback ? { scoringFeedback: result.feedback } : {}),
   };
+}
+
+export function resolveAdvancedResult(raw: unknown, maxScore: number): SandboxResult {
+  const parsed = advancedResultSchema.safeParse(raw);
+  if (!parsed.success) {
+    return sandboxSystemError(
+      `Invalid result.json: ${parsed.error.issues.map((i) => i.message).join(", ")}`,
+    );
+  }
+  const resultIssues = validateAdvancedResultForMaxScore(parsed.data, maxScore);
+  if (resultIssues.length > 0) {
+    return sandboxSystemError(`Invalid result.json: ${resultIssues.join(", ")}`);
+  }
+  return mapAdvancedResult(parsed.data);
 }

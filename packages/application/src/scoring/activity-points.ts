@@ -29,7 +29,7 @@ export function averageActivityScores(scores: number[]): number {
     .toNumber();
 }
 
-export function activityTotalPoints(problems: readonly { points: number }[]): Prisma.Decimal {
+function activityTotalPoints(problems: readonly { points: number }[]): Prisma.Decimal {
   return problems.reduce((sum, p) => sum.add(p.points), new Prisma.Decimal(0));
 }
 

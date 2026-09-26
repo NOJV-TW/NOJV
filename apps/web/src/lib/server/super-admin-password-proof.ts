@@ -4,7 +4,6 @@ import {
   consumeSuperAdminPasswordProofTicket,
   createSuperAdminPasswordProofTicket,
   deleteSuperAdminPasswordProofTicket,
-  isSuperAdminPasswordProofSessionValid,
   readSuperAdminPasswordProofTicket,
   type SuperAdminPasswordProof,
 } from "@nojv/application";
@@ -13,8 +12,6 @@ import { getWebEnv } from "$lib/server/env";
 
 export const SUPER_ADMIN_PASSWORD_PROOF_COOKIE = "nojv.super_admin_password";
 const PASSWORD_PROOF_TTL_SECONDS = 600;
-
-export { isSuperAdminPasswordProofSessionValid, type SuperAdminPasswordProof };
 
 function cookieOptions() {
   return {

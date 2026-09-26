@@ -6,8 +6,12 @@ import { problemWorkspaceFileSchema, type SandboxRequest } from "@nojv/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { readTestcase } from "../../../apps/sandbox-runner/src/testcase-files";
-import { buildTestcaseConfigMapData } from "../../../apps/worker/src/sandbox/kubernetes/configmaps";
-import { writeSubmissionFiles } from "../../../apps/worker/src/sandbox/docker/standard-mode-executor";
+import { writePayloadDir } from "../../../apps/worker/src/sandbox/docker/payload-dir";
+import { buildRunPayload } from "../../../apps/worker/src/sandbox/shared/stage-payload";
+
+function writeSubmissionFiles(tempDir: string, request: SandboxRequest): Promise<void> {
+  return writePayloadDir(tempDir, buildRunPayload(request, 1));
+}
 
 function exists(path: string): Promise<boolean> {
   return access(path).then(
@@ -33,7 +37,7 @@ function makeRequest(judgeType: SandboxRequest["judgeType"]): SandboxRequest {
   };
 }
 
-describe("writeSubmissionFiles expected-output gating", () => {
+describe("run payload expected-output gating", () => {
   let tempDir: string;
 
   beforeEach(async () => {
@@ -59,7 +63,9 @@ describe("writeSubmissionFiles expected-output gating", () => {
       }),
     );
     const request = { ...makeRequest("standard"), sourceFiles: sources };
-    const sourceMap = await writeSubmissionFiles(tempDir, request);
+    await writeSubmissionFiles(tempDir, request);
+    const sourceMap = JSON.parse(await readFile(join(tempDir, "config.json"), "utf8"))
+      .sourceFileMap as { path: string; key: string }[];
     for (const source of sources) {
       const key = sourceMap.find((entry) => entry.path === source.path)!.key;
       expect(await readFile(join(tempDir, key), "utf8")).toBe(source.content);
@@ -74,7 +80,11 @@ describe("writeSubmissionFiles expected-output gating", () => {
     "%s payload is read one testcase at a time",
     async (backend) => {
       const request = makeRequest("standard");
-      const flatData = buildTestcaseConfigMapData(request);
+      const flatData = Object.fromEntries(
+        Object.entries(buildRunPayload(request, 1)).filter(([key]) =>
+          key.startsWith("testcase-"),
+        ),
+      );
       if (backend === "docker") await writeSubmissionFiles(tempDir, request);
       else
         await Promise.all(

@@ -1,6 +1,5 @@
 {{/*
-Web Deployment — ported from infra/gcp/web.cloudrun.yaml. Web now runs IN GKE
-(not Cloud Run), fronted by Cloudflare. Secrets come from the runtime secret
+Web Deployment, fronted by Cloudflare. Secrets come from the runtime secret
 (never templated here).
 */}}
 {{- $releaseMaintenance := and .Release.IsUpgrade .Values.migrator.enabled .Values.migrator.releaseWindow -}}
@@ -41,11 +40,16 @@ spec:
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- include "nojv.topologySpread" "nojv-web" | nindent 6 }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 1001
         seccompProfile:
           type: RuntimeDefault
+      {{- if .Values.cloudsqlProxy.enabled }}
+      initContainers:
+        {{- include "nojv.cloudsqlProxySidecar" . | nindent 8 }}
+      {{- end }}
       containers:
         - name: web
           image: {{ include "nojv.image" (dict "root" . "component" "web") }}
@@ -252,33 +256,6 @@ spec:
                 command: ["sleep", "10"]
           resources:
             {{- toYaml .Values.web.resources | nindent 12 }}
-        {{- if .Values.cloudsqlProxy.enabled }}
-        - name: cloudsql-proxy
-          image: {{ .Values.postgres.cloudsql.proxyImage }}
-          securityContext:
-            runAsNonRoot: true
-            runAsUser: 65532
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop: ["ALL"]
-          args:
-            - --address=127.0.0.1
-            - --port=5432
-            - --private-ip
-            - --structured-logs
-            - $(CLOUDSQL_INSTANCE_CONNECTION_NAME)
-          env:
-            - name: CLOUDSQL_INSTANCE_CONNECTION_NAME
-              value: {{ .Values.postgres.cloudsql.instanceConnectionName | quote }}
-          resources:
-            requests:
-              cpu: 50m
-              memory: 64Mi
-            limits:
-              cpu: 200m
-              memory: 128Mi
-        {{- end }}
       volumes:
         - name: tmp
           emptyDir:

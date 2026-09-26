@@ -1,247 +1,209 @@
 # Reliability Invariants
 
-## Service Level Objectives
+What must stay true when parts of NOJV fail: SLOs, the durable source of truth,
+per-dependency failure behavior, operational invariants, and health checks.
+Procedures live in the runbooks: [Incident Recovery](../runbooks/incident-recovery.md),
+[Backup & Restore](../runbooks/backup-restore.md), [Observability Setup](../runbooks/observability-setup.md),
+[Judge Queue](../runbooks/judge-queue.md).
 
-Live SLO dashboards are at <https://takalawang.grafana.net> (see [Observability Setup Runbook](../runbooks/observability-setup.md) for access). Each row's Notes column links to the relevant dashboard.
+## Key code
 
-Every SLO is stated as an end-to-end user-visible metric (not a component internal), so a regression in any tier (app / Temporal / sandbox / DB) shows up in the same table.
+- `apps/web/src/routes/api/{livez,readyz,release}/+server.ts`, `apps/web/src/routes/api/admin/healthz/+server.ts`, `apps/web/src/lib/server/health-probes.ts`
+- `apps/worker/src/health-server.ts`, `apps/worker/src/server-lifecycle.ts`, `apps/worker/src/worker-app.ts`
+- `apps/web/src/lib/server/otel.ts`, `apps/worker/src/otel.ts`, `apps/web/src/lib/server/metrics.ts`, `apps/worker/src/judge-recovery-metrics.ts`
+- `packages/application/src/submission/judge-recovery.ts`, `packages/temporal/src/dispatch.ts`, `packages/temporal/src/lifecycle-reconciliation.ts`
+- `infra/grafana/alerts/slo-alerts.json`, `infra/grafana/dashboards/`
 
-> The targets below are **provisional, conservative heuristics** — they alert
-> (they don't cap functionality), and they are deliberately lenient so they
-> only fire on genuine regressions. Validate and tighten them against measured
-> p95/p99 distributions once the platform carries sustained production traffic.
+## Service level objectives
 
-| SLO                                                         | Target      | Window              | Notes                                                                                                                                                                             |
-| ----------------------------------------------------------- | ----------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Judge latency (simple problem, ≤ 20 testcases)              | p95 < 15s   | Rolling 7 days      | Measured from `submission.createdAt` to verdict visible via API / SSE. Dashboard: [NOJV — Judge Latency](https://takalawang.grafana.net/d/nojv-judge-latency)                     |
-| Judge latency (complex problem, > 20 testcases or advanced) | p95 < 60s   | Rolling 7 days      | Advanced-mode (custom docker image) may need higher ceiling per problem. Dashboard: [NOJV — Judge Latency](https://takalawang.grafana.net/d/nojv-judge-latency) (`mode=advanced`) |
-| API latency (all `/api/*` GET)                              | p99 < 500ms | Rolling 1 day       | Excludes `/api/*/stream` (SSE). Dashboard: [NOJV — API Latency](https://takalawang.grafana.net/d/nojv-api-latency)                                                                |
-| SSE connection stability                                    | 99.5%       | Rolling 1 day       | Share of established connections not dropped by server-side faults. Dashboard: [NOJV — Exam Proctoring](https://takalawang.grafana.net/d/nojv-exam-proctoring) (SSE panels)       |
-| Platform availability                                       | 99.5%       | Monthly             | Down = web OR worker OR sandbox tier fully unavailable. Composed from request-rate + 5xx panels on [NOJV — API Latency](https://takalawang.grafana.net/d/nojv-api-latency)        |
-| Scoreboard update latency                                   | p95 < 3s    | Contest in progress | From final AC verdict commit to updated entry returned by `getScoreboard`. Dashboard: [NOJV — Scoreboard Update](https://takalawang.grafana.net/d/nojv-scoreboard)                |
-| Temporal workflow success rate (non-user errors)            | 99.9%       | Rolling 7 days      | Excludes app-level `ValidationError` / expected user-facing failures. Throughput panel on [NOJV — Judge Latency](https://takalawang.grafana.net/d/nojv-judge-latency)             |
+SLOs are end-to-end, user-visible metrics, so a regression in any tier shows in
+the same table. Targets are deliberately lenient alerting thresholds, not
+functional caps. Dashboards are at <https://takalawang.grafana.net>; metric
+sources, dashboards and provisioning are in [Observability Setup](../runbooks/observability-setup.md).
 
-**Handling SLO violations:**
+| SLO                                                         | Target      | Window              | Measurement                                                                                                                                              |
+| ----------------------------------------------------------- | ----------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Judge latency (simple problem, ≤ 20 testcases)              | p95 < 15s   | Rolling 7 days      | `judge_latency_seconds{mode="standard"}`, `submission.createdAt` to verdict commit. [Judge Latency](https://takalawang.grafana.net/d/nojv-judge-latency) |
+| Judge latency (complex problem, > 20 testcases or advanced) | p95 < 60s   | Rolling 7 days      | `judge_latency_seconds{mode="advanced"}`; an Advanced image may need a higher per-problem ceiling                                                        |
+| API latency (all `/api/*` GET)                              | p99 < 500ms | Rolling 1 day       | `api_request_duration_seconds`; excludes SSE streams and health probes. [API Latency](https://takalawang.grafana.net/d/nojv-api-latency)                 |
+| SSE connection stability                                    | 99.5%       | Rolling 1 day       | `sse_connection_dropped_total` / closed connections. [Exam Proctoring](https://takalawang.grafana.net/d/nojv-exam-proctoring)                            |
+| Platform availability                                       | 99.5%       | Monthly             | Down = web, worker or sandbox tier fully unavailable; request-rate and 5xx panels on API Latency                                                         |
+| Scoreboard update latency                                   | p95 < 3s    | Contest in progress | Final AC commit to updated `getScoreboard` entry. No app code emits `scoreboard_update_latency_seconds`; its dashboard and alert have no data            |
+| Temporal workflow success rate (non-user errors)            | 99.9%       | Rolling 7 days      | Excludes `ValidationError` and expected user-facing failures; throughput panel on Judge Latency                                                          |
 
-- **Minor** (< 10% of samples in the window exceed target): fire an alert, append to the incident log, triage in the next on-call sync. No immediate user-facing action.
-- **Major** (> 50% of samples exceed target, or any availability SLO burned below target for the window): treat as an active incident — follow [Incident Recovery Runbook](../runbooks/incident-recovery.md) and prioritise mitigation over root-cause hunting.
+Violation handling:
 
-### Telemetry pipeline
+- **Minor** (< 10% of window samples over target): alert, log, triage at the next on-call sync.
+- **Major** (> 50% over target, or an availability SLO below target for the window): active incident; follow [Incident Recovery](../runbooks/incident-recovery.md), mitigation before root cause.
 
-`apps/web` and `apps/worker` boot an OpenTelemetry SDK on startup via top-of-file side-effect imports (`apps/web/src/lib/server/otel.ts`, `apps/worker/src/otel.ts`). Each process pushes histogram + counter metrics to Grafana Cloud Hosted Prometheus over OTLP HTTP (region `prod-ap-northeast-0`, free tier). Auto-instrumentation hooks `http`, `pg`, `ioredis`, and `undici`; `fs` and `dns` are disabled to keep noise down. Trace export is intentionally off (`spanProcessors: []`) — metrics-only is the design today; logs continue to flow through GCP Cloud Logging on a separate path.
+### Alert catalog
 
-Five manual SLO metrics are emitted from app code: `judge_latency_seconds`, `api_request_duration_seconds`, `scoreboard_update_latency_seconds`, `sse_connection_duration_seconds`, `sse_connection_dropped_total`. Web probes use a separate `health_probe_duration_seconds` histogram with only fixed `probe` (`live`, `ready`, `health`) and `result` (`success`, `failure`) labels; probe traffic is deliberately excluded from `api_request_duration_seconds` so it cannot distort API latency or error-rate SLOs. Worker SIGTERM awaits `shutdownOtel()` so the last 30 s metric interval is flushed before exit; the web tier relies on adapter-node lifecycle and may lose 0–30 s on shutdown (accepted). Token rotation, dashboard updates, and the exact PromQL behind each panel are documented in [Observability Setup Runbook](../runbooks/observability-setup.md).
+All rules live in `infra/grafana/alerts/slo-alerts.json` (labels `severity`, `team=nojv`). Rules default to NoData = OK; the judge recovery rules treat missing data as a fault.
 
-### Infrastructure health (node / disk / DB)
+| Rule                                          | Severity | Fires when                                                                              |
+| --------------------------------------------- | -------- | --------------------------------------------------------------------------------------- |
+| `nojv-slo-judge-latency-simple` / `-advanced` | warning  | Judge p95 over 15s / 60s for 10m                                                        |
+| `nojv-slo-api-latency`                        | warning  | API p99 over 500ms for 10m                                                              |
+| `nojv-slo-scoreboard-latency`                 | warning  | Scoreboard p95 over 3s for 10m (no emitter; see above)                                  |
+| `nojv-slo-sse-stability`                      | warning  | Server-fault SSE drop rate over 0.5% for 15m                                            |
+| `nojv-slo-http-error-rate-critical`           | critical | 5xx share over 1% for 5m                                                                |
+| `nojv-submissions-stuck`                      | critical | Any stuck execution ([definition](#judge-recovery-monitoring))                          |
+| `nojv-judge-queue-age`                        | warning  | Oldest queued/waiting/recovering execution over 10 minutes                              |
+| `nojv-judge-recovery-blocked`                 | critical | Any execution in `blocked`                                                              |
+| `nojv-judge-legacy-system-errors`             | warning  | Any SE submission without an execution journal                                          |
+| `nojv-judge-recovery-observer-stale`          | critical | Last successful recovery snapshot older than 3 minutes, or absent                       |
+| `nojv-judge-cleanup-pending`                  | critical | Any `judge_cleanup_pending_total` increase                                              |
+| `nojv-judge-wall-clock-timeouts`              | warning  | More than two wall-clock TLEs with CPU under the limit in 10m                           |
+| `nojv-notification-email-dead`                | critical | An at-least-once notification email exhausted its database-owned retries                |
+| `nojv-node-disk-usage`                        | critical | Node filesystem over 80% for 10m; needs `observability.prometheus.nodeExporter.enabled` |
+| `nojv-pg-not-ready`                           | critical | A `job="cnpg-postgres"` target fails scrape for 2m                                      |
+| `nojv-pg-backup-stale`                        | warning  | Last CNPG base backup older than 26h                                                    |
 
-App SLO metrics don't cover the host. To close the detection gap behind the 2026-07-04 disk-full incident (node disk filled → containerd wedged → CNPG evicted → deploy stuck), the chart ships a `node_exporter` DaemonSet gated by `observability.prometheus.nodeExporter.enabled` (ON in `values-single-machine.yaml`); the in-cluster Prometheus scrapes it via a static `node-exporter` job. Three infra alert rules live in `infra/grafana/alerts/slo-alerts.json`:
+App metrics go to Grafana Cloud over OTLP; `node_*` and `cnpg_*` series are
+scraped by the in-cluster Prometheus (`node-exporter` and `cnpg-postgres` jobs).
+Infra alerts fire only if the alert datasource reads the Prometheus that holds
+those series (or the in-cluster Prometheus `remote_write`s to Grafana Cloud).
 
-- **`nojv-node-disk-usage`** (critical) — fires at >80% filesystem usage. Active as soon as node-exporter metrics reach the alert datasource.
-- **`nojv-pg-not-ready`** (critical) — fires when a CloudNativePG instance fails scrape. **Dormant until a CNPG metrics target (`job=cnpg-postgres`) is scraped** — CNPG exposes per-instance metrics on `:9187`; wire them via a `PodMonitor` (kube-prometheus) or a `kubernetes_sd` scrape into whichever Prometheus the Grafana alert datasource reads. Until then the rule sits in `NoData`/OK (harmless).
-- **`nojv-pg-backup-stale`** (warning) — fires when the last CNPG base backup is >26 h old. The production single-machine overlay enables CNPG backup and fails closed until its off-host destination is supplied, so this alert must have data after the first successful backup.
+## Source of truth
 
-Note the two Prometheus paths: app metrics flow to **Grafana Cloud** (OTLP), while the in-cluster Prometheus is a local TSDB feeding the in-cluster Grafana. `node_filesystem_*` lands in the local Prometheus; make the alert datasource read the Prometheus that actually holds the series (or `remote_write` the in-cluster Prometheus to Grafana Cloud).
+PostgreSQL is the only durable store for application data. Everything else is derived or recoverable from it:
 
-The same alert catalog includes **`nojv-notification-email-dead`** (critical), sourced from the app-side `durable_work_outcomes_total` metric. It fires when an at-least-once SMTP delivery exhausts its database-owned retries. A deterministic `Message-ID` helps downstream systems recognize a retry, but SMTP provides no atomic handoff with PostgreSQL: a worker crash after SMTP acceptance and before durable completion can send the same message again.
+| Store          | Role                                                                                                                                                  |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PostgreSQL     | App data; on single-machine also Temporal persistence (`temporal`, `temporal_visibility` databases in the same CNPG cluster)                          |
+| Object storage | Irreplaceable file bodies: submission sources, judge snapshots and stage results, testcases, workspace files, validators, images (see DAT-06, PRB-04) |
+| Temporal       | Durable workflow state; final verdicts and effects are persisted to PostgreSQL                                                                        |
+| Redis          | Pub/sub, rate limits, short-lived security proofs and read-through caches only (DAT-10, DAT-11); see [Redis](../architecture/REDIS.md)                |
+| SSE events     | Ephemeral nudges; clients reconnect and read current state                                                                                            |
 
-## Service Expectations
+Backups, retention and restore order are in [Backup & Restore](../runbooks/backup-restore.md); production refuses to render without off-host destinations (OPS-06).
 
-| Property               | Guarantee                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Durability**         | PostgreSQL is the source of truth (app data **and** Temporal workflow state, in the same in-cluster cluster). Redis is derived/ephemeral. The production single-machine overlay enables CNPG base backups + WAL archiving and the MinIO mirror, then deliberately refuses to render until concrete off-host S3/R2 destinations and existing credential Secrets are supplied through the cluster-owned `nojv-production-values` Secret. Verify a completed base backup, current WAL archiving, a successful MinIO mirror job, and the recovery drill before launch. Also keep an off-host copy of `nojv-runtime-secrets` (`BETTER_AUTH_SECRET` etc.). On GKE the managed Cloud SQL alternative is configured by `infra/gcp/scripts/setup-backups.sh` (automated daily backups, 30-day retention, in-region) + PITR (14-day WAL), with daily cold exports to a versioned GCS bucket via `infra/gcp/scripts/export-postgres-to-gcs.sh`. See [Backup & Restore Runbook](../runbooks/backup-restore.md). |
-| **Delivery semantics** | Temporal activities and database-owned durable work execute at least once. Notification email resolves the current account, verified address, notification existence, and effective preference immediately before SMTP. SMTP delivery remains explicitly **at least once**: a crash after SMTP acceptance but before PostgreSQL completion can duplicate a message. The stable `Message-ID` is a downstream deduplication hint, not an exactly-once guarantee.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| **Inspectability**     | Temporal UI provides workflow history, pending activities, and query state.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| **Graceful shutdown**  | Worker handles SIGINT/SIGTERM and stops polling for new tasks. In-flight judge activities are **not** fully drained: the worker `shutdownGraceTime` is 30 s while one durable sandbox stage has a 70-minute activity ceiling, so any judge still executing at SIGTERM is cancelled and re-dispatched by Temporal on the next available worker after orphan reconciliation and ownership checks. Raising `shutdownGraceTime` toward the max judge wall-time would let more in-flight judges finish instead of retrying.                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+## Service expectations
 
-## Source of Truth
+- **Delivery**: Temporal activities and database-owned durable work run at least once. Notification email re-resolves account, verified address, notification and preference right before SMTP. A crash after SMTP acceptance and before completion can duplicate a message; the stable `Message-ID` is a deduplication hint only.
+- **Inspectability**: Temporal UI shows workflow history, pending activities and queries.
+- **Graceful shutdown**: workers stop polling on SIGINT/SIGTERM with `shutdownGraceTime` 30s. A judge stage can run up to 70 minutes, so a stage still running at SIGTERM is cancelled and recovered on another worker after cleanup and ownership checks. The worker flushes OTel before exit; web may lose the last 0–30s of metrics.
 
-PostgreSQL is the single durable store. All other systems derive from it:
+## Critical failure modes
 
-- **Redis**: pub/sub for SSE events (including 10 s-throttled scoreboard-update nudges); rate limiting. Leaderboards are computed from Postgres on read, not stored in Redis. No general domain cache layer (the only `nojv:cache:*` key is the admin dashboard snapshot).
-- **Temporal**: Workflow state is durable within Temporal, but final verdicts are persisted to PostgreSQL.
-- **SSE events**: Ephemeral notifications. Clients reconnect and read latest state from DB/Temporal.
+### PostgreSQL unavailable
 
-Redis loss disables real-time events and security state access. Redis-backed rate limits fail closed with 503, and privileged session checks must not grant access without their proofs. Scoreboards continue to use PostgreSQL on every read; there is no Redis scoreboard to rebuild.
+- **Impact**: total outage; no reads, writes or auth. On single-machine, Temporal also stops.
+- **Topology**: single-machine runs one CNPG instance (no failover); GKE uses Cloud SQL through the proxy sidecar.
+- **Recovery**: restore the instance (see [Incident Recovery](../runbooks/incident-recovery.md#postgresql-unavailable-or-slow)); Prisma reconnects without an app restart unless the pool is wedged. Data loss goes through [Backup & Restore](../runbooks/backup-restore.md).
 
-## Critical Failure Modes
+### Redis unavailable
 
-### PostgreSQL Unavailable
+- **Impact**: no SSE events. `apiRateLimiter` falls back to a per-process memory limiter; every other limiter (write, draft, form, auth, sign-in, exam sign-in, registry token) fails closed with 503 (DAT-12). Redis-held security proofs (step-up, admin MFA/mode, 2FA setup) are unavailable, so privileged actions require fresh verification. Caches fall through to PostgreSQL. Submission cooldown uses PostgreSQL. Dispatched judging continues.
+- **Recovery**: restore connectivity; clients reconnect and read current state. Nothing needs rebuilding.
 
-**Impact**: Total service outage. No reads, writes, or auth.
-**Mitigation**: Cloud SQL HA (automatic failover). Connection pooling via Prisma.
-**Recovery**: Wait for automatic failover or manual promotion.
+### Temporal unavailable
 
-### Redis Unavailable
+- **Impact**: no new workflows; in-flight workflows pause.
+- **Invariant**: acceptance commits source, immutable snapshot and dispatch intent before returning. Temporal start is a best-effort wakeup; failure leaves the outbox pending for the minute durable-work processor and never produces SE.
+- **Topology**: self-hosted (OPS-09). Single-machine runs the official chart with one pod per role on the CNPG database, so node loss pauses workflows until pods reschedule. HA options: `infra/gcp/gke/temporal/HA-PRODUCTION.md`.
+- **Recovery**: workflows resume from history; no data loss.
 
-**Impact**: No real-time SSE events; Redis-backed request limits and security proofs fail closed. Submission cooldown enforcement remains in PostgreSQL advisory locks. Already-dispatched judging continues through Temporal.
-**Mitigation**: Memorystore HA (automatic failover).
-**Recovery**: Restore Redis connectivity. Clients reconnect and read the current PostgreSQL state; invalidated security proofs require fresh verification.
-**Note**: Submissions still process (Temporal handles orchestration). SSE clients reconnect.
+### Worker unavailable
 
-### Cron processor recurrence
+- **Impact**: no judging or lifecycle transitions; accepted work stays durable in PostgreSQL and Temporal.
+- **Recovery**: Deployments restart failed processes; accepted workflows resume and the outbox dispatches after Temporal is reachable. Node and container-runtime recovery is an operator action. With `pdb.enabled` (GKE), one voluntary eviction at a time.
 
-The minute-cron `durableWorkProcessorWorkflow` awaits a `durableWorkWorkflow` child.
-Only the child continues as new after each bounded drain, preserving its fairness
-cursor without removing the parent's cron schedule. Child completion or failure
-therefore leaves the next scheduled parent run intact. Activity timeouts, leases,
-and database-owned retry/idempotency rules remain unchanged.
+### Sandbox failure
 
-When replacing the former `durableWorkWorkflow` cron singleton, wait for its current
-execution to become terminal before invoking `ensureDurableWorkProcessor`; an
-already-running singleton is preserved. Do not terminate an in-flight batch to
-change its Workflow type. The five-minute `lifecycleReconcilerProcessorWorkflow`
-similarly awaits the existing paginated `lifecycleReconcilerWorkflow` child.
-Existing cron singletons are not automatically replaced on worker startup. For a
-still-recurring former lifecycle singleton, first establish a boundary with no
-pending/running Activity or data mutation before a scoped operator handoff;
-cancellation alone does not stop the cron series. Verify the replacement parent's
-type and cron schedule, child completion, and the following scheduled run.
+- Program failures keep their normal verdict. Capacity waits (including quota rejections, even when the message says `forbidden`) stay `waiting_capacity` and retry every 30s without consuming the failure budget.
+- Infrastructure failures retry with bounded attempts and workflow timers on the original snapshot; repeated, configuration or cleanup failures become `blocked` with a next retry time. Failed attempts never select new problem content (JDG-09, JDG-11).
+- Reading a required payload or result log either succeeds or reports the original I/O failure (retryable); a successfully read but malformed result is an explicit system error. Validator diagnostics stay in staff feedback.
+- Contract: [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#durable-execution-and-recovery).
 
-### Temporal Unavailable
+### Sandbox cleanup pending
 
-**Impact**: No new workflows start. In-flight workflows pause.
-**Mitigation**: Temporal auto-setup with PostgreSQL backend provides persistence.
-**Recovery**: Temporal resumes all paused workflows when it comes back. No data loss.
-**Note**: Acceptance commits source, immutable judge version and dispatch intent before returning. Temporal start is a best-effort wakeup; latency or failure leaves durable delivery queued and does not manufacture SE.
+- Kubernetes cleanup uses foreground deletion with UID preconditions and ownership checks, and waits for owned Pods to disappear within a 30s budget. Timeout, API failure or changed ownership raises `cleanup_pending` (`judge_cleanup_pending_total`).
+- Cleanup runs in a non-cancellable scope with persistent retries; the execution lease stays held until cleanup succeeds. Cancellation, heartbeat expiry and worker restarts never prove resources are free (JDG-22).
+- API object disappearance is not proof of runtime termination. Directed host cleanup requires matching run ID, Job owner UID, Pod UID, CRI sandbox/container IDs, shim/runsc processes and cgroup; recovery requires those processes and cgroups to be gone. No automatic k3s, containerd or runsc restart. Procedure: [Judge Queue](../runbooks/judge-queue.md#stuck-leases-and-cleanup).
 
-> **SPOF caveat (current self-hosted topology).** The in-cluster Temporal control plane runs as a **single** `temporalio/auto-setup` replica backed by a **single-pod** `temporal-postgres` StatefulSet — there is no HA failover. Interim guards are in place: a PodDisruptionBudget (`minAvailable: 1`) on both pods and a `nodeSelector: nojv-role=worker` pin (so a sandbox-pool scale-down can't evict them), plus a daily `pg_dump` of the Temporal DB to GCS (installed by `infra/gcp/scripts/setup-backups.sh`). These limit voluntary disruption and data loss but do not provide live failover — a node failure still pauses all workflows until the pod reschedules.
->
-> **Production hardening:** the durable fix is either Temporal Cloud (managed, 99.9% SLA, from ~$100/mo — switching is config-only since the client now supports TLS + API-key/mTLS auth via `TEMPORAL_API_KEY` / `TEMPORAL_CLIENT_CERT_PATH`) or self-host HA via the official `temporalio/temporal` Helm chart (frontend/history/matching at `replicas >= 2`) backed by an HA Cloud SQL Postgres instance. Options, cost comparison, and a starting Helm values file are in [Temporal HA Production](../../infra/gcp/gke/temporal/HA-PRODUCTION.md). The interim guards above are a stopgap for single-region educational deploys.
+### Ambiguous activity timeouts
 
-### Worker Unavailable
+- A stage activity heartbeats its database lease every 15s. An expired lease is reconciled by `reconcileJudgeStage` or `judgeCleanupWorkflow`, which confirm executor cleanup before retry.
+- A stage attempt that times out without ever heartbeating never ran (Temporal can lose a task dispatched to a shutting-down worker); the workflow requeues it without recording `recovering` or SE. A claimed lease left behind is reconciled on the next iteration.
 
-**Impact**: No new submission judging or lifecycle transitions.
-**Mitigation**: Temporal retries activities when workers reconnect. Workers run
-as a fixed GKE Deployment with a PodDisruptionBudget; sandbox capacity is
-bounded by one on-demand gVisor node plus a 0–4 Spot burst pool, and pending
-workflows remain durable until capacity returns.
-**Recovery**: Deployment restarts failed worker processes. Accepted workflows resume, and the database outbox dispatches accepted submissions after Temporal is reachable. Only worker processes restart automatically; node and container runtime recovery remains an operator action.
+## Operational invariants
 
-### Sandbox Failure
+### Submission processing
 
-Reading a required sandbox payload or result log must either succeed or report the
-original I/O failure. Infrastructure failures remain retryable activity failures;
-a successfully read but malformed result becomes an explicit system error.
-Validator diagnostics stay in staff feedback, never in student output.
+1. Source, immutable snapshot, execution ownership and dispatch intent commit before the submission ID is returned (PRB-15, JDG-10).
+2. Workflow IDs are `judge-execution-{executionId}-{recoveryEpoch}`; duplicate dispatch is idempotent. Automatic recovery changes only the epoch; an explicit teacher rejudge creates a new generation on the latest version.
+3. Every stage write and verdict commit is fenced by the current owner. A checkpoint clears the lease only after executor cleanup succeeded.
+4. The verdict commits before score and notification effects; the execution stays `finalizing` until they succeed. Cancellation and another rejudge cannot discard a committed result's finalization.
+5. The minute sweeper reconciles actual workflow ownership, redispatches missing work and recovers closed workflows without changing snapshots. It terminates, by actual owner ID, a workflow whose failing workflow task has been pending over 10 minutes or whose activity has no progress beyond the 70-minute budget; healthy waits are preserved.
+6. Submission reads expose queue/recovery reason, original problem generation, last progress and next retry. Tracking continues through recoverable SE; browser tracking timeouts never cancel accepted work.
+7. SE submissions without an immutable snapshot are blocked as `original_version_unavailable`; automatic recovery never substitutes the current version.
+8. Priority, per-student fairness and capacity follow [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#queue-priority-and-capacity) (JDG-12, JDG-13). Capacity changes are `WORKER_CONCURRENCY` and the sandbox quota, never a scheduler change (OPS-11).
+9. Attempt resources and temporary result objects are owned by run ID with Kubernetes UID checks; cleanup of an old attempt never removes a newer attempt's resources or result.
 
-**Impact**: Program failures retain their normal verdict. Capacity waits remain queued; machine failures may show SE while the original execution recovers.
-**Mitigation**: A durable workflow uses bounded activity attempts followed by workflow timers. Capacity waits retry after 30 seconds. Repeated infrastructure failures, invalid admission and unsafe cleanup remain visible as blocked, with a next retry time. Failed attempts never silently select new problem content.
-**Recovery**: Resume from committed stage checkpoints after verifying resource cleanup. An expired lease alone is not proof that a sandbox stopped. Dedicated cleanup workflows also recover leases held by cancelled executions. See [Judge pipeline](../architecture/JUDGE_PIPELINE.md#durable-execution-and-recovery) for the version and scheduling contract.
+### Lifecycle workflows
 
-### Sandbox Cleanup Pending
+1. Contest lifecycle, exam auto-close and assignment start/due-soon workflows (`contest-lifecycle-{id}`, `exam-auto-close-{id}`, `assignment-due-soon-{id}`) are reconciled by schedule revision and timer fingerprint stored in the workflow memo: a stale revision never replaces a newer one, and a changed schedule terminates the observed run and starts a new one.
+2. The 5-minute `lifecycleReconcilerProcessorWorkflow` re-ensures contest, exam and assignment lifecycle workflows from PostgreSQL in pages of 20. Judge redispatch belongs to the minute submission sweeper, not this reconciler.
+3. Assessment open/close is time-gated server-side on every submit (`closesAt`); only reminders and exam auto-close use timers.
+4. Scoreboard freeze is a read-time filter on `Contest.frozenBoard`/`frozenAt`; final scores are always computed from PostgreSQL.
 
-Normal Kubernetes cleanup has a 30-second budget. Deletion uses foreground
-propagation and UID preconditions, checks ownership, and waits for owned Pods to
-disappear before considering the stage released. A timeout, API failure or
-changed ownership raises `cleanup_pending`. New workflow histories perform
-cleanup in a non-cancellable scope with persistent activity retries; the
-execution lease stays held until cleanup succeeds. Cancellation, heartbeat
-expiration and worker restarts never establish that execution resources are free.
-`judge_cleanup_pending_total` supports recovery alerts. No automatic k3s,
-containerd or runsc restart is performed.
+### Cron processors
 
-Quota rejection remains backpressure even if its message includes `forbidden`
-and cannot exhaust a fixed attempt budget into SE; the execution retries every
-30 seconds as `waiting_capacity`.
+Singletons: `submission-pending-sweeper` (minute, `submissionSweeperWorkflow`),
+`durable-work-processor` (minute, `durableWorkProcessorWorkflow`) and
+`lifecycle-timer-reconciler` (5 minutes, `lifecycleReconcilerProcessorWorkflow`).
+The latter two are cron parents that await a child; only the child continues as new, so a child
+failure never removes the cron schedule (DAT-19). `ensure*` calls keep an
+already-running singleton; workers never replace it on startup. To change a
+singleton's workflow type, wait for its current run to be terminal (or reach a
+boundary with no pending activity or mutation) before starting the replacement,
+then verify the new parent's type, schedule, child completion and next run.
+Cancelling a cron run does not stop the series.
 
-An API object disappearing is insufficient evidence for a known stuck-runtime
-incident. Before directed host cleanup, match the run ID, Job owner UID, Pod
-UID, CRI sandbox/container IDs, shim/runsc processes and cgroup. Recovery requires
-the corresponding processes and cgroup to disappear. Follow the
-[judge queue runbook](../runbooks/judge-queue.md).
+### Plagiarism detection
 
-## Operational Invariants
+1. `plagiarismCheckWorkflow` is keyed `plagiarism-{targetType}-{targetId}` with `TERMINATE_EXISTING`; a re-trigger replaces an in-flight run.
+2. Dolos runs in-process in the worker; retries yield the same pairs for the same input (ASM-23).
+3. The report is stored in `plagiarism*` columns on the `Exam`/`Assessment` row and replaced on each run; `PlagiarismPairFlag` review state survives re-runs; each run is logged in `PlagiarismTriggerLog` (ASM-24).
 
-### Submission Processing
+## Validation requirements
 
-1. Accepted source, immutable snapshot, execution ownership and dispatch intent commit before returning the submission identity.
-2. Workflow IDs are `judge-execution-{executionId}-{recoveryEpoch}`. Duplicate dispatch is idempotent; automatic recovery changes only the epoch, while explicit teacher rejudge creates a generation and selects the latest version.
-3. Every stage write and verdict commit is fenced by the current owner. Baseline checkpoint commit clears the lease only after executor cleanup has succeeded.
-4. The final verdict commits before score/notification effects. The execution stays `finalizing` until those effects succeed; cancellation and another rejudge cannot discard committed-result finalization.
-5. The minute sweeper reconciles actual workflow ownership, redispatches missing work, and recovers closed workflows without changing snapshots. Healthy waits are preserved. A repeatedly failing workflow task pending over ten minutes or an activity without progress beyond its 70-minute execution budget is terminated by its actual owner ID and recovered on a later scan.
-6. Details/API expose queue/recovery reason, original problem generation, last progress and next retry. Polling continues through recoverable SE and teacher rejudge with an old valid result. Browser tracking timeout does not cancel accepted work.
-7. Legacy SE without immutable snapshots is blocked with `original_version_unavailable`; automatic recovery never guesses today's version. Only an explicit teacher rejudge selects the latest version.
+- All user input is validated with Zod before processing.
+- All database access uses Prisma parameterized queries.
+- Temporal activity inputs are typed but not re-validated (trusted internal boundary).
+- Seed data is validated before insertion (`pnpm db:seed:validate`).
 
-8. Executions are dispatched with Temporal task-queue priority (exam, contest, practice, recovery, rejudge) and per-student fairness. A student's later submission waits at dispatch time for the earlier one, so queued work is a database row rather than a live workflow; finishing an execution hands off to the student's next.
-9. Attempt resources and temporary result objects are owned by run ID, with Kubernetes UID checks on deletion and artifact access. Rejudge generation fencing still governs the final verdict commit. Cleanup of an old attempt must not remove a newer attempt's resources or overwrite its result.
-10. Judge lag is observed per priority key from the `judge` task-queue backlog age; capacity changes are `WORKER_CONCURRENCY` and the sandbox quota, never a scheduler change.
+## Health checks
 
-### Contest Lifecycle
+| Service    | Endpoint             | Contract                                                                                                                                |
+| ---------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Web        | `/api/livez`         | Startup/liveness. `{ alive: true }`; no dependency checks.                                                                              |
+| Web        | `/api/readyz`        | Readiness. `{ ready }`, 503 when not ready; probes only PostgreSQL and Redis, result cached 5s (OPS-15).                                |
+| Web        | `/api/release`       | `{ version, sourceSha }` for release identification.                                                                                    |
+| Web        | `/api/admin/healthz` | Admin only. `{ status, checks: { postgres, redis, temporal } }`; 503 when PostgreSQL or Redis fails (Temporal is reported, not gating). |
+| Worker     | `/livez`             | 503 only when a worker run loop stopped unexpectedly; never probes dependencies; stays live during graceful drain.                      |
+| Worker     | `/healthz`           | Diagnostic `{ status, checks: { postgres, redis, temporal } }`, 200/503; not a restart signal.                                          |
+| Worker     | `/readyz`            | `{ ready }`, 503 when the run loop stopped or Temporal is disconnected.                                                                 |
+| PostgreSQL | Compose healthcheck  | `pg_isready -U postgres`                                                                                                                |
+| Redis      | Compose healthcheck  | `redis-cli ping`                                                                                                                        |
+| Temporal   | Compose healthcheck  | `temporal`/`tctl` health against localhost, service DNS and container IP                                                                |
 
-1. `contestLifecycleWorkflow` manages the full contest timeline with durable timers.
-2. Early-end / reschedule is applied by re-dispatching the lifecycle workflow with `workflowIdConflictPolicy: TERMINATE_EXISTING` (not via a signal), so the new schedule supersedes the old one.
-3. Scoreboard freeze is a read-time filter gated by the `Contest.frozenBoard` / `Contest.frozenAt` columns: while frozen, `buildScoreboard` ignores submissions newer than `frozenAt`, so the public board holds at the freeze point while staff can still see the live ranking. No Redis snapshot is involved.
-4. Final scores are always computed from PostgreSQL, not Redis.
-
-### Assessment Lifecycle
-
-1. Assessments have no dedicated lifecycle workflow. Open → due → close is purely time-driven: submission acceptance is gated by the `closesAt` timestamp, checked server-side in the domain layer on every submit.
-2. Deadline notifications are best-effort (SSE via Redis pub/sub).
-3. Exam timing is the exception — exams use `examAutoCloseWorkflow` (a durable Temporal timer keyed on `examId`) to force-close active sessions at `endsAt`.
-
-### Plagiarism Detection
-
-1. `plagiarismCheckWorkflow` takes `(targetType, targetId)` directly; the workflow is keyed `plagiarism-{targetType}-{targetId}` with `TERMINATE_EXISTING` id-reuse, so a re-trigger replaces any in-flight run rather than duplicating it. There is no separate report record created up front.
-2. Dolos runs entirely in-process; retries are idempotent and produce the same pair set on the same input.
-3. The Dolos report itself is inlined on the `Exam` / `Assessment` row as `plagiarism*` columns and is wiped on each re-trigger.
-4. Pair-level staff review state (false-positive marking) survives re-runs in the `PlagiarismPairFlag` table, keyed `(contextType, contextId, pairKey)`. Each run is recorded in `PlagiarismTriggerLog`.
-
-## Validation Requirements
-
-- All user input validated with Zod schemas before processing
-- Prisma parameterized queries for all database access
-- Temporal activity inputs are typed but not re-validated (trusted internal boundary)
-- Seed data validated before insertion (`pnpm db:seed:validate`)
-
-## Health Checks
-
-| Service    | Endpoint             | Method                                                                                                                                            |
-| ---------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Web        | `/api/livez`         | Startup/liveness probe. Dependency-free HTTP GET → `{ alive: true }`; never waits on PostgreSQL, Redis, Temporal, auth, or session state.         |
-| Web        | `/api/readyz`        | Readiness probe. `{ ready: boolean }`; concurrently probes only PostgreSQL + Redis with bounded timeouts. Results are cached 5 s.                 |
-| Web        | `/api/release`       | Immutable release identity. `{ version, sourceSha }`; the status bot distinguishes the new rollout from a healthy old one.                        |
-| Web        | `/api/admin/healthz` | Admin-only mirror. `requireApiAuth` + `platformRole === "admin"`. Returns `{ status, checks: { postgres, redis, temporal } }` for ops dashboards. |
-| Worker     | `/livez`             | Local worker-loop liveness. Returns 503 for an unexpected stopped/failed loop; never probes dependencies. Graceful drain stays live.              |
-| Worker     | `/healthz`           | Diagnostic dependency checks. Returns `{ status, checks: { postgres, redis, temporal } }` with 200/503; not a restart signal.                     |
-| Worker     | `/readyz`            | Readiness. Returns `{ ready: boolean }` keyed on the live Temporal connection. 503 when disconnected so K8s pulls the pod out of the ready pool.  |
-| PostgreSQL | Docker healthcheck   | `pg_isready -U postgres`                                                                                                                          |
-| Redis      | Docker healthcheck   | `redis-cli ping`                                                                                                                                  |
-| Temporal   | Docker healthcheck   | `temporal`/`tctl` health against localhost, service DNS, and container IP                                                                         |
+Web probe paths record `health_probe_duration_seconds`, never `api_request_duration_seconds`.
 
 ### Judge recovery monitoring
 
-The platform worker registers SQL-backed OpenTelemetry gauges independently of
-judge activities. Each 30-second metric collection reads queue depth and oldest
-wait, blocked executions, overdue progress, and legacy SE submissions with no
-execution journal. Running stages with a current lease are excluded from the
-stuck-progress count, so a legitimate long stage does not trigger a ten-minute
-alarm merely because it has not finished.
+The platform worker publishes SQL-backed gauges (queue depth and oldest wait,
+blocked, stuck, legacy SE, last-success timestamp) every 30s, independent of
+judge activities. Running stages holding a current lease are excluded from the
+stuck count. `nojv_judge_recovery_last_success_timestamp_seconds` advances only
+after a validated snapshot; query errors publish neither heartbeats nor false
+zeros. Metric definitions and release verification:
+[Observability Setup](../runbooks/observability-setup.md#judge-recovery-monitoring).
 
-`nojv_judge_recovery_last_success_timestamp_seconds` advances only after a
-successful, validated database snapshot. Query errors publish neither fresh
-heartbeats nor false zero counts. The observer-stale alert covers a missing or
-three-minute-old snapshot, including platform-worker loss, database failure and
-telemetry transport failure. All recovery alert rules treat missing data as a
-fault; metrics and alert definitions alone do not prove the configured external
-Grafana datasource receives them or notifications are delivered. See the
-[observability runbook](../runbooks/observability-setup.md#judge-recovery-monitoring)
-for metric names and verification.
-
-## Related Docs
+## Related docs
 
 - [Architecture Overview](../architecture/ARCHITECTURE.md)
+- [Judge Pipeline](../architecture/JUDGE_PIPELINE.md)
 - [Security Requirements](./SECURITY.md)
 - [Deployment Guide](./DEPLOYMENT.md)
-- [Incident Recovery Runbook](../runbooks/incident-recovery.md)
-
-### Ambiguous Activity Timeouts
-
-A judge stage Activity heartbeats its database lease every 15 seconds. An
-expired lease is reconciled by `reconcileJudgeStage` or the dedicated
-`judgeCleanupWorkflow`, which confirm executor cleanup before the execution
-retries; resource absence at a single instant does not fence a delayed producer.
-Normal cancellation waits for Activity acknowledgment. A stage attempt that
-times out without ever heartbeating never ran (Temporal can lose a task it
-dispatches to a worker that is shutting down), so the workflow requeues it
-without recording `recovering` or SE; a claimed lease left behind still goes
-through reconciliation on the next iteration.

@@ -1,15 +1,15 @@
 import type * as k8s from "@kubernetes/client-node";
 
 import {
-  advancedResultSchema,
-  validateAdvancedResultForMaxScore,
   type SandboxExecutionContext,
   type SandboxRequest,
   type SandboxResult,
 } from "@nojv/core";
 import { createLogger } from "../../logger.js";
-import { executionAbortReason } from "../shared/execution-abort";
-import { advancedFallbackResult, mapAdvancedResult } from "../shared/sandbox-result-mapper";
+import { abortableSleep, executionAbortReason } from "../shared/execution-abort";
+import { resolveAdvancedResult } from "../shared/sandbox-result-mapper";
+import { serviceHostEnv } from "../shared/advanced-service-contract";
+import { ADVANCED_SERVICE_PORT, SERVICE_READY_MARKER } from "@nojv/sandbox-docker";
 import { sandboxSystemError } from "../shared/sandbox-plan";
 import { recordRunnerResources } from "../shared/judge-phase-metrics";
 import {
@@ -25,7 +25,6 @@ import {
 import {
   buildGradeEgressPolicy,
   buildRunEgressPolicy,
-  buildServiceRunEnv,
   buildServiceSidecarPodManifest,
   buildSidecarNetworkPolicy,
   buildSidecarServiceManifest,
@@ -33,11 +32,9 @@ import {
   gradePolicyName,
   runEgressLabel,
   runPolicyName,
-  SERVICE_READY_MARKER,
   sidecarPodName,
   sidecarPolicyName,
   sidecarServiceName,
-  SIDECAR_PORT,
 } from "./advanced-network";
 import {
   SandboxAdmissionError,
@@ -127,7 +124,7 @@ export class KubernetesAdvancedExecutor {
       await this.resources.createConfigMap(
         runConfigMapName,
         ns,
-        buildAdvancedConfigMapData(request),
+        buildAdvancedConfigMapData(request, advanced),
         execution.signal,
       );
 
@@ -149,8 +146,7 @@ export class KubernetesAdvancedExecutor {
           err instanceof SandboxAdmissionError
         )
           throw err;
-        return advancedFallbackResult(
-          request,
+        return sandboxSystemError(
           `Advanced network setup failed: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
@@ -203,8 +199,8 @@ export class KubernetesAdvancedExecutor {
         runCleanupAfterExecution(executionFailure, async () => {
           const budget = new SandboxCleanupBudget();
           const jobCleanup = await Promise.allSettled([
-            this.cleanupResources.cleanupAdvancedJob(runJobName, ns, budget),
-            this.cleanupResources.cleanupAdvancedJob(gradeJobName, ns, budget),
+            this.cleanupResources.cleanupJob(runJobName, ns, budget),
+            this.cleanupResources.cleanupJob(gradeJobName, ns, budget),
           ]);
           const runPodsGone = jobCleanup[0].status === "fulfilled";
           const gradePodsGone = jobCleanup[1].status === "fulfilled";
@@ -287,26 +283,20 @@ export class KubernetesAdvancedExecutor {
     if (!nodeName) {
       return {
         kind: "fallback",
-        result: advancedFallbackResult(
-          request,
-          "Advanced run phase produced no scheduled pod.",
-        ),
+        result: sandboxSystemError("Advanced run phase produced no scheduled pod."),
       };
     }
     if (!outcome.deadlineExceeded && !transferCaptureOk) {
       return {
         kind: "fallback",
-        result: advancedFallbackResult(
-          request,
+        result: sandboxSystemError(
           "Advanced run output capture failed (size/file cap or IO error).",
         ),
       };
     }
 
     const runStatus = deriveRunStatusFromJob(outcome.state, outcome.deadlineExceeded);
-    await measurePhase(request, "cleanup", () =>
-      this.cleanupResources.cleanupAdvancedJob(jobName, ns),
-    );
+    await measurePhase(request, "cleanup", () => this.cleanupResources.cleanupJob(jobName, ns));
     return { kind: "ready", nodeName, runStatus };
   }
 
@@ -327,12 +317,12 @@ export class KubernetesAdvancedExecutor {
     await this.resources.createConfigMap(
       configMapName,
       ns,
-      buildAdvancedGradeConfigMapData(
-        request.submissionId,
-        request.language,
+      buildAdvancedGradeConfigMapData({
+        submissionId: request.submissionId,
+        language: request.language,
         runStatus,
-        advanced.maxScore,
-      ),
+        maxScore: advanced.maxScore,
+      }),
       execution.signal,
     );
     await this.resources
@@ -370,8 +360,7 @@ export class KubernetesAdvancedExecutor {
     await this.jobWatcher.waitForJobCompletion(jobName, ns, deadlineSeconds, execution.signal);
     await this.observer.observeJobLifecycle(jobName, ns, request);
     const podName = await this.observer.findPodName(jobName, ns, execution.signal);
-    if (!podName)
-      return advancedFallbackResult(request, "Advanced grade phase produced no pod.");
+    if (!podName) return sandboxSystemError("Advanced grade phase produced no pod.");
 
     const sidecarLog = await measurePhase(request, "collect", () =>
       this.observer.getPodContainerLogs(podName, ns, ADVANCED_SIDECAR_NAME, execution.signal),
@@ -384,30 +373,15 @@ export class KubernetesAdvancedExecutor {
 
     const raw = parseAdvancedResultLog(sidecarLog);
     if (raw === null) {
-      return advancedFallbackResult(
-        request,
-        "Advanced sandbox sidecar produced no result marker.",
-      );
+      return sandboxSystemError("Advanced sandbox sidecar produced no result marker.");
     }
     if (raw && typeof raw === "object" && (raw as { missing?: boolean }).missing === true) {
-      return advancedFallbackResult(
-        request,
+      return sandboxSystemError(
         "Advanced judge image did not write result.json before the deadline.",
       );
     }
 
-    const parsed = advancedResultSchema.safeParse(raw);
-    if (!parsed.success) {
-      return advancedFallbackResult(
-        request,
-        `Invalid result.json: ${parsed.error.issues.map((i) => i.message).join(", ")}`,
-      );
-    }
-    const resultIssues = validateAdvancedResultForMaxScore(parsed.data, advanced.maxScore);
-    if (resultIssues.length > 0) {
-      return advancedFallbackResult(request, `Invalid result.json: ${resultIssues.join(", ")}`);
-    }
-    return mapAdvancedResult(request, parsed.data);
+    return resolveAdvancedResult(raw, advanced.maxScore);
   }
 
   private async prepareAdvancedNetwork(
@@ -433,7 +407,7 @@ export class KubernetesAdvancedExecutor {
             image: service.imageRef,
             memoryMb: advanced.memoryMb,
             cpuLimit: this.config.cpuLimit,
-            port: SIDECAR_PORT,
+            port: ADVANCED_SERVICE_PORT,
             ...(this.config.runtimeClassName
               ? { runtimeClassName: this.config.runtimeClassName }
               : {}),
@@ -452,7 +426,7 @@ export class KubernetesAdvancedExecutor {
     if (!ready) {
       throw new Error("service sidecar did not become ready within timeout");
     }
-    return buildServiceRunEnv(clusterIp);
+    return serviceHostEnv(clusterIp);
   }
 
   private async createSidecarServiceAndPolicies(
@@ -463,7 +437,11 @@ export class KubernetesAdvancedExecutor {
     const created = await this.coreApi
       .createNamespacedService({
         namespace: ns,
-        body: buildSidecarServiceManifest({ submissionId, namespace: ns, port: SIDECAR_PORT }),
+        body: buildSidecarServiceManifest({
+          submissionId,
+          namespace: ns,
+          port: ADVANCED_SERVICE_PORT,
+        }),
       })
       .catch(rethrowSandboxQuotaError);
     signal.throwIfAborted();
@@ -532,7 +510,7 @@ export class KubernetesAdvancedExecutor {
         const log = await this.observer.getPodContainerLogs(podName, ns, "service", signal);
         if (log.includes(marker)) return true;
       }
-      await this.observer.sleep(intervalMs, signal);
+      await abortableSleep(intervalMs, signal);
     }
     if (!everStarted) {
       throw new SandboxBackpressureError(
@@ -563,7 +541,7 @@ export class KubernetesAdvancedExecutor {
     budget = new SandboxCleanupBudget(),
   ): Promise<void> {
     if (hasSidecar)
-      await this.cleanupResources.cleanupAdvancedPod(sidecarPodName(submissionId), ns, budget);
+      await this.cleanupResources.cleanupPod(sidecarPodName(submissionId), ns, budget);
     const remove = async (resource: string, operation: () => Promise<unknown>) => {
       try {
         await budget.call(resource, operation);

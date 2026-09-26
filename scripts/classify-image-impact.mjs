@@ -55,8 +55,8 @@ const imageDefinitions = [
     tag: "nojv-migrator",
     inputs: [
       "infra/docker/migrator.Dockerfile",
-      "packages/core/",
-      "packages/storage/",
+      "packages/core/package.json",
+      "packages/storage/package.json",
       "packages/db/package.json",
       "packages/db/prisma.config.ts",
       "packages/db/prisma/",
@@ -85,9 +85,7 @@ function isExcludedFromBuildContext(path) {
     basename.endsWith(".md") ||
     basename.startsWith(".env") ||
     segments.some((segment) =>
-      ["node_modules", ".git", ".turbo", "dist", "build", ".svelte-kit", ".next"].includes(
-        segment,
-      ),
+      ["node_modules", ".git", ".turbo", "dist", "build", ".svelte-kit"].includes(segment),
     )
   );
 }

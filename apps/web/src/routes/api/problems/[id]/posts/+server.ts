@@ -4,7 +4,7 @@ import { postListSortSchema, postSubmitSchema, problemPostTypeSchema } from "@no
 
 import type { RequestHandler } from "./$types";
 
-import { requireApiAuth, NotFoundError } from "$lib/server/auth";
+import { requireApiAuth } from "$lib/server/auth";
 import {
   apiHandler,
   writeApiHandler,
@@ -12,7 +12,7 @@ import {
   readJsonBody,
 } from "$lib/server/shared/api-handler";
 import { requireProblemPostAccess } from "$lib/server/post-access";
-import { postDomain, problemDomain } from "@nojv/application";
+import { postDomain, problemDomain, NotFoundError } from "@nojv/application";
 
 const { createPost, listPostsPage } = postDomain;
 const { getProblemRowById } = problemDomain;

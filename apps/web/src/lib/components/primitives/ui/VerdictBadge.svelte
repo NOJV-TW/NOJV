@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { Badge, type BadgeSize } from "$lib/components/primitives/ui/badge";
+  import { Badge } from "$lib/components/primitives/ui/badge";
   import { formatVerdictLabel, verdictBadgeVariant } from "$lib/utils/verdict-style";
 
-  let { verdict, size = "sm" }: { verdict: string; size?: BadgeSize } = $props();
+  let { verdict }: { verdict: string } = $props();
 </script>
 
-<Badge variant={verdictBadgeVariant(verdict)} {size}>{formatVerdictLabel(verdict)}</Badge>
+<Badge variant={verdictBadgeVariant(verdict)} size="sm">{formatVerdictLabel(verdict)}</Badge>

@@ -35,6 +35,10 @@ it.each([{ error: "Internal server error." }, { codeError: "Invalid invitation c
       );
     } finally {
       await unmount(component);
+      await vi.waitFor(() => {
+        expect(document.body.style.overflow).not.toBe("hidden");
+        expect(document.body.style.pointerEvents).not.toBe("none");
+      });
       target.remove();
     }
   },

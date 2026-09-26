@@ -1,10 +1,14 @@
-import { getSecurityFactorState, securityGenerationProof } from "@nojv/application";
+import {
+  getSecurityFactorState,
+  securityGenerationProof,
+  HttpError,
+  hasTokenPageMfa,
+} from "@nojv/application";
 import { json } from "@sveltejs/kit";
 
 import type { RequestHandler } from "./$types";
 
-import { HttpError, requireApiAuth } from "$lib/server/auth";
-import { hasTokenPageMfa } from "$lib/server/step-up";
+import { requireApiAuth } from "$lib/server/auth";
 import { apiHandler } from "$lib/server/shared/api-handler";
 
 export const GET: RequestHandler = apiHandler(async (event) => {

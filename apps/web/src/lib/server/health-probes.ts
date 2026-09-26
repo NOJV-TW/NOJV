@@ -1,6 +1,6 @@
 import { adminDomain } from "@nojv/application";
 
-export type HealthProbeKind = "live" | "ready";
+type HealthProbeKind = "live" | "ready";
 
 const CACHE_TTL_MS = 5_000;
 const PROBE_PATHS: Readonly<Record<string, HealthProbeKind>> = {
@@ -20,14 +20,10 @@ export function isPublicSystemPath(pathname: string): boolean {
   return healthProbeKind(pathname) !== null || PUBLIC_SYSTEM_PATHS.has(pathname);
 }
 
-async function probeReadiness(): Promise<boolean> {
-  return adminDomain.checkWebReadiness();
-}
-
 export async function webIsReady(): Promise<boolean> {
   const now = Date.now();
   if (!cached || now - cached.at > CACHE_TTL_MS) {
-    inflight ??= probeReadiness().finally(() => {
+    inflight ??= adminDomain.checkWebReadiness().finally(() => {
       inflight = null;
     });
     const ready = await inflight;

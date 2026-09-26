@@ -1,6 +1,3 @@
-<script lang="ts" module>
-</script>
-
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { cn } from "$lib/utils/css.js";
@@ -11,8 +8,6 @@
     error?: string;
     required?: boolean;
     for?: string;
-    requiredMarker?: string;
-    requiredLabel?: string;
     class?: string;
     children: Snippet;
   }
@@ -23,8 +18,6 @@
     error,
     required = false,
     for: htmlFor,
-    requiredMarker = "*",
-    requiredLabel = "required",
     class: className,
     children,
   }: Props = $props();
@@ -34,8 +27,8 @@
   <label for={htmlFor} class="text-[length:var(--text-body-sm)] font-medium">
     {label}
     {#if required}
-      <span class="text-destructive ml-0.5" aria-hidden="true">{requiredMarker}</span>
-      <span class="sr-only">{requiredLabel}</span>
+      <span class="text-destructive ml-0.5" aria-hidden="true">*</span>
+      <span class="sr-only">required</span>
     {/if}
   </label>
   {@render children()}

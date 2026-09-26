@@ -2,9 +2,9 @@ import type { SandboxRequest, SandboxTestcase } from "@nojv/core";
 import { describe, expect, it } from "vitest";
 
 import {
-  buildInteractiveInteractorConfigMapData,
-  buildInteractiveSolutionConfigMapData,
-} from "../../../apps/worker/src/sandbox/kubernetes/configmaps";
+  buildInteractiveInteractorPayload,
+  buildInteractiveSolutionPayload,
+} from "../../../apps/worker/src/sandbox/shared/stage-payload";
 import {
   INTERACTIVE_SOCKET_PORT,
   buildInteractiveJobManifest,
@@ -38,9 +38,9 @@ function makeInteractiveRequest(overrides?: {
   };
 }
 
-describe("buildInteractiveSolutionConfigMapData — solution container must NOT see any secret", () => {
+describe("buildInteractiveSolutionPayload — solution container must NOT see any secret", () => {
   it("writes source + config.json with role=solution", () => {
-    const data = buildInteractiveSolutionConfigMapData(makeInteractiveRequest());
+    const data = buildInteractiveSolutionPayload(makeInteractiveRequest());
     const config = JSON.parse(data["config.json"]!) as {
       interactive: { role: string };
       judgeType: string;
@@ -58,9 +58,7 @@ describe("buildInteractiveSolutionConfigMapData — solution container must NOT 
       { index: 0, input: SECRET_INPUT, output: SECRET_ANSWER, weight: 1, isSample: false },
       { index: 1, input: "in-1\n", output: "ans-1\n", weight: 1, isSample: false },
     ];
-    const data = buildInteractiveSolutionConfigMapData(
-      makeInteractiveRequest({ testcases: tcs }),
-    );
+    const data = buildInteractiveSolutionPayload(makeInteractiveRequest({ testcases: tcs }));
 
     for (const i of [0, 1]) {
       expect(data[`case-${String(i)}-input.txt`]).toBeUndefined();
@@ -79,7 +77,7 @@ describe("buildInteractiveSolutionConfigMapData — solution container must NOT 
   });
 });
 
-describe("buildInteractiveInteractorConfigMapData — interactor container holds the secret, NOT the source", () => {
+describe("buildInteractiveInteractorPayload — interactor container holds the secret, NOT the source", () => {
   const tcs: SandboxTestcase[] = [
     { index: 0, input: "in-0\n", output: "ans-0\n", weight: 1, isSample: false },
     { index: 2, input: SECRET_INPUT, output: SECRET_ANSWER, weight: 1, isSample: false },
@@ -87,7 +85,7 @@ describe("buildInteractiveInteractorConfigMapData — interactor container holds
 
   it("ships interactor.<ext>, case-{i}-input.txt, case-{i}-answer.txt, config.json with role=validator", () => {
     const req = makeInteractiveRequest({ testcases: tcs });
-    const data = buildInteractiveInteractorConfigMapData(req);
+    const data = buildInteractiveInteractorPayload(req);
 
     expect(data["interactor.py"]).toBe(INTERACTOR_SCRIPT);
     expect(data["case-2-input.txt"]).toBe(SECRET_INPUT);
@@ -108,7 +106,7 @@ describe("buildInteractiveInteractorConfigMapData — interactor container holds
   it("keeps an explicit Python interactor independent of checkerLanguage", () => {
     const req = makeInteractiveRequest();
     req.judgeConfig.checkerLanguage = "cpp";
-    const data = buildInteractiveInteractorConfigMapData(req);
+    const data = buildInteractiveInteractorPayload(req);
     expect(data["interactor.py"]).toBe(INTERACTOR_SCRIPT);
     expect(JSON.parse(data["config.json"]!).interactive.language).toBe("python");
   });
@@ -116,19 +114,19 @@ describe("buildInteractiveInteractorConfigMapData — interactor container holds
   it("rejects missing interactorLanguage instead of guessing", () => {
     const req = makeInteractiveRequest();
     delete req.judgeConfig.interactorLanguage;
-    expect(() => buildInteractiveInteractorConfigMapData(req)).toThrow("interactorLanguage");
+    expect(() => buildInteractiveInteractorPayload(req)).toThrow("interactorLanguage");
   });
 
   it("uses the cpp extension when interactorLanguage is cpp", () => {
     const req = makeInteractiveRequest({ interactorLanguage: "cpp", testcases: tcs });
-    const data = buildInteractiveInteractorConfigMapData(req);
+    const data = buildInteractiveInteractorPayload(req);
     expect(data["interactor.cpp"]).toBeDefined();
     expect(data["interactor.py"]).toBeUndefined();
   });
 
   it("contains NO student source", () => {
     const req = makeInteractiveRequest({ testcases: tcs });
-    const data = buildInteractiveInteractorConfigMapData(req);
+    const data = buildInteractiveInteractorPayload(req);
     expect(data["main.py"]).toBeUndefined();
     for (const value of Object.values(data)) {
       expect(value).not.toContain(STUDENT_SOURCE);
@@ -137,10 +135,10 @@ describe("buildInteractiveInteractorConfigMapData — interactor container holds
 
   it("ships every case of the stage to the interactor side only", () => {
     const req = makeInteractiveRequest({ testcases: tcs });
-    const data = buildInteractiveInteractorConfigMapData(req);
+    const data = buildInteractiveInteractorPayload(req);
     expect(data["case-0-input.txt"]).toBe("in-0\n");
     expect(data["case-0-answer.txt"]).toBe("ans-0\n");
-    const solution = buildInteractiveSolutionConfigMapData(req);
+    const solution = buildInteractiveSolutionPayload(req);
     expect(Object.values(solution).join("")).not.toContain("ans-0");
   });
 
@@ -149,7 +147,7 @@ describe("buildInteractiveInteractorConfigMapData — interactor container holds
       { index: 0, input: "in\n", weight: 1, isSample: false },
     ];
     const req = makeInteractiveRequest({ testcases: tcsNoAnswer });
-    const data = buildInteractiveInteractorConfigMapData(req);
+    const data = buildInteractiveInteractorPayload(req);
     expect(data["case-0-answer.txt"]).toBe("");
   });
 });

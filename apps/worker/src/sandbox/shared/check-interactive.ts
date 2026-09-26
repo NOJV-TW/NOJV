@@ -16,7 +16,7 @@ export interface InteractiveSideResult {
   spawnError: boolean;
 }
 
-export function mergeInteractiveCase(
+function mergeInteractiveCase(
   testcase: SandboxTestcase,
   sol: InteractiveSideResult,
   int: InteractiveSideResult,

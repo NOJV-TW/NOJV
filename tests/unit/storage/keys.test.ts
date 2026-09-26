@@ -7,7 +7,6 @@ import {
   workspaceFileKey,
   checkerKey,
   interactorKey,
-  problemPrefix,
 } from "../../../packages/storage/src/keys";
 
 describe("storage key builders", () => {
@@ -53,15 +52,9 @@ describe("storage key builders", () => {
     );
   });
 
-  it("problemPrefix ends with a trailing slash", () => {
-    const prefix = problemPrefix("prob_1");
-    expect(prefix).toBe("problems/prob_1/");
-    expect(prefix.endsWith("/")).toBe(true);
-  });
-
-  it("problemPrefix is a prefix of every per-row key for the same problem", () => {
+  it("keeps every per-row key under the problem prefix", () => {
     const problemId = "prob_42";
-    const prefix = problemPrefix(problemId);
+    const prefix = `problems/${problemId}/`;
 
     expect(testcaseInputKey(problemId, "tc_a", version).startsWith(prefix)).toBe(true);
     expect(testcaseOutputKey(problemId, "tc_a", version).startsWith(prefix)).toBe(true);

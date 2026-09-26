@@ -1,6 +1,7 @@
 import type * as k8s from "@kubernetes/client-node";
 
-import { failureMessage, retryK8sCleanupCall } from "./cleanup-call";
+import { failureMessage } from "../shared/failure-message";
+import { retryK8sCleanupCall } from "./cleanup-call";
 
 export class SandboxCleanupPendingError extends Error {
   constructor(
@@ -173,41 +174,4 @@ export async function terminateSandboxPod(
       throw new SandboxCleanupPendingError([`${resource} ownership changed`]);
     await budget.pause(resource, options.pollMs ?? 500);
   }
-}
-
-export async function terminateSandboxPvc(
-  core: k8s.CoreV1Api,
-  namespace: string,
-  name: string,
-  uid: string,
-  options: TerminationOptions = {},
-): Promise<void> {
-  const resource = `PersistentVolumeClaim ${namespace}/${name}`;
-  const budget = options.budget ?? new SandboxCleanupBudget(options.timeoutMs);
-  const read = async () => {
-    try {
-      const pvc = await budget.call(resource, () =>
-        core.readNamespacedPersistentVolumeClaim({ namespace, name }),
-      );
-      if (pvc.metadata?.uid !== uid)
-        throw new SandboxCleanupPendingError([`${resource} ownership changed`]);
-      return pvc;
-    } catch (error) {
-      if (isK8sNotFound(error)) return null;
-      throw error;
-    }
-  };
-  if (!(await read())) return;
-  try {
-    await budget.call(resource, () =>
-      core.deleteNamespacedPersistentVolumeClaim({
-        namespace,
-        name,
-        body: { preconditions: { uid } },
-      }),
-    );
-  } catch (error) {
-    if (!isK8sNotFound(error)) throw error;
-  }
-  while (await read()) await budget.pause(resource, options.pollMs ?? 500);
 }

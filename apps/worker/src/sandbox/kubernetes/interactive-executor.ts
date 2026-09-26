@@ -9,10 +9,10 @@ import { executionAbortReason } from "../shared/execution-abort";
 import { sandboxSystemError } from "../shared/sandbox-plan";
 import { recordRunnerResources } from "../shared/judge-phase-metrics";
 import {
-  buildInteractiveInteractorConfigMapData,
-  buildInteractiveSolutionConfigMapData,
-  computeInteractiveJobDeadlineSeconds,
-} from "./configmaps";
+  buildInteractiveInteractorPayload,
+  buildInteractiveSolutionPayload,
+} from "../shared/stage-payload";
+import { computeInteractiveJobDeadlineSeconds } from "./job-deadlines";
 import { buildInteractiveJobManifest } from "./job-manifests";
 import {
   SandboxAdmissionError,
@@ -85,14 +85,14 @@ export class KubernetesInteractiveExecutor {
       solutionPayloadNames = await this.resources.createPayloadConfigMaps(
         solConfigMap,
         namespace,
-        buildInteractiveSolutionConfigMapData(request),
+        buildInteractiveSolutionPayload(request),
         signal,
         (name, ns) => this.cleanupResources.cleanupConfigMap(name, ns),
       );
       interactorPayloadNames = await this.resources.createPayloadConfigMaps(
         intConfigMap,
         namespace,
-        buildInteractiveInteractorConfigMapData(request),
+        buildInteractiveInteractorPayload(request),
         signal,
         (name, ns) => this.cleanupResources.cleanupConfigMap(name, ns),
       );

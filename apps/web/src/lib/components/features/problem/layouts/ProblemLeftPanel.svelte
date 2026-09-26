@@ -42,8 +42,6 @@
     newSubmissionCount?: number;
     historyRevision?: number;
     onShowLatest?: (() => void) | undefined;
-    leftTab?: "description" | "editorials" | "discussions" | "submissions";
-    viewingId?: string | null;
     problem: ProblemDetail;
     testcaseSets?: ProblemTestcaseSetSummary[];
     allowedLanguages?: string[] | undefined;
@@ -61,18 +59,16 @@
     newSubmissionCount = 0,
     historyRevision = 0,
     onShowLatest,
-    leftTab: initialLeftTab = "description",
-    viewingId: initialViewingId = null,
     problem,
     testcaseSets = [],
     allowedLanguages,
     workspaceTimer,
   }: ProblemLeftPanelProps = $props();
 
-  let leftTab = $state<"description" | "editorials" | "discussions" | "submissions">(
-    untrack(() => initialLeftTab),
-  );
-  let viewingId = $state<string | null>(untrack(() => initialViewingId));
+  type LeftTab = "description" | "editorials" | "discussions" | "submissions";
+
+  let leftTab = $state<LeftTab>("description");
+  let viewingId = $state<string | null>(null);
 
   let lastKnownHead = $state<string | null>(
     untrack(() => submissions[0]?.id ?? submissions[0]?.submittedAt ?? null),
@@ -95,7 +91,6 @@
 
   const uid = $props.id();
 
-  type LeftTab = "description" | "editorials" | "discussions" | "submissions";
   let tabDefs = $derived<{ key: LeftTab; label: string }[]>([
     { key: "description", label: m.problemDetail_description() },
     { key: "submissions", label: m.problemDetail_submissions() },

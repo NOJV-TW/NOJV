@@ -7,9 +7,11 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { mergeCheckerResults } from "../../../apps/worker/src/sandbox/shared/check-standard";
-import { buildRunConfigMapData } from "../../../apps/worker/src/sandbox/kubernetes/configmaps";
 import { buildStageJobManifest } from "../../../apps/worker/src/sandbox/kubernetes/job-manifests";
-import { buildJudgePayload } from "../../../apps/worker/src/sandbox/shared/stage-result";
+import {
+  buildJudgePayload,
+  buildRunPayload,
+} from "../../../apps/worker/src/sandbox/shared/stage-payload";
 
 function makeCheckerRequest(overrides?: {
   testcases?: SandboxRequest["testcases"];
@@ -34,7 +36,7 @@ function makeCheckerRequest(overrides?: {
   };
 }
 
-describe("buildRunConfigMapData — checker run pod must not see answer or validator", () => {
+describe("buildRunPayload — checker run pod must not see answer or validator", () => {
   it("excludes every testcase-{i}-expected.txt key for checker", () => {
     const tcs = Array.from({ length: 6 }, (_, i) => ({
       index: i,
@@ -43,7 +45,7 @@ describe("buildRunConfigMapData — checker run pod must not see answer or valid
       weight: 1,
       isSample: false,
     }));
-    const data = buildRunConfigMapData(makeCheckerRequest({ testcases: tcs }), 1);
+    const data = buildRunPayload(makeCheckerRequest({ testcases: tcs }), 1);
 
     for (let i = 0; i < tcs.length; i++) {
       expect(data[`testcase-${String(i)}-input.txt`]).toBe(`in-${String(i)}\n`);
@@ -55,7 +57,7 @@ describe("buildRunConfigMapData — checker run pod must not see answer or valid
   });
 
   it("excludes the checker.<ext> key for checker", () => {
-    const data = buildRunConfigMapData(
+    const data = buildRunPayload(
       makeCheckerRequest({ checkerScript: "VERY_SECRET_CHECKER\n", checkerLanguage: "python" }),
       1,
     );
@@ -66,7 +68,7 @@ describe("buildRunConfigMapData — checker run pod must not see answer or valid
   });
 
   it("excludes the checker.cpp key for cpp checker", () => {
-    const data = buildRunConfigMapData(
+    const data = buildRunPayload(
       makeCheckerRequest({ checkerScript: "int main(){}\n", checkerLanguage: "cpp" }),
       1,
     );
@@ -74,7 +76,7 @@ describe("buildRunConfigMapData — checker run pod must not see answer or valid
   });
 
   it("still writes source + config.json + input keys for the run", () => {
-    const data = buildRunConfigMapData(makeCheckerRequest(), 2);
+    const data = buildRunPayload(makeCheckerRequest(), 2);
     const config = JSON.parse(data["config.json"]!) as {
       sourceFileMap?: { path: string; key: string }[];
       mode?: unknown;
@@ -87,7 +89,7 @@ describe("buildRunConfigMapData — checker run pod must not see answer or valid
   });
 
   it("standard mode still excludes expected (regression: existing gate intact)", () => {
-    const data = buildRunConfigMapData(
+    const data = buildRunPayload(
       {
         ...makeCheckerRequest(),
         judgeType: "standard",
@@ -100,7 +102,7 @@ describe("buildRunConfigMapData — checker run pod must not see answer or valid
   });
 
   it("checker request with no checker script does not write a checker key (defensive)", () => {
-    const data = buildRunConfigMapData(
+    const data = buildRunPayload(
       {
         ...makeCheckerRequest(),
         judgeConfig: { checkerLanguage: "python" },

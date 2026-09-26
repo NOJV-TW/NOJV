@@ -5,10 +5,8 @@ import {
   courseDomain,
   NotFoundError,
   ForbiddenError,
-  resolveEffectiveCourseRole,
-  canManageCourse,
 } from "@nojv/application";
-import { requireAuth } from "$lib/server/auth";
+import { isCourseManager, isCourseMember, requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 
 const { getCourseHeaderById } = courseDomain;
@@ -29,15 +27,9 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
     throw new NotFoundError("Course not found.");
   }
 
-  const membership = course.memberships[0] ?? null;
-  const effectiveRole = resolveEffectiveCourseRole(
-    actor.platformRole,
-    membership?.role ?? null,
-  );
-  const isManager = canManageCourse(effectiveRole);
-  const isEnrolled = membership?.status === "active";
+  const isManager = isCourseManager(actor, course);
 
-  if (!isManager && !isEnrolled) {
+  if (!isManager && !isCourseMember(actor, course)) {
     throw new NotFoundError("Assignment not found.");
   }
 

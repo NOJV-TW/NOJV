@@ -168,7 +168,7 @@ export async function createNotificationBatchInTransaction(
   return total;
 }
 
-export function createNotificationBatch(
+function createNotificationBatch(
   inputs: NotificationCreateInput[],
   options: NotificationEmailOptions = {},
 ): Promise<number> {

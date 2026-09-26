@@ -1,3 +1,4 @@
+import { getWebEnv } from "$lib/server/env";
 import { subscribeSse } from "$lib/server/shared/sse-hub";
 import {
   sseConnectionDuration,
@@ -17,12 +18,11 @@ interface CreateSseResponseOptions {
   channels: string[];
   slotType: SseStreamType;
   userId: string;
-  redisUrl: string;
   request: Request;
 }
 
 export function createSseResponse(options: CreateSseResponseOptions): Response {
-  const { channels, slotType, userId, redisUrl, request } = options;
+  const { channels, slotType, userId, request } = options;
 
   if (!acquireSseSlot(slotType, userId)) {
     return new Response("Too many concurrent connections", { status: 429 });
@@ -58,7 +58,7 @@ export function createSseResponse(options: CreateSseResponseOptions): Response {
         }
       }
 
-      const unsubscribe = subscribeSse(redisUrl, channels, (_channel, message) => {
+      const unsubscribe = subscribeSse(getWebEnv().REDIS_URL, channels, (_channel, message) => {
         send(message);
       });
 

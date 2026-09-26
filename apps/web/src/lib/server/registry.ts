@@ -63,7 +63,7 @@ export async function listTags(repo: string): Promise<string[]> {
   return body.tags ?? [];
 }
 
-export interface ManifestInfo {
+interface ManifestInfo {
   digest: string | null;
   size: number | null;
 }

@@ -12,7 +12,7 @@ vi.mock("../../../apps/worker/src/sandbox/docker/process", async (importOriginal
   ...(await importOriginal<typeof import("../../../apps/worker/src/sandbox/docker/process")>()),
   collectContainerLogs: collectContainerLogsMock,
   forceRemoveContainer: forceRemoveContainerMock,
-  runDocker: runDockerMock,
+  runDockerCommand: runDockerMock,
   sanitizeId: (value: string) => value,
 }));
 

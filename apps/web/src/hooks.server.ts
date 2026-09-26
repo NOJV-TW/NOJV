@@ -4,7 +4,15 @@ import "$lib/server/mailer-startup";
 
 import { error, redirect, type Handle, type HandleServerError } from "@sveltejs/kit";
 import type { SessionUser } from "@nojv/core";
-import { apiTokenDomain, examDomain, proctoringDomain } from "@nojv/application";
+import {
+  apiTokenDomain,
+  examDomain,
+  proctoringDomain,
+  adminAccessPrincipal,
+  isSuperAdminSessionExpired,
+  resolveAdminAccess,
+  revokeAdminAccess,
+} from "@nojv/application";
 
 import { getAuth } from "$lib/auth.server";
 import { isExamPasswordSecurityRequest } from "$lib/server/exam-password-policy";
@@ -21,12 +29,6 @@ import {
 import { getWebEnv } from "$lib/server/env";
 import { healthProbeKind, isPublicSystemPath } from "$lib/server/health-probes";
 import { consumeStepUpHandoff } from "$lib/server/step-up-handoff";
-import {
-  adminAccessPrincipal,
-  isSuperAdminSessionExpired,
-  resolveAdminAccess,
-  revokeAdminAccess,
-} from "$lib/server/step-up";
 import {
   apiRequestDuration,
   healthProbeDuration,
@@ -78,12 +80,7 @@ function denyExamGate(opts: {
   message: string;
   code: string;
 }): Response {
-  if (opts.cleanPath.startsWith("/api/")) {
-    return new Response(JSON.stringify({ message: opts.message, code: opts.code }), {
-      status: opts.status,
-      headers: { "content-type": "application/json", "x-request-id": opts.requestId },
-    });
-  }
+  if (opts.cleanPath.startsWith("/api/")) return jsonErrorResponse(opts);
   error(opts.status, opts.message);
 }
 
@@ -147,9 +144,6 @@ async function authenticateApiToken(
   event: HandleEvent,
   cleanPath: string,
 ): Promise<Response | null> {
-  event.locals.apiToken = null;
-  event.locals.apiTokenActor = null;
-
   const token = readBearerToken(event);
   if (!token) return null;
 
@@ -239,18 +233,11 @@ function blockedAuthRateLimitResponse(
 ): Response | null {
   if (result === "allowed") return null;
   const unavailable = result === "unavailable";
-  return new Response(
-    JSON.stringify({
-      message: unavailable ? "Authentication rate limiter unavailable." : limitedMessage,
-    }),
-    {
-      status: unavailable ? 503 : 429,
-      headers: {
-        "content-type": "application/json",
-        "x-request-id": requestId,
-      },
-    },
-  );
+  return jsonErrorResponse({
+    message: unavailable ? "Authentication rate limiter unavailable." : limitedMessage,
+    requestId,
+    status: unavailable ? 503 : 429,
+  });
 }
 
 async function loadSession(event: HandleEvent): Promise<void> {

@@ -9,21 +9,9 @@
     judgeType: string;
     timeLimitMs: number;
     memoryLimitMb: number;
-    isCompact?: boolean;
-    which?: "both" | "problem-type" | "judge-method";
   }
 
-  let {
-    problemType,
-    judgeType,
-    timeLimitMs,
-    memoryLimitMb,
-    isCompact = false,
-    which = "both",
-  }: Props = $props();
-
-  let showProblemType = $derived(which === "both" || which === "problem-type");
-  let showJudgeMethodRequested = $derived(which === "both" || which === "judge-method");
+  let { problemType, judgeType, timeLimitMs, memoryLimitMb }: Props = $props();
 
   const problemTypeLabel: Record<ProblemType, () => string> = {
     full_source: () => m.problemDetail_fullSourceBadge(),
@@ -69,67 +57,50 @@
   let judgeHelp = $derived((judgeTypeHelp[judgeType] ?? judgeTypeHelp["standard"]!)());
   let judgeColor = $derived(judgeTypeColor[judgeType] ?? judgeTypeColor["standard"]!);
 
-  let showJudgeMethod = $derived(showJudgeMethodRequested && problemType !== "special_env");
+  let showJudgeMethod = $derived(problemType !== "special_env");
 </script>
 
-{#if isCompact}
-  <span class="inline-flex flex-wrap items-center gap-1">
-    {#if showProblemType}
-      <span class="rounded-full px-2 py-0.5 text-micro font-medium {problemColor}">
-        {problemLabel}
+<div
+  class="mt-3 flex flex-wrap gap-x-8 gap-y-2 rounded-md border border-border-subtle bg-muted/30 px-3 py-2"
+>
+  <span class="inline-flex items-center gap-1.5 text-caption">
+    <Timer
+      class="size-3.5 shrink-0 text-muted-foreground"
+      aria-label={m.problemDetail_timeLimit()}
+      title={m.problemDetail_timeLimit()}
+    />
+    <span class="font-mono font-semibold tabular-nums text-foreground">
+      {(timeLimitMs / 1000).toFixed(timeLimitMs % 1000 === 0 ? 0 : 1)}s
+    </span>
+  </span>
+  <span class="inline-flex items-center gap-1.5 text-caption">
+    <MemoryStick
+      class="size-3.5 shrink-0 text-muted-foreground"
+      aria-label={m.problemDetail_memoryLimit()}
+      title={m.problemDetail_memoryLimit()}
+    />
+    <span class="font-mono font-semibold tabular-nums text-foreground">
+      {memoryLimitMb} MB
+    </span>
+  </span>
+  <div class="flex items-center gap-2">
+    <span class="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
+      {m.problemDetail_problemTypeTitle()}
+    </span>
+    <span class="rounded-full px-2.5 py-0.5 text-caption font-medium {problemColor}">
+      {problemLabel}
+    </span>
+    <HelpTooltip text={problemHelp} />
+  </div>
+  {#if showJudgeMethod}
+    <div class="flex items-center gap-2">
+      <span class="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
+        {m.problemDetail_judgeMethodTitle()}
       </span>
-    {/if}
-    {#if showJudgeMethod}
-      <span class="rounded-full px-2 py-0.5 text-micro font-medium {judgeColor}">
+      <span class="rounded-full px-2.5 py-0.5 text-caption font-medium {judgeColor}">
         {judgeLabel}
       </span>
-    {/if}
-  </span>
-{:else}
-  <div
-    class="mt-3 flex flex-wrap gap-x-8 gap-y-2 rounded-md border border-border-subtle bg-muted/30 px-3 py-2"
-  >
-    <span class="inline-flex items-center gap-1.5 text-caption">
-      <Timer
-        class="size-3.5 shrink-0 text-muted-foreground"
-        aria-label={m.problemDetail_timeLimit()}
-        title={m.problemDetail_timeLimit()}
-      />
-      <span class="font-mono font-semibold tabular-nums text-foreground">
-        {(timeLimitMs / 1000).toFixed(timeLimitMs % 1000 === 0 ? 0 : 1)}s
-      </span>
-    </span>
-    <span class="inline-flex items-center gap-1.5 text-caption">
-      <MemoryStick
-        class="size-3.5 shrink-0 text-muted-foreground"
-        aria-label={m.problemDetail_memoryLimit()}
-        title={m.problemDetail_memoryLimit()}
-      />
-      <span class="font-mono font-semibold tabular-nums text-foreground">
-        {memoryLimitMb} MB
-      </span>
-    </span>
-    {#if showProblemType}
-      <div class="flex items-center gap-2">
-        <span class="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
-          {m.problemDetail_problemTypeTitle()}
-        </span>
-        <span class="rounded-full px-2.5 py-0.5 text-caption font-medium {problemColor}">
-          {problemLabel}
-        </span>
-        <HelpTooltip text={problemHelp} />
-      </div>
-    {/if}
-    {#if showJudgeMethod}
-      <div class="flex items-center gap-2">
-        <span class="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
-          {m.problemDetail_judgeMethodTitle()}
-        </span>
-        <span class="rounded-full px-2.5 py-0.5 text-caption font-medium {judgeColor}">
-          {judgeLabel}
-        </span>
-        <HelpTooltip text={judgeHelp} />
-      </div>
-    {/if}
-  </div>
-{/if}
+      <HelpTooltip text={judgeHelp} />
+    </div>
+  {/if}
+</div>

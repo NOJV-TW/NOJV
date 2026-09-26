@@ -1,6 +1,6 @@
+import { HttpError } from "@nojv/application";
 import { error, isHttpError as isSvelteKitError, isRedirect } from "@sveltejs/kit";
 
-import { HttpError } from "../auth";
 import { classifyRequestError } from "./handle-action-error";
 import type { RequestEvent } from "@sveltejs/kit";
 

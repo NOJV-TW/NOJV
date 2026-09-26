@@ -6,7 +6,7 @@ export type ActiveExamContext = NonNullable<
 
 type ProctoringVerdict = Awaited<ReturnType<typeof proctoringDomain.checkProctoringGate>>;
 
-export interface ExamGateDenial {
+interface ExamGateDenial {
   status: number;
   code: string;
   scope: "all" | "api";

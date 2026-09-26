@@ -3,7 +3,7 @@ import type { submissionDomain } from "@nojv/application";
 import type { SubmissionSource } from "@nojv/storage";
 import { describe, expect, it } from "vitest";
 
-import { mergeSandboxSources } from "../../../apps/worker/src/activities/judge";
+import { mergeSandboxSources } from "../../../apps/worker/src/activities/judge-request";
 
 type WorkspaceFile = submissionDomain.SubmissionJudgeContext["workspaceFiles"][number];
 

@@ -1,9 +1,14 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { compareStandard, validatorTimeoutMs, type ValidateOutput } from "@nojv/core";
+import {
+  compareStandard,
+  validatorTimeoutMs,
+  type ValidateOutput,
+  type ValidatorCaseOutcome,
+} from "@nojv/core";
 import { compileValidator } from "../compiler.js";
-import type { SandboxInput, ValidatorCaseOutcome } from "../types.js";
-import { pathExists } from "../utils.js";
+import type { SandboxInput } from "../types.js";
+import { findScript, pathExists } from "../utils.js";
 import { readCaseOutput, readStageRuns } from "./stage-files.js";
 import { validateCase } from "./validate.js";
 
@@ -15,18 +20,11 @@ export interface JudgeStageParams {
   workDir: string;
 }
 
-async function findValidatorScript(submissionDir: string): Promise<string | null> {
-  const match = (await fs.readdir(submissionDir)).find((entry) =>
-    entry.startsWith("validator."),
-  );
-  return match ? path.join(submissionDir, match) : null;
-}
-
 export async function judgeStage(params: JudgeStageParams): Promise<ValidateOutput> {
   const { config, submissionDir } = params;
   let validatorCommand: string[] | null = null;
   if (config.validate) {
-    const script = await findValidatorScript(submissionDir);
+    const script = await findScript(submissionDir, "validator");
     if (!script) return { compilationError: "Checker judge requires a validator script." };
     const compiled = await compileValidator(
       script,

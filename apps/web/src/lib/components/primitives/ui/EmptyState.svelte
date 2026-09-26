@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Component } from "svelte";
-  import { Check, ExternalLink } from "@lucide/svelte";
+  import { Check } from "@lucide/svelte";
   import { Button } from "$lib/components/primitives/ui/button/index.js";
   import { cn } from "$lib/utils/css.js";
 
@@ -21,8 +21,6 @@
     variant?: "minimal" | "onboarding";
     actions?: EmptyStateAction[];
     tips?: string[];
-    docsHref?: string;
-    docsLabel?: string;
     class?: string;
   }
 
@@ -35,8 +33,6 @@
     variant = "minimal",
     actions,
     tips,
-    docsHref,
-    docsLabel,
     class: className,
   }: Props = $props();
 
@@ -78,15 +74,6 @@
           </li>
         {/each}
       </ul>
-    {/if}
-    {#if docsHref && docsLabel}
-      <a
-        href={docsHref}
-        class="mt-6 inline-flex items-center gap-1.5 text-[length:var(--text-body-sm)] text-muted-foreground hover:text-foreground transition-colors duration-fast ease-out-soft"
-      >
-        {docsLabel}
-        <ExternalLink class="size-3.5" aria-hidden="true" />
-      </a>
     {/if}
   </div>
 {:else}

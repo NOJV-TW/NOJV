@@ -13,7 +13,7 @@ export const latePenaltyRuleSchema = z.discriminatedUnion("type", [
 
 export type LatePenaltyRule = z.infer<typeof latePenaltyRuleSchema>;
 
-export const adjustmentRuleSchema = z.discriminatedUnion("type", [
+const adjustmentRuleSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("time_bonus"),
     maxBonusPercent: z.number().min(0).max(100),

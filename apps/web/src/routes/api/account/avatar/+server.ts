@@ -30,7 +30,7 @@ export const PUT: RequestHandler = writeApiHandler(async (event) => {
   if (detectImageMime(buffer) !== "image/webp") {
     error(400, "Invalid file content. Avatars must be webp.");
   }
-  const { url } = await uploadAvatar(actor, { buffer });
+  const { url } = await uploadAvatar(actor, buffer);
   await userDomain.setUserAvatar(actor.userId, url);
 
   return json({ image: url });

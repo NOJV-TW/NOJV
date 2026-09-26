@@ -7,13 +7,9 @@
 
   type Props = {
     repoUrl?: string;
-    contactEmail?: string;
   };
 
-  let {
-    repoUrl = "https://github.com/NOJV-TW/NOJV",
-    contactEmail = "nojv.tw@gmail.com",
-  }: Props = $props();
+  let { repoUrl = "https://github.com/NOJV-TW/NOJV" }: Props = $props();
 
   const year = new Date().getFullYear();
   const releaseVersion = env.PUBLIC_APP_VERSION;
@@ -46,7 +42,7 @@
     >
     <a
       class="inline-flex items-center gap-1.5 transition-colors duration-fast ease-out-soft hover:text-foreground"
-      href={`mailto:${contactEmail}`}
+      href="mailto:nojv.tw@gmail.com"
     >
       <Mail aria-hidden="true" class="size-3.5" />
       {m.footer_contact()}

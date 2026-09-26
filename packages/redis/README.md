@@ -1,36 +1,33 @@
 # @nojv/redis
 
-> Redis 8 連線、key 註冊、pub/sub。
+> Redis 8 連線、key / channel registry、pub/sub helper。
 
 ## 職責
 
-- 集中管理 Redis 連線（singleton client + subscriber）與 key naming（`keys` registry）
-- 提供 pub/sub helper 給 SSE 與 worker 之間溝通
-- **不負責**：業務規則（誰能更新、何時 freeze 在 `@nojv/application`）
+- 連線 factory（共用 client、SSE subscriber、rate-limiter 專用連線）
+- 所有 key 與 channel 名稱集中於 `keys`
+- best-effort publish helper
+- **不負責**：業務規則、快取邏輯（在 `@nojv/application`）、rate limiter（在 `apps/web`）
 
 ## 主要 API
 
-- `src/connection.ts` — `getRedis()`、`createSubscriber()`
-- `src/keys.ts` — `keys` registry（所有 Redis key 命名集中於此）
-- `src/pubsub.ts` — `publish` / `subscribe` helper
+- `src/connection.ts` — `getRedis()`、`createSubscriber(redisUrl)`、`createRateLimiterConnection()`
+- `src/keys.ts` — `keys` registry
+- `src/pubsub.ts`（`pubsub` namespace）— `publishVerdict`、`publishScoreboardUpdate`、`publishContestEvent`、`publishNotification`、`publishClarification`
+
+Key、TTL、channel 與事件一覽見 [Redis Architecture](../../docs/architecture/REDIS.md)。
 
 ## 依賴
 
-- 上游：`@nojv/core`（共享 schema）、`ioredis`、`@opentelemetry/api`
-- 下游：`@nojv/application`、`apps/web`、`apps/worker`
+- 上游：`@nojv/core`、`ioredis`
+- 下游：`@nojv/application`、`apps/web`（僅 ARCHITECTURE 列出的檔案）、`apps/worker`
 
 ## 本地開發
 
 ```bash
-# 從 repo 根目錄
 pnpm -F @nojv/redis build
 pnpm -F @nojv/redis typecheck
 pnpm -F @nojv/redis lint
 ```
 
 需先啟動本地 Redis（見 `docker-compose.yml`）。
-
-## 相關文件
-
-- [Redis Architecture](../../docs/architecture/REDIS.md)
-- [Architecture Overview](../../docs/architecture/ARCHITECTURE.md)

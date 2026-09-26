@@ -39,7 +39,7 @@ export function isStorageObjectNotFoundError(reason: unknown): boolean {
   );
 }
 
-export function isStorageObjectPointer(value: unknown): value is StorageObjectPointer {
+function isStorageObjectPointer(value: unknown): value is StorageObjectPointer {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const candidate = value as Partial<StorageObjectPointer>;
   return (

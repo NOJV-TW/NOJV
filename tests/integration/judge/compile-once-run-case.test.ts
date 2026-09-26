@@ -8,9 +8,11 @@ import { describe, expect, it } from "vitest";
 
 import type { Language, SandboxRequest } from "@nojv/core";
 
-import { buildRunConfigMapData } from "../../../apps/worker/src/sandbox/kubernetes/configmaps";
 import { buildPayloadConfigMaps } from "../../../apps/worker/src/sandbox/kubernetes/payload";
-import { buildJudgePayload } from "../../../apps/worker/src/sandbox/shared/stage-result";
+import {
+  buildJudgePayload,
+  buildRunPayload,
+} from "../../../apps/worker/src/sandbox/shared/stage-payload";
 import { requireSandboxImage } from "./_sandbox-image";
 
 const run = promisify(execFile);
@@ -162,7 +164,7 @@ describe("compile and run every case in one container, judge in another", () => 
             isSample: false,
           })),
         };
-        await writePayload(payload, buildRunConfigMapData(stageRequest, 2));
+        await writePayload(payload, buildRunPayload(stageRequest, 2));
         const containers: ContainerRecord[] = [];
         const runOutput = await container(
           root,

@@ -10,7 +10,7 @@ import {
 import {
   computeInteractiveJobDeadlineSeconds,
   computeStageJobDeadlineSeconds,
-} from "../../../apps/worker/src/sandbox/kubernetes/configmaps";
+} from "../../../apps/worker/src/sandbox/kubernetes/job-deadlines";
 
 function mkRequest(
   timeoutMs: number,

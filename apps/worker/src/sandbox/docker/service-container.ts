@@ -1,14 +1,13 @@
-import { buildAdvancedServiceArgs } from "@nojv/sandbox-docker";
-import { SERVICE_READY_MARKER } from "../shared/advanced-service-contract";
+import { buildAdvancedServiceArgs, SERVICE_READY_MARKER } from "@nojv/sandbox-docker";
 
 import {
   attachDockerCleanupFailure,
   collectContainerLogs,
   forceRemoveContainer,
-  runDocker,
+  runDockerCommand,
   sanitizeId,
 } from "./process";
-import { executionAbortReason } from "../shared/execution-abort";
+import { abortableSleep } from "../shared/execution-abort";
 
 const READINESS_TIMEOUT_MS = 5_000;
 const READINESS_INTERVAL_MS = 100;
@@ -17,35 +16,8 @@ export function serviceContainerName(runId: string): string {
   return `nojv-service-${sanitizeId(runId).slice(0, 36)}`;
 }
 
-export function buildStartServiceArgs(params: {
-  containerName: string;
-  internalName: string;
-  imageRef: string;
-  memoryMb: number;
-  cpuLimit: string;
-  pidsLimit: number;
-  labels?: Readonly<Record<string, string>>;
-}): string[] {
-  return buildAdvancedServiceArgs(params);
-}
-
 export interface ServiceContainerHandle {
   containerName: string;
-}
-
-function sleep(ms: number, signal: AbortSignal): Promise<void> {
-  signal.throwIfAborted();
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      signal.removeEventListener("abort", abort);
-      resolve();
-    }, ms);
-    const abort = () => {
-      clearTimeout(timer);
-      reject(executionAbortReason(signal));
-    };
-    signal.addEventListener("abort", abort, { once: true });
-  });
 }
 
 export async function waitForServiceReady(
@@ -54,10 +26,10 @@ export async function waitForServiceReady(
 ): Promise<void> {
   const deadline = Date.now() + READINESS_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    if ((await collectServiceLogs(containerName, signal)).includes(SERVICE_READY_MARKER)) {
+    if ((await collectContainerLogs(containerName, signal)).includes(SERVICE_READY_MARKER)) {
       return;
     }
-    await sleep(READINESS_INTERVAL_MS, signal);
+    await abortableSleep(READINESS_INTERVAL_MS, signal);
   }
   throw new Error(`service ${containerName} did not become ready within timeout`);
 }
@@ -75,8 +47,8 @@ export async function startServiceContainer(params: {
   const containerName = serviceContainerName(params.runId);
   params.signal.throwIfAborted();
   try {
-    await runDocker(
-      buildStartServiceArgs({
+    await runDockerCommand(
+      buildAdvancedServiceArgs({
         containerName,
         internalName: params.internalName,
         imageRef: params.imageRef,
@@ -85,7 +57,7 @@ export async function startServiceContainer(params: {
         pidsLimit: params.pidsLimit,
         labels: params.labels,
       }),
-      params.signal,
+      { signal: params.signal },
     );
     await waitForServiceReady(containerName, params.signal);
     return { containerName };
@@ -100,15 +72,4 @@ export async function startServiceContainer(params: {
     }
     throw err;
   }
-}
-
-export function collectServiceLogs(
-  containerName: string,
-  signal: AbortSignal,
-): Promise<string> {
-  return collectContainerLogs(containerName, signal);
-}
-
-export function stopServiceContainer(containerName: string): Promise<void> {
-  return forceRemoveContainer(containerName);
 }

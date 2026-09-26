@@ -83,7 +83,10 @@ vi.mock("$lib/auth.server", () => ({
   getAuth: () => ({ api: { verifyTOTP: verifyTotpMock } }),
 }));
 
+import { verifyStepUpCode, verifyTotpStepUp } from "$lib/server/step-up";
 import {
+  consumeStepUpHandoffTicket,
+  createStepUpHandoffTicket,
   clearStepUp,
   consumeTotpCode,
   exitAdminMode,
@@ -97,10 +100,7 @@ import {
   revokeAdminAccess,
   securityGenerationMarker,
   validateStepUpCode,
-  verifyStepUpCode,
-  verifyTotpStepUp,
-} from "$lib/server/step-up";
-import { consumeStepUpHandoffTicket, createStepUpHandoffTicket } from "@nojv/application";
+} from "@nojv/application";
 
 const proof = { userId: "usr_1", securityGeneration: 7 };
 const marker = "sg1:usr_1:7";

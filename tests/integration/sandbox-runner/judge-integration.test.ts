@@ -4,9 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
-import { compareStandard } from "@nojv/core";
+import { compareStandard, sourceFileNames } from "@nojv/core";
 
-import { compile, sourceFileName } from "../../../apps/sandbox-runner/src/compiler.js";
+import { compile } from "../../../apps/sandbox-runner/src/compiler.js";
 import { runSolution } from "../../../apps/sandbox-runner/src/judges/standard.js";
 import type { SandboxInput, TestcaseFiles } from "../../../apps/sandbox-runner/src/types.js";
 
@@ -262,7 +262,7 @@ function makeTestcase(overrides: Partial<TestcaseFiles> = {}): TestcaseFiles {
 
 async function compileProgram(lang: SandboxInput["language"], source: string) {
   const input = makeInput(lang);
-  const srcFile = join(workDir, sourceFileName(lang));
+  const srcFile = join(workDir, sourceFileNames[lang]);
   await writeFile(srcFile, source);
   return compile(input, srcFile, workDir);
 }

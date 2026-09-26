@@ -1,5 +1,4 @@
 import type * as k8s from "@kubernetes/client-node";
-import { findSuffix, quantityToScalar } from "@kubernetes/client-node/dist/util.js";
 import { COMPILER_SCRATCH_MB } from "@nojv/core";
 
 import {
@@ -9,19 +8,10 @@ import {
   SANDBOX_TOLERATIONS,
   runtimeClassField,
 } from "./pod-spec";
+import { quantityValue } from "./resource-capacity";
 
 const TTL_AFTER_FINISHED_SECONDS = 60;
 const SUBMISSION_DATA_SIZE_LIMIT = "128Mi";
-
-function quantityValue(quantity: string): number {
-  const suffix = findSuffix(quantity);
-  const value = suffix
-    ? Number(quantity.slice(0, -suffix.length)) * Number(quantityToScalar(`1${suffix}`))
-    : Number(quantityToScalar(quantity));
-  if (!Number.isFinite(value))
-    throw new Error(`Invalid Kubernetes resource quantity: ${quantity}`);
-  return value;
-}
 
 function boundedRequest(request: string, limit: string): string {
   return quantityValue(request) > quantityValue(limit) ? limit : request;

@@ -1,7 +1,3 @@
-export function assignmentPath(assignmentId: string): string {
-  return `/assignments/${assignmentId}`;
-}
-
 export type AssignmentWindowState = "upcoming" | "open" | "grace" | "closed";
 
 interface AssignmentWindowStateInput {

@@ -42,10 +42,6 @@ vi.mock("$lib/server/step-up", async () => {
     await vi.importActual<typeof import("$lib/server/step-up")>("$lib/server/step-up");
   return {
     ...actual,
-    hasTokenPageMfa: hasTokenPageMfaMock,
-    hasFreshStepUp: hasFreshStepUpMock,
-    markVerifiedSession: markVerifiedSessionMock,
-    grantAdminMode: grantAdminModeMock,
     verifyStepUpCode: verifyStepUpCodeMock,
   };
 });
@@ -55,6 +51,10 @@ vi.mock("@nojv/application", async () => {
   return {
     ...actual,
     getSecurityFactorState: getSecurityFactorStateMock,
+    hasTokenPageMfa: hasTokenPageMfaMock,
+    hasFreshStepUp: hasFreshStepUpMock,
+    markVerifiedSession: markVerifiedSessionMock,
+    grantAdminMode: grantAdminModeMock,
     apiTokenDomain: {
       ...actual.apiTokenDomain,
       createApiToken: createApiTokenMock,

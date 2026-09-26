@@ -37,7 +37,6 @@ function buildActivities(overrides: Partial<Activities> = {}): Activities {
       oldStatus: "accepted",
     })),
     fetchJudgeContext: vi.fn(async () => ({ problemType: "full_source", advanced: null })),
-    cleanupSandboxRun: vi.fn(async () => undefined),
     executeSandbox: vi.fn(async () => ({
       result: { testcaseResults: [] },
       advancedJudgeVerificationSnapshot: null,

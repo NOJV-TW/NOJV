@@ -19,9 +19,10 @@ import {
   markVerifiedSession,
   passkeyRegistrationDenialReason,
   securityGenerationProof,
+  isSuperAdminPasswordProofSessionValid,
 } from "@nojv/application";
 import { prismaAdapterClient as prisma } from "@nojv/db";
-import { getMailer, renderEmail } from "@nojv/mailer";
+import { escapeHtml, getMailer, renderEmail } from "@nojv/mailer";
 import { getWebEnv } from "$lib/server/env";
 import { examPasswordAuth } from "$lib/server/exam-password-auth";
 import {
@@ -38,7 +39,6 @@ import {
 import { STEP_UP_HANDOFF_COOKIE } from "$lib/server/step-up-handoff";
 import {
   consumeSuperAdminPasswordProof,
-  isSuperAdminPasswordProofSessionValid,
   passwordProofTicketFromCookieHeader,
   readSuperAdminPasswordProof,
 } from "$lib/server/super-admin-password-proof";
@@ -109,18 +109,6 @@ function buildSocialProviders(env: ReturnType<typeof getWebEnv>) {
         }
       : {}),
   };
-}
-
-const HTML_ESCAPES: Record<string, string> = {
-  "&": "&amp;",
-  "<": "&lt;",
-  ">": "&gt;",
-  '"': "&quot;",
-  "'": "&#39;",
-};
-
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (ch) => HTML_ESCAPES[ch] ?? ch);
 }
 
 async function sendEmailVerificationMessage({

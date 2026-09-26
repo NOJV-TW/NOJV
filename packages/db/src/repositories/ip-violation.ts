@@ -4,7 +4,7 @@ import type { TransactionClient } from "../transaction";
 
 type TxClient = TransactionClient;
 
-export const IP_VIOLATION_RETENTION_PER_EXAM = 2000;
+const IP_VIOLATION_RETENTION_PER_EXAM = 2000;
 
 async function capExamViolations(tx: TxClient, examId: string): Promise<void> {
   await tx.$executeRaw`

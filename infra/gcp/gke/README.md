@@ -1,199 +1,89 @@
-# GKE deployment notes for the Helm chart
+# GKE
 
-GKE-specific guidance for deploying the `nojv` Helm chart (`infra/charts/nojv`,
-values overlay `values-gke.yaml`). The chart renders every workload — these
-notes cover only what is GKE-specific: node pools, the Cloud SQL Auth Proxy, the
-Temporal prerequisite, and the apply flow.
+GKE-specific setup for the `nojv` chart with `values-gke.yaml`: node pools,
+Cloud SQL Auth Proxy identity, and the Temporal prerequisite. The chart renders
+every NOJV workload; the deploy itself is `infra/gcp/cloud-build/deploy.sh`
+([GCP guide](../README.md)). Shared rules are in the
+[Deployment Guide](../../../docs/operations/DEPLOYMENT.md).
 
-## Topology
+## Key code
 
-- GKE: `web` — in-cluster Deployment behind an Ingress that Cloudflare proxies to
-- GKE: `worker` — Temporal task-queue consumers / judge orchestrators (judge + platform Deployments)
-- GKE Jobs in `nojv-sandbox`: sandbox-runner pods created by the worker
-- Cloud SQL (optional, `postgres.mode=cloudsql`) or in-cluster CloudNativePG: PostgreSQL
-- Memorystore (optional, `redis.inCluster=false`) or in-cluster Redis
+- `../scripts/create-node-pools.sh`: creates the three node pools
+- `sandbox-node-system-config.yaml`: sandbox kubelet config (`podPidsLimit: 1024`)
+- `temporal/`: Temporal Helm values and setup ([Temporal HA](temporal/HA-PRODUCTION.md))
+- `infra/charts/nojv/values-gke.yaml`: overlay
 
-## Why This Exists
+## Node pools
 
-The worker is responsible for orchestration only: it polls the Temporal task
-queue, and for each submission it creates a ConfigMap plus a one-shot Job in
-the `nojv-sandbox` namespace, then reads the runner logs back to compute the
-verdict. The Job model means every submission runs in a fresh Pod that dies
-when finished — no long-lived sandbox service, no shared state between
-submissions.
+Sandbox Pods must not share nodes with the orchestrator: a runaway submission
+could starve the worker and stop judging.
 
-## Node Pool Layout (required)
+| Pool                | Machine (default) | Taint                          | Label               | Size                  |
+| ------------------- | ----------------- | ------------------------------ | ------------------- | --------------------- |
+| `pool-worker`       | `e2-standard-2`   | none                           | `nojv-role=worker`  | 2 nodes, static       |
+| `pool-sandbox`      | `e2-standard-4`   | `nojv-role=sandbox:NoSchedule` | `nojv-role=sandbox` | on-demand, fixed at 1 |
+| `pool-sandbox-spot` | `e2-standard-4`   | `nojv-role=sandbox:NoSchedule` | `nojv-role=sandbox` | Spot, autoscale 0–4   |
 
-The worker and sandbox pods MUST run on different node pools:
-
-| Pool                | Taints                         | Labels              | Scaling                |
-| ------------------- | ------------------------------ | ------------------- | ---------------------- |
-| `pool-worker`       | none                           | `nojv-role=worker`  | static 2–3 nodes       |
-| `pool-sandbox`      | `nojv-role=sandbox:NoSchedule` | `nojv-role=sandbox` | on-demand, total 1 → 1 |
-| `pool-sandbox-spot` | `nojv-role=sandbox:NoSchedule` | `nojv-role=sandbox` | Spot, total 0 → 4      |
-
-The worker Deployment pins itself via `nodeSelector: nojv-role=worker`. Sandbox
-Pods are created with `nodeSelector: nojv-role=sandbox` and a matching
-`toleration`, so only sandbox pods can land on the sandbox pool. Without this
-split, a fork-bomb-style submission could starve the orchestrator and stop
-processing queue — which would then look like "the site is down".
-
-Create all three pools with the committed bootstrap script (so this step is
-reproducible and not a copy-pasted one-off):
+Both sandbox pools use `cos_containerd`, GKE Sandbox (`--sandbox=type=gvisor`),
+image streaming, and `sandbox-node-system-config.yaml`. Workers and the migrator
+pin to `nojv-role=worker`; sandbox Pods select `nojv-role=sandbox` with a
+matching toleration. Without the sandbox pools, sandbox Jobs stay `Pending` and
+nothing in the Helm install fails, so create them first:
 
 ```bash
-CLUSTER_NAME=... REGION=... infra/gcp/scripts/create-node-pools.sh
+CLUSTER_NAME=... REGION=... [PROJECT_ID=...] infra/gcp/scripts/create-node-pools.sh
 ```
 
-It runs the three `gcloud container node-pools create` commands below. Both
-sandbox pools use `cos_containerd`, GKE Sandbox (`gvisor`), image streaming,
-and the checked-in kubelet PID limit:
+Overrides: `WORKER_MACHINE_TYPE`, `SANDBOX_MACHINE_TYPE`,
+`SANDBOX_SPOT_MAX_NODES`. Re-running fails on pools that already exist.
 
-```bash
-gcloud container node-pools create pool-worker \
-  --cluster=CLUSTER_NAME --region=REGION \
-  --num-nodes=2 --machine-type=e2-standard-2 \
-  --node-labels=nojv-role=worker
-
-gcloud container node-pools create pool-sandbox \
-  --cluster=CLUSTER_NAME --region=REGION \
-  --num-nodes=1 --enable-autoscaling --total-min-nodes=1 --total-max-nodes=1 \
-  --machine-type=e2-standard-4 --image-type=cos_containerd \
-  --sandbox=type=gvisor --enable-image-streaming \
-  --system-config-from-file=infra/gcp/gke/sandbox-node-system-config.yaml \
-  --node-labels=nojv-role=sandbox \
-  --node-taints=nojv-role=sandbox:NoSchedule
-
-gcloud container node-pools create pool-sandbox-spot \
-  --cluster=CLUSTER_NAME --region=REGION \
-  --num-nodes=0 --enable-autoscaling --total-min-nodes=0 --total-max-nodes=4 \
-  --machine-type=e2-standard-4 --spot --image-type=cos_containerd \
-  --sandbox=type=gvisor --enable-image-streaming \
-  --system-config-from-file=infra/gcp/gke/sandbox-node-system-config.yaml \
-  --node-labels=nojv-role=sandbox \
-  --node-taints=nojv-role=sandbox:NoSchedule
-```
-
-## Files
-
-All workloads are now rendered by the `nojv` chart at `infra/charts/nojv`; there
-is no kustomize bundle. The chart templates cover what used to be hand-written
-manifests here:
-
-- worker Deployments split by `WORKER_MODE` → `templates/worker-judge.deployment.yaml` (`nojv-worker` judge) + `templates/worker-platform.deployment.yaml` (`nojv-worker-platform` platform)
-- ServiceAccount + Role for creating sandbox Jobs → `templates/worker-rbac.yaml`
-- PodDisruptionBudgets for both workers (guarded by `pdb.enabled`) → `templates/worker-pdb.yaml`
-- namespaces (`nojv` + `nojv-sandbox`) → `templates/namespaces.yaml`
-- sandbox deny-all NetworkPolicy + ResourceQuota + LimitRange → `templates/sandbox-policy.yaml`
-- worker-egress allowlist NetworkPolicy (guarded by `networkPolicy.enabled`) → `templates/app-network-policy.yaml`
-
-The files that remain in `infra/gcp/gke/` are documentation / value-file inputs,
-not applied manifests. Runtime secrets use the chart's single canonical
-[`secret.example.yaml`](../../charts/nojv/secret.example.yaml), so GKE cannot
-drift onto a second key list.
-
-- `temporal/helm-values.ha.yaml`: HA values file for the official Temporal chart
-- `temporal/secret.example.yaml`: placeholder Temporal store-credentials secret
-- `temporal/HA-PRODUCTION.md`: Temporal production HA options
+The cluster needs NetworkPolicy enforcement (Dataplane V2 or
+`--enable-network-policy`); the judge worker refuses to start without it.
 
 ## Cloud SQL Auth Proxy
 
-The worker pod runs the official Cloud SQL Auth Proxy as a sidecar (image
-`gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0`). The proxy listens on
-`127.0.0.1:5432`, so `DATABASE_URL` always targets loopback; the proxy
-authenticates to Cloud SQL via Workload Identity.
+With `postgres.mode=cloudsql` and `cloudsqlProxy.enabled=true`, web, both
+workers, the migrator and the seed Job run
+`gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0` (digest-pinned) as a native
+sidecar on `127.0.0.1:5432` with `--private-ip`. `DATABASE_URL` in the runtime
+Secret targets loopback. The instance connection name is the chart value
+`postgres.cloudsql.instanceConnectionName`, set by `deploy.sh`.
 
-One-time wiring (replace `PROJECT_ID` / `CLUSTER` / `REGION`):
-
-```bash
-# Create a GSA with Cloud SQL client role
-gcloud iam service-accounts create nojv-worker \
-  --display-name="NOJV worker service account"
-
-gcloud projects add-iam-policy-binding PROJECT_ID \
-  --member="serviceAccount:nojv-worker@PROJECT_ID.iam.gserviceaccount.com" \
-  --role="roles/cloudsql.client"
-
-# Bind the KSA (nojv/nojv-worker) to that GSA via Workload Identity
-gcloud iam service-accounts add-iam-policy-binding \
-  nojv-worker@PROJECT_ID.iam.gserviceaccount.com \
-  --role=roles/iam.workloadIdentityUser \
-  --member="serviceAccount:PROJECT_ID.svc.id.goog[nojv/nojv-worker]"
-
-kubectl annotate serviceaccount nojv-worker \
-  --namespace nojv \
-  iam.gke.io/gcp-service-account=nojv-worker@PROJECT_ID.iam.gserviceaccount.com
-```
-
-After that, the secret `nojv-runtime-secrets` only needs the connection
-name (`PROJECT_ID:REGION:INSTANCE`), not the GSA key.
-
-## Temporal Server
-
-Temporal is a one-time **prerequisite**, installed via the official Helm chart —
-it is no longer vendored as manifests in this repo. The `nojv` chart's workers
-target `temporal-frontend.nojv-temporal.svc.cluster.local:7233`
-(`temporal.address` default).
-
-For single-machine / low-stakes deploys, a single-replica Temporal
-(`temporalio/auto-setup`) is acceptable. For production HA on GKE, install the
-official chart with `temporal/helm-values.ha.yaml` (separate
-frontend/history/matching at `replicas >= 2`, backed by an HA database):
+The proxy authenticates with Workload Identity Federation for GKE. Grant
+`roles/cloudsql.client` directly to every Kubernetes service account that runs
+the proxy: `nojv-worker-judge`, `nojv-worker-platform`, `nojv-web-maintenance`
+(migrator; a hook resource recreated on every release, so a service-account
+annotation would not persist) and `default` (web and seed). Principal grants
+need no annotation and can be made before the first install:
 
 ```bash
-helm repo add temporal https://go.temporal.io/helm-charts
-helm install temporal temporal/temporal \
-  -n nojv-temporal --create-namespace \
-  -f infra/gcp/gke/temporal/helm-values.ha.yaml
+PROJECT_NUMBER="$(gcloud projects describe PROJECT_ID --format='value(projectNumber)')"
+for ksa in nojv-worker-judge nojv-worker-platform nojv-web-maintenance default; do
+  gcloud projects add-iam-policy-binding PROJECT_ID --role=roles/cloudsql.client \
+    --member="principal://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/PROJECT_ID.svc.id.goog/subject/ns/nojv/sa/${ksa}"
+done
 ```
 
-See [`temporal/HA-PRODUCTION.md`](temporal/HA-PRODUCTION.md) for the full set of
-options (Temporal Cloud vs self-hosted HA) and
-[Reliability Invariants](../../../docs/operations/RELIABILITY.md).
+## Capacity
 
-## Autoscaling (two useful layers)
+`values-gke.yaml`: web HPA 2–15; judge 2 replicas × concurrency 2; platform 1
+replica; sandbox quota 10 pods / 10 CPU / 30Gi; PDBs and worker egress policy on.
+One on-demand gVisor node is always available and the Spot pool adds up to four
+more for burst work; when Spot capacity disappears, Temporal retries the
+affected work. No dispatcher autoscaler is used (OPS-11). Sizing:
+[Judge Queue](../../../docs/runbooks/judge-queue.md).
 
-1. **web** — `HorizontalPodAutoscaler` on CPU (`web.hpa.enabled`, min 2 / max 15
-   on GKE). Absorbs concurrent-user spikes such as an exam start. Needs
-   metrics-server.
-2. **judge execution** — the elastic layer for a submission burst. The worker
-   launches one sandbox-runner Job per submission into `nojv-sandbox`; concurrency
-   is capped by the `ResourceQuota` (`sandbox.resourceQuota.pods`). One on-demand
-   gVisor node always remains available, while the Spot pool scales from 0 to 4
-   nodes for retryable burst work. When Spot capacity disappears, Temporal keeps
-   the workflow pending/retryable and the on-demand node drains the workload.
+## First install
 
-The judge dispatcher stays at `replicas: 2` with concurrency 5, matching the
-ten-Pod sandbox quota. This permits ten light Jobs or five full 20-case Jobs to
-be dispatched without the worker becoming the first ceiling. The sandbox quota
-and node-pool bounds remain the execution-capacity controls; adding another
-dispatcher autoscaler would not create execution capacity and is intentionally
-not enabled.
-
-## Apply Flow
-
-> **Preflight (do not skip):** judging _silently_ fails to schedule without the
-> `nojv-role=sandbox` gVisor pools — sandbox Jobs sit `Pending` forever and
-> nothing in the Helm install errors. Step 1 below is mandatory before the chart
-> is installed.
-
-1. Create the two node pools — run `infra/gcp/scripts/create-node-pools.sh`
-   (`CLUSTER_NAME=... REGION=...`), or the equivalent `gcloud` commands under
-   [Node Pool Layout](#node-pool-layout-required).
-2. Install the **CloudNativePG operator** cluster-wide (when `postgres.mode=cnpg`,
-   the GKE default) so the chart can render the Postgres `Cluster` / `ScheduledBackup`.
-3. Install **Temporal** via the official Helm chart (see
-   [Temporal Server](#temporal-server)).
-4. Create a real `nojv-runtime-secrets` secret with the Cloud SQL database URL,
-   Memorystore URL, and **object-storage credentials** (`S3_ENDPOINT` /
-   `S3_ACCESS_KEY` / `S3_SECRET_KEY`) — the non-secret Cloud SQL instance
-   connection name is a verified `deploy.sh` input rendered by Helm.
-5. Run `infra/gcp/cloud-build/deploy.sh` with explicit project, cluster,
-   location, deploy-principal, Cloud Build service-account, namespace, and
-   release, edge, TLS, Cloud SQL, and Redis variables listed in
-   `infra/gcp/README.md`. The script verifies the GKE endpoint and CA, live
-   private service addresses, TLS Secret, and Cloud Armor rules in an isolated
-   kubeconfig before mutation, resolves every pushed component digest, and
-   passes all verified values to Helm.
-
-This keeps the public control plane separate from the execution namespace while avoiding a long-lived sandbox service.
+1. Create the node pools.
+2. Install Temporal ([Temporal HA](temporal/HA-PRODUCTION.md)).
+3. Create the runtime Secret from `infra/charts/nojv/secret.example.yaml`
+   (Cloud SQL loopback `DATABASE_URL`, Memorystore `REDIS_URL`, GCS `S3_*`, auth,
+   SMTP, registry and seed keys) and the TLS Secret for both hosts. After the
+   chart creates `nojv-sandbox`, add the `nojv-registry-pull` Secret there
+   (same shape as the [single-machine registry step](../../../docs/runbooks/k8s-single-machine.md#registry)).
+4. Create the Cloud Armor policy
+   ([Cloudflare + Cloud Armor Setup](../../../docs/operations/DEPLOYMENT.md#cloudflare--cloud-armor-setup)).
+5. Grant the proxy's Cloud SQL access (above).
+6. Run `infra/gcp/cloud-build/deploy.sh`.
+7. Enable Cloud SQL backups (`infra/gcp/scripts/setup-backups.sh`).

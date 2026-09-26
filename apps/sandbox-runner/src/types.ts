@@ -7,28 +7,12 @@ import {
   problemTypeSchema,
 } from "@nojv/core";
 
-export type {
-  SandboxResult,
-  SandboxTestcase,
-  SandboxTestcaseResult,
-  SandboxVerdict,
-} from "@nojv/core";
-
 export const SandboxInputSchema = z.object({
   submissionId: z.string(),
   language: languageSchema,
   judgeType: judgeTypeSchema,
   problemType: problemTypeSchema,
   entryFile: z.string().min(1).max(300).optional(),
-  sourceFiles: z
-    .array(
-      z.object({
-        path: z.string().min(1).max(300),
-        content: z.string(),
-      }),
-    )
-    .max(200)
-    .optional(),
   sourceFileMap: z
     .array(
       z.object({
@@ -78,16 +62,3 @@ export interface TestcaseFiles {
   index: number;
   input: string;
 }
-
-export {
-  sandboxOutputSchema as SandboxOutputSchema,
-  compileOutputSchema as CompileOutputSchema,
-  validateOutputSchema as ValidateOutputSchema,
-} from "@nojv/core";
-export type {
-  SandboxTestcaseResult as TestcaseResult,
-  SandboxResult as SandboxOutput,
-  CompileOutput,
-  ValidateOutput,
-  ValidatorCaseOutcome,
-} from "@nojv/core";

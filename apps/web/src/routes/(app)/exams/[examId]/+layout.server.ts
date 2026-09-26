@@ -1,17 +1,15 @@
 import { error } from "@sveltejs/kit";
 import {
-  canManageCourse,
   courseDomain,
   examDomain,
   ForbiddenError,
   NotFoundError,
   proctoringDomain,
-  resolveEffectiveCourseRole,
 } from "@nojv/application";
 
 import type { LayoutServerLoad, LayoutServerLoadEvent } from "./$types";
 import { m } from "$lib/paraglide/messages.js";
-import { requireAuth } from "$lib/server/auth";
+import { isCourseManager, requireAuth } from "$lib/server/auth";
 import { getClientIp } from "$lib/server/shared/client-ip";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
 
@@ -33,12 +31,7 @@ export const load: LayoutServerLoad = handleLoad(async (event: LayoutServerLoadE
     throw new NotFoundError("Exam not found.");
   }
 
-  const membership = course.memberships[0] ?? null;
-  const effectiveRole = resolveEffectiveCourseRole(
-    actor.platformRole,
-    membership?.role ?? null,
-  );
-  const isManager = canManageCourse(effectiveRole);
+  const isManager = isCourseManager(actor, course);
 
   if (!isManager) {
     const cachedGate = event.locals.examGate;

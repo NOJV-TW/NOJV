@@ -19,7 +19,7 @@ export type LongVerdict =
   | "time_limit_exceeded"
   | "memory_limit_exceeded";
 
-export type ShortVerdict = "AC" | "WA" | "TLE" | "MLE" | "RE" | "CE" | "SE";
+type ShortVerdict = "AC" | "WA" | "TLE" | "MLE" | "RE" | "CE" | "SE";
 
 const LONG_TO_SHORT: Record<Exclude<LongVerdict, "accepted">, ShortVerdict> = {
   wrong_answer: "WA",

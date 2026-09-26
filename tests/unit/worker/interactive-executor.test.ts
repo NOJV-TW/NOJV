@@ -14,10 +14,11 @@ import {
   resolveInteractiveStage,
   type InteractiveSideResult,
 } from "../../../apps/worker/src/sandbox/shared/check-interactive";
+import { writePayloadDir } from "../../../apps/worker/src/sandbox/docker/payload-dir";
 import {
-  writeInteractorFiles,
-  writeSolutionFiles,
-} from "../../../apps/worker/src/sandbox/docker/interactive-executor";
+  buildInteractiveInteractorPayload,
+  buildInteractiveSolutionPayload,
+} from "../../../apps/worker/src/sandbox/shared/stage-payload";
 
 function exists(path: string): Promise<boolean> {
   return access(path).then(
@@ -228,10 +229,13 @@ describe("interactive container file layout", () => {
   });
 
   it("solution container holds source + config(role=solution) and NO secret", async () => {
-    await writeSolutionFiles(solDir, {
-      ...request,
-      sourceFiles: [{ path: "config.json", content: "workspace asset" }],
-    });
+    await writePayloadDir(
+      solDir,
+      buildInteractiveSolutionPayload({
+        ...request,
+        sourceFiles: [{ path: "config.json", content: "workspace asset" }],
+      }),
+    );
     const config = JSON.parse(await readFile(join(solDir, "config.json"), "utf8"));
     const sourceMap = config.sourceFileMap as { path: string; key: string }[];
     for (const [path, content] of [
@@ -247,7 +251,7 @@ describe("interactive container file layout", () => {
   });
 
   it("interactor container holds interactor + the secret input/answer", async () => {
-    await writeInteractorFiles(intDir, request, "accept()\n", "python");
+    await writePayloadDir(intDir, buildInteractiveInteractorPayload(request));
     expect(await readFile(join(intDir, "interactor.py"), "utf8")).toBe("accept()\n");
     expect(await readFile(join(intDir, "case-2-input.txt"), "utf8")).toBe("secret 7\n");
     expect(await readFile(join(intDir, "case-2-answer.txt"), "utf8")).toBe("answer 7\n");

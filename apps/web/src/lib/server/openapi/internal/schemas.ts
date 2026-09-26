@@ -12,16 +12,11 @@ import {
   scoreOverrideCreateSchema,
   scoreOverrideContextSchema,
 } from "@nojv/core";
-import { z } from "zod";
 
 import { zodToOpenApiSchema } from "../zod-schema";
 
-const feedbackContextSchema = z.discriminatedUnion("type", [
-  z.strictObject({ type: z.literal("assignment"), assignmentId: z.string().min(1) }),
-  z.strictObject({ type: z.literal("exam"), examId: z.string().min(1) }),
-]);
 const upsertGradingFeedbackRequestSchema = feedbackUpsertSchema.extend({
-  context: feedbackContextSchema,
+  context: scoreOverrideContextSchema,
 });
 
 export const internalSchemas = {
@@ -240,9 +235,9 @@ export const internalSchemas = {
     },
     required: ["items", "total", "page", "pageSize"],
   },
-  PostCreateRequest: {
-    ...zodToOpenApiSchema(postSubmitSchema.extend({ type: problemPostTypeSchema })),
-  },
+  PostCreateRequest: zodToOpenApiSchema(
+    postSubmitSchema.extend({ type: problemPostTypeSchema }),
+  ),
   PostUpdateRequest: {
     ...zodToOpenApiSchema(postUpdateSchema),
     description: "At least one field (title or content) is required.",
@@ -274,9 +269,7 @@ export const internalSchemas = {
     description:
       "Comment row returned by the domain layer. Deleted comments have deleted=true and empty content.",
   },
-  ContentReportRequest: {
-    ...zodToOpenApiSchema(contentReportSchema),
-  },
+  ContentReportRequest: zodToOpenApiSchema(contentReportSchema),
   ContentReportItem: {
     type: "object",
     additionalProperties: true,
@@ -402,9 +395,7 @@ export const internalSchemas = {
         oneOf: [{ type: "string" }, { type: "null" }],
       },
       actualIp: { type: "string" },
-      violationType: {
-        ...zodToOpenApiSchema(ipViolationTypeSchema),
-      },
+      violationType: zodToOpenApiSchema(ipViolationTypeSchema),
       createdAt: { type: "string", format: "date-time" },
       user: { $ref: "#/components/schemas/ExamIpViolationUser" },
     },
@@ -429,9 +420,7 @@ export const internalSchemas = {
     },
     required: ["violations"],
   },
-  FeedbackContext: {
-    ...zodToOpenApiSchema(feedbackContextSchema),
-  },
+  FeedbackContext: zodToOpenApiSchema(scoreOverrideContextSchema),
   GradingFeedbackItem: {
     type: "object",
     additionalProperties: true,
@@ -455,12 +444,8 @@ export const internalSchemas = {
     },
     required: ["items"],
   },
-  UpsertGradingFeedbackRequest: {
-    ...zodToOpenApiSchema(upsertGradingFeedbackRequestSchema),
-  },
-  ScoreOverrideContext: {
-    ...zodToOpenApiSchema(scoreOverrideContextSchema),
-  },
+  UpsertGradingFeedbackRequest: zodToOpenApiSchema(upsertGradingFeedbackRequestSchema),
+  ScoreOverrideContext: zodToOpenApiSchema(scoreOverrideContextSchema),
   ScoreOverrideItem: {
     type: "object",
     additionalProperties: true,
@@ -484,9 +469,7 @@ export const internalSchemas = {
     },
     required: ["items"],
   },
-  CreateScoreOverrideRequest: {
-    ...zodToOpenApiSchema(scoreOverrideCreateSchema),
-  },
+  CreateScoreOverrideRequest: zodToOpenApiSchema(scoreOverrideCreateSchema),
   PatchScoreOverrideRequest: {
     type: "object",
     properties: {
@@ -616,12 +599,8 @@ export const internalSchemas = {
         type: "array",
         items: { $ref: "#/components/schemas/ScoreboardProblem" },
       },
-      scoringMode: {
-        ...zodToOpenApiSchema(contestScoringModeSchema),
-      },
-      scoreboardMode: {
-        ...zodToOpenApiSchema(scoreboardModeSchema),
-      },
+      scoringMode: zodToOpenApiSchema(contestScoringModeSchema),
+      scoreboardMode: zodToOpenApiSchema(scoreboardModeSchema),
       frozenAt: {
         oneOf: [{ type: "string", format: "date-time" }, { type: "null" }],
       },

@@ -7,6 +7,7 @@
   import EmptyState from "$lib/components/primitives/ui/EmptyState.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import PageHeader from "$lib/components/primitives/layout/PageHeader.svelte";
+  import FilterTabs from "$lib/components/primitives/visual/FilterTabs.svelte";
   import type { PageData } from "./$types";
 
   type TabKey = "enrolled" | "managing";
@@ -47,49 +48,30 @@
 </script>
 
 <PageContainer class="fade-up">
-  <PageHeader
-    eyebrow={m.courses_eyebrow()}
-    title={m.navigation_courses()}
-    description={m.courses_subtitle()}
-  >
-    {#snippet icon()}
-      <GraduationCap class="h-9 w-9" strokeWidth={1.6} aria-hidden="true" />
-    {/snippet}
-  </PageHeader>
+  <PageHeader title={m.navigation_courses()} />
 
-  <div
-    class="animate-in animate-in-1 mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border-subtle"
+  <FilterTabs
+    class="animate-in animate-in-1 mb-6"
+    tabs={[
+      { key: "enrolled", label: m.courses_tabEnrolled(), count: tabCounts.enrolled },
+      {
+        key: "managing",
+        label: m.courses_tabManaging(),
+        count: tabCounts.managing,
+        tour: "courses-managing",
+      },
+    ]}
+    value={activeTab}
+    label={m.courses_tablistLabel()}
+    onSelect={setTab}
   >
-    <div
-      role="tablist"
-      aria-label={m.courses_tablistLabel()}
-      class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
-    >
-      {#each [{ key: "enrolled" as const, label: m.courses_tabEnrolled(), count: tabCounts.enrolled }, { key: "managing" as const, label: m.courses_tabManaging(), count: tabCounts.managing }] as tab (tab.key)}
-        {@const isActive = tab.key === activeTab}
-        <button
-          type="button"
-          role="tab"
-          aria-selected={isActive}
-          data-tour={tab.key === "managing" ? "courses-managing" : undefined}
-          onclick={() => setTab(tab.key)}
-          class="-mb-px inline-flex items-center gap-2 border-b-2 px-5 py-3.5 text-body-sm font-medium transition-colors duration-fast ease-out-soft {isActive
-            ? 'border-primary text-foreground'
-            : 'border-transparent text-muted-foreground hover:text-foreground'}"
-        >
-          <span>{tab.label}</span>
-          <span class="text-caption tabular-nums text-muted-foreground">{tab.count}</span>
-        </button>
-      {/each}
-    </div>
-
     {#if showCreateButton}
       <Button href="/courses/new" data-tour="courses-create">
         <Plus aria-hidden="true" class="h-4 w-4" />
         {m.courses_createNew()}
       </Button>
     {/if}
-  </div>
+  </FilterTabs>
 
   {#if visibleCourses.length === 0}
     {#if activeTab === "enrolled"}

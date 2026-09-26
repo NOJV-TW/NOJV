@@ -18,10 +18,9 @@
     problem: ProblemDetail;
     validatorScripts: { checkerScript: string; interactorScript: string };
     ondirtychange?: (dirty: boolean) => void;
-    onuploaded?: () => void;
   }
 
-  let { problem, validatorScripts, ondirtychange, onuploaded }: Props = $props();
+  let { problem, validatorScripts, ondirtychange }: Props = $props();
 
   const cfg = untrack(() => problem.judgeConfig ?? {});
 
@@ -144,7 +143,6 @@
     }
     initialConfig = dirtySnapshot();
     toasts.success(m.bundle_uploadSuccess());
-    onuploaded?.();
   }
 </script>
 

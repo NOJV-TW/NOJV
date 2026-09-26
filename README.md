@@ -2,11 +2,11 @@
 
 <p align="center">
   An open-source online judge for competitive programming and CS courses —
-  contests, course assessments, practice, and plagiarism detection.
+  contests, course assessments, exams, practice, and plagiarism detection.
 </p>
 
 <p align="center">
-  <a href="https://nojv.tw"><b>🌐 nojv.tw</b></a>
+  <a href="https://nojv.tw"><b>nojv.tw</b></a>
 </p>
 
 <p align="center">
@@ -16,124 +16,53 @@
   <img src="https://img.shields.io/badge/SvelteKit-%2BTemporal-ff3e00" alt="SvelteKit + Temporal">
 </p>
 
-> Self-hostable, sandboxed, and built for real contests and classrooms:
-> ICPC/IOI scoring, DOMjudge-aligned validators, Temporal-orchestrated judging,
-> real-time scoreboards, and AST-based plagiarism detection.
-
 ## Features
 
 - **8 languages**: C, C++, Go, Java, JavaScript, Python, Rust, TypeScript
-- **3 standard judge types**: Standard (diff), Checker (DOMjudge validator), Interactive (DOMjudge interactor)
-- **Advanced Mode escape hatch**: TA-provided Docker image owns grading for problems Standard Mode can't express (network-isolated, read-only rootfs; no static-analysis / artifact-collection / network-access stages — the pipeline is fixed)
-- **Contests**: ICPC/IOI scoring, real-time scoreboard, freeze, IP lock, page lock
-- **Courses**: Teacher-driven membership management (no self-serve join token), assessments with deadlines
-- **Plagiarism detection**: Dolos AST similarity (self-hosted, in-process)
-- **Auth**: GitHub OAuth + Google OAuth for general users; password sign-in reserved for the seeded admin account (no public email/password registration)
-- **i18n**: English + Traditional Chinese (zh-TW)
-- **Real-time**: SSE streaming for submission verdicts and contest events
-- **Orchestration**: Temporal workflows with durable timers and queries
+- **Standard judging**: diff, DOMjudge-validator checkers and interactors, all-or-nothing subtasks
+- **Advanced Mode**: teacher-built, digest-pinned run/grade images for problems Standard Mode cannot express
+- **Contests**: ICPC/IOI scoring, live scoreboard, freeze, virtual contests
+- **Courses and exams**: teacher-managed rosters, assignments with late policies, exams with session lock, IP rules and exam passwords
+- **Plagiarism detection**: Dolos AST similarity, self-hosted
+- **Durable judging**: Temporal workflows with immutable snapshots and bounded recovery
+- **Sign-in**: GitHub and Google OAuth; no public password registration
+- **i18n**: English and Traditional Chinese
 
-## Tech Stack
+## Quick start
 
-- **Frontend**: SvelteKit, Vite, Tailwind CSS 4, Bits UI, Monaco Editor
-- **Auth**: better-auth (GitHub + Google OAuth; admin password sign-in)
-- **Orchestration**: Temporal (TypeScript SDK)
-- **Database**: PostgreSQL 18, Prisma 7
-- **Cache**: Redis 8 (pub/sub, rate limiting, cooldown, hot cache)
-- **Validation**: Zod 4
-- **Testing**: Vitest, Playwright
-- **Build**: Turborepo, pnpm workspaces, tsdown, esbuild
-
-## Quick Start
-
-**Prerequisites:** Node.js >=24.18 <25, pnpm 11.13.1, Docker Desktop (local Postgres, Redis, Temporal, sandbox).
-
-Docker Compose is the **local development** path only — it starts the backing
-services so you can run the app from source with `pnpm dev`. To deploy NOJV, use
-the Helm chart (see [Deployment](#deployment)).
-
-For task-based code and documentation navigation, see [Agent and developer entrypoints](AGENTS.md) and the [documentation home](docs/README.md).
+Requires Node.js >=24.18 <25, pnpm 11.13.1 and Docker.
 
 ```bash
-# 1. Install dependencies
 pnpm install
-
-# 2. Copy env template
 cp .env.example .env
-
-# 3. Start local infrastructure (Postgres, Redis, MinIO, Temporal, Temporal UI)
-docker compose up -d
-
-# 4. Build packages and prepare database
-pnpm db:generate
-pnpm build
-pnpm db:push     # push the Prisma schema to the local DB
-pnpm db:seed     # load demo users / problems / contests
-
-# 5. Build sandbox image (needed for submission judging)
+docker compose up -d     # PostgreSQL, Redis, MinIO, Temporal (local development only)
+pnpm db:generate && pnpm build && pnpm db:push && pnpm db:seed
 pnpm sandbox:build
-
-# 6. Start dev servers, then open http://localhost:5173
-pnpm dev
+pnpm dev                 # http://localhost:5173
 ```
 
-Each Compose service maps to one local dependency:
-
-| Compose service | Local dependency                              | Reached at            |
-| --------------- | --------------------------------------------- | --------------------- |
-| `postgres`      | App + Temporal database (PostgreSQL 18)       | `localhost:5432`      |
-| `redis`         | Cache / pub-sub / scoreboard (Redis 8)        | `localhost:6379`      |
-| `minio`         | S3-compatible object storage (problem assets) | `localhost:9000/9001` |
-| `temporal`      | Workflow engine (`temporalio/auto-setup`)     | `localhost:7233`      |
-| `temporal-ui`   | Temporal Web UI                               | `localhost:8080`      |
-
-The app itself (web on `localhost:5173`, worker) runs from source via `pnpm dev`
-— not as a Compose service. See the
-[Getting Started Runbook](docs/runbooks/getting-started.md) for detailed
-bootstrap procedures.
-
-## Deployment
-
-NOJV deploys to **both** single-machine Kubernetes (k3s / kind on one node)
-and **GKE** through the **same Helm umbrella chart** at `infra/charts/nojv`.
-Container images are built by Cloud Build (`infra/gcp/cloud-build`); the chart
-provisions web, the Temporal workers, the sandbox namespace policy, the
-migrator hook, and (optionally) in-cluster Postgres (CloudNativePG), Redis, and
-MinIO.
-
-Production application images are always deployed as readable
-`tag@sha256:<manifest-digest>` references. The single-machine Flux pipeline
-records the four Buildx digests on the `deploy` branch; the GKE
-`infra/gcp/cloud-build/deploy.sh` path reads the four digests back from Artifact
-Registry before invoking Helm. The chart rejects a tag-only deployment.
-
-See [Deployment Guide](docs/operations/DEPLOYMENT.md) for the full procedure,
-the CNPG backup posture, and the Temporal prerequisite options.
+Details and troubleshooting: [Getting Started](docs/runbooks/getting-started.md).
+Production deploys through the Helm chart in `infra/charts/nojv`: [Deployment Guide](docs/operations/DEPLOYMENT.md).
 
 ## Documentation
 
-| Document                                              | Description                                           |
-| ----------------------------------------------------- | ----------------------------------------------------- |
-| [AGENTS.md](AGENTS.md)                                | Agent entrypoint, reading order, repository layout    |
-| [ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md)  | System architecture overview                          |
-| [Frontend Surface](docs/architecture/FRONTEND.md)     | Routes, boundaries, UI contracts                      |
-| [Judge Pipeline](docs/architecture/JUDGE_PIPELINE.md) | Pipeline stages, sandbox execution                    |
-| [Database Schema](docs/architecture/DATABASE.md)      | Models, relationships, enums                          |
-| [Redis Architecture](docs/architecture/REDIS.md)      | Key schema, pub/sub                                   |
-| [Security](docs/operations/SECURITY.md)               | Auth, trust boundaries, sandbox isolation             |
-| [Reliability](docs/operations/RELIABILITY.md)         | Invariants, failure modes, operational expectations   |
-| [Deployment](docs/operations/DEPLOYMENT.md)           | Helm chart deploy (single-machine k8s + GKE), backups |
-| [Getting Started](docs/runbooks/getting-started.md)   | Bootstrap procedures for new developers               |
+| Document                                              | Covers                                    |
+| ----------------------------------------------------- | ----------------------------------------- |
+| [AGENTS.md](AGENTS.md)                                | Entry point by task, repository layout    |
+| [Documentation home](docs/README.md)                  | Task-to-code-and-test map                 |
+| [Architecture](docs/architecture/ARCHITECTURE.md)     | System map and layer boundaries           |
+| [Judge Pipeline](docs/architecture/JUDGE_PIPELINE.md) | Judging stages, sandboxing, recovery      |
+| [Security](docs/operations/SECURITY.md)               | Auth, trust boundaries, sandbox isolation |
+| [Reliability](docs/operations/RELIABILITY.md)         | SLOs, invariants, failure modes           |
+| [Deployment](docs/operations/DEPLOYMENT.md)           | Helm chart, configuration, releases       |
+| [Runbooks](docs/runbooks/README.md)                   | Operational procedures                    |
+| [Decision log](docs/decisions/README.md)              | Why the system is shaped this way         |
 
 ## Contributing
 
-Contributions are welcome. Before opening a PR:
-
-1. Read [AGENTS.md](AGENTS.md) for the architecture entrypoint and reading order.
-2. Follow the [Getting Started Runbook](docs/runbooks/getting-started.md) to bring up a local stack.
-3. Run `pnpm ci:verify` (formatting, lint, tests, builds, schema validation) before pushing.
-
-Keep changes surgical and the [living docs](docs/) aligned with landed code.
+1. Read [AGENTS.md](AGENTS.md).
+2. Bring up a local stack with [Getting Started](docs/runbooks/getting-started.md).
+3. Run `pnpm ci:verify` before pushing, and update the owning living doc in the same change.
 
 ## License
 

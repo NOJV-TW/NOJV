@@ -118,6 +118,58 @@ Looks up .Values.image.repositories.<component> for the path suffix.
 {{- end }}
 
 {{/*
+Soft zone and node spread for a multi-replica workload, keyed on its
+app.kubernetes.io/name pod label. ScheduleAnyway never blocks scheduling, so a
+single-node install still places every replica.
+Usage: {{ include "nojv.topologySpread" "nojv-web" | nindent 6 }}
+*/}}
+{{- define "nojv.topologySpread" -}}
+topologySpreadConstraints:
+{{- range list "topology.kubernetes.io/zone" "kubernetes.io/hostname" }}
+  - maxSkew: 1
+    topologyKey: {{ . }}
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: {{ $ }}
+{{- end }}
+{{- end }}
+
+{{/*
+The cloudsql-proxy native sidecar for long-running pods. As a restartable init
+container it starts before and stops after the app container, so a draining
+web or worker process keeps its database path until it exits.
+*/}}
+{{- define "nojv.cloudsqlProxySidecar" -}}
+- name: cloudsql-proxy
+  image: {{ .Values.postgres.cloudsql.proxyImage }}
+  restartPolicy: Always
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
+  args:
+    - --address=127.0.0.1
+    - --port=5432
+    - --private-ip
+    - --structured-logs
+    - $(CLOUDSQL_INSTANCE_CONNECTION_NAME)
+  env:
+    - name: CLOUDSQL_INSTANCE_CONNECTION_NAME
+      value: {{ .Values.postgres.cloudsql.instanceConnectionName | quote }}
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+{{- end }}
+
+{{/*
 Name of the existing runtime secret holding DATABASE_URL, REDIS_URL, S3 and GRAFANA keys.
 */}}
 {{- define "nojv.runtimeSecretName" -}}

@@ -42,11 +42,6 @@ export const checkerKey = (problemId: string, version: string): string =>
 export const interactorKey = (problemId: string, version: string): string =>
   `problems/${problemId}/validators/${versionSegment(version)}/interactor`;
 
-export const problemPrefix = (problemId: string): string => `problems/${problemId}/`;
-
-export const submissionPrefix = (submissionId: string): string =>
-  `submissions/${submissionId}/`;
-
 export const submissionSourceKey = (
   submissionId: string,
   generation: string,

@@ -1,15 +1,16 @@
 import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, RequestEvent } from "@sveltejs/kit";
-import { adminMfaKind, getSecurityFactorState } from "@nojv/application";
-
-import { requireAuth } from "$lib/server/auth";
 import {
+  adminMfaKind,
+  getSecurityFactorState,
   adminAccessPrincipal,
   grantAdminMode,
   markVerifiedSession,
   securityGenerationProof,
-  verifyStepUpCode,
-} from "$lib/server/step-up";
+} from "@nojv/application";
+
+import { requireAuth } from "$lib/server/auth";
+import { verifyStepUpCode } from "$lib/server/step-up";
 import { withRateLimit } from "$lib/server/shared/action-handlers";
 import { stepUpAttemptRateLimiter } from "$lib/server/shared/rate-limiter";
 

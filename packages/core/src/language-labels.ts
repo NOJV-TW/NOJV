@@ -1,6 +1,6 @@
 import type { Language } from "./types";
 
-export const LANGUAGE_LABELS: Record<Language, string> = {
+const LANGUAGE_LABELS: Record<Language, string> = {
   c: "C",
   cpp: "C++",
   go: "Go",

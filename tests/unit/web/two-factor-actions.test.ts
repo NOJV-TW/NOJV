@@ -31,6 +31,7 @@ vi.mock("@nojv/application", () => ({
   adminMfaKind: (user: { isSuperAdmin: boolean; platformRole: string }) =>
     user.platformRole !== "admin" ? "none" : user.isSuperAdmin ? "super" : "regular",
   areSecuritySettingsUnlocked: mocks.areUnlocked,
+  clearVerifiedSessionProofs: mocks.clearProofs,
   generateSecuritySetupOtp: mocks.generateOtp,
   getSecurityFactorState: mocks.getState,
   markFactorChangeVerifiedSession: mocks.markFactorChange,
@@ -46,6 +47,8 @@ vi.mock("@nojv/application", () => ({
   }),
   storeSecuritySetupOtp: mocks.storeOtp,
   unlockSecuritySettings: mocks.unlock,
+  userHasCredentialPassword: mocks.userHasPassword,
+  validateStepUpCode: (code: string) => /^\d{6}$/.test(code),
   verifySecuritySetupOtp: mocks.verifySetupOtp,
 }));
 
@@ -67,9 +70,6 @@ vi.mock("$lib/server/shared/rate-limiter", () => ({
   stepUpAttemptRateLimiter: { consume: mocks.stepUpLimit },
 }));
 vi.mock("$lib/server/step-up", () => ({
-  clearVerifiedSessionProofs: mocks.clearProofs,
-  userHasCredentialPassword: mocks.userHasPassword,
-  validateStepUpCode: (code: string) => /^\d{6}$/.test(code),
   verifyStepUpCode: mocks.verifyStepUp,
 }));
 vi.mock("$lib/server/totp-enrollment", () => ({

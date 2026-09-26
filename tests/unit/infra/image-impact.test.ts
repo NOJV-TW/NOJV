@@ -46,11 +46,11 @@ describe("image impact classification", () => {
     ["packages/application/src/index.ts", ["web", "worker"]],
     ["packages/mailer/package.json", ["web", "worker"]],
     ["packages/sandbox-docker/src/index.ts", ["worker"]],
-    ["packages/storage/src/index.ts", ["web", "worker", "migrator"]],
+    ["packages/storage/src/index.ts", ["web", "worker"]],
     ["packages/db/prisma/schema/schema.prisma", ["web", "worker", "migrator"]],
     ["packages/db/src/repositories/user.ts", ["web", "worker"]],
     ["packages/redis/src/index.ts", ["web", "worker"]],
-    ["packages/core/src/index.ts", allImages],
+    ["packages/core/src/index.ts", ["web", "worker", "sandbox"]],
     ["infra/docker/web.Dockerfile", ["web"]],
     ["infra/docker/worker.Dockerfile", ["worker"]],
     ["infra/docker/migrator.Dockerfile", ["migrator"]],
@@ -157,7 +157,7 @@ describe("image impact classification", () => {
       expect(output).toContain("has_images=true\n");
       expect(output).toContain('"image":"web"');
       expect(output).toContain('"image":"worker"');
-      expect(output).toContain('"image":"migrator"');
+      expect(output).not.toContain('"image":"migrator"');
       expect(output).not.toContain('"image":"sandbox"');
     } finally {
       rmSync(repository, { recursive: true, force: true });

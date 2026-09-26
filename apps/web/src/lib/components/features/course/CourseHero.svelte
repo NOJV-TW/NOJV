@@ -15,20 +15,9 @@
   interface Props {
     course: CourseHeroCourse;
     isManager: boolean;
-    breadcrumbHref?: string;
-    breadcrumbLabel?: string;
-    class?: string;
   }
 
-  let {
-    course,
-    isManager,
-    breadcrumbHref = "/courses",
-    breadcrumbLabel,
-    class: className,
-  }: Props = $props();
-
-  const resolvedBreadcrumbLabel = $derived(breadcrumbLabel ?? m.navigation_courses());
+  let { course, isManager }: Props = $props();
 </script>
 
 {#snippet teacherActions()}
@@ -48,10 +37,9 @@
 
 <PageHero
   variant="hub"
-  {breadcrumbHref}
-  breadcrumbLabel={resolvedBreadcrumbLabel}
+  breadcrumbHref="/courses"
+  breadcrumbLabel={m.navigation_courses()}
   title={course.title}
   meta={metaContent}
   actions={isManager ? teacherActions : undefined}
-  class={className}
 />

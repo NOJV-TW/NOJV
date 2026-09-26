@@ -1,235 +1,119 @@
 # Getting Started
 
-Step-by-step bootstrap procedures for new developers.
+First local run: install, start backing services, prepare the database, run the
+app, verify. Test setup is in [Testing Strategy](testing.md); env var reference
+is in the [Deployment Guide](../operations/DEPLOYMENT.md#environment-variables).
 
-## Prerequisites
+## Key code
 
-Verify before starting:
+- `package.json` (scripts, engines), `docker-compose.yml`, `.env.example`
+- `packages/db/prisma/seeds/` (seed data), `infra/docker/sandbox-runner.Dockerfile`
+
+## 1. Prerequisites
 
 ```bash
-node -v   # >= 24.18.0 <25, see package.json
-pnpm -v   # 11.13.1, see package.json
-docker -v # Docker Desktop running
+node -v   # >= 24.18.0 < 25
+pnpm -v   # 11.13.1
+docker -v # daemon running
 ```
 
-## 1. Clone and Install
+## 2. Install and configure
 
 ```bash
-git clone <repo-url>
-cd NOJV
 pnpm install
-```
-
-## 2. Environment Setup
-
-```bash
 cp .env.example .env
 ```
 
-Edit `.env` with your values. For local development the defaults work out of the box — the `S3_*` vars already match the local MinIO that docker-compose starts, and OAuth is optional:
+The defaults work locally. Notes on `.env`:
 
-| Variable                       | Action                                                                      |
-| ------------------------------ | --------------------------------------------------------------------------- |
-| `DATABASE_URL`                 | Keep default for local PostgreSQL                                           |
-| `REDIS_URL`                    | Keep default for local Redis                                                |
-| `BETTER_AUTH_SECRET`           | Change to a random string in production                                     |
-| `S3_ENDPOINT`                  | Local MinIO: `http://localhost:9000`                                        |
-| `S3_ACCESS_KEY`                | Local MinIO: `minioadmin`                                                   |
-| `S3_SECRET_KEY`                | Local MinIO: `minioadmin`                                                   |
-| `EXECUTION_BACKEND`            | `docker` for local sandbox execution (`kubernetes` in production)           |
-| `ALLOWED_HOSTS`                | Comma-separated Vite host allowlist; default `localhost,127.0.0.1,...`      |
-| `METRICS_TOKEN`                | Random secret protecting the web `/metrics` endpoint                        |
-| `BODY_SIZE_LIMIT`              | 64 MiB upload cap for adapter-node (prod profile only; Vite dev ignores it) |
-| `GITHUB_CLIENT_ID/SECRET`      | Optional: create a GitHub OAuth App                                         |
-| `GOOGLE_CLIENT_ID/SECRET`      | Optional: create a Google OAuth App                                         |
-| `MAILER_MODE` / `APP_BASE_URL` | Keep `sink` / `http://localhost:5173`; do not define any `SMTP_*` keys      |
+| Variable                                                     | Local value / action                                                                             |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `DATABASE_URL`, `REDIS_URL`, `TEMPORAL_ADDRESS`              | Keep defaults (Compose services)                                                                 |
+| `BETTER_AUTH_SECRET`                                         | Any random string locally; a real secret in production                                           |
+| `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET` | Keep (`http://localhost:9000`, `minioadmin`, `nojv`); the storage client throws at boot if unset |
+| `EXECUTION_BACKEND`                                          | `docker` (production uses `kubernetes`)                                                          |
+| `MAILER_MODE`, `APP_BASE_URL`                                | `sink`, `http://localhost:5173`; sink mode requires every `SMTP_*` key to be absent              |
+| `SEED_ADMIN_USERNAME`/`_EMAIL`/`_PASSWORD`                   | Seeded admin credentials (default `admin` / `password123`)                                       |
+| `ALLOWED_HOSTS`                                              | Vite host allowlist                                                                              |
+| `GITHUB_*`, `GOOGLE_*`                                       | Optional OAuth apps                                                                              |
+| `OTEL_*`, `GRAFANA_*`                                        | Optional; see [Observability Setup](observability-setup.md)                                      |
 
-> **Note:** Local storage is MinIO; `.env.example` ships the matching defaults (`S3_ENDPOINT=http://localhost:9000`, `S3_ACCESS_KEY`/`S3_SECRET_KEY=minioadmin`, `S3_BUCKET=nojv`). The storage client (`packages/storage/src/client.ts`) throws on boot if `S3_ENDPOINT`/`S3_ACCESS_KEY`/`S3_SECRET_KEY` are unset, so keep them set.
-
-## 3. Start Infrastructure (local development only)
-
-> Docker Compose is the **local development** path — it starts the backing
-> services as containers so you can run the app from source with `pnpm dev`. It
-> is not a deployment method; production deploys via the Helm chart (see the
-> [Deployment Guide](../operations/DEPLOYMENT.md)).
+## 3. Start backing services
 
 ```bash
 docker compose up -d
+docker compose ps   # wait until all are healthy
 ```
 
-This starts:
+| Service       | Port       | Notes                                                      |
+| ------------- | ---------- | ---------------------------------------------------------- |
+| `postgres`    | 5432       | PostgreSQL 18, app and Temporal databases                  |
+| `redis`       | 6379       | Redis 8                                                    |
+| `minio`       | 9000, 9001 | S3 API and console; `minio-init` creates the `nojv` bucket |
+| `temporal`    | 7233       | `temporalio/auto-setup`; first boot can take 30s+          |
+| `temporal-ui` | 8080       | Workflow UI                                                |
 
-- PostgreSQL 18 on port 5432
-- Redis 8 on port 6379
-- MinIO (S3-compatible storage) on port 9000 (API) and 9001 (console)
-- Temporal Server on port 7233
-- Temporal UI on port 8080
+Compose runs only dependencies; web and worker run from source. Compose is not a deployment path (OPS-01).
 
-The `minio-init` container automatically creates the `nojv` bucket. No manual bootstrap needed.
-
-Wait for health checks to pass:
-
-```bash
-docker compose ps  # All services should show "healthy"
-```
-
-## 4. Prepare Database
+## 4. Prepare the database
 
 ```bash
-# Generate Prisma client
 pnpm db:generate
-
-# Build all packages (required before DB operations)
 pnpm build
-
-# Push schema to database
 pnpm db:push
-
-# Validate seed data
 pnpm db:seed:validate
-
-# Seed development data
 pnpm db:seed
 ```
 
-Seed creates:
+The seed creates the admin (from `SEED_ADMIN_*`), `teacher`, `ta-student`, `student` and `new-student` (password `password123`), demo students enrolled in the "Operating Systems Lab" course, problems, contests and assessments. The `special_env` demo problem references optional `registry.nojv.tw/demo/*` images published manually with `pnpm demo-advanced:push`.
 
-- 5 users — the admin's username/email/password come from `SEED_ADMIN_USERNAME`/`SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` in `.env` (defaults in `.env.example`: `admin`/`password123`); teacher, ta-student, and student use password `password123`; the 5th (`b11902999`) is an OAuth-placeholder with no password
-- Problems with testcases (see `packages/db/prisma/seeds/problems.ts` for the authoritative set). The `special_env` demo problem references `registry.nojv.tw/demo/*` judge images — these are optional seed content, published manually with `pnpm demo-advanced:push` (needs a `docker login registry.nojv.tw` with a platform admin's registry credential), not by CI
-- 3 contests
-- 1 course ("Operating Systems Lab") with memberships and assessments (students are added directly by the teacher — the join-token flow was removed)
-
-## 5. Build Sandbox Image
+## 5. Build the sandbox image
 
 ```bash
-pnpm sandbox:build
+pnpm sandbox:build   # nojv-sandbox:local
 ```
 
-This builds the `nojv-sandbox:local` Docker image used for executing student code.
+Rebuild after changing `apps/sandbox-runner` or `infra/docker/sandbox-runner.Dockerfile`.
 
-## 6. Start Development Servers
+## 6. Run
 
 ```bash
 pnpm dev
 ```
 
-This starts:
+Starts web at <http://localhost:5173> and the worker with `WORKER_MODE=all` (judge, judge-state and platform queues).
 
-- **Web**: http://localhost:5173 (SvelteKit dev server with HMR)
-- **Worker**: Temporal worker with both task queues
+## 7. Verify
 
-## 7. Verify Setup
+1. <http://localhost:5173> shows the landing page.
+2. <http://localhost:8080> shows the `default` Temporal namespace.
+3. Sign in at `/admin-signin` with the seeded admin (password sign-in is admin-only; `/signin` offers OAuth).
+4. Submit a solution to a seeded problem; the verdict arrives and the run appears in the Temporal UI.
 
-1. Open http://localhost:5173 — should see the landing page
-2. Open http://localhost:8080 — Temporal UI should show the `default` namespace
-3. Sign in with a seeded account — the `/signin` OAuth buttons (GitHub / Google) need the optional OAuth credentials, so for local dev use password sign-in at `/admin-signin` (linked as "Admin login" from `/signin`) with the seeded admin (credentials come from the `SEED_ADMIN_*` variables in `.env`)
-4. Navigate to a problem, write code, and submit — should see the judge process in Temporal UI
+## Common tasks
 
-## Common Tasks
+| Task                | Command                                                             |
+| ------------------- | ------------------------------------------------------------------- |
+| Reset database      | `pnpm db:push --force-reset && pnpm db:seed`                        |
+| After schema change | `pnpm db:generate && pnpm build && pnpm db:push`                    |
+| Local CI gate       | `pnpm ci:verify` (scope in [Testing Strategy](testing.md#commands)) |
+| Run tests           | See [Testing Strategy](testing.md)                                  |
 
-### Reset Database
+### Exercise IP-based exam rules
 
-```bash
-pnpm db:push --force-reset  # Drops and recreates all tables
-pnpm db:seed                # Re-seed development data
-```
-
-### Rebuild After Schema Change
-
-```bash
-pnpm db:generate  # Regenerate Prisma client
-pnpm build        # Rebuild all packages
-pnpm db:push      # Apply schema changes
-```
-
-### Run Tests
+Outside production, `getClientIp` reads the `x-dev-ip` header first, then the socket address; production accepts only `CF-Connecting-IP` (SEC-09).
 
 ```bash
-pnpm test:unit          # Fast unit tests
-pnpm test:integration   # Integration tests (needs running DB)
-pnpm test:e2e           # E2E tests (needs running app)
-pnpm test:all           # All of the above
-```
-
-### Full CI Check Locally
-
-```bash
-pnpm ci:verify
-```
-
-Runs: formatting check, the `lint:application-queries` guard, Prisma generation, build, typecheck, lint, and unit tests.
-
-### Rebuild Sandbox Image
-
-After changing `apps/sandbox-runner` or `infra/docker/sandbox-runner.Dockerfile`:
-
-```bash
-pnpm sandbox:build
+curl -H "x-dev-ip: 10.1.2.3" http://localhost:5173/exams/<examId>
 ```
 
 ## Troubleshooting
 
-### "vitest not found" or "tsc not found"
-
-```bash
-pnpm install  # Reinstall dependencies
-```
-
-### Prisma client errors
-
-```bash
-pnpm db:generate  # Regenerate the client
-pnpm build        # Rebuild packages
-```
-
-### Temporal connection refused
-
-```bash
-docker compose ps  # Check if temporal service is healthy
-docker compose logs temporal  # Check for errors
-```
-
-Temporal may take 30+ seconds to start (it runs database migrations on first boot).
-
-### Docker socket permission denied (worker)
-
-The worker needs access to the Docker socket for local sandbox execution:
-
-```bash
-# macOS: Docker Desktop handles this automatically
-# Linux: Add your user to the docker group
-sudo usermod -aG docker $USER
-```
-
-### Port conflicts
-
-If ports 9000, 9001, 5432, 6379, 7233, or 8080 are in use:
-
-```bash
-# Check what's using the port
-lsof -i :5432
-
-# Or modify docker-compose.yml port mappings
-```
-
-### Testing IP-based proctoring locally
-
-Production resolves the client IP from Cloudflare's `CF-Connecting-IP` header (see [SECURITY.md — Client IP Trust Model](../operations/SECURITY.md#client-ip-trust-model-cloudflare-only)). Locally (`NODE_ENV !== "production"`) `getClientIp(event)` reads an `x-dev-ip` request header first, then falls back to the socket address.
-
-To exercise exam / contest IP whitelist or binding in dev:
-
-```bash
-# Pretend the request came from 10.1.2.3 (outside a campus whitelist, for example)
-curl -H "x-dev-ip: 10.1.2.3" http://localhost:5173/exams/<examId>
-
-# Pretend to be an allowed campus IP
-curl -H "x-dev-ip: 140.112.30.20" http://localhost:5173/exams/<examId>
-```
-
-The override only fires when `NODE_ENV !== "production"`. Production ignores `x-dev-ip` entirely and requires `CF-Connecting-IP`.
-
-## Related Docs
-
-- [Architecture Overview](../architecture/ARCHITECTURE.md)
-- [Deployment Guide](../operations/DEPLOYMENT.md)
-- [Frontend Surface](../architecture/FRONTEND.md)
+| Problem                                          | Fix                                                                            |
+| ------------------------------------------------ | ------------------------------------------------------------------------------ |
+| `vitest`/`tsc` not found                         | `pnpm install`                                                                 |
+| Prisma client errors                             | `pnpm db:generate && pnpm build`                                               |
+| Temporal connection refused                      | `docker compose ps`, `docker compose logs temporal`; wait for first-boot setup |
+| Worker cannot reach the Docker socket (Linux)    | `sudo usermod -aG docker $USER`, then log in again                             |
+| Port in use (5432, 6379, 7233, 8080, 9000, 9001) | `lsof -i :<port>`, or change the mapping in `docker-compose.yml`               |
+| Mailer startup error in sink mode                | Remove every `SMTP_*` key from `.env`, including empty ones                    |

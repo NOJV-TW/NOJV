@@ -1,8 +1,7 @@
 <script lang="ts">
   import { cn } from "$lib/utils/css.js";
 
-  let { class: className, showWordmark = true }: { class?: string; showWordmark?: boolean } =
-    $props();
+  let { class: className }: { class?: string } = $props();
 </script>
 
 <span class={cn("inline-flex items-center gap-2", className)}>
@@ -12,9 +11,5 @@
   >
     V
   </span>
-  {#if showWordmark}
-    <span class="text-title-sm font-bold tracking-tight">NOJV</span>
-  {:else}
-    <span class="sr-only">NOJV</span>
-  {/if}
+  <span class="text-title-sm font-bold tracking-tight">NOJV</span>
 </span>
