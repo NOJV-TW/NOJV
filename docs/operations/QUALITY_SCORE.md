@@ -37,7 +37,6 @@ Work that is known, not done, and not covered by an in-flight plan. Remove an it
 ### High availability
 
 - Temporal runs one replica on a single-instance Postgres on the single-machine target; GKE should run the official chart with at least two replicas per service (`infra/gcp/gke/temporal/HA-PRODUCTION.md`).
-- The single-machine CNPG Postgres pod has no resource requests or limits, so it is evicted first under node pressure; size it against the node budget in [Deployment](DEPLOYMENT.md).
 - `worker-platform` and the registry run one replica; on GKE run two after confirming the platform startup sweeps are safe to run concurrently.
 - Web behind the GKE ingress has a 10 s preStop and no load-balancer connection-draining setting; rollouts can drop requests still routed to terminating pods.
 - CNPG backups use the in-tree `barmanObjectStore`, which CNPG is deprecating in favor of the barman-cloud plugin.

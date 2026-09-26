@@ -24,6 +24,12 @@ postgres:
   cnpg:
     instances: 1
     storageSize: 5Gi
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        memory: 2Gi
     # DATA-SAFETY: this is the ONLY durable store (app + Temporal state) and a
     # single node has no HA. Production rendering fails until an off-host R2/S3
     # destination and existing Secret name are configured:

@@ -85,4 +85,17 @@ describe("workload disruption on a single machine", () => {
   it("never makes spread a scheduling requirement", () => {
     expect(docs.join("---")).not.toContain("DoNotSchedule");
   });
+
+  it("caps Postgres memory at its request so node pressure evicts it last", () => {
+    expect(find(docs, "Cluster", "nojv-pg")).toContain(
+      [
+        "  resources:",
+        "    limits:",
+        "      memory: 2Gi",
+        "    requests:",
+        "      cpu: 500m",
+        "      memory: 2Gi",
+      ].join("\n"),
+    );
+  });
 });

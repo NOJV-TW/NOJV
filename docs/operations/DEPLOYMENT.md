@@ -346,12 +346,19 @@ apply ad-hoc down migrations.
 | judge    | 1 replica, slots 2–5 by node CPU                   | 2 replicas × 2 slots                                                   |
 | platform | 1 replica                                          | 1 replica                                                              |
 | sandbox  | quota 16 pods / 6 CPU / 16Gi; judge container 300m | quota 10 pods / 10 CPU / 30Gi; one on-demand gVisor node plus Spot 0–4 |
+| postgres | CNPG, 500m CPU, 2Gi memory request = limit         | Cloud SQL, outside the chart                                           |
 
 The sandbox ResourceQuota is the judge capacity ceiling (OPS-11); a Job the
 quota rejects waits as `waiting_capacity`. Sizing, priority and the slot tuner
 are in [Judge Queue](../runbooks/judge-queue.md). The judge Deployment uses
 `strategy: Recreate`. Extra judge replicas add dispatch slots, not sandbox
 capacity.
+
+Single-machine Postgres has a memory limit equal to its request and no CPU
+limit, so its usage never exceeds its request and kubelet node-pressure
+eviction takes every pod above its request first. Its requests count against
+the 8 vCPU / 16 GiB node with the other platform pods; sandbox Jobs schedule
+into what remains.
 
 ### Disruption and Shutdown
 

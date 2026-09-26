@@ -37,6 +37,7 @@ postgres:
     storageClass: ""
     database: nojv
     owner: nojv
+    resources: {}
     # CloudNativePG barman-cloud backup → S3/R2 object storage (base backups +
     # continuous WAL archiving = point-in-time recovery). DEFAULT OFF: turning it
     # on requires an existing credentials Secret (see s3CredentialsSecret), so the
