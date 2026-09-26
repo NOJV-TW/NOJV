@@ -51,6 +51,25 @@ describe("production backup fail-closed contract", () => {
     expect(result.stdout).toContain('value: "nojv-test-submissions"');
   });
 
+  it("mirrors both buckets with rclone copy and never deletes from the mirror", () => {
+    const result = render(["-f", productionValues, "-f", imageFixture, "-f", backupFixture]);
+    const cronJob = result.stdout.split(/^---$/mu).find((doc) => doc.includes("kind: CronJob"));
+
+    expect(cronJob).toMatch(/image: ghcr\.io\/rclone\/rclone:\S+@sha256:[a-f0-9]{64}/u);
+    expect(cronJob).toMatch(/name: SRC_BUCKETS\n\s+value: "nojv nojv-registry"/u);
+    expect(cronJob).toContain('rclone copy --metadata "src:$bucket" "dst:$DST_BUCKET/$bucket"');
+    expect(cronJob).not.toMatch(/rclone sync|--delete|\bmc\b/u);
+    expect(cronJob).toMatch(/RCLONE_CONFIG_DST_NO_CHECK_BUCKET\n\s+value: "true"/u);
+    expect(cronJob).toContain("readOnlyRootFilesystem: true");
+  });
+
+  it("mirrors only the application bucket when the registry is disabled", () => {
+    const result = render([...valid, "--set", "registry.enabled=false"]);
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toMatch(/name: SRC_BUCKETS\n\s+value: "nojv"\n/u);
+  });
+
   const valid = [
     "--set",
     "image.allowUnpinnedLocalBuilds=true",
@@ -112,6 +131,11 @@ describe("production backup fail-closed contract", () => {
       "MinIO region",
       "storage.minio.backup.destinationRegion",
       /destinationRegion is required/u,
+    ],
+    [
+      "mirror provider",
+      "storage.minio.backup.destinationProvider",
+      /destinationProvider is required/u,
     ],
     [
       "MinIO secret",

@@ -55,21 +55,26 @@ redis:
 
 storage:
   inCluster: true
+  # Versity runs next to MinIO with its own PVC and buckets; MinIO stays
+  # storage.active until the owner-run cut-over.
+  objectStore:
+    enabled: true
   minio:
     storageClass:
       create: true
       name: nojv-minio-retain
       provisioner: rancher.io/local-path
       volumeBindingMode: WaitForFirstConsumer
-    # DATA-SAFETY: in-cluster MinIO holds the ONLY copy of student submission
+    # DATA-SAFETY: the in-cluster store holds the ONLY copy of student submission
     # sources (see packages/storage keys). Production rendering fails until an
     # off-host R2/S3 destination and existing Secret name are configured:
-    #   1. kubectl -n nojv create secret generic nojv-minio-mirror \
+    #   1. create the destination bucket (the mirror never creates it)
+    #   2. kubectl -n nojv create secret generic nojv-minio-mirror \
     #        --from-literal=ACCESS_KEY_ID=<r2-access-key> \
     #        --from-literal=ACCESS_SECRET_KEY=<r2-secret-key>
     #      (may reuse the nojv-pg-barman Secret if it targets the same account)
-    #   2. fill destinationEndpoint/destinationBucket/credentialsSecret below
-    #   3. redeploy, check the CronJob's first run logs.
+    #   3. fill destinationEndpoint/destinationBucket/credentialsSecret below
+    #   4. redeploy, check the CronJob's first run logs.
     backup:
       enabled: true
       destinationEndpoint: "" # https://<account>.r2.cloudflarestorage.com

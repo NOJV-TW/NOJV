@@ -44,6 +44,22 @@ describe("Renovate coverage", () => {
     },
   );
 
+  it("tracks every chart values image, including the object store and rclone", () => {
+    const manager = config.customManagers.find((candidate) =>
+      candidate.description.startsWith("Digest-pinned images in the nojv chart values"),
+    );
+    const pattern = new RegExp(manager!.matchStrings[0]!);
+    const lines = readFileSync("infra/charts/nojv/values.yaml", "utf8")
+      .split("\n")
+      .filter((line) => /^\s*image: \S+/u.test(line));
+    const tracked = lines.map((line) => pattern.exec(line)?.groups?.depName);
+
+    expect(tracked).not.toContain(undefined);
+    expect(tracked).toEqual(
+      expect.arrayContaining(["ghcr.io/versity/versitygw", "ghcr.io/rclone/rclone"]),
+    );
+  });
+
   it("pins the Temporal chart wherever it is installed", () => {
     for (const file of [
       "docs/runbooks/k8s-single-machine.md",

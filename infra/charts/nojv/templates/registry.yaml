@@ -1,8 +1,9 @@
 {{- if .Values.registry.enabled }}
 {{/*
 In-cluster OCI registry (CNCF distribution / registry:2) for teacher-built
-special_env judge images. Stateless — blobs live in the in-cluster MinIO bucket
-(registry.bucket) when storage.inCluster, otherwise in registry.s3.regionendpoint.
+special_env judge images. Stateless — blobs live in registry.bucket on the
+in-cluster store selected by storage.active when storage.inCluster, otherwise in
+registry.s3.regionendpoint.
 Token auth: the web /api/registry/token endpoint signs scoped JWTs the registry
 verifies against REGISTRY_TOKEN_CERT (mounted as rootcertbundle). REGISTRY_HTTP_SECRET
 and the S3 creds come from the runtime secret — never templated here.
@@ -21,7 +22,7 @@ data:
     storage:
       s3:
         region: us-east-1
-        regionendpoint: {{ if .Values.storage.inCluster }}{{ printf "http://%s-minio.%s.svc.cluster.local:9000" (include "nojv.fullname" .) (include "nojv.namespace" .) | quote }}{{ else }}{{ .Values.registry.s3.regionendpoint | quote }}{{ end }}
+        regionendpoint: {{ if .Values.storage.inCluster }}{{ printf "http://%s.%s.svc.cluster.local:9000" (include "nojv.activeStoreService" .) (include "nojv.namespace" .) | quote }}{{ else }}{{ .Values.registry.s3.regionendpoint | quote }}{{ end }}
         bucket: {{ .Values.registry.bucket | quote }}
         forcepathstyle: true
         secure: {{ ternary "false" "true" .Values.storage.inCluster }}
@@ -62,7 +63,7 @@ spec:
       labels:
         app.kubernetes.io/name: nojv-registry
       annotations:
-        checksum/config: {{ printf "%v-%s-%s-%s-%s-%s" .Values.storage.inCluster .Values.registry.s3.regionendpoint .Values.registry.bucket .Values.registry.token.realm .Values.registry.host .Values.registry.token.issuer | sha256sum }}
+        checksum/config: {{ printf "%v-%s-%s-%s-%s-%s-%s" .Values.storage.inCluster .Values.storage.active .Values.registry.s3.regionendpoint .Values.registry.bucket .Values.registry.token.realm .Values.registry.host .Values.registry.token.issuer | sha256sum }}
     spec:
       {{- include "nojv.topologySpread" "nojv-registry" | nindent 6 }}
       securityContext:
@@ -155,13 +156,13 @@ spec:
     - name: http
       port: 5000
       targetPort: http
-{{- if .Values.storage.inCluster }}
+{{- if and .Values.storage.inCluster (eq .Values.storage.active "minio") }}
 ---
 {{/*
-Creates the registry's MinIO bucket. Only when storage.inCluster (external S3
-backends are provisioned out-of-band). Runs as a post-install/post-upgrade hook
-so the bucket exists before the first push. Mirrors the mc container shape in
-minio-backup.cronjob.yaml.
+Creates the registry's MinIO bucket while MinIO is storage.active (the objstore
+bucket hook in objstore.yaml covers objstore; external S3 backends are
+provisioned out-of-band). Runs as a post-install/post-upgrade hook
+so the bucket exists before the first push.
 */}}
 apiVersion: batch/v1
 kind: Job

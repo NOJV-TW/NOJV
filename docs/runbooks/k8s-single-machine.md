@@ -8,7 +8,7 @@ Configuration reference, release mechanics and capacity numbers live in the
 
 ## Key code
 
-- `infra/charts/nojv/values-single-machine.yaml`: overlay (in-cluster Postgres, Redis, MinIO, registry, cloudflared, metrics stack)
+- `infra/charts/nojv/values-single-machine.yaml`: overlay (in-cluster Postgres, Redis, MinIO with an idle Versity S3 Gateway beside it, registry, cloudflared, metrics stack)
 - `infra/k3s/`: containerd v3 template for `runsc`, `gvisor` RuntimeClass, kubelet drop-ins
 - `infra/flux/`: GitOps release ([Flux guide](../../infra/flux/README.md))
 - `apps/worker/src/sandbox/kubernetes/netpol-probe.ts`, `runtime-probe.ts`: startup fail-closed checks
@@ -196,7 +196,7 @@ are the defaults in `secret.example.yaml`.
 
 ### Backups and production values
 
-The overlay enables the CNPG `ScheduledBackup` and the MinIO off-host mirror and
+The overlay enables the CNPG `ScheduledBackup` and the object-storage off-host mirror and
 fails to render until their destinations and credential Secrets are set. Put the
 `postgres.cnpg.backup.*` and `storage.minio.backup.*` values in a private
 `production-values.yaml` (shape in the [Flux guide](../../infra/flux/README.md#bootstrap))
@@ -208,6 +208,27 @@ MinIO data sits on the chart-created `nojv-minio-retain` StorageClass
 (`reclaimPolicy: Retain`); the class and PVC carry Helm's `keep` policy. Verify:
 `kubectl get storageclass nojv-minio-retain -o jsonpath='{.reclaimPolicy}'`
 prints `Retain`. Retention is not a backup.
+
+### Object store beside MinIO
+
+The overlay also runs the Versity S3 Gateway (`nojv-objstore`, posix backend)
+on its own PVC `nojv-objstore` in the chart-created `nojv-objstore-retain`
+class (`Retain`, Helm `keep`). A post-upgrade hook creates `nojv` and
+`nojv-registry` on it. It uses the runtime Secret's `S3_ACCESS_KEY` and
+`S3_SECRET_KEY` but serves no traffic: `S3_ENDPOINT` and `storage.active`
+(default `minio`) keep the app, workers, registry and mirror on MinIO until the
+cut-over in the
+[object storage spec](../superpowers/specs/2026-09-27-object-storage-replacement.md#migration-plan).
+Versity stores object metadata in `user.*` xattrs; before the cut-over confirm
+the local-path filesystem keeps them:
+
+```bash
+dir=$(kubectl get pv "$(kubectl -n nojv get pvc nojv-objstore -o jsonpath='{.spec.volumeName}')" \
+  -o jsonpath='{.spec.local.path}{.spec.hostPath.path}')
+sudo touch "$dir/.xattr-check" && sudo setfattr -n user.t -v 1 "$dir/.xattr-check" \
+  && sudo getfattr -d "$dir/.xattr-check" && sudo rm "$dir/.xattr-check"
+findmnt -T "$dir"
+```
 
 ### Edge tunnel
 
@@ -325,6 +346,8 @@ Smoke test:
    completes and is removed after its TTL; the verdict appears on the submission.
 3. If Jobs stay `Pending`, check `kubectl describe quota -n nojv-sandbox` and the
    node's `nojv-role=sandbox` label.
+4. `kubectl -n nojv get deploy nojv-minio nojv-objstore` shows both ready, and
+   `kubectl -n nojv get job` shows no failed `nojv-objstore-bucket-init`.
 
 ## 7. Capacity
 

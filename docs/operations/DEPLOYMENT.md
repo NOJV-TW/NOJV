@@ -24,7 +24,7 @@ only; see [Getting Started](../runbooks/getting-started.md).
 | Release path  | `vX.Y.Z` tag → GHCR → `deploy` branch → Flux (OPS-02, OPS-03) | `deploy.sh` → Cloud Build → Artifact Registry → `helm upgrade`      |
 | Image tag     | `vX.Y.Z` plus four digests                                    | 40-character source SHA plus four digests                           |
 | Postgres      | In-cluster CloudNativePG (`postgres.mode=cnpg`)               | Cloud SQL through the Auth Proxy sidecar (`postgres.mode=cloudsql`) |
-| Redis / S3    | In-cluster Redis and MinIO                                    | Memorystore and GCS (required by `production-preflight.yaml`)       |
+| Redis / S3    | In-cluster Redis and MinIO (Versity deployed alongside, idle) | Memorystore and GCS (required by `production-preflight.yaml`)       |
 | Edge          | In-cluster `cloudflared` tunnel to the ClusterIP web Service  | GCE Ingress with Cloud Armor allowing only Cloudflare               |
 | Temporal      | Official Temporal Helm chart, one pod per role                | Official Temporal Helm chart, HA values                             |
 | Sandbox nodes | The single node, labelled `nojv-role=sandbox`, untainted      | Tainted gVisor pools `pool-sandbox` and `pool-sandbox-spot`         |
@@ -118,6 +118,23 @@ chart against it.
 | `S3_BUCKET`     | `nojv`                  | Chart: `storage.bucket`                    |
 | `S3_REGION`     | `auto`                  | `auto` works for GCS and R2                |
 
+With `storage.inCluster` the chart runs MinIO (`<release>-minio`) and, when
+`storage.objectStore.enabled` (on in the single-machine overlay), a Versity S3
+Gateway with the posix backend (`<release>-objstore`: `Recreate` Deployment,
+UID 1000, read-only root, `drop: ALL`, `RuntimeDefault` seccomp, probes on
+`/health`, 128Mi request / 256Mi limit). Versity uses the same root keys
+(`S3_ACCESS_KEY`/`S3_SECRET_KEY`) and port 9000, keeps its data on its own PVC
+`<release>-objstore` on the chart-created `nojv-objstore-retain` class
+(`Retain`, Helm `keep` on both), and a post-install/post-upgrade `rclone mkdir`
+hook creates `storage.bucket` and `registry.bucket` on it. Neither store renders
+when `storage.inCluster=false` (GKE).
+
+`storage.active` (`minio` or `objstore`) selects the store the registry, its
+bucket hook and the off-host mirror use; `S3_ENDPOINT` in the runtime Secret
+must name the same Service. Production runs `storage.active=minio`, so nothing
+reads or writes Versity yet. Any backend must pass the S3 conformance test
+(PRB-04; [Testing Strategy](../runbooks/testing.md#object-storage-conformance)).
+
 ### Observability
 
 The chart passes `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS`
@@ -164,6 +181,7 @@ requires an empty registry and prefix and the tag `local`.
 | `worker.sandbox.runtimeClassName` must be `gvisor`                                                                                                                                                                                                           | `worker-judge.deployment.yaml`                    |
 | judge `replicas × concurrency × worker.sandbox.runParallelism` ≤ quota `requestsCpu`                                                                                                                                                                         | `worker-judge.deployment.yaml`                    |
 | `postgres.cnpg.backup.*` and `storage.minio.backup.*` complete, HTTPS, valid names when enabled                                                                                                                                                              | `postgres-cnpg.yaml`, `minio-backup.cronjob.yaml` |
+| `storage.active` is `minio` or `objstore`; `objstore` requires `storage.objectStore.enabled`                                                                                                                                                                 | `_helpers.tpl`                                    |
 | `cloudsql` mode: concrete Cloud SQL name, proxy on, external Redis and storage, registry host and HTTPS token realm, GCE Ingress with host, one TLS entry covering all hosts, Cloud Armor policy, HTTPS redirect, `networkPolicy.enabled` with private CIDRs | `production-preflight.yaml`                       |
 | `web.nodeEnv=production` requires `migrator.enabled`                                                                                                                                                                                                         | `web-maintenance.yaml`                            |
 
@@ -474,8 +492,9 @@ never from scheduled CI.
 ### Self-hosted registry
 
 `registry.enabled` (on in both overlays) runs a `registry:2` Deployment for
-teacher-built special_env images (OPS-10). Blobs go to in-cluster MinIO (bucket
-`nojv-registry`, created by a hook) or `registry.s3.regionendpoint`. The web
+teacher-built special_env images (OPS-10). Blobs go to the `storage.active`
+in-cluster store (bucket `nojv-registry`, created by a hook) or
+`registry.s3.regionendpoint`. The web
 endpoint `/api/registry/token` signs scoped tokens:
 
 | Principal                      | Access                                          |
@@ -503,9 +522,14 @@ sequence need no patch.
 
 ## Backups
 
-- **Single-machine:** CNPG `ScheduledBackup` with WAL archiving and the MinIO
+- **Single-machine:** CNPG `ScheduledBackup` with WAL archiving and the
   off-host mirror CronJob are enabled, and the chart refuses to render without
-  their destinations and credential Secrets (OPS-06).
+  their destinations and credential Secrets (OPS-06). The mirror runs
+  `rclone copy --metadata` (never `sync`) from the `storage.active` store for
+  `storage.bucket` and, with the registry on, `registry.bucket`, each under
+  `<destinationBucket>/<bucket>/`. The destination is Cloudflare R2
+  (`destinationProvider: Cloudflare`); the bucket must exist, since the job
+  never creates it.
 - **GKE:** `infra/gcp/scripts/setup-backups.sh` enables Cloud SQL daily backups
   (30 retained, in-region) and PITR (14 days of logs) and creates a versioned
   GCS bucket; `export-postgres-to-gcs.sh` is the daily cold export for Cloud
@@ -516,6 +540,7 @@ Procedures and restore drills: [Backup & Restore](../runbooks/backup-restore.md)
 ## CI and release gates
 
 `Verify Repository` (`.github/workflows/ci.yml`) aggregates repository checks,
-coverage and Temporal integration and gates every release tag. CodeQL and the
+coverage, Temporal integration and S3 conformance against Versity, and gates
+every release tag. CodeQL and the
 `pnpm audit --audit-level high` job also run (OPS-13). What each job covers is in
 [Testing Strategy](../runbooks/testing.md).
