@@ -80,7 +80,7 @@
     "uid": "nojv-slo-api-latency",
     "title": "API latency p99 over SLO",
     "slo": "API latency (all /api/* GET) - p99 < 500ms",
-    "expr": "histogram_quantile(0.99, sum by (le) (rate(api_request_duration_seconds_bucket[15m])))",
+    "expr": "histogram_quantile(0.99, sum by (le) (rate(api_request_duration_seconds_bucket{route=~\"/api/.*\",method=\"GET\"}[15m])))",
     "threshold": 0.5,
     "for": "10m",
     "severity": "warning",

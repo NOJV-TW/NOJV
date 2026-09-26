@@ -39,6 +39,9 @@ export async function readJudgeRecoverySnapshot(): Promise<JudgeRecoverySnapshot
         ))::float8 AS stalled,
         (SELECT COUNT(*)::float8 FROM "Submission" s WHERE s.status = 'system_error'
           AND NOT EXISTS (SELECT 1 FROM "JudgeExecution" j WHERE j."submissionId" = s.id)
+          AND NOT (s."isReferenceSolution" AND NOT EXISTS (
+            SELECT 1 FROM "Problem" p WHERE p."referenceSolutionSubmissionId" = s.id
+          ))
         ) AS "legacySystemErrors",
         EXTRACT(EPOCH FROM NOW())::float8 AS "observedAt"
       FROM "JudgeExecution" WHERE state NOT IN ('completed', 'cancelled')

@@ -5,6 +5,9 @@ const meter = metrics.getMeter("@nojv/worker", "0.1.0");
 export const judgeLatencyHistogram = meter.createHistogram("judge_latency_seconds", {
   description: "End-to-end judge latency from submission.createdAt to verdict commit",
   unit: "s",
+  advice: {
+    explicitBucketBoundaries: [1, 2, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300, 600, 1800],
+  },
 });
 
 export interface JudgeLatencyArgs {

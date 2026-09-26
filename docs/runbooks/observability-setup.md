@@ -129,7 +129,7 @@ Verify before accepting a release:
 ## Add a metric
 
 1. Put it next to the closest existing metric (see Key code). Histogram for distributions (bucket boundaries belong to the metric); counter named `*_total` for event counts.
-2. Keep each metric under about 1k series: labels multiply (× histogram buckets).
+2. Keep each metric under about 1k series: labels multiply (× histogram buckets). Give every histogram explicit bucket boundaries in its own unit (`advice.explicitBucketBoundaries`): the SDK default boundaries are millisecond-scale, so a seconds histogram without them puts every request in the first bucket and `histogram_quantile` reports about 4.95 s.
 3. Never label with user, actor, student, submission, exam, contest, assessment or problem IDs, IP addresses, request/session IDs, raw paths or any user-controlled text. Use fixed enums (as `close_reason` and `probe` do); per-entity detail belongs in logs.
 4. Add dashboard panels and alert rules to the JSON files and update the chart copies under `infra/charts/nojv/files/grafana-dashboards/` and `infra/charts/nojv/files/grafana-alerts/` (a unit test keeps the alert copy identical); run `pnpm grafana:provision` only for a Grafana Cloud stack.
 5. If it backs an SLO, update the table in [Reliability](../operations/RELIABILITY.md#service-level-objectives).

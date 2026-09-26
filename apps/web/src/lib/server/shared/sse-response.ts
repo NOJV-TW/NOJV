@@ -36,6 +36,7 @@ export function createSseResponse(options: CreateSseResponseOptions): Response {
     }
   }
 
+  let onCancel: (() => void) | undefined;
   const stream = new ReadableStream({
     start(controller) {
       const encoder = new TextEncoder();
@@ -91,7 +92,13 @@ export function createSseResponse(options: CreateSseResponseOptions): Response {
         }
       }
 
-      request.signal.addEventListener("abort", () => cleanup("client_abort"));
+      onCancel = () => {
+        cleanup("client_abort");
+      };
+      request.signal.addEventListener("abort", onCancel);
+    },
+    cancel() {
+      onCancel?.();
     },
   });
 
