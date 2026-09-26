@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 const MAX_RELATIVE_PATH_LENGTH = 300;
+const MAX_PATH_SEGMENT_BYTES = 255;
+const utf8 = new TextEncoder();
 
 export type SafeRelativePath = string & { readonly __safeRelativePath: unique symbol };
 
@@ -22,6 +24,9 @@ export function parseRelativePath(rawPath: string): SafeRelativePath {
   const segments = path.split("/");
   if (segments.some((segment) => segment.length === 0 || segment === "." || segment === "..")) {
     throw new Error("Path contains unsafe segments");
+  }
+  if (segments.some((segment) => utf8.encode(segment).length > MAX_PATH_SEGMENT_BYTES)) {
+    throw new Error("Path segment is too long");
   }
 
   return path as SafeRelativePath;
@@ -51,4 +56,14 @@ function hasControlOrNul(path: string): boolean {
     }
   }
   return false;
+}
+
+export function findPathConflict(paths: readonly string[]): [string, string] | null {
+  let previous: string | undefined;
+  for (const current of [...paths].sort()) {
+    if (previous !== undefined && (current === previous || current.startsWith(`${previous}/`)))
+      return [previous, current];
+    previous = current;
+  }
+  return null;
 }

@@ -187,19 +187,19 @@ Advanced Mode (JDG-16, JDG-17, SEC-14, PRB-12):
 
 ## Input Validation
 
-| Input                  | Schema                                                  | Limits                                                               |
-| ---------------------- | ------------------------------------------------------- | -------------------------------------------------------------------- |
-| Single-file submission | `submissionDraftSchema.sourceCode` (`sourceCodeSchema`) | 1–50,000 chars, not blank                                            |
-| Multi-file submission  | `submissionDraftSchema.sourceFiles`                     | ≤ 200 files, ≤ 500,000 chars each, safe relative paths; body ≤ 2 MiB |
-| Custom run cases       | `runCaseSchema`                                         | ≤ 10 cases, ≤ 200,000 chars per field, sample-only runs              |
-| Code draft             | `codeDraftSaveSchema`                                   | Same file limits as multi-file submission                            |
-| Contest id             | `slugSchema`                                            | ≥ 3 chars, `[a-z0-9]+(-[a-z0-9]+)*`                                  |
-| Problem statement      | problem schemas                                         | statement ≤ 12,000; input/output format ≤ 4,000                      |
-| Testcase file          | `MAX_TESTCASE_FILE_BYTES`                               | ≤ 10 MiB UTF-8                                                       |
-| Image upload           | multipart                                               | png/jpeg/gif/webp, ≤ 5 MB, magic bytes                               |
-| Problem post           | `postSubmitSchema`                                      | title 1–200 (trimmed), content 10–50,000                             |
-| Post comment           | `postCommentSubmitSchema`                               | 1–5,000, trimmed                                                     |
-| Content report         | `contentReportSchema`                                   | reason 1–1,000                                                       |
+| Input                  | Schema                                                  | Limits                                                                                                                                                                |
+| ---------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Single-file submission | `submissionDraftSchema.sourceCode` (`sourceCodeSchema`) | 1–50,000 chars, not blank                                                                                                                                             |
+| Multi-file submission  | `submissionDraftSchema.sourceFiles`                     | ≤ 200 files, ≤ 500,000 chars each, safe relative paths (each segment ≤ 255 UTF-8 bytes; no duplicate path and no path that is another file's directory); body ≤ 2 MiB |
+| Custom run cases       | `runCaseSchema`                                         | ≤ 10 cases, ≤ 200,000 chars per field, sample-only runs                                                                                                               |
+| Code draft             | `codeDraftSaveSchema`                                   | Same file limits as multi-file submission                                                                                                                             |
+| Contest id             | `slugSchema`                                            | ≥ 3 chars, `[a-z0-9]+(-[a-z0-9]+)*`                                                                                                                                   |
+| Problem statement      | problem schemas                                         | statement ≤ 12,000; input/output format ≤ 4,000                                                                                                                       |
+| Testcase file          | `MAX_TESTCASE_FILE_BYTES`                               | ≤ 10 MiB UTF-8                                                                                                                                                        |
+| Image upload           | multipart                                               | png/jpeg/gif/webp, ≤ 5 MB, magic bytes                                                                                                                                |
+| Problem post           | `postSubmitSchema`                                      | title 1–200 (trimmed), content 10–50,000                                                                                                                              |
+| Post comment           | `postCommentSubmitSchema`                               | 1–5,000, trimmed                                                                                                                                                      |
+| Content report         | `contentReportSchema`                                   | reason 1–1,000                                                                                                                                                        |
 
 ## Dependency Advisories
 

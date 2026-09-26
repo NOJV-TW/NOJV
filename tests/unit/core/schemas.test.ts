@@ -112,6 +112,35 @@ describe("submissionDraftSchema", () => {
     ).toBe(false);
   });
 
+  it("rejects source files whose paths collide as file and directory", () => {
+    const draft = {
+      context: { type: "practice" as const },
+      language: "python",
+      problemId: "multi-file-py",
+    };
+    for (const paths of [
+      ["lib", "lib/util.py"],
+      ["lib/util.py", "lib"],
+      ["main.py", "main.py"],
+    ]) {
+      expect(
+        submissionDraftSchema.safeParse({
+          ...draft,
+          sourceFiles: paths.map((path) => ({ path, content: "x" })),
+        }).success,
+      ).toBe(false);
+    }
+    expect(
+      submissionDraftSchema.safeParse({
+        ...draft,
+        sourceFiles: ["lib/a.py", "lib-b/a.py", "lib.py"].map((path) => ({
+          path,
+          content: "x",
+        })),
+      }).success,
+    ).toBe(true);
+  });
+
   it("enforces the shared source-file count boundary", () => {
     const file = (_: unknown, index: number) => ({
       path: `src/${String(index)}.ts`,
@@ -410,6 +439,12 @@ describe("safeRelativePath", () => {
   it("rejects a colon", () => {
     expect(() => safeRelativePath.parse("C:/main.cpp")).toThrow();
     expect(() => safeRelativePath.parse("main:cpp")).toThrow();
+  });
+
+  it("limits each segment to 255 UTF-8 bytes", () => {
+    expect(safeRelativePath.parse(`src/${"a".repeat(255)}`)).toBe(`src/${"a".repeat(255)}`);
+    expect(() => safeRelativePath.parse(`src/${"a".repeat(256)}`)).toThrow();
+    expect(() => safeRelativePath.parse("é".repeat(128))).toThrow();
   });
 
   it("rejects a newline (would forge a MOSS boundary marker)", () => {
