@@ -47,7 +47,6 @@ Work that is known, not done, and not covered by an in-flight plan. Remove an it
 
 ### Code and product
 
-- Several page loads orchestrate many application calls themselves (`routes/(app)/exams/[examId]/+page.server.ts` and the contest, assignment, admin-users and problem-edit pages); move them into application view-model queries (ENG-02).
 - Browser Test (WASM-OJ) deferred scope: official Submit from the browser, checker/interactive/Advanced problems, and limit calibration stay server-only until decided otherwise (JDG-15).
 - The full Playwright suite has no recent recorded run; the E2E bootstrap needs explicit approval to reset the marked local test database.
 
