@@ -79,7 +79,7 @@ Consequences for NOJV:
 
 **Chart PR 2:** render `objstore` alongside the untouched MinIO. The app still points at MinIO.
 
-Landed in [#PR](https://github.com/NOJV-TW/NOJV/pull/PR), with these differences from the Design section:
+Landed in [#541](https://github.com/NOJV-TW/NOJV/pull/541), with these differences from the Design section:
 
 - The values are **not** renamed yet. New keys: `storage.objectStore.{enabled,image,storageSize,storageClass.*,resources}` (enabled in the single-machine overlay), `storage.rclone.image` and `storage.minio.backup.destinationProvider` (default `Cloudflare`). The rename and the `storage.minio` guard move to the cut-over PR.
 - The PVC uses a new chart-created class `nojv-objstore-retain` (`Retain`, `keep`), not `nojv-minio-retain`: production mounts MinIO through `storage.minio.existingClaim`, which skips rendering `nojv-minio-retain`, so that class may not exist on the node, and a `Pending` PVC would stall the Flux release.

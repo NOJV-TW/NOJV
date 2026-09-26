@@ -62,7 +62,7 @@ Incompatible migrations run through the Helm migrator maintenance flow: web, bot
 
 **Decided:** 2026-07 · **Source:** [2026-07-07-system-health-check-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-07-system-health-check-remediation.md), [2026-07-13-release-preflight](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-13-release-preflight.md)
 
-CNPG barman backup and the object-store off-host mirror are enabled in production values, and the chart refuses to render without a real destination and credentials Secret. Postgres (including Temporal state) and the in-cluster object store (the only copy of student source) previously had no backups at all. The mirror is `rclone copy --metadata` of both `nojv` and `nojv-registry` from the `storage.active` store to Cloudflare R2's free tier ([#PR](https://github.com/NOJV-TW/NOJV/pull/PR)).
+CNPG barman backup and the object-store off-host mirror are enabled in production values, and the chart refuses to render without a real destination and credentials Secret. Postgres (including Temporal state) and the in-cluster object store (the only copy of student source) previously had no backups at all. The mirror is `rclone copy --metadata` of both `nojv` and `nojv-registry` from the `storage.active` store to Cloudflare R2's free tier ([#541](https://github.com/NOJV-TW/NOJV/pull/541)).
 
 - Rejected: a fabricated or unverified fallback destination; `mc mirror` (MinIO's client is no longer published); `rclone sync` (a source deletion would delete the only off-host copy); mirroring only `nojv`.
 - Rule: a backup is not "enabled" until a restore drill has run.
