@@ -6,6 +6,7 @@ import {
 } from "@nojv/db";
 
 import { toCourseActivityDbFields, type GradedContext } from "../shared/graded-context";
+import { listUserDisplayNames } from "../user/queries";
 
 export type AuditEventKind = "lifecycle" | "score_override" | "rejudge";
 
@@ -113,4 +114,15 @@ export async function listAuditTimelineForContext(
   return [...lifecycle, ...overrides, ...rejudges].sort(
     (a, b) => b.at.getTime() - a.at.getTime(),
   );
+}
+
+export async function getAuditTimelineView(context: GradedContext): Promise<{
+  auditEvents: AuditEvent[];
+  auditActorNames: Record<string, string>;
+}> {
+  const auditEvents = await listAuditTimelineForContext(context);
+  const auditActorNames = await listUserDisplayNames([
+    ...new Set(auditEvents.flatMap((e) => (e.actorUserId ? [e.actorUserId] : []))),
+  ]);
+  return { auditEvents, auditActorNames };
 }
