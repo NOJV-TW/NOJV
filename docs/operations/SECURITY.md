@@ -20,21 +20,21 @@ Security controls as implemented: what must hold and where it is enforced. Attac
 
 ## Sensitive Data
 
-| Data                     | Storage                                                 | Protection                                                                                                                                                   |
-| ------------------------ | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Credential passwords     | `Account.password`                                      | bcrypt (cost 10) via `emailAndPassword.password.hash`                                                                                                        |
-| Temporary exam passwords | `ExamCredential.passwordHash` / `passwordCiphertext`    | scrypt hash + ciphertext keyed by `BETTER_AUTH_SECRET`; staff reveal; hard expiry                                                                            |
-| OAuth provider tokens    | `Account.accessToken` / `refreshToken`                  | Encrypted with `BETTER_AUTH_SECRET` (`account.encryptOAuthTokens`); never read by NOJV; rows written before encryption stay plaintext until the next sign-in |
-| Session tokens           | `Session.token`                                         | httpOnly cookie; checked every request (no cookie cache)                                                                                                     |
-| API tokens               | `ApiToken` prefix + sha256 hash                         | Shown once, mandatory expiry (SEC-07)                                                                                                                        |
-| TOTP enrollment material | Redis, pending until confirmed                          | Encrypted; committed atomically with backup codes on confirmation                                                                                            |
-| Submission source        | Object storage `submissions/<id>/sources/<path>`        | Read only via domain helpers and the worker                                                                                                                  |
-| Graded testcases         | `TestcaseSet` / `Testcase` + object storage             | Never reach non-staff (SEC-12); only `Problem.samples` is rendered                                                                                           |
-| Hidden workspace files   | `ProblemWorkspaceFile` (`visibility = hidden`)          | Filtered in the application layer; merged only by the worker                                                                                                 |
-| Advanced grade images    | Registry `t/<username>/…`                               | Hold answers; namespace-scoped registry tokens ([Sandbox](#sandbox-isolation))                                                                               |
-| Code drafts              | `CodeDraft` rows; unsynced edits in `localStorage`      | Owner-only; local edits sealed ([Integrity](#exam-and-contest-integrity))                                                                                    |
-| Problem / user images    | Object storage, served same-origin via `/api/storage/*` | Public read; never store secret material there (PRB-05)                                                                                                      |
-| Runtime secrets          | `.env` locally; chart Secret `nojv-runtime-secrets`     | `.env` untracked; `.env.example` shape-only                                                                                                                  |
+| Data                     | Storage                                                 | Protection                                                                             |
+| ------------------------ | ------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Credential passwords     | `Account.password`                                      | bcrypt (cost 10) via `emailAndPassword.password.hash`                                  |
+| Temporary exam passwords | `ExamCredential.passwordHash` / `passwordCiphertext`    | scrypt hash + ciphertext keyed by `BETTER_AUTH_SECRET`; staff reveal; hard expiry      |
+| OAuth provider tokens    | `Account.accessToken` / `refreshToken`                  | Encrypted with `BETTER_AUTH_SECRET` (`account.encryptOAuthTokens`); never read by NOJV |
+| Session tokens           | `Session.token`                                         | httpOnly cookie; checked every request (no cookie cache)                               |
+| API tokens               | `ApiToken` prefix + sha256 hash                         | Shown once, mandatory expiry (SEC-07)                                                  |
+| TOTP enrollment material | Redis, pending until confirmed                          | Encrypted; committed atomically with backup codes on confirmation                      |
+| Submission source        | Object storage `submissions/<id>/sources/<path>`        | Read only via domain helpers and the worker                                            |
+| Graded testcases         | `TestcaseSet` / `Testcase` + object storage             | Never reach non-staff (SEC-12); only `Problem.samples` is rendered                     |
+| Hidden workspace files   | `ProblemWorkspaceFile` (`visibility = hidden`)          | Filtered in the application layer; merged only by the worker                           |
+| Advanced grade images    | Registry `t/<username>/…`                               | Hold answers; namespace-scoped registry tokens ([Sandbox](#sandbox-isolation))         |
+| Code drafts              | `CodeDraft` rows; unsynced edits in `localStorage`      | Owner-only; local edits sealed ([Integrity](#exam-and-contest-integrity))              |
+| Problem / user images    | Object storage, served same-origin via `/api/storage/*` | Public read; never store secret material there (PRB-05)                                |
+| Runtime secrets          | `.env` locally; chart Secret `nojv-runtime-secrets`     | `.env` untracked; `.env.example` shape-only                                            |
 
 ## Request Boundary
 
