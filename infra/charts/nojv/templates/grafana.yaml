@@ -94,6 +94,8 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: nojv-grafana
+      annotations:
+        checksum/provisioning: {{ printf "%s|%s|%v|%v" (.Files.Glob "files/grafana-dashboards/*.json").AsConfig (.Files.Get "files/grafana-alerts/slo-alerts.json") .Values.observability.grafana .Values.postgres.cnpg.backup.enabled | sha256sum }}
     spec:
       securityContext:
         runAsNonRoot: true

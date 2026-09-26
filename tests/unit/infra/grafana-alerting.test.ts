@@ -42,6 +42,15 @@ describe("in-cluster Grafana alerting", () => {
     expect(rendered).toMatch(/kind: Service\n[\s\S]*?spec:\n  type: ClusterIP/);
   });
 
+  it("rolls Grafana when its provisioned rules change", () => {
+    const checksum = (rendered: string) => /checksum\/provisioning: (\S+)/.exec(rendered)?.[1];
+    const withBackups = checksum(renderGrafana());
+    expect(withBackups).toMatch(/^[a-f0-9]{64}$/);
+    expect(checksum(renderGrafana("--set", "postgres.cnpg.backup.enabled=false"))).not.toBe(
+      withBackups,
+    );
+  });
+
   it("drops the backup-age rule while Postgres backups are disabled", () => {
     expect(renderGrafana("--set", "postgres.cnpg.backup.enabled=false")).not.toContain(
       "uid: nojv-pg-backup-stale",
