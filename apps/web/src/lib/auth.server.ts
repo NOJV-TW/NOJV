@@ -215,6 +215,7 @@ function createAuth() {
       },
     },
     account: {
+      encryptOAuthTokens: true,
       accountLinking: {
         enabled: true,
         trustedProviders: ["github", "google"],
