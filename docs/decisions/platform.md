@@ -198,3 +198,17 @@ Renovate (`.github/renovate.json`) updates npm packages and pnpm catalog/overrid
 - Rule: every version installed outside `package.json` or a Dockerfile is written where a Renovate custom manager reads it (`--version` on Helm installs, a versioned manifest URL, `image: repo:tag@sha256:…` in values); a unit test fails when a manager stops matching.
 - Rule: majors, and CNPG or Temporal minors, open only after approval on the dependency dashboard.
 - Code: `.github/renovate.json`, `tests/unit/infra/renovate-coverage.test.ts`
+
+### OPS-19 Single-machine Temporal is one pod per role, reproduced from the repo
+
+**Decided:** 2026-09 · **Source:** [#552](https://github.com/NOJV-TW/NOJV/pull/552)
+
+The single-machine Temporal release runs one pod per role (frontend, history, matching, worker), and `infra/gcp/gke/temporal/helm-values.single-machine.yaml` with the pinned chart version reproduces it exactly: resources, node selector and dynamic config. Temporal HA cannot raise availability while web, Postgres and the node are single points of failure, and the measured availability loss is network-side. Workflows resume after a Temporal restart without losing work, so the cost of a pod outage is paused judging and timers.
+
+- Rejected: two pods per role on the one node (about +0.4 CPU and +1.3 GiB of requests from the budget that feeds the sandbox quota, and 8 pods × 2 stores × `maxConns` 10 = 160 Postgres connections, above CNPG's default `max_connections` of 100 before the app's pools). Revisit if the restart drill or production shows user-visible Temporal-only pauses.
+- Rejected: CNPG with several instances on the same node (every replica shares the disk and local-path volume, so it covers only a Postgres process crash).
+- Rejected: `--set` / `--reuse-values` overrides on the live release (they exist only in release state, so a reinstall from the repo drops them); moving the release under Flux.
+- Rejected: multi-node k3s as part of this decision; it needs three k3s servers with embedded etcd, CNPG spread across nodes and extra machines, and is deferred to a separate platform decision.
+- Rule: every Temporal release change goes through the values file and the documented `helm upgrade --install`.
+- Rule: `helm-values.ha.yaml` is an unvalidated GKE reference; do not claim Temporal HA until a regional database, the Cloud SQL proxy and a cluster drill exist.
+- Code: `infra/gcp/gke/temporal/`, `docs/runbooks/k8s-single-machine.md`, `docs/runbooks/incident-recovery.md`

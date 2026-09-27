@@ -7,12 +7,12 @@ All durable Temporal state is in Postgres; the server roles are stateless.
 
 ## Key code
 
-| File                                        | Target                                                                                                                      |
-| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `helm-values.ha.yaml`                       | GKE: `replicaCount: 2` per role, PDB `minAvailable: 1`, Cloud SQL via `cloudsql-proxy.nojv-temporal.svc.cluster.local:5432` |
-| `helm-values.single-machine.yaml`           | Single node: `replicaCount: 1` per role on `nojv-role: worker`, CNPG `nojv-pg-rw.nojv.svc.cluster.local:5432`               |
-| `secret.example.yaml`                       | Placeholder store-credentials Secret                                                                                        |
-| `infra/docker/temporal-dynamic-config.yaml` | Local compose dynamic config; production must set the same values                                                           |
+| File                                        | Target                                                                                                                                             |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `helm-values.ha.yaml`                       | GKE reference, unvalidated: `replicaCount: 2` per role, PDB `minAvailable: 1`, Cloud SQL via `cloudsql-proxy.nojv-temporal.svc.cluster.local:5432` |
+| `helm-values.single-machine.yaml`           | Production single node: `replicaCount: 1` per role on `nojv-role: sandbox`, CNPG `nojv-pg-rw.nojv.svc.cluster.local:5432`                          |
+| `secret.example.yaml`                       | Placeholder store-credentials Secret                                                                                                               |
+| `infra/docker/temporal-dynamic-config.yaml` | Local compose dynamic config; both values files carry the same `server.dynamicConfig`                                                              |
 
 Both values files use the `postgres12` SQL plugin for the `temporal` and
 `temporal_visibility` databases (SQL visibility, no Elasticsearch), set
@@ -39,34 +39,30 @@ under key `password` (both values files read `existingSecret` /
 
 ## Dynamic config
 
-Every install must set `server.dynamicConfig` to match
+Both values files set `server.dynamicConfig` to match
 `infra/docker/temporal-dynamic-config.yaml`: `matching.enableFairness`,
 `matching.useNewMatcher` (priority matching), and one read and one write
-partition for `judge`, `judge-state` and `platform`. The values files do not
-include it. Why: [Judge Queue](../../../../docs/runbooks/judge-queue.md).
-
-```bash
-TEMPORAL_DYNAMIC_CONFIG='{"matching.enableFairness":[{"value":true}],"matching.useNewMatcher":[{"value":true}],"matching.numTaskqueueWritePartitions":[{"value":1,"constraints":{"taskQueueName":"judge"}},{"value":1,"constraints":{"taskQueueName":"judge-state"}},{"value":1,"constraints":{"taskQueueName":"platform"}}],"matching.numTaskqueueReadPartitions":[{"value":1,"constraints":{"taskQueueName":"judge"}},{"value":1,"constraints":{"taskQueueName":"judge-state"}},{"value":1,"constraints":{"taskQueueName":"platform"}}]}'
-```
+partition for `judge`, `judge-state` and `platform`. Change all three files
+together. Why: [Judge Queue](../../../../docs/runbooks/judge-queue.md).
 
 ## Install
 
 ```bash
 helm repo add temporal https://go.temporal.io/helm-charts
-# GKE (HA)
+# Single node (production; see the single-machine runbook)
 helm upgrade --install temporal temporal/temporal --version 1.4.0 -n nojv-temporal --create-namespace \
-  -f infra/gcp/gke/temporal/helm-values.ha.yaml \
-  --set-json "server.dynamicConfig=${TEMPORAL_DYNAMIC_CONFIG}"
-# Single node (see the single-machine runbook for the nodeSelector override)
+  -f infra/gcp/gke/temporal/helm-values.single-machine.yaml
+# GKE (reference only)
 helm upgrade --install temporal temporal/temporal --version 1.4.0 -n nojv-temporal --create-namespace \
-  -f infra/gcp/gke/temporal/helm-values.single-machine.yaml \
-  --set server.nodeSelector.nojv-role=sandbox \
-  --set-json "server.dynamicConfig=${TEMPORAL_DYNAMIC_CONFIG}"
+  -f infra/gcp/gke/temporal/helm-values.ha.yaml
 ```
 
-The values files are reviewed starting points rendered with `helm template`, not
-cluster-validated here. Check membership with `tctl cluster health` before
-sending production traffic.
+The single-machine file reproduces the production release exactly; changes go
+through the file, never `--set` or `--reuse-values`. The GKE file is an
+unvalidated reference: it has never run on a cluster, and it is HA only with a
+regional Cloud SQL instance and a Cloud SQL Auth Proxy Deployment and Service in
+`nojv-temporal`, neither of which the repository provisions. Check membership
+with `temporal operator cluster health` before sending traffic to it.
 
 ## Client TLS
 

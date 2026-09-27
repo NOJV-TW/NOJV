@@ -25,8 +25,8 @@ temporal workflow list --query 'WorkflowType="durableJudgeWorkflow" AND Executio
 
 ## Temporal server requirements
 
-Set in `infra/docker/temporal-dynamic-config.yaml` (compose) or `server.dynamicConfig`
-on the official Helm chart, then let the config reload:
+Set in `infra/docker/temporal-dynamic-config.yaml` (compose) and `server.dynamicConfig`
+in the Temporal Helm values (`infra/gcp/gke/temporal/`), then let the config reload:
 
 - `matching.useNewMatcher: true` — required for priority; set it explicitly.
 - `matching.enableFairness: true` — without it dispatch inside one priority is FIFO;
