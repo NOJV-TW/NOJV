@@ -210,12 +210,7 @@ spec:
                 secretKeyRef:
                   name: {{ include "nojv.runtimeSecretName" . }}
                   key: S3_SECRET_KEY
-            - name: S3_REGION
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "nojv.runtimeSecretName" . }}
-                  key: S3_REGION
-                  optional: true
+            {{- include "nojv.s3RegionEnv" . | nindent 12 }}
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               valueFrom:
                 secretKeyRef:

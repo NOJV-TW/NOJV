@@ -167,6 +167,29 @@ describe("Versity object store alongside MinIO", () => {
     );
   });
 
+  it("signs every S3 client with the region the gateway accepts once it is active", () => {
+    const active = render([...production, "--set-string", "storage.active=objstore"]);
+    expect(documentWith(active, objstoreDeployment)).toMatch(
+      /name: VGW_REGION\n\s+value: "us-east-1"/u,
+    );
+    for (const name of ["nojv-web", "nojv-worker", "nojv-worker-platform"]) {
+      expect(
+        documentWith(
+          active,
+          new RegExp(`kind: Deployment\\nmetadata:\\n {2}name: ${name}\\n`, "u"),
+        ),
+      ).toMatch(/name: S3_REGION\n\s+value: "us-east-1"/u);
+    }
+    expect(documentWith(active, /name: nojv-registry-config\n/u)).toContain(
+      'region: "us-east-1"',
+    );
+
+    const minio = render(production);
+    expect(
+      documentWith(minio, /kind: Deployment\nmetadata:\n {2}name: nojv-worker\n/u),
+    ).toMatch(/name: S3_REGION\n\s+valueFrom:\n\s+secretKeyRef:/u);
+  });
+
   it.each([
     [
       ["--set-string", "storage.active=objstore"],
