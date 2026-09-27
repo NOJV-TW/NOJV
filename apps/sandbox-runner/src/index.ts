@@ -169,6 +169,11 @@ async function runInteractive(workDir: string, config: SandboxInput): Promise<vo
   });
 }
 
+async function existingPaths(paths: string[]): Promise<string[]> {
+  const found = await Promise.all(paths.map(pathExists));
+  return paths.filter((_, index) => found[index]);
+}
+
 async function runStagePhase(config: SandboxInput): Promise<void> {
   if (config.mode?.kind !== "run-stage") {
     emit({ pipelineError: "run-stage phase requires a run-stage mode." });
@@ -194,6 +199,13 @@ async function runStagePhase(config: SandboxInput): Promise<void> {
     submissionDir: SUBMISSION_DIR,
     workspaceDir: WORKSPACE_DIR,
     ...((await pathExists(OUTPUT_DIR)) ? { outputDir: OUTPUT_DIR } : {}),
+    protectedDirs: await existingPaths([
+      ARTIFACT_DIR,
+      SUBMISSION_DIR,
+      OUTPUT_DIR,
+      "/dev/termination-log",
+    ]),
+    scratchDirs: await existingPaths([WORKSPACE_DIR, os.tmpdir(), "/dev/shm"]),
   });
   emit({ rawRuns });
 }

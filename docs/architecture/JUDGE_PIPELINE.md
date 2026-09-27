@@ -255,6 +255,12 @@ A standard or checker stage is one Kubernetes Job with one Pod:
 - `run` compiles once into `/artifact`, then executes the stage's cases, up to the
   stage parallelism at a time, each in a fresh scratch directory, writing stdout and
   its SHA-256 to `/outputs`.
+- With parallelism 1, no state survives from one case to the next: after each case
+  the runner empties `/workspace`, `/tmp` and `/dev/shm`, and compares an
+  inode/size/mode/link-count/ctime fingerprint of `/artifact`, `/submission`,
+  `/outputs` and `/dev/termination-log` with the one taken before the case. Any change
+  makes that case and the rest of the stage RE ("Isolation violation"). Parallelism
+  above 1 runs cases concurrently in the shared filesystem and skips this check.
 - `judge` starts only after `run` exits, so no student process is alive while answers
   exist in the Pod (JDG-05). It verifies each output hash (mismatch is WA) before
   comparing or validating.
@@ -295,6 +301,9 @@ Every solution and validator process runs through `nojv-exec` (JDG-06):
   polled every 10 ms, exceeds the memory limit (stops the program before gVisor
   OOM-kills the whole container)
 - child subreaper: no descendant outlives the run; the runner (PID 1) kills orphans
+- a seccomp filter makes `shmget`, `msgget`, `semget` and `mq_open` fail with EPERM:
+  SysV IPC objects and POSIX message queues outlive their process and would carry
+  state between cases
 - reports `wait4` CPU time and peak RSS for every reaped process, so students are
   charged only for their own processes; non-dumpable
 - a program that kills its helper is RE; under gVisor CPU time has 10 ms ticks

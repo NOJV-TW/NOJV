@@ -85,6 +85,40 @@ describe("runStage", () => {
       [2, "10\n"],
     ]);
   });
+
+  async function runGuarded(program: string, scratchDir: string) {
+    return runStage({
+      runCommand: [process.execPath, "-e", program],
+      caseIndices: [0, 1, 2],
+      parallelism: 1,
+      timeoutMs: 5_000,
+      memoryLimitMb: 256,
+      env: { CACHE: join(scratchDir, "cache") },
+      submissionDir,
+      workspaceDir,
+      outputDir,
+      protectedDirs: [submissionDir, outputDir],
+      scratchDirs: [scratchDir],
+    });
+  }
+
+  it("clears shared scratch space between cases", async () => {
+    const runs = await runGuarded(
+      "const fs = require('node:fs'); const hit = fs.existsSync(process.env.CACHE); fs.writeFileSync(process.env.CACHE, 'x'); process.stdout.write(hit ? 'cached' : 'fresh');",
+      await mkdtemp(join(root, "tmp-")),
+    );
+    expect(runs.map(({ stdout }) => stdout)).toEqual(["fresh", "fresh", "fresh"]);
+  });
+
+  it("fails the case that changes protected files and skips the rest", async () => {
+    const target = join(submissionDir, "testcase-2-input.txt");
+    const runs = await runGuarded(
+      `require('node:fs').writeFileSync(${JSON.stringify(target)}, '0'); process.stdout.write('1');`,
+      await mkdtemp(join(root, "tmp-")),
+    );
+    expect(runs.map(({ errorVerdict }) => errorVerdict)).toEqual(["RE", "RE", "RE"]);
+    expect(runs[0]?.stderr).toMatch(/Isolation violation/);
+  });
 });
 
 describe("judgeStage", () => {
