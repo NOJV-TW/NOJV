@@ -38,22 +38,6 @@ postgres:
     database: nojv
     owner: nojv
     resources: {}
-    # CloudNativePG barman-cloud backup → S3/R2 object storage (base backups +
-    # continuous WAL archiving = point-in-time recovery). DEFAULT OFF: turning it
-    # on requires an existing credentials Secret (see s3CredentialsSecret), so the
-    # Cluster CR cannot reconcile until that Secret exists. Flip enabled=true only
-    # AFTER creating the Secret. See docs/runbooks/backup-restore.md.
-    backup:
-      enabled: false
-      # Bucket path the base backups + WAL land in, e.g. s3://nojv-db-backups/nojv-pg
-      destinationPath: ""
-      # S3-compatible endpoint. Cloudflare R2: https://<account>.r2.cloudflarestorage.com
-      # (leave empty for AWS S3; set https://storage.googleapis.com for GCS).
-      endpointURL: ""
-      # Name of a Secret in this namespace with keys ACCESS_KEY_ID / ACCESS_SECRET_KEY.
-      s3CredentialsSecret: ""
-      retentionPolicy: "30d"
-      schedule: "0 0 3 * * *"
     # Weekly logical backup: pg_dump --format=custom of each database, checked
     # with pg_restore --list, uploaded with rclone to
     # <destinationBucket>/<destinationPrefix>/<UTC stamp>/ and pruned after
@@ -175,7 +159,7 @@ storage:
       # rclone S3 provider of the destination (Cloudflare for R2, AWS, Other).
       destinationProvider: Cloudflare
       # Secret in this namespace with keys ACCESS_KEY_ID / ACCESS_SECRET_KEY
-      # (can be the SAME Secret as postgres.cnpg.backup.s3CredentialsSecret).
+      # (can be the SAME Secret as postgres.cnpg.dump.credentialsSecret).
       credentialsSecret: ""
       resources:
         requests:

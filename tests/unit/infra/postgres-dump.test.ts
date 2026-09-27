@@ -30,9 +30,9 @@ function render(...args: string[]): string {
 
 describe("weekly Postgres dump", () => {
   it("renders nothing while disabled", () => {
-    const rendered = render();
+    const rendered = render("--set", "postgres.cnpg.dump.enabled=false");
     expect(rendered).not.toContain("nojv-postgres-dump");
-    expect(rendered).not.toContain("nojv_backup");
+    expect(rendered).not.toContain("name: nojv_backup");
   });
 
   it("dumps every database with a read-only managed role and uploads to the mirror bucket", () => {

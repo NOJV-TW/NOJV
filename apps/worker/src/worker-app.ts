@@ -17,6 +17,10 @@ import {
 
 const require = createRequire(import.meta.url);
 
+import {
+  kubernetesBackupCronJobReader,
+  startBackupFreshnessMetrics,
+} from "./backup-freshness-metrics";
 import type { WorkerEnv } from "./env";
 import { createWorkerHealthServer } from "./health-server";
 import { startJudgeRecoveryMetrics } from "./judge-recovery-metrics";
@@ -144,6 +148,16 @@ export class WorkerApp {
         resource: "judge recovery metrics",
         run: () => Promise.resolve(stopMetrics()),
       });
+      const backupNamespace = process.env.BACKUP_CRONJOB_NAMESPACE?.trim();
+      if (backupNamespace) {
+        const stopBackupMetrics = startBackupFreshnessMetrics(
+          kubernetesBackupCronJobReader(backupNamespace),
+        );
+        this.cleanupSteps.push({
+          resource: "backup freshness metrics",
+          run: () => Promise.resolve(stopBackupMetrics()),
+        });
+      }
     }
     const { tls, apiKey } = temporalConnectionOptions();
     const connection = await NativeConnection.connect({

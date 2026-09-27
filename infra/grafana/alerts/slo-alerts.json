@@ -105,14 +105,26 @@
     "summary": "One or more CloudNativePG Postgres instances failed scrape (not ready) for 2m. Postgres is the single durable store — a down instance means degraded or total outage. Dormant until a CNPG metrics scrape target (job=cnpg-postgres) is wired; see docs/operations/RELIABILITY.md."
   },
   {
-    "uid": "nojv-pg-backup-stale",
-    "title": "Postgres backup older than 26h",
-    "slo": "Backup freshness - last successful base backup < 26h old",
-    "expr": "(time() - max(cnpg_collector_last_available_backup_timestamp)) / 3600",
+    "uid": "nojv-pg-dump-stale",
+    "title": "Postgres dump older than 8 days",
+    "slo": "Backup freshness - last successful weekly pg_dump < 8 days old",
+    "expr": "(time() - max(nojv_backup_last_success_timestamp_seconds{component=\"postgres-dump\"})) / 86400",
+    "threshold": 8,
+    "for": "30m",
+    "severity": "warning",
+    "noDataState": "Alerting",
+    "summary": "The weekly pg_dump CronJob has not completed successfully in over 8 days (Saturday schedule + margin), or the platform worker cannot read its status. Check the latest postgres-dump Job logs. See docs/runbooks/backup-restore.md."
+  },
+  {
+    "uid": "nojv-object-mirror-stale",
+    "title": "Object mirror older than 26h",
+    "slo": "Backup freshness - last successful object mirror < 26h old",
+    "expr": "(time() - max(nojv_backup_last_success_timestamp_seconds{component=\"minio-backup\"})) / 3600",
     "threshold": 26,
     "for": "30m",
     "severity": "warning",
-    "summary": "The most recent CloudNativePG base backup is over 26h old (daily schedule + margin). Production enables backups and fails closed without an off-host destination, so no data after the first scheduled window is also an operational fault. See docs/runbooks/backup-restore.md."
+    "noDataState": "Alerting",
+    "summary": "The daily object-store mirror CronJob has not completed successfully in over 26h, or the platform worker cannot read its status. Check the latest minio-backup Job logs. See docs/runbooks/backup-restore.md."
   },
   {
     "uid": "nojv-notification-email-dead",

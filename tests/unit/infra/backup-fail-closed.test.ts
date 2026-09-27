@@ -36,7 +36,7 @@ describe("production backup fail-closed contract", () => {
   it("refuses the production overlay until every external backup input is supplied", () => {
     expectRenderFailure(
       ["-f", productionValues, "-f", imageFixture],
-      /postgres\.cnpg\.backup\.destinationPath is required/u,
+      /postgres\.cnpg\.dump\.destinationEndpoint is required/u,
     );
   });
 
@@ -44,16 +44,19 @@ describe("production backup fail-closed contract", () => {
     const result = render(["-f", productionValues, "-f", imageFixture, "-f", backupFixture]);
 
     expect(result.status, result.stderr).toBe(0);
-    expect(result.stdout).toContain("kind: ScheduledBackup");
-    expect(result.stdout).toContain('destinationPath: "s3://nojv-test-postgres/nojv-pg"');
-    expect(result.stdout).toContain("kind: CronJob");
+    expect(result.stdout).not.toContain("kind: ScheduledBackup");
+    expect(result.stdout).not.toContain("barmanObjectStore");
+    expect(result.stdout).toContain("name: nojv-postgres-dump");
+    expect(result.stdout).toContain('value: "nojv-test-postgres"');
     expect(result.stdout).toContain("name: nojv-minio-backup");
     expect(result.stdout).toContain('value: "nojv-test-submissions"');
   });
 
   it("mirrors both buckets with rclone copy and never deletes from the mirror", () => {
     const result = render(["-f", productionValues, "-f", imageFixture, "-f", backupFixture]);
-    const cronJob = result.stdout.split(/^---$/mu).find((doc) => doc.includes("kind: CronJob"));
+    const cronJob = result.stdout
+      .split(/^---$/mu)
+      .find((doc) => doc.includes("kind: CronJob") && doc.includes("name: nojv-minio-backup"));
 
     expect(cronJob).toMatch(/image: ghcr\.io\/rclone\/rclone:\S+@sha256:[a-f0-9]{64}/u);
     expect(cronJob).toMatch(/name: SRC_BUCKETS\n\s+value: "nojv nojv-registry"/u);
@@ -80,13 +83,13 @@ describe("production backup fail-closed contract", () => {
     "--set-string",
     "image.tag=local",
     "--set",
-    "postgres.cnpg.backup.enabled=true",
+    "postgres.cnpg.dump.enabled=true",
     "--set-string",
-    "postgres.cnpg.backup.destinationPath=s3://database/nojv",
+    "postgres.cnpg.dump.destinationEndpoint=https://s3.example.test",
     "--set-string",
-    "postgres.cnpg.backup.endpointURL=https://s3.example.test",
+    "postgres.cnpg.dump.destinationBucket=database-backup",
     "--set-string",
-    "postgres.cnpg.backup.s3CredentialsSecret=pg-backup",
+    "postgres.cnpg.dump.credentialsSecret=pg-backup",
     "--set",
     "storage.minio.backup.enabled=true",
     "--set-string",
@@ -101,21 +104,24 @@ describe("production backup fail-closed contract", () => {
 
   it.each([
     [
-      "postgres destination",
-      "postgres.cnpg.backup.destinationPath",
-      /destinationPath is required/u,
+      "postgres endpoint",
+      "postgres.cnpg.dump.destinationEndpoint",
+      /postgres\.cnpg\.dump\.destinationEndpoint is required/u,
     ],
-    ["postgres endpoint", "postgres.cnpg.backup.endpointURL", /endpointURL is required/u],
+    [
+      "postgres bucket",
+      "postgres.cnpg.dump.destinationBucket",
+      /postgres\.cnpg\.dump\.destinationBucket is required/u,
+    ],
     [
       "postgres secret",
-      "postgres.cnpg.backup.s3CredentialsSecret",
-      /s3CredentialsSecret is required/u,
+      "postgres.cnpg.dump.credentialsSecret",
+      /postgres\.cnpg\.dump\.credentialsSecret is required/u,
     ],
-    ["postgres schedule", "postgres.cnpg.backup.schedule", /schedule is required/u],
     [
-      "postgres retention",
-      "postgres.cnpg.backup.retentionPolicy",
-      /retentionPolicy is required/u,
+      "postgres schedule",
+      "postgres.cnpg.dump.schedule",
+      /postgres\.cnpg\.dump\.schedule is required/u,
     ],
     [
       "MinIO endpoint",
@@ -151,22 +157,12 @@ describe("production backup fail-closed contract", () => {
     expectRenderFailure([...valid, "--set-string", `${field}=`], message as RegExp);
   });
 
-  it.each([
-    ["http://bucket.example.test", /endpointURL must use HTTPS/u],
-    ["bucket.example.test", /endpointURL must use HTTPS/u],
-  ])("rejects an unsafe PostgreSQL endpoint %s", (endpoint, message) => {
-    expectRenderFailure(
-      [...valid, "--set-string", `postgres.cnpg.backup.endpointURL=${endpoint}`],
-      message,
-    );
-  });
-
-  it.each(["gs://database/nojv", "azure://database/nojv"])(
-    "rejects a destination scheme without matching credential wiring: %s",
-    (destination) => {
+  it.each(["http://bucket.example.test", "bucket.example.test"])(
+    "rejects an unsafe PostgreSQL dump endpoint %s",
+    (endpoint) => {
       expectRenderFailure(
-        [...valid, "--set-string", `postgres.cnpg.backup.destinationPath=${destination}`],
-        /must be an s3:\/\/ off-host path/u,
+        [...valid, "--set-string", `postgres.cnpg.dump.destinationEndpoint=${endpoint}`],
+        /postgres\.cnpg\.dump\.destinationEndpoint must use HTTPS/u,
       );
     },
   );

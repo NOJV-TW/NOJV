@@ -10,7 +10,7 @@ set -euo pipefail
 # (see infra/gcp/gke/temporal/HA-PRODUCTION.md); back that database up through
 # whatever managed instance backs it, not from here. This script covers the app
 # database in Cloud SQL only. The nojv app's own Postgres, when run in-cluster via
-# CloudNativePG (the chart default), is backed up by the chart's ScheduledBackup.
+# CloudNativePG (the chart default), is backed up by the chart's weekly pg_dump CronJob.
 
 gcloud config set project "$PROJECT_ID" >/dev/null
 

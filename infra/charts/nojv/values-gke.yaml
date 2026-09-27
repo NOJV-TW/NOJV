@@ -10,13 +10,6 @@ postgres:
   cnpg:
     instances: 3
     storageSize: 50Gi
-    backup:
-      enabled: true
-      destinationPath: s3://nojv-pg-backups/
-      endpointURL: https://storage.googleapis.com
-      s3CredentialsSecret: nojv-pg-backup-creds
-      retentionPolicy: "30d"
-      schedule: "0 0 3 * * *"
 
 cloudsqlProxy:
   enabled: true

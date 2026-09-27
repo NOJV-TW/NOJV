@@ -117,7 +117,7 @@
       "enabled": false
     },
     {
-      "description": "Cluster operators: patches open a PR weekly; a minor needs release notes read, so approve it from the dashboard (CNPG 1.31 removes in-tree barmanObjectStore)",
+      "description": "Cluster operators: patches open a PR weekly; a minor needs release notes read, so approve it from the dashboard",
       "matchDepNames": ["cloudnative-pg/cloudnative-pg", "temporal"],
       "schedule": ["* 9-11 * * 1"],
       "semanticCommitType": "chore",

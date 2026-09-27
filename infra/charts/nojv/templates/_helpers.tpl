@@ -201,6 +201,22 @@ Name of the CloudNativePG Cluster CR.
 {{- printf "%s-pg" (include "nojv.fullname" .) }}
 {{- end }}
 
+{{- define "nojv.postgresDumpEnabled" -}}
+{{- if and (eq .Values.postgres.mode "cnpg") .Values.postgres.cnpg.dump.enabled }}true{{- end }}
+{{- end }}
+
+{{- define "nojv.objectMirrorEnabled" -}}
+{{- if and .Values.storage.inCluster .Values.storage.minio.backup.enabled }}true{{- end }}
+{{- end }}
+
+{{- define "nojv.backupCronJobFlags" -}}
+{{- printf "%s|%s" (include "nojv.postgresDumpEnabled" .) (include "nojv.objectMirrorEnabled" .) }}
+{{- end }}
+
+{{- define "nojv.backupCronJobsEnabled" -}}
+{{- if or (include "nojv.postgresDumpEnabled" .) (include "nojv.objectMirrorEnabled" .) }}true{{- end }}
+{{- end }}
+
 {{/*
 DATABASE_URL env var entry for a worker/web container, derived from postgres.mode:
   - cnpg     -> read from the runtime secret (operator-managed -app secret recommended,

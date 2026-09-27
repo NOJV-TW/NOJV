@@ -7,11 +7,12 @@ data-loss incidents and restore drills. Availability incidents go to
 
 ## Key code
 
-- `infra/charts/nojv/templates/postgres-cnpg.yaml` (CNPG `Cluster`, `ScheduledBackup`, metrics Service)
+- `infra/charts/nojv/templates/postgres-cnpg.yaml` (CNPG `Cluster`, metrics Service), `infra/charts/nojv/templates/postgres-dump.cronjob.yaml` (weekly `pg_dump`)
 - `infra/charts/nojv/templates/minio-backup.cronjob.yaml` (rclone mirror), `infra/charts/nojv/templates/minio.yaml`, `infra/charts/nojv/templates/objstore.yaml`
 - `infra/charts/nojv/values-single-machine.yaml` (production backup values), `infra/charts/nojv/values-gke.yaml`
 - `infra/gcp/scripts/setup-backups.sh`, `infra/gcp/scripts/export-postgres-to-gcs.sh` (GKE Cloud SQL)
 - `infra/gcp/gke/temporal/helm-values.single-machine.yaml` (Temporal databases on the CNPG cluster)
+- `apps/worker/src/backup-freshness-metrics.ts` (backup CronJob freshness gauge)
 - `packages/storage/src/keys.ts` (object key layout)
 
 ## Rules
@@ -25,7 +26,7 @@ data-loss incidents and restore drills. Availability incidents go to
 
 | Layer                        | Holds                                                                                                                                                  | Production backup                                                            |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| PostgreSQL (CNPG `nojv-pg`)  | All app data; on single-machine also Temporal's `temporal` and `temporal_visibility` databases                                                         | barman-cloud base backups + WAL archiving to off-host S3/R2 (PITR)           |
+| PostgreSQL (CNPG `nojv-pg`)  | All app data; on single-machine also Temporal's `temporal` and `temporal_visibility` databases                                                         | Weekly `pg_dump` CronJob to off-host R2 (recovery point up to one week)      |
 | Object storage (MinIO / GCS) | Only copy of `submissions/<id>/source-generations/`, judge snapshots and stage results, verdict detail, testcases, workspace files, validators, images | Single-machine: `rclone copy` CronJob to off-host R2. GKE: bucket versioning |
 | PostgreSQL (GKE Cloud SQL)   | All app data                                                                                                                                           | Automated backups (30 days) + PITR (14 days) + daily export to GCS           |
 | Redis                        | Derived state only (DAT-10)                                                                                                                            | None needed                                                                  |
@@ -33,103 +34,21 @@ data-loss incidents and restore drills. Availability incidents go to
 
 ## Single-machine: PostgreSQL (CNPG)
 
-### Weekly logical dump (production)
+### Weekly logical dump
 
-Production uses `postgres.cnpg.dump` instead of barman: continuous WAL is about 2.3 GB a day (mostly Temporal), which does not fit R2's free 10 GB, while a compressed `pg_dump` of all three databases is about 35 MB. Recovery point is up to one week.
+The chart takes no physical or WAL backups of CNPG; `postgres.cnpg.dump` is the only database backup (OPS-06). A compressed `pg_dump` of all three databases is about 35 MB. Recovery point is up to one week, and there is no point-in-time recovery.
 
 - Every Saturday 19:00 UTC the CronJob `<release>-postgres-dump` runs `pg_dump --format=custom` for `nojv`, `temporal` and `temporal_visibility` as the managed role `nojv_backup` (`pg_read_all_data`, password in the kept Secret `<cluster>-backup-role`), checks each archive with `pg_restore --list`, uploads to `<destinationBucket>/<destinationPrefix>/<UTC stamp>/` and deletes dumps older than `retentionDays` (56).
 - Production values point it at the R2 bucket and credentials Secret the object mirror uses (`nojv-object-mirror`, `nojv-object-mirror-r2`, prefix `postgres`).
+- `values-single-machine.yaml` enables it and the chart refuses to render until `destinationEndpoint` (HTTPS), `destinationBucket` and `credentialsSecret` are set in the private production values.
 - Run one now: `kubectl -n nojv create job --from=cronjob/nojv-postgres-dump nojv-postgres-dump-manual`.
+- `nojv-pg-dump-stale` fires when the CronJob has not succeeded for 8 days, or when its status stops being reported ([Backup freshness](#backup-freshness)).
 
 ### Restore the weekly dump
 
 1. Download the newest stamp: `rclone copy r2:nojv-object-mirror/postgres/<stamp> ./dump`.
 2. Restore into a scratch database (never the live one) to check it: `createdb nojv_restore && pg_restore --no-owner --dbname=nojv_restore ./dump/nojv.dump`, and the same for `temporal` / `temporal_visibility`.
 3. For a real recovery, stop writers first (release-window maintenance), then `pg_restore --clean --if-exists --no-owner --role=<owner> --dbname=<db>` for each database, and restore the object store from its mirror to the same point.
-
-### Enable CNPG backups (barman, not used in production)
-
-`values-single-machine.yaml` sets `postgres.cnpg.backup.enabled: true` and the chart refuses to render until the destination is concrete (`s3://` path, HTTPS endpoint, valid Secret name).
-
-1. Create the credentials Secret:
-
-   ```bash
-   kubectl -n nojv create secret generic nojv-pg-barman \
-     --from-literal=ACCESS_KEY_ID=<access-key> \
-     --from-literal=ACCESS_SECRET_KEY=<secret-key>
-   ```
-
-2. Supply the values through the cluster-owned production values:
-
-   ```yaml
-   postgres:
-     cnpg:
-       backup:
-         destinationPath: s3://nojv-db-backups/nojv-pg
-         endpointURL: https://<account>.r2.cloudflarestorage.com
-         s3CredentialsSecret: nojv-pg-barman
-         retentionPolicy: "30d" # default
-         schedule: "0 0 3 * * *" # default, daily 03:00 UTC
-   ```
-
-3. Release, then verify:
-
-   ```bash
-   kubectl cnpg status nojv-pg -n nojv   # continuous archiving OK, last backup time
-   kubectl cnpg backup nojv-pg -n nojv   # on-demand base backup
-   kubectl get backups -n nojv           # phase completed
-   ```
-
-`nojv-pg-backup-stale` fires when the last base backup is older than 26h.
-
-### Restore CNPG (PITR into a new Cluster)
-
-1. Choose the target: a timestamp just before the bad write, or no target for the latest archived WAL.
-2. Apply a recovery `Cluster` reading the same object store:
-
-   ```yaml
-   apiVersion: postgresql.cnpg.io/v1
-   kind: Cluster
-   metadata:
-     name: nojv-pg-restore
-     namespace: nojv
-   spec:
-     instances: 1
-     bootstrap:
-       recovery:
-         source: nojv-pg-barman
-         recoveryTarget:
-           targetTime: "<RFC3339 timestamp>"
-     externalClusters:
-       - name: nojv-pg-barman
-         barmanObjectStore:
-           destinationPath: s3://nojv-db-backups/nojv-pg
-           endpointURL: https://<account>.r2.cloudflarestorage.com
-           s3Credentials:
-             accessKeyId:
-               name: nojv-pg-barman
-               key: ACCESS_KEY_ID
-             secretAccessKey:
-               name: nojv-pg-barman
-               key: ACCESS_SECRET_KEY
-   ```
-
-   ```bash
-   kubectl apply -f nojv-pg-restore.yaml
-   kubectl cnpg status nojv-pg-restore -n nojv
-   ```
-
-3. Validate through `nojv-pg-restore-rw`: `SELECT count(*)` on `User`, `Problem`, `Submission`, `Participation`, `JudgeExecution`, and confirm the row that triggered the restore is present (or absent, for a rewind past a bad delete).
-4. Restore object storage to the same or a later point ([Restore object storage](#restore-object-storage)).
-5. Cut over: set `DATABASE_URL` in `nojv-runtime-secrets` to `nojv-pg-restore-rw.nojv.svc.cluster.local`, then:
-
-   ```bash
-   kubectl -n nojv rollout restart deploy/nojv-web deploy/nojv-worker deploy/nojv-worker-platform
-   ```
-
-6. Temporal's databases were restored to the same instant. Re-point Temporal's persistence `connectAddr` (default and visibility stores) to `nojv-pg-restore-rw` with a `helm upgrade` of the `temporal` release, or keep it on the original cluster if only app data was damaged.
-7. Cover the new primary with backups (a `ScheduledBackup` for `nojv-pg-restore`, or promote it through the chart values).
-8. Verify: sign-in, a submission reaches a verdict, `kubectl cnpg status` shows archiving. To roll back, point `DATABASE_URL` back to `nojv-pg-rw` and restart.
 
 ## Single-machine: object storage
 
@@ -140,7 +59,7 @@ The `storage.active` store (`nojv-minio` in production; `nojv-objstore`, the Ver
 `values-single-machine.yaml` enables the `nojv-minio-backup` CronJob and fails to render without a destination. It runs `rclone copy --metadata` (never `sync`, so deletions are kept in the mirror; default schedule `0 4 * * *`) from the `storage.active` store for `nojv` and `nojv-registry`, into `<destinationBucket>/nojv/` and `<destinationBucket>/nojv-registry/`. The target is Cloudflare R2's free tier (10 GB-month; both buckets together are about 2 GB).
 
 1. In the Cloudflare dashboard, enable R2 for the account, create a bucket (for example `nojv-object-mirror`, location automatic), and create an R2 API token with **Object Read & Write** scoped to that bucket. Note the access key ID, the secret access key and the S3 endpoint `https://<account-id>.r2.cloudflarestorage.com`. The job never creates the bucket, so the bucket-scoped token is enough.
-2. Create the Secret (may reuse the `nojv-pg-barman` credentials for the same account):
+2. Create the Secret (may be the same one the weekly `pg_dump` uses):
 
    ```bash
    kubectl -n nojv create secret generic nojv-minio-mirror \
@@ -158,6 +77,8 @@ The `storage.active` store (`nojv-minio` in production; `nojv-objstore`, the Ver
    ```
 
    Then compare sizes from any machine with rclone and the same credentials: `rclone size r2:<mirror-bucket>/nojv` against `rclone size <store>:nojv` through a port-forward to the store's Service.
+
+`nojv-object-mirror-stale` fires when the mirror has not succeeded for 26h ([Backup freshness](#backup-freshness)).
 
 ### Restore object storage
 
@@ -177,6 +98,12 @@ The `storage.active` store (`nojv-minio` in production; `nojv-objstore`, the Ver
    ```
 
 3. Validate that recent `submissions/<id>/source-generations/` manifests resolve, that one affected submission rejudges to a real verdict, and that a teacher image still pulls from the registry.
+
+## Backup freshness
+
+When either backup CronJob is rendered, the chart sets `BACKUP_CRONJOB_NAMESPACE` on the platform worker and grants it `list` on CronJobs. The worker reads each CronJob labelled `app.kubernetes.io/component` `postgres-dump` or `minio-backup` and exports `nojv_backup_last_success_timestamp_seconds{component}` from `.status.lastSuccessfulTime`, or from the CronJob's creation time before its first success. The in-cluster Grafana rules `nojv-pg-dump-stale` (8 days) and `nojv-object-mirror-stale` (26h) are rendered only for enabled CronJobs and also fire when the series is missing.
+
+To check by hand: `kubectl -n nojv get cronjob -l 'app.kubernetes.io/component in (postgres-dump,minio-backup)' -o custom-columns=NAME:.metadata.name,LAST_SUCCESS:.status.lastSuccessfulTime`.
 
 ## GKE: Cloud SQL
 
@@ -209,7 +136,7 @@ gcloud sql instances describe <instance> \
    gcloud sql backups restore <BACKUP_ID> --restore-instance=<instance>-restore --backup-instance=<instance>
    ```
 
-2. Validate with `gcloud sql connect <instance>-restore --user=postgres --database=nojv` using the same checks as the CNPG restore.
+2. Validate with `gcloud sql connect <instance>-restore --user=postgres --database=nojv`: `SELECT count(*)` on `User`, `Problem`, `Submission`, `Participation`, `JudgeExecution`, and confirm the row that triggered the restore is present (or absent, for a rewind past a bad delete).
 3. Set `postgres.cloudsql.instanceConnectionName` to the clone (`DATABASE_URL` stays on the proxy at `127.0.0.1:5432`), release, and restart web and both workers.
 4. Re-run `setup-backups.sh` against the new instance; clones start without backup configuration.
 5. Keep the original instance for at least 7 days.
