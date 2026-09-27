@@ -21,14 +21,16 @@ the same table. Targets are deliberately lenient alerting thresholds, not
 functional caps. Dashboards are at <https://grafana.nojv.tw>; metric
 sources, dashboards and provisioning are in [Observability Setup](../runbooks/observability-setup.md).
 
-| SLO                                                         | Target      | Window         | Measurement                                                                                                                                       |
-| ----------------------------------------------------------- | ----------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Judge latency (simple problem, ≤ 20 testcases)              | p95 < 15s   | Rolling 7 days | `judge_latency_seconds{mode="standard"}`, `submission.createdAt` to verdict commit. [Judge Latency](https://grafana.nojv.tw/d/nojv-judge-latency) |
-| Judge latency (complex problem, > 20 testcases or advanced) | p95 < 60s   | Rolling 7 days | `judge_latency_seconds{mode="advanced"}`; an Advanced image may need a higher per-problem ceiling                                                 |
-| API latency (all `/api/*` GET)                              | p99 < 500ms | Rolling 1 day  | `api_request_duration_seconds`; excludes SSE streams and health probes. [API Latency](https://grafana.nojv.tw/d/nojv-api-latency)                 |
-| SSE connection stability                                    | 99.5%       | Rolling 1 day  | `sse_connection_dropped_total` / closed connections. [Exam Proctoring](https://grafana.nojv.tw/d/nojv-exam-proctoring)                            |
-| Platform availability                                       | 99.5%       | Monthly        | Down = web, worker or sandbox tier fully unavailable; request-rate and 5xx panels on API Latency                                                  |
-| Temporal workflow success rate (non-user errors)            | 99.9%       | Rolling 7 days | Excludes `ValidationError` and expected user-facing failures; throughput panel on Judge Latency                                                   |
+| SLO                                                         | Target      | Window         | Measurement                                                                                                                                                                              |
+| ----------------------------------------------------------- | ----------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Judge latency (simple problem, ≤ 20 testcases)              | p95 < 60s   | Rolling 7 days | `judge_latency_seconds{mode="standard"}`, `submission.createdAt` to verdict commit; alerts only with ≥ 20 verdicts in 15m. [Judge Latency](https://grafana.nojv.tw/d/nojv-judge-latency) |
+| Judge latency (complex problem, > 20 testcases or advanced) | p95 < 60s   | Rolling 7 days | `judge_latency_seconds{mode="advanced"}`; an Advanced image may need a higher per-problem ceiling                                                                                        |
+| API latency (all `/api/*` GET)                              | p99 < 500ms | Rolling 1 day  | `api_request_duration_seconds`; excludes SSE streams and health probes. [API Latency](https://grafana.nojv.tw/d/nojv-api-latency)                                                        |
+| SSE connection stability                                    | 99.5%       | Rolling 1 day  | `sse_connection_dropped_total` / closed connections. [Exam Proctoring](https://grafana.nojv.tw/d/nojv-exam-proctoring)                                                                   |
+| Platform availability                                       | 99.5%       | Monthly        | Down = web, worker or sandbox tier fully unavailable; request-rate and 5xx panels on API Latency                                                                                         |
+| Temporal workflow success rate (non-user errors)            | 99.9%       | Rolling 7 days | Excludes `ValidationError` and expected user-facing failures; throughput panel on Judge Latency                                                                                          |
+
+An uncontended judgement takes about 30–40 s on the single machine, almost all of it in the sandbox: each 20-case stage is its own Kubernetes Job (pod start about 2 s, compile, gVisor run, cleanup about 1.5 s), so a 30-case problem compiles and starts twice, while Temporal and journal activities add under a second. The simple-problem target is therefore p95 < 60 s under load, and both judge latency rules require at least 20 verdicts in 15 minutes so a lone submission cannot fire them.
 
 Scoreboard freshness has no SLO: scoreboards are computed from PostgreSQL at read time behind a 10s cache, and the SSE nudge is throttled to one per 10s per contest (DAT-11), so staleness is bounded by design rather than measured. Verdict-to-persisted-score time is inside judge latency.
 
@@ -43,7 +45,7 @@ All rules live in `infra/grafana/alerts/slo-alerts.json` (labels `severity`, `te
 
 | Rule                                          | Severity | Fires when                                                                              |
 | --------------------------------------------- | -------- | --------------------------------------------------------------------------------------- |
-| `nojv-slo-judge-latency-simple` / `-advanced` | warning  | Judge p95 over 15s / 60s for 10m                                                        |
+| `nojv-slo-judge-latency-simple` / `-advanced` | warning  | Judge p95 over 60s for 10m with at least 20 verdicts in 15m                             |
 | `nojv-slo-api-latency`                        | warning  | `/api/*` GET p99 over 500ms for 10m (page and stream routes excluded)                   |
 | `nojv-slo-sse-stability`                      | warning  | Server-fault SSE drop rate over 0.5% for 15m (a client disconnect is `client_abort`)    |
 | `nojv-slo-http-error-rate-critical`           | critical | 5xx share over 1% for 5m                                                                |
