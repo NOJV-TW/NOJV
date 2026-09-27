@@ -33,7 +33,21 @@ data-loss incidents and restore drills. Availability incidents go to
 
 ## Single-machine: PostgreSQL (CNPG)
 
-### Enable CNPG backups
+### Weekly logical dump (production)
+
+Production uses `postgres.cnpg.dump` instead of barman: continuous WAL is about 2.3 GB a day (mostly Temporal), which does not fit R2's free 10 GB, while a compressed `pg_dump` of all three databases is about 35 MB. Recovery point is up to one week.
+
+- Every Saturday 19:00 UTC the CronJob `<release>-postgres-dump` runs `pg_dump --format=custom` for `nojv`, `temporal` and `temporal_visibility` as the managed role `nojv_backup` (`pg_read_all_data`, password in the kept Secret `<cluster>-backup-role`), checks each archive with `pg_restore --list`, uploads to `<destinationBucket>/<destinationPrefix>/<UTC stamp>/` and deletes dumps older than `retentionDays` (56).
+- Production values point it at the R2 bucket and credentials Secret the object mirror uses (`nojv-object-mirror`, `nojv-object-mirror-r2`, prefix `postgres`).
+- Run one now: `kubectl -n nojv create job --from=cronjob/nojv-postgres-dump nojv-postgres-dump-manual`.
+
+### Restore the weekly dump
+
+1. Download the newest stamp: `rclone copy r2:nojv-object-mirror/postgres/<stamp> ./dump`.
+2. Restore into a scratch database (never the live one) to check it: `createdb nojv_restore && pg_restore --no-owner --dbname=nojv_restore ./dump/nojv.dump`, and the same for `temporal` / `temporal_visibility`.
+3. For a real recovery, stop writers first (release-window maintenance), then `pg_restore --clean --if-exists --no-owner --role=<owner> --dbname=<db>` for each database, and restore the object store from its mirror to the same point.
+
+### Enable CNPG backups (barman, not used in production)
 
 `values-single-machine.yaml` sets `postgres.cnpg.backup.enabled: true` and the chart refuses to render until the destination is concrete (`s3://` path, HTTPS endpoint, valid Secret name).
 
@@ -265,7 +279,7 @@ Those archives keep an unqualified `storage_pointer_valid` call and can fail dur
 
 Run at least quarterly in a low-traffic window, and before relying on a newly configured destination:
 
-1. PITR the CNPG cluster (or clone Cloud SQL) to one hour ago in a new Cluster/instance; validate counts against production minus the last hour; delete it.
+1. Restore the newest weekly dump into scratch databases and compare row counts with production (single machine), or PITR / clone Cloud SQL to one hour ago (GKE); delete the scratch copy.
 2. Copy the off-host object mirror into a scratch bucket and read back a recent submission manifest.
 3. On GKE, restore one noncurrent object generation.
 

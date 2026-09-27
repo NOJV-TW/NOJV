@@ -54,6 +54,31 @@ postgres:
       s3CredentialsSecret: ""
       retentionPolicy: "30d"
       schedule: "0 0 3 * * *"
+    # Weekly logical backup: pg_dump --format=custom of each database, checked
+    # with pg_restore --list, uploaded with rclone to
+    # <destinationBucket>/<destinationPrefix>/<UTC stamp>/ and pruned after
+    # retentionDays. Uses a managed read-only role (pg_read_all_data) whose
+    # password Secret the chart creates once and keeps. Restores lose at most
+    # one week; see docs/runbooks/backup-restore.md.
+    dump:
+      enabled: false
+      schedule: "0 19 * * 6"
+      retentionDays: 56
+      role: nojv_backup
+      databases: [nojv, temporal, temporal_visibility]
+      destinationEndpoint: ""
+      destinationBucket: ""
+      destinationPrefix: postgres
+      destinationRegion: auto
+      destinationProvider: Cloudflare
+      credentialsSecret: ""
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: "1"
+          memory: 512Mi
   cloudsql:
     instanceConnectionName: ""
     proxyImage: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0@sha256:19627ba27f0d6539f4fc62296c79bb122600f27c395e7698cf164739312c5e11

@@ -31,6 +31,17 @@ spec:
   resources:
     {{- toYaml . | nindent 4 }}
   {{- end }}
+  {{- if .Values.postgres.cnpg.dump.enabled }}
+  managed:
+    roles:
+      - name: {{ .Values.postgres.cnpg.dump.role }}
+        ensure: present
+        login: true
+        inRoles:
+          - pg_read_all_data
+        passwordSecret:
+          name: {{ printf "%s-backup-role" (include "nojv.cnpgClusterName" .) }}
+  {{- end }}
   {{- if .Values.postgres.cnpg.backup.enabled }}
   {{- $destinationPath := required "postgres.cnpg.backup.destinationPath is required when backup is enabled" .Values.postgres.cnpg.backup.destinationPath }}
   {{- $endpointURL := required "postgres.cnpg.backup.endpointURL is required when backup is enabled" .Values.postgres.cnpg.backup.endpointURL }}
