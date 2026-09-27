@@ -201,7 +201,7 @@ Renovate (`.github/renovate.json`) updates npm packages and pnpm catalog/overrid
 
 ### OPS-19 Single-machine Temporal is one pod per role, reproduced from the repo
 
-**Decided:** 2026-09 · **Source:** PR_PLACEHOLDER
+**Decided:** 2026-09 · **Source:** [#552](https://github.com/NOJV-TW/NOJV/pull/552)
 
 The single-machine Temporal release runs one pod per role (frontend, history, matching, worker), and `infra/gcp/gke/temporal/helm-values.single-machine.yaml` with the pinned chart version reproduces it exactly: resources, node selector and dynamic config. Temporal HA cannot raise availability while web, Postgres and the node are single points of failure, and the measured availability loss is network-side. Workflows resume after a Temporal restart without losing work, so the cost of a pod outage is paused judging and timers.
 
