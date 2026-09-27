@@ -13,7 +13,9 @@
 #include <time.h>
 #include <unistd.h>
 #ifdef __linux__
+#include <stdint.h>
 #include <sys/prctl.h>
+#include <sys/syscall.h>
 #endif
 
 #define MAX_PROCESSES 4096
@@ -88,6 +90,52 @@ static void kill_adopted_children(void) {
     if (parents[i] == self) kill(pids[i], SIGKILL);
 }
 
+#ifdef __linux__
+#if defined(__x86_64__)
+#define NOJV_AUDIT_ARCH 0xc000003eU
+#elif defined(__aarch64__)
+#define NOJV_AUDIT_ARCH 0xc00000b7U
+#endif
+#define BPF_LOAD_WORD 0x20
+#define BPF_JUMP_EQ 0x15
+#define BPF_RETURN 0x06
+#define SECCOMP_FILTER_MODE 2
+#define SECCOMP_DENY (0x00050000U | EPERM)
+#define SECCOMP_ALLOW 0x7fff0000U
+#define SECCOMP_DATA_NR 0
+#define SECCOMP_DATA_ARCH 4
+#define DENY_SYSCALL(nr) {BPF_JUMP_EQ, 0, 1, (nr)}, {BPF_RETURN, 0, 0, SECCOMP_DENY}
+
+struct bpf_instruction {
+  uint16_t code;
+  uint8_t jump_true;
+  uint8_t jump_false;
+  uint32_t value;
+};
+
+struct bpf_program {
+  unsigned short length;
+  struct bpf_instruction *instructions;
+};
+
+static int deny_persistent_ipc(void) {
+  struct bpf_instruction filter[] = {
+      {BPF_LOAD_WORD, 0, 0, SECCOMP_DATA_ARCH},
+      {BPF_JUMP_EQ, 1, 0, NOJV_AUDIT_ARCH},
+      {BPF_RETURN, 0, 0, SECCOMP_DENY},
+      {BPF_LOAD_WORD, 0, 0, SECCOMP_DATA_NR},
+      DENY_SYSCALL(SYS_shmget),
+      DENY_SYSCALL(SYS_msgget),
+      DENY_SYSCALL(SYS_semget),
+      DENY_SYSCALL(SYS_mq_open),
+      {BPF_RETURN, 0, 0, SECCOMP_ALLOW},
+  };
+  struct bpf_program program = {(unsigned short)(sizeof filter / sizeof filter[0]), filter};
+  if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0) return -1;
+  return prctl(PR_SET_SECCOMP, SECCOMP_FILTER_MODE, &program);
+}
+#endif
+
 static long resident_kb(pid_t pid) {
   char path[64], statm[128];
   snprintf(path, sizeof path, "/proc/%ld/statm", (long)pid);
@@ -159,6 +207,13 @@ int main(int argc, char **argv) {
       struct rlimit cpu = {(rlim_t)cpu_seconds, (rlim_t)cpu_seconds + 1};
       setrlimit(RLIMIT_CPU, &cpu);
     }
+#ifdef __linux__
+    if (deny_persistent_ipc() != 0) {
+      int error = errno;
+      (void)!write(exec_error[1], &error, sizeof error);
+      _exit(127);
+    }
+#endif
     execvp(argv[5], argv + 5);
     int error = errno;
     (void)!write(exec_error[1], &error, sizeof error);
