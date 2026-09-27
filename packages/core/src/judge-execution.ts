@@ -16,7 +16,8 @@ export interface JudgeExecutionInput {
   executionId: string;
 }
 export const JUDGE_EXECUTION_DISPATCH_KIND = "submission.execution.dispatch";
-export const JUDGE_STAGE_CASES = 20;
+export const JUDGE_STAGE_CASES = 100;
+export const INTERACTIVE_STAGE_CASES = 20;
 export function judgeRecoveryDelayMs(attempt: number): number {
   return Math.min(300_000, 5_000 * 2 ** Math.min(attempt, 6));
 }

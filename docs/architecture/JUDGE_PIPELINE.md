@@ -53,7 +53,10 @@ fixed **Standard Mode** (`standard` / `checker` / `interactive`, JDG-01) or
 1. Read state; if a lease is held, run `reconcileJudgeStage`. Unconfirmed cleanup
    sets `blocked` / `cleanup_required` and retries after 60 s.
 2. Run `executeJudgeStage` for the next stage. Standard, checker and interactive
-   split testcases into stages of `JUDGE_STAGE_CASES` (20); Advanced is one atomic
+   split testcases into stages by `judgeStageRanges`: up to `JUDGE_STAGE_CASES` (100;
+   interactive `INTERACTIVE_STAGE_CASES`, 20), cut earlier when the stage's worst-case
+   Job deadline would exceed the 1,800 s cap or its testcase data would exceed 64 MiB.
+   The outputs volume is sized to the stage's case count. Advanced is one atomic
    stage (run, grade and service share one PVC and lifetime).
 3. Each stage result is written to an immutable object
    (`judge-executions/{id}/stages/{n}/{leaseToken}.json`); PostgreSQL commits the

@@ -1,10 +1,11 @@
 import { hostname } from "node:os";
 import { ApplicationFailure, cancellationSignal, heartbeat } from "@temporalio/activity";
-import { JUDGE_STAGE_CASES, sandboxOutputSchema, type SandboxResult } from "@nojv/core";
+import { sandboxOutputSchema, type SandboxResult } from "@nojv/core";
 import { submissionDomain } from "@nojv/application";
 import { prismaAdapterClient as db } from "@nojv/db";
 import { buildSandboxRequest, mapSandboxResult } from "./judge-request";
 import { getExecutorOwner } from "./judge";
+import { judgeStageRanges } from "../sandbox/kubernetes/job-deadlines";
 import {
   recordJudgePhase,
   recordWallClockTimeouts,
@@ -60,17 +61,13 @@ export async function executeJudgeStage(
     const { snapshot } = await submissionDomain.loadJudgeExecution(executionId);
     const fullRequest = buildSandboxRequest(snapshot);
     const advanced = fullRequest.problemType === "special_env";
-    const total = advanced
-      ? 1
-      : Math.max(1, Math.ceil(fullRequest.testcases.length / JUDGE_STAGE_CASES));
+    const ranges = advanced ? [] : judgeStageRanges(fullRequest);
+    const total = advanced ? 1 : ranges.length;
     const request = advanced
       ? fullRequest
       : {
           ...fullRequest,
-          testcases: fullRequest.testcases.slice(
-            index * JUDGE_STAGE_CASES,
-            (index + 1) * JUDGE_STAGE_CASES,
-          ),
+          testcases: fullRequest.testcases.slice(...(ranges[index] ?? [0, 0])),
         };
     if (index >= total) {
       cleanupConfirmed = true;
