@@ -118,6 +118,7 @@ spec:
                 secretKeyRef:
                   name: {{ include "nojv.runtimeSecretName" . }}
                   key: S3_ENDPOINT
+            {{- include "nojv.s3RegionEnv" . | nindent 12 }}
             - name: S3_ACCESS_KEY
               valueFrom:
                 secretKeyRef:

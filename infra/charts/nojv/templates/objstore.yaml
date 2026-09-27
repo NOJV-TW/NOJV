@@ -89,6 +89,8 @@ spec:
               value: ":9000"
             - name: VGW_HEALTH
               value: /health
+            - name: VGW_REGION
+              value: {{ .Values.storage.objectStore.region | quote }}
             - name: ROOT_ACCESS_KEY
               valueFrom:
                 secretKeyRef:

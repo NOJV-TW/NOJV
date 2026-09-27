@@ -21,7 +21,7 @@ data:
     version: 0.1
     storage:
       s3:
-        region: us-east-1
+        region: {{ if and .Values.storage.inCluster (eq .Values.storage.active "objstore") }}{{ .Values.storage.objectStore.region | quote }}{{ else }}us-east-1{{ end }}
         regionendpoint: {{ if .Values.storage.inCluster }}{{ printf "http://%s.%s.svc.cluster.local:9000" (include "nojv.activeStoreService" .) (include "nojv.namespace" .) | quote }}{{ else }}{{ .Values.registry.s3.regionendpoint | quote }}{{ end }}
         bucket: {{ .Values.registry.bucket | quote }}
         forcepathstyle: true

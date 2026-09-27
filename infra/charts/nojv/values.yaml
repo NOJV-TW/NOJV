@@ -91,6 +91,9 @@ storage:
   # storage.active=objstore and S3_ENDPOINT point at <release>-objstore.
   objectStore:
     enabled: false
+    # SigV4 region the gateway accepts; the app, the registry and the gateway
+    # must sign with the same value (Versity rejects any other region).
+    region: us-east-1
     image: ghcr.io/versity/versitygw:v1.8.0@sha256:30292fc2eeacc67a36993b01f7a7a5e3361a19cced0e80c1d71cfa2a4b0a2499
     storageSize: 10Gi
     storageClass:

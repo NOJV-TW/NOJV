@@ -18,16 +18,16 @@ only; see [Getting Started](../runbooks/getting-started.md).
 
 ## Targets
 
-| Aspect        | Single-machine k3s                                            | GKE                                                                 |
-| ------------- | ------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Runbook       | [Single-Machine k3s](../runbooks/k8s-single-machine.md)       | [GKE notes](../../infra/gcp/gke/README.md)                          |
-| Release path  | `vX.Y.Z` tag → GHCR → `deploy` branch → Flux (OPS-02, OPS-03) | `deploy.sh` → Cloud Build → Artifact Registry → `helm upgrade`      |
-| Image tag     | `vX.Y.Z` plus four digests                                    | 40-character source SHA plus four digests                           |
-| Postgres      | In-cluster CloudNativePG (`postgres.mode=cnpg`)               | Cloud SQL through the Auth Proxy sidecar (`postgres.mode=cloudsql`) |
-| Redis / S3    | In-cluster Redis and MinIO (Versity deployed alongside, idle) | Memorystore and GCS (required by `production-preflight.yaml`)       |
-| Edge          | In-cluster `cloudflared` tunnel to the ClusterIP web Service  | GCE Ingress with Cloud Armor allowing only Cloudflare               |
-| Temporal      | Official Temporal Helm chart, one pod per role                | Official Temporal Helm chart, HA values                             |
-| Sandbox nodes | The single node, labelled `nojv-role=sandbox`, untainted      | Tainted gVisor pools `pool-sandbox` and `pool-sandbox-spot`         |
+| Aspect        | Single-machine k3s                                                     | GKE                                                                 |
+| ------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Runbook       | [Single-Machine k3s](../runbooks/k8s-single-machine.md)                | [GKE notes](../../infra/gcp/gke/README.md)                          |
+| Release path  | `vX.Y.Z` tag → GHCR → `deploy` branch → Flux (OPS-02, OPS-03)          | `deploy.sh` → Cloud Build → Artifact Registry → `helm upgrade`      |
+| Image tag     | `vX.Y.Z` plus four digests                                             | 40-character source SHA plus four digests                           |
+| Postgres      | In-cluster CloudNativePG (`postgres.mode=cnpg`)                        | Cloud SQL through the Auth Proxy sidecar (`postgres.mode=cloudsql`) |
+| Redis / S3    | In-cluster Redis and Versity S3 Gateway (MinIO kept idle for rollback) | Memorystore and GCS (required by `production-preflight.yaml`)       |
+| Edge          | In-cluster `cloudflared` tunnel to the ClusterIP web Service           | GCE Ingress with Cloud Armor allowing only Cloudflare               |
+| Temporal      | Official Temporal Helm chart, one pod per role                         | Official Temporal Helm chart, HA values                             |
+| Sandbox nodes | The single node, labelled `nojv-role=sandbox`, untainted               | Tainted gVisor pools `pool-sandbox` and `pool-sandbox-spot`         |
 
 ## Environment variables
 
@@ -110,13 +110,13 @@ chart against it.
 
 ### Object storage
 
-| Variable        | Default                 | Notes                                      |
-| --------------- | ----------------------- | ------------------------------------------ |
-| `S3_ENDPOINT`   | `http://localhost:9000` | MinIO locally; GCS, R2 or S3 in production |
-| `S3_ACCESS_KEY` | `minioadmin`            |                                            |
-| `S3_SECRET_KEY` | `minioadmin`            |                                            |
-| `S3_BUCKET`     | `nojv`                  | Chart: `storage.bucket`                    |
-| `S3_REGION`     | `auto`                  | `auto` works for GCS and R2                |
+| Variable        | Default                 | Notes                                                                                                         |
+| --------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `S3_ENDPOINT`   | `http://localhost:9000` | MinIO locally; GCS, R2 or S3 in production                                                                    |
+| `S3_ACCESS_KEY` | `minioadmin`            |                                                                                                               |
+| `S3_SECRET_KEY` | `minioadmin`            |                                                                                                               |
+| `S3_BUCKET`     | `nojv`                  | Chart: `storage.bucket`                                                                                       |
+| `S3_REGION`     | `auto`                  | `auto` works for GCS and R2; with `storage.active=objstore` the chart sets it to `storage.objectStore.region` |
 
 With `storage.inCluster` the chart runs MinIO (`<release>-minio`) and, when
 `storage.objectStore.enabled` (on in the single-machine overlay), a Versity S3
@@ -131,8 +131,12 @@ when `storage.inCluster=false` (GKE).
 
 `storage.active` (`minio` or `objstore`) selects the store the registry, its
 bucket hook and the off-host mirror use; `S3_ENDPOINT` in the runtime Secret
-must name the same Service. Production runs `storage.active=minio`, so nothing
-reads or writes Versity yet. Any backend must pass the S3 conformance test
+must name the same Service. Versity accepts only the SigV4 region it is started
+with, so while `objstore` is active the chart gives the gateway (`VGW_REGION`),
+web, both workers, the seed Job and the registry the same
+`storage.objectStore.region` (default `us-east-1`); MinIO accepted any region,
+which hid the app's `auto` default. Production runs `storage.active=objstore`,
+with MinIO still running as the rollback source. Any backend must pass the S3 conformance test
 (PRB-04; [Testing Strategy](../runbooks/testing.md#object-storage-conformance)).
 
 ### Observability

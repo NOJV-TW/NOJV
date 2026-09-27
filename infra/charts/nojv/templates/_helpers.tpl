@@ -263,3 +263,16 @@ remote_write:
     {{- end }}
 {{- end }}
 {{- end }}
+
+{{- define "nojv.s3RegionEnv" -}}
+- name: S3_REGION
+{{- if and .Values.storage.inCluster (eq .Values.storage.active "objstore") }}
+  value: {{ .Values.storage.objectStore.region | quote }}
+{{- else }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "nojv.runtimeSecretName" . }}
+      key: S3_REGION
+      optional: true
+{{- end }}
+{{- end -}}
