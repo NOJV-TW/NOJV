@@ -167,20 +167,24 @@ Temporal uses the app's CNPG cluster (`nojv-pg-rw`), so install it once the
 chart's Postgres is ready; workers stay unready until Temporal answers. Create the `temporal` role and databases and the
 `temporal-postgres-secret` Secret as in
 [Temporal HA](../../infra/gcp/gke/temporal/HA-PRODUCTION.md#database-bootstrap),
-then install with the task-queue dynamic config (priority matcher, fairness, one
-partition per NOJV queue; see [Judge Queue](judge-queue.md)):
+then install. The values file carries the whole production release: resources,
+`nojv-role: sandbox` node selector and the task-queue dynamic config (priority
+matcher, fairness, one partition per NOJV queue; see [Judge Queue](judge-queue.md)).
+Apply every change by editing the file and rerunning this command; never
+`--set` or `--reuse-values` on the live release.
 
 ```bash
 helm repo add temporal https://go.temporal.io/helm-charts
 helm upgrade --install temporal temporal/temporal --version 1.4.0 -n nojv-temporal --create-namespace \
-  -f infra/gcp/gke/temporal/helm-values.single-machine.yaml \
-  --set server.nodeSelector.nojv-role=sandbox \
-  --set-json 'server.dynamicConfig={"matching.enableFairness":[{"value":true}],"matching.useNewMatcher":[{"value":true}],"matching.numTaskqueueWritePartitions":[{"value":1,"constraints":{"taskQueueName":"judge"}},{"value":1,"constraints":{"taskQueueName":"judge-state"}},{"value":1,"constraints":{"taskQueueName":"platform"}}],"matching.numTaskqueueReadPartitions":[{"value":1,"constraints":{"taskQueueName":"judge"}},{"value":1,"constraints":{"taskQueueName":"judge-state"}},{"value":1,"constraints":{"taskQueueName":"platform"}}]}'
+  -f infra/gcp/gke/temporal/helm-values.single-machine.yaml
 ```
 
-The override replaces the file's `nojv-role: worker` selector, which the single
-node cannot satisfy, with the node's own `nojv-role=sandbox` label, as on the
-production release. To lower partitions on a running server, lower the write count first, wait for
+Before an upgrade, confirm the release has not drifted:
+`helm -n nojv-temporal get values temporal` must equal the values file, and
+`helm template temporal temporal/temporal --version 1.4.0 -n nojv-temporal --no-hooks -f infra/gcp/gke/temporal/helm-values.single-machine.yaml`
+must match `helm -n nojv-temporal get manifest temporal`.
+
+To lower partitions on a running server, lower the write count first, wait for
 `temporal task-queue describe` to show no backlog, then lower the read count.
 
 ### Runtime Secret

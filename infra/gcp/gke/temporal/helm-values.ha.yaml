@@ -1,13 +1,10 @@
-# Self-host HA Temporal via the official temporal/temporal Helm chart (v1.4.x).
-# Reviewed starting point — NOT cluster-validated here. Pin the chart version and verify
-# `tctl cluster health` before production. See HA-PRODUCTION.md (Option B).
+# GKE reference values for the official temporal/temporal chart: two pods per role
+# with a PDB. Unvalidated: never installed on a cluster, and HA only on a regional
+# Cloud SQL instance behind a cloudsql-proxy Service the repo does not create.
 #
-#   helm install temporal temporal/temporal \
+#   helm upgrade --install temporal temporal/temporal --version 1.4.0 \
 #     -n nojv-temporal --create-namespace \
 #     -f infra/gcp/gke/temporal/helm-values.ha.yaml
-#
-# Each server role (frontend/history/matching/worker) is its own Deployment.
-# replicaCount: 2 gives every role 2 pods so a node drain/upgrade never stops the cluster.
 server:
   replicaCount: 2
   config:
@@ -43,6 +40,26 @@ server:
             createDatabase: false
             manageSchema: true
             maxConns: 20
+  # Must match infra/docker/temporal-dynamic-config.yaml (docs/runbooks/judge-queue.md).
+  dynamicConfig:
+    matching.enableFairness:
+      - value: true
+    matching.useNewMatcher:
+      - value: true
+    matching.numTaskqueueWritePartitions:
+      - value: 1
+        constraints: { taskQueueName: judge }
+      - value: 1
+        constraints: { taskQueueName: judge-state }
+      - value: 1
+        constraints: { taskQueueName: platform }
+    matching.numTaskqueueReadPartitions:
+      - value: 1
+        constraints: { taskQueueName: judge }
+      - value: 1
+        constraints: { taskQueueName: judge-state }
+      - value: 1
+        constraints: { taskQueueName: platform }
   # Pin Temporal to the long-lived worker pool (off the autoscaling sandbox pool).
   nodeSelector:
     nojv-role: worker
