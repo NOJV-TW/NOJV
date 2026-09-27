@@ -1,0 +1,166 @@
+{{- if and (eq .Values.postgres.mode "cnpg") .Values.postgres.cnpg.dump.enabled }}
+{{- $dump := .Values.postgres.cnpg.dump }}
+{{- $schedule := required "postgres.cnpg.dump.schedule is required when dump is enabled" $dump.schedule }}
+{{- $endpoint := required "postgres.cnpg.dump.destinationEndpoint is required when dump is enabled" $dump.destinationEndpoint }}
+{{- $bucket := required "postgres.cnpg.dump.destinationBucket is required when dump is enabled" $dump.destinationBucket }}
+{{- $prefix := required "postgres.cnpg.dump.destinationPrefix is required when dump is enabled" $dump.destinationPrefix }}
+{{- $credentialsSecret := required "postgres.cnpg.dump.credentialsSecret is required when dump is enabled" $dump.credentialsSecret }}
+{{- if not (regexMatch "^https://[^[:space:]]+$" $endpoint) }}
+{{- fail "postgres.cnpg.dump.destinationEndpoint must use HTTPS" }}
+{{- end }}
+{{- if not (regexMatch "^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$" $bucket) }}
+{{- fail "postgres.cnpg.dump.destinationBucket must be a valid S3 bucket name" }}
+{{- end }}
+{{- if not (regexMatch "^[a-z0-9][a-z0-9-]*$" $prefix) }}
+{{- fail "postgres.cnpg.dump.destinationPrefix must be a single lowercase path segment" }}
+{{- end }}
+{{- if lt (int $dump.retentionDays) 7 }}
+{{- fail "postgres.cnpg.dump.retentionDays must keep at least one weekly dump" }}
+{{- end }}
+{{- $cluster := include "nojv.cnpgClusterName" . }}
+{{- $roleSecret := printf "%s-backup-role" $cluster }}
+{{- $existing := lookup "v1" "Secret" (include "nojv.namespace" .) $roleSecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $roleSecret }}
+  namespace: {{ include "nojv.namespace" . }}
+  annotations:
+    "helm.sh/resource-policy": keep
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres-dump
+    cnpg.io/reload: "true"
+type: kubernetes.io/basic-auth
+data:
+  username: {{ $dump.role | b64enc }}
+  password: {{ if $existing }}{{ index $existing.data "password" }}{{ else }}{{ randAlphaNum 40 | b64enc }}{{ end }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "nojv.fullname" . }}-postgres-dump
+  namespace: {{ include "nojv.namespace" . }}
+  labels:
+    {{- include "nojv.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres-dump
+spec:
+  schedule: {{ $schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: nojv-postgres-dump
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 26
+            runAsGroup: 26
+            fsGroup: 26
+            seccompProfile:
+              type: RuntimeDefault
+          volumes:
+            - name: dump
+              emptyDir: {}
+            - name: rclone-home
+              emptyDir: {}
+          initContainers:
+            - name: pg-dump
+              image: {{ .Values.postgres.cnpg.imageName }}
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  for db in $DATABASES; do
+                    pg_dump --format=custom --dbname="$db" --file="/dump/$db.dump"
+                    pg_restore --list "/dump/$db.dump" >/dev/null
+                  done
+                  ls -l /dump
+              volumeMounts:
+                - name: dump
+                  mountPath: /dump
+              env:
+                - name: DATABASES
+                  value: {{ join " " $dump.databases | quote }}
+                - name: PGHOST
+                  value: {{ printf "%s-rw.%s.svc" $cluster (include "nojv.namespace" .) | quote }}
+                - name: PGSSLMODE
+                  value: require
+                - name: PGUSER
+                  value: {{ $dump.role | quote }}
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ $roleSecret }}
+                      key: password
+              resources:
+                {{- toYaml $dump.resources | nindent 16 }}
+          containers:
+            - name: rclone
+              image: {{ .Values.storage.rclone.image }}
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+                  rclone copy /dump "dst:$DST_BUCKET/$DST_PREFIX/$stamp"
+                  rclone delete --min-age "${RETENTION_DAYS}d" "dst:$DST_BUCKET/$DST_PREFIX"
+                  rclone lsf "dst:$DST_BUCKET/$DST_PREFIX/$stamp"
+              volumeMounts:
+                - name: dump
+                  mountPath: /dump
+                  readOnly: true
+                - name: rclone-home
+                  mountPath: /tmp
+              env:
+                - name: HOME
+                  value: /tmp
+                - name: DST_BUCKET
+                  value: {{ $bucket | quote }}
+                - name: DST_PREFIX
+                  value: {{ $prefix | quote }}
+                - name: RETENTION_DAYS
+                  value: {{ $dump.retentionDays | quote }}
+                - name: RCLONE_CONFIG_DST_TYPE
+                  value: s3
+                - name: RCLONE_CONFIG_DST_PROVIDER
+                  value: {{ $dump.destinationProvider | quote }}
+                - name: RCLONE_CONFIG_DST_ENDPOINT
+                  value: {{ $endpoint | quote }}
+                - name: RCLONE_CONFIG_DST_REGION
+                  value: {{ $dump.destinationRegion | quote }}
+                - name: RCLONE_CONFIG_DST_NO_CHECK_BUCKET
+                  value: "true"
+                - name: RCLONE_CONFIG_DST_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ $credentialsSecret }}
+                      key: ACCESS_KEY_ID
+                - name: RCLONE_CONFIG_DST_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ $credentialsSecret }}
+                      key: ACCESS_SECRET_KEY
+              resources:
+                {{- toYaml $dump.resources | nindent 16 }}
+{{- end }}
