@@ -108,6 +108,41 @@ Symptoms: releases stall on the old version; the migrator hook fails with `Backo
 
 Full rollback rules: [Deployment Guide](../operations/DEPLOYMENT.md).
 
+## Temporal restart drill
+
+Measures how long judging pauses when one Temporal role restarts (OPS-19) and
+proves in-flight workflows finish. It deletes production pods: run it only with
+owner approval, outside exams and contests, after notifying the on-call channel.
+
+1. Put judging in flight: submit about 20 submissions to a known-good problem with
+   several testcases, and confirm they are running:
+   `kubectl -n nojv-temporal exec deploy/temporal-admintools -- temporal workflow list --query 'WorkflowType="durableJudgeWorkflow" AND ExecutionStatus="Running"'`.
+2. For each role in turn (`frontend`, `history`, `matching`, `worker`), with
+   judging still in flight, delete its running pod and time it to Ready:
+
+   ```bash
+   ROLE=history
+   OLD=$(kubectl -n nojv-temporal get pod -l app.kubernetes.io/component=$ROLE \
+     --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
+   T0=$(date +%s)
+   kubectl -n nojv-temporal delete pod "$OLD" --wait=false
+   until kubectl -n nojv-temporal get pod -l app.kubernetes.io/component=$ROLE \
+       -o jsonpath='{range .items[*]}{.metadata.name} {.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}' \
+       | grep -v "^$OLD " | grep -q ' True$'; do sleep 1; done
+   echo "$ROLE ready after $(( $(date +%s) - T0 ))s"
+   kubectl -n nojv-temporal exec deploy/temporal-admintools -- temporal operator cluster health
+   ```
+
+3. After each role, wait until the next verdict lands and the running list from
+   step 1 empties; submit a fresh batch before the next role.
+4. Verify: every drill submission reached a final verdict with no SE and no
+   `reasonCode`, the `nojv` worker pods did not restart (`kubectl -n nojv get pods`),
+   and worker `/readyz` returned to 200.
+5. Record per role in the [Quality Ledger](../operations/QUALITY_SCORE.md):
+   seconds to Ready, seconds from deletion to the next verdict, the in-flight
+   workflow count, and whether all of them completed. Then delete the drill
+   submissions.
+
 ## Post-incident
 
 1. Record start, detection, mitigation and resolution times and user impact in the incident log.

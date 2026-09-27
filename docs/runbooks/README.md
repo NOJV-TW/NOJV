@@ -10,7 +10,7 @@ commands and how to verify. Invariants and failure behavior live in
 | [Getting Started](getting-started.md)         | First local run, dev stack troubleshooting                                         |
 | [Testing Strategy](testing.md)                | Choosing a test layer, running suites, test databases, judge benchmark             |
 | [Single-Machine k3s](k8s-single-machine.md)   | Installing or scaling the one-node production cluster                              |
-| [Incident Recovery](incident-recovery.md)     | Outage, SLO breach, stalled release, disk pressure                                 |
+| [Incident Recovery](incident-recovery.md)     | Outage, SLO breach, stalled release, disk pressure, Temporal restart drill         |
 | [Judge Queue](judge-queue.md)                 | Priority/fairness, slot and quota sizing, parking bulk rejudges, lease cleanup     |
 | [Backup & Restore](backup-restore.md)         | Enabling backups, PITR, object storage restore, restore drills                     |
 | [Observability Setup](observability-setup.md) | Metrics export, dashboards, alert rules, judge recovery monitoring, token rotation |
