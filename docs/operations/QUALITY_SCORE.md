@@ -21,6 +21,8 @@ Off-host object mirror on 2026-09-27 (owner-enabled R2 free tier; bucket `nojv-o
 
 Object store cut-over to Versity S3 Gateway on 2026-09-27, owner-approved: an in-cluster `rclone copy --metadata` pre-copied both buckets live (72 s), then the maintenance page went up at 05:22:56Z, web, both workers and the registry went to zero, a delta copy and `rclone check` (MD5 for `nojv`, full download for `nojv-registry`) passed for 13,675 objects / 1.895 GiB and 36 objects / 42.2 MiB, `S3_ENDPOINT` and `storage.active` were switched, and the release restored service at 05:27:34Z (about 4.5 minutes of downtime). Versity then rejected the app's default `S3_REGION=auto` with `AuthorizationHeaderMalformed`; `S3_REGION=us-east-1` was set on web and both workers within minutes, before any submission arrived (none were created and no storage error was logged), and the chart now renders it. A real judge run afterwards was accepted with its four objects written only to Versity, and the test submission was deleted.
 
+Weekly Postgres dump and restore drills on 2026-09-27 (v1.3.24): `postgres.cnpg.dump` is enabled in `nojv-production-values` (R2 bucket `nojv-object-mirror`, prefix `postgres`); CNPG created the managed role `nojv_backup` (`pg_read_all_data`) online, with the postmaster start time unchanged. The first manual run took 14 s and uploaded `nojv` 4.6 MB, `temporal` 28.2 MB and `temporal_visibility` 1.2 MB, each checked with `pg_restore --list`. Postgres drill: a throwaway in-cluster PostgreSQL 18 (emptyDir) downloaded the newest dump from R2 and restored all three databases with `--exit-on-error`; all 55 `nojv` tables matched production row for row (34,704 rows), and `temporal.executions` had 14,945 rows against 14,943 live a few minutes later (workflows retired since the dump). Object drill: two submissions' source manifests and files downloaded from the R2 mirror matched the SHA-256 recorded in Postgres. The drill Jobs were deleted afterwards.
+
 `pnpm ci:verify` does not run the integration suite, the full Playwright suite, real Docker/Kubernetes judge checks, `pnpm db:seed:validate`, Helm rendering, or production acceptance. See the [verification matrix](../runbooks/testing.md) for those commands.
 
 ## Authoritative guidance
@@ -42,7 +44,6 @@ Work that is known, not done, and not covered by an in-flight plan. Remove an it
 
 ### Production evidence
 
-- Activate the Postgres off-site backup (barman archive to the same R2 account, ideally through the Barman Cloud plugin) and run restore drills for Postgres and for the object mirror. Production has never taken a Postgres base backup (`cnpg_collector_last_available_backup_timestamp` is 0). See OPS-06, [Backup & Restore](../runbooks/backup-restore.md) and the [production write verification plan](../superpowers/plans/2026-09-26-production-write-verification.md).
 - Measure GKE judge concurrency against the sandbox quota ceiling (single-machine was measured on 2026-09-26; see the baseline). See OPS-11 and [Judge Queue](../runbooks/judge-queue.md).
 - Run the sandbox quota recovery acceptance in production: automatic recovery after capacity loss or worker restart, then 15 minutes of observation. Steps await owner confirmation in the [production write verification plan](../superpowers/plans/2026-09-26-production-write-verification.md).
 
