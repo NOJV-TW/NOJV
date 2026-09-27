@@ -177,6 +177,7 @@ describe("buildStageJobManifest — run and judge in one hardened Pod", () => {
     compilerMemoryLimit: "512Mi",
     runParallelism: 2,
     runMemoryLimit: "704Mi",
+    caseCount: 1,
     activeDeadlineSeconds: 120,
     runtimeClassName: "gvisor",
   };
@@ -285,6 +286,7 @@ function stagePod(overrides: Partial<Parameters<typeof buildStageJobManifest>[0]
     compilerMemoryLimit: "512Mi",
     runParallelism: 1,
     runMemoryLimit: "208Mi",
+    caseCount: 1,
     activeDeadlineSeconds: 90,
     ...overrides,
   }).spec!.template.spec!;

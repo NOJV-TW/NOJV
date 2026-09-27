@@ -10,6 +10,7 @@ import {
 import {
   computeInteractiveJobDeadlineSeconds,
   computeStageJobDeadlineSeconds,
+  judgeStageRanges,
 } from "../../../apps/worker/src/sandbox/kubernetes/job-deadlines";
 
 function mkRequest(
@@ -65,4 +66,50 @@ it("allows a Python case its full effective wall budget after compilation", () =
   const deadline = computeStageJobDeadlineSeconds(mkRequest(effectiveTimeout, 1));
   expect(deadline).toBe(330);
   expect(deadline * 1000).toBeGreaterThan(COMPILATION_TIMEOUT_MS + wallMs);
+});
+
+describe("judgeStageRanges", () => {
+  it("runs up to 100 standard cases in one stage", () => {
+    expect(judgeStageRanges(mkRequest(1000, 100))).toEqual([[0, 100]]);
+    expect(judgeStageRanges(mkRequest(1000, 101))).toEqual([
+      [0, 100],
+      [100, 101],
+    ]);
+    expect(judgeStageRanges(mkRequest(1000, 0))).toEqual([[0, 0]]);
+  });
+
+  it("keeps interactive stages at 20 cases", () => {
+    expect(judgeStageRanges(mkRequest(1000, 30, "interactive"))).toEqual([
+      [0, 20],
+      [20, 30],
+    ]);
+  });
+
+  it("splits before a stage outgrows the Job deadline cap", () => {
+    for (const request of [mkRequest(1000, 100, "checker"), mkRequest(90_000, 20)]) {
+      const ranges = judgeStageRanges(request);
+      expect(ranges.length).toBeGreaterThan(1);
+      for (const [start, end] of ranges)
+        expect(
+          computeStageJobDeadlineSeconds({
+            ...request,
+            testcases: request.testcases.slice(start, end),
+          }),
+        ).toBeLessThan(1800);
+    }
+  });
+
+  it("splits by payload size", () => {
+    const request = mkRequest(1000, 10);
+    request.testcases = request.testcases.map((testcase) => ({
+      ...testcase,
+      input: "x".repeat(20 * 1024 * 1024),
+    }));
+    expect(judgeStageRanges(request)).toEqual([
+      [0, 3],
+      [3, 6],
+      [6, 9],
+      [9, 10],
+    ]);
+  });
 });

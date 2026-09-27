@@ -1,5 +1,5 @@
 import type * as k8s from "@kubernetes/client-node";
-import { COMPILER_SCRATCH_MB } from "@nojv/core";
+import { COMPILER_SCRATCH_MB, MAX_EXECUTION_OUTPUT_BYTES } from "@nojv/core";
 
 import {
   HARDENED_CONTAINER_SECURITY_CONTEXT,
@@ -12,6 +12,7 @@ import { quantityValue } from "./resource-capacity";
 
 const TTL_AFTER_FINISHED_SECONDS = 60;
 const SUBMISSION_DATA_SIZE_LIMIT = "128Mi";
+const MAX_OUTPUT_MIB = MAX_EXECUTION_OUTPUT_BYTES / (1024 * 1024);
 
 function boundedRequest(request: string, limit: string): string {
   return quantityValue(request) > quantityValue(limit) ? limit : request;
@@ -64,6 +65,7 @@ export interface StageJobManifestParams {
   compilerMemoryLimit: string;
   runParallelism: number;
   runMemoryLimit: string;
+  caseCount: number;
   activeDeadlineSeconds: number;
   runtimeClassName?: string;
 }
@@ -157,7 +159,12 @@ export function buildStageJobManifest(params: StageJobManifestParams): k8s.V1Job
               name: "run-tmp",
               emptyDir: { sizeLimit: `${String(COMPILER_SCRATCH_MB)}Mi` },
             },
-            { name: "outputs", emptyDir: { sizeLimit: "512Mi" } },
+            {
+              name: "outputs",
+              emptyDir: {
+                sizeLimit: `${String(Math.max(512, params.caseCount * MAX_OUTPUT_MIB + 32))}Mi`,
+              },
+            },
             { name: "judge-data", emptyDir: { sizeLimit: SUBMISSION_DATA_SIZE_LIMIT } },
             { name: "judge-artifact", emptyDir: { sizeLimit: "256Mi" } },
             {

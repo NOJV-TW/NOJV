@@ -251,6 +251,7 @@ export class KubernetesSandboxResources {
           compilerMemoryLimit: `${String(Math.max(parseMemoryLimitMb(memoryLimit), MIN_COMPILER_MEMORY_MB))}Mi`,
           runParallelism,
           runMemoryLimit,
+          caseCount: request.testcases.length,
           activeDeadlineSeconds: deadlineSeconds,
           ...(this.config.runtimeClassName
             ? { runtimeClassName: this.config.runtimeClassName }
