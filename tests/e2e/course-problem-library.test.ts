@@ -181,7 +181,7 @@ test("course library authorizes bound staff, shares drafts, forks public imports
     let dialog = page.getByRole("dialog");
     await expect(dialog.getByRole("radio", { name: "Add my private problems" })).toBeChecked();
     await dialog.getByRole("searchbox").fill(draftId);
-    await dialog.locator('label:has(input[type="checkbox"])').click();
+    await dialog.getByRole("checkbox").click();
     await dialog.getByRole("button", { name: "Add selected" }).click();
     const draftRow = page.locator(`[data-problem-id="${draftId}"]`);
     await expect(draftRow).toContainText("Draft");
@@ -197,7 +197,7 @@ test("course library authorizes bound staff, shares drafts, forks public imports
     dialog = page.getByRole("dialog");
     await dialog.getByRole("radio", { name: "Import public problems" }).check();
     await dialog.getByRole("searchbox").fill(publicId);
-    await dialog.locator('label:has(input[type="checkbox"])').click();
+    await dialog.getByRole("checkbox").click();
     await dialog.getByRole("button", { name: "Add selected" }).click();
     const forkRow = page
       .locator("[data-problem-id]")
@@ -245,7 +245,7 @@ test("course library authorizes bound staff, shares drafts, forks public imports
       await expect(
         picker.getByRole("heading", { name: "Course library", exact: true }),
       ).toBeVisible();
-      await picker.locator('label:has(input[type="checkbox"])').click();
+      await picker.getByRole("checkbox").click();
       await picker.getByRole("button", { name: "Add selected" }).click();
       const weights = problems.locator('[data-slot="activity-weights"]');
       await expect(weights.getByRole("status")).toHaveText("Total: 200");
@@ -565,6 +565,7 @@ test("archived nonowner staff can navigate and copy all editor content while wri
         await expect(page.getByRole("button", { name: /Add file|Delete/ })).toHaveCount(0);
       } else if (section === "Testcase Management") {
         await page.locator("summary").filter({ hasText: "Full hidden cases" }).click();
+        await page.locator("summary").filter({ hasText: "#1 · Input" }).click();
         await expectCopied(page.getByRole("region", { name: "Input", exact: true }), input);
         await expectCopied(page.getByRole("region", { name: "Output", exact: true }), output);
         await expect(page.getByRole("button", { name: /Edit|Delete|Upload/ })).toHaveCount(0);

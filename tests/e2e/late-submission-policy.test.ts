@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient, Prisma } from "../../packages/db/generated/prisma/client";
+import { PrismaClient } from "../../packages/db/generated/prisma/client";
 import { resolveDestructiveTestDatabase } from "../setup/destructive-test-database";
 import { apiWriteHeaders, studentAuth, teacherAuth } from "./_shared";
 
@@ -123,18 +123,26 @@ test("student exam workspace remains open and shows the late collection countdow
       connectionString: resolveDestructiveTestDatabase("nojv_e2e_test"),
     }),
   });
-  const examId = "exam_demo_gradebook_active";
-  const previous = await database.exam.findUniqueOrThrow({ where: { id: examId } });
+  const source = await database.exam.findUniqueOrThrow({
+    where: { id: "exam_demo_gradebook_active" },
+  });
+  const { id: examId } = await database.exam.create({
+    data: {
+      title: "Late collection workspace browser test",
+      summary: "",
+      courseId: source.courseId,
+      createdByUserId: source.createdByUserId,
+      status: source.status,
+      startsAt: source.startsAt,
+      endsAt: source.endsAt,
+      dueAt: new Date(Date.now() - 60_000),
+      adjustmentRules: [{ type: "daily_late_penalty", perDayPct: 10 }],
+      problems: { create: { problemId: "problem_warmup-sum", ordinal: 1, points: 100 } },
+    },
+  });
   const context = await browser.newContext({ storageState: studentAuth });
   const page = await context.newPage();
   try {
-    await database.exam.update({
-      where: { id: examId },
-      data: {
-        dueAt: new Date(Date.now() - 60_000),
-        adjustmentRules: [{ type: "daily_late_penalty", perDayPct: 10 }],
-      },
-    });
     const response = await page.request.post(`/exams/${examId}?/startExam`, {
       form: {},
       headers: apiWriteHeaders,
@@ -144,7 +152,10 @@ test("student exam workspace remains open and shows the late collection countdow
     const timer = page.locator('[data-slot="workspace-timer"]');
     await expect(timer).toContainText("Late · final submissions close in");
     await expect(timer).toContainText("Part of a day counts as a full day.");
-    await expect(page.getByRole("button", { name: /end exam/i })).toBeVisible();
+    await expect(
+      timer.getByRole("link", { name: "Exam overview", exact: true }),
+    ).toHaveAttribute("href", `/exams/${examId}`);
+    await expect(page.getByRole("button", { name: /end exam/i })).toHaveCount(0);
     const countdown = timer.getByText(/^\d{2,}:\d{2}:\d{2}$/);
     const initialCountdown = await countdown.textContent();
     await expect
@@ -157,13 +168,7 @@ test("student exam workspace remains open and shows the late collection countdow
       headers: apiWriteHeaders,
     });
     await context.close();
-    await database.exam.update({
-      where: { id: examId },
-      data: {
-        dueAt: previous.dueAt,
-        adjustmentRules: previous.adjustmentRules ?? Prisma.DbNull,
-      },
-    });
+    await database.exam.delete({ where: { id: examId } });
     await database.$disconnect();
   }
 });

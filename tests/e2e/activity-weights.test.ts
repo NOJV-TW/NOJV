@@ -6,7 +6,7 @@ import { teacherAuth } from "./_shared";
 
 test.use({ storageState: teacherAuth });
 
-test("assignment weights persist, rescale, and show validation after closure", async ({
+test("assignment problem points persist, sum to the total, and reject an all-zero allocation", async ({
   page,
 }) => {
   await page.goto("/assignments/hw1-process-trace?tab=problems");
@@ -20,30 +20,32 @@ test("assignment weights persist, rescale, and show validation after closure", a
   const editorBox = await editor.boundingBox();
   expect(editorBox!.y).toBeGreaterThanOrEqual(rowBox!.y + rowBox!.height);
   await page.waitForTimeout(3000);
-  await editor.getByLabel("Total points", { exact: true }).fill("100");
-  const weights = editor.locator('input[aria-label$=" weight"]');
-  await expect(weights).toHaveCount(2);
-  await weights.nth(0).fill("40");
-  await weights.nth(1).fill("60");
+  const points = editor.locator('input[aria-label$=" points"]');
+  const total = editor.getByRole("status");
+  await expect(points).toHaveCount(2);
+  await points.nth(0).fill("40");
+  await points.nth(1).fill("60");
+  await expect(total).toHaveText("Total: 100");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("button", { name: "Save", exact: true })).not.toBeVisible();
   await page.reload();
   await page.waitForTimeout(3000);
   await page.getByRole("tab", { name: "Problems", exact: true }).click();
-  await expect(weights.nth(0)).toHaveValue("40");
-  await expect(weights.nth(1)).toHaveValue("60");
-  await expect(editor.getByLabel("Total points", { exact: true })).toHaveValue("100");
-  await editor.getByLabel("Total points", { exact: true }).fill("200");
-  await expect(weights.nth(0)).toHaveValue("40");
-  await expect(weights.nth(1)).toHaveValue("60");
+  await expect(points.nth(0)).toHaveValue("40");
+  await expect(points.nth(1)).toHaveValue("60");
+  await expect(total).toHaveText("Total: 100");
+  await points.nth(0).fill("0");
+  await points.nth(1).fill("0");
+  await expect(total).toHaveText("Total: 0");
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Save", exact: true })).not.toBeVisible();
-  await weights.nth(0).fill("30");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByText(/100%/, { exact: false }).first()).toBeVisible();
-  await editor.getByRole("button", { name: "Split equally" }).click();
-  await expect(weights.nth(0)).toHaveValue("50");
-  await expect(weights.nth(1)).toHaveValue("50");
+  await expect(
+    page.getByText(
+      "Add at least one problem worth points before publishing or saving a published activity.",
+    ),
+  ).toBeVisible();
+  await points.nth(0).fill("50");
+  await points.nth(1).fill("50");
+  await expect(total).toHaveText("Total: 100");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("button", { name: "Save", exact: true })).not.toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
@@ -64,7 +66,7 @@ test("assignment weights persist, rescale, and show validation after closure", a
   await editor.screenshot({ path: "output/playwright/assignment-weights-editor-zh.png" });
 });
 
-test("exam equal distribution preserves basis-point remainders after reload", async ({
+test("exam fractional problem points stay in the form after save and persist after reload", async ({
   page,
 }) => {
   await page.goto("/exams/exam_midterm-systems-lab?tab=problems");
@@ -78,23 +80,26 @@ test("exam equal distribution preserves basis-point remainders after reload", as
   const editorBox = await editor.boundingBox();
   expect(editorBox!.y).toBeGreaterThanOrEqual(rowBox!.y + rowBox!.height);
   await page.waitForTimeout(3000);
-  await editor.getByLabel("Total points", { exact: true }).fill("100");
-  await editor.getByRole("button", { name: "Split equally" }).click();
-  const weights = editor.locator('input[aria-label$=" weight"]');
-  await expect(weights).toHaveCount(3);
-  await expect(weights.nth(0)).toHaveValue("33.34");
-  await expect(weights.nth(1)).toHaveValue("33.33");
-  await expect(weights.nth(2)).toHaveValue("33.33");
+  const points = editor.locator('input[aria-label$=" points"]');
+  await expect(points).toHaveCount(3);
+  await points.nth(0).fill("33.34");
+  await points.nth(1).fill("33.33");
+  await points.nth(2).fill("33.33");
+  await expect(editor.getByRole("status")).toHaveText("Total: 100");
   const saved = page.waitForResponse((response) => response.url().includes("?/updateProblems"));
   await page.getByRole("button", { name: "Save", exact: true }).click();
   expect(JSON.parse(await (await saved).text()).type).toBe("success");
   await expect(page.getByRole("button", { name: "Save", exact: true })).not.toBeVisible();
+  await expect(points.nth(0)).toHaveValue("33.34");
+  await expect(points.nth(1)).toHaveValue("33.33");
+  await expect(points.nth(2)).toHaveValue("33.33");
   await page.reload();
   await page.waitForTimeout(3000);
   await page.getByRole("tab", { name: "Problems", exact: true }).click();
-  await expect(weights.nth(0)).toHaveValue("33.34");
-  await expect(weights.nth(1)).toHaveValue("33.33");
-  await expect(weights.nth(2)).toHaveValue("33.33");
+  await expect(points.nth(0)).toHaveValue("33.34");
+  await expect(points.nth(1)).toHaveValue("33.33");
+  await expect(points.nth(2)).toHaveValue("33.33");
+  await expect(editor.getByRole("status")).toHaveText("Total: 100");
   await page.screenshot({ path: "output/playwright/exam-weights-desktop.png", fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1200 });
   await page.getByRole("button", { name: "中", exact: true }).click();
@@ -106,7 +111,9 @@ test("exam equal distribution preserves basis-point remainders after reload", as
   await editor.screenshot({ path: "output/playwright/exam-weights-editor-zh.png" });
 });
 
-test("empty exam drafts can save totals and restore a removed question", async ({ page }) => {
+test("empty exam drafts save with no problems and restore a removed question at 100 points", async ({
+  page,
+}) => {
   const testPrisma = new PrismaClient({
     adapter: new PrismaPg({
       connectionString: resolveDestructiveTestDatabase("nojv_e2e_test"),
@@ -133,23 +140,28 @@ test("empty exam drafts can save totals and restore a removed question", async (
   await page.getByRole("tab", { name: "Problems", exact: true }).click();
   await page.getByRole("button", { name: "Remove from exam", exact: true }).click();
   const editor = page.locator('[data-slot="activity-weights"]');
-  await editor.getByLabel("Total points", { exact: true }).fill("80");
+  const points = editor.locator('input[aria-label$=" points"]');
+  await expect(points).toHaveCount(0);
+  await expect(editor.getByRole("status")).toHaveText("Total: 0");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("button", { name: "Save", exact: true })).not.toBeVisible();
   await page.reload();
   await page.waitForTimeout(3000);
   await page.getByRole("tab", { name: "Problems", exact: true }).click();
-  await expect(editor.getByLabel("Total points", { exact: true })).toHaveValue("80");
-  await expect(editor.locator('input[aria-label$=" weight"]')).toHaveCount(0);
+  await expect(points).toHaveCount(0);
+  await expect(editor.getByRole("status")).toHaveText("Total: 0");
   await page.getByRole("button", { name: "Add", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("searchbox").fill(problem.title);
   await dialog.getByText(problem.title, { exact: true }).first().click();
   await dialog.getByRole("button", { name: "Add selected" }).click();
-  await expect(editor.locator('input[aria-label$=" weight"]')).toHaveValue("0");
+  await expect(points).toHaveValue("100");
+  await expect(editor.getByRole("status")).toHaveText("Total: 100");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("button", { name: "Save", exact: true })).not.toBeVisible();
   const restored = await testPrisma.examProblem.findMany({ where: { examId: draft.id } });
-  expect(restored.map((p) => p.problemId)).toEqual([problem.id]);
+  expect(restored.map((p) => ({ problemId: p.problemId, points: Number(p.points) }))).toEqual([
+    { problemId: problem.id, points: 100 },
+  ]);
   await testPrisma.$disconnect();
 });

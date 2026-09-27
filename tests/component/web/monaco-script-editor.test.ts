@@ -46,6 +46,8 @@ it("uses the workspace editor settings in read-only mode and follows the theme",
         language: "python",
         value: "def main():\n    return 42",
         readOnly: true,
+        domReadOnly: true,
+        editContext: false,
         theme: "nojv-light",
       }),
     );
