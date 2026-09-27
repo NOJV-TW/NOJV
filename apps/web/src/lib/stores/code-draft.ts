@@ -154,7 +154,17 @@ async function adoptLegacyDraft(key: DraftKey): Promise<DraftRecord | null> {
   }
 }
 
+function purgeLegacyExamDrafts(): void {
+  const legacyExamKeys: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const storageKey = localStorage.key(i);
+    if (storageKey?.startsWith("nojv:draft:v1:exam:")) legacyExamKeys.push(storageKey);
+  }
+  for (const storageKey of legacyExamKeys) localStorage.removeItem(storageKey);
+}
+
 export async function loadDraft(key: DraftKey): Promise<DraftRecord | null> {
+  purgeLegacyExamDrafts();
   const storageKey = buildDraftKey(key);
   const record = await openDraft(key.context, storageKey, localStorage.getItem(storageKey));
   if (record || key.context.kind === "exam") return record;

@@ -44,9 +44,10 @@ curl -sfL https://get.k3s.io | sh -s - server \
   --disable-network-policy \
   --disable=traefik \
   --kubelet-arg=pod-max-pids=256 \
-  --write-kubeconfig-mode=644
+  --write-kubeconfig-mode=600
 ```
 
+- `--write-kubeconfig-mode=600`: the kubeconfig is cluster-admin; only root reads it, so run `kubectl` and `helm` with `sudo`.
 - `--disable=traefik`: the site is reached through the cloudflared tunnel.
 - `pod-max-pids=256`: per-Pod PID limit. Never replace it with `ulimit -u`, which
   is shared by every container with the same host UID.

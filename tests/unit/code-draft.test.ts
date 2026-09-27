@@ -152,12 +152,23 @@ describe("saveDraft / loadDraft", () => {
     expect((await loadDraft(key))?.code).toBe("print('old')");
   });
 
-  it("leaves legacy exam drafts untouched instead of handing them to whoever signs in", async () => {
+  it("deletes every legacy plain-text exam draft instead of handing it to whoever signs in", async () => {
     const legacy = JSON.stringify({ code: "answer", savedAt: 1 });
     localStorage.setItem("nojv:draft:v1:exam:e1:prob_123:python", legacy);
+    localStorage.setItem("nojv:draft:v1:exam:e2:prob_456:cpp", legacy);
     const examKey: DraftKey = { ...key, context: { ...OWNER, kind: "exam", examId: "e1" } };
     expect(await loadDraft(examKey)).toBeNull();
-    expect(localStorage.getItem("nojv:draft:v1:exam:e1:prob_123:python")).toBe(legacy);
+    expect(localStorage.getItem("nojv:draft:v1:exam:e1:prob_123:python")).toBeNull();
+    expect(localStorage.getItem("nojv:draft:v1:exam:e2:prob_456:cpp")).toBeNull();
+  });
+
+  it("purges legacy exam drafts on any draft load", async () => {
+    localStorage.setItem(
+      "nojv:draft:v1:exam:e1:prob_123:python",
+      JSON.stringify({ code: "answer", savedAt: 1 }),
+    );
+    await loadDraft(key);
+    expect(localStorage.getItem("nojv:draft:v1:exam:e1:prob_123:python")).toBeNull();
   });
 
   it("clearDraft removes the entry", async () => {
