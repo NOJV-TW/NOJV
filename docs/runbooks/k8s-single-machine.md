@@ -12,7 +12,7 @@ Configuration reference, release mechanics and capacity numbers live in the
 - `infra/k3s/`: containerd v3 template for `runsc`, `gvisor` RuntimeClass, kubelet drop-ins
 - `infra/flux/`: GitOps release ([Flux guide](../../infra/flux/README.md))
 - `apps/worker/src/sandbox/kubernetes/netpol-probe.ts`, `runtime-probe.ts`: startup fail-closed checks
-- `infra/gcp/gke/temporal/helm-values.single-machine.yaml`: Temporal values
+- `infra/flux/temporal.yaml`, `infra/flux/temporal-values.yaml`: Flux-managed Temporal release and values
 
 ## Prerequisites
 
@@ -164,26 +164,29 @@ affect it.
 
 ### Temporal
 
-Temporal uses the app's CNPG cluster (`nojv-pg-rw`), so install it once the
+Temporal uses the app's CNPG cluster (`nojv-pg-rw`), so it starts once the
 chart's Postgres is ready; workers stay unready until Temporal answers. Create the `temporal` role and databases and the
 `temporal-postgres-secret` Secret as in
-[Temporal HA](../../infra/gcp/gke/temporal/HA-PRODUCTION.md#database-bootstrap),
-then install. The values file carries the whole production release: resources,
-`nojv-role: sandbox` node selector and the task-queue dynamic config (priority
-matcher, fairness, one partition per NOJV queue; see [Judge Queue](judge-queue.md)).
-Apply every change by editing the file and rerunning this command; never
-`--set` or `--reuse-values` on the live release.
+[Temporal HA](../../infra/gcp/gke/temporal/HA-PRODUCTION.md#database-bootstrap)
+before Flux is bootstrapped.
+
+Flux owns the release: `infra/flux/temporal.yaml` holds the `HelmRepository` and
+`HelmRelease` `temporal` (chart version pinned, upgrades not remediated, drift
+detection in `warn` mode), and `infra/flux/temporal-values.yaml` carries the whole
+production release (resources, `nojv-role: sandbox` node selector and the task-queue
+dynamic config: priority matcher, fairness, one partition per NOJV queue; see
+[Judge Queue](judge-queue.md)). Change Temporal only by merging a change to those
+files; it reaches the cluster with the next `deploy` commit. Merging a values or
+chart change restarts the affected roles (each paused judging for 3–12 s in the
+[restart drill](incident-recovery.md#temporal-restart-drill)); a chart upgrade also
+runs the chart's schema job. Never `helm upgrade`, `--set` or `--reuse-values` the
+live release.
 
 ```bash
-helm repo add temporal https://go.temporal.io/helm-charts
-helm upgrade --install temporal temporal/temporal --version 1.4.0 -n nojv-temporal --create-namespace \
-  -f infra/gcp/gke/temporal/helm-values.single-machine.yaml
+flux -n nojv-temporal get helmrelease temporal
+flux -n nojv-temporal suspend helmrelease temporal   # emergency: stop reconciling
+flux -n nojv-temporal resume helmrelease temporal
 ```
-
-Before an upgrade, confirm the release has not drifted:
-`helm -n nojv-temporal get values temporal` must equal the values file, and
-`helm template temporal temporal/temporal --version 1.4.0 -n nojv-temporal --no-hooks -f infra/gcp/gke/temporal/helm-values.single-machine.yaml`
-must match `helm -n nojv-temporal get manifest temporal`.
 
 To lower partitions on a running server, lower the write count first, wait for
 `temporal task-queue describe` to show no backlog, then lower the read count.

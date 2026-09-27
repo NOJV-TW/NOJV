@@ -1,0 +1,39 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: temporal
+  namespace: nojv-temporal
+spec:
+  interval: 1h
+  url: https://go.temporal.io/helm-charts
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: temporal
+  namespace: nojv-temporal
+spec:
+  interval: 10m
+  timeout: 15m
+  releaseName: temporal
+  chart:
+    spec:
+      chart: temporal
+      version: 1.4.0
+      sourceRef:
+        kind: HelmRepository
+        name: temporal
+  valuesFrom:
+    - kind: ConfigMap
+      name: temporal-values
+      valuesKey: values.yaml
+      optional: false
+  install:
+    remediation:
+      retries: 0
+  upgrade:
+    remediation:
+      retries: 0
+      remediateLastFailure: false
+  driftDetection:
+    mode: warn

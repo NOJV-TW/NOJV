@@ -11,7 +11,7 @@ data-loss incidents and restore drills. Availability incidents go to
 - `infra/charts/nojv/templates/minio-backup.cronjob.yaml` (rclone mirror), `infra/charts/nojv/templates/minio.yaml`, `infra/charts/nojv/templates/objstore.yaml`
 - `infra/charts/nojv/values-single-machine.yaml` (production backup values), `infra/charts/nojv/values-gke.yaml`
 - `infra/gcp/scripts/setup-backups.sh`, `infra/gcp/scripts/export-postgres-to-gcs.sh` (GKE Cloud SQL)
-- `infra/gcp/gke/temporal/helm-values.single-machine.yaml` (Temporal databases on the CNPG cluster)
+- `infra/flux/temporal-values.yaml` (Temporal databases on the CNPG cluster)
 - `apps/worker/src/backup-freshness-metrics.ts` (backup CronJob freshness gauge)
 - `packages/storage/src/keys.ts` (object key layout)
 

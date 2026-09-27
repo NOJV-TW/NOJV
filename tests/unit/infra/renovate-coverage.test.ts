@@ -61,15 +61,25 @@ describe("Renovate coverage", () => {
   });
 
   it("pins the Temporal chart wherever it is installed", () => {
-    for (const file of [
-      "docs/runbooks/k8s-single-machine.md",
-      "infra/gcp/gke/temporal/HA-PRODUCTION.md",
-    ]) {
+    for (const file of ["infra/gcp/gke/temporal/HA-PRODUCTION.md"]) {
       const text = readFileSync(file, "utf8");
       const installs =
         text.match(/helm upgrade --install temporal temporal\/temporal[^\n]*/g) ?? [];
       expect(installs.length).toBeGreaterThan(0);
       for (const line of installs) expect(line).toMatch(/--version \d+\.\d+\.\d+/);
     }
+  });
+
+  it("lets Renovate bump the Flux-managed Temporal chart", () => {
+    const flux = (config as unknown as { flux?: { managerFilePatterns: string[] } }).flux;
+    expect(config.enabledManagers).toContain("flux");
+    expect(
+      flux?.managerFilePatterns.some((pattern) =>
+        new RegExp(pattern.slice(1, -1)).test("infra/flux/temporal.yaml"),
+      ),
+    ).toBe(true);
+    const release = readFileSync("infra/flux/temporal.yaml", "utf8");
+    expect(release).toMatch(/chart: temporal\n\s+version: \d+\.\d+\.\d+\n/);
+    expect(release).toContain("url: https://go.temporal.io/helm-charts");
   });
 });
