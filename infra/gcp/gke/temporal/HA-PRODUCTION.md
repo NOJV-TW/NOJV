@@ -10,7 +10,7 @@ All durable Temporal state is in Postgres; the server roles are stateless.
 | File                                        | Target                                                                                                                                             |
 | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `helm-values.ha.yaml`                       | GKE reference, unvalidated: `replicaCount: 2` per role, PDB `minAvailable: 1`, Cloud SQL via `cloudsql-proxy.nojv-temporal.svc.cluster.local:5432` |
-| `helm-values.single-machine.yaml`           | Production single node: `replicaCount: 1` per role on `nojv-role: sandbox`, CNPG `nojv-pg-rw.nojv.svc.cluster.local:5432`                          |
+| `infra/flux/temporal-values.yaml`           | Production single node, applied by Flux: `replicaCount: 1` per role on `nojv-role: sandbox`, CNPG `nojv-pg-rw.nojv.svc.cluster.local:5432`         |
 | `secret.example.yaml`                       | Placeholder store-credentials Secret                                                                                                               |
 | `infra/docker/temporal-dynamic-config.yaml` | Local compose dynamic config; both values files carry the same `server.dynamicConfig`                                                              |
 
@@ -49,16 +49,14 @@ together. Why: [Judge Queue](../../../../docs/runbooks/judge-queue.md).
 
 ```bash
 helm repo add temporal https://go.temporal.io/helm-charts
-# Single node (production; see the single-machine runbook)
-helm upgrade --install temporal temporal/temporal --version 1.4.0 -n nojv-temporal --create-namespace \
-  -f infra/gcp/gke/temporal/helm-values.single-machine.yaml
-# GKE (reference only)
+# GKE (reference only; the single node is Flux-managed, see the single-machine runbook)
 helm upgrade --install temporal temporal/temporal --version 1.4.0 -n nojv-temporal --create-namespace \
   -f infra/gcp/gke/temporal/helm-values.ha.yaml
 ```
 
-The single-machine file reproduces the production release exactly; changes go
-through the file, never `--set` or `--reuse-values`. The GKE file is an
+The single-machine release is reconciled by Flux from `infra/flux/temporal.yaml`
+and `infra/flux/temporal-values.yaml`; changes go through those files, never
+`helm upgrade`, `--set` or `--reuse-values`. The GKE file is an
 unvalidated reference: it has never run on a cluster, and it is HA only with a
 regional Cloud SQL instance and a Cloud SQL Auth Proxy Deployment and Service in
 `nojv-temporal`, neither of which the repository provisions. Check membership

@@ -1,12 +1,8 @@
-# Production single-machine Temporal: the official temporal/temporal chart, one pod
-# per role, on the nojv chart's CNPG cluster (nojv-pg-rw). This file plus the chart
-# version is the whole release; do not add --set or --reuse-values overrides.
-#
-#   helm upgrade --install temporal temporal/temporal --version 1.4.0 \
-#     -n nojv-temporal --create-namespace \
-#     -f infra/gcp/gke/temporal/helm-values.single-machine.yaml
-#
-# Create the temporal role, databases and Secret first (HA-PRODUCTION.md).
+# Production single-machine Temporal values for the official temporal/temporal chart:
+# one pod per role on the nojv chart's CNPG cluster (nojv-pg-rw). Flux applies this
+# file as ConfigMap temporal-values to HelmRelease temporal (temporal.yaml), which
+# pins the chart version. Create the temporal role, databases and Secret first
+# (infra/gcp/gke/temporal/HA-PRODUCTION.md).
 server:
   replicaCount: 1
   config:

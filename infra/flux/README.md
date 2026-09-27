@@ -8,11 +8,13 @@ migration behavior are in the [Deployment Guide](../../docs/operations/DEPLOYMEN
 
 ## Files
 
-| File                  | Purpose                                                                                                                                                                                           |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `git-repository.yaml` | `GitRepository` on branch `deploy` (1 min interval, 5 min timeout) and the `nojv` Kustomization (`prune: false`) that applies this directory                                                      |
-| `kustomization.yaml`  | Lists `helmrelease.yaml`                                                                                                                                                                          |
-| `helmrelease.yaml`    | `HelmRelease` `nojv`: chart `infra/charts/nojv` with `values.yaml` then `values-single-machine.yaml`, `reconcileStrategy: Revision`, values from Secret `nojv-production-values`, timeout 125 min |
+| File                   | Purpose                                                                                                                                                                                           |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `git-repository.yaml`  | `GitRepository` on branch `deploy` (1 min interval, 5 min timeout) and the `nojv` Kustomization (`prune: false`) that applies this directory                                                      |
+| `kustomization.yaml`   | Lists `helmrelease.yaml` and `temporal.yaml`; generates ConfigMap `temporal-values` (namespace `nojv-temporal`, no name hash, watched) from `temporal-values.yaml`                                |
+| `temporal.yaml`        | `HelmRepository` `temporal` and `HelmRelease` `temporal` in `nojv-temporal`: official chart at a pinned version, values from ConfigMap `temporal-values`, upgrades not remediated, drift `warn`   |
+| `temporal-values.yaml` | Production Temporal values ([single-machine runbook](../../docs/runbooks/k8s-single-machine.md#temporal))                                                                                         |
+| `helmrelease.yaml`     | `HelmRelease` `nojv`: chart `infra/charts/nojv` with `values.yaml` then `values-single-machine.yaml`, `reconcileStrategy: Revision`, values from Secret `nojv-production-values`, timeout 125 min |
 
 HelmRelease behavior:
 

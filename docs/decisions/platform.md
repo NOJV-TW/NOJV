@@ -204,16 +204,16 @@ Renovate (`.github/renovate.json`) updates npm packages and pnpm catalog/overrid
 - Rule: majors, and CNPG or Temporal minors, open only after approval on the dependency dashboard.
 - Code: `.github/renovate.json`, `tests/unit/infra/renovate-coverage.test.ts`
 
-### OPS-19 Single-machine Temporal is one pod per role, reproduced from the repo
+### OPS-19 Single-machine Temporal is one pod per role, managed by Flux
 
-**Decided:** 2026-09 · **Source:** [#552](https://github.com/NOJV-TW/NOJV/pull/552)
+**Decided:** 2026-09 · **Source:** [#552](https://github.com/NOJV-TW/NOJV/pull/552), [#557](https://github.com/NOJV-TW/NOJV/pull/557)
 
-The single-machine Temporal release runs one pod per role (frontend, history, matching, worker), and `infra/gcp/gke/temporal/helm-values.single-machine.yaml` with the pinned chart version reproduces it exactly: resources, node selector and dynamic config. Temporal HA cannot raise availability while web, Postgres and the node are single points of failure, and the measured availability loss is network-side. Workflows resume after a Temporal restart without losing work, so the cost of a pod outage is paused judging and timers.
+The single-machine Temporal release runs one pod per role (frontend, history, matching, worker), and Flux reconciles it from `infra/flux/temporal.yaml` (pinned chart version) and `infra/flux/temporal-values.yaml` (resources, node selector and dynamic config), so the repo is the release and drift is reported. A manual release had drifted: the node selector and dynamic config existed only as `--set` overrides until #552. The 2026-09-28 restart drill measured 3–12 s of paused judging per role, so an automatic restart on merge is cheap. Temporal HA cannot raise availability while web, Postgres and the node are single points of failure, and the measured availability loss is network-side. Workflows resume after a Temporal restart without losing work, so the cost of a pod outage is paused judging and timers.
 
 - Rejected: two pods per role on the one node (about +0.4 CPU and +1.3 GiB of requests from the budget that feeds the sandbox quota, and 8 pods × 2 stores × `maxConns` 10 = 160 Postgres connections, above CNPG's default `max_connections` of 100 before the app's pools). Revisit if the restart drill or production shows user-visible Temporal-only pauses.
 - Rejected: CNPG with several instances on the same node (every replica shares the disk and local-path volume, so it covers only a Postgres process crash).
-- Rejected: `--set` / `--reuse-values` overrides on the live release (they exist only in release state, so a reinstall from the repo drops them); moving the release under Flux.
+- Rejected: `--set` / `--reuse-values` overrides on the live release (they exist only in release state, so a reinstall from the repo drops them); a manual `helm upgrade --install` release from the repo values (drifts, and Renovate cannot bump it).
 - Rejected: multi-node k3s as part of this decision; it needs three k3s servers with embedded etcd, CNPG spread across nodes and extra machines, and is deferred to a separate platform decision.
-- Rule: every Temporal release change goes through the values file and the documented `helm upgrade --install`.
+- Rule: every Temporal release change is a merged change to `infra/flux/temporal*.yaml`; chart bumps arrive as Renovate PRs so schema upgrades are reviewed. Upgrades are not auto-remediated, drift detection stays `warn`, and the `nojv` Kustomization keeps `prune: false`, so removing the files never uninstalls Temporal.
 - Rule: `helm-values.ha.yaml` is an unvalidated GKE reference; do not claim Temporal HA until a regional database, the Cloud SQL proxy and a cluster drill exist.
-- Code: `infra/gcp/gke/temporal/`, `docs/runbooks/k8s-single-machine.md`, `docs/runbooks/incident-recovery.md`
+- Code: `infra/flux/temporal.yaml`, `infra/flux/temporal-values.yaml`, `infra/gcp/gke/temporal/`, `docs/runbooks/k8s-single-machine.md`, `docs/runbooks/incident-recovery.md`

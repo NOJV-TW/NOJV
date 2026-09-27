@@ -11,7 +11,14 @@
     "schedule": ["at any time"],
     "minimumReleaseAge": null
   },
-  "enabledManagers": ["npm", "github-actions", "dockerfile", "docker-compose", "custom.regex"],
+  "enabledManagers": [
+    "npm",
+    "github-actions",
+    "dockerfile",
+    "docker-compose",
+    "custom.regex",
+    "flux"
+  ],
   "customManagers": [
     {
       "customType": "regex",
@@ -27,11 +34,8 @@
     },
     {
       "customType": "regex",
-      "description": "Temporal Helm chart installed by hand on the single machine and GKE",
-      "managerFilePatterns": [
-        "/^docs/runbooks/k8s-single-machine\\.md$/",
-        "/^infra/gcp/gke/temporal/HA-PRODUCTION\\.md$/"
-      ],
+      "description": "Temporal Helm chart installed by hand on GKE",
+      "managerFilePatterns": ["/^infra/gcp/gke/temporal/HA-PRODUCTION\\.md$/"],
       "matchStrings": ["temporal/temporal --version (?<currentValue>\\d+\\.\\d+\\.\\d+)"],
       "depNameTemplate": "temporal",
       "datasourceTemplate": "helm",
@@ -129,5 +133,8 @@
       "matchUpdateTypes": ["minor"],
       "dependencyDashboardApproval": true
     }
-  ]
+  ],
+  "flux": {
+    "managerFilePatterns": ["/^infra/flux/.+\\.ya?ml$/"]
+  }
 }
