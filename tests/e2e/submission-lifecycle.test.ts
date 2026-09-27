@@ -212,7 +212,7 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
     await context.close();
   });
 
-  test("teacher fills basic info and sets visibility to public", async ({ browser }) => {
+  test("teacher fills basic info on the private draft", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
 
@@ -227,11 +227,7 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
     await page.locator("textarea[name='inputFormat']").fill(INPUT_FORMAT);
     await page.locator("textarea[name='outputFormat']").fill(OUTPUT_FORMAT);
 
-    const visibility = page.getByRole("button", { name: "Private", exact: true });
-    await visibility.click();
-    const publicOption = page.getByRole("option", { name: "Public", exact: true });
-    await expect(publicOption).toBeVisible();
-    await publicOption.click();
+    await expect(page.getByRole("button", { name: "Private", exact: true })).toBeVisible();
 
     await page
       .getByRole("button", { name: /save|儲存/i })
@@ -279,7 +275,7 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
     await context.close();
   });
 
-  test("teacher publishes the problem", async ({ browser }) => {
+  test("teacher publishes a public copy of the problem", async ({ browser }) => {
     const context = await browser.newContext({ storageState: teacherAuth });
     const page = await context.newPage();
 
@@ -296,9 +292,19 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
       UPDATE "Problem" SET "referenceSolutionSubmissionId" = '${referenceId}' WHERE id = '${problemId}';
     `);
 
-    const body = await postFormAction(page, `/problems/${problemId}/edit?/publish`, {});
+    const body = await postFormAction(
+      page,
+      `/problems/${problemId}/edit?/publishPublicCopy`,
+      {},
+    );
     expect(body.type).not.toBe("error");
     expect(body.type).not.toBe("failure");
+
+    const publicCopyId = await psql(
+      `SELECT id FROM "Problem" WHERE "forkedFromProblemId" = '${problemId}' AND visibility = 'public';`,
+    );
+    expect(publicCopyId).toBeTruthy();
+    problemId = publicCopyId;
 
     await page.goto(`/problems/${problemId}/edit`);
     await expect(page.getByText(/^Draft$|^草稿$/)).not.toBeVisible();

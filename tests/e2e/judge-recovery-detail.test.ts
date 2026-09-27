@@ -141,13 +141,13 @@ test("teacher rejudge retains AC while the active execution keeps polling", asyn
   await page.waitForTimeout(3000);
   await expect(page.getByRole("status").filter({ hasText: waiting })).toBeVisible();
   const summary = page.locator("aside");
-  await expect(summary.getByText("AC", { exact: true })).toBeVisible();
+  await expect(summary.getByText("Accepted", { exact: true })).toBeVisible();
   await expect(summary).toContainText("100");
   await judge.setJudgeExecutionState(execution!.id, execution!.workflowId, "running");
   await expect(page.getByRole("status").filter({ hasText: running })).toBeVisible({
     timeout: 12_000,
   });
-  await expect(summary.getByText("AC", { exact: true })).toBeVisible();
+  await expect(summary.getByText("Accepted", { exact: true })).toBeVisible();
   await expect(summary).toContainText("100");
   await page.screenshot({
     path: testInfo.outputPath("teacher-rejudge-retains-ac.png"),

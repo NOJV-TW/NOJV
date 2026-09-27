@@ -51,6 +51,8 @@
           fontSize,
           language: getMonacoLanguage(language),
           readOnly: isReadOnly,
+          domReadOnly: true,
+          editContext: !isReadOnly,
           theme: getNojvThemeName(isDark),
           value,
         });
