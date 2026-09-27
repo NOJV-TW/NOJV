@@ -30,7 +30,7 @@ spec:
         nojv.tw/problem-library-contract: problem-library-v1
     spec:
       serviceAccountName: {{ include "nojv.fullname" . }}-worker-platform
-      automountServiceAccountToken: {{ .Values.registry.enabled }}
+      automountServiceAccountToken: {{ or .Values.registry.enabled (eq (include "nojv.backupCronJobsEnabled" .) "true") }}
       terminationGracePeriodSeconds: 120
       {{- with .Values.worker.platform.nodeSelector }}
       nodeSelector:
@@ -102,6 +102,10 @@ spec:
               value: {{ printf "%s-registry-config" (include "nojv.fullname" .) | quote }}
             - name: REGISTRY_GC_S3_SECRET
               value: {{ include "nojv.runtimeSecretName" . | quote }}
+            {{- end }}
+            {{- if include "nojv.backupCronJobsEnabled" . }}
+            - name: BACKUP_CRONJOB_NAMESPACE
+              value: {{ include "nojv.namespace" . | quote }}
             {{- end }}
             {{- include "nojv.databaseUrlEnv" . | nindent 12 }}
             - name: REDIS_URL

@@ -350,6 +350,28 @@ describeHelm("worker Kubernetes privilege boundaries", () => {
     expect(enabledPlatform).toContain("automountServiceAccountToken: true");
     expect(disabledPlatform).toContain("automountServiceAccountToken: false");
   });
+
+  it("lets only the platform worker list backup CronJobs, and only when one is rendered", () => {
+    const enabled = renderChart("values-single-machine.yaml");
+    const role = isolateDoc(enabled, "Role", "nojv-backup-cronjob-reader");
+    const binding = isolateDoc(
+      enabled,
+      "RoleBinding",
+      "nojv-worker-platform-backup-cronjob-reader",
+    );
+    const platform = isolateDoc(enabled, "Deployment", "nojv-worker-platform");
+
+    expect(role).toContain('resources: ["cronjobs"]');
+    expect(role).toContain('verbs: ["list"]');
+    expect(binding).toContain("name: nojv-worker-platform");
+    expect(binding).not.toContain("name: nojv-worker-judge");
+    expect(platform).toMatch(/name: BACKUP_CRONJOB_NAMESPACE\n\s+value: "nojv"/u);
+    expect(platform).toContain("automountServiceAccountToken: true");
+
+    const disabled = renderChart("values.yaml");
+    expect(disabled).not.toContain("nojv-backup-cronjob-reader");
+    expect(disabled).not.toContain("BACKUP_CRONJOB_NAMESPACE");
+  });
 });
 
 describeHelm("storage env schema ↔ chart deployment parity", () => {

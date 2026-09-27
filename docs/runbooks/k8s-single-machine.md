@@ -155,9 +155,11 @@ ConfigMap must exist before the new operator starts). With in-place updates the
 operator swaps the instance manager inside the running Postgres pod instead of
 restarting it: confirm the pod UID, `restartCount` and `pg_postmaster_start_time()`
 are unchanged and the operator log says `Instance manager has been upgraded`.
-Move one minor version at a time, read the release notes first (1.31 removes
-in-tree `barmanObjectStore`), and take a `pg_dump -Fc` of every database while
-production has no base backups.
+Move one minor version at a time, read the release notes first, and run the
+weekly `pg_dump` CronJob by hand just before the upgrade
+([Backup & Restore](backup-restore.md#weekly-logical-dump)). The chart uses no
+Barman backup API, so the 1.31 removal of in-tree `barmanObjectStore` does not
+affect it.
 
 ### Temporal
 
@@ -196,9 +198,9 @@ are the defaults in `secret.example.yaml`.
 
 ### Backups and production values
 
-The overlay enables the CNPG `ScheduledBackup` and the object-storage off-host mirror and
+The overlay enables the weekly `pg_dump` CronJob and the object-storage off-host mirror and
 fails to render until their destinations and credential Secrets are set. Put the
-`postgres.cnpg.backup.*` and `storage.minio.backup.*` values in a private
+`postgres.cnpg.dump.*` and `storage.minio.backup.*` values in a private
 `production-values.yaml` (shape in the [Flux guide](../../infra/flux/README.md#bootstrap))
 and complete a restore drill before going live
 ([Backup & Restore](backup-restore.md)). Flux reads the same values from the

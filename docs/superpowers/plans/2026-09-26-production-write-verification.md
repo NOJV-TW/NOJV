@@ -1,8 +1,8 @@
 # Production write verification plans
 
-**Status:** Draft. The owner confirms each part **before** execution. Nothing here has run. · **Date:** 2026-09-26 · **Closes (when executed):** Quality Ledger "Production evidence" items for OPS-06, OPS-11 and the sandbox quota recovery acceptance
+**Status:** Draft. The owner confirms each part **before** execution. Nothing here has run. · **Date:** 2026-09-26 · **Closes (when executed):** Quality Ledger "Production evidence" items for OPS-11 and the sandbox quota recovery acceptance
 
-Three production-writing tasks. Each part lists its preconditions, commands, the data it writes, success criteria, abort and rollback steps, cleanup, and the evidence to record. Parts are independent. Run (a) first, so that (b) and (c) happen with a verified backup in place.
+Two production-writing tasks, (b) and (c). Each part lists its preconditions, commands, the data it writes, success criteria, abort and rollback steps, cleanup, and the evidence to record. Parts are independent. Part (a), activating CNPG Barman backups, was dropped: production backs up with the weekly `pg_dump` and the object mirror (OPS-06), and the restore drill for those is in [Backup & Restore](../../runbooks/backup-restore.md#restore-drill).
 
 ## Conventions
 
@@ -28,112 +28,6 @@ tctl task-queue describe -t judge
 
 ---
 
-## (a) OPS-06: activate off-site backups and run a restore drill
-
-Owner doc: [Backup & Restore](../../runbooks/backup-restore.md). Related: [CNPG plugin spec](../specs/2026-09-26-cnpg-barman-cloud-plugin.md). If the live operator is already ≥ 1.26, the owner may choose to activate directly on the plugin; the commands below assume the in-tree path that the chart renders today.
-
-### Preconditions
-
-1. Read-only inventory:
-   ```bash
-   k -n cnpg-system get deploy -o jsonpath='{range .items[*]}{.metadata.name}{" "}{..image}{"\n"}{end}'
-   k -n nojv get cluster nojv-pg -o jsonpath='{.spec.backup}{"\n"}{.status.conditions}{"\n"}'
-   k -n nojv get scheduledbackup,backup,cronjob
-   k -n nojv get secret nojv-production-values -o jsonpath='{.data.values\.yaml}' | base64 -d > ~/prod-values.before.yaml   # names only, no credentials; mode 0600
-   git -C <deploy checkout> show origin/deploy:infra/charts/nojv/values-single-machine.yaml | grep -A1 'migrator:'
-   df -h /var/lib/rancher; k top node
-   ```
-2. The owner has created two off-host destinations (R2 or S3): a Postgres path such as `s3://nojv-db-backups/nojv-pg` and a MinIO mirror bucket. Each has a token scoped to its own bucket. An off-host copy of `nojv-runtime-secrets` exists.
-3. `migrator.releaseWindow` on the current `deploy` branch is known. If it is `true`, the values-only reconcile below runs the maintenance drain. Schedule it as a maintenance window, or wait for a release that sets it to `false`. Do not put `releaseWindow` in the values Secret ([Flux guide](../../../infra/flux/README.md#bootstrap)).
-4. Node headroom for the drill Cluster: at least 5 GiB free on the local-path disk and 2 GiB of allocatable memory. Otherwise run the drill with smaller resources.
-
-### Steps
-
-1. Create the credential Secrets:
-   ```bash
-   read -rs AK; read -rs SK
-   k -n nojv create secret generic nojv-pg-barman --from-literal=ACCESS_KEY_ID="$AK" --from-literal=ACCESS_SECRET_KEY="$SK"
-   read -rs AK; read -rs SK
-   k -n nojv create secret generic nojv-minio-mirror --from-literal=ACCESS_KEY_ID="$AK" --from-literal=ACCESS_SECRET_KEY="$SK"
-   unset AK SK
-   ```
-2. Write `~/prod-values.after.yaml` (a copy of the before file with real `postgres.cnpg.backup.*` and `storage.minio.backup.*` values and `enabled: true`), render-check it, then replace the Secret:
-   ```bash
-   diff ~/prod-values.before.yaml ~/prod-values.after.yaml
-   k -n nojv create secret generic nojv-production-values --from-file=values.yaml=$HOME/prod-values.after.yaml --dry-run=client -o yaml | k apply -f -
-   k -n nojv annotate helmrelease nojv reconcile.fluxcd.io/requestedAt="$(date +%s)" --overwrite
-   k -n nojv get helmrelease nojv -w
-   ```
-3. Verify WAL archiving:
-   ```bash
-   k -n nojv get cluster nojv-pg -o jsonpath='{.status.conditions[?(@.type=="ContinuousArchiving")]}{"\n"}'
-   k -n nojv exec nojv-pg-1 -c postgres -- psql -Atc "SELECT pg_walfile_name(pg_switch_wal());"
-   k -n nojv exec nojv-pg-1 -c postgres -- psql -Atc "SELECT archived_count, last_archived_wal, last_failed_wal, last_failed_time FROM pg_stat_archiver;"
-   ```
-   Within 2 minutes, the switched segment appears in `last_archived_wal` and in the bucket under `nojv-pg/wals/`.
-4. Take an on-demand base backup:
-   ```bash
-   k -n nojv apply -f - <<'EOF'
-   apiVersion: postgresql.cnpg.io/v1
-   kind: Backup
-   metadata: { name: nojv-pg-ops06-20260926, namespace: nojv }
-   spec: { cluster: { name: nojv-pg } }
-   EOF
-   k -n nojv get backup nojv-pg-ops06-20260926 -w          # phase completed
-   k -n nojv get cluster nojv-pg -o jsonpath='{.status.firstRecoverabilityPoint} {.status.lastSuccessfulBackup}{"\n"}'
-   ```
-5. Run the first MinIO mirror:
-   ```bash
-   k -n nojv create job --from=cronjob/nojv-minio-backup nojv-minio-backup-ops06
-   k -n nojv wait --for=condition=complete job/nojv-minio-backup-ops06 --timeout=2h
-   k -n nojv logs job/nojv-minio-backup-ops06 | tail -20
-   ```
-   Compare the object count and size of source and destination with `mc du`. Use the host through `k -n nojv port-forward svc/nojv-minio 9000` with `mc` pinned to the CronJob's image release, or the provider console for the destination.
-6. Restore drill for Postgres (at least 1 h after step 4, so that PITR crosses archived WAL). Choose `TARGET` as an RFC3339 time about 10 minutes ago, then apply the recovery Cluster from the runbook with the name `nojv-pg-drill`, `instances: 1`, `storage.size` equal to production, and **no** `backup` section (the drill must not archive):
-   ```bash
-   k -n nojv apply -f nojv-pg-drill.yaml
-   k -n nojv get cluster nojv-pg-drill -w                    # Cluster in healthy state
-   for db in nojv-pg-1 nojv-pg-drill-1; do
-     k -n nojv exec "$db" -c postgres -- psql -d nojv -Atc "SELECT
-       (SELECT count(*) FROM \"User\"), (SELECT count(*) FROM \"Problem\"),
-       (SELECT count(*) FROM \"Submission\" WHERE \"createdAt\" <= '$TARGET'),
-       (SELECT count(*) FROM \"Participation\"), (SELECT count(*) FROM \"JudgeExecution\" WHERE \"createdAt\" <= '$TARGET');"
-   done
-   k -n nojv exec nojv-pg-drill-1 -c postgres -- psql -d temporal -Atc "SELECT count(*) FROM executions;"
-   ```
-   Record the time from `apply` to healthy as the measured Postgres RTO.
-7. Restore drill for objects. From the drill database, pick the 5 most recent submissions before `TARGET`. Confirm that each one's `submissions/<id>/source-generations/` manifest exists in the **destination** bucket and that its size and ETag match the source. Read back one manifest in full.
-
-### Data written
-
-Off-host buckets receive base backups, continuous WAL and the MinIO mirror. In the cluster: two credential Secrets, an updated `nojv-production-values`, one `Backup` CR, one mirror Job, and a temporary `nojv-pg-drill` Cluster with its PVC. No application rows are written.
-
-### Success criteria
-
-`ContinuousArchiving=True`; `last_failed_wal` empty after activation; the base backup completes; `firstRecoverabilityPoint` is set; the mirror Job succeeds with a destination count ≥ source; drill counts equal production for rows created at or before `TARGET` (users and problems may be ≥, never <); Temporal's `executions` table is non-empty; all 5 manifests resolve.
-
-### Abort and rollback
-
-- If `ContinuousArchiving=False` or `last_failed_wal` stays non-empty for 10 minutes, WAL accumulates on the 5Gi volume. Watch it with `k -n nojv exec nojv-pg-1 -c postgres -- du -sh /var/lib/postgresql/data/pgdata/pg_wal`. Restore the previous values with `k -n nojv create secret generic nojv-production-values --from-file=values.yaml=$HOME/prod-values.before.yaml --dry-run=client -o yaml | k apply -f -`, reconcile, then fix the credentials or endpoint offline.
-- If the drill Cluster fails to bootstrap, delete it (see cleanup). Production is untouched. The drill is a P1 finding ([Backup & Restore](../../runbooks/backup-restore.md#restore-drill)).
-
-### Cleanup
-
-```bash
-k -n nojv delete cluster nojv-pg-drill          # type the name; never nojv-pg
-k -n nojv get pvc | grep nojv-pg-drill           # must be empty
-k -n nojv delete job nojv-minio-backup-ops06
-shred -u ~/prod-values.before.yaml ~/prod-values.after.yaml   # after the owner has an off-host copy
-```
-
-Keep the `Backup` CR; retention prunes it.
-
-### Evidence for the Quality Ledger
-
-Date, operator version, destination names (no credentials), the switched WAL segment, the `Backup` name and completion time, `firstRecoverabilityPoint`, the mirror Job name with source and destination counts, the drill `TARGET`, the count comparison table, the manifest check, and the measured RTO. Then remove the OPS-06 activation item from "Production evidence" and update OPS-06 if the drill changed any rule.
-
----
-
 ## (b) OPS-11: judge latency and capacity on the deployed profiles
 
 Owner docs: [Judge Queue](../../runbooks/judge-queue.md), [Testing: judge benchmark](../../runbooks/testing.md#judge-capacity-benchmark), [Deployment: capacity](../../operations/DEPLOYMENT.md#capacity).
@@ -149,7 +43,7 @@ The owner's planned prod stress test is the single-machine measurement: submissi
 
 **Preconditions:**
 
-- Part (a) is done, so a verified backup exists from before the test.
+- A weekly `pg_dump` and an object mirror run have succeeded before the test (run both by hand if the last ones are old).
 - Common preconditions pass, and the owner announces a window of about 2 h.
 - Benchmark problems: unpublished, owned by admin, and used by nothing else, so that cleanup can scope by `problemId`:
   - `light`: A+B style, 20 cases.
@@ -299,11 +193,8 @@ Date, release and worker revision, the C1 timeline (quota created, first `Failed
 
 ## Questions for the owner before execution
 
-1. (a) Which buckets, endpoint and token scopes? Should the Postgres and MinIO tokens be separate (recommended)? Is object lock or versioning wanted on the destination?
-2. (a) The MinIO mirror runs daily, while Postgres PITR is continuous. A PITR to a time after the last mirror can reference objects the mirror does not have yet. Is a 24 h object RPO acceptable, or should the mirror run hourly?
-3. (a) Should activation be combined with the plugin migration (see spec open question 3)?
-4. (b) Do you approve the OPS-05 and OPS-11 exception (admin account, production target), or should temporary accounts be used? Should the gate be bypassed (measures capacity) or not (measures the real path, serial for one account)?
-5. (b) Will the dispatch and cleanup scripts be committed (for example under `scripts/ops/`) so they are reviewed and reusable, or stay off-repo with only a recorded sha256?
-6. (b) Is GKE in scope, or should the ledger item be split into "single-machine measured" and "GKE not deployed"?
-7. (c) Is delaying real submissions by about 3 minutes acceptable, or should C1 run only in a window with zero traffic?
-8. (c) Should the holder manifest be committed next to the k3d test so production and CI use the same shape?
+1. (b) Do you approve the OPS-05 and OPS-11 exception (admin account, production target), or should temporary accounts be used? Should the gate be bypassed (measures capacity) or not (measures the real path, serial for one account)?
+2. (b) Will the dispatch and cleanup scripts be committed (for example under `scripts/ops/`) so they are reviewed and reusable, or stay off-repo with only a recorded sha256?
+3. (b) Is GKE in scope, or should the ledger item be split into "single-machine measured" and "GKE not deployed"?
+4. (c) Is delaying real submissions by about 3 minutes acceptable, or should C1 run only in a window with zero traffic?
+5. (c) Should the holder manifest be committed next to the k3d test so production and CI use the same shape?

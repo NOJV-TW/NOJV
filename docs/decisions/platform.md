@@ -64,10 +64,15 @@ Incompatible migrations run through the Helm migrator maintenance flow: web, bot
 
 A weekly `pg_dump` of every database and the object-store off-host mirror are enabled in production values, both to Cloudflare R2's free tier, and the chart refuses to render either without a real destination and credentials Secret. Weekly dumps replace barman on the single machine ([#546](https://github.com/NOJV-TW/NOJV/pull/546)): continuous WAL is about 2.3 GB a day, which does not fit the free tier, and the owner accepted a one-week recovery point. Postgres (including Temporal state) and the in-cluster object store (the only copy of student source) previously had no backups at all. The mirror is `rclone copy --metadata` of both `nojv` and `nojv-registry` from the `storage.active` store to Cloudflare R2's free tier ([#541](https://github.com/NOJV-TW/NOJV/pull/541)).
 
-- Rejected: barman WAL archiving on the single machine (WAL volume exceeds the free tier; no point-in-time recovery is kept); a fabricated or unverified fallback destination; `mc mirror` (MinIO's client is no longer published); `rclone sync` (a source deletion would delete the only off-host copy); mirroring only `nojv`.
+The chart has no CNPG Barman backup support at all: the unused in-tree `spec.backup.barmanObjectStore` and `ScheduledBackup` path was removed ([#PR](https://github.com/NOJV-TW/NOJV/pull/PR)). The platform worker exports each backup CronJob's last success as `nojv_backup_last_success_timestamp_seconds`, read from the CronJob status through the Kubernetes API, and Grafana alerts after 8 days without a dump or 26h without a mirror.
+
+- Rejected: in-tree `barmanObjectStore` backups (removed upstream in CNPG 1.31, and production never enabled them).
+- Rejected: migrating to the Barman Cloud plugin (it still needs continuous WAL archiving, about 2.3 GB a day, which exceeds the R2 free tier; the weekly `pg_dump` was chosen and no point-in-time recovery is kept).
+- Rejected: kube-state-metrics or a Pushgateway for backup freshness (new in-cluster services for two timestamps the platform worker can read with a `list` on CronJobs).
+- Rejected: a fabricated or unverified fallback destination; `mc mirror` (MinIO's client is no longer published); `rclone sync` (a source deletion would delete the only off-host copy); mirroring only `nojv`.
 - Rule: a backup is not "enabled" until a restore drill has run.
 - Rule: object-store submission sources are restored together with Postgres.
-- Code: `infra/charts/nojv/templates/postgres-cnpg.yaml`, `infra/charts/nojv/templates/postgres-dump.cronjob.yaml`, `infra/charts/nojv/templates/minio-backup.cronjob.yaml`, `infra/charts/nojv/values-single-machine.yaml`, `tests/unit/infra/backup-fail-closed.test.ts`
+- Code: `infra/charts/nojv/templates/postgres-dump.cronjob.yaml`, `apps/worker/src/backup-freshness-metrics.ts`, `infra/charts/nojv/templates/minio-backup.cronjob.yaml`, `infra/charts/nojv/values-single-machine.yaml`, `tests/unit/infra/backup-fail-closed.test.ts`
 
 ### OPS-07 GitOps must never be able to delete stateful data
 

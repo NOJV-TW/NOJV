@@ -51,7 +51,7 @@ data:
 {{- $range := dict "from" 3600 "to" 0 }}
 {{- $rules := list }}
 {{- range (.Files.Get "files/grafana-alerts/slo-alerts.json" | fromJsonArray) }}
-{{- if or (ne .uid "nojv-pg-backup-stale") $.Values.postgres.cnpg.backup.enabled }}
+{{- if and (or (ne .uid "nojv-pg-dump-stale") (include "nojv.postgresDumpEnabled" $)) (or (ne .uid "nojv-object-mirror-stale") (include "nojv.objectMirrorEnabled" $)) }}
 {{- $query := dict "refId" "A" "relativeTimeRange" $range "datasourceUid" "prometheus" "model" (dict "refId" "A" "expr" .expr "instant" true "intervalMs" 1000 "maxDataPoints" 43200) }}
 {{- $reduce := dict "refId" "B" "relativeTimeRange" $range "datasourceUid" "__expr__" "model" (dict "refId" "B" "type" "reduce" "reducer" "last" "expression" "A") }}
 {{- $threshold := dict "refId" "C" "relativeTimeRange" $range "datasourceUid" "__expr__" "model" (dict "refId" "C" "type" "threshold" "expression" "B" "conditions" (list (dict "evaluator" (dict "type" "gt" "params" (list .threshold))))) }}
@@ -95,7 +95,7 @@ spec:
       labels:
         app.kubernetes.io/name: nojv-grafana
       annotations:
-        checksum/provisioning: {{ printf "%s|%s|%v|%v" (.Files.Glob "files/grafana-dashboards/*.json").AsConfig (.Files.Get "files/grafana-alerts/slo-alerts.json") .Values.observability.grafana .Values.postgres.cnpg.backup.enabled | sha256sum }}
+        checksum/provisioning: {{ printf "%s|%s|%v|%s" (.Files.Glob "files/grafana-dashboards/*.json").AsConfig (.Files.Get "files/grafana-alerts/slo-alerts.json") .Values.observability.grafana (include "nojv.backupCronJobFlags" .) | sha256sum }}
     spec:
       securityContext:
         runAsNonRoot: true

@@ -46,14 +46,17 @@ describe("in-cluster Grafana alerting", () => {
     const checksum = (rendered: string) => /checksum\/provisioning: (\S+)/.exec(rendered)?.[1];
     const withBackups = checksum(renderGrafana());
     expect(withBackups).toMatch(/^[a-f0-9]{64}$/);
-    expect(checksum(renderGrafana("--set", "postgres.cnpg.backup.enabled=false"))).not.toBe(
+    expect(checksum(renderGrafana("--set", "postgres.cnpg.dump.enabled=false"))).not.toBe(
       withBackups,
     );
   });
 
-  it("drops the backup-age rule while Postgres backups are disabled", () => {
-    expect(renderGrafana("--set", "postgres.cnpg.backup.enabled=false")).not.toContain(
-      "uid: nojv-pg-backup-stale",
-    );
+  it("drops each backup-age rule while its backup CronJob is disabled", () => {
+    const withoutDump = renderGrafana("--set", "postgres.cnpg.dump.enabled=false");
+    expect(withoutDump).not.toContain("uid: nojv-pg-dump-stale");
+    expect(withoutDump).toContain("uid: nojv-object-mirror-stale");
+    const withoutMirror = renderGrafana("--set", "storage.minio.backup.enabled=false");
+    expect(withoutMirror).toContain("uid: nojv-pg-dump-stale");
+    expect(withoutMirror).not.toContain("uid: nojv-object-mirror-stale");
   });
 });

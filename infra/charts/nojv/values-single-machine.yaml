@@ -31,21 +31,19 @@ postgres:
       limits:
         memory: 2Gi
     # DATA-SAFETY: this is the ONLY durable store (app + Temporal state) and a
-    # single node has no HA. Production rendering fails until an off-host R2/S3
-    # destination and existing Secret name are configured:
-    #   1. kubectl -n nojv create secret generic nojv-pg-barman \
+    # single node has no HA. Production rendering fails until the weekly pg_dump
+    # has an off-host R2/S3 destination and an existing Secret name:
+    #   1. create the destination bucket (the dump never creates it)
+    #   2. kubectl -n nojv create secret generic nojv-object-mirror-r2 \
     #        --from-literal=ACCESS_KEY_ID=<r2-access-key> \
     #        --from-literal=ACCESS_SECRET_KEY=<r2-secret-key>
-    #   2. fill destinationPath/endpointURL/s3CredentialsSecret below
-    #   3. redeploy, verify `kubectl cnpg status nojv-pg -n nojv`
-    #   4. run the recovery drill in the runbook before relying on it.
-    backup:
+    #   3. fill destinationEndpoint/destinationBucket/credentialsSecret below
+    #   4. redeploy, run the restore drill in docs/runbooks/backup-restore.md.
+    dump:
       enabled: true
-      destinationPath: "" # s3://nojv-db-backups/nojv-pg
-      endpointURL: "" # https://<account>.r2.cloudflarestorage.com
-      s3CredentialsSecret: "" # nojv-pg-barman
-      retentionPolicy: "30d"
-      schedule: "0 0 3 * * *"
+      destinationEndpoint: "" # https://<account>.r2.cloudflarestorage.com
+      destinationBucket: "" # nojv-object-mirror
+      credentialsSecret: "" # nojv-object-mirror-r2
 
 cloudsqlProxy:
   enabled: false
@@ -72,7 +70,7 @@ storage:
     #   2. kubectl -n nojv create secret generic nojv-minio-mirror \
     #        --from-literal=ACCESS_KEY_ID=<r2-access-key> \
     #        --from-literal=ACCESS_SECRET_KEY=<r2-secret-key>
-    #      (may reuse the nojv-pg-barman Secret if it targets the same account)
+    #      (may reuse the pg_dump Secret if it targets the same account)
     #   3. fill destinationEndpoint/destinationBucket/credentialsSecret below
     #   4. redeploy, check the CronJob's first run logs.
     backup:

@@ -159,7 +159,7 @@ Not installed by the chart:
    least 12 characters) and digest-pinned `SEED_ADVANCED_RUN_IMAGE` /
    `SEED_ADVANCED_GRADE_IMAGE` used by the post-install seed hook.
 2. **CloudNativePG operator** when `postgres.mode=cnpg`; the chart renders only
-   the `Cluster` and `ScheduledBackup` CRs.
+   the `Cluster` CR.
 3. **Temporal Server** from the official `temporalio/temporal` chart, reachable at
    `temporal.address` (default
    `temporal-frontend.nojv-temporal.svc.cluster.local:7233`), with the
@@ -180,14 +180,14 @@ requires an empty registry and prefix and the tag `local`.
 
 ### Render-time guards
 
-| Guard                                                                                                                                                                                                                                                        | Template                                          |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
-| `worker.sandbox.runtimeClassName` must be `gvisor`                                                                                                                                                                                                           | `worker-judge.deployment.yaml`                    |
-| judge `replicas × concurrency × worker.sandbox.runParallelism` ≤ quota `requestsCpu`                                                                                                                                                                         | `worker-judge.deployment.yaml`                    |
-| `postgres.cnpg.backup.*` and `storage.minio.backup.*` complete, HTTPS, valid names when enabled                                                                                                                                                              | `postgres-cnpg.yaml`, `minio-backup.cronjob.yaml` |
-| `storage.active` is `minio` or `objstore`; `objstore` requires `storage.objectStore.enabled`                                                                                                                                                                 | `_helpers.tpl`                                    |
-| `cloudsql` mode: concrete Cloud SQL name, proxy on, external Redis and storage, registry host and HTTPS token realm, GCE Ingress with host, one TLS entry covering all hosts, Cloud Armor policy, HTTPS redirect, `networkPolicy.enabled` with private CIDRs | `production-preflight.yaml`                       |
-| `web.nodeEnv=production` requires `migrator.enabled`                                                                                                                                                                                                         | `web-maintenance.yaml`                            |
+| Guard                                                                                                                                                                                                                                                        | Template                                                  |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| `worker.sandbox.runtimeClassName` must be `gvisor`                                                                                                                                                                                                           | `worker-judge.deployment.yaml`                            |
+| judge `replicas × concurrency × worker.sandbox.runParallelism` ≤ quota `requestsCpu`                                                                                                                                                                         | `worker-judge.deployment.yaml`                            |
+| `postgres.cnpg.dump.*` and `storage.minio.backup.*` complete, HTTPS, valid names when enabled                                                                                                                                                                | `postgres-dump.cronjob.yaml`, `minio-backup.cronjob.yaml` |
+| `storage.active` is `minio` or `objstore`; `objstore` requires `storage.objectStore.enabled`                                                                                                                                                                 | `_helpers.tpl`                                            |
+| `cloudsql` mode: concrete Cloud SQL name, proxy on, external Redis and storage, registry host and HTTPS token realm, GCE Ingress with host, one TLS entry covering all hosts, Cloud Armor policy, HTTPS redirect, `networkPolicy.enabled` with private CIDRs | `production-preflight.yaml`                               |
+| `web.nodeEnv=production` requires `migrator.enabled`                                                                                                                                                                                                         | `web-maintenance.yaml`                                    |
 
 ### Kubernetes sandbox requirements
 
@@ -526,9 +526,10 @@ sequence need no patch.
 
 ## Backups
 
-- **Single-machine:** CNPG `ScheduledBackup` with WAL archiving and the
-  off-host mirror CronJob are enabled, and the chart refuses to render without
-  their destinations and credential Secrets (OPS-06). The mirror runs
+- **Single-machine:** the weekly `pg_dump` CronJob and the off-host mirror
+  CronJob are enabled, and the chart refuses to render without their
+  destinations and credential Secrets (OPS-06). The chart configures no CNPG
+  base backups or WAL archiving. The mirror runs
   `rclone copy --metadata` (never `sync`) from the `storage.active` store for
   `storage.bucket` and, with the registry on, `registry.bucket`, each under
   `<destinationBucket>/<bucket>/`. The destination is Cloudflare R2

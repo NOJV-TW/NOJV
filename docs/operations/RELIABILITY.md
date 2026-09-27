@@ -58,13 +58,16 @@ All rules live in `infra/grafana/alerts/slo-alerts.json` (labels `severity`, `te
 | `nojv-notification-email-dead`       | critical | An at-least-once notification email exhausted its database-owned retries                |
 | `nojv-node-disk-usage`               | critical | Node filesystem over 80% for 10m; needs `observability.prometheus.nodeExporter.enabled` |
 | `nojv-pg-not-ready`                  | critical | A `job="cnpg-postgres"` target fails scrape for 2m                                      |
-| `nojv-pg-backup-stale`               | warning  | Last CNPG base backup older than 26h                                                    |
+| `nojv-pg-dump-stale`                 | warning  | Weekly `pg_dump` CronJob last succeeded over 8 days ago, or its status is absent        |
+| `nojv-object-mirror-stale`           | warning  | Object mirror CronJob last succeeded over 26h ago, or its status is absent              |
 
 On the single-machine target, app metrics reach the in-cluster Prometheus
 through the OTLP collector, `node_*` and `cnpg_*` series are scraped there, and
 the in-cluster Grafana evaluates every rule above and emails the mailer mailbox
-(`observability.grafana.alerting`). `nojv-pg-backup-stale` exists only while
-Postgres backups are enabled. Alerts share the node they watch, so a node or
+(`observability.grafana.alerting`). `nojv-pg-dump-stale` and
+`nojv-object-mirror-stale` exist only while their CronJob is rendered; the
+platform worker reports the CronJobs' last success
+([Backup freshness](../runbooks/backup-restore.md#backup-freshness)). Alerts share the node they watch, so a node or
 tunnel outage shows only on the external status page (`status.nojv.tw`).
 
 ## Source of truth
