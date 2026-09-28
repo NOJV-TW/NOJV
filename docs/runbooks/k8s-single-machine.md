@@ -56,8 +56,13 @@ curl -sfL https://get.k3s.io | sh -s - server \
 Install Calico through the operator. The pool must equal k3s's cluster CIDR
 (default `10.42.0.0/16`):
 
+Upgrade in place by server-side applying the newer operator manifest
+(`kubectl apply --server-side --force-conflicts -f .../tigera-operator.yaml`); the
+operator rolls the Calico components and `kubectl get tigerastatus` returns to
+`Available`.
+
 ```bash
-kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.2/manifests/tigera-operator.yaml
+kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.32.2/manifests/tigera-operator.yaml
 kubectl create -f - <<'EOF'
 apiVersion: operator.tigera.io/v1
 kind: Installation
