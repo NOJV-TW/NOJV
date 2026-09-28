@@ -32,7 +32,11 @@ async function checkPostgres(): Promise<string> {
 async function checkRedis(redisUrl: string): Promise<string> {
   let client: Redis | undefined;
   try {
-    client = new Redis(redisUrl, { lazyConnect: true, connectTimeout: CHECK_TIMEOUT_MS });
+    client = new Redis(redisUrl, {
+      lazyConnect: true,
+      connectTimeout: CHECK_TIMEOUT_MS,
+      protocol: 2,
+    });
     await withTimeout(client.connect(), CHECK_TIMEOUT_MS);
     await withTimeout(client.ping(), CHECK_TIMEOUT_MS);
     return "ok";
