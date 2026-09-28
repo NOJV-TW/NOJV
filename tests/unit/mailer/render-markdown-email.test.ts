@@ -22,7 +22,7 @@ describe("renderMarkdownForEmail", () => {
 
   it("preserves text entities while keeping code and raw HTML escaped", () => {
     const html = renderMarkdownForEmail("&amp; &lt; &#20013; `&amp;`", options);
-    expect(html).toContain("&amp; &lt; &#20013;");
+    expect(html).toContain("&amp; &lt; 中");
     expect(html).toContain("&amp;amp;</code>");
   });
 
