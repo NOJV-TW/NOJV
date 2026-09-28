@@ -504,6 +504,37 @@ describe("K8sExecutor Job/Pod watch completion", () => {
     expect(watchStarts).toBeGreaterThanOrEqual(2);
   });
 
+  it("resynchronizes after the client-side watch request timeout", async () => {
+    let reads = 0;
+    let watchStarts = 0;
+    const fake = clients({
+      readJob: () => {
+        reads += 1;
+        return {
+          metadata: { resourceVersion: `job-rv-${String(reads)}` },
+          status: reads === 1 ? {} : { succeeded: 1 },
+        };
+      },
+      watch: (_path, _callback, done) => {
+        watchStarts += 1;
+        if (watchStarts === 1) {
+          queueMicrotask(() =>
+            done(new DOMException("The operation was aborted due to timeout", "TimeoutError")),
+          );
+        }
+      },
+    });
+
+    const result = await new K8sExecutor(EXEC_CONFIG, fake.handles).execute(request(), {
+      runId: "watch-test",
+      signal: new AbortController().signal,
+    });
+
+    expect(result.testcaseResults[0]?.verdict).toBe("AC");
+    expect(reads).toBeGreaterThanOrEqual(2);
+    expect(watchStarts).toBeGreaterThanOrEqual(2);
+  });
+
   it("accepts Pod Succeeded before the Job controller updates the Job", async () => {
     const fake = clients({
       readJob: () => ({ metadata: { resourceVersion: "job-rv-1" }, status: {} }),

@@ -368,7 +368,11 @@ export class KubernetesJobWatcher {
     };
     const watchFailure = (error: unknown) => {
       const code = watchErrorCode(error);
-      if (error === null || code === 410) {
+      if (
+        error === null ||
+        code === 410 ||
+        (error instanceof DOMException && error.name === "TimeoutError")
+      ) {
         refresh();
         return;
       }
