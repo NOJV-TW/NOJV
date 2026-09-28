@@ -35,7 +35,10 @@
     {
       "customType": "regex",
       "description": "Temporal Helm chart installed by hand on GKE",
-      "managerFilePatterns": ["/^infra/gcp/gke/temporal/HA-PRODUCTION\\.md$/"],
+      "managerFilePatterns": [
+        "/^infra/gcp/gke/temporal/HA-PRODUCTION\\.md$/",
+        "/^infra/gcp/gke/temporal/helm-values\\.ha\\.yaml$/"
+      ],
       "matchStrings": ["temporal/temporal --version (?<currentValue>\\d+\\.\\d+\\.\\d+)"],
       "depNameTemplate": "temporal",
       "datasourceTemplate": "helm",

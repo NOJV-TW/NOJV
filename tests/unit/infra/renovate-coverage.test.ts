@@ -16,6 +16,7 @@ const config = JSON.parse(readFileSync(".github/renovate.json", "utf8")) as {
 const MANAGED_FILES = [
   "docs/runbooks/k8s-single-machine.md",
   "infra/gcp/gke/temporal/HA-PRODUCTION.md",
+  "infra/gcp/gke/temporal/helm-values.ha.yaml",
   "infra/charts/nojv/values.yaml",
 ];
 
@@ -61,7 +62,10 @@ describe("Renovate coverage", () => {
   });
 
   it("pins the Temporal chart wherever it is installed", () => {
-    for (const file of ["infra/gcp/gke/temporal/HA-PRODUCTION.md"]) {
+    for (const file of [
+      "infra/gcp/gke/temporal/HA-PRODUCTION.md",
+      "infra/gcp/gke/temporal/helm-values.ha.yaml",
+    ]) {
       const text = readFileSync(file, "utf8");
       const installs =
         text.match(/helm upgrade --install temporal temporal\/temporal[^\n]*/g) ?? [];

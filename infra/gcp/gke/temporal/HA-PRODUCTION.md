@@ -50,7 +50,7 @@ together. Why: [Judge Queue](../../../../docs/runbooks/judge-queue.md).
 ```bash
 helm repo add temporal https://go.temporal.io/helm-charts
 # GKE (reference only; the single node is Flux-managed, see the single-machine runbook)
-helm upgrade --install temporal temporal/temporal --version 1.4.0 -n nojv-temporal --create-namespace \
+helm upgrade --install temporal temporal/temporal --version 1.7.0 -n nojv-temporal --create-namespace \
   -f infra/gcp/gke/temporal/helm-values.ha.yaml
 ```
 

@@ -2,7 +2,7 @@
 # with a PDB. Unvalidated: never installed on a cluster, and HA only on a regional
 # Cloud SQL instance behind a cloudsql-proxy Service the repo does not create.
 #
-#   helm upgrade --install temporal temporal/temporal --version 1.4.0 \
+#   helm upgrade --install temporal temporal/temporal --version 1.7.0 \
 #     -n nojv-temporal --create-namespace \
 #     -f infra/gcp/gke/temporal/helm-values.ha.yaml
 server:
