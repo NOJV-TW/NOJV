@@ -107,7 +107,7 @@ Contract:
 
 The `integration` project mocks `@nojv/storage` in memory. `tests/integration/storage/s3-conformance.test.ts` is the unmocked gate for any S3 backend: atomic `If-None-Match: *` (sequential and racing), SHA-256 checksum rejection, SDK default checksums, `ContentType`, `ListObjectsV2`/`ListObjects` pagination and delimiters, `DeleteObjects`, `CopyObject`, multipart with `UploadPartCopy`, and NOJV key shapes including a key that is also another key's directory prefix. It writes under unique `conformance-<uuid>` prefixes in `S3_BUCKET` and deletes them afterwards.
 
-`infra/docker/s3-conformance/compose.yml` runs candidate backends side by side (profiles `minio`, `versity`, `seaweedfs`; S3 on `127.0.0.1:9100/9200/9300`, a chart-shaped `registry:2` on `5100/5200/5300`). It is separate from the dev stack. CI starts only the `versity` profile (`docker compose … --profile versity run --rm versity-init`) and needs no secrets.
+`infra/docker/s3-conformance/compose.yml` runs candidate backends side by side (profiles `minio`, `versity`, `seaweedfs`; S3 on `127.0.0.1:9100/9200/9300`, a chart-shaped `registry:3` on `5100/5200/5300`). It is separate from the dev stack. CI starts only the `versity` profile (`docker compose … --profile versity run --rm versity-init`) and needs no secrets.
 
 ```bash
 docker compose -f infra/docker/s3-conformance/compose.yml --profile versity up -d

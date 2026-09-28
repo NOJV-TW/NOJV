@@ -40,7 +40,7 @@ export function resolveRegistryGcConfig(
     namespace: envOr(env.REGISTRY_GC_NAMESPACE, "nojv"),
     image: envOr(
       env.REGISTRY_GC_IMAGE,
-      "registry:2.8.3@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373",
+      "registry:3.1.2@sha256:c87f33837722a100572e95d7dc4bf539fc42cf68202b13c3bc03c0ff54c3a649",
     ),
     configMapName: envOr(env.REGISTRY_GC_CONFIG_CONFIGMAP, "nojv-registry-config"),
     runtimeSecretName: envOr(env.REGISTRY_GC_S3_SECRET, "nojv-runtime-secrets"),

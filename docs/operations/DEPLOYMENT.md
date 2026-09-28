@@ -495,7 +495,7 @@ never from scheduled CI.
 
 ### Self-hosted registry
 
-`registry.enabled` (on in both overlays) runs a `registry:2` Deployment for
+`registry.enabled` (on in both overlays) runs a `registry:3` Deployment for
 teacher-built special_env images (OPS-10). Blobs go to the `storage.active`
 in-cluster store (bucket `nojv-registry`, created by a hook) or
 `registry.s3.regionendpoint`. The web
