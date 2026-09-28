@@ -17,7 +17,7 @@
   "dependencies": {
     "@dodona/dolos-core": "^1.2.1",
     "@dodona/dolos-lib": "3.5.1",
-    "@kubernetes/client-node": "^1.4.0",
+    "@kubernetes/client-node": "^2.0.0",
     "@nojv/application": "workspace:*",
     "@nojv/core": "workspace:*",
     "@nojv/db": "workspace:*",
