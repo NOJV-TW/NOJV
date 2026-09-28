@@ -81,8 +81,8 @@ Cilium (`cilium install --version 1.16.3`) also works; install only one.
 The chart requires `runtimeClassName: gvisor`; there is no `runc` fallback.
 
 ```bash
-GVISOR_RELEASE=20260727
-GVISOR_SHA512=94a7280655629330f02ff06fbec0493b7f2f4041dd145576daeff2340577cde0fb45fe28e5f1d209f7d7c08f70b9c3e333aa1073063b1d132742120763eaf0ad
+GVISOR_RELEASE=20260921
+GVISOR_SHA512=7c899979bed334f0987888c41e545cede8e1f7e67a257978c8de244c3867e32bc30d08491e9af36720273c502acd01d8d86c9844ebcbe125790c43fe6bdf563e
 ARCH=x86_64
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 mkdir -p /tmp/gvisor-${GVISOR_RELEASE}
@@ -98,6 +98,8 @@ kubectl wait --for=condition=Ready node --all --timeout=180s
 sudo grep -A2 "runtimes.'runsc'" /var/lib/rancher/k3s/agent/etc/containerd/config.toml
 ```
 
+Extract the whole tarball: `runsc` needs its `gvisor-bin/` sidecar directory
+(`gvisor_sentry`) next to it, and the shim refuses to start sandboxes without it.
 The template extends k3s's generated containerd v3 config with the `runsc`
 handler. If the handler or RuntimeClass is missing, stop and repair the node.
 

@@ -46,7 +46,7 @@
       "description": "Digest-pinned images in the nojv chart values",
       "managerFilePatterns": ["/^infra/charts/nojv/values[^/]*\\.yaml$/"],
       "matchStrings": [
-        "image: (?<depName>[a-z0-9./_-]+):(?<currentValue>[^\\s@]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
+        "(?:image|imageName): (?<depName>[a-z0-9./_-]+):(?<currentValue>[^\\s@]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
       ],
       "datasourceTemplate": "docker"
     }
