@@ -17,7 +17,7 @@ export function getRedis(): Redis {
   if (!_redis) {
     const opts = parseRedisConnection(process.env.REDIS_URL ?? "redis://localhost:6379");
     _redis = withErrorHandler(
-      new Redis({ host: opts.host, port: opts.port, password: opts.password }),
+      new Redis({ host: opts.host, port: opts.port, password: opts.password, protocol: 2 }),
     );
   }
   return _redis;
@@ -26,7 +26,7 @@ export function getRedis(): Redis {
 export function createSubscriber(redisUrl: string): Redis {
   const opts = parseRedisConnection(redisUrl);
   return withErrorHandler(
-    new Redis({ host: opts.host, port: opts.port, password: opts.password }),
+    new Redis({ host: opts.host, port: opts.port, password: opts.password, protocol: 2 }),
   );
 }
 
@@ -37,6 +37,7 @@ export function createRateLimiterConnection(): Redis {
       host: opts.host,
       port: opts.port,
       password: opts.password,
+      protocol: 2,
       lazyConnect: true,
       enableOfflineQueue: false,
       maxRetriesPerRequest: 1,

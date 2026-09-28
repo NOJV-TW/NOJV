@@ -135,6 +135,7 @@ submission under a PostgreSQL advisory lock.
 | Subscriber (one per web process)  | `createSubscriber(REDIS_URL)`   | `sse-hub.ts`                |
 | Rate-limiter clients              | `createRateLimiterConnection()` | `rate-limiter.ts`           |
 
-All read `REDIS_URL` via `parseRedisConnection` (`@nojv/core`). Web access
+All read `REDIS_URL` via `parseRedisConnection` (`@nojv/core`) and pin the
+RESP2 protocol (`protocol: 2`), as does the worker health probe. Web access
 outside `@nojv/application` is limited to the files listed in
 [Architecture](./ARCHITECTURE.md#dependency-rules).
