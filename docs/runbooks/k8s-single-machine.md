@@ -8,8 +8,8 @@ Configuration reference, release mechanics and capacity numbers live in the
 
 ## Key code
 
-- `infra/charts/nojv/values-single-machine.yaml`: overlay (in-cluster Postgres, Redis, MinIO with an idle Versity S3 Gateway beside it, registry, cloudflared, metrics stack)
-- `infra/k3s/`: containerd v3 template for `runsc`, `gvisor` RuntimeClass, kubelet drop-ins
+- `infra/charts/nojv/values-single-machine.yaml`: overlay (in-cluster Postgres, Redis, the Versity S3 Gateway object store with MinIO kept as the rollback source, registry, cloudflared, metrics stack)
+- `infra/k3s/`: containerd v3 template for `runsc`, `gvisor` RuntimeClass, kubelet drop-ins, post-reboot recovery service
 - `infra/flux/`: GitOps release ([Flux guide](../../infra/flux/README.md))
 - `apps/worker/src/sandbox/kubernetes/netpol-probe.ts`, `runtime-probe.ts`: startup fail-closed checks
 - `infra/flux/temporal.yaml`, `infra/flux/temporal-values.yaml`: Flux-managed Temporal release and values
@@ -137,6 +137,21 @@ sudo kubectl get --raw "/api/v1/nodes/$(hostname)/proxy/configz" \
 | `91-container-log.conf` | `containerLogMaxSize: 64Mi`, `containerLogMaxFiles: 2` | A case result line can carry the 16 MiB output cap; the 10 MiB default truncates it into a system error |
 
 Restarting k3s briefly restarts the control plane; running Pods keep running.
+
+### Reboot recovery
+
+Pods that survive a host reboot can keep stale Calico/CNI state and fail to reach
+the Redis and Postgres ClusterIPs (web returns 502). The oneshot
+`nojv-reboot-recover.service` waits for the API server, the node and `calico-node`,
+then runs `kubectl rollout restart` on every Deployment in `nojv` and
+`nojv-temporal` and waits for `nojv-web`. Its log is
+`journalctl -u nojv-reboot-recover -b`.
+
+```bash
+sudo install -m 0755 infra/k3s/reboot-recover/nojv-reboot-recover.sh /usr/local/bin/
+sudo install -m 0644 infra/k3s/reboot-recover/nojv-reboot-recover.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable nojv-reboot-recover.service
+```
 
 ### Host listeners
 
