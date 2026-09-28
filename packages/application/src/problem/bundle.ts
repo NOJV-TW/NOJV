@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { PassThrough, Readable } from "node:stream";
 
-import * as archiver from "archiver";
+import { ZipArchive } from "archiver";
 import { Open, type File as ZipFile } from "unzipper";
 
 import {
@@ -47,10 +47,6 @@ import {
 
 const MAX_BUNDLE_UNCOMPRESSED_BYTES = 50 * 1024 * 1024;
 const MAX_BUNDLE_ENTRIES = 200;
-
-const { ZipArchive } = archiver as unknown as {
-  ZipArchive: new (options?: archiver.ArchiverOptions) => archiver.Archiver;
-};
 
 const CHECKER_SCRIPT_LANG: Record<string, JudgeScriptLanguage> = {
   cpp: "cpp",
