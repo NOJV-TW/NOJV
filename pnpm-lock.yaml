@@ -9454,7 +9454,7 @@ snapshots:
 
   '@types/archiver@8.0.0':
     dependencies:
-      '@types/node': 26.4.1
+      '@types/node': 26.6.3
       '@types/readdir-glob': 1.1.5
 
   '@types/aws-lambda@8.10.163': {}
