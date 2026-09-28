@@ -32,7 +32,7 @@ postgres:
   mode: cnpg
   cnpg:
     instances: 1
-    imageName: ghcr.io/cloudnative-pg/postgresql:18@sha256:17760b4508e1703f7bf3d5ee6c9335ff6d1bf62b034a3d5b32a43414a516789f
+    imageName: ghcr.io/cloudnative-pg/postgresql:18.6@sha256:899d3ed526b659d77935dde0e6bf2d69dbbf17d3d8c6486ca8cfd04bd3c18533
     storageSize: 10Gi
     storageClass: ""
     database: nojv
