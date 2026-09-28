@@ -1,0 +1,15 @@
+[Unit]
+Description=NOJV post-reboot recovery (replace stale-CNI app pods)
+Documentation=https://nojv.tw
+After=k3s.service network-online.target
+Wants=k3s.service network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/nojv-reboot-recover.sh
+TimeoutStartSec=900
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
