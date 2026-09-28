@@ -23,7 +23,6 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@types/nodemailer": "^8.0.1",
     "tsdown": "catalog:"
   }
 }
