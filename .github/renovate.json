@@ -132,6 +132,12 @@
       "matchDepNames": ["cloudnative-pg/cloudnative-pg", "temporal"],
       "matchUpdateTypes": ["minor"],
       "dependencyDashboardApproval": true
+    },
+    {
+      "description": "better-auth upgrades can change auth APIs and require account migrations (#403); kysely is its query builder. Review them together, on approval.",
+      "matchPackageNames": ["better-auth", "/^@better-auth\\//", "kysely"],
+      "groupName": "better-auth",
+      "dependencyDashboardApproval": true
     }
   ],
   "flux": {
