@@ -26,7 +26,7 @@ wiring and Temporal are in [GKE notes](gke/README.md).
 | Postgres        | Cloud SQL (private IP) through the Auth Proxy sidecar                          |
 | Redis           | Memorystore (private IP)                                                       |
 | Object storage  | GCS (S3-compatible)                                                            |
-| Registry        | In-cluster `registry:2` with GCS blobs, on its own Cloudflare-proxied hostname |
+| Registry        | In-cluster `registry:3` with GCS blobs, on its own Cloudflare-proxied hostname |
 | Temporal        | Official Temporal Helm chart in `nojv-temporal`                                |
 | Images          | Artifact Registry                                                              |
 

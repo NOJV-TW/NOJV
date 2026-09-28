@@ -1,6 +1,6 @@
 {{- if .Values.registry.enabled }}
 {{/*
-In-cluster OCI registry (CNCF distribution / registry:2) for teacher-built
+In-cluster OCI registry (CNCF distribution / registry:3) for teacher-built
 special_env judge images. Stateless — blobs live in registry.bucket on the
 in-cluster store selected by storage.active when storage.inCluster, otherwise in
 registry.s3.regionendpoint.
