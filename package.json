@@ -68,7 +68,7 @@
     "axe-core": "4.13.0",
     "eslint": "^10.9.1",
     "globals": "^17.12.0",
-    "jsdom": "29.1.1",
+    "jsdom": "30.1.1",
     "jszip": "catalog:",
     "prettier": "^3.9.8",
     "rate-limiter-flexible": "catalog:",
