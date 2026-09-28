@@ -72,7 +72,7 @@ cloudsqlProxy:
 
 redis:
   inCluster: true
-  image: redis:8-alpine@sha256:9d317178eceac8454a2284a9e6df2466b93c745529947f0cd42a0fa9609d7005
+  image: redis:8-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0
   storageSize: 1Gi
   storageClass: ""
   resources:
