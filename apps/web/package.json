@@ -55,7 +55,7 @@
     "driver.js": "^1.8.0",
     "echarts": "^6.1.0",
     "ioredis": "catalog:",
-    "isomorphic-dompurify": "^3.19.0",
+    "isomorphic-dompurify": "^4.0.0",
     "jose": "catalog:",
     "jszip": "catalog:",
     "katex": "^0.18.9",
