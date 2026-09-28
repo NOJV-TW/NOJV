@@ -209,7 +209,7 @@ temporal:
 observability:
   collector:
     enabled: false
-    image: otel/opentelemetry-collector-contrib:0.122.1@sha256:0076e6c250bef16968e29e8f94177b87b5a851c79ce14b270e657f5f655b9e04
+    image: otel/opentelemetry-collector-contrib:0.161.0@sha256:fd328de2552466ad78385e1b1289c3f2402b1c45f265b252aab1955b42845ac1
     remoteWriteUrl: ""
     resources:
       requests:
