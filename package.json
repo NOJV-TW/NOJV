@@ -51,7 +51,7 @@
     "test:integration:storage": "vitest run --project storage-conformance"
   },
   "devDependencies": {
-    "@better-auth/core": "1.6.23",
+    "@better-auth/core": "1.7.6",
     "@kubernetes/client-node": "^1.4.0",
     "@nojv/eslint-config": "workspace:*",
     "@nojv/prettier-config": "workspace:*",
