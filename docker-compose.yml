@@ -93,7 +93,7 @@ services:
       start_period: 120s
 
   temporal-ui:
-    image: temporalio/ui:2.38.2@sha256:ea070df1a0b8aacae43abfb91b0e70ebdaef825fd15dab32d2a2f64b33946858
+    image: temporalio/ui:2.54.1@sha256:ff0943fe532b8e33c46cd28b29e81e0ce0b6f55b9ee50a38ef1b437cc4de3fa5
     restart: unless-stopped
     depends_on:
       temporal:
