@@ -26,6 +26,7 @@ overrides:
   "brace-expansion": 5.0.12
   deepmerge-ts: ">=8.0.0"
   "undici": 7.30.0
+  "@kubernetes/client-node>undici": ^8.11.2
   "ip-address": 10.7.2
   js-yaml: ^4.3.2
   ts-deepmerge: ">=8.0.0"
