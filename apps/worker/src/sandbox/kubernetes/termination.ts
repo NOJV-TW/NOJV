@@ -66,6 +66,8 @@ export class SandboxCleanupBudget {
   }
 }
 
+const TERMINATION_POLL_MS = 100;
+
 interface TerminationOptions {
   timeoutMs?: number;
   pollMs?: number;
@@ -82,15 +84,13 @@ export async function terminateSandboxJob(
   const resource = `Job ${namespace}/${name}`;
   const budget = options.budget ?? new SandboxCleanupBudget(options.timeoutMs);
   const call = <T>(operation: () => Promise<T>) => budget.call(resource, operation);
-  let job: k8s.V1Job | undefined;
-  try {
-    job = await call(() => batch.readNamespacedJob({ namespace, name }));
-  } catch (error) {
-    if (!isK8sNotFound(error)) throw error;
-  }
-  const before = await call(() =>
-    core.listNamespacedPod({ namespace, labelSelector: `job-name=${name}` }),
-  );
+  const [job, before] = await Promise.all([
+    call(() => batch.readNamespacedJob({ namespace, name })).catch((error: unknown) => {
+      if (isK8sNotFound(error)) return undefined;
+      throw error;
+    }),
+    call(() => core.listNamespacedPod({ namespace, labelSelector: `job-name=${name}` })),
+  ]);
   const owned = new Set(
     before.items
       .map((pod) => pod.metadata?.uid)
@@ -135,7 +135,7 @@ export async function terminateSandboxJob(
           `Pod ${pod.metadata?.name ?? name} ownership changed`,
         ]);
     }
-    await budget.pause(resource, options.pollMs ?? 500);
+    await budget.pause(resource, options.pollMs ?? TERMINATION_POLL_MS);
   }
 }
 
@@ -172,6 +172,6 @@ export async function terminateSandboxPod(
     if (pods.items.length === 0) return;
     if (pods.items.some((pod) => pod.metadata?.uid !== uid))
       throw new SandboxCleanupPendingError([`${resource} ownership changed`]);
-    await budget.pause(resource, options.pollMs ?? 500);
+    await budget.pause(resource, options.pollMs ?? TERMINATION_POLL_MS);
   }
 }

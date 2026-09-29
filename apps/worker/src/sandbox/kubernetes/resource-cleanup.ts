@@ -223,10 +223,9 @@ export class KubernetesSandboxCleanup {
 
   async cleanup(jobName: string, namespace: string, payloadNames: string[]): Promise<void> {
     const budget = new SandboxCleanupBudget();
-    await this.cleanupJob(jobName, namespace, budget);
-    await runCleanupOperations(
-      "sandbox",
-      payloadNames.map((name) => this.cleanupConfigMap(name, namespace, budget)),
-    );
+    await runCleanupOperations("sandbox", [
+      this.cleanupJob(jobName, namespace, budget),
+      ...payloadNames.map((name) => this.cleanupConfigMap(name, namespace, budget)),
+    ]);
   }
 }

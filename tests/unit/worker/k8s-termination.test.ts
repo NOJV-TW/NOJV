@@ -30,6 +30,32 @@ describe("sandbox termination barrier", () => {
     );
     expect(core.listNamespacedPod).toHaveBeenCalledTimes(3);
   });
+  it("confirms Pod disappearance on a 100 ms poll", async () => {
+    vi.useFakeTimers();
+    try {
+      const { core, batch } = clients();
+      core.listNamespacedPod
+        .mockResolvedValueOnce({ items: [pod] })
+        .mockResolvedValueOnce({ items: [pod] })
+        .mockResolvedValue({ items: [] });
+      let confirmed = false;
+      const termination = terminateSandboxJob(
+        core as never,
+        batch as never,
+        "sandbox",
+        "judge-run",
+      ).then(() => {
+        confirmed = true;
+      });
+      await vi.advanceTimersByTimeAsync(99);
+      expect(confirmed).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      await termination;
+      expect(confirmed).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it("reports cleanup_pending when FailedKillPod leaves the old Pod present", async () => {
     const { core, batch } = clients();
     core.listNamespacedPod.mockResolvedValue({ items: [pod] });

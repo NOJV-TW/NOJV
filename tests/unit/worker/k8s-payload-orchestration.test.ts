@@ -126,7 +126,7 @@ function clients(
 }
 
 describe("K8sExecutor sharded payload orchestration", () => {
-  it("retains payloads after delete acceptance until the owned Pod actually disappears", async () => {
+  it("does not confirm cleanup after delete acceptance until the owned Pod actually disappears", async () => {
     vi.useFakeTimers();
     try {
       const fake = clients();
@@ -136,7 +136,10 @@ describe("K8sExecutor sharded payload orchestration", () => {
         runId: "termination-barrier",
         signal: new AbortController().signal,
       });
-      const result = expect(execution).resolves.toBeDefined();
+      let settled = false;
+      const result = execution.then(() => {
+        settled = true;
+      });
       await vi.advanceTimersByTimeAsync(0);
       expect(fake.handles.batchApi.deleteNamespacedJob).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -147,13 +150,15 @@ describe("K8sExecutor sharded payload orchestration", () => {
         }),
       );
       expect(fake.record.configMapsCreated.length).toBeGreaterThan(0);
-      expect(fake.record.configMapsDeleted).toEqual([]);
+      expect(fake.record.configMapsDeleted.toSorted()).toEqual(
+        fake.record.configMapsCreated.toSorted(),
+      );
       await vi.advanceTimersByTimeAsync(1_000);
-      expect(fake.record.configMapsDeleted).toEqual([]);
+      expect(settled).toBe(false);
       await deleteJob({ name: "judge-termination-barrier" });
-      await vi.advanceTimersByTimeAsync(500);
+      await vi.advanceTimersByTimeAsync(100);
       await result;
-      expect(fake.record.configMapsDeleted).toEqual(fake.record.configMapsCreated);
+      expect(settled).toBe(true);
     } finally {
       vi.useRealTimers();
     }

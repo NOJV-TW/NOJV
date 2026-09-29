@@ -94,7 +94,8 @@ Checkpoints and pinned content survive continue-as-new.
   show the submission as `system_error` while it retries; nothing exhausts into a
   final student verdict.
 - Namespace hard quotas reject only demonstrably infeasible requests; scoped quotas,
-  admission defaults and node capacity are left to actual admission.
+  admission defaults and node capacity are left to actual admission. The worker
+  re-reads hard quotas at most every 30 s.
 - Retries reuse the pinned snapshot and image; they never substitute a version.
 
 ### Reconciliation
@@ -665,6 +666,11 @@ failure is reported separately as CE.
   objects with UID preconditions and foreground deletion. A timeout or ownership
   change raises `cleanup_pending` and keeps the lease (JDG-22). Kubernetes API
   disappearance alone does not prove runtime termination.
+- A stage deletes its Job and payload ConfigMaps together under one 30 s budget and
+  polls every 100 ms until the owned Pods are gone; the stage reports only after both
+  are confirmed.
+- The worker's Kubernetes API calls and watches share one keep-alive dispatcher,
+  replaced every 30 s.
 - The runner cleans its `mkdtemp` work directory in `finally`.
 - `judge_phase_duration_seconds` phases: `queue`, `admission`, `schedule`, `startup`
   (includes image pull), `prepare`, `execute`, `checker`, `collect`, `cleanup`,
