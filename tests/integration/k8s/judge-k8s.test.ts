@@ -9,7 +9,6 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import type { SandboxRequest } from "@nojv/core";
 
 import {
-  createKubeConfig,
   K8sExecutor,
   type K8sExecutorConfig,
 } from "../../../apps/worker/src/sandbox/kubernetes/executor.js";
@@ -207,7 +206,7 @@ async function deleteNetworkPolicy(name: string): Promise<void> {
 beforeAll(async () => {
   assertK8sIntegrationOptIn(process.env);
   const k8sLib = require("@kubernetes/client-node") as typeof k8s;
-  const kc = createKubeConfig();
+  const kc = new k8sLib.KubeConfig();
   kc.loadFromDefault();
   const target = assertSafeK8sIntegrationTarget({
     env: process.env,

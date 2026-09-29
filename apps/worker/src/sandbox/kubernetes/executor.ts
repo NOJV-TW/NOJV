@@ -43,33 +43,9 @@ export interface K8sClientHandles {
   watch: K8sWatchClient;
 }
 
-type K8sDispatcher = NonNullable<ReturnType<k8s.RequestContext["getDispatcher"]>>;
-
-const DISPATCHER_REUSE_MS = 30_000;
-
-export function createKubeConfig(): k8s.KubeConfig {
-  const k8sLib = require("@kubernetes/client-node") as typeof k8s;
-  let shared: { dispatcher: K8sDispatcher; expiresAt: number } | undefined;
-  const close = (dispatcher: K8sDispatcher) => void dispatcher.close().catch(() => undefined);
-  return new (class extends k8sLib.KubeConfig {
-    override async applySecurityAuthentication(context: k8s.RequestContext): Promise<void> {
-      await super.applySecurityAuthentication(context);
-      const created = context.getDispatcher();
-      if (!created) return;
-      if (shared && shared.expiresAt > Date.now()) {
-        context.setDispatcher(shared.dispatcher);
-        close(created);
-        return;
-      }
-      if (shared) close(shared.dispatcher);
-      shared = { dispatcher: created, expiresAt: Date.now() + DISPATCHER_REUSE_MS };
-    }
-  })();
-}
-
 function createK8sClientHandles(): K8sClientHandles {
   const k8sLib = require("@kubernetes/client-node") as typeof k8s;
-  const kubeConfig = createKubeConfig();
+  const kubeConfig = new k8sLib.KubeConfig();
   kubeConfig.loadFromCluster();
   return {
     coreApi: kubeConfig.makeApiClient(k8sLib.CoreV1Api),

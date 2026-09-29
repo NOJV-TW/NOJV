@@ -677,8 +677,7 @@ failure is reported separately as CE.
 - A stage deletes its Job and payload ConfigMaps together under one 30 s budget and
   polls every 100 ms until the owned Pods are gone; the stage reports only after both
   are confirmed.
-- The worker's Kubernetes API calls and watches share one keep-alive dispatcher,
-  replaced every 30 s.
+- Each Kubernetes API call uses the client library's own per-request connection.
 - The runner cleans its `mkdtemp` work directory in `finally`.
 - `judge_phase_duration_seconds` phases: `queue`, `admission`, `schedule`, `startup`
   (includes image pull), `prepare`, `execute`, `checker`, `collect`, `cleanup`,
