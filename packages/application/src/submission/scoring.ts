@@ -56,9 +56,11 @@ export const verdictMap: Record<string, SubmissionResult["verdict"]> = {
   SE: "system_error",
 };
 
+type ScoredTestcaseSet = Omit<TestcaseSetGroup, "testcases"> & { testcases: { id: string }[] };
+
 export function buildSubtaskResults(
   result: SandboxResult,
-  testcaseSets: TestcaseSetGroup[],
+  testcaseSets: ScoredTestcaseSet[],
 ): SubtaskResultItem[] {
   let flatIndex = 0;
   const resultsByIndex = new Map(result.testcaseResults.map((item) => [item.index, item]));
@@ -101,8 +103,8 @@ export function buildSubtaskResults(
 
 export function mapResult(
   result: SandboxResult,
-  testcaseSets: TestcaseSetGroup[],
-  judgeContext: SubmissionJudgeContext,
+  testcaseSets: ScoredTestcaseSet[],
+  judgeContext: Pick<SubmissionJudgeContext, "adjustment" | "advanced">,
   expectedCaseCount: number | undefined = testcaseSets.length > 0
     ? testcaseSets.reduce((total, set) => total + set.testcases.length, 0)
     : undefined,

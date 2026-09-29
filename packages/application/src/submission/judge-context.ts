@@ -3,12 +3,12 @@ import { submissionRepo } from "@nojv/db";
 import {
   adjustmentRulesSchema,
   type AdjustmentRules,
-  type ProblemJudgeTestcase,
   type Runtime,
   type SubmissionJudgeDraft,
 } from "@nojv/core";
+import { assertStorageObjectPointer } from "@nojv/storage";
 import {
-  readTestcaseBlobs,
+  parsePointerMap,
   readValidatorScriptBlob,
   readWorkspaceFileBlob,
 } from "../problem/blobs";
@@ -21,8 +21,9 @@ import { IntegrityError, NotFoundError } from "../shared/errors";
 import type {
   AdjustmentContext,
   AdvancedModeContext,
+  PinnedJudgeContext,
+  PinnedJudgeTestcase,
   SubmissionJudgeContext,
-  TestcaseSetGroup,
   WorkspaceFileEntry,
 } from "./types";
 
@@ -46,7 +47,7 @@ export function deriveJudgeMode(
   return "advanced";
 }
 
-export async function getJudgeContext(submissionId: string): Promise<SubmissionJudgeContext> {
+export async function getJudgeContext(submissionId: string): Promise<PinnedJudgeContext> {
   const submission = await submissionRepo.findByIdWithJudgeContext(submissionId);
 
   if (!submission) throw new NotFoundError(`Submission ${submissionId} not found`);
@@ -64,32 +65,23 @@ export async function getJudgeContext(submissionId: string): Promise<SubmissionJ
     );
   }
 
-  const testcaseSets: TestcaseSetGroup[] = await Promise.all(
-    problem.testcaseSets.map(async (ts) => {
-      const testcases = await Promise.all(
-        ts.testcases.map(async (testcase): Promise<ProblemJudgeTestcase> => {
-          const blobs = await readTestcaseBlobs({
-            inputStorage: testcase.inputStorage,
-            outputStorage: testcase.outputStorage,
-            inputFileStorage: testcase.inputFileStorage,
-          });
-          return {
-            id: testcase.id,
-            input: blobs.input,
-            ...(blobs.output !== undefined ? { output: blobs.output } : {}),
-            ...(blobs.inputFiles !== undefined ? { inputFiles: blobs.inputFiles } : {}),
-            weight: ts.weight,
-          };
-        }),
-      );
+  const testcaseSets: PinnedJudgeContext["testcaseSets"] = problem.testcaseSets.map((ts) => ({
+    id: ts.id,
+    name: ts.name,
+    weight: ts.weight,
+    testcases: ts.testcases.map((testcase): PinnedJudgeTestcase => {
+      const inputFiles = parsePointerMap(testcase.inputFileStorage);
       return {
-        id: ts.id,
-        name: ts.name,
-        testcases,
+        id: testcase.id,
+        input: assertStorageObjectPointer(testcase.inputStorage),
+        ...(testcase.outputStorage !== null
+          ? { output: assertStorageObjectPointer(testcase.outputStorage) }
+          : {}),
+        ...(inputFiles ? { inputFiles } : {}),
         weight: ts.weight,
       };
     }),
-  );
+  }));
 
   const samples = buildProblemSamples(problem);
 

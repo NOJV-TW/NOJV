@@ -10,6 +10,7 @@ import type {
   Runtime,
   WorkspaceFileVisibility,
 } from "@nojv/core";
+import type { StorageObjectPointer } from "@nojv/storage";
 
 export interface TestcaseSetGroup {
   id: string;
@@ -68,3 +69,15 @@ export interface CompletedSubmission {
   status: string;
   userId: string;
 }
+
+export interface PinnedJudgeTestcase {
+  id: string;
+  weight: number;
+  input: StorageObjectPointer;
+  output?: StorageObjectPointer;
+  inputFiles?: Record<string, StorageObjectPointer>;
+}
+
+export type PinnedJudgeContext = Omit<SubmissionJudgeContext, "testcaseSets"> & {
+  testcaseSets: (Omit<TestcaseSetGroup, "testcases"> & { testcases: PinnedJudgeTestcase[] })[];
+};

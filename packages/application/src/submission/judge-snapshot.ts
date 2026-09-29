@@ -169,7 +169,11 @@ export async function prepareJudgeSnapshot(
   submissionId: string,
   draft: SubmissionJudgeDraft,
   sources?: SubmissionSource[],
-): Promise<{ pointer: StorageObjectPointer; problemGeneration: number }> {
+): Promise<{
+  pointer: StorageObjectPointer;
+  problemGeneration: number;
+  pins: StorageObjectPointer[];
+}> {
   const before = await db.problem.findUniqueOrThrow({
     where: { id: draft.problemId },
     select: { storageGeneration: true },
@@ -184,8 +188,8 @@ export async function prepareJudgeSnapshot(
   });
   if (before.storageGeneration !== after.storageGeneration)
     throw new ConflictError("Problem changed while pinning the judge version. Please retry.");
-  const snapshot = judgeSnapshotSchema.parse({
-    format: 1,
+  const snapshot = pinnedJudgeSnapshotSchema.parse({
+    format: 2,
     sandboxImage: process.env.SANDBOX_IMAGE,
     submissionId,
     problemGeneration: before.storageGeneration,
@@ -199,7 +203,11 @@ export async function prepareJudgeSnapshot(
   await guardStorageObjectWrites([pointer]);
   await putImmutableObject(storage(), key, body, { contentType: "application/json" });
 
-  return { pointer, problemGeneration: before.storageGeneration };
+  return {
+    pointer,
+    problemGeneration: before.storageGeneration,
+    pins: pinnedObjects(snapshot),
+  };
 }
 
 export async function readJudgeSnapshot(pointer: unknown): Promise<JudgeSnapshot> {

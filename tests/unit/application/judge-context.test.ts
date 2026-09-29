@@ -18,7 +18,8 @@ vi.mock("@nojv/db", () => ({
   },
 }));
 
-vi.mock("../../../packages/application/src/problem/blobs", () => ({
+vi.mock("../../../packages/application/src/problem/blobs", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../packages/application/src/problem/blobs")>()),
   readTestcaseBlobs,
   readWorkspaceFileBlob,
   readValidatorScriptBlob,
@@ -105,20 +106,20 @@ describe("getJudgeContext", () => {
     await expect(getJudgeContext("sub_missing")).rejects.toBeInstanceOf(NotFoundError);
   });
 
-  it("loads testcase blobs through the storage helper for every testcase", async () => {
+  it("pins testcase pointers without reading testcase objects", async () => {
     findByIdWithJudgeContext.mockResolvedValue(mkSubmissionRow());
 
     const ctx = await getJudgeContext("sub_1");
 
-    expect(readTestcaseBlobs).toHaveBeenCalledTimes(1);
-    expect(readTestcaseBlobs).toHaveBeenCalledWith({
-      inputStorage: pointer("tests/prob_1/tc_1/input.txt"),
-      outputStorage: pointer("tests/prob_1/tc_1/output.txt"),
-      inputFileStorage: null,
-    });
-    expect(ctx.testcaseSets).toHaveLength(1);
-    expect(ctx.testcaseSets[0]!.testcases[0]!.input).toBe("1 2");
-    expect(ctx.testcaseSets[0]!.testcases[0]!.output).toBe("3");
+    expect(readTestcaseBlobs).not.toHaveBeenCalled();
+    expect(ctx.testcaseSets[0]!.testcases).toEqual([
+      {
+        id: "tc_1",
+        weight: 100,
+        input: pointer("tests/prob_1/tc_1/input.txt"),
+        output: pointer("tests/prob_1/tc_1/output.txt"),
+      },
+    ]);
   });
 
   it("loads workspace files through the workspace blob helper", async () => {
@@ -214,7 +215,7 @@ describe("getJudgeContext", () => {
     await expect(getJudgeContext("sub_1")).rejects.toBeInstanceOf(IntegrityError);
   });
 
-  it("propagates fail-closed pointer validation from the testcase blob reader", async () => {
+  it("fails closed on a malformed input-file pointer map", async () => {
     const row = mkSubmissionRow(
       {},
       {
@@ -237,9 +238,7 @@ describe("getJudgeContext", () => {
       },
     );
     findByIdWithJudgeContext.mockResolvedValue(row);
-    readTestcaseBlobs.mockRejectedValueOnce(new IntegrityError("Malformed pointer map"));
-
-    await expect(getJudgeContext("sub_1")).rejects.toBeInstanceOf(IntegrityError);
+    await expect(getJudgeContext("sub_1")).rejects.toThrow("malformed");
   });
 
   it("fails closed when persisted assignment adjustmentRules is invalid", async () => {
