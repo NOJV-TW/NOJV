@@ -49,7 +49,7 @@ source. Do not read every architecture document for a routine change.
 
 ## Quick Reference
 
-- **Monorepo**: pnpm 11.13.1 workspaces + Turborepo, Node.js >=24.18 <25, ESM
+- **Monorepo**: pnpm 11.28.2 workspaces + Turborepo, Node.js >=24.18 <25, ESM
 - **Frontend**: SvelteKit + Vite + Tailwind CSS 4 + Bits UI + Monaco Editor
 - **Auth**: better-auth (GitHub + Google OAuth; admin credentials + expiring exam passwords; passkeys for step-up)
 - **Orchestration**: Temporal (TypeScript SDK)
