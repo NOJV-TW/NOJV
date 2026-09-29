@@ -218,3 +218,14 @@ The single-machine Temporal release runs one pod per role (frontend, history, ma
 - Rule: every Temporal release change is a merged change to `infra/flux/temporal*.yaml`; chart bumps arrive as Renovate PRs so schema upgrades are reviewed. Upgrades are not auto-remediated, drift detection stays `warn`, and the `nojv` Kustomization keeps `prune: false`, so removing the files never uninstalls Temporal.
 - Rule: `helm-values.ha.yaml` is an unvalidated GKE reference; do not claim Temporal HA until a regional database, the Cloud SQL proxy and a cluster drill exist.
 - Code: `infra/flux/temporal.yaml`, `infra/flux/temporal-values.yaml`, `infra/gcp/gke/temporal/`, `docs/runbooks/k8s-single-machine.md`, `docs/runbooks/incident-recovery.md`
+
+### OPS-20 The web image ships production dependencies only
+
+**Decided:** 2026-09 · **Source:** [#589](https://github.com/NOJV-TW/NOJV/pull/589)
+
+Production pulls images over a ~0.5 MB/s uplink, and the web image was 1.1 GB compressed because its runtime stage copied the build stage's full `node_modules` (Vite, Svelte tooling, Playwright, Temporal worker bridge, paraglide's lix SDK) plus a second copy of the WASM-OJ toolchains. The runtime stage now installs `--prod` dependencies from the same lockfile, drops the WASM-OJ asset copies under `node_modules`, and client-only packages moved to `devDependencies`; the image is about 0.5 GB compressed with byte-identical server output.
+
+- Rejected: bundling all server dependencies into the adapter-node output (OpenTelemetry auto-instrumentation, Prisma and gRPC rely on runtime `node_modules` resolution); tracing files with node-file-trace (a new tool and opaque failure mode); deleting auto-installed peer tooling (Prisma CLI, Vite, Vitest pulled in as better-auth/Prisma peers) by name, which would need a hand-kept denylist.
+- Rule: `apps/web` `dependencies` lists only packages the server build imports at runtime; client-only packages go in `devDependencies`.
+- Rule: the runtime stage copies `node_modules` only from the `prod-deps` stage.
+- Code: `infra/docker/web.Dockerfile`, `apps/web/package.json`

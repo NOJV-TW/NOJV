@@ -182,6 +182,7 @@ Durable decisions for NOJV, grouped by area. Each entry records what was decided
 - OPS-17 Email is durable work over a generic SMTP mailer
 - OPS-18 Renovate is the only dependency update bot
 - OPS-19 Single-machine Temporal is one pod per role, reproduced from the repo
+- OPS-20 The web image ships production dependencies only
 
 ## [Engineering practice](engineering.md)
 
