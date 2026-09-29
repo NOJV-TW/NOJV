@@ -74,7 +74,12 @@ export async function dispatchNextJudgeExecutions(userId: string): Promise<void>
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       select: { id: true, workflowId: true },
     });
-    if (next) await enqueueJudgeDispatch(next);
+    if (!next) continue;
+    await enqueueJudgeDispatch(next);
+    await executeJudgeExecutionDispatch({
+      executionId: next.id,
+      workflowId: next.workflowId,
+    }).catch(() => undefined);
   }
 }
 

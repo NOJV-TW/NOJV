@@ -71,9 +71,9 @@ export async function executeJudgeStage(
         };
     if (index >= total) {
       cleanupConfirmed = true;
+      await submissionDomain.setJudgeExecutionState(executionId, workflowId, "finalizing");
       return { status: "finished" as const };
     }
-    await submissionDomain.setJudgeExecutionState(executionId, workflowId, "running");
     const result = await getExecutorOwner().execute(request, signal, leaseToken);
     cleanupConfirmed = true;
     if (

@@ -53,6 +53,7 @@ async function scenario(options: {
           message: "node lost",
         });
       if (attempts <= (options.wait ?? 0)) return { status: "cleanup" };
+      state = "finalizing";
       return { status: "finished" };
     }),
     completePinnedJudge: vi.fn(async () => {
@@ -118,6 +119,7 @@ describe("durable judge recovery workflow", () => {
     expect(activities.executeJudgeStage).toHaveBeenCalledTimes(6);
     expect(phases).not.toContain("recovering");
     expect(phases).not.toContain("blocked");
+    expect(phases).not.toContain("finalizing");
     expect(activities.publishVerdict).toHaveBeenCalledOnce();
   }, 30_000);
   it("requeues a stage attempt that never started without marking it SE", async () => {
@@ -132,6 +134,18 @@ describe("durable judge recovery workflow", () => {
       await readFile(
         new URL(
           "../../fixtures/temporal/durable-judge-pre-unstarted-requeue.json",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    await Worker.runReplayHistory({ workflowsPath }, history);
+  }, 15_000);
+  it("replays a pre-fix history that set finalizing after the terminal stage", async () => {
+    const history = JSON.parse(
+      await readFile(
+        new URL(
+          "../../fixtures/temporal/durable-judge-pre-finalizing-dedupe.json",
           import.meta.url,
         ),
         "utf8",

@@ -2,7 +2,13 @@ import { randomUUID } from "node:crypto";
 import { prismaAdapterClient as db, runTransaction } from "@nojv/db";
 
 export async function claimJudgeLease(executionId: string, workflowId: string, owner: string) {
+  const now = new Date();
   return runTransaction(async (tx) => {
+    const selected = await tx.judgeExecution.findUniqueOrThrow({
+      where: { id: executionId },
+      select: { submissionId: true },
+    });
+    await tx.$queryRaw`SELECT id FROM "Submission" WHERE id = ${selected.submissionId} FOR UPDATE`;
     await tx.$queryRaw`SELECT id FROM "JudgeExecution" WHERE id = ${executionId} FOR UPDATE`;
     const current = await tx.judgeExecution.findUniqueOrThrow({ where: { id: executionId } });
     if (current.workflowId !== workflowId || ["cancelled", "completed"].includes(current.state))
@@ -16,11 +22,23 @@ export async function claimJudgeLease(executionId: string, workflowId: string, o
         state: "running",
         leaseToken,
         leaseOwner: owner,
-        leaseUntil: new Date(Date.now() + 120_000),
+        leaseUntil: new Date(now.getTime() + 120_000),
         attempt: { increment: 1 },
-        lastProgressAt: new Date(),
+        lastProgressAt: now,
+        nextAttemptAt: now,
+        reasonCode: null,
+        lastError: null,
       },
     });
+    if (!current.rejudgeLogId)
+      await tx.submission.updateMany({
+        where: {
+          id: current.submissionId,
+          judgeGeneration: current.generation,
+          activeJudgeRunId: workflowId,
+        },
+        data: { status: "running" },
+      });
     return { status: "claimed" as const, leaseToken };
   });
 }

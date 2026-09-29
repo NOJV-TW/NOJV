@@ -133,6 +133,7 @@ Each `JudgeExecution` runs `durableJudgeWorkflow` on the `judge` queue with `pri
 - Rule: stage and bookkeeping activities carry priority; bookkeeping runs on `judge-state` so it never queues behind Jobs; unmapped paths degrade to priority 3.
 - Rule: priority derives from origin (`operationId` marks a rejudge, `recoveryEpoch` a recovery), never from `queueClass`, which only orders a student's own executions; recovered live submissions dispatch ahead of bulk rejudges.
 - Rule: rollback re-dispatches execution rows via the reconciler; never replay new histories with old worker code.
+- Rule: completion and cancellation hand off without waiting for the once-a-minute durable-work cron: they write the next execution's dispatch row, then try the gated start directly. Correctness rests on the row and the workflow ID, never on the direct attempt.
 - Code: `packages/core/src/judge-execution.ts`, `packages/application/src/submission/judge-recovery.ts`, `infra/docker/temporal-dynamic-config.yaml`
 
 ### JDG-13 Load-aware judge slots via Temporal's resource-based tuner
