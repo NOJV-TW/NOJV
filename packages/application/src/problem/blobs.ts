@@ -132,6 +132,32 @@ export async function readWorkspaceFileBlob(pointer: unknown): Promise<string> {
   return getVerifiedText(storage(), assertStorageObjectPointer(pointer));
 }
 
+const WORKSPACE_FILE_CACHE_BYTES = 8 * 1024 * 1024;
+const workspaceFileCache = new Map<string, { content: string; size: number }>();
+let workspaceFileCacheBytes = 0;
+
+export async function readCachedWorkspaceFileBlob(raw: unknown): Promise<string> {
+  const pointer = assertStorageObjectPointer(raw);
+  const cacheKey = `${pointer.key}\0${pointer.sha256}`;
+  const cached = workspaceFileCache.get(cacheKey);
+  if (cached) {
+    workspaceFileCache.delete(cacheKey);
+    workspaceFileCache.set(cacheKey, cached);
+    return cached.content;
+  }
+  const content = await getVerifiedText(storage(), pointer);
+  if (pointer.size <= WORKSPACE_FILE_CACHE_BYTES && !workspaceFileCache.has(cacheKey)) {
+    workspaceFileCache.set(cacheKey, { content, size: pointer.size });
+    workspaceFileCacheBytes += pointer.size;
+    for (const [key, entry] of workspaceFileCache) {
+      if (workspaceFileCacheBytes <= WORKSPACE_FILE_CACHE_BYTES) break;
+      workspaceFileCache.delete(key);
+      workspaceFileCacheBytes -= entry.size;
+    }
+  }
+  return content;
+}
+
 export async function readValidatorScriptBlob(pointer: unknown): Promise<string> {
   return getVerifiedText(storage(), assertStorageObjectPointer(pointer));
 }

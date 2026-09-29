@@ -5,11 +5,10 @@ import { m } from "$lib/paraglide/messages.js";
 import { contestDomain, problemDomain, submissionDomain } from "@nojv/application";
 
 const { getContestWorkspaceData, listContestProblemSiblings } = contestDomain;
-const { getProblemPageData, getProblemTestcaseSets } = problemDomain;
+const { getProblemPageData, getProblemTestcaseSetSummaries } = problemDomain;
 const { canOperateOnSubmission, listProblemSubmissions } = submissionDomain;
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
-import { summarizeTestcaseSets } from "$lib/server/problem-solve";
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   event.depends("submission:data");
@@ -24,7 +23,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     }),
     getProblemPageData(problemId),
     listProblemSubmissions(actor.userId, problemId, { contestId }),
-    getProblemTestcaseSets(problemId),
+    getProblemTestcaseSetSummaries(problemId),
   ]);
 
   const problemsList = contestData.problems ?? [];
@@ -72,6 +71,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     problem,
     siblingProblems,
     submissions,
-    testcaseSets: summarizeTestcaseSets(testcaseSets),
+    testcaseSets,
   };
 });
