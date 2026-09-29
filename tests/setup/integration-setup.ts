@@ -26,6 +26,12 @@ vi.mock("@nojv/storage", async (importOriginal) => {
       testBlobs.set(key, Buffer.from(body));
       return pointer;
     },
+    putObjectIfAbsent: async (_client: unknown, key: string, body: Buffer) => {
+      const pointer = original.storagePointerFor(key, body);
+      if (testBlobs.has(key)) return { created: false, pointer };
+      testBlobs.set(key, Buffer.from(body));
+      return { created: true, pointer };
+    },
     putImmutableText: async (_client: unknown, key: string, content: string) => {
       const body = Buffer.from(content, "utf8");
       const pointer = original.storagePointerFor(key, body);
