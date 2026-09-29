@@ -353,9 +353,7 @@ helm upgrade --install nojv infra/charts/nojv -n nojv \
   --set-string image.tag=local
 ```
 
-On kind use `kind load docker-image` instead of `ctr images import`. The
-`release-prepull` hook pulls web and worker with `imagePullPolicy: Always`, so
-it cannot use images that exist only in containerd.
+On kind use `kind load docker-image` instead of `ctr images import`.
 
 ## 6. Verify
 

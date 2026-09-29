@@ -33,7 +33,7 @@ describeHelm("release image prepull runs before the maintenance drain", () => {
     expect(prepull).toMatch(/helm\.sh\/hook: pre-install,pre-upgrade/);
     expect(prepull).toMatch(/\/web:[^@\s]+@sha256:/);
     expect(prepull).toMatch(/\/worker:[^@\s]+@sha256:/);
-    expect((prepull.match(/imagePullPolicy: Always/g) ?? []).length).toBe(2);
+    expect((prepull.match(/imagePullPolicy: IfNotPresent/g) ?? []).length).toBe(2);
     expect(prepull).toMatch(/command: \["node", "-e", "0"\]/);
   });
 

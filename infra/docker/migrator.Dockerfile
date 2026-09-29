@@ -23,7 +23,7 @@ COPY packages/db/prisma.config.ts packages/db/
 COPY packages/core/package.json packages/core/
 COPY packages/storage/package.json packages/storage/
 
-RUN pnpm install --frozen-lockfile --filter @nojv/db...
+RUN --mount=type=cache,id=pnpm-store-alpine,target=/pnpm/store pnpm install --frozen-lockfile --filter @nojv/db...
 
 ENV pnpm_config_verify_deps_before_run=false
 

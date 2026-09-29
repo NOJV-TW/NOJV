@@ -42,7 +42,7 @@ spec:
       containers:
         - name: sandbox
           image: {{ include "nojv.image" (dict "root" . "component" "sandbox") }}
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           command: ["/bin/true"]
           securityContext:
             allowPrivilegeEscalation: false

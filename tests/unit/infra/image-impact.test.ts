@@ -189,7 +189,9 @@ describe("Image Build workflow contract", () => {
   it("builds only the classifier-provided image matrix", () => {
     expect(workflow).toContain("if: needs.classify.outputs.has_images == 'true'");
     expect(workflow).toContain("include: ${{ fromJSON(needs.classify.outputs.matrix) }}");
-    expect(workflow).toContain('docker build -f "$DOCKERFILE" -t "$TAG" .');
+    expect(workflow).toContain("file: ${{ matrix.dockerfile }}");
+    expect(workflow).toContain("tags: ${{ matrix.tag }}");
+    expect(workflow).toContain("push: false");
     expect(workflow).not.toContain("docker build -f infra/docker/web.Dockerfile");
   });
 

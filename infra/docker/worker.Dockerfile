@@ -30,7 +30,7 @@ COPY packages/storage/package.json packages/storage/
 COPY packages/mailer/package.json packages/mailer/
 COPY packages/sandbox-docker/package.json packages/sandbox-docker/
 
-RUN pnpm install --frozen-lockfile --filter @nojv/worker...
+RUN --mount=type=cache,id=pnpm-store-bookworm,target=/pnpm/store pnpm install --frozen-lockfile --filter @nojv/worker...
 
 ENV pnpm_config_verify_deps_before_run=false
 

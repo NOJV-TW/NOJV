@@ -34,7 +34,7 @@ spec:
         {{- range $component := list "web" "worker" }}
         - name: {{ $component }}
           image: {{ include "nojv.image" (dict "root" $ "component" $component) }}
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           command: ["node", "-e", "0"]
           securityContext:
             allowPrivilegeEscalation: false

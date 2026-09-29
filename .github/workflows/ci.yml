@@ -90,10 +90,35 @@ jobs:
       - name: Lint and render the Helm umbrella chart
         run: pnpm lint:helm
 
+      - name: Restore Turborepo cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: turbo-${{ runner.os }}-
+
       - name: Verify monorepo (build, lint, typecheck, unit tests)
         run: pnpm ci:verify
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
+          TURBO_CACHE_DIR: .turbo/cache
+          TURBO_RUN_SUMMARY: "true"
+
+      - name: Keep only this run's Turborepo cache entries
+        run: |
+          set -euo pipefail
+          jq -r '.tasks[].hash' .turbo/runs/*.json | sort -u > "$RUNNER_TEMP/turbo-hashes"
+          find .turbo/cache -maxdepth 1 -type f | while read -r entry; do
+            name="$(basename "$entry")"
+            grep -qxF "${name%%[-.]*}" "$RUNNER_TEMP/turbo-hashes" || rm -f "$entry"
+          done
+          du -sh .turbo/cache
+
+      - name: Save Turborepo cache
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   coverage:
     name: Unit and integration coverage
@@ -222,8 +247,13 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup monorepo
-        uses: ./.github/actions/setup
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
 
       # Hard gate: any high or critical advisory fails the build.
       # Moderate/low are reported by `pnpm audit` locally but not gated.
@@ -276,8 +306,17 @@ jobs:
       - name: Setup monorepo
         uses: ./.github/actions/setup
 
+      - name: Restore Turborepo cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: turbo-${{ runner.os }}-
+
       - name: Build web dependency chain
-        run: pnpm --filter @nojv/web... build
+        run: pnpm turbo run build --filter=@nojv/web...
+        env:
+          TURBO_CACHE_DIR: .turbo/cache
 
       - name: Mark the isolated browser-test database
         run: >-

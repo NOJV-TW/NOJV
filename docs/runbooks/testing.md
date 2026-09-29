@@ -55,6 +55,8 @@ pnpm ci:verify                # local gate without services
 
 CI (`ci.yml`) additionally runs `pnpm lint:helm`, integration tests with the coverage gate, Temporal integration, the S3 conformance test against Versity (`storage-conformance` job) and a core Playwright browser smoke. The scheduled sandbox workflow (`nightly-sandbox.yml`, weekly) runs the sandbox isolation suite and the K8s suite on a k3d cluster. A green `ci:verify` proves only its own scope.
 
+CI jobs restore the pnpm store by lockfile hash, falling back to the newest store from the same month. Repository checks restore and save the Turborepo cache (`.turbo/cache`, pruned to the task hashes of that run); the browser smoke restores it. A cache hit skips the task and restores its outputs, so a file a task reads outside its package must be listed in `turbo.json` `globalDependencies`, and every file it writes must match its `outputs`.
+
 ## Service prerequisites
 
 - **Integration**: PostgreSQL, Redis, MinIO and Temporal from Compose, plus `nojv_test`. Temporal test servers download on first use and are cached in `$TMPDIR` for a day; CI pre-downloads them with `scripts/download-temporal-test-servers.sh`.
