@@ -241,6 +241,7 @@ The testcase limit is 10 MiB of UTF-8 (`MAX_TESTCASE_FILE_BYTES`). K8s payloads 
 
 A run owns its Jobs, Pods, ConfigMaps, PVCs and temporary results; deletes carry UID preconditions, and unconfirmed cleanup is reported as `cleanup_pending` and retried durably. A stalled gVisor Pod deletion during the 2026-09-21 quota incident showed that name-based cleanup can hit the wrong object or leak capacity.
 
-- Rejected: restarting k3s/containerd to clear remnants.
+- Rejected: restarting k3s/containerd to clear remnants; deleting payload ConfigMaps only after the Pods are gone (a mounted ConfigMap's deletion does not affect a started or finished Pod, and the ordering kept answers in the API when termination stalled).
 - Rule: runtime-level remnants need identity-checked operator verification; no production load tests during an exam.
+- Rule: a stage's lease is released only after its Pods are gone and every payload ConfigMap delete succeeded; faster confirmation never skips a check.
 - Code: `apps/worker/src/sandbox/kubernetes/resource-cleanup.ts`, `apps/worker/src/sandbox/kubernetes/termination.ts`

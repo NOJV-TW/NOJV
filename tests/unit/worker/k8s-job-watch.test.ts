@@ -250,9 +250,7 @@ describe("K8sExecutor Job/Pod watch completion", () => {
       );
       expect(fake.handles.coreApi.readNamespacedPodLog).not.toHaveBeenCalled();
       expect(fake.handles.batchApi.deleteNamespacedJob).toHaveBeenCalledOnce();
-      if (cleanupFails)
-        expect(fake.handles.coreApi.deleteNamespacedConfigMap).not.toHaveBeenCalled();
-      else expect(fake.handles.coreApi.deleteNamespacedConfigMap).toHaveBeenCalled();
+      expect(fake.handles.coreApi.deleteNamespacedConfigMap).toHaveBeenCalled();
     },
   );
 

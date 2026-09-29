@@ -129,8 +129,7 @@ export class KubernetesInteractiveExecutor {
         deadlineSeconds,
         signal,
       );
-      await this.observer.observeJobLifecycle(jobName, namespace, request);
-      const podName = await this.observer.findPodName(jobName, namespace, signal);
+      const podName = await this.observer.findPodName(jobName, namespace, request, signal);
       if (!podName) {
         if (outcome.state === "failed") {
           return seCase("Interactive sandbox job failed or timed out.");

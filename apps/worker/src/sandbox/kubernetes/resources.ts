@@ -19,6 +19,7 @@ import {
 } from "./resource-capacity";
 
 const CONFIGMAP_MAX_BYTES = 1_000_000;
+const QUOTA_CACHE_MS = 30_000;
 
 interface SandboxResourceConfig {
   image: string;
@@ -34,6 +35,11 @@ interface SandboxResourceConfig {
 }
 
 export class KubernetesSandboxResources {
+  private readonly quotaCache = new Map<
+    string,
+    { expiresAt: number; quotas: Promise<k8s.V1ResourceQuota[]> }
+  >();
+
   constructor(
     private readonly config: SandboxResourceConfig,
     private readonly coreApi: k8s.CoreV1Api,
@@ -137,18 +143,29 @@ export class KubernetesSandboxResources {
     signal.throwIfAborted();
   }
 
+  private sandboxQuotas(namespace: string): Promise<k8s.V1ResourceQuota[]> {
+    const cached = this.quotaCache.get(namespace);
+    if (cached && cached.expiresAt > Date.now()) return cached.quotas;
+    const quotas = boundedK8sCall(
+      this.coreApi.listNamespacedResourceQuota({ namespace }),
+      `ResourceQuota list in ${namespace}`,
+    ).then((list) => list.items);
+    this.quotaCache.set(namespace, { expiresAt: Date.now() + QUOTA_CACHE_MS, quotas });
+    quotas.catch(() => {
+      if (this.quotaCache.get(namespace)?.quotas === quotas) this.quotaCache.delete(namespace);
+    });
+    return quotas;
+  }
+
   private async assertSandboxQuota(
     pods: k8s.V1PodSpec[],
     namespace: string,
     signal: AbortSignal,
   ): Promise<void> {
     signal.throwIfAborted();
-    let quotas: k8s.V1ResourceQuotaList;
+    let quotas: k8s.V1ResourceQuota[];
     try {
-      quotas = await boundedK8sCall(
-        this.coreApi.listNamespacedResourceQuota({ namespace }),
-        `ResourceQuota list in ${namespace}`,
-      );
+      quotas = await this.sandboxQuotas(namespace);
     } catch (error) {
       signal.throwIfAborted();
       throw new SandboxInfrastructureError(
@@ -159,7 +176,7 @@ export class KubernetesSandboxResources {
     signal.throwIfAborted();
     let violation: string | null;
     try {
-      violation = findSandboxQuotaViolation(pods, quotas.items);
+      violation = findSandboxQuotaViolation(pods, quotas);
     } catch (error) {
       throw new SandboxInfrastructureError("Could not interpret sandbox hard capacity.", {
         cause: error,

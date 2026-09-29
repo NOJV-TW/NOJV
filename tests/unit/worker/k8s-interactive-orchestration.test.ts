@@ -287,7 +287,7 @@ describe("K8sExecutor.executeInteractive — one Job per stage + cleanup", () =>
     }
   });
 
-  it("retains all ConfigMaps when Job termination cannot be confirmed", async () => {
+  it("keeps cleanup pending when Job termination cannot be confirmed", async () => {
     vi.useFakeTimers();
     try {
       const record = emptyRecord();
@@ -301,7 +301,6 @@ describe("K8sExecutor.executeInteractive — one Job per stage + cleanup", () =>
       await Promise.all([rejection, vi.runAllTimersAsync()]);
 
       expect(clients.batchApi.deleteNamespacedJob).toHaveBeenCalledTimes(3);
-      expect(clients.coreApi.deleteNamespacedConfigMap).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }

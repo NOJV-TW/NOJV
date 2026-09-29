@@ -1,7 +1,12 @@
 import type { V1Container, V1PodSpec, V1ResourceQuota } from "@kubernetes/client-node";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import {
+  SandboxInfeasibleError,
+  SandboxInfrastructureError,
+} from "../../../apps/worker/src/sandbox/kubernetes/errors";
 import { findSandboxQuotaViolation } from "../../../apps/worker/src/sandbox/kubernetes/resource-capacity";
+import { KubernetesSandboxResources } from "../../../apps/worker/src/sandbox/kubernetes/resources";
 
 const container = (name: string, cpu: string, memory = "128Mi"): V1Container => ({
   name,
@@ -135,5 +140,62 @@ describe("sandbox hard quota proof", () => {
       containers: Array.from({ length: 20 }, (_, i) => container(`run-${i}`, "100m")),
     };
     expect(findSandboxQuotaViolation([spec], [quota({ "requests.cpu": "2" })])).toBeNull();
+  });
+});
+
+describe("sandbox hard quota lookup", () => {
+  const job = (cpu = "1") => ({
+    metadata: { name: "judge-quota-cache" },
+    spec: { template: { spec: pod(cpu) } },
+  });
+
+  function sandbox(listNamespacedResourceQuota: ReturnType<typeof vi.fn>) {
+    const batchApi = { createNamespacedJob: vi.fn(async () => ({})) };
+    const resources = new KubernetesSandboxResources(
+      {
+        image: "sandbox",
+        cpuRequest: "1",
+        cpuLimit: "1",
+        memoryRequest: "128Mi",
+        memoryLimit: "128Mi",
+      },
+      { listNamespacedResourceQuota } as never,
+      batchApi as never,
+    );
+    return { resources, batchApi };
+  }
+
+  it("reuses the hard quota for 30 seconds and still rejects infeasible Jobs", async () => {
+    vi.useFakeTimers();
+    try {
+      const list = vi.fn(async () => ({ items: [quota({ "requests.cpu": "1" })] }));
+      const { resources, batchApi } = sandbox(list);
+      const signal = new AbortController().signal;
+      await resources.createSandboxJob({ namespace: "sandbox", body: job() }, signal);
+      await expect(
+        resources.createSandboxJob({ namespace: "sandbox", body: job("2") }, signal),
+      ).rejects.toBeInstanceOf(SandboxInfeasibleError);
+      expect(list).toHaveBeenCalledOnce();
+      expect(batchApi.createNamespacedJob).toHaveBeenCalledOnce();
+      await vi.advanceTimersByTimeAsync(30_000);
+      await resources.createSandboxJob({ namespace: "sandbox", body: job() }, signal);
+      expect(list).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not cache a failed quota lookup", async () => {
+    const list = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("API unavailable"))
+      .mockResolvedValue({ items: [] });
+    const { resources } = sandbox(list);
+    const signal = new AbortController().signal;
+    await expect(
+      resources.createSandboxJob({ namespace: "sandbox", body: job() }, signal),
+    ).rejects.toBeInstanceOf(SandboxInfrastructureError);
+    await resources.createSandboxJob({ namespace: "sandbox", body: job() }, signal);
+    expect(list).toHaveBeenCalledTimes(2);
   });
 });

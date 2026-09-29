@@ -48,17 +48,13 @@ export async function measurePhase<T>(
 export class KubernetesExecutionObserver {
   constructor(private readonly coreApi: k8s.CoreV1Api) {}
 
-  async observeJobLifecycle(
+  private recordJobLifecycle(
     jobName: string,
-    namespace: string,
+    pods: k8s.V1Pod[],
     request: SandboxRequest,
-  ): Promise<void> {
+  ): void {
     try {
-      const pods = await this.coreApi.listNamespacedPod({
-        namespace,
-        labelSelector: `job-name=${jobName}`,
-      });
-      for (const pod of pods.items) {
+      for (const pod of pods) {
         const timings = podPhaseTimings(pod, requestMode(request));
         for (const [phase, milliseconds] of Object.entries(timings))
           recordJudgePhase(
@@ -84,17 +80,18 @@ export class KubernetesExecutionObserver {
   private async firstJobPod(
     jobName: string,
     namespace: string,
+    request: SandboxRequest,
     signal: AbortSignal,
     failure: string,
   ): Promise<k8s.V1Pod | undefined> {
+    let pods: k8s.V1PodList;
     try {
       signal.throwIfAborted();
-      const pods = await this.coreApi.listNamespacedPod({
+      pods = await this.coreApi.listNamespacedPod({
         namespace,
         labelSelector: `job-name=${jobName}`,
       });
       signal.throwIfAborted();
-      return pods.items[0];
     } catch (error) {
       signal.throwIfAborted();
       throw new SandboxInfrastructureError(
@@ -102,16 +99,20 @@ export class KubernetesExecutionObserver {
         { cause: error },
       );
     }
+    this.recordJobLifecycle(jobName, pods.items, request);
+    return pods.items[0];
   }
 
   async findPodName(
     jobName: string,
     namespace: string,
+    request: SandboxRequest,
     signal: AbortSignal,
   ): Promise<string | null> {
     const pod = await this.firstJobPod(
       jobName,
       namespace,
+      request,
       signal,
       "Could not find sandbox pod",
     );
@@ -121,11 +122,13 @@ export class KubernetesExecutionObserver {
   async inspectRunPod(
     jobName: string,
     namespace: string,
+    request: SandboxRequest,
     signal: AbortSignal,
   ): Promise<{ nodeName: string | null; transferCaptureOk: boolean }> {
     const pod = await this.firstJobPod(
       jobName,
       namespace,
+      request,
       signal,
       "Could not inspect sandbox pod",
     );
@@ -141,11 +144,13 @@ export class KubernetesExecutionObserver {
   async findStagePod(
     jobName: string,
     namespace: string,
+    request: SandboxRequest,
     signal: AbortSignal,
   ): Promise<{ name: string; runStarted: boolean; judgeStarted: boolean } | null> {
     const pod = await this.firstJobPod(
       jobName,
       namespace,
+      request,
       signal,
       "Could not find sandbox pod",
     );

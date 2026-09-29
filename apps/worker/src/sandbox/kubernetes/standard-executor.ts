@@ -137,9 +137,7 @@ export class KubernetesStandardExecutor {
         execution.signal,
       );
       jobFinishedAt = Date.now();
-      await this.observer.observeJobLifecycle(jobName, ns, request);
-
-      const pod = await this.observer.findStagePod(jobName, ns, execution.signal);
+      const pod = await this.observer.findStagePod(jobName, ns, request, execution.signal);
       if (!pod) throw new Error(`No pod found for job ${jobName}`);
       const [runLog, judgeLog] = await Promise.all([
         pod.runStarted

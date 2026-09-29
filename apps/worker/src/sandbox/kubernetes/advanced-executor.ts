@@ -274,10 +274,10 @@ export class KubernetesAdvancedExecutor {
       deadlineSeconds,
       execution.signal,
     );
-    await this.observer.observeJobLifecycle(jobName, ns, request);
     const { nodeName, transferCaptureOk } = await this.observer.inspectRunPod(
       jobName,
       ns,
+      request,
       execution.signal,
     );
     if (!nodeName) {
@@ -358,8 +358,7 @@ export class KubernetesAdvancedExecutor {
     execution.signal.throwIfAborted();
 
     await this.jobWatcher.waitForJobCompletion(jobName, ns, deadlineSeconds, execution.signal);
-    await this.observer.observeJobLifecycle(jobName, ns, request);
-    const podName = await this.observer.findPodName(jobName, ns, execution.signal);
+    const podName = await this.observer.findPodName(jobName, ns, request, execution.signal);
     if (!podName) return sandboxSystemError("Advanced grade phase produced no pod.");
 
     const sidecarLog = await measurePhase(request, "collect", () =>
