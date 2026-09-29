@@ -471,6 +471,16 @@ relying on IP-based proctoring.
 | `infra/docker/migrator.Dockerfile`        | Migrator and seed hooks        |
 | `infra/docker/demo-advanced-{run,grade}/` | Seeded special_env demo images |
 
+#### Web runtime dependencies
+
+The web image's `node_modules` comes from `pnpm install --prod --filter @nojv/web...`
+in its own stage, not from the build stage. adapter-node bundles everything the
+server imports except `apps/web` `dependencies`, which stay external and must be
+installed at runtime. A package the server never imports (fonts, Monaco, ECharts,
+Svelte UI libraries) belongs in `devDependencies`. The WASM-OJ toolchain and
+browser runtime assets are served from `build/client`, so the runtime stage deletes
+their copies under `node_modules`; the server imports only the descriptor modules.
+
 #### Standard judge toolchain
 
 `packages/core/src/judge-environment.json` is the source of truth for the

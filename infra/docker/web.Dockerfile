@@ -1,4 +1,4 @@
-FROM node:24-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd AS builder
+FROM node:24-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd AS deps
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -24,9 +24,9 @@ COPY packages/storage/package.json packages/storage/
 COPY packages/mailer/package.json packages/mailer/
 COPY packages/temporal/package.json packages/temporal/
 
-RUN pnpm install --frozen-lockfile --filter @nojv/web...
+FROM deps AS prod-deps
 
-ENV pnpm_config_verify_deps_before_run=false
+RUN pnpm install --frozen-lockfile --prod --filter @nojv/web...
 
 # @grpc/grpc-js is marked ssr.external in the web build, so the SSR output emits a
 # bare require('@grpc/grpc-js') at runtime. pnpm leaves it nested in the virtual
@@ -36,6 +36,17 @@ RUN cd node_modules \
   && REL="$(ls -d .pnpm/@grpc+grpc-js@*/node_modules/@grpc/grpc-js | head -1)" \
   && mkdir -p @grpc \
   && ln -sf "../$REL" @grpc/grpc-js
+
+# The server only imports the WASM-OJ descriptor modules; the toolchain and
+# browser runtime assets are served from build/client/wasm-oj and _app instead.
+RUN rm -rf node_modules/.pnpm/@wasm-oj+toolchain-*/node_modules/@wasm-oj/toolchain-*/assets \
+  node_modules/.pnpm/@wasm-oj+browser@*/node_modules/@wasm-oj/browser/dist/assets
+
+FROM deps AS builder
+
+RUN pnpm install --frozen-lockfile --filter @nojv/web...
+
+ENV pnpm_config_verify_deps_before_run=false
 
 # 2. Copy source and build in dependency order
 COPY packages/core/ packages/core/
@@ -65,31 +76,31 @@ RUN addgroup --system --gid 1001 nodejs \
 
 WORKDIR /app
 
-# Root node_modules contains pnpm virtual store; app-level node_modules symlinks
-# resolve into this directory.
-COPY --from=builder --chown=appuser:nodejs /build/node_modules/ ./node_modules/
+# Root node_modules contains the production-only pnpm virtual store; app-level
+# node_modules symlinks resolve into this directory.
+COPY --from=prod-deps --chown=appuser:nodejs /build/node_modules/ ./node_modules/
 
 # Workspace package dist + package.json — the symlinks above resolve to these.
 COPY --from=builder --chown=appuser:nodejs /build/packages/core/dist/ ./packages/core/dist/
 COPY --from=builder --chown=appuser:nodejs /build/packages/core/package.json ./packages/core/package.json
-COPY --from=builder --chown=appuser:nodejs /build/packages/core/node_modules/ ./packages/core/node_modules/
+COPY --from=prod-deps --chown=appuser:nodejs /build/packages/core/node_modules/ ./packages/core/node_modules/
 COPY --from=builder --chown=appuser:nodejs /build/packages/db/dist/ ./packages/db/dist/
 COPY --from=builder --chown=appuser:nodejs /build/packages/db/package.json ./packages/db/package.json
-COPY --from=builder --chown=appuser:nodejs /build/packages/db/node_modules/ ./packages/db/node_modules/
+COPY --from=prod-deps --chown=appuser:nodejs /build/packages/db/node_modules/ ./packages/db/node_modules/
 COPY --from=builder --chown=appuser:nodejs /build/packages/application/dist/ ./packages/application/dist/
 COPY --from=builder --chown=appuser:nodejs /build/packages/application/package.json ./packages/application/package.json
-COPY --from=builder --chown=appuser:nodejs /build/packages/application/node_modules/ ./packages/application/node_modules/
+COPY --from=prod-deps --chown=appuser:nodejs /build/packages/application/node_modules/ ./packages/application/node_modules/
 COPY --from=builder --chown=appuser:nodejs /build/packages/temporal/dist/ ./packages/temporal/dist/
 COPY --from=builder --chown=appuser:nodejs /build/packages/temporal/package.json ./packages/temporal/package.json
-COPY --from=builder --chown=appuser:nodejs /build/packages/temporal/node_modules/ ./packages/temporal/node_modules/
+COPY --from=prod-deps --chown=appuser:nodejs /build/packages/temporal/node_modules/ ./packages/temporal/node_modules/
 COPY --from=builder --chown=appuser:nodejs /build/packages/redis/dist/ ./packages/redis/dist/
 COPY --from=builder --chown=appuser:nodejs /build/packages/redis/package.json ./packages/redis/package.json
-COPY --from=builder --chown=appuser:nodejs /build/packages/redis/node_modules/ ./packages/redis/node_modules/
+COPY --from=prod-deps --chown=appuser:nodejs /build/packages/redis/node_modules/ ./packages/redis/node_modules/
 COPY --from=builder --chown=appuser:nodejs /build/packages/storage/dist/ ./packages/storage/dist/
 COPY --from=builder --chown=appuser:nodejs /build/packages/storage/package.json ./packages/storage/package.json
 COPY --from=builder --chown=appuser:nodejs /build/packages/mailer/dist/ ./packages/mailer/dist/
 COPY --from=builder --chown=appuser:nodejs /build/packages/mailer/package.json ./packages/mailer/package.json
-COPY --from=builder --chown=appuser:nodejs /build/packages/mailer/node_modules/ ./packages/mailer/node_modules/
+COPY --from=prod-deps --chown=appuser:nodejs /build/packages/mailer/node_modules/ ./packages/mailer/node_modules/
 
 # Prisma generated client output (prisma-client generator)
 COPY --from=builder --chown=appuser:nodejs /build/packages/db/generated/prisma/ ./packages/db/generated/prisma/
@@ -97,7 +108,7 @@ COPY --from=builder --chown=appuser:nodejs /build/packages/db/generated/prisma/ 
 # Keep app directory depth so pnpm relative symlinks remain valid in runtime.
 COPY --from=builder --chown=appuser:nodejs /build/apps/web/build ./apps/web/build
 COPY --from=builder --chown=appuser:nodejs /build/apps/web/package.json ./apps/web/package.json
-COPY --from=builder --chown=appuser:nodejs /build/apps/web/node_modules/ ./apps/web/node_modules/
+COPY --from=prod-deps --chown=appuser:nodejs /build/apps/web/node_modules/ ./apps/web/node_modules/
 
 WORKDIR /app/apps/web
 

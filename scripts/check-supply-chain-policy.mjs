@@ -77,7 +77,11 @@ function imageReferences(file, line, index, lines) {
     const image = line.match(
       /^\s*FROM\s+(?:--platform=\S+\s+)?([^\s]+)(?:\s+AS\s+\S+)?\s*$/iu,
     )?.[1];
-    return image ? [image] : [];
+    const earlierStages = lines
+      .slice(0, index)
+      .map((earlier) => earlier.match(/^\s*FROM\s+\S+(?:\s+\S+)*\s+AS\s+(\S+)\s*$/iu)?.[1])
+      .filter(Boolean);
+    return image && !earlierStages.includes(image) ? [image] : [];
   }
 
   if (file.endsWith(".yml") || file.endsWith(".yaml")) {
