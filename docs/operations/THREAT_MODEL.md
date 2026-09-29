@@ -128,6 +128,7 @@ Controls: [Sandbox Isolation](SECURITY.md#sandbox-isolation).
 - **Network exfiltration of inputs** — No network in Standard Mode; namespace deny-all NetworkPolicy. _Residual:_ Depends on CNI enforcement (probed at startup).
 - **Advanced grade image leaks answers over the network** — Grade has no egress on both backends.
 - **`/output` symlink pointing at answers** — `safeCopyTree` drops symlinks and special files.
+- **Student code reads cached answers** — Answer sets stay in sandbox-namespace ConfigMaps until 12 h idle (JDG-23), but the run volume never projects them, sandbox Pods mount no service-account token and have no API egress. _Residual:_ Anyone with ConfigMap read on the sandbox namespace can read cached answers.
 - **Malicious or unpinned teacher image** — Digest pinning, registry allowlist, per-user grant, publish gate. _Residual:_ Authors with the grant are trusted not to attack their own grading.
 - **Cross-teacher image theft or replacement** — Namespace-scoped registry tokens. _Residual:_ Isolation is per teacher, not per course.
 - **Compromised worker creates privileged workloads** — Pod Security `restricted`, split service accounts, minimal `sandbox-job-manager` role. _Residual:_ The judge identity can still create sandbox Jobs.

@@ -33,6 +33,7 @@ Durable decisions for NOJV, grouped by area. Each entry records what was decided
 - JDG-20 Production K8s judging fails closed; infrastructure faults retry
 - JDG-21 10 MiB testcases via sharded, hash-verified payloads
 - JDG-22 Sandbox cleanup is UID-fenced and durable
+- JDG-23 Testcase payloads are a content-addressed ConfigMap cache
 
 ## [Problems and submissions](problems.md)
 

@@ -146,7 +146,7 @@ Behavior specs: [Exams](../features/exams.md), [Proctoring](../features/proctori
 
 ## Sandbox Isolation
 
-Pipeline and Advanced Mode mechanics: [Judge Pipeline](../architecture/JUDGE_PIPELINE.md). Decisions: JDG-05, JDG-06, JDG-17 to JDG-22.
+Pipeline and Advanced Mode mechanics: [Judge Pipeline](../architecture/JUDGE_PIPELINE.md). Decisions: JDG-05, JDG-06, JDG-17 to JDG-23.
 
 Baseline for every sandbox container (Docker args from the single builder in `args.ts`, golden-tested; K8s `securityContext` from `pod-spec.ts`):
 
@@ -156,7 +156,7 @@ Baseline for every sandbox container (Docker args from the single builder in `ar
 | Privilege       | `--security-opt no-new-privileges`                                                                   | `allowPrivilegeEscalation: false`                                                        |
 | User            | `--user 10001:10001`                                                                                 | `runAsNonRoot: true`, uid/gid 10001                                                      |
 | Root filesystem | `--read-only`; tmpfs `/tmp` 64m (compiler scratch when compiling), `/workspace` 128m, `nosuid,nodev` | `readOnlyRootFilesystem: true`                                                           |
-| Host mounts     | `/submission` read-only; `/artifact`, `/outputs` only where the stage needs them                     | Payload via hash-verified ConfigMap shards into emptyDir (JDG-21)                        |
+| Host mounts     | `/submission` read-only; `/artifact`, `/outputs` only where the stage needs them                     | Payload via hash-verified ConfigMap shards into emptyDir (JDG-21, JDG-23)                |
 | Network         | `--network none` (Advanced `service` mode: per-submission `--internal` network)                      | Namespace deny-all NetworkPolicy; Advanced per-submission policies                       |
 | Resources       | `--cpus`, `--memory` = `--memory-swap`, `--pids-limit` (`SANDBOX_*` env)                             | Requests/limits, namespace ResourceQuota and LimitRange                                  |
 | seccomp         | Docker default profile                                                                               | `seccompProfile: RuntimeDefault` + `gvisor` RuntimeClass (required by worker env schema) |
@@ -168,7 +168,7 @@ Kubernetes requirements (JDG-20):
 
 - The sandbox namespace enforces Pod Security `restricted` (enforce/audit/warn). Pods mount no service-account token.
 - The worker refuses to start unless the `gvisor` RuntimeClass, a hardened smoke Pod and a NetworkPolicy enforcement probe succeed. A CNI that enforces NetworkPolicy is a hard dependency.
-- Split identities: the judge worker's `sandbox-job-manager` role has only create/get/list/watch/delete on sandbox resources; the platform worker has only the registry-GC role (token unmounted when the registry is disabled). Never add update, patch, Secret or cross-namespace access.
+- Split identities: the judge worker's `sandbox-job-manager` role has only create/get/list/watch/delete on sandbox resources, plus `patch` on ConfigMaps for the testcase cache's annotations (JDG-23); the platform worker has only the registry-GC role (token unmounted when the registry is disabled). Never add update, Secret or cross-namespace access, or `patch` on any other resource.
 
 Advanced Mode (JDG-16, JDG-17, SEC-14, PRB-12):
 

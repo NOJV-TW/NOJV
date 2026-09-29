@@ -45,9 +45,10 @@ fixed **Standard Mode** (`standard` / `checker` / `interactive`, JDG-01) or
   testcase contents: the pointers come from the `Testcase` rows, and the same
   transaction that commits the `JudgeExecution` records them in
   `JudgeExecutionObject`, so storage cleanup keeps every pinned version while the
-  execution exists. `loadJudgeExecution` resolves the pointers back into contents
-  (hash and size verified). Format-1 snapshots, which embed testcase contents,
-  remain readable. Production images are digest-pinned in Helm; local unpinned
+  execution exists. `loadJudgeExecution` keeps the pointers: stage ranges use their
+  sizes, and the worker reads a testcase object (hash and size verified) only while
+  it uploads a missing testcase cache set (JDG-23) or runs the Docker backend.
+  Format-1 snapshots, which embed testcase contents, remain readable. Production images are digest-pinned in Helm; local unpinned
   builds are not reproducible.
 - Workflow ID is `judge-execution-{executionId}-{recoveryEpoch}`; start uses
   `REJECT_DUPLICATE`, so repeated dispatch is idempotent.
@@ -232,7 +233,21 @@ invalidates it (PRB-09).
 - Judge payload: `case-{i}-answer.txt`, plus `case-{i}-input.txt` for checkers,
   and the validator source.
 - Kubernetes payloads are sharded binary ConfigMaps with a SHA-256 manifest,
-  materialized into an emptyDir before student code starts (JDG-21).
+  materialized into an emptyDir before student code starts (JDG-21). Testcase files
+  are not uploaded per stage: they live in a content-addressed cache (JDG-23), and
+  the per-stage ConfigMaps carry only `config.json`, sources, the validator or
+  interactor, and the manifest, whose testcase entries point at cached chunks.
+- Cache sets: one `input` and one `answer` set per stage range, keyed by
+  `sha256(format, role, shard size, sorted unique "sha256:size")`. Index
+  `tc-<key>` holds the chunk layout and the `pending`/`ready` state; shards
+  `tc-<key>-<index uid prefix>-<n>` are owned by the index. A missing set is created
+  once cluster-wide: the index creator uploads shards four at a time, reading each
+  testcase object once; other stages poll the index every second and take over after
+  2 min without progress; an index whose labels or layout differ from the expected
+  value is an infrastructure error. A stage touches `last-used` when older than
+  10 min (merge patch with `resourceVersion`).
+- The run volume projects the stage ConfigMaps and the `input` set only; the judge
+  and interactor volumes add the `answer` set (and `input` for checkers).
 
 ### Compile
 
@@ -674,9 +689,14 @@ failure is reported separately as CE.
   objects with UID preconditions and foreground deletion. A timeout or ownership
   change raises `cleanup_pending` and keeps the lease (JDG-22). Kubernetes API
   disappearance alone does not prove runtime termination.
-- A stage deletes its Job and payload ConfigMaps together under one 30 s budget and
-  polls every 100 ms until the owned Pods are gone; the stage reports only after both
-  are confirmed.
+- A stage deletes its Job and its own payload ConfigMaps together under one 30 s
+  budget and polls every 100 ms until the owned Pods are gone; the stage reports only
+  after both are confirmed. Recovery lists ConfigMaps by the `nojv-run-id` label, so
+  cached testcase data never enters its listings.
+- Each Kubernetes judge worker sweeps the testcase cache every 15 min: it lists index
+  ConfigMaps by label and all sandbox Pods, and deletes an index idle for 12 h that
+  no Pod projects, with `uid` and `resourceVersion` preconditions. Kubernetes'
+  garbage collector then removes its shards.
 - Each Kubernetes API call uses the client library's own per-request connection, forced to HTTP/1.1 (`createKubeConfig`, `allowH2: false`).
 - The runner cleans its `mkdtemp` work directory in `finally`.
 - `judge_phase_duration_seconds` phases: `queue`, `admission`, `schedule`, `startup`
