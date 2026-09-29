@@ -39,12 +39,16 @@ fixed **Standard Mode** (`standard` / `checker` / `interactive`, JDG-01) or
   immutable judge snapshot under guarded unique keys, then commits the source
   manifest, `JudgeExecution` and a `submission.execution.dispatch` outbox row in one
   transaction (PRB-15). A failed upload is never acknowledged.
-- The snapshot is a checksummed object holding sources, testcases, workspace files,
-  judge programs, limits, adjustment rules and the sandbox image; problem generation
-  is checked at acceptance. Format 1 embeds testcase contents; format 2 holds
-  testcase object pointers pinned by `JudgeExecutionObject`, which
-  `loadJudgeExecution` resolves (hash and size verified) back into contents. Production images are digest-pinned in Helm; local
-  unpinned builds are not reproducible.
+- The snapshot is a checksummed object holding sources, testcase object pointers,
+  workspace files, judge programs, limits, adjustment rules and the sandbox image;
+  problem generation is checked at acceptance. Acceptance and rejudge read no
+  testcase contents: the pointers come from the `Testcase` rows, and the same
+  transaction that commits the `JudgeExecution` records them in
+  `JudgeExecutionObject`, so storage cleanup keeps every pinned version while the
+  execution exists. `loadJudgeExecution` resolves the pointers back into contents
+  (hash and size verified). Format-1 snapshots, which embed testcase contents,
+  remain readable. Production images are digest-pinned in Helm; local unpinned
+  builds are not reproducible.
 - Workflow ID is `judge-execution-{executionId}-{recoveryEpoch}`; start uses
   `REJECT_DUPLICATE`, so repeated dispatch is idempotent.
 

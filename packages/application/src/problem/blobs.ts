@@ -263,7 +263,7 @@ export async function hydrateWorkspaceFiles<T extends WorkspaceFileRowLike>(
   );
 }
 
-function parsePointerMap(value: unknown): Record<string, StorageObjectPointer> | null {
+export function parsePointerMap(value: unknown): Record<string, StorageObjectPointer> | null {
   if (value === null) return null;
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Persisted input-file storage pointer map is malformed");

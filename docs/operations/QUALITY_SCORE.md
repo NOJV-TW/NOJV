@@ -58,7 +58,6 @@ Work that is known, not done, and not covered by an in-flight plan. Remove an it
 
 ### Code and product
 
-- Submission acceptance builds the whole judge snapshot in web memory: every testcase is read, parsed and re-serialized, so RSS rises about 6.6× the problem's testcase bytes per concurrent submission (a 34 MB problem measured +224 MB locally and about +240 MB in production; a web pod at the old 512Mi limit was OOMKilled on 2026-09-29). Each snapshot also stores a full copy of the testcases: 947 executions held 3.3 GB, 90 of them over 10 MB. The 1Gi web limit covers about two concurrent submissions to a problem at the 50 MiB budget; removing the copy needs a JDG-10 decision (for example a shared, content-addressed testcase object per problem generation that the cleanup reference check can see).
 - Browser Test (WASM-OJ) deferred scope: official Submit from the browser, checker/interactive/Advanced problems, and limit calibration stay server-only until decided otherwise (JDG-15).
 
 ## Evidence rules
