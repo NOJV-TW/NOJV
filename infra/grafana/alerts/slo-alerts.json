@@ -95,6 +95,16 @@
     "summary": "A node filesystem has exceeded 80% usage for 10m. A full disk wedges containerd and gets CNPG evicted. Free disk (crictl rmi --prune) or expand the volume before it fills. Requires observability.prometheus.nodeExporter.enabled."
   },
   {
+    "uid": "nojv-process-memory-high",
+    "title": "Service memory over 85% of its container limit",
+    "slo": "Web and worker processes keep memory headroom below their limit",
+    "expr": "max(process_memory_usage_bytes / nojv_process_memory_limit_bytes)",
+    "threshold": 0.85,
+    "for": "5m",
+    "severity": "warning",
+    "summary": "A web or worker process has kept its resident set above 85% of its cgroup memory limit for 5m; the next spike gets it OOMKilled. Group by exported_job to find the service, then raise that service's limit in values.yaml or find the allocation."
+  },
+  {
     "uid": "nojv-pg-not-ready",
     "title": "Postgres (CloudNativePG) instance not ready",
     "slo": "Database availability - all CNPG instances reachable",

@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+
+import { metrics as metricsApi } from "@opentelemetry/api";
 import { NodeSDK, metrics } from "@opentelemetry/sdk-node";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
@@ -14,6 +17,37 @@ function parseOtlpHeaders(raw: string | undefined): Record<string, string> | und
     if (key) headers[key] = value;
   }
   return Object.keys(headers).length > 0 ? headers : undefined;
+}
+
+function cgroupMemoryLimitBytes(): number | undefined {
+  try {
+    const limit = Number(readFileSync("/sys/fs/cgroup/memory.max", "utf8").trim());
+    return Number.isSafeInteger(limit) ? limit : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function observeProcessMemory(): void {
+  const meter = metricsApi.getMeter("nojv-process-memory");
+  meter
+    .createObservableGauge("process.memory.usage", {
+      unit: "By",
+      description: "Resident set size",
+    })
+    .addCallback((result) => {
+      result.observe(process.memoryUsage.rss());
+    });
+  const limit = cgroupMemoryLimitBytes();
+  if (limit === undefined) return;
+  meter
+    .createObservableGauge("nojv.process.memory.limit", {
+      unit: "By",
+      description: "Container cgroup memory limit",
+    })
+    .addCallback((result) => {
+      result.observe(limit);
+    });
 }
 
 function startOtel(): void {
@@ -59,6 +93,7 @@ function startOtel(): void {
   });
 
   sdk.start();
+  observeProcessMemory();
 }
 
 startOtel();
