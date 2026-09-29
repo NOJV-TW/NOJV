@@ -18,7 +18,6 @@
     "db:deploy:release": "sh prisma/scripts/deploy-release.sh",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:push": "prisma db push",
     "db:seed": "node --env-file=../../.env --import tsx prisma/seed.ts",
     "db:bootstrap-admin": "node --env-file=../../.env --import tsx prisma/bootstrap-admin.ts",
     "db:seed:prod": "node --env-file=../../.env --import tsx prisma/prod-seed.ts",

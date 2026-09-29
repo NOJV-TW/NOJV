@@ -15,8 +15,9 @@ type, enum value, relation and index is in the generated
 - `scripts/check-migrations.mjs` (`pnpm lint:migrations`) — migration naming and expand/contract guard
 - `scripts/generate-schema-docs.mjs` — generates `DATABASE.generated.md`
 
-Commands: `pnpm db:generate`, `pnpm db:push` (dev), `pnpm db:migrate`,
-`pnpm db:deploy`, `pnpm db:validate`, `pnpm db:docs`, `pnpm db:seed`,
+Commands: `pnpm db:generate`, `pnpm db:migrate`, `pnpm db:deploy` (also local
+setup: triggers exist only in migration SQL, so `prisma db push` builds an
+incomplete database and the seed refuses it), `pnpm db:validate`, `pnpm db:docs`, `pnpm db:seed`,
 `pnpm db:seed:validate`. Seed contents: [Getting Started](../runbooks/getting-started.md).
 Production migration and schema-contract fences:
 [Deployment](../operations/DEPLOYMENT.md) (OPS-05).

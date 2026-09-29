@@ -76,3 +76,13 @@ Organization work stays within the `apps/` and `packages/` layers, grouping by d
 - Rule: generated artifacts (`DATABASE.generated.md`, paraglide runtime) name their source and regeneration command.
 - Rule: zero-comment rule, enforced by `pnpm lint:comments`.
 - Code: `apps/web/src/hooks.server.ts`, `tests/component/`, `tests/unit/application/`, `scripts/check-comments.mjs`
+
+### ENG-08 Local databases are built from migrations, not `prisma db push`
+
+**Decided:** 2026-09 · **Source:** [#598](https://github.com/NOJV-TW/NOJV/pull/598)
+
+Triggers such as the lifecycle schedule identity (`timerFingerprint`, `scheduleRevision`), security generation and submission context exist only in migration SQL, so a pushed database accepts writes the app depends on the database to reject or fill. Local setup uses `pnpm db:deploy` / `prisma migrate reset`, and the demo seed refuses a database missing any migration-defined trigger.
+
+- Rejected: a `db:push` script for local setup; setting trigger-maintained columns in the seed.
+- Rule: test and e2e setup may `db push` only when followed by the migration replay in `tests/setup/replay-constraints.ts`.
+- Code: `packages/db/prisma/seeds/migration-triggers.ts`, `tests/unit/db/seed-migration-triggers.test.ts`, `tests/setup/replay-constraints.ts`

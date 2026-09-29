@@ -276,7 +276,6 @@ Deployments are restarted.
 
 | Command            | Runs                    | Use                        |
 | ------------------ | ----------------------- | -------------------------- |
-| `pnpm db:push`     | `prisma db push`        | Local schema sync          |
 | `pnpm db:migrate`  | `prisma migrate dev`    | Create a migration locally |
 | `pnpm db:deploy`   | `prisma migrate deploy` | Apply pending migrations   |
 | `pnpm db:validate` | `prisma validate`       | Schema check               |

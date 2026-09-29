@@ -36,7 +36,7 @@ Requires Node.js >=24.18 <25, pnpm 11.28.2 and Docker.
 pnpm install
 cp .env.example .env
 docker compose up -d     # PostgreSQL, Redis, MinIO, Temporal (local development only)
-pnpm db:generate && pnpm build && pnpm db:push && pnpm db:seed
+pnpm db:generate && pnpm build && pnpm db:deploy && pnpm db:seed
 pnpm sandbox:build
 pnpm dev                 # http://localhost:5173
 ```
