@@ -60,7 +60,7 @@ Compose runs only dependencies; web and worker run from source. Compose is not a
 ```bash
 pnpm db:generate
 pnpm build
-pnpm db:push
+pnpm db:deploy
 pnpm db:seed:validate
 pnpm db:seed
 ```
@@ -92,12 +92,12 @@ Starts web at <http://localhost:5173> and the worker with `WORKER_MODE=all` (jud
 
 ## Common tasks
 
-| Task                | Command                                                             |
-| ------------------- | ------------------------------------------------------------------- |
-| Reset database      | `pnpm db:push --force-reset && pnpm db:seed`                        |
-| After schema change | `pnpm db:generate && pnpm build && pnpm db:push`                    |
-| Local CI gate       | `pnpm ci:verify` (scope in [Testing Strategy](testing.md#commands)) |
-| Run tests           | See [Testing Strategy](testing.md)                                  |
+| Task                | Command                                                                    |
+| ------------------- | -------------------------------------------------------------------------- |
+| Reset database      | `pnpm --filter @nojv/db exec prisma migrate reset --force && pnpm db:seed` |
+| After schema change | `pnpm db:migrate && pnpm build`                                            |
+| Local CI gate       | `pnpm ci:verify` (scope in [Testing Strategy](testing.md#commands))        |
+| Run tests           | See [Testing Strategy](testing.md)                                         |
 
 ### Exercise IP-based exam rules
 

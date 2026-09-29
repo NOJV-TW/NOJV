@@ -5,6 +5,7 @@ import { seedContests } from "./seeds/contests";
 import { seedCourses } from "./seeds/courses";
 import { seedDemoStudents } from "./seeds/demo-students";
 import { seedEngagement } from "./seeds/engagement";
+import { assertMigrationTriggers } from "./seeds/migration-triggers";
 import { seedAnnouncements } from "./seeds/announcements";
 import { seedProblems } from "./seeds/problems";
 import { seedSubmissions } from "./seeds/submissions";
@@ -21,6 +22,8 @@ async function main() {
       "Refusing to run the demo seed in production. It inserts password123 test accounts and wipes announcements. Use `db:bootstrap-admin` to provision a production admin, or set ALLOW_PROD_SEED=true to override.",
     );
   }
+
+  await assertMigrationTriggers(prisma);
 
   console.log("Seeding database...");
 

@@ -31,7 +31,7 @@
 ```bash
 # 從 repo 根目錄
 pnpm db:generate              # 重新產 Prisma client
-pnpm db:push                  # 推 schema 到本地 DB（dev）
+pnpm db:deploy                # 套用已提交的 migration 到本地 DB
 pnpm db:migrate               # 建立並套用 migration（dev）
 pnpm db:validate              # 驗證 schema
 pnpm db:docs                  # 重新產生 DATABASE.generated.md

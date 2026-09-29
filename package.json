@@ -41,7 +41,6 @@
     "db:docs": "node scripts/generate-schema-docs.mjs",
     "db:generate": "pnpm --filter @nojv/db db:generate",
     "db:migrate": "pnpm --filter @nojv/db db:migrate",
-    "db:push": "pnpm --filter @nojv/db db:push",
     "db:seed": "pnpm --filter @nojv/db db:seed",
     "db:seed:prod": "pnpm --filter @nojv/db db:seed:prod",
     "db:seed:validate": "pnpm --filter @nojv/db db:seed:validate",
