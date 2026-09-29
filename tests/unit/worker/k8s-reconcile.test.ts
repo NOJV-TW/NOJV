@@ -102,6 +102,10 @@ describe("Kubernetes crashed execution reconciliation", () => {
       false,
     );
     expect(fake.resources.NetworkPolicy).toHaveLength(2);
+    expect(fake.handles.coreApi.listNamespacedConfigMap).toHaveBeenCalledWith({
+      namespace: NAMESPACE,
+      labelSelector: `nojv-run-id=${RUN}`,
+    });
     expect(fake.handles.batchApi.deleteNamespacedJob).toHaveBeenCalledWith(
       expect.objectContaining({
         body: expect.objectContaining({ propagationPolicy: "Foreground" }),
