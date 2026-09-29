@@ -130,8 +130,11 @@ worker:
     concurrency: "5"
     minConcurrency: "2"
     resources:
+      requests:
+        memory: 768Mi
       limits:
         cpu: null
+        memory: 2Gi
   platform:
     replicas: 1
     submissionPendingTimeoutMinutes: 10
