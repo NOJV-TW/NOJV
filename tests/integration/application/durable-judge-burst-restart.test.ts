@@ -12,6 +12,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import * as judgeActivities from "../../../apps/worker/src/activities/judge-execution";
 import { setExecutorOwner } from "../../../apps/worker/src/activities/judge";
 import { ExecutorOwner } from "../../../apps/worker/src/sandbox/shared/executor-owner";
+import { loadSandboxTestcases } from "../../../apps/worker/src/sandbox/shared/testcase-text";
 import {
   createTestProblem,
   createTestSubmission,
@@ -104,8 +105,9 @@ describe("durable judge database burst and worker restart", () => {
         expect(request.sandboxImage).toBe(ORIGINAL_IMAGE);
         expect(request.limits.timeoutMs).toBe(effectiveTimeLimitMs(1000, "python"));
         expect(request.sourceCode).toBe("print(3)");
+        const loaded = await loadSandboxTestcases(request, judge.readJudgeTestcase);
         expect(
-          request.testcases.every((test) => test.input === "1 2" && test.output === "3"),
+          loaded.testcases.every((test) => test.input === "1 2" && test.output === "3"),
         ).toBe(true);
         active++;
         maximumActive = Math.max(maximumActive, active);
