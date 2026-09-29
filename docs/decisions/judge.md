@@ -124,7 +124,7 @@ Sandbox pipeline failures store bounded SE diagnostics for the admin submissions
 
 ### JDG-12 Judge queue is Temporal priority and fairness, not a coordinator
 
-**Decided:** 2026-09 · **Source:** [2026-09-21-judge-capacity](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-21-judge-capacity.md), [2026-09-22-temporal-native-judge-queue](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-22-temporal-native-judge-queue.md)
+**Decided:** 2026-09 · **Source:** [2026-09-21-judge-capacity](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-21-judge-capacity.md), [2026-09-22-temporal-native-judge-queue](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-22-temporal-native-judge-queue.md), [PR #597](https://github.com/NOJV-TW/NOJV/pull/597)
 
 Each `JudgeExecution` runs `durableJudgeWorkflow` on the `judge` queue with `priorityKey` (exam 1, contest 2, practice/assignment 3, recovered submission 4, rejudge 5) and `fairnessKey = studentId`; a student has at most one dispatched non-terminal execution and completion dispatches the next. Capacity is judge worker activity slots, with the sandbox ResourceQuota as hard safety net. A 789-execution rejudge collapsed the workflow-based coordinator.
 
