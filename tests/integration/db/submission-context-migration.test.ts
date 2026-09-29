@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import { PrismaClient } from "../../../packages/db/generated/prisma/client";
 import { testPrisma } from "../../fixtures/factories";
 import { resolveConfiguredDestructiveTestDatabase } from "../../setup/destructive-test-database";
-import { splitStatements } from "../../setup/replay-constraints";
+import { splitStatements } from "../../setup/sql-statements";
 
 const MIGRATIONS_DIR = join(process.cwd(), "packages/db/prisma/migrations");
 const CURRENT_MAIN_BASELINE = [

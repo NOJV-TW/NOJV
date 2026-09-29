@@ -14,7 +14,7 @@ import {
   assertLiveTestDatabase,
   resolveConfiguredDestructiveTestDatabase,
 } from "../../setup/destructive-test-database";
-import { splitStatements } from "../../setup/replay-constraints";
+import { splitStatements } from "../../setup/sql-statements";
 
 const repoRoot = process.cwd();
 const migrations = join(repoRoot, "packages/db/prisma/migrations");

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { testPrisma } from "../../fixtures/factories";
-import { splitStatements } from "../../setup/replay-constraints";
+import { splitStatements } from "../../setup/sql-statements";
 
 const MIGRATIONS_DIR = join(process.cwd(), "packages/db/prisma/migrations");
 const CURRENT_MAIN_BASELINE = [

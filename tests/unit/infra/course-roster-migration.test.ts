@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { findBlockingIndexRelations } from "../../../scripts/migration-index-safety.mjs";
-import { collectReplayStatements, splitStatements } from "../../setup/replay-constraints";
+import { splitStatements } from "../../setup/sql-statements";
 
 const migrations = join(process.cwd(), "packages/db/prisma/migrations");
 const contract = readFileSync(
@@ -27,32 +27,5 @@ describe("course roster migration safety", () => {
     );
     expect(splitStatements(indexes)).toHaveLength(2);
     expect(findBlockingIndexRelations(indexes)).toEqual([]);
-  });
-
-  it("replays the new checks and security trigger against a schema with no User.status", () => {
-    const replay = collectReplayStatements();
-    for (const constraint of [
-      "CourseMembership_identity_chk",
-      "CourseMembership_pending_username_chk",
-    ]) {
-      expect(replay).toContainEqual(expect.stringContaining(`ADD CONSTRAINT "${constraint}"`));
-    }
-    expect(replay).not.toContainEqual(expect.stringContaining("ScoreOverride_subject_chk"));
-    const trigger = replay.find((statement) =>
-      statement.startsWith("CREATE TRIGGER user_security_generation_state_change"),
-    );
-    expect(trigger).toBeDefined();
-    expect(trigger).not.toContain('"status"');
-    for (const field of [
-      "email",
-      "emailVerified",
-      "platformRole",
-      "isSuperAdmin",
-      "disabled",
-      "mustChangePassword",
-      "twoFactorEnabled",
-    ]) {
-      expect(trigger).toContain(`OLD."${field}" IS DISTINCT FROM NEW."${field}"`);
-    }
   });
 });

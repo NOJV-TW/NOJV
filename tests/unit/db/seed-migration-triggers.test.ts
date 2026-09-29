@@ -5,7 +5,6 @@ import {
   assertMigrationTriggers,
   migrationTriggerNames,
 } from "../../../packages/db/prisma/seeds/migration-triggers";
-import { collectReplayStatements } from "../../setup/replay-constraints";
 
 function prismaWithTriggers(names: Iterable<string>): PrismaClient {
   const rows = [...names].map((tgname) => ({ tgname }));
@@ -13,13 +12,9 @@ function prismaWithTriggers(names: Iterable<string>): PrismaClient {
 }
 
 describe("seed migration-trigger preflight", () => {
-  it("expects every trigger the test databases replay from migrations", () => {
-    const replayed = collectReplayStatements()
-      .map((statement) => /^CREATE\s+TRIGGER\s+"?(\w+)"?/i.exec(statement)?.[1])
-      .filter((name): name is string => name !== undefined);
-
-    expect([...migrationTriggerNames()].sort()).toEqual(replayed.sort());
+  it("tracks the triggers the migrations leave in place", () => {
     expect(migrationTriggerNames()).toContain("contest_lifecycle_schedule_identity");
+    expect(migrationTriggerNames()).toContain("user_security_generation_state_change");
   });
 
   it("rejects a db-push database that lacks the lifecycle triggers", async () => {

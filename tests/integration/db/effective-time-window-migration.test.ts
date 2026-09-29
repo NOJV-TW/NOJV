@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { testPrisma } from "../../fixtures/factories";
-import { splitStatements } from "../../setup/replay-constraints";
+import { splitStatements } from "../../setup/sql-statements";
 
 const MIGRATION = "20260716000005_effective_time_window_constraints";
 const MIGRATION_SQL = join(

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import type { Prisma } from "../../../packages/db/generated/prisma/client";
 import { testPrisma } from "../../fixtures/factories";
-import { splitStatements } from "../../setup/replay-constraints";
+import { splitStatements } from "../../setup/sql-statements";
 
 const migrations = join(process.cwd(), "packages/db/prisma/migrations");
 const contract = "20260907000000_course_roster_contract";

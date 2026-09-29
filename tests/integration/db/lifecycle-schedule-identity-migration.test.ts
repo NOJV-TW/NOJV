@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { testPrisma } from "../../fixtures/factories";
-import { splitStatements } from "../../setup/replay-constraints";
+import { splitStatements } from "../../setup/sql-statements";
 
 const MIGRATIONS = [
   "20260716000009_lifecycle_schedule_identity_expand",
