@@ -59,6 +59,10 @@ Load-aware slots (`worker.judge.minConcurrency`; single-machine: min 2, ceiling
   cgroup.
 - Neither the tuner nor the quota watches node memory: the tuner sees only the worker
   container's memory and the quota counts requests. Watch node memory separately.
+- The worker's memory limit must leave the tuner headroom: the worker idles near
+  600 MiB and reaches about 800 MiB with 100 executions in flight, so a 1 GiB limit
+  held the 80% target and pinned the tuner at 1–2 slots in a burst. Single-machine
+  runs the judge worker at 768 Mi request / 2 Gi limit.
 - `judge_wall_clock_timeouts_total` counts TLEs whose CPU time stayed under the limit;
   `nojv-judge-wall-clock-timeouts` fires on more than two in ten minutes. Lower the
   ceiling when it fires.

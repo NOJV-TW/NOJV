@@ -17,7 +17,7 @@ Configuration reference, release mechanics and capacity numbers live in the
 ## Prerequisites
 
 - One Linux host (Ubuntu 22.04+ or Debian 12) with root. The production overlay
-  is sized for 8 vCPU / 16 GiB; 4 vCPU / 8 GiB is the practical floor with a
+  is sized for the production node, 8 vCPU / 24 GiB; 4 vCPU / 8 GiB is the practical floor with a
   smaller quota.
 - `docker` on the host only if you build images locally.
 - Off-host S3/R2 destinations and credentials for Postgres and MinIO backups

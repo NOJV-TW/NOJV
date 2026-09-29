@@ -143,6 +143,7 @@ With `WORKER_MIN_CONCURRENCY` set, the judge worker's activity slots use the res
 
 - Rejected: custom slot supplier on the metrics API; Kueue; HPA/KEDA; long `rampThrottle` (throttles polling).
 - Rule: workflow-task slots stay fixed; `judge_wall_clock_timeouts_total` is the contention guard (lower the ceiling if it fires); watch node memory separately.
+- Rule: size the judge worker memory limit so a burst stays well under the 80% memory target (single-machine 2 Gi); at 1 Gi the 2026-09-29 stress test sat at 77% with 100 executions in flight and ran 1–2 slots instead of 5.
 - Rule: GKE stays on fixed slots until a multi-node plan.
 - Code: `apps/worker/src/worker-app.ts`, `infra/charts/nojv/values-single-machine.yaml`
 
