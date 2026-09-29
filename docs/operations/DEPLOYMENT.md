@@ -473,8 +473,12 @@ relying on IP-based proctoring.
 
 #### Web runtime dependencies
 
-The web image's `node_modules` comes from `pnpm install --prod --filter @nojv/web...`
-in its own stage, not from the build stage. adapter-node bundles everything the
+The web image's `node_modules` comes from
+`pnpm install --prod --no-optional --filter @nojv/web...` in its own stage, not from
+the build stage. `--no-optional` also drops optional peers that pnpm resolved
+against workspace devDependencies (Prisma CLI, Vite, Vitest, TypeScript, SvelteKit
+under better-auth and `@prisma/client`), so a package the server needs at runtime
+must not arrive only through `optionalDependencies`. adapter-node bundles everything the
 server imports except `apps/web` `dependencies`, which stay external and must be
 installed at runtime. A package the server never imports (fonts, Monaco, ECharts,
 Svelte UI libraries) belongs in `devDependencies`. The WASM-OJ toolchain and
