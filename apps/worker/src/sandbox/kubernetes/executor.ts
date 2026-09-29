@@ -1,3 +1,4 @@
+import type * as https from "node:https";
 import { createRequire } from "node:module";
 
 import type * as k8s from "@kubernetes/client-node";
@@ -43,9 +44,24 @@ export interface K8sClientHandles {
   watch: K8sWatchClient;
 }
 
+export function createKubeConfig(): k8s.KubeConfig {
+  const k8sLib = require("@kubernetes/client-node") as typeof k8s;
+  return new (class extends k8sLib.KubeConfig {
+    override createDispatcherOptions(
+      cluster: k8s.Cluster | null,
+      agentOptions: https.AgentOptions,
+    ): ReturnType<k8s.KubeConfig["createDispatcherOptions"]> {
+      const options = super.createDispatcherOptions(cluster, agentOptions);
+      return options.type === "agent"
+        ? { ...options, connect: { ...options.connect, ...{ allowH2: false } } }
+        : options;
+    }
+  })();
+}
+
 function createK8sClientHandles(): K8sClientHandles {
   const k8sLib = require("@kubernetes/client-node") as typeof k8s;
-  const kubeConfig = new k8sLib.KubeConfig();
+  const kubeConfig = createKubeConfig();
   kubeConfig.loadFromCluster();
   return {
     coreApi: kubeConfig.makeApiClient(k8sLib.CoreV1Api),
