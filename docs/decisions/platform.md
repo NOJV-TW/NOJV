@@ -220,7 +220,7 @@ The single-machine Temporal release runs one pod per role (frontend, history, ma
 
 ### OPS-20 The web image ships production dependencies only
 
-**Decided:** 2026-09 · **Source:** [#PR](https://github.com/NOJV-TW/NOJV/pull/PR)
+**Decided:** 2026-09 · **Source:** [#589](https://github.com/NOJV-TW/NOJV/pull/589)
 
 Production pulls images over a ~0.5 MB/s uplink, and the web image was 1.1 GB compressed because its runtime stage copied the build stage's full `node_modules` (Vite, Svelte tooling, Playwright, Temporal worker bridge, paraglide's lix SDK) plus a second copy of the WASM-OJ toolchains. The runtime stage now installs `--prod` dependencies from the same lockfile, drops the WASM-OJ asset copies under `node_modules`, and client-only packages moved to `devDependencies`; the image is about 0.5 GB compressed with byte-identical server output.
 
