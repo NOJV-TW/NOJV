@@ -69,7 +69,8 @@ RUN pnpm --filter @nojv/storage build
 RUN pnpm --filter @nojv/mailer build
 RUN pnpm --filter @nojv/temporal build
 RUN pnpm --filter @nojv/application build
-RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm --filter @nojv/web build
+RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm --filter @nojv/web build \
+  && mv apps/web/build/client/wasm-oj /wasm-oj
 
 # 3. Production image
 FROM node:24-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd
@@ -82,6 +83,7 @@ WORKDIR /app
 # Root node_modules contains the production-only pnpm virtual store; app-level
 # node_modules symlinks resolve into this directory.
 COPY --from=prod-deps --chown=appuser:nodejs /build/node_modules/ ./node_modules/
+COPY --from=builder --chown=appuser:nodejs /wasm-oj/ ./apps/web/build/client/wasm-oj/
 
 # Workspace package dist + package.json — the symlinks above resolve to these.
 COPY --from=builder --chown=appuser:nodejs /build/packages/core/dist/ ./packages/core/dist/

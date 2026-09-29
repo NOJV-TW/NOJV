@@ -53,7 +53,8 @@ RUN pnpm --filter @nojv/mailer build
 RUN pnpm --filter @nojv/sandbox-docker build
 RUN pnpm --filter @nojv/application build
 RUN pnpm --filter @nojv/temporal build
-RUN pnpm --filter @nojv/worker build
+RUN pnpm --filter @nojv/worker build \
+  && rm -rf node_modules/.pnpm-task-run-state-v1
 
 # 3. Production image
 FROM node:24-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d
