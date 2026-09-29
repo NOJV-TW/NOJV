@@ -252,7 +252,7 @@ A run owns its Jobs, Pods, ConfigMaps, PVCs and temporary results; deletes carry
 
 ### JDG-23 Testcase payloads are a content-addressed ConfigMap cache
 
-**Decided:** 2026-09 · **Source:** [#PR](https://github.com/NOJV-TW/NOJV/pull/PR)
+**Decided:** 2026-09 · **Source:** [#603](https://github.com/NOJV-TW/NOJV/pull/603)
 
 Kubernetes stages mount testcases from immutable ConfigMap sets keyed by the testcase content hashes of their stage range, one `input` and one `answer` set, instead of uploading them per stage; the worker keeps snapshot pointers and reads testcase objects only while it uploads a missing set. On 2026-09-29/30 every stage of problem 79 (30 cases, ~37 MB) uploaded ~100 ConfigMaps / ~70 MB to k3s and deleted them again, the mass creates hit HTTP/2 stream errors, and the judge worker was OOMKilled at 2 Gi because each slot resolved the whole problem and built both payloads (~700 MB per slot). On k3d with the same shape, four concurrent cold submissions went from 6.2–7.7 s to 1.1 s of payload time and +703 MB to +223 MB peak worker RSS; a warm stage takes 14–70 ms and reads no testcase bytes.
 
