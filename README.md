@@ -30,7 +30,7 @@
 
 ## Quick start
 
-Requires Node.js >=24.18 <25, pnpm 11.13.1 and Docker.
+Requires Node.js >=24.18 <25, pnpm 11.28.2 and Docker.
 
 ```bash
 pnpm install

@@ -13,7 +13,7 @@ is in the [Deployment Guide](../operations/DEPLOYMENT.md#environment-variables).
 
 ```bash
 node -v   # >= 24.18.0 < 25
-pnpm -v   # 11.13.1
+pnpm -v   # 11.28.2
 docker -v # daemon running
 ```
 
