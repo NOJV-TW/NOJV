@@ -48,6 +48,7 @@ stay in the container log pipeline.
 | `nojv-api-latency`     | NOJV — API Latency              | `api_request_duration_seconds` (p50/p95/p99, top routes, 5xx share)                                                   |
 | `nojv-exam-proctoring` | NOJV — Exam Proctoring          | SSE close rate, close reasons, server-fault drops                                                                     |
 | `nojv-time-breakdown`  | NOJV — Where Is The Time Going? | API vs `http_server_duration_milliseconds`; `db_client_operation_duration_seconds` by `db_system` (postgresql, redis) |
+| `nojv-service-memory`  | NOJV — Service Memory           | `process_memory_usage_bytes` vs `nojv_process_memory_limit_bytes` and `v8js_memory_heap_used_bytes` by `exported_job` |
 
 The JSON files are the source of truth for panel PromQL. Auto-instrumentation metric names can change across OTel SDK versions; if a time-breakdown panel goes blank after an upgrade, run one process with `OTEL_LOG_LEVEL=DEBUG`, find the emitted name and update the panel.
 
