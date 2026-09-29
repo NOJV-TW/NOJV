@@ -62,7 +62,8 @@ fixed **Standard Mode** (`standard` / `checker` / `interactive`, JDG-01) or
    stage (run, grade and service share one PVC and lifetime).
 3. Each stage result is written to an immutable object
    (`judge-executions/{id}/stages/{n}/{leaseToken}.json`); PostgreSQL commits the
-   pointer and next state together. A compile error is terminal.
+   pointer and next state together; the last stage or a compile error commits
+   `finalizing`.
 4. After the last stage: `finalizing` → `completePinnedJudge` commits the verdict,
    then score effects and notifications, then `finishJudgeExecution`.
 
@@ -71,8 +72,9 @@ Checkpoints and pinned content survive continue-as-new.
 
 ### Stage activity
 
-- Claims a database lease, heartbeats Temporal and renews the lease every 15 s; lost
-  ownership aborts the sandbox.
+- Claims a database lease and marks the execution (and a non-rejudge submission)
+  `running` in the same transaction; heartbeats Temporal and renews the lease every
+  15 s; lost ownership aborts the sandbox.
 - Any `pipelineError`, SE case or SE raw run fails the stage with
   `JudgeResultSystemError` (the stage is not saved), so platform failures retry
   instead of becoming final verdicts (JDG-09).
@@ -177,8 +179,10 @@ Ordering is Temporal task-queue priority and fairness, not an in-house scheduler
 - Per-student gate (`executeJudgeExecutionDispatch`): an execution starts only when
   the student has no earlier unfinished execution of the same class and, for
   background work, no unfinished foreground execution. Finishing or cancelling
-  enqueues the student's next foreground and background executions. Queued work is a
-  database row, not a live workflow.
+  enqueues the student's next foreground and background executions, then runs the
+  gate for them immediately (best effort, like submission acceptance); the outbox
+  row stays the fallback, and `REJECT_DUPLICATE` absorbs the second start. Queued
+  work is a database row, not a live workflow.
 - Only `executeJudgeStage` and `reconcileJudgeStage` run on `judge`, so one judge
   slot is one sandbox Job. Bookkeeping runs on `judge-state` (activity-only worker in
   the same process, 16 fixed slots) so verdicts never queue behind Jobs.

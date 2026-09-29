@@ -102,6 +102,12 @@ describe("immutable judge execution recovery", () => {
     await dispatch(later);
     expect(dispatchJudgeExecution).toHaveBeenCalledOnce();
     await judge.finishJudgeExecution(execution.id, execution.workflowId);
+    expect(dispatchJudgeExecution).toHaveBeenCalledTimes(2);
+    expect(dispatchJudgeExecution).toHaveBeenLastCalledWith({
+      executionId: later.id,
+      workflowId: later.workflowId,
+      priority: { priorityKey: 3, fairnessKey: user.id },
+    });
     expect(
       await db.durableWork.findUnique({
         where: {
@@ -112,10 +118,64 @@ describe("immutable judge execution recovery", () => {
         },
       }),
     ).toMatchObject({ status: "pending" });
-    await dispatch(later);
-    expect(dispatchJudgeExecution).toHaveBeenLastCalledWith(
+  });
+
+  it("keeps the durable dispatch row when the post-completion kick fails", async () => {
+    const { execution, user, problem, draft } = await fixture();
+    const second = await createTestSubmission({
+      userId: user.id,
+      problemId: problem.id,
+      status: "queued",
+    });
+    const pinned = await judge.prepareJudgeSnapshot(second.id, draft);
+    const later = await runTransaction((tx) =>
+      judge.createJudgeExecution(tx, { submissionId: second.id, ...pinned }),
+    );
+    await db.judgeExecution.update({
+      where: { id: execution.id },
+      data: { createdAt: new Date(later.createdAt.getTime() - 1000) },
+    });
+    await db.durableWork.deleteMany({ where: { dedupeKey: later.workflowId } });
+    const dispatchJudgeExecution = vi.fn().mockRejectedValue(new Error("Temporal unavailable"));
+    configureDomainOrchestration({ dispatchJudgeExecution } as never);
+    await judge.setJudgeExecutionState(execution.id, execution.workflowId, "finalizing");
+    await judge.finishJudgeExecution(execution.id, execution.workflowId);
+    expect(dispatchJudgeExecution).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({ executionId: later.id }),
     );
+    expect(
+      await db.durableWork.findUnique({
+        where: {
+          kind_dedupeKey: {
+            kind: "submission.execution.dispatch",
+            dedupeKey: later.workflowId,
+          },
+        },
+      }),
+    ).toMatchObject({ status: "pending" });
+  });
+
+  it("marks the submission running when the stage lease is claimed", async () => {
+    const { execution, submission } = await fixture();
+    await judge.setJudgeExecutionState(
+      execution.id,
+      execution.workflowId,
+      "recovering",
+      "machine_failure",
+      "node lost",
+      60_000,
+    );
+    await judge.setJudgeExecutionState(execution.id, execution.workflowId, "queued");
+    const before = Date.now();
+    const claim = await judge.claimJudgeLease(execution.id, execution.workflowId, "worker");
+    expect(claim.status).toBe("claimed");
+    const run = await db.judgeExecution.findUniqueOrThrow({ where: { id: execution.id } });
+    expect(run).toMatchObject({ state: "running", reasonCode: null, lastError: null });
+    expect(run.lastProgressAt.getTime()).toBeGreaterThanOrEqual(before);
+    expect(run.nextAttemptAt.getTime()).toBeLessThanOrEqual(Date.now());
+    expect(
+      (await db.submission.findUniqueOrThrow({ where: { id: submission.id } })).status,
+    ).toBe("running");
   });
 
   it("lets a student's live submission pass that student's queued rejudges", async () => {

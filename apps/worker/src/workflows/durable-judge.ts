@@ -88,7 +88,8 @@ export async function durableJudgeWorkflow(input: JudgeExecutionInput): Promise<
           continue;
         }
         finalizing = true;
-        await journal.setJudgeExecutionState(input.executionId, workflowId, "finalizing");
+        if (!patched("stage-commits-finalizing-v1"))
+          await journal.setJudgeExecutionState(input.executionId, workflowId, "finalizing");
       }
       const submission = await journal.completePinnedJudge(input.executionId, workflowId);
       if (submission) {

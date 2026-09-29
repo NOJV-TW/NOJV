@@ -124,7 +124,7 @@ Sandbox pipeline failures store bounded SE diagnostics for the admin submissions
 
 ### JDG-12 Judge queue is Temporal priority and fairness, not a coordinator
 
-**Decided:** 2026-09 · **Source:** [2026-09-21-judge-capacity](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-21-judge-capacity.md), [2026-09-22-temporal-native-judge-queue](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-22-temporal-native-judge-queue.md)
+**Decided:** 2026-09 · **Source:** [2026-09-21-judge-capacity](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-21-judge-capacity.md), [2026-09-22-temporal-native-judge-queue](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-22-temporal-native-judge-queue.md), [PR #597](https://github.com/NOJV-TW/NOJV/pull/597)
 
 Each `JudgeExecution` runs `durableJudgeWorkflow` on the `judge` queue with `priorityKey` (exam 1, contest 2, practice/assignment 3, recovered submission 4, rejudge 5) and `fairnessKey = studentId`; a student has at most one dispatched non-terminal execution and completion dispatches the next. Capacity is judge worker activity slots, with the sandbox ResourceQuota as hard safety net. A 789-execution rejudge collapsed the workflow-based coordinator.
 
@@ -133,6 +133,7 @@ Each `JudgeExecution` runs `durableJudgeWorkflow` on the `judge` queue with `pri
 - Rule: stage and bookkeeping activities carry priority; bookkeeping runs on `judge-state` so it never queues behind Jobs; unmapped paths degrade to priority 3.
 - Rule: priority derives from origin (`operationId` marks a rejudge, `recoveryEpoch` a recovery), never from `queueClass`, which only orders a student's own executions; recovered live submissions dispatch ahead of bulk rejudges.
 - Rule: rollback re-dispatches execution rows via the reconciler; never replay new histories with old worker code.
+- Rule: completion and cancellation hand off without waiting for the once-a-minute durable-work cron: they write the next execution's dispatch row, then try the gated start directly. Correctness rests on the row and the workflow ID, never on the direct attempt.
 - Code: `packages/core/src/judge-execution.ts`, `packages/application/src/submission/judge-recovery.ts`, `infra/docker/temporal-dynamic-config.yaml`
 
 ### JDG-13 Load-aware judge slots via Temporal's resource-based tuner
