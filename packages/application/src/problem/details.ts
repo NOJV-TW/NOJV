@@ -17,7 +17,7 @@ import {
   type ProblemVisibility,
 } from "@nojv/core";
 import { NotFoundError } from "../shared/errors";
-import { readWorkspaceFileBlob } from "./blobs";
+import { readCachedWorkspaceFileBlob } from "./blobs";
 import { computeProblemTotalScore } from "./total-score";
 import { parsePersistedAdvancedConfig, parsePersistedJudgeConfig } from "./judge-config";
 
@@ -102,7 +102,7 @@ async function mapPersistedProblemDetail(
     rawFiles.map(async (f) => {
       const visibility = f.visibility;
       const content =
-        visibility === "hidden" ? "" : await readWorkspaceFileBlob(f.contentStorage);
+        visibility === "hidden" ? "" : await readCachedWorkspaceFileBlob(f.contentStorage);
       return {
         language: f.language,
         path: f.path,
@@ -148,7 +148,7 @@ async function mapPersistedProblemDetail(
   };
 }
 
-export async function getProblemPageData(
+export async function getProblemPageDataWithAccess(
   id: string,
   opts?: { includeAdvancedConfig?: boolean },
 ) {
@@ -166,15 +166,37 @@ export async function getProblemPageData(
     stats?.solvers ?? 0,
   );
 
-  if (!opts?.includeAdvancedConfig) {
-    return { ...detail, advancedConfig: null };
-  }
+  return {
+    access: {
+      id: persistedProblem.id,
+      authorId: persistedProblem.authorId,
+      visibility: persistedProblem.visibility,
+    },
+    problem: opts?.includeAdvancedConfig ? detail : { ...detail, advancedConfig: null },
+  };
+}
 
-  return detail;
+export async function getProblemPageData(
+  id: string,
+  opts?: { includeAdvancedConfig?: boolean },
+) {
+  return (await getProblemPageDataWithAccess(id, opts)).problem;
 }
 
 export async function getProblemTestcaseSets(problemId: string) {
   return testcaseSetRepo.findByProblemId(problemId);
+}
+
+export async function getProblemTestcaseSetSummaries(problemId: string) {
+  const sets = await testcaseSetRepo.findSummariesByProblemId(problemId);
+  return sets.map((set) => ({
+    id: set.id,
+    name: set.name,
+    description: set.description,
+    weight: set.weight,
+    ordinal: set.ordinal,
+    caseCount: set._count.testcases,
+  }));
 }
 
 export async function getProblemRowById(id: string) {

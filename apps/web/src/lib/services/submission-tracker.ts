@@ -28,6 +28,7 @@ const rejudges = new Map<
   }
 >();
 let owner: string | null = null;
+let pendingIds: Set<string> | null = null;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let active: AbortController | undefined;
 let epoch = 0;
@@ -38,13 +39,14 @@ let sessionAbort = new AbortController();
 let pageRefreshActive = false;
 let pageRetryAt = 0;
 let pageRetryDelay = 5000;
+const ACTIVE_POLL_MS = 5000;
+const IDLE_POLL_MS = 30_000;
 
 function refreshPage() {
-  if (navigating.to) {
+  if (navigating.to || pageRefreshActive || Date.now() < pageRetryAt) {
     syncPage = true;
     return;
   }
-  if (pageRefreshActive || Date.now() < pageRetryAt) return;
   pageRefreshActive = true;
   const currentEpoch = epoch;
   let timeout: ReturnType<typeof setTimeout>;
@@ -62,6 +64,7 @@ function refreshPage() {
       if (currentEpoch !== epoch) return;
       syncPage = true;
       pageRetryAt = Date.now() + pageRetryDelay;
+      schedule(pageRetryDelay);
       pageRetryDelay = Math.min(pageRetryDelay * 2, 30_000);
     })
     .finally(() => {
@@ -124,6 +127,11 @@ function publish(operation: SubmissionOperation): boolean {
   return true;
 }
 
+function publishChange(operation: SubmissionOperation): boolean {
+  const known = operations.has(operation.submissionId);
+  return publish(operation) && known;
+}
+
 function schedule(delay = 0) {
   if (typeof window === "undefined") return;
   if (active) return;
@@ -134,21 +142,26 @@ function schedule(delay = 0) {
 async function discover(signal: AbortSignal, currentEpoch: number) {
   let cursor: string | null = null;
   const found = new Set<string>();
+  let changed = false;
   do {
     const page: { items: unknown[]; nextCursor: string | null } = await submissionRead(
       `/api/submissions/pending${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
       signal,
     );
-    if (signal.aborted || epoch !== currentEpoch) return found;
+    if (signal.aborted || epoch !== currentEpoch) return { found, changed };
     for (const raw of page.items) {
       const operation = submissionOperationSchema.parse(raw);
       notifyIds.add(operation.submissionId);
       found.add(operation.submissionId);
-      publish(operation);
+      changed = publishChange(operation) || changed;
     }
     cursor = page.nextCursor;
   } while (cursor);
-  return found;
+  const previous = pendingIds;
+  if (previous && (previous.size !== found.size || [...found].some((id) => !previous.has(id))))
+    changed = true;
+  pendingIds = found;
+  return { found, changed };
 }
 
 async function refresh() {
@@ -169,7 +182,9 @@ async function refresh() {
     let discovered = new Set<string>();
     if (owner) {
       try {
-        discovered = await discover(signal, currentEpoch);
+        const discovery = await discover(signal, currentEpoch);
+        discovered = discovery.found;
+        changed = discovery.changed || changed;
       } catch {
         failed = true;
       }
@@ -185,7 +200,7 @@ async function refresh() {
         );
         if (signal.aborted || epoch !== currentEpoch) return;
         for (const raw of page.items)
-          changed = publish(submissionOperationSchema.parse(raw)) || changed;
+          changed = publishChange(submissionOperationSchema.parse(raw)) || changed;
         for (const id of page.unavailableIds) {
           tracked.delete(id);
           notifyIds.delete(id);
@@ -217,24 +232,29 @@ async function refresh() {
     }
     const results = await Promise.allSettled([...refreshers].map((fn) => fn(signal)));
     failed ||= results.some((result) => result.status === "rejected");
-    if ((owner || changed) && !signal.aborted && epoch === currentEpoch) refreshPage();
+    if (changed && !signal.aborted && epoch === currentEpoch) refreshPage();
   } catch {
     failed = true;
   } finally {
     if (active === controller) active = undefined;
     if (epoch === currentEpoch && !signal.aborted) {
-      retryMs = failed ? Math.min(retryMs * 2, 30_000) : 5000;
-      const delay = rerun ? 0 : retryMs;
+      retryMs = failed ? Math.min(retryMs * 2, 30_000) : ACTIVE_POLL_MS;
+      const idle = !tracked.size && !rejudges.size && !refreshers.size && !syncPage;
+      const delay = rerun ? 0 : idle && !failed ? IDLE_POLL_MS : retryMs;
       rerun = false;
       schedule(delay);
     }
   }
 }
 
-export function requestSubmissionRefresh() {
-  syncPage = true;
+function wakeTracker() {
   if (active) rerun = true;
   else schedule();
+}
+
+export function requestSubmissionRefresh() {
+  syncPage = true;
+  wakeTracker();
 }
 
 export function watchSubmissionStates(ids: string[], listener: Listener) {
@@ -270,7 +290,7 @@ export function onSubmissionRefresh(callback: Refresh) {
 export function trackSubmission(id: string) {
   tracked.add(id);
   notifyIds.add(id);
-  schedule();
+  wakeTracker();
 }
 
 export function watchRejudge(
@@ -298,16 +318,17 @@ export function startSubmissionTracking(userId: string) {
   stopSubmissionTracking();
   owner = userId;
   const wake = () => {
-    if (document.visibilityState === "visible") requestSubmissionRefresh();
+    if (document.visibilityState === "visible") wakeTracker();
   };
   const removeEvent = onSSEEvent(SSE_SUBMISSION_VERDICT, (event) => {
     if (event.type !== SSE_SUBMISSION_VERDICT) return;
+    if (!operations.has(event.submissionId)) syncPage = true;
     trackSubmission(event.submissionId);
   });
   const removeOpen = onSSEOpen(wake);
   window.addEventListener("online", wake);
   document.addEventListener("visibilitychange", wake);
-  requestSubmissionRefresh();
+  wakeTracker();
   return () => {
     removeEvent();
     removeOpen();
@@ -329,6 +350,7 @@ export function stopSubmissionTracking() {
   if (timer) clearTimeout(timer);
   timer = undefined;
   owner = null;
+  pendingIds = null;
   rerun = false;
   syncPage = false;
   retryMs = 5000;

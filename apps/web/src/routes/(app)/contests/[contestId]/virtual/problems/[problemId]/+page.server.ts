@@ -5,9 +5,8 @@ import { problemDomain, virtualContestDomain } from "@nojv/application";
 import type { PageServerLoad, PageServerLoadEvent } from "./$types";
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
-import { summarizeTestcaseSets } from "$lib/server/problem-solve";
 
-const { getProblemPageData, getProblemTestcaseSets } = problemDomain;
+const { getProblemPageData, getProblemTestcaseSetSummaries } = problemDomain;
 const { getVirtualContestForUser, listVirtualContestProblemSubmissions } = virtualContestDomain;
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
@@ -32,7 +31,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const [problem, submissions, testcaseSets] = await Promise.all([
     getProblemPageData(problemId),
     listVirtualContestProblemSubmissions(virtual.participationId, actor.userId, problemId),
-    getProblemTestcaseSets(problemId),
+    getProblemTestcaseSetSummaries(problemId),
   ]);
 
   const siblingProblems = virtual.problems.map((p) => ({
@@ -51,6 +50,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     problem,
     submissions,
     siblingProblems,
-    testcaseSets: summarizeTestcaseSets(testcaseSets),
+    testcaseSets,
   };
 });

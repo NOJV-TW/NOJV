@@ -5,15 +5,13 @@ import { postDomain, problemDomain, submissionDomain } from "@nojv/application";
 
 const {
   assertProblemViewAccess,
-  getProblemPageData,
-  getProblemRowById,
-  getProblemTestcaseSets,
+  getProblemPageDataWithAccess,
+  getProblemTestcaseSetSummaries,
 } = problemDomain;
 const { canOperateOnSubmission, listProblemSubmissions } = submissionDomain;
 const { canViewPosts, resolveActiveContextForUser } = postDomain;
 import { requireAuth } from "$lib/server/auth";
 import { handleLoad } from "$lib/server/shared/load-wrapper";
-import { summarizeTestcaseSets } from "$lib/server/problem-solve";
 
 export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent) => {
   event.depends("submission:data");
@@ -27,17 +25,15 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
   const actorContext = requireAuth(event);
 
   const [
-    problemRow,
-    problem,
-    fullTestcaseSets,
+    { access, problem },
+    testcaseSets,
     submissions,
     editorialContext,
     canRejudge,
     bookmarked,
   ] = await Promise.all([
-    getProblemRowById(problemId),
-    getProblemPageData(problemId),
-    getProblemTestcaseSets(problemId),
+    getProblemPageDataWithAccess(problemId),
+    getProblemTestcaseSetSummaries(problemId),
     listProblemSubmissions(userId, problemId),
     resolveActiveContextForUser(userId, problemId, new Date()),
     canOperateOnSubmission(actorContext, {
@@ -51,17 +47,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     problemDomain.isBookmarked(userId, problemId),
   ]);
 
-  if (!problemRow) {
-    error(404, "Problem not found");
-  }
-
-  await assertProblemViewAccess(
-    { id: problemRow.id, authorId: problemRow.authorId, visibility: problemRow.visibility },
-    actorContext,
-    { contextIncludesProblem: false },
-  );
-
-  const testcaseSetSummaries = summarizeTestcaseSets(fullTestcaseSets);
+  await assertProblemViewAccess(access, actorContext, { contextIncludesProblem: false });
 
   const editorialAccess =
     actorContext.platformRole === "admin" ||
@@ -76,6 +62,6 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     contestId: undefined,
     problem: { ...problem, bookmarked },
     submissions,
-    testcaseSets: testcaseSetSummaries,
+    testcaseSets,
   };
 });

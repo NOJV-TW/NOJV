@@ -13,24 +13,12 @@ export const problemRepo = {
   findDetailById(id: string) {
     return prisma.problem.findUnique({
       include: {
-        _count: {
-          select: { submissions: true },
-        },
         author: { select: { username: true } },
         statement: true,
         workspaceFiles: {
           orderBy: [{ language: "asc" }, { orderIndex: "asc" }, { path: "asc" }],
         },
-        testcaseSets: {
-          include: {
-            _count: { select: { testcases: true } },
-            testcases: {
-              orderBy: { ordinal: "asc" },
-              take: 10,
-            },
-          },
-          orderBy: [{ ordinal: "asc" }, { createdAt: "asc" }],
-        },
+        testcaseSets: { select: { weight: true } },
       },
       where: { id },
     });
@@ -336,6 +324,21 @@ export const testcaseSetRepo = {
     return prisma.testcaseSet.findMany({
       where: { problemId },
       include: { testcases: { orderBy: { ordinal: "asc" } } },
+      orderBy: [{ ordinal: "asc" }, { createdAt: "asc" }],
+    });
+  },
+
+  findSummariesByProblemId(problemId: string) {
+    return prisma.testcaseSet.findMany({
+      where: { problemId },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        weight: true,
+        ordinal: true,
+        _count: { select: { testcases: true } },
+      },
       orderBy: [{ ordinal: "asc" }, { createdAt: "asc" }],
     });
   },

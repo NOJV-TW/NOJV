@@ -1,5 +1,3 @@
-import { error } from "@sveltejs/kit";
-
 import { problemDomain, submissionDomain } from "@nojv/application";
 import type { Language } from "@nojv/core";
 
@@ -19,34 +17,14 @@ type ProblemSolveContext =
       backLink: { href: string; type: "exam" };
     };
 
-export function summarizeTestcaseSets(
-  sets: Awaited<ReturnType<typeof problemDomain.getProblemTestcaseSets>>,
-) {
-  return sets.map((set) => ({
-    id: set.id,
-    name: set.name,
-    description: set.description,
-    weight: set.weight,
-    ordinal: set.ordinal,
-    caseCount: set.testcases.length,
-  }));
-}
-
 export async function loadProblemSolveData(
   problemId: string,
   actor: CompletedActorContext,
   context: ProblemSolveContext,
 ) {
-  const [problemRow, problem] = await Promise.all([
-    problemDomain.getProblemRowById(problemId),
-    problemDomain.getProblemPageData(problemId),
-  ]);
+  const { access, problem } = await problemDomain.getProblemPageDataWithAccess(problemId);
 
-  if (!problemRow) {
-    error(404, "Problem not found");
-  }
-
-  await problemDomain.assertProblemViewAccess(problemRow, actor, {
+  await problemDomain.assertProblemViewAccess(access, actor, {
     contextIncludesProblem: true,
   });
 
@@ -56,7 +34,7 @@ export async function loadProblemSolveData(
       : undefined;
 
   const [testcaseSets, submissions, canRejudge] = await Promise.all([
-    problemDomain.getProblemTestcaseSets(problemId),
+    problemDomain.getProblemTestcaseSetSummaries(problemId),
     submissionDomain.listProblemSubmissions(actor.userId, problemId, assignment),
     submissionDomain.canOperateOnSubmission(actor, {
       id: "",
@@ -77,6 +55,6 @@ export async function loadProblemSolveData(
     contestId: undefined,
     problem,
     submissions,
-    testcaseSets: summarizeTestcaseSets(testcaseSets),
+    testcaseSets,
   };
 }
