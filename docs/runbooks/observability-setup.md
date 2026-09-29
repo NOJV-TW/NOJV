@@ -21,23 +21,24 @@ stay in the container log pipeline.
 - Both apps start an OpenTelemetry NodeSDK when `OTEL_EXPORTER_OTLP_ENDPOINT` is a valid URL, exporting to `<endpoint>/v1/metrics` every 30s. Unset, empty or invalid means no-op (production logs a warning).
 - `OTEL_EXPORTER_OTLP_HEADERS` is optional comma-separated `key=value`; Grafana Cloud needs `Authorization=Basic <base64(instanceId:token)>`.
 - Auto-instrumentation covers `http`, `pg`, `ioredis` and `undici`; `fs` and `dns` are disabled.
-- Service names: `OTEL_SERVICE_NAME_WEB` (default `nojv-web`), `OTEL_SERVICE_NAME_WORKER` (default `nojv-worker`).
+- Service names: `OTEL_SERVICE_NAME_WEB` (default `nojv-web`), `OTEL_SERVICE_NAME_WORKER` (default `nojv-worker-judge` or `nojv-worker-platform` from `WORKER_MODE`, `nojv-worker` for `all`). The collector's Prometheus exporter turns `service.name` into `job`, and Prometheus stores it as `exported_job`; filter or group app series by `exported_job`, never sum them across services.
 - The worker awaits `shutdownOtel()` during graceful shutdown; web has no explicit flush and can lose the last interval.
 
 ## Metrics
 
-| Metric                                                                                                        | Type      | Labels                                  | Source                       |
-| ------------------------------------------------------------------------------------------------------------- | --------- | --------------------------------------- | ---------------------------- |
-| `api_request_duration_seconds`                                                                                | histogram | `route`, `method`, `status_class`       | web hook boundary            |
-| `health_probe_duration_seconds`                                                                               | histogram | `probe` (`live`, `ready`), `result`     | web probes only              |
-| `sse_connection_duration_seconds`                                                                             | histogram | `close_reason`                          | web SSE                      |
-| `sse_connection_dropped_total`                                                                                | counter   | —                                       | web SSE, server-fault close  |
-| `judge_latency_seconds`                                                                                       | histogram | `mode`, `verdict`                       | worker verdict commit        |
-| `judge_phase_duration_seconds`, `judge_cpu_seconds`, `judge_cpu_throttled_seconds`, `judge_memory_peak_bytes` | histogram | phase/mode/language/result              | worker sandbox               |
-| `judge_cleanup_pending_total`                                                                                 | counter   | phase/mode/language/result              | worker sandbox               |
-| `judge_wall_clock_timeouts_total`                                                                             | counter   | `language`                              | worker sandbox               |
-| `durable_work_outcomes_total`                                                                                 | counter   | `kind`, `outcome`, `delivery_semantics` | platform worker              |
-| `nojv_judge_*`, `nojv_submissions_stuck`                                                                      | gauge     | —                                       | platform worker SQL snapshot |
+| Metric                                                                                                        | Type      | Labels                                  | Source                                                              |
+| ------------------------------------------------------------------------------------------------------------- | --------- | --------------------------------------- | ------------------------------------------------------------------- |
+| `api_request_duration_seconds`                                                                                | histogram | `route`, `method`, `status_class`       | web hook boundary                                                   |
+| `health_probe_duration_seconds`                                                                               | histogram | `probe` (`live`, `ready`), `result`     | web probes only                                                     |
+| `sse_connection_duration_seconds`                                                                             | histogram | `close_reason`                          | web SSE                                                             |
+| `sse_connection_dropped_total`                                                                                | counter   | —                                       | web SSE, server-fault close                                         |
+| `judge_latency_seconds`                                                                                       | histogram | `mode`, `verdict`                       | worker verdict commit                                               |
+| `judge_phase_duration_seconds`, `judge_cpu_seconds`, `judge_cpu_throttled_seconds`, `judge_memory_peak_bytes` | histogram | phase/mode/language/result              | worker sandbox                                                      |
+| `judge_cleanup_pending_total`                                                                                 | counter   | phase/mode/language/result              | worker sandbox                                                      |
+| `judge_wall_clock_timeouts_total`                                                                             | counter   | `language`                              | worker sandbox                                                      |
+| `durable_work_outcomes_total`                                                                                 | counter   | `kind`, `outcome`, `delivery_semantics` | platform worker                                                     |
+| `nojv_judge_*`, `nojv_submissions_stuck`                                                                      | gauge     | —                                       | platform worker SQL snapshot                                        |
+| `process_memory_usage_bytes`, `nojv_process_memory_limit_bytes`                                               | gauge     | `exported_job`                          | every process: RSS and cgroup `memory.max` (absent without a limit) |
 
 ## Dashboards
 

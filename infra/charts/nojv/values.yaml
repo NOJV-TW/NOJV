@@ -294,10 +294,10 @@ web:
   resources:
     requests:
       cpu: 250m
-      memory: 256Mi
+      memory: 384Mi
     limits:
       cpu: "1"
-      memory: 512Mi
+      memory: 1Gi
   service:
     type: ClusterIP
     port: 80

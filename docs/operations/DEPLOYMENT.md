@@ -365,7 +365,7 @@ apply ad-hoc down migrations.
 
 | Tier     | Single-machine                                     | GKE                                                                    |
 | -------- | -------------------------------------------------- | ---------------------------------------------------------------------- |
-| web      | HPA 1–3, CPU 70%                                   | HPA 2–15, CPU 70%                                                      |
+| web      | HPA 1–3, CPU 70%, 384Mi / 1Gi memory               | HPA 2–15, CPU 70%, 384Mi / 1Gi memory                                  |
 | judge    | 1 replica, slots 2–5 by load, 768Mi / 2Gi memory   | 2 replicas × 2 slots                                                   |
 | platform | 1 replica                                          | 2 replicas                                                             |
 | registry | 1 replica                                          | 2 replicas                                                             |

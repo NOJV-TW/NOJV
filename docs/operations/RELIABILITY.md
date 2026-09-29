@@ -57,6 +57,7 @@ All rules live in `infra/grafana/alerts/slo-alerts.json` (labels `severity`, `te
 | `nojv-judge-wall-clock-timeouts`     | warning  | More than two wall-clock TLEs with CPU under the limit in 10m                           |
 | `nojv-notification-email-dead`       | critical | An at-least-once notification email exhausted its database-owned retries                |
 | `nojv-node-disk-usage`               | critical | Node filesystem over 80% for 10m; needs `observability.prometheus.nodeExporter.enabled` |
+| `nojv-process-memory-high`           | warning  | A web or worker process RSS over 85% of its cgroup memory limit for 5m                  |
 | `nojv-pg-not-ready`                  | critical | A `job="cnpg-postgres"` target fails scrape for 2m                                      |
 | `nojv-pg-dump-stale`                 | warning  | Weekly `pg_dump` CronJob last succeeded over 8 days ago, or its status is absent        |
 | `nojv-object-mirror-stale`           | warning  | Object mirror CronJob last succeeded over 26h ago, or its status is absent              |
