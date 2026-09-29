@@ -29,7 +29,7 @@ FROM deps AS prod-deps
 # Optional peers that resolve against workspace devDependencies (Prisma CLI,
 # Vite, Vitest, TypeScript, SvelteKit for better-auth and @prisma/client) are
 # recorded as optionalDependencies in the lockfile, so --no-optional keeps them out.
-RUN pnpm install --frozen-lockfile --prod --no-optional --filter @nojv/web...
+RUN --mount=type=cache,id=pnpm-store-alpine,target=/pnpm/store pnpm install --frozen-lockfile --prod --no-optional --filter @nojv/web...
 
 # @grpc/grpc-js is marked ssr.external in the web build, so the SSR output emits a
 # bare require('@grpc/grpc-js') at runtime. pnpm leaves it nested in the virtual
@@ -47,7 +47,7 @@ RUN rm -rf node_modules/.pnpm/@wasm-oj+toolchain-*/node_modules/@wasm-oj/toolcha
 
 FROM deps AS builder
 
-RUN pnpm install --frozen-lockfile --filter @nojv/web...
+RUN --mount=type=cache,id=pnpm-store-alpine,target=/pnpm/store pnpm install --frozen-lockfile --filter @nojv/web...
 
 ENV pnpm_config_verify_deps_before_run=false
 

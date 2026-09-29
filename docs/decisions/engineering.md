@@ -86,3 +86,13 @@ Triggers such as the lifecycle schedule identity (`timerFingerprint`, `scheduleR
 - Rejected: a `db:push` script for local setup; setting trigger-maintained columns in the seed.
 - Rule: test and e2e setup may `db push` only when followed by the migration replay in `tests/setup/replay-constraints.ts`.
 - Code: `packages/db/prisma/seeds/migration-triggers.ts`, `tests/unit/db/seed-migration-triggers.test.ts`, `tests/setup/replay-constraints.ts`
+
+### ENG-09 CI trusts Turborepo and pnpm store caches
+
+**Decided:** 2026-09 · **Source:** [#593](https://github.com/NOJV-TW/NOJV/pull/593)
+
+Cold installs recompiled native addons and every job rebuilt unchanged packages. Setup restores the pnpm store with a same-month fallback key, and Repository checks save a Turborepo cache pruned to its run's task hashes, so a cache hit stands in for running build, typecheck or lint in the gate.
+
+- Rejected: exact-lockfile-only store cache (every Renovate bump is a full cold install); uploading build artifacts between jobs (serializes parallel jobs).
+- Rule: a file a Turborepo task reads outside its package is listed in `turbo.json` `globalDependencies`, and every file it writes matches its `outputs`.
+- Code: `.github/actions/setup/action.yml`, `.github/workflows/ci.yml`, `turbo.json`

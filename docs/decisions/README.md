@@ -194,3 +194,4 @@ Durable decisions for NOJV, grouped by area. Each entry records what was decided
 - ENG-06 Audit findings are re-verified against code before acting
 - ENG-07 Cleanups keep the app/package layers and behavior
 - ENG-08 Local databases are built from migrations, not `prisma db push`
+- ENG-09 CI trusts Turborepo and pnpm store caches

@@ -4,14 +4,26 @@
     ".env",
     ".env.example",
     ".nvmrc",
+    "eslint.config.mjs",
     "pnpm-workspace.yaml",
+    "scripts/prepare-wasm-oj-assets.mjs",
+    "tooling/eslint/base.mjs",
+    "tooling/typescript/base.json",
+    "tsconfig.base.json",
     "tsdown.base.mjs"
   ],
   "globalEnv": ["NODE_ENV", "CI"],
   "tasks": {
     "build": {
       "dependsOn": ["^build", "paraglide:compile"],
-      "outputs": ["dist/**", ".svelte-kit/**", "build/**", "generated/**"]
+      "outputs": [
+        "dist/**",
+        ".svelte-kit/**",
+        "build/**",
+        "generated/**",
+        "static/wasm-oj/**",
+        "static/_app/**"
+      ]
     },
     "dev": {
       "dependsOn": ["^build", "paraglide:compile"],
