@@ -26,7 +26,10 @@ COPY packages/temporal/package.json packages/temporal/
 
 FROM deps AS prod-deps
 
-RUN pnpm install --frozen-lockfile --prod --filter @nojv/web...
+# Optional peers that resolve against workspace devDependencies (Prisma CLI,
+# Vite, Vitest, TypeScript, SvelteKit for better-auth and @prisma/client) are
+# recorded as optionalDependencies in the lockfile, so --no-optional keeps them out.
+RUN pnpm install --frozen-lockfile --prod --no-optional --filter @nojv/web...
 
 # @grpc/grpc-js is marked ssr.external in the web build, so the SSR output emits a
 # bare require('@grpc/grpc-js') at runtime. pnpm leaves it nested in the virtual
