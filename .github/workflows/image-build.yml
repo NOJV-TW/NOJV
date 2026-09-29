@@ -103,10 +103,7 @@ jobs:
           file: ${{ matrix.dockerfile }}
           tags: ${{ matrix.tag }}
           push: false
-          cache-from: |
-            type=registry,ref=ghcr.io/nojv-tw/${{ matrix.tag }}:buildcache
-            type=gha,scope=${{ matrix.image }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+          cache-from: type=registry,ref=ghcr.io/nojv-tw/${{ matrix.tag }}:buildcache
 
   required-image-build:
     name: Required image build
