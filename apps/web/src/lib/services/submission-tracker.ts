@@ -64,7 +64,6 @@ function refreshPage() {
       if (currentEpoch !== epoch) return;
       syncPage = true;
       pageRetryAt = Date.now() + pageRetryDelay;
-      schedule(pageRetryDelay);
       pageRetryDelay = Math.min(pageRetryDelay * 2, 30_000);
     })
     .finally(() => {
