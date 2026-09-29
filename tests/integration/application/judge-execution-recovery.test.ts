@@ -46,6 +46,29 @@ const ac = {
 };
 
 describe("immutable judge execution recovery", () => {
+  it("records pinned objects with the execution they belong to", async () => {
+    const { user, problem, draft } = await fixture();
+    const submission = await createTestSubmission({
+      userId: user.id,
+      problemId: problem.id,
+      status: "queued",
+    });
+    const pinned = await judge.prepareJudgeSnapshot(submission.id, draft);
+    const pins = [
+      { key: `problems/${problem.id}/pinned-testcases/a`, sha256: "a".repeat(64), size: 1 },
+      { key: `problems/${problem.id}/pinned-testcases/b`, sha256: "b".repeat(64), size: 2 },
+    ];
+    const execution = await runTransaction((tx) =>
+      judge.createJudgeExecution(tx, { submissionId: submission.id, ...pinned, pins }),
+    );
+    const rows = await db.judgeExecutionObject.findMany({
+      where: { executionId: execution.id },
+      orderBy: { key: "asc" },
+      select: { key: true, sha256: true, size: true },
+    });
+    expect(rows).toEqual(pins);
+  });
+
   it("dispatches one execution per student in order and hands off on completion", async () => {
     const { execution, user, problem, draft } = await fixture();
     const second = await createTestSubmission({
