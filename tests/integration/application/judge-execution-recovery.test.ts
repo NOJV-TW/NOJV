@@ -571,6 +571,12 @@ describe("immutable judge execution recovery", () => {
       username: teacher.username ?? "teacher",
       platformRole: "teacher" as const,
     };
+    const pinned = {
+      key: `problems/${problem.id}/pinned-testcases/x`,
+      sha256: "b".repeat(64),
+      size: 3,
+    };
+    await db.judgeExecutionObject.create({ data: { executionId: execution.id, ...pinned } });
     await expect(problemDomain.deleteProblemRecord(actor, problem.id)).rejects.toThrow();
     await judge.completeJudgeExecution(execution.id, execution.workflowId, ac);
     await judge.finishJudgeExecution(execution.id, execution.workflowId);
@@ -580,6 +586,7 @@ describe("immutable judge execution recovery", () => {
       where: { kind: "storage.object.cleanup", status: "pending" },
     });
     expect(cleanup.map((work) => work.payload)).toContainEqual({ pointer: execution.snapshot });
+    expect(cleanup.map((work) => work.payload)).toContainEqual({ pointer: pinned });
   });
 });
 
