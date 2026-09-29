@@ -324,12 +324,25 @@ model JudgeExecution {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  submission Submission   @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  submission Submission             @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   stages     JudgeStage[]
+  objects    JudgeExecutionObject[]
 
   @@unique([submissionId, generation])
   @@index([state, nextAttemptAt, queuedAt])
   @@index([operationId, createdAt, id])
+}
+
+model JudgeExecutionObject {
+  executionId String
+  key         String
+  sha256      String
+  size        Int
+
+  execution JudgeExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@id([executionId, key])
+  @@index([key])
 }
 
 model JudgeStage {

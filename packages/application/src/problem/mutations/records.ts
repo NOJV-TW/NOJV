@@ -174,7 +174,13 @@ export async function deleteProblemRecord(actor: ProblemActorContext, problemId:
       select: {
         sourceStorage: true,
         verdictDetailStorage: true,
-        judgeExecutions: { select: { snapshot: true, stages: { select: { result: true } } } },
+        judgeExecutions: {
+          select: {
+            snapshot: true,
+            stages: { select: { result: true } },
+            objects: { select: { key: true, sha256: true, size: true } },
+          },
+        },
       },
     });
     const removed = [
@@ -186,6 +192,7 @@ export async function deleteProblemRecord(actor: ProblemActorContext, problemId:
           ...judgeExecutions.flatMap((run) => [
             run.snapshot,
             ...run.stages.map((stage) => stage.result),
+            ...run.objects,
           ]),
         ]
           .filter((pointer) => pointer !== null)

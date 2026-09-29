@@ -82,6 +82,26 @@ Load-aware slots (`worker.judge.minConcurrency`; single-machine: min 2, ceiling
   reconciler moves a cancelled workflow's row to a new epoch.
 - Never edit scores or verdicts to unblock a queue.
 
+## Compacting judge snapshots
+
+Format-1 snapshots embed every testcase; `compact-judge-snapshots` rewrites a
+terminal, unleased execution's snapshot to format 2, pinning the problem's
+current testcase objects when the content matches and otherwise writing
+content-addressed `problems/{problemId}/pinned-testcases/{sha256}` objects. The
+old snapshot is queued for cleanup. Runs are idempotent and process one
+execution at a time (peak memory about 7× the largest snapshot), so use the
+judge worker pod in a quiet window, and only with owner approval in production:
+
+```bash
+sudo -n k3s kubectl -n nojv exec deploy/nojv-worker -- node dist/compact-judge-snapshots.js --dry-run
+sudo -n k3s kubectl -n nojv exec deploy/nojv-worker -- node dist/compact-judge-snapshots.js --limit 200
+```
+
+Options: `--limit` (default 1000) and `--min-bytes` (default 1 MiB; smaller
+snapshots are left alone). Each execution prints one JSON line; the last line
+has totals, and the exit code is 1 if any execution failed. Active executions
+are skipped and picked up by a later run.
+
 ## Stuck leases and cleanup
 
 - An expired lease is not proof that a sandbox stopped. `reconcileJudgeStage` and

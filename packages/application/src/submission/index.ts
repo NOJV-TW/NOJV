@@ -72,6 +72,7 @@ export {
 export * from "./judge-execution";
 export * from "./judge-recovery";
 export * from "./judge-snapshot";
+export * from "./judge-snapshot-compaction";
 
 export * from "./judge-admission";
 export {

@@ -78,6 +78,13 @@ describe("storage object cleanup", () => {
     expect(deleteBlob).not.toHaveBeenCalled();
   });
 
+  it("treats a pointer pinned by a judge execution as referenced", async () => {
+    await cleanupUnreferencedStorageObject({ pointer: pointer("objects/v1") });
+    const [strings, ...values] = queryRaw.mock.calls[0] as [TemplateStringsArray, ...unknown[]];
+    expect(strings.join("?")).toMatch(/FROM "JudgeExecutionObject" WHERE "key" = \?/);
+    expect(values).toContain("objects/v1");
+  });
+
   it("verifies and deletes source children by exact key before their manifest", async () => {
     const manifest = pointer("submissions/sub_1/source-generations/gen_1/manifest.json");
     const child = pointer("submissions/sub_1/source-generations/gen_1/files/main.cpp");

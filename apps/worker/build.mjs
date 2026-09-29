@@ -15,6 +15,12 @@ await build({
   outfile: "dist/index.js",
 });
 
+await build({
+  ...shared,
+  entryPoints: ["src/compact-judge-snapshots.ts"],
+  outfile: "dist/compact-judge-snapshots.js",
+});
+
 // Temporal workflows entry. Must be emitted as a separate file because
 // worker-app.ts passes `workflowsPath: require.resolve("./workflows/index.js")`
 // and Temporal re-bundles the workflow code in its own isolated sandbox for

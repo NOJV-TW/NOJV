@@ -72,16 +72,98 @@ const judgeContextSchema = z.object({
     .nullable(),
 });
 
-export const judgeSnapshotSchema = z.object({
-  format: z.literal(1),
+const storagePointerSchema = z.object({
+  key: z.string().min(1),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/),
+  size: z.number().int().nonnegative(),
+});
+
+const pinnedContextSchema = judgeContextSchema.extend({
+  testcaseSets: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      weight: z.number(),
+      testcases: z.array(
+        z.object({
+          id: z.string(),
+          weight: z.number(),
+          input: storagePointerSchema,
+          output: storagePointerSchema.optional(),
+          inputFiles: z.record(z.string(), storagePointerSchema).optional(),
+        }),
+      ),
+    }),
+  ),
+});
+
+const snapshotFields = {
   sandboxImage: z.string().min(1),
   submissionId: z.string(),
   problemGeneration: z.number().int(),
   draft: submissionJudgeDraftSchema,
-  context: judgeContextSchema,
   sources: z.array(z.object({ path: z.string(), content: z.string() })).min(1),
+};
+
+export const judgeSnapshotSchema = z.object({
+  format: z.literal(1),
+  context: judgeContextSchema,
+  ...snapshotFields,
 });
 export type JudgeSnapshot = z.infer<typeof judgeSnapshotSchema>;
+
+export const pinnedJudgeSnapshotSchema = z.object({
+  format: z.literal(2),
+  context: pinnedContextSchema,
+  ...snapshotFields,
+});
+export type PinnedJudgeSnapshot = z.infer<typeof pinnedJudgeSnapshotSchema>;
+
+const storedJudgeSnapshotSchema = z.discriminatedUnion("format", [
+  judgeSnapshotSchema,
+  pinnedJudgeSnapshotSchema,
+]);
+
+export function pinnedObjects(snapshot: PinnedJudgeSnapshot): StorageObjectPointer[] {
+  const pointers = snapshot.context.testcaseSets.flatMap(({ testcases }) =>
+    testcases.flatMap(({ input, output, inputFiles }) => [
+      input,
+      ...(output ? [output] : []),
+      ...Object.values(inputFiles ?? {}),
+    ]),
+  );
+  return [...new Map(pointers.map((pointer) => [pointer.key, pointer])).values()];
+}
+
+async function resolvePinnedSnapshot(snapshot: PinnedJudgeSnapshot): Promise<JudgeSnapshot> {
+  const client = storage();
+  const read = (pointer: StorageObjectPointer) => getVerifiedText(client, pointer);
+  const testcaseSets = await Promise.all(
+    snapshot.context.testcaseSets.map(async (set) => ({
+      ...set,
+      testcases: await Promise.all(
+        set.testcases.map(async ({ id, weight, input, output, inputFiles }) => ({
+          id,
+          weight,
+          input: await read(input),
+          ...(output ? { output: await read(output) } : {}),
+          ...(inputFiles
+            ? {
+                inputFiles: Object.fromEntries(
+                  await Promise.all(
+                    Object.entries(inputFiles).map(
+                      async ([name, pointer]) => [name, await read(pointer)] as const,
+                    ),
+                  ),
+                ),
+              }
+            : {}),
+        })),
+      ),
+    })),
+  );
+  return { ...snapshot, format: 1, context: { ...snapshot.context, testcaseSets } };
+}
 
 export async function prepareJudgeSnapshot(
   submissionId: string,
@@ -121,9 +203,9 @@ export async function prepareJudgeSnapshot(
 }
 
 export async function readJudgeSnapshot(pointer: unknown): Promise<JudgeSnapshot> {
-  const result = judgeSnapshotSchema.safeParse(
+  const result = storedJudgeSnapshotSchema.safeParse(
     JSON.parse(await getVerifiedText(storage(), assertStorageObjectPointer(pointer))),
   );
   if (!result.success) throw new IntegrityError("Invalid immutable judge snapshot.");
-  return result.data;
+  return result.data.format === 2 ? resolvePinnedSnapshot(result.data) : result.data;
 }

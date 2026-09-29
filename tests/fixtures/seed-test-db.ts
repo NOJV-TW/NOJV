@@ -8,6 +8,7 @@ export const TABLES = [
   "ExamCredentialSession",
   "ExamCredential",
   "JudgeStage",
+  "JudgeExecutionObject",
   "JudgeExecution",
   "DurableWork",
   "AdminAuditLog",

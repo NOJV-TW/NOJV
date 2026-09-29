@@ -39,6 +39,7 @@ export async function createJudgeExecution(
     submissionId: string;
     pointer: StorageObjectPointer;
     problemGeneration: number;
+    pins?: StorageObjectPointer[];
     operationId?: string;
     triggeredByUserId?: string;
   },
@@ -107,6 +108,11 @@ export async function createJudgeExecution(
       ...(input.triggeredByUserId ? {} : { status: "queued" }),
     },
   });
+  if (input.pins?.length)
+    await tx.judgeExecutionObject.createMany({
+      data: input.pins.map(({ key, sha256, size }) => ({ executionId: id, key, sha256, size })),
+      skipDuplicates: true,
+    });
   await commitStoragePointerSwap(tx, { added: [input.pointer] });
   await durableWorkRepo.withTx(tx).enqueue({
     kind: JUDGE_EXECUTION_DISPATCH_KIND,
