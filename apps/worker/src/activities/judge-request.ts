@@ -6,6 +6,7 @@ import {
   type Language,
   type SandboxRequest,
   type SandboxResult,
+  type SandboxText,
   type SubmissionJudgeDraft,
   type SubmissionResult,
 } from "@nojv/core";
@@ -14,10 +15,13 @@ import type { SubmissionSource } from "@nojv/storage";
 
 import { enforceMemoryLimit } from "../sandbox/shared/check-standard";
 
+type JudgeContext =
+  submissionDomain.SubmissionJudgeContext | submissionDomain.PinnedJudgeContext;
+
 export function mergeSandboxSources(
   studentSources: readonly SubmissionSource[],
   language: Language,
-  judgeContext: submissionDomain.SubmissionJudgeContext,
+  judgeContext: JudgeContext,
 ): {
   sourceCode: string;
   sourceFiles?: { path: string; content: string }[];
@@ -58,7 +62,7 @@ export function mergeSandboxSources(
 }
 
 export function buildSandboxTestcases(
-  judgeContext: submissionDomain.SubmissionJudgeContext,
+  judgeContext: JudgeContext,
   options: {
     useSamples: boolean;
     useAdvanced: boolean;
@@ -101,7 +105,10 @@ export function buildSandboxTestcases(
   }
 
   return judgeContext.testcaseSets
-    .flatMap((ts) => ts.testcases)
+    .flatMap(
+      (ts): { input: SandboxText; output?: SandboxText | undefined; weight: number }[] =>
+        ts.testcases,
+    )
     .map((tc, i) => ({
       index: i,
       input: tc.input,
@@ -112,7 +119,7 @@ export function buildSandboxTestcases(
 }
 
 function buildAdvancedPayload(
-  judgeContext: submissionDomain.SubmissionJudgeContext,
+  judgeContext: JudgeContext,
 ): SandboxRequest["advanced"] | undefined {
   if (submissionDomain.deriveJudgeMode(judgeContext) !== "advanced" || !judgeContext.advanced) {
     return undefined;
@@ -131,7 +138,7 @@ function buildAdvancedPayload(
 export interface SandboxRequestInput {
   submissionId: string;
   draft: SubmissionJudgeDraft;
-  context: submissionDomain.SubmissionJudgeContext;
+  context: JudgeContext;
   sources: readonly SubmissionSource[];
   sandboxImage?: string;
 }
@@ -202,7 +209,7 @@ export function mapSandboxResult(
     testcaseCount,
   }: {
     draft: SubmissionJudgeDraft;
-    context: submissionDomain.SubmissionJudgeContext;
+    context: JudgeContext;
     testcaseCount: number;
   },
 ): SubmissionResult {

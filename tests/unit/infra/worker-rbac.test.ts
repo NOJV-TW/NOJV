@@ -19,7 +19,7 @@ function helmAvailable(): boolean {
 const describeHelm = helmAvailable() ? describe : describe.skip;
 
 describeHelm("sandbox Job watch RBAC", () => {
-  it("grants only namespaced Job list/watch in addition to existing lifecycle verbs", () => {
+  it("grants only namespaced Job list/watch and ConfigMap patch beyond lifecycle verbs", () => {
     const rendered = execSync(
       "helm template nojv infra/charts/nojv -f infra/charts/nojv/values-gke.yaml -f tests/fixtures/helm/immutable-image-digests.yaml -f tests/fixtures/helm/gke-production-config.yaml -f tests/fixtures/helm/production-external-backups.yaml",
       { cwd: repoRoot, encoding: "utf8" },
@@ -35,7 +35,12 @@ describeHelm("sandbox Job watch RBAC", () => {
     expect(role).toMatch(
       /resources:\s*\["jobs"\][\s\S]*verbs:\s*\["create", "get", "list", "watch", "delete"\]/,
     );
-    expect(role).not.toMatch(/resources:\s*\["jobs"\][\s\S]*verbs:[^\n]*(update|patch)/);
+    const rules = [
+      ...(role ?? "").matchAll(/resources:\s*\[([^\]]*)\]\s*\n\s*verbs:\s*\[([^\]]*)\]/g),
+    ].map(([, resources, verbs]) => ({ resources, verbs }));
+    expect(rules.filter(({ verbs }) => /update|patch/.test(verbs ?? ""))).toEqual([
+      { resources: '"configmaps"', verbs: '"create", "get", "list", "patch", "delete"' },
+    ]);
     expect(role).not.toContain('resources: ["secrets"]');
   });
 });

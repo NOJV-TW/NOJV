@@ -15,6 +15,7 @@ import {
 import { prismaAdapterClient as db } from "@nojv/db";
 import {
   assertStorageObjectPointer,
+  getVerifiedObject,
   getVerifiedText,
   putImmutableObject,
   storagePointerFor,
@@ -210,10 +211,25 @@ export async function prepareJudgeSnapshot(
   };
 }
 
-export async function readJudgeSnapshot(pointer: unknown): Promise<JudgeSnapshot> {
+export async function readStoredJudgeSnapshot(
+  pointer: unknown,
+): Promise<JudgeSnapshot | PinnedJudgeSnapshot> {
   const result = storedJudgeSnapshotSchema.safeParse(
     JSON.parse(await getVerifiedText(storage(), assertStorageObjectPointer(pointer))),
   );
   if (!result.success) throw new IntegrityError("Invalid immutable judge snapshot.");
-  return result.data.format === 2 ? resolvePinnedSnapshot(result.data) : result.data;
+  return result.data;
+}
+
+export async function readJudgeSnapshot(pointer: unknown): Promise<JudgeSnapshot> {
+  const snapshot = await readStoredJudgeSnapshot(pointer);
+  return snapshot.format === 2 ? resolvePinnedSnapshot(snapshot) : snapshot;
+}
+
+export function readJudgeTestcase(pointer: {
+  key: string;
+  sha256: string;
+  size: number;
+}): Promise<Buffer> {
+  return getVerifiedObject(storage(), assertStorageObjectPointer(pointer));
 }

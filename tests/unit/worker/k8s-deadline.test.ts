@@ -112,4 +112,28 @@ describe("judgeStageRanges", () => {
       [9, 10],
     ]);
   });
+
+  it("slices pinned testcase pointers exactly like their contents", () => {
+    const contents = mkRequest(1000, 10);
+    contents.testcases = contents.testcases.map((testcase, index) => ({
+      ...testcase,
+      input: "界".repeat((7 + index) * 1024 * 1024),
+      output: "y".repeat(index * 1024 * 1024),
+    }));
+    const pointer = (text: string) => ({
+      key: "k",
+      sha256: "0".repeat(64),
+      size: Buffer.byteLength(text),
+    });
+    const pinned = {
+      ...contents,
+      testcases: contents.testcases.map((testcase) => ({
+        ...testcase,
+        input: pointer(testcase.input as string),
+        output: pointer(testcase.output as string),
+      })),
+    };
+    expect(judgeStageRanges(pinned)).toEqual(judgeStageRanges(contents));
+    expect(judgeStageRanges(pinned).length).toBeGreaterThan(1);
+  });
 });

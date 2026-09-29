@@ -224,7 +224,7 @@ Every production sandbox Pod uses the `gvisor` RuntimeClass in a namespace that 
 - Rejected: treating unpullable images as terminal SE (2026-07; replaced by durable retry of the pinned image); a reusable warm runner across submissions.
 - Rule: keep non-root, read-only rootfs, dropped capabilities, no privilege escalation, seccomp, no service-account token, limits and deadlines.
 - Rule: retries never substitute another image version.
-- Rule: never add update, patch, Secret or cross-namespace access to the `sandbox-job-manager` role; it keeps only create/get/list/watch/delete on sandbox resources.
+- Rule: never add update, Secret or cross-namespace access to the `sandbox-job-manager` role; it keeps create/get/list/watch/delete on sandbox resources, plus `patch` on ConfigMaps only, for the testcase cache's state and last-use annotations (JDG-23). Patch adds no power over ConfigMaps beyond the existing create and delete, and every cache and stage payload ConfigMap is immutable.
 - Code: `apps/worker/src/sandbox/kubernetes/runtime-probe.ts`, `apps/worker/src/sandbox/kubernetes/netpol-probe.ts`, `apps/worker/src/sandbox/kubernetes/job-watch.ts`, `infra/charts/nojv/templates/namespaces.yaml`, `infra/charts/nojv/templates/worker-rbac.yaml`
 
 ### JDG-21 10 MiB testcases via sharded, hash-verified payloads
@@ -235,7 +235,7 @@ The testcase limit is 10 MiB of UTF-8 (`MAX_TESTCASE_FILE_BYTES`). K8s payloads 
 
 - Rejected: a single ConfigMap payload; image-level `RLIMIT_NPROC`; OCI image-volume payloads.
 - Rule: the materializer rejects path traversal, missing chunks and size/hash mismatches.
-- Rule: shards are deleted on success, failure and cancellation.
+- Rule: per-stage shards are deleted on success, failure and cancellation; testcase shards are cached instead (JDG-23).
 - Code: `packages/core/src/schemas/problem.ts`, `apps/worker/src/sandbox/kubernetes/payload.ts`, `apps/sandbox-runner/src/payload-materializer.ts`
 
 ### JDG-22 Sandbox cleanup is UID-fenced and durable
@@ -247,5 +247,18 @@ A run owns its Jobs, Pods, ConfigMaps, PVCs and temporary results; deletes carry
 - Rejected: restarting k3s/containerd to clear remnants; deleting payload ConfigMaps only after the Pods are gone (a mounted ConfigMap's deletion does not affect a started or finished Pod, and the ordering kept answers in the API when termination stalled).
 - Rejected: HTTP/2 to the Kubernetes API. `@kubernetes/client-node` 2 (v1.3.33) sends calls through undici, which negotiates HTTP/2 by default; in production large payload ConfigMap creates for 30-case problems (79, 80, 83) intermittently failed with `ERR_HTTP2_STREAM_ERROR` (`NGHTTP2_INTERNAL_ERROR` / `ENHANCE_YOUR_CALM`) from 2026-09-29, and a shared keep-alive dispatcher (#596) made it worse. Small-payload stress tests and the k3d suite did not exercise it. The worker forces HTTP/1.1, as the pre-2.0 client used, with per-request connections.
 - Rule: runtime-level remnants need identity-checked operator verification; no production load tests during an exam.
-- Rule: a stage's lease is released only after its Pods are gone and every payload ConfigMap delete succeeded; faster confirmation never skips a check.
+- Rule: a stage's lease is released only after its Pods are gone and every per-stage payload ConfigMap delete succeeded; faster confirmation never skips a check. Cached testcase sets (JDG-23) are not run-owned and are never part of a stage's cleanup.
 - Code: `apps/worker/src/sandbox/kubernetes/resource-cleanup.ts`, `apps/worker/src/sandbox/kubernetes/termination.ts`
+
+### JDG-23 Testcase payloads are a content-addressed ConfigMap cache
+
+**Decided:** 2026-09 · **Source:** [#603](https://github.com/NOJV-TW/NOJV/pull/603)
+
+Kubernetes stages mount testcases from immutable ConfigMap sets keyed by the testcase content hashes of their stage range, one `input` and one `answer` set, instead of uploading them per stage; the worker keeps snapshot pointers and reads testcase objects only while it uploads a missing set. On 2026-09-29/30 every stage of problem 79 (30 cases, ~37 MB) uploaded ~100 ConfigMaps / ~70 MB to k3s and deleted them again, the mass creates hit HTTP/2 stream errors, and the judge worker was OOMKilled at 2 Gi because each slot resolved the whole problem and built both payloads (~700 MB per slot). On k3d with the same shape, four concurrent cold submissions went from 6.2–7.7 s to 1.1 s of payload time and +703 MB to +223 MB peak worker RSS; a warm stage takes 14–70 ms and reads no testcase bytes.
+
+- Rejected: per-case ConfigMaps (100–200 projected sources per volume and one existence check per case); one set per problem version (a stage range is already a pure function of the snapshot, and a whole-problem set would exceed the 64 MiB stage budget); deterministic shard names without an index incarnation (a new set could reuse a shard that the garbage collector is still deleting); reading shards back to verify them (the materializer already verifies every file's size and SHA-256).
+- Rule: the run volume never projects an `answer` set; unit tests pin it (JDG-05).
+- Rule: an existing index is used only if its key and role labels and its layout equal the expected value; a mismatch is an infrastructure error, never overwritten.
+- Rule: a set is deleted only after 12 h without use and when no Pod projects it, with `uid` and `resourceVersion` preconditions so a concurrent touch wins; stages touch the index when `last-used` is older than 10 min.
+- Rule: cached chunk keys keep the `chunk-<digits>` form, so snapshots pinned to older sandbox images still materialize.
+- Code: `apps/worker/src/sandbox/kubernetes/testcase-cache.ts`, `apps/worker/src/sandbox/kubernetes/testcase-cache-gc.ts`, `apps/worker/src/sandbox/kubernetes/resources.ts`, `apps/worker/src/sandbox/shared/stage-payload.ts`

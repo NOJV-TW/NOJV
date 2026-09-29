@@ -74,8 +74,8 @@ export interface PinnedJudgeTestcase {
   id: string;
   weight: number;
   input: StorageObjectPointer;
-  output?: StorageObjectPointer;
-  inputFiles?: Record<string, StorageObjectPointer>;
+  output?: StorageObjectPointer | undefined;
+  inputFiles?: Record<string, StorageObjectPointer> | undefined;
 }
 
 export type PinnedJudgeContext = Omit<SubmissionJudgeContext, "testcaseSets"> & {

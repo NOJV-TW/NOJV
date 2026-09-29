@@ -16,6 +16,7 @@ import { AdvancedModeExecutor } from "./advanced-mode-executor.js";
 import { sanitizeId } from "./process.js";
 import { reconcileDockerRun } from "./reconcile.js";
 import { runStandardMode } from "./standard-mode-executor.js";
+import { loadSandboxTestcases, type TestcaseReader } from "../shared/testcase-text";
 
 export interface DockerExecutorConfig {
   cpuLimit: string;
@@ -24,6 +25,7 @@ export interface DockerExecutorConfig {
   pidsLimit: number;
   headroomMb?: number;
   maxMemoryMb?: number;
+  readTestcase?: TestcaseReader;
 }
 
 export function resolveDockerMemoryMb(
@@ -64,11 +66,16 @@ export class DockerExecutor implements SandboxExecutor {
           pidsLimit: this.config.pidsLimit,
         });
       }
-      return await runStandardMode(tempDir, request, execution, {
-        ...this.config,
-        image: request.sandboxImage ?? this.config.image,
-        memoryMb: resolveDockerMemoryMb(request, this.config),
-      });
+      return await runStandardMode(
+        tempDir,
+        await loadSandboxTestcases(request, this.config.readTestcase),
+        execution,
+        {
+          ...this.config,
+          image: request.sandboxImage ?? this.config.image,
+          memoryMb: resolveDockerMemoryMb(request, this.config),
+        },
+      );
     } finally {
       await rm(tempDir, { force: true, recursive: true });
     }

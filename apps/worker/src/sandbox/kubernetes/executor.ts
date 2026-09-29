@@ -17,6 +17,7 @@ import { KubernetesSandboxResources } from "./resources";
 import { KubernetesExecutionObserver } from "./execution-observer";
 import { KubernetesStandardExecutor } from "./standard-executor";
 import { SandboxImagePullError } from "./errors";
+import type { TestcaseReader } from "../shared/testcase-text";
 import { sandboxSystemError } from "../shared/sandbox-plan";
 
 const require = createRequire(import.meta.url);
@@ -35,6 +36,7 @@ export interface K8sExecutorConfig {
   sidecarReadinessTimeoutMs?: number;
   sidecarReadinessIntervalMs?: number;
   runtimeClassName?: string;
+  readTestcase?: TestcaseReader;
 }
 
 export interface K8sClientHandles {
