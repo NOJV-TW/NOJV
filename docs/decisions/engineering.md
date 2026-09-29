@@ -79,7 +79,7 @@ Organization work stays within the `apps/` and `packages/` layers, grouping by d
 
 ### ENG-08 Local databases are built from migrations, not `prisma db push`
 
-**Decided:** 2026-09 · **Source:** [#598](https://github.com/NOJV-TW/NOJV/pull/598), [#PR](https://github.com/NOJV-TW/NOJV/pull/PR)
+**Decided:** 2026-09 · **Source:** [#598](https://github.com/NOJV-TW/NOJV/pull/598), [#599](https://github.com/NOJV-TW/NOJV/pull/599)
 
 Triggers such as the lifecycle schedule identity (`timerFingerprint`, `scheduleRevision`), security generation and submission context exist only in migration SQL, so a pushed database accepts writes the app depends on the database to reject or fill. Local setup uses `pnpm db:deploy` / `prisma migrate reset`, and the demo seed refuses a database missing any migration-defined trigger. The Vitest integration and Playwright global setups rebuild their marked test database the same way production is built: after the marker proof, they drop and recreate the `public` schema in the proven transaction, then run `prisma migrate deploy`.
 
