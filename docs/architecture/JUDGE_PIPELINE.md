@@ -41,7 +41,9 @@ fixed **Standard Mode** (`standard` / `checker` / `interactive`, JDG-01) or
   transaction (PRB-15). A failed upload is never acknowledged.
 - The snapshot is a checksummed object holding sources, testcases, workspace files,
   judge programs, limits, adjustment rules and the sandbox image; problem generation
-  is checked at acceptance. Production images are digest-pinned in Helm; local
+  is checked at acceptance. Format 1 embeds testcase contents; format 2 holds
+  testcase object pointers pinned by `JudgeExecutionObject`, which
+  `loadJudgeExecution` resolves (hash and size verified) back into contents. Production images are digest-pinned in Helm; local
   unpinned builds are not reproducible.
 - Workflow ID is `judge-execution-{executionId}-{recoveryEpoch}`; start uses
   `REJECT_DUPLICATE`, so repeated dispatch is idempotent.

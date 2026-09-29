@@ -28,7 +28,7 @@ Production migration and schema-contract fences:
 | Identity and auth  | `User`, `Session`, `Account`, `Verification`, `TwoFactor`, `Passkey`, `ApiToken`, `RegistryCredential`, `SchoolVerificationToken` (`auth`) |
 | Exam credentials   | `ExamCredential`, `ExamCredentialSession` (`exam-credential`)                                                                              |
 | Problems           | `Problem`, `ProblemStatement`, `TestcaseSet`, `Testcase`, `ProblemWorkspaceFile`, `ProblemBookmark` (`problem`)                            |
-| Submissions        | `Submission`, `JudgeExecution`, `JudgeStage`, `SubmissionRejudgeLog`, `CodeDraft` (`submission`)                                           |
+| Submissions        | `Submission`, `JudgeExecution`, `JudgeExecutionObject`, `JudgeStage`, `SubmissionRejudgeLog`, `CodeDraft` (`submission`)                   |
 | Grading            | `ScoreOverride`, `ScoreOverrideAuditLog`, `SubmissionFeedback`, `SubmissionFeedbackAuditLog` (`submission`)                                |
 | Community          | `ProblemPost`, `PostVote`, `PostComment`, `ContentReport` (`submission`)                                                                   |
 | Contests and exams | `Contest`, `ContestProblem`, `Exam`, `ExamProblem`, `Participation`, `ActiveExamSession`, `ExamSessionEvent`, `IpViolationLog` (`contest`) |
@@ -65,6 +65,7 @@ erDiagram
     ActiveExamSession ||--o{ ExamSessionEvent : records
     Submission ||--o{ JudgeExecution : "judged by"
     JudgeExecution ||--o{ JudgeStage : checkpoints
+    JudgeExecution ||--o{ JudgeExecutionObject : pins
     Submission ||--o{ SubmissionRejudgeLog : audits
     CourseMembership ||--o{ ScoreOverride : "graded as"
     CourseMembership ||--o{ SubmissionFeedback : receives
@@ -109,6 +110,9 @@ erDiagram
   holds the immutable snapshot pointer, problem generation, queue class,
   recovery epoch and lease; `state` is a string validated by
   `judgeExecutionStateSchema` (`packages/core/src/judge-execution.ts`).
+  `JudgeExecutionObject` (primary key `(executionId, key)`, index on `key`)
+  lists the storage objects a format-2 snapshot references, so storage cleanup
+  keeps them while the execution exists.
   `JudgeStage` holds verified per-stage result pointers. Behavior:
   [Judge Pipeline](./JUDGE_PIPELINE.md) (JDG-10, JDG-11).
 - `SubmissionRejudgeLog` is unique per `(submissionId, rejudgeRunId)` and keeps

@@ -7,7 +7,7 @@
 > in [DATABASE.md](./DATABASE.md); this file is the exhaustive
 > field-level reference.
 
-_54 models and 37 enums across 10 schema files._
+_55 models and 37 enums across 10 schema files._
 
 ## `auth.prisma`
 
@@ -1139,8 +1139,21 @@ Indexes & constraints: `@@unique([postId, reportedByUserId])`, `@@unique([commen
 | `updatedAt` | `DateTime` | `@updatedAt` |
 | `submission` | `Submission` | `@relation(fields: [submissionId], references: [id], onDelete: Cascade)` |
 | `stages` | `JudgeStage[]` | — |
+| `objects` | `JudgeExecutionObject[]` | — |
 
 Indexes & constraints: `@@unique([submissionId, generation])`, `@@index([state, nextAttemptAt, queuedAt])`, `@@index([operationId, createdAt, id])`
+
+#### `JudgeExecutionObject`
+
+| Field | Type | Attributes |
+| ----- | ---- | ---------- |
+| `executionId` | `String` | — |
+| `key` | `String` | — |
+| `sha256` | `String` | — |
+| `size` | `Int` | — |
+| `execution` | `JudgeExecution` | `@relation(fields: [executionId], references: [id], onDelete: Cascade)` |
+
+Indexes & constraints: `@@id([executionId, key])`, `@@index([key])`
 
 #### `JudgeStage`
 
