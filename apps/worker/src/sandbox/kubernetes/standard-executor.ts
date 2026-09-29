@@ -12,7 +12,7 @@ import { measurePhase, requestMode } from "./execution-observer";
 import { runCleanupAfterExecution } from "./cleanup";
 import { parseMemoryLimitMb, resolveK8sMemoryLimit } from "./resource-capacity";
 import { computeStageJobDeadlineSeconds } from "./job-deadlines";
-import { buildJudgePayload, buildRunPayload } from "../shared/stage-payload";
+import { buildJudgeStage, buildRunStage } from "../shared/stage-payload";
 import {
   completeRuns,
   gradableRuns,
@@ -57,40 +57,6 @@ export class KubernetesStandardExecutor {
     return { parallelism, runMemoryLimit: `${String(Math.min(runMb, maxMb))}Mi` };
   }
 
-  private async createStagePayloads(
-    jobName: string,
-    namespace: string,
-    request: SandboxRequest,
-    parallelism: number,
-    signal: AbortSignal,
-  ): Promise<{ run: string[]; judge: string[] }> {
-    const [run, judge] = await Promise.allSettled([
-      this.resources.createPayloadConfigMaps(
-        `${jobName}-run`,
-        namespace,
-        buildRunPayload(request, parallelism),
-        signal,
-        (name, ns) => this.cleanupResources.cleanupConfigMap(name, ns),
-      ),
-      this.resources.createPayloadConfigMaps(
-        `${jobName}-judge`,
-        namespace,
-        buildJudgePayload(request),
-        signal,
-        (name, ns) => this.cleanupResources.cleanupConfigMap(name, ns),
-      ),
-    ]);
-    if (run.status === "fulfilled" && judge.status === "fulfilled")
-      return { run: run.value, judge: judge.value };
-    const created = [run, judge].flatMap((result) =>
-      result.status === "fulfilled" ? result.value : [],
-    );
-    await Promise.allSettled(
-      created.map((name) => this.cleanupResources.cleanupConfigMap(name, namespace)),
-    );
-    throw run.status === "rejected" ? run.reason : (judge as PromiseRejectedResult).reason;
-  }
-
   async execute(
     request: SandboxRequest,
     execution: SandboxExecutionContext,
@@ -109,19 +75,22 @@ export class KubernetesStandardExecutor {
     let payloadNames: string[] = [];
 
     try {
-      const payloads = await this.createStagePayloads(
-        jobName,
+      const payloads = await this.resources.createStagePayloads(
+        [
+          { baseName: `${jobName}-run`, payload: buildRunStage(request, parallelism) },
+          { baseName: `${jobName}-judge`, payload: buildJudgeStage(request) },
+        ],
         ns,
-        request,
-        parallelism,
         execution.signal,
+        (name, namespace) => this.cleanupResources.cleanupConfigMap(name, namespace),
       );
-      payloadNames = [...payloads.run, ...payloads.judge];
+      payloadNames = payloads.owned;
+      const [run = [], judge = []] = payloads.volumes;
       payloadReadyAt = Date.now();
       await this.resources.createStageJob(
         jobName,
         ns,
-        payloads,
+        { run, judge },
         deadlineSeconds,
         request,
         parallelism,

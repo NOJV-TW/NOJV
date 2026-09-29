@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { K8sExecutor } from "../../../apps/worker/src/sandbox/kubernetes/executor";
 import { SandboxAdmissionError } from "../../../apps/worker/src/sandbox/kubernetes/errors";
+import { withTestcaseCache } from "./k8s-testcase-cache-fake";
 
 const EXEC_CONFIG = {
   namespace: "nojv-sandbox",
@@ -119,7 +120,9 @@ function clients(
       },
     ),
   } as any;
+  const cache = withTestcaseCache(coreApi);
   return {
+    cache,
     handles: { coreApi, batchApi, watch },
     record: { configMapsCreated, configMapsDeleted, jobsCreated },
   };
@@ -308,7 +311,7 @@ describe("K8sExecutor sharded payload orchestration", () => {
     expect(result.testcaseResults[0]!.verdict).toBe("AC");
   });
 
-  it("runs a multi-ConfigMap payload and removes every shard", async () => {
+  it("mounts cached testcase shards and removes only the per-stage payload", async () => {
     const fake = clients();
     const executor = new K8sExecutor(EXEC_CONFIG, fake.handles);
 
@@ -319,22 +322,98 @@ describe("K8sExecutor sharded payload orchestration", () => {
 
     expect([...fake.record.configMapsCreated].sort()).toEqual(
       ["judge", "run"].flatMap((part) =>
-        ["p0", "p1", "p2", "pm"].map((shard) => `judge-standard-${part}-${shard}`),
+        ["p0", "pm"].map((shard) => `judge-standard-${part}-${shard}`),
       ),
     );
     expect([...fake.record.configMapsDeleted].sort()).toEqual(
       [...fake.record.configMapsCreated].sort(),
     );
+    const cached = [...fake.cache.cached.values()];
+    const shardsOf = (role: string) =>
+      cached
+        .filter(
+          ({ metadata }) =>
+            metadata.labels?.["nojv-testcase-cache"] === "shard" &&
+            metadata.labels["nojv-testcase-role"] === role,
+        )
+        .map(({ metadata }) => metadata.name)
+        .sort();
+    expect(shardsOf("input")).toHaveLength(3);
+    expect(shardsOf("answer")).toHaveLength(3);
     const podSpec = fake.record.jobsCreated[0].spec.template.spec;
     expect(podSpec.initContainers.map((container: any) => container.name)).toEqual(["run"]);
     expect(podSpec.initContainers[0].env).toContainEqual({
       name: "SANDBOX_PHASE",
       value: "run-stage",
     });
-    for (const name of ["run-payload", "judge-payload"])
-      expect(
-        podSpec.volumes.find((volume: any) => volume.name === name).projected.sources,
-      ).toHaveLength(4);
+    const sources = (name: string) =>
+      podSpec.volumes
+        .find((volume: any) => volume.name === name)
+        .projected.sources.map((source: any) => source.configMap.name)
+        .sort();
+    expect(sources("run-payload")).toEqual(
+      ["judge-standard-run-p0", "judge-standard-run-pm", ...shardsOf("input")].sort(),
+    );
+    expect(sources("judge-payload")).toEqual(
+      ["judge-standard-judge-p0", "judge-standard-judge-pm", ...shardsOf("answer")].sort(),
+    );
+  });
+
+  it("never projects answer shards into the run container's volume", async () => {
+    const fake = clients();
+    const executor = new K8sExecutor(EXEC_CONFIG, fake.handles);
+    await executor.execute(
+      {
+        ...request("1 2\n", 3),
+        judgeType: "checker",
+        judgeConfig: { checkerScript: "accept()", checkerLanguage: "python" },
+      },
+      { runId: "separation", signal: new AbortController().signal },
+    );
+    const roleOf = new Map(
+      [...fake.cache.cached.values()].map(({ metadata }) => [
+        metadata.name,
+        metadata.labels?.["nojv-testcase-role"],
+      ]),
+    );
+    const spec = fake.record.jobsCreated[0].spec.template.spec;
+    const roles = (volumeName: string) =>
+      new Set(
+        spec.volumes
+          .find((volume: any) => volume.name === volumeName)
+          .projected.sources.flatMap((source: any) => roleOf.get(source.configMap.name) ?? []),
+      );
+    expect(roles("run-payload")).toEqual(new Set(["input"]));
+    expect(roles("judge-payload")).toEqual(new Set(["input", "answer"]));
+    const runMount = spec.initContainers[0].volumeMounts.map((mount: any) => mount.name);
+    expect(runMount).not.toContain("judge-payload");
+  });
+
+  it("reuses the cached testcase set for later submissions without re-uploading it", async () => {
+    const fake = clients();
+    const executor = new K8sExecutor(EXEC_CONFIG, fake.handles);
+    const big = "x".repeat(2 * 1024 * 1024);
+    await Promise.all(
+      ["first", "second", "third"].map((runId) =>
+        executor.execute(request(big), { runId, signal: new AbortController().signal }),
+      ),
+    );
+    const createdBeforeReuse = fake.cache.createdNames.length;
+    await executor.execute(request(big), {
+      runId: "fourth",
+      signal: new AbortController().signal,
+    });
+
+    expect(new Set(fake.cache.createdNames).size).toBe(fake.cache.createdNames.length);
+    expect(fake.cache.createdNames).toHaveLength(createdBeforeReuse);
+    expect(createdBeforeReuse).toBe(8);
+    const volumes = fake.record.jobsCreated.map((job: any) =>
+      job.spec.template.spec.volumes
+        .find((volume: any) => volume.name === "run-payload")
+        .projected.sources.map((source: any) => source.configMap.name)
+        .filter((name: string) => name.startsWith("tc-")),
+    );
+    expect(new Set(volumes.map((names: string[]) => names.join()))).toHaveProperty("size", 1);
   });
 
   it("removes already-created shards when a later ConfigMap create fails", async () => {

@@ -226,6 +226,14 @@ export class WorkerApp {
               "verified. Inspect the probe outcome and target readiness before changing the CNI.",
           );
         }
+
+        const { startTestcaseCacheGc } =
+          await import("./sandbox/kubernetes/testcase-cache-gc.js");
+        const stopTestcaseCacheGc = startTestcaseCacheGc(this.env.K8S_NAMESPACE);
+        this.cleanupSteps.push({
+          resource: "testcase cache GC",
+          run: () => Promise.resolve(stopTestcaseCacheGc()),
+        });
       }
 
       const judgeActivities = await import("./activities/judge-bundle.js");

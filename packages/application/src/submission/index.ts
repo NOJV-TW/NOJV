@@ -34,6 +34,7 @@ export type {
   AdjustmentContext,
   AdvancedModeContext,
   CompletedSubmission,
+  PinnedJudgeContext,
   SubmissionJudgeContext,
   TestcaseSetGroup,
   WorkspaceFileEntry,

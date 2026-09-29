@@ -10,6 +10,7 @@ import {
   SandboxCleanupError,
   SandboxTransientInfrastructureError,
 } from "../../../apps/worker/src/sandbox/kubernetes/errors";
+import { withTestcaseCache } from "./k8s-testcase-cache-fake";
 
 afterEach(() => vi.useRealTimers());
 
@@ -118,6 +119,7 @@ function clients(options: {
       },
     ),
   } as any;
+  withTestcaseCache(coreApi);
   return { handles: { coreApi, batchApi, watch }, controllers };
 }
 

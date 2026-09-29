@@ -25,10 +25,22 @@ export const COMPILATION_TIMEOUT_MS = 90_000;
 export const COMPILER_SCRATCH_MB = 256;
 export const MIN_COMPILER_MEMORY_MB = 512;
 
+export interface SandboxTestcaseObject {
+  key: string;
+  sha256: string;
+  size: number;
+}
+
+export type SandboxText = string | SandboxTestcaseObject;
+
+export function sandboxTextBytes(text: SandboxText): number {
+  return typeof text === "string" ? new TextEncoder().encode(text).byteLength : text.size;
+}
+
 export interface SandboxTestcase {
   index: number;
-  input: string;
-  output?: string;
+  input: SandboxText;
+  output?: SandboxText;
   weight: number;
   isSample: boolean;
 }

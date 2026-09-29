@@ -29,7 +29,7 @@ import {
   guardStorageObjectWrites,
 } from "../shared/storage-object-lifecycle";
 import { dispatchNextJudgeExecutions } from "./judge-recovery";
-import { readJudgeSnapshot } from "./judge-snapshot";
+import { readStoredJudgeSnapshot } from "./judge-snapshot";
 import { completeJudge } from "./judge-lifecycle";
 import { deriveVerdictSummary } from "./verdict-summary";
 
@@ -125,7 +125,7 @@ export async function createJudgeExecution(
 
 export async function loadJudgeExecution(executionId: string) {
   const execution = await db.judgeExecution.findUniqueOrThrow({ where: { id: executionId } });
-  return { execution, snapshot: await readJudgeSnapshot(execution.snapshot) };
+  return { execution, snapshot: await readStoredJudgeSnapshot(execution.snapshot) };
 }
 
 export async function setJudgeExecutionState(
