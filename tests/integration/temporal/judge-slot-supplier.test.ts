@@ -49,7 +49,7 @@ describe("node-load judge slots on a Temporal worker", () => {
       publishVerdict: vi.fn(async () => undefined),
     };
     const supplier = new NodeLoadSlotSupplier(1, 3);
-    const idle = { cpu: 0.1, memoryAvailable: 0.9 };
+    const idle = { cpu: 0.1, memoryAvailable: 0.9, workerMemory: null };
     const queue = `judge-slots-${Date.now()}`;
     const workflows = await Worker.create({
       connection: env.nativeConnection,

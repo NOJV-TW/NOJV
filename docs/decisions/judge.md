@@ -263,3 +263,15 @@ Kubernetes stages mount testcases from immutable ConfigMap sets keyed by the tes
 - Rule: a set is deleted only after 12 h without use and when no Pod projects it, with `uid` and `resourceVersion` preconditions so a concurrent touch wins; stages touch the index when `last-used` is older than 10 min.
 - Rule: cached chunk keys keep the `chunk-<digits>` form, so snapshots pinned to older sandbox images still materialize.
 - Code: `apps/worker/src/sandbox/kubernetes/testcase-cache.ts`, `apps/worker/src/sandbox/kubernetes/testcase-cache-gc.ts`, `apps/worker/src/sandbox/kubernetes/resources.ts`, `apps/worker/src/sandbox/shared/stage-payload.ts`
+
+### JDG-24 The judge worker sweeps orphaned payloads and guards its own memory
+
+**Decided:** 2026-09 · **Source:** [#608](https://github.com/NOJV-TW/NOJV/pull/608)
+
+On 2026-09-30 failed large payload uploads left 384 per-stage payload ConfigMaps (367 MB) in `nojv-sandbox`; recovery listing them OOMKilled the judge worker into CrashLoopBackOff and judging stopped until an operator deleted them and raised the memory limit. Two guards make that class repair itself. The worker's 15 min cache sweep also deletes a run-labelled `judge-<runId>-*` ConfigMap older than 10 min whose run has no Job and no Pod, listing only metadata by label. With load-aware slots, the slot budget also shrinks while the worker's own cgroup v2 working set is at or above 75% of its limit, so judging slows at the minimum instead of crash-looping.
+
+- Rejected: alerting only (the incident needed a human while judging was down); a shorter age (the longest window between a stage's first payload ConfigMap and its Job is its payload creates plus one quota list and one Job create, each bounded by the API server's 60 s request timeout, so about 3 min; 10 min leaves margin); a longer age (orphans keep ConfigMap bytes in etcd and count against quota); `memory.current` alone (page cache counts toward it and is reclaimable, as in kubelet's working set).
+- Rejected: a worker memory guard in fixed-slot mode. Fixed slots have no supplier, and the GKE and multi-replica deployments that use them size the worker explicitly; single-machine production runs load-aware slots.
+- Rule: the orphan sweep never lists ConfigMap data, never touches objects without the `nojv-run-id` label or whose name does not start with `judge-<runId>-`, and deletes with a `uid` precondition; a 404 or 409 is skipped.
+- Rule: the worker memory guard only stops growth and shrinks the budget to one below the running count, never under the minimum, never revoking a running stage; an unlimited or unreadable cgroup disables only this guard. It is a self-protection limit, not a capacity signal (JDG-13).
+- Code: `apps/worker/src/sandbox/kubernetes/testcase-cache-gc.ts`, `apps/worker/src/judge-slot-supplier.ts`

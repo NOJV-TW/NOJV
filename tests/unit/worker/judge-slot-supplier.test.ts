@@ -17,8 +17,8 @@ vi.mock("../../../apps/worker/src/logger.js", () => ({
 }));
 
 const ctx = {} as SlotReserveContext;
-const idle = { cpu: 0.2, memoryAvailable: 0.7 };
-const busy = { cpu: 0.85, memoryAvailable: 0.7 };
+const idle = { cpu: 0.2, memoryAvailable: 0.7, workerMemory: null };
+const busy = { cpu: 0.85, memoryAvailable: 0.7, workerMemory: null };
 const activity = { type: "activity", activityType: "executeJudgeStage" } as const;
 
 function reserveNow(supplier: NodeLoadSlotSupplier) {
@@ -80,7 +80,8 @@ describe("NodeLoadSlotSupplier", () => {
     await fill(supplier, 2);
     for (let i = 0; i < 4; i += 1) supplier.adjust(busy);
     expect(supplier.budget).toBe(2);
-    for (let i = 0; i < 4; i += 1) supplier.adjust({ cpu: 0.1, memoryAvailable: 0.1 });
+    for (let i = 0; i < 4; i += 1)
+      supplier.adjust({ cpu: 0.1, memoryAvailable: 0.1, workerMemory: null });
     expect(supplier.budget).toBe(2);
   });
 
@@ -115,12 +116,34 @@ describe("NodeLoadSlotSupplier", () => {
     await expect(waiting).resolves.toEqual({});
     for (let i = 0; i < 10; i += 1) supplier.adjust(busy);
     expect(supplier.budget).toBe(3);
-    supplier.adjust({ cpu: 0.95, memoryAvailable: 0.7 });
+    supplier.adjust({ cpu: 0.95, memoryAvailable: 0.7, workerMemory: null });
     supplier.releaseSlot({ slotInfo: activity, permit: {} });
     supplier.releaseSlot({ slotInfo: activity, permit: {} });
     supplier.releaseSlot({ slotInfo: activity, permit: {} });
     supplier.adjust(busy);
     expect(supplier.budget).toBe(2);
+  });
+
+  it("shrinks when the worker's own memory reaches the ceiling and grows again below it", async () => {
+    const supplier = new NodeLoadSlotSupplier(2, 6);
+    await fill(supplier, 2);
+    for (let i = 0; i < 4; i += 1) {
+      supplier.adjust({ ...idle, workerMemory: 0.5 });
+      if (supplier.used < supplier.budget)
+        await fill(supplier, supplier.budget - supplier.used);
+    }
+    expect(supplier.budget).toBe(4);
+    supplier.adjust({ ...idle, workerMemory: 0.8 });
+    expect(supplier.budget).toBe(3);
+    expect(supplier.used).toBe(4);
+    for (let i = 0; i < 4; i += 1) supplier.adjust({ ...idle, workerMemory: 0.75 });
+    expect(supplier.budget).toBe(3);
+    for (let i = 0; i < 4; i += 1) supplier.releaseSlot({ slotInfo: activity, permit: {} });
+    supplier.adjust({ ...idle, workerMemory: 0.9 });
+    expect(supplier.budget).toBe(2);
+    await fill(supplier, 2);
+    supplier.adjust({ ...idle, workerMemory: 0.7 });
+    expect(supplier.budget).toBe(3);
   });
 
   it("frees a reserved slot released without use and wakes the next waiter", async () => {
@@ -154,9 +177,34 @@ describe("createNodeLoadReader", () => {
     const meminfo = "MemTotal:       1000 kB\nMemFree:  10 kB\nMemAvailable:    250 kB\n";
     writeFileSync(join(root, "meminfo"), meminfo);
     writeFileSync(join(root, "stat"), "cpu  100 0 100 700 100 0 0 0 0 0\ncpu0 1 1 1 1\n");
-    const read = createNodeLoadReader(root);
+    const read = createNodeLoadReader(root, join(root, "no-cgroup"));
     writeFileSync(join(root, "stat"), "cpu  250 0 250 800 100 0 0 0 0 0\ncpu0 1 1 1 1\n");
-    expect(read()).toEqual({ cpu: 0.75, memoryAvailable: 0.25 });
+    expect(read()).toEqual({ cpu: 0.75, memoryAvailable: 0.25, workerMemory: null });
+  });
+
+  function procRoot() {
+    const root = mkdtempSync(join(tmpdir(), "nojv-proc-"));
+    writeFileSync(join(root, "meminfo"), "MemTotal: 1000 kB\nMemAvailable: 500 kB\n");
+    writeFileSync(join(root, "stat"), "cpu  100 0 100 700 100 0 0 0 0 0\n");
+    return root;
+  }
+
+  it("reads the worker's cgroup v2 working set against its memory limit", () => {
+    const cgroup = mkdtempSync(join(tmpdir(), "nojv-cgroup-"));
+    writeFileSync(join(cgroup, "memory.max"), "1000\n");
+    writeFileSync(join(cgroup, "memory.current"), "900\n");
+    writeFileSync(join(cgroup, "memory.stat"), "anon 700\nfile 200\ninactive_file 100\n");
+    expect(createNodeLoadReader(procRoot(), cgroup)().workerMemory).toBe(0.8);
+  });
+
+  it("disables the worker memory guard for an unlimited or missing cgroup", () => {
+    const unlimited = mkdtempSync(join(tmpdir(), "nojv-cgroup-"));
+    writeFileSync(join(unlimited, "memory.max"), "max\n");
+    writeFileSync(join(unlimited, "memory.current"), "900\n");
+    writeFileSync(join(unlimited, "memory.stat"), "inactive_file 0\n");
+    expect(createNodeLoadReader(procRoot(), unlimited)().workerMemory).toBeNull();
+    const missing = join(unlimited, "missing");
+    expect(createNodeLoadReader(procRoot(), missing)().workerMemory).toBeNull();
   });
 
   it("fails at startup when /proc is not readable", () => {

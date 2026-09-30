@@ -15,12 +15,14 @@ const logger = createLogger("judge-slots");
 
 export const NODE_CPU_TARGET = 0.8;
 export const NODE_MEMORY_AVAILABLE_FLOOR = 0.2;
+export const WORKER_MEMORY_CEILING = 0.75;
 export const SAMPLE_INTERVAL_MS = 2_500;
 const GROWTH_COOLDOWN_SAMPLES = 2;
 
 export interface NodeLoad {
   cpu: number;
   memoryAvailable: number;
+  workerMemory: number | null;
 }
 
 interface CpuCounters {
@@ -48,7 +50,25 @@ function readMemoryAvailable(procRoot: string): number {
   return available / total;
 }
 
-export function createNodeLoadReader(procRoot = "/proc"): () => NodeLoad {
+function readWorkerMemory(cgroupRoot: string): number | null {
+  try {
+    const limit = Number(readFileSync(`${cgroupRoot}/memory.max`, "utf8").trim());
+    const current = Number(readFileSync(`${cgroupRoot}/memory.current`, "utf8").trim());
+    const inactiveFile = Number(
+      /^inactive_file (\d+)$/m.exec(readFileSync(`${cgroupRoot}/memory.stat`, "utf8"))?.[1] ??
+        0,
+    );
+    if (!(limit > 0) || !Number.isFinite(current)) return null;
+    return Math.max(0, current - inactiveFile) / limit;
+  } catch {
+    return null;
+  }
+}
+
+export function createNodeLoadReader(
+  procRoot = "/proc",
+  cgroupRoot = "/sys/fs/cgroup",
+): () => NodeLoad {
   let previous = readCpuCounters(procRoot);
   readMemoryAvailable(procRoot);
   return () => {
@@ -56,7 +76,11 @@ export function createNodeLoadReader(procRoot = "/proc"): () => NodeLoad {
     const total = current.total - previous.total;
     const cpu = total > 0 ? (current.busy - previous.busy) / total : 0;
     previous = current;
-    return { cpu, memoryAvailable: readMemoryAvailable(procRoot) };
+    return {
+      cpu,
+      memoryAvailable: readMemoryAvailable(procRoot),
+      workerMemory: readWorkerMemory(cgroupRoot),
+    };
   };
 }
 
@@ -86,7 +110,11 @@ export class NodeLoadSlotSupplier implements CustomSlotSupplier<ActivitySlotInfo
   adjust(load: NodeLoad): void {
     const previous = this.budgetValue;
     this.samplesSinceGrowth += 1;
-    if (load.cpu >= NODE_CPU_TARGET || load.memoryAvailable < NODE_MEMORY_AVAILABLE_FLOOR) {
+    if (
+      load.cpu >= NODE_CPU_TARGET ||
+      load.memoryAvailable < NODE_MEMORY_AVAILABLE_FLOOR ||
+      (load.workerMemory ?? 0) >= WORKER_MEMORY_CEILING
+    ) {
       this.budgetValue = Math.max(this.min, Math.min(this.budgetValue, this.usedValue - 1));
     } else if (
       this.usedValue >= this.budgetValue &&
@@ -104,6 +132,7 @@ export class NodeLoadSlotSupplier implements CustomSlotSupplier<ActivitySlotInfo
         used: this.usedValue,
         cpu: Number(load.cpu.toFixed(3)),
         memoryAvailable: Number(load.memoryAvailable.toFixed(3)),
+        workerMemory: load.workerMemory === null ? null : Number(load.workerMemory.toFixed(3)),
       });
   }
 
@@ -172,18 +201,22 @@ export function startNodeLoadSlots(
   const budget = meter.createObservableGauge("judge_slot_budget");
   const used = meter.createObservableGauge("judge_slots_used");
   const cpu = meter.createObservableGauge("judge_node_cpu_utilization");
+  const workerMemory = meter.createObservableGauge("judge_worker_memory_utilization");
+  const gauges = [budget, used, cpu, workerMemory];
   const observe = (result: BatchObservableResult) => {
     result.observe(budget, supplier.budget);
     result.observe(used, supplier.used);
     if (lastLoad) result.observe(cpu, lastLoad.cpu);
+    const memory = lastLoad?.workerMemory ?? null;
+    if (memory !== null) result.observe(workerMemory, memory);
   };
-  meter.addBatchObservableCallback(observe, [budget, used, cpu]);
+  meter.addBatchObservableCallback(observe, gauges);
 
   return {
     supplier,
     stop: () => {
       clearInterval(timer);
-      meter.removeBatchObservableCallback(observe, [budget, used, cpu]);
+      meter.removeBatchObservableCallback(observe, gauges);
     },
   };
 }

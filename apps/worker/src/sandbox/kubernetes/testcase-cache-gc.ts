@@ -17,7 +17,25 @@ const require = createRequire(import.meta.url);
 const logger = createLogger("k8s-testcase-cache");
 
 export const TESTCASE_CACHE_IDLE_TTL_MS = 12 * 60 * 60_000;
+export const ORPHAN_PAYLOAD_MIN_AGE_MS = 10 * 60_000;
 const GC_INTERVAL_MS = 15 * 60_000;
+const RUN_LABEL = "nojv-run-id";
+
+function metadataOnly(): k8s.ConfigurationOptions {
+  const k8sLib = require("@kubernetes/client-node") as typeof k8s;
+  return k8sLib.setHeaderOptions(
+    "Accept",
+    "application/json;as=PartialObjectMetadataList;g=meta.k8s.io;v=v1",
+  );
+}
+
+async function listMetadata(
+  list: Promise<{ items: { metadata?: k8s.V1ObjectMeta }[] | null }>,
+  resource: string,
+): Promise<k8s.V1ObjectMeta[]> {
+  const { items } = await boundedK8sCall(list, resource);
+  return (items ?? []).flatMap(({ metadata }) => (metadata ? [metadata] : []));
+}
 
 function mountedTestcaseSets(pods: k8s.V1Pod[]): Set<string> {
   return new Set(
@@ -83,26 +101,84 @@ export async function collectTestcaseCache(
   return { deleted, inUse };
 }
 
+export async function collectOrphanRunPayloads(
+  coreApi: k8s.CoreV1Api,
+  batchApi: k8s.BatchV1Api,
+  namespace: string,
+  now = Date.now(),
+): Promise<string[]> {
+  const options = metadataOnly();
+  const [configMaps, jobs, pods] = await Promise.all([
+    listMetadata(
+      coreApi.listNamespacedConfigMap({ namespace, labelSelector: RUN_LABEL }, options),
+      `run ConfigMap list in ${namespace}`,
+    ),
+    listMetadata(
+      batchApi.listNamespacedJob({ namespace, labelSelector: RUN_LABEL }, options),
+      `run Job list in ${namespace}`,
+    ),
+    listMetadata(
+      coreApi.listNamespacedPod({ namespace, labelSelector: RUN_LABEL }, options),
+      `run Pod list in ${namespace}`,
+    ),
+  ]);
+  const live = new Set([...jobs, ...pods].map(({ labels }) => labels?.[RUN_LABEL]));
+  const deleted: string[] = [];
+  for (const { name, uid, creationTimestamp, deletionTimestamp, labels } of configMaps) {
+    const runId = labels?.[RUN_LABEL];
+    if (!name || !uid || !runId || !creationTimestamp || deletionTimestamp) continue;
+    if (!name.startsWith(`judge-${runId}-`) || live.has(runId)) continue;
+    if (now - new Date(creationTimestamp).getTime() < ORPHAN_PAYLOAD_MIN_AGE_MS) continue;
+    try {
+      await boundedK8sCall(
+        coreApi.deleteNamespacedConfigMap({
+          name,
+          namespace,
+          body: { preconditions: { uid } },
+        }),
+        `ConfigMap ${namespace}/${name}`,
+      );
+      deleted.push(name);
+    } catch (error) {
+      const code = k8sErrorCode(error);
+      if (code !== 404 && code !== 409) throw error;
+    }
+  }
+  return deleted;
+}
+
 export function startTestcaseCacheGc(namespace: string): () => void {
   const k8sLib = require("@kubernetes/client-node") as typeof k8s;
   const kubeConfig = createKubeConfig();
   kubeConfig.loadFromCluster();
   const coreApi = kubeConfig.makeApiClient(k8sLib.CoreV1Api);
+  const batchApi = kubeConfig.makeApiClient(k8sLib.BatchV1Api);
   let running = false;
   const timer = setInterval(() => {
     if (running) return;
     running = true;
-    void collectTestcaseCache(coreApi, namespace)
+    const cache = collectTestcaseCache(coreApi, namespace)
       .then(({ deleted, inUse }) => {
         if (deleted.length > 0 || inUse.length > 0)
           logger.info("Testcase cache swept", { namespace, deleted, inUse });
       })
       .catch((error: unknown) => {
         logger.warn("Testcase cache sweep failed", { namespace, error: failureMessage(error) });
-      })
-      .finally(() => {
-        running = false;
       });
+    const payloads = collectOrphanRunPayloads(coreApi, batchApi, namespace)
+      .then((deleted) => {
+        if (deleted.length > 0)
+          logger.info("Orphan run payloads swept", { namespace, deleted: deleted.length });
+      })
+      .catch((error: unknown) => {
+        logger.warn("Orphan run payload sweep failed", {
+          namespace,
+          error: failureMessage(error),
+        });
+      });
+    void Promise.all([cache, payloads]).finally(() => {
+      running = false;
+    });
   }, GC_INTERVAL_MS);
   timer.unref();
   return () => clearInterval(timer);
