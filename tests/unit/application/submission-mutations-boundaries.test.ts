@@ -16,6 +16,7 @@ vi.mock("../../../packages/application/src/submission/judge-recovery", () => ({
 import { createInMemoryStorage } from "../_fixtures/storage";
 
 const {
+  txTestcaseCount,
   problemFindById,
   userFindById,
   userCreate,
@@ -49,6 +50,7 @@ const {
   participationFindContest: vi.fn(),
   workspaceFindByProblemId: vi.fn(),
   submissionFindMostRecent: vi.fn(),
+  txTestcaseCount: vi.fn(async () => 1),
   submissionCreate: vi.fn(),
   submissionPublishPendingUpload: vi.fn(),
   submissionUpdateStatus: vi.fn(),
@@ -124,12 +126,17 @@ vi.mock("@nojv/db", () => ({
     completeIfInProgress: submissionCompleteIfInProgress,
   },
   runTransaction: async <T>(
-    fn: (tx: { $executeRaw: typeof vi.fn; $queryRaw: typeof vi.fn }) => Promise<T>,
+    fn: (tx: {
+      $executeRaw: typeof vi.fn;
+      $queryRaw: typeof vi.fn;
+      testcase: { count: typeof txTestcaseCount };
+    }) => Promise<T>,
   ): Promise<T> => {
     try {
       const result = await fn({
         $executeRaw: vi.fn().mockResolvedValue(0),
         $queryRaw: vi.fn().mockResolvedValue([]),
+        testcase: { count: txTestcaseCount },
       });
       transactionOutcomes.push("committed");
       return result;
@@ -274,6 +281,16 @@ describe("createQueuedSubmissionRecord — contest cooldown", () => {
     ).resolves.toBeDefined();
     expect(submissionFindMostRecent).not.toHaveBeenCalled();
     expect(submissionCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not require testcases for a sampleOnly run", async () => {
+    txTestcaseCount.mockResolvedValueOnce(0);
+    await expect(
+      createQueuedSubmissionRecord({ ...baseDraft, sampleOnly: true }, fakeActor, "127.0.0.1"),
+    ).resolves.toBeDefined();
+    await expect(
+      createQueuedSubmissionRecord(baseDraft, fakeActor, "127.0.0.1"),
+    ).rejects.toThrow(/no testcases yet/);
   });
 
   it("skips the cooldown check when contest.submitCooldownSec is 0", async () => {
