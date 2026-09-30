@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { findBlockingIndexRelations } from "../../../scripts/migration-index-safety.mjs";
-import { splitStatements } from "../../setup/replay-constraints";
+import { splitStatements } from "../../setup/sql-statements";
 
 describe("problem library release migration safeguards", () => {
   it.each([

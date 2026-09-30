@@ -4,16 +4,9 @@ import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { PrismaPg } from "@prisma/adapter-pg";
-
-import { PrismaClient } from "../../packages/db/generated/prisma/client";
-import {
-  assertLiveTestDatabase,
-  formatTestDatabaseProof,
-  resolveDestructiveTestDatabase,
-} from "./destructive-test-database";
+import { resolveDestructiveTestDatabase } from "./destructive-test-database";
+import { rebuildTestDatabaseFromMigrations } from "./migrate-test-database";
 import { PLAYWRIGHT_STORAGE_ENVIRONMENT } from "./playwright-environment";
-import { collectReplayStatements } from "./replay-constraints";
 
 const AUTH_DIR = path.resolve(import.meta.dirname, "../fixtures/auth-states");
 
@@ -84,19 +77,6 @@ export default async function globalSetup(config: FullConfig) {
   if (existsSync(envPath)) process.loadEnvFile(envPath);
   process.env.DATABASE_URL = databaseUrl;
 
-  const preflight = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: databaseUrl }),
-  });
-  try {
-    const proof = await assertLiveTestDatabase(preflight, "nojv_e2e_test");
-    console.info(`Playwright database preflight: ${formatTestDatabaseProof(proof)}`);
-    await preflight.$executeRawUnsafe(
-      'DROP TRIGGER IF EXISTS user_security_generation_state_change ON "User"',
-    );
-  } finally {
-    await preflight.$disconnect();
-  }
-
   const childEnvironment = {
     ...process.env,
     ...PLAYWRIGHT_STORAGE_ENVIRONMENT,
@@ -106,27 +86,7 @@ export default async function globalSetup(config: FullConfig) {
     SEED_ADMIN_PASSWORD: "password123",
     SEED_ADMIN_USERNAME: "admin",
   };
-  execFileSync(
-    "pnpm",
-    ["--filter", "@nojv/db", "exec", "prisma", "db", "push", "--force-reset"],
-    { env: childEnvironment, stdio: "inherit" },
-  );
-
-  const statements = collectReplayStatements();
-  const prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: databaseUrl }),
-  });
-  try {
-    await prisma.$transaction(async (tx) => {
-      const proof = await assertLiveTestDatabase(tx, "nojv_e2e_test");
-      console.info(`Playwright invariant replay: ${formatTestDatabaseProof(proof)}`);
-      for (const statement of statements) {
-        await tx.$executeRawUnsafe(statement);
-      }
-    });
-  } finally {
-    await prisma.$disconnect();
-  }
+  await rebuildTestDatabaseFromMigrations(databaseUrl, "nojv_e2e_test", childEnvironment);
 
   execFileSync(process.execPath, ["--import", "tsx", "packages/db/prisma/seed.ts"], {
     cwd: process.cwd(),

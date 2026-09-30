@@ -18,10 +18,10 @@ vi.mock("../../../packages/db/generated/prisma/client", () => ({
     $disconnect = vi.fn();
     $executeRawUnsafe = executeRawMock;
     $queryRawUnsafe = queryRawMock;
+    $transaction = vi.fn(async (callback: (transaction: this) => Promise<void>) =>
+      callback(this),
+    );
   },
-}));
-vi.mock("../../setup/replay-constraints", () => ({
-  collectReplayStatements: () => ["SELECT destructive_replay()"],
 }));
 
 import globalSetup from "../../setup/global-setup";
@@ -73,5 +73,47 @@ describe("integration global setup fail-closed ordering", () => {
     expect(execFileSyncMock).not.toHaveBeenCalled();
     expect(execSyncMock).not.toHaveBeenCalled();
     expect(executeRawMock).not.toHaveBeenCalled();
+  });
+
+  it("resets the proven schema before applying the committed migrations", async () => {
+    process.env.TEST_DATABASE_URL = "postgresql://postgres:postgres@127.0.0.1:5432/nojv_test";
+    process.env.NOJV_DESTRUCTIVE_TEST_DATABASE = "nojv_test";
+    queryRawMock.mockResolvedValue([
+      {
+        currentDatabase: "nojv_test",
+        marker: "NOJV_TEST_DATABASE:nojv_test",
+        serverAddress: "192.168.107.5/32",
+        serverPort: 5432,
+      },
+    ]);
+
+    await globalSetup();
+
+    expect(executeRawMock.mock.calls).toEqual([
+      ['DROP SCHEMA IF EXISTS "public" CASCADE'],
+      ['CREATE SCHEMA "public"'],
+    ]);
+    expect(execFileSyncMock).toHaveBeenCalledOnce();
+    const [command, args, options] = execFileSyncMock.mock.calls[0] as [
+      string,
+      string[],
+      { env: NodeJS.ProcessEnv },
+    ];
+    expect([command, ...args]).toEqual([
+      "pnpm",
+      "--filter",
+      "@nojv/db",
+      "exec",
+      "prisma",
+      "migrate",
+      "deploy",
+    ]);
+    expect(options.env.DATABASE_URL).toBe(process.env.TEST_DATABASE_URL);
+    expect(queryRawMock.mock.invocationCallOrder[0]!).toBeLessThan(
+      executeRawMock.mock.invocationCallOrder[0]!,
+    );
+    expect(executeRawMock.mock.invocationCallOrder[1]!).toBeLessThan(
+      execFileSyncMock.mock.invocationCallOrder[0]!,
+    );
   });
 });

@@ -41,9 +41,9 @@ Course, Assessment, Exam, Contest and Problem use their cuid `id` as the only id
 `ContestParticipation`, `ExamParticipation` and `VirtualContest` merged into `Participation` with a `type` discriminator, real nullable `contestId`/`examId` FKs, real nullable type-specific columns (`ipPin`, `ipGateExemptUntil`, virtual `startedAt`/`endsAt`) and a single `updateWithVersion` conflict path. Three near-identical tables carried three copies of version logic.
 
 - Rejected: a polymorphic `contextId` string (no FK integrity); `typeData Json` (IP-gate fields are read on every request); partial unique indexes plus find-or-create (full `@@unique([type, contestId, userId])` works because NULLs are distinct and serves as an upsert target).
-- Rule: Participation CHECKs (`single_context`, `virtual_window`, `ip_exam_only`) live in raw-SQL migrations and must be replayed into the test DB via `tests/setup/replay-constraints.ts`.
+- Rule: Participation CHECKs (`single_context`, `virtual_window`, `ip_exam_only`) live in raw-SQL migrations; test databases get them by applying the migrations (ENG-08).
 - Rule: large schema reshapes go expand → dual-write/backfill → reconcile → switch reads → contract, each stage revertible until contract.
-- Code: `packages/db/prisma/schema/contest.prisma`, `tests/setup/replay-constraints.ts`
+- Code: `packages/db/prisma/schema/contest.prisma`, `tests/integration/db/migration-constraints.test.ts`
 
 ### DAT-05 Activity config stays inline per activity table
 

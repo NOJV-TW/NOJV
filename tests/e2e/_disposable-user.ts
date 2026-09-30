@@ -9,7 +9,7 @@ import {
   assertLiveTestDatabase,
   resolveDestructiveTestDatabase,
 } from "../setup/destructive-test-database";
-import { splitStatements } from "../setup/replay-constraints";
+import { splitStatements } from "../setup/sql-statements";
 import { apiWriteHeaders } from "./_shared";
 
 export const TEST_PASSWORD = "password123";

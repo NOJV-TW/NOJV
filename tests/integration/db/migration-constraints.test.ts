@@ -1,5 +1,9 @@
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
+import { assertMigrationTriggers } from "../../../packages/db/prisma/seeds/migration-triggers";
 import {
   createTestContest,
   createTestCourse,
@@ -7,7 +11,22 @@ import {
   testPrisma,
 } from "../../fixtures/factories";
 
-describe("replayed CHECK constraints are enforced in the test DB", () => {
+describe("migration-defined constraints are enforced in the test DB", () => {
+  it("is built by applying every committed migration", async () => {
+    const committed = readdirSync(join(process.cwd(), "packages/db/prisma/migrations"), {
+      withFileTypes: true,
+    })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort();
+    const applied = await testPrisma.$queryRawUnsafe<{ migration_name: string }[]>(
+      `SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name`,
+    );
+
+    expect(applied.map((row) => row.migration_name)).toEqual(committed);
+    await expect(assertMigrationTriggers(testPrisma)).resolves.toBeUndefined();
+  });
+
   it("has the participation CHECK constraints (parity with migrations)", async () => {
     const rows = await testPrisma.$queryRawUnsafe<{ conname: string }[]>(
       `SELECT conname FROM pg_constraint WHERE contype = 'c' AND conname LIKE 'Participation_%'`,

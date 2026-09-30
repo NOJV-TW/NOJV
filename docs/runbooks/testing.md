@@ -101,6 +101,7 @@ Contract:
 - `TEST_DATABASE_URL` is the only destructive URL; `DATABASE_URL` is ignored.
 - The URL must use `postgresql:`, host `127.0.0.1` or `::1`, the exact allowlisted database, and no query or fragment.
 - The live connection must report the expected database name, a real server IP and port, and the exact comment marker; setup prints them as proof.
+- Global setup (integration and Playwright) rebuilds the database from the committed migrations, like production (ENG-08): it drops and recreates the `public` schema in the transaction that revalidates that identity, then runs `prisma migrate deploy`. The database comment survives because it is on the database, not the schema. Integration tests then reset data with `TRUNCATE` per test.
 - Every `TRUNCATE` revalidates that identity in the same transaction.
 - `BETTER_AUTH_SECRET` must be a test-only value of at least 32 characters (exam credential encryption).
 - The integration suite loads `.env`; sink mode requires every `SMTP_*` key absent, and notification transactions validate mailer config even when no email is sent.

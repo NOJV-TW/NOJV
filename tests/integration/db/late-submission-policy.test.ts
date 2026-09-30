@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { splitStatements } from "../../setup/replay-constraints";
+import { splitStatements } from "../../setup/sql-statements";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   assignmentDomain,

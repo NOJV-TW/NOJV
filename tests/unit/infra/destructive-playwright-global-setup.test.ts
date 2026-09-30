@@ -24,10 +24,6 @@ vi.mock("../../../packages/db/generated/prisma/client", () => ({
     );
   },
 }));
-vi.mock("../../setup/replay-constraints", () => ({
-  collectReplayStatements: () => ["SELECT destructive_replay()"],
-}));
-
 import playwrightGlobalSetup from "../../setup/playwright-global-setup";
 
 const originalEnv = { ...process.env };
@@ -92,24 +88,30 @@ describe("Playwright global setup fail-closed ordering", () => {
       S3_REGION: "us-east-1",
       S3_SECRET_KEY: "minioadmin",
     });
-    expect(executeRawMock).toHaveBeenCalledTimes(2);
-    expect(executeRawMock).toHaveBeenNthCalledWith(
-      1,
-      'DROP TRIGGER IF EXISTS user_security_generation_state_change ON "User"',
-    );
-    expect(executeRawMock).toHaveBeenNthCalledWith(2, "SELECT destructive_replay()");
+    expect(executeRawMock.mock.calls).toEqual([
+      ['DROP SCHEMA IF EXISTS "public" CASCADE'],
+      ['CREATE SCHEMA "public"'],
+    ]);
+    expect(execFileSyncMock.mock.calls[0]?.[1]).toEqual([
+      "--filter",
+      "@nojv/db",
+      "exec",
+      "prisma",
+      "migrate",
+      "deploy",
+    ]);
     expect(launchMock).not.toHaveBeenCalled();
 
-    const dbPushOrder = execFileSyncMock.mock.invocationCallOrder[0]!;
-    const replayProofOrder = queryRawMock.mock.invocationCallOrder[1]!;
-    const replayOrder = executeRawMock.mock.invocationCallOrder[1]!;
+    const proofOrder = queryRawMock.mock.invocationCallOrder[0]!;
+    const resetOrder = executeRawMock.mock.invocationCallOrder[0]!;
+    const migrateOrder = execFileSyncMock.mock.invocationCallOrder[0]!;
     const seedOrder = execFileSyncMock.mock.invocationCallOrder[1]!;
-    expect(dbPushOrder).toBeLessThan(replayProofOrder);
-    expect(replayProofOrder).toBeLessThan(replayOrder);
-    expect(replayOrder).toBeLessThan(seedOrder);
+    expect(proofOrder).toBeLessThan(resetOrder);
+    expect(resetOrder).toBeLessThan(migrateOrder);
+    expect(migrateOrder).toBeLessThan(seedOrder);
   });
 
-  it("stops before seed or browser startup when invariant replay fails", async () => {
+  it("stops before migrations, seed or browser startup when the schema reset fails", async () => {
     process.env.TEST_DATABASE_URL =
       "postgresql://postgres:postgres@127.0.0.1:5432/nojv_e2e_test";
     process.env.NOJV_DESTRUCTIVE_TEST_DATABASE = "nojv_e2e_test";
@@ -123,15 +125,15 @@ describe("Playwright global setup fail-closed ordering", () => {
     ]);
     executeRawMock
       .mockResolvedValueOnce(undefined)
-      .mockRejectedValueOnce(new Error("invariant replay failed"));
+      .mockRejectedValueOnce(new Error("schema reset failed"));
 
     await expect(playwrightGlobalSetup({ projects: [] } as never)).rejects.toThrow(
-      "invariant replay failed",
+      "schema reset failed",
     );
 
-    expect(queryRawMock).toHaveBeenCalledTimes(2);
+    expect(queryRawMock).toHaveBeenCalledOnce();
     expect(executeRawMock).toHaveBeenCalledTimes(2);
-    expect(execFileSyncMock).toHaveBeenCalledOnce();
+    expect(execFileSyncMock).not.toHaveBeenCalled();
     expect(launchMock).not.toHaveBeenCalled();
   });
 });
