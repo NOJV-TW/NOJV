@@ -140,7 +140,7 @@ Each `JudgeExecution` runs `durableJudgeWorkflow` on the `judge` queue with `pri
 
 ### JDG-13 Load-aware judge slots follow node load from /proc
 
-**Decided:** 2026-09 · **Source:** [2026-09-22-judge-slot-tuner](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-22-judge-slot-tuner.md), [PR #PRNUM](https://github.com/NOJV-TW/NOJV/pull/PRNUM)
+**Decided:** 2026-09 · **Source:** [2026-09-22-judge-slot-tuner](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-22-judge-slot-tuner.md), [PR #606](https://github.com/NOJV-TW/NOJV/pull/606)
 
 With `WORKER_MIN_CONCURRENCY` set, the judge worker's activity slots come from a custom Temporal slot supplier whose budget, between min and `WORKER_CONCURRENCY`, follows node CPU (`/proc/stat` deltas, target 0.8) and node `MemAvailable` (floor 20% of `MemTotal`), sampled every 2.5 s; fixed mode remains. It grows one slot at most every other sample and only while every budgeted slot runs a stage; over either limit it drops to one below the running count; it never goes under the minimum or revokes a running stage. Judging runs in sandbox Pods, not the worker, so only a node-wide signal sees the load; a fixed count cannot track load, and Kubernetes does not decide how many Jobs start.
 
