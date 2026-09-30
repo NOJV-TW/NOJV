@@ -66,7 +66,12 @@ export class SandboxCleanupBudget {
   }
 }
 
-const TERMINATION_POLL_MS = 100;
+const TERMINATION_POLL_FIRST_MS = 25;
+const TERMINATION_POLL_MAX_MS = 200;
+
+function terminationPollMs(attempt: number): number {
+  return Math.min(TERMINATION_POLL_MAX_MS, TERMINATION_POLL_FIRST_MS * 2 ** attempt);
+}
 
 interface TerminationOptions {
   timeoutMs?: number;
@@ -119,7 +124,7 @@ export async function terminateSandboxJob(
       if (!isK8sNotFound(error)) throw error;
     }
   }
-  for (;;) {
+  for (let attempt = 0; ; attempt += 1) {
     const pods = await call(() =>
       core.listNamespacedPod({ namespace, labelSelector: `job-name=${name}` }),
     );
@@ -135,7 +140,7 @@ export async function terminateSandboxJob(
           `Pod ${pod.metadata?.name ?? name} ownership changed`,
         ]);
     }
-    await budget.pause(resource, options.pollMs ?? TERMINATION_POLL_MS);
+    await budget.pause(resource, options.pollMs ?? terminationPollMs(attempt));
   }
 }
 
@@ -167,11 +172,11 @@ export async function terminateSandboxPod(
   } catch (error) {
     if (!isK8sNotFound(error)) throw error;
   }
-  for (;;) {
+  for (let attempt = 0; ; attempt += 1) {
     const pods = await list();
     if (pods.items.length === 0) return;
     if (pods.items.some((pod) => pod.metadata?.uid !== uid))
       throw new SandboxCleanupPendingError([`${resource} ownership changed`]);
-    await budget.pause(resource, options.pollMs ?? TERMINATION_POLL_MS);
+    await budget.pause(resource, options.pollMs ?? terminationPollMs(attempt));
   }
 }

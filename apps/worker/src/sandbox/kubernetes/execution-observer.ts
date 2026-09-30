@@ -45,6 +45,32 @@ export async function measurePhase<T>(
   }
 }
 
+export interface StagePod {
+  name: string;
+  runStarted: boolean;
+  judgeStarted: boolean;
+}
+
+export function stagePod(pod: k8s.V1Pod): StagePod | null {
+  const name = pod.metadata?.name;
+  if (!name) return null;
+  const started = (status: k8s.V1ContainerStatus | undefined) =>
+    Boolean(status?.state?.terminated ?? status?.state?.running);
+  return {
+    name,
+    runStarted: started(
+      pod.status?.initContainerStatuses?.find(
+        (container) => container.name === RUN_CONTAINER_NAME,
+      ),
+    ),
+    judgeStarted: started(
+      pod.status?.containerStatuses?.find(
+        (container) => container.name === JUDGE_CONTAINER_NAME,
+      ),
+    ),
+  };
+}
+
 export class KubernetesExecutionObserver {
   constructor(private readonly coreApi: k8s.CoreV1Api) {}
 
@@ -146,7 +172,7 @@ export class KubernetesExecutionObserver {
     namespace: string,
     request: SandboxRequest,
     signal: AbortSignal,
-  ): Promise<{ name: string; runStarted: boolean; judgeStarted: boolean } | null> {
+  ): Promise<StagePod | null> {
     const pod = await this.firstJobPod(
       jobName,
       namespace,
@@ -154,23 +180,12 @@ export class KubernetesExecutionObserver {
       signal,
       "Could not find sandbox pod",
     );
-    const name = pod?.metadata?.name;
-    if (!name) return null;
-    const started = (status: k8s.V1ContainerStatus | undefined) =>
-      Boolean(status?.state?.terminated ?? status?.state?.running);
-    return {
-      name,
-      runStarted: started(
-        pod.status?.initContainerStatuses?.find(
-          (container) => container.name === RUN_CONTAINER_NAME,
-        ),
-      ),
-      judgeStarted: started(
-        pod.status?.containerStatuses?.find(
-          (container) => container.name === JUDGE_CONTAINER_NAME,
-        ),
-      ),
-    };
+    return pod ? stagePod(pod) : null;
+  }
+
+  observedPod(jobName: string, pod: k8s.V1Pod, request: SandboxRequest): k8s.V1Pod {
+    this.recordJobLifecycle(jobName, [pod], request);
+    return pod;
   }
 
   async getPodContainerLogs(

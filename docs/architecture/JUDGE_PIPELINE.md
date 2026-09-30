@@ -315,6 +315,15 @@ caseMemory))`, at least 1; the run container memory is
 - Job completion is observed through resource-versioned Job/Pod watches with
   snapshot resync. Only regular-container running/terminated evidence starts the
   execution deadline; a Pod `startTime` does not.
+- A standard, checker or interactive stage reads its container logs as soon as every
+  container declared in the Pod has terminated with exit code 0, without waiting for
+  the Pod's terminal phase, which kubelet reports only after it stops the Pod sandbox.
+  It deletes the Job only once the Pod is `Succeeded` or `Failed`, waiting at most
+  10 s; any other outcome waits for the Job or Pod terminal state as before. Advanced
+  Mode always waits for the terminal state.
+- Stage Pods set `terminationGracePeriodSeconds: 1`: the runner is PID 1 and ignores
+  SIGTERM, so an aborted or deadline-killed stage would otherwise hold its Pod for the
+  default 30 s.
 - Job deadline: 90 s compile + `2 × timeLimit` per case (+ validator compile and
   `2 × max(30 s, timeLimit)` per case for checkers) + 60 s, clamped to 120 s–30 min.
 
@@ -706,8 +715,8 @@ failure is reported separately as CE.
   change raises `cleanup_pending` and keeps the lease (JDG-22). Kubernetes API
   disappearance alone does not prove runtime termination.
 - A stage deletes its Job and its own payload ConfigMaps together under one 30 s
-  budget and polls every 100 ms until the owned Pods are gone; the stage reports only
-  after both are confirmed. Recovery lists ConfigMaps by the `nojv-run-id` label, so
+  budget and polls until the owned Pods are gone, first after 25 ms and then doubling
+  to at most 200 ms; the stage reports only after both are confirmed. Recovery lists ConfigMaps by the `nojv-run-id` label, so
   cached testcase data never enters its listings.
 - Each Kubernetes judge worker sweeps the testcase cache every 15 min: it lists index
   ConfigMaps by label and all sandbox Pods, and deletes an index idle for 12 h that

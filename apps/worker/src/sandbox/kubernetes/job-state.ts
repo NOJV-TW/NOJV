@@ -10,6 +10,25 @@ export function infrastructureFailureReason(value: unknown): string | null {
     : null;
 }
 
+export function completedPod(pods: k8s.V1Pod[]): k8s.V1Pod | undefined {
+  return pods.find((pod) => {
+    const declared = [...(pod.spec?.initContainers ?? []), ...(pod.spec?.containers ?? [])];
+    const statuses = [
+      ...(pod.status?.initContainerStatuses ?? []),
+      ...(pod.status?.containerStatuses ?? []),
+    ];
+    return (
+      declared.length > 0 &&
+      declared.every((container) =>
+        statuses.some(
+          (status) =>
+            status.name === container.name && status.state?.terminated?.exitCode === 0,
+        ),
+      )
+    );
+  });
+}
+
 interface JobPodSummary {
   everStarted: boolean;
   unschedulableReason: string | null;

@@ -30,7 +30,7 @@ describe("sandbox termination barrier", () => {
     );
     expect(core.listNamespacedPod).toHaveBeenCalledTimes(3);
   });
-  it("confirms Pod disappearance on a 100 ms poll", async () => {
+  it("confirms Pod disappearance on a 25 ms first poll", async () => {
     vi.useFakeTimers();
     try {
       const { core, batch } = clients();
@@ -47,7 +47,7 @@ describe("sandbox termination barrier", () => {
       ).then(() => {
         confirmed = true;
       });
-      await vi.advanceTimersByTimeAsync(99);
+      await vi.advanceTimersByTimeAsync(24);
       expect(confirmed).toBe(false);
       await vi.advanceTimersByTimeAsync(1);
       await termination;

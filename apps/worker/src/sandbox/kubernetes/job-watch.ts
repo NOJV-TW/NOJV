@@ -9,13 +9,14 @@ import {
   SandboxInfrastructureError,
   SandboxTransientInfrastructureError,
 } from "./errors";
-import { infrastructureFailureReason, summarizeJobPods } from "./job-state";
+import { completedPod, infrastructureFailureReason, summarizeJobPods } from "./job-state";
 
 const JOB_DEADLINE_BUFFER_SECONDS = 60;
 const POD_SCHEDULE_GRACE_MS = 30_000;
 const JOB_WATCH_TIMEOUT_SECONDS = 30;
 const JOB_WATCH_RECONNECT_BASE_DELAY_MS = 100;
 const JOB_WATCH_RECONNECT_MAX_DELAY_MS = 2_000;
+const POD_TERMINATION_WAIT_MS = 10_000;
 
 function jobWatchReconnectDelay(attempt: number): number {
   return Math.min(
@@ -40,9 +41,15 @@ interface JobWatchSnapshot {
   podResourceVersion?: string;
 }
 
+export interface JobOutcome {
+  state: "succeeded" | "failed";
+  deadlineExceeded: boolean;
+  pod?: k8s.V1Pod;
+}
+
 interface JobWatchEvaluation {
   everStarted: boolean;
-  outcome: { state: "succeeded" | "failed"; deadlineExceeded: boolean } | null;
+  outcome: JobOutcome | null;
 }
 
 function watchErrorCode(error: unknown): number | null {
@@ -75,6 +82,28 @@ export class KubernetesJobWatcher {
     signal: AbortSignal,
   ): Promise<"succeeded" | "failed"> {
     return (await this.waitForJobOutcome(jobName, namespace, deadlineSeconds, signal)).state;
+  }
+
+  async waitForPodTermination(
+    jobName: string,
+    namespace: string,
+    deadlineSeconds: number,
+    signal: AbortSignal,
+  ): Promise<void> {
+    const timeout = new AbortController();
+    const timer = setTimeout(() => timeout.abort(), POD_TERMINATION_WAIT_MS);
+    try {
+      await this.waitForJobOutcome(
+        jobName,
+        namespace,
+        deadlineSeconds,
+        AbortSignal.any([signal, timeout.signal]),
+      );
+    } catch {
+      return;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   private jobBlockedReason(job: k8s.V1Job): string | null {
@@ -112,7 +141,9 @@ export class KubernetesJobWatcher {
     namespace: string,
     deadlineSeconds: number,
     signal: AbortSignal,
-  ): Promise<{ state: "succeeded" | "failed"; deadlineExceeded: boolean }> {
+    options: { containersExited?: boolean } = {},
+  ): Promise<JobOutcome> {
+    const containersExited = options.containersExited === true;
     const startedAt = Date.now();
     const deadline = startedAt + (deadlineSeconds + JOB_DEADLINE_BUFFER_SECONDS) * 1_000;
     let everStarted = false;
@@ -156,6 +187,7 @@ export class KubernetesJobWatcher {
         snapshot.pods,
         everStarted,
         startedAt,
+        containersExited,
       );
       everStarted = current.everStarted;
       if (current.outcome) return current.outcome;
@@ -168,6 +200,7 @@ export class KubernetesJobWatcher {
         startedAt,
         deadline,
         signal,
+        containersExited,
       });
       everStarted = watched.everStarted;
       if (watched.outcome) return watched.outcome;
@@ -217,7 +250,15 @@ export class KubernetesJobWatcher {
     pods: k8s.V1Pod[],
     everStarted: boolean,
     startedAt: number,
+    containersExited: boolean,
   ): JobWatchEvaluation {
+    const completed = containersExited ? completedPod(pods) : undefined;
+    if (completed) {
+      return {
+        everStarted: true,
+        outcome: { state: "succeeded", deadlineExceeded: false, pod: completed },
+      };
+    }
     if (job.status?.succeeded) {
       return { everStarted, outcome: { state: "succeeded", deadlineExceeded: false } };
     }
@@ -311,8 +352,10 @@ export class KubernetesJobWatcher {
     startedAt: number;
     deadline: number;
     signal: AbortSignal;
+    containersExited: boolean;
   }): Promise<JobWatchEvaluation> {
-    const { jobName, namespace, snapshot, startedAt, deadline, signal } = params;
+    const { jobName, namespace, snapshot, startedAt, deadline, signal, containersExited } =
+      params;
     signal.throwIfAborted();
     let currentJob = snapshot.job;
     const pods = new Map(
@@ -359,6 +402,7 @@ export class KubernetesJobWatcher {
           [...pods.values()],
           everStarted,
           startedAt,
+          containersExited,
         );
         everStarted = evaluation.everStarted;
         if (evaluation.outcome) settle(evaluation);

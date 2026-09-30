@@ -67,6 +67,7 @@ export class KubernetesInteractiveExecutor {
     const intConfigMap = `${jobName}-int`;
     let payloadNames: string[] = [];
     let executionFailure: { reason: unknown } | undefined;
+    let podTermination: Promise<void> | undefined;
 
     const seCase = (message: string): SandboxResult => ({
       testcaseResults: request.testcases.map((testcase) => ({
@@ -127,8 +128,18 @@ export class KubernetesInteractiveExecutor {
         namespace,
         deadlineSeconds,
         signal,
+        { containersExited: true },
       );
-      const podName = await this.observer.findPodName(jobName, namespace, request, signal);
+      if (outcome.pod)
+        podTermination = this.jobWatcher.waitForPodTermination(
+          jobName,
+          namespace,
+          deadlineSeconds,
+          signal,
+        );
+      const podName = outcome.pod
+        ? (this.observer.observedPod(jobName, outcome.pod, request).metadata?.name ?? null)
+        : await this.observer.findPodName(jobName, namespace, request, signal);
       if (!podName) {
         if (outcome.state === "failed") {
           return seCase("Interactive sandbox job failed or timed out.");
@@ -185,6 +196,7 @@ export class KubernetesInteractiveExecutor {
       });
       return seCase("Interactive sandbox failed to start.");
     } finally {
+      await podTermination;
       await measurePhase(request, "cleanup", () =>
         runCleanupAfterExecution(executionFailure, () =>
           this.cleanupResources.cleanup(jobName, namespace, payloadNames),
