@@ -74,6 +74,12 @@ Load-aware slots (`worker.judge.minConcurrency`; single-machine: min 2, ceiling
   four interactive stages fit. A stage the quota rejects frees its slot and retries
   as `waiting_capacity`. Raising the ceiling needs a matching quota, and the quota
   must stay within node allocatable CPU left by the platform pods.
+- Per-stage wall time is in the `Kubernetes sandbox phase timings` log line:
+  `payloadConfigMapsMs`, `jobCreateMs`, `scheduleAndExecutionMs` (until every
+  container exited), `logsMs`, `podTerminationMs` (kubelet stopping the Pod sandbox
+  after the containers exited), `cleanupMs` and `totalMs`. The
+  `Kubernetes sandbox lifecycle timings` line splits the Pod's own startup and
+  container run times, at one-second resolution. A slot is held for `totalMs`.
 - `judge_wall_clock_timeouts_total` counts TLEs whose CPU time stayed under the limit;
   `nojv-judge-wall-clock-timeouts` fires on more than two in ten minutes. Lower the
   ceiling when it fires.

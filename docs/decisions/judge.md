@@ -275,3 +275,17 @@ On 2026-09-30 failed large payload uploads left 384 per-stage payload ConfigMaps
 - Rule: the orphan sweep never lists ConfigMap data, never touches objects without the `nojv-run-id` label or whose name does not start with `judge-<runId>-`, and deletes with a `uid` precondition; a 404 or 409 is skipped.
 - Rule: the worker memory guard only stops growth and shrinks the budget to one below the running count, never under the minimum, never revoking a running stage; an unlimited or unreadable cgroup disables only this guard. It is a self-protection limit, not a capacity signal (JDG-13).
 - Code: `apps/worker/src/sandbox/kubernetes/testcase-cache-gc.ts`, `apps/worker/src/judge-slot-supplier.ts`
+
+### JDG-25 Stage results are read at container exit; cleanup starts at the terminal Pod
+
+**Decided:** 2026-09 · **Source:** [PR #TBD](https://github.com/NOJV-TW/NOJV/pulls)
+
+A standard, checker or interactive stage reads its logs once every declared container has exited 0, then waits (at most 10 s) for the Pod's terminal phase before deleting the Job; stage Pods use a 1 s termination grace period. Measured on k3d (runc, 1 and 6 concurrent stages, 3 and 30 cases), a stage's fixed cost is kubelet's: about 1 s from run-container exit to judge-container exit being reported (PLEG relists every second) and 1.2–1.5 s more until the Pod turns `Succeeded` (kubelet stops the sandbox only on its next sync). The worker's own share after `Succeeded` fell from 160–265 ms to 105–130 ms (median), and an aborted stage's cleanup from 25 s to 4 s because the runner, as PID 1, ignores SIGTERM. In production the log reads and API calls that now overlap sandbox teardown took 0.8–1.1 s per stage.
+
+- Rejected: deleting the Job as soon as the containers exit. The Pod then reached `Succeeded` no sooner and was removed 0.7–0.9 s later than when deleted after `Succeeded` (cleanup 2.0 s instead of 0.14 s).
+- Rejected: returning the stage result and releasing the slot before cleanup completes. Until kubelet marks the Pod terminal it still counts against the sandbox `ResourceQuota`, so a released slot would start a Job the quota rejects; JDG-22 keeps the lease until the Pods are gone, and after `Succeeded` only API deletions remain (about 0.1 s here).
+- Rejected: returning results through `terminationMessagePath`. It holds 4 KiB, logs are still needed for per-case output, and log reads already overlap teardown.
+- Rejected: kubelet `EventedPLEG` or other node tuning to cut the one-second relist; it is a node-level beta feature outside the chart, not validated with gVisor.
+- Rule: early reads need every container declared in the Pod, including restartable sidecars, terminated with exit code 0; anything else waits for the Job or Pod terminal state.
+- Rule: never delete a stage's Job before its Pod is terminal unless the 10 s wait expires or the stage failed; JDG-22's lease and UID rules are unchanged.
+- Code: `apps/worker/src/sandbox/kubernetes/job-watch.ts`, `apps/worker/src/sandbox/kubernetes/job-state.ts`, `apps/worker/src/sandbox/kubernetes/standard-executor.ts`, `apps/worker/src/sandbox/kubernetes/interactive-executor.ts`, `apps/worker/src/sandbox/kubernetes/termination.ts`, `apps/worker/src/sandbox/kubernetes/job-manifests.ts`

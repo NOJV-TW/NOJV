@@ -35,6 +35,7 @@ Durable decisions for NOJV, grouped by area. Each entry records what was decided
 - JDG-22 Sandbox cleanup is UID-fenced and durable
 - JDG-23 Testcase payloads are a content-addressed ConfigMap cache
 - JDG-24 The judge worker sweeps orphaned payloads and guards its own memory
+- JDG-25 Stage results are read at container exit; cleanup starts at the terminal Pod
 
 ## [Problems and submissions](problems.md)
 
