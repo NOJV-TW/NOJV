@@ -299,11 +299,14 @@ export async function createQueuedSubmissionRecord(
       );
     }
     if (
-      isReferenceSolution &&
+      payload.sampleOnly !== true &&
+      problem.type !== "special_env" &&
       (await tx.testcase.count({ where: { testcaseSet: { problemId: problem.id } } })) === 0
     ) {
       throw new ConflictError(
-        "Add at least one testcase before validating the reference solution.",
+        isReferenceSolution
+          ? "Add at least one testcase before validating the reference solution."
+          : "This problem has no testcases yet, so submissions cannot be judged.",
       );
     }
 

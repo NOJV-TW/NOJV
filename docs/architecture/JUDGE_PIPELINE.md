@@ -35,6 +35,9 @@ fixed **Standard Mode** (`standard` / `checker` / `interactive`, JDG-01) or
 
 ### Acceptance
 
+- A full submission (not a sample-only run) to a Standard Mode problem with no
+  testcases is rejected with a conflict before any row is written, so it can never
+  finish as a `system_error` with zero evaluated cases.
 - Submission creation writes a `pending_upload` row, uploads source objects and an
   immutable judge snapshot under guarded unique keys, then commits the source
   manifest, `JudgeExecution` and a `submission.execution.dispatch` outbox row in one

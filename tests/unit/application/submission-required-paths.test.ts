@@ -100,12 +100,14 @@ vi.mock("@nojv/db", () => {
         $queryRaw: typeof vi.fn;
         assessmentProblem: { findFirst: typeof txAssessmentProblemFindFirst };
         contestProblem: { findFirst: typeof txContestProblemFindFirst };
+        testcase: { count: typeof vi.fn };
       }) => Promise<T>,
     ): Promise<T> =>
       fn({
         $queryRaw: vi.fn().mockResolvedValue([]),
         assessmentProblem: { findFirst: txAssessmentProblemFindFirst },
         contestProblem: { findFirst: txContestProblemFindFirst },
+        testcase: { count: vi.fn().mockResolvedValue(1) },
       }),
     Prisma: { DbNull: null },
   };

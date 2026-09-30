@@ -865,6 +865,18 @@ describe("reference submission authorization", () => {
     expect(submissionPublishPendingUpload).not.toHaveBeenCalled();
   });
 
+  it("rejects a full submission while the problem has no testcases", async () => {
+    txTestcaseCount.mockResolvedValueOnce(0);
+    await expect(
+      createQueuedSubmissionRecord(
+        { ...reference, referenceSolution: false },
+        fakeActor,
+        "127.0.0.1",
+      ),
+    ).rejects.toThrow(/no testcases yet/);
+    expect(submissionCreate).not.toHaveBeenCalled();
+  });
+
   it("allows a platform student TA to submit a full reference under their own identity", async () => {
     await expect(
       createQueuedSubmissionRecord(reference, fakeActor, "127.0.0.1"),
