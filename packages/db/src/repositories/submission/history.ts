@@ -23,7 +23,7 @@ function historyStatusWhere(
   return {};
 }
 
-interface SubmissionContext {
+export interface SubmissionContext {
   type: "assignment" | "exam" | "contest";
   id: string;
 }
