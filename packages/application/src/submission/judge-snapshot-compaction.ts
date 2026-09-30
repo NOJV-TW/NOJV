@@ -63,7 +63,7 @@ async function currentProblemObjects(
       ...Object.values((inputFileStorage ?? {}) as Record<string, unknown>),
     ]
       .filter((pointer) => pointer !== null)
-      .map(assertStorageObjectPointer),
+      .map((pointer) => assertStorageObjectPointer(pointer)),
   );
   return new Map(
     pointers.map((pointer) => [`${pointer.sha256}:${String(pointer.size)}`, pointer]),

@@ -21,6 +21,7 @@ import type { TestcaseReader } from "../shared/testcase-text";
 import { sandboxSystemError } from "../shared/sandbox-plan";
 
 const require = createRequire(import.meta.url);
+const HTTP1_ONLY_CONNECT = { allowH2: false };
 
 export interface K8sExecutorConfig {
   namespace: string;
@@ -55,7 +56,7 @@ export function createKubeConfig(): k8s.KubeConfig {
     ): ReturnType<k8s.KubeConfig["createDispatcherOptions"]> {
       const options = super.createDispatcherOptions(cluster, agentOptions);
       return options.type === "agent"
-        ? { ...options, connect: { ...options.connect, ...{ allowH2: false } } }
+        ? { ...options, connect: { ...options.connect, ...HTTP1_ONLY_CONNECT } }
         : options;
     }
   })();

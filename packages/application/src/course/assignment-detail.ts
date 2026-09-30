@@ -98,6 +98,16 @@ interface ProblemStats {
   attempts: number;
 }
 
+function solveState(
+  bestScore: number,
+  rawMaxScore: number,
+  attempts: number,
+): ProblemSolveState {
+  if (bestScore >= rawMaxScore) return "ac";
+  if (bestScore > 0) return "partial";
+  return attempts > 0 ? "attempted" : "none";
+}
+
 function resolveProblemStatus(
   problem: AssignmentDetailProblem,
   stats: ProblemStats | undefined,
@@ -117,14 +127,7 @@ function resolveProblemStatus(
 
   const bestScore = override ?? stats?.bestScore ?? 0;
   const attempts = stats?.attempts ?? 0;
-  const state: ProblemSolveState =
-    bestScore >= problem.rawMaxScore
-      ? "ac"
-      : bestScore > 0
-        ? "partial"
-        : attempts > 0
-          ? "attempted"
-          : "none";
+  const state = solveState(bestScore, problem.rawMaxScore, attempts);
 
   return {
     bestScore: activityScore(bestScore, problem.rawMaxScore, problem.points).toNumber(),

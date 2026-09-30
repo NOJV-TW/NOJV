@@ -128,6 +128,13 @@ export async function loadJudgeExecution(executionId: string) {
   return { execution, snapshot: await readStoredJudgeSnapshot(execution.snapshot) };
 }
 
+function submissionStatusForRunState(
+  state: JudgeExecutionState,
+): "system_error" | "running" | "queued" {
+  if (state === "blocked" || state === "recovering") return "system_error";
+  return state === "running" ? "running" : "queued";
+}
+
 export async function setJudgeExecutionState(
   executionId: string,
   workflowId: string,
@@ -166,14 +173,7 @@ export async function setJudgeExecutionState(
           judgeGeneration: run.generation,
           activeJudgeRunId: workflowId,
         },
-        data: {
-          status:
-            nextState === "blocked" || nextState === "recovering"
-              ? "system_error"
-              : nextState === "running"
-                ? "running"
-                : "queued",
-        },
+        data: { status: submissionStatusForRunState(nextState) },
       });
     return true;
   });
@@ -323,6 +323,13 @@ export async function finishJudgeExecution(executionId: string, workflowId: stri
   if (run) await dispatchNextJudgeExecutions(run.submission.userId);
 }
 
+function executionReasonCode(reasonCode: string | null): JudgeExecutionView["reasonCode"] {
+  if (reasonCode === "capacity" || reasonCode === "SandboxBackpressureError") return "capacity";
+  if (reasonCode === "cleanup_required" || reasonCode === "SandboxCleanupError")
+    return "cleanup_required";
+  return reasonCode ? "system_failure" : null;
+}
+
 function executionView(run: {
   state: string;
   generation: number;
@@ -335,14 +342,7 @@ function executionView(run: {
     state: judgeExecutionStateSchema.parse(run.state),
     generation: run.generation,
     problemGeneration: run.problemGeneration,
-    reasonCode:
-      run.reasonCode === "capacity" || run.reasonCode === "SandboxBackpressureError"
-        ? "capacity"
-        : run.reasonCode === "cleanup_required" || run.reasonCode === "SandboxCleanupError"
-          ? "cleanup_required"
-          : run.reasonCode
-            ? "system_failure"
-            : null,
+    reasonCode: executionReasonCode(run.reasonCode),
     lastProgressAt: run.lastProgressAt.toISOString(),
     nextRetryAt: ["completed", "cancelled"].includes(run.state)
       ? null

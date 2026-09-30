@@ -42,13 +42,19 @@ function assertPayloadPath(path: string): void {
   }
 }
 
+function trimTrailingNonAlphanumeric(value: string): string {
+  let end = value.length;
+  while (end > 0 && !/[a-z0-9]/i.test(value.charAt(end - 1))) end--;
+  return value.slice(0, end);
+}
+
 function resourceName(baseName: string, suffix: string): string {
   const direct = `${baseName}-${suffix}`;
   if (direct.length <= K8S_NAME_MAX_CHARS) return direct;
 
   const digest = createHash("sha256").update(baseName).digest("hex").slice(0, 8);
   const prefixLength = K8S_NAME_MAX_CHARS - suffix.length - digest.length - 2;
-  const prefix = baseName.slice(0, prefixLength).replace(/[^a-z0-9]+$/i, "");
+  const prefix = trimTrailingNonAlphanumeric(baseName.slice(0, prefixLength));
   return `${prefix}-${digest}-${suffix}`;
 }
 

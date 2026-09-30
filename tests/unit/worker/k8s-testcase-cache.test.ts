@@ -192,7 +192,7 @@ describe("KubernetesTestcaseCache.ensure", () => {
 
     const creates = fake.coreApi.createNamespacedConfigMap.mock.calls.length;
     expect(await cache.ensure(target, NAMESPACE, signal)).toEqual(names[0]);
-    expect(fake.coreApi.createNamespacedConfigMap.mock.calls.length).toBe(creates);
+    expect(fake.coreApi.createNamespacedConfigMap.mock.calls).toHaveLength(creates);
     const index = fake.cached.get(target.indexName)!;
     expect(index.metadata.annotations?.["nojv-testcase-state"]).toBe("ready");
     for (const name of names[0]!)

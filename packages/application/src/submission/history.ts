@@ -49,6 +49,11 @@ const historySnapshotSchema = z
   })
   .strict();
 
+function settledMetric<T>(status: string, value: T): T | 0 | null {
+  if (isSubmissionPending(status)) return null;
+  return status === "system_error" ? 0 : value;
+}
+
 async function historyPage(opts: HistoryOptions, context?: SubmissionContextRef) {
   const page = opts.page ?? 1;
   if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger((page - 1) * 50))
@@ -130,14 +135,10 @@ export async function listUserSubmissions(opts: HistoryOptions) {
         opts.actor.platformRole === "admin"
           ? { name: s.user.name, username: s.user.username }
           : null,
-      runtimeMs: isSubmissionPending(s.status)
-        ? null
-        : s.status === "system_error"
-          ? 0
-          : s.runtimeMs,
+      runtimeMs: settledMetric(s.status, s.runtimeMs),
       memoryKb:
         isSubmissionPending(s.status) || s.status === "system_error" ? null : s.memoryKb,
-      score: isSubmissionPending(s.status) ? null : s.status === "system_error" ? 0 : s.score,
+      score: settledMetric(s.status, s.score),
       totalScore: computeProblemTotalScore(s.problem),
       status: s.status,
       judgeGeneration: s.judgeGeneration,
@@ -158,16 +159,8 @@ export async function listContextSubmissionsPaged(
       ...row,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
-      score: isSubmissionPending(row.status)
-        ? null
-        : row.status === "system_error"
-          ? 0
-          : row.score,
-      runtimeMs: isSubmissionPending(row.status)
-        ? null
-        : row.status === "system_error"
-          ? 0
-          : row.runtimeMs,
+      score: settledMetric(row.status, row.score),
+      runtimeMs: settledMetric(row.status, row.runtimeMs),
       memoryKb:
         isSubmissionPending(row.status) || row.status === "system_error" ? null : row.memoryKb,
     })),

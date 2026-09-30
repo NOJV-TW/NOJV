@@ -55,14 +55,15 @@ export type LifecycleCancellationPayload =
   | { type: "exam"; input: ExamAutoCloseInput }
   | { type: "contest"; input: ContestLifecycleInput };
 
+function lifecycleEntityId(payload: LifecycleCancellationPayload): string {
+  if (payload.type === "assignment") return payload.input.assignmentId;
+  if (payload.type === "exam") return payload.input.examId;
+  return payload.input.contestId;
+}
+
 function dedupeKey(payload: LifecycleCancellationPayload): string {
   const input = payload.input;
-  const entityId =
-    payload.type === "assignment"
-      ? payload.input.assignmentId
-      : payload.type === "exam"
-        ? payload.input.examId
-        : payload.input.contestId;
+  const entityId = lifecycleEntityId(payload);
   const identity = createHash("sha256")
     .update(`${String(input.scheduleRevision)}\0${input.timerFingerprint}`)
     .digest("hex");

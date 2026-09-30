@@ -58,38 +58,30 @@ function collectComments(source) {
   let line = 1;
   let inString = null;
   let escaped = false;
-  for (let i = 0; i < source.length; i++) {
+  let i = 0;
+  while (i < source.length) {
     const ch = source[i];
     const next = source[i + 1];
     if (ch === "\n") {
       line++;
-      continue;
-    }
-    if (inString) {
+    } else if (inString) {
       if (escaped) {
         escaped = false;
-        continue;
-      }
-      if (ch === "\\") {
+      } else if (ch === "\\") {
         escaped = true;
-        continue;
+      } else if (ch === inString) {
+        inString = null;
       }
-      if (ch === inString) inString = null;
-      continue;
-    }
-    if (ch === '"' || ch === "'" || ch === "`") {
+    } else if (ch === '"' || ch === "'" || ch === "`") {
       inString = ch;
-      continue;
-    }
-    if (ch === "/" && next === "/") {
+    } else if (ch === "/" && next === "/") {
       let j = i + 2;
       let content = "";
       while (j < source.length && source[j] !== "\n") content += source[j++];
       found.push({ line, content });
-      i = j - 1;
+      i = j;
       continue;
-    }
-    if (ch === "/" && next === "*") {
+    } else if (ch === "/" && next === "*") {
       const startLine = line;
       let j = i + 2;
       let content = "";
@@ -98,9 +90,10 @@ function collectComments(source) {
         content += source[j++];
       }
       found.push({ line: startLine, content });
-      i = j + 1;
+      i = j + 2;
       continue;
     }
+    i++;
   }
   return found;
 }

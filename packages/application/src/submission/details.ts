@@ -78,6 +78,15 @@ export async function getSubmissionSources(submissionId: string): Promise<Submis
   return readSubmissionSources(submission.sourceStorage);
 }
 
+function referenceSolutionStatus(
+  latest: { status: string } | null,
+  verified: object | null,
+): "validating" | "verified" | "not_configured" | "failed" {
+  if (latest && isSubmissionPending(latest.status)) return "validating";
+  if (verified) return "verified";
+  return latest === null ? "not_configured" : "failed";
+}
+
 export async function getProblemReferenceSolution(actor: ActorContext, problemId: string) {
   const problem = await assertProblemContentReadAccess(actor, problemId);
 
@@ -101,14 +110,7 @@ export async function getProblemReferenceSolution(actor: ActorContext, problemId
       ? candidate
       : null;
 
-  const status =
-    latest && isSubmissionPending(latest.status)
-      ? ("validating" as const)
-      : verified
-        ? ("verified" as const)
-        : latest === null
-          ? ("not_configured" as const)
-          : ("failed" as const);
+  const status = referenceSolutionStatus(latest, verified);
   const sourceFiles =
     status === "verified" && verified?.sourceStorage
       ? await readSubmissionSources(verified.sourceStorage)

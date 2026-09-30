@@ -101,7 +101,7 @@ test.beforeEach(async ({ page }, testInfo) => {
 test("capacity waiting clearly states the submission is saved", async ({ page }, testInfo) => {
   const { submission } = await fixture("waiting_capacity");
   await page.goto(`/submissions/${submission.id}`);
-  await page.waitForTimeout(3000);
+  await expect(page.getByRole("button", { name: /Open account menu/ })).toBeEnabled();
   await expect(page.getByRole("status").filter({ hasText: waiting })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("waiting-capacity.png"), fullPage: true });
 });
@@ -137,7 +137,7 @@ test("a missing original version clearly requires explicit teacher rejudge", asy
 }, testInfo) => {
   const { submission } = await fixture("legacy");
   await page.goto(`/submissions/${submission.id}`);
-  await page.waitForTimeout(3000);
+  await expect(page.getByRole("button", { name: /Open account menu/ })).toBeEnabled();
   await expect(page.getByRole("status").filter({ hasText: missing })).toBeVisible();
   await expect(page.getByText("Judging in progress...", { exact: true })).toHaveCount(0);
   await page.screenshot({

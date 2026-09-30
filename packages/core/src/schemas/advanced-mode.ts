@@ -79,14 +79,12 @@ const networkSchema = z
           message: "service must be present when mode is 'service'",
         });
       }
-    } else {
-      if (value.service) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["service"],
-          message: "service must be absent when mode is 'none'",
-        });
-      }
+    } else if (value.service) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["service"],
+        message: "service must be absent when mode is 'none'",
+      });
     }
   });
 

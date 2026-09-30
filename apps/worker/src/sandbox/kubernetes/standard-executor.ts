@@ -89,13 +89,15 @@ export class KubernetesStandardExecutor {
       const [run = [], judge = []] = payloads.volumes;
       payloadReadyAt = Date.now();
       await this.resources.createStageJob(
-        jobName,
-        ns,
-        { run, judge },
-        deadlineSeconds,
-        request,
-        parallelism,
-        runMemoryLimit,
+        {
+          jobName,
+          namespace: ns,
+          payloads: { run, judge },
+          deadlineSeconds,
+          request,
+          runParallelism: parallelism,
+          runMemoryLimit,
+        },
         execution.signal,
       );
       jobSubmittedAt = Date.now();

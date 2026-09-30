@@ -5,4 +5,5 @@ COPY infra/docker/demo-advanced-grade/answers/ /answers/
 COPY apps/web/src/lib/server/advanced-scaffold/files/grade/nojv_grader.py /grade/nojv_grader.py
 COPY infra/docker/demo-advanced-grade/grader.py /grade/grader.py
 
+USER 10001:10001
 CMD ["python", "/grade/grader.py"]

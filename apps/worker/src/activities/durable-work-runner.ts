@@ -1,3 +1,4 @@
+import { compareCodeUnits } from "@nojv/core";
 import type { Prisma } from "@nojv/db";
 
 import { DURABLE_WORK_LEASE_DURATION_MS } from "../durable-work-config";
@@ -106,7 +107,10 @@ export async function processDurableWorkBatch(
   dependencies: DurableWorkBatchDependencies,
   input: DurableWorkBatchInput = {},
 ): Promise<DurableWorkBatchResult> {
-  const kinds = rotateKinds(Object.keys(dependencies.handlers).sort(), input.fairnessOffset);
+  const kinds = rotateKinds(
+    Object.keys(dependencies.handlers).sort(compareCodeUnits),
+    input.fairnessOffset,
+  );
   if (kinds.length === 0) {
     return { claimed: 0, succeeded: 0, retried: 0, dead: 0, processedKind: null };
   }

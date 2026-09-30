@@ -12,14 +12,15 @@ async function readOwnUserId(page: Page): Promise<string> {
 async function setProfilePublic(page: Page, userId: string, value: boolean): Promise<void> {
   await page.goto(`/users/${userId}`);
   // wait for SvelteKit hydration so the form onchange handler is attached
-  await page.waitForTimeout(3000);
+  await expect(page.getByRole("button", { name: /Open account menu/ })).toBeEnabled();
   const toggle = page.locator("form[action*='updateProfileVisibility'] input[type='checkbox']");
   await expect(toggle).toBeAttached();
   if ((await toggle.isChecked()) === value) return;
   const posted = page.waitForResponse(
     (r) => r.request().method() === "POST" && r.url().includes("updateProfileVisibility"),
   );
-  await toggle.setChecked(value, { force: true });
+  await toggle.press("Space");
+  await expect(toggle).toBeChecked({ checked: value });
   await posted;
 }
 

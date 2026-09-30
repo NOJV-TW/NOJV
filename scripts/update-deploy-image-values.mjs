@@ -3,7 +3,7 @@ import { pathToFileURL } from "node:url";
 
 const DIGEST = /^sha256:[a-f0-9]{64}$/u;
 const SOURCE_SHA = /^[a-f0-9]{40}$/u;
-const VERSION = /^v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/u;
+const VERSION = /^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u;
 const COMPONENTS = ["web", "worker", "sandbox", "migrator"];
 
 export function updateDeployImageValues(content, { sourceSha, tag, digests, releaseWindow }) {
@@ -56,12 +56,12 @@ export function updateDeployImageValues(content, { sourceSha, tag, digests, rele
         return line;
       }
       if (inMigrator && /^\S/u.test(line)) inMigrator = false;
-      if (inMigrator && /^  releaseWindow:/u.test(line)) {
+      if (inMigrator && line.startsWith("  releaseWindow:")) {
         releaseWindowCount += 1;
         return `  releaseWindow: ${String(releaseWindow)}`;
       }
       if (inRelease && /^\S/u.test(line)) inRelease = false;
-      if (inRelease && /^  sourceSha:/u.test(line)) {
+      if (inRelease && line.startsWith("  sourceSha:")) {
         sourceShaCount += 1;
         return `  sourceSha: ${sourceSha}`;
       }
@@ -71,7 +71,7 @@ export function updateDeployImageValues(content, { sourceSha, tag, digests, rele
       }
       if (!inImage) return line;
 
-      if (/^  tag:/u.test(line)) {
+      if (line.startsWith("  tag:")) {
         tagCount += 1;
         return `  tag: ${tag}`;
       }
@@ -79,10 +79,10 @@ export function updateDeployImageValues(content, { sourceSha, tag, digests, rele
         inDigests = true;
         return line;
       }
-      if (inDigests && !/^    /u.test(line)) inDigests = false;
+      if (inDigests && !line.startsWith("    ")) inDigests = false;
       if (!inDigests) return line;
 
-      const component = line.match(/^    ([a-z]+):/u)?.[1];
+      const component = line.match(/^ {4}([a-z]+):/u)?.[1];
       if (!component || !COMPONENTS.includes(component)) return line;
       digestCounts[component] += 1;
       return `    ${component}: ${digests[component]}`;

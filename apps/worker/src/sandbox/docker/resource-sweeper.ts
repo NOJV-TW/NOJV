@@ -98,11 +98,13 @@ export class DockerResourceSweeper {
   }
 }
 
+const DEFAULT_DOCKER_RESOURCE_SWEEP_DEPENDENCIES: DockerResourceSweepDependencies = {
+  sweepContainers: sweepOrphanContainers,
+  sweepNetworks: sweepOrphanNetworks,
+};
+
 export function createDockerResourceSweeper(
-  dependencies: DockerResourceSweepDependencies = {
-    sweepContainers: sweepOrphanContainers,
-    sweepNetworks: sweepOrphanNetworks,
-  },
+  dependencies = DEFAULT_DOCKER_RESOURCE_SWEEP_DEPENDENCIES,
   intervalMs = DOCKER_RESOURCE_SWEEP_INTERVAL_MS,
 ): DockerResourceSweeper {
   return new DockerResourceSweeper(dependencies, intervalMs);

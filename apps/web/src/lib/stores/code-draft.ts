@@ -69,12 +69,12 @@ function cryptoKeyFor(cipherKey: string): Promise<CryptoKey> {
 
 function toBase64(bytes: Uint8Array): string {
   let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
+  for (const byte of bytes) binary += String.fromCodePoint(byte);
   return btoa(binary);
 }
 
 function fromBase64(value: string): Uint8Array<ArrayBuffer> {
-  return Uint8Array.from(atob(value), (c) => c.charCodeAt(0));
+  return Uint8Array.from(atob(value), (c) => c.codePointAt(0) ?? 0);
 }
 
 export async function sealDraft(

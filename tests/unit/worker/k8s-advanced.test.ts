@@ -714,7 +714,7 @@ describe("buildAdvancedRunJobManifest — untrusted run Pod", () => {
   it("has the RUN image as its single main container", () => {
     const m = buildAdvancedRunJobManifest(RUN_PARAMS);
     const podSpec = m.spec!.template.spec!;
-    expect(podSpec.containers.length).toBe(1);
+    expect(podSpec.containers).toHaveLength(1);
     expect(podSpec.containers[0]!.name).toBe(ADVANCED_RUN_NAME);
     expect(podSpec.containers[0]!.image).toBe("registry.example.com/ta/run:1.0");
   });
@@ -817,7 +817,7 @@ describe("buildAdvancedGradeJobManifest — trusted grade Pod, no student code",
   it("has the GRADE image as its single main container and NO run/student container", () => {
     const m = buildAdvancedGradeJobManifest(GRADE_PARAMS);
     const podSpec = m.spec!.template.spec!;
-    expect(podSpec.containers.length).toBe(1);
+    expect(podSpec.containers).toHaveLength(1);
     expect(podSpec.containers[0]!.name).toBe(ADVANCED_GRADER_NAME);
     expect(podSpec.containers[0]!.image).toBe("registry.example.com/ta/grade:1.0");
     expect(podSpec.containers.some((c) => c.name === ADVANCED_RUN_NAME)).toBe(false);

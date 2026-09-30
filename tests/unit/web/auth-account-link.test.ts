@@ -261,7 +261,7 @@ describe("sign-in with an unknown provider identity that shares an email", () =>
     const location = response.headers.get("location") ?? "";
     expect(location).toContain("/signin");
     expect(location).toContain("error=account_not_linked");
-    expect((await context.internalAdapter.findAccounts(userId)).length).toBe(before);
+    expect(await context.internalAdapter.findAccounts(userId)).toHaveLength(before);
   });
 });
 

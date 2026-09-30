@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 
+import type { PlatformRole } from "@nojv/core";
 import { accountRepo, userRepo } from "@nojv/db";
 import { getRedis, keys } from "@nojv/redis";
 
@@ -14,7 +15,7 @@ const OTP_DEDUPE_TTL_SECONDS = 120;
 const SUPER_ADMIN_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const TOTP_CODE_LENGTH = 6;
 
-const STEPUP_CODE_PATTERN = new RegExp(`^\\d{${String(TOTP_CODE_LENGTH)}}$`);
+const STEPUP_CODE_PATTERN = new RegExp(String.raw`^\d{${String(TOTP_CODE_LENGTH)}}$`);
 const SECURITY_MARKER_PREFIX = "sg1";
 
 const MARK_VERIFIED_SESSION = `
@@ -111,14 +112,14 @@ export interface StepUpHandoff extends SecurityGenerationProof {
 export interface AdminAccessPrincipal extends SecurityGenerationProof {
   disabled: boolean;
   isSuperAdmin: boolean;
-  platformRole: "admin" | "teacher" | "student";
+  platformRole: PlatformRole;
 }
 
 export type AdminMfaKind = "none" | "regular" | "super";
 
 export function adminMfaKind(user: {
   isSuperAdmin: boolean;
-  platformRole: "admin" | "teacher" | "student";
+  platformRole: PlatformRole;
 }): AdminMfaKind {
   if (user.platformRole !== "admin") return "none";
   return user.isSuperAdmin ? "super" : "regular";
@@ -135,7 +136,7 @@ export function adminAccessPrincipal(user: {
   disabled: boolean;
   id: string;
   isSuperAdmin: boolean;
-  platformRole: "admin" | "teacher" | "student";
+  platformRole: PlatformRole;
   securityGeneration: number;
 }): AdminAccessPrincipal {
   return {

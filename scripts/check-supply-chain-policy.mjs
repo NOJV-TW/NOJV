@@ -8,11 +8,11 @@ const PINNED_JSDELIVR_NPM_MODULE =
   /^\/npm\/(?:@[a-z0-9_.-]+\/)?[a-z0-9_.-]+@\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?\/.+\.js$/u;
 const SHA256 = /[a-f0-9]{64}/u;
 const IMMUTABLE_IMAGE =
-  /^(?:[a-z0-9.-]+(?::[0-9]+)?\/)?(?:[a-z0-9._-]+\/)*[a-z0-9._-]+:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}@sha256:[a-f0-9]{64}$/u;
+  /^(?:[a-z0-9.-]+(?::\d+)?\/)?(?:[a-z0-9._-]+\/)*[a-z0-9._-]+:\w[A-Za-z0-9_.-]{0,127}@sha256:[a-f0-9]{64}$/u;
 const IMAGE_REFERENCE =
-  /^(?:[a-z0-9.-]+(?::[0-9]+)?\/)?(?:[a-z0-9._-]+\/)*[a-z0-9._-]+:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}(?:@sha256:[a-f0-9]{64})?$/u;
+  /^(?:[a-z0-9.-]+(?::\d+)?\/)?(?:[a-z0-9._-]+\/)*[a-z0-9._-]+:\w[A-Za-z0-9_.-]{0,127}(?:@sha256:[a-f0-9]{64})?$/u;
 const LOCAL_IMAGE =
-  /^(?:(?:[a-z0-9.-]+(?::[0-9]+)?\/)?(?:[a-z0-9._-]+\/)*[a-z0-9._-]+:local|nojv-[a-z0-9._-]+:pr)$/u;
+  /^(?:(?:[a-z0-9.-]+(?::\d+)?\/)?(?:[a-z0-9._-]+\/)*[a-z0-9._-]+:local|nojv-[a-z0-9._-]+:pr)$/u;
 const SOURCE_EXTENSIONS = new Set([".cjs", ".js", ".mjs", ".sh", ".ts"]);
 const SKIPPED_DIRECTORIES = new Set([
   ".svelte-kit",
@@ -63,10 +63,18 @@ function literalImageReferences(content) {
   );
 }
 
+function trimTokenPunctuation(token) {
+  let start = 0;
+  let end = token.length;
+  while (start < end && "\"'(`".includes(token[start])) start += 1;
+  while (end > start && "\\;),\"'`".includes(token[end - 1])) end -= 1;
+  return token.slice(start, end);
+}
+
 function commandImageReferences(command) {
   const references = new Set(literalImageReferences(command));
   for (const token of command.split(/\s+/u)) {
-    const value = token.replace(/^["'(`]+|[\\;),"'`]+$/gu, "");
+    const value = trimTokenPunctuation(token);
     if (IMAGE_REFERENCE.test(value) && !/^\d+:\d+$/u.test(value)) references.add(value);
   }
   return references;
@@ -90,7 +98,7 @@ function imageReferences(file, line, index, lines) {
         ? "(?:image|imageName|proxyImage|name)"
         : "(?:image|imageName|proxyImage)";
     const image = line.match(
-      new RegExp(`^\\s*(?:-\\s*)?${key}:\\s*["']?([^\\s"'#]+)["']?`, "u"),
+      new RegExp(String.raw`^\s*(?:-\s*)?${key}:\s*["']?([^\s"'#]+)["']?`, "u"),
     )?.[1];
     if (!image || image.startsWith("{{")) return [];
     return [image];
@@ -135,9 +143,13 @@ export function checkSupplyChainFile(file, content) {
     }
   }
 
-  for (let index = 0; index < lines.length; index += 1) {
+  let index = 0;
+  while (index < lines.length) {
     const line = lines[index];
-    if (line.trimStart().startsWith("#")) continue;
+    if (line.trimStart().startsWith("#")) {
+      index += 1;
+      continue;
+    }
     const lineNumber = index + 1;
 
     const references = new Set(imageReferences(file, line, index, lines));
@@ -193,18 +205,24 @@ export function checkSupplyChainFile(file, content) {
       );
     }
 
-    if (!/\b(?:curl|wget)\b/u.test(line)) continue;
+    if (!/\b(?:curl|wget)\b/u.test(line)) {
+      index += 1;
+      continue;
+    }
     const { command, end } = logicalCommand(lines, index);
     if (
       /\bcurl\b/u.test(command) &&
       /--output\s+(?:\/dev\/null|["']\/dev\/null["'])/u.test(command) &&
       /--write-out\b/u.test(command)
     ) {
-      index = end;
+      index = end + 1;
       continue;
     }
     const url = command.match(/https?:\/\/[^\s"']+/u)?.[0];
-    if (!url) continue;
+    if (!url) {
+      index += 1;
+      continue;
+    }
 
     if (/\|\s*(?:ba)?sh\b/u.test(command)) {
       violations.push(
@@ -233,7 +251,7 @@ export function checkSupplyChainFile(file, content) {
         violation(file, lineNumber, "every download requires literal SHA-256 verification"),
       );
     }
-    index = end;
+    index = end + 1;
   }
 
   return violations;

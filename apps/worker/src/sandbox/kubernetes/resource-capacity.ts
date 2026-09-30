@@ -79,7 +79,7 @@ export function findSandboxQuotaViolation(
   for (const field of ["requests", "limits"] as const) {
     for (const resource of ["cpu", "memory"] as const) {
       const values = pods.map((pod) => podResourceRequirement(pod, field, resource));
-      requirements[`${field}.${resource}`] = values.some((value) => value === null)
+      requirements[`${field}.${resource}`] = values.includes(null)
         ? null
         : values.reduce<number>((total, value) => total + (value ?? 0), 0);
       if (field === "requests")

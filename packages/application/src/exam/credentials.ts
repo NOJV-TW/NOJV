@@ -351,8 +351,7 @@ export async function attachSession(
     const session = await tx.session.findUnique({ where: { id: input.sessionId } });
     if (
       !record ||
-      !session ||
-      !session.examPassword ||
+      !session?.examPassword ||
       session.userId !== input.userId ||
       record.userId !== input.userId ||
       record.revision !== input.revision ||

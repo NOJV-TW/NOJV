@@ -28,7 +28,9 @@ export function isRegistryConfigured(): boolean {
 }
 
 function baseUrl(): string {
-  return getWebEnv().REGISTRY_INTERNAL_URL.replace(/\/+$/, "");
+  let url = getWebEnv().REGISTRY_INTERNAL_URL;
+  while (url.endsWith("/")) url = url.slice(0, -1);
+  return url;
 }
 
 async function mintToken(access: registryDomain.RegistryAccessEntry[]): Promise<string> {

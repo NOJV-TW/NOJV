@@ -135,7 +135,7 @@ function jsonErrorResponse(opts: {
 function readBearerToken(event: HandleEvent): string | null {
   const authorization = event.request.headers.get("authorization");
   if (!authorization) return null;
-  const match = /^Bearer\s+(.+)$/i.exec(authorization);
+  const match = /^Bearer\s+(\S.*)$/i.exec(authorization);
   const token = match?.[1]?.trim();
   return token && token.length > 0 ? token : null;
 }

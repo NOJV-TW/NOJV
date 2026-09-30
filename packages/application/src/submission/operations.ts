@@ -92,15 +92,25 @@ export async function getSubmissionOperation(
     latest.status !== effective.status
   )
     return operationSummary(latest, (await getJudgeExecutionViews([latest])).get(id) ?? null);
+  if (detail.verdict !== operation.status) return operation;
   return {
     ...operation,
-    result:
-      detail.verdict === operation.status
-        ? includeStaffFeedback
-          ? detail
-          : sanitizeStudentResult(detail, { sampleOnly: original.sampleOnly })
-        : operation.result,
+    result: includeStaffFeedback
+      ? detail
+      : sanitizeStudentResult(detail, { sampleOnly: original.sampleOnly }),
   };
+}
+
+function operationContextKey(row: {
+  contestId: string | null;
+  assessmentId: string | null;
+  examId: string | null;
+  problemId: string;
+}): string {
+  if (row.contestId) return `contest:${row.contestId}`;
+  if (row.assessmentId) return `assignment:${row.assessmentId}`;
+  if (row.examId) return `exam:${row.examId}`;
+  return `problem:${row.problemId}`;
 }
 
 export async function listSubmissionOperations(actor: ActorContext, ids: string[]) {
@@ -129,13 +139,7 @@ export async function listSubmissionOperations(actor: ActorContext, ids: string[
         if (!(error instanceof NotFoundError)) throw error;
       }
     } else if (row.userId !== actor.userId) {
-      const key = row.contestId
-        ? `contest:${row.contestId}`
-        : row.assessmentId
-          ? `assignment:${row.assessmentId}`
-          : row.examId
-            ? `exam:${row.examId}`
-            : `problem:${row.problemId}`;
+      const key = operationContextKey(row);
       let access = contextAccess.get(key);
       if (!access) {
         access = canOperateOnSubmission(actor, row);

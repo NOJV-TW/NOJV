@@ -42,7 +42,8 @@ function readCpuCounters(procRoot: string): CpuCounters {
 
 function readMemoryAvailable(procRoot: string): number {
   const text = readFileSync(`${procRoot}/meminfo`, "utf8");
-  const kb = (key: string) => Number(new RegExp(`^${key}:\\s+(\\d+)`, "m").exec(text)?.[1]);
+  const kb = (key: string) =>
+    Number(new RegExp(String.raw`^${key}:\s+(\d+)`, "m").exec(text)?.[1]);
   const total = kb("MemTotal");
   const available = kb("MemAvailable");
   if (!(total > 0) || !Number.isFinite(available))

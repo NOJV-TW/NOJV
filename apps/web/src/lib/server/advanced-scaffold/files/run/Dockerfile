@@ -13,4 +13,5 @@ WORKDIR /run
 COPY testcases/ /testcases/
 COPY nojv_runner.py runner.py ./
 
+USER 10001:10001
 CMD ["python", "/run/runner.py"]

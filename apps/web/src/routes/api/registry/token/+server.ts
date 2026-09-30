@@ -70,6 +70,12 @@ async function resolvePrincipal(
   return teacher;
 }
 
+function tokenSubject(principal: registryDomain.RegistryPrincipal): string {
+  if (principal.kind === "teacher") return principal.namespace;
+  if (principal.kind === "anonymous") return "";
+  return principal.kind;
+}
+
 async function issueToken(
   event: RequestEvent,
   credentials: Credentials | null,
@@ -89,14 +95,7 @@ async function issueToken(
   const requested = registryDomain.parseRegistryScopes(scopeStrings);
   const access = registryDomain.authorizeRegistryAccess(principal, requested);
 
-  const subject =
-    principal.kind === "teacher"
-      ? principal.namespace
-      : principal.kind === "anonymous"
-        ? ""
-        : principal.kind;
-
-  const response = await signRegistryToken(subject, service, access);
+  const response = await signRegistryToken(tokenSubject(principal), service, access);
   return json(response, {
     headers: { "cache-control": "no-store" },
   });

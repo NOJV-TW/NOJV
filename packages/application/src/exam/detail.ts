@@ -1,6 +1,11 @@
 import { activityScore, sumActivityScores } from "../scoring/activity-points";
-import { gradingRepo } from "@nojv/db";
-import { courseMembershipRepo, examRepo, participationRepo, submissionRepo } from "@nojv/db";
+import {
+  courseMembershipRepo,
+  examRepo,
+  gradingRepo,
+  participationRepo,
+  submissionRepo,
+} from "@nojv/db";
 import {
   extractLatePenalty,
   type LatePenaltyRule,

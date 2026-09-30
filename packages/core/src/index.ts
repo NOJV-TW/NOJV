@@ -1,4 +1,5 @@
 export * from "./types";
+export * from "./string-order";
 export * from "./schemas/problem";
 export * from "./schemas/course";
 export * from "./schemas/contest";

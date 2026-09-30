@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 
-import type { Prisma } from "@nojv/db";
 import {
   problemRepo,
   runTransaction,
   testcaseRepo,
   testcaseSetRepo,
+  type Prisma,
   type TransactionClient,
 } from "@nojv/db";
 import {
@@ -363,8 +363,8 @@ function testcasePointersFromRow(testcase: {
   const inputFiles =
     testcase.inputFileStorage === null
       ? []
-      : Object.values(testcase.inputFileStorage as Record<string, unknown>).map(
-          assertStorageObjectPointer,
+      : Object.values(testcase.inputFileStorage as Record<string, unknown>).map((pointer) =>
+          assertStorageObjectPointer(pointer),
         );
   return [
     assertStorageObjectPointer(testcase.inputStorage),

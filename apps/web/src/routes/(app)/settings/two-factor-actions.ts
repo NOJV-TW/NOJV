@@ -269,13 +269,16 @@ export const twoFactorActions = {
     }
     const result = await confirmPendingTotp(authorization.sessionId, authorization.proof, code);
     if (!result.ok) {
-      return fail(result.reason === "invalid" || result.reason === "replayed" ? 401 : 409, {
-        error:
-          result.reason === "invalid"
-            ? "That code does not match the new authenticator. Try the current code."
-            : result.reason === "replayed"
-              ? "That code was already used. Wait for a new code."
-              : "The setup expired or your security settings changed. Start again.",
+      if (result.reason === "invalid") {
+        return fail(401, {
+          error: "That code does not match the new authenticator. Try the current code.",
+        });
+      }
+      if (result.reason === "replayed") {
+        return fail(401, { error: "That code was already used. Wait for a new code." });
+      }
+      return fail(409, {
+        error: "The setup expired or your security settings changed. Start again.",
       });
     }
     const previousProof = authorization.proof;
