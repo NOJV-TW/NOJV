@@ -27,6 +27,8 @@ const mocks = vi.hoisted(() => ({
   verifySandboxRuntime: vi.fn(),
   verifyNetworkPolicyEnforced: vi.fn(),
   validateMailerConfig: vi.fn(),
+  startNodeLoadSlots: vi.fn(),
+  stopNodeLoadSlots: vi.fn(),
 }));
 
 vi.mock("@nojv/application", async (importOriginal) => {
@@ -86,6 +88,10 @@ vi.mock("../../../apps/worker/src/health-server", () => ({
 
 vi.mock("../../../apps/worker/src/judge-recovery-metrics", () => ({
   startJudgeRecoveryMetrics: mocks.startJudgeRecoveryMetrics,
+}));
+
+vi.mock("../../../apps/worker/src/judge-slot-supplier", () => ({
+  startNodeLoadSlots: mocks.startNodeLoadSlots,
 }));
 
 vi.mock("../../../apps/worker/src/logger.js", () => ({
@@ -256,15 +262,18 @@ describe("WorkerApp lifecycle", () => {
   );
 
   it("tunes judge activity slots to node load when a minimum concurrency is set", async () => {
+    const supplier = { type: "custom" };
+    mocks.startNodeLoadSlots.mockReturnValue({ supplier, stop: mocks.stopNodeLoadSlots });
     mocks.workerCreate.mockImplementation(async () => makeWorker());
     mocks.verifyNetworkPolicyEnforced.mockResolvedValue({ enforced: true, action: "ok" });
     const app = new WorkerApp(
-      { ...kubernetesEnv, WORKER_CONCURRENCY: 5, WORKER_MIN_CONCURRENCY: 2 },
+      { ...kubernetesEnv, WORKER_CONCURRENCY: 6, WORKER_MIN_CONCURRENCY: 2 },
       { shutdownTimeoutMs: 100, workflowsPath: "workflow.js" },
     );
     const started = app.start();
     try {
       await vi.waitFor(() => expect(mocks.workerCreate).toHaveBeenCalledTimes(2));
+      expect(mocks.startNodeLoadSlots).toHaveBeenCalledWith(2, 6);
       const options = mocks.workerCreate.mock.calls
         .map(([value]) => value as Record<string, unknown>)
         .find((value) => value.taskQueue === "judge")!;
@@ -275,18 +284,14 @@ describe("WorkerApp lifecycle", () => {
         maxCachedWorkflows: 32,
         tuner: {
           workflowTaskSlotSupplier: { type: "fixed-size", numSlots: 8 },
-          activityTaskSlotSupplier: {
-            type: "resource-based",
-            minimumSlots: 2,
-            maximumSlots: 5,
-            tunerOptions: { targetCpuUsage: 0.75, targetMemoryUsage: 0.8 },
-          },
+          activityTaskSlotSupplier: supplier,
         },
       });
     } finally {
       await app.shutdown("SIGTERM");
       await started;
     }
+    expect(mocks.stopNodeLoadSlots).toHaveBeenCalledOnce();
   });
 
   it("fails closed before creating a judge worker when Docker resource recovery fails", async () => {

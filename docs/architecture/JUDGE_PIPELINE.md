@@ -15,7 +15,7 @@ fixed **Standard Mode** (`standard` / `checker` / `interactive`, JDG-01) or
 | Durable workflow, cleanup workflow                | `apps/worker/src/workflows/durable-judge.ts`                                                                      |
 | Stage / journal activities                        | `apps/worker/src/activities/judge-execution.ts`                                                                   |
 | Pinned request, workspace merge, time factor      | `apps/worker/src/activities/judge-request.ts`, `judge.ts` (`mergeSandboxSources`)                                 |
-| Worker bootstrap, slots, queues                   | `apps/worker/src/worker-app.ts`, `apps/worker/src/env.ts`                                                         |
+| Worker bootstrap, slots, queues                   | `apps/worker/src/worker-app.ts`, `apps/worker/src/judge-slot-supplier.ts`, `apps/worker/src/env.ts`               |
 | Docker backend                                    | `apps/worker/src/sandbox/docker/` (`args.ts` is the hardened-args builder, JDG-19)                                |
 | Kubernetes backend                                | `apps/worker/src/sandbox/kubernetes/` (standard, interactive, advanced executors; manifests; watch; cleanup)      |
 | Shared plan, payloads, log parsing, result merge  | `apps/worker/src/sandbox/shared/`                                                                                 |
@@ -201,9 +201,19 @@ Ordering is Temporal task-queue priority and fairness, not an in-house scheduler
 
 Capacity:
 
-- Slots are `WORKER_CONCURRENCY`, or a resource-based range from
-  `WORKER_MIN_CONCURRENCY` to `WORKER_CONCURRENCY` (JDG-13); see
-  [runbook capacity](../runbooks/judge-queue.md#capacity).
+- Slots are `WORKER_CONCURRENCY`, or, with `WORKER_MIN_CONCURRENCY` set, a budget
+  between the two that follows node load (JDG-13). The judge worker's custom
+  activity slot supplier samples `/proc/stat` and `/proc/meminfo` every 2.5 s. It
+  adds one slot, at most every other sample, while every budgeted slot is running a
+  stage, node CPU is under 80% and at least 20% of node memory is available. Over
+  either limit the budget drops to one below the running count, never under the
+  minimum; running stages are never revoked. The worker logs each budget change
+  and exports `judge_slot_budget`, `judge_slots_used` and
+  `judge_node_cpu_utilization`. See [runbook capacity](../runbooks/judge-queue.md#capacity).
+- A container without LXCFS reads the host's `/proc/stat` and `/proc/meminfo`, so
+  the signal is the node's only when the judge worker shares the node with its
+  sandbox Pods; the chart refuses `minConcurrency` with more than one judge
+  replica.
 - A stage's run container requests and is limited to `K8S_RUN_PARALLELISM` CPUs, so
   slots × `K8S_RUN_PARALLELISM` cases run at once; the chart refuses values above the
   sandbox `ResourceQuota` CPU.

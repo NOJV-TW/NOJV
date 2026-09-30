@@ -495,3 +495,23 @@ describe("Flux release artifact atomicity", () => {
     expect(workflow).not.toContain("infra/flux/helmrelease.yaml");
   });
 });
+
+describeHelm("judge node-load slots", () => {
+  it("enables node-load slots only on the single-machine profile", () => {
+    expect(
+      isolateDoc(renderChart("values-single-machine.yaml"), "Deployment", "nojv-worker"),
+    ).toContain("name: WORKER_MIN_CONCURRENCY");
+    expect(isolateDoc(renderChart(), "Deployment", "nojv-worker")).not.toContain(
+      "WORKER_MIN_CONCURRENCY",
+    );
+  });
+
+  it("refuses node-load slots with more than one judge replica", () => {
+    expect(() =>
+      execSync(
+        "helm template nojv infra/charts/nojv -f infra/charts/nojv/values-gke.yaml -f tests/fixtures/helm/immutable-image-digests.yaml -f tests/fixtures/helm/gke-production-config.yaml -f tests/fixtures/helm/production-external-backups.yaml --set worker.judge.minConcurrency=2",
+        { cwd: repoRoot, encoding: "utf8", stdio: "pipe" },
+      ),
+    ).toThrow(/needs one judge replica/);
+  });
+});

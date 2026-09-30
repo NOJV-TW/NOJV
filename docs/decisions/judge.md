@@ -138,17 +138,18 @@ Each `JudgeExecution` runs `durableJudgeWorkflow` on the `judge` queue with `pri
 - Rule: completion and cancellation hand off without waiting for the once-a-minute durable-work cron: they write the next execution's dispatch row, then try the gated start directly. Correctness rests on the row and the workflow ID, never on the direct attempt.
 - Code: `packages/core/src/judge-execution.ts`, `packages/application/src/submission/judge-recovery.ts`, `infra/docker/temporal-dynamic-config.yaml`
 
-### JDG-13 Load-aware judge slots via Temporal's resource-based tuner
+### JDG-13 Load-aware judge slots follow node load from /proc
 
-**Decided:** 2026-09 · **Source:** [2026-09-22-judge-slot-tuner](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-22-judge-slot-tuner.md)
+**Decided:** 2026-09 · **Source:** [2026-09-22-judge-slot-tuner](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-22-judge-slot-tuner.md), [PR #606](https://github.com/NOJV-TW/NOJV/pull/606)
 
-With `WORKER_MIN_CONCURRENCY` set, the judge worker's activity slots use the resource-based tuner (CPU 0.75, memory 0.8) between min and `WORKER_CONCURRENCY`; fixed mode remains. The judge container has no CPU limit so the tuner sees node CPU. A fixed count cannot track load, and Kubernetes does not decide how many Jobs start.
+With `WORKER_MIN_CONCURRENCY` set, the judge worker's activity slots come from a custom Temporal slot supplier whose budget, between min and `WORKER_CONCURRENCY`, follows node CPU (`/proc/stat` deltas, target 0.8) and node `MemAvailable` (floor 20% of `MemTotal`), sampled every 2.5 s; fixed mode remains. It grows one slot at most every other sample and only while every budgeted slot runs a stage; over either limit it drops to one below the running count; it never goes under the minimum or revokes a running stage. Judging runs in sandbox Pods, not the worker, so only a node-wide signal sees the load; a fixed count cannot track load, and Kubernetes does not decide how many Jobs start.
 
-- Rejected: custom slot supplier on the metrics API; Kueue; HPA/KEDA; long `rampThrottle` (throttles polling).
-- Rule: workflow-task slots stay fixed; `judge_wall_clock_timeouts_total` is the contention guard (lower the ceiling if it fires); watch node memory separately.
-- Rule: size the judge worker memory limit so a burst stays well under the 80% memory target (single-machine 2 Gi); at 1 Gi the 2026-09-29 stress test sat at 77% with 100 executions in flight and ran 1–2 slots instead of 5.
-- Rule: GKE stays on fixed slots until a multi-node plan.
-- Code: `apps/worker/src/worker-app.ts`, `infra/charts/nojv/values-single-machine.yaml`
+- Rejected: Temporal's resource-based tuner (2026-09-22 to 2026-09-30). It measured the worker process and container, not the sandbox Pods doing the work, so under a burst it sat at the ceiling, and its memory target tracked worker RSS rather than node memory.
+- Rejected: custom slot supplier on the metrics API (extra dependency and lag); Kueue; HPA/KEDA; env knobs for the targets (constants until a measurement needs one).
+- Rule: `/proc` is host-wide only inside a container without LXCFS and only describes the node the worker runs on; node-load slots need one judge replica sharing the node with its sandboxes (the chart refuses `minConcurrency` with more replicas). GKE stays on fixed slots until a multi-node plan.
+- Rule: workflow-task slots stay fixed; `judge_wall_clock_timeouts_total` is the contention guard (lower the target or ceiling if it fires).
+- Rule: the ceiling times per-stage CPU requests must fit the sandbox quota (the chart guard); single-machine is 2–6 because a standard stage Pod requests one CPU and the quota is 6.
+- Code: `apps/worker/src/judge-slot-supplier.ts`, `apps/worker/src/worker-app.ts`, `infra/charts/nojv/values-single-machine.yaml`
 
 ### JDG-14 One canonical toolchain manifest with exact pins
 
