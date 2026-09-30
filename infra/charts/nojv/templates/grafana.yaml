@@ -59,7 +59,7 @@ data:
 {{- end }}
 {{- end }}
 {{- $contact := dict "orgId" 1 "name" "NOJV SLO Alerts" "receivers" (list (dict "uid" "nojv-slo-contact" "type" "email" "settings" (dict "addresses" "$__env{GF_SMTP_USER}"))) }}
-{{- $policy := dict "orgId" 1 "receiver" "NOJV SLO Alerts" "group_by" (list "grafana_folder" "alertname") }}
+{{- $policy := dict "orgId" 1 "receiver" "NOJV SLO Alerts" "group_by" (list "grafana_folder" "alertname") "repeat_interval" "24h" }}
 {{- $group := dict "orgId" 1 "name" "NOJV SLO" "folder" "NOJV" "interval" "1m" "rules" $rules }}
 ---
 apiVersion: v1
@@ -154,6 +154,8 @@ spec:
             - containerPort: 3000
               name: http
           volumeMounts:
+            - name: data
+              mountPath: /var/lib/grafana
             - name: datasources
               mountPath: /etc/grafana/provisioning/datasources
               readOnly: true
@@ -183,6 +185,8 @@ spec:
           resources:
             {{- toYaml .Values.observability.grafana.resources | nindent 12 }}
       volumes:
+        - name: data
+          emptyDir: {}
         - name: datasources
           configMap:
             name: {{ include "nojv.fullname" . }}-grafana-datasources

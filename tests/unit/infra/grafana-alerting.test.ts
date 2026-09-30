@@ -38,6 +38,8 @@ describe("in-cluster Grafana alerting", () => {
     for (const rule of rules) expect(rendered).toContain(`uid: ${rule.uid}`);
     expect(rendered).toContain("uid: prometheus");
     expect(rendered).toContain("addresses: $__env{GF_SMTP_USER}");
+    expect(rendered).toContain("repeat_interval: 24h");
+    expect(rendered).toMatch(/- name: data\n\s+emptyDir: \{\}/);
     expect(rendered).toContain("mountPath: /etc/grafana/provisioning/alerting");
     expect(rendered).toMatch(/kind: Service\n[\s\S]*?spec:\n  type: ClusterIP/);
   });

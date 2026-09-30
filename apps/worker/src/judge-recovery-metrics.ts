@@ -38,6 +38,7 @@ export async function readJudgeRecoverySnapshot(): Promise<JudgeRecoverySnapshot
           OR (state = 'running' AND ("leaseUntil" IS NULL OR "leaseUntil" < NOW()))
         ))::float8 AS stalled,
         (SELECT COUNT(*)::float8 FROM "Submission" s WHERE s.status = 'system_error'
+          AND s."sourceStorage" IS NOT NULL
           AND NOT EXISTS (SELECT 1 FROM "JudgeExecution" j WHERE j."submissionId" = s.id)
           AND NOT (s."isReferenceSolution" AND NOT EXISTS (
             SELECT 1 FROM "Problem" p WHERE p."referenceSolutionSubmissionId" = s.id
