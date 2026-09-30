@@ -2,11 +2,16 @@
 set -euo pipefail
 
 # Creates the two node pools the GKE worker topology depends on:
-#   pool-worker   — untainted, labelled nojv-role=worker, static. Runs the
-#                   Temporal worker(s) + self-hosted Temporal control plane.
-#   pool-sandbox  — one on-demand gVisor node, tainted and labelled for
-#                   sandbox Jobs. Runs only the guaranteed baseline workload.
-#   pool-sandbox-spot — optional gVisor Spot burst capacity, scaling 0 → 4.
+#   pool-worker   — untainted, labelled nojv-role=worker, static, one node in
+#                   each of two zones. Runs the Temporal worker(s) +
+#                   self-hosted Temporal control plane.
+#   pool-sandbox  — one on-demand gVisor node in one zone, tainted and labelled
+#                   for sandbox Jobs. Runs only the guaranteed baseline workload.
+#   pool-sandbox-spot — optional gVisor Spot burst capacity across every cluster
+#                   zone, scaling 0 → 4 in total.
+#
+# On a regional cluster --num-nodes is PER ZONE, so the fixed pools pin their
+# zones with --node-locations (WORKER_ZONES: two zones; SANDBOX_ZONE: one).
 #
 # WHY THIS IS A SCRIPT (and not just docs): without an autoscaling
 # `nojv-role=sandbox` pool, every sandbox Job stays Pending forever and judging
@@ -28,18 +33,27 @@ SANDBOX_SYSTEM_CONFIG="${SCRIPT_DIR}/../gke/sandbox-node-system-config.yaml"
 PROJECT_FLAG=()
 [ -n "$PROJECT_ID" ] && PROJECT_FLAG=(--project "$PROJECT_ID")
 
-echo "[1/3] Creating pool-worker (static, untainted, nojv-role=worker)"
+CLUSTER_ZONES="$(gcloud container clusters describe "${CLUSTER_NAME}" \
+  "${PROJECT_FLAG[@]}" --region="${REGION}" --format='value(locations.join(","))')"
+WORKER_ZONES="${WORKER_ZONES:-$(cut -d, -f1-2 <<<"${CLUSTER_ZONES}")}"
+SANDBOX_ZONE="${SANDBOX_ZONE:-${CLUSTER_ZONES%%,*}}"
+if [[ ! "${WORKER_ZONES}" =~ ^[^,]+,[^,]+$ ]]; then
+  echo "pool-worker needs exactly two zones; got WORKER_ZONES='${WORKER_ZONES}'" >&2
+  exit 1
+fi
+
+echo "[1/3] Creating pool-worker (static, one node in each of ${WORKER_ZONES})"
 gcloud container node-pools create pool-worker \
   "${PROJECT_FLAG[@]}" \
   --cluster="${CLUSTER_NAME}" --region="${REGION}" \
-  --num-nodes=2 --machine-type="${WORKER_MACHINE_TYPE}" \
+  --node-locations="${WORKER_ZONES}" --num-nodes=1 --machine-type="${WORKER_MACHINE_TYPE}" \
   --node-labels=nojv-role=worker
 
-echo "[2/3] Creating pool-sandbox (one on-demand gVisor node)"
+echo "[2/3] Creating pool-sandbox (one on-demand gVisor node in ${SANDBOX_ZONE})"
 gcloud container node-pools create pool-sandbox \
   "${PROJECT_FLAG[@]}" \
   --cluster="${CLUSTER_NAME}" --region="${REGION}" \
-  --num-nodes=1 --enable-autoscaling --total-min-nodes=1 --total-max-nodes=1 \
+  --node-locations="${SANDBOX_ZONE}" --num-nodes=1 --enable-autoscaling --total-min-nodes=1 --total-max-nodes=1 \
   --machine-type="${SANDBOX_MACHINE_TYPE}" \
   --image-type=cos_containerd --sandbox=type=gvisor --enable-image-streaming \
   --system-config-from-file="${SANDBOX_SYSTEM_CONFIG}" \
