@@ -4,7 +4,7 @@ const { terminateSubmissionJudge } = vi.hoisted(() => ({
   terminateSubmissionJudge: vi.fn(),
 }));
 
-import { submissionRejudgeLogRepo, submissionRepo } from "@nojv/db";
+import { Prisma, submissionRejudgeLogRepo, submissionRepo } from "@nojv/db";
 import { configureDomainOrchestration, submissionDomain } from "@nojv/application";
 
 import {
@@ -110,6 +110,23 @@ describe("sweepStaleSubmissions (real DB)", () => {
     });
     expect(freshRow?.status).toBe("running");
     expect(terminalRow?.status).toBe("accepted");
+  });
+
+  it("tells the student to resubmit when an upload was interrupted before its source was stored", async () => {
+    const interrupted = await createTestSubmission({ status: "pending_upload" });
+    await testPrisma.submission.update({
+      where: { id: interrupted.id },
+      data: { sourceStorage: Prisma.DbNull },
+    });
+    await backdateUpdatedAt(interrupted.id, 60);
+
+    await submissionDomain.sweepStaleSubmissions();
+
+    const row = await submissionRepo.findById(interrupted.id);
+    expect(row?.status).toBe("system_error");
+    expect(row?.verdictSummary).toMatchObject({
+      systemErrorTruncated: "Submission upload did not complete. Please submit again.",
+    });
   });
 
   it("uses the timeout threshold from the environment", async () => {

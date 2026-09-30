@@ -48,7 +48,7 @@ export async function sweepStaleSubmissions(): Promise<SweepStaleSubmissionsResu
   let killed = 0;
   let failed = 0;
   let skipped = 0;
-  for (const { id } of stale) {
+  for (const { id, status } of stale) {
     if (recentRejudgeSubmissionIds.has(id)) {
       skipped += 1;
       continue;
@@ -73,7 +73,9 @@ export async function sweepStaleSubmissions(): Promise<SweepStaleSubmissionsResu
           status: "system_error",
           verdictSummary: toJsonValue(
             deriveSystemErrorVerdictSummary(
-              "Original judge version is unavailable for this legacy submission. A teacher rejudge is required to select a new version.",
+              status === "pending_upload"
+                ? "Submission upload did not complete. Please submit again."
+                : "Original judge version is unavailable for this legacy submission. A teacher rejudge is required to select a new version.",
             ),
           ),
         },

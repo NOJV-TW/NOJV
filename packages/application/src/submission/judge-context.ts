@@ -1,5 +1,4 @@
-import type { Prisma } from "@nojv/db";
-import { submissionRepo } from "@nojv/db";
+import { Prisma, submissionRepo } from "@nojv/db";
 import {
   adjustmentRulesSchema,
   type AdjustmentRules,
@@ -184,6 +183,7 @@ export async function listForRejudge(input: {
     sampleOnly: false,
     isReferenceSolution: false,
     status: { notIn: [...IN_FLIGHT_SUBMISSION_STATUSES] },
+    sourceStorage: { not: Prisma.DbNull },
   };
 
   if (input.contestId) {

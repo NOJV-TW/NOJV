@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { submissionDomain } from "@nojv/application";
-import { durableWorkRepo, prismaAdapterClient as db } from "@nojv/db";
+import { durableWorkRepo, Prisma, prismaAdapterClient as db } from "@nojv/db";
 import {
   createTestProblem,
   createTestSubmission,
@@ -62,6 +62,28 @@ describe("rejudge state from durable dispatch", () => {
       completed: 0,
       total: 0,
     });
+  });
+
+  it("skips a system error whose upload never stored source instead of failing the batch", async () => {
+    vi.stubEnv("SANDBOX_IMAGE", `sandbox@sha256:${"a".repeat(64)}`);
+    const teacher = await createTestUser({ id: actor.userId, platformRole: "teacher" });
+    const problem = await createTestProblem({ authorId: teacher.id });
+    const judged = await createTestSubmission({ problemId: problem.id, status: "accepted" });
+    const abandoned = await createTestSubmission({
+      problemId: problem.id,
+      status: "system_error",
+    });
+    await db.submission.update({
+      where: { id: abandoned.id },
+      data: { sourceStorage: Prisma.DbNull },
+    });
+    const { workflowId } = await submissionDomain.dispatchRejudge({
+      mode: "batch",
+      problemId: problem.id,
+      triggeredByUserId: teacher.id,
+    });
+    const executions = await db.judgeExecution.findMany({ where: { operationId: workflowId } });
+    expect(executions.map((execution) => execution.submissionId)).toEqual([judged.id]);
   });
 
   it("retrieves queued status and owner from the committed row", async () => {

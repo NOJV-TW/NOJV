@@ -58,7 +58,7 @@ export const submissionLifecycle = {
 
   findStalePendingIds(before: Date) {
     return prisma.submission.findMany({
-      select: { id: true },
+      select: { id: true, status: true },
       where: {
         status: { in: ["pending_upload", "queued", "compiling", "running"] },
         updatedAt: { lt: before },

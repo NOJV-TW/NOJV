@@ -136,7 +136,9 @@ Recovery is generation-guarded; at most one active judge workflow per submission
 - Historical SE rows without a snapshot are blocked with
   `original_version_unavailable`; only a teacher rejudge selects a new version.
 - The sweeper marks a stale in-flight submission that has no pinned execution as
-  SE; only a teacher rejudge selects a new version for it.
+  SE; only a teacher rejudge selects a new version for it. A stale `pending_upload`
+  row never stored its source, so its SE asks the student to submit again and batch
+  rejudges skip it.
 
 ### Tracking
 
