@@ -8,6 +8,7 @@ describe("renderEmail", () => {
     expect(html).toContain("標題</h2>");
     expect(html).toContain("<p>內文</p>");
     expect(html).toContain("尾註");
+    expect(html).toContain("請勿直接回覆");
     expect(html).not.toContain("mso-hide");
     expect(html).not.toContain("text-transform:uppercase");
     expect(html).not.toContain("border-bottom:1px solid");
