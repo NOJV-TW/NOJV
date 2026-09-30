@@ -27,6 +27,25 @@ async function batchRejudge(empty = false) {
 }
 
 describe("rejudge state from durable dispatch", () => {
+  it("rejects a single rejudge of a reference solution instead of queuing an empty rejudge", async () => {
+    const teacher = await createTestUser({ id: actor.userId, platformRole: "teacher" });
+    const problem = await createTestProblem({ authorId: teacher.id });
+    const submission = await createTestSubmission({
+      problemId: problem.id,
+      userId: teacher.id,
+      status: "system_error",
+      isReferenceSolution: true,
+    });
+    await expect(
+      submissionDomain.dispatchRejudge({
+        mode: "single",
+        submissionId: submission.id,
+        triggeredByUserId: teacher.id,
+      }),
+    ).rejects.toMatchObject({ status: 409 });
+    expect(await db.judgeExecution.count({ where: { submissionId: submission.id } })).toBe(0);
+  });
+
   it("completes an empty prepared batch immediately and keeps it completed on cancellation", async () => {
     const { workflowId } = await batchRejudge(true);
     await expect(submissionDomain.queryRejudgeProgress(actor, workflowId)).resolves.toEqual({
