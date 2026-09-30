@@ -52,14 +52,16 @@ async function fixture(state: "waiting_capacity" | "recovering" | "legacy" | "re
   return { submission, execution };
 }
 
-async function openWithTrackerBaseline(page: Page, submissionId: string): Promise<void> {
-  const baseline = page.waitForResponse(
-    async (response) =>
-      /\/api\/submissions\/(pending|status)/.test(response.url()) &&
-      (await response.text()).includes(submissionId),
-  );
-  await page.goto(`/submissions/${submissionId}`);
-  await baseline;
+async function holdTrackerPolls(page: Page): Promise<() => void> {
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(/\/api\/submissions\/(pending|status)/, async (route) => {
+    await held;
+    await route.continue();
+  });
+  return release;
 }
 
 test.beforeAll(async () => {
@@ -106,7 +108,8 @@ test("capacity waiting clearly states the submission is saved", async ({ page },
 
 test("SE keeps polling and moves to waiting without reload", async ({ page }, testInfo) => {
   const { submission, execution } = await fixture("recovering");
-  await openWithTrackerBaseline(page, submission.id);
+  const releaseTracker = await holdTrackerPolls(page);
+  await page.goto(`/submissions/${submission.id}`);
   await expect(page.getByRole("status").filter({ hasText: recovering })).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("recovering-system-error.png"),
@@ -122,6 +125,7 @@ test("SE keeps polling and moves to waiting without reload", async ({ page }, te
     "waiting_capacity",
     "capacity",
   );
+  releaseTracker();
   await expect(page.getByRole("status").filter({ hasText: waiting })).toBeVisible({
     timeout: 12_000,
   });
@@ -146,12 +150,14 @@ test("teacher rejudge retains AC while the active execution keeps polling", asyn
   page,
 }, testInfo) => {
   const { submission, execution } = await fixture("rejudge");
-  await openWithTrackerBaseline(page, submission.id);
+  const releaseTracker = await holdTrackerPolls(page);
+  await page.goto(`/submissions/${submission.id}`);
   await expect(page.getByRole("status").filter({ hasText: waiting })).toBeVisible();
   const summary = page.locator("aside");
   await expect(summary.getByText("Accepted", { exact: true })).toBeVisible();
   await expect(summary).toContainText("100");
   await judge.setJudgeExecutionState(execution!.id, execution!.workflowId, "running");
+  releaseTracker();
   await expect(page.getByRole("status").filter({ hasText: running })).toBeVisible({
     timeout: 12_000,
   });

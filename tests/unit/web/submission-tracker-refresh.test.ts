@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import type { SubmissionOperation } from "@nojv/core";
+import type { JudgeExecutionView, SubmissionOperation } from "@nojv/core";
 
 const mocks = vi.hoisted(() => ({
   invalidate: vi.fn().mockResolvedValue(undefined),
@@ -15,6 +15,7 @@ import { navigating } from "$app/state";
 import {
   startSubmissionTracking,
   stopSubmissionTracking,
+  watchSubmissionStates,
 } from "$lib/services/submission-tracker";
 
 const pendingNavigation = navigating as { to: unknown };
@@ -39,6 +40,14 @@ const operation = (
           runtimeMs: 0,
           feedback: status,
         },
+});
+const execution = (state: JudgeExecutionView["state"]): JudgeExecutionView => ({
+  state,
+  generation: 1,
+  problemGeneration: 1,
+  reasonCode: null,
+  lastProgressAt: "2026-09-21T00:00:01.000Z",
+  nextRetryAt: null,
 });
 const json = (value: unknown) => new Response(JSON.stringify(value));
 
@@ -147,4 +156,30 @@ it("defers a changed verdict during navigation and applies it within 5 s", async
   pendingNavigation.to = null;
   await vi.advanceTimersByTimeAsync(5000);
   expect(mocks.invalidate).toHaveBeenCalledTimes(1);
+});
+
+it("refreshes a page whose first poll differs from the state it rendered", async () => {
+  const rendered = { ...operation("s", "accepted"), execution: execution("waiting_capacity") };
+  states.set("s", { ...rendered, execution: execution("running") });
+  const release = watchSubmissionStates(["s"], () => undefined, [rendered]);
+  const stopTracking = startSubmissionTracking("u");
+  stop = () => {
+    release();
+    stopTracking();
+  };
+  await vi.advanceTimersByTimeAsync(0);
+  expect(mocks.invalidate).toHaveBeenCalledTimes(1);
+});
+
+it("does not refresh a page whose first poll matches the state it rendered", async () => {
+  const rendered = { ...operation("s", "accepted"), execution: execution("waiting_capacity") };
+  states.set("s", rendered);
+  const release = watchSubmissionStates(["s"], () => undefined, [rendered]);
+  const stopTracking = startSubmissionTracking("u");
+  stop = () => {
+    release();
+    stopTracking();
+  };
+  await vi.advanceTimersByTimeAsync(5000);
+  expect(mocks.invalidate).not.toHaveBeenCalled();
 });

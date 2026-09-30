@@ -50,7 +50,17 @@
       : verdict.replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase()),
   );
 
-  $effect(() => watchSubmissionStates([submission.id], () => undefined));
+  $effect(() =>
+    watchSubmissionStates([submission.id], () => undefined, [
+      {
+        submissionId: submission.id,
+        status: verdict,
+        judgeGeneration: submission.judgeGeneration,
+        updatedAt: submission.updatedAt,
+        execution,
+      },
+    ]),
+  );
 
   const submittedAt = $derived(formatDateTime(submission.createdAt));
   const runtimeMs = $derived(submission.runtimeMs ?? result?.runtimeMs ?? null);
