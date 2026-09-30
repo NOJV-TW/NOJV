@@ -22,7 +22,9 @@ import {
   type TestcaseSet,
 } from "../../../apps/worker/src/sandbox/kubernetes/testcase-cache";
 import {
+  collectOrphanRunPayloads,
   collectTestcaseCache,
+  ORPHAN_PAYLOAD_MIN_AGE_MS,
   TESTCASE_CACHE_IDLE_TTL_MS,
 } from "../../../apps/worker/src/sandbox/kubernetes/testcase-cache-gc";
 import { buildJudgeStage } from "../../../apps/worker/src/sandbox/shared/stage-payload";
@@ -412,5 +414,132 @@ describe("collectTestcaseCache", () => {
       deleted: [],
       inUse: [],
     });
+  });
+});
+
+describe("collectOrphanRunPayloads", () => {
+  const orphanRun = "11111111-1111-4111-8111-111111111111";
+  const jobRun = "22222222-2222-4222-8222-222222222222";
+  const podRun = "33333333-3333-4333-8333-333333333333";
+
+  function object(name: string, createdAt: number, runId?: string) {
+    return {
+      metadata: {
+        name,
+        uid: `${name}-uid`,
+        creationTimestamp: new Date(createdAt),
+        ...(runId ? { labels: { "nojv-run-id": runId } } : {}),
+      },
+    };
+  }
+
+  function selected<T extends { metadata: { labels?: Record<string, string> } }>(
+    items: T[],
+    { labelSelector }: { labelSelector?: string },
+  ) {
+    return {
+      items: items.filter((item) => labelSelector && item.metadata.labels?.[labelSelector]),
+    };
+  }
+
+  function fakeApis(now: number) {
+    const old = now - ORPHAN_PAYLOAD_MIN_AGE_MS - 1;
+    const configMaps = [
+      object(`judge-${orphanRun}-run-pm`, old, orphanRun),
+      object(`judge-${orphanRun}-judge-pm`, old, orphanRun),
+      object(`judge-${orphanRun}-judge-0`, now - ORPHAN_PAYLOAD_MIN_AGE_MS + 60_000, orphanRun),
+      object(`judge-${jobRun}-run-pm`, old, jobRun),
+      object(`judge-${podRun}-sol-pm`, old, podRun),
+      object(`tc-${"a".repeat(32)}`, old),
+      object(`tc-${"b".repeat(32)}`, old, orphanRun),
+      object("kube-root-ca.crt", old),
+    ];
+    const coreApi = {
+      listNamespacedConfigMap: vi.fn(
+        async (request: { labelSelector?: string }, _options?: unknown) =>
+          selected(configMaps, request),
+      ),
+      listNamespacedPod: vi.fn(
+        async (request: { labelSelector?: string }, _options?: unknown) =>
+          selected([object(`judge-${podRun}-abcde`, old, podRun)], request),
+      ),
+      deleteNamespacedConfigMap: vi.fn(async (_request: unknown) => undefined),
+    };
+    const batchApi = {
+      listNamespacedJob: vi.fn(
+        async (request: { labelSelector?: string }, _options?: unknown) =>
+          selected([object(`judge-${jobRun}`, old, jobRun)], request),
+      ),
+    };
+    return { coreApi, batchApi };
+  }
+
+  it("deletes old payloads of runs without a Job or Pod, with uid preconditions", async () => {
+    const now = Date.now();
+    const { coreApi, batchApi } = fakeApis(now);
+
+    const deleted = await collectOrphanRunPayloads(
+      coreApi as never,
+      batchApi as never,
+      NAMESPACE,
+      now,
+    );
+
+    expect(deleted).toEqual([`judge-${orphanRun}-run-pm`, `judge-${orphanRun}-judge-pm`]);
+    expect(coreApi.deleteNamespacedConfigMap.mock.calls).toEqual(
+      deleted.map((name) => [
+        { name, namespace: NAMESPACE, body: { preconditions: { uid: `${name}-uid` } } },
+      ]),
+    );
+  });
+
+  it("lists only run-labelled metadata, never ConfigMap data", async () => {
+    const { coreApi, batchApi } = fakeApis(Date.now());
+    await collectOrphanRunPayloads(coreApi as never, batchApi as never, NAMESPACE);
+
+    const lists = [
+      ...coreApi.listNamespacedConfigMap.mock.calls,
+      ...coreApi.listNamespacedPod.mock.calls,
+      ...batchApi.listNamespacedJob.mock.calls,
+    ];
+    expect(lists).toHaveLength(3);
+    for (const [request, options] of lists) {
+      expect(request).toEqual({ namespace: NAMESPACE, labelSelector: "nojv-run-id" });
+      const headers = new Map<string, string>();
+      for (const middleware of (options as { middleware: { pre: (r: unknown) => unknown }[] })
+        .middleware)
+        middleware.pre({
+          setHeaderParam: (key: string, value: string) => headers.set(key, value),
+        });
+      expect(headers.get("Accept")).toBe(
+        "application/json;as=PartialObjectMetadataList;g=meta.k8s.io;v=v1",
+      );
+    }
+  });
+
+  it("treats a payload that was replaced or already deleted as handled", async () => {
+    const now = Date.now();
+    const { coreApi, batchApi } = fakeApis(now);
+    coreApi.deleteNamespacedConfigMap
+      .mockRejectedValueOnce(Object.assign(new Error("Conflict"), { code: 409 }))
+      .mockRejectedValueOnce(Object.assign(new Error("Not Found"), { code: 404 }));
+
+    expect(
+      await collectOrphanRunPayloads(coreApi as never, batchApi as never, NAMESPACE, now),
+    ).toEqual([]);
+  });
+
+  it("reads an empty metadata list, which the API server returns as null items", async () => {
+    const now = Date.now();
+    const { coreApi, batchApi } = fakeApis(now);
+    coreApi.listNamespacedPod.mockResolvedValueOnce({ items: null } as never);
+
+    expect(
+      await collectOrphanRunPayloads(coreApi as never, batchApi as never, NAMESPACE, now),
+    ).toEqual([
+      `judge-${orphanRun}-run-pm`,
+      `judge-${orphanRun}-judge-pm`,
+      `judge-${podRun}-sol-pm`,
+    ]);
   });
 });

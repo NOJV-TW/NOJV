@@ -205,11 +205,14 @@ Capacity:
   between the two that follows node load (JDG-13). The judge worker's custom
   activity slot supplier samples `/proc/stat` and `/proc/meminfo` every 2.5 s. It
   adds one slot, at most every other sample, while every budgeted slot is running a
-  stage, node CPU is under 80% and at least 20% of node memory is available. Over
-  either limit the budget drops to one below the running count, never under the
-  minimum; running stages are never revoked. The worker logs each budget change
-  and exports `judge_slot_budget`, `judge_slots_used` and
-  `judge_node_cpu_utilization`. See [runbook capacity](../runbooks/judge-queue.md#capacity).
+  stage, node CPU is under 80%, at least 20% of node memory is available and the
+  worker's own cgroup v2 working set (`memory.current` minus `inactive_file`) is
+  under 75% of its `memory.max`. Over any limit the budget drops to one below the
+  running count, never under the minimum; running stages are never revoked. An
+  unlimited (`max`) or unreadable cgroup disables only the worker-memory limit.
+  Fixed slots have no memory guard. The worker logs each budget change and exports
+  `judge_slot_budget`, `judge_slots_used`, `judge_node_cpu_utilization` and
+  `judge_worker_memory_utilization`. See [runbook capacity](../runbooks/judge-queue.md#capacity).
 - A container without LXCFS reads the host's `/proc/stat` and `/proc/meminfo`, so
   the signal is the node's only when the judge worker shares the node with its
   sandbox Pods; the chart refuses `minConcurrency` with more than one judge
@@ -710,6 +713,12 @@ failure is reported separately as CE.
   ConfigMaps by label and all sandbox Pods, and deletes an index idle for 12 h that
   no Pod projects, with `uid` and `resourceVersion` preconditions. Kubernetes'
   garbage collector then removes its shards.
+- The same 15 min sweep removes orphaned per-stage payload ConfigMaps: it lists
+  ConfigMaps, Jobs and Pods carrying the `nojv-run-id` label as metadata only
+  (`PartialObjectMetadataList`, never ConfigMap data) and deletes, with a `uid`
+  precondition, a `judge-<runId>-*` ConfigMap older than 10 min whose run has no
+  Job and no Pod. Testcase cache sets carry no run label and are never listed. It
+  logs `Orphan run payloads swept` with the count.
 - Each Kubernetes API call uses the client library's own per-request connection, forced to HTTP/1.1 (`createKubeConfig`, `allowH2: false`).
 - The runner cleans its `mkdtemp` work directory in `finally`.
 - `judge_phase_duration_seconds` phases: `queue`, `admission`, `schedule`, `startup`

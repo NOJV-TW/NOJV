@@ -52,16 +52,22 @@ Load-aware slots (`worker.judge.minConcurrency`; single-machine: min 2, ceiling
 `worker.judge.concurrency` 6):
 
 - The budget starts at the minimum and grows by one slot at most every 5 s, only
-  while every budgeted slot runs a stage, node CPU (`/proc/stat`) is under 80% and
-  node `MemAvailable` is at least 20% of `MemTotal`. Over either limit it drops to
+  while every budgeted slot runs a stage, node CPU (`/proc/stat`) is under 80%,
+  node `MemAvailable` is at least 20% of `MemTotal` and the judge worker's own
+  cgroup working set is under 75% of its memory limit. Over any limit it drops to
   one below the running count, never under the minimum; running stages finish.
+  Fixed slots (no `minConcurrency`) have no worker memory guard.
   Mechanics are in [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#queue-priority-and-capacity).
 - The signal is host-wide `/proc`, valid only while the one judge replica shares the
   node with its sandboxes. Leave `minConcurrency` unset on multi-node clusters; the
   chart refuses it with more than one judge replica.
 - Observe adaptation with the `judge slot budget changed` log line (`budget`,
-  `used`, `cpu`, `memoryAvailable`) or the `judge_slot_budget`, `judge_slots_used`
-  and `judge_node_cpu_utilization` metrics.
+  `used`, `cpu`, `memoryAvailable`, `workerMemory`; `null` when the worker has no
+  memory limit) or the `judge_slot_budget`, `judge_slots_used`,
+  `judge_node_cpu_utilization` and `judge_worker_memory_utilization` metrics.
+- A budget pinned at the minimum with `workerMemory` at or above 0.75 means the
+  worker itself is near its limit; judging continues at the minimum instead of
+  OOMKilling. Raise the worker memory limit if it persists outside a burst.
 - The ceiling is still bounded by the quota: a standard stage Pod requests
   `runParallelism` CPUs (its run init container) and an interactive Pod the sandbox
   `cpuLimit` plus `cpuRequest`, so at the single-machine 6-CPU quota six standard or
@@ -114,4 +120,11 @@ are skipped and picked up by a later run.
   Pods, ConfigMaps and PVCs are gone before the lease is released.
 - Match run ID, Pod UID and CRI/cgroup identity before any directed host cleanup; do
   not restart k3s or containerd to clear remnants.
+- Orphaned per-stage payload ConfigMaps (`nojv-run-id` label, `judge-<runId>-*`)
+  need no manual deletion: every 15 min the judge worker deletes those older than
+  10 min whose run has no Job or Pod, and logs `Orphan run payloads swept`. Count
+  them with
+  `kubectl -n nojv-sandbox get configmaps -l nojv-run-id --no-headers | wc -l`; a
+  count that stays high across sweeps while runs have no Job points at a failing
+  sweep (`Orphan run payload sweep failed` log line).
 - Cancel a workflow rather than terminating it so its cleanup runs.
