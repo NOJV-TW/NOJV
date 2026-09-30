@@ -266,7 +266,7 @@ Kubernetes stages mount testcases from immutable ConfigMap sets keyed by the tes
 
 ### JDG-24 The judge worker sweeps orphaned payloads and guards its own memory
 
-**Decided:** 2026-09 · **Source:** [#PR](https://github.com/NOJV-TW/NOJV/pull/PR)
+**Decided:** 2026-09 · **Source:** [#608](https://github.com/NOJV-TW/NOJV/pull/608)
 
 On 2026-09-30 failed large payload uploads left 384 per-stage payload ConfigMaps (367 MB) in `nojv-sandbox`; recovery listing them OOMKilled the judge worker into CrashLoopBackOff and judging stopped until an operator deleted them and raised the memory limit. Two guards make that class repair itself. The worker's 15 min cache sweep also deletes a run-labelled `judge-<runId>-*` ConfigMap older than 10 min whose run has no Job and no Pod, listing only metadata by label. With load-aware slots, the slot budget also shrinks while the worker's own cgroup v2 working set is at or above 75% of its limit, so judging slows at the minimum instead of crash-looping.
 
