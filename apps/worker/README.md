@@ -35,13 +35,13 @@
 
 ## 主要環境變數
 
-| 變數                                                                                                                              | 用途                                                       |
-| --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| `WORKER_CONCURRENCY`, `WORKER_MIN_CONCURRENCY`                                                                                    | judge activity slots；設定 min 時改用 resource-based tuner |
-| `SANDBOX_IMAGE`                                                                                                                   | sandbox-runner image                                       |
-| `SANDBOX_MEMORY_HEADROOM_MB`, `SANDBOX_MAX_MEMORY_MB`                                                                             | container memory headroom 與上限（預設 64 / 1536）         |
-| `SANDBOX_CPU_LIMIT`, `SANDBOX_MEMORY_MB`, `SANDBOX_PIDS_LIMIT`                                                                    | Docker backend 限制                                        |
-| `K8S_NAMESPACE`, `K8S_CPU_*`, `K8S_MEMORY_*`, `K8S_RUN_PARALLELISM`, `K8S_RUNTIME_CLASS_NAME` (`gvisor`), `K8S_IMAGE_PULL_SECRET` | Kubernetes backend                                         |
+| 變數                                                                                                                              | 用途                                                    |
+| --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `WORKER_CONCURRENCY`, `WORKER_MIN_CONCURRENCY`                                                                                    | judge activity slots；設定 min 時依節點負載調整 slot 數 |
+| `SANDBOX_IMAGE`                                                                                                                   | sandbox-runner image                                    |
+| `SANDBOX_MEMORY_HEADROOM_MB`, `SANDBOX_MAX_MEMORY_MB`                                                                             | container memory headroom 與上限（預設 64 / 1536）      |
+| `SANDBOX_CPU_LIMIT`, `SANDBOX_MEMORY_MB`, `SANDBOX_PIDS_LIMIT`                                                                    | Docker backend 限制                                     |
+| `K8S_NAMESPACE`, `K8S_CPU_*`, `K8S_MEMORY_*`, `K8S_RUN_PARALLELISM`, `K8S_RUNTIME_CLASS_NAME` (`gvisor`), `K8S_IMAGE_PULL_SECRET` | Kubernetes backend                                      |
 
 完整部署值見 [Deployment Guide](../../docs/operations/DEPLOYMENT.md)。
 

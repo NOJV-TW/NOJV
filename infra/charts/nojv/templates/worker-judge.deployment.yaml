@@ -2,6 +2,9 @@
 {{- if ne .Values.worker.sandbox.runtimeClassName "gvisor" }}
 {{- fail "worker.sandbox.runtimeClassName must be gvisor" }}
 {{- end }}
+{{- if and .Values.worker.judge.minConcurrency (gt (int .Values.worker.judge.replicas) 1) }}
+{{- fail "worker.judge.minConcurrency reads node load from /proc and needs one judge replica on the node that runs the sandboxes" }}
+{{- end }}
 {{- $quota := .Values.sandbox.resourceQuota -}}
 {{- if and $quota.enabled (regexMatch "^[0-9]+$" (toString $quota.requestsCpu)) }}
 {{- $cores := mul (int .Values.worker.judge.replicas) (int .Values.worker.judge.concurrency) (int .Values.worker.sandbox.runParallelism) }}

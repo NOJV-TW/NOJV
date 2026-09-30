@@ -49,20 +49,25 @@ in the Temporal Helm values (`infra/gcp/gke/temporal/`), then let the config rel
   afterwards.
 
 Load-aware slots (`worker.judge.minConcurrency`; single-machine: min 2, ceiling
-`worker.judge.concurrency` 5):
+`worker.judge.concurrency` 6):
 
-- Above the minimum, Temporal's resource-based tuner adds a slot while node CPU is
-  under 75% and the worker's own memory under 80%.
-- Keep the SDK's default 50 ms ramp: every poll reserves a slot first, so a long ramp
-  throttles polling itself.
-- The judge container has no CPU limit so the tuner measures the node, not its
-  cgroup.
-- Neither the tuner nor the quota watches node memory: the tuner sees only the worker
-  container's memory and the quota counts requests. Watch node memory separately.
-- The worker's memory limit must leave the tuner headroom: the worker idles near
-  600 MiB and reaches about 800 MiB with 100 executions in flight, so a 1 GiB limit
-  held the 80% target and pinned the tuner at 1–2 slots in a burst. Single-machine
-  runs the judge worker at 768 Mi request / 2 Gi limit.
+- The budget starts at the minimum and grows by one slot at most every 5 s, only
+  while every budgeted slot runs a stage, node CPU (`/proc/stat`) is under 80% and
+  node `MemAvailable` is at least 20% of `MemTotal`. Over either limit it drops to
+  one below the running count, never under the minimum; running stages finish.
+  Mechanics are in [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#queue-priority-and-capacity).
+- The signal is host-wide `/proc`, valid only while the one judge replica shares the
+  node with its sandboxes. Leave `minConcurrency` unset on multi-node clusters; the
+  chart refuses it with more than one judge replica.
+- Observe adaptation with the `judge slot budget changed` log line (`budget`,
+  `used`, `cpu`, `memoryAvailable`) or the `judge_slot_budget`, `judge_slots_used`
+  and `judge_node_cpu_utilization` metrics.
+- The ceiling is still bounded by the quota: a standard stage Pod requests
+  `runParallelism` CPUs (its run init container) and an interactive Pod the sandbox
+  `cpuLimit` plus `cpuRequest`, so at the single-machine 6-CPU quota six standard or
+  four interactive stages fit. A stage the quota rejects frees its slot and retries
+  as `waiting_capacity`. Raising the ceiling needs a matching quota, and the quota
+  must stay within node allocatable CPU left by the platform pods.
 - `judge_wall_clock_timeouts_total` counts TLEs whose CPU time stayed under the limit;
   `nojv-judge-wall-clock-timeouts` fires on more than two in ten minutes. Lower the
   ceiling when it fires.
