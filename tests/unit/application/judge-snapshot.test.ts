@@ -15,6 +15,8 @@ vi.mock("../../../packages/application/src/shared/storage-singleton", () => ({
 import {
   pinnedObjects,
   readJudgeSnapshot,
+  readJudgeTestcase,
+  readStoredJudgeSnapshot,
 } from "../../../packages/application/src/submission/judge-snapshot";
 
 function put(key: string, content: string) {
@@ -85,6 +87,20 @@ describe("judge snapshot formats", () => {
       output: "3\n",
       inputFiles: { "data.txt": "abc" },
     });
+  });
+
+  it("keeps format-2 pointers unread until a testcase is requested", async () => {
+    const input = put("in", "1 2\n");
+    storageRef.client.store.set("in", "9 9\n");
+    const pointer = put(
+      "snap-2.json",
+      JSON.stringify(snapshot(2, { id: "tc_1", weight: 1, input })),
+    );
+    const stored = await readStoredJudgeSnapshot(pointer);
+    expect(stored.context.testcaseSets[0]?.testcases[0]?.input).toEqual(input);
+    await expect(readJudgeTestcase(input)).rejects.toThrow("SHA-256 mismatch");
+    storageRef.client.store.set("in", "1 2\n");
+    expect((await readJudgeTestcase(input)).toString("utf8")).toBe("1 2\n");
   });
 
   it("rejects a format-2 snapshot whose pinned object was altered", async () => {

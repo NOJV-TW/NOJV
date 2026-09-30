@@ -10,6 +10,7 @@ import { durableWorkRepo, prismaAdapterClient as db } from "@nojv/db";
 import { z } from "zod";
 
 import {
+  ConflictError,
   ForbiddenError,
   IntegrityError,
   NotFoundError,
@@ -286,6 +287,15 @@ export async function cancelRejudge(
   };
 }
 
+async function requireRejudgeTarget(submissionId: string) {
+  const target = await findOneForRejudge(submissionId);
+  if (!target)
+    throw new ConflictError(
+      "This submission cannot be rejudged: it is a reference solution or is still being judged.",
+    );
+  return target;
+}
+
 export async function dispatchRejudge(input: RejudgeInput): Promise<{ workflowId: string }> {
   const workflowId = `${REJUDGE_WORKFLOW_PREFIX}${randomUUID()}`;
   if (!input.triggeredByUserId)
@@ -293,7 +303,7 @@ export async function dispatchRejudge(input: RejudgeInput): Promise<{ workflowId
   const triggeredByUserId = input.triggeredByUserId;
   const targets =
     input.mode === "single"
-      ? [await findOneForRejudge(input.submissionId)].filter((value) => value !== null)
+      ? [await requireRejudgeTarget(input.submissionId)]
       : await listForRejudge({
           problemId: input.problemId,
           ...(input.contestId ? { contestId: input.contestId } : {}),

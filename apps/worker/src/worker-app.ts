@@ -24,6 +24,7 @@ import {
 import type { WorkerEnv } from "./env";
 import { createWorkerHealthServer } from "./health-server";
 import { startJudgeRecoveryMetrics } from "./judge-recovery-metrics";
+import { startNodeLoadSlots, type NodeLoadSlotSupplier } from "./judge-slot-supplier";
 import { createLogger } from "./logger.js";
 import {
   closeServerSafely,
@@ -43,9 +44,8 @@ interface ManagedWorker {
   runPromise: Promise<void> | null;
 }
 
-function judgeSlots(env: WorkerEnv) {
-  const min = env.WORKER_MIN_CONCURRENCY;
-  if (min === undefined)
+function judgeSlots(env: WorkerEnv, supplier: NodeLoadSlotSupplier | null) {
+  if (!supplier)
     return {
       maxConcurrentActivityTaskExecutions: env.WORKER_CONCURRENCY,
       maxConcurrentWorkflowTaskExecutions: 8,
@@ -53,12 +53,7 @@ function judgeSlots(env: WorkerEnv) {
   return {
     tuner: {
       workflowTaskSlotSupplier: { type: "fixed-size", numSlots: 8 },
-      activityTaskSlotSupplier: {
-        type: "resource-based",
-        tunerOptions: { targetCpuUsage: 0.75, targetMemoryUsage: 0.8 },
-        minimumSlots: Math.min(min, env.WORKER_CONCURRENCY),
-        maximumSlots: env.WORKER_CONCURRENCY,
-      },
+      activityTaskSlotSupplier: supplier,
       localActivityTaskSlotSupplier: { type: "fixed-size", numSlots: 100 },
       nexusTaskSlotSupplier: { type: "fixed-size", numSlots: 100 },
     },
@@ -226,16 +221,36 @@ export class WorkerApp {
               "verified. Inspect the probe outcome and target readiness before changing the CNI.",
           );
         }
+
+        const { startTestcaseCacheGc } =
+          await import("./sandbox/kubernetes/testcase-cache-gc.js");
+        const stopTestcaseCacheGc = startTestcaseCacheGc(this.env.K8S_NAMESPACE);
+        this.cleanupSteps.push({
+          resource: "testcase cache GC",
+          run: () => Promise.resolve(stopTestcaseCacheGc()),
+        });
       }
 
       const judgeActivities = await import("./activities/judge-bundle.js");
+      let slotSupplier: NodeLoadSlotSupplier | null = null;
+      if (this.env.WORKER_MIN_CONCURRENCY !== undefined) {
+        const slots = startNodeLoadSlots(
+          this.env.WORKER_MIN_CONCURRENCY,
+          this.env.WORKER_CONCURRENCY,
+        );
+        slotSupplier = slots.supplier;
+        this.cleanupSteps.push({
+          resource: "judge slot sampler",
+          run: () => Promise.resolve(slots.stop()),
+        });
+      }
       const judgeWorker = await Worker.create({
         connection,
         namespace,
         taskQueue: JUDGE_TASK_QUEUE,
         workflowsPath: this.workflowsPath,
         activities: judgeActivities,
-        ...judgeSlots(this.env),
+        ...judgeSlots(this.env, slotSupplier),
         maxCachedWorkflows: 32,
         shutdownGraceTime: "30s",
       });

@@ -1,3 +1,5 @@
+import { submissionDomain } from "@nojv/application";
+
 import type { WorkerEnv } from "../../env";
 import { DockerExecutor } from "../docker/executor.js";
 import { ExecutorOwner } from "./executor-owner.js";
@@ -17,6 +19,7 @@ export function createExecutorOwner(env: WorkerEnv): ExecutorOwner {
         runtimeClassName: env.K8S_RUNTIME_CLASS_NAME,
         headroomMb: env.SANDBOX_MEMORY_HEADROOM_MB,
         maxMemoryMb: env.SANDBOX_MAX_MEMORY_MB,
+        readTestcase: submissionDomain.readJudgeTestcase,
         ...(env.K8S_IMAGE_PULL_SECRET
           ? { imagePullSecretName: env.K8S_IMAGE_PULL_SECRET }
           : {}),
@@ -31,6 +34,7 @@ export function createExecutorOwner(env: WorkerEnv): ExecutorOwner {
       pidsLimit: env.SANDBOX_PIDS_LIMIT,
       headroomMb: env.SANDBOX_MEMORY_HEADROOM_MB,
       maxMemoryMb: env.SANDBOX_MAX_MEMORY_MB,
+      readTestcase: submissionDomain.readJudgeTestcase,
     }),
   );
 }

@@ -23,7 +23,7 @@ Durable decisions for NOJV, grouped by area. Each entry records what was decided
 - JDG-10 Durable execution snapshots; rejudge in place with audit log
 - JDG-11 SE recovery is bounded and generation-guarded
 - JDG-12 Judge queue is Temporal priority and fairness, not a coordinator
-- JDG-13 Load-aware judge slots via Temporal's resource-based tuner
+- JDG-13 Load-aware judge slots follow node load from /proc
 - JDG-14 One canonical toolchain manifest with exact pins
 - JDG-15 Browser Test runs locally in WASM-OJ; official verdicts stay on the server
 - JDG-16 Advanced Mode is a platform-orchestrated run/grade split
@@ -33,6 +33,7 @@ Durable decisions for NOJV, grouped by area. Each entry records what was decided
 - JDG-20 Production K8s judging fails closed; infrastructure faults retry
 - JDG-21 10 MiB testcases via sharded, hash-verified payloads
 - JDG-22 Sandbox cleanup is UID-fenced and durable
+- JDG-23 Testcase payloads are a content-addressed ConfigMap cache
 
 ## [Problems and submissions](problems.md)
 

@@ -88,7 +88,11 @@ export class KubernetesSandboxCleanup {
         {
           kind: "ConfigMap",
           workload: false,
-          list: () => this.coreApi.listNamespacedConfigMap({ namespace }),
+          list: () =>
+            this.coreApi.listNamespacedConfigMap({
+              namespace,
+              labelSelector: `nojv-run-id=${runId}`,
+            }),
           remove: (name, uid) =>
             this.coreApi.deleteNamespacedConfigMap({
               namespace,

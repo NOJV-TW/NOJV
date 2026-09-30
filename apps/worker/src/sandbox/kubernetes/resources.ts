@@ -1,6 +1,6 @@
 import type * as k8s from "@kubernetes/client-node";
 
-import { MIN_COMPILER_MEMORY_MB, type SandboxRequest } from "@nojv/core";
+import { MIN_COMPILER_MEMORY_MB, type SandboxRequest, type SandboxText } from "@nojv/core";
 import { rethrowSandboxQuotaError } from "./admission";
 import { boundedK8sCall } from "./cleanup-call";
 import { combineExecutionAndCleanupFailure, throwCleanupFailures } from "./cleanup";
@@ -12,6 +12,17 @@ import {
 import { buildAdvancedPvcManifest } from "./advanced";
 import { buildStageJobManifest } from "./job-manifests";
 import { buildPayloadConfigMaps, payloadConfigMapNames } from "./payload";
+import {
+  KubernetesTestcaseCache,
+  planTestcaseSet,
+  testcaseEntry,
+  testcaseManifestFile,
+  type TestcaseEntry,
+  type TestcaseRole,
+  type TestcaseSet,
+} from "./testcase-cache";
+import type { StagePayloadParts } from "../shared/stage-payload";
+import type { TestcaseReader } from "../shared/testcase-text";
 import {
   findSandboxQuotaViolation,
   parseMemoryLimitMb,
@@ -32,6 +43,7 @@ interface SandboxResourceConfig {
   maxMemoryMb?: number;
   imagePullSecretName?: string;
   runtimeClassName?: string;
+  readTestcase?: TestcaseReader;
 }
 
 export class KubernetesSandboxResources {
@@ -40,11 +52,18 @@ export class KubernetesSandboxResources {
     { expiresAt: number; quotas: Promise<k8s.V1ResourceQuota[]> }
   >();
 
+  private readonly testcaseCache: KubernetesTestcaseCache;
+
   constructor(
     private readonly config: SandboxResourceConfig,
     private readonly coreApi: k8s.CoreV1Api,
     private readonly batchApi: k8s.BatchV1Api,
-  ) {}
+  ) {
+    this.testcaseCache = new KubernetesTestcaseCache(
+      coreApi,
+      config.readTestcase ? { read: config.readTestcase } : {},
+    );
+  }
 
   private runMetadata(metadata: k8s.V1ObjectMeta | undefined): k8s.V1ObjectMeta {
     const runId =
@@ -73,35 +92,81 @@ export class KubernetesSandboxResources {
     signal.throwIfAborted();
   }
 
-  async createPayloadConfigMaps(
-    baseName: string,
+  async createStagePayloads(
+    parts: { baseName: string; payload: StagePayloadParts }[],
     namespace: string,
-    data: Record<string, string>,
     signal: AbortSignal,
     cleanupConfigMap: (name: string, namespace: string) => Promise<void>,
-  ): Promise<string[]> {
-    const configMaps = buildPayloadConfigMaps(baseName, namespace, data);
-    const names = payloadConfigMapNames(configMaps);
+  ): Promise<{ owned: string[]; volumes: string[][] }> {
+    const entries = new Map<SandboxText, TestcaseEntry>();
+    const entryOf = (text: SandboxText) => {
+      const entry = entries.get(text) ?? testcaseEntry(text);
+      entries.set(text, entry);
+      return entry;
+    };
+    const files = parts.map(({ payload }) =>
+      payload.testcases.map((file) => ({ ...file, entry: entryOf(file.text) })),
+    );
+    const sets = new Map<TestcaseRole, TestcaseSet>();
+    for (const role of ["input", "answer"] as const) {
+      const roleEntries = files
+        .flat()
+        .flatMap((file) => (file.role === role ? [file.entry] : []));
+      if (roleEntries.length > 0) sets.set(role, planTestcaseSet(role, roleEntries));
+    }
+    entries.clear();
+    const shards = new Map(
+      await Promise.all(
+        [...sets.values()].map(
+          async (set) =>
+            [set.role, await this.testcaseCache.ensure(set, namespace, signal)] as const,
+        ),
+      ),
+    );
+    const stages = parts.map(({ baseName, payload }, index) => {
+      const testcases = files[index] ?? [];
+      const configMaps = buildPayloadConfigMaps(
+        baseName,
+        namespace,
+        payload.stage,
+        testcases.map(({ path, role, entry }) =>
+          testcaseManifestFile(path, entry, sets.get(role)),
+        ),
+      );
+      const roles = new Set(testcases.map(({ role }) => role));
+      return {
+        configMaps,
+        volume: [
+          ...payloadConfigMapNames(configMaps),
+          ...[...roles].flatMap((role) => shards.get(role) ?? []),
+        ],
+      };
+    });
     const created: string[] = [];
     try {
       signal.throwIfAborted();
       const results = await Promise.allSettled(
-        configMaps.map(async (configMap) => {
-          configMap.metadata = this.runMetadata(configMap.metadata);
-          await this.coreApi
-            .createNamespacedConfigMap({ namespace, body: configMap })
-            .catch(rethrowSandboxQuotaError);
-          const name = configMap.metadata.name;
-          if (!name) throw new Error("Created sandbox payload ConfigMap is missing a name.");
-          created.push(name);
-        }),
+        stages
+          .flatMap(({ configMaps }) => configMaps)
+          .map(async (configMap) => {
+            configMap.metadata = this.runMetadata(configMap.metadata);
+            await this.coreApi
+              .createNamespacedConfigMap({ namespace, body: configMap })
+              .catch(rethrowSandboxQuotaError);
+            const name = configMap.metadata.name;
+            if (!name) throw new Error("Created sandbox payload ConfigMap is missing a name.");
+            created.push(name);
+          }),
       );
       const failed = results.find(
         (result): result is PromiseRejectedResult => result.status === "rejected",
       );
       if (failed) throw failed.reason;
       signal.throwIfAborted();
-      return names;
+      return {
+        owned: stages.flatMap(({ configMaps }) => payloadConfigMapNames(configMaps)),
+        volumes: stages.map(({ volume }) => volume),
+      };
     } catch (error) {
       const cleanup = await Promise.allSettled(
         created.map((name) => cleanupConfigMap(name, namespace)),

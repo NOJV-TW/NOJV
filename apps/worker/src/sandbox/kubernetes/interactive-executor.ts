@@ -9,7 +9,7 @@ import { executionAbortReason } from "../shared/execution-abort";
 import { sandboxSystemError } from "../shared/sandbox-plan";
 import { recordRunnerResources } from "../shared/judge-phase-metrics";
 import {
-  buildInteractiveInteractorPayload,
+  buildInteractiveInteractorStage,
   buildInteractiveSolutionPayload,
 } from "../shared/stage-payload";
 import { computeInteractiveJobDeadlineSeconds } from "./job-deadlines";
@@ -65,8 +65,7 @@ export class KubernetesInteractiveExecutor {
   ): Promise<SandboxResult> {
     const solConfigMap = `${jobName}-sol`;
     const intConfigMap = `${jobName}-int`;
-    let solutionPayloadNames: string[] = [];
-    let interactorPayloadNames: string[] = [];
+    let payloadNames: string[] = [];
     let executionFailure: { reason: unknown } | undefined;
 
     const seCase = (message: string): SandboxResult => ({
@@ -82,20 +81,20 @@ export class KubernetesInteractiveExecutor {
     });
 
     try {
-      solutionPayloadNames = await this.resources.createPayloadConfigMaps(
-        solConfigMap,
+      const payloads = await this.resources.createStagePayloads(
+        [
+          {
+            baseName: solConfigMap,
+            payload: { stage: buildInteractiveSolutionPayload(request), testcases: [] },
+          },
+          { baseName: intConfigMap, payload: buildInteractiveInteractorStage(request) },
+        ],
         namespace,
-        buildInteractiveSolutionPayload(request),
         signal,
         (name, ns) => this.cleanupResources.cleanupConfigMap(name, ns),
       );
-      interactorPayloadNames = await this.resources.createPayloadConfigMaps(
-        intConfigMap,
-        namespace,
-        buildInteractiveInteractorPayload(request),
-        signal,
-        (name, ns) => this.cleanupResources.cleanupConfigMap(name, ns),
-      );
+      payloadNames = payloads.owned;
+      const [solutionConfigMapNames = [], interactorConfigMapNames = []] = payloads.volumes;
 
       const deadlineSeconds = computeInteractiveJobDeadlineSeconds(request);
       await this.resources
@@ -105,8 +104,8 @@ export class KubernetesInteractiveExecutor {
             body: buildInteractiveJobManifest({
               jobName,
               namespace,
-              solutionConfigMapNames: solutionPayloadNames,
-              interactorConfigMapNames: interactorPayloadNames,
+              solutionConfigMapNames,
+              interactorConfigMapNames,
               image: request.sandboxImage ?? this.config.image,
               cpuRequest: this.config.cpuRequest,
               cpuLimit: this.config.cpuLimit,
@@ -188,10 +187,7 @@ export class KubernetesInteractiveExecutor {
     } finally {
       await measurePhase(request, "cleanup", () =>
         runCleanupAfterExecution(executionFailure, () =>
-          this.cleanupResources.cleanup(jobName, namespace, [
-            ...solutionPayloadNames,
-            ...interactorPayloadNames,
-          ]),
+          this.cleanupResources.cleanup(jobName, namespace, payloadNames),
         ),
       );
     }

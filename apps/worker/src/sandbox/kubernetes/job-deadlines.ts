@@ -3,6 +3,7 @@ import {
   executionWallTimeLimitMs,
   INTERACTIVE_STAGE_CASES,
   JUDGE_STAGE_CASES,
+  sandboxTextBytes,
   validatorTimeoutMs,
   type SandboxRequest,
 } from "@nojv/core";
@@ -48,7 +49,7 @@ export function judgeStageRanges(request: SandboxRequest): [number, number][] {
   let start = 0;
   let bytes = 0;
   request.testcases.forEach((testcase, index) => {
-    const size = Buffer.byteLength(testcase.input) + Buffer.byteLength(testcase.output ?? "");
+    const size = sandboxTextBytes(testcase.input) + sandboxTextBytes(testcase.output ?? "");
     const cases = index - start;
     if (
       cases > 0 &&

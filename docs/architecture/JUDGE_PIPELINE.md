@@ -15,7 +15,7 @@ fixed **Standard Mode** (`standard` / `checker` / `interactive`, JDG-01) or
 | Durable workflow, cleanup workflow                | `apps/worker/src/workflows/durable-judge.ts`                                                                      |
 | Stage / journal activities                        | `apps/worker/src/activities/judge-execution.ts`                                                                   |
 | Pinned request, workspace merge, time factor      | `apps/worker/src/activities/judge-request.ts`, `judge.ts` (`mergeSandboxSources`)                                 |
-| Worker bootstrap, slots, queues                   | `apps/worker/src/worker-app.ts`, `apps/worker/src/env.ts`                                                         |
+| Worker bootstrap, slots, queues                   | `apps/worker/src/worker-app.ts`, `apps/worker/src/judge-slot-supplier.ts`, `apps/worker/src/env.ts`               |
 | Docker backend                                    | `apps/worker/src/sandbox/docker/` (`args.ts` is the hardened-args builder, JDG-19)                                |
 | Kubernetes backend                                | `apps/worker/src/sandbox/kubernetes/` (standard, interactive, advanced executors; manifests; watch; cleanup)      |
 | Shared plan, payloads, log parsing, result merge  | `apps/worker/src/sandbox/shared/`                                                                                 |
@@ -35,6 +35,9 @@ fixed **Standard Mode** (`standard` / `checker` / `interactive`, JDG-01) or
 
 ### Acceptance
 
+- A full submission (not a sample-only run) to a Standard Mode problem with no
+  testcases is rejected with a conflict before any row is written, so it can never
+  finish as a `system_error` with zero evaluated cases.
 - Submission creation writes a `pending_upload` row, uploads source objects and an
   immutable judge snapshot under guarded unique keys, then commits the source
   manifest, `JudgeExecution` and a `submission.execution.dispatch` outbox row in one
@@ -45,9 +48,10 @@ fixed **Standard Mode** (`standard` / `checker` / `interactive`, JDG-01) or
   testcase contents: the pointers come from the `Testcase` rows, and the same
   transaction that commits the `JudgeExecution` records them in
   `JudgeExecutionObject`, so storage cleanup keeps every pinned version while the
-  execution exists. `loadJudgeExecution` resolves the pointers back into contents
-  (hash and size verified). Format-1 snapshots, which embed testcase contents,
-  remain readable. Production images are digest-pinned in Helm; local unpinned
+  execution exists. `loadJudgeExecution` keeps the pointers: stage ranges use their
+  sizes, and the worker reads a testcase object (hash and size verified) only while
+  it uploads a missing testcase cache set (JDG-23) or runs the Docker backend.
+  Format-1 snapshots, which embed testcase contents, remain readable. Production images are digest-pinned in Helm; local unpinned
   builds are not reproducible.
 - Workflow ID is `judge-execution-{executionId}-{recoveryEpoch}`; start uses
   `REJECT_DUPLICATE`, so repeated dispatch is idempotent.
@@ -197,9 +201,19 @@ Ordering is Temporal task-queue priority and fairness, not an in-house scheduler
 
 Capacity:
 
-- Slots are `WORKER_CONCURRENCY`, or a resource-based range from
-  `WORKER_MIN_CONCURRENCY` to `WORKER_CONCURRENCY` (JDG-13); see
-  [runbook capacity](../runbooks/judge-queue.md#capacity).
+- Slots are `WORKER_CONCURRENCY`, or, with `WORKER_MIN_CONCURRENCY` set, a budget
+  between the two that follows node load (JDG-13). The judge worker's custom
+  activity slot supplier samples `/proc/stat` and `/proc/meminfo` every 2.5 s. It
+  adds one slot, at most every other sample, while every budgeted slot is running a
+  stage, node CPU is under 80% and at least 20% of node memory is available. Over
+  either limit the budget drops to one below the running count, never under the
+  minimum; running stages are never revoked. The worker logs each budget change
+  and exports `judge_slot_budget`, `judge_slots_used` and
+  `judge_node_cpu_utilization`. See [runbook capacity](../runbooks/judge-queue.md#capacity).
+- A container without LXCFS reads the host's `/proc/stat` and `/proc/meminfo`, so
+  the signal is the node's only when the judge worker shares the node with its
+  sandbox Pods; the chart refuses `minConcurrency` with more than one judge
+  replica.
 - A stage's run container requests and is limited to `K8S_RUN_PARALLELISM` CPUs, so
   slots × `K8S_RUN_PARALLELISM` cases run at once; the chart refuses values above the
   sandbox `ResourceQuota` CPU.
@@ -232,7 +246,21 @@ invalidates it (PRB-09).
 - Judge payload: `case-{i}-answer.txt`, plus `case-{i}-input.txt` for checkers,
   and the validator source.
 - Kubernetes payloads are sharded binary ConfigMaps with a SHA-256 manifest,
-  materialized into an emptyDir before student code starts (JDG-21).
+  materialized into an emptyDir before student code starts (JDG-21). Testcase files
+  are not uploaded per stage: they live in a content-addressed cache (JDG-23), and
+  the per-stage ConfigMaps carry only `config.json`, sources, the validator or
+  interactor, and the manifest, whose testcase entries point at cached chunks.
+- Cache sets: one `input` and one `answer` set per stage range, keyed by
+  `sha256(format, role, shard size, sorted unique "sha256:size")`. Index
+  `tc-<key>` holds the chunk layout and the `pending`/`ready` state; shards
+  `tc-<key>-<index uid prefix>-<n>` are owned by the index. A missing set is created
+  once cluster-wide: the index creator uploads shards four at a time, reading each
+  testcase object once; other stages poll the index every second and take over after
+  2 min without progress; an index whose labels or layout differ from the expected
+  value is an infrastructure error. A stage touches `last-used` when older than
+  10 min (merge patch with `resourceVersion`).
+- The run volume projects the stage ConfigMaps and the `input` set only; the judge
+  and interactor volumes add the `answer` set (and `input` for checkers).
 
 ### Compile
 
@@ -674,11 +702,15 @@ failure is reported separately as CE.
   objects with UID preconditions and foreground deletion. A timeout or ownership
   change raises `cleanup_pending` and keeps the lease (JDG-22). Kubernetes API
   disappearance alone does not prove runtime termination.
-- A stage deletes its Job and payload ConfigMaps together under one 30 s budget and
-  polls every 100 ms until the owned Pods are gone; the stage reports only after both
-  are confirmed.
-- The worker's Kubernetes API calls and watches share one keep-alive dispatcher,
-  replaced every 30 s.
+- A stage deletes its Job and its own payload ConfigMaps together under one 30 s
+  budget and polls every 100 ms until the owned Pods are gone; the stage reports only
+  after both are confirmed. Recovery lists ConfigMaps by the `nojv-run-id` label, so
+  cached testcase data never enters its listings.
+- Each Kubernetes judge worker sweeps the testcase cache every 15 min: it lists index
+  ConfigMaps by label and all sandbox Pods, and deletes an index idle for 12 h that
+  no Pod projects, with `uid` and `resourceVersion` preconditions. Kubernetes'
+  garbage collector then removes its shards.
+- Each Kubernetes API call uses the client library's own per-request connection, forced to HTTP/1.1 (`createKubeConfig`, `allowH2: false`).
 - The runner cleans its `mkdtemp` work directory in `finally`.
 - `judge_phase_duration_seconds` phases: `queue`, `admission`, `schedule`, `startup`
   (includes image pull), `prepare`, `execute`, `checker`, `collect`, `cleanup`,
