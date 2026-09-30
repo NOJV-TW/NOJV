@@ -18,11 +18,11 @@ every NOJV workload; the deploy itself is `infra/gcp/cloud-build/deploy.sh`
 Sandbox Pods must not share nodes with the orchestrator: a runaway submission
 could starve the worker and stop judging.
 
-| Pool                | Machine (default) | Taint                          | Label               | Size                  |
-| ------------------- | ----------------- | ------------------------------ | ------------------- | --------------------- |
-| `pool-worker`       | `e2-standard-2`   | none                           | `nojv-role=worker`  | 2 nodes, static       |
-| `pool-sandbox`      | `e2-standard-4`   | `nojv-role=sandbox:NoSchedule` | `nojv-role=sandbox` | on-demand, fixed at 1 |
-| `pool-sandbox-spot` | `e2-standard-4`   | `nojv-role=sandbox:NoSchedule` | `nojv-role=sandbox` | Spot, autoscale 0–4   |
+| Pool                | Machine (default) | Taint                          | Label               | Size                                    |
+| ------------------- | ----------------- | ------------------------------ | ------------------- | --------------------------------------- |
+| `pool-worker`       | `e2-standard-2`   | none                           | `nojv-role=worker`  | 2 nodes, static, one in each of 2 zones |
+| `pool-sandbox`      | `e2-standard-4`   | `nojv-role=sandbox:NoSchedule` | `nojv-role=sandbox` | on-demand, fixed at 1, one zone         |
+| `pool-sandbox-spot` | `e2-standard-4`   | `nojv-role=sandbox:NoSchedule` | `nojv-role=sandbox` | Spot, autoscale 0–4 across all zones    |
 
 Both sandbox pools use `cos_containerd`, GKE Sandbox (`--sandbox=type=gvisor`),
 image streaming, and `sandbox-node-system-config.yaml`. Workers and the migrator
@@ -34,8 +34,15 @@ nothing in the Helm install fails, so create them first:
 CLUSTER_NAME=... REGION=... [PROJECT_ID=...] infra/gcp/scripts/create-node-pools.sh
 ```
 
+The cluster is regional, and `--num-nodes` there counts nodes per zone, so the
+script pins `pool-worker` to `WORKER_ZONES` (exactly two zones, comma separated;
+default: the cluster's first two node locations) and `pool-sandbox` to
+`SANDBOX_ZONE` (default: the first). The Spot pool spans every cluster zone and
+caps the total with `--total-max-nodes`.
+
 Overrides: `WORKER_MACHINE_TYPE`, `SANDBOX_MACHINE_TYPE`,
-`SANDBOX_SPOT_MAX_NODES`. Re-running fails on pools that already exist.
+`SANDBOX_SPOT_MAX_NODES`, `WORKER_ZONES`, `SANDBOX_ZONE`. Re-running fails on
+pools that already exist.
 
 The cluster needs NetworkPolicy enforcement (Dataplane V2 or
 `--enable-network-policy`); the judge worker refuses to start without it.

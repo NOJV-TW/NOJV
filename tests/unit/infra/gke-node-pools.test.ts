@@ -13,6 +13,11 @@ describe("GKE sandbox node-pool bootstrap", () => {
     "utf8",
   );
 
+  it("pins the fixed pools to zones because --num-nodes is per zone", () => {
+    expect(script).toContain('--node-locations="${WORKER_ZONES}" --num-nodes=1');
+    expect(script).toContain('--node-locations="${SANDBOX_ZONE}" --num-nodes=1');
+  });
+
   it("keeps a bounded on-demand baseline and a bounded Spot burst", () => {
     expect(script).toContain("--total-min-nodes=1 --total-max-nodes=1");
     expect(script).toContain(
