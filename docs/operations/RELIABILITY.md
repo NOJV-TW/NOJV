@@ -25,8 +25,8 @@ sources, dashboards and provisioning are in [Observability Setup](../runbooks/ob
 | ------------------------------------------------ | ----------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Judge latency (Standard mode)                    | p95 < 60s   | Rolling 7 days | `judge_latency_seconds{mode="standard"}`, `submission.createdAt` to verdict commit; dashboard only. [Judge Latency](https://grafana.nojv.tw/d/nojv-judge-latency) |
 | Judge latency (Advanced mode)                    | p95 < 60s   | Rolling 7 days | `judge_latency_seconds{mode="advanced"}`; an Advanced image may need a higher per-problem ceiling                                                                 |
-| API latency (all `/api/*` GET)                   | p99 < 500ms | Rolling 1 day  | `api_request_duration_seconds`; excludes SSE streams and health probes. [API Latency](https://grafana.nojv.tw/d/nojv-api-latency)                                 |
-| SSE connection stability                         | 99.5%       | Rolling 1 day  | `sse_connection_dropped_total` / closed connections. [Exam Proctoring](https://grafana.nojv.tw/d/nojv-exam-proctoring)                                            |
+| API latency (all `/api/*` GET)                   | p99 < 500ms | Rolling 1 day  | `api_request_duration_seconds`; excludes SSE streams and health probes; dashboard only. [API Latency](https://grafana.nojv.tw/d/nojv-api-latency)                 |
+| SSE connection stability                         | 99.5%       | Rolling 1 day  | `sse_connection_dropped_total` / closed connections; dashboard only. [Exam Proctoring](https://grafana.nojv.tw/d/nojv-exam-proctoring)                            |
 | Platform availability                            | 99.5%       | Monthly        | Down = web, worker or sandbox tier fully unavailable; request-rate and 5xx panels on API Latency                                                                  |
 | Temporal workflow success rate (non-user errors) | 99.9%       | Rolling 7 days | Excludes `ValidationError` and expected user-facing failures; throughput panel on Judge Latency                                                                   |
 
@@ -36,36 +36,36 @@ Scoreboard freshness has no SLO: scoreboards are computed from PostgreSQL at rea
 
 Violation handling:
 
-- **Minor** (< 10% of window samples over target): alert, log, triage at the next on-call sync.
+- **Minor** (< 10% of window samples over target): visible on dashboards; triage at the next on-call sync.
 - **Major** (> 50% over target, or an availability SLO below target for the window): active incident; follow [Incident Recovery](../runbooks/incident-recovery.md), mitigation before root cause.
 
 ### Alert catalog
 
 All rules live in `infra/grafana/alerts/slo-alerts.json` (labels `severity`, `team=nojv`). Rules default to NoData = OK; the judge recovery rules treat missing data as a fault.
 
-| Rule                                 | Severity | Fires when                                                                              |
-| ------------------------------------ | -------- | --------------------------------------------------------------------------------------- |
-| `nojv-slo-api-latency`               | warning  | `/api/*` GET p99 over 500ms for 10m (page and stream routes excluded)                   |
-| `nojv-slo-sse-stability`             | warning  | Server-fault SSE drop rate over 0.5% for 15m (a client disconnect is `client_abort`)    |
-| `nojv-slo-http-error-rate-critical`  | critical | 5xx share over 1% for 5m                                                                |
-| `nojv-submissions-stuck`             | critical | Any stuck execution ([definition](#judge-recovery-monitoring))                          |
-| `nojv-judge-queue-age`               | warning  | Oldest queued/waiting/recovering execution over 20 minutes                              |
-| `nojv-judge-recovery-blocked`        | critical | Any execution in `blocked`                                                              |
-| `nojv-judge-legacy-system-errors`    | warning  | Any SE submission without an execution journal, except superseded reference solutions   |
-| `nojv-judge-recovery-observer-stale` | critical | Last successful recovery snapshot older than 3 minutes, or absent                       |
-| `nojv-judge-cleanup-pending`         | critical | Any `judge_cleanup_pending_total` increase                                              |
-| `nojv-judge-wall-clock-timeouts`     | warning  | More than two wall-clock TLEs with CPU under the limit in 10m                           |
-| `nojv-notification-email-dead`       | critical | An at-least-once notification email exhausted its database-owned retries                |
-| `nojv-node-disk-usage`               | critical | Node filesystem over 80% for 10m; needs `observability.prometheus.nodeExporter.enabled` |
-| `nojv-process-memory-high`           | warning  | A web or worker process RSS over 85% of its cgroup memory limit for 5m                  |
-| `nojv-pg-not-ready`                  | critical | A `job="cnpg-postgres"` target fails scrape for 2m                                      |
-| `nojv-pg-dump-stale`                 | warning  | Weekly `pg_dump` CronJob last succeeded over 8 days ago, or its status is absent        |
-| `nojv-object-mirror-stale`           | warning  | Object mirror CronJob last succeeded over 26h ago, or its status is absent              |
+| Rule                                 | Severity | Fires when                                                                                  |
+| ------------------------------------ | -------- | ------------------------------------------------------------------------------------------- |
+| `nojv-slo-http-error-rate-critical`  | critical | 5xx share over 1% for 5m                                                                    |
+| `nojv-submissions-stuck`             | critical | Any stuck execution ([definition](#judge-recovery-monitoring))                              |
+| `nojv-judge-queue-age`               | warning  | Oldest queued/waiting/recovering execution over 20 minutes                                  |
+| `nojv-judge-recovery-blocked`        | critical | Any execution in `blocked`                                                                  |
+| `nojv-judge-legacy-system-errors`    | warning  | Any SE submission with stored source but no execution journal, except superseded references |
+| `nojv-judge-recovery-observer-stale` | critical | Last successful recovery snapshot older than 3 minutes, or absent                           |
+| `nojv-judge-cleanup-pending`         | critical | Any `judge_cleanup_pending_total` increase                                                  |
+| `nojv-judge-wall-clock-timeouts`     | warning  | More than two wall-clock TLEs with CPU under the limit in 10m                               |
+| `nojv-notification-email-dead`       | critical | An at-least-once notification email exhausted its database-owned retries                    |
+| `nojv-node-disk-usage`               | critical | Node filesystem over 80% for 10m; needs `observability.prometheus.nodeExporter.enabled`     |
+| `nojv-pg-not-ready`                  | critical | A `job="cnpg-postgres"` target fails scrape for 2m                                          |
+| `nojv-pg-dump-stale`                 | warning  | Weekly `pg_dump` CronJob last succeeded over 8 days ago, or its status is absent            |
+| `nojv-object-mirror-stale`           | warning  | Object mirror CronJob last succeeded over 26h ago, or its status is absent                  |
 
 On the single-machine target, app metrics reach the in-cluster Prometheus
 through the OTLP collector, `node_*` and `cnpg_*` series are scraped there, and
 the in-cluster Grafana evaluates every rule above and emails the mailer mailbox
-(`observability.grafana.alerting`). `nojv-pg-dump-stale` and
+(`observability.grafana.alerting`) once when a rule fires, once when it resolves,
+and every 24h while it keeps firing. A rule exists only when its email asks a
+person to act on something that will not clear by itself; memory headroom and
+SLO trends stay on dashboards. `nojv-pg-dump-stale` and
 `nojv-object-mirror-stale` exist only while their CronJob is rendered; the
 platform worker reports the CronJobs' last success
 ([Backup freshness](../runbooks/backup-restore.md#backup-freshness)). Alerts share the node they watch, so a node or

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { prismaAdapterClient as db } from "@nojv/db";
+import { Prisma, prismaAdapterClient as db } from "@nojv/db";
 import { readJudgeRecoverySnapshot } from "../../../apps/worker/src/judge-recovery-metrics";
 import {
   createTestProblem,
@@ -21,7 +21,7 @@ describe("Judge recovery metrics (real SQL)", () => {
     expect(Math.abs(snapshot.observedAt - Date.now() / 1000)).toBeLessThan(10);
   });
 
-  it("detects queue backlog, expired execution progress and legacy SE, ignoring superseded reference solutions, without flagging a healthy long-running stage", async () => {
+  it("detects queue backlog, expired execution progress and legacy SE, ignoring superseded reference solutions and abandoned uploads, without flagging a healthy long-running stage", async () => {
     const teacher = await createTestUser({ platformRole: "teacher" });
     const user = await createTestUser();
     const problem = await createTestProblem({ authorId: teacher.id });
@@ -62,6 +62,15 @@ describe("Judge recovery metrics (real SQL)", () => {
       userId: user.id,
       problemId: problem.id,
       status: "system_error",
+    });
+    const abandonedUpload = await createTestSubmission({
+      userId: user.id,
+      problemId: problem.id,
+      status: "system_error",
+    });
+    await db.submission.update({
+      where: { id: abandonedUpload.id },
+      data: { sourceStorage: Prisma.DbNull },
     });
     const supersededReference = await createTestSubmission({
       userId: teacher.id,

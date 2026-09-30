@@ -1,7 +1,7 @@
 {
   "uid": "nojv-service-memory",
   "title": "NOJV — Service Memory",
-  "description": "Resident set size against the container cgroup memory limit for web and each worker (see nojv-process-memory-high in docs/operations/RELIABILITY.md).",
+  "description": "Resident set size against the container cgroup memory limit for web and each worker.",
   "tags": ["nojv", "capacity"],
   "timezone": "browser",
   "schemaVersion": 39,

@@ -160,6 +160,8 @@ Web and worker each start their own OTel NodeSDK and push metrics over OTLP HTTP
 - Rule: the SDK starts before any instrumented module is imported.
 - Rule: web instruments are created on first use, never at module load: the metrics API has no proxy provider, and the bundled server evaluates `metrics.ts` before `hooks.server.ts` starts the SDK, which left every custom web metric a no-op until 2026-09-26.
 - Rule: alert rules change in `infra/grafana/alerts/slo-alerts.json` and its chart copy together.
+- Rule: a rule exists only if its email asks a person to act on something that will not clear by itself; API p99, SSE drop rate and process memory headroom are dashboard-only. Email goes out once on firing, once on resolve and every 24h while firing, and Grafana state lives on an `emptyDir` so a container restart does not re-send.
+- Rejected: Grafana's default 4h repeat, and paging on unrecoverable SE rows: an upload interrupted before its source was stored left an SE with nothing to rejudge, and its rule re-sent every 4h for days.
 - Rule: every process reports RSS and its cgroup limit under a distinct `service.name` per Deployment (the judge and platform workers once shared `nojv-worker`, so their series overwrote each other and container memory was invisible when web was OOMKilled on 2026-09-29).
 - Code: `apps/web/src/lib/server/otel.ts`, `apps/worker/src/otel.ts`, `infra/grafana/`, `infra/charts/nojv/templates/grafana.yaml`
 

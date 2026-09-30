@@ -115,7 +115,7 @@ The platform worker (or `WORKER_MODE=all`) reads these gauges from PostgreSQL on
 | `nojv_judge_queue_oldest_seconds`                    | Age of the oldest of those                                                                                                                                                       |
 | `nojv_judge_executions_blocked`                      | Executions in `blocked`                                                                                                                                                          |
 | `nojv_submissions_stuck`                             | Due `queued`/`waiting_capacity`/`recovering`/`finalizing` executions with progress older than 10 minutes, plus `running` ones with stale progress and an expired or absent lease |
-| `nojv_judge_legacy_system_errors`                    | SE submissions with no `JudgeExecution`                                                                                                                                          |
+| `nojv_judge_legacy_system_errors`                    | SE submissions with stored source but no `JudgeExecution`                                                                                                                        |
 | `nojv_judge_recovery_last_success_timestamp_seconds` | Database time of the last valid snapshot                                                                                                                                         |
 
 Aggregate with `max`, not `sum`: every platform replica reports the same totals. Labels never carry IDs or error text. A failed or invalid snapshot publishes nothing.

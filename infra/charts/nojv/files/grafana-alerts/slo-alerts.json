@@ -55,26 +55,6 @@
     "summary": "The last successful platform-worker SQL snapshot is over three minutes old or absent. Check platform worker, PostgreSQL and OTEL exporter/collector connectivity. Missing monitoring is a fault even when no submission metrics are present."
   },
   {
-    "uid": "nojv-slo-api-latency",
-    "title": "API latency p99 over SLO",
-    "slo": "API latency (all /api/* GET) - p99 < 500ms",
-    "expr": "histogram_quantile(0.99, sum by (le) (rate(api_request_duration_seconds_bucket{route=~\"/api/.*\",method=\"GET\"}[15m])))",
-    "threshold": 0.5,
-    "for": "10m",
-    "severity": "warning",
-    "summary": "API p99 latency has exceeded the 500ms SLO for 10m."
-  },
-  {
-    "uid": "nojv-slo-sse-stability",
-    "title": "SSE connection drop rate over SLO",
-    "slo": "SSE connection stability - 99.5% (drop rate < 0.5%)",
-    "expr": "sum(rate(sse_connection_dropped_total[1h])) / sum(rate(sse_connection_duration_seconds_count[1h]))",
-    "threshold": 0.005,
-    "for": "15m",
-    "severity": "warning",
-    "summary": "Server-side SSE connection drop rate has exceeded the 0.5% SLO."
-  },
-  {
     "uid": "nojv-slo-http-error-rate-critical",
     "title": "HTTP 5xx error rate above availability SLO",
     "slo": "API availability - 5xx error rate < 1% over 5m",
@@ -93,16 +73,6 @@
     "for": "10m",
     "severity": "critical",
     "summary": "A node filesystem has exceeded 80% usage for 10m. A full disk wedges containerd and gets CNPG evicted. Free disk (crictl rmi --prune) or expand the volume before it fills. Requires observability.prometheus.nodeExporter.enabled."
-  },
-  {
-    "uid": "nojv-process-memory-high",
-    "title": "Service memory over 85% of its container limit",
-    "slo": "Web and worker processes keep memory headroom below their limit",
-    "expr": "max(process_memory_usage_bytes / nojv_process_memory_limit_bytes)",
-    "threshold": 0.85,
-    "for": "5m",
-    "severity": "warning",
-    "summary": "A web or worker process has kept its resident set above 85% of its cgroup memory limit for 5m; the next spike gets it OOMKilled. Group by exported_job to find the service, then raise that service's limit in values.yaml or find the allocation."
   },
   {
     "uid": "nojv-pg-not-ready",
