@@ -11,6 +11,7 @@ import {
 import { quantityValue } from "./resource-capacity";
 
 const TTL_AFTER_FINISHED_SECONDS = 60;
+const STAGE_TERMINATION_GRACE_SECONDS = 1;
 const SUBMISSION_DATA_SIZE_LIMIT = "128Mi";
 const MAX_OUTPUT_MIB = MAX_EXECUTION_OUTPUT_BYTES / (1024 * 1024);
 
@@ -108,6 +109,7 @@ export function buildStageJobManifest(params: StageJobManifestParams): k8s.V1Job
         metadata: { labels: { app: "nojv-sandbox", "nojv-role": "sandbox" } },
         spec: {
           restartPolicy: "Never",
+          terminationGracePeriodSeconds: STAGE_TERMINATION_GRACE_SECONDS,
           automountServiceAccountToken: false,
           ...runtimeClassField(params.runtimeClassName),
           nodeSelector: SANDBOX_NODE_SELECTOR,
@@ -243,6 +245,7 @@ export function buildInteractiveJobManifest(params: InteractiveJobManifestParams
         },
         spec: {
           restartPolicy: "Never",
+          terminationGracePeriodSeconds: STAGE_TERMINATION_GRACE_SECONDS,
           automountServiceAccountToken: false,
           ...runtimeClassField(params.runtimeClassName),
           nodeSelector: SANDBOX_NODE_SELECTOR,

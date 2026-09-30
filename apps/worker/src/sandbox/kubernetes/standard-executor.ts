@@ -8,7 +8,7 @@ import {
 
 import { createLogger } from "../../logger.js";
 import { recordJudgePhase, recordRunnerResources } from "../shared/judge-phase-metrics";
-import { measurePhase, requestMode } from "./execution-observer";
+import { measurePhase, requestMode, stagePod } from "./execution-observer";
 import { runCleanupAfterExecution } from "./cleanup";
 import { parseMemoryLimitMb, resolveK8sMemoryLimit } from "./resource-capacity";
 import { computeStageJobDeadlineSeconds } from "./job-deadlines";
@@ -73,6 +73,7 @@ export class KubernetesStandardExecutor {
     let logsReadAt: number | undefined;
     let executionFailure: { reason: unknown } | undefined;
     let payloadNames: string[] = [];
+    let podTermination: Promise<void> | undefined;
 
     try {
       const payloads = await this.resources.createStagePayloads(
@@ -99,14 +100,24 @@ export class KubernetesStandardExecutor {
       );
       jobSubmittedAt = Date.now();
 
-      await this.jobWatcher.waitForJobCompletion(
+      const outcome = await this.jobWatcher.waitForJobOutcome(
         jobName,
         ns,
         deadlineSeconds,
         execution.signal,
+        { containersExited: true },
       );
       jobFinishedAt = Date.now();
-      const pod = await this.observer.findStagePod(jobName, ns, request, execution.signal);
+      if (outcome.pod)
+        podTermination = this.jobWatcher.waitForPodTermination(
+          jobName,
+          ns,
+          deadlineSeconds,
+          execution.signal,
+        );
+      const pod = outcome.pod
+        ? stagePod(this.observer.observedPod(jobName, outcome.pod, request))
+        : await this.observer.findStagePod(jobName, ns, request, execution.signal);
       if (!pod) throw new Error(`No pod found for job ${jobName}`);
       const [runLog, judgeLog] = await Promise.all([
         pod.runStarted
@@ -162,6 +173,8 @@ export class KubernetesStandardExecutor {
       executionFailure = { reason: error };
       throw error;
     } finally {
+      const terminationStartedAt = Date.now();
+      await podTermination;
       const cleanupStartedAt = Date.now();
       try {
         await measurePhase(request, "cleanup", () =>
@@ -195,6 +208,7 @@ export class KubernetesStandardExecutor {
             jobFinishedAt === undefined || logsReadAt === undefined
               ? null
               : logsReadAt - jobFinishedAt,
+          podTerminationMs: cleanupStartedAt - terminationStartedAt,
           cleanupMs: Date.now() - cleanupStartedAt,
           totalMs: Date.now() - startedAt,
         });

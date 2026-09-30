@@ -187,6 +187,7 @@ describe("buildStageJobManifest — run and judge in one hardened Pod", () => {
 
   it("runs the compiling run container before the judge, each with its phase", () => {
     expect(pod.runtimeClassName).toBe("gvisor");
+    expect(pod.terminationGracePeriodSeconds).toBe(1);
     expect(pod.initContainers!.map(({ name }) => name)).toEqual(["run"]);
     expect(pod.containers.map(({ name }) => name)).toEqual(["judge"]);
     expect(run!.env).toContainEqual({ name: "SANDBOX_PHASE", value: "run-stage" });

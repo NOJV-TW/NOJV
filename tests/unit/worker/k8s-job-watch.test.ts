@@ -10,6 +10,7 @@ import {
   SandboxCleanupError,
   SandboxTransientInfrastructureError,
 } from "../../../apps/worker/src/sandbox/kubernetes/errors";
+import { completedPod } from "../../../apps/worker/src/sandbox/kubernetes/job-state";
 import { withTestcaseCache } from "./k8s-testcase-cache-fake";
 
 afterEach(() => vi.useRealTimers());
@@ -558,6 +559,80 @@ describe("K8sExecutor Job/Pod watch completion", () => {
     expect(result.testcaseResults[0]?.verdict).toBe("AC");
   });
 
+  function exitedStagePod(fake: ReturnType<typeof clients>) {
+    setPodView(fake, {
+      items: [
+        {
+          metadata: { name: "watch-test-pod", resourceVersion: "pod-rv-1" },
+          spec: { initContainers: [{ name: "run" }], containers: [{ name: "judge" }] },
+          status: {
+            phase: "Running",
+            initContainerStatuses: [{ name: "run", state: { terminated: { exitCode: 0 } } }],
+            containerStatuses: [{ name: "judge", state: { terminated: { exitCode: 0 } } }],
+          },
+        },
+      ],
+    });
+  }
+
+  it("reads results once every container exits and deletes only after the Pod is terminal", async () => {
+    const events: string[] = [];
+    const fake = clients({
+      readJob: () => ({ metadata: { resourceVersion: "job-rv-1" }, status: {} }),
+      watch: (path, callback) => {
+        if (path.includes("/pods"))
+          setTimeout(() => {
+            events.push("pod-succeeded");
+            callback("MODIFIED", {
+              metadata: { name: "watch-test-pod", resourceVersion: "pod-rv-2" },
+              status: { phase: "Succeeded" },
+            });
+          }, 50);
+      },
+    });
+    exitedStagePod(fake);
+    const readLog = fake.handles.coreApi.readNamespacedPodLog.getMockImplementation();
+    fake.handles.coreApi.readNamespacedPodLog.mockImplementation(async (input: any) => {
+      events.push(`log-${String(input.container)}`);
+      return readLog(input);
+    });
+    const deleteJob = fake.handles.batchApi.deleteNamespacedJob.getMockImplementation();
+    fake.handles.batchApi.deleteNamespacedJob.mockImplementation(async (input: any) => {
+      events.push("delete-job");
+      return deleteJob(input);
+    });
+
+    const result = await new K8sExecutor(EXEC_CONFIG, fake.handles).execute(request(), {
+      runId: "watch-test",
+      signal: new AbortController().signal,
+    });
+
+    expect(result.testcaseResults[0]?.verdict).toBe("AC");
+    expect(events).toEqual(["log-run", "log-judge", "pod-succeeded", "delete-job"]);
+  });
+
+  it("bounds the wait for Pod termination before cleanup", async () => {
+    vi.useFakeTimers();
+    const fake = clients({
+      readJob: () => ({ metadata: { resourceVersion: "job-rv-1" }, status: {} }),
+      watch: () => undefined,
+    });
+    exitedStagePod(fake);
+    const operation = new K8sExecutor(EXEC_CONFIG, fake.handles).execute(request(), {
+      runId: "watch-test",
+      signal: new AbortController().signal,
+    });
+
+    await vi.advanceTimersByTimeAsync(9_000);
+    expect(fake.handles.coreApi.readNamespacedPodLog).toHaveBeenCalledTimes(2);
+    expect(fake.handles.batchApi.deleteNamespacedJob).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1_500);
+    expect(fake.handles.batchApi.deleteNamespacedJob).toHaveBeenCalledOnce();
+    fake.handles.coreApi.listNamespacedPod.mockResolvedValue({ items: [] });
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect((await operation).testcaseResults[0]?.verdict).toBe("AC");
+  });
+
   it("closes active watches when the activity is cancelled", async () => {
     const fake = clients({
       readJob: () => ({ metadata: { resourceVersion: "job-rv-1" }, status: {} }),
@@ -685,3 +760,38 @@ it.each([false, true])(
     expect(fake.handles.batchApi.createNamespacedJob).toHaveBeenCalledTimes(1);
   },
 );
+
+describe("completedPod", () => {
+  const spec = { initContainers: [{ name: "run" }], containers: [{ name: "judge" }] };
+  const exited = (exitCode: number) => ({ state: { terminated: { exitCode } } });
+
+  it.each([
+    ["every declared container exited 0", [exited(0), exited(0)], true],
+    ["the judge container failed", [exited(0), exited(1)], false],
+    ["the judge container is still running", [exited(0), { state: { running: {} } }], false],
+    ["the judge container has no status", [exited(0)], false],
+  ])("%s", (_name, [run, judge], expected) => {
+    const pod = {
+      spec,
+      status: {
+        initContainerStatuses: [{ name: "run", ...run }],
+        containerStatuses: judge ? [{ name: "judge", ...judge }] : [],
+      },
+    } as any;
+    expect(completedPod([pod]) === pod).toBe(expected);
+  });
+
+  it("waits for a restartable sidecar that is still running", () => {
+    const pod = {
+      spec: {
+        initContainers: [{ name: "transfer", restartPolicy: "Always" }],
+        containers: [{ name: "run" }],
+      },
+      status: {
+        initContainerStatuses: [{ name: "transfer", state: { running: {} } }],
+        containerStatuses: [{ name: "run", ...exited(0) }],
+      },
+    } as any;
+    expect(completedPod([pod])).toBeUndefined();
+  });
+});

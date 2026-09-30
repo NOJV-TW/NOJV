@@ -277,6 +277,7 @@ describe("buildInteractiveJobManifest — per-container volumeMounts isolate the
     const podSpec = manifest.spec!.template.spec!;
 
     expect(podSpec.restartPolicy).toBe("Never");
+    expect(podSpec.terminationGracePeriodSeconds).toBe(1);
     expect(podSpec.automountServiceAccountToken).toBe(false);
     expect(podSpec.nodeSelector).toEqual({ "nojv-role": "sandbox" });
     expect(podSpec.tolerations).toEqual([

@@ -159,7 +159,7 @@ describe("K8sExecutor sharded payload orchestration", () => {
       await vi.advanceTimersByTimeAsync(1_000);
       expect(settled).toBe(false);
       await deleteJob({ name: "judge-termination-barrier" });
-      await vi.advanceTimersByTimeAsync(100);
+      await vi.advanceTimersByTimeAsync(200);
       await result;
       expect(settled).toBe(true);
     } finally {
