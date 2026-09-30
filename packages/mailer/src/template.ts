@@ -66,7 +66,8 @@ export function renderEmail({
           ${button}
           ${footer}
         </div>
-        <p style="margin:16px 0 0;text-align:center;font-size:12px;color:${MUTED_FOREGROUND}">NOJV · <a href="https://nojv.tw" style="color:${MUTED_FOREGROUND}">nojv.tw</a></p>
+        <p style="margin:16px 0 0;text-align:center;font-size:12px;color:${MUTED_FOREGROUND}">此信件由系統自動寄出，請勿直接回覆。<br>This is an automated message. Please do not reply.</p>
+        <p style="margin:8px 0 0;text-align:center;font-size:12px;color:${MUTED_FOREGROUND}">NOJV · <a href="https://nojv.tw" style="color:${MUTED_FOREGROUND}">nojv.tw</a></p>
       </div>
     </div>`;
 }
