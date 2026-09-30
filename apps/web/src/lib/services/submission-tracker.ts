@@ -12,9 +12,14 @@ import { toasts } from "$lib/stores/toast";
 import { formatVerdictLabel } from "$lib/utils/verdict-style";
 
 type Listener = (operation: SubmissionOperation) => void;
+type SubmissionState = Pick<
+  SubmissionOperation,
+  "submissionId" | "status" | "judgeGeneration" | "updatedAt" | "execution"
+>;
 type Refresh = (signal: AbortSignal) => Promise<unknown>;
 const operations = new Map<string, SubmissionOperation>();
 const listeners = new Map<string, Set<Listener>>();
+const rendered = new Map<string, SubmissionState>();
 const tracked = new Set<string>();
 const notifyIds = new Set<string>();
 const refreshers = new Set<Refresh>();
@@ -98,15 +103,19 @@ export function isNewerSubmission(
   );
 }
 
+function sameState(a: SubmissionState, b: SubmissionState): boolean {
+  return (
+    a.judgeGeneration === b.judgeGeneration &&
+    a.updatedAt === b.updatedAt &&
+    a.status === b.status &&
+    JSON.stringify(a.execution) === JSON.stringify(b.execution)
+  );
+}
+
 function publish(operation: SubmissionOperation): boolean {
   const previous = operations.get(operation.submissionId);
   if (previous && !isNewerSubmission(operation, previous)) return false;
-  if (
-    previous?.judgeGeneration === operation.judgeGeneration &&
-    previous.updatedAt === operation.updatedAt &&
-    previous.status === operation.status &&
-    JSON.stringify(previous.execution) === JSON.stringify(operation.execution)
-  ) {
+  if (previous && sameState(previous, operation)) {
     if (!isSubmissionOperationActive(operation)) {
       tracked.delete(operation.submissionId);
       notifyIds.delete(operation.submissionId);
@@ -127,8 +136,9 @@ function publish(operation: SubmissionOperation): boolean {
 }
 
 function publishChange(operation: SubmissionOperation): boolean {
-  const known = operations.has(operation.submissionId);
-  return publish(operation) && known;
+  const baseline =
+    operations.get(operation.submissionId) ?? rendered.get(operation.submissionId);
+  return publish(operation) && baseline !== undefined && !sameState(baseline, operation);
 }
 
 function schedule(delay = 0) {
@@ -256,7 +266,12 @@ export function requestSubmissionRefresh() {
   wakeTracker();
 }
 
-export function watchSubmissionStates(ids: string[], listener: Listener) {
+export function watchSubmissionStates(
+  ids: string[],
+  listener: Listener,
+  renderedStates: SubmissionState[] = [],
+) {
+  for (const state of renderedStates) rendered.set(state.submissionId, state);
   for (const id of ids) {
     const current = listeners.get(id) ?? new Set<Listener>();
     current.add(listener);
@@ -270,6 +285,8 @@ export function watchSubmissionStates(ids: string[], listener: Listener) {
   });
   schedule();
   return () => {
+    for (const state of renderedStates)
+      if (rendered.get(state.submissionId) === state) rendered.delete(state.submissionId);
     for (const id of ids) {
       const current = listeners.get(id);
       current?.delete(listener);

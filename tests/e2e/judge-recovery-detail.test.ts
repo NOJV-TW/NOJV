@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 
 import { configureDomainOrchestration, submissionDomain as judge } from "@nojv/application";
 import { prismaAdapterClient as db, runTransaction } from "@nojv/db";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { createTestProblem, createTestSubmission, createTestUser } from "../fixtures/factories";
 import { assertLiveTestDatabase } from "../setup/destructive-test-database";
@@ -52,6 +52,18 @@ async function fixture(state: "waiting_capacity" | "recovering" | "legacy" | "re
   return { submission, execution };
 }
 
+async function holdTrackerPolls(page: Page): Promise<() => void> {
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(/\/api\/submissions\/(pending|status)/, async (route) => {
+    await held;
+    await route.continue();
+  });
+  return release;
+}
+
 test.beforeAll(async () => {
   await assertLiveTestDatabase(db, "nojv_e2e_test");
   user = await createTestUser({
@@ -96,8 +108,8 @@ test("capacity waiting clearly states the submission is saved", async ({ page },
 
 test("SE keeps polling and moves to waiting without reload", async ({ page }, testInfo) => {
   const { submission, execution } = await fixture("recovering");
+  const releaseTracker = await holdTrackerPolls(page);
   await page.goto(`/submissions/${submission.id}`);
-  await page.waitForTimeout(3000);
   await expect(page.getByRole("status").filter({ hasText: recovering })).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("recovering-system-error.png"),
@@ -113,6 +125,7 @@ test("SE keeps polling and moves to waiting without reload", async ({ page }, te
     "waiting_capacity",
     "capacity",
   );
+  releaseTracker();
   await expect(page.getByRole("status").filter({ hasText: waiting })).toBeVisible({
     timeout: 12_000,
   });
@@ -137,13 +150,14 @@ test("teacher rejudge retains AC while the active execution keeps polling", asyn
   page,
 }, testInfo) => {
   const { submission, execution } = await fixture("rejudge");
+  const releaseTracker = await holdTrackerPolls(page);
   await page.goto(`/submissions/${submission.id}`);
-  await page.waitForTimeout(3000);
   await expect(page.getByRole("status").filter({ hasText: waiting })).toBeVisible();
   const summary = page.locator("aside");
   await expect(summary.getByText("Accepted", { exact: true })).toBeVisible();
   await expect(summary).toContainText("100");
   await judge.setJudgeExecutionState(execution!.id, execution!.workflowId, "running");
+  releaseTracker();
   await expect(page.getByRole("status").filter({ hasText: running })).toBeVisible({
     timeout: 12_000,
   });
