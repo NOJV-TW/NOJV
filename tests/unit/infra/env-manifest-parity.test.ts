@@ -257,6 +257,8 @@ describe("Dockerfiles that frozen-install must ship the full pnpm workspace", ()
   const frozenInstallDockerfiles = readdirSync(dockerDir)
     .filter((f) => f.endsWith(".Dockerfile"))
     .filter((f) => readFileSync(join(dockerDir, f), "utf8").includes("--frozen-lockfile"));
+  const frozenInstallRun =
+    /^RUN\b(?:.*\\\n)*.*\bpnpm install\b(?:.*\\\n)*.*--frozen-lockfile/gm;
 
   it("the repo declares pnpm patches (otherwise this guard is moot)", () => {
     expect(hasPatches).toBe(true);
@@ -270,7 +272,8 @@ describe("Dockerfiles that frozen-install must ship the full pnpm workspace", ()
     "%s prevents pnpm scripts from replacing the filtered frozen install",
     (file) => {
       const dockerfile = readFileSync(join(dockerDir, file), "utf8");
-      const install = dockerfile.indexOf("RUN pnpm install");
+      const install = [...dockerfile.matchAll(frozenInstallRun)].at(-1)?.index ?? -1;
+      expect(install).toBeGreaterThanOrEqual(0);
       const disableAutoInstall = dockerfile.indexOf(
         "ENV pnpm_config_verify_deps_before_run=false",
       );
@@ -284,7 +287,9 @@ describe("Dockerfiles that frozen-install must ship the full pnpm workspace", ()
     "%s copies every tooling workspace manifest before installing",
     (file) => {
       const dockerfile = readFileSync(join(dockerDir, file), "utf8");
-      const beforeInstall = dockerfile.slice(0, dockerfile.indexOf("RUN pnpm install"));
+      const install = dockerfile.search(frozenInstallRun);
+      expect(install).toBeGreaterThanOrEqual(0);
+      const beforeInstall = dockerfile.slice(0, install);
       for (const manifest of toolingManifests) {
         expect(beforeInstall).toContain(`COPY ${manifest} `);
       }
