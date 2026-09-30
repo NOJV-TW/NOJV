@@ -5,4 +5,5 @@ COPY infra/docker/demo-advanced-run/testcases/ /testcases/
 COPY apps/web/src/lib/server/advanced-scaffold/files/run/nojv_runner.py /run/nojv_runner.py
 COPY infra/docker/demo-advanced-run/runner.py /run/runner.py
 
+USER 10001:10001
 CMD ["python", "/run/runner.py"]

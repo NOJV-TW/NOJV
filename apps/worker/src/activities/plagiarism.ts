@@ -81,6 +81,11 @@ function groupSubmissionsByLanguage(
   return groups;
 }
 
+function stripExtension(path: string): string {
+  const dot = path.indexOf(".");
+  return dot === -1 ? path : path.slice(0, dot);
+}
+
 async function analyzeGroup(
   group: PlagiarismGroup,
 ): Promise<plagiarismDomain.SimilarityPair[]> {
@@ -94,8 +99,8 @@ async function analyzeGroup(
 
   return report.allPairs().map((pair) => ({
     problemId: group.problemId,
-    userId1: pair.leftEntry.file.path.replace(/\..+$/, ""),
-    userId2: pair.rightEntry.file.path.replace(/\..+$/, ""),
+    userId1: stripExtension(pair.leftEntry.file.path),
+    userId2: stripExtension(pair.rightEntry.file.path),
     similarity: Math.round(pair.similarity * 100),
     longest: pair.longest,
     overlap: pair.overlap,

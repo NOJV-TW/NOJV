@@ -29,8 +29,7 @@ import { createLogger } from "$lib/server/logger";
 import { getClientIp } from "$lib/server/shared/client-ip";
 import { withRateLimitActions } from "$lib/server/shared/action-handlers";
 import { forwardSetCookies } from "$lib/server/shared/auth-cookies";
-import { signInRateLimiter } from "$lib/server/shared/rate-limiter";
-import { otpSendRateLimiter } from "$lib/server/shared/rate-limiter";
+import { signInRateLimiter, otpSendRateLimiter } from "$lib/server/shared/rate-limiter";
 import {
   clearSuperAdminPasswordProof,
   issueSuperAdminPasswordProof,
@@ -54,6 +53,14 @@ function formString(formData: FormData, name: string): string {
 function formRawString(formData: FormData, name: string): string {
   const value = formData.get(name);
   return typeof value === "string" ? value : "";
+}
+
+function passwordSignInPhase(
+  mustChangePassword: boolean,
+  hasSecurityFactor: boolean,
+): AdminSignInPhase {
+  if (mustChangePassword) return "change-password";
+  return hasSecurityFactor ? "verify-factor" : "email-setup";
 }
 
 function safeReturnTo(value: string | null): string {
@@ -246,11 +253,7 @@ const actionHandlers = {
       sessionId: session?.id ?? null,
       userId: user.id,
     });
-    const phase: AdminSignInPhase = user.mustChangePassword
-      ? "change-password"
-      : state.hasSecurityFactor
-        ? "verify-factor"
-        : "email-setup";
+    const phase = passwordSignInPhase(user.mustChangePassword, state.hasSecurityFactor);
     return { hasPasskey: state.hasPasskey, hasTotp: state.hasTotp, phase };
   },
 

@@ -8,7 +8,8 @@ const schemaDir = join(repoRoot, "packages/db/prisma/schema");
 const outPath = join(repoRoot, "docs/architecture/DATABASE.generated.md");
 
 function stripComment(line) {
-  return line.replace(/\s+\/\/.*$/, "").trimEnd();
+  const commentStart = line.search(/\s\/\/.*$/);
+  return (commentStart === -1 ? line : line.slice(0, commentStart)).trimEnd();
 }
 
 function parseModelBody(body) {

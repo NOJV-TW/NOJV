@@ -41,10 +41,12 @@ function parseCidr(label, cidr, allowedFamilies = [4, 6]) {
   const prefixText = separator > 0 ? cidr.slice(separator + 1) : "";
   const family = isIP(address);
   const prefix = Number(prefixText);
-  const maxPrefix = family === 4 ? 32 : family === 6 ? 128 : 0;
+  let maxPrefix = 0;
+  if (family === 4) maxPrefix = 32;
+  else if (family === 6) maxPrefix = 128;
   if (
     !allowedFamilies.includes(family) ||
-    !/^(?:0|[1-9][0-9]{0,2})$/u.test(prefixText) ||
+    !/^(?:0|[1-9]\d{0,2})$/u.test(prefixText) ||
     !Number.isInteger(prefix) ||
     prefix <= 0 ||
     prefix > maxPrefix
@@ -140,7 +142,7 @@ export function validateGkeDeployConfig(input) {
 
   const region = requireString("Google Cloud region", input.region);
   rejectPlaceholder("Google Cloud region", region);
-  if (!/^[a-z]+-[a-z]+[0-9]$/u.test(region)) throw new Error("Google Cloud region is invalid");
+  if (!/^[a-z]+-[a-z]+\d$/u.test(region)) throw new Error("Google Cloud region is invalid");
 
   requireDnsName("public host", input.publicHost);
   requireDnsName("registry host", input.registryHost);
@@ -173,7 +175,7 @@ export function validateGkeDeployConfig(input) {
   const masterCidr = parseCidr("cluster master CIDR", input.clusterMasterCidr, [4]);
   if (!(
     masterCidr.address.startsWith("10.") ||
-    /^172\.(?:1[6-9]|2[0-9]|3[01])\./u.test(masterCidr.address) ||
+    /^172\.(?:1[6-9]|2\d|3[01])\./u.test(masterCidr.address) ||
     masterCidr.address.startsWith("192.168.")
   )) {
     throw new Error("cluster master CIDR must be a private IPv4 range");

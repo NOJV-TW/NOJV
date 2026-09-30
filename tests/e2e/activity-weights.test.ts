@@ -10,7 +10,7 @@ test("assignment problem points persist, sum to the total, and reject an all-zer
   page,
 }) => {
   await page.goto("/assignments/hw1-process-trace?tab=problems");
-  await page.waitForTimeout(3000);
+  await expect(page.getByRole("button", { name: /Open account menu/ })).toBeEnabled();
   await page.getByRole("tab", { name: "Problems", exact: true }).click();
   const editor = page.locator('[data-slot="activity-weights"]');
   await expect(editor).toBeVisible();
@@ -19,7 +19,6 @@ test("assignment problem points persist, sum to the total, and reject an all-zer
   const rowBox = await lastProblem.boundingBox();
   const editorBox = await editor.boundingBox();
   expect(editorBox!.y).toBeGreaterThanOrEqual(rowBox!.y + rowBox!.height);
-  await page.waitForTimeout(3000);
   const points = editor.locator('input[aria-label$=" points"]');
   const total = editor.getByRole("status");
   await expect(points).toHaveCount(2);
@@ -29,7 +28,7 @@ test("assignment problem points persist, sum to the total, and reject an all-zer
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("button", { name: "Save", exact: true })).not.toBeVisible();
   await page.reload();
-  await page.waitForTimeout(3000);
+  await expect(page.getByRole("button", { name: /Open account menu/ })).toBeEnabled();
   await page.getByRole("tab", { name: "Problems", exact: true }).click();
   await expect(points.nth(0)).toHaveValue("40");
   await expect(points.nth(1)).toHaveValue("60");
@@ -55,7 +54,7 @@ test("assignment problem points persist, sum to the total, and reject an all-zer
   });
   await page.setViewportSize({ width: 1440, height: 1200 });
   await page.getByRole("button", { name: "中", exact: true }).click();
-  await page.waitForTimeout(3000);
+  await expect(page.getByRole("button", { name: /帳號選單/ })).toBeEnabled();
   await page.getByRole("tab", { name: "題目", exact: true }).click();
   await expect(page.getByLabel("配分異動理由")).not.toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -70,7 +69,7 @@ test("exam fractional problem points stay in the form after save and persist aft
   page,
 }) => {
   await page.goto("/exams/exam_midterm-systems-lab?tab=problems");
-  await page.waitForTimeout(3000);
+  await expect(page.getByRole("button", { name: /Open account menu/ })).toBeEnabled();
   await page.getByRole("tab", { name: "Problems", exact: true }).click();
   const editor = page.locator('[data-slot="activity-weights"]');
   await expect(editor).toBeVisible();
@@ -79,7 +78,6 @@ test("exam fractional problem points stay in the form after save and persist aft
   const rowBox = await lastProblem.boundingBox();
   const editorBox = await editor.boundingBox();
   expect(editorBox!.y).toBeGreaterThanOrEqual(rowBox!.y + rowBox!.height);
-  await page.waitForTimeout(3000);
   const points = editor.locator('input[aria-label$=" points"]');
   await expect(points).toHaveCount(3);
   await points.nth(0).fill("33.34");
@@ -94,7 +92,7 @@ test("exam fractional problem points stay in the form after save and persist aft
   await expect(points.nth(1)).toHaveValue("33.33");
   await expect(points.nth(2)).toHaveValue("33.33");
   await page.reload();
-  await page.waitForTimeout(3000);
+  await expect(page.getByRole("button", { name: /Open account menu/ })).toBeEnabled();
   await page.getByRole("tab", { name: "Problems", exact: true }).click();
   await expect(points.nth(0)).toHaveValue("33.34");
   await expect(points.nth(1)).toHaveValue("33.33");
@@ -103,7 +101,7 @@ test("exam fractional problem points stay in the form after save and persist aft
   await page.screenshot({ path: "output/playwright/exam-weights-desktop.png", fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1200 });
   await page.getByRole("button", { name: "中", exact: true }).click();
-  await page.waitForTimeout(3000);
+  await expect(page.getByRole("button", { name: /帳號選單/ })).toBeEnabled();
   await page.getByRole("tab", { name: "題目", exact: true }).click();
   await expect(page.getByLabel("配分異動理由")).not.toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -136,7 +134,7 @@ test("empty exam drafts save with no problems and restore a removed question at 
     },
   });
   await page.goto(`/exams/${draft.id}`);
-  await page.waitForTimeout(3000);
+  await expect(page.getByRole("button", { name: /Open account menu/ })).toBeEnabled();
   await page.getByRole("tab", { name: "Problems", exact: true }).click();
   await page.getByRole("button", { name: "Remove from exam", exact: true }).click();
   const editor = page.locator('[data-slot="activity-weights"]');
@@ -146,7 +144,7 @@ test("empty exam drafts save with no problems and restore a removed question at 
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("button", { name: "Save", exact: true })).not.toBeVisible();
   await page.reload();
-  await page.waitForTimeout(3000);
+  await expect(page.getByRole("button", { name: /Open account menu/ })).toBeEnabled();
   await page.getByRole("tab", { name: "Problems", exact: true }).click();
   await expect(points).toHaveCount(0);
   await expect(editor.getByRole("status")).toHaveText("Total: 0");

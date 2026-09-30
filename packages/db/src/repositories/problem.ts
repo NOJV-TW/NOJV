@@ -198,7 +198,8 @@ export const problemStatementRepo = {
   },
 
   likeSearch(query: string) {
-    const pattern = `%${query.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const escaped = query.replace(/[\\%_]/g, (c) => `\\${c}`);
+    const pattern = `%${escaped}%`;
     return prisma.$queryRaw<{ problemId: string }[]>`
       SELECT DISTINCT "problemId" FROM "ProblemStatement"
       WHERE coalesce("bodyMarkdown", '') ILIKE ${pattern}

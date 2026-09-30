@@ -225,7 +225,8 @@ export function buildVerdictDetail(args: {
 
   const accepted = verdict === "accepted";
   const totalWeight = testcases.sets.reduce((sum, s) => sum + s.weight, 0);
-  const score = accepted ? (totalWeight > 0 ? totalWeight : 100) : 0;
+  const acceptedScore = totalWeight > 0 ? totalWeight : 100;
+  const score = accepted ? acceptedScore : 0;
 
   const detail: SubmissionResult = {
     accepted,

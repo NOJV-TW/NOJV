@@ -40,7 +40,7 @@ function tokenizeSql(sql) {
     }
 
     if (character === "$") {
-      const tag = sql.slice(index).match(/^\$[A-Za-z_][A-Za-z0-9_]*\$|^\$\$/u)?.[0];
+      const tag = sql.slice(index).match(/^\$[A-Za-z_]\w*\$|^\$\$/u)?.[0];
       if (tag) {
         const end = sql.indexOf(tag, index + tag.length);
         index = end === -1 ? sql.length : end + tag.length;

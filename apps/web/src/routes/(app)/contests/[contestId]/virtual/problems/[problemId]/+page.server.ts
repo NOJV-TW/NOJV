@@ -23,8 +23,7 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
     redirect(303, `/contests/${contestId}/virtual`);
   }
 
-  const problemInContest = virtual.problems.find((p) => p.problemId === problemId);
-  if (!problemInContest) {
+  if (!virtual.problems.some((p) => p.problemId === problemId)) {
     error(404, "Problem not found in this contest.");
   }
 

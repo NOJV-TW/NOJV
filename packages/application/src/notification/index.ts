@@ -15,14 +15,7 @@ import { pubsub } from "@nojv/redis";
 import { SSE_NOTIFICATION, type NotificationSSEEvent } from "@nojv/core";
 
 import { listStudentsBelowMaxScore } from "../assignment";
-import {
-  buildNotificationEmailWork,
-  deliverNotificationEmail,
-  notificationEmailWorkPayloadSchema,
-  type NotificationEmailOptions,
-  type NotificationEmailParams,
-  type NotificationEmailWorkPayload,
-} from "./email";
+import { buildNotificationEmailWork, type NotificationEmailOptions } from "./email";
 import { getEffectiveNotificationPreferences } from "./preferences";
 
 export {
@@ -188,7 +181,7 @@ export {
   type NotificationEmailOptions,
   type NotificationEmailParams,
   type NotificationEmailWorkPayload,
-};
+} from "./email";
 
 export async function listRecent(userId: string, limit: number) {
   const safeLimit = Math.min(Math.max(limit, 1), 50);

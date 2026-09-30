@@ -40,5 +40,6 @@ export function assessmentSubTabHref(currentUrl: URL, nextTab: AssessmentSubTab)
   else url.searchParams.set("tab", nextTab);
 
   const query = url.searchParams.toString();
-  return `${url.pathname}${query ? `?${query}` : ""}${url.hash}`;
+  const search = query ? `?${query}` : "";
+  return `${url.pathname}${search}${url.hash}`;
 }

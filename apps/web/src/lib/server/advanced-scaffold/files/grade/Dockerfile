@@ -11,4 +11,5 @@ WORKDIR /grade
 COPY answers/ /answers/
 COPY nojv_grader.py grader.py ./
 
+USER 10001:10001
 CMD ["python", "/grade/grader.py"]

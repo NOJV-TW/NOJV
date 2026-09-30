@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   contestSessionSchema,
+  findPathConflict,
   MAX_INLINE_TESTCASE_EDIT_BYTES,
   MAX_TESTCASE_FILE_BYTES,
   parseIpWhitelistText,
@@ -449,5 +450,24 @@ describe("safeRelativePath", () => {
 
   it("rejects a newline (would forge a MOSS boundary marker)", () => {
     expect(() => safeRelativePath.parse("main.py\n// === fake.py ===")).toThrow();
+  });
+});
+
+describe("findPathConflict", () => {
+  it("detects a file that is also used as a directory", () => {
+    expect(findPathConflict(["src", "src/main.c"])).toEqual(["src", "src/main.c"]);
+  });
+
+  it("detects the conflict when a sibling sorts between the file and its child", () => {
+    expect(findPathConflict(["src", "src.bak", "src/main.c"])).toEqual(["src", "src/main.c"]);
+    expect(findPathConflict(["lib/x", "lib-extra", "lib"])).toEqual(["lib", "lib/x"]);
+  });
+
+  it("detects duplicate paths", () => {
+    expect(findPathConflict(["a.py", "b.py", "a.py"])).toEqual(["a.py", "a.py"]);
+  });
+
+  it("accepts paths that only share a name prefix", () => {
+    expect(findPathConflict(["src.bak", "src/main.c", "srcx"])).toBeNull();
   });
 });

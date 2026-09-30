@@ -51,7 +51,7 @@ test.describe("Problem Lifecycle", () => {
 
     await page.getByRole("button", { name: /save|儲存/i }).click();
 
-    await page.waitForTimeout(2000);
+    await expect(page.getByText("Saved", { exact: true })).toBeVisible();
     await context.close();
   });
 

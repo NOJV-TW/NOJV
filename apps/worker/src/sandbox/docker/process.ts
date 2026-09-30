@@ -16,6 +16,17 @@ const SANDBOX_JSON_OUTPUT_BYTES =
 
 export type DockerCommandFailure = "spawn" | "timeout" | "exit";
 
+function dockerCommandErrorMessage(
+  failure: DockerCommandFailure,
+  args: readonly string[],
+  stderr: string,
+  exitCode: number | null,
+): string {
+  if (failure === "timeout") return `Docker command timed out: docker ${args.join(" ")}`;
+  if (failure === "spawn") return `Docker command could not start: ${stderr}`;
+  return `Docker command failed (${String(exitCode)}): ${stderr || "no diagnostic output"}`;
+}
+
 export class DockerCommandError extends Error {
   constructor(
     readonly failure: DockerCommandFailure,
@@ -23,13 +34,7 @@ export class DockerCommandError extends Error {
     readonly stderr: string,
     readonly exitCode: number | null,
   ) {
-    super(
-      failure === "timeout"
-        ? `Docker command timed out: docker ${args.join(" ")}`
-        : failure === "spawn"
-          ? `Docker command could not start: ${stderr}`
-          : `Docker command failed (${String(exitCode)}): ${stderr || "no diagnostic output"}`,
-    );
+    super(dockerCommandErrorMessage(failure, args, stderr, exitCode));
     this.name = "DockerCommandError";
   }
 }

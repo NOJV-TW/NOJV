@@ -9,7 +9,7 @@ import {
   type SandboxResult,
   type SandboxTestcase,
 } from "@nojv/core";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, type TestContext } from "vitest";
 
 import {
   buildSeedProblemDefs,
@@ -75,8 +75,8 @@ beforeAll(async () => {
   unavailableReason = null;
 }, 60_000);
 
-function skipUnlessReady(ctx: { skip: () => void }): boolean {
-  if (unavailableReason === null) return false;
+function skipUnlessReady(ctx: Pick<TestContext, "skip">): void {
+  if (unavailableReason === null) return;
   if (process.env.REQUIRE_SEED_SMOKE === "1") {
     throw new Error(
       `seed Docker smoke required (REQUIRE_SEED_SMOKE=1) but ${unavailableReason} — run \`pnpm sandbox:build && pnpm demo-advanced:build\` first.`,
@@ -85,7 +85,6 @@ function skipUnlessReady(ctx: { skip: () => void }): boolean {
   // eslint-disable-next-line no-console
   console.warn(`[seed-docker-smoke] skipping: ${unavailableReason}`);
   ctx.skip();
-  return true;
 }
 
 function defFor(id: string): SeedProblemDef {
@@ -245,7 +244,7 @@ describe("seed Docker smoke — every problem judges correctly", () => {
       `${label} — correct → AC, wrong → ${solution?.wrong.expectVerdict ?? "?"}`,
       { timeout: PER_PROBLEM_TIMEOUT_MS },
       async (ctx) => {
-        if (skipUnlessReady(ctx)) return;
+        skipUnlessReady(ctx);
 
         const correct = await judge(def, "correct");
         expect(correct.compilationError, `${label} correct compile`).toBeUndefined();
@@ -336,44 +335,44 @@ const CE_SOURCE = `int main() {
 
 describe("seed Docker smoke — every verdict type appears", () => {
   it("AC: correct solution", { timeout: PER_PROBLEM_TIMEOUT_MS }, async (ctx) => {
-    if (skipUnlessReady(ctx)) return;
+    skipUnlessReady(ctx);
     const result = await probe("ac", { language: "python", sourceCode: AC_SOURCE });
     expect(result.compilationError).toBeUndefined();
     expect(verdicts(result).every((v) => v === "AC")).toBe(true);
   });
 
   it("WA: wrong output", { timeout: PER_PROBLEM_TIMEOUT_MS }, async (ctx) => {
-    if (skipUnlessReady(ctx)) return;
+    skipUnlessReady(ctx);
     const result = await probe("wa", { language: "python", sourceCode: WA_SOURCE });
     expect(result.compilationError).toBeUndefined();
     expect(verdicts(result).some((v) => v === "WA")).toBe(true);
   });
 
   it("TLE: infinite loop", { timeout: PER_PROBLEM_TIMEOUT_MS }, async (ctx) => {
-    if (skipUnlessReady(ctx)) return;
+    skipUnlessReady(ctx);
     const result = await probe("tle", { language: "python", sourceCode: TLE_SOURCE });
     expect(result.compilationError).toBeUndefined();
     expect(verdicts(result).some((v) => v === "TLE")).toBe(true);
   });
 
   it("MLE: allocate beyond limit", { timeout: PER_PROBLEM_TIMEOUT_MS }, async (ctx) => {
-    if (skipUnlessReady(ctx)) return;
+    skipUnlessReady(ctx);
     const result = await probe("mle", { language: "python", sourceCode: MLE_SOURCE }, 128);
     expect(result.compilationError).toBeUndefined();
     expect(verdicts(result).some((v) => v === "MLE")).toBe(true);
   });
 
   it("RE: non-zero exit", { timeout: PER_PROBLEM_TIMEOUT_MS }, async (ctx) => {
-    if (skipUnlessReady(ctx)) return;
+    skipUnlessReady(ctx);
     const result = await probe("re", { language: "python", sourceCode: RE_SOURCE });
     expect(result.compilationError).toBeUndefined();
     expect(verdicts(result).some((v) => v === "RE")).toBe(true);
   });
 
   it("CE: C++ syntax error", { timeout: PER_PROBLEM_TIMEOUT_MS }, async (ctx) => {
-    if (skipUnlessReady(ctx)) return;
+    skipUnlessReady(ctx);
     const result = await probe("ce", { language: "cpp", sourceCode: CE_SOURCE });
     expect(result.compilationError, "expected a compile error message").toBeTruthy();
-    expect(result.testcaseResults.length).toBe(0);
+    expect(result.testcaseResults).toHaveLength(0);
   });
 });

@@ -31,4 +31,6 @@ COPY packages/db/prisma/ packages/db/prisma/
 
 RUN pnpm --filter @nojv/db db:generate
 
+USER 1001
+
 CMD ["sh", "packages/db/prisma/scripts/deploy-release.sh"]

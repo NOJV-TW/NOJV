@@ -1,6 +1,6 @@
 import { createJudgeExecution } from "./judge-execution";
 import { prepareJudgeSnapshot } from "./judge-snapshot";
-import { reconcileJudgeExecutions } from "./judge-recovery";
+import { dispatchNextJudgeExecutions, reconcileJudgeExecutions } from "./judge-recovery";
 import { findOneForRejudge, listForRejudge } from "./judge-context";
 import { randomUUID } from "node:crypto";
 
@@ -17,7 +17,6 @@ import {
   ServiceUnavailableError,
 } from "../shared/errors";
 import type { ActorContext } from "../shared/actor-context";
-import { dispatchNextJudgeExecutions } from "./judge-recovery";
 import { toJsonValue } from "../shared/to-json-value";
 
 const REJUDGE_WORKFLOW_PREFIX = "rejudge-";
@@ -106,6 +105,16 @@ async function requireRejudge(actor: RejudgeActor, workflowId: string) {
   return work;
 }
 
+function rejudgeProgressStatus(
+  runs: { state: string }[],
+  completed: number,
+  terminal: boolean,
+): RejudgeProgress["status"] {
+  if (completed === runs.length) return "completed";
+  if (terminal) return "cancelled";
+  return runs.every((run) => run.state === "queued") ? "queued" : "running";
+}
+
 export async function queryRejudgeProgress(
   actor: RejudgeActor,
   workflowId: string,
@@ -122,14 +131,7 @@ export async function queryRejudgeProgress(
   const completed = runs.filter((run) => run.state === "completed").length;
   const terminal = runs.every((run) => ["completed", "cancelled"].includes(run.state));
   const progress: RejudgeProgress = {
-    status:
-      completed === runs.length
-        ? "completed"
-        : terminal
-          ? "cancelled"
-          : runs.every((run) => run.state === "queued")
-            ? "queued"
-            : "running",
+    status: rejudgeProgressStatus(runs, completed, terminal),
     completed,
     total: runs.length,
   };
@@ -277,14 +279,9 @@ export async function cancelRejudge(
     return count;
   });
   for (const userId of affectedUsers) await dispatchNextJudgeExecutions(userId);
-  return {
-    status:
-      cancelled || rows.some((run) => run.state === "cancelled")
-        ? "cancelled"
-        : rows.every((run) => run.state === "completed")
-          ? "completed"
-          : "requested",
-  };
+  if (cancelled || rows.some((run) => run.state === "cancelled"))
+    return { status: "cancelled" };
+  return { status: rows.every((run) => run.state === "completed") ? "completed" : "requested" };
 }
 
 async function requireRejudgeTarget(submissionId: string) {

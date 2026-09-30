@@ -196,7 +196,7 @@ export async function deleteProblemRecord(actor: ProblemActorContext, problemId:
           ]),
         ]
           .filter((pointer) => pointer !== null)
-          .map(assertStorageObjectPointer),
+          .map((pointer) => assertStorageObjectPointer(pointer)),
       ),
     ];
     const deleted = await tx.problem.delete({ where: { id: problemId } });

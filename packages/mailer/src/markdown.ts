@@ -34,11 +34,9 @@ function resolveEmailUrl(raw: string, baseUrl: string, kind: "link" | "image"): 
   if (value.startsWith("//") && kind === "link") return null;
   let url: URL;
   try {
-    url = value.startsWith("//")
-      ? new URL(`https:${value}`)
-      : value.startsWith("/")
-        ? new URL(value, baseUrl)
-        : new URL(value);
+    if (value.startsWith("//")) url = new URL(`https:${value}`);
+    else if (value.startsWith("/")) url = new URL(value, baseUrl);
+    else url = new URL(value);
   } catch {
     return null;
   }

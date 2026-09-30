@@ -568,7 +568,7 @@ describe("K8s judge — standard mode", () => {
     const result = await execute(request);
     expect(result.compilationError).toBeUndefined();
     expect(result.pipelineError).toBeUndefined();
-    expect(result.testcaseResults.length).toBe(2);
+    expect(result.testcaseResults).toHaveLength(2);
     for (const tc of result.testcaseResults) {
       expect(tc.verdict).toBe("AC");
     }
@@ -609,7 +609,7 @@ print("".join(chunks))
 
       const result = await execute(request);
       expect(result.compilationError).toBeUndefined();
-      expect(result.testcaseResults.length).toBe(2);
+      expect(result.testcaseResults).toHaveLength(2);
       for (const tc of result.testcaseResults) {
         expect(tc.verdict).not.toBe("AC");
       }
@@ -649,7 +649,7 @@ print("".join(chunks))
       const result = await execute(request);
       expect(result.compilationError).toBeUndefined();
       expect(result.pipelineError).toBeUndefined();
-      expect(result.testcaseResults.length).toBe(2);
+      expect(result.testcaseResults).toHaveLength(2);
       for (const tc of result.testcaseResults) {
         expect(tc.verdict).toBe("AC");
       }
@@ -690,7 +690,7 @@ describe("K8s judge — checker mode", () => {
       );
 
       expect(result.compilationError).toBeUndefined();
-      expect(result.testcaseResults.length).toBe(2);
+      expect(result.testcaseResults).toHaveLength(2);
       for (const tc of result.testcaseResults) {
         expect(tc.verdict).toBe("AC");
       }
@@ -760,7 +760,7 @@ print("".join(chunks))
       const result = await execute(checkerRequest({ submissionId, sourceCode: exploit }));
 
       expect(result.compilationError).toBeUndefined();
-      expect(result.testcaseResults.length).toBe(2);
+      expect(result.testcaseResults).toHaveLength(2);
       for (const tc of result.testcaseResults) {
         expect(tc.verdict).not.toBe("AC");
       }
@@ -798,7 +798,7 @@ describe("K8s judge — interactive mode", () => {
       );
 
       expect(result.compilationError).toBeUndefined();
-      expect(result.testcaseResults.length).toBe(2);
+      expect(result.testcaseResults).toHaveLength(2);
       for (const tc of result.testcaseResults) {
         expect(tc.verdict).toBe("AC");
       }
@@ -817,7 +817,7 @@ describe("K8s judge — interactive mode", () => {
       );
 
       expect(result.compilationError).toBeUndefined();
-      expect(result.testcaseResults.length).toBe(2);
+      expect(result.testcaseResults).toHaveLength(2);
       for (const tc of result.testcaseResults) {
         expect(tc.verdict).not.toBe("AC");
       }
@@ -856,7 +856,7 @@ for _ in range(20):
       const result = await execute(interactiveRequest({ submissionId, sourceCode: exploit }));
 
       expect(result.compilationError).toBeUndefined();
-      expect(result.testcaseResults.length).toBe(2);
+      expect(result.testcaseResults).toHaveLength(2);
       for (const tc of result.testcaseResults) {
         expect(tc.verdict).not.toBe("AC");
       }

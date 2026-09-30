@@ -32,7 +32,7 @@ function isWhitespace(ch: string | undefined): boolean {
 
 function isAsciiLetter(ch: string | undefined): boolean {
   if (ch === undefined) return false;
-  const code = ch.charCodeAt(0);
+  const code = ch.codePointAt(0) ?? 0;
   return (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
 }
 
@@ -46,7 +46,7 @@ function isAsciiAlphanumeric(ch: string | undefined): boolean {
 
 function isAsciiPunctuation(ch: string | undefined): boolean {
   if (ch === undefined) return false;
-  const code = ch.charCodeAt(0);
+  const code = ch.codePointAt(0) ?? 0;
   return (
     (code >= 33 && code <= 47) ||
     (code >= 58 && code <= 64) ||
@@ -71,8 +71,8 @@ function characterAt(line: string, index: number): string | undefined {
   const ch = line[index];
   if (
     ch !== undefined &&
-    isHighSurrogate(ch.charCodeAt(0)) &&
-    isLowSurrogate(line.charCodeAt(index + 1))
+    isHighSurrogate(ch.codePointAt(0) ?? 0) &&
+    isLowSurrogate(line.codePointAt(index + 1) ?? 0)
   ) {
     return line.slice(index, index + 2);
   }
@@ -83,7 +83,7 @@ function characterBefore(line: string, index: number): string | undefined {
   const ch = line[index - 1];
   if (
     ch !== undefined &&
-    isLowSurrogate(ch.charCodeAt(0)) &&
+    isLowSurrogate(ch.codePointAt(0) ?? 0) &&
     isHighSurrogate(line.charCodeAt(index - 2))
   ) {
     return line.slice(index - 2, index);
@@ -299,7 +299,7 @@ function markCodeSpans(line: string, mask: Uint8Array): void {
       delimiters.push(opener, opener + length, index, end);
       contents.push(opener + length, index);
       while (openLengths.length > 0) {
-        const top = openLengths[openLengths.length - 1] ?? 0;
+        const top = openLengths.at(-1) ?? 0;
         if ((openers.get(top) ?? -1) < opener) break;
         openLengths.pop();
         openers.set(top, -1);
@@ -350,11 +350,11 @@ function createLinkScanner(line: string, mask: Uint8Array): LinkScanner {
       if (line[index] === ")") stack.push(index);
       else if (line[index] === "(" && stack.length > 0) stack.pop();
     }
-    closerAt[index] = stack.length > 0 ? (stack[stack.length - 1] ?? -1) : -1;
+    closerAt[index] = stack.at(-1) ?? -1;
   }
   stack.length = 0;
   for (let index = 0; index < line.length; index++) {
-    openParenBefore[index] = stack.length > 0 ? (stack[stack.length - 1] ?? -1) : -1;
+    openParenBefore[index] = stack.at(-1) ?? -1;
     if (mask[index] === KEEP) {
       if (line[index] === "(") stack.push(index);
       else if (line[index] === ")" && stack.length > 0) stack.pop();
@@ -652,13 +652,10 @@ function emitLine(line: string, mask: Uint8Array): string {
     const ch = line[index] ?? "";
     if (flag === DROP) {
       index++;
-    } else if (flag === SPACE) {
-      text += " ";
-      index++;
     } else if (flag === LITERAL) {
       text += ch;
       index++;
-    } else if (ch === "|") {
+    } else if (flag === SPACE || ch === "|") {
       text += " ";
       index++;
     } else if (ch === "&") {

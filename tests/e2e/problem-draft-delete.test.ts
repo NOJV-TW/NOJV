@@ -37,7 +37,7 @@ for (const entry of ["list", "editor"] as const) {
               .filter({ has: page.locator(`a[href="/problems/${id}/edit"]`) })
               .getByRole("button", { name: "Delete", exact: true })
           : page.getByRole("button", { name: "Delete Problem", exact: true });
-      await page.waitForTimeout(3000);
+      await expect(page.getByRole("button", { name: /Open account menu/ })).toBeEnabled();
       await deleteButton.click();
       const response = page.waitForResponse(
         (res) => res.request().method() !== "GET" && res.url().includes(id),

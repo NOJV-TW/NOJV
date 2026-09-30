@@ -119,7 +119,7 @@ describe("decision index lists exactly the recorded decisions", () => {
   ].map((match) => match[1]);
 
   it("has unique decision IDs", () => {
-    expect(recorded.length).toBe(new Set(recorded).size);
+    expect(recorded).toHaveLength(new Set(recorded).size);
   });
 
   it("indexes every decision and nothing else", () => {

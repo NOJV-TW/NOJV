@@ -9,7 +9,8 @@ import { putImmutableObject } from "./object";
 
 let cachedBucket: string | undefined;
 function BUCKET(): string {
-  return (cachedBucket ??= getStorageEnv().S3_BUCKET);
+  cachedBucket ??= getStorageEnv().S3_BUCKET;
+  return cachedBucket;
 }
 
 function avatarKey(userId: string, filename: string): string {

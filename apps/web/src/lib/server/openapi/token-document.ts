@@ -38,7 +38,9 @@ for (const rule of listApiTokenRouteRules()) {
   if (rule.visibility !== "public") continue;
   const operation = fullPaths[rule.path]?.[rule.method.toLowerCase()];
   if (!operation) continue;
-  (tokenPaths[rule.path] ??= {})[rule.method.toLowerCase()] = operation;
+  const pathItem = tokenPaths[rule.path] ?? {};
+  pathItem[rule.method.toLowerCase()] = operation;
+  tokenPaths[rule.path] = pathItem;
 }
 for (const anonymousPath of ANONYMOUS_PATHS) {
   const pathItem = fullPaths[anonymousPath];
@@ -50,7 +52,7 @@ collectRefNames(tokenPaths, neededSchemas);
 let grew = true;
 while (grew) {
   grew = false;
-  for (const name of [...neededSchemas]) {
+  for (const name of neededSchemas) {
     const before = neededSchemas.size;
     collectRefNames(fullSchemas[name], neededSchemas);
     if (neededSchemas.size > before) grew = true;

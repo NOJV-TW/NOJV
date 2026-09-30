@@ -171,7 +171,7 @@ describe("interactive-mode two-container isolation (Phase 2C)", () => {
     "excludes delayed C++ interactor compilation from the one-second student limit",
     { timeout: 180_000 },
     async (ctx) => {
-      if (!(await requireSandboxImage(ctx))) return;
+      await requireSandboxImage(ctx);
       await withDelayedCompiler("g++", 3, async (image) => {
         const started = performance.now();
         const result = await execute(
@@ -216,7 +216,7 @@ int main(int argc, char** argv) {
     "excludes student compilation beyond the interactor budget from judge execution time",
     { timeout: 180_000 },
     async (ctx) => {
-      if (!(await requireSandboxImage(ctx))) return;
+      await requireSandboxImage(ctx);
       await withDelayedCompiler("gcc", 32, async (image) => {
         const started = performance.now();
         const result = await execute(
@@ -255,7 +255,7 @@ else:
     "keeps a student compiler diagnostic off the interactive stdout channel",
     { timeout: 60_000 },
     async (ctx) => {
-      if (!(await requireSandboxImage(ctx))) return;
+      await requireSandboxImage(ctx);
       const request = interactiveRequest({ language: "c", sourceCode: "int main( {\n" });
       const directory = await mkdtemp(join(tmpdir(), "nojv-interactive-ce-"));
       try {
@@ -285,7 +285,7 @@ else:
     "returns student compilation failure as top-level CE, not platform failure",
     { timeout: 120_000 },
     async (ctx) => {
-      if (!(await requireSandboxImage(ctx))) return;
+      await requireSandboxImage(ctx);
       const result = await execute(
         interactiveRequest({
           submissionId: "interactive-student-ce",
@@ -302,7 +302,7 @@ else:
     "keeps interactor compilation failure as SE with a staff diagnostic",
     { timeout: 120_000 },
     async (ctx) => {
-      if (!(await requireSandboxImage(ctx))) return;
+      await requireSandboxImage(ctx);
       const result = await execute(
         interactiveRequest({
           submissionId: "interactive-interactor-ce",
@@ -325,7 +325,7 @@ else:
     "executes a C++ interactor in its declared language",
     { timeout: 180_000 },
     async (ctx) => {
-      if (!(await requireSandboxImage(ctx))) return;
+      await requireSandboxImage(ctx);
       const result = await execute(
         interactiveRequest({
           submissionId: "interactor-cpp-language",
@@ -347,7 +347,7 @@ else:
     "grades a correct binary-search solution as AC with a partial score",
     { timeout: 240_000 },
     async (ctx) => {
-      if (!(await requireSandboxImage(ctx))) return;
+      await requireSandboxImage(ctx);
 
       const result = await execute(
         interactiveRequest({
@@ -357,7 +357,7 @@ else:
       );
 
       expect(result.compilationError).toBeUndefined();
-      expect(result.testcaseResults.length).toBe(2);
+      expect(result.testcaseResults).toHaveLength(2);
       for (const tc of result.testcaseResults) {
         expect(tc.verdict).toBe("AC");
       }
@@ -368,7 +368,7 @@ else:
     "grades a solution that never finds the number as WA",
     { timeout: 240_000 },
     async (ctx) => {
-      if (!(await requireSandboxImage(ctx))) return;
+      await requireSandboxImage(ctx);
 
       const result = await execute(
         interactiveRequest({
@@ -378,7 +378,7 @@ else:
       );
 
       expect(result.compilationError).toBeUndefined();
-      expect(result.testcaseResults.length).toBe(2);
+      expect(result.testcaseResults).toHaveLength(2);
       for (const tc of result.testcaseResults) {
         expect(tc.verdict).toBe("WA");
       }
@@ -389,7 +389,7 @@ else:
     "splits interactor messages: teammessage → student feedback, judgemessage → staffFeedback",
     { timeout: 240_000 },
     async (ctx) => {
-      if (!(await requireSandboxImage(ctx))) return;
+      await requireSandboxImage(ctx);
 
       const result = await execute(
         interactiveRequest({
@@ -399,7 +399,7 @@ else:
       );
 
       expect(result.compilationError).toBeUndefined();
-      expect(result.testcaseResults.length).toBe(2);
+      expect(result.testcaseResults).toHaveLength(2);
       for (const tc of result.testcaseResults) {
         expect(tc.verdict).toBe("AC");
         expect(tc.feedback).toMatch(/^found in \d+ guesses$/);
@@ -414,7 +414,7 @@ else:
     "reports an interactor crash as system error with a staff diagnostic",
     { timeout: 240_000 },
     async (ctx) => {
-      if (!(await requireSandboxImage(ctx))) return;
+      await requireSandboxImage(ctx);
 
       const result = await execute(
         interactiveRequest({
@@ -440,7 +440,7 @@ else:
     "does not expose the secret input to the solution container",
     { timeout: 240_000 },
     async (ctx) => {
-      if (!(await requireSandboxImage(ctx))) return;
+      await requireSandboxImage(ctx);
 
       const result = await execute(
         interactiveRequest({
@@ -450,7 +450,7 @@ else:
       );
 
       expect(result.compilationError).toBeUndefined();
-      expect(result.testcaseResults.length).toBe(2);
+      expect(result.testcaseResults).toHaveLength(2);
       for (const tc of result.testcaseResults) {
         expect(tc.verdict).not.toBe("AC");
       }

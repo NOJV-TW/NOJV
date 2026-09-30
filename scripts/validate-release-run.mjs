@@ -5,7 +5,7 @@ import { appendFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
-const VERSION_PATTERN = /^v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/;
+const VERSION_PATTERN = /^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/;
 const RELEASE_PACKAGES = ["nojv-web", "nojv-worker", "nojv-migrator", "nojv-sandbox"];
 
 function requireValue(label, actual, expected) {
@@ -107,7 +107,7 @@ export function validatePublishedImage(input) {
   }
   if (
     typeof input.ref !== "string" ||
-    !/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?(?::[1-9][0-9]{0,4})?\/[a-z0-9._-]+(?:\/[a-z0-9._-]+)*$/u.test(
+    !/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?(?::[1-9]\d{0,4})?\/[a-z0-9._-]+(?:\/[a-z0-9._-]+)*$/u.test(
       input.ref,
     )
   ) {
@@ -226,7 +226,7 @@ async function listPackageTags({ apiRoot, owner, packageName, token }) {
     }
     const versions = await response.json();
     if (!Array.isArray(versions)) {
-      throw new Error(`GitHub package lookup returned invalid data for ${packageName}`);
+      throw new TypeError(`GitHub package lookup returned invalid data for ${packageName}`);
     }
     for (const version of versions) {
       const versionTags = version?.metadata?.container?.tags;
@@ -261,7 +261,7 @@ async function listCheckRuns({ apiRoot, repository, releaseSha, token }) {
   }
   const payload = await response.json();
   if (!Array.isArray(payload?.check_runs)) {
-    throw new Error("GitHub check lookup returned invalid data");
+    throw new TypeError("GitHub check lookup returned invalid data");
   }
   return payload.check_runs;
 }
@@ -397,8 +397,10 @@ async function main() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main().catch((error) => {
+  try {
+    await main();
+  } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
-  });
+  }
 }

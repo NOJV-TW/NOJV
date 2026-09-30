@@ -117,8 +117,10 @@ export async function updateExamRecord(
       payload.startsAt === undefined ? exam.startsAt : new Date(payload.startsAt);
     const effectiveEndsAt =
       payload.endsAt === undefined ? exam.endsAt : new Date(payload.endsAt);
-    const effectiveDueAt =
-      payload.dueAt === undefined ? exam.dueAt : payload.dueAt ? new Date(payload.dueAt) : null;
+    let effectiveDueAt = exam.dueAt;
+    if (payload.dueAt !== undefined) {
+      effectiveDueAt = payload.dueAt ? new Date(payload.dueAt) : null;
+    }
     if (exam.examPasswordLockedAt && payload.examPasswordEnabled === false) {
       throw new ValidationError(
         "Temporary exam password sign-in cannot be disabled after emails start.",

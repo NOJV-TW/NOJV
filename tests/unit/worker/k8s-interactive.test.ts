@@ -204,7 +204,7 @@ describe("buildInteractiveJobManifest — per-container volumeMounts isolate the
   it("pod template has exactly two containers named 'solution' and 'interactor'", () => {
     const manifest = buildInteractiveJobManifest(params);
     const containers = manifest.spec!.template.spec!.containers;
-    expect(containers.length).toBe(2);
+    expect(containers).toHaveLength(2);
     const names = containers.map((c) => c.name).sort();
     expect(names).toEqual(["interactor", "solution"]);
   });

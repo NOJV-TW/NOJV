@@ -170,12 +170,16 @@ test("teacher changes exam password and student signs in through the new login f
     }
     await capture(teacherPage, "credentials");
     await loginPage.goto("/signin");
-    await loginPage.waitForLoadState("networkidle");
-    await loginPage
-      .getByRole("button", { name: "Continue with password", exact: true })
-      .click();
     const loginDialog = loginPage.getByRole("dialog");
-    await expect(loginDialog.locator('input[name="username"]')).toBeVisible();
+    await expect(async () => {
+      if (await loginDialog.locator('input[name="username"]').isVisible()) return;
+      await loginPage
+        .getByRole("button", { name: "Continue with password", exact: true })
+        .click({ timeout: 2000 });
+      await expect(loginDialog.locator('input[name="username"]')).toBeVisible({
+        timeout: 1000,
+      });
+    }).toPass({ timeout: 30_000 });
     await capture(loginPage, "password-login");
     await loginDialog.locator('input[name="username"]').fill(user.username!);
     await loginDialog.locator('input[name="password"]').fill("ExampleOnlyPass123");

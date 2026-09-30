@@ -86,7 +86,7 @@ export async function saveProblemJudgeConfig(
       ),
       removed: [current.checkerStorage, current.interactorStorage]
         .filter((pointer) => pointer !== null)
-        .map(assertStorageObjectPointer),
+        .map((pointer) => assertStorageObjectPointer(pointer)),
     });
     return { id: problemId };
   });
@@ -199,7 +199,7 @@ export async function convertProblemToAdvancedMode(
         ...testcaseSets.flatMap(({ testcases }) => testcases.flatMap(testcaseStoragePointers)),
         ...[problem.checkerStorage, problem.interactorStorage]
           .filter((pointer) => pointer !== null)
-          .map(assertStorageObjectPointer),
+          .map((pointer) => assertStorageObjectPointer(pointer)),
       ],
     });
   });

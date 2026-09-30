@@ -21,7 +21,7 @@ const PROBE_WAIT_TIMEOUT_MS = 60_000;
 export const RUNTIME_PROBE_IMAGE_COMMAND = [
   "node",
   "-e",
-  "process.stdout.write('NOJV_GVISOR_RUNTIME_OK\\n')",
+  String.raw`process.stdout.write('NOJV_GVISOR_RUNTIME_OK\n')`,
 ];
 
 export interface RuntimeProbePodParams {

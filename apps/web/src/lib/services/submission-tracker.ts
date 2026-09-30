@@ -143,8 +143,9 @@ async function discover(signal: AbortSignal, currentEpoch: number) {
   const found = new Set<string>();
   let changed = false;
   do {
+    const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
     const page: { items: unknown[]; nextCursor: string | null } = await submissionRead(
-      `/api/submissions/pending${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
+      `/api/submissions/pending${query}`,
       signal,
     );
     if (signal.aborted || epoch !== currentEpoch) return { found, changed };
@@ -239,7 +240,8 @@ async function refresh() {
     if (epoch === currentEpoch && !signal.aborted) {
       retryMs = failed ? Math.min(retryMs * 2, 30_000) : ACTIVE_POLL_MS;
       const idle = !tracked.size && !rejudges.size && !refreshers.size && !syncPage;
-      const delay = rerun ? 0 : idle && !failed ? IDLE_POLL_MS : retryMs;
+      const pollDelay = idle && !failed ? IDLE_POLL_MS : retryMs;
+      const delay = rerun ? 0 : pollDelay;
       rerun = false;
       schedule(delay);
     }

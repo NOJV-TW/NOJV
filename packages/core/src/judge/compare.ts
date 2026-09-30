@@ -12,7 +12,7 @@ function tokenize(s: string): string[] {
 }
 
 function parseNumber(token: string): Decimal | null {
-  if (/^[+-]?nan(?:\([a-z0-9_]*\))?$/i.test(token)) return new JudgeNumber(NaN);
+  if (/^[+-]?nan(?:\([a-z0-9_]*\))?$/i.test(token)) return new JudgeNumber(Number.NaN);
   if (/^[+-]?inf(?:inity)?$/i.test(token)) {
     return new JudgeNumber(token.startsWith("-") ? -Infinity : Infinity);
   }
@@ -28,14 +28,15 @@ function parseNumber(token: string): Decimal | null {
     const retained = digits.slice(0, 32);
     const power =
       Number(hex[3] ?? 0) - 4 * fractionDigits + 4 * (digits.length - retained.length);
-    value =
-      power > 20_000
-        ? new JudgeNumber(Infinity)
-        : power < -20_000
-          ? new JudgeNumber(0)
-          : new JudgeNumber(BigInt(`0x${retained}`).toString()).times(
-              new JudgeNumber(2).pow(power),
-            );
+    if (power > 20_000) {
+      value = new JudgeNumber(Infinity);
+    } else if (power < -20_000) {
+      value = new JudgeNumber(0);
+    } else {
+      value = new JudgeNumber(BigInt(`0x${retained}`).toString()).times(
+        new JudgeNumber(2).pow(power),
+      );
+    }
     if (hex[1] === "-") value = value.negated();
   } else {
     if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(token)) return null;

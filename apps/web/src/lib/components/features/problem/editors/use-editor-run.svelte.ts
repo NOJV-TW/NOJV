@@ -64,6 +64,35 @@ export interface EditorRunController {
   markDestroyed: () => void;
 }
 
+function messageForSubmitError(code: string | null): string {
+  switch (code) {
+    case "client_test_custom_image":
+      return m.editor_clientTestCustomImage();
+    case "client_test_private_judge":
+      return m.editor_clientTestPrivateJudge();
+    case "client_test_language":
+      return m.editor_clientTestLanguage();
+    case "invalid_source":
+      return m.editor_invalidSource();
+    case "invalid_run_cases":
+      return m.editor_invalidRunCases();
+    case "request_too_large":
+      return m.editor_requestTooLarge();
+    case "SUBMISSION_TIMEOUT":
+      return m.editor_requestTimedOut();
+    case "daily_limit":
+      return m.submit_error_dailyLimit();
+    case "window_closed":
+      return m.submit_error_windowClosed();
+    case "ip_blocked":
+      return m.submit_error_ipBlocked();
+    case "language_not_allowed":
+      return m.submit_error_languageNotAllowed();
+    default:
+      return m.editor_submitFailed();
+  }
+}
+
 export function createEditorRunController(args: EditorRunArgs): EditorRunController {
   let isRunning = $state(false);
   let isSubmitting = $state(false);
@@ -163,35 +192,6 @@ export function createEditorRunController(args: EditorRunArgs): EditorRunControl
       runStatus = null;
     } finally {
       isRunning = false;
-    }
-  }
-
-  function messageForSubmitError(code: string | null): string {
-    switch (code) {
-      case "client_test_custom_image":
-        return m.editor_clientTestCustomImage();
-      case "client_test_private_judge":
-        return m.editor_clientTestPrivateJudge();
-      case "client_test_language":
-        return m.editor_clientTestLanguage();
-      case "invalid_source":
-        return m.editor_invalidSource();
-      case "invalid_run_cases":
-        return m.editor_invalidRunCases();
-      case "request_too_large":
-        return m.editor_requestTooLarge();
-      case "SUBMISSION_TIMEOUT":
-        return m.editor_requestTimedOut();
-      case "daily_limit":
-        return m.submit_error_dailyLimit();
-      case "window_closed":
-        return m.submit_error_windowClosed();
-      case "ip_blocked":
-        return m.submit_error_ipBlocked();
-      case "language_not_allowed":
-        return m.submit_error_languageNotAllowed();
-      default:
-        return m.editor_submitFailed();
     }
   }
 

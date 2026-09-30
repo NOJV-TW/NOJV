@@ -115,7 +115,7 @@ export async function runStage(params: RunStageParams): Promise<RawCaseRun[]> {
   if (params.outputDir)
     await writeStageRuns(
       params.outputDir,
-      records.sort((a, b) => a.index - b.index),
+      records.toSorted((a, b) => a.index - b.index),
     );
   return params.caseIndices.flatMap((index) => runs.get(index) ?? []);
 }

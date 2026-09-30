@@ -33,15 +33,21 @@ export const load: PageServerLoad = async (event) => {
   }
   const streamed = { activity };
   const storedRole = event.locals.sessionUser?.platformRole;
-  const automaticTourRole =
+  let automaticTourRole: "student" | "teacher" | null = null;
+  if (
     view === "personal" &&
     storedRole === "student" &&
     stats.totalAttempts === 0 &&
     user?.studentTourSeenAt === null
-      ? "student"
-      : view === "personal" && storedRole === "teacher" && user?.teacherTourSeenAt === null
-        ? "teacher"
-        : null;
+  ) {
+    automaticTourRole = "student";
+  } else if (
+    view === "personal" &&
+    storedRole === "teacher" &&
+    user?.teacherTourSeenAt === null
+  ) {
+    automaticTourRole = "teacher";
+  }
 
   return {
     view,

@@ -76,7 +76,7 @@ export async function seedEngagement(
 ): Promise<void> {
   const now = Date.now();
   const { teacher, student, demoStudents } = refs;
-  const rng = new SeededRng(0x5eed_9000);
+  const rng = new SeededRng(0x5e_ed_90_00);
   const storage = createStorageClient();
 
   await prisma.contentReport.deleteMany({});

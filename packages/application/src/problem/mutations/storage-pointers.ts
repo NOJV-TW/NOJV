@@ -37,7 +37,9 @@ export function testcaseStoragePointers(testcase: {
     ...(testcase.outputStorage === null
       ? []
       : [assertStorageObjectPointer(testcase.outputStorage)]),
-    ...Object.values((files ?? {}) as Record<string, unknown>).map(assertStorageObjectPointer),
+    ...Object.values((files ?? {}) as Record<string, unknown>).map((pointer) =>
+      assertStorageObjectPointer(pointer),
+    ),
   ];
 }
 
@@ -56,7 +58,7 @@ export function problemStoragePointers(problem: {
   return [
     ...[problem.checkerStorage, problem.interactorStorage]
       .filter((pointer) => pointer !== null)
-      .map(assertStorageObjectPointer),
+      .map((pointer) => assertStorageObjectPointer(pointer)),
     ...problem.workspaceFiles.map(({ contentStorage }) =>
       assertStorageObjectPointer(contentStorage),
     ),

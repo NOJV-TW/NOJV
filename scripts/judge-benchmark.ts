@@ -217,6 +217,12 @@ function trialKey(trial: Trial) {
   return `${trial.workload}/${trial.cases}/${trial.load}/${trial.cache}/${trial.repetition}`;
 }
 
+function loadDurationMs(shape: Trial["load"]) {
+  if (shape === "single") return 0;
+  if (shape === "burst") return 60_000;
+  return 600_000;
+}
+
 export function compareTrials(baselineInput: unknown, candidateInput: unknown) {
   const baseline = z.array(trialSchema).parse(baselineInput);
   const candidate = z.array(trialSchema).parse(candidateInput);
@@ -235,8 +241,7 @@ export function compareTrials(baselineInput: unknown, candidateInput: unknown) {
     for (const trial of trials) {
       const prefix = `${name}/${trialKey(trial)}`;
       const expectedCount = trial.load === "single" ? 1 : 100;
-      const expectedDuration =
-        trial.load === "single" ? 0 : trial.load === "burst" ? 60_000 : 600_000;
+      const expectedDuration = loadDurationMs(trial.load);
       if (trial.scheduledDurationMs !== expectedDuration)
         failures.push(`${prefix}: unexpected load duration`);
       if (
@@ -268,8 +273,7 @@ export function compareTrials(baselineInput: unknown, candidateInput: unknown) {
         failures.push(`${prefix}: missing or duplicate submission IDs`);
       const telemetry = trial.telemetry;
       if (
-        !telemetry ||
-        !telemetry.verdictFixturesPassed ||
+        !telemetry?.verdictFixturesPassed ||
         telemetry.oomCount ||
         telemetry.runtimeLeakCount ||
         telemetry.starvationCount ||
@@ -435,7 +439,7 @@ export async function collectTrial(
 ) {
   const fixture = manifest.fixtures.find((item) => item.id === options.fixtureId);
   if (!fixture) throw new Error("Unknown fixture");
-  const duration = options.load === "single" ? 0 : options.load === "burst" ? 60_000 : 600_000;
+  const duration = loadDurationMs(options.load);
   const startedAt = Date.now();
   assertTargetAuthorized(manifest, startedAt, duration + options.timeoutMs);
   const accounts = manifest.accounts.slice(0, options.load === "single" ? 1 : 100);
@@ -629,11 +633,18 @@ async function main() {
   );
 }
 
+function failureMessage(error: unknown) {
+  if (error instanceof z.ZodError)
+    return "Invalid benchmark data; inspect the documented schema.";
+  if (error instanceof Error) return error.message;
+  return "Benchmark failed";
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  void main().catch((error: unknown) => {
-    process.stderr.write(
-      `${error instanceof z.ZodError ? "Invalid benchmark data; inspect the documented schema." : error instanceof Error ? error.message : "Benchmark failed"}\n`,
-    );
+  try {
+    await main();
+  } catch (error: unknown) {
+    process.stderr.write(`${failureMessage(error)}\n`);
     process.exitCode = 1;
-  });
+  }
 }
