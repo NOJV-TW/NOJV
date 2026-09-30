@@ -1,10 +1,10 @@
-const ESC = String.fromCharCode(27);
-const BEL = String.fromCharCode(7);
+const ESC = String.fromCodePoint(27);
+const BEL = String.fromCodePoint(7);
 const ANSI_ESCAPE = new RegExp(
-  `${ESC}(?:\\][^${BEL}]*(?:${BEL}|${ESC}\\\\)|\\[[0-?]*[ -/]*[@-~])`,
+  String.raw`${ESC}(?:\][^${BEL}]*(?:${BEL}|${ESC}\\)|\[[0-?]*[ -/]*[@-~])`,
   "g",
 );
-const INTERNAL_TRACEBACK_FRAME = /^\s*File "(?:<frozen [^"]+>|[^"]*(?:\/|\\)\.forge(?:\/|\\))/;
+const INTERNAL_TRACEBACK_FRAME = /^\s*File "(?:<frozen [^"]+>|[^"]*[/\\]\.forge[/\\])/;
 const TRACEBACK_MARKER = /^\s*[\^~]+$/;
 
 export function formatJudgeOutput(value: string): string {

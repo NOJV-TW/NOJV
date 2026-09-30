@@ -86,9 +86,7 @@ export async function settleCleanupSteps(
       reason:
         result.reason instanceof CleanupTimeoutError
           ? "timed out"
-          : result.reason instanceof Error
-            ? result.reason.message
-            : describeUnknown(result.reason),
+          : describeUnknown(result.reason),
     });
   }
 

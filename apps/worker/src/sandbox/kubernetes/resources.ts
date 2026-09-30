@@ -307,15 +307,26 @@ export class KubernetesSandboxResources {
   }
 
   async createStageJob(
-    jobName: string,
-    namespace: string,
-    payloads: { run: string[]; judge: string[] },
-    deadlineSeconds: number,
-    request: SandboxRequest,
-    runParallelism: number,
-    runMemoryLimit: string,
+    params: {
+      jobName: string;
+      namespace: string;
+      payloads: { run: string[]; judge: string[] };
+      deadlineSeconds: number;
+      request: SandboxRequest;
+      runParallelism: number;
+      runMemoryLimit: string;
+    },
     signal: AbortSignal,
   ): Promise<void> {
+    const {
+      jobName,
+      namespace,
+      payloads,
+      deadlineSeconds,
+      request,
+      runParallelism,
+      runMemoryLimit,
+    } = params;
     signal.throwIfAborted();
     const memoryLimit = resolveK8sMemoryLimit(request, this.config);
     await this.createSandboxJob(

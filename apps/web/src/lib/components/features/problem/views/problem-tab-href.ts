@@ -3,5 +3,6 @@ export function problemTabHref(currentUrl: URL, nextTab: "public" | "mine" | "al
   if (nextTab === "public") params.delete("tab");
   else params.set("tab", nextTab);
   const query = params.toString();
-  return `${currentUrl.pathname}${query ? `?${query}` : ""}`;
+  const search = query ? `?${query}` : "";
+  return `${currentUrl.pathname}${search}`;
 }

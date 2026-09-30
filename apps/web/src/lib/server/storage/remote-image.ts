@@ -8,7 +8,8 @@ import {
 let client: ReturnType<typeof createStorageClient> | undefined;
 
 function storageClient(): ReturnType<typeof createStorageClient> {
-  return (client ??= createStorageClient());
+  client ??= createStorageClient();
+  return client;
 }
 
 export async function readCachedRemoteImage(url: string) {

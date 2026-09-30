@@ -94,7 +94,8 @@ const IMAGE_PROXY_PATH = "/api/images/proxy?url=";
 function proxyImageSource(value: string): string | null {
   const source = value.trim();
   if (source.startsWith("//")) {
-    return `${IMAGE_PROXY_PATH}${encodeURIComponent(new URL(`https:${source}`).href)}`;
+    const absolute = new URL(`https:${source}`).href;
+    return `${IMAGE_PROXY_PATH}${encodeURIComponent(absolute)}`;
   }
 
   let url: URL;

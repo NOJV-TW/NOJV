@@ -159,10 +159,11 @@ export async function runInteractorStage(params: {
     } catch (error) {
       clearTimeout(timer);
       child.kill("SIGKILL");
+      const detail = error instanceof Error ? error.message : String(error);
       const message =
         error instanceof InteractiveProtocolError
           ? `Interactive protocol violation: ${error.message}`
-          : `Interactive channel failed: ${error instanceof Error ? error.message : String(error)}`;
+          : `Interactive channel failed: ${detail}`;
       for (const remaining of params.cases.slice(position))
         emitValidateReport({ index: remaining, verdict: "WA", judgeMessage: message });
       return;

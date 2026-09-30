@@ -50,7 +50,7 @@ export const safeRelativePath = z
 
 function hasControlOrNul(path: string): boolean {
   for (let i = 0; i < path.length; i += 1) {
-    const code = path.charCodeAt(i);
+    const code = path.codePointAt(i) ?? 0;
     if (code <= 0x1f || code === 0x7f) {
       return true;
     }
@@ -59,11 +59,16 @@ function hasControlOrNul(path: string): boolean {
 }
 
 export function findPathConflict(paths: readonly string[]): [string, string] | null {
-  let previous: string | undefined;
-  for (const current of [...paths].sort()) {
-    if (previous !== undefined && (current === previous || current.startsWith(`${previous}/`)))
-      return [previous, current];
-    previous = current;
+  const seen = new Set<string>();
+  for (const path of paths) {
+    if (seen.has(path)) return [path, path];
+    seen.add(path);
+  }
+  for (const path of paths) {
+    for (let slash = path.indexOf("/"); slash !== -1; slash = path.indexOf("/", slash + 1)) {
+      const parent = path.slice(0, slash);
+      if (seen.has(parent)) return [parent, path];
+    }
   }
   return null;
 }

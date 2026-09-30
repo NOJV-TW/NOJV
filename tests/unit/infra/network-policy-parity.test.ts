@@ -58,13 +58,7 @@ function executorLabelSets(): Record<string, string>[] {
   return sets;
 }
 
-const helm = helmAvailable();
-const describeHelm = helm ? describe : describe.skip;
-if (!helm) {
-  describe.skip("NetworkPolicy ↔ chart parity (skipped: helm not installed)", () => {
-    it.skip("requires helm to render infra/charts/nojv", () => {});
-  });
-}
+const describeHelm = describe.skipIf(!helmAvailable());
 
 describeHelm(
   "NetworkPolicy global deny-all ↔ executor labels (sandbox isolation drift gate)",

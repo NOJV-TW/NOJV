@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, type TestContext } from "vitest";
 
 import { compareStandard, sourceFileNames } from "@nojv/core";
 
@@ -64,10 +64,9 @@ function expectMleVerdict(languageName: string, verdict: string): void {
   expect(verdict).toBe("MLE");
 }
 
-async function skipIfMissing(name: string): Promise<boolean> {
+async function skipIfMissing(name: string, ctx: Pick<TestContext, "skip">): Promise<void> {
   const compiler = compilerCommands[name];
-  if (compiler && !(await commandExists(compiler))) return true;
-  return false;
+  if (compiler && !(await commandExists(compiler))) ctx.skip();
 }
 
 const correctPrograms: Record<string, LangEntry> = {
@@ -271,8 +270,8 @@ describe("standard judge", () => {
   for (const [name, prog] of Object.entries(correctPrograms)) {
     it(
       `AC — ${name}`,
-      async () => {
-        if (await skipIfMissing(name)) return;
+      async (ctx) => {
+        await skipIfMissing(name, ctx);
         const result = await compileProgram(prog.language, prog.source);
         expect(result.success).toBe(true);
         if (!result.success) return;
@@ -291,8 +290,8 @@ describe("standard judge", () => {
   for (const [name, prog] of Object.entries(correctPrograms)) {
     it(
       `WA — ${name}`,
-      async () => {
-        if (await skipIfMissing(name)) return;
+      async (ctx) => {
+        await skipIfMissing(name, ctx);
         const result = await compileProgram(prog.language, prog.source);
         expect(result.success).toBe(true);
         if (!result.success) return;
@@ -306,8 +305,8 @@ describe("standard judge", () => {
   for (const [name, prog] of Object.entries(crashPrograms)) {
     it(
       `RE — ${name}`,
-      async () => {
-        if (await skipIfMissing(name)) return;
+      async (ctx) => {
+        await skipIfMissing(name, ctx);
         const result = await compileProgram(prog.language, prog.source);
         expect(result.success).toBe(true);
         if (!result.success) return;
@@ -326,8 +325,8 @@ describe("standard judge", () => {
   for (const [name, prog] of Object.entries(tlePrograms)) {
     it(
       `TLE — ${name}`,
-      async () => {
-        if (await skipIfMissing(name)) return;
+      async (ctx) => {
+        await skipIfMissing(name, ctx);
         const result = await compileProgram(prog.language, prog.source);
         expect(result.success).toBe(true);
         if (!result.success) return;
@@ -344,8 +343,8 @@ describe("standard judge", () => {
   }
 
   for (const [name, prog] of Object.entries(invalidSources)) {
-    it(`CE — ${name}`, async () => {
-      if (await skipIfMissing(name)) return;
+    it(`CE — ${name}`, async (ctx) => {
+      await skipIfMissing(name, ctx);
       const result = await compileProgram(prog.language, prog.source);
       expect(result.success).toBe(false);
       if (result.success) return;
@@ -356,8 +355,8 @@ describe("standard judge", () => {
   for (const [name, prog] of Object.entries(mlePrograms)) {
     it(
       `MLE — ${name}`,
-      async () => {
-        if (await skipIfMissing(name)) return;
+      async (ctx) => {
+        await skipIfMissing(name, ctx);
         const result = await compileProgram(prog.language, prog.source);
         expect(result.success).toBe(true);
         if (!result.success) return;

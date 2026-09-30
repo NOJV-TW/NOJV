@@ -6,8 +6,8 @@ import type {
   rawCaseRunSchema,
   sandboxOutputSchema,
   sandboxTestcaseResultSchema,
+  sandboxVerdicts,
 } from "./schemas/sandbox-output";
-import type { sandboxVerdicts } from "./schemas/sandbox-output";
 export { sandboxVerdicts } from "./schemas/sandbox-output";
 import type { CompareConfig, JudgeScriptLanguage } from "./schemas/judge-config";
 import { parseRelativePath } from "./schemas/path";

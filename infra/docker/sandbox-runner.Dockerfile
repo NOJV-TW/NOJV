@@ -11,7 +11,8 @@ COPY tooling/typescript/package.json tooling/typescript/
 COPY tooling/typescript/base.json tooling/typescript/
 COPY apps/sandbox-runner/package.json apps/sandbox-runner/
 COPY packages/core/package.json packages/core/
-RUN --mount=type=cache,id=pnpm-store-alpine,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile --filter @nojv/sandbox-runner...
+RUN --mount=type=cache,id=pnpm-store-alpine,target=/root/.local/share/pnpm/store \
+  pnpm install --frozen-lockfile --filter @nojv/sandbox-runner...
 
 ENV pnpm_config_verify_deps_before_run=false
 
@@ -29,7 +30,8 @@ COPY packages/core/src/judge-environment.json /runner/judge-environment.json
 
 RUN test "$(cat /etc/alpine-release)" = "$(node -p "require('/runner/judge-environment.json').platform.version")" \
   && test "$(node --version)" = "v$(node -p "require('/runner/judge-environment.json').platform.nodeVersion")" \
-  && apk add --no-cache $(node -e "const { apkPackages } = require('/runner/judge-environment.json'); process.stdout.write(Object.entries(apkPackages).map(([name, version]) => name + '=' + version).join(' '))") \
+  && apk add --no-cache $(node -e "const { apkPackages } = require('/runner/judge-environment.json'); \
+    process.stdout.write(Object.entries(apkPackages).map(([name, version]) => name + '=' + version).join(' '))") \
   && addgroup -S sandbox -g 10001 \
   && adduser -S -D -h /home/sandbox -u 10001 -G sandbox sandbox \
   && mkdir -p /runner /workspace /tmp \

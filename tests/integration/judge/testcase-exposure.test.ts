@@ -32,7 +32,7 @@ describe("standard-mode testcase exposure (isolation)", () => {
     "rejects a missing explicit entry file even when the default exists",
     { timeout: 120_000 },
     async (ctx) => {
-      if (!(await requireSandboxImage(ctx))) return;
+      await requireSandboxImage(ctx);
 
       const executor = new DockerExecutor({
         cpuLimit: "1.0",
@@ -65,7 +65,7 @@ describe("standard-mode testcase exposure (isolation)", () => {
     "cannot read expected output from inside the sandbox (verdict WA)",
     { timeout: 120_000 },
     async (ctx) => {
-      if (!(await requireSandboxImage(ctx))) return;
+      await requireSandboxImage(ctx);
 
       const executor = new DockerExecutor({
         cpuLimit: "1.0",
@@ -91,7 +91,7 @@ describe("standard-mode testcase exposure (isolation)", () => {
       const result = await execute(executor, request);
 
       expect(result.compilationError).toBeUndefined();
-      expect(result.testcaseResults.length).toBe(2);
+      expect(result.testcaseResults).toHaveLength(2);
       for (const tc of result.testcaseResults) {
         expect(tc.verdict).toBe("WA");
       }
@@ -99,7 +99,7 @@ describe("standard-mode testcase exposure (isolation)", () => {
   );
 
   it("still grades a correct solution as AC end-to-end", { timeout: 120_000 }, async (ctx) => {
-    if (!(await requireSandboxImage(ctx))) return;
+    await requireSandboxImage(ctx);
 
     const executor = new DockerExecutor({
       cpuLimit: "1.0",
@@ -125,7 +125,7 @@ describe("standard-mode testcase exposure (isolation)", () => {
     const result = await execute(executor, request);
 
     expect(result.compilationError).toBeUndefined();
-    expect(result.testcaseResults.length).toBe(2);
+    expect(result.testcaseResults).toHaveLength(2);
     for (const tc of result.testcaseResults) {
       expect(tc.verdict).toBe("AC");
     }

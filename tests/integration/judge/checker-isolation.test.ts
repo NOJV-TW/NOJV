@@ -54,7 +54,7 @@ function checkerRequest(overrides: Partial<SandboxRequest>): SandboxRequest {
 
 describe("checker-mode isolated validation (Phase 2B)", () => {
   it("executes a C++ checker in its declared language", { timeout: 180_000 }, async (ctx) => {
-    if (!(await requireSandboxImage(ctx))) return;
+    await requireSandboxImage(ctx);
     const result = await execute(
       checkerRequest({
         submissionId: "checker-cpp-language",
@@ -75,7 +75,7 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
     "grades a correct solution as AC via the isolated validator",
     { timeout: 180_000 },
     async (ctx) => {
-      if (!(await requireSandboxImage(ctx))) return;
+      await requireSandboxImage(ctx);
 
       const result = await execute(
         checkerRequest({
@@ -85,7 +85,7 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
       );
 
       expect(result.compilationError).toBeUndefined();
-      expect(result.testcaseResults.length).toBe(2);
+      expect(result.testcaseResults).toHaveLength(2);
       for (const tc of result.testcaseResults) {
         expect(tc.verdict).toBe("AC");
       }
@@ -96,7 +96,7 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
     "grades a wrong solution as WA via the isolated validator",
     { timeout: 180_000 },
     async (ctx) => {
-      if (!(await requireSandboxImage(ctx))) return;
+      await requireSandboxImage(ctx);
 
       const result = await execute(
         checkerRequest({
@@ -116,7 +116,7 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
     "grades a prefix-only solution as WA (checker is AC/WA only)",
     { timeout: 180_000 },
     async (ctx) => {
-      if (!(await requireSandboxImage(ctx))) return;
+      await requireSandboxImage(ctx);
 
       const result = await execute(
         checkerRequest({
@@ -136,7 +136,7 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
     "splits validator messages: teammessage → student feedback, judgemessage → staffFeedback",
     { timeout: 180_000 },
     async (ctx) => {
-      if (!(await requireSandboxImage(ctx))) return;
+      await requireSandboxImage(ctx);
 
       const result = await execute(
         checkerRequest({
@@ -146,7 +146,7 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
       );
 
       expect(result.compilationError).toBeUndefined();
-      expect(result.testcaseResults.length).toBe(2);
+      expect(result.testcaseResults).toHaveLength(2);
       for (const tc of result.testcaseResults) {
         expect(tc.verdict).toBe("WA");
         expect(tc.feedback).toBe("wrong answer");
@@ -160,7 +160,7 @@ describe("checker-mode isolated validation (Phase 2B)", () => {
     "does not expose the validator script or the answer to the run container",
     { timeout: 180_000 },
     async (ctx) => {
-      if (!(await requireSandboxImage(ctx))) return;
+      await requireSandboxImage(ctx);
 
       const exploit = `import glob, os
 chunks = []
@@ -178,7 +178,7 @@ print("".join(chunks))
       );
 
       expect(result.compilationError).toBeUndefined();
-      expect(result.testcaseResults.length).toBe(2);
+      expect(result.testcaseResults).toHaveLength(2);
       for (const tc of result.testcaseResults) {
         expect(tc.verdict).not.toBe("AC");
       }

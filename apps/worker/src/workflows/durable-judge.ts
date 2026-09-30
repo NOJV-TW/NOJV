@@ -9,7 +9,11 @@ import {
   TimeoutFailure,
   workflowInfo,
 } from "@temporalio/workflow";
-import { judgeRecoveryDelayMs, type JudgeExecutionInput } from "@nojv/core";
+import {
+  judgeRecoveryDelayMs,
+  type JudgeExecutionInput,
+  type JudgeExecutionState,
+} from "@nojv/core";
 import type * as executionActivities from "../activities/judge-execution";
 import type * as lifecycleActivities from "../activities/lifecycle";
 import { JUDGE_STATE_QUEUE, PLATFORM_QUEUE } from "./activity-options";
@@ -36,6 +40,23 @@ const effects = proxyActivities<typeof lifecycleActivities>({
   startToCloseTimeout: "2m",
   retry: { maximumAttempts: 3 },
 });
+
+function recoveryDelayMs(capacity: boolean, blocked: boolean, failures: number): number {
+  if (capacity) return 30_000;
+  if (blocked) return 900_000;
+  return judgeRecoveryDelayMs(failures - 1);
+}
+
+function recoveryState(
+  finalizing: boolean,
+  capacity: boolean,
+  blocked: boolean,
+): JudgeExecutionState {
+  if (finalizing) return "finalizing";
+  if (capacity) return "waiting_capacity";
+  if (blocked) return "blocked";
+  return "recovering";
+}
 
 export async function durableJudgeWorkflow(input: JudgeExecutionInput): Promise<void> {
   const { workflowId, priority } = workflowInfo();
@@ -121,18 +142,12 @@ export async function durableJudgeWorkflow(input: JudgeExecutionInput): Promise<
           type === "SandboxAdmissionError" ||
           type === "SandboxInfeasibleError" ||
           failures >= 3);
-      const delay = capacity ? 30_000 : blocked ? 900_000 : judgeRecoveryDelayMs(failures - 1);
+      const delay = recoveryDelayMs(capacity, blocked, failures);
       try {
         await journal.setJudgeExecutionState(
           input.executionId,
           workflowId,
-          finalizing
-            ? "finalizing"
-            : capacity
-              ? "waiting_capacity"
-              : blocked
-                ? "blocked"
-                : "recovering",
+          recoveryState(finalizing, capacity, blocked),
           type ?? "infrastructure",
           cause instanceof Error ? cause.message : String(cause),
           delay,

@@ -297,10 +297,14 @@ describe("api-tokens verify action", () => {
     expect(markVerifiedSessionMock).not.toHaveBeenCalled();
   });
 
-  it("rejects a malformed code with fail(400)", async () => {
-    verifyStepUpCodeMock.mockResolvedValue({ ok: false, reason: "malformed" });
-    const result = await verifyActions.default(verifyEvent("12ab"));
-    expect(result).toMatchObject({ status: 400 });
+  it.each([
+    { label: "a malformed code", reason: "malformed", code: "12ab", status: 400 },
+    { label: "a replayed TOTP code", reason: "replayed", code: "123456", status: 401 },
+    { label: "an invalid code", reason: "invalid", code: "123456", status: 401 },
+  ] as const)("rejects $label with fail($status)", async ({ reason, code, status }) => {
+    verifyStepUpCodeMock.mockResolvedValue({ ok: false, reason });
+    const result = await verifyActions.default(verifyEvent(code));
+    expect(result).toMatchObject({ status });
     expect(markVerifiedSessionMock).not.toHaveBeenCalled();
   });
 
@@ -359,19 +363,5 @@ describe("api-tokens verify action", () => {
 
     expect(grantAdminModeMock).not.toHaveBeenCalled();
     expect(thrown).toEqual({ status: 303, location: "/account/api-tokens" });
-  });
-
-  it("rejects a replayed TOTP code with fail(401)", async () => {
-    verifyStepUpCodeMock.mockResolvedValue({ ok: false, reason: "replayed" });
-    const result = await verifyActions.default(verifyEvent("123456"));
-    expect(result).toMatchObject({ status: 401 });
-    expect(markVerifiedSessionMock).not.toHaveBeenCalled();
-  });
-
-  it("rejects an invalid code with fail(401)", async () => {
-    verifyStepUpCodeMock.mockResolvedValue({ ok: false, reason: "invalid" });
-    const result = await verifyActions.default(verifyEvent("123456"));
-    expect(result).toMatchObject({ status: 401 });
-    expect(markVerifiedSessionMock).not.toHaveBeenCalled();
   });
 });

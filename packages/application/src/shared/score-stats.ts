@@ -41,7 +41,8 @@ export function buildScoreStats(
   const max = totals.length > 0 ? Math.max(...totals) : 0;
   const min = totals.length > 0 ? Math.min(...totals) : 0;
 
-  const rangeMax = max > 0 ? max : maxScore > 0 ? maxScore : 100;
+  const fallbackRangeMax = maxScore > 0 ? maxScore : 100;
+  const rangeMax = max > 0 ? max : fallbackRangeMax;
   const fractional = ![maxScore, ...totals].every(Number.isInteger);
   const discrete = rangeMax < 5 && !fractional;
   const thresholds = [90, 80, 70, 60].map((percent) =>
@@ -49,6 +50,8 @@ export function buildScoreStats(
       ? Number(((rangeMax * percent) / 100).toFixed(2))
       : Math.ceil((rangeMax * percent) / 100),
   );
+  const upperBoundLabel = (threshold: number | undefined) =>
+    fractional ? `<${String(threshold)}` : String((threshold ?? 1) - 1);
   const buckets: ScoreBucket[] = discrete
     ? Array.from({ length: rangeMax + 1 }, (_, index) => ({
         label: String(rangeMax - index),
@@ -57,15 +60,15 @@ export function buildScoreStats(
     : [
         { label: `${String(thresholds[0])}-${String(rangeMax)}`, count: 0 },
         {
-          label: `${String(thresholds[1])}-${fractional ? `<${String(thresholds[0])}` : String((thresholds[0] ?? 1) - 1)}`,
+          label: `${String(thresholds[1])}-${upperBoundLabel(thresholds[0])}`,
           count: 0,
         },
         {
-          label: `${String(thresholds[2])}-${fractional ? `<${String(thresholds[1])}` : String((thresholds[1] ?? 1) - 1)}`,
+          label: `${String(thresholds[2])}-${upperBoundLabel(thresholds[1])}`,
           count: 0,
         },
         {
-          label: `${String(thresholds[3])}-${fractional ? `<${String(thresholds[2])}` : String((thresholds[2] ?? 1) - 1)}`,
+          label: `${String(thresholds[3])}-${upperBoundLabel(thresholds[2])}`,
           count: 0,
         },
         { label: `<${String(thresholds[3])}`, count: 0 },

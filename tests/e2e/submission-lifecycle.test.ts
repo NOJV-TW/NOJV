@@ -349,17 +349,21 @@ test.describe("Submission Lifecycle — Multi-file Parallelogram Library", () =>
 
     const deadline = Date.now() + 30_000;
     let lastStatus = created.status as string;
-    while (Date.now() < deadline) {
-      const pollRes = await page.request.get(created.pollUrl);
-      expect(pollRes.ok()).toBe(true);
-      const pollBody = await pollRes.json();
-      expect(pollBody.submissionId).toBe(created.submissionId);
-      lastStatus = pollBody.status;
-      if (!["queued", "compiling", "running"].includes(lastStatus)) {
-        break;
-      }
-      await page.waitForTimeout(1500);
-    }
+    await expect
+      .poll(
+        async () => {
+          const pollRes = await page.request.get(created.pollUrl);
+          expect(pollRes.ok()).toBe(true);
+          const pollBody = await pollRes.json();
+          expect(pollBody.submissionId).toBe(created.submissionId);
+          lastStatus = pollBody.status;
+          return (
+            ["queued", "compiling", "running"].includes(lastStatus) && Date.now() < deadline
+          );
+        },
+        { intervals: [1500], timeout: 60_000 },
+      )
+      .toBe(false);
 
     if (process.env.NOJV_E2E_RUN_JUDGE === "1") {
       expect(lastStatus, "The complete multi-file C solution must be accepted").toBe(

@@ -37,16 +37,19 @@ export const actions = {
       form.data;
 
     try {
+      let frozenAtIso: string | undefined;
+      if (freezeMinutes != null) {
+        frozenAtIso = new Date(
+          new Date(endsAt).getTime() - freezeMinutes * 60_000,
+        ).toISOString();
+      } else if (frozenAt) {
+        frozenAtIso = new Date(frozenAt).toISOString();
+      }
       const payload = contestCreateSchema.parse({
         ...rest,
         inviteCode: isPublic ? undefined : (inviteCode ?? undefined),
         endsAt: new Date(endsAt).toISOString(),
-        frozenAt:
-          freezeMinutes != null
-            ? new Date(new Date(endsAt).getTime() - freezeMinutes * 60_000).toISOString()
-            : frozenAt
-              ? new Date(frozenAt).toISOString()
-              : undefined,
+        frozenAt: frozenAtIso,
         startsAt: new Date(startsAt).toISOString(),
       });
       await createContestRecord(actor, payload);

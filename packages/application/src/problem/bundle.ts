@@ -434,7 +434,7 @@ export async function importBundle(
               ? []
               : [assertStorageObjectPointer(testcase.outputStorage)]),
             ...Object.values((testcase.inputFileStorage ?? {}) as Record<string, unknown>).map(
-              assertStorageObjectPointer,
+              (pointer) => assertStorageObjectPointer(pointer),
             ),
           ]),
         ),
@@ -443,7 +443,7 @@ export async function importBundle(
         ),
         ...[problem.checkerStorage, problem.interactorStorage]
           .filter((pointer) => pointer !== null)
-          .map(assertStorageObjectPointer),
+          .map((pointer) => assertStorageObjectPointer(pointer)),
       ],
     });
 

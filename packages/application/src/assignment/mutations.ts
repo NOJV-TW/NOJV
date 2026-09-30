@@ -120,12 +120,10 @@ export async function updateAssignmentRecord(
       payload.closesAt !== undefined ? new Date(payload.closesAt) : assignment.closesAt;
     const effectiveOpensAt =
       payload.opensAt !== undefined ? new Date(payload.opensAt) : assignment.opensAt;
-    const effectiveDueAt =
-      payload.dueAt === undefined
-        ? assignment.dueAt
-        : payload.dueAt
-          ? new Date(payload.dueAt)
-          : null;
+    let effectiveDueAt = assignment.dueAt;
+    if (payload.dueAt !== undefined) {
+      effectiveDueAt = payload.dueAt ? new Date(payload.dueAt) : null;
+    }
 
     assertEffectiveTimeWindow({
       start: effectiveOpensAt,

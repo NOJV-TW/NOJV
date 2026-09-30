@@ -107,7 +107,7 @@ export type SeedAdvancedDemoImages = {
 };
 
 const PINNED_IMAGE =
-  /^(?:[a-z0-9.-]+(?::[0-9]+)?\/)(?:[a-z0-9._-]+\/)*[a-z0-9._-]+:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}@sha256:[a-f0-9]{64}$/u;
+  /^(?:[a-z0-9.-]+(?::\d+)?\/)(?:[a-z0-9._-]+\/)*[a-z0-9._-]+:\w[\w.-]{0,127}@sha256:[a-f0-9]{64}$/u;
 const LOCAL_DEMO_IMAGES = {
   run: "nojv-demo-advanced-run:local",
   grade: "nojv-demo-advanced-grade:local",
@@ -526,7 +526,7 @@ wrong(f"expected {expected}, got {actual}")
       judgeConfig: {
         type: "checker",
         checkerLanguage: "python",
-        checkerScript: `lines = judge_input.strip().split("\\n")
+        checkerScript: String.raw`lines = judge_input.strip().split("\n")
 n, target = map(int, lines[0].split())
 arr = list(map(int, lines[1].split()))
 exists = judge_answer.strip()
@@ -867,7 +867,7 @@ wrong(f"{a} x {b} is not a valid factor pair of {n}")
       visibility: "public" as const,
       statement: {
         body: "這是一題「多檔 × 自訂 checker、且答案不唯一」示範題。可執行的進入點是 `main.py`：它讀入一個保證為合數的整數 $n$，呼叫你實作的 `any_factor_pair(n)`，並印出兩個整數 `a b`。\n\n你的目標是找出**任意一組**整數 $a, b$，使得 $a > 1$、$b > 1$ 且 $a \\times b = n$。例如 $n = 12$ 時，`2 6`、`3 4`、`6 2` 都算正確。\n\n`main.py` 會 `import` 唯讀的 `numio.py`（提供 `read_n()`）。判題使用自訂 checker，只驗證乘積是否等於 $n$。你只需在 `main.py` 裡實作 `any_factor_pair`。",
-        inputFormat: "一行一個整數 $n$（$4 \\le n \\le 10^9$，保證為合數）。",
+        inputFormat: String.raw`一行一個整數 $n$（$4 \le n \le 10^9$，保證為合數）。`,
         outputFormat:
           "一行兩個以空白分隔的整數 `a b`，滿足 $a > 1$、$b > 1$ 且 $a \\times b = n$。",
       },
@@ -1164,7 +1164,7 @@ wrong(f"failed to find {secret} in {max_turns} turns")
       visibility: "public",
       statement: {
         body: "回文（palindrome）是指從左讀到右和從右讀到左都相同的字串，例如 `level`、`racecar`。\n\n給定一個只由小寫英文字母組成的字串 $s$，判斷它是否為回文。若是，輸出 `Yes`；否則輸出 `No`。",
-        inputFormat: "一行，包含一個只由小寫英文字母組成的字串 $s$（$1 \\le |s| \\le 1000$）。",
+        inputFormat: String.raw`一行，包含一個只由小寫英文字母組成的字串 $s$（$1 \le |s| \le 1000$）。`,
         outputFormat: "一行，若 $s$ 為回文則輸出 `Yes`，否則輸出 `No`。",
       },
       samples: [
@@ -1244,7 +1244,7 @@ wrong(f"failed to find {secret} in {max_turns} turns")
       visibility: "public",
       statement: {
         body: "費氏數列（Fibonacci sequence）定義如下：\n\n$$F(0) = 0,\\quad F(1) = 1,\\quad F(n) = F(n-1) + F(n-2)\\ (n \\ge 2)$$\n\n給定一個整數 $n$，輸出第 $n$ 項 $F(n)$。",
-        inputFormat: "一行，包含一個整數 $n$（$0 \\le n \\le 90$）。",
+        inputFormat: String.raw`一行，包含一個整數 $n$（$0 \le n \le 90$）。`,
         outputFormat: "一行，輸出 $F(n)$ 的值。",
       },
       samples: [
@@ -1321,8 +1321,7 @@ wrong(f"failed to find {secret} in {max_turns} turns")
       visibility: "public",
       statement: {
         body: "給定一個長度為 $N$ 的「環狀」整數陣列（$a_N$ 的下一個元素是 $a_1$），找出總和最大的「連續且非空」子陣列，並輸出其總和。子陣列可以跨越尾端接回開頭，但每個元素最多只能取一次（子陣列長度至多為 $N$）。\n\n提示：答案要嘛是一般（不跨界）的最大子陣列和，要嘛是「總和減去最小子陣列和」（跨界情形）。注意陣列可能全為負數，此時答案為最大的單一元素。",
-        inputFormat:
-          "第一行一個整數 $N$（$1 \\le N \\le 10^5$）。\\n\\n第二行 $N$ 個以空白分隔的整數 $a_i$（$-10^4 \\le a_i \\le 10^4$）。",
+        inputFormat: String.raw`第一行一個整數 $N$（$1 \le N \le 10^5$）。\n\n第二行 $N$ 個以空白分隔的整數 $a_i$（$-10^4 \le a_i \le 10^4$）。`,
         outputFormat: "一行，輸出環狀陣列的最大連續子陣列和。",
       },
       samples: [
@@ -1479,8 +1478,7 @@ wrong(f"failed to find {secret} in {max_turns} turns")
       visibility: "public",
       statement: {
         body: "給定 $N$ 個整數，將它們去除重複後，由小到大排序，並在一行輸出所有相異的值（以單一空白分隔）。",
-        inputFormat:
-          "第一行一個整數 $N$（$1 \\le N \\le 10^5$）。\\n\\n第二行 $N$ 個以空白分隔的整數 $a_i$（$-10^9 \\le a_i \\le 10^9$）。",
+        inputFormat: String.raw`第一行一個整數 $N$（$1 \le N \le 10^5$）。\n\n第二行 $N$ 個以空白分隔的整數 $a_i$（$-10^9 \le a_i \le 10^9$）。`,
         outputFormat: "一行，由小到大輸出所有相異的整數，相鄰兩數以單一空白分隔。",
       },
       samples: [
@@ -1554,9 +1552,8 @@ wrong(f"failed to find {secret} in {max_turns} turns")
       visibility: "public",
       statement: {
         body: "給定兩個正整數 $a$ 與 $b$，輸出它們的最大公因數 $\\gcd(a, b)$，也就是能同時整除 $a$ 與 $b$ 的最大正整數。\n\n可用歐幾里得（輾轉相除）演算法在 $O(\\log \\min(a,b))$ 時間求解。",
-        inputFormat:
-          "一行，包含兩個以空白分隔的正整數 $a$ 和 $b$（$1 \\le a, b \\le 10^{18}$）。",
-        outputFormat: "一行，輸出 $\\gcd(a, b)$。",
+        inputFormat: String.raw`一行，包含兩個以空白分隔的正整數 $a$ 和 $b$（$1 \le a, b \le 10^{18}$）。`,
+        outputFormat: String.raw`一行，輸出 $\gcd(a, b)$。`,
       },
       samples: [
         {
@@ -1708,8 +1705,7 @@ wrong(f"failed to find {secret} in {max_turns} turns")
       visibility: "public",
       statement: {
         body: "你有一個背包，同時受到「重量上限 $W$」與「體積上限 $V$」兩個限制，以及 $N$ 件物品。第 $i$ 件物品的重量為 $w_i$、體積為 $c_i$、價值為 $p_i$，每件物品最多只能拿一次。\n\n請選出總重量不超過 $W$ 且總體積不超過 $V$ 的物品組合，使得總價值最大，並輸出這個最大總價值。\n\n這是 0/1 背包的二維限制版本，狀態為 $dp[j][k] =$「重量上限 $j$、體積上限 $k$ 時的最大價值」，兩個維度都要由大到小更新。注意答案可能超過 32 位元整數範圍。",
-        inputFormat:
-          "第一行三個整數 $N$、$W$ 和 $V$（$1 \\le N \\le 100$，$1 \\le W, V \\le 100$）。\\n\\n接下來 $N$ 行，每行三個整數 $w_i$、$c_i$ 和 $p_i$（$1 \\le w_i, c_i \\le 100$，$1 \\le p_i \\le 10^9$），表示第 $i$ 件物品的重量、體積與價值。",
+        inputFormat: String.raw`第一行三個整數 $N$、$W$ 和 $V$（$1 \le N \le 100$，$1 \le W, V \le 100$）。\n\n接下來 $N$ 行，每行三個整數 $w_i$、$c_i$ 和 $p_i$（$1 \le w_i, c_i \le 100$，$1 \le p_i \le 10^9$），表示第 $i$ 件物品的重量、體積與價值。`,
         outputFormat: "一行，輸出可獲得的最大總價值。",
       },
       samples: [
@@ -3165,8 +3161,7 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         body: "監測系統每單位時間回報一筆讀數，分析人員想知道「最近 $K$ 筆讀數的峰值」如何隨時間變化。\n\n給定一個長度為 $N$ 的整數序列 $a_1, a_2, \\dots, a_N$ 與視窗大小 $K$。一個視窗是序列中連續的 $K$ 個元素；視窗從序列最左端開始，每次向右滑動一格，共有 $N-K+1$ 個視窗。請對每個視窗求出其中元素的最大值，也就是對每個 $i$（$1 \\le i \\le N-K+1$）計算 $\\max(a_i, a_{i+1}, \\dots, a_{i+K-1})$。",
         inputFormat:
           "第一行包含兩個整數 $N$ 與 $K$（$1 \\le K \\le N \\le 10^5$）。\n第二行包含 $N$ 個整數 $a_1, a_2, \\dots, a_N$（$-10^9 \\le a_i \\le 10^9$），以空白分隔。",
-        outputFormat:
-          "輸出一行，包含 $N-K+1$ 個整數，以空白分隔；第 $i$ 個整數為 $\\max(a_i, a_{i+1}, \\dots, a_{i+K-1})$。",
+        outputFormat: String.raw`輸出一行，包含 $N-K+1$ 個整數，以空白分隔；第 $i$ 個整數為 $\max(a_i, a_{i+1}, \dots, a_{i+K-1})$。`,
       },
       samples: [
         { input: "8 3\n1 3 -1 -3 5 3 6 7\n", output: "3 3 5 5 6 7\n" },
@@ -3756,7 +3751,7 @@ wrong(f"failed to find {secret} in {max_turns} turns")
       visibility: "public" as const,
       statement: {
         body: "質數是恰好有兩個相異正因數（$1$ 與自身）的正整數；特別地，$1$ 不是質數。\n\n人口普查要數人，質數普查要數質數。給定一個正整數 $N$，請計算不大於 $N$ 的質數共有多少個。",
-        inputFormat: "輸入僅一行，包含一個整數 $N$（$1 \\le N \\le 10^6$）。",
+        inputFormat: String.raw`輸入僅一行，包含一個整數 $N$（$1 \le N \le 10^6$）。`,
         outputFormat: "輸出一行一個整數，代表不大於 $N$ 的質數個數。",
       },
       samples: [
@@ -3810,7 +3805,7 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         body: "給定 $Q$ 筆詢問，每筆包含三個整數 $a$、$b$、$m$，請計算 $a^b \\bmod m$。\n\n注意 $b$ 可能大到 $10^{18}$，逐次連乘無法在時限內完成，你需要更快的演算法（例如快速冪）。\n\n本題定義 $0^0 = 1$；因此當 $a = 0$ 且 $b = 0$ 時，答案為 $1 \\bmod m$。",
         inputFormat:
           "第一行包含一個整數 $Q$（$1 \\le Q \\le 1000$）。\n\n接下來 $Q$ 行，每行包含三個整數 $a$、$b$、$m$（$0 \\le a \\le 10^9$，$0 \\le b \\le 10^{18}$，$1 \\le m \\le 10^9$）。",
-        outputFormat: "輸出 $Q$ 行，第 $i$ 行為第 $i$ 筆詢問的 $a^b \\bmod m$。",
+        outputFormat: String.raw`輸出 $Q$ 行，第 $i$ 行為第 $i$ 筆詢問的 $a^b \bmod m$。`,
       },
       samples: [
         { input: "3\n2 10 1000\n3 0 7\n10 18 999999937\n", output: "24\n1\n3969\n" },
@@ -3888,8 +3883,7 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         body: "二項式係數 $\\binom{n}{r}$ 表示從 $n$ 個相異物品中取出 $r$ 個的方法數。\n\n給定 $Q$ 筆詢問，每筆包含兩個整數 $n$、$r$，請輸出 $\\binom{n}{r} \\bmod (10^9 + 7)$。當 $r > n$ 時，規定 $\\binom{n}{r} = 0$。\n\n由於詢問數量與 $n$ 都很大，建議先預處理階乘與模逆元，再以 $O(1)$ 回答每筆詢問。",
         inputFormat:
           "第一行包含一個整數 $Q$（$1 \\le Q \\le 10^5$）。\n\n接下來 $Q$ 行，每行包含兩個整數 $n$、$r$（$0 \\le n \\le 10^6$，$0 \\le r \\le 10^6$）。",
-        outputFormat:
-          "輸出 $Q$ 行，第 $i$ 行為第 $i$ 筆詢問的 $\\binom{n}{r} \\bmod (10^9 + 7)$。",
+        outputFormat: String.raw`輸出 $Q$ 行，第 $i$ 行為第 $i$ 筆詢問的 $\binom{n}{r} \bmod (10^9 + 7)$。`,
       },
       samples: [
         { input: "5\n5 2\n4 4\n3 5\n0 0\n10 3\n", output: "10\n1\n0\n1\n120\n" },
@@ -3956,7 +3950,7 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         body: "費氏數列定義為 $F(0) = 0$、$F(1) = 1$，且對所有 $n \\ge 2$ 有 $F(n) = F(n-1) + F(n-2)$。\n\n給定 $Q$ 筆詢問，每筆包含一個整數 $n$，請輸出 $F(n) \\bmod (10^9 + 7)$。\n\n注意 $n$ 最大可達 $10^{18}$，逐項遞推無法在時限內完成；你需要對數時間的演算法，例如 $2 \\times 2$ 矩陣快速冪或 fast doubling。",
         inputFormat:
           "第一行包含一個整數 $Q$（$1 \\le Q \\le 100$）。\n\n接下來 $Q$ 行，每行包含一個整數 $n$（$0 \\le n \\le 10^{18}$）。",
-        outputFormat: "輸出 $Q$ 行，第 $i$ 行為第 $i$ 筆詢問的 $F(n) \\bmod (10^9 + 7)$。",
+        outputFormat: String.raw`輸出 $Q$ 行，第 $i$ 行為第 $i$ 筆詢問的 $F(n) \bmod (10^9 + 7)$。`,
       },
       samples: [
         { input: "5\n0\n1\n2\n10\n90\n", output: "0\n1\n1\n55\n210345902\n" },
@@ -4387,7 +4381,7 @@ wrong(f"failed to find {secret} in {max_turns} turns")
         body: "這是一題多檔實作題。可執行的進入點是 `main.py`：它從標準輸入讀入 $N$ 個整數，依序對每個數呼叫你實作的 `MedianStream.add(x)`，接著呼叫 `median()` 並印出目前的中位數。\n\n`main.py` 會 `import` 唯讀的 `iolib.py`（提供 `read_numbers()` 解析 stdin）；`main()` 已經寫好，你只需在 `main.py` 裡實作 `MedianStream` 這個 class。\n\n`median()` 回傳**下中位數**：已加入 $k$ 個數時，即由小到大第 $\\lceil k/2 \\rceil$ 個（重複的數分開計）。例如目前的數是 `1 2 8 9` 時回傳 $2$。經典解法是同時維護一個 max-heap 與一個 min-heap，但本題規模刻意訂小，任何正確的做法（例如每步重新排序）都能在時限內通過。",
         inputFormat:
           "第一行一個整數 $N$（$1 \\le N \\le 5000$）。\n\n第二行 $N$ 個整數 $x_1, \\dots, x_N$（$-10^9 \\le x_i \\le 10^9$，可能重複）。",
-        outputFormat: "輸出 $N$ 行：第 $i$ 行是加入 $x_1, \\dots, x_i$ 之後的下中位數。",
+        outputFormat: String.raw`輸出 $N$ 行：第 $i$ 行是加入 $x_1, \dots, x_i$ 之後的下中位數。`,
       },
       samples: [{ input: "5\n1 9 2 8 3\n", output: "1\n1\n2\n2\n3\n" }],
       workspaceFiles: [

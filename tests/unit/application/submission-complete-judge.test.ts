@@ -122,7 +122,7 @@ describe("deriveVerdictSummary", () => {
     const long = "x".repeat(2000);
     const ce = deriveVerdictSummary(makeResult({ verdict: "compile_error", feedback: long }));
     expect(ce.compilerErrorTruncated).toBeDefined();
-    expect(ce.compilerErrorTruncated!.length).toBe(1024);
+    expect(ce.compilerErrorTruncated).toHaveLength(1024);
   });
 
   it("includes a bounded diagnostic only on system_error", () => {

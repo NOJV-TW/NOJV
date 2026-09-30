@@ -4,6 +4,7 @@ import { apiTokenRepo, examSessionRepo } from "@nojv/db";
 import {
   apiTokenScopes,
   apiTokenScopeSchema,
+  compareCodeUnits,
   type ApiTokenScope,
   type PlatformRole,
 } from "@nojv/core";
@@ -78,7 +79,7 @@ function normalizeScopes(
       throw new ForbiddenError("Cannot assign API token scope for this role.");
     }
   }
-  return result.sort();
+  return result.sort(compareCodeUnits);
 }
 
 function normalizeExpiryDays(days: number): ApiTokenExpiryDays {
@@ -103,7 +104,9 @@ function generateTokenParts(): { prefix: string; secret: string; token: string }
 }
 
 function parseToken(token: string): { prefix: string } | null {
-  const match = new RegExp(`^${TOKEN_PREFIX}_([A-Za-z0-9_-]+)\\.[A-Za-z0-9_-]+$`).exec(token);
+  const match = new RegExp(String.raw`^${TOKEN_PREFIX}_([A-Za-z0-9_-]+)\.[A-Za-z0-9_-]+$`).exec(
+    token,
+  );
   if (!match) return null;
   const prefix = match[1];
   return prefix ? { prefix } : null;

@@ -10,6 +10,30 @@ import {
   userFacingSubmissionWhere,
 } from "./shared";
 
+function historyStatusWhere(
+  status: SubmissionStatus | undefined,
+  queuedRejudgeIds: string[] | undefined,
+): Prisma.SubmissionWhereInput {
+  if (status === "queued") {
+    return {
+      AND: [{ OR: [{ status: "queued" }, { id: { in: queuedRejudgeIds ?? [] } }] }],
+    };
+  }
+  if (status) return { status, id: { notIn: queuedRejudgeIds ?? [] } };
+  return {};
+}
+
+interface SubmissionContext {
+  type: "assignment" | "exam" | "contest";
+  id: string;
+}
+
+function submissionContextWhere(context: SubmissionContext): Prisma.SubmissionWhereInput {
+  if (context.type === "assignment") return { assessmentId: context.id };
+  if (context.type === "exam") return { examId: context.id };
+  return { contestId: context.id };
+}
+
 export const submissionHistory = {
   async listPendingForUser(input: { userId: string; cursor?: string; queuedIds: string[] }) {
     const scope = {
@@ -54,7 +78,7 @@ export const submissionHistory = {
 
   async listHistoryPage(input: {
     userId?: string;
-    context?: { type: "assignment" | "exam" | "contest"; id: string };
+    context?: SubmissionContext;
     filters: SubmissionHistoryFilters;
     queuedRejudgeIds?: string[];
     page: number;
@@ -75,20 +99,7 @@ export const submissionHistory = {
         scope,
         {
           ...(filters.problemId ? { problemId: filters.problemId } : {}),
-          ...(filters.status === "queued"
-            ? {
-                AND: [
-                  {
-                    OR: [
-                      { status: "queued" as const },
-                      { id: { in: input.queuedRejudgeIds ?? [] } },
-                    ],
-                  },
-                ],
-              }
-            : filters.status
-              ? { status: filters.status, id: { notIn: input.queuedRejudgeIds ?? [] } }
-              : {}),
+          ...historyStatusWhere(filters.status, input.queuedRejudgeIds),
           ...(filters.language ? { language: filters.language } : {}),
           ...(filters.contextType === "practice"
             ? { assessmentId: null, examId: null, contestId: null, participationId: null }
@@ -391,19 +402,12 @@ export const submissionHistory = {
     });
   },
 
-  listRecentForContext(opts: {
-    context: { type: "assignment" | "exam" | "contest"; id: string };
-    limit: number;
-  }) {
+  listRecentForContext(opts: { context: SubmissionContext; limit: number }) {
     return prisma.submission.findMany({
       where: {
         sampleOnly: false,
         isReferenceSolution: false,
-        ...(opts.context.type === "assignment"
-          ? { assessmentId: opts.context.id }
-          : opts.context.type === "exam"
-            ? { examId: opts.context.id }
-            : { contestId: opts.context.id }),
+        ...submissionContextWhere(opts.context),
       },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: opts.limit,

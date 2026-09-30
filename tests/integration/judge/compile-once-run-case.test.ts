@@ -132,7 +132,7 @@ describe("compile and run every case in one container, judge in another", () => 
     "compiles %s once, runs the stage and judges it",
     { timeout: 240_000 },
     async ([language, source], ctx) => {
-      if (!(await requireSandboxImage(ctx))) return;
+      await requireSandboxImage(ctx);
       const root = await mkdtemp(path.join(os.tmpdir(), "nojv-compile-once-integration-"));
       try {
         const payload = path.join(root, "payload");

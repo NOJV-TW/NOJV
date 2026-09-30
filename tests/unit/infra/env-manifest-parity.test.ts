@@ -141,13 +141,7 @@ function containerEnvNames(yamlText: string): Set<string> {
   return names;
 }
 
-const helm = helmAvailable();
-const describeHelm = helm ? describe : describe.skip;
-if (!helm) {
-  describe.skip("env ↔ chart parity (skipped: helm not installed)", () => {
-    it.skip("requires helm to render infra/charts/nojv", () => undefined);
-  });
-}
+const describeHelm = describe.skipIf(!helmAvailable());
 
 describe("env schema baseline (no helm required)", () => {
   it("renders the frontend release version from runtime env", () => {

@@ -1,5 +1,7 @@
 import { execFile } from "node:child_process";
 
+import type { TestContext } from "vitest";
+
 const SANDBOX_IMAGE = process.env.NOJV_TEST_SANDBOX_IMAGE ?? "nojv-sandbox:local";
 
 function run(cmd: string, args: string[]): Promise<{ ok: boolean; stdout: string }> {
@@ -16,13 +18,12 @@ export async function dockerImageAvailable(): Promise<boolean> {
   return ok && stdout.trim().length > 0;
 }
 
-export async function requireSandboxImage(ctx: { skip: () => void }): Promise<boolean> {
-  if (await dockerImageAvailable()) return true;
+export async function requireSandboxImage(ctx: Pick<TestContext, "skip">): Promise<void> {
+  if (await dockerImageAvailable()) return;
   if (process.env.REQUIRE_SANDBOX_IMAGE === "1") {
     throw new Error(
       "nojv-sandbox:local image missing while REQUIRE_SANDBOX_IMAGE=1 — run `pnpm sandbox:build` before the isolation suite (these exploit tests must not silently skip in nightly).",
     );
   }
   ctx.skip();
-  return false;
 }

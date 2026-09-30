@@ -16,7 +16,7 @@ export function parseRegistryScopes(scopes: string[]): RegistryAccessEntry[] {
     const parts = scope.split(":");
     if (parts.length < 3) continue;
     const type = parts[0];
-    const actionsRaw = parts[parts.length - 1];
+    const actionsRaw = parts.at(-1);
     if (!type || !actionsRaw) continue;
     const actions = actionsRaw
       .split(",")

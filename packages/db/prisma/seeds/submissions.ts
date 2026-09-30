@@ -172,7 +172,7 @@ export async function seedSubmissions(
 
   const subs: SeedSubmission[] = [];
 
-  const mainRng = new SeededRng(0x5eed_0001);
+  const mainRng = new SeededRng(0x5e_ed_00_01);
   for (let dayOffset = 90; dayOffset >= 0; dayOffset--) {
     const isRecent = dayOffset <= 4;
     const active = isRecent || mainRng.chance(0.55);
@@ -214,7 +214,7 @@ export async function seedSubmissions(
     );
   }
 
-  const adminRng = new SeededRng(0x5eed_ad01);
+  const adminRng = new SeededRng(0x5e_ed_ad_01);
   for (let dayOffset = 180; dayOffset >= 0; dayOffset--) {
     const isRecent = dayOffset <= 3;
     const active = isRecent || adminRng.chance(0.6);
@@ -245,7 +245,7 @@ export async function seedSubmissions(
   }
 
   demoStudents.slice(0, 4).forEach((s, idx) => {
-    const rng = new SeededRng(0x5eed_1000 + idx);
+    const rng = new SeededRng(0x5e_ed_10_00 + idx);
     for (let dayOffset = 40; dayOffset >= 0; dayOffset--) {
       if (!rng.chance(0.35)) continue;
       const problemId = rng.pick(PUBLIC_PRACTICE_PROBLEMS);
@@ -278,7 +278,7 @@ export async function seedSubmissions(
   const courseworkStudents = [student, ...demoStudents];
 
   courseworkStudents.forEach((s, idx) => {
-    const rng = new SeededRng(0x5eed_2000 + idx);
+    const rng = new SeededRng(0x5e_ed_20_00 + idx);
 
     for (const problemId of HW1_PROBLEMS) {
       const attempts = rng.int(1, 3);
@@ -335,7 +335,7 @@ export async function seedSubmissions(
 
   const examStudents = [student, ...demoStudents.slice(0, 6)];
   examStudents.forEach((s, idx) => {
-    const rng = new SeededRng(0x5eed_3000 + idx);
+    const rng = new SeededRng(0x5e_ed_30_00 + idx);
     const problemCount = rng.int(1, EXAM_PROBLEMS.length);
     for (let p = 0; p < problemCount; p++) {
       const problemId = EXAM_PROBLEMS[p]!;
@@ -378,7 +378,7 @@ export async function seedSubmissions(
   ] as const;
   const largeClassStudents = [student, ...demoStudents];
 
-  const teacherRng = new SeededRng(0x5eed_8000);
+  const teacherRng = new SeededRng(0x5e_ed_80_00);
   const teacherVerdicts: LongVerdict[] = [
     "wrong_answer",
     "compile_error",
@@ -414,7 +414,7 @@ export async function seedSubmissions(
   largeClassStudents.forEach((s, idx) => {
     // Keep a few completely empty rows visible in the grade matrix.
     if (idx % 11 === 10) return;
-    const assignmentRng = new SeededRng(0x5eed_6000 + idx);
+    const assignmentRng = new SeededRng(0x5e_ed_60_00 + idx);
     for (const problemId of LARGE_CLASS_ASSIGNMENT_PROBLEMS) {
       if (!assignmentRng.chance(0.78)) continue;
       const attempts = assignmentRng.int(1, 3);
@@ -438,7 +438,7 @@ export async function seedSubmissions(
       }
     }
 
-    const examRng = new SeededRng(0x5eed_7000 + idx);
+    const examRng = new SeededRng(0x5e_ed_70_00 + idx);
     for (const problemId of LARGE_CLASS_EXAM_PROBLEMS) {
       if (!examRng.chance(0.72)) continue;
       const attempts = examRng.int(1, 3);
@@ -474,7 +474,7 @@ export async function seedSubmissions(
       const end = new Date("2026-03-15T18:00:00+08:00").getTime();
       return start + rng.int(1, Math.floor((end - start) / (60 * 1000)) - 1) * 60 * 1000;
     },
-    rngBase: 0x5eed_4000,
+    rngBase: 0x5e_ed_40_00,
     tc,
   });
 
@@ -485,7 +485,7 @@ export async function seedSubmissions(
     startsAt: new Date(now - HOUR),
     endsAt: new Date(now + 2 * HOUR),
     submissionTimeFor: (rng) => now - rng.int(2, 58) * 60 * 1000,
-    rngBase: 0x5eed_5000,
+    rngBase: 0x5e_ed_50_00,
     tc,
   });
 

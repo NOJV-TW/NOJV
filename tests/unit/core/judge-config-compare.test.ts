@@ -5,7 +5,7 @@ describe("judgeConfigSchema.compare (standard comparison options)", () => {
   it("defaults caseSensitive to true and leaves floatTolerance unset", () => {
     const parsed = judgeConfigSchema.parse({ type: "standard", compare: {} });
     expect(parsed.compare?.caseSensitive).toBe(true);
-    expect(parsed.compare?.floatTolerance ?? null).toBe(null);
+    expect(parsed.compare?.floatTolerance ?? null).toBeNull();
   });
 
   it("accepts an explicit float tolerance and a case-insensitive flag", () => {
@@ -19,7 +19,7 @@ describe("judgeConfigSchema.compare (standard comparison options)", () => {
 
   it("leaves compare unset when omitted", () => {
     const parsed = judgeConfigSchema.parse({ type: "standard" });
-    expect(parsed.compare ?? null).toBe(null);
+    expect(parsed.compare ?? null).toBeNull();
   });
 
   it("rejects a non-positive or too-large tolerance", () => {

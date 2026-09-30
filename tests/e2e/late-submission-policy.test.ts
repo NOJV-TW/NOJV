@@ -16,7 +16,7 @@ for (const kind of ["assignments", "exams"] as const) {
     const page = await context.newPage();
     await page.goto(`/courses/${courseId}/${kind}/new`);
     await expect(page.locator("#title")).toBeVisible();
-    await page.waitForTimeout(3000);
+    await expect(page.getByRole("button", { name: /Open account menu/ })).toBeEnabled();
     await page.locator("#title").fill(`Late policy ${kind}`);
     await page
       .locator(kind === "assignments" ? "#opensAt" : "#startsAt")
@@ -46,8 +46,9 @@ for (const kind of ["assignments", "exams"] as const) {
     expect((await createResponse.json()).type).toBe("redirect");
     if (kind === "assignments") {
       await expect(page).toHaveURL(`/courses/${courseId}/assignments`, { timeout: 30_000 });
-      await page.waitForTimeout(3000);
-      await page.getByRole("link", { name: /Late policy assignments/ }).click();
+      const createdLink = page.getByRole("link", { name: /Late policy assignments/ });
+      await expect(createdLink).toBeVisible();
+      await createdLink.click();
       await expect(page).toHaveURL(/\/assignments\/late-policy-assignments-[^/]+$/, {
         timeout: 30_000,
       });

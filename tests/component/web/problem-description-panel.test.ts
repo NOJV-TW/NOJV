@@ -63,7 +63,7 @@ describe("ProblemDescriptionPanel", () => {
     expect(target.textContent).toContain("#subtask2");
     expect(target.textContent).not.toContain("Subtask 01:");
     expect(target.textContent).toContain("Trivial grid with");
-    expect(target.querySelectorAll(".katex-html").length).toBe(1);
+    expect(target.querySelectorAll(".katex-html")).toHaveLength(1);
     expect(target.textContent).toContain("20%");
 
     await unmount(component);

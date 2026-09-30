@@ -21,8 +21,7 @@ import {
   ValidationError,
 } from "../shared/errors";
 import { assertCourseManager, canCreateCourse } from "../shared/permissions";
-import { requireCourse } from "../shared/require";
-import { requireUser } from "../shared/require";
+import { requireCourse, requireUser } from "../shared/require";
 import { resolveActivityProblems } from "../problem/fork";
 import { lockCourseForStaffMutation } from "./problem-library";
 import { assignmentDueSoonInput } from "../shared/lifecycle-input";
@@ -64,7 +63,7 @@ function generateAssignmentId(title: string): string {
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    .replace(/^-|-$/g, "")
     .slice(0, 48);
   const suffix = Date.now().toString(36).slice(-6);
   const core = base.length > 0 ? base : "assignment";

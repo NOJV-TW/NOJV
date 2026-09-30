@@ -10,7 +10,8 @@ import { getStorageEnv } from "./env";
 
 let cachedBucket: string | undefined;
 function BUCKET(): string {
-  return (cachedBucket ??= getStorageEnv().S3_BUCKET);
+  cachedBucket ??= getStorageEnv().S3_BUCKET;
+  return cachedBucket;
 }
 
 const DELETE_BATCH_SIZE = 1000;

@@ -72,6 +72,22 @@ function timestamp(value: Date | string | undefined): number | undefined {
   return Number.isFinite(time) ? time : undefined;
 }
 
+function containerPhase(name: string, mode: JudgeMode): JudgePhase | undefined {
+  if (
+    name.startsWith("prepare") ||
+    ["prep", "materialize", "materialize-solution", "materialize-interactor"].includes(name)
+  )
+    return "prepare";
+  if (name.startsWith("case-") || ["solution", "run"].includes(name)) return "execute";
+  if (
+    ["interactor", "grader", "judge"].includes(name) ||
+    (name === "runner" && mode === "checker")
+  )
+    return "checker";
+  if (name === "publish-artifact") return "collect";
+  return undefined;
+}
+
 export function podPhaseTimings(
   pod: V1Pod,
   mode: JudgeMode = "standard",
@@ -97,20 +113,7 @@ export function podPhaseTimings(
     const start = timestamp(status.state?.terminated?.startedAt);
     const end = timestamp(status.state?.terminated?.finishedAt);
     if (start === undefined || end === undefined || end < start) continue;
-    const phase: JudgePhase | undefined =
-      status.name.startsWith("prepare") ||
-      ["prep", "materialize", "materialize-solution", "materialize-interactor"].includes(
-        status.name,
-      )
-        ? "prepare"
-        : status.name.startsWith("case-") || ["solution", "run"].includes(status.name)
-          ? "execute"
-          : ["interactor", "grader", "judge"].includes(status.name) ||
-              (status.name === "runner" && mode === "checker")
-            ? "checker"
-            : status.name === "publish-artifact"
-              ? "collect"
-              : undefined;
+    const phase = containerPhase(status.name, mode);
     if (phase) timings[phase] = Math.max(timings[phase] ?? 0, end - start);
   }
   return timings;

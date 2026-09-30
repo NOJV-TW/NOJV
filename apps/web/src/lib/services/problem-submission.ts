@@ -5,11 +5,7 @@ import {
   type ExecuteSubmissionOptions,
   type SubmissionRequest,
 } from "./submission-service";
-import {
-  isNewerSubmission,
-  requestSubmissionRefresh,
-  watchSubmissionStates,
-} from "./submission-tracker";
+import { isNewerSubmission, requestSubmissionRefresh } from "./submission-tracker";
 
 export async function submitProblem(
   request: SubmissionRequest,
@@ -74,4 +70,4 @@ export function mergeSubmissionEntries(
   return merged;
 }
 
-export const watchProblemSubmissions = watchSubmissionStates;
+export { watchSubmissionStates as watchProblemSubmissions } from "./submission-tracker";

@@ -1,11 +1,10 @@
 import { durableWorkRepo, Prisma, type TransactionClient } from "@nojv/db";
-import type { ActivityProblem } from "@nojv/core";
+import type { ActivityProblem, Language } from "@nojv/core";
 import type { ActorContext } from "../shared/actor-context";
 import { ConflictError, ValidationError } from "../shared/errors";
 import { resolveActivityProblems } from "../problem/fork";
 import { assertProblemHasWorkspaceForLanguages } from "../problem/permissions";
 import { assertActivityAllocation } from "./activity-points";
-import type { Language } from "@nojv/core";
 
 export async function saveActivityGrading(
   tx: TransactionClient,

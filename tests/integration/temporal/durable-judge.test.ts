@@ -139,7 +139,7 @@ describe("durable judge recovery workflow", () => {
         "utf8",
       ),
     );
-    await Worker.runReplayHistory({ workflowsPath }, history);
+    await expect(Worker.runReplayHistory({ workflowsPath }, history)).resolves.toBeUndefined();
   }, 15_000);
   it("replays a pre-fix history that set finalizing after the terminal stage", async () => {
     const history = JSON.parse(
@@ -151,7 +151,7 @@ describe("durable judge recovery workflow", () => {
         "utf8",
       ),
     );
-    await Worker.runReplayHistory({ workflowsPath }, history);
+    await expect(Worker.runReplayHistory({ workflowsPath }, history)).resolves.toBeUndefined();
   }, 15_000);
   it("recovers repeated machine failures without starting teacher rejudge", async () => {
     const { activities, phases } = await scenario({ outage: 4 });

@@ -8,10 +8,8 @@ export class SandboxCleanupPendingError extends Error {
     readonly resources: string[],
     cause?: unknown,
   ) {
-    super(
-      `cleanup_pending: ${resources.join(", ")}${cause === undefined ? "" : `: ${failureMessage(cause)}`}`,
-      { cause },
-    );
+    const detail = cause === undefined ? "" : `: ${failureMessage(cause)}`;
+    super(`cleanup_pending: ${resources.join(", ")}${detail}`, { cause });
     this.name = "SandboxCleanupPendingError";
   }
 }

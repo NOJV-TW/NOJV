@@ -7,7 +7,7 @@ import {
   submissionRepo,
   type TransactionClient,
 } from "@nojv/db";
-import type { PlatformRole } from "@nojv/core";
+import { compareCodeUnits, type PlatformRole } from "@nojv/core";
 
 import { ForbiddenError, NotFoundError, ValidationError } from "../shared/errors";
 
@@ -233,7 +233,7 @@ export async function resolveActivityProblems(
 
   // Callers hold the course/activity locks and obtain existing IDs from that activity in DB.
   const existing = new Set(options.existingProblemIds);
-  const ids = [...new Set(problemIds)].sort();
+  const ids = [...new Set(problemIds)].sort(compareCodeUnits);
   if (courseId !== undefined) {
     for (const id of ids) {
       await tx.$queryRaw`SELECT "courseId" FROM "CourseProblem" WHERE "courseId" = ${courseId} AND "problemId" = ${id} FOR UPDATE`;

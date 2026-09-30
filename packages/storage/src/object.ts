@@ -7,7 +7,8 @@ import { getStorageEnv } from "./env";
 
 let cachedBucket: string | undefined;
 function bucket(): string {
-  return (cachedBucket ??= getStorageEnv().S3_BUCKET);
+  cachedBucket ??= getStorageEnv().S3_BUCKET;
+  return cachedBucket;
 }
 
 export interface StorageObjectPointer {

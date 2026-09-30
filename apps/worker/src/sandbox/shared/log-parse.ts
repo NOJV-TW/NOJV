@@ -54,7 +54,7 @@ export function scanJsonLinesFromEnd<T>(
       const reassembled = reassemble(lines, i);
       if (reassembled !== undefined) documents.push(reassembled);
     }
-    for (const document of documents.reverse()) {
+    for (const document of documents.toReversed()) {
       const result = match(document);
       if (result !== null) return result;
     }

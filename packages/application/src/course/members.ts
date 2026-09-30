@@ -1,5 +1,6 @@
 import { courseMembershipAdminRepo, runTransaction, type TransactionClient } from "@nojv/db";
 import {
+  compareCodeUnits,
   isCanonicalSchoolUsername,
   isReservedUsername,
   userHandleSchema,
@@ -100,7 +101,7 @@ export async function bulkAddByHandle(
     });
     for (const id of [
       ...new Set([courseId, ...pendingCourses.map((row) => row.courseId)]),
-    ].sort()) {
+    ].sort(compareCodeUnits)) {
       await lockCourseMembers(tx, id);
     }
     for (const user of users) {
