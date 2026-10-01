@@ -160,8 +160,6 @@
   "account_securityEmail_error_forbidden": "Super admin 帳號無法在這裡變更。",
   "account_securityEmail_error_failed": "確認信寄送失敗，請再試一次。",
   "account_schoolVerification_changeEmail": "換一個信箱",
-  "account_notificationEmail_label": "通知信箱",
-  "account_notificationEmail_hint": "留空則寄到登入信箱（{email}）。通知會直接寄到這裡，請確認沒有打錯。",
   "auth_error_accountNotLinked": "這個信箱已有 NOJV 帳號。請用你原本的方式登入，再到「設定 → 登入方式」綁定這個帳號。",
   "auth_error_claimedByOther": "這個登入帳號已經綁在另一個 NOJV 帳號上。請改用那個帳號登入；若你不再需要它，可以登入後到設定頁刪除。",
   "auth_error_generic": "登入失敗，請再試一次。",

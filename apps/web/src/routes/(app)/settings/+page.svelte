@@ -585,8 +585,4 @@
   </Section>
 </PageContainer>
 
-<NotificationPreferencesDialog
-  bind:open={notificationsOpen}
-  data={data.notificationForm}
-  primaryEmail={data.email}
-/>
+<NotificationPreferencesDialog bind:open={notificationsOpen} data={data.notificationForm} />

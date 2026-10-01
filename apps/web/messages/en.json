@@ -160,8 +160,6 @@
   "account_securityEmail_error_forbidden": "Super admin accounts cannot change this here.",
   "account_securityEmail_error_failed": "Could not send the confirmation. Please try again.",
   "account_schoolVerification_changeEmail": "Use a different email",
-  "account_notificationEmail_label": "Notification email",
-  "account_notificationEmail_hint": "Leave empty to use your login email ({email}). Notifications go wherever this points, so double-check it.",
   "auth_error_accountNotLinked": "An NOJV account already uses this email. Sign in with the method you used before, then add this one under Settings → Sign-in methods.",
   "auth_error_claimedByOther": "This provider account is already linked to a different NOJV account. Sign in to that account instead, or delete it from its settings page if you no longer need it.",
   "auth_error_generic": "Sign-in failed. Please try again.",

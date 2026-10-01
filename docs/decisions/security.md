@@ -20,7 +20,8 @@ Users sign in with GitHub or Google. Email/password sign-up is disabled everywhe
 Implicit email linking is disabled; a signed-in user links GitHub/Google from settings with step-up and a notification. `User.email` never selects, merges or creates an account; it receives only security mail and changes only via the gated `changeSecurityEmail` action confirmed from the current mailbox. School mailboxes are recycled, so email-based linking would hand one student's account to the next.
 
 - Rejected: email-based auto-linking (earlier "safe" claim retracted); account merging (deferred); the old `changeEmail` flow, effectively an arbitrary-email sign-in — replaced by `changeSecurityEmail`.
-- Rule: security OTPs and recovery mail go only to `User.email`, never `NotificationPreference.email`.
+- Rule: all mail goes to `User.email`: security OTPs, recovery, temporary exam passwords and notifications.
+- Rejected: a separate notification address. Saved unverified, a typo silently lost mail; verified by link, a stolen session could still point it at an attacker inbox and receive later exam passwords.
 - Rule: an identity held by another account is blocked; unlinking the last login method is refused; OAuth errors land on `/signin` naming `account_not_linked`/`account_already_linked_to_different_user`.
 - Rule: HTML-escape user-controlled addresses in mail; email actions stay behind `withRateLimit`.
 - Code: `apps/web/src/lib/auth.server.ts`, `apps/web/src/routes/(app)/settings/+page.server.ts`

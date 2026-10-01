@@ -367,7 +367,7 @@ describe("excerptMarkdown", () => {
   });
 });
 describe("notification email delivery target", () => {
-  it("sends to the notification email when one is set", async () => {
+  it("sends to the sign-in email even when a legacy notification address is stored", async () => {
     findEmailDeliveryContext.mockResolvedValue(
       currentContext({
         notificationPreference: { email: "inbox@example.com" },
@@ -375,22 +375,6 @@ describe("notification email delivery target", () => {
     );
     const work = buildNotificationEmailWork(
       "n-1",
-      input("course_enrolled", { courseName: "A" }),
-    );
-    await deliverNotificationEmail(work);
-    expect(sendEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ to: "inbox@example.com" }),
-    );
-  });
-
-  it("falls back to the login email while no notification email is set", async () => {
-    findEmailDeliveryContext.mockResolvedValue(
-      currentContext({
-        notificationPreference: { email: null },
-      }),
-    );
-    const work = buildNotificationEmailWork(
-      "n-2",
       input("course_enrolled", { courseName: "A" }),
     );
     await deliverNotificationEmail(work);

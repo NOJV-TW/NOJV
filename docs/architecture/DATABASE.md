@@ -214,8 +214,8 @@ erDiagram
   answer (ASM-10, ASM-11).
 - `Notification` is one row per event per recipient; the UI renders text from
   `(type, params)`; `readAt IS NULL` means unread. `NotificationPreference`
-  holds email opt-ins, lead days and an optional notification address (UI-03,
-  WEB-04).
+  holds email opt-ins and lead days (UI-03, WEB-04); its legacy `email` column
+  is no longer read.
 
 ### Operations
 
