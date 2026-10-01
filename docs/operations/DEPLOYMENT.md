@@ -314,13 +314,13 @@ migrate only costs a short drained window.
 
 Hook order on upgrade:
 
-| Weight | Hook                                                   | Purpose                                                                                            |
-| ------ | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| -40    | `schema-fence.yaml`                                    | Admission fence (below)                                                                            |
-| -10    | `release-prepull.job.yaml`, `sandbox-prepull.job.yaml` | Pull the digest-pinned web/worker and sandbox images (`IfNotPresent`) while the old release serves |
-| -7     | `web-maintenance.deployment.yaml`                      | Maintenance page (release window only)                                                             |
-| -5     | `migrator.job.yaml`                                    | Migrate as above                                                                                   |
-| 10     | `web-maintenance.yaml` Job                             | Start new workloads, scale the page to zero, restore the HPA                                       |
+| Weight | Hook                                                   | Purpose                                                                                                                                              |
+| ------ | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| -40    | `schema-fence.yaml`                                    | Admission fence (below)                                                                                                                              |
+| -10    | `release-prepull.job.yaml`, `sandbox-prepull.job.yaml` | Pull the digest-pinned web/worker and sandbox images (`IfNotPresent`, both within `maintenance.prepullDeadlineSeconds`) while the old release serves |
+| -7     | `web-maintenance.deployment.yaml`                      | Maintenance page (release window only)                                                                                                               |
+| -5     | `migrator.job.yaml`                                    | Migrate as above                                                                                                                                     |
+| 10     | `web-maintenance.yaml` Job                             | Start new workloads, scale the page to zero, restore the HPA                                                                                         |
 
 The maintenance page runs the release's web image with a command override and
 carries the `app.kubernetes.io/name: nojv-web` label, so the web Service reaches
