@@ -12,6 +12,7 @@
   import BulkHandleAddPanel from "$lib/components/features/course/BulkHandleAddPanel.svelte";
   import PageContainer from "$lib/components/primitives/layout/PageContainer.svelte";
   import { formatDate } from "$lib/utils/datetime";
+  import { avatarSrc } from "$lib/utils/avatar-src";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -168,7 +169,7 @@
                   >
                     {#if member.image}
                       <img
-                        src={member.image}
+                        src={avatarSrc(member.image)}
                         alt={member.name}
                         class="size-full rounded-full object-cover"
                       />

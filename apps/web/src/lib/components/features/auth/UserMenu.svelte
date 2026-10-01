@@ -6,6 +6,7 @@
   import { authClient } from "$lib/auth.client";
   import StepUpDialog from "$lib/components/features/account/StepUpDialog.svelte";
   import { fetchWithCsrf } from "$lib/services/http";
+  import { avatarSrc } from "$lib/utils/avatar-src";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import SettingsIcon from "@lucide/svelte/icons/settings";
   import LogOutIcon from "@lucide/svelte/icons/log-out";
@@ -128,7 +129,7 @@
       aria-label={m.userMenu_openAccountMenu({ name: user.name })}
     >
       {#if user.image}
-        <img src={user.image} alt={user.name} class="size-full object-cover" />
+        <img src={avatarSrc(user.image)} alt={user.name} class="size-full object-cover" />
       {:else}
         {initial}
       {/if}
@@ -152,7 +153,11 @@
                   class="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full border border-border-subtle bg-primary text-body-sm font-semibold text-primary-foreground"
                 >
                   {#if user.image}
-                    <img src={user.image} alt={user.name} class="size-full object-cover" />
+                    <img
+                      src={avatarSrc(user.image)}
+                      alt={user.name}
+                      class="size-full object-cover"
+                    />
                   {:else}
                     {initial}
                   {/if}
