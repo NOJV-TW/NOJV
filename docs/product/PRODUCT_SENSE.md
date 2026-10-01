@@ -77,7 +77,7 @@ NOJV is a single-institution online judge for university programming courses: pr
 ### Accounts and security
 
 - Sign-in with GitHub or Google OAuth; no public sign-up or password reset; admins are bootstrapped with credentials (SEC-01). Students may also use an expiring exam password when an exam enables it ([contract](../features/exams.md#temporary-exam-sign-in)).
-- Linked provider accounts are the login identity; `User.email` is the fixed security mailbox and never merges accounts; an optional notification email receives everything else (SEC-02).
+- Linked provider accounts are the login identity; `User.email` is the fixed security mailbox and never merges accounts; it receives all mail, including notifications and temporary exam passwords (SEC-02).
 - Username is chosen once at onboarding (school-ID formats reserved); only school verification replaces it with the verified student ID (SEC-03).
 - Factors, admin mode and super-admin login: [Login and security](../features/login-security.md).
 - Personal API tokens with scopes and step-up (SEC-07, SEC-08).

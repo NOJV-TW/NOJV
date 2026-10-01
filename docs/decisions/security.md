@@ -15,12 +15,13 @@ Users sign in with GitHub or Google. Email/password sign-up is disabled everywhe
 
 ### SEC-02 Provider accounts are the login identity; linking is explicit; `User.email` is the security mailbox
 
-**Decided:** 2026-06 · **Source:** [2026-06-24-passwordless-stepup-2fa](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-24-passwordless-stepup-2fa.md), [2026-09-18-identity-hardening](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-18-identity-hardening.md), [2026-09-08-email-change-review-fixes](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/superpowers/plans/2026-09-08-email-change-review-fixes.md), [2026-07-07-admin-account-ux-overhaul](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-07-admin-account-ux-overhaul.md)
+**Decided:** 2026-06 · **Source:** [2026-06-24-passwordless-stepup-2fa](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-24-passwordless-stepup-2fa.md), [2026-09-18-identity-hardening](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-18-identity-hardening.md), [2026-09-08-email-change-review-fixes](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/superpowers/plans/2026-09-08-email-change-review-fixes.md), [2026-07-07-admin-account-ux-overhaul](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-07-admin-account-ux-overhaul.md), [#618](https://github.com/NOJV-TW/NOJV/pull/618)
 
 Implicit email linking is disabled; a signed-in user links GitHub/Google from settings with step-up and a notification. `User.email` never selects, merges or creates an account; it receives only security mail and changes only via the gated `changeSecurityEmail` action confirmed from the current mailbox. School mailboxes are recycled, so email-based linking would hand one student's account to the next.
 
 - Rejected: email-based auto-linking (earlier "safe" claim retracted); account merging (deferred); the old `changeEmail` flow, effectively an arbitrary-email sign-in — replaced by `changeSecurityEmail`.
-- Rule: security OTPs and recovery mail go only to `User.email`, never `NotificationPreference.email`.
+- Rule: all mail goes to `User.email`: security OTPs, recovery, temporary exam passwords and notifications.
+- Rejected: a separate notification address. Saved unverified, a typo silently lost mail; verified by link, a stolen session could still point it at an attacker inbox and receive later exam passwords.
 - Rule: an identity held by another account is blocked; unlinking the last login method is refused; OAuth errors land on `/signin` naming `account_not_linked`/`account_already_linked_to_different_user`.
 - Rule: HTML-escape user-controlled addresses in mail; email actions stay behind `withRateLimit`.
 - Code: `apps/web/src/lib/auth.server.ts`, `apps/web/src/routes/(app)/settings/+page.server.ts`

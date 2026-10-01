@@ -745,7 +745,6 @@ Indexes & constraints: `@@unique([dedupeKey])`, `@@index([userId, createdAt(sort
 | `emailCourseEnrolled` | `Boolean` | `@default(true)` |
 | `emailRoleChanged` | `Boolean` | `@default(true)` |
 | `emailEditorialRemoved` | `Boolean` | `@default(true)` |
-| `email` | `String?` | — |
 | `user` | `User` | `@relation(fields: [userId], references: [id], onDelete: Cascade)` |
 
 ## `ops.prisma`
