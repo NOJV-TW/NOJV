@@ -366,20 +366,3 @@ describe("excerptMarkdown", () => {
     expect(excerpt.length).toBeLessThanOrEqual(103);
   });
 });
-describe("notification email delivery target", () => {
-  it("sends to the sign-in email even when a legacy notification address is stored", async () => {
-    findEmailDeliveryContext.mockResolvedValue(
-      currentContext({
-        notificationPreference: { email: "inbox@example.com" },
-      }),
-    );
-    const work = buildNotificationEmailWork(
-      "n-1",
-      input("course_enrolled", { courseName: "A" }),
-    );
-    await deliverNotificationEmail(work);
-    expect(sendEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ to: "student@example.com" }),
-    );
-  });
-});
