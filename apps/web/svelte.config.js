@@ -27,7 +27,6 @@ const config = {
           "data:",
           "blob:",
           "https://avatars.githubusercontent.com",
-          "https://*.googleusercontent.com",
           "https://*.google-analytics.com",
         ],
         "font-src": ["self", "data:"],

@@ -122,7 +122,8 @@ The DOMPurify hook rewrites remote `img src`/`srcset` to `/api/images/proxy` at 
 
 - Rejected: direct third-party loads (previous accepted privacy leak); redirecting to upstream on failure.
 - Rule: never trust upstream Content-Type; read the cache before any fetch; rate-limit with the read limiter.
-- Code: `apps/web/src/routes/api/images/proxy/+server.ts`, `packages/storage/src/images.ts`, `apps/web/svelte.config.js`
+- Rule: third-party OAuth avatars render through the proxy too (`avatarSrc`); site-wide COEP `require-corp` blocks a direct load when the host sends no CORP header, as Google does, and CSP `img-src` no longer lists `*.googleusercontent.com`.
+- Code: `apps/web/src/routes/api/images/proxy/+server.ts`, `packages/storage/src/images.ts`, `apps/web/svelte.config.js`, `apps/web/src/lib/utils/avatar-src.ts`
 
 ### SEC-12 Graded testcase data never reaches non-staff
 

@@ -105,7 +105,7 @@ The HTTP API reference is the OpenAPI document (`/api/openapi.public.json`, `/ap
 | `/api/contests/[id]/scoreboard`            | Built from Postgres on read (DAT-11); `chart` sub-route                                                                             |
 | `/api/notifications`                       | List, bulk mark-read / clear; `[id]`; `unread-count`                                                                                |
 | `/api/events/stream`                       | SSE per user                                                                                                                        |
-| `/api/images/proxy`                        | SSRF-safe third-party Markdown image proxy (SEC-11)                                                                                 |
+| `/api/images/proxy`                        | SSRF-safe third-party Markdown and avatar image proxy (SEC-11)                                                                      |
 | `/api/uploads/image`                       | Generic image upload; `/api/account/avatar` avatar PUT/DELETE                                                                       |
 | `/api/storage/avatars/[userId]/[filename]` | Object-storage reads (also `problem-images`, `user-content-images`)                                                                 |
 | `/api/admin-mode`                          | Enter / exit admin mode (may return `verificationRequired`)                                                                         |

@@ -4,6 +4,7 @@
   import { m } from "$lib/paraglide/messages.js";
   import { toasts } from "$lib/stores/toast";
   import { fetchWithCsrf } from "$lib/services/http";
+  import { avatarSrc } from "$lib/utils/avatar-src";
   import AvatarCropperDialog from "./AvatarCropperDialog.svelte";
 
   interface Props {
@@ -131,7 +132,7 @@
     {#if image && !imageBroken}
       <img
         bind:this={imgEl}
-        src={image}
+        src={avatarSrc(image)}
         alt=""
         class="size-full object-cover"
         onerror={() => (imageBroken = true)}

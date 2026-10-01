@@ -15,6 +15,7 @@
   import { difficultyClass } from "$lib/utils/verdict-style";
   import { formatProblemDisplayName } from "$lib/utils/format-problem-display-name";
   import { formatChartSummary } from "$lib/utils/chart-summary";
+  import { avatarSrc } from "$lib/utils/avatar-src";
 
   let { data } = $props();
 
@@ -231,7 +232,7 @@
           class="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border-subtle bg-primary text-title font-semibold text-primary-foreground"
         >
           {#if user.image}
-            <img src={user.image} alt={user.name} class="size-full object-cover" />
+            <img src={avatarSrc(user.image)} alt={user.name} class="size-full object-cover" />
           {:else}
             {initial}
           {/if}
