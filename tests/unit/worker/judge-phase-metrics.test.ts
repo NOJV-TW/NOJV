@@ -80,6 +80,18 @@ describe("recordWallClockTimeouts", () => {
     ]);
   });
 
+  it("signals CPU contention only when the program was busy for at least half the limit", () => {
+    recordWallClockTimeouts([run("TLE", 100), run("TLE", 600)], 1000, "c");
+    expect(instruments.records).toEqual([
+      { name: "judge_wall_clock_timeouts_total", value: 2, labels: { language: "c" } },
+      {
+        name: "judge_capacity_signals_total",
+        value: 1,
+        labels: { signal: "wallClockTimeout" },
+      },
+    ]);
+  });
+
   it("records nothing when every TLE used up its CPU time", () => {
     recordWallClockTimeouts([run("TLE", 1000)], 1000, "python");
     expect(instruments.records).toEqual([]);

@@ -2,8 +2,10 @@ import { metrics } from "@opentelemetry/api";
 import type { V1Pod } from "@kubernetes/client-node";
 import type { Language, RawCaseRun } from "@nojv/core";
 import { createLogger } from "../../logger";
+import { emitCapacitySignal } from "../../judge-capacity-signals.js";
 
 const logger = createLogger("judge-resources");
+const CONTENTION_CPU_FRACTION = 0.5;
 
 const meter = metrics.getMeter("nojv-judge");
 const PHASE_SECONDS = [0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 20, 30, 60, 120, 300];
@@ -63,7 +65,17 @@ export function recordWallClockTimeouts(
   const count = runs.filter(
     (run) => run.errorVerdict === "TLE" && run.timeMs < timeoutMs,
   ).length;
-  if (count > 0) wallClockTimeouts.add(count, { language });
+  if (count === 0) return;
+  wallClockTimeouts.add(count, { language });
+  if (
+    runs.some(
+      (run) =>
+        run.errorVerdict === "TLE" &&
+        run.timeMs < timeoutMs &&
+        run.timeMs >= timeoutMs * CONTENTION_CPU_FRACTION,
+    )
+  )
+    emitCapacitySignal("wallClockTimeout");
 }
 
 function timestamp(value: Date | string | undefined): number | undefined {

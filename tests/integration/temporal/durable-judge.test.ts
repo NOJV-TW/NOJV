@@ -22,16 +22,28 @@ async function scenario(options: {
   outage?: number;
   finalize?: number;
   wait?: number;
+  deferredCleanup?: boolean;
+  cleanupFails?: number;
+  stages?: number;
 }) {
   let state = "queued";
   let attempts = 0;
   let finalizations = 0;
+  let cleanupAttempts = 0;
+  let lease: string | null = null;
+  let stage = 0;
+  const totalStages = options.stages ?? 1;
   const phases: string[] = [];
+  const order: string[] = [];
+  let releaseCleanup: () => void = () => undefined;
+  const verdictPublished = new Promise<void>((resolve) => {
+    releaseCleanup = resolve;
+  });
   const activities = {
     judgeExecutionStatus: vi.fn(async (_id: string, _owner: string) => ({
       state,
-      stage: 0,
-      leaseToken: null,
+      stage,
+      leaseToken: lease,
       attempt: attempts,
     })),
     setJudgeExecutionState: vi.fn(async (_id: string, _owner: string, next: string) => {
@@ -39,8 +51,9 @@ async function scenario(options: {
       phases.push(next);
       return true;
     }),
-    executeJudgeStage: vi.fn(async () => {
+    executeJudgeStage: vi.fn(async (..._args: unknown[]) => {
       attempts++;
+      order.push(`execute-${String(stage)}`);
       if (attempts <= (options.capacity ?? 0))
         throw ApplicationFailure.create({ type: "SandboxBackpressureError", message: "quota" });
       if (attempts <= (options.lost ?? 0)) {
@@ -53,8 +66,46 @@ async function scenario(options: {
           message: "node lost",
         });
       if (attempts <= (options.wait ?? 0)) return { status: "cleanup" };
-      state = "finalizing";
-      return { status: "finished" };
+      const index = stage;
+      const status = index + 1 >= totalStages ? "finished" : "saved";
+      stage = index + 1;
+      if (status === "finished") state = "finalizing";
+      if (options.deferredCleanup) lease = "lease";
+      return options.deferredCleanup
+        ? {
+            status,
+            cleanup: {
+              jobName: `judge-stage-${String(index)}`,
+              namespace: "nojv-sandbox",
+              payloadNames: [],
+              deadlineSeconds: 60,
+              mode: "standard",
+              language: "c",
+              leaseToken: "lease",
+            },
+          }
+        : { status };
+    }),
+    cleanupJudgeStage: vi.fn(
+      async (_id: string, _owner: string, cleanup: { jobName: string }) => {
+        cleanupAttempts++;
+        order.push("cleanup-started");
+        if (cleanupAttempts <= (options.cleanupFails ?? 0))
+          throw ApplicationFailure.create({
+            type: "SandboxCleanupError",
+            message: "delete denied",
+            nonRetryable: true,
+          });
+        if (cleanup.jobName === `judge-stage-${String(totalStages - 1)}`)
+          await verdictPublished;
+        lease = null;
+        order.push("cleanup-finished");
+      },
+    ),
+    reconcileJudgeStage: vi.fn(async () => {
+      order.push("reconcile");
+      lease = null;
+      return true;
     }),
     completePinnedJudge: vi.fn(async () => {
       finalizations++;
@@ -74,9 +125,13 @@ async function scenario(options: {
       };
     }),
     finishJudgeExecution: vi.fn(async () => {
+      order.push("finished");
       state = "completed";
     }),
-    publishVerdict: vi.fn(async () => undefined),
+    publishVerdict: vi.fn(async () => {
+      order.push("published");
+      releaseCleanup();
+    }),
   };
   const queue = `durable-judge-${Date.now()}-${Math.random()}`;
   const worker = await Worker.create({
@@ -96,21 +151,28 @@ async function scenario(options: {
     taskQueue: "judge-state",
     activities,
   });
+  const cleanupWorker = await Worker.create({
+    connection: env.nativeConnection,
+    taskQueue: "judge-cleanup",
+    activities,
+  });
   let id = "";
   await worker.runUntil(
     platform.runUntil(
-      stateWorker.runUntil(async () => {
-        const handle = await env.client.workflow.start("durableJudgeWorkflow", {
-          workflowId: queue,
-          taskQueue: queue,
-          args: [{ executionId: "immutable-original-version" }],
-        });
-        id = handle.workflowId;
-        await handle.result();
-      }),
+      stateWorker.runUntil(
+        cleanupWorker.runUntil(async () => {
+          const handle = await env.client.workflow.start("durableJudgeWorkflow", {
+            workflowId: queue,
+            taskQueue: queue,
+            args: [{ executionId: "immutable-original-version" }],
+          });
+          id = handle.workflowId;
+          await handle.result();
+        }),
+      ),
     ),
   );
-  return { activities, phases, id };
+  return { activities, phases, id, order };
 }
 
 describe("durable judge recovery workflow", () => {
@@ -166,6 +228,37 @@ describe("durable judge recovery workflow", () => {
     const { activities } = await scenario({ finalize: 4 });
     expect(activities.executeJudgeStage).toHaveBeenCalledOnce();
     expect(activities.completePinnedJudge).toHaveBeenCalledTimes(5);
+    expect(activities.publishVerdict).toHaveBeenCalledOnce();
+  }, 30_000);
+  it("publishes the verdict while the deferred stage cleanup is still running", async () => {
+    const { activities, order } = await scenario({ deferredCleanup: true });
+    expect(activities.executeJudgeStage.mock.calls[0]?.[3]).toBe(true);
+    expect(activities.cleanupJudgeStage).toHaveBeenCalledOnce();
+    expect(order).toEqual([
+      "execute-0",
+      "cleanup-started",
+      "published",
+      "cleanup-finished",
+      "finished",
+    ]);
+  }, 30_000);
+  it("reconciles a failed deferred cleanup's lease without publishing the verdict again", async () => {
+    const { activities, phases, order } = await scenario({
+      deferredCleanup: true,
+      cleanupFails: 1,
+    });
+    expect(phases).toContain("finalizing");
+    expect(activities.reconcileJudgeStage).toHaveBeenCalledOnce();
+    expect(order.indexOf("reconcile")).toBeLessThan(order.indexOf("finished"));
+    expect(activities.completePinnedJudge).toHaveBeenCalledOnce();
+    expect(activities.publishVerdict).toHaveBeenCalledOnce();
+    expect(activities.finishJudgeExecution).toHaveBeenCalledOnce();
+  }, 30_000);
+  it("finishes a stage's deferred cleanup before the next stage starts", async () => {
+    const { activities, order } = await scenario({ deferredCleanup: true, stages: 2 });
+    expect(activities.executeJudgeStage).toHaveBeenCalledTimes(2);
+    expect(activities.cleanupJudgeStage).toHaveBeenCalledTimes(2);
+    expect(order.indexOf("cleanup-finished")).toBeLessThan(order.indexOf("execute-1"));
     expect(activities.publishVerdict).toHaveBeenCalledOnce();
   }, 30_000);
   it("continues as new during long cleanup waits with only an execution reference", async () => {

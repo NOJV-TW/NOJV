@@ -8,11 +8,15 @@ matching.numTaskqueueWritePartitions:
   - value: 1
     constraints: { taskQueueName: judge-state }
   - value: 1
+    constraints: { taskQueueName: judge-cleanup }
+  - value: 1
     constraints: { taskQueueName: platform }
 matching.numTaskqueueReadPartitions:
   - value: 1
     constraints: { taskQueueName: judge }
   - value: 1
     constraints: { taskQueueName: judge-state }
+  - value: 1
+    constraints: { taskQueueName: judge-cleanup }
   - value: 1
     constraints: { taskQueueName: platform }

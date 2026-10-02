@@ -9,6 +9,7 @@ export {
 export {
   judgeExecutionStatus,
   executeJudgeStage,
+  cleanupJudgeStage,
   reconcileJudgeStage,
   completePinnedJudge,
   setJudgeExecutionState,

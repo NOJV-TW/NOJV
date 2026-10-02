@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 
 import type * as k8s from "@kubernetes/client-node";
 import {
+  type DeferredStageCleanup,
   type SandboxExecutionContext,
   type SandboxExecutor,
   type SandboxRequest,
@@ -119,6 +120,10 @@ export class K8sExecutor implements SandboxExecutor {
 
   reconcile(runId: string, owner?: string): Promise<boolean> {
     return this.cleanupResources.reconcile(runId, owner);
+  }
+
+  cleanupStage(cleanup: DeferredStageCleanup, signal: AbortSignal): Promise<void> {
+    return this.standard.cleanupStage(cleanup, signal);
   }
 
   async execute(

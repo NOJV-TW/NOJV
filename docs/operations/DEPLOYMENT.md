@@ -98,11 +98,11 @@ chart against it.
 | `SANDBOX_IMAGE`                                                                                       | required                         | Standard sandbox image                                                                                                     |
 | `WORKER_CONCURRENCY`                                                                                  | required, 1–64                   | Activity slots per task queue                                                                                              |
 | `WORKER_MIN_CONCURRENCY`                                                                              | unset                            | Judge only: slots float between this and `WORKER_CONCURRENCY` by node load (see [Judge Queue](../runbooks/judge-queue.md)) |
-| `WORKER_MODE`                                                                                         | `all`                            | `all`, `judge` (queues `judge` + `judge-state`), `platform` (queue `platform`)                                             |
+| `WORKER_MODE`                                                                                         | `all`                            | `all`, `judge` (queues `judge`, `judge-state`, `judge-cleanup`), `platform` (queue `platform`)                             |
 | `SANDBOX_MEMORY_HEADROOM_MB`, `SANDBOX_MAX_MEMORY_MB`                                                 | `64`, `1536`                     | Sandbox memory ceiling above the problem limit                                                                             |
 | `SANDBOX_CPU_LIMIT`, `SANDBOX_MEMORY_MB`, `SANDBOX_PIDS_LIMIT`                                        | required (Docker)                | Per-sandbox limits                                                                                                         |
 | `K8S_NAMESPACE`, `K8S_CPU_REQUEST`, `K8S_CPU_LIMIT`, `K8S_MEMORY_REQUEST`, `K8S_MEMORY_LIMIT`         | required (Kubernetes)            | Sandbox namespace and container resources (`worker.sandbox.*`)                                                             |
-| `K8S_RUN_PARALLELISM`                                                                                 | `1`, range 1–8                   | Testcases one stage Pod runs at once; its run container requests and is limited to this many CPUs                          |
+| `K8S_RUN_PARALLELISM`                                                                                 | `1`, range 1–8                   | Testcases one stage Pod runs at once; its run container requests half and is limited to this many CPUs                     |
 | `K8S_RUNTIME_CLASS_NAME`                                                                              | required, must be `gvisor`       | RuntimeClass for every sandbox Pod                                                                                         |
 | `K8S_IMAGE_PULL_SECRET`                                                                               | unset                            | dockerconfigjson Secret in the sandbox namespace (`worker.sandbox.imagePullSecret`)                                        |
 | `REGISTRY_GC_IMAGE`, `REGISTRY_GC_NAMESPACE`, `REGISTRY_GC_CONFIG_CONFIGMAP`, `REGISTRY_GC_S3_SECRET` | defaults match the chart         | Registry garbage-collection Job                                                                                            |
@@ -383,10 +383,10 @@ limit, so its usage never exceeds its request and kubelet node-pressure
 eviction takes every pod above its request first. Its requests count against
 the 10 vCPU / 24 GiB node with the other platform pods, about 3.2 CPU of
 requests in total; sandbox Jobs schedule into the remaining 6.8 CPU, which holds
-the quota's six one-CPU stage Pods. The quota caps admission but does not
-reserve node capacity: when allocatable CPU minus platform requests is below
-slots × `runParallelism`, the extra stage Pods stay Pending (`Insufficient cpu`)
-and the worker retries them as `SandboxBackpressureError`. The VM uses the
+the quota's six running and six terminating half-CPU stage Pods.
+The quota caps admission but does not reserve node capacity: a stage Pod that does
+not fit stays Pending (`Unschedulable`), which lowers the load-aware slot budget,
+and after 30 s the worker retries it as `SandboxBackpressureError`. The VM uses the
 `host` CPU type; the generic QEMU model hides AVX2 and roughly doubles judge CPU
 time.
 

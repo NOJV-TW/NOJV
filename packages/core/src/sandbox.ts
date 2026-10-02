@@ -105,14 +105,25 @@ export type SandboxTestcaseResult = z.infer<typeof sandboxTestcaseResultSchema>;
 export type RawCaseRun = z.infer<typeof rawCaseRunSchema>;
 export type SandboxResult = z.infer<typeof sandboxOutputSchema>;
 
+export interface DeferredStageCleanup {
+  jobName: string;
+  namespace: string;
+  payloadNames: string[];
+  deadlineSeconds: number;
+  mode: SandboxRequest["judgeType"];
+  language: SandboxRequest["language"];
+}
+
 export interface SandboxExecutionContext {
   runId: string;
   signal: AbortSignal;
+  deferCleanup?: (cleanup: DeferredStageCleanup) => void;
 }
 
 export interface SandboxExecutor {
   cleanupRun?(runId: string): Promise<void>;
   reconcile?(runId: string, owner?: string): Promise<boolean>;
+  cleanupStage?(cleanup: DeferredStageCleanup, signal: AbortSignal): Promise<void>;
   execute(request: SandboxRequest, execution: SandboxExecutionContext): Promise<SandboxResult>;
 }
 

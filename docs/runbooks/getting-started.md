@@ -81,7 +81,7 @@ Rebuild after changing `apps/sandbox-runner` or `infra/docker/sandbox-runner.Doc
 pnpm dev
 ```
 
-Starts web at <http://localhost:5173> and the worker with `WORKER_MODE=all` (judge, judge-state and platform queues).
+Starts web at <http://localhost:5173> and the worker with `WORKER_MODE=all` (judge, judge-state, judge-cleanup and platform queues).
 
 ## 7. Verify
 

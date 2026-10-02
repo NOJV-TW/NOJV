@@ -1,6 +1,6 @@
 import { hostname } from "node:os";
 import { ApplicationFailure, cancellationSignal, heartbeat } from "@temporalio/activity";
-import { sandboxOutputSchema, type SandboxResult } from "@nojv/core";
+import { sandboxOutputSchema, type DeferredStageCleanup, type SandboxResult } from "@nojv/core";
 import { submissionDomain } from "@nojv/application";
 import { prismaAdapterClient as db } from "@nojv/db";
 import { buildSandboxRequest, mapSandboxResult } from "./judge-request";
@@ -26,10 +26,39 @@ export async function judgeExecutionStatus(executionId: string, workflowId: stri
   };
 }
 
+export type JudgeStageCleanup = DeferredStageCleanup & { leaseToken: string };
+
+function heartbeatLease(
+  executionId: string,
+  workflowId: string,
+  leaseToken: string,
+  details: Record<string, unknown>,
+  onLost: () => void,
+): () => void {
+  heartbeat(details);
+  let pending = false;
+  const interval = setInterval(() => {
+    heartbeat(details);
+    if (pending) return;
+    pending = true;
+    void submissionDomain
+      .heartbeatJudgeStage(executionId, workflowId, leaseToken)
+      .then((owned) => {
+        if (!owned) onLost();
+      })
+      .catch(onLost)
+      .finally(() => {
+        pending = false;
+      });
+  }, 15_000);
+  return () => clearInterval(interval);
+}
+
 export async function executeJudgeStage(
   executionId: string,
   workflowId: string,
   index: number,
+  deferCleanup = false,
 ) {
   const admission = await submissionDomain.claimJudgeLease(
     executionId,
@@ -40,23 +69,15 @@ export async function executeJudgeStage(
   const { leaseToken } = admission;
   const controller = new AbortController();
   const signal = AbortSignal.any([cancellationSignal(), controller.signal]);
-  heartbeat({ executionId, index, leaseToken });
-  let heartbeatPending = false;
-  const interval = setInterval(() => {
-    heartbeat({ executionId, index, leaseToken });
-    if (heartbeatPending) return;
-    heartbeatPending = true;
-    void submissionDomain
-      .heartbeatJudgeStage(executionId, workflowId, leaseToken)
-      .then((owned) => {
-        if (!owned) controller.abort();
-      })
-      .catch(() => controller.abort())
-      .finally(() => {
-        heartbeatPending = false;
-      });
-  }, 15_000);
+  const stopHeartbeat = heartbeatLease(
+    executionId,
+    workflowId,
+    leaseToken,
+    { executionId, index, leaseToken },
+    () => controller.abort(),
+  );
   let cleanupConfirmed = false;
+  const deferred: DeferredStageCleanup[] = [];
   try {
     const { snapshot } = await submissionDomain.loadJudgeExecution(executionId);
     const fullRequest = buildSandboxRequest(snapshot);
@@ -74,14 +95,22 @@ export async function executeJudgeStage(
       await submissionDomain.setJudgeExecutionState(executionId, workflowId, "finalizing");
       return { status: "finished" as const };
     }
-    const result = await getExecutorOwner().execute(request, signal, leaseToken);
-    cleanupConfirmed = true;
-    if (
-      result.pipelineError ||
+    const result = await getExecutorOwner().execute(
+      request,
+      signal,
+      leaseToken,
+      deferCleanup ? (cleanup) => deferred.push(cleanup) : undefined,
+    );
+    const [pendingCleanup] = deferred;
+    const systemError =
+      Boolean(result.pipelineError) ||
       result.overallVerdict === "SE" ||
       result.testcaseResults.some((c) => c.verdict === "SE") ||
-      result.rawRuns?.some((run) => run.errorVerdict === "SE")
-    )
+      result.rawRuns?.some((run) => run.errorVerdict === "SE") === true;
+    if (pendingCleanup && systemError)
+      await getExecutorOwner().cleanupStage(pendingCleanup, signal);
+    cleanupConfirmed = !pendingCleanup || systemError;
+    if (systemError)
       throw ApplicationFailure.create({
         type: "JudgeResultSystemError",
         message:
@@ -98,9 +127,16 @@ export async function executeJudgeStage(
       result,
       leaseToken,
       terminal,
+      Boolean(pendingCleanup),
     );
-    return { status: terminal ? ("finished" as const) : ("saved" as const) };
+    const status = terminal ? ("finished" as const) : ("saved" as const);
+    return pendingCleanup ? { status, cleanup: { ...pendingCleanup, leaseToken } } : { status };
   } catch (error) {
+    const [pendingCleanup] = deferred;
+    if (pendingCleanup && !cleanupConfirmed) {
+      await getExecutorOwner().cleanupStage(pendingCleanup, signal);
+      cleanupConfirmed = true;
+    }
     if (
       error instanceof Error &&
       [
@@ -120,10 +156,33 @@ export async function executeJudgeStage(
       });
     throw error;
   } finally {
-    clearInterval(interval);
+    stopHeartbeat();
     if (cleanupConfirmed)
       await submissionDomain.releaseJudgeStage(executionId, workflowId, leaseToken);
   }
+}
+
+export async function cleanupJudgeStage(
+  executionId: string,
+  workflowId: string,
+  cleanup: JudgeStageCleanup,
+) {
+  const { leaseToken, ...stage } = cleanup;
+  const controller = new AbortController();
+  const signal = AbortSignal.any([cancellationSignal(), controller.signal]);
+  const stopHeartbeat = heartbeatLease(
+    executionId,
+    workflowId,
+    leaseToken,
+    { executionId, leaseToken, phase: "cleanup" },
+    () => controller.abort(),
+  );
+  try {
+    await getExecutorOwner().cleanupStage(stage, signal);
+  } finally {
+    stopHeartbeat();
+  }
+  await submissionDomain.releaseJudgeStage(executionId, workflowId, leaseToken);
 }
 
 export async function reconcileJudgeStage(

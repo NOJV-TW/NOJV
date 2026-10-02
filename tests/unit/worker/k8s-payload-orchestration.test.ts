@@ -1,9 +1,20 @@
-import type { SandboxRequest } from "@nojv/core";
+import type { DeferredStageCleanup, SandboxRequest } from "@nojv/core";
 import { describe, expect, it, vi } from "vitest";
 
 import { K8sExecutor } from "../../../apps/worker/src/sandbox/kubernetes/executor";
 import { SandboxAdmissionError } from "../../../apps/worker/src/sandbox/kubernetes/errors";
 import { withTestcaseCache } from "./k8s-testcase-cache-fake";
+
+const metrics = vi.hoisted(() => ({ recordCleanupPending: vi.fn() }));
+vi.mock(
+  "../../../apps/worker/src/sandbox/shared/judge-phase-metrics",
+  async (importOriginal) => ({
+    ...(await importOriginal<
+      typeof import("../../../apps/worker/src/sandbox/shared/judge-phase-metrics")
+    >()),
+    recordCleanupPending: metrics.recordCleanupPending,
+  }),
+);
 
 const EXEC_CONFIG = {
   namespace: "nojv-sandbox",
@@ -165,6 +176,94 @@ describe("K8sExecutor sharded payload orchestration", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("hands the post-result cleanup to the caller when deferCleanup is set", async () => {
+    const fake = clients();
+    const deferCleanup = vi.fn();
+    const result = await new K8sExecutor(EXEC_CONFIG, fake.handles).execute(request("ok"), {
+      runId: "deferred",
+      signal: new AbortController().signal,
+      deferCleanup,
+    });
+
+    expect(result.testcaseResults.map((testcase) => testcase.verdict)).toEqual(["AC"]);
+    expect(deferCleanup).toHaveBeenCalledOnce();
+    expect(deferCleanup).toHaveBeenCalledWith({
+      jobName: "judge-deferred",
+      namespace: "nojv-sandbox",
+      payloadNames: fake.record.configMapsCreated,
+      deadlineSeconds: expect.any(Number),
+      mode: "standard",
+      language: "python",
+    });
+    expect(fake.handles.batchApi.deleteNamespacedJob).not.toHaveBeenCalled();
+    expect(fake.record.configMapsDeleted).toEqual([]);
+  });
+
+  it("cleans up inline when the stage fails even if deferCleanup is set", async () => {
+    const fake = clients({
+      blockedEvent: {
+        type: "Warning",
+        reason: "FailedCreate",
+        message: "forbidden: maximum memory usage per Container is 1Gi, but limit is 1088Mi",
+      },
+    });
+    const deferCleanup = vi.fn();
+
+    await expect(
+      new K8sExecutor(EXEC_CONFIG, fake.handles).execute(request("small"), {
+        runId: "failed-deferred",
+        signal: new AbortController().signal,
+        deferCleanup,
+      }),
+    ).rejects.toBeInstanceOf(SandboxAdmissionError);
+
+    expect(deferCleanup).not.toHaveBeenCalled();
+    expect(fake.handles.batchApi.deleteNamespacedJob).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "judge-failed-deferred" }),
+    );
+  });
+
+  it("cleanupStage removes the Job and payloads of a deferred stage", async () => {
+    const fake = clients();
+    const executor = new K8sExecutor(EXEC_CONFIG, fake.handles);
+    const deferred: DeferredStageCleanup[] = [];
+    await executor.execute(request("ok"), {
+      runId: "later",
+      signal: new AbortController().signal,
+      deferCleanup: (cleanup) => deferred.push(cleanup),
+    });
+
+    await executor.cleanupStage(deferred[0]!, new AbortController().signal);
+
+    expect(fake.handles.batchApi.deleteNamespacedJob).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "judge-later" }),
+    );
+    expect(fake.record.configMapsDeleted.toSorted()).toEqual(
+      fake.record.configMapsCreated.toSorted(),
+    );
+  });
+
+  it("reports a failed deferred cleanup as cleanup pending", async () => {
+    const fake = clients();
+    const executor = new K8sExecutor(EXEC_CONFIG, fake.handles);
+    const deferred: DeferredStageCleanup[] = [];
+    await executor.execute(request("ok"), {
+      runId: "pending",
+      signal: new AbortController().signal,
+      deferCleanup: (cleanup) => deferred.push(cleanup),
+    });
+    fake.handles.batchApi.deleteNamespacedJob.mockRejectedValue(
+      Object.assign(new Error("delete denied"), { code: 403 }),
+    );
+    metrics.recordCleanupPending.mockClear();
+
+    await expect(
+      executor.cleanupStage(deferred[0]!, new AbortController().signal),
+    ).rejects.toThrow();
+
+    expect(metrics.recordCleanupPending).toHaveBeenCalledWith("standard", "python");
   });
 
   it("pins standard and checker images per request without changing the executor default", async () => {
@@ -471,7 +570,8 @@ describe("K8sExecutor sharded payload orchestration", () => {
     expect(spec.runtimeClassName).toBe("gvisor");
     expect(spec.initContainers.map((container: any) => container.name)).toEqual(["run"]);
     expect(spec.containers.map((container: any) => container.name)).toEqual(["judge"]);
-    expect(spec.initContainers[0].resources.requests.cpu).toBe("1");
+    expect(spec.initContainers[0].resources.requests.cpu).toBe("0.5");
+    expect(spec.initContainers[0].resources.limits.cpu).toBe("1");
   });
 
   it("lowers run parallelism until the run container fits the memory ceiling", async () => {

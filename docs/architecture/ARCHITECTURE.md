@@ -87,11 +87,12 @@ against route drift by `tests/unit/openapi-contract.test.ts` (ENG-05).
 `nojv-worker` (`judge`) and `nojv-worker-platform` (`platform`); `all` is for
 development.
 
-| Queue         | Served in mode    | Worker shape                                                                                                   | Work                                                                              |
-| ------------- | ----------------- | -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `judge`       | `judge`, `all`    | Workflows + activities; `WORKER_CONCURRENCY` slots, or a node-load budget when `WORKER_MIN_CONCURRENCY` is set | Judge workflows; only sandbox stage activities (one slot = one sandbox stage)     |
-| `judge-state` | `judge`, `all`    | Activity-only, 16 fixed slots                                                                                  | Judge bookkeeping activities (state, verdict commit, scoreboard nudge)            |
-| `platform`    | `platform`, `all` | Workflows + activities; `WORKER_CONCURRENCY` slots                                                             | Lifecycle timers, plagiarism, durable work, sweeper, score effects, notifications |
+| Queue           | Served in mode    | Worker shape                                                                                                   | Work                                                                              |
+| --------------- | ----------------- | -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `judge`         | `judge`, `all`    | Workflows + activities; `WORKER_CONCURRENCY` slots, or a node-load budget when `WORKER_MIN_CONCURRENCY` is set | Judge workflows; only sandbox stage activities (one slot = one sandbox stage)     |
+| `judge-state`   | `judge`, `all`    | Activity-only, 16 fixed slots                                                                                  | Judge bookkeeping activities (state, verdict commit, scoreboard nudge)            |
+| `judge-cleanup` | `judge`, `all`    | Activity-only, 16 fixed slots                                                                                  | Deferred standard stage cleanup (`cleanupJudgeStage`)                             |
+| `platform`      | `platform`, `all` | Workflows + activities; `WORKER_CONCURRENCY` slots                                                             | Lifecycle timers, plagiarism, durable work, sweeper, score effects, notifications |
 
 Judge and platform workers cache at most 32 workflows and run at most 8 workflow
 tasks concurrently. Queue capacity and priority: see

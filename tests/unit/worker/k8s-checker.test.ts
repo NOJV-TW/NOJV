@@ -194,9 +194,9 @@ describe("buildStageJobManifest — run and judge in one hardened Pod", () => {
     expect(judge.env).toContainEqual({ name: "SANDBOX_PHASE", value: "judge-stage" });
   });
 
-  it("reserves exactly runParallelism CPUs for the run container", () => {
+  it("requests half of runParallelism CPUs and limits the run container to the full count", () => {
     expect(run!.resources).toEqual({
-      requests: { cpu: "2", memory: "64Mi" },
+      requests: { cpu: "1", memory: "64Mi" },
       limits: { cpu: "2", memory: "704Mi" },
     });
     expect(judge.resources?.limits).toEqual({ cpu: "1", memory: "512Mi" });

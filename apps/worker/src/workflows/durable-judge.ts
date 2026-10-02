@@ -16,7 +16,7 @@ import {
 } from "@nojv/core";
 import type * as executionActivities from "../activities/judge-execution";
 import type * as lifecycleActivities from "../activities/lifecycle";
-import { JUDGE_STATE_QUEUE, PLATFORM_QUEUE } from "./activity-options";
+import { JUDGE_CLEANUP_QUEUE, JUDGE_STATE_QUEUE, PLATFORM_QUEUE } from "./activity-options";
 
 const journal = proxyActivities<typeof executionActivities>({
   taskQueue: JUDGE_STATE_QUEUE,
@@ -30,6 +30,12 @@ const SANDBOX_ACTIVITY = {
   retry: { maximumAttempts: 1 },
 } as const;
 const sandbox = proxyActivities<typeof executionActivities>(SANDBOX_ACTIVITY);
+const cleanups = proxyActivities<typeof executionActivities>({
+  taskQueue: JUDGE_CLEANUP_QUEUE,
+  startToCloseTimeout: "5m",
+  heartbeatTimeout: "60s",
+  retry: { maximumAttempts: 5 },
+});
 const notifications = proxyActivities<typeof lifecycleActivities>({
   taskQueue: JUDGE_STATE_QUEUE,
   startToCloseTimeout: "2m",
@@ -65,10 +71,12 @@ export async function durableJudgeWorkflow(input: JudgeExecutionInput): Promise<
     ...(priority ? { priority } : {}),
   });
   let failures = 0;
+  let published = false;
   for (let iteration = 0; ; iteration++) {
     if (iteration >= 100 || workflowInfo().continueAsNewSuggested)
       await continueAsNew<typeof durableJudgeWorkflow>(input);
     let finalizing = false;
+    let cleanup: Promise<void> | undefined;
     try {
       const state = await journal.judgeExecutionStatus(input.executionId, workflowId);
       finalizing = state.state === "finalizing";
@@ -94,17 +102,20 @@ export async function durableJudgeWorkflow(input: JudgeExecutionInput): Promise<
       if (state.state === "cancelled" || state.state === "completed") return;
       if (!finalizing) {
         await journal.setJudgeExecutionState(input.executionId, workflowId, "queued");
-        const stage = await stages.executeJudgeStage(
-          input.executionId,
-          workflowId,
-          state.stage,
-        );
+        const stage = patched("deferred-stage-cleanup-v1")
+          ? await stages.executeJudgeStage(input.executionId, workflowId, state.stage, true)
+          : await stages.executeJudgeStage(input.executionId, workflowId, state.stage);
         if (stage.status === "obsolete") return;
         if (stage.status === "cleanup") {
           await sleep("5s");
           continue;
         }
+        if ("cleanup" in stage) {
+          cleanup = cleanups.cleanupJudgeStage(input.executionId, workflowId, stage.cleanup);
+          cleanup.catch(() => undefined);
+        }
         if (stage.status !== "finished") {
+          await cleanup;
           failures = 0;
           continue;
         }
@@ -112,19 +123,27 @@ export async function durableJudgeWorkflow(input: JudgeExecutionInput): Promise<
         if (!patched("stage-commits-finalizing-v1"))
           await journal.setJudgeExecutionState(input.executionId, workflowId, "finalizing");
       }
-      const submission = await journal.completePinnedJudge(input.executionId, workflowId);
-      if (submission) {
-        if (submission.contestId) {
-          const id = await effects.updateContestScores(submission.contestId, submission.userId);
-          if (id) await notifications.publishScoreboardUpdate(id);
-        } else if (submission.examId)
-          await effects.updateExamScores(submission.examId, submission.userId);
-        await effects.publishVerdict(submission);
+      if (!published) {
+        const submission = await journal.completePinnedJudge(input.executionId, workflowId);
+        if (submission) {
+          if (submission.contestId) {
+            const id = await effects.updateContestScores(
+              submission.contestId,
+              submission.userId,
+            );
+            if (id) await notifications.publishScoreboardUpdate(id);
+          } else if (submission.examId)
+            await effects.updateExamScores(submission.examId, submission.userId);
+          await effects.publishVerdict(submission);
+        }
+        published = cleanup !== undefined;
       }
+      await cleanup;
       await journal.finishJudgeExecution(input.executionId, workflowId);
       return;
     } catch (error) {
       if (isCancellation(error)) throw error;
+      await cleanup?.catch(() => undefined);
       const cause = error instanceof ActivityFailure ? error.cause : error;
       if (
         cause instanceof TimeoutFailure &&

@@ -27,6 +27,55 @@ describe("ExecutorOwner", () => {
     expect(owner.activeCount).toBe(0);
   });
 
+  it("passes a deferred-cleanup callback through to the executor only when given", async () => {
+    const contexts: Parameters<SandboxExecutor["execute"]>[1][] = [];
+    const executor: SandboxExecutor = {
+      execute: vi.fn(async (_request, execution) => {
+        contexts.push(execution);
+        execution.deferCleanup?.({
+          jobName: "judge-run",
+          namespace: "nojv-sandbox",
+          payloadNames: [],
+          deadlineSeconds: 60,
+          mode: "standard",
+          language: "c",
+        });
+        return { testcaseResults: [] };
+      }),
+    };
+    const owner = new ExecutorOwner(executor, () => "run");
+    const deferCleanup = vi.fn();
+
+    await owner.execute(request, new AbortController().signal, "with", deferCleanup);
+    await owner.execute(request, new AbortController().signal, "without");
+
+    expect(deferCleanup).toHaveBeenCalledWith(
+      expect.objectContaining({ jobName: "judge-run" }),
+    );
+    expect("deferCleanup" in contexts[1]!).toBe(false);
+  });
+
+  it("delegates a deferred stage cleanup and refuses executors without one", async () => {
+    const cleanup = {
+      jobName: "judge-run",
+      namespace: "nojv-sandbox",
+      payloadNames: ["judge-run-run-pm"],
+      deadlineSeconds: 60,
+      mode: "standard",
+      language: "c",
+    };
+    const cleanupStage = vi.fn(async () => undefined);
+    const signal = new AbortController().signal;
+    const execute = vi.fn(async () => ({ testcaseResults: [] }));
+
+    await new ExecutorOwner({ execute, cleanupStage }).cleanupStage(cleanup, signal);
+    await expect(new ExecutorOwner({ execute }).cleanupStage(cleanup, signal)).rejects.toThrow(
+      "cannot clean a deferred stage",
+    );
+
+    expect(cleanupStage).toHaveBeenCalledWith(cleanup, signal);
+  });
+
   it("propagates cancellation and does not finish shutdown before execution cleanup", async () => {
     let releaseCleanup!: () => void;
     const cleanup = new Promise<void>((resolve) => {

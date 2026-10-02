@@ -1,6 +1,7 @@
 import {
   DEFAULT_MAX_MEMORY_MB,
   MIN_COMPILER_MEMORY_MB,
+  type DeferredStageCleanup,
   type SandboxExecutionContext,
   type SandboxRequest,
   type SandboxResult,
@@ -8,7 +9,7 @@ import {
 
 import { createLogger } from "../../logger.js";
 import { recordJudgePhase, recordRunnerResources } from "../shared/judge-phase-metrics";
-import { measurePhase, requestMode, stagePod } from "./execution-observer";
+import { measureLabeledPhase, measurePhase, requestMode, stagePod } from "./execution-observer";
 import { runCleanupAfterExecution } from "./cleanup";
 import { parseMemoryLimitMb, resolveK8sMemoryLimit } from "./resource-capacity";
 import { computeStageJobDeadlineSeconds } from "./job-deadlines";
@@ -74,6 +75,22 @@ export class KubernetesStandardExecutor {
     let executionFailure: { reason: unknown } | undefined;
     let payloadNames: string[] = [];
     let podTermination: Promise<void> | undefined;
+    let podSeen = false;
+    const handoff = { deferred: false };
+    const finish = (result: SandboxResult): SandboxResult => {
+      if (execution.deferCleanup) {
+        execution.deferCleanup({
+          jobName,
+          namespace: ns,
+          payloadNames,
+          deadlineSeconds,
+          mode: request.judgeType,
+          language: request.language,
+        });
+        handoff.deferred = true;
+      }
+      return result;
+    };
 
     try {
       const payloads = await this.resources.createStagePayloads(
@@ -110,7 +127,8 @@ export class KubernetesStandardExecutor {
         { containersExited: true },
       );
       jobFinishedAt = Date.now();
-      if (outcome.pod)
+      podSeen = Boolean(outcome.pod);
+      if (outcome.pod && !execution.deferCleanup)
         podTermination = this.jobWatcher.waitForPodTermination(
           jobName,
           ns,
@@ -151,7 +169,7 @@ export class KubernetesStandardExecutor {
       });
 
       const compileError = parseCompilationError(runLog);
-      if (compileError) return { testcaseResults: [], compilationError: compileError };
+      if (compileError) return finish({ testcaseResults: [], compilationError: compileError });
 
       const parsed = runLog ? parseRunResult(runLog) : null;
       if (!parsed?.rawRuns)
@@ -166,24 +184,36 @@ export class KubernetesStandardExecutor {
         parsed?.rawRuns ?? [],
         parsed?.pipelineError ?? "Run container produced no result.",
       );
-      return mergeStageResults(
-        request,
-        rawRuns,
-        parseJudgeOutcomes(judgeLog, gradableRuns(request, rawRuns)),
+      return finish(
+        mergeStageResults(
+          request,
+          rawRuns,
+          parseJudgeOutcomes(judgeLog, gradableRuns(request, rawRuns)),
+        ),
       );
     } catch (error) {
       executionFailure = { reason: error };
       throw error;
     } finally {
       const terminationStartedAt = Date.now();
-      await podTermination;
+      if (!handoff.deferred)
+        await (podTermination ??
+          (podSeen
+            ? this.jobWatcher.waitForPodTermination(
+                jobName,
+                ns,
+                deadlineSeconds,
+                execution.signal,
+              )
+            : undefined));
       const cleanupStartedAt = Date.now();
       try {
-        await measurePhase(request, "cleanup", () =>
-          runCleanupAfterExecution(executionFailure, () =>
-            this.cleanupResources.cleanup(jobName, ns, payloadNames),
-          ),
-        );
+        if (!handoff.deferred)
+          await measurePhase(request, "cleanup", () =>
+            runCleanupAfterExecution(executionFailure, () =>
+              this.cleanupResources.cleanup(jobName, ns, payloadNames),
+            ),
+          );
       } finally {
         if (jobFinishedAt !== undefined && logsReadAt !== undefined)
           recordJudgePhase(
@@ -210,11 +240,31 @@ export class KubernetesStandardExecutor {
             jobFinishedAt === undefined || logsReadAt === undefined
               ? null
               : logsReadAt - jobFinishedAt,
-          podTerminationMs: cleanupStartedAt - terminationStartedAt,
-          cleanupMs: Date.now() - cleanupStartedAt,
+          podTerminationMs: handoff.deferred ? null : cleanupStartedAt - terminationStartedAt,
+          cleanupMs: handoff.deferred ? null : Date.now() - cleanupStartedAt,
           totalMs: Date.now() - startedAt,
+          deferredCleanup: handoff.deferred,
         });
       }
     }
+  }
+
+  async cleanupStage(cleanup: DeferredStageCleanup, signal: AbortSignal): Promise<void> {
+    const startedAt = Date.now();
+    await this.jobWatcher.waitForPodTermination(
+      cleanup.jobName,
+      cleanup.namespace,
+      cleanup.deadlineSeconds,
+      signal,
+    );
+    const cleanupStartedAt = Date.now();
+    await measureLabeledPhase(cleanup.mode, cleanup.language, "cleanup", () =>
+      this.cleanupResources.cleanup(cleanup.jobName, cleanup.namespace, cleanup.payloadNames),
+    );
+    logger.info("Kubernetes sandbox deferred cleanup timings", {
+      jobName: cleanup.jobName,
+      podTerminationMs: cleanupStartedAt - startedAt,
+      cleanupMs: Date.now() - cleanupStartedAt,
+    });
   }
 }
