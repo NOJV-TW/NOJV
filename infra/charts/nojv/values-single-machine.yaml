@@ -127,7 +127,7 @@ observability:
 worker:
   judge:
     replicas: 1
-    concurrency: "6"
+    concurrency: "12"
     minConcurrency: "2"
     resources:
       requests:

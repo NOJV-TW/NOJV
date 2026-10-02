@@ -513,4 +513,19 @@ describeHelm("judge node-load slots", () => {
       ),
     ).toThrow(/needs one judge replica/);
   });
+
+  it("sizes the single-machine ceiling for half-CPU stages within the sandbox quota", () => {
+    const worker = isolateDoc(
+      renderChart("values-single-machine.yaml"),
+      "Deployment",
+      "nojv-worker",
+    );
+    expect(worker).toMatch(/name: WORKER_CONCURRENCY\n\s+value: "12"/u);
+    expect(() =>
+      execSync(
+        "helm template nojv infra/charts/nojv -f infra/charts/nojv/values-single-machine.yaml -f tests/fixtures/helm/immutable-image-digests.yaml -f tests/fixtures/helm/production-external-backups.yaml --set worker.judge.concurrency=13",
+        { cwd: repoRoot, encoding: "utf8", stdio: "pipe" },
+      ),
+    ).toThrow(/half-CPU stage requests .* exceed sandbox.resourceQuota.requestsCpu/);
+  });
 });
