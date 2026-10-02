@@ -1,4 +1,4 @@
-import type { SandboxRequest } from "@nojv/core";
+import type { DeferredStageCleanup, SandboxRequest } from "@nojv/core";
 import { describe, expect, it, vi } from "vitest";
 
 import { K8sExecutor } from "../../../apps/worker/src/sandbox/kubernetes/executor";
@@ -165,6 +165,71 @@ describe("K8sExecutor sharded payload orchestration", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("hands the post-result cleanup to the caller when deferCleanup is set", async () => {
+    const fake = clients();
+    const deferCleanup = vi.fn();
+    const result = await new K8sExecutor(EXEC_CONFIG, fake.handles).execute(request("ok"), {
+      runId: "deferred",
+      signal: new AbortController().signal,
+      deferCleanup,
+    });
+
+    expect(result.testcaseResults.map((testcase) => testcase.verdict)).toEqual(["AC"]);
+    expect(deferCleanup).toHaveBeenCalledOnce();
+    expect(deferCleanup).toHaveBeenCalledWith({
+      jobName: "judge-deferred",
+      namespace: "nojv-sandbox",
+      payloadNames: fake.record.configMapsCreated,
+      deadlineSeconds: expect.any(Number),
+    });
+    expect(fake.handles.batchApi.deleteNamespacedJob).not.toHaveBeenCalled();
+    expect(fake.record.configMapsDeleted).toEqual([]);
+  });
+
+  it("cleans up inline when the stage fails even if deferCleanup is set", async () => {
+    const fake = clients({
+      blockedEvent: {
+        type: "Warning",
+        reason: "FailedCreate",
+        message: "forbidden: maximum memory usage per Container is 1Gi, but limit is 1088Mi",
+      },
+    });
+    const deferCleanup = vi.fn();
+
+    await expect(
+      new K8sExecutor(EXEC_CONFIG, fake.handles).execute(request("small"), {
+        runId: "failed-deferred",
+        signal: new AbortController().signal,
+        deferCleanup,
+      }),
+    ).rejects.toBeInstanceOf(SandboxAdmissionError);
+
+    expect(deferCleanup).not.toHaveBeenCalled();
+    expect(fake.handles.batchApi.deleteNamespacedJob).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "judge-failed-deferred" }),
+    );
+  });
+
+  it("cleanupStage removes the Job and payloads of a deferred stage", async () => {
+    const fake = clients();
+    const executor = new K8sExecutor(EXEC_CONFIG, fake.handles);
+    const deferred: DeferredStageCleanup[] = [];
+    await executor.execute(request("ok"), {
+      runId: "later",
+      signal: new AbortController().signal,
+      deferCleanup: (cleanup) => deferred.push(cleanup),
+    });
+
+    await executor.cleanupStage(deferred[0]!, new AbortController().signal);
+
+    expect(fake.handles.batchApi.deleteNamespacedJob).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "judge-later" }),
+    );
+    expect(fake.record.configMapsDeleted.toSorted()).toEqual(
+      fake.record.configMapsCreated.toSorted(),
+    );
   });
 
   it("pins standard and checker images per request without changing the executor default", async () => {
