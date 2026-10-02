@@ -70,6 +70,8 @@ async function scenario(options: {
               namespace: "nojv-sandbox",
               payloadNames: [],
               deadlineSeconds: 60,
+              mode: "standard",
+              language: "c",
               leaseToken: "lease",
             },
           }

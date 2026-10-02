@@ -110,6 +110,8 @@ export interface DeferredStageCleanup {
   namespace: string;
   payloadNames: string[];
   deadlineSeconds: number;
+  mode: SandboxRequest["judgeType"];
+  language: SandboxRequest["language"];
 }
 
 export interface SandboxExecutionContext {

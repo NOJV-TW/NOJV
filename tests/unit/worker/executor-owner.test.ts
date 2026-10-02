@@ -37,6 +37,8 @@ describe("ExecutorOwner", () => {
           namespace: "nojv-sandbox",
           payloadNames: [],
           deadlineSeconds: 60,
+          mode: "standard",
+          language: "c",
         });
         return { testcaseResults: [] };
       }),
@@ -59,6 +61,8 @@ describe("ExecutorOwner", () => {
       namespace: "nojv-sandbox",
       payloadNames: ["judge-run-run-pm"],
       deadlineSeconds: 60,
+      mode: "standard",
+      language: "c",
     };
     const cleanupStage = vi.fn(async () => undefined);
     const signal = new AbortController().signal;

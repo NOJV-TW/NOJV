@@ -21,8 +21,17 @@ export function requestMode(request: SandboxRequest): JudgeMode {
   return request.advanced ? "advanced" : request.judgeType;
 }
 
-export async function measurePhase<T>(
+export function measurePhase<T>(
   request: SandboxRequest,
+  phase: "collect" | "cleanup",
+  operation: () => Promise<T>,
+): Promise<T> {
+  return measureLabeledPhase(requestMode(request), request.language, phase, operation);
+}
+
+export async function measureLabeledPhase<T>(
+  mode: JudgeMode,
+  language: SandboxRequest["language"],
   phase: "collect" | "cleanup",
   operation: () => Promise<T>,
 ): Promise<T> {
@@ -36,12 +45,11 @@ export async function measurePhase<T>(
     recordJudgePhase(
       phase,
       Date.now() - started,
-      requestMode(request),
-      request.language,
+      mode,
+      language,
       success ? "success" : "failure",
     );
-    if (!success && phase === "cleanup")
-      recordCleanupPending(requestMode(request), request.language);
+    if (!success && phase === "cleanup") recordCleanupPending(mode, language);
   }
 }
 

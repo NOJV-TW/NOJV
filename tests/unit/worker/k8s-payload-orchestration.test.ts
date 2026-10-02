@@ -5,6 +5,17 @@ import { K8sExecutor } from "../../../apps/worker/src/sandbox/kubernetes/executo
 import { SandboxAdmissionError } from "../../../apps/worker/src/sandbox/kubernetes/errors";
 import { withTestcaseCache } from "./k8s-testcase-cache-fake";
 
+const metrics = vi.hoisted(() => ({ recordCleanupPending: vi.fn() }));
+vi.mock(
+  "../../../apps/worker/src/sandbox/shared/judge-phase-metrics",
+  async (importOriginal) => ({
+    ...(await importOriginal<
+      typeof import("../../../apps/worker/src/sandbox/shared/judge-phase-metrics")
+    >()),
+    recordCleanupPending: metrics.recordCleanupPending,
+  }),
+);
+
 const EXEC_CONFIG = {
   namespace: "nojv-sandbox",
   image: "nojv-sandbox:test",
@@ -183,6 +194,8 @@ describe("K8sExecutor sharded payload orchestration", () => {
       namespace: "nojv-sandbox",
       payloadNames: fake.record.configMapsCreated,
       deadlineSeconds: expect.any(Number),
+      mode: "standard",
+      language: "python",
     });
     expect(fake.handles.batchApi.deleteNamespacedJob).not.toHaveBeenCalled();
     expect(fake.record.configMapsDeleted).toEqual([]);
@@ -230,6 +243,27 @@ describe("K8sExecutor sharded payload orchestration", () => {
     expect(fake.record.configMapsDeleted.toSorted()).toEqual(
       fake.record.configMapsCreated.toSorted(),
     );
+  });
+
+  it("reports a failed deferred cleanup as cleanup pending", async () => {
+    const fake = clients();
+    const executor = new K8sExecutor(EXEC_CONFIG, fake.handles);
+    const deferred: DeferredStageCleanup[] = [];
+    await executor.execute(request("ok"), {
+      runId: "pending",
+      signal: new AbortController().signal,
+      deferCleanup: (cleanup) => deferred.push(cleanup),
+    });
+    fake.handles.batchApi.deleteNamespacedJob.mockRejectedValue(
+      Object.assign(new Error("delete denied"), { code: 403 }),
+    );
+    metrics.recordCleanupPending.mockClear();
+
+    await expect(
+      executor.cleanupStage(deferred[0]!, new AbortController().signal),
+    ).rejects.toThrow();
+
+    expect(metrics.recordCleanupPending).toHaveBeenCalledWith("standard", "python");
   });
 
   it("pins standard and checker images per request without changing the executor default", async () => {

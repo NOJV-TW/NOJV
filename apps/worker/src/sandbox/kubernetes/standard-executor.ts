@@ -9,7 +9,7 @@ import {
 
 import { createLogger } from "../../logger.js";
 import { recordJudgePhase, recordRunnerResources } from "../shared/judge-phase-metrics";
-import { measurePhase, requestMode, stagePod } from "./execution-observer";
+import { measureLabeledPhase, measurePhase, requestMode, stagePod } from "./execution-observer";
 import { runCleanupAfterExecution } from "./cleanup";
 import { parseMemoryLimitMb, resolveK8sMemoryLimit } from "./resource-capacity";
 import { computeStageJobDeadlineSeconds } from "./job-deadlines";
@@ -79,7 +79,14 @@ export class KubernetesStandardExecutor {
     const handoff = { deferred: false };
     const finish = (result: SandboxResult): SandboxResult => {
       if (execution.deferCleanup) {
-        execution.deferCleanup({ jobName, namespace: ns, payloadNames, deadlineSeconds });
+        execution.deferCleanup({
+          jobName,
+          namespace: ns,
+          payloadNames,
+          deadlineSeconds,
+          mode: request.judgeType,
+          language: request.language,
+        });
         handoff.deferred = true;
       }
       return result;
@@ -251,10 +258,8 @@ export class KubernetesStandardExecutor {
       signal,
     );
     const cleanupStartedAt = Date.now();
-    await this.cleanupResources.cleanup(
-      cleanup.jobName,
-      cleanup.namespace,
-      cleanup.payloadNames,
+    await measureLabeledPhase(cleanup.mode, cleanup.language, "cleanup", () =>
+      this.cleanupResources.cleanup(cleanup.jobName, cleanup.namespace, cleanup.payloadNames),
     );
     logger.info("Kubernetes sandbox deferred cleanup timings", {
       jobName: cleanup.jobName,

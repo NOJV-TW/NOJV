@@ -40,6 +40,8 @@ const cleanup: DeferredStageCleanup = {
   namespace: "nojv-sandbox",
   payloadNames: ["judge-lease-1-run-pm"],
   deadlineSeconds: 120,
+  mode: "standard",
+  language: "c",
 };
 const accepted: SandboxResult = {
   testcaseResults: [
