@@ -1,6 +1,6 @@
 import type * as k8s from "@kubernetes/client-node";
 
-import { emitCapacitySignal } from "../../judge-capacity-signals.js";
+import { emitCapacitySignal, type CapacitySignal } from "../../judge-capacity-signals.js";
 import { abortableSleep, executionAbortReason } from "../shared/execution-abort";
 import { findFailedCreateEventReason, isDeterministicAdmissionFailure } from "./admission";
 import {
@@ -149,6 +149,12 @@ export class KubernetesJobWatcher {
     const deadline = startedAt + (deadlineSeconds + JOB_DEADLINE_BUFFER_SECONDS) * 1_000;
     let everStarted = false;
     let watchReconnectAttempt = 0;
+    const reported = new Set<CapacitySignal>();
+    const reportCapacity = (kind: CapacitySignal) => {
+      if (reported.has(kind)) return;
+      reported.add(kind);
+      emitCapacitySignal(kind);
+    };
 
     while (Date.now() < deadline) {
       signal.throwIfAborted();
@@ -165,6 +171,8 @@ export class KubernetesJobWatcher {
 
       if (!everStarted) {
         const eventBlockedReason = await this.jobEventBlockedReason(jobName, namespace, signal);
+        if (eventBlockedReason && /exceeded quota/i.test(eventBlockedReason))
+          reportCapacity("quotaExceeded");
         if (eventBlockedReason && isDeterministicAdmissionFailure(eventBlockedReason)) {
           throw new SandboxAdmissionError(
             `Sandbox Job ${jobName} was rejected before pod creation: ${eventBlockedReason}`,
@@ -189,6 +197,7 @@ export class KubernetesJobWatcher {
         everStarted,
         startedAt,
         containersExited,
+        reportCapacity,
       );
       everStarted = current.everStarted;
       if (current.outcome) return current.outcome;
@@ -202,6 +211,7 @@ export class KubernetesJobWatcher {
         deadline,
         signal,
         containersExited,
+        reportCapacity,
       });
       everStarted = watched.everStarted;
       if (watched.outcome) return watched.outcome;
@@ -252,6 +262,7 @@ export class KubernetesJobWatcher {
     everStarted: boolean,
     startedAt: number,
     containersExited: boolean,
+    reportCapacity: (kind: CapacitySignal) => void,
   ): JobWatchEvaluation {
     const completed = containersExited ? completedPod(pods) : undefined;
     if (completed) {
@@ -266,7 +277,7 @@ export class KubernetesJobWatcher {
 
     const podState = summarizeJobPods(pods);
     if (podState.unschedulableReason && !everStarted && !podState.everStarted)
-      emitCapacitySignal("unschedulable");
+      reportCapacity("unschedulable");
     if (podState.imagePull?.reason === "ImagePullBackOff") {
       throw new SandboxImagePullError(
         `Cannot pull image for Job ${jobName}: ${podState.imagePull.message}`,
@@ -356,9 +367,18 @@ export class KubernetesJobWatcher {
     deadline: number;
     signal: AbortSignal;
     containersExited: boolean;
+    reportCapacity: (kind: CapacitySignal) => void;
   }): Promise<JobWatchEvaluation> {
-    const { jobName, namespace, snapshot, startedAt, deadline, signal, containersExited } =
-      params;
+    const {
+      jobName,
+      namespace,
+      snapshot,
+      startedAt,
+      deadline,
+      signal,
+      containersExited,
+      reportCapacity,
+    } = params;
     signal.throwIfAborted();
     let currentJob = snapshot.job;
     const pods = new Map(
@@ -406,6 +426,7 @@ export class KubernetesJobWatcher {
           everStarted,
           startedAt,
           containersExited,
+          reportCapacity,
         );
         everStarted = evaluation.everStarted;
         if (evaluation.outcome) settle(evaluation);

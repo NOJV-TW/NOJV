@@ -7,9 +7,9 @@
 {{- end }}
 {{- $quota := .Values.sandbox.resourceQuota -}}
 {{- if and $quota.enabled (regexMatch "^[0-9]+$" (toString $quota.requestsCpu)) }}
-{{- $halfCores := mul (int .Values.worker.judge.replicas) (int .Values.worker.judge.concurrency) (int .Values.worker.sandbox.runParallelism) }}
-{{- if gt (int $halfCores) (mul (int $quota.requestsCpu) 2) }}
-{{- fail (printf "worker.judge replicas x concurrency x worker.sandbox.runParallelism half-CPU stage requests (%d x 0.5 CPU) exceed sandbox.resourceQuota.requestsCpu (%s)" (int $halfCores) (toString $quota.requestsCpu)) }}
+{{- $stageSlots := mul (int .Values.worker.judge.replicas) (int .Values.worker.judge.concurrency) (int .Values.worker.sandbox.runParallelism) }}
+{{- if gt (int $stageSlots) (sub (mul (int $quota.requestsCpu) 2) 2) }}
+{{- fail (printf "worker.judge replicas x concurrency x worker.sandbox.runParallelism (%d) half-CPU stage requests must leave one sandbox.resourceQuota.requestsCpu (%s) CPU for terminating stage Pods" (int $stageSlots) (toString $quota.requestsCpu)) }}
 {{- end }}
 {{- end }}
 apiVersion: apps/v1

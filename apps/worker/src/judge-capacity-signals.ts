@@ -1,6 +1,6 @@
 import { metrics } from "@opentelemetry/api";
 
-export type CapacitySignal = "unschedulable" | "wallClockTimeout";
+export type CapacitySignal = "unschedulable" | "quotaExceeded" | "wallClockTimeout";
 
 const listeners = new Set<(signal: CapacitySignal) => void>();
 const signalCounter = metrics

@@ -207,6 +207,8 @@ describe("K8sExecutor Job/Pod watch completion", () => {
   );
 
   it("waits through the production quota rejection and completes when capacity returns", async () => {
+    const received: string[] = [];
+    const unsubscribe = onCapacitySignal((kind) => received.push(kind));
     const fake = clients({
       readJob: () => ({ metadata: { resourceVersion: "1" }, status: {} }),
       watch: (path, callback) => {
@@ -218,11 +220,14 @@ describe("K8sExecutor Job/Pod watch completion", () => {
     fake.handles.coreApi.listNamespacedEvent = vi.fn(async () => ({
       items: [{ type: "Warning", reason: "FailedCreate", message: QUOTA_MESSAGE }],
     }));
-    const result = await new K8sExecutor(EXEC_CONFIG, fake.handles).execute(request(), {
-      runId: "quota-recover",
-      signal: new AbortController().signal,
-    });
+    const result = await new K8sExecutor(EXEC_CONFIG, fake.handles)
+      .execute(request(), {
+        runId: "quota-recover",
+        signal: new AbortController().signal,
+      })
+      .finally(unsubscribe);
     expect(result.testcaseResults[0]?.verdict).toBe("AC");
+    expect(received).toEqual(["quotaExceeded"]);
     expect(fake.handles.batchApi.createNamespacedJob).toHaveBeenCalledOnce();
     expect(fake.handles.batchApi.deleteNamespacedJob).toHaveBeenCalledOnce();
   });
@@ -387,7 +392,7 @@ describe("K8sExecutor Job/Pod watch completion", () => {
           signal: new AbortController().signal,
         }),
       ).rejects.toBeInstanceOf(SandboxBackpressureError);
-      expect([...new Set(received)]).toEqual(signals);
+      expect(received).toEqual(signals);
     } finally {
       unsubscribe();
     }

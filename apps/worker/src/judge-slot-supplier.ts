@@ -149,7 +149,7 @@ export class NodeLoadSlotSupplier implements CustomSlotSupplier<ActivitySlotInfo
     this.budgetValue = Math.max(this.min, Math.min(this.budgetValue, this.usedValue - 1));
     this.pausedSamples = Math.max(
       this.pausedSamples,
-      kind === "unschedulable" ? UNSCHEDULABLE_PAUSE_SAMPLES : WALL_CLOCK_PAUSE_SAMPLES,
+      kind === "wallClockTimeout" ? WALL_CLOCK_PAUSE_SAMPLES : UNSCHEDULABLE_PAUSE_SAMPLES,
     );
     logger.info("judge slot budget capped by capacity signal", {
       signal: kind,
