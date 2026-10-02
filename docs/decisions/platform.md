@@ -126,6 +126,7 @@ The sandbox namespace ResourceQuota is the hard resource ceiling for judging; ju
 - Rejected: KEDA or any second autoscaler for the dispatcher (placeholder removed); lowering memory limits, gVisor, NetworkPolicy, PID limits or deadlines to gain throughput; persisting a single-machine profile without memory-saturation proof.
 - Rule: never trade isolation for throughput.
 - Rule: tune one reversible resource relationship at a time; benchmarks use isolated temporary identities and clean up.
+- Rule: size the node so allocatable CPU minus platform pod requests covers the quota's CPU; the quota admits Pods but does not reserve node capacity.
 - Code: `infra/charts/nojv/values-single-machine.yaml`, `infra/charts/nojv/values-gke.yaml`, `infra/gcp/scripts/create-node-pools.sh`
 
 ### OPS-12 Operational tunables are env vars wired through Helm

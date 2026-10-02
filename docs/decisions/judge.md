@@ -148,7 +148,7 @@ With `WORKER_MIN_CONCURRENCY` set, the judge worker's activity slots come from a
 - Rejected: custom slot supplier on the metrics API (extra dependency and lag); Kueue; HPA/KEDA; env knobs for the targets (constants until a measurement needs one).
 - Rule: `/proc` is host-wide only inside a container without LXCFS and only describes the node the worker runs on; node-load slots need one judge replica sharing the node with its sandboxes (the chart refuses `minConcurrency` with more replicas). GKE stays on fixed slots until a multi-node plan.
 - Rule: workflow-task slots stay fixed; `judge_wall_clock_timeouts_total` is the contention guard (lower the target or ceiling if it fires).
-- Rule: the ceiling times per-stage CPU requests must fit the sandbox quota (the chart guard); single-machine is 2–6 because a standard stage Pod requests one CPU and the quota is 6.
+- Rule: the ceiling times per-stage CPU requests must fit the sandbox quota (the chart guard); single-machine is 2–6 because a standard stage Pod requests one CPU and the quota is 6. It must also fit node allocatable CPU minus platform pod requests, which the chart cannot see: on 8 vCPU only four stages scheduled and two slots sat on Pending Pods until the VM grew to 10 vCPU (2026-10-02).
 - Code: `apps/worker/src/judge-slot-supplier.ts`, `apps/worker/src/worker-app.ts`, `infra/charts/nojv/values-single-machine.yaml`
 
 ### JDG-14 One canonical toolchain manifest with exact pins

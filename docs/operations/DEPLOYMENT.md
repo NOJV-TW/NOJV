@@ -381,8 +381,14 @@ capacity.
 Single-machine Postgres has a memory limit equal to its request and no CPU
 limit, so its usage never exceeds its request and kubelet node-pressure
 eviction takes every pod above its request first. Its requests count against
-the 8 vCPU / 24 GiB node with the other platform pods; sandbox Jobs schedule
-into what remains.
+the 10 vCPU / 24 GiB node with the other platform pods, about 3.2 CPU of
+requests in total; sandbox Jobs schedule into the remaining 6.8 CPU, which holds
+the quota's six one-CPU stage Pods. The quota caps admission but does not
+reserve node capacity: when allocatable CPU minus platform requests is below
+slots × `runParallelism`, the extra stage Pods stay Pending (`Insufficient cpu`)
+and the worker retries them as `SandboxBackpressureError`. The VM uses the
+`host` CPU type; the generic QEMU model hides AVX2 and roughly doubles judge CPU
+time.
 
 ### Disruption and Shutdown
 
