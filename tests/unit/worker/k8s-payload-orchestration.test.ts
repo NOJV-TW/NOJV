@@ -471,7 +471,8 @@ describe("K8sExecutor sharded payload orchestration", () => {
     expect(spec.runtimeClassName).toBe("gvisor");
     expect(spec.initContainers.map((container: any) => container.name)).toEqual(["run"]);
     expect(spec.containers.map((container: any) => container.name)).toEqual(["judge"]);
-    expect(spec.initContainers[0].resources.requests.cpu).toBe("1");
+    expect(spec.initContainers[0].resources.requests.cpu).toBe("0.5");
+    expect(spec.initContainers[0].resources.limits.cpu).toBe("1");
   });
 
   it("lowers run parallelism until the run container fits the memory ceiling", async () => {

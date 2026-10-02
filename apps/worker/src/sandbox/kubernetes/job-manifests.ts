@@ -12,6 +12,7 @@ import { quantityValue } from "./resource-capacity";
 
 const TTL_AFTER_FINISHED_SECONDS = 60;
 const STAGE_TERMINATION_GRACE_SECONDS = 1;
+export const STAGE_CPU_REQUEST_FRACTION = 0.5;
 const SUBMISSION_DATA_SIZE_LIMIT = "128Mi";
 const MAX_OUTPUT_MIB = MAX_EXECUTION_OUTPUT_BYTES / (1024 * 1024);
 
@@ -82,7 +83,7 @@ export function buildStageJobManifest(params: StageJobManifestParams): k8s.V1Job
   const runCpu = String(params.runParallelism);
   const runResources = {
     requests: {
-      cpu: runCpu,
+      cpu: String(params.runParallelism * STAGE_CPU_REQUEST_FRACTION),
       memory: boundedRequest(params.memoryRequest, params.runMemoryLimit),
     },
     limits: { cpu: runCpu, memory: params.runMemoryLimit },
