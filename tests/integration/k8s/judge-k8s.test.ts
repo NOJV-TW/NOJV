@@ -6,7 +6,7 @@ import { Worker } from "@temporalio/worker";
 import type * as k8s from "@kubernetes/client-node";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import type { SandboxRequest } from "@nojv/core";
+import type { DeferredStageCleanup, SandboxRequest } from "@nojv/core";
 
 import {
   createKubeConfig,
@@ -544,6 +544,58 @@ describe("K8s judge — standard mode", () => {
         await results;
         await coreApi.deleteNamespacedResourceQuota({ name: quotaName, namespace });
       }
+    },
+  );
+
+  it(
+    "returns before teardown and leaves the Pod to cleanupStage when cleanup is deferred",
+    { timeout: STANDARD_TIMEOUT_MS },
+    async () => {
+      if (!clients) throw new Error("clients not initialised");
+      const submissionId = `k8s-std-deferred-${Date.now()}`;
+      trackSubmission(submissionId);
+      const jobName = `judge-${submissionId}`;
+      const signal = new AbortController().signal;
+      const executor = makeExecutor();
+      const deferred: DeferredStageCleanup[] = [];
+
+      const result = await executor.execute(
+        {
+          submissionId,
+          sourceCode: "n = int(input()); print(n)\n",
+          language: "python",
+          problemType: "full_source",
+          testcases: [{ index: 0, input: "7\n", output: "7\n", weight: 1, isSample: false }],
+          judgeType: "standard",
+          judgeConfig: {},
+          limits: { timeoutMs: 5_000, memoryMb: 128 },
+        },
+        { runId: submissionId, signal, deferCleanup: (cleanup) => deferred.push(cleanup) },
+      );
+
+      expect(result.testcaseResults.map((testcase) => testcase.verdict)).toEqual(["AC"]);
+      expect(deferred).toHaveLength(1);
+      const pods = await clients.coreApi.listNamespacedPod({
+        namespace,
+        labelSelector: `job-name=${jobName}`,
+      });
+      expect(pods.items).toHaveLength(1);
+      expect(pods.items[0]?.spec?.initContainers?.[0]?.resources?.requests?.cpu).toBe("500m");
+
+      await executor.cleanupStage(deferred[0]!, signal);
+
+      await expect(
+        clients.batchApi.readNamespacedJob({ name: jobName, namespace }),
+      ).rejects.toMatchObject({ code: 404 });
+      const remaining = await clients.coreApi.listNamespacedPod({
+        namespace,
+        labelSelector: `job-name=${jobName}`,
+      });
+      expect(remaining.items).toHaveLength(0);
+      for (const name of deferred[0]!.payloadNames)
+        await expect(
+          clients.coreApi.readNamespacedConfigMap({ name, namespace }),
+        ).rejects.toMatchObject({ code: 404 });
     },
   );
 
