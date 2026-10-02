@@ -166,6 +166,32 @@ describe("cleanupJudgeStage", () => {
     );
   });
 
+  it("aborts the cleanup when the lease is no longer owned", async () => {
+    vi.useFakeTimers();
+    try {
+      domain.heartbeatJudgeStage.mockResolvedValue(false);
+      owner.cleanupStage.mockImplementation(
+        (_cleanup: DeferredStageCleanup, signal: AbortSignal) =>
+          new Promise((_resolve, reject) => {
+            signal.addEventListener("abort", () => reject(new Error("lease lost")), {
+              once: true,
+            });
+          }),
+      );
+      const cleaning = cleanupJudgeStage("execution-1", "workflow-1", {
+        ...cleanup,
+        leaseToken: "lease-1",
+      });
+      const outcome = cleaning.catch((error: unknown) => error);
+      await vi.advanceTimersByTimeAsync(15_000);
+
+      expect(await outcome).toBeInstanceOf(Error);
+      expect(domain.releaseJudgeStage).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("keeps the lease when cleanup fails", async () => {
     owner.cleanupStage.mockRejectedValue(new Error("delete denied"));
 
