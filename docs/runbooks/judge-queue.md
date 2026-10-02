@@ -61,7 +61,7 @@ in the Temporal Helm values (`infra/gcp/gke/temporal/`), then let the config rel
   afterwards.
 
 Load-aware slots (`worker.judge.minConcurrency`; single-machine: min 2, ceiling
-`worker.judge.concurrency` 6):
+`worker.judge.concurrency` 8):
 
 - The budget starts at the minimum and grows by one slot at most every 5 s, only
   while every budgeted slot runs a stage, node CPU (`/proc/stat`) is under 80%,
@@ -87,8 +87,8 @@ Load-aware slots (`worker.judge.minConcurrency`; single-machine: min 2, ceiling
   OOMKilling. Raise the worker memory limit if it persists outside a burst.
 - The ceiling is still bounded by the quota: a standard stage Pod requests half of
   `runParallelism` CPUs (its run init container) and an interactive Pod the sandbox
-  `cpuLimit` plus `cpuRequest`, so the single-machine 6-CPU quota holds six running
-  and six terminating standard stages, or four interactive stages; the chart allows
+  `cpuLimit` plus `cpuRequest`, so the single-machine 6-CPU quota holds eight running
+  and four terminating standard stages, or four interactive stages; the chart allows
   at most ten standard slots at that quota. A stage the quota rejects frees its slot
   and retries as `waiting_capacity`. Raising the ceiling needs a matching quota and
   an exam-scale stress test, and the quota must stay within node allocatable CPU

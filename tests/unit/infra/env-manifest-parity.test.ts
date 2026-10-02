@@ -522,7 +522,7 @@ describeHelm("judge node-load slots", () => {
       );
     expect(
       isolateDoc(renderChart("values-single-machine.yaml"), "Deployment", "nojv-worker"),
-    ).toMatch(/name: WORKER_CONCURRENCY\n\s+value: "6"/u);
+    ).toMatch(/name: WORKER_CONCURRENCY\n\s+value: "8"/u);
     expect(() => render(10)).not.toThrow();
     expect(() => render(11)).toThrow(/must leave one sandbox.resourceQuota.requestsCpu/);
   });
