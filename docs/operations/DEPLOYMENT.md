@@ -366,7 +366,7 @@ apply ad-hoc down migrations.
 | Tier     | Single-machine                                     | GKE                                                                    |
 | -------- | -------------------------------------------------- | ---------------------------------------------------------------------- |
 | web      | HPA 1–3, CPU 70%, 384Mi / 1Gi memory               | HPA 2–15, CPU 70%, 384Mi / 1Gi memory                                  |
-| judge    | 1 replica, slots 2–6 by load, 1Gi / 3Gi memory     | 2 replicas × 2 slots                                                   |
+| judge    | 1 replica, slots 2–8 by load, 1Gi / 3Gi memory     | 2 replicas × 2 slots                                                   |
 | platform | 1 replica                                          | 2 replicas                                                             |
 | registry | 1 replica                                          | 2 replicas                                                             |
 | sandbox  | quota 16 pods / 6 CPU / 16Gi; judge container 300m | quota 10 pods / 10 CPU / 30Gi; one on-demand gVisor node plus Spot 0–4 |
@@ -383,7 +383,7 @@ limit, so its usage never exceeds its request and kubelet node-pressure
 eviction takes every pod above its request first. Its requests count against
 the 10 vCPU / 24 GiB node with the other platform pods, about 3.2 CPU of
 requests in total; sandbox Jobs schedule into the remaining 6.8 CPU, which holds
-the quota's six running and six terminating half-CPU stage Pods.
+the quota's twelve half-CPU stage Pods: eight running and four terminating.
 The quota caps admission but does not reserve node capacity: a stage Pod that does
 not fit stays Pending (`Unschedulable`), which lowers the load-aware slot budget,
 and after 30 s the worker retries it as `SandboxBackpressureError`. The VM uses the
