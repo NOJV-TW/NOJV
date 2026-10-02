@@ -69,7 +69,7 @@ describe("recordWallClockTimeouts", () => {
     ...(errorVerdict ? { errorVerdict } : {}),
   });
 
-  it("counts only TLEs whose CPU time stayed under the limit", () => {
+  it("counts only TLEs whose CPU time stayed under the limit and signals the slot budget", () => {
     recordWallClockTimeouts(
       [run("TLE", 400), run("TLE", 1200), run("RE", 100), run(undefined, 50)],
       1000,
@@ -77,6 +77,11 @@ describe("recordWallClockTimeouts", () => {
     );
     expect(instruments.records).toEqual([
       { name: "judge_wall_clock_timeouts_total", value: 1, labels: { language: "cpp" } },
+      {
+        name: "judge_capacity_signals_total",
+        value: 1,
+        labels: { signal: "wallClockTimeout" },
+      },
     ]);
   });
 

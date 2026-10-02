@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { SandboxRequest } from "@nojv/core";
 
+import { onCapacitySignal } from "../../../apps/worker/src/judge-capacity-signals";
 import { K8sExecutor } from "../../../apps/worker/src/sandbox/kubernetes/executor";
 import {
   SandboxBackpressureError,
@@ -337,6 +338,59 @@ describe("K8sExecutor Job/Pod watch completion", () => {
     ).rejects.toBeInstanceOf(SandboxBackpressureError);
     expect(fake.handles.coreApi.readNamespacedPodLog).not.toHaveBeenCalled();
     expect(fake.handles.batchApi.deleteNamespacedJob).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    {
+      name: "an Unschedulable Pod",
+      status: {
+        phase: "Pending",
+        conditions: [
+          {
+            type: "PodScheduled",
+            status: "False",
+            reason: "Unschedulable",
+            message: "Insufficient cpu",
+          },
+        ],
+      },
+      signals: ["unschedulable"],
+    },
+    {
+      name: "a scheduled Pod still creating its containers",
+      status: {
+        phase: "Pending",
+        startTime: new Date(),
+        initContainerStatuses: [
+          { name: "run", state: { waiting: { reason: "ContainerCreating" } } },
+        ],
+      },
+      signals: [],
+    },
+  ])("reports capacity feedback for $name", async ({ status, signals }) => {
+    const received: string[] = [];
+    const unsubscribe = onCapacitySignal((signal) => received.push(signal));
+    try {
+      const fake = clients({
+        readJob: () => ({
+          status: {
+            failed: 1,
+            conditions: [{ type: "Failed", status: "True", reason: "DeadlineExceeded" }],
+          },
+        }),
+        watch: () => undefined,
+      });
+      setPodView(fake, { items: [{ metadata: { name: "waiting-pod" }, status }] });
+      await expect(
+        new K8sExecutor(EXEC_CONFIG, fake.handles).execute(request(), {
+          runId: "capacity-feedback",
+          signal: new AbortController().signal,
+        }),
+      ).rejects.toBeInstanceOf(SandboxBackpressureError);
+      expect([...new Set(received)]).toEqual(signals);
+    } finally {
+      unsubscribe();
+    }
   });
 
   it.each(["Evicted", "Preempted", "NodeLost"])(

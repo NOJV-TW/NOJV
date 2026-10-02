@@ -9,6 +9,7 @@ import type {
   SlotReleaseContext,
 } from "@temporalio/worker";
 
+import { onCapacitySignal, type CapacitySignal } from "./judge-capacity-signals.js";
 import { createLogger } from "./logger.js";
 
 const logger = createLogger("judge-slots");
@@ -18,6 +19,8 @@ export const NODE_MEMORY_AVAILABLE_FLOOR = 0.2;
 export const WORKER_MEMORY_CEILING = 0.75;
 export const SAMPLE_INTERVAL_MS = 2_500;
 const GROWTH_COOLDOWN_SAMPLES = 2;
+export const UNSCHEDULABLE_PAUSE_SAMPLES = 12;
+export const WALL_CLOCK_PAUSE_SAMPLES = 24;
 
 export interface NodeLoad {
   cpu: number;
@@ -91,6 +94,7 @@ export class NodeLoadSlotSupplier implements CustomSlotSupplier<ActivitySlotInfo
   private issued = 0;
   private usedValue = 0;
   private samplesSinceGrowth = GROWTH_COOLDOWN_SAMPLES;
+  private pausedSamples = 0;
   private readonly waiters: (() => void)[] = [];
 
   constructor(
@@ -111,6 +115,8 @@ export class NodeLoadSlotSupplier implements CustomSlotSupplier<ActivitySlotInfo
   adjust(load: NodeLoad): void {
     const previous = this.budgetValue;
     this.samplesSinceGrowth += 1;
+    const paused = this.pausedSamples > 0;
+    if (paused) this.pausedSamples -= 1;
     if (
       load.cpu >= NODE_CPU_TARGET ||
       load.memoryAvailable < NODE_MEMORY_AVAILABLE_FLOOR ||
@@ -118,6 +124,7 @@ export class NodeLoadSlotSupplier implements CustomSlotSupplier<ActivitySlotInfo
     ) {
       this.budgetValue = Math.max(this.min, Math.min(this.budgetValue, this.usedValue - 1));
     } else if (
+      !paused &&
       this.usedValue >= this.budgetValue &&
       this.budgetValue < this.max &&
       this.samplesSinceGrowth >= GROWTH_COOLDOWN_SAMPLES
@@ -135,6 +142,21 @@ export class NodeLoadSlotSupplier implements CustomSlotSupplier<ActivitySlotInfo
         memoryAvailable: Number(load.memoryAvailable.toFixed(3)),
         workerMemory: load.workerMemory === null ? null : Number(load.workerMemory.toFixed(3)),
       });
+  }
+
+  signal(kind: CapacitySignal): void {
+    const previous = this.budgetValue;
+    this.budgetValue = Math.max(this.min, Math.min(this.budgetValue, this.usedValue - 1));
+    this.pausedSamples = Math.max(
+      this.pausedSamples,
+      kind === "unschedulable" ? UNSCHEDULABLE_PAUSE_SAMPLES : WALL_CLOCK_PAUSE_SAMPLES,
+    );
+    logger.info("judge slot budget capped by capacity signal", {
+      signal: kind,
+      budget: this.budgetValue,
+      previous,
+      used: this.usedValue,
+    });
   }
 
   reserveSlot(_ctx: SlotReserveContext, abortSignal: AbortSignal): Promise<SlotPermit> {
@@ -185,6 +207,7 @@ export function startNodeLoadSlots(
   readLoad: () => NodeLoad = createNodeLoadReader(),
 ): { supplier: NodeLoadSlotSupplier; stop: () => void } {
   const supplier = new NodeLoadSlotSupplier(Math.min(min, max), max);
+  const unsubscribe = onCapacitySignal((kind) => supplier.signal(kind));
   let lastLoad: NodeLoad | null = null;
   const timer = setInterval(() => {
     try {
@@ -217,6 +240,7 @@ export function startNodeLoadSlots(
     supplier,
     stop: () => {
       clearInterval(timer);
+      unsubscribe();
       meter.removeBatchObservableCallback(observe, gauges);
     },
   };

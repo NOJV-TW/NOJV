@@ -1,5 +1,6 @@
 import type * as k8s from "@kubernetes/client-node";
 
+import { emitCapacitySignal } from "../../judge-capacity-signals.js";
 import { abortableSleep, executionAbortReason } from "../shared/execution-abort";
 import { findFailedCreateEventReason, isDeterministicAdmissionFailure } from "./admission";
 import {
@@ -264,6 +265,8 @@ export class KubernetesJobWatcher {
     }
 
     const podState = summarizeJobPods(pods);
+    if (podState.unschedulableReason && !everStarted && !podState.everStarted)
+      emitCapacitySignal("unschedulable");
     if (podState.imagePull?.reason === "ImagePullBackOff") {
       throw new SandboxImagePullError(
         `Cannot pull image for Job ${jobName}: ${podState.imagePull.message}`,

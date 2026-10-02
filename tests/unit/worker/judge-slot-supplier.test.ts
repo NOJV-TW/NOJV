@@ -5,11 +5,14 @@ import { join } from "node:path";
 import type { SlotReserveContext } from "@temporalio/worker";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { emitCapacitySignal } from "../../../apps/worker/src/judge-capacity-signals";
 import {
   createNodeLoadReader,
   NodeLoadSlotSupplier,
   SAMPLE_INTERVAL_MS,
   startNodeLoadSlots,
+  UNSCHEDULABLE_PAUSE_SAMPLES,
+  WALL_CLOCK_PAUSE_SAMPLES,
 } from "../../../apps/worker/src/judge-slot-supplier";
 
 vi.mock("../../../apps/worker/src/logger.js", () => ({
@@ -33,6 +36,13 @@ async function fill(supplier: NodeLoadSlotSupplier, count: number) {
     permits.push(permit);
   }
   return permits;
+}
+
+async function growTo(supplier: NodeLoadSlotSupplier, target: number) {
+  while (supplier.budget < target) {
+    supplier.adjust(idle);
+    if (supplier.used < supplier.budget) await fill(supplier, supplier.budget - supplier.used);
+  }
 }
 
 async function settled(promise: Promise<unknown>): Promise<boolean> {
@@ -171,6 +181,39 @@ describe("NodeLoadSlotSupplier", () => {
   });
 });
 
+describe("NodeLoadSlotSupplier capacity signals", () => {
+  it("an Unschedulable stage caps the budget below the running count and pauses growth", async () => {
+    const supplier = new NodeLoadSlotSupplier(2, 12);
+    await growTo(supplier, 6);
+    supplier.signal("unschedulable");
+    expect(supplier.budget).toBe(5);
+    expect(supplier.used).toBe(6);
+    for (let i = 0; i < UNSCHEDULABLE_PAUSE_SAMPLES; i += 1) supplier.adjust(idle);
+    expect(supplier.budget).toBe(5);
+    supplier.adjust(idle);
+    expect(supplier.budget).toBe(6);
+  });
+
+  it("a wall-clock timeout pauses growth twice as long", async () => {
+    const supplier = new NodeLoadSlotSupplier(2, 12);
+    await growTo(supplier, 4);
+    supplier.signal("wallClockTimeout");
+    expect(supplier.budget).toBe(3);
+    for (let i = 0; i < WALL_CLOCK_PAUSE_SAMPLES; i += 1) supplier.adjust(idle);
+    expect(supplier.budget).toBe(3);
+    supplier.adjust(idle);
+    expect(supplier.budget).toBe(4);
+  });
+
+  it("never goes under the minimum or revokes a running slot", async () => {
+    const supplier = new NodeLoadSlotSupplier(2, 12);
+    await fill(supplier, 2);
+    supplier.signal("unschedulable");
+    expect(supplier.budget).toBe(2);
+    expect(supplier.used).toBe(2);
+  });
+});
+
 describe("createNodeLoadReader", () => {
   it("reads node CPU from /proc/stat deltas and available memory from /proc/meminfo", () => {
     const root = mkdtempSync(join(tmpdir(), "nojv-proc-"));
@@ -228,6 +271,17 @@ describe("startNodeLoadSlots", () => {
     stop();
     vi.advanceTimersByTime(SAMPLE_INTERVAL_MS * 4);
     expect(readLoad).toHaveBeenCalledOnce();
+  });
+
+  it("reacts to emitted capacity signals until stopped", async () => {
+    const { supplier, stop } = startNodeLoadSlots(2, 12, () => idle);
+    await growTo(supplier, 5);
+    emitCapacitySignal("unschedulable");
+    expect(supplier.budget).toBe(4);
+    stop();
+    const before = supplier.budget;
+    emitCapacitySignal("wallClockTimeout");
+    expect(supplier.budget).toBe(before);
   });
 
   it("clamps the minimum to the maximum", () => {
