@@ -76,11 +76,11 @@ export class KubernetesStandardExecutor {
     let payloadNames: string[] = [];
     let podTermination: Promise<void> | undefined;
     let podSeen = false;
-    let deferred = false;
+    const handoff = { deferred: false };
     const finish = (result: SandboxResult): SandboxResult => {
       if (execution.deferCleanup) {
         execution.deferCleanup({ jobName, namespace: ns, payloadNames, deadlineSeconds });
-        deferred = true;
+        handoff.deferred = true;
       }
       return result;
     };
@@ -189,7 +189,7 @@ export class KubernetesStandardExecutor {
       throw error;
     } finally {
       const terminationStartedAt = Date.now();
-      if (!deferred)
+      if (!handoff.deferred)
         await (podTermination ??
           (podSeen
             ? this.jobWatcher.waitForPodTermination(
@@ -201,7 +201,7 @@ export class KubernetesStandardExecutor {
             : undefined));
       const cleanupStartedAt = Date.now();
       try {
-        if (!deferred)
+        if (!handoff.deferred)
           await measurePhase(request, "cleanup", () =>
             runCleanupAfterExecution(executionFailure, () =>
               this.cleanupResources.cleanup(jobName, ns, payloadNames),
@@ -233,10 +233,10 @@ export class KubernetesStandardExecutor {
             jobFinishedAt === undefined || logsReadAt === undefined
               ? null
               : logsReadAt - jobFinishedAt,
-          podTerminationMs: deferred ? null : cleanupStartedAt - terminationStartedAt,
-          cleanupMs: deferred ? null : Date.now() - cleanupStartedAt,
+          podTerminationMs: handoff.deferred ? null : cleanupStartedAt - terminationStartedAt,
+          cleanupMs: handoff.deferred ? null : Date.now() - cleanupStartedAt,
           totalMs: Date.now() - startedAt,
-          deferredCleanup: deferred,
+          deferredCleanup: handoff.deferred,
         });
       }
     }
