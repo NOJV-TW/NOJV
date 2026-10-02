@@ -11,11 +11,14 @@ rationale in JDG-12, JDG-13 and JDG-22.
 ```bash
 temporal task-queue describe -t judge
 temporal task-queue describe -t judge-state
+temporal task-queue describe -t judge-cleanup
 temporal workflow list --query 'WorkflowType="durableJudgeWorkflow" AND ExecutionStatus="Running"'
 ```
 
 - `judge` carries only sandbox stage and reconcile activities; `judge-state` carries
-  bookkeeping and should never hold a backlog.
+  bookkeeping and `judge-cleanup` deferred stage cleanup. Neither should hold a
+  backlog: a stuck cleanup holds the execution open, and the student's next
+  submission waits for it.
 - In the database, `JudgeExecution.state`, `reasonCode`, `nextAttemptAt` and
   `lastProgressAt` describe queued and recovering work. `waiting_capacity` means the
   sandbox quota rejected a Job; it retries every 30 s. `blocked` retries every 15 min.
@@ -32,7 +35,8 @@ in the Temporal Helm values (`infra/gcp/gke/temporal/`), then let the config rel
 - `matching.enableFairness: true` — without it dispatch inside one priority is FIFO;
   the per-student dispatch gate still limits a student to one dispatched execution
   per queue class.
-- One read and one write partition for `judge`, `judge-state` and `platform`. With
+- One read and one write partition for `judge`, `judge-state`, `judge-cleanup` and
+  `platform`. With
   the default four, few pollers leave tasks in unpolled partitions for up to a long
   poll.
 
@@ -41,9 +45,10 @@ in the Temporal Helm values (`infra/gcp/gke/temporal/`), then let the config rel
 - Slots = `worker.judge.concurrency` × judge replicas. Each slot runs one stage Job
   whose run container requests half of `worker.sandbox.runParallelism` CPUs and is
   limited to the full count. Slots × runParallelism is the number of cases running
-  at once; the chart fails to render when the half-CPU requests exceed
-  `sandbox.resourceQuota.requestsCpu`. A standard stage frees its slot when its
-  result is read; its Pod keeps counting against the quota until cleanup.
+  at once; the chart fails to render when the half-CPU requests leave less than one
+  CPU of `sandbox.resourceQuota.requestsCpu` for terminating stage Pods. A standard
+  stage frees its slot when its result is read; its Pod keeps counting against the
+  quota until it turns terminal.
 - The executor lowers a stage's parallelism when the memory limit would push the run
   container past the sandbox memory ceiling. Node allocatable CPU minus platform pod
   requests also bounds how many Jobs schedule; the chart cannot check it. Read
@@ -56,16 +61,18 @@ in the Temporal Helm values (`infra/gcp/gke/temporal/`), then let the config rel
   afterwards.
 
 Load-aware slots (`worker.judge.minConcurrency`; single-machine: min 2, ceiling
-`worker.judge.concurrency` 12):
+`worker.judge.concurrency` 6):
 
 - The budget starts at the minimum and grows by one slot at most every 5 s, only
   while every budgeted slot runs a stage, node CPU (`/proc/stat`) is under 80%,
   node `MemAvailable` is at least 20% of `MemTotal` and the judge worker's own
   cgroup working set is under 75% of its memory limit. Over any limit it drops to
   one below the running count, never under the minimum; running stages finish.
-  A stage Pod reporting `Unschedulable` does the same and pauses growth for 30 s; a
-  wall-clock TLE pauses it for 60 s. Fixed slots (no `minConcurrency`) have no
-  worker memory guard and ignore these signals.
+  A stage Pod reporting `Unschedulable` or a Job event `exceeded quota` does the
+  same and pauses growth for 30 s; a wall-clock TLE of a program that used at least
+  half its CPU limit pauses it for 60 s. Each stage Job reports each signal once.
+  Fixed slots (no `minConcurrency`) have no worker memory guard and ignore these
+  signals.
   Mechanics are in [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#queue-priority-and-capacity).
 - The signal is host-wide `/proc`, valid only while the one judge replica shares the
   node with its sandboxes. Leave `minConcurrency` unset on multi-node clusters; the
@@ -80,10 +87,12 @@ Load-aware slots (`worker.judge.minConcurrency`; single-machine: min 2, ceiling
   OOMKilling. Raise the worker memory limit if it persists outside a burst.
 - The ceiling is still bounded by the quota: a standard stage Pod requests half of
   `runParallelism` CPUs (its run init container) and an interactive Pod the sandbox
-  `cpuLimit` plus `cpuRequest`, so at the single-machine 6-CPU quota twelve standard
-  (running or terminating) or four interactive stages fit. A stage the quota rejects frees its slot and retries
-  as `waiting_capacity`. Raising the ceiling needs a matching quota, and the quota
-  must stay within node allocatable CPU left by the platform pods.
+  `cpuLimit` plus `cpuRequest`, so the single-machine 6-CPU quota holds six running
+  and six terminating standard stages, or four interactive stages; the chart allows
+  at most ten standard slots at that quota. A stage the quota rejects frees its slot
+  and retries as `waiting_capacity`. Raising the ceiling needs a matching quota and
+  an exam-scale stress test, and the quota must stay within node allocatable CPU
+  left by the platform pods.
 - Per-stage wall time is in the `Kubernetes sandbox phase timings` log line:
   `payloadConfigMapsMs`, `jobCreateMs`, `scheduleAndExecutionMs` (until every
   container exited), `logsMs`, `podTerminationMs` (kubelet stopping the Pod sandbox
@@ -94,7 +103,8 @@ Load-aware slots (`worker.judge.minConcurrency`; single-machine: min 2, ceiling
   container run times, at one-second resolution. A slot is held for `totalMs`.
 - `judge_wall_clock_timeouts_total` counts TLEs whose CPU time stayed under the limit;
   `nojv-judge-wall-clock-timeouts` fires on more than two in ten minutes. Lower the
-  ceiling if it keeps firing; each one already pauses budget growth for 60 s.
+  ceiling if it keeps firing; one from a program that used at least half its CPU
+  limit already pauses budget growth for 60 s, while sleeping programs only count.
 
 ## Bulk rejudges
 

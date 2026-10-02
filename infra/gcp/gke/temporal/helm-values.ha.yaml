@@ -52,12 +52,16 @@ server:
       - value: 1
         constraints: { taskQueueName: judge-state }
       - value: 1
+        constraints: { taskQueueName: judge-cleanup }
+      - value: 1
         constraints: { taskQueueName: platform }
     matching.numTaskqueueReadPartitions:
       - value: 1
         constraints: { taskQueueName: judge }
       - value: 1
         constraints: { taskQueueName: judge-state }
+      - value: 1
+        constraints: { taskQueueName: judge-cleanup }
       - value: 1
         constraints: { taskQueueName: platform }
   # Pin Temporal to the long-lived worker pool (off the autoscaling sandbox pool).

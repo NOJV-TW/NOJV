@@ -156,6 +156,7 @@ never full source, testcase or output bodies.
 | ------------------------------------------- | -------------------------------- | -------------- | --------- | -------- |
 | Journal (status, state, commit, finish)     | `judge-state`                    | 2 min          | —         | 3        |
 | Sandbox stage / `reconcileJudgeStage`       | `judge` (with workflow priority) | 70 min         | 60 s      | 1        |
+| Deferred stage cleanup                      | `judge-cleanup`                  | 5 min          | 60 s      | 5        |
 | Scoreboard notification                     | `judge-state`                    | 2 min          | —         | 3        |
 | Contest/exam score updates, verdict publish | `platform`                       | 2 min          | —         | 3        |
 
@@ -194,9 +195,10 @@ Ordering is Temporal task-queue priority and fairness, not an in-house scheduler
   row stays the fallback, and `REJECT_DUPLICATE` absorbs the second start. Queued
   work is a database row, not a live workflow.
 - Only `executeJudgeStage` and `reconcileJudgeStage` run on `judge`, so one judge
-  slot is one sandbox Job. Bookkeeping runs on `judge-state` (activity-only worker in
-  the same process, 16 fixed slots) so verdicts never queue behind Jobs.
-- `judge`, `judge-state` and `platform` must each use one task-queue partition, and
+  slot is one sandbox Job. Bookkeeping runs on `judge-state` and deferred stage
+  cleanup on `judge-cleanup` (activity-only workers in the same process, 16 fixed
+  slots each) so verdicts never queue behind Jobs or teardown.
+- `judge`, `judge-state`, `judge-cleanup` and `platform` must each use one task-queue partition, and
   fairness needs `matching.enableFairness` (see runbook).
 - Judge and platform workers cache at most 32 workflows and run at most 8 workflow
   tasks concurrently.
@@ -210,10 +212,11 @@ Capacity:
   stage, node CPU is under 80%, at least 20% of node memory is available and the
   worker's own cgroup v2 working set (`memory.current` minus `inactive_file`) is
   under 75% of its `memory.max`. Over any limit the budget drops to one below the
-  running count, never under the minimum; running stages are never revoked. Two
-  in-process capacity signals do the same and pause growth: a stage Pod reporting
-  `PodScheduled=False` (`Unschedulable`) pauses it for 30 s, a wall-clock TLE for
-  60 s (`judge_capacity_signals_total`). An
+  running count, never under the minimum; running stages are never revoked. Three
+  in-process capacity signals, each at most once per stage Job, do the same and
+  pause growth: a stage Pod reporting `PodScheduled=False` (`Unschedulable`) or a
+  Job event `exceeded quota` pauses it for 30 s, a wall-clock TLE of a program that
+  used at least half its CPU limit for 60 s (`judge_capacity_signals_total`). An
   unlimited (`max`) or unreadable cgroup disables only the worker-memory limit.
   Fixed slots have no memory guard. The worker logs each budget change and exports
   `judge_slot_budget`, `judge_slots_used`, `judge_node_cpu_utilization` and
@@ -224,10 +227,10 @@ Capacity:
   replica.
 - A stage's run container requests half of `K8S_RUN_PARALLELISM` CPUs and is limited
   to the full count (Burstable QoS), so slots × `K8S_RUN_PARALLELISM` cases run at
-  once; the chart refuses a ceiling whose half-CPU requests exceed the sandbox
-  `ResourceQuota` CPU, which also covers Pods that are still terminating.
+  once; the chart refuses a ceiling whose half-CPU requests leave less than one
+  `ResourceQuota` CPU for stage Pods that are still terminating.
 - A standard Kubernetes stage frees its judge slot when its result is read. The
-  workflow publishes the verdict while `cleanupJudgeStage`, on `judge-state`, waits
+  workflow publishes the verdict while `cleanupJudgeStage`, on `judge-cleanup`, waits
   for the terminal Pod, deletes the Job and payloads and then releases the lease;
   the execution finishes only after that. Interactive, Advanced and Docker stages
   clean up inside the stage activity.

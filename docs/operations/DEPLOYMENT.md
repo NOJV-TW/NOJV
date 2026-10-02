@@ -98,7 +98,7 @@ chart against it.
 | `SANDBOX_IMAGE`                                                                                       | required                         | Standard sandbox image                                                                                                     |
 | `WORKER_CONCURRENCY`                                                                                  | required, 1–64                   | Activity slots per task queue                                                                                              |
 | `WORKER_MIN_CONCURRENCY`                                                                              | unset                            | Judge only: slots float between this and `WORKER_CONCURRENCY` by node load (see [Judge Queue](../runbooks/judge-queue.md)) |
-| `WORKER_MODE`                                                                                         | `all`                            | `all`, `judge` (queues `judge` + `judge-state`), `platform` (queue `platform`)                                             |
+| `WORKER_MODE`                                                                                         | `all`                            | `all`, `judge` (queues `judge`, `judge-state`, `judge-cleanup`), `platform` (queue `platform`)                             |
 | `SANDBOX_MEMORY_HEADROOM_MB`, `SANDBOX_MAX_MEMORY_MB`                                                 | `64`, `1536`                     | Sandbox memory ceiling above the problem limit                                                                             |
 | `SANDBOX_CPU_LIMIT`, `SANDBOX_MEMORY_MB`, `SANDBOX_PIDS_LIMIT`                                        | required (Docker)                | Per-sandbox limits                                                                                                         |
 | `K8S_NAMESPACE`, `K8S_CPU_REQUEST`, `K8S_CPU_LIMIT`, `K8S_MEMORY_REQUEST`, `K8S_MEMORY_LIMIT`         | required (Kubernetes)            | Sandbox namespace and container resources (`worker.sandbox.*`)                                                             |
@@ -366,7 +366,7 @@ apply ad-hoc down migrations.
 | Tier     | Single-machine                                     | GKE                                                                    |
 | -------- | -------------------------------------------------- | ---------------------------------------------------------------------- |
 | web      | HPA 1–3, CPU 70%, 384Mi / 1Gi memory               | HPA 2–15, CPU 70%, 384Mi / 1Gi memory                                  |
-| judge    | 1 replica, slots 2–12 by load, 1Gi / 3Gi memory    | 2 replicas × 2 slots                                                   |
+| judge    | 1 replica, slots 2–6 by load, 1Gi / 3Gi memory     | 2 replicas × 2 slots                                                   |
 | platform | 1 replica                                          | 2 replicas                                                             |
 | registry | 1 replica                                          | 2 replicas                                                             |
 | sandbox  | quota 16 pods / 6 CPU / 16Gi; judge container 300m | quota 10 pods / 10 CPU / 30Gi; one on-demand gVisor node plus Spot 0–4 |
@@ -382,8 +382,8 @@ Single-machine Postgres has a memory limit equal to its request and no CPU
 limit, so its usage never exceeds its request and kubelet node-pressure
 eviction takes every pod above its request first. Its requests count against
 the 10 vCPU / 24 GiB node with the other platform pods, about 3.2 CPU of
-requests in total; sandbox Jobs schedule into the remaining 6.8 CPU, room for
-thirteen half-CPU stage Pods, so the quota (6 CPU, twelve stage Pods) binds first.
+requests in total; sandbox Jobs schedule into the remaining 6.8 CPU, which holds
+the quota's six running and six terminating half-CPU stage Pods.
 The quota caps admission but does not reserve node capacity: a stage Pod that does
 not fit stays Pending (`Unschedulable`), which lowers the load-aware slot budget,
 and after 30 s the worker retries it as `SandboxBackpressureError`. The VM uses the
