@@ -78,9 +78,9 @@ export class ExecutorOwner {
   }
 
   cleanupStage(cleanup: DeferredStageCleanup, signal: AbortSignal): Promise<void> {
-    return this.executor.cleanupStage
-      ? this.executor.cleanupStage(cleanup, signal)
-      : Promise.resolve();
+    if (!this.executor.cleanupStage)
+      return Promise.reject(new Error("This sandbox executor cannot clean a deferred stage."));
+    return this.executor.cleanupStage(cleanup, signal);
   }
 
   async reconcile(runId: string, owner?: string): Promise<boolean> {

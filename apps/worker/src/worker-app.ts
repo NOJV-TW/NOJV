@@ -9,6 +9,7 @@ import {
   ensureDurableWorkProcessor,
   ensureLifecycleReconciler,
   ensureSubmissionSweeper,
+  JUDGE_CLEANUP_TASK_QUEUE,
   JUDGE_STATE_TASK_QUEUE,
   JUDGE_TASK_QUEUE,
   PLATFORM_TASK_QUEUE,
@@ -265,6 +266,16 @@ export class WorkerApp {
         shutdownGraceTime: "30s",
       });
       this.addWorker(stateWorker, JUDGE_STATE_TASK_QUEUE);
+      this.assertStarting();
+      const cleanupWorker = await Worker.create({
+        connection,
+        namespace,
+        taskQueue: JUDGE_CLEANUP_TASK_QUEUE,
+        activities: judgeActivities,
+        maxConcurrentActivityTaskExecutions: 16,
+        shutdownGraceTime: "30s",
+      });
+      this.addWorker(cleanupWorker, JUDGE_CLEANUP_TASK_QUEUE);
       this.assertStarting();
     }
 

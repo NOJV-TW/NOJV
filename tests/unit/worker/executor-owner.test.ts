@@ -55,7 +55,7 @@ describe("ExecutorOwner", () => {
     expect("deferCleanup" in contexts[1]!).toBe(false);
   });
 
-  it("delegates a deferred stage cleanup and tolerates executors without one", async () => {
+  it("delegates a deferred stage cleanup and refuses executors without one", async () => {
     const cleanup = {
       jobName: "judge-run",
       namespace: "nojv-sandbox",
@@ -69,8 +69,8 @@ describe("ExecutorOwner", () => {
     const execute = vi.fn(async () => ({ testcaseResults: [] }));
 
     await new ExecutorOwner({ execute, cleanupStage }).cleanupStage(cleanup, signal);
-    await expect(new ExecutorOwner({ execute }).cleanupStage(cleanup, signal)).resolves.toBe(
-      undefined,
+    await expect(new ExecutorOwner({ execute }).cleanupStage(cleanup, signal)).rejects.toThrow(
+      "cannot clean a deferred stage",
     );
 
     expect(cleanupStage).toHaveBeenCalledWith(cleanup, signal);

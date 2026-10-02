@@ -51,6 +51,7 @@ vi.mock("@nojv/temporal", () => ({
   ensureSubmissionSweeper: mocks.ensureSubmissionSweeper,
   JUDGE_TASK_QUEUE: "judge",
   JUDGE_STATE_TASK_QUEUE: "judge-state",
+  JUDGE_CLEANUP_TASK_QUEUE: "judge-cleanup",
   PLATFORM_TASK_QUEUE: "platform",
   temporalConnectionOptions: () => ({}),
 }));
@@ -205,14 +206,18 @@ describe("WorkerApp lifecycle", () => {
     {
       name: "legacy judge",
       workerEnv: { ...env, WORKER_MODE: "judge" } as WorkerEnv,
-      queues: ["judge", "judge-state"],
+      queues: ["judge", "judge-state", "judge-cleanup"],
     },
-    { name: "kubernetes judge", workerEnv: kubernetesEnv, queues: ["judge", "judge-state"] },
+    {
+      name: "kubernetes judge",
+      workerEnv: kubernetesEnv,
+      queues: ["judge", "judge-state", "judge-cleanup"],
+    },
     { name: "platform", workerEnv: env, queues: ["platform"] },
     {
       name: "combined",
       workerEnv: { ...kubernetesEnv, WORKER_MODE: "all" } as WorkerEnv,
-      queues: ["judge", "judge-state", "platform"],
+      queues: ["judge", "judge-state", "judge-cleanup", "platform"],
     },
   ])(
     "bounds cached workflows and workflow task slots for $name workers",
@@ -237,7 +242,7 @@ describe("WorkerApp lifecycle", () => {
         expect(mocks.workerCreate).toHaveBeenCalledTimes(queues.length);
         for (const taskQueue of queues) {
           expect(mocks.workerCreate).toHaveBeenCalledWith(
-            taskQueue === "judge-state"
+            taskQueue === "judge-state" || taskQueue === "judge-cleanup"
               ? expect.not.objectContaining({ workflowsPath: expect.anything() })
               : expect.objectContaining({
                   taskQueue,
@@ -247,13 +252,14 @@ describe("WorkerApp lifecycle", () => {
                 }),
           );
         }
-        if (queues.includes("judge-state"))
-          expect(mocks.workerCreate).toHaveBeenCalledWith(
-            expect.objectContaining({
-              taskQueue: "judge-state",
-              maxConcurrentActivityTaskExecutions: 16,
-            }),
-          );
+        for (const activityQueue of ["judge-state", "judge-cleanup"])
+          if (queues.includes(activityQueue))
+            expect(mocks.workerCreate).toHaveBeenCalledWith(
+              expect.objectContaining({
+                taskQueue: activityQueue,
+                maxConcurrentActivityTaskExecutions: 16,
+              }),
+            );
       } finally {
         await app.shutdown("SIGTERM");
         await started;
@@ -272,7 +278,7 @@ describe("WorkerApp lifecycle", () => {
     );
     const started = app.start();
     try {
-      await vi.waitFor(() => expect(mocks.workerCreate).toHaveBeenCalledTimes(2));
+      await vi.waitFor(() => expect(mocks.workerCreate).toHaveBeenCalledTimes(3));
       expect(mocks.startNodeLoadSlots).toHaveBeenCalledWith(2, 6);
       const options = mocks.workerCreate.mock.calls
         .map(([value]) => value as Record<string, unknown>)
@@ -456,7 +462,7 @@ describe("WorkerApp lifecycle", () => {
       { shutdownTimeoutMs: 100, workflowsPath: "workflow.js" },
     );
     const started = app.start();
-    await vi.waitFor(() => expect(worker.run).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(worker.run).toHaveBeenCalledTimes(3));
     expect(mocks.recoverSystemErrorSubmissions).not.toHaveBeenCalled();
 
     let finished = false;

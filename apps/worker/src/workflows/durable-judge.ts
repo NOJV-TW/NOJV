@@ -16,7 +16,7 @@ import {
 } from "@nojv/core";
 import type * as executionActivities from "../activities/judge-execution";
 import type * as lifecycleActivities from "../activities/lifecycle";
-import { JUDGE_STATE_QUEUE, PLATFORM_QUEUE } from "./activity-options";
+import { JUDGE_CLEANUP_QUEUE, JUDGE_STATE_QUEUE, PLATFORM_QUEUE } from "./activity-options";
 
 const journal = proxyActivities<typeof executionActivities>({
   taskQueue: JUDGE_STATE_QUEUE,
@@ -31,7 +31,7 @@ const SANDBOX_ACTIVITY = {
 } as const;
 const sandbox = proxyActivities<typeof executionActivities>(SANDBOX_ACTIVITY);
 const cleanups = proxyActivities<typeof executionActivities>({
-  taskQueue: JUDGE_STATE_QUEUE,
+  taskQueue: JUDGE_CLEANUP_QUEUE,
   startToCloseTimeout: "5m",
   heartbeatTimeout: "60s",
   retry: { maximumAttempts: 5 },

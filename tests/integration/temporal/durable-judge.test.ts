@@ -133,18 +133,25 @@ async function scenario(options: {
     taskQueue: "judge-state",
     activities,
   });
+  const cleanupWorker = await Worker.create({
+    connection: env.nativeConnection,
+    taskQueue: "judge-cleanup",
+    activities,
+  });
   let id = "";
   await worker.runUntil(
     platform.runUntil(
-      stateWorker.runUntil(async () => {
-        const handle = await env.client.workflow.start("durableJudgeWorkflow", {
-          workflowId: queue,
-          taskQueue: queue,
-          args: [{ executionId: "immutable-original-version" }],
-        });
-        id = handle.workflowId;
-        await handle.result();
-      }),
+      stateWorker.runUntil(
+        cleanupWorker.runUntil(async () => {
+          const handle = await env.client.workflow.start("durableJudgeWorkflow", {
+            workflowId: queue,
+            taskQueue: queue,
+            args: [{ executionId: "immutable-original-version" }],
+          });
+          id = handle.workflowId;
+          await handle.result();
+        }),
+      ),
     ),
   );
   return { activities, phases, id, order };
