@@ -79,7 +79,15 @@ describe("executeJudgeStage", () => {
       status: "finished",
       cleanup: { ...cleanup, leaseToken: "lease-1" },
     });
-    expect(domain.saveJudgeStage).toHaveBeenCalledOnce();
+    expect(domain.saveJudgeStage).toHaveBeenCalledWith(
+      "execution-1",
+      "workflow-1",
+      0,
+      accepted,
+      "lease-1",
+      true,
+      true,
+    );
     expect(domain.releaseJudgeStage).not.toHaveBeenCalled();
     expect(owner.execute.mock.calls[0]?.[3]).toEqual(expect.any(Function));
   });
@@ -91,6 +99,7 @@ describe("executeJudgeStage", () => {
 
     expect(stage).toEqual({ status: "finished" });
     expect(owner.execute.mock.calls[0]?.[3]).toBeUndefined();
+    expect(domain.saveJudgeStage.mock.calls[0]?.[6]).toBe(false);
     expect(domain.releaseJudgeStage).toHaveBeenCalledWith(
       "execution-1",
       "workflow-1",
@@ -109,6 +118,23 @@ describe("executeJudgeStage", () => {
 
     expect(owner.cleanupStage).toHaveBeenCalledWith(cleanup, expect.any(AbortSignal));
     expect(domain.saveJudgeStage).not.toHaveBeenCalled();
+    expect(domain.releaseJudgeStage).toHaveBeenCalledWith(
+      "execution-1",
+      "workflow-1",
+      "lease-1",
+    );
+  });
+  it("cleans a deferred stage inline when saving its result fails", async () => {
+    executeWith(accepted, true);
+    domain.saveJudgeStage.mockRejectedValue(
+      new Error("Judge attempt no longer owns this execution."),
+    );
+
+    await expect(executeJudgeStage("execution-1", "workflow-1", 0, true)).rejects.toThrow(
+      "no longer owns",
+    );
+
+    expect(owner.cleanupStage).toHaveBeenCalledWith(cleanup, expect.any(AbortSignal));
     expect(domain.releaseJudgeStage).toHaveBeenCalledWith(
       "execution-1",
       "workflow-1",

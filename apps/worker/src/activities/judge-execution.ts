@@ -127,10 +127,16 @@ export async function executeJudgeStage(
       result,
       leaseToken,
       terminal,
+      Boolean(pendingCleanup),
     );
     const status = terminal ? ("finished" as const) : ("saved" as const);
     return pendingCleanup ? { status, cleanup: { ...pendingCleanup, leaseToken } } : { status };
   } catch (error) {
+    const [pendingCleanup] = deferred;
+    if (pendingCleanup && !cleanupConfirmed) {
+      await getExecutorOwner().cleanupStage(pendingCleanup, signal);
+      cleanupConfirmed = true;
+    }
     if (
       error instanceof Error &&
       [
