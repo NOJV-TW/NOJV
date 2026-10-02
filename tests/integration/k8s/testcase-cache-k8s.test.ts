@@ -66,7 +66,7 @@ beforeAll(async () => {
 function largeTestcases(seed: number): (SandboxTestcase & { input: string; output: string })[] {
   let state = seed;
   const next = () => {
-    state = (state * 1_103_515_245 + 12_345) % 2_147_483_648;
+    state = (Math.imul(state, 1_103_515_245) + 12_345) & 0x7fffffff;
     return 1_000_000 + (state % 9_000_000);
   };
   return Array.from({ length: CASES }, (_, index) => {
@@ -238,6 +238,7 @@ describe("K8s judge — cached testcase payloads", () => {
         return body;
       };
       expect(testcases).toHaveLength(CASES);
+      expect(new Set(testcases.map(({ input }) => input)).size).toBe(CASES);
       expect(bytes).toBeGreaterThan(30 * 1024 * 1024);
       await deleteCache();
 
