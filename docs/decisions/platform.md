@@ -119,13 +119,14 @@ An in-cluster `registry:2` (MinIO-backed) serves special-environment images; web
 
 ### OPS-11 Sandbox ResourceQuota is the judge capacity ceiling
 
-**Decided:** 2026-08 · **Source:** [2026-08-06-secure-low-latency-judge-autoscaling](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-06-secure-low-latency-judge-autoscaling.md), [2026-08-11-gke-judge-capacity-alignment](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-11-gke-judge-capacity-alignment.md), [2026-08-11-single-machine-throughput-tuning](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-11-single-machine-throughput-tuning.md)
+**Decided:** 2026-08 · **Source:** [2026-08-06-secure-low-latency-judge-autoscaling](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-06-secure-low-latency-judge-autoscaling.md), [2026-08-11-gke-judge-capacity-alignment](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-11-gke-judge-capacity-alignment.md), [2026-08-11-single-machine-throughput-tuning](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-08-11-single-machine-throughput-tuning.md), [PR #623](https://github.com/NOJV-TW/NOJV/pull/623)
 
 The sandbox namespace ResourceQuota is the hard resource ceiling for judging; judge worker slots × `K8S_RUN_PARALLELISM` set how many cases run at once (see JDG-12 and JDG-13 in judge.md), and the chart refuses values whose CPU exceeds the quota. On GKE, node-pool autoscaling (one on-demand gVisor node plus a Spot pool from 0) already follows sandbox Jobs. Numbers live in the values files and change with tuning.
 
 - Rejected: KEDA or any second autoscaler for the dispatcher (placeholder removed); lowering memory limits, gVisor, NetworkPolicy, PID limits or deadlines to gain throughput; persisting a single-machine profile without memory-saturation proof.
 - Rule: never trade isolation for throughput.
 - Rule: tune one reversible resource relationship at a time; benchmarks use isolated temporary identities and clean up.
+- Rule: size the node so allocatable CPU minus platform pod requests covers the quota's CPU; the quota admits Pods but does not reserve node capacity.
 - Code: `infra/charts/nojv/values-single-machine.yaml`, `infra/charts/nojv/values-gke.yaml`, `infra/gcp/scripts/create-node-pools.sh`
 
 ### OPS-12 Operational tunables are env vars wired through Helm

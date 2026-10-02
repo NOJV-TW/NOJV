@@ -140,7 +140,7 @@ Each `JudgeExecution` runs `durableJudgeWorkflow` on the `judge` queue with `pri
 
 ### JDG-13 Load-aware judge slots follow node load from /proc
 
-**Decided:** 2026-09 · **Source:** [2026-09-22-judge-slot-tuner](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-22-judge-slot-tuner.md), [PR #606](https://github.com/NOJV-TW/NOJV/pull/606)
+**Decided:** 2026-09 · **Source:** [2026-09-22-judge-slot-tuner](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-22-judge-slot-tuner.md), [PR #606](https://github.com/NOJV-TW/NOJV/pull/606), [PR #623](https://github.com/NOJV-TW/NOJV/pull/623)
 
 With `WORKER_MIN_CONCURRENCY` set, the judge worker's activity slots come from a custom Temporal slot supplier whose budget, between min and `WORKER_CONCURRENCY`, follows node CPU (`/proc/stat` deltas, target 0.8) and node `MemAvailable` (floor 20% of `MemTotal`), sampled every 2.5 s; fixed mode remains. It grows one slot at most every other sample and only while every budgeted slot runs a stage; over either limit it drops to one below the running count; it never goes under the minimum or revokes a running stage. Judging runs in sandbox Pods, not the worker, so only a node-wide signal sees the load; a fixed count cannot track load, and Kubernetes does not decide how many Jobs start.
 
@@ -148,7 +148,7 @@ With `WORKER_MIN_CONCURRENCY` set, the judge worker's activity slots come from a
 - Rejected: custom slot supplier on the metrics API (extra dependency and lag); Kueue; HPA/KEDA; env knobs for the targets (constants until a measurement needs one).
 - Rule: `/proc` is host-wide only inside a container without LXCFS and only describes the node the worker runs on; node-load slots need one judge replica sharing the node with its sandboxes (the chart refuses `minConcurrency` with more replicas). GKE stays on fixed slots until a multi-node plan.
 - Rule: workflow-task slots stay fixed; `judge_wall_clock_timeouts_total` is the contention guard (lower the target or ceiling if it fires).
-- Rule: the ceiling times per-stage CPU requests must fit the sandbox quota (the chart guard); single-machine is 2–6 because a standard stage Pod requests one CPU and the quota is 6.
+- Rule: the ceiling times per-stage CPU requests must fit the sandbox quota (the chart guard); single-machine is 2–6 because a standard stage Pod requests one CPU and the quota is 6. It must also fit node allocatable CPU minus platform pod requests, which the chart cannot see: on 8 vCPU only four stages scheduled and two slots sat on Pending Pods until the VM grew to 10 vCPU (2026-10-02).
 - Code: `apps/worker/src/judge-slot-supplier.ts`, `apps/worker/src/worker-app.ts`, `infra/charts/nojv/values-single-machine.yaml`
 
 ### JDG-14 One canonical toolchain manifest with exact pins

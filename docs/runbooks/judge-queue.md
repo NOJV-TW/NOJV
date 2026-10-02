@@ -44,7 +44,11 @@ in the Temporal Helm values (`infra/gcp/gke/temporal/`), then let the config rel
   fails to render when it exceeds `sandbox.resourceQuota.requestsCpu`.
 - The executor lowers a stage's parallelism when the memory limit would push the run
   container past the sandbox memory ceiling. Node allocatable CPU minus platform pod
-  requests also bounds how many Jobs schedule.
+  requests also bounds how many Jobs schedule; the chart cannot check it. Read
+  `kubectl describe node` (Allocated resources) before raising slots: single-machine
+  platform pods request about 3.2 CPU, so 10 vCPU fits six one-CPU stages and a
+  seventh needs more vCPU or lower platform requests. Stage Pods that do not fit
+  stay Pending and the worker logs `SandboxBackpressureError … Insufficient cpu`.
 - Before an exam, raise concurrency and quota together (Helm values); lower them
   afterwards.
 
