@@ -47,7 +47,7 @@ A TestcaseSet earns its full weight only if every case is AC, else 0, in practic
 
 ### JDG-05 Run/check separation: untrusted code never sees answers or validators
 
-**Decided:** 2026-05 · **Source:** [2026-04-02-judge-pipeline-spec](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-02-judge-pipeline-spec.md), [2026-05-28-judge-isolation-domjudge-validator](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-28-judge-isolation-domjudge-validator.md), [2026-09-23-judge-single-sandbox-per-stage](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-23-judge-single-sandbox-per-stage.md)
+**Decided:** 2026-05 · **Source:** [2026-04-02-judge-pipeline-spec](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-02-judge-pipeline-spec.md), [2026-05-28-judge-isolation-domjudge-validator](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-28-judge-isolation-domjudge-validator.md), [2026-09-23-judge-single-sandbox-per-stage](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-23-judge-single-sandbox-per-stage.md), [PR #624](https://github.com/NOJV-TW/NOJV/pull/624)
 
 The container that runs student code never mounts expected answers, validator/interactor source or secret interactor input; checking happens in a separate container that starts only after the run container exits (interactive pairs a solution side with an interactor side that alone holds the secret data). A shared mount namespace once let programs read `expected.txt` and always get AC. Isolation must need no extra privileges and work on Docker and K8s.
 
@@ -141,7 +141,7 @@ Each `JudgeExecution` runs `durableJudgeWorkflow` on the `judge` queue with `pri
 
 ### JDG-13 Load-aware judge slots follow node load from /proc
 
-**Decided:** 2026-09 · **Source:** [2026-09-22-judge-slot-tuner](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-22-judge-slot-tuner.md), [PR #606](https://github.com/NOJV-TW/NOJV/pull/606), [PR #623](https://github.com/NOJV-TW/NOJV/pull/623)
+**Decided:** 2026-09 · **Source:** [2026-09-22-judge-slot-tuner](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-09-22-judge-slot-tuner.md), [PR #606](https://github.com/NOJV-TW/NOJV/pull/606), [PR #623](https://github.com/NOJV-TW/NOJV/pull/623), [PR #624](https://github.com/NOJV-TW/NOJV/pull/624)
 
 With `WORKER_MIN_CONCURRENCY` set, the judge worker's activity slots come from a custom Temporal slot supplier whose budget, between min and `WORKER_CONCURRENCY`, follows node CPU (`/proc/stat` deltas, target 0.8) and node `MemAvailable` (floor 20% of `MemTotal`), sampled every 2.5 s; fixed mode remains. It grows one slot at most every other sample and only while every budgeted slot runs a stage; over either limit it drops to one below the running count; it never goes under the minimum or revokes a running stage. Three in-process capacity signals, each at most once per stage Job, cap it the same way and pause growth: a stage Pod reporting `PodScheduled=False` (`Unschedulable`) or a Job event `exceeded quota` for 30 s, a wall-clock TLE of a program that used at least half its CPU limit for 60 s. Judging runs in sandbox Pods, not the worker, so only a node-wide signal sees the load; a fixed count cannot track load, and Kubernetes does not decide how many Jobs start.
 
@@ -280,7 +280,7 @@ On 2026-09-30 failed large payload uploads left 384 per-stage payload ConfigMaps
 
 ### JDG-25 Stage results are read at container exit; cleanup starts at the terminal Pod
 
-**Decided:** 2026-09 · **Source:** [#609](https://github.com/NOJV-TW/NOJV/pull/609)
+**Decided:** 2026-09 · **Source:** [#609](https://github.com/NOJV-TW/NOJV/pull/609), [PR #624](https://github.com/NOJV-TW/NOJV/pull/624)
 
 A standard, checker or interactive stage reads its logs once every declared container has exited 0, then waits (at most 10 s) for the Pod's terminal phase before deleting the Job; stage Pods use a 1 s termination grace period. Measured on k3d (runc, 1 and 6 concurrent stages, 3 and 30 cases), a stage's fixed cost is kubelet's: about 1 s from run-container exit to judge-container exit being reported (PLEG relists every second) and 1.2–1.5 s more until the Pod turns `Succeeded` (kubelet stops the sandbox only on its next sync). The worker's own share after `Succeeded` fell from 160–265 ms to 105–130 ms (median), and an aborted stage's cleanup from 25 s to 4 s because the runner, as PID 1, ignores SIGTERM. In production the log reads and API calls that now overlap sandbox teardown took 0.8–1.1 s per stage.
 
