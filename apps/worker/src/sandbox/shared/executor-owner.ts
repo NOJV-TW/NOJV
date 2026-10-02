@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type {
+  DeferredStageCleanup,
   SandboxExecutionContext,
   SandboxExecutor,
   SandboxRequest,
@@ -27,6 +28,7 @@ export class ExecutorOwner {
     request: SandboxRequest,
     signal: AbortSignal,
     runId = this.createRunId(),
+    deferCleanup?: (cleanup: DeferredStageCleanup) => void,
   ): Promise<SandboxResult> {
     if (this.stopping) {
       throw new Error("Executor owner is shutting down.");
@@ -43,6 +45,7 @@ export class ExecutorOwner {
     const execution: SandboxExecutionContext = {
       runId,
       signal: controller.signal,
+      ...(deferCleanup ? { deferCleanup } : {}),
     };
     const active = {} as ActiveExecution;
     const promise = Promise.resolve()
@@ -72,6 +75,12 @@ export class ExecutorOwner {
       [...this.active].map(({ promise }) => promise),
     ).then(() => undefined);
     return this.shutdownPromise;
+  }
+
+  cleanupStage(cleanup: DeferredStageCleanup, signal: AbortSignal): Promise<void> {
+    return this.executor.cleanupStage
+      ? this.executor.cleanupStage(cleanup, signal)
+      : Promise.resolve();
   }
 
   async reconcile(runId: string, owner?: string): Promise<boolean> {
