@@ -210,7 +210,10 @@ Capacity:
   stage, node CPU is under 80%, at least 20% of node memory is available and the
   worker's own cgroup v2 working set (`memory.current` minus `inactive_file`) is
   under 75% of its `memory.max`. Over any limit the budget drops to one below the
-  running count, never under the minimum; running stages are never revoked. An
+  running count, never under the minimum; running stages are never revoked. Two
+  in-process capacity signals do the same and pause growth: a stage Pod reporting
+  `PodScheduled=False` (`Unschedulable`) pauses it for 30 s, a wall-clock TLE for
+  60 s (`judge_capacity_signals_total`). An
   unlimited (`max`) or unreadable cgroup disables only the worker-memory limit.
   Fixed slots have no memory guard. The worker logs each budget change and exports
   `judge_slot_budget`, `judge_slots_used`, `judge_node_cpu_utilization` and
@@ -219,9 +222,15 @@ Capacity:
   the signal is the node's only when the judge worker shares the node with its
   sandbox Pods; the chart refuses `minConcurrency` with more than one judge
   replica.
-- A stage's run container requests and is limited to `K8S_RUN_PARALLELISM` CPUs, so
-  slots × `K8S_RUN_PARALLELISM` cases run at once; the chart refuses values above the
-  sandbox `ResourceQuota` CPU.
+- A stage's run container requests half of `K8S_RUN_PARALLELISM` CPUs and is limited
+  to the full count (Burstable QoS), so slots × `K8S_RUN_PARALLELISM` cases run at
+  once; the chart refuses a ceiling whose half-CPU requests exceed the sandbox
+  `ResourceQuota` CPU, which also covers Pods that are still terminating.
+- A standard Kubernetes stage frees its judge slot when its result is read. The
+  workflow publishes the verdict while `cleanupJudgeStage`, on `judge-state`, waits
+  for the terminal Pod, deletes the Job and payloads and then releases the lease;
+  the execution finishes only after that. Interactive, Advanced and Docker stages
+  clean up inside the stage activity.
 - A saturated worker interleaves submissions at stage granularity: a queued exam
   submission waits behind a bulk rejudge for at most one stage.
 - There is no cross-submission compilation cache.
@@ -718,7 +727,8 @@ failure is reported separately as CE.
   disappearance alone does not prove runtime termination.
 - A stage deletes its Job and its own payload ConfigMaps together under one 30 s
   budget and polls until the owned Pods are gone, first after 25 ms and then doubling
-  to at most 200 ms; the stage reports only after both are confirmed. Recovery lists ConfigMaps by the `nojv-run-id` label, so
+  to at most 200 ms; the lease is released only after both are confirmed, by the
+  stage activity or, for a deferred standard stage, by `cleanupJudgeStage`. Recovery lists ConfigMaps by the `nojv-run-id` label, so
   cached testcase data never enters its listings.
 - Each Kubernetes judge worker sweeps the testcase cache every 15 min: it lists index
   ConfigMaps by label and all sandbox Pods, and deletes an index idle for 12 h that

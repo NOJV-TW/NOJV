@@ -39,54 +39,62 @@ in the Temporal Helm values (`infra/gcp/gke/temporal/`), then let the config rel
 ## Capacity
 
 - Slots = `worker.judge.concurrency` × judge replicas. Each slot runs one stage Job
-  whose run container requests and is limited to `worker.sandbox.runParallelism`
-  CPUs. Slots × runParallelism is the number of cases running at once; the chart
-  fails to render when it exceeds `sandbox.resourceQuota.requestsCpu`.
+  whose run container requests half of `worker.sandbox.runParallelism` CPUs and is
+  limited to the full count. Slots × runParallelism is the number of cases running
+  at once; the chart fails to render when the half-CPU requests exceed
+  `sandbox.resourceQuota.requestsCpu`. A standard stage frees its slot when its
+  result is read; its Pod keeps counting against the quota until cleanup.
 - The executor lowers a stage's parallelism when the memory limit would push the run
   container past the sandbox memory ceiling. Node allocatable CPU minus platform pod
   requests also bounds how many Jobs schedule; the chart cannot check it. Read
   `kubectl describe node` (Allocated resources) before raising slots: single-machine
-  platform pods request about 3.2 CPU, so 10 vCPU fits six one-CPU stages and a
-  seventh needs more vCPU or lower platform requests. Stage Pods that do not fit
-  stay Pending and the worker logs `SandboxBackpressureError … Insufficient cpu`.
+  platform pods request about 3.2 CPU, so 10 vCPU leaves room for thirteen half-CPU
+  stage Pods. A stage Pod that does not fit reports `Unschedulable`, which caps the
+  load-aware budget; one still unscheduled after 30 s fails with
+  `SandboxBackpressureError … Insufficient cpu`.
 - Before an exam, raise concurrency and quota together (Helm values); lower them
   afterwards.
 
 Load-aware slots (`worker.judge.minConcurrency`; single-machine: min 2, ceiling
-`worker.judge.concurrency` 6):
+`worker.judge.concurrency` 12):
 
 - The budget starts at the minimum and grows by one slot at most every 5 s, only
   while every budgeted slot runs a stage, node CPU (`/proc/stat`) is under 80%,
   node `MemAvailable` is at least 20% of `MemTotal` and the judge worker's own
   cgroup working set is under 75% of its memory limit. Over any limit it drops to
   one below the running count, never under the minimum; running stages finish.
-  Fixed slots (no `minConcurrency`) have no worker memory guard.
+  A stage Pod reporting `Unschedulable` does the same and pauses growth for 30 s; a
+  wall-clock TLE pauses it for 60 s. Fixed slots (no `minConcurrency`) have no
+  worker memory guard and ignore these signals.
   Mechanics are in [Judge Pipeline](../architecture/JUDGE_PIPELINE.md#queue-priority-and-capacity).
 - The signal is host-wide `/proc`, valid only while the one judge replica shares the
   node with its sandboxes. Leave `minConcurrency` unset on multi-node clusters; the
   chart refuses it with more than one judge replica.
 - Observe adaptation with the `judge slot budget changed` log line (`budget`,
   `used`, `cpu`, `memoryAvailable`, `workerMemory`; `null` when the worker has no
-  memory limit) or the `judge_slot_budget`, `judge_slots_used`,
-  `judge_node_cpu_utilization` and `judge_worker_memory_utilization` metrics.
+  memory limit), the `judge slot budget capped by capacity signal` line (`signal`)
+  or the `judge_slot_budget`, `judge_slots_used`, `judge_node_cpu_utilization`,
+  `judge_worker_memory_utilization` and `judge_capacity_signals_total` metrics.
 - A budget pinned at the minimum with `workerMemory` at or above 0.75 means the
   worker itself is near its limit; judging continues at the minimum instead of
   OOMKilling. Raise the worker memory limit if it persists outside a burst.
-- The ceiling is still bounded by the quota: a standard stage Pod requests
+- The ceiling is still bounded by the quota: a standard stage Pod requests half of
   `runParallelism` CPUs (its run init container) and an interactive Pod the sandbox
-  `cpuLimit` plus `cpuRequest`, so at the single-machine 6-CPU quota six standard or
-  four interactive stages fit. A stage the quota rejects frees its slot and retries
+  `cpuLimit` plus `cpuRequest`, so at the single-machine 6-CPU quota twelve standard
+  (running or terminating) or four interactive stages fit. A stage the quota rejects frees its slot and retries
   as `waiting_capacity`. Raising the ceiling needs a matching quota, and the quota
   must stay within node allocatable CPU left by the platform pods.
 - Per-stage wall time is in the `Kubernetes sandbox phase timings` log line:
   `payloadConfigMapsMs`, `jobCreateMs`, `scheduleAndExecutionMs` (until every
   container exited), `logsMs`, `podTerminationMs` (kubelet stopping the Pod sandbox
-  after the containers exited), `cleanupMs` and `totalMs`. The
+  after the containers exited), `cleanupMs` and `totalMs`; a deferred standard stage
+  logs `deferredCleanup: true` with null termination and cleanup times, and
+  `cleanupJudgeStage` logs them in `Kubernetes sandbox deferred cleanup timings`. The
   `Kubernetes sandbox lifecycle timings` line splits the Pod's own startup and
   container run times, at one-second resolution. A slot is held for `totalMs`.
 - `judge_wall_clock_timeouts_total` counts TLEs whose CPU time stayed under the limit;
   `nojv-judge-wall-clock-timeouts` fires on more than two in ten minutes. Lower the
-  ceiling when it fires.
+  ceiling if it keeps firing; each one already pauses budget growth for 60 s.
 
 ## Bulk rejudges
 
@@ -125,9 +133,10 @@ are skipped and picked up by a later run.
 
 ## Stuck leases and cleanup
 
-- An expired lease is not proof that a sandbox stopped. `reconcileJudgeStage` and
-  `judgeCleanupWorkflow` (ID `judge-cleanup-<leaseToken>`) confirm the run's Jobs,
-  Pods, ConfigMaps and PVCs are gone before the lease is released.
+- An expired lease is not proof that a sandbox stopped. `cleanupJudgeStage`,
+  `reconcileJudgeStage` and `judgeCleanupWorkflow` (ID `judge-cleanup-<leaseToken>`)
+  confirm the run's Jobs, Pods, ConfigMaps and PVCs are gone before the lease is
+  released.
 - Match run ID, Pod UID and CRI/cgroup identity before any directed host cleanup; do
   not restart k3s or containerd to clear remnants.
 - Orphaned per-stage payload ConfigMaps (`nojv-run-id` label, `judge-<runId>-*`)

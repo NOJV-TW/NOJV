@@ -102,7 +102,7 @@ chart against it.
 | `SANDBOX_MEMORY_HEADROOM_MB`, `SANDBOX_MAX_MEMORY_MB`                                                 | `64`, `1536`                     | Sandbox memory ceiling above the problem limit                                                                             |
 | `SANDBOX_CPU_LIMIT`, `SANDBOX_MEMORY_MB`, `SANDBOX_PIDS_LIMIT`                                        | required (Docker)                | Per-sandbox limits                                                                                                         |
 | `K8S_NAMESPACE`, `K8S_CPU_REQUEST`, `K8S_CPU_LIMIT`, `K8S_MEMORY_REQUEST`, `K8S_MEMORY_LIMIT`         | required (Kubernetes)            | Sandbox namespace and container resources (`worker.sandbox.*`)                                                             |
-| `K8S_RUN_PARALLELISM`                                                                                 | `1`, range 1–8                   | Testcases one stage Pod runs at once; its run container requests and is limited to this many CPUs                          |
+| `K8S_RUN_PARALLELISM`                                                                                 | `1`, range 1–8                   | Testcases one stage Pod runs at once; its run container requests half and is limited to this many CPUs                     |
 | `K8S_RUNTIME_CLASS_NAME`                                                                              | required, must be `gvisor`       | RuntimeClass for every sandbox Pod                                                                                         |
 | `K8S_IMAGE_PULL_SECRET`                                                                               | unset                            | dockerconfigjson Secret in the sandbox namespace (`worker.sandbox.imagePullSecret`)                                        |
 | `REGISTRY_GC_IMAGE`, `REGISTRY_GC_NAMESPACE`, `REGISTRY_GC_CONFIG_CONFIGMAP`, `REGISTRY_GC_S3_SECRET` | defaults match the chart         | Registry garbage-collection Job                                                                                            |
@@ -366,7 +366,7 @@ apply ad-hoc down migrations.
 | Tier     | Single-machine                                     | GKE                                                                    |
 | -------- | -------------------------------------------------- | ---------------------------------------------------------------------- |
 | web      | HPA 1–3, CPU 70%, 384Mi / 1Gi memory               | HPA 2–15, CPU 70%, 384Mi / 1Gi memory                                  |
-| judge    | 1 replica, slots 2–6 by load, 1Gi / 3Gi memory     | 2 replicas × 2 slots                                                   |
+| judge    | 1 replica, slots 2–12 by load, 1Gi / 3Gi memory    | 2 replicas × 2 slots                                                   |
 | platform | 1 replica                                          | 2 replicas                                                             |
 | registry | 1 replica                                          | 2 replicas                                                             |
 | sandbox  | quota 16 pods / 6 CPU / 16Gi; judge container 300m | quota 10 pods / 10 CPU / 30Gi; one on-demand gVisor node plus Spot 0–4 |
@@ -382,11 +382,11 @@ Single-machine Postgres has a memory limit equal to its request and no CPU
 limit, so its usage never exceeds its request and kubelet node-pressure
 eviction takes every pod above its request first. Its requests count against
 the 10 vCPU / 24 GiB node with the other platform pods, about 3.2 CPU of
-requests in total; sandbox Jobs schedule into the remaining 6.8 CPU, which holds
-the quota's six one-CPU stage Pods. The quota caps admission but does not
-reserve node capacity: when allocatable CPU minus platform requests is below
-slots × `runParallelism`, the extra stage Pods stay Pending (`Insufficient cpu`)
-and the worker retries them as `SandboxBackpressureError`. The VM uses the
+requests in total; sandbox Jobs schedule into the remaining 6.8 CPU, room for
+thirteen half-CPU stage Pods, so the quota (6 CPU, twelve stage Pods) binds first.
+The quota caps admission but does not reserve node capacity: a stage Pod that does
+not fit stays Pending (`Unschedulable`), which lowers the load-aware slot budget,
+and after 30 s the worker retries it as `SandboxBackpressureError`. The VM uses the
 `host` CPU type; the generic QEMU model hides AVX2 and roughly doubles judge CPU
 time.
 
