@@ -1,18 +1,18 @@
 release:
   # build-images.yml replaces this with the commit selected by the release tag.
-  sourceSha: ""
+  sourceSha: dfd7b39aa0539a9f7f8228e2a7878513552a7f26
 
 image:
   registry: ghcr.io
   repositoryPrefix: nojv-tw
-  tag: latest # Replaced with the stable vX.Y.Z release tag before Flux deploys.
+  tag: v1.3.54
   # The release workflow replaces these with Buildx's registry-returned digests
   # on the deploy branch. Empty values intentionally make direct renders fail.
   digests:
-    web: ""
-    worker: ""
-    sandbox: ""
-    migrator: ""
+    web: sha256:cb13fd50d6836284af61266d418f76d8928ba5b47de92b6c643ae58ecd67c6b4
+    worker: sha256:d6af3dd03ff283c91c1761fd651fbb0f65390578b570f0d323ce1ef65115ae6b
+    sandbox: sha256:f32d28ea421f2d6d3361234e7eb7d39a05918921a75823d4fc352f7b0cacbbb8
+    migrator: sha256:397e3affcef4ae12dd1f101c13a61083f89df4e1b4798576ebd225d62a828ef0
   repositories:
     web: nojv-web
     worker: nojv-worker
