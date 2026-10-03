@@ -698,6 +698,36 @@ function buildAdversarialFixture(root: string): string {
 }
 
 describe("cross-gate parity: Docker safeCopyTree and the K8s embedded gate sanitize identically", () => {
+  it.each(["directories", "symlinks"])("rejects excessive %s in both gates", async (kind) => {
+    const root = mkdtempSync(join(tmpdir(), "nojv-gate-entries-"));
+    const src = join(root, "output");
+    mkdirSync(src);
+    try {
+      for (let i = 0; i < 3; i++) {
+        const entry = join(src, String(i));
+        if (kind === "directories") mkdirSync(entry);
+        else symlinkSync("/answers/secret", entry);
+      }
+      await expect(
+        safeCopyTree(src, join(root, "docker"), { maxFiles: 2, maxBytes: 10 }),
+      ).rejects.toThrow(/count limit/);
+      expect(() =>
+        execFileSync(process.execPath, ["-e", buildAdvancedTransferScript()], {
+          stdio: "pipe",
+          env: {
+            ...process.env,
+            NOJV_TRANSFER_SRC: src,
+            NOJV_TRANSFER_DEST: join(root, "k8s"),
+            NOJV_TRANSFER_MAX_FILES: "2",
+            NOJV_TRANSFER_MAX_BYTES: "10",
+          },
+        }),
+      ).toThrow(/NOJV_TRANSFER_FILE_CAP/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("produces byte-identical sanitized trees from the same adversarial fixture", async () => {
     const root = mkdtempSync(join(tmpdir(), "nojv-gate-parity-"));
     const src = buildAdversarialFixture(root);
@@ -1403,7 +1433,8 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
   it("mode=service: starts the TA service Pod+Service, injects NOJV_SERVICE_HOST (no HTTP_PROXY)", async () => {
     const record = emptyRecord();
     const sidecarLog = buildSidecarLog({ score: 100, verdict: "accepted" });
-    const executor = new K8sExecutor(EXEC_CONFIG, buildFakeClients(record, { sidecarLog }));
+    const clients = buildFakeClients(record, { sidecarLog });
+    const executor = new K8sExecutor(EXEC_CONFIG, clients);
     await execute(
       executor,
       makeAdvancedRequest({
@@ -1420,6 +1451,9 @@ describe("K8sExecutor.execute(advanced) — registry source two-Job/PVC orchestr
       svcPod.body.spec.containers[0].env.map((e: any) => [e.name, e.value]),
     );
     expect(svcEnv.PORT).toBe("8888");
+    expect(clients.coreApi.readNamespacedPodLog).toHaveBeenCalledWith(
+      expect.objectContaining({ container: "service", limitBytes: 64 * 1024 }),
+    );
 
     const runJob = record.jobsCreated.find((j) => j.name === "judge-sub-adv-1-run")!;
     expect(runJob.body.spec.template.metadata.labels["nojv.egress"]).toBe("sub-adv-1");

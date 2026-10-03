@@ -87,27 +87,32 @@ const MAX_FILES = Number(process.env.NOJV_TRANSFER_MAX_FILES);
 const MAX_BYTES = Number(process.env.NOJV_TRANSFER_MAX_BYTES);
 const counters = { files: 0, bytes: 0 };
 function copyTreeInto(srcDir, destDir) {
-  const entries = fs.readdirSync(srcDir, { withFileTypes: true });
-  for (const entry of entries) {
-    const srcPath = path.join(srcDir, entry.name);
-    const destPath = path.join(destDir, entry.name);
-    const info = fs.lstatSync(srcPath);
-    if (info.isSymbolicLink()) continue;
-    if (info.isDirectory()) {
-      fs.mkdirSync(destPath, { recursive: true });
-      copyTreeInto(srcPath, destPath);
-      continue;
+  const dir = fs.opendirSync(srcDir);
+  try {
+    let entry;
+    while ((entry = dir.readSync()) !== null) {
+      counters.files += 1;
+      if (counters.files > MAX_FILES) {
+        throw new Error("NOJV_TRANSFER_FILE_CAP");
+      }
+      const srcPath = path.join(srcDir, entry.name);
+      const destPath = path.join(destDir, entry.name);
+      const info = fs.lstatSync(srcPath);
+      if (info.isSymbolicLink()) continue;
+      if (info.isDirectory()) {
+        fs.mkdirSync(destPath, { recursive: true });
+        copyTreeInto(srcPath, destPath);
+        continue;
+      }
+      if (!info.isFile()) continue;
+      counters.bytes += info.size;
+      if (counters.bytes > MAX_BYTES) {
+        throw new Error("NOJV_TRANSFER_BYTE_CAP");
+      }
+      fs.copyFileSync(srcPath, destPath);
     }
-    if (!info.isFile()) continue;
-    counters.files += 1;
-    counters.bytes += info.size;
-    if (counters.files > MAX_FILES) {
-      throw new Error("NOJV_TRANSFER_FILE_CAP");
-    }
-    if (counters.bytes > MAX_BYTES) {
-      throw new Error("NOJV_TRANSFER_BYTE_CAP");
-    }
-    fs.copyFileSync(srcPath, destPath);
+  } finally {
+    dir.closeSync();
   }
 }
 fs.mkdirSync(DEST, { recursive: true });

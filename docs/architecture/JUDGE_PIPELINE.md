@@ -638,9 +638,12 @@ The run container is single-homed with no internet route (JDG-17).
 | holds answers       | never                     | yes (baked) | never                 |
 
 Writes are allowed only to `/tmp` and `/workspace`. Docker polls both run and grade
-workspaces every 2 seconds and kills the container above 1 GiB or 100,000 files;
-the grade workspace count includes its captured read-only run output. Kubernetes
-limits the writable workspace emptyDir to 1 GiB.
+workspaces every 2 seconds and kills the container above 1 GiB or 100,000
+filesystem entries, including directories and symlinks. Scans stop on overflow;
+inspection errors fail closed except concurrently removed paths. The grade
+workspace count includes its captured read-only run output. Kubernetes limits
+the writable workspace emptyDir to 1 GiB and service-readiness log reads to
+64 KiB per poll.
 
 `result.json` is limited to 32 MiB before parsing. Docker and the Kubernetes
 result-emitting sidecar open only regular files without following the final
@@ -657,7 +660,7 @@ Kubernetes log API. Collection failures become SE.
 - skips every symlink (never copied or dereferenced), so `output/x → /answers/...`
   cannot reach the grade side
 - skips FIFOs, sockets and device nodes without opening them
-- copies regular files as raw bytes; over 100,000 files or 1 GiB throws
+- copies regular files as raw bytes; over 100,000 scanned entries or 1 GiB throws
   `SafeCopyLimitError` (SE)
 
 It runs host-side in platform code (unit-tested, no TOCTOU against a live container);

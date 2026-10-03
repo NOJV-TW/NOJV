@@ -147,10 +147,10 @@ Cancel/progress accept only workflow IDs prefixed `rejudge-` that match a record
 
 ### SEC-14 Advanced-mode `/output` capture never dereferences student paths
 
-**Decided:** 2026-06 · **Source:** [2026-06-14-advanced-judge-run-grade-split-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-14-advanced-judge-run-grade-split-design.md)
+**Decided:** 2026-06, revised 2026-10 · **Source:** [2026-06-14-advanced-judge-run-grade-split-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-14-advanced-judge-run-grade-split-design.md), [#628](https://github.com/NOJV-TW/NOJV/pull/628)
 
-Run output is copied host-side by `safeCopyTree` (lstat first, drop symlinks and special files, cap ≤100k files and 1 GiB, overflow = SE); on Kubernetes a transfer sidecar applies the same gate into a per-submission PVC mounted read-only by the grade Job. A symlink like `output/x → /answers/secret` would leak answers into grading.
+Run output is copied host-side by `safeCopyTree` (lstat first, drop symlinks and special files, cap ≤100k scanned filesystem entries and 1 GiB, overflow = SE); on Kubernetes a transfer sidecar applies the same gate into a per-submission PVC mounted read-only by the grade Job. Directories and skipped symlinks consume the entry budget so they cannot bypass inode or traversal limits. Docker's watchdog fails closed on inspection errors except concurrently removed paths. A symlink like `output/x → /answers/secret` would leak answers into grading.
 
 - Rejected: in-container `tar --dereference` (puts the security step in a TA image); pod-log/ConfigMap transfer (1 MB limit).
-- Rule: Docker and Kubernetes gates stay behavior-identical (parity test); watchdogs count files as well as bytes.
+- Rule: Docker and Kubernetes gates stay behavior-identical (parity test); watchdogs count every filesystem entry as well as regular-file bytes.
 - Code: `apps/worker/src/sandbox/docker/advanced-mode-executor.ts`, `apps/worker/src/sandbox/kubernetes/advanced-executor.ts`

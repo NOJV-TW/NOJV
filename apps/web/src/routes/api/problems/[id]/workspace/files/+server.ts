@@ -32,8 +32,6 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
   const language = typeof rawLanguage === "string" ? rawLanguage : "";
   const visibility = typeof rawVisibility === "string" ? rawVisibility : "editable";
 
-  await problemDomain.assertProblemStorageBudget(problemId, file.size);
-
   const content = await file.text();
 
   await problemDomain.setWorkspaceFile(actor, problemId, {

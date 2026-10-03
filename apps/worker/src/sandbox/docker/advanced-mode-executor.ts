@@ -5,6 +5,7 @@ import {
   lstat,
   mkdir,
   open,
+  opendir,
   readdir,
   stat,
   writeFile,
@@ -84,29 +85,36 @@ export interface DirStats {
   files: number;
 }
 
-export async function dirStats(dir: string): Promise<DirStats> {
+export async function dirStats(
+  dir: string,
+  caps = { maxFiles: ADVANCED_OUTPUT_MAX_FILES, maxBytes: ADVANCED_WORKSPACE_MAX_BYTES },
+): Promise<DirStats> {
   const acc: DirStats = { bytes: 0, files: 0 };
-  let entries;
-  try {
-    entries = await readdir(dir, { withFileTypes: true });
-  } catch {
-    return acc;
-  }
-  for (const entry of entries) {
-    const full = join(dir, entry.name);
+  const visit = async (current: string): Promise<void> => {
+    let entries;
     try {
-      if (entry.isDirectory()) {
-        const nested = await dirStats(full);
-        acc.bytes += nested.bytes;
-        acc.files += nested.files;
-      } else if (entry.isFile()) {
-        acc.bytes += (await stat(full)).size;
-        acc.files += 1;
-      }
-    } catch {
-      continue;
+      entries = await opendir(current);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+      throw error;
     }
-  }
+    for await (const entry of entries) {
+      acc.files += 1;
+      if (exceedsWorkspaceCaps(acc, caps)) return;
+      const full = join(current, entry.name);
+      let info;
+      try {
+        info = await lstat(full);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+        throw error;
+      }
+      if (info.isDirectory()) await visit(full);
+      else if (info.isFile()) acc.bytes += info.size;
+      if (exceedsWorkspaceCaps(acc, caps)) return;
+    }
+  };
+  await visit(dir);
   return acc;
 }
 
@@ -164,8 +172,13 @@ async function copyTreeInto(
   caps: { maxFiles: number; maxBytes: number },
   counters: { files: number; bytes: number },
 ): Promise<void> {
-  const entries = await readdir(srcDir, { withFileTypes: true });
-  for (const entry of entries) {
+  for await (const entry of await opendir(srcDir)) {
+    counters.files += 1;
+    if (counters.files > caps.maxFiles) {
+      throw new SafeCopyLimitError(
+        `Advanced run output exceeded the entry count limit (${String(caps.maxFiles)}).`,
+      );
+    }
     const srcPath = join(srcDir, entry.name);
     const destPath = join(destDir, entry.name);
     const info = await lstat(srcPath);
@@ -182,13 +195,7 @@ async function copyTreeInto(
       continue;
     }
 
-    counters.files += 1;
     counters.bytes += info.size;
-    if (counters.files > caps.maxFiles) {
-      throw new SafeCopyLimitError(
-        `Advanced run output exceeded the file count limit (${String(caps.maxFiles)}).`,
-      );
-    }
     if (counters.bytes > caps.maxBytes) {
       throw new SafeCopyLimitError(
         `Advanced run output exceeded the byte limit (${String(caps.maxBytes)}).`,

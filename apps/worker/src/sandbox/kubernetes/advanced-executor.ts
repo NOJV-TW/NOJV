@@ -520,7 +520,13 @@ export class KubernetesAdvancedExecutor {
         (status) => status.name === "service",
       );
       if (service?.state?.running || service?.state?.terminated) {
-        const log = await this.observer.getPodContainerLogs(podName, ns, "service", signal);
+        const log = await this.observer.getPodContainerLogs(
+          podName,
+          ns,
+          "service",
+          signal,
+          64 * 1024,
+        );
         if (log.includes(marker)) return true;
       }
       await abortableSleep(intervalMs, signal);

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RateLimiterMemory, RateLimiterRes } from "rate-limiter-flexible";
 import { examSignInRateLimiter } from "$lib/server/shared/rate-limiter";
 
-import { createTestUser } from "../../fixtures/factories";
+import { createTestProblem, createTestUser, testPrisma } from "../../fixtures/factories";
 import { callRoute } from "./_harness";
 
 const {
@@ -80,6 +80,87 @@ vi.mock("$lib/server/env", () => ({
 const NO_RESOLVE = {};
 const inspectAdminMode: RequestHandler = (event) =>
   new Response(JSON.stringify({ active: event.locals.adminAccessActive }));
+
+describe("multipart replacements at the shared problem storage limit", () => {
+  it.each(["checker", "interactor", "workspace"] as const)(
+    "allows same-size and shrinking %s replacements but rejects growth",
+    async (kind) => {
+      const { problemDomain } = await import("@nojv/application");
+      const author = await createTestUser({ platformRole: "teacher" });
+      const problem = await createTestProblem({
+        authorId: author.id,
+        type: "multi_file",
+        status: "draft",
+        visibility: "private",
+        imageInventoryComplete: true,
+      });
+      const actor = {
+        userId: author.id,
+        username: author.username,
+        platformRole: author.platformRole,
+      };
+      if (kind === "workspace") {
+        await problemDomain.setWorkspaceFile(actor, problem.id, {
+          path: "main.py",
+          language: "python",
+          visibility: "editable",
+          content: "123456",
+        });
+      } else {
+        const save =
+          kind === "checker"
+            ? problemDomain.setProblemChecker
+            : problemDomain.setProblemInteractor;
+        await save(actor, problem.id, { language: "python", content: "123456" });
+      }
+      const { activeStorageBytes } = await testPrisma.problem.findUniqueOrThrow({
+        where: { id: problem.id },
+      });
+      await testPrisma.uploadedImage.create({
+        data: {
+          problemId: problem.id,
+          kind: "problem",
+          key: `quota/${problem.id}`,
+          size: 50 * 1024 * 1024 - activeStorageBytes,
+          sha256: "a".repeat(64),
+          contentType: "image/png",
+          ready: true,
+        },
+      });
+      const module =
+        kind === "checker"
+          ? await import("../../../apps/web/src/routes/api/problems/[id]/checker/+server")
+          : kind === "interactor"
+            ? await import("../../../apps/web/src/routes/api/problems/[id]/interactor/+server")
+            : await import("../../../apps/web/src/routes/api/problems/[id]/workspace/files/+server");
+      for (const [content, expectedStatus] of [
+        ["abcdef", 200],
+        ["abcd", 200],
+        ["abcdefg", 409],
+      ] as const) {
+        const formData = new FormData();
+        formData.set("file", new File([content], "main.py"));
+        formData.set("language", "python");
+        formData.set("path", "main.py");
+        formData.set("visibility", "editable");
+        const response = await callRoute({
+          path: `/api/problems/${problem.id}/${kind === "workspace" ? "workspace/files" : kind}`,
+          method: "POST",
+          module,
+          params: { id: problem.id },
+          user: author,
+          formData,
+          headers: { origin: "http://localhost:5173" },
+        });
+        expect(response.status, await response.text()).toBe(expectedStatus);
+      }
+      expect((await problemDomain.getProblemStorageUsage(problem.id)).used).toBe(
+        50 * 1024 * 1024 - 2,
+      );
+    },
+    30_000,
+  );
+});
 
 beforeEach(() => {
   resolveAdminAccessSpy.mockClear();

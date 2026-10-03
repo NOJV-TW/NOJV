@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import {
+  chmod,
   mkdir,
   mkdtemp,
   readFile,
@@ -324,14 +325,45 @@ describe("dirStats + exceedsWorkspaceCaps (Task 2.2 watchdog)", () => {
     expect(await dirStats(join(dir, "does-not-exist"))).toEqual({ bytes: 0, files: 0 });
   });
 
-  it("counts both bytes and files across nested subdirectories", async () => {
+  it("counts bytes and every filesystem entry across nested subdirectories", async () => {
     await writeFile(join(dir, "a.txt"), "x".repeat(100));
     await mkdir(join(dir, "output"), { recursive: true });
     await writeFile(join(dir, "output", "result.json"), "y".repeat(250));
     await mkdir(join(dir, "submission", "deep"), { recursive: true });
     await writeFile(join(dir, "submission", "deep", "main.py"), "z".repeat(50));
 
-    expect(await dirStats(dir)).toEqual({ bytes: 400, files: 3 });
+    expect(await dirStats(dir)).toEqual({ bytes: 400, files: 6 });
+  });
+
+  it("counts empty directories and symlinks without following their targets", async () => {
+    await mkdir(join(dir, "empty", "nested"), { recursive: true });
+    await symlink("/answers/secret", join(dir, "link"));
+    expect(await dirStats(dir)).toEqual({ bytes: 0, files: 3 });
+  });
+
+  it("stops scanning once the entry limit is exceeded", async () => {
+    for (let i = 0; i < 5; i++) await mkdir(join(dir, String(i)));
+    expect(await dirStats(dir, { maxFiles: 2, maxBytes: 10 })).toEqual({
+      bytes: 0,
+      files: 3,
+    });
+  });
+
+  it("fails closed on directory inspection errors", async () => {
+    await writeFile(join(dir, "file"), "data");
+    await expect(dirStats(join(dir, "file"))).rejects.toMatchObject({ code: "ENOTDIR" });
+  });
+
+  it.skipIf(process.getuid?.() === 0)("fails closed on unreadable directories", async () => {
+    const hidden = join(dir, "hidden");
+    await mkdir(hidden);
+    await writeFile(join(hidden, "large"), Buffer.alloc(2048));
+    await chmod(hidden, 0);
+    try {
+      await expect(dirStats(dir)).rejects.toMatchObject({ code: "EACCES" });
+    } finally {
+      await chmod(hidden, 0o700);
+    }
   });
 
   it("genuinely triggers the watchdog when the file-count cap is exceeded", async () => {
