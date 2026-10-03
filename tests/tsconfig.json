@@ -19,6 +19,8 @@
     }
   },
   "include": [
+    "integration/application/avatar-lifecycle.test.ts",
+    "integration/application/image-quota.test.ts",
     "e2e/course-problem-library.test.ts",
     "e2e/submission-tracking.test.ts",
     "e2e/admin.test.ts",
@@ -102,6 +104,7 @@
     "integration/application/judge-execution-recovery.test.ts",
     "integration/application/submission-sweep.test.ts",
     "integration/application/rejudge-state.test.ts",
+    "integration/rejudge/authority-commit.test.ts",
     "unit/worker/judge-recovery-metrics.test.ts",
     "unit/worker/docker-reconcile.test.ts",
     "unit/worker/k8s-quota-feasibility.test.ts",

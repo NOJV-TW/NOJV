@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => {
   const detach = vi.fn();
   const update = vi.fn();
   const tx = {
+    uploadedImage: { createMany: vi.fn() },
     $queryRaw: vi.fn(),
     courseProblem: { findMany: vi.fn() },
     problem: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
@@ -52,6 +53,11 @@ const mocks = vi.hoisted(() => {
   };
 });
 
+vi.mock("../../../packages/application/src/shared/uploaded-image", () => ({
+  ensurePublicProblemImageInventories: vi.fn(),
+  ensureProblemImageInventory: vi.fn(),
+}));
+
 vi.mock("@nojv/db", async (importOriginal) => ({
   Prisma: (await importOriginal<typeof import("@nojv/db")>()).Prisma,
   runTransaction: async <T>(fn: (tx: unknown) => Promise<T>) => fn(mocks.tx),
@@ -85,6 +91,7 @@ vi.mock("@nojv/db", async (importOriginal) => ({
     }),
   },
   contestRepo: {
+    findById: mocks.exam,
     withTx: () => ({
       findById: mocks.exam,
       lockForUpdate: mocks.activityLock,
@@ -163,6 +170,8 @@ function problem(id = "private", extra: Record<string, unknown> = {}) {
     judgeConfig: { type: "standard" },
     storageGeneration: 0,
     activeStorageBytes: 0,
+    imageInventoryComplete: true,
+    uploadedImages: [],
     statement: null,
     testcaseSets: [],
     workspaceFiles: [],

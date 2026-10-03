@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RateLimiterMemory, RateLimiterRes } from "rate-limiter-flexible";
 import { examSignInRateLimiter } from "$lib/server/shared/rate-limiter";
 
-import { createTestUser } from "../../fixtures/factories";
+import { createTestProblem, createTestUser, testPrisma } from "../../fixtures/factories";
 import { callRoute } from "./_harness";
 
 const {
@@ -12,12 +12,16 @@ const {
   signInConsumeSpy,
   examSignInConsumeSpy,
   signOutSpy,
+  apiTokenConsumeSpy,
+  verifyTokenSpy,
 } = vi.hoisted(() => ({
   resolveAdminAccessSpy: vi.fn(),
   authConsumeSpy: vi.fn(),
   signInConsumeSpy: vi.fn(),
   examSignInConsumeSpy: vi.fn(),
   signOutSpy: vi.fn(),
+  apiTokenConsumeSpy: vi.fn(),
+  verifyTokenSpy: vi.fn(),
 }));
 
 vi.mock("$lib/server/shared/rate-limiter", async () => {
@@ -27,6 +31,7 @@ vi.mock("$lib/server/shared/rate-limiter", async () => {
   return {
     ...actual,
     authRateLimiter: { ...actual.authRateLimiter, consume: authConsumeSpy },
+    apiTokenAuthRateLimiter: { ...actual.apiTokenAuthRateLimiter, consume: apiTokenConsumeSpy },
     signInRateLimiter: { ...actual.signInRateLimiter, consume: signInConsumeSpy },
     examSignInRateLimiter: { ...actual.examSignInRateLimiter, consume: examSignInConsumeSpy },
   };
@@ -35,7 +40,12 @@ vi.mock("$lib/server/shared/rate-limiter", async () => {
 vi.mock("@nojv/application", async () => {
   const actual = await vi.importActual<typeof import("@nojv/application")>("@nojv/application");
   resolveAdminAccessSpy.mockImplementation(actual.resolveAdminAccess);
-  return { ...actual, resolveAdminAccess: resolveAdminAccessSpy };
+  verifyTokenSpy.mockImplementation(actual.apiTokenDomain.verifyApiTokenForRoute);
+  return {
+    ...actual,
+    resolveAdminAccess: resolveAdminAccessSpy,
+    apiTokenDomain: { ...actual.apiTokenDomain, verifyApiTokenForRoute: verifyTokenSpy },
+  };
 });
 
 vi.mock("$lib/auth.server", () => ({
@@ -71,9 +81,92 @@ const NO_RESOLVE = {};
 const inspectAdminMode: RequestHandler = (event) =>
   new Response(JSON.stringify({ active: event.locals.adminAccessActive }));
 
+describe("multipart replacements at the shared problem storage limit", () => {
+  it.each(["checker", "interactor", "workspace"] as const)(
+    "allows same-size and shrinking %s replacements but rejects growth",
+    async (kind) => {
+      const { problemDomain } = await import("@nojv/application");
+      const author = await createTestUser({ platformRole: "teacher" });
+      const problem = await createTestProblem({
+        authorId: author.id,
+        type: "multi_file",
+        status: "draft",
+        visibility: "private",
+        imageInventoryComplete: true,
+      });
+      const actor = {
+        userId: author.id,
+        username: author.username,
+        platformRole: author.platformRole,
+      };
+      if (kind === "workspace") {
+        await problemDomain.setWorkspaceFile(actor, problem.id, {
+          path: "main.py",
+          language: "python",
+          visibility: "editable",
+          content: "123456",
+        });
+      } else {
+        const save =
+          kind === "checker"
+            ? problemDomain.setProblemChecker
+            : problemDomain.setProblemInteractor;
+        await save(actor, problem.id, { language: "python", content: "123456" });
+      }
+      const { activeStorageBytes } = await testPrisma.problem.findUniqueOrThrow({
+        where: { id: problem.id },
+      });
+      await testPrisma.uploadedImage.create({
+        data: {
+          problemId: problem.id,
+          kind: "problem",
+          key: `quota/${problem.id}`,
+          size: 50 * 1024 * 1024 - activeStorageBytes,
+          sha256: "a".repeat(64),
+          contentType: "image/png",
+          ready: true,
+        },
+      });
+      const module =
+        kind === "checker"
+          ? await import("../../../apps/web/src/routes/api/problems/[id]/checker/+server")
+          : kind === "interactor"
+            ? await import("../../../apps/web/src/routes/api/problems/[id]/interactor/+server")
+            : await import("../../../apps/web/src/routes/api/problems/[id]/workspace/files/+server");
+      for (const [content, expectedStatus] of [
+        ["abcdef", 200],
+        ["abcd", 200],
+        ["abcdefg", 409],
+      ] as const) {
+        const formData = new FormData();
+        formData.set("file", new File([content], "main.py"));
+        formData.set("language", "python");
+        formData.set("path", "main.py");
+        formData.set("visibility", "editable");
+        const response = await callRoute({
+          path: `/api/problems/${problem.id}/${kind === "workspace" ? "workspace/files" : kind}`,
+          method: "POST",
+          module,
+          params: { id: problem.id },
+          user: author,
+          formData,
+          headers: { origin: "http://localhost:5173" },
+        });
+        expect(response.status, await response.text()).toBe(expectedStatus);
+      }
+      expect((await problemDomain.getProblemStorageUsage(problem.id)).used).toBe(
+        50 * 1024 * 1024 - 2,
+      );
+    },
+    30_000,
+  );
+});
+
 beforeEach(() => {
   resolveAdminAccessSpy.mockClear();
   authConsumeSpy.mockReset().mockResolvedValue("allowed");
+  apiTokenConsumeSpy.mockReset().mockResolvedValue("allowed");
+  verifyTokenSpy.mockClear();
   signInConsumeSpy.mockReset().mockResolvedValue("allowed");
   examSignInConsumeSpy.mockReset().mockResolvedValue("allowed");
   signOutSpy.mockReset().mockResolvedValue({
@@ -84,6 +177,57 @@ beforeEach(() => {
 });
 
 describe("hooks.server guard chain (request-layer redirects)", () => {
+  it.each([
+    ["limited", 429],
+    ["unavailable", 503],
+  ] as const)(
+    "rejects bearer authentication before database work when limiting is %s",
+    async (state, status) => {
+      apiTokenConsumeSpy.mockResolvedValue(state);
+      const handler = vi.fn();
+      const response = await callRoute({
+        path: "/api/submissions",
+        module: { GET: handler },
+        headers: {
+          authorization: "Bearer nojv_live_abcdefgh.abcdefghijklmnopqrstuvwxyz012345",
+        },
+      });
+      expect(response.status).toBe(status);
+      expect(verifyTokenSpy).not.toHaveBeenCalled();
+      expect(handler).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects an oversized exam sign-in body before JSON parsing or dispatch", async () => {
+    const handler = vi.fn();
+    const response = await callRoute({
+      path: "/api/auth/sign-in/exam-password",
+      method: "POST",
+      body: { username: "student", padding: "x".repeat(64 * 1024) },
+      module: { POST: handler },
+    });
+    expect(response.status).toBe(413);
+    expect(examSignInConsumeSpy).not.toHaveBeenCalled();
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it.each(["get-session", "list-sessions", "update-user", "change-password"])(
+    "rejects a disabled principal before Better Auth %s",
+    async (endpoint) => {
+      const user = await createTestUser({ username: "disabled_auth", disabled: true });
+      const handler = vi.fn();
+      const response = await callRoute({
+        path: `/api/auth/${endpoint}`,
+        method: "POST",
+        user,
+        module: { POST: handler },
+      });
+      expect(response.status).toBe(403);
+      expect(handler).not.toHaveBeenCalled();
+      expect(signOutSpy).toHaveBeenCalledOnce();
+      expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+    },
+  );
   it("returns 429 when the general authentication quota is exhausted", async () => {
     authConsumeSpy.mockResolvedValue("limited");
     const handler = vi.fn().mockResolvedValue(new Response(null, { status: 302 }));

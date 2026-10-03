@@ -1,10 +1,14 @@
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import type { S3Client } from "@aws-sdk/client-s3";
 import { parseRelativePath } from "@nojv/core";
-import { createHash, randomUUID } from "node:crypto";
 
 import { getStorageEnv } from "./env";
-import { putImmutableObject, putObjectIfAbsent } from "./object";
+import {
+  isStorageObjectNotFoundError,
+  storagePointerFor,
+  type StorageObjectPointer,
+} from "./object";
+import { listByPrefix } from "./blobs";
 
 let cachedBucket: string | undefined;
 function BUCKET(): string {
@@ -25,58 +29,36 @@ function imageFilename(filename: string): string {
   return parsed;
 }
 
-function remoteImageKey(url: string): string {
-  const hash = createHash("sha256").update(url).digest("hex");
-  return `remote-images/${hash}`;
-}
-
-async function readObject(client: S3Client, key: string): Promise<StoredImage> {
+async function readObject(
+  client: S3Client,
+  key: string,
+  abortSignal?: AbortSignal,
+): Promise<StoredImage> {
   const response = await client.send(
     new GetObjectCommand({
       Bucket: BUCKET(),
       Key: key,
     }),
+    abortSignal ? { abortSignal } : undefined,
   );
+  const maxBytes = 5 * 1024 * 1024;
+  if (response.ContentLength !== undefined && response.ContentLength > maxBytes)
+    throw new Error(`Image ${key} exceeds 5 MiB.`);
   const body = response.Body;
   if (!body) {
     throw new Error(`No body returned for object ${key}`);
   }
   const chunks: Uint8Array[] = [];
+  let size = 0;
   for await (const chunk of body as AsyncIterable<Uint8Array>) {
+    size += chunk.byteLength;
+    if (size > maxBytes) throw new Error(`Image ${key} exceeds 5 MiB.`);
     chunks.push(chunk);
   }
   return {
     body: Buffer.concat(chunks),
     contentType: response.ContentType ?? "application/octet-stream",
   };
-}
-
-export async function uploadProblemImage(
-  client: S3Client,
-  problemId: string,
-  file: Buffer,
-  mimeType: string,
-): Promise<string> {
-  const ext = mimeType.split("/")[1] ?? "bin";
-  const key = `problems/${problemId}/images/${randomUUID()}.${ext}`;
-
-  await putImmutableObject(client, key, file, { contentType: mimeType });
-
-  return key;
-}
-
-export async function uploadUserContentImage(
-  client: S3Client,
-  userId: string,
-  file: Buffer,
-  mimeType: string,
-): Promise<string> {
-  const ext = mimeType.split("/")[1] ?? "bin";
-  const key = `users/${userId}/images/${randomUUID()}.${ext}`;
-
-  await putImmutableObject(client, key, file, { contentType: mimeType });
-
-  return key;
 }
 
 export async function downloadProblemImage(
@@ -95,17 +77,35 @@ export async function downloadUserContentImage(
   return readObject(client, `users/${userId}/images/${imageFilename(filename)}`);
 }
 
-export async function downloadRemoteImage(client: S3Client, url: string): Promise<StoredImage> {
-  return readObject(client, remoteImageKey(url));
+export async function readImageObjectInventory(
+  client: S3Client,
+  keys: readonly string[],
+  abortSignal = AbortSignal.timeout(60_000),
+): Promise<{ pointer: StorageObjectPointer; contentType: string }[]> {
+  const result: { pointer: StorageObjectPointer; contentType: string }[] = [];
+  for (const key of new Set(keys)) {
+    try {
+      const image = await readObject(client, key, abortSignal);
+      result.push({
+        pointer: storagePointerFor(key, image.body),
+        contentType: image.contentType,
+      });
+    } catch (reason) {
+      if (!isStorageObjectNotFoundError(reason)) throw reason;
+    }
+  }
+  return result;
 }
 
-export async function cacheRemoteImage(
+export async function listImageObjectInventory(
   client: S3Client,
-  url: string,
-  file: Buffer,
-  mimeType: string,
-): Promise<StoredImage> {
-  const key = remoteImageKey(url);
-  await putObjectIfAbsent(client, key, file, { contentType: mimeType });
-  return readObject(client, key);
+  prefix: string,
+): Promise<{ pointer: StorageObjectPointer; contentType: string }[]> {
+  const abortSignal = AbortSignal.timeout(60_000);
+  // ponytail: one-time inventory buffers O(n) keys; batch metadata if large legacy owners require it.
+  return readImageObjectInventory(
+    client,
+    await listByPrefix(client, prefix, { abortSignal }),
+    abortSignal,
+  );
 }

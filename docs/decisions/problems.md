@@ -4,13 +4,15 @@ Durable decisions for the problem model, authoring, publication, ownership, and 
 
 ### PRB-01 Three problem types; workspace files instead of templates
 
-**Decided:** 2026-04 · **Source:** [2026-04-09-problem-ui-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-09-problem-ui-redesign.md), [2026-04-12-codebase-cleanup-audit](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-12-codebase-cleanup-audit.md), [2026-05-12-full-source-system-templates-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-12-full-source-system-templates-design.md), [2026-04-01-cp-problem-judge-mapping](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-01-cp-problem-judge-mapping.md)
+**Decided:** 2026-04 · **Source:** [2026-04-09-problem-ui-redesign](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-09-problem-ui-redesign.md), [2026-04-12-codebase-cleanup-audit](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-12-codebase-cleanup-audit.md), [2026-05-12-full-source-system-templates-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-12-full-source-system-templates-design.md), [2026-04-01-cp-problem-judge-mapping](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-01-cp-problem-judge-mapping.md), [#628](https://github.com/NOJV-TW/NOJV/pull/628)
 
 Problem types are `full_source`, `multi_file` and `special_env`. `multi_file` problems use `ProblemWorkspaceFile` (problem, language, path) with whole-file visibility `editable`/`readonly`/`hidden`; the server merges the student's editable files with the rest and judges the whole tree. `full_source` accepts every supported language with system `LANGUAGE_TEMPLATES` starters and no teacher starters. One model covers single-file, fill-in-function, library and multi-file problems without hidden wrapping code.
 
 - Rejected: a LeetCode-style `function` type with `driverCode`, insertion markers, `editableRegions` or `assembleSource` templates (use `multi_file` plus a readonly driver); per-file editable regions; letting workspace files decide `full_source` languages; function-mode, custom-script and score-stage judge kits. Nondeterministic or subjective course tasks get deterministic statements or manual grading instead of new judge modes.
 - Rule: no insertion markers or driver injection; students submit whole editable files.
 - Rule: workspace-file requirements and language filtering apply only when `type === "multi_file"`.
+- Rule: `hidden` controls student editor/API presentation for helpers, drivers or an implementation behind an assumed API. The judge still supplies these files to compilation and execution, so student code can inspect them; this provides no runtime confidentiality. Do not put secrets or testcase answers in workspace files.
+- Rejected: treating `hidden` as a runtime-secret guarantee or isolating hidden workspace code from student execution. Files that must run with student code remain part of that execution's trust boundary.
 - Code: `packages/core/src/types.ts`, `packages/application/src/problem/details.ts`, `packages/core/src/language-templates.ts`
 
 ### PRB-02 Judge settings live in one validated `judgeConfig` JSON column
@@ -48,19 +50,24 @@ Testcase input/output/aux files and workspace file contents live in `@nojv/stora
 
 ### PRB-05 Problem images are public objects referenced from Markdown
 
-**Decided:** 2026-04 · **Source:** [2026-04-06-image-upload-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-06-image-upload-design.md)
+**Decided:** 2026-04, revised 2026-10 · **Source:** [2026-04-06-image-upload-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-06-image-upload-design.md), [#628](https://github.com/NOJV-TW/NOJV/pull/628)
 
-Editors paste or drop images, which upload via `POST /api/problems/[id]/images` to `problems/{problemId}/images/{uuid}.{ext}` in S3-compatible storage (MinIO locally, GCS/R2/S3 by env); the public URL goes into the Markdown. Provider-agnostic and needs no schema change.
+Editors upload a file or explicitly import an external URL via `POST /api/problems/[id]/images`; the owned, public object URL goes into Markdown. Content/discussion images belong to the uploading user. `UploadedImage` records ownership and reserves capacity before storage writes, including interrupted writes until cleanup confirms deletion. Permanent copies consume the author's budget, never the reader's.
 
 - Rule: png, jpeg, gif and webp only, at most 5 MB, magic bytes checked, problem-edit permission required.
 - Rule: problem image paths are publicly readable; never store secret material there.
+- Rule: existing images are inventoried before new uploads. Preserve existing over-quota content and reject increases; do not infer that removing a Markdown reference makes an image safe to delete. Forks share object keys and copy ownership records so deleting the source does not delete a fork's images.
+- Rule: user content images have a 50 MiB combined budget. Avatars are WebP, at most 1 MiB, with one current version and at most one replacement awaiting cleanup.
+- Rejected: unlimited image uploads; charging the first reader for a permanent external-image cache; deleting existing content just to satisfy the new budget.
 - Code: `packages/storage/src/images.ts`, `apps/web/src/routes/api/problems/[id]/images/+server.ts`
 
 ### PRB-06 Author uploads have a per-problem budget and safe bundle import
 
-**Decided:** 2026-05 · **Source:** [2026-05-28-storage-unification-and-uploads](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-28-storage-unification-and-uploads.md)
+**Decided:** 2026-05, revised 2026-10 · **Source:** [2026-05-28-storage-unification-and-uploads](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-05-28-storage-unification-and-uploads.md), [#628](https://github.com/NOJV-TW/NOJV/pull/628)
 
-Upload routes require API auth, problem-edit access and the write rate limiter; each problem has a 50 MB storage budget. Zip bundles hold only testcases, workspace files and checker/interactor, with at most 200 entries and 50 MB uncompressed, rejecting `..` and absolute paths. Author convenience without resource exhaustion or path traversal.
+Upload routes require API auth, problem-edit access and the write rate limiter; each problem has a shared 50 MiB budget for images, testcases, workspace files and checker/interactor. Capacity checks run under the problem lock before accepting an increase, so simultaneous file and image writes cannot bypass the total. Zip bundles hold only testcases, workspace files and checker/interactor, with at most 200 entries and 50 MiB uncompressed, rejecting `..` and absolute paths. Author convenience without resource exhaustion or path traversal.
+
+- Rejected: excluding images from the problem budget; checking capacity only before acquiring the owner lock.
 
 - Code: `packages/application/src/problem/storage-budget.ts`, `packages/application/src/problem/bundle.ts`
 
@@ -178,11 +185,12 @@ A per-minute cron workflow moves non-terminal submissions whose `updatedAt` exce
 
 ### PRB-17 Operation authority follows the submission's context
 
-**Decided:** 2026-04 · **Source:** [2026-04-19-rejudge-and-score-override-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-19-rejudge-and-score-override-design.md), [2026-04-19-rejudge-and-score-override-plan](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-19-rejudge-and-score-override-plan.md)
+**Decided:** 2026-04 · **Source:** [2026-04-19-rejudge-and-score-override-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-19-rejudge-and-score-override-design.md), [2026-04-19-rejudge-and-score-override-plan](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-19-rejudge-and-score-override-plan.md), [Security remediation PR #628](https://github.com/NOJV-TW/NOJV/pull/628)
 
 Rejudge and score operations share one matrix: practice by admins and the problem author; assignment/exam by admins and that course's teachers/TAs; contest by admins and the organizer. The problem author has no authority over submissions made inside an activity.
 
 - Rule: a batch rejudge must be authorized for every matched submission or is rejected whole.
+- Rule: teacher rejudge receives the authenticated actor, locks the requester and exact course membership/activity, problem and submission scope, and rechecks current authority in the transaction that commits all executions and dispatch work; ownership or staff revocation during snapshot preparation rejects the entire operation. Stored admin role never enables an inactive admin actor.
 - Rule: a batch without a context scope is limited to the problem author and reaches only practice submissions.
 - Code: `packages/application/src/submission/permissions.ts`
 

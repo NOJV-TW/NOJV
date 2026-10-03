@@ -1,27 +1,29 @@
 import { error, redirect } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 
+import { getActorContext } from "$lib/server/auth";
 import {
   RemoteImageError,
   fetchRemoteImage,
   normalizeRemoteImageUrl,
 } from "$lib/server/remote-image";
 import { apiHandler } from "$lib/server/shared/api-handler";
-import { getClientIp } from "$lib/server/shared/client-ip";
 import { detectImageMime } from "$lib/server/shared/file-validation";
 import { remoteAssetFetchRateLimiter } from "$lib/server/shared/rate-limiter";
 import { immutableImageResponse } from "$lib/server/storage/image-response";
-import { cacheRemoteImage, readCachedRemoteImage } from "$lib/server/storage/remote-image";
 
 function imageResponse(image: { body: Buffer; contentType: string }): Response {
   const contentType = detectImageMime(image.body);
-  if (!contentType) error(502, "Remote image cache is invalid");
+  if (!contentType) error(502, "Remote image is invalid");
   return immutableImageResponse(image.body, contentType, {
+    "cache-control": "private, max-age=300",
     "cross-origin-resource-policy": "same-origin",
   });
 }
 
 export const GET: RequestHandler = apiHandler(async (event) => {
+  const actor = getActorContext(event);
+  if (!actor) error(401, "Authentication required.");
   const rawUrl = event.url.searchParams.get("url");
   if (!rawUrl) error(400, "Missing remote image URL");
 
@@ -43,10 +45,7 @@ export const GET: RequestHandler = apiHandler(async (event) => {
   }
 
   const canonicalUrl = remoteUrl.href;
-  const cached = await readCachedRemoteImage(canonicalUrl);
-  if (cached) return imageResponse(cached);
-
-  const rateLimit = await remoteAssetFetchRateLimiter.consume(getClientIp(event));
+  const rateLimit = await remoteAssetFetchRateLimiter.consume(`u:${actor.userId}`);
   if (rateLimit === "limited") error(429, "Too many remote image requests");
   if (rateLimit === "unavailable") error(503, "Remote image service unavailable");
 
@@ -63,5 +62,5 @@ export const GET: RequestHandler = apiHandler(async (event) => {
     throw reason;
   }
 
-  return imageResponse(await cacheRemoteImage(canonicalUrl, fetched.body, fetched.contentType));
+  return imageResponse(fetched);
 });

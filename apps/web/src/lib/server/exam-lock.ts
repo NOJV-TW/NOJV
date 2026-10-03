@@ -17,6 +17,7 @@ const API_BLOCKING_REASONS = new Set([
   "course_archived",
   "not_published",
   "not_found",
+  "not_started",
 ]);
 
 export function resolveExamGateDenial(

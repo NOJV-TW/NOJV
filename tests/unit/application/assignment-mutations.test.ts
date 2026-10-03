@@ -34,6 +34,11 @@ const {
   durableWorkEnqueue: vi.fn(),
 }));
 
+vi.mock("../../../packages/application/src/shared/uploaded-image", () => ({
+  ensurePublicProblemImageInventories: vi.fn(),
+  ensureProblemImageInventory: vi.fn(),
+}));
+
 vi.mock("@nojv/db", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@nojv/db")>();
   const assessmentWithTx = {

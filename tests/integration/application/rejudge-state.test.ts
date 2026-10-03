@@ -18,11 +18,14 @@ async function batchRejudge(empty = false) {
   const submission = empty
     ? null
     : await createTestSubmission({ problemId: problem.id, status: "accepted", score: 100 });
-  const operation = await submissionDomain.dispatchRejudge({
-    mode: "batch",
-    problemId: problem.id,
-    triggeredByUserId: teacher.id,
-  });
+  const operation = await submissionDomain.dispatchRejudge(
+    {
+      mode: "batch",
+      problemId: problem.id,
+      triggeredByUserId: teacher.id,
+    },
+    actor,
+  );
   return { ...operation, submission };
 }
 
@@ -37,11 +40,14 @@ describe("rejudge state from durable dispatch", () => {
       isReferenceSolution: true,
     });
     await expect(
-      submissionDomain.dispatchRejudge({
-        mode: "single",
-        submissionId: submission.id,
-        triggeredByUserId: teacher.id,
-      }),
+      submissionDomain.dispatchRejudge(
+        {
+          mode: "single",
+          submissionId: submission.id,
+          triggeredByUserId: teacher.id,
+        },
+        actor,
+      ),
     ).rejects.toMatchObject({ status: 409 });
     expect(await db.judgeExecution.count({ where: { submissionId: submission.id } })).toBe(0);
   });
@@ -77,11 +83,14 @@ describe("rejudge state from durable dispatch", () => {
       where: { id: abandoned.id },
       data: { sourceStorage: Prisma.DbNull },
     });
-    const { workflowId } = await submissionDomain.dispatchRejudge({
-      mode: "batch",
-      problemId: problem.id,
-      triggeredByUserId: teacher.id,
-    });
+    const { workflowId } = await submissionDomain.dispatchRejudge(
+      {
+        mode: "batch",
+        problemId: problem.id,
+        triggeredByUserId: teacher.id,
+      },
+      actor,
+    );
     const executions = await db.judgeExecution.findMany({ where: { operationId: workflowId } });
     expect(executions.map((execution) => execution.submissionId)).toEqual([judged.id]);
   });

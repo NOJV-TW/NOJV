@@ -8,17 +8,21 @@
 - 集中管理 key 命名（testcase、workspace、checker / interactor、submission source / verdict detail、圖片、avatar）
 - **不負責**：DB 中的 pointer 與 ownership（`@nojv/db` / `@nojv/application`）、權限（`@nojv/application`）
 
+低階物件 writer 不檢查配額。使用者上傳須經 `@nojv/application`
+先預留容量及登記 ownership，再寫入物件；不能以 storage writer 取代 domain 操作。
+
 ## 主要 API
 
 - `src/client.ts` — `createStorageClient()`
 - `src/env.ts` — `storageEnvSchema`、`getStorageEnv()`；`S3_ENDPOINT`、`S3_ACCESS_KEY`、`S3_SECRET_KEY`（production 必填）、`S3_BUCKET`（預設 `nojv`）、`S3_REGION`（預設 `auto`）
 - `src/object.ts` — `StorageObjectPointer`、`putImmutableObject` / `putImmutableText` / `putObjectIfAbsent`、`getVerifiedObject` / `getVerifiedText`
-- `src/keys.ts` — `testcase*Key`、`workspaceFileKey`、`checkerKey`、`interactorKey`、`submission*Key`
+- `src/keys.ts` — `testcase*Key`、`workspaceFileKey`、`checkerKey`、`interactorKey`、`submission*Key`、`problemImageKey`、`userContentImageKey`
 - `src/submission.ts` — submission source plan / manifest、verdict detail
-- `src/images.ts`、`src/avatar.ts` — 題目、使用者內容與遠端圖片、avatar
+- `src/images.ts`、`src/avatar.ts` — 題目、使用者內容圖片及 avatar 讀取；`listImageObjectInventory` / `readImageObjectInventory` 盤點既有物件，以內容計算 size / SHA-256 並保留 content type，略過已不存在的 key。`images.ts` 讀取最多 5 MiB，盤點共用 60 秒截止時間
 - `src/blobs.ts` — `getObject` / `getText` / `deleteBlob` / `deleteBlobsByPrefix` / `listByPrefix`
 
 資料流與圖片路由見 [Architecture](../../docs/architecture/ARCHITECTURE.md#object-storage)。
+外部圖片由 web relay 回傳，不寫入永久物件；作者明確匯入後才成為有 ownership 的圖片。
 
 ## 依賴
 

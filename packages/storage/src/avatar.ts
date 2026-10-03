@@ -1,11 +1,8 @@
-import { randomUUID } from "node:crypto";
-
-import { DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
 import type { S3Client } from "@aws-sdk/client-s3";
 import { parseRelativePath } from "@nojv/core";
 
 import { getStorageEnv } from "./env";
-import { putImmutableObject } from "./object";
 
 let cachedBucket: string | undefined;
 function BUCKET(): string {
@@ -19,17 +16,6 @@ function avatarKey(userId: string, filename: string): string {
     throw new Error("Avatar filename is invalid");
   }
   return `avatars/${userId}/${parsed}`;
-}
-
-export async function uploadUserAvatar(
-  client: S3Client,
-  userId: string,
-  file: Buffer,
-): Promise<string> {
-  const key = avatarKey(userId, `${randomUUID()}.webp`);
-  await putImmutableObject(client, key, file, { contentType: "image/webp" });
-
-  return key;
 }
 
 export async function downloadUserAvatar(
@@ -52,17 +38,4 @@ export async function downloadUserAvatar(
     chunks.push(chunk);
   }
   return Buffer.concat(chunks);
-}
-
-export async function deleteUserAvatar(
-  client: S3Client,
-  userId: string,
-  filename: string,
-): Promise<void> {
-  await client.send(
-    new DeleteObjectCommand({
-      Bucket: BUCKET(),
-      Key: avatarKey(userId, filename),
-    }),
-  );
 }

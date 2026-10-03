@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   assertJsonBodyWithinLimit,
   JSON_BODY_LIMIT_BYTES,
   readJsonBody,
+  readFormData,
 } from "$lib/server/shared/api-handler";
 
 function eventWithContentLength(value: string | null) {
@@ -30,6 +31,44 @@ describe("assertJsonBodyWithinLimit", () => {
   it("honors a caller-supplied limit", () => {
     expect(() => assertJsonBodyWithinLimit(eventWithContentLength("2000"), 1000)).toThrow();
     expect(() => assertJsonBodyWithinLimit(eventWithContentLength("800"), 1000)).not.toThrow();
+  });
+});
+
+describe("readFormData", () => {
+  it("rejects streamed overflow and cancels before multipart parsing", async () => {
+    const cancel = vi.fn();
+    const request = new Request("http://localhost/upload", {
+      method: "POST",
+      headers: { "content-type": "multipart/form-data; boundary=test" },
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(new Uint8Array(11));
+        },
+        cancel,
+      }),
+      duplex: "half",
+    } as RequestInit);
+    await expect(readFormData({ request } as never, 10)).rejects.toMatchObject({ status: 413 });
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+
+  it("rejects malformed multipart as 400 after the size check", async () => {
+    const request = new Request("http://localhost/upload", {
+      method: "POST",
+      headers: { "content-type": "multipart/form-data; boundary=test" },
+      body: "bad multipart",
+    });
+    await expect(readFormData({ request } as never, 1024)).rejects.toMatchObject({
+      status: 400,
+    });
+  });
+
+  it("reads an allowed multipart upload", async () => {
+    const form = new FormData();
+    form.set("image", new File(["image"], "image.png", { type: "image/png" }));
+    const request = new Request("http://localhost/upload", { method: "POST", body: form });
+    const parsed = await readFormData({ request } as never, 1024);
+    expect(await (parsed.get("image") as File).text()).toBe("image");
   });
 });
 

@@ -31,7 +31,6 @@ export interface ProctoringGateInput {
   userId: string;
   ip?: string | null;
   now?: Date;
-  startGraceMs?: number;
 }
 
 export async function checkProctoringGate(
@@ -45,19 +44,17 @@ export async function checkProctoringGateInTx(
   input: ProctoringGateInput,
 ): Promise<ProctoringVerdict> {
   const now = input.now ?? new Date();
-  const grace = input.startGraceMs ?? 0;
 
   if (input.entityKind === "contest") {
-    return checkContestGate(tx, input, now, grace);
+    return checkContestGate(tx, input, now);
   }
-  return checkExamGate(tx, input, now, grace);
+  return checkExamGate(tx, input, now);
 }
 
 async function checkContestGate(
   tx: TransactionClient,
   input: ProctoringGateInput,
   now: Date,
-  grace: number,
 ): Promise<ProctoringVerdict> {
   const contest = await contestRepo.withTx(tx).findById(input.entityId);
   if (!contest) return { ok: false, reason: "not_found" };
@@ -65,7 +62,7 @@ async function checkContestGate(
     return { ok: false, reason: "not_published" };
   }
 
-  if (now.getTime() < contest.startsAt.getTime() - grace) {
+  if (now.getTime() < contest.startsAt.getTime()) {
     return { ok: false, reason: "not_started" };
   }
   if (now.getTime() >= contest.endsAt.getTime()) {
@@ -79,7 +76,6 @@ async function checkExamGate(
   tx: TransactionClient,
   input: ProctoringGateInput,
   now: Date,
-  grace: number,
 ): Promise<ProctoringVerdict> {
   const exam = await examRepo.withTx(tx).findById(input.entityId);
   if (!exam) return { ok: false, reason: "not_found" };
@@ -97,7 +93,7 @@ async function checkExamGate(
     return { ok: false, reason: "course_archived" };
   }
 
-  if (now.getTime() < exam.startsAt.getTime() - grace) {
+  if (now.getTime() < exam.startsAt.getTime()) {
     return { ok: false, reason: "not_started" };
   }
   if (now.getTime() >= exam.endsAt.getTime()) {

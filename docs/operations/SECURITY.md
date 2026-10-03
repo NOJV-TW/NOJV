@@ -20,21 +20,21 @@ Security controls as implemented: what must hold and where it is enforced. Attac
 
 ## Sensitive Data
 
-| Data                     | Storage                                                 | Protection                                                                             |
-| ------------------------ | ------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Credential passwords     | `Account.password`                                      | bcrypt (cost 10) via `emailAndPassword.password.hash`                                  |
-| Temporary exam passwords | `ExamCredential.passwordHash` / `passwordCiphertext`    | scrypt hash + ciphertext keyed by `BETTER_AUTH_SECRET`; staff reveal; hard expiry      |
-| OAuth provider tokens    | `Account.accessToken` / `refreshToken`                  | Encrypted with `BETTER_AUTH_SECRET` (`account.encryptOAuthTokens`); never read by NOJV |
-| Session tokens           | `Session.token`                                         | httpOnly cookie; checked every request (no cookie cache)                               |
-| API tokens               | `ApiToken` prefix + sha256 hash                         | Shown once, mandatory expiry (SEC-07)                                                  |
-| TOTP enrollment material | Redis, pending until confirmed                          | Encrypted; committed atomically with backup codes on confirmation                      |
-| Submission source        | Object storage `submissions/<id>/sources/<path>`        | Read only via domain helpers and the worker                                            |
-| Graded testcases         | `TestcaseSet` / `Testcase` + object storage             | Never reach non-staff (SEC-12); only `Problem.samples` is rendered                     |
-| Hidden workspace files   | `ProblemWorkspaceFile` (`visibility = hidden`)          | Filtered in the application layer; merged only by the worker                           |
-| Advanced grade images    | Registry `t/<username>/…`                               | Hold answers; namespace-scoped registry tokens ([Sandbox](#sandbox-isolation))         |
-| Code drafts              | `CodeDraft` rows; unsynced edits in `localStorage`      | Owner-only; local edits sealed ([Integrity](#exam-and-contest-integrity))              |
-| Problem / user images    | Object storage, served same-origin via `/api/storage/*` | Public read; never store secret material there (PRB-05)                                |
-| Runtime secrets          | `.env` locally; chart Secret `nojv-runtime-secrets`     | `.env` untracked; `.env.example` shape-only                                            |
+| Data                     | Storage                                                 | Protection                                                                                                                        |
+| ------------------------ | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Credential passwords     | `Account.password`                                      | bcrypt (cost 10) via `emailAndPassword.password.hash`                                                                             |
+| Temporary exam passwords | `ExamCredential.passwordHash` / `passwordCiphertext`    | scrypt hash + ciphertext keyed by `BETTER_AUTH_SECRET`; staff reveal; hard expiry                                                 |
+| OAuth provider tokens    | `Account.accessToken` / `refreshToken`                  | Encrypted with `BETTER_AUTH_SECRET` (`account.encryptOAuthTokens`); never read by NOJV                                            |
+| Session tokens           | `Session.token`                                         | httpOnly cookie; checked every request (no cookie cache)                                                                          |
+| API tokens               | `ApiToken` prefix + sha256 hash                         | Shown once, mandatory expiry (SEC-07)                                                                                             |
+| TOTP enrollment material | Redis, pending until confirmed                          | Encrypted; committed atomically with backup codes on confirmation                                                                 |
+| Submission source        | Object storage `submissions/<id>/sources/<path>`        | Read only via domain helpers and the worker                                                                                       |
+| Graded testcases         | `TestcaseSet` / `Testcase` + object storage             | Never reach non-staff (SEC-12); only `Problem.samples` is rendered                                                                |
+| Hidden workspace files   | `ProblemWorkspaceFile` (`visibility = hidden`)          | Presentation only for packaged helpers/drivers or opaque APIs; compile/run can read them. Never store secrets or answers (PRB-01) |
+| Advanced grade images    | Registry `t/<username>/…`                               | Hold answers; namespace-scoped registry tokens ([Sandbox](#sandbox-isolation))                                                    |
+| Code drafts              | `CodeDraft` rows; unsynced edits in `localStorage`      | Owner-only; local edits sealed ([Integrity](#exam-and-contest-integrity))                                                         |
+| Problem / user images    | Object storage, served same-origin via `/api/storage/*` | Public read; never store secret material there (PRB-05)                                                                           |
+| Runtime secrets          | `.env` locally; chart Secret `nojv-runtime-secrets`     | `.env` untracked; `.env.example` shape-only                                                                                       |
 
 ## Request Boundary
 
@@ -68,7 +68,8 @@ SvelteKit `csrf.checkOrigin` is disabled so `/api/registry/token` can accept the
 - Global adapter-node `BODY_SIZE_LIMIT` is 64 MiB (`infra/docker/web.Dockerfile`), sized for the largest upload (60 MB bundle). Do not lower it without re-checking that.
 - `POST /api/submissions`: 2 MiB (`MAX_SUBMISSION_BODY_BYTES`), `Content-Length` pre-check then streamed count.
 - Other JSON mutation routes: 1 MiB via `assertJsonBodyWithinLimit` + `readJsonBody` (`JSON_BODY_LIMIT_BYTES`); `readJsonBody` counts streamed bytes and returns 413 regardless of `Content-Length` (SEC-10).
-- Upload routes (images, checker/interactor, bundle, workspace files) enforce their own size limits.
+- Image, avatar and workspace-file multipart bodies count streamed bytes before FormData parsing, bounded by the file limit plus 64 KiB for form fields and multipart framing; the file limit is checked again after parsing. Checker/interactor and bundle uploads enforce their own size limits.
+- `/api/auth/*` and registry credential forms stop at 64 KiB before JSON or FormData parsing.
 
 ### Rate limits
 
@@ -80,13 +81,14 @@ SvelteKit `csrf.checkOrigin` is disabled so `/api/registry/token` can accept the
 | `writeApiRateLimiter`         | 10 / min   | `writeApiHandler` routes (submissions, uploads, plagiarism runs, …)         |
 | `draftApiRateLimiter`         | 60 / min   | `/api/drafts`                                                               |
 | form actions                  | 20 / min   | `withRateLimit` form actions                                                |
+| `apiTokenAuthRateLimiter`     | 300 / min  | Whitelisted bearer requests, by IP before token database lookup             |
 | `authRateLimiter`             | 60 / min   | Every `/api/auth/*` request, including OAuth and exam sign-in               |
 | `signInRateLimiter`           | 5 / 15 min | `POST /api/auth/sign-in/email`, `/sign-in/username`                         |
 | `examSignInRateLimiter`       | 5 / 15 min | `POST /api/auth/sign-in/exam-password`, keyed by IP + normalized username ¹ |
 | `otpSendRateLimiter`          | 3 / 10 min | Email OTP sends                                                             |
 | `stepUpAttemptRateLimiter`    | 5 / 10 min | Step-up verification attempts                                               |
 | `registryTokenRateLimiter`    | 60 / min   | `/api/registry/token`                                                       |
-| `remoteAssetFetchRateLimiter` | 10 / min   | Image-proxy cache misses                                                    |
+| `remoteAssetFetchRateLimiter` | 120 / min  | Authenticated remote-image relay, keyed by user                             |
 
 ¹ Students sharing a classroom IP do not consume each other's quota; invalid usernames share one bucket per IP.
 
@@ -102,6 +104,7 @@ Behavior specs: [Login and security verification](../features/login-security.md)
 - `emailAndPassword.disableSignUp: true`; credential accounts are admins created by `db:bootstrap-admin`. OAuth (GitHub, Google) can create a fresh account, which grants nothing beyond public surfaces: enrollment is teacher-driven and ownership is the authorization boundary.
 - `account.accountLinking.disableImplicitLinking: true`: an unseen provider identity is never attached by matching email. Providers are linked only from settings by a signed-in session (`trustedProviders: ["github", "google"]`, `allowDifferentEmails: true`). `onAPIError.errorURL` is `/signin`; the settings link uses `errorCallbackURL: "/settings"`, and both pages name `account_not_linked` and `account_already_linked_to_different_user` explicitly.
 - `User.email` is the security mailbox (security OTP, recovery mail, email verification), never a login key. It changes only through the settings `changeSecurityEmail` action → better-auth `changeEmail`, gated in `hooks.before` on `/change-email`: new address unused by another account, confirmation from the current mailbox before the new one is verified, and a security-settings unlock when the account has TOTP or a passkey. Super admins cannot change it. It is also the only destination for notification email.
+- Disabling a user deletes all their sessions in the same database transaction. Direct `/api/auth/*` calls resolve the session and reject disabled accounts before invoking Better Auth; sign-out remains available.
 - Sessions are resolved on every request with `auth.api.getSession()`; `requireAuth` (pages) / `requireApiAuth` (API) also require a completed profile (`hasActorUsername`).
 - Effective role: `getActorContext` computes `actor.platformRole`. Power decisions use it, never `sessionUser.platformRole` (SEC-06).
   - Regular `admin`: effective `student` until `POST /api/admin-mode` finds a generation-bound TOTP/passkey proof; it then grants seven-day admin access for that session. The proof stays reusable for ten minutes after leaving admin mode.
@@ -110,7 +113,7 @@ Behavior specs: [Login and security verification](../features/login-security.md)
 - Step-up and factors (SEC-04): verified TOTP/passkey rows are the only configured-state source. Email OTP unlocks only the first setup when no factor exists. Unlocks last ten minutes and bind to session and `securityGeneration`. TOTP codes are single-use with a per-user attempt throttle. Failed better-auth results never create grants. Redis failure on privileged paths fails closed without destroying factors. A super admin's final factor cannot be removed.
 - Recovery (super admin): password first, then a backup code or email OTP; revokes other sessions, deletes old factors, grants setup-only access. Backup codes and recovery OTP never grant admin access.
 - Temporary exam sign-in: sessions carry an immutable `Session.examPassword` marker plus an `ExamCredentialSession` revision association checked on every request and direct Auth API call; missing provenance fails closed. Such sessions cannot change account security, link providers, manage API tokens or obtain registry credentials; accounts with any staff role are ineligible. Mail goes only to verified `User.email`; durable jobs carry IDs, never passwords. Lifecycle: [Exams — Temporary exam sign-in](../features/exams.md#temporary-exam-sign-in).
-- API tokens (SEC-07, SEC-08): a bearer token must pass the method/path whitelist in `acl.ts`, then the token scope, then the owner's role; domain checks still apply. Token management requires fresh step-up on page load and on every mutation.
+- API tokens (SEC-07, SEC-08): a bearer token must pass the method/path whitelist in `acl.ts`, then the strict IP attempt limiter before database verification, then the token scope, then the owner's role; domain checks still apply. Token management requires fresh step-up on page load and on every mutation.
 
 ## Authorization
 
@@ -130,16 +133,17 @@ Behavior specs: [Login and security verification](../features/login-security.md)
 ## Content and Uploads
 
 - User Markdown is sanitized with DOMPurify in `$lib/utils/markdown.ts`. KaTeX output is trusted only inside a per-render random nonce wrapper; never use author-controllable markup as a trust signal (SEC-10).
-- Image uploads (`/api/problems/[id]/images` with problem-edit access and in-transaction recheck; `/api/uploads/image` for any signed-in user): png/jpeg/gif/webp, ≤ 5 MB, `detectImageMime(buffer)` magic bytes must match; the client `file.type` is never trusted alone. Keys are server-built (`problems/<problemId>/images/<uuid>.<ext>`). Avatars: webp only, ≤ 1 MB, magic-byte checked.
-- Testcase, checker, interactor and workspace-file uploads count against a 50 MB per-problem budget (`assertProblemStorageBudget`); bundles are ≤ 60 MB uploaded, ≤ 50 MB inflated, ≤ 200 entries and reject `..` and absolute paths (PRB-06). Images are not budgeted.
-- Remote Markdown images and OAuth avatars (SEC-11): the sanitizer rewrites remote `src`/`srcset` to `/api/images/proxy`, and `avatarSrc` does the same for third-party profile images (site-wide COEP `require-corp` blocks images without a CORP header, which Google avatars lack); CSP blocks any missed rewrite. The proxy accepts canonical HTTPS on 443 only (URL ≤ 2048 chars, no credentials), requires every DNS answer to be public (mixed answers fail), pins the validated address into the TLS request, revalidates each redirect (max 3), times out at 5 s, stops at 5 MB, and accepts only magic-byte-verified png/jpeg/gif/webp (upstream MIME ignored). The first success is cached under `remote-images/<sha256(url)>`; hits never contact the remote host. Errors never redirect the viewer upstream.
+- Image uploads (`/api/problems/[id]/images` with problem-edit access and in-transaction recheck; `/api/uploads/image` for any signed-in user): file upload or explicit URL import, png/jpeg/gif/webp, ≤ 5 MiB, `detectImageMime(buffer)` magic bytes must match; the client `file.type` is never trusted alone. Keys are server-built. Permanent URL imports follow the same owner and quota checks as files.
+- Active testcases, checker, interactor, workspace files and catalogued images share a 50 MiB per-problem budget. Each user's content/discussion images share a 50 MiB budget. Owner locks serialize capacity reservations; pending image writes count until confirmed cleanup. Binary replacements are checked by their net size change under the problem lock; same-size and shrinking replacements remain allowed at or above quota. Staged and retired binary versions are reclaimed through durable cleanup and its reader grace period, outside the active-content budget. Existing objects are inventoried before new writes and existing over-quota content remains readable. Forks copy image ownership references. Avatars are WebP, ≤ 1 MiB, magic-byte checked, with one current version and at most one pending/retired replacement; obsolete versions are reclaimed through durable cleanup.
+- Bundles are ≤ 60 MiB uploaded, ≤ 50 MiB inflated, ≤ 200 entries and reject `..` and absolute paths (PRB-06). ZIP entry inflation is stopped and its upstream inflater destroyed immediately when the remaining byte budget is exceeded.
+- Remote Markdown images and OAuth avatars (SEC-11): the sanitizer rewrites remote `src` to `/api/images/proxy` and strips `srcset`; `avatarSrc` also proxies third-party profile images. The relay requires authentication and writes no permanent storage. It accepts canonical HTTPS on 443 only (URL ≤ 2048 chars, no credentials), requires every DNS answer to be public (mixed answers fail), pins the validated address into the TLS request, revalidates each redirect (max 3), times out at 5 s, stops at 5 MiB, and accepts only magic-byte-verified png/jpeg/gif/webp (upstream MIME ignored). Responses use short private caching; errors never redirect upstream. Authors use explicit image import to preserve an external image permanently; raw remote Markdown URLs remain transient. Anonymous public profiles use initials for external avatars.
 - `/docs?api=full` and `/api/openapi.internal.json` are public by design; they hold no credentials and grant nothing.
 
 ## Exam and Contest Integrity
 
 Behavior specs: [Exams](../features/exams.md), [Proctoring](../features/proctoring.md), [Contests](../features/contests.md).
 
-- Exam IP whitelist, IP binding and page lock are server-side (ASM-19, ASM-20). During an active exam session `hooks.server.ts` runs the proctoring gate on every page and `/api` request, and submission rechecks it; a failed active-exam lookup fails closed with 503. Exam entry runs the gate before creating a session, the first IP pin is a conditional write so concurrent first requests cannot both bind, violations recorded by a denied entry or submission are committed before the denial, and every binding reset writes an `ip_reset` session event. Page lock also denies `/api/contests/*`, `/api/posts/*`, `/api/comments/*` and `/api/problems/[id]/posts`. Contests have no IP or page gating.
+- Exam IP whitelist, IP binding and page lock are server-side (ASM-19, ASM-20). During an active exam session `hooks.server.ts` runs the proctoring gate on exam paths and, with page lock enabled, on every page and `/api` request, and exam submissions and draft reads/writes recheck every denial reason independently of page lock; a failed active-exam lookup fails closed with 503. Exam entry begins at `startsAt` with no early-entry grace and runs the gate before creating a session, the first IP pin is a conditional write so concurrent first requests cannot both bind, violations recorded by a denied entry or submission are committed before the denial, and every binding reset writes an `ip_reset` session event. Page lock also denies `/api/contests/*`, `/api/posts/*`, `/api/comments/*` and `/api/problems/[id]/posts`. Contests have no IP or page gating.
 - Context-bound submissions and drafts must target a problem in that context (ASM-21).
 - Exam and contest `submitCooldownSec` is checked in PostgreSQL under a `pg_advisory_xact_lock` keyed by context, user and problem (`packages/application/src/shared/submit-cooldown.ts`); sample runs are exempt.
 - Code drafts: `CodeDraft` rows are owner-only via `/api/drafts`. Exam drafts can be written only during an active session on a running exam for a problem in it; during a session only that exam's drafts are reachable. Unacknowledged local edits are stored under `nojv:draft:v2:<userId>:…`, AES-GCM sealed with `HMAC-SHA256(BETTER_AUTH_SECRET, "code-draft:<userId>")` delivered only to that user's `(app)` layout, with the storage key as additional authenticated data. Legacy plaintext `nojv:draft:v1:` drafts are re-sealed for the first opener, except exam drafts, which are deleted on the first draft load in that browser and never adopted.
@@ -173,7 +177,7 @@ Kubernetes requirements (JDG-20):
 Advanced Mode (JDG-16, JDG-17, SEC-14, PRB-12):
 
 - Answers live only in the grade container, which has no egress on either backend and runs as uid 10001. The run container reaches at most one service sidecar; the service has no egress.
-- `/output` crosses to grade only through `safeCopyTree` (symlinks and special files dropped, ≤ 100k files, ≤ 1 GiB).
+- `/output` crosses to grade only through `safeCopyTree` (symlinks and special files dropped, ≤ 100k scanned filesystem entries including directories and symlinks, ≤ 1 GiB). Docker's workspace watchdog uses the same entry and byte ceilings, stops scanning on overflow and fails closed on inspection errors other than concurrently removed paths. Kubernetes service readiness reads at most 64 KiB of logs per poll.
 - Image refs must be digest-pinned and from `ADVANCED_IMAGE_ALLOWED_REGISTRIES`; authoring needs `canCreateAdvancedProblems`; publishing needs an accepted test run with the exact configured images.
 - Registry (OPS-10): Docker token auth via `/api/registry/token` against hashed `RegistryCredential`s. Every human credential, admins included, can push/pull only `t/<username>/…`; judge pods use a pull-only account; `demo/…` is anonymous-pull; catalog and deletion use server-internal short-lived tokens.
 

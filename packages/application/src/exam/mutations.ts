@@ -1,3 +1,4 @@
+import { ensurePublicProblemImageInventories } from "../shared/uploaded-image";
 import { assertLateSubmissionPolicy } from "../shared/late-submission-policy";
 import { saveActivityGrading } from "../scoring/activity-grading";
 import { assertActivityAllocation } from "../scoring/activity-points";
@@ -37,6 +38,8 @@ export async function checkExamSubmitCooldown(
 }
 
 export async function createExamRecord(actor: ActorContext, payload: ExamCreate) {
+  await runTransaction((tx) => lockCourseForStaffMutation(tx, actor, payload.courseId));
+  await ensurePublicProblemImageInventories(payload.problems.map(({ problemId }) => problemId));
   const exam = await runTransaction(async (tx) => {
     await requireUser(tx, actor.userId);
     const course = await lockCourseForStaffMutation(tx, actor, payload.courseId);
@@ -95,6 +98,11 @@ export async function updateExamRecord(
   examId: string,
   payload: ExamUpdate,
 ) {
+  if (payload.problems) await runTransaction((tx) => requireManagedExam(tx, actor, examId));
+  if (payload.problems)
+    await ensurePublicProblemImageInventories(
+      payload.problems.map(({ problemId }) => problemId),
+    );
   const result = await runTransaction(async (tx) => {
     const exam = await requireManagedExam(tx, actor, examId);
 

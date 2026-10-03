@@ -75,6 +75,17 @@ vi.mock("../../../packages/application/src/shared/storage-object-lifecycle", () 
   guardStorageObjectWrites,
 }));
 
+vi.mock("../../../packages/application/src/shared/uploaded-image", () => ({
+  ensureProblemImageInventory: vi.fn(),
+  ensureProblemImageDependents: vi.fn(),
+  ensureUserImagesForDeletion: vi.fn(),
+  retireUploadedImages: vi.fn(),
+}));
+vi.mock("../../../packages/application/src/problem/storage-budget", () => ({
+  assertProblemStorageBudget: vi.fn(),
+  PROBLEM_STORAGE_BUDGET_BYTES: 50 * 1024 * 1024,
+}));
+
 vi.mock("@nojv/db", () => {
   const withTx = {
     create: problemCreate,
@@ -576,6 +587,7 @@ describe("deleteProblemRecord — context-link guard (P1)", () => {
     status: "draft",
     checkerStorage: null,
     interactorStorage: null,
+    uploadedImages: [],
     workspaceFiles: [],
     testcaseSets: [],
   };

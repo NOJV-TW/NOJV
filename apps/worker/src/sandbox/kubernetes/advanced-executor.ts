@@ -9,6 +9,7 @@ import { createLogger } from "../../logger.js";
 import { abortableSleep, executionAbortReason } from "../shared/execution-abort";
 import { resolveAdvancedResult } from "../shared/sandbox-result-mapper";
 import { serviceHostEnv } from "../shared/advanced-service-contract";
+import { ADVANCED_RESULT_LOG_MAX_BYTES } from "../shared/advanced-execution";
 import { ADVANCED_SERVICE_PORT, SERVICE_READY_MARKER } from "@nojv/sandbox-docker";
 import { sandboxSystemError } from "../shared/sandbox-plan";
 import { recordRunnerResources } from "../shared/judge-phase-metrics";
@@ -362,7 +363,13 @@ export class KubernetesAdvancedExecutor {
     if (!podName) return sandboxSystemError("Advanced grade phase produced no pod.");
 
     const sidecarLog = await measurePhase(request, "collect", () =>
-      this.observer.getPodContainerLogs(podName, ns, ADVANCED_SIDECAR_NAME, execution.signal),
+      this.observer.getPodContainerLogs(
+        podName,
+        ns,
+        ADVANCED_SIDECAR_NAME,
+        execution.signal,
+        ADVANCED_RESULT_LOG_MAX_BYTES,
+      ),
     );
     recordRunnerResources(sidecarLog, "advanced", request.language, "checker", {
       jobName,
@@ -373,6 +380,13 @@ export class KubernetesAdvancedExecutor {
     const raw = parseAdvancedResultLog(sidecarLog);
     if (raw === null) {
       return sandboxSystemError("Advanced sandbox sidecar produced no result marker.");
+    }
+    if (
+      raw &&
+      typeof raw === "object" &&
+      (raw as { sizeExceeded?: boolean }).sizeExceeded === true
+    ) {
+      return sandboxSystemError("Advanced grade result.json exceeded the size limit.");
     }
     if (raw && typeof raw === "object" && (raw as { missing?: boolean }).missing === true) {
       return sandboxSystemError(
@@ -506,7 +520,13 @@ export class KubernetesAdvancedExecutor {
         (status) => status.name === "service",
       );
       if (service?.state?.running || service?.state?.terminated) {
-        const log = await this.observer.getPodContainerLogs(podName, ns, "service", signal);
+        const log = await this.observer.getPodContainerLogs(
+          podName,
+          ns,
+          "service",
+          signal,
+          64 * 1024,
+        );
         if (log.includes(marker)) return true;
       }
       await abortableSleep(intervalMs, signal);

@@ -1,3 +1,4 @@
+import { ensurePublicProblemImageInventories } from "../shared/uploaded-image";
 import {
   contestProblemRepo,
   contestRepo,
@@ -189,6 +190,7 @@ export async function createContestRecord(actor: ActorContext, payload: ContestC
     throw new ForbiddenError("Only teachers and admins can create contests.");
   }
 
+  await ensurePublicProblemImageInventories(payload.problems.map(({ problemId }) => problemId));
   const contest = await runTransaction(async (tx) => {
     const existing = await contestRepo.withTx(tx).findById(payload.id);
 
@@ -276,6 +278,16 @@ export async function updateContestRecord(
   contestId: string,
   payload: ContestUpdate,
 ) {
+  if (payload.problems) {
+    const contest = await contestRepo.findById(contestId);
+    if (!contest) throw new NotFoundError(`Contest not found: ${contestId}`);
+    if (contest.createdByUserId !== actor.userId && actor.platformRole !== "admin")
+      throw new ForbiddenError("You do not have permission to edit this contest.");
+  }
+  if (payload.problems)
+    await ensurePublicProblemImageInventories(
+      payload.problems.map(({ problemId }) => problemId),
+    );
   const result = await runTransaction(async (tx) => {
     await contestRepo.withTx(tx).lockForUpdate(contestId);
     const contest = await requireContest(tx, contestId);

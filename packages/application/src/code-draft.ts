@@ -16,6 +16,7 @@ import type { ActorContext } from "./shared/actor-context";
 import { ForbiddenError, NotFoundError } from "./shared/errors";
 import { assertProblemViewAccess } from "./problem/permissions";
 import { assertCanSubmitToVirtualContest } from "./virtual-contest/queries";
+import { checkProctoringGate } from "./proctoring/gate";
 
 export function codeDraftContextKey(context: SubmissionContext): string {
   switch (context.type) {
@@ -32,7 +33,12 @@ export function codeDraftContextKey(context: SubmissionContext): string {
   }
 }
 
-async function assertDraftScopeAllowed(actor: ActorContext, scope: CodeDraftScope, now: Date) {
+async function assertDraftScopeAllowed(
+  actor: ActorContext,
+  scope: CodeDraftScope,
+  now: Date,
+  clientIp: string,
+) {
   const { context, problemId } = scope;
   const activeExamSession = await examSessionRepo.findActiveForUser(actor.userId);
   if (
@@ -48,6 +54,14 @@ async function assertDraftScopeAllowed(actor: ActorContext, scope: CodeDraftScop
       if (activeExamSession?.examId !== context.examId) {
         throw new ForbiddenError("An active session for this exam is required.");
       }
+      const gate = await checkProctoringGate({
+        entityKind: "exam",
+        entityId: context.examId,
+        userId: actor.userId,
+        ip: clientIp,
+        now,
+      });
+      if (!gate.ok) throw new ForbiddenError(`Draft access blocked: exam ${gate.reason}.`);
       const exam = await examRepo.findById(context.examId);
       if (exam?.status !== "published") throw new NotFoundError("Exam not found.");
       if (now >= exam.endsAt) throw new ForbiddenError("Exam has ended.");
@@ -105,8 +119,12 @@ async function assertDraftScopeAllowed(actor: ActorContext, scope: CodeDraftScop
   }
 }
 
-export async function listCodeDrafts(actor: ActorContext, scope: CodeDraftScope) {
-  await assertDraftScopeAllowed(actor, scope, new Date());
+export async function listCodeDrafts(
+  actor: ActorContext,
+  scope: CodeDraftScope,
+  clientIp: string,
+) {
+  await assertDraftScopeAllowed(actor, scope, new Date(), clientIp);
   const rows = await codeDraftRepo.listForProblem({
     userId: actor.userId,
     contextKey: codeDraftContextKey(scope.context),
@@ -115,8 +133,12 @@ export async function listCodeDrafts(actor: ActorContext, scope: CodeDraftScope)
   return rows.map((row) => ({ ...row, updatedAt: row.updatedAt.toISOString() }));
 }
 
-export async function saveCodeDraft(actor: ActorContext, draft: CodeDraftSave) {
-  await assertDraftScopeAllowed(actor, draft, new Date());
+export async function saveCodeDraft(
+  actor: ActorContext,
+  draft: CodeDraftSave,
+  clientIp: string,
+) {
+  await assertDraftScopeAllowed(actor, draft, new Date(), clientIp);
   const saved = await codeDraftRepo.save(
     {
       userId: actor.userId,

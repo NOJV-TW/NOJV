@@ -73,10 +73,10 @@ export async function putImmutableObject(
   client: S3Client,
   key: string,
   body: Buffer,
-  options: { contentType?: string } = {},
+  options: { contentType?: string; abortSignal?: AbortSignal } = {},
 ): Promise<StorageObjectPointer> {
   const { created, pointer } = await putObjectIfAbsent(client, key, body, options);
-  if (!created) await getVerifiedObject(client, pointer);
+  if (!created) await getVerifiedObject(client, pointer, options);
   return pointer;
 }
 
@@ -84,7 +84,7 @@ export async function putObjectIfAbsent(
   client: S3Client,
   key: string,
   body: Buffer,
-  options: { contentType?: string } = {},
+  options: { contentType?: string; abortSignal?: AbortSignal } = {},
 ): Promise<PutObjectIfAbsentResult> {
   const pointer = storagePointerFor(key, body);
   try {
@@ -99,6 +99,7 @@ export async function putObjectIfAbsent(
         ChecksumSHA256: Buffer.from(pointer.sha256, "hex").toString("base64"),
         IfNoneMatch: "*",
       }),
+      options.abortSignal ? { abortSignal: options.abortSignal } : undefined,
     );
   } catch (reason) {
     if (!isPreconditionFailure(reason)) throw reason;
@@ -116,6 +117,7 @@ function isPreconditionFailure(reason: unknown): boolean {
 export async function getVerifiedObject(
   client: S3Client,
   rawPointer: StorageObjectPointer,
+  options: { abortSignal?: AbortSignal } = {},
 ): Promise<Buffer> {
   const pointer = assertStorageObjectPointer(rawPointer);
   const response = await client.send(
@@ -123,6 +125,7 @@ export async function getVerifiedObject(
       Bucket: bucket(),
       Key: pointer.key,
     }),
+    options.abortSignal ? { abortSignal: options.abortSignal } : undefined,
   );
   if (!response.Body) {
     throw new StorageIntegrityError(pointer.key, "object body is missing");

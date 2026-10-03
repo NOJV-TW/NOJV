@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Eye, ImagePlus, Pencil } from "@lucide/svelte";
+  import { Eye, ImagePlus, Link, Pencil } from "@lucide/svelte";
   import { m } from "$lib/paraglide/messages.js";
   import MarkdownRenderer from "$lib/components/primitives/layout/MarkdownRenderer.svelte";
   import { readImageUploadUrl } from "$lib/utils/image-upload-response";
@@ -24,13 +24,25 @@
   let isDragOver = $state(false);
   let isPreviewing = $state(false);
   let uploadError = $state<string | null>(null);
+  let showUrlImport = $state(false);
+  let remoteUrl = $state("");
 
   const uploadUrl = $derived(
     problemId ? `/api/problems/${problemId}/images` : `/api/uploads/image`,
   );
 
+  async function uploadImage(form: FormData, alt: string) {
+    const res = await fetch(uploadUrl, {
+      method: "POST",
+      headers: { "X-Requested-With": "fetch" },
+      body: form,
+    });
+    const url = await readImageUploadUrl(res, m.imageUpload_failed());
+    insertAtCursor(`![${alt}](${url})`);
+  }
+
   async function handleFiles(files: FileList | null) {
-    if (!files) return;
+    if (!files || isUploading) return;
     const images = [...files].filter((f) => f.type.startsWith("image/"));
     if (!images.length) return;
 
@@ -41,15 +53,25 @@
         const form = new FormData();
         form.append("image", file);
 
-        const res = await fetch(uploadUrl, {
-          method: "POST",
-          headers: { "X-Requested-With": "fetch" },
-          body: form,
-        });
-
-        const url = await readImageUploadUrl(res, m.imageUpload_failed());
-        insertAtCursor(`![${file.name}](${url})`);
+        await uploadImage(form, file.name);
       }
+    } catch (error) {
+      uploadError = error instanceof Error ? error.message : m.imageUpload_failed();
+    } finally {
+      isUploading = false;
+    }
+  }
+
+  async function importRemoteImage() {
+    if (isUploading || !remoteUrl.trim()) return;
+    isUploading = true;
+    uploadError = null;
+    try {
+      const form = new FormData();
+      form.append("url", remoteUrl.trim());
+      await uploadImage(form, "");
+      remoteUrl = "";
+      showUrlImport = false;
     } catch (error) {
       uploadError = error instanceof Error ? error.message : m.imageUpload_failed();
     } finally {
@@ -129,6 +151,7 @@
   <button
     type="button"
     onclick={() => (isPreviewing = !isPreviewing)}
+    disabled={isUploading}
     title={isPreviewing ? m.imageUpload_write() : m.imageUpload_preview()}
     aria-label={isPreviewing ? m.imageUpload_write() : m.imageUpload_preview()}
     aria-pressed={isPreviewing}
@@ -144,7 +167,19 @@
   {#if !isPreviewing}
     <button
       type="button"
+      onclick={() => (showUrlImport = !showUrlImport)}
+      disabled={isUploading}
+      title={m.imageUpload_fromUrl()}
+      aria-label={m.imageUpload_fromUrl()}
+      aria-expanded={showUrlImport}
+      class="absolute bottom-2.5 right-11 inline-flex items-center justify-center rounded-full p-1.5 text-muted-foreground opacity-40 transition-[opacity,color,background-color] duration-fast ease-out-soft hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary group-focus-within/imgzone:opacity-100 group-hover/imgzone:opacity-100"
+    >
+      <Link class="h-4 w-4" aria-hidden="true" />
+    </button>
+    <button
+      type="button"
       onclick={() => fileInput.click()}
+      disabled={isUploading}
       title={m.imageUpload_button()}
       aria-label={m.imageUpload_button()}
       class="absolute bottom-2.5 right-3 inline-flex items-center justify-center rounded-full p-1.5 text-muted-foreground opacity-40 transition-[opacity,color,background-color] duration-fast ease-out-soft hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary group-focus-within/imgzone:opacity-100 group-hover/imgzone:opacity-100"
@@ -173,3 +208,38 @@
     </div>
   {/if}
 </div>
+
+{#if showUrlImport && !isPreviewing}
+  <div class="mt-2 flex flex-wrap items-center gap-2">
+    <input
+      type="url"
+      bind:value={remoteUrl}
+      aria-label={m.imageUpload_fromUrl()}
+      placeholder={m.imageUpload_urlPlaceholder()}
+      disabled={isUploading}
+      onkeydown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          importRemoteImage();
+        }
+      }}
+      class="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-1.5 text-body-sm"
+    />
+    <button
+      type="button"
+      onclick={importRemoteImage}
+      disabled={isUploading || !remoteUrl.trim()}
+      class="rounded-md bg-primary px-3 py-1.5 text-body-sm text-primary-foreground disabled:opacity-50"
+    >
+      {m.imageUpload_import()}
+    </button>
+    <button
+      type="button"
+      onclick={() => (showUrlImport = false)}
+      disabled={isUploading}
+      class="rounded-md px-3 py-1.5 text-body-sm text-muted-foreground"
+    >
+      {m.common_cancel()}
+    </button>
+  </div>
+{/if}

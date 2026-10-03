@@ -15,4 +15,12 @@ describe("avatarSrc", () => {
     const uploaded = "/api/storage/avatars/user-1/abc.webp";
     expect(avatarSrc(uploaded)).toBe(uploaded);
   });
+
+  it("uses the initials fallback for anonymous remote-avatar views", () => {
+    expect(avatarSrc("https://avatars.example/user.png", false)).toBeUndefined();
+    expect(avatarSrc("//avatars.example/user.png", false)).toBeUndefined();
+    expect(avatarSrc("/api/storage/avatars/user-1/abc.webp", false)).toBe(
+      "/api/storage/avatars/user-1/abc.webp",
+    );
+  });
 });

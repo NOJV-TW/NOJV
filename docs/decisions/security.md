@@ -63,23 +63,23 @@ Regular-admin sessions stay de-elevated until admin mode is granted with a fresh
 
 ### SEC-06 Admin hierarchy is server-enforced, deliberate and audited
 
-**Decided:** 2026-04 · **Source:** [2026-04-11-admin-users-ux-refinement-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-11-admin-users-ux-refinement-design.md), [2026-07-07-admin-account-ux-overhaul](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-07-admin-account-ux-overhaul.md)
+**Decided:** 2026-04 · **Source:** [2026-04-11-admin-users-ux-refinement-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-04-11-admin-users-ux-refinement-design.md), [2026-07-07-admin-account-ux-overhaul](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-07-admin-account-ux-overhaul.md), [Security remediation PR #628](https://github.com/NOJV-TW/NOJV/pull/628)
 
 The UI never shows "super admin"; only a super admin may disable, delete or change another admin. Role changes are explicit edit → pick → save, with `ConfirmDialog` for high-risk changes and disabling. Important actions are written to `AdminAuditLog`. A single mis-click once changed platform roles, and hiding a control is not enforcement.
 
 - Rejected: auto-submitting role `<select>`; badge-as-button role editing.
 - Rule: the server rejects self role change, self-disable and self-delete.
-- Rule: power decisions use the effective `actor.platformRole`, never the stored session role.
+- Rule: power decisions use the effective `actor.platformRole`, never the stored session role. Disabling a user atomically revokes all sessions; direct Auth API calls reject disabled users before dispatch.
 - Code: `packages/application/src/user/mutations.ts`, `apps/web/src/routes/(app)/admin/users/+page.server.ts`, `packages/db/prisma/schema/ops.prisma`
 
 ### SEC-07 API tokens: hashed bearer secrets gated by whitelist, scope and owner role
 
-**Decided:** 2026-06 · **Source:** [2026-06-09-api-token-auth](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-09-api-token-auth.md), [2026-06-24-passwordless-stepup-2fa](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-24-passwordless-stepup-2fa.md)
+**Decided:** 2026-06 · **Source:** [2026-06-09-api-token-auth](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-09-api-token-auth.md), [2026-06-24-passwordless-stepup-2fa](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-24-passwordless-stepup-2fa.md), [Security remediation PR #628](https://github.com/NOJV-TW/NOJV/pull/628)
 
 Tokens (`nojv_live_<prefix>.<secret>`) are stored as prefix plus `sha256` hash, shown once, and must expire (30/90/365 days). A request must pass the central method/path whitelist, then the token scope, then the owner's role; domain checks still enforce object access. Only whitelisted routes accept tokens and skip the CSRF header.
 
 - Rejected: implicit token access for documented routes; never-expiring tokens. Earlier: HMAC with `API_TOKEN_PEPPER` — removed as redundant for 256-bit secrets (CodeQL `js/insufficient-password-hash` is a false positive).
-- Rule: appearing in docs does not grant token access; internal APIs stay session-only unless whitelisted.
+- Rule: appearing in docs does not grant token access; internal APIs stay session-only unless whitelisted. Whitelisted bearer attempts consume a strict IP rate limit before token database lookup.
 - Rule: no pepper for high-entropy secrets; low-entropy secrets need attempt caps and TTLs.
 - Code: `packages/application/src/api-token/acl.ts`, `packages/application/src/api-token/lifecycle.ts`
 
@@ -106,9 +106,9 @@ One helper resolves the client IP for IP locks and rate limits. In production it
 
 ### SEC-10 Markdown trust is nonce-based; body limits count streamed bytes
 
-**Decided:** 2026-06 · **Source:** [2026-06-12-full-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-12-full-audit-remediation.md), [2026-07-07-system-health-check-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-07-system-health-check-remediation.md)
+**Decided:** 2026-06 · **Source:** [2026-06-12-full-audit-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-12-full-audit-remediation.md), [2026-07-07-system-health-check-remediation](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/active/2026-07-07-system-health-check-remediation.md), [Security remediation PR #628](https://github.com/NOJV-TW/NOJV/pull/628)
 
-KaTeX output is wrapped with a per-render random nonce and DOMPurify keeps `style` only inside that subtree. JSON bodies are read through `readJsonBody`, which counts bytes while streaming and returns 413 regardless of `content-length`. Upload MIME is checked by magic bytes. A forgeable `katex` class allowed CSS injection, and chunked bodies bypassed header checks.
+KaTeX output is wrapped with a per-render random nonce and DOMPurify keeps `style` only inside that subtree. JSON bodies are read through `readJsonBody`, which counts bytes while streaming and returns 413 regardless of `content-length`. Small multipart uploads and credential forms use the same bounded reader before FormData parsing; Auth API bodies are capped before username parsing. Upload MIME is checked by magic bytes. A forgeable `katex` class allowed CSS injection, and chunked bodies bypassed header checks.
 
 - Rejected: trusting author-controllable class names; header-only size checks.
 - Rule: never use author-controllable markup as a trust signal.
@@ -116,13 +116,14 @@ KaTeX output is wrapped with a per-render random nonce and DOMPurify keeps `styl
 
 ### SEC-11 Third-party Markdown images go through a same-origin SSRF-safe proxy
 
-**Decided:** 2026-07 · **Source:** [2026-07-20-markdown-image-proxy](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-07-20-markdown-image-proxy.md)
+**Decided:** 2026-07, revised 2026-10 · **Source:** [2026-07-20-markdown-image-proxy](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-07-20-markdown-image-proxy.md), [#628](https://github.com/NOJV-TW/NOJV/pull/628)
 
-The DOMPurify hook rewrites remote `img src`/`srcset` to `/api/images/proxy` at render time, which fetches over HTTPS:443 with pinned all-public DNS, bounded redirects/time/size, accepts only PNG/JPEG/GIF/WebP by magic bytes, and caches first-write-wins in S3. CSP `img-src` excludes arbitrary HTTPS so a missed rewrite fails closed. Readers' browsers never contact third-party hosts.
+The DOMPurify hook rewrites remote `img src` to `/api/images/proxy` at render time and strips `srcset`. The authenticated relay fetches over HTTPS:443 with pinned all-public DNS, bounded redirects/time/size, and accepts only PNG/JPEG/GIF/WebP by magic bytes. It writes no permanent objects and uses short private browser caching. Authors explicitly import a URL through the image-upload flow when they need a permanent copy; the copy consumes their problem or user budget (PRB-05, PRB-06). CSP `img-src` excludes arbitrary HTTPS so a missed rewrite fails closed. Readers' browsers never contact third-party hosts.
 
-- Rejected: direct third-party loads (previous accepted privacy leak); redirecting to upstream on failure.
-- Rule: never trust upstream Content-Type; read the cache before any fetch; rate-limit with the read limiter.
+- Rejected: direct third-party loads (previous accepted privacy leak); redirecting to upstream on failure; anonymous GET requests populating an unlimited permanent S3 cache.
+- Rule: never trust upstream Content-Type; require authentication and bound remote fetches before contacting the host. Raw remote Markdown links remain transient; permanent import is an author action.
 - Rule: third-party OAuth avatars render through the proxy too (`avatarSrc`); site-wide COEP `require-corp` blocks a direct load when the host sends no CORP header, as Google does, and CSP `img-src` no longer lists `*.googleusercontent.com`.
+- Rule: anonymous public-profile readers see initials for external avatars; owned uploaded avatars remain publicly readable.
 - Code: `apps/web/src/routes/api/images/proxy/+server.ts`, `packages/storage/src/images.ts`, `apps/web/svelte.config.js`, `apps/web/src/lib/utils/avatar-src.ts`
 
 ### SEC-12 Graded testcase data never reaches non-staff
@@ -146,10 +147,10 @@ Cancel/progress accept only workflow IDs prefixed `rejudge-` that match a record
 
 ### SEC-14 Advanced-mode `/output` capture never dereferences student paths
 
-**Decided:** 2026-06 · **Source:** [2026-06-14-advanced-judge-run-grade-split-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-14-advanced-judge-run-grade-split-design.md)
+**Decided:** 2026-06, revised 2026-10 · **Source:** [2026-06-14-advanced-judge-run-grade-split-design](https://github.com/NOJV-TW/NOJV/blob/f0347eb12ab7eb0b2269dcf774aff442f837bb85/docs/plans/completed/2026-06-14-advanced-judge-run-grade-split-design.md), [#628](https://github.com/NOJV-TW/NOJV/pull/628)
 
-Run output is copied host-side by `safeCopyTree` (lstat first, drop symlinks and special files, cap ≤100k files and 1 GiB, overflow = SE); on Kubernetes a transfer sidecar applies the same gate into a per-submission PVC mounted read-only by the grade Job. A symlink like `output/x → /answers/secret` would leak answers into grading.
+Run output is copied host-side by `safeCopyTree` (lstat first, drop symlinks and special files, cap ≤100k scanned filesystem entries and 1 GiB, overflow = SE); on Kubernetes a transfer sidecar applies the same gate into a per-submission PVC mounted read-only by the grade Job. Directories and skipped symlinks consume the entry budget so they cannot bypass inode or traversal limits. Docker's watchdog fails closed on inspection errors except concurrently removed paths. A symlink like `output/x → /answers/secret` would leak answers into grading.
 
 - Rejected: in-container `tar --dereference` (puts the security step in a TA image); pod-log/ConfigMap transfer (1 MB limit).
-- Rule: Docker and Kubernetes gates stay behavior-identical (parity test); watchdogs count files as well as bytes.
+- Rule: Docker and Kubernetes gates stay behavior-identical (parity test); watchdogs count every filesystem entry as well as regular-file bytes.
 - Code: `apps/worker/src/sandbox/docker/advanced-mode-executor.ts`, `apps/worker/src/sandbox/kubernetes/advanced-executor.ts`

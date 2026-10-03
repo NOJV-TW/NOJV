@@ -15,6 +15,11 @@ const {
   testcaseSetDelete: vi.fn(),
 }));
 
+vi.mock("../../../packages/application/src/shared/uploaded-image", () => ({
+  ensurePublicProblemImageInventories: vi.fn(),
+  ensureProblemImageInventory: vi.fn(),
+}));
+
 vi.mock("@nojv/db", () => ({
   Prisma: { DbNull: null },
   runTransaction: async (fn: (tx: unknown) => Promise<unknown>) => fn({}),

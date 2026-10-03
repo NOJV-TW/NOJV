@@ -5,7 +5,7 @@ Acceptance spec for course exams (`Exam`, routes `/exams/[examId]/...`). Student
 ## Key code
 
 - `packages/application/src/exam/mutations.ts` — `createExamRecord`, `updateExamRecord`, `publishExam`, `deleteExamDraft`
-- `packages/application/src/exam/session.ts` — `startSession`, `startSessionWithGate`, `endSession`, `recordEvent`, `autoCloseForExam`, `releaseSessionAsInstructor`, `releaseAllSessionsAsInstructor`, `resetStudentIpBinding`, `listActiveSessions`, `getActiveSessionContext`, `getSessionState`, `listSubmittedProblemIds`, `requireActiveSessionForUserExam`, `START_GRACE_MS`
+- `packages/application/src/exam/session.ts` — `startSessionWithGate`, `endSession`, `recordEvent`, `autoCloseForExam`, `releaseSessionAsInstructor`, `releaseAllSessionsAsInstructor`, `resetStudentIpBinding`, `listActiveSessions`, `getActiveSessionContext`, `getSessionState`, `listSubmittedProblemIds`, `requireActiveSessionForUserExam`
 - `packages/application/src/exam/credentials.ts` — temporary exam passwords
 - `packages/application/src/exam/detail.ts` (`getExamDetailPage`), `exam/submissions-matrix.ts` (`buildExamSubmissionsMatrix`), `exam/scoring.ts` (`updateExamScores`), `exam/queries.ts` (`listExamIpViolations`)
 - `packages/application/src/clarification/` — `ask`, `answer`, `dismiss`, `listForViewer`, `canSeeAuthor`
@@ -67,12 +67,12 @@ Exams follow the [activity allocation and official score contract](assignments.m
 
 ### Session start
 
-- `startSessionWithGate` requires a published exam (else `NotFoundError`), `now >= startsAt - START_GRACE_MS` (5 min) and `now < endsAt` (else `HttpError` 410 `"Exam has not started yet."` / `"Exam has ended."`), and an active course membership (`"You must be enrolled in the course to access this exam."`).
-- Inside the per-user session lock it runs the exam proctoring gate (publish state, membership, archive, time window with the same grace, IP rules for the request IP) before any session or participation write. A denial commits only the gate's own writes (violation log, pin of an existing participation) and creates or reopens no session: `ip_whitelist` / `ip_binding` give `ForbiddenError("Exam entry blocked: your network does not match the exam's IP restrictions.")`; time denials give the 410 errors above.
+- `startSessionWithGate` requires a published exam (else `NotFoundError`), `now >= startsAt` and `now < endsAt` (else `HttpError` 410 `"Exam has not started yet."` / `"Exam has ended."`), and an active course membership (`"You must be enrolled in the course to access this exam."`).
+- Inside the per-user session lock it runs the exam proctoring gate (publish state, membership, archive, strict time window, IP rules for the request IP) before any session or participation write. A denial commits only the gate's own writes (violation log, pin of an existing participation) and creates or reopens no session: `ip_whitelist` / `ip_binding` give `ForbiddenError("Exam entry blocked: your network does not match the exam's IP restrictions.")`; time denials give the 410 errors above.
 - It then creates or reopens the `ActiveExamSession`, records an `enter` event, activates the participation and returns `created: true`. A second call for the same exam returns the existing session with `created: false`.
 - With IP binding on, a first entry that creates the participation pins the request IP with a conditional write in the same transaction; if the pin is already taken the entry fails with `ConflictError` and creates no session.
 - A user has at most one active session globally: an active session on another exam gives `ConflictError("You already have an active session on a different exam.")`.
-- Archived course: `ForbiddenError("This course is archived; new exam sessions are not allowed.")`. Sessions already running when the course is archived continue.
+- Archived course: `ForbiddenError("This course is archived; new exam sessions are not allowed.")`. Existing sessions cannot read or save exam drafts, open problems or submit while the course is archived.
 - A submitted session or submitted participation gives `ForbiddenError("You have already submitted this exam.")` before any write.
 - The `startExam` action passes the client IP to `startSessionWithGate`; the request hook keeps enforcing the gate afterwards.
 
@@ -87,7 +87,7 @@ Exams follow the [activity allocation and official score contract](assignments.m
 ### Problem access during the exam
 
 - With an active session on exam E, `/exams/E` shows the problem list (links to `/exams/E/problems/[id]`); without one it shows the rules card and start CTA. `startExam` reloads the exam page rather than opening the first problem.
-- `/exams/E/problems/[problemId]` without an active session on E throws `ForbiddenError("No active exam session for this exam.")`; after `endsAt` it redirects to `/problems/[problemId]?ended=exam`.
+- `/exams/E/problems/[problemId]` before `startsAt` fails 403; without an active session on E throws `ForbiddenError("No active exam session for this exam.")`; at or after `endsAt` it redirects to `/problems/[problemId]?ended=exam`.
 
 ### Page lock
 
@@ -111,7 +111,7 @@ Exams follow the [activity allocation and official score contract](assignments.m
 ### Drafts
 
 - With an active session on a running exam, `PUT /api/drafts` stores drafts under the `exam:<examId>` context key per problem and language (WEB-05).
-- Without an active session, after the exam ended, or for a problem outside the exam, saving fails with `ForbiddenError` or `NotFoundError` and stores nothing.
+- Reads and writes rerun the full exam gate with the trusted client IP: publication, active course membership, unarchived course, start/end window and IP rules. Without an active session, after the exam ended, or for a problem outside the exam, saving fails with `ForbiddenError` or `NotFoundError` and stores nothing.
 - During an active session, reading drafts for any other context is `ForbiddenError`; exam drafts never start from homework or practice drafts. Drafts are never graded and are visible only to their owner.
 
 ### Submission history

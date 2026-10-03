@@ -18,6 +18,8 @@ const h = vi.hoisted(() => ({
   lockStaff: vi.fn(),
   lockProblem: vi.fn(),
   upload: vi.fn(),
+  reserve: vi.fn(),
+  finalize: vi.fn(),
   deleteBlob: vi.fn(),
   replace: vi.fn(),
 }));
@@ -55,7 +57,7 @@ vi.mock("@nojv/db", () => ({
 }));
 vi.mock("@nojv/storage", async (importOriginal) => ({
   ...(await importOriginal<typeof Storage>()),
-  uploadProblemImage: h.upload,
+  putImmutableObject: h.upload,
   deleteBlob: h.deleteBlob,
   putImmutableText: vi.fn(),
 }));
@@ -65,6 +67,18 @@ vi.mock("../../../packages/application/src/shared/storage-singleton", () => ({
 vi.mock("../../../packages/application/src/shared/storage-object-lifecycle", () => ({
   commitStoragePointerSwap: vi.fn(),
   guardStorageObjectWrites: vi.fn(),
+}));
+
+vi.mock("../../../packages/application/src/shared/uploaded-image", () => ({
+  ensureProblemImageInventory: vi.fn(),
+  ensureProblemImageDependents: vi.fn(),
+  validateContentImage: vi.fn(),
+  reserveUploadedImage: h.reserve,
+  finalizeUploadedImage: h.finalize,
+}));
+vi.mock("../../../packages/application/src/problem/storage-budget", () => ({
+  assertProblemStorageBudget: vi.fn(),
+  PROBLEM_STORAGE_BUDGET_BYTES: 50 * 1024 * 1024,
 }));
 
 import {
@@ -109,7 +123,8 @@ beforeEach(() => {
   h.revokeAtCommit = false;
   h.lockStaff.mockImplementation(() => Promise.resolve(!h.revoked));
   h.lockProblem.mockImplementation(() => Promise.resolve(h.problem));
-  h.upload.mockResolvedValue("problems/p/images/fresh.png");
+  h.upload.mockResolvedValue(undefined);
+  h.reserve.mockResolvedValue({ id: "image" });
 });
 
 describe("content writes reauthorize at commit", () => {
@@ -192,7 +207,7 @@ describe("content writes reauthorize at commit", () => {
     await expect(exportBundle(actor, "p")).rejects.toThrow(/author or an admin/);
   });
 
-  it("removes a newly uploaded image when permission was revoked during upload", async () => {
+  it("leaves the reserved cleanup guard in place when permission was revoked during upload", async () => {
     h.upload.mockImplementation(() => {
       h.revoked = true;
       return Promise.resolve("problems/p/images/fresh.png");
@@ -200,6 +215,8 @@ describe("content writes reauthorize at commit", () => {
     await expect(
       uploadProblemImage(actor, "p", Buffer.from("image"), "image/png"),
     ).rejects.toThrow(/not permitted/i);
-    expect(h.deleteBlob).toHaveBeenCalledWith(expect.anything(), "problems/p/images/fresh.png");
+    expect(h.reserve).toHaveBeenCalled();
+    expect(h.finalize).not.toHaveBeenCalled();
+    expect(h.deleteBlob).not.toHaveBeenCalled();
   });
 });

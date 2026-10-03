@@ -1,3 +1,5 @@
+import { ensureProblemImageInventory } from "../shared/uploaded-image";
+import { assertProblemStorageBudget } from "./storage-budget";
 import { randomUUID } from "node:crypto";
 
 import type { Prisma } from "@nojv/db";
@@ -109,6 +111,7 @@ export async function updateProblemWorkspace(
   assertWorkspaceByteLimit(payload.files);
 
   await assertProblemEditAccess(actor, problemId);
+  await ensureProblemImageInventory(problemId);
 
   interface PreparedWorkspaceFile {
     id: string;
@@ -126,6 +129,13 @@ export async function updateProblemWorkspace(
   const result = await runTransaction(async (tx) => {
     const problem = await lockProblemForEdit(tx, actor, problemId);
     const existingFiles = await problemWorkspaceFileRepo.withTx(tx).findByProblemId(problem.id);
+
+    const previousBytes = existingFiles.reduce(
+      (total, file) => total + assertStorageObjectPointer(file.contentStorage).size,
+      0,
+    );
+    const nextBytes = prepared.reduce((total, file) => total + file.contentStorage.size, 0);
+    await assertProblemStorageBudget(problem.id, nextBytes - previousBytes, tx);
 
     await problemWorkspaceFileRepo.withTx(tx).deleteByProblemId(problem.id);
     if (prepared.length > 0) {
@@ -164,11 +174,6 @@ export async function updateProblemWorkspace(
     if (Object.keys(updateData).length > 0) {
       await problemRepo.withTx(tx).update(problem.id, updateData);
     }
-    const previousBytes = existingFiles.reduce(
-      (total, file) => total + assertStorageObjectPointer(file.contentStorage).size,
-      0,
-    );
-    const nextBytes = prepared.reduce((total, file) => total + file.contentStorage.size, 0);
     await problemRepo.withTx(tx).update(problem.id, {
       referenceSolutionSubmissionId: null,
       activeStorageBytes: { increment: nextBytes - previousBytes },
@@ -209,6 +214,7 @@ export async function setWorkspaceFile(
   });
 
   await assertProblemEditAccess(actor, problemId);
+  await ensureProblemImageInventory(problemId);
   const id = randomUUID();
   const contentStorage = await writeWorkspaceFileBlob(problemId, id, parsed.content);
 
@@ -217,6 +223,12 @@ export async function setWorkspaceFile(
     const existing = await problemWorkspaceFileRepo
       .withTx(tx)
       .findOne(problemId, parsed.language, parsed.path);
+    await assertProblemStorageBudget(
+      problem.id,
+      contentStorage.size -
+        (existing === null ? 0 : assertStorageObjectPointer(existing.contentStorage).size),
+      tx,
+    );
     const row = await problemWorkspaceFileRepo.withTx(tx).upsertOne({
       id,
       problemId,

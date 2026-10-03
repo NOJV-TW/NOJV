@@ -27,11 +27,11 @@ The global hook reads the user's active session and the exam's current `pageLock
 - `pageLockEnabled: true`, request outside `/exams/[examId]` (not an API path, not `/signin` or `/signout`): record `visibility_lost` with `metadata.attemptedPath`, then redirect 307 to `/exams/[examId]`. A failing event write logs a warning and still redirects.
 - `pageLockEnabled: true`, API requests: `/api/contests/*`, `/api/posts/*`, `/api/comments/*`, `/api/problems/[id]/posts` and submission endpoints other than `GET`/`POST /api/submissions`, `GET /api/submissions/[id]` and `GET /api/submissions/[id]/source` return 403 `exam_api_scope`.
 - `pageLockEnabled: false`: requests outside the exam proceed under normal authorization and the session stays active; the hook runs the IP gate only on exam paths.
-- Exam pages and exam submissions always enforce membership, time window and IP rules, whatever the page-lock setting. An IP denial returns 403 `exam_ip_blocked`; on API paths, `not_enrolled`, `course_archived`, `not_published` and `not_found` return 403 `exam_<reason>`.
+- Exam pages, exam submissions and draft reads/writes always enforce membership, time window and IP rules, whatever the page-lock setting. An IP denial returns 403 `exam_ip_blocked`; on API paths, `not_enrolled`, `course_archived`, `not_published`, `not_found` and `not_started` return 403 `exam_<reason>`.
 
 ### Composite gate
 
-- `checkExamGate` returns `{ ok: true }` when the exam exists, is published, the user has an active membership, the course is not archived, `startsAt - grace <= now < endsAt`, and IP checks pass (IP checks run only when an IP is supplied).
+- `checkExamGate` returns `{ ok: true }` when the exam exists, is published, the user has an active membership, the course is not archived, `startsAt <= now < endsAt`, and IP checks pass (IP checks run only when an IP is supplied).
 - Denial reasons: `not_found`, `not_published`, `not_enrolled`, `course_archived`, `not_started`, `ended`, `ip_whitelist`, `ip_binding`.
 - `checkContestGate` checks only existence, `published` visibility and the time window.
 

@@ -7,9 +7,23 @@ const h = vi.hoisted(() => ({
   deleteUser: vi.fn(),
   lock: vi.fn(),
 }));
+vi.mock("../../../packages/application/src/shared/uploaded-image", () => ({
+  ensureProblemImageInventory: vi.fn(),
+  ensureProblemImageDependents: vi.fn(),
+  ensureUserImagesForDeletion: vi.fn(),
+  retireUploadedImages: vi.fn(),
+}));
+vi.mock("../../../packages/application/src/problem/storage-budget", () => ({
+  assertProblemStorageBudget: vi.fn(),
+}));
+
 vi.mock("@nojv/db", () => ({
   runTransaction: async (fn: (tx: unknown) => Promise<unknown>) =>
-    fn({ $queryRaw: h.lock, problem: { count: h.problemCount } }),
+    fn({
+      $queryRaw: h.lock,
+      uploadedImage: { findMany: vi.fn().mockResolvedValue([]) },
+      problem: { count: h.problemCount },
+    }),
   userRepo: {
     withTx: () => ({
       findById: h.findUser,

@@ -30,8 +30,7 @@ export const POST: RequestHandler = writeApiHandler(async (event) => {
     ...(body.until !== undefined ? { until: body.until } : {}),
   };
 
-  await submissionDomain.assertBatchRejudgeAccess(actor, batchInput);
-  const { workflowId } = await submissionDomain.dispatchRejudge(batchInput);
+  const { workflowId } = await submissionDomain.dispatchRejudge(batchInput, actor);
 
   return json({ workflowId, status: "queued" }, { status: 202 });
 });

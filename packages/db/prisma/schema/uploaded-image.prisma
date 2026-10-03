@@ -1,0 +1,27 @@
+enum UploadedImageKind {
+  problem
+  content
+  avatar
+}
+
+model UploadedImage {
+  id             String            @id @default(cuid())
+  key            String
+  size           Int
+  sha256         String
+  contentType    String
+  kind           UploadedImageKind
+  ready          Boolean           @default(false)
+  cleanupStarted Boolean           @default(false)
+  userId         String?
+  problemId      String?
+  createdAt      DateTime          @default(now())
+
+  user    User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problem Problem? @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@unique([problemId, key])
+  @@index([key, ready])
+  @@index([userId, kind, ready])
+}

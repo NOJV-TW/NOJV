@@ -45,7 +45,11 @@ vi.mock("@nojv/storage", async (importOriginal) => {
     getVerifiedObject: async (_client: unknown, pointer: unknown) => {
       const verified = original.assertStorageObjectPointer(pointer);
       const body = testBlobs.get(verified.key);
-      if (!body) throw new Error(`No body returned for object ${verified.key}`);
+      if (!body)
+        throw Object.assign(new Error("NoSuchKey"), {
+          name: "NoSuchKey",
+          $metadata: { httpStatusCode: 404 },
+        });
       const actual = original.storagePointerFor(verified.key, body);
       if (actual.sha256 !== verified.sha256 || actual.size !== verified.size) {
         throw new original.StorageIntegrityError(verified.key, "test object mismatch");
@@ -55,7 +59,11 @@ vi.mock("@nojv/storage", async (importOriginal) => {
     getVerifiedText: async (_client: unknown, pointer: unknown) => {
       const verified = original.assertStorageObjectPointer(pointer);
       const body = testBlobs.get(verified.key);
-      if (!body) throw new Error(`No body returned for object ${verified.key}`);
+      if (!body)
+        throw Object.assign(new Error("NoSuchKey"), {
+          name: "NoSuchKey",
+          $metadata: { httpStatusCode: 404 },
+        });
       const actual = original.storagePointerFor(verified.key, body);
       if (actual.sha256 !== verified.sha256 || actual.size !== verified.size) {
         throw new original.StorageIntegrityError(verified.key, "test object mismatch");
@@ -65,6 +73,33 @@ vi.mock("@nojv/storage", async (importOriginal) => {
     listByPrefix: async (_client: unknown, prefix: string) => {
       return Array.from(testBlobs.keys()).filter((k) => k.startsWith(prefix));
     },
+
+    listImageObjectInventory: async (_client: unknown, prefix: string) =>
+      [...testBlobs.entries()]
+        .filter(([key]) => key.startsWith(prefix))
+        .map(([key, body]) => ({
+          pointer: original.storagePointerFor(key, body),
+          contentType: key.endsWith(".webp")
+            ? "image/webp"
+            : key.endsWith(".jpg") || key.endsWith(".jpeg")
+              ? "image/jpeg"
+              : key.endsWith(".gif")
+                ? "image/gif"
+                : "image/png",
+        })),
+    readImageObjectInventory: async (_client: unknown, keys: readonly string[]) =>
+      [...new Set(keys)]
+        .filter((key) => testBlobs.has(key))
+        .map((key) => ({
+          pointer: original.storagePointerFor(key, testBlobs.get(key)!),
+          contentType: key.endsWith(".webp")
+            ? "image/webp"
+            : key.endsWith(".jpg") || key.endsWith(".jpeg")
+              ? "image/jpeg"
+              : key.endsWith(".gif")
+                ? "image/gif"
+                : "image/png",
+        })),
 
     deleteBlob: async (_client: unknown, key: string) => {
       testBlobs.delete(key);

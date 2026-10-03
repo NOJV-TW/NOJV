@@ -7,6 +7,7 @@
 - 封裝所有 domain 操作（題目、課程、比賽、考試、提交、抄襲、通知、評分、計分板）
 - 處理權限判斷（`canManageContest`、`canManageExam`、`assertProblemEditAccess` 等）
 - 對 DB / Redis / Storage / mailer 做組合與交易控制；Temporal 操作經由 `DomainOrchestrationAdapter` port（`src/shared/orchestration.ts`）
+- 圖片 ownership、既有物件盤點、容量預留及 durable 清理；storage 的低階 writer 不執行配額或權限判斷
 - 計分、scoreboard 更新、adjustment rule 套用
 - **不負責**：HTTP 解析、SvelteKit `RequestEvent`、Temporal client/worker 設定
 
@@ -19,12 +20,13 @@ Import 限制見 [Architecture — Dependency Rules](../../docs/architecture/ARC
 - `src/exam/permissions.ts` — `canManageExam`
 - `src/problem/{details,list,picker}.ts` — 題目詳情、公開／管理列表與選題器資料
 - `src/problem/mutations/{records,publishing,judge-config}.ts` — 題目紀錄、發布及評測設定寫入
+- `src/problem/images.ts`、`src/user/{images,avatar}.ts` — 有權限與容量限制的圖片／avatar mutation
 - `src/submission/{details,history,judge-context}.ts` — 提交詳情、列表及評測上下文讀取
 - `src/submission/{creation,judge-lifecycle,verdict-summary}.ts` — 提交建立、評測完成／重判狀態及結果摘要
 - `src/submission/{judge-execution,judge-recovery,rejudge-control}.ts` — durable judge execution、dispatch 順序與復原、重判操作
 - `src/scoring/` — adjustment rule、subtask scoring、scoreboard 計算
 - `src/shared/list-aggregations.ts` — 作業／考試列表以批次查詢取得活動分數與人工覆寫；按活動分組，考試各自保留嚴格截止時間，作業不套用考試截止規則
-- `src/shared/` — 共用 helper（`ip.ts`、actor context、error classes、orchestration port、storage object lifecycle、lifecycle reconciler）
+- `src/shared/` — 共用 helper（`ip.ts`、actor context、error classes、orchestration port、storage object lifecycle、lifecycle reconciler）；`uploaded-image.ts` 將圖片容量預留、完成及退役連接到 durable storage 清理
 
 修改以上流程時，同步更新對應 feature spec 或架構文件；從 repo 根目錄執行 `tests/unit/application/` 的相關測試，並在跨服務或持久化邊界變更時執行對應 integration suite。
 

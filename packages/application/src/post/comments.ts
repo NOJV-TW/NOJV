@@ -2,7 +2,11 @@ import { postCommentRepo, postRepo } from "@nojv/db";
 
 import type { ActorContext } from "../shared/actor-context";
 import { NotFoundError, ValidationError } from "../shared/errors";
-import { assertAuthorOrAdmin, assertCanInteractWithPosts } from "./mutations";
+import {
+  assertAuthorOrAdmin,
+  assertCanInteractWithPosts,
+  assertPostProblemViewAccess,
+} from "./mutations";
 
 export interface AddCommentInput {
   content: string;
@@ -16,7 +20,7 @@ export async function addComment(actor: ActorContext, postId: string, input: Add
   }
 
   await assertCanInteractWithPosts(
-    actor.userId,
+    actor,
     post.problemId,
     post.type,
     "You cannot comment on this post right now.",
@@ -47,6 +51,9 @@ export async function softDeleteComment(actor: ActorContext, commentId: string) 
     throw new NotFoundError("Comment not found.");
   }
 
+  const post = await postRepo.findById(existing.postId);
+  if (!post) throw new NotFoundError("Post not found.");
+  await assertPostProblemViewAccess(actor, post.problemId);
   assertAuthorOrAdmin(
     actor,
     existing.authorId,

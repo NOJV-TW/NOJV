@@ -1,10 +1,12 @@
+import { constants } from "node:fs";
 import {
   chmod,
   copyFile,
   lstat,
   mkdir,
+  open,
+  opendir,
   readdir,
-  readFile,
   stat,
   writeFile,
 } from "node:fs/promises";
@@ -35,6 +37,7 @@ import { buildDockerResourceLabels, dockerLabelArgs } from "./resource";
 import { executionAbortReason } from "../shared/execution-abort";
 import {
   ADVANCED_OUTPUT_MAX_FILES,
+  ADVANCED_RESULT_MAX_BYTES,
   ADVANCED_WORKSPACE_MAX_BYTES,
   advancedRunMeta,
   type AdvancedGradeMeta,
@@ -55,6 +58,7 @@ export interface AdvancedModeConfig {
 
 const logger = createLogger("advanced-mode-executor");
 
+// ponytail: 2s polling can overshoot; use filesystem quotas for a hard disk ceiling.
 const WORKSPACE_POLL_INTERVAL_MS = 2_000;
 const RUN_USER = "10001:10001";
 
@@ -81,29 +85,36 @@ export interface DirStats {
   files: number;
 }
 
-export async function dirStats(dir: string): Promise<DirStats> {
+export async function dirStats(
+  dir: string,
+  caps = { maxFiles: ADVANCED_OUTPUT_MAX_FILES, maxBytes: ADVANCED_WORKSPACE_MAX_BYTES },
+): Promise<DirStats> {
   const acc: DirStats = { bytes: 0, files: 0 };
-  let entries;
-  try {
-    entries = await readdir(dir, { withFileTypes: true });
-  } catch {
-    return acc;
-  }
-  for (const entry of entries) {
-    const full = join(dir, entry.name);
+  const visit = async (current: string): Promise<void> => {
+    let entries;
     try {
-      if (entry.isDirectory()) {
-        const nested = await dirStats(full);
-        acc.bytes += nested.bytes;
-        acc.files += nested.files;
-      } else if (entry.isFile()) {
-        acc.bytes += (await stat(full)).size;
-        acc.files += 1;
-      }
-    } catch {
-      continue;
+      entries = await opendir(current);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+      throw error;
     }
-  }
+    for await (const entry of entries) {
+      acc.files += 1;
+      if (exceedsWorkspaceCaps(acc, caps)) return;
+      const full = join(current, entry.name);
+      let info;
+      try {
+        info = await lstat(full);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+        throw error;
+      }
+      if (info.isDirectory()) await visit(full);
+      else if (info.isFile()) acc.bytes += info.size;
+      if (exceedsWorkspaceCaps(acc, caps)) return;
+    }
+  };
+  await visit(dir);
   return acc;
 }
 
@@ -112,6 +123,30 @@ export function exceedsWorkspaceCaps(
   caps: { maxBytes: number; maxFiles: number },
 ): boolean {
   return stats.bytes > caps.maxBytes || stats.files > caps.maxFiles;
+}
+
+export async function readAdvancedResult(path: string): Promise<unknown> {
+  const file = await open(
+    path,
+    constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+  );
+  try {
+    const info = await file.stat();
+    if (!info.isFile()) throw new Error("Advanced result.json must be a regular file.");
+    if (info.size > ADVANCED_RESULT_MAX_BYTES)
+      throw new Error("Advanced result.json exceeded the size limit.");
+    const buffer = Buffer.alloc(info.size + 1);
+    let bytes = 0;
+    while (bytes < buffer.length) {
+      const { bytesRead } = await file.read(buffer, bytes, buffer.length - bytes);
+      if (bytesRead === 0) break;
+      bytes += bytesRead;
+    }
+    if (bytes > info.size) throw new Error("Advanced result.json grew during collection.");
+    return JSON.parse(buffer.subarray(0, bytes).toString("utf8"));
+  } finally {
+    await file.close();
+  }
 }
 
 export class SafeCopyLimitError extends Error {
@@ -137,8 +172,13 @@ async function copyTreeInto(
   caps: { maxFiles: number; maxBytes: number },
   counters: { files: number; bytes: number },
 ): Promise<void> {
-  const entries = await readdir(srcDir, { withFileTypes: true });
-  for (const entry of entries) {
+  for await (const entry of await opendir(srcDir)) {
+    counters.files += 1;
+    if (counters.files > caps.maxFiles) {
+      throw new SafeCopyLimitError(
+        `Advanced run output exceeded the entry count limit (${String(caps.maxFiles)}).`,
+      );
+    }
     const srcPath = join(srcDir, entry.name);
     const destPath = join(destDir, entry.name);
     const info = await lstat(srcPath);
@@ -155,13 +195,7 @@ async function copyTreeInto(
       continue;
     }
 
-    counters.files += 1;
     counters.bytes += info.size;
-    if (counters.files > caps.maxFiles) {
-      throw new SafeCopyLimitError(
-        `Advanced run output exceeded the file count limit (${String(caps.maxFiles)}).`,
-      );
-    }
     if (counters.bytes > caps.maxBytes) {
       throw new SafeCopyLimitError(
         `Advanced run output exceeded the byte limit (${String(caps.maxBytes)}).`,
@@ -314,7 +348,7 @@ interface SpawnContainerParams {
   containerName: string;
   outerTimeoutMs: number;
   signal: AbortSignal;
-  watchDir?: string;
+  watchDir: string;
 }
 
 function spawnContainer(params: SpawnContainerParams): Promise<ContainerOutcome> {
@@ -323,19 +357,15 @@ function spawnContainer(params: SpawnContainerParams): Promise<ContainerOutcome>
     containerName: params.containerName,
     outerTimeoutMs: params.outerTimeoutMs,
     signal: params.signal,
-    ...(params.watchDir
-      ? {
-          watch: {
-            dir: params.watchDir,
-            intervalMs: WORKSPACE_POLL_INTERVAL_MS,
-            exceeds: async (dir: string) =>
-              exceedsWorkspaceCaps(await dirStats(dir), {
-                maxBytes: ADVANCED_WORKSPACE_MAX_BYTES,
-                maxFiles: ADVANCED_OUTPUT_MAX_FILES,
-              }),
-          },
-        }
-      : {}),
+    watch: {
+      dir: params.watchDir,
+      intervalMs: WORKSPACE_POLL_INTERVAL_MS,
+      exceeds: async (dir: string) =>
+        exceedsWorkspaceCaps(await dirStats(dir), {
+          maxBytes: ADVANCED_WORKSPACE_MAX_BYTES,
+          maxFiles: ADVANCED_OUTPUT_MAX_FILES,
+        }),
+    },
   }).then((r) => ({
     exitCode: r.exitCode,
     stderr: r.spawnError ? `spawn failed: ${r.spawnError}` : r.stderr,
@@ -421,16 +451,18 @@ export class AdvancedModeExecutor {
     if (gradeOutcome.timedOut) {
       return sandboxSystemError("Advanced grade image timed out.");
     }
+    if (gradeOutcome.sizeExceeded) {
+      return sandboxSystemError("Advanced grade image exceeded the workspace file/size limit.");
+    }
 
     let resultJson: unknown;
     try {
-      const raw = await readFile(join(gradeDir, "output", "result.json"), "utf8");
+      resultJson = await readAdvancedResult(join(gradeDir, "output", "result.json"));
       execution.signal.throwIfAborted();
-      resultJson = JSON.parse(raw);
-    } catch {
+    } catch (error) {
       execution.signal.throwIfAborted();
       return sandboxSystemError(
-        `Advanced grade image did not write result.json. exit=${String(gradeOutcome.exitCode)}\n${gradeOutcome.stderr}`.trim(),
+        `Advanced grade result.json collection failed: ${error instanceof Error ? error.message : String(error)}. exit=${String(gradeOutcome.exitCode)}\n${gradeOutcome.stderr}`.trim(),
       );
     }
 
@@ -632,6 +664,7 @@ export class AdvancedModeExecutor {
       containerName,
       outerTimeoutMs: advanced.totalTimeMs + 30_000,
       signal: execution.signal,
+      watchDir: gradeDir,
     });
   }
 }

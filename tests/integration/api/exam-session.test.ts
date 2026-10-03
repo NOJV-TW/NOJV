@@ -184,7 +184,7 @@ describe("examDomain.session — start", () => {
     expect((err as HttpError).status).toBe(410);
   });
 
-  it("allows starting inside the 5-minute grace window before startsAt", async () => {
+  it("rejects starting inside the former five-minute pre-start window", async () => {
     const actor = await buildActor();
     const { course } = await createCourseWithMember(actor.userId);
     const startsAt = new Date(Date.now() + 2 * 60_000);
@@ -195,8 +195,10 @@ describe("examDomain.session — start", () => {
       endsAt: new Date(startsAt.getTime() + 60 * 60_000),
     });
 
-    const result = await session.startSessionWithGate(actor, { examId: exam.id });
-    expect(result.created).toBe(true);
+    await expect(
+      session.startSessionWithGate(actor, { examId: exam.id }),
+    ).rejects.toMatchObject({ status: 410 });
+    expect(await testPrisma.activeExamSession.count({ where: { examId: exam.id } })).toBe(0);
   });
 
   it("throws ConflictError when the user already has an active session on a different exam", async () => {

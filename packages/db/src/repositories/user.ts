@@ -84,6 +84,13 @@ export const userRepo = {
   },
 
   update(id: string, data: Prisma.UserUpdateInput) {
+    if (data.disabled !== undefined) {
+      return prisma.$transaction(async (tx) => {
+        const user = await tx.user.update({ where: { id }, data });
+        if (user.disabled) await tx.session.deleteMany({ where: { userId: id } });
+        return user;
+      });
+    }
     return prisma.user.update({
       where: { id },
       data,
@@ -175,8 +182,12 @@ export const userRepo = {
         return tx.user.create({ data });
       },
 
-      update(id: string, data: Prisma.UserUpdateInput) {
-        return tx.user.update({ data, where: { id } });
+      async update(id: string, data: Prisma.UserUpdateInput) {
+        const user = await tx.user.update({ data, where: { id } });
+        if (data.disabled !== undefined && user.disabled) {
+          await tx.session.deleteMany({ where: { userId: id } });
+        }
+        return user;
       },
     };
   },

@@ -34,8 +34,14 @@ const {
   problemFindMany: vi.fn(),
 }));
 
+vi.mock("../../../packages/application/src/shared/uploaded-image", () => ({
+  ensurePublicProblemImageInventories: vi.fn(),
+  ensureProblemImageInventory: vi.fn(),
+}));
+
 vi.mock("@nojv/db", () => {
   return {
+    prismaAdapterClient: { problem: { findMany: vi.fn().mockResolvedValue([]) } },
     courseRepo: {
       withTx: () => ({
         findById: courseFindById,

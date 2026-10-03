@@ -1,3 +1,4 @@
+import { ensureProblemImageInventory } from "../../shared/uploaded-image";
 import { isDeepStrictEqual } from "node:util";
 import {
   problemRepo,
@@ -146,6 +147,8 @@ export async function publishProblemAsAdmin(actor: ProblemActorContext, problemI
   if (actor.platformRole !== "admin") {
     throw new ForbiddenError("Only admins can publish another author's problem.");
   }
+
+  await ensureProblemImageInventory(problemId);
 
   return runTransaction(async (tx) => {
     const problem = await lockProblemForEdit(tx, actor, problemId);

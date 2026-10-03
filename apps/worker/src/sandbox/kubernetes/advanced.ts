@@ -3,6 +3,7 @@ import type { SandboxRequest } from "@nojv/core";
 
 import {
   ADVANCED_OUTPUT_MAX_FILES,
+  ADVANCED_RESULT_MAX_BYTES,
   ADVANCED_WORKSPACE_MAX_BYTES,
   advancedRunMeta,
   type AdvancedGradeMeta,
@@ -86,27 +87,32 @@ const MAX_FILES = Number(process.env.NOJV_TRANSFER_MAX_FILES);
 const MAX_BYTES = Number(process.env.NOJV_TRANSFER_MAX_BYTES);
 const counters = { files: 0, bytes: 0 };
 function copyTreeInto(srcDir, destDir) {
-  const entries = fs.readdirSync(srcDir, { withFileTypes: true });
-  for (const entry of entries) {
-    const srcPath = path.join(srcDir, entry.name);
-    const destPath = path.join(destDir, entry.name);
-    const info = fs.lstatSync(srcPath);
-    if (info.isSymbolicLink()) continue;
-    if (info.isDirectory()) {
-      fs.mkdirSync(destPath, { recursive: true });
-      copyTreeInto(srcPath, destPath);
-      continue;
+  const dir = fs.opendirSync(srcDir);
+  try {
+    let entry;
+    while ((entry = dir.readSync()) !== null) {
+      counters.files += 1;
+      if (counters.files > MAX_FILES) {
+        throw new Error("NOJV_TRANSFER_FILE_CAP");
+      }
+      const srcPath = path.join(srcDir, entry.name);
+      const destPath = path.join(destDir, entry.name);
+      const info = fs.lstatSync(srcPath);
+      if (info.isSymbolicLink()) continue;
+      if (info.isDirectory()) {
+        fs.mkdirSync(destPath, { recursive: true });
+        copyTreeInto(srcPath, destPath);
+        continue;
+      }
+      if (!info.isFile()) continue;
+      counters.bytes += info.size;
+      if (counters.bytes > MAX_BYTES) {
+        throw new Error("NOJV_TRANSFER_BYTE_CAP");
+      }
+      fs.copyFileSync(srcPath, destPath);
     }
-    if (!info.isFile()) continue;
-    counters.files += 1;
-    counters.bytes += info.size;
-    if (counters.files > MAX_FILES) {
-      throw new Error("NOJV_TRANSFER_FILE_CAP");
-    }
-    if (counters.bytes > MAX_BYTES) {
-      throw new Error("NOJV_TRANSFER_BYTE_CAP");
-    }
-    fs.copyFileSync(srcPath, destPath);
+  } finally {
+    dir.closeSync();
   }
 }
 fs.mkdirSync(DEST, { recursive: true });
@@ -137,7 +143,35 @@ DEADLINE=$(( $(date +%s) + TIMEOUT ))
 while [ ! -f "$RESULT" ] && [ "$(date +%s)" -lt "$DEADLINE" ]; do sleep 0.25; done
 sleep 0.2
 echo '${ADVANCED_RESULT_MARKER_BEGIN}'
-if [ -f "$RESULT" ]; then cat "$RESULT"; else echo '{"missing":true}'; fi
+if [ -f "$RESULT" ]; then
+  node -e '
+const fs = require("fs");
+const path = process.argv[1];
+const limit = ${String(ADVANCED_RESULT_MAX_BYTES)};
+let fd;
+let output;
+try {
+  fd = fs.openSync(path, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+  const info = fs.fstatSync(fd);
+  if (!info.isFile()) throw new Error("invalid");
+  if (info.size > limit) throw new Error("sizeExceeded");
+  const buffer = Buffer.alloc(info.size + 1);
+  let bytes = 0;
+  while (bytes < buffer.length) {
+    const read = fs.readSync(fd, buffer, bytes, buffer.length - bytes, null);
+    if (read === 0) break;
+    bytes += read;
+  }
+  if (bytes > info.size) throw new Error("invalid");
+  output = buffer.subarray(0, bytes);
+} catch (error) {
+  output = JSON.stringify(error.message === "sizeExceeded" ? { sizeExceeded: true } : { invalid: true });
+} finally {
+  if (fd !== undefined) fs.closeSync(fd);
+}
+process.stdout.write(output);
+' "$RESULT"
+else echo '{"missing":true}'; fi
 echo
 echo '${ADVANCED_RESULT_MARKER_END}'
 `;

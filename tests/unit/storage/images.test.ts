@@ -1,23 +1,28 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  cacheRemoteImage,
   downloadProblemImage,
-  downloadRemoteImage,
-  downloadUserAvatar,
-  uploadProblemImage,
-  uploadUserAvatar,
+  listImageObjectInventory,
+  putImmutableObject,
+  storagePointerFor,
 } from "../../../packages/storage/src";
 
 function createFakeS3() {
-  const objects = new Map<string, { body: Buffer; contentType: string }>();
+  const objects = new Map<
+    string,
+    { body: Buffer; contentType: string; contentLength?: number }
+  >();
   const send = vi.fn(async (command: { constructor: { name: string }; input: unknown }) => {
-    const input = command.input as { Key: string; Body?: Buffer; ContentType?: string };
+    const input = command.input as {
+      Key: string;
+      Prefix?: string;
+      Body?: Buffer;
+      ContentType?: string;
+      IfNoneMatch?: string;
+    };
     if (command.constructor.name === "PutObjectCommand") {
       if (input.IfNoneMatch === "*" && objects.has(input.Key)) {
-        const err = new Error("PreconditionFailed");
-        err.name = "PreconditionFailed";
-        throw err;
+        throw Object.assign(new Error("PreconditionFailed"), { name: "PreconditionFailed" });
       }
       objects.set(input.Key, {
         body: input.Body ?? Buffer.alloc(0),
@@ -25,18 +30,22 @@ function createFakeS3() {
       });
       return {};
     }
+    if (command.constructor.name === "ListObjectsV2Command") {
+      return {
+        Contents: [...objects.keys()]
+          .filter((key) => key.startsWith(input.Prefix!))
+          .map((Key) => ({ Key })),
+      };
+    }
     if (command.constructor.name === "GetObjectCommand") {
       const object = objects.get(input.Key);
-      if (!object) {
-        const err = new Error("NoSuchKey");
-        err.name = "NoSuchKey";
-        throw err;
-      }
+      if (!object) throw Object.assign(new Error("NoSuchKey"), { name: "NoSuchKey" });
       return {
         Body: (async function* () {
           yield object.body;
         })(),
         ContentType: object.contentType,
+        ContentLength: object.contentLength,
       };
     }
     throw new Error(`Unexpected command ${command.constructor.name}`);
@@ -45,76 +54,59 @@ function createFakeS3() {
 }
 
 describe("image object storage", () => {
-  it("uploadProblemImage returns an object key instead of an external URL", async () => {
+  it("reads owned images by problem id and a single filename", async () => {
     const fake = createFakeS3();
-
-    const key = await uploadProblemImage(
+    await putImmutableObject(
       fake.client,
-      "prob_1",
+      "problems/prob_1/images/a.webp",
       Buffer.from("image"),
-      "image/png",
+      { contentType: "image/webp" },
     );
-
-    expect(key).toMatch(/^problems\/prob_1\/images\/.+\.png$/);
-    expect(key).not.toMatch(/^https?:\/\//);
-    expect(fake.objects.get(key)?.contentType).toBe("image/png");
+    await expect(downloadProblemImage(fake.client, "prob_1", "a.webp")).resolves.toEqual({
+      body: Buffer.from("image"),
+      contentType: "image/webp",
+    });
+    await expect(downloadProblemImage(fake.client, "prob_1", "../a.webp")).rejects.toThrow();
   });
 
-  it("downloadProblemImage reads by problem id and filename", async () => {
+  it("inventories exact checksums, sizes and content types with bounded network requests", async () => {
     const fake = createFakeS3();
-    const key = await uploadProblemImage(
-      fake.client,
-      "prob_1",
-      Buffer.from("image"),
-      "image/webp",
-    );
-    const filename = key.split("/").at(-1);
-
-    const image = await downloadProblemImage(fake.client, "prob_1", filename!);
-
-    expect(image.body.toString("utf8")).toBe("image");
-    expect(image.contentType).toBe("image/webp");
+    const key = "problems/prob_1/images/a.png";
+    const body = Buffer.from("image");
+    await putImmutableObject(fake.client, key, body, { contentType: "image/png" });
+    await expect(
+      listImageObjectInventory(fake.client, "problems/prob_1/images/"),
+    ).resolves.toEqual([{ pointer: storagePointerFor(key, body), contentType: "image/png" }]);
+    for (const call of fake.send.mock.calls.slice(1))
+      expect(call[1]).toMatchObject({ abortSignal: expect.any(AbortSignal) });
   });
 
-  it("uploadUserAvatar returns an immutable version key", async () => {
+  it.each([true, false])(
+    "rejects oversized legacy image metadata or streams (ContentLength=%s)",
+    async (header) => {
+      const fake = createFakeS3();
+      const key = "problems/prob_1/images/oversized.png";
+      fake.objects.set(key, {
+        body: Buffer.alloc(5 * 1024 * 1024 + 1),
+        contentType: "image/png",
+        ...(header ? { contentLength: 5 * 1024 * 1024 + 1 } : {}),
+      });
+      await expect(
+        listImageObjectInventory(fake.client, "problems/prob_1/images/"),
+      ).rejects.toThrow("5 MiB");
+    },
+  );
+
+  it("passes one abort signal through an immutable collision and its verification", async () => {
     const fake = createFakeS3();
-
-    const key = await uploadUserAvatar(fake.client, "usr_1", Buffer.from("avatar"));
-
-    expect(key).toMatch(/^avatars\/usr_1\/[0-9a-f-]+\.webp$/);
-    expect(key).not.toMatch(/^https?:\/\//);
-    const filename = key.split("/").at(-1)!;
-    expect(await downloadUserAvatar(fake.client, "usr_1", filename)).toEqual(
-      Buffer.from("avatar"),
-    );
-  });
-
-  it("caches a remote image under a deterministic URL hash", async () => {
-    const fake = createFakeS3();
-    const url = "https://images.example/cat.png?size=2";
-
-    const stored = await cacheRemoteImage(fake.client, url, Buffer.from("first"), "image/png");
-    const key = [...fake.objects.keys()].find((candidate) =>
-      candidate.startsWith("remote-images/"),
-    );
-
-    expect(key).toMatch(/^remote-images\/[a-f0-9]{64}$/);
-    expect(stored).toEqual({ body: Buffer.from("first"), contentType: "image/png" });
-    await expect(downloadRemoteImage(fake.client, url)).resolves.toEqual(stored);
-  });
-
-  it("keeps the first cached response when the same URL is written concurrently", async () => {
-    const fake = createFakeS3();
-    const url = "https://images.example/changing.png";
-
-    await cacheRemoteImage(fake.client, url, Buffer.from("first"), "image/png");
-    const stored = await cacheRemoteImage(
-      fake.client,
-      url,
-      Buffer.from("second"),
-      "image/jpeg",
-    );
-
-    expect(stored).toEqual({ body: Buffer.from("first"), contentType: "image/png" });
+    const key = "problems/prob_1/images/a.png";
+    const body = Buffer.from("image");
+    const abortSignal = AbortSignal.timeout(60_000);
+    await putImmutableObject(fake.client, key, body);
+    await putImmutableObject(fake.client, key, body, { abortSignal });
+    expect(fake.send.mock.calls.slice(1).map((call) => call[1])).toEqual([
+      { abortSignal },
+      { abortSignal },
+    ]);
   });
 });

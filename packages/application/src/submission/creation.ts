@@ -100,11 +100,14 @@ async function assertActiveExamSubmissionAllowed(
     entityId: activeExamSession.examId,
     userId: user.id,
     ip: clientIp,
+    now: receivedAt,
   });
-  if (!gate.ok && (gate.reason === "ip_binding" || gate.reason === "ip_whitelist")) {
+  if (!gate.ok) {
     return {
       rejection: new ForbiddenError(
-        "Submission blocked: your network does not match the exam's IP restrictions.",
+        gate.reason === "ip_binding" || gate.reason === "ip_whitelist"
+          ? "Submission blocked: your network does not match the exam's IP restrictions."
+          : `Submission blocked: exam ${gate.reason}.`,
       ),
     };
   }

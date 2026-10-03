@@ -53,7 +53,7 @@ export async function reportContent(
   }
 
   await assertCanInteractWithPosts(
-    actor.userId,
+    actor,
     post.problemId,
     post.type,
     "You cannot report content you cannot view.",

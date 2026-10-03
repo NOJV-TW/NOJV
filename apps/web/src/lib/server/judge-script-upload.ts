@@ -37,8 +37,6 @@ export async function uploadJudgeScript(
     error(400, `Invalid ${kind} language (expected 'python' or 'cpp')`);
   }
 
-  await problemDomain.assertProblemStorageBudget(problemId, file.size);
-
   const result = await save(actor, problemId, {
     content: await file.text(),
     language: language.data,

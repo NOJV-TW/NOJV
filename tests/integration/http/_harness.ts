@@ -18,6 +18,7 @@ export interface CallRouteOptions {
   user?: { id: string } | null;
   ip?: string;
   body?: unknown;
+  formData?: FormData;
   headers?: Record<string, string>;
   cookies?: Record<string, string>;
 }
@@ -56,7 +57,9 @@ export async function callRoute(opts: CallRouteOptions): Promise<Response> {
   }
 
   const init: RequestInit = { method, headers };
-  if (opts.body !== undefined) {
+  if (opts.formData !== undefined) {
+    init.body = opts.formData;
+  } else if (opts.body !== undefined) {
     headers.set("content-type", "application/json");
     init.body = JSON.stringify(opts.body);
   }

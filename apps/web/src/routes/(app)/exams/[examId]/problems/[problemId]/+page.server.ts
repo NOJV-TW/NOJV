@@ -34,7 +34,8 @@ export const load: PageServerLoad = handleLoad(async (event: PageServerLoadEvent
 
   const exam = await examDomain.getExamById(examId);
   if (!exam) error(404, "Exam not found");
-  if (new Date() > exam.endsAt) {
+  if (new Date() < exam.startsAt) error(403, "Exam has not started yet.");
+  if (new Date() >= exam.endsAt) {
     redirect(302, `/problems/${problemId}?ended=exam`);
   }
 

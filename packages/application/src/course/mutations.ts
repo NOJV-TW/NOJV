@@ -1,3 +1,4 @@
+import { ensurePublicProblemImageInventories } from "../shared/uploaded-image";
 import { assertEffectiveTimeWindow } from "../shared/effective-time-window";
 import { assertLateSubmissionPolicy } from "../shared/late-submission-policy";
 import { saveActivityGrading } from "../scoring/activity-grading";
@@ -10,6 +11,7 @@ import {
   examRepo,
   Prisma,
   runTransaction,
+  prismaAdapterClient,
 } from "@nojv/db";
 import type { CourseAssignmentFormData, CourseCreate, CourseUpdate } from "@nojv/core";
 
@@ -75,6 +77,8 @@ export async function createCourseAssignmentRecord(
   courseId: string,
   payload: CourseAssignmentFormData,
 ) {
+  await runTransaction((tx) => lockCourseForStaffMutation(tx, actor, courseId));
+  await ensurePublicProblemImageInventories(payload.problems.map(({ problemId }) => problemId));
   const assignment = await runTransaction(async (tx) => {
     const course = await lockCourseForStaffMutation(tx, actor, courseId);
     const creator = await requireUser(tx, actor.userId);
@@ -200,6 +204,22 @@ export async function copyCourse(
     throw new ValidationError("New course title must be 120 characters or fewer.");
   }
   assertCanCreateCourse(actor);
+
+  await runTransaction(async (tx) => {
+    await courseRepo.withTx(tx).lockForUpdate(sourceCourseId);
+    const source = await requireCourse(tx, sourceCourseId);
+    await assertCourseManager(actor, source.id, tx);
+  });
+  const sourceProblems = await prismaAdapterClient.problem.findMany({
+    where: {
+      OR: [
+        { assessmentLinks: { some: { assessment: { courseId: sourceCourseId } } } },
+        { examLinks: { some: { exam: { courseId: sourceCourseId } } } },
+      ],
+    },
+    select: { id: true },
+  });
+  await ensurePublicProblemImageInventories(sourceProblems.map(({ id }) => id));
 
   return runTransaction(async (tx) => {
     await courseRepo.withTx(tx).lockForUpdate(sourceCourseId);

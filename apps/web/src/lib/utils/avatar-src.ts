@@ -1,4 +1,5 @@
-export function avatarSrc(image: string): string {
+export function avatarSrc(image: string, allowRemote = true): string | undefined {
   const sameOrigin = image.startsWith("/") && !image.startsWith("//");
-  return sameOrigin ? image : `/api/images/proxy?url=${encodeURIComponent(image)}`;
+  if (sameOrigin) return image;
+  return allowRemote ? `/api/images/proxy?url=${encodeURIComponent(image)}` : undefined;
 }

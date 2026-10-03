@@ -148,6 +148,7 @@ export const writeApiRateLimiter = createRateLimiter("rl:write", 10, 60);
 export const draftApiRateLimiter = createRateLimiter("rl:draft", 60, 60);
 const formActionRateLimiter = createRateLimiter("rl:form", 20, 60);
 export const authRateLimiter = createRateLimiter("rl:auth", 60, 60);
+export const apiTokenAuthRateLimiter = createRateLimiter("rl:api-token-auth", 300, 60);
 
 export const signInRateLimiter = createRateLimiter("rl:signin", 5, 900);
 export const examSignInRateLimiter = createRateLimiter("rl:exam-signin", 5, 900);
@@ -160,7 +161,7 @@ export function examSignInRateLimitKey(ip: string, username: unknown): string {
 export const otpSendRateLimiter = createRateLimiter("rl:2fa-otp", 3, 600);
 export const stepUpAttemptRateLimiter = createRateLimiter("rl:stepup", 5, 600);
 export const registryTokenRateLimiter = createRateLimiter("rl:registry-token", 60, 60);
-export const remoteAssetFetchRateLimiter = createRateLimiter("rl:remote-fetch", 10, 60);
+export const remoteAssetFetchRateLimiter = createRateLimiter("rl:remote-fetch", 120, 60);
 
 export async function consumeFormRateLimitInternal(
   event: RequestEvent,

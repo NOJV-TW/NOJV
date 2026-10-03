@@ -38,7 +38,11 @@ export async function getText(client: S3Client, key: string): Promise<string> {
   return (await getObject(client, key)).toString("utf-8");
 }
 
-export async function listByPrefix(client: S3Client, prefix: string): Promise<string[]> {
+export async function listByPrefix(
+  client: S3Client,
+  prefix: string,
+  options: { abortSignal?: AbortSignal } = {},
+): Promise<string[]> {
   const keys: string[] = [];
   let continuationToken: string | undefined;
 
@@ -49,6 +53,7 @@ export async function listByPrefix(client: S3Client, prefix: string): Promise<st
         Prefix: prefix,
         ContinuationToken: continuationToken,
       }),
+      options.abortSignal ? { abortSignal: options.abortSignal } : undefined,
     );
 
     for (const object of response.Contents ?? []) {

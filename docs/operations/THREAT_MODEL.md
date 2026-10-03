@@ -96,6 +96,7 @@ Each item names the mitigating control; _Residual_ is what remains.
 - **Credential stuffing on password sign-in** — `signInRateLimiter` / `examSignInRateLimiter`, bcrypt ([Rate limits](SECURITY.md#rate-limits)). _Residual:_ Per-IP only; distributed attempts against one account are not locked out.
 - **Session cookie theft via XSS or network** — httpOnly + Secure cookies, CSP, DOMPurify ([Authentication](SECURITY.md#authentication-and-sessions), [Content](SECURITY.md#content-and-uploads)). _Residual:_ A stolen cookie is valid until revoked or expired.
 - **OAuth callback replay, session fixation** — better-auth state validation and new token on sign-in.
+- **Disabled account uses direct Auth API settings** — Disable atomically deletes sessions; the Auth route checks the current disabled state before Better Auth dispatch.
 - **Recycled school mailbox takes over the previous owner's account** — `disableImplicitLinking`; `User.email` never selects an account ([Authentication](SECURITY.md#authentication-and-sessions)).
 - **Stolen session redirects security mail** — Gated `/change-email` with current-mailbox confirmation and factor unlock. _Residual:_ Accounts with no factor rely on the current-mailbox confirmation only.
 - **Stolen session mints long-lived API tokens** — Fresh step-up on every token action (SEC-08).
@@ -109,12 +110,13 @@ Each item names the mitigating control; _Residual_ is what remains.
 
 - **IDOR on submissions or source (`/api/submissions/[id]`, `/source`)** — `getSubmissionForActor` returns 404 for non-owners ([Authorization](SECURITY.md#authorization)).
 - **Graded testcase leak through results (e.g. echo-stdin submission)** — `sanitizeStudentResult` on every student result path (SEC-12).
-- **Hidden workspace file leak** — Filtered in the application layer; merged only by the worker.
+- **Hidden workspace file leak** — Filtered from student editor/API reads; the worker merges them into compilation and execution. _Residual:_ Student programs can read these files, so editor hiding provides no runtime confidentiality.
 - **Co-editor overreach (publish, export, other courses' submissions)** — Resource-based problem permissions with in-transaction recheck ([Authorization](SECURITY.md#authorization)).
 - **Revoked staff finishing an upload started while authorized** — `lockProblemForEdit` recheck before commit.
+- **Revoked staff dispatches rejudge after snapshot preparation** — Commit holds scope-authority and requester locks and rechecks current authority before execution/outbox writes.
 - **Student self-enrolls or escalates course role** — Teacher-driven enrollment; TA and teacher limits in the roster transaction.
 - **Canceling one's own judge to avoid the attempt limit** — Rejudge control accepts only recorded `rejudge-` workflows (SEC-13).
-- **Reading editorials or discussions during a live event** — Server-resolved post context gate; exam page lock blocks post APIs.
+- **Reading private problem posts or live-event solutions** — Every post read/mutation first checks parent problem visibility using the effective actor, then the server-resolved context/AC gates; exam page lock blocks post APIs.
 - **Plagiarism source access by non-staff** — `assertCanManagePlagiarism`.
 - **Exam page-lock bypass via other routes** — Global hook allow-list ([Exam and Contest Integrity](SECURITY.md#exam-and-contest-integrity)). _Residual:_ Second device or other browser tabs outside NOJV are not detected.
 
@@ -123,8 +125,8 @@ Each item names the mitigating control; _Residual_ is what remains.
 Controls: [Sandbox Isolation](SECURITY.md#sandbox-isolation).
 
 - **Container escape via kernel or runtime exploit** — Dropped capabilities, no-new-privileges, non-root, read-only rootfs, seccomp; gVisor on K8s. _Residual:_ Docker backend has no gVisor; it is for local/dev use.
-- **Fork bomb, memory or disk exhaustion** — PID, CPU and memory limits (no swap); bounded tmpfs; ResourceQuota.
-- **Output flood OOMs the worker** — 16 MB per-stream capture buffers.
+- **Fork bomb, memory or disk exhaustion** — PID, CPU and memory limits (no swap); bounded tmpfs; ResourceQuota. Advanced Docker run and grade workspaces have 1 GiB/100k-file watchdogs. _Residual:_ Two-second polling can overshoot the workspace cap.
+- **Output flood OOMs the worker** — 16 MB per-stream capture buffers; Advanced result files and emitted JSON are capped at 32 MiB before parsing, with bounded Kubernetes log requests.
 - **Network exfiltration of inputs** — No network in Standard Mode; namespace deny-all NetworkPolicy. _Residual:_ Depends on CNI enforcement (probed at startup).
 - **Advanced grade image leaks answers over the network** — Grade has no egress on both backends.
 - **`/output` symlink pointing at answers** — `safeCopyTree` drops symlinks and special files.
@@ -141,9 +143,10 @@ Controls: [Content and Uploads](SECURITY.md#content-and-uploads).
 - **Polyglot or spoofed-type upload; SVG script** — Magic-byte check, png/jpeg/gif/webp only, `nosniff`.
 - **Path traversal in storage keys or bundles** — Server-built keys; bundle path validation.
 - **Stored XSS or CSS injection via Markdown / KaTeX** — DOMPurify, nonce-scoped KaTeX trust, CSP.
-- **Reader tracking via remote Markdown images** — Same-origin image proxy with cache.
+- **Reader tracking via remote Markdown images** — Authenticated same-origin relay with short private caching; browsers never contact upstream hosts.
 - **SSRF via the image proxy (private IPs, rebinding, redirects)** — Public-only DNS pinning, redirect revalidation, HTTPS/443 only.
-- **Storage or bandwidth exhaustion** — Size caps, per-problem budget for author files, remote-fetch limiter, URL-keyed cache. _Residual:_ No aggregate quota for images or cached remote images.
+- **Storage or bandwidth exhaustion** — Shared 50 MiB problem budget including images, 50 MiB user content-image budget, atomic capacity reservations including pending writes, bounded avatar replacement, and remote-fetch limiting. Reader GET requests create no permanent storage; author URL imports consume the owner's quota. _Residual:_ Existing over-quota content is retained; remote references remain dependent on upstream availability unless imported.
+- **Hidden workspace file read by student code** — Hidden controls editor/API presentation for helpers, drivers and opaque assumed APIs. Official compilation/execution receives the file; authors must not put secrets or answers there (PRB-01).
 
 ### Exam and contest integrity
 
@@ -177,14 +180,13 @@ Controls: [Infrastructure](SECURITY.md#infrastructure).
 
 ## Open Gaps
 
-| Gap                                         | Current state                                                                                                                               | Recommendation                                                 | Priority |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | -------- |
-| No aggregate image storage quota            | Images are capped per file (5 MB) and rate-limited, but not counted against any per-user or per-problem budget; remote-image cache likewise | Count image bytes in a budget if growth warrants               | Medium   |
-| SSE concurrency caps are per replica        | `acquireSseSlot` caps 5 streams per user per stream type and 2000 per replica, in memory; SSE routes are not rate-limited                   | Move counters to Redis if a global cap is needed               | Low      |
-| No per-account sign-in lockout              | Password sign-in is limited per IP (and per username for exam passwords)                                                                    | Add a per-account limiter if distributed brute force appears   | Low      |
-| Redis unauthenticated                       | Compose and the in-cluster chart Redis have no password; GKE uses external Redis                                                            | Add Redis auth for single-machine deployments                  | Low      |
-| Browser tab / device switching not detected | Page lock covers NOJV server routes only                                                                                                    | Only if remote proctoring becomes a requirement                | Low      |
-| No plagiarism concurrency cap               | Dolos runs in-process per activity, bounded by one target's submissions and the activity timeout                                            | Add an activity concurrency limit if parser contention appears | Low      |
+| Gap                                         | Current state                                                                                                             | Recommendation                                                 | Priority |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | -------- |
+| SSE concurrency caps are per replica        | `acquireSseSlot` caps 5 streams per user per stream type and 2000 per replica, in memory; SSE routes are not rate-limited | Move counters to Redis if a global cap is needed               | Low      |
+| No per-account sign-in lockout              | Password sign-in is limited per IP (and per username for exam passwords)                                                  | Add a per-account limiter if distributed brute force appears   | Low      |
+| Redis unauthenticated                       | Compose and the in-cluster chart Redis have no password; GKE uses external Redis                                          | Add Redis auth for single-machine deployments                  | Low      |
+| Browser tab / device switching not detected | Page lock covers NOJV server routes only                                                                                  | Only if remote proctoring becomes a requirement                | Low      |
+| No plagiarism concurrency cap               | Dolos runs in-process per activity, bounded by one target's submissions and the activity timeout                          | Add an activity concurrency limit if parser contention appears | Low      |
 
 ## Related Docs
 

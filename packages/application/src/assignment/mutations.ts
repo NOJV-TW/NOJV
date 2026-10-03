@@ -1,3 +1,4 @@
+import { ensurePublicProblemImageInventories } from "../shared/uploaded-image";
 import { assertLateSubmissionPolicy } from "../shared/late-submission-policy";
 import { saveActivityGrading } from "../scoring/activity-grading";
 import { assertActivityAllocation } from "../scoring/activity-points";
@@ -96,6 +97,12 @@ export async function updateAssignmentRecord(
   assignmentId: string,
   payload: AssessmentUpdate,
 ): Promise<{ id: string }> {
+  if (payload.problems)
+    await runTransaction((tx) => requireManagedAssignment(tx, actor, assignmentId));
+  if (payload.problems)
+    await ensurePublicProblemImageInventories(
+      payload.problems.map(({ problemId }) => problemId),
+    );
   const result = await runTransaction(async (tx) => {
     const assignment = await requireManagedAssignment(tx, actor, assignmentId);
 

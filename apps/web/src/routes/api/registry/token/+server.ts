@@ -3,7 +3,7 @@ import type { RequestHandler } from "./$types";
 
 import { registryDomain } from "@nojv/application";
 import { getWebEnv } from "$lib/server/env";
-import { registryTokenApiHandler } from "$lib/server/shared/api-handler";
+import { readFormData, registryTokenApiHandler } from "$lib/server/shared/api-handler";
 import { getClientIp } from "$lib/server/shared/client-ip";
 import { signInRateLimiter } from "$lib/server/shared/rate-limiter";
 import { isRegistryTokenConfigured, signRegistryToken } from "$lib/server/registry-token";
@@ -112,9 +112,7 @@ export const GET: RequestHandler = registryTokenApiHandler(async (event) => {
 });
 
 export const POST: RequestHandler = registryTokenApiHandler(async (event) => {
-  const form = await event.request.formData().catch(() => {
-    error(400, "Invalid request body");
-  });
+  const form = await readFormData(event, 64 * 1024);
   const bodyUsername = form.get("username");
   const bodyPassword = form.get("password");
   const credentials: Credentials | null =
